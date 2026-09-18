@@ -1,0 +1,79 @@
+[
+  {
+    "file": "01-octopus-coordinator.png",
+    "title": "Oktopus-Koordinator, flach",
+    "concept": "Ein Oktopus greift mit acht Armen gleichzeitig nach je einem kleinen Knoten - genau das Bild eines Koordinators, der viele Agenten parallel führt. Streng geometrisch und symmetrisch, damit die Silhouette auch als Tab-Icon trägt.",
+    "prompt": "Flat vector mascot logo of a friendly smiling octopus coordinator, front view, centered, eight arms fanning out symmetrically, each arm holding a tiny glowing node or small floating card, geometric clean shapes, bold clear silhouette, thick confident outlines, minimal detail so it stays readable at 24 pixels, azure blue #2a94fa body, dark ink #223347 outlines and eyes, muted slate blue #7692ad shading, pure white background, no text, no letters, modern tech branding style, sticker-ready",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "02-raven-r.png",
+    "title": "Rabe als R",
+    "concept": "Der Rabe steht für den klugen Boten, und sein Körper bildet zugleich das R aus RAgents - Marke und Maskottchen fallen in einer Form zusammen. Zwei Farbflächen, harte Kanten, extrem gut skalierbar.",
+    "prompt": "Minimal geometric vector mascot of a clever raven in profile, head turned, one visible round eye, wings folded, the curve of the neck and beak subtly forming the letter R as negative space, single capital letter R is the only text allowed, extremely clean silhouette, two-tone dark ink #223347 and azure blue #2a94fa, muted slate #7692ad accent, flat design, pure white background, scalable icon look, readable at tiny size",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "03-ant-queen.png",
+    "title": "Ameisenkönigin mit Arbeiterinnen",
+    "concept": "Die Königin steht ruhig in der Mitte, während drei Arbeiterinnen kleine blaue Bausteine um sie herumtragen - Arbeitsteilung als Bild. Als Die-Cut-Sticker mit weißer Kontur, verspielt, aber sauber.",
+    "prompt": "Cute die-cut sticker illustration with thick white contour border, a regal ant queen with a small crown, standing calmly, three tiny worker ants carrying small blue blocks marching around her feet, playful but professional cartoon style, bold outlines in dark ink #223347, azure blue #2a94fa highlights, muted slate blue #7692ad, flat shading, plain white background, no text, clear compact silhouette",
+    "model": "recraft_v4_1 (standard)"
+  },
+  {
+    "file": "04-queen-bee.png",
+    "title": "Bienenkönigin als Dirigentin",
+    "concept": "Eine Bienenkönigin mit Krone und Taktstock, umkreist von drei vereinfachten Arbeiterinnen - Schwarmintelligenz mit klarer Führung. Weiches 3D in Knetoptik, freundliche Spielzeugproportionen, Streifen in Blau statt Gelb.",
+    "prompt": "Soft 3D render mascot of a rounded chubby queen bee with a tiny crown and small conductor baton, glossy matte clay material, gentle studio lighting, soft shadows, three simplified small bees orbiting her in a circle, azure blue #2a94fa and dark ink #223347 stripes instead of yellow, muted slate blue #7692ad wings, plain white seamless background, centered, no text, friendly toy-like proportions",
+    "model": "recraft_v4_1 (standard)"
+  },
+  {
+    "file": "05-herding-dog.png",
+    "title": "Hütehund mit Herde",
+    "concept": "Der Hund sitzt aufmerksam im Zentrum, fünf abstrakte Schafe bilden einen Ring um ihn - Orchestrierung als Hüten statt als Befehlen. Radiale Komposition, die als Rundlogo funktioniert.",
+    "prompt": "Flat vector logo mark of an alert herding dog sitting in the center, ears up, and five tiny abstract round sheep arranged in a neat orbit ring around it, top down friendly composition, very simple geometric forms, strong silhouette, dark ink #223347 outlines, azure blue #2a94fa fill, muted slate blue #7692ad sheep, pure white background, no text, minimal modern tech mascot",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "06-crane-conductor.png",
+    "title": "Kranich als Dirigent",
+    "concept": "Ein Kranich hebt einen Flügel wie einen Dirigentenarm - die eleganteste Lesart von Orchestrierung im Set. Feine Strichzeichnung mit viel Weißraum, editorial und erwachsen im Ton.",
+    "prompt": "Elegant minimal line art illustration of a crane bird standing tall as an orchestra conductor, long neck curved gracefully, one wing raised like a conducting gesture, thin uniform stroke weight, single continuous contour feel, dark ink #223347 lines with one azure blue #2a94fa accent shape, pure white background, lots of negative space, no text, refined editorial logo style",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "07-chameleon.png",
+    "title": "Chamäleon, dreifarbig",
+    "concept": "Der Körper ist in drei Farbfelder der Palette geteilt - das Tier, das die Haut wechselt, steht für den Wechsel zwischen Modellen und Rollen. Sticker mit dicker weißer Kontur und eingerolltem Schwanz als Wiedererkennungsmerkmal.",
+    "prompt": "Playful sticker mascot of a chameleon curled on a simple branch, curled spiral tail, big friendly eye, its body split into three flat color segments of azure blue #2a94fa, muted slate blue #7692ad and dark ink #223347 to suggest switching skins, thick white die-cut outline, bold cartoon shapes, flat shading, plain white background, no text, compact readable silhouette",
+    "model": "recraft_v4_1 (standard)"
+  },
+  {
+    "file": "08-fox-r.png",
+    "title": "Fuchs mit R-Schwanz",
+    "concept": "Ein streng polygonaler Fuchskopf, dessen aufgestellter Schwanz die Form eines R andeutet - schlau, wendig, und wieder mit dem R für Ronald verwoben. Auf Favicon-Tauglichkeit hin gebaut.",
+    "prompt": "Geometric flat vector fox mascot head facing forward, sharp triangular ears, tail curling up behind forming a subtle letter R shape, constructed from simple angular polygons, bold clean silhouette, azure blue #2a94fa and dark ink #223347, muted slate blue #7692ad inner ears, pure white background, no text except a single small R, modern startup logo, works as a 24 pixel favicon",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "09-octopus-clay.png",
+    "title": "Oktopus in Knetoptik",
+    "concept": "Dieselbe Idee wie Entwurf 01, aber als weiches 3D: ein rundlicher Oktopus, dessen acht Arme kleine leuchtende Knoten eines Netzgraphen berühren. Wärmer und nahbarer, gut für große Flächen wie Startseite oder App-Icon.",
+    "prompt": "Soft 3D clay render of a small round octopus character, big friendly eyes, eight short stubby arms each touching a tiny floating glowing dot connected by thin lines like a network graph, smooth matte azure blue #2a94fa body, dark ink #223347 eyes, muted slate blue #7692ad nodes, soft ambient occlusion, plain white seamless studio background, centered, no text, toy mascot proportions",
+    "model": "recraft_v4_1 (standard)"
+  },
+  {
+    "file": "10-raven-messenger.png",
+    "title": "Rabe als Bote",
+    "concept": "Der Rabe trägt einen kleinen Umschlag im Schnabel, drei Punkte hinter ihm deuten die Kanäle an, über die Nachrichten laufen. Reduziert auf wenige geometrische Flächen, sehr ruhig im Auftritt.",
+    "prompt": "Minimal flat vector emblem of a wise raven perched on a horizontal line, holding a tiny envelope in its beak as a messenger, three small dots trailing behind it to suggest channels, ultra simple geometric shapes, high contrast, dark ink #223347 body, azure blue #2a94fa envelope, muted slate blue #7692ad dots, pure white background, no text, crisp icon that stays legible when scaled down",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "11-octopus-network-ink.png",
+    "title": "Oktopus im Netz, Tuschestrich",
+    "concept": "Der Oktopus sitzt als Knoten im Zentrum eines kleinen Netzes und greift zu sechs Knotenpunkten - Agenten als Knoten mit Kanälen, wörtlich gezeichnet. Handgezogener Tuschestrich mit einem einzigen blauen Akzentknoten.",
+    "prompt": "Bold hand drawn ink line drawing of a spider-like octopus conductor at the center of a small network web, its arms reaching to six simple circular nodes connected by clean straight lines, sketchy but confident single weight strokes, dark ink #223347 lines, one azure blue #2a94fa filled node as accent, pure white background, no text, editorial illustration, strong readable composition",
+    "model": "recraft_v4_1 (standard)"
+  }
+]

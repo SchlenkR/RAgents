@@ -1,0 +1,62 @@
+[
+  {
+    "file": "01-bone-metal-weave.png",
+    "title": "Knochen und Schläuche",
+    "concept": "Der Schädel wächst als langgezogener Alienkopf ins R, Rippenschläuche verweben sich zwischen den Buchstaben. Airbrush-Grau, nasser Glanz, sehr nah an der Vorlage.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "02-wet-steel-relief.png",
+    "title": "Nasser Stahl",
+    "concept": "Dunkler, polierter, mit Nebel im Hintergrund. Die Buchstaben sind schlanker und schlangenhafter, der Schädel dominiert die linke Hälfte.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "03-chitin-sculpture.png",
+    "title": "Chitin-Skulptur",
+    "concept": "Wirkt wie ein fotografiertes Objekt aus Knochen und Metall, Versalien, sehr plastisch. Am massivsten, dafür am wenigsten Graffiti.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "04-blue-socket-glow.png",
+    "title": "Blau in den Fugen",
+    "concept": "Silbergraues Geflecht mit blauem Licht in Augenhöhlen und Zwischenräumen. Trägt das Markenblau und ist trotz Dichte gut lesbar.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "05-spinal-fresco.png",
+    "title": "Geflecht ohne Boden",
+    "concept": "Buchstaben lösen sich fast vollständig in ein Geflecht aus Wirbeln und Schläuchen auf. Die abstrakteste Fassung, das Wort erschließt sich erst spät.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "06-green-grey-relief.png",
+    "title": "Relief in Grüngrau",
+    "concept": "Wie aus einer Wand herausgearbeitet, Seitenlicht, lange Schatten. Düster und filmisch, das Wort verliert am Ende an Kontur.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "07-piston-bone.png",
+    "title": "Knochenplatten mit Kolben",
+    "concept": "Glatte, fette Knochenkörper, dazwischen Schläuche und Kolben. Die klarste Silhouette der Serie und gut lesbar.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "08-near-black-spine.png",
+    "title": "Fast schwarz",
+    "concept": "Nur Streiflicht auf dunklem Chitin, Buchstaben aus Wirbelsäulen gebaut. Sehr leise und unheimlich, braucht Größe und dunklen Grund.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "09-rust-wash.png",
+    "title": "Knochen mit Rostlasur",
+    "concept": "Wärmerer Ton, Knochen und Rost, dichtes Geflecht mit tiefen Schatten. Wirkt wie ein altes Fundstück, sehr eigenständig.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "10-blue-eye-calm.png",
+    "title": "Ruhiger Blick, blaues Licht",
+    "concept": "Ruhige, symmetrische Fassung, Sehnen spannen sich zwischen den Buchstaben, blaues Licht aus den Höhlen. Souverän und bedrohlich zugleich - mein Favorit der Serie.",
+    "model": "gpt_image_2"
+  }
+]

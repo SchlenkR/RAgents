@@ -1,0 +1,9 @@
+{
+  "name": "conversation-circle",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Gesprächsrunde einrichten",
+    "backend": "src/server.ts"
+  }
+}

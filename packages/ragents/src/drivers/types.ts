@@ -1,0 +1,77 @@
+import type { AgentDriverKind, ModelSelection } from "../domain/driver.ts";
+import type { JsonValue } from "../domain/json.ts";
+import type { TurnUsage } from "../domain/model.ts";
+import type { DeliveredInput } from "../agents/delivery.ts";
+import type { RunFunction } from "../agents/tools.ts";
+import type { ToolInvocation } from "../agents/toolset.ts";
+
+export type AutomatedDriverKind = Exclude<AgentDriverKind, "manual">;
+
+type TurnDriverFacts = {
+    script: {
+        driverKind: "script";
+        invoke: (toolCallId: string, name: string, input: JsonValue) => Promise<JsonValue>;
+    };
+    agent: {
+        driverKind: "agent";
+        selection: ModelSelection;
+        forkOf: string | null;
+        invoke: (toolCallId: string, name: string, input: JsonValue) => Promise<ToolInvocation>;
+    };
+};
+
+export type DriverEvent =
+    | { kind: "assistant"; text: string }
+    | { kind: "reasoning"; text: string }
+    | { kind: "runtime"; text: string };
+
+export type DriverToolEvent =
+    | { kind: "started"; id: string; name: string; input: JsonValue }
+    | { kind: "completed"; id: string; name: string; output: JsonValue }
+    | { kind: "failed"; id: string; name: string; error: string };
+
+export type LiveEvent =
+    | { kind: "text"; delta: string }
+    | { kind: "thinking"; delta: string }
+    | { kind: "tool"; id: string; name: string; arguments: string }
+    | { kind: "tool-result"; id: string; result: string; isError: boolean };
+
+export type TurnRequest<Kind extends AutomatedDriverKind = AutomatedDriverKind> = TurnDriverFacts[Kind] & {
+    runId: string;
+    agentId: string;
+    turnId: string;
+    startedAt: string;
+    input: DeliveredInput;
+    attachments?: readonly { name: string; mediaType: string; content: Uint8Array }[];
+    prompt: string;
+    systemPrompt: string;
+    workspace: string;
+    tools: readonly RunFunction[];
+    workspaceTools: readonly string[];
+    allowedToolNames: readonly string[] | null;
+    refreshTools?: () => Promise<{ tools: readonly RunFunction[]; systemPrompt: string }>;
+    emit: (event: DriverEvent) => void;
+    recordTool?: (event: DriverToolEvent) => void;
+    publish: (event: LiveEvent) => void;
+};
+
+export type TurnResult = {
+    failure: string | null;
+    usage: TurnUsage;
+};
+
+export interface AgentDriver<Kind extends AutomatedDriverKind = AutomatedDriverKind> {
+    readonly kind: Kind;
+    readonly supportsPlainLlm?: boolean;
+    runTurn(request: TurnRequest<Kind>, signal: AbortSignal): Promise<TurnResult>;
+    disposeAgent?(runId: string, agentId: string): Promise<void>;
+    reviveAgent?(runId: string, agentId: string): void;
+    haltRun?(runId: string): Promise<void>;
+    waitForRunSettlement?(runId: string): Promise<void> | undefined;
+    disposeRun?(runId: string): Promise<void>;
+    shutdown?(): Promise<void>;
+}
+
+export type DriverRegistry = { [Kind in AutomatedDriverKind]?: AgentDriver<Kind> };
+
+export const isAutomated = (kind: AgentDriverKind): kind is AutomatedDriverKind => kind !== "manual";

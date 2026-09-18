@@ -1,0 +1,64 @@
+import {
+  actorInputSchema,
+  agentTools,
+  enqueueActorInput,
+  eventResultSchema,
+  ScriptDriver,
+  type ActorInputRequest,
+  type RAgentsPlugin,
+} from "@aicontainer/ragents";
+import { runtimeProviderToken } from "@aicontainer/server/ragents/host-services.js";
+import { pluginAssetPath } from "@aicontainer/server/plugin-support/asset-path.js";
+import type { PluginModule } from "@aicontainer/server/plugin-support/plugin-module.js";
+import { boundToTools, handlebarsPrompt } from "@aicontainer/server/plugin-support/prompt.js";
+import { createCanvasToolContributor } from "./canvas-tool.js";
+import { createRunStopContributor } from "./run-stop-tool.js";
+import { sessionManagementToken } from "@aicontainer/server/ragents/global-chat.js";
+
+const orchestrationPromptFile = pluginAssetPath(import.meta.url, "../orchestration.hbs");
+const canvasPromptFile = pluginAssetPath(import.meta.url, "../canvas.hbs");
+
+const orchestrationPlugin: RAgentsPlugin = {
+  manifest: { id: "ragents.orchestration" },
+  register: (host) => {
+    host.functions(createCanvasToolContributor());
+    host.functions(createRunStopContributor(
+      (runId) => host.service(sessionManagementToken)().stop(runId),
+      (error) => console.error("Run-Stopp durch den Koordinator fehlgeschlagen", error),
+    ));
+    host.operations({
+      id: "actor_input",
+      label: "Actor-Input einreihen",
+      description: "Reiht für einen Actor einen normalen Texteingang unter der gebundenen Identität ein - "
+        + "als Agent oder, aus einer App-Aktion, als Besitzer des Runs. Bestätigt nur das Einreihen. TypeScript-Actors verstehen ausschließlich ihr programmiertes Eingabeprotokoll, keine freien Aufträge.",
+      schema: actorInputSchema,
+      resultSchema: eventResultSchema,
+      operator: "direct",
+      execute: (context, input) =>
+        enqueueActorInput(host.service(runtimeProviderToken)(), {
+          actorId: context.principal.actorId,
+          commandId: context.invocationId,
+          ...(context.principal.kind === "agent" && context.principal.turnId
+            ? { turnId: context.principal.turnId }
+            : {}),
+          correlationId: context.invocationId,
+          causationId: context.invocationId,
+        }, context.runId, input as ActorInputRequest),
+    });
+    host.script({
+      id: "typescript",
+      create: (context) => ({
+        driver: new ScriptDriver({ runtime: context.runtime }),
+      }),
+    });
+    host.prompts(
+      handlebarsPrompt("ragents.orchestration.prompt", 600, orchestrationPromptFile),
+      boundToTools(
+        handlebarsPrompt("ragents.orchestration.canvas", 650, canvasPromptFile),
+        "canvas_layout_replace",
+      ),
+    );
+  },
+};
+
+export const plugin: PluginModule = { create: () => orchestrationPlugin };

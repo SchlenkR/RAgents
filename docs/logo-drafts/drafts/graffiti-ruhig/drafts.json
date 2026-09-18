@@ -1,0 +1,62 @@
+[
+  {
+    "file": "01-still-charcoal.png",
+    "title": "Still auf Kohle",
+    "concept": "Aufrechte Slab-Buchstaben auf einer Linie, weicher Schatten, links ein ruhiger symmetrischer Schädel. Souverän und still - für manche Augen schon fast zu brav.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "02-bone-grey-quiet.png",
+    "title": "Knochen auf Schwarz",
+    "concept": "Zwei Töne, weiche Bodenschatten, der Schädel liegt ruhig am R an. Sehr aufgeräumt, wirkt eher wie eine Wortmarke als wie ein Piece.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "03-olive-orange-calm.png",
+    "title": "Oliv und Rostrot, ruhig",
+    "concept": "Zwei große ruhige Farbfelder, weiße Buchstaben mit rotem Schattenkörper, ein sauber gezeichneter Schädel links. Zurückhaltend und trotzdem präsent.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "04-monolith-still.png",
+    "title": "Grauer Monolith",
+    "concept": "Nur Grauwerte ohne Kontur, Buchstaben als stille Flächen nebeneinander, der Schädel ist eine davon. Am nächsten am Wunsch flächig und abstrakt.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "05-blackbook-calm.png",
+    "title": "Blackbook, ruhig",
+    "concept": "Graue Flächenzeichnung auf Papier, gerade Grundlinie, keine Spitzen. Klar und ruhig, aber es fehlt der Biss.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "06-blue-seams-calm.png",
+    "title": "Blaue Naht, gedämpft",
+    "concept": "Fast schwarz auf schwarz, nur ein blaues Auge leuchtet. Sehr souverän und unterschwellig bedrohlich, braucht aber genug Größe.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "07-stencil-mono.png",
+    "title": "Schablone Schwarz-Weiß",
+    "concept": "Reduziert auf zwei Farben, klare Flächen, kompakter Schädel. Ideal für Sticker und Einfarb-Anwendungen, kippt aber leicht ins Comichafte.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "08-sand-bone-poster.png",
+    "title": "Sand und Knochen, Plakat",
+    "concept": "Gedämpfte Sand- und Grauflächen, schwarze Buchstaben mit hellem Versatz, ein großer ruhiger Schädel links. Wirkt wie ein Ausstellungsplakat.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "09-blue-offset-still.png",
+    "title": "Blauer Versatz, still",
+    "concept": "Graue Platten, blaue Versatzflächen, Schädel halb Knochen halb Maschine mit blauem Punktauge. Trägt die Marke, bleibt ruhig.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "10-museum-restraint.png",
+    "title": "Viel Luft",
+    "concept": "Kleine schwere Marke in viel leerem Raum, nur Schrift, Schatten und ein kleiner Schädel. Die zurückhaltendste Fassung überhaupt.",
+    "model": "gpt_image_2"
+  }
+]

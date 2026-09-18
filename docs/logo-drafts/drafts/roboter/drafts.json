@@ -1,0 +1,86 @@
+[
+  {
+    "file": "01-robot-head-flat.png",
+    "title": "Flacher Roboterkopf",
+    "concept": "Ein reduzierter, geometrischer Roboterkopf mit zwei Punktaugen und einer Antenne mit leuchtendem Kopf. Die klare Silhouette bleibt bis hinunter auf 24 px lesbar.",
+    "prompt": "Flat vector logo mascot: a friendly rounded robot head, simple geometric shapes, two large dot eyes and a small smiling mouth line, a single antenna with a glowing dot, bold clean silhouette, centered, minimal, no text, plain solid white background, brand colors blue and dark navy",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "02-conductor-with-helpers.png",
+    "title": "Dirigent mit Helferbots",
+    "concept": "Der Koordinator als Roboter mit erhobenem Taktstock, umringt von vier kleinen Helfer-Agenten im Bogen. Zeigt die Orchestrierung unmittelbar im Bild.",
+    "prompt": "Flat vector logo: a big friendly robot conductor holding a thin baton in one raised hand, surrounded by four tiny helper robots arranged in an arc, minimal geometric shapes, strong readable silhouette, centered composition, no text, plain solid white background, blue and dark navy palette",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "03-r-monogram-robot.png",
+    "title": "R-Monogramm als Roboterkopf",
+    "concept": "Das große R ist zugleich Buchstabe und Roboterkopf, Augen und Antenne sitzen in der Negativform. Das R steht für Ronald und trägt damit die Marke.",
+    "prompt": "Minimal monogram logo: the capital letter R formed by a robot head silhouette, negative space eyes and antenna integrated into the letterform, geometric, thick strokes, icon that stays readable at 24 pixels, no other text, plain solid white background, blue and dark navy",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "04-soft-3d-buddy.png",
+    "title": "Weicher 3D-Kumpel",
+    "concept": "Ein rundlicher Roboter im weichen Knet-Look mit glänzendem blauen Visier und winkendem Arm. Wärmt die technische Marke emotional auf.",
+    "prompt": "Soft 3D render mascot: a cute chubby robot with a rounded matte body, glossy blue visor face with two glowing eyes, small waving arm, soft studio lighting, subtle shadow, clay-like toy look, centered, no text, plain flat light blue background, blue and navy color scheme",
+    "model": "recraft_v4_1 (standard)"
+  },
+  {
+    "file": "05-line-art-robot.png",
+    "title": "Strichzeichnung Roboterkopf",
+    "concept": "Ein Roboterkopf aus einer durchgehenden, gleichmäßig dünnen Linie. Zurückhaltend und elegant, passt zur hellen Oberfläche mit viel Weißraum.",
+    "prompt": "Single continuous line drawing of a friendly robot head with antenna, thin uniform monoline stroke, elegant minimal contour art, centered, generous margins, no shading, no text, plain solid white background, dark navy line on white",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "06-sticker-thumbs-up.png",
+    "title": "Sticker mit Daumen hoch",
+    "concept": "Ein kleiner Roboter im Die-Cut-Sticker-Stil mit dicker weißer Kontur und Daumen hoch. Gedacht für Community, Discord und Repo-Badges.",
+    "prompt": "Die-cut sticker illustration: a cheerful little robot giving a thumbs up, thick white outline border, bold flat colors, subtle cel shading, playful cartoon style, centered, no text, plain solid pale background, blue and navy palette",
+    "model": "recraft_v4_1 (standard)"
+  },
+  {
+    "file": "07-chat-bubble-robot.png",
+    "title": "Roboter als Sprechblase",
+    "concept": "Der Roboterkopf hat die Form einer abgerundeten Sprechblase mit Antenne. Chat und Maschine verschmelzen zu einer einzigen, sehr klein tauglichen Marke.",
+    "prompt": "Flat vector icon: a robot head shaped like a rounded speech bubble with a small antenna and two dot eyes, chat and machine merged into one simple mark, ultra minimal, bold silhouette, no text, plain solid white background, accent blue and dark navy",
+    "model": "recraft_v4_1 (utility_vector)"
+  },
+  {
+    "file": "08-workshop-foreman.png",
+    "title": "Werkstattmeister",
+    "concept": "Ein Roboter am Schreibtisch, um ihn schweben abstrakte Codeblöcke ohne lesbaren Text. Bildet die Web-Werkstatt und das gemeinsame Journal ab.",
+    "prompt": "Flat vector illustration: a friendly robot workshop foreman sitting behind a small desk with three floating rounded panels of abstract code blocks around him, no readable text, simple shapes, warm friendly expression, centered, plain solid white background, blue navy and muted blue grey palette",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "09-app-icon-r-eye.png",
+    "title": "App-Icon mit R-Auge",
+    "concept": "Ein Robotergesicht aus Kreis und abgerundetem Quadrat, ein Auge ist ein kleines R. Dunkler Grund, hoher Kontrast, gebaut für Dark Mode und Tab-Icon.",
+    "prompt": "Bold geometric app icon: a robot face built from a perfect circle and rounded square, one eye is a small letter R, thick strokes, extremely simple, high contrast, readable at tiny sizes, no other text, plain solid deep navy background with bright blue robot",
+    "model": "recraft_v4_1 (utility_vector)"
+  },
+  {
+    "file": "10-conductor-orbs-3d.png",
+    "title": "Dirigent über Leuchtkugeln",
+    "concept": "Ein Roboter schwebt über drei leuchtenden Helferkugeln, die mit dünnen Lichtfäden an ihm hängen. Die Kanäle zwischen den Agenten werden sichtbar.",
+    "prompt": "Soft 3D render: a friendly robot conductor floating above three small glowing orb helper bots connected by thin light threads, matte plastic toy materials, soft studio lighting, centered, no text, plain flat pale blue background, blue and navy color scheme",
+    "model": "recraft_v4_1 (standard)"
+  },
+  {
+    "file": "11-headphone-sticker-bot.png",
+    "title": "Kopfhörer-Bot",
+    "concept": "Ein Roboter mit eckigem Kopf, Kopfhörern und winzigem Taktstock im Sticker-Stil. Die verspielte Variante des Dirigenten-Motivs.",
+    "prompt": "Playful sticker mascot: a small square-headed robot wearing headphones, holding a tiny baton, thick outline, flat bold colors, friendly big eyes, centered, no text, plain solid light background, accent blue navy and muted blue grey",
+    "model": "recraft_v4_1 (standard)"
+  },
+  {
+    "file": "12-network-emblem.png",
+    "title": "Roboter im Knotennetz",
+    "concept": "Ein kleiner Roboter steht im Zentrum eines Graphen, dünne Linien führen zu sechs Knoten ringsum. Das Netz aus Agenten und Kanälen als rundes Emblem.",
+    "prompt": "Flat vector emblem: a small friendly robot standing at the center of a network graph, thin connecting lines radiating to six circular nodes around it, circular badge composition, geometric and minimal, no text, plain solid white background, blue nodes with navy robot",
+    "model": "recraft_v4_1 (vector)"
+  }
+]

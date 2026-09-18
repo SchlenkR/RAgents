@@ -1,0 +1,9 @@
+{
+  "name": "moderated-round",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Moderierte Runde ohne Koordinator",
+    "backend": "src/server.ts"
+  }
+}

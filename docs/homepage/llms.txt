@@ -1,0 +1,36 @@
+# RAgents
+
+> Programmierbarer AI-Harness mit Chat, mehreren Agenten, TypeScript-Actors und kleinen Bedienoberflächen auf einem Canvas.
+
+Diese Referenz beschreibt die vorhandenen öffentlichen Bausteine des Profils core. Verträge, API und Paketquellen werden aus dem Code erzeugt. Für ein neues Run-Setup zuerst die Anleitung und die typisierte API lesen, dann die benötigten Werkzeugverträge nachschlagen.
+
+## Verstehen und einsteigen
+
+- [Guide](guide.md): Einstieg, Laufzeit, TypeScript-Funktionen, Mini-Apps, Erweiterungen und Rechte aus der aktuellen Dokumentation.
+
+- [Grundideen](guide-ideas.md)
+- [Actors und Nachrichten](guide-runtime.md)
+- [Samples starten](guide-getting-started.md)
+- [Mit TypeScript arbeiten](guide-functions.md)
+- [Mini-Apps bauen](guide-programs.md)
+- [Plugins und Skills](guide-extensions.md)
+- [Rechte vergeben](guide-access.md)
+
+## Run-Setups
+
+- [Run-Setup-Anleitung](run-setup.md): Paketstruktur, Startinput, Tests, vollständige Beispiele und generierte API.
+- [Run-API](run-api.d.ts): Originale TypeScript-Deklarationen des Compilers.
+
+## Referenzen
+
+- [Bausteine](reference.md): Alle statischen Werkzeuge und Operationen mit Ein- und Ergebnisschemata, Actor-Programm-Vorlagen und Einstiege.
+- [Entwickeln](developer.md): Erweiterungspunkte, Beispiele und aktuelle Vertragsflächen.
+
+## Externe Clients
+
+- [HTTP-API](http-api.md): Management-Aufrufe mit Eingaben, Ergebnissen und Fehlern aus den ausführbaren Routenschemata.
+- [OpenAPI](openapi.json): Maschinenlesbarer HTTP-Vertrag aus denselben Quellen.
+
+## Optional
+
+- [Gesamte Textreferenz](llms-full.txt): Guide, Run-Anleitung, Baustein- und Entwicklerreferenz sowie HTTP-API zusammen in einer Datei.

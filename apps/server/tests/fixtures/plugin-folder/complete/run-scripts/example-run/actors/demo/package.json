@@ -1,0 +1,14 @@
+{
+  "name": "demo",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Demo",
+    "views": [
+      {
+        "id": "main",
+        "client": "src/client.tsx"
+      }
+    ]
+  }
+}

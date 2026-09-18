@@ -1,0 +1,72 @@
+[
+  {
+    "file": "01-blue-node-r.png",
+    "title": "Blaue Kachel, R aus Knoten",
+    "concept": "Das R ist aus wenigen Knoten und Verbindungslinien gebaut und steht weiß auf der Akzentblau-Kachel. Der Buchstabe trägt Ronalds Initiale und zugleich die Netz-Idee der Agenten.",
+    "prompt": "A single rounded-square app icon centered on a plain light grey background. The tile is solid bright blue #2a94fa. Inside the tile, a bold white letter R constructed from a few connected circular nodes and straight connecting lines, like a tiny network graph forming the shape of an R. Extremely simple flat vector icon, very few shapes, thick strokes, high contrast, readable at 16 pixels. No other text.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "02-dark-glowing-network.png",
+    "title": "Dunkle Kachel mit leuchtendem Netz",
+    "concept": "Auf dunkler Tinte leuchtet ein kompaktes Netz aus fünf blauen Punkten, der Koordinator sitzt als größerer Knoten in der Mitte. Passt direkt zum Dark Mode der Oberfläche.",
+    "prompt": "A single rounded-square app icon centered on a plain light grey background. The tile is deep dark navy #223347. Inside it a glowing constellation of five bright blue #2a94fa dots connected by thin luminous lines forming a compact abstract network, one central node larger and brighter than the rest. Flat vector icon, minimal, very few shapes, strong silhouette, readable at small size. No text.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "03-gradient-robot-face.png",
+    "title": "Verlaufskachel mit Roboter-Gesicht",
+    "concept": "Ein auf Kopf, zwei Augen und eine Antenne reduziertes Robotergesicht auf einer Kachel mit Verlauf von Akzentblau zu dunkler Tinte. Das ist die verspielte, sofort lesbare Variante.",
+    "prompt": "A single rounded-square app icon centered on a plain light grey background. The tile has a smooth gradient from bright blue #2a94fa to dark navy #223347. Inside, a minimal friendly robot face reduced to a rounded white rectangle head with two simple round eyes and one small antenna dot. Flat geometric vector icon, extremely simple, few shapes, playful but professional. No text.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "04-speech-bubble-agents.png",
+    "title": "Sprechblase mit drei Agenten",
+    "concept": "Eine weiße Sprechblase auf blauer Kachel, in ihr drei Punkte als die Agenten, die der Koordinator im Chat anstößt. Das Zeichen erzählt Gespräch und Nebenläufigkeit in einer Form.",
+    "prompt": "A single rounded-square app icon centered on a plain light grey background. The tile is solid bright blue #2a94fa. Inside, a simple white rounded speech bubble containing three dots, the three dots rendered as small circles in white and muted blue grey #7692ad suggesting agents talking. Flat vector icon, minimal, thick shapes, very high legibility at tiny sizes. No text.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "05-conductor-baton.png",
+    "title": "Dirigentenstab",
+    "concept": "Ein Taktstock als ein einziger heller Strich auf dunkler Kachel, drei blaue Punkte schwingen von der Spitze weg. Die Orchestrierung als Bild statt als Technik.",
+    "prompt": "A single rounded-square app icon centered on a plain light grey background. The tile is dark navy #223347. Inside, a minimal conductor baton drawn as one clean diagonal white tapered stroke with a small blue #2a94fa sphere at its handle, and three tiny blue dots arcing away from the tip like conducted agents. Flat vector icon, extremely simple, few shapes. No text.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "06-mono-glyph.png",
+    "title": "Monochromes Glyph für die Menüleiste",
+    "concept": "Nur dunkle Tinte, keine Farbe: ein gerahmtes R, dessen Bein in einen kleinen Punkt ausläuft. Gedacht für Menüleiste, Favicon und überall dort, wo eine Farbe zu viel wäre.",
+    "prompt": "A single rounded-square monochrome menu bar glyph icon centered on a plain light grey background. Solid dark ink #223347 shapes only, no color: a rounded square outline containing a stylized letter R whose leg extends into a short line ending in a small filled dot. Pure flat monochrome vector glyph, stencil like, very few shapes, perfectly readable at 16 pixels. No other text.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "07-light-node-r.png",
+    "title": "Helle Variante des Knoten-R",
+    "concept": "Dasselbe Knoten-R, hier blau auf fast weißer Kachel mit blaugrauer Kante. Die helle Hälfte des Paares für den Light Mode.",
+    "prompt": "A single rounded-square app icon centered on a plain light grey background. Light variant: the tile is near white with a subtle muted blue grey #7692ad border. Inside, a bold letter R in bright blue #2a94fa whose counter and leg are formed by three circular nodes joined by straight lines. Flat vector icon, minimal, crisp geometry, readable at 16 pixels. Only the letter R, no other text.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "08-dark-node-r.png",
+    "title": "Dunkle Variante des Knoten-R",
+    "concept": "Dasselbe Zeichen auf dunkler Kachel, das R bleibt in Akzentblau stehen. Zusammen mit 07 das Paar für Light und Dark Mode.",
+    "prompt": "A single rounded-square app icon centered on a plain light grey background. Dark variant of the same mark: the tile is deep navy #223347. Inside, a bold letter R in bright blue #2a94fa whose counter and leg are formed by three circular nodes joined by straight lines. Flat vector icon, minimal, crisp geometry, readable at 16 pixels. Only the letter R, no other text.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "09-hub-and-spoke.png",
+    "title": "Nabe und Speichen",
+    "concept": "Ein voller Mittelkreis, vier dünne Linien zu vier offenen Kreisen: der Koordinator und seine Kanäle in der knappsten möglichen Form. Bleibt auch bei 16 Pixeln stabil.",
+    "prompt": "A single rounded-square app icon centered on a plain light grey background. The tile is solid bright blue #2a94fa. Inside, a white hub and spoke mark: one filled central circle with four thin straight lines radiating to four small open circles at the corners, an orchestration network reduced to its simplest form. Flat vector icon, geometric, very few shapes, strong at tiny sizes. No text.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "10-journal-lines.png",
+    "title": "Journalzeilen mit wanderndem Punkt",
+    "concept": "Drei liegende Balken als Zeilen des gemeinsamen Journals, ein blauer Punkt läuft auf der mittleren entlang. Ruhig, hell und ohne jede Metapher zu viel.",
+    "prompt": "A single rounded-square app icon centered on a plain light grey background. The tile is near white with a thin muted blue grey #7692ad outline. Inside, three stacked horizontal rounded bars in dark navy #223347 and muted blue grey, like journal lines, with one bright blue #2a94fa dot travelling along the middle bar. Flat vector icon, extremely minimal, few shapes. No text.",
+    "model": "recraft_v4_1 (vector)"
+  }
+]

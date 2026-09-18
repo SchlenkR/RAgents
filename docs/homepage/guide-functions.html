@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="de" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Mit TypeScript arbeiten: öffentliche Referenz und Beispiele für RAgents."><title>Mit TypeScript arbeiten - RAgents</title><link rel="describedby" href="llms.txt"><link rel="alternate" type="text/markdown" href="guide-functions.md"><style>/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+:root, :host {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+:root {
+  color-scheme: light;
+  --radius: 0.5rem;
+  --background: #f3f2f7;
+  --foreground: #34303d;
+  --card: #e7eaf2;
+  --primary: #79638d;
+  --primary-foreground: #ffffff;
+  --secondary: #e1ddeb;
+  --muted-foreground: #62586e;
+  --accent: #dcd0e8;
+  --destructive: #a94360;
+  --destructive-soft: #f5e1e9;
+  --success: #3b705f;
+  --success-soft: #e1eee8;
+  --warning: #925d37;
+  --warning-soft: #f3e4d8;
+  --info: #4b648a;
+  --teal: #356c70;
+  --border: #c9c4d5;
+  --border-soft: #dad6e3;
+  --border-strong: #a397b2;
+  --shell: #cbd6e4;
+  --app: #dce3ed;
+  --canvas: #e8e2e6;
+  --canvas-dot: #79aab43b;
+  --canvas-glow-mint: #92cfbfad;
+  --canvas-glow-blue: #8bbfe5a6;
+  --canvas-light: #ffffffb3;
+  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
+        radial-gradient(ellipse at 4% 88%, #9ccfc5b3, transparent 58%),
+        radial-gradient(ellipse at 96% 12%, #9ec6e4b3, transparent 56%),
+        radial-gradient(ellipse at 28% 0%, #c4b0dfb3, transparent 58%),
+        radial-gradient(ellipse at 88% 100%, #efd3c6a6, transparent 52%),
+        linear-gradient(135deg, #edf0f2, #e1dbe8);
+  --backdrop: #28213966;
+  --glass-agent: #eec4b1;
+  --glass-primary: #dcd0e8;
+  --glass-script: #e9dca1;
+  --glass-app: #e7edf2;
+  --glass-edge: #a498aa;
+  --glass-icon: #e8dfed;
+  --glass-head: #ede5ef;
+  --glass-group: #e7edf240;
+  --bar-shadow: 0 2px 5px #49384e14, 0 8px 20px #49384e12;
+  --status-shadow: 0 -2px 5px #49384e14, 0 -8px 20px #49384e12;
+  --pop-shadow: 0 12px 36px #49384e26;
+  --card-shadow: 0 12px 22px #49384e2c;
+  --workspace-shadow: -2px 0 5px #49384e14, -8px 0 20px #49384e1f;
+  --glass-icon-shadow: 1px 2px 4px #51465725;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #292735;
+  --foreground: #e9e2ed;
+  --card: #2b303e;
+  --primary: #bda6cf;
+  --primary-foreground: #2d2235;
+  --secondary: #373247;
+  --muted-foreground: #b6a9bd;
+  --accent: #4b3d59;
+  --destructive: #ffa2b0;
+  --destructive-soft: #482d3b;
+  --success: #8dceae;
+  --success-soft: #233f37;
+  --warning: #e7bd81;
+  --warning-soft: #43382b;
+  --info: #9dbade;
+  --teal: #8ec9c4;
+  --border: #555065;
+  --border-soft: #403c50;
+  --border-strong: #8e809f;
+  --shell: #242e40;
+  --app: #212632;
+  --canvas: #29232e;
+  --canvas-dot: #7cafbc30;
+  --canvas-glow-mint: #317d686b;
+  --canvas-glow-blue: #417daa80;
+  --canvas-light: #80bfc71f;
+  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
+        radial-gradient(ellipse at 4% 88%, #2c625e99, transparent 58%),
+        radial-gradient(ellipse at 96% 12%, #355674a6, transparent 56%),
+        radial-gradient(ellipse at 28% 0%, #59446f99, transparent 58%),
+        radial-gradient(ellipse at 88% 100%, #694c443d, transparent 52%),
+        linear-gradient(135deg, #252b35, #302735);
+  --backdrop: #14101eb3;
+  --glass-agent: #594039;
+  --glass-primary: #47394f;
+  --glass-script: #4d462b;
+  --glass-app: #303943;
+  --glass-edge: #8a7994;
+  --glass-icon: #47394f;
+  --glass-head: #39303f;
+  --glass-group: #bda6cf08;
+  --bar-shadow: 0 2px 5px #00000033, 0 8px 20px #00000040;
+  --status-shadow: 0 -2px 5px #00000033, 0 -8px 20px #00000040;
+  --pop-shadow: 0 12px 36px #00000055;
+  --card-shadow: 0 12px 22px #00000055;
+  --workspace-shadow: -2px 0 5px #00000033, -8px 0 20px #0000004d;
+  --glass-icon-shadow: 1px 2px 4px #00000040;
+}
+@layer base {
+  body {
+    background: var(--app);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+}
+
+
+*{box-sizing:border-box}body{margin:0;background:var(--app);color:var(--foreground);font:16px/1.65 var(--font-sans)}a{color:#1467b0;text-underline-offset:4px}a:hover{color:var(--foreground)}:focus-visible{outline:3px solid var(--primary);outline-offset:4px}main,body>footer{padding-block:24px}nav{display:flex;gap:12px 24px;flex-wrap:wrap}h1{font-size:clamp(38px,7vw,66px);line-height:1.1;letter-spacing:-.04em;margin:16px 0 24px}h2{font-size:30px;line-height:1.2;margin:0 0 20px;letter-spacing:-.02em}h3{font-size:20px;line-height:1.4}p{max-width:76ch}.intro{padding:36px 0 44px}.eyebrow{font:12px var(--font-mono);text-transform:uppercase;letter-spacing:.1em}.lead{font-size:20px;line-height:1.6}.stats{font:13px var(--font-mono);margin:24px 0}.section-nav{border-top:1px solid var(--border);padding:20px 0}main>section{padding:44px 0;border-top:1px solid var(--border)}article{min-width:0;padding:24px 0;border-top:1px solid var(--border-soft)}article h3{margin:0 0 8px;overflow-wrap:anywhere}.meta,.example-context{font:12px/1.7 var(--font-mono);color:#536b80;overflow-wrap:anywhere}details{margin:14px 0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--background)}summary{cursor:pointer;padding:12px 16px;font-weight:600}details>p,details>div,details>table{margin:16px}pre{max-width:100%;overflow:auto;padding:20px;background:var(--card);font:12px/1.7 var(--font-mono);tab-size:2;margin:0}code{font-family:var(--font-mono);font-size:.9em;overflow-wrap:anywhere}pre code{font-size:inherit;overflow-wrap:normal}label{display:block;font-weight:600;margin-bottom:6px}input[type=search],select{font:inherit;color:inherit;border:1px solid var(--border);border-radius:6px;background:var(--background);padding:10px 12px;max-width:100%}input[type=search]{width:100%}.tool-label{display:block;font-size:13px;font-weight:400;color:#536b80;margin-top:3px}[data-tool]{padding:0;border:0}[data-tool]>details{margin:8px 0}[data-tool]>details>a{display:inline-block;margin:0 16px 16px}[data-tool]>details>details{margin:16px}.filter-row{display:flex;gap:16px;flex-wrap:wrap;align-items:end}.filter-row>div:first-child{flex:1;min-width:min(280px,100%)}.note{padding:16px 20px;background:var(--card);border-left:3px solid var(--primary)}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--border);padding:10px;overflow-wrap:anywhere}th{font-weight:600}.table-wrap{overflow:auto}body>footer{padding-top:30px;padding-bottom:60px;border-top:1px solid var(--border)}[hidden]{display:none!important}@media(max-width:600px){h2{font-size:26px}main>section{padding:32px 0}pre{padding:14px;font-size:11px}.lead{font-size:18px}}
+</style><style>
+.guide-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:44px;align-items:start;padding-block:12px 32px}.guide-sidebar{position:sticky;top:calc(var(--header-height,80px) + 16px);max-height:calc(100dvh - var(--header-height,80px) - 32px);overflow:auto}.guide-chapters{display:grid;gap:16px;font-size:13px;line-height:1.4}.guide-chapters a{display:block;padding:6px 10px;text-decoration:none;border-radius:6px}.guide-nav-group{display:grid;gap:2px}.guide-nav-group>p{margin:0 10px 4px;font-size:11px;font-weight:700;color:#536b80}.guide-chapters [aria-current]{background:var(--card);color:var(--foreground);font-weight:600}.guide-mobile-nav{display:none}.guide-body{padding:0;border:0}.guide-title{margin:0 0 20px}.guide-title h1{font-size:32px;line-height:1.2;letter-spacing:-.025em;margin:6px 0 10px}.guide-title p{margin:0;font-size:15px}.guide-title .eyebrow{font-size:11px}.guide-body h2{font-size:24px;margin-top:32px;scroll-margin-top:20px}.guide-body h3{margin-top:24px}.guide-body pre{margin:20px 0}.guide-body li{margin-block:8px}.guide-body table{display:block;overflow:auto}.guide-body blockquote{margin-inline:0;padding:8px 20px;border-left:3px solid var(--primary);background:var(--card)}.guide-source{margin-top:40px;font-size:13px;color:#536b80}.guide-next{justify-content:space-between;border-top:1px solid var(--border);padding:20px 0;margin-top:24px}.guide-index{max-width:80ch;padding-left:24px}.guide-index li{padding:8px 0 16px 8px;border-bottom:1px solid var(--border)}.guide-index h2{font-size:20px;margin:0 0 6px}.guide-index p{margin-block:0}.guide-page-nav{margin:0 0 24px;font-size:13px}.guide-page-nav summary{padding:8px 12px}.guide-page-nav nav{display:grid;gap:8px;padding:4px 12px 12px}@media(max-width:850px){.guide-layout{grid-template-columns:1fr;gap:18px;padding-top:0}.guide-sidebar{display:none}.guide-mobile-nav{display:block;margin:0}.guide-mobile-nav summary{padding:10px 12px;font-size:14px}.guide-mobile-nav .guide-chapters{padding:0 12px 12px}.guide-title h1{font-size:28px}.guide-body h2{margin-top:28px}}@media print{.guide-layout{display:block}.guide-sidebar,.guide-mobile-nav,.guide-next{display:none}}
+</style><link rel="stylesheet" href="site.css"><script src="site.js" defer></script></head><body><a class="skip" href="#main">Zum Inhalt</a><header class="masthead shell">
+    <a class="brand" href="index.html#main" aria-label="RAgents, zum Anfang"><svg class="brand-icon" viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect width="28" height="28" rx="8" fill="currentColor"/><path d="M8 19V9h6a3 3 0 0 1 0 6H8m6 0 5 4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>RAgents</a>
+    <nav aria-label="Hauptnavigation">
+      <a href="index.html">Produkt</a>
+      <a href="guide.html" aria-current="page">Guide</a>
+      <a href="reference.html#samples">Samples</a>
+      <a href="reference.html">Referenz</a>
+    </nav>
+  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide-Navigation"><a href="guide.html">Orientierung</a><div class="guide-nav-group"><p>Verstehen</p><a href="guide-ideas.html">Grundideen</a><a href="guide-runtime.html">Actors und Nachrichten</a></div><div class="guide-nav-group"><p>Ausprobieren</p><a href="guide-getting-started.html">Samples starten</a><a href="reference.html#samples">Startbare Samples</a></div><div class="guide-nav-group"><p>Selbst bauen</p><a href="guide-functions.html" aria-current="page">Mit TypeScript arbeiten</a><a href="guide-programs.html">Mini-Apps bauen</a><a href="guide-extensions.html">Plugins und Skills</a></div><div class="guide-nav-group"><p>Nachschlagen</p><a href="guide-access.html">Rechte vergeben</a><a href="reference.html#tools">Funktionen</a><a href="reference.html#ui">UI-Bausteine</a><a href="developer.html">Erweiterungsverträge</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Mit TypeScript arbeiten</summary><nav class="guide-chapters" aria-label="Guide-Navigation"><a href="guide.html">Orientierung</a><div class="guide-nav-group"><p>Verstehen</p><a href="guide-ideas.html">Grundideen</a><a href="guide-runtime.html">Actors und Nachrichten</a></div><div class="guide-nav-group"><p>Ausprobieren</p><a href="guide-getting-started.html">Samples starten</a><a href="reference.html#samples">Startbare Samples</a></div><div class="guide-nav-group"><p>Selbst bauen</p><a href="guide-functions.html" aria-current="page">Mit TypeScript arbeiten</a><a href="guide-programs.html">Mini-Apps bauen</a><a href="guide-extensions.html">Plugins und Skills</a></div><div class="guide-nav-group"><p>Nachschlagen</p><a href="guide-access.html">Rechte vergeben</a><a href="reference.html#tools">Funktionen</a><a href="reference.html#ui">UI-Bausteine</a><a href="developer.html">Erweiterungsverträge</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Mit TypeScript arbeiten</h1><p>Funktionen verbinden, feste Abläufe programmieren und Modelle gezielt einbeziehen.</p></header><details class="guide-page-nav"><summary>Auf dieser Seite</summary><nav aria-label="Auf dieser Seite"><a href="#typescript-als-arbeitsweg-der-ki">TypeScript als Arbeitsweg der KI</a><a href="#einmalige-snippets">Einmalige Snippets</a><a href="#zustand-fortsetzung-und-fehler">Zustand, Fortsetzung und Fehler</a></nav></details><h2 id="typescript-als-arbeitsweg-der-ki">TypeScript als Arbeitsweg der KI</h2>
+<p>Das Modell arbeitet mit den Fähigkeiten von RAgents, indem es TypeScript schreibt.
+Die Arbeitsumgebung stellt aufrufbare Funktionen bereit, etwa zum Lesen einer Datei oder
+zum Anlegen eines Agenten. Das Modell verbindet sie zu einem Programm: Es kann Ergebnisse
+in Variablen behalten, Bedingungen prüfen und unabhängige Schritte parallel ausführen.</p>
+<p>Das ist auch der Weg zu größeren Aufbauten. Beim Wortspiel legt Code die Teilnehmer an und
+regelt ihre Übergaben; die vier Modelle liefern die Wörter. Eine Mini-App zeigt den
+Fortschritt desselben Programms. Die KI muss den Ablauf dadurch nicht bei jeder Antwort
+erneut aus Anweisungen im Gespräch ableiten.</p>
+<p>Für einmalige Arbeit genügt ein Snippet, ein kurzes TypeScript-Programm für genau einen Aufruf.
+Sein Ergebnis geht an das Modell zurück, das danach weiterentscheiden kann. Soll das Programm
+Zustand behalten oder auf spätere Nachrichten reagieren, wird es zu einem
+<a href="guide-programs.html">Actor-Programm</a>. Beide Formen verwenden dieselben Funktionen.</p>
+<h2 id="einmalige-snippets">Einmalige Snippets</h2>
+<p>Die native Standardoberfläche enthält <code>typescript_api</code> für die verfügbaren Funktionen und
+<code>typescript_eval</code> für TypeScript-Code. Arbeitsbereichsplugins stellen zusätzlich <code>read</code>, <code>write</code>,
+<code>edit</code> und <code>bash</code> direkt bereit, soweit sie für den Actor freigegeben sind. Einzelne Datei- und
+Shellaktionen benötigen keine TypeScript-Hülle und verwenden dieselbe Implementierung,
+Arbeitsverzeichnisauflösung, Rechteprüfung und Journalaufzeichnung wie die Funktionsaufrufe. Beide gehören zur
+Server-Grundausstattung, auch ohne das optionale Plugin für Actor-Programme. Das Anlegen von Agenten und andere Workflowfunktionen werden in TypeScript über
+<code>context.functions</code> aufgerufen. Die Dateiwerkzeuge bleiben dort für zusammengesetzte
+Aufrufe verfügbar. Plugins registrieren ihre Implementierung jeweils einmal; Snippets und dauerhafte
+Actor-Programme verwenden dieselbe API.</p>
+<p>Jeder ausgerüstete LLM-Actor erhält automatisch alle für ihn verfügbaren Funktionsnamen mit
+Kurzbeschreibungen. Das gilt für Koordinatoren und Subagenten. Änderungen am Bestand aktualisieren
+die Übersicht auch während eines Turns. Direkt bereitgestellte Werkzeuge sind darin gekennzeichnet;
+ihre nativen Beschreibungen enthalten auch die ausführlichen Nutzungshinweise. Die Übersicht erweitert weder Funktionsauswahl noch
+Rechte; reine LLMs mit <code>tools: []</code> erhalten sie nicht.</p>
+<h3 id="kurzbeschreibung-und-details">Kurzbeschreibung und Details</h3>
+<p>Eine mit <code>defineRunFunction</code> registrierte Funktion trägt einen technischen <code>name</code> für den
+Aufruf und ein lesbares <code>label</code> für Menschen. <code>description</code> beschreibt knapp ihren Zweck und
+erscheint in der automatischen Übersicht. <code>longDescription</code> ergänzt optional ausführliche
+Regeln, Voraussetzungen und Beispiele. Ein- und Ergebnistypen entstehen aus den Schemas;
+die Beschreibungen ersetzen diese Verträge nicht.
+Lokale rekursive Schema-Referenzen erzeugen benannte TypeScript-Aliase. Verschachtelte Verträge
+wie der Kachelbaum bleiben damit in Snippets, Actor-Programmen und der öffentlichen Run-API
+vollständig typisiert. Die Auflösung umfasst lokale <code>$defs</code>-Referenzen; externe Referenzen
+werden nicht geladen.</p>
+<p><code>typescript_api</code> liefert ohne Namensauswahl den kompakten Katalog. <code>query</code> sucht in Namen und
+Kurzbeschreibungen. Mit <code>names</code> kommen TypeScript-Deklarationen, vorhandene Langbeschreibungen
+und die an genau diese Funktionen gebundenen Anleitungen hinzu. Die Deklarationen tragen die
+<code>description</code> jeder Eigenschaft als Kommentar; ein Schema, das mehrere Funktionen teilen,
+erscheint einmal als benannter Alias. Die JSON-Schemata mit Prüfregeln wie Längen und Mustern
+kommen nur mit <code>schemas: true</code> zu einer Namensauswahl dazu. So fordert das
+Modell den Vertrag der Bestandsabfrage an; dies ist eine Werkzeug-Eingabe, kein Snippet:</p>
+<pre><code class="language-json">{&quot;names&quot;:[&quot;actor_list&quot;]}
+</code></pre>
+<h3 id="code-ausführen">Code ausführen</h3>
+<p><code>typescript_eval</code> erhält genau <code>code</code> oder <code>path</code>. Der Quelltext ist der Rumpf einer asynchronen
+Funktion mit <code>context</code>; <code>return</code> liefert das Ergebnis. Vor der Ausführung prüft der gemeinsame
+Compiler den Code gegen den aktuellen API-Vertrag. Die native Ausführung verwendet denselben
+Executor, Funktionsresolver und Abbruchpfad wie Actor-Programme. Ein Snippet erfordert kein
+Actor-Paket, keine Aktivierung und keinen eigenen Actor. Variablen leben für diese Ausführung.
+Die Kompilierung läuft in einem warmen Pool aus bis zu acht langlebigen Worker-Threads; weitere
+Anfragen warten auf einen freien Worker. Ein Worker lädt TypeScript einmal, beantwortet Anfragen
+über Nachrichten mit Anfragekennung und hält je Worker einen Cache geparster Dateien: Bibliotheken
+und Deklarationen nach Dateiname und Inhalt (höchstens 256 Einträge, älteste zuerst verdrängt),
+Snippet-Quellen werden immer frisch geparst; das vorige Programm dient dem nächsten Lauf zur
+strukturellen Wiederverwendung. Ergebnisse, Diagnosen, Hash und Emit sind dieselben wie bei einer
+kalten Kompilierung. Die Zeitgrenze je Kompilierung beträgt 60 Sekunden (Aufrufer dürfen bis
+180 Sekunden setzen) und schließt die Wartezeit in der Schlange ein; der Worker-Start ist kein
+Anteil mehr. Überschreitet ein Worker die Zeitgrenze, stirbt er oder bricht der Run ab, wird er
+beendet und beim nächsten Bedarf ersetzt; die betroffene Anfrage scheitert mit <code>TIMEOUT</code>,
+<code>WORKER_FAILURE</code> oder <code>ABORTED</code>. Ein Compilerfehler in der Anfrage lässt den Worker am Leben.
+Die Ressourcengrenzen gelten je Worker.</p>
+<p>Eine Funktion mit leerem oder rein optionalem Eingabeschema lässt sich ohne Argument aufrufen;
+<code>context.functions.status()</code> und <code>context.functions.status({})</code> sind gleichwertig. Ein
+<code>undefined</code> unter einem Objektschlüssel bedeutet auf Eingabe- und Ergebnisseite dasselbe wie
+ein fehlender Schlüssel: Der Compiler setzt <code>exactOptionalPropertyTypes</code> nicht, der Host
+akzeptiert den Wert und liefert das Ergebnis in JSON-Form ohne diese Schlüssel. Ein
+<code>undefined</code> als Arrayelement oder als Ergebnis selbst bleibt ein Fehler.</p>
+<p>Die folgende Eingabe an <code>typescript_eval</code> liest die vorhandenen Actors und gibt die echte
+Antwort an das Modell zurück:</p>
+<pre><code class="language-json">{&quot;code&quot;:&quot;const actors = await context.functions.actor_list({}); return actors;&quot;}
+</code></pre>
+<p>In einer Datei kann derselbe Funktionsrumpf mehrere unabhängige Abfragen verbinden. Für dieses
+Beispiel werden zuvor die Verträge von <code>actor_list</code> und <code>model_list</code> geladen:</p>
+<pre><code class="language-ts">const [actors, models] = await Promise.all([
+  context.functions.actor_list({}),
+  context.functions.model_list({}),
+]);
+return { actors, models };
+</code></pre>
+<h2 id="zustand-fortsetzung-und-fehler">Zustand, Fortsetzung und Fehler</h2>
+<p>Snippets können lesen, Ergebnisse kombinieren und Teilnehmer, Programme, Subscriptions oder
+Views einrichten. Für spätere Ereignisse, dauerhaften Zustand und Mini-Apps stehen Actor-Programme
+bereit. Die Wahl folgt der Aufgabe; ein Aufbau muss nicht in einem eigenen Setup-Actor liegen.
+Fachliche Skill-Einstiege beschreiben das Ergebnis und schreiben keinen technischen Lösungsweg vor.
+Technische Verträge und Anleitungen gehören zur auffindbaren Umgebung.</p>
+<p>Ein Snippet handelt als sein Aufrufer. <code>onInput</code> handelt als der empfangende TypeScript-Actor.
+Eine Actor-Funktion verwendet den Zustand ihres Besitzers, ruft Run-Funktionen aber mit der
+Identität des Aufrufers auf. <code>event_subscribe</code> legt entsprechend das Abo für den handelnden
+Aufrufer an. Soll ein dauerhafter Actor selbst abonnieren, führt er diesen Aufruf in <code>onInput</code>
+aus. Eine fremde Funktion zu starten überträgt keine Actor-Identität.</p>
+<p>Abgeschlossene Funktionsaufrufe bleiben wirksam, wenn ein späterer Schritt scheitert. Ein
+Snippet bildet keine Transaktion über seine Aufrufe. Wiederholungen prüfen den vorhandenen
+Aufbau und führen fehlende Schritte fort. Das Snippet wartet nicht auf zukünftige Antworten;
+Subscriptions liefern sie als spätere ActorInputs.</p>
+<p class="guide-source">Quelle: <a href="../../docs/spec/typescript-platform.md">docs/spec/typescript-platform.md</a>. <a href="guide-functions.md">Dieses Kapitel als Markdown</a>.</p><p><a href="reference.html#tools">Funktionen nachschlagen</a></p><nav class="guide-next" aria-label="Weiterlesen"><a href="guide-getting-started.html">Zurück: Samples starten</a><a href="guide-programs.html">Weiter: Mini-Apps bauen</a></nav></article></div></main><footer class="shell"><p>Aus öffentlicher Dokumentation, Verträgen und neutralen Plugins erzeugt. Neu aufbauen: <code>pnpm generate:homepage</code>. Stand prüfen: <code>pnpm check:homepage</code>.</p><nav aria-label="Weitere Seiten"><a href="llms.txt">LLM-Referenz</a><a href="http-api.md">HTTP-API</a><a href="openapi.json">OpenAPI</a><a href="index.html">Zur Homepage</a><a href="guide.html">Guide</a><a href="reference.html">Bausteine</a><a href="developer.html">Entwicklerreferenz</a></nav></footer></body></html>

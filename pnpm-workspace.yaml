@@ -1,0 +1,10 @@
+linkWorkspacePackages: true
+packages:
+  - apps/*
+  - packages/*
+  - plugins
+allowBuilds:
+  '@google/genai': false
+  canvas: false
+  esbuild: true
+  protobufjs: false

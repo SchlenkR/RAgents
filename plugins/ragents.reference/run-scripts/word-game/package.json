@@ -1,0 +1,11 @@
+{
+  "name": "word-game",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Wortspiel",
+    "description": "Vier LLMs, zwölf Wörter und ein fester Ablauf in TypeScript.",
+    "backend": "src/server.ts",
+    "views": [{ "id": "main", "client": "src/client.tsx" }]
+  }
+}

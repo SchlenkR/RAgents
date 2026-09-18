@@ -1,0 +1,9 @@
+{
+  "name": "balcony-wizard",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Balkon-Wizard einrichten",
+    "backend": "src/server.ts"
+  }
+}

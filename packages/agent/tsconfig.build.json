@@ -1,0 +1,15 @@
+{
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"outDir": "./dist",
+		"paths": {
+			"@aicontainer/agent-core": ["../agent-core/dist/index.d.ts"],
+			"@aicontainer/agent-core/*": ["../agent-core/dist/*.d.ts"],
+			"@aicontainer/ai": ["../ai/dist/index.d.ts"],
+			"@aicontainer/ai/*": ["../ai/dist/*.d.ts", "../ai/dist/providers/*.d.ts"]
+		},
+		"rootDir": "./src"
+	},
+	"include": ["src/**/*.ts", "src/**/*.d.ts"],
+	"exclude": ["node_modules", "dist"]
+}

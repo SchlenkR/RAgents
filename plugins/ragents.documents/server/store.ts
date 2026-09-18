@@ -1,0 +1,35 @@
+import { mkdir } from "node:fs/promises";
+import path from "node:path";
+import { isRunId } from "@aicontainer/ragents";
+import type { DocumentStore, DocumentStoreDescription } from "@aicontainer/server/ragents/document-store.js";
+
+export interface RunDocumentStoreOptions {
+  sessionDirectory: (runId: string) => string;
+  sessionsDirectoryPattern: string;
+  externalRoot: string | undefined;
+}
+
+export class RunDocumentStore implements DocumentStore {
+  readonly #options: RunDocumentStoreOptions;
+
+  constructor(options: RunDocumentStoreOptions) {
+    this.#options = options;
+  }
+
+  async directoryFor(runId: string): Promise<string> {
+    if (!isRunId(runId)) throw new Error(`Ungültige Session-Id: ${runId}`);
+    const directory = this.#options.externalRoot
+      ? path.join(this.#options.externalRoot, runId)
+      : this.#options.sessionDirectory(runId);
+    await mkdir(directory, { recursive: true });
+    return directory;
+  }
+
+  describe(): DocumentStoreDescription {
+    return {
+      directoryPattern: this.#options.externalRoot
+        ? path.join(this.#options.externalRoot, "{runId}")
+        : this.#options.sessionsDirectoryPattern,
+    };
+  }
+}

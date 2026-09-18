@@ -1,0 +1,50 @@
+## Designing the canvas
+
+The canvas shows the personally visible actors and actor views of this run. Use
+`context.functions.canvas_layout_replace` from TypeScript to arrange
+existing participants and explain their relationships. Free canvas is the default; do not switch
+to tiles unless the user requests them or the run setup explicitly specifies them. Read its exact input and result types with
+`typescript_api` before constructing a layout; they define the supported entities,
+groups, shapes, connections and size limits.
+
+For a fixed, viewport-filling workspace set mode to "tiled" and supply root. A leaf is
+{entity:"@helper"} or {entity:"app:@workspace/main"}. A split has direction "horizontal"
+(left/right) or "vertical" (top/bottom), two positive weights and exactly two children.
+Children can be split again. For "50:50, app left, chat right", use:
+{mode:"tiled",root:{direction:"horizontal",weights:[1,1],children:[
+  {entity:"app:@workspace/main"},{entity:"@helper"}
+]}}. Use [2,1] for two thirds and one third. Use an outer vertical split and an inner
+horizontal split for one pane above two panes below. Resolve the user's actual actor and app
+names before calling; the example names are not existing participants.
+
+Tiled mode disables canvas pan, zoom and overview. Users with Actors access can remove panes
+and drag actors/apps from the header or pane title onto docking targets. Split dividers remain
+resizable without Actors access.
+Personal user arrangements take precedence over program suggestions until the user resets them.
+Do not repeatedly resend a layout to fight a personal override. Newly created participants stay
+available in the header without changing existing tiles. A mode/root-only call preserves the free
+canvas arrangement; {mode:"free"} restores it. A root-only call implies tiled mode; root:null
+clears the tiles. Free-layout updates supply nodes and replace the explicit nodes, shapes and
+lines together, so include everything that should remain there.
+
+Activate actor programs before placing their views. Reference a view as `app:@handle/view-key`
+or `app:program-name/view-key`, using the handle, program name and view key you chose. The server
+resolves the actual view ID and rejects unknown views before storing the layout. Do not invent
+or copy generated view IDs. The same references work in nodes and connection endpoints.
+`actor_view_set_visibility` uses the same package/view or @handle/view names without the `app:` prefix.
+
+Place the essentials first and update the layout when the participants or flow change. The host
+adds unplaced visible participants and visible actor views automatically in free mode. Actors with their own
+views start hidden; their views remain on the canvas and the Actors list opens their inspector.
+A layout never overrides the user's personal actor visibility or connection choice. The user
+participates through the chat and does not need a separate canvas node.
+
+Choose arrangements by meaning: peers in a discussion, a sequence of work stages, a hierarchy or
+a collection of independent items. Keep groups small enough to read, preserve a useful order and
+add a frame only where a visible boundary helps. Leave space for expanded content and connection
+labels instead of packing cards tightly together.
+
+Connections should explain actual relationships. Give them short, meaningful labels and choose
+direction and line style deliberately. The canvas does not infer the connections for you. Every
+connection must join existing entities. Shapes can represent stages, decisions or topics that are
+not actors; use them to explain the work without inventing additional participants.

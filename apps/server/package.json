@@ -1,0 +1,28 @@
+{
+  "name": "@aicontainer/server",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./tests/*": "./tests/*",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "start": "tsx src/main.ts",
+    "test": "PRODUCT_PROFILE=core node --import tsx --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@aicontainer/agent": "workspace:*",
+    "@aicontainer/ai": "workspace:*",
+    "@aicontainer/ragents": "workspace:*",
+    "handlebars": "^4.7.9",
+    "tsx": "^4.20.0",
+    "typebox": "^1.3.13",
+    "vscode-jsonrpc": "^9.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.0"
+  }
+}

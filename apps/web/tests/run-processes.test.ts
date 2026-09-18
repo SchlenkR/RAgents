@@ -1,0 +1,183 @@
+import assert from "node:assert/strict";
+import { createServer } from "node:http";
+import { mkdtemp, readFile } from "node:fs/promises";
+import nodeProcess from "node:process";
+import { fileURLToPath } from "node:url";
+import test from "node:test";
+import { tailwindPlugin } from "./tailwind-plugin";
+import { build } from "esbuild";
+import { chromium } from "playwright-core";
+
+import type { RunProcess } from "../../../plugins/ragents.processes/contract.ts";
+import {
+  kindLabel,
+  messageFrom,
+  serviceUrl,
+  titleOf,
+  visibleProcesses,
+  VISIBLE_PROCESSES,
+} from "../../../plugins/ragents.processes/web/processes.ts";
+
+const process = (values: Partial<RunProcess> & { pid: number }): RunProcess => ({
+  id: `process-${values.pid}`,
+  label: "node vite",
+  command: "node /work/node_modules/.bin/vite",
+  origin: "background",
+  ports: [],
+  seenSince: "2026-09-03T10:00:00.000Z",
+  ...values,
+});
+
+test("eine Nachricht des Stroms wird geprüft und typisiert", () => {
+  const snapshot = {
+    runId: "run-1",
+    observedAt: "2026-09-03T10:00:00.000Z",
+    processes: [process({ pid: 7, ports: [{ port: 5173, address: "*" }] })],
+  };
+  assert.deepEqual(messageFrom({ kind: "snapshot", snapshot }), { kind: "snapshot", snapshot });
+  assert.deepEqual(messageFrom({ kind: "error", error: "kaputt" }), { kind: "error", error: "kaputt" });
+  assert.throws(() => messageFrom({ kind: "snapshot", snapshot: { runId: "run-1" } }), /unlesbar/);
+  assert.throws(() => messageFrom({ kind: "snapshot", snapshot: { ...snapshot, processes: [{ pid: 1 }] } }), /Prozess-Eintrag/);
+  assert.throws(() => messageFrom({ kind: "snapshot", snapshot: { ...snapshot, processes: [{ ...snapshot.processes[0], id: "" }] } }), /Prozess-Eintrag/);
+  assert.throws(() => messageFrom({ kind: "anders" }), /unbekannte Art/);
+});
+
+test("die Dienst-Adresse nutzt den Host der Oberfläche und den Port des Prozesses", () => {
+  assert.equal(serviceUrl("localhost", 5173), "http://localhost:5173/");
+  assert.equal(serviceUrl("macstudio", 10520), "http://macstudio:10520/");
+  assert.equal(serviceUrl("::1", 8080), "http://[::1]:8080/");
+});
+
+test("Beschriftung und Tooltip nennen Art, Befehl, Herkunft und Ports", () => {
+  const service = process({ pid: 7, ports: [{ port: 5173, address: "*" }, { port: 5173, address: "::1" }] });
+  assert.equal(kindLabel(service), "Dienst");
+  assert.equal(kindLabel(process({ pid: 8 })), "Prozess");
+  const title = titleOf(service);
+  assert.ok(title.startsWith("node /work/node_modules/.bin/vite\nPID 7, läuft im Hintergrund weiter, beobachtet seit "));
+  assert.ok(title.endsWith("\nLauscht auf *:5173, ::1:5173"));
+  assert.ok(titleOf(process({ pid: 8, origin: "tool-call" })).includes("läuft in einem Werkzeugaufruf"));
+});
+
+test("die Kopfzeile zeigt höchstens die ersten Einträge und zählt den Rest", () => {
+  const many = Array.from({ length: VISIBLE_PROCESSES + 2 }, (_, index) => process({ pid: index + 1 }));
+  const visible = visibleProcesses(many);
+  assert.equal(visible.shown.length, VISIBLE_PROCESSES);
+  assert.equal(visible.hidden, 2);
+  assert.deepEqual(visibleProcesses([]), { shown: [], hidden: 0 });
+});
+
+test("process readers see live services and port links while stopping still requires write and inspection rights", {
+  skip: nodeProcess.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 60_000,
+}, async (context) => {
+  const directory = await mkdtemp("/private/tmp/ragents-process-header-");
+  const root = fileURLToPath(new URL("../../../", import.meta.url));
+  const snapshot = { runId: "preview-run", observedAt: "2026-09-14T12:00:00Z", processes: [
+    process({ pid: 11, label: "dotnet UiService.dll", command: "dotnet /fixture/UiService.dll", ports: [{ port: 10520, address: "127.0.0.1" }] }),
+    process({ pid: 12, label: "dotnet DashboardServer.dll", command: "dotnet /fixture/DashboardServer.dll", ports: [{ port: 10521, address: "127.0.0.1" }] }),
+  ] };
+  await build({
+    stdin: { contents: `
+import { createElement, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { AccessContext } from "./apps/web/src/AccessContext";
+import { createAccessContext } from "./packages/ragents/src/access";
+import "./apps/web/src/ui/tailwind.css";
+import { webPlugin } from "./plugins/ragents.processes/web/index";
+const snapshot = ${JSON.stringify(snapshot)};
+const plugin = webPlugin.activate({ routePrefix: "/api/plugins/ragents.processes" });
+const header = plugin.sessionHeaders[0];
+const fixture = window.processFixture = {
+  rights: ["runs.read", "runs.write", "ragents.processes.read"], sources: [], channels: [], stops: [], update: () => {}, readRight: header.readRight,
+};
+window.EventSource = class {
+  constructor(url) {
+    this.url = url; this.closed = false; this.listeners = {}; fixture.sources.push(this);
+    queueMicrotask(() => this.listeners.hello?.({ data: JSON.stringify({ connection: "c" + fixture.sources.length }) }));
+  }
+  addEventListener(name, callback) { this.listeners[name] = callback; }
+  close() { this.closed = true; }
+};
+window.fetch = async (url, options) => {
+  if (url.startsWith("/api/events/")) {
+    if (options.method === "POST") {
+      const { channel } = JSON.parse(options.body);
+      fixture.channels.push(channel);
+      const source = fixture.sources.at(-1);
+      queueMicrotask(() => source.onmessage?.({ data: JSON.stringify({ channel, data: { kind: "snapshot", snapshot } }) }));
+      return new Response(JSON.stringify({ subscribed: true, channel }), { status: 200 });
+    }
+    return new Response(JSON.stringify({ subscribed: false }), { status: 200 });
+  }
+  fixture.stops.push({ url, method: options.method });
+  return new Response(JSON.stringify({ stopped: true }), { status: 200 });
+};
+function Harness() {
+  const [, render] = useState(0);
+  fixture.update = rights => { fixture.rights = rights; render(value => value + 1); };
+  const access = createAccessContext({ enabled: true, user: { id: "reader", label: "Reader", rights: fixture.rights } });
+  return createElement(AccessContext.Provider, { value: { ...access, logout: async () => {} } },
+    access.can(header.readRight) ? createElement(header.Header, { session: { session: { id: snapshot.runId } } }) : null);
+}
+createRoot(document.getElementById("root")).render(createElement(Harness));`, resolveDir: root, loader: "tsx" },
+    outfile: `${directory}/fixture.js`, bundle: true, platform: "browser", format: "iife", jsx: "automatic", plugins: [tailwindPlugin([`${root}plugins/ragents.processes/web`])], logLevel: "silent",
+  });
+  const server = createServer(async (request, response) => {
+    if (request.url === "/fixture.js" || request.url === "/fixture.css") {
+      response.setHeader("Content-Type", request.url.endsWith("js") ? "text/javascript" : "text/css");
+      response.end(await readFile(`${directory}${request.url}`));
+      return;
+    }
+    if (request.url !== "/") { response.writeHead(404).end(); return; }
+    response.setHeader("Content-Type", "text/html");
+    response.end('<!doctype html><html lang="de"><head><meta charset="utf-8"><link rel="icon" href="data:,"><link rel="stylesheet" href="/fixture.css"></head><body style="margin:0;padding:0"><header class="flex min-h-header items-stretch bg-shell"><div id="root" class="flex min-w-0 flex-1 items-stretch"></div></header><script src="/fixture.js"></script></body></html>');
+  });
+  await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
+  context.after(async () => { server.closeAllConnections(); await new Promise<void>((resolve) => server.close(() => resolve())); });
+  const address = server.address();
+  assert.ok(address && typeof address !== "string");
+  const browser = await chromium.launch({ executablePath: nodeProcess.env.BROWSER_EXECUTABLE_PATH, headless: true });
+  context.after(() => browser.close());
+  const page = await browser.newPage({ viewport: { width: 850, height: 180 } });
+  page.setDefaultTimeout(7000);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(`http://127.0.0.1:${address.port}`);
+  await page.getByText("dotnet DashboardServer.dll", { exact: true }).waitFor();
+  assert.equal(await page.evaluate("window.processFixture.readRight"), "ragents.processes.read");
+  assert.deepEqual(await page.evaluate("window.processFixture.sources.map(source => source.url)"), ["/api/events"]);
+  assert.deepEqual(await page.evaluate("window.processFixture.channels"), ["processes:preview-run"]);
+  for (const port of [10520, 10521]) {
+    const link = page.getByRole("link", { name: `:${port}`, exact: true });
+    assert.equal(await link.getAttribute("href"), `http://127.0.0.1:${port}/`);
+    assert.equal(await link.isVisible(), true);
+  }
+  const stop = page.getByRole("button", { name: "dotnet UiService.dll beenden", exact: true });
+  assert.equal(await stop.isDisabled(), true);
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await page.screenshot({ path: `${directory}/processes-reader.png` });
+  await page.setViewportSize({ width: 320, height: 180 });
+  await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  assert.equal(await page.getByRole("link", { name: ":10520", exact: true }).isVisible(), true);
+  assert.equal(await page.getByText("Alle 2", { exact: true }).innerText(), "Alle 2");
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+  await page.getByText("Alle 2", { exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: `${directory}/processes-reader-narrow.png` });
+  await page.setViewportSize({ width: 850, height: 180 });
+  await page.evaluate("window.processFixture.update(['runs.read', 'runs.inspect', 'ragents.processes.read'])");
+  assert.equal(await stop.isDisabled(), true);
+  await page.evaluate("window.processFixture.update(['runs.read', 'runs.write', 'runs.inspect', 'ragents.processes.read'])");
+  await stop.click();
+  assert.deepEqual(await page.evaluate("window.processFixture.stops"), [{ url: "/api/plugins/ragents.processes/runs/preview-run/processes/process-11/stop", method: "POST" }]);
+  await page.evaluate("window.processFixture.update(['runs.read', 'runs.write', 'runs.inspect'])");
+  await page.waitForFunction(`document.querySelector('[aria-label="Prozesse und Ports des Laufs"]') === null`);
+  assert.equal(await page.evaluate("window.processFixture.sources[0].closed"), true);
+  await page.evaluate("window.processFixture.update(['ragents.processes.read'])");
+  assert.equal(await page.locator('[aria-label="Prozesse und Ports des Laufs"]').count(), 0);
+  assert.equal(await page.evaluate("window.processFixture.sources.length"), 1);
+  await page.evaluate("window.processFixture.update(['runs.read', 'ragents.processes.read'])");
+  await page.getByText("dotnet DashboardServer.dll", { exact: true }).waitFor();
+  assert.equal(await stop.isDisabled(), true);
+  assert.equal(await page.evaluate("window.processFixture.sources.length"), 2);
+  assert.deepEqual(errors, []);
+  context.diagnostic(`Process header screenshots: ${directory}`);
+});

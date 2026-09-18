@@ -1,0 +1,53 @@
+{
+  "name": "aicontainer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:agent": "pnpm --filter @aicontainer/ai --filter @aicontainer/agent-core --filter @aicontainer/agent build",
+    "build:web": "pnpm --filter @aicontainer/web build",
+    "check": "bash build/check.sh",
+    "dev:server": "pnpm --filter @aicontainer/server dev",
+    "dev:web": "pnpm --filter @aicontainer/web dev",
+    "lint": "pnpm exec eslint apps/web/src plugins/*/web apps/vscode/src",
+    "start": "pnpm --filter @aicontainer/server start",
+    "test:engine": "pnpm --filter @aicontainer/ragents test",
+    "update:models": "pnpm --filter @aicontainer/server exec node --import tsx ../../scripts/maintenance/update-model-catalog.ts",
+    "driver": "pnpm --filter @aicontainer/server exec node --import tsx ../../scripts/driver/run-driver.ts",
+    "generate:homepage": "bash build/homepage.sh",
+    "check:homepage": "bash build/homepage.sh --check",
+    "build": "bash build/build.sh",
+    "open:homepage": "bash build/homepage.sh --open"
+  },
+  "dependencies": {
+    "@aicontainer/agent": "workspace:*",
+    "@aicontainer/ai": "workspace:*",
+    "@aicontainer/plugins": "workspace:*",
+    "@aicontainer/ragents": "workspace:*",
+    "@aicontainer/server": "workspace:*",
+    "@aicontainer/web": "workspace:*",
+    "@tailwindcss/node": "^4.3.3",
+    "@tailwindcss/oxide": "^4.3.3",
+    "@xyflow/react": "^12.11.6",
+    "dompurify": "^3.4.13",
+    "elkjs": "^0.12.0",
+    "esbuild": "0.28.2",
+    "gsap": "3.15.0",
+    "highlight.js": "^11.12.0",
+    "lucide-react": "^1.46.0",
+    "playwright-core": "1.61.1",
+    "react": "^19.2.0",
+    "react-diff-view": "^3.3.3",
+    "react-dom": "^19.2.0",
+    "typebox": "^1.3.13",
+    "typescript-language-server": "6.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "eslint": "^10.9.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "marked": "^18.0.12",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.68.0"
+  }
+}

@@ -1,0 +1,65 @@
+[
+  {
+    "file": "01-demon-wildstyle-wall.png",
+    "title": "Dämonenkopf und Wildstyle",
+    "concept": "Blauer Affendämon mit irrem Grinsen links, daneben ein Chrom-Wildstyle-Schriftzug auf gelbem Strahlenhintergrund. Der Schriftzug liest sich klar als RAgents, das kleine g sitzt sauber im Wortbild.",
+    "prompt": "Photograph of a large graffiti mural on a rough concrete wall. On the left, a wild cartoon demon character head: blue ape-like demon with a huge insane grin, crooked yellow teeth, narrow malicious slit eyes, big sticking-out ears, thick heavy black outlines, painted with spray cans. On the right, a full wildstyle graffiti piece spelling exactly the word \"RAgents\" - capital R, capital A, then lowercase g e n t s - interlocking silver chrome letters with black outlines, arrows and 3D depth. The word must read clearly and be spelled exactly R-A-g-e-n-t-s, no other letters, no extra words. Bright yellow background with blue rays and red smoke swirls, drips and splatter. Street art photography, daylight, gritty urban, no corporate look.",
+    "model": "nano_banana_pro"
+  },
+  {
+    "file": "02-robot-blockbuster-paint.png",
+    "title": "Roboter malt den Blockbuster",
+    "concept": "Ein verbeulter Cartoon-Roboter setzt mit der Dose gerade den letzten Buchstaben eines fetten Blockbusters in hellblauer Chromwolke. Sauberste Lesbarkeit im ganzen Satz.",
+    "prompt": "Photograph of a graffiti mural on a brick wall: a battered cartoon robot character with one glowing eye and antenna, holding a spray can, actively finishing the last letter of a massive blockbuster graffiti piece. The piece reads exactly the word \"RAgents\" - capital R, capital A, then lowercase g e n t s - fat black 3D block letters with a light blue and white chrome cloud behind them, splatters and drips. The lettering must be perfectly legible and spelled exactly R-A-g-e-n-t-s, no other words, no misspelling. Thick black outlines, cartoon character style, urban daylight street photography, gritty underground vibe.",
+    "model": "nano_banana_pro"
+  },
+  {
+    "file": "03-demon-sits-on-letters.png",
+    "title": "Dämon sitzt auf dem Schriftzug",
+    "concept": "Der grinsende Dämon hockt mit der Dose oben auf den Chrombuchstaben, Beine baumeln über dem A. Buchstaben stehen breit und blockig, das Wort ist auf Distanz lesbar.",
+    "prompt": "Photograph of a hall-of-fame graffiti wall. A crazy grinning blue demon monkey character with crooked yellow teeth and huge ears sits casually on top of a huge graffiti piece, legs dangling over the letters, holding a spray can. The piece spells exactly the word \"RAgents\" - capital R, capital A, then lowercase g e n t s - chunky silver chrome letters with black outlines and 3D drop shadow. The word must be clearly readable and spelled exactly R-A-g-e-n-t-s, no other text. Yellow and red background bursts, drips, splatter, thick black outlines. Daylight street photography, underground graffiti culture, loud and raw.",
+    "model": "nano_banana_pro"
+  },
+  {
+    "file": "04-demon-breaks-through.png",
+    "title": "Durchbruch mitten im Wort",
+    "concept": "Ein blauer Teufelskopf bricht zwischen A und g durch die Wand, Brocken fliegen. Das Wort bleibt trotz Durchbruch als RAgents lesbar, weil der Kopf genau die Stelle des g besetzt.",
+    "prompt": "Photograph of a graffiti mural where a wild cartoon demon character bursts head-first straight through the middle of the painted letters, breaking them like a wall, chunks and cracks flying. The graffiti piece spells exactly the word \"RAgents\" - capital R, capital A, then lowercase g e n t s - fat blockbuster letters in black and chrome with thick outlines. The word must remain fully legible, spelled exactly R-A-g-e-n-t-s, no other words. The demon has a huge insane grin, crooked yellow teeth, slit eyes, blue skin, thick black outlines. Bright yellow background with blue rays and red smoke. Street photography, concrete wall, gritty underground.",
+    "model": "nano_banana_pro"
+  },
+  {
+    "file": "05-three-helpers-carry-letters.png",
+    "title": "Drei Helfer schleppen die Buchstaben",
+    "concept": "Drei grüne Kobolde tragen je einen Buchstaben und bauen den Schriftzug zusammen, direktes Bild für den Koordinator mit seinen Agenten. Volle Lesbarkeit, die Figuren stehen unter statt vor den Buchstaben.",
+    "prompt": "Photograph of a graffiti mural on a concrete wall: three small mischievous cartoon helper creatures, little goblin-imps with big grins and thick black outlines, each carrying one huge painted letter on their backs, struggling under the weight, assembling a graffiti piece. The finished lettering spells exactly the word \"RAgents\" - capital R, capital A, then lowercase g e n t s - chunky chrome and black 3D letters. The word must be perfectly legible and spelled exactly R-A-g-e-n-t-s, no other words. Yellow background with red and blue bursts, drips and splatter. Street art photography, daylight, raw underground style.",
+    "model": "nano_banana_pro"
+  },
+  {
+    "file": "06-blackbook-sketch.png",
+    "title": "Blackbook-Skizze",
+    "concept": "Aufgeschlagenes Skizzenbuch mit Marker-Entwurf: Dämonenkopf links, verschlungener Wildstyle rechts. Am verschnörkeltsten von allen, aber R, A, g, e, n, t, s sind der Reihe nach nachvollziehbar.",
+    "prompt": "Close-up photograph of an open graffiti blackbook sketchbook page lying on a table, shot from above. Hand-drawn marker and pencil sketch: a grinning demon monkey character with crooked teeth on the left, next to a wildstyle lettering sketch that spells exactly the word \"RAgents\" - capital R, capital A, then lowercase g e n t s - drawn with black marker outlines, grey chrome shading, arrows and 3D blocks. The word must be clearly readable and spelled exactly R-A-g-e-n-t-s, no other words. Visible paper texture, eraser marks, marker bleed, coffee stain, scattered markers and caps around. Authentic graffiti sketch, underground, hand-made.",
+    "model": "nano_banana_pro"
+  },
+  {
+    "file": "07-night-train-piece.png",
+    "title": "Nachts auf dem roten Zug",
+    "concept": "Roter Doppelstockwagen im Regen unter Flutlicht, Chrom-Piece über die volle Wagenlänge, Dämonenkopf am linken Ende. Lesbar, das g ist hier als großes G gemalt.",
+    "prompt": "Night photograph in a train yard: a red double-decker commuter train car painted with a huge fresh graffiti piece, lit by harsh floodlight, wet ground reflections. The piece spells exactly the word \"RAgents\" - capital R, capital A, then lowercase g e n t s - silver chrome wildstyle letters with heavy black outlines, arrows and 3D depth, running the full length of the car. At the left end a painted grinning blue demon character head with crooked yellow teeth and slit eyes, thick black outlines. The word must be perfectly legible and spelled exactly R-A-g-e-n-t-s, no other words. Gritty documentary night photography, train graffiti culture.",
+    "model": "nano_banana_pro"
+  },
+  {
+    "file": "08-hall-of-fame-day.png",
+    "title": "Hall of Fame am Tag",
+    "concept": "Bahnmauer bei Tageslicht, Blockbuster in hellblauer Chromwolke, rechts ein Roboter-Dämon mit Schlauch-Armen. Klarste Typo der Serie, funktioniert auch klein.",
+    "prompt": "Daylight photograph of a legal hall-of-fame graffiti wall along a railway line. A full character-plus-piece mural: on the right a big cartoon robot-demon hybrid character with a manic grin, glowing eyes and antenna arms, thick black outlines; on the left a fat blockbuster piece spelling exactly the word \"RAgents\" - capital R, capital A, then lowercase g e n t s - black 3D block letters with light blue and white chrome cloud, splatters and drips. The word must be fully legible and spelled exactly R-A-g-e-n-t-s, no other words. Weeds, cracked asphalt, layered old tags underneath. Street photography, loud, underground, no corporate look.",
+    "model": "nano_banana_pro"
+  },
+  {
+    "file": "09-crew-boss-and-imps.png",
+    "title": "Crew-Boss dirigiert die Imps",
+    "concept": "Der blaue Dämon dirigiert mit Stab drei kleine Teufel, die den Schriftzug sprühen, rechts ein fotorealistischer Totenkopf. Erzählt die Orchestrierung am direktesten, Wort bleibt voll lesbar.",
+    "prompt": "Photograph of a huge graffiti mural on a factory wall. A grinning blue demon character on the left conducts three smaller cartoon imp characters who are spraying the letters, like a crew boss orchestrating helpers, paint clouds and spray mist everywhere. The piece spells exactly the word \"RAgents\" - capital R, capital A, then lowercase g e n t s - silver chrome wildstyle letters with heavy black outlines, arrows, drips and a photorealistic grey skull painted at the right edge. The word must be fully legible and spelled exactly R-A-g-e-n-t-s, no other words. Thick black outlines, yellow and red background, gritty daylight street photography, underground graffiti.",
+    "model": "nano_banana_pro"
+  }
+]

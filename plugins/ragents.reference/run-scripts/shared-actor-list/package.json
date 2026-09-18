@@ -1,0 +1,9 @@
+{
+  "name": "shared-actor-list",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Sammelboard einrichten",
+    "backend": "src/server.ts"
+  }
+}

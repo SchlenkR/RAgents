@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="de" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Mini-Apps bauen: öffentliche Referenz und Beispiele für RAgents."><title>Mini-Apps bauen - RAgents</title><link rel="describedby" href="llms.txt"><link rel="alternate" type="text/markdown" href="guide-programs.md"><style>/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+:root, :host {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+:root {
+  color-scheme: light;
+  --radius: 0.5rem;
+  --background: #f3f2f7;
+  --foreground: #34303d;
+  --card: #e7eaf2;
+  --primary: #79638d;
+  --primary-foreground: #ffffff;
+  --secondary: #e1ddeb;
+  --muted-foreground: #62586e;
+  --accent: #dcd0e8;
+  --destructive: #a94360;
+  --destructive-soft: #f5e1e9;
+  --success: #3b705f;
+  --success-soft: #e1eee8;
+  --warning: #925d37;
+  --warning-soft: #f3e4d8;
+  --info: #4b648a;
+  --teal: #356c70;
+  --border: #c9c4d5;
+  --border-soft: #dad6e3;
+  --border-strong: #a397b2;
+  --shell: #cbd6e4;
+  --app: #dce3ed;
+  --canvas: #e8e2e6;
+  --canvas-dot: #79aab43b;
+  --canvas-glow-mint: #92cfbfad;
+  --canvas-glow-blue: #8bbfe5a6;
+  --canvas-light: #ffffffb3;
+  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
+        radial-gradient(ellipse at 4% 88%, #9ccfc5b3, transparent 58%),
+        radial-gradient(ellipse at 96% 12%, #9ec6e4b3, transparent 56%),
+        radial-gradient(ellipse at 28% 0%, #c4b0dfb3, transparent 58%),
+        radial-gradient(ellipse at 88% 100%, #efd3c6a6, transparent 52%),
+        linear-gradient(135deg, #edf0f2, #e1dbe8);
+  --backdrop: #28213966;
+  --glass-agent: #eec4b1;
+  --glass-primary: #dcd0e8;
+  --glass-script: #e9dca1;
+  --glass-app: #e7edf2;
+  --glass-edge: #a498aa;
+  --glass-icon: #e8dfed;
+  --glass-head: #ede5ef;
+  --glass-group: #e7edf240;
+  --bar-shadow: 0 2px 5px #49384e14, 0 8px 20px #49384e12;
+  --status-shadow: 0 -2px 5px #49384e14, 0 -8px 20px #49384e12;
+  --pop-shadow: 0 12px 36px #49384e26;
+  --card-shadow: 0 12px 22px #49384e2c;
+  --workspace-shadow: -2px 0 5px #49384e14, -8px 0 20px #49384e1f;
+  --glass-icon-shadow: 1px 2px 4px #51465725;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #292735;
+  --foreground: #e9e2ed;
+  --card: #2b303e;
+  --primary: #bda6cf;
+  --primary-foreground: #2d2235;
+  --secondary: #373247;
+  --muted-foreground: #b6a9bd;
+  --accent: #4b3d59;
+  --destructive: #ffa2b0;
+  --destructive-soft: #482d3b;
+  --success: #8dceae;
+  --success-soft: #233f37;
+  --warning: #e7bd81;
+  --warning-soft: #43382b;
+  --info: #9dbade;
+  --teal: #8ec9c4;
+  --border: #555065;
+  --border-soft: #403c50;
+  --border-strong: #8e809f;
+  --shell: #242e40;
+  --app: #212632;
+  --canvas: #29232e;
+  --canvas-dot: #7cafbc30;
+  --canvas-glow-mint: #317d686b;
+  --canvas-glow-blue: #417daa80;
+  --canvas-light: #80bfc71f;
+  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
+        radial-gradient(ellipse at 4% 88%, #2c625e99, transparent 58%),
+        radial-gradient(ellipse at 96% 12%, #355674a6, transparent 56%),
+        radial-gradient(ellipse at 28% 0%, #59446f99, transparent 58%),
+        radial-gradient(ellipse at 88% 100%, #694c443d, transparent 52%),
+        linear-gradient(135deg, #252b35, #302735);
+  --backdrop: #14101eb3;
+  --glass-agent: #594039;
+  --glass-primary: #47394f;
+  --glass-script: #4d462b;
+  --glass-app: #303943;
+  --glass-edge: #8a7994;
+  --glass-icon: #47394f;
+  --glass-head: #39303f;
+  --glass-group: #bda6cf08;
+  --bar-shadow: 0 2px 5px #00000033, 0 8px 20px #00000040;
+  --status-shadow: 0 -2px 5px #00000033, 0 -8px 20px #00000040;
+  --pop-shadow: 0 12px 36px #00000055;
+  --card-shadow: 0 12px 22px #00000055;
+  --workspace-shadow: -2px 0 5px #00000033, -8px 0 20px #0000004d;
+  --glass-icon-shadow: 1px 2px 4px #00000040;
+}
+@layer base {
+  body {
+    background: var(--app);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+}
+
+
+*{box-sizing:border-box}body{margin:0;background:var(--app);color:var(--foreground);font:16px/1.65 var(--font-sans)}a{color:#1467b0;text-underline-offset:4px}a:hover{color:var(--foreground)}:focus-visible{outline:3px solid var(--primary);outline-offset:4px}main,body>footer{padding-block:24px}nav{display:flex;gap:12px 24px;flex-wrap:wrap}h1{font-size:clamp(38px,7vw,66px);line-height:1.1;letter-spacing:-.04em;margin:16px 0 24px}h2{font-size:30px;line-height:1.2;margin:0 0 20px;letter-spacing:-.02em}h3{font-size:20px;line-height:1.4}p{max-width:76ch}.intro{padding:36px 0 44px}.eyebrow{font:12px var(--font-mono);text-transform:uppercase;letter-spacing:.1em}.lead{font-size:20px;line-height:1.6}.stats{font:13px var(--font-mono);margin:24px 0}.section-nav{border-top:1px solid var(--border);padding:20px 0}main>section{padding:44px 0;border-top:1px solid var(--border)}article{min-width:0;padding:24px 0;border-top:1px solid var(--border-soft)}article h3{margin:0 0 8px;overflow-wrap:anywhere}.meta,.example-context{font:12px/1.7 var(--font-mono);color:#536b80;overflow-wrap:anywhere}details{margin:14px 0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--background)}summary{cursor:pointer;padding:12px 16px;font-weight:600}details>p,details>div,details>table{margin:16px}pre{max-width:100%;overflow:auto;padding:20px;background:var(--card);font:12px/1.7 var(--font-mono);tab-size:2;margin:0}code{font-family:var(--font-mono);font-size:.9em;overflow-wrap:anywhere}pre code{font-size:inherit;overflow-wrap:normal}label{display:block;font-weight:600;margin-bottom:6px}input[type=search],select{font:inherit;color:inherit;border:1px solid var(--border);border-radius:6px;background:var(--background);padding:10px 12px;max-width:100%}input[type=search]{width:100%}.tool-label{display:block;font-size:13px;font-weight:400;color:#536b80;margin-top:3px}[data-tool]{padding:0;border:0}[data-tool]>details{margin:8px 0}[data-tool]>details>a{display:inline-block;margin:0 16px 16px}[data-tool]>details>details{margin:16px}.filter-row{display:flex;gap:16px;flex-wrap:wrap;align-items:end}.filter-row>div:first-child{flex:1;min-width:min(280px,100%)}.note{padding:16px 20px;background:var(--card);border-left:3px solid var(--primary)}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--border);padding:10px;overflow-wrap:anywhere}th{font-weight:600}.table-wrap{overflow:auto}body>footer{padding-top:30px;padding-bottom:60px;border-top:1px solid var(--border)}[hidden]{display:none!important}@media(max-width:600px){h2{font-size:26px}main>section{padding:32px 0}pre{padding:14px;font-size:11px}.lead{font-size:18px}}
+</style><style>
+.guide-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:44px;align-items:start;padding-block:12px 32px}.guide-sidebar{position:sticky;top:calc(var(--header-height,80px) + 16px);max-height:calc(100dvh - var(--header-height,80px) - 32px);overflow:auto}.guide-chapters{display:grid;gap:16px;font-size:13px;line-height:1.4}.guide-chapters a{display:block;padding:6px 10px;text-decoration:none;border-radius:6px}.guide-nav-group{display:grid;gap:2px}.guide-nav-group>p{margin:0 10px 4px;font-size:11px;font-weight:700;color:#536b80}.guide-chapters [aria-current]{background:var(--card);color:var(--foreground);font-weight:600}.guide-mobile-nav{display:none}.guide-body{padding:0;border:0}.guide-title{margin:0 0 20px}.guide-title h1{font-size:32px;line-height:1.2;letter-spacing:-.025em;margin:6px 0 10px}.guide-title p{margin:0;font-size:15px}.guide-title .eyebrow{font-size:11px}.guide-body h2{font-size:24px;margin-top:32px;scroll-margin-top:20px}.guide-body h3{margin-top:24px}.guide-body pre{margin:20px 0}.guide-body li{margin-block:8px}.guide-body table{display:block;overflow:auto}.guide-body blockquote{margin-inline:0;padding:8px 20px;border-left:3px solid var(--primary);background:var(--card)}.guide-source{margin-top:40px;font-size:13px;color:#536b80}.guide-next{justify-content:space-between;border-top:1px solid var(--border);padding:20px 0;margin-top:24px}.guide-index{max-width:80ch;padding-left:24px}.guide-index li{padding:8px 0 16px 8px;border-bottom:1px solid var(--border)}.guide-index h2{font-size:20px;margin:0 0 6px}.guide-index p{margin-block:0}.guide-page-nav{margin:0 0 24px;font-size:13px}.guide-page-nav summary{padding:8px 12px}.guide-page-nav nav{display:grid;gap:8px;padding:4px 12px 12px}@media(max-width:850px){.guide-layout{grid-template-columns:1fr;gap:18px;padding-top:0}.guide-sidebar{display:none}.guide-mobile-nav{display:block;margin:0}.guide-mobile-nav summary{padding:10px 12px;font-size:14px}.guide-mobile-nav .guide-chapters{padding:0 12px 12px}.guide-title h1{font-size:28px}.guide-body h2{margin-top:28px}}@media print{.guide-layout{display:block}.guide-sidebar,.guide-mobile-nav,.guide-next{display:none}}
+</style><link rel="stylesheet" href="site.css"><script src="site.js" defer></script></head><body><a class="skip" href="#main">Zum Inhalt</a><header class="masthead shell">
+    <a class="brand" href="index.html#main" aria-label="RAgents, zum Anfang"><svg class="brand-icon" viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect width="28" height="28" rx="8" fill="currentColor"/><path d="M8 19V9h6a3 3 0 0 1 0 6H8m6 0 5 4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>RAgents</a>
+    <nav aria-label="Hauptnavigation">
+      <a href="index.html">Produkt</a>
+      <a href="guide.html" aria-current="page">Guide</a>
+      <a href="reference.html#samples">Samples</a>
+      <a href="reference.html">Referenz</a>
+    </nav>
+  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide-Navigation"><a href="guide.html">Orientierung</a><div class="guide-nav-group"><p>Verstehen</p><a href="guide-ideas.html">Grundideen</a><a href="guide-runtime.html">Actors und Nachrichten</a></div><div class="guide-nav-group"><p>Ausprobieren</p><a href="guide-getting-started.html">Samples starten</a><a href="reference.html#samples">Startbare Samples</a></div><div class="guide-nav-group"><p>Selbst bauen</p><a href="guide-functions.html">Mit TypeScript arbeiten</a><a href="guide-programs.html" aria-current="page">Mini-Apps bauen</a><a href="guide-extensions.html">Plugins und Skills</a></div><div class="guide-nav-group"><p>Nachschlagen</p><a href="guide-access.html">Rechte vergeben</a><a href="reference.html#tools">Funktionen</a><a href="reference.html#ui">UI-Bausteine</a><a href="developer.html">Erweiterungsverträge</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Mini-Apps bauen</summary><nav class="guide-chapters" aria-label="Guide-Navigation"><a href="guide.html">Orientierung</a><div class="guide-nav-group"><p>Verstehen</p><a href="guide-ideas.html">Grundideen</a><a href="guide-runtime.html">Actors und Nachrichten</a></div><div class="guide-nav-group"><p>Ausprobieren</p><a href="guide-getting-started.html">Samples starten</a><a href="reference.html#samples">Startbare Samples</a></div><div class="guide-nav-group"><p>Selbst bauen</p><a href="guide-functions.html">Mit TypeScript arbeiten</a><a href="guide-programs.html" aria-current="page">Mini-Apps bauen</a><a href="guide-extensions.html">Plugins und Skills</a></div><div class="guide-nav-group"><p>Nachschlagen</p><a href="guide-access.html">Rechte vergeben</a><a href="reference.html#tools">Funktionen</a><a href="reference.html#ui">UI-Bausteine</a><a href="developer.html">Erweiterungsverträge</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Mini-Apps bauen</h1><p>Actor-Zustand und Funktionen in bedienbaren React-Views zugänglich machen.</p></header><details class="guide-page-nav"><summary>Auf dieser Seite</summary><nav aria-label="Auf dieser Seite"><a href="#programme-und-mini-apps">Programme und Mini-Apps</a><a href="#pakete-und-actor-bindung">Pakete und Actor-Bindung</a><a href="#backend-und-client">Backend und Client</a><a href="#erstellen-bearbeiten-und-aktivieren">Erstellen, bearbeiten und aktivieren</a><a href="#zustand-und-lebenszyklus">Zustand und Lebenszyklus</a></nav></details><h2 id="programme-und-mini-apps">Programme und Mini-Apps</h2>
+<p>Ein ausführbarer Actor kann ein TypeScript-Programm mit Funktionen, eigenem journalisiertem
+Zustand und React-Views besitzen. Das gilt für TypeScript- und LLM-Actors. Diese Oberflächen
+heißen für Benutzer Mini-Apps. Eine Mini-App zeigt den
+Zustand ihres Actors und ruft dessen Funktionen direkt auf; ein solcher Aufruf benötigt keinen
+Modell-Turn. ActorInputs bleiben Nachrichten an den Actor: Ein LLM-Actor verarbeitet sie mit
+seinem Modell, ein TypeScript-Actor mit seinem optionalen <code>onInput</code>-Handler.</p>
+<p>Das Plugin <code>ragents.actor-programs</code> besitzt Pakete, Aktivierung, Funktionsbindung und View-Host.
+Die gemeinsame native Ausführung steht in <code>typescript-platform.md</code>, Actorzustand und
+ActorInputs in <code>core.md</code>. Alle aufrufbaren Funktionen und Views gehören zum selben Actor-Modell.</p>
+<h2 id="pakete-und-actor-bindung">Pakete und Actor-Bindung</h2>
+<p>Programme sind private Pakete in einem vorbereiteten pnpm-Workspace des Runs. Dateiwerkzeuge
+und Language Server erreichen sie über <code>@actors/&lt;name&gt;/</code>, Bash über <code>RAGENTS_ACTORS_DIR</code>.
+Die Workspace-Schnittstelle liefert direkt die Sammlung der Programmpakete. Normale relative
+Imports binden eigene Module ein; feste lokale Abhängigkeiten stammen aus der Hostinstallation.</p>
+<pre><code class="language-text">@actors/&lt;name&gt;/
+  package.json
+  tsconfig.json
+  tsconfig.client.json
+  tsconfig.server.json
+  src/contract.ts       Backend-Vertrag, falls nötig
+  src/server.ts         Backend, falls nötig
+  src/client.tsx        Einstieg einer View, falls nötig
+  src/styles.css        optional, nur für fremd erzeugtes Markup
+  tests/program.test.ts
+</code></pre>
+<p><code>package.json</code> enthält <code>name</code>, <code>private: true</code>, <code>type: &quot;module&quot;</code> und <code>ragents</code>-Metadaten mit
+Titel, optionaler Beschreibung, optionalem Backend und optionalen benannten Views. Jede View
+hat eine Kennung und einen Client-Einstieg; Titel, Stylesheet und Größe sind optional.
+Mindestens ein Backend oder eine View muss vorhanden sein. Der Host liefert pro View das
+HTML mit dem Wurzelelement <code>root</code>. Die verbindlichen Schemata stehen in
+<code>plugins/ragents.actor-programs/server/app-project.ts</code>.</p>
+<p><code>actor_program_activate</code> bindet ein Paket mit <code>actor: &quot;self&quot;</code> oder <code>actor: &quot;@handle&quot;</code> an einen
+vorhandenen Actor. Ohne ausdrückliche Actor-Angabe bleibt eine bestehende Programmbindung
+erhalten; bei einem neuen Backend entsteht ein TypeScript-Actor mit dem Programmnamen als
+Handle. Ein neues reines View-Paket bindet an den aufrufenden Actor. Eine statische Ansicht
+benötigt weder einen Dummy-Actor noch eine künstliche Backendfunktion.</p>
+<p>Ein Programm mit Input-Handler wird bei der Aktivierung an einem LLM-Actor mit einem Fehler
+abgewiesen: Dessen normale Nachrichten bleiben beim Modelltreiber. Ein Paket ohne Input-Handler
+kann ihm Funktionen und Views bereitstellen. Reine Funktionen können auch ohne View vorhanden
+sein. Pro Actor ist genau ein Programmpaket aktiv; ein anderes Paket wird abgewiesen.
+Zusätzliche Funktionen und Views werden im bestehenden Paket ergänzt. Eine erneute Aktivierung
+dieses Pakets übernimmt den geänderten Stand, einschließlich entfernter Funktionen und Views.</p>
+<h2 id="backend-und-client">Backend und Client</h2>
+<p>Der Backend-Einstieg exportiert <code>defineActor(contract, implementation)</code> aus <code>@ragents/server</code>
+als Standardexport. Der TypeBox-Vertrag beschreibt <code>state</code>, <code>functions</code> und optional <code>input</code>.</p>
+<p>Der Zustand muss den Anfangswert <code>{}</code> akzeptieren. Jede Funktion nennt ihre Ein- und Ausgabe;
+optional kommen freigegebene Capabilities, Bestätigung und die Veröffentlichung als Werkzeug
+hinzu. Die Implementierung enthält dieselben Funktionen und bei deklariertem Input einen
+<code>onInput</code>-Handler. TypeScript leitet Eingabe-, Ergebnis- und Zustandstypen aus dem Vertrag ab.</p>
+<p>Jede Funktion erhält <code>(input, context)</code> und gibt ausschließlich ihr fachliches Ergebnis
+zurück. <code>context.state.replace</code> merkt Zustandsänderungen vor; die Rückgabe wird niemals
+zusätzlich als neuer Zustand interpretiert. <code>context.actor</code> nennt den Actor, dem Funktion und
+Zustand gehören. <code>context.functions.&lt;name&gt;(input)</code> verwendet die deklarierten Run-Funktionen unter der
+Identität des Aufrufers. <code>onInput</code> handelt als sein Actor; eine von außen aufgerufene Funktion
+behält dessen Zustand, aber nicht dessen Aufrufidentität. Dieselbe API steht Snippets zur Verfügung.
+<code>context.std</code> stellt die vorhandenen Standardfunktionen einschließlich der Vermittler bereit.</p>
+<p>Eine optionale <code>tool</code>-Angabe veröffentlicht dieselbe Funktion in der typisierten Run-API.
+Ohne <code>targets</code> steht es aktiven ausführbaren Actors zur Verfügung; <code>self</code> bezeichnet den
+Besitzer des Programms. Ein anderer Aufrufer erhält dadurch keine eigene Kopie der Funktion
+oder ihres Zustands. Bindungen verwenden Namen und Handles, keine abgeschriebenen Ausgabe-IDs.</p>
+<p>React, <code>createRoot</code> und eigene Module werden normal importiert. <code>context</code> und <code>useAppState</code>
+kommen aus <code>@ragents/client</code>, Controls aus <code>@ragents/client/ui</code>. Der Hook liest den gemeinsamen
+Actor-Zustand; <code>context.capabilities.call(functionName, input)</code> ruft dessen deklarierte Funktion
+auf. <code>context.actor</code> identifiziert den Actor der View. Lokale Entwürfe, Auswahl und Fokus bleiben
+im React-Zustand. Ein Actor-Chat kann mit diesem Handle genau das Gespräch seines Actors zeigen.</p>
+<p>Die View läuft im Host-Iframe mit eingeschränkten Browserrechten. Sein zugänglicher Name
+kommt aus <code>aria-label</code>; ein leerer <code>title</code> verhindert einen Browser-Tooltip über dem Inhalt.
+Native Formularübermittlung
+ist nicht freigegeben. Aktionen verwenden deshalb ausdrückliche Ereignishandler; bei einer
+Suche lösen Enter und ein Knopf mit <code>type=&quot;button&quot;</code> denselben Handler aus. Der Enter-Handler
+unterbindet die native Standardaktion. Prüfe diese Bedienung im Host-Frame, nicht nur in einer
+frei gerenderten React-Ansicht.</p>
+<h2 id="erstellen-bearbeiten-und-aktivieren">Erstellen, bearbeiten und aktivieren</h2>
+<p><code>actor_program_create</code> legt ein neues Paket aus einer Vorlage an und überschreibt keine
+vorhandenen Quellen. Die sechs Vorlagen in <code>server/templates.ts</code> und <code>controls-template.ts</code>
+zeigen unterschiedliche Formen:</p>
+<ul>
+<li><code>blank</code>: reine statische View am vorhandenen Actor.</li>
+<li><code>chat</code>: Chat-View ihres Actors ohne eigene Serverfunktion.</li>
+<li><code>controls</code>: lokale Demo der vorhandenen UI-Bausteine.</li>
+<li><code>headless-counter</code>: TypeScript-Actor mit Input-Handler, Funktionen und Zustand ohne View.</li>
+<li><code>text-analysis</code>: TypeScript-Funktion mit gemeinsamem Zähler und React-View.</li>
+<li><code>shared-list</code>: dieselbe Listenfunktion für View und Agentenwerkzeug.</li>
+</ul>
+<p><code>actor_program_activate</code> prüft Typen, baut Backend und Views, führt die vorhandenen Fachtests
+aus und aktiviert erst danach den geprüften Stand. Fehler nennen die zu korrigierende Stelle.</p>
+<p>Veröffentlichte Funktionen stehen bereits im laufenden LLM-Turn in der aktuellen TypeScript-API.
+<code>typescript_api</code> liefert ihre exakten Verträge; Snippets rufen sie über <code>context.functions</code> auf.
+Erneute Aktivierung aktualisiert die Schemata; entfernte Funktionen verschwinden aus demselben Bestand. Ein zusätzlicher Aufrufvertrag ist nicht nötig.</p>
+<p><code>actor_program_list</code> zeigt die installierten Programme. <code>actor_program_remove</code> entfernt die
+Programmbindung und ihre Views. Bei einem TypeScript-Actor stoppt es zusätzlich den Actor;
+ein bestehender LLM-Actor bleibt bestehen. Die Quellen bleiben im privaten Workspace bearbeitbar.
+<code>actor_view_set_visibility</code> adressiert eine View mit <code>Paketname/Viewname</code> oder eindeutigem
+Titel. Die Sichtbarkeit verändert
+weder Funktionen noch Actor-Zustand. Hashes und technische Bindungen verwaltet der Host.</p>
+<h3 id="ablaufdefinition-anleitung-und-darstellung-verbinden">Ablaufdefinition, Anleitung und Darstellung verbinden</h3>
+<p><code>@ragents/workflow</code> liefert einen gemeinsamen TypeScript-Vertrag für beschreibende Abläufe.
+Eine <code>WorkflowDefinition</code> enthält Rollen, Schritte, Ziele, Abschlussquellen, Freiheitsgrade,
+Promptreferenzen und Übergänge. <code>defineWorkflow</code> prüft diese Definition. Der Vertrag liegt
+kanonisch in <code>plugins/ragents.actor-programs/workflow/index.ts</code>; das installierte SDK erhält
+daraus seine Typdeklarationen. Das Modul braucht weder React noch einen Server.</p>
+<p>Lange Anweisungen liegen in eigenen Markdown-Dateien im Actor-Paket. Ein Schritt verweist
+darauf über <code>prompt</code>; die Rolle kann zusätzlich einen gemeinsamen Prompt besitzen. Die
+Referenzen sind relative Paketpfade, keine vom Modell abzuschreibenden Dateiinhalte.</p>
+<pre><code class="language-ts">import { defineWorkflow, workflowInstructions } from &quot;@ragents/workflow&quot;;
+import { readPrompt } from &quot;@ragents/workflow/prompts&quot;;
+
+const definition = defineWorkflow({
+  id: &quot;draft&quot;,
+  title: &quot;Entwurf erstellen&quot;,
+  roles: { writer: { title: &quot;Autor&quot;, prompt: &quot;prompts/writer.md&quot; } },
+  steps: [{
+    id: &quot;write&quot;,
+    title: &quot;Entwurf ausarbeiten&quot;,
+    role: &quot;writer&quot;,
+    goal: &quot;Einen vollständigen Entwurf zum Auftrag liefern.&quot;,
+    prompt: &quot;prompts/write.md&quot;,
+    completion: { source: &quot;agent&quot;, description: &quot;Der Autor meldet den fertigen Entwurf.&quot; },
+    freedom: { mode: &quot;extend&quot;, description: &quot;Passende Untersuchungen ergänzen.&quot;, allowSkip: true, maxItems: 12 },
+  }],
+  transitions: [],
+});
+
+const prompt = await workflowInstructions(definition, &quot;writer&quot;, readPrompt);
+</code></pre>
+<p><code>readPrompt</code> ist ausschließlich serverseitig verfügbar und an das installierte Actor-Paket
+gebunden. Es liest Dateien innerhalb dieses Pakets; fehlende, leere oder hinausführende
+Referenzen sind Fehler. <code>workflowInstructions</code> kombiniert den Rollenprompt, die Anweisungen
+der zuständigen Schritte und die Metadaten der Definition. <code>.hbs</code> ist ebenfalls als Referenz
+zulässig, wird vom Standardleser jedoch als Text geladen. Benötigte Templatewerte löst ein
+Plugin ausdrücklich in seiner eigenen Lesefunktion auf. Der fertig zusammengesetzte Text
+wird als normaler <code>agent_spawn.prompt</code> übergeben und steht damit beim gestarteten Actor im Journal.</p>
+<p>Der aktuelle <code>WorkflowState</code> bleibt getrennt davon. Das Programm leitet ihn aus seinen
+tatsächlichen Daten und Dienstergebnissen ab. <code>WorkflowDiagram</code> aus <code>@ragents/client/ui</code>
+nimmt <code>definition</code>, <code>state</code> und <code>label</code> entgegen; <code>workflowGraph</code> liefert dieselbe Projektion
+als Knoten und Kanten für eigene Darstellungen. Standardmäßig passt <code>WorkflowDiagram</code> seine
+Breite automatisch an und lässt den äußeren Inhalt vertikal scrollen. Die Prompttexte selbst
+werden nicht in die Diagrammkarten geladen.</p>
+<p><code>freedom.mode: &quot;extend&quot;</code> erlaubt eigene Punkte im jeweiligen Schritt; <code>allowSkip</code> betrifft
+ausschließlich eigene optionale Punkte. Eine Begründung gehört zum Zustand eines entfallenen
+Punkts. <code>fixed</code> beschreibt verbindliche Schritte. Eine <code>expansion</code> benennt eine dynamische
+Quelle, eine Rolle und die maximale Parallelität. Das Programm liefert die aktuellen Gruppen
+und ihre Einzelpunkte in <code>state.expansions</code>; neu hinzukommende Einträge erscheinen ohne
+Änderung der Grafik. Normale Übergänge bilden einen azyklischen Ablauf, <code>kind: &quot;return&quot;</code>
+kennzeichnet Rückwege. Übergangsbedingungen sind beschreibender Text.</p>
+<p>Die Definition startet keine Actors und führt keine Bedingungen aus. Steuerprogramme müssen
+Parallelitätsgrenzen, erlaubte Änderungen und Abschlussquellen tatsächlich durchsetzen.
+Ein vom Modell gesetzter Status ersetzt keine Dienstprüfung oder Benutzerentscheidung.
+Diagramm, Anleitung und Ausführung lesen dieselbe Definition; die konkrete Ausführung bleibt
+beim bestehenden Actor. Der Lernnachmittag im Core-Profil zeigt dies mit zwei parallelen
+LLM-Beiträgen und anschließender Sammlung. Seine Definition und Promptdateien stehen unter
+<code>plugins/ragents.reference/run-scripts/learning-afternoon/</code>.</p>
+<h3 id="diagramme-aus-daten-anzeigen">Diagramme aus Daten anzeigen</h3>
+<p><code>FlowDiagram</code> zeigt Diagrammdaten mit React Flow im aktuellen App-Theme. ELK ordnet Knoten
+und Verbindungen automatisch an. Die Mini-App übergibt Knoten mit lokalen IDs und Kanten
+zwischen diesen IDs; Koordinaten und eine eigene Diagrammsprache sind nicht nötig.</p>
+<pre><code class="language-tsx">import { FlowDiagram } from &quot;@ragents/client/ui&quot;;
+
+const nodes = [
+  { id: &quot;request&quot;, label: &quot;Auftrag&quot;, status: &quot;done&quot; as const },
+  { id: &quot;review&quot;, label: &quot;Prüfung&quot;, status: &quot;active&quot; as const },
+  { id: &quot;result&quot;, label: &quot;Ergebnis&quot;, status: &quot;pending&quot; as const },
+];
+const edges = [
+  { source: &quot;request&quot;, target: &quot;review&quot; },
+  { source: &quot;review&quot;, target: &quot;result&quot; },
+];
+
+&lt;FlowDiagram nodes={nodes} edges={edges} label=&quot;Auftrag, Prüfung und Ergebnis&quot; /&gt;
+</code></pre>
+<p><code>label</code> beschreibt das Diagramm für Screenreader. Knoten können <code>detail</code>, <code>status</code>, <code>kind</code> und
+<code>items</code> enthalten. Jeder Punkt in <code>items</code> besitzt eine Beschriftung, optional Details und einen
+eigenen Status; er erscheint als Listeneintrag in der Karte. Standardmäßig zeigt das Diagramm
+eine kompakte Übersicht: Titel mit höchstens zwei Zeilen und vollständig umbrechende Punkte.
+Statussymbole unterscheiden offen (Kreis), in Arbeit, erledigt (grüner Haken), blockiert
+(Ausrufezeichen) und übersprungen (Minus). Die Kopfzeile nennt zusätzlich den Status als Text.
+Statuschips, Kopfbereiche und Konturen kennzeichnen erledigt grün, aktiv blau und blockiert
+rot; ausstehend und übersprungen bleiben neutral. Farben ergänzen Symbole und Beschriftung,
+ohne die Kartenabmessungen zu verändern.
+Die Karten begrenzen ihre Inhaltsflächen an der äußeren Rundung, auch wenn nur die Kopfzeile
+vorhanden ist. Schatten und Verbindungen bleiben außerhalb sichtbar.
+Aktive Karten und ihre Arbeitssymbole animieren nur bei explizitem <code>running=true</code> dezent.
+Ein fehlendes oder falsches <code>running</code> unterdrückt die Animation, ohne den gemeldeten Zustand zu ändern. Die
+Systemeinstellung für reduzierte Bewegung unterdrückt Animationen ebenfalls.
+Vollständige Beschriftungen, Status und Details stehen beim Darüberfahren am jeweiligen Titel
+bzw. Punkt. <code>detailLevel=&quot;full&quot;</code> zeigt stattdessen sämtliche Texte und Statuszeilen in den Karten.
+Kanten können eine Beschriftung
+enthalten. <code>direction</code> bestimmt rechtswärts oder abwärts gerichtete
+Anordnung. Die Darstellung verwendet normale Schrift, farbige Karten und Statusanzeigen.
+Die automatische Anordnung reserviert mindestens 52 Layout-Pixel zwischen benachbarten
+Karten und 94 zwischen aufeinanderfolgenden Ebenen; Beschriftungen können mehr Platz benötigen.
+Eine Kante mit <code>kind: &quot;return&quot;</code> zeichnet einen Rückweg außerhalb des Hauptablaufs, ohne dessen
+zeitliche Anordnung zu verändern.
+Diagramme starten mit 80 Prozent der Entwurfsgröße, einschließlich Schrift, Karten, Kanten und
+Abständen; auch die Zentriersteuerung stellt diese Skalierung wieder her. Die Fläche hat keinen
+eigenen Hintergrund, keinen Rahmen und kein Punktraster; das Diagramm liegt direkt auf dem
+Inhalt der Mini-App.
+Zoom und Verschieben verändern die Ansicht, keine fachlichen Daten; Knoten und Kanten bleiben
+unveränderlich. Mit <code>viewport=&quot;fit-width&quot;</code> passt sich die Grafik stattdessen automatisch an
+die Containerbreite an, verkleinert bei Bedarf weiter und vergrößert nie über die 80 Prozent
+der Entwurfsgröße.
+Übriger Platz wird durch Zentrierung verteilt; Browserzoom verkleinert die Karten wie den
+übrigen Seiteninhalt. Die Höhe folgt den vollständigen Knoten- und Kantenmaßen; gescrollt
+wird ausschließlich im äußeren Inhalt. Zoom, Verschieben und Diagrammsteuerung entfallen in
+diesem Modus. Statusänderungen ohne geänderte Abmessungen benötigen keine neue Graphanordnung. Ungültige IDs oder
+Verbindungen erscheinen als Fehler an der Grafik. Die Bibliotheken werden lokal mitgeliefert,
+ohne externen Diagrammdienst oder eigene Installation in der Mini-App. Fachaktionen bleiben
+normale Controls neben dem Diagramm. Controls-Vorlage und öffentliche Bausteinreferenz zeigen
+ein Beispiel mit lokal umschaltbarem Status.</p>
+<h2 id="zustand-und-lebenszyklus">Zustand und Lebenszyklus</h2>
+<p>Der Backend-Kontext liest einen Snapshot des gemeinsamen Actor-Zustands. <code>context.state.replace</code>
+merkt Änderungen vor. Erst der erfolgreiche Abschluss mit gültigem Ergebnis und Zustand
+übernimmt sie ins Journal; Fehler und Abbruch verwerfen diese vorgemerkten Zustandsänderungen.
+Bereits ausgeführte Dateioperationen und Aufrufe anderer Funktionen bleiben dagegen wirksam.
+Eine Actor-Funktion bildet keine Transaktion über diese Seiteneffekte; vor einer Wiederholung
+muss der bereits erreichte Stand berücksichtigt werden.</p>
+<p>Änderungen werden als kompakte Feld- und Arrayänderungen gespeichert, wenn das weniger
+Platz als ein vollständiger Zustand benötigt. Das gilt auch für Statuswechsel der
+Mini-App-Aufrufe: unveränderte bisherige Ergebnisse und Request-Kennungen müssen dabei nicht
+erneut als Gesamtzustand gespeichert werden. Browser und Agentenwerkzeug teilen denselben intrinsischen Zustand des Actors. Lokale Eingaben im Client bleiben
+von diesem Zustand getrennt.</p>
+<p>Der Provider beobachtet Änderungen der Modulinstallationen, Daten und Aufrufzustände im
+Run-Ereignisstrom und lädt das Listing gezielt neu, auch bei ruhendem Chat. Text-Token lösen
+kein Neuladen aus; verspätete Antworten können keinen neueren Stand ersetzen.
+<code>useAppState()</code> übernimmt diese Daten über die Bridge in React, ohne den Client neu zu mounten.
+Lokale Formularentwürfe bleiben erhalten. Laufende Browseraufrufe fragen ihren Status bis zum
+Abschluss zusätzlich ab.</p>
+<p>Funktionen desselben Actors werden geordnet ausgeführt; unterschiedliche Actors können parallel arbeiten.
+Jeder Aufruf erhält ein Abbruchsignal. Die native
+Ausführungsplattform besitzt Prozesse und Stopps auf Run- und Instanzebene. Der Run-Stopp
+beendet laufende Arbeit; Entfernen eines Programmpakets und Aktivieren eines neuen Stands
+beenden die Ausführungsressourcen des bisherigen Stands.
+Nach einem Serverneustart werden zuvor wartende oder laufende Mini-App-Funktionsaufrufe als
+abgebrochen (<code>cancelled</code>) markiert und nicht automatisch wiederholt. Das unterscheidet sie
+von noch nicht beanspruchten ActorInputs: Diese Nachrichten bleiben für einen weiterhin
+ausführbaren Actor wartend. Ein Klick in einer Mini-App und eine Nachricht an einen Actor
+verwenden unterschiedliche Ausführungswege.
+Die Run-Löschung entfernt auch den privaten App-Workspace.</p>
+<p class="guide-source">Quelle: <a href="../../docs/spec/run-modules.md">docs/spec/run-modules.md</a>. <a href="guide-programs.md">Dieses Kapitel als Markdown</a>.</p><p><a href="developer.html#extension-run-scripts">Eigene Abläufe entwickeln</a></p><nav class="guide-next" aria-label="Weiterlesen"><a href="guide-functions.html">Zurück: Mit TypeScript arbeiten</a><a href="guide-extensions.html">Weiter: Plugins und Skills</a></nav></article></div></main><footer class="shell"><p>Aus öffentlicher Dokumentation, Verträgen und neutralen Plugins erzeugt. Neu aufbauen: <code>pnpm generate:homepage</code>. Stand prüfen: <code>pnpm check:homepage</code>.</p><nav aria-label="Weitere Seiten"><a href="llms.txt">LLM-Referenz</a><a href="http-api.md">HTTP-API</a><a href="openapi.json">OpenAPI</a><a href="index.html">Zur Homepage</a><a href="guide.html">Guide</a><a href="reference.html">Bausteine</a><a href="developer.html">Entwicklerreferenz</a></nav></footer></body></html>

@@ -1,0 +1,72 @@
+[
+  {
+    "file": "01-chrome-shards.png",
+    "title": "Chrom-Scherben auf Schwarz",
+    "concept": "Die härtere Fassung der Zug-Referenz: schwarzer Grund, Buchstaben aus geschliffenen Chromplatten mit Bruchkanten, links ein facettierter Schädel mit Keilzähnen, dessen Kiefer ins R läuft. Sehr bedrohlich, RAgents bleibt trotz Splitterlook lesbar.",
+    "model": "gpt_image_2",
+    "prompt": "Flat abstract background, no train, no wall, no photo scene: a deep matte black field with hard geometric grey shapes. On it a brutal angular wildstyle graffiti piece spelling exactly the word \"RAgents\" - capital R, capital A, then lowercase g, e, n, t, s - seven interlocking letters built ONLY from straight cuts, hard 90 and 45 degree angles, sharp wedges and blade-like arrows, no soft curves anywhere, extremely blocky and abstract, barely readable. Silver chrome fill with white glare edges and hard black outlines. At the left end a large painted human skull in grey tones, angular and faceted like broken stone, its jaw shattering into the first letter. Menacing, aggressive, raw spray paint texture, graphic poster composition."
+  },
+  {
+    "file": "02-lowpoly-circuit.png",
+    "title": "Low-Poly-Schädel mit Leiterbahnen",
+    "concept": "Kantiger Low-Poly-Schädel mit blau glühenden Augen, die Buchstaben dunkel mit dünnen blauen Innenlinien wie Leiterbahnen. Verbindet das Bedrohliche mit dem Software-Thema und trägt das Markenblau.",
+    "model": "gpt_image_2",
+    "prompt": "Graphic logo artwork on a plain dark charcoal background with no environment, no train, no wall texture. An extremely angular blocky wildstyle graffiti piece spelling exactly \"RAgents\" - R, A, g, e, n, t, s - the letters cut from sharp geometric shards, all edges straight, spikes and arrow tips like knives, heavy interlocking, abstract and hard to read. Fill in black and dark steel grey with thin electric blue (hex 2a94fa) inner lines like circuit traces, hard white outline. A faceted low-poly skull at the left, glowing blue eye sockets, biting into the letters. Cold, threatening, brutal, clean vector-like rendering with subtle spray grain."
+  },
+  {
+    "file": "03-skull-right-extrude.png",
+    "title": "Schädel rechts, massive Extrusion",
+    "concept": "Grauer Verlauf als Grund, Buchstaben als schwer extrudierte Chromblöcke, der Schädel beißt von rechts in die Schrift. Sehr massiv, aber das Wortende verliert sich in den Spikes und liest sich eher als RAGENIS.",
+    "model": "gpt_image_2",
+    "prompt": "Isolated graffiti piece on a flat neutral grey gradient background, nothing else in the image. The piece spells exactly \"RAgents\" - R, A, g, e, n, t, s - seven letters in a razor-sharp mechanical wildstyle: pure straight lines, hard chamfered corners, blade arrows, heavy 3D block extrusion in matte black, chrome faces with white highlight streaks, thick black outline plus a thin white keyline. A photorealistic grey human skull sits at the right end, cracked and angular, its lower jaw dissolving into the last letter's spikes. Dark, aggressive, menacing, high contrast, no background scenery."
+  },
+  {
+    "file": "04-blood-red-planes.png",
+    "title": "Knochenweiss auf Blutrot",
+    "concept": "Abstrakte rote Flächen im Hintergrund, Buchstaben in Knochenweiss mit dunkelroten Schattenblöcken, links ein schreiender Schädel. Die aggressivste Farbfassung und zugleich eine der lesbarsten.",
+    "model": "gpt_image_2",
+    "prompt": "Abstract dark red-black background of overlapping hard-edged geometric planes. Over it a brutal blocky wildstyle graffiti piece spelling exactly \"RAgents\" - R, A, g, e, n, t, s - constructed like folded sheet metal, every stroke a straight plate with mitred corners, aggressive arrow ends, deeply interlocked and abstract. Bone white fill, blood red shadow blocks, hard black outlines. A screaming angular skull at the left end, sharply faceted, teeth like broken glass, fusing into the R. Threatening, violent street art energy, spray texture, poster-like composition, no photographic scene."
+  },
+  {
+    "file": "05-steel-bars-black.png",
+    "title": "Stahlklingen auf Tiefschwarz",
+    "concept": "Reines Schwarz, poliertes Chrom, Buchstaben aus Stahlklingen mit gestrichelten Bewegungslinien. Kalt und maschinenhaft, der Schädel sitzt klein und kompakt links im Wortanfang.",
+    "model": "gpt_image_2",
+    "prompt": "Pure black background, nothing else. A single chrome graffiti piece spelling exactly \"RAgents\" - R, A, g, e, n, t, s - designed as extreme angular wildstyle: letters made of straight steel bars and wedges, hard geometric interlocks, blade arrows shooting outward, dashed straight motion lines, completely abstract and machine-like, no rounded shapes. Polished chrome fill with white glare and black outline. A metallic skull at the left end, faceted like a diamond cut, hollow black eyes. Cold, brutal, menacing, high contrast studio rendering."
+  },
+  {
+    "file": "06-blackbook-hard.png",
+    "title": "Blackbook, hart gezogen",
+    "concept": "Marker-Outline auf Papier, alle Striche mit dem Lineal gezogen, Keile und Spitzen statt Kurven. Die beste Vorlage, falls das Ganze in eine saubere Vektorschrift überführt werden soll - dafür am schwersten lesbar.",
+    "model": "gpt_image_2",
+    "prompt": "Blackbook style artwork on a flat off-white paper background, no scene, no wall. A hard-edged angular wildstyle graffiti outline spelling exactly \"RAgents\" - R, A, g, e, n, t, s - drawn with black marker: every letter built from straight rulered lines, sharp wedges and spike arrows, brutally blocky and abstract, tight interlocking, grey Copic shading and white gel-pen highlights. A stylised angular skull at the left end, geometric and threatening, jaw merging into the first letter. Raw, aggressive, high contrast, drawing fills the frame."
+  },
+  {
+    "file": "07-robot-skull-grid.png",
+    "title": "Maschinenschädel im Raster",
+    "concept": "Blauer Liniengrund, Buchstaben aus gebürstetem Metall mit tiefer 3D-Kante, links ein Roboterschädel aus Panzerplatten mit blauem Linsenauge und Kabeln. Inhaltlich die beste Anspielung auf die Agenten.",
+    "model": "gpt_image_2",
+    "prompt": "Flat dark background with a faint grid of thin blue lines, otherwise empty. A menacing, extremely angular blockbuster-wildstyle hybrid graffiti piece spelling exactly \"RAgents\" - R, A, g, e, n, t, s - massive rectangular letter bodies sliced by diagonal cuts, sharp arrow extensions, heavy black 3D depth, chrome front faces, hard outlines, deeply overlapping so the word is hard to read. A robot skull at the left end built from angular brushed metal plates with glowing blue lens eyes and exposed cables running into the letters. Cold, industrial, threatening, sharp graphic rendering."
+  },
+  {
+    "file": "08-slate-orange-blocks.png",
+    "title": "Weiss auf Schiefer mit Orange",
+    "concept": "Angelehnt an die zweite Referenz: Schieferfarbener Grund mit orangenen und grauen Rechtecken, weisse Buchstaben mit dunkelrotem Block-Schatten, links ein grauer Schädel. Die klarste und lesbarste Variante im Satz.",
+    "model": "gpt_image_2",
+    "prompt": "Abstract composition on a flat dark slate ground with a few scattered hard-edged grey and orange rectangles behind the letters. The graffiti piece spells exactly \"RAgents\" - R, A, g, e, n, t, s - severe angular wildstyle: straight-cut strokes, chiselled corners, dagger arrows, no curves, heavily interlocked, abstract. White fill, dark red and black shadow blocks, hard black outlines. A cracked angular skull at the left end, painted grey, jaw splintering into the R. Menacing, aggressive, crisp spray paint texture, no photographic environment."
+  },
+  {
+    "file": "09-obsidian-outline.png",
+    "title": "Nur Outline, Schwarz-Weiss",
+    "concept": "Nichts als weisse Konturen auf Schwarz, keine Füllung - skelettartig und unheimlich. Reduziert auf zwei Farben, damit ideal für Stempel, Sticker oder ein einfarbiges Logo.",
+    "model": "gpt_image_2",
+    "prompt": "Empty deep black background. Centred, a brutal angular graffiti piece spelling exactly \"RAgents\" - R, A, g, e, n, t, s - letters carved like obsidian shards, every edge straight and razor sharp, spikes and hooks, extreme interlocking, nearly illegible abstract wildstyle. Matte black fill with thin bright white outlines only, ghostly and skeletal. A stark white angular skull at the left end, sockets pitch black, teeth like wedges, fused into the letters. Extremely threatening, minimal palette black and white only, high contrast graphic artwork."
+  },
+  {
+    "file": "10-half-machine-skull.png",
+    "title": "Halb Knochen, halb Maschine",
+    "concept": "Dunkle Plattenflächen als Grund, Chrom mit kräftigem Blau in Kanten und Pfeilen, der Schädel links zur Hälfte Knochen, zur Hälfte Maschine mit blauem Auge. Bedrohlich und trotzdem sehr gut lesbar.",
+    "model": "gpt_image_2",
+    "prompt": "Flat abstract background of dark grey geometric planes with subtle noise, no scene. A hard angular wildstyle graffiti piece spelling exactly \"RAgents\" - R, A, g, e, n, t, s - built from straight blades and rectangular blocks with mitred joints, arrow tips, aggressive tilt, abstract and dense. Silver chrome fill, electric blue (hex 2a94fa) glow along the edges and inside the arrows, black outlines. A skull at the left end that is half bone, half angular machine, blue light in one eye socket, jaw locking into the first letter. Dark, threatening, cyber street style, sharp graphic rendering."
+  }
+]

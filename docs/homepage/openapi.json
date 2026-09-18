@@ -1,0 +1,1297 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "RAgents Run Management",
+    "version": "1",
+    "description": "Dieses Profil verlangt keine Anmeldung. Profile mit users verwenden Sitzungscookies; ohne users kann ACCESS_TOKEN den bisherigen Zugang schützen."
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "security": [],
+  "servers": [
+    {
+      "url": "/api/plugins/ragents.overseer"
+    }
+  ],
+  "paths": {
+    "/runs": {
+      "get": {
+        "operationId": "listRuns",
+        "description": "Vorhandene Unterhaltungen des Profils mit stabilen Referenzen auflisten; der globale Chat gehört nicht zu dieser Liste.",
+        "x-required-rights": [
+          "runs.read"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Erfolg",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "runId",
+                      "title",
+                      "reference",
+                      "updatedAt"
+                    ],
+                    "properties": {
+                      "runId": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      },
+                      "reference": {
+                        "type": "string"
+                      },
+                      "createdAt": {
+                        "type": "number"
+                      },
+                      "updatedAt": {
+                        "type": "number"
+                      },
+                      "running": {
+                        "type": "boolean"
+                      },
+                      "metadata": {
+                        "type": "object",
+                        "patternProperties": {
+                          "^.*$": {}
+                        }
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Benannter Fehler; die Operation wurde nicht als erfolgreich bestätigt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "code"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createRun",
+        "description": "Einen Run mit serverseitiger ID und Titel anlegen. Genau eine Startform: message, installiertes script (Kennung oder eindeutiger Titel), oder packageDirectory (vorhandenes lokales Run-Script-Paket). input ist nur bei script/packageDirectory erlaubt. Die Antwort wartet auf Vorbereitung, Check, Test und Installation; accepted bestätigt noch kein fertiges Modellergebnis.",
+        "x-required-rights": [
+          "runs.read",
+          "runs.write",
+          "runs.create"
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "required": [
+                      "title",
+                      "message"
+                    ],
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      },
+                      "options": {
+                        "type": "object",
+                        "patternProperties": {
+                          "^.*$": {}
+                        }
+                      },
+                      "message": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "title",
+                      "script"
+                    ],
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      },
+                      "options": {
+                        "type": "object",
+                        "patternProperties": {
+                          "^.*$": {}
+                        }
+                      },
+                      "script": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      },
+                      "input": {}
+                    },
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "required": [
+                      "title",
+                      "packageDirectory"
+                    ],
+                    "properties": {
+                      "title": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "\\S"
+                      },
+                      "options": {
+                        "type": "object",
+                        "patternProperties": {
+                          "^.*$": {}
+                        }
+                      },
+                      "packageDirectory": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "Absoluter Pfad eines RUN.md/setup.ts/tests.json-Pakets auf dem Server. Ein lokaler Shellclient setzt seinen tatsächlich vorhandenen Paketpfad ein; dies ist kein Upload."
+                      },
+                      "input": {}
+                    },
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "example": {
+                "title": "HTTP-Beispiel",
+                "message": "Antworte kurz mit Bereit."
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Erfolg",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "runId",
+                    "title",
+                    "reference",
+                    "accepted"
+                  ],
+                  "properties": {
+                    "runId": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "reference": {
+                      "type": "string"
+                    },
+                    "accepted": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Benannter Fehler; die Operation wurde nicht als erfolgreich bestätigt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "code"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs/{run}": {
+      "get": {
+        "operationId": "readRun",
+        "description": "Die aktuelle ungekürzte RunView lesen; verschachtelte Domänenwerte sind als offene JSON-Objekte dokumentiert.",
+        "x-required-rights": [
+          "runs.read",
+          "runs.inspect"
+        ],
+        "parameters": [
+          {
+            "name": "run",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Lauf 1; im Pfad URL-kodieren."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolg",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "id",
+                    "revision",
+                    "title",
+                    "ownerId",
+                    "primaryActorId",
+                    "createdAt",
+                    "forkedFrom",
+                    "actors",
+                    "inputs",
+                    "turns",
+                    "subscriptions",
+                    "pluginStates",
+                    "actions",
+                    "artifacts"
+                  ],
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "revision": {
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "ownerId": {
+                      "type": "string"
+                    },
+                    "primaryActorId": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "createdAt": {
+                      "type": "string"
+                    },
+                    "forkedFrom": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "required": [
+                            "runId",
+                            "sequence"
+                          ],
+                          "properties": {
+                            "runId": {
+                              "type": "string"
+                            },
+                            "sequence": {
+                              "type": "integer"
+                            }
+                          },
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "actors": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": true,
+                        "x-typescript-type": "Actor",
+                        "x-source": "packages/ragents/src/domain/model.ts",
+                        "description": "Ungekürzter Domänenwert Actor; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+                      }
+                    },
+                    "inputs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": true,
+                        "x-typescript-type": "ActorInput",
+                        "x-source": "packages/ragents/src/domain/model.ts",
+                        "description": "Ungekürzter Domänenwert ActorInput; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+                      }
+                    },
+                    "turns": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": true,
+                        "x-typescript-type": "Turn",
+                        "x-source": "packages/ragents/src/domain/model.ts",
+                        "description": "Ungekürzter Domänenwert Turn; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+                      }
+                    },
+                    "subscriptions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": true,
+                        "x-typescript-type": "EventSubscription",
+                        "x-source": "packages/ragents/src/domain/model.ts",
+                        "description": "Ungekürzter Domänenwert EventSubscription; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+                      }
+                    },
+                    "pluginStates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": true,
+                        "x-typescript-type": "PluginState",
+                        "x-source": "packages/ragents/src/domain/model.ts",
+                        "description": "Ungekürzter Domänenwert PluginState; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+                      }
+                    },
+                    "actions": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": true,
+                        "x-typescript-type": "Action",
+                        "x-source": "packages/ragents/src/domain/model.ts",
+                        "description": "Ungekürzter Domänenwert Action; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+                      }
+                    },
+                    "artifacts": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": true,
+                        "x-typescript-type": "Artifact",
+                        "x-source": "packages/ragents/src/domain/model.ts",
+                        "description": "Ungekürzter Domänenwert Artifact; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Benannter Fehler; die Operation wurde nicht als erfolgreich bestätigt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "code"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs/{run}/events": {
+      "get": {
+        "operationId": "readEvents",
+        "description": "Das vollständige Journal seitenweise in Sequenzreihenfolge lesen. Solange hasMore wahr ist, nextAfter als after der nächsten Anfrage verwenden. type filtert einen exakten Ereignistyp.",
+        "x-required-rights": [
+          "runs.read",
+          "runs.inspect"
+        ],
+        "parameters": [
+          {
+            "name": "run",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Lauf 1; im Pfad URL-kodieren."
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "const": "run.created"
+                },
+                {
+                  "type": "string",
+                  "const": "run.forked"
+                },
+                {
+                  "type": "string",
+                  "const": "run.primary-actor-selected"
+                },
+                {
+                  "type": "string",
+                  "const": "run.title-changed"
+                },
+                {
+                  "type": "string",
+                  "const": "agent.spawned"
+                },
+                {
+                  "type": "string",
+                  "const": "script.created"
+                },
+                {
+                  "type": "string",
+                  "const": "actor.input.enqueued"
+                },
+                {
+                  "type": "string",
+                  "const": "turn.started"
+                },
+                {
+                  "type": "string",
+                  "const": "turn.finished"
+                },
+                {
+                  "type": "string",
+                  "const": "turn.interrupted"
+                },
+                {
+                  "type": "string",
+                  "const": "model.output.completed"
+                },
+                {
+                  "type": "string",
+                  "const": "model.reasoning.completed"
+                },
+                {
+                  "type": "string",
+                  "const": "runtime.output.recorded"
+                },
+                {
+                  "type": "string",
+                  "const": "tool.call.started"
+                },
+                {
+                  "type": "string",
+                  "const": "tool.call.source"
+                },
+                {
+                  "type": "string",
+                  "const": "tool.call.completed"
+                },
+                {
+                  "type": "string",
+                  "const": "tool.call.failed"
+                },
+                {
+                  "type": "string",
+                  "const": "actor.tools.opened"
+                },
+                {
+                  "type": "string",
+                  "const": "actor.stopped"
+                },
+                {
+                  "type": "string",
+                  "const": "actor.restarted"
+                },
+                {
+                  "type": "string",
+                  "const": "subscription.created"
+                },
+                {
+                  "type": "string",
+                  "const": "subscription.removed"
+                },
+                {
+                  "type": "string",
+                  "const": "subscription.failed"
+                },
+                {
+                  "type": "string",
+                  "const": "plugin.state-replaced"
+                },
+                {
+                  "type": "string",
+                  "const": "plugin.state-patched"
+                },
+                {
+                  "type": "string",
+                  "const": "action.proposed"
+                },
+                {
+                  "type": "string",
+                  "const": "action.resolved"
+                },
+                {
+                  "type": "string",
+                  "const": "artifact.published"
+                }
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Erfolg",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "runId",
+                    "title",
+                    "reference",
+                    "events",
+                    "nextAfter",
+                    "hasMore"
+                  ],
+                  "properties": {
+                    "runId": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "reference": {
+                      "type": "string"
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "eventId",
+                          "runId",
+                          "sequence",
+                          "schemaVersion",
+                          "occurredAt",
+                          "actorId",
+                          "commandId",
+                          "correlationId",
+                          "causationId",
+                          "type",
+                          "payload"
+                        ],
+                        "properties": {
+                          "eventId": {
+                            "type": "string"
+                          },
+                          "runId": {
+                            "type": "string"
+                          },
+                          "sequence": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "schemaVersion": {
+                            "type": "number",
+                            "const": 3
+                          },
+                          "occurredAt": {
+                            "type": "string"
+                          },
+                          "actorId": {
+                            "type": "string"
+                          },
+                          "commandId": {
+                            "type": "string"
+                          },
+                          "correlationId": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "causationId": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "type": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "const": "run.created"
+                              },
+                              {
+                                "type": "string",
+                                "const": "run.forked"
+                              },
+                              {
+                                "type": "string",
+                                "const": "run.primary-actor-selected"
+                              },
+                              {
+                                "type": "string",
+                                "const": "run.title-changed"
+                              },
+                              {
+                                "type": "string",
+                                "const": "agent.spawned"
+                              },
+                              {
+                                "type": "string",
+                                "const": "script.created"
+                              },
+                              {
+                                "type": "string",
+                                "const": "actor.input.enqueued"
+                              },
+                              {
+                                "type": "string",
+                                "const": "turn.started"
+                              },
+                              {
+                                "type": "string",
+                                "const": "turn.finished"
+                              },
+                              {
+                                "type": "string",
+                                "const": "turn.interrupted"
+                              },
+                              {
+                                "type": "string",
+                                "const": "model.output.completed"
+                              },
+                              {
+                                "type": "string",
+                                "const": "model.reasoning.completed"
+                              },
+                              {
+                                "type": "string",
+                                "const": "runtime.output.recorded"
+                              },
+                              {
+                                "type": "string",
+                                "const": "tool.call.started"
+                              },
+                              {
+                                "type": "string",
+                                "const": "tool.call.source"
+                              },
+                              {
+                                "type": "string",
+                                "const": "tool.call.completed"
+                              },
+                              {
+                                "type": "string",
+                                "const": "tool.call.failed"
+                              },
+                              {
+                                "type": "string",
+                                "const": "actor.tools.opened"
+                              },
+                              {
+                                "type": "string",
+                                "const": "actor.stopped"
+                              },
+                              {
+                                "type": "string",
+                                "const": "actor.restarted"
+                              },
+                              {
+                                "type": "string",
+                                "const": "subscription.created"
+                              },
+                              {
+                                "type": "string",
+                                "const": "subscription.removed"
+                              },
+                              {
+                                "type": "string",
+                                "const": "subscription.failed"
+                              },
+                              {
+                                "type": "string",
+                                "const": "plugin.state-replaced"
+                              },
+                              {
+                                "type": "string",
+                                "const": "plugin.state-patched"
+                              },
+                              {
+                                "type": "string",
+                                "const": "action.proposed"
+                              },
+                              {
+                                "type": "string",
+                                "const": "action.resolved"
+                              },
+                              {
+                                "type": "string",
+                                "const": "artifact.published"
+                              }
+                            ]
+                          },
+                          "payload": {
+                            "type": "object",
+                            "properties": {},
+                            "additionalProperties": true,
+                            "x-typescript-type": "EventPayloads[EventType]",
+                            "x-source": "packages/ragents/src/domain/events.ts",
+                            "description": "Ungekürzter Domänenwert EventPayloads[EventType]; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "nextAfter": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "hasMore": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Benannter Fehler; die Operation wurde nicht als erfolgreich bestätigt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "code"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs/{run}/messages": {
+      "post": {
+        "operationId": "sendMessage",
+        "description": "Eine Chatnachricht an den primären LLM-Actor einreihen; TypeScript als Primary wird mit actor-chat-unsupported abgewiesen. Die Antwort bestätigt nur das Einreihen, weder Verarbeitung noch Abschluss. Ein laufender Turn wird dadurch nicht ersetzt.",
+        "x-required-rights": [
+          "runs.read",
+          "runs.write"
+        ],
+        "parameters": [
+          {
+            "name": "run",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Lauf 1; im Pfad URL-kodieren."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "message"
+                ],
+                "properties": {
+                  "message": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "example": {
+                "message": "Nenne den nächsten sinnvollen Schritt."
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Erfolg",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "runId",
+                    "title",
+                    "reference",
+                    "accepted"
+                  ],
+                  "properties": {
+                    "runId": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "reference": {
+                      "type": "string"
+                    },
+                    "accepted": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Benannter Fehler; die Operation wurde nicht als erfolgreich bestätigt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "code"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runs/{run}/stop": {
+      "post": {
+        "operationId": "stopRun",
+        "description": "Den Run über seine normale Stoppgrenze stoppen und die Bereinigung abwarten; die Unterhaltung bleibt erhalten.",
+        "x-required-rights": [
+          "runs.read",
+          "runs.write"
+        ],
+        "parameters": [
+          {
+            "name": "run",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512,
+              "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Lauf 1; im Pfad URL-kodieren."
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": false
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Erfolg",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "runId",
+                    "title",
+                    "reference",
+                    "stopped"
+                  ],
+                  "properties": {
+                    "runId": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "reference": {
+                      "type": "string"
+                    },
+                    "stopped": {
+                      "type": "boolean",
+                      "const": true
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Benannter Fehler; die Operation wurde nicht als erfolgreich bestätigt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "code"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/catalog": {
+      "get": {
+        "operationId": "readCatalog",
+        "description": "Installierte Start-Einstiege und Startoptionen mit Eingabeschemata, Standardwerten und Wählbarkeit lesen. POST /runs startet Nachrichten, installierte Scripts oder lokale Pakete via packageDirectory. Skills liefern bearbeitbare Aufträge für message; dabei den Skillnamen als Arbeitsanleitung nennen.",
+        "x-required-rights": [
+          "runs.read",
+          "runs.inspect"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Erfolg",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "entries",
+                    "options"
+                  ],
+                  "properties": {
+                    "entries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "title",
+                          "description",
+                          "action"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "title": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "action": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "const": "skill"
+                              },
+                              {
+                                "type": "string",
+                                "const": "script"
+                              }
+                            ]
+                          }
+                        },
+                        "additionalProperties": true,
+                        "x-typescript-type": "PublicStartEntry"
+                      }
+                    },
+                    "options": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "id",
+                          "schema",
+                          "value",
+                          "selectable",
+                          "presentation"
+                        ],
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "schema": {
+                            "type": "object",
+                            "patternProperties": {
+                              "^.*$": {}
+                            }
+                          },
+                          "value": {},
+                          "selectable": {
+                            "type": "boolean"
+                          },
+                          "presentation": {}
+                        },
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Benannter Fehler; die Operation wurde nicht als erfolgreich bestätigt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "code"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "readOpenApi",
+        "description": "OpenAPI 3.1 direkt aus den ausführbaren Routenverträgen lesen.",
+        "x-required-rights": [
+          "runs.read",
+          "runs.inspect"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Erfolg",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "patternProperties": {
+                    "^.*$": {}
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Benannter Fehler; die Operation wurde nicht als erfolgreich bestätigt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "code"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/reference.md": {
+      "get": {
+        "operationId": "readHttpReference",
+        "description": "Lesbare HTTP-Referenz direkt aus denselben Routenverträgen lesen.",
+        "x-required-rights": [
+          "runs.read",
+          "runs.inspect"
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Erfolg",
+            "content": {
+              "text/markdown": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Benannter Fehler; die Operation wurde nicht als erfolgreich bestätigt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error",
+                    "code"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "code": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAgents | Farbe und Material</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f6f5f2;color:#202321;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input{font:inherit}
+button{cursor:pointer}
+a{color:inherit}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid #3677ca;outline-offset:4px}
+[hidden]{display:none!important}
+button{color:inherit}
+header.site{padding:20px 3.5%;border-bottom:1px solid #d9d9d2;display:flex;align-items:center;gap:22px}
+.brand{font-weight:800;letter-spacing:-1px;font-size:21px;text-decoration:none}
+.site small{color:#676b64;font-size:12px}
+.offline{margin-left:auto;border:1px solid #cccec6;border-radius:20px;padding:5px 12px;font-size:11px}
+.intro{padding:38px 3.5% 26px;display:flex;align-items:end;justify-content:space-between;gap:30px}
+.eyebrow{font:11px/1.5 ui-monospace,SFMono-Regular,monospace;letter-spacing:.12em;text-transform:uppercase}
+h1{font-size:clamp(28px,3.2vw,46px);letter-spacing:-1.8px;font-weight:600;line-height:1.15;margin:10px 0}
+p{margin:0}
+.intro p{color:#676b64;max-width:480px}
+.gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px;padding:0 3.5% 32px}
+.sample{display:flex;flex-direction:column;border:1px solid #d5d7cf;min-width:0;background:white;overflow:hidden}
+.sample-head{height:100px;padding:21px 23px;display:flex;gap:15px;align-items:center}
+.sample-head span{font:12px ui-monospace,monospace;opacity:.6}
+.sample-head h2{font-size:27px;line-height:1.2;margin:0 0 5px;letter-spacing:-.7px}
+.sample-head p{font-size:11px;opacity:.7}
+.thumbnail{flex:none;height:330px;position:relative;overflow:hidden;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.mini-world{position:absolute;width:370px;height:330px;left:50%;transform:translateX(-50%)}
+.sample-foot{flex:1;padding:22px 23px;background:#fff;color:#262b26;min-height:181px;display:flex;flex-direction:column}
+.sample-foot p{font-size:13px;color:#62665f;line-height:1.7;flex:1}
+.sample-foot button{border:0;background:#242923;color:#fff;padding:10px 14px;margin-top:18px;align-self:flex-start;border-radius:4px;font-weight:600;font-size:12px}
+.sample-foot button:hover{background:#4b5547}
+.traits{display:flex;gap:6px;margin-top:11px}
+.traits span{font-size:10px;border:1px solid #dedfd8;padding:3px 7px;border-radius:20px}
+.bottom-note{margin:0 3.5% 30px;padding-top:20px;border-top:1px solid #d9d9d2;display:flex;gap:30px;justify-content:space-between;font-size:12px;color:#676b64}
+.bottom-note b{color:#282d26;font-weight:600}
+.mini-node{position:absolute;padding:13px 15px;background:var(--panel);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:var(--radius);font-size:12px;width:148px;z-index:1}
+.mini-node b{display:block;font-size:13px;margin:4px 0}
+.mini-node small{font-size:9px;color:var(--muted)}
+.mini-node .micro{font:9px ui-monospace,monospace;text-transform:uppercase;color:var(--accent)}
+.mini-node.n1{left:29px;top:27px;width:188px}
+.mini-node.n2{left:183px;top:134px}
+.mini-node.n3{left:35px;top:219px;width:184px}
+.mini-wires{width:370px;height:330px;position:absolute;inset:0;fill:none;stroke:var(--accent);stroke-width:1.5}
+.mini-mark{position:absolute;right:24px;bottom:21px;font:10px ui-monospace,monospace;color:var(--muted)}
+.mini-checks{display:flex;gap:5px;margin-top:9px}
+.mini-checks i{display:block;height:5px;width:23px;background:var(--accent);opacity:.5}
+.detail-nav{display:flex;align-items:center;gap:18px;padding:16px 3.5%;border-bottom:1px solid #d9d9d2;flex-wrap:wrap}
+.back{background:none;border:1px solid #c9ccc4;border-radius:5px;padding:8px 13px;font-size:12px}
+.switches{display:flex;gap:6px}
+.switches button{border:0;padding:9px 14px;border-radius:5px;background:transparent;font-size:12px}
+.switches button[aria-pressed=true]{background:#282d26;color:white}
+.detail-caption{margin-left:auto;color:#676b64;font-size:12px}
+.workbench{margin:24px 3.5% 14px;border:1px solid var(--line);overflow:hidden;box-shadow:0 15px 40px #2020200b}
+.appbar{height:60px;display:flex;align-items:center;padding:0 22px;gap:22px;background:var(--panel);border-bottom:1px solid var(--line)}
+.appbar strong{font-size:14px}
+.appbar .run-label{font-size:10px;color:var(--muted);margin-bottom:2px}
+.appbar .appmark{width:28px;height:28px;flex:none}
+.run-status{margin-left:auto;font-size:11px;color:var(--accent);display:flex;gap:7px;align-items:center}
+.status-dot{height:6px;width:6px;border-radius:50%;background:currentColor;display:inline-block}
+.workspace{display:grid;grid-template-columns:minmax(0,1fr) 280px}
+.canvas{height:590px;position:relative;overflow:auto;background-color:var(--bg)}
+.world-wrap{position:relative;margin:0 auto}
+.world{position:absolute;width:1000px;height:620px;transform-origin:top left}
+.canvas-caption{position:absolute;top:25px;left:32px;font:11px ui-monospace,monospace;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.group{position:absolute;left:409px;top:80px;width:301px;height:486px;border:1px dashed var(--line);border-radius:var(--radius)}
+.group span{position:absolute;top:-10px;left:20px;background:var(--bg);padding:0 8px;font:10px ui-monospace,monospace;color:var(--muted)}
+.wires{position:absolute;inset:0;width:1000px;height:620px;fill:none;stroke:var(--accent);stroke-width:1.6;opacity:.7;pointer-events:none}
+.wire-label{fill:var(--muted);stroke:none;font:10px ui-monospace,monospace}
+.node{position:absolute;border:1px solid var(--line);background:var(--panel);border-radius:var(--radius);box-shadow:var(--shadow);width:240px;color:var(--ink)}
+.node-head{border:0;width:100%;background:transparent;display:flex;text-align:left;align-items:center;gap:11px;padding:17px 18px;border-bottom:1px solid var(--line);border-radius:inherit}
+.node-head b{display:block;font-size:14px;line-height:1.5}
+.node-head small{font:9px ui-monospace,monospace;color:var(--muted)}
+.node-head svg{width:25px;height:25px;flex:none;stroke:currentColor;fill:none;stroke-width:1.6}
+.node-body{padding:17px 18px;font-size:12px;line-height:1.7}
+.node-body p{margin:0 0 12px}
+.node-state{font:10px ui-monospace,monospace;color:var(--accent);display:flex;gap:7px;align-items:center}
+.node[data-selected=true]{outline:2px solid var(--accent);outline-offset:5px}
+.node.coordinator{left:70px;top:154px;width:258px}
+.node.research{left:437px;top:111px}
+.node.review{left:437px;top:344px}
+.node.script{left:80px;top:427px;width:239px}
+.node.app{left:749px;top:234px;width:220px}
+.node.app .node-head{padding:12px 16px}
+.node.app .node-head b{font-size:12px}
+.node.app h3{font-size:21px;line-height:1.2;margin:0 0 15px}
+.check-row{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line);padding:10px 0;font-size:11px;cursor:pointer}
+.check-row input{accent-color:var(--accent);margin:0}
+.progress{height:4px;background:var(--line);margin:15px 0 8px}
+.progress span{display:block;width:33.333%;height:100%;background:var(--accent)}
+.inspector{background:var(--panel);border-left:1px solid var(--line);padding:26px 22px;display:flex;flex-direction:column}
+.inspector .eyebrow{font-size:9px;color:var(--muted)}
+.inspector h2{font-size:24px;line-height:1.2;letter-spacing:-.7px;margin:12px 0 8px}
+.inspector .actor-kind{color:var(--accent);font-size:10px}
+.inspector .message{margin-top:30px;padding-top:20px;border-top:1px solid var(--line);font-size:12px;line-height:1.85}
+.message time{display:block;font:9px ui-monospace,monospace;color:var(--muted);margin-bottom:12px}
+.inspector .hint{margin-top:auto;padding-top:30px;font-size:11px;color:var(--muted)}
+.selected-label{font:10px ui-monospace,monospace;margin-top:20px;color:var(--muted)}
+.app-footer{display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--line);background:var(--panel);padding:10px 17px;font-size:10px;color:var(--muted);flex-wrap:wrap}
+.canvas-tools{display:flex;gap:5px;align-items:center}
+.canvas-tools button{background:var(--soft);border:1px solid var(--line);border-radius:3px;font-size:11px;padding:5px 10px}
+.canvas-tools output{min-width:40px;text-align:center}
+.detail-note{margin:0 3.5% 25px;font-size:12px;color:#676b64;display:flex;gap:20px;justify-content:space-between}
+.detail-note strong{color:#33382e}
+.noscript{padding:20px;background:#fff0bf}
+.detail-title{font-weight:600}
+svg.symbols{position:absolute;width:0;height:0;overflow:hidden}
+@media(min-width:1600px){
+.gallery{max-width:1700px;margin:auto}
+.thumbnail{height:360px}
+.mini-world{top:15px}
+}
+@media(max-width:1050px){
+.intro{align-items:start;flex-direction:column;gap:12px}
+.workspace{grid-template-columns:minmax(0,1fr) 230px}
+.inspector{padding:22px 16px}
+.gallery{gap:12px}
+.sample-head{padding:18px 14px}
+.sample-head h2{font-size:23px}
+.sample-foot{padding:18px 14px}
+.mini-world{transform:translateX(-50%) scale(.83);transform-origin:center top}
+.thumbnail{height:278px}
+.detail-caption{display:none}
+}
+@media(max-width:760px){
+.site{padding:15px 5%}
+.site small{display:none}
+.intro{padding:28px 5% 22px}
+.gallery{grid-template-columns:1fr;padding:0 5% 25px;gap:24px}
+.sample-head{padding:20px 24px}
+.thumbnail{height:330px}
+.mini-world{transform:translateX(-50%)}
+.sample-foot{min-height:0;padding:22px 24px}
+.bottom-note{margin:0 5% 25px;flex-direction:column;gap:8px}
+.detail-nav{padding:12px 4%;gap:8px}
+.switches{gap:0;flex:1;justify-content:space-between}
+.switches button{padding:8px}
+.workbench{margin:16px 4%}
+.workspace{grid-template-columns:1fr}
+.canvas{height:430px}
+.inspector{border-left:0;border-top:1px solid var(--line);display:block}
+.inspector h2{margin:6px 0}
+.inspector .message{margin-top:16px;padding-top:14px}
+.inspector .hint{padding-top:14px}
+.appbar{padding:0 15px;gap:12px}
+.run-status{font-size:9px}
+.detail-note{flex-direction:column;gap:6px}
+.app-footer{gap:8px}
+.app-footer>span{display:none}
+}
+@media(prefers-reduced-motion:no-preference){
+.sample-foot button,.switches button{transition:background .15s}
+.progress span{transition:width .2s}
+}
+.collection-heading{display:flex;align-items:baseline;justify-content:space-between;gap:18px;margin:0 3.5% 17px;padding-top:9px}
+.collection-heading h2{font-size:15px;letter-spacing:-.25px;margin:0}
+.collection-heading p{font-size:12px;color:#676b64}
+.new-label{font:9px ui-monospace,monospace;background:#e4e9f7;color:#455284;border-radius:4px;padding:4px 6px;margin-right:9px}
+.switches{flex-wrap:wrap}
+.detail-nav{gap:12px}
+.detail-caption{display:none}
+.sample-head{flex:none}
+.sample-foot{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+.sample-foot button{font-family:inherit}
+.route-points{fill:var(--panel);stroke:var(--accent);stroke-width:2}
+.new-reference{color:#698398;font-size:10px;padding:0 3.5%;margin-bottom:18px}
+.new-reference a{text-decoration-color:#b9c6cc}
+.collection-heading.original{margin-top:10px}
+.signal-demo{fill:#fff;stroke:var(--accent);stroke-width:2.5;filter:drop-shadow(0 0 4px var(--accent));pointer-events:none}
+.demo-note{font-size:10px;color:var(--muted)}
+@media(max-width:1050px){
+.collection-heading{align-items:start;flex-direction:column;gap:5px}
+.switches button{padding:8px 10px}
+}
+@media(max-width:760px){
+.collection-heading{margin-inline:5%}
+.new-reference{padding-inline:5%}
+.switches{flex-basis:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px}
+.switches button{font-size:10px;padding:9px 5px}
+.detail-nav .back{width:auto}
+.sample-head{height:100px}
+.canvas-tools{flex-wrap:wrap}
+.demo-note{display:none}
+}
+.sample-head h2{font-size:29px;font-weight:850;letter-spacing:-1.2px}
+.sample-head{height:110px}
+.sample-head p{font-size:11px}
+.sample-foot p{font-family:inherit}
+.sample-foot button{font-family:inherit}
+.intro{padding-top:32px;padding-bottom:22px}
+.intro p{max-width:440px}
+.new-reference{margin:0 3.5% 24px;padding:0;font-size:12px;color:#615a73}
+.new-reference a{margin-left:7px}
+.gallery{padding-bottom:28px}
+.bottom-note{padding-top:16px}
+.style-rule{display:inline-flex;align-items:center;gap:7px;font-size:11px;color:#615a73;border:1px solid #d5cfdf;padding:5px 9px;border-radius:4px}
+.style-rule svg{width:13px;height:13px}
+.detail-caption{display:block}
+.mini-mark{font-size:9px}
+.mini-node,.node{transform:none}
+.node.coordinator{left:70px;top:154px}
+.node.research{left:437px;top:111px}
+.node.review{left:437px;top:344px}
+.node.script{left:80px;top:427px}
+.node.app{left:749px;top:234px}
+.wires{stroke:#282337;opacity:1;stroke-width:3}
+.wire-label{fill:#615a73;font-size:9px}
+.node.coordinator,.mini-node.n1{background:#d9ccfc}
+.node.research,.mini-node.n2{background:#ffc6a8}
+.node.review{background:#fff0a8}
+.node.script,.mini-node.n3{background:#d6e99d}
+.node.app{background:#fffef9}
+.node-state{color:#4e4368}
+.node.app .node-state{color:#5d43b5}
+.node-head b{letter-spacing:-.5px}
+.node-head small{font-size:8px;letter-spacing:.05em}
+.node-body{font-size:12px}
+.mini-node .micro{color:#55496b;font-size:8px}
+.mini-node small{color:#554f60}
+.app-footer{font-size:10px}
+.canvas-tools button[aria-pressed=false]{text-decoration:line-through;opacity:.65}
+.node[data-selected=true]{outline:2px solid #5d43b5;outline-offset:6px}
+.mini-wires{stroke:#282337;stroke-width:3}
+.demo-note{font-size:10px}
+.workspace{grid-template-columns:minmax(0,1fr) 280px}
+@media(max-width:1050px){
+.detail-caption{display:none}
+.sample-head h2{font-size:24px}
+.sample-head{padding:16px 15px}
+.sample-head p{font-size:10px}
+.mini-world{transform:translateX(-50%) scale(.8)}
+.thumbnail{height:268px}
+.intro p{max-width:600px}
+}
+@media(max-width:760px){
+.intro{padding:28px 5% 20px}
+.new-reference{margin:0 5% 23px}
+.sample-head{padding:20px 23px;height:100px}
+.sample-head h2{font-size:28px}
+.sample-head p{font-size:11px}
+.thumbnail{height:330px}
+.mini-world{transform:translateX(-50%)}
+.workspace{grid-template-columns:1fr}
+.switches{display:flex;flex-basis:auto;flex:1;justify-content:space-between}
+.switches button{font-size:11px;padding:8px 7px}
+.style-rule{display:none}
+.new-reference a{display:inline-block;margin-left:0}
+.bottom-note{gap:9px}
+}
+.node.coordinator,.mini-node.n1{--material:#d9ccfc;--edge:#b6a5d7}
+.node.research,.mini-node.n2{--material:#ffc6a8;--edge:#d9a487}
+.node.review{--material:#fff0a8;--edge:#d6c88a}
+.node.script,.mini-node.n3{--material:#d6e99d;--edge:#b0c47c}
+.node.app{--material:#fffdf9;--edge:#d9d0e4}
+.sample-head p{font-size:11px}
+.intro p{max-width:440px}
+.mini-mark{font-size:8px;bottom:10px;right:18px}
+.mini-node{text-align:left}
+.mini-checks{justify-content:flex-start}
+.mini-checks i{height:5px;border-radius:2px}
+.node[data-selected=true]{outline:2px solid #9b83bf;outline-offset:7px}
+.node-head svg{flex:none}
+.canvas-caption{letter-spacing:1px}
+.group span{font-size:9px}
+.check-row input{accent-color:#7055aa}
+.app-footer{border-top:1px solid #d8cee3}
+@media(max-width:1050px){
+.sample-head p{font-size:10px}
+.detail-caption{display:none}
+}
+@media(max-width:760px){
+.sample-head p{font-size:11px}
+.intro p{max-width:none}
+}
+
+.porcelain{--bg:#eae4d9;--panel:#faf7f0;--ink:#403a30;--muted:#756958;--line:#d1c5b2;--accent:#a05a3d;--soft:#eae0d2;--coord:#eee2cc;--research:#e9c5ad;--review:#dce1c9;--script:#dacdb7;--app:#faf7f0;--edge:#bdae96;--wire:#b49c7f;--radius:10px;--shadow:0 5px 0 #c5b8a2,0 16px 22px -12px #76614366;--body-fill:transparent;--highlight:#fffaf0}
+.graphite{--bg:#232a2e;--panel:#2b3338;--ink:#f0f1ed;--muted:#b3bec2;--line:#59636a;--accent:#ffbd79;--soft:#354148;--coord:#414b51;--research:#3c474e;--review:#404b4a;--script:#474a48;--app:#283238;--edge:#151c20;--wire:#849497;--radius:7px;--shadow:0 5px 0 #11191e,0 15px 22px -12px #000000aa;--body-fill:#222c3177;--highlight:#ffffff35;color-scheme:dark}
+.aqua{--bg:#e4eff1;--panel:#f4fafb;--ink:#234651;--muted:#4d717b;--line:#a6cbd1;--accent:#177b86;--soft:#d9edf0;--coord:#ddf3edc9;--research:#ddecf7cf;--review:#d5eee9bd;--script:#c9e3edcf;--app:#f3fcfcdf;--edge:#93bac199;--wire:#79acb5;--radius:8px;--shadow:0 5px 0 -1px #a9ced37a,0 6px 0 -1px #ffffffbc,0 20px 30px -15px #397e8866;--body-fill:#ffffff4d;--highlight:#ffffffde}
+.porcelain,.graphite,.aqua{color:var(--ink);background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+:is(.porcelain,.graphite,.aqua) :is(.node.coordinator,.mini-node.n1){--material:var(--coord);--edge:inherit}
+:is(.porcelain,.graphite,.aqua) :is(.node.research,.mini-node.n2){--material:var(--research);--edge:inherit}
+:is(.porcelain,.graphite,.aqua) .node.review{--material:var(--review);--edge:inherit}
+:is(.porcelain,.graphite,.aqua) :is(.node.script,.mini-node.n3){--material:var(--script);--edge:inherit}
+:is(.porcelain,.graphite,.aqua) .node.app{--material:var(--app);--edge:inherit}
+:is(.porcelain,.graphite,.aqua) :is(.node,.mini-node){background:var(--material);border:1px solid var(--highlight);border-radius:var(--radius);color:var(--ink);transform:none;box-shadow:inset 0 2px 0 var(--highlight),var(--shadow)}
+:is(.porcelain,.graphite,.aqua) .sample-head{background:var(--panel)}
+:is(.porcelain,.graphite,.aqua) .sample-head h2{font-size:29px;letter-spacing:-1px;font-weight:750;color:var(--ink)}
+:is(.porcelain,.graphite,.aqua) .sample-head p{font-size:11px;color:var(--muted);opacity:1}
+:is(.porcelain,.graphite,.aqua) .thumbnail{background:var(--bg)}
+:is(.porcelain,.graphite,.aqua) .mini-node{padding:15px 16px 17px;text-align:left}
+:is(.porcelain,.graphite,.aqua) .mini-node.n1{left:29px;top:24px;width:207px}
+:is(.porcelain,.graphite,.aqua) .mini-node.n2{left:179px;top:142px;width:164px}
+:is(.porcelain,.graphite,.aqua) .mini-node.n3{left:27px;top:238px;width:152px;padding:11px 13px 14px}
+:is(.porcelain,.graphite,.aqua) .mini-node b{font-size:17px;font-weight:700;margin:5px 0;letter-spacing:-.5px}
+:is(.porcelain,.graphite,.aqua) .mini-node.n3 b{font-size:15px}
+:is(.porcelain,.graphite,.aqua) .mini-node small{color:var(--muted);font-size:9px}
+:is(.porcelain,.graphite,.aqua) .mini-node .micro{color:var(--muted);font-size:8px}
+:is(.porcelain,.graphite,.aqua) .mini-checks{display:none}
+:is(.porcelain,.graphite,.aqua) .mini-wires{stroke:var(--wire);stroke-width:4;stroke-linecap:round;stroke-linejoin:round}
+:is(.porcelain,.graphite,.aqua) .mini-mark{color:var(--muted);font-size:8px;bottom:10px;right:18px}
+:is(.porcelain,.graphite,.aqua) .node-head{padding:17px 17px 0;border:0;gap:11px}
+:is(.porcelain,.graphite,.aqua) .node-head b{font-size:17px;font-weight:700;letter-spacing:-.5px;color:var(--ink)}
+:is(.porcelain,.graphite,.aqua) .node-head small{font-size:8px;letter-spacing:.03em;color:var(--muted)}
+:is(.porcelain,.graphite,.aqua) .node-head svg{width:21px;height:21px;box-sizing:content-box;padding:8px;border-radius:5px;background:var(--body-fill);color:var(--accent);stroke:currentColor;box-shadow:inset 0 1px 0 var(--highlight),0 2px 3px #0000000a}
+:is(.porcelain,.graphite,.aqua) .node-body{padding:14px 18px 23px;font-size:12px;line-height:1.7}
+:is(.porcelain,.graphite,.aqua) .node-state{color:var(--muted);font-size:10px}
+:is(.porcelain,.graphite,.aqua) .node.research .node-state{color:var(--accent)}
+:is(.porcelain,.graphite,.aqua) .node.app .node-head{padding:15px 16px 0}
+:is(.porcelain,.graphite,.aqua) .node.app .node-head b{font-size:12px;letter-spacing:0}
+:is(.porcelain,.graphite,.aqua) .node.app .node-body{padding:16px 16px 22px}
+:is(.porcelain,.graphite,.aqua) .node.app h3{font-size:24px;line-height:1.12;letter-spacing:-.8px;font-weight:700}
+:is(.porcelain,.graphite,.aqua) .check-row{border:0;border-radius:4px;margin:5px 0;padding:9px;background:var(--soft);color:var(--ink);font-size:11px;box-shadow:inset 0 1px 3px #00000009,inset 0 -1px 0 var(--highlight)}
+:is(.porcelain,.graphite,.aqua) .check-row input{accent-color:var(--accent);margin:0}
+:is(.porcelain,.graphite,.aqua) .progress{height:5px;background:var(--line);border-radius:2px;overflow:hidden}
+:is(.porcelain,.graphite,.aqua) .progress span{background:var(--accent)}
+:is(.porcelain,.graphite,.aqua) .node.app .node-state{color:var(--accent)}
+:is(.porcelain,.graphite,.aqua) .group{background:var(--soft);border:1px solid var(--line);border-radius:12px;opacity:.45;box-shadow:inset 0 2px 4px #00000008}
+:is(.porcelain,.graphite,.aqua) .group span{top:-22px;background:none;color:var(--ink);font-size:9px;opacity:1;left:18px}
+:is(.porcelain,.graphite,.aqua) .wires{stroke:var(--wire);stroke-width:4;stroke-linecap:round;stroke-linejoin:round;opacity:1}
+:is(.porcelain,.graphite,.aqua) .wire-label{fill:var(--muted);font-size:9px}
+:is(.porcelain,.graphite,.aqua) .node[data-selected=true]{outline:2px solid var(--accent);outline-offset:7px}
+:is(.porcelain,.graphite,.aqua) .appbar,:is(.porcelain,.graphite,.aqua) .app-footer,:is(.porcelain,.graphite,.aqua) .inspector{background:var(--panel);border-color:var(--line)}
+:is(.porcelain,.graphite,.aqua) .inspector h2{font-family:inherit;font-size:25px;font-weight:700;letter-spacing:-.8px}
+:is(.porcelain,.graphite,.aqua) .message{border-color:var(--line);color:var(--ink)}
+:is(.porcelain,.graphite,.aqua) .canvas-tools button{border:1px solid var(--line);border-radius:4px;background:var(--soft);box-shadow:inset 0 1px 0 var(--highlight),0 2px 0 var(--edge);color:var(--ink)}
+.porcelain .thumbnail,.porcelain .canvas{background:radial-gradient(ellipse at 30% 0%,#fffaf0,transparent 65%),#e9e1d3}
+.porcelain .node,.porcelain .mini-node{background-image:linear-gradient(150deg,#ffffff70,transparent 65%);box-shadow:inset 0 3px 0 #fffdf4,inset 2px 0 0 #fffaf03b,inset 0 -6px 0 #7a62450d,var(--shadow)}
+.porcelain .node-head svg{background:#fff8eb80;color:#936c4f;box-shadow:inset 0 2px 0 #fffef7,0 2px 3px #806b4621}
+.porcelain .node.app{background:#fffdf7;box-shadow:inset 0 3px 0 white,0 5px 0 #d3c8b4,0 18px 25px -15px #856e5277}
+.porcelain .node.app h3{font-family:Georgia,serif;font-size:27px;letter-spacing:-.9px;font-weight:400}
+.porcelain .sample-head h2{font-family:Georgia,serif;font-size:31px;font-weight:400}
+.porcelain .node-body{padding-bottom:25px}.porcelain .inspector h2{font-family:Georgia,serif;font-weight:400;font-size:28px}.porcelain .group{opacity:.7;background:#ddd3c157;border:1px solid #cfbfa7}
+.graphite .thumbnail,.graphite .canvas{background:radial-gradient(ellipse at 40% 0%,#3a464a,transparent 70%),radial-gradient(#ffffff12 .7px,transparent .9px) 0 0/24px 24px,#232a2e}
+.graphite .node,.graphite .mini-node{background-image:linear-gradient(155deg,#ffffff0e,transparent 70%);border-color:#79868c80;box-shadow:inset 0 2px 0 #ffffff29,inset 0 -4px 0 #00000018,var(--shadow)}
+.graphite .node-head{padding:14px 16px 12px;border-bottom:1px solid #111c2266;box-shadow:0 1px 0 #ffffff08}
+.graphite .node-head svg{padding:7px;background:#202c32;box-shadow:inset 0 2px 3px #00000044,0 1px 0 #ffffff18;color:#d0d9d7}
+.graphite .node-head:after{content:"";height:5px;width:5px;background:#253137;border-radius:50%;box-shadow:inset 0 1px 1px #00000099,0 1px 0 #ffffff33;margin-left:auto;flex:none}
+.graphite .node.research .node-head svg{color:#ffbd79}
+.graphite .node-body{margin:8px 8px 10px;padding:12px;background:#25313755;border-radius:3px;box-shadow:inset 0 2px 3px #00000018,0 1px 0 #ffffff08}
+.graphite .node.app{border-color:#617179;background:#354047;box-shadow:inset 0 2px 0 #ffffff25,0 5px 0 #11191e,0 20px 28px -13px #000000b3}
+.graphite .node.app .node-head{padding:13px 15px}.graphite .node.app .node-body{background:#19272d;margin:8px 8px 10px;padding:15px 12px;border:1px solid #101d24;box-shadow:inset 0 3px 7px #00000066}
+.graphite .node.app h3{font-size:24px;color:#fff0d9}.graphite .check-row{background:#28373f;box-shadow:inset 0 1px 0 #ffffff0a;font-size:10px}.graphite .node.review .node-state{color:#aed6bf}.graphite .group{opacity:1;background:#111d242b;border-color:#5c6b7355}.graphite .group span{color:#acb9bf}.graphite .canvas-tools button{border-color:#59676e;background:linear-gradient(#424e54,#313e44);box-shadow:inset 0 1px 0 #ffffff1f,0 2px 0 #142025}.graphite .sample-head{background:#2c353a}.graphite .sample-head span{color:#cad3d3}.graphite .sample-head h2{font-size:28px}.graphite .mini-node.n3{background:#253238;border-top:3px solid #efb379}.graphite .mini-node.n3 b{color:#ffdab0}.graphite .mini-node.n2 .micro{color:#ffbd79}.graphite .mini-wires{stroke:#b6c4c6;stroke-width:3}
+.aqua .thumbnail,.aqua .canvas{background:radial-gradient(ellipse at 10% 85%,#a5d7cb88,transparent 60%),radial-gradient(ellipse at 90% 0%,#9bcae880,transparent 65%),#e8f3f3}
+.aqua .node,.aqua .mini-node{background-image:linear-gradient(145deg,#ffffff80,transparent 55%);border:1px solid #ffffffdd;box-shadow:inset 0 2px 0 #ffffffee,inset 1px 0 0 #ffffff88,inset 0 -1px 0 #3e889325,var(--shadow);backdrop-filter:blur(8px)}
+.aqua .node-head{padding:15px 16px 12px;border-bottom:1px solid #ffffff99;box-shadow:0 1px 0 #387f8a0c}.aqua .node-head svg{padding:7px;background:#ffffff60;color:#377887;box-shadow:inset 0 1px 0 white,0 3px 0 -1px #b7d8dc99}
+.aqua .node-body{background:#ffffff33;padding:14px 18px 20px;border-radius:0 0 8px 8px}.aqua .node.app{background:#f4ffffc9;box-shadow:inset 0 2px 0 white,0 5px 0 -1px #a6cbd099,0 6px 0 -1px #ffffffee,0 22px 32px -14px #37768066}
+.aqua .node.app .node-head{background:#d4edf0c9;padding:13px 16px}.aqua .node.app .node-body{background:#ffffff70;padding:16px 16px 22px}.aqua .check-row{background:#dceff0aa;box-shadow:inset 0 1px 0 white,0 1px 0 #a4ccd249}.aqua .group{opacity:1;background:#ffffff20;border:1px solid #ffffffb3;border-radius:10px;box-shadow:0 4px 0 -1px #8fbbc414}.aqua .group span{color:#4b7b87}.aqua .wires{stroke:#78a9b4;stroke-width:3}.aqua .inspector{background:#f0fafa;border-left:1px solid #bfdbdf;box-shadow:-6px 0 20px #4787950a}.aqua .canvas-tools button{background:#e0f0f2;border-color:#b1d3d8;box-shadow:inset 0 2px 0 white,0 2px 0 #b1d3d8}.aqua .mini-node.n3{background:#effdfabf}.aqua .mini-wires{stroke:#78a9b4;stroke-width:3}
+@media(max-width:1050px){:is(.porcelain,.graphite,.aqua) .sample-head h2{font-size:25px}:is(.porcelain,.graphite,.aqua) .sample-head p{font-size:10px}.detail-caption{display:none}}@media(max-width:760px){:is(.porcelain,.graphite,.aqua) .sample-head h2{font-size:28px}:is(.porcelain,.graphite,.aqua) .sample-head p{font-size:11px}:is(.porcelain,.graphite,.aqua) .inspector{border-left:0;border-top:1px solid var(--line)}.intro p{max-width:none}}
+</style>
+</head>
+<body>
+<svg class="symbols" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><symbol id="network" viewBox="0 0 28 28"><rect x="2" y="10" width="8" height="8" rx="2"/><rect x="19" y="2" width="7" height="7" rx="2"/><rect x="19" y="20" width="7" height="7" rx="2"/><path d="M10 14h4V5h5m-5 9v9h5"/></symbol><symbol id="search" viewBox="0 0 28 28"><circle cx="12" cy="12" r="8"/><path d="m18 18 7 7M8 12h8m-4-4v8"/></symbol><symbol id="review" viewBox="0 0 28 28"><path d="M6 3h16v22H6zM10 10l3 3 6-6M10 18h8"/></symbol><symbol id="code" viewBox="0 0 28 28"><path d="m8 7-6 7 6 7m12-14 6 7-6 7M16 4l-4 20"/></symbol></svg>
+<header class="site"><a class="brand" href="index.html#material-style-variations">RAgents</a><small>Formspiel / Farbe und Material</small><span class="offline">Offline-Entwurf mit Beispieldaten</span></header>
+<main>
+<section id="overview" aria-labelledby="page-title"><div class="intro"><div><div class="eyebrow">Formspiel / Drei neue Materialrichtungen</div><h1 id="page-title">Andere Farben.<br>Neues Materialgefühl.</h1></div><p>Die plastischen Karten bleiben. Warme Keramik, dunkle Gehäuse und kühles Glas verändern ihre Wirkung. Alle Formen stehen gerade und behalten kleine Eckradien.</p></div><p class="new-reference">Derselbe Canvas, drei eigenständige Farb- und Materialwelten. <a href="soft-style-variations.html">Zu Gussform, Relief und Schichtwerk</a></p><div class="gallery"><article class="sample porcelain"><div class="sample-head"><span>01</span><div><h2>Porzellan</h2><p>Warme Glasur, sanfte Lichtkanten, matte Flächen.</p></div></div><div class="thumbnail" aria-label="Vorschau Porzellan"><div class="mini-world"><svg class="mini-wires" viewBox="0 0 370 330" aria-hidden="true"><path d="M236 75H260Q270 75 270 86V142M270 231V274H179M29 75H16V274H27"/></svg><div class="mini-node n1"><div class="micro">Agent / Koordination</div><b>Koordinator</b><small>Teilt die Recherche auf.</small></div><div class="mini-node n2"><div class="micro">Agent / Recherche</div><b>Recherche</b><small>Sammelt die Grundlagen.</small></div><div class="mini-node n3"><div class="micro">Mini-App</div><b>Ergebnisliste</b></div><span class="mini-mark">CREME / TERRAKOTTA / SALBEI</span></div></div><div class="sample-foot"><p>Creme, Terrakotta und Salbei ersetzen die Pastelltöne. Feine Lichtkanten und ein matter Sockel lassen die Karten wie Keramik wirken.</p><div class="traits"><span>Warm</span><span>Matt</span><span>Keramisch</span></div><button data-open="porcelain">Porzellan erkunden</button></div></article><article class="sample graphite"><div class="sample-head"><span>02</span><div><h2>Graphit</h2><p>Dunkle Gehäuse mit präzisen orangefarbenen Akzenten.</p></div></div><div class="thumbnail" aria-label="Vorschau Graphit"><div class="mini-world"><svg class="mini-wires" viewBox="0 0 370 330" aria-hidden="true"><path d="M236 75H260Q270 75 270 86V142M270 231V274H179M29 75H16V274H27"/></svg><div class="mini-node n1"><div class="micro">Agent / Koordination</div><b>Koordinator</b><small>Teilt die Recherche auf.</small></div><div class="mini-node n2"><div class="micro">Agent / Recherche</div><b>Recherche</b><small>Sammelt die Grundlagen.</small></div><div class="mini-node n3"><div class="micro">Mini-App</div><b>Ergebnisliste</b></div><span class="mini-mark">ANTHRAZIT / ORANGE</span></div></div><div class="sample-foot"><p>Satiniertes Anthrazit, vertiefte Flächen und kleine Lichtakzente. Die Karten erinnern an Instrumente; die Mini-App sitzt wie ein Display im Gehäuse.</p><div class="traits"><span>Dunkel</span><span>Satiniert</span><span>Technisch</span></div><button data-open="graphite">Graphit erkunden</button></div></article><article class="sample aqua"><div class="sample-head"><span>03</span><div><h2>Aquaglas</h2><p>Kühle Farbtiefe und durchscheinende Schichten.</p></div></div><div class="thumbnail" aria-label="Vorschau Aquaglas"><div class="mini-world"><svg class="mini-wires" viewBox="0 0 370 330" aria-hidden="true"><path d="M236 75H260Q270 75 270 86V142M270 231V274H179M29 75H16V274H27"/></svg><div class="mini-node n1"><div class="micro">Agent / Koordination</div><b>Koordinator</b><small>Teilt die Recherche auf.</small></div><div class="mini-node n2"><div class="micro">Agent / Recherche</div><b>Recherche</b><small>Sammelt die Grundlagen.</small></div><div class="mini-node n3"><div class="micro">Mini-App</div><b>Ergebnisliste</b></div><span class="mini-mark">MINT / EISBLAU / LICHT</span></div></div><div class="sample-foot"><p>Grünblaues Glas, helle Kanten und transparente Flächen. Die Karten wirken leichter; ihre Materialstärke bleibt durch abgestufte Schatten sichtbar.</p><div class="traits"><span>Transparent</span><span>Kühl</span><span>Leicht</span></div><button data-open="aqua">Aquaglas erkunden</button></div></article></div><div class="bottom-note"><p><b>Ausprobieren:</b> Einen Stil öffnen und Farbe, Lichtkanten und Tiefe im vollständigen Canvas vergleichen.</p><p>Offline / Gerade Karten / Keine laufenden Agenten</p></div></section>
+<section id="detail" hidden aria-label="Interaktiver Canvas-Entwurf">
+<nav class="detail-nav" aria-label="Entwurf auswählen"><button class="back" id="back">Alle drei</button><div class="switches"><button data-open="porcelain" aria-pressed="false">01 Porzellan</button><button data-open="graphite" aria-pressed="false">02 Graphit</button><button data-open="aqua" aria-pressed="false">03 Aquaglas</button></div><span class="detail-caption">Formspiel / Farbe, Licht und Material</span></nav>
+<div class="workbench porcelain" id="workbench">
+<div class="appbar"><svg class="appmark" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><use href="#network"/></svg><div><div class="run-label">RUN / CORE / BEISPIEL</div><strong>Reparaturtreff vorbereiten</strong></div><div class="run-status"><i class="status-dot"></i>1 Agent arbeitet</div></div>
+<div class="workspace"><div class="canvas" id="canvas" aria-label="Canvas mit fünf auswählbaren Karten"><div class="world-wrap" id="world-wrap"><div class="world" id="world"><div class="canvas-caption">Arbeitsfläche / 4 Actors / 1 Mini-App</div><div class="group"><span>Recherche & Prüfung</span></div><svg class="wires" id="wires" viewBox="0 0 1000 620" aria-label="Verbindungen zwischen den Beteiligten"><path id="wire-one"/><path id="wire-two"/><path id="wire-three"/><path id="wire-four"/><text class="wire-label" x="352" y="177">Auftrag</text><text class="wire-label" x="690" y="302">Ergebnis</text><text class="wire-label" x="149" y="392">Abonnement</text><circle id="signal-dot" class="signal-demo" r="5" visibility="hidden"/></svg>
+<article class="node coordinator" data-actor="coordinator" data-selected="true"><button class="node-head" data-select="coordinator" aria-label="Koordinator auswählen" aria-pressed="true"><svg aria-hidden="true"><use href="#network"/></svg><span><small>AGENT / KOORDINATION</small><b>Koordinator</b></span></button><div class="node-body"><p>Ich teile die Vorbereitung auf. Die Ergebnisse sammeln wir gemeinsam in der Liste.</p><div class="node-state"><i class="status-dot"></i>Aufträge verteilt</div></div></article>
+<article class="node research" data-actor="research"><button class="node-head" data-select="research" aria-label="Recherche auswählen" aria-pressed="false"><svg aria-hidden="true"><use href="#search"/></svg><span><small>AGENT / RECHERCHE</small><b>Recherche</b></span></button><div class="node-body"><p>Welche Werkzeuge und Materialien brauchen wir vor Ort?</p><div class="node-state"><i class="status-dot"></i>Arbeitet</div></div></article>
+<article class="node review" data-actor="review"><button class="node-head" data-select="review" aria-label="Prüfung auswählen" aria-pressed="false"><svg aria-hidden="true"><use href="#review"/></svg><span><small>AGENT / PRÜFUNG</small><b>Prüfung</b></span></button><div class="node-body"><p>Die Raumplanung ist vollständig. Die Materialliste ist noch offen.</p><div class="node-state"><i class="status-dot"></i>Ergebnis liegt vor</div></div></article>
+<article class="node script" data-actor="script"><button class="node-head" data-select="script" aria-label="Sammler auswählen" aria-pressed="false"><svg aria-hidden="true"><use href="#code"/></svg><span><small>TYPESCRIPT-ACTOR</small><b>Sammler</b></span></button><div class="node-body"><div class="node-state"><i class="status-dot"></i>Bereit / 3 Eingaben</div></div></article>
+<article class="node app" data-actor="app"><button class="node-head" data-select="app" aria-label="Ergebnisliste auswählen" aria-pressed="false"><span><small>MINI-APP / SAMMLER</small><b>Ergebnisliste</b></span></button><div class="node-body"><h3>Alles an<br>einem Ort.</h3><label class="check-row"><input type="checkbox" checked>Raumplanung</label><label class="check-row"><input type="checkbox">Werkzeugliste</label><label class="check-row"><input type="checkbox">Ankündigung</label><div class="progress"><span id="progress"></span></div><div class="node-state" id="progress-text" aria-live="polite">1 von 3 geprüft</div></div></article>
+</div></div></div>
+<aside class="inspector" aria-label="Details der ausgewählten Karte"><div class="eyebrow">Ausgewählte Karte</div><h2 id="actor-title">Koordinator</h2><div class="actor-kind" id="actor-kind">Agent / Koordination</div><div class="message"><time>Beispielnachricht / 14:32</time><p id="actor-message">Ich bereite den Reparaturtreff mit zwei Agenten vor: Die Recherche sammelt die Grundlagen, die Prüfung schaut auf Vollständigkeit. Der Sammler übernimmt Ergebnisse in seine Mini-App.</p></div><div class="selected-label" id="actor-handle">@coordinator</div><p class="hint">Karten anklicken, um ihre Details zu sehen. Die Häkchen in der Mini-App lassen sich ausprobieren. Alle Änderungen bleiben nur auf dieser Seite.</p></aside>
+</div><div class="app-footer"><span>core / Beispieldaten / Keine laufenden Agenten</span><div class="canvas-tools"><button id="signal" title="Einmalige Animation mit Beispieldaten">Signal-Demo</button><button id="connections" aria-pressed="true">Verbindungen</button><button id="zoom-out" aria-label="Verkleinern">-</button><output id="zoom-label" aria-label="Zoomstufe">100 %</output><button id="zoom-in" aria-label="Vergrößern">+</button><button id="fit">Einpassen</button></div></div>
+</div><div class="detail-note"><p><strong id="style-name">Porzellan.</strong> <span id="style-description">Warme Keramik mit matten Flächen und feinen Lichtkanten.</span></p><span>Gestaltungsentwurf, kein Screenshot eines echten Runs.</span></div>
+</section>
+<noscript><p class="noscript">Die drei Vorschauen sind ohne JavaScript sichtbar. Zum Erkunden der Canvas-Entwürfe bitte JavaScript aktivieren.</p></noscript>
+</main>
+<script>
+(() => {
+const styles = {
+  "porcelain": {
+    "name": "Porzellan.",
+    "description": "Creme, Terrakotta und Salbei ersetzen die Pastelltöne. Feine Lichtkanten und ein matter Sockel lassen die Karten wie Keramik wirken.",
+    "paths": [
+      "M328 220H368Q382 220 382 206V186Q382 175 395 175H437",
+      "M328 280H353Q369 280 369 296V395Q369 408 382 408H437",
+      "M194 351V427",
+      "M677 211H707Q720 211 720 225V303Q720 317 734 317H749"
+    ]
+  },
+  "graphite": {
+    "name": "Graphit.",
+    "description": "Satiniertes Anthrazit, vertiefte Flächen und kleine Lichtakzente. Die Karten erinnern an Instrumente; die Mini-App sitzt wie ein Display im Gehäuse.",
+    "paths": [
+      "M328 220H368Q382 220 382 206V186Q382 175 395 175H437",
+      "M328 280H353Q369 280 369 296V395Q369 408 382 408H437",
+      "M194 351V427",
+      "M677 211H707Q720 211 720 225V303Q720 317 734 317H749"
+    ]
+  },
+  "aqua": {
+    "name": "Aquaglas.",
+    "description": "Grünblaues Glas, helle Kanten und transparente Flächen. Die Karten wirken leichter; ihre Materialstärke bleibt durch abgestufte Schatten sichtbar.",
+    "paths": [
+      "M328 220H368Q382 220 382 206V186Q382 175 395 175H437",
+      "M328 280H353Q369 280 369 296V395Q369 408 382 408H437",
+      "M194 351V427",
+      "M677 211H707Q720 211 720 225V303Q720 317 734 317H749"
+    ]
+  }
+};
+const actors = {
+  coordinator: ['Koordinator','Agent / Koordination','Ich bereite den Reparaturtreff mit zwei Agenten vor: Die Recherche sammelt die Grundlagen, die Prüfung schaut auf Vollständigkeit. Der Sammler übernimmt Ergebnisse in seine Mini-App.','@coordinator'],
+  research: ['Recherche','Agent / Recherche','Ich stelle gerade die benötigten Werkzeuge zusammen. Für jede Station sammle ich Material, Zubehör und offene Fragen. Anschließend geht das Ergebnis an den Koordinator.','@research'],
+  review: ['Prüfung','Agent / Prüfung','Die Raumplanung enthält alle vorgesehenen Stationen. Für die endgültige Prüfung fehlen noch die Werkzeugliste und der Text der Ankündigung.','@review'],
+  script: ['Sammler','TypeScript-Actor','Mein Abonnement nimmt abgeschlossene Agentenergebnisse entgegen. Ich ergänze damit meine Ergebnisliste. Die Mini-App zeigt meinen Zustand und erlaubt das Abhaken einzelner Einträge.','@collector'],
+  app: ['Ergebnisliste','Mini-App des Sammlers','Diese Oberfläche gehört zum TypeScript-Actor Sammler. Die drei Häkchen sind in diesem Entwurf lokal bedienbar. In der Anwendung bedienen Mensch und Agent denselben Actor-Zustand.','@collector / result-list']
+};
+const $ = id => document.getElementById(id);
+let zoom = 1;
+let animation;
+function stopSignal() { cancelAnimationFrame(animation); $('signal-dot').setAttribute('visibility','hidden'); $('signal').textContent = 'Signal-Demo'; }
+$('signal').addEventListener('click', () => {
+  stopSignal();
+  $('wires').style.display = '';
+  $('connections').setAttribute('aria-pressed','true');
+  const path = $('wire-one');
+  const length = path.getTotalLength();
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const start = performance.now();
+  $('signal').textContent = 'Beispielsignal';
+  function frame(now) {
+    const progress = reduced ? 1 : Math.min(1, (now-start)/2000);
+    const point = path.getPointAtLength(length*progress);
+    $('signal-dot').setAttribute('cx',point.x);
+    $('signal-dot').setAttribute('cy',point.y);
+    $('signal-dot').setAttribute('visibility','visible');
+    if (progress < 1) animation = requestAnimationFrame(frame);
+    else stopSignal();
+  }
+  animation = requestAnimationFrame(frame);
+});
+function resize() {
+  if ($('detail').hidden) return;
+  const scale = Math.min(1, Math.max(.58, $('canvas').clientWidth / 1050)) * zoom;
+  $('world').style.transform = `scale(${scale})`;
+  $('world-wrap').style.width = `${1000 * scale}px`;
+  $('world-wrap').style.height = `${620 * scale}px`;
+  $('canvas').style.height = `${Math.max(370, Math.min(650, 620 * scale + 15))}px`;
+  $('zoom-label').textContent = `${Math.round(zoom * 100)} %`;
+}
+function show(style, focus) {
+  stopSignal();
+  const active = Object.hasOwn(styles, style);
+  $('overview').hidden = active;
+  $('detail').hidden = !active;
+  if (active) {
+    $('workbench').className = `workbench ${style}`;
+    $('style-name').textContent = styles[style].name;
+    $('style-description').textContent = styles[style].description;
+    ['one','two','three','four'].forEach((name,index) => $(`wire-${name}`).setAttribute('d', styles[style].paths[index]));
+    document.querySelectorAll('.switches button').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.open === style)));
+    resize();
+    if (focus) { document.querySelector(`.switches [data-open="${style}"]`).focus(); window.scrollTo(0,0); }
+  } else if (focus) { document.querySelector('[data-open="porcelain"]').focus(); window.scrollTo(0,0); }
+}
+document.querySelectorAll('[data-open]').forEach(button => button.addEventListener('click', () => { location.hash = button.dataset.open; show(button.dataset.open, true); }));
+$('back').addEventListener('click', () => { location.hash = 'overview'; show('overview', true); });
+window.addEventListener('hashchange', () => show(location.hash.slice(1), false));
+document.querySelectorAll('[data-select]').forEach(button => button.addEventListener('click', () => {
+  const selected = button.dataset.select;
+  document.querySelectorAll('[data-actor]').forEach(node => node.dataset.selected = String(node.dataset.actor === selected));
+  document.querySelectorAll('[data-select]').forEach(node => node.setAttribute('aria-pressed', String(node.dataset.select === selected)));
+  ['actor-title','actor-kind','actor-message','actor-handle'].forEach((id,index) => $(id).textContent = actors[selected][index]);
+}));
+document.querySelectorAll('.check-row input').forEach(input => input.addEventListener('change', () => {
+  const count = document.querySelectorAll('.check-row input:checked').length;
+  $('progress').style.width = `${count / 3 * 100}%`;
+  $('progress-text').textContent = `${count} von 3 geprüft`;
+}));
+$('connections').addEventListener('click', () => {
+  const visible = $('connections').getAttribute('aria-pressed') !== 'true';
+  $('connections').setAttribute('aria-pressed', String(visible));
+  $('wires').style.display = visible ? '' : 'none';
+});
+$('zoom-in').addEventListener('click', () => { zoom = Math.min(1.6, zoom + .2); resize(); });
+$('zoom-out').addEventListener('click', () => { zoom = Math.max(.6, zoom - .2); resize(); });
+$('fit').addEventListener('click', () => { zoom = Math.min(1, $('canvas').clientWidth / 1050 / .58); resize(); $('canvas').scrollTo(0,0); });
+new ResizeObserver(resize).observe($('canvas'));
+show(location.hash.slice(1), false);
+})();
+</script>
+</body>
+</html>

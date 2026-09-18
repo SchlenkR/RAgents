@@ -1,0 +1,38 @@
+/* react-diff-view erzeugt diese Klassennamen selbst; nur deshalb bleibt hier CSS statt Utilities. */
+
+@import "react-diff-view/style/index.css";
+
+.diff {
+  font-size: 10.5px;
+}
+
+.diff-line {
+  line-height: 1.45;
+}
+
+.diff-code {
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.diff-code-edit {
+  border-radius: 2px;
+}
+
+.diff-gutter {
+  color: var(--muted-foreground);
+}
+
+.diff-gutter-insert,
+.diff-gutter-delete {
+  font-weight: 600;
+}
+
+.diff-gutter-insert:first-child {
+  box-shadow: inset 3px 0 0 var(--success);
+}
+
+.diff-gutter-delete:first-child {
+  box-shadow: inset 3px 0 0 var(--destructive);
+}

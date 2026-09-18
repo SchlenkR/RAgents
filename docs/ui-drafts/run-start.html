@@ -1,0 +1,1049 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAgents Run-Start</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ink:#223347;--text:#1d2433;--muted:#5f7896;--line:#d1dde9;--line-soft:#e3ecf2;
+  --surface:#ecf2f7;--panel:#f8fcff;--content:#ffffff;--app-bg:#f1f4f8;
+  --accent:#0550ae;--accent-soft:#dcebff;--amber:#b45309;--amber-soft:#fff0d6;
+  --shadow:0 10px 30px rgba(34,51,71,.14);
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#dbe6f2;--text:#dbe6f2;--muted:#8ea6bf;--line:#33465c;--line-soft:#2b3c4f;
+    --surface:#223142;--panel:#1b2938;--content:#16212d;--app-bg:#111922;
+    --accent:#6fb4ff;--accent-soft:#1f3b5c;--amber:#f5b04c;--amber-soft:#4a3410;
+    --shadow:0 10px 30px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"]{
+  --ink:#dbe6f2;--text:#dbe6f2;--muted:#8ea6bf;--line:#33465c;--line-soft:#2b3c4f;
+  --surface:#223142;--panel:#1b2938;--content:#16212d;--app-bg:#111922;
+  --accent:#6fb4ff;--accent-soft:#1f3b5c;--amber:#f5b04c;--amber-soft:#4a3410;
+  --shadow:0 10px 30px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--app-bg);color:var(--text);font:15px/1.55 var(--body);-webkit-font-smoothing:antialiased}
+a{color:var(--accent)}
+h1,h2,h3,h4{font-family:var(--display);color:var(--ink);text-wrap:balance;margin:0;line-height:1.12}
+h1{font-size:clamp(30px,4vw,42px);font-weight:700;letter-spacing:-.01em}
+h2{font-size:26px;font-weight:700}
+h3{font-size:17px;font-weight:700;margin-top:26px}
+h4{font-family:var(--body);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:22px 0 8px}
+p{margin:0 0 12px;max-width:72ch}
+ul,ol{margin:0 0 12px;padding-left:20px;max-width:76ch}
+li{margin:3px 0}
+code,.mono{font-family:var(--mono);font-size:.86em}
+code{background:var(--surface);padding:1px 5px;border-radius:4px;color:var(--ink)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.lead{font-size:17px;max-width:66ch;color:var(--ink)}
+.page{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}
+.nav{position:sticky;top:0;height:100vh;overflow:auto;padding:22px 14px;border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;gap:2px}
+.nav .brand{padding:0 8px 16px}
+.nav .brand strong{font-family:var(--display);font-size:20px;color:var(--ink);display:block}
+.nav .brand span{font-size:12px;color:var(--muted)}
+.nav .group{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:14px 8px 4px}
+.nav button{all:unset;cursor:pointer;display:grid;grid-template-columns:26px 1fr;align-items:baseline;gap:6px;padding:6px 8px;border-radius:7px;font-size:13.5px;color:var(--ink);line-height:1.3}
+.nav button .k{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.nav button:hover{background:var(--surface)}
+.nav button[aria-selected="true"]{background:var(--ink);color:var(--panel)}
+.nav button[aria-selected="true"] .k{color:var(--panel);opacity:.75}
+.nav button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.nav .hint{margin-top:auto;padding:14px 8px 0;font-size:11.5px;color:var(--muted)}
+main{padding:34px 48px 80px;max-width:1120px}
+section.view[hidden]{display:none}
+.head{margin-bottom:22px;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.head .these{font-family:var(--display);font-size:20px;font-weight:500;color:var(--ink);max-width:60ch;margin-top:10px;line-height:1.3}
+.meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);background:var(--content);font-size:12px;color:var(--ink)}
+.tag b{font-family:var(--mono);font-weight:500;color:var(--muted);font-size:11px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:10px 34px}
+@media (max-width:1100px){.cols{grid-template-columns:1fr}}
+table{border-collapse:collapse;width:100%;font-size:13.5px;margin:6px 0 16px}
+th,td{text-align:left;vertical-align:top;padding:7px 10px;border-bottom:1px solid var(--line-soft)}
+th{font-weight:600;color:var(--ink);font-size:12.5px}
+td.slot{font-family:var(--mono);font-size:12px;white-space:nowrap;color:var(--ink)}
+.tablewrap{overflow-x:auto}
+.vswitch{display:flex;gap:4px;margin:18px 0 10px;flex-wrap:wrap}
+.vswitch button{all:unset;cursor:pointer;padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--content);font-size:13px;color:var(--ink)}
+.vswitch button b{font-family:var(--mono);font-weight:500;color:var(--muted);margin-right:6px}
+.vswitch button[aria-selected="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
+.vswitch button[aria-selected="true"] b{color:var(--accent)}
+.vswitch button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+figure.variant{margin:0}
+figure.variant[hidden]{display:none}
+figcaption{margin:10px 0 0;font-size:14px;color:var(--ink);max-width:76ch}
+figcaption strong{font-family:var(--display);font-size:16px}
+.legend{list-style:none;padding:0;margin:8px 0 0;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:4px 18px;font-size:13px;color:var(--text)}
+.legend b{display:inline-block;width:16px;height:16px;border-radius:50%;background:var(--amber);color:#fff;font:600 10px/16px var(--mono);text-align:center;margin-right:6px}
+.callout{border-left:3px solid var(--accent);background:var(--content);padding:10px 14px;border-radius:0 8px 8px 0;margin:12px 0;max-width:80ch}
+.callout.warn{border-left-color:var(--amber)}
+.callout p:last-child{margin:0}
+.pros{display:grid;grid-template-columns:1fr 1fr;gap:16px 28px;margin-top:10px}
+@media (max-width:900px){.pros{grid-template-columns:1fr}}
+.pros ul{padding-left:18px}
+.pros h4{margin-top:0}
+
+/* Mockup kit */
+.mock{position:relative;aspect-ratio:16/10;display:grid;gap:5px;padding:6px;background:var(--app-bg);border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:9.5px;line-height:1.3;color:var(--ink);font-family:var(--body);box-shadow:var(--shadow)}
+.r{min-width:0;min-height:0;display:flex;flex-direction:column;gap:4px;padding:6px;background:var(--panel);border:1px solid var(--line);border-radius:7px;overflow:hidden;position:relative}
+.r.bar{flex-direction:row;align-items:center;gap:6px;padding:4px 8px;flex-wrap:nowrap}
+.r.ghost{background:transparent;border-style:dashed}
+.r.flat{background:transparent;border:0;padding:2px}
+.r.canvas{background:
+  radial-gradient(40% 40% at 20% 20%,color-mix(in srgb,var(--accent) 12%,transparent),transparent 70%),
+  radial-gradient(40% 40% at 80% 80%,color-mix(in srgb,var(--amber) 10%,transparent),transparent 70%),
+  var(--content)}
+.rh{font-family:var(--mono);font-size:7.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between;align-items:center;gap:4px}
+.rh .x{font-size:8px}
+.row-h{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+.t{font-weight:600}
+.m{color:var(--muted)}
+.chat{display:flex;flex-direction:column;gap:3px;flex:1;min-height:0;overflow:hidden}
+.b{max-width:88%;padding:3px 6px;border-radius:7px;background:var(--surface);border:1px solid transparent}
+.b.me{align-self:flex-end;background:var(--accent-soft)}
+.b.fork{border:1px dashed var(--ink);background:transparent}
+.b .who{font-family:var(--mono);font-size:7.5px;color:var(--muted);display:block}
+.cmp{margin-top:auto;border:1px solid var(--line);border-radius:999px;padding:3px 8px;display:flex;align-items:center;gap:6px;color:var(--muted);background:var(--content);flex:none}
+.cmp .go{margin-left:auto;width:12px;height:12px;border-radius:50%;background:var(--ink);flex:none}
+.cmp .sw{font-family:var(--mono);font-size:7.5px;padding:0 5px;border:1px solid var(--line);border-radius:999px;color:var(--ink)}
+.cmp .sw.on{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.tabs{display:flex;gap:3px;flex-wrap:wrap;align-items:center}
+.tabs span{padding:1px 6px;border-radius:5px;border:1px solid var(--line);background:var(--content);white-space:nowrap}
+.tabs .on{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.tabs .pv{font-style:italic}
+.tabs .pin::before{content:"";display:inline-block;width:5px;height:5px;background:currentColor;margin-right:4px;transform:rotate(45deg);vertical-align:1px}
+.tabs .dot::after{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--amber);margin-left:4px;vertical-align:1px}
+.tabs .cl::after{content:"x";font-family:var(--mono);margin-left:5px;color:var(--muted)}
+.tabs.vert{flex-direction:column;align-items:stretch}
+.pill{display:inline-flex;gap:3px;align-items:center;padding:0 6px;border-radius:999px;border:1px solid var(--line);background:var(--content);font-size:8.5px;white-space:nowrap;line-height:1.5}
+.pill.dash{border-style:dashed}
+.pill.attn{border-color:var(--amber);background:var(--amber-soft)}
+.pill em{font-style:normal;color:var(--muted)}
+.pill.sum{border-color:var(--ink)}
+.rows{display:flex;flex-direction:column;gap:2px}
+.row{display:flex;justify-content:space-between;gap:4px;padding:2px 5px;border-radius:4px;white-space:nowrap;overflow:hidden}
+.row.on{background:var(--accent-soft)}
+.row.sub{padding-left:14px;color:var(--muted)}
+.row .m{font-family:var(--mono);font-size:7.5px}
+.rail{display:flex;flex-direction:column;gap:5px;align-items:center;padding:6px 3px;background:var(--panel);border:1px solid var(--line);border-radius:7px}
+.rail.h{flex-direction:row;padding:3px 6px}
+.rail i{width:18px;height:18px;border-radius:5px;border:1px solid var(--line);display:grid;place-items:center;font-style:normal;font-size:7px;font-family:var(--mono);background:var(--content);position:relative;flex:none}
+.rail i.on{background:var(--ink);color:var(--panel);border-color:var(--ink)}
+.rail i.dot::after{content:"";position:absolute;top:-2px;right:-2px;width:6px;height:6px;border-radius:50%;background:var(--amber);border:1px solid var(--panel)}
+.rail .sp{flex:1}
+.acard{border:1.5px solid var(--ink);border-radius:8px;background:var(--panel);padding:3px 6px 4px;display:inline-flex;flex-direction:column;gap:2px;min-width:74px;position:relative}
+.acard.logic{border-radius:2px}
+.acard.sel{outline:2px solid var(--accent);outline-offset:2px}
+.acard.co{border-width:2.5px}
+.acard .h{display:flex;gap:4px;align-items:center;font-weight:600;white-space:nowrap}
+.acard .h small{font-weight:400;color:var(--muted);font-family:var(--mono);font-size:7.5px}
+.acard .sl{border-top:1px solid var(--line-soft);padding-top:2px;color:var(--muted);font-size:8px;white-space:nowrap}
+.st{width:8px;height:8px;border-radius:50%;border:1.5px solid var(--ink);flex:none;display:inline-block;vertical-align:-1px}
+.st.run{background:var(--ink);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 35%,transparent)}
+.st.end{border-radius:1px}
+.place{position:absolute;display:flex;gap:8px;align-items:flex-start}
+.place.v{flex-direction:column}
+.grp{border:1px dashed var(--muted);border-radius:8px;padding:10px 8px 8px;position:relative}
+.grp .gl{position:absolute;top:-6px;left:8px;background:var(--content);padding:0 4px;font-family:var(--mono);font-size:7.5px;color:var(--muted)}
+.shape{width:34px;height:34px;border:1.5px solid var(--ink);border-radius:50%;display:grid;place-items:center;font-size:7.5px;background:var(--panel)}
+.appel{border:1px solid var(--ink);border-radius:5px;background:var(--content);padding:3px 5px;min-width:70px;font-size:8px}
+.appel .ah{font-weight:600;display:flex;justify-content:space-between}
+.appel .ab{height:16px;margin-top:2px;background:repeating-linear-gradient(90deg,var(--surface) 0 6px,transparent 6px 9px);border-radius:3px}
+.peek{position:absolute;z-index:3;background:var(--content);border:1px solid var(--ink);border-radius:8px;padding:4px 6px;box-shadow:var(--shadow);width:118px;font-size:8px;display:flex;flex-direction:column;gap:2px}
+.peek::before{content:"";position:absolute;left:-6px;top:10px;border:6px solid transparent;border-left:0;border-right-color:var(--ink)}
+.peek .b{max-width:100%;padding:2px 4px}
+.win{position:absolute;z-index:3;background:var(--panel);border:1px solid var(--ink);border-radius:6px;display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow)}
+.win .wt{display:flex;justify-content:space-between;gap:4px;padding:2px 6px;background:var(--surface);font-weight:600;border-bottom:1px solid var(--line);font-size:8.5px}
+.win .wt .m{font-weight:400;font-family:var(--mono);font-size:7.5px}
+.win .wb{padding:4px 6px;display:flex;flex-direction:column;gap:3px;flex:1;min-height:0}
+.scrim{position:absolute;inset:0;background:color-mix(in srgb,var(--ink) 28%,transparent);z-index:2;border-radius:10px}
+.sheet{position:absolute;z-index:3;background:color-mix(in srgb,var(--panel) 94%,transparent);backdrop-filter:blur(2px);border:1px solid var(--ink);padding:8px;display:flex;flex-direction:column;gap:4px;box-shadow:var(--shadow)}
+.modal{position:absolute;z-index:3;left:24%;top:16%;width:52%;height:64%;background:var(--panel);border:1px solid var(--ink);border-radius:8px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+.modal .wt{display:flex;justify-content:space-between;padding:4px 8px;border-bottom:1px solid var(--line);font-weight:600}
+.n{position:absolute;z-index:5;width:12px;height:12px;border-radius:50%;background:var(--amber);color:#fff;font:600 7.5px/12px var(--mono);text-align:center;box-shadow:0 0 0 1.5px var(--panel)}
+.hint{font-size:8px;color:var(--muted);font-family:var(--mono)}
+.stripe{height:6px;border-radius:3px;background:repeating-linear-gradient(90deg,var(--surface) 0 10px,transparent 10px 14px)}
+.doc{flex:1;border:1px solid var(--line);border-radius:4px;background:var(--content);padding:4px 6px;display:flex;flex-direction:column;gap:3px}
+.doc .stripe{width:90%}.doc .stripe:nth-child(2){width:70%}.doc .stripe:nth-child(3){width:80%}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg span{padding:1px 8px;border-right:1px solid var(--line)}
+.seg span:last-child{border-right:0}
+.seg .on{background:var(--ink);color:var(--panel)}
+.kbd{font-family:var(--mono);font-size:7.5px;border:1px solid var(--line);border-radius:3px;padding:0 3px;color:var(--muted)}
+.dots{display:flex;gap:3px;align-items:center}
+.dots i{width:6px;height:6px;border-radius:50%;border:1px solid var(--ink);display:block}
+.dots i.on{background:var(--ink)}
+.crumb{display:flex;gap:4px;align-items:center;font-size:9px}
+.crumb .sep{color:var(--muted)}
+.sym{font-family:var(--mono)}
+.matrix td,.matrix th{text-align:center;padding:6px 6px}
+.matrix td:first-child,.matrix th:first-child{text-align:left;white-space:nowrap}
+.matrix .sym{font-size:15px;line-height:1}
+.today{display:grid;grid-template-columns:1fr;gap:10px}
+@media (max-width:860px){
+  .page{grid-template-columns:1fr}
+  .nav{position:static;height:auto;flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--line)}
+  .nav .brand{width:100%}
+  .nav .group{width:100%}
+  .nav .hint{display:none}
+  main{padding:22px 18px 60px}
+}
+@media (prefers-reduced-motion:no-preference){
+  section.view{animation:fade .18s ease-out}
+  @keyframes fade{from{opacity:.4}to{opacity:1}}
+}
+</style>
+<style>
+/* Zusatz zum Baukasten: Einstiegskarten */
+.egrid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.egrid.two{grid-template-columns:repeat(2,1fr)}
+.ecard{border:1px solid var(--line);border-radius:6px;background:var(--content);padding:4px 6px;display:flex;flex-direction:column;gap:2px;min-height:0;position:relative}
+.ecard .et{font-weight:600;display:flex;justify-content:space-between;gap:4px;align-items:center;white-space:nowrap}
+.ecard .kind{font-family:var(--mono);font-size:7px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--ink);border-radius:3px;padding:0 3px;color:var(--ink);font-weight:400}
+.ecard .kind.script{background:var(--ink);color:var(--panel)}
+.ecard .kind.skill{border-style:dashed}
+.ecard .ed{color:var(--muted);font-size:8px;line-height:1.25}
+.ecard .ea{margin-top:auto;display:flex;gap:3px;flex-wrap:wrap}
+.ecard .ea span{border:1px solid var(--line);border-radius:999px;padding:0 5px;font-size:7.5px;background:var(--panel)}
+.ecard .ea span.pri{border-color:var(--ink);background:var(--ink);color:var(--panel)}
+.ecard.free{border-style:dashed;background:var(--panel)}
+.ecard.sel{outline:2px solid var(--accent);outline-offset:1px}
+.owner{font-family:var(--mono);font-size:7.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:3px;display:flex;justify-content:space-between}
+.cmp.mini{padding:2px 6px;font-size:8px}
+.cmp.big{padding:8px 10px;min-height:34px;align-items:flex-start;border-radius:8px}
+.opts{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.chk::before{content:"";display:inline-block;width:7px;height:7px;border:1px solid var(--ink);border-radius:2px;margin-right:3px;vertical-align:-1px}
+.chk.on::before{background:var(--ink)}
+.elist{display:flex;flex-direction:column;gap:2px}
+.erow{display:grid;grid-template-columns:38px 1fr auto;gap:6px;align-items:center;padding:2px 5px;border:1px solid var(--line-soft);border-radius:4px;background:var(--content)}
+.erow .kind{font-family:var(--mono);font-size:7px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--ink);border-radius:3px;padding:0 3px;text-align:center}
+.erow .kind.script{background:var(--ink);color:var(--panel)}
+.erow .kind.skill{border-style:dashed}
+.erow .ed{color:var(--muted);font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.erow .ea{display:flex;gap:3px}
+.erow .ea span{border:1px solid var(--line);border-radius:999px;padding:0 5px;font-size:7.5px}
+.flow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;align-items:start}
+@media (max-width:1000px){.flow{grid-template-columns:1fr}}
+.flow h4{margin-top:6px}
+.sheet.cmpsheet{left:8px;right:8px;bottom:8px;border-radius:8px}
+.sheet.cmpsheet .txt{border:1px solid var(--line);border-radius:6px;padding:4px 6px;background:var(--content);min-height:30px;font-size:8px;color:var(--text)}
+.matrix .sym{font-family:var(--mono);font-size:13px}
+</style>
+</head>
+<body>
+<div class="page">
+<nav class="nav" aria-label="Entwürfe">
+  <div class="brand"><strong>RAgents</strong><span>Run-Start, Entwurfsrunde vom 04. und 05.09.2026</span></div>
+  <div class="group">Grundlage</div>
+  <button data-view="v0"><span class="k">0</span><span>Ausgangslage</span></button>
+  <div class="group">Entwürfe</div>
+  <button data-view="v1"><span class="k">1</span><span>Galerie der Einstiege</span></button>
+  <button data-view="v2"><span class="k">2</span><span>Drei Klickpfade</span></button>
+  <button data-view="v3"><span class="k">3</span><span>Im Rahmen der Kommandobrücke</span></button>
+  <button data-view="v5"><span class="k">4</span><span>Init-Screen im Detail</span></button>
+  <button data-view="v6"><span class="k">5</span><span>Nebeneinander: Chat und Einstiege</span></button>
+  <div class="group">Auswertung</div>
+  <button data-view="v4"><span class="k">6</span><span>Vergleich und Empfehlung</span></button>
+  <div class="hint">Pfeiltasten links und rechts blättern durch die Entwürfe. Innerhalb eines Entwurfs schalten A, B, C die Varianten um. Die Auswahl bleibt im Browser gemerkt. Das Konzept dazu steht in docs/concepts/run-start.md.</div>
+</nav>
+<main>
+
+<section class="view" id="v0">
+  <div class="head">
+    <div class="eyebrow">Grundlage</div>
+    <h1>Der Start eines Runs</h1>
+    <p class="these">"Neue Unterhaltung" ist ein neuer Run. Und ein Run beginnt nicht zwingend mit einem Chat, sondern mit einem Einstieg, den ein Plugin mitbringt: Promptkarte, Skill, Leitfaden oder Script.</p>
+  </div>
+  <p class="lead">Drei Entwürfe für die Startfläche, jeder mit Varianten als Mockup. Die Bausteine darin sind die heutigen: Startoptionen, Starter, Promptkarten, Leitfaden-Dialog, Composer. Neu ist nur ein vierter Einstieg, das Run-Script, und die Frage, wo der Composer steht.</p>
+
+  <h3>Was heute da ist</h3>
+  <p>Der leere Chat zeigt Startoptionen, zwei Kartenlisten und darunter den Composer. Der Run entsteht erst, wenn eine Nachricht gesendet wird.</p>
+  <div class="mock" style="grid-template-columns:17% 1fr;grid-template-areas:'side main'">
+    <div class="r" style="grid-area:side">
+      <div class="rh">Unterhaltungen</div>
+      <div class="pill sum" style="justify-content:center">+ Neue Unterhaltung</div>
+      <div class="rows">
+        <div class="row on"><span>Neue Unterhaltung</span><span class="m">jetzt</span></div>
+        <div class="row"><span>Rechnungsexport 4711</span><i class="st run"></i></div>
+        <div class="row"><span>Sync Projektbranches</span><span class="m">10:12</span></div>
+        <div class="row"><span>Stern mit Vermittler</span><span class="m">01.09.</span></div>
+      </div>
+      <span class="n" style="left:6px;bottom:6px">d</span>
+    </div>
+    <div class="r" style="grid-area:main;gap:6px">
+      <div class="rh">Neue Unterhaltung</div>
+      <div class="opts"><span class="pill"><em>Modell</em>glm-4.6 v</span><span class="pill"><em>Denken</em>mittel v</span><span class="pill"><em>Prompt</em>Standard v</span><span class="pill chk on">an Agenten weiterreichen</span></div>
+      <div class="m" style="text-align:center">Womit soll es losgehen?</div>
+      <div class="egrid two">
+        <div class="ecard"><div class="et">Feature umsetzen</div><div class="ed">Aufgabe wählen, Planung, Freigabe, Umsetzung, zwei Review-Runden.</div><div class="ea"><span class="pri">Einrichten</span></div></div>
+        <div class="ecard"><div class="et">Branches synchronisieren</div><div class="ed">Projektbranches über main synchronisieren, Push nach Freigabe.</div><div class="ea"><span class="pri">Starten</span></div></div>
+      </div>
+      <div class="egrid">
+        <div class="ecard"><div class="et">Stern mit Vermittler</div><div class="ed">Drei LLMs ohne Runtimewissen, ein Script routet.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+        <div class="ecard"><div class="et">Gesprächsrunde auf der Fläche</div><div class="ed">Drei im Kreis, Thema als Raute, Pfeile.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+        <div class="ecard"><div class="et">Mini-App Textanalyse</div><div class="ed">Vorlage text-analysis im Apps-Reiter.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+        <div class="ecard"><div class="et">Werkzeug und Mini-App</div><div class="ed">Gemeinsamer Handler und Zustand.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+        <div class="ecard"><div class="et">Hallo Welt im Dialog</div><div class="ed">Vorlage dialog als modaler Dialog.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+        <div class="ecard"><div class="et">Fließband mit Freigabe</div><div class="ed">Reihe auf der Fläche, Freigabe als Raute.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+      </div>
+      <div class="cmp big">Nachricht an den Koordinator ...<span class="go"></span></div>
+      <span class="n" style="right:6px;bottom:10px">a</span>
+      <span class="n" style="left:6px;top:44px">b</span>
+      <span class="n" style="right:6px;top:150px">c</span>
+    </div>
+  </div>
+  <ol class="legend">
+    <li><b>a</b>Der Composer ist die Mitte des Bildschirms und der einzige Weg in den Run. Jeder Einstieg endet in ihm.</li>
+    <li><b>b</b>Zwei Listen mit gleicher Optik und getrenntem Code: Starter (Skill, optional Leitfaden) und Promptkarten (Text).</li>
+    <li><b>c</b>Eine Promptkarte fügt nur Text ein; senden muss der Benutzer. Ein Starter sendet sofort oder öffnet einen Leitfaden.</li>
+    <li><b>d</b>Der Entwurf heißt "Neue Unterhaltung", obwohl er ein Run wird: Journal, Actors, Fläche, Werkzeuge.</li>
+  </ol>
+
+  <h3>Wo es reibt</h3>
+  <ul>
+    <li><strong>Falsches Wort.</strong> Ein Run ist mehr als eine Unterhaltung: Der Chat ist nur ein Ausschnitt.</li>
+    <li><strong>Der Composer dominiert, obwohl er selten der erste Schritt ist.</strong> Bei den Referenzfällen und beim Feature-Lauf beginnt der Run mit einer Karte.</li>
+    <li><strong>Ein Aufbau ist nie deterministisch.</strong> Alles, was einen vorgebauten Run ausmacht, entsteht durch Werkzeugaufrufe des Koordinators; eine Promptkarte ist Text, der ihn dazu anweist.</li>
+    <li><strong>Ein Plugin, das den Run vorkonfigurieren will, hat keinen Ort dafür.</strong> Es kann Karten, Skills und Leitfäden liefern, aber kein Script, das beim Start läuft.</li>
+  </ul>
+
+  <h3>Was jeder Entwurf leisten muss</h3>
+  <div class="cols">
+    <ul>
+      <li><strong>Vier Einstiegsarten</strong> mit einer Optik: Promptkarte, Skill, Skill mit Leitfaden, Run-Script.</li>
+      <li><strong>Art nie nur über Farbe</strong>: ein Textabzeichen (Prompt, Skill, Script) und die Aktionsbeschriftung tragen den Unterschied.</li>
+      <li><strong>Freitext bleibt erreichbar</strong>, mit höchstens einem Klick.</li>
+    </ul>
+    <ul>
+      <li><strong>Startoptionen gelten für alle Einstiege</strong> und stehen deshalb über ihnen.</li>
+      <li><strong>Zwanzig Einstiege müssen tragen</strong> (produkt hat heute zwanzig Karten plus zwei Starter).</li>
+      <li><strong>Passt in beide Rahmen</strong>: die heutige Oberfläche und die Kommandobrücke aus dem Bedienkonzept.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="view" id="v1">
+  <div class="head">
+    <div class="eyebrow">Entwurf 1</div>
+    <h2>Galerie der Einstiege</h2>
+    <p class="these">Die Startfläche ist ein Raster aus Einstiegen, nach Plugin gruppiert. Der Composer ist einer davon und rückt an den Rand.</p>
+    <div class="meta"><span class="tag"><b>neu</b> Einstieg als ein Beitrag</span><span class="tag"><b>neu</b> Run-Script</span><span class="tag"><b>bleibt</b> Startoptionen, Leitfaden, Skills</span></div>
+  </div>
+  <div class="vswitch">
+    <button data-variant="a" aria-selected="true"><b>A</b>Composer als Zeile unten</button>
+    <button data-variant="b" aria-selected="false"><b>B</b>Composer als Karte im Raster</button>
+    <button data-variant="c" aria-selected="false"><b>C</b>Liste statt Raster</button>
+  </div>
+
+  <figure class="variant" data-variant="a">
+    <div class="mock" style="grid-template-columns:17% 1fr;grid-template-areas:'side main'">
+      <div class="r" style="grid-area:side">
+        <div class="rh">Runs</div>
+        <div class="pill sum" style="justify-content:center">+ Neuer Run</div>
+        <div class="rows">
+          <div class="row on"><span>Neuer Run</span><span class="m">Entwurf</span></div>
+          <div class="row"><span>Rechnungsexport 4711</span><i class="st run"></i></div>
+          <div class="row"><span>Sync Projektbranches</span><span class="m">10:12</span></div>
+          <div class="row"><span>Stern mit Vermittler</span><span class="m">01.09.</span></div>
+        </div>
+        <span class="n" style="left:6px;bottom:6px">a</span>
+      </div>
+      <div class="r" style="grid-area:main;gap:5px">
+        <div class="rh">Neuer Run <span class="x">Entwurf, noch kein Journal</span></div>
+        <div class="opts"><span class="pill"><em>Modell</em>glm-4.6 v</span><span class="pill"><em>Denken</em>mittel v</span><span class="pill"><em>Prompt</em>Standard v</span><span class="pill chk on">an Agenten weiterreichen</span></div>
+        <div class="owner"><span>produkt.feature-pilot, produkt.sync</span><span>3 Einstiege</span></div>
+        <div class="egrid">
+          <div class="ecard"><div class="et">Feature umsetzen<span class="kind skill">Skill</span></div><div class="ed">Aufgabe wählen, Planung, Freigabe, Umsetzung, zwei Review-Runden.</div><div class="ea"><span class="pri">Einrichten</span></div></div>
+          <div class="ecard"><div class="et">Branches synchronisieren<span class="kind skill">Skill</span></div><div class="ed">Projektbranches über main synchronisieren, Push nach Freigabe.</div><div class="ea"><span class="pri">Starten</span></div></div>
+          <div class="ecard"><div class="et">Feature bearbeiten<span class="kind">Prompt</span></div><div class="ed">Ein Ticket aufnehmen, umsetzen und prüfen.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+        </div>
+        <div class="owner"><span>ragents.reference</span><span>21 Einstiege, 2 davon als Script</span></div>
+        <div class="egrid">
+          <div class="ecard"><div class="et">Gesprächsrunde<span class="kind script">Script</span></div><div class="ed">Drei im Kreis, Thema als Raute, Pfeile. Baut sich selbst.</div><div class="ea"><span class="pri">Starten</span><span>Thema wählen</span></div></div>
+          <div class="ecard"><div class="et">Gesprächsrunde<span class="kind">Prompt</span></div><div class="ed">Dasselbe Ziel als Auftrag an den Koordinator.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Werkzeug und Mini-App<span class="kind script">Script</span></div><div class="ed">Handler und App aus dem Paket, installiert vor dem ersten Turn.</div><div class="ea"><span class="pri">Starten</span></div></div>
+          <div class="ecard"><div class="et">Stern mit Vermittler<span class="kind">Prompt</span></div><div class="ed">Drei LLMs ohne Runtimewissen, ein Script routet.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Mini-App Textanalyse<span class="kind">Prompt</span></div><div class="ed">Vorlage text-analysis im Apps-Reiter.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Hallo Welt im Dialog<span class="kind">Prompt</span></div><div class="ed">Vorlage dialog als modaler Dialog.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+        </div>
+        <div class="hint" style="text-align:center">... 15 weitere</div>
+        <div class="cmp mini">Freier Auftrag an den Koordinator ...<span class="go"></span></div>
+        <span class="n" style="right:6px;bottom:6px">b</span>
+        <span class="n" style="left:30%;top:134px">c</span>
+        <span class="n" style="right:160px;top:113px">d</span>
+      </div>
+    </div>
+    <figcaption><strong>A. Composer als Zeile unten.</strong> Die Galerie füllt die Fläche, der Freitext ist eine schmale Zeile am unteren Rand. Ein Klick auf eine Promptkarte öffnet diese Zeile mit dem Text.</figcaption>
+    <ol class="legend">
+      <li><b>a</b>"Runs" und "Neuer Run" statt Unterhaltung; der Entwurf steht in der Liste, bis er ein Journal hat.</li>
+      <li><b>b</b>Der Composer ist da, aber klein. Er wächst, sobald er Text bekommt.</li>
+      <li><b>c</b>Das Abzeichen trägt die Art (Prompt, Skill, Script), die Aktion den Weg: Technisch und Frei füllen den Composer, Einrichten öffnet den Leitfaden, Starten startet.</li>
+      <li><b>d</b>Gruppierung nach dem Plugin, das den Einstieg besitzt (Owner steht heute schon an jeder Karte).</li>
+    </ol>
+  </figure>
+
+  <figure class="variant" data-variant="b" hidden>
+    <div class="mock" style="grid-template-columns:17% 1fr;grid-template-areas:'side main'">
+      <div class="r" style="grid-area:side">
+        <div class="rh">Runs</div>
+        <div class="pill sum" style="justify-content:center">+ Neuer Run</div>
+        <div class="rows">
+          <div class="row on"><span>Neuer Run</span><span class="m">Entwurf</span></div>
+          <div class="row"><span>Rechnungsexport 4711</span><i class="st run"></i></div>
+          <div class="row"><span>Sync Projektbranches</span><span class="m">10:12</span></div>
+          <div class="row"><span>Stern mit Vermittler</span><span class="m">01.09.</span></div>
+        </div>
+      </div>
+      <div class="r" style="grid-area:main;gap:5px">
+        <div class="rh">Neuer Run <span class="x">Entwurf, noch kein Journal</span></div>
+        <div class="opts"><span class="pill"><em>Modell</em>glm-4.6 v</span><span class="pill"><em>Denken</em>mittel v</span><span class="pill"><em>Prompt</em>Standard v</span><span class="pill chk on">an Agenten weiterreichen</span></div>
+        <div class="egrid">
+          <div class="ecard free" style="grid-row:span 2"><div class="et">Freier Auftrag<span class="kind">Chat</span></div><div class="ed">Sag dem Koordinator, was Du willst. Er baut den Run.</div><div class="cmp big" style="margin-top:4px;flex:1;align-items:flex-start">Nachricht ...<span class="go"></span></div></div>
+          <div class="ecard"><div class="et">Feature umsetzen<span class="kind skill">Skill</span></div><div class="ed">Aufgabe wählen, Planung, Freigabe, Umsetzung, zwei Review-Runden.</div><div class="ea"><span class="pri">Einrichten</span></div></div>
+          <div class="ecard"><div class="et">Branches synchronisieren<span class="kind skill">Skill</span></div><div class="ed">Projektbranches über main synchronisieren.</div><div class="ea"><span class="pri">Starten</span></div></div>
+          <div class="ecard"><div class="et">Gesprächsrunde<span class="kind script">Script</span></div><div class="ed">Drei im Kreis, Thema als Raute. Baut sich selbst.</div><div class="ea"><span class="pri">Starten</span><span>Thema wählen</span></div></div>
+          <div class="ecard"><div class="et">Werkzeug und Mini-App<span class="kind script">Script</span></div><div class="ed">Handler und App aus dem Paket.</div><div class="ea"><span class="pri">Starten</span></div></div>
+        </div>
+        <div class="owner"><span>ragents.reference, Promptkarten</span><span>19</span></div>
+        <div class="egrid">
+          <div class="ecard"><div class="et">Gesprächsrunde<span class="kind">Prompt</span></div><div class="ed">Dasselbe Ziel als Auftrag an den Koordinator.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Stern mit Vermittler<span class="kind">Prompt</span></div><div class="ed">Drei LLMs ohne Runtimewissen.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Mini-App Textanalyse<span class="kind">Prompt</span></div><div class="ed">Vorlage text-analysis.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+        </div>
+        <div class="hint" style="text-align:center">... 16 weitere</div>
+        <span class="n" style="left:8px;top:44px">a</span>
+        <span class="n" style="left:38%;top:44px">b</span>
+      </div>
+    </div>
+    <figcaption><strong>B. Composer als Karte im Raster.</strong> Der Freitext ist die erste Karte, doppelt hoch, mit dem Eingabefeld darin. Starter und Scripts stehen daneben, Promptkarten darunter.</figcaption>
+    <ol class="legend">
+      <li><b>a</b>Der Freitext ist gleichberechtigt, nicht mehr die Bühne. Wer chattet, findet ihn oben links.</li>
+      <li><b>b</b>Die erste Reihe sind die Einstiege, die einen Run WIRKLICH beginnen (Skill, Script); Promptkarten, die nur Text einfügen, stehen als zweite Gruppe.</li>
+    </ol>
+  </figure>
+
+  <figure class="variant" data-variant="c" hidden>
+    <div class="mock" style="grid-template-columns:17% 1fr;grid-template-areas:'side main'">
+      <div class="r" style="grid-area:side">
+        <div class="rh">Runs</div>
+        <div class="pill sum" style="justify-content:center">+ Neuer Run</div>
+        <div class="rows">
+          <div class="row on"><span>Neuer Run</span><span class="m">Entwurf</span></div>
+          <div class="row"><span>Rechnungsexport 4711</span><i class="st run"></i></div>
+          <div class="row"><span>Sync Projektbranches</span><span class="m">10:12</span></div>
+        </div>
+      </div>
+      <div class="r" style="grid-area:main;gap:4px">
+        <div class="rh">Neuer Run <span class="x">Entwurf, noch kein Journal</span></div>
+        <div class="opts"><span class="pill"><em>Modell</em>glm-4.6 v</span><span class="pill"><em>Denken</em>mittel v</span><span class="pill"><em>Prompt</em>Standard v</span><span class="pill chk on">an Agenten weiterreichen</span></div>
+        <div class="row-h"><span class="seg"><span class="on">Alle</span><span>Skill</span><span>Script</span><span>Prompt</span></span><span class="spacer"></span><span class="pill"><em>Suche</em>Gespr...</span></div>
+        <div class="elist">
+          <div class="erow"><span class="kind skill">Skill</span><span><span class="t">Feature umsetzen</span> <span class="ed">Aufgabe wählen, Planung, Freigabe, Umsetzung, Reviews</span></span><span class="ea"><span>Einrichten</span></span></div>
+          <div class="erow"><span class="kind skill">Skill</span><span><span class="t">Branches synchronisieren</span> <span class="ed">Projektbranches über main synchronisieren</span></span><span class="ea"><span>Starten</span></span></div>
+          <div class="erow"><span class="kind script">Script</span><span><span class="t">Gesprächsrunde</span> <span class="ed">Drei im Kreis, Thema als Raute, baut sich selbst</span></span><span class="ea"><span>Starten</span></span></div>
+          <div class="erow"><span class="kind script">Script</span><span><span class="t">Werkzeug und Mini-App</span> <span class="ed">Handler und App aus dem Paket</span></span><span class="ea"><span>Starten</span></span></div>
+          <div class="erow"><span class="kind">Prompt</span><span><span class="t">Gesprächsrunde</span> <span class="ed">Dasselbe Ziel als Auftrag an den Koordinator</span></span><span class="ea"><span>Technisch</span><span>Frei</span></span></div>
+          <div class="erow"><span class="kind">Prompt</span><span><span class="t">Stern mit Vermittler</span> <span class="ed">Drei LLMs ohne Runtimewissen, ein Script routet</span></span><span class="ea"><span>Technisch</span><span>Frei</span></span></div>
+          <div class="erow"><span class="kind">Prompt</span><span><span class="t">Subscription-Matrix</span> <span class="ed">Strukturierte Filter und ihr Lebenszyklus</span></span><span class="ea"><span>Technisch</span><span>Frei</span></span></div>
+          <div class="erow"><span class="kind">Prompt</span><span><span class="t">Mini-App Textanalyse</span> <span class="ed">Vorlage text-analysis im Apps-Reiter</span></span><span class="ea"><span>Technisch</span><span>Frei</span></span></div>
+          <div class="erow"><span class="kind">Prompt</span><span><span class="t">Hallo Welt im Dialog</span> <span class="ed">Vorlage dialog als modaler Dialog</span></span><span class="ea"><span>Technisch</span><span>Frei</span></span></div>
+          <div class="erow"><span class="kind">Prompt</span><span><span class="t">Fließband mit Freigabe</span> <span class="ed">Reihe auf der Fläche, Freigabe als Raute</span></span><span class="ea"><span>Technisch</span><span>Frei</span></span></div>
+        </div>
+        <div class="hint" style="text-align:center">... 14 weitere</div>
+        <div class="cmp mini">Freier Auftrag an den Koordinator ...<span class="go"></span></div>
+        <span class="n" style="left:40%;top:36px">a</span>
+      </div>
+    </div>
+    <figcaption><strong>C. Liste statt Raster.</strong> Eine Zeile je Einstieg mit Abzeichen, Titel, Beschreibung und Aktion; Filter nach Art und Suche. Trägt auch dreißig Einstiege.</figcaption>
+    <ol class="legend">
+      <li><b>a</b>Filter und Suche werden nötig, sobald mehrere Plugins Einstiege liefern. Das Raster von A verliert ab etwa zwölf Karten die Übersicht.</li>
+    </ol>
+  </figure>
+
+  <div class="pros">
+    <div><h4>Dafür</h4><ul><li>Ein Vertrag für Einstiege statt zwei Registries; das Web zeigt eine Liste.</li><li>Der Composer bleibt einen Klick entfernt, dominiert aber nicht.</li><li>Das Run-Script bekommt seinen Platz, ohne dass die Fläche anders aussieht.</li></ul></div>
+    <div><h4>Dagegen</h4><ul><li>Wer nur chatten will, hat einen Schritt mehr (A und C), oder eine kleinere Bühne (B).</li><li>Die Gruppierung nach Plugin ist technisch, nicht fachlich; eine kuratierte Reihenfolge braucht `order` über Plugins hinweg.</li></ul></div>
+  </div>
+</section>
+
+<section class="view" id="v2">
+  <div class="head">
+    <div class="eyebrow">Entwurf 2</div>
+    <h2>Drei Klickpfade</h2>
+    <p class="these">Was nach dem Klick passiert, unterscheidet die Arten: Text landet im Composer, ein Leitfaden öffnet sich als Dialog, ein Script baut den Run und die Fläche füllt sich.</p>
+  </div>
+  <div class="vswitch">
+    <button data-variant="a" aria-selected="true"><b>A</b>Promptkarte: Composer öffnet sich</button>
+    <button data-variant="b" aria-selected="false"><b>B</b>Skill mit Leitfaden: Dialog</button>
+    <button data-variant="c" aria-selected="false"><b>C</b>Run-Script: der Run steht</button>
+  </div>
+
+  <figure class="variant" data-variant="a">
+    <div class="mock" style="grid-template-columns:17% 1fr;grid-template-areas:'side main'">
+      <div class="r" style="grid-area:side">
+        <div class="rh">Runs</div>
+        <div class="pill sum" style="justify-content:center">+ Neuer Run</div>
+        <div class="rows"><div class="row on"><span>Neuer Run</span><span class="m">Entwurf</span></div><div class="row"><span>Rechnungsexport 4711</span><i class="st run"></i></div></div>
+      </div>
+      <div class="r" style="grid-area:main;gap:5px">
+        <div class="rh">Neuer Run</div>
+        <div class="opts"><span class="pill"><em>Modell</em>glm-4.6 v</span><span class="pill"><em>Prompt</em>Standard v</span></div>
+        <div class="egrid">
+          <div class="ecard"><div class="et">Feature umsetzen<span class="kind skill">Skill</span></div><div class="ed">Aufgabe wählen, Planung, Freigabe.</div><div class="ea"><span class="pri">Einrichten</span></div></div>
+          <div class="ecard sel"><div class="et">Gesprächsrunde<span class="kind">Prompt</span></div><div class="ed">Dasselbe Ziel als Auftrag an den Koordinator.</div><div class="ea"><span class="pri">Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Gesprächsrunde<span class="kind script">Script</span></div><div class="ed">Drei im Kreis, baut sich selbst.</div><div class="ea"><span class="pri">Starten</span></div></div>
+        </div>
+        <div class="egrid">
+          <div class="ecard"><div class="et">Stern mit Vermittler<span class="kind">Prompt</span></div><div class="ed">Drei LLMs ohne Runtimewissen.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Mini-App Textanalyse<span class="kind">Prompt</span></div><div class="ed">Vorlage text-analysis.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Hallo Welt im Dialog<span class="kind">Prompt</span></div><div class="ed">Vorlage dialog.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+        </div>
+        <div class="sheet cmpsheet">
+          <div class="row-h"><span class="t">Freier Auftrag</span><span class="seg"><span class="on">Technisch</span><span>Frei</span></span><span class="spacer"></span><span class="pill"><em>aus</em>Gesprächsrunde</span></div>
+          <div class="txt">Rufe `model_list` auf und stelle drei Agenten `mira`, `jon` und `ada` mit einem angebotenen Agentenprofil und `tools: []` auf. Jeder bekommt im dauerhaften Prompt seinen Namen, eine knappe Rolle ...</div>
+          <div class="row-h"><span class="hint">Text ist bearbeitbar, gesendet wird erst auf Senden</span><span class="spacer"></span><span class="pill">Verwerfen</span><span class="pill sum">Senden</span></div>
+          <span class="n" style="right:6px;top:6px">a</span>
+        </div>
+      </div>
+    </div>
+    <figcaption><strong>A. Promptkarte.</strong> Der Klick auf Technisch oder Frei öffnet den Composer als Blatt über der Galerie, mit dem Text der Karte und dem Umschalter zwischen den Fassungen. Nichts wird gesendet, bis der Benutzer es tut; genau wie heute, nur dass der Composer vorher nicht sichtbar sein muss.</figcaption>
+    <ol class="legend"><li><b>a</b>Das Blatt merkt sich, aus welcher Karte der Text kam; der Umschalter tauscht die Fassung, solange nichts geändert wurde.</li></ol>
+  </figure>
+
+  <figure class="variant" data-variant="b" hidden>
+    <div class="mock" style="grid-template-columns:17% 1fr;grid-template-areas:'side main'">
+      <div class="r" style="grid-area:side">
+        <div class="rh">Runs</div>
+        <div class="pill sum" style="justify-content:center">+ Neuer Run</div>
+        <div class="rows"><div class="row on"><span>Neuer Run</span><span class="m">Entwurf</span></div><div class="row"><span>Rechnungsexport 4711</span><i class="st run"></i></div></div>
+      </div>
+      <div class="r" style="grid-area:main;gap:5px">
+        <div class="rh">Neuer Run</div>
+        <div class="opts"><span class="pill"><em>Modell</em>glm-4.6 v</span><span class="pill"><em>Prompt</em>Standard v</span></div>
+        <div class="egrid">
+          <div class="ecard sel"><div class="et">Feature umsetzen<span class="kind skill">Skill</span></div><div class="ed">Aufgabe wählen, Planung, Freigabe.</div><div class="ea"><span class="pri">Einrichten</span></div></div>
+          <div class="ecard"><div class="et">Gesprächsrunde<span class="kind">Prompt</span></div><div class="ed">Auftrag an den Koordinator.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Gesprächsrunde<span class="kind script">Script</span></div><div class="ed">Drei im Kreis, baut sich selbst.</div><div class="ea"><span class="pri">Starten</span></div></div>
+        </div>
+        <div class="cmp mini">Freier Auftrag an den Koordinator ...<span class="go"></span></div>
+      </div>
+      <div class="scrim"></div>
+      <div class="modal" style="left:20%;top:12%;width:60%;height:72%">
+        <div class="wt"><span>Feature umsetzen</span><span class="m">Leitfaden von produkt.tickets</span></div>
+        <div class="wb" style="padding:6px 8px;display:flex;flex-direction:column;gap:4px;flex:1">
+          <div class="row-h"><span class="seg"><span class="on">Mir zugewiesen</span><span>Sprint</span><span>Suche</span></span><span class="spacer"></span><span class="pill"><em>Filter</em>Feature v</span></div>
+          <div class="rows">
+            <div class="row on"><span>4711 Rechnungsexport als CSV</span><span class="m">Feature</span></div>
+            <div class="row"><span>4720 Mahnlauf Stufe 2</span><span class="m">Feature</span></div>
+            <div class="row"><span>4733 Belegsuche nach Betrag</span><span class="m">Bug</span></div>
+          </div>
+          <div class="doc"><div class="stripe"></div><div class="stripe"></div><div class="stripe"></div></div>
+          <div class="row-h"><span class="pill chk on">Briefing frei formulieren</span><span class="spacer"></span><span class="pill">Abbrechen</span><span class="pill sum">Feature-Lauf starten</span></div>
+        </div>
+        <span class="n" style="right:6px;top:6px">a</span>
+      </div>
+    </div>
+    <figcaption><strong>B. Skill mit Leitfaden.</strong> Unverändert zu heute: das Plugin, das die Daten kennt, liefert die Komponente, der Host zeigt sie im Dialog, und "Feature-Lauf starten" liefert die erste Nachricht. Neu ist nur, dass derselbe Dialog für ein Run-Script auch einen JSON-Startwert liefern darf.</figcaption>
+    <ol class="legend"><li><b>a</b>Der Leitfaden gehört zum Einstieg, nicht zur Art: ein Skill, ein Script und sogar eine Promptkarte dürfen einen haben.</li></ol>
+  </figure>
+
+  <figure class="variant" data-variant="c" hidden>
+    <div class="flow">
+      <div>
+        <h4>Vor dem Klick</h4>
+        <div class="mock" style="grid-template-columns:1fr;aspect-ratio:16/11">
+          <div class="r" style="gap:5px">
+            <div class="rh">Neuer Run</div>
+            <div class="opts"><span class="pill"><em>Modell</em>glm-4.6 v</span></div>
+            <div class="egrid two">
+              <div class="ecard sel"><div class="et">Gesprächsrunde<span class="kind script">Script</span></div><div class="ed">Drei im Kreis, Thema als Raute, Pfeile. Baut sich selbst.</div><div class="ea"><span class="pri">Starten</span></div></div>
+              <div class="ecard"><div class="et">Gesprächsrunde<span class="kind">Prompt</span></div><div class="ed">Dasselbe Ziel als Auftrag.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+            </div>
+            <div class="sheet" style="left:12%;right:12%;top:46%;border-radius:8px">
+              <div class="t">Thema der Runde</div>
+              <div class="cmp" style="margin:0">Ob Werkzeuge denken können<span class="go"></span></div>
+              <div class="hint">Leitfaden des Scripts, liefert { topic } als Startwert</div>
+            </div>
+            <span class="n" style="left:6px;top:96px">a</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h4>Der Klick, 0 bis 3 Sekunden</h4>
+        <div class="mock" style="grid-template-columns:1fr;aspect-ratio:16/11">
+          <div class="r" style="gap:5px">
+            <div class="rh">Gesprächsrunde <span class="x">Run wird angelegt</span></div>
+            <div class="rows">
+              <div class="row"><span>Run angelegt, Startoptionen eingefroren</span><span class="sym">ok</span></div>
+              <div class="row"><span>Koordinator gestartet</span><span class="sym">ok</span></div>
+              <div class="row"><span>Script geprüft, getestet, installiert</span><span class="sym">ok</span></div>
+              <div class="row on"><span>@setup baut den Run</span><i class="st run"></i></div>
+              <div class="row sub"><span>agent_spawn mira</span><span class="sym">ok</span></div>
+              <div class="row sub"><span>agent_spawn jon</span><span class="sym">ok</span></div>
+              <div class="row sub"><span>agent_spawn ada</span><span class="sym">ok</span></div>
+              <div class="row sub"><span>canvas_layout_replace</span><span class="sym">..</span></div>
+              <div class="row sub"><span>actor_input an den Koordinator</span><span class="sym"></span></div>
+            </div>
+            <span class="n" style="left:6px;top:60px">b</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <h4>Danach: ein Run wie jeder andere</h4>
+        <div class="mock" style="grid-template-columns:38% 1fr;grid-template-rows:auto 1fr;grid-template-areas:'top top' 'chat canvas';aspect-ratio:16/11">
+          <div class="r bar" style="grid-area:top"><span class="t">Gesprächsrunde</span><span class="pill"><i class="st run"></i>Turn @mira</span><span class="pill"><em>Script</em>@setup</span></div>
+          <div class="r" style="grid-area:chat">
+            <div class="rh">Koordinator</div>
+            <div class="chat">
+              <div class="b"><span class="who">@setup, Eingabe 1</span>Die Runde steht. Thema: Ob Werkzeuge denken können. Stelle es reihum zu, zwei Runden.</div>
+              <div class="b">Ich stelle das Thema an @mira, dann @jon, dann @ada.</div>
+              <div class="b"><span class="who">actor_input</span>@mira</div>
+            </div>
+            <div class="cmp mini">Nachricht ...<span class="go"></span></div>
+          </div>
+          <div class="r canvas" style="grid-area:canvas">
+            <div class="rh">Fläche</div>
+            <div class="place" style="left:40%;top:14%"><div class="shape" style="border-radius:0;transform:rotate(45deg);width:24px;height:24px"><span style="transform:rotate(-45deg);font-size:6.5px">Thema</span></div></div>
+            <div class="place" style="left:6%;top:44%"><div class="grp" style="border-radius:40px;padding:10px 10px 8px"><span class="gl">Runde</span>
+              <div style="display:flex;gap:5px;align-items:center"><div class="acard" style="min-width:0;padding:2px 5px"><div class="h"><i class="st run"></i>@mira</div></div><div class="acard" style="min-width:0;padding:2px 5px"><div class="h"><i class="st"></i>@jon</div></div><div class="acard" style="min-width:0;padding:2px 5px"><div class="h"><i class="st"></i>@ada</div></div></div>
+            </div></div>
+            <div class="place" style="left:58%;top:80%"><div class="acard logic" style="min-width:0;padding:2px 5px"><div class="h"><i class="st"></i>@setup</div></div></div>
+            <span class="n" style="right:6px;top:6px">c</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <figcaption><strong>C. Run-Script.</strong> Der Klick legt den Run an, der Host prüft, testet und installiert das Script als TypeScript-Actor und schickt ihm einen Input. Der Turn baut Agenten, Layout und Werkzeuge und brieft den Koordinator. Danach gibt es keinen Unterschied zu einem Run, den der Koordinator selbst gebaut hätte.</figcaption>
+    <ol class="legend">
+      <li><b>a</b>Der Leitfaden eines Scripts liefert einen Startwert statt eines Textes; ohne Leitfaden startet der Klick sofort.</li>
+      <li><b>b</b>Der Aufbau ist ein sichtbarer Turn mit Werkzeugaufrufen im Journal, kein Zauber im Host.</li>
+      <li><b>c</b>Das Script bleibt als Actor auf der Fläche (Logik-Karte) und darf weiterleben, etwa als Vermittler der Runde.</li>
+    </ol>
+  </figure>
+</section>
+
+<section class="view" id="v3">
+  <div class="head">
+    <div class="eyebrow">Entwurf 3</div>
+    <h2>Im Rahmen der Kommandobrücke</h2>
+    <p class="these">Die Empfehlung des Bedienkonzepts (1 B) gibt dem Koordinator die linke Spalte. Vor dem Run gibt es noch keinen Koordinator; wo steht dann die Startfläche?</p>
+  </div>
+  <div class="vswitch">
+    <button data-variant="a" aria-selected="true"><b>A</b>Startfläche in der Mitte</button>
+    <button data-variant="b" aria-selected="false"><b>B</b>Startfläche in der linken Spalte</button>
+  </div>
+
+  <figure class="variant" data-variant="a">
+    <div class="mock" style="grid-template-columns:34px 1fr 26%;grid-template-rows:auto 1fr;grid-template-areas:'rail top top' 'rail main right'">
+      <div class="rail" style="grid-area:rail"><i class="on">+</i><i>RE</i><i>SY</i><i>ST</i><span class="sp"></span><i>o</i></div>
+      <div class="r bar" style="grid-area:top"><span class="t">Neuer Run</span><span class="pill"><em>Modell</em>glm-4.6 v</span><span class="pill"><em>Denken</em>mittel v</span><span class="pill"><em>Prompt</em>Standard v</span><span class="pill chk on">an Agenten</span><span class="spacer"></span><span class="pill">Einstellungen</span></div>
+      <div class="r" style="grid-area:main;gap:5px">
+        <div class="owner"><span>produkt.feature-pilot, produkt.sync</span><span>3</span></div>
+        <div class="egrid">
+          <div class="ecard"><div class="et">Feature umsetzen<span class="kind skill">Skill</span></div><div class="ed">Aufgabe wählen, Planung, Freigabe, Umsetzung, Reviews.</div><div class="ea"><span class="pri">Einrichten</span></div></div>
+          <div class="ecard"><div class="et">Branches synchronisieren<span class="kind skill">Skill</span></div><div class="ed">Projektbranches über main synchronisieren.</div><div class="ea"><span class="pri">Starten</span></div></div>
+          <div class="ecard"><div class="et">Feature bearbeiten<span class="kind">Prompt</span></div><div class="ed">Ein Ticket aufnehmen, umsetzen und prüfen.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+        </div>
+        <div class="owner"><span>ragents.reference</span><span>19</span></div>
+        <div class="egrid">
+          <div class="ecard"><div class="et">Gesprächsrunde<span class="kind script">Script</span></div><div class="ed">Drei im Kreis, baut sich selbst.</div><div class="ea"><span class="pri">Starten</span></div></div>
+          <div class="ecard"><div class="et">Gesprächsrunde<span class="kind">Prompt</span></div><div class="ed">Als Auftrag an den Koordinator.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Stern mit Vermittler<span class="kind">Prompt</span></div><div class="ed">Drei LLMs, ein Script routet.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+        </div>
+        <div class="hint" style="text-align:center">... 18 weitere</div>
+        <div class="cmp mini">Freier Auftrag an den Koordinator ...<span class="go"></span></div>
+        <span class="n" style="left:36%;top:4px">a</span>
+      </div>
+      <div class="r ghost" style="grid-area:right;align-items:center;justify-content:center;text-align:center">
+        <span class="m">Werkstatt<br>erscheint mit dem Run</span>
+        <span class="n" style="right:6px;top:6px">b</span>
+      </div>
+    </div>
+    <figcaption><strong>A. Startfläche in der Mitte.</strong> Vor dem Run belegt die Galerie den Platz von Koordinator-Spalte und Fläche zusammen; die Startoptionen wandern in die Kopfzeile. Mit dem ersten Journal-Eintrag teilt sich die Mitte in Koordinator links und Fläche rechts.</figcaption>
+    <ol class="legend">
+      <li><b>a</b>Ein Zustand, ein Bild: der Entwurf sieht anders aus als ein Run, das ist gewollt.</li>
+      <li><b>b</b>Das rechte Panel bleibt leer, weil es ohne Run nichts zu zeigen gibt; es erscheint, wenn der Run steht.</li>
+    </ol>
+  </figure>
+
+  <figure class="variant" data-variant="b" hidden>
+    <div class="mock" style="grid-template-columns:34px 30% 1fr;grid-template-rows:auto 1fr;grid-template-areas:'rail top top' 'rail left canvas'">
+      <div class="rail" style="grid-area:rail"><i class="on">+</i><i>RE</i><i>SY</i><i>ST</i><span class="sp"></span><i>o</i></div>
+      <div class="r bar" style="grid-area:top"><span class="t">Neuer Run</span><span class="pill"><em>Modell</em>glm-4.6 v</span><span class="pill"><em>Prompt</em>Standard v</span><span class="spacer"></span><span class="pill">Einstellungen</span></div>
+      <div class="r" style="grid-area:left;gap:4px">
+        <div class="rh">Einstiege <span class="x">Alle v</span></div>
+        <div class="elist">
+          <div class="erow" style="grid-template-columns:1fr auto"><span><span class="kind skill">Skill</span> <span class="t">Feature umsetzen</span></span><span class="ea"><span>Einrichten</span></span></div>
+          <div class="erow" style="grid-template-columns:1fr auto"><span><span class="kind skill">Skill</span> <span class="t">Branches synchronisieren</span></span><span class="ea"><span>Starten</span></span></div>
+          <div class="erow" style="grid-template-columns:1fr auto"><span><span class="kind script">Script</span> <span class="t">Gesprächsrunde</span></span><span class="ea"><span>Starten</span></span></div>
+          <div class="erow" style="grid-template-columns:1fr auto"><span><span class="kind script">Script</span> <span class="t">Werkzeug und App</span></span><span class="ea"><span>Starten</span></span></div>
+          <div class="erow" style="grid-template-columns:1fr auto"><span><span class="kind">Prompt</span> <span class="t">Gesprächsrunde</span></span><span class="ea"><span>T</span><span>F</span></span></div>
+          <div class="erow" style="grid-template-columns:1fr auto"><span><span class="kind">Prompt</span> <span class="t">Stern mit Vermittler</span></span><span class="ea"><span>T</span><span>F</span></span></div>
+          <div class="erow" style="grid-template-columns:1fr auto"><span><span class="kind">Prompt</span> <span class="t">Textanalyse</span></span><span class="ea"><span>T</span><span>F</span></span></div>
+          <div class="erow" style="grid-template-columns:1fr auto"><span><span class="kind">Prompt</span> <span class="t">Hallo Welt im Dialog</span></span><span class="ea"><span>T</span><span>F</span></span></div>
+        </div>
+        <div class="hint">... 16 weitere</div>
+        <div class="cmp mini">Freier Auftrag ...<span class="go"></span></div>
+        <span class="n" style="left:45%;top:4px">a</span>
+      </div>
+      <div class="r canvas ghost" style="grid-area:canvas;align-items:center;justify-content:center;text-align:center">
+        <span class="m">Die Fläche entsteht mit dem Run.<br>Ein Script legt sie an, ein Koordinator gestaltet sie.</span>
+        <span class="n" style="right:6px;top:6px">b</span>
+      </div>
+    </div>
+    <figcaption><strong>B. Startfläche in der linken Spalte.</strong> Die Einstiege stehen dort, wo gleich der Koordinator stehen wird; die Spalte wird beim Start zum Chat. Die Fläche ist von Anfang an sichtbar, aber leer.</figcaption>
+    <ol class="legend">
+      <li><b>a</b>Der Übergang ist ruhig: die Spalte wechselt ihren Inhalt, nichts springt. Dafür ist der Platz schmal, das Raster von Entwurf 1 passt hier nicht.</li>
+      <li><b>b</b>Die leere Fläche zeigt, was ein Script gleich tun wird, ist aber zwei Drittel Bildschirm Leere.</li>
+    </ol>
+  </figure>
+</section>
+
+<section class="view" id="v5">
+  <div class="head">
+    <div class="eyebrow">Entwurf 4</div>
+    <h2>Init-Screen im Detail</h2>
+    <p class="these">Die Empfehlung als ein Bild, dazu die zwei Entscheidungen vom 05.09.2026: der Koordinator ist meistens, aber nicht zwingend der Primary-Actor, und das Run-Script bleibt sichtbar.</p>
+    <div class="meta"><span class="tag"><b>aus</b> 1 A Galerie mit Composer-Zeile</span><span class="tag"><b>aus</b> 2 die drei Klickpfade</span><span class="tag"><b>entschieden</b> Primary-Actor frei, Script sichtbar</span></div>
+  </div>
+  <div class="vswitch">
+    <button data-variant="a" aria-selected="true"><b>A</b>Der Init-Screen</button>
+    <button data-variant="b" aria-selected="false"><b>B</b>Nach dem Script-Start, Moderator als Primary</button>
+  </div>
+
+  <figure class="variant" data-variant="a">
+    <div class="mock" style="grid-template-columns:16% 1fr;grid-template-areas:'side main'">
+      <div class="r" style="grid-area:side">
+        <div class="rh">Runs <span class="x">5</span></div>
+        <div class="pill sum" style="justify-content:center">+ Neuer Run</div>
+        <div class="rows">
+          <div class="row on"><span>Neuer Run</span><span class="m">Entwurf</span></div>
+          <div class="row"><span>Rechnungsexport 4711</span><i class="st run"></i></div>
+          <div class="row"><span>Gesprächsrunde</span><span class="m">gestern</span></div>
+          <div class="row"><span>Sync Projektbranches</span><span class="m">03.09.</span></div>
+          <div class="row"><span>Stern mit Vermittler</span><span class="m">01.09.</span></div>
+        </div>
+        <div class="spacer"></div>
+        <div class="pill" style="justify-content:center">Einstellungen</div>
+        <span class="n" style="left:6px;top:22px">a</span>
+      </div>
+      <div class="r" style="grid-area:main;gap:5px">
+        <div class="rh">Neuer Run <span class="x">Entwurf, noch kein Journal</span></div>
+        <div class="opts"><span class="hint">Startoptionen</span><span class="pill"><em>Modell</em>glm-4.6 v</span><span class="pill"><em>Denken</em>mittel v</span><span class="pill"><em>Prompt</em>Standard v</span><span class="pill chk on">an Agenten weiterreichen</span><span class="spacer"></span><span class="hint">frieren mit dem Start ein</span></div>
+        <div class="owner"><span>produkt.feature-pilot, produkt.sync</span><span>3 Einstiege</span></div>
+        <div class="egrid">
+          <div class="ecard"><div class="et">Feature umsetzen<span class="kind skill">Skill</span></div><div class="ed">Ein Aufgabe aus dem Ticketsystem auswählen, Briefing bestätigen, dann läuft der komplette Feature-Lauf.</div><div class="ea"><span class="pri">Einrichten</span><span>Leitfaden: Aufgabe</span></div></div>
+          <div class="ecard"><div class="et">Branches synchronisieren<span class="kind skill">Skill</span></div><div class="ed">Projektbranches nach main und main zurück, Vollbau dazwischen, Push nur auf Freigabe.</div><div class="ea"><span class="pri">Starten</span></div></div>
+          <div class="ecard"><div class="et">Feature bearbeiten<span class="kind">Prompt</span></div><div class="ed">Ein Ticket aufnehmen, umsetzen und prüfen.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+        </div>
+        <div class="owner"><span>ragents.reference</span><span>21 Einstiege, 2 davon als Script</span></div>
+        <div class="egrid">
+          <div class="ecard sel"><div class="et">Gesprächsrunde<span class="kind script">Script</span></div><div class="ed">Drei im Kreis, Thema als Raute, Pfeile. Baut sich selbst, fragt vorher nach dem Thema.</div><div class="ea"><span class="pri">Starten</span><span>Leitfaden: Thema</span></div></div>
+          <div class="ecard"><div class="et">Gesprächsrunde<span class="kind">Prompt</span></div><div class="ed">Dasselbe Ziel als Auftrag an den Koordinator.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Werkzeug und Mini-App<span class="kind script">Script</span></div><div class="ed">Handler und App aus dem Paket, installiert vor dem ersten Turn.</div><div class="ea"><span class="pri">Starten</span></div></div>
+          <div class="ecard"><div class="et">Stern mit Vermittler<span class="kind">Prompt</span></div><div class="ed">Drei LLMs ohne Runtimewissen, ein Script routet.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Mini-App Textanalyse<span class="kind">Prompt</span></div><div class="ed">Vorlage text-analysis im Apps-Reiter.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Hallo Welt im Dialog<span class="kind">Prompt</span></div><div class="ed">Vorlage dialog als modaler Dialog.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Subscription-Matrix<span class="kind">Prompt</span></div><div class="ed">Strukturierte Filter und ihr Lebenszyklus.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Fließband mit Freigabe<span class="kind">Prompt</span></div><div class="ed">Reihe auf der Fläche, Freigabe als Raute.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Team als Baum, Themen im Raster<span class="kind">Prompt</span></div><div class="ed">Baum aus der Abstammung, Raster aus Formen.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+        </div>
+        <div class="hint" style="text-align:center">... 12 weitere</div>
+        <div class="peek" style="left:34%;top:178px;width:170px">
+          <div class="t">Gesprächsrunde <span class="hint">Script</span></div>
+          <div>Baut 3 Agenten und 1 Layout, keine App. Fragt vorher nach dem Thema.</div>
+          <div class="hint">Primary: Koordinator (Standard)</div>
+          <div class="hint">run-scripts/conversation-circle/setup.ts</div>
+        </div>
+        <div class="cmp mini">Freier Auftrag an den Koordinator ...<span class="spacer"></span><span class="hint">Enter sendet, der Run entsteht mit der ersten Nachricht</span><span class="go"></span></div>
+        <span class="n" style="left:36%;top:4px">b</span>
+        <span class="n" style="left:30%;top:60px">c</span>
+        <span class="n" style="left:54.5%;top:180px">d</span>
+        <span class="n" style="right:6px;bottom:6px">e</span>
+      </div>
+    </div>
+    <figcaption><strong>A. Der Init-Screen.</strong> Ein Entwurf ohne Journal: Startoptionen oben, Einstiege nach Plugin gruppiert, der Freitext als Zeile unten. Vor dem Klick zeigt ein Script, was es tun wird.</figcaption>
+    <ol class="legend">
+      <li><b>a</b>"Runs" und "Neuer Run"; der Entwurf steht oben in der Liste, bis er mit dem ersten Journal-Eintrag ein Run wird.</li>
+      <li><b>b</b>Die Startoptionen gelten für jeden Einstieg und frieren mit dem Start ein; deshalb stehen sie über allem.</li>
+      <li><b>c</b>Das Abzeichen sagt die Art, die Aktion den Weg: Technisch und Frei füllen den Composer, Einrichten öffnet den Leitfaden, Starten startet. Ein Leitfaden ist am zweiten Knopf erkennbar.</li>
+      <li><b>d</b>Hover auf einem Script: was es baut, ob es einen Primary-Actor wählt, und woher es kommt. Das liest der Host aus RUN.md und aus dem Check beim Serverstart.</li>
+      <li><b>e</b>Die Composer-Zeile wächst mit dem Text; Enter sendet an den Koordinator, und erst damit entsteht der Run.</li>
+    </ol>
+  </figure>
+
+  <figure class="variant" data-variant="b" hidden>
+    <div class="mock" style="grid-template-columns:16% 38% 1fr;grid-template-rows:auto 1fr;grid-template-areas:'side top top' 'side chat canvas'">
+      <div class="r" style="grid-area:side">
+        <div class="rh">Runs <span class="x">5</span></div>
+        <div class="pill sum" style="justify-content:center">+ Neuer Run</div>
+        <div class="rows">
+          <div class="row on"><span>Gesprächsrunde</span><i class="st run"></i></div>
+          <div class="row"><span>Rechnungsexport 4711</span><i class="st run"></i></div>
+          <div class="row"><span>Sync Projektbranches</span><span class="m">03.09.</span></div>
+          <div class="row"><span>Stern mit Vermittler</span><span class="m">01.09.</span></div>
+        </div>
+      </div>
+      <div class="r bar" style="grid-area:top"><span class="t">Gesprächsrunde</span><span class="pill sum"><em>Primary</em>@moderator</span><span class="pill"><em>Modell</em>glm-4.6</span><span class="pill"><i class="st run"></i>Turn @mira 0:04</span><span class="pill"><em>Script</em>@setup</span><span class="spacer"></span><span class="pill">Einstellungen</span><span class="n" style="left:178px;top:2px">a</span></div>
+      <div class="r" style="grid-area:chat">
+        <div class="rh">@moderator <span class="x">Primary-Actor, vom Script gewählt</span></div>
+        <div class="chat">
+          <div class="b"><span class="who">@setup, Eingabe 1</span>Du moderierst eine Runde aus @mira, @jon und @ada. Thema: Ob Werkzeuge denken können. Zwei Runden, dann eine Zusammenfassung in drei Sätzen.</div>
+          <div class="b">Ich eröffne mit @mira und gebe reihum weiter.</div>
+          <div class="b"><span class="who">actor_input</span>@mira: Ob Werkzeuge denken können. Dein erster Satz.</div>
+          <div class="b"><span class="who">@mira, Ereignis</span>Ich frage mich, ob ein Hammer weiß, dass er ein Hammer ist.</div>
+        </div>
+        <div class="cmp mini">Nachricht an @moderator ...<span class="go"></span></div>
+        <span class="n" style="right:6px;top:24px">b</span>
+      </div>
+      <div class="r canvas" style="grid-area:canvas">
+        <div class="rh">Fläche <span class="x">- 100% + · Einpassen</span></div>
+        <div class="place" style="left:8%;top:14%"><div class="acard co"><div class="h"><i class="st"></i>@moderator <small>Primary</small></div><div class="sl">Frage offen: keine</div></div></div>
+        <div class="place" style="left:39%;top:16%"><div class="shape" style="border-radius:0;transform:rotate(45deg);width:30px;height:30px"><span style="transform:rotate(-45deg);font-size:6.5px">Thema</span></div></div>
+        <div class="place" style="left:22%;top:40%"><div class="grp" style="border-radius:60px;padding:12px 14px 10px"><span class="gl">Runde</span>
+          <div style="display:flex;gap:8px;align-items:center"><div class="acard" style="min-width:0;padding:2px 5px"><div class="h"><i class="st run"></i>@mira</div></div><div class="acard" style="min-width:0;padding:2px 5px"><div class="h"><i class="st"></i>@jon</div></div><div class="acard" style="min-width:0;padding:2px 5px"><div class="h"><i class="st"></i>@ada</div></div></div>
+        </div></div>
+        <div class="place" style="left:8%;top:80%"><div class="acard logic" style="min-width:0;padding:2px 5px"><div class="h"><i class="st"></i>@setup <small>Script</small></div><div class="sl">gebaut 3 Agenten, 1 Layout</div></div></div>
+        <span class="n" style="left:6px;top:86px">c</span>
+        <span class="n" style="left:6px;bottom:6px">d</span>
+      </div>
+    </div>
+    <figcaption><strong>B. Nach dem Script-Start, Moderator als Primary.</strong> Das Paket sagt <code>coordinator: false</code>. Das Script hat vier Agenten gespawnt, den Moderator per <code>run_configure</code> zum Primary-Actor gemacht und ihm das Briefing geschickt. Es gibt in diesem Run keinen Koordinator.</figcaption>
+    <ol class="legend">
+      <li><b>a</b>Die Kopfzeile nennt den Primary-Actor als Pill, weil er nicht mehr immer "Koordinator" heißt.</li>
+      <li><b>b</b>Der Chat spricht mit dem, den das Script gewählt hat; Eingabe 1 kommt vom Script, nicht vom Bediener.</li>
+      <li><b>c</b>Die Primary-Karte trägt den dickeren Rahmen und das Wort Primary, nie nur eine Farbe.</li>
+      <li><b>d</b>Das Script bleibt als Logik-Karte auf der Fläche, mit seinem Zustand aus dem Journal. Es kann weitere Inputs bekommen.</li>
+    </ol>
+  </figure>
+</section>
+
+<section class="view" id="v6">
+  <div class="head">
+    <div class="eyebrow">Entwurf 5</div>
+    <h2>Nebeneinander: Chat und Einstiege</h2>
+    <p class="these">Links das Chat-Control mit seinen Promptkarten, daneben gleichberechtigt die Einstiege, die den Run ohne Nachricht starten: Skills und vorgebaute Runs als Karten direkt auf dem Grund, ohne Kasten und ohne Gruppierung.</p>
+    <div class="meta"><span class="tag"><b>entschieden</b> 05.09.2026: Chat und Einstiege gleichberechtigt</span><span class="tag"><b>entschieden</b> Promptkarten bleiben Teil des Chat-Controls</span><span class="tag"><b>entschieden</b> Skills und vorgebaute Runs nicht in Kästen</span><span class="tag"><b>umgesetzt</b> Schritt 1, StartSurface.tsx</span></div>
+  </div>
+  <div class="vswitch">
+    <button data-variant="a" aria-selected="true"><b>A</b>Mit Promptkarten</button>
+    <button data-variant="b" aria-selected="false"><b>B</b>Ohne Promptkarten, Profil ohne Referenzkarten</button>
+  </div>
+
+  <figure class="variant" data-variant="a">
+    <div class="mock" style="grid-template-columns:15% 1fr 1fr;grid-template-rows:auto 1fr;grid-template-areas:'side opts opts' 'side chat entries'">
+      <div class="r" style="grid-area:side">
+        <div class="rh">Runs <span class="x">5</span></div>
+        <div class="pill sum" style="justify-content:center">+ Neuer Run</div>
+        <div class="rows">
+          <div class="row on"><span>Neuer Run</span><span class="m">Entwurf</span></div>
+          <div class="row"><span>Rechnungsexport 4711</span><i class="st run"></i></div>
+          <div class="row"><span>Gesprächsrunde</span><span class="m">gestern</span></div>
+          <div class="row"><span>Sync Projektbranches</span><span class="m">03.09.</span></div>
+          <div class="row"><span>Stern mit Vermittler</span><span class="m">01.09.</span></div>
+        </div>
+        <div class="spacer"></div>
+        <div class="pill" style="justify-content:center">Einstellungen</div>
+      </div>
+      <div class="r bar" style="grid-area:opts"><span class="hint">Startoptionen</span><span class="pill"><em>Modell</em>glm-4.6 v</span><span class="pill"><em>Denken</em>mittel v</span><span class="pill"><em>Prompt</em>Standard v</span><span class="pill chk on">an Agenten weiterreichen</span><i class="spacer"></i><i class="hint" style="font-style:normal">gelten für jeden Einstieg, frieren mit dem Start ein</i><span class="n" style="left:-4px;top:-5px">a</span></div>
+      <div class="r" style="grid-area:chat;gap:5px">
+        <div class="rh">Chat <span class="x">Auftrag an den Koordinator</span></div>
+        <div class="t" style="font-size:10.5px">Womit soll es losgehen?</div>
+        <div class="owner"><span>ragents.reference</span><span>21 Promptkarten</span></div>
+        <div class="egrid two">
+          <div class="ecard"><div class="et">Stern mit Vermittler</div><div class="ed">Drei LLMs ohne Runtimewissen, ein Script routet.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Gesprächsrunde</div><div class="ed">Drei im Kreis, Thema als Raute, Pfeile.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Mini-App Textanalyse</div><div class="ed">Vorlage text-analysis im Apps-Reiter.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Fließband mit Freigabe</div><div class="ed">Reihe auf der Fläche, Freigabe als Raute.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Hallo Welt im Dialog</div><div class="ed">Vorlage dialog als modaler Dialog.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+          <div class="ecard"><div class="et">Alle Karten-Slots</div><div class="ed">Rückfrage, To-do und Dokument auf einer Karte.</div><div class="ea"><span>Technisch</span><span>Frei</span></div></div>
+        </div>
+        <div class="hint" style="text-align:center">... 15 weitere</div>
+        <div class="cmp big">Nachricht an den Koordinator ...<span class="spacer"></span><span class="go"></span></div>
+        <span class="n" style="right:6px;top:18px">b</span>
+        <span class="n" style="right:6px;bottom:6px">c</span>
+      </div>
+      <div class="r flat" style="grid-area:entries;gap:6px;padding:4px 2px">
+        <div class="egrid two">
+          <div class="ecard"><div class="et">Feature umsetzen<span class="kind skill">Skill</span></div><div class="ed">Ein Aufgabe aus dem Ticketsystem auswählen, Briefing bestätigen, dann läuft der komplette Feature-Lauf.</div><div class="ea"><span class="pri">Einrichten</span><span>Leitfaden: Aufgabe</span><i class="spacer"></i><i class="hint" style="font-style:normal">produkt.feature-pilot</i></div></div>
+          <div class="ecard"><div class="et">Branches synchronisieren<span class="kind skill">Skill</span></div><div class="ed">Projektbranches nach main und main zurück, Vollbau dazwischen, Push nur auf Freigabe.</div><div class="ea"><span class="pri">Starten</span><i class="spacer"></i><i class="hint" style="font-style:normal">produkt.sync</i></div></div>
+          <div class="ecard"><div class="et">Release vorbereiten<span class="kind skill">Skill</span></div><div class="ed">Release-Branch, Versionsnummer und Pipeline nach dem Skill des Plugins.</div><div class="ea"><span class="pri">Starten</span><i class="spacer"></i><i class="hint" style="font-style:normal">produkt.release</i></div></div>
+          <div class="ecard sel"><div class="et">Gesprächsrunde<span class="kind script">Script</span></div><div class="ed">Drei Agenten im Kreis, Thema als Raute, Layout gesetzt. Fragt vorher nach dem Thema.</div><div class="ea"><span class="pri">Starten</span><span>Leitfaden: Thema</span><i class="spacer"></i><i class="hint" style="font-style:normal">ragents.reference</i></div></div>
+          <div class="ecard"><div class="et">Werkzeug und Mini-App<span class="kind script">Script</span></div><div class="ed">Handler und App aus dem Paket, installiert vor dem ersten Turn.</div><div class="ea"><span class="pri">Starten</span><i class="spacer"></i><i class="hint" style="font-style:normal">ragents.reference</i></div></div>
+          <div class="ecard free"><div class="et">Run aus Vorlage<span class="kind">Vorlage</span></div><div class="ed">Einen gespeicherten Run als Ausgangspunkt nehmen. Idee aus run-templates.md.</div><div class="ea"><span>Wählen</span></div></div>
+        </div>
+        <div class="peek" style="left:30%;top:214px;width:150px">
+          <div class="t">Gesprächsrunde <span class="hint">Script</span></div>
+          <div>Baut 3 Agenten und 1 Layout, keine App. Primary: Koordinator.</div>
+          <div class="hint">run-scripts/conversation-circle/setup.ts</div>
+        </div>
+        <span class="n" style="left:-4px;top:2px">d</span>
+        <span class="n" style="left:-4px;top:112px">e</span>
+      </div>
+    </div>
+    <figcaption><strong>A. Mit Promptkarten.</strong> Startoptionen über allem, darunter links das heutige Chat-Control mit Karten und Composer, rechts die Einstiege als Karten direkt auf dem Grund: Skills und Scripts nebeneinander, kein Kasten, keine Kopfzeile, keine Gruppierung nach Plugin.</figcaption>
+    <ol class="legend">
+      <li><b>a</b>Die Startoptionen gelten für jeden Einstieg und frieren mit dem Start ein; deshalb stehen sie als Zeile über allem.</li>
+      <li><b>b</b>Der Chat ist ein Bereich wie die Einstiege daneben, nicht die Mitte. Die Promptkarten gehören zu ihm, weil sie nur den Composer füllen; das Chat-Control bleibt wie heute.</li>
+      <li><b>c</b>Der Composer ist so groß wie heute. Enter sendet an den Koordinator, und erst damit entsteht der Run.</li>
+      <li><b>d</b>Die Einstiege stehen ohne Kasten auf dem Grund. Das Textabzeichen sagt die Art (Skill, Script), das Plugin steht klein an der Karte; Starten führt aus, Einrichten öffnet zuerst den Leitfaden.</li>
+      <li><b>e</b>Hover auf einem Script: was es baut und ob es den Primary-Actor wählt. Die Vorlage aus run-templates.md wäre eine weitere Karte in derselben Fläche.</li>
+    </ol>
+  </figure>
+
+  <figure class="variant" data-variant="b" hidden>
+    <div class="mock" style="grid-template-columns:15% 1fr 1fr;grid-template-rows:auto 1fr;grid-template-areas:'side opts opts' 'side chat entries'">
+      <div class="r" style="grid-area:side">
+        <div class="rh">Runs <span class="x">3</span></div>
+        <div class="pill sum" style="justify-content:center">+ Neuer Run</div>
+        <div class="rows">
+          <div class="row on"><span>Neuer Run</span><span class="m">Entwurf</span></div>
+          <div class="row"><span>Rechnungsexport 4711</span><i class="st run"></i></div>
+          <div class="row"><span>Sync Projektbranches</span><span class="m">03.09.</span></div>
+        </div>
+        <div class="spacer"></div>
+        <div class="pill" style="justify-content:center">Einstellungen</div>
+      </div>
+      <div class="r bar" style="grid-area:opts"><span class="hint">Startoptionen</span><span class="pill"><em>Modell</em>glm-4.6 v</span><span class="pill"><em>Denken</em>mittel v</span><span class="pill"><em>Prompt</em>Produkt v</span><span class="pill chk on">an Agenten weiterreichen</span></div>
+      <div class="r" style="grid-area:chat;gap:5px">
+        <div class="rh">Chat <span class="x">Auftrag an den Koordinator</span></div>
+        <div class="t" style="font-size:10.5px">Womit soll es losgehen?</div>
+        <div class="chat">
+          <div class="b" style="max-width:100%;background:transparent;border:1px dashed var(--line)">Beschreibe den Auftrag in eigenen Worten. Der Koordinator plant, stellt Agenten auf und meldet sich mit Fragen.</div>
+        </div>
+        <div class="cmp big">Nachricht an den Koordinator ...<span class="spacer"></span><span class="go"></span></div>
+        <span class="n" style="right:6px;top:18px">a</span>
+      </div>
+      <div class="r flat" style="grid-area:entries;gap:6px;padding:4px 2px">
+        <div class="egrid two">
+          <div class="ecard"><div class="et">Feature umsetzen<span class="kind skill">Skill</span></div><div class="ed">Ein Aufgabe aus dem Ticketsystem auswählen, Briefing bestätigen, dann läuft der komplette Feature-Lauf.</div><div class="ea"><span class="pri">Einrichten</span><span>Leitfaden: Aufgabe</span><i class="spacer"></i><i class="hint" style="font-style:normal">produkt.feature-pilot</i></div></div>
+          <div class="ecard"><div class="et">Branches synchronisieren<span class="kind skill">Skill</span></div><div class="ed">Projektbranches nach main und main zurück, Vollbau dazwischen, Push nur auf Freigabe.</div><div class="ea"><span class="pri">Starten</span><i class="spacer"></i><i class="hint" style="font-style:normal">produkt.sync</i></div></div>
+          <div class="ecard"><div class="et">Release vorbereiten<span class="kind skill">Skill</span></div><div class="ed">Release-Branch, Versionsnummer und Pipeline nach dem Skill des Plugins.</div><div class="ea"><span class="pri">Starten</span><i class="spacer"></i><i class="hint" style="font-style:normal">produkt.release</i></div></div>
+          <div class="ecard"><div class="et">Feature-Lauf, vorgebaut<span class="kind script">Script</span></div><div class="ed">Koordinator, Umsetzer und zwei Prüfer stehen schon, das Briefing kommt aus dem Leitfaden.</div><div class="ea"><span class="pri">Starten</span><span>Leitfaden: Aufgabe</span><i class="spacer"></i><i class="hint" style="font-style:normal">produkt.core</i></div></div>
+        </div>
+        <div class="spacer"></div>
+        <div class="hint">Ohne Referenzkarten bleibt der Chat ein Bereich gleicher Breite; die Einstiege daneben ändern sich nicht.</div>
+        <span class="n" style="left:-4px;bottom:6px">b</span>
+      </div>
+    </div>
+    <figcaption><strong>B. Ohne Promptkarten.</strong> Dasselbe Bild im Produktprofil ohne Referenzkarten: das Chat-Control zeigt nur die Frage und den Composer, die Einstiege daneben bleiben gleich.</figcaption>
+    <ol class="legend">
+      <li><b>a</b>Ob Karten da sind, entscheidet das Profil; der Chat-Bereich ändert dadurch weder Breite noch Platz. Ein Hinweistext füllt die Stelle der Karten.</li>
+      <li><b>b</b>Die Einstiege hängen nicht an den Karten; ein Produkt kann Skills und Scripts haben und trotzdem ohne Promptkarten ausliefern.</li>
+    </ol>
+  </figure>
+</section>
+
+<section class="view" id="v4">
+  <div class="head">
+    <div class="eyebrow">Auswertung</div>
+    <h2>Vergleich und Empfehlung</h2>
+    <p class="these">Galerie mit Composer-Zeile, drei Klickpfade, Startfläche in der Mitte. Ab etwa zwölf Einstiegen die Liste statt des Rasters.</p>
+  </div>
+  <div class="tablewrap"><table class="matrix">
+    <tr><th>Kriterium</th><th>1 A Zeile</th><th>1 B Karte</th><th>1 C Liste</th><th>3 A Mitte</th><th>3 B Spalte</th></tr>
+    <tr><td>Freitext ohne Klick sichtbar</td><td><span class="sym">o</span></td><td><span class="sym">+</span></td><td><span class="sym">o</span></td><td><span class="sym">o</span></td><td><span class="sym">o</span></td></tr>
+    <tr><td>Trägt zwanzig Einstiege</td><td><span class="sym">o</span></td><td><span class="sym">-</span></td><td><span class="sym">+</span></td><td><span class="sym">+</span></td><td><span class="sym">o</span></td></tr>
+    <tr><td>Art ohne Farbe erkennbar</td><td><span class="sym">+</span></td><td><span class="sym">+</span></td><td><span class="sym">+</span></td><td><span class="sym">+</span></td><td><span class="sym">+</span></td></tr>
+    <tr><td>Ruhiger Übergang zum Run</td><td><span class="sym">o</span></td><td><span class="sym">o</span></td><td><span class="sym">o</span></td><td><span class="sym">-</span></td><td><span class="sym">+</span></td></tr>
+    <tr><td>Raum für Beschreibungen</td><td><span class="sym">+</span></td><td><span class="sym">+</span></td><td><span class="sym">o</span></td><td><span class="sym">+</span></td><td><span class="sym">-</span></td></tr>
+    <tr><td>Passt in die heutige Oberfläche</td><td><span class="sym">+</span></td><td><span class="sym">+</span></td><td><span class="sym">+</span></td><td><span class="sym">n.a.</span></td><td><span class="sym">n.a.</span></td></tr>
+    <tr><td>Web-Aufwand</td><td><span class="sym">klein</span></td><td><span class="sym">klein</span></td><td><span class="sym">mittel</span></td><td><span class="sym">mittel</span></td><td><span class="sym">mittel</span></td></tr>
+  </table></div>
+  <p class="hint" style="font-size:12px">+ gut, o brauchbar, - schwach. Bewertung von der KI, Entscheidung von Ronald.</p>
+
+  <h3>Empfehlung</h3>
+  <div class="callout">
+    <p><strong>1 A für den Anfang, 1 C sobald ein zweites Plugin Einstiege liefert.</strong> Die Composer-Zeile hält den Freitext einen Klick entfernt, ohne die Bühne zu besetzen. Die Karte im Raster (1 B) ist hübsch, verliert aber ab zwölf Einstiegen die Übersicht; die Liste (1 C) trägt beliebig viele und braucht dafür Filter und Suche.</p>
+    <p><strong>Alle drei Klickpfade aus Entwurf 2</strong> sind Pflicht, weil sie die drei Arten erst unterscheidbar machen: Prompt öffnet, Skill sendet oder fragt, Script baut.</p>
+    <p><strong>Im Rahmen der Kommandobrücke 3 A.</strong> Der Entwurf darf anders aussehen als der Run; die Spalte (3 B) ist zu schmal für Beschreibungen und lässt zwei Drittel des Bildschirms leer.</p>
+  </div>
+
+  <h3>Was davon ohne Engine-Änderung geht</h3>
+  <ul>
+    <li>Wording "Neuer Run", Galerie, Composer-Zeile, Klickpfade A und B: reines Web, die Registries bleiben.</li>
+    <li>Ein Vertrag für Einstiege: Server-Registries zusammenlegen, kein Journalzustand betroffen.</li>
+    <li>Klickpfad C braucht die Start-Route ohne Nachricht, den host-seitigen Check-Test-Install eines Script-Pakets und `run_configure`, damit ein Script Titel und Primary-Actor setzen kann; Details in docs/concepts/run-start.md, Teil 2.</li>
+  </ul>
+</section>
+
+</main>
+</div>
+<script>
+(function () {
+  var views = Array.prototype.slice.call(document.querySelectorAll("section.view"));
+  var buttons = Array.prototype.slice.call(document.querySelectorAll(".nav button[data-view]"));
+  var ids = views.map(function (v) { return v.id; });
+  var KEY = "ragents-ui-drafts.run-start.view";
+
+  function current() {
+    for (var i = 0; i < views.length; i++) if (!views[i].hidden) return views[i].id;
+    return ids[0];
+  }
+
+  function show(id, remember) {
+    if (ids.indexOf(id) < 0) id = ids[0];
+    views.forEach(function (v) { v.hidden = v.id !== id; });
+    buttons.forEach(function (b) { b.setAttribute("aria-selected", String(b.getAttribute("data-view") === id)); });
+    if (remember) {
+      try { localStorage.setItem(KEY, id); } catch (e) {}
+      try { history.replaceState(null, "", "#" + id); } catch (e) {}
+    }
+    window.scrollTo(0, 0);
+  }
+
+  buttons.forEach(function (b) {
+    b.addEventListener("click", function () { show(b.getAttribute("data-view"), true); });
+  });
+
+  views.forEach(function (section) {
+    var switches = Array.prototype.slice.call(section.querySelectorAll(".vswitch button"));
+    var figures = Array.prototype.slice.call(section.querySelectorAll("figure.variant"));
+    function pick(variant) {
+      switches.forEach(function (b) { b.setAttribute("aria-selected", String(b.getAttribute("data-variant") === variant)); });
+      figures.forEach(function (f) { f.hidden = f.getAttribute("data-variant") !== variant; });
+    }
+    switches.forEach(function (b) {
+      b.addEventListener("click", function () { pick(b.getAttribute("data-variant")); });
+    });
+    section.pickVariant = pick;
+    section.variantIds = switches.map(function (b) { return b.getAttribute("data-variant"); });
+  });
+
+  document.addEventListener("keydown", function (event) {
+    if (event.metaKey || event.ctrlKey || event.altKey) return;
+    var target = event.target;
+    if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+    var index = ids.indexOf(current());
+    if (event.key === "ArrowRight" && index < ids.length - 1) { show(ids[index + 1], true); event.preventDefault(); }
+    if (event.key === "ArrowLeft" && index > 0) { show(ids[index - 1], true); event.preventDefault(); }
+    var key = event.key.toLowerCase();
+    if (key === "a" || key === "b" || key === "c") {
+      var section = document.getElementById(current());
+      if (section && section.variantIds && section.variantIds.indexOf(key) >= 0) section.pickVariant(key);
+    }
+  });
+
+  function openFragment() {
+    var parts = location.hash.slice(1).split("-");
+    var initial = parts[0];
+    if (!initial) { try { initial = localStorage.getItem(KEY) || ""; } catch (e) { initial = ""; } }
+    show(initial || ids[0], false);
+    var section = document.getElementById(current());
+    if (parts[1] && section.variantIds && section.variantIds.indexOf(parts[1]) >= 0) section.pickVariant(parts[1]);
+  }
+  window.addEventListener("hashchange", openFragment);
+  openFragment();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "noEmit": true,
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@aicontainer/server/*": [
+        "../../apps/server/src/*"
+      ],
+      "@aicontainer/web/*": [
+        "../../apps/web/src/*"
+      ],
+      "@aicontainer/plugins/*": [
+        "../../plugins/*"
+      ],
+      "@ragents/workflow": [
+        "../../plugins/ragents.actor-programs/workflow/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "src",
+    "../../plugins/*/web",
+    "../../plugins/ragents.actor-programs/client-ui/index.tsx",
+    "../../plugins/*/contract.ts"
+  ]
+}

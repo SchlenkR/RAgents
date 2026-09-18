@@ -1,0 +1,15 @@
+.DS_Store
+.vscode/*
+!.vscode/tasks.json
+*.tsbuildinfo
+node_modules/
+dist/
+.data/
+container/access.json
+container/.access-*
+apps/server/agent-home/auth.json
+obj/
+bin/
+
+.fake
+*.vsix

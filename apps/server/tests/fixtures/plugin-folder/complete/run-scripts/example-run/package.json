@@ -1,0 +1,9 @@
+{
+  "name": "example-run",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Beispiel-Run",
+    "backend": "src/server.ts"
+  }
+}

@@ -1,0 +1,11 @@
+node_modules/
+.pnpm-store/
+dist/
+.data/
+**/bin/
+**/obj/
+TestResults/
+*.db
+*.db-shm
+*.db-wal
+artifacts/

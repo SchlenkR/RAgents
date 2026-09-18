@@ -1,0 +1,62 @@
+[
+  {
+    "file": "01-skull-is-r.png",
+    "title": "Schädel als R, weiß auf Schwarz",
+    "concept": "Direkt auf 02 aufgesetzt: gleiche Weiß-auf-Schwarz-Logik, aber mit schwarzem Extrusionskörper und Schlagschatten. Der Schädel teilt sich die Kontur mit dem R, Kiefer und Zähne laufen in den Buchstaben.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "02-negative-sockets.png",
+    "title": "Augenhöhlen als Aussparung",
+    "concept": "Steinweiße Flächen mit dunkler Tiefe, die Augenhöhlen sind als Loch durch die Buchstabenfläche gestanzt. Kompakt, schwer, gute Balance aus abstrakt und lesbar.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "03-slate-orange-3d.png",
+    "title": "Schiefer und Orange, mit Tiefe",
+    "concept": "Die 03-Idee mit echtem Volumen: rote Extrusion, weiche Farbfelder dahinter, geschwungene Buchstabenkörper. Der Schädel sitzt hier eher neben dem R als darin.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "04-stencil-3d.png",
+    "title": "Schablone mit Tiefe",
+    "concept": "Die 08-Idee plus grauer Extrusionskörper. Sehr klare Silhouette, Buchstaben stark verrundet - die verspielteste Fassung im Satz.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "05-ribbon-volume.png",
+    "title": "Beton, verwoben",
+    "concept": "Buchstabenbänder laufen über- und untereinander, alles wirkt aus einem Betonblock gefräst. Am wenigsten lesbar und damit am nächsten an abstrakt.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "06-blue-extrusion.png",
+    "title": "Blauer Körper",
+    "concept": "Graue Deckflächen auf leuchtend blauem Extrusionskörper mit Schein auf dem Untergrund. Trägt das Markenblau, Schädel und R sind sauber verschmolzen.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "07-red-ground-mass.png",
+    "title": "Masse auf Rot",
+    "concept": "Dunkelrote Rechtecke im Grund, schwerer Steinkörper mit Textur, Buchstaben stark ineinandergeschoben. Die bedrohlichste Fassung, ohne spitz zu werden.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "08-knot-mono.png",
+    "title": "Weißer Knoten",
+    "concept": "Reines Weiß mit Eigenschatten, keine Farbe: die Buchstaben bilden einen verwobenen Knoten, aus dem links der Schädel wächst. Für mich der stärkste Entwurf.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "09-braided-bone.png",
+    "title": "Knochenband, verflochten",
+    "concept": "Weiche Knochenfarbe, dickes schwarzes Bett, Bänder verflechten sich. Sehr charmant, aber deutlich freundlicher als der Rest.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "10-blue-light-edge.png",
+    "title": "Blaue Lichtkante",
+    "concept": "Grauer Körper im Dunkeln, nur eine blaue Lichtkante oben. Kühl und teuer wirkend, Schädel und R aus einem Guss.",
+    "model": "gpt_image_2"
+  }
+]

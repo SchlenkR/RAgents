@@ -1,0 +1,79 @@
+## Actor programs
+
+Inspect types with `typescript_api`; call `context.functions` in `typescript_eval` or an actor
+program. Use snippets for one-time work, programs for persistent state, later inputs or views.
+
+Actors can own TypeScript functions, journaled state and React views. An LLM actor still uses
+its model for ActorInputs; a TypeScript actor can handle them with `onInput`. Calling a function
+from a view executes that function directly and does not start a model turn.
+
+1. Create the closest template with `actor_program_create`; read and reuse its package, contract,
+   implementation, view and tests under `@actors/<name>/`. Language servers use that alias;
+   Bash uses `$RAGENTS_ACTORS_DIR/<name>/`.
+2. Edit with ordinary file tools; preserve imports and structure. Changed errors arrive before
+   model requests; `actor_program_diagnostics` returns the full last check.
+3. Adapt meaningful `node:test` cases in `tests/**/*.test.ts`. Query `actor_program_controls`
+   for unclear props. Templates demonstrate controls; pure views need no server function.
+4. `actor_program_activate` typechecks, builds, tests and activates. Fix errors and reactivate.
+   List, removal and visibility have separate functions.
+
+Published functions enter the shared API in the same turn. Inspect with `typescript_api`, call
+`context.functions.<name>(input)`. Reactivation updates the contract; removal withdraws it.
+Native tool exposure is optional and explicit.
+
+Use `actor: "self"` or `actor: "@handle"` to bind to an existing actor. Without a binding, a
+backend creates a TypeScript actor with the program name; a pure view uses the calling actor.
+Reactivation preserves the existing binding. Do not create a dummy actor for a pure view.
+An LLM actor cannot receive an `onInput` backend; its inputs remain model work. Each actor owns
+one active program package; add further functions and views to that package.
+
+`package.json` contains `name`, `private: true`, `type: "module"` and `ragents` metadata:
+`title`, optional `description`, optional `backend`, and optional `views`. Each view has an
+`id`, `client`, optional `title`, `styles`, `width` and `height`. At least a backend or a view
+is required. The host supplies the HTML root and fixed local dependencies.
+
+Import `defineActor` from `@ragents/server` and `Type` from `typebox`. Its contract contains
+`state`, `functions` and optional `input: { capabilities }`. Each function declares `label`,
+`input`, `output` and optional `capabilities`; `tool: { name, targets?, card? }` exposes the same
+function in the shared API. Omitted targets mean all active executable actors; `self` means the owner.
+Export `defineActor(contract, { functions: { ... }, onInput? })` as default. Callbacks receive
+`(input, context)`; returned values are results. Only `context.state.replace` changes actor state.
+The state schema must accept the initial `{}`. `context.actor` identifies the owning actor.
+Server code calls run functions through `context.functions`; declared `capabilities` select the
+functions it needs. An `onInput` acts as its actor. A function owns that actor's state but calls
+run functions as its caller. A subscription therefore belongs to the caller; initialize an
+actor's own event handling through its `onInput`. Snippets act as their caller.
+
+Import React and `createRoot` normally. Import `context` and `useAppState` from `@ragents/client`
+and controls from `@ragents/client/ui`: shadcn/ui components (`Button`, `Select`, `Tabs`, `Dialog`,
+`Badge`, `Input`, `Table`, ...) with their usual props, plus `Form`, `DataTable`, `FilePicker`,
+`AppLayout`, `Stack`, `Grid` and chat. Icons: `lucide-react`; Tailwind works.
+The hook reads actor state; `context.capabilities.call`
+calls its declared functions. Local drafts remain React state. A real chat binds to the owning
+actor through `context.actor.handle`; sending a chat message deliberately starts its next turn.
+Use `AppLayout` for title, description, content and actions, `Stack` for spacing or rows,
+and `Grid` for columns responsive to frame width. `AppLayout fill` needs a height-constrained
+parent: content scrolls while header and actions remain visible. Mount in the supplied `#root`.
+The host supplies fonts, box sizing, page size, scrolling and outer padding. Do not reset
+`html`, `body` or `#root`, or add outer padding; style only content.
+Use `Form` for labeled inputs and interview steps, `type: "textarea"` for long answers.
+It handles layout, validation and async `onSubmit`. Keep progression in app state; avoid fixed
+field heights and absolute form layouts. Where Form does not fit, use `Input`, `Textarea`,
+`Field` and `Label`. Do not duplicate control colors, borders or fonts.
+Share steps, prompts and freedoms via `defineWorkflow` from `@ragents/workflow`.
+Compose prompts with `workflowInstructions` and server-only `readPrompt` from
+`@ragents/workflow/prompts`. Render `UI.WorkflowDiagram` with definition, state and label;
+The actor enforces completion and extensions; see learning-afternoon.
+Use `FlowDiagram` for other graphs (star layout, fit, actions). Keep local IDs stable.
+See `controls`. For custom SVG use `SvgEdge`, Tailwind utilities, responsive `viewBox` and
+accessible descriptions.
+Address view visibility with `package-name/view-key`, `@handle/view-key` or a unique title;
+canvas nodes and lines use the same names with the `app:` prefix.
+The host controls resizing, collapse and full view. Views appear on the canvas; owner cards
+start hidden but remain in the Actors list. Personal actor visibility is separate from
+`actor_view_set_visibility` and cannot be changed by layouts.
+
+Tests call `program.functions.<name>(input, context)` or `program.onInput(input, context)`.
+`createTestContext` from `@ragents/server/testing` supplies state and explicit typed `functions` mocks.
+Inspect results and `context.state.read()` separately. Subscription delivery is an ActorInput;
+`onInput` uses the same state and function API as the actor's functions.

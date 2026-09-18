@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "paths": {
+      "@aicontainer/server/*": [
+        "./apps/server/src/*"
+      ],
+      "@aicontainer/web/*": [
+        "./apps/web/src/*"
+      ],
+      "@aicontainer/plugins/*": [
+        "./plugins/*"
+      ],
+      "@ragents/workflow": [
+        "./plugins/ragents.actor-programs/workflow/index.ts"
+      ]
+    }
+  }
+}

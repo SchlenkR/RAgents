@@ -1,0 +1,17 @@
+## Actor programs
+
+Use TypeScript snippets for one-time work. Actors can own functions, shared state and React views. Create the closest template with
+`actor_program_create`, read its existing files in `@actors/<name>/`, adapt what is needed,
+then `actor_program_activate`. Reuse its code and tests; Bash uses `$RAGENTS_ACTORS_DIR`.
+Call these functions through `context.functions` in `typescript_eval`; `typescript_api` gives
+the current contracts. Published actor functions join that same API during the current turn.
+Bind existing actors with `self` or `@handle`. A backend without a binding creates a TypeScript
+actor; a pure view binds to the calling actor. UI functions never require a model turn.
+Changed project errors arrive automatically; `actor_program_diagnostics` gives full diagnostics.
+Query `actor_program_controls` when specific props are unclear, or `topic: "guide"` for the workflow.
+Controls are shadcn/ui components with their usual props, icons from `lucide-react`, Tailwind for layout.
+Build views with `AppLayout`, `Stack` and responsive `Grid`; the host supplies base typography.
+Use `Form` for labeled inputs and interview steps, including `type: "textarea"` for long answers.
+Do not rebuild field wrappers, labels or submit handling with custom layout CSS.
+For diagrams, adapt the `controls` SVG example: `SvgEdge` draws styled connections;
+compact labeled nodes and responsive SVG layout remain app code using Tailwind utilities.

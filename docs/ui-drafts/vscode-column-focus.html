@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VS Code: Spalte mit Fokus auf die Mini-App</title>
+<style>
+:root{
+  --background:#f3f2f7;--foreground:#34303d;--card:#e7eaf2;--primary:#79638d;--primary-foreground:#fff;
+  --muted-foreground:#62586e;--accent:#dcd0e8;--destructive:#a94360;--destructive-soft:#f5e1e9;--warning:#925d37;
+  --warning-soft:#f3e4d8;--info:#4b648a;--success:#3f7a5a;--border:#c9c4d5;--border-soft:#dad6e3;--border-strong:#a397b2;
+  --shell:#cbd6e4;--sheet:#eceaf2;--glass-agent:#eec4b1;--glass-primary:#dcd0e8;--glass-script:#e9dca1;--glass-app:#e7edf2;
+  --sheet-shadow:0 -6px 30px #34303d2e;--sheet-shadow-open:0 -16px 60px #34303d55;--scrim:#34303d33;--vscode:#e8e8ec;--vscode-fg:#3b3b45;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+:root[data-theme="dark"]{
+  --background:#292735;--foreground:#e9e2ed;--card:#2b303e;--primary:#bda6cf;--primary-foreground:#2d2235;
+  --muted-foreground:#b6a9bd;--accent:#4b3d59;--destructive:#ffa2b0;--destructive-soft:#482d3b;--warning:#e7bd81;
+  --warning-soft:#43382b;--info:#9dbade;--success:#9fd3b4;--border:#555065;--border-soft:#403c50;--border-strong:#8e809f;
+  --shell:#242e40;--sheet:#30323f;--glass-agent:#594039;--glass-primary:#47394f;--glass-script:#4d462b;--glass-app:#303943;
+  --sheet-shadow:0 -6px 30px #00000066;--sheet-shadow-open:0 -16px 60px #000000aa;--scrim:#0f0d1666;--vscode:#181818;--vscode-fg:#cfcfd6;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font:13px/1.45 var(--font);color:var(--vscode-fg);background:var(--vscode);display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+svg{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* Entwurfsmenü */
+.menu{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--background);color:var(--foreground);flex:none;font-size:12.5px}
+.menu strong{font-size:14px;margin-right:6px}
+.menu .group{display:flex;align-items:center;gap:6px}
+.menu .group>span{color:var(--muted-foreground)}
+.menu label{display:inline-flex;align-items:center;gap:4px;cursor:pointer}
+.menu .preset{padding:4px 10px;border:1px solid var(--border);border-radius:999px;background:var(--card)}
+.menu .preset[aria-pressed=true]{background:var(--primary);color:var(--primary-foreground);border-color:var(--primary)}
+.menu input[type=range]{width:160px}
+.menu .note{flex-basis:100%;color:var(--muted-foreground);max-width:110ch}
+body[data-shot] .menu{display:none}
+body[data-shot] *{transition:none!important}
+
+/* VS-Code-Rahmen */
+.desk{flex:1;min-height:0;display:flex;justify-content:center;align-items:stretch;padding:18px;overflow:auto}
+body[data-shot] .desk{padding:0}
+.sidebar{display:flex;flex-direction:column;min-height:0;height:100%;border:1px solid #0006;border-radius:8px;overflow:hidden;background:var(--vscode);box-shadow:0 20px 60px #0007}
+body[data-shot] .sidebar{border:0;border-radius:0;box-shadow:none}
+.vstabs{display:flex;align-items:center;gap:14px;padding:0 14px;height:34px;flex:none;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--vscode-fg);opacity:.85}
+.vstabs span{padding:9px 0 7px;border-bottom:1px solid transparent}
+.vstabs span[aria-current]{border-bottom-color:currentColor}
+.vstabs .spacer{flex:1}
+.vstabs svg{width:14px;height:14px;opacity:.7}
+
+/* Die Spalte */
+.column{--head:36px;--peek:86px;position:relative;flex:1;min-height:0;display:flex;flex-direction:column;background:var(--background);color:var(--foreground)}
+.head{position:relative;z-index:30;display:flex;align-items:center;gap:2px;height:var(--head);padding:0 4px 0 2px;border-bottom:1px solid var(--border);background:var(--shell);flex:none}
+.head .icon{display:grid;place-items:center;width:30px;height:30px;border-radius:6px;color:var(--foreground)}
+.head .icon:hover{background:var(--accent)}
+.head .icon svg{width:15px;height:15px}
+.head .title{display:flex;align-items:center;gap:8px;min-width:0;flex:1;height:30px;padding:0 6px;border-radius:6px;text-align:left}
+.head .title:hover{background:var(--accent)}
+.head .title b{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:40px}
+.head .title .live{display:inline-flex;align-items:center;gap:6px;min-width:0;font-size:11px;color:var(--muted-foreground);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.head .title .live i{width:6px;height:6px;border-radius:50%;background:var(--primary);animation:pulse 1.6s infinite}
+.head .title .live small{font-variant-numeric:tabular-nums;font-size:inherit}
+.head .title .chev{opacity:.6;width:12px;height:12px}
+.head .stop{color:var(--destructive)}
+.head .stop:hover{background:var(--destructive-soft)}
+@keyframes pulse{50%{opacity:.35}}
+
+/* Run-Details als Popover unter dem Titel */
+.details{position:absolute;top:calc(var(--head) + 4px);left:36px;z-index:40;width:min(360px,calc(100% - 44px));padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--card);box-shadow:0 14px 34px #0005;display:none;font-size:12px}
+.details[data-open]{display:grid;gap:6px}
+.details dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0}
+.details dt{color:var(--muted-foreground);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;padding-top:2px}
+.details dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.details .row{display:flex;gap:6px;flex-wrap:wrap;padding-top:6px;border-top:1px solid var(--border-soft)}
+.details .row button{padding:4px 9px;border:1px solid var(--border);border-radius:999px;font-size:11.5px;background:var(--background)}
+.details .row button.danger{color:var(--destructive);border-color:var(--destructive)}
+
+/* Bühne */
+.body{display:flex;flex-direction:column;flex:1;min-height:0;position:relative}
+.stage{position:relative;flex:1;min-height:0;display:flex;flex-direction:column;background:color-mix(in srgb,var(--card) 55%,transparent)}
+.apptabs{display:none;align-items:stretch;gap:2px;height:28px;padding:0 6px;border-bottom:1px solid var(--border-soft);background:var(--shell);flex:none;font-size:11.5px}
+.column[data-apps="2"] .apptabs{display:flex}
+.apptabs button{display:inline-flex;align-items:center;gap:6px;padding:0 9px;border-bottom:2px solid transparent;color:var(--muted-foreground);font-weight:600;max-width:200px}
+.apptabs button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.apptabs button[aria-selected=true]{color:var(--foreground);border-bottom-color:var(--primary)}
+.apptabs .spacer{flex:1}
+.apptabs .icon{padding:0 4px;color:var(--muted-foreground)}
+.apptabs .icon svg{width:13px;height:13px}
+.stage .float{position:absolute;top:6px;right:8px;z-index:5;display:flex;gap:2px;padding:2px;border:1px solid var(--border);border-radius:8px;background:var(--card);opacity:0;transition:opacity .15s}
+.stage:hover .float,.stage:focus-within .float{opacity:1}
+.column[data-apps="2"] .stage .float{display:none}
+.stage .float button{display:grid;place-items:center;width:24px;height:24px;border-radius:6px;color:var(--muted-foreground)}
+.stage .float button:hover{background:var(--accent);color:var(--foreground)}
+.stage .float svg{width:13px;height:13px}
+.app{flex:1;min-height:0;overflow:auto;padding:14px 16px 24px}
+.scrim{position:absolute;inset:0;z-index:15;background:var(--scrim);opacity:0;pointer-events:none;transition:opacity .28s}
+
+/* Mini-App-Inhalt */
+.item{display:grid;gap:10px;max-width:920px}
+.item .meta{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--muted-foreground)}
+.item .meta .check{width:16px;height:16px;border:1.5px solid var(--warning);border-radius:4px;display:grid;place-items:center;color:var(--warning)}
+.item .meta .check svg{width:11px;height:11px}
+.item .meta .state{margin-left:auto;padding:2px 10px;border:1px solid var(--primary);border-radius:999px;color:var(--primary);font-size:11.5px;font-weight:600}
+.item h2{margin:0;font-size:18px;line-height:1.2}
+.tabs{display:flex;gap:18px;border-bottom:1px solid var(--border-soft);font-size:13px}
+.tabs button{padding:6px 2px 8px;border-bottom:2px solid transparent;color:var(--muted-foreground);font-weight:600;display:inline-flex;gap:6px;align-items:center}
+.tabs button[aria-selected=true]{color:var(--foreground);border-bottom-color:var(--foreground)}
+.tabs .count{padding:0 6px;border-radius:999px;background:var(--accent);color:var(--foreground);font-size:10.5px;line-height:16px}
+.steps{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));margin-top:4px}
+.step{display:grid;gap:6px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--card);box-shadow:3px -3px 0 0 var(--border-soft),6px -6px 0 0 color-mix(in srgb,var(--border-soft) 50%,transparent)}
+.step b{font-size:12.5px}
+.step .pill{display:inline-flex;align-items:center;gap:5px;width:max-content;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600;background:var(--accent);color:var(--foreground)}
+.step .pill.done{background:color-mix(in srgb,var(--success) 22%,transparent);color:var(--success)}
+.step .pill.run{background:color-mix(in srgb,var(--primary) 22%,transparent);color:var(--primary)}
+.step .pill.run i{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 1.6s infinite}
+.step ul{margin:0;padding-left:16px;font-size:11.5px;color:var(--muted-foreground);display:grid;gap:2px}
+.step ul li.ok{color:var(--foreground)}
+.checks{display:grid;gap:6px;margin-top:6px}
+.checks h3{margin:8px 0 0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground)}
+.check-row{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--border-soft);border-radius:8px;background:color-mix(in srgb,var(--card) 60%,transparent);font-size:12px}
+.check-row .dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex:none;background:var(--success)}
+.check-row .dot.open{background:var(--warning)}
+.check-row .dot.wait{background:var(--border-strong)}
+.check-row span{color:var(--muted-foreground)}
+
+/* Griff (nur angedockt) */
+.sash{display:none;height:9px;flex:none;align-items:center;justify-content:center;border-bottom:1px solid var(--border);background:var(--shell);cursor:row-resize}
+.sash i{width:38px;height:3px;border-radius:2px;background:var(--border-strong)}
+
+/* Chat */
+.chat{display:flex;flex-direction:column;min-height:0;background:var(--background)}
+.grab{display:none;flex:none;height:18px;align-items:center;justify-content:center;cursor:pointer}
+.grab i{width:36px;height:4px;border-radius:2px;background:var(--border-strong);transition:background .2s}
+.grab:hover i{background:var(--foreground)}
+.messages{flex:1;min-height:0;overflow:auto;padding:6px 14px 12px;display:flex;flex-direction:column-reverse;gap:12px;font-size:12.5px;line-height:1.5}
+.msg{display:grid;gap:4px;max-width:70ch}
+.msg .who{font-size:10.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted-foreground)}
+.msg p{margin:0}
+.msg.user{align-self:flex-end;padding:8px 12px;border-radius:12px 12px 4px 12px;background:var(--card);border:1px solid var(--border-soft)}
+.msg.tool{font-size:11.5px;color:var(--muted-foreground);display:flex;gap:8px;align-items:center}
+.msg.tool svg{width:13px;height:13px}
+.composer{position:relative;display:grid;gap:6px;padding:6px 10px 10px;flex:none}
+.composer .box{display:flex;flex-direction:column;min-width:0;gap:6px;padding:8px 10px;border:1px solid var(--border);border-radius:12px;background:var(--card)}
+.composer .box:focus-within{border-color:var(--primary)}
+.composer textarea{resize:none;border:0;background:none;color:inherit;font:inherit;outline:0;height:20px;line-height:20px;padding:0}
+.composer .bar{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted-foreground);min-width:0}
+.composer .bar>svg{width:14px;height:14px}
+.composer .bar .spacer{flex:1;min-width:4px}
+.composer .bar .send{display:grid;place-items:center;width:24px;height:24px;border-radius:6px;background:var(--accent);color:var(--foreground);flex:none}
+.composer .bar .send svg{width:12px;height:12px;fill:currentColor;stroke:none}
+.composer .bar .tool{display:grid;place-items:center;width:22px;height:22px;border-radius:6px;color:var(--muted-foreground);flex:none}
+.composer .bar .tool:hover{background:var(--accent);color:var(--foreground)}
+.composer .bar .tool svg{width:13px;height:13px}
+.composer .bar .tool[aria-pressed=true]{color:var(--primary)}
+
+/* Adressat: ein Chip mit Pop-out in der Eingabeleiste */
+.to{display:inline-flex;align-items:center;gap:6px;height:24px;flex:0 1 auto;min-width:70px;padding:0 8px 0 3px;border:1px solid var(--border);border-radius:999px;background:var(--background);font-size:11.5px;font-weight:600;color:var(--foreground)}
+.to:hover{background:var(--accent)}
+.to[aria-expanded=true]{border-color:var(--primary)}
+.to .ic{display:grid;place-items:center;width:18px;height:18px;border-radius:50%;background:var(--glass-primary);flex:none}
+.to .ic svg{width:11px;height:11px}
+.to .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.to .chev{width:11px;height:11px;opacity:.6}
+.busy{display:inline-flex;align-items:center;gap:6px;flex:0 1 auto;min-width:16px;white-space:nowrap;overflow:hidden;color:var(--muted-foreground)}
+.busy>span:first-of-type{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.busy .spin{width:11px;height:11px;border:2px solid var(--border-strong);border-top-color:var(--foreground);border-radius:50%;animation:spin .9s linear infinite;flex:none}
+.busy .n{padding:0 5px;border-radius:999px;background:var(--accent);color:var(--foreground);font-size:10px;line-height:15px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.popout{position:absolute;left:10px;bottom:calc(100% - 4px);z-index:50;width:min(320px,calc(100% - 20px));display:none;flex-direction:column;border:1px solid var(--border);border-radius:12px;background:var(--card);box-shadow:0 14px 34px #0006;font-size:12px;overflow:hidden}
+.popout[data-open]{display:flex}
+.popout .ph{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--border-soft);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-foreground)}
+.popout .ph .spacer{flex:1}
+.popout .ph button{font-size:10.5px;letter-spacing:inherit;text-transform:inherit;color:var(--primary)}
+.popout ul{list-style:none;margin:0;padding:4px;max-height:260px;overflow:auto}
+.popout li button{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;border-radius:8px;text-align:left}
+.popout li button:hover{background:var(--accent)}
+.popout li button[aria-current]{background:color-mix(in srgb,var(--primary) 14%,transparent)}
+.popout .ic{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--glass-agent);flex:none}
+.popout .ic.primary{background:var(--glass-primary)}
+.popout .ic.script{background:var(--glass-script)}
+.popout .ic svg{width:12px;height:12px}
+.popout .ic .spin{width:11px;height:11px;border:2px solid var(--border-strong);border-top-color:var(--foreground);border-radius:50%;animation:spin .9s linear infinite}
+.popout .txt{display:grid;min-width:0;flex:1}
+.popout .txt b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.popout .txt small{font-size:10.5px;color:var(--muted-foreground)}
+.popout .n{padding:0 6px;border-radius:999px;background:var(--accent);font-size:10px;line-height:16px}
+.popout .more{border-top:1px solid var(--border-soft);margin-top:4px;padding-top:4px}
+.popout .more button{color:var(--muted-foreground)}
+
+/* Schwebend: ein Sheet wie auf dem iPhone, unten bündig, seitlich frei, oben rund; die Höhe gleitet */
+.column[data-chat="floating"] .grab{display:flex}
+.column[data-chat="floating"] .chat{position:absolute;left:10px;right:10px;bottom:0;z-index:20;display:grid;grid-template-rows:auto 0fr auto;max-height:66%;border:1px solid var(--border);border-bottom:0;border-radius:16px 16px 0 0;background:var(--sheet);box-shadow:var(--sheet-shadow);transition:grid-template-rows .32s cubic-bezier(.32,.72,0,1),box-shadow .32s;overflow:hidden}
+.column[data-chat="floating"] .messages{min-height:0;padding-block:0;overflow:hidden;transition:padding .32s}
+.column[data-chat="floating"] .stage{padding-bottom:calc(var(--peek) - 12px)}
+.column[data-chat="floating"] .chat[data-expanded]{grid-template-rows:auto 1fr auto;box-shadow:var(--sheet-shadow-open)}
+.column[data-chat="floating"] .chat[data-expanded] .messages{padding-block:6px 12px;overflow:auto}
+.column[data-chat="floating"] .chat[data-expanded] ~ .scrim,.column[data-chat="floating"] .body:has(.chat[data-expanded]) .scrim{opacity:1;pointer-events:auto}
+.column[data-chat="floating"] .composer .box{background:var(--card)}
+
+/* Angedockt: die Bühne bekommt eine feste Höhe, der Chat den Rest */
+.column[data-chat="docked"] .stage{flex:0 0 var(--stage,52%)}
+.column[data-chat="docked"] .sash{display:flex}
+.column[data-chat="docked"] .chat{flex:1}
+.column[data-chat="docked"] .messages{padding-top:12px}
+
+/* Breit: Bühne links, Chat rechts, ohne Overlay und ohne Griff */
+.column[data-chat="side"] .body{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,34%)}
+.column[data-chat="side"] .chat{border-left:1px solid var(--border)}
+.column[data-chat="side"] .messages{padding-top:12px}
+.column[data-chat="side"] .sash{display:none}
+</style>
+</head>
+<body>
+
+<div class="menu">
+  <strong>Spalte mit Fokus auf die Mini-App</strong>
+  <div class="group" role="group" aria-label="Zustand">
+    <button class="preset" data-preset="a" aria-pressed="true" type="button">A Sheet</button>
+    <button class="preset" data-preset="b" type="button">B Angedockt</button>
+    <button class="preset" data-preset="c" type="button">C Breit, nebeneinander</button>
+  </div>
+  <div class="group"><span>Breite</span><input id="width" type="range" min="380" max="1400" step="10" value="620"><output id="width-out">620</output></div>
+  <div class="group" role="group" aria-label="Hochschieben bei">
+    <span>Hochschieben bei</span>
+    <label><input type="radio" name="trigger" value="hover" checked> Maus darüber</label>
+    <label><input type="radio" name="trigger" value="focus"> Fokus oder Griff</label>
+  </div>
+  <label><input id="two-apps" type="checkbox"> zweite Mini-App</label>
+  <label><input id="light" type="checkbox"> hell</label>
+  <p class="note">Eine Kopfzeile statt vier: Titel plus laufender Turn, Details hinter dem Titel. Eine Mini-App braucht keine Chipzeile und keine eigene Überschrift. Der Chat ist ein Sheet am unteren Rand: seitlich frei, oben abgerundet mit Griff; Maus, Fokus oder Griff schieben ihn über die Bühne hoch, die Bühne wird dabei abgedunkelt und bleibt stehen. Der Adressat steht als Pop-out in der Eingabeleiste; dort zeigt sich auch, wer gerade arbeitet. Die Nadel dockt den Chat an, ab 900 Pixel Breite liegt er rechts neben der Mini-App.</p>
+</div>
+
+<div class="desk">
+  <div class="sidebar" id="sidebar" style="width:620px">
+    <div class="vstabs"><span>Chat</span><span aria-current="true">RAgents-Spalte</span><span class="spacer"></span>
+      <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+      <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </div>
+
+    <div class="column" id="column" data-chat="floating" data-apps="1">
+      <header class="head">
+        <button class="icon" title="Zur Run-Liste" type="button"><svg viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg></button>
+        <button class="title" id="title" aria-expanded="false" title="Run-Details" type="button">
+          <b>Auftrag implementieren</b>
+          <span class="live"><i></i><span>Implementierungsagent</span><small>9:35</small></span>
+          <svg class="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <button class="icon stop" title="Lauf stoppen" type="button"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="2"/></svg></button>
+        <button class="icon" title="Im Browser öffnen" type="button"><svg viewBox="0 0 24 24"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></button>
+      </header>
+      <div class="details" id="details" role="region" aria-label="Run-Details">
+        <dl>
+          <dt>Turn</dt><dd>Implementierungsagent, seit 9:35 Minuten</dd>
+          <dt>Branch</dt><dd>main</dd>
+          <dt>Systemprompts</dt><dd>Wissensbasis und Ronalds Ablage + Agenten</dd>
+          <dt>Actors</dt><dd>78, davon 5 sichtbar, 1 arbeitet</dd>
+          <dt>Rückfragen</dt><dd>keine offen</dd>
+        </dl>
+        <div class="row"><button type="button">Journal</button><button type="button">Actors</button><button type="button">Dateien</button><button class="danger" type="button">Lauf stoppen</button></div>
+      </div>
+
+      <div class="body" id="body">
+        <section class="stage" aria-label="Mini-App Auftrag implementieren">
+          <div class="apptabs" role="tablist">
+            <button role="tab" aria-selected="true" type="button"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Auftrag implementieren</span></button>
+            <button role="tab" aria-selected="false" type="button"><svg viewBox="0 0 24 24" style="width:12px;height:12px"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Prüfstand</span></button>
+            <span class="spacer"></span>
+            <button class="icon" title="In die Mitte legen" type="button"><svg viewBox="0 0 24 24"><path d="M7 17 17 7M7 7h10v10"/></svg></button>
+          </div>
+          <div class="float">
+            <button title="In die Mitte legen" type="button"><svg viewBox="0 0 24 24"><path d="M7 17 17 7M7 7h10v10"/></svg></button>
+            <button title="Mini-App ausblenden" type="button"><svg viewBox="0 0 24 24"><path d="M9.9 4.2A10 10 0 0 1 12 4c7 0 10 8 10 8a13 13 0 0 1-1.7 2.5M6.6 6.6A13 13 0 0 0 2 12s3 8 10 8a9.7 9.7 0 0 0 5.4-1.6M2 2l20 20"/></svg></button>
+          </div>
+          <div class="app">
+            <div class="item">
+              <div class="meta"><span class="check"><svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg></span><span>#14760 / Aufgabe</span><span>trendsystem</span><span class="state">In Umsetzung</span></div>
+              <h2>Archiv-Tab nur bei geladenen Archiven anzeigen</h2>
+              <div class="tabs" role="tablist">
+                <button role="tab" aria-selected="false" type="button">Stand</button>
+                <button role="tab" aria-selected="true" type="button">Ablauf</button>
+                <button role="tab" aria-selected="false" type="button">Prüfungen <span class="count">2</span></button>
+                <button role="tab" aria-selected="false" type="button">Nachweise <span class="count">1</span></button>
+              </div>
+              <div class="steps">
+                <div class="step"><b>1. Vorbereiten</b><span class="pill done"><svg viewBox="0 0 24 24" style="width:11px;height:11px"><path d="m5 12 5 5L20 7"/></svg>Fertig</span><ul><li class="ok">Arbeitsverzeichnis angelegt</li><li class="ok">Wissensbasis gelesen (4 Regeln)</li><li class="ok">Betroffene Stellen: 3 Dateien</li></ul></div>
+                <div class="step"><b>2. Implementieren</b><span class="pill run"><i></i>Läuft</span><ul><li class="ok">ArchiveTab an loadedArchives gebunden</li><li class="ok">Selector archiveTabVisible</li><li>Test für leeren Archivstand</li></ul></div>
+                <div class="step"><b>3. Prüfen</b><span class="pill">Wartet</span><ul><li>Typecheck und Lint</li><li>Frontend-Build</li><li>Browserprüfung, 5 Kriterien</li></ul></div>
+                <div class="step"><b>4. Nachweise</b><span class="pill">Wartet</span><ul><li>Screenshots je Kriterium</li><li>Ergebnis in der Mini-App</li></ul></div>
+              </div>
+              <div class="checks">
+                <h3>Prüfungen</h3>
+                <div class="check-row"><i class="dot"></i><div><b>Archiv-Tab fehlt ohne geladene Archive</b><br><span>Kriterium 1 von 5, Browser, noch ohne Screenshot</span></div></div>
+                <div class="check-row"><i class="dot open"></i><div><b>Archiv-Tab erscheint nach dem Laden</b><br><span>Kriterium 2 von 5, wartet auf den Implementierer</span></div></div>
+                <div class="check-row"><i class="dot wait"></i><div><b>Tab-Reihenfolge bleibt stabil</b><br><span>Kriterium 3 von 5</span></div></div>
+                <div class="check-row"><i class="dot wait"></i><div><b>Keine Regressionen im Trend-Dashboard</b><br><span>Kriterium 4 von 5, Regeln aus coding/rules</span></div></div>
+                <div class="check-row"><i class="dot wait"></i><div><b>Lint, Typecheck und Build grün</b><br><span>Kriterium 5 von 5</span></div></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="sash" role="separator" aria-label="Höhe der Mini-App"><i></i></div>
+        <div class="scrim" id="scrim"></div>
+
+        <section class="chat" id="chat" aria-label="Chat">
+          <div class="grab" id="grab" role="button" aria-label="Chat hochschieben oder absenken" tabindex="0"><i></i></div>
+          <div class="messages">
+            <div class="msg"><span class="who">@implementation-coordinator</span><p>Reihenfolge: Implementieren, dann Typecheck und Lint, Frontend-Build, Browserprüfung nach den fünf Kriterien mit je einem Screenshot, dann ready. Kein PR, kein Push, kein Commit.</p><p>Ich melde mich mit dem nächsten Stand.</p></div>
+            <div class="msg tool"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/></svg>@implementer gestartet, Turn 4 läuft</div>
+            <div class="msg"><span class="who">@implementation-coordinator</span><p>Ich habe das Item gelesen und die betroffenen Stellen im Trend-Dashboard gefunden. Der Implementierer arbeitet im eigenen Arbeitsverzeichnis und bindet die Sichtbarkeit des Tabs an den geladenen Archivstand.</p></div>
+            <div class="msg user"><p>Bitte Item 14760 umsetzen: Archiv-Tab nur zeigen, wenn Archive geladen sind. Wie immer ohne Commit und Push.</p></div>
+            <div class="msg tool"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Mini-App Auftrag implementieren angelegt, Item #14760 übernommen</div>
+            <div class="msg"><span class="who">@implementation-coordinator</span><p>Ich übernehme Item #14760 aus dem Sprint. Umgebung: lokal, App trendsystem, Nutzerrolle Fachanwender. Fehlende Angaben kläre ich hier, bevor der Implementierer startet.</p></div>
+          </div>
+          <div class="composer" id="composer">
+            <div class="popout" id="popout" role="region" aria-label="Adressat wählen">
+              <div class="ph"><span>Adressat</span><span class="spacer"></span><button type="button">Anzeige: Sichtbare</button></div>
+              <ul>
+                <li><button aria-current="true" type="button"><span class="ic primary"><svg viewBox="0 0 24 24"><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg></span><span class="txt"><b>@implementation-coordinator</b><small>Koordinator, bereit</small></span></button></li>
+                <li><button type="button"><span class="ic"><i class="spin"></i></span><span class="txt"><b>@implementer</b><small>LLM-Agent, arbeitet</small></span><span class="n">4</span></button></li>
+                <li><button type="button"><span class="ic script"><svg viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg></span><span class="txt"><b>@implement-item</b><small>TypeScript-Actor, Mini-App</small></span></button></li>
+                <li><button type="button"><span class="ic script"><svg viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6"/></svg></span><span class="txt"><b>@development-setup</b><small>TypeScript-Actor, bereit</small></span></button></li>
+                <li><button type="button"><span class="ic"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></svg></span><span class="txt"><b>@implementation-review</b><small>LLM-Agent, bereit</small></span></button></li>
+                <li class="more"><button type="button"><span class="ic" style="background:var(--accent)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></span><span class="txt"><b>73 ausgeblendete Actors</b><small>rule-review-1 bis rule-review-3, suchen oder einblenden</small></span></button></li>
+              </ul>
+            </div>
+            <div class="box">
+              <textarea id="input" aria-label="Nachricht an @implementation-coordinator" placeholder="Dazwischenfunken ..." rows="1"></textarea>
+              <div class="bar">
+                <button class="tool" title="Anhang" type="button"><svg viewBox="0 0 24 24"><path d="m21.4 11.05-9.2 9.2a6 6 0 0 1-8.5-8.5l9.2-9.2a4 4 0 0 1 5.7 5.7l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.5-8.5"/></svg></button>
+                <button class="to" id="to" aria-expanded="false" title="Adressat wählen" type="button"><span class="ic"><svg viewBox="0 0 24 24"><path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg></span><span class="name">@implementation-coordinator</span><svg class="chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></button>
+                <button class="busy" id="busy" title="@implementer arbeitet, 4 Eingaben warten" type="button"><i class="spin"></i><span>@implementer</span><span class="n">4</span></button>
+                <span class="spacer"></span>
+                <span>gruppiert</span>
+                <button class="tool" id="pin" aria-pressed="false" title="Chat andocken" type="button"><svg viewBox="0 0 24 24"><path d="M12 17v5M9 10.8V6a1 1 0 0 0-.5-.9l-1-.6A1 1 0 0 1 8 3h8a1 1 0 0 1 .5 1.9l-1 .6A1 1 0 0 0 15 6v4.8a2 2 0 0 0 .6 1.4l1 1A2 2 0 0 1 17 15a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1 2 2 0 0 1 .6-1.4l1-1A2 2 0 0 0 9 10.8"/></svg></button>
+                <button class="send" title="Senden" type="button"><svg viewBox="0 0 24 24"><path d="M3 11 21 3l-8 18-2-8z"/></svg></button>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const column = document.getElementById("column");
+const sidebar = document.getElementById("sidebar");
+const chat = document.getElementById("chat");
+const grab = document.getElementById("grab");
+const composer = document.getElementById("composer");
+const input = document.getElementById("input");
+const pin = document.getElementById("pin");
+const scrim = document.getElementById("scrim");
+const details = document.getElementById("details");
+const title = document.getElementById("title");
+const to = document.getElementById("to");
+const busy = document.getElementById("busy");
+const popout = document.getElementById("popout");
+const widthInput = document.getElementById("width");
+const widthOut = document.getElementById("width-out");
+const presets = { a: { width: 620, chat: "floating" }, b: { width: 620, chat: "docked" }, c: { width: 1180, chat: "side" } };
+const params = new URLSearchParams(location.search);
+let pinned = false;
+let held = false;
+let timer;
+
+const trigger = () => document.querySelector("input[name=trigger]:checked").value;
+const floating = () => column.dataset.chat === "floating";
+const measurePeek = () => { column.style.setProperty("--peek", (grab.offsetHeight + composer.offsetHeight + 1) + "px"); };
+const applyLayout = () => {
+  const width = Number(widthInput.value);
+  sidebar.style.width = width + "px";
+  widthOut.value = width;
+  column.dataset.chat = width >= 900 ? "side" : pinned ? "docked" : "floating";
+  pin.setAttribute("aria-pressed", String(pinned));
+  pin.title = pinned ? "Chat als Sheet" : "Chat andocken";
+  if (!floating()) { delete chat.dataset.expanded; held = false; }
+  measurePeek();
+};
+const expand = () => { clearTimeout(timer); chat.dataset.expanded = ""; };
+const collapse = (delay) => {
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    if (held || popout.hasAttribute("data-open")) return;
+    if (chat.contains(document.activeElement) && trigger() === "focus") return;
+    delete chat.dataset.expanded;
+  }, delay);
+};
+const closePopout = () => { popout.removeAttribute("data-open"); to.setAttribute("aria-expanded", "false"); };
+const selectPreset = (key) => {
+  const preset = presets[key];
+  pinned = preset.chat === "docked";
+  widthInput.value = preset.width;
+  document.querySelectorAll(".preset").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.preset === key)));
+  applyLayout();
+};
+
+document.querySelectorAll(".preset").forEach((button) => button.addEventListener("click", () => { selectPreset(button.dataset.preset); history.replaceState(null, "", "#" + button.dataset.preset); }));
+widthInput.addEventListener("input", applyLayout);
+pin.addEventListener("click", () => { pinned = !pinned; applyLayout(); });
+document.getElementById("two-apps").addEventListener("change", (event) => { column.dataset.apps = event.target.checked ? "2" : "1"; });
+document.getElementById("light").addEventListener("change", (event) => { document.documentElement.dataset.theme = event.target.checked ? "light" : "dark"; });
+title.addEventListener("click", () => {
+  const open = details.hasAttribute("data-open");
+  if (open) details.removeAttribute("data-open"); else details.dataset.open = "";
+  title.setAttribute("aria-expanded", String(!open));
+});
+const togglePopout = () => {
+  const open = popout.hasAttribute("data-open");
+  if (open) closePopout(); else { popout.dataset.open = ""; to.setAttribute("aria-expanded", "true"); }
+};
+to.addEventListener("click", togglePopout);
+busy.addEventListener("click", togglePopout);
+popout.querySelectorAll("li button").forEach((button) => button.addEventListener("click", () => {
+  const name = button.querySelector("b").textContent;
+  if (name.startsWith("@")) { to.querySelector(".name").textContent = name; popout.querySelectorAll("[aria-current]").forEach((el) => el.removeAttribute("aria-current")); button.setAttribute("aria-current", "true"); }
+  closePopout();
+}));
+document.addEventListener("click", (event) => {
+  if (!details.contains(event.target) && !title.contains(event.target)) { details.removeAttribute("data-open"); title.setAttribute("aria-expanded", "false"); }
+  if (!popout.contains(event.target) && !to.contains(event.target) && !busy.contains(event.target)) closePopout();
+});
+grab.addEventListener("click", () => { held = !chat.hasAttribute("data-expanded"); if (held) expand(); else { delete chat.dataset.expanded; input.blur(); } });
+grab.addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); grab.click(); } });
+scrim.addEventListener("click", () => { held = false; delete chat.dataset.expanded; input.blur(); closePopout(); });
+chat.addEventListener("pointerenter", () => { if (floating() && trigger() === "hover") { clearTimeout(timer); timer = setTimeout(expand, 160); } });
+chat.addEventListener("pointerleave", () => { if (floating()) collapse(450); });
+input.addEventListener("focus", () => { if (floating()) expand(); });
+input.addEventListener("blur", () => { if (floating()) collapse(220); });
+document.addEventListener("keydown", (event) => { if (event.key === "Escape") { held = false; delete chat.dataset.expanded; input.blur(); details.removeAttribute("data-open"); closePopout(); } });
+new ResizeObserver(measurePeek).observe(composer);
+
+selectPreset(["a", "b", "c"].includes(location.hash.slice(1)) ? location.hash.slice(1) : "a");
+if (params.get("two") === "1") { document.getElementById("two-apps").checked = true; column.dataset.apps = "2"; }
+if (params.get("open") === "1") { held = true; expand(); }
+if (params.get("actor") === "1") { popout.dataset.open = ""; to.setAttribute("aria-expanded", "true"); }
+if (params.get("details") === "1") { details.dataset.open = ""; title.setAttribute("aria-expanded", "true"); }
+if (params.has("shot")) document.body.dataset.shot = "";
+</script>
+</body>
+</html>

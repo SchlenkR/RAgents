@@ -1,0 +1,1154 @@
+<!doctype html>
+<html lang="de" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VS-Code-Seitenleiste | RAgents UI-Entwürfe</title>
+<style>
+:root{
+  --page:#101010;--page-fg:#d6d6d6;--page-muted:#8f8f8f;--page-line:#2a2a2a;--page-panel:#171717;
+  --vs-bar:#181818;--vs-side:#181818;--vs-border:#2b2b2b;--vs-editor:#1f1f1f;--vs-fg:#cccccc;--vs-muted:#9d9d9d;
+  --vs-input:#313131;--vs-input-border:#3c3c3c;--vs-focus:#0078d4;--vs-hover:#2a2d2e;--vs-selected:#37373d;
+  --vs-badge:#0078d4;--vs-badge-fg:#fff;--vs-button:#0078d4;--vs-button-fg:#fff;--vs-widget:#222222;--vs-shadow:0 4px 16px #000000aa;
+  --vs-tab-inactive:#181818;--vs-status:#181818;
+  --acc:#bda6cf;--acc-soft:#4b3d59;--on-acc:#2d2235;
+  --glass-agent:#594039;--glass-primary:#47394f;--glass-script:#4d462b;--glass-app:#303943;--glass-edge:#8a7994;
+  --success:#8dceae;--success-soft:#233f37;--warning:#e7bd81;--warning-soft:#43382b;--danger:#ffa2b0;--danger-soft:#482d3b;
+  --card:#242424;--card-line:#353535;--me-bg:#2a2a2a;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+}
+html[data-theme=light]{
+  --page:#eceef2;--page-fg:#2b3340;--page-muted:#66707f;--page-line:#d5dae2;--page-panel:#f7f8fa;
+  --vs-bar:#f8f8f8;--vs-side:#f8f8f8;--vs-border:#e5e5e5;--vs-editor:#ffffff;--vs-fg:#3b3b3b;--vs-muted:#616161;
+  --vs-input:#ffffff;--vs-input-border:#cecece;--vs-focus:#005fb8;--vs-hover:#f0f0f0;--vs-selected:#e4e6f1;
+  --vs-badge:#005fb8;--vs-badge-fg:#fff;--vs-button:#005fb8;--vs-button-fg:#fff;--vs-widget:#f3f3f3;--vs-shadow:0 4px 16px #00000033;
+  --vs-tab-inactive:#f8f8f8;--vs-status:#f8f8f8;
+  --acc:#79638d;--acc-soft:#dcd0e8;--on-acc:#ffffff;
+  --glass-agent:#eec4b1;--glass-primary:#dcd0e8;--glass-script:#e9dca1;--glass-app:#e7edf2;--glass-edge:#a498aa;
+  --success:#3b705f;--success-soft:#e1eee8;--warning:#925d37;--warning-soft:#f3e4d8;--danger:#a94360;--danger-soft:#f5e1e9;
+  --card:#ffffff;--card-line:#e2e2e6;--me-bg:#f1f1f4;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--page-fg);font:14px/1.5 var(--font);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0}
+svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* Seitenrahmen des Entwurfs */
+.draft-bar{background:var(--page-panel);border-bottom:1px solid var(--page-line)}
+.draft-bar-inner{max-width:1480px;margin:auto;padding:18px 32px 0;display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.draft-title{display:flex;align-items:center;gap:12px;padding-bottom:14px}
+.draft-title h1{font-size:17px;margin:0;line-height:1.2}
+.draft-title p{margin:2px 0 0;font-size:10.5px;white-space:nowrap;color:var(--page-muted);font-family:var(--mono);letter-spacing:.06em;text-transform:uppercase}
+.brand-icon{width:34px;height:34px;border-radius:9px;background:var(--acc);color:var(--on-acc);display:grid;place-items:center}
+.brand-icon svg{width:20px;height:20px}
+.variant-tabs{display:flex;gap:4px}
+.variant-tab{padding:10px 11px 12px;font-size:13px;border-bottom:3px solid transparent;color:var(--page-muted);font-weight:600;display:flex;gap:8px;align-items:center;white-space:nowrap}
+.variant-tab:hover{color:var(--page-fg)}
+.variant-tab[aria-selected=true]{color:var(--page-fg);border-bottom-color:var(--acc)}
+.tab-letter{width:20px;height:20px;border-radius:6px;background:var(--page-line);display:grid;place-items:center;font-size:11px}
+.variant-tab[aria-selected=true] .tab-letter{background:var(--acc);color:var(--on-acc)}
+.theme-toggle{display:flex;gap:2px;padding:4px;border:1px solid var(--page-line);border-radius:8px;margin-bottom:12px}
+.theme-toggle button{padding:4px 10px;border-radius:5px;font-size:12px;color:var(--page-muted)}
+.theme-toggle button[aria-pressed=true]{background:var(--page-line);color:var(--page-fg)}
+.draft-note{max-width:1480px;margin:auto;padding:14px 32px;display:flex;justify-content:space-between;gap:24px;align-items:baseline;flex-wrap:wrap}
+.variant-reason{margin:0;font-size:13.5px;max-width:92ch}
+.offline-note{margin:0;font-size:12px;color:var(--page-muted);white-space:nowrap;display:flex;align-items:center;gap:6px}
+.offline-dot{width:8px;height:8px;border-radius:50%;background:var(--success)}
+.page{max-width:1480px;margin:auto;padding:8px 32px 60px}
+.variant{display:none}
+.variant.active{display:block}
+.screens{display:flex;gap:28px;flex-wrap:wrap;align-items:flex-start;margin-top:10px}
+.screen{margin:0;display:flex;flex-direction:column;gap:10px}
+.screen figcaption{font-size:12.5px;color:var(--page-muted);max-width:448px}
+.screen figcaption b{color:var(--page-fg);font-weight:600}
+.verdict{margin-top:30px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:18px;max-width:1200px}
+.verdict div{border-top:1px solid var(--page-line);padding-top:10px}
+.verdict h4{margin:0 0 4px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--page-muted);font-family:var(--mono)}
+.verdict p{margin:0;font-size:13px}
+.intro{max-width:92ch;margin:0 0 6px;font-size:13.5px}
+.page-footer{margin-top:40px;padding-top:14px;border-top:1px solid var(--page-line);font-size:11px;color:var(--page-muted);display:flex;justify-content:space-between;gap:16px}
+.page-footer a{color:inherit}
+
+/* VS-Code-Rahmen */
+.vsc{display:flex;height:780px;width:448px;background:var(--vs-editor);border:1px solid var(--vs-border);border-radius:8px;overflow:hidden;color:var(--vs-fg);font-size:13px;line-height:1.45;box-shadow:0 20px 50px #0000004d}
+.vsc.wide{width:1392px;flex-direction:column}
+.vsc.wide .frame{display:flex;flex:1;min-height:0}
+.activity{width:48px;flex:none;background:var(--vs-bar);border-right:1px solid var(--vs-border);display:flex;flex-direction:column;align-items:center;padding:4px 0}
+.ab-icon{width:48px;height:48px;display:grid;place-items:center;color:var(--vs-muted);position:relative}
+.ab-icon svg{width:24px;height:24px;stroke-width:1.2}
+.ab-icon.active{color:var(--vs-fg)}
+.ab-icon.active::before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--vs-fg)}
+.ab-badge{position:absolute;right:8px;bottom:8px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--vs-badge);color:var(--vs-badge-fg);font-size:9px;font-weight:600;display:grid;place-items:center;font-style:normal}
+.ab-spacer{flex:1}
+.sidebar{flex:1;min-width:0;background:var(--vs-side);display:flex;flex-direction:column;min-height:0}
+.vsc.wide .sidebar{flex:none;width:300px;border-right:1px solid var(--vs-border)}
+.vsc.wide .sidebar.secondary{border-right:0;border-left:1px solid var(--vs-border);width:400px}
+.sb-title{height:35px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 8px 0 20px;font-size:11px;text-transform:uppercase;letter-spacing:.02em;color:var(--vs-fg)}
+.sb-actions{display:flex;gap:2px}
+.ic{width:22px;height:22px;border-radius:5px;display:inline-grid;place-items:center;color:var(--vs-muted)}
+.ic:hover{background:var(--vs-hover);color:var(--vs-fg)}
+.status{height:22px;flex:none;background:var(--vs-status);border-top:1px solid var(--vs-border);display:flex;align-items:center;justify-content:space-between;padding:0 10px;font-size:11.5px;color:var(--vs-muted)}
+.status span{display:flex;gap:14px}
+
+/* Run-Leiste */
+.runbar{display:flex;align-items:center;gap:8px;margin:0 8px 6px;padding:6px 8px;border-radius:6px;background:var(--vs-input);border:1px solid var(--vs-input-border);text-align:left;width:calc(100% - 16px)}
+.runbar:hover{border-color:var(--vs-focus)}
+.run-name{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.run-meta{color:var(--vs-muted);font-size:11.5px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.runbar .chev{color:var(--vs-muted)}
+.runbar.back .run-meta{flex:1}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--vs-muted)}
+.dot.running{background:var(--success);box-shadow:0 0 0 3px var(--success-soft)}
+.dot.waiting{background:var(--warning);box-shadow:0 0 0 3px var(--warning-soft)}
+.dot.idle{background:var(--vs-muted)}
+.dot.done{background:transparent;border:1.5px solid var(--vs-muted)}
+.spin{width:10px;height:10px;border-radius:50%;border:1.5px solid var(--success);border-right-color:transparent;flex:none;display:inline-block}
+
+/* Chips, Chat, Composer */
+.actors{display:flex;gap:6px;flex-wrap:wrap;padding:8px 12px;border-top:1px solid var(--vs-border);border-bottom:1px solid var(--vs-border)}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:2px 7px 2px 5px;border-radius:12px;font-size:11px;font-family:var(--mono);border:1px solid var(--vs-border);color:var(--vs-fg);background:var(--vs-input)}
+.chip svg{width:13px;height:13px}
+.chip b{font-weight:600;font-size:10px;padding:0 5px;border-radius:8px;background:var(--vs-selected);font-family:var(--font)}
+.chip.primary{background:var(--glass-primary)}
+.chip.agent{background:var(--glass-agent)}
+.chip.script{background:var(--glass-script)}
+.chip.selected{outline:2px solid var(--acc);outline-offset:1px}
+.chat{flex:1;min-height:0;overflow:hidden;padding:10px 12px 4px;display:flex;flex-direction:column;gap:12px;mask-image:linear-gradient(#000 88%,transparent)}
+.msg{display:grid;grid-template-columns:36px 1fr;gap:6px;align-items:start}
+.msg time{font-size:10.5px;color:var(--vs-muted);font-family:var(--mono);padding-top:3px}
+.msg p{margin:0}
+.msg .tools{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.msg.me > div{background:var(--me-bg);border-radius:8px;padding:6px 10px}
+.msg .who{font-size:11px;color:var(--vs-muted);font-family:var(--mono);margin-bottom:2px}
+.tool{display:inline-flex;align-items:center;gap:5px;padding:1px 8px;border-radius:10px;border:1px solid var(--vs-border);font-size:11px;font-family:var(--mono);color:var(--vs-muted);background:var(--vs-input)}
+.tool em{font-style:normal;color:var(--vs-fg)}
+.tool .ok{color:var(--success)}
+.composer{margin:8px 12px 12px;border:1px solid var(--vs-input-border);border-radius:8px;background:var(--vs-input);flex:none}
+.composer:focus-within{border-color:var(--vs-focus)}
+.composer .input{padding:8px 10px 4px;color:var(--vs-muted);min-height:38px}
+.composer-foot{display:flex;align-items:center;gap:10px;padding:4px 6px 6px 10px;font-size:11.5px;color:var(--vs-muted)}
+.composer-foot .target b{color:var(--vs-fg);font-family:var(--mono);font-weight:500}
+.composer-foot .opt{display:flex;align-items:center;gap:4px}
+.composer-foot .send{margin-left:auto;width:26px;height:26px;border-radius:6px;background:var(--vs-button);color:var(--vs-button-fg);display:grid;place-items:center}
+.composer-foot .send svg{width:14px;height:14px}
+.composer-foot .stop{color:var(--danger);border:1px solid var(--danger);border-radius:10px;padding:0 8px;font-size:11px}
+
+/* Mini-App-Karten */
+.app{margin:0 8px 6px;border:1px solid var(--card-line);border-radius:8px;background:var(--card);overflow:hidden}
+.app-head{display:flex;align-items:center;gap:6px;padding:5px 6px 5px 6px;cursor:pointer;user-select:none}
+.app-head:hover{background:var(--vs-hover)}
+.app-head .chev{color:var(--vs-muted);transition:transform .15s}
+.app.collapsed .app-head .chev{transform:rotate(-90deg)}
+.app.collapsed .app-body{display:none}
+.kind{width:18px;height:18px;padding:2px;border-radius:5px;stroke-width:1.5}
+.kind.kind-app{background:var(--glass-app);border:1px solid var(--glass-edge)}
+.kind.kind-agent{background:var(--glass-agent);border:1px solid var(--glass-edge)}
+.kind.kind-primary{background:var(--glass-primary);border:1px solid var(--glass-edge)}
+.kind.kind-script{background:var(--glass-script);border:1px solid var(--glass-edge)}
+.app-head .name{font-weight:600}
+.app-head .meta{color:var(--vs-muted);font-size:11.5px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.app-head .acts{display:flex;gap:1px}
+.badge{font-size:10px;font-weight:600;padding:1px 6px;border-radius:8px;background:var(--warning-soft);color:var(--warning);white-space:nowrap}
+.badge.ok{background:var(--success-soft);color:var(--success)}
+.badge.acc{background:var(--acc-soft);color:var(--acc)}
+.app-body{padding:6px 8px 8px;border-top:1px solid var(--card-line)}
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.board h5{margin:0 0 4px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--vs-muted);font-weight:600}
+.board .col{background:var(--vs-editor);border-radius:6px;padding:5px;min-height:70px;display:flex;flex-direction:column;gap:4px}
+.board .card{background:var(--card);border:1px solid var(--card-line);border-radius:5px;padding:4px 6px;font-size:11px;line-height:1.3}
+.board .card.new{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc-soft)}
+.board .add{font-size:10.5px;color:var(--vs-muted);padding:2px 4px;border:1px dashed var(--card-line);border-radius:5px;text-align:center}
+.form .q{margin:2px 0 6px;font-weight:600}
+.form label{display:flex;gap:8px;align-items:center;padding:3px 2px;font-size:12.5px}
+.form input{margin:0;accent-color:var(--acc)}
+.form-foot{display:flex;align-items:center;gap:10px;margin-top:6px}
+.btn{padding:3px 12px;border-radius:5px;background:var(--vs-button);color:var(--vs-button-fg);font-size:12px}
+.btn.ghost{background:transparent;border:1px solid var(--vs-input-border);color:var(--vs-fg)}
+.hint{font-size:11px;color:var(--vs-muted)}
+
+/* Quick Pick */
+.overlay{position:relative;flex:1;min-height:0;display:flex;flex-direction:column}
+.dim{position:absolute;inset:0;background:#00000055;z-index:2}
+.quickpick{position:absolute;left:8px;right:8px;top:6px;z-index:3;background:var(--vs-widget);border:1px solid var(--vs-border);border-radius:8px;box-shadow:var(--vs-shadow);padding:6px;font-size:12.5px}
+.qp-input{border:1px solid var(--vs-focus);background:var(--vs-input);border-radius:4px;padding:3px 8px;color:var(--vs-muted);margin-bottom:6px}
+.qp-item{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:4px}
+.qp-item.selected{background:var(--vs-selected)}
+.qp-item .qp-meta{margin-left:auto;color:var(--vs-muted);font-size:11px;white-space:nowrap}
+.qp-item svg{color:var(--vs-muted)}
+.qp-sep{border-top:1px solid var(--vs-border);margin:5px 0}
+.qp-label{font-size:10.5px;color:var(--vs-muted);padding:2px 8px;text-transform:uppercase;letter-spacing:.05em}
+
+/* Variante B: Bühne */
+.stage-tabs{display:flex;gap:2px;padding:0 8px;border-bottom:1px solid var(--vs-border);overflow:hidden;flex:none}
+.stab{display:flex;align-items:center;gap:5px;padding:6px 8px 5px;border-bottom:2px solid transparent;font-size:12px;color:var(--vs-muted);white-space:nowrap;font-family:var(--mono)}
+.stab svg{width:14px;height:14px}
+.stab.active{color:var(--vs-fg);border-bottom-color:var(--acc)}
+.stab b{font-size:10px;padding:0 5px;border-radius:8px;background:var(--warning-soft);color:var(--warning);font-family:var(--font)}
+.stab .kind{width:16px;height:16px}
+.stage{flex:none;height:330px;overflow:hidden;display:flex;flex-direction:column;background:var(--vs-editor)}
+.stage .app{margin:8px;flex:1;min-height:0;display:flex;flex-direction:column}
+.stage .app-body{flex:1}
+.stage .stage-pane[hidden]{display:none}
+.stage .board .col{min-height:110px}
+.stage .thread{padding:10px 12px;display:flex;flex-direction:column;gap:10px;font-size:12.5px}
+.sash{height:4px;flex:none;background:var(--vs-border);cursor:row-resize;position:relative}
+.sash::after{content:"";position:absolute;left:50%;top:1px;width:34px;height:2px;margin-left:-17px;border-radius:2px;background:var(--vs-muted)}
+.stage-collapsed{display:flex;align-items:center;gap:8px;padding:4px 12px;border-bottom:1px solid var(--vs-border);font-size:11.5px;color:var(--vs-muted)}
+.stage-collapsed .stab{padding:2px 6px}
+
+/* Variante C: Strom */
+.runlist{flex:1;overflow:hidden;padding:4px 8px;mask-image:linear-gradient(#000 92%,transparent)}
+.filter{display:flex;align-items:center;gap:8px;border:1px solid var(--vs-input-border);background:var(--vs-input);border-radius:6px;padding:4px 8px;color:var(--vs-muted);margin-bottom:8px;font-size:12.5px}
+.run-item{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:center;padding:8px 10px;border-radius:6px}
+.run-item:hover{background:var(--vs-hover)}
+.run-item.selected{background:var(--vs-selected)}
+.run-item .title{font-weight:600}
+.run-item .sub{grid-column:2/4;color:var(--vs-muted);font-size:11.5px}
+.run-item .age{color:var(--vs-muted);font-size:11px;font-family:var(--mono)}
+.run-item .badges{grid-column:2/4;display:flex;gap:5px;flex-wrap:wrap}
+.run-item .chip{padding:0 6px;font-size:10.5px}
+.section-label{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--vs-muted);padding:10px 10px 4px}
+.new-run{display:flex;align-items:center;gap:8px;margin:6px 0 4px;padding:7px 10px;border:1px dashed var(--vs-input-border);border-radius:6px;color:var(--vs-fg);width:100%;text-align:left}
+.stream{flex:1;min-height:0;overflow:hidden;padding:8px 12px 4px;display:flex;flex-direction:column;gap:12px;mask-image:linear-gradient(#000 88%,transparent)}
+.stream .app{margin:0 0 0 42px}
+.stream .app.pinned{margin-left:0}
+.thread-card{margin-left:42px;border:1px solid var(--card-line);border-radius:8px;background:var(--card);overflow:hidden}
+.thread-card .app-head .name{font-family:var(--mono);font-weight:500}
+.thread-card .thread{padding:8px 10px;display:flex;flex-direction:column;gap:8px;font-size:12.5px;border-top:1px solid var(--card-line)}
+.thread .line{display:flex;gap:8px}
+.thread .line .who{font-family:var(--mono);color:var(--vs-muted);font-size:11px;flex:none;padding-top:2px}
+.thread .line p{margin:0}
+.thread-card.collapsed .thread{display:none}
+.thread-card.collapsed .app-head .chev{transform:rotate(-90deg)}
+.pinned-zone{padding:8px 12px 0;flex:none;border-bottom:1px solid var(--vs-border)}
+.pinned-zone .app{margin:0 0 8px}
+.pinned-zone .board .col{min-height:0}
+
+/* Variante D: Werkbank */
+.view{display:flex;flex-direction:column;min-height:0;border-top:1px solid var(--vs-border)}
+.view.grow{flex:1}
+.view-head{height:22px;flex:none;display:flex;align-items:center;gap:2px;padding:0 4px 0 2px;font-size:11px;font-weight:700;text-transform:uppercase;cursor:pointer;user-select:none}
+.view-head .chev{color:var(--vs-fg);width:16px;height:16px;transition:transform .15s}
+.view.collapsed .view-head .chev{transform:rotate(-90deg)}
+.view.collapsed .view-body{display:none}
+.view.collapsed.grow{flex:none}
+.view-head .acts{margin-left:auto;display:flex}
+.view-body{overflow:hidden;min-height:0;display:flex;flex-direction:column}
+.tree .row{display:flex;align-items:center;gap:6px;height:22px;padding:0 8px 0 var(--indent,12px);font-size:12.5px;white-space:nowrap}
+.tree .row:hover{background:var(--vs-hover)}
+.tree .row.selected{background:var(--vs-selected)}
+.tree .row .chev{width:16px;height:16px;color:var(--vs-muted)}
+.tree .row .kind{width:16px;height:16px;padding:1px}
+.tree .row .count{margin-left:auto;font-size:10px;font-weight:600;padding:0 5px;border-radius:8px;background:var(--vs-selected);color:var(--vs-fg)}
+.tree .row .count.warn{background:var(--warning-soft);color:var(--warning)}
+.tree .row .mono{font-family:var(--mono);font-size:12px}
+.tree .row .sub{color:var(--vs-muted);font-size:11px;margin-left:2px}
+.editor{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--vs-editor)}
+.tabs{display:flex;height:35px;background:var(--vs-tab-inactive);border-bottom:1px solid var(--vs-border);flex:none;overflow:hidden}
+.etab{display:flex;align-items:center;gap:7px;padding:0 12px;border-right:1px solid var(--vs-border);font-size:12.5px;color:var(--vs-muted);white-space:nowrap}
+.etab.active{background:var(--vs-editor);color:var(--vs-fg);border-top:1px solid var(--acc);margin-bottom:-1px}
+.etab .kind{width:15px;height:15px;padding:1px}
+.etab .x{margin-left:4px;color:var(--vs-muted)}
+.etab .x svg{width:12px;height:12px}
+.crumbs{height:22px;display:flex;align-items:center;gap:6px;padding:0 16px;font-size:11.5px;color:var(--vs-muted);flex:none}
+.crumbs svg{width:12px;height:12px}
+.editor-body{flex:1;min-height:0;padding:16px 24px;overflow:hidden}
+.editor-body .app{margin:0;max-width:820px}
+.editor-body .board{grid-template-columns:repeat(3,1fr);gap:12px}
+.editor-body .board .col{min-height:260px;padding:8px}
+.editor-body .board .card{font-size:12.5px;padding:7px 9px}
+.editor-body .app-head{padding:8px 10px}
+.editor-body .toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;font-size:12.5px;color:var(--vs-muted)}
+.editor-body .toolbar .chip{font-size:11px}
+.code{font-family:var(--mono);font-size:12px;line-height:1.6;color:var(--vs-muted);white-space:pre;margin:0}
+.code b{color:var(--acc);font-weight:500}
+.code i{color:var(--success);font-style:normal}
+.vsc.wide .chat{font-size:12.5px}
+
+/* Variante E: Explorer und Arbeitsspalte */
+.chips{display:flex;gap:5px;flex-wrap:wrap;padding:8px 12px;align-items:center}
+.chip.app{background:var(--glass-app)}
+.chip.more{background:transparent;border-style:dashed;color:var(--vs-muted)}
+.chip.in-editor{opacity:.6;text-decoration:none}
+.chip.in-editor svg{width:12px;height:12px}
+.chip .warn{background:var(--warning-soft);color:var(--warning)}
+.chips .ic{margin-left:auto}
+.work-app{flex:none;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.work-app .app{margin:0 8px 8px;flex:1;min-height:0;display:flex;flex-direction:column}
+.work-app .app-body{flex:1;overflow:hidden}
+.work-app .board .col{min-height:90px}
+.work-app.tall{height:300px}
+.work-app.short{height:150px}
+.work-app.short .board .card{display:none}
+.work-app.short .board .card:nth-child(2){display:block}
+.work-app.short .board .add{display:none}
+.chat-zone{flex:1;min-height:0;display:flex;flex-direction:column;border-top:0}
+.chat-zone .chips{border-bottom:1px solid var(--vs-border);position:relative}
+.popover{position:absolute;right:12px;top:36px;z-index:3;width:250px;background:var(--vs-widget);border:1px solid var(--vs-border);border-radius:8px;box-shadow:var(--vs-shadow);padding:6px;font-size:12px}
+.popover .qp-label{padding:2px 6px 4px}
+.popover .qp-item{padding:4px 6px}
+.popover .qp-item .mono{font-family:var(--mono);font-size:11.5px}
+.popover .qp-item .qp-meta{font-size:10.5px}
+.popover .qp-item .ic{width:20px;height:20px;margin-left:4px}
+.editor-body .code-file{padding:4px 0}
+.editor-body .code .ln{display:inline-block;width:28px;color:var(--vs-muted);opacity:.6;text-align:right;margin-right:16px;user-select:none}
+.tree .row.hidden-actor{color:var(--vs-muted)}
+.tree .row.hidden-actor .kind{opacity:.6}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-chevron-down" viewBox="0 0 16 16"><path d="m4 6 4 4 4-4"/></symbol>
+  <symbol id="i-chevron-right" viewBox="0 0 16 16"><path d="m6 4 4 4-4 4"/></symbol>
+  <symbol id="i-chevron-up" viewBox="0 0 16 16"><path d="m4 10 4-4 4 4"/></symbol>
+  <symbol id="i-arrow-left" viewBox="0 0 16 16"><path d="M13 8H3m4-4-4 4 4 4"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 16 16"><path d="M8 3v10M3 8h10"/></symbol>
+  <symbol id="i-close" viewBox="0 0 16 16"><path d="m4 4 8 8M12 4l-8 8"/></symbol>
+  <symbol id="i-ellipsis" viewBox="0 0 16 16"><circle cx="3.5" cy="8" r=".9" fill="currentColor"/><circle cx="8" cy="8" r=".9" fill="currentColor"/><circle cx="12.5" cy="8" r=".9" fill="currentColor"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 16 16"><path d="M9.5 2.5 13.5 6.5 11 7.5 8.5 10 8 13.5 2.5 8 6 7.5 8.5 5z"/></symbol>
+  <symbol id="i-open" viewBox="0 0 16 16"><path d="M7 3H3v10h10V9M9 3h4v4M13 3 7.5 8.5"/></symbol>
+  <symbol id="i-collapse" viewBox="0 0 16 16"><path d="M3 4h10M3 8h10M3 12h6"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 16 16"><path d="M8 2c.6 3.4 2.6 5.4 6 6-3.4.6-5.4 2.6-6 6-.6-3.4-2.6-5.4-6-6 3.4-.6 5.4-2.6 6-6z"/></symbol>
+  <symbol id="i-comment" viewBox="0 0 16 16"><path d="M3 3h10v8H7l-3 2.5V11H3z"/></symbol>
+  <symbol id="i-code" viewBox="0 0 16 16"><path d="m5 5-3 3 3 3M11 5l3 3-3 3M9.5 3l-3 10"/></symbol>
+  <symbol id="i-board" viewBox="0 0 16 16"><rect x="2.5" y="3" width="3" height="10" rx=".8"/><rect x="6.5" y="3" width="3" height="6" rx=".8"/><rect x="10.5" y="3" width="3" height="8" rx=".8"/></symbol>
+  <symbol id="i-question" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M6.2 6.3A1.9 1.9 0 0 1 9.8 6c0 1.3-1.8 1.4-1.8 2.7M8 11.3v.1"/></symbol>
+  <symbol id="i-net" viewBox="0 0 16 16"><circle cx="8" cy="3.5" r="1.5"/><circle cx="3.5" cy="12" r="1.5"/><circle cx="12.5" cy="12" r="1.5"/><path d="M7.2 4.8 4.3 10.7M8.8 4.8l2.9 5.9M5 12h6"/></symbol>
+  <symbol id="i-send" viewBox="0 0 16 16"><path d="M2.5 8 13.5 2.5 11 13.5 8 9zM8 9l5.5-6.5"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M2 8h12M8 2c2 2 2 10 0 12M8 2c-2 2-2 10 0 12"/></symbol>
+  <symbol id="i-files" viewBox="0 0 24 24"><path d="M8 3h7l4 4v12H8zM15 3v4h4M5 7v14h10"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5.5 5.5"/></symbol>
+  <symbol id="i-scm" viewBox="0 0 24 24"><circle cx="6" cy="5" r="2"/><circle cx="6" cy="19" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 7v10M18 10c0 4-12 2-12 7"/></symbol>
+  <symbol id="i-debug" viewBox="0 0 24 24"><path d="M6 4v16l13-8z"/><path d="M14 10h6M14 14h6" stroke-width="1"/></symbol>
+  <symbol id="i-ext" viewBox="0 0 24 24"><rect x="4" y="10" width="7" height="7"/><rect x="11" y="10" width="7" height="7"/><rect x="11" y="3" width="7" height="7"/><rect x="4" y="17" width="7" height="4"/></symbol>
+  <symbol id="i-ragents" viewBox="0 0 24 24"><rect x="3" y="3" width="6" height="6" rx="1.5"/><rect x="15" y="3" width="6" height="6" rx="1.5"/><rect x="9" y="15" width="6" height="6" rx="1.5"/><path d="M6 9v3h12V9M12 12v3"/></symbol>
+  <symbol id="i-account" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></symbol>
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="m3 8.5 3 3 7-7"/></symbol>
+  <symbol id="i-layout" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1"/><path d="M10 3v10"/></symbol>
+</svg>
+
+<header class="draft-bar">
+  <div class="draft-bar-inner">
+    <div class="draft-title">
+      <span class="brand-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#i-ragents"/></svg></span>
+      <div><h1>VS-Code-Seitenleiste</h1><p>Fünf Anordnungen für Chat, Agenten und Mini-Apps</p></div>
+    </div>
+    <nav class="variant-tabs" role="tablist" aria-label="Varianten">
+      <button class="variant-tab" id="tab-a" role="tab" aria-selected="true" aria-controls="variant-a" data-variant="a"><span class="tab-letter">A</span>Stapel</button>
+      <button class="variant-tab" id="tab-b" role="tab" aria-selected="false" aria-controls="variant-b" tabindex="-1" data-variant="b"><span class="tab-letter">B</span>Bühne und Chat</button>
+      <button class="variant-tab" id="tab-c" role="tab" aria-selected="false" aria-controls="variant-c" tabindex="-1" data-variant="c"><span class="tab-letter">C</span>Ein Strom</button>
+      <button class="variant-tab" id="tab-d" role="tab" aria-selected="false" aria-controls="variant-d" tabindex="-1" data-variant="d"><span class="tab-letter">D</span>Werkbank</button>
+      <button class="variant-tab" id="tab-e" role="tab" aria-selected="false" aria-controls="variant-e" tabindex="-1" data-variant="e"><span class="tab-letter">E</span>Explorer und Spalte</button>
+    </nav>
+    <div class="theme-toggle" role="group" aria-label="Farbschema">
+      <button type="button" data-theme-choice="dark" aria-pressed="true">Dark Modern</button>
+      <button type="button" data-theme-choice="light" aria-pressed="false">Light Modern</button>
+    </div>
+  </div>
+</header>
+<div class="draft-note"><p class="variant-reason" id="variant-reason"></p><p class="offline-note"><span class="offline-dot" aria-hidden="true"></span>Statischer Offline-Entwurf. Kein echter Run, kein echtes VS Code.</p></div>
+
+<main class="page">
+  <p class="intro">Rahmen für alle fünf Varianten: die Erweiterung verbindet sich mit einem laufenden RAgents-Server (etwa <code>localhost:4710</code>), bündelt ihn nicht und greift nicht in den Editor ein. Die Seitenleiste ist schmal und hoch wie bei Claude Code; jede Variante muss mehrere Runs, mehrere Agenten und mehrere Mini-Apps je Run unterbringen. Alle Beispiele zeigen denselben Run "Nachtbus-Runde" aus dem Profil core: ein Koordinator, drei Gesprächsagenten, ein TypeScript-Actor, die Mini-Apps Sammelboard und Entscheidung.</p>
+
+  <!-- ============================ A: Stapel ============================ -->
+  <section class="variant active" id="variant-a" role="tabpanel" aria-labelledby="tab-a">
+    <div class="screens">
+
+      <figure class="screen">
+        <div class="vsc">
+          <div class="activity">
+            <span class="ab-icon"><svg><use href="#i-files"/></svg></span><span class="ab-icon"><svg><use href="#i-search"/></svg></span><span class="ab-icon"><svg><use href="#i-scm"/></svg></span><span class="ab-icon"><svg><use href="#i-debug"/></svg></span><span class="ab-icon"><svg><use href="#i-ext"/></svg></span>
+            <span class="ab-icon active"><svg><use href="#i-ragents"/></svg><b class="ab-badge">1</b></span>
+            <span class="ab-spacer"></span><span class="ab-icon"><svg><use href="#i-account"/></svg></span><span class="ab-icon"><svg><use href="#i-gear"/></svg></span>
+          </div>
+          <div class="sidebar">
+            <div class="sb-title"><span>RAgents</span><span class="sb-actions"><i class="ic" title="Neuer Run"><svg><use href="#i-plus"/></svg></i><i class="ic" title="Im Browser öffnen"><svg><use href="#i-globe"/></svg></i><i class="ic"><svg><use href="#i-ellipsis"/></svg></i></span></div>
+            <button class="runbar"><span class="dot running"></span><span class="run-name">Nachtbus-Runde</span><span class="run-meta">3 Agenten aktiv</span><svg class="chev"><use href="#i-chevron-down"/></svg></button>
+
+            <section class="app" data-collapsible>
+              <header class="app-head" data-toggle><svg class="chev"><use href="#i-chevron-down"/></svg><svg class="kind kind-app"><use href="#i-board"/></svg><span class="name">Sammelboard</span><span class="meta">6 Karten</span><span class="acts"><i class="ic" title="Anheften"><svg><use href="#i-pin"/></svg></i><i class="ic" title="Im Editor öffnen"><svg><use href="#i-open"/></svg></i></span></header>
+              <div class="app-body">
+                <div class="board">
+                  <div class="col"><h5>Nachtbus</h5><div class="card">Schichtarbeit braucht festen Takt</div><div class="card">Nachtleben ohne Auto</div><div class="card">Weniger Verkehr</div></div>
+                  <div class="col"><h5>Shuttle</h5><div class="card">Leere Busse in Kleinstädten</div><div class="card">Bedarf statt Takt</div></div>
+                  <div class="col"><h5>Konsens</h5><div class="card new">Nach Stadtgröße entscheiden</div><div class="add">+ Karte</div></div>
+                </div>
+              </div>
+            </section>
+            <section class="app collapsed" data-collapsible>
+              <header class="app-head" data-toggle><svg class="chev"><use href="#i-chevron-down"/></svg><svg class="kind kind-app"><use href="#i-question"/></svg><span class="name">Entscheidung</span><span class="meta">wartet auf Dich</span><span class="badge">Rückfrage</span><span class="acts"><i class="ic"><svg><use href="#i-open"/></svg></i></span></header>
+              <div class="app-body form"><p class="q">Welche Variante soll die Runde vertiefen?</p><label><input type="radio" name="a1">Feste Nachtbuslinien</label><label><input type="radio" name="a1" checked>Bedarfs-Shuttle</label><label><input type="radio" name="a1">Mischform nach Stadtgröße</label><div class="form-foot"><button class="btn">Antworten</button><span class="hint">Rückfrage von @coordinator</span></div></div>
+            </section>
+
+            <div class="actors"><button class="chip primary selected"><svg><use href="#i-sparkle"/></svg>@coordinator</button><button class="chip agent"><span class="spin"></span>@mira</button><button class="chip agent">@ada<b>2</b></button><button class="chip agent">@jon<b>2</b></button><button class="chip script"><svg><use href="#i-code"/></svg>@conversation-circle</button></div>
+
+            <div class="chat">
+              <div class="msg me"><time>16:24</time><div><p>Starte eine Runde zu Nachtbussen mit drei Stimmen und sammle die Argumente auf einem Board.</p></div></div>
+              <div class="msg"><time>16:24</time><div><div class="tools"><span class="tool">actor_create <em>3x</em><span class="ok">&#10003;</span></span><span class="tool">actor_program_activate <em>sammelboard</em><span class="ok">&#10003;</span></span></div><p>Runde läuft: @mira, @ada und @jon diskutieren. Das Sammelboard füllt sich mit ihren Argumenten.</p></div></div>
+              <div class="msg me"><time>16:27</time><div><p>Wie ist der Stand?</p></div></div>
+              <div class="msg"><time>16:28</time><div><p>Zweite Runde. Auf dem Board stehen sechs Argumente, @jon wartet noch auf @ada. Die Entscheidung oben braucht Deine Antwort.</p></div></div>
+            </div>
+            <div class="composer"><div class="input">Nachricht schreiben ...</div><div class="composer-foot"><span class="target">an <b>@coordinator</b></span><span class="opt"><svg><use href="#i-sparkle"/></svg>kompakt</span><i class="send"><svg><use href="#i-send"/></svg></i></div></div>
+          </div>
+        </div>
+        <figcaption><b>Mini-App aufgeklappt.</b> Von oben nach unten: Run-Leiste, die Mini-Apps als Akkordeon, die Actor-Leiste als Chips, darunter der Chat mit dem gewählten Actor. Der Chat bekommt immer den Rest der Höhe.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="vsc">
+          <div class="activity">
+            <span class="ab-icon"><svg><use href="#i-files"/></svg></span><span class="ab-icon"><svg><use href="#i-search"/></svg></span><span class="ab-icon"><svg><use href="#i-scm"/></svg></span><span class="ab-icon"><svg><use href="#i-debug"/></svg></span><span class="ab-icon"><svg><use href="#i-ext"/></svg></span>
+            <span class="ab-icon active"><svg><use href="#i-ragents"/></svg><b class="ab-badge">1</b></span>
+            <span class="ab-spacer"></span><span class="ab-icon"><svg><use href="#i-account"/></svg></span><span class="ab-icon"><svg><use href="#i-gear"/></svg></span>
+          </div>
+          <div class="sidebar">
+            <div class="sb-title"><span>RAgents</span><span class="sb-actions"><i class="ic"><svg><use href="#i-plus"/></svg></i><i class="ic"><svg><use href="#i-globe"/></svg></i><i class="ic"><svg><use href="#i-ellipsis"/></svg></i></span></div>
+            <button class="runbar"><span class="dot running"></span><span class="run-name">Nachtbus-Runde</span><span class="run-meta">3 Agenten aktiv</span><svg class="chev"><use href="#i-chevron-down"/></svg></button>
+            <section class="app collapsed" data-collapsible>
+              <header class="app-head" data-toggle><svg class="chev"><use href="#i-chevron-down"/></svg><svg class="kind kind-app"><use href="#i-board"/></svg><span class="name">Sammelboard</span><span class="meta">6 Karten</span><span class="acts"><i class="ic"><svg><use href="#i-pin"/></svg></i><i class="ic"><svg><use href="#i-open"/></svg></i></span></header>
+              <div class="app-body"><div class="board"><div class="col"><h5>Nachtbus</h5><div class="card">Schichtarbeit braucht festen Takt</div></div><div class="col"><h5>Shuttle</h5><div class="card">Bedarf statt Takt</div></div><div class="col"><h5>Konsens</h5><div class="card new">Nach Stadtgröße entscheiden</div></div></div></div>
+            </section>
+            <section class="app collapsed" data-collapsible>
+              <header class="app-head" data-toggle><svg class="chev"><use href="#i-chevron-down"/></svg><svg class="kind kind-app"><use href="#i-question"/></svg><span class="name">Entscheidung</span><span class="meta">wartet auf Dich</span><span class="badge">Rückfrage</span><span class="acts"><i class="ic"><svg><use href="#i-open"/></svg></i></span></header>
+              <div class="app-body form"><p class="q">Welche Variante soll die Runde vertiefen?</p><label><input type="radio" name="a2">Feste Nachtbuslinien</label><label><input type="radio" name="a2" checked>Bedarfs-Shuttle</label><div class="form-foot"><button class="btn">Antworten</button></div></div>
+            </section>
+            <div class="actors"><button class="chip primary"><svg><use href="#i-sparkle"/></svg>@coordinator</button><button class="chip agent selected"><span class="spin"></span>@mira</button><button class="chip agent">@ada<b>2</b></button><button class="chip agent">@jon<b>2</b></button><button class="chip script"><svg><use href="#i-code"/></svg>@conversation-circle</button></div>
+            <div class="chat">
+              <div class="msg"><time>16:25</time><div><div class="tools"><span class="tool">actor_input<span class="ok">&#10003;</span></span></div><p>Nachtbusse sind Daseinsvorsorge: wer nachts arbeitet, braucht einen festen Takt und keine App.</p></div></div>
+              <div class="msg"><time>16:26</time><div><div class="tools"><span class="tool">gibt weiter <em>@ada</em></span></div></div></div>
+              <div class="msg"><time>16:27</time><div><div class="tools"><span class="tool">actor_input<span class="ok">&#10003;</span></span></div><p>Ada schlägt vor, nach Stadtgröße zu unterscheiden. Ich nähere mich an: in Großstädten feste Linien, sonst Shuttles.</p></div></div>
+              <div class="msg"><time>16:28</time><div><div class="tools"><span class="tool"><svg><use href="#i-sparkle"/></svg>Denken<span class="ok">&#10003;</span></span></div><p>Jon hält an bedarfsgesteuerten Shuttles fest. Ich formuliere jetzt das Schlusswort der zweiten Runde.</p></div></div>
+              <div class="msg"><time>16:29</time><div><div class="tools"><span class="tool"><span class="spin"></span>Turn 5 läuft</span></div></div></div>
+            </div>
+            <div class="composer"><div class="input">Nachricht schreiben ...</div><div class="composer-foot"><span class="target">an <b>@mira</b></span><span class="stop">Lauf stoppen</span><i class="send"><svg><use href="#i-send"/></svg></i></div></div>
+          </div>
+        </div>
+        <figcaption><b>Agent im Chat.</b> Ein Chip in der Actor-Leiste wechselt den Chat auf diesen Actor; der Composer adressiert ihn. Beide Mini-Apps sind eingeklappt und bleiben mit Zähler und Rückfrage-Abzeichen sichtbar.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="vsc">
+          <div class="activity">
+            <span class="ab-icon"><svg><use href="#i-files"/></svg></span><span class="ab-icon"><svg><use href="#i-search"/></svg></span><span class="ab-icon"><svg><use href="#i-scm"/></svg></span><span class="ab-icon"><svg><use href="#i-debug"/></svg></span><span class="ab-icon"><svg><use href="#i-ext"/></svg></span>
+            <span class="ab-icon active"><svg><use href="#i-ragents"/></svg><b class="ab-badge">1</b></span>
+            <span class="ab-spacer"></span><span class="ab-icon"><svg><use href="#i-account"/></svg></span><span class="ab-icon"><svg><use href="#i-gear"/></svg></span>
+          </div>
+          <div class="sidebar">
+            <div class="sb-title"><span>RAgents</span><span class="sb-actions"><i class="ic"><svg><use href="#i-plus"/></svg></i><i class="ic"><svg><use href="#i-globe"/></svg></i><i class="ic"><svg><use href="#i-ellipsis"/></svg></i></span></div>
+            <div class="overlay">
+              <div class="dim"></div>
+              <div class="quickpick">
+                <div class="qp-input">Run wählen oder suchen ...</div>
+                <div class="qp-label">Aktiv</div>
+                <div class="qp-item selected"><span class="dot running"></span><span>Nachtbus-Runde</span><span class="qp-meta">3 Agenten · vor 1 min</span></div>
+                <div class="qp-item"><span class="dot waiting"></span><span>Sammelboard: Sommerfest</span><span class="qp-meta">Rückfrage · vor 12 min</span></div>
+                <div class="qp-label">Ruhend</div>
+                <div class="qp-item"><span class="dot idle"></span><span>Lerneinheit: TypeBox</span><span class="qp-meta">gestern</span></div>
+                <div class="qp-item"><span class="dot done"></span><span>Ablaufdiagramm testen</span><span class="qp-meta">beendet · Mo</span></div>
+                <div class="qp-item"><span class="dot done"></span><span>Wortspiel mit Übergaben</span><span class="qp-meta">beendet · So</span></div>
+                <div class="qp-sep"></div>
+                <div class="qp-item"><svg><use href="#i-plus"/></svg><span>Neuer Run ...</span><span class="qp-meta">Skill oder Run-Script</span></div>
+                <div class="qp-item"><svg><use href="#i-sparkle"/></svg><span>Globaler Koordinator</span><span class="qp-meta">alle Runs</span></div>
+                <div class="qp-item"><svg><use href="#i-globe"/></svg><span>Im Browser öffnen</span><span class="qp-meta">localhost:4710</span></div>
+              </div>
+              <button class="runbar"><span class="dot running"></span><span class="run-name">Nachtbus-Runde</span><span class="run-meta">3 Agenten aktiv</span><svg class="chev"><use href="#i-chevron-up"/></svg></button>
+              <section class="app collapsed"><header class="app-head"><svg class="chev"><use href="#i-chevron-down"/></svg><svg class="kind kind-app"><use href="#i-board"/></svg><span class="name">Sammelboard</span><span class="meta">6 Karten</span></header></section>
+              <section class="app collapsed"><header class="app-head"><svg class="chev"><use href="#i-chevron-down"/></svg><svg class="kind kind-app"><use href="#i-question"/></svg><span class="name">Entscheidung</span><span class="meta">wartet auf Dich</span><span class="badge">Rückfrage</span></header></section>
+              <div class="actors"><button class="chip primary selected"><svg><use href="#i-sparkle"/></svg>@coordinator</button><button class="chip agent"><span class="spin"></span>@mira</button><button class="chip agent">@ada<b>2</b></button><button class="chip agent">@jon<b>2</b></button></div>
+              <div class="chat">
+                <div class="msg me"><time>16:27</time><div><p>Wie ist der Stand?</p></div></div>
+                <div class="msg"><time>16:28</time><div><p>Zweite Runde. Auf dem Board stehen sechs Argumente, @jon wartet noch auf @ada.</p></div></div>
+              </div>
+              <div class="composer"><div class="input">Nachricht schreiben ...</div><div class="composer-foot"><span class="target">an <b>@coordinator</b></span><i class="send"><svg><use href="#i-send"/></svg></i></div></div>
+            </div>
+          </div>
+        </div>
+        <figcaption><b>Run wechseln.</b> Die Run-Leiste öffnet eine Quick-Pick-Liste mit Zustand und Rückfragen aller Runs, dazu "Neuer Run", der globale Koordinator und der Sprung in den Browser. In VS Code läge die Liste oben im Fenster, hier steht sie zur Anschauung im Panel.</figcaption>
+      </figure>
+    </div>
+
+    <div class="verdict">
+      <div><h4>Mehrere Runs</h4><p>Ein Run zur Zeit, Wechsel über Quick Pick. Rückfragen anderer Runs melden sich nur im Abzeichen der Aktivitätsleiste.</p></div>
+      <div><h4>Viele Apps und Agenten</h4><p>Jede Mini-App ist eine Akkordeon-Zeile, jeder Agent ein Chip. Ab drei offenen Apps bleibt dem Chat wenig; die Karten müssen sich gegenseitig schließen.</p></div>
+      <div><h4>Wiederverwendung</h4><p>Ein einziger Webview mit dem Chat aus apps/web/src/chat und den Mini-App-Views; die Chips entsprechen der Actor-Leiste am Canvas.</p></div>
+      <div><h4>Urteil</h4><p>Einfachste Form, gut für einen Run mit ein bis zwei Apps. Skaliert schlecht, sobald eine Mini-App Fläche braucht.</p></div>
+    </div>
+  </section>
+
+  <!-- ============================ B: Bühne und Chat ============================ -->
+  <section class="variant" id="variant-b" role="tabpanel" aria-labelledby="tab-b" hidden>
+    <div class="screens">
+
+      <figure class="screen">
+        <div class="vsc">
+          <div class="activity">
+            <span class="ab-icon"><svg><use href="#i-files"/></svg></span><span class="ab-icon"><svg><use href="#i-search"/></svg></span><span class="ab-icon"><svg><use href="#i-scm"/></svg></span><span class="ab-icon"><svg><use href="#i-debug"/></svg></span><span class="ab-icon"><svg><use href="#i-ext"/></svg></span>
+            <span class="ab-icon active"><svg><use href="#i-ragents"/></svg><b class="ab-badge">1</b></span>
+            <span class="ab-spacer"></span><span class="ab-icon"><svg><use href="#i-account"/></svg></span><span class="ab-icon"><svg><use href="#i-gear"/></svg></span>
+          </div>
+          <div class="sidebar">
+            <div class="sb-title"><span>RAgents</span><span class="sb-actions"><i class="ic"><svg><use href="#i-plus"/></svg></i><i class="ic"><svg><use href="#i-globe"/></svg></i><i class="ic"><svg><use href="#i-ellipsis"/></svg></i></span></div>
+            <button class="runbar"><span class="dot running"></span><span class="run-name">Nachtbus-Runde</span><span class="run-meta">3 Agenten aktiv</span><svg class="chev"><use href="#i-chevron-down"/></svg></button>
+            <div class="stage-tabs" data-stage-group>
+              <button class="stab active" data-stage="b1-board"><svg class="kind kind-app"><use href="#i-board"/></svg>Sammelboard</button>
+              <button class="stab" data-stage="b1-decision"><svg class="kind kind-app"><use href="#i-question"/></svg>Entscheidung<b>!</b></button>
+              <button class="stab" data-stage="b1-mira"><span class="spin"></span>@mira</button>
+              <button class="stab" data-stage="b1-ada">@ada</button>
+              <button class="stab" data-stage="b1-jon">@jon</button>
+              <button class="stab" data-stage="b1-net"><svg><use href="#i-net"/></svg>Netz</button>
+            </div>
+            <div class="stage">
+              <section class="app stage-pane" data-pane="b1-board">
+                <header class="app-head"><svg class="kind kind-app"><use href="#i-board"/></svg><span class="name">Sammelboard</span><span class="meta">6 Karten · @conversation-circle schreibt mit</span><span class="acts"><i class="ic" title="Im Editor öffnen"><svg><use href="#i-open"/></svg></i></span></header>
+                <div class="app-body"><div class="board">
+                  <div class="col"><h5>Nachtbus</h5><div class="card">Schichtarbeit braucht festen Takt</div><div class="card">Nachtleben ohne Auto</div><div class="card">Weniger Verkehr</div></div>
+                  <div class="col"><h5>Shuttle</h5><div class="card">Leere Busse in Kleinstädten</div><div class="card">Bedarf statt Takt</div><div class="add">+ Karte</div></div>
+                  <div class="col"><h5>Konsens</h5><div class="card new">Nach Stadtgröße entscheiden</div><div class="add">+ Karte</div></div>
+                </div></div>
+              </section>
+              <section class="app stage-pane" data-pane="b1-decision" hidden>
+                <header class="app-head"><svg class="kind kind-app"><use href="#i-question"/></svg><span class="name">Entscheidung</span><span class="badge">Rückfrage</span></header>
+                <div class="app-body form"><p class="q">Welche Variante soll die Runde vertiefen?</p><label><input type="radio" name="b1">Feste Nachtbuslinien</label><label><input type="radio" name="b1" checked>Bedarfs-Shuttle</label><label><input type="radio" name="b1">Mischform nach Stadtgröße</label><div class="form-foot"><button class="btn">Antworten</button><span class="hint">Rückfrage von @coordinator</span></div></div>
+              </section>
+              <section class="app stage-pane" data-pane="b1-mira" hidden>
+                <header class="app-head"><svg class="kind kind-agent"><use href="#i-comment"/></svg><span class="name">@mira</span><span class="meta">Turn 5 läuft · glm-5.3-flash</span><span class="acts"><i class="ic"><svg><use href="#i-open"/></svg></i></span></header>
+                <div class="thread"><div class="line"><span class="who">16:25</span><p>Nachtbusse sind Daseinsvorsorge: wer nachts arbeitet, braucht einen festen Takt.</p></div><div class="line"><span class="who">16:27</span><p>Ada schlägt vor, nach Stadtgröße zu unterscheiden. Ich nähere mich an.</p></div><div class="line"><span class="who">16:29</span><p><span class="tool"><span class="spin"></span>Turn 5 läuft</span></p></div></div>
+              </section>
+              <section class="app stage-pane" data-pane="b1-ada" hidden><header class="app-head"><svg class="kind kind-agent"><use href="#i-comment"/></svg><span class="name">@ada</span><span class="meta">2 Turns · bereit</span></header><div class="thread"><div class="line"><span class="who">16:26</span><p>Beide Ziele lassen sich vereinen: feste Linien in Großstädten, Shuttles auf dem Land.</p></div></div></section>
+              <section class="app stage-pane" data-pane="b1-jon" hidden><header class="app-head"><svg class="kind kind-agent"><use href="#i-comment"/></svg><span class="name">@jon</span><span class="meta">2 Turns · wartet auf @ada</span></header><div class="thread"><div class="line"><span class="who">16:26</span><p>Ein Bus, der nachts leer fährt, hilft niemandem. Shuttles fahren nur, wenn jemand sie braucht.</p></div></div></section>
+              <section class="app stage-pane" data-pane="b1-net" hidden><header class="app-head"><svg class="kind kind-primary"><use href="#i-net"/></svg><span class="name">Netz</span><span class="meta">wer an wen gibt</span></header><div class="thread"><div class="line"><p>@coordinator -&gt; @mira -&gt; @ada -&gt; @jon -&gt; @mira. Platz für eine kompakte Fassung des Canvas-Diagramms.</p></div></div></section>
+            </div>
+            <div class="sash" title="Höhe ziehen"></div>
+            <div class="chat">
+              <div class="msg me"><time>16:27</time><div><p>Wie ist der Stand?</p></div></div>
+              <div class="msg"><time>16:28</time><div><p>Zweite Runde. Auf dem Board stehen sechs Argumente, @jon wartet noch auf @ada. Die Entscheidung braucht Deine Antwort.</p></div></div>
+            </div>
+            <div class="composer"><div class="input">Nachricht schreiben ...</div><div class="composer-foot"><span class="target">an <b>@coordinator</b></span><span class="opt"><svg><use href="#i-sparkle"/></svg>kompakt</span><i class="send"><svg><use href="#i-send"/></svg></i></div></div>
+          </div>
+        </div>
+        <figcaption><b>Bühne mit Sammelboard.</b> Oben eine Reiterleiste mit allen Mini-Apps, Agenten und dem Netz; genau eines davon steht auf der Bühne. Unten immer der Koordinator-Chat. Der Griff dazwischen verschiebt die Höhe. Die Reiter sind klickbar.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="vsc">
+          <div class="activity">
+            <span class="ab-icon"><svg><use href="#i-files"/></svg></span><span class="ab-icon"><svg><use href="#i-search"/></svg></span><span class="ab-icon"><svg><use href="#i-scm"/></svg></span><span class="ab-icon"><svg><use href="#i-debug"/></svg></span><span class="ab-icon"><svg><use href="#i-ext"/></svg></span>
+            <span class="ab-icon active"><svg><use href="#i-ragents"/></svg><b class="ab-badge">1</b></span>
+            <span class="ab-spacer"></span><span class="ab-icon"><svg><use href="#i-account"/></svg></span><span class="ab-icon"><svg><use href="#i-gear"/></svg></span>
+          </div>
+          <div class="sidebar">
+            <div class="sb-title"><span>RAgents</span><span class="sb-actions"><i class="ic"><svg><use href="#i-plus"/></svg></i><i class="ic"><svg><use href="#i-globe"/></svg></i><i class="ic"><svg><use href="#i-ellipsis"/></svg></i></span></div>
+            <button class="runbar"><span class="dot running"></span><span class="run-name">Nachtbus-Runde</span><span class="run-meta">3 Agenten aktiv</span><svg class="chev"><use href="#i-chevron-down"/></svg></button>
+            <div class="stage-tabs">
+              <button class="stab"><svg class="kind kind-app"><use href="#i-board"/></svg>Sammelboard</button>
+              <button class="stab"><svg class="kind kind-app"><use href="#i-question"/></svg>Entscheidung<b>!</b></button>
+              <button class="stab active"><span class="spin"></span>@mira</button>
+              <button class="stab">@ada</button>
+              <button class="stab">@jon</button>
+              <button class="stab"><svg><use href="#i-net"/></svg>Netz</button>
+            </div>
+            <div class="stage">
+              <section class="app">
+                <header class="app-head"><svg class="kind kind-agent"><use href="#i-comment"/></svg><span class="name">@mira</span><span class="meta">Turn 5 läuft · glm-5.3-flash · 0,0031 USD</span><span class="acts"><i class="ic" title="Im Editor öffnen"><svg><use href="#i-open"/></svg></i></span></header>
+                <div class="thread">
+                  <div class="line"><span class="who">16:25</span><p><span class="tool">actor_input<span class="ok">&#10003;</span></span></p></div>
+                  <div class="line"><span class="who">16:25</span><p>Nachtbusse sind Daseinsvorsorge: wer nachts arbeitet, braucht einen festen Takt und keine App.</p></div>
+                  <div class="line"><span class="who">16:26</span><p><span class="tool">gibt weiter <em>@ada</em></span></p></div>
+                  <div class="line"><span class="who">16:27</span><p>Ada schlägt vor, nach Stadtgröße zu unterscheiden. Ich nähere mich an: in Großstädten feste Linien, sonst Shuttles.</p></div>
+                  <div class="line"><span class="who">16:29</span><p><span class="tool"><span class="spin"></span>Turn 5 läuft</span></p></div>
+                </div>
+              </section>
+            </div>
+            <div class="sash"></div>
+            <div class="chat">
+              <div class="msg me"><time>16:27</time><div><p>Wie ist der Stand?</p></div></div>
+              <div class="msg"><time>16:28</time><div><p>Zweite Runde. Auf dem Board stehen sechs Argumente, @jon wartet noch auf @ada.</p></div></div>
+              <div class="msg me"><time>16:30</time><div><p>Sag @mira, sie soll kürzer werden.</p></div></div>
+            </div>
+            <div class="composer"><div class="input">Nachricht schreiben ...</div><div class="composer-foot"><span class="target">an <b>@mira</b></span><span class="hint">Ziel folgt der Bühne</span><i class="send"><svg><use href="#i-send"/></svg></i></div></div>
+          </div>
+        </div>
+        <figcaption><b>Agent auf der Bühne.</b> Der Verlauf von @mira liegt oben, der Koordinator bleibt unten. Der Composer richtet sich an den Actor auf der Bühne; ein Klick auf das Ziel schaltet auf den Koordinator zurück.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="vsc">
+          <div class="activity">
+            <span class="ab-icon"><svg><use href="#i-files"/></svg></span><span class="ab-icon"><svg><use href="#i-search"/></svg></span><span class="ab-icon"><svg><use href="#i-scm"/></svg></span><span class="ab-icon"><svg><use href="#i-debug"/></svg></span><span class="ab-icon"><svg><use href="#i-ext"/></svg></span>
+            <span class="ab-icon active"><svg><use href="#i-ragents"/></svg><b class="ab-badge">1</b></span>
+            <span class="ab-spacer"></span><span class="ab-icon"><svg><use href="#i-account"/></svg></span><span class="ab-icon"><svg><use href="#i-gear"/></svg></span>
+          </div>
+          <div class="sidebar">
+            <div class="sb-title"><span>RAgents</span><span class="sb-actions"><i class="ic"><svg><use href="#i-plus"/></svg></i><i class="ic"><svg><use href="#i-globe"/></svg></i><i class="ic"><svg><use href="#i-ellipsis"/></svg></i></span></div>
+            <button class="runbar"><span class="dot running"></span><span class="run-name">Nachtbus-Runde</span><span class="run-meta">3 Agenten aktiv</span><svg class="chev"><use href="#i-chevron-down"/></svg></button>
+            <div class="stage-collapsed"><svg><use href="#i-chevron-right"/></svg>Bühne<button class="stab"><svg class="kind kind-app"><use href="#i-board"/></svg>Sammelboard</button><button class="stab"><svg class="kind kind-app"><use href="#i-question"/></svg><b>!</b></button><button class="stab"><span class="spin"></span>@mira</button><button class="stab">@ada</button><button class="stab">@jon</button></div>
+            <div class="chat">
+              <div class="msg me"><time>16:24</time><div><p>Starte eine Runde zu Nachtbussen mit drei Stimmen und sammle die Argumente auf einem Board.</p></div></div>
+              <div class="msg"><time>16:24</time><div><div class="tools"><span class="tool">actor_create <em>3x</em><span class="ok">&#10003;</span></span><span class="tool">actor_program_activate <em>sammelboard</em><span class="ok">&#10003;</span></span></div><p>Runde läuft: @mira, @ada und @jon diskutieren. Das Sammelboard füllt sich mit ihren Argumenten.</p></div></div>
+              <div class="msg me"><time>16:27</time><div><p>Wie ist der Stand?</p></div></div>
+              <div class="msg"><time>16:28</time><div><p>Zweite Runde. Auf dem Board stehen sechs Argumente, @jon wartet noch auf @ada. Die Entscheidung braucht Deine Antwort.</p></div></div>
+              <div class="msg me"><time>16:30</time><div><p>Sag @mira, sie soll kürzer werden.</p></div></div>
+              <div class="msg"><time>16:30</time><div><div class="tools"><span class="tool">actor_send <em>@mira</em><span class="ok">&#10003;</span></span></div><p>Erledigt. @mira bekommt die Bitte mit ihrem nächsten Turn.</p></div></div>
+              <div class="msg me"><time>16:32</time><div><p>Fass mir am Ende alles in drei Sätzen zusammen und leg das Ergebnis aufs Board.</p></div></div>
+              <div class="msg"><time>16:32</time><div><div class="tools"><span class="tool">event_subscribe <em>circle.finished</em><span class="ok">&#10003;</span></span></div><p>Ich höre auf das Ende der Runde und schreibe dann Zusammenfassung und Konsens-Karte.</p></div></div>
+            </div>
+            <div class="composer"><div class="input">Nachricht schreiben ...</div><div class="composer-foot"><span class="target">an <b>@coordinator</b></span><span class="opt"><svg><use href="#i-sparkle"/></svg>kompakt</span><i class="send"><svg><use href="#i-send"/></svg></i></div></div>
+          </div>
+        </div>
+        <figcaption><b>Bühne eingeklappt.</b> Der Chat bekommt die volle Höhe; die Reiterleiste bleibt als schmale Zeile mit Abzeichen, damit Rückfragen und laufende Agenten sichtbar bleiben.</figcaption>
+      </figure>
+    </div>
+
+    <div class="verdict">
+      <div><h4>Mehrere Runs</h4><p>Wie A über die Run-Leiste. Die Bühne merkt sich je Run, welcher Reiter offen war.</p></div>
+      <div><h4>Viele Apps und Agenten</h4><p>Beliebig viele Reiter, scrollbar. Immer genau eine Sache groß, der Rest als Abzeichen; das ist dieselbe Idee wie die Pop-outs am Canvas.</p></div>
+      <div><h4>Wiederverwendung</h4><p>Reiterleiste entspricht der Actor-Leiste plus Mini-App-Liste; Bühne und Chat sind die vorhandenen Komponenten unverändert.</p></div>
+      <div><h4>Urteil</h4><p>Klarste Aufteilung und beste Höhe für eine Mini-App im Panel. Zwei Verläufe übereinander (Agent oben, Koordinator unten) verlangen die Regel, wen der Composer adressiert.</p></div>
+    </div>
+  </section>
+
+  <!-- ============================ C: Ein Strom ============================ -->
+  <section class="variant" id="variant-c" role="tabpanel" aria-labelledby="tab-c" hidden>
+    <div class="screens">
+
+      <figure class="screen">
+        <div class="vsc">
+          <div class="activity">
+            <span class="ab-icon"><svg><use href="#i-files"/></svg></span><span class="ab-icon"><svg><use href="#i-search"/></svg></span><span class="ab-icon"><svg><use href="#i-scm"/></svg></span><span class="ab-icon"><svg><use href="#i-debug"/></svg></span><span class="ab-icon"><svg><use href="#i-ext"/></svg></span>
+            <span class="ab-icon active"><svg><use href="#i-ragents"/></svg><b class="ab-badge">2</b></span>
+            <span class="ab-spacer"></span><span class="ab-icon"><svg><use href="#i-account"/></svg></span><span class="ab-icon"><svg><use href="#i-gear"/></svg></span>
+          </div>
+          <div class="sidebar">
+            <div class="sb-title"><span>RAgents · Runs</span><span class="sb-actions"><i class="ic"><svg><use href="#i-plus"/></svg></i><i class="ic"><svg><use href="#i-globe"/></svg></i><i class="ic"><svg><use href="#i-ellipsis"/></svg></i></span></div>
+            <div class="runlist">
+              <div class="filter"><svg><use href="#i-search"/></svg>Runs filtern ...</div>
+              <button class="new-run"><svg><use href="#i-plus"/></svg>Neuer Run<span class="hint" style="margin-left:auto">Skill oder Run-Script</span></button>
+              <div class="section-label">Braucht Dich</div>
+              <div class="run-item"><span class="dot waiting"></span><span class="title">Sammelboard: Sommerfest</span><span class="age">12 min</span><span class="sub">Rückfrage: Budget für die Band bestätigen?</span><span class="badges"><span class="badge">Rückfrage</span><span class="chip">1 App</span></span></div>
+              <div class="section-label">Läuft</div>
+              <div class="run-item selected"><span class="dot running"></span><span class="title">Nachtbus-Runde</span><span class="age">1 min</span><span class="sub">@mira formuliert das Schlusswort der zweiten Runde</span><span class="badges"><span class="chip agent">3 Agenten</span><span class="chip script">1 Programm</span><span class="chip">2 Apps</span></span></div>
+              <div class="section-label">Ruhend</div>
+              <div class="run-item"><span class="dot idle"></span><span class="title">Lerneinheit: TypeBox</span><span class="age">gestern</span><span class="sub">Kapitel 3 von 5, wartet auf Deine Antwort</span></div>
+              <div class="run-item"><span class="dot done"></span><span class="title">Ablaufdiagramm testen</span><span class="age">Mo</span><span class="sub">beendet, 14 Turns, 0,02 USD</span></div>
+              <div class="run-item"><span class="dot done"></span><span class="title">Wortspiel mit Übergaben</span><span class="age">So</span><span class="sub">beendet, 12 Übergaben</span></div>
+            </div>
+            <div class="composer"><div class="input">Frag den globalen Koordinator ...</div><div class="composer-foot"><span class="target">an <b>global</b></span><span class="hint">sieht alle Runs</span><i class="send"><svg><use href="#i-send"/></svg></i></div></div>
+          </div>
+        </div>
+        <figcaption><b>Run-Liste als Startseite.</b> Runs sind nach Dringlichkeit gruppiert: erst was eine Antwort braucht, dann was läuft, dann was ruht. Der globale Koordinator hat hier unten seinen Composer.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="vsc">
+          <div class="activity">
+            <span class="ab-icon"><svg><use href="#i-files"/></svg></span><span class="ab-icon"><svg><use href="#i-search"/></svg></span><span class="ab-icon"><svg><use href="#i-scm"/></svg></span><span class="ab-icon"><svg><use href="#i-debug"/></svg></span><span class="ab-icon"><svg><use href="#i-ext"/></svg></span>
+            <span class="ab-icon active"><svg><use href="#i-ragents"/></svg><b class="ab-badge">2</b></span>
+            <span class="ab-spacer"></span><span class="ab-icon"><svg><use href="#i-account"/></svg></span><span class="ab-icon"><svg><use href="#i-gear"/></svg></span>
+          </div>
+          <div class="sidebar">
+            <div class="sb-title"><span>RAgents</span><span class="sb-actions"><i class="ic"><svg><use href="#i-globe"/></svg></i><i class="ic"><svg><use href="#i-ellipsis"/></svg></i></span></div>
+            <button class="runbar back"><svg><use href="#i-arrow-left"/></svg><span class="dot running"></span><span class="run-name">Nachtbus-Runde</span><span class="run-meta">3 Agenten aktiv</span></button>
+            <div class="stream">
+              <div class="msg me"><time>16:24</time><div><p>Starte eine Runde zu Nachtbussen mit drei Stimmen und sammle die Argumente auf einem Board.</p></div></div>
+              <div class="msg"><time>16:24</time><div><div class="tools"><span class="tool">actor_create <em>3x</em><span class="ok">&#10003;</span></span></div><p>Runde läuft: @mira, @ada und @jon diskutieren.</p></div></div>
+              <div class="thread-card collapsed" data-collapsible>
+                <header class="app-head" data-toggle><svg class="chev"><use href="#i-chevron-down"/></svg><svg class="kind kind-agent"><use href="#i-comment"/></svg><span class="name">@mira</span><span class="meta">Turn 5 läuft · 4 Beiträge</span><span class="spin"></span></header>
+                <div class="thread"><div class="line"><span class="who">16:25</span><p>Nachtbusse sind Daseinsvorsorge: wer nachts arbeitet, braucht einen festen Takt.</p></div></div>
+              </div>
+              <section class="app" data-collapsible>
+                <header class="app-head" data-toggle><svg class="chev"><use href="#i-chevron-down"/></svg><svg class="kind kind-app"><use href="#i-board"/></svg><span class="name">Sammelboard</span><span class="meta">6 Karten</span><span class="acts"><i class="ic" title="Anheften"><svg><use href="#i-pin"/></svg></i><i class="ic" title="Im Editor öffnen"><svg><use href="#i-open"/></svg></i></span></header>
+                <div class="app-body"><div class="board">
+                  <div class="col"><h5>Nachtbus</h5><div class="card">Schichtarbeit braucht festen Takt</div><div class="card">Nachtleben ohne Auto</div></div>
+                  <div class="col"><h5>Shuttle</h5><div class="card">Leere Busse in Kleinstädten</div><div class="card">Bedarf statt Takt</div></div>
+                  <div class="col"><h5>Konsens</h5><div class="card new">Nach Stadtgröße entscheiden</div></div>
+                </div></div>
+              </section>
+              <div class="msg me"><time>16:27</time><div><p>Wie ist der Stand?</p></div></div>
+              <div class="msg"><time>16:28</time><div><p>Zweite Runde. Sechs Argumente auf dem Board, @jon wartet noch auf @ada. Bevor ich weitermache:</p></div></div>
+              <section class="app" data-collapsible>
+                <header class="app-head" data-toggle><svg class="chev"><use href="#i-chevron-down"/></svg><svg class="kind kind-app"><use href="#i-question"/></svg><span class="name">Entscheidung</span><span class="badge">Rückfrage</span></header>
+                <div class="app-body form"><p class="q">Welche Variante soll die Runde vertiefen?</p><label><input type="radio" name="c2">Feste Nachtbuslinien</label><label><input type="radio" name="c2" checked>Bedarfs-Shuttle</label><label><input type="radio" name="c2">Mischform nach Stadtgröße</label><div class="form-foot"><button class="btn">Antworten</button></div></div>
+              </section>
+            </div>
+            <div class="composer"><div class="input">Nachricht schreiben ...</div><div class="composer-foot"><span class="target">an <b>@coordinator</b></span><span class="opt"><svg><use href="#i-sparkle"/></svg>kompakt</span><i class="send"><svg><use href="#i-send"/></svg></i></div></div>
+          </div>
+        </div>
+        <figcaption><b>Ein Strom.</b> Der Koordinator-Chat ist die einzige Zeitachse. Agenten erscheinen als aufklappbare Fäden an der Stelle, an der sie entstanden, Mini-Apps als Karten im Verlauf, Rückfragen dort, wo der Koordinator sie stellt. Wie Werkzeugkarten in Claude Code.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="vsc">
+          <div class="activity">
+            <span class="ab-icon"><svg><use href="#i-files"/></svg></span><span class="ab-icon"><svg><use href="#i-search"/></svg></span><span class="ab-icon"><svg><use href="#i-scm"/></svg></span><span class="ab-icon"><svg><use href="#i-debug"/></svg></span><span class="ab-icon"><svg><use href="#i-ext"/></svg></span>
+            <span class="ab-icon active"><svg><use href="#i-ragents"/></svg><b class="ab-badge">2</b></span>
+            <span class="ab-spacer"></span><span class="ab-icon"><svg><use href="#i-account"/></svg></span><span class="ab-icon"><svg><use href="#i-gear"/></svg></span>
+          </div>
+          <div class="sidebar">
+            <div class="sb-title"><span>RAgents</span><span class="sb-actions"><i class="ic"><svg><use href="#i-globe"/></svg></i><i class="ic"><svg><use href="#i-ellipsis"/></svg></i></span></div>
+            <button class="runbar back"><svg><use href="#i-arrow-left"/></svg><span class="dot running"></span><span class="run-name">Nachtbus-Runde</span><span class="run-meta">3 Agenten aktiv</span></button>
+            <div class="pinned-zone">
+              <section class="app pinned">
+                <header class="app-head"><svg class="kind kind-app"><use href="#i-board"/></svg><span class="name">Sammelboard</span><span class="meta">6 Karten</span><span class="badge acc">angeheftet</span><span class="acts"><i class="ic"><svg><use href="#i-open"/></svg></i><i class="ic" title="Lösen"><svg><use href="#i-close"/></svg></i></span></header>
+                <div class="app-body"><div class="board">
+                  <div class="col"><h5>Nachtbus</h5><div class="card">Schichtarbeit braucht festen Takt</div><div class="card">Nachtleben ohne Auto</div></div>
+                  <div class="col"><h5>Shuttle</h5><div class="card">Leere Busse in Kleinstädten</div><div class="card">Bedarf statt Takt</div></div>
+                  <div class="col"><h5>Konsens</h5><div class="card new">Nach Stadtgröße entscheiden</div></div>
+                </div></div>
+              </section>
+            </div>
+            <div class="stream">
+              <div class="msg"><time>16:28</time><div><p>Zweite Runde. Sechs Argumente auf dem Board, @jon wartet noch auf @ada.</p></div></div>
+              <div class="thread-card" data-collapsible>
+                <header class="app-head" data-toggle><svg class="chev"><use href="#i-chevron-down"/></svg><svg class="kind kind-agent"><use href="#i-comment"/></svg><span class="name">@ada</span><span class="meta">2 Turns · bereit</span><span class="acts"><i class="ic" title="Antworten"><svg><use href="#i-comment"/></svg></i></span></header>
+                <div class="thread">
+                  <div class="line"><span class="who">16:26</span><p><span class="tool">actor_input<span class="ok">&#10003;</span></span></p></div>
+                  <div class="line"><span class="who">16:26</span><p>Beide Ziele lassen sich vereinen: feste Linien in Großstädten, Shuttles auf dem Land. Mira und Jon reden über verschiedene Städte.</p></div>
+                  <div class="line"><span class="who">16:26</span><p><span class="tool">gibt weiter <em>@jon</em></span></p></div>
+                </div>
+              </div>
+              <div class="thread-card collapsed" data-collapsible>
+                <header class="app-head" data-toggle><svg class="chev"><use href="#i-chevron-down"/></svg><svg class="kind kind-agent"><use href="#i-comment"/></svg><span class="name">@jon</span><span class="meta">2 Turns · wartet auf @ada</span></header>
+                <div class="thread"><div class="line"><p>Shuttles fahren nur, wenn jemand sie braucht.</p></div></div>
+              </div>
+              <div class="msg me"><time>16:30</time><div><p>Sag @mira, sie soll kürzer werden.</p></div></div>
+              <div class="msg"><time>16:30</time><div><div class="tools"><span class="tool">actor_send <em>@mira</em><span class="ok">&#10003;</span></span></div><p>Erledigt. @mira bekommt die Bitte mit ihrem nächsten Turn.</p></div></div>
+            </div>
+            <div class="composer"><div class="input">Nachricht schreiben ...</div><div class="composer-foot"><span class="target">an <b>@coordinator</b></span><span class="opt"><svg><use href="#i-sparkle"/></svg>kompakt</span><i class="send"><svg><use href="#i-send"/></svg></i></div></div>
+          </div>
+        </div>
+        <figcaption><b>Angeheftet.</b> Eine Karte aus dem Strom lässt sich oben festmachen und bleibt beim Scrollen stehen. Der Faden von @ada ist aufgeklappt; eine Antwort direkt an einen Agenten geht über das Sprechblasen-Symbol am Faden.</figcaption>
+      </figure>
+    </div>
+
+    <div class="verdict">
+      <div><h4>Mehrere Runs</h4><p>Eigene Startseite mit Gruppierung nach Dringlichkeit; Rückfragen aus anderen Runs werden dort sichtbar, nicht nur als Zahl.</p></div>
+      <div><h4>Viele Apps und Agenten</h4><p>Alles liegt chronologisch im Strom, nichts konkurriert um feste Fläche. Dafür scrollt eine wichtige Mini-App weg, wenn man sie nicht anheftet.</p></div>
+      <div><h4>Wiederverwendung</h4><p>Der Chat-Renderer bekommt zwei neue Eintragsarten: Faden-Karte und Mini-App-Karte. Sonst nur der bestehende Chat.</p></div>
+      <div><h4>Urteil</h4><p>Am nächsten an Claude Code und am wenigsten Bedienelemente. Verlangt, dass der Koordinator wirklich die Mitte ist; wer viel direkt mit Agenten spricht, findet den Faden nicht sofort.</p></div>
+    </div>
+  </section>
+
+  <!-- ============================ D: Werkbank ============================ -->
+  <section class="variant" id="variant-d" role="tabpanel" aria-labelledby="tab-d" hidden>
+    <div class="screens">
+
+      <figure class="screen">
+        <div class="vsc wide">
+          <div class="frame">
+            <div class="activity">
+              <span class="ab-icon"><svg><use href="#i-files"/></svg></span><span class="ab-icon"><svg><use href="#i-search"/></svg></span><span class="ab-icon"><svg><use href="#i-scm"/></svg></span><span class="ab-icon"><svg><use href="#i-debug"/></svg></span><span class="ab-icon"><svg><use href="#i-ext"/></svg></span>
+              <span class="ab-icon active"><svg><use href="#i-ragents"/></svg><b class="ab-badge">1</b></span>
+              <span class="ab-spacer"></span><span class="ab-icon"><svg><use href="#i-account"/></svg></span><span class="ab-icon"><svg><use href="#i-gear"/></svg></span>
+            </div>
+            <div class="sidebar">
+              <div class="sb-title"><span>RAgents</span><span class="sb-actions"><i class="ic"><svg><use href="#i-plus"/></svg></i><i class="ic"><svg><use href="#i-globe"/></svg></i><i class="ic"><svg><use href="#i-ellipsis"/></svg></i></span></div>
+              <div class="view" data-collapsible style="border-top:0">
+                <div class="view-head" data-toggle><svg class="chev"><use href="#i-chevron-down"/></svg>Runs<span class="acts"><i class="ic"><svg><use href="#i-plus"/></svg></i></span></div>
+                <div class="view-body tree">
+                  <div class="row"><span class="dot waiting"></span>Sammelboard: Sommerfest<b class="count warn">1</b></div>
+                  <div class="row selected"><span class="dot running"></span>Nachtbus-Runde<b class="count">3</b></div>
+                  <div class="row"><span class="dot idle"></span>Lerneinheit: TypeBox</div>
+                  <div class="row"><span class="dot done"></span>Ablaufdiagramm testen</div>
+                  <div class="row"><span class="dot done"></span>Wortspiel mit Übergaben</div>
+                </div>
+              </div>
+              <div class="view grow" data-collapsible>
+                <div class="view-head" data-toggle><svg class="chev"><use href="#i-chevron-down"/></svg>Actors · Nachtbus-Runde<span class="acts"><i class="ic"><svg><use href="#i-collapse"/></svg></i></span></div>
+                <div class="view-body tree">
+                  <div class="row"><svg class="chev"><use href="#i-chevron-down"/></svg><svg class="kind kind-primary"><use href="#i-sparkle"/></svg><span class="mono">@coordinator</span><span class="sub">Koordinator</span></div>
+                  <div class="row" style="--indent:12px"><svg class="chev"><use href="#i-chevron-down"/></svg>Agenten<b class="count">3</b></div>
+                  <div class="row" style="--indent:34px"><span class="spin"></span><span class="mono">@mira</span><span class="sub">Turn 5</span></div>
+                  <div class="row" style="--indent:34px"><svg class="kind kind-agent"><use href="#i-comment"/></svg><span class="mono">@ada</span><span class="sub">bereit</span></div>
+                  <div class="row" style="--indent:34px"><svg class="kind kind-agent"><use href="#i-comment"/></svg><span class="mono">@jon</span><span class="sub">wartet</span></div>
+                  <div class="row" style="--indent:12px"><svg class="chev"><use href="#i-chevron-down"/></svg>Programme<b class="count">1</b></div>
+                  <div class="row" style="--indent:34px"><svg class="kind kind-script"><use href="#i-code"/></svg><span class="mono">@conversation-circle</span></div>
+                  <div class="row" style="--indent:12px"><svg class="chev"><use href="#i-chevron-down"/></svg>Mini-Apps<b class="count">2</b></div>
+                  <div class="row selected" style="--indent:34px"><svg class="kind kind-app"><use href="#i-board"/></svg>Sammelboard<span class="sub">im Editor</span></div>
+                  <div class="row" style="--indent:34px"><svg class="kind kind-app"><use href="#i-question"/></svg>Entscheidung<b class="count warn">!</b></div>
+                  <div class="row" style="--indent:12px"><svg class="chev"><use href="#i-chevron-right"/></svg>Dateien<b class="count">4</b></div>
+                  <div class="row" style="--indent:12px"><svg class="chev"><use href="#i-chevron-right"/></svg>Journal<span class="sub">212 Events</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="editor">
+              <div class="tabs">
+                <div class="etab active"><svg class="kind kind-app"><use href="#i-board"/></svg>Sammelboard<span class="hint">Nachtbus-Runde</span><span class="x"><svg><use href="#i-close"/></svg></span></div>
+                <div class="etab"><svg class="kind kind-app"><use href="#i-question"/></svg>Entscheidung<span class="hint">Nachtbus-Runde</span><b class="badge">!</b></div>
+                <div class="etab"><svg class="kind kind-agent"><use href="#i-comment"/></svg>@mira<span class="hint">Nachtbus-Runde</span></div>
+                <div class="etab"><svg class="kind kind-app"><use href="#i-board"/></svg>Sammelboard<span class="hint">Sommerfest</span></div>
+                <div class="etab"><svg><use href="#i-code"/></svg>workflow.ts</div>
+              </div>
+              <div class="crumbs">Nachtbus-Runde<svg><use href="#i-chevron-right"/></svg>Mini-Apps<svg><use href="#i-chevron-right"/></svg>Sammelboard</div>
+              <div class="editor-body">
+                <div class="toolbar"><span class="chip script"><svg><use href="#i-code"/></svg>@conversation-circle</span>schreibt mit · zuletzt 16:28 · <span class="chip">6 Karten</span><span style="margin-left:auto"><button class="btn ghost">Spalte hinzufügen</button></span></div>
+                <section class="app">
+                  <div class="app-body" style="border-top:0"><div class="board">
+                    <div class="col"><h5>Pro Nachtbus</h5><div class="card">Schichtarbeit braucht einen festen Takt, keine App</div><div class="card">Nachtleben ohne Auto und ohne Taxi-Preise</div><div class="card">Weniger Verkehr und weniger Unfälle nachts</div><div class="add">+ Karte</div></div>
+                    <div class="col"><h5>Pro Shuttle</h5><div class="card">Leere Busse in kleinen Städten sind teuer</div><div class="card">Bedarf statt Takt: fahren, wenn jemand ruft</div><div class="add">+ Karte</div></div>
+                    <div class="col"><h5>Konsens</h5><div class="card new">Nach Stadtgröße entscheiden: feste Linien in Großstädten, Shuttles auf dem Land</div><div class="add">+ Karte</div></div>
+                  </div></div>
+                </section>
+              </div>
+            </div>
+            <div class="sidebar secondary">
+              <div class="sb-title"><span>Chat · @coordinator</span><span class="sb-actions"><i class="ic"><svg><use href="#i-layout"/></svg></i><i class="ic"><svg><use href="#i-ellipsis"/></svg></i></span></div>
+              <div class="actors" style="border-top:0"><button class="chip primary selected"><svg><use href="#i-sparkle"/></svg>@coordinator</button><button class="chip agent"><span class="spin"></span>@mira</button><button class="chip agent">@ada</button><button class="chip agent">@jon</button></div>
+              <div class="chat">
+                <div class="msg me"><time>16:24</time><div><p>Starte eine Runde zu Nachtbussen mit drei Stimmen und sammle die Argumente auf einem Board.</p></div></div>
+                <div class="msg"><time>16:24</time><div><div class="tools"><span class="tool">actor_create <em>3x</em><span class="ok">&#10003;</span></span><span class="tool">actor_program_activate <em>sammelboard</em><span class="ok">&#10003;</span></span></div><p>Runde läuft: @mira, @ada und @jon diskutieren. Das Sammelboard füllt sich mit ihren Argumenten.</p></div></div>
+                <div class="msg me"><time>16:27</time><div><p>Wie ist der Stand?</p></div></div>
+                <div class="msg"><time>16:28</time><div><p>Zweite Runde. Auf dem Board stehen sechs Argumente, @jon wartet noch auf @ada. Die Entscheidung braucht Deine Antwort.</p></div></div>
+                <div class="msg me"><time>16:30</time><div><p>Sag @mira, sie soll kürzer werden.</p></div></div>
+                <div class="msg"><time>16:30</time><div><div class="tools"><span class="tool">actor_send <em>@mira</em><span class="ok">&#10003;</span></span></div><p>Erledigt. @mira bekommt die Bitte mit ihrem nächsten Turn.</p></div></div>
+              </div>
+              <div class="composer"><div class="input">Nachricht schreiben ...</div><div class="composer-foot"><span class="target">an <b>@coordinator</b></span><span class="opt"><svg><use href="#i-sparkle"/></svg>kompakt</span><i class="send"><svg><use href="#i-send"/></svg></i></div></div>
+            </div>
+          </div>
+          <div class="status"><span><span>RAgents: localhost:4710</span><span>Nachtbus-Runde · 3 Agenten aktiv</span><span>1 Rückfrage</span></span><span><span>Ln 12, Col 4</span><span>TypeScript</span></span></div>
+        </div>
+        <figcaption><b>Werkbank mit drei Bereichen.</b> Links native Baumansichten für Runs und Actors, rechts der Chat in der zweiten Seitenleiste, in der Mitte Mini-Apps und Agentenverläufe als Editor-Reiter. Reiter tragen den Run im Untertitel, deshalb können Apps aus mehreren Runs nebeneinander offen sein.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="vsc">
+          <div class="activity">
+            <span class="ab-icon"><svg><use href="#i-files"/></svg></span><span class="ab-icon"><svg><use href="#i-search"/></svg></span><span class="ab-icon"><svg><use href="#i-scm"/></svg></span><span class="ab-icon"><svg><use href="#i-debug"/></svg></span><span class="ab-icon"><svg><use href="#i-ext"/></svg></span>
+            <span class="ab-icon active"><svg><use href="#i-ragents"/></svg><b class="ab-badge">1</b></span>
+            <span class="ab-spacer"></span><span class="ab-icon"><svg><use href="#i-account"/></svg></span><span class="ab-icon"><svg><use href="#i-gear"/></svg></span>
+          </div>
+          <div class="sidebar">
+            <div class="sb-title"><span>RAgents</span><span class="sb-actions"><i class="ic"><svg><use href="#i-plus"/></svg></i><i class="ic"><svg><use href="#i-globe"/></svg></i><i class="ic"><svg><use href="#i-ellipsis"/></svg></i></span></div>
+            <div class="view collapsed" data-collapsible style="border-top:0">
+              <div class="view-head" data-toggle><svg class="chev"><use href="#i-chevron-down"/></svg>Runs<span class="hint" style="margin-left:6px;text-transform:none;font-weight:400">Nachtbus-Runde</span><span class="acts"><b class="count warn" style="font-size:10px;padding:0 5px;border-radius:8px;background:var(--warning-soft);color:var(--warning)">1</b></span></div>
+              <div class="view-body tree"><div class="row selected"><span class="dot running"></span>Nachtbus-Runde</div></div>
+            </div>
+            <div class="view" data-collapsible>
+              <div class="view-head" data-toggle><svg class="chev"><use href="#i-chevron-down"/></svg>Actors<span class="acts"><i class="ic"><svg><use href="#i-collapse"/></svg></i></span></div>
+              <div class="view-body tree">
+                <div class="row selected"><svg class="kind kind-primary"><use href="#i-sparkle"/></svg><span class="mono">@coordinator</span><span class="sub">im Chat</span></div>
+                <div class="row" style="--indent:12px"><svg class="chev"><use href="#i-chevron-down"/></svg>Agenten<b class="count">3</b></div>
+                <div class="row" style="--indent:34px"><span class="spin"></span><span class="mono">@mira</span><span class="sub">Turn 5</span></div>
+                <div class="row" style="--indent:34px"><svg class="kind kind-agent"><use href="#i-comment"/></svg><span class="mono">@ada</span></div>
+                <div class="row" style="--indent:34px"><svg class="kind kind-agent"><use href="#i-comment"/></svg><span class="mono">@jon</span></div>
+                <div class="row" style="--indent:12px"><svg class="chev"><use href="#i-chevron-down"/></svg>Mini-Apps<b class="count">2</b></div>
+                <div class="row" style="--indent:34px"><svg class="kind kind-app"><use href="#i-board"/></svg>Sammelboard<span class="acts" style="margin-left:auto"><i class="ic" title="Im Editor öffnen"><svg><use href="#i-open"/></svg></i></span></div>
+                <div class="row" style="--indent:34px"><svg class="kind kind-app"><use href="#i-question"/></svg>Entscheidung<b class="count warn">!</b></div>
+              </div>
+            </div>
+            <div class="view grow" data-collapsible>
+              <div class="view-head" data-toggle><svg class="chev"><use href="#i-chevron-down"/></svg>Chat · @coordinator<span class="acts"><i class="ic" title="In zweite Seitenleiste"><svg><use href="#i-layout"/></svg></i></span></div>
+              <div class="view-body" style="flex:1">
+                <div class="chat">
+                  <div class="msg me"><time>16:27</time><div><p>Wie ist der Stand?</p></div></div>
+                  <div class="msg"><time>16:28</time><div><p>Zweite Runde. Auf dem Board stehen sechs Argumente, @jon wartet noch auf @ada. Die Entscheidung braucht Deine Antwort.</p></div></div>
+                  <div class="msg me"><time>16:30</time><div><p>Sag @mira, sie soll kürzer werden.</p></div></div>
+                  <div class="msg"><time>16:30</time><div><div class="tools"><span class="tool">actor_send <em>@mira</em><span class="ok">&#10003;</span></span></div><p>Erledigt. @mira bekommt die Bitte mit ihrem nächsten Turn.</p></div></div>
+                </div>
+                <div class="composer"><div class="input">Nachricht schreiben ...</div><div class="composer-foot"><span class="target">an <b>@coordinator</b></span><span class="opt"><svg><use href="#i-sparkle"/></svg>kompakt</span><i class="send"><svg><use href="#i-send"/></svg></i></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <figcaption><b>Nur eine Seitenleiste.</b> Dieselben drei Ansichten als einklappbare Abschnitte, wie VS Code sie für Explorer und Gliederung zeichnet. Runs ist zugeklappt und zeigt den aktiven Run im Kopf; Mini-Apps öffnen sich aus dem Baum heraus im Editor.</figcaption>
+      </figure>
+    </div>
+
+    <div class="verdict">
+      <div><h4>Mehrere Runs</h4><p>Runs sind ein Baum, Editor-Reiter nennen ihren Run. Damit sind zwei Runs gleichzeitig sichtbar, ohne umzuschalten; die Kopfzeile des Chats folgt der Auswahl.</p></div>
+      <div><h4>Viele Apps und Agenten</h4><p>VS Code löst das selbst: Reiter, Gruppen, Split. Eine Mini-App bekommt echte Breite neben dem Code, statt in 380 Pixeln zu leben.</p></div>
+      <div><h4>Wiederverwendung</h4><p>Bäume sind native TreeViews (kein Webview, billig, mit Abzeichen), Chat und Mini-Apps sind Webviews aus apps/web. Zwei Ausführungsarten statt einer.</p></div>
+      <div><h4>Urteil</h4><p>Am VS-Code-typischsten und die einzige Variante, die mehrere Runs und breite Mini-Apps wirklich trägt. Mehr Bauteile, dafür keine eigene Fensterverwaltung im Webview.</p></div>
+    </div>
+  </section>
+
+  <!-- ============================ E: Explorer und Arbeitsspalte ============================ -->
+  <section class="variant" id="variant-e" role="tabpanel" aria-labelledby="tab-e" hidden>
+    <div class="screens">
+
+      <figure class="screen">
+        <div class="vsc wide">
+          <div class="frame">
+            <div class="activity">
+              <span class="ab-icon"><svg><use href="#i-files"/></svg></span><span class="ab-icon"><svg><use href="#i-search"/></svg></span><span class="ab-icon"><svg><use href="#i-scm"/></svg></span><span class="ab-icon"><svg><use href="#i-debug"/></svg></span><span class="ab-icon"><svg><use href="#i-ext"/></svg></span>
+              <span class="ab-icon active"><svg><use href="#i-ragents"/></svg><b class="ab-badge">1</b></span>
+              <span class="ab-spacer"></span><span class="ab-icon"><svg><use href="#i-account"/></svg></span><span class="ab-icon"><svg><use href="#i-gear"/></svg></span>
+            </div>
+            <div class="sidebar">
+              <div class="sb-title"><span>RAgents Explorer</span><span class="sb-actions"><i class="ic" title="Neuer Run"><svg><use href="#i-plus"/></svg></i><i class="ic"><svg><use href="#i-collapse"/></svg></i><i class="ic"><svg><use href="#i-ellipsis"/></svg></i></span></div>
+              <div class="view grow" style="border-top:0">
+                <div class="view-body tree">
+                  <div class="row selected"><svg class="chev"><use href="#i-chevron-down"/></svg><span class="dot running"></span>Nachtbus-Runde<span class="sub">3 aktiv</span></div>
+                  <div class="row" style="--indent:28px"><svg class="chev"><use href="#i-chevron-down"/></svg>Actors<b class="count">5</b></div>
+                  <div class="row" style="--indent:50px"><svg class="kind kind-primary"><use href="#i-sparkle"/></svg><span class="mono">@coordinator</span><span class="sub">Koordinator</span></div>
+                  <div class="row" style="--indent:50px"><span class="spin"></span><span class="mono">@mira</span><span class="sub">Turn 5</span></div>
+                  <div class="row" style="--indent:50px"><svg class="kind kind-agent"><use href="#i-comment"/></svg><span class="mono">@ada</span><span class="sub">bereit</span></div>
+                  <div class="row" style="--indent:50px"><svg class="kind kind-agent"><use href="#i-comment"/></svg><span class="mono">@jon</span><span class="sub">wartet</span></div>
+                  <div class="row hidden-actor" style="--indent:50px"><svg class="kind kind-script"><use href="#i-code"/></svg><span class="mono">@conversation-circle</span><span class="sub">ausgeblendet</span></div>
+                  <div class="row" style="--indent:28px"><svg class="chev"><use href="#i-chevron-down"/></svg>Mini-Apps<b class="count">2</b></div>
+                  <div class="row" style="--indent:50px"><svg class="kind kind-app"><use href="#i-board"/></svg>Sammelboard<span class="sub">rechts</span></div>
+                  <div class="row" style="--indent:50px"><svg class="kind kind-app"><use href="#i-question"/></svg>Entscheidung<b class="count warn">!</b></div>
+                  <div class="row" style="--indent:28px"><svg class="chev"><use href="#i-chevron-right"/></svg>Dateien<b class="count">4</b></div>
+                  <div class="row" style="--indent:28px"><svg class="chev"><use href="#i-chevron-right"/></svg>Journal<span class="sub">212 Events</span></div>
+                  <div class="row"><svg class="chev"><use href="#i-chevron-right"/></svg><span class="dot waiting"></span>Sammelboard: Sommerfest<b class="count warn">1</b></div>
+                  <div class="row"><svg class="chev"><use href="#i-chevron-right"/></svg><span class="dot idle"></span>Lerneinheit: TypeBox</div>
+                  <div class="row"><svg class="chev"><use href="#i-chevron-right"/></svg><span class="dot done"></span>Ablaufdiagramm testen</div>
+                  <div class="row"><svg class="chev"><use href="#i-chevron-right"/></svg><span class="dot done"></span>Wortspiel mit Übergaben</div>
+                </div>
+              </div>
+            </div>
+            <div class="editor">
+              <div class="tabs">
+                <div class="etab active"><svg><use href="#i-code"/></svg>workflow.ts<span class="x"><svg><use href="#i-close"/></svg></span></div>
+                <div class="etab"><svg><use href="#i-code"/></svg>review.ts</div>
+                <div class="etab"><svg><use href="#i-files"/></svg>README.md</div>
+              </div>
+              <div class="crumbs">plugins<svg><use href="#i-chevron-right"/></svg>produkt.feature-pilot<svg><use href="#i-chevron-right"/></svg>server<svg><use href="#i-chevron-right"/></svg>workflow.ts</div>
+              <div class="editor-body code-file"><pre class="code"><span class="ln">1</span><b>import</b> { defineActor } <b>from</b> <i>"@ragents/server"</i>;
+<span class="ln">2</span><b>import</b> { Type } <b>from</b> <i>"typebox"</i>;
+<span class="ln">3</span>
+<span class="ln">4</span><b>export default</b> defineActor({
+<span class="ln">5</span>  state: Type.Object({ count: Type.Optional(Type.Integer()) }),
+<span class="ln">6</span>  functions: {},
+<span class="ln">7</span>  input: { capabilities: [] },
+<span class="ln">8</span>}, {
+<span class="ln">9</span>  functions: {},
+<span class="ln">10</span>  onInput: (_input, context) =&gt; {
+<span class="ln">11</span>    <b>const</b> state = context.state.read();
+<span class="ln">12</span>    context.state.replace({ count: (state.count ?? 0) + 1 });
+<span class="ln">13</span>  },
+<span class="ln">14</span>});
+<span class="ln">15</span></pre></div>
+            </div>
+            <div class="sidebar secondary">
+              <div class="sb-title"><span>Nachtbus-Runde</span><span class="sb-actions"><i class="ic" title="Im Browser öffnen"><svg><use href="#i-globe"/></svg></i><i class="ic"><svg><use href="#i-ellipsis"/></svg></i></span></div>
+              <div class="chips"><button class="chip app selected"><svg><use href="#i-board"/></svg>Sammelboard</button><button class="chip app"><svg><use href="#i-question"/></svg>Entscheidung<b class="warn">!</b></button><i class="ic" title="Mini-App anlegen"><svg><use href="#i-plus"/></svg></i></div>
+              <div class="work-app tall">
+                <section class="app">
+                  <header class="app-head"><svg class="kind kind-app"><use href="#i-board"/></svg><span class="name">Sammelboard</span><span class="meta">6 Karten · @conversation-circle schreibt mit</span><span class="acts"><i class="ic" title="In die Mitte"><svg><use href="#i-open"/></svg></i></span></header>
+                  <div class="app-body"><div class="board">
+                    <div class="col"><h5>Nachtbus</h5><div class="card">Schichtarbeit braucht festen Takt</div><div class="card">Nachtleben ohne Auto</div><div class="card">Weniger Verkehr</div><div class="add">+ Karte</div></div>
+                    <div class="col"><h5>Shuttle</h5><div class="card">Leere Busse in Kleinstädten</div><div class="card">Bedarf statt Takt</div><div class="add">+ Karte</div></div>
+                    <div class="col"><h5>Konsens</h5><div class="card new">Nach Stadtgröße entscheiden</div><div class="add">+ Karte</div></div>
+                  </div></div>
+                </section>
+              </div>
+              <div class="sash" title="Höhe ziehen"></div>
+              <div class="chat-zone">
+                <div class="chips"><button class="chip primary selected"><svg><use href="#i-sparkle"/></svg>@coordinator</button><button class="chip agent"><span class="spin"></span>@mira</button><button class="chip agent">@ada<b>2</b></button><button class="chip agent">@jon<b>2</b></button><button class="chip more">···<b>1</b></button></div>
+                <div class="chat">
+                  <div class="msg me"><time>16:24</time><div><p>Starte eine Runde zu Nachtbussen mit drei Stimmen und sammle die Argumente auf einem Board.</p></div></div>
+                  <div class="msg"><time>16:24</time><div><div class="tools"><span class="tool">actor_create <em>3x</em><span class="ok">&#10003;</span></span><span class="tool">actor_program_activate <em>sammelboard</em><span class="ok">&#10003;</span></span></div><p>Runde läuft: @mira, @ada und @jon diskutieren. Das Sammelboard füllt sich mit ihren Argumenten.</p></div></div>
+                  <div class="msg me"><time>16:27</time><div><p>Wie ist der Stand?</p></div></div>
+                  <div class="msg"><time>16:28</time><div><p>Zweite Runde. Auf dem Board stehen sechs Argumente, @jon wartet noch auf @ada. Die Entscheidung braucht Deine Antwort.</p></div></div>
+                </div>
+                <div class="composer"><div class="input">Nachricht schreiben ...</div><div class="composer-foot"><span class="target">an <b>@coordinator</b></span><span class="opt"><svg><use href="#i-sparkle"/></svg>kompakt</span><i class="send"><svg><use href="#i-send"/></svg></i></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="status"><span><span>RAgents: localhost:4710</span><span>Nachtbus-Runde · 3 Agenten aktiv</span><span>1 Rückfrage</span></span><span><span>Ln 12, Col 4</span><span>TypeScript</span></span></div>
+        </div>
+        <figcaption><b>Normale Arbeit, RAgents am Rand.</b> Links der RAgents-Explorer: alle Runs als Baum, der aktive aufgeklappt mit Actors, Mini-Apps, Dateien und Journal. In der Mitte ganz normal Code. Rechts die Arbeitsspalte: Mini-App-Chips wählen, was oben steht; ein Griff teilt die Höhe; darunter der Chat mit den sichtbaren Actors als Chips, die unsichtbaren hinter "···".</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="vsc wide">
+          <div class="frame">
+            <div class="activity">
+              <span class="ab-icon"><svg><use href="#i-files"/></svg></span><span class="ab-icon"><svg><use href="#i-search"/></svg></span><span class="ab-icon"><svg><use href="#i-scm"/></svg></span><span class="ab-icon"><svg><use href="#i-debug"/></svg></span><span class="ab-icon"><svg><use href="#i-ext"/></svg></span>
+              <span class="ab-icon active"><svg><use href="#i-ragents"/></svg><b class="ab-badge">1</b></span>
+              <span class="ab-spacer"></span><span class="ab-icon"><svg><use href="#i-account"/></svg></span><span class="ab-icon"><svg><use href="#i-gear"/></svg></span>
+            </div>
+            <div class="sidebar">
+              <div class="sb-title"><span>RAgents Explorer</span><span class="sb-actions"><i class="ic"><svg><use href="#i-plus"/></svg></i><i class="ic"><svg><use href="#i-collapse"/></svg></i><i class="ic"><svg><use href="#i-ellipsis"/></svg></i></span></div>
+              <div class="view grow" style="border-top:0">
+                <div class="view-body tree">
+                  <div class="row"><svg class="chev"><use href="#i-chevron-down"/></svg><span class="dot running"></span>Nachtbus-Runde<span class="sub">3 aktiv</span></div>
+                  <div class="row" style="--indent:28px"><svg class="chev"><use href="#i-chevron-right"/></svg>Actors<b class="count">5</b></div>
+                  <div class="row" style="--indent:28px"><svg class="chev"><use href="#i-chevron-down"/></svg>Mini-Apps<b class="count">2</b></div>
+                  <div class="row selected" style="--indent:50px"><svg class="kind kind-app"><use href="#i-board"/></svg>Sammelboard<span class="sub">in der Mitte</span></div>
+                  <div class="row" style="--indent:50px"><svg class="kind kind-app"><use href="#i-question"/></svg>Entscheidung<span class="sub">rechts</span><b class="count warn">!</b></div>
+                  <div class="row" style="--indent:28px"><svg class="chev"><use href="#i-chevron-right"/></svg>Dateien<b class="count">4</b></div>
+                  <div class="row" style="--indent:28px"><svg class="chev"><use href="#i-chevron-right"/></svg>Journal<span class="sub">212 Events</span></div>
+                  <div class="row"><svg class="chev"><use href="#i-chevron-down"/></svg><span class="dot waiting"></span>Sammelboard: Sommerfest<b class="count warn">1</b></div>
+                  <div class="row" style="--indent:28px"><svg class="chev"><use href="#i-chevron-right"/></svg>Actors<b class="count">2</b></div>
+                  <div class="row" style="--indent:28px"><svg class="chev"><use href="#i-chevron-right"/></svg>Mini-Apps<b class="count">1</b></div>
+                  <div class="row"><svg class="chev"><use href="#i-chevron-right"/></svg><span class="dot idle"></span>Lerneinheit: TypeBox</div>
+                  <div class="row"><svg class="chev"><use href="#i-chevron-right"/></svg><span class="dot done"></span>Ablaufdiagramm testen</div>
+                  <div class="row"><svg class="chev"><use href="#i-chevron-right"/></svg><span class="dot done"></span>Wortspiel mit Übergaben</div>
+                </div>
+              </div>
+            </div>
+            <div class="editor">
+              <div class="tabs">
+                <div class="etab"><svg><use href="#i-code"/></svg>workflow.ts</div>
+                <div class="etab active"><svg class="kind kind-app"><use href="#i-board"/></svg>Sammelboard<span class="hint">Nachtbus-Runde</span><span class="x"><svg><use href="#i-close"/></svg></span></div>
+                <div class="etab"><svg><use href="#i-files"/></svg>README.md</div>
+              </div>
+              <div class="crumbs">Nachtbus-Runde<svg><use href="#i-chevron-right"/></svg>Mini-Apps<svg><use href="#i-chevron-right"/></svg>Sammelboard</div>
+              <div class="editor-body">
+                <div class="toolbar"><span class="chip script"><svg><use href="#i-code"/></svg>@conversation-circle</span>schreibt mit · zuletzt 16:28 · <span class="chip">6 Karten</span><span style="margin-left:auto;display:flex;gap:8px"><button class="btn ghost">Spalte hinzufügen</button><button class="btn ghost">Zurück nach rechts</button></span></div>
+                <section class="app">
+                  <div class="app-body" style="border-top:0"><div class="board">
+                    <div class="col"><h5>Pro Nachtbus</h5><div class="card">Schichtarbeit braucht einen festen Takt, keine App</div><div class="card">Nachtleben ohne Auto und ohne Taxi-Preise</div><div class="card">Weniger Verkehr und weniger Unfälle nachts</div><div class="add">+ Karte</div></div>
+                    <div class="col"><h5>Pro Shuttle</h5><div class="card">Leere Busse in kleinen Städten sind teuer</div><div class="card">Bedarf statt Takt: fahren, wenn jemand ruft</div><div class="add">+ Karte</div></div>
+                    <div class="col"><h5>Konsens</h5><div class="card new">Nach Stadtgröße entscheiden: feste Linien in Großstädten, Shuttles auf dem Land</div><div class="add">+ Karte</div></div>
+                  </div></div>
+                </section>
+              </div>
+            </div>
+            <div class="sidebar secondary">
+              <div class="sb-title"><span>Nachtbus-Runde</span><span class="sb-actions"><i class="ic"><svg><use href="#i-globe"/></svg></i><i class="ic"><svg><use href="#i-ellipsis"/></svg></i></span></div>
+              <div class="chips"><button class="chip app in-editor"><svg><use href="#i-open"/></svg>Sammelboard</button><button class="chip app selected"><svg><use href="#i-question"/></svg>Entscheidung<b class="warn">!</b></button><i class="ic"><svg><use href="#i-plus"/></svg></i></div>
+              <div class="work-app" style="height:220px">
+                <section class="app">
+                  <header class="app-head"><svg class="kind kind-app"><use href="#i-question"/></svg><span class="name">Entscheidung</span><span class="badge">Rückfrage</span><span class="meta"></span><span class="acts"><i class="ic" title="In die Mitte"><svg><use href="#i-open"/></svg></i></span></header>
+                  <div class="app-body form"><p class="q">Welche Variante soll die Runde vertiefen?</p><label><input type="radio" name="e2">Feste Nachtbuslinien</label><label><input type="radio" name="e2" checked>Bedarfs-Shuttle</label><label><input type="radio" name="e2">Mischform nach Stadtgröße</label><div class="form-foot"><button class="btn">Antworten</button><span class="hint">Rückfrage von @coordinator</span></div></div>
+                </section>
+              </div>
+              <div class="sash"></div>
+              <div class="chat-zone">
+                <div class="chips"><button class="chip primary selected"><svg><use href="#i-sparkle"/></svg>@coordinator</button><button class="chip agent"><span class="spin"></span>@mira</button><button class="chip agent">@ada<b>2</b></button><button class="chip agent">@jon<b>2</b></button><button class="chip more">···<b>1</b></button></div>
+                <div class="chat">
+                  <div class="msg me"><time>16:27</time><div><p>Wie ist der Stand?</p></div></div>
+                  <div class="msg"><time>16:28</time><div><p>Zweite Runde. Auf dem Board stehen sechs Argumente, @jon wartet noch auf @ada. Die Entscheidung braucht Deine Antwort.</p></div></div>
+                  <div class="msg me"><time>16:30</time><div><p>Sag @mira, sie soll kürzer werden.</p></div></div>
+                  <div class="msg"><time>16:30</time><div><div class="tools"><span class="tool">actor_send <em>@mira</em><span class="ok">&#10003;</span></span></div><p>Erledigt. @mira bekommt die Bitte mit ihrem nächsten Turn.</p></div></div>
+                  <div class="msg me"><time>16:32</time><div><p>Fass mir am Ende alles in drei Sätzen zusammen und leg das Ergebnis aufs Board.</p></div></div>
+                  <div class="msg"><time>16:32</time><div><div class="tools"><span class="tool">event_subscribe <em>circle.finished</em><span class="ok">&#10003;</span></span></div><p>Ich höre auf das Ende der Runde und schreibe dann Zusammenfassung und Konsens-Karte.</p></div></div>
+                </div>
+                <div class="composer"><div class="input">Nachricht schreiben ...</div><div class="composer-foot"><span class="target">an <b>@coordinator</b></span><span class="opt"><svg><use href="#i-sparkle"/></svg>kompakt</span><i class="send"><svg><use href="#i-send"/></svg></i></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="status"><span><span>RAgents: localhost:4710</span><span>Nachtbus-Runde · 3 Agenten aktiv</span><span>1 Rückfrage</span></span><span><span>Sammelboard</span><span>Mini-App</span></span></div>
+        </div>
+        <figcaption><b>Mini-App in die Mitte geholt.</b> Der Pfeil am Sammelboard öffnet es als Editor-Reiter mit voller Breite; rechts rückt der Chip zur Seite und die Entscheidung übernimmt den oberen Platz. Der Explorer merkt sich, wo jede Mini-App gerade liegt. "Zurück nach rechts" holt sie wieder in die Spalte.</figcaption>
+      </figure>
+
+      <figure class="screen">
+        <div class="vsc">
+          <div class="activity">
+            <span class="ab-icon"><svg><use href="#i-files"/></svg></span><span class="ab-icon"><svg><use href="#i-search"/></svg></span><span class="ab-icon"><svg><use href="#i-scm"/></svg></span><span class="ab-icon"><svg><use href="#i-debug"/></svg></span><span class="ab-icon"><svg><use href="#i-ext"/></svg></span>
+            <span class="ab-icon active"><svg><use href="#i-ragents"/></svg><b class="ab-badge">1</b></span>
+            <span class="ab-spacer"></span><span class="ab-icon"><svg><use href="#i-account"/></svg></span><span class="ab-icon"><svg><use href="#i-gear"/></svg></span>
+          </div>
+          <div class="sidebar">
+            <div class="sb-title"><span>Nachtbus-Runde</span><span class="sb-actions"><i class="ic" title="Explorer"><svg><use href="#i-layout"/></svg></i><i class="ic"><svg><use href="#i-globe"/></svg></i><i class="ic"><svg><use href="#i-ellipsis"/></svg></i></span></div>
+            <div class="chips"><button class="chip app selected"><svg><use href="#i-board"/></svg>Sammelboard</button><button class="chip app"><svg><use href="#i-question"/></svg>Entscheidung<b class="warn">!</b></button><i class="ic"><svg><use href="#i-plus"/></svg></i></div>
+            <div class="work-app short">
+              <section class="app">
+                <header class="app-head"><svg class="kind kind-app"><use href="#i-board"/></svg><span class="name">Sammelboard</span><span class="meta">6 Karten</span><span class="acts"><i class="ic"><svg><use href="#i-open"/></svg></i></span></header>
+                <div class="app-body"><div class="board">
+                  <div class="col"><h5>Nachtbus</h5><div class="card">Schichtarbeit braucht festen Takt</div><div class="card">Nachtleben ohne Auto</div></div>
+                  <div class="col"><h5>Shuttle</h5><div class="card">Leere Busse in Kleinstädten</div></div>
+                  <div class="col"><h5>Konsens</h5><div class="card new">Nach Stadtgröße entscheiden</div></div>
+                </div></div>
+              </section>
+            </div>
+            <div class="sash" title="Höhe ziehen"></div>
+            <div class="chat-zone">
+              <div class="chips"><button class="chip primary selected"><svg><use href="#i-sparkle"/></svg>@coordinator</button><button class="chip agent"><span class="spin"></span>@mira</button><button class="chip agent">@ada<b>2</b></button><button class="chip agent">@jon<b>2</b></button><button class="chip more selected">···<b>1</b></button>
+                <div class="popover">
+                  <div class="qp-label">Ausgeblendet</div>
+                  <div class="qp-item"><svg class="kind kind-script"><use href="#i-code"/></svg><span class="mono">@conversation-circle</span><span class="qp-meta">TypeScript</span><i class="ic" title="Einblenden"><svg><use href="#i-plus"/></svg></i></div>
+                  <div class="qp-sep"></div>
+                  <div class="qp-label">Anzeige</div>
+                  <div class="qp-item selected"><svg><use href="#i-check"/></svg>Wie im Run sichtbar</div>
+                  <div class="qp-item"><span style="width:16px"></span>Nur aktive</div>
+                  <div class="qp-item"><span style="width:16px"></span>Alle</div>
+                </div>
+              </div>
+              <div class="chat">
+                <div class="msg me"><time>16:24</time><div><p>Starte eine Runde zu Nachtbussen mit drei Stimmen und sammle die Argumente auf einem Board.</p></div></div>
+                <div class="msg"><time>16:24</time><div><div class="tools"><span class="tool">actor_create <em>3x</em><span class="ok">&#10003;</span></span><span class="tool">actor_program_activate <em>sammelboard</em><span class="ok">&#10003;</span></span></div><p>Runde läuft: @mira, @ada und @jon diskutieren. Das Sammelboard füllt sich mit ihren Argumenten.</p></div></div>
+                <div class="msg me"><time>16:27</time><div><p>Wie ist der Stand?</p></div></div>
+                <div class="msg"><time>16:28</time><div><p>Zweite Runde. Auf dem Board stehen sechs Argumente, @jon wartet noch auf @ada. Die Entscheidung braucht Deine Antwort.</p></div></div>
+                <div class="msg me"><time>16:30</time><div><p>Sag @mira, sie soll kürzer werden.</p></div></div>
+                <div class="msg"><time>16:30</time><div><div class="tools"><span class="tool">actor_send <em>@mira</em><span class="ok">&#10003;</span></span></div><p>Erledigt. @mira bekommt die Bitte mit ihrem nächsten Turn.</p></div></div>
+                <div class="msg me"><time>16:32</time><div><p>Fass mir am Ende alles in drei Sätzen zusammen und leg das Ergebnis aufs Board.</p></div></div>
+                <div class="msg"><time>16:32</time><div><div class="tools"><span class="tool">event_subscribe <em>circle.finished</em><span class="ok">&#10003;</span></span></div><p>Ich höre auf das Ende der Runde und schreibe dann Zusammenfassung und Konsens-Karte.</p></div></div>
+              </div>
+              <div class="composer"><div class="input">Nachricht schreiben ...</div><div class="composer-foot"><span class="target">an <b>@coordinator</b></span><span class="opt"><svg><use href="#i-sparkle"/></svg>kompakt</span><i class="send"><svg><use href="#i-send"/></svg></i></div></div>
+            </div>
+          </div>
+        </div>
+        <figcaption><b>Nur die Arbeitsspalte, Griff nach oben gezogen.</b> Ohne Explorer und ohne Mitte funktioniert die Spalte allein wie Entwurf A, nur ohne Akkordeons: die Mini-App ist auf eine Zeile je Spalte geschrumpft, der Chat hat die Höhe. Der "···"-Chip ist geöffnet: ausgeblendete Actors zum Einblenden und die Anzeige-Wahl wie am Canvas (wie im Run sichtbar, nur aktive, alle).</figcaption>
+      </figure>
+    </div>
+
+    <div class="verdict">
+      <div><h4>Mehrere Runs</h4><p>Der Explorer zeigt alle Runs als Baum mit Zustand und Rückfragen; ein Klick auf einen Run schaltet die Arbeitsspalte um. Mini-Apps in der Mitte tragen ihren Run im Reiter und bleiben beim Umschalten offen.</p></div>
+      <div><h4>Viele Apps und Agenten</h4><p>Zwei Chip-Reihen, keine Akkordeons: Mini-App-Chips wählen, was oben steht, Actor-Chips, mit wem man spricht. Unsichtbare Actors hinter "···", die Sichtbarkeit folgt dem Run. Ein Griff regelt, wie viel Platz die Mini-App bekommt.</p></div>
+      <div><h4>Wiederverwendung</h4><p>Explorer als nativer TreeView, Arbeitsspalte als ein Webview mit Chat und Mini-App-View, die Mitte ein weiteres Webview-Panel mit derselben Mini-App. Die Chip-Reihe ist die Actor-Leiste vom Canvas.</p></div>
+      <div><h4>Urteil</h4><p>Vereint das Tägliche aus A (alles rechts, nichts zum Aufklappen) mit dem Überblick aus D (Explorer, Mitte bei Bedarf). Offen bleibt, was der Chat zeigt, wenn ein Agent-Chip gewählt ist: dessen Verlauf statt des Koordinators, wie in A.</p></div>
+    </div>
+  </section>
+
+  <footer class="page-footer">
+    <span>Entwurf vom 17.09.2026. Verwendete Begriffe: Run, Actor, Mini-App, Koordinator wie in docs/spec/overview.md.</span>
+    <a href="index.html#vscode-sidebar">Zurück zur Übersicht</a>
+  </footer>
+</main>
+
+<script>
+(() => {
+  const reasons = {
+    a: "A Stapel: alles in einer Spalte übereinander. Mini-Apps als Akkordeon, Actors als Chips, der Chat nimmt den Rest. Geringster Bauaufwand, der Chat schrumpft mit jeder offenen App.",
+    b: "B Bühne und Chat: oben genau eine Sache groß (Mini-App, Agent oder Netz), unten immer der Koordinator. Ein Griff verschiebt die Höhe, die Bühne lässt sich einklappen.",
+    c: "C Ein Strom: der Koordinator-Chat ist die einzige Zeitachse, Agenten und Mini-Apps liegen als Karten darin. Runs haben eine eigene Startseite nach Dringlichkeit.",
+    d: "D Werkbank: native Baumansichten für Runs und Actors, Chat als eigene Ansicht, Mini-Apps und Agentenverläufe als Editor-Reiter. Nutzt die Fensterverwaltung von VS Code statt einer eigenen.",
+    e: "E Explorer und Arbeitsspalte: links ein RAgents-Explorer als Baum, rechts die Arbeitsspalte, die ohne die Mitte auskommt: Mini-App oben per Chip gewählt, ein Griff, darunter der Chat mit den sichtbaren Actors als Chips. Die Mitte nimmt eine Mini-App nur auf Wunsch.",
+  };
+  const tabs = [...document.querySelectorAll(".variant-tab")];
+  const reason = document.getElementById("variant-reason");
+  const select = (variant, updateHash) => {
+    if (!reasons[variant]) variant = "a";
+    for (const tab of tabs) {
+      const active = tab.dataset.variant === variant;
+      tab.setAttribute("aria-selected", String(active));
+      tab.tabIndex = active ? 0 : -1;
+      const panel = document.getElementById("variant-" + tab.dataset.variant);
+      panel.hidden = !active;
+      panel.classList.toggle("active", active);
+    }
+    reason.textContent = reasons[variant];
+    if (updateHash && location.hash !== "#" + variant) history.replaceState(null, "", "#" + variant);
+  };
+  for (const tab of tabs) tab.addEventListener("click", () => select(tab.dataset.variant, true));
+  window.addEventListener("hashchange", () => select(location.hash.slice(1), false));
+  select(location.hash.slice(1) || "a", false);
+
+  const root = document.documentElement;
+  const themeButtons = [...document.querySelectorAll("[data-theme-choice]")];
+  const applyTheme = (theme) => {
+    root.dataset.theme = theme;
+    for (const button of themeButtons) button.setAttribute("aria-pressed", String(button.dataset.themeChoice === theme));
+    try { localStorage.setItem("vscode-sidebar-theme", theme); } catch {}
+  };
+  for (const button of themeButtons) button.addEventListener("click", () => applyTheme(button.dataset.themeChoice));
+  const query = new URLSearchParams(location.search).get("theme");
+  let stored = null;
+  try { stored = localStorage.getItem("vscode-sidebar-theme"); } catch {}
+  applyTheme(query === "light" || query === "dark" ? query : stored === "light" ? "light" : "dark");
+
+  document.addEventListener("click", (event) => {
+    const toggle = event.target.closest("[data-toggle]");
+    if (toggle && !event.target.closest(".ic")) {
+      toggle.closest("[data-collapsible]")?.classList.toggle("collapsed");
+      return;
+    }
+    const stageTab = event.target.closest("[data-stage]");
+    if (!stageTab) return;
+    const group = stageTab.closest("[data-stage-group]");
+    for (const tab of group.querySelectorAll("[data-stage]")) tab.classList.toggle("active", tab === stageTab);
+    const stage = group.nextElementSibling;
+    for (const pane of stage.querySelectorAll("[data-pane]")) pane.hidden = pane.dataset.pane !== stageTab.dataset.stage;
+  });
+})();
+</script>
+</body>
+</html>

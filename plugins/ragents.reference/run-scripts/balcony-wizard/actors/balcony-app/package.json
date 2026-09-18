@@ -1,0 +1,10 @@
+{
+  "name": "balcony-app",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Balkonberatung",
+    "description": "Fünf Fragen und eine persönliche Gestaltungsempfehlung in einer eigenen Mini-App.",
+    "views": [{ "id": "main", "client": "src/client.tsx", "width": 620, "height": 650 }]
+  }
+}

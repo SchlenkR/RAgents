@@ -1,0 +1,1690 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zehn Synth-Oberflächen</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --ink:#223347;--text:#1d2433;--muted:#5f7896;--line:#d1dde9;--line-soft:#e3ecf2;
+  --surface:#ecf2f7;--panel:#f8fcff;--content:#ffffff;--app-bg:#f1f4f8;
+  --accent:#0550ae;--amber:#b45309;--shadow:0 10px 30px rgba(34,51,71,.14);
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ink:#dbe6f2;--text:#dbe6f2;--muted:#8ea6bf;--line:#33465c;--line-soft:#2b3c4f;
+    --surface:#223142;--panel:#1b2938;--content:#16212d;--app-bg:#111922;
+    --accent:#6fb4ff;--amber:#f5b04c;--shadow:0 10px 30px rgba(0,0,0,.5);
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--app-bg);color:var(--text);font:15px/1.55 var(--body);-webkit-font-smoothing:antialiased}
+a{color:var(--accent)}
+h1,h2,h3,h4{font-family:var(--display);color:var(--ink);text-wrap:balance;margin:0;line-height:1.12}
+h1{font-size:clamp(27px,4vw,37px);font-weight:700;letter-spacing:-.01em}
+h4{font-family:var(--body);font-size:12.5px;font-weight:600;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:19px 0 7px}
+p{margin:0 0 11px;max-width:74ch}
+ul{margin:0 0 11px;padding-left:19px;max-width:76ch}
+li{margin:3px 0}
+code{font-family:var(--mono);font-size:.86em;background:var(--surface);padding:1px 5px;border-radius:4px;color:var(--ink)}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.page{display:grid;grid-template-columns:250px minmax(0,1fr);min-height:100vh}
+.nav{position:sticky;top:0;height:100vh;overflow:auto;padding:22px 14px;border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;gap:2px}
+.nav .brand{padding:0 8px 16px}
+.nav .brand strong{font-family:var(--display);font-size:20px;color:var(--ink);display:block}
+.nav .brand span{font-size:12px;color:var(--muted)}
+.nav .group{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:14px 8px 4px}
+.nav button{all:unset;cursor:pointer;display:grid;grid-template-columns:22px 1fr;align-items:baseline;gap:6px;padding:7px 8px;border-radius:7px;font-size:13.5px;color:var(--ink);line-height:1.3}
+.nav button .k{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.nav button small{display:block;font-size:11px;color:var(--muted);font-weight:400}
+.nav button:hover{background:var(--surface)}
+.nav button[aria-selected="true"]{background:var(--ink);color:var(--panel)}
+.nav button[aria-selected="true"] .k,.nav button[aria-selected="true"] small{color:var(--panel);opacity:.75}
+.nav .hint{margin-top:auto;padding:14px 8px 0;font-size:11.5px;color:var(--muted)}
+main{padding:32px 44px 80px;max-width:1250px}
+section.view[hidden]{display:none}
+.head{margin-bottom:19px;padding-bottom:15px;border-bottom:1px solid var(--line)}
+.head .sub{font-family:var(--display);font-size:18.5px;font-weight:500;color:var(--ink);max-width:66ch;margin-top:9px;line-height:1.32}
+.quote{margin-top:11px;font-size:12.5px;color:var(--muted);border-left:2px solid var(--line);padding-left:10px;max-width:70ch}
+.quote b{color:var(--ink);font-weight:600}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:6px 34px;margin-top:16px}
+@media (max-width:1080px){.split{grid-template-columns:1fr}}
+.small{font-size:12.5px;color:var(--muted)}
+.srcs{font-size:12.5px;color:var(--muted)}
+.idea-line{margin-top:10px;display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;background:var(--surface);border-radius:6px;padding:5px 10px;color:var(--ink)}
+
+.picks{display:grid;grid-template-columns:repeat(auto-fill,minmax(292px,1fr));gap:15px;margin:18px 0}
+.pick{border:1px solid var(--line);border-radius:12px;background:var(--content);overflow:hidden;cursor:pointer;transition:transform .12s,box-shadow .12s}
+.pick:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.pick .thumb{height:126px;position:relative;overflow:hidden}
+.pick .txt{padding:11px 13px 13px}
+.pick .txt .n{font-family:var(--mono);font-size:10.5px;color:var(--muted);letter-spacing:.08em}
+.pick .txt b{font-family:var(--display);font-size:17px;color:var(--ink);display:block;margin:2px 0 1px}
+.pick .txt .dev{font-size:11.5px;color:var(--muted);margin-bottom:6px}
+.pick .txt span.d{font-size:12.5px;color:var(--text);display:block}
+.pick .idea{margin-top:8px;display:inline-block;font-family:var(--mono);font-size:10.5px;background:var(--surface);border-radius:5px;padding:3px 7px;color:var(--ink)}
+.thumb .t{position:absolute;inset:0}
+.thumb .r{position:absolute}
+
+.mock{border-radius:11px;overflow:hidden;box-shadow:var(--shadow);font-size:11px;line-height:1.35;user-select:none;margin-top:6px}
+.mock .cell{min-width:0;overflow:hidden;position:relative}
+.mock .wires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+
+/* ===== 1 SERUM ===== */
+.sr{background:#2a2a2c;color:#dcdcde;font-family:var(--body)}
+.sr .top{background:#232325;border-bottom:1px solid #3c3c40;padding:6px 11px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sr .brand{font-family:var(--display);font-weight:700;font-size:13px;color:#f2f2f4}
+.sr .tab{border:1px solid #46464b;border-radius:3px;padding:2px 10px;font:600 9.5px/1.5 var(--mono);letter-spacing:.12em;color:#a6a6ac;background:#2e2e31}
+.sr .tab.on{background:#7ec8ff;border-color:#7ec8ff;color:#16232c}
+.sr .pill{font-size:10px;color:#9b9ba2}
+.sr .slot{display:grid;grid-template-columns:38px 210px minmax(0,1fr) 176px;border-bottom:1px solid #35353a;background:#2a2a2c}
+.sr .slot.off{opacity:.45}
+.sr .snum{background:#232325;border-right:1px solid #35353a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font:600 10px/1 var(--mono);color:#8e8e95}
+.sr .snum i{width:7px;height:7px;border-radius:50%;background:#4a4a50;display:block}
+.sr .snum i.on{background:#7ec8ff}
+.sr .sname{padding:8px 9px;border-right:1px solid #35353a}
+.sr .sname b{display:block;font-size:12px;color:#f2f2f4;font-weight:600}
+.sr .sname span{font-size:9.5px;color:#9b9ba2;font-family:var(--mono);letter-spacing:.06em}
+.sr .sname .rings{display:flex;gap:4px;margin-top:6px}
+.sr .ring{width:20px;height:20px;border-radius:50%;border:2px solid #3f3f45;position:relative}
+.sr .ring::after{content:"";position:absolute;inset:-2px;border-radius:50%;border:2px solid transparent}
+.sr .ring.a::after{border-top-color:#ffb642;border-right-color:#ffb642}
+.sr .ring.b::after{border-top-color:#7ec8ff;transform:rotate(120deg)}
+.sr .disp{padding:7px 9px;border-right:1px solid #35353a;background:#212123}
+.sr .scr{height:56px;background:#191919;border:1px solid #3a3a3f;border-radius:2px;position:relative;overflow:hidden}
+.sr .sctl{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.sr .sctl span{border:1px solid #46464b;border-radius:3px;padding:1px 7px;font-size:9.5px;color:#b6b6bd;background:#2e2e31}
+.sr .sctl span.on{border-color:#7ec8ff;color:#bce2ff}
+.sr .side{padding:8px 9px}
+.sr .lbl{font:600 9px/1.2 var(--mono);letter-spacing:.16em;color:#84848c;margin:0 0 6px}
+.sr .msg{background:#333336;border-radius:3px;padding:5px 7px;margin-bottom:4px;font-size:10.5px}
+.sr .msg.me{border-left:3px solid #7ec8ff}
+.sr .bot{background:#232325;border-top:1px solid #3c3c40;padding:6px 11px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:10px;color:#9b9ba2}
+.sr .matrix{border:1px solid #46464b;border-radius:3px;padding:1px 7px;color:#b6b6bd}
+
+/* ===== 2 AVENGER ===== */
+.av{background:#16181c;color:#d7dae0;font-family:var(--body)}
+.av .top{background:#101216;border-bottom:1px solid #272b32;padding:5px 10px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.av .brand{font-family:var(--display);font-weight:700;font-size:12.5px;color:#fff}
+.av .cat{border:1px solid #2c313a;border-radius:2px;padding:1px 7px;font-size:9px;color:#9aa2ae;background:#1b1e24}
+.av .cat.on{background:#ff9e2c;border-color:#ff9e2c;color:#191307;font-weight:600}
+.av .body{display:grid;grid-template-columns:150px minmax(0,1fr) 172px;gap:1px;background:#272b32}
+.av .zone{background:#16181c;padding:6px}
+.av .lbl{font:600 8px/1.2 var(--mono);letter-spacing:.14em;color:#79808d;margin:0 0 5px;display:flex;justify-content:space-between}
+.av .mod{background:#1c1f25;border:1px solid #2a2f37;border-radius:3px;padding:5px 6px;margin-bottom:4px}
+.av .mod .mh{display:flex;justify-content:space-between;font-size:10px;font-weight:600;color:#e8ebf0;margin-bottom:3px}
+.av .mod .ms{font-size:9px;color:#8a919e}
+.av .bar{height:3px;background:#22262c;border-radius:2px;margin-top:4px;overflow:hidden}
+.av .bar i{display:block;height:100%;background:#ff9e2c}
+.av .bar i.b{background:#5aa9f5}
+.av .grid2{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.av .mx{display:grid;grid-template-columns:64px repeat(4,1fr);gap:2px;font-size:8.5px}
+.av .mx div{padding:2px 3px;background:#1c1f25;border-radius:2px;color:#9aa2ae;text-align:center}
+.av .mx div.h{background:transparent;text-align:left;color:#79808d;font-family:var(--mono);letter-spacing:.06em}
+.av .mx div.x{background:#ff9e2c;color:#191307;font-weight:700}
+.av .mx div.y{background:#2f5c8f;color:#cfe4ff;font-weight:700}
+
+/* ===== 3 MINIMAL AUDIO ===== */
+.mn{background:#0d0f13;color:#dfe3ea;font-family:var(--body)}
+.mn .top{padding:14px 20px 10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.mn .brand{font-family:var(--display);font-weight:700;font-size:15px;color:#fff}
+.mn .run{font-size:12px;color:#7e8695}
+.mn .pill{border-radius:999px;background:#181c23;padding:3px 12px;font-size:11px;color:#a3abb9}
+.mn .body{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:14px;padding:4px 20px 20px}
+.mn .card{background:#161a21;border-radius:16px;padding:16px 18px;margin-bottom:12px}
+.mn .card h5{margin:0 0 3px;font-family:var(--display);font-size:15px;color:#fff;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+.mn .card .s{font-size:11.5px;color:#7e8695}
+.mn .chip{border-radius:999px;padding:2px 11px;font-size:10px;font-weight:600}
+.mn .meter{height:6px;border-radius:3px;background:#0f1319;margin-top:13px;overflow:hidden}
+.mn .meter i{display:block;height:100%;border-radius:3px;background:#a89bd8}
+.mn .meter i.s{background:#d8c49b}
+.mn .lbl{font:600 9px/1.2 var(--mono);letter-spacing:.18em;color:#6d7482;margin:0 0 10px}
+.mn .side .it{padding:11px 0;border-bottom:1px solid #1c212a;display:flex;justify-content:space-between;align-items:baseline;font-size:12px}
+.mn .side .it b{font-weight:600;color:#eef1f6}
+.mn .side .it span{color:#7e8695;font-size:11px}
+.mn .compose{background:#161a21;border-radius:14px;padding:12px 14px;margin-top:14px;color:#6d7482;font-size:11.5px}
+
+/* ===== 4 ZEBRA ===== */
+.zb{background:#22252a;color:#d3d7dd;font-family:var(--body)}
+.zb .top{background:#1b1e22;border-bottom:1px solid #33373e;padding:6px 11px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.zb .brand{font-family:var(--display);font-weight:700;font-size:12.5px;color:#f0f2f5}
+.zb .pill{border:1px solid #3b4048;border-radius:2px;padding:1px 8px;font:500 9.5px/1.6 var(--mono);letter-spacing:.08em;color:#989ea8;background:#262a2f}
+.zb .body{display:grid;grid-template-columns:minmax(0,1fr) 196px}
+.zb .rack{padding:9px;display:grid;grid-template-columns:repeat(4,1fr);gap:7px;align-content:start}
+.zb .bay{border:1px solid #383d45;border-radius:3px;background:#282c31;min-height:78px;padding:6px 7px;position:relative}
+.zb .bay.empty{border-style:dashed;border-color:#3a3f47;background:transparent;display:grid;place-items:center;color:#5c626c;font:500 9.5px/1 var(--mono);letter-spacing:.1em}
+.zb .bay .bh{font:600 8.5px/1.2 var(--mono);letter-spacing:.12em;color:#8b919b;display:flex;justify-content:space-between;margin-bottom:4px}
+.zb .bay .bn{font-size:11.5px;font-weight:600;color:#f0f2f5}
+.zb .bay .bs{font-size:9.5px;color:#8b919b;margin-top:2px}
+.zb .bay.on{border-color:#6fd0e8}
+.zb .bay .lvl{position:absolute;left:7px;right:7px;bottom:6px;height:3px;background:#1e2126;border-radius:2px;overflow:hidden}
+.zb .bay .lvl i{display:block;height:100%;background:#6fd0e8}
+.zb .bay .lvl i.s{background:#e8b76f}
+.zb .side{background:#1e2126;border-left:1px solid #33373e;padding:9px}
+.zb .lbl{font:600 9px/1.2 var(--mono);letter-spacing:.16em;color:#7e848e;margin:0 0 7px}
+.zb .mxrow{display:grid;grid-template-columns:1fr 14px 1fr;gap:5px;align-items:center;font-size:9.5px;padding:4px 0;border-bottom:1px solid #2a2e34;color:#c2c7ce}
+.zb .mxrow em{font-style:normal;color:#6fd0e8;text-align:center}
+.zb .msg{background:#262a2f;border-radius:2px;padding:5px 7px;margin-bottom:4px;font-size:10.5px}
+.zb .msg.me{border-left:3px solid #6fd0e8}
+
+/* ===== 5 MASSIVE ===== */
+.ms{background:#1b1d21;color:#d5d8dd;font-family:var(--body)}
+.ms .top{background:#141619;border-bottom:1px solid #2c3036;padding:6px 11px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.ms .brand{font-family:var(--display);font-weight:700;font-size:13px;color:#fff}
+.ms .pill{border:1px solid #343941;border-radius:2px;padding:1px 8px;font-size:9.5px;color:#969ca6;background:#1f2227}
+.ms .disp{background:#101215;border-bottom:1px solid #2c3036;padding:9px 12px;position:relative;height:92px}
+.ms .body{display:grid;grid-template-columns:minmax(0,1fr) 202px}
+.ms .stage{position:relative;height:250px;background:#1b1d21}
+.ms .node{position:absolute;width:150px;background:#24272c;border:1px solid #343941;border-radius:4px;padding:7px 9px}
+.ms .node .nh{display:flex;justify-content:space-between;font-size:11px;font-weight:600;color:#f0f2f5;margin-bottom:2px}
+.ms .node .ns{font-size:9.5px;color:#969ca6}
+.ms .halo{position:absolute;border-radius:8px;pointer-events:none}
+.ms .side{background:#17191d;border-left:1px solid #2c3036;padding:9px}
+.ms .lbl{font:600 9px/1.2 var(--mono);letter-spacing:.16em;color:#7d838d;margin:0 0 7px}
+.ms .srcrow{display:flex;align-items:center;gap:7px;padding:5px 6px;background:#1f2227;border-radius:3px;margin-bottom:4px;font-size:10px}
+.ms .srcrow i{width:11px;height:11px;border-radius:3px;flex:none}
+.ms .msg{background:#24272c;border-radius:3px;padding:5px 7px;margin-bottom:4px;font-size:10.5px}
+.ms .msg.me{border-left:3px solid #ffb642}
+
+/* ===== 6 MONARK ===== */
+.mk{background:#3f2d1c;color:#e8e4dc;font-family:var(--body);padding:9px}
+.mk .plate{background:linear-gradient(180deg,#41454a,#2f3236);border:1px solid #23262a;border-radius:3px;box-shadow:inset 0 1px 0 #5a5f66,0 3px 8px rgba(0,0,0,.5)}
+.mk .top{padding:7px 12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid #23262a}
+.mk .brand{font-family:var(--display);font-weight:700;font-size:14px;color:#f2efe8;letter-spacing:.04em}
+.mk .lamp{width:9px;height:9px;border-radius:50%;background:#e0a13c;box-shadow:0 0 7px #e0a13c}
+.mk .lamp.off{background:#3a3d42;box-shadow:none}
+.mk .pill{font:500 9.5px/1.6 var(--mono);letter-spacing:.1em;color:#a9aeb5}
+.mk .row{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid #23262a}
+.mk .bank{padding:9px 11px;border-right:1px solid #23262a}
+.mk .bank:last-child{border-right:none}
+.mk .lbl{font:600 8.5px/1.2 var(--mono);letter-spacing:.2em;color:#9aa0a8;margin:0 0 8px;text-transform:uppercase}
+.mk .name{font-size:12.5px;font-weight:600;color:#f2efe8;margin-bottom:2px}
+.mk .stt{font-size:9.5px;color:#a9aeb5}
+.mk .sw{margin-top:9px;display:flex;gap:5px;align-items:center}
+.mk .toggle{width:15px;height:26px;border-radius:2px;background:linear-gradient(180deg,#d8d4cc,#a8a49c);box-shadow:0 2px 3px rgba(0,0,0,.5);position:relative}
+.mk .toggle.down::after{content:"";position:absolute;left:2px;right:2px;bottom:2px;height:10px;background:#6f6b64;border-radius:1px}
+.mk .toggle.up::after{content:"";position:absolute;left:2px;right:2px;top:2px;height:10px;background:#6f6b64;border-radius:1px}
+.mk .tl{font-size:9px;color:#9aa0a8}
+.mk .lower{display:grid;grid-template-columns:220px minmax(0,1fr)}
+.mk .conv{padding:9px 11px;border-right:1px solid #23262a}
+.mk .msg{background:#26292d;border:1px solid #1d2023;border-radius:2px;padding:5px 7px;margin-bottom:4px;font-size:10.5px}
+.mk .msg.me{border-left:3px solid #e0a13c}
+.mk .scope{padding:9px 11px}
+.mk .glass{background:#141618;border:1px solid #1d2023;border-radius:2px;height:104px;position:relative;overflow:hidden;box-shadow:inset 0 2px 6px rgba(0,0,0,.7)}
+
+/* ===== 7 DEXED ===== */
+.dx{background:#c9ccd0;color:#1e2227;font-family:var(--body)}
+.dx .top{background:#aeb3b9;border-bottom:1px solid #8d939a;padding:6px 11px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.dx .brand{font-family:var(--display);font-weight:700;font-size:13px;color:#12161a}
+.dx .pill{border:1px solid #8d939a;border-radius:2px;padding:1px 8px;font-size:9.5px;color:#2c3238;background:#d5d8dc}
+.dx .algo{background:#d5d8dc;border-bottom:1px solid #8d939a;padding:8px 11px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.dx .algobox{background:#eceef0;border:1px solid #9aa0a6;border-radius:2px;padding:7px 10px;display:flex;gap:12px;align-items:center}
+.dx .algonum{font-family:var(--display);font-weight:700;font-size:22px;color:#1d5fa8;line-height:1}
+.dx .ops{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#8d939a}
+.dx .op{background:#dfe2e5;padding:7px 9px}
+.dx .op.on{background:#eff2f5}
+.dx .op .oh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px}
+.dx .op .on2{font:700 10px/1 var(--mono);letter-spacing:.1em;color:#1d5fa8}
+.dx .op .os{font-size:9.5px;color:#4c545c}
+.dx .op .oname{font-size:11.5px;font-weight:600;color:#12161a}
+.dx .sl{height:5px;background:#b6bbc1;border-radius:1px;margin-top:5px;position:relative}
+.dx .sl i{position:absolute;left:0;top:0;bottom:0;background:#1d5fa8}
+.dx .sl i.s{background:#a8641a}
+.dx .low{display:grid;grid-template-columns:230px minmax(0,1fr);border-top:1px solid #8d939a}
+.dx .conv{background:#d5d8dc;border-right:1px solid #8d939a;padding:8px 10px}
+.dx .lbl{font:600 8.5px/1.2 var(--mono);letter-spacing:.16em;color:#5b636b;margin:0 0 6px}
+.dx .msg{background:#eceef0;border:1px solid #b6bbc1;border-radius:2px;padding:5px 7px;margin-bottom:4px;font-size:10.5px}
+.dx .msg.me{border-left:3px solid #1d5fa8}
+.dx .journal{padding:8px 10px;background:#dfe2e5}
+
+/* ===== 8 PADSHOP ===== */
+.pd{background:#0b1120;color:#d6e2f2;font-family:var(--body)}
+.pd .top{background:#070c17;border-bottom:1px solid #1a2740;padding:7px 12px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.pd .brand{font-family:var(--display);font-weight:700;font-size:13.5px;color:#fff}
+.pd .pill{border-radius:4px;background:#111c2f;padding:2px 9px;font-size:10px;color:#8fa5c2}
+.pd .body{display:grid;grid-template-columns:minmax(0,1fr) 214px}
+.pd .cloud{position:relative;height:290px;background:radial-gradient(600px 260px at 50% 46%,#122240,#080d18 74%);overflow:hidden}
+.pd .p{position:absolute;border-radius:50%;background:#7fd8ff}
+.pd .lane{position:absolute;left:0;right:0;height:1px;background:#1c2c46}
+.pd .lanelbl{position:absolute;left:9px;font:600 8.5px/1 var(--mono);letter-spacing:.12em;color:#5f7796}
+.pd .side{background:#0a101d;border-left:1px solid #1a2740;padding:10px}
+.pd .lbl{font:600 9px/1.2 var(--mono);letter-spacing:.16em;color:#6b83a3;margin:0 0 7px}
+.pd .msg{background:#111c2f;border-radius:6px;padding:6px 8px;margin-bottom:5px;font-size:10.5px}
+.pd .msg.me{background:#16304d}
+.pd .foot{background:#070c17;border-top:1px solid #1a2740;padding:6px 12px;font-size:10px;color:#6b83a3;display:flex;gap:14px;flex-wrap:wrap}
+
+/* ===== 9 SYNTHMASTER ===== */
+.sm{background:#20242b;color:#d8dce3;font-family:var(--body)}
+.sm .top{background:#191c22;border-bottom:1px solid #333944;padding:7px 12px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.sm .brand{font-family:var(--display);font-weight:700;font-size:13.5px;color:#fff}
+.sm .tab{padding:3px 12px;font-size:10.5px;color:#98a1ae;border-bottom:2px solid transparent}
+.sm .tab.on{color:#e6c983;border-bottom-color:#c9a24d}
+.sm .pill{border-radius:3px;background:#262b33;padding:2px 9px;font-size:10px;color:#98a1ae}
+.sm .cols{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) 190px}
+.sm .col{padding:9px 11px;border-right:1px solid #2c313a}
+.sm .col:last-child{border-right:none;background:#1b1f25}
+.sm .lbl{font:600 8.5px/1.2 var(--mono);letter-spacing:.18em;color:#7d8593;margin:0 0 9px;padding-bottom:5px;border-bottom:1px solid #2c313a}
+.sm .kv{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;font-size:10.5px;border-bottom:1px solid #262b33}
+.sm .kv b{font-weight:600;color:#eef1f5}
+.sm .kv span{color:#98a1ae;font-size:10px}
+.sm .kv span.hi{color:#e6c983}
+.sm .msg{background:#262b33;border-radius:3px;padding:5px 7px;margin-bottom:4px;font-size:10.5px}
+.sm .msg.me{border-left:3px solid #c9a24d}
+
+/* ===== 10 DIVA ===== */
+.dv{background:#3c4046;color:#e4e6ea;font-family:var(--body);padding:8px}
+.dv .panelbg{background:linear-gradient(180deg,#4a4e55,#3a3e44);border:1px solid #2a2d32;border-radius:4px;box-shadow:inset 0 1px 0 #62666d}
+.dv .top{padding:7px 12px;border-bottom:1px solid #2a2d32;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dv .brand{font-family:var(--display);font-weight:700;font-size:13.5px;color:#f4f5f7}
+.dv .pill{border:1px solid #2f3339;border-radius:2px;padding:1px 8px;font-size:9.5px;color:#b4b9c0;background:#42464d}
+.dv .bays{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid #2a2d32}
+.dv .bay{padding:9px 11px;border-right:1px solid #2a2d32}
+.dv .bay:last-child{border-right:none}
+.dv .selector{display:flex;justify-content:space-between;align-items:center;background:#2c2f34;border:1px solid #23262a;border-radius:2px;padding:3px 7px;margin-bottom:8px;box-shadow:inset 0 1px 3px rgba(0,0,0,.5)}
+.dv .selector b{font-size:10.5px;color:#f4f5f7;font-weight:600}
+.dv .selector span{font-size:9px;color:#8f959d;font-family:var(--mono)}
+.dv .row2{display:flex;gap:9px;align-items:flex-start}
+.dv .knob{width:34px;flex:none;text-align:center}
+.dv .kd{width:34px;height:34px;border-radius:50%;background:linear-gradient(180deg,#5b6067,#3d4147);border:1px solid #2a2d32;box-shadow:0 2px 4px rgba(0,0,0,.5),inset 0 1px 0 #71767e;position:relative;margin:0 auto}
+.dv .kd::after{content:"";position:absolute;left:50%;top:4px;width:2px;height:11px;background:#d8b26a;transform-origin:50% 13px}
+.dv .kd.p1::after{transform:translateX(-50%) rotate(-38deg)}
+.dv .kd.p2::after{transform:translateX(-50%) rotate(52deg)}
+.dv .kd.p3::after{transform:translateX(-50%) rotate(118deg)}
+.dv .kl{font:500 8px/1.3 var(--mono);letter-spacing:.06em;color:#9aa0a8;margin-top:4px}
+.dv .info{flex:1;min-width:0}
+.dv .info .n{font-size:11.5px;font-weight:600;color:#f4f5f7}
+.dv .info .s{font-size:9.5px;color:#9aa0a8;margin-top:1px}
+.dv .lower{display:grid;grid-template-columns:236px minmax(0,1fr)}
+.dv .conv{padding:9px 11px;border-right:1px solid #2a2d32}
+.dv .lbl{font:600 8.5px/1.2 var(--mono);letter-spacing:.18em;color:#9aa0a8;margin:0 0 7px}
+.dv .msg{background:#33373d;border:1px solid #292c31;border-radius:2px;padding:5px 7px;margin-bottom:4px;font-size:10.5px}
+.dv .msg.me{border-left:3px solid #d8b26a}
+.dv .scope{padding:9px 11px}
+.dv .win{background:#1c1f23;border:1px solid #23262a;border-radius:2px;height:110px;position:relative;box-shadow:inset 0 2px 6px rgba(0,0,0,.65);overflow:hidden}
+</style>
+</head>
+<body>
+<div class="page">
+<nav class="nav" aria-label="Synth-Oberflächen">
+  <div class="brand"><strong>Zehn Synth-UIs</strong><span>„greatest vst synth ui“ · 05.09.2026</span></div>
+  <button data-view="v0"><span class="k">0</span><span>Die Auswahl</span></button>
+  <div class="group">Oberflächen</div>
+  <button data-view="v1"><span class="k">1</span><span>Serum<small>Xfer Records</small></span></button>
+  <button data-view="v2"><span class="k">2</span><span>Avenger<small>Vengeance Sound</small></span></button>
+  <button data-view="v3"><span class="k">3</span><span>Current<small>Minimal Audio</small></span></button>
+  <button data-view="v4"><span class="k">4</span><span>Zebra2<small>u-he</small></span></button>
+  <button data-view="v5"><span class="k">5</span><span>Massive<small>Native Instruments</small></span></button>
+  <button data-view="v6"><span class="k">6</span><span>Monark<small>Native Instruments</small></span></button>
+  <button data-view="v7"><span class="k">7</span><span>Dexed<small>DX7-Nachbau</small></span></button>
+  <button data-view="v8"><span class="k">8</span><span>Padshop<small>Steinberg</small></span></button>
+  <button data-view="v9"><span class="k">9</span><span>SynthMaster<small>KV331</small></span></button>
+  <button data-view="v10"><span class="k">10</span><span>Diva<small>u-he</small></span></button>
+  <div class="hint">Pfeiltasten blättern. Überall derselbe Run: 4711 Rechnungsexport, @implementer, @reviewer, @router, eine Mini-App.</div>
+</nav>
+
+<main>
+
+<!-- v0 -->
+<section class="view" id="v0" hidden>
+  <div class="head">
+    <div class="eyebrow">Auswahl</div>
+    <h1>Zehn Oberflächen, zehn Ideen</h1>
+    <div class="sub">Alle zehn stammen aus dem, was in den Foren tatsächlich als beste Synth-Oberfläche genannt wird. Jede ist hier nicht nachgemalt, sondern angewendet: derselbe Run, einmal komplett in ihrer Logik gebaut.</div>
+  </div>
+
+  <div class="picks">
+
+    <div class="pick" data-go="v1">
+      <div class="thumb" style="background:#2a2a2c">
+        <div class="t">
+          <div class="r" style="left:0;right:0;top:0;height:14px;background:#232325"></div>
+          <div class="r" style="left:8px;top:3px;width:26px;height:8px;background:#7ec8ff;border-radius:2px"></div>
+          <div class="r" style="left:0;top:14px;right:0;height:27px;border-bottom:1px solid #35353a"></div>
+          <div class="r" style="left:0;top:14px;width:26px;height:27px;background:#232325"></div>
+          <div class="r" style="left:32px;top:20px;width:48px;height:8px;background:#43434a;border-radius:2px"></div>
+          <div class="r" style="left:96px;top:18px;width:96px;height:20px;background:#191919;border:1px solid #3a3a3f"></div>
+          <div class="r" style="left:0;top:41px;right:0;height:27px;border-bottom:1px solid #35353a"></div>
+          <div class="r" style="left:0;top:41px;width:26px;height:27px;background:#232325"></div>
+          <div class="r" style="left:32px;top:47px;width:40px;height:8px;background:#43434a;border-radius:2px"></div>
+          <div class="r" style="left:96px;top:45px;width:96px;height:20px;background:#191919;border:1px solid #3a3a3f"></div>
+          <div class="r" style="left:0;top:68px;right:0;height:27px;border-bottom:1px solid #35353a;opacity:.45"></div>
+          <div class="r" style="left:32px;top:74px;width:34px;height:8px;background:#43434a;border-radius:2px;opacity:.45"></div>
+          <div class="r" style="right:0;top:14px;bottom:14px;width:52px;background:#2a2a2c;border-left:1px solid #35353a"></div>
+          <div class="r" style="left:0;right:0;bottom:0;height:14px;background:#232325"></div>
+        </div>
+      </div>
+      <div class="txt"><div class="n">01 · XFER RECORDS</div><b>Serum</b>
+        <div class="dev">„Sets the standard“ · resizable UI</div>
+        <span class="d">Vier feste Schächte untereinander, jeder mit eigenem großen Display. Man sieht alle Stimmen gleichzeitig, keine ist versteckt.</span>
+        <span class="idea">Feste Schächte, große Anzeige</span></div>
+    </div>
+
+    <div class="pick" data-go="v2">
+      <div class="thumb" style="background:#16181c">
+        <div class="t">
+          <div class="r" style="left:0;right:0;top:0;height:12px;background:#101216"></div>
+          <div class="r" style="left:7px;top:3px;width:22px;height:6px;background:#ff9e2c;border-radius:1px"></div>
+          <div class="r" style="left:0;top:13px;bottom:0;width:52px;background:#16181c"></div>
+          <div class="r" style="left:4px;top:17px;width:44px;height:18px;background:#1c1f25;border:1px solid #2a2f37"></div>
+          <div class="r" style="left:4px;top:38px;width:44px;height:18px;background:#1c1f25;border:1px solid #2a2f37"></div>
+          <div class="r" style="left:4px;top:59px;width:44px;height:18px;background:#1c1f25;border:1px solid #2a2f37"></div>
+          <div class="r" style="left:4px;top:80px;width:44px;height:18px;background:#1c1f25;border:1px solid #2a2f37"></div>
+          <div class="r" style="left:56px;top:17px;width:60px;height:26px;background:#1c1f25;border:1px solid #2a2f37"></div>
+          <div class="r" style="left:120px;top:17px;width:60px;height:26px;background:#1c1f25;border:1px solid #2a2f37"></div>
+          <div class="r" style="left:56px;top:47px;width:60px;height:26px;background:#1c1f25;border:1px solid #2a2f37"></div>
+          <div class="r" style="left:120px;top:47px;width:60px;height:26px;background:#1c1f25;border:1px solid #2a2f37"></div>
+          <div class="r" style="left:56px;top:77px;width:124px;height:21px;background:#1c1f25;border:1px solid #2a2f37"></div>
+          <div class="r" style="left:60px;top:81px;width:16px;height:6px;background:#ff9e2c"></div>
+          <div class="r" style="left:80px;top:81px;width:16px;height:6px;background:#2f5c8f"></div>
+          <div class="r" style="right:0;top:13px;bottom:0;width:56px;background:#16181c;border-left:1px solid #272b32"></div>
+          <div class="r" style="right:4px;top:17px;width:48px;height:14px;background:#1c1f25;border:1px solid #2a2f37"></div>
+          <div class="r" style="right:4px;top:34px;width:48px;height:14px;background:#1c1f25;border:1px solid #2a2f37"></div>
+          <div class="r" style="right:4px;top:51px;width:48px;height:14px;background:#1c1f25;border:1px solid #2a2f37"></div>
+        </div>
+      </div>
+      <div class="txt"><div class="n">02 · VENGEANCE SOUND</div><b>Avenger</b>
+        <div class="dev">„Love at first sight“ · „a masterpiece“</div>
+        <span class="d">Maximale Dichte: zwei Dutzend Module gleichzeitig, nichts hinter einem Klick. Für große Bildschirme und Leute, die alles sehen wollen.</span>
+        <span class="idea">Alles gleichzeitig</span></div>
+    </div>
+
+    <div class="pick" data-go="v3">
+      <div class="thumb" style="background:#0d0f13">
+        <div class="t">
+          <div class="r" style="left:16px;top:14px;width:64px;height:8px;background:#fff;border-radius:3px"></div>
+          <div class="r" style="left:16px;top:32px;right:74px;height:34px;background:#161a21;border-radius:11px"></div>
+          <div class="r" style="left:26px;top:41px;width:52px;height:8px;background:#e9edf3;border-radius:3px"></div>
+          <div class="r" style="left:26px;top:55px;width:96px;height:4px;background:#a89bd8;border-radius:2px"></div>
+          <div class="r" style="left:16px;top:72px;right:74px;height:34px;background:#161a21;border-radius:11px"></div>
+          <div class="r" style="left:26px;top:81px;width:42px;height:8px;background:#e9edf3;border-radius:3px"></div>
+          <div class="r" style="left:26px;top:95px;width:44px;height:4px;background:#d8c49b;border-radius:2px"></div>
+          <div class="r" style="right:14px;top:32px;width:50px;height:6px;background:#232831;border-radius:3px"></div>
+          <div class="r" style="right:14px;top:48px;width:38px;height:6px;background:#232831;border-radius:3px"></div>
+          <div class="r" style="right:14px;top:64px;width:44px;height:6px;background:#232831;border-radius:3px"></div>
+          <div class="r" style="right:14px;top:80px;width:32px;height:6px;background:#232831;border-radius:3px"></div>
+        </div>
+      </div>
+      <div class="txt"><div class="n">03 · MINIMAL AUDIO</div><b>Current</b>
+        <div class="dev">„Best GUIs in the business by a wide margin“</div>
+        <span class="d">Große weiche Karten, viel Innenabstand, gedeckte Farben. Dunkel, aber nicht eng — die einzige, die ruhig wirkt.</span>
+        <span class="idea">Ruhe durch Luft</span></div>
+    </div>
+
+    <div class="pick" data-go="v4">
+      <div class="thumb" style="background:#22252a">
+        <div class="t">
+          <div class="r" style="left:0;right:0;top:0;height:13px;background:#1b1e22"></div>
+          <div class="r" style="left:8px;top:26px;width:52px;height:32px;background:#282c31;border:1px solid #6fd0e8"></div>
+          <div class="r" style="left:66px;top:26px;width:52px;height:32px;background:#282c31;border:1px solid #383d45"></div>
+          <div class="r" style="left:124px;top:26px;width:52px;height:32px;border:1px dashed #3a3f47"></div>
+          <div class="r" style="left:8px;top:64px;width:52px;height:32px;background:#282c31;border:1px solid #383d45"></div>
+          <div class="r" style="left:66px;top:64px;width:52px;height:32px;border:1px dashed #3a3f47"></div>
+          <div class="r" style="left:124px;top:64px;width:52px;height:32px;border:1px dashed #3a3f47"></div>
+          <div class="r" style="left:12px;top:50px;width:44px;height:3px;background:#6fd0e8"></div>
+          <div class="r" style="right:0;top:13px;bottom:0;width:58px;background:#1e2126;border-left:1px solid #33373e"></div>
+          <div class="r" style="right:6px;top:24px;width:46px;height:5px;background:#2e333a"></div>
+          <div class="r" style="right:6px;top:36px;width:46px;height:5px;background:#2e333a"></div>
+          <div class="r" style="right:6px;top:48px;width:46px;height:5px;background:#2e333a"></div>
+        </div>
+      </div>
+      <div class="txt"><div class="n">04 · U-HE</div><b>Zebra2</b>
+        <div class="dev">„Clean and modern GUI“ · modular</div>
+        <span class="d">Ein Raster leerer Plätze. Man lädt hinein, was man braucht — ein Run ist so leer oder voll, wie du ihn baust.</span>
+        <span class="idea">Leeres Raster, selbst befüllt</span></div>
+    </div>
+
+    <div class="pick" data-go="v5">
+      <div class="thumb" style="background:#1b1d21">
+        <div class="t">
+          <div class="r" style="left:0;right:0;top:0;height:13px;background:#141619"></div>
+          <div class="r" style="left:0;right:0;top:13px;height:30px;background:#101215;border-bottom:1px solid #2c3036"></div>
+          <svg viewBox="0 0 300 30" preserveAspectRatio="none" style="position:absolute;left:0;top:13px;width:100%;height:30px"><path d="M0,22 L24,8 L48,25 L72,6 L96,20 L120,10 L144,24 L168,12 L192,22 L216,7 L240,19 L264,11 L300,21" fill="none" stroke="#ffb642" stroke-width="1.6"/></svg>
+          <div class="r" style="left:16px;top:56px;width:74px;height:28px;background:#24272c;border:1px solid #343941;border-radius:3px"></div>
+          <div class="r" style="left:10px;top:50px;width:86px;height:40px;border-radius:6px;border:2px solid #ffb642;opacity:.75"></div>
+          <div class="r" style="left:120px;top:78px;width:74px;height:28px;background:#24272c;border:1px solid #343941;border-radius:3px"></div>
+          <div class="r" style="left:114px;top:72px;width:86px;height:40px;border-radius:6px;border:2px solid #5aa9f5;opacity:.6"></div>
+          <div class="r" style="right:0;top:13px;bottom:0;width:52px;background:#17191d;border-left:1px solid #2c3036"></div>
+          <div class="r" style="right:6px;top:52px;width:40px;height:9px;background:#1f2227"></div>
+          <div class="r" style="right:6px;top:65px;width:40px;height:9px;background:#1f2227"></div>
+        </div>
+      </div>
+      <div class="txt"><div class="n">05 · NATIVE INSTRUMENTS</div><b>Massive</b>
+        <div class="dev">„Looks superb“ · Modulationsringe</div>
+        <span class="d">Um jedes Ziel liegt ein Ring, der zeigt, was darauf einwirkt und wie stark. Der Einfluss steht am Objekt, nicht in einer Liste.</span>
+        <span class="idea">Ringe zeigen Einfluss</span></div>
+    </div>
+
+    <div class="pick" data-go="v6">
+      <div class="thumb" style="background:#3f2d1c">
+        <div class="t">
+          <div class="r" style="left:9px;right:9px;top:9px;bottom:9px;background:linear-gradient(180deg,#41454a,#2f3236);border:1px solid #23262a;border-radius:3px"></div>
+          <div class="r" style="left:18px;top:17px;width:44px;height:7px;background:#f2efe8;border-radius:1px"></div>
+          <div class="r" style="left:70px;top:18px;width:6px;height:6px;border-radius:50%;background:#e0a13c"></div>
+          <div class="r" style="left:9px;right:9px;top:32px;height:1px;background:#23262a"></div>
+          <div class="r" style="left:20px;top:42px;width:34px;height:6px;background:#c8ccd2;border-radius:1px"></div>
+          <div class="r" style="left:20px;top:54px;width:11px;height:20px;background:linear-gradient(180deg,#d8d4cc,#a8a49c);border-radius:2px"></div>
+          <div class="r" style="left:36px;top:54px;width:11px;height:20px;background:linear-gradient(180deg,#d8d4cc,#a8a49c);border-radius:2px"></div>
+          <div class="r" style="left:52px;top:54px;width:11px;height:20px;background:linear-gradient(180deg,#d8d4cc,#a8a49c);border-radius:2px"></div>
+          <div class="r" style="left:82px;top:42px;width:34px;height:6px;background:#c8ccd2;border-radius:1px"></div>
+          <div class="r" style="left:82px;top:54px;width:11px;height:20px;background:linear-gradient(180deg,#d8d4cc,#a8a49c);border-radius:2px"></div>
+          <div class="r" style="left:98px;top:54px;width:11px;height:20px;background:linear-gradient(180deg,#d8d4cc,#a8a49c);border-radius:2px"></div>
+          <div class="r" style="right:20px;top:44px;width:60px;height:44px;background:#141618;border:1px solid #1d2023"></div>
+          <svg viewBox="0 0 60 44" preserveAspectRatio="none" style="position:absolute;right:20px;top:44px;width:60px;height:44px"><path d="M0,32 L10,12 L20,34 L30,10 L40,30 L50,16 L60,28" fill="none" stroke="#e0a13c" stroke-width="1.4"/></svg>
+        </div>
+      </div>
+      <div class="txt"><div class="n">06 · NATIVE INSTRUMENTS</div><b>Monark</b>
+        <div class="dev">„The best looking soft synth“</div>
+        <span class="d">Holz, gebürstetes Metall, echte Kippschalter. Kein Fenster, sondern ein Gerät, das auf dem Tisch steht.</span>
+        <span class="idea">Ein Instrument, kein Fenster</span></div>
+    </div>
+
+    <div class="pick" data-go="v7">
+      <div class="thumb" style="background:#c9ccd0">
+        <div class="t">
+          <div class="r" style="left:0;right:0;top:0;height:13px;background:#aeb3b9"></div>
+          <div class="r" style="left:0;right:0;top:13px;height:32px;background:#d5d8dc;border-bottom:1px solid #8d939a"></div>
+          <div class="r" style="left:10px;top:18px;width:56px;height:22px;background:#eceef0;border:1px solid #9aa0a6"></div>
+          <div class="r" style="left:16px;top:22px;width:14px;height:14px;background:#1d5fa8;border-radius:2px"></div>
+          <svg viewBox="0 0 90 24" preserveAspectRatio="none" style="position:absolute;left:76px;top:20px;width:90px;height:24px">
+            <rect x="2" y="2" width="16" height="9" fill="none" stroke="#1d5fa8" stroke-width="1.4"/>
+            <rect x="2" y="13" width="16" height="9" fill="none" stroke="#1d5fa8" stroke-width="1.4"/>
+            <rect x="34" y="7" width="16" height="9" fill="none" stroke="#1d5fa8" stroke-width="1.4"/>
+            <rect x="66" y="7" width="16" height="9" fill="none" stroke="#a8641a" stroke-width="1.4"/>
+            <path d="M18,7 L34,11 M18,17 L34,13 M50,11 L66,11" stroke="#4c545c" stroke-width="1.2" fill="none"/>
+          </svg>
+          <div class="r" style="left:0;top:45px;width:74px;height:34px;background:#eff2f5;border-right:1px solid #8d939a"></div>
+          <div class="r" style="left:76px;top:45px;width:74px;height:34px;background:#dfe2e5;border-right:1px solid #8d939a"></div>
+          <div class="r" style="left:152px;top:45px;right:0;height:34px;background:#dfe2e5"></div>
+          <div class="r" style="left:8px;top:52px;width:34px;height:6px;background:#1d5fa8;border-radius:1px"></div>
+          <div class="r" style="left:8px;top:66px;width:56px;height:4px;background:#b6bbc1"></div>
+          <div class="r" style="left:8px;top:66px;width:34px;height:4px;background:#1d5fa8"></div>
+          <div class="r" style="left:0;right:0;top:80px;bottom:0;background:#d5d8dc;border-top:1px solid #8d939a"></div>
+        </div>
+      </div>
+      <div class="txt"><div class="n">07 · DEXED</div><b>DX7-Nachbau</b>
+        <div class="dev">„One of the best UIs on a free plugin“</div>
+        <span class="d">Sechs gleiche Operatoren und oben ein Diagramm, das ihre Verdrahtung zeigt — als nummerierter Algorithmus, den man durchblättert.</span>
+        <span class="idea">Topologie als Nummer</span></div>
+    </div>
+
+    <div class="pick" data-go="v8">
+      <div class="thumb" style="background:#0b1120">
+        <div class="t">
+          <div class="r" style="left:0;right:0;top:0;height:13px;background:#070c17"></div>
+          <div class="r" style="left:0;right:0;top:13px;bottom:0;background:radial-gradient(200px 100px at 46% 48%,#122240,#080d18 74%)"></div>
+          <div class="r" style="left:0;right:60px;top:36px;height:1px;background:#1c2c46"></div>
+          <div class="r" style="left:0;right:60px;top:62px;height:1px;background:#1c2c46"></div>
+          <div class="r" style="left:0;right:60px;top:88px;height:1px;background:#1c2c46"></div>
+          <div class="r" style="left:22px;top:28px;width:5px;height:5px;border-radius:50%;background:#7fd8ff"></div>
+          <div class="r" style="left:44px;top:31px;width:4px;height:4px;border-radius:50%;background:#7fd8ff;opacity:.8"></div>
+          <div class="r" style="left:62px;top:26px;width:7px;height:7px;border-radius:50%;background:#7fd8ff"></div>
+          <div class="r" style="left:88px;top:30px;width:5px;height:5px;border-radius:50%;background:#7fd8ff;opacity:.7"></div>
+          <div class="r" style="left:112px;top:27px;width:9px;height:9px;border-radius:50%;background:#bfe9ff"></div>
+          <div class="r" style="left:36px;top:56px;width:4px;height:4px;border-radius:50%;background:#ffc978"></div>
+          <div class="r" style="left:58px;top:58px;width:6px;height:6px;border-radius:50%;background:#ffc978"></div>
+          <div class="r" style="left:92px;top:55px;width:5px;height:5px;border-radius:50%;background:#ffc978;opacity:.75"></div>
+          <div class="r" style="left:120px;top:57px;width:4px;height:4px;border-radius:50%;background:#ffc978;opacity:.6"></div>
+          <div class="r" style="left:30px;top:83px;width:4px;height:4px;border-radius:50%;background:#b9a9f0"></div>
+          <div class="r" style="left:74px;top:85px;width:5px;height:5px;border-radius:50%;background:#b9a9f0;opacity:.8"></div>
+          <div class="r" style="right:0;top:13px;bottom:0;width:58px;background:#0a101d;border-left:1px solid #1a2740"></div>
+          <div class="r" style="right:6px;top:24px;width:46px;height:12px;background:#111c2f;border-radius:4px"></div>
+          <div class="r" style="right:6px;top:41px;width:46px;height:12px;background:#16304d;border-radius:4px"></div>
+        </div>
+      </div>
+      <div class="txt"><div class="n">08 · STEINBERG</div><b>Padshop</b>
+        <div class="dev">„A look that grabs attention“ · granular</div>
+        <span class="d">Das Journal als Partikelwolke: jeder Punkt ein Ereignis, die Bahn je Actor, Dichte gleich Aktivität. Man sieht den Rhythmus eines Runs.</span>
+        <span class="idea">Journal als Wolke</span></div>
+    </div>
+
+    <div class="pick" data-go="v9">
+      <div class="thumb" style="background:#20242b">
+        <div class="t">
+          <div class="r" style="left:0;right:0;top:0;height:15px;background:#191c22"></div>
+          <div class="r" style="left:10px;top:10px;width:30px;height:2px;background:#c9a24d"></div>
+          <div class="r" style="left:0;top:15px;bottom:0;width:1px;background:#2c313a"></div>
+          <div class="r" style="left:48px;top:15px;bottom:0;width:1px;background:#2c313a"></div>
+          <div class="r" style="left:96px;top:15px;bottom:0;width:1px;background:#2c313a"></div>
+          <div class="r" style="left:144px;top:15px;bottom:0;width:1px;background:#2c313a"></div>
+          <div class="r" style="right:56px;top:15px;bottom:0;width:1px;background:#2c313a"></div>
+          <div class="r" style="left:6px;top:24px;width:34px;height:4px;background:#3a4150"></div>
+          <div class="r" style="left:6px;top:36px;width:36px;height:3px;background:#2c313a"></div>
+          <div class="r" style="left:6px;top:46px;width:30px;height:3px;background:#2c313a"></div>
+          <div class="r" style="left:6px;top:56px;width:34px;height:3px;background:#2c313a"></div>
+          <div class="r" style="left:54px;top:24px;width:34px;height:4px;background:#3a4150"></div>
+          <div class="r" style="left:54px;top:36px;width:32px;height:3px;background:#2c313a"></div>
+          <div class="r" style="left:54px;top:46px;width:36px;height:3px;background:#c9a24d"></div>
+          <div class="r" style="left:102px;top:24px;width:34px;height:4px;background:#3a4150"></div>
+          <div class="r" style="left:102px;top:36px;width:30px;height:3px;background:#2c313a"></div>
+          <div class="r" style="left:150px;top:24px;width:34px;height:4px;background:#3a4150"></div>
+          <div class="r" style="left:150px;top:36px;width:34px;height:3px;background:#2c313a"></div>
+          <div class="r" style="right:0;top:15px;bottom:0;width:56px;background:#1b1f25"></div>
+        </div>
+      </div>
+      <div class="txt"><div class="n">09 · KV331</div><b>SynthMaster</b>
+        <div class="dev">„Elegant and well laid out“</div>
+        <span class="d">Sehr viel Information, aber in vier ruhigen Spalten mit dünnen Linien. Dichte ohne Enge — das Gegenteil von Avenger.</span>
+        <span class="idea">Dichte in Spalten</span></div>
+    </div>
+
+    <div class="pick" data-go="v10">
+      <div class="thumb" style="background:#3c4046">
+        <div class="t">
+          <div class="r" style="left:8px;right:8px;top:8px;bottom:8px;background:linear-gradient(180deg,#4a4e55,#3a3e44);border:1px solid #2a2d32;border-radius:3px"></div>
+          <div class="r" style="left:8px;right:8px;top:30px;height:1px;background:#2a2d32"></div>
+          <div class="r" style="left:18px;top:16px;width:38px;height:7px;background:#f4f5f7;border-radius:1px"></div>
+          <div class="r" style="left:16px;top:38px;width:52px;height:13px;background:#2c2f34;border:1px solid #23262a;border-radius:2px"></div>
+          <div class="r" style="left:76px;top:38px;width:52px;height:13px;background:#2c2f34;border:1px solid #23262a;border-radius:2px"></div>
+          <div class="r" style="left:136px;top:38px;width:52px;height:13px;background:#2c2f34;border:1px solid #23262a;border-radius:2px"></div>
+          <div class="r" style="left:20px;top:58px;width:24px;height:24px;border-radius:50%;background:linear-gradient(180deg,#5b6067,#3d4147);border:1px solid #2a2d32"></div>
+          <div class="r" style="left:31px;top:61px;width:2px;height:8px;background:#d8b26a"></div>
+          <div class="r" style="left:80px;top:58px;width:24px;height:24px;border-radius:50%;background:linear-gradient(180deg,#5b6067,#3d4147);border:1px solid #2a2d32"></div>
+          <div class="r" style="left:91px;top:61px;width:2px;height:8px;background:#d8b26a"></div>
+          <div class="r" style="left:140px;top:58px;width:24px;height:24px;border-radius:50%;background:linear-gradient(180deg,#5b6067,#3d4147);border:1px solid #2a2d32"></div>
+          <div class="r" style="left:151px;top:61px;width:2px;height:8px;background:#d8b26a"></div>
+          <div class="r" style="left:8px;right:8px;top:90px;height:1px;background:#2a2d32"></div>
+          <div class="r" style="left:16px;top:98px;width:60px;height:10px;background:#33373d;border:1px solid #292c31"></div>
+          <div class="r" style="left:84px;top:96px;right:16px;height:14px;background:#1c1f23;border:1px solid #23262a"></div>
+        </div>
+      </div>
+      <div class="txt"><div class="n">10 · U-HE</div><b>Diva</b>
+        <div class="dev">„The spirit of analogue“ · tauschbare Bänke</div>
+        <span class="d">Feste Schächte, aber der Inhalt jedes Schachts ist austauschbar: oben im Titel wählt man, welches Bauteil dort steckt.</span>
+        <span class="idea">Schächte mit Wahlschalter</span></div>
+    </div>
+
+  </div>
+
+  <div class="split">
+    <div>
+      <h4>Was ich davon nehmen würde</h4>
+      <p class="small"><b>Dexed</b> (07) hat die überraschendste Idee: die 32 DX7-Algorithmen sind nummerierte Verdrahtungen, die man durchblättert. Bei uns wären das fertige Team-Topologien — „Algorithmus 4“ statt „spawn, spawn, subscribe, subscribe“. <b>Massive</b> (05) bringt den Einflussring: was auf einen Actor einwirkt, steht als Ring um ihn herum statt in einer Liste. <b>Serum</b> (01) ist die vernünftigste Gesamtform, <b>Current</b> (03) die angenehmste.</p>
+    </div>
+    <div>
+      <h4>Was die Foren nicht mögen</h4>
+      <p class="small">Zwei Warnungen aus denselben Threads, die für uns zählen. <b>FM8</b> gilt als „super bland and sterile“ — technisch korrekt, aber ohne jeden Charakter; das ist die Gefahr bei 03 und 09. Und <b>Arturias</b> Nachbauten heißen dort „ridiculously skeuomorphic“ und „tacky“ — das ist die Gefahr bei 06 und 10. Beide Extreme sind belegt und beide sind vermeidbar, aber man muss sich entscheiden, auf welcher Seite man landen will.</p>
+    </div>
+  </div>
+
+  <h4>Quellen</h4>
+  <p class="srcs"><a href="https://www.kvraudio.com/forum/viewtopic.php?t=592066">KVR: Best / worst synth GUI</a> · <a href="https://www.kvraudio.com/forum/viewtopic.php?t=379490&start=75">KVR: Top 5 Most Beautiful Virtual Synth Interfaces</a> · <a href="https://www.kvraudio.com/forum/viewtopic.php?t=316634">KVR: Post your favourite GUI for a Synth or Effect</a> · <a href="https://www.kvraudio.com/forum/viewtopic.php?t=567290">KVR: Top Ten Free Synths — your favourite GUI</a> · <a href="https://gearspace.com/board/music-computers/1144491-your-opinion-what-plugins-have-best-gui.html">Gearspace: Which plugins have the best GUI</a> · <a href="https://unison.audio/best-vst-synths/">Unison: Best VST Synths</a> · <a href="https://www.syntorial.com/highlights/best-synth-vst-plugins/">Syntorial: Best Synth VST Plugins</a> · <a href="https://higherhz.org/reviews/software/best-synth-vst-plugins/">HigherHz: Best synth VST plugins</a></p>
+</section>
+
+<!-- v1 SERUM -->
+<section class="view" id="v1" hidden>
+  <div class="head">
+    <div class="eyebrow">01 · Xfer Records</div>
+    <h1>Serum</h1>
+    <div class="sub">Vier feste Schächte untereinander — Oszillator A, B, Sub, Noise. Jeder hat sein eigenes großes Display, seine eigene Zeile Bedienelemente und links eine Nummer mit Ein-Aus-Lampe. Nichts ist hinter einem Klick.</div>
+    <div class="quote"><b>„Sets the standard for wavetable synthesis“</b> — hochauflösende, skalierbare Oberfläche mit klarer Anzeige von Hüllkurven und LFOs, für Anfänger wie Profis.</div>
+    <div class="idea-line">IDEE → Feste Schächte, jeder mit großer eigener Anzeige</div>
+  </div>
+
+  <div class="mock sr">
+    <div class="top">
+      <span class="brand">RAgents</span>
+      <span class="tab on">NETZ</span><span class="tab">WERKZEUGE</span><span class="tab">MATRIX</span><span class="tab">GLOBAL</span>
+      <span class="pill" style="margin-left:auto">4711 · Rechnungsexport · feature/4711 · glm-4.6</span>
+    </div>
+
+    <div class="slot">
+      <div class="cell snum">A<i class="on"></i></div>
+      <div class="cell sname">
+        <b>@implementer</b><span>MODELL · TURN 7</span>
+        <div class="rings"><span class="ring a"></span><span class="ring b"></span><span class="ring"></span></div>
+        <div style="font-size:9px;color:#8e8e95;margin-top:4px">2 Abos wirken</div>
+      </div>
+      <div class="cell disp">
+        <div class="scr">
+          <svg viewBox="0 0 420 56" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%">
+            <g stroke="#2d2d31" stroke-width="1"><path d="M0,14 H420"/><path d="M0,28 H420"/><path d="M0,42 H420"/></g>
+            <path d="M0,48 L30,48 L30,20 L96,20 L96,38 L150,38 L150,12 L240,12 L240,30 L300,30 L300,22 L360,22 L360,34 L420,34" fill="none" stroke="#7ec8ff" stroke-width="1.8"/>
+            <rect x="300" y="0" width="120" height="56" fill="#7ec8ff" opacity=".07"/>
+          </svg>
+          <div style="position:absolute;left:6px;top:4px;font:600 8px/1 var(--mono);letter-spacing:.14em;color:#6f6f77">TURNS · WERKZEUGE · DAUER</div>
+          <div style="position:absolute;right:6px;top:4px;font:600 8px/1 var(--mono);color:#7ec8ff">JETZT: BASH 0:08</div>
+        </div>
+        <div class="sctl"><span class="on">bash</span><span>edit ×4</span><span>read</span><span>grep</span><span style="opacity:.5">test — wartet</span></div>
+      </div>
+      <div class="cell side">
+        <div class="lbl">GESPRÄCH</div>
+        <div class="msg me">Setze den CSV-Export um.</div>
+        <div class="msg" style="font-family:var(--mono);font-size:9.5px;background:#1e1e20">dotnet build src/App.sln</div>
+        <div class="msg">Export läuft, Tests folgen.</div>
+      </div>
+    </div>
+
+    <div class="slot">
+      <div class="cell snum">B<i class="on"></i></div>
+      <div class="cell sname">
+        <b>@reviewer</b><span>MODELL · FRAGT</span>
+        <div class="rings"><span class="ring b"></span><span class="ring"></span><span class="ring"></span></div>
+        <div style="font-size:9px;color:#8e8e95;margin-top:4px">1 Abo wirkt</div>
+      </div>
+      <div class="cell disp">
+        <div class="scr">
+          <svg viewBox="0 0 420 56" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%">
+            <g stroke="#2d2d31" stroke-width="1"><path d="M0,14 H420"/><path d="M0,28 H420"/><path d="M0,42 H420"/></g>
+            <path d="M0,44 L60,44 L60,26 L140,26 L140,34 L200,34" fill="none" stroke="#ffb642" stroke-width="1.8"/>
+            <path d="M200,34 L420,34" fill="none" stroke="#ffb642" stroke-width="1.8" stroke-dasharray="6 5" opacity=".6"/>
+            <rect x="200" y="0" width="220" height="56" fill="#ffb642" opacity=".06"/>
+          </svg>
+          <div style="position:absolute;right:6px;top:4px;font:600 8px/1 var(--mono);color:#ffb642">BLOCKIERT SEIT 2:04</div>
+        </div>
+        <div class="sctl"><span>read Diff</span><span class="on" style="border-color:#ffb642;color:#ffd699">△ fragt: Trennzeichen?</span><span style="opacity:.5">review — wartet</span></div>
+      </div>
+      <div class="cell side">
+        <div class="lbl">GESPRÄCH</div>
+        <div class="msg">Welches CSV-Trennzeichen soll gelten?</div>
+        <div style="display:flex;gap:4px;margin-top:5px"><span style="border:1px solid #46464b;border-radius:3px;padding:1px 8px;font-size:9.5px">Semikolon</span><span style="border:1px solid #46464b;border-radius:3px;padding:1px 8px;font-size:9.5px">Komma</span></div>
+      </div>
+    </div>
+
+    <div class="slot">
+      <div class="cell snum">C<i></i></div>
+      <div class="cell sname"><b>@router</b><span>TYPESCRIPT · RUHT</span>
+        <div class="rings"><span class="ring"></span><span class="ring"></span><span class="ring"></span></div>
+        <div style="font-size:9px;color:#8e8e95;margin-top:4px">Queue leer</div>
+      </div>
+      <div class="cell disp">
+        <div class="scr" style="height:34px">
+          <svg viewBox="0 0 420 34" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%"><path d="M0,17 H420" fill="none" stroke="#4a4a50" stroke-width="1.4"/></svg>
+        </div>
+        <div class="sctl"><span>2 Subscriptions</span><span>0 Turns</span></div>
+      </div>
+      <div class="cell side"><div class="lbl">GESPRÄCH</div><div class="msg" style="opacity:.6">Keine Nachrichten.</div></div>
+    </div>
+
+    <div class="slot off">
+      <div class="cell snum">D<i></i></div>
+      <div class="cell sname"><b>frei</b><span>SCHACHT LEER</span></div>
+      <div class="cell disp"><div class="scr" style="height:24px;border-style:dashed"></div></div>
+      <div class="cell side"><div class="lbl">—</div></div>
+    </div>
+
+    <div class="bot">
+      <span class="matrix">MATRIX</span>
+      <span>turn.finished ▸ @reviewer</span><span>·</span>
+      <span>action.proposed ▸ Koordinator</span><span>·</span>
+      <span style="opacity:.5">artifact.published ▸ frei</span>
+      <span style="margin-left:auto">Koordinator ⇤ &nbsp; Mini-Apps 1 &nbsp; Fragen 2</span>
+    </div>
+  </div>
+
+  <div class="split">
+    <div>
+      <h4>Was die Abbildung ändert</h4>
+      <ul>
+        <li><b>Actors sind Schächte, keine Karten.</b> Vier feste Plätze, A bis D, immer an derselben Stelle. Man greift nach Position, nicht nach Namen — und ein leerer Schacht lädt sichtbar zum Füllen ein.</li>
+        <li><b>Jeder Schacht hat sein eigenes Display.</b> Die Kurve ist der Turn-Verlauf: Werkzeugwechsel als Stufen, laufender Abschnitt hinterlegt. Bei @reviewer sieht man die gestrichelte Fläche — das ist die Blockade.</li>
+        <li><b>Ringe an der Kopfzeile</b> zeigen, wie viele Subscriptions auf diesen Actor wirken, ohne dass man eine Liste öffnet.</li>
+        <li><b>Die Matrix unten</b> ist die vollständige Verdrahtung in einer Zeile.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>Was es kostet</h4>
+      <ul>
+        <li>Vier Schächte sind eine harte Grenze. Bei acht Actors braucht es eine zweite Seite oder Scrollen — Serum löst das mit Tabs, wir müssten dasselbe tun.</li>
+        <li>Die freie Fläche verschwindet. Der Koordinator ordnet dann nicht mehr an, er füllt Schächte.</li>
+      </ul>
+      <h4>Der eine Satz</h4>
+      <p class="small">Die vernünftigste Gesamtform der zehn: streng, lesbar, und man weiß nach zwei Minuten, wo alles liegt.</p>
+    </div>
+  </div>
+</section>
+
+<!-- v2 AVENGER -->
+<section class="view" id="v2" hidden>
+  <div class="head">
+    <div class="eyebrow">02 · Vengeance Sound</div>
+    <h1>Avenger</h1>
+    <div class="sub">Zwei Dutzend Module gleichzeitig auf dem Schirm, dicht gepackt, jedes klein aber vollständig. Nichts liegt hinter einem Klick, alles ist sofort greifbar — die Gegenthese zu jeder Reduktion.</div>
+    <div class="quote"><b>„Love at first sight“ · „a masterpiece“</b> — in den Foren die am häufigsten mit dem Wort <em>perfekt</em> beschriebene Oberfläche.</div>
+    <div class="idea-line">IDEE → Alles gleichzeitig sichtbar, maximale Dichte</div>
+  </div>
+
+  <div class="mock av">
+    <div class="top">
+      <span class="brand">RAgents</span>
+      <span class="cat on">RUN 4711</span><span class="cat">feature/4711</span><span class="cat">glm-4.6</span>
+      <span class="cat">▶ 2</span><span class="cat">○ 1</span><span class="cat">△ 2</span><span class="cat">APPS 1</span><span class="cat">DIENSTE 1</span>
+      <span class="cat" style="margin-left:auto">STOP</span>
+    </div>
+    <div class="body">
+      <div class="cell zone">
+        <div class="lbl"><span>KOORDINATOR</span><span>7</span></div>
+        <div class="mod"><div class="mh"><span>Auftrag</span></div><div class="ms">Rechnungsexport als CSV</div></div>
+        <div class="mod"><div class="mh"><span>Letzte Antwort</span></div><div class="ms">2 Actors gestartet, Fläche angeordnet</div></div>
+        <div class="mod"><div class="mh"><span>Nebenbei</span><span>1</span></div><div class="ms">CSV-Regeln: Punkt, 2 Stellen, ISO</div></div>
+        <div class="lbl" style="margin-top:8px"><span>RUNS</span><span>4</span></div>
+        <div class="mod" style="border-color:#ff9e2c"><div class="mh"><span>4711 Rechnungsexport</span></div><div class="ms">läuft · 12 min</div></div>
+        <div class="mod"><div class="mh"><span>Sync Projektbranches</span></div><div class="ms">10:12</div></div>
+        <div class="mod"><div class="mh"><span>Prüfstand-Vorschau</span></div><div class="ms">03.09.</div></div>
+        <div class="mod" style="margin-bottom:0"><div class="mh"><span>Logo-Prompts</span></div><div class="ms">02.09.</div></div>
+      </div>
+
+      <div class="cell zone">
+        <div class="lbl"><span>ACTORS</span><span>3</span></div>
+        <div class="grid2">
+          <div class="mod"><div class="mh"><span>@implementer</span><span style="color:#ff9e2c">▶</span></div><div class="ms">bash 0:08 · Turn 7</div><div class="bar"><i style="width:62%"></i></div></div>
+          <div class="mod"><div class="mh"><span>@reviewer</span><span style="color:#5aa9f5">△</span></div><div class="ms">Frage offen · 2:04</div><div class="bar"><i class="b" style="width:22%"></i></div></div>
+          <div class="mod"><div class="mh"><span>@router</span><span>○</span></div><div class="ms">Queue leer</div><div class="bar"></div></div>
+          <div class="mod"><div class="mh"><span>Textanalyse</span><span>APP</span></div><div class="ms">im Panel offen</div><div class="bar"><i class="b" style="width:100%"></i></div></div>
+        </div>
+
+        <div class="lbl" style="margin-top:8px"><span>WERKZEUGE ZULETZT</span><span>12</span></div>
+        <div class="grid2">
+          <div class="mod"><div class="mh"><span>bash</span><span>0:08</span></div><div class="ms">dotnet build src/App.sln</div></div>
+          <div class="mod"><div class="mh"><span>edit</span><span>×4</span></div><div class="ms">Export.fs, Csv.fs, …</div></div>
+          <div class="mod"><div class="mh"><span>read</span><span>×9</span></div><div class="ms">App.sln, Export.fs</div></div>
+          <div class="mod"><div class="mh"><span>grep</span><span>×2</span></div><div class="ms">„Invoice“</div></div>
+        </div>
+
+        <div class="lbl" style="margin-top:8px"><span>MATRIX · WER HÖRT WORAUF</span><span>3</span></div>
+        <div class="mx">
+          <div class="h">Ereignis</div><div class="h">impl</div><div class="h">rev</div><div class="h">rout</div><div class="h">koord</div>
+          <div class="h">turn.finished</div><div></div><div class="x">✓</div><div></div><div></div>
+          <div class="h">action.proposed</div><div></div><div></div><div></div><div class="y">✓</div>
+          <div class="h">artifact.publ.</div><div></div><div></div><div class="y">✓</div><div></div>
+          <div class="h">tool.call.failed</div><div></div><div></div><div></div><div></div>
+        </div>
+      </div>
+
+      <div class="cell zone">
+        <div class="lbl"><span>TURN LÄUFT</span><span>@implementer</span></div>
+        <div class="mod"><div class="mh"><span>Eingabe 1</span></div><div class="ms">Setze den CSV-Export um.</div></div>
+        <div class="mod"><div class="mh"><span>bash</span></div><div class="ms" style="font-family:var(--mono);font-size:8.5px">dotnet build src/App.sln</div></div>
+        <div class="mod"><div class="mh"><span>Ausgabe</span></div><div class="ms">Export läuft, Tests folgen.</div></div>
+        <div class="lbl" style="margin-top:8px"><span>WERKSTATT</span></div>
+        <div class="mod"><div class="mh"><span>Dokumente</span><span>3</span></div></div>
+        <div class="mod"><div class="mh"><span>Dateien</span><span>4 geändert</span></div></div>
+        <div class="mod"><div class="mh"><span>Tickets</span><span>Build 219</span></div></div>
+        <div class="mod"><div class="mh"><span>Journal</span><span>314 Events</span></div></div>
+        <div class="mod" style="margin-bottom:0"><div class="mh"><span>Verbrauch</span><span>81 k</span></div><div class="bar"><i style="width:38%"></i></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="split">
+    <div>
+      <h4>Was die Abbildung ändert</h4>
+      <ul>
+        <li><b>Kein Reiter, kein Aufklappen, kein Klick.</b> Runs, Actors, Werkzeuge, Matrix, laufender Turn, Werkstatt, Verbrauch — alles gleichzeitig. Wer den Überblick über den ganzen Zustand will, bekommt ihn hier ohne eine einzige Geste.</li>
+        <li><b>Die Matrix als Kreuztabelle.</b> Ereignisse in Zeilen, Actors in Spalten, ein Haken im Feld. Wer worauf hört, ist eine Tabelle — keine zwölf Kabel über einer Fläche.</li>
+        <li><b>Alles ist gleich klein.</b> Das ist die Bedingung: Sobald ein Bereich wichtiger aussehen darf, bricht das Prinzip.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>Was es kostet</h4>
+      <ul>
+        <li>Auf 1440 × 900 wird das eng. Das hier ist eine Oberfläche für den großen Bildschirm am Schreibtisch, nicht für das MacBook Air auf dem Sofa.</li>
+        <li>Keine Hierarchie heißt: nichts führt dich. Wer neu dazukommt, sieht eine Wand.</li>
+        <li>Es widerspricht eurem eigenen Befund, dass die Kopfzeile heute schon überläuft. Diese Vorlage macht das Überlaufen zum Prinzip.</li>
+      </ul>
+      <h4>Der eine Satz</h4>
+      <p class="small">Ehrlich gesagt die Vorlage, die am wenigsten zu einem 13-Zoll-Werkzeug passt — aber sie zeigt, wie weit man Dichte treiben kann, ohne unordentlich zu werden.</p>
+    </div>
+  </div>
+</section>
+
+<!-- v3 CURRENT -->
+<section class="view" id="v3" hidden>
+  <div class="head">
+    <div class="eyebrow">03 · Minimal Audio</div>
+    <h1>Current</h1>
+    <div class="sub">Große weiche Karten, viel Innenabstand, gedeckte Farben, kaum Linien. Dunkel, aber nicht eng. Von den zehn die einzige Oberfläche, die ruhig wirkt statt technisch.</div>
+    <div class="quote"><b>„Minimal Audio has the best GUIs in the business by a wide margin“</b> — in den Foren die am seltensten kritisierte Gestaltung.</div>
+    <div class="idea-line">IDEE → Ruhe durch Luft, Struktur ohne Linien</div>
+  </div>
+
+  <div class="mock mn">
+    <div class="top">
+      <span class="brand">RAgents</span>
+      <span class="run">4711 · Rechnungsexport · feature/4711</span>
+      <span class="pill" style="margin-left:auto">glm-4.6</span>
+      <span class="pill">12 min</span>
+    </div>
+    <div class="body">
+      <div class="cell">
+        <div class="card">
+          <h5>@implementer <span class="chip" style="background:#2b2545;color:#c4b8f0">läuft · 0:08</span></h5>
+          <div class="s">bash · <code style="background:#0f1319;color:#c9cfda">dotnet build src/App.sln</code></div>
+          <div class="s" style="margin-top:7px">Turn 7 · vier Dateien geändert · zwei Todos offen</div>
+          <div class="meter"><i style="width:62%"></i></div>
+        </div>
+
+        <div class="card">
+          <h5>@reviewer <span class="chip" style="background:#3a3120;color:#e8cf9f">wartet auf dich</span></h5>
+          <div class="s">Welches CSV-Trennzeichen soll gelten?</div>
+          <div style="display:flex;gap:7px;margin-top:11px">
+            <span style="border:1px solid #2b313a;border-radius:999px;padding:4px 15px;font-size:11px">Semikolon</span>
+            <span style="border:1px solid #2b313a;border-radius:999px;padding:4px 15px;font-size:11px">Komma</span>
+            <span style="border:1px solid #2b313a;border-radius:999px;padding:4px 15px;font-size:11px;color:#7e8695">Später</span>
+          </div>
+          <div class="meter"><i class="s" style="width:22%"></i></div>
+        </div>
+
+        <div class="card" style="margin-bottom:0;opacity:.72">
+          <h5>@router <span class="chip" style="background:#191d24;color:#8b93a1">ruht</span></h5>
+          <div class="s">Zwei Subscriptions aktiv, Warteschlange leer</div>
+        </div>
+      </div>
+
+      <div class="cell side">
+        <div class="lbl">IM RUN</div>
+        <div class="it"><b>Textanalyse</b><span>Mini-App</span></div>
+        <div class="it"><b>Dokumente</b><span>3</span></div>
+        <div class="it"><b>Dateien</b><span>4 geändert</span></div>
+        <div class="it"><b>Tickets</b><span>Build 219</span></div>
+        <div class="it" style="border-bottom:none"><b>Journal</b><span>314 Events</span></div>
+
+        <div class="lbl" style="margin-top:20px">KOORDINATOR</div>
+        <div style="font-size:12px;color:#c3c9d3;line-height:1.5">Ich habe @implementer und @reviewer gestartet und die Fläche angeordnet.</div>
+        <div class="compose">Nachricht an den Koordinator …</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="split">
+    <div>
+      <h4>Was die Abbildung ändert</h4>
+      <ul>
+        <li><b>Eine Karte je Actor, sonst nichts.</b> Kein Raster, keine Fläche, keine Kabel. Die Reihenfolge ist die Wichtigkeit: wer läuft, steht oben; wer ruht, steht unten und ist matter.</li>
+        <li><b>Die offene Frage steht als Frage da</b> — mit den Antworten als Knöpfe direkt darunter, in derselben Karte. Kein Sprung in ein Panel.</li>
+        <li><b>Struktur ohne Linien.</b> Abstand und Flächenhelligkeit trennen, keine Rahmen. Das ist der Grund, warum es ruhig wirkt.</li>
+        <li>Auf 1440 × 900 funktioniert das gut, weil wenig Elemente um Platz kämpfen.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>Was es kostet</h4>
+      <ul>
+        <li>Es zeigt wenig. Werkzeugverlauf, Journal, Verdrahtung — alles nur als Zahl in der rechten Spalte. Für die Diagnose muss man woandershin.</li>
+        <li>Die Gefahr heißt FM8: technisch sauber, aber ohne Gesicht. Ruhe kann in Beliebigkeit kippen.</li>
+      </ul>
+      <h4>Der eine Satz</h4>
+      <p class="small">Die angenehmste der zehn — und die, bei der man am ehesten vergisst, dass man ein Werkzeug bedient.</p>
+    </div>
+  </div>
+</section>
+
+<!-- v4 ZEBRA -->
+<section class="view" id="v4" hidden>
+  <div class="head">
+    <div class="eyebrow">04 · u-he</div>
+    <h1>Zebra2</h1>
+    <div class="sub">Ein Raster leerer Plätze. Man lädt hinein, was man braucht — ein Oszillator hier, ein Filter dort — und der Rest bleibt sichtbar leer. Die Verdrahtung passiert in einer Matrix daneben.</div>
+    <div class="quote"><b>„Clean and modern GUI“</b> — modular, technisch, ohne jede Dekoration; das Gegenteil von Diva aus demselben Haus.</div>
+    <div class="idea-line">IDEE → Leeres Raster, das du selbst befüllst</div>
+  </div>
+
+  <div class="mock zb">
+    <div class="top">
+      <span class="brand">RAgents</span>
+      <span class="pill">4711 · RECHNUNGSEXPORT</span>
+      <span class="pill">FEATURE/4711</span>
+      <span class="pill">GLM-4.6</span>
+      <span class="pill" style="border-color:#6fd0e8;color:#6fd0e8">3 VON 12 PLÄTZEN</span>
+      <span class="pill" style="margin-left:auto">STOP</span>
+    </div>
+    <div class="body">
+      <div class="cell rack">
+        <div class="bay on">
+          <div class="bh"><span>A1 · MODELL</span><span style="color:#6fd0e8">▶</span></div>
+          <div class="bn">@implementer</div>
+          <div class="bs">bash 0:08 · Turn 7</div>
+          <div class="lvl"><i style="width:62%"></i></div>
+        </div>
+        <div class="bay">
+          <div class="bh"><span>A2 · MODELL</span><span style="color:#e8b76f">△</span></div>
+          <div class="bn">@reviewer</div>
+          <div class="bs">Frage offen · 2:04</div>
+          <div class="lvl"><i class="s" style="width:22%"></i></div>
+        </div>
+        <div class="bay">
+          <div class="bh"><span>A3 · TS</span><span>○</span></div>
+          <div class="bn">@router</div>
+          <div class="bs">Queue leer</div>
+          <div class="lvl"><i style="width:0"></i></div>
+        </div>
+        <div class="bay empty">+ ACTOR</div>
+
+        <div class="bay">
+          <div class="bh"><span>M1 · MINI-APP</span><span>◆</span></div>
+          <div class="bn">Textanalyse</div>
+          <div class="bs">im Panel offen</div>
+        </div>
+        <div class="bay">
+          <div class="bh"><span>P1 · PLUGIN</span><span>◆</span></div>
+          <div class="bn">Tickets</div>
+          <div class="bs">Build 219 läuft</div>
+        </div>
+        <div class="bay empty">+ APP</div>
+        <div class="bay empty">+ PLUGIN</div>
+
+        <div class="bay empty">+ ACTOR</div>
+        <div class="bay empty">+ ACTOR</div>
+        <div class="bay empty">+ APP</div>
+        <div class="bay empty">+ DIENST</div>
+      </div>
+
+      <div class="cell side">
+        <div class="lbl">MATRIX</div>
+        <div class="mxrow"><span>turn.finished</span><em>▸</em><span>A2</span></div>
+        <div class="mxrow"><span>action.proposed</span><em>▸</em><span>Koord.</span></div>
+        <div class="mxrow"><span>artifact.publ.</span><em>▸</em><span>A3</span></div>
+        <div class="mxrow" style="opacity:.45;border-bottom:none"><span>— frei —</span><em>▸</em><span>—</span></div>
+
+        <div class="lbl" style="margin-top:12px">KOORDINATOR</div>
+        <div class="msg me">Baue den Rechnungsexport als CSV.</div>
+        <div class="msg">@implementer und @reviewer gestartet.</div>
+        <div style="background:#262a2f;border-radius:2px;padding:5px 7px;color:#6b7179;font-size:10.5px;margin-top:6px">Nachricht …</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="split">
+    <div>
+      <h4>Was die Abbildung ändert</h4>
+      <ul>
+        <li><b>Der leere Platz ist ein Angebot.</b> Neun gestrichelte Kästchen sagen genauer als jedes Menü, was hier hineinpasst: Actor, App, Plugin, Dienst. Das ist die beste Antwort auf „was kann dieses Werkzeug eigentlich?“, die eine Oberfläche geben kann.</li>
+        <li><b>Ein Run hat eine sichtbare Größe.</b> „3 von 12 Plätzen“ oben — man sieht, wie voll die Werkstatt ist, nicht nur was darin liegt.</li>
+        <li><b>Verdrahtung als Matrix rechts</b>, nicht als Kabel über der Fläche. Vier Zeilen statt zwölf Kurven.</li>
+        <li>Alles gleich groß, alles gleich wichtig — die Plätze sind austauschbar.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>Was es kostet</h4>
+      <ul>
+        <li>Eine feste Platzzahl ist willkürlich. Zwölf? Sechzehn? Und was passiert beim dreizehnten Actor — wächst das Raster, oder ist es voll?</li>
+        <li>Alles gleich groß heißt auch: das Wichtige bekommt nicht mehr Platz als das Nebensächliche.</li>
+        <li>Sehr technische Anmutung. Das ist eine Oberfläche für Leute, die gerne Systeme bauen — nicht für Leute, die schnell ein Ergebnis wollen.</li>
+      </ul>
+      <h4>Der eine Satz</h4>
+      <p class="small">Die ehrlichste Darstellung dessen, was RAgents ist: eine Werkbank mit Plätzen, die man selbst bestückt.</p>
+    </div>
+  </div>
+</section>
+
+<!-- v5 MASSIVE -->
+<section class="view" id="v5" hidden>
+  <div class="head">
+    <div class="eyebrow">05 · Native Instruments</div>
+    <h1>Massive</h1>
+    <div class="sub">Um jeden Regler liegt ein farbiger Ring. Er zeigt, welche Quelle darauf einwirkt und wie weit sie den Wert zieht. Der Einfluss steht am Objekt selbst — man muss nie nachschlagen, was woher kommt.</div>
+    <div class="quote"><b>„Massive and FM8 look superb“</b> — die Modulationsringe gelten als die klarste Lösung für das Problem, unsichtbare Verbindungen sichtbar zu machen.</div>
+    <div class="idea-line">IDEE → Ringe zeigen, was auf ein Ziel einwirkt</div>
+  </div>
+
+  <div class="mock ms">
+    <div class="top">
+      <span class="brand">RAgents</span>
+      <span class="pill">4711 · Rechnungsexport</span><span class="pill">feature/4711</span><span class="pill">glm-4.6</span>
+      <span class="pill" style="margin-left:auto">Turn 7 · 12 min</span>
+    </div>
+
+    <div class="disp">
+      <svg viewBox="0 0 900 74" preserveAspectRatio="none" style="position:absolute;left:12px;right:12px;top:9px;width:calc(100% - 24px);height:74px">
+        <g stroke="#1e2126" stroke-width="1"><path d="M0,18 H900"/><path d="M0,37 H900"/><path d="M0,56 H900"/></g>
+        <path d="M0,60 L70,60 L70,30 L180,30 L180,44 L300,44 L300,16 L470,16 L470,36 L600,36 L600,26 L740,26 L740,48 L900,48" fill="none" stroke="#ffb642" stroke-width="2"/>
+        <path d="M0,66 L120,66 L120,52 L340,52 L340,58 L900,58" fill="none" stroke="#5aa9f5" stroke-width="1.6" stroke-dasharray="7 5"/>
+      </svg>
+      <div style="position:absolute;left:14px;top:11px;font:600 8.5px/1 var(--mono);letter-spacing:.14em;color:#6d737c">AKTIVITÄT ÜBER 12 MINUTEN · DURCHGEZOGEN @IMPLEMENTER · GESTRICHELT @REVIEWER</div>
+    </div>
+
+    <div class="body">
+      <div class="cell stage">
+        <svg class="wires" viewBox="0 0 640 250" preserveAspectRatio="none">
+          <path d="M120,110 C170,110 178,88 214,88" fill="none" stroke="#ffb642" stroke-width="2"/>
+          <path d="M120,118 C176,118 178,186 214,186" fill="none" stroke="#5aa9f5" stroke-width="2" stroke-dasharray="7 4"/>
+        </svg>
+
+        <div class="halo" style="left:206px;top:56px;width:166px;height:66px;border:2px solid #ffb642;opacity:.8"></div>
+        <div class="halo" style="left:200px;top:50px;width:178px;height:78px;border:2px solid #ffb642;opacity:.28"></div>
+        <div class="node" style="left:214px;top:64px">
+          <div class="nh"><span>@implementer</span><span style="color:#ffb642">▶</span></div>
+          <div class="ns">bash 0:08 · Turn 7</div>
+          <div style="display:flex;gap:4px;margin-top:6px">
+            <span style="border-radius:2px;background:#3a2f18;color:#ffcf82;font:600 8.5px/1.5 var(--mono);padding:1px 6px">turn.finished ×14</span>
+          </div>
+        </div>
+        <div style="position:absolute;left:210px;top:132px;font:600 8px/1 var(--mono);color:#ffb642;letter-spacing:.08em">2 EINFLÜSSE · STARK</div>
+
+        <div class="halo" style="left:206px;top:156px;width:166px;height:60px;border:2px solid #5aa9f5;opacity:.55"></div>
+        <div class="node" style="left:214px;top:162px">
+          <div class="nh"><span>@reviewer</span><span style="color:#5aa9f5">△</span></div>
+          <div class="ns">Frage offen · 2:04</div>
+          <div style="display:flex;gap:4px;margin-top:6px">
+            <span style="border-radius:2px;background:#1c2c40;color:#a8ceff;font:600 8.5px/1.5 var(--mono);padding:1px 6px">artifact ×3</span>
+          </div>
+        </div>
+        <div style="position:absolute;left:210px;top:224px;font:600 8px/1 var(--mono);color:#5aa9f5;letter-spacing:.08em">1 EINFLUSS · SCHWACH</div>
+
+        <div class="node" style="left:16px;top:88px;width:104px">
+          <div class="nh"><span>@router</span><span>○</span></div>
+          <div class="ns">verteilt</div>
+        </div>
+        <div class="node" style="left:16px;top:176px;width:104px;opacity:.75">
+          <div class="nh"><span>Textanalyse</span></div>
+          <div class="ns">App</div>
+        </div>
+
+        <div style="position:absolute;right:10px;bottom:8px;font:600 8px/1 var(--mono);color:#666c75;letter-spacing:.1em">RINGDICKE = ANZAHL · RINGHELLIGKEIT = HÄUFIGKEIT</div>
+      </div>
+
+      <div class="cell side">
+        <div class="lbl">QUELLEN</div>
+        <div class="srcrow"><i style="background:#ffb642"></i>turn.finished<span style="margin-left:auto;color:#8d939c">×14</span></div>
+        <div class="srcrow"><i style="background:#5aa9f5"></i>artifact.published<span style="margin-left:auto;color:#8d939c">×3</span></div>
+        <div class="srcrow"><i style="background:#a58cf0"></i>action.proposed<span style="margin-left:auto;color:#8d939c">×2</span></div>
+        <div class="srcrow" style="opacity:.5"><i style="background:#4a5058"></i>tool.call.failed<span style="margin-left:auto">×0</span></div>
+
+        <div class="lbl" style="margin-top:12px">KOORDINATOR</div>
+        <div class="msg me">Baue den Rechnungsexport als CSV.</div>
+        <div class="msg">@implementer und @reviewer gestartet.</div>
+        <div style="background:#1f2227;border-radius:3px;padding:5px 7px;color:#6d737c;font-size:10.5px;margin-top:5px">Nachricht …</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="split">
+    <div>
+      <h4>Was die Abbildung ändert</h4>
+      <ul>
+        <li><b>Der Ring beantwortet die häufigste Frage.</b> „Warum läuft der schon wieder los?“ — weil zwei Subscriptions auf ihn wirken, und der dicke helle Ring sagt: die feuern oft. Das steht heute nur im Journal.</li>
+        <li><b>Dicke gleich Anzahl, Helligkeit gleich Häufigkeit.</b> Zwei Größen, beide ohne Farbe lesbar; die Farbe sagt nur, <em>welche</em> Quelle.</li>
+        <li><b>Der Zähler am Chip.</b> „turn.finished ×14“ auf der Karte — die Verbindung hat eine Vergangenheit, nicht nur eine Existenz.</li>
+        <li>Die große Kurve oben zeigt beide Actors über die Laufzeit; die Lücke im gestrichelten Verlauf ist die Blockade.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>Was es kostet</h4>
+      <ul>
+        <li>Ringe brauchen Platz um jede Karte herum. Auf einer dichten Fläche mit zehn Actors überlappen sie.</li>
+        <li>Zwei Ringe um dieselbe Karte gehen; vier werden zum Zwiebelmuster. Ab drei Quellen braucht es eine andere Darstellung.</li>
+      </ul>
+      <h4>Der eine Satz</h4>
+      <p class="small">Nimm den Ring, auch wenn der Rest nicht gewinnt: Er macht die unsichtbarste Eigenschaft unseres Systems sichtbar.</p>
+    </div>
+  </div>
+</section>
+
+<!-- v6 MONARK -->
+<section class="view" id="v6" hidden>
+  <div class="head">
+    <div class="eyebrow">06 · Native Instruments</div>
+    <h1>Monark</h1>
+    <div class="sub">Holzseiten, gebürstete Metallplatte, echte Kippschalter, eine Lampe. Kein Fenster, sondern ein Gerät, das auf dem Tisch steht — mit einer Reihe fester Bänke nebeneinander und einer Anzeige darunter.</div>
+    <div class="quote"><b>„Monark's interface is the best looking soft synth“</b> — im selben Thread, in dem Arturias Nachbauten als „tacky“ abgelehnt werden. Der Unterschied ist Zurückhaltung.</div>
+    <div class="idea-line">IDEE → Ein Instrument mit festen Bänken, kein Fenster</div>
+  </div>
+
+  <div class="mock mk">
+    <div class="plate">
+      <div class="top">
+        <span class="brand">RAgents</span>
+        <span class="lamp"></span>
+        <span class="pill">4711 · RECHNUNGSEXPORT</span>
+        <span class="pill">FEATURE/4711</span>
+        <span class="pill">GLM-4.6</span>
+        <span class="pill" style="margin-left:auto">12 MIN</span>
+      </div>
+
+      <div class="row">
+        <div class="bank">
+          <div class="lbl">Bank 1 · Actor</div>
+          <div class="name">@implementer</div>
+          <div class="stt">läuft · bash 0:08</div>
+          <div class="sw">
+            <span class="toggle up"></span><span class="tl">an</span>
+            <span class="toggle down" style="margin-left:7px"></span><span class="tl">solo</span>
+          </div>
+        </div>
+        <div class="bank">
+          <div class="lbl">Bank 2 · Actor</div>
+          <div class="name">@reviewer</div>
+          <div class="stt">wartet auf Antwort</div>
+          <div class="sw">
+            <span class="toggle up"></span><span class="tl">an</span>
+            <span class="toggle up" style="margin-left:7px"></span><span class="tl">solo</span>
+          </div>
+        </div>
+        <div class="bank">
+          <div class="lbl">Bank 3 · Verteiler</div>
+          <div class="name">@router</div>
+          <div class="stt">ruht · Queue 0</div>
+          <div class="sw">
+            <span class="toggle down"></span><span class="tl">an</span>
+            <span class="toggle down" style="margin-left:7px"></span><span class="tl">solo</span>
+          </div>
+        </div>
+        <div class="bank">
+          <div class="lbl">Bank 4 · App</div>
+          <div class="name">Textanalyse</div>
+          <div class="stt">im Panel offen</div>
+          <div class="sw">
+            <span class="toggle up"></span><span class="tl">an</span>
+            <span class="toggle down" style="margin-left:7px"></span><span class="tl">solo</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="lower">
+        <div class="conv">
+          <div class="lbl">Koordinator</div>
+          <div class="msg me">Baue den Rechnungsexport als CSV.</div>
+          <div class="msg">Ich habe @implementer und @reviewer gestartet.</div>
+          <div class="msg" style="border-left:3px solid #6f7c8c">△ @reviewer fragt: Welches CSV-Trennzeichen?</div>
+          <div style="background:#26292d;border:1px solid #1d2023;border-radius:2px;padding:5px 7px;color:#8b9099;font-size:10.5px;margin-top:6px">Nachricht …</div>
+        </div>
+        <div class="scope">
+          <div class="lbl">Anzeige · Aktivität und Blockade</div>
+          <div class="glass">
+            <svg viewBox="0 0 620 104" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%">
+              <g stroke="#1f2225" stroke-width="1"><path d="M0,26 H620"/><path d="M0,52 H620"/><path d="M0,78 H620"/></g>
+              <path d="M0,84 L48,84 L48,40 L130,40 L130,58 L210,58 L210,22 L330,22 L330,46 L420,46 L420,32 L520,32 L520,62 L620,62" fill="none" stroke="#e0a13c" stroke-width="1.8"/>
+              <path d="M0,92 L90,92 L90,70 L240,70" fill="none" stroke="#8fb8e8" stroke-width="1.5"/>
+              <path d="M240,70 L620,70" fill="none" stroke="#8fb8e8" stroke-width="1.5" stroke-dasharray="6 5" opacity=".7"/>
+              <rect x="240" y="0" width="380" height="104" fill="#8fb8e8" opacity=".05"/>
+            </svg>
+            <div style="position:absolute;left:8px;top:6px;font:600 8px/1 var(--mono);letter-spacing:.12em;color:#7d838c">DURCHGEZOGEN BANK 1 · SCHMAL BANK 2 · GESTRICHELT = BLOCKIERT</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="split">
+    <div>
+      <h4>Was die Abbildung ändert</h4>
+      <ul>
+        <li><b>Feste Bänke nebeneinander statt Karten auf einer Fläche.</b> Vier Plätze in einer Reihe, immer gleich breit. Das Gerät hat eine Form, die sich nicht ändert, egal was darin läuft.</li>
+        <li><b>An und Solo als echte Schalter.</b> „Solo“ ist der interessante Teil: nur diesen Actor laufen lassen, alle anderen still — das gibt es heute nicht, aber ein Mischpult hat es immer.</li>
+        <li><b>Eine Anzeige für alles.</b> Statt je Karte ein kleines Bild: ein Fenster unten, in dem die Bänke übereinanderliegen. Die gestrichelte Linie ist die Blockade.</li>
+        <li>Zustand steht in Text und Linienart, die Lampe ist nur Beiwerk.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>Was es kostet</h4>
+      <ul>
+        <li>Vier Bänke, fertig. Ein fünfter Actor passt nicht — es sei denn, das Gerät bekommt eine zweite Reihe, und dann ist die schöne Form dahin.</li>
+        <li>Genau hier lauert das „tacky“ aus den Foren. Holz und Metall funktionieren nur, wenn sie zurückhaltend bleiben; ein Schatten zu viel und es kippt.</li>
+        <li>Verläufe und Fasen sind Handarbeit und altern schneller als flache Flächen.</li>
+      </ul>
+      <h4>Der eine Satz</h4>
+      <p class="small">Der „Solo“-Schalter ist die beste Idee, die aus dieser Vorlage herausfällt — und die funktioniert auch ohne Holz.</p>
+    </div>
+  </div>
+</section>
+
+<!-- v7 DEXED -->
+<section class="view" id="v7" hidden>
+  <div class="head">
+    <div class="eyebrow">07 · Dexed, nach dem Yamaha DX7</div>
+    <h1>Algorithmus statt Verdrahtung</h1>
+    <div class="sub">Sechs gleiche Operatoren nebeneinander, und darüber ein kleines Diagramm, das zeigt, wer wen moduliert. Die Verdrahtung ist keine Bastelei, sondern eine von 32 nummerierten Vorlagen, die man durchblättert.</div>
+    <div class="quote"><b>„One of the best UIs on a free plugin“</b> — sauberer Look, einfache Bedienung; macht FM-Synthese deutlich weniger kopfschmerzig.</div>
+    <div class="idea-line">IDEE → Team-Topologien als nummerierte Algorithmen</div>
+  </div>
+
+  <div class="mock dx">
+    <div class="top">
+      <span class="brand">RAgents</span>
+      <span class="pill">4711 · Rechnungsexport</span><span class="pill">feature/4711</span><span class="pill">glm-4.6</span>
+      <span class="pill" style="margin-left:auto">Turn 7 · 12 min</span>
+    </div>
+
+    <div class="algo">
+      <div class="algobox">
+        <span style="font-size:16px;color:#5b636b">◂</span>
+        <span class="algonum">04</span>
+        <svg viewBox="0 0 150 46" style="width:150px;height:46px">
+          <rect x="2" y="2" width="30" height="14" fill="#fff" stroke="#1d5fa8" stroke-width="1.6"/>
+          <text x="17" y="12.5" font-size="9" text-anchor="middle" fill="#1d5fa8" font-family="monospace">KO</text>
+          <rect x="58" y="2" width="30" height="14" fill="#fff" stroke="#1d5fa8" stroke-width="1.6"/>
+          <text x="73" y="12.5" font-size="9" text-anchor="middle" fill="#1d5fa8" font-family="monospace">A1</text>
+          <rect x="58" y="28" width="30" height="14" fill="#fff" stroke="#a8641a" stroke-width="1.6"/>
+          <text x="73" y="38.5" font-size="9" text-anchor="middle" fill="#a8641a" font-family="monospace">A2</text>
+          <rect x="112" y="15" width="30" height="14" fill="#fff" stroke="#4c545c" stroke-width="1.6"/>
+          <text x="127" y="25.5" font-size="9" text-anchor="middle" fill="#4c545c" font-family="monospace">A3</text>
+          <path d="M32,9 L58,9 M32,11 L58,33 M88,9 L112,20 M88,35 L112,26" stroke="#4c545c" stroke-width="1.3" fill="none"/>
+        </svg>
+        <span style="font-size:16px;color:#5b636b">▸</span>
+      </div>
+      <div style="font-size:11.5px;line-height:1.4">
+        <b style="font-family:var(--display);font-size:13px;color:#12161a">Umsetzer und Prüfer, gestaffelt</b><br>
+        <span style="color:#4c545c">Koordinator beauftragt A1 und A2. A2 startet erst, wenn A1 fertig meldet. Beide melden an A3, der verteilt.</span>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+        <span class="pill">01 Einzeln</span><span class="pill">02 Kette</span><span class="pill">03 Stern</span>
+        <span class="pill" style="background:#1d5fa8;border-color:#1d5fa8;color:#fff;font-weight:600">04 Gestaffelt</span>
+        <span class="pill">05 Wettbewerb</span><span class="pill">…</span>
+      </div>
+    </div>
+
+    <div class="ops">
+      <div class="op on">
+        <div class="oh"><span class="on2">OP 1</span><span class="os">MODELL</span></div>
+        <div class="oname">@implementer</div>
+        <div class="os">bash · dotnet build · 0:08</div>
+        <div class="sl"><i style="width:62%"></i></div>
+        <div class="os" style="margin-top:4px">Turn 7 · 4 Dateien · 2 Todo</div>
+      </div>
+      <div class="op on">
+        <div class="oh"><span class="on2" style="color:#a8641a">OP 2</span><span class="os">MODELL</span></div>
+        <div class="oname">@reviewer</div>
+        <div class="os">△ fragt: Trennzeichen?</div>
+        <div class="sl"><i class="s" style="width:22%"></i></div>
+        <div class="os" style="margin-top:4px">blockiert seit 2:04</div>
+      </div>
+      <div class="op">
+        <div class="oh"><span class="on2" style="color:#4c545c">OP 3</span><span class="os">TYPESCRIPT</span></div>
+        <div class="oname">@router</div>
+        <div class="os">ruht · Queue 0</div>
+        <div class="sl"><i style="width:0"></i></div>
+        <div class="os" style="margin-top:4px">2 Subscriptions</div>
+      </div>
+      <div class="op" style="background:#d2d5d9">
+        <div class="oh"><span class="on2" style="color:#8d939a">OP 4</span><span class="os">FREI</span></div>
+        <div class="oname" style="color:#6c747c">—</div>
+        <div class="os">Der Algorithmus sieht drei Plätze vor</div>
+      </div>
+    </div>
+
+    <div class="low">
+      <div class="cell conv">
+        <div class="lbl">KOORDINATOR</div>
+        <div class="msg me">Baue den Rechnungsexport als CSV.</div>
+        <div class="msg">Algorithmus 04 gewählt: gestaffelt. @implementer und @reviewer besetzt.</div>
+        <div style="background:#eceef0;border:1px solid #b6bbc1;border-radius:2px;padding:5px 7px;color:#77808a;font-size:10.5px;margin-top:5px">Nachricht …</div>
+      </div>
+      <div class="cell journal">
+        <div class="lbl">JOURNAL</div>
+        <div style="font-family:var(--mono);font-size:9.5px;line-height:1.7;color:#39414a">
+          <div>312 &nbsp;tool.call.completed &nbsp;OP1 &nbsp;bash</div>
+          <div>311 &nbsp;turn.started &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;OP1 &nbsp;in-14</div>
+          <div style="color:#a8641a">310 &nbsp;action.proposed &nbsp;&nbsp;&nbsp;OP2 &nbsp;Frage an Owner</div>
+          <div>309 &nbsp;turn.finished &nbsp;&nbsp;&nbsp;&nbsp;OP1 &nbsp;usage 812/140</div>
+          <div style="color:#1d5fa8">308 &nbsp;subscription.created &nbsp;OP2 ◂ turn.finished</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="split">
+    <div>
+      <h4>Was die Abbildung ändert</h4>
+      <ul>
+        <li><b>Die Verdrahtung wird ein Katalog.</b> Statt jedes Mal von Hand <code>agent_spawn</code> plus <code>event_subscribe</code> zusammenzustecken, wählt man eine von etwa zehn benannten Topologien: einzeln, Kette, Stern, gestaffelt, Wettbewerb. Das Diagramm zeigt sie, die Pfeile sind die Subscriptions.</li>
+        <li><b>Der Algorithmus bestimmt die Plätze.</b> Nummer 04 hat drei Operatoren, also drei Kästchen — das vierte ist sichtbar nicht vorgesehen. Die Form folgt der gewählten Struktur.</li>
+        <li><b>Alle Actors sehen gleich aus.</b> Gleiche Breite, gleiche Felder, gleiche Reihenfolge. Vergleichen wird trivial.</li>
+        <li><b>Hell und flach.</b> Von den zehn die einzige, die aussieht wie ein Werkzeug aus einem Labor, nicht aus einem Club.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>Was es kostet</h4>
+      <ul>
+        <li>Die Topologien muss jemand entwerfen und benennen. Zehn gute sind mehr Arbeit als eine freie Fläche — dafür sind sie danach für jeden Run da.</li>
+        <li>Was tun, wenn ein Run von der Vorlage abweicht? Der DX7 kannte keine freie Verdrahtung. Wir bräuchten mindestens „Algorithmus 00: frei“.</li>
+        <li>Sechs graue Kästen sind nicht schön. Das ist Funktionsgestaltung ohne jede Verführung.</li>
+      </ul>
+      <h4>Der eine Satz</h4>
+      <p class="small">Die überraschendste Idee der zehn — und die einzige, die nicht nur die Oberfläche betrifft, sondern die Art, wie man ein Team überhaupt zusammenstellt.</p>
+    </div>
+  </div>
+</section>
+
+<!-- v8 PADSHOP -->
+<section class="view" id="v8" hidden>
+  <div class="head">
+    <div class="eyebrow">08 · Steinberg</div>
+    <h1>Padshop</h1>
+    <div class="sub">Granularsynthese: der Klang ist eine Wolke aus tausenden kleinen Körnern, und die Oberfläche zeigt genau das — leuchtende Punkte in einem dunklen Raum, deren Dichte und Bahn man einstellt.</div>
+    <div class="quote"><b>„Padshop Pro has a look that grabs attention“</b> — die Visualisierung ist nicht Dekoration, sondern zeigt das Material selbst.</div>
+    <div class="idea-line">IDEE → Das Journal als Partikelwolke, ein Punkt je Ereignis</div>
+  </div>
+
+  <div class="mock pd">
+    <div class="top">
+      <span class="brand">RAgents</span>
+      <span class="pill">4711 · Rechnungsexport</span><span class="pill">feature/4711</span><span class="pill">314 Events</span>
+      <span class="pill" style="margin-left:auto">12 min</span>
+    </div>
+    <div class="body">
+      <div class="cell cloud" id="pd-cloud">
+        <div class="lane" style="top:64px"></div>
+        <div class="lane" style="top:132px"></div>
+        <div class="lane" style="top:200px"></div>
+        <div class="lanelbl" style="top:52px">@IMPLEMENTER</div>
+        <div class="lanelbl" style="top:120px">@REVIEWER</div>
+        <div class="lanelbl" style="top:188px">@ROUTER · APP</div>
+        <div style="position:absolute;right:12px;top:12px;font:600 8.5px/1.5 var(--mono);letter-spacing:.1em;color:#5f7796;text-align:right">
+          GRÖSSE = DAUER<br>HELLIGKEIT = FRISCHE<br>FORM = ART
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:26px;background:linear-gradient(0deg,#070c17,transparent)"></div>
+        <div style="position:absolute;left:12px;bottom:7px;font:600 8.5px/1 var(--mono);letter-spacing:.1em;color:#6b83a3">◂ 12 MIN &nbsp;·&nbsp; JETZT ▸</div>
+      </div>
+
+      <div class="cell side">
+        <div class="lbl">UNTER DEM ZEIGER</div>
+        <div class="msg me">Sequence 310 · action.proposed</div>
+        <div class="msg">@reviewer fragt: Welches CSV-Trennzeichen soll gelten?</div>
+        <div style="display:flex;gap:5px;margin-top:5px"><span style="border:1px solid #1e3050;border-radius:999px;padding:2px 9px;font-size:9.5px">Semikolon</span><span style="border:1px solid #1e3050;border-radius:999px;padding:2px 9px;font-size:9.5px">Komma</span></div>
+
+        <div class="lbl" style="margin-top:13px">DICHTE JE BAHN</div>
+        <div style="font-size:10.5px;color:#8fa5c2;line-height:1.8">
+          <div>@implementer &nbsp;<b style="color:#bfe9ff">187</b> Events</div>
+          <div>@reviewer &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b style="color:#ffc978">44</b> Events</div>
+          <div>@router / App &nbsp;<b style="color:#c9bcf5">83</b> Events</div>
+        </div>
+
+        <div class="lbl" style="margin-top:13px">KOORDINATOR</div>
+        <div class="msg">Ich habe @implementer und @reviewer gestartet.</div>
+        <div style="background:#111c2f;border-radius:6px;padding:6px 8px;color:#6b83a3;font-size:10.5px;margin-top:5px">Nachricht …</div>
+      </div>
+    </div>
+    <div class="foot">
+      <span>Ein Punkt ist ein Event im Journal</span><span>Bahn = Actor</span><span>Waagerecht = Zeit</span><span>Lücke = Blockade</span>
+    </div>
+  </div>
+
+  <div class="split">
+    <div>
+      <h4>Was die Abbildung ändert</h4>
+      <ul>
+        <li><b>Ein Run bekommt einen Rhythmus.</b> Dichte Trauben sind Arbeit, weite Lücken sind Warten. Man erkennt an der Form, ob ein Run gut lief, ohne eine Zahl zu lesen — bei @reviewer sieht man die Lücke ab der Frage sofort.</li>
+        <li><b>Das Journal wird zum ersten Mal ansehbar.</b> 314 Events sind als Liste unlesbar und als Wolke ein Bild.</li>
+        <li><b>Der Zeiger ersetzt die Suche.</b> Auf einen Punkt zeigen heißt: dieses Ereignis rechts im Klartext, mit seinen Knöpfen.</li>
+        <li>Größe, Helligkeit und Form tragen drei Größen ohne eine einzige Farbcodierung.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>Was es kostet</h4>
+      <ul>
+        <li>Schön, aber ungenau. Man kann darin nichts abzählen und nichts genau treffen — für die eigentliche Arbeit braucht es die Werkstatt daneben.</li>
+        <li>Bei 5 000 Events wird die Wolke zur Fläche. Es braucht Zoom und Verdichtung, sonst kippt es in Rauschen.</li>
+        <li>Eine Ansicht, die nur schaut. Verändern kann man hier nichts außer der offenen Frage.</li>
+      </ul>
+      <h4>Der eine Satz</h4>
+      <p class="small">Das beste Startbild der zehn — und die Ansicht, die man einem Fremden zeigt, um zu erklären, was hier eigentlich passiert.</p>
+    </div>
+  </div>
+</section>
+
+<!-- v9 SYNTHMASTER -->
+<section class="view" id="v9" hidden>
+  <div class="head">
+    <div class="eyebrow">09 · KV331 Audio</div>
+    <h1>SynthMaster</h1>
+    <div class="sub">Sehr viel Information, aber in vier ruhigen Spalten mit dünnen Trennlinien und einer Reiterzeile darüber. Dieselbe Dichte wie Avenger, nur sortiert statt gestapelt.</div>
+    <div class="quote"><b>„Elegant and well laid out“</b> — gilt als Beweis, dass viele Parameter nicht automatisch Unordnung bedeuten.</div>
+    <div class="idea-line">IDEE → Dichte in Spalten, jede Spalte ein Thema</div>
+  </div>
+
+  <div class="mock sm">
+    <div class="top">
+      <span class="brand">RAgents</span>
+      <span class="tab on">RUN</span><span class="tab">ACTORS</span><span class="tab">EREIGNISSE</span><span class="tab">WERKSTATT</span><span class="tab">JOURNAL</span>
+      <span class="pill" style="margin-left:auto">4711 · feature/4711 · glm-4.6</span>
+    </div>
+    <div class="cols">
+      <div class="cell col">
+        <div class="lbl">ACTOR · @IMPLEMENTER</div>
+        <div class="kv"><b>Zustand</b><span class="hi">läuft</span></div>
+        <div class="kv"><b>Werkzeug</b><span>bash · 0:08</span></div>
+        <div class="kv"><b>Turn</b><span>7</span></div>
+        <div class="kv"><b>Modell</b><span>glm-4.6</span></div>
+        <div class="kv"><b>Dateien</b><span>4 geändert</span></div>
+        <div class="kv"><b>Todos</b><span>2 offen</span></div>
+        <div class="kv"><b>Abos</b><span>2</span></div>
+        <div class="kv" style="border-bottom:none"><b>Verbrauch</b><span>52 k</span></div>
+      </div>
+
+      <div class="cell col">
+        <div class="lbl">ACTOR · @REVIEWER</div>
+        <div class="kv"><b>Zustand</b><span class="hi">wartet auf dich</span></div>
+        <div class="kv"><b>Frage</b><span>Trennzeichen?</span></div>
+        <div class="kv"><b>Offen seit</b><span>2:04</span></div>
+        <div class="kv"><b>Modell</b><span>glm-4.6</span></div>
+        <div class="kv"><b>Gelesen</b><span>Diff, 3 Dateien</span></div>
+        <div class="kv"><b>Turn</b><span>3</span></div>
+        <div class="kv"><b>Abos</b><span>1</span></div>
+        <div class="kv" style="border-bottom:none"><b>Verbrauch</b><span>19 k</span></div>
+      </div>
+
+      <div class="cell col">
+        <div class="lbl">EREIGNISSE</div>
+        <div class="kv"><b>turn.finished</b><span>×14 ▸ @reviewer</span></div>
+        <div class="kv"><b>action.proposed</b><span>×2 ▸ Koordinator</span></div>
+        <div class="kv"><b>artifact.publ.</b><span>×3 ▸ @router</span></div>
+        <div class="kv"><b>tool.call.failed</b><span>×0</span></div>
+        <div class="lbl" style="margin-top:13px">WERKSTATT</div>
+        <div class="kv"><b>Textanalyse</b><span>App offen</span></div>
+        <div class="kv"><b>Tickets</b><span>Build 219</span></div>
+        <div class="kv" style="border-bottom:none"><b>Dienste</b><span>vite :5173</span></div>
+      </div>
+
+      <div class="cell col">
+        <div class="lbl">RUN</div>
+        <div class="kv"><b>Titel</b><span>Rechnungsexport</span></div>
+        <div class="kv"><b>Branch</b><span>feature/4711</span></div>
+        <div class="kv"><b>Läuft seit</b><span>12 min</span></div>
+        <div class="kv"><b>Actors</b><span>3 · davon 2 aktiv</span></div>
+        <div class="kv"><b>Events</b><span>314</span></div>
+        <div class="kv"><b>Fragen</b><span class="hi">2 offen</span></div>
+        <div class="kv"><b>Verbrauch</b><span>81 k</span></div>
+        <div class="kv" style="border-bottom:none"><b>Profil</b><span>produkt</span></div>
+      </div>
+
+      <div class="cell col">
+        <div class="lbl">KOORDINATOR</div>
+        <div class="msg me">Baue den Rechnungsexport als CSV.</div>
+        <div class="msg">Ich habe @implementer und @reviewer gestartet und die Fläche angeordnet.</div>
+        <div class="msg" style="border-left:3px solid #6f7885">△ Antwort nötig: Trennzeichen?</div>
+        <div style="background:#262b33;border-radius:3px;padding:5px 7px;color:#78818e;font-size:10.5px;margin-top:6px">Nachricht …</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="split">
+    <div>
+      <h4>Was die Abbildung ändert</h4>
+      <ul>
+        <li><b>Jede Spalte ein Thema, jede Zeile ein Wertepaar.</b> Immer dieselbe Form: links fett der Name, rechts der Wert. Man lernt das Muster einmal und liest danach alles.</li>
+        <li><b>Zwei Actors nebeneinander im direkten Vergleich.</b> Gleiche Zeilen in gleicher Reihenfolge — Unterschiede springen ins Auge, weil alles andere identisch aussieht.</li>
+        <li><b>Reiter für die Tiefe.</b> Fünf Reiter oben statt fünf Bereiche gleichzeitig: das ist der Unterschied zu Avenger bei gleicher Informationsmenge.</li>
+        <li>Gold als einziger Akzent, nur für „braucht Aufmerksamkeit“ — sonst trägt reine Typografie.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>Was es kostet</h4>
+      <ul>
+        <li>Eine Spalte je Actor skaliert nicht. Bei sechs Actors braucht es Scrollen oder eine andere Aufteilung.</li>
+        <li>Tabellen zeigen Zustände gut und Verläufe gar nicht. Der zeitliche Ablauf eines Runs fehlt hier vollständig.</li>
+        <li>Auch das ist eine Oberfläche, die niemand hübsch findet — sie ist nur sehr gut lesbar.</li>
+      </ul>
+      <h4>Der eine Satz</h4>
+      <p class="small">Wenn Avenger die Wand ist, ist das hier das Regal: dieselben Dinge, aber man findet sie.</p>
+    </div>
+  </div>
+</section>
+
+<!-- v10 DIVA -->
+<section class="view" id="v10" hidden>
+  <div class="head">
+    <div class="eyebrow">10 · u-he</div>
+    <h1>Diva</h1>
+    <div class="sub">Feste Schächte in einer Metallplatte — aber der Inhalt jedes Schachts ist austauschbar. Oben im Titel wählt man, welches Bauteil dort steckt, und die Bedienelemente darunter wechseln mit.</div>
+    <div class="quote"><b>„The spirit of analogue“</b> — dieselbe Firma wie Zebra2, entgegengesetzte Haltung: hier bewusst Material, dort bewusst keins.</div>
+    <div class="idea-line">IDEE → Schächte mit Wahlschalter im Titel</div>
+  </div>
+
+  <div class="mock dv">
+    <div class="panelbg">
+      <div class="top">
+        <span class="brand">RAgents</span>
+        <span class="pill">4711 · RECHNUNGSEXPORT</span>
+        <span class="pill">FEATURE/4711</span>
+        <span class="pill">GLM-4.6</span>
+        <span class="pill" style="margin-left:auto">■ STOP</span>
+      </div>
+
+      <div class="bays">
+        <div class="bay">
+          <div class="lbl">Schacht 1</div>
+          <div class="selector"><b>Modell-Actor</b><span>▾ TS-Actor · App · Dienst</span></div>
+          <div class="row2">
+            <div class="knob"><div class="kd p2"></div><div class="kl">TEMP<br>0.7</div></div>
+            <div class="info">
+              <div class="n">@implementer</div>
+              <div class="s">läuft · bash 0:08</div>
+              <div class="s" style="margin-top:5px">Turn 7 · 4 Dateien · 2 Todo</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bay">
+          <div class="lbl">Schacht 2</div>
+          <div class="selector"><b>Modell-Actor</b><span>▾ TS-Actor · App · Dienst</span></div>
+          <div class="row2">
+            <div class="knob"><div class="kd p1"></div><div class="kl">TEMP<br>0.3</div></div>
+            <div class="info">
+              <div class="n">@reviewer</div>
+              <div class="s">wartet auf Antwort</div>
+              <div class="s" style="margin-top:5px">△ Trennzeichen? · 2:04</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bay">
+          <div class="lbl">Schacht 3</div>
+          <div class="selector"><b>TypeScript-Actor</b><span>▾ Modell · App · Dienst</span></div>
+          <div class="row2">
+            <div class="knob"><div class="kd p3"></div><div class="kl">ABOS<br>2</div></div>
+            <div class="info">
+              <div class="n">@router</div>
+              <div class="s">ruht · Queue 0</div>
+              <div class="s" style="margin-top:5px">turn.finished, artifact</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lower">
+        <div class="conv">
+          <div class="lbl">Koordinator</div>
+          <div class="msg me">Baue den Rechnungsexport als CSV.</div>
+          <div class="msg">Ich habe Schacht 1 und 2 mit Modell-Actors besetzt.</div>
+          <div class="msg" style="border-left:3px solid #8f959d">Nebenbei · CSV-Regeln: Punkt, 2 Stellen, ISO</div>
+          <div style="background:#33373d;border:1px solid #292c31;border-radius:2px;padding:5px 7px;color:#8f959d;font-size:10.5px;margin-top:6px">Nachricht …</div>
+        </div>
+        <div class="scope">
+          <div class="lbl">Schacht 1 · Verlauf</div>
+          <div class="win">
+            <svg viewBox="0 0 600 110" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%">
+              <g stroke="#24282c" stroke-width="1"><path d="M0,28 H600"/><path d="M0,55 H600"/><path d="M0,82 H600"/></g>
+              <path d="M0,90 L46,90 L46,44 L124,44 L124,62 L204,62 L204,24 L322,24 L322,50 L412,50 L412,34 L508,34 L508,66 L600,66" fill="none" stroke="#d8b26a" stroke-width="1.8"/>
+              <rect x="508" y="0" width="92" height="110" fill="#d8b26a" opacity=".08"/>
+            </svg>
+            <div style="position:absolute;left:8px;top:6px;font:600 8px/1 var(--mono);letter-spacing:.12em;color:#8f959d">READ · EDIT ×4 · BASH · TEST WARTET</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="split">
+    <div>
+      <h4>Was die Abbildung ändert</h4>
+      <ul>
+        <li><b>Der Schacht ist fest, der Inhalt ist frei.</b> Drei Plätze, immer gleich groß — aber jeder kann ein Modell-Actor, ein TypeScript-Actor, eine Mini-App oder ein Dienst sein. Der Wahlschalter im Titel macht das explizit.</li>
+        <li><b>Die Bedienung wechselt mit dem Typ.</b> Ein Modell-Actor zeigt Temperatur, ein TypeScript-Actor die Zahl der Abos. Gleicher Rahmen, anderer Inhalt — genau so tauscht Diva ihre Oszillator-Bänke.</li>
+        <li><b>Ein Regler je Schacht, nicht zehn.</b> Der wichtigste Parameter bekommt einen echten Knopf, alles andere ist Text.</li>
+        <li>Material bleibt dezent: eine Metallplatte, ein Bernsteinstrich am Regler, dunkle Anzeigefenster. Kein Holz, keine Schrauben.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>Was es kostet</h4>
+      <ul>
+        <li>Drei Schächte sind wenig, und der Wahlschalter verführt zum Umkonfigurieren statt zum Arbeiten.</li>
+        <li>Drehregler sind im Web mit Tastatur und Screenreader mühsam. Der eine Knopf je Schacht müsste zusätzlich als Zahlenfeld bedienbar sein.</li>
+        <li>Auch hier lauert das Foren-Urteil „skeuomorph und tacky“, wenn man das Material eine Stufe zu weit treibt.</li>
+      </ul>
+      <h4>Der eine Satz</h4>
+      <p class="small">Die eleganteste Antwort auf unsere eigentliche Frage: wie zeigt man drei völlig verschiedene Arten von Actors in einer Form, ohne sie gleichzumachen?</p>
+    </div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+(function(){
+  var views = Array.prototype.slice.call(document.querySelectorAll('section.view'));
+  var btns  = Array.prototype.slice.call(document.querySelectorAll('.nav button'));
+  var KEY = 'ragents-synthui-view';
+
+  function show(id){
+    views.forEach(function(v){ v.hidden = (v.id !== id); });
+    btns.forEach(function(b){ b.setAttribute('aria-selected', String(b.dataset.view === id)); });
+    try { localStorage.setItem(KEY, id); } catch(e){}
+    window.scrollTo(0,0);
+  }
+  btns.forEach(function(b){ b.addEventListener('click', function(){ show(b.dataset.view); }); });
+  document.querySelectorAll('.pick').forEach(function(p){
+    p.addEventListener('click', function(){ show(p.dataset.go); });
+  });
+  document.addEventListener('keydown', function(e){
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var t = e.target; if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    var cur = btns.findIndex(function(b){ return b.getAttribute('aria-selected') === 'true'; });
+    if (e.key === 'ArrowRight' && cur < btns.length - 1){ e.preventDefault(); show(btns[cur+1].dataset.view); }
+    if (e.key === 'ArrowLeft'  && cur > 0){ e.preventDefault(); show(btns[cur-1].dataset.view); }
+  });
+
+  // Padshop: Partikelwolke aus dem "Journal" streuen
+  var cloud = document.getElementById('pd-cloud');
+  if (cloud){
+    var lanes = [
+      {y:64,  n:120, col:'#7fd8ff', bright:'#bfe9ff', gapFrom:null},
+      {y:132, n:44,  col:'#ffc978', bright:'#ffe0b0', gapFrom:.58},
+      {y:200, n:70,  col:'#b9a9f0', bright:'#d8ccff', gapFrom:null}
+    ];
+    var rnd = function(seed){ var s = seed; return function(){ s = (s*16807) % 2147483647; return s/2147483647; }; };
+    var r = rnd(4711);
+    lanes.forEach(function(L){
+      for (var i=0;i<L.n;i++){
+        var x = r();
+        if (L.gapFrom && x > L.gapFrom && x < .96) continue;   // Blockade = Lücke
+        var d = document.createElement('div');
+        d.className = 'p';
+        var size = 2 + r()*5;
+        var fresh = x;
+        d.style.left = (5 + x*84) + '%';
+        d.style.top  = (L.y + (r()-.5)*34) + 'px';
+        d.style.width = size + 'px';
+        d.style.height = size + 'px';
+        d.style.background = fresh > .8 ? L.bright : L.col;
+        d.style.opacity = String(.28 + fresh*.62);
+        if (r() > .88){ d.style.borderRadius = '2px'; }        // Form = Art des Events
+        cloud.appendChild(d);
+      }
+    });
+  }
+
+  function openFragment(){
+    var start = location.hash.slice(1);
+    if (!start) { try { start = localStorage.getItem(KEY) || ''; } catch(e){} }
+    if (!views.some(function(view){ return view.id === start; })) start = 'v0';
+    show(start);
+  }
+  window.addEventListener('hashchange', openFragment);
+  openFragment();
+})();
+</script>
+</body>
+</html>

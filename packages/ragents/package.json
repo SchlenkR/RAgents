@@ -1,0 +1,30 @@
+{
+  "name": "@aicontainer/ragents",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./src/*": "./src/*",
+    "./tests/*": "./tests/*"
+  },
+  "engines": {
+    "node": ">=22.23.0"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "check": "pnpm run typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@aicontainer/agent-core": "workspace:*",
+    "@aicontainer/ai": "workspace:*"
+  },
+  "dependencies": {
+    "@aicontainer/agent": "workspace:*",
+    "@types/node": "^24.10.0",
+    "typebox": "1.1.38",
+    "typescript": "^5.9.0",
+    "yaml": "^2.9.0"
+  }
+}

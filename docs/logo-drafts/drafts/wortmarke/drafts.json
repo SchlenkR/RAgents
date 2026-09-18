@@ -1,0 +1,79 @@
+[
+  {
+    "file": "01-node-network-r.png",
+    "title": "R aus Knoten und Kanten",
+    "concept": "Das R ist komplett aus Knotenpunkten und Verbindungslinien gezeichnet und macht das Agentennetz direkt zur Buchstabenform. Verspielt im Detail, aber streng genug, um als Marke zu tragen.",
+    "prompt": "Flat vector logo mark: a bold geometric letter R constructed entirely from a node-and-edge network, small filled circles as nodes connected by straight thin lines that trace the silhouette of the capital letter R. Clean minimal tech logo, pure white background, colors bright blue #2a94fa for nodes and dark ink #223347 for edges, centered, generous margin, no text, crisp and legible at small size.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "02-speech-bubble-r.png",
+    "title": "R als Sprechblase",
+    "concept": "Eine blaue Sprechblase, deren Negativraum das R bildet - der Koordinator im Chat als Bildzeichen. Die Innenform des R ist selbst wieder eine kleine Blase, was die Verschachtelung von Agenten andeutet.",
+    "prompt": "Flat vector logo: a rounded chat speech bubble whose interior negative space forms a clean capital letter R. Solid bright blue #2a94fa bubble with a small tail at the bottom left, the letter R punched out in pure white. Minimal geometric app icon, pure white background, centered, no extra text, very legible at 24 pixels.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "03-branching-r.png",
+    "title": "R mit Verzweigungen",
+    "concept": "Das Bein des R läuft in drei Orchestrierungslinien aus, die in blauen Punkten enden - Delegation als Bewegung im Buchstaben. Feine Linienführung, wirkt eher wie ein Diagramm als wie ein Icon.",
+    "prompt": "Flat vector monogram logo: capital letter R in dark ink #223347 where the diagonal leg of the R splits into three branching orchestration lines that fan out to the right and end in small blue #2a94fa dots, like a flow chart branching out of the letter. Minimal, geometric, thick even strokes, pure white background, no text, centered.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "04-wordmark-blue-r.png",
+    "title": "Schriftzug mit blauem R",
+    "concept": "Reine Wortmarke: RAgents in einer geometrischen Grotesk, das R in Akzentblau abgesetzt und leicht überhöht. Der schlichteste, am besten skalierende Kandidat für Kopfzeile und Dokumente.",
+    "prompt": "Flat vector wordmark logo, the text reads exactly RAgents, one single word, spelled R A g e n t s. Modern geometric sans serif, the capital R rendered in bright blue #2a94fa and slightly larger, the rest Agents in dark ink #223347. Perfect kerning, correct spelling, pure white background, centered horizontally, nothing else in the image.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "05-negative-space-tile.png",
+    "title": "R im Negativraum",
+    "concept": "Dunkle Kachel, aus der das R als weißer Negativraum ausgeschnitten ist; die Punze des R ist ein Knoten mit kurzer Kante. Maximal robust als Tab-Icon, weil nur zwei Flächen unterschieden werden müssen.",
+    "prompt": "Flat vector logo: a solid dark ink #223347 rounded square tile with a capital letter R carved out as negative space in white, and the counter of the R hole shaped like a small circular node with a short connector line. Bold minimal app icon, pure white background around the tile, no text, extremely legible at tiny size.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "06-constructed-grid-r.png",
+    "title": "Konstruiertes R",
+    "concept": "Das R aus Kreis, Senkrechter und Diagonale, mit sichtbaren Konstruktionslinien im gedeckten Blaugrau. Zeigt die Werkstatt-Idee: das Logo als etwas, das man selbst zusammenbaut.",
+    "prompt": "Flat vector constructed monogram: capital letter R built from precise geometric primitives, a circle, a vertical bar and a diagonal bar, drawn on a faint grid with visible construction circles. Bright blue #2a94fa and dark ink #223347 with muted blue grey #7692ad guide lines, Bauhaus style, pure white background, no text, centered.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "07-handwritten-script.png",
+    "title": "Handschriftlicher Schriftzug",
+    "concept": "RAgents als schwungvolle Pinselschrift mit großem blauem R - die persönlichste Variante, weil das R für Ronald selbst steht. Trägt den verspielten Ton, ist aber klein nur eingeschränkt lesbar.",
+    "prompt": "Flat vector logo, handwritten brush lettering, the text reads exactly RAgents as one single word with a large expressive capital R in bright blue #2a94fa and the rest of the letters in dark ink #223347. Friendly playful signature style with one smooth ink stroke, correct spelling, pure white background, centered, nothing else.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "08-retro-badge.png",
+    "title": "Retro-Badge",
+    "concept": "Rundes Emblem mit R in der Mitte, RAgents oben im Bogen und Punkten am unteren Ring. Werkstatt- und Community-Anmutung, gut für Sticker und den PXL-JAM-artigen Auftritt.",
+    "prompt": "Flat vector retro badge logo: a circular emblem in dark ink #223347 with a bright blue #2a94fa inner ring, in the center a bold capital R, and the text reads exactly RAgents curved along the top inside the ring. Small dots along the bottom of the ring. Vintage workshop badge, clean flat two color print look, correct spelling, pure white background, centered.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "09-mark-wordmark-lockup.png",
+    "title": "Lockup aus Zeichen und Wortmarke",
+    "concept": "Blaue Kachel mit einem R aus Knoten und Kanten links, daneben der Schriftzug RAgents in dunkler Tinte. Die praktischste Variante, weil sich die Kachel allein als Favicon abtrennen lässt.",
+    "prompt": "Flat vector lockup logo: on the left a compact square mark showing a capital R whose bowl is a circular node with three short edges radiating to small dots, on the right the text reads exactly RAgents in a modern geometric sans serif dark ink #223347. Mark in bright blue #2a94fa. Correct spelling, pure white background, horizontally centered, nothing else.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "10-dark-mode-monogram.png",
+    "title": "Dark-Mode-Monogramm",
+    "concept": "Blaues R auf dunkler Tinte, die Punze wird zum leuchtenden Knoten, eine feine blaugraue Kanallinie schleift aus dem Bein heraus. Gegenprobe, ob die Marke im Dark Mode ohne Umbau funktioniert.",
+    "prompt": "Flat vector monogram on a dark background: deep ink #223347 square canvas with a bold capital letter R in bright blue #2a94fa, the counter of the R replaced by a glowing circular node and a thin muted blue grey #7692ad channel line looping out of the letter leg and back. Minimal dark mode app icon, no text, centered, sharp edges.",
+    "model": "recraft_v4_1 (vector)"
+  },
+  {
+    "file": "11-watermark-r-stack.png",
+    "title": "Schriftzug vor großem R",
+    "concept": "Ein übergroßes blaues R steht als Wasserzeichen hinter dem Wort RAgents, beide Ebenen überlagern sich. Ergibt einen kräftigen Blickfang für Titelseiten, aus dem sich das R als Solozeichen ableiten lässt.",
+    "prompt": "Flat vector stacked wordmark logo: the text reads exactly RAgents in a bold modern geometric sans serif dark ink #223347, and the capital R is drawn oversized in bright blue #2a94fa behind the word as a large transparent watermark letter. Two layers, clean, correct spelling, pure white background, centered, nothing else.",
+    "model": "recraft_v4_1 (vector)"
+  }
+]

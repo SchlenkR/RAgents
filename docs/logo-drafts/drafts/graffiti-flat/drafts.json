@@ -1,0 +1,62 @@
+[
+  {
+    "file": "01-slab-charcoal.png",
+    "title": "Knochenweiße Slabs auf Kohle",
+    "concept": "Massive Slab-Buchstaben mit stumpfen Enden und schwarzem Schattenkörper, links ein flächiger Schädel mit schräger Augenhöhle. Flächig statt spitz, wirkt schwer statt hektisch.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "02-flat-white-black.png",
+    "title": "Flach Weiß auf Schwarz",
+    "concept": "Nur weiße Flächen, schwarze Konturen, ein grauer Versatz dahinter. Buchstaben stark abstrahiert und ineinandergeschoben, der Schädel ist Teil des Blocks.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "03-slate-orange.png",
+    "title": "Schiefer mit Orange und Oliv",
+    "concept": "Ruhige Rechtecke in Orange und Oliv im Hintergrund, weiße Blockbuchstaben mit dunkelrotem Schattenkörper, links ein facettierter Schädel. Die ausgewogenste Fassung im Satz.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "04-bone-on-red.png",
+    "title": "Knochen auf Blutrot",
+    "concept": "Dunkelrote Flächen, sehr fette knochenweiße Blockbuchstaben, großer flächiger Schädel links. Am wuchtigsten, dafür bricht das Wort in zwei Zeilen.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "05-monolith-black.png",
+    "title": "Monolith in Grau",
+    "concept": "Reine Flächen ohne Kontur, Grauwerte gegeneinander gesetzt, Buchstaben fast zu Symbolen reduziert. Am abstraktesten und zugleich ruhig.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "06-blackbook-slabs.png",
+    "title": "Blackbook, fette Slabs",
+    "concept": "Marker-Zeichnung auf Papier, breite stumpfe Buchstabenkörper mit dicker Outline. Gute Vorlage für eine Vektorisierung, die Buchstaben sind aber runder als gewünscht.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "07-blue-seams-grid.png",
+    "title": "Stahlplatten mit blauer Naht",
+    "concept": "Dunkle Platten mit dünnen blauen Nahtlinien, Maschinenschädel mit blauem Rechteckauge. Kühl, industriell, sehr zurückhaltend.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "08-stencil-two-tone.png",
+    "title": "Schablone, zweifarbig",
+    "concept": "Nur Schwarz und Weiß, keine Textur, keine Verläufe. Buchstaben und Schädel bilden eine einzige Fläche - der beste Kandidat für ein einfarbiges Logo oder Favicon.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "09-sand-grey-planes.png",
+    "title": "Schwarz auf Sand und Grau",
+    "concept": "Große gedämpfte Rechtecke im Hintergrund, tiefschwarze Buchstaben mit weißem Versatz, heller Schädel links. Ruhig und erwachsen, sehr gut lesbar.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "10-blue-offset-machine.png",
+    "title": "Blauer Versatz, halbe Maschine",
+    "concept": "Graue Platten als Grund, hellgraue Buchstaben mit blauem Versatzkörper, Schädel halb Knochen halb Maschine. Trägt das Markenblau und bleibt trotzdem schwer.",
+    "model": "gpt_image_2"
+  }
+]

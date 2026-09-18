@@ -1,0 +1,16 @@
+{
+  "name": "shared-list",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Gemeinsame Liste",
+    "description": "Sammelt Texte aus der App und aus einem Agenten-Werkzeug in einer gemeinsamen Liste.",
+    "backend": "src/server.ts",
+    "views": [
+      {
+        "id": "main",
+        "client": "src/client.tsx"
+      }
+    ]
+  }
+}

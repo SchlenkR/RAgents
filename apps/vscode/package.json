@@ -1,0 +1,246 @@
+{
+  "name": "ragents-vscode",
+  "displayName": "RAgents",
+  "description": "Explorer und Arbeitsspalte für einen laufenden RAgents-Server.",
+  "version": "0.1.0",
+  "private": true,
+  "publisher": "schlenkr",
+  "engines": {
+    "vscode": "^1.134.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ragents-explorer",
+          "title": "RAgents",
+          "icon": "media/ragents.svg"
+        }
+      ],
+      "secondarySidebar": [
+        {
+          "id": "ragents-column",
+          "title": "RAgents",
+          "icon": "media/ragents.svg"
+        }
+      ]
+    },
+    "views": {
+      "ragents-explorer": [
+        {
+          "id": "ragents.explorer",
+          "name": "Runs",
+          "icon": "media/ragents.svg",
+          "contextualTitle": "RAgents"
+        }
+      ],
+      "ragents-column": [
+        {
+          "type": "webview",
+          "id": "ragents.column",
+          "name": "Arbeitsspalte",
+          "icon": "media/ragents.svg",
+          "contextualTitle": "RAgents"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "ragents.newRun",
+        "title": "Neuer Run",
+        "category": "RAgents",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ragents.refresh",
+        "title": "Aktualisieren",
+        "category": "RAgents",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "ragents.connect",
+        "title": "Erneut verbinden",
+        "category": "RAgents",
+        "icon": "$(debug-disconnect)"
+      },
+      {
+        "command": "ragents.login",
+        "title": "Anmelden",
+        "category": "RAgents",
+        "icon": "$(sign-in)"
+      },
+      {
+        "command": "ragents.logout",
+        "title": "Abmelden",
+        "category": "RAgents",
+        "icon": "$(sign-out)"
+      },
+      {
+        "command": "ragents.openRun",
+        "title": "Run öffnen",
+        "category": "RAgents"
+      },
+      {
+        "command": "ragents.openRunInBrowser",
+        "title": "Im Browser öffnen",
+        "category": "RAgents",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "ragents.stopRun",
+        "title": "Run stoppen",
+        "category": "RAgents",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "ragents.openAppInCenter",
+        "title": "Mini-App in die Mitte",
+        "category": "RAgents",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "ragents.moveAppToColumn",
+        "title": "Mini-App nach rechts",
+        "category": "RAgents",
+        "icon": "$(layout-sidebar-right)"
+      },
+      {
+        "command": "ragents.openArtifact",
+        "title": "Datei öffnen",
+        "category": "RAgents"
+      },
+      {
+        "command": "ragents.openJournal",
+        "title": "Journal öffnen",
+        "category": "RAgents"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "ragents.newRun",
+          "when": "view == ragents.explorer && ragents.connected",
+          "group": "navigation@1"
+        },
+        {
+          "command": "ragents.refresh",
+          "when": "view == ragents.explorer",
+          "group": "navigation@2"
+        },
+        {
+          "command": "ragents.login",
+          "when": "view == ragents.explorer && ragents.loginRequired",
+          "group": "navigation@3"
+        },
+        {
+          "command": "ragents.logout",
+          "when": "view == ragents.explorer && ragents.loggedIn",
+          "group": "account@1"
+        },
+        {
+          "command": "ragents.connect",
+          "when": "view == ragents.explorer",
+          "group": "account@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "ragents.openRunInBrowser",
+          "when": "view == ragents.explorer && viewItem == run",
+          "group": "inline@1"
+        },
+        {
+          "command": "ragents.stopRun",
+          "when": "view == ragents.explorer && viewItem == run",
+          "group": "run@1"
+        },
+        {
+          "command": "ragents.openRunInBrowser",
+          "when": "view == ragents.explorer && viewItem == run",
+          "group": "run@2"
+        },
+        {
+          "command": "ragents.openAppInCenter",
+          "when": "view == ragents.explorer && viewItem == app-column",
+          "group": "inline@1"
+        },
+        {
+          "command": "ragents.moveAppToColumn",
+          "when": "view == ragents.explorer && viewItem == app-center",
+          "group": "inline@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "ragents.openRun",
+          "when": "false"
+        },
+        {
+          "command": "ragents.openRunInBrowser",
+          "when": "false"
+        },
+        {
+          "command": "ragents.stopRun",
+          "when": "false"
+        },
+        {
+          "command": "ragents.openAppInCenter",
+          "when": "false"
+        },
+        {
+          "command": "ragents.moveAppToColumn",
+          "when": "false"
+        },
+        {
+          "command": "ragents.openArtifact",
+          "when": "false"
+        },
+        {
+          "command": "ragents.openJournal",
+          "when": "false"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "RAgents",
+      "properties": {
+        "ragents.serverUrl": {
+          "type": "string",
+          "default": "http://localhost:4710",
+          "description": "Adresse des laufenden RAgents-Servers, etwa http://localhost:4710 für das Profil core."
+        },
+        "ragents.theme": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "light",
+            "dark"
+          ],
+          "default": "auto",
+          "description": "Darstellung der Spalte: auto folgt dem Farbschema von VS Code."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "package": "pnpm build && pnpm dlx @vscode/vsce package --no-dependencies --allow-missing-repository --skip-license",
+    "test:host": "node tests/host/launch.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/vscode": "^1.134.0",
+    "esbuild": "0.28.2",
+    "eventsource-parser": "^4.1.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0"
+  }
+}

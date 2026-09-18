@@ -1,0 +1,21 @@
+/* Host entry: full Tailwind including preflight; the theme carries all tokens, the components carry their classes. */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./theme.css";
+@source "../../../../plugins/*/web/**/*";
+@source "../../../../plugins/*/client-ui/**/*";
+
+@layer base {
+    html, body, #root {
+        height: 100%;
+    }
+
+    body {
+        overflow: hidden;
+        scrollbar-width: none;
+    }
+
+    ::-webkit-scrollbar {
+        display: none;
+    }
+}

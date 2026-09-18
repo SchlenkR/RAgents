@@ -1,0 +1,72 @@
+[
+  {
+    "file": "01-star-topology.png",
+    "title": "Stern mit Satelliten",
+    "concept": "Ein blauer Knoten in der Mitte führt sechs dunkle Knoten über kurze Kanäle. Das ist die Koordinator-Rolle in ihrer reinsten Form: einer hält das Netz, viele arbeiten daran.",
+    "prompt": "Flat vector logo mark on pure white background. A radial star topology: one solid filled circle at the center connected by straight thin lines to six smaller circles arranged evenly around it. Geometric, precise, minimal, only two colors: bright blue #2a94fa and dark ink #223347. No gradients, no shading, no text, no letters. Centered, generous white space, icon suitable for a 24 pixel favicon.",
+    "model": "recraft_v4_1 (model_type: vector)"
+  },
+  {
+    "file": "02-linked-circles.png",
+    "title": "Verkettete Kreise",
+    "concept": "Drei ineinandergreifende Ringe als Dreieck: Agenten, die nicht nebeneinanderstehen, sondern miteinander verhakt sind. Keiner ist Zentrum, die Verbindung selbst ist die Aussage.",
+    "prompt": "Flat vector logo mark on pure white background. Three interlocking chain-link circles forming a compact triangular cluster, drawn as clean uniform-width outlines only. Geometric, minimal, only two colors: bright blue #2a94fa and dark ink #223347. No gradients, no shading, no text, no letters. Centered, symmetrical, icon suitable for a 24 pixel favicon.",
+    "model": "recraft_v4_1 (model_type: vector)"
+  },
+  {
+    "file": "03-folded-branch.png",
+    "title": "Gefaltete Bahn mit Verzweigung",
+    "concept": "Eine dicke Bahn mit rechtwinkligen Faltungen läuft los und teilt sich in zwei Zweige, die in Punkten enden. Ein Ablauf, der irgendwann delegiert, statt alles selbst zu Ende zu gehen.",
+    "prompt": "Flat vector logo mark on pure white background. A single thick folded path with right-angle turns, like a circuit trace, that splits into two branches ending in small solid dots. Clean rounded line caps, uniform stroke width. Only two colors: bright blue #2a94fa and dark ink #223347. No gradients, no shading, no text, no letters. Centered, minimal, icon suitable for a 24 pixel favicon.",
+    "model": "recraft_v4_1 (model_type: vector)"
+  },
+  {
+    "file": "04-dot-ring.png",
+    "title": "Punktring mit Führung",
+    "concept": "Acht gleichmäßige Punkte auf einem Kreis, einer davon deutlich größer. Gleichrangige Knoten in einem Ring, aus dem heraus einer die Runde anstößt.",
+    "prompt": "Flat vector logo mark on pure white background. A ring composed of eight evenly spaced small solid dots, with one dot noticeably larger and highlighted. Perfectly circular arrangement, geometric, minimal. Only two colors: bright blue #2a94fa and dark ink #223347. No gradients, no shading, no text, no letters. Centered, icon suitable for a 24 pixel favicon.",
+    "model": "recraft_v4_1 (model_type: vector)"
+  },
+  {
+    "file": "05-hex-grid.png",
+    "title": "Hexagon-Raster",
+    "concept": "Sechs offene Waben um eine gefüllte Mitte. Eine Werkstatt mit festen Zellen, in der eine gerade aktiv ist; wächst optisch beliebig weiter.",
+    "prompt": "Flat vector logo mark on pure white background. A cluster of seven hexagons in a honeycomb arrangement, six as thin outlines and the central one solid filled. Sharp geometric edges, uniform stroke width, minimal. Only two colors: bright blue #2a94fa and dark ink #223347. No gradients, no shading, no text, no letters. Centered, icon suitable for a 24 pixel favicon.",
+    "model": "recraft_v4_1 (model_type: vector)"
+  },
+  {
+    "file": "06-event-waves.png",
+    "title": "Wellen als Ereignisstrom",
+    "concept": "Drei parallele Wellenlinien mit Punkten auf den Wellenbergen. Das Journal als laufender Strom, in dem einzelne Ereignisse sichtbar sitzen.",
+    "prompt": "Flat vector logo mark on pure white background. Three parallel horizontal wavy lines of uniform thickness stacked vertically, with small solid dots sitting on the crests like events on a stream. Clean geometric sine waves, minimal. Only two colors: bright blue #2a94fa and dark ink #223347. No gradients, no shading, no text, no letters. Centered inside a square, icon suitable for a 24 pixel favicon.",
+    "model": "recraft_v4_1 (model_type: vector)"
+  },
+  {
+    "file": "07-bracket-node.png",
+    "title": "Klammer und Knoten",
+    "concept": "Zwei kräftige Klammern, dazwischen ein einzelner Punkt. Code als Rahmen, der Agent als das, was darin gehalten wird; ruhig und stark auch bei 24 Pixeln.",
+    "prompt": "Flat vector logo mark on pure white background. Two facing square bracket shapes drawn as thick geometric strokes, with a single solid circle floating centered between them. Minimal, precise, only two colors: bright blue #2a94fa and dark ink #223347. No gradients, no shading, no text, no letters, no typography. Centered, icon suitable for a 24 pixel favicon.",
+    "model": "recraft_v4_1 (model_type: vector)"
+  },
+  {
+    "file": "08-origami-arrow.png",
+    "title": "Origami-Pfeil",
+    "concept": "Ein Vorwärts-Chevron aus zwei gefalteten Flächen, hell und dunkel. Bewegung und Richtung ohne Netzmetaphorik, für den Fall dass es schlicht zupacken soll.",
+    "prompt": "Flat vector logo mark on pure white background. An origami style arrow made of two flat folded paper facets forming a forward chevron, one facet bright blue and one dark ink, crisp straight fold lines. Minimal geometric, only two colors: bright blue #2a94fa and dark ink #223347. No gradients, no shading, no text, no letters. Centered, icon suitable for a 24 pixel favicon.",
+    "model": "recraft_v4_1 (model_type: vector)"
+  },
+  {
+    "file": "09-journal-timeline.png",
+    "title": "Journal als Zeitstrahl",
+    "concept": "Eine senkrechte Linie mit vier Ereignisknoten, aus der ein Zweig seitlich abgeht. Das gemeinsame Journal, das an einer Stelle einen Agenten abspaltet.",
+    "prompt": "Flat vector logo mark on pure white background. A vertical timeline: one straight thick line with four small solid square nodes on it, and one short branch line splitting off to the right ending in a circle. Like a journal of events. Geometric, minimal, only two colors: bright blue #2a94fa and dark ink #223347. No gradients, no shading, no text, no letters. Centered, icon suitable for a 24 pixel favicon.",
+    "model": "recraft_v4_1 (model_type: vector)"
+  },
+  {
+    "file": "10-orbit-rings.png",
+    "title": "Bahnen um einen Kern",
+    "concept": "Ein gefüllter Kern, zwei dünne Bahnen darum, drei Punkte darauf. Orchestrierung als Umlauf: der Koordinator hält die Mitte, die Agenten kreisen auf ihren Bahnen.",
+    "prompt": "Flat vector logo mark on pure white background. A solid circle at the center with two thin concentric orbit rings around it, and three small solid dots sitting on the rings. Geometric, minimal, precise. Only two colors: bright blue #2a94fa and dark ink #223347. No gradients, no shading, no text, no letters. Centered, icon suitable for a 24 pixel favicon.",
+    "model": "recraft_v4_1 (model_type: vector)"
+  }
+]

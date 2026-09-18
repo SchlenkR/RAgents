@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="de" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Actors und Nachrichten: öffentliche Referenz und Beispiele für RAgents."><title>Actors und Nachrichten - RAgents</title><link rel="describedby" href="llms.txt"><link rel="alternate" type="text/markdown" href="guide-runtime.md"><style>/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+:root, :host {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+:root {
+  color-scheme: light;
+  --radius: 0.5rem;
+  --background: #f3f2f7;
+  --foreground: #34303d;
+  --card: #e7eaf2;
+  --primary: #79638d;
+  --primary-foreground: #ffffff;
+  --secondary: #e1ddeb;
+  --muted-foreground: #62586e;
+  --accent: #dcd0e8;
+  --destructive: #a94360;
+  --destructive-soft: #f5e1e9;
+  --success: #3b705f;
+  --success-soft: #e1eee8;
+  --warning: #925d37;
+  --warning-soft: #f3e4d8;
+  --info: #4b648a;
+  --teal: #356c70;
+  --border: #c9c4d5;
+  --border-soft: #dad6e3;
+  --border-strong: #a397b2;
+  --shell: #cbd6e4;
+  --app: #dce3ed;
+  --canvas: #e8e2e6;
+  --canvas-dot: #79aab43b;
+  --canvas-glow-mint: #92cfbfad;
+  --canvas-glow-blue: #8bbfe5a6;
+  --canvas-light: #ffffffb3;
+  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
+        radial-gradient(ellipse at 4% 88%, #9ccfc5b3, transparent 58%),
+        radial-gradient(ellipse at 96% 12%, #9ec6e4b3, transparent 56%),
+        radial-gradient(ellipse at 28% 0%, #c4b0dfb3, transparent 58%),
+        radial-gradient(ellipse at 88% 100%, #efd3c6a6, transparent 52%),
+        linear-gradient(135deg, #edf0f2, #e1dbe8);
+  --backdrop: #28213966;
+  --glass-agent: #eec4b1;
+  --glass-primary: #dcd0e8;
+  --glass-script: #e9dca1;
+  --glass-app: #e7edf2;
+  --glass-edge: #a498aa;
+  --glass-icon: #e8dfed;
+  --glass-head: #ede5ef;
+  --glass-group: #e7edf240;
+  --bar-shadow: 0 2px 5px #49384e14, 0 8px 20px #49384e12;
+  --status-shadow: 0 -2px 5px #49384e14, 0 -8px 20px #49384e12;
+  --pop-shadow: 0 12px 36px #49384e26;
+  --card-shadow: 0 12px 22px #49384e2c;
+  --workspace-shadow: -2px 0 5px #49384e14, -8px 0 20px #49384e1f;
+  --glass-icon-shadow: 1px 2px 4px #51465725;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #292735;
+  --foreground: #e9e2ed;
+  --card: #2b303e;
+  --primary: #bda6cf;
+  --primary-foreground: #2d2235;
+  --secondary: #373247;
+  --muted-foreground: #b6a9bd;
+  --accent: #4b3d59;
+  --destructive: #ffa2b0;
+  --destructive-soft: #482d3b;
+  --success: #8dceae;
+  --success-soft: #233f37;
+  --warning: #e7bd81;
+  --warning-soft: #43382b;
+  --info: #9dbade;
+  --teal: #8ec9c4;
+  --border: #555065;
+  --border-soft: #403c50;
+  --border-strong: #8e809f;
+  --shell: #242e40;
+  --app: #212632;
+  --canvas: #29232e;
+  --canvas-dot: #7cafbc30;
+  --canvas-glow-mint: #317d686b;
+  --canvas-glow-blue: #417daa80;
+  --canvas-light: #80bfc71f;
+  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
+        radial-gradient(ellipse at 4% 88%, #2c625e99, transparent 58%),
+        radial-gradient(ellipse at 96% 12%, #355674a6, transparent 56%),
+        radial-gradient(ellipse at 28% 0%, #59446f99, transparent 58%),
+        radial-gradient(ellipse at 88% 100%, #694c443d, transparent 52%),
+        linear-gradient(135deg, #252b35, #302735);
+  --backdrop: #14101eb3;
+  --glass-agent: #594039;
+  --glass-primary: #47394f;
+  --glass-script: #4d462b;
+  --glass-app: #303943;
+  --glass-edge: #8a7994;
+  --glass-icon: #47394f;
+  --glass-head: #39303f;
+  --glass-group: #bda6cf08;
+  --bar-shadow: 0 2px 5px #00000033, 0 8px 20px #00000040;
+  --status-shadow: 0 -2px 5px #00000033, 0 -8px 20px #00000040;
+  --pop-shadow: 0 12px 36px #00000055;
+  --card-shadow: 0 12px 22px #00000055;
+  --workspace-shadow: -2px 0 5px #00000033, -8px 0 20px #0000004d;
+  --glass-icon-shadow: 1px 2px 4px #00000040;
+}
+@layer base {
+  body {
+    background: var(--app);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+}
+
+
+*{box-sizing:border-box}body{margin:0;background:var(--app);color:var(--foreground);font:16px/1.65 var(--font-sans)}a{color:#1467b0;text-underline-offset:4px}a:hover{color:var(--foreground)}:focus-visible{outline:3px solid var(--primary);outline-offset:4px}main,body>footer{padding-block:24px}nav{display:flex;gap:12px 24px;flex-wrap:wrap}h1{font-size:clamp(38px,7vw,66px);line-height:1.1;letter-spacing:-.04em;margin:16px 0 24px}h2{font-size:30px;line-height:1.2;margin:0 0 20px;letter-spacing:-.02em}h3{font-size:20px;line-height:1.4}p{max-width:76ch}.intro{padding:36px 0 44px}.eyebrow{font:12px var(--font-mono);text-transform:uppercase;letter-spacing:.1em}.lead{font-size:20px;line-height:1.6}.stats{font:13px var(--font-mono);margin:24px 0}.section-nav{border-top:1px solid var(--border);padding:20px 0}main>section{padding:44px 0;border-top:1px solid var(--border)}article{min-width:0;padding:24px 0;border-top:1px solid var(--border-soft)}article h3{margin:0 0 8px;overflow-wrap:anywhere}.meta,.example-context{font:12px/1.7 var(--font-mono);color:#536b80;overflow-wrap:anywhere}details{margin:14px 0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--background)}summary{cursor:pointer;padding:12px 16px;font-weight:600}details>p,details>div,details>table{margin:16px}pre{max-width:100%;overflow:auto;padding:20px;background:var(--card);font:12px/1.7 var(--font-mono);tab-size:2;margin:0}code{font-family:var(--font-mono);font-size:.9em;overflow-wrap:anywhere}pre code{font-size:inherit;overflow-wrap:normal}label{display:block;font-weight:600;margin-bottom:6px}input[type=search],select{font:inherit;color:inherit;border:1px solid var(--border);border-radius:6px;background:var(--background);padding:10px 12px;max-width:100%}input[type=search]{width:100%}.tool-label{display:block;font-size:13px;font-weight:400;color:#536b80;margin-top:3px}[data-tool]{padding:0;border:0}[data-tool]>details{margin:8px 0}[data-tool]>details>a{display:inline-block;margin:0 16px 16px}[data-tool]>details>details{margin:16px}.filter-row{display:flex;gap:16px;flex-wrap:wrap;align-items:end}.filter-row>div:first-child{flex:1;min-width:min(280px,100%)}.note{padding:16px 20px;background:var(--card);border-left:3px solid var(--primary)}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--border);padding:10px;overflow-wrap:anywhere}th{font-weight:600}.table-wrap{overflow:auto}body>footer{padding-top:30px;padding-bottom:60px;border-top:1px solid var(--border)}[hidden]{display:none!important}@media(max-width:600px){h2{font-size:26px}main>section{padding:32px 0}pre{padding:14px;font-size:11px}.lead{font-size:18px}}
+</style><style>
+.guide-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:44px;align-items:start;padding-block:12px 32px}.guide-sidebar{position:sticky;top:calc(var(--header-height,80px) + 16px);max-height:calc(100dvh - var(--header-height,80px) - 32px);overflow:auto}.guide-chapters{display:grid;gap:16px;font-size:13px;line-height:1.4}.guide-chapters a{display:block;padding:6px 10px;text-decoration:none;border-radius:6px}.guide-nav-group{display:grid;gap:2px}.guide-nav-group>p{margin:0 10px 4px;font-size:11px;font-weight:700;color:#536b80}.guide-chapters [aria-current]{background:var(--card);color:var(--foreground);font-weight:600}.guide-mobile-nav{display:none}.guide-body{padding:0;border:0}.guide-title{margin:0 0 20px}.guide-title h1{font-size:32px;line-height:1.2;letter-spacing:-.025em;margin:6px 0 10px}.guide-title p{margin:0;font-size:15px}.guide-title .eyebrow{font-size:11px}.guide-body h2{font-size:24px;margin-top:32px;scroll-margin-top:20px}.guide-body h3{margin-top:24px}.guide-body pre{margin:20px 0}.guide-body li{margin-block:8px}.guide-body table{display:block;overflow:auto}.guide-body blockquote{margin-inline:0;padding:8px 20px;border-left:3px solid var(--primary);background:var(--card)}.guide-source{margin-top:40px;font-size:13px;color:#536b80}.guide-next{justify-content:space-between;border-top:1px solid var(--border);padding:20px 0;margin-top:24px}.guide-index{max-width:80ch;padding-left:24px}.guide-index li{padding:8px 0 16px 8px;border-bottom:1px solid var(--border)}.guide-index h2{font-size:20px;margin:0 0 6px}.guide-index p{margin-block:0}.guide-page-nav{margin:0 0 24px;font-size:13px}.guide-page-nav summary{padding:8px 12px}.guide-page-nav nav{display:grid;gap:8px;padding:4px 12px 12px}@media(max-width:850px){.guide-layout{grid-template-columns:1fr;gap:18px;padding-top:0}.guide-sidebar{display:none}.guide-mobile-nav{display:block;margin:0}.guide-mobile-nav summary{padding:10px 12px;font-size:14px}.guide-mobile-nav .guide-chapters{padding:0 12px 12px}.guide-title h1{font-size:28px}.guide-body h2{margin-top:28px}}@media print{.guide-layout{display:block}.guide-sidebar,.guide-mobile-nav,.guide-next{display:none}}
+</style><link rel="stylesheet" href="site.css"><script src="site.js" defer></script></head><body><a class="skip" href="#main">Zum Inhalt</a><header class="masthead shell">
+    <a class="brand" href="index.html#main" aria-label="RAgents, zum Anfang"><svg class="brand-icon" viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect width="28" height="28" rx="8" fill="currentColor"/><path d="M8 19V9h6a3 3 0 0 1 0 6H8m6 0 5 4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>RAgents</a>
+    <nav aria-label="Hauptnavigation">
+      <a href="index.html">Produkt</a>
+      <a href="guide.html" aria-current="page">Guide</a>
+      <a href="reference.html#samples">Samples</a>
+      <a href="reference.html">Referenz</a>
+    </nav>
+  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide-Navigation"><a href="guide.html">Orientierung</a><div class="guide-nav-group"><p>Verstehen</p><a href="guide-ideas.html">Grundideen</a><a href="guide-runtime.html" aria-current="page">Actors und Nachrichten</a></div><div class="guide-nav-group"><p>Ausprobieren</p><a href="guide-getting-started.html">Samples starten</a><a href="reference.html#samples">Startbare Samples</a></div><div class="guide-nav-group"><p>Selbst bauen</p><a href="guide-functions.html">Mit TypeScript arbeiten</a><a href="guide-programs.html">Mini-Apps bauen</a><a href="guide-extensions.html">Plugins und Skills</a></div><div class="guide-nav-group"><p>Nachschlagen</p><a href="guide-access.html">Rechte vergeben</a><a href="reference.html#tools">Funktionen</a><a href="reference.html#ui">UI-Bausteine</a><a href="developer.html">Erweiterungsverträge</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Actors und Nachrichten</summary><nav class="guide-chapters" aria-label="Guide-Navigation"><a href="guide.html">Orientierung</a><div class="guide-nav-group"><p>Verstehen</p><a href="guide-ideas.html">Grundideen</a><a href="guide-runtime.html" aria-current="page">Actors und Nachrichten</a></div><div class="guide-nav-group"><p>Ausprobieren</p><a href="guide-getting-started.html">Samples starten</a><a href="reference.html#samples">Startbare Samples</a></div><div class="guide-nav-group"><p>Selbst bauen</p><a href="guide-functions.html">Mit TypeScript arbeiten</a><a href="guide-programs.html">Mini-Apps bauen</a><a href="guide-extensions.html">Plugins und Skills</a></div><div class="guide-nav-group"><p>Nachschlagen</p><a href="guide-access.html">Rechte vergeben</a><a href="reference.html#tools">Funktionen</a><a href="reference.html#ui">UI-Bausteine</a><a href="developer.html">Erweiterungsverträge</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Actors und Nachrichten</h1><p>Runs, Actors, Nachrichten, Turns und Journal bilden die gemeinsame Laufzeit.</p></header><details class="guide-page-nav"><summary>Auf dieser Seite</summary><nav aria-label="Auf dieser Seite"><a href="#runs-und-teilnehmer">Runs und Teilnehmer</a><a href="#scheduler-und-turn">Scheduler und Turn</a><a href="#modellkontext-über-mehrere-turns">Modellkontext über mehrere Turns</a><a href="#actor-stoppen-run-stoppen-und-server-beenden">Actor stoppen, Run stoppen und Server beenden</a><a href="#actors-inputs-events-und-subscriptions">Actors, Inputs, Events und Subscriptions</a><a href="#id-handle-und-erneutes-anlegen">ID, Handle und erneutes Anlegen</a><a href="#subagenten-ausstatten">Subagenten ausstatten</a><a href="#journal-und-projektion">Journal und Projektion</a></nav></details><h2 id="runs-und-teilnehmer">Runs und Teilnehmer</h2>
+<p>Ein Run ist eine Unterhaltung mit eigenen Teilnehmern, Arbeitsdateien und einem Journal.
+Ein Actor ist ein Teilnehmer dieses Runs: der menschliche Owner, ein LLM-Agent oder ein
+TypeScript-Actor. LLM-Agenten bearbeiten Aufträge mit einem Modell; TypeScript-Actors führen
+ihren programmierten Input-Handler aus. Der als Primary ausgewählte Actor ist der direkte
+Chatpartner des Benutzers. Diese Auswahl ist unabhängig davon, wer andere Actors angelegt hat.</p>
+<p>Ein ActorInput ist ein Auftrag an genau einen ausführbaren Actor. Ein Turn ist die Bearbeitung
+genau dieses Inputs. Ein Event hält einen geschehenen Vorgang fest, etwa eine Modellantwort
+oder einen Funktionsaufruf. Diese Begriffe trennen Auftrag, Ausführung und aufgezeichnetes Ergebnis.</p>
+<p>Native Hintergrundaufträge können <code>presentation: &quot;background&quot;</code> tragen. Sie werden normal
+eingereiht, dem Actor vollständig zugestellt und im Journal erhalten. Hauptchat und
+Actor-Gespräch zeigen den internen Auftrag nicht; die Antwort bleibt sichtbar. Das gilt
+auch beim Wiederherstellen des Verlaufs. Ohne Kennzeichnung bleibt die Darstellung unverändert.
+Für Benutzer ohne Inspektionsrecht enthält die Laufansicht keinen Text solcher Aufträge.</p>
+<h2 id="scheduler-und-turn">Scheduler und Turn</h2>
+<p>Der Scheduler verarbeitet pro Actor höchstens einen Turn:</p>
+<ol>
+<li>Er beansprucht genau einen wartenden ActorInput.</li>
+<li>Er stellt Toolset, Arbeitsverzeichnis und Systemprompt zusammen.</li>
+<li>Der Driver verarbeitet ausschließlich diesen Input.</li>
+<li>Modell-Output, Reasoning, Runtime-Output und Tool-Aufrufe werden automatisch als Events
+journalisiert.</li>
+<li>Der Turn endet als <code>completed</code>, <code>failed</code> oder <code>interrupted</code>.</li>
+</ol>
+<p>Weitere Inputs warten bis zum nächsten Turn. Sie werden nicht in einen laufenden Turn gelenkt.
+Ein Input, dessen Inhalt sich auf den laufenden Turn bezieht (eine Erinnerung, ein Hinweis zum
+aktuellen Stand), ist deshalb beim Verarbeiten immer veraltet und darf nicht eingereiht werden.
+In einen laufenden Turn führt nur der Kontextbeitrag der Agentenlaufzeit: eine Agent-Extension
+(<code>agentRuntime</code>-Contribution) ergänzt im Ereignis <code>context</code> vor jedem Modellaufruf Nachrichten,
+ohne den Turn zu beenden; so arbeiten die Projektdiagnostik der Actor-Programme (nur für Actors,
+denen die Actor-Programm-Werkzeuge zur Verfügung stehen) und die Fortschrittserinnerung des
+Feature-Pilot.
+Ein fehlgeschlagener oder durch einen Serverneustart unterbrochener Turn wird nicht automatisch
+neu eingereiht oder erneut ausgeführt. Bereits eingereihte, noch nicht beanspruchte ActorInputs
+bleiben dagegen wartend. Nach dem Start können sie verarbeitet werden, sofern ihr Actor
+weiterhin ausführbar ist. Was ein Werkzeugaufruf im Journal festgehalten hat, bleibt gültig;
+ein späterer Fehlschlag desselben Turns macht es nicht ungültig. Ein Dienst, der auf ein
+abgegebenes Ergebnis wartet, bindet dessen Gültigkeit deshalb nicht an den Turn-Ausgang.</p>
+<p>Bei einem LLM kann ein Turn mehrere Modellanfragen und TypeScript-Snippets umfassen.
+<code>return</code> beendet das aktuelle Snippet und liefert dem Modell die Befunde. Das Modell kann
+anschließend entscheiden und das nächste Snippet ausführen, weiterhin im selben Turn.
+Auf spätere Agentenantworten oder Ereignisse wartet ein Snippet nicht: Eine Subscription
+erzeugt dafür einen neuen ActorInput und damit einen späteren Turn. Es braucht keinen
+zusätzlichen Entscheidungspunkt in der Programmiersprache.</p>
+<h2 id="modellkontext-über-mehrere-turns">Modellkontext über mehrere Turns</h2>
+<p>Jeder LLM-Actor besitzt einen eigenen Gesprächskontext, der über mehrere Turns erhalten bleibt.
+Ein neuer Input ergänzt dieses Gespräch. Im Serverbetrieb wird der Kontext separat gespeichert
+und nach einem Neustart wieder geladen; ein neuer Actor beginnt mit seinem eigenen Kontext oder,
+mit <code>forkOf</code> beim Spawn, mit einer Kopie des Kontexts eines anderen LLM-Actors dieses Runs.
+Das Aktualisieren des Systemprompts ersetzt nicht den bisherigen Gesprächsverlauf.</p>
+<p>Der programmierte Actor-Zustand speichert ausdrücklich gesetzte Daten für Funktionen und
+Mini-Apps. Ein ersetzter Zustand wird vor Diff und Journal in JSON-Form gebracht: Schlüssel
+mit <code>undefined</code> gelten als abwesend, im Speicher wie auf der Platte; eine Zustandsänderung
+<code>set</code> ohne Wert bleibt ungültig. Das Journal hält die gemeinsamen Ereignisse des Runs fest und
+liefert daraus die Chatansicht. Diese drei Formen von Zustand erfüllen unterschiedliche Aufgaben: Der sichtbare
+Chat ist keine vollständige Kopie des aktuellen Modellkontexts, und ein neuer Turn bedeutet
+nicht, dass das Modell ohne Gesprächsgedächtnis beginnt.</p>
+<h2 id="actor-stoppen-run-stoppen-und-server-beenden">Actor stoppen, Run stoppen und Server beenden</h2>
+<p>Die Stopppfade folgen demselben Grundsatz: zuerst neue Arbeit sperren, dann abbrechen, laufende
+Arbeit abwarten und erst danach Ressourcen freigeben. Die konkrete Grenze ist verschieden:</p>
+<p>In der Run-Titelleiste erreicht der Benutzer mit Schreibrecht den vollständigen Stopp über
+&quot;Lauf stoppen&quot; und eine Bestätigung. Der Primary-Actor kann ihn mit <code>run_stop</code> ebenfalls
+auslösen. Beide verwenden dieselbe Host-Stoppgrenze; Unterhaltung und Dateien bleiben erhalten.
+Der Werkzeugaufruf leitet den Stopp ein, wartet aber nicht auf die Bereinigung seines eigenen
+Turns. Seine Annahme ist kein Abschlussbeleg. Fehler der Bereinigung werden im Serverprotokoll
+gemeldet; die normale Quarantäne des Stopppfads bleibt wirksam.</p>
+<ul>
+<li><code>actor_stop</code>: Der Actor wird gestoppt, sein laufender Turn abgebrochen und seine Modelllaufzeit
+nach dem Turn entsorgt. Seine Actor-Nachkommen werden ebenfalls gestoppt.
+Run-Daten und Plugin-Sessions bleiben bestehen.</li>
+<li>Run-Stopp: Der Scheduler nimmt für diesen Run vorübergehend keine neue Arbeit auf;
+gleichzeitige Stopp-Aufrufe werden zusammen abgearbeitet. Der Primary-Actor bleibt erhalten,
+seine laufende Arbeit wird abgebrochen. Alle anderen Agenten und TypeScript-Actors im
+Besitzbaum des Benutzers werden gestoppt. Agentenlaufzeiten und Plugins erhalten parallel
+ihr Abbruchsignal. Das Actor-Programm-Plugin bricht dabei auch wartende App-Aktionen ab.
+Eine offene Bestätigungsfrage wird über <code>ragents.ask</code> im Journal verworfen und die
+Fachoperation nicht mehr aufgerufen. Der Run bleibt danach wiederverwendbar.</li>
+<li>Run-Löschung: Der Scheduler stoppt den Run. Danach werden seine
+Agentenlaufzeiten entsorgt und Plugin-Lösch-Hooks ausgeführt. Chat, Wiederherstellungsdaten und
+Journal werden archiviert; sessiongebundene Plugin-Daten einschließlich ihrer Protokolle werden
+anschließend entfernt.</li>
+<li>Server-Shutdown: Der Scheduler bricht laufende Arbeit ab und wartet sie ab.
+Danach werden alle Agentenlaufzeiten und Plugin-Dienste beendet. Persistierte Run-Daten bleiben
+erhalten.</li>
+</ul>
+<p>Nach dem Ende der laufenden Actor-Arbeit und der ersten Plugin-Bereinigung räumt der Host
+verbleibende Ressourcen auf. Der Run bleibt bis zum erfolgreichen Abschluss dieser Bereinigung
+gesperrt; Fehler werden gemeldet und geben ihn nicht vorzeitig frei.</p>
+<p>Während dieser Sperre angenommene Inputs des weiterhin aktiven Primary-Actors werden nach
+erfolgreicher Freigabe automatisch verarbeitet. Der Scheduler prüft dazu erneut die noch
+offenen Inputs; bereits beanspruchte oder verworfene Inputs werden nicht wiederholt.</p>
+<h2 id="actors-inputs-events-und-subscriptions">Actors, Inputs, Events und Subscriptions</h2>
+<p><code>actor_input</code> stellt Text und optionale Artefakte direkt an genau einen ausführbaren Actor. Der
+Driver erhält den Inhalt ohne Routing-Umschlag. Es gibt keine Channels, Message-Domain,
+Read-Receipts, Mention-Grammatik oder besondere Result-/Deliver-Nachricht. Kommunikation ist
+normaler Text. Der Absender kann ein menschlicher Owner, ein anderer Actor oder die
+Subscription-Zustellung sein. Normale Modellantworten benötigen kein Versandwerkzeug: jede
+abgeschlossene Ausgabe ist bereits ein <code>model.output.completed</code>-Event.</p>
+<p>Ein erfolgreiches <code>actor_input</code> bestätigt nur das Einreihen. LLM-Actors interpretieren freie
+Aufträge; TypeScript-Actors verarbeiten ausschließlich ihr programmiertes Eingabeprotokoll.
+Actorliste, Turn-Kontext und Funktionsbeschreibung erklären diesen Unterschied. Ein
+Primary-Actor ist das Standardziel eines Runs und nicht automatisch ein Chatpartner.
+Programmierte Eingaben und Subscriptions bleiben unabhängig von den engeren Chat-Routen möglich.</p>
+<p>Modelltext, Reasoning, Runtime-Ausgabe, Tool-Starts, Tool-Ergebnisse, Turn-Abschlüsse, Actions,
+Artefakte und Stopps sind eigene Journal-Events. <code>event_subscribe</code> filtert ausschließlich
+strukturiert nach Quell-Actor-IDs, Quell-Actor-Arten, Eventtypen und optional dem Subscriber selbst.
+Passende NEUE Events werden als neue Inputs zugestellt. Der Subscriber kann sie auswerten,
+verdichten und mit <code>actor_input</code> als natürlichen Text an LLM-Actors oder als passende Programmeingabe an TypeScript-Actors weitergeben. So ist ein
+Vermittler nur ein gewöhnlicher Actor mit passenden Werkzeugen; die vermittelten LLMs müssen ihn
+oder RAgents nicht kennen. <code>event_query</code> liest Historie, löst aber keine Zustellung aus.</p>
+<p>WECK-GARANTIE: Es gibt keine Warte-Werkzeuge, ein beendeter Turn wartet auf nichts. Wer einen
+Actor per Prompt auffordert, seinen Turn zu beenden und auf Weckung zu warten, muss ihn
+garantiert wecken. Der steuernde Actor ist dafür ein TypeScript-Actor oder ein Hostdienst, der
+das Turn-Ende seines Arbeiters abonniert (<code>event_subscribe</code> auf <code>turn.finished</code> und
+<code>turn.interrupted</code> oder die Journalbeobachtung des Hosts) und bei jedem Ende entscheidet, ob
+der Arbeiter fertig ist, auf einen anderen wartet oder den nächsten Anstoß braucht; ein
+LLM-Koordinator, der &quot;passiv wartet&quot;, ist keine Weckung. Ein Wächter aus <code>ragents.watch</code>
+(<code>plugins.md</code>) ist ein solcher Hostdienst: er weckt den steuernden Actor mit Grund und Änderungen,
+sobald seine Weckbedingung greift. Eine Anleitung darf nur dort &quot;beende
+den Turn&quot; sagen, wo ein solcher Beobachter existiert; synchrone Funktionen kehren mit dem
+Ergebnis zurück, und der Aufrufer fährt im selben Turn fort.</p>
+<h2 id="id-handle-und-erneutes-anlegen">ID, Handle und erneutes Anlegen</h2>
+<p>Ein Actor besitzt eine technische ID und einen lesbaren Handle wie <code>@worker</code>. Ein bereits
+vergebener Handle bleibt im Run auch nach dem Stopp erhalten. Wird ein weiterer LLM-Agent mit
+demselben Wunschnamen angelegt, erhält er einen freien Suffix, etwa <code>worker-1</code>.
+<code>agent_spawn</code> liefert <code>{ id, handle }</code> des tatsächlich erzeugten Actors; Folgeaufrufe verwenden
+diese Referenz. Ein gleicher Wunschname verwendet keinen bestehenden Actor automatisch weiter.</p>
+<p>Das Wiederstarten setzt denselben gestoppten Actor fort. Für TypeScript-Actors wird ein bereits
+belegter Handle bei der Erstellung abgewiesen. Die Erzeugung selbst bleibt als Event im Journal.</p>
+<h2 id="subagenten-ausstatten">Subagenten ausstatten</h2>
+<p><code>agent_spawn</code> verlangt eine ausdrückliche Funktionsauswahl unter <code>tools</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Auswahl</th>
+<th>Ausstattung</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>[]</code></td>
+<td>Reines LLM ohne Runtime-, Workspace- oder Host-Werkzeuge.</td>
+</tr>
+<tr>
+<td><code>[&quot;read&quot;, &quot;write&quot;, &quot;edit&quot;, &quot;bash&quot;]</code></td>
+<td>Genau diese Funktionen, etwa für einen Coding-Agenten.</td>
+</tr>
+<tr>
+<td><code>null</code></td>
+<td>Vollständiges dynamisches Angebot einschließlich späterer Zugänge.</td>
+</tr>
+</tbody></table>
+<p>Fehlende Auswahl und unbekannte Namen werden vor dem Spawn abgewiesen. Die Auswahl wird nicht
+vererbt; delegierbare Engine-Capabilities werden weiterhin übernommen. <code>withoutCapabilities</code>
+entfernt benannte technische Rechte. Auch bei <code>null</code> gelten Verfügbarkeit und Grants.
+<code>forkOf</code> (Handle oder ID) macht den neuen Agenten zum Fork eines LLM-Agenten desselben Runs:
+<code>agent.spawned</code> hält die Quelle fest, und beim ersten Turn des neuen Agenten kopiert der
+Agent-Treiber den bis dahin gespeicherten Kontextzweig der Quelle in dessen eigene Kontextdatei.
+Die Kopie endet vor dem ersten unbeantworteten Werkzeugaufruf der Quelle und enthält keine
+Reasoning-Blöcke; Systemprompt, Werkzeuge und Modell kommen vom neuen Agenten. Spätere Turns
+der Quelle fließen nicht nach. Quelle und Fork brauchen den Agent-Treiber; eine Quelle ohne
+gespeicherten Kontext ist ein harter Fehler beim ersten Turn des Forks.
+Ein reines LLM erhält keine Funktionsübersicht; sein Treiber muss diese Isolation ausdrücklich
+unterstützen, sonst wird der Turn hart abgewiesen.</p>
+<p>Ausgerüstete LLMs erhalten <code>typescript_api</code> und <code>typescript_eval</code> sowie eine automatische
+Übersicht ihrer verfügbaren TypeScript-Funktionen mit Name und Kurzbeschreibung. Die Übersicht
+bleibt auch im laufenden Turn aktuell. Fachfunktionen verwenden sie über <code>context.functions</code>
+in Snippets. Native Zusatzwerkzeuge brauchen eine ausdrückliche Registrierung.
+Rollen und Arbeitsgrenzen bleiben Anweisungen im Prompt. Neben dem Profil nimmt <code>agent_spawn</code>
+<code>model</code> und <code>thinking</code> aus der Modellliste an; ein Profil liefert nur Treiber, Provider,
+Denktiefe, Timeout und Workspace-Vorgabe, welche Modelle zur Wahl stehen, sagt die Modellliste
+des Produkts. Fehlen beim Agent-Start sowohl Modell als auch ein modelltragendes Profil, nennt
+der Fehler die vorhandenen Profile des gewählten Treibers. Ein manuelles Profil wird dabei
+nicht als Modellwahl für einen Agenten vorgeschlagen.</p>
+<h2 id="journal-und-projektion">Journal und Projektion</h2>
+<p>Das Journal ist die gemeinsame Historie eines Runs. Der sichtbare Zustand entsteht durch
+Wiedergabe seiner Ereignisse; dabei werden weder Modelle noch Werkzeuge erneut aufgerufen.
+Aufgezeichnete Antworten, Funktionsaufrufe, Zustandsänderungen und Abbrüche bleiben dadurch
+auch nach einem Neustart nachvollziehbar. Arbeitsdateien und der private Modellkontext liegen
+zusätzlich außerhalb des Journals.</p>
+<p class="guide-source">Quelle: <a href="../../docs/spec/core.md">docs/spec/core.md</a>. <a href="guide-runtime.md">Dieses Kapitel als Markdown</a>.</p><p><a href="reference.html#tool-event_subscribe">Ereignisse abonnieren</a></p><nav class="guide-next" aria-label="Weiterlesen"><a href="guide-ideas.html">Zurück: Grundideen</a><a href="guide-getting-started.html">Weiter: Samples starten</a></nav></article></div></main><footer class="shell"><p>Aus öffentlicher Dokumentation, Verträgen und neutralen Plugins erzeugt. Neu aufbauen: <code>pnpm generate:homepage</code>. Stand prüfen: <code>pnpm check:homepage</code>.</p><nav aria-label="Weitere Seiten"><a href="llms.txt">LLM-Referenz</a><a href="http-api.md">HTTP-API</a><a href="openapi.json">OpenAPI</a><a href="index.html">Zur Homepage</a><a href="guide.html">Guide</a><a href="reference.html">Bausteine</a><a href="developer.html">Entwicklerreferenz</a></nav></footer></body></html>

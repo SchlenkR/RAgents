@@ -1,0 +1,62 @@
+[
+  {
+    "file": "01-faceted-plates.png",
+    "title": "Facettierte Platten",
+    "concept": "Kantige Buchstabenkörper aus geschliffenen Knochenplatten, dahinter Schläuche und Kabel. Der Alienschädel steckt sauber im R, sehr gut lesbar.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "02-cold-slabs.png",
+    "title": "Kalte Platten mit Wirbelketten",
+    "concept": "Härter geschnittene Buchstaben, Wirbelketten laufen als Bänder hinter der Schrift durch. Die kompakteste Silhouette der Serie.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "03-bone-alloy.png",
+    "title": "Knochenlegierung",
+    "concept": "Schwere Platten in leichter Aufsicht, Schädel links im Profil. Wirkt wie ein gefrästes Bauteil, Wortende etwas gedrängt.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "04-blue-seams.png",
+    "title": "Blaue Fugen",
+    "concept": "Dunkles Metall mit blauem Licht in Auge und Fugen, Schläuche umranken die Schrift. Trägt das Markenblau am deutlichsten.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "05-warm-bone-mass.png",
+    "title": "Steintafel",
+    "concept": "Buchstaben füllen die ganze Fläche wie eine gemeißelte Tafel, Maschinerie liegt dahinter. Am abstraktesten, das Wort erschließt sich langsam.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "06-armour-stack.png",
+    "title": "Panzerplatten",
+    "concept": "Aufsicht auf gestapelte Panzerplatten, Schläuche quellen unten heraus. Sehr wuchtig, der Schädel etwas plakativ.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "07-rust-facets.png",
+    "title": "Rostiger Guss",
+    "concept": "Wärmerer Ton, Rost und Öl in den Fugen, klare kantige Buchstaben, Rippen im Zwischenraum. Die technisch sauberste Fassung.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "08-rim-light-black.png",
+    "title": "Nur Streiflicht",
+    "concept": "Fast schwarz, die Buchstaben verweben sich zu einem Labyrinth, nur Kanten fangen Licht. Am unheimlichsten, kaum noch lesbar.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "09-masonry-slabs.png",
+    "title": "Mauerwerk",
+    "concept": "Buchstaben wie Quader vermauert, dahinter ein Bündel Rohre, Schädel links mit tiefer Augenhöhle. Schwer und geschlossen.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "10-blue-eye-angular.png",
+    "title": "Blaues Auge, kantig",
+    "concept": "Ruhige Fassung, kantige Platten, ein blaues Auge im verschmolzenen Schädel-R. Souverän und trotzdem bedrohlich - mein Favorit der Serie.",
+    "model": "gpt_image_2"
+  }
+]

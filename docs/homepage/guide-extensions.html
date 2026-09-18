@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="de" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Plugins und Skills: öffentliche Referenz und Beispiele für RAgents."><title>Plugins und Skills - RAgents</title><link rel="describedby" href="llms.txt"><link rel="alternate" type="text/markdown" href="guide-extensions.md"><style>/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+:root, :host {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+:root {
+  color-scheme: light;
+  --radius: 0.5rem;
+  --background: #f3f2f7;
+  --foreground: #34303d;
+  --card: #e7eaf2;
+  --primary: #79638d;
+  --primary-foreground: #ffffff;
+  --secondary: #e1ddeb;
+  --muted-foreground: #62586e;
+  --accent: #dcd0e8;
+  --destructive: #a94360;
+  --destructive-soft: #f5e1e9;
+  --success: #3b705f;
+  --success-soft: #e1eee8;
+  --warning: #925d37;
+  --warning-soft: #f3e4d8;
+  --info: #4b648a;
+  --teal: #356c70;
+  --border: #c9c4d5;
+  --border-soft: #dad6e3;
+  --border-strong: #a397b2;
+  --shell: #cbd6e4;
+  --app: #dce3ed;
+  --canvas: #e8e2e6;
+  --canvas-dot: #79aab43b;
+  --canvas-glow-mint: #92cfbfad;
+  --canvas-glow-blue: #8bbfe5a6;
+  --canvas-light: #ffffffb3;
+  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
+        radial-gradient(ellipse at 4% 88%, #9ccfc5b3, transparent 58%),
+        radial-gradient(ellipse at 96% 12%, #9ec6e4b3, transparent 56%),
+        radial-gradient(ellipse at 28% 0%, #c4b0dfb3, transparent 58%),
+        radial-gradient(ellipse at 88% 100%, #efd3c6a6, transparent 52%),
+        linear-gradient(135deg, #edf0f2, #e1dbe8);
+  --backdrop: #28213966;
+  --glass-agent: #eec4b1;
+  --glass-primary: #dcd0e8;
+  --glass-script: #e9dca1;
+  --glass-app: #e7edf2;
+  --glass-edge: #a498aa;
+  --glass-icon: #e8dfed;
+  --glass-head: #ede5ef;
+  --glass-group: #e7edf240;
+  --bar-shadow: 0 2px 5px #49384e14, 0 8px 20px #49384e12;
+  --status-shadow: 0 -2px 5px #49384e14, 0 -8px 20px #49384e12;
+  --pop-shadow: 0 12px 36px #49384e26;
+  --card-shadow: 0 12px 22px #49384e2c;
+  --workspace-shadow: -2px 0 5px #49384e14, -8px 0 20px #49384e1f;
+  --glass-icon-shadow: 1px 2px 4px #51465725;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --background: #292735;
+  --foreground: #e9e2ed;
+  --card: #2b303e;
+  --primary: #bda6cf;
+  --primary-foreground: #2d2235;
+  --secondary: #373247;
+  --muted-foreground: #b6a9bd;
+  --accent: #4b3d59;
+  --destructive: #ffa2b0;
+  --destructive-soft: #482d3b;
+  --success: #8dceae;
+  --success-soft: #233f37;
+  --warning: #e7bd81;
+  --warning-soft: #43382b;
+  --info: #9dbade;
+  --teal: #8ec9c4;
+  --border: #555065;
+  --border-soft: #403c50;
+  --border-strong: #8e809f;
+  --shell: #242e40;
+  --app: #212632;
+  --canvas: #29232e;
+  --canvas-dot: #7cafbc30;
+  --canvas-glow-mint: #317d686b;
+  --canvas-glow-blue: #417daa80;
+  --canvas-light: #80bfc71f;
+  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
+        radial-gradient(ellipse at 4% 88%, #2c625e99, transparent 58%),
+        radial-gradient(ellipse at 96% 12%, #355674a6, transparent 56%),
+        radial-gradient(ellipse at 28% 0%, #59446f99, transparent 58%),
+        radial-gradient(ellipse at 88% 100%, #694c443d, transparent 52%),
+        linear-gradient(135deg, #252b35, #302735);
+  --backdrop: #14101eb3;
+  --glass-agent: #594039;
+  --glass-primary: #47394f;
+  --glass-script: #4d462b;
+  --glass-app: #303943;
+  --glass-edge: #8a7994;
+  --glass-icon: #47394f;
+  --glass-head: #39303f;
+  --glass-group: #bda6cf08;
+  --bar-shadow: 0 2px 5px #00000033, 0 8px 20px #00000040;
+  --status-shadow: 0 -2px 5px #00000033, 0 -8px 20px #00000040;
+  --pop-shadow: 0 12px 36px #00000055;
+  --card-shadow: 0 12px 22px #00000055;
+  --workspace-shadow: -2px 0 5px #00000033, -8px 0 20px #0000004d;
+  --glass-icon-shadow: 1px 2px 4px #00000040;
+}
+@layer base {
+  body {
+    background: var(--app);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+}
+
+
+*{box-sizing:border-box}body{margin:0;background:var(--app);color:var(--foreground);font:16px/1.65 var(--font-sans)}a{color:#1467b0;text-underline-offset:4px}a:hover{color:var(--foreground)}:focus-visible{outline:3px solid var(--primary);outline-offset:4px}main,body>footer{padding-block:24px}nav{display:flex;gap:12px 24px;flex-wrap:wrap}h1{font-size:clamp(38px,7vw,66px);line-height:1.1;letter-spacing:-.04em;margin:16px 0 24px}h2{font-size:30px;line-height:1.2;margin:0 0 20px;letter-spacing:-.02em}h3{font-size:20px;line-height:1.4}p{max-width:76ch}.intro{padding:36px 0 44px}.eyebrow{font:12px var(--font-mono);text-transform:uppercase;letter-spacing:.1em}.lead{font-size:20px;line-height:1.6}.stats{font:13px var(--font-mono);margin:24px 0}.section-nav{border-top:1px solid var(--border);padding:20px 0}main>section{padding:44px 0;border-top:1px solid var(--border)}article{min-width:0;padding:24px 0;border-top:1px solid var(--border-soft)}article h3{margin:0 0 8px;overflow-wrap:anywhere}.meta,.example-context{font:12px/1.7 var(--font-mono);color:#536b80;overflow-wrap:anywhere}details{margin:14px 0;border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--background)}summary{cursor:pointer;padding:12px 16px;font-weight:600}details>p,details>div,details>table{margin:16px}pre{max-width:100%;overflow:auto;padding:20px;background:var(--card);font:12px/1.7 var(--font-mono);tab-size:2;margin:0}code{font-family:var(--font-mono);font-size:.9em;overflow-wrap:anywhere}pre code{font-size:inherit;overflow-wrap:normal}label{display:block;font-weight:600;margin-bottom:6px}input[type=search],select{font:inherit;color:inherit;border:1px solid var(--border);border-radius:6px;background:var(--background);padding:10px 12px;max-width:100%}input[type=search]{width:100%}.tool-label{display:block;font-size:13px;font-weight:400;color:#536b80;margin-top:3px}[data-tool]{padding:0;border:0}[data-tool]>details{margin:8px 0}[data-tool]>details>a{display:inline-block;margin:0 16px 16px}[data-tool]>details>details{margin:16px}.filter-row{display:flex;gap:16px;flex-wrap:wrap;align-items:end}.filter-row>div:first-child{flex:1;min-width:min(280px,100%)}.note{padding:16px 20px;background:var(--card);border-left:3px solid var(--primary)}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--border);padding:10px;overflow-wrap:anywhere}th{font-weight:600}.table-wrap{overflow:auto}body>footer{padding-top:30px;padding-bottom:60px;border-top:1px solid var(--border)}[hidden]{display:none!important}@media(max-width:600px){h2{font-size:26px}main>section{padding:32px 0}pre{padding:14px;font-size:11px}.lead{font-size:18px}}
+</style><style>
+.guide-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:44px;align-items:start;padding-block:12px 32px}.guide-sidebar{position:sticky;top:calc(var(--header-height,80px) + 16px);max-height:calc(100dvh - var(--header-height,80px) - 32px);overflow:auto}.guide-chapters{display:grid;gap:16px;font-size:13px;line-height:1.4}.guide-chapters a{display:block;padding:6px 10px;text-decoration:none;border-radius:6px}.guide-nav-group{display:grid;gap:2px}.guide-nav-group>p{margin:0 10px 4px;font-size:11px;font-weight:700;color:#536b80}.guide-chapters [aria-current]{background:var(--card);color:var(--foreground);font-weight:600}.guide-mobile-nav{display:none}.guide-body{padding:0;border:0}.guide-title{margin:0 0 20px}.guide-title h1{font-size:32px;line-height:1.2;letter-spacing:-.025em;margin:6px 0 10px}.guide-title p{margin:0;font-size:15px}.guide-title .eyebrow{font-size:11px}.guide-body h2{font-size:24px;margin-top:32px;scroll-margin-top:20px}.guide-body h3{margin-top:24px}.guide-body pre{margin:20px 0}.guide-body li{margin-block:8px}.guide-body table{display:block;overflow:auto}.guide-body blockquote{margin-inline:0;padding:8px 20px;border-left:3px solid var(--primary);background:var(--card)}.guide-source{margin-top:40px;font-size:13px;color:#536b80}.guide-next{justify-content:space-between;border-top:1px solid var(--border);padding:20px 0;margin-top:24px}.guide-index{max-width:80ch;padding-left:24px}.guide-index li{padding:8px 0 16px 8px;border-bottom:1px solid var(--border)}.guide-index h2{font-size:20px;margin:0 0 6px}.guide-index p{margin-block:0}.guide-page-nav{margin:0 0 24px;font-size:13px}.guide-page-nav summary{padding:8px 12px}.guide-page-nav nav{display:grid;gap:8px;padding:4px 12px 12px}@media(max-width:850px){.guide-layout{grid-template-columns:1fr;gap:18px;padding-top:0}.guide-sidebar{display:none}.guide-mobile-nav{display:block;margin:0}.guide-mobile-nav summary{padding:10px 12px;font-size:14px}.guide-mobile-nav .guide-chapters{padding:0 12px 12px}.guide-title h1{font-size:28px}.guide-body h2{margin-top:28px}}@media print{.guide-layout{display:block}.guide-sidebar,.guide-mobile-nav,.guide-next{display:none}}
+</style><link rel="stylesheet" href="site.css"><script src="site.js" defer></script></head><body><a class="skip" href="#main">Zum Inhalt</a><header class="masthead shell">
+    <a class="brand" href="index.html#main" aria-label="RAgents, zum Anfang"><svg class="brand-icon" viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect width="28" height="28" rx="8" fill="currentColor"/><path d="M8 19V9h6a3 3 0 0 1 0 6H8m6 0 5 4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>RAgents</a>
+    <nav aria-label="Hauptnavigation">
+      <a href="index.html">Produkt</a>
+      <a href="guide.html" aria-current="page">Guide</a>
+      <a href="reference.html#samples">Samples</a>
+      <a href="reference.html">Referenz</a>
+    </nav>
+  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide-Navigation"><a href="guide.html">Orientierung</a><div class="guide-nav-group"><p>Verstehen</p><a href="guide-ideas.html">Grundideen</a><a href="guide-runtime.html">Actors und Nachrichten</a></div><div class="guide-nav-group"><p>Ausprobieren</p><a href="guide-getting-started.html">Samples starten</a><a href="reference.html#samples">Startbare Samples</a></div><div class="guide-nav-group"><p>Selbst bauen</p><a href="guide-functions.html">Mit TypeScript arbeiten</a><a href="guide-programs.html">Mini-Apps bauen</a><a href="guide-extensions.html" aria-current="page">Plugins und Skills</a></div><div class="guide-nav-group"><p>Nachschlagen</p><a href="guide-access.html">Rechte vergeben</a><a href="reference.html#tools">Funktionen</a><a href="reference.html#ui">UI-Bausteine</a><a href="developer.html">Erweiterungsverträge</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Plugins und Skills</summary><nav class="guide-chapters" aria-label="Guide-Navigation"><a href="guide.html">Orientierung</a><div class="guide-nav-group"><p>Verstehen</p><a href="guide-ideas.html">Grundideen</a><a href="guide-runtime.html">Actors und Nachrichten</a></div><div class="guide-nav-group"><p>Ausprobieren</p><a href="guide-getting-started.html">Samples starten</a><a href="reference.html#samples">Startbare Samples</a></div><div class="guide-nav-group"><p>Selbst bauen</p><a href="guide-functions.html">Mit TypeScript arbeiten</a><a href="guide-programs.html">Mini-Apps bauen</a><a href="guide-extensions.html" aria-current="page">Plugins und Skills</a></div><div class="guide-nav-group"><p>Nachschlagen</p><a href="guide-access.html">Rechte vergeben</a><a href="reference.html#tools">Funktionen</a><a href="reference.html#ui">UI-Bausteine</a><a href="developer.html">Erweiterungsverträge</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Plugins und Skills</h1><p>Erweiterungen entwickeln: passende Ausführungsform wählen, Verträge und Prompts verbinden, Lebenszyklus und Bedienung prüfen.</p></header><details class="guide-page-nav"><summary>Auf dieser Seite</summary><nav aria-label="Auf dieser Seite"><a href="#kern-grenze">Kern-Grenze</a><a href="#leitfaden-für-erweiterungen">Leitfaden für Erweiterungen</a><a href="#vorgehen-beim-implementieren">Vorgehen beim Implementieren</a><a href="#plugin-vertrag">Plugin-Vertrag</a><a href="#funktionen-bereitstellen">Funktionen bereitstellen</a><a href="#skills-und-startaufträge">Skills und Startaufträge</a></nav></details><h2 id="kern-grenze">Kern-Grenze</h2>
+<p>Ein Plugin bündelt eine Fähigkeit der Arbeitsumgebung, etwa Dateizugriff, Rückfragen oder
+Actor-Programme. Es kann Funktionen, Prompts, Skills, Dienste und eine Oberfläche beisteuern.
+Ein Profil legt fest, welche Plugins gemeinsam geladen werden. Der Core stellt den
+<code>PluginHost</code> und typisierte Registries bereit und kennt keine produktspezifischen Integrationen.</p>
+<p>Eine Funktion ist eine einzelne aufrufbare Aktion eines Plugins. Ein Skill ist eine
+Arbeitsanleitung für ein Modell, mit optionalem Startauftrag und ergänzenden Dateien.
+Ein Run-Script ist ausführbarer TypeScript-Code, der einen vorbereiteten Run aufbaut.
+Diese Beiträge können im selben Plugin liegen, haben aber unterschiedliche Aufgaben.</p>
+<p>Snippets und Actor-Programme verwenden denselben registrierten Bestand typisierter Run-Funktionen.
+Der Host leitet daraus die TypeScript-API und ausdrücklich native Agentenwerkzeuge ab. Agent-Extension-Factories werden
+für den jeweiligen Run und Actor aufgelöst und über der Agentenlaufzeit offizielle Extension-API gebunden.
+HTTP-Routen, UI-Beiträge und hostweite Dienste bleiben Plugin-Facetten außerhalb einer einzelnen
+Agent-Session.</p>
+<h2 id="leitfaden-für-erweiterungen">Leitfaden für Erweiterungen</h2>
+<p>Beginne mit dem fachlichen Ergebnis und dem Zustand, den Mensch und Modell gemeinsam brauchen.
+Wähle danach die kleinste vorhandene Erweiterungsform, die diesen Auftrag vollständig trägt.
+Die folgenden Strategien beruhen auf den vorhandenen Funktionen, Actor-Programmen,
+Sprachservern und Oberflächen. Sie führen keinen zusätzlichen Erweiterungsmechanismus ein.</p>
+<table>
+<thead>
+<tr>
+<th>Bedarf</th>
+<th>Passende Form</th>
+<th>Grenze</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Wiederverwendbare Fachaktion oder externer Datenzugriff</td>
+<td>Typisierte Run-Funktion im zuständigen Plugin</td>
+<td>Eine Implementierung für Snippets und Programme; Darstellung getrennt halten</td>
+</tr>
+<tr>
+<td>Einmalige Verbindung vorhandener Funktionen</td>
+<td>TypeScript-Snippet</td>
+<td>Kein eigener Actor nötig</td>
+</tr>
+<tr>
+<td>Fester Ablauf mit späteren Eingaben und eigenem Zustand</td>
+<td>TypeScript-Actor</td>
+<td>Zustand und Lebenszyklus ausdrücklich festlegen</td>
+</tr>
+<tr>
+<td>Gemeinsamer Ablauf für Anleitung und Diagramm</td>
+<td><code>WorkflowDefinition</code> mit Promptdateien im Actor-Paket</td>
+<td>Beschreibt Rollen, Übergänge und Freiheiten; das Steuerprogramm führt aus und prüft</td>
+</tr>
+<tr>
+<td>Untersuchung, Gespräch oder mehrstufige Umsetzung</td>
+<td>LLM-Actor mit passenden Funktionen</td>
+<td>Eigener Kontext und Werkzeuge müssen zur Aufgabe passen</td>
+</tr>
+<tr>
+<td>Bedienung oder Status eines vorhandenen Actors</td>
+<td>View an diesem Actor</td>
+<td>Eine Oberfläche allein rechtfertigt keinen weiteren Actor</td>
+</tr>
+<tr>
+<td>Wiederholbar vorbereiteter Run</td>
+<td>Run-Script im besitzenden Plugin</td>
+<td>Aufbau in Code, fachliche Entscheidungen beim zuständigen Modell</td>
+</tr>
+<tr>
+<td>Wiederverwendbare Arbeitsanweisung</td>
+<td>Skill im besitzenden Plugin</td>
+<td>Beschreibt das Vorgehen, führt erforderliche Initialisierung nicht selbst aus</td>
+</tr>
+</tbody></table>
+<h3 id="1-fähigkeit-und-ablauf-getrennt-halten">1. Fähigkeit und Ablauf getrennt halten</h3>
+<p>Das Plugin besitzt Datenzugriff, fachliche Regeln, Konfiguration und die dazugehörige Anleitung.
+Ein darauf aufbauender Ablauf entscheidet, wann die Fähigkeit gebraucht wird und wie ihr
+Ergebnis im Run weitergeht. Er verwendet den registrierten Funktionsvertrag oder einen
+typisierten Diensttoken. Allgemeine Abfragefunktionen dürfen keine bestimmte Mini-App öffnen
+oder deren Workflow voraussetzen. Ein Entfernen des Plugins soll seine Beiträge entfernen;
+abhängige Plugins benennen ihre Voraussetzung über <code>requires</code>.</p>
+<p>Der neutrale Host bekommt nur Verhalten, das mehrere echte Nutzer teilen. Produktpfade,
+Kontonamen und fachliche Auswahlregeln bleiben beim aufrufenden Plugin. Ein gemeinsamer
+Hostbaustein ist sinnvoll, wenn mehrere Adapter dieselben Prozesse, Zustände und Bereinigung
+brauchen. Eine einzelne Integration rechtfertigt noch kein zusätzliches Framework.</p>
+<h3 id="2-einen-vertrag-für-modell-und-oberfläche-verwenden">2. Einen Vertrag für Modell und Oberfläche verwenden</h3>
+<p>Eine Mini-App ruft deklarierte Actor-Funktionen über <code>context.capabilities.call</code> auf.
+Das Backend verbindet sie mit den vorhandenen Run-Funktionen oder Fachoperationen. Ein Modell
+kann dieselbe Fachaktion ausführen. Der gemeinsame Zustand bleibt serverseitig; beide Zugänge
+erhalten daraus eine Darstellung. Zugangsdaten und externe Abfragelogik gehören ins Backend.</p>
+<p>Definiere Eingabe, Ergebnis und Fehler vor der Darstellung. Teile Schemata und Grenzen, wo
+dieselben Daten mehrere Schichten durchlaufen; prüfe andernfalls ihre Übereinstimmung an der
+Integrationsgrenze. Speichere größere Ergebnisse und technische Cursor beim Besitzer. Das
+Modell übergibt eine verständliche Referenz auf dieses Ergebnis statt IDs, Cursor oder
+Dateiinhalte aus früheren Ausgaben abzuschreiben. Kontextfelder, die für die nächste
+Entscheidung gebraucht werden, müssen im Ergebnisvertrag enthalten sein.</p>
+<h3 id="3-feste-arbeit-in-code-urteile-im-modell-ausführen">3. Feste Arbeit in Code, Urteile im Modell ausführen</h3>
+<p>Initialisieren, Abfragen, validieren, speichern und den aktuellen Zustand anzeigen sind
+deterministische Schritte. Run-Scripts und Funktionen führen sie unmittelbar aus. Eine
+Anweisung wie &quot;öffne zuerst den Dienst&quot; garantiert nicht, dass er beim Anzeigen der App
+schon geladen wird. Erforderliche Vorbereitung gehört in einen tatsächlichen Aufbauaufruf.
+Unabhängige Schritte können parallel laufen; Abhängigkeiten bleiben ausdrücklich geordnet.</p>
+<p>Eine eng begrenzte Umwandlung kann eine Plugin-Funktion mit einem einzelnen Modellaufruf
+erledigen. Dafür reichen ein vorbereiteter Auftrag und die konkrete Eingabe, wenn weder
+Verlauf noch Werkzeugschleife gebraucht werden. Ausgabe, Zeitlimit und Abbruch brauchen
+einen überprüfbaren Vertrag. Das Modell liefert etwa strukturierte Kriterien; Code validiert
+und führt sie aus. Der Vertrag legt den Umgang mit Unsicherheit fest; bei der Item-Suche
+sucht das Modell ohne Rückfragen und nennt notwendige Annahmen in der Suchbeschreibung.
+Beschreibe auch zulässige Leerfälle und Gesamtergebnisse; ein Schema allein erklärt dem
+Modell noch nicht, wann ein Ergebnis ohne Einschränkungen gewollt ist.
+Das ist eine Implementierungsentscheidung des Plugins, kein allgemeiner Ersatz für Actors.</p>
+<p>Eine feste Filterliste ist nur passend, wenn die Fachaufgabe selbst so begrenzt ist. Soll ein
+Modell freie Abfragen formulieren und das Zielsystem besitzt bereits eine Abfragesprache,
+verwende deren lesenden Vertrag mit gemeinsamer Validierung. Sonst begrenzt die eigene
+Parameterliste fachlich mögliche Kombinationen, obwohl Modell und Datenquelle sie verstehen.</p>
+<p>Ein eigener Worker lohnt sich bei einem getrennten Arbeitsauftrag oder Kontext. Der
+Koordinator hält dann Gespräch, Entscheidungen und Abnahme zusammen. Zustandsanzeigen
+benötigen keine regelmäßigen Modellaufrufe. Modell und Denktiefe werden nach Aufgabe
+konfiguriert und gegen den Laufzeitkatalog geprüft; feste Modellnamen oder pauschal hohe
+Denktiefe gehören nicht in einen wiederverwendbaren Ablauf. Eine kurze Eingabe allein ist
+noch kein Nachweis für geringe Latenz oder ausreichende Ergebnisqualität.</p>
+<h3 id="4-prompts-nach-verantwortung-zusammensetzen">4. Prompts nach Verantwortung zusammensetzen</h3>
+<p>Der Rollenprompt beschreibt Ziel, Zuständigkeit, Übergaben und Fertigkriterien. Regeln einer
+Fähigkeit gehören zum liefernden Plugin und werden an ihre tatsächlichen Funktionen gebunden.
+Kurze Einstiegshinweise können initial kommen; umfangreiche Verträge und Detailkapitel lädt
+das Modell bei Bedarf über <code>typescript_api</code>. Kopierte Fachkapitel in mehreren Rollenprompts
+driften auseinander und vergrößern jeden Turn.</p>
+<p>Prüfe die zusammengesetzte Anleitung für jede Rolle, auch für per Script erzeugte
+Koordinatoren und Workers. Gleiche benötigte Wissenseinstiege müssen für beide erreichbar
+sein. Eine Pfadangabe im Prompt ersetzt weder Leserechte noch tatsächlich verfügbare
+Werkzeuge. Kürze Wiederholungen, aber erhalte Zuständigkeiten, Grenzen und notwendige Quellen.</p>
+<h3 id="5-lebenszyklus-als-teil-der-funktion-bauen">5. Lebenszyklus als Teil der Funktion bauen</h3>
+<p>Starten, laden, bereit, fehlgeschlagen und beendet sind verschiedene Zustände. Ein sichtbarer
+Reiter oder ein lebender Prozess belegt keine fachliche Bereitschaft. Melde Erfolg erst nach
+der Bestätigung des zuständigen Systems. Statusabfragen müssen während langer Starts
+antworten können und dürfen nicht dasselbe Start-Promise abwarten.</p>
+<p>Gleichzeitige Starts derselben Ressource sollen dieselbe laufende Initialisierung verwenden.
+Stoppen oder ein Wechsel des Auftrags müssen verspätete Ergebnisse ungültig machen.
+Leite Abbruch an abhängige Aufrufe weiter und begrenze auch das lokale Warten. Run-Stopp,
+Löschen und Host-Shutdown räumen beim jeweiligen Besitzer auf. Lege ausdrücklich fest,
+welcher Zustand nach einem Neustart erhalten bleibt und was neu geöffnet werden muss.
+Startfehler brauchen Ursache und einen bewussten Wiederholungsweg; eine Diagnoseabfrage
+soll sie nicht unbemerkt durch einen neuen Start verdecken.</p>
+<h3 id="6-aktivität-und-ergebnis-unterschiedlich-anzeigen">6. Aktivität und Ergebnis unterschiedlich anzeigen</h3>
+<p>Die Laufzeit weiß, ob ein Actor arbeitet; ein fachlicher Bericht sagt, woran er zuletzt
+gearbeitet hat. Kombiniere beides, ohne einen alten Bericht als aktuelle Aktivität auszugeben.
+Auch &quot;wartet&quot;, &quot;gestoppt&quot; und &quot;fehlgeschlagen&quot; brauchen eine verständliche Darstellung.
+Eine fertige Antwort oder ein Screenshot allein belegt noch keine erfolgreiche Prüfung.</p>
+<p>Ein knapper Statusvertrag kann Zustand und Arbeitsschritt liefern, ohne rohe Denktexte oder
+Werkzeugargumente zu transportieren. Leserechte für Diagnosen oder Änderungen sind unabhängig
+von technischer Vollansicht zu vergeben und serverseitig zu prüfen. Rollen gehören in die
+Konfiguration; neutrale Komponenten prüfen Rechte und keine Benutzernamen.</p>
+<h3 id="7-mini-apps-im-tatsächlichen-host-entwickeln">7. Mini-Apps im tatsächlichen Host entwickeln</h3>
+<p>Der Iframe begrenzt Bedienung, Layout und Kommunikation. Verwende gemeinsame Controls und
+die deklarierte Funktionsbrücke. Für einen Dialog über mehrere Hostflächen signalisiert
+die App ihre Absicht über eine Funktion; der besitzende Web-Plugin-Beitrag öffnet den Dialog
+im richtigen Bereich. Ein lokaler Dialog innerhalb des Frames bleibt lokale UI.</p>
+<p>Trenne den angewandten Serverstand von ungesendeten Eingaben. Unveränderte Pollantworten
+dürfen Entwürfe nicht überschreiben, ältere Antworten keinen neueren Stand verdrängen.
+Während einer Aktion bleiben Ladezustand und Fehler sichtbar; ein fehlgeschlagener neuer
+Auftrag löscht nicht das bisher gültige Ergebnis. Regelmäßige Abfragen dürfen weder
+überlappen noch endlos auf unsichtbaren Flächen laufen. Die Sichtbarkeit des Dokuments
+allein erkennt einen eingeklappten Iframe nicht.</p>
+<p>Prüfe Enter, Schaltflächen, Fokus, schmale Kacheln und Dialoge im tatsächlichen Host-Iframe.
+Native Formularübermittlung ist dort nicht freigegeben; ein funktionierender Render-Test
+belegt deshalb noch keinen funktionierenden Suchknopf. Endliche Schutzlisten der Bridge
+müssen alte Einträge freigeben, wenn regelmäßige Abfragen dauerhaft laufen sollen.</p>
+<h3 id="8-nachweise-nach-ihrer-aussagekraft-wählen">8. Nachweise nach ihrer Aussagekraft wählen</h3>
+<p>Vertragstests prüfen Eingaben, Zustandswechsel und Fehler. Integrationstests prüfen echte
+Registrierung, Promptkomposition, Rechte und die Verbindung zwischen UI-Funktion und Dienst.
+Prozesstests prüfen Start, konkurrierende Zugriffe und Bereinigung. Browsertests prüfen die
+bedienbare Mini-App innerhalb ihrer Sandbox. Wähle die Schichten, deren Verhalten sich ändert;
+zusätzliche Tests sollen ein Fehlerrisiko prüfen und keine Implementierung abschreiben.</p>
+<p>Simulierte Modellantworten belegen Validierung und Fehlerbehandlung, nicht die Qualität
+natürlicher Interpretation. Dafür sind gesonderte Modellläufe mit repräsentativen und
+mehrdeutigen Anfragen erforderlich. Externe Verbindungen und reale Projekte brauchen eine
+eigene Live-Abnahme. Halte Testdaten in isolierten temporären Verzeichnissen; fehlende
+Produktverbindungen führen zu einem sichtbaren Fehler statt zu unbemerkten Beispieldaten.
+Baue die betroffenen Pakete und nenne, ob Neustart oder ein neuer vorbereiteter Run nötig ist.</p>
+<h2 id="vorgehen-beim-implementieren">Vorgehen beim Implementieren</h2>
+<ol>
+<li>Besitzer, fachlichen Zustand und benötigte Entscheidungen bestimmen; vorhandene Funktionen
+und Referenzprogramme prüfen.</li>
+<li>Den kleinsten vollständigen Vertrag festlegen, einschließlich Fehlern, Abbruch und Rechten.</li>
+<li>Fachfunktion und Ablauf verbinden; nur benötigte Modellrollen und Promptkapitel ausstatten.</li>
+<li>Bedienung und beobachtbaren Lebenszyklus ergänzen; Start und Erfolg ausdrücklich belegen.</li>
+<li>Die betroffenen Grenzen gezielt prüfen, bauen und verbleibende Live-Abnahmen benennen.</li>
+<li>Dieses Spec-Kapitel beziehungsweise das betroffene Nachbarkapitel aktualisieren, das Warum
+in der Entscheidungschronik festhalten und öffentliche Änderungen in den Guide übernehmen.</li>
+</ol>
+<p>Vertragsbeispiele stehen in der <a href="developer.html">Entwicklerreferenz</a>, vollständige
+Actor-Programme in der <a href="reference.html#samples">Bausteinreferenz</a>. Die Anleitung
+zum <a href="guide-programs.html">Bauen von Mini-Apps</a> beschreibt Paket, Zustand und View.</p>
+<h2 id="plugin-vertrag">Plugin-Vertrag</h2>
+<p>Ein Plugin ist ein Ordner unter <code>plugins/&lt;id&gt;/</code>. Er hält beide Hälften und die Assets zusammen:</p>
+<pre><code>plugins/ragents.actor-programs/
+  server/index.ts    der Server-Anteil, Einstiegspunkt der Laufzeit-Suche
+  web/index.tsx      der Web-Anteil, eigener Chunk (nur wenn es einen gibt)
+  contract.ts        was beide Hälften teilen, importfrei (nur wenn es das gibt)
+  prompt.hbs         Assets auf Plugin-Wurzelebene, ebenso prompts/, skills/,
+                     run-scripts/, install.sh
+</code></pre>
+<p><code>server/index.ts</code> exportiert genau einen Einstiegspunkt:</p>
+<pre><code class="language-ts">export const plugin: PluginModule = {
+  requires: [&quot;ragents.ask&quot;],           // optional, geprüft vor dem Bauen
+  create: (host) =&gt; ({ manifest: { id: &quot;ragents.actor-programs&quot; }, register: (registration) =&gt; { ... } }),
+};
+</code></pre>
+<p><code>create</code> erzeugt die Plugin-Instanz mit Manifest und Registrierungsfunktion und erhält dafür
+den <code>PluginHost</code>. Danach trägt <code>register</code> die Beiträge über die pluginbezogene
+<code>PluginRegistration</code> ein, etwa Funktionen, Prompts, Dienste und HTTP-Routen.</p>
+<p>Der Name des PLUGIN-Ordners (der Elternordner von <code>server/</code>) ist die Kennung; ein abweichendes
+<code>manifest.id</code> bricht den Start hart ab.
+<code>requires</code> gehört in den Modulvertrag und NICHT ins Manifest - eine Wahrheit je Angabe. Was ein
+Plugin über den eigenen Ordner hinaus braucht, holt es sich selbst aus dem <code>PluginHost</code>
+(Services über Tokens); es gibt keine Sonderverdrahtung von außen mehr. Fehlt ein verlangter
+Dienst, bricht der Start hart ab.</p>
+<h2 id="funktionen-bereitstellen">Funktionen bereitstellen</h2>
+<p>Eine Erweiterung registriert mit <code>defineRunFunction</code> und <code>host.functions</code> ihre Funktionen,
+eine knappe Zweckbeschreibung (<code>description</code>), optional ausführliche Hinweise (<code>longDescription</code>),
+Ein- und Ergebnisschemata sowie ihre Implementierung. <code>label</code> ist die lesbare Bezeichnung.
+Der Host erzeugt daraus die Signaturen von <code>context.functions.&lt;name&gt;(input)</code>. Snippets und Actor-Programme verwenden
+denselben Bestand und dieselbe Ausführung. Verfügbarkeit und die gebundene Identität gelten
+in beiden Formen; die Programmauswahl unter <code>capabilities</code> begrenzt den installierten Build.</p>
+<p>Jede Fachfunktion ist über <code>context.functions</code> in <code>typescript_eval</code> erreichbar; ob sie
+zusätzlich ein natives Modellwerkzeug ist, entscheidet <code>nativeTool: true</code> derselben
+Registrierung nach einer Regel (seit dem 16.09.2026): Nativ ist eine Funktion, deren Ergebnis
+das Modell vor dem nächsten Schritt lesen muss und die deshalb fast immer allein aufgerufen
+wird: Bedienung (<code>browser_open</code>, <code>browser_snapshot</code>, <code>browser_click</code>, <code>browser_fill</code>,
+<code>browser_select</code>, <code>browser_press</code>, <code>browser_check</code>, <code>browser_screenshot</code>, <code>browser_close</code>),
+Berichte und Statusabfragen eines Fachablaufs, Diagnostik
+(<code>&lt;sprache&gt;_diagnostics</code>), die allgemeinen Dateiwerkzeuge <code>read</code>, <code>edit</code>, <code>write</code> und <code>bash</code>
+sowie <code>browser_view_screenshot</code>, das Bildpixel nur nativ liefern kann. Snippet bleibt, was
+sich kombiniert, filtert oder Ergebnisse weiterreicht: Datenabfragen (Suche, Journal),
+Verwaltungsfunktionen, alles mit Listenergebnis, und jeder Aufruf, der einen Wert aus einer
+vorherigen Antwort ohne Abtippen übernimmt (etwa eine Vorschau-URL aus einer Statusfunktion
+in <code>browser_open</code>). Ein natives Werkzeug bleibt in Snippets verwendbar. Die Bausteinreferenz
+kennzeichnet native Werkzeuge im Funktionskatalog; die Systemübersicht nennt sie als &quot;direktes
+Werkzeug&quot;.
+Der Server registriert <code>typescript_api</code> und <code>typescript_eval</code> unabhängig von Plugins als
+native Grundausstattung. Modelle entdecken damit Funktionen und führen kleine TypeScript-Snippets
+aus. Das optionale Actor-Programm-Plugin ergänzt dauerhafte Programme und Views; sein Fehlen
+entfernt weder die Snippet-Ausführung noch die Funktionen anderer Plugins. Eine Namensauswahl in <code>typescript_api</code> liefert
+die exakten TypeScript-Deklarationen, vorhandene Langbeschreibungen und passende gebundene
+Anleitungen. Liste und Suche liefern nur die Kurzbeschreibung. Der generierte Katalog
+und die Signaturen stammen aus der aktuellen Registry; es gibt keine manuell gepflegte zweite
+Fähigkeitenliste und keinen Öffnungsschritt durch <code>tool_open</code>.</p>
+<p>Funktionen, die Modelle aufrufen, liefern kompakte Ergebnisse. Listen und große Teilstrukturen
+kommen nur auf ausdrückliche Anfrage und in reduzierter Form; Mini-Apps beziehen den vollen
+Zustand über eigene Operationen.</p>
+<p>Beobachter erzeugen einen ActorInput an ein Modell nur bei einer Änderung und nennen die
+Änderung im Input; Zwischenstände ohne Änderung erzeugen keinen Modell-Turn. Das neutrale
+Plugin <code>ragents.watch</code> liefert dafür Wächter mit einer Weckbedingung als Satz.</p>
+<p>Ein natives Werkzeug erhält in <code>run</code> nie unbekannte Felder der obersten Ebene: bei einem
+geschlossenen Eingabeobjekt (<code>additionalProperties: false</code>) entfernt die Engine sie vor der
+Ausführung, vermerkt sie als <code>ignoredFields</code> in <code>tool.call.started</code> und weist das Modell im
+Ergebnis darauf hin; ein offenes Schema reicht alles durch. Fehlende Pflichtfelder, falsche
+Typen und unbekannte Felder in verschachtelten Objekten lehnt die Engine weiterhin ab
+(<code>docs/spec/core.md</code>, Werkzeug-Validierung).</p>
+<p>Feldsemantik gehört ins Schema: jede erklärungsbedürftige Eigenschaft trägt ihre TypeBox
+<code>description</code>, die in den TypeScript-Deklarationen als Kommentar erscheint. Funktionsbeschreibungen
+nennen keine Feldnamen. <code>apps/server/tests/run-function-description-drift.test.ts</code> prüft alle
+registrierten Verträge: Nennt eine Beschreibung ein Wort, das anderswo Eigenschaft ist, aber im
+eigenen Ein- oder Ergebnisschema fehlt, ist das ein Drift; eine kleine Ausnahmeliste deckt
+reine Prosa ab.</p>
+<p>Aktivierte, ersetzte und entfernte dynamische Actor-Funktionen ändern die API bereits im
+laufenden Turn. Jeder ausgerüstete LLM-Actor erhält automatisch eine Übersicht aller für ihn
+verfügbaren TypeScript-Funktionen als Name und Kurzbeschreibung. Die Übersicht folgt dem
+aufgelösten Funktionsbestand, auch bei Subagenten und beim globalen Koordinator; sie wird nach
+API-Änderungen im laufenden Turn aktualisiert. Schemata und Langbeschreibungen bleiben auf Anfrage.
+Funktionsauflösung, Übersicht, Katalog, Typprüfung und Ausführung verwenden denselben
+aktuellen Bestand. Eine leere Auswahl <code>tools: []</code> hält ein LLM ohne Run- und Workspace-Zugriff
+und ohne Funktionsübersicht.
+Benannte Auswahl und Grants begrenzen die verfügbaren Funktionen; die Wahl zwischen Snippet
+und Actor-Programm erzeugt keine getrennte Implementierung oder zusätzliche Rechte.</p>
+<h2 id="skills-und-startaufträge">Skills und Startaufträge</h2>
+<p>Skills gehören ihrem Plugin und liegen unter <code>skills/&lt;name&gt;/SKILL.md</code>; ergänzende Dateien
+bleiben im selben Ordner. <code>SKILLS_DIR</code> ergänzt lokale Skills außerhalb des Repos. Jeder Skill
+enthält <code>name</code>, <code>description</code> und einen nicht leeren Body als Arbeitsanleitung. Ohne <code>start</code>
+steht er nur während der Arbeit zur Verfügung. <code>start: true</code> macht ihn zusätzlich auswählbar
+und verlangt <code>title</code> und eine einzelne nicht leere <code>category</code>. <code>order</code>, <code>tags</code> und <code>guide</code>
+sind optional. <code>prompt</code> kann einen eigenen kurzen Startauftrag enthalten; sonst ist der Body
+der Startauftrag. Explizite Beiträge verwenden <code>action: &quot;skill&quot;</code>, <code>skill</code>, <code>category</code> und
+<code>prompt</code>. Der Skillname muss registriert sein.</p>
+<p>Das optionale Metadatum <code>disable-model-invocation: true</code> nimmt einen Skill aus der automatischen
+Skill-Übersicht des Modells heraus; ausdrücklich laden lässt er sich weiterhin. Einfache
+Beispielaufträge setzen dieses Feld und bleiben über <code>start: true</code> als Einstieg auswählbar.
+Wiederverwendbare Arbeitsanleitungen können zusätzlich
+einen kurzen Startauftrag haben; so bleiben Auftrag und Anleitung im selben Skill.
+Ein Klick zeigt nur die Vorschau. Die Übernahme öffnet den Vorbereitungschat. Parser-Tests
+prüfen Dateien, Startaufträge, Schlagworte und Veröffentlichung;
+<code>reference-run-scripts.test.ts</code> prüft, testet und installiert alle Referenzpakete gegen core.</p>
+<p class="guide-source">Quelle: <a href="../../docs/spec/plugins.md">docs/spec/plugins.md</a>. <a href="guide-extensions.md">Dieses Kapitel als Markdown</a>.</p><p><a href="developer.html#extension-plugin-module">Ein Plugin entwickeln</a></p><nav class="guide-next" aria-label="Weiterlesen"><a href="guide-programs.html">Zurück: Mini-Apps bauen</a><a href="guide-access.html">Weiter: Rechte vergeben</a></nav></article></div></main><footer class="shell"><p>Aus öffentlicher Dokumentation, Verträgen und neutralen Plugins erzeugt. Neu aufbauen: <code>pnpm generate:homepage</code>. Stand prüfen: <code>pnpm check:homepage</code>.</p><nav aria-label="Weitere Seiten"><a href="llms.txt">LLM-Referenz</a><a href="http-api.md">HTTP-API</a><a href="openapi.json">OpenAPI</a><a href="index.html">Zur Homepage</a><a href="guide.html">Guide</a><a href="reference.html">Bausteine</a><a href="developer.html">Entwicklerreferenz</a></nav></footer></body></html>

@@ -1,0 +1,16 @@
+# File store and documents
+
+This run has a file store in the file system, outside the working directory. Its absolute path is
+in the environment variable `RAGENTS_FILES_DIR` (in bash: `echo $RAGENTS_FILES_DIR`).
+
+- Create one subdirectory per topic: `$RAGENTS_FILES_DIR/<topic>/`.
+- Put documents, reports and temporary products there - NOT into the working directory, unless
+  they are part of the actual assignment.
+- The user sees these files in the "Dokumente" area of the interface, grouped by subdirectory.
+- When you spawn agents, name in their assignment the store path they are supposed to write to.
+
+If the user wants to see the content of a file or a document, show it COMPLETELY via
+`show_document` (title = file name or document name) - never paraphrase or shorten. Files of the
+file store you show via `path`, relative to the store. Everything else - files from your working
+directory and content you produced yourself - you pass via `content`; `path` finds nothing outside
+the file store.

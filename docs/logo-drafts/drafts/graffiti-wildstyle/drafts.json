@@ -1,0 +1,72 @@
+[
+  {
+    "file": "01-chrome-skull-left.png",
+    "title": "Chrom-Piece mit Totenkopf links",
+    "concept": "Die direkte Umsetzung der Stil-Referenz: roter Doppelstockwagen, untere Hälfte in Schwarz-Weiß, links ein fotorealistischer Totenkopf, dessen Kiefer ins R übergeht. Wildstyle mit vielen Pfeilen, dadurch nur auf den zweiten Blick als RAgents lesbar.",
+    "prompt": "Documentary daylight photograph taken from a railway embankment: an entire car of a red German double-decker regional train, its lower half completely covered by a black-and-white wildstyle graffiti piece. The letters spell exactly the word \"RAgents\" - capital R, capital A, then lowercase g, e, n, t, s - seven interlocking wildstyle letters with sharp arrows, spikes and extensions, filled with silver chrome and white highlight edges, hard black outlines, dashed motion lines around them. At the left end of the piece a large photorealistically painted human skull in grey tones, its jaw flowing into the first letter. Matte black background field behind the letters, the red of the train and the DB logo still visible above. Real spray paint texture, gritty, raw street style, natural daylight, sharp photo.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "02-chrome-blue-accents.png",
+    "title": "Chrom mit blauen Akzenten",
+    "concept": "Gleiche Zug-Situation, aber Silber-Chrom mit dem Markenblau #2a94fa in Pfeilen, Schatten und Bewegungslinien. Sehr gut lesbar, RAgents steht klar im Bild und das Blau bindet den Entwurf an die Web-Werkstatt an.",
+    "prompt": "Daylight documentary photo from a railway embankment of a red double-decker regional train car painted over its lower half with a chrome wildstyle graffiti piece. The interlocking letters spell exactly \"RAgents\" - R, A, g, e, n, t, s - silver chrome fills with electric blue accents (hex 2a94fa) in the highlights, arrows and drop shadows, hard black outlines on a matte black background field. Sharp spikes, arrows and connectors between letters, dashed blue motion lines. Realistic spray paint texture and drips, the red train body and DB logo visible above the piece, raw underground street style, natural daylight, sharp photograph.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "03-skull-right.png",
+    "title": "Totenkopf rechts",
+    "concept": "Spiegelvariante: der Schädel sitzt am rechten Ende und beißt in den letzten Buchstaben, die Schrift läuft von links auf ihn zu. Das A ist stark zur Vier hin verzogen, echter Wildstyle, aber Buchstabenzahl und R am Anfang stimmen.",
+    "prompt": "Daylight photograph from a railway embankment: a red double-decker regional train car, lower half covered by a black-and-white chrome wildstyle graffiti piece. The letters spell exactly \"RAgents\" - R, A, g, e, n, t, s - interlocking wildstyle with sharp arrows and extensions, silver chrome fill, white glare edges, hard black outline, matte black background. At the RIGHT end of the piece a huge photorealistic grey human skull, its jaw biting into the final letter. Dashed motion lines, real spray texture, the red train and DB logo visible above, raw street style, natural daylight, sharp photo.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "04-robot-skull.png",
+    "title": "Roboterschädel statt Totenkopf",
+    "concept": "Der Schädel wird zum Maschinenkopf aus gebürstetem Metall mit blau glühenden Linsenaugen, Kabel laufen aus dem Kiefer in die Buchstaben. Inhaltlich die beste Anspielung auf die Agenten, dazu die klarste Lesbarkeit im ganzen Satz.",
+    "prompt": "Daylight documentary photo from a railway embankment of a red German double-decker regional train, lower half painted with a chrome wildstyle graffiti piece. The interlocking letters spell exactly \"RAgents\" - R, A, g, e, n, t, s - silver chrome fills, white highlight edges, hard black outlines on matte black. At the left end a large photorealistically painted ROBOT SKULL in brushed metal with glowing blue camera-lens eyes, cables running out of its jaw into the letters. No human skull. Dashed motion lines, spray paint texture, red train body and DB logo visible above, raw underground style, natural daylight.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "05-night-platform-neon.png",
+    "title": "Nacht am Bahnsteig",
+    "concept": "Nachtaufnahme am nassen Bahnsteig, das Piece leuchtet durch blaue Neonkanten aus dem Dunkeln. Die Buchstaben sind hart verschachtelt, RAgents erschließt sich über die Chromflächen, der Schädel links bleibt als grauer Block stehen.",
+    "prompt": "Night photograph on a deserted train platform: a red double-decker regional train car covered on its lower half with a chrome wildstyle graffiti piece, lit by cold neon platform lights, reflections on the wet ground. The piece spells one single word and nothing else, exactly seven letters: R, A, g, e, n, t, s - the word \"RAgents\". No extra letters, no other word. Interlocking wildstyle letters, silver chrome fill with cyan and blue neon glow, hard black outlines, sharp arrows and spikes, matte black background field. A grey photorealistic skull at the left end. Long exposure night photo, grain, raw underground street style.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "06-blackbook-sketch.png",
+    "title": "Blackbook-Skizze",
+    "concept": "Der Entwurf vor der Wand: Marker-Outline mit grauer Copic-Füllung auf Papier, Bleistiftlinien noch sichtbar, kleiner Totenkopf als Kritzelei in der Ecke. Sehr gut lesbar und die beste Vorlage, falls das Ganze in eine saubere Schrift überführt werden soll.",
+    "prompt": "Close-up photo of a graffiti blackbook sketch page: a wildstyle graffiti outline drawn with black marker and grey Copic shading on slightly textured off-white paper, spelling exactly \"RAgents\" - R, A, g, e, n, t, s - seven interlocking letters with arrows, spikes and extensions, chrome fill indicated with grey markers and white gel-pen highlights. Pencil construction lines still visible, small skull doodle in the corner, tape on the paper edge, sketchbook photographed from above under daylight, raw and authentic.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "07-letters-closeup.png",
+    "title": "Nahaufnahme der Buchstaben",
+    "concept": "Nur die Schrift, formatfüllend auf einem genieteten Zugblech, mit Overspray und Läufern. Die lesbarste Variante überhaupt und damit der beste Kandidat für einen Ausschnitt als Header oder Kachel.",
+    "prompt": "Extreme close-up photograph of a chrome wildstyle graffiti piece on a train panel, framed tight so only the letters fill the frame. The letters spell exactly \"RAgents\" - R, A, g, e, n, t, s - silver chrome fill with white glare edges, hard black outlines, sharp arrows and connectors, matte black background, visible spray paint texture, overspray, drips and metal rivets of the train panel. Shallow depth of field, daylight, gritty documentary photo, raw street style.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "08-railway-wall.png",
+    "title": "Wand statt Zug",
+    "concept": "Dasselbe Piece auf einer verwitterten Betonwand am Gleis, Schädel links, Unkraut und Schotter davor. Ruhiger als die Zugmotive, die Buchstaben sind spitzer und stärker verschachtelt, aber als RAgints noch entzifferbar.",
+    "prompt": "Daylight photograph of a long weathered concrete wall along a railway line, completely covered by a black-and-white chrome wildstyle graffiti piece. The interlocking letters spell exactly \"RAgents\" - R, A, g, e, n, t, s - silver chrome fill, white highlight edges, hard black outlines, sharp arrows and spikes, matte black background field with dashed motion lines. A large photorealistic grey skull painted at the left end, its jaw merging into the letters. Weeds and gravel at the base of the wall, overcast daylight, raw underground street style, sharp documentary photo.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "09-freight-robot-skull.png",
+    "title": "Güterwagen mit Maschinenkopf",
+    "concept": "Wholecar auf einem rostigen Güterwagen, RAGENTS in Versalien, links der Roboterschädel mit blauen Linsenaugen. Die roheste Variante, Ladungsmarkierungen und Rost bleiben stehen und geben dem Ganzen echte Zug-Glaubwürdigkeit.",
+    "prompt": "Daylight photograph from a railway embankment of a rusty grey freight train wagon painted end to end with a chrome wildstyle graffiti whole car. The piece spells one single word, exactly seven letters: R, A, g, e, n, t, s - the word \"RAgents\". Interlocking letters with sharp arrows and spikes, silver chrome fill, white glare edges, hard black outlines, matte black background, dashed motion lines. A photorealistic grey robot skull with glowing blue lens eyes painted at the left end. Rust, dirt and cargo markings still visible, overcast daylight, gritty documentary photo, raw street style.",
+    "model": "gpt_image_2"
+  },
+  {
+    "file": "10-hall-of-fame-blue.png",
+    "title": "Hall of Fame in Blau",
+    "concept": "Unter einer Eisenbahnbrücke, Chrom mit kräftigem #2a94fa und einem Platinenmuster im schwarzen Hintergrund, kein Schädel. Verbindet Street-Optik mit dem Software-Thema und ist trotz voller Wildstyle-Verschachtelung gut lesbar.",
+    "prompt": "Daylight photograph of a graffiti hall of fame wall under a railway bridge, covered with a chrome wildstyle piece. The piece spells one single word, exactly seven letters: R, A, g, e, n, t, s - the word \"RAgents\". Interlocking wildstyle letters, silver chrome fill with electric blue accents (hex 2a94fa) in arrows, drop shadows and highlights, hard black outlines, matte black background with dashed blue motion lines. Small painted circuit-board pattern woven into the background, no skull. Concrete, puddles and spray cans on the ground, natural daylight, raw underground street style, sharp documentary photo.",
+    "model": "gpt_image_2"
+  }
+]
