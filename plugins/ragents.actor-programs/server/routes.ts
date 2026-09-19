@@ -1,52 +1,12 @@
-import type { IncomingMessage } from "node:http";
 import { randomBytes } from "node:crypto";
 import type { HttpRouteContribution } from "@aicontainer/ragents";
-import { guardedJsonRoute, readJsonBody, writeJson } from "@aicontainer/server/plugin-support/http.js";
+import { guardedJsonRoute } from "@aicontainer/server/plugin-support/http.js";
 import { browserRuntimeStyles } from "./client-runtime.js";
 import type { ActorProgramRuntime } from "./runtime.js";
 
 export const miniAppsApiPrefix = "/api/plugins/ragents.actor-programs";
 
-const MAX_BODY_BYTES = 128 * 1024;
-const MAX_INPUT_BYTES = 64 * 1024;
-const basePattern = `${miniAppsApiPrefix.replaceAll(".", "\\.")}\/runs\/([A-Za-z0-9_-]{1,64})\/apps`;
-const listPattern = new RegExp(`^${basePattern}$`);
-const framePattern = new RegExp(`^${basePattern}\/([a-z][a-z0-9_-]{0,129})\/frame$`);
-const actionPattern = new RegExp(`^${basePattern}\/([a-z][a-z0-9_-]{0,129})\/actions\/([a-zA-Z][a-zA-Z0-9_-]{0,63})$`);
-const invocationPattern = new RegExp(`^${basePattern}\/([a-z][a-z0-9_-]{0,129})\/invocations\/([A-Za-z0-9_-]{1,100})$`);
-const sourcePattern = new RegExp(`^${basePattern}\/([a-z][a-z0-9_-]{0,129})\/source$`);
-
-const actorBasePattern = `${miniAppsApiPrefix.replaceAll(".", "\\.")}/runs/([A-Za-z0-9_-]{1,64})/actors/([a-z][a-z0-9-]{0,63})`;
-const functionPattern = new RegExp(`^${actorBasePattern}/functions/([a-zA-Z][a-zA-Z0-9_-]{0,63})$`);
-const functionInvocationPattern = new RegExp(`^${actorBasePattern}/invocations/([A-Za-z0-9_-]{1,100})$`);
-
-interface ActionBody {
-  requestId: string;
-  revision: string;
-  input: unknown;
-}
-
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-const readActionBody = (request: IncomingMessage): Promise<ActionBody> =>
-  readJsonBody(
-    request,
-    (body) => {
-      if (!isObject(body)
-        || typeof body.requestId !== "string"
-        || typeof body.revision !== "string"
-        || !/^[a-f0-9]{64}$/.test(body.revision)
-        || !("input" in body)) {
-        throw new Error("Der Request braucht requestId, revision und input.");
-      }
-      if (Buffer.byteLength(JSON.stringify(body.input), "utf8") > MAX_INPUT_BYTES)
-        throw new Error(`Die Aktionseingabe ist größer als ${MAX_INPUT_BYTES} Byte.`);
-      return { requestId: body.requestId, revision: body.revision, input: body.input };
-    },
-    "Der Request enthält kein gültiges JSON.",
-    MAX_BODY_BYTES,
-  );
+const framePattern = new RegExp(`^${miniAppsApiPrefix.replaceAll(".", "\\.")}\/runs\/([A-Za-z0-9_-]{1,64})\/apps\/([a-z][a-z0-9_-]{0,129})\/frame$`);
 
 const escapeForwarder = `
   window.addEventListener("keydown", (event) => {
@@ -231,31 +191,13 @@ export const frameHtml = (
   return frame.html.replace(head, (value) => `${value}${typedBridgeSdk(nonce, `${browserRuntimeStyles}\n${frame.styles}`)}${client}`);
 };
 
-export interface MiniAppRoutesOptions {
+export interface MiniAppFrameOptions {
   ensureSession: (runId: string) => void;
   runtime: ActorProgramRuntime;
 }
 
-export const createMiniAppRoutes = (options: MiniAppRoutesOptions): HttpRouteContribution[] => [
-  {
-    id: "ragents.actor-programs.apps",
-    isApiPath: (pathname) => pathname.startsWith(miniAppsApiPrefix),
-    matches: (request, url) => request.method === "GET" && listPattern.test(url.pathname),
-    handle: async ({ request, response, url, access }) => {
-      const match = url.pathname.match(listPattern);
-      if (!match) throw new Error("Ungültige App-Route.");
-      const runId = match[1]!;
-      await guardedJsonRoute({
-        request,
-        response,
-        ensureSession: () => options.ensureSession(runId),
-        handle: () => writeJson(response, 200, {
-          apps: options.runtime.apps(runId),
-          tools: access.can("runs.inspect") ? options.runtime.runLocalTools(runId) : [],
-        }),
-      });
-    },
-  },
+/** Die einzige Auslieferungsroute des Plugins: das HTML des Mini-App-Frames; alles andere sind Methoden. */
+export const createMiniAppFrameRoutes = (options: MiniAppFrameOptions): HttpRouteContribution[] => [
   {
     id: "ragents.actor-programs.frame",
     isApiPath: (pathname) => pathname.startsWith(miniAppsApiPrefix),
@@ -288,98 +230,6 @@ export const createMiniAppRoutes = (options: MiniAppRoutesOptions): HttpRouteCon
           response.end(content);
         },
       });
-    },
-  },
-  {
-    id: "ragents.actor-programs.source",
-    requiredRights: ["runs.read", "runs.inspect"],
-    isApiPath: (pathname) => pathname.startsWith(miniAppsApiPrefix),
-    matches: (request, url) => request.method === "GET" && sourcePattern.test(url.pathname),
-    handle: async ({ request, response, url }) => {
-      const match = url.pathname.match(sourcePattern);
-      if (!match) throw new Error("Ungültige App-Route.");
-      const [, runId, appId] = match;
-      await guardedJsonRoute({
-        request,
-        response,
-        ensureSession: () => options.ensureSession(runId!),
-        errorStatus: 404,
-        handle: async () => writeJson(response, 200, await options.runtime.moduleSource(runId!, appId!)),
-      });
-    },
-  },
-  {
-    id: "ragents.actor-programs.action",
-    isApiPath: (pathname) => pathname.startsWith(miniAppsApiPrefix),
-    matches: (request, url) => request.method === "POST" && actionPattern.test(url.pathname),
-    handle: async ({ request, response, url }) => {
-      const match = url.pathname.match(actionPattern);
-      if (!match) throw new Error("Ungültige App-Route.");
-      const [, runId, appId, actionId] = match;
-      await guardedJsonRoute({
-        request,
-        response,
-        ensureSession: () => options.ensureSession(runId!),
-        handle: async () => {
-          if (request.headers["x-ragents-app-bridge"] !== "1")
-            throw new Error("Diese Route darf nur über die App-Bridge aufgerufen werden.");
-          const permit = options.runtime.invocationPermit(runId!);
-          const body = await readActionBody(request);
-          options.ensureSession(runId!);
-          const invocation = options.runtime.startInvocation(
-            runId!,
-            appId!,
-            body.revision,
-            actionId!,
-            body.requestId,
-            body.input,
-            permit,
-          );
-          writeJson(response, 202, invocation);
-        },
-      });
-    },
-  },
-  {
-    id: "ragents.actor-programs.invocation",
-    isApiPath: (pathname) => pathname.startsWith(miniAppsApiPrefix),
-    matches: (request, url) => request.method === "GET" && invocationPattern.test(url.pathname),
-    handle: async ({ request, response, url }) => {
-      const match = url.pathname.match(invocationPattern);
-      if (!match) throw new Error("Ungültige App-Route.");
-      const [, runId, appId, invocationId] = match;
-      await guardedJsonRoute({
-        request,
-        response,
-        ensureSession: () => options.ensureSession(runId!),
-        errorStatus: 404,
-        handle: () => writeJson(response, 200, options.runtime.invocation(runId!, appId!, invocationId!)),
-      });
-    },
-  },
-  {
-    id:"ragents.actor-programs.function",
-    requiredRights:["runs.read","runs.write","runs.inspect"],
-    isApiPath:(pathname)=>pathname.startsWith(miniAppsApiPrefix),
-    matches:(request,url)=>request.method==="POST"&&functionPattern.test(url.pathname),
-    handle:async({request,response,url})=>{
-      const [,runId,actorHandle,functionId]=url.pathname.match(functionPattern)!;
-      await guardedJsonRoute({request,response,ensureSession:()=>options.ensureSession(runId!),handle:async()=>{
-        const permit=options.runtime.invocationPermit(runId!);
-        const body=await readActionBody(request);
-        options.ensureSession(runId!);
-        writeJson(response,202,options.runtime.startFunctionInvocation(runId!,actorHandle!,body.revision,functionId!,body.requestId,body.input,permit));
-      }});
-    },
-  },
-  {
-    id:"ragents.actor-programs.function-invocation",
-    requiredRights:["runs.read","runs.inspect"],
-    isApiPath:(pathname)=>pathname.startsWith(miniAppsApiPrefix),
-    matches:(request,url)=>request.method==="GET"&&functionInvocationPattern.test(url.pathname),
-    handle:async({request,response,url})=>{
-      const [,runId,actorHandle,id]=url.pathname.match(functionInvocationPattern)!;
-      await guardedJsonRoute({request,response,ensureSession:()=>options.ensureSession(runId!),handle:()=>writeJson(response,200,options.runtime.invocation(runId!,actorHandle!,id!))});
     },
   },
 ];

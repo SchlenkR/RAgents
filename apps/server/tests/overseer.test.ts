@@ -6,13 +6,12 @@ import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createServer } from "node:http";
-import type { AddressInfo } from "node:net";
 import { Type } from "typebox";
 import { agentTools, ScriptDriver, PluginHost } from "@aicontainer/ragents";
 import { plugin } from "../../../plugins/ragents.overseer/server/index.ts";
 import { RunDirectory } from "../../../plugins/ragents.overseer/server/run-directory.ts";
-import { OVERSEER_RUN_ID } from "../../../plugins/ragents.overseer/contract.ts";
+import { OVERSEER_RUN_ID, overseerContracts } from "../../../plugins/ragents.overseer/contract.ts";
+import { methodContext } from "./rpc-fixture.ts";
 import { globalChatToken, sessionManagementToken, type SessionManagement } from "../src/ragents/global-chat.ts";
 import { productRuntimeToken } from "../src/ragents/product-runtime.ts";
 import { workspaceRuntimeToken } from "../src/ragents/workspace-runtime.ts";
@@ -122,18 +121,10 @@ test("global coordinator persists separately and manages ordinary runs through t
     return host;
   });
   let provider = createProvider();
-  const server = createServer((request, response) => {
-    void provider.pluginRoutes(request, response, new URL(request.url ?? "/", "http://localhost")).then((handled) => {
-      if (!handled) response.writeHead(404).end();
-    });
-  });
-  await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
-  const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}/api/plugins/ragents.overseer`;
-  const request = async (route: string, body?: unknown) => {
-    const response = await fetch(base + route, body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const result = await response.json() as Record<string, unknown>;
-    if (!response.ok) throw new Error(String(result.error));
-    return result;
+  const call = async <C extends { id: string }>(contract: C, input: unknown): Promise<Record<string, unknown>> => {
+    const found = provider.plugins.methods.find(contract.id);
+    if (!found) throw new Error(`Die Methode ${contract.id} ist nicht registriert`);
+    return await found.contribution.execute(input as never, methodContext()) as Record<string, unknown>;
   };
   try {
     await provider.init();
@@ -151,7 +142,7 @@ test("global coordinator persists separately and manages ordinary runs through t
     await assert.rejects(provider.delete(OVERSEER_RUN_ID), /kann nicht gelöscht/);
 
     const largeInput = "Analysiere " + "den vollständigen Inhalt. ".repeat(300).trimEnd();
-    const created = await request("/runs", { title: "Analyse", message: largeInput, options: { "test.language": "en" } });
+    const created = await call(overseerContracts.createRun, { title: "Analyse", message: largeInput, options: { "test.language": "en" } });
     const runId = created.runId as string;
     assert.equal(created.title, "Analyse");
     assert.equal(created.reference, "Lauf 1");
@@ -166,26 +157,25 @@ test("global coordinator persists separately and manages ordinary runs through t
     assert.equal(workspaceResolutions, 1);
     assert.equal((await provider.list()).length, 1);
 
-    const firstPage = await request("/runs/Analyse/events?limit=2");
+    const firstPage = await call(overseerContracts.readEvents, { run: "Analyse", limit: 2 });
     assert.equal(firstPage.hasMore, true);
-    const nextPage = await request(`/runs/Lauf%201/events?after=${firstPage.nextAfter}`);
+    const nextPage = await call(overseerContracts.readEvents, { run: "Lauf 1", after: firstPage.nextAfter });
     assert.ok((nextPage.events as Array<{ sequence: number }>).every((event) => event.sequence > Number(firstPage.nextAfter)));
     assert.ok((nextPage.events as Array<{ payload: { content?: string } }>).some((event) => event.payload.content === largeInput));
-    await request("/runs/Lauf%201/messages", { message: "Prüfe das Ergebnis" });
+    await call(overseerContracts.sendMessage, { run: "Lauf 1", message: "Prüfe das Ergebnis" });
     assert.ok(management!.view(runId).inputs.some((input) => input.content === "Prüfe das Ergebnis"));
-    const stopped = await request("/runs/Analyse/stop", {});
+    const stopped = await call(overseerContracts.stopRun, { run: "Analyse" });
     assert.equal(stopped.stopped, true);
     assert.equal(management!.view(runId).primaryActorId, runView.primaryActorId);
 
-    const script = await request("/runs", { title: "Vorbereiteter Lauf", script: "Test script", input: { topic: "Test" } });
+    const script = await call(overseerContracts.createRun, { title: "Vorbereiteter Lauf", script: "Test script", input: { topic: "Test" } });
     const scriptView = management!.view(script.runId as string);
     assert.equal(scriptView.title, "Vorbereiteter Lauf");
     assert.ok(scriptView.actors.some((actor) => actor.kind === "script"));
     assert.deepEqual(JSON.parse(scriptView.inputs[0].content).input, { topic: "Test" });
-    await assert.rejects(request("/runs", { title: "Fehler", message: "Hi", script: "Test script" }), /JSON-Body/);
-    await assert.rejects(request("/runs", { title: "Fehler", script: "Missing" }), /Gültige Titel und Kennungen.*Test script/);
-    await assert.rejects(request("/runs", { title: "Fehler", message: "Hi", options: { "test.language": "xx" } }), /Gültige Sprachen/);
-    await assert.rejects(request("/runs", { title: "Compilerfehler", script: "Broken script" }), /Build failed|Expected/);
+    await assert.rejects(call(overseerContracts.createRun, { title: "Fehler", script: "Missing" }), /Gültige Titel und Kennungen.*Test script/);
+    await assert.rejects(call(overseerContracts.createRun, { title: "Fehler", message: "Hi", options: { "test.language": "xx" } }), /Gültige Sprachen/);
+    await assert.rejects(call(overseerContracts.createRun, { title: "Compilerfehler", script: "Broken script" }), /Build failed|Expected/);
 
     const packageDirectory = path.join(dataDirectory, "own-setup");
     await mkdir(packageDirectory);
@@ -195,7 +185,7 @@ test("global coordinator persists separately and manages ordinary runs through t
       await mkdir(path.dirname(target), {recursive: true});
       await writeFile(target, file.content);
     }
-    const local = await request("/runs", { title: "Eigener Aufbau", packageDirectory, input: { topic: "Lokal" } });
+    const local = await call(overseerContracts.createRun, { title: "Eigener Aufbau", packageDirectory, input: { topic: "Lokal" } });
     const localView = management!.view(local.runId as string);
     assert.equal(localView.title, "Eigener Aufbau");
     assert.ok(localView.actors.some((actor) => actor.kind === "script" && actor.handle === "own-setup"));
@@ -211,7 +201,7 @@ test("global coordinator persists separately and manages ordinary runs through t
     unsubscribe();
     assert.ok(history.some((event) => (event as { kind: string; text?: string }).kind === "user" && (event as { text: string }).text === "Zeige meine Läufe"));
     assert.ok((await provider.list()).every((run) => run.id !== OVERSEER_RUN_ID));
-    assert.equal((await request("/runs/Lauf%201/events?limit=1")).runId, runId);
+    assert.equal((await call(overseerContracts.readEvents, { run: "Lauf 1", limit: 1 })).runId, runId);
     assert.ok(management!.view(runId).inputs.some((input) => input.content === largeInput));
     await provider.delete(runId);
     assert.ok((await provider.list()).every((run) => run.id !== runId));
@@ -223,8 +213,6 @@ test("global coordinator persists separately and manages ordinary runs through t
     assert.ok([...project(archivedEvents)!.inputs.values()].some((input) => input.content === largeInput));
     await assert.rejects(readdir(runDirectory), { code: "ENOENT" });
   } finally {
-    server.closeAllConnections();
-    await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     await provider.shutdown();
     await rm(dataDirectory, { recursive: true, force: true });
   }

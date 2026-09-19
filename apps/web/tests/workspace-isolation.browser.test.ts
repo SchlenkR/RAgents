@@ -22,8 +22,7 @@ test("workspace state and width stay with their run and hidden files stay with t
 import React, { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { WorkspacePanel, useWorkspacePanelState } from './apps/web/src/WorkspacePanel';
-import { fileBrowserPanel } from './plugins/ragents.workspace/web/FileBrowser';
-const Files = fileBrowserPanel('/fixture');
+import { FileBrowserPanel } from './plugins/ragents.workspace/web/FileBrowser';
 function Run({ id }) {
   const [state, update] = useWorkspacePanelState(id);
   const session = { session: { id }, messages: [] };
@@ -32,7 +31,7 @@ function Run({ id }) {
     <button onClick={() => update('collapsed')}>Einklappen</button>
     <button onClick={() => navigation.openTab('files')}>Tab öffnen</button>
     <WorkspacePanel session={session} navigation={navigation} state={state} onToggleState={() => update('expanded')} tabs={[]} pendingTabIds={[]} headerContainer={null}/>
-    <Files session={session} active={true}/>
+    <FileBrowserPanel session={session} active={true}/>
   </section>;
 }
 function App() {
@@ -56,17 +55,23 @@ createRoot(document.getElementById('root')).render(<App/>);
       response.end(await readFile(`${directory}/fixture.js`));
       return;
     }
-    if (request.url?.startsWith("/fixture/")) {
-      if (request.url.includes("watch")) {
-        response.writeHead(200, { "Content-Type": "text/event-stream" });
-        response.write(": ready\n\n");
-        return;
-      }
-      response.setHeader("Content-Type", "application/json");
-      response.end(JSON.stringify({ location: "fixture", entries: [
+    if (request.url === "/rpc/stream") {
+      response.writeHead(200, { "Content-Type": "text/event-stream" });
+      response.write('event: hello\ndata: {"connection":"fixture"}\n\n');
+      return;
+    }
+    if (request.url === "/rpc") {
+      const body = JSON.parse(await new Promise<string>(resolve => {
+        let text = "";
+        request.on("data", chunk => { text += String(chunk); });
+        request.on("end", () => resolve(text || "{}"));
+      })) as { id?: number; method?: string };
+      const listing = { root: "workspace", location: "fixture", path: "", truncated: false, entries: [
         { name: "visible.txt", kind: "file", size: 1, modifiedAt: "2026-01-01" },
         { name: ".hidden.txt", kind: "file", size: 1, modifiedAt: "2026-01-01" },
-      ], truncated: false }));
+      ] };
+      response.setHeader("Content-Type", "application/json");
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: body.id ?? null, result: body.method === "rpc.subscribe" ? { subscription: "fixture" } : listing }));
       return;
     }
     response.setHeader("Content-Type", "text/html");

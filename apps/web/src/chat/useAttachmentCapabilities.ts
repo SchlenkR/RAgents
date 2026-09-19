@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
+import { coreContracts } from "@aicontainer/server/api/contracts";
 import type { ChatAttachmentCapabilities } from "../../../server/src/chat-events";
-import { errorFrom } from "../lib/http";
+import { rpc } from "../rpc";
+import type { RpcClient } from "../rpc/client";
 
-export async function getAttachmentCapabilities(runId: string, actor = "primary", signal?: AbortSignal): Promise<ChatAttachmentCapabilities> {
-  const response = await fetch(`/chat/${encodeURIComponent(runId)}/capabilities?actor=${encodeURIComponent(actor)}`, { signal });
-  if (!response.ok) throw await errorFrom(response, "Unterstützung für Anhänge konnte nicht geprüft werden");
-  const result: unknown = await response.json();
-  if (typeof result !== "object" || result === null || !("model" in result) || typeof result.model !== "string"
-    || !("input" in result) || !Array.isArray(result.input) || !result.input.every((entry) => typeof entry === "string")) {
+export async function getAttachmentCapabilities(runId: string, actor = "primary", signal?: AbortSignal, client: RpcClient = rpc): Promise<ChatAttachmentCapabilities> {
+  const result = await client.call(coreContracts.chat.capabilities, { runId, actor }, { signal });
+  if (typeof result.model !== "string" || !Array.isArray(result.input) || !result.input.every((entry) => typeof entry === "string")) {
     throw new Error("Ungültige Angaben zur Unterstützung für Anhänge");
   }
   return { model: result.model, input: result.input };

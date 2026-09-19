@@ -1,10 +1,7 @@
-import {
-  pluginRoutePrefixFrom,
-  type WebPlugin,
-  type WebPluginDescriptor,
-} from "@aicontainer/web/PluginRegistry";
-import { WORKSPACE_PLUGIN_ID } from "../contract";
-import { fileBrowserPanel } from "./FileBrowser";
+import type { WebPlugin } from "@aicontainer/web/PluginRegistry";
+import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_PLUGIN_ID } from "../contract";
+import { FileBrowserPanel } from "./FileBrowser";
+import { WorkspaceBindingBadge, WorkspaceBindingControl, WorkspaceMetadata } from "./WorkspaceBinding";
 
 export const WORKSPACE_FILES_TAB_ID = "ragents.workspace.files";
 
@@ -17,21 +14,24 @@ function IconFiles() {
   );
 }
 
-const configuredPlugin = (descriptor: WebPluginDescriptor, routePrefix: string): WebPlugin => ({
-  ...descriptor,
+export const webPlugin: WebPlugin = {
+  id: WORKSPACE_PLUGIN_ID,
   workspaceTabs: [{
     readRight: "runs.inspect",
     id: WORKSPACE_FILES_TAB_ID,
     label: "Dateien",
     order: 260,
     Icon: IconFiles,
-    Panel: fileBrowserPanel(routePrefix),
+    Panel: FileBrowserPanel,
   }],
-});
-
-const descriptor: WebPluginDescriptor = { id: WORKSPACE_PLUGIN_ID };
-
-export const webPlugin: WebPlugin = {
-  ...descriptor,
-  activate: (config) => configuredPlugin(descriptor, pluginRoutePrefixFrom(descriptor.id, config)),
+  startOptions: [{
+    id: WORKSPACE_BINDING_OPTION_ID,
+    Control: WorkspaceBindingControl,
+    Badge: WorkspaceBindingBadge,
+  }],
+  sessionMetadata: [{
+    id: "ragents.workspace.binding",
+    order: 90,
+    Metadata: WorkspaceMetadata,
+  }],
 };

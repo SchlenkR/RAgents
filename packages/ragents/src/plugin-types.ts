@@ -9,6 +9,7 @@ import type { Orchestration } from "./runtime/orchestration.ts";
 import type { AgentDriver } from "./drivers/types.ts";
 import type { JsonValue } from "./domain/json.ts";
 import type { AccessContext } from "./access.ts";
+import type { ChannelContribution, MethodContribution } from "./rpc/contribution.ts";
 
 export const runtimeOwner = "ragents.runtime";
 
@@ -334,6 +335,8 @@ export interface PluginRegistration {
   readonly storage: PluginStorage;
   clientConfig: (values: Readonly<Record<string, unknown>>) => void;
   config: (...descriptors: readonly PluginConfigDescriptor[]) => void;
+  channels: (...contributions: readonly ChannelContribution[]) => void;
+  methods: (...contributions: readonly MethodContribution[]) => void;
   http: (...routes: readonly HttpRouteContribution[]) => void;
   lifecycle: (...contributions: readonly SessionLifecycleContribution[]) => void;
   operation: (id: string) => RegisteredOperationDescriptor | undefined;

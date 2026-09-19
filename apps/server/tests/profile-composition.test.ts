@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
-import type { IncomingMessage, ServerResponse } from "node:http";
 import path from "node:path";
 import test, { after } from "node:test";
 
-import { createAccessContext, Journal, Orchestration, type PluginContext, type PluginHost } from "@aicontainer/ragents";
+import { createAccessContext, DomainError, Journal, Orchestration, RpcPeer, type PluginContext, type PluginHost } from "@aicontainer/ragents";
+import { RpcConnection, RpcDispatcher } from "../src/rpc/dispatcher.ts";
 import { testServices } from "../../../packages/ragents/tests/support.ts";
 import { nativeExecutorFixture } from "./native-executor-fixture.ts";
 
@@ -114,7 +114,7 @@ test("die neutrale Core-Fixture komponiert echte Plugins und Ordnerbeiträge vol
     ["ragents.reference.shared-actor-list", "ragents.reference.conversation-circle", "ragents.reference.moderated-round", "ragents.reference.balcony-wizard", "ragents.reference.learning-afternoon", "ragents.reference.word-game"],
   );
   assert.ok(profile.startEntries.every((entry) => !("files" in entry) && !("programs" in entry)), "ein Run-Script verrät seine Quelle nicht");
-  assert.deepEqual(host.startOptions.describe(), [{ id: "ragents.model", owner: "ragents.product" }]);
+  assert.deepEqual(host.startOptions.describe(), [{ id: "ragents.workspace.binding", owner: "ragents.workspace" }, { id: "ragents.model", owner: "ragents.product" }]);
   assert.equal(host.service(workspaceRuntimeToken).describe().mode, "per-run");
   assert.ok(host.optionalService(documentStoreToken), "Dokumentenstore fehlt");
 });
@@ -151,22 +151,19 @@ test("ein Plugin ohne sein vorausgesetztes Plugin bricht den Start ab", async ()
   );
 });
 
-test("technische Plugin-Routen weisen eingeschränkte Zugänge vor jedem Dateizugriff ab", async () => {
+test("technische Plugin-Methoden verlangen runs.inspect im Vertrag, der Dispatcher prüft es vor jedem Dateizugriff", async () => {
   const access = createAccessContext({ enabled: false, user: { id: "operator", label: "Operator", rights: ["runs.read", "runs.write"] } });
   const host = await composed(coreFixture);
-  for (const [route, right] of [
-    ["/api/plugins/ragents.workspace/runs/example/browse", "runs.inspect"],
-    ["/api/plugins/ragents.processes/runs/example/processes", "ragents.processes.read"],
-    ["/api/plugins/ragents.lsp-typescript/runs/example/language-server", "ragents.lsp-typescript.read"],
-    ["/api/plugins/ragents.lsp-roslyn/runs/example/language-server", "ragents.lsp-roslyn.read"],
-    ["/api/plugins/ragents.actor-programs/runs/example/apps/board/source", "runs.inspect"],
-  ]) {
-    let status = 0;
-    let body = "";
-    const response = { writeHead: (value: number) => { status = value; }, end: (value: string) => { body = value; } } as unknown as ServerResponse;
-    assert.equal(await host.dispatchHttp({ method: "GET" } as IncomingMessage, response, new URL(route, "http://localhost"), access), true, route);
-    assert.equal(status, 403, route);
-    assert.equal(JSON.parse(body).right, right, route);
+  const dispatcher = new RpcDispatcher({ methods: host.methods, channels: host.channels });
+  const connection = new RpcConnection({ id: "test", access, local: true, peer: new RpcPeer({ send: () => undefined }), streamless: true }, dispatcher);
+  const context = { id: 1, signal: new AbortController().signal, progress: () => undefined };
+  for (const [method, params] of [
+    ["ragents.workspace.browse.list", { runId: "example", root: "workspace", path: "" }],
+    ["ragents.actor-programs.source", { runId: "example", viewId: "board", revision: "r1" }],
+  ] as const) {
+    assert.ok(host.methods.find(method)?.contribution.contract.rights.includes("runs.inspect"), method);
+    await assert.rejects(dispatcher.dispatch(connection, method, params, context), (error: unknown) =>
+      error instanceof DomainError && error.code === "access-denied" && /runs\.inspect/.test(error.message), method);
   }
 });
 

@@ -1,12 +1,10 @@
+import { coreContracts } from "@aicontainer/server/api/contracts";
 import type { RunPreparationMessage, RunPreparationResponse } from "../../server/src/run-preparation-contract";
-import { errorFrom } from "./lib/http";
+import { rpc } from "./rpc";
+import type { RpcClient } from "./rpc/client";
 
-export async function discussRun(sessionId: string, messages: RunPreparationMessage[], signal: AbortSignal, skillName?: string): Promise<RunPreparationResponse> {
-  const response = await fetch(`/chat/${encodeURIComponent(sessionId)}/prepare`, {
-    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages, ...(skillName ? { skillName } : {}) }), signal,
-  });
-  if (!response.ok) throw await errorFrom(response, "Der Auftrag konnte nicht besprochen werden.");
-  const result = await response.json() as RunPreparationResponse;
+export async function discussRun(sessionId: string, messages: RunPreparationMessage[], signal: AbortSignal, skillName?: string, client: RpcClient = rpc): Promise<RunPreparationResponse> {
+  const result = await client.call(coreContracts.prepare, { runId: sessionId, messages, ...(skillName ? { skillName } : {}) }, { signal });
   if (result.kind === "start") {
     if (!result.input || typeof result.input.text !== "string" || !result.input.text.trim()) throw new Error("Der vorbereitete Startauftrag fehlt.");
     return result;

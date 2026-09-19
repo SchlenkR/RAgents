@@ -10,9 +10,9 @@ import { useChat } from "@aicontainer/web/chat/useChat";
 import { useAttachmentCapabilities } from "@aicontainer/web/chat/useAttachmentCapabilities";
 import { ChatStepsProvider, useChatSteps, type OverviewPanelContext, type WebPlugin } from "@aicontainer/web/PluginRegistry";
 import { withToolSummaries } from "@aicontainer/web/toolLine";
-import { errorFrom } from "@aicontainer/web/lib/http";
+import { rpc } from "@aicontainer/web/rpc";
 import type { ChatEvent } from "@aicontainer/server/chat-events";
-import { OVERSEER_PLUGIN_ID, OVERSEER_RUN_ID } from "../contract";
+import { OVERSEER_PLUGIN_ID, OVERSEER_RUN_ID, overseerContracts } from "../contract";
 import { ModelSettings, useModelSettings } from "./ModelSettings";
 import { overseerChatDisplayPolicy, overseerChatStorageKeyPrefix } from "./chat-display";
 import { createQuickAnswers, type QuickAnswerNotice } from "./quick-answers";
@@ -109,10 +109,7 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation }: O
     setResetting(true);
     setError(undefined);
     try {
-      const response = await fetch(`/api/plugins/${OVERSEER_PLUGIN_ID}/reset`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ confirm: true }),
-      });
-      if (!response.ok) throw await errorFrom(response, "Das Gespräch konnte nicht zurückgesetzt werden.");
+      await rpc.call(overseerContracts.reset, { confirm: true });
       clearConversation();
     } catch (cause) {
       if (!resetObserved.current) setError(cause instanceof Error ? cause.message : String(cause));

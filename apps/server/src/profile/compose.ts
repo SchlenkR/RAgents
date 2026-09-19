@@ -1,5 +1,4 @@
 import { PluginHost } from "@aicontainer/ragents";
-import { EventHub } from "../event-hub.js";
 import { config, HOST_SECRET_ENV_NAMES } from "../config.js";
 import { SESSION_MODE, SESSIONS_MODE } from "../layout.js";
 import { withFolderAssets } from "../plugin-support/plugin-folder.js";
@@ -10,7 +9,6 @@ import { registerTypeScriptFunctions } from "../ragents/typescript-tools.js";
 import {
   runtimeProviderToken,
   secretEnvNamesToken,
-  eventHubToken,
   sessionGuardToken,
   sessionWorkspaceProviderToken,
   type HostBridges,
@@ -37,7 +35,6 @@ export const composeProfile = (options: ProfileComposition, bridges: HostBridges
   host.provideHost(sessionGuardToken, bridges.ensureSession);
   host.provideHost(sessionWorkspaceProviderToken, bridges.sessionWorkspaceFor);
   host.provideHost(runtimeProviderToken, bridges.runtime);
-  host.provideHost(eventHubToken, bridges.eventHub ?? new EventHub());
   host.provideHost(sessionManagementToken, () => {
     if (!bridges.sessions) throw new Error("Der Host stellt keine Sitzungsverwaltung bereit");
     return bridges.sessions();

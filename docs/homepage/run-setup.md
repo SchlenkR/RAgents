@@ -2,7 +2,7 @@
 
 > Ein Run-Script ist ein natives Actor-Programmpaket. Die Beispiele und SDK-Typen unten stammen aus den tatsächlichen öffentlichen Quellen.
 
-[Werkzeugverträge](reference.md) | [Entwicklerbeispiele](developer.md) | [Server-SDK](run-api.d.ts) | [HTTP-API](http-api.md) | [LLM-Index](llms.txt)
+[Werkzeugverträge](reference.md) | [Entwicklerbeispiele](developer.md) | [Server-SDK](run-api.d.ts) | [JSON-RPC-API](rpc-api.md) | [LLM-Index](llms.txt)
 
 ## Snippet oder dauerhaftes Programm
 

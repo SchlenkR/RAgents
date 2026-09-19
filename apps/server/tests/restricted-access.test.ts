@@ -1,13 +1,11 @@
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
 import test from "node:test";
 import { createAccessContext, emptyUsage, PluginHost, unrestrictedAccess, type RunView } from "@aicontainer/ragents";
-import { createChatHandler } from "../src/chat-handler.ts";
-import { enforceHostAccess } from "../src/access-policy.ts";
+import { coreContracts } from "../src/api/contracts.ts";
+import { coreMethods } from "../src/api/core-methods.ts";
 import { accessibleActorConversations, accessibleChatEvent, accessibleRunView } from "../src/access-projection.ts";
-import { createManagementApi } from "../../../plugins/ragents.overseer/server/http-api.ts";
-import { RunDirectory } from "../../../plugins/ragents.overseer/server/run-directory.ts";
 import { applyEvent, type ChatEvent, type Message } from "../src/chat-events.ts";
+import { coreSources, startRpcServer } from "./rpc-fixture.ts";
 
 const operator = createAccessContext({ enabled: false, user: {
   id: "operator", label: "Operator", rights: ["runs.read", "runs.write"], startEntries: ["example.allowed"],
@@ -26,68 +24,51 @@ test("startup status retains preparation but exposes failure details only with i
   assert.equal(accessibleChatEvent(idle, operator), idle);
 });
 
-test("direkte Requests erlauben nur freigegebene Setups und Nachrichten an vorhandene Runs", async () => {
+test("direkte Anfragen erlauben nur freigegebene Setups und Nachrichten an vorhandene Runs", async (t) => {
   const runs = new Set(["existing"]);
   const starts: string[] = [];
   const messages: string[] = [];
   const opened: string[] = [];
-  const handler = createChatHandler({ manager: {
-    hasRun: (id) => runs.has(id),
+  const provider = {
+    hasRun: (id: string) => runs.has(id),
     list: async () => [],
     delete: async () => {},
-    get: async (id) => {
+    get: async (id: string) => {
       opened.push(id);
       return {
         running: false,
         subscribe: () => () => {},
-        send: (text) => { runs.add(id); messages.push(text); },
-        sendToActor: async (_actor, text) => { messages.push(text); },
+        send: (text: string) => { runs.add(id); messages.push(text); },
+        sendToActor: async (_actor: string, text: string) => { messages.push(text); },
         capabilities: async () => ({ model: "private-provider/private-model", input: ["text"] }),
-        start: (entry) => { runs.add(id); starts.push(entry); },
+        start: (entry: string) => { runs.add(id); starts.push(entry); },
         stop: () => {},
       };
     },
-  } });
-  const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: "/private/tmp/ragents-access-tests" });
-  const management = createManagementApi(host, () => { throw new Error("Restricted request reached management"); }, new RunDirectory("/private/tmp/ragents-access-tests/unused-references.json"));
-  const server = createServer(async (request, response) => {
-    const url = new URL(request.url!, "http://localhost");
-    const access = request.headers["x-test-admin"] ? unrestrictedAccess : operator;
-    if (enforceHostAccess(request, response, url, access)) return;
-    if (management.matches(request, url)) { await management.handle({ request, response, url, access }); return; }
-    if (await handler(request, response, access)) return;
-    response.writeHead(404).end();
+  };
+  const server = await startRpcServer(t, {
+    methods: coreMethods(coreSources(provider, { settingsGuarded: () => true })),
+    accessFor: (request) => request.headers["x-test-admin"] ? unrestrictedAccess : operator,
+    local: false,
   });
-  await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
-  const address = server.address();
-  assert.ok(address && typeof address !== "string");
-  const call = (route: string, body?: unknown, admin = false) => fetch(`http://127.0.0.1:${address.port}${route}`, {
-    method: body === undefined ? "GET" : "POST",
-    headers: { "content-type": "application/json", ...(admin ? { "x-test-admin": "yes" } : {}) },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
-  try {
-    assert.equal((await call("/chat/new/send", { text: "Free run" })).status, 403);
-    assert.equal((await call("/chat/new/actors/helper/send", { text: "Free actor" })).status, 403);
-    assert.equal((await call("/chat/new/start", { entry: "example.other" })).status, 403);
-    assert.deepEqual(opened, []);
-    assert.equal((await call("/chat/new/prepare", { text: "Prepare" })).status, 403);
-    assert.equal((await call("/chat/new/options")).status, 403);
-    assert.equal((await call("/ragents/api/runs/existing/events")).status, 403);
-    assert.equal((await call("/api/settings")).status, 403);
-    assert.equal((await call("/api/plugins/ragents.overseer/runs", { title: "Escape", message: "Create freely" })).status, 403);
-    assert.equal((await call("/api/plugins/ragents.overseer/catalog")).status, 403);
-    assert.equal((await call("/chat/new/start", { entry: "example.allowed", input: {} })).status, 202);
-    assert.equal((await call("/chat/new/send", { text: "Continue" })).status, 202);
-    assert.equal((await call("/chat/existing/actors/helper/send", { text: "Help" })).status, 202);
-    assert.equal((await call("/chat/admin-created/send", { text: "Free run" }, true)).status, 202);
-    assert.deepEqual(starts, ["example.allowed"]);
-    assert.deepEqual(messages, ["Continue", "Help", "Free run"]);
-    assert.deepEqual(await (await call("/chat/existing/capabilities")).json(), { input: ["text"], model: "" });
-  } finally {
-    server.closeAllConnections();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-  }
+  const denied = async (method: string, params: unknown, admin = false) => {
+    const reply = await server.call(method, params, admin ? { "x-test-admin": "yes" } : {});
+    return (reply.error?.data as { code?: string; status?: number } | undefined)?.status;
+  };
+  assert.equal(await denied(coreContracts.chat.send.id, { runId: "new", text: "Free run" }), 403);
+  assert.equal(await denied(coreContracts.chat.sendToActor.id, { runId: "new", actorId: "helper", text: "Free actor" }), 403);
+  assert.equal(await denied(coreContracts.chat.start.id, { runId: "new", entry: "example.other" }), 403);
+  assert.deepEqual(opened, []);
+  assert.equal(await denied(coreContracts.prepare.id, { runId: "new", messages: [{ role: "user", text: "Prepare" }] }), 403);
+  assert.equal(await denied(coreContracts.startOptions.list.id, { runId: "new" }), 403);
+  assert.equal(await denied(coreContracts.settings.read.id, {}), 403);
+  assert.equal((await server.call(coreContracts.chat.start.id, { runId: "new", entry: "example.allowed", input: {} })).result, null);
+  assert.equal((await server.call(coreContracts.chat.send.id, { runId: "new", text: "Continue" })).result, null);
+  assert.equal((await server.call(coreContracts.chat.sendToActor.id, { runId: "existing", actorId: "helper", text: "Help" })).result, null);
+  assert.equal((await server.call(coreContracts.chat.send.id, { runId: "admin-created", text: "Free run" }, { "x-test-admin": "yes" })).result, null);
+  assert.deepEqual(starts, ["example.allowed"]);
+  assert.deepEqual(messages, ["Continue", "Help", "Free run"]);
+  assert.deepEqual((await server.call(coreContracts.chat.capabilities.id, { runId: "existing" })).result, { input: ["text"], model: "" });
 });
 
 test("Bootstrap liefert eingeschränkten Benutzern ausschließlich erlaubte Scripts", () => {

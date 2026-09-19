@@ -1,5 +1,8 @@
+import { hostname } from "node:os";
 import * as vscode from "vscode";
+import { runContracts } from "../../../packages/ragents/src/http/contracts";
 import type { ColumnHostMessage, ColumnTheme } from "../../web/src/column/host-contract";
+import { WORKSPACE_BINDING_OPTION_ID } from "../../../plugins/ragents.workspace/contract";
 import { artifactUri, DOCUMENT_SCHEME, journalUri, RunDocuments } from "./documents";
 import { ExplorerProvider } from "./explorer";
 import type { ExplorerState } from "./explorer-model";
@@ -8,8 +11,10 @@ import { ServerClient } from "./server-client";
 import { parseServerUrl, parseThemeSetting, resolveTheme, tokenSecretKey, type Settings } from "./settings";
 import { RunStore } from "./store";
 import { AppPanels, ColumnView } from "./webviews";
+import { WorkspaceClient } from "./workspace-client";
 
 const STOP_REASON = "Gestoppt aus VS Code";
+const CLIENT_ID_KEY = "ragents.workspaceClientId";
 
 /** Was activate zurückgibt: der Zugriff für Host-Tests und andere Erweiterungen. */
 export interface RAgentsApi {
@@ -18,6 +23,7 @@ export interface RAgentsApi {
   selectRun: (runId: string | undefined) => void;
   applyToken: (token: string | undefined) => Promise<void>;
   loginWith: (id: string, password: string) => Promise<void>;
+  workspaceClient: WorkspaceClient;
 }
 
 const readSettings = (): Settings => {
@@ -32,11 +38,31 @@ const editorTheme = (): ColumnTheme => {
 
 const message = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
 
+const workspaceFolders = (): string[] => (vscode.workspace.workspaceFolders ?? [])
+  .filter((folder) => folder.uri.scheme === "file")
+  .map((folder) => folder.uri.fsPath);
+
+/** Die Kennung des Arbeitsplatzes bleibt über Fenster und Neustarts gleich, damit der Server ihn wiedererkennt. */
+const workspaceClientId = (context: vscode.ExtensionContext): string => {
+  const stored = context.globalState.get<string>(CLIENT_ID_KEY);
+  if (stored) return stored;
+  const created = crypto.randomUUID();
+  void context.globalState.update(CLIENT_ID_KEY, created);
+  return created;
+};
+
 export async function activate(context: vscode.ExtensionContext): Promise<RAgentsApi> {
   const settings = readSettings();
   const client = new ServerClient(settings.serverUrl, await context.secrets.get(tokenSecretKey(settings.serverUrl)) ?? undefined);
   const store = new RunStore(client);
   const documents = new RunDocuments(() => client);
+  const workspaceClient = new WorkspaceClient(client, {
+    id: workspaceClientId(context),
+    label: vscode.workspace.name ? `${hostname()} (${vscode.workspace.name})` : hostname(),
+    hostname: hostname(),
+    platform: process.platform,
+    folders: workspaceFolders(),
+  });
 
   const frameSettings = () => ({ serverUrl: settings.serverUrl, theme: resolveTheme(settings.theme, editorTheme()), accessToken: client.accessToken });
   const messages = new vscode.EventEmitter<ColumnHostMessage>();
@@ -61,6 +87,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     runs: store.runs,
     selectedRunId: store.selectedRunId,
     centerElements: (runId) => panels.centerElements(runId),
+    workspaceClient: workspaceClient.status,
   });
   const explorer = new ExplorerProvider(explorerState);
   const tree = vscode.window.createTreeView("ragents.explorer", { treeDataProvider: explorer, showCollapseAll: true });
@@ -81,6 +108,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     if (focusColumn) column.reveal();
   };
 
+  /** Der Arbeitsplatz meldet sich an, sobald der Server antwortet, und bietet dabei die geöffneten Ordner an. */
+  let registering = false;
+  const registerWorkspaceClient = async () => {
+    if (registering || store.status.kind !== "connected" || workspaceClient.folders.length === 0) return;
+    registering = true;
+    try {
+      await workspaceClient.register();
+    } finally {
+      registering = false;
+    }
+  };
+
+  const reconnect = async () => {
+    await store.start();
+    await registerWorkspaceClient();
+  };
+
   const rerenderFrames = () => {
     column.render();
     panels.render();
@@ -91,7 +135,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     if (token === undefined) await context.secrets.delete(tokenSecretKey(settings.serverUrl));
     else await context.secrets.store(tokenSecretKey(settings.serverUrl), token);
     rerenderFrames();
-    await store.start();
+    await reconnect();
   };
 
   const loginWith = async (id: string, password: string) => {
@@ -135,6 +179,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       return;
     }
     await applyToken(undefined);
+  };
+
+  /** "Neuer Run" belegt den Arbeitsbereich mit einem angebotenen Ordner vor; bei mehreren fragt die Auswahl. */
+  const newRun = async () => {
+    const folders = workspaceClient.status.kind === "registered" ? workspaceClient.folders : [];
+    const folder = folders.length > 1
+      ? await vscode.window.showQuickPick([...folders], { title: "Ordner für den neuen Run", ignoreFocusOut: true })
+      : folders[0];
+    if (folders.length > 1 && folder === undefined) return;
+    selectRun(undefined, { reveal: false, focusColumn: true });
+    column.post(folder === undefined
+      ? { type: "newRun" }
+      : { type: "newRun", startOptions: { [WORKSPACE_BINDING_OPTION_ID]: workspaceClient.binding(folder) } });
   };
 
   const handleColumnMessage = (incoming: ColumnHostMessage) => {
@@ -182,10 +239,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     documents,
     messages,
     { dispose: () => store.dispose() },
+    { dispose: () => void workspaceClient.unregister() },
+    { dispose: workspaceClient.onChange(() => explorer.refresh()) },
     { dispose: () => panels.dispose() },
     vscode.window.registerWebviewViewProvider("ragents.column", column, { webviewOptions: { retainContextWhenHidden: true } }),
     vscode.workspace.registerTextDocumentContentProvider(DOCUMENT_SCHEME, documents),
-    { dispose: store.onChange(() => { explorer.refresh(); syncContext(); column.syncStatus(); }) },
+    { dispose: store.onChange(() => {
+      explorer.refresh();
+      syncContext();
+      column.syncStatus();
+      if (workspaceClient.status.kind === "idle") void registerWorkspaceClient();
+    }) },
     vscode.window.onDidChangeActiveColorTheme(() => {
       const theme = resolveTheme(settings.theme, editorTheme());
       column.post({ type: "theme", theme });
@@ -196,14 +260,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       void vscode.window.showInformationMessage("Die RAgents-Einstellungen haben sich geändert. Das Fenster muss neu geladen werden.", "Neu laden")
         .then((choice) => { if (choice === "Neu laden") void vscode.commands.executeCommand("workbench.action.reloadWindow"); });
     }),
-    vscode.commands.registerCommand("ragents.refresh", () => store.status.kind === "connected" ? store.refresh() : store.start()),
-    vscode.commands.registerCommand("ragents.connect", () => store.start()),
+    vscode.commands.registerCommand("ragents.refresh", () => store.status.kind === "connected" ? store.refresh() : reconnect()),
+    vscode.commands.registerCommand("ragents.connect", () => reconnect()),
     vscode.commands.registerCommand("ragents.login", login),
     vscode.commands.registerCommand("ragents.logout", logout),
-    vscode.commands.registerCommand("ragents.newRun", () => {
-      selectRun(undefined, { reveal: false, focusColumn: true });
-      column.post({ type: "newRun" });
-    }),
+    vscode.workspace.onDidChangeWorkspaceFolders(() => void (async () => {
+      await workspaceClient.update(workspaceFolders());
+      await registerWorkspaceClient();
+    })()),
+    vscode.commands.registerCommand("ragents.newRun", () => void newRun()),
     vscode.commands.registerCommand("ragents.openRun", (runId: string) => selectRun(runId, { focusColumn: true })),
     vscode.commands.registerCommand("ragents.openRunInBrowser", (node?: { run?: { id: string } }) => {
       void vscode.env.openExternal(vscode.Uri.parse(settings.serverUrl));
@@ -215,7 +280,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       const choice = await vscode.window.showWarningMessage(`Run "${run.title}" mit allen Agenten und Abläufen stoppen?`, { modal: true }, "Stoppen");
       if (choice !== "Stoppen") return;
       try {
-        await client.stopRun(run.id, STOP_REASON);
+        await client.rpc.call(runContracts.stopAll, { runId: run.id, commandId: crypto.randomUUID(), reason: STOP_REASON });
       } catch (cause) {
         void vscode.window.showErrorMessage(`Stoppen fehlgeschlagen: ${message(cause)}`);
       }
@@ -248,8 +313,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
   );
 
   syncContext();
-  await store.start();
-  return { store, messages: messages.event, selectRun: (runId) => selectRun(runId, { focusColumn: true }), applyToken, loginWith };
+  await reconnect();
+  return { store, messages: messages.event, selectRun: (runId) => selectRun(runId, { focusColumn: true }), applyToken, loginWith, workspaceClient };
 }
 
 export function deactivate(): void {}

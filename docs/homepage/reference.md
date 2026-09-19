@@ -2,7 +2,7 @@
 
 > Öffentliche Werkzeuge, Operationen, Actor-Programm-Vorlagen und Einstiege des Profils core, aus den tatsächlichen Verträgen erzeugt.
 
-[Run-Setup-Anleitung und vollständige Pakete](run-setup.md) | [Entwicklerreferenz](developer.md) | [HTTP-API](http-api.md) | [LLM-Index](llms.txt)
+[Run-Setup-Anleitung und vollständige Pakete](run-setup.md) | [Entwicklerreferenz](developer.md) | [JSON-RPC-API](rpc-api.md) | [LLM-Index](llms.txt)
 
 ## Funktionen und native Werkzeuge
 

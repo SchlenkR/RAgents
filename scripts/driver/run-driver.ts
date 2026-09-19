@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { defaultDataDirectory } from "../../apps/server/src/data-directory.ts";
+import { coreContracts } from "../../apps/server/src/api/contracts.ts";
+import { RpcClient } from "../../apps/web/src/rpc/client.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -38,9 +40,11 @@ const usage = (): string => `Verwendung: PRODUCT_PROFILE=<profil> [RAGENTS_DRIVE
   sessions                        listet die Runs des Profils
   journal <runId> [--since N] [--chat|--tools|--all]   liest das Journal
   usage <runId>                   Tokenbilanz je Actor
-Die Adresse kommt aus host.PORT der Profildatei (RAGENTS_DRIVER_URL überschreibt sie), der
-Datenordner aus DATA_DIR bzw. dem Standard des Profils. Definiert das Profil Benutzer, ist
-RAGENTS_DRIVER_USER Pflicht; das Passwort liest der Treiber aus der Profildatei.`;
+Die Befehle gehen als JSON-RPC an POST <adresse>/rpc. Die Adresse kommt aus host.PORT der
+Profildatei (RAGENTS_DRIVER_URL überschreibt sie), der Datenordner aus DATA_DIR bzw. dem
+Standard des Profils. Definiert das Profil Benutzer, ist RAGENTS_DRIVER_USER Pflicht; das
+Passwort liest der Treiber aus der Profildatei. Ein gesetztes ACCESS_TOKEN sendet er als
+Bearer-Token.`;
 
 const loadConfig = async (): Promise<DriverConfig> => {
   const profile = process.env.PRODUCT_PROFILE;
@@ -64,7 +68,7 @@ const loadConfig = async (): Promise<DriverConfig> => {
   return { baseUrl: process.env.RAGENTS_DRIVER_URL ?? `http://localhost:${port}`, dataDirectory, user };
 };
 
-const client = async (config: DriverConfig) => {
+const client = async (config: DriverConfig): Promise<RpcClient> => {
   let cookie = "";
   if (config.user) {
     const response = await fetch(`${config.baseUrl}/api/access/login`, {
@@ -77,16 +81,18 @@ const client = async (config: DriverConfig) => {
     if (!header) throw new Error("Die Anmeldung lieferte kein Sitzungscookie.");
     cookie = header.split(";")[0]!;
   }
-  return async (method: string, route: string, body?: unknown): Promise<string> => {
-    const response = await fetch(config.baseUrl + route, {
-      method,
-      headers: { cookie, "content-type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-    const text = await response.text();
-    if (!response.ok) throw new Error(`${method} ${route} -> ${response.status}: ${text.slice(0, 400)}`);
-    return text;
-  };
+  const token = process.env.ACCESS_TOKEN;
+  return new RpcClient({
+    baseUrl: config.baseUrl,
+    fetch: (input, init) => fetch(input, {
+      ...init,
+      headers: {
+        ...init?.headers as Record<string, string> | undefined,
+        ...(cookie ? { cookie } : {}),
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+    }),
+  });
 };
 
 const readJournal = (dataDirectory: string, runId: string): JournalRecord[] => {
@@ -168,22 +174,22 @@ const main = async (): Promise<void> => {
     for (const line of journalLines(records, mode, since)) console.log(line);
     return;
   }
-  const call = await client(config);
+  const rpc = await client(config);
   if (command === "new-run") {
     const id = randomUUID();
-    await call("POST", `/chat/${id}/start`, { entry: args[0] ?? "ragents.reference.shared-actor-list" });
+    await rpc.call(coreContracts.chat.start, { runId: id, entry: args[0] ?? "ragents.reference.shared-actor-list" });
     console.log(id);
   } else if (command === "send") {
     const [runId, actor, ...rest] = args;
     if (!runId || !actor || rest.length === 0) throw new Error("send braucht <runId> <@actor> <text>.");
-    await call("POST", `/chat/${runId}/actors/${encodeURIComponent(actor)}/send`, { text: rest.join(" ") });
+    await rpc.call(coreContracts.chat.sendToActor, { runId, actorId: actor, text: rest.join(" ") });
     console.log("gesendet");
   } else if (command === "stop") {
     if (!args[0]) throw new Error("Run-Id fehlt.");
-    await call("POST", `/chat/${args[0]}/stop`);
+    await rpc.call(coreContracts.chat.stop, { runId: args[0] });
     console.log("gestoppt");
   } else if (command === "sessions") {
-    console.log(await call("GET", "/chat/sessions"));
+    console.log(JSON.stringify(await rpc.call(coreContracts.sessions.list, {})));
   } else {
     throw new Error(`Unbekannter Befehl ${command}.\n${usage()}`);
   }

@@ -1,41 +1,33 @@
-import { runRoute } from "./run-view";
+import { coreContracts } from "@aicontainer/server/api/contracts";
+import { runContracts } from "@aicontainer/ragents/src/http/contracts";
 import type { ChatAttachmentInput } from "@aicontainer/web/chat/types";
-import { errorFrom } from "@aicontainer/web/lib/http";
+import { rpc } from "@aicontainer/web/rpc";
 
-const runCommand = async (runId: string, path: string, payload: Record<string, unknown>): Promise<void> => {
-  const response = await fetch(runRoute(runId, path), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ commandId: crypto.randomUUID(), ...payload }),
-  });
-  if (response.ok) return;
-  const detail = await response.json().catch(() => undefined) as { message?: string } | undefined;
-  throw new Error(detail?.message ?? `Kommando fehlgeschlagen (${response.status})`);
+export const enqueueActorInput = async (runId: string, actorId: string, content: string, artifactIds: string[] = []) => {
+  await rpc.call(runContracts.enqueueInput, { runId, commandId: crypto.randomUUID(), actorId, content, artifactIds });
 };
-
-export const enqueueActorInput = (runId: string, actorId: string, content: string, artifactIds: string[] = []) =>
-  runCommand(runId, `/actors/${encodeURIComponent(actorId)}/inputs`, { content, artifactIds });
 
 export const sendActorMessage = async (runId: string, actorId: string, text: string, attachments?: ChatAttachmentInput[]) => {
-  const response = await fetch(`/chat/${encodeURIComponent(runId)}/actors/${encodeURIComponent(actorId)}/send`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text, attachments }),
-  });
-  if (!response.ok) throw await errorFrom(response, `Nachricht abgelehnt (${response.status})`);
+  await rpc.call(coreContracts.chat.sendToActor, { runId, actorId, text, attachments });
 };
 
-export const resolveAction = (
+export const resolveAction = async (
   runId: string,
   actionId: string,
   decision: "approved" | "dismissed",
   response?: string,
-) => runCommand(runId, `/actions/${encodeURIComponent(actionId)}/resolve`, { decision, response });
+) => {
+  await rpc.call(runContracts.resolveAction, { runId, commandId: crypto.randomUUID(), actionId, decision, response });
+};
 
-export const stopActor = (runId: string, actorId: string, reason: string) =>
-  runCommand(runId, `/actors/${encodeURIComponent(actorId)}/stop`, { reason });
+export const stopActor = async (runId: string, actorId: string, reason: string) => {
+  await rpc.call(runContracts.stopActor, { runId, commandId: crypto.randomUUID(), actorId, reason });
+};
 
-export const restartActor = (runId: string, actorId: string) =>
-  runCommand(runId, `/actors/${encodeURIComponent(actorId)}/restart`, {});
+export const restartActor = async (runId: string, actorId: string) => {
+  await rpc.call(runContracts.restartActor, { runId, commandId: crypto.randomUUID(), actorId });
+};
 
-export const stopRun = (runId: string, reason: string) => runCommand(runId, "/stop-all", { reason });
+export const stopRun = async (runId: string, reason: string) => {
+  await rpc.call(runContracts.stopAll, { runId, commandId: crypto.randomUUID(), reason });
+};

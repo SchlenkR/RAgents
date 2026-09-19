@@ -63,19 +63,19 @@ Abfrageparameter `access` (`ACCESS_TOKEN_QUERY` in `packages/ragents/src/access.
 Bearer-Header hat Vorrang vor Cookie und Abfrageparameter; Abmelden mit Bearer widerruft die
 Sitzung genauso.
 
-Benutzerrechte steuern sowohl sichtbare beziehungsweise nur lesbare UI als auch HTTP-Routen.
+Benutzerrechte steuern sowohl sichtbare beziehungsweise nur lesbare UI als auch Methoden und Kanäle.
 Der Zugriff wird nicht pro Run und angemeldetem Benutzer getrennt: Leseberechtigte sehen
 die gemeinsamen Runs des Profils.
 `runs.write` erlaubt Nachrichten an vorhandene Runs und ihre App-Aktionen. Freie Runs,
 Vorbereitungsgespräche und Startoptionen benötigen zusätzlich `runs.create`. Ohne dieses Recht
-startet `POST /chat/<id>/start` nur ein Run-Script aus `user.startEntries`; beliebige Texte,
+startet `ragents.chat.start` nur ein Run-Script aus `user.startEntries`; beliebige Texte,
 andere Einstiegkennungen und technische Startparameter sind gesperrt. Der Katalog enthält
 für diese Benutzer nur die freigegebenen Scripts. Die Auswahl gilt für neue Starts; bestehende
 Runs bleiben im gemeinsamen Profil zugänglich.
 
 `runs.inspect` schützt Modelle, Journal, Quellen, Werkzeuge und allgemeine technische Einsicht.
 Language-Server-Ansichten verwenden ihr eigenes `<pluginId>.read`. Damit lassen sich Diagnosen
-unabhängig von Modell- und Werkzeugdetails freigeben. Tabs und lesende HTTP-Routen prüfen
+unabhängig von Modell- und Werkzeugdetails freigeben. Tabs und lesende Methoden prüfen
 dasselbe Recht.
 
 `runs.trace` gibt ohne die übrige technische Einsicht die Denk- und Werkzeugschritte des Chats

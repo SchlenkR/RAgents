@@ -10,8 +10,8 @@ import { Overview } from "./Overview";
 import type { OverviewPanelContext } from "./PluginRegistry";
 import { PluginChat } from "./PluginChat";
 import { chatUserLocation, type ChatRunLocation } from "./chat/user-location";
-import { SESSIONS_CHANNEL } from "../../server/src/event-channels";
-import { eventHub } from "./events";
+import { coreContracts } from "@aicontainer/server/api/contracts";
+import { rpc } from "./rpc";
 import { SettingsModal } from "./SettingsModal";
 import { usePluginActivation } from "./PluginActivation";
 import { useRunReadState } from "./run-read-state";
@@ -70,7 +70,7 @@ export function App() {
   useEffect(() => {
     if (!readRuns || draft) return;
     void refresh();
-    const unsubscribe = eventHub.subscribe({ channel: SESSIONS_CHANNEL, onMessage: () => void refresh() });
+    const unsubscribe = rpc.subscribe(coreContracts.channels.sessions, {}, () => void refresh());
     const timer = setInterval(() => void refresh(), 5000);
     return () => { unsubscribe(); clearInterval(timer); };
   }, [draft, readRuns, refresh]);

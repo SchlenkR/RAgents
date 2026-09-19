@@ -178,18 +178,18 @@ GET-Abrufe, die keinen Header setzen können (Ereignisstrom, Mini-App-Frames), g
 Abfrageparameter <code>access</code> (<code>ACCESS_TOKEN_QUERY</code> in <code>packages/ragents/src/access.ts</code>). Ein
 Bearer-Header hat Vorrang vor Cookie und Abfrageparameter; Abmelden mit Bearer widerruft die
 Sitzung genauso.</p>
-<p>Benutzerrechte steuern sowohl sichtbare beziehungsweise nur lesbare UI als auch HTTP-Routen.
+<p>Benutzerrechte steuern sowohl sichtbare beziehungsweise nur lesbare UI als auch Methoden und Kanäle.
 Der Zugriff wird nicht pro Run und angemeldetem Benutzer getrennt: Leseberechtigte sehen
 die gemeinsamen Runs des Profils.
 <code>runs.write</code> erlaubt Nachrichten an vorhandene Runs und ihre App-Aktionen. Freie Runs,
 Vorbereitungsgespräche und Startoptionen benötigen zusätzlich <code>runs.create</code>. Ohne dieses Recht
-startet <code>POST /chat/&lt;id&gt;/start</code> nur ein Run-Script aus <code>user.startEntries</code>; beliebige Texte,
+startet <code>ragents.chat.start</code> nur ein Run-Script aus <code>user.startEntries</code>; beliebige Texte,
 andere Einstiegkennungen und technische Startparameter sind gesperrt. Der Katalog enthält
 für diese Benutzer nur die freigegebenen Scripts. Die Auswahl gilt für neue Starts; bestehende
 Runs bleiben im gemeinsamen Profil zugänglich.</p>
 <p><code>runs.inspect</code> schützt Modelle, Journal, Quellen, Werkzeuge und allgemeine technische Einsicht.
 Language-Server-Ansichten verwenden ihr eigenes <code>&lt;pluginId&gt;.read</code>. Damit lassen sich Diagnosen
-unabhängig von Modell- und Werkzeugdetails freigeben. Tabs und lesende HTTP-Routen prüfen
+unabhängig von Modell- und Werkzeugdetails freigeben. Tabs und lesende Methoden prüfen
 dasselbe Recht.</p>
 <p><code>runs.trace</code> gibt ohne die übrige technische Einsicht die Denk- und Werkzeugschritte des Chats
 mit Inhalt frei und erlaubt dem Benutzer, ihren Detailgrad selbst zu wählen. Ohne dieses Recht
@@ -236,4 +236,4 @@ Auswahl für reine Gesprächsagenten und Coding-Agenten.</p>
 oder Passwortänderung in der Oberfläche. Anmeldesitzungen überleben keinen Serverneustart.</li>
 <li>Benutzerrechte gelten für das gesamte Profil, nicht je Run oder Agentenwerkzeug.</li>
 </ul>
-<p class="guide-source">Quelle: <a href="../../docs/spec/profiles.md">docs/spec/profiles.md</a>. <a href="guide-access.md">Dieses Kapitel als Markdown</a>.</p><p><a href="developer.html#access-rights">Rechte und Verträge nachschlagen</a></p><nav class="guide-next" aria-label="Weiterlesen"><a href="guide-extensions.html">Zurück: Plugins und Skills</a><a href="developer.html">Weiter zu den Erweiterungsverträgen</a></nav></article></div></main><footer class="shell"><p>Aus öffentlicher Dokumentation, Verträgen und neutralen Plugins erzeugt. Neu aufbauen: <code>pnpm generate:homepage</code>. Stand prüfen: <code>pnpm check:homepage</code>.</p><nav aria-label="Weitere Seiten"><a href="llms.txt">LLM-Referenz</a><a href="http-api.md">HTTP-API</a><a href="openapi.json">OpenAPI</a><a href="index.html">Zur Homepage</a><a href="guide.html">Guide</a><a href="reference.html">Bausteine</a><a href="developer.html">Entwicklerreferenz</a></nav></footer></body></html>
+<p class="guide-source">Quelle: <a href="../../docs/spec/profiles.md">docs/spec/profiles.md</a>. <a href="guide-access.md">Dieses Kapitel als Markdown</a>.</p><p><a href="developer.html#access-rights">Rechte und Verträge nachschlagen</a></p><nav class="guide-next" aria-label="Weiterlesen"><a href="guide-extensions.html">Zurück: Plugins und Skills</a><a href="developer.html">Weiter zu den Erweiterungsverträgen</a></nav></article></div></main><footer class="shell"><p>Aus öffentlicher Dokumentation, Verträgen und neutralen Plugins erzeugt. Neu aufbauen: <code>pnpm generate:homepage</code>. Stand prüfen: <code>pnpm check:homepage</code>.</p><nav aria-label="Weitere Seiten"><a href="llms.txt">LLM-Referenz</a><a href="rpc-api.md">JSON-RPC-API</a><a href="openrpc.json">OpenRPC</a><a href="index.html">Zur Homepage</a><a href="guide.html">Guide</a><a href="reference.html">Bausteine</a><a href="developer.html">Entwicklerreferenz</a></nav></footer></body></html>

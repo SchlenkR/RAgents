@@ -1,22 +1,25 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createModelSettingsStore } from "../../../plugins/ragents.overseer/web/model-settings";
+import { createModelSettingsStore, type ModelSettingsApi } from "../../../plugins/ragents.overseer/web/model-settings";
 import type { OverseerSettings } from "../../../plugins/ragents.overseer/contract";
 
 const settings: OverseerSettings = { provider: "openrouter", model: "model-a", thinking: "medium", models: [
   { provider: "openrouter", id: "model-a", label: "Model A", thinking: ["off", "medium"] },
   { provider: "openrouter", id: "model-b", label: "Model B", thinking: ["off", "high"] },
 ] };
-const reply = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
 
 test("coordinator settings notify both views and preserve selection after a rejected save", async () => {
   let fail = false;
   const requests: unknown[] = [];
-  const store = createModelSettingsStore(async (_url, init) => {
-    if (init?.method !== "PUT") return reply(settings);
-    requests.push(JSON.parse(String(init.body)));
-    return fail ? reply({ error: "Reasoning nicht unterstützt" }, 400) : reply({ ...settings, ...requests.at(-1) as object });
-  });
+  const api: ModelSettingsApi = {
+    read: async () => settings,
+    save: async (selection) => {
+      requests.push(selection);
+      if (fail) throw new Error("Reasoning nicht unterstützt");
+      return { ...settings, ...selection };
+    },
+  };
+  const store = createModelSettingsStore(api);
   let chatUpdates = 0;
   let settingsUpdates = 0;
   const closeChat = store.subscribe(() => { chatUpdates++; });
@@ -35,24 +38,26 @@ test("coordinator settings notify both views and preserve selection after a reje
 });
 
 test("a stale refresh cannot overwrite a newer successful model selection", async () => {
-  let refresh: ((response: Response) => void) | undefined;
+  let refresh: ((value: OverseerSettings) => void) | undefined;
   let loads = 0;
-  const store = createModelSettingsStore(async (_url, init) => {
-    if (init?.method === "PUT") return reply({ ...settings, model: "model-b", thinking: "high" });
-    if (loads++ === 0) return reply(settings);
-    return new Promise((resolve) => { refresh = resolve; });
+  const store = createModelSettingsStore({
+    read: async () => loads++ === 0 ? settings : new Promise<OverseerSettings>((resolve) => { refresh = resolve; }),
+    save: async () => ({ ...settings, model: "model-b", thinking: "high" }),
   });
   await store.load();
   const loading = store.load();
   assert.equal(store.load(), loading);
   await store.save({ provider: "openrouter", model: "model-b", thinking: "high" });
-  refresh!(reply(settings));
+  refresh!(settings);
   await loading;
   assert.equal(store.read().settings?.model, "model-b");
 });
 
-test("malformed settings produce a visible failure instead of an incomplete selection", async () => {
-  const store = createModelSettingsStore(async () => reply({ model: "model-a" }));
+test("a failed load without earlier settings becomes a visible failure", async () => {
+  const store = createModelSettingsStore({
+    read: async () => { throw new Error("Der Server hat ungültige Koordinator-Einstellungen geliefert"); },
+    save: async () => settings,
+  });
   await store.load();
   assert.equal(store.read().status, "failed");
   assert.match(store.read().error ?? "", /ungültige/);

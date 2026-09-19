@@ -209,7 +209,7 @@ export const plugin: PluginModule = {
 
 `create` erzeugt die Plugin-Instanz mit Manifest und Registrierungsfunktion und erhält dafür
 den `PluginHost`. Danach trägt `register` die Beiträge über die pluginbezogene
-`PluginRegistration` ein, etwa Funktionen, Prompts, Dienste und HTTP-Routen.
+`PluginRegistration` ein, etwa Funktionen, Prompts, Dienste, Methoden und Kanäle.
 
 Der Name des PLUGIN-Ordners (der Elternordner von `server/`) ist die Kennung; ein abweichendes
 `manifest.id` bricht den Start hart ab.

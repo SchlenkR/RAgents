@@ -30,7 +30,7 @@ Für Benutzer ohne Inspektionsrecht enthält die Laufansicht keinen Text solcher
 ```text
 Commands -> Orchestration -> Journal v4 -> Projection -> LiveBus
                 |                 |
-                |                 +-> HTTP/SSE und Web-Projektion
+                |                 +-> JSON-RPC (HTTP oder stdio) und Web-Projektion
                 |
                 +-> TurnScheduler -> AgentDriver -> AgentRuntimeManager -> AgentSession
                                   \-> ScriptDriver -> TypeScript-Plattform -> Node-Prozess
@@ -542,8 +542,8 @@ Vertrag für `ChatTextCursor` und die Stream-Ereignisse bleibt im Code.
 Die Cursorabdeckung verhindert doppelte Textausgabe nach Streaming, ohne spätere nur im Journal
 vorliegende Textblöcke desselben Turns zu unterdrücken.
 
-Der Chat liest SSE mit `eventsource-parser` nach UTF-8-Decodierung im Stream. Beliebige
-Byte-Grenzen, LF/CRLF/CR und mehrzeilige Datenfelder werden vom Parser verarbeitet. Nur
+Der Chat liest den Ereignisstrom über den JSON-RPC-Client nach UTF-8-Decodierung im Stream. Beliebige
+Byte-Grenzen und mehrzeilige Datenfelder werden vom Parser verarbeitet. Nur
 vollständig abgeschlossene Ereignisse gelangen in die Nachrichtenprojektion; unvollständige
 Reste enden mit ihrer Verbindung. Bei Abbruch wird der Reader freigegeben. Nach einer
 unterbrochenen Verbindung beginnt nach drei Sekunden ein neuer Stream mit eigener Wiedergabe.
@@ -582,8 +582,8 @@ dieselbe `context.functions`-API wie normale Runs. Die beiden
 TypeScript-Werkzeuge gehören zur Server-Grundausstattung und benötigen kein Actor-Programm-Plugin.
 Nur sein Arbeitsbereich erhält zusätzlich lesenden Dateizugriff auf den Journalordner des
 Profils. `write` und `edit` dürfen dort nicht schreiben. Die Host-Shell ist keine zusätzliche
-Dateisystem-Sandbox; ihre Arbeitsanweisung verlangt, Laufzeitdaten ausschließlich über HTTP
-zu ändern. Normale Runs erhalten weder diese zusätzlichen Lesewurzeln noch den API-Zugang.
+Dateisystem-Sandbox; ihre Arbeitsanweisung verlangt, Laufzeitdaten ausschließlich über die
+Nachrichtenschicht zu ändern. Normale Runs erhalten weder diese zusätzlichen Lesewurzeln noch den API-Zugang.
 
 `quick_answer` steht ausschließlich dem globalen Primary-Agenten mit `plugin.state.write`
 zur Verfügung. Es übernimmt die kurze Wiederholung der aktuellen Nutzerfrage als `question`
@@ -602,7 +602,7 @@ ausschließlich die Startfunktion für den besprochenen Auftrag. Sie übernimmt 
 globalen Verlauf noch dessen Verwaltungszugriffe. Ein sinngemäßes Go des Benutzers erlaubt
 die Übergabe an den normalen Run-Start; Vertrag und Lebenszyklus stehen in `plugins.md`.
 
-Das Plugin stellt dieselbe HTTP-Verwaltung für externe Clients und den globalen Koordinator
+Das Plugin stellt dieselben Verwaltungsmethoden für externe Clients und den globalen Koordinator
 bereit. Sie kann vorhandene Runs auflisten, ihre Zustände und Journale seitenweise lesen,
 ihren primären Actor beauftragen, sie stoppen und neue Läufe erstellen. Eindeutige Titel,
 Run-IDs und kurze Referenzen wie `Lauf 1` werden serverseitig aufgelöst. Ein eigener Index in
@@ -623,11 +623,11 @@ Der Erstellungsaufruf wartet auf dessen Abschluss; erfolgreiche Annahme bedeutet
 dass der erste Turn ausgeführt wurde. Ein Katalog beschreibt die installierten Einstiege
 und gültigen Startoptionen des tatsächlich gestarteten Profils.
 
-Anfrageprüfung, HTTP-Dispatch, OpenAPI und Markdownreferenz verwenden dieselben ausführbaren
-Verträge in der Overseer-Extension. Die Referenz wird beim Vorbereiten des globalen
+Anfrageprüfung, Dispatch, OpenRPC und Markdownreferenz verwenden dieselben ausführbaren
+Verträge der Nachrichtenschicht. Die Referenz wird beim Vorbereiten des globalen
 Arbeitsbereichs aus dem Code erzeugt und nach einem Gesprächsreset erneut bereitgestellt.
 Der Systemprompt enthält einen kompakten, ebenfalls generierten Überblick über diese
-HTTP-Aktionen einschließlich ihrer Benutzerrechte. Dazu kommen Namen und Kurzbeschreibungen
+Methoden einschließlich ihrer Benutzerrechte. Dazu kommen Namen und Kurzbeschreibungen
 regulärer Run-Bausteine aus den Engine-Deskriptoren und den öffentlichen Werkzeugdeskriptoren
 der tatsächlich registrierten Plugins und Agent-Extensions. Dadurch sind etwa die installierten
 Canvas- und Actor-Programm-Fähigkeiten bereits vor dem ersten Referenzzugriff bekannt. Der Prompt
@@ -661,7 +661,7 @@ benachbarten Ordner `payloads/`. Eine Zeile enthält einen Command mit allen dar
 Events. Formatversion, Run-ID, Command und Zeitpunkt stehen einmal im gemeinsamen Umschlag;
 Actor und Command-ID sowie die interne Event-Schemaversion werden beim Lesen ergänzt.
 Der Command hält Kennung, Typ, handelnden Actor und kanonischen Request-Hash. Der interne
-CommandRecord und die HTTP-Events verwenden weiterhin das vollständige Eventschema 3.
+CommandRecord und die Methode `ragents.runs.events` verwenden weiterhin das vollständige Eventschema 3.
 Die verbindlichen Typen und die Dateikodierung stehen in `runtime/journal.ts`,
 `runtime/journal-storage.ts` und `domain/events.ts`.
 

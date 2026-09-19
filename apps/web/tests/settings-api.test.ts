@@ -3,6 +3,9 @@ import test from "node:test";
 import { modelToolDescriptors } from "@aicontainer/ragents";
 import { getSettings, type SettingsResponse } from "../src/api.ts";
 
+const answer = (init: RequestInit | undefined, result: unknown) =>
+  Response.json({ jsonrpc: "2.0", id: (JSON.parse(String(init?.body)) as { id: number }).id, result });
+
 const settings = (): SettingsResponse => ({
   version: 2,
   product: { id: "test", title: "Test" },
@@ -26,7 +29,7 @@ test("settings accept the current engine tool descriptors, including required ca
   const body = settings();
   assert.ok(modelToolDescriptors.some((tool) => tool.requiredCapabilities?.length));
   assert.ok(modelToolDescriptors.some((tool) => tool.requiredCapabilities === undefined));
-  context.mock.method(globalThis, "fetch", async () => Response.json(body));
+  context.mock.method(globalThis, "fetch", async (_url: string, init: RequestInit) => answer(init, body));
   assert.deepEqual(await getSettings(), body);
 });
 
@@ -37,14 +40,14 @@ test("settings accept native tool metadata for the shared function catalog", asy
     { ...body.tools[1], nativeTool: true },
     body.tools[2],
   ];
-  context.mock.method(globalThis, "fetch", async () => Response.json(body));
+  context.mock.method(globalThis, "fetch", async (_url: string, init: RequestInit) => answer(init, body));
   assert.deepEqual(await getSettings(), body);
 });
 
 test("settings still reject malformed capabilities, missing fields and unknown tool fields", async (context) => {
   const body = settings();
   let tools: unknown[] = [];
-  context.mock.method(globalThis, "fetch", async () => Response.json({ ...body, tools }));
+  context.mock.method(globalThis, "fetch", async (_url: string, init: RequestInit) => answer(init, { ...body, tools }));
   const { name: _name, ...missingName } = body.tools[0];
   for (const invalid of [
     { ...body.tools[0], requiredCapabilities: "actor.spawn" },

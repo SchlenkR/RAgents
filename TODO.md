@@ -4,6 +4,13 @@ Eingang für alles, hier schreiben Ronald und die KI. Eine Zeile je Eintrag, neu
 
 ## Offen
 
+- `bash` je Wurzel ausführen: ein optionaler Parameter `root` (etwa `@knowledge`), jede registrierte Wurzel trägt eine Herkunft (Server oder Arbeitsplatz), Bash läuft dort, wo die Wurzel liegt; damit kann ein Run mit Bindung `client` auch auf dem Server ausführen, etwa über eine Wissensbasis. Vorgabe bleibt der Arbeitsbereich; kein zweites Werkzeug (Ronald, 18.09.2026, nur durchgedacht).
+- Artefakt-Links in `FlowInspector` (`<a href>`, `<img src>` auf `/files/runs/...`) tragen im Zugangstoken-Betrieb der VS-Code-Webviews keinen Token; entweder `withAccessToken` anhängen oder die Inhalte über den Client laden (Altstand, beim Umbau der Nachrichtenschicht aufgefallen).
+- `packages/ragents/src/http/` heißt noch nach dem alten Transport, enthält aber die Laufzeitverträge und -methoden der Nachrichtenschicht (`contracts.ts`, `methods.ts`); nach `api/` umbenennen und die Importe `@aicontainer/ragents/src/http/...` nachziehen.
+- Nachrichtenschicht live prüfen: Server mit `--stdio` aus einer Konsole treiben, `--port 0` mit Ansage aus der Erweiterung lesen, Web über `/rpc` und `/rpc/stream` mit Anmeldung; Unit- und Ende-zu-Ende-Tests sind grün, ein echter Lauf fehlt.
+- Arbeitsbereich auf dem Arbeitsplatz live prüfen: Server auf dem Mac Studio, Erweiterung auf dem Notebook, ein Run mit Bindung `client` (read, edit, bash mit Ausgabe, Abbruch, Verbindungsverlust und Wiederanmeldung); Unit- und Stub-Tests sind grün, ein echter Lauf über zwei Rechner fehlt.
+- Plugins außerhalb des Repos, die eigene Prozesse gegen das Arbeitsverzeichnis starten (git, Build-Umgebung), auf `SandboxServices` umstellen; sonst gilt die Bindung `client` dort nicht.
+- Veröffentlichung der Erweiterung: `ragents.config.example.ts` mit `OPENROUTER_API_KEY` statt Ronalds Variablennamen; Standardprofil ohne `lsp-roslyn` und `lsp-fsharp`, weil ein fehlender Pfad den Start bricht; `apps/vscode/package.json` ohne `private`, mit `repository`, Lizenz, Icon und README-Screenshots.
 - Paketnamen `@aicontainer/*` sind ein Relikt; für fremde Plugin-Autoren wäre ein Name wie `@ragents/host` klarer, `@ragents/server` ist aber schon das Actor-Programm-SDK.
 - `scripts/install-plugin-dependencies.sh` kennt nur die Repo-Plugins; externe Plugins mit `install.sh` laufen ihre Installation selbst.
 - Ignorierte Werkzeugfelder (`ignoredFields` in `tool.call.started`) in der Oberfläche zeigen: Werkzeugkarte und Aktivitätsanzeige lesen nur die bereinigte Eingabe, der Hinweis erscheint nur im Modellergebnis und im Live-Ergebnis, nicht im Journal-Ergebnis.
@@ -55,6 +62,9 @@ Eingang für alles, hier schreiben Ronald und die KI. Eine Zeile je Eintrag, neu
 
 ## Ideen
 
+- Language Server und Browserprüfung auf dem Arbeitsplatz ausführen (JSON-RPC über stdio weiterreichen, Chrome beim Client), damit die Bindung `client` dieselben Fähigkeiten hat wie `path`.
+
+- VS-Code-Erweiterung startet den Server selbst (Repo-Pfad und Profil als Einstellung, API-Key aus der SecretStorage), später ein npm-Paket mit `ragents start`; `Im Browser öffnen` braucht dafür einen Deep-Link `?run=`.
 
 - Logo: zwölf fertige Prompts für den Psycho-Charakter unter docs/logo-drafts/drafts/psycho-character/FEHLER.md warten auf einen streng seriellen Higgsfield-Lauf (Starter-Plan: höchstens vier Jobs gleichzeitig).
 

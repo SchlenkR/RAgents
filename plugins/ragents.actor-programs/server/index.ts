@@ -4,7 +4,8 @@ import type { PluginModule } from "@aicontainer/server/plugin-support/plugin-mod
 import { runtimeProviderToken, sessionGuardToken } from "@aicontainer/server/ragents/host-services.js";
 import { askServiceToken } from "@aicontainer/plugins/ragents.ask/server/contract.js";
 import { agentToolsFrom } from "./agent-tools.js";
-import { createMiniAppRoutes, miniAppsApiPrefix } from "./routes.js";
+import { createActorProgramMethods } from "./methods.js";
+import { createMiniAppFrameRoutes, miniAppsApiPrefix } from "./routes.js";
 import { ActorProgramRuntime } from "./runtime.js";
 import { actorProgramManagementToolNames, actorProgramToolsAvailable, createActorProgramToolContributors } from "./tool-contributor.js";
 import { createControlsToolContributor } from "./controls-tool.js";
@@ -36,7 +37,8 @@ const actorProgramsPlugin = (pluginHost: PluginHost): RAgentsPlugin => ({
         });
         host.agentRuntime(diagnostics.contribution);
         host.clientConfig({ routePrefix: miniAppsApiPrefix });
-        host.http(...createMiniAppRoutes({ ensureSession: host.service(sessionGuardToken), runtime }));
+        host.methods(...createActorProgramMethods({ ensureSession: host.service(sessionGuardToken), runtime }));
+        host.http(...createMiniAppFrameRoutes({ ensureSession: host.service(sessionGuardToken), runtime }));
         host.lifecycle({ id: "ragents.actor-programs.lifecycle",
             initialize: () => host.service(sandboxServicesToken).registerWorkspaceRoot({ id: "ragents.actor-programs", alias: "@actors", environmentVariable: "RAGENTS_ACTORS_DIR", directoryFor: (runId) => runtime.workspaceDirectory(runId), ownershipDirectoryFor: async (runId) => path.dirname(await runtime.workspaceDirectory(runId)) }),
             prepareSession: ({ runId }) => runtime.prepareSession(runId), stopSession: ({ runId, signal }) => runtime.stopSession(runId, signal),

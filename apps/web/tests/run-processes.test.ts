@@ -84,32 +84,44 @@ import { createAccessContext } from "./packages/ragents/src/access";
 import "./apps/web/src/ui/tailwind.css";
 import { webPlugin } from "./plugins/ragents.processes/web/index";
 const snapshot = ${JSON.stringify(snapshot)};
-const plugin = webPlugin.activate({ routePrefix: "/api/plugins/ragents.processes" });
+const plugin = webPlugin.activate({});
 const header = plugin.sessionHeaders[0];
 const fixture = window.processFixture = {
-  rights: ["runs.read", "runs.write", "ragents.processes.read"], sources: [], channels: [], stops: [], update: () => {}, readRight: header.readRight,
+  rights: ["runs.read", "runs.write", "ragents.processes.read"], streams: [], channels: [], stops: [], update: () => {}, readRight: header.readRight,
 };
-window.EventSource = class {
-  constructor(url) {
-    this.url = url; this.closed = false; this.listeners = {}; fixture.sources.push(this);
-    queueMicrotask(() => this.listeners.hello?.({ data: JSON.stringify({ connection: "c" + fixture.sources.length }) }));
+let connections = 0;
+window.fetch = async (url, options = {}) => {
+  const encoder = new TextEncoder();
+  if (url.endsWith("/rpc/stream")) {
+    const entry = { url, closed: false, push: () => {} };
+    fixture.streams.push(entry);
+    const body = new ReadableStream({
+      start(controller) {
+        entry.push = message => controller.enqueue(encoder.encode("data: " + JSON.stringify(message) + "\\n\\n"));
+        controller.enqueue(encoder.encode('event: hello\\ndata: {"connection":"c' + (++connections) + '"}\\n\\n'));
+        options.signal?.addEventListener("abort", () => {
+          entry.closed = true;
+          try { controller.close(); } catch { /* der Strom ist schon zu */ }
+        });
+      },
+    });
+    return new Response(body, { status: 200, headers: { "Content-Type": "text/event-stream" } });
   }
-  addEventListener(name, callback) { this.listeners[name] = callback; }
-  close() { this.closed = true; }
-};
-window.fetch = async (url, options) => {
-  if (url.startsWith("/api/events/")) {
-    if (options.method === "POST") {
-      const { channel } = JSON.parse(options.body);
-      fixture.channels.push(channel);
-      const source = fixture.sources.at(-1);
-      queueMicrotask(() => source.onmessage?.({ data: JSON.stringify({ channel, data: { kind: "snapshot", snapshot } }) }));
-      return new Response(JSON.stringify({ subscribed: true, channel }), { status: 200 });
-    }
-    return new Response(JSON.stringify({ subscribed: false }), { status: 200 });
+  const message = JSON.parse(options.body);
+  const answer = result => new Response(JSON.stringify({ jsonrpc: "2.0", id: message.id ?? null, result }), { status: 200 });
+  if (message.method === "rpc.subscribe") {
+    fixture.channels.push(message.params.channel);
+    const subscription = "s" + fixture.channels.length;
+    queueMicrotask(() => fixture.streams.at(-1).push({
+      jsonrpc: "2.0", method: "rpc.event", params: { subscription, channel: message.params.channel, message: { kind: "snapshot", snapshot } },
+    }));
+    return answer({ subscription });
   }
-  fixture.stops.push({ url, method: options.method });
-  return new Response(JSON.stringify({ stopped: true }), { status: 200 });
+  if (message.method === "ragents.processes.stop") {
+    fixture.stops.push({ method: message.method, params: message.params });
+    return answer(null);
+  }
+  return answer(null);
 };
 function Harness() {
   const [, render] = useState(0);
@@ -144,8 +156,8 @@ createRoot(document.getElementById("root")).render(createElement(Harness));`, re
   await page.goto(`http://127.0.0.1:${address.port}`);
   await page.getByText("dotnet DashboardServer.dll", { exact: true }).waitFor();
   assert.equal(await page.evaluate("window.processFixture.readRight"), "ragents.processes.read");
-  assert.deepEqual(await page.evaluate("window.processFixture.sources.map(source => source.url)"), ["/api/events"]);
-  assert.deepEqual(await page.evaluate("window.processFixture.channels"), ["processes:preview-run"]);
+  assert.deepEqual(await page.evaluate("window.processFixture.streams.map(stream => stream.url)"), ["/rpc/stream"]);
+  assert.deepEqual(await page.evaluate("window.processFixture.channels"), ["ragents.processes"]);
   for (const port of [10520, 10521]) {
     const link = page.getByRole("link", { name: `:${port}`, exact: true });
     assert.equal(await link.getAttribute("href"), `http://127.0.0.1:${port}/`);
@@ -167,17 +179,17 @@ createRoot(document.getElementById("root")).render(createElement(Harness));`, re
   assert.equal(await stop.isDisabled(), true);
   await page.evaluate("window.processFixture.update(['runs.read', 'runs.write', 'runs.inspect', 'ragents.processes.read'])");
   await stop.click();
-  assert.deepEqual(await page.evaluate("window.processFixture.stops"), [{ url: "/api/plugins/ragents.processes/runs/preview-run/processes/process-11/stop", method: "POST" }]);
+  assert.deepEqual(await page.evaluate("window.processFixture.stops"), [{ method: "ragents.processes.stop", params: { runId: "preview-run", processId: "process-11" } }]);
   await page.evaluate("window.processFixture.update(['runs.read', 'runs.write', 'runs.inspect'])");
   await page.waitForFunction(`document.querySelector('[aria-label="Prozesse und Ports des Laufs"]') === null`);
-  assert.equal(await page.evaluate("window.processFixture.sources[0].closed"), true);
+  assert.equal(await page.evaluate("window.processFixture.streams[0].closed"), true);
   await page.evaluate("window.processFixture.update(['ragents.processes.read'])");
   assert.equal(await page.locator('[aria-label="Prozesse und Ports des Laufs"]').count(), 0);
-  assert.equal(await page.evaluate("window.processFixture.sources.length"), 1);
+  assert.equal(await page.evaluate("window.processFixture.streams.length"), 1);
   await page.evaluate("window.processFixture.update(['runs.read', 'ragents.processes.read'])");
   await page.getByText("dotnet DashboardServer.dll", { exact: true }).waitFor();
   assert.equal(await stop.isDisabled(), true);
-  assert.equal(await page.evaluate("window.processFixture.sources.length"), 2);
+  assert.equal(await page.evaluate("window.processFixture.streams.length"), 2);
   assert.deepEqual(errors, []);
   context.diagnostic(`Process header screenshots: ${directory}`);
 });

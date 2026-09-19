@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { EventEmitter } from "node:events";
-import type { IncomingMessage, ServerResponse } from "node:http";
 import test from "node:test";
+
+import { createAccessContext, type MethodConnection, type MethodContext } from "@aicontainer/ragents";
 
 import type { RunProcessMessage, RunProcessPort, RunProcessSnapshot } from "../../../plugins/ragents.processes/contract.ts";
 import { RunProcessObserver } from "../../../plugins/ragents.processes/server/observer.ts";
@@ -19,11 +20,10 @@ import {
   type ProcessRecord,
   type ProcessTable,
 } from "../../../plugins/ragents.processes/server/process-table.ts";
-import { createProcessChannel, createProcessRoutes } from "../../../plugins/ragents.processes/server/routes.ts";
+import { createProcessChannel, createProcessMethods } from "../../../plugins/ragents.processes/server/methods.ts";
 import { labelOf, runProcessesFrom } from "../../../plugins/ragents.processes/server/snapshot.ts";
 import { RUN_MARKER_ENV } from "../src/plugin-support/run-marker.ts";
 import { sanitizedEnv } from "../src/plugin-support/sandbox-tools.ts";
-import { capturedJson } from "./runtime-fixture.ts";
 
 const SERVER_PID = 4711;
 
@@ -326,7 +326,23 @@ test("ein Scanfehler erreicht die Beobachter als Fehlermeldung, einmal", async (
   await observer.shutdown();
 });
 
-test("die Routen liefern den Stand als JSON und der Ereigniskanal den Strom", async () => {
+const connection: MethodConnection = {
+  id: "connection-1",
+  userId: null,
+  streamless: false,
+  call: () => Promise.reject(new Error("Die Prozessüberwachung ruft niemanden zurück")),
+  onClose: () => () => undefined,
+};
+
+const context = (rights: readonly string[]): MethodContext => ({
+  access: createAccessContext({ enabled: true, user: { id: "operator", label: "Operator", rights: [...rights] } }),
+  signal: new AbortController().signal,
+  progress: () => undefined,
+  connection,
+  local: true,
+});
+
+test("die Methoden liefern den Stand und der Ereigniskanal den Strom", async () => {
   const snapshot: RunProcessSnapshot = { runId: "run-1", observedAt: "2026-09-03T10:00:00.000Z", processes: [] };
   let listener: ((message: RunProcessMessage) => void) | undefined;
   let stopped = 0;
@@ -343,41 +359,33 @@ test("die Routen liefern den Stand als JSON und der Ereigniskanal den Strom", as
       if (runId === "run-gone") throw new Error("Die Unterhaltung wurde gelöscht");
     },
   };
-  const [snapshotRoute, stopRoute] = createProcessRoutes(options);
+  const [snapshotMethod, stopMethod] = createProcessMethods(options);
   const channel = createProcessChannel(options);
 
-  const url = new URL("http://host/api/plugins/ragents.processes/runs/run-1/processes");
-  assert.deepEqual(snapshotRoute.requiredRights, ["runs.read", "ragents.processes.read"]);
-  assert.equal(stopRoute.id, "ragents.processes.stop");
-  assert.ok(snapshotRoute.isApiPath(url.pathname));
-  assert.ok(snapshotRoute.matches({ method: "GET" } as IncomingMessage, url));
-  assert.ok(!snapshotRoute.matches({ method: "POST" } as IncomingMessage, url));
-  const { captured, response } = capturedJson();
-  await snapshotRoute.handle({ request: { method: "GET" } as IncomingMessage, response, url });
-  assert.equal(captured.status, 200);
-  assert.deepEqual(captured.body, snapshot);
+  assert.equal(snapshotMethod.contract.id, "ragents.processes.snapshot");
+  assert.deepEqual(snapshotMethod.contract.rights, ["runs.read", "ragents.processes.read"]);
+  assert.equal(stopMethod.contract.id, "ragents.processes.stop");
+  assert.deepEqual(stopMethod.contract.rights, ["runs.read", "runs.write", "runs.inspect"]);
+  assert.deepEqual(await snapshotMethod.execute({ runId: "run-1" }, context(["runs.read", "ragents.processes.read"])), snapshot);
+  await assert.rejects(
+    Promise.resolve().then(() => snapshotMethod.execute({ runId: "run-gone" }, context(["runs.read", "ragents.processes.read"]))),
+    /gelöscht/,
+  );
 
-  const gone = capturedJson();
-  await snapshotRoute.handle({
-    request: { method: "GET" } as IncomingMessage,
-    response: gone.response,
-    url: new URL("http://host/api/plugins/ragents.processes/runs/run-gone/processes"),
-  });
-  assert.equal(gone.captured.status, 400);
-  assert.deepEqual(gone.captured.body, { error: "Die Unterhaltung wurde gelöscht" });
-
-  assert.deepEqual(channel.requiredRights("processes:run-1"), ["runs.read", "ragents.processes.read"]);
-  assert.ok(channel.matches("processes:run-1"));
-  assert.ok(!channel.matches("processes:"));
-  assert.ok(!channel.matches("run:run-1"));
+  assert.equal(channel.contract.id, "ragents.processes");
+  assert.deepEqual(channel.contract.rights, ["runs.read", "ragents.processes.read"]);
   const emitted: unknown[] = [];
-  const stop = await channel.open("processes:run-1", (data) => emitted.push(data), {} as never);
+  const access = createAccessContext({ enabled: false, user: null });
+  const stop = await channel.open({ runId: "run-1" }, (data) => emitted.push(data), { access, connection });
   assert.ok(listener, "der Kanal hat keinen Beobachter registriert");
   listener({ kind: "snapshot", snapshot });
   assert.deepEqual(emitted, [{ kind: "snapshot", snapshot }]);
   stop();
   assert.equal(stopped, 1);
-  await assert.rejects(Promise.resolve().then(() => channel.open("processes:run-gone", () => {}, {} as never)), /gelöscht/);
+  await assert.rejects(
+    Promise.resolve().then(() => channel.open({ runId: "run-gone" }, () => {}, { access, connection })),
+    /gelöscht/,
+  );
 });
 
 const startListener = (runId: string): Promise<{ child: ChildProcess; port: number }> =>

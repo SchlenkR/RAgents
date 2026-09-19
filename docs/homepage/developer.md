@@ -2,7 +2,7 @@
 
 > Erweiterungspunkte, Beispiele und aktuelle Vertragsflächen aus dem Code.
 
-[Werkzeugverträge](reference.md) | [Run-Script-Pakete und API](run-setup.md) | [HTTP-API](http-api.md) | [LLM-Index](llms.txt)
+[Werkzeugverträge](reference.md) | [Run-Script-Pakete und API](run-setup.md) | [JSON-RPC-API](rpc-api.md) | [LLM-Index](llms.txt)
 
 Die Beispiele sind Ausschnitte für den jeweils benannten Einsatzort. Run-lokale Scripts sind native TypeScript-Module mit explizitem Kontext; Plugin-Servercode und Web-Module werden mit der Anwendung gebaut.
 
@@ -237,6 +237,40 @@ Runbezogene Routen prüfen den Run über die vorhandenen Hostdienste. Schreibope
 isApiPath und matches sind verschiedene Prüfungen: zur Erkennung einer API gehört auch ein Pfad mit gerade nicht erlaubter HTTP-Methode.
 
 Vertragsfelder: host.http, httpRoute.id, httpRoute.isApiPath, httpRoute.matches, httpRoute.handle, httpContext.request, httpContext.response, httpContext.url.
+
+### Methoden und Kanäle der API
+
+Ein Plugin ergänzt die JSON-RPC-API um eigene Methoden und Ereigniskanäle. Der Vertrag beschreibt Kennung, Beschreibung, Rechte sowie Eingabe und Ergebnis; Server und Oberfläche verwenden denselben Vertrag.
+
+Einsatzort: Verträge im contract.ts des Plugins, Implementierung innerhalb von register(host).
+
+```typescript
+const status = defineOperation({
+  id: "ragents.example.status",
+  description: "Meldet, ob der Dienst bereit ist.",
+  rights: ["runs.read"],
+  input: Type.Object({}, { additionalProperties: false }),
+  result: Type.Object({ ready: Type.Boolean() }),
+});
+const heartbeat = defineChannel({
+  id: "ragents.example.heartbeat",
+  description: "Meldet jeden Herzschlag des Dienstes.",
+  rights: ["runs.read"],
+  params: Type.Object({}, { additionalProperties: false }),
+  message: Type.Object({ at: Type.String() }),
+});
+
+host.methods(implement(status, () => ({ ready: service.ready() })));
+host.channels(implementChannel(heartbeat, (_params, emit) => service.onBeat((at) => emit({ at }))));
+```
+
+Der Dispatcher prüft vor der Ausführung die Rechte und die Eingabe und danach das Ergebnis gegen den Vertrag. Ein DomainError trägt Code und Status in die Antwort.
+
+Die Web-Hälfte ruft denselben Vertrag mit rpc.call auf und abonniert Kanäle mit rpc.subscribe; ein Kanal liefert beim Öffnen seine Abmeldefunktion zurück.
+
+context nennt access, signal, progress, die aufrufende Verbindung und ob die Anfrage lokal ist. Eine Operation mit implementedBy client führt der verbundene Client aus; der Server ruft sie über context.connection.call auf.
+
+Vertragsfelder: host.methods, host.channels.
 
 ### Start, Run-Ende und Shutdown
 
@@ -1352,25 +1386,65 @@ Die Liste stammt aus den Rechteverträgen des Hosts und des Koordinator-Plugins;
 
 
 
-### Host-Routen
+### Kernmethoden
 
 
 
-Automatisch aus den ausgeführten Hostregeln; Änderungen brauchen jeweils zusätzlich das Leserecht. Der globale Koordinator ergänzt seine eigene Laufregel.
+Automatisch aus den registrierten Verträgen; Methoden ohne feste Rechte prüft der Host je Run. Der globale Koordinator ergänzt seine eigene Laufregel.
 
 
 
-| Pfadmuster | Lesen | Ändern | Löschen |
+| Methode | Rechte |
 
-| --- | --- | --- | --- |
+| --- | --- |
 
-| ^/api/settings(?:/\|$) | settings.read | settings.write | settings.write |
+| ragents.chat.actorHistory | je Run |
 
-| ^/extern$ | settings.read | settings.write | settings.write |
+| ragents.chat.capabilities | je Run |
 
-| ^/chat(?:/\|$) | runs.read | runs.write | runs.delete |
+| ragents.chat.send | je Run |
 
-| ^/ragents(?:/\|$) | runs.read | runs.write | runs.write |
+| ragents.chat.sendToActor | je Run |
+
+| ragents.chat.start | je Run |
+
+| ragents.chat.stop | je Run |
+
+| ragents.external.set | settings.write |
+
+| ragents.plugins.bootstrap | je Run |
+
+| ragents.runs.enqueueInput | je Run |
+
+| ragents.runs.events | je Run |
+
+| ragents.runs.prepare | runs.read, runs.write, runs.create |
+
+| ragents.runs.resolveAction | je Run |
+
+| ragents.runs.restartActor | je Run |
+
+| ragents.runs.stopActor | je Run |
+
+| ragents.runs.stopAll | je Run |
+
+| ragents.runs.view | je Run |
+
+| ragents.sessions.delete | runs.read, runs.delete |
+
+| ragents.sessions.list | runs.read |
+
+| ragents.settings.read | settings.read |
+
+| ragents.settings.skill | settings.read |
+
+| ragents.settings.titles.read | settings.read |
+
+| ragents.settings.titles.save | settings.write |
+
+| ragents.startOptions.list | runs.read, runs.create, runs.inspect |
+
+| ragents.startOptions.select | runs.read, runs.write, runs.create, runs.inspect |
 
 ## Aktuelle Vertragsflächen
 
@@ -1544,6 +1618,8 @@ export interface PluginRegistration {
   readonly storage: PluginStorage;
   clientConfig: (values: Readonly<Record<string, unknown>>) => void;
   config: (...descriptors: readonly PluginConfigDescriptor[]) => void;
+  channels: (...contributions: readonly ChannelContribution[]) => void;
+  methods: (...contributions: readonly MethodContribution[]) => void;
   http: (...routes: readonly HttpRouteContribution[]) => void;
   lifecycle: (...contributions: readonly SessionLifecycleContribution[]) => void;
   operation: (id: string) => RegisteredOperationDescriptor | undefined;

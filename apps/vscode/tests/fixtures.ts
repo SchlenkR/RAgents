@@ -1,11 +1,34 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
+import {
+  ARTIFACT_CONTENT_PATH,
+  ChannelContributionRegistry,
+  createAccessContext,
+  implement,
+  implementChannel,
+  MethodContributionRegistry,
+  runContracts,
+  type MethodConnection,
+} from "@aicontainer/ragents";
+import type { JournalEvent } from "../../../packages/ragents/src/domain/events";
+import type { RunView as JournalRunView } from "../../../packages/ragents/src/domain/model";
+import { coreContracts } from "../../server/src/api/contracts";
+import { RpcDispatcher } from "../../server/src/rpc/dispatcher";
+import { RpcHttpTransport } from "../../server/src/rpc/http-transport";
+import { workspaceContracts, type WorkspaceClientDescription } from "../../../plugins/ragents.workspace/contract";
 import type { SessionInfo } from "../../web/src/api";
 import type { RunView } from "../../../plugins/ragents.orchestration/web/run-view";
 
 export const SESSION_TOKEN = "a".repeat(43);
 
+/** Die Laufansicht der Oberfläche trägt dieselben Daten wie die der Engine, nur mit eigenen Typen. */
+const servedView = (value: RunView): JournalRunView => value as unknown as JournalRunView;
+
 const at = "2026-09-17T10:00:00.000Z";
+
+const JOURNAL: unknown[] = [{ sequence: 1, type: "run.created", payload: { runId: "run-a" } }];
+
+const ARTIFACT_TEXT = "# Protokoll\n";
 
 export const runView = (overrides: Partial<RunView> = {}): RunView => ({
   id: "run-a",
@@ -57,11 +80,18 @@ export const session = (overrides: Partial<SessionInfo> = {}): SessionInfo => ({
 export interface StubServer {
   url: string;
   requests: Array<{ method: string; path: string; authorization: string | undefined }>;
-  emit: (channel: string, data: unknown) => void;
+  workspaceClients: () => ReadonlyMap<string, WorkspaceClientDescription>;
+  workspaceConnection: (id: string) => MethodConnection | undefined;
+  emit: (key: string) => void;
   subscribed: () => ReadonlySet<string>;
   setSessions: (sessions: SessionInfo[]) => void;
   setView: (view: RunView) => void;
   close: () => Promise<void>;
+}
+
+interface Emitter {
+  key: string;
+  send: () => void;
 }
 
 const readBody = (request: IncomingMessage): Promise<string> => new Promise((resolve) => {
@@ -70,21 +100,51 @@ const readBody = (request: IncomingMessage): Promise<string> => new Promise((res
   request.on("end", () => resolve(body));
 });
 
-/** Ein Server mit den Routen, die die Erweiterung braucht: Zugang, Liste, Laufansicht und Ereignisstrom. */
-export const startStubServer = async (options: { loginRequired?: boolean; tokenGate?: boolean } = {}): Promise<StubServer> => {
+/** Ein Stub aus den echten Bausteinen: Anmeldung und Artefakte per HTTP, alles Weitere über Dispatcher und Transport. */
+export const startStubServer = async (options: { loginRequired?: boolean; tokenGate?: boolean; sameMachine?: boolean } = {}): Promise<StubServer> => {
   const requests: StubServer["requests"] = [];
+  const workspaceClients = new Map<string, WorkspaceClientDescription>();
+  const workspaceConnections = new Map<string, MethodConnection>();
+  const emitters = new Set<Emitter>();
   let sessions: SessionInfo[] = [session()];
   let view: RunView = runView();
-  const streams = new Set<{ response: ServerResponse; channels: Set<string> }>();
+
+  const methods = new MethodContributionRegistry();
+  methods.register("stub", [
+    implement(coreContracts.sessions.list, () => sessions),
+    implement(runContracts.view, ({ runId }) => runId === view.id ? servedView(view) : null),
+    implement(runContracts.events, () => JOURNAL as JournalEvent[]),
+    implement(runContracts.stopAll, () => servedView(view)),
+    implement(workspaceContracts.clients.register, ({ id, ...description }, { connection }) => {
+      workspaceClients.set(id, description);
+      workspaceConnections.set(id, connection);
+      return { ...description, id, connected: true, sameMachine: options.sameMachine === true };
+    }),
+    implement(workspaceContracts.clients.unregister, ({ id }) => {
+      workspaceClients.delete(id);
+      workspaceConnections.delete(id);
+      return null;
+    }),
+  ]);
+  const channels = new ChannelContributionRegistry();
+  const channel = (key: string, send: () => void): (() => void) => {
+    const emitter: Emitter = { key, send };
+    emitters.add(emitter);
+    return () => { emitters.delete(emitter); };
+  };
+  channels.register("stub", [
+    implementChannel(coreContracts.channels.sessions, (_params, emit) => channel("sessions", () => emit({ type: "changed" }))),
+    implementChannel(coreContracts.channels.run, ({ runId }, emit) => channel(`run:${runId}`, () => emit({ kind: "run" }))),
+  ]);
+  const transport = new RpcHttpTransport({ dispatcher: new RpcDispatcher({ methods, channels }) });
+
   const json = (response: ServerResponse, status: number, body: unknown) => {
     response.writeHead(status, { "content-type": "application/json" });
     response.end(JSON.stringify(body));
   };
   const user = { id: "ronald", label: "Ronald", rights: ["runs.read", "runs.write", "runs.inspect"] };
   const authorized = (request: IncomingMessage) => request.headers.authorization === `Bearer ${SESSION_TOKEN}`;
-  const server: Server = createServer(async (request, response) => {
-    const url = new URL(request.url ?? "/", "http://localhost");
-    requests.push({ method: request.method ?? "", path: url.pathname, authorization: request.headers.authorization });
+  const route = async (request: IncomingMessage, response: ServerResponse, url: URL): Promise<void> => {
     if (options.tokenGate && !authorized(request)) return json(response, 401, { error: "Zugangstoken fehlt" });
     if (options.loginRequired && !authorized(request)) {
       if (url.pathname === "/api/access") return json(response, 200, { enabled: true, user: null });
@@ -98,44 +158,36 @@ export const startStubServer = async (options: { loginRequired?: boolean; tokenG
     }
     if (url.pathname === "/api/access") return json(response, 200, options.loginRequired ? { enabled: true, user } : { enabled: false, user: null });
     if (url.pathname === "/api/access/logout") return json(response, 200, { enabled: true, user: null });
-    if (url.pathname === "/chat/sessions") return json(response, 200, sessions);
-    if (url.pathname === `/chat/${view.id}/run`) return json(response, 200, view);
-    if (url.pathname.startsWith("/chat/") && url.pathname.endsWith("/run")) return json(response, 200, null);
-    if (url.pathname === "/api/events") {
-      response.writeHead(200, { "content-type": "text/event-stream", "cache-control": "no-cache" });
-      const stream = { response, channels: new Set<string>() };
-      streams.add(stream);
-      response.write(`event: hello\ndata: ${JSON.stringify({ connection: "c".repeat(32) })}\n\n`);
-      request.on("close", () => streams.delete(stream));
+    if (ARTIFACT_CONTENT_PATH.test(url.pathname)) {
+      response.writeHead(200, { "content-type": "text/markdown" });
+      response.end(ARTIFACT_TEXT);
       return;
     }
-    const subscription = url.pathname.match(/^\/api\/events\/([a-f0-9]{32})\/subscriptions(?:\/(.+))?$/);
-    if (subscription) {
-      const stream = [...streams][0];
-      if (!stream) return json(response, 404, { error: "Die Ereignisverbindung ist unbekannt oder beendet." });
-      if (request.method === "POST") {
-        const channel = (JSON.parse(await readBody(request)) as { channel: string }).channel;
-        stream.channels.add(channel);
-        return json(response, 200, { subscribed: true, channel });
-      }
-      stream.channels.delete(decodeURIComponent(subscription[2] ?? ""));
-      return json(response, 200, { subscribed: false });
-    }
+    const access = createAccessContext(options.loginRequired ? { enabled: true, user } : { enabled: false, user: null });
+    if (await transport.handle(request, response, url, access, true)) return;
     json(response, 404, { error: "Unbekannte Route" });
+  };
+
+  const server: Server = createServer((request, response) => {
+    const url = new URL(request.url ?? "/", "http://localhost");
+    requests.push({ method: request.method ?? "", path: url.pathname, authorization: request.headers.authorization });
+    void route(request, response, url);
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const port = (server.address() as AddressInfo).port;
   return {
     url: `http://127.0.0.1:${port}`,
     requests,
-    emit: (channel, data) => {
-      for (const stream of streams) if (stream.channels.has(channel)) stream.response.write(`data: ${JSON.stringify({ channel, data })}\n\n`);
+    workspaceClients: () => workspaceClients,
+    workspaceConnection: (id) => workspaceConnections.get(id),
+    emit: (key) => {
+      for (const emitter of [...emitters]) if (emitter.key === key) emitter.send();
     },
-    subscribed: () => new Set([...streams].flatMap((stream) => [...stream.channels])),
+    subscribed: () => new Set([...emitters].map((emitter) => emitter.key)),
     setSessions: (next) => { sessions = next; },
     setView: (next) => { view = next; },
     close: async () => {
-      for (const stream of streams) stream.response.end();
+      transport.close();
       server.closeAllConnections();
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     },

@@ -1,3 +1,7 @@
+import { Type } from "typebox";
+import { defineOperation } from "@aicontainer/ragents/src/rpc/contract";
+import { openJson } from "@aicontainer/ragents/src/http/contracts";
+
 export type LanguageServerState = "closed" | "opening" | "ready" | "failed" | "suspended";
 
 export type LanguageServerSeverity = "error" | "warning" | "information" | "hint";
@@ -22,7 +26,14 @@ export interface LanguageServerSnapshot {
   files: readonly LanguageServerFileDiagnostics[];
 }
 
-export const languageServerRoutePrefix = (pluginId: string): string => `/api/plugins/${pluginId}`;
-
-export const languageServerSnapshotPath = (routePrefix: string, runId: string): string =>
-  `${routePrefix}/runs/${encodeURIComponent(runId)}/language-server`;
+/** Je Sprachserver-Plugin eine Methode; die Rechte tragen seine Kennung. */
+export const languageServerSnapshotContract = (pluginId: string) =>
+  defineOperation({
+    id: `${pluginId}.snapshot`,
+    description: `Zustand und Diagnosen des Sprachservers ${pluginId} in einem Lauf. Rechte: runs.read und ${pluginId}.read.`,
+    rights: ["runs.read", `${pluginId}.read`],
+    input: Type.Object({
+      runId: Type.String({ minLength: 1, maxLength: 64, description: "Kennung des Runs" }),
+    }, { additionalProperties: false }),
+    result: openJson<LanguageServerSnapshot>("LanguageServerSnapshot"),
+  });

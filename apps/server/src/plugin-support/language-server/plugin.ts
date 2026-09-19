@@ -1,9 +1,8 @@
 import type { PluginConfigDescriptor, RAgentsPlugin } from "@aicontainer/ragents";
 import { sessionGuardToken } from "../../ragents/host-services.js";
 import { sandboxServicesToken } from "../workspace-sandbox-host.js";
-import { languageServerRoutePrefix } from "./contract.js";
 import { LanguageServerHost, type LanguageServerAdapter } from "./host.js";
-import { createLanguageServerRoutes } from "./snapshot-route.js";
+import { createLanguageServerSnapshotMethod } from "./snapshot-method.js";
 import { createLanguageServerToolContributor } from "./tools.js";
 
 export interface LanguageServerPluginOptions {
@@ -21,11 +20,10 @@ export const createLanguageServerPlugin = (options: LanguageServerPluginOptions)
     if (options.configDescriptors) host.config(...options.configDescriptors);
     host.functions(createLanguageServerToolContributor(servers));
     host.clientConfig({
-      routePrefix: languageServerRoutePrefix(options.id),
       label: options.tabLabel ?? options.adapter.label,
       openTool: `${options.adapter.id}_open`,
     });
-    host.http(...createLanguageServerRoutes({
+    host.methods(createLanguageServerSnapshotMethod({
       pluginId: options.id,
       servers,
       ensureSession: host.service(sessionGuardToken),

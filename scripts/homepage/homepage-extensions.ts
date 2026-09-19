@@ -3,9 +3,18 @@ import path from "node:path";
 import ts from "typescript";
 import { builtinPermissions } from "../../packages/ragents/src/access.js";
 import { overseerPermissions } from "../../plugins/ragents.overseer/contract.js";
-import { hostAccessRules } from "../../apps/server/src/access-policy.js";
+import { coreContracts, runContracts } from "../../apps/server/src/api/contracts.js";
 
 const permissions = [...builtinPermissions, ...overseerPermissions];
+
+const declaredContracts = (value: object): Array<{ kind: string; id: string; rights: readonly string[] }> => Object.values(value)
+  .flatMap((entry: object) => "kind" in entry ? [entry as { kind: string; id: string; rights: readonly string[] }] : declaredContracts(entry));
+
+/** Die Rechte der Kernmethoden; Methoden ohne feste Rechte entscheidet der Host je Run. */
+const methodRights = [coreContracts, runContracts].flatMap((group) => declaredContracts(group))
+  .filter((contract) => contract.kind === "operation")
+  .map((contract) => ({ id: contract.id, rights: [...contract.rights] }))
+  .sort((left, right) => left.id.localeCompare(right.id, "en"));
 
 export interface HomepageExtension {
   id: string;
@@ -25,7 +34,7 @@ export interface HomepageExtensionsResult {
   extensions: HomepageExtension[];
   contracts: { name: string; text: string; file: string }[];
   permissions: readonly { id: string; description: string }[];
-  accessRules: typeof hostAccessRules;
+  methodRights: typeof methodRights;
 }
 
 type Contract = { id: string; file: string; name: string; kind?: "schema" | "embedded" };
@@ -207,6 +216,28 @@ host.http({
 });`, ["host.http", "httpRoute.id", "httpRoute.isApiPath", "httpRoute.matches", "httpRoute.handle", "httpContext.request", "httpContext.response", "httpContext.url"], [
     "Runbezogene Routen prüfen den Run über die vorhandenen Hostdienste. Schreiboperationen bleiben an ihre fachlichen Prüfungen und das Journal gebunden.",
     "isApiPath und matches sind verschiedene Prüfungen: zur Erkennung einer API gehört auch ein Pfad mit gerade nicht erlaubter HTTP-Methode.",
+  ]),
+  entry("methods", "Serverbeiträge", "Methoden und Kanäle der API", "Ein Plugin ergänzt die JSON-RPC-API um eigene Methoden und Ereigniskanäle. Der Vertrag beschreibt Kennung, Beschreibung, Rechte sowie Eingabe und Ergebnis; Server und Oberfläche verwenden denselben Vertrag.", "Verträge im contract.ts des Plugins, Implementierung innerhalb von register(host).", `
+const status = defineOperation({
+  id: "ragents.example.status",
+  description: "Meldet, ob der Dienst bereit ist.",
+  rights: ["runs.read"],
+  input: Type.Object({}, { additionalProperties: false }),
+  result: Type.Object({ ready: Type.Boolean() }),
+});
+const heartbeat = defineChannel({
+  id: "ragents.example.heartbeat",
+  description: "Meldet jeden Herzschlag des Dienstes.",
+  rights: ["runs.read"],
+  params: Type.Object({}, { additionalProperties: false }),
+  message: Type.Object({ at: Type.String() }),
+});
+
+host.methods(implement(status, () => ({ ready: service.ready() })));
+host.channels(implementChannel(heartbeat, (_params, emit) => service.onBeat((at) => emit({ at }))));`, ["host.methods", "host.channels"], [
+    "Der Dispatcher prüft vor der Ausführung die Rechte und die Eingabe und danach das Ergebnis gegen den Vertrag. Ein DomainError trägt Code und Status in die Antwort.",
+    "Die Web-Hälfte ruft denselben Vertrag mit rpc.call auf und abonniert Kanäle mit rpc.subscribe; ein Kanal liefert beim Öffnen seine Abmeldefunktion zurück.",
+    "context nennt access, signal, progress, die aufrufende Verbindung und ob die Anfrage lokal ist. Eine Operation mit implementedBy client führt der verbundene Client aus; der Server ruft sie über context.connection.call auf.",
   ]),
   entry("lifecycle", "Serverbeiträge", "Start, Run-Ende und Shutdown", "Ein Plugin kann bei Anwendungsstart, beim Stoppen oder Löschen einer Unterhaltung und beim Herunterfahren eigene Funktionen ausführen. So lassen sich seine Hintergrunddienste und Ressourcen passend starten und aufräumen.", "register(host); service ist ein zuvor erzeugter Dienst mit den hier gezeigten Methoden.", `
 host.lifecycle({
@@ -834,7 +865,7 @@ export async function buildHomepageExtensions(repoRoot: string): Promise<Homepag
   const html = `<header class="intro"><p class="eyebrow">Für Entwickler</p><h1>RAgents erweitern</h1><p class="lead">RAgents lässt sich um typisierte Funktionen, Oberflächen und programmierte Abläufe ergänzen. Snippets und Actor-Programme verwenden dieselben registrierten Funktionen. Ein Plugin bündelt eine solche Erweiterung für die ganze Anwendung. Eine einzelne Unterhaltung heißt Run; innerhalb eines Runs können eigene Abläufe und kleine Bedienoberflächen, die Mini-Apps, entstehen.</p></header><p>Die Beispiele zeigen, wo diese Erweiterungen eingebunden werden: Serverbeiträge führen Funktionen aus, Web-Beiträge ergänzen die Oberfläche der Anwendung. Programmierte Abläufe und Mini-Apps gehören zur jeweiligen Unterhaltung. Die Produkt- und Laufzeitverträge beschreiben die Einbindung in eine eigene Anwendung.</p>
 <p>Neu im Projekt? Der <a href="guide.html">Guide</a> erklärt Laufzeit, Modellkontext und Ausführungsformen. Das Kapitel <a href="guide-extensions.html">Plugins, Profile und Skills</a> führt zu den passenden Erweiterungspunkten.</p><p class="note">Die Codeblöcke sind Ausschnitte; ihr Einsatzort steht jeweils dabei. Vollständige Vorlagen für vorbereitete Abläufe und lokale Oberflächendemos stehen in der <a href="reference.html">Bausteinreferenz</a>. Erweiterungen der Anwendung werden mit ihr gebaut; Code für eine einzelne Unterhaltung wird vor der Installation geprüft und getestet.</p><nav class="section-nav" aria-label="Erweiterungen">${groups.map((group, index) => `<a href="#extensions-${index}">${escape(group)}</a>`).join("")}<a href="#access-rights">Eingebaute Rechte</a><a href="#extension-contracts">Verträge</a></nav>
 ${groups.map((group, index) => `<section id="extensions-${index}"><h2>${escape(group)}</h2>${extensions.filter((extension) => extension.category === group).map((extension) => `<article id="extension-${extension.id}"><h3>${escape(extension.title)}</h3><p>${escape(extension.description)}</p><details><summary>Beispiel (${extension.language})</summary><p class="example-context">${escape(extension.environment)}</p><pre><code class="language-${extension.language}">${escape(extension.example)}</code></pre></details>${extension.sources?.length ? `<p>${extension.sources.map((source) => `<a href="../../${escape(source.file)}">${escape(source.title)}</a>`).join(" / ")}</p>` : ""}${extension.notes.length ? `<ul>${extension.notes.map((note) => `<li>${escape(note)}</li>`).join("")}</ul>` : ""}</article>`).join("")}</section>`).join("\n")}
-<section id="access-rights"><h2>Eingebaute Rechte</h2><p>Rechte legen fest, welche Daten ein Benutzer lesen und welche Aktionen er ausführen darf. Die Liste zeigt die in RAgents eingebauten Rechtenamen und ihre Bedeutung. Plugins können zusätzliche eigene Rechte prüfen.</p><table><thead><tr><th>Recht</th><th>Bedeutung</th></tr></thead><tbody>${permissions.map((permission) => `<tr><td><code>${escape(permission.id)}</code></td><td>${escape(permission.description)}</td></tr>`).join("")}</tbody></table><h3>Host-Routen</h3><p>Die Tabelle ordnet den HTTP-Pfaden der Anwendung die nötigen Rechte zu. Änderungen brauchen das Leserecht und das passende Schreib- oder Löschrecht. Für den globalen Koordinator, den KI-Ansprechpartner über alle Unterhaltungen hinweg, gilt eine zusätzliche eigene Laufregel.</p><table><thead><tr><th>Pfadmuster</th><th>Lesen</th><th>Ändern</th><th>Löschen</th></tr></thead><tbody>${hostAccessRules.map((rule) => `<tr><td><code>${escape(rule.path)}</code></td><td>${escape(rule.read)}</td><td>${escape(rule.write)}</td><td>${escape("delete" in rule ? rule.delete : rule.write)}</td></tr>`).join("")}</tbody></table></section>
+<section id="access-rights"><h2>Eingebaute Rechte</h2><p>Rechte legen fest, welche Daten ein Benutzer lesen und welche Aktionen er ausführen darf. Die Liste zeigt die in RAgents eingebauten Rechtenamen und ihre Bedeutung. Plugins können zusätzliche eigene Rechte prüfen.</p><table><thead><tr><th>Recht</th><th>Bedeutung</th></tr></thead><tbody>${permissions.map((permission) => `<tr><td><code>${escape(permission.id)}</code></td><td>${escape(permission.description)}</td></tr>`).join("")}</tbody></table><h3>Kernmethoden</h3><p>Die Tabelle ordnet den Methoden der JSON-RPC-API ihre nötigen Rechte zu. Methoden ohne feste Rechte prüft der Host je Run; für den globalen Koordinator, den KI-Ansprechpartner über alle Unterhaltungen hinweg, gilt eine zusätzliche eigene Laufregel.</p><table><thead><tr><th>Methode</th><th>Rechte</th></tr></thead><tbody>${methodRights.map((method) => `<tr><td><code>${escape(method.id)}</code></td><td>${escape(method.rights.join(", ") || "je Run")}</td></tr>`).join("")}</tbody></table></section>
 <section id="extension-contracts"><h2>Aktuelle Vertragsflächen</h2><p>Ein Vertrag legt die Namen, Felder und Typen fest, die eine Erweiterung bereitstellen oder verwenden kann. Die folgenden Definitionen stammen direkt aus den TypeScript-Schnittstellen und Paketbeschreibungen im Code. Sie dienen zum Nachschlagen der genauen Anforderungen zu den Beispielen oben.</p>${loaded.map(({ contract, keys, text }) => `<details><summary>${escape(contract.name)} (${keys.length} Felder)</summary><pre><code>${escape(text)}</code></pre></details>`).join("")}</section>`;
-  return { html, extensions, permissions, accessRules: hostAccessRules, contracts: loaded.map(({ contract, text }) => ({ name: contract.name, file: contract.file, text })) };
+  return { html, extensions, permissions, methodRights, contracts: loaded.map(({ contract, text }) => ({ name: contract.name, file: contract.file, text })) };
 }

@@ -11,7 +11,6 @@ import { buildHomepageExtensions } from "./homepage-extensions.js";
 import { buildHomepageGuide } from "./homepage-guide.js";
 import { buildHomepageLlms, markdownCode } from "./homepage-llms.js";
 import { exampleCoverage, exampleAnchor } from "./homepage-examples.js";
-import { managementOpenApi, managementHttpReference } from "../../plugins/ragents.overseer/server/http-api.js";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 async function loadFixtures() {
@@ -51,21 +50,27 @@ test("Textreferenzen sind deterministisch und der kurze Index deckt alle erzeugt
     assert.ok(output.length > 0, name);
     assert.doesNotThrow(() => assertPublicOutput(output), name);
   }
-  for (const name of ["reference.md", "developer.md", "run-setup.md", "http-api.md"]) {
+  for (const name of ["reference.md", "developer.md", "run-setup.md", "rpc-api.md"]) {
     assert.ok(outputs["llms-full.txt"].includes(outputs[name].trimEnd()), name);
   }
 });
 
-test("HTTP-Referenz und OpenAPI stammen unverändert aus den ausführbaren Management-Verträgen", async () => {
+test("Methodenreferenz und OpenRPC stammen unverändert aus den ausführbaren Verträgen des Profils core", async () => {
   const { catalog, extensions, guide } = await fixtures();
   const outputs = buildHomepageLlms(catalog, extensions, guide);
-  assert.equal(outputs["http-api.md"], managementHttpReference());
-  assert.deepEqual(JSON.parse(outputs["openapi.json"]), managementOpenApi());
-  assert.ok(outputs["llms-full.txt"].includes(outputs["http-api.md"].trimEnd()));
+  assert.equal(outputs["rpc-api.md"], catalog.rpcReference);
+  assert.deepEqual(JSON.parse(outputs["openrpc.json"]), catalog.openRpc);
+  const document = catalog.openRpc as { methods: Array<{ name: string }>; "x-channels": Array<{ name: string }> };
+  assert.ok(document.methods.length > 0);
+  for (const method of document.methods) assert.ok(outputs["rpc-api.md"].includes(`## ${method.name}`), method.name);
+  for (const channel of document["x-channels"]) assert.ok(outputs["rpc-api.md"].includes(`## Kanal ${channel.name}`), channel.name);
+  assert.ok(document.methods.some((method) => method.name === "ragents.chat.send"));
+  assert.ok(document.methods.some((method) => method.name.startsWith("ragents.overseer.")));
+  assert.ok(outputs["llms-full.txt"].includes(outputs["rpc-api.md"].trimEnd()));
   for (const name of ["reference.md", "developer.md", "llms.txt"]) {
-    assert.ok(outputs[name].includes("[HTTP-API](http-api.md)"), name);
+    assert.ok(outputs[name].includes("[JSON-RPC-API](rpc-api.md)"), name);
   }
-  assert.ok(outputs["llms.txt"].includes("[OpenAPI](openapi.json)"));
+  assert.ok(outputs["llms.txt"].includes("[OpenRPC](openrpc.json)"));
 });
 
 test("alle öffentlichen Werkzeuge, Operationen, Schemata und Vorlagendateien bleiben vollständig erhalten", async () => {

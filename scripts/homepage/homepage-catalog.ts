@@ -3,7 +3,7 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
 import { readHomepageUiContracts } from "./homepage-ui-contracts.js";
-import type { RunFunction, PluginContext, ToolDescriptor } from "@aicontainer/ragents";
+import type { ChannelContract, OperationContract, RunFunction, PluginContext, ToolDescriptor } from "@aicontainer/ragents";
 import type { PluginModule } from "../../apps/server/src/plugin-support/plugin-module.js";
 
 export function corePluginIds(repoRoot: string): string[] {
@@ -49,7 +49,9 @@ export function publicPackageFiles(directory: string): Record<string, string> {
 async function collect(repoRoot: string) {
   globalThis.fetch = async () => { throw new Error("Referenzgenerierung darf keine Netzaufrufe ausführen."); };
   const { composeProfile } = await import("../../apps/server/src/profile/compose.js");
-  const { agentTools, modelToolDescriptors } = await import("@aicontainer/ragents");
+  const { agentTools, implement, implementChannel, modelToolDescriptors } = await import("@aicontainer/ragents");
+  const { coreContracts, runContracts } = await import("../../apps/server/src/api/contracts.js");
+  const { methodReference, openRpcDocument } = await import("../../apps/server/src/api/reference.js");
   const { actorProgramAuthoringContracts } = await import("../../plugins/ragents.actor-programs/server/authoring-contracts.js");
   const { serverApiDeclarations } = await import("../../plugins/ragents.actor-programs/server/app-project.js");
   const { runModuleTemplates } = await import("../../plugins/ragents.actor-programs/server/templates.js");
@@ -83,6 +85,12 @@ async function collect(repoRoot: string) {
     if (!descriptor) throw new Error(`Werkzeugbeschreibung fehlt: ${tool.name}`);
     return entry(tool, descriptor, "engine");
   });
+  const unavailable = () => { throw new Error("Die Referenzgenerierung führt keine Methoden aus."); };
+  const contracts = (value: object): Array<OperationContract | ChannelContract> => Object.values(value)
+    .flatMap((entry: object) => "kind" in entry ? [entry as OperationContract | ChannelContract] : contracts(entry));
+  const declared = [coreContracts, runContracts].flatMap((group) => contracts(group));
+  host.methods.register("host", declared.filter((contract) => contract.kind === "operation").map((contract) => implement(contract, unavailable)));
+  host.channels.register("host", declared.filter((contract) => contract.kind === "channel").map((contract) => implementChannel(contract, unavailable)));
   const descriptors = host.tools.describe();
   const dynamic: string[] = [];
   for (const contributor of host.tools.entries()) {
@@ -115,6 +123,8 @@ async function collect(repoRoot: string) {
     clientUiFiles: readHomepageUiContracts(repoRoot).files,
     templates: runModuleTemplates,
     dynamic: dynamic.sort(),
+    rpcReference: methodReference(host),
+    openRpc: openRpcDocument(host),
   };
 }
 

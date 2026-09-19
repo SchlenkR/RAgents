@@ -3,8 +3,6 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import type { IncomingMessage } from "node:http";
-import { Readable } from "node:stream";
 import test, { type TestContext } from "node:test";
 import {
   DomainError, FixedWorkspaces, Journal, LiveBus, Orchestration, StartOptionContributionRegistry,
@@ -17,11 +15,12 @@ import { RunDirectory } from "../../../plugins/ragents.overseer/server/run-direc
 import { createUserLocationContext, parseUserLocation } from "../../../plugins/ragents.overseer/server/user-location.ts";
 import type { ChatUserLocation } from "../src/chat-context.ts";
 import type { ChatEvent } from "../src/chat-events.ts";
-import { createChatHandler } from "../src/chat-handler.ts";
+import { coreContracts } from "../src/api/contracts.ts";
+import { coreMethods } from "../src/api/core-methods.ts";
+import { coreSources, methodContext } from "./rpc-fixture.ts";
 import type { Engine } from "../src/ragents/engine.ts";
 import type { SessionManagement } from "../src/ragents/global-chat.ts";
 import { RunChatSession } from "../src/ragents/session.ts";
-import { capturedJson } from "./runtime-fixture.ts";
 
 const home: ChatUserLocation = { surface: "home", runId: null, tab: null, selection: null };
 const offered: CatalogModel[] = [{ driver: "agent", provider: "local", model: "test", label: "Local fixture", thinking: ["off"] }];
@@ -229,20 +228,16 @@ test("foreign or stale selections and unavailable runs never invent an actor or 
   assert.doesNotMatch(data.driver.requests[3]!.systemPrompt, /Lauf 2|@pruefer|CSV-Import/);
 });
 
-test("the chat HTTP adapter forwards user location separately and returns a client error for malformed context", async (t) => {
+test("the chat method forwards user location separately and reports a client error for malformed context", async (t) => {
   const data = await fixture(t);
-  const handler = createChatHandler({ cors: false, manager: {
+  const send = coreMethods(coreSources({
     get: async (id) => { assert.equal(id, OVERSEER_RUN_ID); return data.session; },
-    list: async () => [], delete: async () => { throw new Error("No deletion through a message"); },
-  } });
-  const send = async (body: unknown) => {
-    const request = Object.assign(Readable.from([Buffer.from(JSON.stringify(body))]), { method: "POST", url: `/chat/${OVERSEER_RUN_ID}/send` }) as IncomingMessage;
-    const { captured, response } = capturedJson();
-    assert.equal(await handler(request, response), true);
-    return captured;
-  };
-  assert.equal((await send({ text: "Hier nachsehen", userLocation: data.location("first-run") })).status, 202);
-  assert.equal((await send({ text: "Falscher Kontext", userLocation: { ...home, surface: ["home"] } })).status, 400);
+    hasRun: () => true,
+  })).find((entry) => entry.contract.id === coreContracts.chat.send.id)!;
+  const message = (body: Record<string, unknown>) => send.execute({ runId: OVERSEER_RUN_ID, ...body } as never, methodContext());
+  await message({ text: "Hier nachsehen", userLocation: data.location("first-run") });
+  await assert.rejects(message({ text: "Falscher Kontext", userLocation: { ...home, surface: ["home"] } }),
+    (error: unknown) => error instanceof DomainError && error.status === 400);
   assert.deepEqual(data.runtime.view(OVERSEER_RUN_ID).inputs.map((input) => input.content), ["Hier nachsehen"]);
   data.scheduler.start();
   await data.scheduler.waitForIdle();

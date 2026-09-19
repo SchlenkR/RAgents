@@ -4,9 +4,8 @@ import type { SessionHeaderContext } from "@aicontainer/web/PluginRegistry";
 import { SquareIcon } from "lucide-react";
 import { Button, Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, Spinner, cn } from "@aicontainer/web/ui";
 import { ToolbarCopy, ToolbarItem, ToolbarLabel, ToolbarText } from "@aicontainer/web/Toolbar";
-import { errorFrom } from "@aicontainer/web/lib/http";
-import { eventHub } from "@aicontainer/web/events";
-import { processStopPath, processesChannel, type RunProcess, type RunProcessSnapshot } from "../contract";
+import { rpc } from "@aicontainer/web/rpc";
+import { processesContracts, type RunProcess, type RunProcessSnapshot } from "../contract";
 import { kindLabel, messageFrom, serviceUrl, titleOf, visibleProcesses } from "./processes";
 
 interface ProcessWatchState {
@@ -24,21 +23,17 @@ const useRunProcesses = (runId: string): ProcessWatchState => {
   const [state, setState] = useState<ProcessWatchState>(idle);
   useEffect(() => {
     setState(idle);
-    return eventHub.subscribe({
-      channel: processesChannel(runId),
-      onMessage: (data) => {
-        try {
-          const message = messageFrom(data);
-          if (message.kind === "snapshot" && message.snapshot.runId !== runId) throw new Error("Der Prozessstand gehört zu einem anderen Lauf");
-          setState((current) => message.kind === "snapshot"
-            ? { snapshot: message.snapshot, error: undefined }
-            : { snapshot: current.snapshot, error: message.error });
-        } catch (caught) {
-          setState((current) => ({ ...current, error: caught instanceof Error ? caught.message : String(caught) }));
-        }
-      },
-      onError: (message) => setState((current) => ({ ...current, error: message })),
-    });
+    return rpc.subscribe(processesContracts.live, { runId }, (data) => {
+      try {
+        const message = messageFrom(data);
+        if (message.kind === "snapshot" && message.snapshot.runId !== runId) throw new Error("Der Prozessstand gehört zu einem anderen Lauf");
+        setState((current) => message.kind === "snapshot"
+          ? { snapshot: message.snapshot, error: undefined }
+          : { snapshot: current.snapshot, error: message.error });
+      } catch (caught) {
+        setState((current) => ({ ...current, error: caught instanceof Error ? caught.message : String(caught) }));
+      }
+    }, (message) => setState((current) => ({ ...current, error: message })));
   }, [runId]);
   return state;
 };
@@ -86,7 +81,7 @@ function ProcessPill({ process, state, writable, onStop, toolbar = false }: { pr
   </div>;
 }
 
-function ProcessHeaderContent({ routePrefix, runId }: { routePrefix: string; runId: string }) {
+function ProcessHeaderContent({ runId }: { runId: string }) {
   const access = useAccess();
   const writable = access.can("runs.write") && access.can("runs.inspect");
   const state = useRunProcesses(runId);
@@ -123,10 +118,7 @@ function ProcessHeaderContent({ routePrefix, runId }: { routePrefix: string; run
     requests.current.set(process.id, controller);
     setStops((current) => ({ ...current, [process.id]: { busy: true } }));
     try {
-      const response = await fetch(processStopPath(routePrefix, runId, process.id), { method: "POST", signal: controller.signal });
-      if (!response.ok) throw await errorFrom(response, "Der Prozess konnte nicht beendet werden.");
-      const result = await response.json() as { stopped?: unknown };
-      if (result.stopped !== true) throw new Error("Das Beenden wurde vom Server nicht bestätigt.");
+      await rpc.call(processesContracts.stop, { runId, processId: process.id }, { signal: controller.signal });
     } catch (cause) {
       if (!controller.signal.aborted) setStops((current) => ({ ...current, [process.id]: { error: cause instanceof Error ? cause.message : String(cause) } }));
     } finally { requests.current.delete(process.id); }
@@ -157,9 +149,9 @@ function ProcessHeaderContent({ routePrefix, runId }: { routePrefix: string; run
   </>;
 }
 
-export const processHeader = (routePrefix: string): ComponentType<SessionHeaderContext> =>
+export const processHeader = (): ComponentType<SessionHeaderContext> =>
   function ProcessHeader({ session }: SessionHeaderContext) {
     const access = useAccess();
     return access.can("runs.read") && access.can("ragents.processes.read")
-      ? <ProcessHeaderContent key={session.session.id} routePrefix={routePrefix} runId={session.session.id} /> : null;
+      ? <ProcessHeaderContent key={session.session.id} runId={session.session.id} /> : null;
   };

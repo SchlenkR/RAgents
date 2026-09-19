@@ -232,7 +232,7 @@ Aufruferidentität. Ein `event_subscribe` gilt für die handelnde Identität.
 Die deklarierte Capability-Liste und die gebundene Identität bestimmen den verfügbaren Vorrat.
 Client-Aufrufe verwenden dagegen nur die im Actor-Vertrag deklarierten Funktionsnamen. Der
 Browser kann keinen anderen Run, keine Identität und keine freie Host-Capability wählen.
-Die HTTP-Aufrufwege für Mini-Apps und direkte Actor-Funktionen akzeptieren dieselben
+Die Methoden für Mini-Apps und direkte Actor-Funktionen akzeptieren dieselben
 Funktionsnamen einschließlich Großbuchstaben, etwa `addEntry`.
 Der Browser fragt laufende Mini-App-Aufrufe über deren App-Route ab; dafür genügt `runs.read`.
 Die technische Abfrage direkter Actor-Funktionen bleibt durch `runs.inspect` geschützt.

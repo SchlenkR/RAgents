@@ -462,7 +462,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                         type?: string;
                         description?: string;
                     }>;
-                }).properties ?? {}).map(([name, schema]) => ({ name, type: ["string", "number", "integer", "boolean"].includes(schema.type ?? "") ? schema.type : "json", description: schema.description ?? name, required: ((fn.inputSchema as {
+                }).properties ?? {}).map(([name, schema]) => ({ name, type: ["string", "number", "integer", "boolean"].includes(schema.type ?? "") ? schema.type ?? "json" : "json", description: schema.description ?? name, required: ((fn.inputSchema as {
                         required?: string[];
                     }).required ?? []).includes(name) })),
                 targets: (fn.tool.targets ?? view.actors.filter((actor) => actor.kind !== "human" && actor.lifecycle.kind !== "stopped").map((actor) => actor.id)).map((actorId) => ({ actorId, handle: view.actors.find((actor) => actor.id === actorId)?.handle ?? null })) }] : []));

@@ -224,7 +224,7 @@ export const plugin: PluginModule = {
 
 `create` erzeugt die Plugin-Instanz mit Manifest und Registrierungsfunktion und erhält dafür
 den `PluginHost`. Danach trägt `register` die Beiträge über die pluginbezogene
-`PluginRegistration` ein, etwa Funktionen, Prompts, Dienste und HTTP-Routen.
+`PluginRegistration` ein, etwa Funktionen, Prompts, Dienste, Methoden und Kanäle.
 
 Der Name des PLUGIN-Ordners (der Elternordner von `server/`) ist die Kennung; ein abweichendes
 `manifest.id` bricht den Start hart ab.
@@ -250,7 +250,9 @@ Der serverseitige `PluginHost` hat Registries für:
 - benannte Fachoperationen mit Eingabeschema, Operator-Policy und gemeinsamer Ausführung für
   mehrere Oberflächen
 - Modellprofile und Promptteile
-- HTTP-Routen und öffentliche Client-Konfiguration; darüber publizieren die Produkt-Plugins auch
+- Methoden und Kanäle der Nachrichtenschicht (`host.methods`, `host.channels`, Abschnitt
+  Nachrichtenschicht) sowie Auslieferungsrouten (`host.http`) für Dateien und Frames
+- öffentliche Client-Konfiguration; darüber publizieren die Produkt-Plugins auch
   die globale Chat-Display-Policy (`chatSteps` aus `CHAT_STEPS_MODE_COORDINATOR/_AGENTS`,
   `_VISIBLE`, `_EXPANDABLE`, `_SELECTABLE`), die das Web als at-most-one-Beitrag
   `chatDisplayPolicy` an alle Schritt-Render-Stellen durchreicht; gibt das Produkt sie frei,
@@ -263,12 +265,13 @@ Der serverseitige `PluginHost` hat Registries für:
 - Startoptionen (`host.startOptions`): Werte, die der Benutzer auf der Startfläche wählt und die beim
   Start eines Runs als Plugin-Zustand ins Journal eingefroren werden. Eine Option nennt Schema,
   Standardwert, `selectable`, `accept` (prüft und normalisiert einen Wert oder wirft) und `describe`
-  (Darstellung für das Web). Der Host hält den Wert je noch nicht gestarteter Unterhaltung unter
-  `GET/PUT /chat/<id>/options[/<optionId>]`, schreibt beim Start jeden Wert als initialen
+  (Darstellung für das Web). Der Host hält den Wert je noch nicht gestarteter Unterhaltung über
+  `ragents.startOptions.list` und `ragents.startOptions.select`, schreibt beim Start jeden Wert als initialen
   Plugin-Zustand unter der Option-Id und sperrt danach. Modell- und Systemprompt-Wahl sind die
   Startoptionen `ragents.model` und `ragents.system-prompt` des Produkt-Plugins
-  (`plugin-support/product-start-options.ts`); der Engine-Kern liest nur den Systemprompt-Zustand
-  für die Promptkomposition
+  (`plugin-support/product-start-options.ts`), der Arbeitsbereich ist die Startoption
+  `ragents.workspace.binding` des Workspace-Plugins; der Engine-Kern liest nur den
+  Systemprompt-Zustand für die Promptkomposition
 - Initialisierung, Session-Vorbereitung, Stopp, Löschen und Shutdown
 
 Ein Plugin implementiert nur die Facetten, die es braucht:
@@ -392,7 +395,7 @@ ausdrücklich neben Routing als Einsatz für Script-Actors genannt.
 
 Die erste Ausbaustufe ist bewusst BUILD-TIME komponiert. Unbekannte Web-Bundles werden nicht zur
 Laufzeit nachgeladen. Server und Web verwenden dieselbe geordnete Produktliste. Zusätzlich liefert
-`GET /api/plugins` IDs, öffentliche Konfiguration und die Einstiege (`startEntries`) aller Plugins;
+die Methode `ragents.plugins.bootstrap` IDs, öffentliche Konfiguration und die Einstiege (`startEntries`) aller Plugins;
 ein Script-Einstieg trägt dort nur `action`, `coordinator` und die Kartentexte, nie seine Quelle. Der Web-Host prüft
 Produkt und Pluginliste hart und startet bei einem Mismatch nicht. Plugin-Versionen gibt es nicht
 mehr: Server und Web werden immer zusammen gebaut, die Pluginliste selbst ist der Vertrag.
@@ -425,7 +428,7 @@ braucht jede Facette, aber eine vorhandene Facette bleibt bei ihrem Besitzer:
 | Skill                     | `skills/<name>/SKILL.md` beim besitzenden Plugin, inklusive Zielgruppe und optionalem Startauftrag |
 | Run-Script                | `run-scripts/<name>/` beim Plugin, dessen Fähigkeit der Run vorführt      |
 | Auswählbarer Systemprompt | `prompts/<name>.md` oder `.hbs` beim Produkt-Plugin                       |
-| API                       | HTTP-Beitrag und Client-Aufruf beim jeweiligen Server- und Web-Plugin     |
+| API                       | Verträge im `contract.ts`, Methoden im Server-Plugin, `rpc.call` im Web-Plugin |
 | UI und CSS                | Komponenten und Styles im passenden Web-Plugin                            |
 | Konfiguration             | Deklaration und Auswertung im passenden Server-Plugin                     |
 | Storage                   | `host.storage`, immer unter `plugins/<plugin-id>`                         |
@@ -441,7 +444,7 @@ Die Konvention lädt Assets, das Probing lädt den Code - beides aus demselben O
 Plugin vollständig in seinem Verzeichnis lebt.
 
 Es gibt deshalb keine zentrale Sammlung für Produktprompts, Skills oder Plugin-Konfiguration.
-Das Entfernen eines Fachplugins entfernt Prompt, Werkzeuge, Projektion, HTTP,
+Das Entfernen eines Fachplugins entfernt Prompt, Werkzeuge, Projektion, Methoden, Kanäle, Auslieferung,
 Konfiguration, Web-Tab, CSS und Session-Datenzugriff als eine Fähigkeit. Bereits
 persistierte Daten werden dadurch nicht stillschweigend gelöscht. Generische Hilfen für das Laden
 eines Assets oder das Registrieren eines Prompts bleiben wiederverwendbare Host-Komponenten und
@@ -450,14 +453,17 @@ besitzen keine Produktfachlichkeit.
 `ProductRuntime` und `WorkspaceRuntime` verhindern umgekehrt, dass der neutrale Host Produktwissen
 benötigt. Das Produkt-Plugin liefert Koordinator-Descriptor, Standardprofil, Anzeige und den
 Rollenvertrag. Das Workspace-Plugin löst den Arbeitsbereich je Lauf auf und beschreibt seinen
-Modus. `ragents.workspace` legt je Unterhaltung ein leeres Verzeichnis unter der Session-Ablage an;
-den Inhalt oder ein anderes `cwd` liefert optional ein Plugin über `workspaceResolverToken`
+Modus. `ragents.workspace` liest die Bindung des Runs aus der Startoption
+`ragents.workspace.binding` (Abschnitt Arbeitsbereich, Sandbox-Werkzeuge und Prozesse). Bei der
+Art `fresh` legt es je Unterhaltung ein leeres Verzeichnis unter der Session-Ablage an; den Inhalt
+oder ein anderes `cwd` liefert dafür optional ein Plugin über `workspaceResolverToken`
 (`resolve({ runId, directory, choice, emitSystem })`). Meldet der Resolver eine `optionId`, liest
-`ragents.workspace` die Wahl des Benutzers aus dem Journal und reicht sie als `choice` durch; vor dem
-Start des Runs gibt es dann kein Arbeitsverzeichnis, und die Auflösung muss für dieselbe Wahl
-deterministisch sein, weil die Agentenlaufzeit nach einem Neustart dasselbe `cwd` erwartet.
-Der Host ruft die Auflösung erst nach dem Anlegen des Runs auf, damit die Startoptionen im Journal
-stehen; die Agentenlaufzeit bekommt das `cwd` je Run über den Provider-Cache.
+`ragents.workspace` die Wahl des Benutzers aus dem Journal und reicht sie als `choice` durch. Vor
+dem Start des Runs gibt es kein Arbeitsverzeichnis (HTTP 409 `run-not-started`), und die Auflösung
+muss für dieselbe Bindung deterministisch sein, weil die Agentenlaufzeit nach einem Neustart
+dasselbe `cwd` erwartet. Der Host ruft die Auflösung erst nach dem Anlegen des Runs auf, damit die
+Startoptionen im Journal stehen; die Agentenlaufzeit bekommt das `cwd` je Run über den
+Provider-Cache.
 
 Die Dateiablage ist ein eigener Dienst: `ragents.documents` stellt `documentStoreToken`
 (`directoryFor(runId)`) bereit, standardmäßig unter `host.storage.session(runId, "documents")`,
@@ -546,10 +552,12 @@ nur die Repo-Plugins. `scripts/install-plugin-dependencies.sh` kennt nur die Rep
 
 ## Rechte in Server- und Web-Beiträgen
 
-Der Host gibt jeder HTTP-Route einen `HttpRouteContext.access` mit der gemeinsamen
-Rechteabfrage `can`. `requiredRights` am Routenbeitrag nimmt eine Liste oder eine Funktion
+Der Dispatcher prüft die `rights` eines Vertrags, bevor eine Methode läuft oder ein Kanal
+öffnet, und gibt der Ausführung den Zugang als `context.access` mit der gemeinsamen Rechteabfrage
+`can`. Der Host gibt ebenso jeder Auslieferungsroute einen `HttpRouteContext.access`;
+`requiredRights` am Routenbeitrag nimmt eine Liste oder eine Funktion
 von Request und URL entgegen. Alle genannten Rechte müssen vorliegen; der Host prüft sie vor
-`handle`. Ohne eigene Angabe gelten für lesende Methoden die Run-Leserechte und für andere
+`handle`. Ohne eigene Angabe gelten für lesende Auslieferungen die Run-Leserechte und für andere
 Methoden zusätzlich die Run-Schreibrechte. Eigene Listen ersetzen diesen Standard.
 Die aktuellen Verträge und die Host-Routenzuordnung werden in der Entwicklerreferenz aus dem
 Code erzeugt; weitere Rechte benennt das besitzende Plugin selbst.
@@ -568,22 +576,76 @@ werden über die vom Plugin beigetragene `GlobalChatPolicy.access` zugeordnet. D
 Engine enthält keine fest verdrahteten Plugin-Rechtenamen. Der optionale Anmeldemodus und
 seine Grenzen stehen in [profiles.md](profiles.md).
 
+## Nachrichtenschicht
+
+Die API des Servers ist JSON-RPC 2.0 mit typisierten Verträgen; eine REST-artige HTTP-API gibt es
+nicht mehr. Ein Vertrag ist ein Objekt aus `defineOperation` oder `defineChannel`
+(`packages/ragents/src/rpc/contract.ts`) im `contract.ts` des Plugins: Id mit Namensraum
+(`ragents.<plugin>.<name>`), Beschreibung, Rechte und TypeBox-Schemata für Eingabe und Ergebnis
+beziehungsweise Parameter und Nachricht. Server und Web ziehen ihre Typen aus demselben Objekt:
+`host.methods(implement(contract, (input, context) => result))` erzwingt Ein- und Ausgabe über
+`Static<>`, der Web-Client `rpc.call(contract, input)` liefert das Ergebnis typisiert. Große
+Domänenwerte stehen als offenes Schema mit TypeScript-Typ (`openJson<T>`); die Laufzeit prüft
+sie nicht im Detail, die Referenz nennt den Typ.
+
+Der Dispatcher (`apps/server/src/rpc/dispatcher.ts`) bedient jede Verbindung: er prüft die
+Rechte des Vertrags gegen den Zugang der Verbindung, validiert die Eingabe gegen das Schema,
+führt aus und validiert das Ergebnis; eine Antwort, die ihren Vertrag verletzt, ist ein interner
+Fehler und wird protokolliert. Fehler kommen als JSON-RPC-Fehler: `-32601` unbekannte Methode,
+`-32602` ungültige Eingabe, `-32000` Fachfehler mit `data.code` und `data.status` aus dem
+`DomainError`, `-32001` abgebrochen, `-32003` Zeitgrenze. Rechte je Run entscheidet der Host
+dynamisch (`apps/server/src/api/rights.ts`: gewöhnliche Runs über `runs.*`, der globale Chat über
+die Rechte seines Plugins); solche Verträge nennen keine statischen Rechte, sondern ihre Regel
+in der Beschreibung. Der `context` einer Methode: `access`, `signal` (Abbruch durch `rpc.cancel`
+oder Verbindungsende), `progress` (Zwischenstände als `rpc.progress`), `connection` und
+`local` (Aufruf vom eigenen Rechner: stdio oder Loopback).
+
+Kanäle sind Benachrichtigungen: `rpc.subscribe { channel, params }` liefert eine
+Abonnementkennung, danach kommen `rpc.event { subscription, channel, message }`, bis
+`rpc.unsubscribe`. Ein Anbieter wiederholt beim Öffnen seinen Anfangsstand, weil ein Client nach
+Verbindungsverlust neu abonniert; Nachrichten während des Öffnens werden erst nach der
+Abonnementantwort zugestellt. Höchstens 64 Abonnements je Verbindung.
+
+Das Protokoll ist symmetrisch: eine Operation mit `implementedBy: "client"` implementiert der
+Client (`rpc.handle`), und der Server ruft sie über `context.connection.call` auf derselben
+Verbindung, etwa die Dateioperationen eines Arbeitsplatzes. Das setzt einen Ereignisstrom voraus;
+eine Verbindung ohne Strom (`streamless`) kann weder abonnieren noch zurückgerufen werden.
+
+Transporte bedienen denselben Dispatcher. HTTP: `POST /rpc` je Nachricht (Anfrage, Antwort des
+Clients auf einen Rückruf oder Benachrichtigung) und `GET /rpc/stream` als SSE-Strom je
+Verbindung, der sich mit `hello` und Verbindungskennung meldet und Benachrichtigungen sowie
+Anfragen des Servers trägt; die Kennung kommt im Header `x-ragents-connection` mit. Stdio: eine
+JSON-Nachricht je Zeile auf stdin und stdout, der Aufrufer gilt als vertraut und hat alle Rechte.
+Anmeldung ist Transportsache: HTTP mit Cookie, Bearer oder `?access=` wie bisher
+(`/api/access`, `/api/access/login`, `/api/access/logout` bleiben HTTP), stdio ohne.
+
+Kernverträge: `ragents.sessions.*`, `ragents.chat.*`, `ragents.runs.*` (Laufansicht, Journal,
+Warteschlangen, Stopp und Rückfragen aus der Engine), `ragents.startOptions.*`,
+`ragents.runs.prepare`, `ragents.settings.*`, `ragents.plugins.bootstrap`, `ragents.external.set`
+und die Kanäle `ragents.sessions`, `ragents.run` und `ragents.chat`
+(`apps/server/src/api/contracts.ts`, `packages/ragents/src/http/contracts.ts`). Was keine
+JSON-Nachricht ist, bleibt Auslieferung über `host.http`: statische Oberfläche, Mini-App-Frames,
+Artefakt- und Anhanginhalte unter `/files/runs/<run>/artifacts/<id>` und
+`/files/runs/<run>/attachments/<id>`, Dokumentinhalte, Hilfe und `/health`. Der Erweiterungspunkt
+`http` ist nur noch dafür da; jede JSON-Antwort ist eine Methode.
+
+Die Referenz entsteht aus den Registrierungen: `host.methods.describe()` und
+`host.channels.describe()` liefern Owner, Id, Beschreibung, Rechte und Schemata für die lesbare
+Referenz und das OpenRPC-Dokument. Der Web-Client (`apps/web/src/rpc/client.ts`) läuft auch
+unter Node; Erweiterung und `pnpm driver` verwenden ihn mit eigenem `fetch`.
+
 ## Web als Plugin-Host
 
-Jede Seite hält genau EINE Live-Verbindung zum Server: `GET /api/events` öffnet einen
-Server-Sent-Events-Strom, meldet sich mit `hello` und einer Verbindungs-ID und trägt danach alle
-Kanäle als `{ channel, data }`-Nachrichten. Kanäle werden mit `POST
-/api/events/<id>/subscriptions` (`{ channel }`) abonniert und mit `DELETE
-.../subscriptions/<channel>` abbestellt; jeder Anbieter prüft dafür die Rechte des anrufenden
-Benutzers mit denselben Regeln wie die frühere Einzelroute, und eine Verbindung gehört dem
-Benutzer, der sie geöffnet hat. Kern-Kanäle: `sessions` (Listenänderungen, sofort eine
-Meldung), `run:<id>` (`ready` beim Abonnieren, danach `run` je Journaländerung) und `chat:<id>`
-(die Chat-Ereignisse mit Replay). Plugins registrieren eigene Kanäle über den Host-Dienst
-`eventHubToken`: `ragents.processes` trägt `processes:<runId>`, `ragents.workspace`
-`browse:<runId>:<root>` bei. Im Web bündelt `eventHub` (`apps/web/src/events.ts`) alle
-Abonnements einer Seite; bei Verbindungsverlust verbindet der Browser neu, und nach dem nächsten
-`hello` abonniert der Hub alle Kanäle erneut, weshalb Anbieter beim Abonnieren ihren Anfangsstand
-wiederholen. Hintergrund: Browser erlauben je Host nur sechs gleichzeitige HTTP/1.1-Verbindungen;
+Jede Seite hält genau EINE Live-Verbindung zum Server: der Client `rpc` (`apps/web/src/rpc.ts`)
+öffnet `GET /rpc/stream` mit dem ersten Abonnement oder dem ersten Rückruf-Handler und schließt
+ihn, wenn nichts mehr offen ist. Anfragen gehen als `POST /rpc`. Abonnements sind Kanalverträge:
+`rpc.subscribe(contract, params, onMessage, onError)`; bei Verbindungsverlust verbindet der Client
+neu, abonniert alle Kanäle erneut und ruft `onConnected`-Hörer, weshalb Anbieter beim Abonnieren
+ihren Anfangsstand wiederholen. Kern-Kanäle: `ragents.sessions` (Listenänderungen, sofort eine
+Meldung), `ragents.run` (`ready` beim Abonnieren, danach `run` je Journaländerung) und
+`ragents.chat` (die Chat-Ereignisse mit Replay). Plugins registrieren eigene Kanäle über
+`host.channels`: `ragents.processes` je Run, `ragents.workspace.browse` je Run und Wurzel.
+Hintergrund: Browser erlauben je Host nur sechs gleichzeitige HTTP/1.1-Verbindungen;
 vier eigene Streams je Seite plus ein zweiter Tab hatten den Vorrat aufgebraucht, sodass keine
 weitere Anfrage mehr abging.
 
@@ -645,9 +707,9 @@ CSP `frame-ancestors`, Office.js verlässt jedes Nicht-Top-Fenster nach `about:b
 Host kann das über die Origin-Grenze nicht erkennen. Die Vorschau hängt deshalb nie allein am
 iframe.
 
-Der gemeinsame HTTP-Routenhelfer erhält den Status eines DomainError. Andere Fehler verwenden
-die explizite Statusvorgabe der Route. Fachliche Übersetzungen externer Fehler und gezieltes
-Maskieren bleiben bei den jeweiligen Plugins.
+Der Dispatcher gibt einen `DomainError` mit Code und Status als Fehlerdaten der Antwort weiter;
+der Auslieferungshelfer (`guardedJsonRoute`) erhält seinen Status. Fachliche Übersetzungen
+externer Fehler und gezieltes Maskieren bleiben bei den jeweiligen Plugins.
 
 Der zentrale Chat kennt keine festen Fach-Toolnamen. `WorkspacePanel` kennt keine festen Tabs.
 Plugins belegen stattdessen typisierte Slots für:
@@ -705,9 +767,9 @@ auch bei TypeScript-Actors ohne View oder veröffentlichte Funktionen. Der Zugri
 weiterhin `runs.inspect`. Ohne aktives Programm-Plugin wird kein zusätzlicher Reiter angeboten.
 Ihre Ansicht enthält keine Chat-Eingabe und erklärt die Bedienung über Mini-App oder
 dokumentierte Funktionen. Auch der primäre TypeScript-Actor wird dadurch kein Chatpartner.
-Die Chat-Routen für den Run und einzelne Actors weisen TypeScript-Ziele mit
-`actor-chat-unsupported` (HTTP 400) vor dem Speichern von Anhängen oder Eingaben ab.
-Das gilt auch für die Nachrichtenroute des globalen Koordinators. Deren Beschreibung
+Die Chat-Methoden für den Run und einzelne Actors weisen TypeScript-Ziele mit
+`actor-chat-unsupported` (Status 400) vor dem Speichern von Anhängen oder Eingaben ab.
+Das gilt auch für die Nachrichtenmethode des globalen Koordinators. Deren Beschreibung
 und Prompt unterscheiden Einreihen, Verarbeitung und Aufgabenerfüllung. Die
 Chat-Medienabfrage meldet für TypeScript keine unterstützten Eingabearten.
 Beide verwenden dieselbe Ansicht wie der rechte Inspector. Es ist jeweils ein Actor-Pop-out
@@ -1383,8 +1445,8 @@ die weiterhin bedienbare Toolbar-Eingabe bleibt erhalten.
 
 `ragents.orchestration` mountet seinen Canvas serverseitig unter
 `/plugin-assets/ragents.orchestration/canvas/` und trägt die Canvas-Komponente im Web-Slot bei.
-Die Engine selbst stellt nur die generische Runtime-API unter `/ragents/api/...` bereit. Der
-Plugin-Mount bindet diese API ein, ohne dass der HTTP-Main einen Orchestrierungs-Canvas kennen
+Die Engine selbst stellt nur die generischen Laufzeitmethoden `ragents.runs.*` bereit. Der
+Plugin-Mount bindet diese API ein, ohne dass der Server einen Orchestrierungs-Canvas kennen
 muss.
 
 Git-Änderungen fragen ihre Daten nur bei aktivem Tab ab. Der Ablauf besitzt im
@@ -1516,7 +1578,7 @@ Modellantworten sind dabei ausdrücklich Vorschläge.
 Fehler erhalten die Eingabe, "Besprechung stoppen" bricht die Anfrage ab. Zurück erhält die
 Startauswahl; der lokale Vorbereitungsverlauf wird beim Verlassen seines Schritts verworfen.
 
-`POST /chat/<id>/prepare` erhält `RunPreparationRequest` und liefert `RunPreparationResponse`;
+`ragents.runs.prepare` erhält `RunPreparationRequest` und liefert `RunPreparationResponse`;
 der Vertrag steht in `apps/server/src/run-preparation-contract.ts`. Der Host nutzt dieselbe
 aufgelöste Koordinatorauswahl wie der spätere Run. `ragents.overseer` liefert den
 Vorbereitungsprompt über den globalen Chat-Vertrag; fehlt er, wird die Anfrage abgelehnt.
@@ -1542,7 +1604,7 @@ seinen ersten Turn geladen. Der aktuelle, bearbeitete Auftrag hat Vorrang vor ei
 Standard- oder Beispielauftrag im Skill. Zurück und Abbrechen erhalten die Startauswahl mit Entwurf,
 Anhängen, Filter und Scrollposition. Ein Run-Script öffnet seinen Leitfaden oder startet direkt;
 solange die Startanfrage läuft, sind weitere Starts gesperrt. Fehler erscheinen in der Startauswahl.
-Ein Run-Script ruft `POST /chat/<id>/start { entry, input }` mit dem Leitfaden-Ergebnis
+Ein Run-Script ruft `ragents.chat.start { runId, entry, input }` mit dem Leitfaden-Ergebnis
 als `input` auf. Ein Ablauf ohne Koordinator sagt das dazu. Nach Annahme von `send` oder `start` schließt der Startdialog
 und öffnet den neuen Run. Zusätzlich beobachtet der Entwurf den vorhandenen Run-Stream: Sobald
 der Server einen Run liefert, wechselt die Oberfläche auch bei noch ausstehender Startantwort
@@ -1869,7 +1931,7 @@ eingebettet) sendet `ready`, `runChanged`, `openInCenter`, `returnToColumn`, `lo
 importfreie Vertrag steht in `column/host-contract.ts`. `?theme=light|dark` setzt die Darstellung
 beim Laden. Läuft die Seite ohne Anmeldecookie, trägt sie den Zugangstoken aus `?access=`:
 `apps/web/src/access-token.ts` hängt ihn als `Authorization: Bearer` an jeden Abruf an den
-eigenen Server und als Abfrageparameter an Adressen ohne Header (Ereignisstrom, Mini-App-Frames).
+eigenen Server und als Abfrageparameter an Adressen ohne Header (Mini-App-Frames).
 Ein Host, der Webseiten zeigen kann, stellt sich der Oberfläche als `PageOpener`
 (`apps/web/src/page-opener.tsx`) bereit: Fachplugins mit einer Anwendungsvorschau fragen ihn
 zuerst und öffnen eine laufende Anwendung dann dort statt im eigenen Dialog mit iframe; in VS Code ist das ein Reiter des Simple Browser
@@ -1881,9 +1943,10 @@ Vorfahren neben der eigenen Herkunft die Webviews von VS Code (`https://*.vscode
 Die VS-Code-Erweiterung unter `apps/vscode` ist ein solcher Host: ein nativer Explorer der Runs
 (Zustand, Rückfragen, Actors, Mini-Apps, Artefakte und Journal aus derselben Laufansicht, gelesen
 mit `runViewFrom` und `actorProgramViews` aus den Plugin-Webhälften), die Spalte als Webview (ohne erreichbaren Server ein Hinweis mit Adresse und Fehler statt des iframes) mit
-iframe in der zweiten Seitenleiste und je Mini-App ein Editor-Reiter mit `layout=app`. Sie hält
-einen Ereignisstrom je Fenster (`fetch` mit `eventsource-parser`, dieselben Kanäle) und meldet
-sich mit `POST /api/access/login` selbst an; Betrieb und Grenzen stehen in `docs/operations.md`.
+iframe in der zweiten Seitenleiste und je Mini-App ein Editor-Reiter mit `layout=app`. Sie
+spricht dieselbe Nachrichtenschicht mit demselben Client (`RpcClient` mit eigenem `fetch` und
+Bearer), hält einen Ereignisstrom je Fenster und meldet sich mit `POST /api/access/login` selbst
+an; Betrieb und Grenzen stehen in `docs/operations.md`.
 
 ## Arbeitsbereich, Sandbox-Werkzeuge und Prozesse
 
@@ -1897,6 +1960,54 @@ letzten `read` verhindert, dass etwas überschrieben wird, was seit dem Lesen en
 ohne Einschränkung im Session-Arbeitsverzeichnis; Zugangsdaten liefert ein Plugin über die
 Git-Umgebung der Sandbox (`SessionWorkspace.gitConfig`), zusätzliche Umgebungsvariablen über
 `contributeSandboxEnv`.
+
+Dieser Vertrag ist die einzige Naht zum Arbeitsverzeichnis: `WorkspaceRuntime` löst je Run den
+Ordner auf, `SandboxServices` führt darin aus. Die vier Werkzeuge, die Language Server und die
+Prozessanzeige gehen über `processContextFor` und die registrierten Wurzeln, `git` läuft in
+`bash`. Ein Plugin startet keine eigenen Prozesse gegen den Ordner und rechnet keine Pfade
+daran vorbei aus. Wer den Vertrag erfüllt, entscheidet damit für alle Plugins zugleich, wo der
+Ordner liegt und wer darin ausführt. `ragents.workspace` ist die Erfüllung in core; der
+optionale `WorkspaceResolver` (Abschnitt Self-contained Plugin-Ordner und Ownership) ist der
+Haken, über den ein weiteres Plugin den Inhalt eines frischen Ordners liefert. In core nutzt ihn
+kein Plugin.
+
+Wo der Ordner liegt, entscheidet die Bindung je Run: die Startoption `ragents.workspace.binding`
+von `ragents.workspace` mit dem Wert `{ kind: "fresh" }`, `{ kind: "path", path }` oder
+`{ kind: "client", client, label, path }` (`plugins/ragents.workspace/contract.ts`). Die Vorgabe
+ist `fresh`, der leere Ordner unter der Session-Ablage. `path` ist ein absoluter, beim Wählen
+vorhandener Ordner auf dem Serverrechner; der Run arbeitet direkt darin, und weder Stopp noch
+Löschen des Runs fassen ihn an. `client` ist der Ordner eines verbundenen Arbeitsplatzes; `accept`
+verlangt, dass der Client verbunden ist und den Ordner anbietet, und schreibt sein Label in den
+Wert, damit der Run ihn auch ohne Registry benennen kann. Die Auflösung scheitert nie an einem
+fehlenden Client oder Ordner, weil der Server beim Start alle Arbeitsbereiche auflöst; erst der
+einzelne Werkzeugaufruf meldet `workspace-client-disconnected` (409) beziehungsweise
+`workspace-path-missing`. Der Prompt des Plugins sagt dem Agenten, dass ein Projektordner das
+echte Projekt des Benutzers ist; welche Bindung gilt, steht als Systemnotiz zu Beginn des Runs.
+Dieselbe Bindung liefert das Plugin als Session-Metadatum `ragents.workspace` (`binding`,
+`summary`) für Run-Liste, Kopfzeile und den Explorer der VS-Code-Erweiterung.
+
+Ein Arbeitsplatz ist ein Client, der dem Server sein Dateisystem anbietet. Er meldet sich mit
+einer stabilen Kennung über `ragents.workspace.clients.register` an (Label, Hostname,
+Plattform, angebotene Ordner); die Verbindung dieser Anfrage wird sein Rückweg und braucht
+deshalb einen Ereignisstrom. `ragents.workspace.clients.unregister` meldet ab,
+`ragents.workspace.clients.list` zeigt den Stand. Die Registry lebt im Speicher des Servers; nach
+einem Neustart meldet sich jeder Client neu an, gebundene Runs bleiben gültig. Ein Client gehört
+dem Benutzer, der ihn angemeldet hat; Anmeldung und Abmeldung verlangen dieselbe
+Identität. `sameMachine` sagt dem Client, dass der Server auf demselben Rechner läuft und seine
+Ordner sieht; die VS-Code-Erweiterung wählt dann `path` statt `client`, damit Language Server
+und Prozessanzeige weiter funktionieren. Bei `client` erhält `SessionWorkspace.remote` die
+Operationen des Clients: `read`, `write` und `edit` schicken `readFile`, `writeFile`, `access`
+und `mkdir` für Pfade im gebundenen Ordner an den Client, Pfade in Serverwurzeln (Dateiablage,
+`@actors`) bleiben auf dem Server; `bash` läuft immer auf dem Arbeitsplatz mit dessen eigener
+Umgebung plus Run-Marker, `CI`, Git-Regeln und `extraEnv`. Die Operationen sind die Verträge
+`ragents.workspace.client.readFile`, `writeFile`, `access`, `mkdir` und `exec` mit
+`implementedBy: "client"`; der Server ruft sie über die Verbindung der Anmeldung, Bash-Ausgabe
+kommt als Fortschritt `{ base64 }`. Der Server wartet je Aufruf begrenzt (120 Sekunden, bei
+`bash` Zeitgrenze plus 30 Sekunden), ein Abbruch schickt `rpc.cancel`, ein Verbindungsverlust
+lässt offene Aufrufe mit Ursache scheitern.
+`processContextFor` trägt bei einem entfernten Arbeitsbereich `remote` mit dem Label; die
+Language-Server-Plugins lehnen den Start damit ab, statt einen Prozess gegen einen fremden Pfad
+zu starten.
 
 Ein Bash-Ergebnis ist die Ausgabe des Befehls; ein Exit-Code ungleich null steht als letzte
 Zeile im Ergebnis (`Command exited with code N`) und ist kein Werkzeugfehler, etwa `grep` ohne
@@ -1935,7 +2046,7 @@ beendet ausgelassen. Negative System-UIDs in macOS-Prozesstabellen bleiben als s
 und blockieren weder Beobachtung noch Bereinigung. Zugriffs-, Werkzeug- und Formatfehler lösen keine Wiederholung aus.
 
 Jeder sichtbare Prozess besitzt eine kompakte Beenden-Schaltfläche mit Symbol und Tooltip.
-Prozessüberwachung und ihre HTTP-/SSE-Zugänge verlangen `runs.read` und `ragents.processes.read`.
+Prozessüberwachung, ihre Methoden und ihr Kanal verlangen `runs.read` und `ragents.processes.read`.
 Mit reinem Lesezugriff bleiben Port-Links nutzbar; Beenden verlangt zusätzlich `runs.write`
 und `runs.inspect` und ist sonst deaktiviert. Eine laufende
 Beenden-Anfrage sperrt nur den betroffenen Prozess in allen offenen Ansichten; Fehler erscheinen
@@ -1950,7 +2061,7 @@ zu dessen Leerzustand und nach dem Schließen zur Kopfzeilennavigation. Sind kei
 mehr vorhanden, entfällt die Anzeige. Escape und Hintergrundklick schließen den Dialog.
 
 Das Prozessplugin beendet einzelne Instanzen über ihre Snapshotreferenz aus PID und Startkennung.
-Der Server prüft Laufzuordnung, Startkennung und UID vor jedem Signal erneut; die HTTP-Aktion
+Der Server prüft Laufzuordnung, Startkennung und UID vor jedem Signal erneut; die Methode
 prüft zusätzlich die laufende Anfrage und ihre Lese- und Schreibrechte nach asynchronen Abfragen.
 Server, dessen Vorfahren und PID 1 sind geschützt. Signale gehen ausschließlich an einzelne
 positive PIDs, nie an eine möglicherweise mit fremden Prozessen geteilte Prozessgruppe.
@@ -1968,8 +2079,10 @@ gleichlautenden Kommandoargumenten. Die POSIX-Abfrage der Startkennung und das S
 getrennte Betriebssystemaufrufe; sie bilden keine atomare Prozessreferenz.
 
 `ragents.workspace` trägt außerdem den rein lesenden Reiter `Dateien` bei: Arbeitsverzeichnis und
-Dateiablage eines Runs als Baum mit Textvorschau, ohne Schreiben und Löschen; live über einen
-fs-Watcher je Abonnement (Kanal `browse:<runId>:<root>`), ein 30-Sekunden-Poll bleibt nur als Fallback.
+Dateiablage eines Runs als Baum mit Textvorschau, ohne Schreiben und Löschen; die Methoden
+`ragents.workspace.browse.list` und `ragents.workspace.browse.preview` liefern Baum und Vorschau,
+live über einen fs-Watcher je Abonnement des Kanals `ragents.workspace.browse` (`runId`, `root`),
+ein 30-Sekunden-Poll bleibt nur als Fallback.
 
 ## Language-Server-Plugins
 
@@ -2196,3 +2309,13 @@ Der Wächter startet keine Arbeit selbst und kennt keine Fachlogik.
   Browser-Speicher, in VS Code also je Fenster. Der Explorer der Erweiterung kann die persönliche
   Actor-Anzeige des Webviews nicht lesen und zeigt Actors deshalb nur mit ihrem Serverzustand.
   Die Spalte in einem eigenen Bundle ohne iframe (Stufe 2 des Entwurfs) ist nicht gebaut.
+- Die Nachrichtenschicht kennt keine Batch-Anfragen und keinen WebSocket; über HTTP ist jede
+  JSON-RPC-Antwort ein HTTP 200 mit `result` oder `error`, nur Transportfehler (kein JSON, zu
+  groß, fremde Verbindung) tragen einen anderen Status. Stdio hat keine Anmeldung: wer den
+  Prozess startet, hat alle Rechte.
+- Bei einem Arbeitsbereich auf einem Arbeitsplatz laufen Language Server, Prozessanzeige und
+  Browserprüfung nicht: sie brauchen die Dateien und Prozesse auf dem Serverrechner. Bash auf dem
+  Arbeitsplatz erreicht die Dateiablage des Runs (`RAGENTS_FILES_DIR`) nicht, nur `read` und
+  `write` tun das. Der Reiter `Dateien` zeigt dann nur die Dateiablage und meldet für den
+  Arbeitsbereich, wo er liegt. Der Arbeitsplatz startet `/bin/bash`; Windows ist nicht
+  vorgesehen. Zwei Runs auf demselben Ordner kollidieren; das ist die Entscheidung des Benutzers.

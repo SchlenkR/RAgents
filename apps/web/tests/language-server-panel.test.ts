@@ -14,7 +14,7 @@ const bundle = buildSync({
   bundle: true, write: false, platform: "node", format: "cjs", jsx: "automatic",
   loader: { ".css": "empty" }, external: ["react", "react-dom"],
 }).outputFiles[0].text;
-vm.runInNewContext(bundle, { module, exports: module.exports, process, require: createRequire(import.meta.url) });
+vm.runInNewContext(bundle, { module, exports: module.exports, process, require: createRequire(import.meta.url), TextDecoder, TextEncoder });
 const { LanguageServerPanelView } = module.exports as typeof import("../../../plugins/ragents.lsp-roslyn/web/language-server-plugin");
 const snapshot = (overrides: Partial<LanguageServerSnapshot> = {}): LanguageServerSnapshot => ({ state: "ready", root: "/workspace/project", summary: null, files: [], ...overrides });
 const render = (state: LanguageServerSnapshot) => renderToStaticMarkup(createElement(LanguageServerPanelView, {

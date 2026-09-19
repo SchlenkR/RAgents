@@ -10,7 +10,12 @@ import {
   type PluginHost,
   ToolRegistry,
   TurnScheduler,
-  runtimeRoutes,
+  runtimeMethods,
+  artifactContentRoute,
+  type AccessContext,
+  type RunRightsKind,
+  type MethodContribution,
+  type HttpRouteContribution,
   runtimeServices,
   resolveExecution,
   throwRejected,
@@ -28,6 +33,8 @@ import {
   type Workspaces,
 } from "@aicontainer/ragents";
 import { config } from "../config.js";
+import { accessibleRunView } from "../access-projection.js";
+import { assertRunRights } from "../api/rights.js";
 import { layout, ROOT_ONLY_MODE } from "../layout.js";
 import { renderSystemPromptOption, systemPromptSelectionPromptIds } from "../plugin-support/prompt.js";
 import { actorProgramsToken } from "../plugin-support/actor-programs/service.js";
@@ -104,7 +111,8 @@ export interface Engine {
   promptContributions: readonly PublicPromptContribution[];
   runtimeContracts: readonly RuntimeContract[];
   start: () => void;
-  routes: ReturnType<typeof runtimeRoutes>;
+  methods: readonly MethodContribution[];
+  artifactRoute: HttpRouteContribution;
   stopRun: RunStopOperation;
   shutdown: () => Promise<void>;
 }
@@ -341,12 +349,17 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     primaryActorId: (view) => view.primaryActorId,
     stopExternal,
   });
-  const routes = runtimeRoutes({
+  const globalPolicy = globalChat?.access ? { runId: globalChat.runId, ...globalChat.access } : undefined;
+  const runtimeOptions = {
     runtime,
     assertAvailable: options.assertAvailable,
     assertRunUsable: options.assertRunUsable,
-    stopRun: runStopper.stop,
-  });
+    assertRunRights: (access: AccessContext, runId: string, kind: RunRightsKind) => assertRunRights(access, runId, kind, globalPolicy),
+    projectView: accessibleRunView,
+    hasRun: (runId: string) => journal.stateOf(runId) !== null,
+  };
+  const methods = runtimeMethods({ ...runtimeOptions, stopRun: runStopper.stop });
+  const artifactRoute = artifactContentRoute(runtimeOptions);
   options.plugins.optionalService(runtimeBridgeToken)?.bind(runtime);
 
   return {
@@ -372,7 +385,8 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
         content: [productRuntime.contract("worker"), outputContractFor("worker")].join("\n\n"),
       },
     ],
-    routes,
+    methods,
+    artifactRoute,
     stopRun: runStopper.stop,
     start: () => {
       scheduler.start();

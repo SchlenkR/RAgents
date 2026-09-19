@@ -1,7 +1,25 @@
 import { serviceToken, type JsonValue, type WorkspaceToolNaming } from "@aicontainer/ragents";
 
+export interface RemoteExecOptions {
+  onData: (data: Buffer) => void;
+  signal?: AbortSignal;
+  timeoutSeconds: number;
+  env: Readonly<Record<string, string>>;
+}
+
+/** Werkzeugoperationen, die ein verbundener Arbeitsplatz statt des Servers ausführt. */
+export interface RemoteWorkspaceOperations {
+  label: string;
+  readFile: (absolutePath: string) => Promise<Buffer>;
+  writeFile: (absolutePath: string, content: string) => Promise<void>;
+  access: (absolutePath: string, mode: "read" | "write") => Promise<void>;
+  mkdir: (directory: string) => Promise<void>;
+  exec: (command: string, cwd: string, options: RemoteExecOptions) => Promise<{ exitCode: number | null }>;
+}
+
 export interface SessionWorkspace {
   cwd: string;
+  remote?: RemoteWorkspaceOperations;
   hostSandbox?: { home: string; readOnlyDirectories: readonly string[]; filesDirectory?: string };
   gitEnv?: NodeJS.ProcessEnv;
   gitConfig?: ReadonlyArray<readonly [string, string]>;

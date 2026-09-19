@@ -1,10 +1,10 @@
 import { readFileSync, renameSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { DomainError, isThinkingLevel, type AgentProfile, type HttpRouteContribution, type ThinkingLevel } from "@aicontainer/ragents";
+import { DomainError, implement, isThinkingLevel, type AgentProfile, type MethodContribution, type ThinkingLevel } from "@aicontainer/ragents";
 import type { ProductModelDraft, ProductModelSettings } from "../../../../plugins/ragents.product/model-settings-contract.js";
 import type { ModelChoice } from "./model-choice.js";
-import { guardedJsonRoute, readJsonBody, writeJson } from "./http.js";
+import { productModelSettingsContracts } from "./product-model-settings-contract.js";
 
 type AgentModelProfile = Extract<AgentProfile, { driver: "agent" }>;
 
@@ -111,17 +111,10 @@ export class ProductModelSettingsStore {
   }
 }
 
-export const productModelSettingsRoute = (pluginId: string, settings: ProductModelSettingsStore): HttpRouteContribution => {
-  const route = `/api/plugins/${pluginId}/model-settings`;
-  return {
-    id: "model-settings",
-    isApiPath: (pathname) => pathname === route,
-    matches: (_request, url) => url.pathname === route,
-    requiredRights: (request) => request.method === "GET" ? ["settings.read"] : ["settings.read", "settings.write"],
-    handle: ({ request, response }) => guardedJsonRoute({ request, response, handle: async () => {
-      if (request.method === "GET") writeJson(response, 200, settings.get());
-      else if (request.method === "PUT") writeJson(response, 200, await settings.save(await readJsonBody(request, (value) => value, undefined, 16_384)));
-      else writeJson(response, 405, { error: "Erlaubt sind GET und PUT." });
-    } }),
-  };
+export const productModelSettingsMethods = (pluginId: string, settings: ProductModelSettingsStore): MethodContribution[] => {
+  const contracts = productModelSettingsContracts(pluginId);
+  return [
+    implement(contracts.read, () => settings.get()),
+    implement(contracts.save, ({ value }) => settings.save(value)),
+  ];
 };

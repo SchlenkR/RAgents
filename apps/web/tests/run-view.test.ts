@@ -4,7 +4,6 @@ import test from "node:test";
 import {
   isPendingRunActorInput,
   runArtifactContentUrl,
-  runRoute,
   runTurnOutputs,
   runViewFrom,
   type RunActorInput,
@@ -117,10 +116,6 @@ test("eine Laufansicht bleibt gültig, auch wenn Turns keine Antworten tragen", 
   assert.ok(runViewFrom(view({ turns: [turn({ outputs: [] })] })));
 });
 
-test("Kennungen in Laufpfaden werden kodiert", () => {
-  assert.equal(runRoute("run 1", "/artifacts"), "/ragents/api/runs/run%201/artifacts");
-  assert.equal(
-    runArtifactContentUrl("run/1", "a b"),
-    "/ragents/api/runs/run%2F1/artifacts/a%20b/content",
-  );
+test("Kennungen in Auslieferungspfaden werden kodiert", () => {
+  assert.equal(runArtifactContentUrl("run/1", "a b"), "/files/runs/run%2F1/artifacts/a%20b");
 });

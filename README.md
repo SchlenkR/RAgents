@@ -11,7 +11,7 @@ Der globale Koordinator ist direkt in der Kopfzeile erreichbar. Fokus in seine E
 seinen Verlauf darunter; kurze Antworten erscheinen direkt unter der Kopfzeile. Er kann die Runs und ihre
 Journale überblicken und weitere Läufe starten. Beim Absenden erhält er außerdem den aktuellen
 UI-Standort, etwa Run und ausgewählten Actor, getrennt vom sichtbaren Fragetext. Er verwendet allgemeine Datei- und
-Shellfunktionen über dieselbe TypeScript-Schnittstelle sowie die HTTP-Verwaltung externer Clients; deren Referenz wird aus den
+Shellfunktionen über dieselbe TypeScript-Schnittstelle sowie die Verwaltungsmethoden externer Clients; deren Referenz wird aus den
 ausführbaren Verträgen erzeugt. Die Ecke links oben öffnet die Run-Liste.
 "Neuer Run" in der Übersicht öffnet die Startauswahl als Dialog; Escape führt zurück.
 Eine Liste mit Vorschau unterscheidet Skills und Run-Scripts. Übernommene
@@ -107,7 +107,7 @@ außerhalb des Journals. Eine schrittweise Erklärung bietet die
 ## Aufbau
 
 ```
-Browser  --SSE/JSON-->  apps/server  -->  packages/ragents (Engine)
+Browser, VS Code, Konsole  --JSON-RPC über HTTP oder stdio-->  apps/server  -->  packages/ragents (Engine)
                              |                   |
                         PluginHost          Journal, Actors, Turns, Events
                              |
@@ -116,8 +116,10 @@ Browser  --SSE/JSON-->  apps/server  -->  packages/ragents (Engine)
                         plugins/<plugin-id>/web/  <--  apps/web
 ```
 
-Der Server ist dünn. Er nimmt HTTP entgegen, sucht beim Start die Plugins auf der Platte und setzt
-daraus ein Profil zusammen. Die Engine kennt keine Fachdomäne - alles Fachliche kommt
+Der Server ist dünn. Er nimmt JSON-RPC über HTTP oder stdio entgegen, sucht beim Start die
+Plugins auf der Platte und setzt daraus ein Profil zusammen. Jede Fähigkeit nach außen ist ein
+typisierter Vertrag (Methode oder Kanal), aus dem Server, Web und Referenz dieselben Typen
+ziehen; HTTP-Routen gibt es nur noch für die Auslieferung von Dateien und Frames. Die Engine kennt keine Fachdomäne - alles Fachliche kommt
 aus Plugins.
 
 ## Welcher Ordner enthält was
@@ -131,7 +133,7 @@ aus Plugins.
 | `packages/ai`         | die LLM-Anbindung (openrouter)                                                                       |
 | `apps/server`         | Node-Backend, Plugin-Suche, Profil-Komposition; `plugin-support/` sind Host-Bausteine, keine Plugins |
 | `apps/web`            | React-Frontend mit Plugin-Slots; Chat-Bausteine in `src/chat`, Arbeitsspalte in `src/column`         |
-| `apps/vscode`         | VS-Code-Erweiterung: Explorer der Runs, Arbeitsspalte und Mini-Apps als Webviews auf `column.html`   |
+| `apps/vscode`         | VS-Code-Erweiterung: Explorer, Arbeitsspalte und Mini-Apps als Webviews, Arbeitsplatz für Runs     |
 | `scripts`             | Einstiege `start.sh`, `start-vscode.sh`, `install-plugin-dependencies.sh`; Werkzeuge in Unterordnern |
 | `selftest`            | Katalog und Protokoll der autonomen Testrunden                                                       |
 | `docs`                | Spec, Konzepte, Entscheidungen, Betrieb, Produkt-Homepage, Entwürfe                                  |
@@ -255,7 +257,9 @@ Das bekommt ein Plugin über `host` in `create(host)`:
 | `service`         | einen fremden Dienst über sein Token beziehen      |
 | `optionalService` | einen fremden Dienst beziehen, der fehlen darf     |
 | `startOptions`    | Startoptionen der Startfläche, je Run eingefroren  |
-| `http`            | eigene HTTP-Routen                                 |
+| `methods`         | Methoden der Nachrichtenschicht mit Vertrag        |
+| `channels`        | Kanäle mit Benachrichtigungen je Abonnement        |
+| `http`            | Auslieferung: Dateien, Frames, Uploads             |
 | `config`          | Konfigurationsschlüssel, streng geprüft            |
 | `clientConfig`    | Werte, die das Web-Plugin sehen darf               |
 | `storage`         | Ablage unter `plugins/<id>`, global und je Session |
@@ -290,7 +294,7 @@ Im Repo liegt genau ein Profil:
 |                      | `core`                  |
 | -------------------- | ----------------------- |
 | Plugins              | neutrale `ragents.*`    |
-| Arbeitsverzeichnis   | leer je Unterhaltung    |
+| Arbeitsverzeichnis   | wählbar je Unterhaltung |
 | Dateiablage          | je Unterhaltung         |
 | Anmeldung und Rechte | optional je Profildatei |
 | Start                | `./start.sh core`       |
@@ -300,7 +304,12 @@ liegen und ihre Plugins per Pfad nennen kann; der Start nimmt statt des Profilna
 Pfad zu einer solchen Datei.
 
 `core` ist zugleich der gelebte Entfernungstest: läuft es ohne jedes produktspezifische Plugin,
-ist die Grenze zwischen Engine und Produkt intakt.
+ist die Grenze zwischen Engine und Produkt intakt. Den Arbeitsbereich eines Runs wählt die
+Startoption "Arbeitsbereich": ein leerer Ordner je Run, ein vorhandener Ordner auf dem
+Serverrechner oder der Ordner eines verbundenen Arbeitsplatzes. Die VS-Code-Erweiterung bietet
+ihre geöffneten Ordner als Arbeitsplatz an und belegt die Wahl bei "Neuer Run" vor; liegt der
+Server auf demselben Rechner, arbeitet der Run direkt im Ordner, sonst führt die Erweiterung
+Datei- und Shellzugriffe für ihn aus.
 
 Eine Profildatei kann zusätzlich Benutzer mit Passwörtern und Rechten definieren.
 Dann verlangt die Oberfläche eine Anmeldung und zeigt Funktionen je nach Recht verborgen,
@@ -370,8 +379,11 @@ laufen nur auf Ansage: `scripts/install-plugin-dependencies.sh .data/language-se
 einmalig, dann `RAGENTS_LSP_TESTS=1 ROSLYN_LANGUAGE_SERVER=<...>/roslyn/Microsoft.CodeAnalysis.LanguageServer.dll
 FSHARP_LANGUAGE_SERVER=<...>/fsautocomplete/fsautocomplete PRODUCT_PROFILE=core pnpm test`.
 
-Verhalten live prüfen: eine Nachricht per `POST http://localhost:<port>/chat/<uuid>/send
-{"text": ...}` schicken und das Journal unter `${DATA_DIR}/runs/<uuid>/` lesen. Ganze Läufe
+Verhalten live prüfen: eine Nachricht per `POST http://localhost:<port>/rpc` mit
+`{"jsonrpc":"2.0","id":1,"method":"ragents.chat.send","params":{"runId":"<uuid>","text":"..."}}`
+schicken und das Journal unter `${DATA_DIR}/runs/<uuid>/` lesen. Startmodi des Servers:
+`pnpm start -- --stdio` (JSON-RPC über stdin und stdout, kein Port) und `pnpm start -- --port 0`
+(freier Port mit Ansage auf stdout), Details in `docs/spec/profiles.md`. Ganze Läufe
 von außen anlegen, steuern und auswerten: `pnpm driver` (`scripts/driver/run-driver.ts`), Bedienung in
 `docs/operations.md` unter "Läufe von außen fahren".
 

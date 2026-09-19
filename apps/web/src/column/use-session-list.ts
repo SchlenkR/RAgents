@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listSessions, type SessionInfo } from "../api";
-import { SESSIONS_CHANNEL } from "../../../server/src/event-channels";
-import { eventHub } from "../events";
+import { coreContracts } from "@aicontainer/server/api/contracts";
+import { rpc } from "../rpc";
 
 const POLL_INTERVAL_MS = 5000;
 
@@ -33,7 +33,7 @@ export function useSessionList(enabled: boolean): { sessions: SessionInfo[]; unr
   useEffect(() => {
     if (!enabled) return;
     void refresh();
-    const unsubscribe = eventHub.subscribe({ channel: SESSIONS_CHANNEL, onMessage: () => void refresh() });
+    const unsubscribe = rpc.subscribe(coreContracts.channels.sessions, {}, () => void refresh());
     const timer = setInterval(() => void refresh(), POLL_INTERVAL_MS);
     return () => { unsubscribe(); clearInterval(timer); };
   }, [enabled, refresh]);

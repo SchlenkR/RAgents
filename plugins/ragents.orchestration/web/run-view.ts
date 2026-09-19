@@ -1,3 +1,5 @@
+import { artifactContentPath } from "@aicontainer/ragents/src/http/contracts";
+
 export interface RunCapabilityGrant {
   capability: string;
   scope: { kind: "run" } | { kind: "workspace"; path: string };
@@ -194,8 +196,4 @@ export const runViewFrom = (value: unknown): RunView | undefined => {
     : undefined;
 };
 
-export const runRoute = (runId: string, path: string) =>
-  `/ragents/api/runs/${encodeURIComponent(runId)}${path}`;
-
-export const runArtifactContentUrl = (runId: string, artifactId: string) =>
-  runRoute(runId, `/artifacts/${encodeURIComponent(artifactId)}/content`);
+export const runArtifactContentUrl = (runId: string, artifactId: string) => artifactContentPath(runId, artifactId);

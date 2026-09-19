@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { chatUserLocation, runUserLocation } from "../src/chat/user-location.ts";
 import { sendChatMessage } from "../src/chat/requests.ts";
+import { RpcClient } from "../src/rpc/client.ts";
 import type { ChatAttachmentInput } from "../../server/src/chat-events.ts";
 
 const tabs = [{ id: "orchestration", label: "Actors" }, { id: "files", label: "Dateien" }];
@@ -37,30 +38,34 @@ test("overview snapshots identify the surface without leaking the covered tab or
   assert.deepEqual(chatUserLocation(undefined, true, run), { surface: "overview", runId: null, tab: null, selection: null });
 });
 
+interface SendCall { id: number; method: string; params: Record<string, unknown> }
+
+const sendCalls = (calls: SendCall[]): typeof fetch => async (_url, init) => {
+  const call = JSON.parse(String(init?.body)) as SendCall;
+  calls.push(call);
+  return Response.json({ jsonrpc: "2.0", id: call.id, result: null });
+};
+
 test("each send serializes its current location separately while normal chat and attachments remain unchanged", async () => {
-  const requests: { url: string; init: RequestInit }[] = [];
-  const request: typeof fetch = async (url, init) => {
-    requests.push({ url: String(url), init: init! });
-    return new Response(null, { status: 204 });
-  };
+  const calls: SendCall[] = [];
+  const client = new RpcClient({ fetch: sendCalls(calls) });
   const attachment: ChatAttachmentInput = { name: "note.txt", mediaType: "text/plain", data: "SGFsbG8=" };
   const run = runUserLocation("run-a", "orchestration", tabs, true, selected);
-  await sendChatMessage("/chat/global", "Was sehe ich?", [attachment], chatUserLocation("run-a", false, run), { "X-Test": "yes" }, request);
-  await sendChatMessage("/chat/global", "Und jetzt?", undefined, chatUserLocation("run-b", false, run), {}, request);
-  await sendChatMessage("/chat/global", "Startseite?", undefined, chatUserLocation(undefined, false, run), {}, request);
-  await sendChatMessage("/chat/normal", "Normaler Auftrag", [attachment], undefined, {}, request);
-  const bodies = requests.map((entry) => JSON.parse(String(entry.init.body)));
-  assert.deepEqual(bodies[0], { text: "Was sehe ich?", attachments: [attachment], userLocation: { surface: "run", runId: "run-a", tab: "Actors", selection: selected } });
-  assert.deepEqual(bodies[1], { text: "Und jetzt?", userLocation: { surface: "run", runId: "run-b", tab: null, selection: null } });
-  assert.deepEqual(bodies[2], { text: "Startseite?", userLocation: { surface: "home", runId: null, tab: null, selection: null } });
-  assert.deepEqual(bodies[3], { text: "Normaler Auftrag", attachments: [attachment] });
-  assert.equal(requests[0]!.url, "/chat/global/send");
-  assert.equal(requests[3]!.url, "/chat/normal/send");
-  assert.equal(requests[0]!.init.method, "POST");
-  assert.deepEqual(requests[0]!.init.headers, { "Content-Type": "application/json", "X-Test": "yes" });
+  await sendChatMessage("global", "Was sehe ich?", [attachment], chatUserLocation("run-a", false, run), client);
+  await sendChatMessage("global", "Und jetzt?", undefined, chatUserLocation("run-b", false, run), client);
+  await sendChatMessage("global", "Startseite?", undefined, chatUserLocation(undefined, false, run), client);
+  await sendChatMessage("normal", "Normaler Auftrag", [attachment], undefined, client);
+  assert.deepEqual(calls.map((call) => call.method), Array(4).fill("ragents.chat.send"));
+  assert.deepEqual(calls[0]!.params, { runId: "global", text: "Was sehe ich?", attachments: [attachment], userLocation: { surface: "run", runId: "run-a", tab: "Actors", selection: selected } });
+  assert.deepEqual(calls[1]!.params, { runId: "global", text: "Und jetzt?", userLocation: { surface: "run", runId: "run-b", tab: null, selection: null } });
+  assert.deepEqual(calls[2]!.params, { runId: "global", text: "Startseite?", userLocation: { surface: "home", runId: null, tab: null, selection: null } });
+  assert.deepEqual(calls[3]!.params, { runId: "normal", text: "Normaler Auftrag", attachments: [attachment] });
 });
 
 test("location-aware sending continues to expose server rejection messages", async () => {
-  await assert.rejects(sendChatMessage("/chat/global", "Hallo", undefined, chatUserLocation(undefined, false, undefined), {}, async () =>
-    Response.json({ error: "Kein Zugriff auf diesen Run" }, { status: 403 })), /Kein Zugriff auf diesen Run/);
+  const client = new RpcClient({ fetch: async (_url, init) => {
+    const call = JSON.parse(String(init?.body)) as SendCall;
+    return Response.json({ jsonrpc: "2.0", id: call.id, error: { code: -32000, message: "Kein Zugriff auf diesen Run" } });
+  } });
+  await assert.rejects(sendChatMessage("global", "Hallo", undefined, chatUserLocation(undefined, false, undefined), client), /Kein Zugriff auf diesen Run/);
 });

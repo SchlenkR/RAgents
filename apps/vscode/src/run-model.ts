@@ -1,6 +1,7 @@
 import type { SessionInfo } from "../../web/src/api";
 import { actorProgramViews } from "../../../plugins/ragents.actor-programs/web/program-state";
 import { runViewFrom, type RunActor, type RunView } from "../../../plugins/ragents.orchestration/web/run-view";
+import { isWorkspaceBinding, WORKSPACE_METADATA_ID, type WorkspaceSessionMetadata } from "../../../plugins/ragents.workspace/contract";
 
 export type ActorRole = "coordinator" | "agent" | "script";
 export type ActorStatus = "running" | "waiting" | "idle" | "stopped";
@@ -43,7 +44,17 @@ export interface RunSummary {
   artifacts: ArtifactSummary[];
   events: number | undefined;
   loaded: boolean;
+  workspace?: string;
 }
+
+/** Der Arbeitsbereich eines Runs, sofern er nicht der leere Ordner je Run ist. */
+const workspaceOf = (session: SessionInfo): string | undefined => {
+  const raw = session.metadata?.[WORKSPACE_METADATA_ID];
+  if (typeof raw !== "object" || raw === null) return undefined;
+  const metadata = raw as Partial<WorkspaceSessionMetadata>;
+  if (!isWorkspaceBinding(metadata.binding) || metadata.binding.kind === "fresh") return undefined;
+  return typeof metadata.summary === "string" && metadata.summary ? metadata.summary : undefined;
+};
 
 const pendingQuestionsBy = (view: RunView, actorId: string): number =>
   view.actions.filter((action) => action.kind === "question" && action.status === "pending" && action.askedBy === actorId).length;
@@ -85,6 +96,7 @@ export const runSummaryFrom = (session: SessionInfo, rawView: unknown): RunSumma
     return {
       id: session.id, title: session.title, updatedAt: session.updatedAt, state: session.running ? "running" : "idle",
       activeActors: 0, questions: 0, actors: [], apps: [], artifacts: [], events: session.revision, loaded: false,
+      workspace: workspaceOf(session),
     };
   }
   const actors = actorSummaries(view);
@@ -101,6 +113,7 @@ export const runSummaryFrom = (session: SessionInfo, rawView: unknown): RunSumma
     artifacts: view.artifacts.map((artifact) => ({ id: artifact.id, title: artifact.title, mediaType: artifact.mediaType, size: artifact.size })),
     events: view.revision,
     loaded: true,
+    workspace: workspaceOf(session),
   };
 };
 

@@ -19,6 +19,8 @@ export {
 export {
     ConfigContributionRegistry,
     HttpContributionRegistry,
+    MethodContributionRegistry,
+    ChannelContributionRegistry,
     LifecycleContributionRegistry,
     OperationContributionRegistry,
     AgentContributionRegistry,
@@ -36,9 +38,14 @@ export {
     type PluginHostOptions,
 } from "./plugin-host.ts";
 export * from "./plugin-types.ts";
+export * from "./rpc/protocol.ts";
+export * from "./rpc/contract.ts";
+export * from "./rpc/contribution.ts";
+export { RpcPeer, rpcErrorOf, rpcFailureOf, type RpcCallOptions, type RpcHandlerContext, type RpcPeerOptions } from "./rpc/peer.ts";
 export { assertJsonValue, type JsonValue } from "./domain/json.ts";
 export { PluginStateProjection, pluginStateAt } from "./domain/plugin-state.ts";
-export { runtimeRoutes, type RuntimeServerOptions } from "./http/server.ts";
+export { runtimeMethods, artifactContentRoute, artifactContentPath, ARTIFACT_CONTENT_PATH, type RuntimeMethodOptions, type RunRightsKind } from "./http/methods.ts";
+export { runContracts, openJson, runViewSchema, journalEventSchema } from "./http/contracts.ts";
 export {
     emptyRegistry,
     ToolRegistry,

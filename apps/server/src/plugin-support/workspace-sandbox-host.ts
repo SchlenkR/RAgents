@@ -36,6 +36,7 @@ export interface SandboxProcessContext {
   env: NodeJS.ProcessEnv;
   uid?: number;
   gid?: number;
+  remote?: string;
 }
 
 export interface EditAnnotator {
@@ -165,6 +166,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
         ...Object.fromEntries(roots.filter((root) => root.environmentVariable).map((root) => [root.environmentVariable!, root.directory])) },
       uid: ident?.uid,
       gid: ident?.gid,
+      ...(workspace.remote ? { remote: workspace.remote.label } : {}),
     };
   }
 

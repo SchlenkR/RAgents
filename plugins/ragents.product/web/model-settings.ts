@@ -1,5 +1,6 @@
+import { rpc } from "@aicontainer/web/rpc";
+import { productModelSettingsContracts } from "@aicontainer/server/plugin-support/product-model-settings-contract";
 import type { ProductModelDraft, ProductModelSettings } from "../model-settings-contract";
-import { errorFrom } from "@aicontainer/web/lib/http";
 
 const record = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === "object" && !Array.isArray(value);
@@ -28,15 +29,11 @@ export const modelDraftOf = (settings: ProductModelSettings): ProductModelDraft 
 });
 
 export async function requestProductModelSettings(pluginId: string, options: {
-  draft?: ProductModelDraft; signal?: AbortSignal; request?: typeof fetch;
+  draft?: ProductModelDraft; signal?: AbortSignal;
 } = {}): Promise<ProductModelSettings> {
-  const response = await (options.request ?? fetch)(`/api/plugins/${encodeURIComponent(pluginId)}/model-settings`, {
-    signal: options.signal,
-    cache: "no-store",
-    ...(options.draft ? {
-      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(options.draft),
-    } : {}),
-  });
-  if (!response.ok) throw await errorFrom(response, "Die Modellvorgaben konnten nicht geladen oder gespeichert werden.");
-  return productModelSettingsFrom(await response.json());
+  const contracts = productModelSettingsContracts(pluginId);
+  const result = options.draft
+    ? await rpc.call(contracts.save, { value: options.draft }, { signal: options.signal })
+    : await rpc.call(contracts.read, {}, { signal: options.signal });
+  return productModelSettingsFrom(result);
 }

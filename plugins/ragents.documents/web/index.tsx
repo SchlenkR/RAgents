@@ -10,7 +10,8 @@ import {
   type RunDocument as Document,
   type DocumentSection,
 } from "./DocumentViewer";
-import { fetchRunFiles, runFileContentUrl, type RunFileEntry, type RunFilesListing } from "./api";
+import { fetchRunFiles, runFileContentUrl } from "./api";
+import type { RunFileEntry, RunFilesListing } from "../contract";
 import { runArtifactContentUrl, runViewFrom, type RunView } from "@aicontainer/plugins/ragents.orchestration/web/contract";
 import { Alert, Badge } from "@aicontainer/web/ui";
 import {
@@ -80,14 +81,14 @@ const useRunFilesContext = (): RunFilesState => {
   return state;
 };
 
-const useRunFiles = (routePrefix: string, session: SessionContext): RunFilesState => {
+const useRunFiles = (session: SessionContext): RunFilesState => {
   const [listing, setListing] = useState<RunFilesListing>();
   const [error, setError] = useState<string>();
   const runId = session.session.id;
 
   useEffect(() => {
     let alive = true;
-    const load = () => void fetchRunFiles(routePrefix, runId)
+    const load = () => void fetchRunFiles(runId)
       .then((value) => {
         if (!alive) return;
         setListing(value);
@@ -105,13 +106,13 @@ const useRunFiles = (routePrefix: string, session: SessionContext): RunFilesStat
       alive = false;
       clearInterval(timer);
     };
-  }, [routePrefix, runId, session.running]);
+  }, [runId, session.running]);
 
   return useMemo(() => ({ listing, error }), [listing, error]);
 };
 
-function DocumentsSessionProvider({ children, routePrefix, session }: SessionProviderProps & { routePrefix: string }) {
-  const state = useRunFiles(routePrefix, session);
+function DocumentsSessionProvider({ children, session }: SessionProviderProps) {
+  const state = useRunFiles(session);
   return <RunFilesContext.Provider value={state}>{children}</RunFilesContext.Provider>;
 }
 
@@ -247,7 +248,7 @@ const configuredPlugin = (descriptor: WebPluginDescriptor, routePrefix: string):
   return {
     ...descriptor,
     needsRunView: true,
-    SessionProvider: (props) => <DocumentsSessionProvider {...props} routePrefix={routePrefix} />,
+    SessionProvider: DocumentsSessionProvider,
     workspaceTabs: [{
       id: DOCUMENTS_TAB_ID,
       label: "Dokumente",

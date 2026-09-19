@@ -1,6 +1,8 @@
+import { coreContracts } from "@aicontainer/server/api/contracts";
 import type { TitleModelSelection, TitleModelSettings } from "../../server/src/title-settings-contract";
 import { isRecord } from "./lib/guards";
-import { errorFrom } from "./lib/http";
+import { rpc } from "./rpc";
+import type { RpcClient } from "./rpc/client";
 
 export const titleModelSettingsChangedEvent = "ragents-title-model-settings-changed";
 export const titleSelectionKey = (selection: TitleModelSelection | null): string =>
@@ -39,15 +41,11 @@ export function titleModelOptions(models: TitleModelSettings["models"], selectio
 }
 
 export async function requestTitleModelSettings(options: {
-  selection?: TitleModelSelection | null; signal?: AbortSignal; request?: typeof fetch;
+  selection?: TitleModelSelection | null; signal?: AbortSignal; client?: RpcClient;
 } = {}): Promise<TitleModelSettings> {
-  const response = await (options.request ?? fetch)("/api/settings/titles", {
-    signal: options.signal,
-    cache: "no-store",
-    ...(options.selection !== undefined ? {
-      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ selection: options.selection }),
-    } : {}),
-  });
-  if (!response.ok) throw await errorFrom(response, "Die Einstellungen für Überschriften konnten nicht geladen oder gespeichert werden.");
-  return titleModelSettingsFrom(await response.json());
+  const client = options.client ?? rpc;
+  const settings = options.selection === undefined
+    ? await client.call(coreContracts.settings.titlesRead, {}, { signal: options.signal })
+    : await client.call(coreContracts.settings.titlesSave, { value: { selection: options.selection } }, { signal: options.signal });
+  return titleModelSettingsFrom(settings);
 }

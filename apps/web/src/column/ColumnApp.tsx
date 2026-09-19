@@ -45,14 +45,15 @@ function ColumnPage({ initialRunId, registry }: { initialRunId: string | undefin
   const canCreate = writeRuns && (access.can("runs.create") || registry.scriptEntries.some((entry) => canStartEntry(access, entry.id)));
   const runReadState = useRunReadState(access.user?.id);
   const [runId, setRunId] = useState(initialRunId);
-  const [draft, setDraft] = useState<SessionInfo>();
+  const [draft, setDraft] = useState<{ session: SessionInfo; startOptions?: Readonly<Record<string, unknown>> }>();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [listOpen, setListOpen] = useState(false);
   const openSettings = useCallback(() => setSettingsOpen(true), []);
   const { sessions, unreachable, refresh } = useSessionList(readRuns && !draft);
   const [headerContainer, setHeaderContainer] = useState<HTMLDivElement | null>(null);
   const [toolsContainer, setToolsContainer] = useState<HTMLDivElement | null>(null);
-  const startDraft = useCallback(() => { setListOpen(false); setDraft(newDraft()); }, []);
+  const startDraft = useCallback((startOptions?: Readonly<Record<string, unknown>>) => { setListOpen(false); setDraft({ session: newDraft(), startOptions }); }, []);
+  const createRun = useCallback(() => startDraft(), [startDraft]);
   const selectRun = useCallback((id: string) => { setListOpen(false); setRunId(id); }, []);
 
   useEffect(() => host.onCommand((message) => {
@@ -61,7 +62,7 @@ function ColumnPage({ initialRunId, registry }: { initialRunId: string | undefin
       setListOpen(false);
       setRunId(message.runId ?? undefined);
     }
-    if (message.type === "newRun" && canCreate) startDraft();
+    if (message.type === "newRun" && canCreate) startDraft(message.startOptions);
   }), [canCreate, host, startDraft]);
   useEffect(() => { host.notify({ type: "ready" }); }, [host]);
   useEffect(() => { host.notify({ type: "runChanged", runId: runId ?? null }); }, [host, runId]);
@@ -74,7 +75,7 @@ function ColumnPage({ initialRunId, registry }: { initialRunId: string | undefin
 
   const session = sessions.find((entry) => entry.id === runId);
   const list = readRuns
-    ? <SessionList activeId={runId} onCreate={canCreate ? startDraft : undefined} onSelect={selectRun} onToggleSelected={() => undefined} registry={registry} seenRevisions={runReadState.revisions} selectMode={false} selectedIds={noSelection} sessions={sessions} />
+    ? <SessionList activeId={runId} onCreate={canCreate ? createRun : undefined} onSelect={selectRun} onToggleSelected={() => undefined} registry={registry} seenRevisions={runReadState.revisions} selectMode={false} selectedIds={noSelection} sessions={sessions} />
     : <p className={noticeClass}>Für dieses Benutzerkonto sind keine Runs freigegeben.</p>;
   return (
     <div className="flex h-full flex-col bg-[image:var(--canvas-backdrop)]">
@@ -121,10 +122,11 @@ function ColumnPage({ initialRunId, registry }: { initialRunId: string | undefin
       {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} registry={registry} />}
       {draft && (
         <PluginChat
-          key={draft.id}
-          onStarted={() => { setRunId(draft.id); setDraft(undefined); void refresh(); }}
+          initialStartOptions={draft.startOptions}
+          key={draft.session.id}
+          onStarted={() => { setRunId(draft.session.id); setDraft(undefined); void refresh(); }}
           registry={registry}
-          session={draft}
+          session={draft.session}
           startDialog={{ onClose: () => setDraft(undefined) }}
         />
       )}

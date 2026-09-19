@@ -1,5 +1,4 @@
 import {
-  pluginRoutePrefixFrom,
   type SessionContext,
   type WebPlugin,
   type WebPluginDescriptor,
@@ -27,11 +26,11 @@ const attentionFor = (session: SessionContext) => {
   };
 };
 
-const configuredPlugin = (descriptor: WebPluginDescriptor, routePrefix: string): WebPlugin => ({
+const configuredPlugin = (descriptor: WebPluginDescriptor): WebPlugin => ({
   ...descriptor,
   needsRunView: true,
   questionResponder: (session, callId, payload) =>
-    answerQuestion(routePrefix, session.id, callId, typeof payload === "string" ? payload : JSON.stringify(payload)),
+    answerQuestion(session.id, callId, typeof payload === "string" ? payload : JSON.stringify(payload)),
   cardSections: [{
     id: "ragents.ask.questions",
     order: 100,
@@ -47,5 +46,5 @@ const descriptor: WebPluginDescriptor = { id: "ragents.ask" };
 
 export const webPlugin: WebPlugin = {
   ...descriptor,
-  activate: (config) => configuredPlugin(descriptor, pluginRoutePrefixFrom(descriptor.id, config)),
+  activate: () => configuredPlugin(descriptor),
 };

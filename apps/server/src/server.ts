@@ -2,32 +2,34 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { createChatHandler } from "./chat-handler.js";
-import { ACCESS_TOKEN_QUERY, createAccessContext, DomainError } from "@aicontainer/ragents";
+import { ACCESS_TOKEN_QUERY, createAccessContext } from "@aicontainer/ragents";
+import { coreChannels, coreMethods } from "./api/core-methods.js";
+import { attachmentContentRoute } from "./api/delivery.js";
+import { RpcDispatcher } from "./rpc/dispatcher.js";
+import { isRpcPath, RpcHttpTransport } from "./rpc/http-transport.js";
+import { startStdioTransport } from "./rpc/stdio-transport.js";
 import { config, HOST_SECRET_ENV_NAMES, hostConfigKeys } from "./config.js";
 import { configuredAnonymousUser, configuredUsers, validateConfigFileSections } from "./config-file.js";
 import { createAccessSessionManager, isSameOriginRequest } from "./access-session.js";
 import { isAccessServiceRequest, profileAccessCookieName } from "./access-service.js";
-import { enforceHostAccess, hostRequiredRights } from "./access-policy.js";
-import { accessibleChatEvent } from "./access-projection.js";
-import { SESSIONS_CHANNEL, runIdOfChannel } from "./event-channels.js";
 import { globalChatToken } from "./ragents/global-chat.js";
-import { PayloadTooLargeError, readBody, readJsonBody, guardedJsonRoute, writeJson } from "./plugin-support/http.js";
+import { PayloadTooLargeError, readBody } from "./plugin-support/http.js";
 import { workspaceRuntimeToken } from "./ragents/workspace-runtime.js";
-import {
-  externalAccessOpen,
-  externalGate,
-  isLocalRequest,
-  loadExternalAccess,
-  setExternalAccess,
-} from "./external-access.js";
+import { externalAccessOpen, externalGate, isLocalRequest, loadExternalAccess, setExternalAccess } from "./external-access.js";
 import { loadPlugins } from "./profile/plugin-discovery.js";
 import { composeProfile, type ProfileComposition } from "./profile/compose.js";
 import { Protocol, teeConsole } from "./protocol.js";
 import { RunSessionProvider } from "./provider.js";
 import { readHelpResponse } from "./help-files.js";
-import { handleRunPreparationRequest } from "./run-preparation.js";
 
+const stdioMode = process.env.RAGENTS_STDIO === "1";
+const announce = process.env.RAGENTS_ANNOUNCE === "1";
+const withoutHttp = process.env.RAGENTS_NO_HTTP === "1";
+// Im stdio-Modus gehört stdout dem Protokoll; alles andere geht nach stderr.
+if (stdioMode || announce) {
+  console.log = console.error.bind(console);
+  console.info = console.error.bind(console);
+}
 teeConsole(Protocol.forServer());
 process.on("uncaughtException", (error) => {
   Protocol.fatal(`Unbehandelter Fehler: ${error.stack ?? error.message}`);
@@ -120,7 +122,7 @@ const accessGate = async (
     return true;
   }
 
-  if (url.pathname.startsWith("/chat") || isPluginApiPath(url.pathname)) {
+  if (isPluginApiPath(url.pathname)) {
     res.writeHead(401, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ error: "Zugangstoken fehlt" }));
     return true;
@@ -169,41 +171,20 @@ const globalAccess = globalChat?.access ? { runId: globalChat.runId, ...globalCh
 await loadExternalAccess();
 await provider.init();
 const workspaceMode = provider.plugins.service(workspaceRuntimeToken).describe().mode;
-const chatHandler = createChatHandler({ manager: provider });
-provider.eventHub.channels(
-  {
-    id: "sessions",
-    matches: (channel) => channel === SESSIONS_CHANNEL,
-    requiredRights: () => hostRequiredRights("GET", "/chat/sessions/stream", globalAccess),
-    open: (_channel, emit) => {
-      const notify = () => emit({ type: "changed" });
-      const unsubscribe = provider.subscribeList(notify);
-      notify();
-      return unsubscribe;
-    },
-  },
-  {
-    id: "run",
-    matches: (channel) => runIdOfChannel(channel, "run") !== undefined,
-    requiredRights: (channel) => hostRequiredRights("GET", `/chat/${runIdOfChannel(channel, "run")}/run/stream`, globalAccess),
-    open: (channel, emit) => {
-      emit({ kind: "ready" });
-      return provider.subscribeRun(runIdOfChannel(channel, "run")!, () => emit({ kind: "run" }));
-    },
-  },
-  {
-    id: "chat",
-    matches: (channel) => runIdOfChannel(channel, "chat") !== undefined,
-    requiredRights: (channel) => hostRequiredRights("GET", `/chat/${runIdOfChannel(channel, "chat")}/stream`, globalAccess),
-    open: async (channel, emit, access) => {
-      const session = await provider.get(runIdOfChannel(channel, "chat")!);
-      return session.subscribe((event) => {
-        const visible = accessibleChatEvent(event, access);
-        if (visible) emit(visible);
-      });
-    },
-  },
-);
+provider.plugins.methods.register("host", [
+  ...provider.engineMethods(),
+  ...coreMethods({
+    sessions: provider,
+    plugins: provider.plugins,
+    global: globalAccess,
+    settingsGuarded: () => !process.env.ACCESS_TOKEN && !accessSessions.enabled,
+    external: { open: externalAccessOpen, set: setExternalAccess },
+  }),
+]);
+provider.plugins.channels.register("host", coreChannels({ sessions: provider, global: globalAccess }));
+provider.plugins.http.register("host", [provider.engineArtifactRoute(), attachmentContentRoute(provider, globalAccess)]);
+const dispatcher = new RpcDispatcher({ methods: provider.plugins.methods, channels: provider.plugins.channels });
+const rpc = new RpcHttpTransport({ dispatcher });
 
 const jsonResponse = (res: ServerResponse, status: number, body: unknown): void => {
   res.writeHead(status, { "Cache-Control": "no-store", "Content-Type": "application/json" });
@@ -231,8 +212,7 @@ const server = createServer(async (req, res) => {
   const access = createAccessContext(serviceRequest
     ? { enabled: true, user: { id: "host-service", label: "Host", rights: ["runs.read", "runs.write", "runs.create", "runs.inspect"] } }
     : accessSessions.snapshot(req));
-  const protectedPath = /^\/(?:api|chat|ragents)(?:\/|$)/.test(url.pathname)
-    || provider.isPluginApiPath(url.pathname) || url.pathname === "/extern";
+  const protectedPath = /^\/(?:api|rpc|files)(?:\/|$)/.test(url.pathname) || provider.isPluginApiPath(url.pathname);
   if (protectedPath && access.enabled && !access.user) {
     jsonResponse(res, 401, { error: "Bitte melde dich an.", code: "login-required" });
     return;
@@ -242,112 +222,10 @@ const server = createServer(async (req, res) => {
     jsonResponse(res, 403, { error: "Änderungen sind nur von derselben Website möglich." });
     return;
   }
-  if (enforceHostAccess(req, res, url, access, globalAccess)) return;
   if (protectedPath && !serviceRequest) accessSessions.track(req, res);
 
-  if (req.method === "POST" && url.pathname === "/extern") {
-    if (!isLocalRequest(req)) {
-      res.writeHead(403, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Nur lokal schaltbar" }));
-      return;
-    }
-    const wanted = url.searchParams.get("state");
-    if (wanted !== "on" && wanted !== "off") {
-      res.writeHead(400, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "state muss on oder off sein" }));
-      return;
-    }
-    await setExternalAccess(wanted === "on");
-    res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ external: externalAccessOpen() }));
-    return;
-  }
-
-  const settingsSkillMatch = url.pathname.match(/^\/api\/settings\/skills\/(.+)$/);
-  if (url.pathname === "/api/settings" || url.pathname === "/api/settings/titles" || settingsSkillMatch) {
-    const localSettingsRequest = isLoopbackRequest(req) && isLocalRequest(req);
-    if (!localSettingsRequest && !process.env.ACCESS_TOKEN && !accessSessions.enabled) {
-      jsonResponse(res, 403, { error: "Einstellungen sind nur lokal oder mit Zugangstoken verfügbar" });
-      return;
-    }
-    if (url.pathname === "/api/settings/titles") {
-      await guardedJsonRoute({ request: req, response: res, handle: async () => {
-        if (req.method === "GET") writeJson(res, 200, provider.titleModelSettings());
-        else if (req.method === "PUT") writeJson(res, 200, await provider.saveTitleModelSettings(await readJsonBody(req, (value) => value, undefined, 4096)));
-        else { res.setHeader("Allow", "GET, PUT"); writeJson(res, 405, { error: "Erlaubt sind GET und PUT." }); }
-      } });
-      return;
-    }
-    if (req.method !== "GET") {
-      res.setHeader("Allow", "GET");
-      jsonResponse(res, 405, { error: "Methode nicht erlaubt" });
-      return;
-    }
-    try {
-      if (!settingsSkillMatch) {
-        jsonResponse(res, 200, await provider.settings());
-        return;
-      }
-      const skill = await provider.skill(decodeURIComponent(settingsSkillMatch[1]));
-      if (skill) jsonResponse(res, 200, skill);
-      else jsonResponse(res, 404, { error: "Skill ist nicht registriert" });
-    } catch (error) {
-      console.error(`Einstellungen konnten nicht geladen werden: ${error instanceof Error ? error.message : String(error)}`);
-      jsonResponse(res, 500, { error: "Einstellungen konnten nicht geladen werden" });
-    }
-    return;
-  }
-
-  if (await provider.eventHub.handle(req, res, url, access)) return;
+  if (await rpc.handle(req, res, url, access, isLoopbackRequest(req) && isLocalRequest(req))) return;
   if (await provider.pluginRoutes(req, res, url, access)) return;
-
-  const preparationMatch = url.pathname.match(/^\/chat\/([A-Za-z0-9_-]{1,64})\/prepare$/);
-  if (preparationMatch) {
-    await handleRunPreparationRequest(req, res, (request, signal) => provider.prepareRunMessage(preparationMatch[1], request, signal));
-    return;
-  }
-
-  const optionsMatch = url.pathname.match(/^\/chat\/([A-Za-z0-9_-]{1,64})\/options(?:\/([A-Za-z0-9._-]{1,128}))?$/);
-  if (optionsMatch) {
-    const [, sessionId, optionId] = optionsMatch;
-    try {
-      if (req.method === "GET" && optionId === undefined) {
-        jsonResponse(res, 200, { options: provider.startOptions(sessionId) });
-        return;
-      }
-      if (req.method === "PUT" && optionId !== undefined) {
-        const body = JSON.parse(await readBody(req) || "{}") as Record<string, unknown>;
-        if (!("value" in body)) {
-          jsonResponse(res, 400, { error: "value fehlt" });
-          return;
-        }
-        jsonResponse(res, 200, provider.selectStartOption(sessionId, optionId, body.value));
-        return;
-      }
-      res.setHeader("Allow", optionId === undefined ? "GET" : "PUT");
-      jsonResponse(res, 405, { error: "Methode nicht erlaubt" });
-    } catch (error) {
-      jsonResponse(res, error instanceof DomainError ? error.status : 400, {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-    return;
-  }
-
-  const runMatch = url.pathname.match(/^\/chat\/([A-Za-z0-9_-]{1,64})\/run$/);
-  if (req.method === "GET" && runMatch) {
-    try {
-      const sessionId = runMatch[1];
-      jsonResponse(res, 200, provider.hasRun(sessionId) ? provider.runView(sessionId, access) : null);
-    } catch (error) {
-      jsonResponse(res, 400, { error: error instanceof Error ? error.message : String(error) });
-    }
-    return;
-  }
-
-  if (url.pathname.startsWith("/ragents/") && await provider.runtimeRoutes(req, res, "/ragents", access)) return;
-
-  if (await chatHandler(req, res, access)) return;
   if (url.pathname === "/health") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ ok: true, external: externalAccessOpen() }));
@@ -380,11 +258,21 @@ const server = createServer(async (req, res) => {
   res.end("Nicht gefunden");
 });
 
-server.listen(config.port, () => {
-  const address = server.address();
-  const port = address && typeof address !== "string" ? address.port : config.port;
-  console.log(`${productTitle}-Server: http://localhost:${port} (Workspace-Modus: ${workspaceMode}, Daten: ${config.dataDir})`);
-});
+if (!withoutHttp) {
+  server.listen(config.port, announce ? "127.0.0.1" : undefined, () => {
+    const address = server.address();
+    const port = address && typeof address !== "string" ? address.port : config.port;
+    console.log(`${productTitle}-Server: http://localhost:${port} (Workspace-Modus: ${workspaceMode}, Daten: ${config.dataDir})`);
+    if (announce) {
+      process.stdout.write(`${JSON.stringify({ ragents: { url: `http://127.0.0.1:${port}`, token: process.env.ACCESS_TOKEN ?? null, pid: process.pid } })}\n`);
+    }
+  });
+}
+if (stdioMode) {
+  const stdio = startStdioTransport({ dispatcher, input: process.stdin, output: process.stdout });
+  console.log(`${productTitle}-Server: JSON-RPC über stdio (Daten: ${config.dataDir})`);
+  void stdio.closed.then(() => shutdown());
+}
 
 let shutdownPromise: Promise<void> | undefined;
 const shutdown = (): void => {
@@ -393,6 +281,7 @@ const shutdown = (): void => {
 
 const shutdownInner = async (): Promise<void> => {
   accessSessions.close();
+  rpc.close();
   const timeout = setTimeout(() => {
     console.error("Server-Shutdown nach 15 Sekunden abgebrochen");
     process.exit(1);

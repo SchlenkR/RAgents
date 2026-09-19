@@ -291,8 +291,8 @@ pnpm check:homepage
 Derselbe Build erzeugt unter `docs/homepage/` die LLM-Dokumentation: `llms.txt` als kleinen
 Index, `guide.md` und `guide-*.md` für die erklärenden Kapitel, `run-setup.md` mit vollständigen Paketbeispielen und Testvertrag, `run-api.d.ts` mit den
 generierten TypeScript-Verträgen sowie `reference.md` und `developer.md` mit den übrigen Verträgen
-und Erweiterungsbeispielen. `http-api.md` und `openapi.json` beschreiben die gemeinsame
-HTTP-Verwaltung aus deren tatsächlichen Routenverträgen. `llms-full.txt` bündelt die Textreferenzen in einer Datei. Gib einem
+und Erweiterungsbeispielen. `rpc-api.md` und `openrpc.json` beschreiben die gemeinsame
+JSON-RPC-API aus deren tatsächlichen Verträgen. `llms-full.txt` bündelt die Textreferenzen in einer Datei. Gib einem
 externen Modell die `llms.txt` oder die vollständige Datei; für ein Run-Setup reichen zunächst
 die Setup-Anleitung und die dort verlinkte API. Diese Dateien werden generiert, nicht von Hand
 bearbeitet. Neue Werkzeuge, Ergebnistypen und Paketdateien erscheinen beim nächsten Build.
@@ -658,12 +658,12 @@ auf dem Server abgelegt. Zurücksetzen stellt die anfängliche Größe wieder he
 
 Der Koordinator entdeckt seine Funktionen mit `typescript_api` und führt sie in
 `typescript_eval` über `context.functions` aus. Seine Auswahl umfasst `read`, `write`, `edit`
-und `bash`; `quick_answer` ergänzt eine kurze Ergebnisanzeige nach seiner normalen Antwort. Seine erzeugte HTTP-Referenz
-liegt im eigenen Arbeitsverzeichnis. `RAGENTS_JOURNAL_DIR` zeigt auf die echten Journale des
+und `bash`; `quick_answer` ergänzt eine kurze Ergebnisanzeige nach seiner normalen Antwort. Seine erzeugte Referenz
+der Nachrichtenschicht (`rpc-reference.md`, `openrpc.json`) liegt im eigenen Arbeitsverzeichnis. `RAGENTS_JOURNAL_DIR` zeigt auf die echten Journale des
 Profils; die Shell kann sie etwa mit `rg` durchsuchen. Journale bleiben unverändert im
 JSONL-Dateiformat 4. Große Payload-Felder liegen im benachbarten `payloads/`-Ordner;
-`payloadRefs` nennt ihren Hash und ihre Bytezahl. Die Event-HTTP-API löst diese Referenzen
-vollständig auf. Laufzeitänderungen wie Starten, Senden und Stoppen gehen durch die HTTP-API.
+`payloadRefs` nennt ihren Hash und ihre Bytezahl. Die Methode `ragents.overseer.readEvents` löst diese Referenzen
+vollständig auf. Laufzeitänderungen wie Starten, Senden und Stoppen gehen durch die Methoden.
 `RAGENTS_API_BASE_URL` nennt den lokalen Host, `RAGENTS_API_TOKEN` enthält eine private, auf die lokale Verwaltungs-API beschränkte
 Dienstidentität für Run-Lesen und -Schreiben sowie Hilfe. Sie erreicht weder Einstellungen
 noch den globalen Gesprächsreset. Den Token nicht ausgeben oder in Requestdateien schreiben.
@@ -735,7 +735,7 @@ beim ersten Verbinden oder erneuter Wiedergabe nochmals anzuzeigen.
 Der Koordinator überblickt die Läufe des aktuellen Profils, liest Journale und kann neue Läufe
 mit einem Auftrag oder einem installierten Run-Script beginnen. Erstellte Läufe lassen sich
 über die Run-Liste öffnen. Der Stopp-Knopf an seiner Eingabe stoppt den globalen Koordinator
-selbst; einen anderen Lauf stoppt er auf Auftrag über die HTTP-Verwaltung. Ohne Schreibrecht
+selbst; einen anderen Lauf stoppt er auf Auftrag über die Verwaltungsmethoden. Ohne Schreibrecht
 bleibt die schreibgeschützte Eingabe fokussierbar und öffnet den lesbaren Verlauf; Senden ist
 gesperrt. Einen zusätzlichen Dropdown-Pfeil gibt es nicht.
 
@@ -1053,9 +1053,32 @@ PRODUCT_PROFILE=core pnpm driver stop <id>
 Die Adresse kommt aus `host.PORT` der Profildatei (`RAGENTS_DRIVER_URL` überschreibt sie), der
 Datenordner aus `DATA_DIR` oder dem Profilstandard. Definiert das Profil Benutzer, ist
 `RAGENTS_DRIVER_USER` Pflicht; das Passwort liest der Treiber aus derselben Profildatei und
-meldet sich per `POST /api/access/login` an. Dahinter stehen die Routen `POST /chat/<uuid>/start`,
-`POST /chat/<uuid>/actors/<@handle>/send`, `POST /chat/<uuid>/stop` und `GET /chat/sessions`;
-das Journal liest er direkt aus `${DATA_DIR}/runs/<uuid>/journal.jsonl`.
+meldet sich per `POST /api/access/login` an. Ein gesetztes `ACCESS_TOKEN` sendet er stattdessen
+als Bearer-Token. Dahinter stehen die Methoden `ragents.chat.start`, `ragents.chat.sendToActor`,
+`ragents.chat.stop` und `ragents.sessions.list`; das Journal liest er direkt aus
+`${DATA_DIR}/runs/<uuid>/journal.jsonl`.
+
+Dieselben Methoden stehen jedem anderen Client offen. Die API ist JSON-RPC 2.0; über HTTP
+nimmt `POST /rpc` genau eine Nachricht je Anfrage entgegen, `GET /rpc/stream` liefert als
+Server-Sent-Events die Benachrichtigungen und Anfragen des Servers:
+
+```sh
+curl -s http://localhost:4710/rpc -H 'content-type: application/json' \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"ragents.sessions.list","params":{}}'
+```
+
+Die Antwort enthält `result` oder `error`; `error.data` nennt `code` und `status`. Die
+vollständige Liste der Methoden und Kanäle steht in `docs/homepage/rpc-api.md`, maschinenlesbar
+in `docs/homepage/openrpc.json`; beide entstehen aus den registrierten Verträgen.
+
+Ohne HTTP geht es über stdio: `pnpm start -- --stdio` tauscht eine JSON-Nachricht je Zeile über
+stdin und stdout aus und öffnet keinen Port. Die Startmodi im Überblick:
+
+- `--stdio` ohne `--port`: nur stdio, kein HTTP-Server.
+- `--port 0`: ein privater Port; der Server meldet ihn auf stdout als
+  `{"ragents":{"url":"...","token":"...","pid":1234}}`.
+- `--port N`: der feste Port N statt `host.PORT` der Profildatei.
 
 ## Datenablage und Protokolle
 
@@ -1092,7 +1115,7 @@ ${DATA_DIR}/
         ragents.documents/
           documents/              Dateiablage der Unterhaltung (RAGENTS_FILES_DIR), ohne DOCUMENTS_DIR
         ragents.workspace/
-          workspace/              leeres Arbeitsverzeichnis der Unterhaltung, befüllt ein Resolver-Plugin
+          workspace/              leeres Arbeitsverzeichnis bei Bindung fresh, befüllt ein Resolver-Plugin
           home/                   HOME der Sandbox
   delete-intents/                 0700 root - vermerkte Löschabsichten
     <sessionId>.json              0600 root - ein beim Absturz unterbrochenes Löschen wird
@@ -1136,7 +1159,12 @@ Die Session-ID verbindet diese Verzeichnisse.
 
 Jede Unterhaltung arbeitet in ihrem eigenen Arbeitsverzeichnis und ihrer eigenen Dateiablage.
 Die Datei-Werkzeuge prüfen jeden Pfad nach Symlink-Auflösung gegen den Arbeitsbereich der
-Session plus die Skills.
+Session plus die Skills. Welcher Ordner das ist, legt die Startoption "Arbeitsbereich" beim Start
+fest: ein leerer Ordner unter den Laufzeitdaten, ein vorhandener Ordner auf dem Serverrechner oder
+der Ordner eines verbundenen Arbeitsplatzes (etwa der VS-Code-Erweiterung). Ein gebundener Ordner
+wird beim Löschen des Runs nie angefasst. Angemeldete Arbeitsplätze zeigt
+`ragents.workspace.clients.list`; ist der Arbeitsplatz eines Runs nicht verbunden,
+scheitert jeder Werkzeugaufruf mit `workspace-client-disconnected`, bis er sich wieder meldet.
 
 Beim Bash-Abschluss prüft der Host unter macOS einen Signalfehler `EPERM` zusätzlich anhand
 von Prozessgruppen-ID und Status. Bereits beendete Zombie-Einträge verdecken so keine

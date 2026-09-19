@@ -1,94 +1,103 @@
 import assert from "node:assert/strict";
+import { once } from "node:events";
 import { writeFile } from "node:fs/promises";
-import { createServer, type IncomingMessage } from "node:http";
+import { createServer } from "node:http";
 import path from "node:path";
-import { Readable } from "node:stream";
-import test from "node:test";
-import { PluginHost, ScriptDriver, TurnScheduler, actorStatePluginId, createAccessContext } from "@aicontainer/ragents";
+import test, { type TestContext } from "node:test";
+import { Value } from "typebox/value";
+import { ChannelContributionRegistry, MethodContributionRegistry, RpcError, ScriptDriver, TurnScheduler, actorStatePluginId, createAccessContext, type MethodContext, type MethodContribution, type OperationContract, type OperationInput, type OperationResult } from "@aicontainer/ragents";
 import { catalog, postTo } from "../../../packages/ragents/tests/support.ts";
-import { createMiniAppRoutes, miniAppsApiPrefix } from "../../../plugins/ragents.actor-programs/server/routes.ts";
+import { actorProgramContracts } from "../../../plugins/ragents.actor-programs/contract.ts";
+import { createActorProgramMethods } from "../../../plugins/ragents.actor-programs/server/methods.ts";
+import { RpcClient } from "../../web/src/rpc/client.ts";
+import { RpcDispatcher } from "../src/rpc/dispatcher.ts";
+import { RpcHttpTransport } from "../src/rpc/http-transport.ts";
 import { actorProgramFixture, counterFiles, invokeActorFunction } from "./actor-programs-fixture.ts";
 import { invocationResult, writeAppFiles } from "./actor-runtime-fixture.ts";
-import { capturedJson } from "./runtime-fixture.ts";
 
-test("restricted operators can poll mini-app actions over HTTP while actor function routes stay protected", async (t) => {
+type ProgramFixture = Awaited<ReturnType<typeof actorProgramFixture>>;
+
+const methodsOf = (f: ProgramFixture) =>
+  createActorProgramMethods({runtime: f.runtime, ensureSession: (runId) => { f.setup.runtime.view(runId); }});
+
+const restrictedClient = async (t: TestContext, f: ProgramFixture) => {
+  const methods = new MethodContributionRegistry();
+  methods.register("ragents.actor-programs", methodsOf(f));
+  const access = createAccessContext({enabled: false, user: {id: "operator", label: "Operator", rights: ["runs.read", "runs.write"]}});
+  const transport = new RpcHttpTransport({dispatcher: new RpcDispatcher({methods, channels: new ChannelContributionRegistry()})});
+  const server = createServer((request, response) => {
+    void transport.handle(request, response, new URL(request.url ?? "/", "http://host"), access, true);
+  });
+  t.after(() => { transport.close(); server.closeAllConnections(); server.close(); });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("Testserver ohne Port");
+  const client = new RpcClient({baseUrl: `http://127.0.0.1:${address.port}`});
+  t.after(() => client.close());
+  return client;
+};
+
+const methodFor = <C extends OperationContract>(methods: readonly MethodContribution[], contract: C) =>
+  methods.find((entry) => entry.contract.id === contract.id)!.execute as
+    (input: OperationInput<C>, context: MethodContext) => Promise<OperationResult<C>>;
+
+const denied = (error: unknown): boolean => error instanceof RpcError && error.domainCode === "access-denied" && error.status === 403;
+
+const fakeContext = (rights: readonly string[]) => ({
+  access: createAccessContext({enabled: false, user: {id: "operator", label: "Operator", rights: [...rights]}}),
+  signal: new AbortController().signal,
+  progress: () => undefined,
+  connection: {id: "t", userId: null, streamless: true, call: () => Promise.reject(new Error("kein Client")), onClose: () => () => undefined},
+  local: true,
+});
+
+test("restricted operators can poll mini-app actions while actor function methods stay protected", async (t) => {
   const f = await actorProgramFixture(t);
   await writeAppFiles(f.directory, "counter", counterFiles({views: true}));
   await f.runtime.activate(f.context, f.runId, "counter");
   const app = f.runtime.apps(f.runId)[0]!;
-  const access = createAccessContext({enabled: false, user: {id: "operator", label: "Operator", rights: ["runs.read", "runs.write"]}});
-  const host = new PluginHost({product: {id: "test", title: "Test"}, dataDirectory: f.directory});
-  host.register({manifest: {id: "ragents.actor-programs"}, register: (registration) => {
-    registration.http(...createMiniAppRoutes({runtime: f.runtime, ensureSession: (runId) => { f.setup.runtime.view(runId); }}));
-  }});
-  const server = createServer(async (request, response) => {
-    if (!await host.dispatchHttp(request, response, new URL(request.url!, "http://localhost"), access)) response.writeHead(404).end();
+  const client = await restrictedClient(t, f);
+  const started = await client.call(actorProgramContracts.action, {
+    runId: f.runId, appId: app.id, revision: app.revision, actionId: "add", requestId: "restricted-rpc-add", input: {amount: 4, delay: 100},
   });
-  await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
-  const address = server.address();
-  assert.ok(address && typeof address !== "string");
-  const base = `http://127.0.0.1:${address.port}${miniAppsApiPrefix}/runs/${f.runId}`;
-  const input = {requestId: "restricted-http-add", revision: app.revision, input: {amount: 4, delay: 100}};
-  const post = {method: "POST", headers: {"Content-Type": "application/json", "X-RAgents-App-Bridge": "1"}, body: JSON.stringify(input)};
-  try {
-    const accepted = await fetch(`${base}/apps/${app.id}/actions/add`, post);
-    assert.equal(accepted.status, 202);
-    const invocation = await accepted.json() as {id: string; appId: string};
-    assert.equal(invocation.appId, app.id);
-    const pollUrl = `${base}/apps/${invocation.appId}/invocations/${invocation.id}`;
-    assert.equal((await fetch(pollUrl)).status, 200);
-    const denied = await fetch(`${base}/actors/${app.actorHandle}/invocations/${invocation.id}`);
-    assert.equal(denied.status, 403);
-    assert.equal((await denied.json() as {right: string}).right, "runs.inspect");
-    assert.equal((await fetch(`${base}/actors/${app.actorHandle}/functions/add`, post)).status, 403);
-    const result = await invocationResult(f.runtime, f.runId, app.id, invocation.id);
-    assert.equal(result.status, "succeeded", JSON.stringify(result));
-    const returned = await fetch(pollUrl);
-    assert.equal(returned.status, 200);
-    assert.deepEqual(await returned.json(), result);
-    assert.equal(f.runtime.apps(f.runId)[0]!.state.values.count, 4);
-  } finally {
-    server.closeAllConnections();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-  }
+  assert.equal(started.appId, app.id);
+  assert.equal((await client.call(actorProgramContracts.invocation, {runId: f.runId, appId: app.id, invocationId: started.id})).id, started.id);
+  await assert.rejects(client.call(actorProgramContracts.functionInvocation, {runId: f.runId, actorHandle: app.actorHandle, invocationId: started.id}), denied);
+  await assert.rejects(client.call(actorProgramContracts.function, {
+    runId: f.runId, actorHandle: app.actorHandle, revision: app.revision, functionId: "add", requestId: "restricted-rpc-direct", input: {amount: 4},
+  }), denied);
+  assert.deepEqual((await client.call(actorProgramContracts.apps, {runId: f.runId})).tools, []);
+  const result = await invocationResult(f.runtime, f.runId, app.id, started.id);
+  assert.equal(result.status, "succeeded", JSON.stringify(result));
+  assert.deepEqual(await client.call(actorProgramContracts.invocation, {runId: f.runId, appId: app.id, invocationId: started.id}), result);
+  assert.equal(f.runtime.apps(f.runId)[0]!.state.values.count, 4);
 });
 
-test("mini-app HTTP actions dispatch camelCase functions and preserve their results", async (t) => {
+test("mini-app actions dispatch camelCase functions and preserve their results", async (t) => {
   const f = await actorProgramFixture(t);
   const files = Object.fromEntries(Object.entries(counterFiles({views: true})).map(([name, content]) =>
     [name, content.replace(/\badd\b/g, "addEntry")]));
   await writeAppFiles(f.directory, "counter", files);
   await f.runtime.activate(f.context, f.runId, "counter");
   const app = f.runtime.apps(f.runId)[0]!;
-  const routes = createMiniAppRoutes({runtime: f.runtime, ensureSession: (runId) => { f.setup.runtime.view(runId); }});
-  const base = `${miniAppsApiPrefix}/runs/${f.runId}/apps/${app.id}`;
-  const request = Object.assign(Readable.from([JSON.stringify({
-    requestId: "http-add-entry", revision: app.revision, input: {amount: 4},
-  })]), {method: "POST", headers: {"x-ragents-app-bridge": "1"}, aborted: false}) as unknown as IncomingMessage;
-  const url = new URL(`${base}/actions/addEntry`, "http://host");
-  const route = routes.find((entry) => entry.matches(request, url));
-  assert.ok(route, "A valid camelCase action must match its HTTP route instead of returning 404");
-  const accepted = capturedJson();
-  await route.handle({request, response: accepted.response, url});
-  assert.equal(accepted.captured.status, 202, JSON.stringify(accepted.captured.body));
-  const result = await invocationResult(f.runtime, f.runId, app.id, (accepted.captured.body as {id: string}).id);
+  const methods = methodsOf(f);
+  const action = methodFor(methods, actorProgramContracts.action);
+  const context = fakeContext(["runs.read", "runs.write"]);
+  const input = {runId: f.runId, appId: app.id, revision: app.revision, actionId: "addEntry", requestId: "rpc-add-entry", input: {amount: 4}};
+  assert.ok(Value.Check(actorProgramContracts.action.input, input));
+  const accepted = await action(input, context);
+  const result = await invocationResult(f.runtime, f.runId, app.id, accepted.id);
   assert.equal(result.status, "succeeded", JSON.stringify(result));
   if (result.status === "succeeded") assert.equal((result.result as {count: number}).count, 4);
   assert.equal(f.runtime.apps(f.runId)[0]!.state.values.count, 4);
-  const resultRequest = Object.assign(Readable.from([]), {method: "GET", headers: {}}) as unknown as IncomingMessage;
-  const resultUrl = new URL(`${base}/invocations/${result.id}`, "http://host");
-  const resultRoute = routes.find((entry) => entry.matches(resultRequest, resultUrl));
-  assert.ok(resultRoute);
-  const returned = capturedJson();
-  await resultRoute.handle({request: resultRequest, response: returned.response, url: resultUrl});
-  assert.equal(returned.captured.status, 200);
-  assert.deepEqual(returned.captured.body, result);
+  const lookup = methodFor(methods, actorProgramContracts.invocation);
+  assert.deepEqual(await lookup({runId: f.runId, appId: app.id, invocationId: result.id}, context), result);
   for (const name of ["AddEntry", "a".repeat(64), "add_entry-2"]) {
-    assert.ok(route.matches(request, new URL(`${base}/actions/${name}`, "http://host")), name);
+    assert.ok(Value.Check(actorProgramContracts.action.input, {...input, actionId: name}), name);
   }
-  for (const name of ["", "1addEntry", "_addEntry", "add.entry", "add%20Entry", "add/entry", "a".repeat(65)]) {
-    const invalidUrl = new URL(`${base}/actions/${name}`, "http://host");
-    assert.equal(routes.some((entry) => entry.matches(request, invalidUrl)), false, name);
+  for (const name of ["", "1addEntry", "_addEntry", "add.entry", "add Entry", "add/entry", "a".repeat(65)]) {
+    assert.equal(Value.Check(actorProgramContracts.action.input, {...input, actionId: name}), false, name);
   }
 });
 

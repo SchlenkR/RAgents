@@ -1,7 +1,6 @@
 import { unavailableActorPrograms } from "./actor-programs-fixture.ts";
 import assert from "node:assert/strict";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -9,8 +8,10 @@ import { ModelRuntime } from "@aicontainer/agent";
 import { fauxAssistantMessage, getSupportedThinkingLevels, registerFauxProvider } from "@aicontainer/ai";
 import { AgentSessionDriver, FixedWorkspaces, Journal, LiveBus, Orchestration, PluginHost, StartOptionContributionRegistry, StaticModelCatalog, TurnScheduler, type CatalogModel } from "@aicontainer/ragents";
 import { deferred, testServices } from "../../../packages/ragents/tests/support.ts";
+import { overseerContracts } from "../../../plugins/ragents.overseer/contract.ts";
 import { OverseerModelSettings } from "../../../plugins/ragents.overseer/server/settings.ts";
-import { createSettingsRoute } from "../../../plugins/ragents.overseer/server/settings-route.ts";
+import { createSettingsMethods } from "../../../plugins/ragents.overseer/server/settings-method.ts";
+import { startRpcServer } from "./rpc-fixture.ts";
 import { RunChatSession } from "../src/ragents/session.ts";
 import type { Engine } from "../src/ragents/engine.ts";
 import { config as coreConfig } from "../../../ragents.config.core.ts";
@@ -119,28 +120,18 @@ test("overseer settings persist independently, reject invalid selections and ret
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
-test("settings HTTP shares GET and PUT state and rejects a model incompatible with existing media", async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), "ragents-overseer-settings-http-"));
+test("the settings methods share read and save state and reject a model incompatible with existing media", async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), "ragents-overseer-settings-methods-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
   const settings = new OverseerModelSettings(path.join(directory, "settings.json"));
   await settings.initialize(models, next, () => ["image"]);
-  const route = createSettingsRoute(settings);
-  const server = createServer((request, response) => { void route.handle({ request, response, url: new URL(request.url!, "http://test") }); });
-  try {
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const address = server.address();
-    assert.ok(address && typeof address === "object");
-    const url = `http://127.0.0.1:${address.port}/api/plugins/ragents.overseer/settings`;
-    const response = await fetch(url, { method: "PUT", body: JSON.stringify({ ...next, thinking: "low" }) });
-    assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), await (await fetch(url)).json());
-    const rejected = await fetch(url, { method: "PUT", body: JSON.stringify(initial) });
-    assert.equal(rejected.status, 400);
-    assert.match((await rejected.json() as { error: string }).error, /image-Anhänge/);
-    assert.equal(settings.get().thinking, "low");
-  } finally {
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-    await rm(directory, { recursive: true, force: true });
-  }
+  const server = await startRpcServer(t, { methods: createSettingsMethods(settings) });
+  const saved = await server.call(overseerContracts.settings.save.id, { ...next, thinking: "low" });
+  assert.deepEqual(saved.result, (await server.call(overseerContracts.settings.read.id, {})).result);
+  const rejected = await server.call(overseerContracts.settings.save.id, initial);
+  assert.equal((rejected.error?.data as { status: number }).status, 400);
+  assert.match(rejected.error!.message, /image-Anhänge/);
+  assert.equal(settings.get().thinking, "low");
 });
 
 test("a model change while busy applies to the next actual prompt and preserves the agent conversation", async () => {

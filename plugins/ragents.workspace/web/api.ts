@@ -1,30 +1,8 @@
-import { errorFrom } from "@aicontainer/web/lib/http";
-import {
-  browseListingPath,
-  browsePreviewPath,
-  type BrowseListing,
-  type BrowsePreview,
-  type BrowseRoot,
-} from "../contract";
+import { rpc } from "@aicontainer/web/rpc";
+import { workspaceContracts, type BrowseListing, type BrowsePreview, type BrowseRoot } from "../contract";
 
-export const fetchBrowseListing = async (
-  routePrefix: string,
-  runId: string,
-  root: BrowseRoot,
-  directory: string,
-): Promise<BrowseListing> => {
-  const response = await fetch(browseListingPath(routePrefix, runId, root, directory), { cache: "no-store" });
-  if (!response.ok) throw await errorFrom(response, "Das Verzeichnis konnte nicht geladen werden");
-  return await response.json() as BrowseListing;
-};
+export const fetchBrowseListing = (runId: string, root: BrowseRoot, directory: string): Promise<BrowseListing> =>
+  rpc.call(workspaceContracts.browse.list, { runId, root, path: directory });
 
-export const fetchBrowsePreview = async (
-  routePrefix: string,
-  runId: string,
-  root: BrowseRoot,
-  file: string,
-): Promise<BrowsePreview> => {
-  const response = await fetch(browsePreviewPath(routePrefix, runId, root, file), { cache: "no-store" });
-  if (!response.ok) throw await errorFrom(response, "Die Datei konnte nicht geladen werden");
-  return await response.json() as BrowsePreview;
-};
+export const fetchBrowsePreview = (runId: string, root: BrowseRoot, file: string): Promise<BrowsePreview> =>
+  rpc.call(workspaceContracts.browse.preview, { runId, root, path: file });

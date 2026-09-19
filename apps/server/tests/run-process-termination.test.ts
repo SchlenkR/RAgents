@@ -1,14 +1,11 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { EventEmitter } from "node:events";
-import type { IncomingMessage } from "node:http";
 import test from "node:test";
-import { unrestrictedAccess } from "@aicontainer/ragents";
+import { DomainError, unrestrictedAccess, type MethodConnection, type MethodContext } from "@aicontainer/ragents";
 import { processIdOf, processTableForPlatform, parseDarwinMarkers, type ProcessRecord, type ProcessTable } from "../../../plugins/ragents.processes/server/process-table.ts";
 import { RunProcessTerminator } from "../../../plugins/ragents.processes/server/terminator.ts";
-import { createProcessRoutes } from "../../../plugins/ragents.processes/server/routes.ts";
-import { processStopPath } from "../../../plugins/ragents.processes/contract.ts";
-import { capturedJson } from "./runtime-fixture.ts";
+import { createProcessMethods } from "../../../plugins/ragents.processes/server/methods.ts";
+import { processesContracts } from "../../../plugins/ragents.processes/contract.ts";
 
 const record = (pid: number, values: Partial<ProcessRecord> = {}): ProcessRecord => ({ pid, ppid: 1, pgid: 900, uid: 501, startKey: `start-${pid}`, command: "node app.js", ...values });
 const fixture = (records: ProcessRecord[], markerEntries: [number, string][]) => {
@@ -128,28 +125,37 @@ test("macOS markers come from the environment and not from a marker-looking argu
   assert.deepEqual([...parseDarwinMarkers(`10 ${command} PATH=/bin`, new Map([[10, command]]))], []);
 });
 
-test("stop route requires write access and passes a live permission check to the terminator", async () => {
-  const request = Object.assign(new EventEmitter(), { method: "POST", aborted: false }) as IncomingMessage;
-  const url = new URL(`http://host${processStopPath("/api/plugins/ragents.processes", "run-a", processIdOf(record(10)))}`);
+test("the stop method requires write access and passes a live permission check to the terminator", async () => {
   let writable = false;
   let calls = 0;
-  const routes = createProcessRoutes({
+  const methods = createProcessMethods({
     observer: { observe: async () => ({ runId: "run-a", observedAt: "now", processes: [] }), watch: () => () => {} },
     ensureSession: () => {},
     terminate: async (_runId, _processId, context) => { calls++; writable = false; context.assertAllowed?.(); },
   });
-  const route = routes.find((item) => item.matches(request, url));
-  assert.ok(route);
-  assert.deepEqual(route.requiredRights, ["runs.read", "runs.write", "runs.inspect"]);
-  const access = { ...unrestrictedAccess, can: (right: string) => right === "runs.read" || writable };
-  const denied = capturedJson();
-  await route.handle({ request, response: denied.response, url, access });
-  assert.equal(denied.captured.status, 403);
+  const method = methods.find((item) => item.contract.id === processesContracts.stop.id);
+  assert.ok(method);
+  assert.deepEqual(method.contract.rights, ["runs.read", "runs.write", "runs.inspect"]);
+  const connection: MethodConnection = {
+    id: "connection-1",
+    userId: null,
+    streamless: false,
+    call: () => Promise.reject(new Error("Das Beenden ruft niemanden zurück")),
+    onClose: () => () => undefined,
+  };
+  const context: MethodContext = {
+    access: { ...unrestrictedAccess, can: (right: string) => right === "runs.read" || writable },
+    signal: new AbortController().signal,
+    progress: () => undefined,
+    connection,
+    local: true,
+  };
+  const input = { runId: "run-a", processId: processIdOf(record(10)) };
+  const forbidden = (error: unknown) => error instanceof DomainError && error.status === 403;
+  await assert.rejects(Promise.resolve().then(() => method.execute(input, context)), forbidden);
   assert.equal(calls, 0);
   writable = true;
-  const expired = capturedJson();
-  await route.handle({ request, response: expired.response, url, access });
-  assert.equal(expired.captured.status, 403);
+  await assert.rejects(Promise.resolve().then(() => method.execute(input, context)), forbidden);
   assert.equal(calls, 1);
 });
 

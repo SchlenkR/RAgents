@@ -1,7 +1,6 @@
 import type { HomepageCatalog } from "./homepage-catalog.js";
 import { exampleOverviewMarkdown, exampleWalkthroughsMarkdown, groupStartEntries } from "./homepage-examples.js";
 import type { HomepageExtensionsResult } from "./homepage-extensions.js";
-import { managementOpenApi, managementHttpReference } from "../../plugins/ragents.overseer/server/http-api.js";
 import { guideMarkdownOutputs, type HomepageGuide } from "./homepage-guide.js";
 
 export function markdownCode(value: string, language = ""): string {
@@ -25,7 +24,7 @@ function reference(catalog: HomepageCatalog): string {
   return document([
     "# RAgents: Bausteinreferenz",
     "> Öffentliche Werkzeuge, Operationen, Actor-Programm-Vorlagen und Einstiege des Profils core, aus den tatsächlichen Verträgen erzeugt.",
-    "[Run-Setup-Anleitung und vollständige Pakete](run-setup.md) | [Entwicklerreferenz](developer.md) | [HTTP-API](http-api.md) | [LLM-Index](llms.txt)",
+    "[Run-Setup-Anleitung und vollständige Pakete](run-setup.md) | [Entwicklerreferenz](developer.md) | [JSON-RPC-API](rpc-api.md) | [LLM-Index](llms.txt)",
     "## Funktionen und native Werkzeuge",
     "Fachfunktionen werden in Snippets und Actor-Programmen über context.functions aufgerufen. Ausgerüstete LLM-Actors erhalten automatisch die für sie verfügbaren Funktionsnamen mit Kurzbeschreibungen. typescript_api liefert auf Namensanfrage ihre Typen und optionalen Langbeschreibungen, typescript_eval führt Snippets aus. Dies ist der statische Bestand. Verfügbarkeit und Auswahl hängen von Actor, Grants und Run ab. Eigene Actor-Funktionen ergänzen diesen Bestand während einer Unterhaltung.",
     ...catalog.tools.map((tool) => document([
@@ -82,7 +81,7 @@ function developer(extensions: HomepageExtensionsResult): string {
   return document([
     "# RAgents: Entwicklerreferenz",
     "> Erweiterungspunkte, Beispiele und aktuelle Vertragsflächen aus dem Code.",
-    "[Werkzeugverträge](reference.md) | [Run-Script-Pakete und API](run-setup.md) | [HTTP-API](http-api.md) | [LLM-Index](llms.txt)",
+    "[Werkzeugverträge](reference.md) | [Run-Script-Pakete und API](run-setup.md) | [JSON-RPC-API](rpc-api.md) | [LLM-Index](llms.txt)",
     "Die Beispiele sind Ausschnitte für den jeweils benannten Einsatzort. Run-lokale Scripts sind native TypeScript-Module mit explizitem Kontext; Plugin-Servercode und Web-Module werden mit der Anwendung gebaut.",
     ...categories.flatMap((category) => [
       `## ${heading(category)}`,
@@ -97,10 +96,10 @@ function developer(extensions: HomepageExtensionsResult): string {
     "## Eingebaute Rechte",
     "Die Liste stammt aus den Rechteverträgen des Hosts und des Koordinator-Plugins; Extensions können zusätzliche exakte Namen verwenden.",
     ...extensions.permissions.map((permission) => `- ${permission.id}: ${permission.description}`),
-    "", "### Host-Routen", "",
-    "Automatisch aus den ausgeführten Hostregeln; Änderungen brauchen jeweils zusätzlich das Leserecht. Der globale Koordinator ergänzt seine eigene Laufregel.", "",
-    "| Pfadmuster | Lesen | Ändern | Löschen |", "| --- | --- | --- | --- |",
-    ...extensions.accessRules.map((rule) => `| ${rule.path.replaceAll("|", "\\|")} | ${rule.read} | ${rule.write} | ${"delete" in rule ? rule.delete : rule.write} |`),
+    "", "### Kernmethoden", "",
+    "Automatisch aus den registrierten Verträgen; Methoden ohne feste Rechte prüft der Host je Run. Der globale Koordinator ergänzt seine eigene Laufregel.", "",
+    "| Methode | Rechte |", "| --- | --- |",
+    ...extensions.methodRights.map((method) => `| ${method.id} | ${method.rights.join(", ") || "je Run"} |`),
     "## Aktuelle Vertragsflächen",
     ...extensions.contracts.map((contract) => document([
       `### ${heading(contract.name)}`, `Quelle im Repository: ${contract.file}`,
@@ -113,7 +112,7 @@ function runSetup(catalog: HomepageCatalog): string {
   return document([
     "# RAgents: ein Run-Setup schreiben",
     "> Ein Run-Script ist ein natives Actor-Programmpaket. Die Beispiele und SDK-Typen unten stammen aus den tatsächlichen öffentlichen Quellen.",
-    "[Werkzeugverträge](reference.md) | [Entwicklerbeispiele](developer.md) | [Server-SDK](run-api.d.ts) | [HTTP-API](http-api.md) | [LLM-Index](llms.txt)",
+    "[Werkzeugverträge](reference.md) | [Entwicklerbeispiele](developer.md) | [Server-SDK](run-api.d.ts) | [JSON-RPC-API](rpc-api.md) | [LLM-Index](llms.txt)",
     "## Snippet oder dauerhaftes Programm",
     "Für einmalige Arbeit braucht es kein Actor-Paket: typescript_api liefert Katalog oder genaue Funktionstypen. typescript_eval erhält code oder path; der Quelltext ist ein async-Funktionsrumpf mit context und optionalem return. Beispiel: return await context.functions.actor_list({});. Derselbe Compiler und dieselben registrierten Funktionen dienen Actor-Programmen mit späteren Inputs, Zustand oder Views.",
     "Snippets handeln als Aufrufer. onInput handelt als sein Actor. Eine aufgerufene Actor-Funktion besitzt dessen Zustand, führt weitere Run-Aufrufe aber unter der Identität des Aufrufers aus. Bereits abgeschlossene Funktionsaufrufe bleiben bei einem späteren Fehler erhalten; Wiederholungen prüfen den bestehenden Aufbau.",
@@ -150,7 +149,7 @@ export function buildHomepageLlms(catalog: HomepageCatalog, extensions: Homepage
   const referenceText = reference(catalog);
   const developerText = developer(extensions);
   const setupText = runSetup(catalog);
-  const httpText = managementHttpReference();
+  const apiText = catalog.rpcReference;
   const index = document([
     "# RAgents",
     "> Programmierbarer AI-Harness mit Chat, mehreren Agenten, TypeScript-Actors und kleinen Bedienoberflächen auf einem Canvas.",
@@ -163,19 +162,19 @@ export function buildHomepageLlms(catalog: HomepageCatalog, extensions: Homepage
     "## Referenzen",
     "- [Bausteine](reference.md): Alle statischen Werkzeuge und Operationen mit Ein- und Ergebnisschemata, Actor-Programm-Vorlagen und Einstiege.\n- [Entwickeln](developer.md): Erweiterungspunkte, Beispiele und aktuelle Vertragsflächen.",
     "## Externe Clients",
-    "- [HTTP-API](http-api.md): Management-Aufrufe mit Eingaben, Ergebnissen und Fehlern aus den ausführbaren Routenschemata.\n- [OpenAPI](openapi.json): Maschinenlesbarer HTTP-Vertrag aus denselben Quellen.",
+    "- [JSON-RPC-API](rpc-api.md): Methoden und Kanäle mit Eingaben, Ergebnissen und Fehlern aus den ausführbaren Verträgen.\n- [OpenRPC](openrpc.json): Maschinenlesbarer Vertrag aus denselben Quellen.",
     "## Optional",
-    "- [Gesamte Textreferenz](llms-full.txt): Guide, Run-Anleitung, Baustein- und Entwicklerreferenz sowie HTTP-API zusammen in einer Datei.",
+    "- [Gesamte Textreferenz](llms-full.txt): Guide, Run-Anleitung, Baustein- und Entwicklerreferenz sowie JSON-RPC-API zusammen in einer Datei.",
   ]);
   return {
     ...guideMarkdownOutputs(guide),
     "llms.txt": index,
-    "llms-full.txt": document(["# RAgents: vollständige Textreferenz", ...guide.chapters.map((chapter) => chapter.markdown.trimEnd()), setupText.trimEnd(), referenceText.trimEnd(), developerText.trimEnd(), httpText.trimEnd()]),
+    "llms-full.txt": document(["# RAgents: vollständige Textreferenz", ...guide.chapters.map((chapter) => chapter.markdown.trimEnd()), setupText.trimEnd(), referenceText.trimEnd(), developerText.trimEnd(), apiText.trimEnd()]),
     "reference.md": referenceText,
     "developer.md": developerText,
     "run-setup.md": setupText,
     "run-api.d.ts": catalog.serverApiDeclarations,
-    "http-api.md": httpText,
-    "openapi.json": JSON.stringify(managementOpenApi(), null, 2) + "\n",
+    "rpc-api.md": apiText,
+    "openrpc.json": JSON.stringify(catalog.openRpc, null, 2) + "\n",
   };
 }

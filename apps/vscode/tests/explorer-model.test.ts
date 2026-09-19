@@ -11,6 +11,7 @@ const state = (overrides: Partial<ExplorerState> = {}): ExplorerState => ({
   runs: [runSummaryFrom(session(), runView())],
   selectedRunId: "run-a",
   centerElements: () => new Set(),
+  workspaceClient: { kind: "idle" },
   ...overrides,
 });
 
@@ -22,6 +23,9 @@ test("connection problems become notice rows with a command instead of an empty 
   assert.equal(login[1]?.kind === "notice" && login[1].label, "Zugangstoken eingeben");
   assert.equal(rootNodes(state({ runs: [] }))[0]?.label, "Noch keine Runs");
   assert.equal(rootNodes(state({ streamMessage: "abgebrochen" }))[0]?.label, "Live-Verbindung unterbrochen");
+  const failed = rootNodes(state({ workspaceClient: { kind: "failed", message: "Der Server antwortete mit 500." } }))[0];
+  assert.equal(failed?.kind === "notice" && failed.tooltip, "Der Server antwortete mit 500.");
+  assert.equal(failed?.label, "Arbeitsplatz nicht angemeldet");
 });
 
 test("runs carry state, questions and colour; their sections expose actors, apps, files and the journal", () => {

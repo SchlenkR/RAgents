@@ -1,7 +1,6 @@
 import { unavailableActorPrograms } from "./actor-programs-fixture.ts";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -9,7 +8,10 @@ import {
   DirectoryArtifactContents, DomainError, Journal, LiveBus, Orchestration, StartOptionContributionRegistry, StaticModelCatalog,
 } from "@aicontainer/ragents";
 import { testServices } from "../../../packages/ragents/tests/support.ts";
-import { createChatHandler } from "../src/chat-handler.ts";
+import { attachmentContentPath, coreContracts } from "../src/api/contracts.ts";
+import { coreMethods } from "../src/api/core-methods.ts";
+import { attachmentContentRoute } from "../src/api/delivery.ts";
+import { coreSources, startRpcServer } from "./rpc-fixture.ts";
 import { MAX_CHAT_ATTACHMENT_BYTES, MAX_CHAT_REQUEST_BYTES, parseChatAttachments } from "../src/chat-attachments.ts";
 import type { ChatAttachmentInput, ChatEvent } from "../src/chat-events.ts";
 import type { Engine } from "../src/ragents/engine.ts";
@@ -94,7 +96,7 @@ test("attachment-only inputs preserve bytes and replay metadata while journals c
     const artifactId = view.inputs[0].artifactIds[0];
     const loaded = data.session.attachment(artifactId);
     assert.deepEqual(Buffer.from(loaded.content), Buffer.from(sent.data, "base64"));
-    assert.deepEqual(loaded.attachment, { name: "photo.png", mediaType: "image/png", size: 4, url: `/chat/attachment-run/attachments/${artifactId}` });
+    assert.deepEqual(loaded.attachment, { name: "photo.png", mediaType: "image/png", size: 4, url: attachmentContentPath("attachment-run", artifactId) });
     const source = await readFile(path.join(data.directory, "runs", "attachment-run", "journal.jsonl"), "utf8");
     assert.equal(source.includes(sent.data), false);
     const restored = data.create();
@@ -160,51 +162,48 @@ test("script actors reject chat before publishing attachments or inputs while pr
   } finally { await data.close(); }
 });
 
-test("chat HTTP awaits enqueue, serves attachments and rejects oversized request bodies", async () => {
+test("chat methods await enqueue, attachments are delivered as files and oversized requests are refused", async (t) => {
   const data = await fixture(["text", "image"]);
-  const handler = createChatHandler({ manager: { get: async () => data.session, list: async () => [], delete: async () => undefined } });
-  const server = createServer((request, response) => { void handler(request, response); });
-  try {
-    await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
-    const address = server.address();
-    assert.ok(address && typeof address !== "string");
-    const base = `http://127.0.0.1:${address.port}/chat/attachment-run`;
-    const sent = attachment();
-    const response = await fetch(`${base}/send`, { method: "POST", body: JSON.stringify({ text: "", attachments: [sent] }) });
-    assert.equal(response.status, 202);
-    const view = data.runtime.view("attachment-run");
-    assert.equal(view.inputs.length, 1, "the input exists before HTTP acceptance");
-    const file = await fetch(`${base}/attachments/${view.inputs[0].artifactIds[0]}`);
-    assert.equal(file.status, 200);
-    assert.equal(file.headers.get("content-type"), "image/png");
-    assert.deepEqual(Buffer.from(await file.arrayBuffer()), Buffer.from(sent.data, "base64"));
-    const download = await fetch(`${base}/attachments/${view.inputs[0].artifactIds[0]}?download=1`);
-    assert.match(download.headers.get("content-disposition") ?? "", /^attachment;/);
-    await download.arrayBuffer();
-    const capabilities = await fetch(`${base}/capabilities?actor=primary`);
-    assert.deepEqual(await capabilities.json(), { input: ["text", "image"], model: "test/example" });
-    const actorSend = await fetch(`${base}/actors/${view.primaryActorId}/send`, { method: "POST", body: JSON.stringify({ text: "Direkt", attachments: [sent] }) });
-    assert.equal(actorSend.status, 202);
-    assert.equal(data.runtime.view("attachment-run").inputs.length, 2);
-    const unsupported = await fetch(`${base}/send`, { method: "POST", body: JSON.stringify({ attachments: [attachment("clip.mp4", "video/mp4")] }) });
-    assert.equal(unsupported.status, 400);
-    const oversized = await fetch(`${base}/send`, { method: "POST", body: " ".repeat(MAX_CHAT_REQUEST_BYTES + 1) });
-    assert.equal(oversized.status, 413);
-    const scriptView = data.runtime.createScriptActor({ actorId: view.ownerId, commandId: "script" }, view.id, {
-      handle: "program", displayName: "Program", grants: [], toolNames: [],
-    });
-    const script = scriptView.actors.find((actor) => actor.kind === "script")!;
-    data.runtime.selectPrimaryActor({ actorId: view.ownerId, commandId: "primary-script" }, view.id, script.id);
-    const before = structuredClone(data.runtime.events(view.id));
-    for (const route of ["/send", `/actors/${script.id}/send`, `/actors/${encodeURIComponent(`@${script.handle}`)}/send`]) {
-      const rejected = await fetch(base + route, { method: "POST", body: JSON.stringify({ text: "Starte erneut", attachments: [sent] }) });
-      assert.equal(rejected.status, 400);
-      assert.equal((await rejected.json() as { code: string }).code, "actor-chat-unsupported");
-      assert.deepEqual(data.runtime.events(view.id), before);
-    }
-  } finally {
-    server.closeAllConnections();
-    if (server.listening) await new Promise<void>((resolve) => server.close(() => resolve()));
-    await data.close();
+  t.after(() => data.close());
+  const provider = { get: async () => data.session, list: async () => [], delete: async () => undefined };
+  const server = await startRpcServer(t, {
+    methods: coreMethods(coreSources(provider)),
+    routes: [attachmentContentRoute(provider, undefined)],
+    maxBodyBytes: MAX_CHAT_REQUEST_BYTES,
+  });
+  const runId = "attachment-run";
+  const sent = attachment();
+  assert.equal((await server.call(coreContracts.chat.send.id, { runId, text: "", attachments: [sent] })).result, null);
+  const view = data.runtime.view(runId);
+  assert.equal(view.inputs.length, 1, "the input exists before the answer");
+  const file = await fetch(`${server.url}${attachmentContentPath(runId, view.inputs[0].artifactIds[0])}`);
+  assert.equal(file.status, 200);
+  assert.equal(file.headers.get("content-type"), "image/png");
+  assert.deepEqual(Buffer.from(await file.arrayBuffer()), Buffer.from(sent.data, "base64"));
+  const download = await fetch(`${server.url}${attachmentContentPath(runId, view.inputs[0].artifactIds[0])}?download=1`);
+  assert.match(download.headers.get("content-disposition") ?? "", /^attachment;/);
+  await download.arrayBuffer();
+  assert.deepEqual((await server.call(coreContracts.chat.capabilities.id, { runId, actor: "primary" })).result, { input: ["text", "image"], model: "test/example" });
+  assert.equal((await server.call(coreContracts.chat.sendToActor.id, { runId, actorId: view.primaryActorId, text: "Direkt", attachments: [sent] })).result, null);
+  assert.equal(data.runtime.view(runId).inputs.length, 2);
+  const unsupported = await server.call(coreContracts.chat.send.id, { runId, attachments: [attachment("clip.mp4", "video/mp4")] });
+  assert.equal((unsupported.error?.data as { status: number }).status, 400);
+  const oversized = await fetch(`${server.url}/rpc`, { method: "POST", headers: { "content-type": "application/json" }, body: " ".repeat(MAX_CHAT_REQUEST_BYTES + 1) });
+  assert.equal(oversized.status, 413);
+  const scriptView = data.runtime.createScriptActor({ actorId: view.ownerId, commandId: "script" }, view.id, {
+    handle: "program", displayName: "Program", grants: [], toolNames: [],
+  });
+  const script = scriptView.actors.find((actor) => actor.kind === "script")!;
+  data.runtime.selectPrimaryActor({ actorId: view.ownerId, commandId: "primary-script" }, view.id, script.id);
+  const before = structuredClone(data.runtime.events(view.id));
+  const attempts = [
+    server.call(coreContracts.chat.send.id, { runId, text: "Starte erneut", attachments: [sent] }),
+    server.call(coreContracts.chat.sendToActor.id, { runId, actorId: script.id, text: "Starte erneut", attachments: [sent] }),
+    server.call(coreContracts.chat.sendToActor.id, { runId, actorId: `@${script.handle}`, text: "Starte erneut", attachments: [sent] }),
+  ];
+  for (const rejected of await Promise.all(attempts)) {
+    assert.equal((rejected.error?.data as { code: string; status: number }).code, "actor-chat-unsupported");
+    assert.equal((rejected.error?.data as { status: number }).status, 400);
+    assert.deepEqual(data.runtime.events(view.id), before);
   }
 });

@@ -4,8 +4,8 @@ import { existsSync } from "node:fs";
 import { chmod, mkdir, open, readFile, readdir, realpath, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import type { ChatSessionLike, ChatSessionProvider, SessionInfo } from "./chat-handler.js";
-import { EventHub } from "./event-hub.js";
-import { DomainError, isRunId, unrestrictedAccess, type AccessContext, type PluginHost, type ServiceToken } from "@aicontainer/ragents";
+import { DomainError, isRunId, unrestrictedAccess, type AccessContext, type HttpRouteContribution, type MethodContribution, type PluginHost, type ServiceToken } from "@aicontainer/ragents";
+import type { GlobalRunPolicy } from "./api/rights.js";
 import { configuredAnonymousUser, configuredUsers } from "./config-file.js";
 import { accessibleRunView } from "./access-projection.js";
 import { accessServiceToken } from "./access-service.js";
@@ -52,7 +52,6 @@ export class RunSessionProvider implements ChatSessionProvider {
     onError: (error) => console.warn("Titel-Kompaktierung fehlgeschlagen:", error),
   });
   readonly plugins: PluginHost;
-  readonly eventHub = new EventHub();
   private shutdownPromise: Promise<void> | undefined;
   private engine: Engine | undefined;
   private globalReset: Promise<void> | undefined;
@@ -64,7 +63,6 @@ export class RunSessionProvider implements ChatSessionProvider {
       runtime: () => this.requireEngine().runtime,
       sessionWorkspaceFor: (runId) => this.sessionWorkspace(runId, () => {}),
       sessions: () => this.sessionManagement(),
-      eventHub: this.eventHub,
     });
   }
 
@@ -300,8 +298,17 @@ export class RunSessionProvider implements ChatSessionProvider {
     return id;
   }
 
-  runtimeRoutes(req: IncomingMessage, res: ServerResponse, prefix: string, access: AccessContext = unrestrictedAccess): Promise<boolean> {
-    return this.requireEngine().routes(req, res, prefix, (view) => accessibleRunView(view, access));
+  engineMethods(): readonly MethodContribution[] {
+    return this.requireEngine().methods;
+  }
+
+  engineArtifactRoute(): HttpRouteContribution {
+    return this.requireEngine().artifactRoute;
+  }
+
+  globalPolicy(): GlobalRunPolicy | undefined {
+    const globalChat = this.plugins.optionalService(globalChatToken);
+    return globalChat?.access ? { runId: globalChat.runId, ...globalChat.access } : undefined;
   }
 
   runView(id: string, access: AccessContext = unrestrictedAccess): unknown {
@@ -328,10 +335,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 
   isPluginApiPath(pathname: string): boolean {
-    return pathname.startsWith("/ragents/api/")
-      || pathname === "/api/settings"
-      || pathname.startsWith("/api/settings/")
-      || this.plugins.isApiPath(pathname);
+    return pathname === "/rpc" || pathname === "/rpc/stream" || pathname.startsWith("/files/") || this.plugins.isApiPath(pathname);
   }
 
   pluginRoutes(req: IncomingMessage, res: ServerResponse, url: URL, access?: AccessContext): Promise<boolean> {
@@ -492,7 +496,6 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 
   shutdown(): Promise<void> {
-    this.eventHub?.close();
     this.shutdownPromise ??= this.shutdownInner();
     return this.shutdownPromise;
   }

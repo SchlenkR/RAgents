@@ -1,6 +1,7 @@
 import { DomainError, type JournalEvent, type RunView } from "@aicontainer/ragents";
 import { applyEvent, type ChatEvent, type Message } from "../chat-events.js";
 import { ChatTextPositions } from "./chat-text-positions.js";
+import { attachmentContentPath } from "../api/contracts.js";
 import { journalChatEventsOf, questionAnswerEventOf, questionEventOf } from "./journal-chat-events.js";
 
 export interface ActorConversations {
@@ -60,7 +61,7 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
           const artifact = view.artifacts.find((entry) => entry.id === id);
           if (!artifact) throw new Error(`Der Anhang ${id} fehlt in der Laufansicht.`);
           return { name: artifact.title, mediaType: artifact.mediaType, size: artifact.size,
-            url: `/chat/${encodeURIComponent(view.id)}/attachments/${encodeURIComponent(id)}` };
+            url: attachmentContentPath(view.id, id) };
         });
         actors[input.actorId].push({ key: event.eventId, role: fromOwner ? "user" : "assistant", sender: input.enqueuedBy,
           text: input.content, closed: true, at, ...(attachments.length ? { attachments } : {}),

@@ -1,0 +1,3708 @@
+{
+  "openrpc": "1.3.0",
+  "info": {
+    "title": "RAgents JSON-RPC-API",
+    "version": "1",
+    "description": "Dieses Profil verlangt keine Anmeldung. Profile mit users verwenden Sitzungscookies; ohne users kann ACCESS_TOKEN den bisherigen Zugang schützen."
+  },
+  "servers": [
+    {
+      "name": "http",
+      "url": "/rpc"
+    },
+    {
+      "name": "stdio",
+      "url": "stdio:"
+    }
+  ],
+  "methods": [
+    {
+      "name": "ragents.actor-programs.action",
+      "description": "Eine Funktion einer Actor-Ansicht starten; die Antwort ist der eingereihte Aufruf.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "appId",
+              "revision",
+              "actionId",
+              "requestId",
+              "input"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                "description": "Kennung des Runs"
+              },
+              "appId": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_-]{0,129}$",
+                "description": "Kennung der Actor-Ansicht oder des Programms"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$",
+                "description": "Revision des aktiven Actor-Pakets"
+              },
+              "actionId": {
+                "type": "string",
+                "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$",
+                "description": "Kennung der Funktion"
+              },
+              "requestId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "Eigene Kennung des Aufrufers; wiederholte Aufrufe liefern denselben Aufruf"
+              },
+              "input": {
+                "description": "Eingabe der Funktion nach ihrem eigenen Schema"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "ActorFunctionInvocation"
+        }
+      },
+      "x-owner": "ragents.actor-programs",
+      "x-rights": [
+        "runs.read",
+        "runs.write"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.actor-programs.apps",
+      "description": "Die Actor-Ansichten eines Runs mit Zustand und Aufrufen; die Werkzeugliste bleibt ohne runs.inspect leer.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                "description": "Kennung des Runs"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "apps",
+            "tools"
+          ],
+          "properties": {
+            "apps": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "x-typescript-type": "ActorViewListing"
+              }
+            },
+            "tools": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true,
+                "x-typescript-type": "ActorLocalTool"
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-owner": "ragents.actor-programs",
+      "x-rights": [
+        "runs.read"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.actor-programs.function",
+      "description": "Eine Funktion eines Actors unabhängig von seinen Ansichten starten.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "actorHandle",
+              "revision",
+              "functionId",
+              "requestId",
+              "input"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                "description": "Kennung des Runs"
+              },
+              "actorHandle": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                "description": "Handle des Actors ohne @"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$",
+                "description": "Revision des aktiven Actor-Pakets"
+              },
+              "functionId": {
+                "type": "string",
+                "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$",
+                "description": "Kennung der Funktion"
+              },
+              "requestId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "Eigene Kennung des Aufrufers; wiederholte Aufrufe liefern denselben Aufruf"
+              },
+              "input": {
+                "description": "Eingabe der Funktion nach ihrem eigenen Schema"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "ActorFunctionInvocation"
+        }
+      },
+      "x-owner": "ragents.actor-programs",
+      "x-rights": [
+        "runs.read",
+        "runs.write",
+        "runs.inspect"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.actor-programs.function-invocation",
+      "description": "Den Stand eines Aufrufs einer Actor-Funktion lesen.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "actorHandle",
+              "invocationId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                "description": "Kennung des Runs"
+              },
+              "actorHandle": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{0,63}$",
+                "description": "Handle des Actors ohne @"
+              },
+              "invocationId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,100}$",
+                "description": "Kennung des Funktionsaufrufs"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "ActorFunctionInvocation"
+        }
+      },
+      "x-owner": "ragents.actor-programs",
+      "x-rights": [
+        "runs.read",
+        "runs.inspect"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.actor-programs.invocation",
+      "description": "Den Stand eines Aufrufs einer Actor-Ansicht lesen.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "appId",
+              "invocationId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                "description": "Kennung des Runs"
+              },
+              "appId": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_-]{0,129}$",
+                "description": "Kennung der Actor-Ansicht oder des Programms"
+              },
+              "invocationId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,100}$",
+                "description": "Kennung des Funktionsaufrufs"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "ActorFunctionInvocation"
+        }
+      },
+      "x-owner": "ragents.actor-programs",
+      "x-rights": [
+        "runs.read"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.actor-programs.source",
+      "description": "Den Quellcode eines Actor-Programms lesen.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "moduleId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{1,64}$",
+                "description": "Kennung des Runs"
+              },
+              "moduleId": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_-]{0,129}$",
+                "description": "Kennung der Actor-Ansicht oder des Programms"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "files"
+          ],
+          "properties": {
+            "files": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "path",
+                  "content"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "content": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-owner": "ragents.actor-programs",
+      "x-rights": [
+        "runs.read",
+        "runs.inspect"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.ask.answer",
+      "description": "Eine Rückfrage des Laufs beantworten oder verwerfen. Rechte: runs.read und runs.write.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "actionId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              },
+              "actionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80,
+                "description": "Kennung der Frage"
+              },
+              "answer": {
+                "type": "string",
+                "description": "Die Antwort des Benutzers"
+              },
+              "dismiss": {
+                "type": "boolean",
+                "description": "true verwirft die Frage ohne Antwort"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "null"
+        }
+      },
+      "x-owner": "ragents.ask",
+      "x-rights": [
+        "runs.read",
+        "runs.write"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.chat.actorHistory",
+      "description": "Die Gesprächsverläufe aller Actors des Runs, ohne runs.inspect ohne Werkzeugdetails. Recht: runs.read.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "ActorConversations"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.chat.capabilities",
+      "description": "Welche Anhänge das Modell eines Actors annimmt; der Modellname erscheint nur mit runs.inspect. Recht: runs.read.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              },
+              "actor": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "ChatAttachmentCapabilities"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.chat.send",
+      "description": "Eine Nachricht an den Koordinator des Runs; startet einen neuen Run oder funkt in einen laufenden. Rechte: runs.read und runs.write, für einen neuen Run runs.create; beim globalen Chat dessen Rechte.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              },
+              "text": {
+                "type": "string"
+              },
+              "attachments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "mediaType",
+                    "data"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "mediaType": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "data": {
+                      "type": "string",
+                      "description": "Inhalt als Base64"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "userLocation": {
+                "type": "object",
+                "additionalProperties": true,
+                "x-typescript-type": "ChatUserLocation"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "null"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.chat.sendToActor",
+      "description": "Eine Nachricht an einen bestimmten LLM-Actor des Runs. Rechte wie ragents.chat.send.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "actorId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              },
+              "actorId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "text": {
+                "type": "string"
+              },
+              "attachments": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "mediaType",
+                    "data"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "mediaType": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "data": {
+                      "type": "string",
+                      "description": "Inhalt als Base64"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "null"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.chat.start",
+      "description": "Einen Run über einen Skill- oder Run-Script-Einstieg starten, ohne Nachricht. Rechte: runs.read, runs.write und die Freigabe des Einstiegs.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "entry"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              },
+              "entry": {
+                "type": "string",
+                "minLength": 1
+              },
+              "input": {}
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "null"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.chat.stop",
+      "description": "Den laufenden Turn des Koordinators abbrechen. Rechte: runs.read und runs.write.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "null"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.documents.files",
+      "description": "Die Dateiablage eines Laufs als Gruppen und lose Dateien. Recht: runs.read.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "groups",
+            "loose",
+            "truncated"
+          ],
+          "properties": {
+            "groups": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "directory",
+                  "files"
+                ],
+                "properties": {
+                  "directory": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "files": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": [
+                        "path",
+                        "size",
+                        "modifiedAt"
+                      ],
+                      "properties": {
+                        "path": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "size": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "modifiedAt": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "loose": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "path",
+                  "size",
+                  "modifiedAt"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "size": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "modifiedAt": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "truncated": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-owner": "ragents.documents",
+      "x-rights": [
+        "runs.read"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.external.set",
+      "description": "Den Zugang von außen ein- oder ausschalten; nur vom eigenen Rechner. Recht: settings.write.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "state"
+            ],
+            "properties": {
+              "state": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "on"
+                  },
+                  {
+                    "type": "string",
+                    "const": "off"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "external"
+          ],
+          "properties": {
+            "external": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [
+        "settings.write"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.lsp-fsharp.snapshot",
+      "description": "Zustand und Diagnosen des Sprachservers ragents.lsp-fsharp in einem Lauf. Rechte: runs.read und ragents.lsp-fsharp.read.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "LanguageServerSnapshot"
+        }
+      },
+      "x-owner": "ragents.lsp-fsharp",
+      "x-rights": [
+        "runs.read",
+        "ragents.lsp-fsharp.read"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.lsp-roslyn.snapshot",
+      "description": "Zustand und Diagnosen des Sprachservers ragents.lsp-roslyn in einem Lauf. Rechte: runs.read und ragents.lsp-roslyn.read.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "LanguageServerSnapshot"
+        }
+      },
+      "x-owner": "ragents.lsp-roslyn",
+      "x-rights": [
+        "runs.read",
+        "ragents.lsp-roslyn.read"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.lsp-typescript.snapshot",
+      "description": "Zustand und Diagnosen des Sprachservers ragents.lsp-typescript in einem Lauf. Rechte: runs.read und ragents.lsp-typescript.read.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "LanguageServerSnapshot"
+        }
+      },
+      "x-owner": "ragents.lsp-typescript",
+      "x-rights": [
+        "runs.read",
+        "ragents.lsp-typescript.read"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.overseer.createRun",
+      "description": "Einen Run mit serverseitiger ID und Titel anlegen. Genau eine Startform: message, installiertes script (Kennung oder eindeutiger Titel), oder packageDirectory (vorhandenes lokales Run-Script-Paket). input ist nur bei script/packageDirectory erlaubt. Das Ergebnis wartet auf Vorbereitung, Check, Test und Installation; accepted bestätigt noch kein fertiges Modellergebnis.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "anyOf": [
+              {
+                "type": "object",
+                "required": [
+                  "title",
+                  "message"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  },
+                  "options": {
+                    "type": "object",
+                    "patternProperties": {
+                      "^.*$": {}
+                    }
+                  },
+                  "message": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": [
+                  "title",
+                  "script"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  },
+                  "options": {
+                    "type": "object",
+                    "patternProperties": {
+                      "^.*$": {}
+                    }
+                  },
+                  "script": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  },
+                  "input": {}
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": [
+                  "title",
+                  "packageDirectory"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "pattern": "\\S"
+                  },
+                  "options": {
+                    "type": "object",
+                    "patternProperties": {
+                      "^.*$": {}
+                    }
+                  },
+                  "packageDirectory": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Absoluter Pfad eines RUN.md/setup.ts/tests.json-Pakets auf dem Server. Ein lokaler Shellclient setzt seinen tatsächlich vorhandenen Paketpfad ein; dies ist kein Upload."
+                  },
+                  "input": {}
+                },
+                "additionalProperties": false
+              }
+            ]
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "runId",
+            "title",
+            "reference",
+            "accepted"
+          ],
+          "properties": {
+            "runId": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "reference": {
+              "type": "string"
+            },
+            "accepted": {
+              "type": "boolean",
+              "const": true
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-owner": "ragents.overseer",
+      "x-rights": [
+        "runs.read",
+        "runs.write",
+        "runs.create"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.overseer.listRuns",
+      "description": "Vorhandene Unterhaltungen des Profils mit stabilen Referenzen auflisten; der globale Chat gehört nicht zu dieser Liste.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "runId",
+              "title",
+              "reference",
+              "updatedAt"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "reference": {
+                "type": "string"
+              },
+              "createdAt": {
+                "type": "number"
+              },
+              "updatedAt": {
+                "type": "number"
+              },
+              "running": {
+                "type": "boolean"
+              },
+              "metadata": {
+                "type": "object",
+                "patternProperties": {
+                  "^.*$": {}
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "x-owner": "ragents.overseer",
+      "x-rights": [
+        "runs.read"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.overseer.readCatalog",
+      "description": "Installierte Start-Einstiege und Startoptionen mit Eingabeschemata, Standardwerten und Wählbarkeit lesen. createRun startet Nachrichten, installierte Scripts oder lokale Pakete via packageDirectory. Skills liefern bearbeitbare Aufträge für message; dabei den Skillnamen als Arbeitsanleitung nennen.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "entries",
+            "options"
+          ],
+          "properties": {
+            "entries": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "title",
+                  "description",
+                  "action"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "action": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": "skill"
+                      },
+                      {
+                        "type": "string",
+                        "const": "script"
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": true,
+                "x-typescript-type": "PublicStartEntry"
+              }
+            },
+            "options": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "schema",
+                  "value",
+                  "selectable",
+                  "presentation"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "schema": {
+                    "type": "object",
+                    "patternProperties": {
+                      "^.*$": {}
+                    }
+                  },
+                  "value": {},
+                  "selectable": {
+                    "type": "boolean"
+                  },
+                  "presentation": {}
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-owner": "ragents.overseer",
+      "x-rights": [
+        "runs.read",
+        "runs.inspect"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.overseer.readEvents",
+      "description": "Das vollständige Journal seitenweise in Sequenzreihenfolge lesen. Solange hasMore wahr ist, nextAfter als after der nächsten Anfrage verwenden. type filtert einen exakten Ereignistyp.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "run"
+            ],
+            "properties": {
+              "run": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512,
+                "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Lauf 1."
+              },
+              "after": {
+                "type": "integer",
+                "minimum": 0,
+                "default": 0
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 200,
+                "default": 50
+              },
+              "type": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "run.created"
+                  },
+                  {
+                    "type": "string",
+                    "const": "run.forked"
+                  },
+                  {
+                    "type": "string",
+                    "const": "run.primary-actor-selected"
+                  },
+                  {
+                    "type": "string",
+                    "const": "run.title-changed"
+                  },
+                  {
+                    "type": "string",
+                    "const": "agent.spawned"
+                  },
+                  {
+                    "type": "string",
+                    "const": "script.created"
+                  },
+                  {
+                    "type": "string",
+                    "const": "actor.input.enqueued"
+                  },
+                  {
+                    "type": "string",
+                    "const": "turn.started"
+                  },
+                  {
+                    "type": "string",
+                    "const": "turn.finished"
+                  },
+                  {
+                    "type": "string",
+                    "const": "turn.interrupted"
+                  },
+                  {
+                    "type": "string",
+                    "const": "model.output.completed"
+                  },
+                  {
+                    "type": "string",
+                    "const": "model.reasoning.completed"
+                  },
+                  {
+                    "type": "string",
+                    "const": "runtime.output.recorded"
+                  },
+                  {
+                    "type": "string",
+                    "const": "tool.call.started"
+                  },
+                  {
+                    "type": "string",
+                    "const": "tool.call.source"
+                  },
+                  {
+                    "type": "string",
+                    "const": "tool.call.completed"
+                  },
+                  {
+                    "type": "string",
+                    "const": "tool.call.failed"
+                  },
+                  {
+                    "type": "string",
+                    "const": "actor.tools.opened"
+                  },
+                  {
+                    "type": "string",
+                    "const": "actor.stopped"
+                  },
+                  {
+                    "type": "string",
+                    "const": "actor.restarted"
+                  },
+                  {
+                    "type": "string",
+                    "const": "subscription.created"
+                  },
+                  {
+                    "type": "string",
+                    "const": "subscription.removed"
+                  },
+                  {
+                    "type": "string",
+                    "const": "subscription.failed"
+                  },
+                  {
+                    "type": "string",
+                    "const": "plugin.state-replaced"
+                  },
+                  {
+                    "type": "string",
+                    "const": "plugin.state-patched"
+                  },
+                  {
+                    "type": "string",
+                    "const": "action.proposed"
+                  },
+                  {
+                    "type": "string",
+                    "const": "action.resolved"
+                  },
+                  {
+                    "type": "string",
+                    "const": "artifact.published"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "runId",
+            "title",
+            "reference",
+            "events",
+            "nextAfter",
+            "hasMore"
+          ],
+          "properties": {
+            "runId": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "reference": {
+              "type": "string"
+            },
+            "events": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "eventId",
+                  "runId",
+                  "sequence",
+                  "schemaVersion",
+                  "occurredAt",
+                  "actorId",
+                  "commandId",
+                  "correlationId",
+                  "causationId",
+                  "type",
+                  "payload"
+                ],
+                "properties": {
+                  "eventId": {
+                    "type": "string"
+                  },
+                  "runId": {
+                    "type": "string"
+                  },
+                  "sequence": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "schemaVersion": {
+                    "type": "number",
+                    "const": 3
+                  },
+                  "occurredAt": {
+                    "type": "string"
+                  },
+                  "actorId": {
+                    "type": "string"
+                  },
+                  "commandId": {
+                    "type": "string"
+                  },
+                  "correlationId": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "causationId": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "type": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": "run.created"
+                      },
+                      {
+                        "type": "string",
+                        "const": "run.forked"
+                      },
+                      {
+                        "type": "string",
+                        "const": "run.primary-actor-selected"
+                      },
+                      {
+                        "type": "string",
+                        "const": "run.title-changed"
+                      },
+                      {
+                        "type": "string",
+                        "const": "agent.spawned"
+                      },
+                      {
+                        "type": "string",
+                        "const": "script.created"
+                      },
+                      {
+                        "type": "string",
+                        "const": "actor.input.enqueued"
+                      },
+                      {
+                        "type": "string",
+                        "const": "turn.started"
+                      },
+                      {
+                        "type": "string",
+                        "const": "turn.finished"
+                      },
+                      {
+                        "type": "string",
+                        "const": "turn.interrupted"
+                      },
+                      {
+                        "type": "string",
+                        "const": "model.output.completed"
+                      },
+                      {
+                        "type": "string",
+                        "const": "model.reasoning.completed"
+                      },
+                      {
+                        "type": "string",
+                        "const": "runtime.output.recorded"
+                      },
+                      {
+                        "type": "string",
+                        "const": "tool.call.started"
+                      },
+                      {
+                        "type": "string",
+                        "const": "tool.call.source"
+                      },
+                      {
+                        "type": "string",
+                        "const": "tool.call.completed"
+                      },
+                      {
+                        "type": "string",
+                        "const": "tool.call.failed"
+                      },
+                      {
+                        "type": "string",
+                        "const": "actor.tools.opened"
+                      },
+                      {
+                        "type": "string",
+                        "const": "actor.stopped"
+                      },
+                      {
+                        "type": "string",
+                        "const": "actor.restarted"
+                      },
+                      {
+                        "type": "string",
+                        "const": "subscription.created"
+                      },
+                      {
+                        "type": "string",
+                        "const": "subscription.removed"
+                      },
+                      {
+                        "type": "string",
+                        "const": "subscription.failed"
+                      },
+                      {
+                        "type": "string",
+                        "const": "plugin.state-replaced"
+                      },
+                      {
+                        "type": "string",
+                        "const": "plugin.state-patched"
+                      },
+                      {
+                        "type": "string",
+                        "const": "action.proposed"
+                      },
+                      {
+                        "type": "string",
+                        "const": "action.resolved"
+                      },
+                      {
+                        "type": "string",
+                        "const": "artifact.published"
+                      }
+                    ]
+                  },
+                  "payload": {
+                    "type": "object",
+                    "properties": {},
+                    "additionalProperties": true,
+                    "x-typescript-type": "EventPayloads[EventType]",
+                    "x-source": "packages/ragents/src/domain/events.ts",
+                    "description": "Ungekürzter Domänenwert EventPayloads[EventType]; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "nextAfter": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "hasMore": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-owner": "ragents.overseer",
+      "x-rights": [
+        "runs.read",
+        "runs.inspect"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.overseer.readOpenRpc",
+      "description": "OpenRPC 1.3 direkt aus denselben Verträgen lesen.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "patternProperties": {
+            "^.*$": {}
+          }
+        }
+      },
+      "x-owner": "ragents.overseer",
+      "x-rights": [
+        "runs.read",
+        "runs.inspect"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.overseer.readReference",
+      "description": "Lesbare Referenz aller registrierten Methoden und Kanäle direkt aus ihren Verträgen lesen.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "x-owner": "ragents.overseer",
+      "x-rights": [
+        "runs.read",
+        "runs.inspect"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.overseer.readRun",
+      "description": "Die aktuelle ungekürzte RunView lesen; verschachtelte Domänenwerte sind als offene JSON-Objekte dokumentiert.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "run"
+            ],
+            "properties": {
+              "run": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512,
+                "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Lauf 1."
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "id",
+            "revision",
+            "title",
+            "ownerId",
+            "primaryActorId",
+            "createdAt",
+            "forkedFrom",
+            "actors",
+            "inputs",
+            "turns",
+            "subscriptions",
+            "pluginStates",
+            "actions",
+            "artifacts"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "revision": {
+              "type": "integer"
+            },
+            "title": {
+              "type": "string"
+            },
+            "ownerId": {
+              "type": "string"
+            },
+            "primaryActorId": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "createdAt": {
+              "type": "string"
+            },
+            "forkedFrom": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "required": [
+                    "runId",
+                    "sequence"
+                  ],
+                  "properties": {
+                    "runId": {
+                      "type": "string"
+                    },
+                    "sequence": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "actors": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true,
+                "x-typescript-type": "Actor",
+                "x-source": "packages/ragents/src/domain/model.ts",
+                "description": "Ungekürzter Domänenwert Actor; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+              }
+            },
+            "inputs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true,
+                "x-typescript-type": "ActorInput",
+                "x-source": "packages/ragents/src/domain/model.ts",
+                "description": "Ungekürzter Domänenwert ActorInput; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+              }
+            },
+            "turns": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true,
+                "x-typescript-type": "Turn",
+                "x-source": "packages/ragents/src/domain/model.ts",
+                "description": "Ungekürzter Domänenwert Turn; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+              }
+            },
+            "subscriptions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true,
+                "x-typescript-type": "EventSubscription",
+                "x-source": "packages/ragents/src/domain/model.ts",
+                "description": "Ungekürzter Domänenwert EventSubscription; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+              }
+            },
+            "pluginStates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true,
+                "x-typescript-type": "PluginState",
+                "x-source": "packages/ragents/src/domain/model.ts",
+                "description": "Ungekürzter Domänenwert PluginState; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+              }
+            },
+            "actions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true,
+                "x-typescript-type": "Action",
+                "x-source": "packages/ragents/src/domain/model.ts",
+                "description": "Ungekürzter Domänenwert Action; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+              }
+            },
+            "artifacts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": true,
+                "x-typescript-type": "Artifact",
+                "x-source": "packages/ragents/src/domain/model.ts",
+                "description": "Ungekürzter Domänenwert Artifact; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-owner": "ragents.overseer",
+      "x-rights": [
+        "runs.read",
+        "runs.inspect"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.overseer.reset",
+      "description": "Das Gespräch des übergeordneten Koordinators samt Modellkontext zurücksetzen; die Modellauswahl und alle Runs bleiben erhalten.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "confirm"
+            ],
+            "properties": {
+              "confirm": {
+                "type": "boolean",
+                "const": true,
+                "description": "Der Gesprächsreset muss ausdrücklich bestätigt werden."
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "null"
+        }
+      },
+      "x-owner": "ragents.overseer",
+      "x-rights": [
+        "ragents.overseer.read",
+        "ragents.overseer.write"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.overseer.sendMessage",
+      "description": "Eine Chatnachricht an den primären LLM-Actor einreihen; TypeScript als Primary wird mit actor-chat-unsupported abgewiesen. Das Ergebnis bestätigt nur das Einreihen, weder Verarbeitung noch Abschluss. Ein laufender Turn wird dadurch nicht ersetzt.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "run",
+              "message"
+            ],
+            "properties": {
+              "run": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512,
+                "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Lauf 1."
+              },
+              "message": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "runId",
+            "title",
+            "reference",
+            "accepted"
+          ],
+          "properties": {
+            "runId": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "reference": {
+              "type": "string"
+            },
+            "accepted": {
+              "type": "boolean",
+              "const": true
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-owner": "ragents.overseer",
+      "x-rights": [
+        "runs.read",
+        "runs.write"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.overseer.settings.read",
+      "description": "Die Modellauswahl des übergeordneten Koordinators mit dem verfügbaren Modellkatalog lesen.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "provider",
+            "model",
+            "thinking",
+            "models"
+          ],
+          "properties": {
+            "provider": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "thinking": {
+              "type": "string"
+            },
+            "models": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "provider",
+                  "label",
+                  "thinking"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "provider": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "thinking": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-owner": "ragents.overseer",
+      "x-rights": [
+        "ragents.overseer.read"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.overseer.settings.save",
+      "description": "Die Modellauswahl des übergeordneten Koordinators setzen; sie gilt ab der nächsten Antwort.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "provider",
+              "model",
+              "thinking"
+            ],
+            "properties": {
+              "provider": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "model": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              },
+              "thinking": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "\\S"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "provider",
+            "model",
+            "thinking",
+            "models"
+          ],
+          "properties": {
+            "provider": {
+              "type": "string"
+            },
+            "model": {
+              "type": "string"
+            },
+            "thinking": {
+              "type": "string"
+            },
+            "models": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "provider",
+                  "label",
+                  "thinking"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "provider": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "thinking": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-owner": "ragents.overseer",
+      "x-rights": [
+        "ragents.overseer.read",
+        "ragents.overseer.write",
+        "settings.write"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.overseer.stopRun",
+      "description": "Den Run über seine normale Stoppgrenze stoppen und die Bereinigung abwarten; die Unterhaltung bleibt erhalten.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "run"
+            ],
+            "properties": {
+              "run": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512,
+                "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Lauf 1."
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "runId",
+            "title",
+            "reference",
+            "stopped"
+          ],
+          "properties": {
+            "runId": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "reference": {
+              "type": "string"
+            },
+            "stopped": {
+              "type": "boolean",
+              "const": true
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-owner": "ragents.overseer",
+      "x-rights": [
+        "runs.read",
+        "runs.write"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.plugins.bootstrap",
+      "description": "Produkt, aktive Plugins mit Web-Konfiguration und freigegebene Einstiege für die Oberfläche.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "PublicPluginProfile"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.processes.snapshot",
+      "description": "Die beobachteten Prozesse eines Laufs mit ihren offenen Ports. Rechte: runs.read und ragents.processes.read.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "RunProcessSnapshot"
+        }
+      },
+      "x-owner": "ragents.processes",
+      "x-rights": [
+        "runs.read",
+        "ragents.processes.read"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.processes.stop",
+      "description": "Einen Prozess des Laufs beenden. Rechte: runs.read, runs.write und runs.inspect.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "processId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              },
+              "processId": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]*-[a-f0-9]{64}$",
+                "description": "Kennung des Prozesses aus dem Stand"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "null"
+        }
+      },
+      "x-owner": "ragents.processes",
+      "x-rights": [
+        "runs.read",
+        "runs.write",
+        "runs.inspect"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.product.modelSettings.read",
+      "description": "Die Modellvorgaben der Agentprofile mit dem verfügbaren Modellkatalog. Recht: settings.read.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "ProductModelSettings"
+        }
+      },
+      "x-owner": "ragents.product",
+      "x-rights": [
+        "settings.read"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.product.modelSettings.save",
+      "description": "Die Modellvorgaben der Agentprofile speichern. Rechte: settings.read und settings.write.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "value"
+            ],
+            "properties": {
+              "value": {
+                "type": "object",
+                "additionalProperties": true,
+                "x-typescript-type": "ProductModelDraft"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "ProductModelSettings"
+        }
+      },
+      "x-owner": "ragents.product",
+      "x-rights": [
+        "settings.read",
+        "settings.write"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.runs.enqueueInput",
+      "description": "Eine Nachricht in die Warteschlange eines Actors legen.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "commandId",
+              "actorId",
+              "content"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              },
+              "commandId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "correlationId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "causationId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "actorId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "content": {
+                "type": "string",
+                "minLength": 1
+              },
+              "artifactIds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "RunView"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.runs.events",
+      "description": "Alle Journalereignisse eines Runs in Sequenzreihenfolge lesen.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "x-typescript-type": "JournalEvent"
+          }
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.runs.prepare",
+      "description": "Den Auftrag eines neuen Runs im Gespräch mit einer eigenen Koordinator-Instanz ausarbeiten. Rechte: runs.read, runs.write, runs.create.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "allOf": [
+              {
+                "type": "object",
+                "required": [
+                  "runId"
+                ],
+                "properties": {
+                  "runId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64,
+                    "description": "Kennung des Runs"
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": true,
+                "x-typescript-type": "RunPreparationRequest"
+              }
+            ]
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "RunPreparationResponse"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [
+        "runs.read",
+        "runs.write",
+        "runs.create"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.runs.resolveAction",
+      "description": "Eine offene Rückfrage oder Aktion beantworten.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "commandId",
+              "actionId",
+              "decision"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              },
+              "commandId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "correlationId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "causationId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "actionId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "decision": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "approved"
+                  },
+                  {
+                    "type": "string",
+                    "const": "dismissed"
+                  }
+                ]
+              },
+              "response": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "RunView"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.runs.restartActor",
+      "description": "Einen gestoppten Actor neu starten.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "commandId",
+              "actorId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              },
+              "commandId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "correlationId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "causationId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "actorId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "RunView"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.runs.stopActor",
+      "description": "Einen Actor samt seinen beauftragten Kindern stoppen.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "commandId",
+              "actorId",
+              "reason"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              },
+              "commandId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "correlationId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "causationId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "actorId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "RunView"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.runs.stopAll",
+      "description": "Den ganzen Run mit allen Agenten und Abläufen stoppen.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "commandId",
+              "reason"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              },
+              "commandId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "correlationId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "causationId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "RunView"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.runs.view",
+      "description": "Die Laufansicht eines Runs lesen, optional den Stand nach einer Journalsequenz; null für einen noch nicht gestarteten Run.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              },
+              "at": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": true,
+              "x-typescript-type": "RunView"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.sessions.delete",
+      "description": "Einen Run mit seinen Daten löschen. Rechte: runs.read und runs.delete.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "null"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [
+        "runs.read",
+        "runs.delete"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.sessions.list",
+      "description": "Alle Runs des Profils mit Titel, Zeiten und Metadaten. Recht: runs.read.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "x-typescript-type": "SessionInfo"
+          }
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [
+        "runs.read"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.settings.read",
+      "description": "Modelle, Plugins, Werkzeuge, Skills und Laufzeitinformationen des Profils. Recht: settings.read; nur lokal oder mit Zugang.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "SettingsResponse"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [
+        "settings.read"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.settings.skill",
+      "description": "Die Dateien eines registrierten Skills lesen; null, wenn er nicht registriert ist. Recht: settings.read.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": true,
+              "x-typescript-type": "SettingsSkillDetail"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [
+        "settings.read"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.settings.titles.read",
+      "description": "Das Modell für automatische Überschriften und die Auswahl lesen. Recht: settings.read.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "TitleModelSettings"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [
+        "settings.read"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.settings.titles.save",
+      "description": "Das Modell für automatische Überschriften setzen oder die Erzeugung ausschalten. Recht: settings.write.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "value"
+            ],
+            "properties": {
+              "value": {}
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "TitleModelSettings"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [
+        "settings.write"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.startOptions.list",
+      "description": "Die Startoptionen eines noch nicht gestarteten Runs mit Wert und Darstellung. Rechte: runs.read, runs.create, runs.inspect.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "x-typescript-type": "StartOptionState"
+          }
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [
+        "runs.read",
+        "runs.create",
+        "runs.inspect"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.startOptions.select",
+      "description": "Eine Startoption vor dem Start wählen. Rechte: runs.read, runs.write, runs.create, runs.inspect.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "optionId",
+              "value"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              },
+              "optionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "value": {}
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "StartOptionState"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [
+        "runs.read",
+        "runs.write",
+        "runs.create",
+        "runs.inspect"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.workspace.browse.list",
+      "description": "Ein Verzeichnis im Arbeitsverzeichnis oder in der Dateiablage eines Runs auflisten.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "root",
+              "path"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              },
+              "root": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "workspace"
+                  },
+                  {
+                    "type": "string",
+                    "const": "files"
+                  }
+                ]
+              },
+              "path": {
+                "type": "string",
+                "description": "Pfad unterhalb der Wurzel; leer ist die Wurzel selbst"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "BrowseListing"
+        }
+      },
+      "x-owner": "ragents.workspace",
+      "x-rights": [
+        "runs.read",
+        "runs.inspect"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.workspace.browse.preview",
+      "description": "Eine Datei als Text vorschauen; zu große und binäre Dateien nennen stattdessen den Grund.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "root",
+              "path"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              },
+              "root": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "const": "workspace"
+                  },
+                  {
+                    "type": "string",
+                    "const": "files"
+                  }
+                ]
+              },
+              "path": {
+                "type": "string",
+                "description": "Pfad unterhalb der Wurzel; leer ist die Wurzel selbst"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "BrowsePreview"
+        }
+      },
+      "x-owner": "ragents.workspace",
+      "x-rights": [
+        "runs.read",
+        "runs.inspect"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.workspace.clients.list",
+      "description": "Angemeldete Arbeitsplätze mit Verbindungsstand.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "label",
+              "hostname",
+              "platform",
+              "folders",
+              "connected",
+              "sameMachine"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "hostname": {
+                "type": "string",
+                "minLength": 1
+              },
+              "platform": {
+                "type": "string",
+                "minLength": 1
+              },
+              "folders": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "maxItems": 32
+              },
+              "connected": {
+                "type": "boolean"
+              },
+              "sameMachine": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "x-owner": "ragents.workspace",
+      "x-rights": [
+        "runs.read"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.workspace.clients.register",
+      "description": "Einen Arbeitsplatz anmelden oder seine Ordner erneuern; die Verbindung dieser Anfrage wird sein Rückweg und braucht einen Ereignisstrom.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "id",
+              "label",
+              "hostname",
+              "platform",
+              "folders"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{8,64}$",
+                "description": "Stabile Kennung des Arbeitsplatzes"
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              "hostname": {
+                "type": "string",
+                "minLength": 1
+              },
+              "platform": {
+                "type": "string",
+                "minLength": 1
+              },
+              "folders": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "maxItems": 32
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "id",
+            "label",
+            "hostname",
+            "platform",
+            "folders",
+            "connected",
+            "sameMachine"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "hostname": {
+              "type": "string",
+              "minLength": 1
+            },
+            "platform": {
+              "type": "string",
+              "minLength": 1
+            },
+            "folders": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "maxItems": 32
+            },
+            "connected": {
+              "type": "boolean"
+            },
+            "sameMachine": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-owner": "ragents.workspace",
+      "x-rights": [
+        "runs.write"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.workspace.clients.unregister",
+      "description": "Einen Arbeitsplatz abmelden; offene Aufträge scheitern.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]{8,64}$",
+                "description": "Stabile Kennung des Arbeitsplatzes"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "null"
+        }
+      },
+      "x-owner": "ragents.workspace",
+      "x-rights": [
+        "runs.write"
+      ],
+      "x-implemented-by": "server"
+    }
+  ],
+  "x-channels": [
+    {
+      "name": "ragents.chat",
+      "description": "Der Chatverlauf des Koordinators: erst der gespeicherte Verlauf, dann live. Rechte wie das Lesen des Runs.",
+      "params": {
+        "type": "object",
+        "required": [
+          "runId"
+        ],
+        "properties": {
+          "runId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Kennung des Runs"
+          }
+        },
+        "additionalProperties": false
+      },
+      "message": {
+        "type": "object",
+        "additionalProperties": true,
+        "x-typescript-type": "ChatEvent"
+      },
+      "x-owner": "host",
+      "x-rights": []
+    },
+    {
+      "name": "ragents.processes",
+      "description": "Der laufende Stand der Prozessüberwachung eines Laufs. Rechte: runs.read und ragents.processes.read.",
+      "params": {
+        "type": "object",
+        "required": [
+          "runId"
+        ],
+        "properties": {
+          "runId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Kennung des Runs"
+          }
+        },
+        "additionalProperties": false
+      },
+      "message": {
+        "type": "object",
+        "additionalProperties": true,
+        "x-typescript-type": "RunProcessMessage"
+      },
+      "x-owner": "ragents.processes",
+      "x-rights": [
+        "runs.read",
+        "ragents.processes.read"
+      ]
+    },
+    {
+      "name": "ragents.run",
+      "description": "Meldet jedes neue Journalereignis eines Runs; erst ready, dann run. Rechte wie das Lesen des Runs.",
+      "params": {
+        "type": "object",
+        "required": [
+          "runId"
+        ],
+        "properties": {
+          "runId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Kennung des Runs"
+          }
+        },
+        "additionalProperties": false
+      },
+      "message": {
+        "type": "object",
+        "required": [
+          "kind"
+        ],
+        "properties": {
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "ready"
+              },
+              {
+                "type": "string",
+                "const": "run"
+              }
+            ]
+          }
+        }
+      },
+      "x-owner": "host",
+      "x-rights": []
+    },
+    {
+      "name": "ragents.sessions",
+      "description": "Meldet jede Änderung der Run-Liste. Recht: runs.read.",
+      "params": {
+        "type": "object",
+        "properties": {},
+        "additionalProperties": false
+      },
+      "message": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "changed"
+          }
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [
+        "runs.read"
+      ]
+    },
+    {
+      "name": "ragents.workspace.browse",
+      "description": "Meldet jede Änderung unterhalb der beobachteten Wurzel eines Runs.",
+      "params": {
+        "type": "object",
+        "required": [
+          "runId",
+          "root"
+        ],
+        "properties": {
+          "runId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Kennung des Runs"
+          },
+          "root": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "workspace"
+              },
+              {
+                "type": "string",
+                "const": "files"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "message": {
+        "type": "object",
+        "required": [
+          "changed"
+        ],
+        "properties": {
+          "changed": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "x-owner": "ragents.workspace",
+      "x-rights": [
+        "runs.read",
+        "runs.inspect"
+      ]
+    }
+  ]
+}

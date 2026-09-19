@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
-import { realpath } from "node:fs/promises";
+import { constants } from "node:fs";
+import { access as fsAccess, mkdir as fsMkdir, readFile as fsReadFile, realpath, writeFile as fsWriteFile } from "node:fs/promises";
 import path from "node:path";
 import {
   createBashToolDefinition,
@@ -7,6 +8,9 @@ import {
   createReadToolDefinition,
   createWriteToolDefinition,
   type BashOperations,
+  type EditOperations,
+  type ReadOperations,
+  type WriteOperations,
 } from "@aicontainer/agent";
 import { processGroupExists } from "./managed-process.js";
 import { stopUidProcesses, type SessionIdent } from "./session-ident.js";
@@ -14,7 +18,7 @@ import type { SessionWorkspace } from "../ragents/workspace-runtime.js";
 import { safeProcessEnvironment } from "./safe-environment.js";
 import { withGitConfigPairs, type GitConfigPairs } from "./git-config-environment.js";
 import { RUN_MARKER_ENV } from "./run-marker.js";
-import { allowedWorkspacePath, expandWorkspaceAlias, type ResolvedWorkspaceRoot } from "./workspace-paths.js";
+import { allowedWorkspacePath, containsWorkspacePath, expandWorkspaceAlias, type ResolvedWorkspaceRoot } from "./workspace-paths.js";
 
 type Definition = {
   execute: (...args: never[]) => Promise<unknown>;
@@ -66,6 +70,30 @@ const DEFAULT_BASH_TIMEOUT_SECONDS = (() => {
   const value = Number(process.env.RAGENTS_BASH_TIMEOUT_SECONDS);
   return Number.isFinite(value) && value > 0 ? value : 600;
 })();
+
+const IMAGE_MIME_BY_EXTENSION: Readonly<Record<string, string>> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".bmp": "image/bmp",
+};
+
+/** Die Umgebung, die ein Arbeitsplatz zu seiner eigenen hinzunimmt: Run-Marker, Git-Regeln und die Zusätze des Arbeitsbereichs. */
+export const remoteEnvAdditions = (
+  runId: string,
+  workspace: Pick<SessionWorkspace, "gitEnv" | "gitConfig" | "extraEnv">,
+): Record<string, string> => {
+  const env: NodeJS.ProcessEnv = {
+    ...withGitConfigPairs({ ...workspace.extraEnv }, [...SANDBOX_GIT_CONFIG, ...(workspace.gitConfig ?? [])]),
+    GIT_OPTIONAL_LOCKS: "0",
+    CI: "true",
+    [RUN_MARKER_ENV]: runId,
+    ...workspace.gitEnv,
+  };
+  return Object.fromEntries(Object.entries(env).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
+};
 
 type ToolResult = { content?: Array<{ type: string; text?: string }> };
 
@@ -126,6 +154,7 @@ export const createSandboxTools = async (
 
   const shutdown = async (): Promise<void> => {
     shuttingDown = true;
+    for (const controller of remoteControllers) controller.abort();
     await Promise.all([...processGroups].map(killProcessGroup));
     for (;;) {
       const operation = toolOperation;
@@ -135,9 +164,31 @@ export const createSandboxTools = async (
     await Promise.all([...processGroups].map(stopProcessGroup));
   };
 
+  const remote = workspace.remote;
+  const remoteControllers = new Set<AbortController>();
+  const onRemote = (absolutePath: string): boolean =>
+    remote !== undefined && containsWorkspacePath(workspace.cwd, path.resolve(absolutePath));
+
   const assertInsideRoots = async (raw: unknown, roots: readonly string[]): Promise<void> => {
     if (raw === undefined || raw === null || raw === "") return;
-    await allowedWorkspacePath(path.resolve(workspace.cwd, String(raw)), roots);
+    const absolute = path.resolve(workspace.cwd, String(raw));
+    if (onRemote(absolute)) return;
+    await allowedWorkspacePath(absolute, roots);
+  };
+
+  const readOperations: ReadOperations | undefined = remote && {
+    readFile: (file) => onRemote(file) ? remote.readFile(file) : fsReadFile(file),
+    access: (file) => onRemote(file) ? remote.access(file, "read") : fsAccess(file, constants.R_OK),
+    detectImageMimeType: async (file) => IMAGE_MIME_BY_EXTENSION[path.extname(file).toLowerCase()] ?? null,
+  };
+  const writeOperations: WriteOperations | undefined = remote && {
+    writeFile: (file, content) => onRemote(file) ? remote.writeFile(file, content) : fsWriteFile(file, content, "utf-8"),
+    mkdir: (directory) => onRemote(directory) ? remote.mkdir(directory) : fsMkdir(directory, { recursive: true }).then(() => undefined),
+  };
+  const editOperations: EditOperations | undefined = remote && {
+    readFile: (file) => onRemote(file) ? remote.readFile(file) : fsReadFile(file),
+    writeFile: (file, content) => onRemote(file) ? remote.writeFile(file, content) : fsWriteFile(file, content, "utf-8"),
+    access: (file) => onRemote(file) ? remote.access(file, "write") : fsAccess(file, constants.R_OK | constants.W_OK),
   };
 
   const concurrent = <T extends Definition>(definition: T): T => ({
@@ -188,10 +239,10 @@ export const createSandboxTools = async (
         const aliases = Object.fromEntries(registeredRoots.filter((entry) => entry.alias).map((entry) => [entry.alias!, entry.directory]));
         if (params && typeof params.path === "string") params.path = expandFilesPath(expandWorkspaceAlias(params.path, aliases));
         const root = await workspace.currentRoot();
-        const files = [...(filesRoot ? [filesRoot] : []), ...registeredRoots.map((entry) => entry.directory)];
-        await assertInsideRoots(params?.path, writing ? [root, ...files] : [root, ...files, ...extraRoots]);
+        const files = [...(remote ? [] : [root]), ...(filesRoot ? [filesRoot] : []), ...registeredRoots.map((entry) => entry.directory)];
+        await assertInsideRoots(params?.path, writing ? files : [...files, ...extraRoots]);
         const result = await (definition.execute as (...a: never[]) => Promise<unknown>)(...args);
-        if (!writing || !annotate || typeof params?.path !== "string") return result;
+        if (!writing || !annotate || typeof params?.path !== "string" || onRemote(path.resolve(workspace.cwd, params.path))) return result;
         return withAnnotation(result, await annotate(path.resolve(workspace.cwd, params.path)));
       },
     } as T;
@@ -202,8 +253,31 @@ export const createSandboxTools = async (
     exec: (command, cwd, options) => {
       if (shuttingDown) throw new Error("Die Werkzeuge werden killed");
       if (options.signal?.aborted) throw new Error("Abgebrochen");
-      return startBash(command, cwd, options);
+      return remote ? startRemoteBash(remote, command, cwd, options) : startBash(command, cwd, options);
     },
+  };
+
+  const startRemoteBash = async (
+    target: NonNullable<SessionWorkspace["remote"]>,
+    command: string,
+    cwd: string,
+    options: Parameters<BashOperations["exec"]>[2],
+  ): Promise<{ exitCode: number | null }> => {
+    const controller = new AbortController();
+    const forward = () => controller.abort();
+    options.signal?.addEventListener("abort", forward);
+    remoteControllers.add(controller);
+    try {
+      return await target.exec(command, cwd, {
+        onData: options.onData,
+        signal: controller.signal,
+        timeoutSeconds: options.timeout ?? DEFAULT_BASH_TIMEOUT_SECONDS,
+        env: remoteEnvAdditions(runId, workspace),
+      });
+    } finally {
+      remoteControllers.delete(controller);
+      options.signal?.removeEventListener("abort", forward);
+    }
   };
 
   const startBash: BashOperations["exec"] = async (command, cwd, options) => {
@@ -282,9 +356,9 @@ export const createSandboxTools = async (
   };
 
   const tools = [
-    guarded(createReadToolDefinition(workspace.cwd) as unknown as Definition, false),
-    guarded(createEditToolDefinition(workspace.cwd) as unknown as Definition, true),
-    guarded(createWriteToolDefinition(workspace.cwd) as unknown as Definition, true),
+    guarded(createReadToolDefinition(workspace.cwd, { operations: readOperations }) as unknown as Definition, false),
+    guarded(createEditToolDefinition(workspace.cwd, { operations: editOperations }) as unknown as Definition, true),
+    guarded(createWriteToolDefinition(workspace.cwd, { operations: writeOperations }) as unknown as Definition, true),
     serial(createBashToolDefinition(workspace.cwd, { operations: bashOperations }) as unknown as Definition),
   ] as SandboxTools;
   Object.defineProperty(tools, "shutdown", { value: shutdown });

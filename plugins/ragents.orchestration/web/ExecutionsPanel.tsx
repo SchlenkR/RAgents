@@ -3,9 +3,10 @@ import type { JournalEvent } from "../../../packages/ragents/src/domain/events";
 import type { WorkspaceTabContext } from "@aicontainer/web/PluginRegistry";
 import { SourceCode } from "@aicontainer/web/SourceCode";
 import { Alert, AlertDescription, Badge, Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@aicontainer/web/ui";
-import { errorFrom } from "@aicontainer/web/lib/http";
+import { runContracts } from "@aicontainer/ragents/src/http/contracts";
+import { rpc } from "@aicontainer/web/rpc";
 import { executionDuration, executionEventsFrom, executionStatusLabel, filterExecutions, projectExecutions, type ExecutionStatus, type TypeScriptExecution } from "./executions";
-import { runRoute, runViewFrom, type RunView } from "./run-view";
+import { runViewFrom, type RunView } from "./run-view";
 
 export const EXECUTIONS_TAB_ID = "ragents.orchestration.executions";
 
@@ -28,10 +29,9 @@ function RunExecutionsPanel({ active, runId, view }: { active: boolean; runId: s
     if (!active) return;
     const controller = new AbortController();
     setJournal((previous) => ({ ...previous, loading: true, error: null }));
-    void fetch(runRoute(runId, "/events"), { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw await errorFrom(response, "Die Ausführungen konnten nicht geladen werden.");
-        const events = executionEventsFrom(await response.json(), runId);
+    void rpc.call(runContracts.events, { runId }, { signal: controller.signal })
+      .then((result) => {
+        const events = executionEventsFrom(result, runId);
         if (!controller.signal.aborted) setJournal({ events, loaded: true, loading: false, error: null });
       })
       .catch((error: unknown) => {

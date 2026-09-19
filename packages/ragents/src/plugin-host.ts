@@ -9,6 +9,7 @@ import { schemaComplaints } from "./agents/toolset.ts";
 import type { AgentProfile, CatalogModel } from "./agents/catalog.ts";
 import type { ToolContributor } from "./agents/plugins.ts";
 import { describeToolAvailability, type RunFunction } from "./agents/tools.ts";
+import type { ChannelContribution, ChannelDescriptor, MethodContribution, MethodDescriptor } from "./rpc/contribution.ts";
 import type {
   AgentAudience,
   HttpRouteContribution,
@@ -79,6 +80,46 @@ class ContributionRegistry<T extends { id: string }> {
 
   entries(): readonly Owned<T>[] {
     return this.#entries;
+  }
+}
+
+export class MethodContributionRegistry {
+  readonly #methods = new ContributionRegistry<{ id: string; contribution: MethodContribution }>("Methode");
+
+  register(owner: string, contributions: readonly MethodContribution[]): void {
+    this.#methods.register(owner, contributions.map((contribution) => ({ id: contribution.contract.id, contribution })));
+  }
+
+  find(id: string): { owner: string; contribution: MethodContribution } | undefined {
+    const found = this.#methods.entries().find(({ value }) => value.id === id);
+    return found ? { owner: found.owner, contribution: found.value.contribution } : undefined;
+  }
+
+  describe(): readonly MethodDescriptor[] {
+    return this.#methods.entries().map(({ owner, value }) => {
+      const { id, description, rights, input, result, implementedBy } = value.contribution.contract;
+      return Object.freeze({ owner, id, description, rights, input, result, implementedBy });
+    });
+  }
+}
+
+export class ChannelContributionRegistry {
+  readonly #channels = new ContributionRegistry<{ id: string; contribution: ChannelContribution }>("Kanal");
+
+  register(owner: string, contributions: readonly ChannelContribution[]): void {
+    this.#channels.register(owner, contributions.map((contribution) => ({ id: contribution.contract.id, contribution })));
+  }
+
+  find(id: string): { owner: string; contribution: ChannelContribution } | undefined {
+    const found = this.#channels.entries().find(({ value }) => value.id === id);
+    return found ? { owner: found.owner, contribution: found.value.contribution } : undefined;
+  }
+
+  describe(): readonly ChannelDescriptor[] {
+    return this.#channels.entries().map(({ owner, value }) => {
+      const { id, description, rights, params, message } = value.contribution.contract;
+      return Object.freeze({ owner, id, description, rights, params, message });
+    });
   }
 }
 
@@ -976,6 +1017,8 @@ export interface PluginHostOptions {
 const HOST_OWNER = "host";
 
 export class PluginHost {
+  readonly methods = new MethodContributionRegistry();
+  readonly channels = new ChannelContributionRegistry();
   readonly http = new HttpContributionRegistry();
   readonly operations = new OperationContributionRegistry();
   readonly agentRuntime = new AgentContributionRegistry();
@@ -1019,6 +1062,8 @@ export class PluginHost {
       storage,
       clientConfig: (values) => this.#clientConfig.register(manifest.id, values),
       config: (...entries) => this.config.register(manifest.id, entries),
+      channels: (...entries) => this.channels.register(manifest.id, entries),
+      methods: (...entries) => this.methods.register(manifest.id, entries),
       http: (...entries) => this.http.register(manifest.id, entries),
       lifecycle: (...entries) => this.lifecycle.register(manifest.id, entries),
       operation: (id) => this.operations.operation(id),

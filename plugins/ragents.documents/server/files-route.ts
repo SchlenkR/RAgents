@@ -1,26 +1,14 @@
 import { lstat, readdir, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
-import type { HttpRouteContribution } from "@aicontainer/ragents";
-import { guardedJsonRoute, writeJson } from "@aicontainer/server/plugin-support/http.js";
+import { implement, type HttpRouteContribution, type MethodContribution } from "@aicontainer/ragents";
+import { guardedJsonRoute } from "@aicontainer/server/plugin-support/http.js";
+import { documentsContracts, type RunFileEntry, type RunFilesListing } from "../contract.js";
 
 export const documentsApiPrefix = "/api/plugins/ragents.documents";
 
-const listPattern = /^\/api\/plugins\/ragents\.documents\/runs\/([A-Za-z0-9_-]{1,64})\/files$/;
 const contentPattern = /^\/api\/plugins\/ragents\.documents\/runs\/([A-Za-z0-9_-]{1,64})\/files\/content$/;
 
 const MAX_ENTRIES = 1000;
-
-export interface RunFileEntry {
-  path: string;
-  size: number;
-  modifiedAt: string;
-}
-
-export interface RunFilesListing {
-  groups: Array<{ directory: string; files: RunFileEntry[] }>;
-  loose: RunFileEntry[];
-  truncated: boolean;
-}
 
 const mediaTypes: Record<string, string> = {
   ".md": "text/markdown; charset=utf-8",
@@ -111,52 +99,39 @@ export interface FilesRouteOptions {
   ensureSession: (runId: string) => void;
 }
 
-export const createFilesRoutes = (options: FilesRouteOptions): HttpRouteContribution[] => [
-  {
-    id: "ragents.documents.files",
-    isApiPath: (pathname) => listPattern.test(pathname),
-    matches: (request, url) => request.method === "GET" && listPattern.test(url.pathname),
-    handle: async ({ response, request, url }) => {
-      const match = url.pathname.match(listPattern);
-      if (!match) throw new Error("Ungültige Dokumente-Route");
-      const [, runId] = match;
-      await guardedJsonRoute({
-        response,
-        request,
-        ensureSession: () => options.ensureSession(runId),
-        handle: async () => {
-          writeJson(response, 200, await listingOf(await options.filesFor(runId)));
-        },
-      });
-    },
+export const createFilesMethod = (options: FilesRouteOptions): MethodContribution =>
+  implement(documentsContracts.files, async ({ runId }) => {
+    options.ensureSession(runId);
+    return listingOf(await options.filesFor(runId));
+  });
+
+/** Der Inhalt bleibt Auslieferung: ein GET mit dem Medientyp der Datei. */
+export const createFileContentRoute = (options: FilesRouteOptions): HttpRouteContribution => ({
+  id: "ragents.documents.files-content",
+  isApiPath: (pathname) => contentPattern.test(pathname),
+  matches: (request, url) => request.method === "GET" && contentPattern.test(url.pathname),
+  handle: async ({ response, request, url }) => {
+    const match = url.pathname.match(contentPattern);
+    if (!match) throw new Error("Ungültige Dokumente-Route");
+    const [, runId] = match;
+    await guardedJsonRoute({
+      response,
+      request,
+      ensureSession: () => options.ensureSession(runId),
+      errorStatus: 404,
+      handle: async () => {
+        const relative = url.searchParams.get("path") ?? "";
+        const file = await resolveInside(await options.filesFor(runId), relative);
+        const info = await lstat(file);
+        if (!info.isFile()) throw new Error("Ungültiger Dateipfad");
+        const content = await readFile(file);
+        response.writeHead(200, {
+          "Cache-Control": "no-store",
+          "Content-Type": mediaTypes[path.extname(relative).toLowerCase()] ?? "application/octet-stream",
+          "Content-Length": content.byteLength,
+        });
+        response.end(content);
+      },
+    });
   },
-  {
-    id: "ragents.documents.files-content",
-    isApiPath: (pathname) => contentPattern.test(pathname),
-    matches: (request, url) => request.method === "GET" && contentPattern.test(url.pathname),
-    handle: async ({ response, request, url }) => {
-      const match = url.pathname.match(contentPattern);
-      if (!match) throw new Error("Ungültige Dokumente-Route");
-      const [, runId] = match;
-      await guardedJsonRoute({
-        response,
-        request,
-        ensureSession: () => options.ensureSession(runId),
-        errorStatus: 404,
-        handle: async () => {
-          const relative = url.searchParams.get("path") ?? "";
-          const file = await resolveInside(await options.filesFor(runId), relative);
-          const info = await lstat(file);
-          if (!info.isFile()) throw new Error("Ungültiger Dateipfad");
-          const content = await readFile(file);
-          response.writeHead(200, {
-            "Cache-Control": "no-store",
-            "Content-Type": mediaTypes[path.extname(relative).toLowerCase()] ?? "application/octet-stream",
-            "Content-Length": content.byteLength,
-          });
-          response.end(content);
-        },
-      });
-    },
-  },
-];
+});

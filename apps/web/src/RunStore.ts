@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
+import { coreContracts } from "@aicontainer/server/api/contracts";
 import { getActorConversations, getRunView } from "./api";
 import type { Message } from "./chat/types";
-import { runChannel } from "../../server/src/event-channels";
-import { eventHub, type EventHubLike } from "./events";
+import { rpc } from "./rpc";
 
 export interface RunStoreState {
   error: string | undefined;
@@ -31,7 +31,6 @@ export function subscribeRunView(
   setView: (view: unknown) => void,
   setError: (error: string | undefined) => void,
   setConversations?: (conversations: Record<string, Message[]> | undefined) => void,
-  hub: EventHubLike = eventHub,
 ): () => void {
   let disposed = false;
   let refreshing = false;
@@ -71,16 +70,12 @@ export function subscribeRunView(
       void refresh();
     }, 250);
   };
-  const unsubscribe = hub.subscribe({
-    channel: runChannel(sessionId),
-    onMessage: (data) => {
-      if (disposed) return;
-      if ((data as { kind?: string }).kind === "ready") setError(undefined);
-      nudge();
-    },
-    onError: () => {
-      if (!disposed) setError("Der Live-Stream des Runs ist nicht erreichbar");
-    },
+  const unsubscribe = rpc.subscribe(coreContracts.channels.run, { runId: sessionId }, (message) => {
+    if (disposed) return;
+    if (message.kind === "ready") setError(undefined);
+    nudge();
+  }, () => {
+    if (!disposed) setError("Der Live-Stream des Runs ist nicht erreichbar");
   });
   return () => {
     if (disposed) return;

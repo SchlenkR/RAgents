@@ -1,11 +1,9 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
 import { createAgentSession, DefaultResourceLoader, defineTool, SessionManager, SettingsManager, type ModelRuntime } from "@aicontainer/agent";
 import { Type } from "typebox";
 import type { Message } from "@aicontainer/ai";
 import { DomainError, type ModelSelection } from "@aicontainer/ragents";
 import { prepareInputAttachments } from "../../../packages/ragents/src/drivers/attachments.ts";
 import { MAX_CHAT_REQUEST_BYTES, parseChatAttachments } from "./chat-attachments.js";
-import { readJsonBody, withAbort, writeJson } from "./plugin-support/http.js";
 import {
   MAX_RUN_PREPARATION_MESSAGES, MAX_RUN_PREPARATION_TEXT_CHARS, MAX_RUN_PREPARATION_TOTAL_TEXT_CHARS,
   type RunPreparationMessage, type RunPreparationRequest, type RunPreparationResponse,
@@ -145,29 +143,5 @@ export const prepareRunMessage = async (options: {
     if (signal.aborted) throw new DomainError("preparation-timeout", "Die Vorbereitung hat zu lange gedauert. Bitte versuche es erneut.", 504);
     if (error instanceof DomainError) throw error;
     throw new DomainError("preparation-model-failed", `Die Vorbereitung ist fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`, 502);
-  }
-};
-
-export const handleRunPreparationRequest = async (req: IncomingMessage, res: ServerResponse,
-  prepare: (request: RunPreparationRequest, signal: AbortSignal) => Promise<RunPreparationResponse>,
-): Promise<void> => {
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    writeJson(res, 405, { error: "Erlaubt ist POST.", code: "method-not-allowed" });
-    return;
-  }
-  try {
-    const result = await withAbort(req, res, async (signal) => {
-      const request = await readJsonBody(req, parseRunPreparationRequest, undefined, MAX_CHAT_REQUEST_BYTES);
-      signal.throwIfAborted();
-      return prepare(request, signal);
-    });
-    if (!res.destroyed) writeJson(res, 200, result);
-  } catch (error) {
-    if (req.aborted || res.destroyed) return;
-    writeJson(res, error instanceof DomainError ? error.status : 400, {
-      error: error instanceof Error ? error.message : String(error),
-      code: error instanceof DomainError ? error.code : "invalid-preparation",
-    });
   }
 };

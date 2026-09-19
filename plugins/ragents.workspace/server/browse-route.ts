@@ -1,37 +1,30 @@
 import { watch } from "node:fs";
 import { lstat, readdir, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
-import type { HttpRouteContribution } from "@aicontainer/ragents";
-import type { EventChannelProvider } from "@aicontainer/server/event-hub.js";
-import { guardedJsonRoute, writeJson } from "@aicontainer/server/plugin-support/http.js";
+import {
+  DomainError,
+  implement,
+  implementChannel,
+  type ChannelContribution,
+  type MethodContribution,
+} from "@aicontainer/ragents";
 import {
   BROWSE_ENTRY_LIMIT,
   BROWSE_PREVIEW_LIMIT,
-  browseChannelOf,
-  browseRootOf,
+  workspaceContracts,
   type BrowseEntry,
   type BrowseListing,
   type BrowsePreview,
   type BrowseRoot,
 } from "../contract.js";
 
-export const workspaceApiPrefix = "/api/plugins/ragents.workspace";
+const invalid = (message: string): DomainError => new DomainError("browse-path-invalid", message, 400);
 
-const listPattern = /^\/api\/plugins\/ragents\.workspace\/runs\/([A-Za-z0-9_-]{1,64})\/browse$/;
-const previewPattern = /^\/api\/plugins\/ragents\.workspace\/runs\/([A-Za-z0-9_-]{1,64})\/browse\/file$/;
-
-const rootOf = (url: URL): BrowseRoot => {
-  const root = browseRootOf(url.searchParams.get("root") ?? "workspace");
-  if (!root) throw new Error("Unbekannte Wurzel; erlaubt sind workspace und files");
-  return root;
-};
-
-const relativeOf = (url: URL): string => {
-  const value = url.searchParams.get("path") ?? "";
+const relativeOf = (value: string): string => {
   const segments = value.split("/").filter((segment) => segment !== "");
   if (value.includes("\0") || value.includes("\\") || path.isAbsolute(value)
     || segments.some((segment) => segment === "." || segment === "..")) {
-    throw new Error("Ungültiger Pfad");
+    throw invalid("Ungültiger Pfad");
   }
   return segments.join("/");
 };
@@ -40,7 +33,7 @@ const realOf = async (target: string, missing: string): Promise<string> => {
   try {
     return await realpath(target);
   } catch {
-    throw new Error(missing);
+    throw new DomainError("browse-not-found", missing, 404);
   }
 };
 
@@ -50,7 +43,7 @@ const resolveInside = async (root: string, relative: string): Promise<string> =>
     relative ? path.join(rootReal, relative) : rootReal,
     `Nicht gefunden: ${relative || "."}`,
   );
-  if (real !== rootReal && !real.startsWith(rootReal + path.sep)) throw new Error("Ungültiger Pfad");
+  if (real !== rootReal && !real.startsWith(rootReal + path.sep)) throw invalid("Ungültiger Pfad");
   return real;
 };
 
@@ -70,7 +63,7 @@ const byKindThenName = (left: BrowseEntry, right: BrowseEntry): number =>
 
 const listingOf = async (root: string, relative: string, kind: BrowseRoot): Promise<BrowseListing> => {
   const directory = await resolveInside(root, relative);
-  if (!(await lstat(directory)).isDirectory()) throw new Error(`Kein Verzeichnis: ${relative || "."}`);
+  if (!(await lstat(directory)).isDirectory()) throw invalid(`Kein Verzeichnis: ${relative || "."}`);
   const found = await readdir(directory, { withFileTypes: true });
   const entries = (await Promise.all(found.map((entry) => entryOf(directory, entry.name, entry.isDirectory()))))
     .sort(byKindThenName);
@@ -86,7 +79,7 @@ const listingOf = async (root: string, relative: string, kind: BrowseRoot): Prom
 const previewOf = async (root: string, relative: string, kind: BrowseRoot): Promise<BrowsePreview> => {
   const file = await resolveInside(root, relative);
   const info = await lstat(file);
-  if (!info.isFile()) throw new Error(`Keine Datei: ${relative || "."}`);
+  if (!info.isFile()) throw invalid(`Keine Datei: ${relative || "."}`);
   const described = { root: kind, path: relative, size: info.size };
   if (info.size > BROWSE_PREVIEW_LIMIT) {
     return {
@@ -100,62 +93,24 @@ const previewOf = async (root: string, relative: string, kind: BrowseRoot): Prom
   return { ...described, previewable: true, content: content.toString("utf8") };
 };
 
-const runIdOf = (url: URL, pattern: RegExp): string => {
-  const match = url.pathname.match(pattern);
-  if (!match) throw new Error("Ungültige Datei-Route");
-  return match[1];
-};
-
-export interface BrowseRouteOptions {
+export interface BrowseOptions {
   rootFor: (runId: string, root: BrowseRoot) => Promise<string>;
   ensureSession: (runId: string) => void;
 }
 
-export const createBrowseRoutes = (options: BrowseRouteOptions): HttpRouteContribution[] => [
-  {
-    id: "ragents.workspace.browse",
-    requiredRights: ["runs.read", "runs.inspect"],
-    isApiPath: (pathname) => listPattern.test(pathname),
-    matches: (request, url) => request.method === "GET" && listPattern.test(url.pathname),
-    handle: async ({ request, response, url }) => {
-      const runId = runIdOf(url, listPattern);
-      await guardedJsonRoute({
-        request,
-        response,
-        ensureSession: () => options.ensureSession(runId),
-        handle: async () => {
-          const root = rootOf(url);
-          writeJson(response, 200, await listingOf(await options.rootFor(runId, root), relativeOf(url), root));
-        },
-      });
-    },
-  },
-  {
-    id: "ragents.workspace.browse-file",
-    requiredRights: ["runs.read", "runs.inspect"],
-    isApiPath: (pathname) => previewPattern.test(pathname),
-    matches: (request, url) => request.method === "GET" && previewPattern.test(url.pathname),
-    handle: async ({ request, response, url }) => {
-      const runId = runIdOf(url, previewPattern);
-      await guardedJsonRoute({
-        request,
-        response,
-        ensureSession: () => options.ensureSession(runId),
-        handle: async () => {
-          const root = rootOf(url);
-          writeJson(response, 200, await previewOf(await options.rootFor(runId, root), relativeOf(url), root));
-        },
-      });
-    },
-  },
+export const createBrowseMethods = (options: BrowseOptions): MethodContribution[] => [
+  implement(workspaceContracts.browse.list, async ({ runId, root, path: target }) => {
+    options.ensureSession(runId);
+    return listingOf(await options.rootFor(runId, root), relativeOf(target), root);
+  }),
+  implement(workspaceContracts.browse.preview, async ({ runId, root, path: target }) => {
+    options.ensureSession(runId);
+    return previewOf(await options.rootFor(runId, root), relativeOf(target), root);
+  }),
 ];
 
-export const createBrowseChannel = (options: Pick<BrowseRouteOptions, "ensureSession" | "rootFor">): EventChannelProvider => ({
-  id: "ragents.workspace.browse",
-  matches: (channel) => browseChannelOf(channel) !== undefined,
-  requiredRights: () => ["runs.read", "runs.inspect"],
-  open: async (channel, emit) => {
-    const { runId, root } = browseChannelOf(channel)!;
+export const createBrowseChannel = (options: BrowseOptions): ChannelContribution =>
+  implementChannel(workspaceContracts.channels.browse, async ({ runId, root }, emit) => {
     options.ensureSession(runId);
     const directory = await options.rootFor(runId, root);
     let debounce: NodeJS.Timeout | undefined;
@@ -176,5 +131,4 @@ export const createBrowseChannel = (options: Pick<BrowseRouteOptions, "ensureSes
       if (debounce) clearTimeout(debounce);
       watcher?.close();
     };
-  },
-});
+  });

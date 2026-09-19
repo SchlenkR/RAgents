@@ -1,6 +1,7 @@
 import { isRecord } from "@aicontainer/web/lib/guards";
-import { errorFrom } from "@aicontainer/web/lib/http";
+import { rpc } from "@aicontainer/web/rpc";
 import { withAccessToken } from "@aicontainer/web/access-token";
+import { actorProgramContracts } from "../contract";
 import {
   actorFunctionParameterTypes,
   type ActorFunctionParameterType,
@@ -331,64 +332,22 @@ export const actorProgramsListingFrom = (value: unknown): ActorProgramsListing =
 
 const segment = (value: string): string => encodeURIComponent(value);
 
-const appsUrl = (routePrefix: string, runId: string): string =>
+const frameBase = (routePrefix: string, runId: string): string =>
   `${routePrefix}/runs/${segment(runId)}/apps`;
 
-const postAction = (
-  url: string,
-  revision: string,
-  requestId: string,
-  input: JsonValue,
-  signal: AbortSignal | undefined,
-): Promise<Response> => fetch(url, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "X-RAgents-App-Bridge": "1",
-  },
-  body: JSON.stringify({ requestId, revision, input }),
-  signal,
-});
-
 export const createActorProgramsApi = (routePrefix: string): ActorProgramsApi => ({
-  list: async (runId, signal) => {
-    const response = await fetch(appsUrl(routePrefix, runId), { cache: "no-store", signal });
-    if (!response.ok) throw await errorFrom(response, "Die Run-Modul-Liste konnte nicht geladen werden");
-    return actorProgramsListingFrom(await response.json() as unknown);
-  },
-  source: async (runId, moduleId, signal) => {
-    const response = await fetch(`${appsUrl(routePrefix, runId)}/${segment(moduleId)}/source`, {
-      cache: "no-store",
-      signal,
-    });
-    if (!response.ok) throw await errorFrom(response, "Der Quellcode konnte nicht geladen werden");
-    return actorProgramSourceFrom(await response.json() as unknown);
-  },
+  list: async (runId, signal) =>
+    actorProgramsListingFrom(await rpc.call(actorProgramContracts.apps, { runId }, { signal })),
+  source: async (runId, moduleId, signal) =>
+    actorProgramSourceFrom(await rpc.call(actorProgramContracts.source, { runId, moduleId }, { signal })),
   frameUrl: (runId, appId, revision) =>
-    withAccessToken(`${appsUrl(routePrefix, runId)}/${segment(appId)}/frame?revision=${segment(revision)}`),
-  invoke: async (runId, appId, revision, actionId, requestId, input, signal) => {
-    const url = `${appsUrl(routePrefix, runId)}/${segment(appId)}/actions/${segment(actionId)}`;
-    const response = await postAction(url, revision, requestId, input, signal);
-    if (response.status !== 202) throw await errorFrom(response, "Die App-Aktion konnte nicht gestartet werden");
-    return runAppInvocationFrom(await response.json() as unknown);
-  },
-  invocation: async (runId, appId, invocationId, signal) => {
-    const response = await fetch(
-      `${appsUrl(routePrefix, runId)}/${segment(appId)}/invocations/${segment(invocationId)}`,
-      { cache: "no-store", signal },
-    );
-    if (!response.ok) throw await errorFrom(response, "Der Status der App-Aktion konnte nicht geladen werden");
-    return runAppInvocationFrom(await response.json() as unknown);
-  },
-  invokeFunction: async (runId, actorHandle, revision, functionId, requestId, input, signal) => {
-    const url = `${routePrefix}/runs/${segment(runId)}/actors/${segment(actorHandle)}/functions/${segment(functionId)}`;
-    const response = await postAction(url, revision, requestId, input, signal);
-    if (response.status !== 202) throw await errorFrom(response, "Die Actor-Funktion konnte nicht gestartet werden");
-    return runAppInvocationFrom(await response.json() as unknown);
-  },
-  functionInvocation: async (runId, actorHandle, invocationId, signal) => {
-    const response = await fetch(`${routePrefix}/runs/${segment(runId)}/actors/${segment(actorHandle)}/invocations/${segment(invocationId)}`, { cache: "no-store", signal });
-    if (!response.ok) throw await errorFrom(response, "Der Status der Actor-Funktion konnte nicht geladen werden");
-    return runAppInvocationFrom(await response.json() as unknown);
-  },
+    withAccessToken(`${frameBase(routePrefix, runId)}/${segment(appId)}/frame?revision=${segment(revision)}`),
+  invoke: async (runId, appId, revision, actionId, requestId, input, signal) =>
+    runAppInvocationFrom(await rpc.call(actorProgramContracts.action, { runId, appId, revision, actionId, requestId, input }, { signal })),
+  invocation: async (runId, appId, invocationId, signal) =>
+    runAppInvocationFrom(await rpc.call(actorProgramContracts.invocation, { runId, appId, invocationId }, { signal })),
+  invokeFunction: async (runId, actorHandle, revision, functionId, requestId, input, signal) =>
+    runAppInvocationFrom(await rpc.call(actorProgramContracts.function, { runId, actorHandle, revision, functionId, requestId, input }, { signal })),
+  functionInvocation: async (runId, actorHandle, invocationId, signal) =>
+    runAppInvocationFrom(await rpc.call(actorProgramContracts.functionInvocation, { runId, actorHandle, invocationId }, { signal })),
 });

@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { createServer } from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
-import { createChatHandler, type ChatSessionProvider } from "../src/chat-handler.ts";
+import type { ChatSessionProvider } from "../src/chat-handler.ts";
+import { coreContracts } from "../src/api/contracts.ts";
+import { coreMethods } from "../src/api/core-methods.ts";
+import { coreSources, methodContext } from "./rpc-fixture.ts";
 import {
   claimTurn,
   createAccessContext,
+  DomainError,
   Journal,
   LiveBus,
   Orchestration,
@@ -133,27 +136,16 @@ const createFixture = (runId: string, packages: readonly RunScriptStart[], contr
 
 const startThroughChatHttp = async (session: RunChatSession, runId: string, body: unknown, access?: AccessContext, action: "start" | "send" = "start"): Promise<number> => {
   const provider: ChatSessionProvider = { get: async () => session, hasRun: () => session.started, list: async () => [], delete: async () => undefined };
-  const handler = createChatHandler({ manager: provider, cors: false });
-  const server = createServer((request, response) => {
-    void handler(request, response, access);
-  });
+  const methods = coreMethods(coreSources(provider));
+  const method = methods.find((entry) => entry.contract.id === (action === "start" ? coreContracts.chat.start.id : coreContracts.chat.send.id))!;
+  const input = { runId, ...(body as Record<string, unknown>) };
   try {
-    await new Promise<void>((resolve, reject) => {
-      server.once("error", reject);
-      server.listen(0, "127.0.0.1", resolve);
-    });
-    const address = server.address();
-    if (!address || typeof address === "string") assert.fail("The test server has no TCP address.");
-    const response = await fetch(`http://${address.address}:${address.port}/chat/${runId}/${action}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    await method.execute(input as never, methodContext(access));
     await session.settle();
-    return response.status;
-  } finally {
-    server.closeAllConnections();
-    if (server.listening) await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    return 202;
+  } catch (error) {
+    await session.settle();
+    return error instanceof DomainError ? error.status : 500;
   }
 };
 

@@ -1,5 +1,57 @@
 # Entscheidungen
 
+## Die API ist JSON-RPC mit typisierten Verträgen, HTTP und stdio sind Transporte (18.09.2026)
+
+Kapitel: plugins (Nachrichtenschicht, Plugin-Vertrag, Web als Plugin-Host, Arbeitsbereich),
+core (Schichten, Overseer), profiles (Startmodi, Rechte), typescript-platform, run-modules,
+README. Ronald wollte den Server auch als Konsolenprozess ohne Port starten und die Erweiterung
+zwischen HTTP und stdio wechseln lassen, mit einer Nachrichten-API, die im Web und im Backend
+typsicher ist; die REST-artige HTTP-API sollte weg, nicht hinter einer Fassade weiterleben.
+Festgelegt: (1) Ein Vertrag je Fähigkeit als TypeBox-Objekt im `contract.ts` des Plugins
+(`defineOperation`, `defineChannel`), Server (`implement`) und Web (`rpc.call`) ziehen ihre
+Typen daraus; kein Codegen, keine zweite Beschreibung. (2) JSON-RPC 2.0 mit eigenem, kleinem
+Kern in der Engine (`packages/ragents/src/rpc`): symmetrischer Peer mit Abbruch (`rpc.cancel`)
+und Fortschritt (`rpc.progress`), Abonnements als Methoden, Rückrufe des Servers an den Client
+über `implementedBy: "client"`. `vscode-jsonrpc` bleibt den Language Servern vorbehalten, weil
+sein Stream-Modell nicht zu POST plus SSE passt und die Browser-Bündelung nichts gewänne.
+(3) Zwei Transporte für denselben Dispatcher: HTTP mit `POST /rpc` und `GET /rpc/stream`, stdio
+mit einer Nachricht je Zeile. (4) Rechte stehen im Vertrag und werden im Dispatcher geprüft;
+Rechte je Run bleiben dynamisch beim Host (globaler Chat). (5) Auslieferung bleibt HTTP:
+statische Oberfläche, Frames, Artefakt- und Anhanginhalte unter `/files/...`, Anmeldung; der
+Erweiterungspunkt `http` ist nur noch dafür da. (6) Startmodi `--port N`, `--port 0` mit Ansage
+auf stdout und erzeugtem Token, `--stdio`; eine Sperre auf dem Profilordner ist Sache des
+Aufrufers, nicht des Servers. (7) Die Referenz für Menschen und Modelle entsteht aus den
+Registrierungen aller Verträge als Markdown und OpenRPC; OpenAPI entfällt. Der Umbau lief in
+einem Zug über Kern, alle Plugins, Web, Erweiterung, Treiber und Tests, ohne Altpfade.
+
+## Arbeitsbereich: ein Vertrag als Naht, Bindung je Run als Richtung (18.09.2026)
+
+Kapitel: plugins (Arbeitsbereich, Sandbox-Werkzeuge und Prozesse; Offene Grenzen), Homepage
+(Sticker im Hero, Abschnitt Der Arbeitsbereich). Für die Veröffentlichung ohne das private
+Produkt fehlt der VS-Code-Erweiterung der Bezug zum Projektordner: sie kennt den Workspace
+nicht, und core arbeitet je Run in einem leeren Ordner. Ronald: die Erweiterung soll wissen, wo
+die Dateien sind, und ein Arbeitsplatz soll sich später auch an einen entfernten Server hängen
+können, mit den Dateien lokal und Modellen, Wissensbasis und Werkzeugen auf dem Server.
+Festgelegt: (1) Der Server bleibt der eine Prozess je Profil, die Erweiterung ist Client; sie
+startet keinen Server je Fenster wie Claude Code seine CLI. (2) `WorkspaceRuntime` und
+`SandboxServices` sind die einzige Naht zum Arbeitsverzeichnis, jetzt ausgesprochen in der Spec;
+in core gilt das bereits. (3) Die Bindung je Run ist die Startoption `ragents.workspace.binding`
+mit den Arten `fresh`, `path` und `client`; auf Ronalds Ansage ("baue alles an einem Stück") sind
+alle drei gebaut, das Konzept dazu ist gelöscht. Entscheidungen beim Bau: Die Auflösung scheitert
+nie an einem fehlenden Client oder Ordner, weil der Server beim Start alle Arbeitsbereiche
+auflöst und ein toter Run den Start nicht blockieren darf; erst der Werkzeugaufruf meldet die
+Ursache. Ein Arbeitsplatz verbindet sich nach außen über den vorhandenen Ereignisstrom (Kanal
+`workspace-client:<id>`, Ergebnisse per POST), damit es hinter NAT und mit VS Code Remote
+funktioniert; die Kennung ist je VS-Code-Installation stabil, weil sie im Journal gebundener Runs
+steht. Nur die fünf Grundoperationen (readFile, writeFile, access, mkdir, exec) gehen zum Client,
+die Werkzeuglogik bleibt auf dem Server; Pfade in Serverwurzeln bleiben beim Server. Meldet der
+Client denselben Hostnamen wie der Server und sieht der Server seine Ordner, belegt die
+Erweiterung `path` statt `client` vor, damit Language Server und Prozessanzeige erhalten bleiben;
+bei `client` lehnen die Language-Server-Plugins den Start mit Ursache ab. Die Vorbelegung läuft
+generisch über das Host-Signal `newRun` mit `startOptions`, die Spalte kennt keine
+Arbeitsbereich-Fachlichkeit. Der `WorkspaceResolver`-Haken bleibt für den Inhalt eines frischen
+Ordners.
+
 ## Plugins und Profile liegen an beliebiger Stelle (18.09.2026)
 
 Kapitel: plugins (Plugin-Ordner an beliebiger Stelle), profiles (Produktprofile). RAgents wird

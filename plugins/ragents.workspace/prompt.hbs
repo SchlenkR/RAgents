@@ -1,8 +1,14 @@
 # Working environment
 
-Your working directory belongs to this conversation alone. No other conversation sees it, and it
-starts empty unless the profile has prepared content in it.
+Your working directory belongs to this conversation. A system note at the start says where it is:
 
-- Reads and writes are allowed only inside this directory.
+- A private empty folder: no other conversation sees it, and it starts empty unless the profile has
+  prepared content in it.
+- A project folder the user chose, on the server or on the user's own workplace: it is the user's
+  real project. Work inside it, keep its structure, and never delete or reorganize files unless asked.
+
+Rules:
+
+- Reads and writes are allowed only inside the working directory and the run's file store.
 - Remote git operations (push, fetch, pull) and global git configuration are not allowed.
 - No network access from `bash`; use only the tools explicitly provided.

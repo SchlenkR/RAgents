@@ -12,6 +12,9 @@ import { storedStartOption } from "@aicontainer/server/ragents/start-option-stat
 import { sandboxToolNaming } from "@aicontainer/server/plugin-support/workspace-tool-naming.js";
 import { WorkspaceSandboxHost } from "@aicontainer/server/plugin-support/workspace-sandbox-host.js";
 import type { SandboxHomeEnvironment } from "@aicontainer/server/plugin-support/sandbox-tools.js";
+import type { WorkspaceBinding } from "../contract.js";
+import { bindingOf } from "./binding.js";
+import type { WorkspaceClientRegistry } from "./clients.js";
 
 export interface RunWorkspaceRuntimeOptions {
   globalDirectory: string;
@@ -22,7 +25,14 @@ export interface RunWorkspaceRuntimeOptions {
   resolver: () => WorkspaceResolver | undefined;
   runState: (runId: string) => RunState | null;
   documentsFor: (runId: string) => Promise<string | undefined>;
+  clients: WorkspaceClientRegistry;
 }
+
+const runNotStarted = (): DomainError => new DomainError(
+  "run-not-started",
+  "Die Unterhaltung ist noch nicht gestartet; das Arbeitsverzeichnis entsteht mit der ersten Nachricht.",
+  409,
+);
 
 export class RunWorkspaceRuntime implements WorkspaceRuntime {
   readonly sandbox: WorkspaceSandboxHost;
@@ -51,11 +61,22 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
   }
 
   async resolve(runId: string, emitSystem: (text: string) => void): Promise<SessionWorkspace> {
+    const state = this.#options.runState(runId);
+    if (!state) throw runNotStarted();
+    const binding = bindingOf(state);
+    switch (binding.kind) {
+      case "fresh": return this.#fresh(runId, state);
+      case "path": return this.#bound(binding, emitSystem);
+      case "client": return this.#remote(runId, binding, emitSystem);
+    }
+  }
+
+  async #fresh(runId: string, state: RunState): Promise<SessionWorkspace> {
     const directory = this.#options.sessionDirectory(runId, "workspace");
     await mkdir(directory, { recursive: true });
     const resolver = this.#options.resolver();
     const resolution = resolver
-      ? await resolver.resolve({ runId, directory, choice: this.#choiceFor(runId, resolver), emitSystem })
+      ? await resolver.resolve({ runId, directory, choice: this.#choiceFor(state, resolver), emitSystem: () => undefined })
       : { cwd: directory };
     const cwd = path.resolve(resolution.cwd);
     return {
@@ -67,19 +88,41 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     };
   }
 
-  #choiceFor(runId: string, resolver: WorkspaceResolver): JsonValue | null {
+  #bound(binding: Extract<WorkspaceBinding, { kind: "path" }>, emitSystem: (text: string) => void): SessionWorkspace {
+    const cwd = path.resolve(binding.path);
+    const existing = async (): Promise<string> => {
+      try {
+        return await realpath(cwd);
+      } catch {
+        throw new DomainError("workspace-path-missing", `Der gebundene Ordner ${cwd} existiert auf dem Server nicht mehr.`, 409);
+      }
+    };
+    emitSystem(`Arbeitsbereich: ${cwd} (Projektordner auf dem Server)`);
+    return {
+      cwd,
+      currentRoot: existing,
+      ensureWritable: existing,
+      runOperation: (operation) => operation(),
+    };
+  }
+
+  #remote(runId: string, binding: Extract<WorkspaceBinding, { kind: "client" }>, emitSystem: (text: string) => void): SessionWorkspace {
+    const cwd = binding.path;
+    emitSystem(`Arbeitsbereich: ${cwd} (Projektordner auf dem Arbeitsplatz ${binding.label})`);
+    return {
+      cwd,
+      remote: this.#options.clients.operationsFor(binding.client, binding.label),
+      currentRoot: async () => cwd,
+      ensureWritable: async () => cwd,
+      runOperation: (operation) => operation(),
+    };
+  }
+
+  #choiceFor(state: RunState, resolver: WorkspaceResolver): JsonValue | null {
     if (resolver.optionId === undefined) return null;
-    const state = this.#options.runState(runId);
-    if (!state) {
-      throw new DomainError(
-        "run-not-started",
-        "Die Unterhaltung ist noch nicht gestartet; das Arbeitsverzeichnis entsteht mit der ersten Nachricht.",
-        409,
-      );
-    }
     const choice = storedStartOption(state, resolver.optionId);
     if (choice === undefined) {
-      throw new Error(`Die Startoption ${resolver.optionId} des Workspace-Resolvers ist in der Unterhaltung ${runId} nicht gespeichert`);
+      throw new Error(`Die Startoption ${resolver.optionId} des Workspace-Resolvers ist in der Unterhaltung nicht gespeichert`);
     }
     return choice;
   }
@@ -99,7 +142,8 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     return this.sandbox.shutdown(runId);
   }
 
-  shutdown(): Promise<void> {
-    return this.sandbox.shutdownAll();
+  async shutdown(): Promise<void> {
+    await this.sandbox.shutdownAll();
+    this.#options.clients.shutdown();
   }
 }

@@ -5,7 +5,6 @@ import type {
   LanguageServerSnapshot,
 } from "@aicontainer/server/plugin-support/language-server/contract";
 import {
-  pluginRoutePrefixFrom,
   type WebPlugin,
   type WebPluginDescriptor,
   type WorkspaceTabContext,
@@ -18,7 +17,7 @@ const BADGE_POLL_MS = 15000;
 interface TabSettings {
   label: string;
   openTool: string;
-  routePrefix: string;
+  pluginId: string;
 }
 
 const severityLabels: Readonly<Record<LanguageServerSeverity, string>> = {
@@ -69,7 +68,7 @@ function IconRefresh({ className }: { className?: string }) {
   );
 }
 
-const useSnapshot = (routePrefix: string, runId: string, active: boolean, pollMs: number = POLL_MS) => {
+const useSnapshot = (pluginId: string, runId: string, active: boolean, pollMs: number = POLL_MS) => {
   const [snapshot, setSnapshot] = useState<LanguageServerSnapshot>();
   const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
@@ -83,7 +82,7 @@ const useSnapshot = (routePrefix: string, runId: string, active: boolean, pollMs
     const poll = async () => {
       setPending(true);
       try {
-        const value = await fetchLanguageServerSnapshot(routePrefix, runId);
+        const value = await fetchLanguageServerSnapshot(pluginId, runId);
         if (disposed) return;
         setSnapshot(value);
         setError(undefined);
@@ -102,14 +101,14 @@ const useSnapshot = (routePrefix: string, runId: string, active: boolean, pollMs
       disposed = true;
       if (timer !== undefined) window.clearTimeout(timer);
     };
-  }, [active, pollMs, refreshKey, routePrefix, runId]);
+  }, [active, pluginId, pollMs, refreshKey, runId]);
 
   return { snapshot, error, pending, refresh: () => setRefreshKey((value) => value + 1) };
 };
 
 const panelFor = (settings: TabSettings) => {
   function LanguageServerPanel({ active, session }: WorkspaceTabContext) {
-    const { snapshot, error, pending, refresh } = useSnapshot(settings.routePrefix, session.session.id, active);
+    const { snapshot, error, pending, refresh } = useSnapshot(settings.pluginId, session.session.id, active);
     return <LanguageServerPanelView settings={settings} snapshot={snapshot} error={error} pending={pending} onRefresh={refresh} />;
   }
 
@@ -201,7 +200,7 @@ export function LanguageServerPanelView({ settings, snapshot, error, pending, on
 
 const badgeFor = (settings: TabSettings) => {
   function LanguageServerBadge({ session }: WorkspaceTabContext) {
-    const { snapshot } = useSnapshot(settings.routePrefix, session.session.id, true, BADGE_POLL_MS);
+    const { snapshot } = useSnapshot(settings.pluginId, session.session.id, true, BADGE_POLL_MS);
     const errors = (snapshot?.state === "ready" || snapshot?.state === "suspended" ? snapshot.files : [])
       .flatMap((file) => file.diagnostics)
       .filter((entry) => entry.severity === "error").length;
@@ -231,7 +230,7 @@ export const languageServerWebPlugin = (pluginId: string, Icon: ComponentType = 
     activate: (config) => configuredPlugin(descriptor, {
       label: textFrom(config, "label", pluginId),
       openTool: textFrom(config, "openTool", pluginId),
-      routePrefix: pluginRoutePrefixFrom(pluginId, config),
+      pluginId,
     }, Icon),
   };
 };

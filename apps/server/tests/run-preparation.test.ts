@@ -12,15 +12,19 @@ import type { ModelRuntime } from "@aicontainer/agent";
 import { fauxAssistantMessage, fauxToolCall, type AssistantMessage } from "@aicontainer/ai";
 import { createFauxCore } from "../../../packages/ai/src/providers/faux.ts";
 import { preparationPrompt } from "../../../plugins/ragents.overseer/server/coordinator-prompt.ts";
-import { DomainError, Journal, LiveBus, Orchestration, StartOptionContributionRegistry, StaticModelCatalog,
+import { ChannelContributionRegistry, DomainError, Journal, LiveBus, MethodContributionRegistry, Orchestration, RPC_ERROR_CODES, RpcError, RpcPeer, StartOptionContributionRegistry, StaticModelCatalog, unrestrictedAccess,
   type AgentProfile, type CatalogModel } from "@aicontainer/ragents";
 import { executionFor, testServices } from "../../../packages/ragents/tests/support.ts";
 import { unavailableActorPrograms } from "./actor-programs-fixture.ts";
 import { productStartOptions } from "../src/plugin-support/product-start-options.ts";
 import type { Engine } from "../src/ragents/engine.ts";
 import { RunChatSession } from "../src/ragents/session.ts";
-import { handleRunPreparationRequest, parseRunPreparationRequest, prepareRunMessage } from "../src/run-preparation.ts";
-import { MAX_RUN_PREPARATION_TEXT_CHARS } from "../src/run-preparation-contract.ts";
+import { parseRunPreparationRequest, prepareRunMessage } from "../src/run-preparation.ts";
+import { coreContracts } from "../src/api/contracts.ts";
+import { coreMethods } from "../src/api/core-methods.ts";
+import { RpcConnection, RpcDispatcher } from "../src/rpc/dispatcher.ts";
+import { coreSources, methodContext } from "./rpc-fixture.ts";
+import { MAX_RUN_PREPARATION_TEXT_CHARS, type RunPreparationResponse } from "../src/run-preparation-contract.ts";
 
 const directory = await mkdtemp(path.join(tmpdir(), "ragents-preparation-"));
 process.env.DATA_DIR = directory;
@@ -238,55 +242,44 @@ test("abort reaches the model and discards a late response", async (t) => {
   assert.equal(streamSimple.mock.callCount(), 1);
 });
 
-const httpFixture = (body: unknown, method = "POST") => {
-  const req = Readable.from([typeof body === "string" ? body : JSON.stringify(body)]) as unknown as IncomingMessage;
-  req.method = method;
-  const response = new EventEmitter() as ServerResponse;
-  let status = 0;
-  let result: unknown;
-  const headers: Record<string, unknown> = {};
-  response.writeHead = ((code: number) => { status = code; return response; }) as typeof response.writeHead;
-  response.end = ((value: string) => { result = JSON.parse(value); return response; }) as typeof response.end;
-  response.setHeader = ((key: string, value: string) => { headers[key] = value; return response; }) as typeof response.setHeader;
-  return { req, response, status: () => status, result: () => result, headers };
+const prepareMethod = (prepare: (request: unknown, signal: AbortSignal) => Promise<RunPreparationResponse>) => {
+  const provider = { get: async () => { throw new Error("nicht gefragt"); }, list: async () => [], delete: async () => undefined };
+  const sources = coreSources(provider);
+  return coreMethods({ ...sources, sessions: { ...sources.sessions, prepareRunMessage: (_runId, request, signal) => prepare(request, signal) } });
 };
 
-test("preparation HTTP accepts a completed request body, maps errors, and rejects other methods", async () => {
-  const good = httpFixture(request());
-  await handleRunPreparationRequest(good.req, good.response, async (body, signal) => {
+test("the preparation method hands the request body through, maps errors and rejects malformed input", async () => {
+  const good = prepareMethod(async (body, signal) => {
     assert.equal(signal.aborted, false);
     assert.deepEqual(body, request());
     return { kind: "reply", text: "Rückfrage" };
-  });
-  assert.equal(good.status(), 200);
-  assert.deepEqual(good.result(), { kind: "reply", text: "Rückfrage" });
-  const invalid = httpFixture("broken");
-  await handleRunPreparationRequest(invalid.req, invalid.response, async () => { throw new Error("Must not be called"); });
-  assert.equal(invalid.status(), 400);
-  const unsupported = httpFixture({}, "GET");
-  await handleRunPreparationRequest(unsupported.req, unsupported.response, async () => { throw new Error("Must not be called"); });
-  assert.equal(unsupported.status(), 405);
-  assert.equal(unsupported.headers.Allow, "POST");
-  const failed = httpFixture(request());
-  await handleRunPreparationRequest(failed.req, failed.response, async () => { throw new DomainError("preparation-busy", "Busy", 409); });
-  assert.equal(failed.status(), 409);
-  assert.deepEqual(failed.result(), { error: "Busy", code: "preparation-busy" });
+  }).find((entry) => entry.contract.id === coreContracts.prepare.id)!;
+  assert.deepEqual(await good.execute({ runId: "run", ...request() } as never, methodContext()), { kind: "reply", text: "Rückfrage" });
+
+  const methods = new MethodContributionRegistry();
+  methods.register("test", prepareMethod(async (body) => { parseRunPreparationRequest(body); throw new Error("Must not be called"); }));
+  const dispatcher = new RpcDispatcher({ methods, channels: new ChannelContributionRegistry() });
+  const connection = new RpcConnection({ id: "test", access: unrestrictedAccess, local: true, peer: new RpcPeer({ send: () => undefined }), streamless: true }, dispatcher);
+  const handlerContext = { id: 1, signal: new AbortController().signal, progress: () => undefined };
+  await assert.rejects(dispatcher.dispatch(connection, coreContracts.prepare.id, "broken", handlerContext), (error: unknown) => error instanceof RpcError && error.code === RPC_ERROR_CODES.invalidParams);
+  await assert.rejects(dispatcher.dispatch(connection, coreContracts.prepare.id, { runId: "run", messages: "nicht" }, handlerContext), isDomain(400));
+
+  const failed = prepareMethod(async () => { throw new DomainError("preparation-busy", "Busy", 409); }).find((entry) => entry.contract.id === coreContracts.prepare.id)!;
+  await assert.rejects(failed.execute({ runId: "run", ...request() } as never, methodContext()), isDomain(409));
 });
 
-test("HTTP response closure aborts a pending completion and removes listeners", async () => {
-  const fixture = httpFixture(request());
+test("aborting the request signal aborts a pending completion", async () => {
   const started = Promise.withResolvers<AbortSignal>();
-  const finish = Promise.withResolvers<{ kind: "reply"; text: string }>();
-  const pending = handleRunPreparationRequest(fixture.req, fixture.response, async (_body, signal) => { started.resolve(signal); return finish.promise; });
+  const finish = Promise.withResolvers<RunPreparationResponse>();
+  const method = prepareMethod(async (_body, signal) => { started.resolve(signal); return finish.promise; }).find((entry) => entry.contract.id === coreContracts.prepare.id)!;
+  const controller = new AbortController();
+  const pending = method.execute({ runId: "run", ...request() } as never, { ...methodContext(), signal: controller.signal });
   const signal = await started.promise;
   assert.equal(signal.aborted, false);
-  fixture.response.emit("close");
+  controller.abort();
   assert.equal(signal.aborted, true);
-  Object.defineProperty(fixture.response, "destroyed", { value: true });
   finish.resolve({ kind: "reply", text: "Late" });
-  await pending;
-  assert.equal(fixture.status(), 0);
-  assert.equal(fixture.response.listenerCount("close"), 0);
+  assert.deepEqual(await pending, { kind: "reply", text: "Late" });
 });
 
 const providerFixture = (t: TestContext) => {

@@ -22,15 +22,16 @@ grob 1 Million Subagenten-Tokens plus wenige Cent DeepSeek über OpenRouter.
 
 1. Je Testfall T01 bis T12 aus CATALOG.md einen Opus-Subagenten (medium) starten, alle
    parallel. Jeder Agent fährt BEIDE Promptvarianten als getrennte Unterhaltungen:
-   Session-ID per uuidgen, `POST /chat/<id>/send {"text":...}`, Beobachtung über
-   `${DATA_DIR}/runs/<id>/journal.jsonl` und `GET /chat/<id>/run`. Grenzen: 10 Minuten je
-   Variante, bei 4 Minuten Event-Stille `POST /chat/<id>/stop` und als Abbruch werten. Eine
+   Session-ID per uuidgen, Aufrufe als JSON-RPC an `POST /rpc` (`{"jsonrpc":"2.0","id":1,
+   "method":"ragents.chat.send","params":{"runId":"<id>","text":...}}`), Beobachtung über
+   `${DATA_DIR}/runs/<id>/journal.jsonl` und `ragents.runs.view`. Grenzen: 10 Minuten je
+   Variante, bei 4 Minuten Event-Stille `ragents.chat.stop` und als Abbruch werten. Eine
    offene Rückfrage (`action.proposed` mit status pending in der RunView) ist KEINE Stille:
-   der Agent beantwortet sie über `POST /api/plugins/ragents.ask/runs/<id>/questions/<actionId>/answer`
-   mit `{"answer": ...}` und bewertet die Rückfrage im Bericht. Jeder Agent arbeitet in einem
+   der Agent beantwortet sie über `ragents.ask.answer` mit `{"runId", "actionId", "answer"}`
+   und bewertet die Rückfrage im Bericht. Jeder Agent arbeitet in einem
    eigenen Unterordner des Scratchpads. Verfehlte oder abgebrochene Varianten einmal mit einem
-   stärkeren Modell wiederholen (`PUT /chat/<id>/model`), um Modell- von Plattformfehlern zu
-   trennen.
+   stärkeren Modell wiederholen (Startoption `ragents.model` vor dem Start über
+   `ragents.startOptions.select`), um Modell- von Plattformfehlern zu trennen.
 2. Jeder Agent liefert strukturiert: verdict je Variante (erfüllt/teilweise/verfehlt/
    abbruch), Beobachtungen, Findings mit Journal-Beleg (Kategorien bug, modellverhalten,
    prompt, ux, performance), Prompt-A-gegen-B-Vergleich, Modellverhalten.

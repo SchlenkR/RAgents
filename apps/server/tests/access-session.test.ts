@@ -257,8 +257,8 @@ test("der Sitzungstoken gilt auch als Bearer und für GET-Abrufe als Abfragepara
   const { cookie } = await login(manager, "reader");
   const token = cookie.split("=")[1]!;
   assert.equal(manager.snapshot(request("GET", undefined, { authorization: `Bearer ${token}` })).user?.id, "reader");
-  assert.equal(manager.snapshot(Object.assign(request(), { url: `/api/events?access=${token}` })).user?.id, "reader");
-  assert.equal(manager.snapshot(Object.assign(request("POST"), { url: `/api/events?access=${token}` })).user, null);
+  assert.equal(manager.snapshot(Object.assign(request(), { url: `/rpc/stream?access=${token}` })).user?.id, "reader");
+  assert.equal(manager.snapshot(Object.assign(request("POST"), { url: `/rpc/stream?access=${token}` })).user, null);
   assert.equal(manager.snapshot(request("GET", undefined, { authorization: "Bearer nicht-gültig" })).user, null);
   assert.equal(manager.snapshot(request("GET", undefined, { authorization: "Basic abc", cookie })).user, null);
   assert.equal(manager.snapshot(request("GET", undefined, { cookie })).user?.id, "reader");

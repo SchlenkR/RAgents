@@ -61,7 +61,8 @@ blanken Namen in `process.env` materialisiert. Zwei Produkte mit gleichnamigen S
 deshalb je Variante eine eigene Datei.
 
 Das Profil `core` (Produkt-ID `ragents`) ist die neutrale RAgents-Variante. Es bootet ohne jedes
-produktspezifische Plugin mit einem leeren Arbeitsverzeichnis je Unterhaltung und ist damit
+produktspezifische Plugin mit einem Arbeitsbereich je Unterhaltung, der als Startoption gewählt
+wird (leerer Ordner, Ordner auf dem Server oder verbundener Arbeitsplatz), und ist damit
 zugleich der gelebte Entfernungstest: Chat, Koordinator, Orchestrierungs-Canvas,
 TypeScript-Actors, Dokumente und Rückfragen funktionieren ohne Fachplugin. Die neutralen Gegenstücke `ragents.product` (Koordinator, Modelle, Präambel) und
 `ragents.workspace` (Arbeitsverzeichnis je Run + Sandbox-Werkzeuge aus `plugin-support`) stellen die
@@ -114,7 +115,16 @@ Reichweite frieren mit der ersten Nachricht in den Journal-Zustand `ragents.syst
 
 Das Startmenü bietet die Profildateien des Repositories an; `ragents.config.example.ts` bleibt
 eine Vorlage. `./start.sh core` verwendet als Vorgabe Port 4710 und
-`~/.local/share/ragents/core`. Bereits vorhandene Daten anderer Profile bleiben unberührt und
+`~/.local/share/ragents/core`.
+
+Der Server kennt drei Startmodi (`pnpm start -- <argumente>`, `apps/server/src/main.ts`):
+`--port N` hört wie bisher auf dem Port des Profils oder der Umgebung und bricht bei belegtem
+Port ab; `--port 0` hört auf einem freien Port nur auf `127.0.0.1`, erzeugt ohne konfigurierte
+Benutzer und ohne `ACCESS_TOKEN` einen Zugangstoken je Prozess und schreibt als einzige Zeile auf
+stdout die Ansage `{"ragents":{"url","token","pid"}}` für den Aufrufer; `--stdio` spricht
+JSON-RPC über stdin und stdout, ohne `--port` ohne HTTP, und beendet den Server, wenn die
+Eingabe endet. Bei `--stdio` und `--port 0` geht die Konsole nach stderr, damit stdout dem
+Protokoll gehört. Ein zweiter Prozess auf demselben Profilordner ist Sache des Aufrufers. Bereits vorhandene Daten anderer Profile bleiben unberührt und
 werden nicht migriert.
 
 Die gemeinsame Datenpfadauflösung gilt für Startskript und direkten Serverstart: `DATA_DIR`
@@ -159,8 +169,8 @@ Modell- und Denktiefenvorgaben bleiben getrennt; der Run überschreibt die Denkt
 Start nicht. Der Modellkatalog begrenzt die erlaubten Stufen je Modell.
 
 Die Vorgaben liegen unter `${DATA_DIR}/plugins/<produkt-plugin>/model-settings.json`.
-Jedes Produkt-Plugin besitzt seinen eigenen Store und seine eigene
-`/api/plugins/<produkt-plugin>/model-settings`-Route. Lesen benötigt `settings.read`, Speichern
+Jedes Produkt-Plugin besitzt seinen eigenen Store und seine eigenen Methoden
+`ragents.product.modelSettings.read` und `.save`. Lesen benötigt `settings.read`, Speichern
 zusätzlich `settings.write`. Ein Speichervorgang übermittelt alle tatsächlichen Agentprofile;
 fehlende, doppelte oder unbekannte Profile, nicht angebotene Modelle und unzulässige Denktiefen
 werden vor dem Schreiben zurückgewiesen. Die Datei wird atomar ersetzt.
@@ -193,8 +203,8 @@ Unbekannte Modelle, ungültige Datei- oder Anfrageinhalte
 werden abgewiesen; ein ungültiger gespeicherter Stand verhindert den Start. Speichern ersetzt
 die Datei atomar und übernimmt die Auswahl erst nach erfolgreichem Schreiben.
 
-`GET /api/settings/titles` liefert Auswahl und verfügbaren Katalog mit `settings.read`.
-`PUT` benötigt zusätzlich `settings.write` und speichert ausschließlich die Auswahl. Änderungen
+`ragents.settings.titles.read` liefert Auswahl und verfügbaren Katalog mit `settings.read`.
+`ragents.settings.titles.save` benötigt zusätzlich `settings.write` und speichert ausschließlich die Auswahl. Änderungen
 gelten ab der nächsten Titelerzeugung. Bereits erzeugte oder ausdrücklich gesetzte Titel bleiben
 erhalten; Modelle und Denktiefen von Agenten oder globalem Koordinator ändern sich nicht.
 
@@ -260,19 +270,19 @@ Abfrageparameter `access` (`ACCESS_TOKEN_QUERY` in `packages/ragents/src/access.
 Bearer-Header hat Vorrang vor Cookie und Abfrageparameter; Abmelden mit Bearer widerruft die
 Sitzung genauso.
 
-Benutzerrechte steuern sowohl sichtbare beziehungsweise nur lesbare UI als auch HTTP-Routen.
+Benutzerrechte steuern sowohl sichtbare beziehungsweise nur lesbare UI als auch Methoden und Kanäle.
 Der Zugriff wird nicht pro Run und angemeldetem Benutzer getrennt: Leseberechtigte sehen
 die gemeinsamen Runs des Profils.
 `runs.write` erlaubt Nachrichten an vorhandene Runs und ihre App-Aktionen. Freie Runs,
 Vorbereitungsgespräche und Startoptionen benötigen zusätzlich `runs.create`. Ohne dieses Recht
-startet `POST /chat/<id>/start` nur ein Run-Script aus `user.startEntries`; beliebige Texte,
+startet `ragents.chat.start` nur ein Run-Script aus `user.startEntries`; beliebige Texte,
 andere Einstiegkennungen und technische Startparameter sind gesperrt. Der Katalog enthält
 für diese Benutzer nur die freigegebenen Scripts. Die Auswahl gilt für neue Starts; bestehende
 Runs bleiben im gemeinsamen Profil zugänglich.
 
 `runs.inspect` schützt Modelle, Journal, Quellen, Werkzeuge und allgemeine technische Einsicht.
 Language-Server-Ansichten verwenden ihr eigenes `<pluginId>.read`. Damit lassen sich Diagnosen
-unabhängig von Modell- und Werkzeugdetails freigeben. Tabs und lesende HTTP-Routen prüfen
+unabhängig von Modell- und Werkzeugdetails freigeben. Tabs und lesende Methoden prüfen
 dasselbe Recht.
 
 `runs.trace` gibt ohne die übrige technische Einsicht die Denk- und Werkzeugschritte des Chats

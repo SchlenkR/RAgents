@@ -1,9 +1,11 @@
 import { unavailableActorPrograms } from "./actor-programs-fixture.ts";
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
 import test from "node:test";
 
-import { createChatHandler, type ChatSessionProvider } from "../src/chat-handler.ts";
+import type { ChatSessionProvider } from "../src/chat-handler.ts";
+import { coreContracts } from "../src/api/contracts.ts";
+import { coreMethods } from "../src/api/core-methods.ts";
+import { coreSources, methodContext } from "./rpc-fixture.ts";
 import {
   Journal,
   LiveBus,
@@ -113,39 +115,14 @@ const createFixture = (runId: string) => {
 };
 
 const sendThroughChatHttp = async (session: RunChatSession, runId: string, text: string): Promise<void> => {
-  const provider: ChatSessionProvider = {
-    get: async () => session,
-    list: async () => [],
-    delete: async () => undefined,
-  };
-  const handler = createChatHandler({ manager: provider, cors: false });
-  const server = createServer((request, response) => {
-    void handler(request, response);
-  });
-
+  const provider: ChatSessionProvider = { get: async () => session, list: async () => [], delete: async () => undefined };
+  const send = coreMethods(coreSources(provider))
+    .find((entry) => entry.contract.id === coreContracts.chat.send.id)!;
   try {
-    await new Promise<void>((resolve, reject) => {
-      server.once("error", reject);
-      server.listen(0, "127.0.0.1", resolve);
-    });
-    const address = server.address();
-    if (!address || typeof address === "string") assert.fail("The test server has no TCP address.");
-
-    const response = await fetch(`http://${address.address}:${address.port}/chat/${runId}/send`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    assert.equal(response.status, 202);
+    await send.execute({ runId, text } as never, methodContext());
     await session.drain();
   } finally {
     await session.drain();
-    server.closeAllConnections();
-    if (server.listening) {
-      await new Promise<void>((resolve, reject) => {
-        server.close((error) => error ? reject(error) : resolve());
-      });
-    }
   }
 };
 

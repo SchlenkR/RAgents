@@ -6,7 +6,6 @@ import {
 } from "@aicontainer/ragents";
 import type { SessionWorkspace } from "./workspace-runtime.js";
 import type { SessionManagement } from "./global-chat.js";
-import type { EventChannelRegistry } from "../event-hub.js";
 
 export const sessionGuardToken: ServiceToken<(runId: string) => void> = serviceToken("host.session-guard");
 
@@ -17,14 +16,11 @@ export const secretEnvNamesToken: ServiceToken<() => readonly string[]> = servic
 
 export const runtimeProviderToken: ServiceToken<() => Orchestration> = serviceToken("host.runtime-provider");
 
-export const eventHubToken: ServiceToken<EventChannelRegistry> = serviceToken("host.event-hub");
-
 export interface HostBridges {
   ensureSession: (runId: string) => void;
   runtime: () => Orchestration;
   sessionWorkspaceFor: (runId: string) => Promise<SessionWorkspace>;
   sessions?: () => SessionManagement;
-  eventHub?: EventChannelRegistry;
 }
 
 export type ProductProfileFactory = (bridges: HostBridges) => PluginHost;

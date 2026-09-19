@@ -8,11 +8,12 @@
     "skipLibCheck": true,
     "jsx": "react-jsx",
     "lib": [
-      "ES2022",
+      "ES2024",
       "DOM",
       "DOM.Iterable"
     ],
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "paths": {
       "@/*": [
         "./src/*"

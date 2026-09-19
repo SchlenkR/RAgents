@@ -1,5 +1,4 @@
-import { defaultHttpRights, modelToolDescriptors, type PluginHost } from "@aicontainer/ragents";
-import { MANAGEMENT_API_PREFIX, managementRouteContracts } from "./http-api.js";
+import { modelToolDescriptors, type PluginHost } from "@aicontainer/ragents";
 
 const summary = (text: string): string => {
   const normalized = text.replace(/\s+/g, " ").trim();
@@ -15,14 +14,15 @@ export function overseerOrientation(host: PluginHost): string {
     ...host.agentRuntime.describeTools(),
   ];
   const owners = [...new Set(tools.map((tool) => tool.owner))].sort();
+  const methods = [...host.methods.describe()].sort((left, right) => left.id.localeCompare(right.id, "en"));
   return [
     "[Fähigkeitenüberblick aus den registrierten Verträgen]",
-    "HTTP-Aktionen über bash/curl; Pfade relativ zu $RAGENTS_API_BASE_URL. Eingaben und Ergebnisse bei Bedarf in reference.md oder openapi.json nachlesen.",
-    ...managementRouteContracts.map((route) => `- ${route.method} ${MANAGEMENT_API_PREFIX}${route.path}: ${summary(route.description)} [${defaultHttpRights(route.method).join(", ")}]`),
-    "Die Rechte in Klammern gelten für angemeldete HTTP-Benutzer. Dieser globale Koordinator verwendet die lokale Dienstidentität, keine zusätzlich vergebenen Benutzerrechte.",
+    "JSON-RPC-Aufrufe über bash/curl gegen $RAGENTS_API_BASE_URL/rpc. Eingaben und Ergebnisse bei Bedarf in rpc-reference.md oder openrpc.json nachlesen.",
+    ...methods.map((method) => `- ${method.id}: ${summary(method.description)} [${method.rights.join(", ") || "keine festen Rechte"}]`),
+    "Die Rechte in Klammern gelten für angemeldete Benutzer. Dieser globale Koordinator verwendet die lokale Dienstidentität, keine zusätzlich vergebenen Benutzerrechte.",
     "",
     "[Bausteine regulärer Runs]",
-    "Dies ist der Katalog der Engine und der aktuell installierten Plugins, keine zusätzliche Werkzeugliste dieses Chats. Nutze diese Bausteine für Run-Aufträge oder eigene Run-Setups über die HTTP-API. Verfügbarkeit und Aufrufbarkeit hängen weiterhin von Actor, Grants, deklarierter Script-Teilmenge und Run-Kontext ab; ein Katalogeintrag erteilt keine Rechte.",
+    "Dies ist der Katalog der Engine und der aktuell installierten Plugins, keine zusätzliche Werkzeugliste dieses Chats. Nutze diese Bausteine für Run-Aufträge oder eigene Run-Setups über die JSON-RPC-API. Verfügbarkeit und Aufrufbarkeit hängen weiterhin von Actor, Grants, deklarierter Script-Teilmenge und Run-Kontext ab; ein Katalogeintrag erteilt keine Rechte.",
     "Details und Beispiele: $RAGENTS_API_BASE_URL/help/llms.txt. Die öffentliche Hilfe beschreibt core; der folgende Bestand stammt aus diesem laufenden Profil. Für zusätzliche profilabhängige Beiträge die tatsächlich registrierten Plugin-Verträge nachlesen.",
     ...owners.flatMap((owner) => [
       `${owner}:`,

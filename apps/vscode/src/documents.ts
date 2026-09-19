@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { runContracts } from "../../../packages/ragents/src/http/contracts";
 import type { ServerClient } from "./server-client";
 
 export const DOCUMENT_SCHEME = "ragents";
@@ -23,7 +24,7 @@ export class RunDocuments implements vscode.TextDocumentContentProvider {
     if (parts[0] !== "runs" || parts[1] === undefined) throw new Error(`Unbekannte RAgents-Adresse: ${uri.toString()}`);
     const runId = parts[1];
     if (parts[2] === "artifacts" && parts[3] !== undefined) return this.client().artifactText(runId, parts[3]);
-    if (parts[2] === "journal") return `${JSON.stringify(await this.client().journal(runId), null, 2)}\n`;
+    if (parts[2] === "journal") return `${JSON.stringify(await this.client().rpc.call(runContracts.events, { runId }), null, 2)}\n`;
     throw new Error(`Unbekannte RAgents-Adresse: ${uri.toString()}`);
   }
 

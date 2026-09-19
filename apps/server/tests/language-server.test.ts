@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { EventEmitter, on } from "node:events";
 import { mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
-import type { IncomingMessage } from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { PassThrough, Writable } from "node:stream";
@@ -12,7 +11,7 @@ import { StreamMessageReader, type Message, type RequestMessage } from "vscode-j
 import type { LanguageServerSnapshot } from "../src/plugin-support/language-server/contract.ts";
 import { diagnosticEntries, formatDiagnostics } from "../src/plugin-support/language-server/diagnostics.ts";
 import type { LanguageServerHost } from "../src/plugin-support/language-server/host.ts";
-import { createLanguageServerRoutes } from "../src/plugin-support/language-server/snapshot-route.ts";
+import { createLanguageServerSnapshotMethod } from "../src/plugin-support/language-server/snapshot-method.ts";
 import {
   JsonRpcConnection,
   JsonRpcError,
@@ -20,7 +19,7 @@ import {
 import { LanguageServerSession } from "../src/plugin-support/language-server/session.ts";
 import { solutionProjects } from "../src/plugin-support/language-server/solution.ts";
 import { createSandboxTools, withAnnotation } from "../src/plugin-support/sandbox-tools.ts";
-import { capturedJson } from "./runtime-fixture.ts";
+import { createAccessContext, type MethodConnection, type MethodContext } from "@aicontainer/ragents";
 
 const frame = (message: object): Buffer => {
   const body = Buffer.from(JSON.stringify(message));
@@ -283,14 +282,30 @@ test("diagnostic entries carry one-based places, named severities and the first 
   ]);
 });
 
-const snapshotRoute = (servers: Partial<LanguageServerHost>, ensureSession: (runId: string) => void) =>
-  createLanguageServerRoutes({
+const connection: MethodConnection = {
+  id: "connection-1",
+  userId: null,
+  streamless: false,
+  call: () => Promise.reject(new Error("Der Sprachserver ruft niemanden zurück")),
+  onClose: () => () => undefined,
+};
+
+const methodContext: MethodContext = {
+  access: createAccessContext({ enabled: false, user: null }),
+  signal: new AbortController().signal,
+  progress: () => undefined,
+  connection,
+  local: true,
+};
+
+const snapshotMethod = (servers: Partial<LanguageServerHost>, ensureSession: (runId: string) => void) =>
+  createLanguageServerSnapshotMethod({
     pluginId: "ragents.lsp-roslyn",
     servers: servers as LanguageServerHost,
     ensureSession,
-  })[0];
+  });
 
-test("the snapshot route answers with the state and the diagnostics of the run", async () => {
+test("the snapshot method answers with the state and the diagnostics of the run", async () => {
   const snapshot: LanguageServerSnapshot = {
     state: "ready",
     root: "/work/Sample.sln",
@@ -298,36 +313,25 @@ test("the snapshot route answers with the state and the diagnostics of the run",
     files: [{ path: "src/Foo.cs", diagnostics: [{ line: 3, character: 1, severity: "error", message: "kaputt" }] }],
   };
   const guarded: string[] = [];
-  const route = snapshotRoute({ snapshot: (runId) => Promise.resolve({ ...snapshot, summary: runId }) }, (runId) => {
+  const method = snapshotMethod({ snapshot: (runId) => Promise.resolve({ ...snapshot, summary: runId }) }, (runId) => {
     guarded.push(runId);
   });
-  const url = new URL("http://host/api/plugins/ragents.lsp-roslyn/runs/run-1/language-server");
-  const request = { method: "GET" } as IncomingMessage;
-  const { captured, response } = capturedJson();
 
-  assert.ok(route.isApiPath(url.pathname));
-  assert.ok(route.matches(request, url));
-  assert.ok(!route.matches({ method: "POST" } as IncomingMessage, url));
-  assert.ok(!route.isApiPath("/api/plugins/ragents.lsp-fsharp/runs/run-1/language-server"));
-
-  await route.handle({ request, response, url });
-
+  assert.equal(method.contract.id, "ragents.lsp-roslyn.snapshot");
+  assert.deepEqual(method.contract.rights, ["runs.read", "ragents.lsp-roslyn.read"]);
+  assert.deepEqual(await method.execute({ runId: "run-1" }, methodContext), { ...snapshot, summary: "run-1" });
   assert.deepEqual(guarded, ["run-1"]);
-  assert.equal(captured.status, 200);
-  assert.deepEqual(captured.body, { ...snapshot, summary: "run-1" });
 });
 
-test("the snapshot route reports an unknown session instead of asking the host", async () => {
-  const route = snapshotRoute({ snapshot: () => Promise.reject(new Error("nicht gefragt")) }, () => {
+test("the snapshot method reports an unknown session instead of asking the host", async () => {
+  const method = snapshotMethod({ snapshot: () => Promise.reject(new Error("nicht gefragt")) }, () => {
     throw new Error("Unterhaltung run-9 ist unbekannt");
   });
-  const url = new URL("http://host/api/plugins/ragents.lsp-roslyn/runs/run-9/language-server");
-  const { captured, response } = capturedJson();
 
-  await route.handle({ request: { method: "GET" } as IncomingMessage, response, url });
-
-  assert.equal(captured.status, 400);
-  assert.deepEqual(captured.body, { error: "Unterhaltung run-9 ist unbekannt" });
+  await assert.rejects(
+    Promise.resolve().then(() => method.execute({ runId: "run-9" }, methodContext)),
+    /Unterhaltung run-9 ist unbekannt/,
+  );
 });
 
 test("solution projects are resolved next to the .sln with forward slashes", async () => {

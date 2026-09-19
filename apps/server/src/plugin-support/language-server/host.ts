@@ -47,6 +47,11 @@ const GIT_TIMEOUT_MS = 30 * 1000;
 
 const messageOf = (error: unknown): string => error instanceof Error ? error.message : String(error);
 
+const assertLocalWorkspace = (context: SandboxProcessContext): void => {
+  if (context.remote === undefined) return;
+  throw new Error(`Der Arbeitsbereich liegt auf dem Arbeitsplatz ${context.remote}; Language Server laufen nur bei einem Arbeitsbereich auf dem Server`);
+};
+
 export class LanguageServerHost {
   readonly adapter: LanguageServerAdapter;
   readonly #sandbox: SandboxServices;
@@ -80,6 +85,7 @@ export class LanguageServerHost {
     try {
       const context = await this.#sandbox.processContextFor(runId);
       this.#assertLifetime(runId, lifetime);
+      assertLocalWorkspace(context);
       const allowed = await Promise.all([context.root, ...context.additionalRoots ?? []].map(resolvedWorkspacePath));
       const requested = await allowedWorkspacePath(path.resolve(context.root, expandWorkspaceAlias(root, context.workspaceAliases ?? {})), allowed);
       const workspaceRoot = allowed.find((directory) => containsWorkspacePath(directory, requested))!;
@@ -162,6 +168,7 @@ export class LanguageServerHost {
     const lifetime = this.#lifetime(runId);
     const context = await this.#sandbox.processContextFor(runId);
     this.#assertLifetime(runId, lifetime);
+    assertLocalWorkspace(context);
     const server = await this.#ensure(runId, context);
     const files = paths === undefined || paths.length === 0
       ? await this.#changedFiles(context)
@@ -183,6 +190,7 @@ export class LanguageServerHost {
       const lifetime = this.#lifetime(runId);
       const context = await this.#sandbox.processContextFor(runId);
       this.#assertLifetime(runId, lifetime);
+      assertLocalWorkspace(context);
       const server = await this.#ensure(runId, context);
       return await this.#format(context, server, absolutePath, false);
     } catch (error) {

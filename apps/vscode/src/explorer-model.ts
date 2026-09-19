@@ -1,5 +1,6 @@
 import type { ActorSummary, AppSummary, ArtifactSummary, RunSummary } from "./run-model";
 import type { ConnectionStatus } from "./store";
+import type { WorkspaceClientStatus } from "./workspace-client";
 
 /** Was der Baum zeigt, ohne VS-Code-Typen: der Adapter macht daraus TreeItems. */
 export type ExplorerNode =
@@ -18,6 +19,7 @@ export interface ExplorerState {
   runs: readonly RunSummary[];
   selectedRunId: string | undefined;
   centerElements: (runId: string) => ReadonlySet<string>;
+  workspaceClient: WorkspaceClientStatus;
 }
 
 const plural = (count: number, singular: string, pluralForm: string) => `${count} ${count === 1 ? singular : pluralForm}`;
@@ -76,8 +78,9 @@ export const rootNodes = (state: ExplorerState): ExplorerNode[] => {
     description: `${runStateLabel(run)}${questionSuffix(run.questions)}`,
     icon: run.state === "ended" ? "circle-outline" : "circle-filled",
     color: runColor(run),
-    tooltip: `${run.title}\n${runStateLabel(run)}${questionSuffix(run.questions)}${run.events !== undefined ? `\n${plural(run.events, "Ereignis", "Ereignisse")} im Journal` : ""}`,
+    tooltip: `${run.title}\n${runStateLabel(run)}${questionSuffix(run.questions)}${run.events !== undefined ? `\n${plural(run.events, "Ereignis", "Ereignisse")} im Journal` : ""}${run.workspace ? `\nArbeitsbereich: ${run.workspace}` : ""}`,
   }));
+  if (state.workspaceClient.kind === "failed") nodes.unshift({ kind: "notice", id: "notice:workspace-client", label: "Arbeitsplatz nicht angemeldet", description: "kein Ordner für neue Runs", icon: "warning", tooltip: state.workspaceClient.message });
   if (state.streamMessage !== undefined) nodes.unshift({ kind: "notice", id: "notice:stream", label: "Live-Verbindung unterbrochen", description: "verbindet neu ...", icon: "warning", tooltip: state.streamMessage });
   if (nodes.length === 0) nodes.push({ kind: "notice", id: "notice:empty", label: "Noch keine Runs", description: "Neuer Run über das Plus", icon: "info" });
   return nodes;

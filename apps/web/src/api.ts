@@ -1,21 +1,20 @@
+import { runContracts } from "@aicontainer/ragents/src/http/contracts";
+import { coreContracts } from "@aicontainer/server/api/contracts";
 import { hasExactKeys, isRecord } from "./lib/guards";
-import { errorFrom } from "./lib/http";
+import { rpc } from "./rpc";
+import type { RpcClient } from "./rpc/client";
 import type { Message } from "./chat/types";
 import { startOptionStateFrom, type StartOptionState } from "../../server/src/plugin-support/start-options-contract";
 
 export type { StartOptionState };
 
-export const stopChatActor = async (runId: string, actorId: string): Promise<void> => {
-  const response = await fetch(`/api/runs/${encodeURIComponent(runId)}/actors/${encodeURIComponent(actorId)}/stop`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ commandId: crypto.randomUUID(), reason: "Arbeit durch den Bediener gestoppt" }),
+export const stopChatActor = async (runId: string, actorId: string, client: RpcClient = rpc): Promise<void> => {
+  await client.call(runContracts.stopActor, {
+    runId,
+    commandId: crypto.randomUUID(),
+    actorId,
+    reason: "Arbeit durch den Bediener gestoppt",
   });
-  if (!response.ok) {
-    const detail: unknown = await response.json().catch(() => undefined);
-    throw new Error(isRecord(detail) && typeof detail.message === "string"
-      ? detail.message : `Stoppen fehlgeschlagen (${response.status})`);
-  }
 };
 
 export interface SessionInfo {
@@ -28,53 +27,24 @@ export interface SessionInfo {
   metadata?: Readonly<Record<string, unknown>>;
 }
 
-export const listSessions = async (): Promise<SessionInfo[]> => {
-  const response = await fetch("/chat/sessions");
-  if (!response.ok) throw new Error("Sessions konnten nicht geladen werden");
-  return response.json();
+export const listSessions = (client: RpcClient = rpc): Promise<SessionInfo[]> =>
+  client.call(coreContracts.sessions.list, {});
+
+export const deleteSession = async (id: string, client: RpcClient = rpc): Promise<void> => {
+  await client.call(coreContracts.sessions.delete, { runId: id });
 };
 
-export const deleteSession = async (id: string): Promise<void> => {
-  const response = await fetch(`/chat/${id}`, { method: "DELETE" });
-  if (!response.ok) throw new Error("Session konnte nicht gelöscht werden");
-};
+export const getRunView = async (sessionId: string, client: RpcClient = rpc): Promise<unknown | undefined> =>
+  (await client.call(runContracts.view, { runId: sessionId })) ?? undefined;
 
-export const getRunView = async (sessionId: string): Promise<unknown | undefined> => {
-  const response = await fetch(`/chat/${encodeURIComponent(sessionId)}/run`, { cache: "no-store" });
-  if (response.status === 404) return undefined;
-  if (!response.ok) throw await errorFrom(response, "Der Ablauf konnte nicht geladen werden");
-  return (await response.json()) ?? undefined;
-};
+export const getActorConversations = async (sessionId: string, client: RpcClient = rpc): Promise<Record<string, Message[]>> =>
+  (await client.call(coreContracts.chat.actorHistory, { runId: sessionId })).actors;
 
-export const getActorConversations = async (sessionId: string): Promise<Record<string, Message[]>> => {
-  const response = await fetch(`/chat/${encodeURIComponent(sessionId)}/actors/history`, { cache: "no-store" });
-  if (!response.ok) throw await errorFrom(response, "Die Actor-Gespräche konnten nicht geladen werden");
-  const body: unknown = await response.json();
-  if (!isRecord(body) || !isRecord(body.actors) || !Object.values(body.actors).every(Array.isArray)) {
-    throw new Error("Die Actor-Gespräche entsprechen nicht dem erwarteten Format");
-  }
-  return body.actors as Record<string, Message[]>;
-};
+export const getStartOptions = async (sessionId: string, signal?: AbortSignal, client: RpcClient = rpc): Promise<readonly StartOptionState[]> =>
+  (await client.call(coreContracts.startOptions.list, { runId: sessionId }, { signal })).map(startOptionStateFrom);
 
-export const getStartOptions = async (sessionId: string, signal?: AbortSignal): Promise<readonly StartOptionState[]> => {
-  const response = await fetch(`/chat/${encodeURIComponent(sessionId)}/options`, { cache: "no-store", signal });
-  if (!response.ok) throw await errorFrom(response, "Die Startoptionen konnten nicht geladen werden");
-  const body = await response.json() as unknown;
-  if (!isRecord(body) || !Array.isArray(body.options)) {
-    throw new Error("Die Startoptionen entsprechen nicht dem erwarteten Format");
-  }
-  return body.options.map(startOptionStateFrom);
-};
-
-export const setStartOption = async (sessionId: string, optionId: string, value: unknown): Promise<StartOptionState> => {
-  const response = await fetch(`/chat/${encodeURIComponent(sessionId)}/options/${encodeURIComponent(optionId)}`, {
-    body: JSON.stringify({ value }),
-    headers: { "Content-Type": "application/json" },
-    method: "PUT",
-  });
-  if (!response.ok) throw await errorFrom(response, "Die Startoption konnte nicht gesetzt werden");
-  return startOptionStateFrom(await response.json() as unknown);
-};
+export const setStartOption = async (sessionId: string, optionId: string, value: unknown, client: RpcClient = rpc): Promise<StartOptionState> =>
+  startOptionStateFrom(await client.call(coreContracts.startOptions.select, { runId: sessionId, optionId, value }));
 
 export interface SettingsProduct {
   id: string;
@@ -378,11 +348,8 @@ const settingsResponseFrom = (value: unknown): SettingsResponse => {
   return value as unknown as SettingsResponse;
 };
 
-export const getSettings = async (signal?: AbortSignal): Promise<SettingsResponse> => {
-  const response = await fetch("/api/settings", { cache: "no-store", signal });
-  if (!response.ok) throw await errorFrom(response, "Die Einstellungen konnten nicht geladen werden");
-  return settingsResponseFrom(await response.json() as unknown);
-};
+export const getSettings = async (signal?: AbortSignal, client: RpcClient = rpc): Promise<SettingsResponse> =>
+  settingsResponseFrom(await client.call(coreContracts.settings.read, {}, { signal }));
 
 const settingsSkillDetailFrom = (value: unknown): SettingsSkillDetail => {
   if (!isRecord(value)
@@ -394,8 +361,8 @@ const settingsSkillDetailFrom = (value: unknown): SettingsSkillDetail => {
   return value as unknown as SettingsSkillDetail;
 };
 
-export const getSettingsSkill = async (id: string, signal?: AbortSignal): Promise<SettingsSkillDetail> => {
-  const response = await fetch(`/api/settings/skills/${encodeURIComponent(id)}`, { cache: "no-store", signal });
-  if (!response.ok) throw await errorFrom(response, "Der Skill konnte nicht geladen werden");
-  return settingsSkillDetailFrom(await response.json() as unknown);
+export const getSettingsSkill = async (id: string, signal?: AbortSignal, client: RpcClient = rpc): Promise<SettingsSkillDetail> => {
+  const detail = await client.call(coreContracts.settings.skill, { id }, { signal });
+  if (detail === null) throw new Error("Der Skill konnte nicht geladen werden");
+  return settingsSkillDetailFrom(detail);
 };

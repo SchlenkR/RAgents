@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { ChatAttachment, ChatAttachmentInput, ChatEvent, ChatStartupStatus } from "../chat-events.js";
 import { parseChatAttachments } from "../chat-attachments.js";
+import { attachmentContentPath } from "../api/contracts.js";
 import type { ChatSessionLike, ChatUser } from "../chat-handler.js";
 import {
   assertJsonValue,
@@ -473,7 +474,7 @@ export class RunChatSession implements ChatSessionLike {
 
   #attachmentInfo(artifact: { id: string; title: string; mediaType: string; size: number }): ChatAttachment {
     return { name: artifact.title, mediaType: artifact.mediaType, size: artifact.size,
-      url: `/chat/${encodeURIComponent(this.id)}/attachments/${encodeURIComponent(artifact.id)}` };
+      url: attachmentContentPath(this.id, artifact.id) };
   }
 
   async #ensureRun(user?: ChatUser): Promise<string> {

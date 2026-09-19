@@ -5,6 +5,8 @@ import path from "node:path";
 import test from "node:test";
 import { DomainError, pluginStateKey, type RunState } from "@aicontainer/ragents";
 
+import { WORKSPACE_BINDING_OPTION_ID } from "../../../plugins/ragents.workspace/contract.ts";
+import { WorkspaceClientRegistry } from "../../../plugins/ragents.workspace/server/clients.ts";
 import { RunWorkspaceRuntime, type RunWorkspaceRuntimeOptions } from "../../../plugins/ragents.workspace/server/runtime.ts";
 import type { WorkspaceResolver, WorkspaceResolverContext } from "../src/ragents/workspace-runtime.ts";
 
@@ -24,12 +26,63 @@ const fixture = async (overrides: Partial<RunWorkspaceRuntimeOptions> = {}) => {
     sessionWorkspaceFor: () => Promise.reject(new Error("nicht gefragt")),
     skillPaths: async () => [],
     resolver: () => undefined,
-    runState: () => null,
+    runState: () => runStateWith(undefined, undefined),
     documentsFor: async () => undefined,
+    clients: new WorkspaceClientRegistry({ serverHostname: "server", folderExists: async () => false }),
     ...overrides,
   });
   return { root, runtime, remove: () => rm(root, { recursive: true, force: true }) };
 };
+
+test("a run bound to a folder on the server works there and creates nothing under the session storage", async () => {
+  const { root, runtime, remove } = await fixture({
+    runState: (runId) => runId === "bound" ? runStateWith(WORKSPACE_BINDING_OPTION_ID, { kind: "path", path: path.join(root, "project") }) : null,
+  });
+  try {
+    await mkdtempInside(root, "project");
+    const notes: string[] = [];
+    const workspace = await runtime.resolve("bound", (text) => notes.push(text));
+    assert.equal(workspace.cwd, path.join(root, "project"));
+    assert.equal(workspace.remote, undefined);
+    assert.equal(await workspace.currentRoot(), path.join(root, "project"));
+    assert.deepEqual(notes, [`Arbeitsbereich: ${path.join(root, "project")} (Projektordner auf dem Server)`]);
+    assert.equal(await stat(path.join(root, "sessions")).catch(() => undefined), undefined);
+    await rm(path.join(root, "project"), { recursive: true });
+    await assert.rejects(workspace.currentRoot(), (error: unknown) => error instanceof DomainError && error.code === "workspace-path-missing");
+  } finally {
+    await remove();
+  }
+});
+
+test("a run bound to a workplace gets remote operations and never touches the server file system", async () => {
+  const { runtime, remove } = await fixture({
+    runState: () => runStateWith(WORKSPACE_BINDING_OPTION_ID, { kind: "client", client: "client-0001", label: "Laptop", path: "/home/kriko/project" }),
+  });
+  try {
+    const notes: string[] = [];
+    const workspace = await runtime.resolve("remote", (text) => notes.push(text));
+    assert.equal(workspace.cwd, "/home/kriko/project");
+    assert.equal(workspace.remote?.label, "Laptop");
+    assert.equal(await workspace.currentRoot(), "/home/kriko/project");
+    assert.deepEqual(notes, ["Arbeitsbereich: /home/kriko/project (Projektordner auf dem Arbeitsplatz Laptop)"]);
+    await assert.rejects(workspace.remote!.readFile("/home/kriko/project/a.txt"), (error: unknown) =>
+      error instanceof DomainError && error.code === "workspace-client-disconnected");
+  } finally {
+    await remove();
+  }
+});
+
+test("a run that has not started has no working directory yet", async () => {
+  const { runtime, remove } = await fixture({ runState: () => null });
+  try {
+    await assert.rejects(
+      runtime.resolve("draft", () => undefined),
+      (error: unknown) => error instanceof DomainError && error.code === "run-not-started" && error.status === 409,
+    );
+  } finally {
+    await remove();
+  }
+});
 
 test("without a resolver every run gets its own empty directory under the session storage", async () => {
   const { root, runtime, remove } = await fixture();

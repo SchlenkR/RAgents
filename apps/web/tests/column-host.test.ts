@@ -44,7 +44,13 @@ test("the vscode host relays messages to the parent and only accepts valid comma
   receive(parent, { type: "selectRun", runId: 42 });
   receive(parent, { type: "placements", runId: "run-a", center: ["board--main"] });
   receive(parent, { type: "theme", theme: "dark" });
-  assert.deepEqual(commands, [{ type: "placements", runId: "run-a", center: ["board--main"] }, { type: "theme", theme: "dark" }]);
+  receive(parent, { type: "newRun", startOptions: { "ragents.workspace.binding": { kind: "fresh" } } });
+  receive(parent, { type: "newRun", startOptions: [] });
+  assert.deepEqual(commands, [
+    { type: "placements", runId: "run-a", center: ["board--main"] },
+    { type: "theme", theme: "dark" },
+    { type: "newRun", startOptions: { "ragents.workspace.binding": { kind: "fresh" } } },
+  ]);
   assert.deepEqual([...host.centerElements("run-a")], ["board--main"]);
   assert.equal(host.centerElements("run-b").size, 0);
   assert.equal(placementsChanged, 1);

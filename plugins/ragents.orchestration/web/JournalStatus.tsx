@@ -4,8 +4,9 @@ import type { JournalEvent } from "../../../packages/ragents/src/domain/events";
 import type { SessionHeaderContext } from "@aicontainer/web/PluginRegistry";
 import { SourceCode } from "@aicontainer/web/SourceCode";
 import { Button, Input, Popover, PopoverContent } from "@aicontainer/web/ui";
-import { errorFrom } from "@aicontainer/web/lib/http";
-import { runRoute, runViewFrom } from "./run-view";
+import { runContracts } from "@aicontainer/ragents/src/http/contracts";
+import { rpc } from "@aicontainer/web/rpc";
+import { runViewFrom } from "./run-view";
 import { statusControlClass } from "./constants";
 
 export function JournalStatus({ session }: SessionHeaderContext) {
@@ -31,15 +32,8 @@ export function JournalStatus({ session }: SessionHeaderContext) {
     const controller = new AbortController();
     setLoading(true);
     setError(undefined);
-    void fetch(runRoute(session.session.id, "/events"), { signal: controller.signal })
-      .then(async (response) => {
-        if (!response.ok) throw await errorFrom(response, "Das Journal konnte nicht geladen werden.");
-        const result: unknown = await response.json();
-        if (!Array.isArray(result) || result.some((entry) => !entry || typeof entry.eventId !== "string" || !Number.isSafeInteger(entry.sequence) || typeof entry.type !== "string")) {
-          throw new Error("Der Server hat kein gültiges Journal geliefert.");
-        }
-        if (!controller.signal.aborted) setEvents(result as JournalEvent[]);
-      })
+    void rpc.call(runContracts.events, { runId: session.session.id }, { signal: controller.signal })
+      .then((result) => { if (!controller.signal.aborted) setEvents(result); })
       .catch((cause: unknown) => { if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : String(cause)); })
       .finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();

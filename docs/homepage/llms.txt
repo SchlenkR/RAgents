@@ -28,9 +28,9 @@ Diese Referenz beschreibt die vorhandenen öffentlichen Bausteine des Profils co
 
 ## Externe Clients
 
-- [HTTP-API](http-api.md): Management-Aufrufe mit Eingaben, Ergebnissen und Fehlern aus den ausführbaren Routenschemata.
-- [OpenAPI](openapi.json): Maschinenlesbarer HTTP-Vertrag aus denselben Quellen.
+- [JSON-RPC-API](rpc-api.md): Methoden und Kanäle mit Eingaben, Ergebnissen und Fehlern aus den ausführbaren Verträgen.
+- [OpenRPC](openrpc.json): Maschinenlesbarer Vertrag aus denselben Quellen.
 
 ## Optional
 
-- [Gesamte Textreferenz](llms-full.txt): Guide, Run-Anleitung, Baustein- und Entwicklerreferenz sowie HTTP-API zusammen in einer Datei.
+- [Gesamte Textreferenz](llms-full.txt): Guide, Run-Anleitung, Baustein- und Entwicklerreferenz sowie JSON-RPC-API zusammen in einer Datei.

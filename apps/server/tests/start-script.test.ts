@@ -138,11 +138,14 @@ const close = (server: Server): Promise<void> => new Promise((resolve, reject) =
   server.close((error) => error ? reject(error) : resolve());
 });
 
+// Der Dev-Modus belegt Port plus 1000; ein Port oberhalb von 64535 taugt deshalb nicht.
 const freePort = async (): Promise<number> => {
-  const reservation = createServer();
-  const port = await listen(reservation);
-  await close(reservation);
-  return port;
+  for (;;) {
+    const reservation = createServer();
+    const port = await listen(reservation);
+    await close(reservation);
+    if (port + 1000 <= 65535) return port;
+  }
 };
 
 test("core declares its fixed backend port in the profile configuration", () => {

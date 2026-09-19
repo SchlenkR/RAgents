@@ -71,18 +71,18 @@ test("Quelllinks werden öffentlich, Textbeispiele und interne Links bleiben unv
   });
 });
 
-test("HTTP-Dokumentation und OpenAPI bleiben als zusammengehörige öffentliche Dateien erhalten", async () => {
+test("API-Dokumentation und OpenRPC bleiben als zusammengehörige öffentliche Dateien erhalten", async () => {
   await fixture(async (root, home) => {
-    const openapi = JSON.stringify({ openapi: "3.1.0", paths: { "/example": { get: { operationId: "example" } } } }, null, 2);
-    const markdown = "# HTTP-API\n\n[OpenAPI](openapi.json)\n";
-    await writeFile(path.join(home, "http-api.md"), markdown);
-    await writeFile(path.join(home, "openapi.json"), openapi);
-    await writeFile(path.join(home, "index.html"), '<a href="http-api.md">HTTP-API</a><a href="openapi.json">OpenAPI</a>');
+    const openrpc = JSON.stringify({ openrpc: "1.3.0", methods: [{ name: "example.method" }] }, null, 2);
+    const markdown = "# JSON-RPC-API\n\n[OpenRPC](openrpc.json)\n";
+    await writeFile(path.join(home, "rpc-api.md"), markdown);
+    await writeFile(path.join(home, "openrpc.json"), openrpc);
+    await writeFile(path.join(home, "index.html"), '<a href="rpc-api.md">JSON-RPC-API</a><a href="openrpc.json">OpenRPC</a>');
     const outputs = await buildHomepageExport(root);
-    assert.equal(outputs.get("http-api.md"), markdown);
-    assert.equal(outputs.get("openapi.json"), openapi);
-    assert.deepEqual(JSON.parse(String(outputs.get("openapi.json"))), JSON.parse(openapi));
-    await rm(path.join(home, "openapi.json"));
+    assert.equal(outputs.get("rpc-api.md"), markdown);
+    assert.equal(outputs.get("openrpc.json"), openrpc);
+    assert.deepEqual(JSON.parse(String(outputs.get("openrpc.json"))), JSON.parse(openrpc));
+    await rm(path.join(home, "openrpc.json"));
     await assert.rejects(buildHomepageExport(root), /ENOENT/);
   });
 });

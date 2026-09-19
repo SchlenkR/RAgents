@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { TitleModelSettings } from "../../server/src/title-settings-contract.ts";
+import { RpcClient } from "../src/rpc/client.ts";
+import type { TitleModelSelection, TitleModelSettings } from "../../server/src/title-settings-contract.ts";
 import { requestTitleModelSettings, titleModelOptions, titleModelSettingsFrom, titleSelectionFromKey, titleSelectionKey } from "../src/title-model-settings.ts";
 
 const settings: TitleModelSettings = {
@@ -11,27 +12,31 @@ const settings: TitleModelSettings = {
     { provider: "other", id: "model-a", label: "Anderer Anbieter" },
   ],
 };
-const reply = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status });
+interface TitleCall { id: number; method: string; params: { value?: { selection?: TitleModelSelection | null } } }
 
-test("title settings load from their own endpoint and save a selection or explicit null without reasoning fields", async () => {
-  const requests: { url: string; init?: RequestInit }[] = [];
+const callOf = (init: RequestInit | undefined): TitleCall => JSON.parse(String(init?.body)) as TitleCall;
+const result = (call: TitleCall, value: unknown) => Response.json({ jsonrpc: "2.0", id: call.id, result: value });
+const failure = (call: TitleCall, message: string) => Response.json({ jsonrpc: "2.0", id: call.id, error: { code: -32000, message } });
+const clientWith = (respond: typeof fetch) => new RpcClient({ fetch: respond });
+
+test("title settings use their own methods and save a selection or explicit null without reasoning fields", async () => {
+  const calls: TitleCall[] = [];
   const controller = new AbortController();
-  const request: typeof fetch = async (url, init) => {
-    requests.push({ url: String(url), init });
-    return reply(init?.body ? { ...settings, ...JSON.parse(String(init.body)) } : settings);
-  };
-  assert.deepEqual(await requestTitleModelSettings({ request, signal: controller.signal }), settings);
+  const client = clientWith(async (_url, init) => {
+    const call = callOf(init);
+    calls.push(call);
+    return result(call, call.params.value === undefined ? settings : { ...settings, ...call.params.value });
+  });
+  assert.deepEqual(await requestTitleModelSettings({ client, signal: controller.signal }), settings);
   const selection = { provider: "other", model: "model-a" };
-  assert.deepEqual((await requestTitleModelSettings({ request, selection })).selection, selection);
-  assert.equal((await requestTitleModelSettings({ request, selection: null })).selection, null);
-  assert.ok(requests.every((entry) => entry.url === "/api/settings/titles" && entry.init?.cache === "no-store"));
-  assert.equal(requests[0]!.init?.method, undefined);
-  assert.equal(requests[0]!.init?.body, undefined);
-  assert.equal(requests[0]!.init?.signal, controller.signal);
-  assert.equal(requests[1]!.init?.method, "PUT");
-  assert.deepEqual(JSON.parse(String(requests[1]!.init?.body)), { selection });
-  assert.equal(requests[2]!.init?.method, "PUT");
-  assert.deepEqual(JSON.parse(String(requests[2]!.init?.body)), { selection: null });
+  assert.deepEqual((await requestTitleModelSettings({ client, selection })).selection, selection);
+  assert.equal((await requestTitleModelSettings({ client, selection: null })).selection, null);
+  assert.deepEqual(calls.map((call) => call.method), [
+    "ragents.settings.titles.read", "ragents.settings.titles.save", "ragents.settings.titles.save",
+  ]);
+  assert.deepEqual(calls[0]!.params, {});
+  assert.deepEqual(calls[1]!.params, { value: { selection } });
+  assert.deepEqual(calls[2]!.params, { value: { selection: null } });
 });
 
 test("disabled titles are valid without a model catalog while missing or inconsistent selections are rejected", () => {
@@ -74,8 +79,8 @@ test("local search preserves catalog order, the selected model and the disable o
 
 test("failed saves expose the API error and preserve the local selection", async () => {
   const selection = Object.freeze({ provider: "openrouter", model: "model-a" });
-  await assert.rejects(requestTitleModelSettings({ selection, request: async () => reply({ error: "Keine Berechtigung zum Speichern" }, 403) }), /Keine Berechtigung zum Speichern/);
+  await assert.rejects(requestTitleModelSettings({ selection, client: clientWith(async (_url, init) => failure(callOf(init), "Keine Berechtigung zum Speichern")) }), /Keine Berechtigung zum Speichern/);
   assert.deepEqual(selection, { provider: "openrouter", model: "model-a" });
-  await assert.rejects(requestTitleModelSettings({ request: async () => new Response("Unavailable", { status: 503 }) }), /konnten nicht geladen oder gespeichert werden/);
-  await assert.rejects(requestTitleModelSettings({ request: async () => reply({ models: [] }) }), /ungültige/);
+  await assert.rejects(requestTitleModelSettings({ client: clientWith(async () => new Response("Unavailable", { status: 503 })) }), /Der Server antwortete mit 503/);
+  await assert.rejects(requestTitleModelSettings({ client: clientWith(async (_url, init) => result(callOf(init), { models: [] })) }), /ungültige/);
 });

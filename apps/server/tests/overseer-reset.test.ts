@@ -2,19 +2,21 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
-import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "@aicontainer/ai";
-import { PluginHost } from "@aicontainer/ragents";
+import { DomainError, PluginHost, unrestrictedAccess } from "@aicontainer/ragents";
 import { deferred } from "../../../packages/ragents/tests/support.ts";
 import { plugin } from "../../../plugins/ragents.overseer/server/index.ts";
+import { overseerContracts } from "../../../plugins/ragents.overseer/contract.ts";
+import { coreContracts } from "../src/api/contracts.ts";
+import { coreChannels, coreMethods } from "../src/api/core-methods.ts";
+import { coreSources, dispatchMethod, methodContext } from "./rpc-fixture.ts";
 import { WorkspaceSandboxHost, sandboxServicesToken } from "../src/plugin-support/workspace-sandbox-host.ts";
 import { globalChatToken, sessionManagementToken, type SessionManagement } from "../src/ragents/global-chat.ts";
 import { productRuntimeToken } from "../src/ragents/product-runtime.ts";
 import { workspaceRuntimeToken } from "../src/ragents/workspace-runtime.ts";
-import { createChatHandler } from "../src/chat-handler.ts";
 import type { ChatEvent } from "../src/chat-events.ts";
 import type { Engine } from "../src/ragents/engine.ts";
 
@@ -74,11 +76,10 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     return host;
   });
   let provider = createProvider();
-  const handler = createChatHandler({ manager: { get: (id) => provider.get(id), list: () => provider.list(), delete: (id) => provider.delete(id) } });
-  const server = createServer(async (request, response) => {
-    const url = new URL(request.url!, "http://test");
-    if (!await provider.pluginRoutes(request, response, url)) await handler(request, response);
-  });
+  const sessions = { get: (id: string) => provider.get(id), list: () => provider.list(), delete: (id: string) => provider.delete(id) };
+  const overseerCall = (contract: { id: string }, input: unknown) => dispatchMethod(provider.plugins.methods, contract.id, input);
+  const chatMethod = (contract: { id: string }) => coreMethods(coreSources(sessions)).find((entry) => entry.contract.id === contract.id)!;
+  const chatChannel = (contract: { id: string }) => coreChannels({ sessions: sessions as never, global: undefined }).find((entry) => entry.contract.id === contract.id)!;
   const normalStarted = deferred();
   const releaseNormal = deferred();
   const globalStarted = deferred();
@@ -87,7 +88,7 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
   const freshContexts: string[] = [];
   faux.setResponses([
     (context) => {
-      assert.deepEqual(context.tools?.map((tool) => tool.name).sort(), ["typescript_api", "typescript_eval"]);
+      assert.deepEqual(context.tools?.map((tool) => tool.name).sort(), ["bash", "edit", "read", "typescript_api", "typescript_eval", "write"]);
       assert.doesNotMatch(context.systemPrompt ?? "", /reset-test-only-token/);
       return fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.write(${JSON.stringify({ path: "request.json", content: '{"title":"Test"}' })});` }, { id: "global-write" })]);
     },
@@ -108,12 +109,6 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
   ]);
   try {
     await provider.init();
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-    const address = server.address();
-    assert.ok(address && typeof address === "object");
-    const base = `http://127.0.0.1:${address.port}`;
-    const resetUrl = `${base}/api/plugins/ragents.overseer/reset`;
-    const settingsUrl = `${base}/api/plugins/ragents.overseer/settings`;
     const global = await provider.get("overseer");
     const observed: ChatEvent[] = [];
     const unsubscribe = global.subscribe((event) => observed.push(event));
@@ -125,20 +120,11 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     assert.equal(await provider.get("overseer"), global);
     await assert.rejects(async () => global.send("Veraltete Werkzeugauswahl"), /Werkzeuge.*zurück/);
     toolPolicy.toolNames = currentTools;
-    const denied = await fetch(resetUrl, { method: "POST", body: JSON.stringify({ confirm: false }) });
-    assert.equal(denied.status, 400);
-    await denied.json();
-    const malformed = await fetch(resetUrl, { method: "POST", body: "{" });
-    assert.equal(malformed.status, 400);
-    await malformed.json();
-    const readonlyReset = await fetch(resetUrl);
-    assert.equal(readonlyReset.status, 405);
-    await readonlyReset.json();
+    await assert.rejects(overseerCall(overseerContracts.reset, { confirm: false }), /Ungültige Eingabe/);
+    await assert.rejects(overseerCall(overseerContracts.reset, {}), /Ungültige Eingabe/);
     assert.equal(provider.hasRun("overseer"), true);
     const selection = { provider: model.provider, model: model.id, thinking: "high" };
-    const saved = await fetch(settingsUrl, { method: "PUT", body: JSON.stringify(selection) });
-    assert.equal(saved.status, 200);
-    const settingsBefore = await saved.json();
+    const settingsBefore = await overseerCall(overseerContracts.settings.save, selection);
     const normalId = await management!.create({ title: "Normal bleibt", kind: "message", message: "Normaler laufender Auftrag" });
     await normalStarted.promise;
     const normalBefore = management!.view(normalId);
@@ -157,28 +143,27 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     await new Promise<void>((resolve) => setImmediate(resolve));
     assert.equal(finished, false);
     assert.deepEqual(management!.view(normalId), normalBefore);
-    const duringReset = await fetch(`${base}/chat/overseer/actors/history`);
-    assert.equal(duringReset.status, 409);
-    await duringReset.json();
+    await assert.rejects(chatMethod(coreContracts.chat.actorHistory).execute({ runId: "overseer" } as never, methodContext()),
+      (error: unknown) => error instanceof DomainError && error.status === 409);
     releaseGlobal.resolve();
     await reset;
     assert.equal(provider.hasRun("overseer"), false);
     assert.equal(existsSync(path.join(directory, "sessions", "overseer")), false);
     assert.equal(existsSync(path.join(directory, "runs", "overseer")), false);
     assert.deepEqual(management!.view(normalId), normalBefore);
-    assert.deepEqual(await (await fetch(settingsUrl)).json(), settingsBefore);
+    assert.deepEqual(await overseerCall(overseerContracts.settings.read, {}), settingsBefore);
     assert.equal(observed.filter((event) => event.kind === "reset" && event.reason === "conversation-reset").length, 1);
     assert.equal(await provider.get("overseer"), global);
     const replay: ChatEvent[] = [];
     global.subscribe((event) => replay.push(event))();
     assert.deepEqual(replay, [{ kind: "reset", conversationId: null }, { kind: "status", running: false }, { kind: "replay-end", conversationId: null }]);
     const workspace = provider.plugins.service(globalChatToken).workspaceDirectory;
-    assert.equal(existsSync(path.join(workspace, "reference.md")), false);
+    assert.equal(existsSync(path.join(workspace, "rpc-reference.md")), false);
     await global.send("Neue Frage");
     await until(() => management!.view("overseer").turns[0]?.status === "completed");
     assert.notEqual(management!.view("overseer").primaryActorId, oldActor);
-    assert.match(await readFile(path.join(workspace, "reference.md"), "utf8"), /api\/plugins\/ragents.overseer/);
-    assert.ok(JSON.parse(await readFile(path.join(workspace, "openapi.json"), "utf8")).paths);
+    assert.match(await readFile(path.join(workspace, "rpc-reference.md"), "utf8"), new RegExp(overseerContracts.listRuns.id));
+    assert.ok(JSON.parse(await readFile(path.join(workspace, "openrpc.json"), "utf8")).methods.length > 0);
     assert.ok(observed.some((event) => event.kind === "text" && event.delta.includes("Frischer")));
     assert.ok(freshContexts[0].includes("Neue Frage"));
     assert.doesNotMatch(freshContexts[0], /Altes Gespräch|Alte Antwort|Globaler laufender Auftrag|Veraltete späte Antwort/);
@@ -193,7 +178,7 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     assert.equal(provider.hasRun("overseer"), false);
     assert.equal(existsSync(intent), false);
     assert.ok(provider.hasRun(normalId));
-    assert.deepEqual(await (await fetch(settingsUrl)).json(), settingsBefore);
+    assert.deepEqual(await overseerCall(overseerContracts.settings.read, {}), settingsBefore);
     await (await provider.get("overseer")).send("Nach dem Neustart");
     await until(() => management!.view("overseer").turns[0]?.status === "completed");
     assert.doesNotMatch(freshContexts[1], /Neue Frage|Frischer Anfang|Altes Gespräch/);
@@ -202,27 +187,21 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     const blocker = path.join(directory, "blocked-marker-parent");
     await writeFile(blocker, "file");
     policy.resetIntentFile = path.join(blocker, "reset.json");
-    const persistenceFailure = await fetch(resetUrl, { method: "POST", body: JSON.stringify({ confirm: true }) });
-    assert.equal(persistenceFailure.status, 500);
-    await persistenceFailure.json();
+    await assert.rejects(overseerCall(overseerContracts.reset, { confirm: true }));
     assert.equal(await provider.get("overseer"), current);
     assert.equal(provider.hasRun("overseer"), true);
     policy.resetIntentFile = intent;
     const engine = (provider as unknown as { engine: Engine }).engine;
     const halt = engine.scheduler.haltRun.bind(engine.scheduler);
     engine.scheduler.haltRun = async () => { throw new Error("Test: Laufzeit lässt sich noch nicht stoppen"); };
-    const stopFailure = await fetch(resetUrl, { method: "POST", body: JSON.stringify({ confirm: true }) });
-    assert.equal(stopFailure.status, 500);
-    assert.match((await stopFailure.json() as { error: string }).error, /noch nicht stoppen/);
+    await assert.rejects(overseerCall(overseerContracts.reset, { confirm: true }), /noch nicht stoppen/);
     assert.equal(provider.hasRun("overseer"), true);
     assert.ok(existsSync(intent));
     assert.ok(provider.hasRun(normalId));
     await assert.rejects(provider.get("overseer"), /wiederhole den Reset/);
     await assert.rejects(async () => current.send("Nach gescheitertem Reset"), /zurückgesetzt/);
     engine.scheduler.haltRun = halt;
-    const confirmed = await fetch(resetUrl, { method: "POST", body: JSON.stringify({ confirm: true }) });
-    assert.equal(confirmed.status, 200);
-    assert.deepEqual(await confirmed.json(), { ok: true });
+    assert.equal(await overseerCall(overseerContracts.reset, { confirm: true }), null);
     assert.equal(provider.hasRun("overseer"), false);
     assert.ok((await readFile(path.join(directory, "runs", normalId, "journal.jsonl"), "utf8")).includes("Normaler laufender Auftrag"));
     await provider.shutdown();
@@ -252,9 +231,8 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
         assert.equal(resolvedWorkspaces.includes(id), false);
         assert.equal((provider as unknown as { sessions: Map<string, unknown> }).sessions.has(id), false);
         await assert.rejects(provider.get(id), { code: "journal-unavailable", status: 409 });
-        const stream = await fetch(`${base}/chat/${id}/stream`);
-        assert.equal(stream.status, 409);
-        await stream.json();
+        await assert.rejects(chatChannel(coreContracts.channels.chat).open({ runId: id } as never, () => undefined, { access: unrestrictedAccess, connection: methodContext().connection }),
+          { code: "journal-unavailable", status: 409 });
         assert.equal(await readFile(path.join(directory, "runs", id, "journal.jsonl"), "utf8"), content);
       }
       assert.equal((provider as unknown as { engine: Engine }).engine.journal.loadFailures().length, unavailable.size);
@@ -269,9 +247,7 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     await until(() => management!.view(normalId).turns.length === 2 && management!.view(normalId).turns.every((turn) => turn.status === "completed"));
     const freshId = await management!.create({ title: "Neuer gesunder Lauf", kind: "message", message: "Trotz alter Journale starten" });
     await until(() => management!.view(freshId).turns[0]?.status === "completed");
-    const recoverGlobal = await fetch(resetUrl, { method: "POST", body: JSON.stringify({ confirm: true }) });
-    assert.equal(recoverGlobal.status, 200);
-    await recoverGlobal.json();
+    assert.equal(await overseerCall(overseerContracts.reset, { confirm: true }), null);
     await (await provider.get("overseer")).send("Nach Reset des alten Journals");
     await until(() => management!.view("overseer").turns[0]?.status === "completed");
     assert.equal(provider.hasRun(normalId), true);
@@ -282,7 +258,6 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     }
   } finally {
     releaseGlobal.resolve(); releaseNormal.resolve();
-    await new Promise<void>((resolve) => server.close(() => resolve()));
     await provider.shutdown(); faux.unregister(); await rm(directory, { recursive: true, force: true });
   }
 });

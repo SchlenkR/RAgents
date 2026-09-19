@@ -7,8 +7,8 @@ import { Type } from "typebox";
 import { Value } from "typebox/value";
 import { PluginHost } from "@aicontainer/ragents";
 import { plugin } from "../../../plugins/ragents.overseer/server/index.ts";
+import { overseerContracts } from "../../../plugins/ragents.overseer/contract.ts";
 import { overseerOrientation } from "../../../plugins/ragents.overseer/server/orientation.ts";
-import { MANAGEMENT_API_PREFIX, managementRouteContracts } from "../../../plugins/ragents.overseer/server/http-api.ts";
 import { createActorProgramToolContributors } from "../../../plugins/ragents.actor-programs/server/tool-contributor.ts";
 import { createControlsToolContributor } from "../../../plugins/ragents.actor-programs/server/controls-tool.ts";
 import type { ActorProgramRuntime } from "../../../plugins/ragents.actor-programs/server/runtime.ts";
@@ -18,10 +18,13 @@ test("global orientation reflects installed descriptors without resolving tools 
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-overseer-orientation-"));
   try {
     const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: directory });
+    host.provideHost(sessionManagementToken, () => { throw new Error("Orientation must not start or read a run"); });
+    host.register(plugin.create(host));
     const initial = overseerOrientation(host);
     assert.doesNotMatch(initial, /actor_program_create|actor_program_controls/);
-    for (const route of managementRouteContracts) assert.ok(initial.includes(`${route.method} ${MANAGEMENT_API_PREFIX}${route.path}`), route.id);
-    assert.match(initial, /runs.read, runs.write/);
+    for (const method of host.methods.describe()) assert.ok(initial.includes(`- ${method.id}: `), method.id);
+    assert.ok(initial.includes(`- ${overseerContracts.createRun.id}: `));
+    assert.match(initial, /runs.read, runs.write, runs.create/);
     assert.match(initial, /keine zusätzliche Werkzeugliste dieses Chats/);
     assert.match(initial, /Actor, Grants, deklarierter Script-Teilmenge/);
     host.register({ manifest: { id: "ragents.actor-programs" }, register: (registration) => {
@@ -47,7 +50,7 @@ test("global system prompt includes later plugin registrations and its own quick
     const policy = host.service(globalChatToken);
     assert.deepEqual(policy.toolNames, ["read", "write", "edit", "bash", "quick_answer"]);
     assert.match(policy.prompt, /zuerst deine normale vollständige Antwort.*danach ein Snippet mit context\.functions\.quick_answer/s);
-    assert.match(policy.prompt, /native Oberfläche besteht aus typescript_api und typescript_eval/);
+    assert.match(policy.prompt, /native Oberfläche enthält typescript_api, typescript_eval sowie read, write, edit und bash/);
     assert.match(policy.prompt, /Ein mehrteiliger Aufbau verlangt kein eigenes Setup-Paket/);
     assert.match(policy.prompt, /Der Auftrag beschreibt das gewünschte Ergebnis/);
     assert.doesNotMatch(policy.prompt, /Setup-Handler muss|Run-Builder kann die direkten Aufbauwerkzeuge/);
@@ -68,8 +71,9 @@ test("global system prompt includes later plugin registrations and its own quick
     const prompt = policy.prompt;
     assert.match(prompt, /late_public_tool: A later registered capability\. \[kontextabhängig\]/);
     assert.doesNotMatch(prompt, /Detailed contract text/);
-    assert.match(prompt, /POST \/api\/plugins\/ragents.overseer\/runs/);
-    assert.match(prompt, /reference.md/);
+    assert.match(prompt, new RegExp(`- ${overseerContracts.createRun.id}: `));
+    assert.match(prompt, /POST \$RAGENTS_API_BASE_URL\/rpc/);
+    assert.match(prompt, /rpc-reference.md/);
     assert.deepEqual(policy.access, { read: "ragents.overseer.read", write: "ragents.overseer.write" });
   } finally { await rm(directory, { recursive: true, force: true }); }
 });

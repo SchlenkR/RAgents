@@ -9,7 +9,7 @@ import { env } from "../../apps/server/src/config-definition.ts";
 import { resolveAnonymousUser, resolveProfileUsers } from "../../apps/server/src/config-file.ts";
 import { accessMode, canStartEntry, createAccessContext, builtinPermissions } from "../../packages/ragents/src/access.ts";
 import { overseerPermissions } from "../../plugins/ragents.overseer/contract.ts";
-import { hostAccessRules } from "../../apps/server/src/access-policy.ts";
+import { coreContracts } from "../../apps/server/src/api/contracts.ts";
 import ts from "typescript";
 import { Value } from "typebox/value";
 import { agentTools } from "../../packages/ragents/src/agents/tools.ts";
@@ -119,6 +119,8 @@ test("Server- und Web-Beispiele erfüllen mit ihrem benannten Kontext die echten
 import { Type } from "typebox";
 import { serviceToken, type PluginRegistration, type OperationContext, type ScriptContribution } from "../../packages/ragents/src/plugin-types.ts";
 import { defineRunFunction, defineToolAvailability } from "../../packages/ragents/src/agents/tools.ts";
+import { defineChannel, defineOperation } from "../../packages/ragents/src/rpc/contract.ts";
+import { implement, implementChannel } from "../../packages/ragents/src/rpc/contribution.ts";
 import type { InlineExtension } from "../../packages/agent/dist/index.js";
 import type { AgentDriver } from "../../packages/ragents/src/drivers/types.ts";
 import type { WebPlugin } from "../../apps/web/src/PluginRegistry.tsx";
@@ -147,6 +149,7 @@ declare const service: {
   initialize(): Promise<void>; prepare(runId: string): Promise<void>;
   stop(runId: string, signal: AbortSignal): Promise<void>;
   remove(runId: string): Promise<void>; shutdown(): Promise<void>;
+  ready(): boolean; onBeat(listener: (at: string) => void): () => void;
 };
 `;
   const files = new Map(examples.map((entry) => [path.join(repoRoot, "scripts/homepage", `.homepage-example-${entry.id}.tsx`), `${prelude}\n${entry.example}`]));
@@ -182,7 +185,9 @@ declare const service: {
 test("Rechtebeispiele führen Profilauflösung und Extension-Prüfung mit echten Verträgen aus", async () => {
   const result = await buildHomepageExtensions(repoRoot);
   assert.deepEqual(result.permissions, [...builtinPermissions, ...overseerPermissions]);
-  assert.deepEqual(result.accessRules, hostAccessRules);
+  assert.deepEqual(result.methodRights.find((method) => method.id === coreContracts.sessions.delete.id),
+    { id: coreContracts.sessions.delete.id, rights: [...coreContracts.sessions.delete.rights] });
+  for (const method of result.methodRights) assert.ok(result.html.includes(method.id), method.id);
   for (const permission of result.permissions) assert.ok(result.html.includes(permission.id));
   const example = result.extensions.find((entry) => entry.id === "profile-access")!;
   const source = ts.transpileModule(example.example.replace(/^import .*;$/gm, "").replace("export const users", "const users") + "\nusers;", {

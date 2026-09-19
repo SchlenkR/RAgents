@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { mkdtemp, rm } from "node:fs/promises";
-import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
@@ -16,6 +15,8 @@ process.env.PRODUCT_PROFILE = "core";
 process.env.PRODUCT_ID = "ragents";
 process.env.PRODUCT_TITLE = "RAgents";
 const { createEngine, SessionWorkspaces } = await import("../src/ragents/engine.ts");
+const { runContracts } = await import("@aicontainer/ragents");
+const { methodContext } = await import("./rpc-fixture.ts");
 after(() => rm(directory, { recursive: true, force: true }));
 const tick = () => new Promise<void>((resolve) => setImmediate(resolve));
 const eventually = async (check: () => boolean) => {
@@ -69,23 +70,13 @@ const fixture = async (runId: string, hooks: {
   };
 };
 
-const withEngineHttp = async (engine: Awaited<ReturnType<typeof createEngine>>, use: (base: string) => Promise<void>) => {
-  const server = createServer((request, response) => { void engine.routes(request, response); });
-  try {
-    await new Promise<void>((resolve, reject) => {
-      server.once("error", reject);
-      server.listen(0, "127.0.0.1", resolve);
-    });
-    const address = server.address();
-    assert.ok(address && typeof address !== "string");
-    await use(`http://127.0.0.1:${address.port}`);
-  } finally {
-    server.closeAllConnections();
-    if (server.listening) await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
-  }
+const enqueueThroughMethod = (engine: Awaited<ReturnType<typeof createEngine>>, runId: string, actorId: string, commandId: string, content: string) => {
+  const method = engine.methods.find((entry) => entry.contract.id === runContracts.enqueueInput.id);
+  assert.ok(method);
+  return method.execute({ runId, actorId, commandId, content } as never, methodContext()) as Promise<{ inputs: Array<{ lifecycle: { kind: string } }> }>;
 };
 
-test("an HTTP input accepted during quarantine starts after release without replaying an old input", async () => {
+test("an input accepted during quarantine starts after release without replaying an old input", async () => {
   const settled = deferred();
   let early = false;
   const runId = "queued-cleanup";
@@ -98,21 +89,16 @@ test("an HTTP input accepted during quarantine starts after release without repl
     await f.engine.scheduler.waitForIdle();
     const stopped = f.stop();
     await eventually(() => early);
-    await withEngineHttp(f.engine, async (base) => {
-      const response = await fetch(`${base}/api/runs/${runId}/actors/${f.actorId}/inputs`, {
-        method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ commandId: "http-during-cleanup", content: "new message" }),
-      });
-      assert.equal(response.status, 201);
-      assert.equal(f.turns(), 1);
-      assert.equal(f.engine.runtime.view(runId).inputs.at(-1)?.lifecycle.kind, "pending");
-      settled.resolve();
-      await stopped;
-      await eventually(() => f.turns() === 2);
-      await f.engine.scheduler.waitForIdle();
-      assert.equal(f.turns(), 2);
-      assert.deepEqual(f.engine.runtime.view(runId).inputs.map((input) => input.lifecycle.kind), ["claimed", "claimed"]);
-    });
+    const accepted = await enqueueThroughMethod(f.engine, runId, f.actorId, "rpc-during-cleanup", "new message");
+    assert.equal(accepted.inputs.at(-1)?.lifecycle.kind, "pending");
+    assert.equal(f.turns(), 1);
+    assert.equal(f.engine.runtime.view(runId).inputs.at(-1)?.lifecycle.kind, "pending");
+    settled.resolve();
+    await stopped;
+    await eventually(() => f.turns() === 2);
+    await f.engine.scheduler.waitForIdle();
+    assert.equal(f.turns(), 2);
+    assert.deepEqual(f.engine.runtime.view(runId).inputs.map((input) => input.lifecycle.kind), ["claimed", "claimed"]);
   } finally { settled.resolve(); await f.engine.shutdown(); }
 });
 

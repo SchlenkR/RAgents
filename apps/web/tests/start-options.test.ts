@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { PluginRegistry, type StartOptionContribution } from "../src/PluginRegistry.tsx";
+import { initialStartOptionUpdates } from "../src/StartOptions.tsx";
+import type { StartOptionState } from "../../server/src/plugin-support/start-options-contract.ts";
 import { choicePresentationFrom } from "../../server/src/plugin-support/start-options-contract.ts";
 
 const Empty = () => null;
@@ -38,4 +40,22 @@ test("die Auswahl-Darstellung wird streng gelesen", () => {
   assert.throws(() => choicePresentationFrom(null, "x"), /keine Darstellung/);
   assert.throws(() => choicePresentationFrom({ kind: "choice", options: [] }, "x"), /kein label/);
   assert.throws(() => choicePresentationFrom({ kind: "choice", label: "Quelle", options: [{ value: "" }] }, "x"), /options aus value und label/);
+});
+
+test("eine Vorbelegung setzt nur wählbare, offene Optionen und ignoriert Unbekanntes", () => {
+  const option = (values: Partial<StartOptionState> & { id: string }): StartOptionState =>
+    ({ owner: "test.plugin", value: null, presentation: null, selectable: true, locked: false, ...values });
+  const options = [
+    option({ id: "ragents.workspace.binding" }),
+    option({ id: "ragents.model", locked: true }),
+    option({ id: "test.hidden", selectable: false }),
+  ];
+  const binding = { kind: "client", client: "vscode-notebook", label: "Notebook", path: "/work" };
+  assert.deepEqual(initialStartOptionUpdates(options, {
+    "ragents.workspace.binding": binding,
+    "ragents.model": "sonnet",
+    "test.hidden": "x",
+    "test.unbekannt": "x",
+  }), [["ragents.workspace.binding", binding]]);
+  assert.deepEqual(initialStartOptionUpdates(options, {}), []);
 });

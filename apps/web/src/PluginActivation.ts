@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { coreContracts } from "@aicontainer/server/api/contracts";
+import { rpc } from "./rpc";
 import { activatePlugins, pluginBootstrapFrom, type PluginBootstrap } from "./plugin-bootstrap";
 import { webPluginLoaders } from "./plugin-discovery";
 import type { PluginRegistry } from "./PluginRegistry";
@@ -35,8 +37,5 @@ const activate = async (signal: AbortSignal): Promise<PluginActivationState> => 
   return { status: "ready", ...(await activatePlugins(bootstrap, webPluginLoaders)) };
 };
 
-const loadPluginBootstrap = async (signal: AbortSignal): Promise<PluginBootstrap> => {
-  const response = await fetch("/api/plugins", { cache: "no-store", signal });
-  if (!response.ok) throw new Error(`Plugin-Konfiguration konnte nicht geladen werden (${response.status})`);
-  return pluginBootstrapFrom(await response.json() as unknown);
-};
+const loadPluginBootstrap = async (signal: AbortSignal): Promise<PluginBootstrap> =>
+  pluginBootstrapFrom(await rpc.call(coreContracts.plugins.bootstrap, {}, { signal }));

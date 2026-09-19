@@ -39,6 +39,14 @@ test("without a run view the summary keeps the list row and reports it as not lo
   assert.deepEqual(summary.actors, []);
 });
 
+test("der Arbeitsbereich eines Runs kommt aus den Sitzungsangaben und lässt den leeren Ordner weg", () => {
+  const metadata = (binding: unknown, summary: string) => ({ "ragents.workspace": { binding, summary } });
+  assert.equal(runSummaryFrom(session({ metadata: metadata({ kind: "path", path: "/work" }, "/work") }), runView()).workspace, "/work");
+  assert.equal(runSummaryFrom(session({ metadata: metadata({ kind: "fresh" }, "Leerer Ordner je Run") }), undefined).workspace, undefined);
+  assert.equal(runSummaryFrom(session({ metadata: { "ragents.workspace": { summary: "ohne Bindung" } } }), undefined).workspace, undefined);
+  assert.equal(runSummaryFrom(session(), undefined).workspace, undefined);
+});
+
 test("runs sort by activity like the web overview and text artifacts open as documents", () => {
   const runs = [runSummaryFrom(session({ id: "old", updatedAt: 1 }), undefined), runSummaryFrom(session({ id: "new", updatedAt: 9 }), undefined)];
   assert.deepEqual(sortRuns(runs).map((run) => run.id), ["new", "old"]);

@@ -1,7 +1,7 @@
 import path from "node:path";
 import type { RAgentsPlugin } from "@aicontainer/ragents";
 import { createDocumentToolContributor } from "./tool-contributor.js";
-import { createFilesRoutes, documentsApiPrefix } from "./files-route.js";
+import { createFileContentRoute, createFilesMethod, documentsApiPrefix } from "./files-route.js";
 import { ragentsDocumentsConfig, ragentsDocumentsConfigDescriptors } from "./config.js";
 import { RunDocumentStore } from "./store.js";
 import { pluginAssetPath } from "@aicontainer/server/plugin-support/asset-path.js";
@@ -26,10 +26,9 @@ const documentsPlugin: RAgentsPlugin = {
     host.clientConfig({ routePrefix: documentsApiPrefix });
     host.functions(createDocumentToolContributor(filesFor));
     host.prompts(boundToTools({ ...handlebarsPrompt("ragents.documents.prompt", 400, promptFile), delivery: "initial" }, "show_document"));
-    host.http(...createFilesRoutes({
-      filesFor,
-      ensureSession: host.service(sessionGuardToken),
-    }));
+    const files = { filesFor, ensureSession: host.service(sessionGuardToken) };
+    host.methods(createFilesMethod(files));
+    host.http(createFileContentRoute(files));
   },
 };
 

@@ -60,6 +60,7 @@ interface PluginChatProps {
   headerContainer?: HTMLElement | null;
   workspaceHeaderContainer?: HTMLElement | null;
   startDialog?: { onClose: () => void; initialEntryId?: string };
+  initialStartOptions?: Readonly<Record<string, unknown>>;
   onStarted?: () => void;
   onLocationChange?: (location: ChatRunLocation) => void;
   onViewed?: (runId: string, revision: number) => void;
@@ -89,7 +90,7 @@ interface ChatWorkspaceProps {
   tabs: readonly WorkspaceTabContribution[];
 }
 
-export function PluginChat({ layout = "workspace", headerContainer, canvasToolbarContainer, workspaceHeaderContainer, statusContainer, onStarted, onLocationChange, onViewed, viewing = false, registry, session, startDialog }: PluginChatProps) {
+export function PluginChat({ layout = "workspace", headerContainer, canvasToolbarContainer, workspaceHeaderContainer, statusContainer, initialStartOptions, onStarted, onLocationChange, onViewed, viewing = false, registry, session, startDialog }: PluginChatProps) {
   const access = useAccess();
   const startOnly = startDialog !== undefined;
   const [modalContainer, setModalContainer] = useState<HTMLDivElement | null>(null);
@@ -225,6 +226,7 @@ export function PluginChat({ layout = "workspace", headerContainer, canvasToolba
     <ChatStepsProvider policy={registry.chatDisplayPolicy}>
       <StartOptionsProvider
         connected={connected}
+        initialValues={initialStartOptions}
         messageCount={messages.length}
         sessionId={session.id}
       >

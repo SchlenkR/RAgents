@@ -1,7 +1,9 @@
 import type { AccessUser } from "../../../packages/ragents/src/access";
+import { runContracts } from "../../../packages/ragents/src/http/contracts";
+import { RpcError } from "../../../packages/ragents/src/rpc/protocol";
+import { coreContracts } from "../../server/src/api/contracts";
 import type { SessionInfo } from "../../web/src/api";
-import { runChannel, SESSIONS_CHANNEL } from "../../server/src/event-channels";
-import { EventStream, type StreamStatus } from "./event-stream";
+import type { RpcStreamStatus } from "../../web/src/rpc/client";
 import { runSummaryFrom, sortRuns, type RunSummary } from "./run-model";
 import { ServerClient, ServerError, UnreachableError } from "./server-client";
 
@@ -19,6 +21,13 @@ export const RECONNECT_DELAY_MS = 5000;
 const revisionOf = (view: unknown): number | undefined =>
   typeof view === "object" && view !== null && "revision" in view && typeof view.revision === "number" ? view.revision : undefined;
 
+/** Ein abgelehnter Aufruf kommt je nach Weg als HTTP-Fehler der Anmeldung oder als Fachfehler der Nachrichtenschicht. */
+const rejectionOf = (cause: unknown): { status: number | undefined; code: string | undefined } => {
+  if (cause instanceof ServerError) return { status: cause.status, code: cause.code };
+  if (cause instanceof RpcError) return { status: cause.status, code: cause.domainCode };
+  return { status: undefined, code: undefined };
+};
+
 interface CachedView {
   revision: number | undefined;
   view: unknown;
@@ -26,7 +35,6 @@ interface CachedView {
 
 /** Runs, Laufansichten und Verbindungszustand der Erweiterung; Explorer, Abzeichen und Spalte lesen nur hier. */
 export class RunStore {
-  readonly stream: EventStream;
   #status: ConnectionStatus = { kind: "connecting" };
   #user: AccessUser | null = null;
   #sessions: SessionInfo[] = [];
@@ -40,9 +48,10 @@ export class RunStore {
   #reconnect: ReturnType<typeof setTimeout> | undefined;
   #refreshing: Promise<void> | undefined;
   #generation = 0;
+  readonly #releaseStatus: () => void;
 
   constructor(readonly client: ServerClient) {
-    this.stream = new EventStream(client, (status) => this.#streamChanged(status));
+    this.#releaseStatus = client.rpc.onStatus((status) => this.#streamChanged(status));
   }
 
   onChange(listener: () => void): () => void {
@@ -54,8 +63,8 @@ export class RunStore {
     return this.#status;
   }
 
-  get streamStatus(): StreamStatus {
-    return this.stream.status;
+  get streamStatus(): RpcStreamStatus {
+    return this.client.rpc.status;
   }
 
   get user(): AccessUser | null {
@@ -106,7 +115,7 @@ export class RunStore {
       return;
     }
     this.#set({ kind: "connected" });
-    this.#sessionsSubscription = this.stream.subscribe({ channel: SESSIONS_CHANNEL, onMessage: () => void this.refresh() });
+    this.#sessionsSubscription = this.client.rpc.subscribe(coreContracts.channels.sessions, {}, () => void this.refresh());
     for (const runId of this.#watches.keys()) this.#subscribeRun(runId);
     this.#poll = setInterval(() => void this.refresh(), POLL_INTERVAL_MS);
     await this.refresh();
@@ -125,11 +134,12 @@ export class RunStore {
       if (watch.timer !== undefined) clearTimeout(watch.timer);
       watch.timer = undefined;
     }
-    this.stream.close();
+    this.client.rpc.close();
   }
 
   dispose(): void {
     this.stop();
+    this.#releaseStatus();
     this.#watches.clear();
     this.#listeners.clear();
   }
@@ -173,7 +183,7 @@ export class RunStore {
   async #refreshInner(): Promise<void> {
     const generation = this.#generation;
     try {
-      const sessions = await this.client.sessions();
+      const sessions = await this.client.rpc.call(coreContracts.sessions.list, {});
       if (generation !== this.#generation) return;
       this.#sessions = sessions;
       for (const runId of this.#views.keys()) if (!sessions.some((session) => session.id === runId)) this.#views.delete(runId);
@@ -190,7 +200,7 @@ export class RunStore {
 
   async #loadView(runId: string, revision: number | undefined): Promise<void> {
     const generation = this.#generation;
-    const view = await this.client.runView(runId);
+    const view = await this.client.rpc.call(runContracts.view, { runId }) ?? undefined;
     if (generation !== this.#generation) return;
     this.#views.set(runId, { revision: revision ?? revisionOf(view), view });
     this.#notify();
@@ -200,34 +210,32 @@ export class RunStore {
     const watch = this.#watches.get(runId);
     if (!watch) return;
     watch.unsubscribe();
-    watch.unsubscribe = this.stream.subscribe({
-      channel: runChannel(runId),
-      onMessage: () => {
-        if (watch.timer !== undefined) return;
-        watch.timer = setTimeout(() => {
-          watch.timer = undefined;
-          void this.#loadView(runId, undefined).then(() => this.refresh()).catch((cause: unknown) => this.#fail(cause));
-        }, VIEW_DEBOUNCE_MS);
-      },
+    watch.unsubscribe = this.client.rpc.subscribe(coreContracts.channels.run, { runId }, () => {
+      if (watch.timer !== undefined) return;
+      watch.timer = setTimeout(() => {
+        watch.timer = undefined;
+        void this.#loadView(runId, undefined).then(() => this.refresh()).catch((cause: unknown) => this.#fail(cause));
+      }, VIEW_DEBOUNCE_MS);
     });
   }
 
   #fail(cause: unknown): void {
-    if (cause instanceof ServerError && cause.status === 401) {
+    const { status, code } = rejectionOf(cause);
+    if (status === 401) {
       this.stop();
       this.#user = null;
-      this.#set({ kind: "login-required", tokenGate: cause.code !== "login-required" });
+      this.#set({ kind: "login-required", tokenGate: code !== "login-required" });
       return;
     }
-    if (cause instanceof ServerError && cause.status === 403) {
-      this.#set({ kind: "forbidden", message: cause.message });
+    if (status === 403) {
+      this.#set({ kind: "forbidden", message: cause instanceof Error ? cause.message : String(cause) });
       return;
     }
     const message = cause instanceof UnreachableError || cause instanceof Error ? cause.message : String(cause);
     this.#set({ kind: "unreachable", message });
   }
 
-  #streamChanged(status: StreamStatus): void {
+  #streamChanged(status: RpcStreamStatus): void {
     if (status.kind === "unauthorized") {
       this.stop();
       this.#user = null;

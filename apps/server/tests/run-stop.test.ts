@@ -1,9 +1,11 @@
 import { unavailableActorPrograms } from "./actor-programs-fixture.ts";
 import assert from "node:assert/strict";
-import { createServer } from "node:http";
 import test from "node:test";
 
-import { createChatHandler, type ChatSessionProvider } from "../src/chat-handler.ts";
+import type { ChatSessionProvider } from "../src/chat-handler.ts";
+import { coreContracts } from "../src/api/contracts.ts";
+import { coreMethods } from "../src/api/core-methods.ts";
+import { coreSources, methodContext } from "./rpc-fixture.ts";
 import { Journal, LiveBus, Orchestration, type RunStopCommand } from "@aicontainer/ragents";
 import { manualExecution } from "../../../packages/ragents/src/domain/driver.ts";
 import { deferred, testServices } from "../../../packages/ragents/tests/support.ts";
@@ -86,25 +88,14 @@ test("the visible chat stop awaits the shared run stop and publishes running fal
     list: async () => [],
     delete: async () => undefined,
   };
-  const handler = createChatHandler({ manager: provider, cors: false });
-  const server = createServer((request, response) => {
-    void handler(request, response);
-  });
+  const stop = coreMethods(coreSources(provider))
+    .find((entry) => entry.contract.id === coreContracts.chat.stop.id)!;
 
   try {
-    await new Promise<void>((resolve, reject) => {
-      server.once("error", reject);
-      server.listen(0, "127.0.0.1", resolve);
-    });
-    const address = server.address();
-    if (!address || typeof address === "string") assert.fail("Der Testserver hat keine TCP-Adresse.");
-
     let responseSettled = false;
-    const responsePromise = fetch(`http://${address.address}:${address.port}/chat/${view.id}/stop`, {
-      method: "POST",
-    }).then((response) => {
+    const responsePromise = stop.execute({ runId: view.id } as never, methodContext()).then((result) => {
       responseSettled = true;
-      return response;
+      return result;
     });
     await stopStarted.promise;
     await new Promise<void>((resolve) => setImmediate(resolve));
@@ -112,8 +103,7 @@ test("the visible chat stop awaits the shared run stop and publishes running fal
     assert.equal(session.running, true);
 
     releaseStop.resolve();
-    const response = await responsePromise;
-    assert.equal(response.status, 200);
+    assert.equal(await responsePromise, null);
     assert.equal(stopCall?.runId, view.id);
     assert.match(stopCall?.input.commandId ?? "", /^chat-stop:/);
     assert.equal(stopCall?.input.reason, "Not-Aus durch den Bediener");
@@ -121,12 +111,6 @@ test("the visible chat stop awaits the shared run stop and publishes running fal
     assert.equal(statuses.at(-1), false);
   } finally {
     releaseStop.resolve();
-    server.closeAllConnections();
-    if (server.listening) {
-      await new Promise<void>((resolve, reject) => {
-        server.close((error) => error ? reject(error) : resolve());
-      });
-    }
     session.dispose();
     journal.close();
   }

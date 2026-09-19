@@ -16,7 +16,7 @@ test("without login the store loads runs and views and follows the run channel w
     const release = store.watch("run-a");
     await waitFor(() => server.subscribed().has("run:run-a"));
     server.setView(runView({ revision: 13, actions: [] }));
-    server.emit("run:run-a", { kind: "run" });
+    server.emit("run:run-a");
     await waitFor(() => store.runs[0]?.events === 13);
     assert.equal(store.pendingQuestions, 0);
     release();
@@ -42,7 +42,7 @@ test("a login-protected server yields login-required until a session token is us
     await store.start();
     assert.deepEqual(store.status, { kind: "connected" });
     assert.equal(store.user?.id, "ronald");
-    assert.ok(server.requests.filter((request) => request.path === "/chat/sessions").every((request) => request.authorization === `Bearer ${SESSION_TOKEN}`));
+    assert.ok(server.requests.filter((request) => request.path === "/rpc").every((request) => request.authorization === `Bearer ${SESSION_TOKEN}`));
     await waitFor(() => store.runs[0]?.loaded === true);
   } finally {
     store.dispose();

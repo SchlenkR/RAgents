@@ -34,7 +34,7 @@ export type ColumnHostMessage =
 /** Nachrichten des Hosts an die Spalte. */
 export type HostColumnMessage =
   | { type: "selectRun"; runId: string | null }
-  | { type: "newRun" }
+  | { type: "newRun"; startOptions?: Record<string, unknown> }
   | { type: "placements"; runId: string; center: string[] }
   | { type: "theme"; theme: ColumnTheme };
 
@@ -71,7 +71,7 @@ export const isHostColumnMessage = (value: unknown): value is HostColumnMessage 
     case "selectRun":
       return value.runId === null || isText(value.runId);
     case "newRun":
-      return true;
+      return value.startOptions === undefined || (isObject(value.startOptions) && !Array.isArray(value.startOptions));
     case "placements":
       return isText(value.runId) && Array.isArray(value.center) && value.center.every(isText);
     case "theme":

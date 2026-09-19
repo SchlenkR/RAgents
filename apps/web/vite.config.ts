@@ -65,6 +65,7 @@ const ragentsPlugins = (plugins: readonly BundledPlugin[]): Plugin => {
     config: () => ({
       resolve: {
         alias: {
+          "@aicontainer/ragents/src": path.join(repositoryRoot, "packages/ragents/src"),
           "@aicontainer/server": path.join(repositoryRoot, "apps/server/src"),
           "@aicontainer/web": path.join(repositoryRoot, "apps/web/src"),
           "@aicontainer/plugins": path.join(repositoryRoot, "plugins"),

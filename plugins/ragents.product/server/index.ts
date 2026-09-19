@@ -7,7 +7,7 @@ import {
 import { pluginAssetPath } from "@aicontainer/server/plugin-support/asset-path.js";
 import type { PluginModule } from "@aicontainer/server/plugin-support/plugin-module.js";
 import { productStartOptions } from "@aicontainer/server/plugin-support/product-start-options.js";
-import { ProductModelSettingsStore, productModelSettingsRoute } from "@aicontainer/server/plugin-support/product-model-settings.js";
+import { ProductModelSettingsStore, productModelSettingsMethods } from "@aicontainer/server/plugin-support/product-model-settings.js";
 import { handlebarsPrompt, systemPromptSelectionPrompt } from "@aicontainer/server/plugin-support/prompt.js";
 import { productRuntimeToken } from "@aicontainer/server/ragents/product-runtime.js";
 import { ragentsProductConfig, ragentsProductConfigDescriptors, ragentsProductModelNames } from "./config.js";
@@ -66,7 +66,7 @@ const ragentsProductPlugin: RAgentsPlugin = {
     host.config(...ragentsProductConfigDescriptors);
     void ragentsProductConfig.modelChoice.options;
     const modelSettings = new ProductModelSettingsStore(host.storage.root("model-settings.json"), ragentsProductConfig.modelChoice, productProfiles());
-    host.http(productModelSettingsRoute(host.manifest.id, modelSettings));
+    host.methods(...productModelSettingsMethods(host.manifest.id, modelSettings));
     host.clientConfig({ chatSteps: ragentsProductConfig.chatDisplayPolicy });
     host.startOptions(...productStartOptions({
       modelChoice: modelSettings.modelChoice,

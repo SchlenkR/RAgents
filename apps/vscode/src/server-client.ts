@@ -1,6 +1,7 @@
 import type { AccessSnapshot } from "../../../packages/ragents/src/access";
+import { artifactContentPath } from "../../../packages/ragents/src/http/methods";
 import { accessSnapshotFrom } from "../../web/src/access-session";
-import type { SessionInfo } from "../../web/src/api";
+import { RpcClient } from "../../web/src/rpc/client";
 
 export class ServerError extends Error {
   constructor(message: string, readonly status: number, readonly code?: string) {
@@ -15,10 +16,6 @@ export class UnreachableError extends Error {
     this.name = "UnreachableError";
   }
 }
-
-export const isSessionInfo = (value: unknown): value is SessionInfo =>
-  typeof value === "object" && value !== null && typeof (value as SessionInfo).id === "string"
-  && typeof (value as SessionInfo).title === "string" && typeof (value as SessionInfo).updatedAt === "number";
 
 const sessionTokenFrom = (setCookie: readonly string[]): string => {
   for (const cookie of setCookie) {
@@ -41,12 +38,34 @@ const errorFrom = async (response: Response): Promise<ServerError> => {
   return new ServerError(message, response.status, code);
 };
 
-/** Der HTTP-Zugang der Erweiterung: dieselben Routen wie apps/web/src/api.ts, der Sitzungstoken als Bearer statt als Cookie. */
+/** Der Zugang der Erweiterung: Anmeldung und Auslieferung über HTTP, alles Weitere als JSON-RPC; der Sitzungstoken geht als Bearer. */
 export class ServerClient {
   readonly origin: string;
+  readonly rpc: RpcClient;
+  readonly #sending = new Set<Promise<void>>();
 
   constructor(readonly baseUrl: string, private token: string | undefined, private readonly request: typeof fetch = fetch) {
     this.origin = new URL(baseUrl).origin;
+    this.rpc = new RpcClient({
+      baseUrl: this.origin,
+      fetch: (input, init) => {
+        const call = this.request(input, { ...init, headers: this.headers(init?.headers as Record<string, string> | undefined ?? {}) });
+        // Der Ereignisstrom ist ein GET und endet erst mit der Verbindung; nur die Sendungen zählen.
+        if (init?.method === "POST") this.#track(call);
+        return call;
+      },
+    });
+  }
+
+  #track(call: Promise<Response>): void {
+    const sent = call.then(() => undefined, () => undefined);
+    this.#sending.add(sent);
+    void sent.finally(() => this.#sending.delete(sent));
+  }
+
+  /** Wartet auf die laufenden Sendungen der Nachrichtenschicht, damit Fortschritt vor seinem Ergebnis draußen ist. */
+  async flush(): Promise<void> {
+    while (this.#sending.size > 0) await Promise.all([...this.#sending]);
   }
 
   get hasToken(): boolean {
@@ -57,6 +76,7 @@ export class ServerClient {
     return this.token;
   }
 
+  /** Der Client liest den Token bei jedem Abruf, deshalb bleibt die Nachrichtenschicht bestehen. */
   useToken(token: string | undefined): void {
     this.token = token;
   }
@@ -104,56 +124,13 @@ export class ServerClient {
     if (!response.ok && response.status !== 401) throw await errorFrom(response);
   }
 
-  sessions(): Promise<SessionInfo[]> {
-    return this.json("/chat/sessions", { cache: "no-store" }, (value) => {
-      if (!Array.isArray(value) || !value.every(isSessionInfo)) throw new ServerError("Die Run-Liste hat nicht das erwartete Format.", 500);
-      return value;
-    });
-  }
-
-  async runView(runId: string): Promise<unknown> {
-    const response = await this.fetch(`/chat/${encodeURIComponent(runId)}/run`, { cache: "no-store" });
-    if (response.status === 404) return undefined;
-    if (!response.ok) throw await errorFrom(response);
-    return (await response.json()) ?? undefined;
-  }
-
-  async stopRun(runId: string, reason: string): Promise<void> {
-    const response = await this.fetch(`/ragents/api/runs/${encodeURIComponent(runId)}/stop-all`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ commandId: crypto.randomUUID(), reason }),
-    });
-    if (!response.ok) throw await errorFrom(response);
-  }
-
-  journal(runId: string): Promise<unknown[]> {
-    return this.json(`/ragents/api/runs/${encodeURIComponent(runId)}/events`, { cache: "no-store" }, (value) => {
-      if (!Array.isArray(value)) throw new ServerError("Das Journal hat nicht das erwartete Format.", 500);
-      return value;
-    });
-  }
-
   async artifactText(runId: string, artifactId: string): Promise<string> {
-    const response = await this.fetch(`/ragents/api/runs/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(artifactId)}/content`, { cache: "no-store" });
+    const response = await this.fetch(artifactContentPath(runId, artifactId), { cache: "no-store" });
     if (!response.ok) throw await errorFrom(response);
     return response.text();
   }
 
   artifactUrl(runId: string, artifactId: string): string {
-    return this.url(`/ragents/api/runs/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(artifactId)}/content`);
-  }
-
-  async subscribe(connection: string, channel: string): Promise<void> {
-    const response = await this.fetch(`/api/events/${connection}/subscriptions`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ channel }),
-    });
-    if (!response.ok) throw await errorFrom(response);
-  }
-
-  async unsubscribe(connection: string, channel: string): Promise<void> {
-    await this.fetch(`/api/events/${connection}/subscriptions/${encodeURIComponent(channel)}`, { method: "DELETE" }).catch(() => undefined);
+    return this.url(artifactContentPath(runId, artifactId));
   }
 }

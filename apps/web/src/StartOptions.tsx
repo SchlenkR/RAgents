@@ -27,13 +27,23 @@ const StartOptionsContext = createContext<StartOptionsControl>(inertControl);
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
 
+/** Eine Vorbelegung gilt nur für Optionen, die der Run gerade wählen lässt; Unbekanntes bleibt liegen. */
+export const initialStartOptionUpdates = (
+  options: readonly StartOptionState[],
+  values: Readonly<Record<string, unknown>>,
+): readonly (readonly [string, unknown])[] => options
+  .filter((option) => option.selectable && !option.locked && Object.hasOwn(values, option.id))
+  .map((option) => [option.id, values[option.id]] as const);
+
 export function StartOptionsProvider({
   children,
   connected,
+  initialValues,
   messageCount,
   sessionId,
 }: PropsWithChildren<{
   connected: boolean;
+  initialValues?: Readonly<Record<string, unknown>>;
   messageCount: number;
   sessionId: string;
 }>) {
@@ -44,6 +54,9 @@ export function StartOptionsProvider({
     () => ({ sessionId, options: [], errors: new Map(), pending: true }),
   );
   const active = useRef<{ sessionId: string; pending: boolean; controller: AbortController } | null>(null);
+  const outstanding = useRef<{ sessionId: string; values: Readonly<Record<string, unknown>> } | null>(
+    initialValues ? { sessionId, values: initialValues } : null);
+  const [applying, setApplying] = useState(outstanding.current !== null);
   const saving = useRef<{ sessionId: string; done: Promise<void> } | null>(null);
   const [defaultsRevision, setDefaultsRevision] = useState(0);
 
@@ -121,12 +134,28 @@ export function StartOptionsProvider({
     finally { if (saving.current === save) saving.current = null; }
   }, [sessionId]);
 
+  useEffect(() => {
+    const initial = outstanding.current;
+    if (!initial) return;
+    if (!allowed || initial.sessionId !== sessionId) {
+      outstanding.current = null;
+      setApplying(false);
+      return;
+    }
+    if (state.sessionId !== sessionId || state.pending) return;
+    outstanding.current = null;
+    void (async () => {
+      for (const [optionId, value] of initialStartOptionUpdates(state.options, initial.values)) await set(optionId, value);
+      setApplying(false);
+    })();
+  }, [allowed, sessionId, set, state]);
+
   const control = useMemo<StartOptionsControl>(() => ({
     options: state.sessionId === sessionId ? state.options.map((option) => ({ ...option, locked: option.locked || started })) : [],
     errors: state.sessionId === sessionId ? state.errors : new Map(),
-    pending: state.sessionId !== sessionId || state.pending,
+    pending: state.sessionId !== sessionId || state.pending || applying,
     set,
-  }), [state, sessionId, started, set]);
+  }), [applying, state, sessionId, started, set]);
 
   return <StartOptionsContext.Provider value={allowed ? control : inertControl}>{children}</StartOptionsContext.Provider>;
 }

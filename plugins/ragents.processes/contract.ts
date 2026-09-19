@@ -1,3 +1,7 @@
+import { Type } from "typebox";
+import { defineChannel, defineOperation } from "@aicontainer/ragents/src/rpc/contract";
+import { openJson } from "@aicontainer/ragents/src/http/contracts";
+
 export const PROCESSES_PLUGIN_ID = "ragents.processes";
 
 export interface RunProcessPort {
@@ -27,15 +31,31 @@ export type RunProcessMessage =
   | { kind: "snapshot"; snapshot: RunProcessSnapshot }
   | { kind: "error"; error: string };
 
-export const processesSnapshotPath = (routePrefix: string, runId: string): string =>
-  `${routePrefix}/runs/${encodeURIComponent(runId)}/processes`;
+const runId = Type.String({ minLength: 1, maxLength: 64, description: "Kennung des Runs" });
 
-export const processesChannel = (runId: string): string => `processes:${runId}`;
-
-export const processesRunIdOf = (channel: string): string | undefined => {
-  const match = /^processes:([A-Za-z0-9_-]{1,64})$/.exec(channel);
-  return match?.[1];
+export const processesContracts = {
+  snapshot: defineOperation({
+    id: "ragents.processes.snapshot",
+    description: "Die beobachteten Prozesse eines Laufs mit ihren offenen Ports. Rechte: runs.read und ragents.processes.read.",
+    rights: ["runs.read", "ragents.processes.read"],
+    input: Type.Object({ runId }, { additionalProperties: false }),
+    result: openJson<RunProcessSnapshot>("RunProcessSnapshot"),
+  }),
+  stop: defineOperation({
+    id: "ragents.processes.stop",
+    description: "Einen Prozess des Laufs beenden. Rechte: runs.read, runs.write und runs.inspect.",
+    rights: ["runs.read", "runs.write", "runs.inspect"],
+    input: Type.Object({
+      runId,
+      processId: Type.String({ pattern: "^[1-9][0-9]*-[a-f0-9]{64}$", description: "Kennung des Prozesses aus dem Stand" }),
+    }, { additionalProperties: false }),
+    result: Type.Null(),
+  }),
+  live: defineChannel({
+    id: "ragents.processes",
+    description: "Der laufende Stand der Prozessüberwachung eines Laufs. Rechte: runs.read und ragents.processes.read.",
+    rights: ["runs.read", "ragents.processes.read"],
+    params: Type.Object({ runId }, { additionalProperties: false }),
+    message: openJson<RunProcessMessage>("RunProcessMessage"),
+  }),
 };
-
-export const processStopPath = (routePrefix: string, runId: string, processId: string): string =>
-  `${processesSnapshotPath(routePrefix, runId)}/${encodeURIComponent(processId)}/stop`;

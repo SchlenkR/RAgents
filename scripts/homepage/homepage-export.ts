@@ -8,7 +8,7 @@ export const homepageFiles = [
   "index.html", "reference.html", "developer.html", "site.css", "site.js", "scroll-vendor.js", "reference-ui.js", "reference-ui.css",
   "mini-app.html", "mini-app.js", "mini-app.css",
   ...homepageSamples.flatMap(({ id }) => [`${id}.html`, `${id}.js`, `${id}.css`]),
-  "llms.txt", "llms-full.txt", "reference.md", "developer.md", "run-setup.md", "run-api.d.ts", "http-api.md", "openapi.json",
+  "llms.txt", "llms-full.txt", "reference.md", "developer.md", "run-setup.md", "run-api.d.ts", "rpc-api.md", "openrpc.json",
   ...homepageGuideFiles,
 ] as const;
 const sourceBase = "https://github.com/SchlenkR/RAgents/blob/main/";

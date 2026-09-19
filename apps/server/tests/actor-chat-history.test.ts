@@ -6,7 +6,10 @@ import { createAccessContext, DomainError, Journal, LiveBus, Orchestration } fro
 import { manualExecution } from "../../../packages/ragents/src/domain/driver.ts";
 import { project, viewOf } from "../../../packages/ragents/src/domain/projection.ts";
 import { allGrants, testServices } from "../../../packages/ragents/tests/support.ts";
-import { createChatHandler, type ChatSessionLike } from "../src/chat-handler.ts";
+import type { ChatSessionLike } from "../src/chat-handler.ts";
+import { attachmentContentPath, coreContracts } from "../src/api/contracts.ts";
+import { coreMethods } from "../src/api/core-methods.ts";
+import { coreSources, methodContext } from "./rpc-fixture.ts";
 import { actorChatHistoryOf } from "../src/ragents/actor-chat-history.ts";
 import { chatHistoryOf } from "../src/ragents/chat-projection.ts";
 import { applyEvent, type Message } from "../src/chat-events.ts";
@@ -240,7 +243,7 @@ test("delivered inputs retain senders and attachments while questions and stops 
     assert.equal(delivered.sender, a);
     assert.equal(delivered.role, "assistant");
     assert.equal(delivered.bubble?.label, "Zugestellt von @coordinator");
-    assert.deepEqual(delivered.attachments, [{ name: "notes.txt", mediaType: "text/plain", size: artifact.size, url: `/chat/${f.id}/attachments/${artifact.id}` }]);
+    assert.deepEqual(delivered.attachments, [{ name: "notes.txt", mediaType: "text/plain", size: artifact.size, url: attachmentContentPath(f.id, artifact.id) }]);
     assert.equal(history.actors[a].find((message) => message.role === "question")?.question?.answer, "Blau");
     assert.ok(history.actors[b].every((message) => message.role !== "question"));
     assert.equal(history.actors[b].at(-1)?.text, "Prüfung gestoppt");
@@ -256,26 +259,25 @@ test("actor history endpoint returns the run snapshot and preserves explicit una
   try {
     f.start(f.coordinator.id, "Gespeicherter Auftrag");
     const request = async (id: string, session: ChatSessionLike) => {
-      let status = 0, body = "";
-      const headers = new Map<string, string>();
-      const response = Object.assign(new EventEmitter(), {
-        setHeader: (key: string, value: string) => headers.set(key, value),
-        writeHead: (code: number) => { status = code; }, end: (text: string) => { body = text; },
-      }) as unknown as ServerResponse;
-      const handler = createChatHandler({ manager: { get: async (value) => { assert.equal(value, id); return session; }, list: async () => [], delete: async () => {} } });
-      assert.equal(await handler({ method: "GET", url: `/chat/${id}/actors/history` } as IncomingMessage, response), true);
-      return { status, body: JSON.parse(body), headers };
+      const provider = { get: async (value: string) => { assert.equal(value, id); return session; }, list: async () => [], delete: async () => {} };
+      const history = coreMethods(coreSources(provider))
+        .find((entry) => entry.contract.id === coreContracts.chat.actorHistory.id)!;
+      try {
+        return { status: 200, body: await history.execute({ runId: id } as never, methodContext()) as { error?: string } };
+      } catch (error) {
+        assert.ok(error instanceof DomainError);
+        return { status: error.status, body: { error: error.message } };
+      }
     };
     const success = await request(f.id, f.session());
     assert.equal(success.status, 200);
     assert.deepEqual(success.body, f.history());
-    assert.equal(success.headers.get("Cache-Control"), "no-store");
     const missing = await request("missing-run", f.session("missing-run"));
     assert.equal(missing.status, 404);
-    assert.match(missing.body.error, /Run.*nicht vorhanden/);
+    assert.match(missing.body.error ?? "", /Run.*nicht vorhanden/);
     const unavailable = await request(f.id, { ...f.session(), running: false, subscribe: () => () => {}, send: () => {}, start: () => {}, stop: () => {} });
     assert.equal(unavailable.status, 404);
-    assert.match(unavailable.body.error, /nicht verfügbar/);
+    assert.match(unavailable.body.error ?? "", /nicht verfügbar/);
     assert.throws(() => f.session("missing-run").actorConversations(), (error) => error instanceof DomainError && error.status === 404);
   } finally { f.journal.close(); }
 });

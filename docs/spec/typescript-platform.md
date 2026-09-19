@@ -262,7 +262,7 @@ Subscriptions liefern sie als spätere ActorInputs.
 
 Ein Run-Script bietet einen vorbereiteten, wiederverwendbaren Start einer Unterhaltung. Ein
 freier Benutzerauftrag benötigt kein solches Paket. Der globale Koordinator kann vorhandene
-oder selbst erstellte Pakete über die HTTP-Verwaltung starten. Innerhalb eines vorhandenen
+oder selbst erstellte Pakete über die Verwaltungsmethoden starten. Innerhalb eines vorhandenen
 Runs richten Snippets oder Actor-Programme die Umgebung über dieselbe Funktionen-API ein.
 
 Ein Run-Script ist ein vollständiges Actor-Programmpaket für den Start einer Unterhaltung.
@@ -288,7 +288,7 @@ verfolgen. Fehlende oder ungültige Paketbestandteile sind harte Fehler. Registr
 Run-Script-Verträge transportieren Dateien; sie verlangen keine bereits erzeugten Build-IDs.
 Weitere TypeScript-Dateien werden über normale relative Imports eingebunden.
 
-`POST /chat/<id>/start { entry, input }` legt den Run mit dem Titel und den Startoptionen an.
+`ragents.chat.start { runId, entry, input }` legt den Run mit dem Titel und den Startoptionen an.
 Der Host bereitet den Arbeitsbereich vor, übernimmt die mitgelieferten Programme aus `actors/`
 in die private Sammlung und importiert das Setup-Paket über denselben Aktivierungspfad wie
 ein während des Runs geschriebenes Programm. Typprüfung, Build und Fachtests laufen vor der
@@ -337,7 +337,7 @@ Starts, ausdrückliche Standardstarts, ungültige Eingaben und die Reihenfolge d
 Der Server-Test `reference-run-scripts.test.ts` importiert die mitgelieferten Pakete gegen das
 Profil `core`, damit veraltete Beispiele auffallen.
 
-Lokale Pakete außerhalb des Repos können über die gemeinsame HTTP-Verwaltung mit einem
+Lokale Pakete außerhalb des Repos können über die gemeinsamen Verwaltungsmethoden mit einem
 Serverdateipfad gestartet werden. Sie verwenden denselben Loader und Aktivierungspfad,
 werden aber nicht dauerhaft als Startkarten registriert. Ein `RUN_SCRIPTS_DIR` existiert nicht.
 
@@ -352,8 +352,8 @@ Deklarationsgenerator mit ihrem aktuellen Vertragsbestand.
 Die SDK-Datei ist ein normales TypeScript-Modul mit Exports. Sie ergänzt keine Globals
 oder Laufzeitrechte. Die Homepage-Prüfung kompiliert die veröffentlichten Pakete und prüft
 positive sowie fehlerhafte Funktionsaufrufe gegen diese Deklarationen.
-`http-api.md` und `openapi.json` entstehen getrennt aus den ausführbaren Management-Routen
-und beschreiben den Zugang außerhalb der Actor-Laufzeit.
+`rpc-api.md` und `openrpc.json` entstehen getrennt aus den registrierten Methoden- und
+Kanalverträgen und beschreiben den Zugang außerhalb der Actor-Laufzeit.
 
 ## Offene Grenzen
 
