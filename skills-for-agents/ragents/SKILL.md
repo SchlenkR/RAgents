@@ -43,6 +43,10 @@ und blockiert, bis der Turn zu Ende ist. `--profile <profil|pfad>` wählt ein an
 `--workstation <kennung>` bindet den Ordner stattdessen auf dem am Host angemeldeten Arbeitsplatz
 mit dieser Kennung (`pnpm workspace-client <server-url> <ordner> --id <kennung>`); `<ordner>` ist
 dann sein Pfad dort. Ist kein solcher Arbeitsplatz angemeldet, bricht `run` mit Ursache ab.
+Der Ordner ist optional: `ragents run "<auftrag>" --entry <vorlage>` wählt keine Bindung, dann
+gilt die Vorgabe des Profils oder die feste Bindung der Vorlage. Ein einzelner Wert ist immer der
+Auftrag. Legt die Vorlage die Bindung fest, ist ein genannter Ordner ein Fehler mit Ursache;
+`--workstation` braucht dagegen immer einen Ordner.
 `send` arbeitet im selben Run weiter und wartet genauso. Beide folgen dem Turn über den Server,
 wie Web und VS Code; das geht auch, wenn `RAGENTS_URL` auf einen Server auf einem anderen Rechner
 zeigt. `journal` liest den Verlauf aus dem Datenordner des Profils, mit `RAGENTS_URL` vom Server

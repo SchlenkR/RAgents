@@ -29,11 +29,14 @@ export const defaultProfile = (): string => process.env.RAGENTS_PROFILE ?? DEFAU
 
 export const usage = (): string => `Verwendung: ragents <befehl> [argumente]
 
-  run <ordner> "<auftrag>" [--profile <p>] [--entry <vorlage>] [--workstation <kennung>] [--json]
+  run [<ordner>] "<auftrag>" [--profile <p>] [--entry <vorlage>] [--workstation <kennung>] [--json]
       Startet den Host des Profils, falls keiner läuft, legt einen Run mit Bindung path auf den
-      Ordner an, schickt den Auftrag und wartet, bis der Turn endet. Mit --workstation liegt der
-      Ordner auf dem am Host angemeldeten Arbeitsplatz mit dieser Kennung (pnpm workspace-client
-      <server-url> <ordner> --id <kennung>) statt auf dem Server; ohne ihn bricht run ab.
+      Ordner an, schickt den Auftrag und wartet, bis der Turn endet. Ein einzelner Wert ist immer
+      der Auftrag: ohne <ordner> wählt run keine Bindung, es gilt die Vorgabe des Profils oder die
+      der Vorlage. Legt die Vorlage die Bindung fest, ist ein <ordner> ein Fehler. Mit
+      --workstation liegt der Ordner auf dem am Host angemeldeten Arbeitsplatz mit dieser Kennung
+      (pnpm workspace-client <server-url> <ordner> --id <kennung>) statt auf dem Server; ohne ihn
+      bricht run ab, und ohne <ordner> gibt es kein --workstation.
   send <run> "<text>" [--profile <p>] [--json]
       Folgeauftrag im selben Run, gleiches Warten.
   journal <run> [--profile <p>] [--json] [--tools]
@@ -59,7 +62,7 @@ verlangt. Der so gestartete Host baut die Oberfläche nicht - ein Agent braucht 
 Oberfläche startet ragents start <profil>.`;
 
 export type AgentCommand =
-  | { readonly kind: "run"; readonly profile: string; readonly folder: string; readonly text: string; readonly entry: string | undefined; readonly json: boolean; readonly workstation?: string }
+  | { readonly kind: "run"; readonly profile: string; readonly folder: string | undefined; readonly text: string; readonly entry: string | undefined; readonly json: boolean; readonly workstation?: string }
   | { readonly kind: "send"; readonly profile: string; readonly runId: string; readonly text: string; readonly json: boolean }
   | { readonly kind: "journal"; readonly profile: string; readonly runId: string; readonly json: boolean; readonly tools: boolean }
   | { readonly kind: "stop"; readonly profile: string; readonly runId: string }
@@ -115,9 +118,11 @@ export const parseArguments = (argv: readonly string[]): AgentCommand => {
   const [command, ...rest] = argv;
   if (command === "run") {
     const flags = scan(rest, ["--profile", "--entry", "--workstation", "--json"]);
-    const [folder, text, ...extra] = flags.positional;
-    if (!folder || !text) throw new Error(`run braucht <ordner> und "<auftrag>".\n\n${usage()}`);
-    if (extra.length > 0) throw new Error(`run nimmt genau zwei Werte, nicht ${flags.positional.length}.`);
+    if (flags.positional.length > 2) throw new Error(`run nimmt höchstens zwei Werte, nicht ${flags.positional.length}.`);
+    const [folder, text] = flags.positional.length === 2 ? flags.positional : [undefined, flags.positional[0]];
+    if (!text) throw new Error(`run braucht "<auftrag>", davor optional <ordner>.\n\n${usage()}`);
+    if (folder === "") throw new Error("run braucht einen nicht leeren <ordner> oder nur den Auftrag.");
+    if (flags.workstation !== undefined && folder === undefined) throw new Error("--workstation braucht <ordner>, den Pfad auf dem Arbeitsplatz.");
     if (flags.workstation !== undefined && !WORKSPACE_CLIENT_ID_PATTERN.test(flags.workstation)) {
       throw new Error(`Ungültige Arbeitsplatz-Kennung: ${flags.workstation} (8 bis 64 Zeichen aus Buchstaben, Ziffern, _ und -).`);
     }
@@ -446,17 +451,24 @@ const workstationOf = (presentation: unknown, id: string): { client: string; lab
   return { client: found.id, label: found.label };
 };
 
-const runCommand = async (command: Extract<AgentCommand, { kind: "run" }>, write: LineWriter): Promise<number> => {
-  const folder = command.workstation && path.win32.isAbsolute(command.folder) ? command.folder : path.resolve(callerDirectory(), command.folder);
-  if (!command.workstation && !statSync(folder, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`Kein Verzeichnis: ${folder}`);
-  const target = await loadProfile(command.profile);
-  const baseUrl = await ensureHost(target);
-  const rpc = client(baseUrl);
-  const runId = randomUUID();
+/** Legt die Vorlage die Ordnerbindung selbst fest, widerspricht ihr jeder genannte Ordner; run überstimmt keine Seite still. */
+const assertEntryLeavesBinding = async (rpc: RpcClient, entryId: string, folder: string): Promise<void> => {
+  const { startEntries } = await withLoginHint(() => rpc.call(coreContracts.plugins.bootstrap, {}));
+  const entry = startEntries.find((candidate) => candidate.id === entryId);
+  if (!entry) throw new Error(`Die Vorlage ${entryId} gibt es in diesem Profil nicht, oder sie ist für Deinen Benutzer nicht freigegeben.`);
+  const fixed = entry.fixedStartOptions?.[WORKSPACE_BINDING_OPTION_ID];
+  if (fixed !== undefined) {
+    throw new Error(`Die Vorlage ${entryId} legt die Ordnerbindung selbst fest (${JSON.stringify(fixed)}), genannt ist aber der Ordner ${folder}. `
+      + "Lass <ordner> weg oder starte ohne diese Vorlage.");
+  }
+};
+
+const bindFolder = async (rpc: RpcClient, runId: string, folder: string, command: Extract<AgentCommand, { kind: "run" }>, profile: string, baseUrl: string): Promise<void> => {
+  if (command.entry) await assertEntryLeavesBinding(rpc, command.entry, folder);
   const options = await withLoginHint(() => rpc.call(coreContracts.startOptions.list, { runId }));
   const binding = options.find((option) => option.id === WORKSPACE_BINDING_OPTION_ID);
   if (command.workstation) {
-    if (!binding) throw new Error(`Das Profil ${target.profile} kennt ${WORKSPACE_BINDING_OPTION_ID} nicht; ohne Ordnerbindung gibt es keinen Arbeitsplatz für --workstation.`);
+    if (!binding) throw new Error(`Das Profil ${profile} kennt ${WORKSPACE_BINDING_OPTION_ID} nicht; ohne Ordnerbindung gibt es keinen Arbeitsplatz für --workstation.`);
     const machine = workstationOf(binding.presentation, command.workstation);
     await withLoginHint(() => rpc.call(coreContracts.startOptions.select, { runId, optionId: WORKSPACE_BINDING_OPTION_ID, value: { machine, folder: { path: folder } } }));
     note(`== Run ${runId} auf Arbeitsplatz ${machine.label}: ${folder} (${baseUrl})`);
@@ -464,8 +476,20 @@ const runCommand = async (command: Extract<AgentCommand, { kind: "run" }>, write
     await withLoginHint(() => rpc.call(coreContracts.startOptions.select, { runId, optionId: WORKSPACE_BINDING_OPTION_ID, value: { machine: "server", folder: { path: folder } } }));
     note(`== Run ${runId} auf ${folder} (${baseUrl})`);
   } else {
-    note(`== Run ${runId} (${baseUrl}); das Profil ${target.profile} kennt ${WORKSPACE_BINDING_OPTION_ID} nicht und legt seinen Arbeitsbereich selbst an, ${folder} bleibt ungebunden.`);
+    note(`== Run ${runId} (${baseUrl}); das Profil ${profile} kennt ${WORKSPACE_BINDING_OPTION_ID} nicht und legt seinen Arbeitsbereich selbst an, ${folder} bleibt ungebunden.`);
   }
+};
+
+const runCommand = async (command: Extract<AgentCommand, { kind: "run" }>, write: LineWriter): Promise<number> => {
+  const folder = command.folder === undefined || (command.workstation && path.win32.isAbsolute(command.folder))
+    ? command.folder : path.resolve(callerDirectory(), command.folder);
+  if (folder !== undefined && !command.workstation && !statSync(folder, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`Kein Verzeichnis: ${folder}`);
+  const target = await loadProfile(command.profile);
+  const baseUrl = await ensureHost(target);
+  const rpc = client(baseUrl);
+  const runId = randomUUID();
+  if (folder !== undefined) await bindFolder(rpc, runId, folder, command, target.profile, baseUrl);
+  else note(`== Run ${runId} (${baseUrl}) ohne Ordner; die Bindung kommt aus ${command.entry ? `der Vorlage ${command.entry} oder ` : ""}der Vorgabe des Profils ${target.profile}.`);
   if (command.entry) await withLoginHint(() => rpc.call(coreContracts.chat.start, { runId, entry: command.entry }));
   const outcome = await withLoginHint(() => follow({ rpc, baseUrl, runId, text: command.text, json: command.json, write,
     send: () => command.entry

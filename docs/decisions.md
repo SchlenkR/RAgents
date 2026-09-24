@@ -1,5 +1,18 @@
 # Entscheidungen
 
+## `ragents run` ohne Ordner (25.09.2026)
+
+Kapitel: `docs/usage.md` (Control RAgents as an agent), `skills-for-agents/ragents/SKILL.md`.
+`ragents run` wählte immer eine Ordnerbindung und scheiterte damit an Profilen ohne vorhandene
+Serverordner und an Vorlagen, die die Bindung über `fixed-start-options` festlegen. Festgelegt: Der
+Ordner ist optional, ohne ihn wählt `run` keine Bindung, und es gilt die Vorgabe des Profils oder
+der Vorlage. Ein einzelner Wert ist immer der Auftrag, zwei sind Ordner und Auftrag; die Zahl
+entscheidet, nicht ein Blick ins Dateisystem, weil ein Auftrag wie ein vorhandener Pfad aussehen
+kann und dieselbe Zeile sonst je nach Rechner anders gelesen würde. Legt die Vorlage die Bindung fest und ist
+trotzdem ein Ordner genannt, bricht `run` vor dem Anlegen mit Ursache ab (Vorlage aus
+`ragents.plugins.bootstrap`), statt eine Seite zu überstimmen; `--workstation` verlangt einen
+Ordner. Nachgewiesen mit `scripts/agent/agent-cli.test.ts`.
+
 ## Modell und Denktiefe im Chat des Runs, auch nach dem Start (24.09.2026)
 
 Kapitel: `docs/usage.md` (Wählbares Modell), `docs/spec/plugins.md` (Startoptionen, Slots),

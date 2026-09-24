@@ -11,6 +11,7 @@ import { DomainError } from "../../packages/ragents/src/runtime/domain-error.ts"
 import { coreContracts } from "../../apps/server/src/api/contracts.ts";
 import { runContracts } from "../../packages/ragents/src/http/contracts.ts";
 import type { RunView } from "../../packages/ragents/src/domain/model.ts";
+import type { PublicStartEntry } from "../../packages/ragents/src/plugin-types.ts";
 import { hostRecordFile, readHostRecord, writeHostRecord } from "../../apps/server/src/host-record.ts";
 import { callerDirectory } from "../../apps/server/src/profile-target.ts";
 import { startRpcServer } from "../../apps/server/tests/rpc-fixture.ts";
@@ -57,13 +58,14 @@ interface HarnessOptions {
   readonly binding?: boolean;
   readonly refusals?: number;
   readonly clients?: WorkspaceClientInfo[];
+  readonly startEntries?: PublicStartEntry[];
   /** Der Turn bleibt nach dem ersten Werkzeugaufruf stehen, bis der Test etwas tut. */
   readonly hold?: boolean;
 }
 
 /** Ein Server, der auf jede Nachricht einen Turn in der Run-Ansicht fortschreibt und im Kanal ragents.run meldet, ohne Journaldatei. */
 const harness = async (t: TestContext, outcome: TurnOutcome, options: HarnessOptions = {}) => {
-  const { binding = true, refusals = 0, clients = [] } = options;
+  const { binding = true, refusals = 0, clients = [], startEntries = [] } = options;
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-agent-cli-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const selections: Selection[] = [];
@@ -113,6 +115,7 @@ const harness = async (t: TestContext, outcome: TurnOutcome, options: HarnessOpt
         ? [{ id: WORKSPACE_BINDING_OPTION_ID, owner: "ragents.workspace", value: null, selectable: true, locked: false,
           presentation: { kind: "workspace-binding", clients, fresh: { server: "Neuer Ordner", client: null }, serverFolders: true } satisfies WorkspaceBindingPresentation }]
         : []),
+      implement(coreContracts.plugins.bootstrap, () => ({ product: { id: "pruef", title: "Prüfung" }, plugins: [], startEntries })),
       implement(coreContracts.startOptions.select, ({ runId, optionId, value }) => {
         selections.push({ runId, optionId, value });
         return { id: optionId, owner: "test", value, presentation: null, selectable: true, locked: false };
@@ -329,8 +332,36 @@ test("ein Profil ohne die Ordnerbindung startet den Run trotzdem", { timeout: 20
   assert.equal(context.messages[0]!.text, "Auftrag ohne Bindung");
 });
 
+test("run ohne Ordner wählt keine Bindung; Profil oder Vorlage bestimmen sie", { timeout: 20_000 }, async (t) => {
+  const context = await harness(t, "completed");
+  assert.equal(await execute({ kind: "run", profile: "developer", folder: undefined, text: "Auftrag ohne Ordner", entry: undefined, json: false }, collect(context.lines)), 0);
+  assert.deepEqual(context.selections, []);
+  assert.equal(context.messages[0]!.text, "Auftrag ohne Ordner");
+  assert.match(context.lines.at(-1)!, /^run: [0-9a-f-]{36}$/);
+});
+
+test("legt die Vorlage die Bindung fest, bricht run mit genanntem Ordner ab, ohne Ordner läuft er", { timeout: 20_000 }, async (t) => {
+  const fresh: PublicStartEntry = { id: "example.fresh", owner: "example", title: "Frisch", description: "Arbeitet in einem neuen Ordner", action: "script",
+    coordinator: true, fixedStartOptions: { [WORKSPACE_BINDING_OPTION_ID]: { machine: "server", folder: "fresh" } } };
+  const free: PublicStartEntry = { id: "example.free", owner: "example", title: "Frei", description: "Nimmt jeden Ordner", action: "script", coordinator: true };
+  const context = await harness(t, "completed", { startEntries: [fresh, free] });
+  const run = { kind: "run", profile: "developer", folder: context.directory, text: "Baue", json: false } as const;
+  await assert.rejects(execute({ ...run, entry: "example.fresh" }),
+    /Die Vorlage example\.fresh legt die Ordnerbindung selbst fest \(\{"machine":"server","folder":"fresh"\}\), genannt ist aber der Ordner .*Lass <ordner> weg/);
+  await assert.rejects(execute({ ...run, entry: "example.fehlt" }), /Die Vorlage example\.fehlt gibt es in diesem Profil nicht/);
+  assert.deepEqual([context.selections.length, context.entries.length, context.messages.length], [0, 0, 0], "vor dem Fehler geht nichts an den Server");
+  assert.equal(await execute({ ...run, folder: undefined, entry: "example.fresh" }, collect(context.lines)), 0);
+  assert.equal(context.selections.length, 0, "ohne Ordner bleibt die Bindung der Vorlage");
+  assert.deepEqual(context.entries, ["example.fresh"]);
+  assert.equal(await execute({ ...run, entry: "example.free" }, collect(context.lines)), 0);
+  assert.deepEqual(context.selections.map((selection) => selection.value), [{ machine: "server", folder: { path: context.directory } }]);
+  assert.deepEqual(context.entries, ["example.fresh", "example.free"]);
+});
+
 test("eine Vorlage darf ihren Chatpartner erst einrichten; der Auftrag wartet darauf", { timeout: 20_000 }, async (t) => {
-  const context = await harness(t, "completed", { binding: false, refusals: 2 });
+  const implementTask: PublicStartEntry = { id: "workshop.tickets.implement-task", owner: "workshop", title: "Umsetzen", description: "Setzt einen Auftrag um",
+    action: "script", coordinator: false };
+  const context = await harness(t, "completed", { binding: false, refusals: 2, startEntries: [implementTask] });
   assert.equal(await execute({ kind: "run", profile: "developer", folder: context.directory, text: "Auftrag an der Vorlage", entry: "workshop.tickets.implement-task", json: false }, collect(context.lines)), 0);
   assert.deepEqual(context.entries, ["workshop.tickets.implement-task"]);
   assert.equal(context.messages[0]!.text, "Auftrag an der Vorlage");
@@ -373,6 +404,11 @@ test("die Kommandozeile nennt Befehl, Ordner, Auftrag und Schalter", () => {
     kind: "run", profile: "developer", folder: "/work", text: "Baue", entry: undefined, json: false, workstation: "laptop-0001",
   });
   assert.throws(() => parseArguments(["run", "/work", "Baue", "--workstation", "kurz"]), /Ungültige Arbeitsplatz-Kennung/);
+  assert.deepEqual(parseArguments(["run", "Baue das", "--entry", "ragents.reference.word-game"]), {
+    kind: "run", profile: "developer", folder: undefined, text: "Baue das", entry: "ragents.reference.word-game", json: false,
+  }, "ein einzelner Wert ist immer der Auftrag, auch wenn er wie ein Pfad aussieht");
+  assert.equal((parseArguments(["run", "/work"]) as { text: string }).text, "/work");
+  assert.throws(() => parseArguments(["run", "Baue", "--workstation", "laptop-0001"]), /--workstation braucht <ordner>/);
   assert.deepEqual(parseArguments(["journal", "abc", "--tools"]), { kind: "journal", profile: "developer", runId: "abc", json: false, tools: true });
   assert.deepEqual(parseArguments(["stop", "--host"]), { kind: "stop-host", profile: "developer" });
   assert.deepEqual(parseArguments(["stop", "--host", "--profile", "/eigen/ragents.config.workshop.ts"]), { kind: "stop-host", profile: "/eigen/ragents.config.workshop.ts" });
@@ -382,8 +418,9 @@ test("die Kommandozeile nennt Befehl, Ordner, Auftrag und Schalter", () => {
   assert.throws(() => parseArguments(["stop", "--run"]), /stop braucht/);
   assert.throws(() => parseArguments([]), /Verwendung/);
   assert.throws(() => parseArguments(["tanzen"]), /Unbekannter Befehl/);
-  assert.throws(() => parseArguments(["run", "/work"]), /run braucht/);
-  assert.throws(() => parseArguments(["run", "/work", "Baue", "zuviel"]), /genau zwei Werte/);
+  assert.throws(() => parseArguments(["run"]), /run braucht "<auftrag>"/);
+  assert.throws(() => parseArguments(["run", "/work", ""]), /run braucht "<auftrag>"/);
+  assert.throws(() => parseArguments(["run", "/work", "Baue", "zuviel"]), /höchstens zwei Werte/);
   assert.throws(() => parseArguments(["run", "/work", "Baue", "--unbekannt"]), /Unbekanntes Argument/);
   assert.throws(() => parseArguments(["run", "/work", "Baue", "--profile"]), /braucht einen Wert/);
   assert.throws(() => parseArguments(["send", "../flucht", "Text"]), /Ungültige Run-Id/);

@@ -707,6 +707,12 @@ to the `ragents.run` channel and reads `ragents.runs.view` after every change, s
 If the profile does not provide `ragents.workspace.binding` because it creates its own workspace,
 the folder remains unbound and the command reports this on stderr.
 
+The folder is optional: `ragents run "<task>" [--entry <template>]` selects no binding, so the
+profile's default or the template's fixed start options apply. A single value is always the task,
+even if it looks like a path; with two values the first is the folder. If the template fixes
+`ragents.workspace.binding` (`fixed-start-options`) and a folder is given anyway, the command fails
+with that cause before it creates anything on the server. `--workstation` requires a folder.
+
 `--workstation <id>` binds the folder on the workstation registered at the host under that ID
 instead of the server (binding `{ machine: { client, label }, folder: { path } }`, the label taken
 from the registered workstations); `<folder>` is then the path on that workstation. The
