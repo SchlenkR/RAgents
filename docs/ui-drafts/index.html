@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAgents Entwürfe</title>
+<style>
+:root{
+  --ink:#223347;--text:#1d2433;--muted:#5f7896;--line:#d1dde9;--surface:#ecf2f7;--panel:#f8fcff;--app-bg:#f1f4f8;--accent:#0550ae;
+  --body:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){--ink:#dbe6f2;--text:#dbe6f2;--muted:#8ea6bf;--line:#33465c;--surface:#223142;--panel:#1b2938;--app-bg:#111922;--accent:#6fb4ff}
+}
+:root[data-theme="dark"]{--ink:#dbe6f2;--text:#dbe6f2;--muted:#8ea6bf;--line:#33465c;--surface:#223142;--panel:#1b2938;--app-bg:#111922;--accent:#6fb4ff}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--app-bg);color:var(--text);font:14px/1.5 var(--body);display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+header{display:flex;align-items:center;gap:18px;padding:0 18px;border-bottom:1px solid var(--line);background:var(--panel);flex:none}
+header .brand{font-weight:700;color:var(--ink);padding:14px 0;white-space:nowrap}
+header .brand span{display:block;font-size:11px;font-weight:500;color:var(--muted);font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase}
+[role=tablist]{display:flex;gap:2px;overflow-x:auto;flex:1;min-width:0}
+[role=tab]{all:unset;cursor:pointer;padding:16px 14px 13px;border-bottom:3px solid transparent;color:var(--muted);font-weight:600;white-space:nowrap}
+[role=tab]:hover{color:var(--ink);background:var(--surface)}
+[role=tab][aria-selected=true]{color:var(--ink);border-bottom-color:var(--ink)}
+[role=tab]:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+main{flex:1;min-height:0;min-width:0;display:flex;flex-direction:column}
+[role=tabpanel]{flex:1;min-height:0;min-width:0;display:flex;flex-direction:column}
+[role=tabpanel][hidden]{display:none}
+.panel-bar{display:flex;align-items:baseline;gap:14px;padding:8px 18px;border-bottom:1px solid var(--line);background:var(--surface);font-size:12.5px;color:var(--muted);flex:none}
+.panel-bar .desc{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.panel-bar a,.links a,.card-head a{color:var(--accent)}
+iframe{flex:1;width:100%;border:0;background:#fff}
+.date{font-family:var(--mono);font-size:12px;color:var(--muted);white-space:nowrap}
+#panel-uebersicht{overflow:auto;padding:28px 24px 60px}
+.intro{max-width:76ch;margin:0 auto 22px;color:var(--ink)}
+.intro h1{font-size:26px;margin:0 0 8px;line-height:1.15}
+.intro p{margin:0;color:var(--text)}
+.intro code{font-family:var(--mono);font-size:.88em;background:var(--surface);padding:1px 5px;border-radius:4px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr));grid-auto-flow:row;gap:20px;width:100%;max-width:1500px;min-width:0;margin:0 auto}
+.card{display:flex;flex-direction:column;min-width:0;border:1px solid var(--line);border-radius:14px;background:var(--panel);overflow:hidden}
+.thumb{display:block;aspect-ratio:16/10;background:var(--surface);border-bottom:1px solid var(--line);overflow:hidden}
+.thumb img{width:100%;height:100%;object-fit:cover;object-position:top left;display:block}
+.thumb--empty{display:grid;place-items:center;color:var(--muted);text-decoration:none;font-family:var(--mono);font-size:12px}
+.card-body{padding:14px 16px 16px;min-width:0;overflow-wrap:anywhere}
+.card-head{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:10px}
+.card-head h2{font-size:17px;margin:0;color:var(--ink)}
+.card-head h2 a{color:inherit;text-decoration:none}
+.card-head h2 a:hover{text-decoration:underline}
+.card p{margin:8px 0 0}
+.card .links{font-size:12.5px;color:var(--muted)}
+#drafts{display:none}
+</style>
+</head>
+<body>
+
+<!--
+  ENTWÜRFE: Neuer Entwurf = einen <article>-Block unten kopieren und anpassen. Sonst nichts.
+  Die Seite baut daraus beim Laden die Tabs, die Übersichtskarten und die eingebetteten Ansichten.
+  Sammlungen erscheinen nach Entwurfsdatum absteigend; Varianten übernehmen das Datum ihrer Sammlung.
+  Varianten mit Fragment bekommen eigene Vorschaukarten; oben steht nur ihre Sammlung ohne Fragment.
+    data-id      Kennung, nur Kleinbuchstaben, Ziffern und Bindestrich; ergibt die Adresse index.html#<id>
+    data-title   Text im Tab
+    data-file    die HTML-Seite des Entwurfs in diesem Ordner, mit Fragment für eine Variante
+    data-date    Datum JJJJ-MM-TT
+    data-shots   ein bis zwei PNG-Screenshots, durch Komma getrennt; der erste ist das Vorschaubild
+    Inhalt       ein bis zwei Sätze Beschreibung
+-->
+<div id="drafts">
+
+  <article data-id="layer-depth-style" data-title="Schichtwerk: Tiefenkörper" data-file="layer-depth-style.html" data-date="2026-09-12" data-shots="layer-depth-style-desktop.png,layer-depth-style-mobile.png">
+    Grafisches Schichtwerk mit tief nach rechts oben extrudierten, matten Körpern: dunkle Außenkonturen, ruhige Seitenflächen ohne zusätzliche Linien und flächige Schattenstufen von vorne dunkel nach hinten heller, mit breiterer, ebenfalls gestufter Schattierung am oberen rechten Bogen. Runde Kanten und gerade Fronten; weiche, an die Elementgröße angepasste Kontaktschatten legen Buttons auf die Fläche und lassen Eingabefelder leicht einsinken; kleine Controls bleiben dezent. Schattenstärke, Materialtiefe und Ergebnisliste bleiben offline bedienbar.
+  </article>
+
+
+  <article data-id="homepage-explained" data-title="Homepage: Abläufe erklärt" data-file="homepage-explained.html" data-date="2026-09-12" data-shots="homepage-explained-setups.png,homepage-explained-programming.png">
+    Eine feste Bühne erklärt den Aufbau einer gemeinsamen Liste, parallele Ideenbeiträge und ein Wortspiel mit zwölf programmierten Übergaben. Eigenständiger Snapshot mit scrollgesteuerten Abläufen und der bedienbaren Original-Mini-App.
+  </article>
+
+  <article data-id="homepage-stickers" data-title="Homepage: Sticker und Mini-App" data-file="homepage-stickers.html" data-date="2026-09-12" data-shots="homepage-stickers-desktop.png,homepage-stickers-mobile.png">
+    Homepage mit Funktionsstickern, scrollgesteuerten Schemata und einer bedienbaren Mini-App aus den Originalquellen der gemeinsamen Liste. Eigenständiger Snapshot mit eingebetteten Styles, Animationen und lokalem Demo-Zustand.
+  </article>
+
+  <article data-id="controls-grid" data-title="A Raster" data-file="controls-comparison.html#grid" data-date="2026-09-11" data-shots="controls-grid.png">
+    Eckige, technische Controls mit bündigen Auswahlgruppen. Kompakter interaktiver Control-Entwurf.
+  </article>
+
+  <article data-id="controls-soft" data-title="B Fluss" data-file="controls-comparison.html#soft" data-date="2026-09-11" data-shots="controls-soft.png">
+    Offene Eingabeflächen und runde Buttons. Kompakter interaktiver Control-Entwurf.
+  </article>
+
+  <article data-id="controls-signal" data-title="C Signal" data-file="controls-comparison.html#signal" data-date="2026-09-11" data-shots="controls-signal.png">
+    Kräftige Konturen, asymmetrische Ecken und gelbe Hauptaktionen. Kompakter interaktiver Control-Entwurf.
+  </article>
+
+  <article data-id="controls-satin" data-title="D Satin" data-file="controls-comparison.html#satin" data-date="2026-09-11" data-shots="controls-satin.png">
+    Feine Lichtkanten und eingelassene Felder. Kompakter interaktiver Control-Entwurf.
+  </article>
+
+  <article data-id="controls-porcelain" data-title="E Porzellan" data-file="controls-comparison.html#porcelain" data-date="2026-09-11" data-shots="controls-porcelain.png">
+    Warme Flächen und weich gewölbte Tasten. Kompakter interaktiver Control-Entwurf.
+  </article>
+
+  <article data-id="controls-instrument" data-title="F Instrument" data-file="controls-comparison.html#instrument" data-date="2026-09-11" data-shots="controls-instrument.png">
+    Dunkle Schalter mit klaren Fassungen. Kompakter interaktiver Control-Entwurf.
+  </article>
+
+  <article data-id="canvas-style-paper" data-title="Canvas: Papieratelier" data-file="canvas-style-alternatives.html#paper" data-date="2026-09-11" data-shots="canvas-style-paper.png">
+    Einzelvariante Papieratelier aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="canvas-style-circuit" data-title="Canvas: Schaltpult" data-file="canvas-style-alternatives.html#circuit" data-date="2026-09-11" data-shots="canvas-style-circuit.png">
+    Einzelvariante Schaltpult aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="canvas-style-pop" data-title="Canvas: Farbwerk" data-file="canvas-style-alternatives.html#pop" data-date="2026-09-11" data-shots="canvas-style-pop.png">
+    Einzelvariante Farbwerk aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="canvas-style-aurora" data-title="Canvas: Lichtbühne" data-file="canvas-style-alternatives.html#aurora" data-date="2026-09-11" data-shots="canvas-style-aurora.png">
+    Einzelvariante Lichtbühne aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="canvas-style-garden" data-title="Canvas: Schemengarten" data-file="canvas-style-alternatives.html#garden" data-date="2026-09-11" data-shots="canvas-style-garden.png">
+    Einzelvariante Schemengarten aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="canvas-style-contour" data-title="Canvas: Linientafel" data-file="canvas-style-alternatives.html#contour" data-date="2026-09-11" data-shots="canvas-style-contour.png">
+    Einzelvariante Linientafel aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="canvas-pop-blocks" data-title="Canvas: Blockwerk" data-file="pop-style-variations.html#blocks" data-date="2026-09-11" data-shots="canvas-pop-blocks.png">
+    Einzelvariante Blockwerk aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="canvas-pop-soft" data-title="Canvas: Formspiel" data-file="pop-style-variations.html#soft" data-date="2026-09-11" data-shots="canvas-pop-soft.png">
+    Einzelvariante Formspiel aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="canvas-pop-poster" data-title="Canvas: Plakat" data-file="pop-style-variations.html#poster" data-date="2026-09-11" data-shots="canvas-pop-poster.png">
+    Einzelvariante Plakat aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="canvas-soft-cast" data-title="Canvas: Gussform" data-file="soft-style-variations.html#cast" data-date="2026-09-11" data-shots="canvas-soft-cast.png">
+    Einzelvariante Gussform aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="canvas-soft-relief" data-title="Canvas: Relief" data-file="soft-style-variations.html#relief" data-date="2026-09-11" data-shots="canvas-soft-relief.png">
+    Einzelvariante Relief aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="canvas-soft-layers" data-title="Canvas: Schichtwerk" data-file="soft-style-variations.html#layers" data-date="2026-09-11" data-shots="canvas-soft-layers.png">
+    Einzelvariante Schichtwerk aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="canvas-material-porcelain" data-title="Canvas: Porzellan" data-file="material-style-variations.html#porcelain" data-date="2026-09-11" data-shots="canvas-material-porcelain.png">
+    Einzelvariante Porzellan aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="canvas-material-graphite" data-title="Canvas: Graphit" data-file="material-style-variations.html#graphite" data-date="2026-09-11" data-shots="canvas-material-graphite.png">
+    Einzelvariante Graphit aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="canvas-material-aqua" data-title="Canvas: Aquaglas" data-file="material-style-variations.html#aqua" data-date="2026-09-11" data-shots="canvas-material-aqua.png">
+    Einzelvariante Aquaglas aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="start-entry-a" data-title="Start: Eigene Formen" data-file="start-entry-alternatives.html#a" data-date="2026-09-11" data-shots="start-entry-a.png">
+    Einzelvariante Eigene Formen aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="start-entry-b" data-title="Start: Getrennte Bereiche" data-file="start-entry-alternatives.html#b" data-date="2026-09-11" data-shots="start-entry-b.png">
+    Einzelvariante Getrennte Bereiche aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="start-entry-c" data-title="Start: Liste mit Vorschau" data-file="start-entry-alternatives.html#c" data-date="2026-09-11" data-shots="start-entry-c.png">
+    Einzelvariante Liste mit Vorschau aus dem vorhandenen Entwurf; direkt geöffnet und offline bedienbar.
+  </article>
+
+  <article data-id="synth-v4" data-title="Zebra2" data-file="synth-ui.html#v4" data-date="2026-09-04" data-shots="synth-v4.png">
+    Bestehende Gestaltungsvorlage Zebra2 als eigener Tab.
+  </article>
+
+  <article data-id="synth-v5" data-title="Massive" data-file="synth-ui.html#v5" data-date="2026-09-04" data-shots="synth-v5.png">
+    Bestehende Gestaltungsvorlage Massive als eigener Tab.
+  </article>
+
+  <article data-id="synth-v6" data-title="Monark" data-file="synth-ui.html#v6" data-date="2026-09-04" data-shots="synth-v6.png">
+    Bestehende Gestaltungsvorlage Monark als eigener Tab.
+  </article>
+
+  <article data-id="synth-v7" data-title="Algorithmus statt Verdrahtung" data-file="synth-ui.html#v7" data-date="2026-09-04" data-shots="synth-v7.png">
+    Bestehende Gestaltungsvorlage Algorithmus statt Verdrahtung als eigener Tab.
+  </article>
+
+  <article data-id="synth-v8" data-title="Padshop" data-file="synth-ui.html#v8" data-date="2026-09-04" data-shots="synth-v8.png">
+    Bestehende Gestaltungsvorlage Padshop als eigener Tab.
+  </article>
+
+  <article data-id="synth-v10" data-title="Diva" data-file="synth-ui.html#v10" data-date="2026-09-04" data-shots="synth-v10.png">
+    Bestehende Gestaltungsvorlage Diva als eigener Tab.
+  </article>
+
+  <article data-id="reference-v5" data-title="Thermal" data-file="vorlagen.html#v5" data-date="2026-09-04" data-shots="reference-v5.png">
+    Bestehende Gestaltungsvorlage Thermal als eigener Tab.
+  </article>
+
+  <article data-id="reference-v7" data-title="Effectrix" data-file="vorlagen.html#v7" data-date="2026-09-04" data-shots="reference-v7.png">
+    Bestehende Gestaltungsvorlage Effectrix als eigener Tab.
+  </article>
+
+  <article data-id="reference-v8" data-title="Neutron / Ozone" data-file="vorlagen.html#v8" data-date="2026-09-04" data-shots="reference-v8.png">
+    Bestehende Gestaltungsvorlage Neutron / Ozone als eigener Tab.
+  </article>
+
+  <article data-id="reference-v11" data-title="Gadget" data-file="vorlagen.html#v11" data-date="2026-09-04" data-shots="reference-v11.png">
+    Bestehende Gestaltungsvorlage Gadget als eigener Tab.
+  </article>
+
+  <article data-id="reference-v12" data-title="TAIP / Crystalline" data-file="vorlagen.html#v12" data-date="2026-09-04" data-shots="reference-v12.png">
+    Bestehende Gestaltungsvorlage TAIP / Crystalline als eigener Tab.
+  </article>
+
+  <article data-id="aquaglass-refinement" data-title="Aquaglas: Licht und Tiefe" data-file="aquaglass-refinement.html" data-date="2026-09-11" data-shots="aquaglass-refinement-light.png,aquaglass-refinement-dark.png">
+    Echte Canvas-Karten und eine Mini-App mit neutralen Testdaten: weiches Mint-Blau-Licht, transparente Flächen und plastische Statusicons in Hell und Dunkel. Kein echter Lauf.
+  </article>
+
+
+  <article data-id="canvas-layout-team-raster" data-title="Canvas: Team und Themen" data-file="canvas-layout-team-raster.html" data-date="2026-09-05" data-shots="canvas-layout-team-raster.png">
+    Ein Team als Baum und Themen im Raster auf derselben Arbeitsfläche.
+  </article>
+
+  <article data-id="canvas-layout-gespraechsrunde" data-title="Canvas: Gesprächsrunde" data-file="canvas-layout-gespraechsrunde.html" data-date="2026-09-05" data-shots="canvas-layout-gespraechsrunde.png">
+    Layoutentwurf einer Gesprächsrunde mit Beteiligten und Verbindungen auf der Fläche.
+  </article>
+
+  <article data-id="synth-ui" data-title="Zehn Synth-Oberflächen" data-file="synth-ui.html" data-date="2026-09-05" data-shots="synth-ui-overview.png">
+    Zehn unterschiedliche Oberflächen für Synthesizer als Sammlung visueller Ideen.
+  </article>
+
+
+  <article data-id="start-entry-flow" data-title="Startauswahl und Vorbereitung" data-file="start-entry-flow.html" data-date="2026-09-11" data-shots="start-entry-flow-library.png,start-entry-flow-chat.png">
+    Variante C mit dem gemeinsamen ListDetail-Control und originalem Quassel-Chat. Eine Promptvorlage öffnet nach der Vorschau einen zweiten Dialogschritt zum Ausarbeiten; Run-Erstellung erfolgt getrennt. Offline-Seite aus echten Komponenten, Modellantworten und Ausführung sind simuliert.
+  </article>
+
+  <article data-id="material-style-variations" data-title="Formspiel: Farbe und Material" data-file="material-style-variations.html" data-date="2026-09-11" data-shots="material-style-variations-overview.png,material-style-variations-detail.png">
+    Porzellan, Graphit und Aquaglas übertragen die plastischen, geraden Karten in drei neue Farb- und Materialwelten: warme Keramik, dunkle Gehäuse und transparentes Grünblau. Offline-Vergleich mit Kartenauswahl, Zoom, Signal-Demo und bedienbarer Mini-App.
+  </article>
+
+  <article data-id="soft-style-variations" data-title="Formspiel: drei Varianten" data-file="soft-style-variations.html" data-date="2026-09-11" data-shots="soft-style-variations-overview.png,soft-style-variations-detail.png">
+    Gussform, Relief und Schichtwerk behalten die Plastizität von Formspiel mit kleineren Eckradien bei. Gefaste Körper, eingelassene Flächen und geschichtete Platten zeigen drei Arten von Tiefe; alle Karten bleiben gerade und die Seite funktioniert offline.
+  </article>
+
+  <article data-id="pop-style-variations" data-title="Farbwerk: drei Varianten" data-file="pop-style-variations.html" data-date="2026-09-11" data-shots="pop-style-variations-overview.png,pop-style-variations-detail.png">
+    Blockwerk, Formspiel und Plakat entwickeln Farbwerk mit derselben Farbpalette in drei eigene Richtungen weiter: kantige Module, weiche Volumen und flache Typografie. Alle Karten bleiben ohne Rotation; Auswahl, Zoom, Signal-Demo und Mini-App sind offline bedienbar.
+  </article>
+
+  <article data-id="controls-comparison" data-title="Controls vergleichen" data-file="controls-comparison.html" data-date="2026-09-11" data-shots="controls-comparison.png">
+    Sechs kompakte Control-Stile direkt vergleichen: Raster, Fluss und Signal sowie Satin, Porzellan und Instrument mit Lichtkanten, eingelassenen Feldern und Druckzuständen. Eingaben und Listen bleiben beim Wechsel erhalten; die Seite funktioniert ohne Server.
+  </article>
+
+  <article data-id="canvas-style-alternatives" data-title="Canvas: sechs Stile" data-file="canvas-style-alternatives.html" data-date="2026-09-11" data-shots="canvas-style-alternatives-overview.png,canvas-style-alternatives-detail.png">
+    Sechs Formensprachen für denselben Canvas: neu sind Lichtbühne, Schemengarten und Linientafel, angeregt durch die Homepage-Diagramme. Papieratelier, Schaltpult und Farbwerk bleiben zum Vergleich; Kartenauswahl, Signal-Demo, Zoom und Beispiel-Mini-App funktionieren offline.
+  </article>
+
+  <article data-id="controls-outline" data-title="A Kontur" data-file="controls-outline.html" data-date="2026-09-11" data-shots="controls-outline.png">
+    Kompakte Steuerelemente mit präzisen grauen Rahmen, nah an GitHub. Entwurf zum Vergleich von Eingaben, Auswahlfeldern und Aktionen.
+  </article>
+
+  <article data-id="controls-tonal" data-title="B Farbflächen" data-file="controls-tonal.html" data-date="2026-09-11" data-shots="controls-tonal.png">
+    Kompakte Steuerelemente mit hellen petrolfarbenen Flächen. Entwurf zum Vergleich derselben Eingaben, Auswahlfelder und Aktionen.
+  </article>
+
+  <article data-id="controls-contrast" data-title="C Dunkle Controls" data-file="controls-contrast.html" data-date="2026-09-11" data-shots="controls-contrast.png">
+    Dunkle Bedienelemente auf einer hellen App-Oberfläche. Entwurf zum Vergleich derselben kompakten Eingaben, Auswahlfelder und Aktionen.
+  </article>
+
+  <article data-id="start-entry-alternatives" data-title="Startkarten" data-file="start-entry-alternatives.html" data-date="2026-09-10" data-shots="start-entry-alternatives-shapes.png,start-entry-alternatives-catalog.png">
+    Drei Alternativen für besser unterscheidbare Promptvorlagen, Skills und Run-Scripts: eigene Formen, getrennte Bereiche und eine Liste mit Vorschau. Statischer Offline-Entwurf mit denselben Referenzbeispielen und bedienbarer Suche.
+  </article>
+
+  <article data-id="actor-kinds" data-title="Actor-Arten" data-file="actor-kinds.html" data-date="2026-09-08" data-shots="actor-kinds-light.png,actor-kinds-source.png">
+    LLMs als Gesprächskarten, Script-Actors als flache Module mit abgeschrägten Ecken, TS-Kennung und Quelldialog. Der Entwurf folgt der Umsetzung; die Bilder zeigen echte Komponenten mit neutralen Testdaten.
+  </article>
+
+  <article data-id="vorlagen" data-title="Sechs Vorlagen" data-file="vorlagen.html" data-date="2026-09-04" data-shots="vorlagen.png">
+    Sechs reale Geräte und Plugins mit eigener Handschrift als Vorlage: derselbe Run, gebaut wie dieses Gerät. Jede Kachel führt zur ausgearbeiteten Fassung.
+  </article>
+
+  <article data-id="canvas-layout" data-title="Fläche: Layoutgruppen" data-file="canvas-layout.html" data-date="2026-09-05" data-shots="canvas-layout-gespraechsrunde.png,canvas-layout-team-raster.png">
+    Die Fläche neben dem Chat mit Layoutgruppen statt Kräfte-Layout: Kreis, Baum, Raster, Formen und Linien nur auf Ansage, gerendert mit der echten Engine.
+  </article>
+
+</div>
+
+<header>
+  <div class="brand">RAgents<span>Entwürfe</span></div>
+  <div role="tablist" aria-label="Entwürfe">
+    <button role="tab" id="tab-uebersicht" aria-controls="panel-uebersicht" data-id="uebersicht">Übersicht</button>
+  </div>
+</header>
+<main>
+  <section role="tabpanel" id="panel-uebersicht" aria-labelledby="tab-uebersicht">
+    <div class="intro">
+      <h1>Entwürfe und Mockups</h1>
+      <p>Die neuesten Entwürfe oben links. Jeder Stil hat hier eine eigene Vorschau; oben wählst du die zugehörige Sammlung.</p>
+    </div>
+    <div class="grid" id="cards"></div>
+  </section>
+</main>
+
+<script>
+(() => {
+  history.scrollRestoration = "manual";
+  const escape = (text) => String(text).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[c]);
+  const entries = [...document.querySelectorAll("#drafts article")].map((entry) => ({
+    id: entry.dataset.id,
+    title: entry.dataset.title,
+    file: entry.dataset.file,
+    date: entry.dataset.date,
+    shots: (entry.dataset.shots ?? "").split(",").map((shot) => shot.trim()).filter(Boolean),
+    description: entry.textContent.trim(),
+  })).sort((a, b) => b.date.localeCompare(a.date));
+  const drafts = entries.filter((entry) => !entry.file.includes("#"));
+  const pages = new Map(drafts.map((draft) => [draft.file, draft]));
+  const aliases = new Map(entries.filter((entry) => entry.file.includes("#")).map((entry) => {
+    const page = pages.get(entry.file.split("#")[0]);
+    if (!page) throw new Error(`Variante ohne Entwurfssammlung: ${entry.file}`);
+    return [entry.id, { id: page.id, file: entry.file }];
+  }));
+  const tablist = document.querySelector("[role=tablist]");
+  const main = document.querySelector("main");
+  const cards = document.getElementById("cards");
+
+  for (const draft of drafts) {
+    for (const field of ["id", "title", "file", "date"]) {
+      if (!draft[field]) throw new Error(`Entwurf ohne data-${field}: ${draft.title ?? draft.file ?? "?"}`);
+    }
+    tablist.insertAdjacentHTML("beforeend",
+      `<button role="tab" id="tab-${escape(draft.id)}" aria-controls="panel-${escape(draft.id)}" data-id="${escape(draft.id)}">${escape(draft.title)}</button>`);
+    main.insertAdjacentHTML("beforeend", `<section role="tabpanel" id="panel-${escape(draft.id)}" aria-labelledby="tab-${escape(draft.id)}" hidden>
+      <div class="panel-bar"><span class="date">${escape(draft.date)}</span><span class="desc">${escape(draft.description)}</span><a href="${escape(draft.file)}" target="_blank" rel="noopener">In neuem Fenster</a></div>
+      <iframe title="${escape(draft.title)}" data-src="${escape(draft.file)}"></iframe>
+    </section>`);
+  }
+
+  const previews = drafts.flatMap((page) => {
+    const variants = entries.filter((entry) => entry.file.startsWith(page.file + "#"));
+    return variants.length ? variants.map((entry) => ({ ...entry, date: page.date })) : [page];
+  });
+  for (const draft of previews) {
+    const thumb = draft.shots[0]
+      ? `<a class="thumb" href="#${escape(draft.id)}"><img src="${escape(draft.shots[0])}" alt="Screenshot ${escape(draft.title)}" loading="lazy"></a>`
+      : `<a class="thumb thumb--empty" href="#${escape(draft.id)}">Kein Screenshot</a>`;
+    const more = draft.shots.slice(1).map((shot) => `<a href="${escape(shot)}">${escape(shot)}</a>`).join(", ");
+    cards.insertAdjacentHTML("beforeend", `<article class="card">${thumb}<div class="card-body">
+      <div class="card-head"><h2><a href="#${escape(draft.id)}">${escape(draft.title)}</a></h2><span class="date">${escape(draft.date)}</span></div>
+      <p>${escape(draft.description)}</p>
+      <p class="links"><a href="${escape(draft.file)}" target="_blank" rel="noopener">In neuem Fenster</a>${more ? ` · weitere Bilder: ${more}` : ""}</p>
+    </div></article>`);
+  }
+
+  const tabs = [...document.querySelectorAll("[role=tab]")];
+  const panels = new Map(tabs.map((tab) => [tab.dataset.id, document.getElementById(tab.getAttribute("aria-controls"))]));
+  const select = (id, push) => {
+    const alias = aliases.get(id);
+    if (alias) id = alias.id;
+    if (!panels.has(id)) id = "uebersicht";
+    for (const tab of tabs) {
+      const active = tab.dataset.id === id;
+      tab.setAttribute("aria-selected", String(active));
+      tab.tabIndex = active ? 0 : -1;
+      const panel = panels.get(tab.dataset.id);
+      panel.hidden = !active;
+      if (active) {
+        const frame = panel.querySelector("iframe[data-src]");
+        if (frame && (alias || !frame.src)) frame.src = alias?.file ?? frame.dataset.src;
+      }
+    }
+    if (id === "uebersicht") {
+      tablist.scrollLeft = 0;
+      panels.get(id).scrollTop = 0;
+    }
+    if (push && location.hash !== "#" + id) history.replaceState(null, "", id === "uebersicht" ? location.pathname : "#" + id);
+  };
+  for (const tab of tabs) {
+    tab.addEventListener("click", () => select(tab.dataset.id, true));
+    tab.addEventListener("keydown", (event) => {
+      const index = tabs.indexOf(tab);
+      const next = event.key === "ArrowRight" ? index + 1 : event.key === "ArrowLeft" ? index - 1 : event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : -1;
+      if (next < 0 || next >= tabs.length) return;
+      event.preventDefault();
+      tabs[next].focus();
+      select(tabs[next].dataset.id, true);
+    });
+  }
+  window.addEventListener("hashchange", () => select(location.hash.slice(1), false));
+  select(location.hash.slice(1) || "uebersicht", false);
+})();
+</script>
+</body>
+</html>

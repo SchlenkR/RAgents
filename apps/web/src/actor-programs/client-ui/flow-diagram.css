@@ -1,0 +1,23 @@
+/* The only hand-written CSS of the mini-app library: the xyflow stylesheet and overrides of its generated classes. */
+@import "@xyflow/react/dist/style.css";
+
+.react-flow {
+    --xy-background-color: transparent;
+    --xy-edge-stroke: var(--muted-foreground);
+    --xy-edge-stroke-width: 1.5;
+    --xy-edge-label-color: var(--foreground);
+    --xy-edge-label-background-color: var(--background);
+    --xy-controls-button-background-color: var(--card);
+    --xy-controls-button-background-color-hover: var(--accent);
+    --xy-controls-button-color: var(--foreground);
+    --xy-controls-button-border-color: var(--border);
+}
+
+.react-flow__edge-text {
+    font: 16px var(--font-sans);
+}
+
+.react-flow__handle {
+    opacity: 0;
+    pointer-events: none;
+}

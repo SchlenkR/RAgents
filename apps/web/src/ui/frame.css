@@ -1,0 +1,4 @@
+/* Mini-app frame entry: full Tailwind including preflight; the frame is an isolated document. */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./theme.css";

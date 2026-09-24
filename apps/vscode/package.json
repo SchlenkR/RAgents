@@ -1,0 +1,271 @@
+{
+  "name": "ragents-vscode",
+  "displayName": "RAgents",
+  "description": "Programmable AI workspaces in VS Code with agents, TypeScript workflows, mini-apps, and local workspace tools.",
+  "version": "0.1.4",
+  "license": "PolyForm-Shield-1.0.0",
+  "author": "Ronald Schlenker",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SchlenkR/RAgents.git"
+  },
+  "homepage": "https://github.com/SchlenkR/RAgents",
+  "bugs": {
+    "url": "https://github.com/SchlenkR/RAgents/issues"
+  },
+  "publisher": "purestate",
+  "icon": "media/icon.png",
+  "engines": {
+    "vscode": "^1.134.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Other"
+  ],
+  "keywords": [
+    "agents",
+    "llm",
+    "actors",
+    "typescript",
+    "ragents"
+  ],
+  "ragents": {
+    "packageVersion": "0.1.5"
+  },
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onUri"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "secondarySidebar": [
+        {
+          "id": "ragents-run-panel",
+          "title": "RAgents",
+          "icon": "media/ragents.svg"
+        }
+      ]
+    },
+    "views": {
+      "ragents-run-panel": [
+        {
+          "type": "webview",
+          "id": "ragents.runPanel",
+          "name": "RAgents",
+          "icon": "media/ragents.svg",
+          "contextualTitle": "RAgents"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "ragents.showStart",
+        "title": "Start",
+        "category": "RAgents",
+        "icon": "$(home)"
+      },
+      {
+        "command": "ragents.showRuns",
+        "title": "Runs",
+        "category": "RAgents",
+        "icon": "$(list-unordered)"
+      },
+      {
+        "command": "ragents.environments",
+        "title": "Umgebungen",
+        "category": "RAgents",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "ragents.openConnectionsSetting",
+        "title": "Umgebungen in den Einstellungen",
+        "category": "RAgents",
+        "icon": "$(json)"
+      },
+      {
+        "command": "ragents.setSecret",
+        "title": "Secret setzen",
+        "category": "RAgents",
+        "icon": "$(key)"
+      },
+      {
+        "command": "ragents.deleteSecret",
+        "title": "Secret löschen",
+        "category": "RAgents",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "ragents.connect",
+        "title": "Verbinden",
+        "category": "RAgents",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "ragents.disconnect",
+        "title": "Trennen",
+        "category": "RAgents",
+        "icon": "$(debug-disconnect)"
+      },
+      {
+        "command": "ragents.newRun",
+        "title": "Neuer Run",
+        "category": "RAgents",
+        "icon": "$(add)"
+      },
+      {
+        "command": "ragents.refresh",
+        "title": "Aktualisieren",
+        "category": "RAgents",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "ragents.login",
+        "title": "Anmelden",
+        "category": "RAgents",
+        "icon": "$(sign-in)"
+      },
+      {
+        "command": "ragents.logout",
+        "title": "Abmelden",
+        "category": "RAgents",
+        "icon": "$(sign-out)"
+      },
+      {
+        "command": "ragents.openAppInCenter",
+        "title": "Mini-App in die Mitte",
+        "category": "RAgents",
+        "icon": "$(open-preview)"
+      },
+      {
+        "command": "ragents.openJournal",
+        "title": "Journal öffnen",
+        "category": "RAgents"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "ragents.showStart",
+          "when": "view == ragents.runPanel",
+          "group": "navigation@1"
+        },
+        {
+          "command": "ragents.showRuns",
+          "when": "view == ragents.runPanel",
+          "group": "navigation@2"
+        },
+        {
+          "command": "ragents.environments",
+          "when": "view == ragents.runPanel",
+          "group": "navigation@3"
+        },
+        {
+          "command": "ragents.newRun",
+          "when": "view == ragents.runPanel && ragents.canCreate",
+          "group": "panel@1"
+        },
+        {
+          "command": "ragents.refresh",
+          "when": "view == ragents.runPanel && ragents.hasTargets",
+          "group": "panel@2"
+        },
+        {
+          "command": "ragents.openConnectionsSetting",
+          "when": "view == ragents.runPanel",
+          "group": "panel@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "ragents.openAppInCenter",
+          "when": "false"
+        },
+        {
+          "command": "ragents.openJournal",
+          "when": "false"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "RAgents",
+      "properties": {
+        "ragents.connections": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "Die Umgebungen der Erweiterung; sie verbindet sich mit allen gleichzeitig. Je Eintrag `name` und `url` (ein RAgents-Server; die Anmeldung fragt das Panel ab; verteilt der Server ein Client-Profil, startet die Erweiterung den Host damit lokal) oder `name` und `profileFile` (eine `ragents.config.<profil>.ts`; die Erweiterung startet den Host daraus still beim Aktivieren).",
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Anzeigename, eindeutig."
+              },
+              "url": {
+                "type": "string",
+                "description": "Adresse des Servers ohne Pfad."
+              },
+              "profileFile": {
+                "type": "string",
+                "description": "Pfad zur Profildatei; die Erweiterung startet den Host daraus."
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "server",
+                  "running",
+                  "profile"
+                ],
+                "deprecationMessage": "Nicht mehr nötig; die Art ergibt sich aus url oder profileFile."
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "ragents.hostPath": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "RAgents-Host, aus dem die Erweiterung den lokalen Server startet: das npm-Paket `@schlenkr/ragents` (nur Node nötig) oder ein Checkout (zusätzlich Git, pnpm und pnpm install). Leer: das Repo, aus dem die Erweiterung läuft; läuft sie aus keinem, holt sie das Paket in der Fassung des Servers selbst."
+        },
+        "ragents.hostEnvironment": {
+          "type": "array",
+          "default": [],
+          "markdownDescription": "Namen von Umgebungsvariablen, die ein lokal gestarteter Host zusätzlich zur geerbten Umgebung bekommt. Hier stehen nur Namen; die Werte legt der Befehl `RAgents: Secret setzen` in die SecretStorage von VS Code, nie in eine Einstellungsdatei.",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
+            "patternErrorMessage": "Erlaubt sind Buchstaben, Ziffern und _, nicht mit einer Ziffer am Anfang."
+          }
+        },
+        "ragents.theme": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "light",
+            "dark"
+          ],
+          "default": "auto",
+          "description": "Darstellung des RAgents-Panels: auto folgt dem Farbschema von VS Code."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "pnpm --filter @ragents/web build:panel && node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:host": "node tests/host/launch.mjs"
+  },
+  "devDependencies": {
+    "@ragents/workspace-executor": "workspace:*",
+    "@types/node": "^22.15.0",
+    "@types/vscode": "^1.134.0",
+    "esbuild": "0.28.2",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0"
+  }
+}

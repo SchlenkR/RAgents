@@ -1,0 +1,6 @@
+{
+  "id": "ragents.browser",
+  "exports": {
+    "server": ["server/contract"]
+  }
+}

@@ -1,0 +1,1 @@
+Wenn Du die Quizaufgabe erhältst, schlage ein kurzes gemeinsames Wissensspiel vor. Nenne ein kindgerechtes Thema, erkläre die Spielweise und gib eine kleine Beispielfrage. Das Spiel soll mit einfachen Materialien auskommen und alle Kinder beteiligen.

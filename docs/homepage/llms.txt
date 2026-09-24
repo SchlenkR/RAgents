@@ -1,0 +1,34 @@
+# RAgents
+
+> Programmierbarer AI-Harness mit Chat, mehreren Agenten, TypeScript-Actors und kleinen Bedienoberflächen auf einer Kachelfläche.
+
+Diese Referenz beschreibt die vorhandenen öffentlichen Bausteine des Profils showcase (die Grundausstattung core und die mitgelieferten Beispiele). Verträge, API und Paketquellen werden aus dem Code erzeugt. Für ein neues Run-Setup zuerst die Anleitung und die typisierte API lesen, dann die benötigten Werkzeugverträge nachschlagen.
+
+## Verstehen und einsteigen
+
+- [Guide](guide.md): Einstieg, Laufzeit, Zugänge, verteiltes Arbeiten, TypeScript-Funktionen, Mini-Apps, Erweiterungen und Rechte aus der aktuellen Dokumentation.
+
+- [Core ideas](guide-ideas.md)
+- [Actors and messages](guide-runtime.md)
+- [Get started](guide-getting-started.md)
+- [Web and VS Code](guide-clients.md)
+- [Distributed work](guide-distributed.md)
+- [Work with TypeScript](guide-functions.md)
+- [Build mini-apps](guide-programs.md)
+- [Plugins and skills](guide-extensions.md)
+- [Assign permissions](guide-access.md)
+
+## Run-Setups
+
+- [Run-Setup-Anleitung](run-setup.md): Paketstruktur, Startinput, Tests, vollständige Beispiele und generierte API.
+- [Run-API](run-api.d.ts): Originale TypeScript-Deklarationen des Compilers.
+
+## Referenzen
+
+- [Bausteine](reference.md): Alle statischen Werkzeuge und Operationen mit Ein- und Ergebnisschemata, Actor-Programm-Vorlagen und Einstiege.
+- [Entwickeln](developer.md): Erweiterungspunkte, Beispiele und aktuelle Vertragsflächen.
+
+## Externe Clients
+
+- [JSON-RPC-API](rpc-api.md): Methoden und Kanäle mit Eingaben, Ergebnissen und Fehlern aus den ausführbaren Verträgen.
+- [OpenRPC](openrpc.json): Maschinenlesbarer Vertrag aus denselben Quellen.

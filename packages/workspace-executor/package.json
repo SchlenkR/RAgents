@@ -1,0 +1,25 @@
+{
+  "name": "@ragents/workspace-executor",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./src/*.ts": "./src/*.ts",
+    "./src/*": "./src/*.ts"
+  },
+  "scripts": {
+    "test": "node --import tsx --test tests/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ragents/agent": "workspace:*",
+    "typescript": "^5.9.0",
+    "typescript-language-server": "6.0.0",
+    "vscode-jsonrpc": "^9.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "tsx": "^4.20.0"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "id": "ragents.watch",
+  "exports": {
+    "server": ["contract", "server/contract"]
+  }
+}

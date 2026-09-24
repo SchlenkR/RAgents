@@ -1,0 +1,54 @@
+html { scroll-behavior: smooth; scroll-padding-top: calc(var(--header-height, 80px) + 20px); }
+html { scrollbar-gutter: stable; }
+@supports not selector(::-webkit-scrollbar) { html { scrollbar-color: #65758a #edf1f5; scrollbar-width: auto; } }
+::-webkit-scrollbar { width: 14px; height: 14px; }
+::-webkit-scrollbar-track { background: #edf1f5; }
+::-webkit-scrollbar-thumb { min-height: 48px; min-width: 48px; border: 3px solid #edf1f5; border-radius: 8px; background: #65758a; }
+::-webkit-scrollbar-thumb:hover { background: #394b63; }
+.shell { width: min(1120px, calc(100% - 64px)); margin-inline: auto; }
+.masthead {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: space-between; gap: 28px;
+  padding-block: 17px; border-bottom: 1px solid #e3ecf2;
+  background: #fffffff2; color: #223347; backdrop-filter: blur(16px);
+  box-shadow: 0 0 0 100vmax #fffffff2; clip-path: inset(0 -100vmax);
+  font: 16px/1.6 Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.masthead a { color: inherit; text-decoration: none; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+.masthead .brand { display: inline-flex; align-items: center; gap: 10px; font-weight: 750; font-size: 23px; letter-spacing: -.05em; }
+.masthead .brand-icon { width: 29px; height: 29px; flex: none; color: #223347; }
+.masthead nav { display: flex; flex-wrap: wrap; align-items: center; gap: 28px; font-size: 12px; }
+.masthead nav a { display: inline-flex; align-items: center; min-height: 40px; white-space: nowrap; }
+.masthead nav a:hover, .masthead nav a[aria-current="page"] { color: #1769b1; text-decoration: underline; }
+.masthead nav .nav-developer { gap: 14px; padding: 7px 13px; border: 1px solid #d1dde9; border-radius: 7px; }
+.masthead .link-icon { width: 16px; height: 16px; flex: none; }
+.masthead a:focus-visible { outline: 3px solid #2a94fa; outline-offset: 4px; border-radius: 2px; }
+.skip { position: fixed; left: 20px; top: -100px; padding: 8px 16px; background: #fff; z-index: 6; }
+.skip:focus { top: 12px; }
+@media (min-width: 641px) { html[data-help-embedded] .masthead { padding-right: 64px; } }
+@media (max-width: 900px) {
+  .masthead { gap: 18px; }
+  .masthead nav { gap: 16px; font-size: 11px; }
+}
+@media (max-width: 720px) {
+  .masthead { flex-wrap: wrap; gap: 6px; padding-block: 12px 8px; }
+  .masthead nav { width: 100%; justify-content: space-between; gap: 8px; }
+}
+@media (max-width: 640px) {
+  html { --header-height: 109px; }
+  .shell { width: calc(100% - 36px); }
+  .masthead .brand { font-size: 21px; }
+  .masthead .brand-icon { width: 25px; height: 25px; }
+  .masthead nav { font-size: 10px; }
+  .masthead nav .nav-developer { padding: 5px 8px; gap: 5px; }
+  .masthead .link-icon { width: 13px; height: 13px; }
+}
+@media (max-width: 360px) {
+  .masthead nav { flex-wrap: wrap; justify-content: flex-start; gap: 4px 14px; }
+}
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+@media print {
+  .shell { width: 100%; }
+  .masthead { position: static; box-shadow: none; }
+  .masthead nav, .skip { display: none; }
+}

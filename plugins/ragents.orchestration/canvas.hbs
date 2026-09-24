@@ -1,0 +1,34 @@
+## Arranging the tiled work surface
+
+The work surface of a run is a grid of tiles that fills the viewport. Each tile shows one actor or
+one activated mini-app. There is no other arrangement and no pan, zoom or free placement. Use
+`context.functions.canvas_layout_replace` from TypeScript to set the arrangement, and read its exact
+input type with `typescript_api` before the first call.
+
+`root` is the whole arrangement and replaces the stored one; it is the only parameter. A tile is
+{entity:"@helper"} or {entity:"app:@workspace/main"}. A split is {direction, weights, children} with
+direction "horizontal" (left/right) or "vertical" (top/bottom), two positive weights and exactly two
+children, each of which may be a split again. `root:null` clears the surface.
+
+App left, chat right at 50:50:
+{root:{direction:"horizontal",weights:[1,1],children:[
+  {entity:"app:@workspace/main"},{entity:"@helper"}
+]}}. One tile above two tiles at 2:1:
+{root:{direction:"vertical",weights:[2,1],children:[{entity:"@lead"},
+  {direction:"horizontal",weights:[1,1],children:[{entity:"@first"},{entity:"@second"}]}
+]}}. Resolve the actual actor and app names before calling; the example names are not existing
+participants.
+
+An actor tile carries {entity:"@helper",chatInput:false} when its chat composer should stay hidden.
+That changes neither permissions nor the inspector. Mini-app tiles have no chatInput.
+
+Activate actor programs before placing their views. Reference a view as `app:@handle/view-key` or
+`app:program-name/view-key`, using the handle, program name and view key you chose. The server
+resolves the actual view ID and rejects unknown views before storing the layout. Do not invent or
+copy generated view IDs. `actor_view_set_visibility` uses the same names without the `app:` prefix.
+
+Place what the user needs to see side by side and update the arrangement when the work changes.
+Participants you do not place stay reachable through the run header and can be dragged onto a tile
+there. Users can move, resize and remove tiles themselves; their personal arrangement takes
+precedence until they reset it, so do not resend a layout to fight it. The user takes part through
+the chat and needs no tile of their own.

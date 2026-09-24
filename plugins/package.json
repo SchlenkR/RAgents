@@ -1,0 +1,8 @@
+{
+  "name": "@ragents/plugins",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": "./*"
+  }
+}

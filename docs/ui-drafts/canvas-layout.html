@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RAgents Fläche: Layoutgruppen</title>
+<style>
+:root{
+  --ink:#223347;--text:#1d2433;--muted:#5f7896;--line:#d1dde9;--surface:#ecf2f7;--panel:#f8fcff;--app-bg:#f1f4f8;
+  --accent:#0550ae;--amber:#b45309;
+  --body:"IBM Plex Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){--ink:#dbe6f2;--text:#dbe6f2;--muted:#8ea6bf;--line:#33465c;--surface:#223142;--panel:#1b2938;--app-bg:#111922;--accent:#6fb4ff;--amber:#f5b04c}
+}
+:root[data-theme="dark"]{--ink:#dbe6f2;--text:#dbe6f2;--muted:#8ea6bf;--line:#33465c;--surface:#223142;--panel:#1b2938;--app-bg:#111922;--accent:#6fb4ff;--amber:#f5b04c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--app-bg);color:var(--text);font:15px/1.55 var(--body);-webkit-font-smoothing:antialiased}
+main{max-width:1180px;margin:0 auto;padding:40px 32px 80px}
+h1,h2{color:var(--ink);margin:0;line-height:1.15}
+h1{font-size:34px;letter-spacing:-.01em}
+h2{font-size:22px;margin-top:40px}
+p{max-width:72ch;margin:12px 0}
+code{font-family:var(--mono);font-size:.86em;background:var(--surface);padding:1px 5px;border-radius:4px;color:var(--ink)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+figure{margin:18px 0 0;border:1px solid var(--line);border-radius:14px;background:var(--panel);overflow:hidden}
+figure img{display:block;width:100%;height:auto}
+figcaption{padding:12px 16px;border-top:1px solid var(--line);color:var(--muted);font-size:13.5px}
+figcaption a{color:var(--accent)}
+ul{max-width:76ch;padding-left:20px}
+li{margin:4px 0}
+.note{border-left:3px solid var(--amber);padding:6px 14px;background:var(--surface);border-radius:0 8px 8px 0;max-width:76ch}
+</style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">UI-Entwurf, 05.09.2026</div>
+  <h1>Die Fläche neben dem Chat: Layoutgruppen statt Kräfte-Layout</h1>
+  <p>Der Koordinator gestaltet die Fläche selbst mit dem Werkzeug <code>canvas_layout_replace</code>:
+  geschachtelte Gruppen (Reihe, Spalte, Umbruch, Raster, Kreis, Baum), Formen mit Text (Kreis, Raute)
+  und Linien nur auf Ansage, immer von einer Entität zu einer anderen. Automatische Linien gibt es nicht
+  mehr. Eine Gruppe zeigt ihre Beschriftung als Überschrift; einen gestrichelten Rahmen zeichnet sie nur
+  mit <code>frame: true</code>. Wen der Koordinator nicht platziert, sammelt die Fläche unter der Überschrift
+  „Nicht platziert" als Abstammungsbaum.</p>
+  <p>Die zwei Bilder sind mit der echten Layout-Engine und dem echten CSS gerendert
+  (<code>build-canvas-layout.ts</code>, Screenshots per headless Chrome); Zustände und Zahlen sind
+  erfunden, der Chat links ist eine Attrappe.</p>
+
+  <h2>Gesprächsrunde</h2>
+  <p>Drei Gesprächspartner im Kreis mit Rahmen, darüber das Thema als Raute, Pfeile in Gesprächsrichtung
+  mit Beschriftung, eine gestrichelte Linie ohne Pfeil für den Auftakt. Der Koordinator ist nicht
+  platziert und erscheint darunter.</p>
+  <figure>
+    <img src="canvas-layout-gespraechsrunde.png" alt="Screenshot: Kreisgruppe Runde mit den Karten mira, jon und ada, darüber die Raute Thema, rechts vom Chat">
+    <figcaption>Szene als Seite: <a href="canvas-layout-gespraechsrunde.html">canvas-layout-gespraechsrunde.html</a></figcaption>
+  </figure>
+
+  <h2>Team als Baum, Themen im Raster</h2>
+  <p>Links der Baum aus der Abstammung des Teamleiters mit Rahmen und Überschrift, rechts ein Raster
+  mit zwei Spalten ohne Rahmen, gestrichelte Zuordnungen von jedem Helfer zu seinem Thema. Das vierte
+  Thema hat bewusst keine Linie. Koordinator und Beobachter stehen unter „Nicht platziert", der
+  Beobachter als Kind des Koordinators.</p>
+  <figure>
+    <img src="canvas-layout-team-raster.png" alt="Screenshot: Baumgruppe Team mit Teamleiter und vier Kindern, daneben vier Themenkreise in zwei Spalten">
+    <figcaption>Szene als Seite: <a href="canvas-layout-team-raster.html">canvas-layout-team-raster.html</a></figcaption>
+  </figure>
+
+  <h2>Was die Bilder gezeigt haben</h2>
+  <ul>
+    <li>Bei drei Mitgliedern war der Ring zu eng: die Linienbeschriftung zwischen zwei Nachbarn klemmte
+    zwischen den Karten. Der Kreis hält jetzt zwischen Nachbarn zusätzlich Platz für Linie und
+    Beschriftung.</li>
+    <li>Ohne automatische Linien trägt im Baum allein die Position die Abstammung: Vater links oben,
+    Kinder rechts untereinander. Das reicht, solange der Baum einen Rahmen oder eine Überschrift hat.</li>
+  </ul>
+  <p class="note">Beobachtung außerhalb dieses Entwurfs: die Statusfarbe der Karten (arbeitet, wartet, fertig)
+  unterscheidet Grün und Blau. Das Symbol nennt nur die Rolle, den Zustand trägt sonst nur der Tooltip.</p>
+</main>
+</body>
+</html>

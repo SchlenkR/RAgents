@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "types": [
+      "node"
+    ],
+    "typeRoots": [
+      "../../apps/server/node_modules/@types",
+      "../../node_modules/@types"
+    ],
+    "lib": [
+      "ES2024",
+      "DOM"
+    ],
+    "paths": {
+      "@ragents/host/*": [
+        "../../apps/server/src/*"
+      ],
+      "@ragents/web/*": [
+        "../../apps/web/src/*"
+      ],
+      "@ragents/plugins/*": [
+        "../../plugins/*"
+      ]
+    },
+    "noEmit": true
+  },
+  "include": [
+    "*.ts"
+  ]
+}

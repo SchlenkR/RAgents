@@ -1,0 +1,838 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>RAgents | Setups, AI agents, and mini-apps</title>
+  <meta name="description" content="Program setups for AI work: agents, deterministic workflows, and interactive mini-apps in one shared workspace. Explore features, examples, and developer documentation.">
+  <!-- Sources: docs/development.md, AI assistant section; colors and typography from apps/web/src/ui/theme.css; HTML/SVG graphics are labeled functional diagrams. -->
+  <style>
+    :root { --ink: #34303d; --text: #34303d; --muted: #62586e; --line: #c9c4d5; --line-soft: #dad6e3; --surface: #e1ddeb; --panel: #e7eaf2; --content: #f3f2f7; --app-bg: #dce3ed; --accent: #79638d; --font: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; --mono: "Noto Sans Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--text); background: var(--content); font: 16px/1.65 var(--font); }
+    a { color: inherit; text-underline-offset: 4px; }
+    a:hover { text-decoration-thickness: 2px; }
+    :is(a, button, select, summary):focus-visible { outline: 3px solid var(--accent); outline-offset: 5px; }
+    h1, h2, h3, p, figure { margin: 0; }
+    h1, h2, h3 { color: var(--ink); font-weight: 650; line-height: 1.12; letter-spacing: -.045em; text-wrap: balance; }
+    h1 { font-size: clamp(40px, 5.4vw, 72px); }
+    h2 { font-size: clamp(29px, 3.3vw, 42px); }
+    h3 { font-size: 21px; letter-spacing: -.025em; }
+    p + p { margin-top: 16px; }
+    strong { font-weight: 600; }
+    code { font: .86em var(--mono); overflow-wrap: anywhere; }
+    .eyebrow { display: flex; align-items: center; gap: 10px; margin-bottom: 20px; color: #43617d; font: 500 11px/1.5 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+    .eyebrow::before { content: ''; width: 7px; height: 7px; border-radius: 2px; background: var(--accent); }
+    .hero { position: relative; padding: 74px 0 0; background: radial-gradient(ellipse at 50% 75%, #dfefff 0, #f6faff 42%, #fff 75%); }
+    .hero-copy { text-align: center; max-width: 880px; margin: 0 auto; }
+    .hero-copy .eyebrow { justify-content: center; }
+    .hero h1 span { display: block; color: #247bca; }
+    .lead { max-width: 670px; margin: 23px auto 0; font-size: 18px; line-height: 1.7; color: var(--muted); }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; margin-top: 26px; }
+    .hero .actions { justify-content: center; }
+    .button { display: inline-flex; align-items: center; justify-content: center; gap: 18px; min-height: 48px; padding: 11px 20px; border: 1px solid var(--ink); border-radius: 8px; background: var(--ink); color: white; font-size: 14px; font-weight: 550; text-decoration: none; transition: background .15s, box-shadow .15s; }
+    .button:hover { background: #304a65; box-shadow: 0 4px 16px #2233471a; }
+    .button.secondary { background: white; color: var(--ink); border-color: var(--line); }
+    .button.secondary:hover { background: var(--panel); border-color: #9ab8d4; }
+    .link-icon { width: 18px; height: 18px; flex: none; }
+    .text-link { display: inline-flex; align-items: center; gap: 12px; color: #1769b1; font-size: 14px; font-weight: 550; text-decoration: none; }
+    .text-link:hover { text-decoration: underline; }
+    .interface-intro { max-width: 670px; margin: 46px auto 0; text-align: center; }
+    .interface-intro h2 { font-size: 25px; }
+    .interface-intro p { margin-top: 16px; color: var(--muted); font-size: 15px; }
+    .workspace-figure { margin-top: 30px; }
+    .workspace { --ink: #514657; --muted: #746677; --line: #b8aeba; --line-soft: #51465730; --accent: #79638d; --panel: #e7edf2; overflow: hidden; border: 1px solid var(--line); border-radius: 17px; background: var(--panel); }
+    .workspace-bar { display: flex; align-items: center; gap: 12px; padding: 14px 22px; border-bottom: 1px solid var(--line-soft); background: #f7f4f0; color: var(--ink); font-size: 12px; }
+    .workspace-bar svg { width: 17px; height: 17px; }
+    .workspace-bar > span:last-child { margin-left: auto; color: var(--muted); font: 10px var(--mono); }
+    .workspace-body { padding: 70px 58px 32px 32px; background: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
+        radial-gradient(ellipse at 4% 88%, #9ccfc5b3, transparent 58%),
+        radial-gradient(ellipse at 96% 12%, #9ec6e4b3, transparent 56%),
+        radial-gradient(ellipse at 28% 0%, #c4b0dfb3, transparent 58%),
+        radial-gradient(ellipse at 88% 100%, #efd3c6a6, transparent 52%),
+        linear-gradient(135deg, #edf0f2, #e1dbe8); }
+    .workspace-flow { display: grid; grid-template-columns: 1fr 58px 1.05fr 58px 1fr; align-items: center; }
+    .workspace-node { --face: #eec4b1; --depth-near: #b27c62; --depth-middle: #bb876f; --depth-far: #c5927d; position: relative; isolation: isolate; display: block; min-width: 0; padding: 20px; border: 1.5px solid #514657; border-radius: 17px; background: var(--face); filter: drop-shadow(6px 12px 11px #49384e2c); text-decoration: none; }
+    .workspace-node::before { content: ""; position: absolute; inset: -1.5px; border: 1.5px solid #514657; border-radius: inherit; background: var(--face); box-shadow: 0.25px -0.35px 0 var(--depth-near), 0.5px -0.7px 0 var(--depth-near), 0.75px -1.05px 0 var(--depth-near), 1px -1.4px 0 var(--depth-near), 1.25px -1.75px 0 var(--depth-near), 1.5px -2.1px 0 var(--depth-near), 1.75px -2.45px 0 var(--depth-near), 2px -2.8px 0 var(--depth-near), 2.25px -3.15px 0 var(--depth-near), 2.5px -3.5px 0 var(--depth-near), 2.75px -3.85px 0 var(--depth-near), 3px -4.2px 0 var(--depth-near), 3.25px -4.55px 0 var(--depth-near), 3.5px -4.9px 0 var(--depth-near), 3.75px -5.25px 0 var(--depth-near), 4px -5.6px 0 var(--depth-near), 4.25px -5.95px 0 var(--depth-near), 4.5px -6.3px 0 var(--depth-near), 4.75px -6.65px 0 var(--depth-near), 5px -7px 0 var(--depth-near), 5.25px -7.35px 0 var(--depth-near), 5.5px -7.7px 0 var(--depth-near), 5.75px -8.05px 0 var(--depth-near), 6px -8.4px 0 var(--depth-near), 6.25px -8.75px 0 var(--depth-near), 6.5px -9.1px 0 var(--depth-near), 6.75px -9.45px 0 var(--depth-near), 7px -9.8px 0 var(--depth-near), 7.25px -10.15px 0 var(--depth-near), 7.5px -10.5px 0 var(--depth-near), 7.75px -10.85px 0 var(--depth-middle), 8px -11.2px 0 var(--depth-middle), 8.25px -11.55px 0 var(--depth-middle), 8.5px -11.9px 0 var(--depth-middle), 8.75px -12.25px 0 var(--depth-middle), 9px -12.6px 0 var(--depth-middle), 9.25px -12.95px 0 var(--depth-middle), 9.5px -13.3px 0 var(--depth-middle), 9.75px -13.65px 0 var(--depth-middle), 10px -14px 0 var(--depth-middle), 10.25px -14.35px 0 var(--depth-middle), 10.5px -14.7px 0 var(--depth-middle), 10.75px -15.05px 0 var(--depth-middle), 11px -15.4px 0 var(--depth-middle), 11.25px -15.75px 0 var(--depth-middle), 11.5px -16.1px 0 var(--depth-middle), 11.75px -16.45px 0 var(--depth-middle), 12px -16.8px 0 var(--depth-middle), 12.25px -17.15px 0 var(--depth-middle), 12.5px -17.5px 0 var(--depth-middle), 12.75px -17.85px 0 var(--depth-middle), 13px -18.2px 0 var(--depth-middle), 13.25px -18.55px 0 var(--depth-middle), 13.5px -18.9px 0 var(--depth-middle), 13.75px -19.25px 0 var(--depth-middle), 14px -19.6px 0 var(--depth-middle), 14.25px -19.95px 0 var(--depth-middle), 14.5px -20.3px 0 var(--depth-middle), 14.75px -20.65px 0 var(--depth-middle), 15px -21px 0 var(--depth-far), 15.25px -21.35px 0 var(--depth-far), 15.5px -21.7px 0 var(--depth-far), 15.75px -22.05px 0 var(--depth-far), 16px -22.4px 0 var(--depth-far), 16.25px -22.75px 0 var(--depth-far), 16.5px -23.1px 0 var(--depth-far), 16.75px -23.45px 0 var(--depth-far), 17px -23.8px 0 var(--depth-far), 17.25px -24.15px 0 var(--depth-far), 17.5px -24.5px 0 var(--depth-far), 17.75px -24.85px 0 var(--depth-far), 18px -25.2px 0 var(--depth-far), 18.25px -25.55px 0 var(--depth-far), 18.5px -25.9px 0 var(--depth-far), 18.75px -26.25px 0 var(--depth-far), 19px -26.6px 0 var(--depth-far), 19.25px -26.95px 0 var(--depth-far), 19.5px -27.3px 0 var(--depth-far), 19.75px -27.65px 0 var(--depth-far), 20px -28px 0 var(--depth-far), 20.25px -28.35px 0 var(--depth-far), 20.5px -28.7px 0 var(--depth-far), 20.75px -29.05px 0 var(--depth-far), 21px -29.4px 0 var(--depth-far), 21.25px -29.75px 0 var(--depth-far), 21.5px -30.1px 0 var(--depth-far), 21.75px -30.45px 0 var(--depth-far), 22px -30.8px 0 var(--depth-far); z-index: -1; }
+    .workspace-flow > .workspace-node:first-child { --face: #dcd0e8; --depth-near: #a087b0; --depth-middle: #aa94b9; --depth-far: #b6a3c3; }
+    a.workspace-node:hover { outline: 2px solid #79638d; outline-offset: 3px; }
+    .node-heading { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 15px; color: var(--ink); }
+    .node-heading svg { width: 24px; height: 24px; color: var(--accent); }
+    .workspace-node p, .workspace-node small { font-size: 12px; line-height: 1.6; color: var(--muted); }
+    .workspace-node small { display: block; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+    .node-badge { display: inline-flex; align-items: center; padding: 3px 8px; margin-top: 14px; background: #bcaccb26; color: #655170; border-radius: 4px; font: 10px var(--mono); }
+    .workspace-team { display: grid; gap: 54px; }
+    .workspace-team .workspace-node { padding: 15px 18px; }
+    .workspace-team .node-heading { margin-bottom: 5px; }
+    .workspace-team .workspace-node:last-child { --face: #e9dca1; --depth-near: #ae964b; --depth-middle: #b79f55; --depth-far: #bfaa62; }
+    .workspace-team .workspace-node:last-child svg { color: var(--accent); }
+    .connector { position: relative; height: 1px; background: #ad9fb5; }
+    .connector::after { content: ''; position: absolute; right: 0; top: -3px; width: 6px; height: 6px; transform: rotate(45deg); border: solid #ad9fb5; border-width: 1px 1px 0 0; }
+    .canvas-app { --face: #e7edf2; --depth-near: #8d9daf; --depth-middle: #99a7b7; --depth-far: #a5b2c0; min-height: 208px; }
+    .app-lines { display: grid; gap: 8px; margin-top: 18px; }
+    .app-lines span { display: flex; align-items: center; gap: 9px; padding: 6px 9px; border: 1px solid var(--line-soft); border-radius: 4px; background: var(--panel); font-size: 11px; }
+    .app-lines span::before { content: ''; width: 6px; height: 6px; border: 1px solid #7692ad; border-radius: 2px; }
+    .workspace-journal { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 12px 18px; margin-top: 24px; border: 1px solid var(--line); border-radius: 7px; background: #f7f4f0; font-size: 11px; color: var(--muted); }
+    .workspace-journal strong { color: var(--ink); }
+    .workspace-journal code { font-size: 10px; }
+    figcaption { margin-top: 14px; color: var(--muted); font-size: 11px; line-height: 1.6; }
+    .workspace-figure figcaption { display: flex; justify-content: space-between; gap: 12px 24px; flex-wrap: wrap; }
+    .run-panel-figure { display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 20px 32px; align-items: start; margin: 40px auto 0; max-width: 760px; }
+    .run-panel-figure img { width: 100%; height: auto; border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 24px 50px -30px #53445455; }
+    .run-panel-figure .run-panel-placeholder { display: grid; place-items: center; aspect-ratio: 7 / 15; padding: 24px; border: 1px dashed var(--line); border-radius: 14px; text-align: center; font-size: 13px; line-height: 1.5; color: var(--muted); }
+    .run-panel-figure figcaption { margin-top: 0; font-size: 13px; line-height: 1.65; }
+    .run-panel-figure figcaption a { display: block; margin-top: 12px; }
+    @media (max-width: 720px) { .run-panel-figure { grid-template-columns: 1fr; } }
+    .section-heading { padding: 72px 0 18px; }
+    .section-heading p:last-child { max-width: 620px; margin-top: 20px; color: var(--muted); }
+    .feature { display: grid; grid-template-columns: .95fr 1.05fr; gap: 76px; align-items: center; padding: 68px 0; border-bottom: 1px solid var(--line-soft); }
+    .feature-copy { min-width: 0; }
+    .feature-copy h2 { font-size: clamp(28px, 3vw, 37px); }
+    .feature-copy > p:not(.eyebrow):not(.try):not(.feature-benefit) { margin-top: 20px; color: var(--muted); font-size: 15px; }
+    .feature-copy > p.concept-intro { color: var(--ink); font-size: 17px; line-height: 1.75; }
+    .feature-copy > .text-link { margin-top: 24px; }
+    .feature-copy .technical { margin-top: 20px; color: var(--muted); font-size: 14px; }
+    .feature-copy .technical summary { cursor: pointer; color: var(--ink); }
+    .feature-copy .technical p { margin-top: 14px; }
+    .try { margin-top: 24px; padding-top: 15px; border-top: 1px solid var(--line-soft); font-size: 12px; color: var(--muted); }
+    .try span { display: block; margin-bottom: 5px; color: var(--muted); font-size: 10px; }
+    .try a { text-decoration-color: #bacbdc; }
+    .visual { min-width: 0; padding: 30px; border: 1px solid var(--line-soft); border-radius: 14px; background: linear-gradient(145deg, #f8fcff, #edf3f9); }
+    .visual-label { margin-bottom: 22px; color: #52718c; font: 10px/1.5 var(--mono); text-transform: uppercase; letter-spacing: .09em; }
+    .event-schema { min-width: 0; padding: 30px; border: 1px solid #bfd8cd; border-radius: 20px; background: linear-gradient(150deg, #f5fbf8, #eaf5ef); box-shadow: 0 26px 60px -36px #4b937655; }
+    .event-schema > .visual-label { color: #407460; }
+    .event-node { display: flex; align-items: center; gap: 14px; padding: 17px; border: 1px solid #c7dbd2; border-radius: 12px; background: #fff; }
+    .event-node > svg { flex: 0 0 24px; width: 24px; height: 24px; color: #32785d; }
+    .event-node strong, .event-node small { display: block; }
+    .event-node strong { font-size: 14px; line-height: 1.4; }
+    .event-node small { margin-top: 5px; color: #60796e; font-size: 11px; line-height: 1.5; }
+    .event-source, .event-filter { max-width: 300px; margin: 0 auto; }
+    .event-filter { border-color: #4e8b72; background: #e0f0e7; }
+    .event-link { display: block; width: 100%; height: 38px; color: #59947b; }
+    .event-targets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .event-targets .event-node { flex-direction: column; align-items: flex-start; gap: 10px; padding: 14px; }
+    .event-schema figcaption { margin-top: 24px; padding-top: 16px; border-top: 1px solid #ccdfd5; color: #587568; font-size: 11px; line-height: 1.6; }
+    .event-receipt { display: block; margin-top: 8px; color: #2a7456; font-size: 10px; line-height: 1.4; }
+    .connector::before { content: ''; position: absolute; top: -3px; left: calc(var(--delivery, 0) * 100%); width: 7px; height: 7px; border-radius: 50%; background: #285bd7; opacity: var(--delivery-opacity, 0); }
+    .demo-label { margin: 18px 0 0; font: 10px/1.6 var(--mono); color: var(--muted); }
+    .journal-section { padding: 76px 0; border-bottom: 1px solid var(--line-soft); }
+    .journal-heading { display: grid; grid-template-columns: .95fr 1.05fr; gap: 76px; align-items: end; margin-bottom: 32px; }
+    .journal-heading > p { color: var(--muted); font-size: 15px; }
+    .journal-demo { padding: 30px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); }
+    .journal-demo > .demo-label { margin: 0 0 12px; }
+    .journal-demo h3 { font-size: 22px; }
+    .demo-description { max-width: 720px; font-size: 13px; margin-top: 14px; color: var(--muted); }
+    .replay-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 22px 0; }
+    button { font: inherit; }
+    .replay-controls button { min-height: 40px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 6px; background: white; font-size: 12px; color: var(--ink); cursor: pointer; }
+    .replay-controls .next { background: var(--ink); border-color: var(--ink); color: white; }
+    .replay-controls button:hover:enabled { border-color: var(--accent); }
+    .replay-controls button:disabled { opacity: .45; cursor: default; }
+    .step-count { margin-left: auto; font: 10px var(--mono); color: var(--muted); }
+    .replay-layout { display: grid; grid-template-columns: 1.15fr 1fr; gap: 36px; }
+    .replay-events { list-style: none; margin: 0; padding: 0; }
+    .replay-events li { display: flex; gap: 14px; padding: 12px; border-top: 1px solid var(--line-soft); font-size: 12px; color: var(--muted); }
+    .replay-events li[data-read="true"] { color: var(--ink); }
+    .replay-events li[aria-current="step"] { background: #eaf4ff; box-shadow: inset 2px 0 var(--accent); }
+    .sequence { font: 10px/1.8 var(--mono); color: #537998; }
+    .replay-events code { display: block; color: var(--ink); font-size: 11px; margin-bottom: 3px; }
+    .projection { align-self: start; padding: 24px; background: white; border: 1px solid var(--line); border-radius: 9px; }
+    .projection .demo-label { margin: 0 0 20px; }
+    .projection dl { display: flex; flex-wrap: wrap; gap: 18px 28px; margin: 0; }
+    .projection dt { font-size: 10px; color: var(--muted); }
+    .projection dd { margin: 5px 0 0; font-size: 18px; font-weight: 550; color: var(--ink); }
+    .response { margin-top: 24px; border-top: 1px solid var(--line-soft); padding-top: 16px; font-size: 12px; }
+    .source-links { margin-top: 20px; color: var(--muted); font-size: 10px; }
+    .journal-section > .actions { justify-content: space-between; }
+    .journal-section > .try { border: 0; padding-top: 0; }
+    .support { display: grid; grid-template-columns: .95fr 1.05fr; gap: 76px; padding: 68px 0; }
+    .support p { color: var(--muted); font-size: 14px; margin-top: 20px; }
+    .support h2 { font-size: 32px; }
+    .support .try { font-size: 12px; }
+    .support-visual { display: grid; gap: 0; align-content: center; }
+    .support-visual > div { display: flex; align-items: center; gap: 16px; padding: 18px 0; border-bottom: 1px solid var(--line-soft); }
+    .support-visual svg { width: 24px; height: 24px; color: #247bca; }
+    .support-visual strong { display: block; font-size: 14px; }
+    .support-visual small { display: block; color: var(--muted); font-size: 12px; }
+    .support .feature-benefits { margin-top: 12px; }
+    .support-wide { grid-column: 1 / -1; }
+    .distribution-figure { grid-column: 1 / -1; margin: 12px 0 0; }
+    .distribution-nodes { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 14px; align-items: stretch; }
+    .distribution-node { padding: 18px 20px; border: 1.5px solid #233447; border-radius: 12px; background: #fff; box-shadow: 4px 6px 0 #23344710; }
+    .distribution-node.accent { background: #f2f7ff; }
+    .distribution-node .node-kind { display: block; margin-bottom: 8px; color: #43617d; font: 500 11px/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+    .distribution-node strong { display: block; font-size: 16px; margin-bottom: 6px; }
+    .distribution-node p { margin: 6px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .distribution-link { display: grid; align-content: center; gap: 10px; color: #43617d; font: 500 11px/1.3 var(--mono); text-align: center; }
+    .distribution-link span { padding: 4px 9px; border: 1px dashed #43617d; border-radius: 999px; white-space: nowrap; }
+    .distribution-figure figcaption { margin-top: 12px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+    @media (max-width: 959px) { .distribution-nodes { grid-template-columns: 1fr; } .distribution-link { grid-auto-flow: column; justify-content: center; } .distribution-link span { white-space: normal; } }
+    .developer-band { background: #223347; color: #dbe6f2; padding: 76px 0; }
+    .developer-band h2 { color: white; }
+    .developer-band .eyebrow { color: #9cbbd7; }
+    .developer-intro { display: grid; grid-template-columns: 1fr 1fr; gap: 76px; }
+    .developer-intro > div > p:not(.eyebrow) { margin-top: 20px; color: #b8c9d9; font-size: 15px; }
+    .developer-band .button { background: #e9f4ff; color: #223347; border-color: #e9f4ff; }
+    .developer-band .button:hover { background: white; }
+    .developer-band .text-link { color: #afd5ff; }
+    .doc-paths { margin: 0; }
+    .doc-paths a { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 21px 0; border-bottom: 1px solid #43576b; text-decoration: none; }
+    .doc-paths a:first-child { border-top: 1px solid #43576b; }
+    .doc-paths a:hover strong { text-decoration: underline; }
+    .doc-paths strong { display: block; color: white; font-size: 16px; }
+    .doc-paths small { display: block; margin-top: 5px; color: #b8c9d9; font-size: 12px; }
+    .developer-band .try { max-width: 460px; border-color: #43576b; color: #b8c9d9; }
+    .developer-band .try span { color: #b8c9d9; }
+    .start-section { padding: 76px 0; }
+    .start-heading { display: grid; grid-template-columns: 1fr 1fr; gap: 76px; align-items: end; }
+    .start-heading > p { color: var(--muted); font-size: 15px; }
+    .example-list { margin-top: 32px; border-top: 1px solid var(--line); }
+    .example-list a { display: grid; grid-template-columns: 48px 1fr 1fr 24px; gap: 24px; align-items: center; padding: 26px 12px; border-bottom: 1px solid var(--line); text-decoration: none; }
+    .example-list a:hover { background: var(--panel); }
+    .example-list .topic-icon { width: 26px; height: 26px; color: #247bca; }
+    .example-list strong { font-size: 16px; color: var(--ink); }
+    .example-list small { display: block; margin-top: 3px; font-size: 10px; font-weight: 400; color: var(--muted); }
+    .example-list p { font-size: 13px; color: var(--muted); }
+    .start-section .actions { justify-content: space-between; }
+    .limits { padding: 40px 0 56px; border-top: 1px solid var(--line-soft); }
+    .limits h2 { font-size: 25px; }
+    .limits > p { color: var(--muted); font-size: 13px; max-width: 850px; margin-top: 18px; }
+    .limits details { margin-top: 22px; max-width: 850px; font-size: 13px; color: var(--muted); }
+    .limits summary { cursor: pointer; color: var(--ink); }
+    .limits details p { margin-top: 14px; }
+    footer { border-top: 1px solid var(--line); padding: 30px 0; color: var(--muted); font-size: 11px; }
+    .footer-top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 20px; }
+    .footer-brand { color: var(--ink); font-size: 20px; font-weight: 700; letter-spacing: -.05em; }
+    .footer-links { display: flex; flex-wrap: wrap; gap: 12px 24px; }
+    .footer-links a { text-decoration: none; }
+    .footer-links a:hover { text-decoration: underline; }
+    [hidden] { display: none !important; }
+    @media (max-width: 900px) {
+      .feature, .journal-heading, .support, .developer-intro, .start-heading { gap: 36px; }
+      .workspace-body { padding: 64px 48px 24px 24px; }
+      .workspace-flow { grid-template-columns: 1fr 42px 1fr 42px 1fr; }
+      .workspace-node { padding: 16px; }
+      .workspace-journal code { display: none; }
+      .visual, .event-schema { padding: 22px; }
+      .replay-layout { gap: 22px; }
+    }
+    @media (max-width: 640px) {
+      .hero { padding-top: 44px; }
+      .hero .eyebrow { font-size: 9px; letter-spacing: .08em; }
+      .lead { font-size: 15px; margin-top: 20px; }
+      .hero .actions { gap: 10px; }
+      .button { font-size: 12px; gap: 12px; padding: 10px 14px; }
+      .workspace-figure { margin-top: 32px; }
+      .workspace-bar { padding: 12px 15px; font-size: 10px; }
+      .workspace-bar > span:last-child { font-size: 8px; }
+      .workspace-body { padding: 58px 44px 22px 18px; }
+      .workspace-flow { grid-template-columns: 1fr; }
+      .connector { height: 64px; width: 1px; margin: 0 auto; }
+      .connector::before { top: calc(var(--delivery, 0) * 100%); left: -3px; }
+      .connector::after { top: auto; bottom: 0; left: -3px; transform: rotate(135deg); }
+      .workspace-team { grid-template-columns: 1fr; gap: 64px; }
+      .workspace-team .workspace-node { padding: 12px; }
+      .workspace-team .node-heading { flex-wrap: wrap; gap: 8px; font-size: 12px; }
+      .workspace-node p, .workspace-node small { font-size: 11px; }
+      .workspace-node small { margin-top: 9px; padding-top: 9px; }
+      .node-badge { margin-top: 9px; }
+      .canvas-app { min-height: 0; }
+      .app-lines { grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 12px; }
+      .app-lines span { font-size: 10px; padding: 6px; }
+      .workspace-journal { padding: 10px 12px; font-size: 10px; margin-top: 16px; }
+      .workspace-journal > span { text-align: right; }
+      .workspace-figure figcaption { font-size: 10px; }
+      .section-heading { padding: 44px 0 0; }
+      .section-heading p:last-child { font-size: 14px; }
+      .feature, .support, .developer-intro, .start-heading, .journal-heading { grid-template-columns: 1fr; gap: 28px; }
+      .feature, .support { padding: 44px 0; }
+      .feature-copy > p:not(.eyebrow):not(.try):not(.feature-benefit) { font-size: 14px; }
+      .eyebrow { margin-bottom: 14px; }
+      .try { margin-top: 20px; }
+      .journal-section, .developer-band, .start-section { padding: 48px 0; }
+      .journal-demo { padding: 20px; }
+      .replay-layout { grid-template-columns: 1fr; }
+      .replay-controls { gap: 8px; }
+      .replay-controls button { padding: 8px 10px; font-size: 11px; }
+      .step-count { width: 100%; margin: 8px 0 0; }
+      .replay-events li { padding: 10px 0; gap: 10px; font-size: 11px; }
+      .replay-events li[aria-current="step"] { padding-left: 10px; }
+      .projection { padding: 18px; }
+      .example-list a { grid-template-columns: 30px 1fr 18px; gap: 10px 16px; padding: 22px 0; }
+      .example-list p { grid-column: 2; font-size: 12px; }
+      .example-list a > .link-icon { grid-column: 3; grid-row: 1 / 3; }
+      .start-section .actions { justify-content: flex-start; }
+      .limits { padding: 32px 0; }
+      .footer-links { gap: 12px 18px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition: none !important; } }
+    @media print { .hero, .feature, .journal-section, .support, .developer-band, .start-section { padding-block: 25px; } .hero { background: white; } .actions, .replay-controls { display: none; } .workspace, .visual, .journal-demo { box-shadow: none; break-inside: avoid; } .developer-band { color: #223347; background: white; } .developer-band :is(h2, p, a, strong, small) { color: #223347 !important; } }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+    .hero { isolation: isolate; background: radial-gradient(ellipse at 48% 64%, #d9ecff 0, #f4f9ff 48%, #fff 80%); }
+    .hero-aura { position: absolute; inset: 0; overflow: hidden; z-index: -1; pointer-events: none; }
+    .hero-aura::before { content: ''; position: absolute; width: 840px; height: 840px; top: -210px; left: calc(50% - 420px); border: 1px solid #b6d9fa50; border-radius: 50%; box-shadow: 0 0 0 110px #b6d9fa12, 0 0 0 220px #b6d9fa0c; }
+    .hero-aura span { position: absolute; width: 380px; height: 380px; border-radius: 50%; filter: blur(70px); opacity: .48; background: #b4d9ff; top: 160px; left: -200px; }
+    .hero-aura span + span { top: 350px; left: auto; right: -200px; background: #adf1e0; }
+    .hero-copy { position: relative; z-index: 1; }
+    .hero h1 { font-size: clamp(40px, 5.8vw, 80px); letter-spacing: -.055em; }
+    .hero h1 span { color: #247bca; background: linear-gradient(110deg, #1769b1 15%, #2a94fa 50%, #238f99 90%); background-clip: text; -webkit-text-fill-color: transparent; }
+    .hero .button { box-shadow: 0 9px 24px #22334716; }
+    .hero .button.secondary { box-shadow: 0 6px 16px #22334708; }
+    .workspace-figure { transform-origin: center top; }
+    .workspace { box-shadow: 0 40px 85px -35px #53445455, 0 2px 12px #5146570a; }
+    .story-art { position: relative; width: 100%; height: 410px; min-width: 0; margin: 0; }
+    .story-scene > figcaption { position: absolute; inset: auto 26px 28px; color: #bed3e4; text-align: center; font-size: 9px; margin: 0; text-wrap: balance; }
+    .story-art svg { display: block; }
+    .feature { gap: 90px; padding-block: 90px; }
+    .feature-copy h2 { font-size: clamp(30px, 3.25vw, 43px); letter-spacing: -.045em; }
+    .feature > .visual { position: relative; padding: 40px; border-radius: 20px; box-shadow: 0 24px 50px -30px #477ba733; }
+    .feature > .visual::before { content: ''; position: absolute; inset: -14px 16px 14px -14px; z-index: -1; border: 1px solid #cbdff2; border-radius: 24px; transform: rotate(-3deg); }
+    .feature:nth-of-type(even) > .visual::before { transform: rotate(3deg); }
+    .feature-benefit { margin-top: 16px; color: #285bd7; font-size: 18px; font-weight: 600; line-height: 1.5; letter-spacing: -.015em; }
+    .feature-benefits { margin: 16px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+    .feature-benefits li { position: relative; padding-left: 30px; color: #285bd7; font-size: 18px; font-weight: 600; line-height: 1.5; letter-spacing: -.015em; }
+    .feature-benefits li::before { content: ""; position: absolute; left: 0; top: .28em; width: 18px; height: 18px; border-radius: 50%; background: #285bd7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 12px no-repeat; }
+    .feature-copy, .feature > .visual, .event-schema, .journal-demo, .support-visual, .doc-paths, .example-list { transform-origin: center; }
+    .section-heading { padding-top: 90px; }
+    .section-heading h2 { font-size: clamp(35px, 4vw, 52px); }
+    .developer-band { position: relative; isolation: isolate; overflow: hidden; background: #172c41; padding-block: 96px; }
+    .developer-band::before { content: ''; position: absolute; z-index: -1; width: 900px; height: 900px; right: -400px; top: -450px; border: 1px solid #537d9944; border-radius: 50%; box-shadow: 0 0 0 80px #537d9909, 0 0 0 160px #537d9909; background: radial-gradient(ellipse, #2a638733, transparent 65%); }
+    .developer-band h2 { font-size: clamp(32px, 4vw, 49px); }
+    .doc-paths a .link-icon, .text-link .link-icon, .button .link-icon { transition: transform .2s ease; }
+    :is(.doc-paths a, .text-link, .button):hover .link-icon { transform: translateX(4px); }
+    .hero { padding-block: 78px 0; }
+    .hero-copy { max-width: 850px; }
+    .lead { max-width: 660px; }
+    .feature-story { padding-top: 58px; padding-bottom: 70px; }
+    .story-intro { display: grid; grid-template-columns: 1fr 1fr; column-gap: 76px; align-items: end; padding-bottom: 32px; }
+    .story-intro .eyebrow { grid-column: 1 / -1; margin-bottom: 16px; }
+    .story-intro h2 { font-size: clamp(28px, 3.2vw, 40px); }
+    .story-intro > p:last-child { color: var(--muted); font-size: 15px; max-width: 430px; }
+    .story-step { position: relative; display: block; padding-block: 48px; }
+    .story-step .feature-copy h3 { font-size: clamp(30px, 3.4vw, 46px); }
+    .story-step .feature-copy > .concept-intro { font-size: 17px; line-height: 1.8; margin-top: 24px; }
+    #actor-views .feature-benefits li { color: #277257; }
+    #actor-views .feature-benefits li::before { background-color: #277257; }
+    .story-step .technical { font-size: 13px; }
+    .story-step .technical[open] { padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+    .anchor-alias { position: absolute; top: 0; }
+    .story-scene { --scene-accent: #8dcaff; position: relative; display: flex; flex-direction: column; justify-content: center; width: 100%; min-width: 0; min-height: 570px; padding: 84px 38px 72px; isolation: isolate; overflow: hidden; border: 1px solid #355069; border-radius: 20px; background: #142639; color: #e4effa; box-shadow: 0 30px 65px -42px #16364c99; }
+    .scene-code { --scene-accent: #c6deff; background: #1d4f9b; border-color: #3974c7; }
+    .scene-apps { --scene-accent: #89e6c7; background: #153b3d; border-color: #295953; }
+    .scene-heading { position: absolute; inset: 28px 30px auto; display: flex; justify-content: space-between; gap: 16px; color: #bed3e4; font: 9px var(--mono); letter-spacing: .05em; text-transform: uppercase; }
+    .scene-heading > span:last-child { color: var(--scene-accent); }
+    .story-art { height: 380px; flex: none; }
+    .story-drawing { position: relative; width: 100%; height: 100%; }
+    .motion-line { fill: none; stroke: var(--scene-accent, #43856a); stroke-width: 1.8; stroke-dasharray: 1; }
+    .motion-packet { fill: #fff; stroke: var(--scene-accent, #43856a); stroke-width: 2; opacity: 0; }
+    .story-nav { position: absolute; inset: auto 0 6px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .story-nav a { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; padding: 9px 8px; border: 1px solid transparent; border-radius: 7px; color: var(--muted); font-size: 12px; text-decoration: none; }
+    .story-nav a > span { font: 9px var(--mono); }
+    .story-nav a:hover { background: var(--surface); }
+    .story-nav a[aria-current] { color: var(--ink); background: #eaf0ff; border-color: #c8d6f2; }
+    .story-progress { position: absolute; bottom: 0; height: 2px; inset-inline: 0; background: var(--line-soft); overflow: hidden; }
+    .story-progress > span { display: block; width: 100%; height: 100%; background: linear-gradient(90deg, #285bd7, #277257); transform: scaleX(0); transform-origin: left; }
+    .feature-story[data-pinned] .story-layout { display: grid; grid-template-columns: .85fr 1.15fr; gap: 64px; align-items: start; }
+    .feature-story[data-pinned] .story-steps { min-width: 0; }
+    .feature-story[data-pinned] .story-step { display: flex; min-height: calc(100svh - var(--header-height, 80px) - 40px); padding-block: 100px; }
+    .feature-story[data-pinned] .story-step:last-child { min-height: calc(100svh - var(--header-height, 80px)); }
+    .feature-story[data-pinned] .story-step .feature-copy { width: 100%; }
+    .interface-section { padding-block: 74px; background: linear-gradient(180deg, #f0f5fa, #f8fafc); border-block: 1px solid var(--line-soft); }
+    .interface-intro { display: grid; grid-template-columns: 1fr 1fr; column-gap: 76px; align-items: start; max-width: none; margin: 0; text-align: left; }
+    .interface-intro .eyebrow { grid-column: 1 / -1; margin: 0 0 16px; }
+    .interface-intro h2 { font-size: clamp(30px, 3.4vw, 42px); }
+    .interface-text > p { margin-top: 0; }
+    .interface-text > p + p { margin-top: 16px; }
+    .interface-text > .text-link { margin-top: 20px; }
+    html[data-homepage-motion] .masthead::after { content: ''; position: absolute; bottom: 0; height: 2px; inset-inline: 0; background: linear-gradient(90deg, #285bd7, #4ba895); transform: scaleX(var(--reading-progress, 0)); transform-origin: left; }
+    @media (max-height: 739px) {
+      .feature-story[data-pinned] .story-step { padding-block: 64px; }
+    }
+    @media (max-height: 639px) {
+    }
+    @media (max-width: 1100px) {
+      .story-step, .feature-story[data-pinned] .story-layout { gap: 38px; }
+      .story-scene { padding-inline: 24px; }
+      .story-art { height: 340px; }
+      .feature { gap: 48px; }
+      .feature > .visual { padding: 28px; }
+    }
+    @media (max-width: 959px) {
+      .story-intro, .interface-intro { column-gap: 36px; }
+      .story-step { grid-template-columns: 1fr 1fr; gap: 30px; }
+      .story-scene { min-height: 490px; padding-inline: 22px; }
+      .story-art { height: 300px; }
+    }
+    @media (max-width: 700px) {
+      .hero { padding-top: 48px; }
+      .hero h1 { font-size: clamp(36px, 8vw, 54px); }
+      .hero-aura::before { width: 540px; height: 540px; left: calc(50% - 270px); top: -40px; box-shadow: 0 0 0 65px #b6d9fa12; }
+      .feature-story { padding-block: 42px; }
+      .story-intro, .story-step, .interface-intro { grid-template-columns: 1fr; gap: 20px; }
+      .story-intro { padding-bottom: 4px; }
+      .story-intro .eyebrow, .interface-intro .eyebrow { margin: 0; }
+      .story-intro > p:last-child { font-size: 14px; }
+      .story-step { padding-block: 42px; gap: 30px; border-bottom: 1px solid var(--line-soft); }
+      .story-step:last-child { border-bottom: 0; padding-bottom: 0; }
+      .story-step .feature-copy h3 { max-width: 450px; font-size: 32px; }
+      .story-step .feature-copy > .concept-intro { font-size: 15px; }
+      .story-scene { min-height: 0; padding: 74px 26px 92px; }
+      .story-art { width: min(430px, 100%); height: 305px; align-self: center; }
+      .scene-heading { inset: 24px 24px auto; font-size: 8px; }
+      .story-scene > figcaption { font-size: 8px; }
+      .interface-section { padding-block: 48px; }
+      .interface-intro > p:last-child { font-size: 14px; }
+      .feature { padding-block: 55px; gap: 30px; }
+      .feature > .visual { padding: 24px; }
+      .feature > .visual::before { inset: -8px 10px 8px -6px; }
+      .section-heading { padding-top: 50px; }
+      .developer-band { padding-block: 55px; }
+    }
+    @media (max-width: 360px) {
+      .story-scene { padding-inline: 20px; }
+      .story-art { height: 280px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .hero-copy, .workspace-figure, .story-art { transform: none !important; }
+      html[data-homepage-motion] .masthead::after { display: none; }
+    }
+    @media print {
+      .hero-aura { display: none !important; }
+      .story-step { break-inside: avoid; grid-template-columns: 1fr 1fr; min-height: 0; }
+      .story-scene { box-shadow: none; print-color-adjust: exact; }
+      .feature { padding-block: 30px; }
+    }
+
+    .hero { padding: 0 0 72px; background: none; }
+    .hero-aura { background: radial-gradient(ellipse at 48% 64%, #d9ecff 0, #f4f9ff 48%, #fff 80%); mask-image: linear-gradient(to bottom, #000 calc(100% - 160px), transparent); }
+    .hero-board { position: relative; min-height: 595px; padding: 112px 84px 148px; }
+    .hero-copy { max-width: 850px; }
+    .hero h1 { font-size: clamp(42px, 4.6vw, 64px); line-height: 1.08; }
+    .hero .lead { max-width: 590px; font-size: 17px; }
+    .feature-stickers { position: absolute; inset: 0; pointer-events: none; }
+    .feature-sticker { position: absolute; display: flex; align-items: center; gap: 17px; padding: 15px 23px; color: #233447; border: 1.5px solid #233447; border-radius: 5px 18px 5px 18px; box-shadow: 4px 6px 0 #23344716, 0 14px 25px -19px #12273790; text-decoration: none; pointer-events: auto; transform: rotate(var(--sticker-angle)); transition: transform .18s ease, box-shadow .18s ease; }
+    .feature-sticker:hover, .feature-sticker:focus-visible { transform: rotate(0deg) translateY(-3px); box-shadow: 4px 9px 0 #23344720; }
+    .feature-sticker strong { font-size: 20px; font-weight: 750; line-height: 1.15; letter-spacing: -.035em; }
+    .feature-sticker svg { flex: 0 0 33px; width: 33px; height: 33px; }
+    .sticker-symbol { flex-shrink: 0; white-space: nowrap; font: 650 29px/1 var(--mono); letter-spacing: -.09em; }
+    .sticker-setups { --sticker-angle: -6deg; left: 16px; top: 22px; background: #ffdd68; }
+    .sticker-apps { --sticker-angle: 5deg; right: 22px; top: 23px; background: #a7e8d4; border-radius: 16px 4px 16px 4px; }
+    .sticker-agents { --sticker-angle: -4deg; left: 62px; bottom: 26px; background: #c2ddff; }
+    .sticker-workflows { --sticker-angle: 5deg; right: 55px; bottom: 29px; background: #e2ccff; }
+    .sticker-journal { --sticker-angle: -2deg; left: calc(50% - 115px); bottom: 15px; background: #fffef7; border-style: dashed; }
+    .sticker-journal strong { font-size: 18px; }
+    .sticker-distributed { --sticker-angle: -3deg; left: 24px; top: calc(50% - 4px); background: #ffd9c4; border-radius: 16px 4px 16px 4px; }
+    .sticker-clients { --sticker-angle: 3deg; right: 24px; top: calc(50% - 4px); background: #d7efff; }
+    .story-nav { grid-template-columns: repeat(4, 1fr); }
+    .scene-setups { background: linear-gradient(145deg, #faf5ff, #ece4f6); border-color: #cbb7df; }
+    .scene-setups .scene-heading, .scene-setups > figcaption { color: #6d547f; }
+    .scene-setups .scene-heading > span:last-child { color: #7f569f; }
+    .scene-apps { background: radial-gradient(ellipse at 80% 10%, #dcf6ec, #aed3cc); border-color: #95bbb3; padding: 70px 26px 78px; }
+    .scene-apps .scene-heading, .scene-apps > figcaption { color: #3b6155; }
+    .scene-apps .scene-heading > span:last-child { color: #3b6155; }
+    .mini-app-window { display: flex; flex-direction: column; width: 100%; height: auto; flex: none; min-height: 0; overflow: hidden; border: 1.5px solid #304b42; border-radius: 10px; box-shadow: 0 14px 32px -12px #173e4744; background: #fafcfb; }
+    .mini-app-window-bar { display: flex; flex: 0 0 35px; align-items: center; gap: 9px; padding: 0 14px; color: #263c33; background: #e8f0eb; border-bottom: 1px solid #b5c9bd; font-size: 11px; }
+    .mini-app-window-bar > span:last-child { margin-left: auto; font: 9px var(--mono); color: #527263; }
+    .mini-app-status-dot { width: 6px; height: 6px; border-radius: 50%; background: #468064; }
+    .sample-scene { padding: 70px 26px 78px; }
+    .sample-scene > figcaption a { color: inherit; }
+    .mini-app-demo, .sample-demo { display: block; width: 100%; flex: none; min-height: 0; border: 0; background: #fafcfb; }
+    @media (max-width: 1100px) {
+      .hero-board { min-height: 0; padding: 80px 30px 60px; }
+      .feature-stickers { position: relative; inset: auto; display: flex; flex-wrap: wrap; justify-content: center; gap: 15px 14px; margin: 35px 5px 0; }
+      .feature-sticker { position: relative; inset: auto; padding: 12px 16px; gap: 10px; }
+      .feature-sticker strong, .sticker-journal strong { font-size: 17px; }
+    }
+    @media (max-width: 959px) {
+      .scene-apps .mini-app-window { height: auto; flex: none; }
+      .scene-apps { min-height: 530px; }
+    }
+    @media (max-width: 700px) {
+      .hero { padding-bottom: 48px; }
+      .hero-board { min-height: 0; padding: 45px 0 36px; }
+      .hero h1 { font-size: clamp(34px, 7.8vw, 45px); }
+      .hero .lead { font-size: 15px; }
+      .feature-sticker { width: calc(50% - 7px); padding: 12px; gap: 9px; }
+      .feature-sticker strong, .sticker-journal strong { font-size: 16px; }
+      .feature-sticker svg { width: 25px; height: 25px; flex-basis: 25px; }
+      .sticker-symbol { font-size: 18px; }
+      .sticker-setups strong { font-size: 15px; }
+      .scene-apps { padding: 65px 16px 83px; min-height: 0; }
+      .scene-apps .scene-heading { inset-inline: 18px; }
+      .scene-apps > figcaption { inset-inline: 18px; font-size: 10px; }
+    }
+
+
+    .story-layout { display: grid; grid-template-columns: .85fr 1.15fr; gap: 72px 64px; align-items: start; }
+    .story-steps, .story-stage, .story-scenes { display: contents; }
+    #setups, [data-story-scene="setups"] { --story-index: 0; }
+    #agents, [data-story-scene="agents"] { --story-index: 1; }
+    #programming, [data-story-scene="programming"] { --story-index: 2; }
+    #actor-views, [data-story-scene="actor-views"] { --story-index: 3; }
+    .story-step { grid-column: 1; grid-row: calc(var(--story-index) + 1); padding-top: 28px; }
+    .story-scene { grid-column: 2; grid-row: calc(var(--story-index) + 1); }
+    .story-nav, .story-progress { display: none; }
+    .feature-story[data-pinned] .story-steps { display: block; grid-area: 1 / 1; }
+    .feature-story[data-pinned] .story-stage { display: block; grid-area: 1 / 2; position: sticky; top: calc(var(--header-height, 80px) + 24px); width: 100%; height: var(--preview-stage-height, 650px); }
+    .feature-story[data-pinned] .story-scenes { display: block; position: absolute; inset: 0 0 66px; overflow: hidden; border: 1px solid #b9c5d3; border-radius: 20px; background: #f3eff7; box-shadow: 0 30px 65px -42px #16364c99; }
+    .feature-story[data-pinned] .story-scene { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; border: 0; border-radius: 0; box-shadow: none; }
+    .feature-story[data-pinned] .story-art { flex: 1; width: 100%; height: 100%; min-height: 0; }
+    .feature-story[data-pinned] .story-drawing { scale: none; }
+    .feature-story[data-pinned] .mini-app-window { height: auto; }
+    .feature-story[data-pinned] .story-step { min-height: max(calc(100svh - var(--header-height, 80px)), calc(var(--preview-stage-height, 650px) + 48px)); }
+    .feature-story[data-pinned] .story-nav { display: grid; }
+    .feature-story[data-pinned] .story-progress { display: block; }
+    @media (max-width: 1100px) { .story-layout { column-gap: 38px; } }
+    @media (max-width: 700px) {
+      .story-layout { grid-template-columns: 1fr; gap: 30px; }
+      .story-step { grid-column: 1; grid-row: calc(var(--story-index) * 2 + 1); padding-bottom: 0; border: 0; }
+      .story-scene { grid-column: 1; grid-row: calc(var(--story-index) * 2 + 2); margin-bottom: 12px; }
+    }
+    @media (max-height: 599px) {
+      .feature-story[data-pinned] .story-scene { padding: 48px 20px 63px; }
+      .feature-story[data-pinned] .scene-heading { inset: 17px 20px auto; }
+      .feature-story[data-pinned] .scene-sequence { inset: auto 20px 36px; }
+      .feature-story[data-pinned] .story-scene > figcaption { inset: auto 20px 13px; font-size: 8px; }
+    }
+    @media print {
+      .story-steps, .story-stage, .story-scenes { display: contents !important; }
+      .story-nav, .story-progress { display: none !important; }
+    }
+
+.action-scene { container-type: inline-size; }
+.action-visual { width: 100%; max-width: 550px; min-width: 0; margin-inline: auto; font: 12px/1.35 var(--font, system-ui); }
+.action-visual * { box-sizing: border-box; }
+.action-visual :is(p, ol, ul) { margin: 0; }
+.action-visual strong { font-weight: 650; }
+.action-visual small { font-size: 11px; }
+.action-summary { position: absolute; inset: auto 20px 44px; min-height: 18px; text-align: center; font: 11px/1.35 var(--font, system-ui); }
+.action-summary > span { display: block; }
+.scene-setups .action-summary { color: #634879; }
+.action-summary > span + span { position: absolute; inset: 0; }
+.action-summary [data-build-status="working"] { opacity: 0; }
+.action-scene > figcaption { inset: auto 20px 15px; font-size: 10px; line-height: 1.35; }
+.file-mark { display: inline-grid; flex: 0 0 26px; width: 26px; height: 26px; place-items: center; border: 1px solid currentColor; border-radius: 4px; font: 700 11px/1 var(--mono, monospace); }
+
+.setup-build { display: grid; grid-template-columns: minmax(185px, .9fr) minmax(0, 1.2fr); gap: 20px; color: #493857; }
+.build-recipe { align-self: center; border-left: 2px solid #b29fc5; padding-left: 12px; }
+.recipe-title { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.recipe-lines { list-style: none; padding: 10px 0; display: grid; gap: 5px; }
+.recipe-lines li { display: flex; align-items: center; gap: 8px; padding: 9px 4px; border-radius: 5px; background: transparent; }
+.recipe-lines li > div { min-width: 0; }
+.recipe-lines code { display: block; font: 600 10.5px/1.4 var(--mono, monospace); overflow-wrap: anywhere; color: #63447f; }
+.recipe-lines li div > span { display: block; margin-top: 3px; font-size: 11px; }
+.line-number { flex: 0 0 15px; color: #8f769f; font: 11px var(--mono, monospace); }
+.recipe-source { color: #7b678a; font-size: 10px; }
+.recipe-source code { font-size: inherit; }
+.built-workspace { display: grid; gap: 7px; align-self: center; }
+.build-owner { display: flex; align-items: center; gap: 9px; }
+.build-owner strong { display: block; font-size: 14px; }
+.build-owner small { display: block; color: #7b678a; }
+.person-symbol { display: grid; flex: 0 0 30px; width: 30px; height: 30px; place-items: center; border-radius: 50%; background: #e0d3ed; }
+.person-symbol svg { width: 19px; height: 19px; fill: none; stroke: #77528e; stroke-width: 1.7; }
+.build-binding { position: relative; display: flex; flex-wrap: wrap; column-gap: 5px; padding-left: 21px; font-size: 10px; }
+.build-binding code { font: 600 11px var(--mono, monospace); }
+.binding-line { position: absolute; left: 14px; top: -7px; bottom: -7px; width: 7px; border-left: 1px solid #b49ac5; }
+.built-list { position: relative; z-index: 1; min-width: 0; padding: 10px; background: #fcfefd; color: #284941; border: 1.5px solid #789a8d; border-radius: 7px; box-shadow: 0 5px 0 #d6ccdf; }
+.built-list-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 4px; font-size: 12px; }
+.built-list-heading > span { color: #638074; font-size: 10px; }
+.built-list-tools { display: flex; align-items: center; gap: 6px; margin: 9px 0; font-size: 10px; color: #668176; }
+.built-list-tools > span { flex: 1; padding: 4px 6px; border: 1px solid #9fb5ac; border-radius: 0 4px 0 0; }
+.built-list-tools b { display: grid; place-items: center; width: 23px; height: 23px; color: #283c33; border: 1.5px solid #283c33; border-radius: 0 5px 0 5px; background: #f1d652; font-size: 16px; }
+.built-list-entry { display: flex; align-items: center; gap: 7px; min-height: 29px; padding: 7px 0 2px; border-top: 1px solid #d8e8e1; font-size: 12px; }
+.entry-check { color: #388066; }
+.entry-check svg { display: block; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.build-assignment { display: flex; gap: 7px; align-items: start; margin-top: 4px; color: #71587f; font-size: 10px; }
+.assignment-arrow { flex: 0 0 12px; height: 12px; margin-top: 2px; border-left: 1.5px solid #9a7fb0; border-bottom: 1.5px solid #9a7fb0; border-radius: 0 0 0 4px; }
+
+@container (max-width: 420px) {
+  .action-summary { display: none; }
+  .setup-build { grid-template-columns: 1fr; gap: 12px; }
+  .build-recipe { padding-left: 8px; }
+  .recipe-title { font-size: 11px; }
+  .recipe-title .file-mark { width: 21px; height: 21px; flex-basis: 21px; }
+  .recipe-lines { gap: 1px; padding: 5px 0 2px; }
+  .recipe-lines li { padding: 2px; gap: 5px; }
+  .recipe-lines li > div { display: flex; align-items: baseline; gap: 5px; }
+  .recipe-lines code { display: none; }
+  .recipe-lines li div > span { display: block; font-size: 12px; margin-top: 0; }
+  .recipe-source { font-size: 9px; }
+  .built-workspace { gap: 4px; }
+  .build-owner strong { font-size: 13px; }
+  .build-owner small { font-size: 10px; }
+  .build-binding { font-size: 9px; }
+  .built-list { padding: 8px 10px; }
+  .built-list-tools { margin: 5px 0; }
+  .built-list-entry { min-height: 27px; padding-top: 5px; }
+  .build-assignment { margin-top: 3px; font-size: 10px; }
+
+}
+@media (min-width: 960px) and (max-height: 650px) {
+  .action-summary { display: none; }
+  .recipe-lines { gap: 0; padding-block: 5px; }
+  .recipe-lines li { padding-block: 6px; }
+  .built-workspace { gap: 4px; }
+  .build-assignment { margin-top: 2px; }
+
+}
+
+    .concept-diagram { display: grid; width: 100%; gap: 18px; color: #29394a; }
+    .concept-card { padding: 16px; border: 1px solid #aebdcc; border-radius: 10px; background: #fff; box-shadow: 3px 4px 0 #24384d10; }
+    .concept-card strong, .concept-card small { display: block; }
+    .concept-card strong { font-size: 14px; }
+    .concept-card small { margin-top: 5px; color: #607286; font-size: 11px; line-height: 1.45; }
+    .concept-source { justify-self: center; min-width: 180px; text-align: center; border-color: #745c89; background: #f7f0fc; }
+    .concept-source code { display: block; color: #67467d; font-size: 12px; }
+    .concept-arrow { position: relative; height: 30px; color: #7890a6; }
+    .concept-arrow::before { content: ''; position: absolute; left: 50%; top: 0; bottom: 4px; border-left: 1px solid currentColor; }
+    .concept-arrow::after { content: ''; position: absolute; left: calc(50% - 4px); bottom: 2px; width: 7px; height: 7px; border: solid currentColor; border-width: 0 1px 1px 0; transform: rotate(45deg); }
+    .concept-outcomes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .agent-network { position: relative; min-height: 340px; }
+    .agent-network svg { position: absolute; inset: 0; width: 100%; height: 100%; color: #6f88a0; }
+    .agent-network > svg > path { fill: none; stroke: currentColor; stroke-width: 1.4; marker-end: url(#agent-arrow); }
+    .agent-node { position: absolute; display: grid; width: 126px; min-height: 74px; place-content: center; padding: 12px; border: 1px solid #6f8295; border-radius: 12px; background: #fff; color: #29394a; text-align: center; box-shadow: 3px 4px 0 #23344712; }
+    .agent-node strong { font-size: 13px; }
+    .agent-node small { margin-top: 4px; color: #65788a; font-size: 10px; }
+    .agent-node.coordinator { left: calc(50% - 63px); top: 14px; border-color: #745c89; background: #eee4f5; }
+    .agent-node.left { left: 6%; bottom: 22px; background: #e9f3ff; }
+    .agent-node.right { right: 6%; bottom: 22px; background: #f8e8df; }
+    .agent-message { position: absolute; padding: 4px 8px; border-radius: 999px; background: #f7f9fb; color: #526c83; font: 9px var(--mono); }
+    .agent-message.first { left: 16%; top: 44%; }
+    .agent-message.second { right: 15%; top: 44%; }
+    .agent-message.third { left: calc(50% - 47px); bottom: 12px; }
+    .typescript-flow { grid-template-columns: minmax(0, .9fr) 32px minmax(0, 1.1fr); align-items: center; }
+    .typescript-flow > .concept-arrow { height: 32px; }
+    .typescript-flow > .concept-arrow::before { left: 0; right: 5px; top: 50%; bottom: auto; border-top: 1px solid currentColor; border-left: 0; }
+    .typescript-flow > .concept-arrow::after { left: auto; right: 3px; bottom: calc(50% - 4px); transform: rotate(-45deg); }
+    .typescript-code { padding: 18px; border: 1px solid #476d9f; border-radius: 10px; background: #173f72; color: #eaf3ff; box-shadow: 4px 5px 0 #102d501f; }
+    .typescript-code span { display: block; margin-bottom: 12px; color: #9ec9ff; font: 10px var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+    .typescript-code code { display: block; white-space: pre-wrap; color: inherit; font-size: 11px; line-height: 1.65; }
+    .typescript-results { display: grid; gap: 9px; }
+    .typescript-results .concept-card { padding: 12px 14px; }
+    .mini-review { overflow: hidden; border: 1px solid #49675d; border-radius: 12px; background: #f9fcfb; color: #29394a; box-shadow: 4px 6px 0 #274f4316; }
+    .mini-review-bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid #c9d9d3; background: #e9f2ee; font-size: 11px; }
+    .mini-review-bar span { width: 7px; height: 7px; border-radius: 50%; background: #4f8b72; }
+    .mini-review-body { display: grid; grid-template-columns: .82fr 1.18fr; min-height: 260px; }
+    .review-files { padding: 14px; border-right: 1px solid #d4dfdb; background: #f3f7f5; }
+    .review-files strong { display: block; margin-bottom: 10px; font-size: 11px; }
+    .review-files span { display: block; padding: 7px 8px; border-radius: 5px; color: #52655e; font: 10px var(--mono); }
+    .review-files span.active { background: #dfece7; color: #284a3e; }
+    .review-main { display: flex; min-width: 0; flex-direction: column; padding: 14px; }
+    .review-summary { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; }
+    .review-badge { padding: 2px 7px; border-radius: 999px; background: #fae0d7; color: #91462e; font-size: 9px; }
+    .review-finding { margin-top: 12px; padding: 10px; border-left: 3px solid #d17555; background: #fff4ef; font-size: 10px; line-height: 1.5; }
+    .review-chat { margin-top: auto; padding-top: 12px; }
+    .review-chat p { padding: 8px 10px; border-radius: 8px 8px 2px 8px; background: #e8e0ef; color: #53425f; font-size: 10px; }
+    .review-input { display: flex; gap: 7px; margin-top: 8px; }
+    .review-input span { flex: 1; padding: 7px 9px; border: 1px solid #aabbb4; border-radius: 6px; color: #74827d; font-size: 9px; }
+    .review-input b { display: grid; width: 30px; place-items: center; border-radius: 6px; background: #30493f; color: white; font-size: 12px; }
+    .run-panel-diagram { overflow: hidden; margin-top: 32px; border: 1px solid #aeb7c5; border-radius: 14px; background: #f7f8fb; box-shadow: 0 24px 50px -34px #24374e66; }
+    .run-panel-top { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid #d4d8e0; background: #eceaf1; font-size: 12px; }
+    .run-panel-top span:last-child { margin-left: auto; color: #6f6876; font: 9px var(--mono); }
+    .run-panel-layout { display: grid; grid-template-columns: minmax(0, 1fr) 48px; min-height: 390px; }
+    .run-panel-main { display: grid; grid-template-rows: minmax(190px, 1fr) minmax(150px, .72fr); }
+    .run-panel-app { padding: 18px; border-bottom: 1px solid #d8dce4; background: #eef5f3; }
+    .run-panel-app > strong, .run-panel-chat > strong { display: block; margin-bottom: 12px; font-size: 12px; }
+    .run-panel-app-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+    .run-panel-app-grid span { min-height: 74px; padding: 10px; border: 1px solid #b9cbc5; border-radius: 7px; background: white; color: #50665e; font-size: 10px; }
+    .run-panel-chat { display: flex; flex-direction: column; padding: 16px 18px; background: white; }
+    .run-panel-chat p { max-width: 72%; padding: 9px 11px; border-radius: 9px 9px 9px 2px; background: #eee8f3; font-size: 10px; }
+    .run-panel-chat span { margin-top: auto; padding: 9px 11px; border: 1px solid #c7cbd4; border-radius: 7px; color: #78727f; font-size: 10px; }
+    .run-panel-rail { display: grid; align-content: start; gap: 8px; padding: 12px 8px; border-left: 1px solid #d4d8e0; background: #f0f1f5; }
+    .run-panel-rail span { display: grid; aspect-ratio: 1; place-items: center; border: 1px solid #c2c7d0; border-radius: 7px; background: white; color: #5c6571; font: 9px var(--mono); }
+    .journal-ledger { overflow: hidden; border: 1px solid #aab8c7; border-radius: 13px; background: #f7f9fb; }
+    .journal-ledger-header { display: flex; justify-content: space-between; gap: 12px; padding: 13px 16px; border-bottom: 1px solid #d5dce3; background: #eaf0f5; font-size: 11px; }
+    .journal-ledger ol { list-style: none; margin: 0; padding: 0; }
+    .journal-ledger li { display: grid; grid-template-columns: 34px minmax(135px, .8fr) 1fr; gap: 12px; padding: 12px 16px; border-bottom: 1px solid #e0e5ea; font-size: 11px; }
+    .journal-ledger li:last-child { border-bottom: 0; }
+    .journal-ledger code { color: #315f87; font-size: 10px; }
+    .journal-ledger li span:last-child { color: #687786; }
+    .runtime-map { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 54px 1fr; gap: 14px; align-items: stretch; margin-top: 8px; }
+    .runtime-map figcaption { grid-column: 1 / -1; }
+    .runtime-zone { padding: 20px; border: 1px solid #9eb0c0; border-radius: 13px; background: #fff; }
+    .runtime-zone.local { background: #edf6f3; border-color: #9abdaf; }
+    .runtime-zone > span { color: #52708a; font: 10px var(--mono); text-transform: uppercase; letter-spacing: .08em; }
+    .runtime-zone h3 { margin-top: 8px; font-size: 18px; }
+    .runtime-zone ul { margin: 15px 0 0; padding: 0; list-style: none; }
+    .runtime-zone li { padding: 7px 0; border-top: 1px solid #dce3e8; color: #607080; font-size: 11px; }
+    .runtime-link { display: grid; place-content: center; gap: 10px; color: #526f88; text-align: center; font: 9px var(--mono); }
+    .runtime-link::before, .runtime-link::after { content: ''; height: 1px; background: #8298aa; }
+    @media (max-width: 700px) {
+      .concept-outcomes, .typescript-flow, .mini-review-body, .runtime-map { grid-template-columns: 1fr; }
+      .typescript-flow > .concept-arrow { height: 24px; }
+      .typescript-flow > .concept-arrow::before { left: 50%; right: auto; top: 0; bottom: 4px; border-top: 0; border-left: 1px solid currentColor; }
+      .typescript-flow > .concept-arrow::after { left: calc(50% - 4px); right: auto; bottom: 2px; transform: rotate(45deg); }
+      .agent-network { min-height: 390px; }
+      .agent-node.left { left: 0; }
+      .agent-node.right { right: 0; }
+      .review-files { border-right: 0; border-bottom: 1px solid #d4dfdb; }
+      .run-panel-layout { min-height: 340px; }
+      .journal-ledger li { grid-template-columns: 28px 1fr; }
+      .journal-ledger li span:last-child { grid-column: 2; }
+      .runtime-link { grid-auto-flow: column; }
+    }
+
+  </style>
+  <link rel="stylesheet" href="site.css">
+  <script src="scroll-vendor.js" defer></script>
+  <script src="site.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="masthead shell">
+    <a class="brand" href="#main" aria-label="RAgents, back to top"><svg class="brand-icon" viewBox="0 0 28 28" fill="none" aria-hidden="true"><rect width="28" height="28" rx="8" fill="currentColor"/><path d="M8 19V9h6a3 3 0 0 1 0 6H8m6 0 5 4" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>RAgents</a>
+    <nav aria-label="Main navigation">
+      <a href="index.html">Product</a>
+      <a href="guide.html">Guide</a>
+    </nav>
+  </header>
+  <main id="main">
+    <!-- Sources: docs/spec/overview.md, plugins.md, core.md, run-modules.md; plugins/ragents.product, ragents.orchestration, ragents.actor-programs. -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-aura" aria-hidden="true"><span></span><span></span></div>
+      <div class="shell hero-board">
+        <div class="hero-copy" data-hero-copy>
+          <p class="eyebrow">A workshop for AI agents in the browser and in VS Code</p>
+          <h1 id="hero-title">Agents and mini-apps.<span>Programmable as a setup.</span></h1>
+          <p class="lead">Build your own environment for AI work with the right agents, programmed workflows, and mini-apps you can use directly. Open the same runs on the web or inside VS Code, with execution distributed between servers and workstations.</p>
+        </div>
+
+        <nav class="feature-stickers" aria-label="Core features">
+          <a class="feature-sticker sticker-setups" data-sticker href="#setups"><span class="sticker-symbol" aria-hidden="true">{ }</span><strong>Program<br>setups</strong></a>
+          <a class="feature-sticker sticker-apps" data-sticker href="#actor-views"><svg aria-hidden="true" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="22" height="20" rx="3"/><path d="M3 10h22M8 7h2m3 0h2M8 15h12m-12 5h8"/></svg><strong>Build<br>mini-apps</strong></a>
+          <a class="feature-sticker sticker-agents" data-sticker href="#agents"><svg aria-hidden="true" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2"><circle cx="14" cy="6" r="3"/><circle cx="6" cy="22" r="3"/><circle cx="22" cy="22" r="3"/><path d="M14 9v6H6v4m8-4h8v4"/></svg><strong>Agents talk<br>to agents</strong></a>
+          <a class="feature-sticker sticker-workflows" data-sticker href="#programming"><span class="sticker-symbol" aria-hidden="true">TS</span><strong>AI + deterministic<br>workflows</strong></a>
+          <a class="feature-sticker sticker-journal" data-sticker href="#journal"><svg aria-hidden="true" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h17v22H6a3 3 0 0 1 0-6h17M6 3a3 3 0 0 0-3 3v16m6-14h10m-10 5h10"/></svg><strong>Inspect the<br>journal</strong></a>
+          <a class="feature-sticker sticker-distributed" data-sticker href="#distributed"><svg aria-hidden="true" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="11" height="9" rx="2"/><rect x="15" y="16" width="11" height="9" rx="2"/><path d="M13 7.5h4v8.5M7.5 12v8.5H15"/></svg><strong>Work across<br>machines</strong></a>
+          <a class="feature-sticker sticker-clients" data-sticker href="#clients"><svg aria-hidden="true" viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="22" height="15" rx="2"/><path d="m8 9 3 2.5L8 14m5 0h5M10 24h8"/></svg><strong>Web and<br>VS Code</strong></a>
+        </nav>
+      </div>
+    </section>
+
+    <!-- Sources: docs/spec/overview.md, core.md, typescript-platform.md, run-modules.md; plugins/ragents.orchestration, ragents.actor-programs, ragents.reference. -->
+    <section class="feature-story shell" id="features" aria-labelledby="story-title">
+      <div class="story-intro"><p class="eyebrow">Core features</p><h2 id="story-title">From setup to shared work</h2><p>A setup brings the building blocks together. Agents handle subtasks, TypeScript defines workflows, and mini-apps make the results interactive.</p></div>
+      <div class="story-layout">
+        <div class="story-steps">
+        <!-- Sources: docs/spec/typescript-platform.md and plugins.md; plugins/ragents.reference, ragents.orchestration. -->
+      <article class="story-step" id="setups" data-core-feature aria-labelledby="setups-title">
+        <div class="feature-copy"><h3 id="setups-title">Setups</h3><ul class="feature-benefits"><li>Assemble a workspace for a task</li><li>Choose participants and capabilities</li><li>Reuse a setup for new tasks</li><li>Start with interfaces ready</li></ul><p class="concept-intro">A setup combines agents, functions, and mini-apps in one shared workspace and defines how the participants work together. Its structure lives in a TypeScript program, so a prepared setup can be started again for new tasks.</p><a class="text-link" href="guide-getting-started.html">Learn more about setups<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div>
+
+      </article>
+        <!-- Sources: docs/spec/core.md, profiles.md, and plugins.md; plugins/ragents.product, ragents.orchestration, ragents.overseer, ragents.processes, ragents.activity. -->
+        <article class="story-step" id="agents" data-core-feature aria-labelledby="agents-title">
+          <span class="anchor-alias" id="splash-agents"></span>
+          <div class="feature-copy"><h3 id="agents-title">Agents talk to agents</h3><ul class="feature-benefits"><li>Delegate tasks</li><li>Hand off results</li><li>Communicate with each other</li><li>Work in parallel</li></ul><p class="concept-intro">Each agent has its own model, history, and handle, so agents address one another directly, start helpers, and subscribe to events. An AI coordinator decides what happens next, TypeScript programs define fixed handoffs, and every conversation is recorded in the journal.</p><a class="text-link" href="guide-runtime.html">Learn more about agents<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div>
+
+        </article>
+        <!-- Sources: docs/spec/typescript-platform.md and core.md; plugins/ragents.orchestration, ragents.reference. -->
+        <article class="story-step" id="programming" data-core-feature aria-labelledby="programming-title">
+          <span class="anchor-alias" id="splash-code"></span>
+          <div class="feature-copy"><h3 id="programming-title">TypeScript as the AI's way of working</h3><ul class="feature-benefits"><li>Combine functions into workflows</li><li>Run one-off scripts that return results</li><li>Keep persistent programs with their own state</li><li>Fixed rules in code, judgment by the model</li></ul><p class="concept-intro">AI acts in RAgents by writing TypeScript. Functions are the capabilities of the environment, and code is how the AI combines them into reliable steps.</p><a class="text-link" href="guide-functions.html">Learn more about TypeScript<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div>
+
+        </article>
+        <!-- Sources: docs/spec/run-modules.md and plugins.md; plugins/ragents.actor-programs, ragents.reference. -->
+        <article class="story-step" id="actor-views" data-core-feature aria-labelledby="actor-views-title">
+          <span class="anchor-alias" id="splash-apps"></span>
+          <div class="feature-copy"><h3 id="actor-views-title">Mini-apps</h3><ul class="feature-benefits"><li>Work with AI on the same data</li><li>See state and agent changes</li><li>Change it with the right controls</li><li>Pass your input to the agent</li></ul><p class="concept-intro">A mini-app is a small interactive interface inside the workspace, such as a list, form, or result view. Humans and agents use the same functions and data, so chat and mini-app become two views of the same work.</p><a class="text-link" href="guide-programs.html">Learn more about mini-apps<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div>
+
+        </article>
+        </div>
+        <div class="story-stage">
+          <div class="story-scenes">
+<figure class="story-scene scene-setups" data-story-scene="setups" aria-labelledby="setup-caption">
+  <div class="scene-heading"><span>Setup structure</span><span>01 / 04</span></div>
+  <div class="concept-diagram">
+    <div class="concept-card concept-source"><code>setup.ts</code><strong>One reusable definition</strong><small>Selects participants, capabilities, and interfaces.</small></div>
+    <div class="concept-arrow" aria-hidden="true"></div>
+    <div class="concept-outcomes"><div class="concept-card"><strong>Agents</strong><small>Who works on the task</small></div><div class="concept-card"><strong>Functions</strong><small>What they are allowed to do</small></div><div class="concept-card"><strong>Mini-apps</strong><small>How people work with the result</small></div></div>
+  </div>
+  <figcaption id="setup-caption">A setup is the reusable definition of a workspace, not one particular run.</figcaption>
+</figure>
+<figure class="story-scene scene-agents" data-story-scene="agents" aria-labelledby="agents-caption">
+  <div class="scene-heading"><span>Agent communication</span><span>02 / 04</span></div>
+  <div class="agent-network" role="img" aria-label="A coordinator exchanges tasks and results directly with two agents, which can also communicate with each other">
+    <svg viewBox="0 0 520 340" aria-hidden="true"><defs><marker id="agent-arrow" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 7 3.5 0 7Z" fill="currentColor" stroke="none"/></marker></defs><path d="M226 89 C170 118 142 164 126 231"/><path d="M294 89 C350 118 378 164 394 231"/><path d="M154 274 C220 316 300 316 366 274"/><path d="M365 247 C300 205 220 205 155 247"/></svg>
+    <div class="agent-node coordinator"><strong>Coordinator</strong><small>delegates and combines</small></div>
+    <div class="agent-node left"><strong>Agent A</strong><small>owns a task and context</small></div>
+    <div class="agent-node right"><strong>Agent B</strong><small>works independently</small></div>
+    <span class="agent-message first">task</span><span class="agent-message second">task</span><span class="agent-message third">messages and results</span>
+  </div>
+  <figcaption id="agents-caption">Agents address one another by handle, delegate work, and pass results without routing every message through the user.</figcaption>
+</figure>
+<figure class="story-scene scene-code" data-story-scene="programming" aria-labelledby="typescript-caption">
+  <div class="scene-heading"><span>TypeScript composes the work</span><span>03 / 04</span></div>
+  <div class="concept-diagram typescript-flow">
+    <div class="typescript-code"><span>TypeScript</span><code>const result = await context.functions.review({ files });
+context.state.replace(result);</code></div>
+    <div class="concept-arrow" aria-hidden="true"></div>
+    <div class="typescript-results"><div class="concept-card"><strong>Function calls</strong><small>Typed access to files, tools, and services</small></div><div class="concept-card"><strong>Deterministic workflows</strong><small>Fixed order, conditions, and handoffs</small></div><div class="concept-card"><strong>Persistent actors</strong><small>State and reactions across messages</small></div><div class="concept-card"><strong>Mini-app state</strong><small>The same data becomes an interface</small></div></div>
+  </div>
+  <figcaption id="typescript-caption">AI writes ordinary TypeScript to combine typed functions, workflows, state, and user interfaces.</figcaption>
+</figure>
+<figure class="story-scene scene-apps" data-story-scene="actor-views" aria-labelledby="app-scene-caption">
+  <div class="scene-heading"><span>Mini-app and chat</span><span>04 / 04</span></div>
+  <div class="mini-review">
+    <div class="mini-review-bar"><span aria-hidden="true"></span><strong>Code review</strong></div>
+    <div class="mini-review-body"><aside class="review-files"><strong>Changed files</strong><span class="active">src/session.ts</span><span>src/journal.ts</span><span>tests/session.test.ts</span></aside><div class="review-main"><div class="review-summary"><strong>Review findings</strong><span class="review-badge">2 open</span></div><div class="review-finding"><strong>Possible lost update</strong><br>Two writes can use the same journal sequence.</div><div class="review-chat"><p>Agent: I found two issues and linked each one to the affected line.</p><div class="review-input"><span>Ask about the review...</span><b aria-hidden="true">+</b></div></div></div></div>
+  </div>
+  <figcaption id="app-scene-caption">A mini-app presents structured work while chat remains available for instructions and follow-up questions.</figcaption>
+</figure>
+          </div>
+          <nav class="story-nav" aria-label="Select a core feature"><a href="#setups" aria-current="step">Setups</a><a href="#agents">Agents</a><a href="#programming">TypeScript</a><a href="#actor-views">Mini-apps</a></nav>
+          <div class="story-progress" aria-hidden="true"><span></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sources: docs/spec/plugins.md, core.md; plugins/ragents.orchestration, ragents.actor-programs, ragents.reference. -->
+    <section class="interface-section" id="interface" aria-labelledby="interface-title"><div class="shell">
+        <!-- Sources: docs/spec/plugins.md and core.md; plugins/ragents.orchestration, ragents.actor-programs. -->
+        <div class="interface-intro"><p class="eyebrow">The interface</p><h2 id="interface-title">One focused run panel</h2><div class="interface-text"><p>A conversation with its participants, files, and results is called a run. Each run opens in one focused panel with a clear, consistent structure.</p><p>The selected mini-app and the chat share the main area. Workspace views such as documents, tasks, and diagnostics open from the rail on the right and can expand below the chat. In VS Code, a mini-app can also open in its own editor tab.</p><p>The same run panel works in the browser and in the VS Code extension, so the structure stays familiar in both places.</p><a class="text-link" href="guide-getting-started.html">Learn to use the run panel<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div></div>
+        <figure class="run-panel-diagram" aria-labelledby="workspace-caption">
+          <div class="run-panel-top"><strong>Code review</strong><span>RUN PANEL</span></div>
+          <div class="run-panel-layout"><div class="run-panel-main"><div class="run-panel-app"><strong>Mini-app</strong><div class="run-panel-app-grid"><span>Summary<br><b>3 files</b></span><span>Findings<br><b>2 open</b></span><span>Tests<br><b>18 passed</b></span></div></div><div class="run-panel-chat"><strong>Chat</strong><p>The review is ready. I found two issues and linked them to the affected lines.</p><span>Message the coordinator...</span></div></div><aside class="run-panel-rail" aria-label="Workspace views"><span>DOC</span><span>TODO</span><span>LOG</span><span>CODE</span></aside></div>
+          <figcaption id="workspace-caption">Current interface structure: one run, one main area, chat, and workspace views in the right rail.</figcaption>
+        </figure>
+            </div></section>
+    <div class="shell">
+      <!-- Sources: docs/spec/core.md, typescript-platform.md, and plugins.md; packages/ragents/src/runtime/journal.ts, domain/projection.ts; plugins/ragents.orchestration. -->
+      <section class="feature" id="journal" data-core-feature>
+        <div class="feature-copy"><p class="eyebrow">Events and journal</p><h2>One complete record of every run</h2><ul class="feature-benefits"><li>Trace every step of a run</li><li>Let results trigger the next step</li><li>Replay runs without model calls</li><li>Inspect every code snippet</li></ul><p class="concept-intro">Every task, response, function call, and state change becomes an ordered event in the journal, and RAgents rebuilds the run by replaying those events. Subscriptions deliver matching events to agents or TypeScript actors as new messages.</p><p class="concept-intro">An old or damaged journal blocks only the affected run and reports the cause.</p><a class="text-link" href="guide-runtime.html">Understand events and the journal<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div>
+        <figure class="journal-ledger" aria-labelledby="journal-caption"><div class="journal-ledger-header"><strong>Run journal</strong><span>ordered, append-only events</span></div><ol><li><span class="sequence">01</span><code>actor.input.enqueued</code><span>A task enters the coordinator's queue.</span></li><li><span class="sequence">02</span><code>turn.started</code><span>The coordinator starts handling the task.</span></li><li><span class="sequence">03</span><code>function.completed</code><span>A typed function returns its result.</span></li><li><span class="sequence">04</span><code>model.output.completed</code><span>The response is stored and becomes visible.</span></li><li><span class="sequence">05</span><code>turn.finished</code><span>The run is ready for the next input.</span></li></ol><figcaption id="journal-caption">The journal contains events from every participant in one sequence. Subscriptions can turn selected events into new inputs.</figcaption></figure>
+      </section>
+      <!-- Sources: docs/spec/typescript-platform.md and plugins.md; plugins/ragents.reference, ragents.orchestration. -->
+
+      <!-- Sources: docs/spec/plugins.md; plugins/ragents.ask, ragents.todo, ragents.documents, ragents.workspace, ragents.browser, ragents.lsp-typescript, ragents.lsp-roslyn, ragents.lsp-fsharp. -->
+      <section class="support" id="questions">
+        <div><p class="eyebrow">Questions and files</p><h2>Questions, documents, and code</h2><p>When an agent needs a decision, it can show a question with choices directly in its chat. Your response goes back to that agent so it can continue. Attach files to a chat and reopen them later. Every run has its own document store, shared document view, and task lists.</p><p>With a browser configured, agents can open a live web application, fill forms, click controls, capture browser errors, and create real screenshots. The captures remain in the run's documents.</p><p>Language servers inspect C#, F#, and TypeScript in the workspace. The diagnostics view shows whether each server is loading, ready, or failed.</p></div>
+        <div class="support-visual"><div><svg class="topic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v12H9l-5 4V4Zm4 4h8m-8 4h5"/></svg><span><strong>Questions</strong><small>Choose, respond, and continue the work</small></span></div><div><svg class="topic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h14v18H6a3 3 0 0 1 0-6h14M6 3a3 3 0 0 0-3 3v12m6-11h7m-7 4h7"/></svg><span><strong>Documents and files</strong><small>Keep results accessible throughout the run</small></span></div><div><svg class="topic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m8 6-6 6 6 6m8-12 6 6-6 6M14 3l-4 18"/></svg><span><strong>Code analysis</strong><small>Inspect code and find errors in TypeScript, C#, and F#</small></span></div></div>
+      </section>
+      <!-- Sources: docs/spec/plugins.md (workspace, sandbox functions and processes, model relay, profile distribution), profiles.md (server-provided profiles), core.md (moving a run to another server); docs/operations.md (working without a checkout, connecting to a server, moving a run); plugins/ragents.workspace, ragents.model-relay, ragents.profile-distribution, ragents.lsp-*; packages/workspace-executor; apps/vscode. -->
+      <section class="support" id="distributed" data-core-feature>
+        <div><p class="eyebrow">Distributed work</p><h2>Server and workstation form one system</h2><ul class="feature-benefits"><li>Keep coordination central</li><li>Run project tools where the files live</li><li>Share models without exposing keys</li><li>Hand out a profile with its plugin bundles</li><li>Move a run with its journal</li></ul><p class="concept-intro">The RAgents host owns the run, journal, agents, plugins, and model access, on a server or on the same machine as the project. The workspace executor provides files, shell commands, Git, processes, language servers, and the browser, beside the host or on a connected workstation.</p><p class="concept-intro">Plugins reach the workspace only through the run's executor, so the same plugin works unchanged on the server or on a workstation.</p><p class="concept-intro">A server can also hand its client profile to developers: the profile file and the finished plugin bundles it names. The local host starts them with its own web interface and builds nothing; it only needs the same host API as the server.</p><a class="text-link" href="guide-distributed.html">Learn more about distributed work<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div>
+        <figure class="runtime-map" aria-labelledby="distribution-caption"><div class="runtime-zone"><span>Server or local host</span><h3>RAgents host</h3><ul><li>Run engine and journal</li><li>Agents, plugins, and mini-apps</li><li>Profiles and model relay</li></ul></div><div class="runtime-link" aria-hidden="true"><span>typed workspace API</span></div><div class="runtime-zone local"><span>Server or workstation</span><h3>Workspace executor</h3><ul><li>Project files and Git</li><li>Shell commands and processes</li><li>TypeScript, C#, and F# language servers</li><li>Browser for web checks</li></ul></div><figcaption id="distribution-caption">The two parts may run together or across machines. The contract between them stays the same.</figcaption></figure>
+      </section>
+      <!-- Sources: docs/spec/plugins.md (web as plugin host, messaging layer), docs/operations.md (run panel and VS Code extension, agent operation, driving runs externally); apps/vscode, apps/web/src/panel, scripts/agent; plugins/ragents.orchestration. -->
+      <section class="support" id="clients" data-core-feature>
+        <div><p class="eyebrow">Web and VS Code</p><h2>Two interfaces, the same runs</h2><ul class="feature-benefits"><li>Switch between browser and editor</li><li>Use the web without installing a client</li><li>Open mini-apps in editor tabs</li><li>Offer the open folder as a workspace</li></ul><p class="concept-intro">The web interface provides the overview, start flow, run panel, chat, mini-apps, and workspace views. The VS Code extension adds servers, local profiles, runs, and templates to the editor and opens the same run panel, so a run works the same way in both.</p><a class="text-link" href="guide-clients.html">Learn more about Web and VS Code<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div>
+        <div class="support-visual"><div><svg class="topic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18v12H3V5Zm0 12 3 3h12l3-3M8 9h8m-8 4h5"/></svg><span><strong>Web</strong><small>Overview and full run panel in the browser</small></span></div><div><svg class="topic-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v16H4V4Zm0 5h16M9 9v11m-3-8 2 2-2 2"/></svg><span><strong>VS Code</strong><small>The same run panel plus editor tabs and project workspaces</small></span></div></div>
+      </section>
+    </div>
+    <!-- Try it: plugins/ragents.browser/skills/browser-testing; plugins/ragents.reference/skills/200-typescript-diagnostics. -->
+    <!-- Sources: docs/spec/plugins.md (build and ship a plugin; bundle, build tool and host API), profiles.md, run-modules.md; plugins/ragents.reference, ragents.product, ragents.actor-programs, ragents.model-relay, ragents.profile-distribution. -->
+    <section class="developer-band" id="plugins">
+      <div class="shell"><div class="developer-intro"><div><p class="eyebrow">Plugins and development</p><h2>Plugins and profiles</h2><p>A plugin extends RAgents with typed functions, prompts, skills, views, or other capabilities. AI uses workspace functions directly for files and shell commands, and composes more complex work in one-off TypeScript snippets or persistent actor programs. A profile selects and configures the plugins for a workspace and can also come from another RAgents server. Plugins are built once by their authors into finished bundles; the host loads bundles and never builds plugin sources.</p><p>The guide explains the system from the first task through model context, programs, and permissions. The extension guide explains how to build instructions, workflows, and plugins.</p><div class="actions"><a class="button" href="guide.html">Open the guide<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div></div><nav class="doc-paths" aria-label="Detailed references"><a href="guide-getting-started.html"><span><strong>Program your own workflows</strong><small>Run scripts, TypeScript actors, and mini-apps</small></span><svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a><a href="guide-extensions.html"><span><strong>Develop plugins and profiles</strong><small>Connect server, web interface, and configuration</small></span><svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></nav></div></div>
+    </section>
+    <div class="shell">
+      <!-- Sources: docs/spec/plugins.md and typescript-platform.md; plugins/ragents.product, ragents.reference/skills, and run-scripts. -->
+      <section class="start-section" id="start"><div class="start-heading"><div><p class="eyebrow">Blank chat and setups</p><h2>Start a conversation</h2></div><p>Every conversation, called a run, starts from the overview. A free-form task opens a chat. A skill can add an editable starter task, reusable instructions, and supporting files. A programmed setup can prepare agents and mini-apps for recurring work.</p></div><div class="actions"><a class="button" href="guide-getting-started.html">Install and start<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div></section>
+      <!-- Sources: open limitations in docs/spec/; docs/concepts/homepage-use-cases.md and run-templates.md; plugins/ragents.reference. -->
+      <section class="limits" id="applications"><h2>Current status and limits</h2><p>RAgents is under active development. Actor programs, their functions, state, and mini-apps belong to one run. Events and time-based triggers need an agent or TypeScript actor. Schedules and a user-management interface are not available yet. Profiles may require sign-in or run without it. General user permissions can limit new runs to approved setups and hide settings, models, and technical views while keeping chats and mini-apps usable.</p><details><summary>Ideas for future setups</summary><p>A refactoring setup could combine analysis, implementation, and review. An operational workflow could collect information from connected systems and present it for a decision. These are <strong>ideas, not bundled reference workflows</strong>.</p><p><a href="../concepts/homepage-use-cases.md">Application ideas</a> / <a href="../concepts/run-templates.md">Run templates</a></p></details></section>
+    </div>
+  </main>
+  <footer class="shell"><div class="footer-top"><span class="footer-brand">RAgents</span><nav class="footer-links" aria-label="Project documentation"><a href="guide.html">Guide</a>
+      <a href="../../README.md">GitHub / README</a><a href="#main">Back to top</a></nav></div><p>Project status: September 21, 2026 / Diagrams are functional illustrations, not screenshots of live runs.</p></footer>
+</body>
+</html>

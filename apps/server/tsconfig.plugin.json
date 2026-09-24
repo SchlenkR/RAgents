@@ -1,0 +1,58 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "typeRoots": [
+      "./node_modules/@types",
+      "../../node_modules/@types"
+    ],
+    "paths": {
+      "@ragents/host/*": [
+        "./src/*"
+      ],
+      "@ragents/web/ui": [
+        "../web/src/ui/index.ts"
+      ],
+      "@ragents/web/*": [
+        "../web/src/*"
+      ],
+      "@ragents/plugins/*": [
+        "../../plugins/*"
+      ],
+      "@ragents/engine": [
+        "../../packages/ragents/src/index.ts"
+      ],
+      "@ragents/engine/*": [
+        "../../packages/ragents/*"
+      ],
+      "@ragents/ai": [
+        "../../packages/ai/dist/index.d.ts"
+      ],
+      "@ragents/ai/providers/*": [
+        "../../packages/ai/dist/providers/*.d.ts"
+      ],
+      "@ragents/agent": [
+        "../../packages/agent/dist/index.d.ts"
+      ],
+      "@ragents/workspace-executor": [
+        "../../packages/workspace-executor/src/index.ts"
+      ],
+      "@ragents/workspace-executor/*": [
+        "../../packages/workspace-executor/*"
+      ],
+      "@ragents/workflow": [
+        "./src/plugin-support/actor-programs/workflow/index.ts"
+      ],
+      "typebox/*": [
+        "../../node_modules/typebox/build/*/index.d.mts"
+      ],
+      "*": [
+        "./node_modules/@types/*",
+        "../../node_modules/@types/*",
+        "./node_modules/*",
+        "../../node_modules/*",
+        "../web/node_modules/*"
+      ]
+    }
+  },
+  "include": []
+}

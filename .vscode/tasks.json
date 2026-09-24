@@ -1,0 +1,188 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "detail": "Agentenlaufzeit, Web und Homepage bauen.",
+      "type": "process",
+      "command": "bash",
+      "args": [
+        "${workspaceFolder}/build/build.sh"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "open: homepage",
+      "detail": "Homepage bauen und anschließend im Standardbrowser öffnen.",
+      "type": "process",
+      "command": "bash",
+      "args": [
+        "${workspaceFolder}/build/homepage.sh",
+        "--open"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "check",
+      "detail": "Projekt vollständig prüfen: Tests, Typen, Lint, Web und Homepage.",
+      "type": "process",
+      "command": "bash",
+      "args": [
+        "${workspaceFolder}/build/check.sh"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "package: build",
+      "detail": "Den Host als npm-Paket @schlenkr/ragents nach dist/ragents bauen.",
+      "type": "process",
+      "command": "pnpm",
+      "args": [
+        "build:package"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "package: publish",
+      "detail": "Das Paket bauen und auf npm veröffentlichen; der Token kommt aus npm_key.",
+      "type": "process",
+      "command": "pnpm",
+      "args": [
+        "publish:package"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "vscode: build",
+      "detail": "VS-Code-Erweiterung unter apps/vscode bündeln.",
+      "type": "process",
+      "command": "pnpm",
+      "args": [
+        "--filter",
+        "ragents-vscode",
+        "build"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "silent",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "vscode: package",
+      "detail": "Die Erweiterung bauen und als .vsix nach dist/ packen.",
+      "type": "process",
+      "command": "pnpm",
+      "args": [
+        "package:vscode"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "vscode: publish",
+      "detail": "Die Erweiterung bauen, packen und auf dem Marketplace veröffentlichen; der Token kommt aus AZURE_DEVOPS_VSCE_RAGENTS_PAT.",
+      "type": "process",
+      "command": "pnpm",
+      "args": [
+        "publish:vscode"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "publish: all",
+      "detail": "Paket und danach die Erweiterung veröffentlichen; bricht beim ersten Fehler ab.",
+      "type": "process",
+      "command": "pnpm",
+      "args": [
+        "publish:all"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "vscode: install",
+      "detail": "VS Code testen: Erweiterung packen und lokal installieren (.vsix überschreiben), die Webs der Profile neu bauen und von Hand gestartete Server stoppen und neu starten.",
+      "type": "process",
+      "command": "bash",
+      "args": [
+        "${workspaceFolder}/scripts/vscode/install-local.sh"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "vscode: start (core)",
+      "detail": "VS-Code-Testinstanz mit der RAgents-Erweiterung gegen den core-Server starten.",
+      "type": "process",
+      "command": "bash",
+      "args": [
+        "${workspaceFolder}/scripts/start-vscode.sh",
+        "core"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    }
+  ]
+}

@@ -1,0 +1,368 @@
+import { Compile } from "typebox/compile";
+import type { TLocalizedValidationError } from "typebox/error";
+import { Value } from "typebox/value";
+import type { Tool, ToolCall } from "../types.ts";
+
+const validatorCache = new WeakMap<object, ReturnType<typeof Compile>>();
+const rootTolerantSchemas = new WeakMap<object, Tool["parameters"]>();
+const TYPEBOX_KIND = Symbol.for("TypeBox.Kind");
+
+interface JsonSchemaObject {
+	type?: string | string[];
+	properties?: Record<string, JsonSchemaObject>;
+	items?: JsonSchemaObject | JsonSchemaObject[];
+	additionalProperties?: boolean | JsonSchemaObject;
+	allOf?: JsonSchemaObject[];
+	anyOf?: JsonSchemaObject[];
+	oneOf?: JsonSchemaObject[];
+}
+
+function getSchemaTypes(schema: JsonSchemaObject): string[] {
+	if (typeof schema.type === "string") {
+		return [schema.type];
+	}
+	if (Array.isArray(schema.type)) {
+		return schema.type.filter((type): type is string => typeof type === "string");
+	}
+	return [];
+}
+
+function matchesJsonType(value: unknown, type: string): boolean {
+	switch (type) {
+		case "number":
+			return typeof value === "number";
+		case "integer":
+			return typeof value === "number" && Number.isInteger(value);
+		case "boolean":
+			return typeof value === "boolean";
+		case "string":
+			return typeof value === "string";
+		case "null":
+			return value === null;
+		case "array":
+			return Array.isArray(value);
+		case "object":
+			return typeof value === "object" && value !== null && !Array.isArray(value);
+		default:
+			return false;
+	}
+}
+
+function getSubSchemaValidator(schema: JsonSchemaObject): ReturnType<typeof Compile> | undefined {
+	try {
+		return getValidator(schema as Tool["parameters"]);
+	} catch {
+		return undefined;
+	}
+}
+
+function coercePrimitiveByType(value: unknown, type: string): unknown {
+	switch (type) {
+		case "number": {
+			if (value === null) {
+				return 0;
+			}
+			if (typeof value === "string" && value.trim() !== "") {
+				const parsed = Number(value);
+				if (Number.isFinite(parsed)) {
+					return parsed;
+				}
+			}
+			if (typeof value === "boolean") {
+				return value ? 1 : 0;
+			}
+			return value;
+		}
+		case "integer": {
+			if (value === null) {
+				return 0;
+			}
+			if (typeof value === "string" && value.trim() !== "") {
+				const parsed = Number(value);
+				if (Number.isInteger(parsed)) {
+					return parsed;
+				}
+			}
+			if (typeof value === "boolean") {
+				return value ? 1 : 0;
+			}
+			return value;
+		}
+		case "boolean": {
+			if (value === null) {
+				return false;
+			}
+			if (typeof value === "string") {
+				if (value === "true") {
+					return true;
+				}
+				if (value === "false") {
+					return false;
+				}
+			}
+			if (typeof value === "number") {
+				if (value === 1) {
+					return true;
+				}
+				if (value === 0) {
+					return false;
+				}
+			}
+			return value;
+		}
+		case "string": {
+			if (value === null) {
+				return "";
+			}
+			if (typeof value === "number" || typeof value === "boolean") {
+				return String(value);
+			}
+			return value;
+		}
+		case "null": {
+			if (value === "" || value === 0 || value === false) {
+				return null;
+			}
+			return value;
+		}
+		default:
+			return value;
+	}
+}
+
+function applySchemaObjectCoercion(value: Record<string, unknown>, schema: JsonSchemaObject): void {
+	const properties = schema.properties;
+	const definedKeys = new Set<string>(properties ? Object.keys(properties) : []);
+
+	if (properties) {
+		for (const [key, propertySchema] of Object.entries(properties)) {
+			if (!(key in value)) {
+				continue;
+			}
+			value[key] = coerceWithJsonSchema(value[key], propertySchema);
+		}
+	}
+
+	if (schema.additionalProperties && typeof schema.additionalProperties === "object") {
+		for (const [key, propertyValue] of Object.entries(value)) {
+			if (definedKeys.has(key)) {
+				continue;
+			}
+			value[key] = coerceWithJsonSchema(propertyValue, schema.additionalProperties);
+		}
+	}
+}
+
+function applySchemaArrayCoercion(value: unknown[], schema: JsonSchemaObject): void {
+	if (Array.isArray(schema.items)) {
+		for (let index = 0; index < value.length; index++) {
+			const itemSchema = schema.items[index];
+			if (!itemSchema) {
+				continue;
+			}
+			value[index] = coerceWithJsonSchema(value[index], itemSchema);
+		}
+		return;
+	}
+
+	if (schema.items && typeof schema.items === "object") {
+		for (let index = 0; index < value.length; index++) {
+			value[index] = coerceWithJsonSchema(value[index], schema.items);
+		}
+	}
+}
+
+function coerceWithUnionSchema(value: unknown, schemas: JsonSchemaObject[]): unknown {
+	for (const schema of schemas) {
+		const candidate = structuredClone(value);
+		const coerced = coerceWithJsonSchema(candidate, schema);
+		const validator = getSubSchemaValidator(schema);
+		if (validator?.Check(coerced)) {
+			return coerced;
+		}
+	}
+	return value;
+}
+
+function coerceWithJsonSchema(value: unknown, schema: JsonSchemaObject): unknown {
+	if (getSubSchemaValidator(schema)?.Check(value)) {
+		return value;
+	}
+	let nextValue = value;
+
+	if (Array.isArray(schema.allOf)) {
+		for (const nested of schema.allOf) {
+			nextValue = coerceWithJsonSchema(nextValue, nested);
+		}
+	}
+
+	if (Array.isArray(schema.anyOf)) {
+		nextValue = coerceWithUnionSchema(nextValue, schema.anyOf);
+	}
+
+	if (Array.isArray(schema.oneOf)) {
+		nextValue = coerceWithUnionSchema(nextValue, schema.oneOf);
+	}
+
+	const schemaTypes = getSchemaTypes(schema);
+	const matchesUnionMember =
+		schemaTypes.length > 1 && schemaTypes.some((schemaType) => matchesJsonType(nextValue, schemaType));
+	if (schemaTypes.length > 0 && !matchesUnionMember) {
+		for (const schemaType of schemaTypes) {
+			const candidate = coercePrimitiveByType(nextValue, schemaType);
+			if (candidate !== nextValue) {
+				nextValue = candidate;
+				break;
+			}
+		}
+	}
+
+	if (
+		schemaTypes.includes("object") &&
+		typeof nextValue === "object" &&
+		nextValue !== null &&
+		!Array.isArray(nextValue)
+	) {
+		applySchemaObjectCoercion(nextValue as Record<string, unknown>, schema);
+	}
+
+	if (schemaTypes.includes("array") && Array.isArray(nextValue)) {
+		applySchemaArrayCoercion(nextValue, schema);
+	}
+
+	return nextValue;
+}
+
+/** Unknown root fields pass through; the engine strips and reports them (RAgents, 18.09.2026). */
+function rootTolerantSchema(schema: Tool["parameters"]): Tool["parameters"] {
+	if ((schema as JsonSchemaObject).additionalProperties !== false) {
+		return schema;
+	}
+	const cached = rootTolerantSchemas.get(schema);
+	if (cached) {
+		return cached;
+	}
+	const tolerant = { ...schema, additionalProperties: true } as Tool["parameters"];
+	rootTolerantSchemas.set(schema, tolerant);
+	return tolerant;
+}
+
+function getValidator(schema: Tool["parameters"]): ReturnType<typeof Compile> {
+	const key = schema as object;
+	const cached = validatorCache.get(key);
+	if (cached) {
+		return cached;
+	}
+	const validator = Compile(schema);
+	validatorCache.set(key, validator);
+	return validator;
+}
+
+function formatValidationPath(error: TLocalizedValidationError): string {
+	if (error.keyword === "required") {
+		const requiredProperties = (error.params as { requiredProperties?: string[] }).requiredProperties;
+		const requiredProperty = requiredProperties?.[0];
+		if (requiredProperty) {
+			const basePath = error.instancePath.replace(/^\//, "").replace(/\//g, ".");
+			return basePath ? `${basePath}.${requiredProperty}` : requiredProperty;
+		}
+	}
+	const path = error.instancePath.replace(/^\//, "").replace(/\//g, ".");
+	return path || "root";
+}
+
+function getAllowedValues(error: TLocalizedValidationError): string[] {
+	if (error.keyword === "const") {
+		return [String(error.params.allowedValue)];
+	}
+	if (error.keyword === "enum") {
+		return error.params.allowedValues.map((value) => String(value));
+	}
+	return [];
+}
+
+function getUnknownFields(error: TLocalizedValidationError): string[] {
+	return error.keyword === "additionalProperties" ? error.params.additionalProperties : [];
+}
+
+function getValueAtPointer(value: unknown, instancePath: string): unknown {
+	let current = value;
+	for (const part of instancePath.split("/").slice(1)) {
+		if (current === null || typeof current !== "object") {
+			return undefined;
+		}
+		current = (current as Record<string, unknown>)[part.replace(/~1/g, "/").replace(/~0/g, "~")];
+	}
+	return current;
+}
+
+function formatReceivedValue(value: unknown): string {
+	const text = JSON.stringify(value);
+	if (text === undefined) {
+		return "undefined";
+	}
+	return text.length > 120 ? `${text.slice(0, 120)}...` : text;
+}
+
+function formatValidationErrors(errors: TLocalizedValidationError[], args: unknown): string[] {
+	const byPath = new Map<string, TLocalizedValidationError[]>();
+
+	for (const error of errors) {
+		const path = formatValidationPath(error);
+		byPath.set(path, [...(byPath.get(path) ?? []), error]);
+	}
+
+	return [...byPath].map(([path, group]) => {
+		const allowed = [...new Set(group.flatMap(getAllowedValues))];
+		if (allowed.length > 0) {
+			const received = formatReceivedValue(getValueAtPointer(args, group[0].instancePath));
+			return `  - ${path}: got ${received}, allowed values: ${allowed.join(", ")}`;
+		}
+		const unknown = [...new Set(group.flatMap(getUnknownFields))];
+		if (unknown.length > 0) {
+			return `  - ${path}: unknown fields ${unknown.join(", ")}`;
+		}
+		const messages = [...new Set(group.map((error) => error.message))];
+		return `  - ${path}: ${messages.join("; ")}`;
+	});
+}
+
+/**
+ * Validates tool call arguments against the tool's TypeBox schema
+ * @param tool The tool definition with TypeBox schema
+ * @param toolCall The tool call from the LLM
+ * @returns The validated (and potentially coerced) arguments
+ * @throws Error with formatted message if validation fails
+ */
+export function validateToolArguments(tool: Tool, toolCall: ToolCall): any {
+	const args = structuredClone(toolCall.arguments);
+	const validator = getValidator(rootTolerantSchema(tool.parameters));
+	if (validator.Check(args)) {
+		return args;
+	}
+	Value.Convert(tool.parameters, args);
+
+	if (!Object.getOwnPropertySymbols(tool.parameters).includes(TYPEBOX_KIND)) {
+		const coerced = coerceWithJsonSchema(args, tool.parameters as JsonSchemaObject);
+		if (coerced !== args) {
+			if (typeof args === "object" && args !== null && typeof coerced === "object" && coerced !== null) {
+				for (const key of Object.keys(args)) {
+					delete args[key];
+				}
+				Object.assign(args, coerced);
+			} else {
+				return validator.Check(coerced) ? coerced : args;
+			}
+		}
+	}
+
+	if (validator.Check(args)) {
+		return args;
+	}
+
+	const errors = formatValidationErrors([...getValidator(tool.parameters).Errors(args)], args).join("\n") || "Unknown validation error";
+
+	const errorMessage = `Validation failed for tool "${toolCall.name}":\n${errors}\nFix the named fields and call the tool again; do not repeat the other arguments differently.`;
+
+	throw new Error(errorMessage);
+}

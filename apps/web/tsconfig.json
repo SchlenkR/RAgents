@@ -1,0 +1,40 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "lib": [
+      "ES2024",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@ragents/host/*": [
+        "../../apps/server/src/*"
+      ],
+      "@ragents/web/*": [
+        "../../apps/web/src/*"
+      ],
+      "@ragents/plugins/*": [
+        "../../plugins/*"
+      ],
+      "@ragents/workflow": [
+        "../../apps/server/src/plugin-support/actor-programs/workflow/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "src",
+    "../../plugins/*/web",
+    "../../plugins/*/contract.ts"
+  ]
+}

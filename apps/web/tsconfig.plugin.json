@@ -1,0 +1,44 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "typeRoots": [
+      "./node_modules/@types",
+      "../server/node_modules/@types",
+      "../../node_modules/@types"
+    ],
+    "paths": {
+      "@ragents/host/*": [
+        "../server/src/*"
+      ],
+      "@ragents/web/ui": [
+        "./src/ui/index.ts"
+      ],
+      "@ragents/web/*": [
+        "./src/*"
+      ],
+      "@ragents/plugins/*": [
+        "../../plugins/*"
+      ],
+      "@ragents/engine": [
+        "../../packages/ragents/src/index.ts"
+      ],
+      "@ragents/engine/*": [
+        "../../packages/ragents/*"
+      ],
+      "@ragents/workflow": [
+        "../server/src/plugin-support/actor-programs/workflow/index.ts"
+      ],
+      "typebox/*": [
+        "../../node_modules/typebox/build/*/index.d.mts"
+      ],
+      "*": [
+        "./node_modules/@types/*",
+        "../../node_modules/@types/*",
+        "./node_modules/*",
+        "../../node_modules/*",
+        "../server/node_modules/*"
+      ]
+    }
+  },
+  "include": []
+}

@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Schichtwerk: Tiefenkörper | RAgents</title>
+<style>
+*{box-sizing:border-box} :root{--ink:#34303d;--muted:#77707d;--paper:#f4f1ed;--depth:44}body{margin:0;background:var(--paper);color:var(--ink);font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}button,input,textarea{font:inherit;color:inherit}button,a,input{touch-action:manipulation}button{cursor:pointer}a{color:inherit}button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #644aa2;outline-offset:5px}button:disabled{cursor:default;opacity:.5}svg{fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}.symbols{position:absolute;width:0;height:0;overflow:hidden}.masthead{display:flex;align-items:center;gap:23px;padding:22px 4%;border-bottom:1px solid #ddd8d4}.brand{text-decoration:none;font-size:19px;font-weight:850;letter-spacing:-.8px}.masthead .divider{width:1px;height:22px;background:#d6d0cc}.mono{font:10px/1.5 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.1em;text-transform:uppercase}.masthead .mono{color:var(--muted)}.offline{margin-left:auto;font-size:11px;padding:5px 12px;border:1px solid #d5cfca;border-radius:20px}.intro{max-width:1600px;margin:auto;padding:38px 4% 28px;display:flex;align-items:flex-end;justify-content:space-between;gap:40px}.intro h1{font-size:clamp(32px,3.8vw,56px);line-height:1.02;letter-spacing:-2.5px;margin:9px 0 0;font-weight:650}.intro h1 em{font-family:Georgia,serif;font-weight:400;margin-left:.12em}.intro p{margin:0;max-width:390px;color:#746d76;font-size:13px}.intro .mono{color:#8b7998}.workbench{max-width:1488px;margin:0 4%;border-radius:22px;background:#ebe5e2;box-shadow:0 1px 0 #fff inset,0 0 0 1px #d9d2d1,0 20px 55px -30px #53445460;overflow:hidden}.appbar{height:67px;background:#f7f4f0;display:flex;align-items:center;padding:0 26px;gap:15px;border-bottom:1px solid #ded7d6}.run-icon{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#e9e2ed;box-shadow:0 2px 4px #5b42652c}.run-icon svg{width:20px;height:20px}.run-title small{display:block;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#8e8293}.run-title strong{font-size:13px;letter-spacing:-.15px}.run-meta{margin-left:auto;display:flex;align-items:center;gap:9px;font-size:11px;color:#72657b}.dot{width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block}.run-meta .dot{color:#7a916f}.toolbar-icon{border:0;background:#ebe6e4;border-radius:50%;width:30px;height:30px;display:grid;place-items:center}.toolbar-icon svg{width:15px;height:15px}.stage{position:relative;background:radial-gradient(ellipse at 40% 20%,#efeaee,transparent 75%),#e8e2e6;overflow:hidden}.stage:before{content:"";position:absolute;inset:0;opacity:.18;pointer-events:none;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.76' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Cpath fill='%23887890' opacity='.32' filter='url(%23n)' d='M0 0h180v180H0z'/%3E%3C/svg%3E")}.stage-label{position:absolute;top:24px;left:27px;z-index:1;color:#948797;font-size:9px}.world-wrap{position:relative;margin:auto}.world{position:absolute;width:1240px;height:590px;transform-origin:top left}.channels{position:absolute;inset:0;width:1240px;height:590px;pointer-events:none}.channels .groove{stroke:#ad9fb5;stroke-width:4;opacity:.7}.channels .shine{stroke:#fcf8fa;stroke-width:1.3;transform:translateY(2px);opacity:.65}.channels .flow{stroke:#8e74a8;stroke-width:2;stroke-dasharray:3 8}.channels text{fill:#8a7a94;stroke:none;font:9px ui-monospace,monospace;letter-spacing:.03em}.solid{--face:#d9cde6;--tone:275;--sat:23%;--side-light:64%;--edge:#bca8ca;position:absolute;border-radius:17px;background:var(--face);border:1.5px solid #514657;box-shadow:var(--extrusion,28px -39px 0 #b6a3c3);filter:drop-shadow(6px 12px 11px #49384e2c);isolation:isolate;min-width:0}.solid:after{content:"";position:absolute;inset:5px;border-radius:10px;border:1px solid #51465712;pointer-events:none;z-index:-1}.depth-lines{position:absolute;top:-1.5px;left:-1.5px;width:calc(100% + 3px);height:calc(100% + 3px);overflow:visible;pointer-events:none;z-index:2}.depth-lines :is(rect,path){fill:none;stroke:#514657;stroke-width:1.5;vector-effect:non-scaling-stroke}.solid.selected{border-color:#684b84}.solid.selected .node-mark{background:#b5a0c438;border-color:#684b84}.node-heading{border:0;background:none;width:100%;text-align:left;padding:20px 23px 15px;display:flex;align-items:center;gap:12px;border-radius:17px 17px 0 0}.node-heading:hover .node-title{color:#60447a}.node-mark{width:38px;height:38px;display:grid;place-items:center;flex:none;border-radius:11px;background:#ffffff17;border:1px solid #5146578a;box-shadow:1px 2px 4px #51465725}.node-mark svg{width:22px;height:22px}.node-type{font-size:9px;text-transform:uppercase;letter-spacing:.1em;opacity:.66}.node-title{font-size:17px;font-weight:730;line-height:1.3;letter-spacing:-.5px}.node-id{margin-left:auto;align-self:flex-start;font:10px ui-monospace,monospace;opacity:.4;padding-top:4px}.body{padding:0 24px 23px}.body p{margin:0;font-size:13px;line-height:1.65}.divider-line{height:1px;background:#51465738;box-shadow:none;margin:0 23px 16px}.coordinator{left:63px;top:127px;width:352px;--face:#dcd0e8}.coordinator .body{padding-bottom:18px}.request{margin:0 0 16px;padding:11px 14px;border-radius:9px;background:#bcaccb26;border:1px solid #51465732;box-shadow:none;font-size:12px;color:#655170}.composer{margin-top:17px;border:1px solid #51465780;border-radius:10px;background:#f1eaf3;box-shadow:1px 2px 5px #51465722;padding:11px 11px 9px}.composer textarea{display:block;width:100%;border:0;background:none;resize:none;min-height:39px;max-height:110px;font-size:11px;line-height:1.5;outline-offset:1px}.composer-bottom{display:flex;align-items:center;gap:9px;font-size:9px;color:#84718e}.send{margin-left:auto;border:0;background:#79638d;color:#fff;border-radius:8px;width:28px;height:26px;display:grid;place-items:center;border:1px solid #49374f;box-shadow:1px 2px 4px #49374f60}.send:active{translate:0 1px}.send svg{width:15px;height:15px}.activity{display:flex;align-items:center;gap:7px;margin-top:15px;color:#756283;font:9px ui-monospace,monospace}.activity svg{width:12px;height:12px}.research{left:485px;top:72px;width:294px;--face:#eec4b1;--tone:19;--sat:37%;--side-light:62%;--edge:#c59580}.research .body{color:#714f44}.research .node-heading{color:#69483e}.status-pill{display:inline-flex;align-items:center;gap:6px;font:9px ui-monospace,monospace;margin-top:14px;padding:4px 8px;border-radius:5px;background:#9a5e3e12;color:#8a533d}.script{left:485px;top:352px;width:294px;--face:#e9dca1;--tone:45;--sat:40%;--side-light:57%;--edge:#b9a55f}.script .node-heading{padding-top:18px;padding-bottom:13px;color:#6f6237}.script .body{padding-bottom:20px;color:#74683e}.script .node-mark{font:12px ui-monospace,monospace;font-weight:750}.script .activity{color:#88743d;margin-top:10px}.mini-app{left:861px;top:181px;width:293px;--face:#f4f0e7;--tone:36;--sat:15%;--side-light:68%;--edge:#bfb6a6}.mini-app .node-heading{padding:18px 22px 14px}.mini-app .node-mark{width:30px;height:30px;background:#e8e1d5;border:1px solid #5146578a;box-shadow:1px 2px 4px #51465725}.mini-app .node-mark svg{width:16px;height:16px}.mini-app .node-title{font-size:14px}.mini-app .node-type{font-size:8px}.mini-app h2{font-size:27px;line-height:1.13;letter-spacing:-1px;font-weight:650;margin:1px 0 20px}.mini-app h2 em{font-family:Georgia,serif;font-weight:400}.check-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #d7cfc37a;cursor:pointer;font-size:11px}.check-row input{appearance:none;width:15px;height:15px;border:1px solid #736677;margin:0;border-radius:4px;background:#e6e0d5;box-shadow:1px 1px 3px #65583e20;display:grid;place-items:center;flex:none}.check-row input:checked{background:#897690;border-color:#897690;box-shadow:1px 1px 3px #51465760}.check-row input:checked:after{content:"";width:6px;height:3px;border-left:1.5px solid white;border-bottom:1.5px solid white;transform:rotate(-45deg);margin-top:-2px}.check-row:has(input:checked) span{color:#948995;text-decoration:line-through;text-decoration-color:#bbafbc}.progress{height:5px;margin-top:18px;border-radius:4px;background:#ded7d0;box-shadow:inset 0 1px 2px #5e4f4e12}.progress span{height:100%;width:33.333%;display:block;background:#9b86a7;border-radius:4px}.app-count{display:flex;justify-content:space-between;font:8px ui-monospace,monospace;color:#96869d;margin-top:7px}.socket{position:absolute;width:8px;height:8px;border:2px solid #b1a0bd;border-radius:50%;background:#f5eff9;box-shadow:0 1px 1px #65537025;right:-5px;top:99px}.research .socket,.script .socket,.mini-app .socket{left:-5px;right:auto;top:93px}.script .socket{top:63px}.mini-app .socket{top:117px}.grip{position:absolute;right:-20px;bottom:-20px;width:17px;height:17px;border-bottom:2px solid #89768e;border-right:2px solid #89768e;border-bottom-right-radius:100%;opacity:.7}.annotation{position:absolute;left:63px;top:550px;display:flex;gap:12px;align-items:center;font:9px ui-monospace,monospace;color:#9a8b9e}.annotation:before{content:"";width:23px;height:1px;background:#b0a0b5}.footerbar{padding:15px 24px;background:#f3efed;border-top:1px solid #d9d1d8;display:flex;align-items:center;justify-content:space-between;gap:22px}.selection{min-width:0;color:#887a90;font-size:10px}.selection strong{color:#63566d;font-weight:650}.controls{display:flex;align-items:center;gap:17px;flex-wrap:wrap}.depth-control{display:flex;align-items:center;gap:10px;white-space:nowrap;font-size:10px;color:#82708c}.depth-control input{accent-color:#8d769f;width:85px}.depth-control output{font:9px ui-monospace,monospace;min-width:28px}.effect-toggle{border:1px solid #d4c8dc;padding:6px 10px;border-radius:6px;background:#e8dfed;font-size:10px;color:#776184;display:flex;align-items:center;gap:6px}.effect-toggle svg{width:12px;height:12px}.effect-toggle[aria-pressed=false]{background:#f6f3f7}.notes{padding:22px 4% 35px;max-width:1600px;margin:auto;display:flex;gap:35px;align-items:baseline;justify-content:space-between;color:#8d8390;font-size:11px}.notes strong{color:#625569;font-weight:650}.notes a{text-decoration-color:#c4b7ca;text-underline-offset:3px}.note-detail{display:flex;gap:22px}.material-dots{display:inline-flex;gap:5px;vertical-align:middle;margin-right:9px}.material-dots i{display:block;width:10px;height:10px;border-radius:50%;background:#d0bedf;box-shadow:inset -1px -1px 2px #6e5b752a}.material-dots i:nth-child(2){background:#e6b49b}.material-dots i:nth-child(3){background:#ddd093}.material-dots i:nth-child(4){background:#e5dfd4}@media(min-width:1580px){.workbench{margin-inline:auto}.world-wrap{height:650px!important}.world{top:15px}}@media(max-width:900px){.intro{padding-top:26px;gap:20px}.intro p{max-width:290px;font-size:12px}.intro h1{letter-spacing:-1.4px}.notes{gap:14px;flex-wrap:wrap}.note-detail{gap:14px}.footerbar{align-items:flex-start;gap:12px;flex-wrap:wrap}.selection{width:100%}.stage-label{font-size:8px}.masthead{padding-block:17px}.masthead .mono{font-size:9px}}@media(max-width:900px){.masthead{gap:12px}.masthead .divider,.masthead .mono{display:none}.offline{font-size:9px;padding:4px 8px}.intro{display:block;padding:26px 6% 24px}.intro h1{font-size:39px;margin-bottom:14px}.intro p{max-width:100%;font-size:12px}.workbench{margin-inline:4%;border-radius:15px}.appbar{padding:0 16px;height:68px;gap:10px}.run-title strong{font-size:12px}.run-meta{font-size:0}.run-meta .dot{width:6px;height:6px}.toolbar-icon{display:none}.stage-label{position:relative;display:block;top:auto;left:auto;padding:24px 23px 0}.world-wrap{height:auto!important;width:auto!important}.world{position:relative;transform:none!important;width:auto;height:auto;display:flex;flex-direction:column;gap:80px;padding:76px 56px 42px 18px}.solid{position:relative;inset:auto!important;width:100%}.coordinator{order:0}.research{order:1}.script{order:2}.mini-app{order:3}.channels,.annotation,.socket{display:none}.node-heading{padding:18px 20px 14px}.body{padding-inline:21px}.coordinator .composer{margin-top:14px}.footerbar{padding:17px 20px}.controls{gap:14px}.notes{padding:20px 6% 28px;display:block}.note-detail{margin-top:12px;flex-wrap:wrap}.node-title{font-size:17px}.mini-app h2{font-size:28px}}@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}[hidden]{display:none!important}
+
+.contact-surface{position:absolute;inset:0;width:100%;height:100%;border-radius:15px;pointer-events:none;z-index:3}
+.contact-active .solid :is(.node-mark,.composer,.send,.check-row input){box-shadow:none}
+.contact-active .send:active{translate:none}
+.contact-controls{max-width:1488px;margin:18px 4% 0;display:flex;align-items:center;gap:18px;flex-wrap:wrap;color:#75667e;font-size:11px}
+.contact-controls p{margin:0}.contact-controls strong{color:#514657}.contact-controls .depth-control input{width:105px}
+.contact-controls output{min-width:38px}.contact-controls button{font-size:11px}
+#contact-status{flex-basis:100%;color:#883d36}
+@media(min-width:1580px){.contact-controls{margin-inline:auto}}
+@media(max-width:900px){.contact-controls{margin-inline:6%;gap:12px}.contact-controls p{flex-basis:100%}}
+</style>
+</head>
+<body>
+<svg class="symbols" aria-hidden="true"><defs><symbol id="network" viewBox="0 0 24 24"><rect x="3" y="9" width="6" height="6" rx="1.5"/><rect x="16" y="3" width="5" height="5" rx="1.2"/><rect x="16" y="16" width="5" height="5" rx="1.2"/><path d="M9 12h4V5.5h3m-3 6.5v6.5h3"/></symbol><symbol id="search" viewBox="0 0 24 24"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5M7 10h6m-3-3v6"/></symbol><symbol id="list" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="m7 9 2 2 4-4M8 16h8"/></symbol><symbol id="send" viewBox="0 0 24 24"><path d="m3 10 18-7-7 18-3-8-8-3Zm8 3L21 3"/></symbol><symbol id="expand" viewBox="0 0 24 24"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5"/></symbol><symbol id="tool" viewBox="0 0 24 24"><path d="m5 4 4 4-3 3-4-4a6 6 0 0 0 8 7l7 7 4-4-7-7a6 6 0 0 0-9-6Z"/></symbol></defs></svg>
+<header class="masthead"><a class="brand" href="index.html">RAgents</a><span class="divider"></span><span class="mono">Materialstudie / 12.09.2026</span><span class="offline">Offline-Entwurf mit Beispieldaten</span></header>
+<section class="intro"><div><div class="mono">Aufbauend auf 03 Schichtwerk</div><h1>Schichtwerk. <em>Mit Substanz.</em></h1></div><p>Matte Körper, klare Konturen, spürbare Tiefe.<br>Lavendel, Ton und warmer Kalk. Die Fronten bleiben gerade.</p></section>
+<main class="workbench" aria-label="Interaktiver Canvas-Entwurf">
+<div class="appbar"><span class="run-icon"><svg aria-hidden="true"><use href="#network"/></svg></span><div class="run-title"><small>Gemeinsamer Arbeitsraum</small><strong>Reparaturtreff vorbereiten</strong></div><div class="run-meta"><i class="dot"></i> Beispielzustand</div><button class="toolbar-icon" id="fit" aria-label="Canvas in den Blick nehmen"><svg aria-hidden="true"><use href="#expand"/></svg></button></div>
+<div class="stage" id="stage"><span class="stage-label mono">Vier Körper. Ein gemeinsamer Auftrag.</span><div class="world-wrap"><div class="world" id="world">
+<svg class="channels" viewBox="0 0 1240 590" aria-hidden="true"><defs><path id="routes" d="M415 227h28q13 0 13-13v-36q0-13 13-13h16M415 285h27q14 0 14 14v101q0 15 15 15h14M779 166h30q14 0 14 14v104q0 15 15 15h23M779 415h29q15 0 15-15v-86q0-15 15-15h23"/></defs><use class="groove" href="#routes"/><use class="shine" href="#routes"/><path class="flow" d="M415 227h28q13 0 13-13v-36q0-13 13-13h16"/><text x="435" y="150">AUFTRAG</text><text x="809" y="283">ERGEBNIS</text></svg>
+<section class="solid coordinator selected" data-name="Koordinator" data-description="Teilt den Auftrag auf und hält die Fäden zusammen." aria-label="Koordinator"><button class="node-heading" aria-pressed="true"><span class="node-mark"><svg aria-hidden="true"><use href="#network"/></svg></span><span><span class="node-type">Agent / Koordination</span><span class="node-title" style="display:block">Koordinator</span></span><span class="node-id">01</span></button><div class="divider-line"></div><div class="body"><div class="request">Bereite einen Reparaturtreff vor.</div><p>Ich teile die Vorbereitung auf.<br>Die Ergebnisse landen direkt in unserer gemeinsamen Liste.</p><div class="activity"><svg aria-hidden="true"><use href="#tool"/></svg><span>actor_send_input</span><span style="margin-left:auto">2 Aufträge verteilt</span></div><form class="composer" id="composer"><textarea aria-label="Nachricht an den Koordinator" placeholder="Noch eine Idee für den Treff ..." rows="2"></textarea><div class="composer-bottom"><span>Lokale Demo</span><span id="message-state" role="status"></span><button class="send" aria-label="Beispielnachricht übernehmen"><svg aria-hidden="true"><use href="#send"/></svg></button></div></form></div><span class="socket"></span><span class="grip" aria-hidden="true"></span></section>
+<section class="solid research" data-name="Recherche" data-description="Sammelt Werkzeuge, Materialien und offene Fragen." aria-label="Recherche"><button class="node-heading" aria-pressed="false"><span class="node-mark"><svg aria-hidden="true"><use href="#search"/></svg></span><span><span class="node-type">Agent / Recherche</span><span class="node-title" style="display:block">Recherche</span></span><span class="node-id">02</span></button><div class="divider-line"></div><div class="body"><p>Welche Werkzeuge und Materialien brauchen wir vor Ort?</p><span class="status-pill"><i class="dot"></i> Grundlagen gesammelt</span></div><span class="socket"></span><span class="grip" aria-hidden="true"></span></section>
+<section class="solid script" data-name="Sammler" data-description="Übernimmt neue Ergebnisse in die gemeinsame Liste." aria-label="Sammler"><button class="node-heading" aria-pressed="false"><span class="node-mark">TS</span><span><span class="node-type">TypeScript-Actor</span><span class="node-title" style="display:block">Sammler</span></span><span class="node-id">03</span></button><div class="divider-line"></div><div class="body"><p>Aus Ergebnissen wird eine Liste.</p><div class="activity"><i class="dot"></i> Bereit<span style="margin-left:auto">3 Einträge übernommen</span></div></div><span class="socket"></span><span class="grip" aria-hidden="true"></span></section>
+<section class="solid mini-app" data-name="Ergebnisliste" data-description="Eine kleine bedienbare App. Alle Änderungen bleiben auf dieser Seite." aria-label="Ergebnisliste"><button class="node-heading" aria-pressed="false"><span class="node-mark"><svg aria-hidden="true"><use href="#list"/></svg></span><span><span class="node-type">Mini-App / Sammler</span><span class="node-title" style="display:block">Ergebnisliste</span></span></button><div class="divider-line"></div><div class="body"><h2>Alles an<br><em>einem Ort.</em></h2><label class="check-row"><input type="checkbox" checked><span>Raumplanung</span></label><label class="check-row"><input type="checkbox"><span>Werkzeuge &amp; Material</span></label><label class="check-row"><input type="checkbox"><span>Ankündigung</span></label><div class="progress" role="progressbar" aria-label="Geprüfte Ergebnisse" aria-valuemin="0" aria-valuemax="3" aria-valuenow="1"><span></span></div><div class="app-count"><span id="count" aria-live="polite">1 von 3 geprüft</span><span>LOKAL</span></div></div><span class="socket"></span><span class="grip" aria-hidden="true"></span></section>
+<div class="annotation">Kontur, Fläche, Schicht. Ein Körper mit Charakter.</div>
+</div></div></div>
+<div class="footerbar"><div class="selection" id="selection" aria-live="polite"><strong>Koordinator</strong> / Teilt den Auftrag auf und hält die Fäden zusammen.</div><div class="controls"><label class="depth-control">Materialtiefe<input id="depth" type="range" min="24" max="80" value="44"><output for="depth" id="depth-value">44</output></label></div></div>
+</main>
+
+<section class="contact-controls" aria-label="Kontaktschatten vergleichen">
+<p><strong>Controls auf der Fläche</strong> / Weich aufliegend oder leicht eingelassen.</p>
+<button class="effect-toggle" id="contact-toggle" aria-pressed="true">Kontaktschatten</button>
+<label class="depth-control">Stärke<input id="contact-strength" type="range" min="0" max="100" value="30"><output id="contact-value" for="contact-strength">30 %</output></label>
+<p id="contact-status" role="status" hidden></p>
+</section>
+<footer class="notes"><span><span class="material-dots" aria-hidden="true"><i></i><i></i><i></i><i></i></span><strong>Schichtwerk: Tiefenkörper</strong> / Eine neue Materialrichtung.</span><span class="note-detail"><span>Matte Flächen / Gezeichnete Konturen</span><a href="soft-style-variations.html#layers">Ursprüngliches Schichtwerk</a></span></footer>
+<script>
+(()=>{'use strict';const world=document.getElementById('world'),wrap=world.parentElement,stage=document.getElementById('stage'),cards=[...document.querySelectorAll('.solid')],depth=document.getElementById('depth');const reduced=matchMedia('(prefers-reduced-motion: reduce)');function resize(){if(innerWidth<=900){wrap.style.height='auto';wrap.style.width='auto';world.style.transform='none';return}const scale=Math.min(1,(stage.clientWidth-25)/1240);wrap.style.width=1240*scale+'px';wrap.style.height=590*scale+'px';world.style.transform='scale('+scale+')'}function contour(card,amount){const ns='http://www.w3.org/2000/svg',width=card.offsetWidth,height=card.offsetHeight,dx=amount*.5,dy=-amount*.7;let svg=card.querySelector('.depth-lines');if(!svg){svg=document.createElementNS(ns,'svg');svg.classList.add('depth-lines');svg.setAttribute('aria-hidden','true');card.append(svg)}svg.setAttribute('viewBox','0 0 '+width+' '+height);svg.replaceChildren();const defs=document.createElementNS(ns,'defs'),mask=document.createElementNS(ns,'mask'),maskId='depth-mask-'+cards.indexOf(card);mask.id=maskId;mask.setAttribute('maskUnits','userSpaceOnUse');mask.setAttribute('x','-3');mask.setAttribute('y',String(dy-3));mask.setAttribute('width',String(width+dx+6));mask.setAttribute('height',String(height-dy+6));const outside=document.createElementNS(ns,'rect');outside.setAttribute('x','-3');outside.setAttribute('y',String(dy-3));outside.setAttribute('width',String(width+dx+6));outside.setAttribute('height',String(height-dy+6));outside.setAttribute('style','fill:white;stroke:none');const face=document.createElementNS(ns,'rect');face.setAttribute('width',String(width));face.setAttribute('height',String(height));face.setAttribute('rx','17');face.setAttribute('style','fill:black;stroke:black;stroke-width:1');mask.append(outside,face);defs.append(mask);svg.append(defs);const lines=document.createElementNS(ns,'g');lines.setAttribute('mask','url(#'+maskId+')');
+const shadeId='corner-shade-'+cards.indexOf(card),gradient=document.createElementNS(ns,'linearGradient'),length=Math.hypot(dx,dy),normalX=-dy/length,normalY=dx/length,shadeWidth=48,centerX=width-17+17/Math.sqrt(2),centerY=17-17/Math.sqrt(2);
+gradient.id=shadeId;gradient.setAttribute('gradientUnits','userSpaceOnUse');
+gradient.setAttribute('x1',String(centerX-normalX*shadeWidth/2));gradient.setAttribute('y1',String(centerY-normalY*shadeWidth/2));
+gradient.setAttribute('x2',String(centerX+normalX*shadeWidth/2));gradient.setAttribute('y2',String(centerY+normalY*shadeWidth/2));
+[[0,0],[.15,0],[.15,.12],[.35,.12],[.35,.28],[.65,.28],[.65,.12],[.85,.12],[.85,0],[1,0]].forEach(([offset,opacity])=>{const stop=document.createElementNS(ns,'stop');stop.setAttribute('offset',String(offset));stop.setAttribute('stop-color','black');stop.setAttribute('stop-opacity',String(opacity));gradient.append(stop)});defs.append(gradient);
+const radius=17,points=[[radius,radius],[radius+dx,radius+dy],[width-radius+dx,radius+dy],[width-radius+dx,height-radius+dy],[width-radius,height-radius],[radius,height-radius]],normals=points.map((point,index)=>{const next=points[(index+1)%points.length],x=next[0]-point[0],y=next[1]-point[1],length=Math.hypot(x,y);return [y/length,-x/length]});let outline='';points.forEach((point,index)=>{const before=normals[(index+points.length-1)%points.length],after=normals[index],start=[point[0]+radius*before[0],point[1]+radius*before[1]],end=[point[0]+radius*after[0],point[1]+radius*after[1]];outline+=(index?'L':'M')+start.join(' ')+'A'+radius+' '+radius+' 0 0 1 '+end.join(' ')});const shade=document.createElementNS(ns,'path');shade.classList.add('corner-shade');shade.setAttribute('d',outline+'Z');shade.setAttribute('style','fill:url(#'+shadeId+');stroke:none');lines.append(shade);const silhouette=document.createElementNS(ns,'path');silhouette.setAttribute('d',outline+'Z');lines.append(silhouette);svg.append(lines)}function material(){const amount=Number(depth.value);document.getElementById('depth-value').value=String(amount);cards.forEach(card=>{const style=getComputedStyle(card),hue=style.getPropertyValue('--tone').trim(),saturation=Number.parseFloat(style.getPropertyValue('--sat')),base=Number.parseFloat(style.getPropertyValue('--side-light'));const layers=[];for(let i=.5;i<=amount;i+=.5){const band=Math.min(2,Math.floor((i-.5)/amount*3)),shade=base-8+band*4;layers.push((i*.5).toFixed(2)+'px '+(-i*.7).toFixed(2)+'px 0 hsl('+hue+' '+saturation+'% '+shade+'%)')}card.style.setProperty('--extrusion',layers.join(','));contour(card,amount)})}function select(card){cards.forEach(item=>{const active=item===card;item.classList.toggle('selected',active);item.querySelector('.node-heading').setAttribute('aria-pressed',String(active))});const el=document.getElementById('selection');el.replaceChildren();const name=document.createElement('strong');name.textContent=card.dataset.name;el.append(name,' / '+card.dataset.description)}cards.forEach(card=>card.querySelector('.node-heading').addEventListener('click',()=>select(card)));document.querySelectorAll('.check-row input').forEach(input=>input.addEventListener('change',()=>{const count=document.querySelectorAll('.check-row input:checked').length;document.getElementById('count').textContent=count+' von 3 geprüft';document.querySelector('.progress').setAttribute('aria-valuenow',String(count));document.querySelector('.progress span').style.width=count/3*100+'%'}));document.getElementById('composer').addEventListener('submit',event=>{event.preventDefault();const textarea=event.currentTarget.querySelector('textarea');if(!textarea.value.trim()){textarea.focus();return}document.getElementById('message-state').textContent='Idee lokal übernommen';textarea.value=''});depth.addEventListener('input',material);document.getElementById('fit').addEventListener('click',()=>stage.scrollIntoView({block:'center',behavior:reduced.matches?'auto':'smooth'}));new ResizeObserver(resize).observe(stage);const contourObserver=new ResizeObserver(()=>cards.forEach(card=>contour(card,Number(depth.value))));cards.forEach(card=>contourObserver.observe(card));resize();material()})();
+</script>
+<script>
+(() => {
+'use strict';
+const cards=[...document.querySelectorAll('.solid')],toggle=document.getElementById('contact-toggle'),strength=document.getElementById('contact-strength'),status=document.getElementById('contact-status');
+const vertexSource=`attribute vec2 a_position;void main(){gl_Position=vec4(a_position,0.,1.);}`;
+const fragmentSource=`
+precision highp float;
+uniform vec2 u_size;
+uniform float u_ratio;
+uniform float u_strength;
+uniform int u_count;
+uniform vec4 u_rects[8];
+uniform vec4 u_materials[8];
+float roundedBox(vec2 p,vec2 halfSize,float radius){
+ vec2 q=abs(p)-halfSize+radius;
+ return length(max(q,0.))+min(max(q.x,q.y),0.)-radius;
+}
+void main(){
+ vec2 p=vec2(gl_FragCoord.x/u_ratio,u_size.y-gl_FragCoord.y/u_ratio);
+ float transmission=1.;
+ for(int i=0;i<8;i++){
+  if(i>=u_count)break;
+  vec4 rect=u_rects[i];vec4 material=u_materials[i];
+  vec2 local=p-rect.xy;float d=roundedBox(local,rect.zw,material.x);
+  float shortSide=2.*min(rect.z,rect.w);
+  float spreadScale=clamp(shortSide/40.,.2,1.);
+  float opacityScale=mix(.35,1.,smoothstep(12.,40.,shortSide));
+  float shade=0.;
+  if(material.y>0.){
+   float height=material.y*spreadScale;
+   float shifted=roundedBox(local-vec2(.25*spreadScale,height*.5),rect.zw,material.x);
+   float distance=max(shifted,0.);
+   float contact=.17*exp(-distance/(1.8*spreadScale));
+   float ambient=.24*exp(-distance/((3.+material.y*2.4)*spreadScale));
+   shade=(contact+ambient)*smoothstep(-.5,.8,d)*material.z;
+  }else{
+   float inside=max(-d,0.);
+   float upper=clamp(.5-local.y/max(rect.w,1.)*.5,0.,1.);
+   shade=(.12*exp(-inside/(1.7*spreadScale))+(.12+.15*upper)*exp(-inside/(6.*spreadScale)))*
+    (1.-smoothstep(-.7,.3,d))*material.z;
+  }
+  transmission*=1.-clamp(shade*opacityScale*u_strength,0.,.8);
+ }
+ gl_FragColor=vec4(0.,0.,0.,1.-transmission);
+}`;
+const surfaces=[];
+let pending=0,available=true;
+function failure(message){
+ available=false;toggle.disabled=true;strength.disabled=true;status.hidden=false;
+ status.textContent='Kontaktschatten nicht verfügbar: '+message;
+ document.documentElement.classList.remove('contact-active');
+ surfaces.forEach(surface=>{surface.canvas.hidden=true});
+}
+function compile(gl,type,source){
+ const shader=gl.createShader(type);gl.shaderSource(shader,source);gl.compileShader(shader);
+ if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS)){
+  const message=gl.getShaderInfoLog(shader);gl.deleteShader(shader);throw Error(message);
+ }
+ return shader;
+}
+function setup(surface){
+ const gl=surface.gl,vertex=compile(gl,gl.VERTEX_SHADER,vertexSource),fragment=compile(gl,gl.FRAGMENT_SHADER,fragmentSource),program=gl.createProgram();
+ gl.attachShader(program,vertex);gl.attachShader(program,fragment);gl.linkProgram(program);
+ gl.deleteShader(vertex);gl.deleteShader(fragment);
+ if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error(gl.getProgramInfoLog(program));
+ const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);
+ gl.bufferData(gl.ARRAY_BUFFER,new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),gl.STATIC_DRAW);
+ gl.useProgram(program);const position=gl.getAttribLocation(program,'a_position');
+ gl.enableVertexAttribArray(position);gl.vertexAttribPointer(position,2,gl.FLOAT,false,0,0);
+ surface.program=program;
+ surface.uniforms=Object.fromEntries(['size','ratio','strength','count','rects[0]','materials[0]'].map(name=>[name,gl.getUniformLocation(program,'u_'+name)]));
+}
+function schedule(){if(!pending&&available)pending=requestAnimationFrame(draw)}
+function draw(){
+ pending=0;if(!available)return;
+ const enabled=toggle.getAttribute('aria-pressed')==='true';
+ document.documentElement.classList.toggle('contact-active',enabled);
+ for(const surface of surfaces){
+  const {canvas,card,gl,uniforms}=surface;canvas.hidden=!enabled;if(!enabled)continue;
+  const w=card.clientWidth,h=card.clientHeight,ratio=Math.min(devicePixelRatio||1,2);
+  if(canvas.width!==Math.round(w*ratio)||canvas.height!==Math.round(h*ratio)){
+   canvas.width=Math.round(w*ratio);canvas.height=Math.round(h*ratio);
+  }
+  const bounds=canvas.getBoundingClientRect(),sx=bounds.width/w,sy=bounds.height/h;
+  if(!sx||!sy)continue;
+  const rects=new Float32Array(32),materials=new Float32Array(32);
+  surface.controls.forEach((control,index)=>{
+   const box=control.getBoundingClientRect(),style=getComputedStyle(control),width=box.width/sx,height=box.height/sy;
+   const pressed=control.matches(':active'),hovered=control.matches(':hover'),checked=control.matches(':checked');
+   const inset=control.matches('.composer,.request,.progress')||(control.matches('input')&&!checked);
+   rects.set([(box.left-bounds.left)/sx+width/2,(box.top-bounds.top)/sy+height/2,width/2,height/2],index*4);
+   materials.set([Math.min(parseFloat(style.borderRadius)||4,width/2,height/2),inset?-1:pressed?.45:hovered?3.8:2.4,control.matches('.node-mark')?.65:1,0],index*4);
+  });
+  gl.viewport(0,0,canvas.width,canvas.height);gl.useProgram(surface.program);
+  gl.uniform2f(uniforms.size,w,h);gl.uniform1f(uniforms.ratio,ratio);
+  gl.uniform1f(uniforms.strength,Number(strength.value)/100);
+  gl.uniform1i(uniforms.count,surface.controls.length);
+  gl.uniform4fv(uniforms['rects[0]'],rects);gl.uniform4fv(uniforms['materials[0]'],materials);
+  gl.drawArrays(gl.TRIANGLES,0,6);
+ }
+ document.getElementById('contact-value').value=strength.value+' %';
+}
+try{
+ for(const card of cards){
+  const canvas=document.createElement('canvas');canvas.className='contact-surface';canvas.setAttribute('aria-hidden','true');card.append(canvas);
+  const gl=canvas.getContext('webgl',{alpha:true,antialias:false,depth:false,stencil:false,premultipliedAlpha:true});
+  if(!gl){canvas.remove();throw Error('WebGL ist in diesem Browser deaktiviert oder nicht verfügbar.')}
+  const controls=[...card.querySelectorAll('.node-mark,.request,.composer,.send,.status-pill,.check-row input,.progress')];
+  if(controls.length>8)throw Error('Zu viele Controls auf einer Karte.');
+  const surface={canvas,card,gl,controls};surfaces.push(surface);setup(surface);
+  canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();failure('Der Grafik-Kontext wurde unterbrochen. Bitte die Seite neu laden.')});
+ }
+ const observer=new ResizeObserver(schedule);
+ for(const surface of surfaces){observer.observe(surface.card);surface.controls.forEach(control=>observer.observe(control))}
+ toggle.addEventListener('click',()=>{toggle.setAttribute('aria-pressed',String(toggle.getAttribute('aria-pressed')!=='true'));schedule()});
+ strength.addEventListener('input',schedule);
+ ['pointerover','pointerout','pointerdown','pointerup','pointercancel','keydown','keyup','focusin','focusout','change'].forEach(type=>document.addEventListener(type,schedule));
+ window.addEventListener('resize',schedule);window.addEventListener('blur',schedule);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)schedule()});
+ schedule();
+}catch(error){failure(error.message)}
+})();
+</script>
+
+</body>
+</html>

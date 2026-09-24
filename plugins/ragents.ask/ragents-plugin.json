@@ -1,0 +1,7 @@
+{
+  "id": "ragents.ask",
+  "exports": {
+    "server": ["server/contract"],
+    "web": ["ask-payload", "web/QuestionCard", "web/api"]
+  }
+}

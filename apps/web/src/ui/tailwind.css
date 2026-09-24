@@ -1,0 +1,19 @@
+/* Host entry: full Tailwind including preflight; the server compiles it for the host web and its bundles, the extension panel builds it with Vite. */
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "./theme.css";
+
+@layer base {
+    html, body, #root {
+        height: 100%;
+    }
+
+    body {
+        overflow: hidden;
+        scrollbar-width: none;
+    }
+
+    ::-webkit-scrollbar {
+        display: none;
+    }
+}

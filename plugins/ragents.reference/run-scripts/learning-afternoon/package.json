@@ -1,0 +1,10 @@
+{
+  "name": "learning-afternoon",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Lernnachmittag",
+    "backend": "src/server.ts",
+    "views": [{ "id": "main", "client": "src/client.tsx" }]
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "id": "ragents.documents",
+  "exports": {
+    "server": ["contract"]
+  }
+}
