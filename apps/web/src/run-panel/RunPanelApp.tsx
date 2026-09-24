@@ -2,8 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { ArrowLeftIcon, LayoutGridIcon } from "lucide-react";
 import { canStartEntry, type AccessContext } from "../../../../packages/ragents/src/access";
 import { getStartOptions, setStartOption, stopRun } from "../api";
-import { startChatEntry, startSkillEntry } from "../chat/requests";
-import { preparedRunInput } from "../run-preparation";
+import { startEntryDirectly } from "../chat/requests";
 import { initialStartOptionUpdates, withoutFixedStartOptions } from "../StartOptions";
 import { AccessScreen, useAccess } from "../AccessContext";
 import type { SessionInfo } from "../api";
@@ -187,7 +186,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
   const draftChat = draft && <PluginChat
     initialStartOptions={draft.startOptions}
     key={draft.session.id}
-    onStarted={() => { openRun(draft.session.id); void refresh(); }}
+    onStarted={() => { openRun(draft.session.id); setRunTitle((title) => title ?? NEW_RUN_TITLE); void refresh(); }}
     registry={registry}
     session={draft.session}
     startDialog={{ onClose: host.kind === "vscode" ? showStart : () => setDraft(undefined), initialEntryId: draft.entryId }}
@@ -288,8 +287,7 @@ async function launchRun(launch: Launch, registry: PluginRegistry, access: Acces
     const preselected = withoutFixedStartOptions(launch.startOptions, entry.fixedStartOptions);
     for (const [id, value] of initialStartOptionUpdates(options, preselected)) await setStartOption(launch.runId, id, value);
   }
-  if (entry.action === "script") await startChatEntry(launch.runId, entry.id, null);
-  else await startSkillEntry(launch.runId, entry.id, preparedRunInput([], entry.prompt, undefined, entry.skill).text);
+  await startEntryDirectly(launch.runId, entry, null);
 }
 
 /** Ohne Run wartet das Panel in VS Code auf die Startanforderung seines Hosts; bleibt sie aus, zeigt es den Weg zurück statt eines endlosen Ladezustands. */

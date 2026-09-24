@@ -81,19 +81,21 @@ const pathOf = (binding: WorkspaceBinding): string => {
 const sameBinding = (left: WorkspaceBinding, right: WorkspaceBinding): boolean =>
   machineOf(left) === machineOf(right) && folderOf(left) === folderOf(right) && pathOf(left) === pathOf(right);
 
+/** Der Server, die verbundenen Arbeitsplätze nur, wo der Host sie anbietet, und ein schon gewählter Arbeitsplatz, damit die Wahl lesbar bleibt. */
 export const workspaceMachineChoices = (
   presentation: WorkspaceBindingPresentation,
   binding: WorkspaceBinding,
+  machines: StartOptionControlContext["machines"],
 ): BindingChoice[] => {
   const { machine } = binding;
-  const clients = presentation.clients;
-  const lost = machine !== SERVER && !clients.some((client) => client.id === machine.client)
-    ? [{ value: machine.client, label: `Arbeitsplatz ${machine.label} (nicht verbunden)` }]
-    : [];
+  const clients = machines === "all" ? presentation.clients : [];
+  const current = machine === SERVER || clients.some((client) => client.id === machine.client) ? []
+    : [{ value: machine.client, label: presentation.clients.some((client) => client.id === machine.client)
+      ? `Arbeitsplatz ${machine.label}` : `Arbeitsplatz ${machine.label} (nicht verbunden)` }];
   return [
     { value: SERVER, label: "Server" },
     ...clients.map((client) => ({ value: client.id, label: `Arbeitsplatz ${client.label}` })),
-    ...lost,
+    ...current,
   ];
 };
 
@@ -125,7 +127,7 @@ const parse = (option: StartOptionControlContext["option"]) => {
   }
 };
 
-export function WorkspaceBindingControl({ disabled, error, option, setValue }: StartOptionControlContext) {
+export function WorkspaceBindingControl({ disabled, error, machines: offeredMachines, option, setValue }: StartOptionControlContext) {
   const [machineDraft, setMachine] = useState<string | undefined>(undefined);
   const [folderDraft, setFolder] = useState<FolderChoice | undefined>(undefined);
   const [draft, setDraft] = useState<string | undefined>(undefined);
@@ -137,7 +139,7 @@ export function WorkspaceBindingControl({ disabled, error, option, setValue }: S
   const machine = machineDraft ?? machineOf(binding);
   const folder = folderDraft ?? folderOf(binding);
   const path = draft ?? pathOf(binding);
-  const machines = workspaceMachineChoices(presentation, binding);
+  const machines = workspaceMachineChoices(presentation, binding, offeredMachines);
   const folderChoices = workspaceFolderChoices(presentation, machine);
   const client = presentation.clients.find((entry) => entry.id === machine);
   const offered = folder === "existing" ? client?.folders.map((entry) => ({ value: entry, label: entry })) ?? [] : [];

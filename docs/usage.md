@@ -11,10 +11,14 @@ der Aufbau des Systems in `docs/spec/`, das Warum in `docs/decisions.md`.
 ## Create your first run
 
 The top-left corner opens the run overview. Choose "Neuer Run" to open the start selection. It
-contains skill templates with editable tasks and script templates with programmed setups. The
-preview shows the selected template. Before starting, you can discuss an adopted skill task in the preparation
-chat. Give a clear go-ahead such as "Start", or choose "Run erstellen" (create run). Merely confirming a detail
-does not start anything. Some templates collect values in a setup dialog first.
+shows the same tiles as the start page in VS Code: "Neuer Chat" (new chat) or the server's default
+template first, then skill templates with a prepared task and script templates with programmed
+setups. "Neuer Chat" opens an empty run whose task you write in its chat; a template starts with one
+click. Some templates collect values in a setup dialog first ("Einrichten"); a skill template then
+continues in the preparation chat. There you can discuss the task, give a clear go-ahead such as
+"Start", or choose "Run erstellen" (create run). Merely confirming a detail does not start
+anything. In the browser a new run always works on the server; only VS Code and `ragents run`
+bind a run to a workstation.
 
 Inside the run, the coordinator processes the task. Additional agents and mini-apps appear on
 the surface when the workflow creates them. The global coordinator in the header has its own
@@ -195,8 +199,9 @@ Nachricht und Dateien im Composer. Gesendete Anhänge kannst du im Verlauf wiede
 ## Wählbares Modell
 
 Gibt das Produkt es frei (`MODEL_SELECTABLE`, in `core` voreingestellt an) und erlauben
-die Benutzerrechte freie Starts und technische Ansichten, wählt man in der Startauswahl das
-Modell des Koordinators über ein tastaturbedienbares Auswahlmenü in der Auftragseingabe.
+die Benutzerrechte freie Starts und technische Ansichten, wählt man im Vorbereitungschat einer
+Skill-Vorlage mit Leitfaden das Modell des Koordinators über ein tastaturbedienbares Auswahlmenü
+in der Auftragseingabe; jeder andere neue Run beginnt mit der Vorgabe aus den Einstellungen.
 Die Denktiefe steht als zweites
 Auswahlmenü kompakt daneben und bietet nur die Stufen des gewählten Modells an, einschließlich
 erweiterter Stufen wie `max`, sofern unterstützt. `AGENT_MODEL_REASONING` ist nur für eine
@@ -231,12 +236,12 @@ und Ton wie Verhalten kommen aus den Prompt-Dateien.
 
 Jede `.md` oder `.hbs` im Ordner `prompts/` eines Plugins oder in `SYSTEM_PROMPTS_DIR` ist ein
 Eintrag der Liste: Kennung = Dateiname ohne
-Endung, Beschriftung = erste `# `-Überschrift. In der Startauswahl schaltet man sie einzeln an und aus -
+Endung, Beschriftung = erste `# `-Überschrift. Im Vorbereitungschat schaltet man sie einzeln an und aus -
 MEHRERE gleichzeitig sind erlaubt, die Reihenfolge im Prompt folgt dem Katalog, nicht der
 Klickfolge. Der Text kommt ZUSÄTZLICH zur Präambel in den Prompt und wird mit der ersten Nachricht
 eingefroren. `SYSTEM_PROMPT_DEFAULT` nimmt entsprechend eine Liste von Kennungen.
 
-Das Häkchen "Auch an die Agenten weiterreichen" in der Startauswahl entscheidet über die Reichweite:
+Das Häkchen "Auch an die Agenten weiterreichen" im Vorbereitungschat entscheidet über die Reichweite:
 ohne Häkchen gilt der Prompt nur für den Koordinator, mit Häkchen steht er zusätzlich im
 Systemprompt jedes Agenten, den der Koordinator erzeugt. Plain-LLMs mit `tools: []` sind bewusst
 ausgenommen und erhalten ausschließlich ihren eigenen Prompt. `SYSTEM_PROMPT_SHARE_DEFAULT=1`
@@ -251,25 +256,25 @@ Ablage schreiben. Ein Systemprompt gleichen Namens im Plugin-Ordner und in
 
 ## Skill-Vorlagen in der Startauswahl
 
-Die Startauswahl gruppiert Skill-Vorlagen nach ihrer Kategorie, einschließlich einer eigenen
-Gruppe Mini-Apps. Kategorien sind frei wählbar und keine Liste aus dem Code. Der gemeinsame Schlagwortfilter und die Suche machen
-Anwendungsfälle und Konzeptdemos auffindbar. Jede Skill-Vorlage enthält einen kurzen, frei
-formulierten Startauftrag, der das gewünschte Ergebnis ohne Plattformwissen beschreibt; seine
-`description` erklärt, was die Demo zeigen soll. Die Einstellungen zeigen denselben Prompt mit
-einer Kopieraktion. Format und Regeln der Vorlagen stehen in [plugins.md](spec/plugins.md) unter
-"Skills and starting tasks" und "Referenzfälle aus ragents.reference", die Vorlagen und Bausteine
-der Actor-Programme in [actor-programs.md](spec/actor-programs.md).
+Die Startauswahl zeigt jede Vorlage als Kachel mit Kategorie, Titel und Beschreibung, in derselben
+Form wie Start in VS Code; Kategorien sind frei wählbar und keine Liste aus dem Code. Jede
+Skill-Vorlage enthält einen kurzen, frei formulierten Startauftrag, der das gewünschte Ergebnis
+ohne Plattformwissen beschreibt; seine `description` erklärt, was die Demo zeigen soll. Die
+Einstellungen zeigen denselben Prompt mit einer Kopieraktion. Format und Regeln der Vorlagen stehen
+in [plugins.md](spec/plugins.md) unter "Skills and starting tasks" und "Referenzfälle aus
+ragents.reference", die Vorlagen und Bausteine der Actor-Programme in
+[actor-programs.md](spec/actor-programs.md).
 
-Auswählen öffnet die Vorschau; "In Auftrag übernehmen" führt zum Vorbereitungs-Chat im nächsten
-Dialogschritt. Dort lässt sich der Auftrag mit einer eigenen Koordinator-Instanz und derselben Modellwahl
-besprechen. Nach Deinem ausdrücklichen, sinngemäßen Go startet sie den Run; es ist kein
-festgelegter Satz nötig. "Run erstellen" startet weiterhin direkt. Beide Wege übernehmen
-Gespräch, Skill und Anhänge; der Knopf nimmt auch die letzte ungesendete Ergänzung mit.
-Zurück verwirft den lokalen Vorbereitungsverlauf und erhält die Startauswahl. Ein Skill-Leitfaden
-führt nach seinem Abschluss ebenfalls in diesen Vorbereitungschat. Beim Start wird der Skill
-mit dem Auftrag übernommen; der bearbeitete Auftrag hat Vorrang vor Beispieltext im Skill.
-Run-Scripts stehen in einer eigenen Listengruppe; ihre Aktion
-startet den Leitfaden oder den programmierten Aufbau.
+"Starten" startet den Run sofort mit dem Auftrag des Skills. "Einrichten" öffnet zuerst den
+Leitfaden; danach führt er in den Vorbereitungs-Chat im nächsten Dialogschritt. Dort lässt sich der
+Auftrag mit einer eigenen Koordinator-Instanz besprechen, dort stehen auch Modell, Denktiefe,
+Systemprompts und Arbeitsbereich zur Wahl. Nach Deinem ausdrücklichen, sinngemäßen Go startet sie
+den Run; es ist kein festgelegter Satz nötig. "Run erstellen" startet direkt. Beide Wege übernehmen
+Gespräch, Skill und Anhänge; der Knopf nimmt auch die letzte ungesendete Ergänzung mit. Zurück
+verwirft den lokalen Vorbereitungsverlauf und führt auf die Startauswahl. Beim Start wird der
+Skill mit dem Auftrag übernommen; der bearbeitete Auftrag hat Vorrang vor Beispieltext im Skill.
+Als Rechner bietet der Arbeitsbereich im Browser nur den Server an, im Run-Panel von VS Code auch
+die verbundenen Arbeitsplätze.
 
 ## Run-Scripts starten
 
@@ -688,9 +693,11 @@ it starts a detached process with its log at `<data-directory>/host.log`, then r
 address and PID in `<data-directory>/host.json`. It creates a run bound to the absolute folder as
 an existing folder on the server (binding `{ machine: "server", folder: { path } }` through
 `ragents.startOptions.select`), sends the task (`ragents.chat.send`), and follows
-the run journal until the turn triggered by its message ends. If the profile does not provide
-`ragents.workspace.binding` because it creates its own workspace, the folder remains unbound and
-the command reports this on stderr.
+the turn triggered by its message until it ends. Like the web interface and VS Code, it subscribes
+to the `ragents.run` channel and reads `ragents.runs.view` after every change, so it needs only
+`runs.read` and also works against a server with a different data directory or on another machine.
+If the profile does not provide `ragents.workspace.binding` because it creates its own workspace,
+the folder remains unbound and the command reports this on stderr.
 
 `--workstation <id>` binds the folder on the workstation registered at the host under that ID
 instead of the server (binding `{ machine: { client, label }, folder: { path } }`, the label taken
@@ -700,11 +707,12 @@ workstation of that ID the command fails and names the registered ones.
 
 `--entry <template>` additionally starts the run through a skill or script template. If that program
 chooses its chat partner during setup, the task waits instead of failing. `send` performs the
-same operation in an existing run. `journal` reads the history without a server, using the same
-code as `pnpm driver journal`. `stop <runId>` interrupts only the active turn of the run's primary
-actor through `ragents.runs.interruptTurn`, exactly like the stop button in the chat input: the
-run and all actors stay active and accept the next task, and without an active turn nothing
-happens. `stop <runId> --run` is the emergency stop (`ragents.chat.stop`): it aborts every turn
+same operation in an existing run. `journal` reads the history from the profile's data directory
+without a server, using the same code as `pnpm driver journal`; with `RAGENTS_URL` set, it reads it
+from the server through `ragents.runs.events`, which requires `runs.inspect`. `stop <runId>`
+interrupts only the active turn of the run's primary actor through `ragents.runs.interruptTurn`,
+exactly like the stop button in the chat input: the run and all actors stay active and accept the
+next task, and without an active turn nothing happens. `stop <runId> --run` is the emergency stop (`ragents.chat.stop`): it aborts every turn
 and stops all actors of the run. `stop --host` terminates exactly the PID in `host.json`, never a
 process pattern, and only if the host at the recorded address reports that same PID from
 `/health`; otherwise it fails, leaves the process alone and removes the stale record. `ragents --help` and `ragents help` show usage and exit with 0; invoking the
@@ -731,18 +739,20 @@ not enough because the command has no sign-in dialog. If the token is missing, t
 that the profile requires authentication and asks you to set `RAGENTS_TOKEN` to the user's
 personal token.
 
-stdout contains function calls (`> <name> <input>`, `< <name> <duration>s ok`, or `Error: ...`),
-the model response, and finally the fixed line `run: <id>`. Messages from the command itself go
-to stderr. With `--json`, journal events are emitted as newline-delimited JSON instead. Exit code
-0 means `turn.finished` with `outcome: "completed"`; 2 means `turn.interrupted`; 1 means a failed
-turn or connection problem.
+stdout contains function calls (`> <name>`, then `< <name> <duration>s ok`, `Fehler`, or
+`abgebrochen`) as far as the server shows them to the user (`runs.inspect`), the model response,
+and finally the fixed line `run: <id>`. Messages from the command itself go to stderr. With
+`--json`, the same steps are emitted as newline-delimited JSON instead (`tool`, `tool-end`,
+`output`, and finally `turn`, carrying the objects of the run view). Exit code 0 means the turn
+completed; 2 means it was interrupted; 1 means a failed turn or connection problem. If the event
+stream or a request breaks while the command waits, it fails with the cause instead of hanging;
+the turn may continue on the server.
 
 The address comes from the profile's `host.json`, then `RAGENTS_URL`, then `host.PORT` in the
 profile file. When authentication is required, `RAGENTS_TOKEN` is sent as a bearer token. The
 data directory is the server's `DATA_DIR`, then `host.DATA_DIR`, then
-`~/.local/share/ragents/<profile>`. Because server, project, and journal are on the same machine,
-the command reads history directly from `<data-directory>/runs/<runId>/journal.jsonl`. A host
-started this way also serves the web interface, which comes finished with the host;
+`~/.local/share/ragents/<profile>`; only `journal` without `RAGENTS_URL` reads from it directly
+(`<data-directory>/runs/<runId>/journal.jsonl`). A host started this way also serves the web interface, which comes finished with the host;
 `ragents start developer` (or `scripts/start.sh developer` in a checkout) starts it in the
 foreground instead. `ragents start` writes the same `host.json` and removes it on shutdown,
 so `stop --host --profile <profile|path>` handles either startup path. Only `--port 0` cannot be

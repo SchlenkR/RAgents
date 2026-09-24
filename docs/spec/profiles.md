@@ -159,13 +159,13 @@ des Relays; die Modellauswahl zeigt sie als `relay/<alias>`. Ein nicht erreichba
 abgelehnte Anmeldung oder ein leerer Katalog sind Startfehler mit Adresse und Ursache. Auch ein
 zur Laufzeit abgelehnter Modellaufruf nennt die Relay-Adresse vor Status und Text der Antwort.
 
-Startauswahl, Produkt-Modellkatalog und Koordinatoreinstellungen beziehen die Denktiefen aus
+Vorbereitungschat, Produkt-Modellkatalog und Koordinatoreinstellungen beziehen die Denktiefen aus
 den Fähigkeiten des jeweiligen Provider-Modells im eingebauten Laufzeitkatalog oder, beim
 Relay, aus dessen Aliaskatalog. Es gibt keine pauschale Liste pro Produkt. `AGENT_MODEL_REASONING` kann diese Auswahl ausdrücklich
 einschränken; unbekannte Modelle sowie ungültige oder doppelte Stufen sind Konfigurationsfehler.
 Der Server prüft den gesamten angebotenen Katalog zusätzlich gegen die tatsächlich geladene
-Modelllaufzeit und validiert alle Profilvorgaben vor der Nutzung. Beim Modellwechsel in der
-Startauswahl wird die konfigurierte bevorzugte Denktiefe verwendet, falls sie verfügbar ist,
+Modelllaufzeit und validiert alle Profilvorgaben vor der Nutzung. Beim Modellwechsel im
+Vorbereitungschat wird die konfigurierte bevorzugte Denktiefe verwendet, falls sie verfügbar ist,
 sonst die erste angebotene Stufe; die Auswahl ist vor dem Absenden sichtbar. Ausdrücklich
 übergebene ungültige Werte werden zurückgewiesen.
 

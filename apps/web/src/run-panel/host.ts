@@ -1,9 +1,12 @@
-import { createContext, useContext, useSyncExternalStore } from "react";
+import { createContext, createElement, useContext, useSyncExternalStore, type PropsWithChildren } from "react";
+import { OfferedMachinesProvider, type OfferedMachines } from "../offered-machines";
 import type { RunPanelHostKind } from "./run-panel-location";
 import { isHostRunPanelMessage, type RunPanelHostMessage, type RunPanelTheme, type HostRunPanelMessage } from "./host-contract";
 
 export interface RunPanelHost {
   readonly kind: RunPanelHostKind;
+  /** VS Code ist selbst ein Arbeitsplatz und bietet für neue Runs auch Arbeitsplätze an, der Browser nur den Server. */
+  readonly machines: OfferedMachines;
   /** Elemente des Runs, die der Host gerade in der Mitte zeigt; im Browser immer leer. */
   centerElements(runId: string): ReadonlySet<string>;
   subscribe(listener: () => void): () => void;
@@ -29,6 +32,7 @@ const unsupported = (action: string) => (): never => {
 export function createBrowserHost(browser: Window): RunPanelHost {
   return {
     kind: "browser",
+    machines: "server",
     centerElements: () => emptySet,
     subscribe: () => () => undefined,
     openInCenter: unsupported("Eine Mini-App in die Mitte legen"),
@@ -61,6 +65,7 @@ export function createVsCodeHost(browser: Window): RunPanelHost {
   });
   return {
     kind: "vscode",
+    machines: "all",
     centerElements: (runId) => placements.get(runId) ?? emptySet,
     subscribe: (listener) => {
       placementListeners.add(listener);
@@ -85,7 +90,10 @@ export const createRunPanelHost = (kind: RunPanelHostKind, browser: Window): Run
 
 const RunPanelHostContext = createContext<RunPanelHost | undefined>(undefined);
 
-export const RunPanelHostProvider = RunPanelHostContext.Provider;
+/** Stellt den Host bereit und mit ihm, welche Rechner die Startoptionen anbieten. */
+export function RunPanelHostProvider({ value, children }: PropsWithChildren<{ value: RunPanelHost }>) {
+  return createElement(RunPanelHostContext.Provider, { value }, createElement(OfferedMachinesProvider, { value: value.machines }, children));
+}
 
 export function useRunPanelHost(): RunPanelHost {
   const host = useContext(RunPanelHostContext);

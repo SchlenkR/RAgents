@@ -15,6 +15,7 @@ const commands = new Set<(message: HostRunPanelMessage) => void>();
 const query = new URLSearchParams(location.search);
 const host: RunPanelHost = {
   kind: query.get("host") === "browser" ? "browser" : "vscode",
+  machines: query.get("host") === "browser" ? "server" : "all",
   centerElements: () => new Set(),
   subscribe: () => () => {},
   openInCenter() {},

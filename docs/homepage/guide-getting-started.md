@@ -81,10 +81,14 @@ the same website under `docs/homepage/dist`.
 ## Create your first run
 
 The top-left corner opens the run overview. Choose "Neuer Run" to open the start selection. It
-contains skill templates with editable tasks and script templates with programmed setups. The
-preview shows the selected template. Before starting, you can discuss an adopted skill task in the preparation
-chat. Give a clear go-ahead such as "Start", or choose "Run erstellen" (create run). Merely confirming a detail
-does not start anything. Some templates collect values in a setup dialog first.
+shows the same tiles as the start page in VS Code: "Neuer Chat" (new chat) or the server's default
+template first, then skill templates with a prepared task and script templates with programmed
+setups. "Neuer Chat" opens an empty run whose task you write in its chat; a template starts with one
+click. Some templates collect values in a setup dialog first ("Einrichten"); a skill template then
+continues in the preparation chat. There you can discuss the task, give a clear go-ahead such as
+"Start", or choose "Run erstellen" (create run). Merely confirming a detail does not start
+anything. In the browser a new run always works on the server; only VS Code and `ragents run`
+bind a run to a workstation.
 
 Inside the run, the coordinator processes the task. Additional agents and mini-apps appear on
 the surface when the workflow creates them. The global coordinator in the header has its own

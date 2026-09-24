@@ -65,16 +65,17 @@ const session = (binding: WorkspaceBinding, summary: string): SessionInfo => ({
   metadata: { [WORKSPACE_METADATA_ID]: { binding, summary } },
 });
 
-const control = (value: unknown, presentation: unknown) => renderToStaticMarkup(createElement(WorkspaceBindingControl, {
+const control = (value: unknown, presentation: unknown, machines: "server" | "all" = "all") => renderToStaticMarkup(createElement(WorkspaceBindingControl, {
   disabled: false,
   error: undefined,
+  machines,
   option: option(value, presentation),
   setValue: async () => {},
 }));
 
 test("der Rechner nennt den Server und jeden verbundenen Arbeitsplatz", () => {
   const clients = [client({ id: "laptop-01", label: "Notebook" }), client({ id: "studio-02", label: "Mac Studio" })];
-  assert.deepEqual(workspaceMachineChoices(presentationWith(...clients), serverFresh), [
+  assert.deepEqual(workspaceMachineChoices(presentationWith(...clients), serverFresh, "all"), [
     { value: "server", label: "Server" },
     { value: "laptop-01", label: "Arbeitsplatz Notebook" },
     { value: "studio-02", label: "Arbeitsplatz Mac Studio" },
@@ -82,11 +83,21 @@ test("der Rechner nennt den Server und jeden verbundenen Arbeitsplatz", () => {
 });
 
 test("ein gebundener, nicht mehr verbundener Arbeitsplatz bleibt als Rechner erhalten", () => {
-  assert.deepEqual(workspaceMachineChoices(presentationWith(), notebookProject).at(-1), {
+  assert.deepEqual(workspaceMachineChoices(presentationWith(), notebookProject, "all").at(-1), {
     value: "laptop-01",
     label: "Arbeitsplatz Notebook (nicht verbunden)",
   });
-  assert.equal(workspaceMachineChoices(presentationWith(client({ id: "laptop-01", label: "Notebook" })), notebookProject).length, 2);
+  assert.equal(workspaceMachineChoices(presentationWith(client({ id: "laptop-01", label: "Notebook" })), notebookProject, "all").length, 2);
+});
+
+test("bietet der Host nur den Server an, fehlen die Arbeitsplätze; ein schon gewählter bleibt lesbar", () => {
+  const clients = [client({ id: "laptop-01", label: "Notebook" }), client({ id: "studio-02", label: "Mac Studio" })];
+  assert.deepEqual(workspaceMachineChoices(presentationWith(...clients), serverFresh, "server"), [{ value: "server", label: "Server" }]);
+  assert.deepEqual(workspaceMachineChoices(presentationWith(...clients), notebookProject, "server"), [
+    { value: "server", label: "Server" },
+    { value: "laptop-01", label: "Arbeitsplatz Notebook" },
+  ]);
+  assert.ok(!control(serverFresh, presentationWith(...clients), "server").includes("Arbeitsplatz"));
 });
 
 test("der Ordner bietet auf jedem Rechner den neuen und den vorhandenen an, soweit es sie dort gibt", () => {

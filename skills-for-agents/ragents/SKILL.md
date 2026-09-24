@@ -43,27 +43,32 @@ und blockiert, bis der Turn zu Ende ist. `--profile <profil|pfad>` wählt ein an
 `--workstation <kennung>` bindet den Ordner stattdessen auf dem am Host angemeldeten Arbeitsplatz
 mit dieser Kennung (`pnpm workspace-client <server-url> <ordner> --id <kennung>`); `<ordner>` ist
 dann sein Pfad dort. Ist kein solcher Arbeitsplatz angemeldet, bricht `run` mit Ursache ab.
-`send` arbeitet im selben Run weiter und wartet genauso. `journal` liest den Verlauf ohne Server,
-`--tools` zeigt die Werkzeugaufrufe statt des Gesprächs.
+`send` arbeitet im selben Run weiter und wartet genauso. Beide folgen dem Turn über den Server,
+wie Web und VS Code; das geht auch, wenn `RAGENTS_URL` auf einen Server auf einem anderen Rechner
+zeigt. `journal` liest den Verlauf aus dem Datenordner des Profils, mit `RAGENTS_URL` vom Server
+(dort mit dem Recht `runs.inspect`); `--tools` zeigt die Werkzeugaufrufe statt des Gesprächs.
 
 ## Ausgabe und Exit-Code lesen
 
-Auf stdout stehen die Werkzeugaufrufe und die Antwort des Modells, auf stderr die Meldungen des
-Befehls (Hoststart, Run-Kennung, Abbruchgrund):
+Auf stdout stehen die Werkzeugaufrufe mit Name und Dauer, soweit der Server sie Deinem Benutzer
+zeigt (Recht `runs.inspect`), und die Antwort des Modells, auf stderr die Meldungen des Befehls
+(Hoststart, Run-Kennung, Abbruchgrund). Die Eingaben der Werkzeuge liest `journal --tools`:
 
 ```
-> read {"path":"src/broken.ts"}
+> read
 < read 0.4s ok
-> bash {"command":"pnpm -s tsc --noEmit"}
+> bash
 < bash 12.1s ok
 Der Typfehler kam von greet(42); jetzt steht dort greet("42").
 run: 7f3c1e64-9a2b-4d11-8c30-1f5e9a77c001
 ```
 
 Die letzte Zeile ist immer `run: <id>` - damit gehen `send`, `journal` und `stop` weiter.
-`--json` liefert statt der Zeilen die Journalereignisse als JSON, eine je Zeile.
+`--json` liefert statt der Zeilen dieselben Schritte als JSON, einen je Zeile (`tool`, `tool-end`,
+`output`, zuletzt `turn`).
 Exit-Code: `0` der Turn ist fertig, `2` er wurde abgebrochen, `1` er ist gescheitert oder die
-Verbindung zum Host ist weg. Ein Exit-Code `0` heißt, dass der Turn sauber endete, nicht dass der
+Verbindung zum Host ist weg; dann nennt der Befehl die Ursache, statt zu warten, und der Turn kann
+auf dem Server weiterlaufen; seinen Stand zeigt `journal`. Ein Exit-Code `0` heißt, dass der Turn sauber endete, nicht dass der
 fachliche Auftrag erfüllt ist; das prüfst Du selbst am Ergebnis im Projektordner.
 
 ## Ein eigenes Profil

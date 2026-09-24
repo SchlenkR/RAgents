@@ -1,5 +1,51 @@
 # Entscheidungen
 
+## Startauswahl im Browser wie Start in VS Code, neue Runs dort nur auf dem Server (24.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Web als Plugin-Host: Entwurf und Startauswahl, Slots, Run-Panel
+und VS Code, Arbeitsbereich), `docs/spec/profiles.md`, `docs/spec/actor-programs.md`,
+`docs/usage.md`. Vorgabe des Owners. Der Browser zeigte bei "Neuer Run" eine Auftragseingabe mit
+Anhang, Modell, Denktiefe und Senden, darunter Arbeitsbereich und Systemprompts und eine
+durchsuchbare Liste mit Vorschau; das Run-Panel in VS Code hat dagegen keine eigene Auswahlseite:
+Start der Erweiterung zeigt Kacheln, "Neuer Chat" öffnet den leeren Run, eine Vorlage startet
+sofort, nur ein Leitfaden fragt vorher. Festgelegt: Die Startauswahl (`StartSelection`) besteht aus
+denselben Kacheln wie Start, `StartTiles` aus `panel/StartPage.tsx` herausgelöst, und startet wie
+das Run-Panel über `startEntryDirectly`; `defaultStartEntry` kommt dafür auch im Web an. Auswahl
+per Liste und Vorschau, freie Auftragseingabe und Startoptionen entfallen dort; die Startoptionen
+bleiben im Vorbereitungschat einer Skill-Vorlage mit Leitfaden, ein neuer Run nimmt sonst die
+Vorgaben. Zweitens bietet der Browser für neue Runs keinen Arbeitsplatz als Rechner an. Die
+Stelle dafür ist der Host, nicht der Baustein: `RunPanelHost.machines` ist `server` im Browser und
+`all` in VS Code, `RunPanelHostProvider` reicht es als `OfferedMachines` weiter, die Web-App ohne
+Host bleibt beim Server, und jede Startoption bekommt es als `machines`; die Arbeitsbereich-Wahl
+zeigt danach Arbeitsplätze oder nur den Server. Der Server bleibt unverändert, VS Code und
+`ragents run` binden weiter an Arbeitsplätze. Browser-eigen bleiben der Entwurf als Dialog über dem
+vorherigen Run und der fehlende Serverblock, weil die Web-App genau einen Server kennt.
+
+Verworfen: die Startoptionen als Leiste über den Kacheln zu behalten, weil die Seite dann nicht
+mehr wie Start aussähe; eine Abfrage des Hosts in `WorkspaceBindingControl` oder in
+`StartSelection`, weil der Unterschied beim Host liegt. Nachgewiesen mit
+`apps/web/tests/start-page.browser.test.ts` (Browser nur Server, Run-Panel in VS Code auch der
+Arbeitsplatz; Kacheln und Startwege), `start-tiles.test.ts`, `workspace-binding.test.ts`,
+`run-panel-host.test.ts` und `plugin-bootstrap.test.ts`. Die Fixtures von
+`run-panel-start-browser.test.ts` und `run-panel-focus-browser.test.ts` liefen seit den
+Plugin-Fehlern im Web nicht mehr an (`failures` fehlte) und sind nachgezogen.
+
+## `ragents run` und `send` folgen dem Turn über den Server (24.09.2026)
+
+Kapitel: `docs/usage.md` (Agenten-Befehle), `skills-for-agents/ragents/SKILL.md`. Beide Befehle
+lasen die Journaldatei im Datenordner des lokalen Profils. Zeigte `RAGENTS_URL` auf einen Server
+mit anderem Datenordner oder auf einem anderen Rechner, fanden sie sie nie und warteten endlos,
+obwohl der Turn längst fertig war. Festgelegt: Sie folgen dem Turn wie Web und VS Code über den
+Kanal `ragents.run` und `ragents.runs.view`, also nur mit `runs.read`; die lokale Datei ist für
+sie keine Quelle mehr, auch nicht auf demselben Rechner. Die eigene Eingabe ist die neue Eingabe
+des Owners mit dem gesendeten Text, ihr `claimed.turnId` der Turn, dessen Status das Ende. Die
+Ansicht kennt je Werkzeugaufruf nur Name, Status und Zeiten und zeigt sie nur mit `runs.inspect`;
+die Werkzeugzeilen verlieren deshalb ihre Eingabe, und `--json` liefert statt Journalereignissen
+die Schritte der Ansicht. `ragents.runs.events` hätte die Journalform erhalten, verlangt aber
+`runs.inspect` und lädt bei jeder Änderung das ganze Journal. Reißt der Strom ab oder scheitert
+eine Anfrage, endet der Befehl mit 1 und der Ursache; der Gesundheitsabruf alle fünf Sekunden
+entfällt. `journal` liest weiter lokal, mit `RAGENTS_URL` über `ragents.runs.events`.
+
 ## Jede Startoption nennt ihre Rechte (24.09.2026)
 
 Kapitel: `docs/spec/profiles.md` (Rechte im Einzelnen), `docs/spec/plugins.md` (Startoptionen).

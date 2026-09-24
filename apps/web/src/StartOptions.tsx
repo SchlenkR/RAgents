@@ -8,6 +8,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui";
 import type { PluginRegistry, SessionContext, StartOptionControlContext } from "./PluginRegistry";
 import { modelDefaultsChangedEvent } from "./model-settings-events";
+import { useOfferedMachines, type OfferedMachines } from "./offered-machines";
 
 export interface StartOptionsControl {
   readonly options: readonly StartOptionState[];
@@ -229,10 +230,10 @@ const ChoiceControl = ({ disabled, error, option, setValue }: StartOptionControl
 
 const unchangeable = async () => undefined;
 
-function FixedStartOption({ conflict, option, registry }: { conflict: boolean; option: StartOptionState; registry: PluginRegistry }) {
+function FixedStartOption({ conflict, machines, option, registry }: { conflict: boolean; machines: OfferedMachines; option: StartOptionState; registry: PluginRegistry }) {
   const Control = registry.startOptions.get(option.id)?.Control ?? ChoiceControl;
   return <span className="contents" data-start-option-fixed={option.id} title="Von der Vorlage festgelegt">
-    <Control disabled error={conflict ? "Gewählt ist ein anderer Wert; die Vorlage legt diesen fest." : undefined} option={option} setValue={unchangeable} />
+    <Control disabled error={conflict ? "Gewählt ist ein anderer Wert; die Vorlage legt diesen fest." : undefined} machines={machines} option={option} setValue={unchangeable} />
   </span>;
 }
 
@@ -245,6 +246,7 @@ export function StartOptionControls({ disabled, registry, placement = "page", fi
 }) {
   const access = useAccess();
   const control = useStartOptions();
+  const machines = useOfferedMachines();
   const loadError = control.errors.get("");
   if (!access.can("runs.create")) return null;
   const here = control.options.filter((option) => (registry.startOptions.get(option.id)?.placement ?? "page") === placement);
@@ -253,13 +255,14 @@ export function StartOptionControls({ disabled, registry, placement = "page", fi
     <>
       {placement === "page" && loadError && <p className="text-[0.75rem] text-destructive" role="alert">{loadError}</p>}
       {shownStartOptions(here, fixed).map(({ option, fixed: isFixed }) => {
-        if (isFixed) return <FixedStartOption conflict={conflicts.has(option.id)} key={option.id} option={option} registry={registry} />;
+        if (isFixed) return <FixedStartOption conflict={conflicts.has(option.id)} key={option.id} machines={machines} option={option} registry={registry} />;
         const Control = registry.startOptions.get(option.id)?.Control ?? ChoiceControl;
         return (
           <Control
             disabled={disabled || control.pending || !access.can("runs.write")}
             error={control.errors.get(option.id)}
             key={option.id}
+            machines={machines}
             option={option}
             setValue={(value) => control.set(option.id, value)}
           />
@@ -267,14 +270,6 @@ export function StartOptionControls({ disabled, registry, placement = "page", fi
       })}
     </>
   );
-}
-
-/** In der Vorschau einer Vorlage: nur was sie an Startoptionen festlegt und der Server dem Zugang zeigt. */
-export function FixedStartOptions({ fixed, registry }: { fixed: Readonly<Record<string, unknown>>; registry: PluginRegistry }) {
-  const control = useStartOptions();
-  const conflicts = new Set(conflictingStartOptions(control.options, fixed).map((option) => option.id));
-  return <>{shownStartOptions(control.options.filter((option) => Object.hasOwn(fixed, option.id)), fixed)
-    .map(({ option }) => <FixedStartOption conflict={conflicts.has(option.id)} key={option.id} option={option} registry={registry} />)}</>;
 }
 
 export function StartOptionBadges({ registry, session }: { registry: PluginRegistry; session: SessionContext }) {

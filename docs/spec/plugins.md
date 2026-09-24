@@ -231,7 +231,7 @@ Der serverseitige `PluginHost` hat Registries für:
   Agenten und den globalen Koordinator `grouped`
 - typisierte Dienste und namespaced Storage
 - namespaced Run-Metadaten
-- Startoptionen (`host.startOptions`): Werte, die der Benutzer auf der Startseite wählt und die beim
+- Startoptionen (`host.startOptions`): Werte, die der Benutzer vor dem Start wählt oder ein Host vorbelegt und die beim
   Start eines Runs als Plugin-Zustand ins Journal eingefroren werden. Eine Option nennt Schema,
   Standardwert, `selectable`, `accept` (prüft und normalisiert einen Wert oder wirft) und `describe`
   (Darstellung für das Web). Der Host hält den Wert je noch nicht gestartetem Run über
@@ -1120,10 +1120,15 @@ externer Fehler und gezieltes Maskieren bleiben bei den jeweiligen Plugins.
 Der zentrale Chat kennt keine festen Fach-Toolnamen. `WorkspacePanel` kennt keine festen Tabs.
 Plugins belegen stattdessen typisierte Slots für:
 
-- Startoptionen der Startseite (`startOptions`: Bedienkomponente und Abzeichen je Option-Id;
+- Startoptionen (`startOptions`: Bedienkomponente und Abzeichen je Option-Id;
   ohne Komponente ein Auswahlmenü aus einer Darstellung `{ kind: "choice", label, options }`).
-  `placement` wählt die Startseite (`page`, Vorgabe) oder die Eingabeleiste (`composer`);
-  der Modellbeitrag verwendet die Eingabeleiste.
+  Sie stehen im Vorbereitungschat; `placement` wählt den Bereich unter der Eingabe (`page`,
+  Vorgabe) oder die Eingabeleiste (`composer`), der Modellbeitrag verwendet die Eingabeleiste.
+  Die Bedienkomponente bekommt mit `machines` (`apps/web/src/offered-machines.ts`), welche
+  Rechner der Host für neue Runs anbietet: `server` im Browser, `all` im Run-Panel von VS Code
+  (`RunPanelHost.machines`, bereitgestellt von `RunPanelHostProvider`). Die Arbeitsbereich-Wahl
+  zeigt danach Arbeitsplätze oder nur den Server; ein schon gewählter Arbeitsplatz bleibt als Wert
+  lesbar. Der Server prüft das nicht, VS Code und `ragents run` binden weiter an Arbeitsplätze.
 - Übersichtsbeiträge (`overviewPanels`): unabhängige Bereiche mit `placement` in der Übersicht
   (Vorgabe `overview`) oder der Kopfzeile (`toolbar`); `readRight` begrenzt die Sichtbarkeit.
   Ihr Kontext enthält Registry, Öffnungszustand, `onOpen`, `onClose` und `onBusy`. Der Host
@@ -1852,7 +1857,7 @@ nach dem Neustart ist er wieder Primary-Actor und der Chat geht weiter. Der Chat
 nennt den Grund ebenfalls, bietet den Neustart aber nicht an.
 
 Alle Chat-Eingaben nehmen Anhänge über Dateiauswahl, Drag-and-drop und die Zwischenablage an:
-Startauswahl, laufender Chat, globaler Koordinator, Actor-Pop-out und Mini-App-Controls.
+Vorbereitungschat, laufender Chat, globaler Koordinator, Actor-Pop-out und Mini-App-Controls.
 Der gemeinsame Composer zeigt Bilder und Videos als Vorschau und Dateien mit Name und Größe;
 Anhänge lassen sich vor dem Senden entfernen. Auch eine Nachricht ohne Text ist möglich.
 Die Grenzen für Anzahl und Gesamtgröße stehen im gemeinsamen Chat-Anhangsvertrag im Code.
@@ -1884,47 +1889,32 @@ Der Entwurf ersetzt den aktiven Run in der gemeinsamen Kopfzeile nicht; der seit
 Schließen verwirft den lokalen Entwurf, ohne einen Run anzulegen. Das Journal entsteht erst
 beim Start des Runs.
 
-Die freie Auftragseingabe steht zentriert über der Auswahl. Sie verwendet den originalen
-Quassel-`ChatInputToolbar` mit drei sichtbaren Zeilen, wachsend bis acht Zeilen. Derselbe
-Breitentoken der Startauswahl begrenzt sie auf 880 Pixel. Die Auftragseingabe hat keine
-zusätzliche Überschrift; die Bereiche behalten ihre zugänglichen Namen. Absenden startet den Run.
-Modell und Denktiefe stehen als tastaturbedienbare `Select` in der Eingabeleiste neben
-Anhängen und Detailgrad. Weitere Startoptionen der Plugins stehen darunter. Der Host zeigt
-weiterhin nur wählbare, noch nicht gesperrte Optionen, jeweils an ihrer deklarierten Platzierung.
-Legt die gewählte Vorlage eine Option fest, steht sie im Vorbereitungschat statt zur Wahl fest
-mit dem Wert der Vorlage (dieselbe Bedienkomponente, gesperrt, Titel "Von der Vorlage
-festgelegt"); die Vorschau der Vorlage zeigt dieselben festen Optionen unter "Von der Vorlage
-festgelegt". Die Auswahl dafür trifft `shownStartOptions` in `StartOptions.tsx`.
-Während Startoptionen geladen oder gespeichert werden, sind Senden und Starten gesperrt.
-Auswahl, Vorschau, Prompt-Übernahme und Texteingabe bleiben dabei auch ohne verbundene
-Chatleitung bedienbar; diese lokalen Schritte benötigen keine Serverantwort.
+Die Startauswahl sieht aus wie Start in VS Code und besteht aus demselben Baustein
+`StartTiles` (`apps/web/src/StartTiles.tsx`), den auch `panel/StartPage.tsx` verwendet: unter der
+Überschrift "Neu" mit der Zahl der Einträge zuerst die Default-Vorlage des Servers
+(`defaultStartEntry` aus `ragents.plugins.bootstrap`, Kennzeichen "Standard") oder ohne sie
+"Neuer Chat", danach die übrigen Vorlagen in der Reihenfolge des Servers, je Kachel Kategorie
+(ein Run-Script ohne Kategorie unter "Run-Scripts", ohne `runs.inspect` unter "Abläufe"), Titel,
+zwei Zeilen Beschreibung und "Starten" oder bei einem Leitfaden "Einrichten"; der Breitentoken der
+Startauswahl begrenzt sie auf 880 Pixel. Auftragseingabe, Startoptionen, Suche und Vorschau gibt es
+dort nicht. "Neuer Chat" steht nur mit `runs.create` da und macht den Entwurf ohne Anfrage an den
+Server zum offenen Run, dessen Auftrag im Chat entsteht; ein Skill steht nur mit `runs.create` da.
+Eine Vorlage ohne Leitfaden startet mit dem Klick wie in VS Code (`startEntryDirectly` in
+`apps/web/src/chat/requests.ts`, derselbe Aufruf wie `startLaunch` im Run-Panel): ein Run-Script
+über `ragents.chat.start` mit dem Startwert `null`, ein Skill über `ragents.chat.send` mit seinem
+vorbereiteten Auftrag und der Vorlage als `entry`. Browser-eigen bleiben der Entwurf als Dialog
+über dem vorherigen Run, weil die Web-App keine Start-Seite neben dem Run hat, der fehlende
+Serverblock, weil sie genau einen Server kennt, und die Rechner: ohne Host, der Arbeitsplätze
+anbietet, bindet sie nichts vor, und neue Runs laufen mit dem Standardwert auf dem Server.
+Während Startoptionen geladen oder gespeichert werden, etwa die Vorbelegung aus VS Code, und
+solange ein Start läuft, sind die Kacheln gesperrt.
 Während des Startdialogs pausieren Live-Stream und periodische Abfrage der verdeckten Run-Liste.
-Nach dem Schließen werden sie mit einer sofortigen Aktualisierung wieder aufgenommen. Dadurch
-bleibt neben bestehendem Run, globalem Chat und Entwurf eine HTTP-Verbindung für Startoptionen
-und Sendeaktionen verfügbar.
+Nach dem Schließen werden sie mit einer sofortigen Aktualisierung wieder aufgenommen.
 Der Entwurf abonniert nur den Run-Stream zur Erkennung des Starts. Einen Chat-Stream öffnet
-erst der gestartete Run; die Bereitschaft der Startaktionen hängt daher an den geladenen
-Startoptionen und der laufenden Aktion, nicht an einem noch leeren Chatverlauf.
+erst der gestartete Run.
 
-Darunter zeigt der gemeinsame UI-Baustein `ListDetail` links eine durchsuchbare Liste aller
-Skills und Run-Scripts und rechts die Vorschau des ausgewählten Eintrags.
-Vorschaukopf und Aktionsbereich bleiben sichtbar; der Aktionsbereich steht am unteren Rand.
-Nur der mittlere Vorschauinhalt scrollt, unabhängig von der Liste. Der Auftrag bleibt oberhalb
-beider Bereiche stehen; die Filterleiste gehört zur Liste und weicht mit ihr.
-Icons, Artbezeichnungen und semantische Farben unterscheiden die beiden Arten.
-Unter 900 Pixeln eigener Breite zeigt der Baustein zuerst die Liste; Auswahl öffnet die Details
-als eigene Seite mit "Zur Auswahl" und entsprechender Fokusführung.
-Jede Skill-Vorlage hat genau eine verpflichtende `category` als freien, nicht leeren Text; ein
-Run-Script darf eine tragen, ohne eine steht es in seiner eigenen Gruppe.
-Die Startauswahl gruppiert nach diesem Text über Plugin-Grenzen hinweg und zeigt Überschrift
-und Trefferzahl. Die Reihenfolge folgt der ersten nach `order` sortierten Vorlage je Gruppe;
-innerhalb der Gruppe bleiben die Vorlagen sortiert. Die Suche berücksichtigt Kategorie, Titel,
-Beschreibung, Plugin und Schlagworte. Ein gemeinsames Auswahlmenü filtert zusätzlich nach
-Schlagwort. Listenzeilen zeigen Titel, Kurzbeschreibung und Art. Die Vorschau enthält den
-vollständigen Prompt, Schlagworte als Filteraktionen und das Plugin. Auswählen ändert nur die Vorschau.
-
-"In Auftrag übernehmen" öffnet den nächsten Schritt im selben Modal. Dort beginnt ein
-Vorbereitungs-Chat mit dem editierbaren Prompt im originalen Quassel-Control, zunächst mittig, nach
+Der Leitfaden einer Skill-Vorlage führt mit seinem Ergebnis in den nächsten Schritt im selben
+Modal. Dort beginnt ein Vorbereitungs-Chat mit dem editierbaren Prompt im originalen Quassel-Control, zunächst mittig, nach
 der ersten Nachricht unter dem Verlauf. `ChatPanel`, `ChatMessages` und `ChatInputToolbar` sowie
 dieselben Startoptionen liefern Darstellung, Modellwahl, Denktiefe und Anhänge. Absenden bespricht
 den Auftrag mit einer eigenen Vorbereitungsinstanz des Koordinators. Sie verwendet die
@@ -1957,13 +1947,10 @@ Bereits gestartete Runs und parallele Vorbereitungsanfragen werden abgelehnt; Sc
 Löschen und Shutdown brechen laufende Anfragen ab. Abgebrochene, fehlgeschlagene oder verspätete
 Antworten starten keinen Run.
 
-Skills stehen in ihren Kategorien, Run-Scripts in einer eigenen Listengruppe. Ein Skill
-öffnet den Vorbereitungschat oder zuerst seinen Leitfaden als nächsten Schritt im selben Modal.
-Dessen Abschluss führt mit dem bearbeitbaren Auftrag in denselben Vorbereitungschat.
 Beim Erstellen des Runs bleibt der ausgewählte Skill mit dem Auftrag verknüpft und wird für
 seinen ersten Turn geladen. Der aktuelle, bearbeitete Auftrag hat Vorrang vor einem
-Standard- oder Beispielauftrag im Skill. Zurück und Abbrechen erhalten die Startauswahl mit Entwurf,
-Anhängen, Filter und Scrollposition. Ein Run-Script öffnet seinen Leitfaden oder startet direkt;
+Standard- oder Beispielauftrag im Skill. Zurück und Abbrechen führen auf die Startauswahl.
+Ein Run-Script öffnet seinen Leitfaden oder startet direkt;
 solange die Startanfrage läuft, sind weitere Starts gesperrt. Fehler erscheinen in der Startauswahl.
 Ein Run-Script ruft `ragents.chat.start { runId, entry, input }` mit dem Leitfaden-Ergebnis
 als `input` auf. Ein Ablauf ohne Koordinator sagt das dazu. Nach Annahme von `send` oder `start` schließt der Startdialog
@@ -2367,7 +2354,7 @@ und `docked` als `bottom`, eine gespeicherte Bühnenhöhe wird übergangen; jede
 ein harter Fehler.
 
 Das Run-Panel spricht über `apps/web/src/run-panel/host.ts` mit seinem Host. Der Host `browser`
-(Standard) öffnet Links selbst und kennt keine Mitte; der Host `vscode` (`?host=vscode`, nur
+(Standard) öffnet Links selbst, kennt keine Mitte und bietet für neue Runs nur den Server an; der Host `vscode` (`?host=vscode`, nur
 eingebettet) sendet `ready`, `runChanged`, `showStart`, `openInCenter`, `returnToRunPanel`, `login`, `logout`,
 `openExternal` und `openPage` per `postMessage` an das umgebende Fenster und nimmt von dort `selectRun`, `newRun`
 (mit vorbelegten Startoptionen und optional der Kennung einer Vorlage, die die Startauswahl dann
@@ -2489,7 +2476,8 @@ Web-App "Einrichten" (`ConnectionEntry.guided` aus `guide` der Vorlage), und rec
 `--primary`, Run-Script eckig und `--success`, das Raster
 `repeat(auto-fill, minmax(182px, 1fr))`. Eine Suche gibt es hier nicht, und `ListDetail` passt
 nicht, weil er sich nach eigener Breite misst und bei 420 Pixeln zur Liste mit Detailseite würde
-(Entscheidungen vom 19. und 21.09.2026).
+(Entscheidungen vom 19. und 21.09.2026). Die Kacheln samt Überschrift sind der Baustein
+`StartTiles`, derselbe wie in der Startauswahl des Browsers.
 
 **Runs** ist dieselbe zusammengeführte Liste, nur vollständig: Suche über Titel und Server,
 "Beendete ausblenden", der Serverfilter aus `PanelState.runsConnection` als gedrückter Schalter
@@ -2699,8 +2687,8 @@ Arbeitsbereich-Bindung ist ungültig".
 Die VS-Code-Erweiterung und der kopflose Arbeitsplatz (`pnpm workspace-client`) binden immer sich
 selbst mit einem angebotenen Ordner, auch wenn der Server auf demselben Rechner läuft, außer eine
 Vorlage legt die Bindung fest (Plugin-Vertrag, Startoptionen); den Server als Rechner wählen Runs
-ohne Arbeitsplatz (Web, `pnpm driver`, Container), den neuen Ordner auf einem Arbeitsplatz die
-Startauswahl. Auf einem Arbeitsplatz ist der gebundene Ordner das ganze Arbeitsverzeichnis des
+ohne Arbeitsplatz (Web, `pnpm driver`, Container), den neuen Ordner auf einem Arbeitsplatz der
+Vorbereitungschat im Run-Panel von VS Code; der Browser bietet keinen Arbeitsplatz an (`machines`). Auf einem Arbeitsplatz ist der gebundene Ordner das ganze Arbeitsverzeichnis des
 Runs und sein `cwd`: diesen Pfad nennt die Beschreibung des Arbeitsbereichs im Systemprompt, weil
 ein Ordner des Servers dort dem Agenten einen anderen Pfad nennen würde, als seine Werkzeuge
 benutzen. Für den Server ist er nur ein Name. Auf dem Server entsteht für einen solchen Run nur bei Bedarf der

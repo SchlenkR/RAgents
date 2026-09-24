@@ -1,6 +1,7 @@
-import { BookIcon, ChevronRightIcon, CodeIcon, PlusIcon, ServerIcon } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { ChevronRightIcon, PlusIcon, ServerIcon } from "lucide-react";
+import { useEffect, useState } from "react";
 import { cn } from "cn";
+import { StartSection, StartTiles, startTileCount } from "../StartTiles";
 import { Button, ConnectionStateIcon, connectionStateWord, Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "../ui";
 import { busyState, connectionState, routeLabel, stateDetail } from "./connection-state";
 import type { ConnectionEntry, ConnectionView } from "./contract";
@@ -9,26 +10,9 @@ import { LoginDialog } from "./PanelDialogs";
 import { RunLine, RunList } from "./RunLine";
 
 const RECENT_RUNS = 5;
-const NEW_CHAT = { category: "Ohne Vorlage", title: "Neuer Chat", description: "Leerer Run, der Auftrag entsteht im Chat." };
-
-const sectionClass = "flex items-baseline gap-2 text-[0.66rem] font-bold uppercase tracking-[0.06em] text-muted-foreground";
-const countClass = "font-mono text-[0.62rem] font-normal tracking-normal opacity-80";
-const tileClass = "group/tile flex h-full min-w-0 flex-col gap-1.5 rounded-[12px] border border-border-soft bg-card p-2.5 text-left [--tone:var(--primary)]"
-  + " hover:border-border hover:bg-accent/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring/60";
-const entryIcon = (entry: ConnectionEntry): ReactNode => entry.kind === "skill"
-  ? <BookIcon aria-hidden className="size-3.5" />
-  : <CodeIcon aria-hidden className="size-3.5" />;
-const chatIcon: ReactNode = <PlusIcon aria-hidden className="size-3.5" />;
 
 /** Die Vorlage hinter defaultEntry; die Erweiterung nennt nur eine Kennung aus entries. */
 const defaultEntryOf = (connection: ConnectionView): ConnectionEntry | undefined => connection.entries.find((entry) => entry.id === connection.defaultEntry);
-
-function Section({ title, count, children }: { title: string; count?: number; children?: ReactNode }) {
-  return <div className="flex items-baseline justify-between gap-2">
-    <h2 className={sectionClass}>{title}{count !== undefined && <span className={countClass}>{count}</span>}</h2>
-    {children}
-  </div>;
-}
 
 const chipPartClass = "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring/60 enabled:hover:bg-accent";
 const iconPartClass = "flex w-8 flex-none items-center justify-center";
@@ -126,45 +110,12 @@ function ConnectionChip({ connection, send, onLogin }: {
   </li>;
 }
 
-function Tile({ category, title, description, icon, standard, guided, onClick }: {
-  category: string;
-  title: string;
-  description: string;
-  icon: ReactNode;
-  /** Die Vorlage ist der Default ihres Servers. */
-  standard?: boolean;
-  guided?: boolean;
-  onClick: () => void;
-}) {
-  return <li className="min-w-0">
-    <button className={tileClass} onClick={onClick} title={title} type="button">
-      <span className="flex min-w-0 items-center gap-1.5 text-(--tone)">
-        {icon}
-        <span className="truncate text-[0.58rem] font-semibold uppercase tracking-[0.06em] text-muted-foreground">{category}</span>
-        {standard && <span className="ml-auto flex-none rounded-sm border border-current px-1 text-[0.52rem] font-semibold uppercase tracking-[0.06em] leading-[1.5] opacity-70">Standard</span>}
-      </span>
-      <span className="text-[0.76rem] font-semibold leading-snug [overflow-wrap:anywhere]">{title}</span>
-      <span className="line-clamp-2 text-[0.66rem] leading-[1.45] text-muted-foreground">{description}</span>
-      <span className="mt-auto flex items-center gap-0.5 pt-1.5 text-[0.62rem] font-semibold text-(--tone) opacity-50 group-hover/tile:opacity-100">
-        {guided ? "Einrichten" : "Starten"}<ChevronRightIcon aria-hidden className="size-3" />
-      </span>
-    </button>
-  </li>;
-}
-
 /** Die Vorlagen eines Servers: die Standard-Vorlage oder Neuer Chat zuerst, dann die übrigen; ab zwei Servern mit Überschrift. */
 function ConnectionOffers({ connection, marked, send }: { connection: ConnectionView; marked: boolean; send: PanelPageProps["send"] }) {
-  const standard = defaultEntryOf(connection);
-  const entries = connection.entries.filter((entry) => entry.id !== connection.defaultEntry);
   return <div className="grid grid-cols-1 gap-1.5">
     {marked && <h3 className="flex items-center gap-1.5 pt-1 text-[0.78rem] font-semibold"><ConnectionStateIcon state={connectionState(connection)} />{connection.name}</h3>}
-    <ul aria-label={marked ? `Vorlagen auf ${connection.name}` : "Vorlagen"} className="grid grid-cols-[repeat(auto-fill,minmax(182px,1fr))] gap-2">
-      {standard
-        ? <Tile category={standard.category} description={standard.description} guided={standard.guided} icon={entryIcon(standard)} onClick={() => send({ action: "newRun", name: connection.name, entryId: standard.id })} standard title={standard.title} />
-        : <Tile {...NEW_CHAT} icon={chatIcon} onClick={() => send({ action: "newRun", name: connection.name })} />}
-      {entries.map((entry) => <Tile category={entry.category} description={entry.description} guided={entry.guided} key={entry.id} icon={entryIcon(entry)}
-        onClick={() => send({ action: "newRun", name: connection.name, entryId: entry.id })} title={entry.title} />)}
-    </ul>
+    <StartTiles defaultEntry={connection.defaultEntry} entries={connection.entries} label={marked ? `Vorlagen auf ${connection.name}` : "Vorlagen"}
+      onNewChat={() => send({ action: "newRun", name: connection.name })} onStart={(entryId) => send({ action: "newRun", name: connection.name, entryId })} />
   </div>;
 }
 
@@ -176,8 +127,7 @@ export function StartPage({ state, send }: PanelPageProps) {
   const runs = connections.flatMap((connection) => connection.runs.map((run) => ({ connection, run })))
     .sort((left, right) => right.run.updatedAt - left.run.updatedAt);
   const reachable = connections.filter((connection) => connection.state.kind === "connected" && connection.canCreate);
-  const starters = reachable.map((connection) => ({ connection, entry: defaultEntryOf(connection) }));
-  const offers = reachable.flatMap((connection) => connection.entries.filter((entry) => entry.id !== connection.defaultEntry).map((entry) => ({ connection, entry })));
+  const tiles = reachable.reduce((count, connection) => count + startTileCount(connection.entries, connection.defaultEntry, true), 0);
   const loginConnection = connections.find((connection) => connection.name === login);
   return <div className="@container/panel grid grid-cols-1 gap-4">
     {state.problem && <p className="text-[0.8rem] leading-normal text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
@@ -188,23 +138,23 @@ export function StartPage({ state, send }: PanelPageProps) {
       </div>
       : <>
         <section className="grid grid-cols-1 gap-1.5">
-          <Section count={connections.length} title="Server" />
+          <StartSection count={connections.length} title="Server" />
           <ul aria-label="Server" className="grid grid-cols-2 gap-1.5 @[560px]/panel:auto-cols-fr @[560px]/panel:grid-flow-col @[560px]/panel:grid-cols-none">
             {connections.map((connection) => <ConnectionChip connection={connection} key={connection.name} onLogin={setLogin} send={send} />)}
           </ul>
         </section>
         <section className="grid grid-cols-1 gap-1.5">
-          <Section title="Weiter">
+          <StartSection title="Weiter">
             {runs.length > 0 && <Button className="text-[0.66rem]" onClick={() => send({ action: "page", page: "runs" })} size="xs" variant="ghost">Alle {runs.length} Runs<ChevronRightIcon data-icon="inline-end" /></Button>}
-          </Section>
+          </StartSection>
           {runs.length === 0
             ? <p className="text-[0.75rem] text-muted-foreground">Noch keine Runs.</p>
             : <RunList label="Zuletzt" showConnection={marked}>
               {runs.slice(0, RECENT_RUNS).map(({ connection, run }) => <RunLine connection={connection} key={`${connection.name}:${run.id}`} onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })} run={run} showConnection={marked} />)}
             </RunList>}
         </section>
-        {starters.length > 0 && <section className="grid grid-cols-1 gap-1.5">
-          <Section count={starters.length + offers.length} title="Neu" />
+        {reachable.length > 0 && <section className="grid grid-cols-1 gap-1.5">
+          <StartSection count={tiles} title="Neu" />
           {reachable.map((connection) => <ConnectionOffers connection={connection} key={connection.name} marked={marked} send={send} />)}
         </section>}
       </>}

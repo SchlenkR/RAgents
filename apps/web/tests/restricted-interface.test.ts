@@ -22,7 +22,7 @@ const renderRestricted = (children: ReactNode) => renderToStaticMarkup(createEle
   value: { ...operator, logout: async () => {} }, children,
 }));
 
-test("restricted launch shows only the allowed setup without free composer or technical metadata", () => {
+test("restricted launch shows only the allowed setup without free chat, composer or technical metadata", () => {
   const registry = new PluginRegistry({
     brand: { title: "Example" }, product: { id: "example", title: "Example" }, plugins: [{ id: "example" }],
     startEntries: [
@@ -34,11 +34,12 @@ test("restricted launch shows only the allowed setup without free composer or te
   const session = { session: { id: "run", title: "Run", updatedAt: 0 }, send: async () => {}, start: async () => {} } as unknown as SessionContext;
   const modal = createModalController({ nextBehavior: () => "push", onClose: () => {} });
   const html = renderRestricted(createElement(ModalControllerContext.Provider, { value: modal },
-    createElement(StartOptionsProvider, { connected: true, messageCount: 0, sessionId: "run" }, createElement(StartSelection, { registry, session }))));
+    createElement(StartOptionsProvider, { connected: true, messageCount: 0, sessionId: "run" }, createElement(StartSelection, { registry, session, onOpen: () => {} }))));
   assert.match(html, /Abgleichen/);
-  assert.match(html, />Starten<\/button>/);
-  assert.doesNotMatch(html, /textarea|Anderer Ablauf|Freier Auftrag|Privater Startauftrag|Run-Script|start-source|Startoptionen/);
-  assert.doesNotMatch(html, /<button[^>]*disabled=""[^>]*>Starten/);
+  assert.match(html, /Abläufe/);
+  assert.match(html, />Starten<svg/);
+  assert.doesNotMatch(html, /<button[^>]*disabled=""/);
+  assert.doesNotMatch(html, /textarea|Neuer Chat|Anderer Ablauf|Freier Auftrag|Privater Startauftrag|Run-Script|start-source|Startoptionen/);
 });
 
 test("restricted chat keeps messages and waiting actions while suppressing technical steps", () => {

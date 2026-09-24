@@ -54,6 +54,9 @@ test("die Bootstrap-Antwort wird geprüft und in Descriptoren übersetzt", () =>
   assert.throws(() => pluginBootstrapFrom({ ...bootstrap, plugins: [{ id: "x", config: "nein" }] }), /Plugin-Descriptor/);
   assert.throws(() => pluginBootstrapFrom({ ...bootstrap, startEntries: [{ id: "x" }] }), /ungültige Vorlage/);
   assert.throws(() => pluginBootstrapFrom({ ...bootstrap, startEntries: [{ ...bootstrap.startEntries[2], source: "x" }] }), /unbekannte Felder source/);
+  assert.equal(parsed.defaultStartEntry, undefined);
+  assert.equal(pluginBootstrapFrom({ ...bootstrap, defaultStartEntry: "test.feature" }).defaultStartEntry, "test.feature");
+  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, defaultStartEntry: 3 }), /erwarteten Format/);
 });
 
 test("die Aktivierung lädt Web-Hälften per Adresse samt Stylesheet und lässt Plugins ohne Web-Hälfte als nackte Kennung stehen", async () => {
@@ -82,6 +85,9 @@ test("die Aktivierung lädt Web-Hälften per Adresse samt Stylesheet und lässt 
   const active = (await activatePlugins(pluginBootstrapFrom(withReference), loader)).registry;
   assert.deepEqual(active.skillEntries.map((entry) => entry.id), ["ragents.reference.demo"]);
   assert.deepEqual(active.scriptEntries.map((entry) => entry.id), ["ragents.reference.setup"]);
+  const withDefault = (await activatePlugins(pluginBootstrapFrom({ ...withReference, defaultStartEntry: "ragents.reference.setup" }), loader)).registry;
+  assert.equal(withDefault.defaultStartEntry, "ragents.reference.setup", "die Startauswahl zeigt die Standard-Vorlage des Servers zuerst");
+  await assert.rejects(activatePlugins(pluginBootstrapFrom({ ...withProduct, defaultStartEntry: "ragents.reference.setup" }), loader), /Default-Vorlage ragents.reference.setup/);
 });
 
 test("eine Web-Hälfte, die nicht lädt, zeigt sich als Plugin-Fehler mit Kennung und Adresse; die übrigen Plugins bleiben aktiv", async () => {

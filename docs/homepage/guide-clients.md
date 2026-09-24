@@ -198,9 +198,11 @@ it starts a detached process with its log at `<data-directory>/host.log`, then r
 address and PID in `<data-directory>/host.json`. It creates a run bound to the absolute folder as
 an existing folder on the server (binding `{ machine: "server", folder: { path } }` through
 `ragents.startOptions.select`), sends the task (`ragents.chat.send`), and follows
-the run journal until the turn triggered by its message ends. If the profile does not provide
-`ragents.workspace.binding` because it creates its own workspace, the folder remains unbound and
-the command reports this on stderr.
+the turn triggered by its message until it ends. Like the web interface and VS Code, it subscribes
+to the `ragents.run` channel and reads `ragents.runs.view` after every change, so it needs only
+`runs.read` and also works against a server with a different data directory or on another machine.
+If the profile does not provide `ragents.workspace.binding` because it creates its own workspace,
+the folder remains unbound and the command reports this on stderr.
 
 `--workstation <id>` binds the folder on the workstation registered at the host under that ID
 instead of the server (binding `{ machine: { client, label }, folder: { path } }`, the label taken
@@ -210,11 +212,12 @@ workstation of that ID the command fails and names the registered ones.
 
 `--entry <template>` additionally starts the run through a skill or script template. If that program
 chooses its chat partner during setup, the task waits instead of failing. `send` performs the
-same operation in an existing run. `journal` reads the history without a server, using the same
-code as `pnpm driver journal`. `stop <runId>` interrupts only the active turn of the run's primary
-actor through `ragents.runs.interruptTurn`, exactly like the stop button in the chat input: the
-run and all actors stay active and accept the next task, and without an active turn nothing
-happens. `stop <runId> --run` is the emergency stop (`ragents.chat.stop`): it aborts every turn
+same operation in an existing run. `journal` reads the history from the profile's data directory
+without a server, using the same code as `pnpm driver journal`; with `RAGENTS_URL` set, it reads it
+from the server through `ragents.runs.events`, which requires `runs.inspect`. `stop <runId>`
+interrupts only the active turn of the run's primary actor through `ragents.runs.interruptTurn`,
+exactly like the stop button in the chat input: the run and all actors stay active and accept the
+next task, and without an active turn nothing happens. `stop <runId> --run` is the emergency stop (`ragents.chat.stop`): it aborts every turn
 and stops all actors of the run. `stop --host` terminates exactly the PID in `host.json`, never a
 process pattern, and only if the host at the recorded address reports that same PID from
 `/health`; otherwise it fails, leaves the process alone and removes the stale record. `ragents --help` and `ragents help` show usage and exit with 0; invoking the
@@ -241,18 +244,20 @@ not enough because the command has no sign-in dialog. If the token is missing, t
 that the profile requires authentication and asks you to set `RAGENTS_TOKEN` to the user's
 personal token.
 
-stdout contains function calls (`> <name> <input>`, `< <name> <duration>s ok`, or `Error: ...`),
-the model response, and finally the fixed line `run: <id>`. Messages from the command itself go
-to stderr. With `--json`, journal events are emitted as newline-delimited JSON instead. Exit code
-0 means `turn.finished` with `outcome: "completed"`; 2 means `turn.interrupted`; 1 means a failed
-turn or connection problem.
+stdout contains function calls (`> <name>`, then `< <name> <duration>s ok`, `Fehler`, or
+`abgebrochen`) as far as the server shows them to the user (`runs.inspect`), the model response,
+and finally the fixed line `run: <id>`. Messages from the command itself go to stderr. With
+`--json`, the same steps are emitted as newline-delimited JSON instead (`tool`, `tool-end`,
+`output`, and finally `turn`, carrying the objects of the run view). Exit code 0 means the turn
+completed; 2 means it was interrupted; 1 means a failed turn or connection problem. If the event
+stream or a request breaks while the command waits, it fails with the cause instead of hanging;
+the turn may continue on the server.
 
 The address comes from the profile's `host.json`, then `RAGENTS_URL`, then `host.PORT` in the
 profile file. When authentication is required, `RAGENTS_TOKEN` is sent as a bearer token. The
 data directory is the server's `DATA_DIR`, then `host.DATA_DIR`, then
-`~/.local/share/ragents/<profile>`. Because server, project, and journal are on the same machine,
-the command reads history directly from `<data-directory>/runs/<runId>/journal.jsonl`. A host
-started this way also serves the web interface, which comes finished with the host;
+`~/.local/share/ragents/<profile>`; only `journal` without `RAGENTS_URL` reads from it directly
+(`<data-directory>/runs/<runId>/journal.jsonl`). A host started this way also serves the web interface, which comes finished with the host;
 `ragents start developer` (or `scripts/start.sh developer` in a checkout) starts it in the
 foreground instead. `ragents start` writes the same `host.json` and removes it on shutdown,
 so `stop --host --profile <profile|path>` handles either startup path. Only `--port 0` cannot be

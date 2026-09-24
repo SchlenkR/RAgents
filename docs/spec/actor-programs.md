@@ -489,7 +489,7 @@ Unter 900 Pixeln füllt die Liste die Fläche allein; eine Auswahl öffnet die D
 Seite mit rundem Zurück-Knopf, Fokusführung und ohne Such- und Filterleiste. Maßgeblich ist die
 eigene Breite des Bausteins, nicht die des Browserfensters; dieselbe Schwelle steuert Darstellung
 und Umschaltung. Wird die Fläche wieder breit, stehen Liste und Details nebeneinander.
-Die Startauswahl und Mini-Apps verwenden dieselbe Implementierung aus `apps/web/src/ui`;
+Mini-Apps verwenden dieselbe Implementierung aus `apps/web/src/ui` wie der Host;
 der erzeugte Control-Katalog und seine Demo enthalten denselben Typvertrag.
 
 Mini-Apps verwenden die shadcn/ui-Komponenten der gemeinsamen Bibliothek (siehe plugins) und

@@ -89,7 +89,7 @@ interface ChatWorkspaceProps {
   headerContainer?: HTMLElement | null;
   workspaceHeaderContainer?: HTMLElement | null;
   startDialog?: { onClose: () => void; initialEntryId?: string };
-  onStarted?: () => void;
+  onStarted: () => void;
   onModalContainer: (element: HTMLDivElement | null) => void;
   onSurfaceModalContainer: (element: HTMLDivElement | null) => void;
   navigation: SessionNavigation;
@@ -330,7 +330,7 @@ function ChatWorkspace({
   const startSession = useMemo<SessionContext>(() => {
     const attempt = async (work: () => Promise<void>) => {
       await work();
-      onStarted?.();
+      onStarted();
     };
     return {
       ...session,
@@ -373,7 +373,7 @@ function ChatWorkspace({
   if (startDialog) return (
     <Modal className="gap-0 p-0 [&_[data-slot=dialog-body]:has([data-preparation])]:overflow-hidden" nextBehavior="push" onClose={startDialog.onClose} scope="page" showCloseButton size="full">
       <DialogTitle className="sr-only">Neuer Run</DialogTitle>
-      <StartSelection registry={registry} session={startSession} initialEntryId={startDialog.initialEntryId} />
+      <StartSelection registry={registry} session={startSession} initialEntryId={startDialog.initialEntryId} onOpen={onStarted} />
     </Modal>
   );
 

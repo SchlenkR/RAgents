@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
-import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test, { type TestContext } from "node:test";
-import { implement, type HttpRouteContribution } from "@ragents/engine";
+import { implement, implementChannel, type HttpRouteContribution, type JournalEvent } from "@ragents/engine";
 import { DomainError } from "../../packages/ragents/src/runtime/domain-error.ts";
 import { coreContracts } from "../../apps/server/src/api/contracts.ts";
 import { runContracts } from "../../packages/ragents/src/http/contracts.ts";
@@ -16,7 +16,7 @@ import { callerDirectory } from "../../apps/server/src/profile-target.ts";
 import { startRpcServer } from "../../apps/server/tests/rpc-fixture.ts";
 import { WORKSPACE_BINDING_OPTION_ID, type WorkspaceBindingPresentation, type WorkspaceClientInfo } from "../../plugins/ragents.workspace/contract.ts";
 import { noteHost } from "../remote/connect.ts";
-import { advance, execute, INITIAL_FOLLOW_STATE, parseArguments, type TurnOutcome } from "./agent-cli.ts";
+import { execute, parseArguments, progressOf, type TurnOutcome } from "./agent-cli.ts";
 import { journalFile } from "./journal.ts";
 
 const health: HttpRouteContribution = {
@@ -36,8 +36,34 @@ interface Selection {
   readonly value: unknown;
 }
 
-/** Ein Server, der auf jede Nachricht einen fertigen Turn ins Journal schreibt - wie der echte, nur ohne Modell. */
-const harness = async (t: TestContext, outcome: TurnOutcome, binding = true, refusals = 0, clients: WorkspaceClientInfo[] = []) => {
+const OWNER = "owner";
+const PRIMARY = "agent_coordinator";
+
+/** Die Journalzeilen eines fertigen Turns, wie sie der Server schreibt; nur für journal gebraucht. */
+const journalRecords = (runId: string, text: string): readonly unknown[] => [
+  { runId, command: { actorId: PRIMARY }, occurredAt: "2026-09-21T10:00:00.000Z", events: [
+    { sequence: 1, type: "actor.input.enqueued", payload: { inputId: "input-0", actorId: PRIMARY, content: text } },
+    { sequence: 2, type: "turn.started", payload: { turnId: "turn-0", inputId: "input-0" } },
+    { sequence: 3, type: "tool.call.started", payload: { turnId: "turn-0", toolCallId: "call-1", name: "read", input: { path: "src/broken.ts" } } },
+  ] },
+  { runId, command: { actorId: PRIMARY }, occurredAt: "2026-09-21T10:00:02.500Z", events: [
+    { sequence: 4, type: "tool.call.completed", payload: { turnId: "turn-0", toolCallId: "call-1", name: "read", output: "const a = 1;" } },
+    { sequence: 5, type: "model.output.completed", payload: { turnId: "turn-0", text: "Erledigt." } },
+    { sequence: 6, type: "turn.finished", payload: { turnId: "turn-0", outcome: "completed" } },
+  ] },
+];
+
+interface HarnessOptions {
+  readonly binding?: boolean;
+  readonly refusals?: number;
+  readonly clients?: WorkspaceClientInfo[];
+  /** Der Turn bleibt nach dem ersten Werkzeugaufruf stehen, bis der Test etwas tut. */
+  readonly hold?: boolean;
+}
+
+/** Ein Server, der auf jede Nachricht einen Turn in der Run-Ansicht fortschreibt und im Kanal ragents.run meldet, ohne Journaldatei. */
+const harness = async (t: TestContext, outcome: TurnOutcome, options: HarnessOptions = {}) => {
+  const { binding = true, refusals = 0, clients = [] } = options;
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-agent-cli-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const selections: Selection[] = [];
@@ -45,25 +71,39 @@ const harness = async (t: TestContext, outcome: TurnOutcome, binding = true, ref
   const interrupted: { runId: string; actorId: string }[] = [];
   const entries: string[] = [];
   const messages: { runId: string; text: string }[] = [];
+  const views = new Map<string, RunView>();
+  const watchers = new Map<string, Set<() => void>>();
+  let reachRunning = (): void => undefined;
+  const running = new Promise<void>((resolve) => { reachRunning = resolve; });
   let refused = 0;
+  const update = (runId: string, change: (view: RunView) => RunView): void => {
+    const current = views.get(runId) ?? { id: runId, ownerId: OWNER, primaryActorId: PRIMARY, inputs: [], turns: [] } as unknown as RunView;
+    views.set(runId, change(current));
+    for (const notify of watchers.get(runId) ?? []) notify();
+  };
   const turn = (runId: string, text: string): void => {
-    const file = journalFile(directory, runId);
-    mkdirSync(path.dirname(file), { recursive: true });
-    const line = (occurredAt: string, events: readonly unknown[]): string =>
-      `${JSON.stringify({ runId, command: { actorId: "agent_coordinator" }, occurredAt, events })}\n`;
     const index = messages.length;
-    appendFileSync(file, line("2026-09-21T10:00:00.000Z", [
-      { sequence: index * 10 + 1, type: "actor.input.enqueued", payload: { inputId: `input-${index}`, actorId: "agent_coordinator", content: text } },
-      { sequence: index * 10 + 2, type: "turn.started", payload: { turnId: `turn-${index}`, inputId: `input-${index}` } },
-      { sequence: index * 10 + 3, type: "tool.call.started", payload: { turnId: `turn-${index}`, toolCallId: "call-1", name: "read", input: { path: "src/broken.ts" } } },
-    ]));
-    appendFileSync(file, line("2026-09-21T10:00:02.500Z", [
-      { sequence: index * 10 + 4, type: "tool.call.completed", payload: { turnId: `turn-${index}`, toolCallId: "call-1", name: "read", output: "const a = 1;" } },
-      { sequence: index * 10 + 5, type: "model.output.completed", payload: { turnId: `turn-${index}`, text: "Erledigt." } },
-      outcome === "interrupted"
-        ? { sequence: index * 10 + 6, type: "turn.interrupted", payload: { turnId: `turn-${index}`, reason: "Vom Bediener gestoppt" } }
-        : { sequence: index * 10 + 6, type: "turn.finished", payload: { turnId: `turn-${index}`, ...(outcome === "failed" ? { outcome: "failed", reason: "Modellfehler" } : { outcome: "completed" }) } },
-    ]));
+    const inputId = `input-${index}`;
+    const turnId = `turn-${index}`;
+    const call = { id: `call-${index}`, name: "read", status: "running", startedAt: "2026-09-21T10:00:00.000Z", finishedAt: null } as const;
+    const base = { id: turnId, actorId: PRIMARY, inputId, startedAt: "2026-09-21T10:00:00.000Z", finishedAt: null, reason: null, usage: {}, outputs: [] };
+    update(runId, (view) => ({ ...view, inputs: [...view.inputs, { id: inputId, actorId: PRIMARY, content: text, artifactIds: [], enqueuedBy: OWNER,
+      enqueuedAt: "2026-09-21T10:00:00.000Z", sequence: index * 10 + 1, lifecycle: { kind: "pending" }, subscriptionId: null, sourceEventIds: [] }] }));
+    const claimed = (view: RunView): RunView["inputs"] => view.inputs.map((input) => input.id === inputId
+      ? { ...input, lifecycle: { kind: "claimed", turnId, steered: false } } : input);
+    setTimeout(() => {
+      update(runId, (view) => ({ ...view, inputs: claimed(view), turns: [...view.turns, { ...base, status: "running", toolCalls: [call] }] as RunView["turns"] }));
+      reachRunning();
+      if (options.hold) return;
+      setTimeout(() => update(runId, (view) => ({ ...view, turns: view.turns.map((entry) => entry.id !== turnId ? entry : {
+        ...entry,
+        status: outcome,
+        finishedAt: "2026-09-21T10:00:03.000Z",
+        reason: outcome === "failed" ? "Modellfehler" : outcome === "interrupted" ? "Vom Bediener gestoppt" : null,
+        toolCalls: [{ ...call, status: "completed", finishedAt: "2026-09-21T10:00:02.500Z" }],
+        outputs: [{ text: "Erledigt.", sequence: index * 10 + 5, occurredAt: "2026-09-21T10:00:02.600Z" }],
+      }) })), 10);
+    }, 10);
     messages.push({ runId, text });
   };
   const server = await startRpcServer(t, {
@@ -93,10 +133,24 @@ const harness = async (t: TestContext, outcome: TurnOutcome, binding = true, ref
         stopped.push(runId);
         return null;
       }),
-      implement(runContracts.view, ({ runId }) => ({ id: runId, primaryActorId: "agent_coordinator" }) as RunView),
+      implement(runContracts.view, ({ runId }) => views.get(runId) ?? null),
+      implement(runContracts.events, ({ runId }) => journalRecords(runId, messages[0]?.text ?? "").flatMap((record) => {
+        const { occurredAt, events } = record as { occurredAt: string; events: { sequence: number; type: string; payload: unknown }[] };
+        return events.map((event) => ({ ...event, runId, actorId: PRIMARY, occurredAt }));
+      }) as JournalEvent[]),
       implement(runContracts.interruptTurn, ({ runId, actorId }) => {
         interrupted.push({ runId, actorId });
-        return { id: runId, primaryActorId: "agent_coordinator" } as RunView;
+        return views.get(runId)!;
+      }),
+    ],
+    channels: [
+      implementChannel(coreContracts.channels.run, ({ runId }, emit) => {
+        emit({ kind: "ready" });
+        const notify = () => emit({ kind: "run" });
+        const set = watchers.get(runId) ?? new Set();
+        set.add(notify);
+        watchers.set(runId, set);
+        return () => { set.delete(notify); };
       }),
     ],
   });
@@ -111,12 +165,13 @@ const harness = async (t: TestContext, outcome: TurnOutcome, binding = true, ref
     process.env.DATA_DIR = previous.data;
     if (previous.cwd === undefined) delete process.env.RAGENTS_CWD;
     else process.env.RAGENTS_CWD = previous.cwd;
-    if (previous.url !== undefined) process.env.RAGENTS_URL = previous.url;
+    if (previous.url === undefined) delete process.env.RAGENTS_URL;
+    else process.env.RAGENTS_URL = previous.url;
   });
   writeHostRecord(directory, { profile: "developer", url: server.url, pid: process.pid, log: path.join(directory, "host.log"), startedAt: new Date().toISOString() });
   const profileFile = path.join(directory, "ragents.config.pruef.ts");
   writeFileSync(profileFile, `export const config = { host: { PORT: ${port}, PRODUCT_PROFILE: "pruef" } };\n`);
-  return { directory, profileFile, selections, stopped, interrupted, entries, messages, lines: [] as string[] };
+  return { directory, profileFile, server, running, selections, stopped, interrupted, entries, messages, lines: [] as string[] };
 };
 
 const collect = (lines: string[]) => (line: string): void => { lines.push(line); };
@@ -131,13 +186,42 @@ test("run bindet den Ordner per path, wartet auf das Turn-Ende und nennt den Run
   assert.equal(context.selections[0]!.optionId, WORKSPACE_BINDING_OPTION_ID);
   assert.deepEqual(context.selections[0]!.value, { machine: "server", folder: { path: context.directory } });
   assert.equal(context.messages[0]!.text, "Behebe den Typfehler");
-  assert.deepEqual(context.lines.slice(0, 3), ["> read {\"path\":\"src/broken.ts\"}", "< read 2.5s ok", "Erledigt."]);
+  assert.deepEqual(context.lines.slice(0, 3), ["> read", "< read 2.5s ok", "Erledigt."]);
   assert.match(context.lines.at(-1)!, /^run: [0-9a-f-]{36}$/);
+  assert.equal(existsSync(path.join(context.directory, "runs")), false, "der Turn kam über den Server, nicht aus einer Journaldatei");
+});
+
+test("run und send folgen einem Server mit anderem Datenordner über RAGENTS_URL, journal liest dort", { timeout: 20_000 }, async (t) => {
+  const context = await harness(t, "completed");
+  const url = readHostRecord(context.directory)!.url;
+  const elsewhere = await mkdtemp(path.join(tmpdir(), "ragents-agent-cli-local-"));
+  t.after(() => rm(elsewhere, { recursive: true, force: true }));
+  process.env.DATA_DIR = elsewhere;
+  process.env.RAGENTS_URL = url;
+  assert.equal(await execute({ kind: "run", profile: "developer", folder: context.directory, text: "Baue", entry: undefined, json: false }, collect(context.lines)), 0);
+  const runId = context.messages[0]!.runId;
+  assert.deepEqual(context.lines, ["> read", "< read 2.5s ok", "Erledigt.", `run: ${runId}`]);
+  const followUp: string[] = [];
+  assert.equal(await execute({ kind: "send", profile: "developer", runId, text: "Weiter", json: false }, collect(followUp)), 0);
+  assert.deepEqual(followUp, ["> read", "< read 2.5s ok", "Erledigt.", `run: ${runId}`]);
+  const journal: string[] = [];
+  assert.equal(await execute({ kind: "journal", profile: "developer", runId, json: false, tools: true }, collect(journal)), 0);
+  assert.deepEqual(journal, ["[3] started agent_coordina read: {\"path\":\"src/broken.ts\"}", "-- letzte Sequenz: 6"]);
+  assert.equal(existsSync(path.join(elsewhere, "runs")), false);
+});
+
+test("reißt die Verbindung ab, endet run mit Ursache statt zu warten", { timeout: 20_000 }, async (t) => {
+  const context = await harness(t, "completed", { hold: true });
+  const pending = execute({ kind: "run", profile: "developer", folder: context.directory, text: "Baue", entry: undefined, json: false }, collect(context.lines));
+  await context.running;
+  context.server.transport.close();
+  await assert.rejects(pending, /Der Turn in [0-9a-f-]{36} lässt sich über http:\/\/127\.0\.0\.1:\d+ nicht weiter verfolgen und läuft dort womöglich weiter: \S/);
+  assert.equal(context.lines.includes("run: " + context.messages[0]!.runId), false);
 });
 
 test("run --workstation bindet den Ordner auf dem angemeldeten Arbeitsplatz, ein unbekannter bricht mit Ursache ab", { timeout: 20_000 }, async (t) => {
   const workstation: WorkspaceClientInfo = { id: "laptop-0001", label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/user/project"], runsDirectory: "/home/user/runs" };
-  const context = await harness(t, "completed", true, 0, [workstation]);
+  const context = await harness(t, "completed", { clients: [workstation] });
   const run = { kind: "run", profile: "developer", folder: "/home/user/project", text: "Baue", entry: undefined, json: false } as const;
   assert.equal(await execute({ ...run, workstation: "laptop-0001" }, collect(context.lines)), 0);
   assert.deepEqual(context.selections[0]!.value, { machine: { client: "laptop-0001", label: "Laptop" }, folder: { path: "/home/user/project" } });
@@ -145,7 +229,7 @@ test("run --workstation bindet den Ordner auf dem angemeldeten Arbeitsplatz, ein
     /kein Arbeitsplatz mit der Kennung desktop-0002 angemeldet; angemeldet: laptop-0001 \(Laptop\)/);
   assert.equal(context.selections.length, 1);
   assert.equal(context.messages.length, 1, "ohne Arbeitsplatz geht kein Auftrag hinaus");
-  const unbound = await harness(t, "completed", false);
+  const unbound = await harness(t, "completed", { binding: false });
   await assert.rejects(execute({ ...run, workstation: "laptop-0001" }), /ohne Ordnerbindung gibt es keinen Arbeitsplatz/);
   assert.deepEqual(unbound.messages, []);
 });
@@ -169,8 +253,10 @@ test("send arbeitet im selben Run weiter und liest nur den neuen Turn", { timeou
   const followUp: string[] = [];
   assert.equal(await execute({ kind: "send", profile: "developer", runId, text: "Zweiter Auftrag", json: true }, collect(followUp)), 0);
   assert.deepEqual(context.messages.map((entry) => entry.runId), [runId, runId]);
-  const events = followUp.slice(0, -1).map((line) => JSON.parse(line) as { sequence: number; type: string });
-  assert.deepEqual(events.map((event) => event.sequence), [11, 12, 13, 14, 15, 16]);
+  const steps = followUp.slice(0, -1).map((line) => JSON.parse(line) as { kind: string; output?: { sequence: number }; status?: string });
+  assert.deepEqual(steps.map((step) => step.kind), ["tool", "tool-end", "output", "turn"]);
+  assert.equal(steps[2]!.output!.sequence, 15, "nur der neue Turn, nicht der erste");
+  assert.equal(steps[3]!.status, "completed");
   assert.equal(followUp.at(-1), `run: ${runId}`);
 });
 
@@ -184,6 +270,9 @@ test("stop unterbricht nur den Turn des Primary-Actors, --run hält den ganzen R
   assert.equal(await execute({ kind: "stop-run", profile: "developer", runId }), 0);
   assert.deepEqual(context.stopped, [runId]);
   assert.equal(context.interrupted.length, 1);
+  const file = journalFile(context.directory, runId);
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, journalRecords(runId, "Auftrag").map((record) => `${JSON.stringify(record)}\n`).join(""));
   const journal: string[] = [];
   assert.equal(await execute({ kind: "journal", profile: "developer", runId, json: false, tools: true }, collect(journal)), 0);
   assert.deepEqual(journal, ["[3] started agent_coordina read: {\"path\":\"src/broken.ts\"}", "-- letzte Sequenz: 6"]);
@@ -234,14 +323,14 @@ test("stop --host beendet auch den Host, den ragents start gemerkt hat", { timeo
 });
 
 test("ein Profil ohne die Ordnerbindung startet den Run trotzdem", { timeout: 20_000 }, async (t) => {
-  const context = await harness(t, "completed", false);
+  const context = await harness(t, "completed", { binding: false });
   assert.equal(await execute({ kind: "run", profile: "developer", folder: context.directory, text: "Auftrag ohne Bindung", entry: undefined, json: false }, collect(context.lines)), 0);
   assert.deepEqual(context.selections, []);
   assert.equal(context.messages[0]!.text, "Auftrag ohne Bindung");
 });
 
 test("eine Vorlage darf ihren Chatpartner erst einrichten; der Auftrag wartet darauf", { timeout: 20_000 }, async (t) => {
-  const context = await harness(t, "completed", false, 2);
+  const context = await harness(t, "completed", { binding: false, refusals: 2 });
   assert.equal(await execute({ kind: "run", profile: "developer", folder: context.directory, text: "Auftrag an der Vorlage", entry: "workshop.tickets.implement-task", json: false }, collect(context.lines)), 0);
   assert.deepEqual(context.entries, ["workshop.tickets.implement-task"]);
   assert.equal(context.messages[0]!.text, "Auftrag an der Vorlage");
@@ -301,15 +390,24 @@ test("die Kommandozeile nennt Befehl, Ordner, Auftrag und Schalter", () => {
   assert.throws(() => parseArguments(["stop", "--host", "abc"]), /keine Run-Id/);
 });
 
-test("send follows a message that joined a running turn as steering to that turn's end", () => {
-  const event = (sequence: number, type: string, payload: Record<string, unknown>) => ({ sequence, type, actorId: "agent_coordinator", occurredAt: "2026-09-24T10:00:00.000Z", payload });
-  const events = [
-    event(1, "actor.input.enqueued", { inputId: "input-1", actorId: "agent_coordinator", content: "Baue die Seite." }),
-    event(2, "turn.started", { turnId: "turn-1", inputId: "input-1" }),
-    event(3, "actor.input.enqueued", { inputId: "input-2", actorId: "agent_coordinator", content: "Nimm Blau." }),
-    event(4, "turn.input-steered", { turnId: "turn-1", inputId: "input-2" }),
-    event(5, "turn.finished", { turnId: "turn-1", outcome: "completed" }),
-  ];
-  assert.deepEqual(events.reduce((state, entry) => advance(state, entry, "Nimm Blau."), INITIAL_FOLLOW_STATE),
-    { inputId: "input-2", turnId: "turn-1", outcome: "completed", reason: undefined });
+test("send folgt einer Nachricht, die als Steering in einen laufenden Turn kam, bis zu dessen Ende", () => {
+  const input = (id: string, sequence: number, content: string, turnId: string, steered: boolean) => ({ id, actorId: PRIMARY, content, artifactIds: [],
+    enqueuedBy: OWNER, enqueuedAt: `2026-09-24T10:00:0${sequence}.000Z`, sequence, lifecycle: { kind: "claimed", turnId, steered }, subscriptionId: null, sourceEventIds: [] });
+  const view = (status: string, reason: string | null) => ({
+    id: "run-1", ownerId: OWNER, primaryActorId: PRIMARY,
+    inputs: [input("input-1", 1, "Baue die Seite.", "turn-1", false), input("input-2", 3, "Nimm Blau.", "turn-1", true)],
+    turns: [{ id: "turn-1", actorId: PRIMARY, inputId: "input-1", status, startedAt: "2026-09-24T10:00:02.000Z", finishedAt: status === "running" ? null : "2026-09-24T10:00:09.000Z",
+      reason, usage: {}, toolCalls: [],
+      outputs: [{ text: "Ich baue.", sequence: 2, occurredAt: "2026-09-24T10:00:02.500Z" }, { text: "Blau ist gesetzt.", sequence: 5, occurredAt: "2026-09-24T10:00:08.000Z" }] }],
+  }) as unknown as RunView;
+  const known = new Set(["input-1"]);
+  assert.deepEqual(progressOf(view("running", null), known, "Nimm Blau.").outcome, undefined);
+  const completed = progressOf(view("completed", null), known, " Nimm Blau. ");
+  assert.equal(completed.outcome, "completed");
+  assert.deepEqual(completed.entries.map((entry) => entry.line), ["Blau ist gesetzt.", undefined], "was vor der eigenen Nachricht kam, gehört nicht dazu");
+  const failed = progressOf(view("failed", "Modellfehler"), known, "Nimm Blau.");
+  assert.deepEqual([failed.outcome, failed.reason, failed.entries.at(-1)!.line], ["failed", "Modellfehler", "! Turn fehlgeschlagen: Modellfehler"]);
+  const interrupted = progressOf(view("interrupted", "Vom Bediener gestoppt"), known, "Nimm Blau.");
+  assert.deepEqual([interrupted.outcome, interrupted.entries.at(-1)!.line], ["interrupted", "! Turn abgebrochen: Vom Bediener gestoppt"]);
+  assert.equal(progressOf(view("completed", null), new Set(["input-1", "input-2"]), "Nimm Blau.").outcome, undefined, "eine alte Eingabe mit gleichem Text zählt nicht");
 });

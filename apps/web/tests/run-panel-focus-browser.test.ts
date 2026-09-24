@@ -18,7 +18,7 @@ test("new VS Code runs focus their enabled chat once without stealing focus on r
     bundle: true, platform: "browser", format: "iife", outfile: `${directory}/fixture.js`,
     plugins: [
       { name: "focus-fixture-services", setup(builder) {
-        builder.onLoad({ filter: /\/src\/PluginActivation\.ts$/ }, () => ({ contents: 'export const usePluginActivation = () => ({ status: "ready", registry: window.runFocusFixture.registry });' }));
+        builder.onLoad({ filter: /\/src\/PluginActivation\.ts$/ }, () => ({ contents: 'export const usePluginActivation = () => ({ status: "ready", registry: window.runFocusFixture.registry, failures: [] });' }));
         builder.onLoad({ filter: /\/src\/rpc\.ts$/ }, () => ({ contents: 'export const rpc = { call: (...args) => window.runFocusFixture.call(...args), subscribe: (...args) => window.runFocusFixture.subscribe(...args) };' }));
       } },
       tailwindPlugin([`${root}apps/web/src`]),

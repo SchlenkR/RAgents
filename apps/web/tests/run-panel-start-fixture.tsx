@@ -18,6 +18,7 @@ const rights = (query.get("rights") ?? "runs.read,runs.write,runs.create,runs.in
 const centered: ReadonlySet<string> = new Set();
 const host: RunPanelHost = {
   kind: query.get("host") === "browser" ? "browser" : "vscode",
+  machines: query.get("host") === "browser" ? "server" : "all",
   centerElements: () => centered,
   subscribe: () => () => {},
   openInCenter() {},
@@ -51,7 +52,7 @@ const emptyView = (runId: string) => ({ id: runId, revision: 1, title: "Run", ow
   actors: [], inputs: [], turns: [], subscriptions: [], pluginStates: [], actions: [], artifacts: [] });
 
 const fixture = {
-  activation: (query.get("profile") === "pending" ? { status: "loading" } : { status: "ready", registry }) as PluginActivationState,
+  activation: (query.get("profile") === "pending" ? { status: "loading" } : { status: "ready", registry, failures: [] }) as PluginActivationState,
   elements: [] as SurfaceElementDefinition[],
   notifications: [] as RunPanelHostMessage[],
   calls: [] as string[],
@@ -59,7 +60,7 @@ const fixture = {
   views: new Set<string>(),
   listSeen: false,
   holdStart: false,
-  activate() { fixture.activation = { status: "ready", registry } as PluginActivationState; activationListeners.forEach((listener) => listener(fixture.activation)); },
+  activate() { fixture.activation = { status: "ready", registry, failures: [] } as PluginActivationState; activationListeners.forEach((listener) => listener(fixture.activation)); },
   onActivation(listener: (state: PluginActivationState) => void) { activationListeners.add(listener); return () => { activationListeners.delete(listener); }; },
   command(message: HostRunPanelMessage) { commands.forEach((listener) => listener(message)); },
   chat(event: unknown) { subscriptions.forEach((entry) => { if (entry.id === "ragents.chat") entry.message(event); }); },

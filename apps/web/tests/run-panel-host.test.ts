@@ -23,6 +23,7 @@ test("the browser host opens links itself and refuses host-only actions loudly",
   host.openExternal("http://localhost:4710/");
   assert.deepEqual(opened, ["http://localhost:4710/"]);
   assert.equal(host.centerElements("run-a").size, 0);
+  assert.equal(host.machines, "server", "the browser starts new runs only on the server");
   assert.throws(() => host.openInCenter("run-a", "board", "Board"), /nur in VS Code/);
   assert.throws(() => host.requestLogin(), /nur in VS Code/);
 });
@@ -30,6 +31,7 @@ test("the browser host opens links itself and refuses host-only actions loudly",
 test("the vscode host relays messages to the parent and only accepts valid commands from it", () => {
   const { browser, parent, posted, receive } = fakeWindow();
   const host = createVsCodeHost(browser);
+  assert.equal(host.machines, "all", "VS Code offers workstations for new runs too");
   const commands: HostRunPanelMessage[] = [];
   host.onCommand((message) => commands.push(message));
   let placementsChanged = 0;

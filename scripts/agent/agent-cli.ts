@@ -10,10 +10,12 @@ import { hostRecordFile, readHostRecord, removeHostRecord, writeHostRecord } fro
 import { hostRoot } from "../../apps/server/src/host-version.ts";
 import { callerDirectory, selectProfileTarget, type ProfileTarget } from "../../apps/server/src/profile-target.ts";
 import { RpcClient } from "../../apps/web/src/rpc/client.ts";
+import type { RunView, Turn, TurnToolCall } from "../../packages/ragents/src/domain/model.ts";
+import { runContracts } from "../../packages/ragents/src/http/contracts.ts";
 import { RpcError } from "../../packages/ragents/src/rpc/protocol.ts";
 import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_CLIENT_ID_PATTERN, type WorkspaceBindingPresentation } from "../../plugins/ragents.workspace/contract.ts";
 import { interruptPrimaryTurn, stopWholeRun } from "./turn-control.ts";
-import { JournalReader, journalLines, readJournal, RUN_ID_PATTERN, type JournalEvent } from "./journal.ts";
+import { journalLines, readJournal, RUN_ID_PATTERN, type JournalEvent } from "./journal.ts";
 
 const DEFAULT_PROFILE = "developer";
 const HOST_START_TIMEOUT_MS = 120_000;
@@ -35,7 +37,8 @@ export const usage = (): string => `Verwendung: ragents <befehl> [argumente]
   send <run> "<text>" [--profile <p>] [--json]
       Folgeauftrag im selben Run, gleiches Warten.
   journal <run> [--profile <p>] [--json] [--tools]
-      Den Verlauf des Runs kompakt lesen.
+      Den Verlauf des Runs kompakt lesen: aus dem Datenordner des Profils, mit RAGENTS_URL vom
+      Server (dort mit dem Recht runs.inspect).
   stop <run> [--profile <p>]      den laufenden Turn des Primary-Actors unterbrechen; der Run
                                   bleibt aktiv und nimmt den nächsten Auftrag an
   stop <run> --run [--profile <p>]
@@ -47,7 +50,10 @@ export const usage = (): string => `Verwendung: ragents <befehl> [argumente]
 <p> ist ein Profilname neben dem Host oder der Pfad zu einer ragents.config.<profil>.ts an
 beliebiger Stelle; ohne --profile gilt RAGENTS_PROFILE, sonst ${DEFAULT_PROFILE}. Exit-Code:
 0 fertig, 2 abgebrochen, 1 fehlgeschlagen oder Verbindungsproblem. Die letzte Zeile auf stdout
-ist "run: <id>". Die Adresse kommt aus <Datenordner>/host.json, sonst aus RAGENTS_URL, sonst aus
+ist "run: <id>". run und send folgen dem Turn über den Server (Kanal ragents.run und
+ragents.runs.view), auch auf einem anderen Rechner; Werkzeugzeilen zeigt der Server nur mit
+runs.inspect, --json liefert dieselben Schritte als JSON. Reißt die Verbindung ab, endet der
+Befehl mit 1 und der Ursache. Die Adresse kommt aus <Datenordner>/host.json, sonst aus RAGENTS_URL, sonst aus
 host.PORT des Profils; RAGENTS_TOKEN geht als Bearer-Token mit, falls das Profil eine Anmeldung
 verlangt. Der so gestartete Host baut die Oberfläche nicht - ein Agent braucht sie nicht; mit
 Oberfläche startet ragents start <profil>.`;
@@ -280,88 +286,148 @@ const seconds = (from: string | undefined, to: string | undefined): string => {
   return Number.isNaN(start) || Number.isNaN(end) ? "?" : ((end - start) / 1000).toFixed(1);
 };
 
-export interface FollowState {
-  readonly inputId: string | undefined;
-  readonly turnId: string | undefined;
+/** Ein Schritt des eigenen Turns: `line` für stdout (fehlt bei einem sauberen Ende), `data` für --json. */
+export interface ProgressEntry {
+  readonly key: string;
+  readonly at: string;
+  readonly line: string | undefined;
+  readonly data: Readonly<Record<string, unknown>>;
+}
+
+export interface TurnProgress {
+  readonly entries: readonly ProgressEntry[];
   readonly outcome: TurnOutcome | undefined;
   readonly reason: string | undefined;
 }
 
-export const INITIAL_FOLLOW_STATE: FollowState = { inputId: undefined, turnId: undefined, outcome: undefined, reason: undefined };
+const PENDING: TurnProgress = { entries: [], outcome: undefined, reason: undefined };
 
-/** Verfolgt genau den Turn, der den eigenen Text bearbeitet, ob er ihn begonnen oder eingespeist bekommen hat: Eingabe, Turn, Ende. */
-export const advance = (state: FollowState, event: JournalEvent, text: string): FollowState => {
-  const payload = event.payload;
-  if (state.inputId === undefined) {
-    if (event.type === "actor.input.enqueued" && payload.content === text) return { ...state, inputId: String(payload.inputId) };
-    return state;
-  }
-  if (state.turnId === undefined) {
-    if ((event.type === "turn.started" || event.type === "turn.input-steered") && payload.inputId === state.inputId) return { ...state, turnId: String(payload.turnId) };
-    return state;
-  }
-  if (payload.turnId !== state.turnId) return state;
-  if (event.type === "turn.finished") {
-    return payload.outcome === "failed"
-      ? { ...state, outcome: "failed", reason: String(payload.reason ?? "") }
-      : { ...state, outcome: "completed", reason: undefined };
-  }
-  if (event.type === "turn.interrupted") return { ...state, outcome: "interrupted", reason: String(payload.reason ?? "") };
-  return state;
+const TOOL_ENDS: Readonly<Record<Exclude<TurnToolCall["status"], "running">, string>> = { completed: "ok", failed: "Fehler", interrupted: "abgebrochen" };
+
+const toolEntries = (call: TurnToolCall): ProgressEntry[] => [
+  { key: `tool:${call.id}`, at: call.startedAt, line: `> ${call.name}`, data: { kind: "tool", call } },
+  ...call.status === "running" ? [] : [{
+    key: `tool-end:${call.id}`,
+    at: call.finishedAt ?? call.startedAt,
+    line: `< ${call.name} ${seconds(call.startedAt, call.finishedAt ?? undefined)}s ${TOOL_ENDS[call.status]}`,
+    data: { kind: "tool-end", call },
+  }],
+];
+
+const endEntry = (turn: Turn): ProgressEntry => ({
+  key: `turn:${turn.id}`,
+  at: turn.finishedAt ?? turn.startedAt,
+  line: turn.status === "failed" ? `! Turn fehlgeschlagen: ${shorten(turn.reason, 300)}`
+    : turn.status === "interrupted" ? `! Turn abgebrochen: ${shorten(turn.reason, 300)}` : undefined,
+  data: { kind: "turn", id: turn.id, status: turn.status, reason: turn.reason },
+});
+
+/** Die neue Eingabe des Owners mit diesem Text, der Turn, der sie begonnen oder eingespeist bekommen hat, und seine Schritte ab ihr. */
+export const progressOf = (view: RunView | null, known: ReadonlySet<string>, text: string): TurnProgress => {
+  const input = view?.inputs.find((entry) => !known.has(entry.id) && entry.enqueuedBy === view.ownerId && entry.subscriptionId === null
+    && entry.content.trim() === text.trim());
+  if (!input) return PENDING;
+  if (input.lifecycle.kind === "discarded") return { entries: [], outcome: "interrupted", reason: input.lifecycle.reason };
+  if (input.lifecycle.kind === "pending") return PENDING;
+  const turnId = input.lifecycle.turnId;
+  const turn = view?.turns.find((entry) => entry.id === turnId);
+  if (!turn) return PENDING;
+  const entries = [
+    ...turn.toolCalls.filter((call) => Date.parse(call.startedAt) >= Date.parse(input.enqueuedAt)).flatMap(toolEntries),
+    ...turn.outputs.filter((output) => output.sequence > input.sequence && output.text.trim()).map((output): ProgressEntry =>
+      ({ key: `output:${output.sequence}`, at: output.occurredAt, line: output.text.trim(), data: { kind: "output", output } })),
+  ].sort((left, right) => Date.parse(left.at) - Date.parse(right.at));
+  if (turn.status === "running") return { entries, outcome: undefined, reason: undefined };
+  return { entries: [...entries, endEntry(turn)], outcome: turn.status, reason: turn.status === "completed" ? undefined : turn.reason ?? "" };
 };
 
-export const streamLines = (event: JournalEvent, started: Map<string, JournalEvent>): readonly string[] => {
-  const payload = event.payload;
-  const callId = typeof payload.toolCallId === "string" ? payload.toolCallId : "";
-  if (event.type === "tool.call.started") {
-    started.set(callId, event);
-    return [`> ${String(payload.name ?? "")} ${shorten(payload.input, 200)}`];
-  }
-  if (event.type === "tool.call.completed" || event.type === "tool.call.failed") {
-    const begin = started.get(callId);
-    started.delete(callId);
-    const duration = seconds(begin?.occurredAt, event.occurredAt);
-    return event.type === "tool.call.completed"
-      ? [`< ${String(payload.name ?? "")} ${duration}s ok`]
-      : [`< ${String(payload.name ?? "")} ${duration}s Fehler: ${shorten(payload.error, 300)}`];
-  }
-  if (event.type === "model.output.completed") {
-    const answer = typeof payload.text === "string" ? payload.text.trim() : "";
-    return answer ? [answer] : [];
-  }
-  if (event.type === "turn.interrupted") return [`! Turn abgebrochen: ${shorten(payload.reason, 300)}`];
-  if (event.type === "turn.finished" && payload.outcome === "failed") return [`! Turn fehlgeschlagen: ${shorten(payload.reason, 300)}`];
-  return [];
+interface RunWatch {
+  /** Kehrt zurück, sobald der Kanal seit dem letzten Aufruf etwas gemeldet hat; ein Abriss des Stroms ist ein harter Fehler. */
+  readonly changed: () => Promise<void>;
+  readonly close: () => void;
+}
+
+/** Wie Web und VS Code: der Kanal ragents.run meldet erst ready, dann jede Journaländerung; den Stand liefert ragents.runs.view. */
+const watchRun = (rpc: RpcClient, runId: string): RunWatch => {
+  let dirty = false;
+  let failure: Error | undefined;
+  let wake: (() => void) | undefined;
+  const signal = (): void => {
+    const waiting = wake;
+    wake = undefined;
+    waiting?.();
+  };
+  const fail = (message: string): void => {
+    failure ??= new Error(message);
+    signal();
+  };
+  const unsubscribe = rpc.subscribe(coreContracts.channels.run, { runId }, () => {
+    dirty = true;
+    signal();
+  }, (message) => fail(`Der Ereignisstrom des Runs fällt aus: ${message}`));
+  const stopStatus = rpc.onStatus((status) => {
+    if (status.kind === "unauthorized") fail(LOGIN_REQUIRED);
+  });
+  return {
+    changed: async () => {
+      while (!dirty && !failure) await new Promise<void>((resolve) => { wake = resolve; });
+      if (failure) throw failure;
+      dirty = false;
+    },
+    close: () => {
+      stopStatus();
+      unsubscribe();
+    },
+  };
 };
 
 interface FollowOptions {
-  readonly reader: JournalReader;
+  readonly rpc: RpcClient;
   readonly baseUrl: string;
+  readonly runId: string;
   readonly text: string;
   readonly json: boolean;
   readonly write: (line: string) => void;
+  readonly send: () => Promise<void>;
 }
 
+/** Abonniert den Run, merkt sich die vorhandenen Eingaben, schickt den Auftrag und folgt ihm über die Run-Ansicht bis zum Turn-Ende. */
 const follow = async (options: FollowOptions): Promise<TurnOutcome> => {
-  const started = new Map<string, JournalEvent>();
-  let state = INITIAL_FOLLOW_STATE;
-  let unhealthy = 0;
-  let checkedAt = Date.now();
-  for (;;) {
-    for (const event of options.reader.next()) {
-      if (options.json) options.write(JSON.stringify(event));
-      else for (const line of streamLines(event, started)) options.write(line);
-      state = advance(state, event, options.text);
-      if (state.outcome) {
-        if (state.reason && !options.json) note(`== ${state.reason}`);
-        return state.outcome;
+  const { rpc, runId } = options;
+  const watch = watchRun(rpc, runId);
+  try {
+    await watch.changed();
+    const before = await rpc.call(runContracts.view, { runId });
+    const known = new Set(before?.inputs.map((input) => input.id));
+    await options.send();
+    return await followSent(options, watch, known);
+  } finally {
+    watch.close();
+  }
+};
+
+/** Nach dem Senden läuft der Turn beim Server weiter, was immer hier scheitert; der Fehler sagt das. */
+const followSent = async (options: FollowOptions, watch: RunWatch, known: ReadonlySet<string>): Promise<TurnOutcome> => {
+  const { rpc, runId } = options;
+  try {
+    const written = new Set<string>();
+    for (;;) {
+      const progress = progressOf(await rpc.call(runContracts.view, { runId }), known, options.text);
+      for (const entry of progress.entries.filter((candidate) => !written.has(candidate.key))) {
+        written.add(entry.key);
+        if (options.json) options.write(JSON.stringify(entry.data));
+        else if (entry.line !== undefined) options.write(entry.line);
       }
+      if (progress.outcome) {
+        if (progress.reason && !options.json) note(`== ${progress.reason}`);
+        return progress.outcome;
+      }
+      await watch.changed();
     }
-    await delay(POLL_INTERVAL_MS);
-    if (Date.now() - checkedAt < 5_000) continue;
-    checkedAt = Date.now();
-    unhealthy = await healthy(options.baseUrl) ? 0 : unhealthy + 1;
-    if (unhealthy >= 2) throw new Error(`Der Host unter ${options.baseUrl} antwortet nicht mehr; der Run läuft ohne ihn nicht weiter.`);
+  } catch (error) {
+    if (error instanceof RpcError && error.status === 401) throw error;
+    throw new Error(`Der Turn in ${runId} lässt sich über ${options.baseUrl} nicht weiter verfolgen und läuft dort womöglich weiter: `
+      + (error instanceof Error ? error.message : String(error)));
   }
 };
 
@@ -400,12 +466,11 @@ const runCommand = async (command: Extract<AgentCommand, { kind: "run" }>, write
   } else {
     note(`== Run ${runId} (${baseUrl}); das Profil ${target.profile} kennt ${WORKSPACE_BINDING_OPTION_ID} nicht und legt seinen Arbeitsbereich selbst an, ${folder} bleibt ungebunden.`);
   }
-  const reader = new JournalReader(target.dataDirectory, runId);
   if (command.entry) await withLoginHint(() => rpc.call(coreContracts.chat.start, { runId, entry: command.entry }));
-  await withLoginHint(() => command.entry
-    ? sendWhenChatReady(rpc, runId, command.text)
-    : rpc.call(coreContracts.chat.send, { runId, text: command.text }).then(() => undefined));
-  const outcome = await follow({ reader, baseUrl, text: command.text.trim(), json: command.json, write });
+  const outcome = await withLoginHint(() => follow({ rpc, baseUrl, runId, text: command.text, json: command.json, write,
+    send: () => command.entry
+      ? sendWhenChatReady(rpc, runId, command.text)
+      : rpc.call(coreContracts.chat.send, { runId, text: command.text }).then(() => undefined) }));
   write(`run: ${runId}`);
   return EXIT_CODES[outcome];
 };
@@ -415,17 +480,28 @@ const sendCommand = async (command: Extract<AgentCommand, { kind: "send" }>, wri
   const baseUrl = await addressOf(target);
   if (!await healthy(baseUrl)) throw new Error(`Unter ${baseUrl} antwortet kein RAgents-Server; starte ihn mit ragents run.`);
   const rpc = client(baseUrl);
-  const reader = new JournalReader(target.dataDirectory, command.runId);
-  reader.next();
-  await withLoginHint(() => rpc.call(coreContracts.chat.send, { runId: command.runId, text: command.text }));
-  const outcome = await follow({ reader, baseUrl, text: command.text.trim(), json: command.json, write });
+  const outcome = await withLoginHint(() => follow({ rpc, baseUrl, runId: command.runId, text: command.text, json: command.json, write,
+    send: () => rpc.call(coreContracts.chat.send, { runId: command.runId, text: command.text }).then(() => undefined) }));
   write(`run: ${command.runId}`);
   return EXIT_CODES[outcome];
 };
 
+/** Mit RAGENTS_URL liegt das Journal beim Server, nicht im Datenordner des lokalen Profils; ragents.runs.events braucht runs.inspect. */
+const serverJournal = async (target: ProfileTarget, runId: string): Promise<readonly JournalEvent[]> => {
+  const baseUrl = await addressOf(target);
+  try {
+    const events = await withLoginHint(() => client(baseUrl).call(runContracts.events, { runId }));
+    return events.map((event) => ({ sequence: event.sequence, type: event.type, actorId: event.actorId, occurredAt: event.occurredAt,
+      payload: event.payload as Record<string, unknown> }));
+  } catch (error) {
+    if (error instanceof RpcError && error.status === 403) throw new Error(`Das Journal über ${baseUrl} braucht das Recht runs.inspect: ${error.message}`);
+    throw error;
+  }
+};
+
 const journalCommand = async (command: Extract<AgentCommand, { kind: "journal" }>, write: LineWriter): Promise<number> => {
   const target = await loadProfile(command.profile);
-  const events = readJournal(target.dataDirectory, command.runId);
+  const events = process.env.RAGENTS_URL ? await serverJournal(target, command.runId) : readJournal(target.dataDirectory, command.runId);
   if (command.json) for (const event of events) write(JSON.stringify(event));
   else for (const line of journalLines(events, command.tools ? "tools" : "chat", 0)) write(line);
   return 0;

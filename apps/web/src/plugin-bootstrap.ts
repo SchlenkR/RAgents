@@ -21,6 +21,7 @@ export interface PluginBootstrap {
   };
   plugins: PluginDescriptor[];
   startEntries: StartEntry[];
+  defaultStartEntry?: string;
 }
 
 /** Loads a module and a stylesheet by address; the browser does it with import() and a link element. */
@@ -76,7 +77,8 @@ export const activatePlugins = async (
   const plugins = settled.map((result, index): WebPlugin => result.status === "fulfilled" ? result.value : { id: bootstrap.plugins[index]!.id });
   const configurations = new Map(bootstrap.plugins.map((plugin) => [plugin.id, plugin.config ?? {}]));
   try {
-    const registry = new PluginRegistry({ plugins, product: bootstrap.product, startEntries: bootstrap.startEntries }, configurations);
+    const registry = new PluginRegistry({ plugins, product: bootstrap.product, startEntries: bootstrap.startEntries,
+      ...(bootstrap.defaultStartEntry === undefined ? {} : { defaultStartEntry: bootstrap.defaultStartEntry }) }, configurations);
     return { bootstrap, registry, failures };
   } catch (cause) {
     const reason = cause instanceof Error ? cause.message : String(cause);
@@ -92,6 +94,7 @@ const isWebAddresses = (value: unknown): value is PluginWebAddresses =>
 export const pluginBootstrapFrom = (value: unknown): PluginBootstrap => {
   if (!isRecord(value) || !isRecord(value.product) || !Array.isArray(value.plugins)
     || !Array.isArray(value.startEntries)
+    || value.defaultStartEntry !== undefined && typeof value.defaultStartEntry !== "string"
     || typeof value.product.id !== "string" || !value.product.id
     || typeof value.product.title !== "string" || !value.product.title) {
     throw new Error("Die Plugin-Konfiguration entspricht nicht dem erwarteten Format");
@@ -111,5 +114,6 @@ export const pluginBootstrapFrom = (value: unknown): PluginBootstrap => {
     product: { id: value.product.id, title: value.product.title },
     plugins,
     startEntries: value.startEntries.map(startEntryFrom),
+    ...(value.defaultStartEntry === undefined ? {} : { defaultStartEntry: value.defaultStartEntry }),
   };
 };

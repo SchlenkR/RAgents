@@ -17,6 +17,7 @@ import type { ChatUserLocation } from "../../server/src/chat-context";
 import type { ChatStartupStatus } from "../../server/src/chat-events";
 import { CHAT_STEP_SCOPES, type ChatStepScope } from "../../server/src/plugin-support/chat-display-contract";
 import type { StartOptionState } from "../../server/src/plugin-support/start-options-contract";
+import type { OfferedMachines } from "./offered-machines";
 import {
   type ScriptStartEntry,
   type SkillStartEntry,
@@ -51,6 +52,8 @@ export interface StartOptionControlContext {
   disabled: boolean;
   error: string | undefined;
   setValue: (value: unknown) => Promise<void>;
+  /** Welche Rechner der Host für neue Runs anbietet; eine Option mit Rechnerwahl zeigt nur diese. */
+  machines: OfferedMachines;
 }
 
 export interface StartOptionBadgeContext {
@@ -357,6 +360,8 @@ export interface ProductProfile {
   plugins: WebPlugin[];
   product: ProductDescriptor;
   startEntries: readonly StartEntry[];
+  /** Die Vorlage, die die Startauswahl statt Neuer Chat zuerst zeigt; der Server nennt sie nur, wenn er sie auch liefert. */
+  defaultStartEntry?: string;
 }
 
 /** Einen Run, den der Server noch nicht gelistet hat, zeigt die Oberfläche als erreichbar; jeden Zugriff prüft der Server selbst. */
@@ -377,6 +382,7 @@ export class PluginRegistry {
   readonly entityPresenters: readonly EntityPresenterContribution[];
   readonly needsRunView: boolean;
   readonly startEntries: readonly StartEntry[];
+  readonly defaultStartEntry: string | undefined;
   readonly skillEntries: readonly SkillStartEntry[];
   readonly scriptEntries: readonly ScriptStartEntry[];
   readonly guides: ReadonlyMap<string, EntryGuideContribution>;
@@ -437,6 +443,10 @@ export class PluginRegistry {
     const active = new Set(this.activePlugins.map((plugin) => plugin.id));
     this.startEntries = profile.startEntries.filter((entry) => active.has(entry.owner));
     assertUnique(this.startEntries, (entry) => entry.id, "Vorlage");
+    if (profile.defaultStartEntry !== undefined && !this.startEntries.some((entry) => entry.id === profile.defaultStartEntry)) {
+      throw new Error(`Die Default-Vorlage ${profile.defaultStartEntry} ist keine Vorlage eines aktiven Plugins`);
+    }
+    this.defaultStartEntry = profile.defaultStartEntry;
     this.skillEntries = this.startEntries.filter((entry): entry is SkillStartEntry => entry.action === "skill");
     this.scriptEntries = this.startEntries.filter((entry): entry is ScriptStartEntry => entry.action === "script");
     const guides = this.activePlugins.flatMap((plugin) => plugin.guides ?? []);

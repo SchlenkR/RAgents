@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isValidElement, type ComponentProps, type ReactElement } from "react";
+import type { ComponentProps, ReactElement } from "react";
 import { openStartEntry } from "../src/StartSelection.tsx";
 import { RunPreparationChat } from "../src/RunPreparationChat.tsx";
 import { PluginRegistry, type EntryGuideContext, type SessionContext, type SkillStartEntry } from "../src/PluginRegistry.tsx";
@@ -20,22 +20,16 @@ const setup = () => {
     send: async () => { throw new Error("Die Vorbereitung darf keine Nachricht senden."); },
     start: async () => { throw new Error("Die Vorbereitung darf keinen Run starten."); },
   } as unknown as SessionContext };
-  const run = async () => { throw new Error("Ein Skill darf keinen Run direkt starten."); };
+  const run = async () => { throw new Error("Ein Skill mit Leitfaden darf keinen Run direkt starten."); };
   return { registry, modal, sessionRef, run };
 };
 
-test("ein Skill öffnet den bearbeitbaren Auftrag mit festem Skillbezug ohne Runstart", () => {
-  const { registry, modal, sessionRef, run } = setup();
-  openStartEntry(skill, registry, modal, sessionRef, run);
-  const page = modal.getSnapshot().at(-1)!.page!;
-  assert.equal(page.title, "Auftrag vorbereiten");
-  const content = page.render(modal);
-  assert.ok(isValidElement(content));
-  assert.equal(content.type, RunPreparationChat);
-  const props = (content as ReactElement<ComponentProps<typeof RunPreparationChat>>).props;
-  assert.equal(props.initialPrompt, skill.prompt);
-  assert.equal(props.entry, skill, "der Vorbereitungschat startet über die Vorlage selbst");
-  assert.equal(props.sessionRef, sessionRef);
+test("ein Skill ohne Leitfaden startet wie in VS Code sofort mit seinem Auftrag, ohne Vorbereitungschat", () => {
+  const { registry, modal, sessionRef } = setup();
+  const calls: unknown[] = [];
+  openStartEntry(skill, registry, modal, sessionRef, async (selected, value) => { calls.push([selected, value]); });
+  assert.deepEqual(calls, [[skill, null]]);
+  assert.equal(modal.getSnapshot().length, 1);
 });
 
 test("ein Skill-Leitfaden führt zur Vorbereitung und startet auch bei doppeltem Abschluss keinen Run", () => {
@@ -52,6 +46,7 @@ test("ein Skill-Leitfaden führt zur Vorbereitung und startet auch bei doppeltem
   assert.equal(prepared.type, RunPreparationChat);
   assert.equal(prepared.props.initialPrompt, "Setze das ausgewählte Feature um.");
   assert.equal(prepared.props.entry.skill, skill.skill);
+  assert.equal(prepared.props.sessionRef, sessionRef, "der Vorbereitungschat startet über die Vorlage selbst");
   assert.equal(modal.getSnapshot().length, 2);
   content.props.onComplete("Ein zweiter Auftrag");
   assert.equal(modal.getSnapshot().at(-1)!.page, preparation);

@@ -513,9 +513,6 @@
   .mt-5 {
     margin-top: calc(var(--spacing) * 5);
   }
-  .mt-6 {
-    margin-top: calc(var(--spacing) * 6);
-  }
   .mt-\[3px\] {
     margin-top: 3px;
   }
@@ -2900,9 +2897,6 @@
     .group-hover\:opacity-100:is(:where(.group):hover *) {
       opacity: 100%;
     }
-    .group-hover\/tile\:opacity-100:is(:where(.group\/tile):hover *) {
-      opacity: 100%;
-    }
   }
   .group-focus\/dropdown-menu-item\:text-accent-foreground:is(:where(.group\/dropdown-menu-item):focus *) {
     color: var(--foreground);
@@ -2913,6 +2907,9 @@
   @media (hover: hover) {
     .group-enabled\/action\:group-hover\/action\:text-foreground:is(:where(.group\/action):enabled *):is(:where(.group\/action):hover *) {
       color: var(--foreground);
+    }
+    .group-enabled\/tile\:group-hover\/tile\:opacity-100:is(:where(.group\/tile):enabled *):is(:where(.group\/tile):hover *) {
+      opacity: 100%;
     }
   }
   .group-has-disabled\/field\:opacity-50:is(:where(.group\/field):has(:disabled) *) {
@@ -3296,14 +3293,6 @@
     .hover\:bg-accent:hover {
       background-color: var(--accent);
     }
-    .hover\:bg-accent\/40:hover {
-      background-color: var(--accent);
-    }
-    @supports (color: color-mix(in lab, red, red)) {
-      .hover\:bg-accent\/40:hover {
-        background-color: color-mix(in oklab, var(--accent) 40%, transparent);
-      }
-    }
     .hover\:bg-destructive\/10:hover {
       background-color: var(--destructive);
     }
@@ -3521,8 +3510,19 @@
     translate: var(--tw-translate-x) var(--tw-translate-y);
   }
   @media (hover: hover) {
+    .enabled\:hover\:border-border:enabled:hover {
+      border-color: var(--border);
+    }
     .enabled\:hover\:bg-accent:enabled:hover {
       background-color: var(--accent);
+    }
+    .enabled\:hover\:bg-accent\/40:enabled:hover {
+      background-color: var(--accent);
+    }
+    @supports (color: color-mix(in lab, red, red)) {
+      .enabled\:hover\:bg-accent\/40:enabled:hover {
+        background-color: color-mix(in oklab, var(--accent) 40%, transparent);
+      }
     }
   }
   .disabled\:pointer-events-none:disabled {
@@ -3548,6 +3548,9 @@
   }
   .disabled\:opacity-55:disabled {
     opacity: 55%;
+  }
+  .disabled\:opacity-60:disabled {
+    opacity: 60%;
   }
   :where([data-compact="true"]) .in-data-\[compact\=true\]\:hidden {
     display: none;
@@ -4328,9 +4331,6 @@
     }
     .max-md\:gap-0\.5 {
       gap: calc(var(--spacing) * 0.5);
-    }
-    .max-md\:gap-4\.5 {
-      gap: calc(var(--spacing) * 4.5);
     }
     .max-md\:overflow-x-auto {
       overflow-x: auto;
