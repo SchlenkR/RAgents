@@ -10,7 +10,6 @@ import { buildHomepageMiniApp } from "./homepage-mini-app.js";
 import { buildHomepageLlms } from "./homepage-llms.js";
 import { assertHomepageLinks, buildHomepageExport, writeHomepageExport } from "./homepage-export.js";
 import { buildHomepageGuide, guideChapterHtml, guideCss, guideIndexHtml } from "./homepage-guide.js";
-import { assertHomepageStructure } from "./homepage-structure.js";
 import { buildTailwind } from "../../apps/server/src/plugin-support/actor-programs/tailwind.js";
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
@@ -41,11 +40,6 @@ async function main() {
     const extensions = await buildHomepageExtensions(repoRoot);
     const guide = await buildHomepageGuide(repoRoot);
     const homepage = await readFile(path.join(repoRoot, "docs/homepage/index.html"), "utf8");
-    const structure = assertHomepageStructure(homepage);
-    for (const { id, guide: target } of structure.features) {
-      const chapter = /^guide-([a-z-]+)\.html/.exec(target)![1];
-      if (!guide.chapters.some((entry) => entry.id === chapter)) throw new Error(`Core feature ${id} links to an unknown guide chapter: ${target}`);
-    }
     const headers = [...homepage.matchAll(/<header class="masthead shell">[\s\S]*?<\/header>/g)];
     if (headers.length !== 1) throw new Error("The homepage must contain exactly one shared header.");
     const header = headers[0][0].replace(/href="#/g, 'href="index.html#');
@@ -67,7 +61,7 @@ async function main() {
     const website = await buildHomepageExport(repoRoot);
     assertHomepageLinks(website);
     if (!check) await writeHomepageExport(repoRoot, website);
-    console.log(`${check ? "Checked" : "Generated"}: ${Object.keys(outputs).join(", ")}; ${structure.features.length} core features, ${catalog.tools.length} tools, ${extensions.extensions.length} extension points; static website (${website.size} files) in docs/homepage/dist/.`);
+    console.log(`${check ? "Checked" : "Generated"}: ${Object.keys(outputs).join(", ")}; ${catalog.tools.length} tools, ${extensions.extensions.length} extension points; static website (${website.size} files) in docs/homepage/dist/.`);
   } finally { await rm(scratch, { recursive: true, force: true }); }
 }
 

@@ -10,7 +10,7 @@ fi
 case "${1-}" in
   --check)
     pnpm exec tsc -p scripts/homepage/tsconfig.homepage.json
-    pnpm --filter @ragents/host exec node --import tsx --test ../../scripts/homepage/homepage-catalog.test.ts ../../scripts/homepage/homepage-examples.test.ts ../../scripts/homepage/homepage-extensions.test.ts ../../scripts/homepage/homepage-llms.test.ts ../../scripts/homepage/homepage-run-api.test.ts ../../scripts/homepage/homepage-export.test.ts ../../scripts/homepage/homepage-guide.test.ts ../../scripts/homepage/homepage-structure.test.ts ../../scripts/homepage/homepage-mini-app.test.ts ../../scripts/agent/journal.test.ts ../../scripts/agent/agent-cli.test.ts ../../scripts/remote/connect.test.ts ../../scripts/remote/start.test.ts ../../scripts/workspace-client/run-workspace-client.test.ts
+    pnpm --filter @ragents/host exec node --import tsx --test ../../scripts/homepage/homepage-catalog.test.ts ../../scripts/homepage/homepage-examples.test.ts ../../scripts/homepage/homepage-extensions.test.ts ../../scripts/homepage/homepage-llms.test.ts ../../scripts/homepage/homepage-run-api.test.ts ../../scripts/homepage/homepage-export.test.ts ../../scripts/homepage/homepage-guide.test.ts ../../scripts/homepage/homepage-mini-app.test.ts ../../scripts/agent/journal.test.ts ../../scripts/agent/agent-cli.test.ts ../../scripts/remote/connect.test.ts ../../scripts/remote/start.test.ts ../../scripts/workspace-client/run-workspace-client.test.ts
     exec pnpm --filter @ragents/host exec node --import tsx ../../scripts/homepage/generate-homepage.ts --check
     ;;
   ""|--open) ;;

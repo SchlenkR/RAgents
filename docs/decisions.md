@@ -1,5 +1,22 @@
 # Entscheidungen
 
+## Homepage als handgeschriebene Seite ohne Strukturprüfung (25.09.2026)
+
+Kapitel: `docs/spec/overview.md` (Produkt-Homepage), `docs/development.md` (Homepage-Regeln).
+Vorgabe des Owners: Die neu gestaltete Homepage wird so übernommen, wie sie ist; die Sticker- und
+Strukturregel des Generators entfällt.
+
+**Warum.** Die Regel verlangte je Kernfunktion genau einen Sticker, einen Abschnitt mit
+`data-core-feature` und einen Guide-Link. Die neue Seite hat Sticker, die dieselbe Szene aus zwei
+Blickwinkeln anspringen, und Abschnitte ohne eigenen Sticker; die Regel hätte die Seite in eine Form
+gezwungen, die der Owner nicht will.
+
+**Festlegung.** `docs/homepage/index.html` ist handgeschrieben, mit `homepage.css` und
+`homepage-*.js`. Der Generator prüft ihren Inhalt nicht mehr (`homepage-structure.ts` und sein Test
+sind entfernt); er übernimmt weiter ihre Kopfzeile für die Guide-Seiten und veröffentlicht die in
+`homepageFiles` genannten Dateien. Inhaltliche Leitlinien stehen in `docs/development.md`: kurze
+direkte Sätze, Prinzip-Diagramme mit allgemeinen Rollen, scrollgebundene Animationen ohne Glättung,
+nur belegte Features.
 ## Modell-Aliasse des Profils für eigene Runs und Relay (25.09.2026)
 
 Kapitel: `docs/spec/profiles.md` (Modellanbieter), `docs/spec/plugins.md` (Modell-Relay, Host-API),

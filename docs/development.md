@@ -810,29 +810,17 @@ Nichts ist beides; ein Konzept überlebt seine Umsetzung nicht.
   Fachdetails. Er wird auf Deutsch entworfen und mit
   `ragents run` (Modell GLM 5.3) ins Englische übersetzt; der deutsche Entwurf ist Arbeitsmaterial
   und liegt nicht im Repo. `docs/development.md`: Handbuch für Entwicklung und KI-Assistenten, diese Datei.
-- `docs/homepage/index.html`: die Produkt-Homepage für Benutzer. Eine nüchterne Beschreibung, was
-  RAgents ist und was es kann, in der Stimme der README; kein Prospekt: keine Slogans, keine
-  Claim-Kacheln, keine erfundenen Beispiele. Die einzige Ausnahme sind die
-  Sticker im Einstieg, und die sind Themenlinks, keine Claims. Jede Kernfunktion hat drei
-  Stufen: einen Sticker (höchstens zwei Zeilen, Link auf den Abschnitt), einen Abschnitt auf der
-  Hauptseite mit `data-core-feature` (Konzept, Nutzen, ein Funktionsschema, "Mehr über ..." in
-  den Guide) und ein Guide-Kapitel aus markierten Abschnitten der Spec, von `docs/usage.md` oder
-  `docs/operations.md`. Eine Fähigkeit ist erst Kernfunktion, wenn alle drei Stufen stehen;
-  `pnpm check:homepage` lehnt einen Sticker ohne Abschnitt und einen Abschnitt ohne Sticker oder
-  Guide-Link ab. Auf der Hauptseite steht je Fähigkeit der Nutzen als kurze Punkte (`feature-benefits`) und darunter höchstens zwei, drei Sätze zum Konzept;
-  Bedienungsdetails (Knöpfe, Abstände, Pixelmaße, Speicherorte) gehören in `docs/usage.md`,
-  nie auf die Hauptseite. Überschriften benennen die
-  Sache (Oberfläche, leerer Chat, Agenten, Vermittler, Werkzeuge und Mini-Apps, Rückfragen und
-  Dateien, Journal, Profile, Grenzen). Jeder Abschnitt nennt im HTML-Kommentar die Spec-Kapitel
-  und Plugins, die ihn ändern können, und am Ende die Skill-Vorlagen aus
-  `plugins/ragents.reference/skills` zum Ausprobieren. Screenshots zeigen ausschließlich echte
-  Runs des Profils core unter `docs/homepage/screenshots/`. Seit 07.09.2026
-  ergänzen beschriftete Funktionsschemata und Icons aus HTML/SVG die Erklärung; sie stellen
-  keine echten Runs dar. Solange keine Runs aufgenommen werden können, sind ausdrücklich als
-  solche beschriftete Bildplatzhalter zulässig. Die Seite zeigt nur, was in core läuft. Private
-  Produktnamen und Integrationen erscheinen nicht auf den öffentlichen Seiten. Konzepte
-  erscheinen nur im letzten Abschnitt, als Idee. Optik wie die App (Tokens und Schrift aus
-  `apps/web/src/ui/theme.css`), eine Spalte, keine externen Ressourcen.
+- `docs/homepage/index.html`: die Produkt-Homepage für Benutzer, eine handgeschriebene statische
+  Seite (Styles in `homepage.css`, Skripte in `homepage-*.js`). Texte sind kurze, direkte Sätze,
+  die sagen, was man tun kann; keine Slogans, keine gespiegelten Satzpaare, keine erfundenen
+  Features, Geplantes ist als "Planned" markiert. Diagramme erklären Prinzipien mit allgemeinen
+  Rollen (Agent, Script, Mini-App, Server, Laptop) statt konkreter Beispielabläufe; jede Szene hat
+  ihre eigene Bildsprache. Scroll-Animationen hängen direkt am Scrollfortschritt (ohne Glättung,
+  ohne Überschwingen). Bedienungsdetails (Knöpfe, Abstände, Pixelmaße, Speicherorte) gehören in
+  `docs/usage.md`, nie auf die Hauptseite. Screenshots unter `docs/homepage/screenshots/` zeigen
+  echte Runs mit neutralen Beispieldaten. Private Produktnamen und Integrationen erscheinen nicht
+  auf den öffentlichen Seiten. Keine externen Laufzeitressourcen. Der Generator prüft den Inhalt
+  der Hauptseite nicht; er übernimmt nur ihre Kopfzeile für die Guide-Seiten.
 - `docs/homepage/guide.html` und `guide-*.html`: generierter Guide für Einstieg, Arbeitsweise und
   Entwicklung. Texte ausschließlich in markierten öffentlichen Abschnitten der Spec,
   `docs/usage.md` und `docs/operations.md` pflegen (`<!-- guide:<id> -->` bis `<!-- /guide:<id> -->`), keine zweite
@@ -870,8 +858,8 @@ So dokumentierst du deine Arbeit:
    Commit mit; veraltete Screenshots nimmst du neu auf oder nimmst sie heraus. Die Homepage
    verspricht nichts, was nicht in core läuft. Auf die Hauptseite kommt dabei höchstens ein
    Satz; die Bedienung im Einzelnen gehört in `docs/usage.md`, von wo der Guide sie
-   übernimmt. Eine neue Kernfunktion bekommt alle drei Stufen (Sticker, Abschnitt,
-   Guide-Kapitel) im selben Commit.
+   übernimmt. Eine neue Kernfunktion bekommt einen Abschnitt auf der Hauptseite und ihr
+   Guide-Kapitel im selben Commit.
 
 ### Arbeiten
 
@@ -922,8 +910,8 @@ So dokumentierst du deine Arbeit:
 - `docs/concepts/` - was noch nicht ist, je Konzept eine Datei mit Status-Zeile
 - `docs/homepage/index.html` - die Produkt-Homepage für Benutzer, veröffentlicht unter
   https://schlenkr.github.io/RAgents/: was man tun kann, mit einer Scroll-Strecke für die
-  Kernfunktionen, beschrifteten Funktionsschemata und technischen Vertiefungen; wird mit der Spec
-  gepflegt
+  Kernfunktionen und statischen Abschnitten zu Teams, Plugins, Steuerung von außen und Zugängen;
+  wird mit der Spec gepflegt
 - [Guide](homepage/guide.html) - Einstieg, Aufbau, Zugänge (Web und VS Code), verteiltes
   Arbeiten, Modellkontext, Programme, Plugins und Rechte; direkt aus öffentlichen
   Abschnitten der Spec, der Bedienung und des Betriebs erzeugt

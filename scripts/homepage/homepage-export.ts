@@ -5,6 +5,7 @@ import { homepageGuideFiles } from "./homepage-guide.js";
 
 export const homepageFiles = [
   "index.html", "site.css", "site.js", "scroll-vendor.js",
+  "homepage.css", "homepage-scenes.js", "homepage-stickers.js", "homepage-bullets.js", "homepage-story-nav.js", "homepage-subnav.js", "homepage-plugins.js",
   "mini-app.html", "mini-app.js", "mini-app.css",
   ...homepageGuideFiles,
 ] as const;

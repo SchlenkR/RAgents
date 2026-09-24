@@ -110,125 +110,36 @@ das gewünschte Ergebnis; die technische Umsetzung erschließt das Modell aus de
 Ein vorbereitetes Setup kann durch ein Run-Script aufgebaut werden. Skills verbinden
 Arbeitsanweisungen für Agenten mit optionalen bearbeitbaren Startaufträgen und ergänzenden
 Dateien; TypeScript kann Aufbau und spätere Übergaben festlegen, während Modellantworten
-variabel bleiben. Die Produkt-Homepage unter `docs/homepage/index.html` erklärt diese Verbindung
-anhand des Profils `showcase` und seiner Referenzvorlagen. Der Einstieg stellt programmierbare
-Setups in den Vordergrund. Jede Kernfunktion hat auf der Homepage drei Stufen: einen
-farbigen, leicht gedrehten Sticker im Einstieg mit höchstens zwei Zeilen Text als Themenlink,
-einen Abschnitt auf der Hauptseite mit Konzept, Nutzen, einem Funktionsschema und dem Link
-"Mehr über ..." in ein Guide-Kapitel, und dieses Guide-Kapitel aus markierten Abschnitten der
-Spec, der Bedienung oder des Betriebs. Die Abschnitte tragen `data-core-feature`; die
-Homepage-Prüfung verlangt je Kernfunktion genau einen Sticker, einen Abschnitt und einen
-Guide-Link, und einen Sticker ohne Abschnitt oder einen Abschnitt ohne Guide-Kapitel gibt es
-nicht. Sieben Sticker erschließen Setups, Mini-Apps, Agenten, die miteinander reden, KI mit
-festen Abläufen, das Journal, verteiltes Arbeiten und die drei Zugänge Web, VS Code und Konsole. Auf
-kleinen Ansichten stehen sie unter dem Einstiegstext. Der Einstieg hat unter den Stickern
-zusätzlichen Abstand; seine Hintergrundfarben und Kreise laufen weich ins Weiß der folgenden
-Abschnitte aus. Die Funktionsabschnitte nennen unter ihrer Konzeptüberschrift in einem kurzen
-Schlagsatz den Nutzen; nummerierte Oberzeilen entfallen. Danach folgt eine eigenständig
-verständliche Einführung: was das Konzept ist, welche Rolle es im Run hat und wie
-es mit den anderen Beteiligten zusammenarbeitet. Die Hauptseite sagt je Fähigkeit einen Satz,
-nicht mehr: Technische Regeln und Bedienungsdetails (Knöpfe, Abstände, Pixelmaße,
-Tastaturwege, Speicherorte je Browser) stehen in `docs/usage.md` und damit im Guide, nicht
-auf der Hauptseite; wer eine Bedienung ändert, ergänzt dort und nicht hier. Die Hauptseite
-erklärt zuerst die Konzepte unabhängig von einzelnen Anwendungsfällen. Überschriften benennen
-die Konzepte, nicht die Samples. Die Vorschauen sind ausdrücklich als Beispiele für das
-jeweilige Konzept beschriftet. Die Hauptseite enthält keine Startanleitungen oder technischen
-Exkurse zu Layout, Modellkonfiguration und Werkzeugverträgen.
+variabel bleiben. Die Produkt-Homepage unter `docs/homepage/index.html` ist eine handgeschriebene statische
+Seite; der Generator prüft ihren Inhalt nicht und übernimmt nur ihre Kopfzeile für die
+Guide-Seiten. Der Einstieg füllt den ersten Bildschirm: Logo, die Überschrift "Tailored AI
+Workspaces for your teams or your clients", zwei Aufrufe (VS Code Marketplace und GitHub) und
+Sticker, die ein Skript gleichmäßig um den Text verteilt; jeder Sticker springt zu seinem
+Abschnitt. Eine Untermenüleiste unter der Kopfzeile bleibt immer sichtbar, nennt alle
+Abschnitte, markiert den aktuellen und springt ohne Scrollanimation.
 
-Eine zusammenhängende Funktionsstrecke beginnt mit Setups als programmierbaren
-Arbeitsumgebungen. Es folgen Agenten, die miteinander reden, TypeScript als Arbeitsweg der KI
-sowie Werkzeuge und Mini-Apps. Die Texte stehen links im normalen Dokumentfluss. Ab 960 Pixeln
-Breite hält CSS rechts einen gemeinsamen Rahmen unter der Kopfzeile fest. GSAP ScrollTrigger
-wechselt dessen Inhalt beim Erreichen des nächsten Textabschnitts; Position und Größe des
-Rahmens bleiben während der Schritte stabil. Die eingebetteten Vorschauen melden ihre
-Inhaltshöhe; Frames und Vorschau wachsen mit, auch nach eigener Bedienung. Es gibt keinen
-zusätzlichen Scrollbereich innerhalb der Vorschauen. Passt die Vorschau nicht vollständig unter die Kopfzeile,
-stehen Texte und Vorschauen paarweise im normalen Seitenlauf. Das gilt auch bei reduzierter Bewegung.
-Die Fixierung benötigt keine DOM-Umsortierung: Alle Darstellungen und die Mini-App bleiben
-permanent in derselben Vorschau. Mobil und ohne JavaScript ordnet CSS die Texte und Bilder paarweise
-an. Vier Sprunglinks unter der festen Vorschau führen zu den Textabschnitten. Erst am Ende der
-vierten Funktion scrollt die Vorschau mit der Seite weiter.
+Es folgt eine Scroll-Strecke mit sechs Szenen: Setups, Nachrichten zwischen allen Beteiligten,
+Mini-Apps, Tools als TypeScript-Funktionen, ereignisgesteuerte Abläufe und die Verteilung auf
+Server und Laptop. Ab 960 Pixeln Breite steht rechts eine feste Bühne; ihre Szene ist über GSAP
+ScrollTrigger direkt an den Scrollfortschritt gebunden (ohne Glättung und ohne Überschwingen) und
+läuft beim Zurückscrollen rückwärts. Die Stichpunkte der Szenen blenden ebenfalls scrollgebunden
+ein. Auf schmalen Ansichten bleibt jede Szene während ihrer Animation mittig im Bild stehen. Bei
+reduzierter Bewegung zeigen alle Szenen ihren Endzustand. Die Diagramme erklären Prinzipien mit
+allgemeinen Rollen (Agent, Script, Mini-App, Server, Laptop) und keine konkreten Beispielabläufe;
+jede Szene hat ihre eigene Bildsprache.
 
-Die Scrollposition steuert konkrete, schematisch dargestellte Referenzabläufe. Das Setup zeigt
-die drei Aufbauaufrufe des Run-Scripts `shared-actor-list`: Listenhelfer anlegen, Listenprogramm
-anbinden und den ersten Eintrag beauftragen. Daraus entstehen ein Helfer und seine bedienbare
-Liste mit dem tatsächlichen Standardtext des Scripts. Das Agentenbild zeigt zwei parallel
-entstehende Ideen für einen Lernnachmittag und ihre automatisch ergänzte gemeinsame Ergebnisliste.
-Beim Wortspiel bestimmen feste Regeln die Reihenfolge Rot, Gelb, Blau, Grün und den Stopp nach
-zwölf Beiträgen; die Wörter wählen die Modelle. Zähler, Übergaben und wachsendes Dokument machen
-den Unterschied zwischen programmierten Regeln und variablen KI-Beiträgen sichtbar.
-Lernnachmittag und Wortspiel verwenden die View-Komponenten ihrer vorbereiteten Run-Scripts.
-Der Konzepttext erklärt die allgemeine Arbeitsweise, die Bildunterschrift ordnet das konkrete
-Beispiel zu. Der Lernnachmittag veranschaulicht parallele Agenten, das Wortspiel programmierte
-Abläufe und das Sammelboard gemeinsame Daten von Mensch und Agent. Die Konzepte bleiben
-ohne Kenntnis dieser Samples verständlich.
-Die lokalen Vorschauen zeigen gekennzeichnete Beispieldaten und rufen keine Modelle auf.
-Die Vorschauen ändern ihren Inhalt nur durch eigene Bedienung; Scrollen ändert weder
-Sample-Zustand noch Framehöhe. Die Größenanpassung beginnt nach dem Laden aller Vorschauen.
-Während einer Größenmeldung entsteht kein innerer Scrollbalken.
-Die verlinkten Samples bringen denselben Aufbau und dieselbe Oberfläche für einen echten Run mit.
-Der Mini-App-Abschnitt zeigt die tatsächlich bedienbare gemeinsame Liste aus dem
-Referenzvorlage `shared-actor-list` in einem Iframe. Oberfläche, Listenfunktion, Controls und
-Styles stammen aus dessen Originalquellen. Ein lokaler Browseradapter ersetzt den Run-Zugriff;
-die Demo startet keinen Run und sendet keine Eingaben an einen Server. Sie beginnt mit einer
-gekennzeichneten Beispielnotiz. Weitere Einträge entstehen nur durch die Bedienung der Liste;
-Scrollen verändert weder Einträge noch ungesendeten Text. Die Demo ist als lokal beschriftet und benötigt JavaScript. Eine Content Security Policy
-mit `connect-src 'none'` sperrt Netzwerkverbindungen aus der Demo im Browser.
-`scripts/homepage/homepage-mini-app.ts` erzeugt und prüft ihre drei lokalen Assets `mini-app.html`,
-`mini-app.js` und `mini-app.css`; sie gehören zum statischen Export und zur eingebetteten Hilfe.
+Danach folgen statische Abschnitte ohne Animation: Teams und Kunden (selbst gehostet,
+freigegebene Setups, Modelle ohne Schlüsselweitergabe; mehrere Menschen in einem Run als geplant
+markiert), Plugins und Profile, die Steuerung von außen über CLI und JSON-RPC, Web und VS Code
+mit zwei echten Screenshots, eine Liste der mitgelieferten Plugins, ein Startaufruf, ein
+Alpha-Hinweis, die Grenzen und ein Footer mit Lizenzhinweis. Die Texte sind kurz und direkt;
+Bedienungsdetails stehen im Guide. Styles und Skripte der Seite liegen in `homepage.css` und
+`homepage-*.js`; dazu kommen `site.css`, `site.js` und das lokal gebündelte `scroll-vendor.js`
+(GSAP und ScrollTrigger), das `scripts/homepage/homepage-motion.ts` erzeugt. Es gibt keine
+externen Laufzeitressourcen.
 
-Die Konzepttexte bleiben zugänglich; nur inaktive Darstellungen sind
-für Tastatur und Screenreader ausgeblendet. Die Seite verändert weder Mausrad- noch
-Touch-Ereignisse und rastet nicht ein. Auf kleineren Ansichten steht jede Darstellung bei ihrem
-Text. Die Funktionsschemata für Setup, Ereignisse und Fläche animieren während ihres Wegs
-durch den Viewport. Diese Animationen sind direkt
-an den Scrollfortschritt gebunden, stehen bei unveränderter Scrollposition still und laufen
-beim Zurückscrollen rückwärts. Ohne JavaScript und beim Drucken bleiben Erklärung und Links
-auf die Samples lesbar; die lokalen React-Vorschauen benötigen JavaScript. Bei reduzierter Bewegung bleibt die Mini-App
-bedienbar. Im normalen Seitenlauf trennt ein Abstand die aufeinanderfolgenden Beispiele;
-Konzepttext und Vorschau beginnen jeweils oben in ihrer Zeile. Änderungen der Fensterbreite wechseln zwischen fester Vorschau und
-paarweiser Darstellung; die Bewegungseinstellung steuert nur Animationen. Geöffnete Details
-aktualisieren die Scrollgrenzen. Maßgeblich ist der Viewport der Homepage, in der eingebetteten Hilfe also
-das kleinere Iframe. Die Vorschau richtet ihre Höhe nach den Inhalten aus und bleibt nur bei
-ausreichendem Platz fixiert. Die Mini-App-Controls bleiben bedienbar.
-
-Danach erklärt ein beschriftetes Schema die gemeinsame Fläche und den
-Run. Ereignisse und Abonnements sowie das Journal ergänzen die Kernfunktionen
-in einem eigenen Abschnitt. Die Seite bleibt eine Folge von Abschnitten in einer Spalte;
-Text und Grafik stehen auf breiten Ansichten nebeneinander, mobil untereinander. Jeder
-Funktionsabschnitt nennt Nutzen, ein vorhandenes Referenzbeispiel und einen passenden Link zur
-Vertiefung. Rückfragen und Dateien ergänzen die Funktionsübersicht. Ein farblich abgesetzter
-Entwicklungsbereich erschließt Plugins, Profile und die Referenzen für Menschen und Modelle.
-Vorhandene Vorlagen und Installation folgen anschließend; Grenzen und Anwendungsideen stehen
-im letzten Abschnitt.
-Ein Funktionsschema zeigt, wie ein abgeschlossenes Agentenergebnis über passende Abonnements
-als Nachricht an Agenten und TypeScript-Actors gelangt: Erst erreicht es den Filter, dann beide
-Empfänger. Im Schema der Fläche folgen auf die Auftragsannahme die Bearbeitung und eine nutzbare
-Mini-App; das Journal hebt die zugehörigen Arbeitsschritte hervor. Das Journal besitzt ein
-interaktives Replay-Lesebeispiel ohne Server; ohne JavaScript bleiben alle Einträge und der
-Endzustand lesbar. Icons und Funktionsschemata sind direkt als HTML und SVG eingebettet und
-zeigen keine echten Runs. Das Schema der Fläche übernimmt den matten, warm graulila Hintergrund
-und die geraden Tiefenkörper des Schichtwerk-Stils. Lavendel, Ton, Senfgelb und Kalkweiß
-unterscheiden Koordinator, weitere KI-Actors, TypeScript-Actors und Mini-Apps. Abgerundete Kanten,
-Konturen und nach rechts oben gestufte Seitenflächen machen die Tiefe sichtbar. Aktuell sind keine
-Screenshots eingebunden; neue Aufnahmen müssen echte Runs des Profils core im aktuellen
-Oberflächenstil zeigen.
-
-Die Kopfzeile mit Wortmarke und Hauptnavigation bleibt beim Scrollen sichtbar. Hauptseite,
-Baustein- und Entwicklerreferenz verwenden dieselbe Kopfzeile: Der Generator übernimmt ihr
-Markup aus der Hauptseite; `site.css` und `site.js` teilen Layout, mobile Darstellung und
-Höhenmessung. Menüeinträge und Reihenfolge bleiben auf allen Seiten gleich, Themenlinks der
-Unterseiten führen zum jeweiligen Homepage-Abschnitt. Die aktuelle Referenzseite wird im Menü
-markiert. Sprungziele berücksichtigen die Kopfzeilenhöhe. Eine zweite seitenweite feste
-Navigationsleiste gibt es nicht. Weitere Funktionsabschnitte erscheinen beim ersten Erreichen
-mit einer kurzen Einblendung. Eine schmale Linie an der Kopfzeile zeigt den Lesefortschritt.
-Diese zusätzlichen Effekte laufen auf Geräten mit Hover und werden bei reduzierter Bewegung
-deaktiviert. `site.js` verwendet GSAP, ScrollTrigger und MotionPathPlugin aus dem lokal erzeugten
-`scroll-vendor.js`; `scripts/homepage/homepage-motion.ts` bündelt die festgelegte Paketversion
-einschließlich Lizenzhinweisen. Der Homepage-Build erzeugt und prüft dieses Asset und übernimmt
-es in den statischen Export. Nur die Hauptseite lädt es. Es gibt keine externen
-Laufzeitressourcen; Texte und Schemata bleiben ohne JavaScript lesbar. Refactoring- und
-Unternehmensabläufe sind im letzten Abschnitt als Anwendungsideen gekennzeichnet.
+Die Kopfzeile mit Logo, Hauptnavigation und GitHub-Link bleibt beim Scrollen sichtbar. Der
+Generator übernimmt ihr Markup für die Guide-Seiten; `site.css` enthält ihre Styles.
 Die intern erzeugten Textfassungen `reference.md` und `developer.md` bilden die Baustein- und
 Entwicklerreferenz; sie gehören nicht zum öffentlichen Export und werden von der Produktseite
 nicht verlinkt. Ihre Seiten- und Themeneinstiege erklären den jeweiligen
