@@ -70,7 +70,7 @@ const fixture = async (t: TestContext) => {
   return { registry, client };
 };
 
-test("registration binds the calling connection, checks the executor and its end removes the workplace", async () => {
+test("registration binds the calling connection, checks the executor and its end removes the workstation", async () => {
   const registry = new WorkspaceClientRegistry();
   const connection = stubConnection();
   const info = await registry.register(CLIENT, description(), WORKSPACE_EXECUTOR_VERSION, connection);
@@ -96,7 +96,7 @@ test("registration binds the calling connection, checks the executor and its end
   assert.doesNotThrow(() => registry.unregister("alice", CLIENT, renewed));
 });
 
-test("the same id under two users gives two workplaces that never touch each other", async () => {
+test("the same id under two users gives two workstations that never touch each other", async () => {
   const registry = new WorkspaceClientRegistry();
   const alices = stubConnection("alice");
   const bobs = stubConnection("bob");
@@ -114,7 +114,7 @@ test("the same id under two users gives two workplaces that never touch each oth
   assert.deepEqual(registry.info("bob", CLIENT)?.folders, ["/home/bob/project"], "die Trennung eines anderen trifft ihn nicht");
 });
 
-test("a user lists only the workplaces he registered himself", async () => {
+test("a user lists only the workstations he registered himself", async () => {
   const registry = new WorkspaceClientRegistry();
   await registry.register(CLIENT, description(["/home/alice/project"]), WORKSPACE_EXECUTOR_VERSION, stubConnection("alice"));
   await registry.register("client-00000002", description(["/home/bob/project"]), WORKSPACE_EXECUTOR_VERSION, stubConnection("bob"));
@@ -129,7 +129,7 @@ test("a user lists only the workplaces he registered himself", async () => {
   assert.deepEqual(await listed("carol"), [], "auch runs.read.all zeigt keinen fremden Arbeitsplatz");
 });
 
-test("the server runs the executor of the registered workplace over its connection", async (t) => {
+test("the server runs the executor of the registered workstation over its connection", async (t) => {
   const { registry, client } = await fixture(t);
   const calls: Array<{ operation: string; toolCallId: string | undefined; cwd: string; env: Record<string, string>; input: unknown }> = [];
   const progress: unknown[] = [];
@@ -240,7 +240,7 @@ test("the start option accepts only bindings that can be resolved later, on both
   }
 });
 
-test("a new folder per run on a workplace sits under its runs folder with the separator of that machine", async () => {
+test("a new folder per run on a workstation sits under its runs folder with the separator of that machine", async () => {
   const registry = new WorkspaceClientRegistry();
   await registry.register(CLIENT, { ...description(["C:\\projekte\\werkstatt"]), platform: "win32", runsDirectory: "C:\\ragents\\runs\\" },
     WORKSPACE_EXECUTOR_VERSION, stubConnection());
@@ -251,7 +251,7 @@ test("a new folder per run on a workplace sits under its runs folder with the se
   });
 });
 
-test("a contribution names the new folder on the server, keeps folders of the server out and offers none on a workplace unless it brings one", async () => {
+test("a contribution names the new folder on the server, keeps folders of the server out and offers none on a workstation unless it brings one", async () => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-binding-")));
   try {
     const { registry } = await registryWith();
@@ -286,7 +286,7 @@ test("a contribution names the new folder on the server, keeps folders of the se
   }
 });
 
-test("a workplace of another user is neither offered nor accepted as binding, and only a workplace reserves the run for its owner", async () => {
+test("a workstation of another user is neither offered nor accepted as binding, and only a workstation reserves the run for its owner", async () => {
   const { registry } = await registryWith();
   const option = workspaceBindingOption(registry, () => undefined);
   const binding = onLaptop({ path: "/home/beispiel/project" });
@@ -310,7 +310,7 @@ test("a workplace of another user is neither offered nor accepted as binding, an
   assert.equal(option.ownerOnly?.({ kind: "path", path: "/srv/project" }), false);
 });
 
-test("choosing the binding in the web takes the user of the request, not any registered workplace", async () => {
+test("choosing the binding in the web takes the user of the request, not any registered workstation", async () => {
   const { registry } = await registryWith();
   const option = workspaceBindingOption(registry, () => undefined);
   const chosen: unknown[] = [];
@@ -348,7 +348,7 @@ test("a sign-off removes only the entry its own connection holds", async () => {
 });
 
 /** Ein Arbeitsplatz über eine echte Verbindung, der jede Operation mitschreibt; `hang` lässt eine Operation offen, bis der Strom endet. */
-const workplace = async (t: TestContext, url: string, hang: readonly string[] = []) => {
+const workstation = async (t: TestContext, url: string, hang: readonly string[] = []) => {
   const client = new RpcClient({ baseUrl: url, retryDelayMs: 50 });
   const operations: string[] = [];
   t.after(client.handle(workspaceClientContracts.execute, (input, context) => {
@@ -362,10 +362,10 @@ const workplace = async (t: TestContext, url: string, hang: readonly string[] = 
   return { client, operations };
 };
 
-test("a stop while the workplace is away is held and delivered when it registers again, before any new order of that run", async (t) => {
+test("a stop while the workstation is away is held and delivered when it registers again, before any new order of that run", async (t) => {
   const { registry } = await fixture(t);
   const url = (await startRpcServer(t, { methods: clientMethods(registry) })).url;
-  const first = await workplace(t, url);
+  const first = await workstation(t, url);
   const executor = registry.executorFor(null, CLIENT, "Laptop", "/home/beispiel/project");
   first.client.close();
   await until(() => registry.info(null, CLIENT) === undefined);
@@ -374,17 +374,17 @@ test("a stop while the workplace is away is held and delivered when it registers
   assert.deepEqual(registry.pendingStops(null, CLIENT), ["run-1"]);
   assert.equal(await executor.execute("run-1", "processes.stopAll", {}, { whenReachable: true }), null);
 
-  const second = await workplace(t, url);
+  const second = await workstation(t, url);
   await executor.execute("run-1", "read", { path: "a.txt" });
   assert.deepEqual(second.operations, ["stop:run-1", "read:run-1"]);
   assert.deepEqual(registry.pendingStops(null, CLIENT), []);
   assert.deepEqual(first.operations, []);
 });
 
-test("a new connection of the same workplace takes over: open calls of the old one fail at once, a stop in flight arrives over the new one", async (t) => {
+test("a new connection of the same workstation takes over: open calls of the old one fail at once, a stop in flight arrives over the new one", async (t) => {
   const { registry } = await fixture(t);
   const url = (await startRpcServer(t, { methods: clientMethods(registry) })).url;
-  const old = await workplace(t, url, ["bash", "stop"]);
+  const old = await workstation(t, url, ["bash", "stop"]);
   const executor = registry.executorFor(null, CLIENT, "Laptop", "/home/beispiel/project");
   const running = executor.execute("run-1", "bash", { command: "sleep 600" }).then(() => undefined, (error: unknown) => error);
   const stopping = executor.stopRun("run-2");
@@ -394,7 +394,7 @@ test("a new connection of the same workplace takes over: open calls of the old o
   assert.ok(Date.now() - begun < 1000, "Aufräumen neben einem ausstehenden Stopp wartet nicht auf ihn");
   assert.equal(old.operations.length, 2);
 
-  const renewed = await workplace(t, url);
+  const renewed = await workstation(t, url);
   const failure = await running;
   assert.ok(failure instanceof DomainError && failure.code === "workspace-client-disconnected" && /abgelöst/.test(failure.message), String(failure));
   await stopping;
@@ -402,7 +402,7 @@ test("a new connection of the same workplace takes over: open calls of the old o
   await until(() => registry.pendingStops(null, CLIENT).length === 0);
 });
 
-test("without user sign-in the server accepts a workplace only over a loopback connection", async (t) => {
+test("without user sign-in the server accepts a workstation only over a loopback connection", async (t) => {
   const registry = new WorkspaceClientRegistry();
   const remote = await startRpcServer(t, { methods: clientMethods(registry), local: false });
   const client = new RpcClient({ baseUrl: remote.url, retryDelayMs: 50 });

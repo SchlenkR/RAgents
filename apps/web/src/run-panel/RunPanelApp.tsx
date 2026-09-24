@@ -21,7 +21,7 @@ import { useRunPanelHost } from "./host";
 import { useSessionList } from "./use-session-list";
 
 const headerClass = "relative z-[80] flex h-header flex-none items-stretch border-b border-border bg-shell shadow-bar";
-const environmentClass = "max-w-[120px] self-center truncate rounded-full bg-secondary px-2 py-0.5 text-[0.66rem] font-semibold text-muted-foreground";
+const connectionClass = "max-w-[120px] self-center truncate rounded-full bg-secondary px-2 py-0.5 text-[0.66rem] font-semibold text-muted-foreground";
 const pendingTitleClass = "min-w-0 flex-1 self-center truncate px-1.5 text-[0.82rem] font-semibold";
 const STOP_REASON = "Gestoppt im Run-Panel";
 /** So lange wartet das Panel in VS Code ohne Run auf die Startanforderung seines Hosts. */
@@ -50,7 +50,7 @@ export function RunPanelApp({ location }: { location: RunPanelLocation }) {
   );
   const page = location.layout === "app"
     ? <ElementPage elementId={location.elementId} registry={activation.registry} runId={location.runId} />
-    : <RunPanelPage environment={location.environment} initialRunId={location.runId} registry={activation.registry} />;
+    : <RunPanelPage connection={location.connection} initialRunId={location.runId} registry={activation.registry} />;
   if (activation.failures.length === 0) return page;
   return (
     <div className="flex h-full flex-col">
@@ -60,7 +60,7 @@ export function RunPanelApp({ location }: { location: RunPanelLocation }) {
   );
 }
 
-function RunPanelPage({ environment, initialRunId, registry }: { environment: string | undefined; initialRunId: string | undefined; registry: PluginRegistry }) {
+function RunPanelPage({ connection, initialRunId, registry }: { connection: string | undefined; initialRunId: string | undefined; registry: PluginRegistry }) {
   const host = useRunPanelHost();
   const access = useAccess();
   const readRuns = access.can("runs.read");
@@ -180,7 +180,7 @@ function RunPanelPage({ environment, initialRunId, registry }: { environment: st
   const pendingHeader = (title: string) => <>
     <Button aria-label="Zur Start-Seite" className="self-center" onClick={showStart} size="icon-lg" title="Zur Start-Seite" variant="ghost"><ArrowLeftIcon /></Button>
     <strong className={pendingTitleClass}>{title}</strong>
-    {environment && <span className={environmentClass} title={`Server ${environment}`}>{environment}</span>}
+    {connection && <span className={connectionClass} title={`Server ${connection}`}>{connection}</span>}
     <RunPanelMenu onOpenSettings={openSettings} />
   </>;
   const toStart = <Button onClick={showStart} size="sm" variant="outline">Zur Start-Seite</Button>;
@@ -228,7 +228,7 @@ function RunPanelPage({ environment, initialRunId, registry }: { environment: st
             <header className={headerClass}>
               <Button aria-label="Zur Start-Seite" className="self-center" onClick={showStart} size="icon-lg" title="Zur Start-Seite" variant="ghost"><ArrowLeftIcon /></Button>
               <div aria-label="Run-Titelleiste" className="flex min-w-0 flex-1 items-stretch overflow-x-auto no-scrollbar" ref={setHeaderContainer} role="region" />
-              {environment && <span className={environmentClass} title={`Server ${environment}`}>{environment}</span>}
+              {connection && <span className={connectionClass} title={`Server ${connection}`}>{connection}</span>}
               <RunStateIcon className="self-center px-1.5" state={session?.running ? "running" : "idle"} />
               <StopButton className="self-center" disabled={!writeRuns} label="Run stoppen" onClick={stop} size="icon-lg" title="Run mit allen Agenten und Abläufen stoppen" />
               <div aria-label="Werkzeuge des Panels" className="flex flex-none items-center empty:hidden" ref={setToolsContainer} role="toolbar" />

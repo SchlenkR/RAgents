@@ -73,7 +73,7 @@ function App() {
   </div>;
   return <AccessContext.Provider value={{ ...unrestrictedAccess, can: (right) => right !== "runs.write" || !fixture.readOnly, logout: async () => {} }}>
     <RunPanelHostProvider value={host}>
-      <RunPanelApp location={{ layout: "panel", runId: "existing", host: host.kind, environment: undefined, theme: undefined, access: undefined }} />
+      <RunPanelApp location={{ layout: "panel", runId: "existing", host: host.kind, connection: undefined, theme: undefined, access: undefined }} />
     </RunPanelHostProvider>
   </AccessContext.Provider>;
 }

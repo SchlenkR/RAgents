@@ -3122,7 +3122,7 @@
     },
     {
       "name": "ragents.runs.view",
-      "description": "Die Laufansicht eines Runs lesen, optional den Stand nach einer Journalsequenz; null für einen noch nicht gestarteten Run.",
+      "description": "Die Run-Ansicht lesen, optional den Stand nach einer Journalsequenz; null für einen noch nicht gestarteten Run.",
       "params": [
         {
           "name": "input",

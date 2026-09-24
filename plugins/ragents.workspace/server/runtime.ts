@@ -65,7 +65,7 @@ const serverProjectDescription = (cwd: string): string => [
 const clientProjectDescription = (projectPath: string, label: string): string => [
   "# Working directory",
   "",
-  `Your working directory is the project folder \`${projectPath}\` on the workplace "${label}", not on the server.`,
+  `Your working directory is the project folder \`${projectPath}\` on the workstation "${label}", not on the server.`,
   "Every workspace tool runs there, and a relative path refers to that folder.",
   `It is a real project. Keep its structure, and never delete or reorganize files unless you are asked to. ${lookAround}`,
 ].join("\n");
@@ -73,7 +73,7 @@ const clientProjectDescription = (projectPath: string, label: string): string =>
 const freshWorkstationDescription = (folderPath: string, label: string): string => [
   "# Working directory",
   "",
-  `Your working directory is \`${folderPath}\` on the workplace "${label}", not on the server: a folder of this conversation alone.`,
+  `Your working directory is \`${folderPath}\` on the workstation "${label}", not on the server: a folder of this run alone.`,
   "Every workspace tool runs there, and a relative path refers to that folder.",
   "It starts empty unless the profile prepared content in it. Look around in it before you say anything about what is already there.",
 ].join("\n");

@@ -2,8 +2,8 @@ import { ACCESS_TOKEN_QUERY } from "../../../../packages/ragents/src/access";
 import { isRunPanelTheme, type RunPanelTheme } from "./host-contract";
 
 export type RunPanelLocation =
-  | { layout: "panel"; runId: string | undefined; host: RunPanelHostKind; environment: string | undefined; theme: RunPanelTheme | undefined; access: string | undefined }
-  | { layout: "app"; runId: string; elementId: string; host: RunPanelHostKind; environment: string | undefined; theme: RunPanelTheme | undefined; access: string | undefined };
+  | { layout: "panel"; runId: string | undefined; host: RunPanelHostKind; connection: string | undefined; theme: RunPanelTheme | undefined; access: string | undefined }
+  | { layout: "app"; runId: string; elementId: string; host: RunPanelHostKind; connection: string | undefined; theme: RunPanelTheme | undefined; access: string | undefined };
 
 export type RunPanelHostKind = "browser" | "vscode";
 
@@ -23,7 +23,7 @@ export function parseRunPanelLocation(search: string): RunPanelLocation {
   if (themeValue !== undefined && !isRunPanelTheme(themeValue)) throw new Error(`Unbekannte Darstellung ${JSON.stringify(themeValue)}. Erlaubt sind light und dark.`);
   const common = {
     host: hostKind(text(query.get("host")) ?? "browser"),
-    environment: text(query.get("environment")),
+    connection: text(query.get("connection")),
     theme: themeValue,
     access: text(query.get(ACCESS_TOKEN_QUERY)),
   };

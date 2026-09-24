@@ -40,7 +40,7 @@ export const artifactContentPath = (runId: string, artifactId: string): string =
 export const runContracts = {
   view: defineOperation({
     id: "ragents.runs.view",
-    description: "Die Laufansicht eines Runs lesen, optional den Stand nach einer Journalsequenz; null für einen noch nicht gestarteten Run.",
+    description: "Die Run-Ansicht lesen, optional den Stand nach einer Journalsequenz; null für einen noch nicht gestarteten Run.",
     input: Type.Object({ runId, at: Type.Optional(Type.Integer({ minimum: 0 })) }, { additionalProperties: false }),
     result: Type.Union([runViewSchema, Type.Null()]),
   }),

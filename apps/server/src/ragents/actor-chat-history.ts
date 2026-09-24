@@ -17,7 +17,7 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
   const positions = new ChatTextPositions();
   const actorOf = (id: string) => {
     const actor = view.actors.find((entry) => entry.id === id);
-    if (!actor) throw new DomainError("actor-not-found", `Der Actor ${id} fehlt in der Laufansicht.`, 404);
+    if (!actor) throw new DomainError("actor-not-found", `Der Actor ${id} fehlt in der Run-Ansicht.`, 404);
     return actor;
   };
   const colorOf = (id: string) => {
@@ -29,7 +29,7 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
     view.turns.find((entry) => entry.id === turnId)?.toolCalls.filter((call) => call.status === "interrupted").map((call) => call.id) ?? [];
   const turnActorOf = (id: string) => {
     const turn = view.turns.find((entry) => entry.id === id);
-    if (!turn) throw new Error(`Der Turn ${id} fehlt in der Laufansicht.`);
+    if (!turn) throw new Error(`Der Turn ${id} fehlt in der Run-Ansicht.`);
     return turn.actorId;
   };
   const interruptingCommands = new Set(events.flatMap((event) =>
@@ -55,7 +55,7 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
     switch (event.type) {
       case "actor.input.enqueued": {
         const input = view.inputs.find((entry) => entry.id === event.payload.inputId);
-        if (!input) throw new Error(`Die Eingabe ${event.payload.inputId} fehlt in der Laufansicht.`);
+        if (!input) throw new Error(`Die Eingabe ${event.payload.inputId} fehlt in der Run-Ansicht.`);
         if (input.lifecycle.kind === "discarded") break;
         actorOf(input.actorId);
         if (input.presentation === "background") break;
@@ -63,7 +63,7 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
         const sender = actorOf(input.enqueuedBy);
         const attachments = input.artifactIds.map((id) => {
           const artifact = view.artifacts.find((entry) => entry.id === id);
-          if (!artifact) throw new Error(`Der Anhang ${id} fehlt in der Laufansicht.`);
+          if (!artifact) throw new Error(`Der Anhang ${id} fehlt in der Run-Ansicht.`);
           return { name: artifact.title, mediaType: artifact.mediaType, size: artifact.size,
             url: attachmentContentPath(view.id, id) };
         });
@@ -102,7 +102,7 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
         break;
       case "action.resolved": {
         const action = view.actions.find((entry) => entry.id === event.payload.actionId);
-        if (!action) throw new Error(`Die Aktion ${event.payload.actionId} fehlt in der Laufansicht.`);
+        if (!action) throw new Error(`Die Aktion ${event.payload.actionId} fehlt in der Run-Ansicht.`);
         if (actorOf(action.askedBy).kind !== "human") append(action.askedBy, actionResolvedEventOf(event), event);
         break;
       }

@@ -103,6 +103,6 @@ const access = createAccessContext({ enabled: true, user: { id: "tester", label:
 const initialRun = query.get("run") ?? undefined;
 createRoot(document.getElementById("root")!).render(<AccessContext.Provider value={{ ...access, logout: async () => {} }}>
   <RunPanelHostProvider value={host}>
-    <RunPanelApp location={{ layout: "panel", runId: initialRun, host: host.kind, environment: "lokal", theme: undefined, access: undefined }} />
+    <RunPanelApp location={{ layout: "panel", runId: initialRun, host: host.kind, connection: "lokal", theme: undefined, access: undefined }} />
   </RunPanelHostProvider>
 </AccessContext.Provider>);

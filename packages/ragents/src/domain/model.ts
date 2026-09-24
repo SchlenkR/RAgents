@@ -237,7 +237,7 @@ export const eventSubjectOf = (state: RunState, event: JournalEvent): ActorId =>
 
 type Collections = "actors" | "inputs" | "turns" | "subscriptions" | "pluginStates" | "actions" | "artifacts";
 
-/** Die Laufansicht für Clients; der Eigentümer bleibt serverseitig und steht nicht in ihr. */
+/** Die Run-Ansicht für Clients; der Eigentümer bleibt serverseitig und steht nicht in ihr. */
 export type RunView = Omit<RunState, Collections | "ownerUserId"> & {
     actors: Actor[];
     inputs: ActorInput[];

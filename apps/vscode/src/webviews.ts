@@ -72,7 +72,7 @@ export class PanelView implements vscode.WebviewViewProvider {
     this.#frameKey = key;
     view.webview.html = frameHtml({
       serverUrl: frame.serverUrl,
-      query: { run: selection.runId, host: "vscode", environment: selection.connection, theme: frame.theme, access: frame.accessToken },
+      query: { run: selection.runId, host: "vscode", connection: selection.connection, theme: frame.theme, access: frame.accessToken },
       nonce: nonce(),
       title: PANEL_TITLE,
     });
@@ -176,7 +176,7 @@ export class AppPanels {
     if (!frame) return;
     entry.panel.webview.html = frameHtml({
       serverUrl: frame.serverUrl,
-      query: { layout: "app", run: entry.runId, element: entry.elementId, host: "vscode", environment: entry.connection, theme: frame.theme, access: frame.accessToken },
+      query: { layout: "app", run: entry.runId, element: entry.elementId, host: "vscode", connection: entry.connection, theme: frame.theme, access: frame.accessToken },
       nonce: nonce(),
       title: entry.title,
     });

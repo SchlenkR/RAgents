@@ -29,7 +29,7 @@ export type RuntimeMethodOptions = {
   hasRun: (runId: string) => boolean;
 };
 
-/** Die Laufzeitmethoden der Engine: Laufansicht, Journal, Warteschlangen, Unterbrechen, Stopp und Rückfragen. */
+/** Die Laufzeitmethoden der Engine: Run-Ansicht, Journal, Warteschlangen, Unterbrechen, Stopp und Rückfragen. */
 export function runtimeMethods(options: RuntimeMethodOptions): MethodContribution[] {
   const { runtime, assertRunRights, projectView } = options;
   const assertAvailable = options.assertAvailable ?? (() => undefined);

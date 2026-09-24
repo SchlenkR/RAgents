@@ -157,8 +157,8 @@ The script exports the run from the source with `ragents.runs.export` and import
 with `ragents.runs.import`. If each side uses a different token, set `RAGENTS_SOURCE_TOKEN` and
 `RAGENTS_TARGET_TOKEN`. The transfer includes the journal and payloads, model contexts under
 `chat/`, actor programs, and all plugin storage for the run, including `ragents.documents` files
-and the new folder of a run that works on the server. A folder on a workplace stays there, and the
-run keeps its binding to that workplace. Running processes, language servers, and
+and the new folder of a run that works on the server. A folder on a workstation stays there, and the
+run keeps its binding to that workstation. Running processes, language servers, and
 browsers are not transferred; they are recreated on the target when next used.
 
 The transfer enforces these prerequisites:

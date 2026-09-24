@@ -3056,7 +3056,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.runs.view
 
-Die Laufansicht eines Runs lesen, optional den Stand nach einer Journalsequenz; null für einen noch nicht gestarteten Run.
+Die Run-Ansicht lesen, optional den Stand nach einer Journalsequenz; null für einen noch nicht gestarteten Run.
 
 Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 

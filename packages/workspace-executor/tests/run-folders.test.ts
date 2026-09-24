@@ -15,7 +15,7 @@ const executorWith = (runFolder?: (runId: string) => string): WorkspaceOperation
   modules: workspaceExecutorModules(runFolder ? { runFolder } : {}),
 });
 
-test("a workplace creates the new folder of a run once, keeps what is in it and removes only that folder", async () => {
+test("a workstation creates the new folder of a run once, keeps what is in it and removes only that folder", async () => {
   const runs = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-run-folders-")));
   const executor = executorWith((runId) => path.join(runs, runId));
   try {

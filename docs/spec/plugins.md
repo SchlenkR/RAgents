@@ -1298,7 +1298,7 @@ samt zugrunde liegender Programmanordnung als persönliche Vorgabe je Run im Bro
 ist die Serialisierung `{ root }` der Programmanordnung). Eine eigene Anordnung bleibt bei
 unverändertem Programm erhalten, auch nach erneutem Öffnen des Runs. Ändert das Programm den
 Baum, folgt die Fläche der neuen Vorgabe und die persönliche Anordnung entfällt.
-"Programmvorgabe übernehmen" in der Statusgruppe "Kachelfläche" setzt sie auch vorher zurück;
+"Programmvorgabe übernehmen" in der Statusgruppe "Fläche" setzt sie auch vorher zurück;
 der Knopf erscheint nur bei vorhandener persönlicher Anordnung.
 
 Ein Programmzustand mit den Altschlüsseln `nodes`, `shapes`, `lines` oder `mode` wird beim
@@ -1362,7 +1362,7 @@ Eingaben liegen in EINEM Dokument. Unten liegt eine Statusleiste über die volle
 Anwendungsbreite, 28 Pixel hoch und mit transparentem, verschwommenem
 Hintergrund. Eine feine obere Trennlinie verwendet die Farbe `border`. Der obere Schatten läuft über
 den unteren Rand des Arbeitsinhalts aus; Statusgruppen und geöffnetes Journal liegen darüber.
-Die Gruppen sind `Journal` und, bei persönlicher Anordnung, `Kachelfläche`. `Actors` steht als
+Die Gruppen sind `Journal` und, bei persönlicher Anordnung, `Fläche`. `Actors` steht als
 Symbol in der Flächenleiste bei den Apps.
 Der Listenknopf bleibt links stehen, während App-Einträge und direkte Actor-Knöpfe gemeinsam
 horizontal scrollen. Die durchsuchbare Liste öffnet sich nach unten. Die Gruppen nutzen die
@@ -1853,7 +1853,7 @@ Der Composer-Slot `toolbarLeft` ist nur für den Eigentümer der Fläche erreich
 Composer-Toolbar-Slot bietet der Host bewusst nicht an.
 
 Ein Run ist im Web zuerst ein ENTWURF: "Neuer Run" in der Übersicht öffnet einen großen
-seitenweiten Dialog mit dem zugänglichen Namen "Neue Unterhaltung". Der vorherige Run bleibt
+seitenweiten Dialog mit dem zugänglichen Namen "Neuer Run". Der vorherige Run bleibt
 darunter erhalten. Der Inhalt beginnt direkt mit der STARTAUSWAHL, ohne sichtbare Titelzeile
 oder Untertitel. Ein überlagerter Schließen-Knopf sitzt rechts oben; die Startauswahl hält dafür
 Platz frei. In der Startauswahl schließen Escape und Hintergrundklick ebenfalls. Der gemeinsame `Modal` übernimmt
@@ -2383,7 +2383,7 @@ als `PanelState.runsConnection` zurück. Die Wege zwischen den Seiten und die Be
 Server, Neuer Run, Aktualisieren) stehen ausschließlich im `view/title`-Menü der Ansicht; die
 Seiten selbst tragen keine Symbole dafür (`panel/PanelHeader.tsx` hat nur Zurück-Pfeil und Titel,
 Start keine Kopfzeile), und die Befehle `ragents.showStart`, `ragents.showRuns` und
-`ragents.environments` wirken auch, während das iframe des Run-Panels steht. Einfügen, Kopieren und Ausschneiden führt das Run-Panel im Host `vscode` selbst
+`ragents.showConnections` wirken auch, während das iframe des Run-Panels steht. Einfügen, Kopieren und Ausschneiden führt das Run-Panel im Host `vscode` selbst
 aus (`installClipboardBridge`, `apps/web/src/run-panel/clipboard.ts`): macOS liefert diese Befehle über
 das Menü der Anwendung, und VS Code reicht sie nur an das Dokument seines Webviews weiter, nie in
 ein iframe fremder Herkunft. Den Text der Zwischenablage holt das Run-Panel deshalb über die Hülle
@@ -2509,7 +2509,7 @@ der Grund und "Zur Start-Seite"; kommt binnen fünf Sekunden keine Startanforder
 "Kein Run gewählt" mit demselben Weg zurück statt eines endlosen Ladezustands.
 Die Kopfzeile des Run-Panels trägt links einen Zurück-Pfeil, der immer auf die Start-Seite führt
 (`showStart`, die Absicht statt ihrer Folge `runChanged`), dann den Run-Titel, rechts die
-Serverpille aus `?environment=`, das Zustandssymbol und den Stopp als Symbol.
+Serverpille aus `?connection=`, das Zustandssymbol und den Stopp als Symbol.
 `StartSelection` ist der Weg des Browsers und im Host `vscode` der einer Vorlage mit Leitfaden.
 `ConnectionEntry` trägt dafür neben `id`, `title` und `description` auch `kind`, `category` und
 `guided`; ein Run-Script darf in seiner `RUN.md`

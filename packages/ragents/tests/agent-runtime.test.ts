@@ -971,7 +971,7 @@ test("the runtime adds no path of its own to the system prompt and keeps its ses
     const directory = mkdtempSync(join(tmpdir(), "ragents-remote-workspace-"));
     const runtimeDirectory = join(directory, "server");
     mkdirSync(runtimeDirectory);
-    const workspace = join(directory, "only-on-the-workplace", "project");
+    const workspace = join(directory, "only-on-the-workstation", "project");
     const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, "remote-workspace", 0);
     const prompts: string[] = [];
     faux.setResponses([1, 2].map(() => (context) => {

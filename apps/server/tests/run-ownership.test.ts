@@ -95,7 +95,7 @@ test("der Eigent체mer eines Runs steht in seinem Journal und 체berlebt einen Neu
     const runtime = new Orchestration(first, testServices());
     runtime.createRun({ commandId: "create-own" }, { runId: OWN, title: "Eigener", ownerHandle: "alice", ownerDisplayName: "Alice", ownerUserId: "alice" });
     runtime.createRun({ commandId: "create-legacy" }, { runId: LEGACY, title: "Bestand", ownerHandle: "owner", ownerDisplayName: "Owner" });
-    assert.equal("ownerUserId" in runtime.view(OWN), false, "die Laufansicht f체r Clients nennt den Benutzer nicht");
+    assert.equal("ownerUserId" in runtime.view(OWN), false, "die Run-Ansicht f체r Clients nennt den Benutzer nicht");
     first.close();
 
     const second = new Journal(path.join(directory, "runs"), testServices());
@@ -450,10 +450,10 @@ test("ein an einen Arbeitsplatz gebundener Run ist 체ber die Laufzeitmethoden f�
     const runtime = new Orchestration(journal, testServices());
     const startOptions = new StartOptionContributionRegistry();
     startOptions.register("ragents.workspace", [workspaceBindingOption(new WorkspaceClientRegistry(), () => undefined)]);
-    const workplace = { kind: "client", client: "client-00000001", label: "Laptop", path: "/home/alice/project" };
+    const workstation = { kind: "client", client: "client-00000001", label: "Laptop", path: "/home/alice/project" };
     runtime.createRun({ commandId: "create-bound" }, {
       runId: BOUND, title: "Gebunden", ownerHandle: "alice", ownerDisplayName: "Alice", ownerUserId: "alice",
-      initialPluginStates: [{ pluginId: WORKSPACE_BINDING_OPTION_ID, state: workplace }],
+      initialPluginStates: [{ pluginId: WORKSPACE_BINDING_OPTION_ID, state: workstation }],
     });
     runtime.createRun({ commandId: "create-own" }, {
       runId: OWN, title: "Eigener", ownerHandle: "alice", ownerDisplayName: "Alice", ownerUserId: "alice",

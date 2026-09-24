@@ -55,7 +55,7 @@ test("the prompt names the platform of the executor that runs the run", async ()
   assert.equal(await prompt.render({}), shellPlatformChapter(process.platform));
 });
 
-test("the platform comes only from a workplace of the run owner, never from another user with the same id", async () => {
+test("the platform comes only from a workstation of the run owner, never from another user with the same id", async () => {
   const registry = await registryWith("win32");
   const binding = { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "C:\\ragents\\runs\\run-1", fresh: true } } as const;
   assert.equal(executorShellChapter(registry, "alice", binding), shellPlatformChapter("win32"));
@@ -63,7 +63,7 @@ test("the platform comes only from a workplace of the run owner, never from anot
   assert.match(executorShellChapter(registry, null, binding), /Laptop.*not registered right now/s);
 });
 
-test("an unregistered workplace is named instead of guessing a platform", () => {
+test("an unregistered workstation is named instead of guessing a platform", () => {
   const chapter = executorShellChapter(new WorkspaceClientRegistry(), "alice", {
     machine: { client: CLIENT, label: "Laptop" },
     folder: { path: "C:\\projekte\\werkstatt" },

@@ -294,7 +294,7 @@ const checkTools = async (env: CheckEnvironment): Promise<void> => {
     const shell = /## Shell platform\n\n([^\n]*)/.exec(exchange.systemPrompt)?.[1] ?? "kein Kapitel Shell platform";
     expect(exchange.systemPrompt.includes("runs on Linux with the GNU userland"), `Der Systemprompt nennt Linux nicht als Plattform der Shell: ${shell.slice(0, 200)}`);
     expect(!exchange.systemPrompt.includes("runs on macOS"), "Der Systemprompt nennt macOS, die Plattform des Servers");
-    expect(exchange.systemPrompt.includes(`\`${env.folder}\` on the workplace "${env.container.label}"`),
+    expect(exchange.systemPrompt.includes(`\`${env.folder}\` on the workstation "${env.container.label}"`),
       `Der Systemprompt nennt ${env.folder} nicht als Ordner des Arbeitsplatzes ${env.container.label}`);
     expect(!exchange.systemPrompt.includes("Current working directory"), "Der Systemprompt nennt daneben ein rohes Arbeitsverzeichnis");
     const runtimeFolder = path.join("plugins", "ragents.workspace", "server");

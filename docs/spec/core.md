@@ -820,7 +820,7 @@ die Übergabe an den normalen Run-Start; Vertrag und Lebenszyklus stehen in `plu
 Das Plugin stellt dieselben Verwaltungsmethoden für externe Clients und den globalen Koordinator
 bereit. Sie kann vorhandene Runs auflisten, ihre Zustände und Journale seitenweise lesen,
 ihren primären Actor beauftragen, sie stoppen und neue Runs erstellen. Eindeutige Titel,
-Run-IDs und kurze Referenzen wie `Lauf 1` werden serverseitig aufgelöst. Ein eigener Index in
+Run-IDs und kurze Referenzen wie `Run 1` werden serverseitig aufgelöst. Ein eigener Index in
 der Plugin-Ablage erhält die Referenzen auch nach Sortierung, Löschung und Neustart.
 Mehrdeutige Titel werden mit den gültigen Referenzen abgewiesen. Neue Run-IDs erzeugt der
 Server. Archivierte und gelöschte Runs sind nicht Teil dieses Zugriffs.
