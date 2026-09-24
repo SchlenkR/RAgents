@@ -11,7 +11,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
   server: {
     "@ragents/engine": [
       "DomainError", "RPC_ERROR_CODES", "RpcError", "ScriptDriver", "ToolRegistry", "actorByHandle",
-      "actorByReference", "actorInputSchema", "agentTools", "assertJsonValue", "builtinProfiles", "canonicalHash",
+      "actorByReference", "actorDescriptionMaxLength", "actorInputSchema", "agentTools", "assertJsonValue", "builtinProfiles", "canonicalHash",
       "compileVirtualTypeScriptAsync", "defineRunFunction", "defineToolAvailability", "emptyUsage",
       "enqueueActorInput", "eventResultSchema", "handleKey", "holdsUsable", "implement", "implementChannel",
       "isRunId", "isThinkingLevel", "modelToolDescriptors", "pluginStateAt", "runCapabilityBindingHash",

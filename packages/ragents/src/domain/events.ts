@@ -48,6 +48,7 @@ export type EventPayloads = {
         grants: CapabilityGrant[];
         toolNames: string[] | null;
         forkOf?: ActorId;
+        description?: string;
     };
     "script.created": {
         scriptId: ActorId;
@@ -56,6 +57,7 @@ export type EventPayloads = {
         execution: AgentExecution;
         grants: CapabilityGrant[];
         toolNames: string[] | null;
+        description?: string;
     };
     "actor.input.enqueued": {
         inputId: InputId;

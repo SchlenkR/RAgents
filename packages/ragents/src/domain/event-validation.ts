@@ -261,8 +261,9 @@ const eventTypeArrayOf = (value: unknown, path: string) => arrayOf(value, path, 
 });
 
 const scriptDefinitionOf = (payload: ObjectValue, path: string) => {
-    const definition = exactObject(payload, path, ["scriptId", "handle", "displayName", "execution", "grants", "toolNames"]);
+    const definition = exactObject(payload, path, ["scriptId", "handle", "displayName", "execution", "grants", "toolNames"], ["description"]);
     actorIdOf(definition.scriptId, `${path}.scriptId`);
+    if (definition.description !== undefined) nonEmptyStringOf(definition.description, `${path}.description`);
     stringOf(definition.handle, `${path}.handle`);
     stringOf(definition.displayName, `${path}.displayName`);
     executionOf(definition.execution, `${path}.execution`);
@@ -312,9 +313,10 @@ const payloadOf = (type: EventType, value: unknown, path: string) => {
                 "execution",
                 "grants",
                 "toolNames",
-            ], ["forkOf"]);
+            ], ["forkOf", "description"]);
             actorIdOf(payload.agentId, `${path}.agentId`);
             if (payload.forkOf !== undefined) actorIdOf(payload.forkOf, `${path}.forkOf`);
+            if (payload.description !== undefined) nonEmptyStringOf(payload.description, `${path}.description`);
             stringOf(payload.handle, `${path}.handle`);
             stringOf(payload.displayName, `${path}.displayName`);
             stringOf(payload.prompt, `${path}.prompt`);

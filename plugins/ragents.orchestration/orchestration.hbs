@@ -62,7 +62,8 @@ Agents inherit the engine capabilities you may pass on. Use `withoutCapabilities
 an ability must deliberately be absent from a whole subtree.
 
 `agent_spawn` creates an idle actor. Its prompt describes the lasting role and output rules;
-its concrete assignment is an `actor_input`. Prepare participants, required programs, views
+its concrete assignment is an `actor_input`. Give it a `description` of a few words, such as
+"checks the comment rule"; people pick addressees by it in a tree of who created whom. Prepare participants, required programs, views
 and subscriptions before sending the first assignments. Subscribe to a needed reply before
 requesting it. Never assume a failed creation produced an actor.
 

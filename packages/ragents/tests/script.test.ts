@@ -40,7 +40,7 @@ test("TypeScript actors journal only identity and execution while preserving del
     const setup = setupRun({grants: allGrants()});
     try {
         const actor = scriptActor(setup);
-        assert.deepEqual(Object.keys(actor).sort(), ["kind", "id", "handle", "displayName", "createdBy", "execution", "grants", "toolNames", "createdAt", "lifecycle", "usage", "openedToolNames"].sort());
+        assert.deepEqual(Object.keys(actor).sort(), ["kind", "id", "handle", "displayName", "createdBy", "description", "execution", "grants", "toolNames", "createdAt", "lifecycle", "usage", "openedToolNames"].sort());
         assert.equal(setup.runtime.events(setup.view.id).at(-1)?.type, "script.created");
         assert.throws(() => scriptActor(setup, "worker"), /already belongs/);
         const scriptContext = activeContext(setup, actor.id);

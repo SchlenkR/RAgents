@@ -4,7 +4,7 @@ import { lstatSync, readFileSync, renameSync } from "node:fs";
 import path from "node:path";
 import { Type, type TSchema } from "typebox";
 import { Value } from "typebox/value";
-import { actorByHandle, agentTools, assertJsonValue, canonicalHash, defineRunFunction, defineToolAvailability, emptyUsage, handleKey, runCapabilityContractHash, scriptInputOf, schemaComplaints, type Actor, type ActorProgramExecutor, type RunFunction, type CommandContext, type ExecutableActor, type JsonValue, type Orchestration, type PluginContext, type RunCapabilityDescriptor, type RunView, type TurnRequest, type TurnResult, } from "@ragents/engine";
+import { actorByHandle, actorDescriptionMaxLength, agentTools, assertJsonValue, canonicalHash, defineRunFunction, defineToolAvailability, emptyUsage, handleKey, runCapabilityContractHash, scriptInputOf, schemaComplaints, type Actor, type ActorProgramExecutor, type RunFunction, type CommandContext, type ExecutableActor, type JsonValue, type Orchestration, type PluginContext, type RunCapabilityDescriptor, type RunView, type TurnRequest, type TurnResult, } from "@ragents/engine";
 import { ACTOR_PROGRAMS_STATE_ID, ACTOR_INVOCATIONS_STATE_ID, ACTOR_SCRIPT_STATE_ID, ACTOR_STATE_ID, resolveActorView, type ActorDataState, type ActorFunctionDefinition, type ActorFunctionInvocation, type ActorProgramDefinition, type ActorProgramState, type ActorScriptState, type ActorViewListing, } from "@ragents/host/plugin-support/actor-programs/contract.js";
 import type { ActorProgramSource, ActorProgramsService } from "@ragents/host/plugin-support/actor-programs/service.js";
 import { jsonValue, jsonBytes, MAX_INVOCATIONS_STATE_BYTES } from "./limits.js";
@@ -22,6 +22,10 @@ const NAME = /^[a-z][a-z0-9-]{0,63}$/;
 const errorText = (error: unknown): string => error instanceof Error ? error.message : String(error);
 const complaints = (lines: readonly string[], fallback: string): string =>
     lines.map((line) => line.trim()).filter((line) => line !== "").join("\n") || fallback;
+const actorDescriptionOf = (text: string | undefined): string | undefined => {
+    const line = (text ?? "").replace(/\s+/g, " ").trim();
+    return line.length <= actorDescriptionMaxLength ? line || undefined : `${line.slice(0, actorDescriptionMaxLength - 3).trimEnd()}...`;
+};
 const exposed = defineToolAvailability({ availability: "conditional", availabilityDetail: "Veröffentlichte Funktion eines aktiven Actors im Run." }, () => true);
 const objectSchema = { type: "object", additionalProperties: true };
 const checked = (schema: object, value: unknown, label: string): JsonValue => {
@@ -297,7 +301,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             throw new Error("Aufrufender Actor fehlt.");
         const provisional: ExecutableActor = owner ?? {
             id: "pending", handle: name, displayName: pkg.title, kind: "script", grants: caller.grants.filter((grant) => grant.delegable),
-            createdAt: new Date().toISOString(), createdBy: callerId, execution: { driver: { kind: "script", config: {} }, workspacePath: null, turnTimeoutMs: null }, lifecycle: { kind: "idle", since: new Date().toISOString() }, usage: emptyUsage(), toolNames: null, openedToolNames: [],
+            createdAt: new Date().toISOString(), createdBy: callerId, description: actorDescriptionOf(pkg.description) ?? null, execution: { driver: { kind: "script", config: {} }, workspacePath: null, turnTimeoutMs: null }, lifecycle: { kind: "idle", since: new Date().toISOString() }, usage: emptyUsage(), toolNames: null, openedToolNames: [],
         };
         const available = (await this.#options.agentToolsFor(runId, provisional.id, owner ? undefined : provisional)).map(descriptor);
         for (const operation of this.#options.operations.list())
@@ -456,7 +460,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 else if (holder)
                     throw new Error(`Handle @${name} gehört bereits dem ${holder.kind !== "human" && holder.lifecycle.kind === "stopped" ? "gestoppten" : "aktiven"} Actor ${holder.displayName}; nur ein gestoppter TypeScript-Actor wird beim Aktivieren neu gestartet. Wähle einen anderen Paketnamen.`);
                 else
-                    this.runtime().createScriptActor(context, runId, { handle: name, displayName: definition.title, grants: caller.grants.filter((grant) => grant.delegable), toolNames: null });
+                    this.runtime().createScriptActor(context, runId, { handle: name, displayName: definition.title, description: actorDescriptionOf(definition.description), grants: caller.grants.filter((grant) => grant.delegable), toolNames: null });
                 const actor = this.resolveActor(runId, context.actorId, `@${name}`);
                 definition.actorId = actor.id;
                 definition.actorHandle = actor.handle;

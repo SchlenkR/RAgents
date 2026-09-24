@@ -10,7 +10,7 @@ import type {
 import { assertJsonValue, type JsonValue } from "../../domain/json.ts";
 import { jsonChanges } from "../../domain/json-patch.ts";
 import type { UncommittedEvent } from "../../domain/events.ts";
-import { isPendingActorInput, actorStatePluginId, pluginStateKey } from "../../domain/model.ts";
+import { isPendingActorInput, actorDescriptionMaxLength, actorStatePluginId, pluginStateKey } from "../../domain/model.ts";
 import { scriptExecution } from "../../domain/driver.ts";
 import { isActiveActor } from "../../domain/projection.ts";
 import { event, type CommandContext, type Decision } from "../command.ts";
@@ -39,6 +39,18 @@ const selectedToolNames = (value: readonly string[] | null): string[] | null => 
         throw new DomainError("invalid-value", "toolNames must not contain duplicates.", 400);
 
     return toolNames;
+};
+
+const descriptionOf = (value: string | undefined): { description?: string } => {
+    if (value === undefined)
+        return {};
+
+    const description = clean(value.replace(/\s+/g, " "), "description");
+
+    if (description.length > actorDescriptionMaxLength)
+        throw new DomainError("invalid-value", `description must not exceed ${actorDescriptionMaxLength} characters; it has ${description.length}.`, 400);
+
+    return { description };
 };
 
 const isRunConfigurator = (state: RunState, caller: Actor) =>
@@ -81,6 +93,7 @@ export const spawnAgent =
         grants: readonly CapabilityGrant[];
         toolNames: readonly string[] | null;
         forkOf?: string;
+        description?: string;
     }): Decision =>
     (state, context, services) => {
         const caller = commandActorOf(state, context);
@@ -104,6 +117,7 @@ export const spawnAgent =
                     grants: [...input.grants],
                     toolNames: selectedToolNames(input.toolNames),
                     ...(forkOf ? { forkOf } : {}),
+                    ...descriptionOf(input.description),
                 },
             }),
         ];
@@ -128,6 +142,7 @@ export const createScriptActor =
         grants: readonly CapabilityGrant[];
         toolNames: readonly string[] | null;
         turnTimeoutMs?: number | null;
+        description?: string;
     }): Decision =>
     (state, context, services) => {
         const caller = commandActorOf(state, context);
@@ -146,6 +161,7 @@ export const createScriptActor =
                 execution: scriptExecution(input.turnTimeoutMs ?? null),
                 grants: [...input.grants],
                 toolNames: selectedToolNames(input.toolNames),
+                ...descriptionOf(input.description),
             },
         })];
     };

@@ -561,8 +561,19 @@ Die private Agent-Session erhält die Medieninhalte für spätere Modellaufrufe;
 liefert stattdessen Downloadmetadaten für den Chat-Verlauf.
 
 Besitz folgt ausschließlich `createdBy` und wird nur für Stopprechte und rekursive Stopps benutzt.
-`primaryActorId` ist eine getrennte explizite Auswahl. Der Core leitet aus dem Besitz weder Routing
-noch Sichtbarkeit ab.
+`createdBy` ist der Actor des Commands, der `agent.spawned` oder `script.created` geschrieben hat;
+die Journal-Semantik prüft beim Schreiben und Laden, dass es ihn gibt und dass er `agent.spawn`
+hält. `primaryActorId` ist eine getrennte explizite Auswahl. Der Core leitet aus dem Besitz weder
+Routing noch Sichtbarkeit ab; die Oberfläche nutzt ihn nur zur Darstellung, etwa im Adressatenbaum
+des Run-Panels (`plugins.md`).
+
+Ein ausführbarer Actor trägt optional eine Kurzbeschreibung `description` für Übersichten:
+höchstens 160 Zeichen (`actorDescriptionMaxLength`), Leerraum zu einem Leerzeichen
+zusammengezogen, eine leere ist ein Fehler. `agent.spawned` und `script.created` halten sie im
+Payload fest, die Projektion setzt sonst `null`; Journale ohne das Feld laden deshalb unverändert.
+`agent_spawn` nimmt sie als Feld `description`, ein Actor-Programm gibt beim Anlegen seines
+TypeScript-Actors die Beschreibung seines Pakets mit, auf die Grenze gekürzt. `actor_list` liefert
+sie neben `createdBy`. Der Kern liest sie nie; sie ist kein Rollenvertrag und ändert keine Rechte.
 Der Host erkennt seinen Run-Koordinator am bestehenden journalisierten Erzeugungsbefehl, auch
 nach Forks. Produkt- und Aufbauprompt sowie Koordinator-Skills bleiben bei diesem Actor.
 Ein zum Primary gewählter Fachagent behält seinen Fachprompt und seine Agenten-Beiträge;

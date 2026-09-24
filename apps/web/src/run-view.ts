@@ -36,6 +36,7 @@ export interface RunActor {
   grants: RunCapabilityGrant[];
   createdAt: string;
   createdBy?: string;
+  description?: string | null;
   prompt?: string;
   source?: string;
   sourceHash?: string;

@@ -42,6 +42,22 @@ Escape cancels an active drag.
 The collapsed chat keeps its rounded border, background, and shadow. The compact handle row
 shows keyboard focus on the small grip itself.
 
+The chip at the left of the chat input names the addressee, the actor your messages go to.
+Clicking it opens the addressee list as a tree of who created whom, like the agent tree of a
+coding assistant: the coordinator at the top, below it the agents and TypeScript actors it
+started, below those their own subagents. Each entry shows the handle, a very short description
+of its job, and its state: "arbeitet" (working), "wartet auf Eingabe" (waiting for your answer),
+"wartet" (idle), or "gestoppt" (stopped). The description is the one given when the actor was
+created, otherwise the first line of its first assignment, otherwise its display name. Four or
+more similar siblings, such as 37 rule reviewers named `review-...`, collapse into one group row
+with their shared handle prefix, their number, and a count per state; click it to open or close
+it. A group that contains the current addressee opens by itself. With more than twelve actors a
+search field appears above the tree; it matches every word against handle, display name, and
+description and keeps the creators of each hit visible. Clicking an entry makes it the addressee
+and closes the list. Hidden actors, as chosen with "Anzeige" in the footer, sit in their own tree
+behind "ausgeblendete Actors"; picking one of them also shows it again. In runs recorded before
+actors had descriptions, the description falls back to the first assignment or the display name.
+
 The extension lives under `apps/vscode`. It works with all configured **servers at the same
 time**; there is no single active connection. A server in the `ragents.connections` setting is
 either a server (`name` and `url`; it connects automatically when activated and its card asks

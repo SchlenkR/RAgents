@@ -795,7 +795,7 @@ selbst deklariert, wird wie eines mit `requires` im Manifest abgewiesen.
 **Host-API.** `apps/server/src/host-api.ts` nennt je Hälfte jedes Modul, das der Host liefert und
 das nie ins Bundle darf, ausdrücklich und ohne Platzhalter, weil das Web-Register jedes einzeln
 importiert, und bei Code des Hosts dazu jeden Wert, den ein Plugin daraus importieren darf. Stand
-Host-API 5: Server 63 Module mit 173 Namen aus Code des Hosts (die Engine samt ihren
+Host-API 5: Server 59 Module mit 178 Namen aus Code des Hosts (die Engine samt ihren
 Vertragsmodulen, `@ragents/workspace-executor`, `@ragents/workflow`, die Bausteine unter
 `@ragents/host/...`) und die Bibliotheken `typebox`, `typebox/value`, `handlebars`,
 `playwright-core`, `tar` (`node:*` ist immer extern); Web 44 Module mit 117 Namen aus Code des
@@ -2360,12 +2360,26 @@ Maximum; Escape bricht ein laufendes Ziehen ab. Breite und beide Verzögerungen 
 Einstellungen, Darstellung, Run-Panel und liegen im
 Browser-Speicher (`ragents.orchestration.run-panel-settings`). Der Koordinator
 zeigt den Hauptchat (`renderChat`), ein anderer Actor seinen Verlauf mit den Kartenabschnitten der
-Plugins und eigenem Composer. Der Adressat steht als Chip in der Eingabeleiste; sein Pop-out listet
+Plugins und eigenem Composer. Der Adressat steht als Chip in der Eingabeleiste; sein Pop-out zeigt
 die Actors nach der Actor-Anzeige der Kopfzeile (`actorVisibleInHeader`, Vorgabe `Sichtbare`,
-hier die persönliche Actor-Sichtbarkeit; Koordinator und gewählter Actor bleiben immer dabei),
-die ausgeblendeten
-hinter ihrer Zahl mit Suche und die Anzeigewahl im Fuß. Daneben nennt die Leiste den ersten
-arbeitenden anderen Actor mit Spinner und wartenden Eingaben. Gewählte App, gewählter
+hier die persönliche Actor-Sichtbarkeit; Koordinator und gewählter Actor bleiben immer dabei)
+als Baum "wer hat wen erzeugt", die ausgeblendeten als eigenen Baum hinter ihrer Zahl, und die
+Anzeigewahl im Fuß. Den Baum baut `addresseeTree` (`web/run-panel/addressee-tree.ts`) allein aus
+`createdBy` der Run-Ansicht: ein Actor hängt unter seinem nächsten Erzeuger, der selbst im Baum
+steht; ein Mensch oder ein Erzeuger, der in der Ansicht fehlt, macht ihn zur Wurzel, und der
+Koordinator steht unter den Wurzeln zuerst. So hängt ohne `runs.inspect`, wo TypeScript-Actors
+fehlen, ein von einem Programm erzeugter Agent unter dessen Erzeuger. Geschwister in
+Anlegereihenfolge; ab vier gleichartigen (dieselbe Art und derselbe Handle-Stamm, das erste Wort
+des Handles ohne Zählsuffix, etwa `review-*`) fasst der Baum sie zu einer Gruppe mit gemeinsamem
+Präfix, Anzahl und Zustandszählung zusammen. Eine Gruppe ist zu, außer sie enthält den gewählten
+Actor oder eine Suche läuft; ein Klick kehrt das um. Je Eintrag stehen Handle, ein abweichender
+Anzeigename, die Kurzbeschreibung (`description` des Actors, sonst die erste Zeile seiner ersten
+eigenen Eingabe, gekürzt auf 90 Zeichen, sonst ein abweichender Anzeigename) und der Zustand:
+`arbeitet`, `wartet auf Eingabe` (eine offene Aktion des Actors), `wartet` oder `gestoppt`. Die
+Suche erscheint erst bei mehr als zwölf Actors, findet jedes Wort in Handle, Anzeigename und
+Kurzbeschreibung, zeigt Treffer samt ihren Erzeugern und leert sich beim Schließen. Ein Klick
+wählt den Adressaten, bei einem ausgeblendeten Actor samt Einblenden. Daneben nennt die Leiste
+den ersten arbeitenden anderen Actor mit Spinner und wartenden Eingaben. Gewählte App, gewählter
 Actor, Ansicht (`chat`, `bottom` oder `side`), Chatbreite und ausgeklappte Sheet-Höhe liegen
 je Run im Browser-Speicher
 (`ragents.orchestration.run-panel:<runId>`); ein gespeicherter Zustand ohne Ansicht gilt als
@@ -3522,6 +3536,10 @@ Recht) liefert das Archiv; ein anderer Stand ist 404. Die Gegenseite ist `ragent
   Programmzustand mit den Altschlüsseln `nodes`, `shapes`, `lines` oder `mode` wird nicht
   umgerechnet: der Run meldet ihn und braucht einen Aufruf von `canvas_layout_replace` mit
   `root`.
+- Der Adressatenbaum gruppiert gleichartige Geschwister nur über Art und erstes Handle-Wort;
+  Actors mit ähnlicher Aufgabe, aber verschiedenem Handle-Anfang bleiben einzeln, und zufällig
+  gleiche Anfänge fallen ab vier Actors in eine Gruppe. Die Kurzbeschreibung setzt der Erzeuger;
+  ohne sie steht dort der erste Auftrag, den ohne `runs.inspect` nur Eingaben des Owners tragen.
 - Das Run-Panel kennt genau einen Flächenbeitrag mit `RunPanel`; sein Zustand liegt je
   Browser-Speicher, in VS Code also je Fenster. In der Ansicht "Nur Chat" wird die Mini-App
   abgebaut; ihr flüchtiger Zustand überlebt den Wechsel nicht. Der Tab-Bereich liegt immer unter

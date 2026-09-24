@@ -1,5 +1,35 @@
 # Entscheidungen
 
+## Adressatenwahl als Baum "wer hat wen erzeugt", Kurzbeschreibung je Actor (25.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Run-Panel), `docs/spec/core.md` (Besitz, Kurzbeschreibung),
+`docs/usage.md` (Run panel and VS Code extension). Vorgabe des Owners. Das Pop-out des Adressaten
+im Run-Panel war eine flache Liste mit Handle, Art und Zustand; bei einem Lauf mit Koordinator,
+Implementierer und 37 Regel-Reviewern war nicht zu sehen, wer zu wem gehört und was jeder tut.
+Festgelegt: Das Pop-out zeigt einen Baum aus `createdBy` (`addresseeTree` in
+`plugins/ragents.orchestration/web/run-panel/addressee-tree.ts`, Darstellung in `AddresseeTree.tsx`),
+Koordinator oben, je Eintrag Handle, Kurzbeschreibung und Zustand; ab vier gleichartigen
+Geschwistern (Art und erstes Handle-Wort) eine zuklappbare Gruppe mit Zustandszählung, die Suche
+erst ab mehr als zwölf Actors. Die Herkunft stand schon zuverlässig im Journal: `createdBy` ist
+der Actor des erzeugenden Commands, und die Journal-Semantik prüft ihn samt `agent.spawn` beim
+Schreiben und Laden; die Oberfläche rät nichts. Neu ist die optionale Kurzbeschreibung
+`description` in `agent.spawned` und `script.created` (höchstens 160 Zeichen, Leerraum
+zusammengezogen), gesetzt über `agent_spawn` und für TypeScript-Actors aus der Paketbeschreibung
+des Actor-Programms, gekürzt; `actor_list` liefert sie, der Orchestrierungsprompt bittet darum.
+Alte Journale laden ohne das Feld, die Oberfläche nimmt dann die erste Zeile der ersten eigenen
+Eingabe oder einen abweichenden Anzeigenamen. `actorDescriptionMaxLength` steht neu in der
+Host-API, ohne neue `HOST_API_VERSION`, weil nichts entfällt.
+
+Verworfen: die Beschreibung aus dem Prompt des Actors abzuleiten, weil der ohne `runs.inspect`
+leer ankommt und Rollentexte keine Überschrift sind; eine Gruppierung nach gleichem Prompt oder
+Modell, weil gleichartige Reviewer verschiedene Prompts haben; ein eigenes Gruppenfeld im Kern,
+weil der Handle-Stamm genügt und der Kern damit eine Darstellungsfrage bekäme; die Grenzen dieser
+Heuristik stehen in den Offenen Grenzen von `plugins.md`. Nachgewiesen mit `apps/web/tests/addressee-tree.test.ts` (Baum, Gruppen, Beschreibung,
+Zustände, Suche), `apps/web/tests/addressee-tree-browser.test.ts` (Pop-out im Run-Panel mit 37
+Reviewern: Verschachtelung, Gruppe zu und offen, Suche, Auswahl) und
+`packages/ragents/tests/actor-description.test.ts` (Feld über `agent_spawn` und Engine, Grenzen,
+Laden mit und ohne Feld).
+
 ## Detailgrad und Zeitstempel in jedem Chat aus einem Baustein (25.09.2026)
 
 Kapitel: `docs/spec/plugins.md` (Chat-Bausteine, Kachelchat, Host-API), `docs/usage.md`. Vorgabe des

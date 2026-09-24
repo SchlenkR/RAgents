@@ -9,6 +9,7 @@
       "ToolRegistry",
       "actorByHandle",
       "actorByReference",
+      "actorDescriptionMaxLength",
       "actorInputSchema",
       "agentTools",
       "assertJsonValue",

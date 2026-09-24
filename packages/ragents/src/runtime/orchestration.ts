@@ -348,6 +348,7 @@ export class Orchestration {
             grants: readonly CapabilityGrant[];
             toolNames: readonly string[] | null;
             forkOf?: string;
+            description?: string;
         },
     ) {
         return this.#run(context, runId, "agent.spawn", input, actors.spawnAgent(input));
@@ -362,6 +363,7 @@ export class Orchestration {
             grants: readonly CapabilityGrant[];
             toolNames: readonly string[] | null;
             turnTimeoutMs?: number | null;
+            description?: string;
         },
     ) {
         return this.#run(context, runId, "script.create", input, actors.createScriptActor(input));

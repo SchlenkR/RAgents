@@ -2088,6 +2088,7 @@ Nur mit der Capability actor.input.
       "kind",
       "lifecycle",
       "createdBy",
+      "description",
       "tools"
     ],
     "properties": {
@@ -2120,6 +2121,16 @@ Nur mit der Capability actor.input.
         "type": "string"
       },
       "createdBy": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "description": {
         "anyOf": [
           {
             "type": "string"
@@ -4701,6 +4712,12 @@ Nur mit der Capability agent.spawn.
       "type": "string",
       "minLength": 1,
       "description": "Anzeigename; ohne Angabe der Handle"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "description": "Sehr kurze Beschreibung der Aufgabe für die Übersicht der Beteiligten, wenige Wörter wie \"prüft die Regel zu Kommentaren\""
     },
     "prompt": {
       "type": "string"

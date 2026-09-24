@@ -2,11 +2,12 @@ import { Type, type Static, type TSchema } from "typebox";
 
 import { thinkingLevels } from "../domain/driver.ts";
 import type { JsonValue } from "../domain/json.ts";
-import type {
-    Actor,
-    CapabilityName,
-    EventSubscription,
-    RunView,
+import {
+    actorDescriptionMaxLength,
+    type Actor,
+    type CapabilityName,
+    type EventSubscription,
+    type RunView,
 } from "../domain/model.ts";
 import { observableEventTypes } from "../domain/vocabulary.ts";
 import type { CommandContext } from "../runtime/command.ts";
@@ -140,6 +141,7 @@ const actorListResultSchema = Type.Array(Type.Object({
     kind: actorKindSchema,
     lifecycle: Type.String(),
     createdBy: Type.Union([Type.String(), Type.Null()]),
+    description: Type.Union([Type.String(), Type.Null()]),
     tools: Type.Union([Type.Array(Type.String()), Type.Null()]),
 }, { additionalProperties: false }));
 
@@ -319,6 +321,7 @@ export const agentTools: RunFunction[] = [
             kind: actor.kind,
             lifecycle: actor.kind === "human" ? "human" : actor.lifecycle.kind,
             createdBy: actor.kind === "human" ? null : actor.createdBy,
+            description: actor.kind === "human" ? null : actor.description,
             tools: actor.kind === "human" || actor.toolNames === null ? null : [...actor.toolNames],
         })),
     }),
@@ -523,6 +526,7 @@ export const agentTools: RunFunction[] = [
         schema: Type.Object({
             handle: Type.String({ minLength: 1 }),
             displayName: Type.Optional(Type.String({ minLength: 1, description: "Anzeigename; ohne Angabe der Handle" })),
+            description: Type.Optional(Type.String({ minLength: 1, maxLength: actorDescriptionMaxLength, description: "Sehr kurze Beschreibung der Aufgabe für die Übersicht der Beteiligten, wenige Wörter wie \"prüft die Regel zu Kommentaren\"" })),
             prompt: Type.String(),
             forkOf: Type.Optional(Type.String({ minLength: 1, description: "Handle oder ID eines LLM-Agenten dieses Runs, dessen bisheriger Modellkontext in den neuen Agenten kopiert wird" })),
             tools: Type.Union([Type.Array(Type.String({ minLength: 1 }), { uniqueItems: true }), Type.Null()], { description: "Required explicit selection: [] for plain text-only work including app-mediated conversations; an array for exact existing tool names; null only when the task needs an open, dynamically resolved toolset. Never inherits the caller's tools. Names of future, not yet activated actor functions are invalid; choose null when those must become available later." }),
@@ -556,6 +560,7 @@ export const agentTools: RunFunction[] = [
             runtime.spawnAgent(context(toolCallId), caller.runId, {
                 handle: input.handle,
                 displayName: input.displayName ?? input.handle,
+                ...(input.description === undefined ? {} : { description: input.description }),
                 prompt: input.prompt,
                 execution,
                 grants: inheritedGrants(actor, input.withoutCapabilities),

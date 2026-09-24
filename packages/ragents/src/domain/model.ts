@@ -52,8 +52,12 @@ export type TurnUsage = {
     costUsd: number;
 };
 
+/** Longest short description an actor may carry for overviews. */
+export const actorDescriptionMaxLength = 160;
+
 type ExecutableActorBase = ActorBase & {
     createdBy: ActorId;
+    description: string | null;
     execution: AgentExecution;
     lifecycle: ActorLifecycle;
     usage: TurnUsage;
