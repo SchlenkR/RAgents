@@ -165,8 +165,8 @@ Beide arbeiten mit derselben Implementierung und denselben Daten. Lokale Eingabe
 bleiben in der View; erfolgreicher gemeinsamer Zustand erscheint auch bei ruhendem Chat.
 
 `actor_program_create` legt ein privates TypeScript-Paket an. Die normalen Datei- und
-Language-Server-Werkzeuge bearbeiten es unter `@actors/<name>/`, Bash über
-`RAGENTS_ACTORS_DIR`. Neue oder behobene Projektfehler erscheinen vor Modellanfragen als
+Language-Server-Werkzeuge bearbeiten es unter `@actors/<name>/`, Bash mit `cwd: "@actors/<name>"`,
+auch in einem Run auf einem Arbeitsplatz. Neue oder behobene Projektfehler erscheinen vor Modellanfragen als
 kurzer Hinweis; `actor_program_diagnostics` liefert bei Bedarf den vollständigen Stand.
 `actor_program_activate` prüft Typen, baut das Programm, führt die Fachtests aus und aktiviert es.
 
@@ -735,7 +735,8 @@ diesem Rechner mit `--port 0`, eigenem Datenordner unter `/tmp` und einem Prüfp
 ohne Zufall. Der Läufer schreibt je Prüfung eine Zeile `ok`, `FEHLER` mit Ursache oder `--`:
 Anmeldung und Sichtbarkeit des Arbeitsplatzes, Bindung, `bash`, `read`, `write` und ein binärer
 Anhang im Container, `typescript_eval` im Ordner des Servers, Systemprompt mit Plattform und Ordner
-des Arbeitsplatzes, Reiter Dateien, Prozessanzeige und Beenden, Rechte von `bob` und `admin`, der
+des Arbeitsplatzes, ein Actor-Programm und ein Skill über die Wurzeln des Servers (`@actors`,
+`@skills`) samt Bash mit Alias auf dem Server, Reiter Dateien, Prozessanzeige und Beenden, Rechte von `bob` und `admin`, der
 Not-Aus samt Aufräumen auf beiden Rechnern, Trennen und Wiederanmelden, ein Stopp, während der
 Container kein Netz hat, der nach der Rückkehr greift. Schalter:
 `--shared-path` legt denselben Pfad mit anderem Inhalt auch auf diesem Rechner an (statt

@@ -163,6 +163,28 @@ test("an LLM actor keeps its behavior while several views and functions share it
   assert.deepEqual(f.runtime.data(f.runId, f.setup.agent.id).values, {count: 4});
 });
 
+test("activating a removed package again restarts its stopped TypeScript actor; a foreign handle stays an error", async (t) => {
+  const f = await actorProgramFixture(t);
+  await writeAppFiles(f.directory, "counter", counterFiles());
+  await f.runtime.activate(f.context, f.runId, "counter");
+  const actorId = f.runtime.programs(f.runId)[0]!.actorId;
+  const lifecycle = () => {
+    const actor = f.setup.runtime.view(f.runId).actors.find((entry) => entry.id === actorId);
+    return actor?.kind === "script" ? actor.lifecycle.kind : actor?.kind;
+  };
+  await f.runtime.remove({...f.context, commandId: "remove"}, f.runId, "counter");
+  assert.equal(lifecycle(), "stopped");
+  assert.deepEqual(await f.runtime.activate({...f.context, commandId: "again"}, f.runId, "counter"), {name: "counter", actor: "@counter", views: 0, active: true});
+  assert.equal(f.runtime.programs(f.runId)[0]!.actorId, actorId);
+  assert.equal(lifecycle(), "idle");
+  assert.equal(f.setup.runtime.view(f.runId).actors.filter((actor) => actor.handle === "counter").length, 1);
+  const result = await invokeActorFunction(f, "counter", {amount: 2}, "after-restart");
+  assert.equal(result.status, "succeeded", JSON.stringify(result));
+  f.setup.runtime.createScriptActor({...f.context, commandId: "occupy"}, f.runId, {handle: "occupied", displayName: "Occupied", grants: [], toolNames: null});
+  await writeAppFiles(f.directory, "occupied", {...counterFiles(), "src/server.ts": counterFiles()["src/server.ts"].replace('name: "counter_add"', 'name: "occupied_add"')});
+  await assert.rejects(f.runtime.activate({...f.context, commandId: "occupied"}, f.runId, "occupied"), /@occupied gehört bereits dem aktiven Actor Occupied/);
+});
+
 test("failed TypeScript builds and Node tests preserve the active program and its state", async (t) => {
   const f = await actorProgramFixture(t);
   const files = counterFiles();

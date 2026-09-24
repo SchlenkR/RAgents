@@ -1,16 +1,17 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { createServer, type Server } from "node:http";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import type { NativeTypeScriptRequest, PluginContext, ToolScope } from "@ragents/engine";
-import { COMMAND_OPERATIONS, type CommandResult } from "@ragents/workspace-executor";
+import { COMMAND_OPERATIONS, WORKSPACE_EXECUTOR_VERSION, type CommandResult, type WorkspaceExecutor } from "@ragents/workspace-executor";
 import { scriptProgram } from "../../../packages/ragents/tests/native-executor.ts";
 import { NodeTypeScriptExecutor } from "../src/plugin-support/native-typescript-executor.ts";
 import { ServerProcessSandbox } from "../src/plugin-support/process-sandbox.ts";
 import { WorkspaceSandboxHost } from "../src/plugin-support/workspace-sandbox-host.ts";
-import type { SessionWorkspace } from "../src/ragents/workspace-runtime.ts";
+import type { SandboxFolder, SessionWorkspace } from "../src/ragents/workspace-runtime.ts";
 
 const supported = process.platform === "darwin" || process.platform === "linux";
 
@@ -133,4 +134,113 @@ test("network calls outside the allowlist fail, the own server stays reachable",
 };`);
     assert.match(String(fetched), /^own server \/ abgelehnt/);
   } finally { await f.close(); }
+});
+
+test("git in a worktree whose common repository lies outside works in the sandbox only with the declared folder", { skip: !supported, timeout: 120_000 }, async () => {
+  const base = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-sandbox-worktree-")));
+  const data = path.join(base, "data");
+  const repository = path.join(base, "repository");
+  const worktree = path.join(base, "worktree");
+  const git = (cwd: string, ...args: string[]): string =>
+    execFileSync("git", ["-c", "user.name=Example", "-c", "user.email=example@example.invalid", ...args], { cwd, encoding: "utf8" });
+  await mkdir(repository, { recursive: true });
+  git(repository, "init", "-q", "-b", "main");
+  await writeFile(path.join(repository, "README.md"), "Hello\n");
+  git(repository, "add", "README.md");
+  git(repository, "commit", "-q", "-m", "Start");
+  git(repository, "worktree", "add", "-q", "-b", "run/worktree", worktree);
+  const common = path.resolve(worktree, git(worktree, "rev-parse", "--git-common-dir").trim());
+  assert.equal(common, path.join(repository, ".git"));
+  const storage = (runId: string): string => path.join(data, "sessions", runId);
+  const processSandbox = new ServerProcessSandbox({ network: [], serverAddress: undefined, dataDirectory: data });
+  await processSandbox.start();
+  const folders: Readonly<Record<string, readonly SandboxFolder[]>> = { undeclared: [], declared: [{ directory: common, access: "write" }] };
+  const host = new WorkspaceSandboxHost({
+    contributorName: "test.workspace",
+    workspaceFor: async (runId) => ({
+      cwd: worktree, currentRoot: async () => worktree, runOperation: (operation) => operation(), sandboxFolders: folders[runId] ?? [],
+    }),
+    identFor: async () => undefined,
+    homeFor: async (runId) => {
+      await mkdir(path.join(storage(runId), "home"), { recursive: true });
+      return { home: path.join(storage(runId), "home") };
+    },
+    skillPaths: async () => [],
+    storageRootFor: storage,
+    processSandbox,
+  });
+  const bash = async (runId: string, command: string): Promise<string> => {
+    const result = await host.execute(runId, "bash", { command: `${command} 2>&1; echo "exit=$?"`, timeout: 60 }) as { content: Array<{ text?: string }> };
+    return result.content.map((part) => part.text ?? "").join("\n");
+  };
+  const commit = 'echo new > new.txt && git add new.txt && git -c user.name=Example -c user.email=example@example.invalid commit -q -m "From the sandbox"';
+  try {
+    const denied = await bash("undeclared", "git status --short --branch");
+    assert.match(denied, /not a git repository[\s\S]*exit=128/, denied);
+    assert.doesNotMatch(await bash("undeclared", commit), /exit=0/);
+    assert.doesNotMatch(git(repository, "log", "--format=%s", "run/worktree"), /From the sandbox/);
+    assert.match(await bash("declared", "git status --short --branch"), /## run\/worktree[\s\S]*exit=0/);
+    assert.match(await bash("declared", commit), /exit=0/);
+    assert.match(git(repository, "log", "--format=%s", "run/worktree"), /^From the sandbox$/m);
+  } finally {
+    await host.shutdownAll();
+    await processSandbox.stop();
+    await rm(base, { recursive: true, force: true });
+  }
+});
+
+test("a bash of a workstation run with an alias as cwd runs on the server in the sandbox of that run", { skip: !supported, timeout: 60_000 }, async () => {
+  const data = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-sandbox-server-roots-")));
+  const foreignJournal = path.join(data, "runs", "foreign-run", "journal.jsonl");
+  const actors = path.join(data, "sessions", "remote", "plugins", "ragents.actor-programs", "actors");
+  const storage = (runId: string): string => path.join(data, "sessions", runId);
+  await Promise.all([path.dirname(foreignJournal), actors, path.join(storage("remote"), "home"), path.join(storage("remote"), "server")]
+    .map((directory) => mkdir(directory, { recursive: true })));
+  await writeFile(foreignJournal, '{"secret":"foreign history"}\n');
+  const workstationCalls: string[] = [];
+  const workstation: WorkspaceExecutor = {
+    version: WORKSPACE_EXECUTOR_VERSION,
+    execute: async (_runId, operation) => {
+      workstationCalls.push(operation);
+      return { content: [{ type: "text", text: "on the workstation" }] };
+    },
+    stopRun: async () => undefined,
+    shutdown: async () => undefined,
+  };
+  const processSandbox = new ServerProcessSandbox({ network: [], serverAddress: undefined, dataDirectory: data });
+  await processSandbox.start();
+  const remote = (): Promise<string> => Promise.reject(new Error("Der Arbeitsbereich liegt auf dem Arbeitsplatz"));
+  const host = new WorkspaceSandboxHost({
+    contributorName: "test.workspace",
+    workspaceFor: async () => ({ cwd: "/workstation/project", currentRoot: remote, runOperation: (operation) => operation() }),
+    identFor: async () => undefined,
+    homeFor: async (runId) => ({ home: path.join(storage(runId), "home") }),
+    skillPaths: async () => [],
+    storageRootFor: storage,
+    executorFor: async () => workstation,
+    serverDirectoryFor: async (runId) => path.join(storage(runId), "server"),
+    processSandbox,
+  });
+  host.registerWorkspaceRoot({ id: "actors", alias: "@actors", environmentVariable: "RAGENTS_ACTORS_DIR", directoryFor: () => actors });
+  const bash = async (input: Record<string, unknown>): Promise<string> => {
+    const result = await host.execute("remote", "bash", { timeout: 30, ...input }) as { content: Array<{ text?: string }> };
+    return result.content.map((part) => part.text ?? "").join("\n");
+  };
+  try {
+    assert.equal(await bash({ command: "pwd" }), "on the workstation");
+    assert.deepEqual(workstationCalls, ["bash"]);
+    const onServer = await bash({ command: `pwd; echo "[$RAGENTS_ACTORS_DIR]"; echo written > own.txt && echo own-ok; cat ${JSON.stringify(foreignJournal)} 2>&1`, cwd: "@actors" });
+    const lines = onServer.split("\n");
+    assert.equal(await realpath(lines[0]!), await realpath(actors));
+    assert.equal(lines[1], `[${await realpath(actors)}]`);
+    assert.equal(lines[2], "own-ok");
+    assert.doesNotMatch(onServer, /foreign history/);
+    assert.match(onServer, /Operation not permitted|No such file or directory/);
+    assert.equal(await readFile(path.join(actors, "own.txt"), "utf8"), "written\n");
+    assert.deepEqual(workstationCalls, ["bash"]);
+  } finally {
+    await host.shutdownAll();
+    await processSandbox.stop();
+    await rm(data, { recursive: true, force: true });
+  }
 });

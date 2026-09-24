@@ -2,7 +2,7 @@
 
 Use TypeScript snippets for one-time work. Actors can own functions, shared state and React views. Create the closest template with
 `actor_program_create`, read its existing files in `@actors/<name>/`, adapt what is needed,
-then `actor_program_activate`. Reuse its code and tests; Bash uses `$RAGENTS_ACTORS_DIR`.
+then `actor_program_activate`. Reuse its code and tests; `bash` runs there with `cwd: "@actors/<name>"`.
 Call these functions through `context.functions` in `typescript_eval`; `typescript_api` gives
 the current contracts. Published actor functions join that same API during the current turn.
 Bind existing actors with `self` or `@handle`. A backend without a binding creates a TypeScript

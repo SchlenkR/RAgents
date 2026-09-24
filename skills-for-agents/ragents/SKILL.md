@@ -40,6 +40,9 @@ ragents --help                   # die Verwendung, wie ragents help
 Ordner als vorhandenem Ordner auf dem Server an (der Server läuft auf demselben Rechner), schickt den Auftrag
 und blockiert, bis der Turn zu Ende ist. `--profile <profil|pfad>` wählt ein anderes Profil,
 `--entry <vorlage>` startet den Run zusätzlich über eine Skill- oder Script-Vorlage.
+`--workstation <kennung>` bindet den Ordner stattdessen auf dem am Host angemeldeten Arbeitsplatz
+mit dieser Kennung (`pnpm workspace-client <server-url> <ordner> --id <kennung>`); `<ordner>` ist
+dann sein Pfad dort. Ist kein solcher Arbeitsplatz angemeldet, bricht `run` mit Ursache ab.
 `send` arbeitet im selben Run weiter und wartet genauso. `journal` liest den Verlauf ohne Server,
 `--tools` zeigt die Werkzeugaufrufe statt des Gesprächs.
 

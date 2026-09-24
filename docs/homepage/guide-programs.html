@@ -140,7 +140,9 @@ ActorInputs are covered in <code>core.md</code>. Every callable function and vie
 model.</p>
 <h2 id="packages-and-actor-binding">Packages and actor binding</h2>
 <p>Programs are private packages in a prepared pnpm workspace for the run. File functions and
-language servers access them through <code>@actors/&lt;name&gt;/</code>; Bash uses <code>RAGENTS_ACTORS_DIR</code>. The
+language servers access them through <code>@actors/&lt;name&gt;/</code>, and <code>bash</code> runs in a package with
+<code>cwd: &quot;@actors/&lt;name&gt;&quot;</code>. The packages stay on the server, and every call that names the alias runs
+there, also when the run works in a folder on a workstation. The
 workspace interface exposes the actor-program collection directly. Normal relative imports
 include local modules, while fixed local dependencies come from the host installation.</p>
 <pre><code class="language-text">@actors/&lt;name&gt;/
@@ -184,7 +186,9 @@ input, result, and state types from the contract.</p>
 state. <code>context.actor</code> identifies the actor that owns the function and state.
 <code>context.functions.&lt;name&gt;(input)</code> calls declared run functions under the caller&#39;s identity.
 <code>onInput</code> acts as its actor. A function invoked externally retains its actor&#39;s state but not that
-actor&#39;s calling identity. Snippets use the same API. <code>context.std</code> supplies available standard
+actor&#39;s calling identity: called from a view, it acts as the clicking human. To deliver a message
+to another actor in the app actor&#39;s name, the function passes it as an ActorInput to its own
+actor, whose <code>onInput</code> sends it under the actor&#39;s identity. Snippets use the same API. <code>context.std</code> supplies available standard
 functions, including mediators.</p>
 <p>An optional <code>tool</code> declaration publishes the same function in the typed run API. Without
 <code>targets</code>, it is available to active executable actors; <code>self</code> refers to the program owner.
@@ -196,11 +200,11 @@ state; <code>context.capabilities.call(functionName, input)</code> invokes a dec
 <code>context.actor</code> identifies the view&#39;s actor. Local drafts, selection, and focus stay in React
 state. An actor chat can use this handle to show exactly that actor&#39;s conversation.</p>
 <p>The view runs in a host iframe with restricted browser permissions. Its accessible name comes
-from <code>aria-label</code>; an empty <code>title</code> prevents a browser tooltip over the content. Native form
-submission is not allowed, so actions use explicit event handlers. In a search interface, Enter
-and a <code>type=&quot;button&quot;</code> button should call the same handler, and the Enter handler must prevent the
-native default action. Test this interaction in the host frame, not only in a standalone React
-render.</p>
+from <code>aria-label</code>; an empty <code>title</code> prevents a browser tooltip over the content. Forms, including
+<code>Form</code>, may use <code>onSubmit</code>; the handler prevents the default action, because a native submission
+to a URL stays blocked. In a search interface, a form with a <code>type=&quot;submit&quot;</code> button lets Enter and
+the button share one handler. Test this interaction in the host frame, not only in a standalone
+React render.</p>
 <h2 id="create-edit-and-activate">Create, edit, and activate</h2>
 <p><code>actor_program_create</code> creates a package from a template completely or not at all. The host
 builds it outside <code>@actors/</code> and moves it to <code>@actors/&lt;name&gt;</code> only after every step has succeeded,
@@ -222,7 +226,8 @@ only then activates the verified version. Errors identify the location to fix.</
 <code>context.functions</code>. Reactivation updates the schemas; removed functions disappear from the same
 catalog. No additional call contract is needed.</p>
 <p><code>actor_program_list</code> shows installed programs. <code>actor_program_remove</code> removes the binding and its
-views. It also stops a TypeScript actor, while an existing LLM actor remains. Sources stay
+views. It also stops a TypeScript actor, while an existing LLM actor remains. Activating a package
+of the same name again restarts that stopped actor with its state instead of creating another. Sources stay
 editable in the private workspace. <code>actor_view_set_visibility</code> addresses a view by
 <code>package-name/view-name</code> or unique title. Visibility changes neither functions nor actor state.
 The host manages hashes and technical bindings.</p>

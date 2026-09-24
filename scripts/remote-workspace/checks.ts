@@ -39,6 +39,8 @@ export interface CheckEnvironment {
   readonly users: Users;
   readonly model: ScriptModel;
   readonly dataDirectory: string;
+  /** SKILLS_DIR des Servers mit dem Skill CHECK_SKILL und einer Datei daneben. */
+  readonly skillsDirectory: string;
   readonly container: ContainerTarget;
   /** Der Ordner, den der Arbeitsplatz im Container anbietet. */
   readonly folder: string;
@@ -307,6 +309,140 @@ const checkTools = async (env: CheckEnvironment): Promise<void> => {
     const missing = ["bash", "read", "write"].filter((tool) => !logs.split("\n").some((line) => line.startsWith(`${prefix}${tool} `) && line.endsWith(" ok")));
     expect(missing.length === 0, `Im Protokoll des Arbeitsplatzes fehlen ${missing.join(", ")}:\n${tail(logs)}`);
     return passed("bash, read und write stehen im Protokoll des Containers");
+  });
+};
+
+/** Der Skill des Prüfprofils; der Läufer legt ihn mit einer Vorlage daneben in SKILLS_DIR des Servers. */
+export const CHECK_SKILL = "pruefnotizen";
+
+const PROGRAM = "pruefzaehler";
+
+/** Der Fachtest besteht erst nach dem Bearbeiten, das Aktivieren beweist also, dass edit auf dem Server gewirkt hat. */
+const programFiles = (nonce: string): Readonly<Record<string, string>> => ({
+  "package.json": JSON.stringify({ name: PROGRAM, type: "module", private: true, ragents: { title: "Prüfzähler", backend: "src/server.ts" } }),
+  "src/server.ts": `import { Type } from "typebox";
+import { defineActor } from "@ragents/server";
+export default defineActor({ state: Type.Object({}), functions: {
+  kennung: { label: "Kennung", input: Type.Object({}), output: Type.String(), tool: { name: "pruef_kennung" } },
+} }, { functions: { kennung: () => "vorher" } });
+`,
+  "tests/kennung.test.ts": `import assert from "node:assert/strict";
+import test from "node:test";
+import { createTestContext } from "@ragents/server/testing";
+import program from "../src/server.ts";
+test("kennung", async () => {
+  assert.equal(await program.functions.kennung({}, createTestContext({ state: {} })), ${JSON.stringify(nonce)});
+});
+`,
+});
+
+const PROBE = 'uname -s; hostname; pwd; echo "[${RAGENTS_ACTORS_DIR:-}]"';
+
+/** Die Werkzeuge, die das Skriptmodell selbst ruft; die Funktionen, die ein Snippet ruft, stehen dazwischen im Journal. */
+const MODEL_TOOLS: readonly string[] = ["typescript_eval", "write", "edit", "bash"];
+
+const programSteps = (nonce: string): ScriptProgram => ({
+  id: "actor-programm",
+  steps: [
+    { tool: "typescript_eval", input: { code: `return context.functions.actor_program_create({ name: ${JSON.stringify(PROGRAM)}, template: "blank" });` } },
+    ...Object.entries(programFiles(nonce)).map(([file, content]) => ({ tool: "write", input: { path: `@actors/${PROGRAM}/${file}`, content } })),
+    { tool: "edit", input: { path: `@actors/${PROGRAM}/src/server.ts`, edits: [{ oldText: '() => "vorher"', newText: `() => ${JSON.stringify(nonce)}` }] } },
+    { tool: "bash", input: { command: PROBE, cwd: `@actors/${PROGRAM}` } },
+    { tool: "bash", input: { command: PROBE } },
+    { tool: "typescript_eval", input: { code: `return context.functions.actor_program_activate({ name: ${JSON.stringify(PROGRAM)} });` } },
+    { tool: "typescript_eval", input: { code: "return context.functions.pruef_kennung({});" } },
+  ],
+});
+
+const skillSteps: ScriptProgram = {
+  id: "skill",
+  steps: [
+    { tool: "read", input: { path: `@skills/${CHECK_SKILL}/SKILL.md` } },
+    { tool: "read", input: { path: `@skills/${CHECK_SKILL}/vorlage.md` } },
+    { tool: "bash", input: { command: "cat vorlage.md; uname -s", cwd: `@skills/${CHECK_SKILL}` } },
+  ],
+};
+
+const serverPlatform = (): string => ({ darwin: "Darwin", linux: "Linux" } as Readonly<Record<string, string>>)[process.platform] ?? process.platform;
+
+/** Ein weiterer Run von alice auf dem Ordner im Container: Actor-Programme und Skills liegen auf dem Server und sind trotzdem erreichbar. */
+const checkServerRoots = async (env: CheckEnvironment): Promise<void> => {
+  const { report, users, container } = env;
+  const run = { ...env, runId: randomUUID() };
+  const programTitles = ["Anlegen, Bearbeiten und Aktivieren laufen auf dem Server, nichts davon im Container",
+    "bash mit @actors als cwd läuft auf dem Server und kennt RAGENTS_ACTORS_DIR, ohne cwd im Container ohne die Variable"];
+  const skillTitles = ["read und bash erreichen den Skill-Ordner auf dem Server", "der Prompt nennt @skills und die Wurzeln des Servers, keinen Pfad und keine Variable im Container"];
+  const bound = await report.check("Wurzeln", "alice bindet einen weiteren Run an den Ordner im Container", async () => {
+    await users.alice.call(coreContracts.startOptions.select, { runId: run.runId, optionId: WORKSPACE_BINDING_OPTION_ID, value: clientBinding(env) });
+    return passed(`Run ${run.runId.slice(0, 8)}`);
+  });
+  if (!bound) {
+    report.skip("Wurzeln", [...programTitles, ...skillTitles], "es gibt keinen Run dafür");
+    return;
+  }
+  const programTurn = await report.check("Wurzeln", "ein Actor-Programm entsteht, wird bearbeitet und aktiviert", async () => {
+    const all = await runScript(run, "Baue das Prüfprogramm.", programSteps(env.nonce));
+    const turn = { ...all, tools: all.tools.filter((tool) => MODEL_TOOLS.includes(tool.name)) };
+    const tools = all.tools.map((tool) => `${tool.name} ${tool.error === undefined ? "ok" : `scheitert: ${tool.error}`}`).join(", ");
+    expect(all.failure === undefined && turn.tools.length === 9 && all.tools.every((tool) => tool.done && tool.error === undefined), `Der Turn endet nicht sauber (${tools}): ${all.failure ?? "ohne Fehler"}`);
+    const activated = (turn.tools[7]!.output as { result?: unknown } | undefined)?.result;
+    expect(JSON.stringify(activated) === JSON.stringify({ name: PROGRAM, actor: `@${PROGRAM}`, views: 0, active: true }), `Aktiviert meldet ${JSON.stringify(activated)}`);
+    const called = (turn.tools[8]!.output as { result?: unknown } | undefined)?.result;
+    expect(called === env.nonce, `Die Funktion des Programms liefert ${JSON.stringify(called)} statt der Kennung ${env.nonce}`);
+    return { value: turn, detail: `${PROGRAM} aktiviert, pruef_kennung liefert die Kennung` };
+  });
+  if (!programTurn) {
+    report.skip("Wurzeln", programTitles, "das Programm ist nicht aktiviert");
+  } else {
+    await report.check("Wurzeln", programTitles[0]!, async () => {
+      const onServer = filesNamed(env.dataDirectory, "kennung.test.ts").filter((file) => file.endsWith(path.join("actors", PROGRAM, "tests", "kennung.test.ts")));
+      expect(onServer.length === 1, `Das Paket liegt nicht genau einmal in der Ablage des Servers: ${onServer.join(", ") || "keins"}`);
+      const found = await containerExec(container.name, ["sh", "-c", `find / -xdev -name ${PROGRAM} -not -path '/proc/*' 2>/dev/null`]);
+      expect(found.stdout.trim() === "", `Im Container liegt ${found.stdout.trim()}`);
+      const prefix = `== ${run.runId.slice(0, 8)} `;
+      const called = (await containerLogs(container.name)).split("\n").filter((line) => line.startsWith(prefix)).map((line) => line.slice(prefix.length).split(" ")[0]);
+      expect(called.join(",") === "bash", `Der Arbeitsplatz protokolliert für diesen Run ${called.join(", ") || "nichts"} statt genau einer bash ohne Alias`);
+      return passed(`${path.relative(env.dataDirectory, path.dirname(path.dirname(onServer[0]!)))} im Datenordner des Servers; im Container nur die bash ohne Alias`);
+    });
+    await report.check("Wurzeln", programTitles[1]!, async () => {
+      const [platform, host, folder, variable] = completedText(stepOf(programTurn, 5, "bash")).trim().split("\n");
+      expect(platform === serverPlatform() && host === hostname(), `bash mit @actors meldet ${platform} auf ${host} statt ${serverPlatform()} auf ${hostname()}`);
+      const data = realpathSync(env.dataDirectory);
+      expect(folder !== undefined && realpathSync(folder).startsWith(`${data}${path.sep}`) && folder.endsWith(`${path.sep}${PROGRAM}`), `pwd meldet ${folder}`);
+      expect(variable !== undefined && variable !== "[]" && realpathSync(variable.slice(1, -1)).startsWith(`${data}${path.sep}`), `RAGENTS_ACTORS_DIR ist dort ${variable}`);
+      const [remotePlatform, remoteHost, remoteFolder, remoteVariable] = completedText(stepOf(programTurn, 6, "bash")).trim().split("\n");
+      expect(remotePlatform === "Linux" && remoteHost === container.hostname && remoteFolder === env.folder, `bash ohne cwd meldet ${remotePlatform} auf ${remoteHost} in ${remoteFolder}`);
+      expect(remoteVariable === "[]", `bash im Container kennt RAGENTS_ACTORS_DIR: ${remoteVariable}`);
+      return passed(`${platform} auf ${host} in ${path.relative(data, realpathSync(folder))}, Linux im Container ohne Variable`);
+    });
+  }
+  const skillTurn = await report.check("Wurzeln", `ein Auftrag nach dem Skill ${CHECK_SKILL} läuft durch`, async () => {
+    const turn = await runScript(run, `Arbeite nach dem Skill ${CHECK_SKILL} und lies seine Vorlage.`, skillSteps);
+    expect(turn.failure === undefined, `Der Turn scheitert: ${turn.failure}`);
+    return { value: turn, detail: turn.tools.map((tool) => `${tool.name} ${tool.error === undefined ? "ok" : "scheitert"}`).join(", ") };
+  });
+  if (!skillTurn) {
+    report.skip("Wurzeln", skillTitles, "der Auftrag endet nicht");
+    return;
+  }
+  await report.check("Wurzeln", skillTitles[0]!, async () => {
+    expect(completedText(stepOf(skillTurn, 0, "read")).includes("Lies vorlage.md"), "read liest die SKILL.md nicht");
+    expect(completedText(stepOf(skillTurn, 1, "read")).includes(env.nonce), "read liest die Vorlage neben der SKILL.md nicht");
+    const listed = completedText(stepOf(skillTurn, 2, "bash"));
+    expect(listed.includes(env.nonce) && listed.trim().endsWith(serverPlatform()), `bash im Skill-Ordner meldet ${listed.trim()}`);
+    return passed(`SKILL.md und vorlage.md über @skills/${CHECK_SKILL}, bash dort auf ${serverPlatform()}`);
+  });
+  await report.check("Wurzeln", skillTitles[1]!, async () => {
+    const exchange = env.model.exchanges.find((entry) => entry.program === "skill" && entry.step === 0 && entry.offeredTools.length > 0);
+    expect(exchange, "Das Skriptmodell hat die erste Anfrage zum Skill-Auftrag nicht gesehen");
+    const prompt = exchange.systemPrompt;
+    expect(prompt.includes(`<location>@skills/${CHECK_SKILL}/SKILL.md</location>`), "Der Katalog nennt den Skill nicht unter @skills");
+    expect(prompt.includes(`location="@skills/${CHECK_SKILL}/SKILL.md"`), "Das Vorladen nennt den Skill nicht unter @skills");
+    expect(!prompt.includes(env.skillsDirectory) && !prompt.includes(realpathSync(env.skillsDirectory)), "Der Prompt nennt den Ordner der Skills auf dem Server");
+    expect(prompt.includes("## Roots on the server"), "Der Prompt beschreibt die Wurzeln des Servers nicht");
+    const mentions = prompt.match(/RAGENTS_ACTORS_DIR/g) ?? [];
+    expect(mentions.length === 1 && prompt.includes("only that bash has `$RAGENTS_ACTORS_DIR`"), `Der Prompt nennt RAGENTS_ACTORS_DIR ${mentions.length} Mal, nicht nur für die Bash auf dem Server`);
+    return passed("Katalog und Vorladen unter @skills, Wurzeln des Servers, die Variable nur für die Bash dort");
   });
 };
 
@@ -592,7 +728,7 @@ const checkStopAll = (env: CheckEnvironment): Promise<true | undefined> =>
 
 /** Die fachlichen Prüfungen in fester Reihenfolge; fehlt eine Voraussetzung, werden die abhängigen Prüfungen übersprungen. */
 export const runChecks = async (env: CheckEnvironment): Promise<void> => {
-  const areas = ["Run", "Werkzeuge", "Neuer Ordner", "Dateien", "Prozesse", "Rechte", "Stopp", "Trennen", "Strom weg"];
+  const areas = ["Run", "Werkzeuge", "Wurzeln", "Neuer Ordner", "Dateien", "Prozesse", "Rechte", "Stopp", "Trennen", "Strom weg"];
   if (!await checkRegistry(env)) {
     for (const area of areas) env.report.skip(area, ["alle Prüfungen"], "der Arbeitsplatz ist nicht angemeldet");
     return;
@@ -603,6 +739,7 @@ export const runChecks = async (env: CheckEnvironment): Promise<void> => {
   }
   await checkTools(env);
   await checkAttachment(env);
+  await checkServerRoots(env);
   await checkFreshFolder(env);
   if (env.browserPort !== undefined) await checkBrowser(env, env.browserPort);
   await checkFiles(env);

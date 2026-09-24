@@ -14,7 +14,7 @@ import type { RunView } from "../../packages/ragents/src/domain/model.ts";
 import { hostRecordFile, readHostRecord, writeHostRecord } from "../../apps/server/src/host-record.ts";
 import { callerDirectory } from "../../apps/server/src/profile-target.ts";
 import { startRpcServer } from "../../apps/server/tests/rpc-fixture.ts";
-import { WORKSPACE_BINDING_OPTION_ID } from "../../plugins/ragents.workspace/contract.ts";
+import { WORKSPACE_BINDING_OPTION_ID, type WorkspaceBindingPresentation, type WorkspaceClientInfo } from "../../plugins/ragents.workspace/contract.ts";
 import { noteHost } from "../remote/connect.ts";
 import { advance, execute, INITIAL_FOLLOW_STATE, parseArguments, type TurnOutcome } from "./agent-cli.ts";
 import { journalFile } from "./journal.ts";
@@ -37,7 +37,7 @@ interface Selection {
 }
 
 /** Ein Server, der auf jede Nachricht einen fertigen Turn ins Journal schreibt - wie der echte, nur ohne Modell. */
-const harness = async (t: TestContext, outcome: TurnOutcome, binding = true, refusals = 0) => {
+const harness = async (t: TestContext, outcome: TurnOutcome, binding = true, refusals = 0, clients: WorkspaceClientInfo[] = []) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-agent-cli-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const selections: Selection[] = [];
@@ -70,7 +70,8 @@ const harness = async (t: TestContext, outcome: TurnOutcome, binding = true, ref
     routes: [health],
     methods: [
       implement(coreContracts.startOptions.list, () => binding
-        ? [{ id: WORKSPACE_BINDING_OPTION_ID, owner: "ragents.workspace", value: null, presentation: null, selectable: true, locked: false }]
+        ? [{ id: WORKSPACE_BINDING_OPTION_ID, owner: "ragents.workspace", value: null, selectable: true, locked: false,
+          presentation: { kind: "workspace-binding", clients, fresh: { server: "Neuer Ordner", client: null }, serverFolders: true } satisfies WorkspaceBindingPresentation }]
         : []),
       implement(coreContracts.startOptions.select, ({ runId, optionId, value }) => {
         selections.push({ runId, optionId, value });
@@ -132,6 +133,21 @@ test("run bindet den Ordner per path, wartet auf das Turn-Ende und nennt den Run
   assert.equal(context.messages[0]!.text, "Behebe den Typfehler");
   assert.deepEqual(context.lines.slice(0, 3), ["> read {\"path\":\"src/broken.ts\"}", "< read 2.5s ok", "Erledigt."]);
   assert.match(context.lines.at(-1)!, /^run: [0-9a-f-]{36}$/);
+});
+
+test("run --workstation bindet den Ordner auf dem angemeldeten Arbeitsplatz, ein unbekannter bricht mit Ursache ab", { timeout: 20_000 }, async (t) => {
+  const workstation: WorkspaceClientInfo = { id: "laptop-0001", label: "Laptop", hostname: "laptop", platform: "linux", folders: ["/home/user/project"], runsDirectory: "/home/user/runs" };
+  const context = await harness(t, "completed", true, 0, [workstation]);
+  const run = { kind: "run", profile: "developer", folder: "/home/user/project", text: "Baue", entry: undefined, json: false } as const;
+  assert.equal(await execute({ ...run, workstation: "laptop-0001" }, collect(context.lines)), 0);
+  assert.deepEqual(context.selections[0]!.value, { machine: { client: "laptop-0001", label: "Laptop" }, folder: { path: "/home/user/project" } });
+  await assert.rejects(execute({ ...run, workstation: "desktop-0002" }),
+    /kein Arbeitsplatz mit der Kennung desktop-0002 angemeldet; angemeldet: laptop-0001 \(Laptop\)/);
+  assert.equal(context.selections.length, 1);
+  assert.equal(context.messages.length, 1, "ohne Arbeitsplatz geht kein Auftrag hinaus");
+  const unbound = await harness(t, "completed", false);
+  await assert.rejects(execute({ ...run, workstation: "laptop-0001" }), /ohne Ordnerbindung gibt es keinen Arbeitsplatz/);
+  assert.deepEqual(unbound.messages, []);
 });
 
 test("ein abgebrochener Turn endet mit 2, ein gescheiterter mit 1", { timeout: 20_000 }, async (t) => {
@@ -264,6 +280,10 @@ test("die Kommandozeile nennt Befehl, Ordner, Auftrag und Schalter", () => {
   assert.deepEqual(parseArguments(["run", "/work", "Baue", "--profile", "core", "--entry", "ragents.reference.word-game", "--json"]), {
     kind: "run", profile: "core", folder: "/work", text: "Baue", entry: "ragents.reference.word-game", json: true,
   });
+  assert.deepEqual(parseArguments(["run", "/work", "Baue", "--workstation", "laptop-0001"]), {
+    kind: "run", profile: "developer", folder: "/work", text: "Baue", entry: undefined, json: false, workstation: "laptop-0001",
+  });
+  assert.throws(() => parseArguments(["run", "/work", "Baue", "--workstation", "kurz"]), /Ungültige Arbeitsplatz-Kennung/);
   assert.deepEqual(parseArguments(["journal", "abc", "--tools"]), { kind: "journal", profile: "developer", runId: "abc", json: false, tools: true });
   assert.deepEqual(parseArguments(["stop", "--host"]), { kind: "stop-host", profile: "developer" });
   assert.deepEqual(parseArguments(["stop", "--host", "--profile", "/eigen/ragents.config.workshop.ts"]), { kind: "stop-host", profile: "/eigen/ragents.config.workshop.ts" });

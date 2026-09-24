@@ -1,9 +1,10 @@
 import type { WorkspaceProcessContext } from "./context.js";
 import { WorkspaceOperationError } from "./errors.js";
 import type { WorkspaceExecutorModule, WorkspaceModuleFactory, WorkspaceOperation } from "./module.js";
+import { NO_ROOTS, type OperationFootprint } from "./paths.js";
 
 /** Der Stand des Executors; Server und Arbeitsplatz müssen denselben tragen. */
-export const WORKSPACE_EXECUTOR_VERSION = "3";
+export const WORKSPACE_EXECUTOR_VERSION = "4";
 
 export interface WorkspaceExecuteOptions {
   toolCallId?: string;
@@ -46,6 +47,7 @@ export class WorkspaceOperationExecutor implements WorkspaceExecutor {
   readonly version = WORKSPACE_EXECUTOR_VERSION;
   readonly #modules: readonly WorkspaceExecutorModule[];
   readonly #operations: ReadonlyMap<string, WorkspaceOperation>;
+  readonly #footprints: ReadonlyMap<string, (input: unknown) => OperationFootprint>;
 
   constructor(options: WorkspaceOperationExecutorOptions) {
     const host = {
@@ -61,6 +63,15 @@ export class WorkspaceOperationExecutor implements WorkspaceExecutor {
       }
     }
     this.#operations = operations;
+    this.#footprints = new Map(this.#modules.flatMap((module) => Object.entries(module.footprints ?? {}).map(([name, footprint]) => {
+      if (!Object.hasOwn(module.operations, name)) throw new Error(`Ein Modul erklärt einen Fußabdruck für ${name}, eine Operation, die es nicht hat`);
+      return [name, footprint] as const;
+    })));
+  }
+
+  /** Der Fußabdruck einer Eingabe nach der Erklärung des Moduls, dem die Operation gehört; so weiß ein Aufrufer, auf welche Maschine sie gehört. */
+  footprintOf(operation: string, input: unknown): OperationFootprint {
+    return this.#footprints.get(operation)?.(input) ?? { roots: NO_ROOTS };
   }
 
   async execute(runId: string, operation: string, input: unknown, options: WorkspaceExecuteOptions = {}): Promise<unknown> {

@@ -8,8 +8,8 @@ its model for ActorInputs; a TypeScript actor can handle them with `onInput`. Ca
 from a view executes that function directly and does not start a model turn.
 
 1. Create the closest template with `actor_program_create`; read and reuse its package, contract,
-   implementation, view and tests under `@actors/<name>/`. Language servers use that alias;
-   Bash uses `$RAGENTS_ACTORS_DIR/<name>/`.
+   implementation, view and tests under `@actors/<name>/`, the path for file tools, language
+   servers and `bash` (as `cwd`).
 2. Edit with ordinary file tools; preserve imports and structure. Changed errors arrive before
    model requests; `actor_program_diagnostics` returns the full last check.
 3. Adapt meaningful `node:test` cases in `tests/**/*.test.ts`. Query `actor_program_controls`
@@ -17,8 +17,8 @@ from a view executes that function directly and does not start a model turn.
 4. `actor_program_activate` typechecks, builds, tests and activates. Fix errors and reactivate.
    List, removal and visibility have separate functions.
 
-Published functions enter the shared API in the same turn. Inspect with `typescript_api`, call
-`context.functions.<name>(input)`. Reactivation updates the contract; removal withdraws it.
+Published functions enter the shared API in the same turn. Reactivation updates the contract;
+removal withdraws it.
 Native tool exposure is optional and explicit.
 
 Use `actor: "self"` or `actor: "@handle"` to bind to an existing actor. Without a binding, a
@@ -40,9 +40,10 @@ Export `defineActor(contract, { functions: { ... }, onInput? })` as default. Cal
 `(input, context)`; returned values are results. Only `context.state.replace` changes actor state.
 The state schema must accept the initial `{}`. `context.actor` identifies the owning actor.
 Server code calls run functions through `context.functions`; declared `capabilities` select the
-functions it needs. An `onInput` acts as its actor. A function owns that actor's state but calls
-run functions as its caller. A subscription therefore belongs to the caller; initialize an
-actor's own event handling through its `onInput`. Snippets act as their caller.
+functions it needs. An `onInput` acts as its actor. A function owns that actor's state but acts
+as its caller, from a view the clicking human. So a subscription belongs to the caller; the
+actor's own event handling, or a message to another actor in its name, goes as an ActorInput to
+the actor, whose `onInput` handles it. Snippets act as their caller.
 
 Import React and `createRoot` normally. Import `context` and `useAppState` from `@ragents/client`
 and controls from `@ragents/client/ui`: shadcn/ui components (`Button`, `Select`, `Tabs`, `Dialog`,

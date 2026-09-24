@@ -21,7 +21,7 @@ import type {
 } from "@ragents/host/ragents/workspace-runtime.js";
 import { storedStartOption } from "@ragents/host/ragents/start-option-state.js";
 import { sandboxToolNaming } from "./workspace-tool-naming.js";
-import { WorkspaceSandboxHost } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
+import { WorkspaceSandboxHost, type ServerRootDescription } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
 import type { RunProcessSandboxes } from "@ragents/host/plugin-support/process-sandbox.js";
 import { FRESH_WORKSPACE_LABEL, isFreshFolder, type ExistingWorkspaceFolder, type WorkspaceBinding } from "../contract.js";
 import {
@@ -87,6 +87,37 @@ const freshDescription = (cwd: string): string => [
   `Your working directory is \`${cwd}\`, a private folder of this conversation on the server.`,
   "No other conversation sees it, and it starts empty unless the profile prepared content in it.",
   "Look around in it before you say anything about what is already there.",
+].join("\n");
+
+const listed = (entries: readonly string[]): string =>
+  entries.length === 1 ? entries[0]! : `${entries.slice(0, -1).join(", ")} and ${entries.at(-1)!}`;
+
+const rootList = (roots: readonly ServerRootDescription[]): string =>
+  listed(roots.map((root) => `\`${root.alias}\` (${root.writable ? "read and write" : "read only"})`));
+
+const variableList = (roots: readonly ServerRootDescription[]): string => listed(roots
+  .flatMap((root) => root.environmentVariable === undefined ? [] : [`\`$${root.environmentVariable}\` for \`${root.alias}\``]));
+
+const hasVariables = (roots: readonly ServerRootDescription[]): boolean => roots.some((root) => root.environmentVariable !== undefined);
+
+/** Auf dem Server liegen Arbeitsbereich und Wurzeln auf einer Maschine; jede Bash sieht beide. */
+const serverRootsDescription = (roots: readonly ServerRootDescription[]): string => [
+  "## Roots besides the working directory",
+  "",
+  `This run also reaches ${rootList(roots)}. File tools and language servers take a path that starts with the alias, `
+    + `such as \`${roots[0]!.alias}/<path>\`; \`bash\` runs in such a root with that path as \`cwd\`.`
+    + (hasVariables(roots) ? ` \`bash\` also has ${variableList(roots)}.` : ""),
+].join("\n");
+
+/** Die Wurzeln liegen auf dem Server, der Arbeitsbereich auf dem Arbeitsplatz; eine Bash sieht immer nur eine der beiden Maschinen. */
+const workstationRootsDescription = (roots: readonly ServerRootDescription[]): string => [
+  "## Roots on the server",
+  "",
+  `This run also reaches roots on the server: ${rootList(roots)}. File tools and language servers reach them from the `
+    + `workstation as well: pass a path that starts with the alias, such as \`${roots[0]!.alias}/<path>\`. \`bash\` runs on `
+    + "the workstation; with a `cwd` that starts with an alias it runs on the server instead and sees only the server"
+    + (hasVariables(roots) ? `, and only that bash has ${variableList(roots)}` : "")
+    + ". One call reaches one machine: never combine a path with an alias and a path in the working directory in one call.",
 ].join("\n");
 
 export class RunWorkspaceRuntime implements WorkspaceRuntime {
@@ -195,9 +226,19 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     const state = this.#options.runState(runId);
     if (!state) throw runNotStarted();
     const binding = bindingOf(state);
-    if (isWorkstationBinding(binding)) return this.#workstation(runId, state, binding, emitSystem);
     const { folder } = binding;
-    return isFreshFolder(folder) ? this.#fresh(runId, state, emitSystem) : this.#bound(folder, emitSystem);
+    const onWorkstation = isWorkstationBinding(binding);
+    const workspace = onWorkstation ? this.#workstation(runId, state, binding, emitSystem)
+      : isFreshFolder(folder) ? await this.#fresh(runId, state, emitSystem) : this.#bound(folder, emitSystem);
+    return this.#withRoots(workspace, onWorkstation);
+  }
+
+  /** Was der Prompt über Wurzeln sagt, hängt an der Maschine des Runs: nur eine Bash auf dem Server kennt ihre Variablen. */
+  async #withRoots(workspace: SessionWorkspace, onWorkstation: boolean): Promise<SessionWorkspace> {
+    const roots = await this.sandbox.serverRoots();
+    if (roots.length === 0) return workspace;
+    const described = onWorkstation ? workstationRootsDescription(roots) : serverRootsDescription(roots);
+    return { ...workspace, description: [workspace.description, described].filter(Boolean).join("\n\n") };
   }
 
   placementOf(runId: string): WorkspacePlacement {

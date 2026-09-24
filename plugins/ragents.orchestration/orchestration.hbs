@@ -18,8 +18,8 @@ A snippet can inspect data, call extension functions, create participants and ar
 It needs no actor package, persistent setup actor or invented tests. Local variables end with
 that execution. Use an actor program when later messages, events, persistent state or a view
 are needed. Snippets and actor programs use the same registered functions and contracts.
-Use the registered file functions for editing sources; Bash uses `$RAGENTS_ACTORS_DIR` instead
-of copied physical paths.
+Use the registered file functions for editing sources, with a root alias such as `@actors/`
+instead of copied physical paths; `bash` takes such an alias path as `cwd`.
 
 A snippet acts as its caller. A TypeScript actor's `onInput` acts as that actor. An actor
 function owns its actor's state but invokes run functions as its caller: calling another

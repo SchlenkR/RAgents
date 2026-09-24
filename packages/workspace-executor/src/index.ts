@@ -52,6 +52,9 @@ export { processGroupExists, runManagedProcess, startManagedService, type Manage
 export {
   containsWorkspacePath,
   resolvedWorkspacePath,
+  rootsOfFields,
+  type AddressedRoots,
+  type OperationFootprint,
   type ResolvedWorkspaceRoot,
 } from "./paths.js";
 export { PROCESS_OPERATIONS, processModule } from "./processes/module.js";

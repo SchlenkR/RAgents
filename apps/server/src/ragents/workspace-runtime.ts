@@ -1,12 +1,20 @@
 import { serviceToken, type JsonValue, type WorkspaceToolNaming } from "@ragents/engine";
 import type { ResolvedWorkspaceRoot, SessionIdent } from "@ragents/workspace-executor";
 
+/** Ein Ordner außerhalb des Arbeitsbereichs, den die Prozess-Sandbox eines Runs zulässt; absolut, zum Lesen oder zum Lesen und Schreiben. */
+export interface SandboxFolder {
+  directory: string;
+  access: "read" | "write";
+}
+
 export interface SessionWorkspace {
   cwd: string;
   /** Beschreibt den aufgelösten Arbeitsbereich in Worten; wird Kapitel im Systemprompt jedes Actors mit Arbeitsbereichswerkzeugen. */
   description?: string;
   /** Heimatordner, nur lesbare Wurzeln und Konto der Sandbox, wenn der Arbeitsbereich sie selbst bestimmt. */
   hostSandbox?: { home: string; readOnlyRoots: readonly ResolvedWorkspaceRoot[]; ident?: SessionIdent };
+  /** Was Prozesse des Runs auf dem Server außerhalb des Arbeitsbereichs brauchen, etwa das gemeinsame Repository eines Git-Worktrees. */
+  sandboxFolders?: readonly SandboxFolder[];
   gitEnv?: NodeJS.ProcessEnv;
   gitConfig?: ReadonlyArray<readonly [string, string]>;
   extraEnv?: NodeJS.ProcessEnv;

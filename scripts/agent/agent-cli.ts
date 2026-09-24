@@ -11,7 +11,7 @@ import { hostRoot } from "../../apps/server/src/host-version.ts";
 import { callerDirectory, selectProfileTarget, type ProfileTarget } from "../../apps/server/src/profile-target.ts";
 import { RpcClient } from "../../apps/web/src/rpc/client.ts";
 import { RpcError } from "../../packages/ragents/src/rpc/protocol.ts";
-import { WORKSPACE_BINDING_OPTION_ID } from "../../plugins/ragents.workspace/contract.ts";
+import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_CLIENT_ID_PATTERN, type WorkspaceBindingPresentation } from "../../plugins/ragents.workspace/contract.ts";
 import { interruptPrimaryTurn, stopWholeRun } from "./turn-control.ts";
 import { JournalReader, journalLines, readJournal, RUN_ID_PATTERN, type JournalEvent } from "./journal.ts";
 
@@ -27,9 +27,11 @@ export const defaultProfile = (): string => process.env.RAGENTS_PROFILE ?? DEFAU
 
 export const usage = (): string => `Verwendung: ragents <befehl> [argumente]
 
-  run <ordner> "<auftrag>" [--profile <p>] [--entry <vorlage>] [--json]
+  run <ordner> "<auftrag>" [--profile <p>] [--entry <vorlage>] [--workstation <kennung>] [--json]
       Startet den Host des Profils, falls keiner läuft, legt einen Run mit Bindung path auf den
-      Ordner an, schickt den Auftrag und wartet, bis der Turn endet.
+      Ordner an, schickt den Auftrag und wartet, bis der Turn endet. Mit --workstation liegt der
+      Ordner auf dem am Host angemeldeten Arbeitsplatz mit dieser Kennung (pnpm workspace-client
+      <server-url> <ordner> --id <kennung>) statt auf dem Server; ohne ihn bricht run ab.
   send <run> "<text>" [--profile <p>] [--json]
       Folgeauftrag im selben Run, gleiches Warten.
   journal <run> [--profile <p>] [--json] [--tools]
@@ -51,7 +53,7 @@ verlangt. Der so gestartete Host baut die Oberfläche nicht - ein Agent braucht 
 Oberfläche startet ragents start <profil>.`;
 
 export type AgentCommand =
-  | { readonly kind: "run"; readonly profile: string; readonly folder: string; readonly text: string; readonly entry: string | undefined; readonly json: boolean }
+  | { readonly kind: "run"; readonly profile: string; readonly folder: string; readonly text: string; readonly entry: string | undefined; readonly json: boolean; readonly workstation?: string }
   | { readonly kind: "send"; readonly profile: string; readonly runId: string; readonly text: string; readonly json: boolean }
   | { readonly kind: "journal"; readonly profile: string; readonly runId: string; readonly json: boolean; readonly tools: boolean }
   | { readonly kind: "stop"; readonly profile: string; readonly runId: string }
@@ -61,6 +63,7 @@ export type AgentCommand =
 interface Flags {
   readonly profile: string;
   readonly entry: string | undefined;
+  readonly workstation: string | undefined;
   readonly json: boolean;
   readonly tools: boolean;
   readonly host: boolean;
@@ -68,7 +71,7 @@ interface Flags {
   readonly positional: readonly string[];
 }
 
-const VALUE_FLAGS = new Set(["--profile", "--entry"]);
+const VALUE_FLAGS = new Set(["--profile", "--entry", "--workstation"]);
 
 const scan = (argv: readonly string[], allowed: readonly string[]): Flags => {
   const positional: string[] = [];
@@ -93,6 +96,7 @@ const scan = (argv: readonly string[], allowed: readonly string[]): Flags => {
   return {
     profile: values.get("--profile") ?? defaultProfile(),
     entry: values.get("--entry"),
+    workstation: values.get("--workstation"),
     json: switches.has("--json"),
     tools: switches.has("--tools"),
     host: switches.has("--host"),
@@ -104,11 +108,15 @@ const scan = (argv: readonly string[], allowed: readonly string[]): Flags => {
 export const parseArguments = (argv: readonly string[]): AgentCommand => {
   const [command, ...rest] = argv;
   if (command === "run") {
-    const flags = scan(rest, ["--profile", "--entry", "--json"]);
+    const flags = scan(rest, ["--profile", "--entry", "--workstation", "--json"]);
     const [folder, text, ...extra] = flags.positional;
     if (!folder || !text) throw new Error(`run braucht <ordner> und "<auftrag>".\n\n${usage()}`);
     if (extra.length > 0) throw new Error(`run nimmt genau zwei Werte, nicht ${flags.positional.length}.`);
-    return { kind: "run", profile: flags.profile, folder, text, entry: flags.entry, json: flags.json };
+    if (flags.workstation !== undefined && !WORKSPACE_CLIENT_ID_PATTERN.test(flags.workstation)) {
+      throw new Error(`Ungültige Arbeitsplatz-Kennung: ${flags.workstation} (8 bis 64 Zeichen aus Buchstaben, Ziffern, _ und -).`);
+    }
+    return { kind: "run", profile: flags.profile, folder, text, entry: flags.entry, json: flags.json,
+      ...(flags.workstation ? { workstation: flags.workstation } : {}) };
   }
   if (command === "send") {
     const flags = scan(rest, ["--profile", "--json"]);
@@ -361,15 +369,32 @@ export type LineWriter = (line: string) => void;
 
 const toStdout: LineWriter = (line) => { process.stdout.write(`${line}\n`); };
 
+/** Der angemeldete Arbeitsplatz mit dieser Kennung, wie die Startoption ihn nennt; fehlt er, bricht run mit Ursache ab. */
+const workstationOf = (presentation: unknown, id: string): { client: string; label: string } => {
+  const clients = (presentation as WorkspaceBindingPresentation | null)?.clients ?? [];
+  const found = clients.find((entry) => entry.id === id);
+  if (!found) {
+    const registered = clients.map((entry) => `${entry.id} (${entry.label})`).join(", ") || "keiner";
+    throw new Error(`Am Host ist kein Arbeitsplatz mit der Kennung ${id} angemeldet; angemeldet: ${registered}. Anmelden mit pnpm workspace-client <server-url> <ordner> --id ${id}.`);
+  }
+  return { client: found.id, label: found.label };
+};
+
 const runCommand = async (command: Extract<AgentCommand, { kind: "run" }>, write: LineWriter): Promise<number> => {
-  const folder = path.resolve(callerDirectory(), command.folder);
-  if (!statSync(folder, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`Kein Verzeichnis: ${folder}`);
+  const folder = command.workstation && path.win32.isAbsolute(command.folder) ? command.folder : path.resolve(callerDirectory(), command.folder);
+  if (!command.workstation && !statSync(folder, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`Kein Verzeichnis: ${folder}`);
   const target = await loadProfile(command.profile);
   const baseUrl = await ensureHost(target);
   const rpc = client(baseUrl);
   const runId = randomUUID();
   const options = await withLoginHint(() => rpc.call(coreContracts.startOptions.list, { runId }));
-  if (options.some((option) => option.id === WORKSPACE_BINDING_OPTION_ID)) {
+  const binding = options.find((option) => option.id === WORKSPACE_BINDING_OPTION_ID);
+  if (command.workstation) {
+    if (!binding) throw new Error(`Das Profil ${target.profile} kennt ${WORKSPACE_BINDING_OPTION_ID} nicht; ohne Ordnerbindung gibt es keinen Arbeitsplatz für --workstation.`);
+    const machine = workstationOf(binding.presentation, command.workstation);
+    await withLoginHint(() => rpc.call(coreContracts.startOptions.select, { runId, optionId: WORKSPACE_BINDING_OPTION_ID, value: { machine, folder: { path: folder } } }));
+    note(`== Run ${runId} auf Arbeitsplatz ${machine.label}: ${folder} (${baseUrl})`);
+  } else if (binding) {
     await withLoginHint(() => rpc.call(coreContracts.startOptions.select, { runId, optionId: WORKSPACE_BINDING_OPTION_ID, value: { machine: "server", folder: { path: folder } } }));
     note(`== Run ${runId} auf ${folder} (${baseUrl})`);
   } else {

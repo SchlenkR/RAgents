@@ -7,7 +7,7 @@ import test from "node:test";
 import { StartEntryContributionRegistry } from "@ragents/engine";
 
 import { folderSkills, pluginFolder } from "../src/plugin-support/plugin-folder.ts";
-import { skillEnvDescriptors, skillsFromDirectory, skillsFromEnvironment, type SkillStartEntry } from "../src/plugin-support/skills.ts";
+import { skillEnvDescriptors, skillOfDirectory, skillsFromDirectory, skillsFromEnvironment, type SkillStartEntry } from "../src/plugin-support/skills.ts";
 
 import { declaredEnvironment } from "../src/plugin-support/plugin-config.ts";
 
@@ -200,6 +200,20 @@ test("runtime skills remain off the start page and explicit prompts retain YAML 
     assert.equal(catalog.startEntries[0]?.skill, "starter");
     assert.equal(catalog.startEntries[0]?.prompt, "My own task.\nWith another line.\n");
     assert.equal(catalog.startEntries[0]?.guide, "test.guide");
+  } finally {
+    rmSync(directory, { recursive: true });
+  }
+});
+
+test("a skill reaches the tools as @skills/<name>, whatever machine the run works on, and the host keeps its own path", () => {
+  const directory = mkdtempSync(path.join(tmpdir(), "ragents-skill-location-"));
+  try {
+    const folder = path.join(directory, "notes");
+    mkdirSync(folder);
+    writeFileSync(path.join(folder, "SKILL.md"), "---\nname: notes\ndescription: Order notes\n---\nRead template.md.\n");
+    const skill = skillOfDirectory(folder);
+    assert.equal(skill.location, "@skills/notes/SKILL.md");
+    assert.equal(skill.filePath, path.join(folder, "SKILL.md"));
   } finally {
     rmSync(directory, { recursive: true });
   }

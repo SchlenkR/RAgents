@@ -1,4 +1,5 @@
 import type { WorkspaceProcessContext } from "./context.js";
+import type { OperationFootprint } from "./paths.js";
 
 /** Ein Aufruf einer Operation: der Run, die Eingabe und was der Aufrufer mitgibt. */
 export interface WorkspaceOperationCall {
@@ -15,6 +16,8 @@ export type WorkspaceOperation = (call: WorkspaceOperationCall) => Promise<unkno
 /** Ein Baustein des Executors: benannte Operationen und sein Anteil am Aufräumen. */
 export interface WorkspaceExecutorModule {
   readonly operations: Readonly<Record<string, WorkspaceOperation>>;
+  /** Der Fußabdruck einer Eingabe je Operation; ohne Eintrag spricht sie keine bestimmte Wurzel an. Wirft nie, auch nicht bei ungültiger Eingabe. */
+  readonly footprints?: Readonly<Record<string, (input: unknown) => OperationFootprint>>;
   /** Eine Anmerkung zu einer gerade geschriebenen Datei, etwa die Diagnostik eines Sprachservers. */
   readonly annotate?: (runId: string, absolutePath: string) => Promise<string | undefined>;
   /** Gibt frei, was das Modul für einen Run hält. */

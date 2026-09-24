@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { BROWSER_EXECUTABLE_VARIABLE } from "@ragents/workspace-executor";
 import { coreContracts } from "../../apps/server/src/api/contracts.ts";
 import { RpcClient } from "../../apps/web/src/rpc/client.ts";
-import { CONTAINER_ONLY, runChecks, SERVER_ONLY, type Users } from "./checks.ts";
+import { CHECK_SKILL, CONTAINER_ONLY, runChecks, SERVER_ONLY, type Users } from "./checks.ts";
 import {
   buildImage,
   CONTAINER_FOLDER,
@@ -116,11 +116,12 @@ const userClient = (url: string, token: string): RpcClient => new RpcClient({
   fetch: (input, init) => fetch(input, { ...init, headers: { ...init?.headers as Record<string, string> | undefined, authorization: `Bearer ${token}` } }),
 });
 
-const serverEnvironment = (session: Session, dataDirectory: string, modelUrl: string, browser: boolean, profilePlugins: readonly string[]): NodeJS.ProcessEnv => ({
+const serverEnvironment = (session: Session, dataDirectory: string, skillsDirectory: string, modelUrl: string, browser: boolean, profilePlugins: readonly string[]): NodeJS.ProcessEnv => ({
   ...Object.fromEntries(SERVER_INHERITS.flatMap((name) => process.env[name] === undefined ? [] : [[name, process.env[name]!]])),
   PRODUCT_PROFILE: PROFILE,
   PRODUCT_PROFILE_FILE: PROFILE_FILE,
   DATA_DIR: dataDirectory,
+  SKILLS_DIR: skillsDirectory,
   REMOTE_CHECK_MODEL_URL: modelUrl,
   REMOTE_CHECK_MODEL_TOKEN: session.modelToken,
   ...Object.fromEntries(USER_IDS.flatMap((id) => [
@@ -246,6 +247,11 @@ const runPhases = async (options: Options, report: Report, owned: Owned, session
   owned.temp = temp;
   writeFileSync(path.join(temp, RUNNER_FILE), String(process.pid));
   const dataDirectory = path.join(temp, "data");
+  const skillsDirectory = path.join(temp, "skills");
+  mkdirSync(path.join(skillsDirectory, CHECK_SKILL), { recursive: true });
+  writeFileSync(path.join(skillsDirectory, CHECK_SKILL, "SKILL.md"),
+    `---\nname: ${CHECK_SKILL}\ndescription: Notizen des Prüflaufs nach der Vorlage daneben ordnen.\n---\nLies vorlage.md im Ordner dieses Skills.\n`);
+  writeFileSync(path.join(skillsDirectory, CHECK_SKILL, "vorlage.md"), `# Vorlage\n\nKennung ${session.nonce}\n`);
   const folder = options.sharedPath ? path.join(temp, "projekt") : CONTAINER_FOLDER;
   if (options.sharedPath) {
     mkdirSync(folder);
@@ -265,7 +271,7 @@ const runPhases = async (options: Options, report: Report, owned: Owned, session
   });
   if (!model) return;
   const server = await report.check("Infrastruktur", "Server startet mit Anmeldung für alice, bob und admin", async () => {
-    const spawned = spawnHostServer(root, serverEnvironment(session, dataDirectory, model.url, options.browser, profile.host.PLUGINS),
+    const spawned = spawnHostServer(root, serverEnvironment(session, dataDirectory, skillsDirectory, model.url, options.browser, profile.host.PLUGINS),
       path.join(temp, "server.log"), 120_000);
     owned.server = spawned.child;
     const url = await spawned.announced;
@@ -315,6 +321,7 @@ const runPhases = async (options: Options, report: Report, owned: Owned, session
     users,
     model,
     dataDirectory,
+    skillsDirectory,
     container,
     folder,
     serverCopy: options.sharedPath,

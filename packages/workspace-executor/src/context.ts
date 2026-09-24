@@ -105,11 +105,20 @@ const namedEntries = (
     return name ? [[name, root.directory]] : [];
   }));
 
+/** Ein Alias nennt genau einen Ordner und liegt nicht unter einem anderen, sonst wäre offen, welche Wurzel ein Pfad meint. */
+const assertDistinctAliases = (roots: readonly ResolvedWorkspaceRoot[]): void => {
+  const aliases = roots.flatMap((root) => root.alias === undefined ? [] : [root.alias]);
+  const clash = aliases.find((alias, index) => aliases.some((other, position) =>
+    position !== index && (other === alias || other.startsWith(`${alias}/`))));
+  if (clash !== undefined) throw new Error(`Der Arbeitsverzeichnis-Alias ${clash} nennt mehr als eine Wurzel`);
+};
+
 /** Baut den Kontext eines Runs aus den Ordnern dieser Maschine; jeder Executor ruft dieselbe Funktion. */
 export const workspaceProcessContext = (options: WorkspaceContextOptions): WorkspaceProcessContext => {
   const additionalRoots = options.additionalRoots ?? [];
   const readOnlyRoots = options.readOnlyRoots ?? [];
   const all = [...additionalRoots, ...readOnlyRoots];
+  assertDistinctAliases(all);
   const pathVariables = namedEntries(all, (root) => root.environmentVariable);
   return {
     runId: options.runId,

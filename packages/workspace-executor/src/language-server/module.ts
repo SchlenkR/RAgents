@@ -1,5 +1,6 @@
 import { WorkspaceOperationError } from "../errors.js";
 import type { WorkspaceModuleFactory, WorkspaceOperation } from "../module.js";
+import { rootsOfFields, type OperationFootprint } from "../paths.js";
 import { LanguageServerHost, type LanguageServerAdapter, type LanguageServerHostOptions } from "./host.js";
 
 export const languageServerOpenOperation = (adapterId: string): string => `${adapterId}_open`;
@@ -55,6 +56,16 @@ const operationsOf = (server: LanguageServerHost): Array<readonly [string, Works
   ];
 };
 
+/** Öffnen und Schließen sprechen die Wurzel ihrer Instanz an, die Diagnostik dazu die ihrer Dateien; ohne Wurzel und Dateien keine bestimmte. */
+const footprintsOf = (server: LanguageServerHost): Array<readonly [string, (input: unknown) => OperationFootprint]> => {
+  const { id } = server.adapter;
+  return [
+    [languageServerOpenOperation(id), (input) => ({ roots: rootsOfFields(input, "root") })],
+    [languageServerCloseOperation(id), (input) => ({ roots: rootsOfFields(input, "root") })],
+    [languageServerDiagnosticsOperation(id), (input) => ({ roots: rootsOfFields(input, "root", "paths") })],
+  ];
+};
+
 /** Die Sprachserver dieser Maschine: je Adapter Öffnen, Diagnostik, Schließen und Stand, dazu die Diagnostik geschriebener Dateien. */
 export const languageServerModule = (
   adapters: readonly LanguageServerAdapter[],
@@ -63,6 +74,7 @@ export const languageServerModule = (
   const servers = adapters.map((adapter) => new LanguageServerHost(adapter, host.contextFor, options));
   return {
     operations: Object.fromEntries(servers.flatMap(operationsOf)),
+    footprints: Object.fromEntries(servers.flatMap(footprintsOf)),
     annotate: async (runId, absolutePath) => {
       const notes = await Promise.all(servers.map((server) =>
         server.annotate(runId, absolutePath).catch((error: unknown) =>

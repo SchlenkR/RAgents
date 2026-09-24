@@ -306,6 +306,13 @@ working. `start: true` also makes it selectable and requires a `title` and one n
 otherwise the body is used. Explicit contributions use `action: "skill"`, `skill`, `category`,
 and `prompt`, and the skill name must be registered.
 
+A skill's name is its folder name and unique in a profile, across audiences; two folders with one
+name stop the server at startup. The model reaches every skill folder read-only as
+`@skills/<name>/`, whichever machine the run works on: the skill overview and preloading name
+`@skills/<name>/SKILL.md`, never the path on the server, and relative paths in a skill resolve in
+that folder. File tools read there, and `bash` runs there with `cwd: "@skills/<name>"`, on the
+server.
+
 Optional `disable-model-invocation: true` removes a skill from the model's automatic overview
 while keeping explicit loading available. Simple example tasks use it but remain selectable
 through `start: true`. Reusable instructions can also provide a short starting task so both stay

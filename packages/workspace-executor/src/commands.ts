@@ -3,6 +3,7 @@ import { WorkspaceOperationError } from "./errors.js";
 import { workspaceDirectory } from "./files.js";
 import { runManagedProcess } from "./managed-process.js";
 import type { WorkspaceModuleFactory, WorkspaceOperation } from "./module.js";
+import type { OperationFootprint } from "./paths.js";
 import { sandboxedLaunch } from "./process-sandbox.js";
 
 export const COMMAND_OPERATIONS = {
@@ -123,6 +124,12 @@ const runCommand = async (context: WorkspaceProcessContext, command: CheckedComm
   };
 };
 
+/** Ein Befehl läuft in der Wurzel des Runs, ein Alias gilt dort nicht; seine Zeitgrenze verlängert, wie lange ein entfernter Executor auf ihn warten darf. */
+const commandFootprint = (input: unknown): OperationFootprint => {
+  const timeoutMs = typeof input === "object" && input !== null ? (input as { timeoutMs?: unknown }).timeoutMs : undefined;
+  return { roots: { aliases: [], runRoot: true }, ...(typeof timeoutMs === "number" && timeoutMs > 0 ? { durationMs: timeoutMs } : {}) };
+};
+
 /** Befehle im Arbeitsbereich des Runs: ein Programm mit Argumenten, ohne Shell, in einem Ordner unter der Wurzel, mit der Umgebung dieses Executors. */
 export const commandModule = (platform: NodeJS.Platform = process.platform): WorkspaceModuleFactory => (host) => {
   const running = new Map<string, Set<RunningCommand>>();
@@ -153,6 +160,9 @@ export const commandModule = (platform: NodeJS.Platform = process.platform): Wor
   return {
     operations: {
       [COMMAND_OPERATIONS.run]: run,
+    },
+    footprints: {
+      [COMMAND_OPERATIONS.run]: commandFootprint,
     },
     stopRun: (runId) => stopAll([...running.get(runId) ?? []]),
     shutdown: () => stopAll([...running.values()].flatMap((commands) => [...commands])),

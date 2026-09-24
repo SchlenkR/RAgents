@@ -18,7 +18,9 @@ model.
 ## Packages and actor binding
 
 Programs are private packages in a prepared pnpm workspace for the run. File functions and
-language servers access them through `@actors/<name>/`; Bash uses `RAGENTS_ACTORS_DIR`. The
+language servers access them through `@actors/<name>/`, and `bash` runs in a package with
+`cwd: "@actors/<name>"`. The packages stay on the server, and every call that names the alias runs
+there, also when the run works in a folder on a workstation. The
 workspace interface exposes the actor-program collection directly. Normal relative imports
 include local modules, while fixed local dependencies come from the host installation.
 
@@ -71,7 +73,9 @@ Each function receives `(input, context)` and returns only its domain result.
 state. `context.actor` identifies the actor that owns the function and state.
 `context.functions.<name>(input)` calls declared run functions under the caller's identity.
 `onInput` acts as its actor. A function invoked externally retains its actor's state but not that
-actor's calling identity. Snippets use the same API. `context.std` supplies available standard
+actor's calling identity: called from a view, it acts as the clicking human. To deliver a message
+to another actor in the app actor's name, the function passes it as an ActorInput to its own
+actor, whose `onInput` sends it under the actor's identity. Snippets use the same API. `context.std` supplies available standard
 functions, including mediators.
 
 An optional `tool` declaration publishes the same function in the typed run API. Without
@@ -86,11 +90,11 @@ state; `context.capabilities.call(functionName, input)` invokes a declared funct
 state. An actor chat can use this handle to show exactly that actor's conversation.
 
 The view runs in a host iframe with restricted browser permissions. Its accessible name comes
-from `aria-label`; an empty `title` prevents a browser tooltip over the content. Native form
-submission is not allowed, so actions use explicit event handlers. In a search interface, Enter
-and a `type="button"` button should call the same handler, and the Enter handler must prevent the
-native default action. Test this interaction in the host frame, not only in a standalone React
-render.
+from `aria-label`; an empty `title` prevents a browser tooltip over the content. Forms, including
+`Form`, may use `onSubmit`; the handler prevents the default action, because a native submission
+to a URL stays blocked. In a search interface, a form with a `type="submit"` button lets Enter and
+the button share one handler. Test this interaction in the host frame, not only in a standalone
+React render.
 
 ## Create, edit, and activate
 
@@ -116,7 +120,8 @@ Published functions appear in the current TypeScript API even during an active L
 catalog. No additional call contract is needed.
 
 `actor_program_list` shows installed programs. `actor_program_remove` removes the binding and its
-views. It also stops a TypeScript actor, while an existing LLM actor remains. Sources stay
+views. It also stops a TypeScript actor, while an existing LLM actor remains. Activating a package
+of the same name again restarts that stopped actor with its state instead of creating another. Sources stay
 editable in the private workspace. `actor_view_set_visibility` addresses a view by
 `package-name/view-name` or unique title. Visibility changes neither functions nor actor state.
 The host manages hashes and technical bindings.

@@ -446,8 +446,17 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 }
             jsonValue({ version: 1, program: definition }, "Actor-Programm");
             if (compiled.createActor) {
-                const caller = this.view(runId).actors.find((actor) => actor.id === context.actorId)!;
-                this.runtime().createScriptActor(context, runId, { handle: name, displayName: definition.title, grants: caller.grants.filter((grant) => grant.delegable), toolNames: null });
+                const actors = this.view(runId).actors;
+                const caller = actors.find((actor) => actor.id === context.actorId)!;
+                const holder = actors.find((actor) => actor.handle === name);
+                if (holder?.kind === "script" && holder.lifecycle.kind === "stopped") {
+                    checked(definition.stateSchema, this.data(runId, holder.id).values, "Actor-Zustand");
+                    this.runtime().restartActor(context, runId, holder.id, "Actor-Paket erneut aktiviert");
+                }
+                else if (holder)
+                    throw new Error(`Handle @${name} gehört bereits dem ${holder.kind !== "human" && holder.lifecycle.kind === "stopped" ? "gestoppten" : "aktiven"} Actor ${holder.displayName}; nur ein gestoppter TypeScript-Actor wird beim Aktivieren neu gestartet. Wähle einen anderen Paketnamen.`);
+                else
+                    this.runtime().createScriptActor(context, runId, { handle: name, displayName: definition.title, grants: caller.grants.filter((grant) => grant.delegable), toolNames: null });
                 const actor = this.resolveActor(runId, context.actorId, `@${name}`);
                 definition.actorId = actor.id;
                 definition.actorHandle = actor.handle;

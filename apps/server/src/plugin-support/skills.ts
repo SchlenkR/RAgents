@@ -16,6 +16,12 @@ export const skillEnvDescriptors = [
   { key: "SKILLS_DIR", source: "environment" },
 ] as const;
 
+/** The alias under which every skill folder is readable, whichever machine a run works on. */
+export const SKILLS_ALIAS = "@skills";
+
+/** A skill is reached as `@skills/<name>`; its name is its folder name and unique in the profile. */
+export const skillRootAlias = (name: string): string => `${SKILLS_ALIAS}/${name}`;
+
 type SkillEnvironment = DeclaredEnvironment<(typeof skillEnvDescriptors)[number]["key"]>;
 
 /** Reads and checks the SKILL.md of a skill folder; the one parser for templates and the skills of agents. */
@@ -50,7 +56,9 @@ const readSkill = (directory: string): { skill: Skill; start: (idPrefix: string)
   flag(file, "user-invokable", fields.get("user-invokable"));
   const order = numberOf(file, "order", fields.get("order"));
   const tags = tagsOf(file, fields.get("tags"));
-  const skill: Skill = { name, description, filePath: path.resolve(file), baseDir: path.resolve(directory), disableModelInvocation };
+  const skill: Skill = {
+    name, description, filePath: path.resolve(file), baseDir: path.resolve(directory), location: `${skillRootAlias(name)}/SKILL.md`, disableModelInvocation,
+  };
   if (!flag(file, "start", fields.get("start"))) return { skill, start: () => undefined };
   const title = fields.get("title");
   if (!title) throw new Error(`${file}: title fehlt`);

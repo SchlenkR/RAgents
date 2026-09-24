@@ -20,6 +20,7 @@ import {
   sandboxRunEnvironment,
   workspaceExecutorModules,
   workspaceProcessContext,
+  type AddressedRoots,
   type ResolvedWorkspaceRoot,
   type SandboxHomeEnvironment,
   type SessionIdent,
@@ -28,9 +29,10 @@ import {
   type WorkspaceProcessContext,
 } from "@ragents/workspace-executor";
 import { hostRoot } from "../host-version.js";
-import type { SessionWorkspace } from "../ragents/workspace-runtime.js";
+import type { SandboxFolder, SessionWorkspace } from "../ragents/workspace-runtime.js";
 import { agentToolFrom, toolDescriptorFrom, type AgentToolDefinition } from "./agent-tool.js";
 import type { RunProcessSandboxes } from "./process-sandbox.js";
+import { SKILLS_ALIAS, skillRootAlias } from "./skills.js";
 import { alwaysAvailable } from "./tool-availability.js";
 import { syncWorkspaceOwnership } from "./workspace-ownership.js";
 
@@ -42,7 +44,14 @@ export interface RegisteredWorkspaceRoot {
   ownershipDirectoryFor?: (runId: string) => string | Promise<string>;
 }
 
-/** Der einzige Zugang der Plugins zum Arbeitsbereich eines Runs: seine Operationen laufen beim Executor, den die Bindung bestimmt. */
+/** Eine Wurzel des Servers, wie ein Prompt sie nennt: ihr Alias, ob Werkzeuge darin schreiben dürfen, und die Variable, die sie in einer Bash auf dem Server nennt. */
+export interface ServerRootDescription {
+  readonly alias: string;
+  readonly writable: boolean;
+  readonly environmentVariable?: string;
+}
+
+/** Der einzige Zugang der Plugins zum Arbeitsbereich eines Runs: eine Operation läuft beim Executor der Maschine, der die angesprochene Wurzel gehört. */
 export interface SandboxServices {
   execute: (runId: string, operation: string, input: unknown, options?: WorkspaceExecuteOptions) => Promise<unknown>;
   /** Der Kontext für Arbeit, die auf dem Server läuft (TypeScript-Plattform, Actor-Programme); nie der Ordner eines Arbeitsplatzes. */
@@ -76,7 +85,7 @@ const sandboxDescriptions: Readonly<Record<string, string>> = {
   read: "Read file contents or images within the run's allowed workspace roots.",
   edit: "Apply exact text replacements to existing files within the run's writable workspace roots.",
   write: "Create or overwrite files within the run's writable workspace roots.",
-  bash: "Execute shell commands in the run's workspace with sandbox restrictions.",
+  bash: "Execute shell commands in the run's workspace, or with cwd in one of its roots, with sandbox restrictions.",
 };
 
 const describeSandboxTool = (definition: AgentToolDefinition): AgentToolDefinition => {
@@ -95,12 +104,6 @@ const sandboxDescriptorDefinitions = [
 const sandboxDescriptors = sandboxDescriptorDefinitions.map((definition) =>
   toolDescriptorFrom(describeSandboxTool(definition), alwaysAvailable));
 
-/** Eine ausdrücklich verlangte Bash-Zeitgrenze verlängert, wie lange ein entfernter Executor warten darf. */
-const durationOf = (tool: string, params: unknown): { durationMs?: number } => {
-  const seconds = tool === "bash" ? (params as { timeout?: unknown } | null)?.timeout : undefined;
-  return typeof seconds === "number" && seconds > 0 ? { durationMs: seconds * 1000 } : {};
-};
-
 interface StableRunParts {
   ident?: SessionIdent;
   home: SandboxHomeEnvironment;
@@ -109,6 +112,20 @@ interface StableRunParts {
   temporary?: string;
 }
 
+const mixedRoots = (aliases: readonly string[]): DomainError => new DomainError(
+  "workspace-roots-mixed",
+  `Der Aufruf nennt ${aliases.join(", ")} auf dem Server und zugleich einen Pfad im Arbeitsbereich auf dem Arbeitsplatz; `
+    + "ein Aufruf erreicht nur einen Rechner. Teile ihn in einen Aufruf je Rechner.",
+  400,
+);
+
+/** Die Ordner, die ein Arbeitsbereich der Prozess-Sandbox zusätzlich öffnet, getrennt nach Zugriff; ein relativer Pfad hätte auf dem Server keinen Ort. */
+const sandboxFoldersWith = (folders: readonly SandboxFolder[], access: SandboxFolder["access"]): string[] =>
+  folders.filter((folder) => folder.access === access).map((folder) => {
+    if (!path.isAbsolute(folder.directory)) throw new Error(`Der Ordner ${folder.directory} für die Prozess-Sandbox muss absolut sein`);
+    return folder.directory;
+  });
+
 /** Ein nur lesbarer Pfad, den es nicht gibt, ist keine Wurzel; ein fehlender Skill-Ordner darf keinen Run verhindern. */
 const existingRoots = async (roots: readonly ResolvedWorkspaceRoot[]): Promise<ResolvedWorkspaceRoot[]> => {
   const resolved = await Promise.all(roots.map((root) =>
@@ -116,7 +133,7 @@ const existingRoots = async (roots: readonly ResolvedWorkspaceRoot[]): Promise<R
   return resolved.filter((root) => root !== undefined);
 };
 
-/** Der Executor des Servers, seine Wurzeln und die Weiterreichung der Arbeitsplatz-Werkzeuge an den Executor des Runs. */
+/** Der Executor des Servers mit den Wurzeln des Servers; eine Operation mit Alias läuft dort, jede andere beim Executor der Bindung des Runs. */
 export class WorkspaceSandboxHost implements SandboxServices {
   readonly #options: WorkspaceSandboxHostOptions;
   readonly #workspaceRoots: RegisteredWorkspaceRoot[] = [];
@@ -126,7 +143,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
   constructor(options: WorkspaceSandboxHostOptions) {
     this.#options = options;
     this.#local = new WorkspaceOperationExecutor({
-      contextFor: (runId) => this.#contextFor(runId),
+      contextFor: (runId) => this.serverProcessContextFor(runId),
       modules: workspaceExecutorModules(),
     });
   }
@@ -135,8 +152,9 @@ export class WorkspaceSandboxHost implements SandboxServices {
     if (!root.id.trim() || this.#workspaceRoots.some((entry) => entry.id === root.id)) {
       throw new Error(`Arbeitsverzeichnis ${root.id} ist leer oder bereits registriert`);
     }
-    if (root.alias && (!/^@[a-z][a-z0-9-]*$/.test(root.alias) || this.#workspaceRoots.some((entry) => entry.alias === root.alias))) {
-      throw new Error(`Arbeitsverzeichnis-Alias ${root.alias} ist ungültig oder bereits registriert`);
+    if (root.alias && (!/^@[a-z][a-z0-9-]*$/.test(root.alias) || root.alias === SKILLS_ALIAS
+      || this.#workspaceRoots.some((entry) => entry.alias === root.alias))) {
+      throw new Error(`Arbeitsverzeichnis-Alias ${root.alias} ist ungültig, dem Host vorbehalten oder bereits registriert`);
     }
     if (root.environmentVariable && (!/^RAGENTS_[A-Z_]+_DIR$/.test(root.environmentVariable) || this.#workspaceRoots.some((entry) => entry.environmentVariable === root.environmentVariable))) {
       throw new Error(`Arbeitsverzeichnis-Variable ${root.environmentVariable} ist ungültig oder bereits registriert`);
@@ -157,6 +175,15 @@ export class WorkspaceSandboxHost implements SandboxServices {
     return roots.filter((root) => root !== undefined);
   }
 
+  /** Die Wurzeln des Servers mit Alias, die ein Run neben seinem Arbeitsbereich erreicht: die registrierten und die Skill-Ordner. */
+  async serverRoots(): Promise<readonly ServerRootDescription[]> {
+    const registered = this.#workspaceRoots.flatMap(({ alias, environmentVariable }) => alias === undefined ? [] : [{
+      alias, writable: true, ...(environmentVariable === undefined ? {} : { environmentVariable }),
+    }]);
+    const skills = (await this.#options.skillPaths()).length > 0 ? [{ alias: SKILLS_ALIAS, writable: false }] : [];
+    return [...registered, ...skills];
+  }
+
   /** Bei einem Run mit eigenem Executor ein Ordner des Runs auf dem Server, sonst derselbe Kontext wie für seine Werkzeuge. */
   async serverProcessContextFor(runId: string): Promise<WorkspaceProcessContext> {
     if (!await this.#options.executorFor?.(runId)) return this.#contextFor(runId);
@@ -171,10 +198,17 @@ export class WorkspaceSandboxHost implements SandboxServices {
     const { ident, home, readOnlyRoots, temporary } = await this.#stableParts(runId, workspace);
     const root = serverDirectory ?? await workspace.currentRoot();
     const additionalRoots = await this.#additionalRoots(runId, ident);
+    const folders = workspace.sandboxFolders ?? [];
     const sandbox = this.#options.processSandbox && temporary !== undefined
       ? this.#options.processSandbox.forRun({
-        writable: [root, ...additionalRoots.map((entry) => entry.directory), home.home, ...home.nugetPackages ? [home.nugetPackages] : []],
-        readable: [...readOnlyRoots.map((entry) => entry.directory), ...this.#options.storageRootFor ? [this.#options.storageRootFor(runId)] : []],
+        writable: [
+          root, ...additionalRoots.map((entry) => entry.directory), home.home, ...home.nugetPackages ? [home.nugetPackages] : [],
+          ...sandboxFoldersWith(folders, "write"),
+        ],
+        readable: [
+          ...readOnlyRoots.map((entry) => entry.directory), ...this.#options.storageRootFor ? [this.#options.storageRootFor(runId)] : [],
+          ...sandboxFoldersWith(folders, "read"),
+        ],
         temporary,
       })
       : undefined;
@@ -237,7 +271,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
     return {
       ...(ident ? { ident } : {}),
       home,
-      readOnlyRoots: await existingRoots(skills.map((directory) => ({ directory }))),
+      readOnlyRoots: await existingRoots(skills.map((directory) => ({ directory, alias: skillRootAlias(path.basename(directory)) }))),
       ...(temporary ? { temporary } : {}),
     };
   }
@@ -250,10 +284,13 @@ export class WorkspaceSandboxHost implements SandboxServices {
     };
   }
 
+  /** Die Laufzeit, die eine Eingabe selbst verlangt, gilt, wenn der Aufrufer keine nennt; sie verlängert nur das Warten auf einen entfernten Executor. */
   async execute(runId: string, operation: string, input: unknown, options: WorkspaceExecuteOptions = {}): Promise<unknown> {
-    const executor = await this.#executorFor(runId);
     try {
-      return await executor.execute(runId, operation, input, options);
+      const { roots, durationMs } = this.#local.footprintOf(operation, input);
+      const executor = await this.#executorFor(runId, roots);
+      const timed = options.durationMs === undefined && durationMs !== undefined ? { ...options, durationMs } : options;
+      return await executor.execute(runId, operation, input, timed);
     } catch (error) {
       throw withDomainCause(error);
     }
@@ -273,8 +310,12 @@ export class WorkspaceSandboxHost implements SandboxServices {
     return this.#local.shutdown();
   }
 
-  async #executorFor(runId: string): Promise<WorkspaceExecutor> {
-    return await this.#options.executorFor?.(runId) ?? this.#local;
+  /** Aliasse nennen Wurzeln des Servers, jeder andere Pfad die Wurzel des Runs auf der Maschine seiner Bindung; ohne Alias entscheidet die Bindung. */
+  async #executorFor(runId: string, { aliases, runRoot }: AddressedRoots): Promise<WorkspaceExecutor> {
+    const bound = await this.#options.executorFor?.(runId);
+    if (!bound || aliases.length === 0) return bound ?? this.#local;
+    if (runRoot) throw mixedRoots(aliases);
+    return this.#local;
   }
 
   #workspaceToolsFor(context: PluginContext): Promise<RunFunction[]> {
@@ -286,7 +327,6 @@ export class WorkspaceSandboxHost implements SandboxServices {
           this.execute(context.runId, described.name, params, {
             toolCallId,
             ...(signal ? { signal } : {}),
-            ...durationOf(described.name, params),
           }),
       } as AgentToolDefinition;
       return agentToolFrom(proxy, alwaysAvailable, described.name === "bash" ? "sequential" : "parallel");

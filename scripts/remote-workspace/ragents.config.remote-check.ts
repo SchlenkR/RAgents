@@ -46,6 +46,8 @@ export const config = {
       "ragents.product",
       "ragents.processes",
       "ragents.documents",
+      "ragents.ask",
+      "ragents.actor-programs",
       "ragents.lsp-typescript",
     ],
   },

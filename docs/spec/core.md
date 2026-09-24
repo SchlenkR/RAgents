@@ -264,9 +264,15 @@ In jeder Laufzeit sind zwei interne Hooks aktiv:
   Skillnamen und Beschreibungen. Er sieht keine Skill-Bodies und darf `ABSTAIN` liefern. Fehler
   blockieren den Hauptturn nicht, sondern lassen den normalen Skill-Katalog der Agentenlaufzeit unverändert.
 
-Ein Skillname gilt je Agent genau einmal. Liefern zwei Plugins einen Skill gleichen Namens,
-scheitert das Öffnen der Laufzeit und damit der Turn mit beiden SKILL.md-Pfaden, statt dass
-Katalog und Vorladen still den ersten nehmen.
+Ein Skillname gilt im ganzen Profil genau einmal, auch über Zielgruppen hinweg, weil er den Ordner
+bestimmt, unter dem das Modell den Skill erreicht. Liefern zwei Plugins einen Skill gleichen
+Namens, bricht der Start mit beiden Ordnern ab (`SkillContributionRegistry.assertUniqueNames`);
+bekommt eine Laufzeit trotzdem zwei, scheitert ihr Öffnen und damit der Turn mit beiden
+SKILL.md-Pfaden, statt dass Katalog und Vorladen still den ersten nehmen. Katalog und Vorladen
+nennen einen Skill unter `Skill.location`, `@skills/<name>/SKILL.md`: dem Ort, an dem die
+Werkzeuge des Modells ihn in jeder Bindung nur lesend erreichen (`plugins.md`, Abschnitt
+Arbeitsbereich, Sandbox-Werkzeuge und Prozesse), nie unter dem Pfad auf dem Server, aus dem der Host
+den Body liest (`Skill.filePath`). Relative Pfade in einem Skill gelten in seinem Ordner.
 
 Die Produktrolle stammt aus genau einer Policy des aktiven `ProductRuntime`: Der in
 `primaryActorId` gewählte Actor ist `primary`, alle anderen ausführbaren Actors sind `worker`.
@@ -514,7 +520,9 @@ Hat ein Actor Arbeitsbereichswerkzeuge, hängt der Scheduler zu jedem Turn ein l
 seinen Systemprompt: die Beschreibung des aufgelösten Arbeitsbereichs, die der Arbeitsbereich
 selbst liefert (`SessionWorkspace.description`, im Kern nur ein Text ohne Werkzeugbezug). Sie
 nennt, was der Ordner ist, wo er liegt und auf wessen Rechner, und fordert dazu auf, sich vor
-Aussagen über das Projekt darin umzusehen. Das gilt für jeden Actor, nicht nur den Koordinator,
+Aussagen über das Projekt darin umzusehen; dazu die Wurzeln des Servers mit ihrem Alias, wie die
+Werkzeuge sie in dieser Bindung erreichen und welche Variablen es nur in der Bash auf dem Server
+gibt. Das gilt für jeden Actor, nicht nur den Koordinator,
 und auch nach einem `refreshTools` im laufenden Turn, gleich ob der Host die Werkzeuge als
 Funktionen stellt oder die Agentenlaufzeit sie mitbringt. Dieses Kapitel ist die einzige Stelle,
 die einem Modell ein Arbeitsverzeichnis nennt: die Agentenlaufzeit hängt an den Systemprompt des

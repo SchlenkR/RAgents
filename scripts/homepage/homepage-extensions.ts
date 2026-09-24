@@ -628,7 +628,7 @@ test("merkt sich getrennte Inputs", async () => {
   }
 }`, ["appPackage.title", "appPackage.description", "appPackage.backend", "appPackage.views"], [
     "Mindestens Backend oder eine View muss vorhanden sein. Ohne Backend bindet eine neue View an den aufrufenden Actor; eine Dummy-Installation entfällt.",
-    "actor_program_create legt das Paket mit festen lokalen Abhängigkeiten an. Dateiwerkzeuge und Language Server verwenden @actors/<name>/, Bash RAGENTS_ACTORS_DIR.",
+    "actor_program_create legt das Paket mit festen lokalen Abhängigkeiten an. Dateiwerkzeuge und Language Server verwenden @actors/<name>/, Bash denselben Alias als cwd.",
     "Geänderte Projektfehler erscheinen vor Modellanfragen als kurze Deltas. actor_program_diagnostics liefert den vollständigen Stand, actor_program_activate prüft und aktiviert.",
   ], "json"),
   entry("app-contract", "Actor-Programme", "Ein Vertrag für Actor-Zustand und Funktionen", "Der TypeBox-Vertrag beschreibt die Daten eines Actors und die Ein- und Ausgaben ihrer Funktionen. Eine Funktion ist in der View aufrufbar und kann mit derselben Implementierung zusätzlich in der gemeinsamen TypeScript-API angeboten werden. Die SDK-Typen entstehen daraus automatisch.", "src/contract.ts; gemeinsamer Vertrag für die folgende Backend-Funktion.", `

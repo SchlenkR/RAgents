@@ -453,7 +453,7 @@ export function ActorViewFrame({
           className={cn("absolute inset-0 h-full w-full min-h-0 min-w-0 border-0", compact ? "bg-transparent" : "bg-background")}
           ref={iframeRef}
           referrerPolicy="no-referrer"
-          sandbox="allow-scripts allow-downloads"
+          sandbox="allow-scripts allow-forms allow-downloads"
           aria-label={app.title}
           title=""
         />

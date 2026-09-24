@@ -46,7 +46,7 @@ function reference(catalog: HomepageCatalog): string {
       ...files(template.files),
     ]).trimEnd()),
     "## Actor-Programm",
-    "actor_program_create erzeugt ein Paket unter @actors/<name>/ mit festen lokalen Abhängigkeiten. Dateiwerkzeuge und Language Server verwenden diesen Alias; Bash nutzt RAGENTS_ACTORS_DIR. Vor Modellanfragen erscheinen kurze Diagnostik-Deltas geänderter Projekte. actor_program_diagnostics liefert den letzten vollständigen Stand, actor_program_activate prüft, baut, testet und aktiviert das Paket.",
+    "actor_program_create erzeugt ein Paket unter @actors/<name>/ mit festen lokalen Abhängigkeiten. Dateiwerkzeuge und Language Server verwenden diesen Alias, Bash denselben Alias als cwd. Vor Modellanfragen erscheinen kurze Diagnostik-Deltas geänderter Projekte. actor_program_diagnostics liefert den letzten vollständigen Stand, actor_program_activate prüft, baut, testet und aktiviert das Paket.",
     json(catalog.actorProgramAuthoring.package),
     "## Actor-Backendvertrag", json(catalog.actorProgramAuthoring.backend),
     "## Mini-App-Client",

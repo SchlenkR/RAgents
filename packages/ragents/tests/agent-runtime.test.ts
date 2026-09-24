@@ -331,6 +331,7 @@ test("Two skills with the same name, say from two plugins, fail the runtime crea
         description: "Prüft Änderungen.",
         filePath: join(directory, plugin, "review", "SKILL.md"),
         baseDir: join(directory, plugin, "review"),
+        location: "@skills/review/SKILL.md",
         disableModelInvocation: false,
     });
     const manager = new AgentRuntimeManager({ modelRuntime, resolveSkills: () => [skillIn("first"), skillIn("second")] });
@@ -341,6 +342,38 @@ test("Two skills with the same name, say from two plugins, fail the runtime crea
             `Der Skill review ist mehrfach vorhanden: ${skillIn("first").filePath}, ${skillIn("second").filePath}.`,
         );
         assert.equal(faux.state.callCount, 0);
+    } finally {
+        await manager.shutdown();
+        faux.unregister();
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test("Preloading names the location the tools reach, never the host path of the SKILL.md", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "ragents-skill-location-"));
+    const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, "skill-location", 0);
+    mkdirSync(join(directory, "review"));
+    writeFileSync(join(directory, "review", "SKILL.md"), "---\nname: review\ndescription: Prüft Änderungen.\n---\nLies checkliste.md.\n");
+    const skill = {
+        name: "review",
+        description: "Prüft Änderungen.",
+        filePath: join(directory, "review", "SKILL.md"),
+        baseDir: join(directory, "review"),
+        location: "@skills/review/SKILL.md",
+        disableModelInvocation: false,
+    };
+    const prompts: string[] = [];
+    faux.setResponses([(context) => {
+        prompts.push(context.systemPrompt ?? "");
+        return fauxAssistantMessage("Geprüft.");
+    }]);
+    const manager = new AgentRuntimeManager({ modelRuntime, resolveSkills: () => [skill] });
+    try {
+        const result = await manager.runTurn({ ...requestFor(), prompt: "/skill:review bitte", workspace: directory, selection }, new AbortController().signal);
+        assert.equal(result.failure, null);
+        assert.equal(prompts.length, 1);
+        assert.match(prompts[0]!, /<preloaded_skill name="review" location="@skills\/review\/SKILL\.md">\nLies checkliste\.md\./);
+        assert.equal(prompts[0]!.includes(directory), false);
     } finally {
         await manager.shutdown();
         faux.unregister();

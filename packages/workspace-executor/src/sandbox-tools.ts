@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { stat } from "node:fs/promises";
 import path from "node:path";
 import {
   createBashToolDefinition,
@@ -10,11 +11,12 @@ import {
   type ShellConfig,
 } from "@ragents/agent";
 import type { WorkspaceProcessContext } from "./context.js";
+import { WorkspaceOperationError } from "./errors.js";
 import { processGroupExists, stopProcessTree } from "./managed-process.js";
 import type { WorkspaceModuleFactory, WorkspaceOperation } from "./module.js";
 import { sandboxedLaunch } from "./process-sandbox.js";
 import { stopUidProcesses } from "./session-ident.js";
-import { allowedWorkspacePath, expandWorkspaceAlias } from "./paths.js";
+import { allowedWorkspacePath, expandWorkspaceAlias, rootsOfFields, type OperationFootprint } from "./paths.js";
 
 export interface ToolUpdate {
   content?: ReadonlyArray<{ type: string; text?: string }>;
@@ -54,8 +56,7 @@ export const withAnnotation = (result: unknown, note: string | undefined): unkno
 };
 
 /** Löst `$RAGENTS_..._DIR` und `${...}` am Anfang eines Pfads gegen die Variablen des Kontexts auf. */
-const expandPathVariables = (value: unknown, variables: Readonly<Record<string, string>>): unknown => {
-  if (typeof value !== "string") return value;
+const expandPathVariables = (value: string, variables: Readonly<Record<string, string>>): string => {
   for (const [name, root] of Object.entries(variables)) {
     for (const prefix of [`$${name}`, `\${${name}}`]) {
       const relative = value.startsWith("./") ? value.slice(2) : value;
@@ -150,16 +151,34 @@ export const createSandboxTools = async (
     const checked: ToolExecute = async (toolCallId, input, signal, onUpdate, ctx) => {
       const params = input as { path?: unknown } | undefined;
       const context = await contextFor();
-      if (params && typeof params.path === "string") {
-        params.path = expandPathVariables(expandWorkspaceAlias(params.path, context.workspaceAliases ?? {}), context.pathVariables ?? {});
-      }
+      const requested = typeof params?.path === "string"
+        ? expandPathVariables(expandWorkspaceAlias(params.path, context.workspaceAliases ?? {}), context.pathVariables ?? {})
+        : undefined;
       const writable = [context.root, ...context.additionalRoots ?? []];
-      await assertInsideRoots(params?.path, writing ? writable : [...writable, ...context.readOnlyRoots ?? []]);
-      const result = await execute(toolCallId, input, signal, onUpdate, ctx);
-      if (!writing || !annotate || typeof params?.path !== "string") return result;
-      return withAnnotation(result, await annotate(path.resolve(cwd, params.path)));
+      await assertInsideRoots(requested ?? params?.path, writing ? writable : [...writable, ...context.readOnlyRoots ?? []]);
+      const result = await execute(toolCallId, requested === undefined ? input : { ...params, path: requested }, signal, onUpdate, ctx);
+      if (!writing || !annotate || requested === undefined) return result;
+      return withAnnotation(result, await annotate(path.resolve(cwd, requested)));
     };
     return writing ? serial(checked) : concurrent(checked);
+  };
+
+  /** Der Ordner eines Bash-Aufrufs: relativ zum Arbeitsverzeichnis oder mit Alias, auf jedem Rechner gleich, darum nie absolut, und immer in einer Wurzel des Runs. */
+  const inFolder = (execute: ToolExecute): ToolExecute => async (toolCallId, input, signal, onUpdate, ctx) => {
+    const params = input as { cwd?: unknown } | undefined;
+    if (params?.cwd === undefined) return execute(toolCallId, input, signal, onUpdate, ctx);
+    const requested = params.cwd;
+    if (typeof requested !== "string" || requested === "" || path.isAbsolute(requested)) {
+      throw new WorkspaceOperationError("workspace-path-invalid",
+        `cwd nennt einen Ordner relativ zum Arbeitsverzeichnis oder beginnt mit einem Alias wie @actors; ${JSON.stringify(requested)} ist das nicht`, 400);
+    }
+    const context = await contextFor();
+    const directory = await allowedWorkspacePath(path.resolve(cwd, expandWorkspaceAlias(requested, context.workspaceAliases ?? {})),
+      [context.root, ...context.additionalRoots ?? [], ...context.readOnlyRoots ?? []]);
+    if (!(await stat(directory).catch(() => undefined))?.isDirectory()) {
+      throw new WorkspaceOperationError("workspace-path-not-found", `Den Ordner ${requested} gibt es nicht`, 404);
+    }
+    return execute(toolCallId, { ...params, cwd: directory }, signal, onUpdate, ctx);
   };
 
   const startBash: BashOperations["exec"] = async (command, commandCwd, options) => {
@@ -253,7 +272,7 @@ export const createSandboxTools = async (
     ["read", guarded(executeOf(createReadToolDefinition(cwd)), false)],
     ["edit", guarded(executeOf(createEditToolDefinition(cwd)), true)],
     ["write", guarded(executeOf(createWriteToolDefinition(cwd)), true)],
-    ["bash", serial(executeOf(createBashToolDefinition(cwd, { operations: bashOperations })))],
+    ["bash", serial(inFolder(executeOf(createBashToolDefinition(cwd, { operations: bashOperations }))))],
   ];
   return {
     tools: new Map(wrapped.map(([name, execute]) =>
@@ -264,6 +283,20 @@ export const createSandboxTools = async (
 
 /** Die Operationen des Moduls heißen wie die Werkzeuge, die das Modell sieht. */
 export const SANDBOX_TOOL_NAMES = ["read", "edit", "write", "bash"] as const;
+
+/** Eine ausdrücklich verlangte Zeitgrenze in Sekunden verlängert, wie lange ein entfernter Executor auf die Bash warten darf. */
+const bashDuration = (input: unknown): { durationMs?: number } => {
+  const seconds = typeof input === "object" && input !== null ? (input as { timeout?: unknown }).timeout : undefined;
+  return typeof seconds === "number" && seconds > 0 ? { durationMs: seconds * 1000 } : {};
+};
+
+/** Die Dateiwerkzeuge sprechen die Wurzel ihres Pfads an, Bash die ihres Ordners und ohne Ordner keine bestimmte. */
+const sandboxToolFootprints: Readonly<Record<(typeof SANDBOX_TOOL_NAMES)[number], (input: unknown) => OperationFootprint>> = {
+  read: (input) => ({ roots: rootsOfFields(input, "path") }),
+  edit: (input) => ({ roots: rootsOfFields(input, "path") }),
+  write: (input) => ({ roots: rootsOfFields(input, "path") }),
+  bash: (input) => ({ roots: rootsOfFields(input, "cwd"), ...bashDuration(input) }),
+};
 
 const textOf = (update: ToolUpdate): string =>
   (update.content ?? [])
@@ -305,6 +338,7 @@ export const sandboxToolsModule: WorkspaceModuleFactory = (host) => {
   };
   return {
     operations: Object.fromEntries(SANDBOX_TOOL_NAMES.map((name) => [name, operation(name)])),
+    footprints: sandboxToolFootprints,
     stopRun,
     shutdown: async () => {
       const results = await Promise.allSettled([...sandboxes.keys()].map(stopRun));

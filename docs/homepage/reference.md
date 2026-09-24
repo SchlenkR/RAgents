@@ -6030,9 +6030,9 @@ In jedem Turn verfügbar; die Frage geht immer an den Benutzer des Runs.
 
 bash
 
-Execute shell commands in the run's workspace with sandbox restrictions.
+Execute shell commands in the run's workspace, or with cwd in one of its roots, with sandbox restrictions.
 
-Execute a bash command in the current working directory. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last 2000 lines or 50KB (whichever is hit first). If truncated, full output is saved to a temp file. Optionally provide a timeout in seconds.
+Execute a bash command in the working directory, or in the folder given as cwd. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last 2000 lines or 50KB (whichever is hit first). If truncated, full output is saved to a temp file. Optionally provide a timeout in seconds.
 
 Eigentümer: ragents.workspace. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
 
@@ -6054,6 +6054,10 @@ In jedem Modell-Turn verfügbar.
     "timeout": {
       "type": "number",
       "description": "Timeout in seconds (optional, no default timeout)"
+    },
+    "cwd": {
+      "type": "string",
+      "description": "Folder to run the command in: relative to the working directory or starting with a workspace alias such as @name; defaults to the working directory"
     }
   }
 }
@@ -14884,7 +14888,7 @@ test("ergänzt Einträge ohne vorhandene Einträge zu verlieren", async () => {
 
 ## Actor-Programm
 
-actor_program_create erzeugt ein Paket unter @actors/<name>/ mit festen lokalen Abhängigkeiten. Dateiwerkzeuge und Language Server verwenden diesen Alias; Bash nutzt RAGENTS_ACTORS_DIR. Vor Modellanfragen erscheinen kurze Diagnostik-Deltas geänderter Projekte. actor_program_diagnostics liefert den letzten vollständigen Stand, actor_program_activate prüft, baut, testet und aktiviert das Paket.
+actor_program_create erzeugt ein Paket unter @actors/<name>/ mit festen lokalen Abhängigkeiten. Dateiwerkzeuge und Language Server verwenden diesen Alias, Bash denselben Alias als cwd. Vor Modellanfragen erscheinen kurze Diagnostik-Deltas geänderter Projekte. actor_program_diagnostics liefert den letzten vollständigen Stand, actor_program_activate prüft, baut, testet und aktiviert das Paket.
 
 ```json
 {

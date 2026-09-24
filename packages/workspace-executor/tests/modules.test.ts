@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
+  COMMAND_OPERATIONS,
   FILE_OPERATIONS,
   FILE_READ_LIMIT,
   PROCESS_OPERATIONS,
@@ -16,6 +17,7 @@ import {
   hasProcessTable,
   languageServerModule,
   processModule,
+  workspaceExecutorModules,
   workspaceProcessContext,
   type FileListing,
   type FileText,
@@ -77,6 +79,51 @@ test("jede Operation gehört genau einem Modul, eine unbekannte ist ein Fehler m
   const executor = new WorkspaceOperationExecutor({ contextFor: contextIn(tmpdir()), modules: [echo] });
   assert.equal(await executor.execute("run-1", "echo", "hallo"), "hallo");
   await assert.rejects(executor.execute("run-1", "grep", null), coded("workspace-operation-unknown", /kennt die Operation grep nicht/));
+});
+
+test("der Fußabdruck einer Eingabe nennt ihre Wurzeln und ihre Laufzeit, erklärt vom Modul der Operation", async () => {
+  const executor = new WorkspaceOperationExecutor({ contextFor: contextIn(tmpdir()), modules: workspaceExecutorModules() });
+  const roots = (operation: string, input: unknown) => executor.footprintOf(operation, input).roots;
+  assert.deepEqual(roots("read", { path: "@actors/app/src/index.ts" }), { aliases: ["@actors"], runRoot: false });
+  assert.deepEqual(roots("write", { path: "src/index.ts", content: "" }), { aliases: [], runRoot: true });
+  assert.deepEqual(roots("edit", { path: "/abs/src/index.ts" }), { aliases: [], runRoot: true });
+  assert.deepEqual(roots("bash", { command: "ls" }), { aliases: [], runRoot: false });
+  assert.deepEqual(executor.footprintOf("bash", { command: "ls", cwd: "@skills/notes", timeout: 30 }), { roots: { aliases: ["@skills"], runRoot: false }, durationMs: 30_000 });
+  assert.deepEqual(roots("typescript_open", { root: "@actors/app" }), { aliases: ["@actors"], runRoot: false });
+  assert.deepEqual(roots("typescript_diagnostics", { root: "@actors/app", paths: ["src/a.ts", "@actors/app/b.ts"] }), { aliases: ["@actors"], runRoot: true });
+  assert.deepEqual(roots("typescript_diagnostics", {}), { aliases: [], runRoot: false });
+  assert.deepEqual(roots(FILE_OPERATIONS.read, { path: "SKILL.md", alias: "@skills/notes" }), { aliases: ["@skills"], runRoot: false });
+  assert.deepEqual(roots(FILE_OPERATIONS.list, { path: "@actors" }), { aliases: [], runRoot: true });
+  assert.deepEqual(executor.footprintOf(COMMAND_OPERATIONS.run, { program: "git", timeoutMs: 5_000 }), { roots: { aliases: [], runRoot: true }, durationMs: 5_000 });
+  assert.deepEqual(executor.footprintOf(PROCESS_OPERATIONS.snapshot, null), { roots: { aliases: [], runRoot: false } });
+  assert.deepEqual(roots("read", "kein Objekt"), { aliases: [], runRoot: false });
+  const stray: WorkspaceModuleFactory = () => ({ operations: {}, footprints: { fremd: () => ({ roots: { aliases: [], runRoot: false } }) } });
+  assert.throws(() => new WorkspaceOperationExecutor({ contextFor: contextIn(tmpdir()), modules: [stray] }), /Fußabdruck für fremd, eine Operation, die es nicht hat/);
+  await executor.shutdown();
+});
+
+test("ein Alias nennt genau eine Wurzel, und unter einem gemeinsamen Alias wie @skills wählt der erste Ordner die Wurzel", async () => {
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-shared-alias-")));
+  const notes = path.join(directory, "skills", "notes");
+  await mkdir(notes, { recursive: true });
+  await writeFile(path.join(notes, "SKILL.md"), "Notizen\n");
+  const context = (roots: readonly { directory: string; alias: string }[]) => workspaceProcessContext({
+    runId: "run-1", cwd: directory, root: directory, home: { home: directory }, logDirectory: directory, hostRoot: undefined, readOnlyRoots: roots,
+  });
+  try {
+    assert.throws(() => context([{ directory: notes, alias: "@skills/notes" }, { directory, alias: "@skills/notes" }]), /@skills\/notes nennt mehr als eine Wurzel/);
+    assert.throws(() => context([{ directory: notes, alias: "@skills" }, { directory: notes, alias: "@skills/notes" }]), /@skills nennt mehr als eine Wurzel/);
+    const executor = new WorkspaceOperationExecutor({ contextFor: async () => context([{ directory: notes, alias: "@skills/notes" }]), modules: [fileModule] });
+    for (const input of [{ alias: "@skills/notes", path: "SKILL.md" }, { alias: "@skills", path: "notes/SKILL.md" }]) {
+      const text = await executor.execute("run-1", FILE_OPERATIONS.read, input) as FileText;
+      assert.equal(text.previewable ? text.content : undefined, "Notizen\n", JSON.stringify(input));
+    }
+    await assert.rejects(executor.execute("run-1", FILE_OPERATIONS.read, { alias: "@skills", path: "fehlt/SKILL.md" }),
+      coded("workspace-alias-unknown", /Unbekannter Arbeitsverzeichnis-Alias: @skills\/fehlt \(bekannt: @skills\/notes\)/));
+    await assert.rejects(executor.execute("run-1", FILE_OPERATIONS.list, { alias: "@skills", path: "" }), coded("workspace-alias-unknown"));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test("Fortschritt ist ein JSON-Wert, Anmerkungen kommen aus allen Modulen, stopRun und shutdown erreichen jedes Modul", async () => {

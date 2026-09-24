@@ -360,6 +360,15 @@ export class SkillContributionRegistry {
     return this.resolve(undefined);
   }
 
+  /** Ein Skillname bestimmt seinen Skill im ganzen Profil, auch über Zielgruppen hinweg; zwei Ordner gleichen Namens scheitern beim Start. */
+  async assertUniqueNames(): Promise<void> {
+    const paths = await this.global();
+    for (const name of new Set(paths.map(skillNameOf))) {
+      const named = paths.filter((entry) => skillNameOf(entry) === name);
+      if (named.length > 1) throw new Error(`Der Skillname ${name} ist im Profil mehrfach vergeben: ${named.join(", ")}`);
+    }
+  }
+
   async resolve(context: AgentContributionContext | undefined): Promise<readonly string[]> {
     const paths = (await this.describe(context)).flatMap((entry) => entry.paths);
     const unique = new Set(paths);
@@ -490,6 +499,9 @@ const validateStartEntry = (entry: StartEntryContribution): void => {
   }
 };
 
+/** Der Name eines Skills ist der Name seines Ordners. */
+const skillNameOf = (directory: string): string => directory.split(/[\\/]/).filter(Boolean).at(-1) ?? "";
+
 const byOrderThenId = (left: { order?: number; id: string }, right: { order?: number; id: string }): number =>
   (left.order ?? 0) - (right.order ?? 0) || left.id.localeCompare(right.id);
 
@@ -503,8 +515,7 @@ export class StartEntryContributionRegistry {
   }
 
   assertSkillsKnown(skills: readonly PublicSkillContribution[]): void {
-    const names = new Set(skills.flatMap((skill) =>
-      skill.paths.map((entry) => entry.split(/[\\/]/).filter(Boolean).at(-1) ?? "")));
+    const names = new Set(skills.flatMap((skill) => skill.paths.map(skillNameOf)));
     for (const { owner, value } of this.#entries.entries()) {
       if (value.action === "skill" && !names.has(value.skill)) {
         throw new Error(`Vorlage ${value.id} von ${owner} verweist auf den unbekannten Skill ${value.skill}`);
@@ -1128,6 +1139,7 @@ export class PluginHost {
   async initialize(): Promise<void> {
     this.seal();
     this.startEntries.assertSkillsKnown(await this.skills.describe(undefined));
+    await this.skills.assertUniqueNames();
     await this.lifecycle.initialize();
   }
 

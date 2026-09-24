@@ -3,6 +3,7 @@ import { access as fsAccess } from "node:fs/promises";
 import { spawn } from "child_process";
 import { Type } from "typebox";
 import { waitForChildProcess } from "../../utils/child-process.ts";
+import { resolvePath } from "../../utils/paths.ts";
 import { getShellConfig, killProcessTree } from "../../utils/shell.ts";
 import type { ToolDefinition } from "../extensions/types.ts";
 import { OutputAccumulator } from "./output-accumulator.ts";
@@ -27,6 +28,7 @@ function resolveTimeoutMs(timeout: number | undefined): number | undefined {
 const bashSchema = Type.Object({
 	command: Type.String({ description: "Bash command to execute" }),
 	timeout: Type.Optional(Type.Number({ description: "Timeout in seconds (optional, no default timeout)" })),
+	cwd: Type.Optional(Type.String({ description: "Folder to run the command in: relative to the working directory or starting with a workspace alias such as @name; defaults to the working directory" })),
 });
 
 
@@ -167,18 +169,18 @@ export function createBashToolDefinition(
 	return {
 		name: "bash",
 		label: "bash",
-		description: `Execute a bash command in the current working directory. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last ${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). If truncated, full output is saved to a temp file. Optionally provide a timeout in seconds.`,
+		description: `Execute a bash command in the working directory, or in the folder given as cwd. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last ${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). If truncated, full output is saved to a temp file. Optionally provide a timeout in seconds.`,
 		promptSnippet: "Execute bash commands (ls, grep, find, etc.)",
 		parameters: bashSchema,
 		async execute(
 			_toolCallId,
-			{ command, timeout }: { command: string; timeout?: number },
+			{ command, timeout, cwd: folder }: { command: string; timeout?: number; cwd?: string },
 			signal?: AbortSignal,
 			onUpdate?,
 			_ctx?,
 		) {
 			const resolvedCommand = commandPrefix ? `${commandPrefix}\n${command}` : command;
-			const spawnContext = resolveSpawnContext(resolvedCommand, cwd, spawnHook);
+			const spawnContext = resolveSpawnContext(resolvedCommand, folder === undefined ? cwd : resolvePath(folder, cwd), spawnHook);
 			const output = new OutputAccumulator({ tempFilePrefix: "agent-bash" });
 			let acceptingOutput = true;
 			let updateTimer: NodeJS.Timeout | undefined;

@@ -175,10 +175,10 @@ input, not a snippet:</p>
 </code></pre>
 <h3 id="execute-code">Execute code</h3>
 <p><code>typescript_eval</code> accepts exactly one of <code>code</code> or <code>path</code>. The source is the body of an async
-function with <code>context</code>; <code>return</code> produces the result. For <code>path</code>, the run executor
-(<code>files.read</code>) reads a file relative to the run root or under an alias such as <code>@actors</code>. For a
-connected workspace, the file comes from that machine and server-only aliases do not exist
-there. Execution always takes place on the server. Before execution, the shared compiler checks
+function with <code>context</code>; <code>return</code> produces the result. For <code>path</code>, the executor of the machine that
+holds the file reads it (<code>files.read</code>): a path relative to the run root from the machine the run is
+bound to, a path under an alias such as <code>@actors</code> from the server, also for a connected workspace.
+Execution always takes place on the server. Before execution, the shared compiler checks
 the code against the current API contract. Native execution uses the same executor, function
 resolver, and cancellation path as actor programs. A snippet requires no actor package,
 activation, or separate actor. Its variables live for that execution.</p>

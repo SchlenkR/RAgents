@@ -415,6 +415,12 @@ working. <code>start: true</code> also makes it selectable and requires a <code>
 <code>category</code>; <code>order</code>, <code>tags</code>, and <code>guide</code> are optional. <code>prompt</code> can provide a short starting task,
 otherwise the body is used. Explicit contributions use <code>action: &quot;skill&quot;</code>, <code>skill</code>, <code>category</code>,
 and <code>prompt</code>, and the skill name must be registered.</p>
+<p>A skill&#39;s name is its folder name and unique in a profile, across audiences; two folders with one
+name stop the server at startup. The model reaches every skill folder read-only as
+<code>@skills/&lt;name&gt;/</code>, whichever machine the run works on: the skill overview and preloading name
+<code>@skills/&lt;name&gt;/SKILL.md</code>, never the path on the server, and relative paths in a skill resolve in
+that folder. File tools read there, and <code>bash</code> runs there with <code>cwd: &quot;@skills/&lt;name&gt;&quot;</code>, on the
+server.</p>
 <p>Optional <code>disable-model-invocation: true</code> removes a skill from the model&#39;s automatic overview
 while keeping explicit loading available. Simple example tasks use it but remain selectable
 through <code>start: true</code>. Reusable instructions can also provide a short starting task so both stay

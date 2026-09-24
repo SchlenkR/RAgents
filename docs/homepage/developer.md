@@ -1061,7 +1061,7 @@ Einsatzort: package.json; pro View liefert der Host das HTML-Wurzelelement root.
 
 Mindestens Backend oder eine View muss vorhanden sein. Ohne Backend bindet eine neue View an den aufrufenden Actor; eine Dummy-Installation entfällt.
 
-actor_program_create legt das Paket mit festen lokalen Abhängigkeiten an. Dateiwerkzeuge und Language Server verwenden @actors/<name>/, Bash RAGENTS_ACTORS_DIR.
+actor_program_create legt das Paket mit festen lokalen Abhängigkeiten an. Dateiwerkzeuge und Language Server verwenden @actors/<name>/, Bash denselben Alias als cwd.
 
 Geänderte Projektfehler erscheinen vor Modellanfragen als kurze Deltas. actor_program_diagnostics liefert den vollständigen Stand, actor_program_activate prüft und aktiviert.
 

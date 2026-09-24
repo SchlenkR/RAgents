@@ -2,8 +2,11 @@
 export interface Skill {
 	name: string;
 	description: string;
+	/** Where the host reads the SKILL.md. */
 	filePath: string;
 	baseDir: string;
+	/** How the model's tools reach the SKILL.md; its folder holds the skill's other files. */
+	location: string;
 	disableModelInvocation: boolean;
 }
 
@@ -24,7 +27,7 @@ export function formatSkillsForPrompt(skills: readonly Skill[]): string {
 	const lines = [
 		"\n\nThe following skills provide specialized instructions for specific tasks.",
 		"Use the read tool to load a skill's file when the task matches its description.",
-		"When a skill file references a relative path, resolve it against the skill directory (parent of SKILL.md / dirname of the path) and use that absolute path in tool commands.",
+		"When a skill file references a relative path, resolve it against the skill's folder (its location without SKILL.md) and use that path with the tools. Skill folders are read-only.",
 		"",
 		"<available_skills>",
 	];
@@ -33,7 +36,7 @@ export function formatSkillsForPrompt(skills: readonly Skill[]): string {
 		lines.push("  <skill>");
 		lines.push(`    <name>${escapeXml(skill.name)}</name>`);
 		lines.push(`    <description>${escapeXml(skill.description)}</description>`);
-		lines.push(`    <location>${escapeXml(skill.filePath)}</location>`);
+		lines.push(`    <location>${escapeXml(skill.location)}</location>`);
 		lines.push("  </skill>");
 	}
 

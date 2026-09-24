@@ -195,6 +195,22 @@ const toolResolutionContext = {
   workspace: workspaceDirectory,
 } as unknown as PluginContext;
 
+test("kein Promptbeitrag und keine Werkzeugbeschreibung nennt eine Variable einer Wurzel des Servers, nur ihren Alias", async () => {
+  const host = await composed(showcaseFixture);
+  const toolNames = host.tools.describe().map((tool) => tool.name);
+  const prompts = [
+    ...(await host.prompts.snapshot({})).contributions,
+    ...await host.prompts.describe({}, { delivery: "on-demand", toolNames }),
+  ].map((entry) => [entry.id, entry.content] as const);
+  const functions = (await Promise.all(host.tools.entries().map((contributor) => contributor.tools(toolResolutionContext)))).flat()
+    .map((fn) => [fn.name, [fn.description, fn.longDescription ?? "", JSON.stringify(fn.schema)].join("\n")] as const);
+  const { actorProgramGuide } = await import("../../../plugins/ragents.actor-programs/server/prompts.ts");
+  for (const [id, text] of [...prompts, ...functions, ["actor_program_controls guide", await actorProgramGuide.render({})] as const]) {
+    assert.doesNotMatch(text, /RAGENTS_[A-Z_]+_DIR/, id);
+  }
+  assert.match(prompts.find(([id]) => id === "ragents.actor-programs.summary")?.[1] ?? "", /cwd: "@actors\/<name>"/);
+});
+
 test("function catalogs keep compact descriptions while runtime functions retain detailed instructions", async () => {
   const { createReadToolDefinition, createEditToolDefinition, createWriteToolDefinition, createBashToolDefinition } = await import("@ragents/agent");
   const originals = [createReadToolDefinition("."), createEditToolDefinition("."), createWriteToolDefinition("."), createBashToolDefinition(".")];

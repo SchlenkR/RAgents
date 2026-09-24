@@ -108,6 +108,15 @@ test("eine Skill-Vorlage darf nur auf einen registrierten Skill zeigen", () => {
   assert.throws(() => registry.assertSkillsKnown([skill("test.product", "release-md")]), /unbekannten Skill feature-run/);
 });
 
+test("ein Skillname gilt im ganzen Profil einmal, auch über Zielgruppen hinweg, und ein zweiter Ordner gleichen Namens scheitert beim Start", async () => {
+  const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: "/unused", storageModes: { sessionsRoot: 0o700, session: 0o700 } });
+  for (const [owner, audience] of [["first", "coordinator"], ["second", "agent"]] as const) {
+    host.register({ manifest: { id: `${owner}.plugin` }, register: (registration) =>
+      registration.skills({ id: `${owner}.review`, audiences: [audience], paths: () => [`/plugins/${owner}/skills/review`] }) });
+  }
+  await assert.rejects(host.initialize(), /Der Skillname review ist im Profil mehrfach vergeben: \/plugins\/first\/skills\/review, \/plugins\/second\/skills\/review/);
+});
+
 test("Skill-Vorlagen veröffentlichen genau eine freie Kategorie und leiten sie nicht aus Tags ab", () => {
   const registry = registered(simpleSkillEntry({ category: "Meine eigene Gruppe", tags: ["Anderes Schlagwort"] }));
   const card = registry.describe()[0]!;

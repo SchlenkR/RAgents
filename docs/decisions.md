@@ -1,5 +1,111 @@
 # Entscheidungen
 
+## Formulare im Mini-App-Rahmen, Aktivieren nach dem Entfernen (24.09.2026)
+
+Kapitel: `docs/spec/actor-programs.md` (Backend and client, Create, edit, and activate, Kachel-Host
+und Funktionen-Reiter). Vorgabe des Owners. Der Rahmen einer Ansicht war ohne `allow-forms`
+gesandboxt; Chromium feuerte dann kein `submit` ("Blocked form submission"), und `UI.Form` schickte
+nie ab. Festgelegt: `allow-forms` im iframe-Attribut und in der CSP-Direktive `sandbox`;
+`form-action 'none'` bleibt, eine echte Übermittlung an eine Adresse ist weiter unmöglich.
+Nachgewiesen in `apps/web/tests/actor-view-frame.test.ts` mit der CSP der Frame-Route. Zweitens
+stoppte `actor_program_remove` den TypeScript-Actor, dessen Handle belegt blieb, und ein Paket
+gleichen Namens scheiterte beim Aktivieren an "Handle already belongs to an actor". Festgelegt: Ist
+der Inhaber des Handles ein gestoppter TypeScript-Actor, startet das Aktivieren ihn neu
+(`restartActor` im Namen des Aufrufers, wie das Stoppen beim Entfernen) statt einen anzulegen; sein
+Zustand muss zum neuen Schema passen. Jeder andere Inhaber bleibt ein Fehler mit Ursache.
+
+## Jede Wurzel gehört einer Maschine: ein Alias läuft auf dem Server, auch im Run auf einem Arbeitsplatz (24.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Zuständigkeit je Facette; Arbeitsbereich, Sandbox-Werkzeuge und
+Prozesse; Prozess-Sandbox des Servers; Language-Server-Plugins; Skills and starting tasks),
+`docs/spec/actor-programs.md` (Packages and actor binding), `docs/spec/core.md` (Skills der
+Agentenlaufzeit, Arbeitsbereich im Systemprompt), `docs/spec/typescript-platform.md` (Execute
+code), `docs/operations.md` (Prozess-Sandbox, Datenablage, Isolation je Run). Vorgabe des Owners.
+
+**Befund.** Ein an einen Arbeitsplatz gebundener Run schickte jede Operation an dessen Executor,
+die Wurzeln des Servers kannte aber nur der Executor des Servers: den Workspace der Actor-Programme
+unter `@actors` und die Skill-Ordner. `read @actors/...` scheiterte mit "Unbekannter
+Arbeitsverzeichnis-Alias", `$RAGENTS_ACTORS_DIR` war in der Bash des Arbeitsplatzes leer, und die
+SKILL.md unter ihrem Serverpfad lag "außerhalb des Arbeitsverzeichnisses". Die Prompts versprachen
+beides trotzdem. Weil jeder VS-Code-Run mit Ordner so gebunden ist, ließen sich dort weder
+Mini-Apps bauen noch Skill-Dateien lesen; Spec und Test schrieben den Mangel fest.
+
+**Festlegung.** Jede Wurzel gehört einer Maschine: die Wurzel des Runs der Maschine seiner Bindung,
+die Wurzeln mit Alias dem Server. Eine Operation läuft beim Executor der Maschine, der die
+angesprochene Wurzel gehört; die Bindung bestimmt nur die Wurzel des Runs und damit, wo eine
+Operation ohne Alias läuft. Welche Wurzeln eine Eingabe anspricht, erklärt das Modul der Operation
+als Fußabdruck; `SandboxServices.execute` fragt ihn vor dem Versand beim Executor des Servers, der
+dieselben Module trägt wie jeder Arbeitsplatz, und schickt eine Operation mit Alias an diesen, im
+Kontext des Runs auf dem Server. Ein Aufruf über beide Maschinen scheitert mit
+`workspace-roots-mixed`. `bash` nimmt ein `cwd`: mit Alias läuft sie auf dem Server in derselben
+Prozess-Sandbox wie jeder andere Prozess des Runs dort, und nur diese Bash hat die Variablen der
+Wurzeln des Servers; eine eigene Sperre gibt es dafür nicht, weil der Weg den Node-Prozessen gleicht,
+die ein Run auf dem Server ohnehin startet. Skills stehen unter `@skills/<name>/`, in jeder Bindung
+nur lesbar. Was ein Prompt über Wurzeln sagt, entsteht je Run: die Selbstbeschreibung des
+Arbeitsbereichs nennt Aliasse, Weg und Variablen je Bindung, Plugin-Prompts und
+Werkzeugbeschreibungen nennen nur den Alias.
+
+**Warum die Gründe vom 20.09.2026 hier nicht greifen.** Der Eintrag "Ein Arbeitsplatz-Executor,
+überall derselbe" verwarf eine Weiche je Pfad: die Bindung `client` schickte damals fünf
+Grundoperationen zum Arbeitsplatz und behielt die Werkzeuglogik auf dem Server, jede Grundoperation
+musste je Pfad entscheiden, Sprachserver gab es bei `client` nicht, und die Git-Zugangsdaten des
+Servers gingen in eine fremde Bash. Jetzt wandert eine ganze Operation je Wurzel, und beide
+Executoren tragen dieselben Module mit der ganzen Werkzeuglogik; jeder behält seine Sprachserver;
+die Weiche liegt an einer Stelle vor dem Versand und fragt den Alias, keinen Pfad; und die Bash auf
+dem Server ist keine fremde Bash, sondern läuft in der Sandbox des Runs mit dessen Ordnern. "Keine
+gemischten Wurzeln" bleibt für den einzelnen Aufruf: er erreicht genau eine Maschine.
+
+**Beim Bau entschieden.** Der Fußabdruck hängt am Modul (`WorkspaceExecutorModule.footprints`, je
+Operation eine Funktion der Eingabe, die nie wirft, abgefragt über
+`WorkspaceOperationExecutor.footprintOf`) statt an der Operation, damit `operations` ein
+Verzeichnis von Funktionen bleibt; der Executor lehnt einen Fußabdruck für eine fremde Operation
+beim Bau ab. Er nennt `{ roots: { aliases, runRoot }, durationMs? }`: die Laufzeit, die eine Eingabe
+selbst verlangt, gehört dazu, damit `durationOf`, die letzte Stelle, an der der Sandbox-Host eine
+Werkzeugeingabe las (die Zeitgrenze der Bash), entfällt; `commands.run` erklärt so sein `timeoutMs`,
+und kein Aufrufer muss dafür noch `durationMs` nennen. Aliasse gibt es nur auf dem Server, deshalb
+geht jeder Alias dorthin, auch ein unbekannter: der Server nennt dann die bekannten, wie in einem
+Run auf dem Server, statt dass der Arbeitsplatz "bekannt: keine" meldet. Der Parameter der Bash
+heißt `cwd`, relativ zum Arbeitsverzeichnis oder mit Alias, nie absolut, weil ein absoluter Pfad nur
+auf einer Maschine gilt; er gehört zur Bash der Agentenlaufzeit, die Auflösung des Alias zum
+Executor, und ein nur lesbarer Ordner ist erlaubt, damit eine Bash im Skill-Ordner lesen kann.
+`WORKSPACE_EXECUTOR_VERSION` ist 4, weil ein älterer Arbeitsplatz `cwd` still überginge. Der
+Skill-Alias ist `@skills/<name>` je Skill als eigene nur lesbare Wurzel direkt auf seinem Ordner: kein
+kopierter Index, der veraltet, und keine Symlinks, die aus der Wurzel führen; der Name ist ohnehin der
+Ordnername. Dafür gilt ein Skillname im ganzen Profil einmal und wird beim Start geprüft,
+`files.list` und `files.read` lösen einen Alias mit Unterordner auf, und `workspaceProcessContext`
+lehnt doppelte oder verschachtelte Aliasse ab. `Skill.location` ist der Ort für das Modell,
+`filePath` bleibt der, aus dem der Host liest. Die Selbstbeschreibung entsteht beim Auflösen aus
+`WorkspaceSandboxHost.serverRoots()`, den registrierten Wurzeln und den Skills, ohne `directoryFor`
+zu rufen, das beim Auflösen aller Runs zum Start Ordner anlegen würde. Die Dateiwerkzeuge lösen
+`$RAGENTS_..._DIR` am Anfang eines Pfads weiter auf, weil der globale Koordinator seinen
+Journalordner nur über die Variable kennt und immer auf dem Server arbeitet.
+
+Verworfen: die Wurzeln des Servers in Runs auf einem Arbeitsplatz gar nicht anzubieten, weil es dort
+dann keine Mini-Apps und keine Skill-Dateien gäbe, und VS Code bindet jeden Run mit Ordner an den
+Arbeitsplatz; eigene Dateifunktionen je Plugin nach dem Muster von `document_write`, weil jedes
+Plugin mit einer Wurzel Lesen, Bearbeiten, Schreiben und Diagnostik doppelt bräuchte und die
+Sprachserver seine Dateien trotzdem nicht erreichten. Nachgewiesen mit
+`apps/server/tests/workspace-foreign-machine.test.ts` (Dateiwerkzeuge, Sprachserver, Bash,
+`typescript_eval`, Skills, gemischter Aufruf, Selbstbeschreibung und ein Actor-Programm vom Anlegen
+bis zum Aktivieren in einem Arbeitsplatz-Run), `process-sandbox.test.ts` (Bash mit Alias in der
+Sandbox des Runs) und `pnpm check:remote-workspace` mit Actor-Programm und Skill. Offen bleibt, dass
+Prozessleiste und Diagnosereiter eines Runs auf einem Arbeitsplatz nur zeigen, was beim Executor
+der Bindung läuft (`TODO.md`).
+
+## Zusätzliche Ordner für die Prozess-Sandbox im Arbeitsbereichs-Vertrag (24.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Zuständigkeit je Facette, Prozess-Sandbox des Servers). Ein
+Arbeitsbereich, den ein Plugin beisteuert, kann Ordner außerhalb seines Ordners brauchen: ein
+Git-Worktree je Run, dessen gemeinsames Repository (`git rev-parse --git-common-dir`) woanders
+liegt. Die Sandbox sperrte es, und Git per Bash scheiterte mit `not a git repository`. Festgelegt:
+`SessionWorkspace.sandboxFolders`, damit auch die `WorkspaceResolution` eines Beitrags, nennt je
+Ordner `directory`, absolut, und `access`, `read` oder `write`; der Sandbox-Host übernimmt sie beim
+Bau der Regeln des Runs, ein relativer Pfad ist ein Fehler. Der Kern kennt dabei kein Git, und die
+Freigabe gilt nur für Prozesse, nicht für die Dateiwerkzeuge. Host-API-Liste und Manifest bleiben,
+wie sie sind: das Feld ist Teil eines Typs, kein neuer Wert. Nachgewiesen unter macOS mit echter
+Sandbox in `apps/server/tests/process-sandbox.test.ts`: `git status` und ein Commit im Worktree
+gelingen nur mit dem erklärten Ordner.
+
 ## Schemaverletzungen mit Pfad, getypte Vorlagen, Anlegen ganz oder gar nicht (24.09.2026)
 
 Kapitel: `docs/spec/overview.md` (Verbindliche Regeln, Regel SCHEMAVERLETZUNGEN NENNEN PFAD UND

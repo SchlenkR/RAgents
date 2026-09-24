@@ -481,8 +481,10 @@ Ordner gestellt hat. Das ist die eine Stelle, an der ein Ablauf zentral fragt, w
 arbeitet; einen Mischwert aus beidem gibt es nicht. Meldet ein Beitrag eine Art, legt `ragents.workspace`
 für ihn kein eigenes Verzeichnis an; er bringt seines selbst mit. Die Auflösung liefert dann alles,
 was `SessionWorkspace` kennt: neben `cwd` auch `description`, `gitEnv`, `gitConfig`, `extraEnv`,
-`currentRoot`, `runOperation` und `hostSandbox` (Heimatordner, nur lesbare
-Wurzeln und mit `ident` das Konto, unter dem die Sandbox ausführt). Beenden und Löschen eines Runs
+`currentRoot`, `runOperation`, `hostSandbox` (Heimatordner, nur lesbare
+Wurzeln und mit `ident` das Konto, unter dem die Sandbox ausführt) und `sandboxFolders` (Ordner
+außerhalb des Arbeitsbereichs, die die Prozess-Sandbox des Runs zulässt, Abschnitt Prozess-Sandbox
+des Servers). Beenden und Löschen eines Runs
 gehen mit: `stopSession(runId, sandbox)` legt den Stopp des Beitrags um den Stopp der Sandbox des
 Hosts, `deleteSession(runId)` räumt danach weg, was `resolve` angelegt hat. Beide gelten nur für
 Runs mit einem neuen Ordner auf dem Server; einen Run auf einem Arbeitsplatz räumt allein der Host
@@ -513,8 +515,16 @@ Systemprompt in `core.md`). `ragents.workspace` formuliert ihn je Bindung: ein v
 auf dem Server heißt Projektordner auf dem Serverrechner, einer auf einem Arbeitsplatz Projektordner
 dort samt dessen Namen; der neue Ordner auf dem Server ist der private, zunächst leere Ordner des
 Runs mit dem Pfad, den der Resolver geliefert hat, der neue auf einem Arbeitsplatz derselbe
-dort, mit `workstation.description` des Beitrags an seiner Stelle. Die Chat-Systemnotiz beim
-Auflösen bleibt daneben der Hinweis für den Benutzer.
+dort, mit `workstation.description` des Beitrags an seiner Stelle. Hat der Server Wurzeln mit
+Alias (`WorkspaceSandboxHost.serverRoots()`: die registrierten und `@skills`), hängt
+`ragents.workspace` an jede dieser Beschreibungen einen Absatz über sie, je Bindung: auf dem Server
+nennt er die Aliasse mit Zugriff, dass Dateiwerkzeuge und Sprachserver einen Pfad mit Alias nehmen,
+dass `bash` darin mit dem Pfad als `cwd` läuft und welche Variablen `bash` dafür hat; auf einem
+Arbeitsplatz nennt er dieselben Aliasse als Wurzeln des Servers, die Dateiwerkzeuge und Sprachserver
+auch von dort erreichen, dass `bash` dort läuft und nur mit einem Alias als `cwd` auf dem Server,
+dass nur diese Bash die Variablen hat, und dass ein Aufruf nur einen Rechner erreicht. Kein anderer
+Promptbeitrag und keine Werkzeugbeschreibung nennt eine solche Variable, nur den Alias. Die
+Chat-Systemnotiz beim Auflösen bleibt daneben der Hinweis für den Benutzer.
 
 Die Dateiablage ist ein eigener Dienst: `ragents.documents` stellt `documentStoreToken`
 (`directoryFor(runId)`) bereit, standardmäßig unter `host.storage.session(runId, "documents")`,
@@ -524,9 +534,11 @@ Eine Datei des Arbeitsbereichs kommt über `read` und dann `content` hinein; ein
 Modellausgabe des `read`-Werkzeugs wäre bei großen Dateien gekürzt. Je Thema entsteht darin ein Unterverzeichnis, `ragents.documents` zeigt es im
 Dokumente-Tab an.
 Actor-Programme verwenden einen eigenen privaten pnpm-Workspace unter ihrer Run-Ablage.
-Seine `actors/`-Sammlung wird als zusätzlicher Arbeitsbereich bereitgestellt: Dateitools und
-Language Server im Executor des Servers lösen `@actors` auf, Bash erhält `RAGENTS_ACTORS_DIR`; der
-Executor eines Arbeitsplatzes kennt diesen Alias nicht. Die Autorisierung und
+Seine `actors/`-Sammlung ist eine Wurzel des Servers mit dem Alias `@actors`
+(`registerWorkspaceRoot`): Dateiwerkzeuge und Language Server erreichen sie in jeder Bindung über
+den Alias und laufen dafür beim Executor des Servers, eine Bash mit `@actors/...` als `cwd` ebenso,
+und nur dort gibt es `RAGENTS_ACTORS_DIR` (Abschnitt Arbeitsbereich, Sandbox-Werkzeuge und
+Prozesse). Den Alias `@skills` hält der Host für die Skill-Ordner frei. Die Autorisierung und
 Auflösung dieser Plugin-Arbeitsbereiche erfolgt über den gemeinsamen Workspace-Vertrag;
 das Modell muss keine privaten Speicherpfade aus Antworten übertragen.
 Weitere Plugins konsumieren die Workspace-Dienste über typisierte Tokens.
@@ -2580,12 +2592,30 @@ VS-Code-Erweiterung importieren dasselbe Paket, es wird nie zur Laufzeit nachgel
 
 Dieser Vertrag ist die einzige Naht zum Arbeitsbereich: `WorkspaceRuntime` löst je Run den
 Ordner auf, und `SandboxServices.execute(runId, operation, input, options)` ist der einzige Zugang
-der Plugins zu ihm. Wo eine Operation läuft, entscheidet allein die Bindung des Runs
-(`executorFor`): auf dem Server im Executor des Servers, auf einem Arbeitsplatz in dessen, gleich
-ob im neuen oder in einem vorhandenen Ordner. Die vier Werkzeuge, die Language-Server-Werkzeuge, der Reiter `Dateien`, die
-Prozessanzeige, die Browserprüfung und die Quelldatei von `typescript_eval` gehen alle diesen
-Weg; es gibt keinen Zweig
-"lokal oder entfernt" im Code eines Verbrauchers. Jede Methode und jeder Kanal, der von außen zum
+der Plugins zu ihm. Jede Wurzel gehört einer Maschine: die Wurzel des Runs der Maschine seiner
+Bindung, die zusätzlichen Wurzeln mit Alias (`@actors` der Actor-Programme, `@skills/<name>` der
+Skills, Abschnitt Skills and starting tasks) dem Server. Eine Operation läuft beim Executor der
+Maschine, der die angesprochene Wurzel gehört; die Bindung (`executorFor`) bestimmt nur die Wurzel
+des Runs und damit, wo eine Operation ohne Alias läuft: auf dem Server im Executor des Servers, auf
+einem Arbeitsplatz in dessen, gleich ob im neuen oder in einem vorhandenen Ordner. Welche Wurzeln
+eine Eingabe anspricht, erklärt das Modul, dem die Operation gehört, mit ihrem Fußabdruck
+(`WorkspaceExecutorModule.footprints`, je Operation eine Funktion der Eingabe, die nie wirft): die
+Dateiwerkzeuge mit `path`, `bash` mit `cwd`, die Sprachserver mit `root` und `paths`, `files.list`
+und `files.read` mit `alias`. Ein Pfad mit Alias spricht dessen Wurzel an, jeder andere, auch ein
+absoluter, die des Runs; eine Operation ohne Fußabdruck spricht keine bestimmte an. Dazu nennt der
+Fußabdruck die Laufzeit, die eine Eingabe selbst verlangt, bei `bash` deren Zeitgrenze; sie gilt
+als `durationMs`, wenn der Aufrufer keine nennt. `SandboxServices.execute` fragt den Fußabdruck
+beim Executor des Servers, der dieselben Module trägt wie jeder Arbeitsplatz, bevor er etwas
+verschickt: nennt die Eingabe einen Alias, läuft die Operation beim Executor des Servers im Kontext
+des Runs dort (`serverProcessContextFor`, unten), sonst beim Executor der Bindung. Spricht ein
+Aufruf eines Runs auf einem Arbeitsplatz Wurzeln beider Maschinen an, etwa `<id>_diagnostics` mit
+`root: "@actors/app"` und `paths: ["src/a.ts"]`, scheitert er mit `workspace-roots-mixed` (400) und
+der Ursache, dass ein Aufruf nur einen Rechner erreicht; bei einem Run auf dem Server liegen alle
+Wurzeln auf einer Maschine, und nichts ändert sich. Der Sandbox-Host zerlegt keine Eingabe selbst;
+eine neue Operation mit Pfaden erklärt ihren Fußabdruck in ihrem Modul. Die vier Werkzeuge, die
+Language-Server-Werkzeuge, der Reiter `Dateien`, die Prozessanzeige, die Browserprüfung und die
+Quelldatei von `typescript_eval` gehen alle diesen Weg; es gibt keinen Zweig "lokal oder entfernt"
+im Code eines Verbrauchers. Jede Methode und jeder Kanal, der von außen zum
 Arbeitsbereich eines Runs führt (Dateien des Arbeitsverzeichnisses, Prozessanzeige, Stand der
 Sprachserver), prüft vorher mit dem Hostdienst `workspaceGuardToken` Run und Zugang: einen Run, den
 nur sein Eigentümer bedient (`ownerOnly`), erreicht auch lesend nur dieser, gleich mit welchen Rechten
@@ -2595,17 +2625,18 @@ Die Prüfung kennt keinen Arbeitsplatz, nur das Eigentum am Run;
 Werkzeuge, Lebenszyklus und die Arbeit des Runs selbst laufen in seinem Namen und brauchen sie nicht. Einen lokalen Griff auf den Ordner bekommt kein
 Plugin: auf einem Arbeitsplatz scheitert `currentRoot()` der `SessionWorkspace` laut mit Ursache, statt
 einen Pfad zu liefern, der auf dem Server benutzbar aussieht. Was wirklich auf
-dem Server läuft, die native Ausführung von `typescript_eval` und die Actor-Programme, bekommt mit
-`SandboxServices.serverProcessContextFor(runId)` einen ausdrücklich benannten Serverkontext: auf dem
-Server denselben wie die Werkzeuge, auf einem Arbeitsplatz einen eigenen Ordner des Runs in der
-Run-Ablage (`plugins/ragents.workspace/server`), der beim ersten Bedarf entsteht, nie den Pfad
-des Arbeitsplatzes. `typescript_eval` mit `path` liest seine Quelle über `files.read`: relativ zur
-Wurzel des Runs oder mit einem Alias wie `@actors/...` aus einer zusätzlichen Wurzel dieses
-Executors; der Executor eines Arbeitsplatzes kennt keine Aliasse, dort scheitert der Aufruf mit
-`workspace-alias-unknown` und nennt die bekannten, also keine. Für das Modell läuft `git` in
-`bash`. Braucht ein Plugin selbst ein Programm im Arbeitsbereich, etwa `git` für eine Ansicht, ruft
-es `commands.run` beim Executor des Runs und wertet das Ergebnis selbst aus; eigene Prozesse gegen
-den Ordner startet es nicht, und Pfade daran vorbei rechnet es nicht aus. Wer den
+dem Server läuft, die native Ausführung von `typescript_eval`, die Actor-Programme und jede
+Operation auf einer Wurzel des Servers, bekommt mit `SandboxServices.serverProcessContextFor(runId)`
+einen ausdrücklich benannten Serverkontext: auf dem Server denselben wie die Werkzeuge, auf einem
+Arbeitsplatz einen eigenen Ordner des Runs in der Run-Ablage (`plugins/ragents.workspace/server`)
+als Wurzel des Runs, der beim ersten Bedarf entsteht, nie den Pfad des Arbeitsplatzes; die Wurzeln
+des Servers und die Prozess-Sandbox des Runs gehören in beiden Fällen dazu. `typescript_eval` mit
+`path` liest seine Quelle über `files.read`: relativ zur Wurzel des Runs vom Executor der Bindung
+oder mit einem Alias wie `@actors/...` vom Server, auch bei einem Run auf einem Arbeitsplatz; einen
+unbekannten Alias lehnt der Server mit `workspace-alias-unknown` ab und nennt die bekannten. Für das
+Modell läuft `git` in `bash`. Braucht ein Plugin selbst ein Programm im Arbeitsbereich, etwa `git`
+für eine Ansicht, ruft es `commands.run` beim Executor des Runs und wertet das Ergebnis selbst aus;
+eigene Prozesse gegen den Ordner startet es nicht, und Pfade daran vorbei rechnet es nicht aus. Wer den
 Vertrag erfüllt, entscheidet damit für alle Plugins zugleich, wo der Ordner liegt und wer darin
 ausführt. `ragents.workspace` ist die Erfüllung in core; der
 optionale `WorkspaceResolver` (Abschnitt Zuständigkeit je Facette) ist der
@@ -2764,9 +2795,13 @@ Die Umgebung baut jeder Executor aus seiner eigenen Maschine: sichere Variablen 
 Maschine) und die Variablen seiner Wurzeln. Vom Server kommt nur, was ortsunabhängig ist:
 Run-Marker, `CI`, `GIT_OPTIONAL_LOCKS` und die Git-Regeln der Sandbox. Git-Zugangsdaten und
 Toolchain-Pfade des Servers wandern nicht in eine fremde Bash. Ein Executor sieht ausschließlich
-die Ordner seiner Maschine: im Server den Run-Ordner plus die registrierten Serverwurzeln
-(`@actors`, Skills), in der Erweiterung den angebotenen Projektordner. Es gibt keine gemischten
-Wurzeln und keine Entscheidung je Pfad. `HOME` ist auf dem Arbeitsplatz das Home des Entwicklers,
+die Ordner seiner Maschine: im Server die Wurzel des Runs (bei einem Run auf einem Arbeitsplatz
+dessen Serverordner) plus die Wurzeln des Servers (`@actors`, `@skills/<name>`), in der
+Erweiterung den angebotenen Projektordner. Aliasse gibt es nur auf dem Server, und ein Aufruf
+erreicht immer genau eine Maschine: welche, entscheidet die Wurzel, die seine Eingabe anspricht,
+nicht ein Vergleich absoluter Pfade. Ein absoluter Pfad gilt deshalb auf der Maschine der Bindung;
+eine Wurzel des Servers erreicht ein Run auf einem Arbeitsplatz nur über ihren Alias. `HOME` ist
+auf dem Arbeitsplatz das Home des Entwicklers,
 damit Git, SSH und NuGet mit seinen eigenen Zugangsdaten arbeiten; die `HOME`-Umleitung ist eine
 Eigenschaft des Executors im Container, nicht der Betriebsart. Wohin ein Sprachserver seine
 Protokolle und Zwischenstände legt, sagt der Kontext getrennt (`logDirectory`): im Server die
@@ -2774,7 +2809,17 @@ Run-Ablage, auf dem Arbeitsplatz ein Ordner unter `os.tmpdir()`, nie das Home de
 
 Ein Bash-Ergebnis ist die Ausgabe des Befehls; ein Exit-Code ungleich null steht als letzte
 Zeile im Ergebnis (`Command exited with code N`) und ist kein Werkzeugfehler, etwa `grep` ohne
-Treffer. Werkzeugfehler sind nur Start-, Zeitgrenzen- und Abbruchprobleme. `ragents.workspace`
+Treffer. Werkzeugfehler sind nur Start-, Zeitgrenzen- und Abbruchprobleme. Den Ordner eines
+Aufrufs nennt das optionale `cwd`, auf jeder Maschine gleich: relativ zum Arbeitsverzeichnis oder
+ein Pfad mit Alias wie `@actors/<name>`, nie absolut (`workspace-path-invalid`, 400), immer in
+einer Wurzel des Runs, auch einer nur lesbaren, und es muss ihn geben (`workspace-path-not-found`,
+404); ohne `cwd` läuft die Bash im Arbeitsverzeichnis. Mit Alias läuft sie beim Executor des
+Servers, in derselben Prozess-Sandbox wie jeder andere Prozess des Runs dort (Abschnitt
+Prozess-Sandbox des Servers), und nur diese Bash hat die Variablen der Wurzeln des Servers, etwa
+`RAGENTS_ACTORS_DIR`. Ohne Alias läuft sie beim Executor der Bindung, bei einem Arbeitsplatz also
+dort und ohne diese Variablen. Eine Bash sieht nie beide Maschinen; eine eigene Sperre für den Weg
+auf den Server gibt es nicht, weil er den Node-Prozessen gleicht, die ein Run dort ohnehin
+startet, und derselben Sandbox folgt. `ragents.workspace`
 liefert dazu einen an `bash` gebundenen Promptbeitrag (`plugins/ragents.workspace/server/shell-platform.ts`):
 macOS mit BSD-Werkzeugen (`grep` ohne `-P`, `sed -i ''`), Linux mit GNU-Werkzeugen, Windows mit
 Git Bash (MSYS-Userland mit GNU-Werkzeugen, Windows-Pfade, CRLF); eine unbekannte Plattform ist
@@ -2796,8 +2841,9 @@ und wird geprüft wie ein Pfad des Dateimoduls: kein `..`, nicht absolut, kein S
 Wurzel, und es muss ein Ordner sein. Der Prozess bekommt Umgebung und Konto des Executors, also
 Run-Marker und Git-Regeln der Sandbox und auf einem Arbeitsplatz dessen `HOME`; einen Zusatz zur
 Umgebung nimmt der Aufruf nicht an. Er läuft im Rahmen des Arbeitsbereichs (`runOperation`), wie
-die Werkzeuge. `timeoutMs` ist Pflicht; wer länger braucht als die Sicherheitsgrenze eines
-Arbeitsplatzes, gibt dieselbe Dauer als `durationMs` im Aufruf mit. Das Ergebnis nennt `exitCode`
+die Werkzeuge. `timeoutMs` ist Pflicht und verlängert als Fußabdruck des Befehls, wie lange der
+Server über seine Sicherheitsgrenze hinaus auf einen Arbeitsplatz wartet; einen Alias kennt `cwd`
+hier nicht. Das Ergebnis nennt `exitCode`
 (`null` nach einem Signal) und `stdout` und `stderr` als UTF-8-Text, je Datenstrom höchstens
 `maxOutputBytes` (Vorgabe und Obergrenze `COMMAND_OUTPUT_LIMIT`, 2 MiB, damit auch eine Antwort
 voller Steuerzeichen über die Verbindung eines Arbeitsplatzes passt), dazu je ein Kennzeichen, ob
@@ -2928,7 +2974,8 @@ laufen in einer Prozess-Sandbox des Betriebssystems: unter macOS Seatbelt (`sand
 Linux bubblewrap mit eigenem Netz- und PID-Namensraum, beides über die Bibliothek
 `@anthropic-ai/sandbox-runtime` (Apache-2.0, feste Fassung in `apps/server/package.json`). Das gilt
 auch für die Arbeit eines Runs, dessen Arbeitsbereich auf einem Arbeitsplatz liegt, soweit sie auf
-dem Server läuft; der Executor des Arbeitsplatzes selbst bekommt keine Sandbox, dort bleibt es die
+dem Server läuft, also auch für eine Bash mit einem Alias als `cwd` und für Sprachserver auf einer
+Wurzel des Servers; der Executor des Arbeitsplatzes selbst bekommt keine Sandbox, dort bleibt es die
 Bash des Entwicklers. Der Kern kennt die Sandbox nicht: der Sandbox-Host des Servers
 (`WorkspaceSandboxHost`) gibt sie dem Prozesskontext eines Runs mit (`WorkspaceProcessContext.sandbox`),
 und jede Stelle, die einen Prozess startet, packt ihn mit `sandboxedLaunch` ein; ohne Sandbox im
@@ -2943,7 +2990,9 @@ eigenen Runs (`sessions/<run-id>`) und seine nur lesbaren Wurzeln (Skills; beim 
 ohne Benutzer der Journalordner). Lesen und schreiben darf ein Run die Wurzel seines
 Arbeitsbereichs beziehungsweise seinen Serverordner, die registrierten Wurzeln (`@actors`), sein
 Home, den gemeinsamen NuGet-Cache und seinen eigenen Temp-Ordner `sessions/<run-id>/tmp`, der in
-`TMPDIR`, `TMP` und `TEMP` steht. Das übrige System (`/usr`, `/opt`, Toolchains) bleibt lesbar und
+`TMPDIR`, `TMP` und `TEMP` steht. Dazu kommen die Ordner, die sein Arbeitsbereich ausdrücklich
+freigibt (`SessionWorkspace.sandboxFolders`, unten). Das übrige System (`/usr`, `/opt`, Toolchains)
+bleibt lesbar und
 ist nicht beschreibbar; die Bibliothek sperrt zusätzlich das Schreiben von `.git/hooks`, `.vscode`,
 `.idea` und Shell-Startdateien, `.git/config` bleibt beschreibbar. Andere Runs, fremde Journale und
 Geheimnisse im Home sehen die Prozesse also nicht; unter macOS scheitert ein solcher Zugriff mit
@@ -2973,6 +3022,15 @@ der globale Koordinator seinen Server über `RAGENTS_API_BASE_URL` erreicht. In 
 `NO_PROXY` leer, damit auch dieser Aufruf über den Proxy geht, `NODE_USE_ENV_PROXY=1` lässt `fetch`
 in Snippets den Proxy nehmen, und `DOTNET_SYSTEM_NET_DISABLEIPV6=1` hält .NET auf IPv4, weil die
 Sandbox von macOS eine IPv4-gemappte Adresse nicht als localhost erkennt.
+
+Ein Arbeitsbereich kann Ordner außerhalb seines Ordners brauchen, die sonst gesperrt blieben, etwa
+ein Git-Worktree, dessen gemeinsames Repository (`git rev-parse --git-common-dir`) woanders liegt:
+ohne Freigabe scheitert Git in der Sandbox mit `not a git repository`. Dafür nennt
+`SessionWorkspace.sandboxFolders` (für einen Beitrag in seiner `WorkspaceResolution`) je Ordner
+`directory`, absolut, und `access`, `read` oder `write`; der Sandbox-Host übernimmt sie in die
+lesbaren beziehungsweise beschreibbaren Ordner des Runs, ein relativer Pfad ist ein Fehler. Der
+Kern kennt dabei kein Git, und die Freigabe gilt nur für Prozesse: die Dateiwerkzeuge erreichen
+solche Ordner nicht.
 
 `PROCESS_SANDBOX` in derselben Sektion ist ohne Angabe `"on"`; `"off"` schaltet die Sandbox für den
 ganzen Server ab, und der Start meldet das im Protokoll. Den lokalen Host der VS-Code-Erweiterung
@@ -3038,8 +3096,14 @@ mit vollem Text, Diagnostik per Pull oder Push, Prozess über `startManagedServi
 Adapter (Start, Wurzeltyp, Laden, Endungen) gehören zum Executor, damit jeder Executor dieselbe
 Menge Sprachserver anbietet; das Plugin ist nur noch Beschreibung, Konfigurationsschlüssel,
 Reiter und Weiterreichung über die gemeinsame Fabrik `createLanguageServerPlugin`. Welcher
-Rechner den Sprachserver startet, entscheidet die Bindung des Runs; fehlt er dort, scheitert der
-Aufruf mit Ursache. Den Pfad zum Server nimmt der Adapter aus dem Werkzeugordner dieser Maschine
+Rechner den Sprachserver startet, entscheidet die Wurzel, die der Aufruf nennt (Abschnitt
+Arbeitsbereich, Sandbox-Werkzeuge und Prozesse): `<id>_open` mit `root: "@actors/app"` startet ihn
+auf dem Server, auch in einem Run auf einem Arbeitsplatz, ein Pfad ohne Alias beim Executor der
+Bindung; fehlt er dort, scheitert der Aufruf mit Ursache. Nennt ein Aufruf keine Wurzel,
+`<id>_diagnostics` ohne `root` und `paths`, `<id>_close` ohne `root` und der Stand für den
+Diagnosereiter, fragt er die Instanzen beim Executor der Bindung; eine Instanz auf einer Wurzel des
+Servers erreicht ein Run auf einem Arbeitsplatz über `root` oder `paths` mit Alias. Den Pfad zum
+Server nimmt der Adapter aus dem Werkzeugordner dieser Maschine
 (`<Datenordner>/tools/<plugin-id>/`, siehe Provisionierung je Plugin); im Server setzt ihn die
 Profilsektion des Plugins mit `provisioned(...)` auf denselben Ort. Die Umgebungsvariablen
 `ROSLYN_LANGUAGE_SERVER` und `FSHARP_LANGUAGE_SERVER` übersteuern ihn, etwa für einen selbst
@@ -3122,6 +3186,13 @@ working. `start: true` also makes it selectable and requires a `title` and one n
 `category`; `order`, `tags`, and `guide` are optional. `prompt` can provide a short starting task,
 otherwise the body is used. Explicit contributions use `action: "skill"`, `skill`, `category`,
 and `prompt`, and the skill name must be registered.
+
+A skill's name is its folder name and unique in a profile, across audiences; two folders with one
+name stop the server at startup. The model reaches every skill folder read-only as
+`@skills/<name>/`, whichever machine the run works on: the skill overview and preloading name
+`@skills/<name>/SKILL.md`, never the path on the server, and relative paths in a skill resolve in
+that folder. File tools read there, and `bash` runs there with `cwd: "@skills/<name>"`, on the
+server.
 
 Optional `disable-model-invocation: true` removes a skill from the model's automatic overview
 while keeping explicit loading available. Simple example tasks use it but remain selectable

@@ -3,7 +3,7 @@ import { lstat, mkdir, readdir, readFile, realpath, writeFile } from "node:fs/pr
 import path from "node:path";
 import { WorkspaceOperationError } from "./errors.js";
 import type { WorkspaceModuleFactory, WorkspaceOperation } from "./module.js";
-import { containsWorkspacePath } from "./paths.js";
+import { aliasOf, aliasedRoot, containsWorkspacePath, unknownAliasError, type OperationFootprint } from "./paths.js";
 
 export const FILE_LIST_LIMIT = 500;
 
@@ -187,6 +187,12 @@ const pathOf = (input: unknown): string => {
   return value;
 };
 
+/** Mit Alias spricht die Eingabe dessen Wurzel an, sonst die des Runs. */
+const aliasFootprint = (input: unknown): OperationFootprint => {
+  const alias = (input as { alias?: unknown } | null)?.alias;
+  return { roots: typeof alias === "string" ? { aliases: [aliasOf(alias) ?? alias], runRoot: false } : { aliases: [], runRoot: true } };
+};
+
 /** Beobachtet bis zum Abbruch; eine gescheiterte Beobachtung beendet die Operation mit ihrer Ursache. */
 const watchUntilAborted = (root: string, signal: AbortSignal, progress: (value: FileWatchProgress) => void): Promise<null> =>
   new Promise((resolve, reject) => {
@@ -222,29 +228,31 @@ export const fileModule: WorkspaceModuleFactory = (host) => {
     for (const controller of watches.get(runId) ?? []) controller.abort();
     watches.delete(runId);
   };
-  const rootOf = async (runId: string, input: unknown): Promise<string> => {
+  /** Alias und Pfad bilden zusammen einen Ort; unter einem gemeinsamen Alias wie `@skills` nennt der Pfad zuerst den Ordner der Wurzel. */
+  const locate = async (runId: string, input: unknown): Promise<{ root: string; path: string }> => {
     const context = await host.contextFor(runId);
     const alias = (input as { alias?: unknown } | null)?.alias;
-    if (alias === undefined) return context.root;
+    const requested = pathOf(input);
+    if (alias === undefined) return { root: context.root, path: requested };
     const aliases = context.workspaceAliases ?? {};
-    const directory = typeof alias === "string" ? aliases[alias] : undefined;
-    if (directory === undefined) {
-      const known = Object.keys(aliases);
-      throw new WorkspaceOperationError(
-        "workspace-alias-unknown",
-        `Unbekannter Arbeitsverzeichnis-Alias: ${String(alias)} (bekannt: ${known.length > 0 ? known.join(", ") : "keine"})`,
-        400,
-      );
-    }
-    return directory;
+    const location = requested === "" ? String(alias) : `${String(alias)}/${requested}`;
+    const found = typeof alias === "string" ? aliasedRoot(location, aliases) : undefined;
+    if (!found) throw unknownAliasError(location, aliases);
+    return { root: found.directory, path: found.rest };
   };
-  const list: WorkspaceOperation = async ({ runId, input }) => listDirectory(await rootOf(runId, input), pathOf(input));
+  const list: WorkspaceOperation = async ({ runId, input }) => {
+    const { root, path: requested } = await locate(runId, input);
+    return listDirectory(root, requested);
+  };
   const attach: WorkspaceOperation = async ({ runId, input }) => {
     const { name, content } = (input ?? {}) as { name?: unknown; content?: unknown };
     if (typeof name !== "string" || typeof content !== "string") throw invalid("Ein Anhang braucht name und content (Base64) als Text");
     return { name: await storeAttachment((await host.contextFor(runId)).root, name, Buffer.from(content, "base64")) };
   };
-  const read: WorkspaceOperation = async ({ runId, input }) => readTextFile(await rootOf(runId, input), pathOf(input));
+  const read: WorkspaceOperation = async ({ runId, input }) => {
+    const { root, path: requested } = await locate(runId, input);
+    return readTextFile(root, requested);
+  };
   const watchFiles: WorkspaceOperation = async ({ runId, signal, progress }) => {
     if (!signal || !progress) throw new Error(`${FILE_OPERATIONS.watch} läuft bis zum Abbruch und braucht Abbruchsignal und Fortschritt`);
     if (closed) throw new Error("Das Dateimodul ist beendet und beobachtet nichts mehr");
@@ -265,6 +273,10 @@ export const fileModule: WorkspaceModuleFactory = (host) => {
       [FILE_OPERATIONS.read]: read,
       [FILE_OPERATIONS.watch]: watchFiles,
       [FILE_OPERATIONS.attach]: attach,
+    },
+    footprints: {
+      [FILE_OPERATIONS.list]: aliasFootprint,
+      [FILE_OPERATIONS.read]: aliasFootprint,
     },
     stopRun: async (runId) => endWatches(runId),
     shutdown: async () => {

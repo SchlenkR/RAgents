@@ -22,6 +22,10 @@ const themeReceiver = `
     document.documentElement.dataset.theme = theme;
   };`;
 
+// Die Vorfahren decken den Browser und die Webviews von VS Code ab (Desktop: vscode-file und vscode-cdn.net, ältere Fassungen: vscode-webview).
+export const frameContentSecurityPolicy = (nonce: string): string =>
+  `sandbox allow-scripts allow-forms allow-downloads; default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; img-src 'self' data: blob:; font-src data:; connect-src 'none'; media-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self' https://*.vscode-cdn.net vscode-file: vscode-webview:`;
+
 const escapedScript = (source: string): string => source.replace(/<\/script/gi, "<\\/script");
 
 const typedBridgeSdk = (nonce: string, styles: string): string => `<script nonce="${nonce}">
@@ -216,12 +220,9 @@ export const createMiniAppFrameRoutes = (options: MiniAppFrameOptions): HttpRout
           const nonce = randomBytes(18).toString("base64");
           const frame = options.runtime.frame(runId!, appId!, revision);
           const content = Buffer.from(frameHtml(frame, nonce), "utf8");
-          // Die Vorfahren decken den Browser und die Webviews von VS Code ab (Desktop: vscode-file und vscode-cdn.net, ältere Fassungen: vscode-webview).
-          const scripts = `'nonce-${nonce}'`;
-          const styles = `'nonce-${nonce}'`;
           response.writeHead(200, {
             "Cache-Control": "no-store",
-            "Content-Security-Policy": `sandbox allow-scripts allow-downloads; default-src 'none'; script-src ${scripts}; style-src ${styles}; img-src 'self' data: blob:; font-src data:; connect-src 'none'; media-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self' https://*.vscode-cdn.net vscode-file: vscode-webview:`,
+            "Content-Security-Policy": frameContentSecurityPolicy(nonce),
             "Content-Type": "text/html; charset=utf-8",
             "Content-Length": content.byteLength,
             "Referrer-Policy": "no-referrer",

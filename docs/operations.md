@@ -348,7 +348,8 @@ Actor-Programme), läuft in einer Prozess-Sandbox: es liest und schreibt nur die
 sieht weder andere Runs noch das Home des Serverkontos und erreicht im Netz nur die Allowlist.
 Regeln und Grenzen stehen in [plugins.md](spec/plugins.md) unter "Prozess-Sandbox des Servers". Auf
 einem Arbeitsplatz gilt sie nicht; dort arbeitet der Run mit der Bash und den Zugangsdaten des
-Entwicklers.
+Entwicklers. Nur was ein solcher Run auf dem Server startet, etwa eine Bash in `@actors`, läuft in
+ihr.
 
 Voraussetzungen, die der Start prüft:
 
@@ -417,7 +418,8 @@ ${DATA_DIR}/
           workspace/              leeres Arbeitsverzeichnis bei Bindung fresh, befüllt ein Resolver-Plugin;
                                   bringt der Beitrag eine eigene Art mit, liegt sein Ordner in dessen Ablage
           server/                 nur bei Bindung an einen Arbeitsplatz und erst bei Bedarf: Ordner für
-                                  typescript_eval und Actor-Programme, die auf dem Server laufen
+                                  typescript_eval, Actor-Programme und Aufrufe auf Wurzeln
+                                  des Servers, die auf dem Server laufen
           home/                   HOME der Sandbox
       tmp/                        Temp-Ordner des Runs in der Prozess-Sandbox (TMPDIR)
   delete-intents/                 0700 root - vermerkte Löschabsichten
@@ -479,7 +481,10 @@ Run, und bietet ihn dann nur dort an, wo es ihn stellen kann. Ein vorhandener Or
 Löschen des Runs nie angefasst, ein neuer verschwindet mit ihm; ist der Arbeitsplatz beim Löschen
 nicht verbunden, bleibt sein Ordner liegen. Bei einem Arbeitsplatz läuft alles, was den Ordner anfasst, dort,
 wo er liegt: Werkzeuge, Sprachserver, der Reiter Dateien, die Prozessleiste und der Browser der
-Browserprüfung. Pfadprüfung, Eigentum eines Arbeitsplatzes, Anmeldung über das Netz und die
+Browserprüfung. Die Wurzeln des Servers, `@actors` der Actor-Programme und `@skills/<name>` der
+Skills, erreichen Dateiwerkzeuge und Sprachserver auch dann über ihren Alias, und eine Bash mit
+einem solchen Alias als `cwd` läuft auf dem Server in der Prozess-Sandbox des Runs.
+Pfadprüfung, Eigentum eines Arbeitsplatzes, Anmeldung über das Netz und die
 Fehler bei getrennter Verbindung stehen in [plugins.md](spec/plugins.md) unter "Arbeitsbereich,
 Sandbox-Werkzeuge und Prozesse".
 

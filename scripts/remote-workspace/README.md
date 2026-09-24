@@ -27,7 +27,9 @@ Mit `--vscode` öffnet sich ein eigenes VS-Code-Fenster.
 3. Ein eigener Server mit `--port 0`, eigenem `DATA_DIR` unter `/tmp` und dem Profil
    `ragents.config.remote-check.ts`: `alice` und `bob` als Bediener, `admin` mit `*`, jeweils mit
    Passwort und persönlichem Token aus der Umgebung, und ohne `AGENT_MODELS`, sodass Agent und
-   Koordinator dasselbe Modell `script` nennen. Der Server erbt nur `PATH`, `HOME`, Sprache und
+   Koordinator dasselbe Modell `script` nennen. Das Profil trägt die Actor-Programme, und
+   `SKILLS_DIR` zeigt auf einen Ordner im Temp-Ordner mit dem Skill `pruefnotizen` und einer
+   Vorlage daneben. Der Server erbt nur `PATH`, `HOME`, Sprache und
    `TMPDIR` des Aufrufers, damit kein Profilschlüssel aus der Shell das Prüfprofil überstimmt.
 4. Im Container läuft `ragents workspace-client` als Arbeitsplatz von `alice`.
 5. Die Prüfungen gehen über die Nachrichtenschicht (Verträge aus den `contract.ts` der Plugins) und
@@ -45,7 +47,17 @@ Mit `--vscode` öffnet sich ein eigenes VS-Code-Fenster.
   Server arbeitet; der Arbeitsplatz protokolliert die Aufrufe; ein binärer Chat-Anhang liegt unter
   `attachments/` im Container, wo `bash` ihn liest, und weder im Datenordner noch in der Kopie des
   Servers.
-- Neuer Ordner: ein zweiter Run von `alice` mit neuem Ordner je Run auf dem Arbeitsplatz bekommt einen
+- Wurzeln des Servers: ein weiterer Run von `alice` auf dem Ordner im Container legt ein
+  Actor-Programm mit `actor_program_create` an, schreibt und bearbeitet es unter `@actors/...` und
+  aktiviert es; sein Fachtest besteht erst nach dem Bearbeiten, und die aktivierte Funktion liefert
+  die Kennung des Prüflaufs. Das Paket liegt im Datenordner des Servers und nirgends im Container,
+  der Arbeitsplatz protokolliert für diesen Run nur die eine `bash` ohne Alias. `bash` mit
+  `cwd: "@actors/..."` meldet Plattform und Rechner des Servers und `RAGENTS_ACTORS_DIR`, ohne `cwd`
+  Linux im Container ohne die Variable. Ein Auftrag nach dem Skill liest SKILL.md und Vorlage über
+  `@skills/pruefnotizen/` und führt dort `bash` auf dem Server aus; der Systemprompt nennt den Skill
+  in Katalog und Vorladen unter `@skills`, keinen Pfad des Servers, beschreibt die Wurzeln des
+  Servers und nennt `RAGENTS_ACTORS_DIR` nur für die Bash dort.
+- Neuer Ordner: ein weiterer Run von `alice` mit neuem Ordner je Run auf dem Arbeitsplatz bekommt einen
   Ordner unter dem Ordner für Runs im Container; `write` und `bash` arbeiten darin, auf dem Server
   entsteht er nicht, und das Löschen des Runs nimmt ihn im Container mit.
 - Dateien: Liste und Vorschau zeigen den Container; eine Änderung per `docker exec` meldet der Kanal.

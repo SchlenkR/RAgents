@@ -303,6 +303,11 @@ an existing folder on the server (binding <code>{ machine: &quot;server&quot;, f
 the run journal until the turn triggered by its message ends. If the profile does not provide
 <code>ragents.workspace.binding</code> because it creates its own workspace, the folder remains unbound and
 the command reports this on stderr.</p>
+<p><code>--workstation &lt;id&gt;</code> binds the folder on the workstation registered at the host under that ID
+instead of the server (binding <code>{ machine: { client, label }, folder: { path } }</code>, the label taken
+from the registered workstations); <code>&lt;folder&gt;</code> is then the path on that workstation. The
+counterpart is <code>pnpm workspace-client &lt;server-url&gt; &lt;folder&gt; --id &lt;id&gt;</code>. Without a registered
+workstation of that ID the command fails and names the registered ones.</p>
 <p><code>--entry &lt;template&gt;</code> additionally starts the run through a skill or script template. If that program
 chooses its chat partner during setup, the task waits instead of failing. <code>send</code> performs the
 same operation in an existing run. <code>journal</code> reads the history without a server, using the same

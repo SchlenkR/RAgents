@@ -7,6 +7,7 @@ import path from "node:path";
 import test, { type TestContext } from "node:test";
 import { claimTurn, DomainError, pluginStateKey, ToolRegistry, TurnToolset, type RunState } from "@ragents/engine";
 import {
+  FILE_OPERATIONS,
   RUN_MARKER_ENV,
   WORKSPACE_EXECUTOR_VERSION,
   WorkspaceOperationError,
@@ -20,6 +21,8 @@ import {
   runFolderModule,
   sandboxToolsModule,
   workspaceProcessContext,
+  type FileListing,
+  type FileText,
   type ProcessTable,
   type WorkspaceModuleFactory,
   type WorkspaceProcessContext,
@@ -40,6 +43,8 @@ import { bindingOf, workspaceLocation } from "../../../plugins/ragents.workspace
 import { createBrowseChannel, createBrowseMethods } from "../../../plugins/ragents.workspace/server/browse-route.ts";
 import { clientMethods, WorkspaceClientRegistry } from "../../../plugins/ragents.workspace/server/clients.ts";
 import { RunWorkspaceRuntime } from "../../../plugins/ragents.workspace/server/runtime.ts";
+import { ActorProgramRuntime } from "../../../plugins/ragents.actor-programs/server/runtime.ts";
+import { createActorProgramToolContributors } from "../../../plugins/ragents.actor-programs/server/tool-contributor.ts";
 import { runProcessesOf } from "../../../plugins/ragents.processes/server/run-processes.ts";
 import { RunBrowser } from "../../../plugins/ragents.browser/server/browser.ts";
 import { stubBrowser } from "../../../packages/workspace-executor/tests/browser-stub.ts";
@@ -120,7 +125,7 @@ const foreignWorkstation = async (
 };
 
 /** Der Server mit dem echten Arbeitsbereich-Plugin; jeder Run ist an den Arbeitsplatz gebunden, den der Test ihm gibt. */
-const serverFixture = async (t: TestContext, resolver?: WorkspaceResolver) => {
+const serverFixture = async (t: TestContext, { resolver, skills = [] }: { resolver?: WorkspaceResolver; skills?: readonly string[] } = {}) => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-foreign-machine-")));
   t.after(() => rm(root, { recursive: true, force: true }));
   const registry = new WorkspaceClientRegistry();
@@ -140,7 +145,7 @@ const serverFixture = async (t: TestContext, resolver?: WorkspaceResolver) => {
     storageRootFor: (runId) => path.join(sessions, runId),
     sessionsDirectoryPattern: path.join(sessions, "{runId}", "plugins", "ragents.workspace"),
     sessionWorkspaceFor: (runId) => runtime.resolve(runId, () => undefined),
-    skillPaths: async () => [],
+    skillPaths: async () => skills,
     resolver: () => resolver,
     runState,
     storeBinding: () => { throw new Error("Der Test bindet nicht um"); },
@@ -261,8 +266,32 @@ test("die Prozessanzeige zeigt und beendet die Prozesse des Arbeitsplatzes, nich
   assert.deepEqual((await processes.snapshot(runId)).processes, []);
 });
 
+/** Die Actor-Programme eines Runs liegen auf dem Server unter @actors, wie sie `ragents.actor-programs` registriert. */
+const actorRoot = async (server: Awaited<ReturnType<typeof serverFixture>>): Promise<string> => {
+  const actors = path.join(server.root, "server", "actors");
+  await mkdir(path.join(actors, "app", "src"), { recursive: true });
+  server.runtime.sandbox.registerWorkspaceRoot({ id: "actors", alias: "@actors", environmentVariable: "RAGENTS_ACTORS_DIR", directoryFor: () => actors });
+  return actors;
+};
+
+/** Ein Projekt, das nur auf dem Arbeitsplatz liegt, und der Pfad, unter dem der Arbeitsplatz es anbietet. */
+const workstationProject = async (server: Awaited<ReturnType<typeof serverFixture>>): Promise<{ project: string; offered: string }> => {
+  const project = path.join(server.root, "arbeitsplatz", "projekt");
+  await mkdir(project, { recursive: true });
+  await writeFile(path.join(project, "README.md"), "Vom Arbeitsplatz\n");
+  const offered = `/fremder-rechner-${randomUUID()}/projekt`;
+  await missingOnServer(offered);
+  return { project, offered };
+};
+
+/** Ein Werkzeugergebnis des Executors trägt Textteile, ein Werkzeug im Turn liefert den Text selbst. */
+const textOf = (result: unknown): string => typeof result === "string" ? result
+  : (result as { content: Array<{ text?: string }> }).content.map((part) => part.text ?? "").join("\n");
+
 test("typescript_eval mit path liest die Datei vom Arbeitsplatz und läuft im eigenen Ordner des Runs auf dem Server", async (t) => {
   const server = await serverFixture(t);
+  const actors = await actorRoot(server);
+  await writeFile(path.join(actors, "setup.ts"), "return { ort: \"Server\" };\n");
   const project = path.join(server.root, "arbeitsplatz", "projekt");
   await mkdir(path.join(project, "snippets"), { recursive: true });
   await writeFile(path.join(project, "snippets", "rechne.ts"), "return { antwort: 6 * 7, ort: process.cwd() };\n");
@@ -296,8 +325,186 @@ test("typescript_eval mit path liest die Datei vom Arbeitsplatz und läuft im ei
   const serverFolder = path.join(server.root, "server", "sessions", setup.view.id, "plugins", "ragents.workspace", "server");
   assert.equal(await realpath(output.result.ort), serverFolder);
   assert.deepEqual(workstation.operations, ["files.read"]);
-  await assert.rejects(toolset.invoke("eval-alias", "typescript_eval", { path: "@actors/setup.ts" }),
-    /Unbekannter Arbeitsverzeichnis-Alias: @actors \(bekannt: keine\)/);
+  assert.deepEqual((await toolset.invoke("eval-alias", "typescript_eval", { path: "@actors/setup.ts" })).output, { result: { ort: "Server" }, logs: [] });
+  assert.deepEqual(workstation.operations, ["files.read"], "die Datei unter @actors kommt vom Server");
+});
+
+test("Dateiwerkzeuge mit @actors laufen in einem Arbeitsplatz-Run auf dem Server, ohne Alias auf dem Arbeitsplatz", async (t) => {
+  const server = await serverFixture(t);
+  const actors = await actorRoot(server);
+  const { offered, project } = await workstationProject(server);
+  const workstation = await foreignWorkstation(t, server.url, "notebook-0006", "Notebook", { [offered]: project }, [sandboxToolsModule, fileModule]);
+  server.bindings.set("aktoren", { machine: { client: "notebook-0006", label: "Notebook" }, folder: { path: offered } });
+  const execute = (operation: string, input: unknown) => server.runtime.sandbox.execute("aktoren", operation, input);
+
+  await execute("write", { path: "@actors/app/src/index.ts", content: "export const wert = 1;\n" });
+  await execute("edit", { path: "@actors/app/src/index.ts", edits: [{ oldText: "wert = 1", newText: "wert = 2" }] });
+  assert.equal(await readFile(path.join(actors, "app", "src", "index.ts"), "utf8"), "export const wert = 2;\n");
+  assert.match(textOf(await execute("read", { path: "@actors/app/src/index.ts" })), /wert = 2/);
+  assert.deepEqual((await execute(FILE_OPERATIONS.list, { path: "app", alias: "@actors" }) as FileListing).entries.map((entry) => entry.name), ["src"]);
+  const source = await execute(FILE_OPERATIONS.read, { path: "app/src/index.ts", alias: "@actors" }) as FileText;
+  assert.equal(source.previewable ? source.content : undefined, "export const wert = 2;\n");
+  assert.deepEqual(workstation.operations, [], "kein Aufruf mit @actors erreicht den Arbeitsplatz");
+
+  assert.match(textOf(await execute("read", { path: "README.md" })), /Vom Arbeitsplatz/);
+  assert.deepEqual(workstation.operations, ["read"]);
+  await assert.rejects(execute("read", { path: "@apps/liste.ts" }), (error: unknown) =>
+    error instanceof DomainError && error.code === "workspace-alias-unknown" && /@apps \(bekannt: @actors\)/.test(error.message));
+});
+
+test("eine Bash ohne Alias läuft auf dem Arbeitsplatz, mit @actors als cwd auf dem Server, und nur dort gibt es RAGENTS_ACTORS_DIR", async (t) => {
+  const server = await serverFixture(t);
+  const actors = await actorRoot(server);
+  const { offered, project } = await workstationProject(server);
+  const workstation = await foreignWorkstation(t, server.url, "notebook-0007", "Notebook", { [offered]: project }, [sandboxToolsModule]);
+  server.bindings.set("bash", { machine: { client: "notebook-0007", label: "Notebook" }, folder: { path: offered } });
+  const bash = async (input: Record<string, unknown>): Promise<string[]> =>
+    textOf(await server.runtime.sandbox.execute("bash", "bash", { command: 'pwd; echo "[${RAGENTS_ACTORS_DIR:-}]"', ...input })).trim().split("\n");
+
+  assert.deepEqual(await bash({}), [project, "[]"]);
+  assert.deepEqual(workstation.operations, ["bash"]);
+  assert.deepEqual(await bash({ cwd: "@actors/app" }), [path.join(actors, "app"), `[${actors}]`]);
+  assert.deepEqual(await bash({ cwd: "@actors" }), [actors, `[${actors}]`]);
+  assert.deepEqual(workstation.operations, ["bash"], "eine Bash mit @actors erreicht den Arbeitsplatz nicht");
+  await assert.rejects(server.runtime.sandbox.execute("bash", "bash", { command: "pwd", cwd: actors }), (error: unknown) =>
+    error instanceof DomainError && error.code === "workspace-path-invalid");
+  await assert.rejects(server.runtime.sandbox.execute("bash", "bash", { command: "pwd", cwd: "@actors/fehlt" }), (error: unknown) =>
+    error instanceof DomainError && error.code === "workspace-path-not-found");
+});
+
+test("die Sprachserver öffnen @actors in einem Arbeitsplatz-Run auf dem Server, ein Aufruf über beide Rechner scheitert mit Ursache", async (t) => {
+  const server = await serverFixture(t);
+  const actors = await actorRoot(server);
+  await writeFile(path.join(actors, "app", "src", "index.ts"), "export const wert: number = \"Text\";\n");
+  const { offered, project } = await workstationProject(server);
+  const workstation = await foreignWorkstation(t, server.url, "notebook-0008", "Notebook", { [offered]: project }, [sandboxToolsModule]);
+  server.bindings.set("sprache", { machine: { client: "notebook-0008", label: "Notebook" }, folder: { path: offered } });
+  const execute = (operation: string, input: unknown) => server.runtime.sandbox.execute("sprache", operation, input);
+
+  assert.match(String(await execute("typescript_open", { root: "@actors/app" })), /TypeScript-Server auf app bereit/);
+  const diagnostics = String(await execute("typescript_diagnostics", { paths: ["@actors/app/src/index.ts"] }));
+  assert.match(diagnostics, /Diagnostik \(TypeScript\) @actors\/app\/src\/index\.ts: 1 Fehler/);
+  assert.match(textOf(await execute("write", { path: "@actors/app/src/index.ts", content: "export const wert: number = 1;\n" })), /keine Fehler/);
+  await assert.rejects(execute("typescript_diagnostics", { root: "@actors/app", paths: ["src/index.ts"] }), (error: unknown) =>
+    error instanceof DomainError && error.code === "workspace-roots-mixed" && error.status === 400 && /@actors/.test(error.message));
+  assert.deepEqual(workstation.operations, []);
+  assert.match(String(await execute("typescript_close", { root: "@actors/app" })), /beendet/);
+});
+
+test("Skills sind in einem Arbeitsplatz-Run unter @skills lesbar, samt der Dateien daneben, aber nicht beschreibbar", async (t) => {
+  const skills = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-foreign-skills-")));
+  t.after(() => rm(skills, { recursive: true, force: true }));
+  const skill = path.join(skills, "notizen");
+  await mkdir(skill);
+  await writeFile(path.join(skill, "SKILL.md"), "---\nname: notizen\ndescription: Notizen ordnen.\n---\nLies vorlage.md.\n");
+  await writeFile(path.join(skill, "vorlage.md"), "# Vorlage\n");
+  const server = await serverFixture(t, { skills: [skill] });
+  const { offered, project } = await workstationProject(server);
+  const workstation = await foreignWorkstation(t, server.url, "notebook-0009", "Notebook", { [offered]: project }, [sandboxToolsModule, fileModule]);
+  server.bindings.set("skill", { machine: { client: "notebook-0009", label: "Notebook" }, folder: { path: offered } });
+  const execute = (operation: string, input: unknown) => server.runtime.sandbox.execute("skill", operation, input);
+
+  assert.match(textOf(await execute("read", { path: "@skills/notizen/SKILL.md" })), /Lies vorlage\.md/);
+  assert.match(textOf(await execute("read", { path: "@skills/notizen/vorlage.md" })), /# Vorlage/);
+  assert.match(textOf(await execute("bash", { command: "cat vorlage.md", cwd: "@skills/notizen" })), /# Vorlage/);
+  const listed = await execute(FILE_OPERATIONS.list, { path: "notizen", alias: "@skills" }) as FileListing;
+  assert.deepEqual(listed.entries.map((entry) => entry.name), ["SKILL.md", "vorlage.md"]);
+  await assert.rejects(execute("write", { path: "@skills/notizen/neu.md", content: "nein" }), /außerhalb/);
+  await assert.rejects(execute("read", { path: "@skills/fehlt/SKILL.md" }), (error: unknown) =>
+    error instanceof DomainError && error.code === "workspace-alias-unknown" && /@skills\/fehlt/.test(error.message));
+  assert.deepEqual(workstation.operations, []);
+});
+
+test("die Selbstbeschreibung nennt die Wurzeln des Servers je Bindung, ihre Variablen im Arbeitsplatz-Run nur für die Bash dort", async (t) => {
+  const skills = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-foreign-skills-")));
+  t.after(() => rm(skills, { recursive: true, force: true }));
+  await mkdir(path.join(skills, "notizen"));
+  const server = await serverFixture(t, { skills: [path.join(skills, "notizen")] });
+  await actorRoot(server);
+  server.bindings.set("fremd", { machine: { client: "notebook-0010", label: "Notebook" }, folder: { path: "/fremder-rechner/projekt" } });
+  server.bindings.set("hier", { machine: "server", folder: "fresh" });
+
+  const remote = (await server.runtime.resolve("fremd", () => undefined)).description ?? "";
+  assert.match(remote, /## Roots on the server/);
+  assert.match(remote, /`@actors` \(read and write\) and `@skills` \(read only\)/);
+  assert.match(remote, /with a `cwd` that starts with an alias it runs on the server instead and sees only the server, and only that bash has `\$RAGENTS_ACTORS_DIR` for `@actors`/);
+  assert.match(remote, /never combine a path with an alias and a path in the working directory/);
+  const local = (await server.runtime.resolve("hier", () => undefined)).description ?? "";
+  assert.match(local, /## Roots besides the working directory/);
+  assert.match(local, /`bash` also has `\$RAGENTS_ACTORS_DIR` for `@actors`\./);
+  assert.doesNotMatch(local, /on the server instead/);
+});
+
+const formatterFiles: Readonly<Record<string, string>> = {
+  "package.json": JSON.stringify({ name: "formatter", type: "module", private: true, ragents: { title: "Formatter", backend: "src/server.ts" } }),
+  "src/server.ts": `import { Type } from "typebox";
+import { defineActor } from "@ragents/server";
+export default defineActor({ state: Type.Object({}), functions: {
+  transform: { label: "Transform", input: Type.Object({ value: Type.String() }), output: Type.String(), tool: { name: "format_text" } },
+} }, { functions: { transform: (input) => input.value.toUpperCase() } });
+`,
+  "tests/transform.test.ts": `import assert from "node:assert/strict";
+import test from "node:test";
+import { createTestContext } from "@ragents/server/testing";
+import program from "../src/server.ts";
+test("transform", async () => {
+  assert.equal(await program.functions.transform({ value: " hallo " }, createTestContext({ state: {} })), "HALLO");
+});
+`,
+};
+
+test("ein Actor-Programm entsteht, wird mit den Dateiwerkzeugen bearbeitet und aktiviert in einem Arbeitsplatz-Run", async (t) => {
+  const server = await serverFixture(t);
+  const { offered, project } = await workstationProject(server);
+  const workstation = await foreignWorkstation(t, server.url, "notebook-0011", "Notebook", { [offered]: project }, [sandboxToolsModule, fileModule]);
+  server.bindings.set("*", { machine: { client: "notebook-0011", label: "Notebook" }, folder: { path: offered } });
+  const { sandbox } = server.runtime;
+  const serverProcessContextFor = (runId: string) => sandbox.serverProcessContextFor(runId);
+  const setup = setupRun({ grants: allGrants(), toolNames: null });
+  const native = new NodeTypeScriptExecutor({ directoryFor: (runId) => path.join(server.root, "server", "native", runId), serverProcessContextFor });
+  setup.services.nativeTypeScriptExecutor = native;
+  const registry = new ToolRegistry();
+  const programs = new ActorProgramRuntime({
+    runtime: () => setup.runtime,
+    agentToolsFor: async (runId, actorId, provisional) => {
+      const view = setup.runtime.view(runId);
+      const actor = provisional ?? view.actors.find((candidate) => candidate.id === actorId);
+      if (!actor) throw new Error(`Den Actor ${actorId} gibt es im Test nicht`);
+      return registry.resolve({ runId, actorId, actor, turnId: null, view: provisional ? { ...view, actors: [...view.actors, provisional] } : view, workspace: offered });
+    },
+    askService: () => ({ ask: async () => { throw new Error("Der Test erwartet keine Rückfrage"); } }),
+    reservedToolNames: () => [],
+    serverProcessContextFor,
+    operations: { operation: () => { throw new Error("Der Test hat keine Operationen"); }, invoke: async () => { throw new Error("Der Test hat keine Operationen"); }, list: () => [] },
+    directoryFor: (runId) => path.join(server.root, "server", "programs", runId),
+    scriptSources: () => undefined,
+  });
+  setup.services.actorPrograms = programs;
+  t.after(async () => {
+    await programs.shutdown();
+    await native.shutdown();
+    setup.journal.close();
+  });
+  sandbox.registerWorkspaceRoot({ id: "actor-programs", alias: "@actors", environmentVariable: "RAGENTS_ACTORS_DIR", directoryFor: (runId) => programs.workspaceDirectory(runId) });
+  registry.register(sandbox.workspaceTools());
+  registry.register(createTypeScriptToolContributor({ serverProcessContextFor, execute: (runId, operation, input, options) => sandbox.execute(runId, operation, input, options) }));
+  for (const contributor of createActorProgramToolContributors(programs, { latest: () => "" })) registry.register(contributor);
+  const queued = postTo(setup.runtime, setup.view, setup.agent.id, "program-input", "Baue ein Programm.");
+  const input = queued.inputs.find((entry) => entry.actorId === setup.agent.id && entry.lifecycle.kind === "pending");
+  assert.ok(input);
+  const turn = claimTurn(setup.runtime, setup.view.id, setup.agent.id, input.id, "program-turn");
+  const toolset = await TurnToolset.create({ runtime: setup.runtime, turn, catalog, registry, workspace: offered });
+  const call = async (id: string, name: string, value: Record<string, unknown>): Promise<unknown> => (await toolset.invoke(id, name, value as never)).output;
+
+  await call("create", "typescript_eval", { code: 'return context.functions.actor_program_create({ name: "formatter", template: "blank" });' });
+  for (const [file, content] of Object.entries(formatterFiles)) await call(`write-${file}`, "write", { path: `@actors/formatter/${file}`, content });
+  await call("edit", "edit", { path: "@actors/formatter/src/server.ts", edits: [{ oldText: "input.value.toUpperCase()", newText: "input.value.trim().toUpperCase()" }] });
+  assert.match(textOf(await call("bash", "bash", { command: "ls src tests", cwd: "@actors/formatter" })), /server\.ts[\s\S]*transform\.test\.ts/);
+  assert.deepEqual(await call("activate", "typescript_eval", { code: 'return context.functions.actor_program_activate({ name: "formatter" });' }),
+    { result: { name: "formatter", actor: "@formatter", views: 0, active: true }, logs: [] });
+  assert.deepEqual(await call("use", "typescript_eval", { code: 'return context.functions.format_text({ value: " hallo " });' }), { result: "HALLO", logs: [] });
+  assert.deepEqual(workstation.operations, [], "Anlegen, Bearbeiten und Aktivieren bleiben auf dem Server");
+  await missingOnServer(offered);
 });
 
 test("die Browserprüfung läuft auf dem Arbeitsplatz, ihre Aufnahmen liegen in der Ablage des Servers", async (t) => {
@@ -360,7 +567,7 @@ test("ein neuer Ordner je Run entsteht auf dem Arbeitsplatz als Git-Worktree des
     },
     resolve: () => Promise.reject(new Error("auf dem Server nicht gefragt")),
   };
-  const server = await serverFixture(t, resolver);
+  const server = await serverFixture(t, { resolver });
   repository = path.join(server.root, "arbeitsplatz", "projekt");
   const runs = path.join(server.root, "arbeitsplatz", "runs");
   await mkdir(repository, { recursive: true });

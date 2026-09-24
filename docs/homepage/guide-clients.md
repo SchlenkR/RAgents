@@ -202,6 +202,12 @@ the run journal until the turn triggered by its message ends. If the profile doe
 `ragents.workspace.binding` because it creates its own workspace, the folder remains unbound and
 the command reports this on stderr.
 
+`--workstation <id>` binds the folder on the workstation registered at the host under that ID
+instead of the server (binding `{ machine: { client, label }, folder: { path } }`, the label taken
+from the registered workstations); `<folder>` is then the path on that workstation. The
+counterpart is `pnpm workspace-client <server-url> <folder> --id <id>`. Without a registered
+workstation of that ID the command fails and names the registered ones.
+
 `--entry <template>` additionally starts the run through a skill or script template. If that program
 chooses its chat partner during setup, the task waits instead of failing. `send` performs the
 same operation in an existing run. `journal` reads the history without a server, using the same

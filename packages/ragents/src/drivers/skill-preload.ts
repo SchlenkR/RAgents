@@ -123,7 +123,7 @@ const preloadedSkills = async (skills: readonly Skill[]): Promise<string> => {
         "Apply these skill instructions to the current task. Resolve relative paths against each skill location.",
         "The current user task takes precedence over default or example task text in a skill, including edited start prompts.",
         ...bodies.map(({ skill, body }) => [
-            `<preloaded_skill name="${skill.name}" location="${skill.filePath}">`,
+            `<preloaded_skill name="${skill.name}" location="${skill.location}">`,
             body,
             "</preloaded_skill>",
         ].join("\n")),

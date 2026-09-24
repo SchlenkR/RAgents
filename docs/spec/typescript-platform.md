@@ -185,10 +185,10 @@ input, not a snippet:
 ### Execute code
 
 `typescript_eval` accepts exactly one of `code` or `path`. The source is the body of an async
-function with `context`; `return` produces the result. For `path`, the run executor
-(`files.read`) reads a file relative to the run root or under an alias such as `@actors`. For a
-connected workspace, the file comes from that machine and server-only aliases do not exist
-there. Execution always takes place on the server. Before execution, the shared compiler checks
+function with `context`; `return` produces the result. For `path`, the executor of the machine that
+holds the file reads it (`files.read`): a path relative to the run root from the machine the run is
+bound to, a path under an alias such as `@actors` from the server, also for a connected workspace.
+Execution always takes place on the server. Before execution, the shared compiler checks
 the code against the current API contract. Native execution uses the same executor, function
 resolver, and cancellation path as actor programs. A snippet requires no actor package,
 activation, or separate actor. Its variables live for that execution.
