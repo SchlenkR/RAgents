@@ -798,7 +798,7 @@ importiert, und bei Code des Hosts dazu jeden Wert, den ein Plugin daraus import
 Host-API 5: Server 63 Module mit 173 Namen aus Code des Hosts (die Engine samt ihren
 Vertragsmodulen, `@ragents/workspace-executor`, `@ragents/workflow`, die Bausteine unter
 `@ragents/host/...`) und die Bibliotheken `typebox`, `typebox/value`, `handlebars`,
-`playwright-core`, `tar` (`node:*` ist immer extern); Web 46 Module mit 112 Namen aus Code des
+`playwright-core`, `tar` (`node:*` ist immer extern); Web 44 Module mit 117 Namen aus Code des
 Hosts (die Module unter `@ragents/web/...` und die browserfähigen Verträge von Engine und Host)
 und die Bibliotheken `react`, `react-dom`, `react/jsx-runtime`, `typebox`. Eine Bibliothek steht
 mit `LIBRARY` ganz darin, so wie ihre installierte Fassung sie ausliefert; ein Modul des Hosts
@@ -1482,7 +1482,7 @@ Er besitzt acht Pixel Innenabstand oben und unten, zwölf Pixel seitlich und ein
 Symbolfeld. Symbolfeld und Knöpfe besitzen keine zusätzlichen seitlichen Margins;
 sie fluchten mit den Inhaltsrändern des Verlaufs. Der Kachelchat verwendet einmal zwölf Pixel seitlichen Innenabstand; Verlauf,
 Beiträge und Eingabe stapeln keine zusätzlichen Einrückungen.
-Der Kachelchat zeigt keine Zeitstempel. Kachel und Pop-out verwenden den gewählten
+Kachel und Pop-out zeigen Zeitstempel nach der Wahl ihres Chats (Chat-Bausteine, unten) und verwenden den gewählten
 Detailgrad für Agenten, von ausgeblendeten Schritten bis zu vollständig sichtbaren Details;
 die Aufklappfreigabe bleibt wirksam. Ohne Produktvorgabe gilt `grouped` (siehe unten);
 `ChatMessages` ohne Angabe verwendet `current` ("aktuell"). In `current` erscheint während
@@ -1502,7 +1502,7 @@ explizite Produktvorgaben haben Vorrang. Der Detailgrad `grouped` ("gruppiert") 
 aufeinanderfolgenden Denk- und Werkzeugschritte zwischen zwei anderen Nachrichten zu einer
 zugeklappten Zeile "N Schritte" zusammen; solange der letzte Schritt läuft, nennt sie ihn und
 pulsiert. Aufgeklappt stehen die Schritte darunter als einzeilige Zeilen wie in `compact`, jede
-bei Aufklappfreigabe einzeln per Popover zu öffnen. Der Klappzustand lebt nur in der Ansicht. Das Pop-out zeigt weiterhin Zeitstempel.
+bei Aufklappfreigabe einzeln per Popover zu öffnen. Der Klappzustand lebt nur in der Ansicht.
 Zugänge ohne `runs.inspect` erhalten bei freigegebener Schrittanzeige ausschließlich diesen
 aktuellen, nicht aufklappbaren Status. Deaktivierte Schritte bleiben ausgeblendet.
 Die Vorgabe aller Chats ist `grouped`; ein Produkt kann sie ohne Aufklappen oder Umschaltung verwenden.
@@ -1760,8 +1760,18 @@ des Panels gelten gemeinsam für Verlauf und Eingabe. Antworten haben keine zus�
 prozentuale Breitenbegrenzung. Zeitstempel bleiben über `showTimestamps` steuerbar. Der separate
 `TimestampSwitch` erhält Zustand und Callback vom Host und lässt sich mit eigenen Texten und
 einer bei Platzmangel ausblendbaren Beschriftung in die Toolbar setzen.
-Der Run-Chat zeigt diesen Schalter neben dem Detailgrad und merkt die Wahl im Browser je Run und
-primärem Actor, anfangs eingeschaltet. Eine Einbettung des Run-Chats (`renderChat` im
+Jeder Chat des Hosts und der Plugins bezieht Detailgrad und Zeitstempel aus EINEM Baustein,
+`@ragents/web/chat-view-settings`: `useChatViewSettings(runId, actorId, scope, display?)` liefert
+beide Werte samt Setzern für die Nachrichtenliste, `ChatViewSwitches` die beiden Schalter für die
+Eingabe (den Detailgrad nur, wenn er wählbar ist). Das gilt für Run-Chat, Actor-Chats in Kachel,
+Pop-out, Inspector und Run-Panel, den Vorbereitungschat einer Vorlage und den globalen
+Koordinator. Ohne Eingabe (gestoppter Actor, TypeScript-Actor, Mensch, ausgeblendete Eingabe,
+Nur-Lesen) stehen die Schalter an ihrer Stelle, solange Nachrichten angezeigt werden. Die
+Zeitstempelwahl gilt je Chat, also je Run und Actor, an allen Anzeigeorten gleich und bleibt im
+Browser gespeichert, anfangs eingeschaltet; der Detailgrad trennt zusätzlich nach Anzeigeort
+(`display`). Mini-App-Chats (`UI.Chat`, `UI.ChatMessages`, `UI.MessageList`) nutzen dieselbe
+Nachrichtenliste, bekommen die Schalter aber nicht: dort legt das Programm die Darstellung über
+`showTimestamps` und `detailMode` fest. Eine Einbettung des Run-Chats (`renderChat` im
 Flächenbeitrag) gibt mit `ChatDisplayOptions` nur, was sie heute braucht: eine zusätzliche Klasse
 (`chatElementClassName`), den Zugriff auf den Scrollbereich (`chatScrollerRef`), Elemente links in
 der Eingabeleiste (`toolbarLeft`) und `notice`, das statt des Verlaufs steht, solange es gesetzt

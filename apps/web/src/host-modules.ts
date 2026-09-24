@@ -12,6 +12,7 @@ import * as webToolbar from "@ragents/web/Toolbar";
 import * as webAccessToken from "@ragents/web/access-token";
 import * as webActorConversation from "@ragents/web/actor-conversation";
 import * as webApi from "@ragents/web/api";
+import * as webChatViewSettings from "@ragents/web/chat-view-settings";
 import * as webChatChatInputToolbar from "@ragents/web/chat/ChatInputToolbar";
 import * as webChatChatMessages from "@ragents/web/chat/ChatMessages";
 import * as webChatChatPanel from "@ragents/web/chat/ChatPanel";
@@ -59,6 +60,7 @@ export const hostModules: Readonly<Record<string, object>> = {
   "@ragents/web/access-token": webAccessToken,
   "@ragents/web/actor-conversation": webActorConversation,
   "@ragents/web/api": webApi,
+  "@ragents/web/chat-view-settings": webChatViewSettings,
   "@ragents/web/chat/ChatInputToolbar": webChatChatInputToolbar,
   "@ragents/web/chat/ChatMessages": webChatChatMessages,
   "@ragents/web/chat/ChatPanel": webChatChatPanel,

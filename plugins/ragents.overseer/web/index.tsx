@@ -5,10 +5,10 @@ import { XIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChatMessages } from "@ragents/web/chat/ChatMessages";
 import { ChatInputToolbar, type ChatInputHandle } from "@ragents/web/chat/ChatInputToolbar";
-import { DetailModeSwitch } from "@ragents/web/chat/DetailModeSwitch";
 import { useChat } from "@ragents/web/chat/useChat";
 import { useAttachmentCapabilities } from "@ragents/web/chat/useAttachmentCapabilities";
-import { ChatStepsProvider, useChatSteps, type OverviewPanelContext, type WebPlugin } from "@ragents/web/PluginRegistry";
+import { ChatStepsProvider, type OverviewPanelContext, type WebPlugin } from "@ragents/web/PluginRegistry";
+import { ChatViewSwitches, useChatViewSettings } from "@ragents/web/chat-view-settings";
 import { withToolSummaries } from "@ragents/web/toolLine";
 import { rpc } from "@ragents/web/rpc";
 import { interruptActorTurn } from "@ragents/web/api";
@@ -96,7 +96,7 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
     if (notice && !panelOpen.current) setQuickAnswer(notice);
   }, [clearConversation, quickAnswers]);
   const chat = useChat(runId, onEvent, activated);
-  const steps = useChatSteps(runId);
+  const chatView = useChatViewSettings(runId, "primary", "coordinator");
   const modelState = useModelSettings(open);
   const attachments = useAttachmentCapabilities(runId, "primary", JSON.stringify(modelState.settings && [modelState.settings.provider, modelState.settings.model]));
   const messages = useMemo(() => withToolSummaries(chat.messages), [chat.messages]);
@@ -170,7 +170,7 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
             {resetting ? "Wird zurückgesetzt ..." : "Zurücksetzen"}
           </Button>
         } />}
-        toolbarLeft={steps.selectable && <DetailModeSwitch className="max-md:[&>span]:hidden" collapsible={false} mode={steps.mode("coordinator")} onChange={(mode) => steps.setMode("coordinator", mode)} />}
+        toolbarLeft={<ChatViewSwitches className="max-md:[&>span]:hidden" collapsible={false} settings={chatView} />}
       />
     </div>
       <span className="flex min-w-0 flex-none items-center justify-end gap-1.5 empty:hidden" role="status" aria-live="polite">
@@ -219,9 +219,9 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
       {connectionNote && <p className={noteClass} role="status">{connectionNote}</p>}
       {error && <p className={errorClass} role="alert">{error}</p>}
       <ChatMessages announceMessages={false} className="min-h-16 flex-1" scrollerRef={setScroller}
-        detailMode={steps.mode("coordinator")}
+        detailMode={chatView.detailMode}
         emptyState={<div className="m-auto max-w-[480px] p-8 text-[0.9rem] leading-[1.6] text-muted-foreground max-md:p-5"><strong className="text-foreground">Ein Chat für die gesamte Werkstatt</strong><p>Schreibe deinen Auftrag oben in die Titelleiste. Hier erscheinen Antworten zu deinen Runs und laufenden Arbeiten.</p></div>}
-        messages={messages} running={chat.running} showTimestamps stepsExpandable={steps.stepsExpandable}
+        messages={messages} running={chat.running} showTimestamps={chatView.showTimestamps} stepsExpandable={chatView.stepsExpandable}
       />
     </PopoverContent>
     </Popover>

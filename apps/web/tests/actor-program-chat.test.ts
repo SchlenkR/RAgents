@@ -377,7 +377,8 @@ test("a tile can hide the chat composer of its actor without changing the inspec
   }));
   assert.match(html, /Prüfe den Text/);
   assert.match(html, /Geprüft/);
-  assert.doesNotMatch(html, /data-chat="composer"|<textarea|Dateien anhängen/);
+  assert.doesNotMatch(html, /<textarea|Dateien anhängen/);
+  assert.match(html, /aria-label="Zeitstempel ausblenden"/);
   assert.match(renderToStaticMarkup(createElement(ActorChatPreview, props)), /<textarea/);
   const inspector = renderToStaticMarkup(createElement(ActorChatControls, { actor: worker, view, presentation: "inspector" }));
   assert.match(inspector, /<textarea/);

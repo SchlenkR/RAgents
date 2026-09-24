@@ -3,7 +3,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@ragents/web/u
 import { useCallback, useMemo } from "react";
 import { ChatMessages } from "@ragents/web/chat/ChatMessages";
 import type { Message } from "@ragents/web/chat/types";
-import { useActionRenderer, useChatSteps, useToolRenderer } from "@ragents/web/PluginRegistry";
+import { useActionRenderer, useToolRenderer } from "@ragents/web/PluginRegistry";
+import { useChatViewSettings } from "@ragents/web/chat-view-settings";
 import { actorChatMessages } from "@ragents/web/actor-conversation";
 import type { FlowSelection } from "./FlowInspector";
 import type { RunActor, RunView } from "@ragents/web/run-view";
@@ -25,10 +26,10 @@ export function ActorChat({ actor, view, presentation, display = presentation, p
   scrollerRef?: (element: HTMLDivElement | null) => void;
 }) {
   const inspect = useAccess().can("runs.inspect");
-  const steps = useChatSteps(view.id, actor.id, display);
+  const chatView = useChatViewSettings(view.id, actor.id, "agents", display);
   const renderTool = useToolRenderer();
   const renderAction = useActionRenderer();
-  const configuredMode = steps.mode("agents");
+  const configuredMode = chatView.detailMode;
   const detailMode = inspect || configuredMode === "off" ? configuredMode : "current";
   const messages = useMemo(() => actorChatMessages(view, actor, primaryMessages, conversation), [view, actor, primaryMessages, conversation]);
   const openLink = useCallback((href: string) => {
@@ -50,8 +51,8 @@ export function ActorChat({ actor, view, presentation, display = presentation, p
     owner={actor.id}
     onLinkClick={openLink}
     running={running}
-    showTimestamps={presentation === "inspector"}
-    stepsExpandable={inspect && steps.stepsExpandable}
+    showTimestamps={chatView.showTimestamps}
+    stepsExpandable={inspect && chatView.stepsExpandable}
     scrollerRef={scrollerRef}
     />
   </>;

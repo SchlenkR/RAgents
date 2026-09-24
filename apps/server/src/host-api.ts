@@ -137,6 +137,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/actor-conversation": ["actorChatMessages", "actorInputLabel"],
     "@ragents/web/actor-programs/client-ui/contracts": [],
     "@ragents/web/api": ["interruptActorTurn", "sendActorMessage"],
+    "@ragents/web/chat-view-settings": ["ChatViewSwitches", "useChatViewSettings"],
     "@ragents/web/chat/ChatInputToolbar": ["ChatInputToolbar"],
     "@ragents/web/chat/ChatMessages": ["ChatMessages"],
     "@ragents/web/chat/ChatPanel": ["ChatPanel"],

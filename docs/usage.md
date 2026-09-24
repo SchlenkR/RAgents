@@ -145,16 +145,18 @@ bleiben über die gemeinsame Chat-Eingabe verfügbar. Jede Kachel scrollt ihren 
 am Ende des Verlaufs folgt er neuen Nachrichten wieder automatisch. Den Chat mit allen Details
 öffnest Du über die Actorliste oder die direkten Zugänge in der Actor-Leiste über der Fläche.
 
-Verlauf und Eingabe nutzen dieselbe verfügbare Breite. Im Run-Chat schaltet der Uhrknopf unten
-neben der Schrittdarstellung die Zeitstempel ein und aus. Die Wahl bleibt im Browser je Run und
-primärem Actor gespeichert. Der Pfeil zum Ende erscheint erst bei mehr als 120 Pixeln Abstand;
-kleines Zurückscrollen hält neue Antworten trotzdem an der gewählten Leseposition.
+Verlauf und Eingabe nutzen dieselbe verfügbare Breite. In jedem Chat, auch bei einem anderen
+Adressaten, in Kacheln, im Vorbereitungschat und beim globalen Koordinator, schaltet der Uhrknopf
+unten neben der Schrittdarstellung die Zeitstempel ein und aus. Die Wahl bleibt im Browser je Run
+und Actor gespeichert und gilt überall, wo dieser Chat erscheint. Der Pfeil zum Ende erscheint
+erst bei mehr als 120 Pixeln Abstand; kleines Zurückscrollen hält neue Antworten trotzdem an der
+gewählten Leseposition.
 
 Kleinigkeiten der Chats und Kacheln: Antworten erscheinen schon während der Ausgabe als
 Markdown mit Überschriften, Listen, Tabellen und Codeblöcken; noch offene Formatierungen werden
-vorläufig dargestellt. Die Verläufe in den Kacheln zeigen keine Zeitangaben. An Deinen eigenen
-Nachrichten erscheint beim Darüberfahren oder per Tastaturfokus oben rechts ein Kopiersymbol;
-es kopiert den ursprünglichen Text mit seinen Zeilenumbrüchen und bestätigt mit einem Haken.
+vorläufig dargestellt. An Deinen eigenen Nachrichten erscheint beim Darüberfahren oder per
+Tastaturfokus oben rechts ein Kopiersymbol; es kopiert den ursprünglichen Text mit seinen
+Zeilenumbrüchen und bestätigt mit einem Haken.
 Sendest Du während einer laufenden Antwort eine weitere Nachricht, wartet sie nicht auf das Ende
 des Turns: Ein Agent speist sie vor seiner nächsten Modellanfrage in den laufenden Turn ein
 (Steering). Der Senden-Knopf heißt in dieser Zeit "In den laufenden Turn einspeisen", und im

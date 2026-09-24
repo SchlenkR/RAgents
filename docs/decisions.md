@@ -1,5 +1,19 @@
 # Entscheidungen
 
+## Detailgrad und Zeitstempel in jedem Chat aus einem Baustein (25.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Chat-Bausteine, Kachelchat, Host-API), `docs/usage.md`. Vorgabe des
+Owners. Der Zeitstempelschalter stand nur in der Eingabe des Run-Chats; Actor-Chats in Run-Panel,
+Kachel und Inspector, der Vorbereitungschat und der globale Koordinator bauten eigene Eingaben
+ohne ihn, und die Kachel blendete Zeitstempel fest aus. Festgelegt: `useChatViewSettings` und
+`ChatViewSwitches` (`apps/web/src/chat-view-settings.tsx`, neu in der Host-API, ohne neue
+`HOST_API_VERSION`, weil nichts entfällt) liefern Detailgrad und Zeitstempel für Schalter und
+Nachrichtenliste jedes Chats; `chat-timestamps.ts` geht darin auf, der Speicherschlüssel bleibt.
+Die Zeitstempelwahl gilt je Run und Actor, auch Chats ohne Eingabe zeigen die Schalter, solange
+Nachrichten erscheinen, und der Vorbereitungschat stempelt seine Nachrichten lokal. Mini-App-Chats
+bleiben ohne Schalter, weil dort das Programm die Darstellung per Props festlegt. Nachgewiesen mit
+`apps/web/tests/chat-view-switches-browser.test.ts`.
+
 ## `ragents run` ohne Ordner (25.09.2026)
 
 Kapitel: `docs/usage.md` (Control RAgents as an agent), `skills-for-agents/ragents/SKILL.md`.

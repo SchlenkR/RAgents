@@ -1,9 +1,8 @@
 import { useAccess } from "@ragents/web/AccessContext";
 import { useState, type ReactNode } from "react";
 import { interruptActorTurn, sendActorMessage } from "@ragents/web/api";
-import { useChatSteps } from "@ragents/web/PluginRegistry";
+import { ChatViewSwitches, useChatViewSettings } from "@ragents/web/chat-view-settings";
 import { ChatInputToolbar } from "@ragents/web/chat/ChatInputToolbar";
-import { DetailModeSwitch } from "@ragents/web/chat/DetailModeSwitch";
 import { StoppedActorNotice } from "@ragents/web/chat/StoppedActorNotice";
 import { useAttachmentCapabilities } from "@ragents/web/chat/useAttachmentCapabilities";
 import { programChatNotice } from "@ragents/web/chat/chat-target";
@@ -25,18 +24,14 @@ export function ActorChatControls({ actor, view, composerVisible = true, present
 }) {
   const writable = useAccess().can("runs.write");
   const [stopError, setStopError] = useState<string>();
-  const steps = useChatSteps(view.id, actor.id, display);
+  const chatView = useChatViewSettings(view.id, actor.id, "agents", display);
   const attachments = useAttachmentCapabilities(view.id, actor.id, JSON.stringify(actor.execution?.driver.config));
   const disabledReason = !writable ? "Du hast Lesezugriff auf diesen Run." : undefined;
-  const detailSwitch = steps.selectable && <DetailModeSwitch
-    collapsible={presentation === "surface"}
-    mode={steps.mode("agents")}
-    onChange={(mode) => steps.setMode("agents", mode)}
-  />;
-  if (!composerVisible || actor.kind === "human") return detailSwitch && <div className={controlsClass}>{detailSwitch}</div>;
-  if (actor.kind === "script") return <div className={controlsClass}><p className={noteClass}>{programChatNotice}</p>{detailSwitch}</div>;
+  const switches = <ChatViewSwitches collapsible={presentation === "surface"} settings={chatView} />;
+  if (!composerVisible || actor.kind === "human") return <div className={controlsClass}>{toolbarLeft}{switches}</div>;
+  if (actor.kind === "script") return <div className={controlsClass}><p className={noteClass}>{programChatNotice}</p>{toolbarLeft}{switches}</div>;
   if (actor.lifecycle?.kind === "stopped") return <div className={presentation === "inspector" ? "flex-shrink-0 px-5 pt-2.5 pb-3.5" : undefined}>
-    <StoppedActorNotice actor={actor} runId={view.id} toolbar={(toolbarLeft || detailSwitch) && <>{toolbarLeft}{detailSwitch}</>} />
+    <StoppedActorNotice actor={actor} runId={view.id} toolbar={<>{toolbarLeft}{switches}</>} />
   </div>;
   return <div className={presentation === "inspector" ? "flex-shrink-0 px-5 pt-2.5 pb-3.5" : undefined}>
     <ChatInputToolbar
@@ -55,7 +50,7 @@ export function ActorChatControls({ actor, view, composerVisible = true, present
       texts={{ placeholder: disabledReason ?? `Nachricht an @${actor.handle} ...` }}
       toolbarLeft={<>
         {toolbarLeft}
-        {detailSwitch}
+        {switches}
         {presentation === "inspector" && <span className="truncate text-[0.7rem] text-muted-foreground">an @{actor.handle}</span>}
       </>}
       toolbarRight={toolbarRight}

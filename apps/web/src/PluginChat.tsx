@@ -15,9 +15,7 @@ import { primaryChatState, primaryIsProgram, programChatNotice, runIsWorking } f
 import { StoppedActorNotice } from "./chat/StoppedActorNotice";
 import { ChatMessages } from "./chat/ChatMessages";
 import { ChatPanel } from "./chat/ChatPanel";
-import { DetailModeSwitch } from "./chat/DetailModeSwitch";
-import { TimestampSwitch } from "./chat/TimestampSwitch";
-import { useChatTimestamps } from "./chat-timestamps";
+import { ChatViewSwitches, useChatViewSettings } from "./chat-view-settings";
 import { useChat } from "./chat/useChat";
 import { runUserLocation, type ChatRunLocation } from "./chat/user-location";
 import type { ChatAttachmentInput, ChatEvent, ToolInfo } from "./chat/types";
@@ -43,7 +41,6 @@ import {
   PluginSessionProviders,
   useActionRenderer,
   useToolRenderer,
-  useChatSteps,
   primaryChatActor,
   useSurfaceController,
   type ChatDisplayOptions,
@@ -530,8 +527,7 @@ function ChatSurface({
   const access = useAccess();
   const writable = access.can("runs.write");
   const renderAction = useActionRenderer();
-  const steps = useChatSteps(session.session.id, primaryChatActor(session.runView));
-  const timestamps = useChatTimestamps(session.session.id, primaryChatActor(session.runView));
+  const chatView = useChatViewSettings(session.session.id, primaryChatActor(session.runView), "coordinator");
   const [sendError, setSendError] = useState<string>();
   const startOptions = useStartOptions();
   const attachments = useAttachmentCapabilities(session.session.id, "primary", JSON.stringify(startOptions.options.map(({ id, value }) => [id, value])));
@@ -542,8 +538,11 @@ function ChatSurface({
     <ChatPanel
       className={options.chatElementClassName ? `${chatElementClass} ${options.chatElementClassName}` : chatElementClass}
       composer={
-        primaryIsProgram(session.runView, session.session.id) ? <p className="text-muted-foreground">{programChatNotice}</p>
-        : partner.kind === "stopped" ? <div className="[--input-card-radius:var(--radius-lg)]"><StoppedActorNotice actor={partner.actor} runId={session.session.id} toolbar={options.toolbarLeft} /></div>
+        primaryIsProgram(session.runView, session.session.id) ? <div className="flex min-w-0 flex-col gap-1.5">
+          <p className="text-muted-foreground">{programChatNotice}</p>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">{options.toolbarLeft}<ChatViewSwitches collapsible={false} settings={chatView} /></div>
+        </div>
+        : partner.kind === "stopped" ? <div className="[--input-card-radius:var(--radius-lg)]"><StoppedActorNotice actor={partner.actor} runId={session.session.id} toolbar={<>{options.toolbarLeft}<ChatViewSwitches collapsible={false} settings={chatView} /></>} /></div>
         : <div className="[--input-card-radius:var(--radius-lg)]">
           {sendError && <p className="text-[0.8rem] text-destructive" role="alert">{sendError}</p>}
           <ChatInputToolbar
@@ -566,14 +565,7 @@ function ChatSurface({
             toolbarLeft={
               <>
                 {options.toolbarLeft}
-                {steps.selectable && (
-                  <DetailModeSwitch
-                    collapsible={false}
-                    mode={steps.mode("coordinator")}
-                    onChange={(mode) => steps.setMode("coordinator", mode)}
-                  />
-                )}
-                <TimestampSwitch showTimestamps={timestamps.showTimestamps} onChange={timestamps.setShowTimestamps} />
+                <ChatViewSwitches collapsible={false} settings={chatView} />
               </>
             }
             toolbarRight={<StartOptionControls disabled={!session.connected || !writable} placement="composer" registry={registry} />}
@@ -582,15 +574,15 @@ function ChatSurface({
       }
     >
       {options.notice ?? <ChatMessages
-        detailMode={steps.mode("coordinator")}
+        detailMode={chatView.detailMode}
         messages={messages}
         onDismissAction={writable ? (actionId) => void dismissAction(session.session.id, actionId) : undefined}
         renderAction={renderAction}
         renderTool={renderTool}
         running={working}
         scrollerRef={options.chatScrollerRef}
-        showTimestamps={timestamps.showTimestamps}
-        stepsExpandable={steps.stepsExpandable}
+        showTimestamps={chatView.showTimestamps}
+        stepsExpandable={chatView.stepsExpandable}
       />}
     </ChatPanel>
   );
