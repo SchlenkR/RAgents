@@ -4,25 +4,12 @@ export const controlsTemplate: ActorProgramTemplate = {
   id: "controls",
   title: "UI-Controls ausprobieren",
   description: "Lokale Demo mit Formular, Tabelle, Dateien, Aufgaben, Ablaufdiagramm, SVG-Verbindungen, Nachrichten, Dokument und Diff ohne Funktionsaufrufe.",
+  ragents: {
+    title: "UI-Controls ausprobieren",
+    description: "Eine lokale Demo der vorhandenen Mini-App-Controls. Werte und Dateien bleiben in dieser Ansicht.",
+    views: [{ id: "main", client: "src/client.tsx" }],
+  },
   files: {
-    "package.json": `{
-  "name": "controls",
-  "private": true,
-  "type": "module",
-  "ragents": {
-    "title": "UI-Controls ausprobieren",
-    "description": "Eine lokale Demo der vorhandenen Mini-App-Controls. Werte und Dateien bleiben in dieser Ansicht.",
-    "views": [
-      {
-        "id": "main",
-        "client": "src/client.tsx",
-        "width": 640,
-        "height": 640
-      }
-    ]
-  }
-}
-`,
     "src/client.tsx": `import React from "react";
 import { createRoot } from "react-dom/client";
 import * as UI from "@ragents/client/ui";

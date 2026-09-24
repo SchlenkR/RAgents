@@ -39,9 +39,11 @@ include local modules, while fixed local dependencies come from the host install
 
 `package.json` contains `name`, `private: true`, `type: "module"`, and `ragents` metadata with a
 title, optional description, optional backend, and optional named views. Each view has an ID and
-client entry point; its title, stylesheet, and size are optional. At least one backend or view
-must exist. The host supplies HTML with a `root` element for each view. The authoritative schemas
-are in `apps/server/src/plugin-support/actor-programs/app-project.ts`.
+client entry point; its title and stylesheet are optional. A view declares no size; the host sizes
+its tile. At least one backend or view must exist. The host supplies HTML with a `root` element
+for each view. The authoritative schemas are in
+`apps/server/src/plugin-support/actor-programs/app-project.ts`; a violation names each path and
+its reason, for example `views.0 has unknown field width`.
 
 `actor_program_activate` binds a package to an existing actor with `actor: "self"` or
 `actor: "@handle"`. Without an explicit actor, an existing program binding remains. A new
@@ -61,7 +63,10 @@ views.
 
 Bei Runs mit eigener UID gleicht der Host Eigentümer und Schreibrechte der privaten
 Quell-, SDK- und Build-Dateien innerhalb der Run-Speichergrenze ab. Bibliotheks-Symlinks bleiben
-unverändert. Das Modell muss keine ausgegebenen Speicherpfade übernehmen.
+unverändert. Das Modell muss keine ausgegebenen Speicherpfade übernehmen. Der Abgleich umfasst den
+ganzen Arbeitsbereich der Actor-Programme samt Staging neuer Pakete (unten, "Vorlagen und
+Anlegen"); das Umbenennen erhält Eigentümer und Rechte. Einträge, die während des Abgleichs
+verschwinden, etwa ein gerade umbenanntes Paket, überspringt er.
 
 <!-- guide:programs -->
 ## Backend and client
@@ -110,9 +115,11 @@ Ergebnisse und Zustandswerte vor der Übertragung aus dem nativen Prozess.
 <!-- guide:programs -->
 ## Create, edit, and activate
 
-`actor_program_create` creates a package from a template without overwriting existing sources.
-The six templates in `server/templates.ts` and `controls-template.ts` demonstrate different
-forms:
+`actor_program_create` creates a package from a template completely or not at all. The host
+builds it outside `@actors/` and moves it to `@actors/<name>` only after every step has succeeded,
+so a failed attempt leaves nothing behind and the name stays free. An existing folder of that
+name, even an empty one, is rejected. The six templates in `server/templates.ts` and
+`controls-template.ts` demonstrate different forms:
 
 - `blank`: a static view on an existing actor.
 - `chat`: a chat view for its actor without a custom server function.
@@ -135,6 +142,35 @@ editable in the private workspace. `actor_view_set_visibility` addresses a view 
 `package-name/view-name` or unique title. Visibility changes neither functions nor actor state.
 The host manages hashes and technical bindings.
 <!-- /guide:programs -->
+
+### Vorlagen und Anlegen
+
+Die `ragents`-Metadaten jeder Vorlage sind ein Wert vom Typ `AppPackage` (`Static` von
+`appPackageSchema`), den der Compiler gegen das maßgebliche Schema prüft; eine Vorlage kann
+`package.json` nicht als Text mitbringen. `templateFiles` erzeugt daraus beim Anlegen die
+`package.json` mit dem gewählten Namen und liefert dieselben Dateien für die erzeugte Referenz.
+`apps/server/tests/actor-program-create.test.ts` legt jede Vorlage an und aktiviert sie mit
+Typprüfung, Build und ihren Tests, damit auch ihr Quellcode nicht unbemerkt gegen die Plattform
+veraltet.
+
+Anlegen ist ganz oder gar nicht, für `actor_program_create` wie für das Paket eines Run-Scripts
+(`importPackage`). Der Host baut das Paket in `actor-workspace/.staging/<name>-<uuid>`, auf
+demselben Dateisystem wie `actors/`, aber außerhalb des pnpm-Workspace und des Alias
+`@actors`. Dort laufen alle Schritte (Dateien, SDK, Paketprüfung, Backend-Vertrag, Client-SDK),
+erst danach benennt er den Ordner nach `actors/<name>` um. Prüfung und Umbenennen folgen ohne
+Unterbrechung aufeinander, weil `rename` einen leeren Zielordner still ersetzen würde: ein
+vorhandener Ordner, auch ein leerer, lässt das Anlegen mit "existiert bereits" scheitern und bleibt
+unberührt. Zwei gleichzeitige Anlagen desselben Namens schließen sich aus; die zweite scheitert mit
+"wird gerade angelegt". Bei jedem Fehler entfernt der Host den Staging-Ordner. Reste eines
+abgestürzten Serverlaufs räumt die nächste Anlage im Run weg und lässt dabei die laufenden Anlagen
+dieses Prozesses stehen; ein Run wird nur von dem Prozess bedient, der das Journal hält. Das Paket
+eines Run-Scripts aktiviert der Host nach dem Umbenennen; scheitert die Aktivierung, entfernt er es
+wieder.
+
+Kein erzeugtes Paket kennt seinen eigenen Ordner. `@ragents/workflow/prompts` findet sein Paket
+über die eigene Moduladresse (`import.meta.url`, drei Ebenen über `node_modules/@ragents/workflow`),
+alle übrigen absoluten Verweise zeigen auf Bibliotheken des Hosts. Ein Paket bleibt so nach dem
+Umbenennen und als Kopie im Build-Ordner der Aktivierung gültig.
 
 ### Diagnose, Typprüfung und Fachtests
 
@@ -670,3 +706,6 @@ execution paths. Deleting the run also removes its private app workspace.
 - Eine View besitzt keinen eigenen Scheduler; Subscription-Ereignisse liefern normale
   ActorInputs an den Actor.
 - Browser-CSP und Run-Dateirechte ersetzen keine separate Vertrauensgrenze für fremden Code.
+- Zwischen der letzten Prüfung und dem Umbenennen eines neuen Pakets kann nur noch ein fremder
+  Prozess, etwa eine Shell des Runs, einen leeren Ordner desselben Namens anlegen; `rename` ersetzt
+  ihn dann. Node bietet kein Umbenennen ohne Ersetzen (`RENAME_NOREPLACE`).

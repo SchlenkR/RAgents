@@ -1,5 +1,56 @@
 # Entscheidungen
 
+## Schemaverletzungen mit Pfad, getypte Vorlagen, Anlegen ganz oder gar nicht (24.09.2026)
+
+Kapitel: `docs/spec/overview.md` (Verbindliche Regeln, Regel SCHEMAVERLETZUNGEN NENNEN PFAD UND
+GRUND), `docs/spec/actor-programs.md` (Packages and actor binding, Dateirechte, Create, edit, and
+activate, neuer Abschnitt Vorlagen und Anlegen, Offene Grenzen), `docs/spec/plugins.md`
+(Dispatcher), `docs/spec/typescript-platform.md` (TypeScript-Actors). Drei Fehlerklassen hingen
+zusammen: Vorlagen trugen Felder, die das maßgebliche Schema nicht mehr kennt, ohne dass es jemand
+merkte; die Ablehnung nannte das Feld nicht, sodass nur Raten half; und ein gescheitertes Anlegen
+ließ einen halben Ordner liegen, der den Namen sperrte, ohne als Programm zu erscheinen.
+
+**Eine Schemaverletzung nennt Pfad und Grund, überall über `schemaComplaints`.** Dispatcher
+(Eingabe, Ergebnis, Kanalparameter), Operationen und Startoptionen des Plugin-Hosts,
+Werkzeugergebnisse, `package.json.ragents`, der Backend-Vertrag und das Test-SDK der
+Actor-Programme (in `testing.js` mitgebündelt) antworten nicht mehr mit einem pauschalen Satz oder
+der ersten Meldung von `Value.Errors`, sondern mit jedem verletzten Pfad und seinem Grund. Das
+Präfix jeder Meldung bleibt. `schemaComplaints` nimmt dafür den Namen der Wurzel (`params`,
+`result`, `value`, `ragents`, `contract`), weil "input" für ein Ergebnis oder eine Paketdatei falsch
+wäre, und liefert nie einen leeren Grund.
+
+**Vorlagen sind getypte Werte gegen das maßgebliche Schema und werden alle im Test angelegt und
+aktiviert.** Die `ragents`-Metadaten einer Vorlage sind ein `AppPackage`, `package.json` entsteht
+beim Anlegen daraus (`templateFiles`), und der Typ der Dateien schließt eine zweite Fassung als
+Text aus. Verliert das Schema ein Feld, meldet der Compiler jede Vorlage, die es noch setzt; der
+neue Test legt jede Vorlage an und aktiviert sie mit Typprüfung, Build und ihren Tests, damit auch
+ihr Quellcode nicht unbemerkt gegen die Plattform veraltet. `width` und `height` entfallen aus den
+Vorlagen und aus dem Spec-Satz; die Größe einer View bestimmt der Host.
+
+**Anlegen ist ganz oder gar nicht, auch nach einem Absturz.** Ein Paket entsteht in
+`actor-workspace/.staging/` auf demselben Dateisystem, alle Schritte laufen dort, erst ein `rename`
+macht es unter `actors/<name>` sichtbar. pnpm-Workspace, Diagnose und Agenten sehen so nie ein
+halbes Paket, und ein Fehler lässt den Namen frei. POSIX-`rename` ersetzt einen leeren Zielordner,
+deshalb prüft der Host unmittelbar davor synchron, ob der Name belegt ist; gleichzeitige Anlagen
+desselben Namens schließt eine Reservierung im Prozess aus. Reste eines abgestürzten Serverlaufs
+räumt die nächste Anlage im Run weg und schont die laufenden Anlagen des Prozesses, die er kennt;
+einen zweiten Prozess für denselben Run verhindert das Journal-Lock. `importPackage` legt die
+Quellen eines Run-Scripts auf demselben Weg an. Der Staging-Ordner liegt im abgeglichenen
+Arbeitsbereich, damit Eigentümer und Rechte wie bisher entstehen; `syncWorkspaceOwnership`
+überspringt dafür Einträge, die während des Abgleichs verschwinden.
+
+**Kein Paket kennt seinen Ordner.** `prompts.js` band `readPrompt` an den absoluten Ordner beim
+Installieren, nach dem Umbenennen also an das Staging. Es bestimmt sein Paket jetzt aus
+`import.meta.url`; das gilt ebenso für die Kopie im Build-Ordner. Verworfen: `prompts.js` nach dem
+Umbenennen neu zu schreiben, weil dann nach dem einen sichtbaren Schritt noch etwas scheitern kann
+und das Paket halb richtig stünde. Ein Backend darf das Modul dafür nicht mitbündeln; der Host baut
+mit externen Paketen, `workflow-foundation.test.ts` baut jetzt ebenso.
+
+Verworfen: nur `width` und `height` aus den Vorlagen zu löschen, weil die nächste Schemaänderung
+die Vorlagen wieder unbemerkt bräche und die Meldung weiter nichts nennte; ein try/rm in
+`scaffold`, weil es während des Aufbaus ein halbes Paket zeigt, nach einem Absturz nichts aufräumt
+und im Fehlerfall einen Ordner löschen kann, den inzwischen ein anderer Aufruf angelegt hat.
+
 ## Prozess-Sandbox für alles, was ein Run auf dem Server startet (24.09.2026)
 
 Kapitel: `docs/spec/plugins.md` (Arbeitsbereich, neuer Abschnitt Prozess-Sandbox des Servers;

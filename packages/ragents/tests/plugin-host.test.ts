@@ -163,7 +163,7 @@ test("operation results are validated at the host boundary", async () => {
 
     await assert.rejects(
         operations.invoke("example.invalid-result", operationContext("agent"), {}),
-        /Ungültiges Ergebnis von Operation example\.invalid-result/,
+        /Ungültiges Ergebnis von Operation example\.invalid-result: ok must be boolean, got "not-a-boolean"/,
     );
 });
 
@@ -423,7 +423,7 @@ test("start options validate their contribution, defaults and accepted values ag
     assert.equal(registry.entry("example.source")?.owner, "first-plugin");
     assert.equal(registry.defaultValue("example.source", { runId: "run-1", userId: null }), "empty");
     assert.equal(registry.accept("example.source", "clone", { runId: "run-1", userId: null }), "clone");
-    assert.throws(() => registry.accept("example.source", "other", { runId: "run-1", userId: null }), /Ungültiger Wert für Startoption example\.source/);
+    assert.throws(() => registry.accept("example.source", "other", { runId: "run-1", userId: null }), /Ungültiger Wert für Startoption example\.source: value got "other", allowed values: empty, clone/);
     assert.throws(() => registry.accept("missing", "clone", { runId: "run-1", userId: null }), /nicht registriert/);
     assert.throws(() => registry.register("second-plugin", [option]), /bereits von first-plugin bereitgestellt/);
     assert.throws(() => registry.register("second-plugin", [{ ...option, id: "Bad Id" }]), /Ungültige Startoption-Id/);

@@ -14337,7 +14337,7 @@ Eine reine React-View am vorhandenen Actor ohne zusätzliche Serverfunktion.
 
 ```json
 {
-  "name": "actor-view",
+  "name": "blank",
   "private": true,
   "type": "module",
   "ragents": {
@@ -14378,7 +14378,7 @@ Wiederverwendbarer Chat mit Verlauf und optionaler Eingabe an den Actor dieser V
 
 ```json
 {
-  "name": "actor-chat",
+  "name": "chat",
   "private": true,
   "type": "module",
   "ragents": {
@@ -14387,9 +14387,7 @@ Wiederverwendbarer Chat mit Verlauf und optionaler Eingabe an den Actor dieser V
     "views": [
       {
         "id": "main",
-        "client": "src/client.tsx",
-        "width": 480,
-        "height": 420
+        "client": "src/client.tsx"
       }
     ]
   }
@@ -14429,9 +14427,7 @@ Lokale Demo mit Formular, Tabelle, Dateien, Aufgaben, Ablaufdiagramm, SVG-Verbin
     "views": [
       {
         "id": "main",
-        "client": "src/client.tsx",
-        "width": 640,
-        "height": 640
+        "client": "src/client.tsx"
       }
     ]
   }

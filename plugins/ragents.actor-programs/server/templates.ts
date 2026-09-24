@@ -1,33 +1,24 @@
+import type { AppPackage } from "@ragents/host/plugin-support/actor-programs/app-project.js";
 import { controlsTemplate } from "./controls-template";
 
 export interface ActorProgramTemplate {
   id: string;
   title: string;
   description: string;
-  files: Readonly<Record<string, string>>;
+  ragents: AppPackage;
+  files: Readonly<Record<string, string>> & { readonly "package.json"?: never };
 }
 
 const blank: ActorProgramTemplate = {
   id: "blank",
   title: "Leere Mini-App",
   description: "Eine reine React-View am vorhandenen Actor ohne zusätzliche Serverfunktion.",
+  ragents: {
+    title: "Meine View",
+    description: "Eine kleine Bedienoberfläche des vorhandenen Actors.",
+    views: [{ id: "main", client: "src/client.tsx" }],
+  },
   files: {
-    "package.json": `{
-  "name": "actor-view",
-  "private": true,
-  "type": "module",
-  "ragents": {
-    "title": "Meine View",
-    "description": "Eine kleine Bedienoberfläche des vorhandenen Actors.",
-    "views": [
-      {
-        "id": "main",
-        "client": "src/client.tsx"
-      }
-    ]
-  }
-}
-`,
     "src/client.tsx": `import { createRoot } from "react-dom/client";
 import * as UI from "@ragents/client/ui";
 
@@ -48,25 +39,12 @@ const chat: ActorProgramTemplate = {
   id: "chat",
   title: "Actor-Chat",
   description: "Wiederverwendbarer Chat mit Verlauf und optionaler Eingabe an den Actor dieser View.",
+  ragents: {
+    title: "Actor-Chat",
+    description: "Zeigt das Gespräch mit einem Actor und sendet ihm Benutzereingaben.",
+    views: [{ id: "main", client: "src/client.tsx" }],
+  },
   files: {
-    "package.json": `{
-  "name": "actor-chat",
-  "private": true,
-  "type": "module",
-  "ragents": {
-    "title": "Actor-Chat",
-    "description": "Zeigt das Gespräch mit einem Actor und sendet ihm Benutzereingaben.",
-    "views": [
-      {
-        "id": "main",
-        "client": "src/client.tsx",
-        "width": 480,
-        "height": 420
-      }
-    ]
-  }
-}
-`,
     "src/client.tsx": `import { createRoot } from "react-dom/client";
 import * as UI from "@ragents/client/ui";
 import { context } from "@ragents/client";
@@ -86,24 +64,13 @@ const textAnalysis: ActorProgramTemplate = {
   id: "text-analysis",
   title: "Textanalyse",
   description: "Ein TypeScript-Actor analysiert Texte mit eigener Funktion, Zustand und React-View.",
+  ragents: {
+    title: "Textanalyse",
+    description: "Zählt Zeichen, Wörter und Zeilen und merkt sich die Zahl der Analysen.",
+    backend: "src/server.ts",
+    views: [{ id: "main", client: "src/client.tsx" }],
+  },
   files: {
-    "package.json": `{
-  "name": "text-analysis",
-  "private": true,
-  "type": "module",
-  "ragents": {
-    "title": "Textanalyse",
-    "description": "Zählt Zeichen, Wörter und Zeilen und merkt sich die Zahl der Analysen.",
-    "backend": "src/server.ts",
-    "views": [
-      {
-        "id": "main",
-        "client": "src/client.tsx"
-      }
-    ]
-  }
-}
-`,
     "src/client.tsx": `import React from "react";
 import { createRoot } from "react-dom/client";
 import { context, useAppState } from "@ragents/client";
@@ -200,18 +167,12 @@ const headlessCounter: ActorProgramTemplate = {
   id: "headless-counter",
   title: "Zähler ohne Oberfläche",
   description: "Ein TypeScript-Actor zählt Eingaben in seinem Zustand und bietet dieselbe Arbeit als Funktion an.",
+  ragents: {
+    title: "Zähler",
+    description: "Sammelt eingehende Texte ohne Modellaufrufe oder Oberfläche.",
+    backend: "src/server.ts",
+  },
   files: {
-    "package.json": `{
-  "name": "headless-counter",
-  "private": true,
-  "type": "module",
-  "ragents": {
-    "title": "Zähler",
-    "description": "Sammelt eingehende Texte ohne Modellaufrufe oder Oberfläche.",
-    "backend": "src/server.ts"
-  }
-}
-`,
     "src/contract.ts": `import { Type } from "typebox";
 
 const state = Type.Object({
@@ -285,24 +246,13 @@ const sharedList: ActorProgramTemplate = {
   id: "shared-list",
   title: "Gemeinsame Liste eines Actors",
   description: "Ein Actor besitzt eine Funktion und eine React-View für denselben Listenstand.",
+  ragents: {
+    title: "Gemeinsame Liste",
+    description: "Sammelt Texte aus der App und aus einem Agenten-Werkzeug in einer gemeinsamen Liste.",
+    backend: "src/server.ts",
+    views: [{ id: "main", client: "src/client.tsx" }],
+  },
   files: {
-    "package.json": `{
-  "name": "shared-list",
-  "private": true,
-  "type": "module",
-  "ragents": {
-    "title": "Gemeinsame Liste",
-    "description": "Sammelt Texte aus der App und aus einem Agenten-Werkzeug in einer gemeinsamen Liste.",
-    "backend": "src/server.ts",
-    "views": [
-      {
-        "id": "main",
-        "client": "src/client.tsx"
-      }
-    ]
-  }
-}
-`,
     "src/client.tsx": `import React from "react";
 import { createRoot } from "react-dom/client";
 import { context, useAppState } from "@ragents/client";
@@ -392,6 +342,11 @@ test("ergänzt Einträge ohne vorhandene Einträge zu verlieren", async () => {
 };
 
 export const runModuleTemplates = [blank, chat, controlsTemplate, textAnalysis, headlessCounter, sharedList] as const;
+
+export const templateFiles = (template: ActorProgramTemplate, name: string): Readonly<Record<string, string>> => ({
+  "package.json": `${JSON.stringify({ name, private: true, type: "module", ragents: template.ragents }, null, 2)}\n`,
+  ...template.files,
+});
 
 export const templateById = (id: string): ActorProgramTemplate => {
   const template = runModuleTemplates.find((candidate) => candidate.id === id);

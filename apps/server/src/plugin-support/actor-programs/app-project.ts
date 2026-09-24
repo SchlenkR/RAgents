@@ -7,7 +7,7 @@ import { build } from "esbuild";
 import ts from "typescript";
 import { Type, type Static } from "typebox";
 import { Value } from "typebox/value";
-import { canonicalHash, typeScriptTypesFromSchema, type NativeTypeScriptExecutor, type RunCapabilityDescriptor, scriptStdDeclarations } from "@ragents/engine";
+import { canonicalHash, schemaComplaints, typeScriptTypesFromSchema, type NativeTypeScriptExecutor, type RunCapabilityDescriptor, scriptStdDeclarations } from "@ragents/engine";
 import { runtimeLibraries, webRuntimeLibraries } from "./runtime-libraries.js";
 
 const webRequire = createRequire(new URL("../../../../web/package.json", import.meta.url));
@@ -89,6 +89,7 @@ const testingRuntime = (): Promise<string> => testingBundle ??= build({
 import {createRunContext} from ${JSON.stringify(fileURLToPath(new URL("../../../../../packages/ragents/src/typescript/run-context.ts",import.meta.url)))};
 import {assertJsonValue} from ${JSON.stringify(fileURLToPath(new URL("../../../../../packages/ragents/src/domain/json.ts",import.meta.url)))};
 import {createScriptStd} from ${JSON.stringify(fileURLToPath(new URL("../../../../../packages/ragents/src/script/std.ts",import.meta.url)))};
+import {schemaComplaints} from ${JSON.stringify(fileURLToPath(new URL("../../../../../packages/ragents/src/domain/schema-errors.ts",import.meta.url)))};
 import {Value} from "typebox/value";
 export function createTestContextWithContracts(options, contracts) {
   let state = structuredClone(options.state);
@@ -100,10 +101,10 @@ export function createTestContextWithContracts(options, contracts) {
     const contract=declared.get(name);
     const call=options.functions?.[name];
     if(!call)throw new Error("Im Test fehlt die Funktion "+name);
-    if(!Value.Check(contract.schema,input))throw new Error("Testeingabe verletzt den Vertrag von "+name);
+    if(!Value.Check(contract.schema,input))throw new Error("Testeingabe verletzt den Vertrag von "+name+": "+schemaComplaints(contract.schema,input));
     const result=await call(input);
     assertJsonValue(result,"Testantwort von "+name);
-    if(!Value.Check(contract.resultSchema,result))throw new Error("Testantwort verletzt den Vertrag von "+name);
+    if(!Value.Check(contract.resultSchema,result))throw new Error("Testantwort verletzt den Vertrag von "+name+": "+schemaComplaints(contract.resultSchema,result,"result"));
     return result;
   }};
   return {...createRunContext({runId:"test",invocationId:"test",invocationKind:"tool",principal:{id:"test",kind:"service"},state:statePort,capabilities,log:()=>{},signal:controller.signal}),
@@ -178,7 +179,7 @@ export const installWorkflowSdk = async (directory: string): Promise<void> => {
   await writeFile(path.join(target, "prompt-reader.d.ts"), files.promptDeclarations);
   await writeFile(path.join(target, "prompt-reader.js"), files.promptReader);
   await writeFile(path.join(target, "prompts.d.ts"), 'import { createPromptReader } from "./prompt-reader.js";\nexport declare const readPrompt: ReturnType<typeof createPromptReader>;\n');
-  await writeFile(path.join(target, "prompts.js"), `import { createPromptReader } from "./prompt-reader.js";\nexport const readPrompt = createPromptReader(${JSON.stringify(directory)});\n`);
+  await writeFile(path.join(target, "prompts.js"), 'import { fileURLToPath } from "node:url";\nimport { createPromptReader } from "./prompt-reader.js";\nexport const readPrompt = createPromptReader(fileURLToPath(new URL("../../../", import.meta.url)));\n');
 };
 
 export const installServerSdk = async (directory: string, capabilities: readonly RunCapabilityDescriptor[] = []): Promise<void> => {
@@ -214,7 +215,7 @@ export const prepareAppProject = async (directory: string): Promise<void> => {
 
 export const readAppPackage = async (directory: string): Promise<AppPackage> => {
   const pkg = JSON.parse(await readFile(path.join(directory, "package.json"), "utf8")) as Record<string, unknown>;
-  if (!Value.Check(appPackageSchema, pkg.ragents)) throw new Error("package.json.ragents braucht title und gültige backend/views-Angaben.");
+  if (!Value.Check(appPackageSchema, pkg.ragents)) throw new Error(`package.json.ragents ist ungültig: ${schemaComplaints(appPackageSchema, pkg.ragents, "ragents")}`);
   if (!pkg.ragents.backend && !pkg.ragents.views?.length) throw new Error("Ein Actor-Paket braucht ein Backend oder mindestens eine Ansicht.");
   const views = pkg.ragents.views ?? [];
   if (new Set(views.map((view) => view.id)).size !== views.length) throw new Error("Ansichtsnamen müssen eindeutig sein.");
@@ -277,6 +278,6 @@ export const handle = (request, context) => {
     input: {}, state: {}, cwd: options.directory,
     context: { runId: options.runId, invocationId: "app-contract", invocationKind: "tool", principal: { id: "app-build", kind: "service" }, capabilities: [] },
   }, { signal, call: async () => { throw new Error("Beim Laden des App-Vertrags sind Run-Aufrufe nicht verfügbar."); }, log: () => undefined });
-  if (!Value.Check(appContractSchema, described.result)) throw new Error("Der Backend-Export braucht defineActor({state, functions, input?}, {functions, onInput?}) mit gültigen Aktionsverträgen.");
+  if (!Value.Check(appContractSchema, described.result)) throw new Error(`Der Backend-Export braucht defineActor({state, functions, input?}, {functions, onInput?}) mit gültigen Aktionsverträgen: ${schemaComplaints(appContractSchema, described.result, "contract")}`);
   return { contract: described.result, javaScript, hash: canonicalHash({ javaScript }) };
 };

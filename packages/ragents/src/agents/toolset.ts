@@ -228,7 +228,7 @@ export class TurnToolset {
             const output = await tool.run(this.#scope, toolCallId, input as never);
             this.#assertActive();
             if (!Value.Check(tool.resultSchema, output))
-                throw new Error(`Tool ${name} returned output that does not match its result schema.`);
+                throw new Error(`Tool ${name} returned output that does not match its result schema: ${schemaComplaints(tool.resultSchema, output, "output")}.`);
             assertJsonValue(output, `Tool ${name} output`);
             const recordedOutput = tool.recordOutput ? tool.recordOutput(output) : output;
             assertJsonValue(recordedOutput, `Tool ${name} recorded output`);

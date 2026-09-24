@@ -141,10 +141,19 @@ test("package metadata rejects removed dialogs and paths outside the app", async
   const pkg = JSON.parse(await readFile(file, "utf8"));
   pkg.ragents.dialog = true;
   await writeFile(file, JSON.stringify(pkg));
-  await assert.rejects(f.runtime.activate(f.context, f.runId, "blank"), /package.json.ragents/);
+  await assert.rejects(f.runtime.activate(f.context, f.runId, "blank"), /package\.json\.ragents ist ungültig: ragents has unknown field dialog/);
   delete pkg.ragents.dialog; pkg.ragents.views[0].styles = "../../outside.css";
   await writeFile(file, JSON.stringify(pkg));
   await assert.rejects(f.runtime.activate(f.context, f.runId, "blank"), /pfad|außerhalb|ENOENT/i);
+});
+
+test("an unknown view property in package.json is named with its path and field", async (t) => {
+  const f = await fixture(t);
+  await f.runtime.scaffold(f.runId, "sized", "blank");
+  const file = path.join(await f.runtime.workspaceDirectory(f.runId), "sized", "package.json");
+  const pkg = JSON.parse(await readFile(file, "utf8"));
+  await writeFile(file, JSON.stringify({ ...pkg, ragents: { ...pkg.ragents, views: [{ ...pkg.ragents.views[0], width: 640 }] } }));
+  await assert.rejects(f.runtime.activate({ ...f.context, actorId: f.setup.agent.id }, f.runId, "sized"), /package\.json\.ragents ist ungültig: views\.0 has unknown field width/);
 });
 
 test("simultaneous activations retain both independent actors", async (t) => {

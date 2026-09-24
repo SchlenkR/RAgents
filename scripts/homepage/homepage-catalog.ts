@@ -52,7 +52,7 @@ async function collect(repoRoot: string) {
   const { methodReference, openRpcDocument } = await import("../../apps/server/src/api/reference.js");
   const { actorProgramAuthoringContracts } = await import("../../apps/server/src/plugin-support/actor-programs/authoring-contracts.js");
   const { serverApiDeclarations } = await import("../../apps/server/src/plugin-support/actor-programs/app-project.js");
-  const { runModuleTemplates } = await import("../../plugins/ragents.actor-programs/server/templates.js");
+  const { runModuleTemplates, templateFiles } = await import("../../plugins/ragents.actor-programs/server/templates.js");
   const { loadPlugins, resolvePluginEntries, staleBuiltInBundles } = await import("../../apps/server/src/profile/plugin-discovery.js");
   const { pluginFolder } = await import("../../apps/server/src/plugin-support/plugins-root.js");
   const ids = showcasePluginIds(repoRoot);
@@ -120,7 +120,7 @@ async function collect(repoRoot: string) {
     serverApiDeclarations: serverApiDeclarations(tools.filter((tool) => !["typescript_api", "typescript_eval"].includes(tool.name)).map((tool) => ({ ...tool, id: tool.name }))),
     actorProgramAuthoring: actorProgramAuthoringContracts(),
     clientUiFiles: readHomepageUiContracts(repoRoot).files,
-    templates: runModuleTemplates,
+    templates: runModuleTemplates.map((template) => ({ id: template.id, title: template.title, description: template.description, files: templateFiles(template, template.id) })),
     dynamic: dynamic.sort(),
     rpcReference: methodReference(host),
     openRpc: openRpcDocument(host),

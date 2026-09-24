@@ -8,6 +8,7 @@ import { buildSync } from "esbuild";
 import { buildTailwind } from "../../../apps/server/src/plugin-support/actor-programs/tailwind.ts";
 import { browserRuntimeStyles } from "../../../apps/server/src/plugin-support/actor-programs/client-runtime.ts";
 import { controlsTemplate } from "../../../plugins/ragents.actor-programs/server/controls-template.ts";
+import { templateFiles } from "../../../plugins/ragents.actor-programs/server/templates.ts";
 
 const imports = 'import * as React from "react"; import { createRoot } from "react-dom/client"; import { context } from "@ragents/client"; import * as UI from "@ragents/client/ui";\n';
 const compile = (source: string) => compileClientSource({ source: imports + source, stateSchema: { type: "object", additionalProperties: false }, actions: [] });
@@ -225,14 +226,14 @@ test("new control contracts reject mismatched field, table, file and viewer prop
 });
 
 test("the controls template compiles its controls and SVG example in one local actor view", async () => {
-  const manifest = JSON.parse(controlsTemplate.files["package.json"]);
+  const manifest = JSON.parse(templateFiles(controlsTemplate, "controls")["package.json"]);
   const source = controlsTemplate.files["src/client.tsx"];
   assert.equal(manifest.type, "module");
   assert.equal(manifest.private, true);
   const result = await compileClientSource({ source, stateSchema: { type: "object", additionalProperties: false }, actions: [] });
   assert.equal(result.valid, true, JSON.stringify(result.diagnostics));
-  assert.equal(manifest.ragents.server, undefined);
-  assert.deepEqual(manifest.ragents.views, [{ id: "main", client: "src/client.tsx", width: 640, height: 640 }]);
+  assert.equal(manifest.ragents.backend, undefined);
+  assert.deepEqual(manifest.ragents.views, [{ id: "main", client: "src/client.tsx" }]);
   assert.equal(Object.keys(controlsTemplate.files).some((file) => file.endsWith(".css")), false);
   for (const control of ["Form", "DataTable", "FilePicker", "TaskProgress", "DocumentViewer", "DiffViewer", "SvgEdge", "FlowDiagram"]) {
     assert.ok(source.includes(`<UI.${control}`), control);

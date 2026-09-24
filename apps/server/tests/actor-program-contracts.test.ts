@@ -29,6 +29,10 @@ import app from "../src/server.ts"; import {createTestContext} from "@ragents/se
 test("echo uses its declared operation", async()=>{
  const context=createTestContext({state:{},functions:{demo_echo:input=>({echoed:(input as {text:string}).text})}});
  assert.equal(await app.functions.echo({text:"mock"},context),"mock");
+});
+test("a mock answer outside its contract names the field", async()=>{
+ const context=createTestContext({state:{},functions:{demo_echo:()=>({echoed:1} as never)}});
+ await assert.rejects(async()=>app.functions.echo({text:"mock"},context),/Testantwort verletzt den Vertrag von demo_echo: echoed must be string, got 1/);
 });`,
   });
   const context = { actorId: setup.view.ownerId, commandId: "activate" };

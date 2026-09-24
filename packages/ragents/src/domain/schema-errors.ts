@@ -24,7 +24,7 @@ const stringsOf = (params: unknown, key: string): string[] => {
     return Array.isArray(value) ? value.map(String) : [];
 };
 
-export const schemaComplaints = (schema: unknown, input: unknown): string => {
+export const schemaComplaints = (schema: unknown, input: unknown, root = "input"): string => {
     const errors = [...Value.Errors(schema as Parameters<typeof Value.Errors>[0], input)];
     const byPath = new Map<string, typeof errors>();
 
@@ -34,7 +34,7 @@ export const schemaComplaints = (schema: unknown, input: unknown): string => {
     const lines: string[] = [];
 
     for (const [pointer, group] of byPath) {
-        const path = pointer.split("/").slice(1).join(".") || "input";
+        const path = pointer.split("/").slice(1).join(".") || root;
         const allowed = group.flatMap((entry) =>
             entry.keyword === "const" ? [String((entry.params as Record<string, unknown>).allowedValue)] : []);
         const missing = group.flatMap((entry) => (entry.keyword === "required" ? stringsOf(entry.params, "requiredProperties") : []));
@@ -51,6 +51,6 @@ export const schemaComplaints = (schema: unknown, input: unknown): string => {
             lines.push(`${path} ${group[0].message}, got ${shortJson(valueAt(input, pointer))}`);
     }
 
-    return lines.slice(0, 8).join("; ");
+    return lines.length > 0 ? lines.slice(0, 8).join("; ") : `${root} does not match its schema`;
 };
 

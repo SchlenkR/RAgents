@@ -156,9 +156,11 @@ include local modules, while fixed local dependencies come from the host install
 </code></pre>
 <p><code>package.json</code> contains <code>name</code>, <code>private: true</code>, <code>type: &quot;module&quot;</code>, and <code>ragents</code> metadata with a
 title, optional description, optional backend, and optional named views. Each view has an ID and
-client entry point; its title, stylesheet, and size are optional. At least one backend or view
-must exist. The host supplies HTML with a <code>root</code> element for each view. The authoritative schemas
-are in <code>apps/server/src/plugin-support/actor-programs/app-project.ts</code>.</p>
+client entry point; its title and stylesheet are optional. A view declares no size; the host sizes
+its tile. At least one backend or view must exist. The host supplies HTML with a <code>root</code> element
+for each view. The authoritative schemas are in
+<code>apps/server/src/plugin-support/actor-programs/app-project.ts</code>; a violation names each path and
+its reason, for example <code>views.0 has unknown field width</code>.</p>
 <p><code>actor_program_activate</code> binds a package to an existing actor with <code>actor: &quot;self&quot;</code> or
 <code>actor: &quot;@handle&quot;</code>. Without an explicit actor, an existing program binding remains. A new
 backend creates a TypeScript actor using the program name as its handle, while a new view-only
@@ -200,9 +202,11 @@ and a <code>type=&quot;button&quot;</code> button should call the same handler, 
 native default action. Test this interaction in the host frame, not only in a standalone React
 render.</p>
 <h2 id="create-edit-and-activate">Create, edit, and activate</h2>
-<p><code>actor_program_create</code> creates a package from a template without overwriting existing sources.
-The six templates in <code>server/templates.ts</code> and <code>controls-template.ts</code> demonstrate different
-forms:</p>
+<p><code>actor_program_create</code> creates a package from a template completely or not at all. The host
+builds it outside <code>@actors/</code> and moves it to <code>@actors/&lt;name&gt;</code> only after every step has succeeded,
+so a failed attempt leaves nothing behind and the name stays free. An existing folder of that
+name, even an empty one, is rejected. The six templates in <code>server/templates.ts</code> and
+<code>controls-template.ts</code> demonstrate different forms:</p>
 <ul>
 <li><code>blank</code>: a static view on an existing actor.</li>
 <li><code>chat</code>: a chat view for its actor without a custom server function.</li>

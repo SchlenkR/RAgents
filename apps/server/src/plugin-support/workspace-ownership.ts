@@ -8,6 +8,12 @@ export interface WorkspaceIdentity {
   storageRoot?: string;
 }
 
+/** Was während des Abgleichs verschwindet, etwa ein umbenanntes Paket aus dem Staging, braucht keine Rechte mehr. */
+const unlessVanished = (error: NodeJS.ErrnoException): undefined => {
+  if (error.code === "ENOENT") return undefined;
+  throw error;
+};
+
 export const syncWorkspaceOwnership = async (directory: string, identity: WorkspaceIdentity): Promise<void> => {
   if (identity.uid === undefined && identity.gid === undefined) return;
   if (identity.uid === undefined || identity.gid === undefined || !identity.storageRoot) {
@@ -18,12 +24,12 @@ export const syncWorkspaceOwnership = async (directory: string, identity: Worksp
   if (!containsWorkspacePath(root, target) || target === root) throw new Error("Das private Arbeitsverzeichnis liegt außerhalb seiner Run-Speichergrenze.");
   const { uid, gid } = identity;
   const visit = async (file: string): Promise<void> => {
-    const info = await lstat(file);
-    if (info.isSymbolicLink() || !info.isDirectory() && !info.isFile()) return;
-    if (info.uid !== uid || info.gid !== gid) await chown(file, uid, gid);
+    const info = await lstat(file).catch(unlessVanished);
+    if (!info || info.isSymbolicLink() || !info.isDirectory() && !info.isFile()) return;
+    if (info.uid !== uid || info.gid !== gid) await chown(file, uid, gid).catch(unlessVanished);
     const mode = info.isDirectory() ? 0o700 : (info.mode & 0o100) | 0o600;
-    if ((info.mode & 0o7777) !== mode) await chmod(file, mode);
-    if (info.isDirectory()) for (const entry of await readdir(file)) await visit(path.join(file, entry));
+    if ((info.mode & 0o7777) !== mode) await chmod(file, mode).catch(unlessVanished);
+    if (info.isDirectory()) for (const entry of await readdir(file).catch(unlessVanished) ?? []) await visit(path.join(file, entry));
   };
   await visit(target);
   for (let ancestor = path.dirname(target); containsWorkspacePath(root, ancestor); ancestor = path.dirname(ancestor)) {

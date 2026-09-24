@@ -521,7 +521,7 @@ Drei Grundsätze gelten überall; ihre datierten Begründungen stehen in `docs/d
    Snippets benötigen kein dauerhaftes Actor-Programm. Fachtests stehen als
    normale TypeScript-Testdateien im Actor-Paket.
 
-Fünf Regeln gelten für Verträge und Typen, quer durch alle Kapitel:
+Sechs Regeln gelten für Verträge und Typen, quer durch alle Kapitel:
 
 - EINGABESCHEMATA FÜR MODELLE SIND FLACH: ein modellzugewandtes Eingabeschema ist EIN flaches
   `Type.Object`, der Diskriminator ein String-Enum, korrelierte Felder sind optional, und die
@@ -539,6 +539,13 @@ Fünf Regeln gelten für Verträge und Typen, quer durch alle Kapitel:
   wiederholen keine Eingaben.
 - ABLEHNUNGEN NENNEN GÜLTIGE NAMEN: eine Fehlermeldung an ein Modell nennt die erlaubten Werte
   oder Namen, statt nur zu scheitern.
+- SCHEMAVERLETZUNGEN NENNEN PFAD UND GRUND: jede Prüfung gegen ein TypeBox-Schema meldet jeden
+  verletzten Pfad mit seinem Grund (fehlendes Pflichtfeld, unbekanntes Feld, erlaubte Werte, sonst
+  die verletzte Regel samt empfangenem Wert), nie nur die erste Meldung oder einen pauschalen Text.
+  Engine, Host, Plugins und das Test-SDK der Actor-Programme nutzen dafür `schemaComplaints`
+  (`packages/ragents/src/domain/schema-errors.ts`); das Präfix nennt, was geprüft wurde, etwa
+  `package.json.ragents ist ungültig: views.0 has unknown field width`. Nur die Argumentprüfung der
+  Agentenlaufzeit formatiert dieselben Angaben selbst (`core.md`).
 - VERTRÄGE ÄNDERN SICH IN EINE RICHTUNG: ein aktiviertes Actor-Paket ist an die Schemata seiner
   Capabilities gebunden. Verträglich ist, was den alten Aufrufer nicht bricht: eine Eingabe
   darf mehr annehmen (neue Felder nur optional, kein Feld entfernt oder verpflichtend gemacht,

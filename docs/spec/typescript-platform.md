@@ -84,8 +84,10 @@ Backend-Code.
 
 Actor-Pakete können `@ragents/workflow` für eine gemeinsame Ablaufdefinition verwenden.
 Sie liefert dieselben Schritte für LLM-Anleitungen und Mini-App-Diagramme. Das serverseitige
-Untermodul `@ragents/workflow/prompts` liest referenzierte Promptdateien relativ zum
-installierten Paket. Definition, Zustand und Auflösung beschreibt
+Untermodul `@ragents/workflow/prompts` liest referenzierte Promptdateien relativ zu dem Paket, in
+dessen `node_modules` es liegt, ohne eingebrannten Pfad. Das setzt voraus, dass ein Backend das
+Modul nicht mitbündelt; `compileAppBackend` lässt alle Pakete extern. Definition, Zustand und
+Auflösung beschreibt
 [Actor-Programme](actor-programs.md#connect-workflow-definition-instructions-and-presentation).
 Die Ausführung bleibt beim Actor; der Workflow-Vertrag ersetzt weder Scheduler noch Rechteprüfung.
 

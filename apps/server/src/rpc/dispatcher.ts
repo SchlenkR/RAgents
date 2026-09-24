@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
-import type { TSchema } from "typebox";
 import { Value } from "typebox/value";
 import {
   DomainError,
   RPC_ERROR_CODES,
   RPC_METHODS,
   RpcError,
+  schemaComplaints,
   type AccessContext,
   type ChannelContributionRegistry,
   type JsonValue,
@@ -33,9 +33,6 @@ export interface RpcConnectionOptions {
   /** Ohne Ereignisstrom erreichen Benachrichtigungen den Client nicht; Abonnements sind dann abgelehnt. */
   streamless?: boolean;
 }
-
-const firstComplaint = (schema: TSchema, value: unknown): string =>
-  [...Value.Errors(schema, value)].at(0)?.message ?? "Schema nicht erfüllt";
 
 /** Eine Verbindung eines Clients: hält ihre Abonnements und ist der Rückweg für Anfragen des Servers. */
 export class RpcConnection implements MethodConnection {
@@ -119,7 +116,7 @@ export class RpcDispatcher {
     assertRights(connection.access, contract.rights);
     const input = params === undefined ? {} : params;
     if (!Value.Check(contract.input, input)) {
-      throw new RpcError(RPC_ERROR_CODES.invalidParams, `Ungültige Eingabe für ${method}: ${firstComplaint(contract.input, input)}`);
+      throw new RpcError(RPC_ERROR_CODES.invalidParams, `Ungültige Eingabe für ${method}: ${schemaComplaints(contract.input, input, "params")}`);
     }
     const target = runIdOf(input);
     if (target !== undefined) this.#options.assertRunReachable?.(connection.access, target, contract.rights.includes("runs.write"));
@@ -132,7 +129,7 @@ export class RpcDispatcher {
     });
     const plain = result === undefined ? null : JSON.parse(JSON.stringify(result)) as unknown;
     if (!Value.Check(contract.result, plain)) {
-      const complaint = firstComplaint(contract.result, plain);
+      const complaint = schemaComplaints(contract.result, plain, "result");
       console.error(`Die Antwort von ${method} verletzt ihren Vertrag: ${complaint}`);
       throw new RpcError(RPC_ERROR_CODES.internal, `Die Antwort von ${method} verletzt ihren Vertrag: ${complaint}`);
     }
@@ -149,7 +146,7 @@ export class RpcDispatcher {
     assertRights(connection.access, contract.rights);
     const input = channelParams === undefined ? {} : channelParams;
     if (!Value.Check(contract.params, input)) {
-      throw new RpcError(RPC_ERROR_CODES.invalidParams, `Ungültige Parameter für ${channel}: ${firstComplaint(contract.params, input)}`);
+      throw new RpcError(RPC_ERROR_CODES.invalidParams, `Ungültige Parameter für ${channel}: ${schemaComplaints(contract.params, input, "params")}`);
     }
     const target = runIdOf(input);
     if (target !== undefined) this.#options.assertRunReachable?.(connection.access, target, false);

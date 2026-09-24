@@ -97,7 +97,7 @@ test("installed canonical SDK compiles server and browser consumers and binds pr
   assert.deepEqual(exported.workflowGraph(definition(), { steps: {}, expansions: { rules: [] } }), workflowGraph(definition(), { steps: {}, expansions: { rules: [] } }));
   const prompts = await import(pathToFileURL(path.join(directory, "node_modules/@ragents/workflow/prompts.js")).href);
   assert.equal(await prompts.readPrompt("prompts/worker.md"), "Rollenprompt"); await assert.rejects(prompts.readPrompt("prompts/missing.md"));
-  const result = await build({ entryPoints: [path.join(directory, "src/server.ts")], bundle: true, write: false, platform: "node", format: "esm" });
+  const result = await build({ entryPoints: [path.join(directory, "src/server.ts")], bundle: true, packages: "external", write: false, platform: "node", format: "esm" });
   await writeFile(path.join(directory, "server.mjs"), result.outputFiles[0]!.text);
   const server = await import(pathToFileURL(path.join(directory, "server.mjs")).href);
   assert.match(await server.instructions(), /Rollenprompt/);

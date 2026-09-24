@@ -37,9 +37,11 @@ include local modules, while fixed local dependencies come from the host install
 
 `package.json` contains `name`, `private: true`, `type: "module"`, and `ragents` metadata with a
 title, optional description, optional backend, and optional named views. Each view has an ID and
-client entry point; its title, stylesheet, and size are optional. At least one backend or view
-must exist. The host supplies HTML with a `root` element for each view. The authoritative schemas
-are in `apps/server/src/plugin-support/actor-programs/app-project.ts`.
+client entry point; its title and stylesheet are optional. A view declares no size; the host sizes
+its tile. At least one backend or view must exist. The host supplies HTML with a `root` element
+for each view. The authoritative schemas are in
+`apps/server/src/plugin-support/actor-programs/app-project.ts`; a violation names each path and
+its reason, for example `views.0 has unknown field width`.
 
 `actor_program_activate` binds a package to an existing actor with `actor: "self"` or
 `actor: "@handle"`. Without an explicit actor, an existing program binding remains. A new
@@ -92,9 +94,11 @@ render.
 
 ## Create, edit, and activate
 
-`actor_program_create` creates a package from a template without overwriting existing sources.
-The six templates in `server/templates.ts` and `controls-template.ts` demonstrate different
-forms:
+`actor_program_create` creates a package from a template completely or not at all. The host
+builds it outside `@actors/` and moves it to `@actors/<name>` only after every step has succeeded,
+so a failed attempt leaves nothing behind and the name stays free. An existing folder of that
+name, even an empty one, is rejected. The six templates in `server/templates.ts` and
+`controls-template.ts` demonstrate different forms:
 
 - `blank`: a static view on an existing actor.
 - `chat`: a chat view for its actor without a custom server function.

@@ -993,7 +993,9 @@ sie nicht im Detail, die Referenz nennt den Typ.
 Der Dispatcher (`apps/server/src/rpc/dispatcher.ts`) bedient jede Verbindung: er prüft die
 Rechte des Vertrags gegen den Zugang der Verbindung, validiert die Eingabe gegen das Schema,
 führt aus und validiert das Ergebnis; eine Antwort, die ihren Vertrag verletzt, ist ein interner
-Fehler und wird protokolliert. Fehler kommen als JSON-RPC-Fehler: `-32601` unbekannte Methode,
+Fehler und wird protokolliert. Beide Meldungen nennen jeden verletzten Pfad mit Grund, etwa
+`Ungültige Eingabe für ragents.chat.send: text must be string, got 5` (`schemaComplaints`,
+Regel in `overview.md`). Fehler kommen als JSON-RPC-Fehler: `-32601` unbekannte Methode,
 `-32602` ungültige Eingabe, `-32000` Fachfehler mit `data.code` und `data.status` aus dem
 `DomainError`, `-32001` abgebrochen, `-32003` Zeitgrenze. Rechte je Run entscheidet der Host
 dynamisch (`apps/server/src/api/rights.ts`: gewöhnliche Runs über `runs.*`, der globale Chat über

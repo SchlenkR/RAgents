@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { lstat, mkdir, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
-import { readFileSync } from "node:fs";
+import { lstatSync, readFileSync, renameSync } from "node:fs";
 import path from "node:path";
 import { Type, type TSchema } from "typebox";
 import { Value } from "typebox/value";
@@ -14,7 +14,7 @@ import { compileClientProject, installClientSdk } from "@ragents/host/plugin-sup
 import { compileAppBackend, installServerSdk, prepareAppProject, prepareAppWorkspace, projectSourceFiles, readAppPackage, typecheckServerProject, type AppContract } from "@ragents/host/plugin-support/actor-programs/app-project.js";
 import { syncWorkspaceOwnership } from "@ragents/host/plugin-support/workspace-ownership.js";
 import { runManagedProcess, sandboxedLaunch, type WorkspaceProcessContext } from "@ragents/workspace-executor";
-import { runModuleTemplates, templateById } from "./templates.js";
+import { runModuleTemplates, templateById, templateFiles } from "./templates.js";
 import { FRAME_BODY_CLASS, FRAME_DOCUMENT_CLASS, FRAME_ROOT_CLASS } from "@ragents/host/plugin-support/actor-programs/client-runtime.js";
 import { buildTailwind } from "@ragents/host/plugin-support/actor-programs/tailwind.js";
 import type { AskService } from "@ragents/plugins/ragents.ask/server/contract.js";
@@ -44,6 +44,31 @@ const inside = async (directory: string, relative: string): Promise<string> => {
     if (!stat.isFile() || stat.size > 2000000)
         throw new Error(`Ungültige oder zu große Paketdatei ${relative}.`);
     return readFile(file, "utf8");
+};
+const occupied = (file: string): boolean => {
+    try {
+        lstatSync(file);
+        return true;
+    }
+    catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT")
+            return false;
+        throw error;
+    }
+};
+const packageExists = (name: string): Error => new Error(`Das Paket ${name} existiert bereits.`);
+// Prüfung und rename synchron hintereinander, weil rename einen leeren Zielordner still ersetzt.
+const commitPackage = (staged: string, directory: string, name: string): void => {
+    if (occupied(directory))
+        throw packageExists(name);
+    try {
+        renameSync(staged, directory);
+    }
+    catch (error) {
+        if (["EEXIST", "ENOTEMPTY", "ENOTDIR"].includes((error as NodeJS.ErrnoException).code ?? ""))
+            throw packageExists(name);
+        throw error;
+    }
 };
 const descriptor = (tool: RunFunction): RunCapabilityDescriptor => ({ id: tool.name, label: tool.label, description: tool.description, schema: tool.schema, resultSchema: tool.resultSchema });
 interface BackendBinding {
@@ -99,6 +124,8 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         completed: Promise<unknown>;
     }>();
     readonly #installing = new Set<string>();
+    readonly #creating = new Set<string>();
+    readonly #staged = new Set<string>();
     readonly #removing = new Set<string>();
     readonly #knownRuns = new Set<string>();
     readonly #epochs = new Map<string, number>();
@@ -199,32 +226,50 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     }
     async workspaceDirectory(runId: string): Promise<string> { this.#knownRuns.add(runId); return prepareAppWorkspace(path.join(this.#options.directoryFor(runId), "actor-workspace")); }
     templates() { return runModuleTemplates.map(({ id, title, description }) => ({ id, title, description })); }
-    async scaffold(runId: string, name: string, templateId: string) {
+    async #create<T>(runId: string, name: string, build: (directory: string) => Promise<T>): Promise<{ directory: string; built: T }> {
         this.#assertName(name);
-        const directory = path.join(await this.workspaceDirectory(runId), name);
-        if (await lstat(directory).then(() => true, () => false))
-            throw new Error(`Das Paket ${name} existiert bereits.`);
-        await mkdir(directory, { recursive: true });
-        for (const [relative, content] of Object.entries(templateById(templateId).files)) {
-            const file = path.join(directory, safePath(relative));
-            await mkdir(path.dirname(file), { recursive: true });
-            const source = relative === "package.json" ? JSON.stringify({ ...JSON.parse(content), name }, null, 2) + "\n" : content;
-            await writeFile(file, source, { flag: "wx" });
+        const actors = await this.workspaceDirectory(runId);
+        const directory = path.join(actors, name);
+        const key = `${runId}\0${name}`;
+        if (this.#creating.has(key))
+            throw new Error(`Das Paket ${name} wird gerade angelegt.`);
+        if (occupied(directory))
+            throw packageExists(name);
+        this.#creating.add(key);
+        const staging = path.join(path.dirname(actors), ".staging");
+        const staged = path.join(staging, `${name}-${randomUUID()}`);
+        this.#staged.add(staged);
+        try {
+            await mkdir(staging, { recursive: true });
+            for (const entry of await readdir(staging))
+                if (!this.#staged.has(path.join(staging, entry)))
+                    await rm(path.join(staging, entry), { recursive: true, force: true });
+            await mkdir(staged);
+            const built = await build(staged);
+            commitPackage(staged, directory, name);
+            return { directory, built };
         }
-        await prepareAppProject(directory);
-        const pkg = await readAppPackage(directory);
-        const backend = pkg.backend ? await compileAppBackend({ directory, backend: pkg.backend, runId, executor: this.runtime().nativeTypeScriptExecutor }) : undefined;
-        await installClientSdk(directory, { stateSchema: backend?.contract.state ?? objectSchema, actions: Object.entries(backend?.contract.functions ?? {}).map(([id, fn]) => ({ id, inputSchema: fn.input, resultSchema: fn.output })) });
-        return { name, directory: `@actors/${name}`, files: (await projectSourceFiles(directory)).map((file) => file.path) };
+        finally {
+            this.#creating.delete(key);
+            this.#staged.delete(staged);
+            await rm(staged, { recursive: true, force: true });
+        }
+    }
+    async scaffold(runId: string, name: string, templateId: string) {
+        const sources = Object.entries(templateFiles(templateById(templateId), name)).map(([file, content]) => ({ path: file, content }));
+        const { built: files } = await this.#create(runId, name, async (directory) => {
+            await this.#writeSources(directory, sources);
+            await prepareAppProject(directory);
+            const pkg = await readAppPackage(directory);
+            const backend = pkg.backend ? await compileAppBackend({ directory, backend: pkg.backend, runId, executor: this.runtime().nativeTypeScriptExecutor }) : undefined;
+            await installClientSdk(directory, { stateSchema: backend?.contract.state ?? objectSchema, actions: Object.entries(backend?.contract.functions ?? {}).map(([id, fn]) => ({ id, inputSchema: fn.input, resultSchema: fn.output })) });
+            return (await projectSourceFiles(directory)).map((file) => file.path);
+        });
+        return { name, directory: `@actors/${name}`, files };
     }
     async importPackage(context: CommandContext, runId: string, name: string, files: readonly ActorProgramSource[], signal?: AbortSignal, scriptEntryId?: string) {
-        this.#assertName(name);
-        const directory = path.join(await this.workspaceDirectory(runId), name);
-        if (await lstat(directory).then(() => true, () => false))
-            throw new Error(`Das Paket ${name} existiert bereits.`);
-        await mkdir(directory, { recursive: true });
+        const { directory } = await this.#create(runId, name, (staged) => this.#writeSources(staged, files));
         try {
-            await this.#writeSources(directory, files);
             if (scriptEntryId)
                 this.runtime().replacePluginState(this.operatorContext(runId), runId, { pluginId: ACTOR_SCRIPT_STATE_ID, scope: { kind: "run" }, state: { version: 1, entryId: scriptEntryId } });
             await this.activate(context, runId, name, signal);

@@ -6,7 +6,7 @@ import { Value } from "typebox/value";
 import { canStartEntry, defaultHttpRights, unrestrictedAccess, type AccessContext } from "./access.ts";
 import { assertJsonValue, type JsonValue } from "./domain/json.ts";
 import { canonicalHash } from "./runtime/canonical-hash.ts";
-import { schemaComplaints } from "./agents/toolset.ts";
+import { schemaComplaints } from "./domain/schema-errors.ts";
 import type { AgentProfile, CatalogModel } from "./agents/catalog.ts";
 import type { ToolContributor } from "./agents/plugins.ts";
 import { describeToolAvailability, type RunFunction } from "./agents/tools.ts";
@@ -188,8 +188,7 @@ export class OperationContributionRegistry {
     assertJsonValue(input, `Operation ${id} input`);
 
     if (!Value.Check(operation.schema, input)) {
-      const first = [...Value.Errors(operation.schema, input)].at(0);
-      throw new Error(`Ungültige Eingabe für Operation ${id}: ${first?.message ?? "Schema nicht erfüllt"}`);
+      throw new Error(`Ungültige Eingabe für Operation ${id}: ${schemaComplaints(operation.schema, input)}`);
     }
 
     if (context.principal.kind === "operator") {
@@ -210,8 +209,7 @@ export class OperationContributionRegistry {
     context.signal.throwIfAborted();
     const result = await operation.execute(context, input);
     if (!Value.Check(operation.resultSchema, result)) {
-      const first = [...Value.Errors(operation.resultSchema, result)].at(0);
-      throw new Error(`Ungültiges Ergebnis von Operation ${id}: ${first?.message ?? "Schema nicht erfüllt"}`);
+      throw new Error(`Ungültiges Ergebnis von Operation ${id}: ${schemaComplaints(operation.resultSchema, result, "result")}`);
     }
     assertJsonValue(result, `Operation ${id} output`);
     return result;
@@ -897,8 +895,7 @@ export class StartOptionContributionRegistry {
 
   #check(option: StartOptionContribution, value: unknown, label: string): void {
     if (Value.Check(option.schema, value)) return;
-    const first = [...Value.Errors(option.schema, value)].at(0);
-    throw new Error(`Ungültiger ${label} für Startoption ${option.id}: ${first?.message ?? "Schema nicht erfüllt"}`);
+    throw new Error(`Ungültiger ${label} für Startoption ${option.id}: ${schemaComplaints(option.schema, value, "value")}`);
   }
 }
 
