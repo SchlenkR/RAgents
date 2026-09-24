@@ -86,7 +86,7 @@ export function StartOptionsProvider({
   sessionId: string;
 }>) {
   const access = useAccess();
-  const allowed = access.can("runs.create") && access.can("runs.inspect");
+  const allowed = access.can("runs.create");
   const started = messageCount > 0;
   const [state, setState] = useState<{ sessionId: string; options: readonly StartOptionState[]; errors: ReadonlyMap<string, string>; pending: boolean }>(
     () => ({ sessionId, options: [], errors: new Map(), pending: true }),
@@ -246,7 +246,7 @@ export function StartOptionControls({ disabled, registry, placement = "page", fi
   const access = useAccess();
   const control = useStartOptions();
   const loadError = control.errors.get("");
-  if (!access.can("runs.create") || !access.can("runs.inspect")) return null;
+  if (!access.can("runs.create")) return null;
   const here = control.options.filter((option) => (registry.startOptions.get(option.id)?.placement ?? "page") === placement);
   const conflicts = new Set(conflictingStartOptions(here, fixed).map((option) => option.id));
   return (
@@ -269,20 +269,16 @@ export function StartOptionControls({ disabled, registry, placement = "page", fi
   );
 }
 
-/** In der Vorschau einer Vorlage: nur was sie an Startoptionen festlegt. */
+/** In der Vorschau einer Vorlage: nur was sie an Startoptionen festlegt und der Server dem Zugang zeigt. */
 export function FixedStartOptions({ fixed, registry }: { fixed: Readonly<Record<string, unknown>>; registry: PluginRegistry }) {
-  const access = useAccess();
   const control = useStartOptions();
-  if (!access.can("runs.inspect")) return null;
   const conflicts = new Set(conflictingStartOptions(control.options, fixed).map((option) => option.id));
   return <>{shownStartOptions(control.options.filter((option) => Object.hasOwn(fixed, option.id)), fixed)
     .map(({ option }) => <FixedStartOption conflict={conflicts.has(option.id)} key={option.id} option={option} registry={registry} />)}</>;
 }
 
 export function StartOptionBadges({ registry, session }: { registry: PluginRegistry; session: SessionContext }) {
-  const access = useAccess();
   const control = useStartOptions();
-  if (!access.can("runs.inspect")) return null;
   return (
     <>
       {control.options.map((option) => {

@@ -27,6 +27,7 @@ const resolve = async (context: ManagementContext, access: AccessContext, refere
 };
 
 const create = async (context: ManagementContext, body: CreateInput, access: AccessContext) => {
+  for (const optionId of Object.keys(body.options ?? {})) context.root.startOptions.assertRights(optionId, access);
   const common = {
     title: body.title.trim(),
     user: access.user ? { id: access.user.id, label: access.user.label } : null,

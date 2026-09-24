@@ -152,3 +152,26 @@ test("the management methods validate input, resolve references, page events and
   invalidResult = true;
   assert.equal((await failure(overseerContracts.listRuns.id, {})).code, RPC_ERROR_CODES.internal);
 });
+
+test("createRun chooses a start option only with its own rights", async (t) => {
+  const { host, directory } = await hostWith(t);
+  host.register({ manifest: { id: "test.technical" }, register: (registration) => {
+    registration.startOptions({ id: "test.model", rights: ["runs.inspect"], schema: Type.String(), selectable: () => true, defaultValue: () => "fast", accept: (value) => value, describe: () => ({ label: "Modell" }) });
+  } });
+  const starts: ManagedRunStart[] = [];
+  const management = {
+    list: async () => [{ id: "created", title: "x", updatedAt: 1 }],
+    create: async (start: ManagedRunStart) => { starts.push(start); return "created"; },
+  } as unknown as RunManagement;
+  const developer = createAccessContext({ enabled: true, user: { id: "developer", label: "Developer", rights: ["runs.read", "runs.write", "runs.create"] } });
+  const server = await startRpcServer(t, {
+    methods: managementMethods({ root: host, management: () => management, directory: new RunDirectory(path.join(directory, "references.json")), authentication: { kind: "open" } }),
+    accessFor: (request) => request.headers["x-test-inspector"] ? inspector : developer,
+  });
+  const denied = await server.call(overseerContracts.createRun.id, { title: "x", message: "hi", options: { "test.language": "en", "test.model": "deep" } });
+  assert.deepEqual(denied.error?.data, { code: "access-denied", status: 403 });
+  assert.equal(starts.length, 0);
+  assert.ok((await server.call(overseerContracts.createRun.id, { title: "x", message: "hi", options: { "test.language": "en" } })).result);
+  assert.ok((await server.call(overseerContracts.createRun.id, { title: "x", message: "hi", options: { "test.model": "deep" } }, { "x-test-inspector": "yes" })).result);
+  assert.deepEqual(starts.map((start) => start.options), [{ "test.language": "en" }, { "test.model": "deep" }]);
+});

@@ -4,14 +4,16 @@ import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-import { createAccessContext, DomainError, MethodContributionRegistry, RpcError, type MethodConnection } from "@ragents/engine";
+import { createAccessContext, DomainError, MethodContributionRegistry, RpcError, StartOptionContributionRegistry, type MethodConnection, type PluginHost } from "@ragents/engine";
 import { RUN_MARKER_ENV, WORKSPACE_EXECUTOR_VERSION } from "@ragents/workspace-executor";
 import { RpcClient } from "../../web/src/rpc/client.ts";
-import { workspaceClientContracts, workspaceContracts } from "../../../plugins/ragents.workspace/contract.ts";
+import { WORKSPACE_BINDING_OPTION_ID, workspaceClientContracts, workspaceContracts } from "../../../plugins/ragents.workspace/contract.ts";
 import { workspaceBindingOption } from "../../../plugins/ragents.workspace/server/binding.ts";
 import { assertMayRegister, clientMethods, WorkspaceClientRegistry } from "../../../plugins/ragents.workspace/server/clients.ts";
 import { coreContracts } from "../src/api/contracts.ts";
 import { coreMethods } from "../src/api/core-methods.ts";
+import { productStartOptions } from "../src/plugin-support/product-start-options.ts";
+import { modelStartOptionId, systemPromptStartOptionId } from "../src/plugin-support/start-options-contract.ts";
 import { coreSources, dispatchMethod, startRpcServer } from "./rpc-fixture.ts";
 
 const CLIENT = "client-00000001";
@@ -331,6 +333,53 @@ test("choosing the binding in the web takes the user of the request, not any reg
   assert.deepEqual(chosen, []);
   await select("alice");
   assert.deepEqual(chosen, [onLaptop({ path: "/home/beispiel/project" }, "Laptop")]);
+});
+
+test("without runs.inspect the user binds folder and workstation but neither sees nor chooses model or system prompt", async () => {
+  const { registry } = await registryWith();
+  const startOptions = new StartOptionContributionRegistry();
+  startOptions.register("ragents.workspace", [workspaceBindingOption(registry, () => undefined)]);
+  startOptions.register("ragents.product", productStartOptions({
+    modelChoice: { options: ["private-model"], defaultModel: "private-model", provider: "private-provider", selectable: true, thinkingOptionsFor: () => ["off"] },
+    coordinatorThinking: "off",
+    systemPrompts: () => ({ mode: "selectable", options: [{ id: "general", label: "General", file: "general.md", text: "Private prompt" }], defaultIds: ["general"], shareDefault: false }),
+  }));
+  const chosen = new Map<string, unknown>();
+  const stateOf = (optionId: string, userId: string | null) => {
+    const { owner, option } = startOptions.entry(optionId)!;
+    const value = chosen.get(optionId) ?? startOptions.defaultValue(optionId, { runId: "draft-run", userId });
+    return { id: optionId, owner, value, presentation: option.describe(value as never, { runId: "draft-run", userId }), selectable: true, locked: false, chosen: chosen.has(optionId) };
+  };
+  const methods = new MethodContributionRegistry();
+  methods.register("host", coreMethods(coreSources({
+    startOptions: (_runId, userId) => startOptions.entries().map(({ option }) => stateOf(option.id, userId)),
+    selectStartOption: (runId, optionId, value, userId) => {
+      chosen.set(optionId, startOptions.accept(optionId, value, { runId, userId }));
+      return stateOf(optionId, userId);
+    },
+  }, { plugins: { startOptions } as unknown as PluginHost })));
+  const as = (rights: string[]) => createAccessContext({ enabled: true, user: { id: "alice", label: "alice", rights } });
+  const developer = as(["runs.read", "runs.write", "runs.create"]);
+  const inspector = as(["runs.read", "runs.write", "runs.create", "runs.inspect"]);
+  const list = async (access: ReturnType<typeof as>) => await dispatchMethod(methods, coreContracts.startOptions.list.id, { runId: "draft-run" }, access) as Array<{ id: string; presentation: unknown }>;
+  const select = (optionId: string, value: unknown, access: ReturnType<typeof as>) =>
+    dispatchMethod(methods, coreContracts.startOptions.select.id, { runId: "draft-run", optionId, value }, access);
+
+  const offered = await list(developer);
+  assert.deepEqual(offered.map((option) => option.id), [WORKSPACE_BINDING_OPTION_ID]);
+  assert.doesNotMatch(JSON.stringify(offered), /private-model|private-provider|Private prompt/);
+  await select(WORKSPACE_BINDING_OPTION_ID, onServer({ path: tmpdir() }), developer);
+  await select(WORKSPACE_BINDING_OPTION_ID, onLaptop({ path: "/home/beispiel/project" }), developer);
+  assert.deepEqual(chosen.get(WORKSPACE_BINDING_OPTION_ID), onLaptop({ path: "/home/beispiel/project" }, "Laptop"));
+  for (const optionId of [modelStartOptionId, systemPromptStartOptionId]) {
+    await assert.rejects(select(optionId, optionId === modelStartOptionId ? { model: "private-model" } : { promptIds: [], shareWithAgents: false }, developer), (error: unknown) =>
+      error instanceof DomainError && error.code === "access-denied" && error.status === 403 && error.message.includes("runs.inspect"), optionId);
+    assert.equal(chosen.has(optionId), false);
+  }
+
+  assert.deepEqual((await list(inspector)).map((option) => option.id), [WORKSPACE_BINDING_OPTION_ID, systemPromptStartOptionId, modelStartOptionId]);
+  await select(modelStartOptionId, { model: "private-model" }, inspector);
+  assert.deepEqual(chosen.get(modelStartOptionId), { model: "private-model", thinking: "off" });
 });
 
 test("a sign-off removes only the entry its own connection holds", async () => {

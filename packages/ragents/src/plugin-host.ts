@@ -3,7 +3,8 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { InlineExtension } from "@ragents/agent";
 import { agentHookExtension } from "./drivers/agent-hooks.ts";
 import { Value } from "typebox/value";
-import { canStartEntry, defaultHttpRights, unrestrictedAccess, type AccessContext } from "./access.ts";
+import { canStartEntry, defaultHttpRights, isAccessRight, unrestrictedAccess, type AccessContext } from "./access.ts";
+import { DomainError } from "./runtime/domain-error.ts";
 import { assertJsonValue, type JsonValue } from "./domain/json.ts";
 import { canonicalHash } from "./runtime/canonical-hash.ts";
 import { schemaComplaints } from "./domain/schema-errors.ts";
@@ -860,6 +861,9 @@ export class StartOptionContributionRegistry {
       if (contribution.ownerOnly !== undefined && typeof contribution.ownerOnly !== "function") {
         throw new Error(`Startoption ${contribution.id} hat ein ungültiges ownerOnly`);
       }
+      if (contribution.rights !== undefined && (!Array.isArray(contribution.rights) || !contribution.rights.every(isAccessRight))) {
+        throw new Error(`Startoption ${contribution.id} hat ungültige rights`);
+      }
     }
     this.#options.register(owner, contributions);
   }
@@ -875,6 +879,16 @@ export class StartOptionContributionRegistry {
 
   describe(): readonly { id: string; owner: string }[] {
     return this.#options.entries().map(({ owner, value }) => ({ id: value.id, owner }));
+  }
+
+  /** Das erste Recht der Option, das dem Zugang fehlt; eine unbekannte Option verlangt keins. */
+  missingRight(id: string, access: Pick<AccessContext, "can">): string | undefined {
+    return this.entry(id)?.option.rights?.find((right) => !access.can(right));
+  }
+
+  assertRights(id: string, access: Pick<AccessContext, "can">): void {
+    const missing = this.missingRight(id, access);
+    if (missing) throw new DomainError("access-denied", `Das Recht ${missing} fehlt für die Startoption ${id}.`, 403);
   }
 
   defaultValue(id: string, context: StartOptionContext): JsonValue {

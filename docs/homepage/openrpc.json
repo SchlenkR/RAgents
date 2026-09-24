@@ -1058,7 +1058,7 @@
     },
     {
       "name": "ragents.overseer.createRun",
-      "description": "Einen Run mit serverseitiger ID und Titel anlegen. Genau eine Startform: message, installiertes script (Kennung oder eindeutiger Titel), oder packageDirectory (vorhandenes lokales Run-Script-Paket). input ist nur bei script/packageDirectory erlaubt. Das Ergebnis wartet auf Vorbereitung, Check, Test und Installation; accepted bestätigt noch kein fertiges Modellergebnis.",
+      "description": "Einen Run mit serverseitiger ID und Titel anlegen. Genau eine Startform: message, installiertes script (Kennung oder eindeutiger Titel), oder packageDirectory (vorhandenes lokales Run-Script-Paket). input ist nur bei script/packageDirectory erlaubt. options wählt Startoptionen wie ragents.startOptions.select, jede nur mit ihren eigenen Rechten. Das Ergebnis wartet auf Vorbereitung, Check, Test und Installation; accepted bestätigt noch kein fertiges Modellergebnis.",
       "params": [
         {
           "name": "input",
@@ -3306,7 +3306,7 @@
     },
     {
       "name": "ragents.startOptions.list",
-      "description": "Die Startoptionen eines noch nicht gestarteten Runs mit Wert und Darstellung. Rechte: runs.read, runs.create, runs.inspect.",
+      "description": "Die Startoptionen eines noch nicht gestarteten Runs mit Wert und Darstellung, nur die, deren eigene Rechte der Aufrufer hat; die Modellwahl etwa verlangt runs.inspect. Rechte: runs.read, runs.create.",
       "params": [
         {
           "name": "input",
@@ -3343,14 +3343,13 @@
       "x-owner": "host",
       "x-rights": [
         "runs.read",
-        "runs.create",
-        "runs.inspect"
+        "runs.create"
       ],
       "x-implemented-by": "server"
     },
     {
       "name": "ragents.startOptions.select",
-      "description": "Eine Startoption vor dem Start wählen. Rechte: runs.read, runs.write, runs.create, runs.inspect.",
+      "description": "Eine Startoption vor dem Start wählen; fehlt ein Recht der Option selbst, scheitert die Wahl mit access-denied. Rechte: runs.read, runs.write, runs.create.",
       "params": [
         {
           "name": "input",
@@ -3393,8 +3392,7 @@
       "x-rights": [
         "runs.read",
         "runs.write",
-        "runs.create",
-        "runs.inspect"
+        "runs.create"
       ],
       "x-implemented-by": "server"
     },

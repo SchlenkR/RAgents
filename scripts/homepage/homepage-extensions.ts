@@ -376,7 +376,7 @@ host.startOptions({
 });`, ["host.startOptions"], [
     "Die choice-Darstellung funktioniert mit dem vorhandenen Auswahlmenü. Eine eigene Bedienkomponente kann auf der Web-Seite unter derselben Option-ID registriert werden; describe enthält keine Prüfregeln.",
     "Ein voreingestellter Wert muss ebenfalls gültig sein; eine fehlende Voraussetzung wird nicht still ersetzt.",
-    "defaultValue, accept und describe bekommen neben runId den handelnden Benutzer als userId, ohne Anmeldung null. Das optionale ownerOnly(value) behält einen Run mit diesem Wert zum Bedienen seinem Eigentümer vor; lesen und stoppen bleiben allen, die ihn sehen.",
+    "defaultValue, accept und describe bekommen neben runId den handelnden Benutzer als userId, ohne Anmeldung null. Das optionale ownerOnly(value) behält einen Run mit diesem Wert zum Bedienen seinem Eigentümer vor; lesen und stoppen bleiben allen, die ihn sehen. Das optionale rights nennt Rechte über runs.create hinaus, etwa runs.inspect für eine Option mit technischer Darstellung wie die Modellwahl; ohne sie fehlt die Option in der Liste, und ihre Wahl scheitert mit access-denied.",
   ]),
   entry("session-metadata", "Serverbeiträge", "Run-Metadaten bereitstellen", "Ein Plugin kann kurze Zusatzangaben zu einem Run liefern, etwa einen Bearbeitungsstatus. Solche Metadaten stehen der Oberfläche zur Anzeige zur Verfügung. Die zugrunde liegenden Fachdaten bleiben beim Plugin.", "Innerhalb von register(host); Beispiel ohne eigene Datenablage.", `
 host.sessionMetadata({

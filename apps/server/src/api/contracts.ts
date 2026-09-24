@@ -89,15 +89,15 @@ export const coreContracts = {
   startOptions: {
     list: defineOperation({
       id: "ragents.startOptions.list",
-      description: "Die Startoptionen eines noch nicht gestarteten Runs mit Wert und Darstellung. Rechte: runs.read, runs.create, runs.inspect.",
-      rights: ["runs.read", "runs.create", "runs.inspect"],
+      description: "Die Startoptionen eines noch nicht gestarteten Runs mit Wert und Darstellung, nur die, deren eigene Rechte der Aufrufer hat; die Modellwahl etwa verlangt runs.inspect. Rechte: runs.read, runs.create.",
+      rights: ["runs.read", "runs.create"],
       input: Type.Object({ runId }, { additionalProperties: false }),
       result: Type.Array(openJson<StartOptionState>("StartOptionState")),
     }),
     select: defineOperation({
       id: "ragents.startOptions.select",
-      description: "Eine Startoption vor dem Start wählen. Rechte: runs.read, runs.write, runs.create, runs.inspect.",
-      rights: ["runs.read", "runs.write", "runs.create", "runs.inspect"],
+      description: "Eine Startoption vor dem Start wählen; fehlt ein Recht der Option selbst, scheitert die Wahl mit access-denied. Rechte: runs.read, runs.write, runs.create.",
+      rights: ["runs.read", "runs.write", "runs.create"],
       input: Type.Object({ runId, optionId: Type.String({ minLength: 1, maxLength: 128 }), value: Type.Any() }, { additionalProperties: false }),
       result: openJson<StartOptionState>("StartOptionState"),
     }),

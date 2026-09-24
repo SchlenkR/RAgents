@@ -47,6 +47,7 @@ export const modelStartOption = (choice: ModelChoice, preferredThinking: Thinkin
   return {
     id: modelStartOptionId,
     schema: modelSchema,
+    rights: ["runs.inspect"],
     selectable: () => choice.selectable,
     defaultValue: () => ({ ...resolved(choice.defaultModel, undefined) }),
     accept: (value) => {
@@ -68,6 +69,7 @@ export const modelStartOption = (choice: ModelChoice, preferredThinking: Thinkin
 export const systemPromptStartOption = (catalog: () => SystemPromptCatalog): StartOptionContribution => ({
   id: systemPromptStartOptionId,
   schema: systemPromptSchema,
+  rights: ["runs.inspect"],
   selectable: () => catalog().mode === "selectable" && catalog().options.length > 0,
   defaultValue: () => ({ promptIds: [...catalog().defaultIds], shareWithAgents: catalog().shareDefault }),
   accept: (value) => {

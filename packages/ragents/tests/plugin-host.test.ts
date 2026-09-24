@@ -428,6 +428,14 @@ test("start options validate their contribution, defaults and accepted values ag
     assert.throws(() => registry.register("second-plugin", [option]), /bereits von first-plugin bereitgestellt/);
     assert.throws(() => registry.register("second-plugin", [{ ...option, id: "Bad Id" }]), /Ungültige Startoption-Id/);
     assert.throws(() => registry.register("second-plugin", [{ ...option, id: "example.owner", ownerOnly: true as never }]), /ungültiges ownerOnly/);
+    assert.throws(() => registry.register("second-plugin", [{ ...option, id: "example.rights", rights: ["Runs Inspect"] }]), /ungültige rights/);
+    registry.register("second-plugin", [{ ...option, id: "example.technical", rights: ["runs.inspect"] }]);
+    const inspecting = { can: (right: string) => right === "runs.inspect" };
+    const plain = { can: () => false };
+    assert.equal(registry.missingRight("example.technical", plain), "runs.inspect");
+    assert.equal(registry.missingRight("example.technical", inspecting), undefined);
+    assert.equal(registry.missingRight("example.source", plain), undefined, "ohne rights genügen die Rechte der Methode");
+    assert.throws(() => registry.assertRights("example.technical", plain), /Das Recht runs\.inspect fehlt für die Startoption example\.technical/);
     registry.register("second-plugin", [{ ...option, id: "example.broken", defaultValue: () => "other" }]);
     assert.throws(
         () => registry.defaultValue("example.broken", { runId: "run-1", userId: null }),

@@ -241,7 +241,11 @@ Der serverseitige `PluginHost` hat Registries für:
   jeweiligen Anfrage, ohne Anmeldung `null`): Liste und Wahl den Benutzer der Anfrage, die beim
   Start geschriebenen Vorgaben den Benutzer, der den Run anlegt; gemerkt wird er nirgends.
   Optional erklärt `ownerOnly(value)`, dass einen Run mit diesem gespeicherten Wert nur sein
-  Eigentümer bedient ([profiles.md](profiles.md), Benutzerrechte). Startet ein Run über eine
+  Eigentümer bedient ([profiles.md](profiles.md), Benutzerrechte). Optional nennt `rights` Rechte, die über
+  `runs.create` hinaus nötig sind, etwa `runs.inspect` für eine Option, deren Darstellung
+  technische Einsicht gibt: Ohne sie fehlt die Option in der Liste, die Wahl (auch über `options`
+  von `ragents.overseer.createRun`) scheitert mit `access-denied` (403), und beim Start gilt ihr
+  Standardwert oder der Wert der Vorlage. Startet ein Run über eine
   Vorlage, die Startoptionen festlegt, gilt deren Wert statt Wahl und Vorgabe: `accept` nimmt
   ihn mit dem Benutzer an, der startet, und eine vorher abweichend gewählte Belegung, bei einem
   schon angelegten Run ein anderer gespeicherter Wert, ist der Fehler `start-option-fixed` (409)

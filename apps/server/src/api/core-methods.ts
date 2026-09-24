@@ -128,9 +128,12 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
       if (!current.actorConversations) throw new DomainError("actor-history-unavailable", "Actor-Verläufe sind nicht verfügbar", 404);
       return accessibleActorConversations(current.actorConversations(), access);
     }),
-    implement(coreContracts.startOptions.list, ({ runId }, { access }) => [...sessions.startOptions(runId, userIdOf(access))]),
-    implement(coreContracts.startOptions.select, ({ runId, optionId, value }, { access }) =>
-      sessions.selectStartOption(runId, optionId, value, userIdOf(access))),
+    implement(coreContracts.startOptions.list, ({ runId }, { access }) =>
+      sessions.startOptions(runId, userIdOf(access)).filter((option) => sources.plugins.startOptions.missingRight(option.id, access) === undefined)),
+    implement(coreContracts.startOptions.select, ({ runId, optionId, value }, { access }) => {
+      sources.plugins.startOptions.assertRights(optionId, access);
+      return sessions.selectStartOption(runId, optionId, value, userIdOf(access));
+    }),
     implement(coreContracts.prepare, ({ runId, ...request }, { signal, access }) =>
       sessions.prepareRunMessage(runId, request, signal, userIdOf(access))),
     implement(coreContracts.transfer.export, ({ runId }) => sessions.exportRun(runId)),

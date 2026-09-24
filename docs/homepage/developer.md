@@ -514,7 +514,7 @@ Die choice-Darstellung funktioniert mit dem vorhandenen Auswahlmenü. Eine eigen
 
 Ein voreingestellter Wert muss ebenfalls gültig sein; eine fehlende Voraussetzung wird nicht still ersetzt.
 
-defaultValue, accept und describe bekommen neben runId den handelnden Benutzer als userId, ohne Anmeldung null. Das optionale ownerOnly(value) behält einen Run mit diesem Wert zum Bedienen seinem Eigentümer vor; lesen und stoppen bleiben allen, die ihn sehen.
+defaultValue, accept und describe bekommen neben runId den handelnden Benutzer als userId, ohne Anmeldung null. Das optionale ownerOnly(value) behält einen Run mit diesem Wert zum Bedienen seinem Eigentümer vor; lesen und stoppen bleiben allen, die ihn sehen. Das optionale rights nennt Rechte über runs.create hinaus, etwa runs.inspect für eine Option mit technischer Darstellung wie die Modellwahl; ohne sie fehlt die Option in der Liste, und ihre Wahl scheitert mit access-denied.
 
 Vertragsfelder: host.startOptions.
 
@@ -1460,9 +1460,9 @@ Automatisch aus den registrierten Verträgen; Methoden ohne feste Rechte prüft 
 
 | ragents.settings.titles.save | settings.write |
 
-| ragents.startOptions.list | runs.read, runs.create, runs.inspect |
+| ragents.startOptions.list | runs.read, runs.create |
 
-| ragents.startOptions.select | runs.read, runs.write, runs.create, runs.inspect |
+| ragents.startOptions.select | runs.read, runs.write, runs.create |
 
 ## Aktuelle Vertragsflächen
 

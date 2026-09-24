@@ -1,5 +1,19 @@
 # Entscheidungen
 
+## Jede Startoption nennt ihre Rechte (24.09.2026)
+
+Kapitel: `docs/spec/profiles.md` (Rechte im Einzelnen), `docs/spec/plugins.md` (Startoptionen).
+Vorgabe des Owners. `ragents.startOptions.list` und `.select` verlangten pauschal `runs.inspect`;
+ein Benutzer ohne dieses Recht konnte einen Run deshalb weder im Web noch in VS Code noch per
+`ragents run` an seinen Ordner oder Arbeitsplatz binden, obwohl nur die Modellwahl technische
+Einsicht gibt. Festgelegt: `StartOptionContribution.rights` nennt die Rechte einer Option, die
+Methoden verlangen nur noch `runs.read` und `runs.create` (die Wahl dazu `runs.write`). Modell- und
+Systemprompt-Wahl erklären `runs.inspect`, die Ordnerbindung nichts. Eine Option ohne die Rechte
+fehlt in der Liste, statt als nicht wählbar zu erscheinen: `selectable: false` liefert Wert und
+Darstellung weiter aus und hätte Modelle und Prompttexte verraten. Ihre Wahl scheitert mit
+`access-denied`, auch über `options` von `ragents.overseer.createRun`. Eine Option eines anderen
+Plugins ohne `rights` ist damit ohne `runs.inspect` sichtbar.
+
 ## Formulare im Mini-App-Rahmen, Aktivieren nach dem Entfernen (24.09.2026)
 
 Kapitel: `docs/spec/actor-programs.md` (Backend and client, Create, edit, and activate, Kachel-Host

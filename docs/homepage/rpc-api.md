@@ -79,8 +79,8 @@ Kennungen aus Ergebnissen werden programmgesteuert weiterverwendet, nicht abgesc
 | ragents.settings.skill | host | settings.read |
 | ragents.settings.titles.read | host | settings.read |
 | ragents.settings.titles.save | host | settings.write |
-| ragents.startOptions.list | host | runs.read, runs.create, runs.inspect |
-| ragents.startOptions.select | host | runs.read, runs.write, runs.create, runs.inspect |
+| ragents.startOptions.list | host | runs.read, runs.create |
+| ragents.startOptions.select | host | runs.read, runs.write, runs.create |
 | ragents.workspace.browse.list | ragents.workspace | runs.read, runs.inspect |
 | ragents.workspace.browse.preview | ragents.workspace | runs.read, runs.inspect |
 | ragents.workspace.clients.list | ragents.workspace | runs.read |
@@ -1085,7 +1085,7 @@ Eigentümer: ragents.overseer. Rechte: ragents.overseer.read. Ausführung: der S
 
 ## ragents.overseer.createRun
 
-Einen Run mit serverseitiger ID und Titel anlegen. Genau eine Startform: message, installiertes script (Kennung oder eindeutiger Titel), oder packageDirectory (vorhandenes lokales Run-Script-Paket). input ist nur bei script/packageDirectory erlaubt. Das Ergebnis wartet auf Vorbereitung, Check, Test und Installation; accepted bestätigt noch kein fertiges Modellergebnis.
+Einen Run mit serverseitiger ID und Titel anlegen. Genau eine Startform: message, installiertes script (Kennung oder eindeutiger Titel), oder packageDirectory (vorhandenes lokales Run-Script-Paket). input ist nur bei script/packageDirectory erlaubt. options wählt Startoptionen wie ragents.startOptions.select, jede nur mit ihren eigenen Rechten. Das Ergebnis wartet auf Vorbereitung, Check, Test und Installation; accepted bestätigt noch kein fertiges Modellergebnis.
 
 Eigentümer: ragents.overseer. Rechte: runs.read, runs.write, runs.create. Ausführung: der Server.
 
@@ -3227,9 +3227,9 @@ Eigentümer: host. Rechte: settings.write. Ausführung: der Server.
 
 ## ragents.startOptions.list
 
-Die Startoptionen eines noch nicht gestarteten Runs mit Wert und Darstellung. Rechte: runs.read, runs.create, runs.inspect.
+Die Startoptionen eines noch nicht gestarteten Runs mit Wert und Darstellung, nur die, deren eigene Rechte der Aufrufer hat; die Modellwahl etwa verlangt runs.inspect. Rechte: runs.read, runs.create.
 
-Eigentümer: host. Rechte: runs.read, runs.create, runs.inspect. Ausführung: der Server.
+Eigentümer: host. Rechte: runs.read, runs.create. Ausführung: der Server.
 
 ### Eingabe
 
@@ -3266,9 +3266,9 @@ Eigentümer: host. Rechte: runs.read, runs.create, runs.inspect. Ausführung: de
 
 ## ragents.startOptions.select
 
-Eine Startoption vor dem Start wählen. Rechte: runs.read, runs.write, runs.create, runs.inspect.
+Eine Startoption vor dem Start wählen; fehlt ein Recht der Option selbst, scheitert die Wahl mit access-denied. Rechte: runs.read, runs.write, runs.create.
 
-Eigentümer: host. Rechte: runs.read, runs.write, runs.create, runs.inspect. Ausführung: der Server.
+Eigentümer: host. Rechte: runs.read, runs.write, runs.create. Ausführung: der Server.
 
 ### Eingabe
 

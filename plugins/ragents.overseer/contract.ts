@@ -76,7 +76,7 @@ export const overseerContracts = {
   }),
   createRun: defineOperation({
     id: "ragents.overseer.createRun",
-    description: "Einen Run mit serverseitiger ID und Titel anlegen. Genau eine Startform: message, installiertes script (Kennung oder eindeutiger Titel), oder packageDirectory (vorhandenes lokales Run-Script-Paket). input ist nur bei script/packageDirectory erlaubt. Das Ergebnis wartet auf Vorbereitung, Check, Test und Installation; accepted bestätigt noch kein fertiges Modellergebnis.",
+    description: "Einen Run mit serverseitiger ID und Titel anlegen. Genau eine Startform: message, installiertes script (Kennung oder eindeutiger Titel), oder packageDirectory (vorhandenes lokales Run-Script-Paket). input ist nur bei script/packageDirectory erlaubt. options wählt Startoptionen wie ragents.startOptions.select, jede nur mit ihren eigenen Rechten. Das Ergebnis wartet auf Vorbereitung, Check, Test und Installation; accepted bestätigt noch kein fertiges Modellergebnis.",
     rights: ["runs.read", "runs.write", "runs.create"],
     input: createInput,
     result: accepted,
