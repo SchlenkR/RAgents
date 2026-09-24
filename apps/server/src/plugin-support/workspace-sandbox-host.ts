@@ -1,4 +1,4 @@
-import { realpath } from "node:fs/promises";
+import { mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import {
   DomainError,
@@ -30,6 +30,7 @@ import {
 import { hostRoot } from "../host-version.js";
 import type { SessionWorkspace } from "../ragents/workspace-runtime.js";
 import { agentToolFrom, toolDescriptorFrom, type AgentToolDefinition } from "./agent-tool.js";
+import type { RunProcessSandboxes } from "./process-sandbox.js";
 import { alwaysAvailable } from "./tool-availability.js";
 import { syncWorkspaceOwnership } from "./workspace-ownership.js";
 
@@ -67,6 +68,8 @@ export interface WorkspaceSandboxHostOptions {
   executorFor?: (runId: string) => Promise<WorkspaceExecutor | undefined>;
   /** Der eigene Ordner eines solchen Runs auf dem Server, für Arbeit, die dort läuft. */
   serverDirectoryFor?: (runId: string) => Promise<string>;
+  /** Die Prozess-Sandbox, in der jeder Prozess des Executors dieses Servers startet; ohne sie laufen Prozesse ohne. */
+  processSandbox?: RunProcessSandboxes;
 }
 
 const sandboxDescriptions: Readonly<Record<string, string>> = {
@@ -102,6 +105,8 @@ interface StableRunParts {
   ident?: SessionIdent;
   home: SandboxHomeEnvironment;
   readOnlyRoots: readonly ResolvedWorkspaceRoot[];
+  /** Der eigene Temp-Ordner des Runs in der Sandbox. */
+  temporary?: string;
 }
 
 /** Ein nur lesbarer Pfad, den es nicht gibt, ist keine Wurzel; ein fehlender Skill-Ordner darf keinen Run verhindern. */
@@ -163,20 +168,41 @@ export class WorkspaceSandboxHost implements SandboxServices {
   /** Der Kontext des Executors dieses Servers; ohne eigenen Ordner der Arbeitsbereich selbst, der dafür auf dem Server liegen muss. */
   async #contextFor(runId: string, serverDirectory?: string): Promise<WorkspaceProcessContext> {
     const workspace = await this.#options.workspaceFor(runId);
-    const { ident, home, readOnlyRoots } = await this.#stableParts(runId, workspace);
+    const { ident, home, readOnlyRoots, temporary } = await this.#stableParts(runId, workspace);
+    const root = serverDirectory ?? await workspace.currentRoot();
+    const additionalRoots = await this.#additionalRoots(runId, ident);
+    const sandbox = this.#options.processSandbox && temporary !== undefined
+      ? this.#options.processSandbox.forRun({
+        writable: [root, ...additionalRoots.map((entry) => entry.directory), home.home, ...home.nugetPackages ? [home.nugetPackages] : []],
+        readable: [...readOnlyRoots.map((entry) => entry.directory), ...this.#options.storageRootFor ? [this.#options.storageRootFor(runId)] : []],
+        temporary,
+      })
+      : undefined;
     return workspaceProcessContext({
       runId,
       cwd: serverDirectory ?? workspace.cwd,
-      root: serverDirectory ?? await workspace.currentRoot(),
+      root,
       home,
       logDirectory: home.home,
       hostRoot: hostRoot(),
       ...(ident ? { ident } : {}),
-      additionalRoots: await this.#additionalRoots(runId, ident),
+      additionalRoots,
       readOnlyRoots,
       additions: sandboxRunEnvironment(runId, workspace),
       runOperation: workspace.runOperation,
+      ...(sandbox ? { sandbox } : {}),
     });
+  }
+
+  /** Der Temp-Ordner eines Runs liegt in seiner Ablage, damit er mit dem Run verschwindet und kein anderer Run ihn sieht. */
+  async #temporaryFor(runId: string, ident: SessionIdent | undefined): Promise<string | undefined> {
+    if (!this.#options.processSandbox) return undefined;
+    const storageRoot = this.#options.storageRootFor?.(runId);
+    if (!storageRoot) throw new Error(`Die Prozess-Sandbox braucht die Ablage des Runs ${runId} für seinen Temp-Ordner`);
+    const directory = path.join(storageRoot, "tmp");
+    await mkdir(directory, { recursive: true });
+    if (ident) await syncWorkspaceOwnership(directory, { ...ident, storageRoot });
+    return realpath(directory);
   }
 
   /** Kennung, Heimatordner und nur lesbare Wurzeln stehen je Run fest; nur sie werden gemerkt. */
@@ -194,10 +220,12 @@ export class WorkspaceSandboxHost implements SandboxServices {
   async #resolveStableParts(runId: string, workspace: SessionWorkspace): Promise<StableRunParts> {
     if (workspace.hostSandbox) {
       const { home, ident } = workspace.hostSandbox;
+      const temporary = await this.#temporaryFor(runId, ident);
       return {
         ...(ident ? { ident } : {}),
         home: { home },
         readOnlyRoots: await existingRoots(workspace.hostSandbox.readOnlyRoots),
+        ...(temporary ? { temporary } : {}),
       };
     }
     const [ident, home, skills] = await Promise.all([
@@ -205,7 +233,13 @@ export class WorkspaceSandboxHost implements SandboxServices {
       this.#options.homeFor(runId),
       this.#options.skillPaths(),
     ]);
-    return { ...(ident ? { ident } : {}), home, readOnlyRoots: await existingRoots(skills.map((directory) => ({ directory }))) };
+    const temporary = await this.#temporaryFor(runId, ident);
+    return {
+      ...(ident ? { ident } : {}),
+      home,
+      readOnlyRoots: await existingRoots(skills.map((directory) => ({ directory }))),
+      ...(temporary ? { temporary } : {}),
+    };
   }
 
   workspaceTools(): ToolContributor {

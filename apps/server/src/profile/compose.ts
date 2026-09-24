@@ -6,6 +6,7 @@ import type { PluginModule } from "../plugin-support/plugin-module.js";
 import { runManagementToken } from "../ragents/global-chat.js";
 import { registerTypeScriptFunctions } from "../ragents/typescript-tools.js";
 import {
+  hostAddressToken,
   runtimeProviderToken,
   secretEnvNamesToken,
   runGuardToken,
@@ -41,6 +42,7 @@ export const composeProfile = (options: ProfileComposition, bridges: HostBridges
   host.provideHost(workspaceGuardToken, bridges.ensureWorkspaceAccess);
   host.provideHost(runWorkspaceProviderToken, bridges.sessionWorkspaceFor);
   host.provideHost(runtimeProviderToken, bridges.runtime);
+  host.provideHost(hostAddressToken, () => bridges.apiBaseUrl);
   host.provideHost(runManagementToken, () => {
     if (!bridges.sessions) throw new Error("Der Host stellt keine Sitzungsverwaltung bereit");
     return bridges.sessions();

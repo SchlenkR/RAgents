@@ -162,6 +162,10 @@
       "bundlesRoot",
       "isPluginPath"
     ],
+    "@ragents/host/plugin-support/process-sandbox": [
+      "PROCESS_SANDBOX_DEFAULT_NETWORK",
+      "ServerProcessSandbox"
+    ],
     "@ragents/host/plugin-support/product-model-settings": [
       "ProductModelSettingsStore",
       "productModelSettingsMethods"
@@ -228,6 +232,7 @@
       "runManagementToken"
     ],
     "@ragents/host/ragents/host-services": [
+      "hostAddressToken",
       "runGuardToken",
       "runWorkspaceProviderToken",
       "runtimeProviderToken",
@@ -273,6 +278,7 @@
       "runManagedProcess",
       "safeProcessEnvironment",
       "sandboxRunEnvironment",
+      "sandboxedLaunch",
       "shellPlatformText",
       "startManagedService",
       "typescriptAdapter",

@@ -22,6 +22,7 @@ import type {
 import { storedStartOption } from "@ragents/host/ragents/start-option-state.js";
 import { sandboxToolNaming } from "./workspace-tool-naming.js";
 import { WorkspaceSandboxHost } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
+import type { RunProcessSandboxes } from "@ragents/host/plugin-support/process-sandbox.js";
 import { FRESH_WORKSPACE_LABEL, isFreshFolder, type ExistingWorkspaceFolder, type WorkspaceBinding } from "../contract.js";
 import {
   bindingOf,
@@ -45,6 +46,8 @@ export interface RunWorkspaceRuntimeOptions {
   runState: (runId: string) => RunState | null;
   storeBinding: (runId: string, binding: WorkspaceBinding) => void;
   clients: WorkspaceClientRegistry;
+  /** Die Prozess-Sandbox des Servers; ohne sie laufen die Prozesse des Servers ohne. */
+  processSandbox?: RunProcessSandboxes;
 }
 
 const runNotStarted = (): DomainError => new DomainError(
@@ -112,6 +115,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
       homeFor: (runId) => this.#homeFor(runId),
       executorFor: (runId) => Promise.resolve(this.#executorFor(runId)),
       serverDirectoryFor: (runId) => this.#serverDirectoryFor(runId),
+      ...(options.processSandbox ? { processSandbox: options.processSandbox } : {}),
     });
   }
 

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import type { NativeTypeScriptBinding, NativeTypeScriptExecutor, NativeTypeScriptRequest, NativeTypeScriptResult } from "@ragents/engine";
 import type { JsonValue } from "@ragents/engine";
-import { startManagedService, type ManagedService, type WorkspaceProcessContext } from "@ragents/workspace-executor";
+import { sandboxedLaunch, startManagedService, type ManagedService, type WorkspaceProcessContext } from "@ragents/workspace-executor";
 import { syncWorkspaceOwnership } from "./workspace-ownership.js";
 
 interface ExecutorOptions {
@@ -122,9 +122,11 @@ export class NodeTypeScriptExecutor implements NativeTypeScriptExecutor {
       backend.reject(error);
       backend.service.kill("SIGKILL");
     };
+    const launch = await sandboxedLaunch(processContext, { command: process.execPath, args: [path.join(directory, "__runner.mjs")] });
+    signal.throwIfAborted();
     backend.service = startManagedService({
-      command: process.execPath,
-      args: [path.join(directory, "__runner.mjs")],
+      command: launch.command,
+      args: [...launch.args],
       cwd: request.cwd ?? processContext.cwd,
       env: { ...processContext.env, RAGENTS_RUN_ID: request.context.runId },
       uid: processContext.uid, gid: processContext.gid,

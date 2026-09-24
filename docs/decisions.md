@@ -1,5 +1,45 @@
 # Entscheidungen
 
+## Prozess-Sandbox für alles, was ein Run auf dem Server startet (24.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Arbeitsbereich, neuer Abschnitt Prozess-Sandbox des Servers;
+Offene Grenzen), `docs/spec/profiles.md` (Rechte im Einzelnen, Offene Grenzen),
+`docs/operations.md` (Prozess-Sandbox des Servers, Datenablage). Vorgabe des Owners: Auf dem
+Server laufen `bash`, `commands.run` und die Node-Prozesse der TypeScript-Plattform in einer
+Prozess-Sandbox; auf einem Arbeitsplatz bleibt es die Bash des Entwicklers.
+
+**Warum.** Die Rechte des Profils begrenzen, welche Methoden ein Benutzer ruft, nicht, was nativer
+Code eines Runs auf dem Serverrechner liest. Ein Snippet des globalen Koordinators konnte die
+Journale anderer Benutzer lesen, jede Bash eines Runs die Ablage anderer Runs und die Geheimnisse
+im Home des Serverkontos, und alles durfte ins Netz. Eine Systemkennung je Benutzer hätte das nur
+für Dateien geschlossen und einen Server mit root-Rechten verlangt.
+
+**Festlegung.** Die Sandbox ist `@anthropic-ai/sandbox-runtime` in fester Fassung 0.0.77
+(Apache-2.0): Seatbelt unter macOS, bubblewrap mit Netz- und PID-Namensraum unter Linux, Netz nur
+über einen Proxy mit Domain-Allowlist. Sie hängt an einer Stelle: der Sandbox-Host des Servers gibt
+sie dem Prozesskontext eines Runs mit, jeder Prozessstart im Executor packt sich über
+`sandboxedLaunch` ein; kein Werkzeug und kein Kern kennt sie. Die Regeln entstehen je Run aus
+seinen Ordnern (lesen und schreiben: Arbeitsbereich, Serverordner, registrierte Wurzeln, Home,
+NuGet-Cache, eigener Temp-Ordner; gesperrt: Homes, Temp und Datenordner des Servers, wieder lesbar:
+Host-Ordner, Toolchains, eigene Ablage, nur lesbare Wurzeln). Die Allowlist steht in der Sektion
+`ragents.workspace` (`PROCESS_SANDBOX_NETWORK`); die Vorgabe npm, NuGet und GitHub deckt
+Paketinstallation, Restore und Git über HTTPS, die eigene Adresse des Servers ist immer dabei, weil
+der globale Koordinator seinen Server über sie erreicht. Abschalten geht nur ausdrücklich
+(`PROCESS_SANDBOX: "off"`); Windows ohne diese Angabe, Linux ohne bubblewrap und ein Rechner, auf dem
+der Probeprozess beim Start scheitert, brechen den Start ab. Windows fällt heraus, weil die
+Bibliothek dort Ordnerregeln nur für die ganze Sitzung setzt, nicht je Run.
+
+**Was dafür nachgezogen wurde.** Werkzeuge geben Orte vor, die die Sandbox sonst bräche: `PATH`
+nennt in der Sandbox die Ziele seiner Symlinks, unter macOS sind `/tmp/.dotnet*` und
+`/tmp/MSBuild*` samt Unix-Sockets unter `/tmp` erlaubt und `trustd` erreichbar, .NET bleibt auf IPv4
+und MSBuild ohne wiederverwendete Knoten, Build-Server und gemeinsamen Compiler, damit kein
+Build-Prozess eines Runs Aufträge eines anderen annimmt. Lesbare Ordner, die einen beschreibbaren
+enthalten, werden in ihre übrigen Einträge zerlegt, weil bubblewrap sie sonst schreibgeschützt
+darüberlegt; ebenso freigegebene Ordner, die einen gesperrten enthalten (etwa ein Projektordner um
+den Datenordner), weil Seatbelt die Freigaben innerhalb der Sperre sonst wieder sperrt. Nachgewiesen mit `apps/server/tests/process-sandbox.test.ts`, `pnpm
+check:remote-workspace` und einem echten `dotnet build` samt NuGet-Restore, `npm install`, `pnpm
+install` und `git clone` im Arbeitsbereich unter macOS und Linux (Container).
+
 ## Chat-Zeitstempel an der ersten Textzeile ausrichten (24.09.2026)
 
 Kapitel: `docs/spec/plugins.md` (Chat-Bausteine).

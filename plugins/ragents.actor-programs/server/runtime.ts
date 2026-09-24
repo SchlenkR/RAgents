@@ -13,7 +13,7 @@ import type { ActorOperationPort } from "./operations.js";
 import { compileClientProject, installClientSdk } from "@ragents/host/plugin-support/actor-programs/client-compiler.js";
 import { compileAppBackend, installServerSdk, prepareAppProject, prepareAppWorkspace, projectSourceFiles, readAppPackage, typecheckServerProject, type AppContract } from "@ragents/host/plugin-support/actor-programs/app-project.js";
 import { syncWorkspaceOwnership } from "@ragents/host/plugin-support/workspace-ownership.js";
-import { runManagedProcess, type WorkspaceProcessContext } from "@ragents/workspace-executor";
+import { runManagedProcess, sandboxedLaunch, type WorkspaceProcessContext } from "@ragents/workspace-executor";
 import { runModuleTemplates, templateById } from "./templates.js";
 import { FRAME_BODY_CLASS, FRAME_DOCUMENT_CLASS, FRAME_ROOT_CLASS } from "@ragents/host/plugin-support/actor-programs/client-runtime.js";
 import { buildTailwind } from "@ragents/host/plugin-support/actor-programs/tailwind.js";
@@ -340,7 +340,8 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             if (tests.length) {
                 const processContext = await this.#options.serverProcessContextFor(runId);
                 let output = "";
-                const result = await runManagedProcess({ command: process.execPath, args: ["--import", "tsx", "--test", ...tests.map((file) => file.path)], cwd: compiled.directory,
+                const launch = await sandboxedLaunch(processContext, { command: process.execPath, args: ["--import", "tsx", "--test", ...tests.map((file) => file.path)] });
+                const result = await runManagedProcess({ command: launch.command, args: [...launch.args], cwd: compiled.directory,
                     env: processContext.env, uid: processContext.uid, gid: processContext.gid, label: `Tests ${name}`, signal, timeoutMs: 60000,
                     onStdout: (chunk) => { output = (output + chunk.toString()).slice(-12000); }, onStderr: (chunk) => { output = (output + chunk.toString()).slice(-12000); } });
                 if (result.code !== 0 || result.timedOut)

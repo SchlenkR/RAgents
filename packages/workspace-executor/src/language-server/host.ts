@@ -2,6 +2,7 @@ import { realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import type { WorkspaceProcessContext } from "../context.js";
 import { runManagedProcess } from "../managed-process.js";
+import { sandboxedLaunch } from "../process-sandbox.js";
 import type { LanguageServerDiagnostic, LanguageServerInstanceSnapshot, LanguageServerSnapshot } from "./contract.js";
 import { diagnosticEntries, formatDiagnostics } from "./diagnostics.js";
 import { LanguageServerSession, withTimeout, type LanguageServerLaunch } from "./session.js";
@@ -62,9 +63,10 @@ const git = async (
   args: readonly string[],
 ): Promise<string> => {
   let output = "";
+  const launch = await sandboxedLaunch(context, { command: "git", args });
   const result = await runManagedProcess({
-    command: "git",
-    args: [...args],
+    command: launch.command,
+    args: [...launch.args],
     cwd: directory,
     env: context.env,
     uid: context.uid,
@@ -445,8 +447,9 @@ export class LanguageServerHost {
         await closing;
         this.#assertCurrent(entry);
         const launch = await this.adapter.launch(context, root);
+        const { command, args } = await sandboxedLaunch(context, launch);
         this.#assertCurrent(entry);
-        entry.initializing = LanguageServerSession.start(launch, this.#openTimeoutMs);
+        entry.initializing = LanguageServerSession.start({ ...launch, command, args: [...args] }, this.#openTimeoutMs);
         const session = await entry.initializing;
         this.#assertCurrent(entry);
         let aborted!: () => void;

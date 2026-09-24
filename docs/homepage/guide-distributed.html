@@ -285,6 +285,10 @@ not used.</li>
 <code>pnpm install</code>, <code>pnpm build:agent</code>, and <code>scripts/start.sh</code> run in Git Bash.</li>
 <li>The <strong>.NET SDK</strong> is required when the profile includes Roslyn or FSAC. Provisioning downloads
 the language servers; the TypeScript server comes from the host directory.</li>
+<li>A <strong>server</strong> on Windows has no process sandbox. Its profile file must switch it off explicitly
+with <code>PROCESS_SANDBOX: &quot;off&quot;</code> in the <code>ragents.workspace</code> section, otherwise startup fails. A
+Windows workstation connected to a server needs nothing, because the sandbox applies only to
+the server.</li>
 </ul>
 <p>The data directory is <code>%LOCALAPPDATA%\ragents\&lt;profile&gt;</code> and server-provided profiles use
 <code>%LOCALAPPDATA%\ragents\remote\&lt;host&gt;\&lt;profile&gt;\</code>. <code>DATA_DIR</code> overrides this. Startup fails when

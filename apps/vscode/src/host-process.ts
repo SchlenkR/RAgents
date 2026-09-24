@@ -158,6 +158,8 @@ export const startHost = (options: HostStartOptions): Promise<RunningHost> => ne
     PRODUCT_PROFILE: options.profile,
     PRODUCT_PROFILE_FILE: options.profileFile,
     DATA_DIR: options.dataDirectory,
+    // Der lokale Host ist der Arbeitsplatz des Entwicklers: dort bleibt es seine eigene Bash.
+    PROCESS_SANDBOX: options.environment.PROCESS_SANDBOX ?? "off",
     // Der Host überwacht diesen Prozess und beendet sich, wenn ihn ein Reload oder Absturz von VS Code mitnimmt.
     RAGENTS_PARENT_PID: String(process.pid),
   };

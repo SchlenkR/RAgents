@@ -3,6 +3,7 @@ import { WorkspaceOperationError } from "./errors.js";
 import { workspaceDirectory } from "./files.js";
 import { runManagedProcess } from "./managed-process.js";
 import type { WorkspaceModuleFactory, WorkspaceOperation } from "./module.js";
+import { sandboxedLaunch } from "./process-sandbox.js";
 
 export const COMMAND_OPERATIONS = {
   run: "commands.run",
@@ -93,9 +94,11 @@ const runCommand = async (context: WorkspaceProcessContext, command: CheckedComm
   const cwd = await workspaceDirectory(context.root, command.cwd);
   const stdout = boundedOutput(command.maxOutputBytes);
   const stderr = boundedOutput(command.maxOutputBytes);
+  const launch = await sandboxedLaunch(context, { command: command.program, args: command.args });
+  signal.throwIfAborted();
   const result = await runManagedProcess({
-    command: command.program,
-    args: [...command.args],
+    command: launch.command,
+    args: [...launch.args],
     cwd,
     env: context.env,
     uid: context.uid,

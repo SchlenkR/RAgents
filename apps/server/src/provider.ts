@@ -100,6 +100,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       runtime: () => this.requireEngine().runtime,
       sessionWorkspaceFor: (runId) => this.sessionWorkspace(runId, () => {}),
       sessions: () => this.sessionManagement(),
+      ...(apiBaseUrl === undefined ? {} : { apiBaseUrl }),
     });
   }
 

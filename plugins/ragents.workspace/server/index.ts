@@ -4,12 +4,14 @@ import { documentStoreToken } from "@ragents/host/ragents/document-store.js";
 import { workspaceResolverToken, workspaceRuntimeToken, type WorkspaceResolver } from "@ragents/host/ragents/workspace-runtime.js";
 import { sandboxServicesToken } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
 import {
+  hostAddressToken,
   runtimeProviderToken,
   runGuardToken,
   runWorkspaceProviderToken,
   workspaceGuardToken,
 } from "@ragents/host/ragents/host-services.js";
 import { pluginAsset } from "@ragents/host/plugin-support/plugin-folder.js";
+import { ServerProcessSandbox } from "@ragents/host/plugin-support/process-sandbox.js";
 import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js";
 import { boundToTools, handlebarsPrompt } from "@ragents/host/plugin-support/prompt.js";
 import { shellPlatformPrompt } from "./shell-platform.js";
@@ -19,7 +21,12 @@ import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_METADATA_ID } from "../contract.
 import { bindingOf, executorShellChapter, sessionMetadataOf, workspaceBindingOption, workspaceLocation, workspaceOwnerOf } from "./binding.js";
 import { createBrowseChannel, createBrowseMethods } from "./browse-route.js";
 import { clientMethods, WorkspaceClientRegistry } from "./clients.js";
+import { processSandboxSetting, workspaceConfigDescriptors } from "./config.js";
 import { RunWorkspaceRuntime } from "./runtime.js";
+
+const warnWithoutSandbox = (): void => {
+  console.warn("Prozess-Sandbox ausgeschaltet (PROCESS_SANDBOX: \"off\" in der Sektion ragents.workspace): Prozesse der Runs laufen auf dem Server ohne Sandbox.");
+};
 
 const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): RAgentsPlugin => ({
   manifest: { id: "ragents.workspace" },
@@ -43,8 +50,18 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
     };
     const clients = new WorkspaceClientRegistry();
     const contribution = (): WorkspaceResolver | undefined => host.optionalService(workspaceResolverToken);
+    host.config(...workspaceConfigDescriptors);
+    const sandboxSetting = processSandboxSetting();
+    const processSandbox = sandboxSetting.enabled
+      ? new ServerProcessSandbox({
+        network: sandboxSetting.network,
+        serverAddress: host.service(hostAddressToken)(),
+        dataDirectory: path.dirname(host.storage.sessionsRoot),
+      })
+      : undefined;
     const runtime = new RunWorkspaceRuntime({
       clients,
+      ...(processSandbox ? { processSandbox } : {}),
       globalDirectory: host.storage.root(),
       sessionDirectory: (runId, ...segments) => host.storage.session(runId, ...segments),
       storageRootFor: (runId) => path.join(host.storage.sessionsRoot, runId),
@@ -91,9 +108,13 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
     host.sessionMetadata({ id: WORKSPACE_METADATA_ID, describe: ({ runId }) => sessionMetadataOf(runState(runId), contribution()) });
     host.lifecycle({
       id: "ragents.workspace.lifecycle",
+      initialize: () => processSandbox ? processSandbox.start() : warnWithoutSandbox(),
       stopSession: ({ runId }) => runtime.stopSession(runId),
       deleteSession: ({ runId }) => runtime.deleteSession(runId),
-      shutdown: () => runtime.shutdown(),
+      shutdown: async () => {
+        await runtime.shutdown();
+        await processSandbox?.stop();
+      },
     });
   },
 });

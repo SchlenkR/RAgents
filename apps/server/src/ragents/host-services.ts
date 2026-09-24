@@ -20,12 +20,16 @@ export const secretEnvNamesToken: ServiceToken<() => readonly string[]> = servic
 
 export const runtimeProviderToken: ServiceToken<() => Orchestration> = serviceToken("host.runtime-provider");
 
+/** Die Adresse, unter der dieser Server seine API anbietet, etwa http://127.0.0.1:4710; ohne HTTP (nur stdio) keine. */
+export const hostAddressToken: ServiceToken<() => string | undefined> = serviceToken("host.address");
+
 export interface HostBridges {
   ensureSession: (runId: string) => void;
   ensureWorkspaceAccess: (access: AccessContext, runId: string) => void;
   runtime: () => Orchestration;
   sessionWorkspaceFor: (runId: string) => Promise<SessionWorkspace>;
   sessions?: () => RunManagement;
+  apiBaseUrl?: string;
 }
 
 export type ProductProfileFactory = (bridges: HostBridges) => PluginHost;

@@ -191,6 +191,10 @@ The local host and workspace also run on Windows. Requirements are:
   `pnpm install`, `pnpm build:agent`, and `scripts/start.sh` run in Git Bash.
 - The **.NET SDK** is required when the profile includes Roslyn or FSAC. Provisioning downloads
   the language servers; the TypeScript server comes from the host directory.
+- A **server** on Windows has no process sandbox. Its profile file must switch it off explicitly
+  with `PROCESS_SANDBOX: "off"` in the `ragents.workspace` section, otherwise startup fails. A
+  Windows workstation connected to a server needs nothing, because the sandbox applies only to
+  the server.
 
 The data directory is `%LOCALAPPDATA%\ragents\<profile>` and server-provided profiles use
 `%LOCALAPPDATA%\ragents\remote\<host>\<profile>\`. `DATA_DIR` overrides this. Startup fails when

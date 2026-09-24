@@ -1,4 +1,5 @@
 import { withGitConfigPairs, type GitConfigPairs } from "./git-config-environment.js";
+import type { ProcessSandbox } from "./process-sandbox.js";
 import { RUN_MARKER_ENV } from "./run-marker.js";
 import { safeProcessEnvironment } from "./safe-environment.js";
 import type { SessionIdent } from "./session-ident.js";
@@ -22,6 +23,8 @@ export interface WorkspaceProcessContext {
   workspaceAliases?: Readonly<Record<string, string>>;
   pathVariables?: Readonly<Record<string, string>>;
   runOperation?: <T>(operation: () => Promise<T>) => Promise<T>;
+  /** Die Prozess-Sandbox dieses Runs; fehlt sie, starten Prozesse ohne. */
+  sandbox?: ProcessSandbox;
 }
 
 export interface SandboxHomeEnvironment {
@@ -89,6 +92,7 @@ export interface WorkspaceContextOptions {
   readOnlyRoots?: readonly ResolvedWorkspaceRoot[];
   additions?: Readonly<Record<string, string>>;
   runOperation?: <T>(operation: () => Promise<T>) => Promise<T>;
+  sandbox?: ProcessSandbox;
   source?: NodeJS.ProcessEnv;
 }
 
@@ -126,5 +130,6 @@ export const workspaceProcessContext = (options: WorkspaceContextOptions): Works
     workspaceAliases: namedEntries(all, (root) => root.alias),
     pathVariables,
     ...(options.runOperation === undefined ? {} : { runOperation: options.runOperation }),
+    ...(options.sandbox === undefined ? {} : { sandbox: options.sandbox }),
   };
 };

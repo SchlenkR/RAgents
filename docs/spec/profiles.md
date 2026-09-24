@@ -543,7 +543,8 @@ und Denktexte entfernt der Server. So bleibt die aktuelle Arbeitsphase sichtbar,
 Details freizugeben.
 
 Einstellungen und globaler Koordinator behalten ihre eigenen Rechte. Diese Rechte ersetzen keine
-Ausführungssandbox für selbst geschriebenen nativen Code. Der globale Koordinator hat eigene
+Ausführungssandbox für selbst geschriebenen nativen Code; die übernimmt auf dem Server die
+Prozess-Sandbox ([plugins.md](plugins.md), Prozess-Sandbox des Servers). Der globale Koordinator hat eigene
 Lese- und Schreibrechte; Änderungen seiner Modellwahl brauchen zusätzlich das Recht zum Schreiben
 von Einstellungen. Sein Arbeitsbereich erhält einen lokalen Token für den Zugang seines Benutzers,
 ausschließlich für die Nachrichtenschicht und Hilfe über Loopback; der Server löst ihn bei jedem
@@ -581,10 +582,11 @@ freigegebenen Bestand.
 - Benutzer werden in der Profildatei gepflegt; es gibt weder OAuth noch eine Benutzerverwaltung
   oder Passwortänderung in der Oberfläche. Anmeldesitzungen überleben keinen Serverneustart.
 - Benutzerrechte gelten für das gesamte Profil, nicht je Run oder Agentenwerkzeug.
-- Mit Benutzern hat der globale Koordinator keine Host-Shell. Seine TypeScript-Snippets laufen aber
-  wie alle Snippets als nativer Node-Prozess des Servers ohne eigene Systemkennung und könnten
-  Dateien des Datenverzeichnisses lesen, auch die Journale anderer Benutzer. Das ist die Grenze
-  jedes nativen Codes in Runs; schließen würde sie nur eine Systemkennung je Benutzer.
+- Mit Benutzern hat der globale Koordinator keine Host-Shell. Seine TypeScript-Snippets laufen wie
+  alle Prozesse des Servers in der Prozess-Sandbox und lesen weder das Datenverzeichnis noch die
+  Journale anderer Benutzer. Schaltet die Profildatei die Sandbox ab (`PROCESS_SANDBOX: "off"`),
+  laufen sie als nativer Node-Prozess des Servers ohne eigene Systemkennung und könnten beides
+  lesen. Über den Server selbst erreicht der Koordinator weiter genau die Rechte seines Benutzers.
 - Die Modellwahl der Koordinatoren prüft beim Wechsel die Anhänge aller Koordinatorgespräche,
   auch die eines früheren gemeinsamen oder eines entfernten Benutzers.
 - Die Provisionierung holt nur, was die Bundles eines Profils als `provision` exportieren;

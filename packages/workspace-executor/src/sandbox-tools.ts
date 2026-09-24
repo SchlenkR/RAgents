@@ -12,6 +12,7 @@ import {
 import type { WorkspaceProcessContext } from "./context.js";
 import { processGroupExists, stopProcessTree } from "./managed-process.js";
 import type { WorkspaceModuleFactory, WorkspaceOperation } from "./module.js";
+import { sandboxedLaunch } from "./process-sandbox.js";
 import { stopUidProcesses } from "./session-ident.js";
 import { allowedWorkspacePath, expandWorkspaceAlias } from "./paths.js";
 
@@ -168,8 +169,11 @@ export const createSandboxTools = async (
       options.signal?.throwIfAborted();
       const shell = resolvedShell();
       const fromStdin = shell.commandTransport === "stdin";
+      const launch = await sandboxedLaunch(context, { command: shell.shell, args: fromStdin ? shell.args : [...shell.args, command] });
+      if (shuttingDown) throw new Error("Die Werkzeuge werden killed");
+      options.signal?.throwIfAborted();
       return new Promise((resolve, reject) => {
-        const child = spawn(shell.shell, fromStdin ? shell.args : [...shell.args, command], {
+        const child = spawn(launch.command, [...launch.args], {
           cwd: commandCwd,
           detached: !onWindows,
           stdio: [fromStdin ? "pipe" : "ignore", "pipe", "pipe"],

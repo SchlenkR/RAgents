@@ -55,6 +55,7 @@ export {
   type ResolvedWorkspaceRoot,
 } from "./paths.js";
 export { PROCESS_OPERATIONS, processModule } from "./processes/module.js";
+export { sandboxedLaunch, type ProcessLaunch, type ProcessSandbox } from "./process-sandbox.js";
 export {
   ProcessChangedError,
   addressFromHex,

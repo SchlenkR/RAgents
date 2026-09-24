@@ -2306,9 +2306,14 @@ Verdunkler und der senkrechte Griff entfallen ebenso, und nichts fährt rein ode
 Mini-App wird dabei abgebaut und beim Zurückschalten neu aufgebaut, ihr flüchtiger Zustand geht
 also verloren. Ein Wechsel aus dem offenen Sheet nach "Nur Chat" schließt es sauber.
 
+Mini-App und reservierter Chatbereich haben einen durchgehenden Hintergrund in der
+Grundfarbe der Mini-App (`--app`). Der äußere gemeinsame Rahmen hat oben und unten gerade
+Ecken. Der Platz für den eingeklappten Chat bleibt reserviert, damit er keine App-Inhalte verdeckt.
 Das Sheet liegt am unteren Rand (seitlich frei, oben abgerundet, mit Rahmen, Kartenhintergrund
 und Schlagschatten auch im eingeklappten Zustand). Der Griff sitzt in einer kompakten Zeile;
 Tastaturfokus markiert nur den kleinen Balken, nicht die gesamte Zeile.
+Die Statuszeile nutzt denselben horizontalen Abstand wie die Chat-Eingabe; ihre linke Kante
+ist mit dem Eingabefeld bündig.
 Zugeschoben zeigt es immer nur Griff, eine Statuszeile und die Eingabe (die
 Statuszeile nennt eine offene Rückfrage, sonst was der Adressat gerade tut, sonst die letzte
 gesprochene Zeile mit Absender). Bei Maus darüber (nach der eingestellten
@@ -2912,6 +2917,70 @@ damit die Ansicht neu lädt und die Ursache zeigt, und beginnt alle fünf Sekund
 sie wieder, meldet er noch eine Änderung. Das Dateimodul beendet offene Beobachtungen auch selbst,
 beim Stopp des Runs und beim `shutdown` des Executors. Ein 30-Sekunden-Poll bleibt nur als Fallback.
 
+### Prozess-Sandbox des Servers
+
+Jeder Prozess, den der Executor des Servers für einen Run startet (`bash`, `commands.run`, die
+Sprachserver samt ihrer `git`-Aufrufe), und die Node-Prozesse, die die TypeScript-Plattform im
+Serverkontext startet (Snippets von `typescript_eval`, Backends und Tests der Actor-Programme),
+laufen in einer Prozess-Sandbox des Betriebssystems: unter macOS Seatbelt (`sandbox-exec`), unter
+Linux bubblewrap mit eigenem Netz- und PID-Namensraum, beides über die Bibliothek
+`@anthropic-ai/sandbox-runtime` (Apache-2.0, feste Fassung in `apps/server/package.json`). Das gilt
+auch für die Arbeit eines Runs, dessen Arbeitsbereich auf einem Arbeitsplatz liegt, soweit sie auf
+dem Server läuft; der Executor des Arbeitsplatzes selbst bekommt keine Sandbox, dort bleibt es die
+Bash des Entwicklers. Der Kern kennt die Sandbox nicht: der Sandbox-Host des Servers
+(`WorkspaceSandboxHost`) gibt sie dem Prozesskontext eines Runs mit (`WorkspaceProcessContext.sandbox`),
+und jede Stelle, die einen Prozess startet, packt ihn mit `sandboxedLaunch` ein; ohne Sandbox im
+Kontext startet er unverändert. Der Browser der Browserprüfung startet ohne Sandbox (Offene Grenzen).
+
+Die Regeln entstehen je Run aus seinen Ordnern (`apps/server/src/plugin-support/process-sandbox.ts`).
+Gesperrt zum Lesen sind das Home des Serverkontos, die übrigen Homes (`/Users`, unter Linux `/home`
+und `/root`), `os.tmpdir()`, `/tmp` und der Datenordner des Profils, unter Linux dazu ein vorhandener
+Docker-Socket. Innerhalb davon wieder lesbar sind der Host-Ordner, die Toolchains aus `PATH`,
+`DOTNET_ROOT` und `PNPM_HOME` samt ihrem Präfix (nie ein Vorfahr des Datenordners), die Ablage des
+eigenen Runs (`sessions/<run-id>`) und seine nur lesbaren Wurzeln (Skills; beim globalen Koordinator
+ohne Benutzer der Journalordner). Lesen und schreiben darf ein Run die Wurzel seines
+Arbeitsbereichs beziehungsweise seinen Serverordner, die registrierten Wurzeln (`@actors`), sein
+Home, den gemeinsamen NuGet-Cache und seinen eigenen Temp-Ordner `sessions/<run-id>/tmp`, der in
+`TMPDIR`, `TMP` und `TEMP` steht. Das übrige System (`/usr`, `/opt`, Toolchains) bleibt lesbar und
+ist nicht beschreibbar; die Bibliothek sperrt zusätzlich das Schreiben von `.git/hooks`, `.vscode`,
+`.idea` und Shell-Startdateien, `.git/config` bleibt beschreibbar. Andere Runs, fremde Journale und
+Geheimnisse im Home sehen die Prozesse also nicht; unter macOS scheitert ein solcher Zugriff mit
+`Operation not permitted`, unter Linux ist der gesperrte Ordner leer. Weil `PATH`-Einträge oft
+Symlinks in gesperrte Ordner sind (etwa fnm), nennt `PATH` in der Sandbox ihre Ziele. Ein freigegebener
+Ordner, der einen gesperrten oder einen beschreibbaren enthält, wird beim Start jedes Prozesses in
+seine übrigen Einträge zerlegt, damit weder die Sperre noch der Schreibzugriff darin verloren geht;
+was danach neben ihm entsteht, sieht erst der nächste Prozess.
+
+Was sich die Runs teilen müssen, weil Werkzeuge es fest vorgeben: unter macOS legt .NET seine
+benannten Mutexe unter `/tmp/.dotnet` an und MSBuild die Sockets seiner Build-Knoten unter
+`/tmp/MSBuild*`; beides ist beschreibbar, Unix-Sockets sind unter `/tmp` und im Datenordner
+erlaubt, und der Zertifikatsdienst `trustd` ist erreichbar, ohne den .NET und Go kein TLS prüfen.
+Unter Linux ist `/tmp` je Befehl ein eigener leerer Ordner, und Unix-Sockets sind ganz erlaubt,
+weil seccomp sie nicht nach Pfad unterscheidet. Damit kein Build-Prozess den Befehl überlebt und
+Builds anderer Runs in seiner Sandbox annimmt, laufen MSBuild ohne Knoten-Wiederverwendung
+(`MSBUILDDISABLENODEREUSE`), ohne Build-Server und ohne gemeinsamen Compiler (`UseSharedCompilation`).
+
+Ins Netz geht jeder Prozess nur über den Proxy der Bibliothek, der ausschließlich die Ziele der
+Allowlist durchlässt; alles andere beantwortet er mit 403 ("Connection blocked by network
+allowlist"). Die Allowlist ist `PROCESS_SANDBOX_NETWORK` in der Sektion `ragents.workspace`, eine
+Liste von Domains wie `*.example.com` oder `host:port`; ohne Angabe gilt
+`PROCESS_SANDBOX_DEFAULT_NETWORK`: `registry.npmjs.org` für npm und pnpm, `api.nuget.org` und
+`globalcdn.nuget.org` für NuGet, `github.com`, `*.github.com` und `*.githubusercontent.com` für Git
+über HTTPS und Releases. Die eigene Adresse des Servers (`127.0.0.1:<port>`) kommt immer dazu, weil
+der globale Koordinator seinen Server über `RAGENTS_API_BASE_URL` erreicht. In der Sandbox ist
+`NO_PROXY` leer, damit auch dieser Aufruf über den Proxy geht, `NODE_USE_ENV_PROXY=1` lässt `fetch`
+in Snippets den Proxy nehmen, und `DOTNET_SYSTEM_NET_DISABLEIPV6=1` hält .NET auf IPv4, weil die
+Sandbox von macOS eine IPv4-gemappte Adresse nicht als localhost erkennt.
+
+`PROCESS_SANDBOX` in derselben Sektion ist ohne Angabe `"on"`; `"off"` schaltet die Sandbox für den
+ganzen Server ab, und der Start meldet das im Protokoll. Den lokalen Host der VS-Code-Erweiterung
+startet die Erweiterung mit `"off"`, weil er der Arbeitsplatz des Entwicklers ist. Beim Start prüft der Server die
+Voraussetzungen, startet den Proxy und einmal einen Prozess in der Sandbox; jedes Scheitern ist ein
+Startfehler mit Ursache und Anweisung: Windows (die Ordnerregeln je Run lassen sich dort nicht
+setzen), eine andere Plattform, unter Linux fehlendes bubblewrap, socat oder ripgrep und ein
+Kernel oder Container ohne Benutzer-Namensräume. Die Bibliothek hat einen Zustand je Prozess;
+mehrere Server in einem Prozess (Tests) teilen ihn, ihre Netzfreigaben werden vereinigt.
+
 ## Provisionierung je Plugin
 
 Ein Plugin, das Werkzeuge auf der Maschine braucht, bringt neben `server/` eine `provision.ts` im
@@ -3427,6 +3496,18 @@ Recht) liefert das Archiv; ein anderer Stand ist 404. Die Gegenseite ist `ragent
   einer Bash auf dem Arbeitsplatz liefert Teilresultate: der Aufruf scheitert mit einer Ursache,
   die den Arbeitsplatz nennt, und der Arbeitsplatz bricht den Befehl ab, sobald er den Verlust
   bemerkt; bis dahin kann er weitergelaufen sein.
+- Die Prozess-Sandbox des Servers (Abschnitt Prozess-Sandbox des Servers) hat Lücken, die ihre
+  Werkzeuge vorgeben: der Browser der Browserprüfung läuft ohne sie; der NuGet-Cache ist allen Runs
+  gemeinsam und beschreibbar; unter macOS erreicht ein Run Unix-Sockets unter `/tmp` und damit auch
+  Build-Server anderer Prozesse desselben Kontos (ein laufendes `VBCSCompiler` oder
+  MSBuild-Knoten einer IDE), und `trustd` holt Sperrlisten außerhalb der Sandbox, was ein
+  Seitenkanal ins Netz ist; unter Linux sind alle Unix-Sockets erreichbar, die im Dateisystem der
+  Sandbox sichtbar sind. Werkzeuge, die bis zur Wurzel nach einer Datei suchen und `EPERM` nicht
+  wie ein Fehlen behandeln, scheitern unter macOS an einem gesperrten Vorfahren des Arbeitsbereichs,
+  etwa corepack ohne `packageManager` in der `package.json`. Node 22 meldet bei jedem Start
+  `EnvHttpProxyAgent is experimental` auf stderr. Die Bibliothek ist eine Forschungsvorschau
+  (Fassung 0.0.x). Unter Linux in einem Container braucht bubblewrap Benutzer-Namensräume, also
+  gelockerte Container-Profile (`docs/operations.md`).
 - Unter Windows brauchen `scripts/start.sh` und die übrigen Shellskripte des Repositorys Git
   Bash. Geprüft ist die Plattform nur in Unit-Tests, die sie simulieren (Shell-Auflösung,
   Datenordner, Umgebung, Promptbeitrag, Ablehnung der Prozesstabelle); der echte Durchlauf steht in

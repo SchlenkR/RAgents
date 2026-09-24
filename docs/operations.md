@@ -319,6 +319,10 @@ The local host and workspace also run on Windows. Requirements are:
   `pnpm install`, `pnpm build:agent`, and `scripts/start.sh` run in Git Bash.
 - The **.NET SDK** is required when the profile includes Roslyn or FSAC. Provisioning downloads
   the language servers; the TypeScript server comes from the host directory.
+- A **server** on Windows has no process sandbox. Its profile file must switch it off explicitly
+  with `PROCESS_SANDBOX: "off"` in the `ragents.workspace` section, otherwise startup fails. A
+  Windows workstation connected to a server needs nothing, because the sandbox applies only to
+  the server.
 
 The data directory is `%LOCALAPPDATA%\ragents\<profile>` and server-provided profiles use
 `%LOCALAPPDATA%\ragents\remote\<host>\<profile>\`. `DATA_DIR` overrides this. Startup fails when
@@ -336,6 +340,43 @@ covered by unit tests that simulate the platform. A first real run should verify
 `read`, `edit`, `bash` output and cancellation, diagnostics, and a workspace through
 `pnpm workspace-client`.
 <!-- /guide:distributed -->
+
+## Prozess-Sandbox des Servers
+
+Was ein Run auf dem Server startet (Bash, Befehle, Sprachserver, TypeScript-Snippets,
+Actor-Programme), läuft in einer Prozess-Sandbox: es liest und schreibt nur die Ordner seines Runs,
+sieht weder andere Runs noch das Home des Serverkontos und erreicht im Netz nur die Allowlist.
+Regeln und Grenzen stehen in [plugins.md](spec/plugins.md) unter "Prozess-Sandbox des Servers". Auf
+einem Arbeitsplatz gilt sie nicht; dort arbeitet der Run mit der Bash und den Zugangsdaten des
+Entwicklers.
+
+Voraussetzungen, die der Start prüft:
+
+- **macOS**: nichts zusätzlich, `sandbox-exec` gehört zum System.
+- **Linux**: `bubblewrap`, `socat` und `ripgrep` (Debian und Ubuntu:
+  `apt-get install bubblewrap socat ripgrep`), dazu Benutzer-Namensräume. Unter Ubuntu ab 24.04
+  verlangt das `sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` oder ein AppArmor-Profil.
+  Läuft der Server als root, braucht er `CAP_SETFCAP`; besser läuft er unter einem eigenen Konto.
+- **Linux im Container**: das Standardprofil von Docker verbietet die Namensräume. Geprüft ist der
+  Start mit `--security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt
+  systempaths=unconfined` (in Compose `security_opt`) und einem Benutzer ohne root im Container;
+  `--privileged` geht auch, gibt aber mehr frei als nötig.
+- **Windows**: keine Sandbox. Der Start bricht ab, solange die Profildatei sie nicht ausdrücklich
+  abschaltet.
+
+Die Profildatei steuert sie in der Sektion `ragents.workspace`:
+
+```ts
+"ragents.workspace": {
+  PROCESS_SANDBOX: "off",                                   // bewusst ohne Sandbox, etwa unter Windows
+  PROCESS_SANDBOX_NETWORK: ["registry.npmjs.org", "*.example.com"], // ersetzt die Vorgabe
+},
+```
+
+Ohne `PROCESS_SANDBOX_NETWORK` gelten npm, NuGet und GitHub; die eigene Adresse des Servers ist
+immer erlaubt. Ein Werkzeug, das ins Netz will, bekommt außerhalb der Liste die Antwort 403 des
+Proxys. Unter macOS braucht pnpm über corepack ein `packageManager` in der `package.json` des
+Arbeitsbereichs, weil corepack sonst an einem gesperrten Ordner oberhalb abbricht.
 
 ## Datenablage und Protokolle
 
@@ -378,6 +419,7 @@ ${DATA_DIR}/
           server/                 nur bei Bindung an einen Arbeitsplatz und erst bei Bedarf: Ordner für
                                   typescript_eval und Actor-Programme, die auf dem Server laufen
           home/                   HOME der Sandbox
+      tmp/                        Temp-Ordner des Runs in der Prozess-Sandbox (TMPDIR)
   delete-intents/                 0700 root - vermerkte Löschabsichten
     <runId>.json                  0600 root - ein beim Absturz unterbrochenes Löschen wird
                                   beim nächsten Start daran erkannt und zu Ende geführt
