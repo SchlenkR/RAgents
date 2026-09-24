@@ -349,6 +349,8 @@ export interface StartOptionContribution {
   describe: (value: JsonValue, context: StartOptionContext) => JsonValue;
   /** Zusätzliche Rechte, ohne die Liste und Wahl die Option nicht anbieten, etwa runs.inspect für technische Einsicht. */
   rights?: readonly string[];
+  /** Nach dem Start weiter wählbar: der Host schreibt jeden neuen Wert ins Journal, wer die Option liest, folgt dem jeweils gespeicherten. */
+  changeable?: boolean;
   /** Ob nur der Eigentümer einen Run mit diesem Wert bedient; lesen und stoppen dürfen ihn alle, die ihn sehen. */
   ownerOnly?: (value: JsonValue) => boolean;
 }

@@ -60,8 +60,12 @@ const presentations: Record<string, { owner: string; initial: unknown; presentat
     presentation: { kind: "workspace-binding", clients: [workstation], fresh: { server: "Leerer Ordner je Run", client: "Leerer Ordner je Run" }, serverFolders: true } },
 };
 const chosen = new Map<string, unknown>();
-const optionsOf = (runId: string) => Object.entries(presentations).map(([id, { owner, initial, presentation }]) => ({
-  id, owner, presentation, value: chosen.get(`${runId}:${id}`) ?? initial, selectable: true, locked: fixture.views.has(runId), chosen: chosen.has(`${runId}:${id}`),
+/** Wie der Server: Modell- und Promptwahl nur mit runs.inspect, die Modellwahl bleibt nach dem Start offen. */
+const inspecting = query.get("rights") !== "plain";
+const technical = new Set(["ragents.model", "ragents.system-prompt"]);
+const optionsOf = (runId: string) => Object.entries(presentations).filter(([id]) => inspecting || !technical.has(id)).map(([id, { owner, initial, presentation }]) => ({
+  id, owner, presentation, value: chosen.get(`${runId}:${id}`) ?? initial, selectable: true,
+  locked: fixture.views.has(runId) && id !== "ragents.model", chosen: !fixture.views.has(runId) && chosen.has(`${runId}:${id}`),
 }));
 const emptyView = (runId: string) => ({ id: runId, revision: 1, title: "Run", ownerId: "tester", primaryActorId: null, createdAt: "2026-09-24T10:00:00.000Z", forkedFrom: null,
   actors: [], inputs: [], turns: [], subscriptions: [], pluginStates: [], actions: [], artifacts: [] });
@@ -84,6 +88,7 @@ const fixture = {
       case "ragents.runs.list": return [{ id: "existing", title: "Vorhandener Run", updatedAt: Date.now() - 180_000 }];
       case "ragents.startOptions.list": return optionsOf(runId);
       case "ragents.startOptions.select": {
+        if (!inspecting && technical.has(String(params.optionId))) throw new Error(`Das Recht runs.inspect fehlt für die Startoption ${String(params.optionId)}.`);
         chosen.set(`${runId}:${String(params.optionId)}`, params.value);
         return optionsOf(runId).find((option) => option.id === params.optionId);
       }
@@ -102,6 +107,7 @@ const fixture = {
   subscribe(contract: { id: string }, params: { runId?: string }, message: Subscription["message"]) {
     const entry = { id: contract.id, runId: params.runId, message };
     subscriptions.add(entry);
+    if (contract.id === "ragents.chat") queueMicrotask(() => { message({ kind: "reset", conversationId: null }); message({ kind: "replay-end", conversationId: null }); });
     return () => { subscriptions.delete(entry); };
   },
 };
@@ -119,7 +125,7 @@ const vsCodeHost: RunPanelHost = {
 window.startPageActivation = { status: "ready", registry, bootstrap: { product: registry.profile.product, plugins: [], startEntries }, failures: [] } as unknown as PluginActivationState;
 
 const access = createAccessContext({ enabled: true, user: { id: "tester", label: "Tester",
-  rights: ["runs.read", "runs.write", "runs.create", "runs.inspect", "runs.delete", "settings.read"], startEntries: startEntries.map((entry) => entry.id) } });
+  rights: ["runs.read", "runs.write", "runs.create", ...(inspecting ? ["runs.inspect"] : []), "runs.delete", "settings.read"], startEntries: startEntries.map((entry) => entry.id) } });
 const view = query.get("view") ?? "web";
 const page = view === "start"
   ? <div className="p-3"><PanelPage send={(action) => { if (action.action === "newRun") fixture.calls.push({ id: "panel.newRun", params: { ...action } }); }}

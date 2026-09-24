@@ -3227,7 +3227,7 @@ Eigentümer: host. Rechte: settings.write. Ausführung: der Server.
 
 ## ragents.startOptions.list
 
-Die Startoptionen eines noch nicht gestarteten Runs mit Wert und Darstellung, nur die, deren eigene Rechte der Aufrufer hat; die Modellwahl etwa verlangt runs.inspect. Rechte: runs.read, runs.create.
+Die Startoptionen eines Runs mit Wert und Darstellung, nur die, deren eigene Rechte der Aufrufer hat; die Modellwahl etwa verlangt runs.inspect. Nach dem Start ist jede außer den änderbaren gesperrt. Rechte: runs.read, runs.create.
 
 Eigentümer: host. Rechte: runs.read, runs.create. Ausführung: der Server.
 
@@ -3266,7 +3266,7 @@ Eigentümer: host. Rechte: runs.read, runs.create. Ausführung: der Server.
 
 ## ragents.startOptions.select
 
-Eine Startoption vor dem Start wählen; fehlt ein Recht der Option selbst, scheitert die Wahl mit access-denied. Rechte: runs.read, runs.write, runs.create.
+Eine Startoption vor dem Start wählen, eine änderbare wie die Modellwahl auch danach mit Wirkung ab dem nächsten Turn; fehlt ein Recht der Option selbst, scheitert die Wahl mit access-denied. Rechte: runs.read, runs.write, runs.create.
 
 Eigentümer: host. Rechte: runs.read, runs.write, runs.create. Ausführung: der Server.
 

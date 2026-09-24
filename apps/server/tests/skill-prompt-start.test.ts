@@ -246,8 +246,8 @@ test("explicit non-default startup selections are persisted atomically with run 
   const prompt = firstReferencePrompt();
   const runId = "selected-model-card-run";
   const fixture = createFixture(runId);
-  fixture.session.selectStartOption(systemPromptStartOptionId, { promptIds: ["special"], shareWithAgents: true }, null);
-  fixture.session.selectStartOption(modelStartOptionId, { model: "other-first", thinking: "high" }, null);
+  await fixture.session.selectStartOption(systemPromptStartOptionId, { promptIds: ["special"], shareWithAgents: true }, null);
+  await fixture.session.selectStartOption(modelStartOptionId, { model: "other-first", thinking: "high" }, null);
 
   try {
     await sendThroughChatHttp(fixture.session, runId, prompt);

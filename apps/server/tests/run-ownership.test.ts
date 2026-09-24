@@ -190,7 +190,7 @@ test("jede Kernmethode, jeder Kanal und jeder Plugin-Beitrag mit runId weist ein
     delete: async (runId: string) => { reached.push(`delete:${runId}`); },
     subscribeRun: () => () => undefined,
     startOptions: () => [],
-    selectStartOption: () => ({ id: "example", owner: "test", value: null, presentation: { kind: "text", text: "" }, selectable: true, locked: false }),
+    selectStartOption: async () => ({ id: "example", owner: "test", value: null, presentation: { kind: "text", text: "" }, selectable: true, locked: false }),
     prepareRunMessage: async () => ({ messages: [], done: false }),
     exportRun: async () => ({ runId: OWN, archive: "", format: 1 }),
   } as never, { runOwner: (runId) => owners[runId] });

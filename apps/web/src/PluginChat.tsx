@@ -24,7 +24,7 @@ import type { ChatAttachmentInput, ChatEvent, ToolInfo } from "./chat/types";
 import { dismissAction, interruptActorTurn, type SessionInfo } from "./api";
 import { useRunStore } from "./RunStore";
 import { withToolSummaries } from "./toolLine";
-import { StartOptionBadges, StartOptionsProvider } from "./StartOptions";
+import { StartOptionBadges, StartOptionControls, StartOptionsProvider, useStartOptions } from "./StartOptions";
 import { useAttachmentCapabilities } from "./chat/useAttachmentCapabilities";
 import { StartSelection } from "./StartSelection";
 import { WorkspacePanel, useWorkspacePanelState, type WorkspacePanelState } from "./WorkspacePanel";
@@ -365,6 +365,7 @@ function ChatWorkspace({
       autoFocus={autoFocusChat}
       onAutoFocusSettled={onAutoFocusChatSettled}
       options={options}
+      registry={registry}
       renderTool={renderTool}
       session={session}
     />
@@ -515,12 +516,14 @@ function ChatSurface({
   autoFocus,
   onAutoFocusSettled,
   options,
+  registry,
   renderTool,
   session,
 }: {
   autoFocus?: boolean;
   onAutoFocusSettled?: () => void;
   options: ChatDisplayOptions;
+  registry: PluginRegistry;
   renderTool: (tool: ToolInfo) => ReactNode;
   session: SessionContext;
 }) {
@@ -530,7 +533,8 @@ function ChatSurface({
   const steps = useChatSteps(session.session.id, primaryChatActor(session.runView));
   const timestamps = useChatTimestamps(session.session.id, primaryChatActor(session.runView));
   const [sendError, setSendError] = useState<string>();
-  const attachments = useAttachmentCapabilities(session.session.id);
+  const startOptions = useStartOptions();
+  const attachments = useAttachmentCapabilities(session.session.id, "primary", JSON.stringify(startOptions.options.map(({ id, value }) => [id, value])));
   const messages = useMemo(() => withToolSummaries(session.messages), [session.messages]);
   const working = session.connected && (session.running || runIsWorking(session.runView, session.session.id));
   const partner = primaryChatState(session.runView, session.session.id, session.running);
@@ -572,6 +576,7 @@ function ChatSurface({
                 <TimestampSwitch showTimestamps={timestamps.showTimestamps} onChange={timestamps.setShowTimestamps} />
               </>
             }
+            toolbarRight={<StartOptionControls disabled={!session.connected || !writable} placement="composer" registry={registry} />}
           />
         </div>
       }

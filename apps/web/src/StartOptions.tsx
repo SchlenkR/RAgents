@@ -89,8 +89,8 @@ export function StartOptionsProvider({
   const access = useAccess();
   const allowed = access.can("runs.create");
   const started = messageCount > 0;
-  const [state, setState] = useState<{ sessionId: string; options: readonly StartOptionState[]; errors: ReadonlyMap<string, string>; pending: boolean }>(
-    () => ({ sessionId, options: [], errors: new Map(), pending: true }),
+  const [state, setState] = useState<{ sessionId: string; options: readonly StartOptionState[]; errors: ReadonlyMap<string, string>; pending: boolean; loadedStarted: boolean }>(
+    () => ({ sessionId, options: [], errors: new Map(), pending: true, loadedStarted: false }),
   );
   const active = useRef<{ sessionId: string; pending: boolean; controller: AbortController } | null>(null);
   const outstanding = useRef<{ sessionId: string; values: Readonly<Record<string, unknown>> } | null>(
@@ -111,7 +111,7 @@ export function StartOptionsProvider({
     const operation = { sessionId, pending: true, controller };
     active.current = operation;
     setState((current) => current.sessionId === sessionId ? { ...current, pending: true }
-      : { sessionId, options: [], errors: new Map(), pending: true });
+      : { sessionId, options: [], errors: new Map(), pending: true, loadedStarted: false });
     void (async () => {
       try {
         if (saving.current?.sessionId === sessionId) await saving.current.done;
@@ -121,7 +121,7 @@ export function StartOptionsProvider({
         setState((current) => {
           const errors = new Map(current.errors);
           errors.delete("");
-          return { sessionId, options, errors, pending: false };
+          return { sessionId, options, errors, pending: false, loadedStarted: started };
         });
       } catch (cause) {
         if (!controller.signal.aborted) setState((current) => ({ ...current, errors: new Map(current.errors).set("", messageOf(cause)), pending: false }));
@@ -189,8 +189,9 @@ export function StartOptionsProvider({
     })();
   }, [allowed, sessionId, set, state]);
 
+  // Bis der Server nach der ersten Nachricht geantwortet hat, ist alles gesperrt; danach gilt sein locked.
   const control = useMemo<StartOptionsControl>(() => ({
-    options: state.sessionId === sessionId ? state.options.map((option) => ({ ...option, locked: option.locked || started })) : [],
+    options: state.sessionId === sessionId ? state.options.map((option) => ({ ...option, locked: option.locked || (started && !state.loadedStarted) })) : [],
     errors: state.sessionId === sessionId ? state.errors : new Map(),
     pending: state.sessionId !== sessionId || state.pending || applying,
     set,

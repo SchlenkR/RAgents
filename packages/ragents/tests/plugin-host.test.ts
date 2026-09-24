@@ -429,6 +429,7 @@ test("start options validate their contribution, defaults and accepted values ag
     assert.throws(() => registry.register("second-plugin", [{ ...option, id: "Bad Id" }]), /Ungültige Startoption-Id/);
     assert.throws(() => registry.register("second-plugin", [{ ...option, id: "example.owner", ownerOnly: true as never }]), /ungültiges ownerOnly/);
     assert.throws(() => registry.register("second-plugin", [{ ...option, id: "example.rights", rights: ["Runs Inspect"] }]), /ungültige rights/);
+    assert.throws(() => registry.register("second-plugin", [{ ...option, id: "example.changeable", changeable: "yes" as never }]), /ungültiges changeable/);
     registry.register("second-plugin", [{ ...option, id: "example.technical", rights: ["runs.inspect"] }]);
     const inspecting = { can: (right: string) => right === "runs.inspect" };
     const plain = { can: () => false };

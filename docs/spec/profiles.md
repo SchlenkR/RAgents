@@ -535,7 +535,8 @@ hinaus ihre eigenen Rechte (`rights`). Modellwahl und Systemprompt-Wahl verlange
 weil ihre Darstellung Modelle, Anbieter und Prompttexte zeigt; die Ordnerbindung
 `ragents.workspace.binding` verlangt nichts Zusätzliches. Ohne ein solches Recht fehlt die Option
 in `ragents.startOptions.list`, und ihre Wahl scheitert mit `access-denied`; beim Start gilt ihr
-Standardwert oder der Wert der Vorlage. Fachliche
+Standardwert oder der Wert der Vorlage. Dieselben Rechte gelten für die Modellwahl in der
+Chat-Eingabe eines laufenden Runs, die derselbe Aufruf ist; ohne sie fehlt dort die Auswahl. Fachliche
 Zustände und Mini-App-Aktionen bleiben verfügbar, einschließlich der Ergebnisabfrage laufender
 App-Aktionen. Language-Server-Ansichten verwenden ihr eigenes `<pluginId>.read`; damit lassen sich
 Diagnosen unabhängig von Modell- und Werkzeugdetails freigeben.

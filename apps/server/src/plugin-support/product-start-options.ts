@@ -48,6 +48,7 @@ export const modelStartOption = (choice: ModelChoice, preferredThinking: Thinkin
     id: modelStartOptionId,
     schema: modelSchema,
     rights: ["runs.inspect"],
+    changeable: true,
     selectable: () => choice.selectable,
     defaultValue: () => ({ ...resolved(choice.defaultModel, undefined) }),
     accept: (value) => {

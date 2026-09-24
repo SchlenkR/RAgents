@@ -318,7 +318,7 @@ test("choosing the binding in the web takes the user of the request, not any reg
   const chosen: unknown[] = [];
   const methods = new MethodContributionRegistry();
   methods.register("host", coreMethods(coreSources({
-    selectStartOption: (runId, optionId, value, userId) => {
+    selectStartOption: async (runId, optionId, value, userId) => {
       const accepted = option.accept(value as never, { runId, userId });
       chosen.push(accepted);
       return { id: optionId, owner: "ragents.workspace", value: accepted, presentation: null, selectable: true, locked: false };
@@ -353,7 +353,7 @@ test("without runs.inspect the user binds folder and workstation but neither see
   const methods = new MethodContributionRegistry();
   methods.register("host", coreMethods(coreSources({
     startOptions: (_runId, userId) => startOptions.entries().map(({ option }) => stateOf(option.id, userId)),
-    selectStartOption: (runId, optionId, value, userId) => {
+    selectStartOption: async (runId, optionId, value, userId) => {
       chosen.set(optionId, startOptions.accept(optionId, value, { runId, userId }));
       return stateOf(optionId, userId);
     },

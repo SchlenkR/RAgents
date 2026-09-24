@@ -199,16 +199,23 @@ Nachricht und Dateien im Composer. Gesendete Anhänge kannst du im Verlauf wiede
 ## Wählbares Modell
 
 Gibt das Produkt es frei (`MODEL_SELECTABLE`, in `core` voreingestellt an) und erlauben
-die Benutzerrechte freie Starts und technische Ansichten, wählt man im Vorbereitungschat einer
-Skill-Vorlage mit Leitfaden das Modell des Koordinators über ein tastaturbedienbares Auswahlmenü
-in der Auftragseingabe; jeder andere neue Run beginnt mit der Vorgabe aus den Einstellungen.
-Die Denktiefe steht als zweites
-Auswahlmenü kompakt daneben und bietet nur die Stufen des gewählten Modells an, einschließlich
-erweiterter Stufen wie `max`, sofern unterstützt. `AGENT_MODEL_REASONING` ist nur für eine
-bewusste Einschränkung dieser Modellfähigkeiten nötig; ungültige Stufen brechen die Konfiguration ab.
-Die Eingabe beginnt mit drei Zeilen und wächst bis acht Zeilen;
-weitere Startoptionen stehen darunter.
-Angeboten werden weiterhin nur wählbare, noch nicht gesperrte Startoptionen.
+die Benutzerrechte freie Starts (`runs.create`), Schreiben (`runs.write`) und technische Ansichten
+(`runs.inspect`), wählt man das Modell des Koordinators in der Chat-Eingabe des Runs, im Browser
+wie im Run-Panel von VS Code, über ein tastaturbedienbares Auswahlmenü rechts neben den
+Schaltern der Eingabe. Die Denktiefe steht als zweites Auswahlmenü kompakt daneben und bietet nur
+die Stufen des gewählten Modells an, einschließlich erweiterter Stufen wie `max`, sofern
+unterstützt. `AGENT_MODEL_REASONING` ist nur für eine bewusste Einschränkung dieser
+Modellfähigkeiten nötig; ungültige Stufen brechen die Konfiguration ab.
+
+Die Wahl steht schon im leeren Run nach "Neuer Chat" bereit und gilt dann für den ersten Turn;
+ohne Wahl beginnt der Run mit der Vorgabe aus den Einstellungen. Danach bleibt sie in derselben
+Eingabe und gilt ab dem nächsten Turn des Koordinators; ein laufender Turn behält sein Modell, der
+Verlauf bleibt erhalten. Enthält das Gespräch schon Bilder, Videos oder Dateien, die das neue
+Modell nicht verarbeiten kann, lehnt der Server den Wechsel mit Begründung ab. Ohne eines der
+Rechte fehlt die Auswahl ganz, und der Server lehnt eine Wahl ab. Im Vorbereitungschat einer
+Skill-Vorlage mit Leitfaden steht dieselbe Auswahl in der Auftragseingabe; die Eingabe beginnt
+dort mit drei Zeilen und wächst bis acht Zeilen, weitere Startoptionen stehen darunter.
+Angeboten werden nur wählbare, nicht gesperrte Startoptionen.
 Zur Wahl steht `AGENT_MODELS` - eine ECHTE Liste in der Konfigurationsdatei, kein Wert
 mit Trennzeichen:
 
@@ -220,8 +227,9 @@ AGENT_MODELS: ["qwen/qwen3.8-max", "deepseek/deepseek-v4-flash-0731", "z-ai/glm-
 
 Ohne `AGENT_MODELS` stehen die ohnehin konfigurierten Modelle des Produkts zur Wahl, jedes einmal,
 auch wenn Agent und Koordinator dasselbe Modell nennen; doppelt darf ein Modell nur in einem
-ausdrücklichen `AGENT_MODELS` nicht stehen. Die Wahl wird wie
-der Systemprompt mit der ersten Nachricht eingefroren und gilt für den Koordinator.
+ausdrücklichen `AGENT_MODELS` nicht stehen. Modelle anderer Profile oder freie Namen nimmt der
+Server nicht an. Die Wahl gilt für den Koordinator; anders als der Systemprompt wird sie mit der
+ersten Nachricht nicht eingefroren.
 `AGENT_COORDINATOR_MODEL` ist dabei der explizite Standard und nicht einfach der erste Listeneintrag.
 Er muss in `AGENT_MODELS` stehen; eine widersprüchliche Konfiguration bricht den Start hart ab. Das
 Profil `relay` beginnt mit demselben Modell und derselben Koordinator-Denktiefe. Unter

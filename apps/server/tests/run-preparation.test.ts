@@ -75,7 +75,7 @@ test("preparation uses the same coordinator model selection before start and cre
   const { session, journal } = sessionFixture();
   t.after(() => journal.close());
   assert.deepEqual(session.preparationSelection(null), { provider: "test", model: "default", thinking: "low" });
-  session.selectStartOption("ragents.model", { model: "selected", thinking: "high" }, null);
+  await session.selectStartOption("ragents.model", { model: "selected", thinking: "high" }, null);
   const { options, streamSimple } = runtimeFixture(t);
   const result = await prepareRunMessage({ ...options, selection: session.preparationSelection(null) });
   assert.deepEqual(result, { kind: "reply", text: "Welche Kennzahlen soll die Analyse zeigen?" });
@@ -282,10 +282,10 @@ test("aborting the request signal aborts a pending completion", async () => {
   assert.deepEqual(await pending, { kind: "reply", text: "Late" });
 });
 
-const providerFixture = (t: TestContext) => {
+const providerFixture = async (t: TestContext) => {
   const { engine, session, journal } = sessionFixture();
   t.after(() => { session.dispose(); journal.close(); });
-  session.selectStartOption("ragents.model", { model: "selected", thinking: "high" }, null);
+  await session.selectStartOption("ragents.model", { model: "selected", thinking: "high" }, null);
   const response = Promise.withResolvers<AssistantMessage>();
   const started = Promise.withResolvers<void>();
   const { runtime, streamSimple } = runtimeFixture(t, async () => { started.resolve(); return response.promise; });
@@ -299,7 +299,7 @@ const providerFixture = (t: TestContext) => {
 };
 
 test("provider rejects concurrent preparation and a response after a run begins", async (t) => {
-  const fixture = providerFixture(t);
+  const fixture = await providerFixture(t);
   const pending = fixture.provider.prepareRunMessage("draft", request(), new AbortController().signal, null);
   await fixture.started.promise;
   await assert.rejects(fixture.provider.prepareRunMessage("draft", request(), new AbortController().signal, null), isDomain(409, "preparation-busy"));
@@ -311,7 +311,7 @@ test("provider rejects concurrent preparation and a response after a run begins"
 });
 
 test("provider shutdown aborts pending preparation before disposing the runtime", async (t) => {
-  const fixture = providerFixture(t);
+  const fixture = await providerFixture(t);
   Object.assign(fixture.engine, { shutdown: async () => {} });
   const pending = fixture.provider.prepareRunMessage("draft", request(), new AbortController().signal, null);
   await fixture.started.promise;
@@ -324,7 +324,7 @@ test("provider shutdown aborts pending preparation before disposing the runtime"
 });
 
 test("delete aborts preparation as soon as deletion is requested", async (t) => {
-  const fixture = providerFixture(t);
+  const fixture = await providerFixture(t);
   Object.assign(fixture.provider, { persistDeleteIntent: async () => {}, deleteInner: async () => {} });
   const pending = fixture.provider.prepareRunMessage("draft", request(), new AbortController().signal, null);
   await fixture.started.promise;

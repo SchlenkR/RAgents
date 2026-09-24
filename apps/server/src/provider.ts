@@ -249,7 +249,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     return this.openSession(id).startOptions(userId);
   }
 
-  selectStartOption(id: string, optionId: string, value: unknown, userId: string | null): StartOptionState {
+  selectStartOption(id: string, optionId: string, value: unknown, userId: string | null): Promise<StartOptionState> {
     return this.openSession(id).selectStartOption(optionId, value, userId);
   }
 
@@ -352,7 +352,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     const id = randomUUID();
     const session = this.openSession(id, start.title);
     const user = start.user ?? undefined;
-    for (const [optionId, value] of Object.entries(start.options ?? {})) session.selectStartOption(optionId, value, start.user?.id ?? null);
+    for (const [optionId, value] of Object.entries(start.options ?? {})) await session.selectStartOption(optionId, value, start.user?.id ?? null);
     if (start.kind === "script") await session.startAndWait(start.entryId, start.input, user);
     else if (start.kind === "package") {
       if (!local) throw new Error("Das Run-Script-Paket wurde nicht geladen");

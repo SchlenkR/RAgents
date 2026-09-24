@@ -29,7 +29,8 @@ import type { ActorProgramsService } from "../plugin-support/actor-programs/serv
 import type { StartOptionState } from "../plugin-support/start-options-contract.js";
 import type { Engine } from "./engine.js";
 import type { CoordinatorDescriptor } from "./product-runtime.js";
-import { startOptionScope, storedModel, storedStartOption, storedThinking } from "./start-option-state.js";
+import { modelStartOptionId, startOptionScope, storedModel, storedStartOption, storedThinking } from "./start-option-state.js";
+import { coordinatorSelection, isRunCoordinator, storedModelChoice } from "./coordinator.js";
 import { chatEventsOf, chatHistoryOf, type ChatProjectionScope } from "./chat-projection.js";
 import { ChatTextPositions } from "./chat-text-positions.js";
 import type { GlobalChatPolicy } from "./global-chat.js";
@@ -163,17 +164,47 @@ export class RunChatSession implements ChatSessionLike {
     return this.#engine.startOptions.entries().map((entry) => this.#startOptionState(entry, userId));
   }
 
-  selectStartOption(optionId: string, value: unknown, userId: string | null): StartOptionState {
+  /** Vor dem Start merkt sich der Run die Wahl, danach schreibt er eine änderbare Option ins Journal. */
+  async selectStartOption(optionId: string, value: unknown, userId: string | null): Promise<StartOptionState> {
     const entry = this.#engine.startOptions.entry(optionId);
     if (!entry) throw new DomainError("option-unknown", `Die Startoption ${optionId} ist nicht registriert.`, 404);
     if (!entry.option.selectable()) {
       throw new DomainError("option-not-selectable", `Die Startoption ${optionId} ist fest konfiguriert.`, 409);
     }
-    if (this.startLocked) {
+    if (this.startLocked && !entry.option.changeable) {
       throw new DomainError("option-locked", "Der Run läuft bereits, die Startoptionen stehen fest.", 409);
     }
-    this.#startValues.set(optionId, this.#engine.startOptions.accept(optionId, value, this.#startContext(userId)));
+    const accepted = this.#engine.startOptions.accept(optionId, value, this.#startContext(userId));
+    if (!this.startLocked) {
+      this.#startValues.set(optionId, accepted);
+      return this.#startOptionState(entry, userId);
+    }
+    if (!isDeepStrictEqual(storedStartOption(this.#engine.journal.stateOf(this.id), optionId), accepted)) {
+      if (optionId === modelStartOptionId) await this.#assertCoordinatorCanRead(accepted as { model?: string; thinking?: string });
+      const state = this.#engine.runtime.state(this.id);
+      this.#engine.runtime.replacePluginState(
+        { actorId: state.ownerId, commandId: `start-option:${optionId}:${this.id}:${this.#engine.runtime.view(this.id).revision}` },
+        this.id,
+        { pluginId: optionId, scope: startOptionScope, state: accepted },
+      );
+    }
     return this.#startOptionState(entry, userId);
+  }
+
+  /** Ein anderes Modell muss die Anhänge lesen können, die das Gespräch des Koordinators schon enthält. */
+  async #assertCoordinatorCanRead(choice: { model?: string; thinking?: string }): Promise<void> {
+    const view = this.#engine.runtime.view(this.id);
+    const primary = primaryActorOf(view);
+    if (!primary || primary.kind === "human" || primary.execution.driver.kind !== "agent" || !isRunCoordinator(this.#engine.runtime, this.id, primary.id)) return;
+    const { provider, model } = coordinatorSelection(this.#engine.catalog, this.#coordinator,
+      { model: choice.model, thinking: choice.thinking }, primary.execution.driver.config);
+    const attached = new Set(view.inputs.filter((input) => input.actorId === primary.id).flatMap((input) => input.artifactIds));
+    const kinds = new Set(view.artifacts.filter((artifact) => attached.has(artifact.id)).map((artifact) => attachmentInputKind(artifact.mediaType)));
+    const supported = await this.#engine.inputCapabilities(provider, model);
+    const missing = [...kinds].filter((kind) => (kind === "image" || kind === "video" || kind === "file") && !supported.includes(kind));
+    if (missing.length > 0) {
+      throw new DomainError("model-history-unsupported", `Das Gespräch enthält bereits ${missing.join(", ")}-Anhänge, die ${provider}/${model} nicht verarbeiten kann; wähle ein passendes Modell.`, 400);
+    }
   }
 
   #startContext(userId: string | null): StartOptionContext {
@@ -217,7 +248,7 @@ export class RunChatSession implements ChatSessionLike {
       value,
       presentation: entry.option.describe(value, this.#startContext(userId)),
       selectable: entry.option.selectable(),
-      locked: this.startLocked,
+      locked: this.startLocked && !entry.option.changeable,
       chosen: !this.startLocked && this.#startValues.has(entry.option.id),
     };
   }
@@ -465,8 +496,11 @@ export class RunChatSession implements ChatSessionLike {
     const id = reference === "primary" ? state?.primaryActorId : reference;
     if (id) {
       const execution = this.#targetActor(id).execution;
-      return id === state?.primaryActorId && execution.driver.kind === "agent" && this.#modelSelection
-        ? { ...execution, driver: { kind: "agent", config: this.#modelSelection() } } : execution;
+      if (execution.driver.kind !== "agent") return execution;
+      if (id === state?.primaryActorId && this.#modelSelection) return { ...execution, driver: { kind: "agent", config: this.#modelSelection() } };
+      return isRunCoordinator(this.#engine.runtime, this.id, id)
+        ? { ...execution, driver: { kind: "agent", config: coordinatorSelection(this.#engine.catalog, this.#coordinator, storedModelChoice(state), execution.driver.config) } }
+        : execution;
     }
     if (reference !== "primary") throw new DomainError("actor-unavailable", "Der Actor ist nicht verfügbar", 404);
     return this.#coordinatorExecution(choice);
@@ -474,7 +508,7 @@ export class RunChatSession implements ChatSessionLike {
 
   #coordinatorExecution(choice: StartChoice): AgentExecution {
     const state = this.#engine.journal.stateOf(this.id);
-    const selected = this.#engine.startOptions.entry("ragents.model");
+    const selected = this.#engine.startOptions.entry(modelStartOptionId);
     const modelChoice = selected ? this.#startValueOf(selected, choice) as { model?: string; thinking?: string } : undefined;
     const model = modelChoice?.model ?? storedModel(state);
     const thinking = modelChoice?.thinking ?? storedThinking(state);

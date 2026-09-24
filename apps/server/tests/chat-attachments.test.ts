@@ -78,10 +78,13 @@ test("unsupported media is rejected before creating a run; UTF-8 is validated be
     assert.deepEqual(await data.session.capabilities("primary", null), { model: "test/example", input: ["text"] });
     assert.deepEqual(events.filter((event) => event.kind === "system" || event.kind === "user"), []);
     assert.equal(data.session.startLocked, false);
-    data.session.selectStartOption("ragents.model", { model: "image-capable", thinking: "off" }, null);
+    await data.session.selectStartOption("ragents.model", { model: "image-capable", thinking: "off" }, null);
     await data.session.send("", [attachment()]);
     assert.equal(data.runtime.view("attachment-run").inputs.length, 1);
     assert.deepEqual(await data.session.capabilities("primary", null), { model: "test/image-capable", input: ["text", "image"] });
+    await assert.rejects(data.session.selectStartOption("ragents.model", { model: "example", thinking: "off" }, null), (error: unknown) =>
+      error instanceof DomainError && error.code === "model-history-unsupported" && error.status === 400 && /image/.test(error.message));
+    assert.deepEqual(await data.session.capabilities("primary", null), { model: "test/image-capable", input: ["text", "image"] }, "die abgelehnte Wahl ändert nichts");
   } finally { unsubscribe(); await data.close(); }
 });
 

@@ -376,7 +376,7 @@ host.startOptions({
 });`, ["host.startOptions"], [
     "Die choice-Darstellung funktioniert mit dem vorhandenen Auswahlmenü. Eine eigene Bedienkomponente kann auf der Web-Seite unter derselben Option-ID registriert werden; describe enthält keine Prüfregeln.",
     "Ein voreingestellter Wert muss ebenfalls gültig sein; eine fehlende Voraussetzung wird nicht still ersetzt.",
-    "defaultValue, accept und describe bekommen neben runId den handelnden Benutzer als userId, ohne Anmeldung null. Das optionale ownerOnly(value) behält einen Run mit diesem Wert zum Bedienen seinem Eigentümer vor; lesen und stoppen bleiben allen, die ihn sehen. Das optionale rights nennt Rechte über runs.create hinaus, etwa runs.inspect für eine Option mit technischer Darstellung wie die Modellwahl; ohne sie fehlt die Option in der Liste, und ihre Wahl scheitert mit access-denied.",
+    "defaultValue, accept und describe bekommen neben runId den handelnden Benutzer als userId, ohne Anmeldung null. Das optionale ownerOnly(value) behält einen Run mit diesem Wert zum Bedienen seinem Eigentümer vor; lesen und stoppen bleiben allen, die ihn sehen. Das optionale rights nennt Rechte über runs.create hinaus, etwa runs.inspect für eine Option mit technischer Darstellung wie die Modellwahl; ohne sie fehlt die Option in der Liste, und ihre Wahl scheitert mit access-denied. Mit changeable bleibt die Option nach dem Start wählbar: jede neue Wahl landet im Journal, wer die Option liest, folgt dem gespeicherten Wert; so hält es die Modellwahl, die ab dem nächsten Turn gilt.",
   ]),
   entry("session-metadata", "Serverbeiträge", "Run-Metadaten bereitstellen", "Ein Plugin kann kurze Zusatzangaben zu einem Run liefern, etwa einen Bearbeitungsstatus. Solche Metadaten stehen der Oberfläche zur Anzeige zur Verfügung. Die zugrunde liegenden Fachdaten bleiben beim Plugin.", "Innerhalb von register(host); Beispiel ohne eigene Datenablage.", `
 host.sessionMetadata({
@@ -504,7 +504,7 @@ const starters = {
       <button onClick={onCancel}>Abbrechen</button>
     </div> }],
 } satisfies WebPlugin;`, ["web.startOptions", "web.guides"], [
-    "placement setzt die Option in die Eingabeleiste (composer) oder unter die Eingabe auf die Startseite (page, Vorgabe). Der Host zeigt sie nur an der gewählten Stelle; Modell und Denktiefe verwenden composer.",
+    "placement setzt die Option in die Eingabeleiste (composer) oder unter die Eingabe (page, Vorgabe). Der Host zeigt sie nur an der gewählten Stelle; Modell und Denktiefe verwenden composer und stehen damit auch in der Chat-Eingabe jedes Runs.",
     "Das Objekt im Beispiel ist ein Script-Startwert. Ein Skill-Leitfaden liefert stattdessen den Text der ersten Nachricht. Der StartEntry verweist mit guide auf diese Kennung.",
     "Das Referenz-Plugin liefert zwei vollständige Leitfäden: ConversationGuide sammelt Thema und Rundenzahl für eine Gesprächsrunde; SharedBoardGuide sammelt Titel und ersten Eintrag für ein gemeinsames Sammelboard. Beide beginnen erst nach Abschluss mit dem Run. Die Scripts prüfen die Eingaben vor dem Aufbau.",
   ], "tsx", [

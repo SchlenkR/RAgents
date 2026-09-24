@@ -4,6 +4,7 @@ Eingang für alles, hier schreiben der Owner und die KI. Eine Zeile je Eintrag, 
 
 ## Offen
 
+- Modellwahl im Chat (24.09.2026): eine Vorlage mit festgelegtem `ragents.model` bindet das Modell nur für den Start, danach wechselt jeder mit `runs.inspect`; und der Wechsel prüft nur Anhänge von Eingaben, nicht Bilder aus Werkzeugergebnissen im Gespräch. Entscheiden, ob die Vorlage den Wechsel sperrt und ob die Prüfung den Modellkontext lesen soll.
 - Prozess-Sandbox (24.09.2026): der Browser der Browserprüfung startet auf dem Server ohne Sandbox; Chrome bringt eine eigene mit, die unter Seatbelt nicht verschachtelt startet. Prüfen, ob er mit `--no-sandbox` in der Prozess-Sandbox läuft, oder die Grenze so lassen.
 - Prozess-Sandbox (24.09.2026): der Sprachserver-Livetest (`RAGENTS_LSP_TESTS=1`) ist mit Sandbox nicht gelaufen; Roslyn, FSAC und TypeScript einmal im Server-Arbeitsbereich prüfen. Ebenso ein Server-Image unter Linux mit bubblewrap und den Container-Optionen aus `docs/operations.md`.
 - Prozess-Sandbox (24.09.2026): unter macOS erreichen Runs Unix-Sockets unter `/tmp` (MSBuild-Knoten), also auch Build-Server anderer Prozesse desselben Kontos; enger ginge es nur, wenn MSBuild seine Pipes nicht fest unter `/tmp` anlegte. Der NuGet-Cache ist allen Runs gemeinsam und beschreibbar; ein Cache je Run kostet Platz und Zeit.

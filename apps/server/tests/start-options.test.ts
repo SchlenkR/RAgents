@@ -86,6 +86,7 @@ const fixture = (runId: string, contributions: readonly StartOptionContribution[
     catalog: new StaticModelCatalog(catalogModels, profiles),
     catalogModels,
     startOptions,
+    inputCapabilities: async () => ["text"],
   } as unknown as Engine;
   const prepared: string[] = [];
   const session = new RunChatSession({
@@ -156,27 +157,27 @@ test("the empty chat sees every option with its default, presentation and select
   }
 });
 
-test("a model change without thinking falls back to the preferred thinking of the new model", () => {
+test("a model change without thinking falls back to the preferred thinking of the new model", async () => {
   const { journal, session } = fixture("options-model", [modelStartOption(modelChoice(), "high")]);
   try {
     assert.equal(session.startOptions(null)[0].chosen, false, "a default is nobody's choice");
-    const changed = session.selectStartOption(modelStartOptionId, { model: "deep" }, null);
+    const changed = await session.selectStartOption(modelStartOptionId, { model: "deep" }, null);
     assert.deepEqual(changed.value, { model: "deep", thinking: "high" });
     assert.equal(changed.chosen, true, "a template that fixes another value would refuse this choice");
     assert.deepEqual((changed.presentation as { thinkingOptions: string[] }).thinkingOptions, ["low", "high"]);
-    assert.deepEqual(session.selectStartOption(modelStartOptionId, { model: "deep", thinking: "low" }, null).value, {
+    assert.deepEqual((await session.selectStartOption(modelStartOptionId, { model: "deep", thinking: "low" }, null)).value, {
       model: "deep",
       thinking: "low",
     });
-    assert.throws(
+    await assert.rejects(
       () => session.selectStartOption(modelStartOptionId, { model: "deep", thinking: "off" }, null),
       (error: unknown) => error instanceof DomainError && error.code === "thinking-unknown" && error.status === 400,
     );
-    assert.throws(
+    await assert.rejects(
       () => session.selectStartOption(modelStartOptionId, { model: "unknown" }, null),
       (error: unknown) => error instanceof DomainError && error.code === "model-unknown" && error.status === 404,
     );
-    assert.throws(
+    await assert.rejects(
       () => session.selectStartOption(modelStartOptionId, { model: "deep", extra: 1 }, null),
       /Ungültiger Wert für Startoption ragents\.model/,
     );
@@ -185,18 +186,18 @@ test("a model change without thinking falls back to the preferred thinking of th
   }
 });
 
-test("system prompt selections are checked against the catalog", () => {
+test("system prompt selections are checked against the catalog", async () => {
   const { journal, session } = fixture("options-prompt", [systemPromptStartOption(() => catalog)]);
   try {
     assert.deepEqual(
-      session.selectStartOption(systemPromptStartOptionId, { promptIds: ["special", "general"], shareWithAgents: true }, null).value,
+      (await session.selectStartOption(systemPromptStartOptionId, { promptIds: ["special", "general"], shareWithAgents: true }, null)).value,
       { promptIds: ["special", "general"], shareWithAgents: true },
     );
-    assert.throws(
+    await assert.rejects(
       () => session.selectStartOption(systemPromptStartOptionId, { promptIds: ["missing"], shareWithAgents: false }, null),
       (error: unknown) => error instanceof DomainError && error.code === "prompt-unknown",
     );
-    assert.throws(
+    await assert.rejects(
       () => session.selectStartOption(systemPromptStartOptionId, { promptIds: ["general", "general"], shareWithAgents: false }, null),
       (error: unknown) => error instanceof DomainError && error.code === "prompt-duplicate",
     );
@@ -205,15 +206,15 @@ test("system prompt selections are checked against the catalog", () => {
   }
 });
 
-test("fixed options and unknown options are refused", () => {
+test("fixed options and unknown options are refused", async () => {
   const { journal, session } = fixture("options-fixed", [modelStartOption(modelChoice(false), "off")]);
   try {
     assert.equal(session.startOptions(null)[0].selectable, false);
-    assert.throws(
+    await assert.rejects(
       () => session.selectStartOption(modelStartOptionId, { model: "deep" }, null),
       (error: unknown) => error instanceof DomainError && error.code === "option-not-selectable" && error.status === 409,
     );
-    assert.throws(
+    await assert.rejects(
       () => session.selectStartOption("test.missing", "x", null),
       (error: unknown) => error instanceof DomainError && error.code === "option-unknown" && error.status === 404,
     );
@@ -226,7 +227,7 @@ test("a plugin option travels into the journal at start and is locked afterwards
   const runId = "options-plugin";
   const { journal, runtime, session, prepared } = fixture(runId, [workspaceChoice, modelStartOption(modelChoice(), "off")]);
   try {
-    session.selectStartOption("test.workspace.source", "clone", null);
+    await session.selectStartOption("test.workspace.source", "clone", null);
     session.send("Los");
     await session.drain();
 
@@ -241,12 +242,40 @@ test("a plugin option travels into the journal at start and is locked afterwards
     assert.equal(primary.execution.driver.config.model, "fast");
 
     const locked = session.startOptions(null);
-    assert.ok(locked.every((option) => option.locked));
+    assert.deepEqual(locked.map((option) => [option.id, option.locked]), [["test.workspace.source", true], [modelStartOptionId, false]]);
     assert.equal(locked[0].value, "clone");
-    assert.throws(
+    await assert.rejects(
       () => session.selectStartOption("test.workspace.source", "empty", null),
       (error: unknown) => error instanceof DomainError && error.code === "option-locked" && error.status === 409,
     );
+  } finally {
+    journal.close();
+  }
+});
+
+test("the model stays selectable after the start: each change lands in the journal, invalid ones are refused like before the start", async () => {
+  const runId = "options-model-running";
+  const { journal, runtime, session } = fixture(runId, [workspaceChoice, modelStartOption(modelChoice(), "off")]);
+  try {
+    session.send("Los");
+    await session.drain();
+    const revision = runtime.view(runId).revision;
+    const changed = await session.selectStartOption(modelStartOptionId, { model: "deep", thinking: "low" }, null);
+    assert.deepEqual(changed.value, { model: "deep", thinking: "low" });
+    assert.equal(changed.locked, false);
+    assert.equal(changed.chosen, false, "chosen gilt nur vor dem Start");
+    assert.deepEqual((changed.presentation as { thinkingOptions: string[] }).thinkingOptions, ["low", "high"]);
+    assert.deepEqual(storedStartOption(journal.stateOf(runId), modelStartOptionId), { model: "deep", thinking: "low" });
+    assert.ok(runtime.events(runId).some((event) => event.type === "plugin.state-replaced" && event.payload.pluginId === modelStartOptionId));
+    assert.ok(runtime.view(runId).revision > revision, "der Wechsel steht als Ereignis im Journal");
+    const unchanged = runtime.view(runId).revision;
+    await session.selectStartOption(modelStartOptionId, { model: "deep", thinking: "low" }, null);
+    assert.equal(runtime.view(runId).revision, unchanged, "dieselbe Wahl schreibt nichts");
+    await assert.rejects(() => session.selectStartOption(modelStartOptionId, { model: "fast", thinking: "high" }, null),
+      (error: unknown) => error instanceof DomainError && error.code === "thinking-unknown");
+    await assert.rejects(() => session.selectStartOption(modelStartOptionId, { model: "elsewhere" }, null),
+      (error: unknown) => error instanceof DomainError && error.code === "model-unknown");
+    assert.deepEqual(storedStartOption(journal.stateOf(runId), modelStartOptionId), { model: "deep", thinking: "low" });
   } finally {
     journal.close();
   }
@@ -265,7 +294,7 @@ test("every start option sees the user who acts: listing, choosing and the defau
   const { journal, session } = fixture("options-user", [recording("test.chosen"), recording("test.default")]);
   try {
     session.startOptions("alice");
-    session.selectStartOption("test.chosen", "gewählt", "bob");
+    await session.selectStartOption("test.chosen", "gewählt", "bob");
     session.send("Los", undefined, undefined, { id: "carol", label: "Carol" });
     await session.drain();
     assert.deepEqual(seen, [
@@ -318,7 +347,7 @@ test("a skill template fixes its start option: the value holds, accepted for the
 test("a different choice before the start is a hard error with its cause, the same choice is fine", async () => {
   const conflicting = fixture("fixed-conflict", [workspaceChoice, modelStartOption(modelChoice(), "off")], [cloningSkill]);
   try {
-    conflicting.session.selectStartOption("test.workspace.source", "empty", "alice");
+    await conflicting.session.selectStartOption("test.workspace.source", "empty", "alice");
     await assert.rejects(conflicting.session.send("Los", undefined, undefined, alice, cloningSkill.id), (error: unknown) =>
       error instanceof DomainError && error.code === "start-option-fixed" && error.status === 409
       && error.message.includes("Klonen") && error.message.includes("test.workspace.source"));
@@ -328,7 +357,7 @@ test("a different choice before the start is a hard error with its cause, the sa
   }
   const agreeing = fixture("fixed-agree", [workspaceChoice, modelStartOption(modelChoice(), "off")], [cloningSkill]);
   try {
-    agreeing.session.selectStartOption("test.workspace.source", "clone", "alice");
+    await agreeing.session.selectStartOption("test.workspace.source", "clone", "alice");
     await agreeing.session.send("Los", undefined, undefined, alice, cloningSkill.id);
     await agreeing.session.drain();
     assert.equal(storedStartOption(agreeing.journal.stateOf("fixed-agree"), "test.workspace.source"), "clone");
@@ -340,7 +369,7 @@ test("a different choice before the start is a hard error with its cause, the sa
 test("a script template fixes its start option through the same place", async () => {
   const conflicting = fixture("fixed-script-conflict", [workspaceChoice, modelStartOption(modelChoice(), "off")], [cloningScript]);
   try {
-    conflicting.session.selectStartOption("test.workspace.source", "empty", "alice");
+    await conflicting.session.selectStartOption("test.workspace.source", "empty", "alice");
     await assert.rejects(conflicting.session.startAndWait(cloningScript.id, null, alice), (error: unknown) =>
       error instanceof DomainError && error.code === "start-option-fixed");
     assert.deepEqual(conflicting.prepared, [], "abgelehnt, bevor irgendetwas vorbereitet wird");

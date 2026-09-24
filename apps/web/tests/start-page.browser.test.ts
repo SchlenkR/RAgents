@@ -110,3 +110,54 @@ test("die Startauswahl im Browser zeigt die Kacheln von Start in VS Code und sta
     assert.match(String(skill?.text), /Nutze den Skill board[\s\S]*Baue ein Board für Einkäufe\./, "ein Skill startet wie in VS Code mit seinem Auftrag");
   });
 });
+
+/** Im leeren Run nach Neuer Chat: die Chat-Eingabe, in der Modell und Denktiefe stehen, wenn das Recht es erlaubt. */
+const openNewChat = async (page: Page, view: "web" | "panel") => {
+  if (view === "web") {
+    const dialog = await openStartSelection(page);
+    await dialog.getByRole("button", { name: /Neuer Chat/ }).click();
+    await dialog.waitFor({ state: "detached" });
+  } else {
+    await page.waitForTimeout(200);
+    await page.evaluate(() => window.startPageFixture.command({ type: "newRun" }));
+  }
+  await page.locator("textarea").waitFor();
+  await page.waitForFunction(() => window.startPageFixture.calls.some((call) => call.id === "ragents.startOptions.list"));
+};
+
+for (const [view, query, width] of [["web", "view=web", 1280], ["panel", "view=panel&host=vscode", 520]] as const) {
+  test(`Modell und Denktiefe stehen im Chat des leeren Runs und gelten ab der ersten Nachricht (${view})`, browserOnly, async () => {
+    await withPage(query, width, async (page) => {
+      await openNewChat(page, view);
+      const model = page.getByRole("combobox", { name: "Modell" });
+      await model.click();
+      await page.getByRole("option").first().waitFor();
+      assert.deepEqual(await page.getByRole("option").allTextContents(), ["openrouter/z-ai/glm-5.3-flash", "openrouter/qwen/qwen3.8-max"], "nur die Modelle des Profils");
+      await page.getByRole("option", { name: "openrouter/qwen/qwen3.8-max" }).click();
+      await page.getByRole("combobox", { name: "Reasoning" }).click();
+      await page.getByRole("option", { name: "niedrig" }).waitFor();
+      assert.deepEqual(await page.getByRole("option").allTextContents(), ["aus", "niedrig", "hoch"], "nur die Stufen des Modells");
+      await page.getByRole("option", { name: "niedrig" }).click();
+      await page.waitForFunction(() => window.startPageFixture.calls.filter((call) => call.id === "ragents.startOptions.select").length === 2);
+      await page.locator("textarea").fill("Erste Nachricht");
+      await page.locator("textarea").press("Enter");
+      await page.waitForFunction(() => window.startPageFixture.calls.some((call) => call.id === "ragents.chat.send"));
+      const order = await page.evaluate(() => window.startPageFixture.calls.filter((call) => call.id === "ragents.startOptions.select" || call.id === "ragents.chat.send")
+        .map((call) => call.id === "ragents.chat.send" ? "send" : JSON.stringify(call.params.value)));
+      assert.deepEqual(order, [JSON.stringify({ model: "qwen/qwen3.8-max" }), JSON.stringify({ model: "qwen/qwen3.8-max", thinking: "low" }), "send"], "die Wahl steht vor der ersten Nachricht fest");
+      await page.waitForFunction(() => window.startPageFixture.calls.filter((call) => call.id === "ragents.startOptions.list").length >= 2);
+      await model.waitFor();
+      assert.equal(await model.isEnabled(), true, "nach dem Start bleibt die Modellwahl im Chat");
+    });
+  });
+}
+
+test("ohne runs.inspect zeigt der Chat keine Modellwahl, weder im Browser noch in VS Code", browserOnly, async () => {
+  for (const [view, query, width] of [["web", "view=web&rights=plain", 1280], ["panel", "view=panel&host=vscode&rights=plain", 520]] as const) {
+    await withPage(query, width, async (page) => {
+      await openNewChat(page, view);
+      assert.equal(await page.getByRole("combobox", { name: "Modell" }).count(), 0, view);
+      assert.equal(await page.getByRole("combobox", { name: "Reasoning" }).count(), 0, view);
+    });
+  }
+});

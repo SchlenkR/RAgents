@@ -47,7 +47,7 @@ import { skillOfDirectory } from "../plugin-support/skills.js";
 import { selectedSystemPrompts } from "../plugin-support/system-prompts.js";
 import { productRuntimeToken, type ActorRole, type ProductActor } from "./product-runtime.js";
 import { storedSystemPrompt } from "./start-option-state.js";
-import { isRunCoordinator } from "./coordinator.js";
+import { coordinatorSelection, isRunCoordinator, storedModelChoice } from "./coordinator.js";
 import { runtimeBridgeToken } from "./runtime-bridge.js";
 import { workspaceRuntimeToken } from "./workspace-runtime.js";
 import { globalChatToken, globalRunPolicyOf } from "./global-chat.js";
@@ -331,8 +331,10 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     live,
     modelSelection: (turn, actor) => {
       if (actor.execution.driver.kind !== "agent") throw new Error("Modellwahl benötigt einen Modell-Actor");
-      return globalChat?.isCoordinator(turn.runId) && globalChat.model
-        ? globalChat.model.forTurn(runtime, turn.runId, actor.id, turn.turnId) : actor.execution.driver.config;
+      if (globalChat?.isCoordinator(turn.runId) && globalChat.model) return globalChat.model.forTurn(runtime, turn.runId, actor.id, turn.turnId);
+      return isRunCoordinator(runtime, turn.runId, actor.id)
+        ? coordinatorSelection(catalog, productRuntime.coordinator, storedModelChoice(journal.stateOf(turn.runId)), actor.execution.driver.config)
+        : actor.execution.driver.config;
     },
     ...(workspaceToolNaming ? { workspaceToolNaming } : {}),
     basePrompt: basePromptFor,

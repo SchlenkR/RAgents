@@ -236,7 +236,10 @@ Der serverseitige `PluginHost` hat Registries für:
   Standardwert, `selectable`, `accept` (prüft und normalisiert einen Wert oder wirft) und `describe`
   (Darstellung für das Web). Der Host hält den Wert je noch nicht gestartetem Run über
   `ragents.startOptions.list` und `ragents.startOptions.select`, schreibt beim Start jeden Wert als initialen
-  Plugin-Zustand unter der Option-Id und sperrt danach. Jeder Aufruf bekommt im
+  Plugin-Zustand unter der Option-Id und sperrt danach. Eine Option mit `changeable` bleibt offen:
+  ihre Wahl schreibt der Host nach dem Start als neuen Plugin-Zustand ins Journal
+  (`plugin.state-replaced`, ein unveränderter Wert schreibt nichts), mit denselben Rechten und
+  derselben Prüfung durch `accept`, und wer sie liest, folgt dem jeweils gespeicherten Wert. Jeder Aufruf bekommt im
   `StartOptionContext` neben dem Run den handelnden Benutzer (`userId`, aus dem Zugang der
   jeweiligen Anfrage, ohne Anmeldung `null`): Liste und Wahl den Benutzer der Anfrage, die beim
   Start geschriebenen Vorgaben den Benutzer, der den Run anlegt; gemerkt wird er nirgends.
@@ -262,7 +265,11 @@ Der serverseitige `PluginHost` hat Registries für:
   Startoptionen `ragents.model` und `ragents.system-prompt` des Produkt-Plugins
   (`plugin-support/product-start-options.ts`), der Arbeitsbereich ist die Startoption
   `ragents.workspace.binding` des Workspace-Plugins; der Engine-Kern liest nur den
-  Systemprompt-Zustand für die Promptkomposition
+  Systemprompt-Zustand für die Promptkomposition. Die Modellwahl ist `changeable`: der Scheduler
+  des Hosts nimmt für jeden Turn des Run-Koordinators das gespeicherte Modell samt Denktiefe
+  (`coordinatorSelection` in `apps/server/src/ragents/coordinator.ts`), die Anhangsprüfung beim
+  Senden dasselbe; ein Wechsel, dessen Modell Bilder, Videos oder Dateien im Gespräch des
+  Koordinators nicht verarbeiten kann, scheitert mit `model-history-unsupported` (400)
 - Initialisierung, Run-Vorbereitung, Stopp, Löschen und Shutdown
 
 Ein Plugin implementiert nur die Facetten, die es braucht:
@@ -1124,6 +1131,10 @@ Plugins belegen stattdessen typisierte Slots für:
   ohne Komponente ein Auswahlmenü aus einer Darstellung `{ kind: "choice", label, options }`).
   Sie stehen im Vorbereitungschat; `placement` wählt den Bereich unter der Eingabe (`page`,
   Vorgabe) oder die Eingabeleiste (`composer`), der Modellbeitrag verwendet die Eingabeleiste.
+  Die Beiträge der Eingabeleiste stehen zusätzlich in der Chat-Eingabe jedes Runs (`ChatSurface`
+  in `PluginChat.tsx`, also Web und Run-Panel), solange der Server die Option nicht sperrt: im
+  leeren Run vor der ersten Nachricht und, bei einer änderbaren Option, auch danach. Bis der Server
+  nach der ersten Nachricht geantwortet hat, gilt dort jede Option als gesperrt.
   Die Bedienkomponente bekommt mit `machines` (`apps/web/src/offered-machines.ts`), welche
   Rechner der Host für neue Runs anbietet: `server` im Browser, `all` im Run-Panel von VS Code
   (`RunPanelHost.machines`, bereitgestellt von `RunPanelHostProvider`). Die Arbeitsbereich-Wahl

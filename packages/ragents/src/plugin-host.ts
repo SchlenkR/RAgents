@@ -864,6 +864,9 @@ export class StartOptionContributionRegistry {
       if (contribution.rights !== undefined && (!Array.isArray(contribution.rights) || !contribution.rights.every(isAccessRight))) {
         throw new Error(`Startoption ${contribution.id} hat ungültige rights`);
       }
+      if (contribution.changeable !== undefined && typeof contribution.changeable !== "boolean") {
+        throw new Error(`Startoption ${contribution.id} hat ein ungültiges changeable`);
+      }
     }
     this.#options.register(owner, contributions);
   }

@@ -1,5 +1,36 @@
 # Entscheidungen
 
+## Modell und Denktiefe im Chat des Runs, auch nach dem Start (24.09.2026)
+
+Kapitel: `docs/usage.md` (Wählbares Modell), `docs/spec/plugins.md` (Startoptionen, Slots),
+`docs/spec/profiles.md` (Rechte im Einzelnen). Vorgabe des Owners. Seit die Startauswahl nur noch
+Kacheln zeigt, ließ sich das Modell eines neuen Runs nur im Vorbereitungschat einer Vorlage mit
+Leitfaden wählen, nach der ersten Nachricht gar nicht mehr. Festgelegt: Die Modellwahl steht in der
+Chat-Eingabe jedes Runs (`ChatSurface` in `PluginChat.tsx`, damit Browser und Run-Panel in VS Code
+gleich), schon im leeren Run und danach. Sie bleibt die Startoption `ragents.model`: dieselbe
+Liste und Wahl, dieselben Rechte aus `rights` der Option (`runs.inspect`, dazu `runs.create` und
+`runs.write` der Methoden), dieselbe Prüfung durch `accept` gegen die Modelle der Modellwahl des
+Profils und die Stufen des Modells. Neu ist `StartOptionContribution.changeable`: eine solche Option
+sperrt nach dem Start nicht, ihre Wahl schreibt der Host als `plugin.state-replaced` ins Journal.
+Der Scheduler nimmt für jeden Turn des Run-Koordinators das dort gespeicherte Modell
+(`coordinatorSelection`), die Anhangsprüfung beim Senden ebenso; ein laufender Turn behält sein
+Modell. Ein Wechsel auf ein Modell, das Bilder, Videos oder Dateien im Gespräch des Koordinators
+nicht verarbeiten kann, scheitert wie beim globalen Koordinator mit Begründung
+(`model-history-unsupported`). Dafür ist `selectStartOption` asynchron. Im Web gilt bis zur ersten
+Antwort des Servers nach der ersten Nachricht jede Option als gesperrt, danach sein `locked`.
+
+Verworfen: eine eigene Methode für das Modell eines laufenden Runs, weil sie Rechte und erlaubte
+Werte ein zweites Mal festgelegt hätte; ein Ereignis, das die Ausführung des Actors ändert, weil
+der gespeicherte Plugin-Zustand schon im Journal steht und die Wahl vor dem Start genauso trägt.
+Offen: eine Vorlage, die das Modell festlegt, bindet es nur für den Start; danach kann ein
+Benutzer mit den Rechten wechseln. Bilder aus Werkzeugergebnissen prüft der Wechsel nicht, nur
+Anhänge von Eingaben. Nachgewiesen mit `apps/server/tests/chat-model-choice.test.ts` (echter
+Scheduler: ohne `runs.inspect` weder Liste noch Wahl, nur Modelle der Modellwahl und ihre Stufen,
+die Wahl vor der ersten Nachricht im ersten Turn, ein Wechsel ab dem nächsten),
+`start-options.test.ts`, `chat-attachments.test.ts` und
+`apps/web/tests/start-page.browser.test.ts` (Chat-Eingabe im Browser und im Run-Panel von VS Code,
+mit und ohne `runs.inspect`).
+
 ## Startauswahl im Browser wie Start in VS Code, neue Runs dort nur auf dem Server (24.09.2026)
 
 Kapitel: `docs/spec/plugins.md` (Web als Plugin-Host: Entwurf und Startauswahl, Slots, Run-Panel

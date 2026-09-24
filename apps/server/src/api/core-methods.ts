@@ -15,7 +15,7 @@ export interface CoreMethodSources {
     subscribeList: (listener: () => void) => () => void;
     subscribeRun: (runId: string, listener: () => void) => () => void;
     startOptions: (runId: string, userId: string | null) => readonly StartOptionState[];
-    selectStartOption: (runId: string, optionId: string, value: unknown, userId: string | null) => StartOptionState;
+    selectStartOption: (runId: string, optionId: string, value: unknown, userId: string | null) => Promise<StartOptionState>;
     prepareRunMessage: (runId: string, request: unknown, signal: AbortSignal, userId: string | null) => Promise<RunPreparationResponse>;
     exportRun: (runId: string) => Promise<RunTransferExport>;
     importRun: (archive: Buffer, workspacePath: string | undefined) => Promise<RunTransferImport>;
