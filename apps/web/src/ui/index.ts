@@ -41,8 +41,8 @@ export { ListDetail, type ListDetailItem, type ListDetailProps } from "./ListDet
 export { longTime, shortTime } from "./relative-time";
 export { SectionLabel } from "./SectionLabel";
 export { StartupNotice, type StartupNoticeState } from "./startup-notice";
-export { EnvironmentStateIcon, environmentStateTone, RunStateIcon, runStateTone } from "./state-icon";
+export { ConnectionStateIcon, connectionStateTone, RunStateIcon, runStateTone } from "./state-icon";
 export { StopButton, StopGlyph } from "./stop-button";
-export { environmentStateWord, runStateWord, type EnvironmentStateName, type RunStateName } from "./state-vocabulary";
+export { connectionStateWord, runStateWord, type ConnectionStateName, type RunStateName } from "./state-vocabulary";
 export { SvgEdge, type SvgEdgeProps } from "./SvgEdge";
 export { useFileInput } from "./useFileInput";

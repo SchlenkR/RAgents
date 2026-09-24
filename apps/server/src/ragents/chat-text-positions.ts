@@ -37,7 +37,7 @@ export class ChatTextPositions {
   }
 
   #cursor(sequence: number, offset: number): ChatTextCursor {
-    if (this.#conversationId === null) throw new Error("Der Journalanfang der Unterhaltung fehlt.");
+    if (this.#conversationId === null) throw new Error("Der Journalanfang des Runs fehlt.");
     return { conversationId: this.#conversationId, sequence, offset };
   }
 }

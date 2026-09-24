@@ -121,7 +121,7 @@ return context.functions.actor_program_activate({ name: "formatter" });` });
     assert.equal(run.setup.runtime.view(run.setup.view.id).turns.length, 1);
 });
 
-test("snippets and real script inputs call the same extension and input subscriptions belong to the script actor", async (t) => {
+test("snippets and real script inputs call the same plugin function and input subscriptions belong to the TypeScript actor", async (t) => {
     const run = await workflow(t);
     const server = `import { Type } from "typebox";
 import { defineActor } from "@ragents/server";

@@ -20,6 +20,7 @@ import {
     type ModelRuntime,
     type Skill,
 } from "@ragents/agent";
+import type { UserMessage } from "@ragents/ai";
 
 import { ignoredFieldsNotice } from "../agents/toolset.ts";
 import { assertJsonValue, type JsonValue } from "../domain/json.ts";
@@ -351,6 +352,13 @@ class TurnDispatcher {
             return undefined;
 
         return `Die Funktion ${name} ist kein natives Werkzeug. Suche ihren Vertrag mit typescript_api und rufe sie in typescript_eval über context.functions auf.`;
+    }
+
+    /** The running turn that may still take steering; null between turns and after an abort. */
+    steerableTurn(): TurnRequest<"agent"> | null {
+        const turn = this.#turn;
+
+        return turn && !turn.signal.aborted ? turn.request : null;
     }
 
     activate(request: TurnRequest<"agent">, signal: AbortSignal) {
@@ -1054,8 +1062,28 @@ class ManagedAgentRuntime {
             return prepareNextTurn?.(turn, signal);
         };
         session.agent.formatUnknownToolError = (name) => this.#dispatcher.unknownToolError(name);
+        session.agent.steeringSource = () => this.#steering();
         this.#unsubscribe = session.subscribe((event) => this.#dispatcher.handleEvent(event));
         await this.#identity.persist(session.sessionFile, session.sessionId);
+    }
+
+    async #steering(): Promise<UserMessage[]> {
+        const request = this.#dispatcher.steerableTurn();
+
+        if (!request)
+            return [];
+
+        const messages: UserMessage[] = [];
+
+        for (const steered of request.claimSteering()) {
+            const prepared = await prepareInputAttachments(
+                { ...request, attachments: steered.attachments, prompt: steered.prompt },
+                this.#runtime.session.model?.input ?? [],
+            );
+            messages.push({ role: "user", content: [{ type: "text", text: prepared.prompt }, ...prepared.attachments], timestamp: Date.now() });
+        }
+
+        return messages;
     }
 
     async #refreshTools(): Promise<void> {

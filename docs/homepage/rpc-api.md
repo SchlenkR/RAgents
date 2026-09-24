@@ -17,7 +17,7 @@ Die Shellvariable RAGENTS_API_BASE_URL enthält die Serveradresse. Falls RAGENTS
 
 ```sh
 curl -s "$RAGENTS_API_BASE_URL/rpc" -H 'content-type: application/json' \
-  -d '{"jsonrpc":"2.0","id":1,"method":"ragents.overseer.listRuns","params":{}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"ragents.overseer.coordinator","params":{}}'
 ```
 
 Kennungen aus Ergebnissen werden programmgesteuert weiterverwendet, nicht abgeschrieben.
@@ -44,6 +44,7 @@ Kennungen aus Ergebnissen werden programmgesteuert weiterverwendet, nicht abgesc
 | ragents.lsp-fsharp.snapshot | ragents.lsp-fsharp | runs.read, ragents.lsp-fsharp.read |
 | ragents.lsp-roslyn.snapshot | ragents.lsp-roslyn | runs.read, ragents.lsp-roslyn.read |
 | ragents.lsp-typescript.snapshot | ragents.lsp-typescript | runs.read, ragents.lsp-typescript.read |
+| ragents.overseer.coordinator | ragents.overseer | ragents.overseer.read |
 | ragents.overseer.createRun | ragents.overseer | runs.read, runs.write, runs.create |
 | ragents.overseer.listRuns | ragents.overseer | runs.read |
 | ragents.overseer.readCatalog | ragents.overseer | runs.read, runs.inspect |
@@ -61,19 +62,19 @@ Kennungen aus Ergebnissen werden programmgesteuert weiterverwendet, nicht abgesc
 | ragents.processes.stop | ragents.processes | runs.read, runs.write, runs.inspect |
 | ragents.product.modelSettings.read | ragents.product | settings.read |
 | ragents.product.modelSettings.save | ragents.product | settings.read, settings.write |
+| ragents.runs.delete | host | runs.read, runs.delete |
 | ragents.runs.enqueueInput | host | keine festen Rechte |
 | ragents.runs.events | host | keine festen Rechte |
 | ragents.runs.export | host | runs.read, runs.inspect |
 | ragents.runs.import | host | runs.read, runs.write, runs.create |
 | ragents.runs.interruptTurn | host | keine festen Rechte |
+| ragents.runs.list | host | runs.read |
 | ragents.runs.prepare | host | runs.read, runs.write, runs.create |
 | ragents.runs.resolveAction | host | keine festen Rechte |
 | ragents.runs.restartActor | host | keine festen Rechte |
 | ragents.runs.stopActor | host | keine festen Rechte |
 | ragents.runs.stopAll | host | keine festen Rechte |
 | ragents.runs.view | host | keine festen Rechte |
-| ragents.sessions.delete | host | runs.read, runs.delete |
-| ragents.sessions.list | host | runs.read |
 | ragents.settings.read | host | settings.read |
 | ragents.settings.skill | host | settings.read |
 | ragents.settings.titles.read | host | settings.read |
@@ -93,7 +94,7 @@ Kennungen aus Ergebnissen werden programmgesteuert weiterverwendet, nicht abgesc
 | ragents.chat | host | keine festen Rechte |
 | ragents.processes | ragents.processes | runs.read, ragents.processes.read |
 | ragents.run | host | keine festen Rechte |
-| ragents.sessions | host | runs.read |
+| ragents.runs | host | runs.read |
 | ragents.workspace.browse | ragents.workspace | runs.read, runs.inspect |
 
 ## ragents.actor-programs.action
@@ -441,7 +442,7 @@ Eigentümer: ragents.actor-programs. Rechte: runs.read, runs.inspect. Ausführun
 
 ## ragents.ask.answer
 
-Eine Rückfrage des Laufs beantworten oder verwerfen. Rechte: runs.read und runs.write.
+Eine Rückfrage des Runs beantworten oder verwerfen. Rechte: runs.read und runs.write.
 
 Eigentümer: ragents.ask. Rechte: runs.read, runs.write. Ausführung: der Server.
 
@@ -566,7 +567,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.chat.send
 
-Eine Nachricht an den Koordinator des Runs; startet einen neuen Run oder funkt in einen laufenden. Mit entry startet sie den Run über diesen Skill-Einstieg und dessen festgelegte Startoptionen. Rechte: runs.read und runs.write, für einen neuen Run runs.create; beim globalen Chat dessen Rechte.
+Eine Nachricht an den Koordinator des Runs; startet einen neuen Run oder funkt in einen laufenden. Mit entry startet sie den Run über diese Skill-Vorlage und deren festgelegte Startoptionen. Rechte: runs.read und runs.write, für einen neuen Run runs.create; beim globalen Chat dessen Rechte.
 
 Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
@@ -622,7 +623,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
     "entry": {
       "type": "string",
       "minLength": 1,
-      "description": "Kennung des Skill-Einstiegs, über den diese Nachricht den Run startet"
+      "description": "Kennung der Skill-Vorlage, über die diese Nachricht den Run startet"
     }
   },
   "additionalProperties": false
@@ -707,7 +708,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.chat.start
 
-Einen Run über einen Run-Script-Einstieg starten, ohne Nachricht; die Startoptionen, die der Einstieg festlegt, gelten. Rechte: runs.read, runs.write und die Freigabe des Einstiegs.
+Einen Run über eine Script-Vorlage starten, ohne Nachricht; die Startoptionen, die die Vorlage festlegt, gelten. Rechte: runs.read, runs.write und die Freigabe der Vorlage.
 
 Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
@@ -781,7 +782,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.documents.files
 
-Die Dateiablage eines Laufs als Gruppen und lose Dateien. Recht: runs.read.
+Die Dateiablage eines Runs als Gruppen und lose Dateien. Recht: runs.read.
 
 Eigentümer: ragents.documents. Rechte: runs.read. Ausführung: der Server.
 
@@ -943,7 +944,7 @@ Eigentümer: host. Rechte: settings.write. Ausführung: der Server.
 
 ## ragents.lsp-fsharp.snapshot
 
-Zustand und Diagnosen des Sprachservers ragents.lsp-fsharp in einem Lauf. Rechte: runs.read und ragents.lsp-fsharp.read.
+Zustand und Diagnosen des Sprachservers ragents.lsp-fsharp in einem Run. Rechte: runs.read und ragents.lsp-fsharp.read.
 
 Eigentümer: ragents.lsp-fsharp. Rechte: runs.read, ragents.lsp-fsharp.read. Ausführung: der Server.
 
@@ -979,7 +980,7 @@ Eigentümer: ragents.lsp-fsharp. Rechte: runs.read, ragents.lsp-fsharp.read. Aus
 
 ## ragents.lsp-roslyn.snapshot
 
-Zustand und Diagnosen des Sprachservers ragents.lsp-roslyn in einem Lauf. Rechte: runs.read und ragents.lsp-roslyn.read.
+Zustand und Diagnosen des Sprachservers ragents.lsp-roslyn in einem Run. Rechte: runs.read und ragents.lsp-roslyn.read.
 
 Eigentümer: ragents.lsp-roslyn. Rechte: runs.read, ragents.lsp-roslyn.read. Ausführung: der Server.
 
@@ -1015,7 +1016,7 @@ Eigentümer: ragents.lsp-roslyn. Rechte: runs.read, ragents.lsp-roslyn.read. Aus
 
 ## ragents.lsp-typescript.snapshot
 
-Zustand und Diagnosen des Sprachservers ragents.lsp-typescript in einem Lauf. Rechte: runs.read und ragents.lsp-typescript.read.
+Zustand und Diagnosen des Sprachservers ragents.lsp-typescript in einem Run. Rechte: runs.read und ragents.lsp-typescript.read.
 
 Eigentümer: ragents.lsp-typescript. Rechte: runs.read, ragents.lsp-typescript.read. Ausführung: der Server.
 
@@ -1046,6 +1047,39 @@ Eigentümer: ragents.lsp-typescript. Rechte: runs.read, ragents.lsp-typescript.r
   "type": "object",
   "additionalProperties": true,
   "x-typescript-type": "LanguageServerSnapshot"
+}
+```
+
+## ragents.overseer.coordinator
+
+Die Run-ID des eigenen globalen Koordinators lesen: je angemeldetem Benutzer einer, ohne Anmeldung genau einer.
+
+Eigentümer: ragents.overseer. Rechte: ragents.overseer.read. Ausführung: der Server.
+
+### Eingabe
+
+```json
+{
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}
+```
+
+### Ergebnis
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -1176,7 +1210,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.write, runs.create. Ausf�
 
 ## ragents.overseer.listRuns
 
-Vorhandene Unterhaltungen des Profils mit stabilen Referenzen auflisten; der globale Chat gehört nicht zu dieser Liste.
+Die Runs, die der Aufrufer sieht, mit stabilen Referenzen auflisten; die globalen Koordinatoren gehören nicht zu dieser Liste.
 
 Eigentümer: ragents.overseer. Rechte: runs.read. Ausführung: der Server.
 
@@ -1236,7 +1270,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read. Ausführung: der Server.
 
 ## ragents.overseer.readCatalog
 
-Installierte Start-Einstiege und Startoptionen mit Eingabeschemata, Standardwerten und Wählbarkeit lesen. createRun startet Nachrichten, installierte Scripts oder lokale Pakete via packageDirectory. Skills liefern bearbeitbare Aufträge für message; dabei den Skillnamen als Arbeitsanleitung nennen.
+Installierte Vorlagen und Startoptionen mit Eingabeschemata, Standardwerten und Wählbarkeit lesen. createRun startet Nachrichten, installierte Scripts oder lokale Pakete via packageDirectory. Skills liefern bearbeitbare Aufträge für message; dabei den Skillnamen als Arbeitsanleitung nennen.
 
 Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der Server.
 
@@ -1351,7 +1385,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
       "type": "string",
       "minLength": 1,
       "maxLength": 512,
-      "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Lauf 1."
+      "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Run 1."
     },
     "after": {
       "type": "integer",
@@ -1397,6 +1431,10 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
         {
           "type": "string",
           "const": "turn.started"
+        },
+        {
+          "type": "string",
+          "const": "turn.input-steered"
         },
         {
           "type": "string",
@@ -1609,6 +1647,10 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
               },
               {
                 "type": "string",
+                "const": "turn.input-steered"
+              },
+              {
+                "type": "string",
                 "const": "turn.finished"
               },
               {
@@ -1787,7 +1829,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
       "type": "string",
       "minLength": 1,
       "maxLength": 512,
-      "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Lauf 1."
+      "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Run 1."
     }
   },
   "additionalProperties": false
@@ -1948,7 +1990,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
 
 ## ragents.overseer.reset
 
-Das Gespräch des übergeordneten Koordinators samt Modellkontext zurücksetzen; die Modellauswahl und alle Runs bleiben erhalten.
+Das Gespräch des eigenen globalen Koordinators samt Modellkontext zurücksetzen; die Modellauswahl, die Koordinatoren anderer Benutzer und alle Runs bleiben erhalten.
 
 Eigentümer: ragents.overseer. Rechte: ragents.overseer.read, ragents.overseer.write. Ausführung: der Server.
 
@@ -1999,7 +2041,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.write. Ausführung: der S
       "type": "string",
       "minLength": 1,
       "maxLength": 512,
-      "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Lauf 1."
+      "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Run 1."
     },
     "message": {
       "type": "string",
@@ -2043,7 +2085,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.write. Ausführung: der S
 
 ## ragents.overseer.settings.read
 
-Die Modellauswahl des übergeordneten Koordinators mit dem verfügbaren Modellkatalog lesen.
+Die Modellauswahl des globalen Koordinators mit dem verfügbaren Modellkatalog lesen.
 
 Eigentümer: ragents.overseer. Rechte: ragents.overseer.read. Ausführung: der Server.
 
@@ -2115,7 +2157,7 @@ Eigentümer: ragents.overseer. Rechte: ragents.overseer.read. Ausführung: der S
 
 ## ragents.overseer.settings.save
 
-Die Modellauswahl des übergeordneten Koordinators setzen; sie gilt ab der nächsten Antwort.
+Die Modellauswahl des globalen Koordinators setzen; sie gilt ab der nächsten Antwort.
 
 Eigentümer: ragents.overseer. Rechte: ragents.overseer.read, ragents.overseer.write, settings.write. Ausführung: der Server.
 
@@ -2208,7 +2250,7 @@ Eigentümer: ragents.overseer. Rechte: ragents.overseer.read, ragents.overseer.w
 
 ## ragents.overseer.stopRun
 
-Den Run über seine normale Stoppgrenze stoppen und die Bereinigung abwarten; die Unterhaltung bleibt erhalten.
+Den Run über seine normale Stoppgrenze stoppen und die Bereinigung abwarten; das Gespräch bleibt erhalten.
 
 Eigentümer: ragents.overseer. Rechte: runs.read, runs.write. Ausführung: der Server.
 
@@ -2225,7 +2267,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.write. Ausführung: der S
       "type": "string",
       "minLength": 1,
       "maxLength": 512,
-      "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Lauf 1."
+      "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Run 1."
     }
   },
   "additionalProperties": false
@@ -2264,7 +2306,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.write. Ausführung: der S
 
 ## ragents.plugins.bootstrap
 
-Produkt, aktive Plugins mit Web-Konfiguration und freigegebene Einstiege für die Oberfläche.
+Produkt, aktive Plugins mit Web-Konfiguration und freigegebene Vorlagen für die Oberfläche.
 
 Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
@@ -2290,7 +2332,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.processes.snapshot
 
-Die beobachteten Prozesse eines Laufs mit ihren offenen Ports. Rechte: runs.read und ragents.processes.read.
+Die beobachteten Prozesse eines Runs mit ihren offenen Ports. Rechte: runs.read und ragents.processes.read.
 
 Eigentümer: ragents.processes. Rechte: runs.read, ragents.processes.read. Ausführung: der Server.
 
@@ -2326,7 +2368,7 @@ Eigentümer: ragents.processes. Rechte: runs.read, ragents.processes.read. Ausf�
 
 ## ragents.processes.stop
 
-Einen Prozess des Laufs beenden. Rechte: runs.read, runs.write und runs.inspect.
+Einen Prozess des Runs beenden. Rechte: runs.read, runs.write und runs.inspect.
 
 Eigentümer: ragents.processes. Rechte: runs.read, runs.write, runs.inspect. Ausführung: der Server.
 
@@ -2366,7 +2408,7 @@ Eigentümer: ragents.processes. Rechte: runs.read, runs.write, runs.inspect. Aus
 
 ## ragents.product.modelSettings.read
 
-Die Modellvorgaben der Agentprofile mit dem verfügbaren Modellkatalog. Recht: settings.read.
+Die Modellvorgaben der Rollen mit dem verfügbaren Modellkatalog. Recht: settings.read.
 
 Eigentümer: ragents.product. Rechte: settings.read. Ausführung: der Server.
 
@@ -2392,7 +2434,7 @@ Eigentümer: ragents.product. Rechte: settings.read. Ausführung: der Server.
 
 ## ragents.product.modelSettings.save
 
-Die Modellvorgaben der Agentprofile speichern. Rechte: settings.read und settings.write.
+Die Modellvorgaben der Rollen speichern. Rechte: settings.read und settings.write.
 
 Eigentümer: ragents.product. Rechte: settings.read, settings.write. Ausführung: der Server.
 
@@ -2422,6 +2464,40 @@ Eigentümer: ragents.product. Rechte: settings.read, settings.write. Ausführung
   "type": "object",
   "additionalProperties": true,
   "x-typescript-type": "ProductModelSettings"
+}
+```
+
+## ragents.runs.delete
+
+Einen Run mit seinen Daten löschen. Rechte: runs.read und runs.delete.
+
+Eigentümer: host. Rechte: runs.read, runs.delete. Ausführung: der Server.
+
+### Eingabe
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Kennung des Runs"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Ergebnis
+
+```json
+{
+  "type": "null"
 }
 ```
 
@@ -2532,7 +2608,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.runs.export
 
-Einen gestoppten Run als Archiv holen: Journal, Payloads, Modellkontexte und die Plugin-Ablagen seiner Session. Rechte: runs.read und runs.inspect.
+Einen gestoppten Run als Archiv holen: Journal, Payloads, Modellkontexte und seine Plugin-Ablagen. Rechte: runs.read und runs.inspect.
 
 Eigentümer: host. Rechte: runs.read, runs.inspect. Ausführung: der Server.
 
@@ -2661,6 +2737,35 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
   "type": "object",
   "additionalProperties": true,
   "x-typescript-type": "RunView"
+}
+```
+
+## ragents.runs.list
+
+Alle Runs des Profils mit Titel, Zeiten und Metadaten. Recht: runs.read.
+
+Eigentümer: host. Rechte: runs.read. Ausführung: der Server.
+
+### Eingabe
+
+```json
+{
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}
+```
+
+### Ergebnis
+
+```json
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": true,
+    "x-typescript-type": "SessionInfo"
+  }
 }
 ```
 
@@ -2993,69 +3098,6 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
       "type": "null"
     }
   ]
-}
-```
-
-## ragents.sessions.delete
-
-Einen Run mit seinen Daten löschen. Rechte: runs.read und runs.delete.
-
-Eigentümer: host. Rechte: runs.read, runs.delete. Ausführung: der Server.
-
-### Eingabe
-
-```json
-{
-  "type": "object",
-  "required": [
-    "runId"
-  ],
-  "properties": {
-    "runId": {
-      "type": "string",
-      "minLength": 1,
-      "maxLength": 64,
-      "description": "Kennung des Runs"
-    }
-  },
-  "additionalProperties": false
-}
-```
-
-### Ergebnis
-
-```json
-{
-  "type": "null"
-}
-```
-
-## ragents.sessions.list
-
-Alle Runs des Profils mit Titel, Zeiten und Metadaten. Recht: runs.read.
-
-Eigentümer: host. Rechte: runs.read. Ausführung: der Server.
-
-### Eingabe
-
-```json
-{
-  "type": "object",
-  "properties": {},
-  "additionalProperties": false
-}
-```
-
-### Ergebnis
-
-```json
-{
-  "type": "array",
-  "items": {
-    "type": "object",
-    "additionalProperties": true,
-    "x-typescript-type": "SessionInfo"
-  }
 }
 ```
 
@@ -3402,7 +3444,8 @@ Eigentümer: ragents.workspace. Rechte: runs.read. Ausführung: der Server.
       "label",
       "hostname",
       "platform",
-      "folders"
+      "folders",
+      "runsDirectory"
     ],
     "properties": {
       "id": {
@@ -3428,6 +3471,11 @@ Eigentümer: ragents.workspace. Rechte: runs.read. Ausführung: der Server.
           "minLength": 1
         },
         "maxItems": 32
+      },
+      "runsDirectory": {
+        "type": "string",
+        "minLength": 1,
+        "description": "Absoluter Ordner, unter dem der Arbeitsplatz die neuen Ordner je Run anlegt"
       }
     },
     "additionalProperties": false
@@ -3452,6 +3500,7 @@ Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
     "hostname",
     "platform",
     "folders",
+    "runsDirectory",
     "executor"
   ],
   "properties": {
@@ -3481,6 +3530,11 @@ Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
       },
       "maxItems": 32
     },
+    "runsDirectory": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Absoluter Ordner, unter dem der Arbeitsplatz die neuen Ordner je Run anlegt"
+    },
     "executor": {
       "type": "string",
       "minLength": 1,
@@ -3502,7 +3556,8 @@ Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
     "label",
     "hostname",
     "platform",
-    "folders"
+    "folders",
+    "runsDirectory"
   ],
   "properties": {
     "id": {
@@ -3528,6 +3583,11 @@ Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
         "minLength": 1
       },
       "maxItems": 32
+    },
+    "runsDirectory": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Absoluter Ordner, unter dem der Arbeitsplatz die neuen Ordner je Run anlegt"
     }
   },
   "additionalProperties": false
@@ -3605,7 +3665,7 @@ Eigentümer: host. Rechte: keine festen Rechte.
 
 ## Kanal ragents.processes
 
-Der laufende Stand der Prozessüberwachung eines Laufs. Rechte: runs.read und ragents.processes.read.
+Der laufende Stand der Prozessüberwachung eines Runs. Rechte: runs.read und ragents.processes.read.
 
 Eigentümer: ragents.processes. Rechte: runs.read, ragents.processes.read.
 
@@ -3690,7 +3750,7 @@ Eigentümer: host. Rechte: keine festen Rechte.
 }
 ```
 
-## Kanal ragents.sessions
+## Kanal ragents.runs
 
 Meldet jede Änderung der Run-Liste. Recht: runs.read.
 

@@ -313,7 +313,7 @@ export const actorProgramSourceFrom = (value: unknown): ActorProgramSourceFile[]
 
 export const actorProgramsListingFrom = (value: unknown): ActorProgramsListing => {
   if (!isRecord(value) || !Array.isArray(value.apps) || !Array.isArray(value.tools)) {
-    throw new Error("Die Run-Modul-Liste entspricht nicht dem Vertrag");
+    throw new Error("Die Liste der Actor-Programme entspricht nicht dem Vertrag");
   }
   return {
     apps: unique(value.apps.map(runAppFrom), (app) => app.id, "apps"),

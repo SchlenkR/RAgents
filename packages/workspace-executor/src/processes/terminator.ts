@@ -77,7 +77,7 @@ export class RunProcessTerminator {
       if (first && processId !== undefined && selected.length > 0) {
         const record = selected[0];
         if (processIdOf(record) !== processId) throw new WorkspaceOperationError("stale-process", "Die Prozess-ID wurde inzwischen neu vergeben. Bitte die Prozessliste aktualisieren.", 409);
-        if (markers.get(record.pid) !== runId) throw new WorkspaceOperationError("process-run-mismatch", "Der Prozess gehört nicht zu diesem Lauf", 403);
+        if (markers.get(record.pid) !== runId) throw new WorkspaceOperationError("process-run-mismatch", "Der Prozess gehört nicht zu diesem Run", 403);
       }
       first = false;
       const targets = readable.filter((record) => markers.get(record.pid) === runId
@@ -100,7 +100,7 @@ export class RunProcessTerminator {
             } else if (attempt.killAt === undefined && Date.now() - attempt.termAt >= this.#termGraceMs) {
               if (await this.#signal(record, runId, "SIGKILL", context, deadline)) attempt.killAt = Date.now();
             } else if (attempt.killAt !== undefined && Date.now() - attempt.killAt >= this.#killGraceMs) {
-              throw new Error(`Prozess ${record.pid} von Lauf ${runId} ist nach SIGKILL noch aktiv`);
+              throw new Error(`Prozess ${record.pid} von Run ${runId} ist nach SIGKILL noch aktiv`);
             }
           } catch (error) {
             this.#assertActive(context, deadline);
@@ -149,7 +149,7 @@ export class RunProcessTerminator {
     const records = await this.#bounded(this.#options.table.list(), deadline);
     const current = records.find((record) => record.pid === expected.pid);
     if (!current || current.startKey !== expected.startKey || current.uid !== expected.uid) return false;
-    if (markers.get(current.pid) !== runId) throw new WorkspaceOperationError("process-run-mismatch", `Prozess ${current.pid} gehört nicht mehr zu diesem Lauf`, 403);
+    if (markers.get(current.pid) !== runId) throw new WorkspaceOperationError("process-run-mismatch", `Prozess ${current.pid} gehört nicht mehr zu diesem Run`, 403);
     this.#assertUnprotected(current, records);
     this.#assertActive(context, deadline);
     try {

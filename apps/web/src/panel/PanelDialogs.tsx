@@ -1,8 +1,8 @@
 import { FolderOpenIcon } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Input, Label, Toggle } from "../ui";
-import type { PanelAction, PanelState, TargetKind, TargetView } from "./contract";
-import { busyState } from "./target-state";
+import { busyState } from "./connection-state";
+import type { ConnectionKind, ConnectionView, PanelAction, PanelState } from "./contract";
 import { LoginForm } from "./LoginForm";
 
 const PROFILE_FILE = /^ragents\.config\.([a-z0-9]+(?:-[a-z0-9]+)*)\.ts$/;
@@ -22,7 +22,7 @@ function PanelDialog({ title, onClose, children }: { title: string; onClose: () 
   </Dialog>;
 }
 
-/** Die Sicherheitsfrage vor einer Handlung, die nichts zurücknimmt: Entfernen einer Umgebung, Löschen von Runs. */
+/** Die Sicherheitsfrage vor einer Handlung, die nichts zurücknimmt: Entfernen eines Servers, Löschen von Runs. */
 export function ConfirmDialog({ title, confirmLabel, onConfirm, onClose, children }: {
   title: string;
   confirmLabel: string;
@@ -39,31 +39,31 @@ export function ConfirmDialog({ title, confirmLabel, onConfirm, onClose, childre
   </PanelDialog>;
 }
 
-/** Die Anmeldung einer Umgebung, von der Start-Seite wie von der Seite Umgebungen derselbe Dialog. */
-export function LoginDialog({ target, onClose, send }: { target: TargetView; onClose: () => void; send: (action: PanelAction) => void }) {
-  const demanded = target.state.kind === "login-required" ? target.state.mode : "password";
+/** Die Anmeldung an einem Server, von der Start-Seite wie von der Seite Server derselbe Dialog. */
+export function LoginDialog({ connection, onClose, send }: { connection: ConnectionView; onClose: () => void; send: (action: PanelAction) => void }) {
+  const demanded = connection.state.kind === "login-required" ? connection.state.mode : "password";
   const [mode, setMode] = useState<"password" | "token">(demanded);
-  useEffect(() => { if (target.state.kind === "connected") onClose(); }, [onClose, target.state.kind]);
-  return <PanelDialog onClose={onClose} title={`Anmelden an ${target.name}`}>
+  useEffect(() => { if (connection.state.kind === "connected") onClose(); }, [onClose, connection.state.kind]);
+  return <PanelDialog onClose={onClose} title={`Anmelden an ${connection.name}`}>
     <div aria-label="Art der Anmeldung" className="flex gap-1.5" role="group">
       <Toggle onPressedChange={() => setMode("password")} pressed={mode === "password"} size="sm" variant="outline">Benutzer</Toggle>
       <Toggle onPressedChange={() => setMode("token")} pressed={mode === "token"} size="sm" variant="outline">Zugangstoken</Toggle>
     </div>
-    <LoginForm busy={busyState(target)} key={mode} mode={mode} onCancel={onClose} send={send} submitLabel="Anmelden" target={target} />
+    <LoginForm busy={busyState(connection)} connection={connection} key={mode} mode={mode} onCancel={onClose} send={send} submitLabel="Anmelden" />
   </PanelDialog>;
 }
 
-/** Anlegen und Bearbeiten einer Umgebung; Bearbeiten schickt update und behält damit die gespeicherten Anmeldedaten. */
-export function TargetDialog({ state, target, onClose, send }: {
+/** Anlegen und Bearbeiten eines Servers; Bearbeiten schickt update und behält damit die gespeicherten Anmeldedaten. */
+export function ConnectionDialog({ state, connection, onClose, send }: {
   state: PanelState;
-  target: TargetView | undefined;
+  connection: ConnectionView | undefined;
   onClose: () => void;
   send: (action: PanelAction) => void;
 }) {
-  const [kind, setKind] = useState<TargetKind>(target?.kind ?? "server");
-  const [name, setName] = useState(target?.name ?? "");
-  const [url, setUrl] = useState(target?.kind === "server" ? target.address : "");
-  const [profileFile, setProfileFile] = useState(target?.kind === "profile" ? target.address : "");
+  const [kind, setKind] = useState<ConnectionKind>(connection?.kind ?? "server");
+  const [name, setName] = useState(connection?.name ?? "");
+  const [url, setUrl] = useState(connection?.kind === "server" ? connection.address : "");
+  const [profileFile, setProfileFile] = useState(connection?.kind === "profile" ? connection.address : "");
   const [sent, setSent] = useState<{ name: string; at: PanelState }>();
   const picked = state.pickedProfileFile;
   const settled = sent !== undefined && sent.at !== state;
@@ -76,7 +76,7 @@ export function TargetDialog({ state, target, onClose, send }: {
   useEffect(() => {
     if (!settled || sent === undefined) return;
     if (state.problem !== undefined) setSent(undefined);
-    else if (state.targets.some((entry) => entry.name === sent.name)) onClose();
+    else if (state.connections.some((entry) => entry.name === sent.name)) onClose();
   }, [onClose, sent, settled, state]);
   const takeProfile = (file: string) => {
     setProfileFile(file);
@@ -86,23 +86,23 @@ export function TargetDialog({ state, target, onClose, send }: {
   const submit = (event: FormEvent) => {
     event.preventDefault();
     setSent({ name: name.trim(), at: state });
-    if (target === undefined) send(kind === "server" ? { action: "addServer", name, url } : { action: "addProfile", name, profileFile });
+    if (connection === undefined) send(kind === "server" ? { action: "addServer", name, url } : { action: "addProfile", name, profileFile });
     else send(kind === "server"
-      ? { action: "updateServer", name: target.name, newName: name, url }
-      : { action: "updateProfile", name: target.name, newName: name, profileFile });
+      ? { action: "updateServer", name: connection.name, newName: name, url }
+      : { action: "updateProfile", name: connection.name, newName: name, profileFile });
   };
-  return <PanelDialog onClose={onClose} title={target ? `${target.name} bearbeiten` : "Neue Umgebung"}>
+  return <PanelDialog onClose={onClose} title={connection ? `${connection.name} bearbeiten` : "Neuer Server"}>
     <form className="grid gap-3" onSubmit={submit}>
-      <div aria-label="Art der Umgebung" className="flex gap-1.5" role="group">
+      <div aria-label="Art des Servers" className="flex gap-1.5" role="group">
         <Toggle onPressedChange={() => setKind("server")} pressed={kind === "server"} size="sm" variant="outline">Server</Toggle>
         <Toggle onPressedChange={() => setKind("profile")} pressed={kind === "profile"} size="sm" variant="outline">Lokales Profil</Toggle>
       </div>
       {kind === "server"
-        ? <div className="grid gap-1.5"><Label htmlFor="target-url">Adresse</Label><Input id="target-url" onChange={(event) => setUrl(event.target.value)} placeholder="https://werkstatt.example.com" value={url} /></div>
+        ? <div className="grid gap-1.5"><Label htmlFor="connection-url">Adresse</Label><Input id="connection-url" onChange={(event) => setUrl(event.target.value)} placeholder="https://werkstatt.example.com" value={url} /></div>
         : <div className="grid gap-1.5">
-          <Label htmlFor="target-profile-file">Profildatei</Label>
+          <Label htmlFor="connection-profile-file">Profildatei</Label>
           <div className="flex items-center gap-2">
-            <Input aria-label="Profildatei" className="min-w-0 flex-1 font-mono text-[0.72rem]" id="target-profile-file" onChange={(event) => setProfileFile(event.target.value)} placeholder="~/repos/RAgents/ragents.config.core.ts" title={profileFile} value={profileFile} />
+            <Input aria-label="Profildatei" className="min-w-0 flex-1 font-mono text-[0.72rem]" id="connection-profile-file" onChange={(event) => setProfileFile(event.target.value)} placeholder="~/repos/RAgents/ragents.config.core.ts" title={profileFile} value={profileFile} />
             <Button className="flex-none" onClick={() => send({ action: "pickProfile" })} size="sm" type="button" variant="secondary"><FolderOpenIcon data-icon="inline-start" />Datei wählen ...</Button>
           </div>
           {state.profileSuggestions.length > 0 && <>
@@ -118,14 +118,14 @@ export function TargetDialog({ state, target, onClose, send }: {
           </>}
         </div>}
       <div className="grid gap-1.5">
-        <Label htmlFor="target-name">Name</Label>
-        <Input id="target-name" onChange={(event) => setName(event.target.value)} placeholder={kind === "server" ? "Werkstatt" : "core"} value={name} />
+        <Label htmlFor="connection-name">Name</Label>
+        <Input id="connection-name" onChange={(event) => setName(event.target.value)} placeholder={kind === "server" ? "Werkstatt" : "core"} value={name} />
         {kind === "profile" && <span className="text-[0.68rem] text-muted-foreground">aus dem Dateinamen übernommen, überschreibbar</span>}
       </div>
       {state.problem && <p className="text-[0.75rem] leading-normal text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
       <div className="mt-1 flex flex-wrap justify-end gap-2">
         <Button onClick={onClose} size="sm" type="button" variant="ghost">Abbrechen</Button>
-        <Button disabled={!name.trim() || !value.trim()} size="sm" type="submit">{target ? "Speichern" : "Anlegen"}</Button>
+        <Button disabled={!name.trim() || !value.trim()} size="sm" type="submit">{connection ? "Speichern" : "Anlegen"}</Button>
       </div>
     </form>
   </PanelDialog>;

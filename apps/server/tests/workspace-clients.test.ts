@@ -17,7 +17,11 @@ import { coreSources, dispatchMethod, startRpcServer } from "./rpc-fixture.ts";
 const CLIENT = "client-00000001";
 
 const description = (folders: string[] = ["/home/beispiel/project"]) =>
-  ({ label: "Laptop", hostname: "laptop", platform: "darwin", folders });
+  ({ label: "Laptop", hostname: "laptop", platform: "darwin", folders, runsDirectory: "/home/beispiel/.local/share/ragents/workspace/runs" });
+
+const onServer = (folder: "fresh" | { path: string }) => ({ machine: "server", folder });
+
+const onLaptop = (folder: "fresh" | { path: string }, label = "") => ({ machine: { client: CLIENT, label }, folder });
 
 const until = async (condition: () => boolean, timeoutMs = 3000) => {
   const started = Date.now();
@@ -192,83 +196,117 @@ test("a registration without an event stream is refused", async (t) => {
   }), (error: unknown) => error instanceof RpcError && error.domainCode === "stream-required" && error.status === 409);
 });
 
-test("the start option accepts only bindings that can be resolved later", async () => {
+test("the start option accepts only bindings that can be resolved later, on both machines and with both folders", async () => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-binding-")));
   try {
     const { registry, connection } = await registryWith();
     const option = workspaceBindingOption(registry, () => undefined);
     const context = { runId: "run-1", userId: "alice" };
-    assert.deepEqual(option.defaultValue(context), { kind: "fresh" });
-    assert.deepEqual(option.accept({ kind: "fresh" }, context), { kind: "fresh" });
-    assert.throws(() => option.accept({ kind: "path", path: "relative" }, context), /absoluter Pfad/);
-    assert.throws(() => option.accept({ kind: "path", path: path.join(root, "missing") }, context), /existiert auf dem Server nicht/);
+    assert.deepEqual(option.defaultValue(context), onServer("fresh"));
+    assert.deepEqual(option.accept(onServer("fresh"), context), onServer("fresh"));
+    assert.throws(() => option.accept(onServer({ path: "relative" }), context), /absoluter Pfad/);
+    assert.throws(() => option.accept(onServer({ path: path.join(root, "missing") }), context), /existiert auf dem Server nicht/);
     await mkdir(path.join(root, "project"));
-    assert.deepEqual(option.accept({ kind: "path", path: path.join(root, "project") }, context), { kind: "path", path: path.join(root, "project") });
-    assert.throws(() => option.accept({ kind: "client", client: CLIENT, label: "", path: "/home/other" }, context), /bietet den Ordner/);
+    assert.deepEqual(option.accept(onServer({ path: path.join(root, "project") }), context), onServer({ path: path.join(root, "project") }));
+    assert.throws(() => option.accept({ machine: "server", folder: { path: path.join(root, "project"), fresh: true } }, context),
+      (error: unknown) => error instanceof DomainError && error.code === "workspace-binding-invalid");
+    assert.throws(() => option.accept(onLaptop({ path: "/home/other" }), context), /bietet den Ordner/);
     assert.deepEqual(
-      option.accept({ kind: "client", client: CLIENT, label: "", path: "/home/beispiel/project/src" }, context),
-      { kind: "client", client: CLIENT, label: "Laptop", path: "/home/beispiel/project/src" },
+      option.accept(onLaptop({ path: "/home/beispiel/project/src" }), context),
+      onLaptop({ path: "/home/beispiel/project/src" }, "Laptop"),
     );
-    assert.deepEqual(option.describe({ kind: "fresh" }, context), {
+    const fresh = { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "/home/beispiel/.local/share/ragents/workspace/runs/run-1", fresh: true } };
+    assert.deepEqual(option.accept(onLaptop("fresh"), context), fresh, "der neue Ordner bekommt seinen Pfad unter dem Ordner für Runs des Arbeitsplatzes");
+    assert.deepEqual(option.accept(fresh, context), fresh, "ein schon eingefrorener neuer Ordner bleibt derselbe");
+    assert.deepEqual(option.describe(onServer("fresh"), context), {
       kind: "workspace-binding",
       clients: [{ ...description(), id: CLIENT }],
-      freshLabel: "Leerer Ordner je Run",
+      fresh: { server: "Leerer Ordner je Run", client: "Leerer Ordner je Run" },
       serverFolders: true,
     });
     connection.end();
-    assert.throws(() => option.accept({ kind: "client", client: CLIENT, label: "", path: "/home/beispiel/project" }, context), /nicht verbunden/);
-    assert.deepEqual(option.describe({ kind: "fresh" }, context), {
+    assert.throws(() => option.accept(onLaptop({ path: "/home/beispiel/project" }), context), /nicht verbunden/);
+    assert.throws(() => option.accept(onLaptop("fresh"), context), /nicht verbunden/);
+    assert.deepEqual(option.describe(onServer("fresh"), context), {
       kind: "workspace-binding",
       clients: [],
-      freshLabel: "Leerer Ordner je Run",
+      fresh: { server: "Leerer Ordner je Run", client: "Leerer Ordner je Run" },
       serverFolders: true,
     });
-    assert.throws(() => option.accept({ kind: "elsewhere" }, context), /kein gültiges Format/);
+    assert.throws(() => option.accept({ kind: "fresh" }, context), /kein gültiges Format/, "die Form vor der Trennung ist keine Wahl mehr");
+    assert.throws(() => option.accept({ machine: "elsewhere", folder: "fresh" }, context), /kein gültiges Format/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
 });
 
-test("a contributed workspace names the first kind and keeps folders of the server out", async () => {
+test("a new folder per run on a workplace sits under its runs folder with the separator of that machine", async () => {
+  const registry = new WorkspaceClientRegistry();
+  await registry.register(CLIENT, { ...description(["C:\\projekte\\werkstatt"]), platform: "win32", runsDirectory: "C:\\ragents\\runs\\" },
+    WORKSPACE_EXECUTOR_VERSION, stubConnection());
+  const option = workspaceBindingOption(registry, () => undefined);
+  assert.deepEqual(option.accept(onLaptop("fresh"), { runId: "run-7", userId: "alice" }), {
+    machine: { client: CLIENT, label: "Laptop" },
+    folder: { path: "C:\\ragents\\runs\\run-7", fresh: true },
+  });
+});
+
+test("a contribution names the new folder on the server, keeps folders of the server out and offers none on a workplace unless it brings one", async () => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-binding-")));
   try {
     const { registry } = await registryWith();
     const kind = { id: "example.worktree", label: "Worktree je Run", serverFolders: false };
-    const option = workspaceBindingOption(registry, () => kind);
+    const resolve = () => Promise.reject(new Error("nicht gefragt"));
+    const option = workspaceBindingOption(registry, () => ({ kind, resolve }));
     const context = { runId: "run-1", userId: "alice" };
     await mkdir(path.join(root, "project"));
     assert.throws(
-      () => option.accept({ kind: "path", path: path.join(root, "project") }, context),
+      () => option.accept(onServer({ path: path.join(root, "project") }), context),
       (error: unknown) => error instanceof DomainError && error.code === "workspace-binding-unsupported"
         && error.message.includes("Worktree je Run"),
     );
-    assert.deepEqual(option.accept({ kind: "fresh" }, context), { kind: "fresh" });
-    assert.deepEqual(option.describe({ kind: "fresh" }, context), {
+    assert.deepEqual(option.accept(onServer("fresh"), context), onServer("fresh"));
+    assert.throws(
+      () => option.accept(onLaptop("fresh"), context),
+      (error: unknown) => error instanceof DomainError && error.code === "workspace-binding-unsupported" && error.message.includes("nur auf dem Server"),
+    );
+    assert.deepEqual(option.accept(onLaptop({ path: "/home/beispiel/project" }), context), onLaptop({ path: "/home/beispiel/project" }, "Laptop"));
+    assert.deepEqual(option.describe(onServer("fresh"), context), {
       kind: "workspace-binding",
       clients: [{ ...description(), id: CLIENT }],
-      freshLabel: "Worktree je Run",
+      fresh: { server: "Worktree je Run", client: null },
       serverFolders: false,
     });
+    const workstation = { label: "Git-Worktree je Run", prepare: () => [] };
+    const both = workspaceBindingOption(registry, () => ({ kind, workstation, resolve }));
+    assert.equal((both.accept(onLaptop("fresh"), context) as { folder: { fresh?: boolean } }).folder.fresh, true);
+    assert.deepEqual((both.describe(onServer("fresh"), context) as { fresh: unknown }).fresh, { server: "Worktree je Run", client: "Git-Worktree je Run" });
   } finally {
     await rm(root, { recursive: true, force: true });
   }
 });
 
-test("a workplace of another user is neither offered nor accepted as binding, and only a workplace binding reserves the run for its owner", async () => {
+test("a workplace of another user is neither offered nor accepted as binding, and only a workplace reserves the run for its owner", async () => {
   const { registry } = await registryWith();
   const option = workspaceBindingOption(registry, () => undefined);
-  const binding = { kind: "client", client: CLIENT, label: "", path: "/home/beispiel/project" };
+  const binding = onLaptop({ path: "/home/beispiel/project" });
   const alice = { runId: "run-1", userId: "alice" };
   const bob = { runId: "run-2", userId: "bob" };
-  assert.deepEqual(option.accept(binding, alice), { ...binding, label: "Laptop" });
+  assert.deepEqual(option.accept(binding, alice), onLaptop({ path: "/home/beispiel/project" }, "Laptop"));
   assert.throws(() => option.accept(binding, bob), (error: unknown) =>
     error instanceof DomainError && error.code === "workspace-client-disconnected" && error.status === 409);
+  assert.throws(() => option.accept(onLaptop("fresh"), bob), (error: unknown) =>
+    error instanceof DomainError && error.code === "workspace-client-disconnected");
   assert.throws(() => option.accept(binding, { runId: "run-3", userId: null }), /nicht verbunden/);
-  assert.deepEqual((option.describe({ kind: "fresh" }, alice) as { clients: unknown[] }).clients, [{ ...description(), id: CLIENT }]);
-  assert.deepEqual((option.describe({ kind: "fresh" }, bob) as { clients: unknown[] }).clients, []);
+  assert.deepEqual((option.describe(onServer("fresh"), alice) as { clients: unknown[] }).clients, [{ ...description(), id: CLIENT }]);
+  assert.deepEqual((option.describe(onServer("fresh"), bob) as { clients: unknown[] }).clients, []);
 
-  assert.equal(option.ownerOnly?.({ ...binding, label: "Laptop" }), true);
-  assert.equal(option.ownerOnly?.({ kind: "fresh" }), false);
+  assert.equal(option.ownerOnly?.(onLaptop({ path: "/home/beispiel/project" }, "Laptop")), true);
+  assert.equal(option.ownerOnly?.(option.accept(onLaptop("fresh"), alice)), true, "auch der neue Ordner auf dem Arbeitsplatz");
+  assert.equal(option.ownerOnly?.(onServer("fresh")), false);
+  assert.equal(option.ownerOnly?.(onServer({ path: "/srv/project" })), false);
+  assert.equal(option.ownerOnly?.({ kind: "client", client: CLIENT, label: "Laptop", path: "/home/beispiel/project" }), true,
+    "ein eingefrorener Wert eines älteren Journals gilt nach seiner Abbildung");
   assert.equal(option.ownerOnly?.({ kind: "path", path: "/srv/project" }), false);
 });
 
@@ -287,12 +325,12 @@ test("choosing the binding in the web takes the user of the request, not any reg
   const rights = ["runs.read", "runs.write", "runs.create", "runs.inspect", "runs.read.all"];
   const as = (id: string) => createAccessContext({ enabled: true, user: { id, label: id, rights } });
   const select = (id: string) => dispatchMethod(methods, coreContracts.startOptions.select.id, {
-    runId: "draft-run", optionId: "ragents.workspace.binding", value: { kind: "client", client: CLIENT, label: "", path: "/home/beispiel/project" },
+    runId: "draft-run", optionId: "ragents.workspace.binding", value: onLaptop({ path: "/home/beispiel/project" }),
   }, as(id));
   await assert.rejects(select("bob"), (error: unknown) => error instanceof DomainError && error.code === "workspace-client-disconnected");
   assert.deepEqual(chosen, []);
   await select("alice");
-  assert.deepEqual(chosen, [{ kind: "client", client: CLIENT, label: "Laptop", path: "/home/beispiel/project" }]);
+  assert.deepEqual(chosen, [onLaptop({ path: "/home/beispiel/project" }, "Laptop")]);
 });
 
 test("a sign-off removes only the entry its own connection holds", async () => {

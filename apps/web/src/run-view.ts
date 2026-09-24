@@ -55,7 +55,7 @@ export interface RunActor {
 
 export type RunActorInputLifecycle =
   | { kind: "pending" }
-  | { kind: "claimed"; turnId: string }
+  | { kind: "claimed"; turnId: string; steered: boolean }
   | { kind: "discarded"; at: string; reason: string };
 
 export interface RunActorInput {
@@ -178,9 +178,9 @@ export interface RunView {
 /** Der Gesprächspartner des Run-Chats: der Primary-Actor oder, solange keiner gewählt ist, der als Primary gestoppte Actor. */
 export const chatPrimaryId = (view: RunView): string | null => view.primaryActorId ?? view.stoppedPrimaryActorId ?? null;
 
-export type ActorSurface = "agent" | "primary" | "script";
+export type ActorTone = "agent" | "primary" | "script";
 
-export const actorSurface = (view: RunView, actor: RunActor): ActorSurface =>
+export const actorTone = (view: RunView, actor: RunActor): ActorTone =>
   actor.kind === "script" ? "script" : actor.id === view.primaryActorId ? "primary" : "agent";
 
 export const runViewFrom = (value: unknown): RunView | undefined => {
@@ -205,7 +205,7 @@ export const runArtifactContentUrl = (runId: string, artifactId: string) => arti
 export const runActorFrom = (value: unknown): RunActor => {
   const actor = value as RunActor | undefined;
   if (typeof actor?.id !== "string" || typeof actor.handle !== "string") {
-    throw new Error("Der Karten-Kontext enthält keinen Actor der Laufansicht");
+    throw new Error("Der Karten-Kontext enthält keinen Actor der Run-Ansicht");
   }
   return actor;
 };

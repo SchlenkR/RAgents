@@ -34,21 +34,21 @@ interface CachedView {
   view: unknown;
 }
 
-/** Eine Startvorlage des Servers, so wie die Kachelansicht der Übersicht sie zeigt. */
+/** Eine Vorlage des Servers, so wie die Start-Seite sie zeigt. */
 export interface StartEntrySummary {
   id: string;
   title: string;
   description: string;
   action: "skill" | "script";
-  /** Die Gruppe der Kacheln; ein Run-Script ohne eigene Kategorie steht unter "Run-Scripts". */
+  /** Die Gruppe der Vorlagen; ein Run-Script ohne eigene Kategorie steht unter "Run-Scripts". */
   category: string;
   /** Was die Vorlage an Startoptionen festlegt; "Neuer Run" belegt davon nichts vor. */
   fixedStartOptions?: Readonly<Record<string, unknown>>;
-  /** Der Leitfaden, der vor dem Start fragt; das Run-Panel öffnet ihn, die Kachel sagt dann "Einrichten". */
+  /** Der Leitfaden, der vor dem Start fragt; das Run-Panel öffnet ihn, die Vorlage sagt dann "Einrichten". */
   guide?: string;
 }
 
-/** Runs, Laufansichten und Verbindungszustand der Erweiterung; Seiten, Abzeichen und Panel lesen nur hier. */
+/** Runs, Run-Ansichten und Verbindungszustand der Erweiterung; Seiten, Abzeichen und Panel lesen nur hier. */
 export class RunStore {
   #status: ConnectionStatus = { kind: "connecting" };
   #access: AccessSnapshot = { enabled: false, user: null };
@@ -90,12 +90,12 @@ export class RunStore {
     return this.#access;
   }
 
-  /** Die freigegebenen Startvorlagen des Servers; der Server filtert sie schon nach den Rechten. */
+  /** Die freigegebenen Vorlagen des Servers; der Server filtert sie schon nach den Rechten. */
   get startEntries(): readonly StartEntrySummary[] {
     return this.#entries;
   }
 
-  /** Der Einstieg, den das Profil einem neuen Run vorgibt; er ist immer eine der freigegebenen Vorlagen. */
+  /** Die Default-Vorlage, die das Profil einem neuen Run vorgibt; sie ist immer eine der freigegebenen Vorlagen. */
   get defaultEntry(): string | undefined {
     return this.#defaultEntry;
   }
@@ -152,20 +152,20 @@ export class RunStore {
       return;
     }
     this.#set({ kind: "connected" });
-    this.#sessionsSubscription = this.client.rpc.subscribe(coreContracts.channels.sessions, {}, () => void this.refresh());
+    this.#sessionsSubscription = this.client.rpc.subscribe(coreContracts.channels.runs, {}, () => void this.refresh());
     for (const runId of this.#watches.keys()) this.#subscribeRun(runId);
     this.#poll = setInterval(() => void this.refresh(), POLL_INTERVAL_MS);
     await Promise.all([this.#loadProfile(generation), this.refresh()]);
   }
 
-  /** Produkt und freigegebene Startvorlagen des Servers; die Übersicht bietet sie je Umgebung an. */
+  /** Produkt und freigegebene Vorlagen des Servers; die Übersicht bietet sie je Server an. */
   async #loadProfile(generation: number): Promise<void> {
     try {
       const profile = await this.client.rpc.call(coreContracts.plugins.bootstrap, {});
       if (generation !== this.#generation) return;
       const defaultEntry = profile.defaultStartEntry;
       if (defaultEntry !== undefined && !profile.startEntries.some((entry: PublicStartEntry) => entry.id === defaultEntry)) {
-        throw new Error(`Der Server nennt den Default-Einstieg ${defaultEntry}, liefert ihn aber nicht als Vorlage`);
+        throw new Error(`Der Server nennt die Default-Vorlage ${defaultEntry}, liefert sie aber nicht als Vorlage`);
       }
       this.#product = profile.product.title;
       this.#entries = profile.startEntries.map((entry: PublicStartEntry) => ({
@@ -209,7 +209,7 @@ export class RunStore {
   }
 
 
-  /** Solange ein Run beobachtet wird, folgt seine Laufansicht dem Run-Kanal statt nur der Liste. */
+  /** Solange ein Run beobachtet wird, folgt seine Run-Ansicht dem Run-Kanal statt nur der Liste. */
   watch(runId: string): () => void {
     const existing = this.#watches.get(runId);
     if (existing) {
@@ -242,7 +242,7 @@ export class RunStore {
   async #refreshInner(): Promise<void> {
     const generation = this.#generation;
     try {
-      const sessions = await this.client.rpc.call(coreContracts.sessions.list, {});
+      const sessions = await this.client.rpc.call(coreContracts.runs.list, {});
       if (generation !== this.#generation) return;
       this.#sessions = sessions;
       for (const runId of this.#views.keys()) if (!sessions.some((session) => session.id === runId)) this.#views.delete(runId);

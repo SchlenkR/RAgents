@@ -4,15 +4,15 @@ import { Marked } from "marked";
 import { assertPublicOutput } from "./homepage-catalog.js";
 
 export const guideChapters = [
-  { id: "ideas", title: "Core ideas", description: "How AI, TypeScript, and interactive interfaces work together.", source: "docs/spec/overview.md", next: "guide-runtime.html", nextLabel: "Understand actors and messages" },
-  { id: "runtime", title: "Actors and messages", description: "Runs, actors, messages, turns, and the journal form the shared runtime.", source: "docs/spec/core.md", next: "guide-getting-started.html", nextLabel: "Get started" },
-  { id: "getting-started", title: "Get started", description: "Install RAgents, start a profile, and create your first run.", source: "docs/operations.md", next: "guide-clients.html", nextLabel: "Use Web and VS Code" },
-  { id: "clients", title: "Web and VS Code", description: "Use the same runs in the browser and in the VS Code extension; automate them through the API and command-line tools.", source: "docs/operations.md", next: "guide-distributed.html", nextLabel: "Distribute work across machines" },
-  { id: "distributed", title: "Distributed work", description: "Run the host locally or remotely, keep tools beside the project, and move runs between servers.", source: "docs/operations.md", next: "guide-access.html", nextLabel: "Assign tokens and permissions" },
-  { id: "functions", title: "Work with TypeScript", description: "Combine functions, program deterministic workflows, and involve models where needed.", source: "docs/spec/typescript-platform.md", next: "guide-programs.html", nextLabel: "Build mini-apps" },
-  { id: "programs", title: "Build mini-apps", description: "Expose actor state and functions through interactive React views.", source: "docs/spec/run-modules.md", next: "guide-extensions.html", nextLabel: "Choose an extension form" },
-  { id: "extensions", title: "Plugins and skills", description: "Choose the right extension form, connect contracts and prompts, and verify lifecycle and UI behavior.", source: "docs/spec/plugins.md", next: "guide-access.html", nextLabel: "Assign permissions" },
-  { id: "access", title: "Assign permissions", description: "Distinguish user permissions, actor grants, and the capabilities given to a subagent.", source: "docs/spec/profiles.md", next: "guide.html", nextLabel: "Back to the guide" },
+  { id: "ideas", title: "Core ideas", description: "How AI, TypeScript, and interactive interfaces work together.", sources: ["docs/spec/overview.md"], next: "guide-runtime.html", nextLabel: "Understand actors and messages" },
+  { id: "runtime", title: "Actors and messages", description: "Runs, actors, messages, turns, and the journal form the shared runtime.", sources: ["docs/spec/core.md"], next: "guide-getting-started.html", nextLabel: "Get started" },
+  { id: "getting-started", title: "Get started", description: "Install RAgents, start a profile, and create your first run.", sources: ["docs/operations.md", "docs/usage.md"], next: "guide-clients.html", nextLabel: "Use Web and VS Code" },
+  { id: "clients", title: "Web and VS Code", description: "Use the same runs in the browser and in the VS Code extension; automate them through the API and command-line tools.", sources: ["docs/usage.md"], next: "guide-distributed.html", nextLabel: "Distribute work across machines" },
+  { id: "distributed", title: "Distributed work", description: "Run the host locally or remotely, keep tools beside the project, and move runs between servers.", sources: ["docs/operations.md"], next: "guide-access.html", nextLabel: "Assign tokens and permissions" },
+  { id: "functions", title: "Work with TypeScript", description: "Combine functions, program deterministic workflows, and involve models where needed.", sources: ["docs/spec/typescript-platform.md"], next: "guide-programs.html", nextLabel: "Build mini-apps" },
+  { id: "programs", title: "Build mini-apps", description: "Expose actor state and functions through interactive React views.", sources: ["docs/spec/actor-programs.md"], next: "guide-plugins.html", nextLabel: "Choose a plugin form" },
+  { id: "plugins", title: "Plugins and skills", description: "Choose the right plugin form, connect contracts and prompts, and verify lifecycle and UI behavior.", sources: ["docs/spec/plugins.md"], next: "guide-access.html", nextLabel: "Assign permissions" },
+  { id: "access", title: "Assign permissions", description: "Distinguish user permissions, actor grants, and the capabilities given to a subagent.", sources: ["docs/spec/profiles.md"], next: "guide.html", nextLabel: "Back to the guide" },
 ] as const;
 
 export const homepageGuideFiles = ["guide.html", "guide.md", ...guideChapters.flatMap(({ id }) => [`guide-${id}.html`, `guide-${id}.md`])];
@@ -107,9 +107,12 @@ export function renderGuideMarkdown(markdown: string, source: string) {
 
 export async function buildHomepageGuide(repoRoot: string) {
   const chapters = await Promise.all(guideChapters.map(async (chapter) => {
-    const excerpt = guideExcerpt(await readFile(path.join(repoRoot, chapter.source), "utf8"), chapter.id);
-    const rendered = renderGuideMarkdown(excerpt, chapter.source);
-    const markdown = `# ${chapter.title}\n\n${chapter.description}\n\n${guideMarkdownLinks(excerpt, chapter.source)}`;
+    const [source] = chapter.sources;
+    if (chapter.sources.some((entry) => path.posix.dirname(entry) !== path.posix.dirname(source))) throw new Error(`Guide chapter sources must share one folder: ${chapter.id}`);
+    const excerpts = await Promise.all(chapter.sources.map(async (entry) => guideExcerpt(await readFile(path.join(repoRoot, entry), "utf8"), chapter.id)));
+    const excerpt = excerpts.join("\n");
+    const rendered = renderGuideMarkdown(excerpt, source);
+    const markdown = `# ${chapter.title}\n\n${chapter.description}\n\n${guideMarkdownLinks(excerpt, source)}`;
     return { ...chapter, ...rendered, markdown };
   }));
   return { chapters };
@@ -120,7 +123,7 @@ export type HomepageGuide = Awaited<ReturnType<typeof buildHomepageGuide>>;
 const navigationGroups: { title: string; chapters: string[]; links: { href: string; title: string }[] }[] = [
   { title: "Understand", chapters: ["ideas", "runtime"], links: [] },
   { title: "Use", chapters: ["getting-started", "clients", "distributed"], links: [] },
-  { title: "Build", chapters: ["functions", "programs", "extensions"], links: [] },
+  { title: "Build", chapters: ["functions", "programs", "plugins"], links: [] },
   { title: "Access", chapters: ["access"], links: [] },
 ];
 
@@ -132,19 +135,19 @@ const chapterNavigation = (current?: string) => `<nav class="guide-chapters" ari
 const guideNavigation = (title: string, current?: string) => `<aside class="guide-sidebar">${chapterNavigation(current)}</aside><details class="guide-mobile-nav"><summary>Guide: ${escape(title)}</summary>${chapterNavigation(current)}</details>`;
 
 export function guideIndexHtml(): string {
-  return `<div class="guide-layout">${guideNavigation("Overview")}<article class="guide-body"><header class="guide-title"><p class="eyebrow">Guide</p><h1>Where do you want to start?</h1><p>Understand the core ideas, start a run, or build something yourself.</p></header><ol class="guide-index"><li><h2><a href="guide-ideas.html">Core ideas</a></h2><p>How models, TypeScript, actors, and mini-apps work together.</p></li><li><h2><a href="guide-getting-started.html">Get started</a></h2><p>Install RAgents, start a profile, and create your first run.</p></li><li><h2><a href="guide-clients.html">Work on the web or in VS Code</a></h2><p>Use the run panel in either interface and connect it to a central server: <a href="guide-distributed.html">Distributed work</a>.</p></li><li><h2><a href="guide-functions.html">Build with TypeScript</a></h2><p>Combine functions, control workflows, and add custom interfaces.</p></li><li><h2><a href="guide-extensions.html">Develop extensions</a></h2><p>Build plugins and profiles against the extension contracts.</p></li></ol><p><a href="guide.md">Guide as Markdown</a></p></article></div>`;
+  return `<div class="guide-layout">${guideNavigation("Overview")}<article class="guide-body"><header class="guide-title"><p class="eyebrow">Guide</p><h1>Where do you want to start?</h1><p>Understand the core ideas, start a run, or build something yourself.</p></header><ol class="guide-index"><li><h2><a href="guide-ideas.html">Core ideas</a></h2><p>How models, TypeScript, actors, and mini-apps work together.</p></li><li><h2><a href="guide-getting-started.html">Get started</a></h2><p>Install RAgents, start a profile, and create your first run.</p></li><li><h2><a href="guide-clients.html">Work on the web or in VS Code</a></h2><p>Use the run panel in either interface and connect it to a central server: <a href="guide-distributed.html">Distributed work</a>.</p></li><li><h2><a href="guide-functions.html">Build with TypeScript</a></h2><p>Combine functions, control workflows, and add custom interfaces.</p></li><li><h2><a href="guide-plugins.html">Develop plugins</a></h2><p>Build plugins and profiles against the plugin contracts.</p></li></ol><p><a href="guide.md">Guide as Markdown</a></p></article></div>`;
 }
 
 export function guideChapterHtml(chapter: HomepageGuide["chapters"][number]): string {
   const index = guideChapters.findIndex((entry) => entry.id === chapter.id);
   const previous = guideChapters[index - 1];
   const next = guideChapters[index + 1];
-  return `<div class="guide-layout">${guideNavigation(chapter.title, chapter.id)}<article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>${escape(chapter.title)}</h1><p>${escape(chapter.description)}</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page">${chapter.headings.map(({ id, title }) => `<a href="#${escape(id)}">${escape(title)}</a>`).join("")}</nav></details>${chapter.html}<p class="guide-source">Source: <a href="../../${chapter.source}">${chapter.source}</a>. <a href="guide-${chapter.id}.md">This chapter as Markdown</a>.</p><p><a href="${chapter.next}">${chapter.nextLabel}</a></p><nav class="guide-next" aria-label="Continue reading">${previous ? `<a href="guide-${previous.id}.html">Previous: ${escape(previous.title)}</a>` : '<a href="guide.html">Back to the overview</a>'}${next ? `<a href="guide-${next.id}.html">Next: ${escape(next.title)}</a>` : '<a href="guide.html">Back to the guide</a>'}</nav></article></div>`;
+  return `<div class="guide-layout">${guideNavigation(chapter.title, chapter.id)}<article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>${escape(chapter.title)}</h1><p>${escape(chapter.description)}</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page">${chapter.headings.map(({ id, title }) => `<a href="#${escape(id)}">${escape(title)}</a>`).join("")}</nav></details>${chapter.html}<p class="guide-source">Source: ${chapter.sources.map((source) => `<a href="../../${source}">${source}</a>`).join(", ")}. <a href="guide-${chapter.id}.md">This chapter as Markdown</a>.</p><p><a href="${chapter.next}">${chapter.nextLabel}</a></p><nav class="guide-next" aria-label="Continue reading">${previous ? `<a href="guide-${previous.id}.html">Previous: ${escape(previous.title)}</a>` : '<a href="guide.html">Back to the overview</a>'}${next ? `<a href="guide-${next.id}.html">Next: ${escape(next.title)}</a>` : '<a href="guide.html">Back to the guide</a>'}</nav></article></div>`;
 }
 
 export function guideMarkdownOutputs(guide: HomepageGuide): Record<string, string> {
   return {
-    "guide.md": `# Understand and extend RAgents\n\nGetting started, workflows, and development based on the current specification and operations documentation.\n\n${guide.chapters.map((chapter) => `- [${chapter.title}](guide-${chapter.id}.md): ${chapter.description}`).join("\n")}\n`,
+    "guide.md": `# Understand and extend RAgents\n\nGetting started, workflows, and development based on the current specification and the usage and operations documentation.\n\n${guide.chapters.map((chapter) => `- [${chapter.title}](guide-${chapter.id}.md): ${chapter.description}`).join("\n")}\n`,
     ...Object.fromEntries(guide.chapters.map((chapter) => [`guide-${chapter.id}.md`, chapter.markdown])),
   };
 }

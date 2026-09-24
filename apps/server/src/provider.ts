@@ -9,7 +9,7 @@ import { WORKSPACE_EXECUTOR_VERSION } from "@ragents/workspace-executor";
 import { assertRunRights, assertRunWorkspaceAccess, runIdInPath, runListScope, runReachable, type GlobalRunPolicy, type RunAccessPolicy } from "./api/rights.js";
 import { configuredAnonymousUser, configuredUsers } from "./config-file.js";
 import { accessibleRunView } from "./access-projection.js";
-import { accessServiceToken } from "./access-service.js";
+import { coordinatorAccessToken } from "./access-service.js";
 import { config } from "./config.js";
 import { layout, ROOT_ONLY_MODE, SESSION_MODE, SESSIONS_MODE } from "./layout.js";
 import { readHostPackage, readHostVersion } from "./host-version.js";
@@ -35,7 +35,7 @@ import { actorProgramsToken } from "./plugin-support/actor-programs/service.js";
 import { productRuntimeToken } from "./ragents/product-runtime.js";
 import { runOwnerOf, runOwnerOnly } from "./ragents/run-owner.js";
 import { RunChatSession } from "./ragents/session.js";
-import { globalChatToken, type ManagedRunStart, type SessionManagement } from "./ragents/global-chat.js";
+import { globalChatToken, globalRunPolicyOf, type GlobalChatPolicy, type ManagedRunStart, type RunManagement } from "./ragents/global-chat.js";
 import { workspaceRuntimeToken, type SessionWorkspace, type WorkspaceTransfer } from "./ragents/workspace-runtime.js";
 import { settingsResponse, skillDetailResponse, type SettingsResponse, type SettingsSkillDetail } from "./settings.js";
 import { createTitleCompactor } from "./title-compactor.js";
@@ -83,8 +83,8 @@ export class RunSessionProvider implements ChatSessionProvider {
   readonly plugins: PluginHost;
   private shutdownPromise: Promise<void> | undefined;
   private engine: Engine | undefined;
-  private globalReset: Promise<void> | undefined;
-  private globalResetRequested = false;
+  private readonly globalResets = new Map<string, Promise<void>>();
+  private readonly globalResetsRequested = new Set<string>();
   private transferring = false;
   /** Die Adresse, unter der dieser Server seine API anbietet; ohne HTTP (nur stdio) keine. */
   private readonly apiBaseUrl: string | undefined;
@@ -106,7 +106,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   private requireContract(token: ServiceToken<unknown>): void {
     if (this.plugins.optionalService(token) !== undefined) return;
     throw new Error(
-      `Das Produktprofil stellt den Pflichtvertrag ${token.id} nicht bereit. `
+      `Das Profil stellt den Pflichtvertrag ${token.id} nicht bereit. `
       + "Ein Produkt-Plugin muss ihn mit host.provide(...) registrieren.",
     );
   }
@@ -137,11 +137,16 @@ export class RunSessionProvider implements ChatSessionProvider {
     this.requireContract(productRuntimeToken);
     this.requireContract(workspaceRuntimeToken);
     const globalChat = this.plugins.optionalService(globalChatToken);
-    if (globalChat?.resetIntentFile && existsSync(globalChat.resetIntentFile)) {
-      await this.validateGlobalResetIntent(globalChat.resetIntentFile, globalChat.runId);
-      await this.removeGlobalConversation();
-      await rm(globalChat.resetIntentFile);
-      await this.syncDirectory(path.dirname(globalChat.resetIntentFile));
+    if (globalChat?.resetIntentDirectory && existsSync(globalChat.resetIntentDirectory)) {
+      for (const entry of await readdir(globalChat.resetIntentDirectory)) {
+        if (!entry.endsWith(".json")) continue;
+        const intentFile = path.join(globalChat.resetIntentDirectory, entry);
+        const runId = entry.slice(0, -5);
+        await this.validateGlobalResetIntent(intentFile, runId);
+        await this.removeGlobalConversation(runId);
+        await rm(intentFile);
+        await this.syncDirectory(globalChat.resetIntentDirectory);
+      }
     }
     this.engine = await createEngine({
       plugins: this.plugins,
@@ -153,11 +158,12 @@ export class RunSessionProvider implements ChatSessionProvider {
     for (const id of this.deleted) {
       if (this.deleteRequested.has(id)) continue;
       if (this.engine.journal.stateOf(id) || existsSync(layout.sessionDir(id))) {
-        throw new Error(`Archivierte Unterhaltung ${id} besitzt erneut aktive Daten`);
+        throw new Error(`Archivierter Run ${id} besitzt erneut aktive Daten`);
       }
     }
     for (const id of pendingDeletes) await this.beginDelete(id).done;
-    const runIds = this.engine.journal.runIds();
+    // Ein Koordinator ohne heutigen Zugang (der frühere gemeinsame, ein entfernter Benutzer) bleibt unberührt.
+    const runIds = this.engine.journal.runIds().filter((runId) => !globalChat?.isCoordinator(runId) || this.coordinatorUser(runId) !== undefined);
     await Promise.all(runIds.map((runId) => this.sessionWorkspace(runId, () => {})));
     for (const runId of runIds) this.openSession(runId);
     this.engine.start();
@@ -203,7 +209,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     const engine = this.requireEngine();
     const productRuntime = this.plugins.service(productRuntimeToken);
     const globalChat = this.plugins.optionalService(globalChatToken);
-    const globalPolicy = id === globalChat?.runId ? globalChat : undefined;
+    const globalPolicy = globalChat?.isCoordinator(id) ? globalChat : undefined;
     const session = new RunChatSession({
       engine,
       id,
@@ -274,8 +280,8 @@ export class RunSessionProvider implements ChatSessionProvider {
     const workspaceAccessible = scope?.workspaceAccessible ?? ((runId: string) => !this.runOwnerOnly(runId));
     const engine = this.requireEngine();
     const productRuntime = this.plugins.service(productRuntimeToken);
-    const globalRunId = this.plugins.optionalService(globalChatToken)?.runId;
-    const listed = engine.journal.runIds().filter((runId) => runId !== globalRunId
+    const isCoordinator = (runId: string) => this.plugins.optionalService(globalChatToken)?.isCoordinator(runId) ?? false;
+    const listed = engine.journal.runIds().filter((runId) => !isCoordinator(runId)
       && !this.deleteRequested.has(runId) && !this.deleted.has(runId) && visible(runId));
     const described = await Promise.all(listed.map(async (runId): Promise<ListedSession | undefined> => {
       const state = engine.journal.stateOf(runId);
@@ -305,7 +311,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     }));
     const infos = described.filter((info): info is ListedSession => info !== undefined);
     for (const [id, session] of this.sessions) {
-      if (id === globalRunId || !visible(id)) continue;
+      if (isCoordinator(id) || !visible(id)) continue;
       if (this.deleteRequested.has(id) || this.deleted.has(id)) continue;
       if (!session.started || infos.some((info) => info.id === id)) continue;
       infos.push({
@@ -319,7 +325,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     return infos.sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
-  private sessionManagement(): SessionManagement {
+  private sessionManagement(): RunManagement {
     return {
       list: (access) => this.list(access ? runListScope(access, this.runAccess()) : undefined),
       view: (runId) => {
@@ -336,7 +342,7 @@ export class RunSessionProvider implements ChatSessionProvider {
         return this.openSession(runId).sendAndWait(message, access.user ? { id: access.user.id, label: access.user.label } : undefined);
       },
       stop: (runId) => this.openSession(runId).stop(),
-      resetGlobal: () => this.resetGlobalConversation(),
+      resetGlobal: (runId) => this.resetGlobalConversation(runId),
     };
   }
 
@@ -365,8 +371,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 
   globalPolicy(): GlobalRunPolicy | undefined {
-    const globalChat = this.plugins.optionalService(globalChatToken);
-    return globalChat?.access ? { runId: globalChat.runId, ...globalChat.access } : undefined;
+    return globalRunPolicyOf(this.plugins.optionalService(globalChatToken));
   }
 
   runOwner(id: string): string | null | undefined {
@@ -420,13 +425,13 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 
   private ensureUsable(id: string): void {
-    if (!isRunId(id)) throw new DomainError("invalid-run", `Ungültige Session-Id: ${id}`, 400);
+    if (!isRunId(id)) throw new DomainError("invalid-run", `Ungültige Run-ID: ${id}`, 400);
     this.ensureAvailable();
-    if (this.globalResetRequested && id === this.plugins.optionalService(globalChatToken)?.runId) {
+    if (this.globalResetsRequested.has(id)) {
       throw new DomainError("conversation-resetting", "Das globale Gespräch wird zurückgesetzt. Bitte warte kurz oder wiederhole den Reset nach einem Fehler.", 409);
     }
-    if (this.deleteRequested.has(id)) throw new DomainError("run-deleting", "Die Unterhaltung wird gelöscht", 409);
-    if (this.deleted.has(id)) throw new DomainError("run-deleted", "Die Unterhaltung wurde gelöscht", 410);
+    if (this.deleteRequested.has(id)) throw new DomainError("run-deleting", "Der Run wird gelöscht", 409);
+    if (this.deleted.has(id)) throw new DomainError("run-deleted", "Der Run wurde gelöscht", 410);
     this.engine?.journal.assertRunAvailable(id);
   }
 
@@ -454,7 +459,7 @@ export class RunSessionProvider implements ChatSessionProvider {
 
   private async prepareRun(id: string): Promise<void> {
     this.ensureUsable(id);
-    if (id !== this.plugins.optionalService(globalChatToken)?.runId) await this.plugins.lifecycle.prepareSession(id);
+    if (!this.plugins.optionalService(globalChatToken)?.isCoordinator(id)) await this.plugins.lifecycle.prepareSession(id);
     this.ensureUsable(id);
     await mkdir(layout.chatDir(id), { recursive: true, mode: ROOT_ONLY_MODE });
     this.ensureUsable(id);
@@ -469,10 +474,10 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 
   delete(id: string): Promise<void> {
-    if (id === this.plugins.optionalService(globalChatToken)?.runId) {
-      return Promise.reject(new DomainError("global-chat-protected", "Der übergeordnete Koordinator kann nicht gelöscht werden", 409));
+    if (this.plugins.optionalService(globalChatToken)?.isCoordinator(id)) {
+      return Promise.reject(new DomainError("global-chat-protected", "Der globale Koordinator kann nicht gelöscht werden", 409));
     }
-    if (!isRunId(id)) return Promise.reject(new Error(`Ungültige Session-Id: ${id}`));
+    if (!isRunId(id)) return Promise.reject(new Error(`Ungültige Run-ID: ${id}`));
     if (this.shutdownPromise) return Promise.reject(new Error("Der Server wird beendet"));
     return this.beginDelete(id).accepted;
   }
@@ -481,16 +486,16 @@ export class RunSessionProvider implements ChatSessionProvider {
     return this.deleting.get(id)?.done;
   }
 
-  /** Ein gestoppter Run als Archiv: Journal, Payloads, Modellkontexte und die Plugin-Ablagen seiner Session. */
+  /** Ein gestoppter Run als Archiv: Journal, Payloads, Modellkontexte und seine Plugin-Ablagen. */
   exportRun(id: string): Promise<RunTransferExport> {
     this.ensureUsable(id);
-    if (id === this.plugins.optionalService(globalChatToken)?.runId) {
-      return Promise.reject(new DomainError("global-chat-protected", "Der übergeordnete Koordinator zieht nicht um", 409));
+    if (this.plugins.optionalService(globalChatToken)?.isCoordinator(id)) {
+      return Promise.reject(new DomainError("global-chat-protected", "Der globale Koordinator zieht nicht um", 409));
     }
     return this.runTransfer(async () => {
       const engine = this.requireEngine();
       const state = engine.journal.stateOf(id);
-      if (!state) throw new DomainError("run-not-found", `Die Unterhaltung ${id} gibt es nicht`, 404);
+      if (!state) throw new DomainError("run-not-found", `Den Run ${id} gibt es nicht`, 404);
       assertRunStopped({
         runId: id,
         state,
@@ -572,8 +577,8 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 
   private assertRunIdAvailable(id: string): void {
-    if (id === this.plugins.optionalService(globalChatToken)?.runId) {
-      throw new DomainError("run-transfer-exists", `Die Kennung ${id} gehört dem übergeordneten Koordinator dieses Servers.`, 409);
+    if (this.plugins.optionalService(globalChatToken)?.isCoordinator(id)) {
+      throw new DomainError("run-transfer-exists", `Die Kennung ${id} ist den übergeordneten Koordinatoren dieses Servers vorbehalten.`, 409);
     }
     const engine = this.requireEngine();
     assertRunIdFree({
@@ -583,23 +588,26 @@ export class RunSessionProvider implements ChatSessionProvider {
     });
   }
 
-  private resetGlobalConversation(): Promise<void> {
+  private resetGlobalConversation(id: string): Promise<void> {
     this.ensureAvailable();
-    if (this.globalReset) return this.globalReset;
+    const running = this.globalResets.get(id);
+    if (running) return running;
     const policy = this.plugins.optionalService(globalChatToken);
-    if (!policy?.resetIntentFile) return Promise.reject(new DomainError("conversation-reset-unavailable", "Dieses Profil bietet keinen Gesprächsreset an.", 404));
-    this.globalResetRequested = true;
-    const operation = this.resetGlobalInner(policy.runId, policy.resetIntentFile).catch((error: unknown) => {
-      if (!existsSync(policy.resetIntentFile!)) this.globalResetRequested = false;
+    if (!policy?.resetIntentDirectory) return Promise.reject(new DomainError("conversation-reset-unavailable", "Dieses Profil bietet keinen Gesprächsreset an.", 404));
+    if (!policy.isCoordinator(id)) return Promise.reject(new DomainError("conversation-reset-unavailable", `${id} ist kein globaler Koordinator.`, 404));
+    const intentFile = path.join(policy.resetIntentDirectory, `${id}.json`);
+    this.globalResetsRequested.add(id);
+    const operation = this.resetGlobalInner(id, intentFile, policy).catch((error: unknown) => {
+      if (!existsSync(intentFile)) this.globalResetsRequested.delete(id);
       throw error;
     }).finally(() => {
-      if (this.globalReset === operation) this.globalReset = undefined;
+      if (this.globalResets.get(id) === operation) this.globalResets.delete(id);
     });
-    this.globalReset = operation;
+    this.globalResets.set(id, operation);
     return operation;
   }
 
-  private async resetGlobalInner(id: string, intentFile: string): Promise<void> {
+  private async resetGlobalInner(id: string, intentFile: string, policy: GlobalChatPolicy): Promise<void> {
     if (!existsSync(intentFile)) {
       await mkdir(path.dirname(intentFile), { recursive: true });
       const temporary = `${intentFile}.tmp-${randomUUID()}`;
@@ -620,31 +628,40 @@ export class RunSessionProvider implements ChatSessionProvider {
       await stopped;
       await settled;
       await this.plugins.optionalService(sandboxServicesToken)?.shutdown(id);
-      await this.removeGlobalConversation();
+      await this.removeGlobalConversation(id, policy);
       engine.journal.forget(id);
       this.sessionWorkspaces.delete(id);
       this.workspaces.forget(id);
     });
     await rm(intentFile);
     await this.syncDirectory(path.dirname(intentFile));
-    this.globalResetRequested = false;
+    this.globalResetsRequested.delete(id);
     session?.resetHistory();
   }
 
   private async validateGlobalResetIntent(file: string, id: string): Promise<void> {
     const marker: unknown = JSON.parse(await readFile(file, "utf8"));
-    if (!marker || typeof marker !== "object" || !("version" in marker) || marker.version !== 1 || !("runId" in marker) || marker.runId !== id) {
+    if (!isRunId(id) || !marker || typeof marker !== "object" || !("version" in marker) || marker.version !== 1 || !("runId" in marker) || marker.runId !== id) {
       throw new Error("Der Gesprächsreset-Marker ist ungültig");
     }
   }
 
-  private async removeGlobalConversation(): Promise<void> {
-    const policy = this.plugins.service(globalChatToken);
-    const directories = [layout.sessionDir(policy.runId), path.join(layout.runsDir, policy.runId), layout.recoverySessionDir(policy.runId), policy.workspaceDirectory];
+  private async removeGlobalConversation(id: string, policy = this.plugins.service(globalChatToken)): Promise<void> {
+    const directories = [layout.sessionDir(id), path.join(layout.runsDir, id), layout.recoverySessionDir(id), policy.workspaceDirectory(id)];
     for (const directory of directories) await rm(directory, { recursive: true, force: true });
     for (const parent of new Set(directories.map((directory) => path.dirname(directory)))) {
       if (existsSync(parent)) await this.syncDirectory(parent);
     }
+  }
+
+  /** Wem ein Koordinator gehört: dem Benutzer, dessen Kennung er trägt, ohne Anmeldung dem einen Zugang; sonst niemandem. */
+  private coordinatorUser(id: string): { userId: string | null } | undefined {
+    const policy = this.plugins.optionalService(globalChatToken);
+    if (!policy?.isCoordinator(id)) return undefined;
+    const users = configuredUsers();
+    if (!users) return policy.runIdFor(null) === id ? { userId: null } : undefined;
+    const user = users.find((entry) => policy.runIdFor(entry.id) === id);
+    return user ? { userId: user.id } : undefined;
   }
 
   private beginDelete(id: string): DeleteJob {
@@ -689,7 +706,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     await Promise.allSettled([...this.runPreparations.values()].map((preparation) => preparation.done));
     await this.titleCompactor.shutdown();
     this.listListeners.clear();
-    const resetResults = await Promise.allSettled(this.globalReset ? [this.globalReset] : []);
+    const resetResults = await Promise.allSettled([...this.globalResets.values()]);
     const sessions = [...this.sessions.entries()];
     for (const [, session] of sessions) session.dispose();
     const results = await Promise.allSettled([
@@ -726,7 +743,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       .slice(0, 3)
       .filter((result): result is PromiseRejectedResult => result.status === "rejected")
       .map((result) => result.reason);
-    if (failures.length > 0) throw new AggregateError(failures, `Unterhaltung ${id} konnte nicht gestoppt werden`);
+    if (failures.length > 0) throw new AggregateError(failures, `Run ${id} konnte nicht gestoppt werden`);
     await this.plugins.lifecycle.deleteSession(id);
     await this.archiveSession(id);
     this.engine?.journal.forget(id);
@@ -816,16 +833,21 @@ export class RunSessionProvider implements ChatSessionProvider {
 
   private async resolveWorkspace(id: string, emitSystem: (text: string) => void): Promise<SessionWorkspace> {
     const globalChat = this.plugins.optionalService(globalChatToken);
-    if (id === globalChat?.runId) {
-      await mkdir(globalChat.workspaceDirectory, { recursive: true, mode: ROOT_ONLY_MODE });
-      const cwd = await realpath(globalChat.workspaceDirectory);
+    if (globalChat?.isCoordinator(id)) {
+      const owner = this.coordinatorUser(id);
+      if (!owner) throw new DomainError("coordinator-without-access", `Der Koordinator ${id} gehört keinem Zugang dieses Profils.`, 409);
+      const directory = globalChat.workspaceDirectory(id);
+      await mkdir(directory, { recursive: true, mode: ROOT_ONLY_MODE });
+      const cwd = await realpath(directory);
       await globalChat.prepareWorkspace?.(cwd);
+      const users = configuredUsers();
       return {
         cwd,
-        hostSandbox: { home: cwd, readOnlyRoots: [{ directory: layout.runsDir, environmentVariable: "RAGENTS_JOURNAL_DIR" }] },
+        // Mit Benutzern enthielte der Journalordner fremde Runs; der Koordinator liest über die Methoden seines Benutzers.
+        hostSandbox: { home: cwd, readOnlyRoots: users ? [] : [{ directory: layout.runsDir, environmentVariable: "RAGENTS_JOURNAL_DIR" }] },
         extraEnv: {
           ...(this.apiBaseUrl ? { RAGENTS_API_BASE_URL: this.apiBaseUrl } : {}),
-          ...(configuredUsers() || configuredAnonymousUser() ? { RAGENTS_API_TOKEN: accessServiceToken() }
+          ...(users || configuredAnonymousUser() ? { RAGENTS_API_TOKEN: coordinatorAccessToken(owner.userId) }
             : process.env.ACCESS_TOKEN ? { RAGENTS_API_TOKEN: process.env.ACCESS_TOKEN } : {}),
         },
         currentRoot: async () => cwd,

@@ -23,7 +23,7 @@ import type { RunView } from "../../web/src/run-view";
 
 export const SESSION_TOKEN = "a".repeat(43);
 
-/** Die Laufansicht der Oberfläche trägt dieselben Daten wie die der Engine, nur mit eigenen Typen. */
+/** Die Run-Ansicht der Oberfläche trägt dieselben Daten wie die der Engine, nur mit eigenen Typen. */
 const servedView = (value: RunView): JournalRunView => value as unknown as JournalRunView;
 
 const at = "2026-09-17T10:00:00.000Z";
@@ -125,7 +125,7 @@ export const startStubServer = async (options: { loginRequired?: boolean; tokenG
 
   const methods = new MethodContributionRegistry();
   methods.register("stub", [
-    implement(coreContracts.sessions.list, () => sessions),
+    implement(coreContracts.runs.list, () => sessions),
     implement(coreContracts.plugins.bootstrap, () => profile),
     implement(runContracts.view, ({ runId }) => runId === view.id ? servedView(view) : null),
     implement(runContracts.events, () => JOURNAL as JournalEvent[]),
@@ -156,7 +156,7 @@ export const startStubServer = async (options: { loginRequired?: boolean; tokenG
     return () => { emitters.delete(emitter); };
   };
   channels.register("stub", [
-    implementChannel(coreContracts.channels.sessions, (_params, emit) => channel("sessions", () => emit({ type: "changed" }))),
+    implementChannel(coreContracts.channels.runs, (_params, emit) => channel("runs", () => emit({ type: "changed" }))),
     implementChannel(coreContracts.channels.run, ({ runId }, emit) => channel(`run:${runId}`, () => emit({ kind: "run" }))),
   ]);
   const transport = new RpcHttpTransport({ dispatcher: new RpcDispatcher({ methods, channels }) });

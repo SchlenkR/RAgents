@@ -5,13 +5,13 @@ import { useAccess } from "@ragents/web/AccessContext";
 import { ChatPanel } from "@ragents/web/chat/ChatPanel";
 import { runIsWorking } from "@ragents/web/chat/chat-target";
 import { useCenterElements, useRunPanelHost } from "@ragents/web/run-panel/host";
-import type { CanvasCenterContext, CanvasElementContribution, CanvasElementDefinition, CardSectionContribution, SessionContext, SessionNavigation } from "@ragents/web/PluginRegistry";
+import type { SurfaceCenterContext, SurfaceElementContribution, SurfaceElementDefinition, CardSectionContribution, SessionContext, SessionNavigation } from "@ragents/web/PluginRegistry";
 import { Button, cn, Spinner, StartupNotice } from "@ragents/web/ui";
 import { ActorChat } from "../ActorChat";
 import { ActorChatControls } from "../ActorChatControls";
 import { useActorHeaderMode } from "../actor-header-settings";
-import { canvasStartupState, type CanvasStartupState } from "../canvas-startup";
-import { actorVisibleOnCanvas, saveCanvasViewPreferences, useCanvasViewPreferences } from "../canvas-view-settings";
+import { surfaceStartupState, type SurfaceStartupState } from "../surface-startup";
+import { actorVisibleOnSurface, saveSurfaceViewPreferences, useSurfaceViewPreferences } from "../surface-view-settings";
 import { cardSectionsClass } from "../constants";
 import type { FlowSelection } from "../FlowInspector";
 import { useProgramSlot } from "../program-slot";
@@ -41,15 +41,15 @@ const chatModes: readonly { Icon: typeof MessageSquareIcon; label: string; mode:
 ];
 
 interface RunPanelElement {
-  Element: CanvasElementContribution["Element"];
-  definition: CanvasElementDefinition;
+  Element: SurfaceElementContribution["Element"];
+  definition: SurfaceElementDefinition;
 }
 
-export function OrchestrationRunPanel(props: CanvasCenterContext) {
+export function OrchestrationRunPanel(props: SurfaceCenterContext) {
   return <RunPanel key={props.session.session.id} {...props} />;
 }
 
-function RunPanel({ canvasElements, cardSections, navigation, renderChat, session, toolbarContainer }: CanvasCenterContext) {
+function RunPanel({ surfaceElements, cardSections, navigation, renderChat, session, toolbarContainer }: SurfaceCenterContext) {
   const runId = session.session.id;
   const inspect = useAccess().can("runs.inspect");
   const host = useRunPanelHost();
@@ -73,19 +73,19 @@ function RunPanel({ canvasElements, cardSections, navigation, renderChat, sessio
     return () => observer.disconnect();
   }, []);
   const save = useCallback((patch: Partial<RunPanelState>) => saveRunPanelState(runId, { ...stored, ...patch }), [runId, stored]);
-  const elements = useMemo<RunPanelElement[]>(() => canvasElements.flatMap(({ Element, select }) => select(session)
+  const elements = useMemo<RunPanelElement[]>(() => surfaceElements.flatMap(({ Element, select }) => select(session)
     .filter((definition) => definition.visible !== false)
-    .map((definition) => ({ Element, definition }))), [canvasElements, session]);
+    .map((definition) => ({ Element, definition }))), [surfaceElements, session]);
   const selectedElement = elements.find((entry) => entry.definition.id === stored.element) ?? elements[0];
   const startup = useRunPanelStartup(
-    canvasStartupState({ view, startup: session.startup, connected: session.connected, running: session.running, error: session.conversationError }),
+    surfaceStartupState({ view, startup: session.startup, connected: session.connected, running: session.running, error: session.conversationError }),
     session.connected,
     elements.length > 0 || chatShowsContent(session.messages),
   );
   const notice = startup ? <RunPanelStartup state={startup} /> : undefined;
   const actors = useMemo(() => view ? runPanelActors(view, inspect) : [], [inspect, view]);
   const mode = useActorHeaderMode(runId);
-  const preferences = useCanvasViewPreferences(runId);
+  const preferences = useSurfaceViewPreferences(runId);
   const appActorIds = useMemo(() => new Set(elements.flatMap(({ definition }) => definition.anchorActorId ? [definition.anchorActorId] : [])), [elements]);
   const primaryId = view ? chatPrimaryId(view) : undefined;
   const selectedActor = actors.find((actor) => actor.id === stored.actor) ?? actors.find((actor) => actor.id === primaryId) ?? actors[0];
@@ -93,12 +93,12 @@ function RunPanel({ canvasElements, cardSections, navigation, renderChat, sessio
     mode,
     primaryId,
     selectedId: selectedActor?.id,
-    onStage: (actor) => actor.id === primaryId || actorVisibleOnCanvas(actor, appActorIds, preferences, primaryId),
+    onStage: (actor) => actor.id === primaryId || actorVisibleOnSurface(actor, appActorIds, preferences, primaryId),
   }), [actors, appActorIds, mode, preferences, primaryId, selectedActor?.id]);
   const availableWidth = () => rootRef.current?.clientWidth ?? Number.POSITIVE_INFINITY;
   const selectActor = useCallback((actor: RunActor) => save({ actor: actor.id }), [save]);
   const revealActor = useCallback((actor: RunActor) => {
-    saveCanvasViewPreferences(runId, { ...preferences, actorVisibility: { ...preferences.actorVisibility, [actor.id]: true } });
+    saveSurfaceViewPreferences(runId, { ...preferences, actorVisibility: { ...preferences.actorVisibility, [actor.id]: true } });
     save({ actor: actor.id });
   }, [preferences, runId, save]);
   const navigate = useCallback((selection: FlowSelection) => {
@@ -412,7 +412,7 @@ function useSheetResize(active: boolean, sheetRef: RefObject<HTMLElement | null>
 
 function ElementChip({ centered, definition, onSelect, selected, session, view }: {
   centered: boolean;
-  definition: CanvasElementDefinition;
+  definition: SurfaceElementDefinition;
   onSelect: () => void;
   selected: boolean;
   session: SessionContext;
@@ -421,7 +421,7 @@ function ElementChip({ centered, definition, onSelect, selected, session, view }
   const programs = useProgramSlot();
   const title = definition.title ?? definition.id;
   const attention = elementNeedsAttention(view, definition, programs?.needsAnswer(session, definition.id) ?? false);
-  return <button aria-pressed={selected && !centered} className={chipClass} data-surface="app" onClick={onSelect} title={centered ? `${title} liegt in der Mitte. Klick holt das Fenster nach vorn.` : `Mini-App ${title} anzeigen`} type="button">
+  return <button aria-pressed={selected && !centered} className={chipClass} data-tone="app" onClick={onSelect} title={centered ? `${title} liegt in der Mitte. Klick holt das Fenster nach vorn.` : `Mini-App ${title} anzeigen`} type="button">
     <span className="grid size-5 flex-none place-items-center rounded-full bg-glass-app text-foreground [&>svg]:size-3"><LayoutGridIcon /></span>
     <span className="truncate">{title}</span>
     {attention && <span aria-label="Antwort erwartet" className="grid size-4 flex-none place-items-center rounded-full bg-warning text-[0.62rem] font-bold text-background" role="img">!</span>}
@@ -508,15 +508,15 @@ function ActorRunPanelChat({ actor, cardSections, navigation, notice, onNavigate
     <div className={`${cardSectionsClass} max-h-[40%] flex-none overflow-auto overscroll-contain border-t-0 border-b`} data-slot="card-sections">
       {cardSections.map(({ id, Section }) => <Section actor={actor} key={id} navigation={navigation} session={session} />)}
     </div>
-    <ChatPanel className="flex-1" composer={<ActorChatControls actor={actor} presentation="panel" running={running} surface="panel" toolbarLeft={toolbarLeft} view={view} />}>
+    <ChatPanel className="flex-1" composer={<ActorChatControls actor={actor} presentation="panel" running={running} display="panel" toolbarLeft={toolbarLeft} view={view} />}>
       {notice ?? <ActorChat actor={actor} conversation={session.actorConversations?.[actor.id]} historyError={session.conversationError} onNavigate={onNavigate}
-        presentation="inspector" primaryMessages={session.messages} running={running} surface="panel" view={view} />}
+        presentation="inspector" primaryMessages={session.messages} running={running} display="panel" view={view} />}
     </ChatPanel>
   </div>;
 }
 
 /** Der Ladezustand mittig im Chat; er rückt nur hoch, wo er sonst unter die Eingabe geriete. */
-function RunPanelStartup({ state }: { state: CanvasStartupState }) {
+function RunPanelStartup({ state }: { state: SurfaceStartupState }) {
   return <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto_minmax(var(--composer-height,0px),1fr)] justify-items-center overflow-hidden p-6">
     <StartupNotice className="row-start-2" state={state} />
   </div>;

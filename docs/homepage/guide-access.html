@@ -29,12 +29,12 @@
   --border-strong: #a397b2;
   --shell: #cbd6e4;
   --app: #dce3ed;
-  --canvas: #e8e2e6;
-  --canvas-dot: #79aab43b;
-  --canvas-glow-mint: #92cfbfad;
-  --canvas-glow-blue: #8bbfe5a6;
-  --canvas-light: #ffffffb3;
-  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
+  --surface: #e8e2e6;
+  --surface-dot: #79aab43b;
+  --surface-glow-mint: #92cfbfad;
+  --surface-glow-blue: #8bbfe5a6;
+  --surface-light: #ffffffb3;
+  --surface-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #9ccfc5b3, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #9ec6e4b3, transparent 56%),
         radial-gradient(ellipse at 28% 0%, #c4b0dfb3, transparent 58%),
@@ -81,12 +81,12 @@
   --border-strong: #8e809f;
   --shell: #242e40;
   --app: #212632;
-  --canvas: #29232e;
-  --canvas-dot: #7cafbc30;
-  --canvas-glow-mint: #317d686b;
-  --canvas-glow-blue: #417daa80;
-  --canvas-light: #80bfc71f;
-  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
+  --surface: #29232e;
+  --surface-dot: #7cafbc30;
+  --surface-glow-mint: #317d686b;
+  --surface-glow-blue: #417daa80;
+  --surface-light: #80bfc71f;
+  --surface-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #2c625e99, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #355674a6, transparent 56%),
         radial-gradient(ellipse at 28% 0%, #59446f99, transparent 58%),
@@ -128,7 +128,7 @@
       <a href="index.html">Product</a>
       <a href="guide.html" aria-current="page">Guide</a>
     </nav>
-  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-extensions.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html" aria-current="page">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Assign permissions</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-extensions.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html" aria-current="page">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Assign permissions</h1><p>Distinguish user permissions, actor grants, and the capabilities given to a subagent.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#sign-in-and-permissions">Sign-in and permissions</a><a href="#run-ownership">Run ownership</a><a href="#function-selection-and-actor-grants">Function selection and actor grants</a></nav></details><h2 id="sign-in-and-permissions">Sign-in and permissions</h2>
+  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html" aria-current="page">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Assign permissions</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html" aria-current="page">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Assign permissions</h1><p>Distinguish user permissions, actor grants, and the capabilities given to a subagent.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#sign-in-and-permissions">Sign-in and permissions</a><a href="#run-ownership">Run ownership</a><a href="#function-selection-and-actor-grants">Function selection and actor grants</a></nav></details><h2 id="sign-in-and-permissions">Sign-in and permissions</h2>
 <p>User permissions control a person&#39;s access to the application. An actor&#39;s function selection
 and technical grants control execution inside a run. Profiles provide plugins; user permissions
 do not create additional plugins or functions.</p>
@@ -151,7 +151,7 @@ intended for clients without a sign-in dialog. The server stores only its SHA-25
 the token from the profile and restarting the server revokes it.</p>
 <p>Permission names are exact strings; <code>*</code> grants all permissions. Without <code>users</code> or
 <code>anonymousUser</code>, access is unrestricted. An optional <code>anonymousUser</code> applies the same permissions
-and allowed start entries without a password. It cannot be combined with <code>users</code>. With sign-in
+and allowed templates without a password. It cannot be combined with <code>users</code>. With sign-in
 enabled and no valid session, all permissions are denied.</p>
 <h2 id="run-ownership">Run ownership</h2>
 <p>A run belongs to the user who created it. Users normally see and operate only their own runs;
@@ -159,20 +159,23 @@ enabled and no valid session, all permissions are denied.</p>
 never rewritten. Runs created without authentication have no owner and are visible only with
 <code>runs.read.all</code> when authentication is later enabled.</p>
 <p>The server enforces ownership on lists, methods, event channels, and file routes before opening a
-run. An inaccessible run responds like a missing one. A start option can additionally mark a run
+run. An inaccessible run responds like a missing one. Each signed-in user has a global coordinator
+of their own, reachable by nobody else, not even with <code>runs.read.all</code>; its tools act with that
+user&#39;s access and rights, and runs it creates belong to that user. Without sign-in there is exactly
+one coordinator. A start option can additionally mark a run
 as <code>ownerOnly</code>, as the workspace binding does for tools running on the owner&#39;s machine. Other
 users with visibility may still read its journal and stop it, but only its owner can send messages,
 answer actions, restart actors, or invoke operations requiring <code>runs.write</code>. Its workspace is the
 owner&#39;s alone even for reading: the workspace files in the Dateien tab, the process rail, and
-language-server state are refused to everyone else, including <code>runs.read.all</code> and the global
-coordinator&#39;s service identity (<code>run-workspace-owner-only</code>). The run list asks nothing from such a
+language-server state are refused to everyone else, including <code>runs.read.all</code>
+(<code>run-workspace-owner-only</code>). The run list asks nothing from such a
 workspace on their behalf, and web and VS Code hide what needs it; the Dateien tab then shows only
 the server&#39;s file store.</p>
 <p>Only a signed-in user of a profile with <code>users</code> can register a workstation over the network. A
 server without users (open, <code>ACCESS_TOKEN</code>, or <code>anonymousUser</code>) has one owner for every client, so it
 accepts a workstation only over a loopback connection and otherwise refuses with
 <code>workspace-client-login-required</code>. The VS Code extension then does not register and shows the reason
-on the environment.</p>
+on the server.</p>
 <p><code>runs.write</code> permits messages and app actions in existing owned runs. Free-form runs,
 preparation chats, and start options additionally require <code>runs.create</code>. Without it, a user can
 start only explicitly allowed run scripts. <code>runs.inspect</code> protects models, journals, source code,
@@ -191,4 +194,4 @@ with <code>withoutCapabilities</code>. Prompt instructions describe a role but g
 Actor programs also declare required functions under <code>capabilities</code>; this limits calls but does
 not supply missing grants. The <a href="guide-runtime.html#equipping-subagents">runtime guide</a>
 shows selections for conversation and coding agents.</p>
-<p class="guide-source">Source: <a href="../../docs/spec/profiles.md">docs/spec/profiles.md</a>. <a href="guide-access.md">This chapter as Markdown</a>.</p><p><a href="guide.html">Back to the guide</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide-extensions.html">Previous: Plugins and skills</a><a href="guide.html">Back to the guide</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>
+<p class="guide-source">Source: <a href="../../docs/spec/profiles.md">docs/spec/profiles.md</a>. <a href="guide-access.md">This chapter as Markdown</a>.</p><p><a href="guide.html">Back to the guide</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide-plugins.html">Previous: Plugins and skills</a><a href="guide.html">Back to the guide</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>

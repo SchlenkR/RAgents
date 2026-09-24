@@ -64,6 +64,10 @@ export interface Message {
   action?: PendingAction;
   /** ISO-Zeitpunkt der Nachricht; Anzeige optional (ChatMessages showTimestamps). */
   at?: string;
+  /** Der ActorInput hinter einer eingehenden Nachricht; an ihm hängt die Steering-Markierung. */
+  inputId?: string;
+  /** Die Nachricht ist in einen schon laufenden Turn eingespeist worden, statt einen eigenen zu beginnen. */
+  steered?: boolean;
   /** Farbige Sprechblase statt Fliesstext, z.B. fuer Mehrparteien-Gespraeche. */
   bubble?: { color: string; side: "start" | "end"; label?: string };
 }
@@ -76,7 +80,8 @@ export interface ChatStartupStatus {
 export type ChatEvent =
   | { kind: "reset"; reason?: "conversation-reset"; conversationId: string | null }
   | { kind: "replay-end"; conversationId: string | null }
-  | { kind: "user"; text: string; at?: string; attachments?: ChatAttachment[] }
+  | { kind: "user"; text: string; inputId?: string; at?: string; attachments?: ChatAttachment[] }
+  | { kind: "steered"; inputId: string }
   | { kind: "text"; delta: string; at?: string; cursor: ChatTextCursor }
   | { kind: "thinking"; delta: string; at?: string }
   | { kind: "tool"; id: string; name: string; arguments: string; label?: string; at?: string }
@@ -86,7 +91,7 @@ export type ChatEvent =
   | { kind: "system"; text: string; at?: string }
   | { kind: "status"; running: boolean; startup?: ChatStartupStatus }
   | { kind: "turn-done" }
-  | { kind: "extension"; pluginId: string; type: string; payload?: unknown; at?: string; journal?: ChatJournalCursor };
+  | { kind: "plugin"; pluginId: string; type: string; payload?: unknown; at?: string; journal?: ChatJournalCursor };
 
 function openMessageIndex(messages: Message[]): number {
   for (let index = messages.length - 1; index >= 0; index--) {
@@ -124,7 +129,10 @@ export function applyEvent(messages: Message[], event: ChatEvent): Message[] {
       return [];
     case "user":
       return [...messages, { key: crypto.randomUUID(), role: "user", text: event.text, closed: true, at: event.at,
+        ...(event.inputId ? { inputId: event.inputId } : {}),
         ...(event.attachments?.length ? { attachments: event.attachments } : {}) }];
+    case "steered":
+      return messages.map((message) => message.inputId === event.inputId ? { ...message, steered: true } : message);
     case "text":
       return appendDelta(messages, "assistant", event.delta, event.at, event.cursor);
     case "thinking":

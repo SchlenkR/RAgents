@@ -39,7 +39,7 @@ const requestFor = (): TurnRequest<"agent"> => ({
         enqueuedBy: "human-1",
         enqueuedAt: "2026-08-27T12:00:00.000Z",
         sequence: 1,
-        lifecycle: { kind: "claimed", turnId: "turn-2" },
+        lifecycle: { kind: "claimed", turnId: "turn-2", steered: false },
         event: null,
     },
     prompt: "Original input.",
@@ -51,6 +51,7 @@ const requestFor = (): TurnRequest<"agent"> => ({
     tools: [],
     allowedToolNames: null,
     invoke: async () => ({ output: null, ignoredFields: [] }),
+    claimSteering: () => [],
     emit: () => undefined,
     publish: () => undefined,
 });

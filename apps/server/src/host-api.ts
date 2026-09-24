@@ -1,5 +1,5 @@
 /** The number of the host API a plugin is built against; it changes with every incompatible change of a list, a listed name or a library. */
-export const HOST_API_VERSION = 4;
+export const HOST_API_VERSION = 5;
 
 /** A library the host shares whole, as its installed version exports it; host code instead names each value it offers. */
 export const LIBRARY = "library";
@@ -86,9 +86,9 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/host/profile/plugin-discovery": ["discoverPluginIds", "resolvePluginEntries"],
     "@ragents/host/protocol": ["Protocol"],
     "@ragents/host/ragents/document-store": ["documentStoreToken"],
-    "@ragents/host/ragents/global-chat": ["globalChatToken", "sessionManagementToken"],
+    "@ragents/host/ragents/global-chat": ["globalChatToken", "runManagementToken"],
     "@ragents/host/ragents/host-services": [
-      "runtimeProviderToken", "secretEnvNamesToken", "sessionGuardToken", "sessionWorkspaceProviderToken", "workspaceGuardToken",
+      "runtimeProviderToken", "secretEnvNamesToken", "runGuardToken", "runWorkspaceProviderToken", "workspaceGuardToken",
     ],
     "@ragents/host/ragents/product-runtime": ["productRuntimeToken"],
     "@ragents/host/ragents/runtime-bridge": ["runtimeBridgeToken"],
@@ -100,7 +100,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/workspace-executor": [
       "BROWSER_EXECUTABLE_VARIABLE", "BROWSER_OPERATIONS", "COMMAND_OPERATIONS", "FILE_OPERATIONS",
       "FSHARP_SERVER_FILE", "FSHARP_SERVER_VARIABLE", "PROCESS_OPERATIONS", "ROSLYN_SERVER_FILE",
-      "ROSLYN_SERVER_VARIABLE", "RUN_MARKER_ENV", "WORKSPACE_EXECUTOR_VERSION", "fsharpAdapter", "listDirectory",
+      "ROSLYN_SERVER_VARIABLE", "RUN_FOLDER_OPERATIONS", "RUN_MARKER_ENV", "WORKSPACE_EXECUTOR_VERSION", "fsharpAdapter", "listDirectory",
       "readTextFile", "roslynAdapter", "runManagedProcess", "safeProcessEnvironment", "sandboxRunEnvironment",
       "shellPlatformText", "startManagedService", "typescriptAdapter", "watchDirectory",
     ],
@@ -126,8 +126,8 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/AccessContext": ["useAccess"],
     "@ragents/web/DiffCode": ["DiffCode"],
     "@ragents/web/PluginRegistry": [
-      "CanvasControllerProvider", "ChatStepsProvider", "chatDisplayPolicyFrom", "pluginRoutePrefixFrom",
-      "useActionRenderer", "useCanvasController", "useChatSteps", "useToolRenderer", "workspaceAccessible",
+      "SurfaceControllerProvider", "ChatStepsProvider", "chatDisplayPolicyFrom", "pluginRoutePrefixFrom",
+      "useActionRenderer", "useSurfaceController", "useChatSteps", "useToolRenderer", "workspaceAccessible",
     ],
     "@ragents/web/SourceCode": ["SourceCode"],
     "@ragents/web/StatusGroup": ["StatusGroup"],
@@ -135,7 +135,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/access-token": ["withAccessToken"],
     "@ragents/web/actor-conversation": ["actorChatMessages", "actorInputLabel"],
     "@ragents/web/actor-programs/client-ui/contracts": [],
-    "@ragents/web/api": ["interruptActorTurn", "sendActorMessage", "stopChatActor"],
+    "@ragents/web/api": ["interruptActorTurn", "sendActorMessage"],
     "@ragents/web/chat/ChatInputToolbar": ["ChatInputToolbar"],
     "@ragents/web/chat/ChatMessages": ["ChatMessages"],
     "@ragents/web/chat/ChatPanel": ["ChatPanel"],
@@ -158,7 +158,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/rpc": ["rpc"],
     "@ragents/web/run-panel/host": ["useCenterElements", "useRunPanelHost"],
     "@ragents/web/run-view": [
-      "actorPluginState", "actorSurface", "chatPrimaryId", "isPendingRunActorInput", "runActorFrom",
+      "actorPluginState", "actorTone", "chatPrimaryId", "isPendingRunActorInput", "runActorFrom",
       "runArtifactContentUrl", "runViewFrom",
     ],
     "@ragents/web/theme": ["useResolvedTheme"],

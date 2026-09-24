@@ -190,7 +190,7 @@ test("ein gescheiterter Input verhindert den Auftrag des anderen Helfers nicht",
 
 test("ohne Standardprofil wird kein Helfer angelegt", async () => {
   const { context, calls } = setup({ missingProfile: true });
-  await assert.rejects(async () => program.onInput(setupInput, context), /Modellprofil standard fehlt/);
+  await assert.rejects(async () => program.onInput(setupInput, context), /Rolle standard fehlt/);
   assert.deepEqual(calls.map((call) => call.name), ["model_list"]);
   assert.deepEqual(context.state.read(), {});
 });

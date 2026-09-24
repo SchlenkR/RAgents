@@ -18,7 +18,7 @@ export const skillEnvDescriptors = [
 
 type SkillEnvironment = DeclaredEnvironment<(typeof skillEnvDescriptors)[number]["key"]>;
 
-/** Reads and checks the SKILL.md of a skill folder; the one parser for start entries and the skills of agents. */
+/** Reads and checks the SKILL.md of a skill folder; the one parser for templates and the skills of agents. */
 const readSkill = (directory: string): { skill: Skill; start: (idPrefix: string) => SkillStartEntry | undefined } => {
   const file = path.join(directory, "SKILL.md");
   if (!statSync(file, { throwIfNoEntry: false })?.isFile()) throw new Error(`Dem Skill ${directory} fehlt die SKILL.md`);

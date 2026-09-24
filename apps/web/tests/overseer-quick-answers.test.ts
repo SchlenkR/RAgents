@@ -4,9 +4,9 @@ import type { ChatEvent, ChatJournalCursor } from "../../server/src/chat-events"
 import { OVERSEER_PLUGIN_ID, QUICK_ANSWER_MAX_LENGTH } from "../../../plugins/ragents.overseer/contract";
 import { createQuickAnswers } from "../../../plugins/ragents.overseer/web/quick-answers";
 
-type ExtensionEvent = Extract<ChatEvent, { kind: "extension" }>;
-const answer = (sequence: number, text = `Antwort ${sequence}`, conversationId = "conversation-a"): ExtensionEvent => ({
-  kind: "extension", pluginId: OVERSEER_PLUGIN_ID, type: "state-replaced",
+type PluginEvent = Extract<ChatEvent, { kind: "plugin" }>;
+const answer = (sequence: number, text = `Antwort ${sequence}`, conversationId = "conversation-a"): PluginEvent => ({
+  kind: "plugin", pluginId: OVERSEER_PLUGIN_ID, type: "state-replaced",
   payload: { scope: { kind: "run" }, state: { kind: "quick-answer", question: "Kurze Frage?", text } },
   journal: { conversationId, eventId: `${conversationId}:${sequence}`, sequence },
 });
@@ -30,11 +30,11 @@ test("initial replay records historical quick answers without displaying a toast
 
 test("each newer live answer is emitted once with its stable journal identity", () => {
   const state = ready();
-  const event = answer(8, "Der Lauf ist fertig.");
-  assert.deepEqual(state.event(event), { question: "Kurze Frage?", id: "conversation-a:8", text: "Der Lauf ist fertig." });
+  const event = answer(8, "Der Run ist fertig.");
+  assert.deepEqual(state.event(event), { question: "Kurze Frage?", id: "conversation-a:8", text: "Der Run ist fertig." });
   assert.equal(state.event(event), undefined);
   assert.equal(state.event(answer(5)), undefined);
-  assert.deepEqual(state.event(answer(12, "Der Lauf ist fertig.")), { question: "Kurze Frage?", id: "conversation-a:12", text: "Der Lauf ist fertig." });
+  assert.deepEqual(state.event(answer(12, "Der Run ist fertig.")), { question: "Kurze Frage?", id: "conversation-a:12", text: "Der Run ist fertig." });
 });
 
 test("reconnect replays already displayed answers without showing them again", () => {
@@ -77,8 +77,8 @@ test("a changed remote conversation discards pending old notices and starts its 
   state.event({ kind: "reset", conversationId: "conversation-a" });
   state.event(answer(110));
   state.event({ kind: "reset", conversationId: "conversation-b" });
-  assert.equal(state.event(answer(2, "Neue Unterhaltung", "conversation-b")), undefined);
-  assert.deepEqual(state.event({ kind: "replay-end", conversationId: "conversation-b" }), { question: "Kurze Frage?", id: "conversation-b:2", text: "Neue Unterhaltung" });
+  assert.equal(state.event(answer(2, "Neuer Run", "conversation-b")), undefined);
+  assert.deepEqual(state.event({ kind: "replay-end", conversationId: "conversation-b" }), { question: "Kurze Frage?", id: "conversation-b:2", text: "Neuer Run" });
   assert.equal(state.event(answer(111)), undefined);
   assert.deepEqual(state.event(answer(3, "Nächste Antwort", "conversation-b")), { question: "Kurze Frage?", id: "conversation-b:3", text: "Nächste Antwort" });
 });
@@ -150,7 +150,7 @@ test("missing or malformed journal positions fail before they can corrupt dedupl
 
 test("historical notices need no current presentation fields and are never reannounced", () => {
   const state = createQuickAnswers();
-  const historical = { ...answer(3), payload: { scope: { kind: "run" }, state: { kind: "quick-answer", text: "Frühere Antwort" } } } as ExtensionEvent;
+  const historical = { ...answer(3), payload: { scope: { kind: "run" }, state: { kind: "quick-answer", text: "Frühere Antwort" } } } as PluginEvent;
   state.event({ kind: "reset", conversationId: "conversation-a" });
   assert.equal(state.event(historical), undefined);
   assert.equal(state.event({ kind: "replay-end", conversationId: "conversation-a" }), undefined);

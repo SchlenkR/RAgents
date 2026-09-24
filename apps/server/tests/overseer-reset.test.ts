@@ -10,11 +10,12 @@ import { DomainError, PluginHost, unrestrictedAccess } from "@ragents/engine";
 import { deferred } from "../../../packages/ragents/tests/support.ts";
 import { plugin } from "../../../plugins/ragents.overseer/server/index.ts";
 import { overseerContracts } from "../../../plugins/ragents.overseer/contract.ts";
+import { coordinatorRunId } from "../../../plugins/ragents.overseer/server/coordinator.ts";
 import { coreContracts } from "../src/api/contracts.ts";
 import { coreChannels, coreMethods } from "../src/api/core-methods.ts";
 import { coreSources, dispatchMethod, methodContext } from "./rpc-fixture.ts";
 import { WorkspaceSandboxHost, sandboxServicesToken } from "../src/plugin-support/workspace-sandbox-host.ts";
-import { globalChatToken, sessionManagementToken, type SessionManagement } from "../src/ragents/global-chat.ts";
+import { globalChatToken, runManagementToken, type RunManagement } from "../src/ragents/global-chat.ts";
 import { productRuntimeToken } from "../src/ragents/product-runtime.ts";
 import { workspaceRuntimeToken } from "../src/ragents/workspace-runtime.ts";
 import type { ChatEvent } from "../src/chat-events.ts";
@@ -30,6 +31,8 @@ process.env.ACCESS_TOKEN = "reset-test-only-token";
 const { RunSessionProvider } = await import("../src/provider.ts");
 const { registerTypeScriptFunctions } = await import("../src/ragents/typescript-tools.ts");
 
+const G = coordinatorRunId(null);
+
 const until = async (condition: () => boolean) => {
   const timeout = Date.now() + 10000;
   while (!condition()) {
@@ -41,12 +44,12 @@ const until = async (condition: () => boolean) => {
 test("confirmed reset recovers durably and isolates unavailable journals across server restarts", { timeout: 30000 }, async () => {
   const faux = registerFauxProvider({ models: [{ id: "reset-model", reasoning: true }] });
   const model = faux.getModel();
-  let management: SessionManagement;
+  let management: RunManagement;
   const resolvedWorkspaces: string[] = [];
   const createProvider = () => new RunSessionProvider((bridges) => {
     management = bridges.sessions!();
     const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: directory });
-    host.provideHost(sessionManagementToken, () => management);
+    host.provideHost(runManagementToken, () => management);
     const sandbox = new WorkspaceSandboxHost({ contributorName: "test.workspace", workspaceFor: bridges.sessionWorkspaceFor,
       identFor: async () => undefined, homeFor: async () => ({ home: directory }), skillPaths: async () => [] });
     host.register({ manifest: { id: "test.product" }, register: (registration) => {
@@ -91,7 +94,7 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
       assert.doesNotMatch(context.systemPrompt ?? "", /reset-test-only-token/);
       return fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.write(${JSON.stringify({ path: "request.json", content: '{"title":"Test"}' })});` }, { id: "global-write" })]);
     },
-    () => fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.read(${JSON.stringify({ path: "$RAGENTS_JOURNAL_DIR/overseer/journal.jsonl" })});` }, { id: "global-read" })]),
+    () => fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.read(${JSON.stringify({ path: `$RAGENTS_JOURNAL_DIR/${G}/journal.jsonl` })});` }, { id: "global-read" })]),
     () => fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.bash(${JSON.stringify({ command: 'test -n "$RAGENTS_API_TOKEN" && test "$RAGENTS_API_BASE_URL" = http://127.0.0.1:51234 && rg -l "Altes Gespräch" "$RAGENTS_JOURNAL_DIR"', timeout: 5 })});` }, { id: "global-bash" })]),
     (context) => {
       const results = context.messages.filter((message) => message.role === "toolResult");
@@ -108,20 +111,20 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
   ]);
   try {
     await provider.init();
-    const global = await provider.get("overseer");
+    const global = await provider.get(G);
     const observed: ChatEvent[] = [];
     const unsubscribe = global.subscribe((event) => observed.push(event));
     await global.send("Altes Gespräch");
-    await until(() => management!.view("overseer").turns[0]?.status === "completed");
+    await until(() => management!.view(G).turns[0]?.status === "completed");
     const toolPolicy = provider.plugins.service(globalChatToken);
     const currentTools = toolPolicy.toolNames;
     toolPolicy.toolNames = ["legacy-management-tool"];
-    assert.equal(await provider.get("overseer"), global);
+    assert.equal(await provider.get(G), global);
     await assert.rejects(async () => global.send("Veraltete Werkzeugauswahl"), /Werkzeuge.*zurück/);
     toolPolicy.toolNames = currentTools;
     await assert.rejects(overseerCall(overseerContracts.reset, { confirm: false }), /Ungültige Eingabe/);
     await assert.rejects(overseerCall(overseerContracts.reset, {}), /Ungültige Eingabe/);
-    assert.equal(provider.hasRun("overseer"), true);
+    assert.equal(provider.hasRun(G), true);
     const selection = { provider: model.provider, model: model.id, thinking: "high" };
     const settingsBefore = await overseerCall(overseerContracts.settings.save, selection);
     const normalId = await management!.create({ title: "Normal bleibt", userId: null, kind: "message", message: "Normaler laufender Auftrag" });
@@ -129,12 +132,12 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     const normalBefore = management!.view(normalId);
     await global.send("Globaler laufender Auftrag " + "mit vielen Einzelheiten. ".repeat(300));
     await globalStarted.promise;
-    assert.ok((await readdir(path.join(directory, "runs", "overseer", "payloads"))).length > 0);
-    const oldActor = management!.view("overseer").primaryActorId;
-    assert.ok(existsSync(path.join(directory, "sessions", "overseer", "chat", oldActor!)));
-    const reset = management!.resetGlobal();
-    assert.equal(management!.resetGlobal(), reset);
-    await assert.rejects(provider.get("overseer"), /zurückgesetzt/);
+    assert.ok((await readdir(path.join(directory, "runs", G, "payloads"))).length > 0);
+    const oldActor = management!.view(G).primaryActorId;
+    assert.ok(existsSync(path.join(directory, "sessions", G, "chat", oldActor!)));
+    const reset = management!.resetGlobal(G);
+    assert.equal(management!.resetGlobal(G), reset);
+    await assert.rejects(provider.get(G), /zurückgesetzt/);
     await assert.rejects(async () => global.send("Gleichzeitige Nachricht"), /zurückgesetzt/);
     await globalAborted.promise;
     let finished = false;
@@ -142,25 +145,25 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     await new Promise<void>((resolve) => setImmediate(resolve));
     assert.equal(finished, false);
     assert.deepEqual(management!.view(normalId), normalBefore);
-    await assert.rejects(chatMethod(coreContracts.chat.actorHistory).execute({ runId: "overseer" } as never, methodContext()),
+    await assert.rejects(chatMethod(coreContracts.chat.actorHistory).execute({ runId: G } as never, methodContext()),
       (error: unknown) => error instanceof DomainError && error.status === 409);
     releaseGlobal.resolve();
     await reset;
-    assert.equal(provider.hasRun("overseer"), false);
-    assert.equal(existsSync(path.join(directory, "sessions", "overseer")), false);
-    assert.equal(existsSync(path.join(directory, "runs", "overseer")), false);
+    assert.equal(provider.hasRun(G), false);
+    assert.equal(existsSync(path.join(directory, "sessions", G)), false);
+    assert.equal(existsSync(path.join(directory, "runs", G)), false);
     assert.deepEqual(management!.view(normalId), normalBefore);
     assert.deepEqual(await overseerCall(overseerContracts.settings.read, {}), settingsBefore);
     assert.equal(observed.filter((event) => event.kind === "reset" && event.reason === "conversation-reset").length, 1);
-    assert.equal(await provider.get("overseer"), global);
+    assert.equal(await provider.get(G), global);
     const replay: ChatEvent[] = [];
     global.subscribe((event) => replay.push(event))();
     assert.deepEqual(replay, [{ kind: "reset", conversationId: null }, { kind: "status", running: false }, { kind: "replay-end", conversationId: null }]);
-    const workspace = provider.plugins.service(globalChatToken).workspaceDirectory;
+    const workspace = provider.plugins.service(globalChatToken).workspaceDirectory(G);
     assert.equal(existsSync(path.join(workspace, "rpc-reference.md")), false);
     await global.send("Neue Frage");
-    await until(() => management!.view("overseer").turns[0]?.status === "completed");
-    assert.notEqual(management!.view("overseer").primaryActorId, oldActor);
+    await until(() => management!.view(G).turns[0]?.status === "completed");
+    assert.notEqual(management!.view(G).primaryActorId, oldActor);
     assert.match(await readFile(path.join(workspace, "rpc-reference.md"), "utf8"), new RegExp(overseerContracts.listRuns.id));
     assert.ok(JSON.parse(await readFile(path.join(workspace, "openrpc.json"), "utf8")).methods.length > 0);
     assert.ok(observed.some((event) => event.kind === "text" && event.delta.includes("Frischer")));
@@ -169,39 +172,40 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     releaseNormal.resolve();
     await until(() => management!.view(normalId).turns[0]?.status === "completed");
     unsubscribe();
-    const intent = provider.plugins.service(globalChatToken).resetIntentFile!;
+    const intents = provider.plugins.service(globalChatToken).resetIntentDirectory!;
+    const intent = path.join(intents, `${G}.json`);
     await provider.shutdown();
-    await writeFile(intent, JSON.stringify({ version: 1, runId: "overseer" }));
+    await writeFile(intent, JSON.stringify({ version: 1, runId: G }));
     provider = createProvider();
     await provider.init();
-    assert.equal(provider.hasRun("overseer"), false);
+    assert.equal(provider.hasRun(G), false);
     assert.equal(existsSync(intent), false);
     assert.ok(provider.hasRun(normalId));
     assert.deepEqual(await overseerCall(overseerContracts.settings.read, {}), settingsBefore);
-    await (await provider.get("overseer")).send("Nach dem Neustart");
-    await until(() => management!.view("overseer").turns[0]?.status === "completed");
+    await (await provider.get(G)).send("Nach dem Neustart");
+    await until(() => management!.view(G).turns[0]?.status === "completed");
     assert.doesNotMatch(freshContexts[1], /Neue Frage|Frischer Anfang|Altes Gespräch/);
-    const current = await provider.get("overseer");
+    const current = await provider.get(G);
     const policy = provider.plugins.service(globalChatToken);
     const blocker = path.join(directory, "blocked-marker-parent");
     await writeFile(blocker, "file");
-    policy.resetIntentFile = path.join(blocker, "reset.json");
+    policy.resetIntentDirectory = blocker;
     await assert.rejects(overseerCall(overseerContracts.reset, { confirm: true }));
-    assert.equal(await provider.get("overseer"), current);
-    assert.equal(provider.hasRun("overseer"), true);
-    policy.resetIntentFile = intent;
+    assert.equal(await provider.get(G), current);
+    assert.equal(provider.hasRun(G), true);
+    policy.resetIntentDirectory = intents;
     const engine = (provider as unknown as { engine: Engine }).engine;
     const halt = engine.scheduler.haltRun.bind(engine.scheduler);
     engine.scheduler.haltRun = async () => { throw new Error("Test: Laufzeit lässt sich noch nicht stoppen"); };
     await assert.rejects(overseerCall(overseerContracts.reset, { confirm: true }), /noch nicht stoppen/);
-    assert.equal(provider.hasRun("overseer"), true);
+    assert.equal(provider.hasRun(G), true);
     assert.ok(existsSync(intent));
     assert.ok(provider.hasRun(normalId));
-    await assert.rejects(provider.get("overseer"), /wiederhole den Reset/);
+    await assert.rejects(provider.get(G), /wiederhole den Reset/);
     await assert.rejects(async () => current.send("Nach gescheitertem Reset"), /zurückgesetzt/);
     engine.scheduler.haltRun = halt;
     assert.equal(await overseerCall(overseerContracts.reset, { confirm: true }), null);
-    assert.equal(provider.hasRun("overseer"), false);
+    assert.equal(provider.hasRun(G), false);
     assert.ok((await readFile(path.join(directory, "runs", normalId, "journal.jsonl"), "utf8")).includes("Normaler laufender Auftrag"));
     await provider.shutdown();
     const firstRecord = JSON.parse((await readFile(path.join(directory, "runs", normalId, "journal.jsonl"), "utf8")).split("\n")[0]);
@@ -212,7 +216,7 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
       [legacyId, JSON.stringify({ ...firstRecord, runId: legacyId, formatVersion: 3 }) + "\n"],
       [corruptId, JSON.stringify({ ...firstRecord, runId: corruptId }) + '\n{"formatVersion":4}\n'],
       [malformedId, "{invalid JSON}\n"],
-      ["overseer", JSON.stringify({ ...firstRecord, runId: "overseer", formatVersion: 3 }) + "\n"],
+      [G, JSON.stringify({ ...firstRecord, runId: G, formatVersion: 3 }) + "\n"],
     ]);
     for (const [id, content] of unavailable) {
       await mkdir(path.join(directory, "runs", id), { recursive: true });
@@ -238,21 +242,21 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
       if (restart === 0) await provider.shutdown();
     }
     faux.setResponses([
-      () => fauxAssistantMessage("Gesunder Lauf nach beschädigten Journalen"),
-      () => fauxAssistantMessage("Neuer Lauf nach beschädigten Journalen"),
+      () => fauxAssistantMessage("Gesunder Run nach beschädigten Journalen"),
+      () => fauxAssistantMessage("Neuer Run nach beschädigten Journalen"),
       () => fauxAssistantMessage("Global nach ausdrücklichem Reset"),
     ]);
-    await (await provider.get(normalId)).send("Bestehenden Lauf fortsetzen");
+    await (await provider.get(normalId)).send("Bestehenden Run fortsetzen");
     await until(() => management!.view(normalId).turns.length === 2 && management!.view(normalId).turns.every((turn) => turn.status === "completed"));
-    const freshId = await management!.create({ title: "Neuer gesunder Lauf", userId: null, kind: "message", message: "Trotz alter Journale starten" });
+    const freshId = await management!.create({ title: "Neuer gesunder Run", userId: null, kind: "message", message: "Trotz alter Journale starten" });
     await until(() => management!.view(freshId).turns[0]?.status === "completed");
     assert.equal(await overseerCall(overseerContracts.reset, { confirm: true }), null);
-    await (await provider.get("overseer")).send("Nach Reset des alten Journals");
-    await until(() => management!.view("overseer").turns[0]?.status === "completed");
+    await (await provider.get(G)).send("Nach Reset des alten Journals");
+    await until(() => management!.view(G).turns[0]?.status === "completed");
     assert.equal(provider.hasRun(normalId), true);
     assert.equal(provider.hasRun(freshId), true);
     for (const [id, content] of unavailable) {
-      if (id === "overseer") continue;
+      if (id === G) continue;
       assert.equal(await readFile(path.join(directory, "runs", id, "journal.jsonl"), "utf8"), content);
     }
   } finally {

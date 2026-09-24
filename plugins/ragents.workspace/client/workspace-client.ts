@@ -6,6 +6,7 @@ import {
   containsWorkspacePath,
   WorkspaceOperationError,
   WorkspaceOperationExecutor,
+  workspaceDataDirectory,
   workspaceExecutorModules,
   workspaceProcessContext,
   type WorkspaceProcessContext,
@@ -68,6 +69,17 @@ const realPathOf = async (target: string): Promise<string> => {
     const parent = dirname(target);
     return parent === target ? target : join(await realPathOf(parent), basename(target));
   }
+};
+
+/** Wo ein Arbeitsplatz ohne eigene Angabe die neuen Ordner je Run anlegt: im Datenordner des Arbeitsplatzes, nie in einem angebotenen Projekt. */
+export const workstationRunsDirectory = (): string => join(workspaceDataDirectory(), "runs");
+
+const RUN_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** Der neue Ordner eines Runs auf diesem Rechner; eine Kennung mit Pfadzeichen käme aus dem Ordner für Runs heraus. */
+const runFolderOf = (runsDirectory: string, runId: string): string => {
+  if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Die Run-Kennung ${runId} taugt nicht als Ordnername`);
+  return join(runsDirectory, runId);
 };
 
 const sameFolders = (left: readonly string[], right: readonly string[]): boolean =>
@@ -163,16 +175,17 @@ export class WorkspaceClient {
 
   /** Der Arbeitsplatz bindet immer sich selbst; wo der Server läuft, ändert daran nichts. */
   binding(folder: string): WorkspaceBinding {
-    return { kind: "client", client: this.id, label: this.label, path: folder };
+    return { machine: { client: this.id, label: this.label }, folder: { path: folder } };
   }
 
   /** Jede Anmeldung baut ihren eigenen Executor; einer, den eine Abmeldung beendet hat, wird nie wieder benutzt. */
   #attach(): Attachment {
     if (this.#attachment) return this.#attachment;
     const runs = new Map<string, WorkspaceProcessContext>();
+    const runsDirectory = this.#identity.runsDirectory;
     const executor = new WorkspaceOperationExecutor({
       contextFor: (runId) => contextOf(runs, runId),
-      modules: workspaceExecutorModules(),
+      modules: workspaceExecutorModules({ runFolder: (runId) => runFolderOf(runsDirectory, runId) }),
     });
     const rpc = this.transport.rpc;
     const releases = [
@@ -214,6 +227,7 @@ export class WorkspaceClient {
         hostname: this.#identity.hostname,
         platform: this.#identity.platform,
         folders: [...this.#identity.folders],
+        runsDirectory: this.#identity.runsDirectory,
         executor: WORKSPACE_EXECUTOR_VERSION,
       }, { timeoutMs: REGISTER_TIMEOUT_MS });
       if (attachment === this.#attachment) this.#set({ kind: "registered" });
@@ -238,7 +252,7 @@ export class WorkspaceClient {
     context: RpcHandlerContext,
   ): Promise<{ value: unknown }> {
     if (input.operation === WORKSPACE_CLIENT_STOP_OPERATION) return this.#stop(executor, runs, input.runId);
-    const cwd = await this.#inside(input.cwd);
+    const cwd = await this.#inside(input.cwd, input.runId);
     const root = await realPathOf(cwd);
     if (executor !== this.#attachment?.executor) throw new Error("Der Arbeitsplatz hat sich inzwischen abgemeldet");
     runs.set(input.runId, workspaceProcessContext({
@@ -284,11 +298,12 @@ export class WorkspaceClient {
     return { value: null };
   }
 
-  /** Jeder Auftrag muss in einem der angebotenen Ordner liegen; fehlende Pfade zählen über ihren vorhandenen Elternordner. */
-  async #inside(candidate: string): Promise<string> {
+  /** Jeder Auftrag muss in einem der angebotenen Ordner liegen oder im neuen Ordner seines Runs; fehlende Pfade zählen über ihren vorhandenen Elternordner. */
+  async #inside(candidate: string, runId: string): Promise<string> {
     const target = resolve(candidate);
     const real = await realPathOf(target);
-    const roots = await Promise.all(this.#identity.folders.map((folder) => realPathOf(resolve(folder))));
+    const allowed = [...this.#identity.folders, runFolderOf(this.#identity.runsDirectory, runId)];
+    const roots = await Promise.all(allowed.map((folder) => realPathOf(resolve(folder))));
     if (!roots.some((root) => containsWorkspacePath(root, real))) {
       throw new Error(`Pfad außerhalb des angebotenen Ordners: ${candidate}`);
     }

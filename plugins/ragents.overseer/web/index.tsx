@@ -15,7 +15,7 @@ import { interruptActorTurn } from "@ragents/web/api";
 import { runContracts } from "@ragents/engine/src/http/contracts";
 import { runViewFrom } from "@ragents/web/run-view";
 import type { ChatEvent } from "@ragents/host/chat-events";
-import { OVERSEER_PLUGIN_ID, OVERSEER_RUN_ID, overseerContracts } from "../contract";
+import { OVERSEER_PLUGIN_ID, overseerContracts } from "../contract";
 import { ModelSettings, useModelSettings } from "./ModelSettings";
 import { overseerChatDisplayPolicy, overseerChatStorageKeyPrefix } from "./chat-display";
 import { createQuickAnswers, type QuickAnswerNotice } from "./quick-answers";
@@ -24,20 +24,37 @@ const toolbarClass = "flex h-header max-w-[720px] min-w-[190px] flex-[0_1_570px]
 const noteClass = "mx-4 my-2 flex-none text-[0.8rem] text-muted-foreground";
 
 /** Unterbricht nur den laufenden Turn des Koordinators; der Run und seine übrigen Actors laufen weiter. */
-const interruptCoordinator = async () => {
-  const coordinator = runViewFrom(await rpc.call(runContracts.view, { runId: OVERSEER_RUN_ID }))?.primaryActorId;
+const interruptCoordinator = async (runId: string) => {
+  const coordinator = runViewFrom(await rpc.call(runContracts.view, { runId }))?.primaryActorId;
   if (!coordinator) throw new Error("Der globale Koordinator ist nicht verfügbar");
-  await interruptActorTurn(OVERSEER_RUN_ID, coordinator);
+  await interruptActorTurn(runId, coordinator);
 };
 const errorClass = "mx-4 my-2 flex-none text-[0.8rem] text-destructive";
 
+/** Jeder Benutzer hat seinen eigenen Koordinator; seine Kennung kennt nur der Server. */
 function OverseerToolbar(context: OverviewPanelContext) {
+  const user = useAccess().user?.id;
+  const [coordinator, setCoordinator] = useState<{ runId?: string; error?: string }>({});
+  useEffect(() => {
+    let current = true;
+    setCoordinator({});
+    rpc.call(overseerContracts.coordinator, {}).then(
+      ({ runId }) => { if (current) setCoordinator({ runId }); },
+      (cause: unknown) => { if (current) setCoordinator({ error: cause instanceof Error ? cause.message : String(cause) }); },
+    );
+    return () => { current = false; };
+  }, [user]);
+  if (!coordinator.runId) {
+    return <div className={toolbarClass} data-slot="overseer-toolbar" role="status">
+      {coordinator.error && <span className="text-[0.7rem] font-bold text-destructive" title={coordinator.error} aria-label={coordinator.error}>!</span>}
+    </div>;
+  }
   return <ChatStepsProvider policy={overseerChatDisplayPolicy} storageKeyPrefix={overseerChatStorageKeyPrefix}>
-    <OverseerConversation {...context} />
+    <OverseerConversation key={coordinator.runId} {...context} runId={coordinator.runId} />
   </ChatStepsProvider>;
 }
 
-function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation }: OverviewPanelContext) {
+function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, runId }: OverviewPanelContext & { runId: string }) {
   const writable = useAccess().can("ragents.overseer.write");
   const [activated, setActivated] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -78,10 +95,10 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation }: O
     if (event.kind === "replay-end") conversationId.current = event.conversationId;
     if (notice && !panelOpen.current) setQuickAnswer(notice);
   }, [clearConversation, quickAnswers]);
-  const chat = useChat(OVERSEER_RUN_ID, onEvent, activated);
-  const steps = useChatSteps(OVERSEER_RUN_ID);
+  const chat = useChat(runId, onEvent, activated);
+  const steps = useChatSteps(runId);
   const modelState = useModelSettings(open);
-  const attachments = useAttachmentCapabilities(OVERSEER_RUN_ID, "primary", JSON.stringify(modelState.settings && [modelState.settings.provider, modelState.settings.model]));
+  const attachments = useAttachmentCapabilities(runId, "primary", JSON.stringify(modelState.settings && [modelState.settings.provider, modelState.settings.model]));
   const messages = useMemo(() => withToolSummaries(chat.messages), [chat.messages]);
   const requestOpen = () => { suppressFocus.current = false; setQuickAnswer(undefined); onOpen(); };
   useEffect(() => { if (open) { setActivated(true); setQuickAnswer(undefined); } }, [open]);
@@ -145,7 +162,7 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation }: O
         inputAriaControls="overseer-dropdown"
         disabled={!writable || resetting || confirmReset} sendDisabled={!chat.connected || modelState.status === "saving" || resetting}
         maxRows={2} rows={1} onErrorChange={setComposerError} onSend={(text, attachments) => chat.send(text, attachments, userLocation)}
-        onStop={writable && chat.running ? () => { if (!resetPending.current) perform(interruptCoordinator); } : undefined}
+        onStop={writable && chat.running ? () => { if (!resetPending.current) perform(() => interruptCoordinator(runId)); } : undefined}
         running={chat.running}
         texts={{ placeholder: "Globaler Koordinator", steeringPlaceholder: "Globaler Koordinator" }}
         toolbarRight={<ModelSettings active={open} compact disabled={resetting} actions={
@@ -179,7 +196,7 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation }: O
     <PopoverContent align="start" anchor={belowHeader} aria-label="Globaler Koordinator" className="flex min-h-0 flex-col gap-0 overflow-hidden rounded-t-none rounded-b-panel border-t-2 border-t-primary p-0" collisionPadding={8}
       finalFocus={false} id="overseer-dropdown" initialFocus={false} keepMounted ref={setDropdown} role="region" side="bottom" sideOffset={0}
       style={{ width: "min(760px, var(--available-width))", height: "min(650px, var(--available-height))" }}>
-      <div className="flex-none border-b border-border-soft" data-surface="overseer-details" ref={setDetailsContainer} />
+      <div className="flex-none border-b border-border-soft" data-tone="overseer-details" ref={setDetailsContainer} />
       {confirmReset && dialogContainer && <RunModalContext.Provider value={dialogContainer}>
         <Dialog open onOpenChange={(next) => { if (!next && !resetting) setConfirmReset(false); }} modal="trap-focus" disablePointerDismissal>
           <DialogContent initialFocus={cancelReset} onBackdropClick={() => { if (!resetting) setConfirmReset(false); }} scope="run" showCloseButton={false} size="small">

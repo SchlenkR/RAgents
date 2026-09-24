@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { SessionContext } from "../src/PluginRegistry.tsx";
 import { ACTOR_PROGRAMS_STATE_ID } from "../../../apps/server/src/plugin-support/actor-programs/contract.ts";
-import { actorProgramCanvasElements } from "../../../plugins/ragents.actor-programs/web/EmbeddedApps.tsx";
+import { actorProgramSurfaceElements } from "../../../plugins/ragents.actor-programs/web/EmbeddedApps.tsx";
 import { runAppFrom } from "../../../plugins/ragents.actor-programs/web/api.ts";
 
 const owner = { id: "actor", handle: "counter", kind: "agent", lifecycle: { kind: "idle" } };
@@ -13,9 +13,9 @@ const session = (programs: unknown[], actors: unknown[] = [owner]): SessionConte
   subscriptions: [], actions: [], artifacts: [], pluginStates: programs,
 } } as SessionContext);
 
-test("several actor views share their owner's canvas anchor while headless programs have no frame", () => {
+test("several actor views share their owner's surface anchor while headless programs have no frame", () => {
   const headless = { ...owner, id: "headless", handle: "worker", kind: "script" };
-  const elements = actorProgramCanvasElements(session([
+  const elements = actorProgramSurfaceElements(session([
     program([{ id: "counter--board", title: "Übersicht" }, { id: "counter--details", title: "Details" }]),
     program([], headless),
   ], [owner, headless]));
@@ -27,20 +27,20 @@ test("several actor views share their owner's canvas anchor while headless progr
 
 test("stopped and absent actors lose their views synchronously", () => {
   const programs = [program([{ id: "counter--board", title: "Übersicht" }])];
-  assert.equal(actorProgramCanvasElements(session(programs)).length, 1);
-  assert.deepEqual(actorProgramCanvasElements(session(programs, [{ ...owner, lifecycle: { kind: "stopped" } }])), []);
-  assert.deepEqual(actorProgramCanvasElements(session(programs, [])), []);
-  assert.deepEqual(actorProgramCanvasElements(session([{ ...program([]), state: { version: 1, program: null } }])), []);
+  assert.equal(actorProgramSurfaceElements(session(programs)).length, 1);
+  assert.deepEqual(actorProgramSurfaceElements(session(programs, [{ ...owner, lifecycle: { kind: "stopped" } }])), []);
+  assert.deepEqual(actorProgramSurfaceElements(session(programs, [])), []);
+  assert.deepEqual(actorProgramSurfaceElements(session([{ ...program([]), state: { version: 1, program: null } }])), []);
 });
 
-test("visibility survives as a canvas property and another actor cannot own the placement", () => {
+test("visibility survives as a surface property and another actor cannot own the placement", () => {
   const view = { id: "counter--board", title: "Board", visible: false, placements: [{ kind: "canvas", anchorActorId: owner.id }] };
-  const hidden = actorProgramCanvasElements(session([program([view])]))[0]!;
+  const hidden = actorProgramSurfaceElements(session([program([view])]))[0]!;
   assert.equal(hidden.visible, false);
   view.visible = true;
-  assert.deepEqual({ ...hidden, visible: true }, actorProgramCanvasElements(session([program([view])]))[0]);
+  assert.deepEqual({ ...hidden, visible: true }, actorProgramSurfaceElements(session([program([view])]))[0]);
   view.placements[0]!.anchorActorId = "other-actor";
-  assert.throws(() => actorProgramCanvasElements(session([program([view])])), /gehört/);
+  assert.throws(() => actorProgramSurfaceElements(session([program([view])])), /gehört/);
 });
 
 test("the view API requires actor ownership and rejects dialogs, foreign placement, and duplicate placement", () => {
@@ -60,7 +60,7 @@ test("a tile placement carries only its anchor and leaves the program state unto
   const views = [0, 1, 2].map((index) => ({ id: `counter--view-${index}`, title: `View ${index}`,
     placements: [{ kind: "canvas", anchorActorId: owner.id }] }));
   const before = JSON.stringify(views);
-  const elements = actorProgramCanvasElements(session([program(views)]));
+  const elements = actorProgramSurfaceElements(session([program(views)]));
   assert.deepEqual(elements.map((entry) => Object.keys(entry).sort()), Array(3).fill(["anchorActorId", "data", "entity", "id", "title", "visible"]));
   assert.equal(JSON.stringify(views), before);
 });

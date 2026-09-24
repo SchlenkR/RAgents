@@ -6,13 +6,13 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { hostStylesheet, tailwindPlugin } from "./tailwind-plugin";
 import { chromium } from "playwright-core";
-import { canvasProgramBasis, currentCanvasOverride, initialTileLayout, parseCanvasPresentation, type CanvasPresentation } from "../../../plugins/ragents.orchestration/web/tiled-view-settings";
-import { canvasTileEntities } from "../../../plugins/ragents.orchestration/tiled-layout";
+import { surfaceProgramBasis, currentSurfaceOverride, initialTileLayout, parseSurfacePresentation, type SurfacePresentation } from "../../../plugins/ragents.orchestration/web/tiled-view-settings";
+import { surfaceTileEntities } from "../../../plugins/ragents.orchestration/tiled-layout";
 
 test("no personal arrangement follows the program while an empty personal arrangement remains empty", () => {
-  assert.equal(parseCanvasPresentation(null), null);
-  assert.equal(parseCanvasPresentation("null"), null);
-  assert.deepEqual(parseCanvasPresentation('{"root":null}'), { root: null });
+  assert.equal(parseSurfacePresentation(null), null);
+  assert.equal(parseSurfacePresentation("null"), null);
+  assert.deepEqual(parseSurfacePresentation('{"root":null}'), { root: null });
 });
 
 test("personal arrangements preserve nested weights, participants and hidden composers across serialization", () => {
@@ -20,14 +20,14 @@ test("personal arrangements preserve nested weights, participants and hidden com
     { entity: "@coordinator", chatInput: false },
     { direction: "horizontal", weights: [2, 1], children: [{ entity: "app:workspace/main" }, { entity: "@helper" }] },
   ] };
-  assert.deepEqual(parseCanvasPresentation(JSON.stringify({ root })), { root });
+  assert.deepEqual(parseSurfacePresentation(JSON.stringify({ root })), { root });
 });
 
 test("corrupt personal layouts are rejected instead of silently losing the arrangement", () => {
   for (const value of [{}, { mode: "tiled", root: null }, { root: { entity: "shape:x" } },
     { root: { entity: "app:items/main", chatInput: false } },
     { root: { direction: "horizontal", weights: [1, 0], children: [{ entity: "@a" }, { entity: "@b" }] } }]) {
-    assert.throws(() => parseCanvasPresentation(JSON.stringify(value)));
+    assert.throws(() => parseSurfacePresentation(JSON.stringify(value)));
   }
 });
 
@@ -36,36 +36,36 @@ test("initial tiles include each selected content once in balanced nested splits
   assert.deepEqual(initialTileLayout(["@a"]), { entity: "@a" });
   const entities = ["app:main", "@a", "@b", "@c", "@d"];
   const root = initialTileLayout(entities)!;
-  assert.deepEqual(canvasTileEntities(root), entities);
+  assert.deepEqual(surfaceTileEntities(root), entities);
   assert.ok("direction" in root);
   assert.equal(root.direction, "horizontal");
   assert.deepEqual(root.weights, [3, 2]);
 });
 
 test("new program layouts immediately replace personal arrangements including after a reload", () => {
-  const program: CanvasPresentation = { root: initialTileLayout(["app:items/main", "@coordinator"]) };
-  const personal: CanvasPresentation = { root: initialTileLayout(["@coordinator", "app:items/main"]), programBasis: canvasProgramBasis(program) };
-  assert.deepEqual(currentCanvasOverride(parseCanvasPresentation(JSON.stringify(personal)), program), personal);
-  const withWorker: CanvasPresentation = { root: initialTileLayout(["app:items/main", "@coordinator", "app:worker/main"]) };
-  assert.equal(currentCanvasOverride(personal, withWorker), null);
-  assert.equal(currentCanvasOverride({ root: personal.root }, withWorker), null);
-  const resized: CanvasPresentation = { ...withWorker, programBasis: canvasProgramBasis(withWorker), root: { entity: "@coordinator" } };
-  assert.equal(currentCanvasOverride(resized, withWorker), resized);
-  assert.equal(currentCanvasOverride(resized, program), null);
+  const program: SurfacePresentation = { root: initialTileLayout(["app:items/main", "@coordinator"]) };
+  const personal: SurfacePresentation = { root: initialTileLayout(["@coordinator", "app:items/main"]), programBasis: surfaceProgramBasis(program) };
+  assert.deepEqual(currentSurfaceOverride(parseSurfacePresentation(JSON.stringify(personal)), program), personal);
+  const withWorker: SurfacePresentation = { root: initialTileLayout(["app:items/main", "@coordinator", "app:worker/main"]) };
+  assert.equal(currentSurfaceOverride(personal, withWorker), null);
+  assert.equal(currentSurfaceOverride({ root: personal.root }, withWorker), null);
+  const resized: SurfacePresentation = { ...withWorker, programBasis: surfaceProgramBasis(withWorker), root: { entity: "@coordinator" } };
+  assert.equal(currentSurfaceOverride(resized, withWorker), resized);
+  assert.equal(currentSurfaceOverride(resized, program), null);
 });
 
 const browserTest = { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 60_000 };
 
 async function openLayoutFixture(context: TestContext) {
-  const directory = await mkdtemp("/private/tmp/ragents-canvas-program-layout-");
+  const directory = await mkdtemp("/private/tmp/ragents-surface-program-layout-");
   const source = fileURLToPath(new URL("../../../plugins/ragents.orchestration/web/", import.meta.url));
   await build({
     stdin: { contents: `
 import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
-import { TiledCanvas } from './TiledCanvas';
-import { canvasPresentationStorageKey, saveCanvasPresentation, useCanvasPresentation } from './tiled-view-settings';
+import { TiledSurface } from './TiledSurface';
+import { surfacePresentationStorageKey, saveSurfacePresentation, useSurfacePresentation } from './tiled-view-settings';
 import ${JSON.stringify(hostStylesheet)};
 const runId='layout-regression';
 const initial={root:{direction:'horizontal',weights:[1,1],children:[{entity:'app:items/main'},{entity:'@coordinator'}]}};
@@ -74,17 +74,17 @@ const runView=(layout)=>({pluginStates:[{pluginId:'ragents.orchestration',scope:
 const items=[{entity:'app:items/main',title:'Item auswählen',content:'Itemliste'}, {entity:'@coordinator',title:'Koordinator',content:'Auftrag klären'}, {entity:'app:worker/main',title:'Implementierer',content:'Implementierung läuft'}];
 function App(){
   const [view,setView]=useState();
-  const {presentation,personalLayout,programBasis}=useCanvasPresentation(runId,view);
+  const {presentation,personalLayout,programBasis}=useSurfacePresentation(runId,view);
   useEffect(()=>{setView(runView(JSON.parse(sessionStorage.getItem('program-layout')||JSON.stringify(initial))));},[]);
   window.layoutFixture={
-    storageKey:canvasPresentationStorageKey(runId),
+    storageKey:surfacePresentationStorageKey(runId),
     updateUnrelated:()=>flushSync(()=>setView(previous=>structuredClone(previous))),
     startWorker:()=>{sessionStorage.setItem('program-layout',JSON.stringify(worker));flushSync(()=>setView(runView(worker)));},
   };
   if(!view)return <p>Lädt</p>;
   return <><output id="personal">{personalLayout?'Persönliche Anordnung':'Programmanordnung'}</output>
-    <TiledCanvas root={presentation.root} items={items} canArrange={true}
-      onChange={root=>saveCanvasPresentation(runId,{root,programBasis})}/></>;
+    <TiledSurface root={presentation.root} items={items} canArrange={true}
+      onChange={root=>saveSurfacePresentation(runId,{root,programBasis})}/></>;
 }
 createRoot(document.getElementById('root')).render(<App/>);`, resolveDir: source, loader: "tsx" },
     outfile: `${directory}/fixture.js`, bundle: true, platform: "browser", format: "iife", jsx: "automatic", logLevel: "silent",
@@ -112,7 +112,7 @@ createRoot(document.getElementById('root')).render(<App/>);`, resolveDir: source
   return { page, errors, directory };
 }
 
-test("a running canvas adds a program worker despite a persisted personal resize without resetting the layout manually", browserTest, async (context) => {
+test("a running surface adds a program worker despite a persisted personal resize without resetting the layout manually", browserTest, async (context) => {
   const { page, errors, directory } = await openLayoutFixture(context);
   const workerTile = page.locator('[data-tile-entity="app:worker/main"]');
   await page.getByRole("separator").waitFor();

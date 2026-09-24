@@ -13,23 +13,23 @@ const controlsClass = "flex flex-shrink-0 items-center gap-2 border-t border-bor
 
 const noteClass = "mt-1.5 text-[0.7rem] text-muted-foreground";
 
-export function ActorChatControls({ actor, view, composerVisible = true, presentation = "inspector", surface = presentation, running = false, toolbarLeft, toolbarRight }: {
+export function ActorChatControls({ actor, view, composerVisible = true, presentation = "inspector", display = presentation, running = false, toolbarLeft, toolbarRight }: {
   actor: RunActor;
   view: RunView;
   composerVisible?: boolean;
-  presentation?: "canvas" | "inspector" | "panel";
-  surface?: string;
+  presentation?: "surface" | "inspector" | "panel";
+  display?: string;
   running?: boolean;
   toolbarLeft?: ReactNode;
   toolbarRight?: ReactNode;
 }) {
   const writable = useAccess().can("runs.write");
   const [stopError, setStopError] = useState<string>();
-  const steps = useChatSteps(view.id, actor.id, surface);
+  const steps = useChatSteps(view.id, actor.id, display);
   const attachments = useAttachmentCapabilities(view.id, actor.id, JSON.stringify(actor.execution?.driver.config));
   const disabledReason = !writable ? "Du hast Lesezugriff auf diesen Run." : undefined;
   const detailSwitch = steps.selectable && <DetailModeSwitch
-    collapsible={presentation === "canvas"}
+    collapsible={presentation === "surface"}
     mode={steps.mode("agents")}
     onChange={(mode) => steps.setMode("agents", mode)}
   />;
@@ -42,7 +42,7 @@ export function ActorChatControls({ actor, view, composerVisible = true, present
     <ChatInputToolbar
       {...attachments}
       disabled={disabledReason !== undefined}
-      layout={presentation === "canvas" ? "inline" : "card"}
+      layout={presentation === "surface" ? "inline" : "card"}
       maxRows={4}
       onSend={(text, files) => sendActorMessage(view.id, actor.id, text, files)}
       onStop={writable && actor.lifecycle?.kind === "running" ? () => {

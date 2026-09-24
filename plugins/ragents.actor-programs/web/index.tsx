@@ -14,9 +14,9 @@ import {
 } from "./AppsPanel";
 import { FullscreenHost } from "./FullscreenHost";
 import {
-  ActorProgramCanvasElement,
+  ActorProgramSurfaceElement,
   ActorProgramToolCardSection,
-  actorProgramCanvasElements,
+  actorProgramSurfaceElements,
 } from "./EmbeddedApps";
 
 export const ACTOR_PROGRAMS_PLUGIN_ID = "ragents.actor-programs";
@@ -49,7 +49,7 @@ const configuredPlugin = (descriptor: WebPluginDescriptor, routePrefix: string):
     SessionProvider: Provider,
     sessionHeaders: [{
       id: "ragents.actor-programs.quick-list",
-      placement: "canvas",
+      placement: "surface",
       order: 250,
       Header: ActorProgramsHeader,
     }],
@@ -58,11 +58,11 @@ const configuredPlugin = (descriptor: WebPluginDescriptor, routePrefix: string):
       order: 400,
       Section: ActorProgramToolCardSection,
     }],
-    canvasElements: [{
+    surfaceElements: [{
       id: "ragents.actor-programs.apps",
       order: 400,
-      select: actorProgramCanvasElements,
-      Element: ActorProgramCanvasElement,
+      select: actorProgramSurfaceElements,
+      Element: ActorProgramSurfaceElement,
     }],
     workspaceTabs: [
       {

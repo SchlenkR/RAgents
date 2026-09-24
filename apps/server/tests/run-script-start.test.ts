@@ -442,14 +442,14 @@ test("without a coordinator the setup actor is immediately primary and can selec
   } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
 });
 
-test("unknown entries, rejected packages and existing runs produce named errors while failed imports can retry", async () => {
+test("unknown templates, rejected packages and existing runs produce named errors while failed imports can retry", async () => {
   const runId = "run-script-start-errors";
   const broken = packageOf({files: [{path: "src/server.ts", content: "reject"}]}, {id: "test.broken"});
   const fixture = createFixture(runId, [packageOf(), broken]);
   try {
     fixture.session.start("test.nowhere", null);
     await fixture.session.settle();
-    assert.ok(fixture.systemTexts().some((text) => text.includes("kein Run-Script dieses Profils")));
+    assert.ok(fixture.systemTexts().some((text) => text.includes("keine Script-Vorlage dieses Profils")));
     fixture.session.start("test.broken", null);
     await fixture.session.settle();
     assert.ok(fixture.systemTexts().some((text) => text.includes("Package tests failed")));

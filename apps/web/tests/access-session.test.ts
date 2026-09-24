@@ -54,10 +54,10 @@ test("an expired login is noticed on the message layer, for a call as for the ev
   const client = new RpcClient({ fetch: observeAccessExpiry(async () => Response.json({ error: "Bitte melde dich an.", code: "login-required" }, { status: 401 }),
     "https://ragents.test", () => { expired++; }) });
   try {
-    await assert.rejects(client.call(coreContracts.sessions.list, {}), /Bitte melde dich an/);
+    await assert.rejects(client.call(coreContracts.runs.list, {}), /Bitte melde dich an/);
     assert.equal(expired, 1);
     const unauthorized = new Promise<void>((resolve) => client.onStatus((status) => { if (status.kind === "unauthorized") resolve(); }));
-    client.subscribe(coreContracts.channels.sessions, {}, () => undefined);
+    client.subscribe(coreContracts.channels.runs, {}, () => undefined);
     await unauthorized;
     assert.equal(expired, 2);
   } finally {

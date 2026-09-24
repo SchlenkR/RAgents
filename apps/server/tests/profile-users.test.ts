@@ -86,7 +86,7 @@ test("Klartextpasswörter und erlaubte Setups bleiben getrennt von anonymen Rech
   }
 });
 
-test("der Default-Einstieg ist optional und sonst eine Einstiegkennung als String", () => {
+test("die Default-Vorlage ist optional und sonst eine Vorlagenkennung als String", () => {
   assert.equal(resolveDefaultStartEntry(source, undefined), undefined);
   assert.equal(resolveDefaultStartEntry(source, "ragents.reference.word-game"), "ragents.reference.word-game");
   for (const invalid of ["", " ", "../escape", 1, null, ["example.setup"], { id: "example.setup" }]) {

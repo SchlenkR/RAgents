@@ -5,7 +5,7 @@ import { RpcClient } from "../../apps/web/src/rpc/client.ts";
 
 const usage = (): string => `Verwendung: RAGENTS_TOKEN=<token> pnpm run-transfer <quelle-url> <ziel-url> <runId> [--workspace <pfad>]
 Holt den gestoppten Run von der Quelle als Archiv und legt ihn auf dem Ziel an: Journal,
-Payloads, Modellkontexte und die Plugin-Ablagen seiner Session. Beide Server müssen auf
+Payloads, Modellkontexte und seine Plugin-Ablagen. Beide Server müssen auf
 derselben Host-Version laufen, und die Kennung darf auf dem Ziel noch nicht belegt sein.
 --workspace nennt den Ersatzordner auf dem Ziel für einen Run mit Bindung path, als absoluten
 Pfad auf dem Zielserver.

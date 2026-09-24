@@ -58,7 +58,7 @@ const contracts: Contract[] = [
   { id: "start", file: "packages/ragents/src/plugin-types.ts", name: "StartEntryBase" },
   { id: "web", file: "apps/web/src/PluginRegistry.tsx", name: "WebPlugin" },
   { id: "webIdentity", file: "apps/web/src/PluginRegistry.tsx", name: "WebPluginDescriptor" },
-  { id: "canvasElement", file: "apps/web/src/PluginRegistry.tsx", name: "CanvasElementDefinition" },
+  { id: "surfaceElement", file: "apps/web/src/PluginRegistry.tsx", name: "SurfaceElementDefinition" },
   { id: "run", file: "apps/server/src/plugin-support/actor-programs/app-project.ts", name: "RunContext", kind: "embedded" },
   { id: "app", file: "apps/server/src/plugin-support/actor-programs/client-compiler.ts", name: "AppContext", kind: "embedded" },
   { id: "appState", file: "apps/server/src/plugin-support/actor-programs/client-compiler.ts", name: "AppStateView", kind: "embedded" },
@@ -135,7 +135,7 @@ export const users = [
 ] satisfies readonly ProfileUser[];`, ["profileUser.id", "profileUser.label", "profileUser.password", "profileUser.token", "profileUser.rights", "profileUser.startEntries", "environmentReference.kind", "environmentReference.name"], [
     "Ohne users-Export gibt es keine Anmeldung. Ein optionaler anonymousUser kann den Zugang trotzdem einschränken. Eine leere users-Liste ist ein Startfehler. Passwörter dürfen Klartext oder env-Referenzen sein und werden niemals im Browser veröffentlicht. Ein persönlicher token (nur als env-Referenz) gilt als Bearer ohne Ablauf für Clients ohne Anmeldedialog, etwa pnpm connect und das Modell-Relay.",
     "Rechte sind exakte Strings. Nur der einzelne Wert * bedeutet alle Rechte; Teilmuster und Vererbung gibt es nicht. Ein Run gehört dem Benutzer, der ihn angelegt hat; ein Bedienerzugang erreicht nur seine eigenen Runs, runs.read.all zeigt die aller Benutzer. Einen Run, den eine Startoption mit ownerOnly seinem Eigentümer vorbehält, etwa durch die Bindung an einen Arbeitsplatz, kann runs.read.all nur im Journal lesen und stoppen; seinen Arbeitsbereich (Dateien, Prozesse, Sprachserver) sieht nur der Eigentümer. Ein Run ohne Eigentümer, etwa aus einem Profil ohne Anmeldung, bleibt runs.read.all vorbehalten. runs.write erlaubt Chat und App-Aktionen in bestehenden eigenen Runs. runs.create ergänzt freie Runs und Startoptionen. Ohne dieses Recht begrenzt startEntries die freigegebenen Run-Scripts; runs.inspect schützt technische Ansichten. Diese Rechte ersetzen keine Sandbox für nativen Code.",
-    "Die Liste der eingebauten Rechte unten wird aus builtinPermissions erzeugt. Erweiterungen wählen ihre eigenen Namen und prüfen sie auf Server und Oberfläche.",
+    "Die Liste der eingebauten Rechte unten wird aus builtinPermissions erzeugt. Plugins wählen ihre eigenen Namen und prüfen sie auf Server und Oberfläche.",
   ]),
   entry("profile-anonymous", "Plugin und Profil", "Ein vorbereitetes Setup ohne Anmeldung anbieten", "Ein eingeschränkter Zugang kann auch ohne Anmeldung gelten. Der anonymousUser-Export legt seine Rechte und freigegebenen Setups fest. In diesem Beispiel kann jeder Besucher das vorbereitete Wortspiel starten und dessen Mini-App bedienen.", "Neben dem config-Export einer eigenen Profildatei mit ragents.reference; dieses Profil exportiert keine users-Liste.", `
 import type { ProfileAnonymousUser } from "@ragents/host/config-definition.js";
@@ -150,7 +150,7 @@ export const anonymousUser = {
     "canStartEntry verlangt runs.write und entweder runs.create oder den ausdrücklich freigegebenen Eintrag in startEntries. Ohne runs.create sind nur registrierte Run-Scripts zulässig. Freie Aufträge und Skills mit Vorbereitung sind gesperrt; vorhandene Runs bleiben nach ihren normalen Leserechten zugänglich.",
     "runs.inspect und settings.read fehlen hier: Modellnamen, technische Details und Einstellungen werden nicht angeboten. Der Server prüft die Rechte auch bei direkten HTTP-Aufrufen.",
   ]),
-  entry("access-route", "Serverbeiträge", "Eine Erweiterungsroute mit eigenen Rechten", "Eine HTTP-Route macht eine Pluginfunktion für den Browser oder andere Clients erreichbar. Für Lesen und Ändern kann sie unterschiedliche Rechte verlangen. Der Server prüft diese Rechte, bevor er die Funktion ausführt.", "Innerhalb von register(host); die Nutzdatenverarbeitung ist hier bewusst nur ein kleines bestätigtes Echo.", `
+  entry("access-route", "Serverbeiträge", "Eine Plugin-Route mit eigenen Rechten", "Eine HTTP-Route macht eine Pluginfunktion für den Browser oder andere Clients erreichbar. Für Lesen und Ändern kann sie unterschiedliche Rechte verlangen. Der Server prüft diese Rechte, bevor er die Funktion ausführt.", "Innerhalb von register(host); die Nutzdatenverarbeitung ist hier bewusst nur ein kleines bestätigtes Echo.", `
 const pathname = "/api/plugins/ragents.example/board";
 host.http({
   id: "ragents.example.board",
@@ -166,7 +166,7 @@ host.http({
     "requiredRights ersetzt die Standardanforderung der Route. Ohne ausdrückliche Liste verlangen GET/HEAD/OPTIONS runs.read, andere Methoden runs.read und runs.write. Weitere fachliche Prüfungen gehören weiterhin in die Operation.",
     "access enthält den angemeldeten Benutzer ohne Passwort und can prüft denselben Rechtevertrag wie die Oberfläche. UI-Ausblenden allein schützt keine HTTP-Route.",
   ]),
-  entry("access-view", "Web-Beiträge", "Eine Erweiterungsansicht ausblenden oder nur lesbar zeigen", "Eine Pluginansicht kann dieselben Rechte berücksichtigen wie die zugehörige Serverfunktion. Ohne Leserecht wird sie ausgeblendet; ohne Schreibrecht bleibt die Änderungsschaltfläche deaktiviert. Beide Seiten verwenden dafür dieselben Rechtenamen.", "React-Komponente einer Extension; useAccess kommt aus dem Web-Host und accessMode aus dem gemeinsamen Rechtevertrag.", `
+  entry("access-view", "Web-Beiträge", "Eine Plugin-Ansicht ausblenden oder nur lesbar zeigen", "Eine Pluginansicht kann dieselben Rechte berücksichtigen wie die zugehörige Serverfunktion. Ohne Leserecht wird sie ausgeblendet; ohne Schreibrecht bleibt die Änderungsschaltfläche deaktiviert. Beide Seiten verwenden dafür dieselben Rechtenamen.", "React-Komponente eines Plugins; useAccess kommt aus dem Web-Host und accessMode aus dem gemeinsamen Rechtevertrag.", `
 function BoardAccess() {
   const access = useAccess();
   const mode = accessMode(access, "ragents.example.read", "ragents.example.write");
@@ -179,7 +179,7 @@ function BoardAccess() {
     "useAccess liefert enabled, user, can und logout. AccessSnapshot enthält bei aktiver Anmeldung ohne Sitzung user: null; ohne Anmeldemodus ist enabled false. Der Snapshot enthält niemals Passwort oder Sitzungstoken.",
     "accessMode ergibt hidden, readonly oder write. hasRight und AccessContext.can berücksichtigen den optionalen Anmeldemodus identisch. Die echte Sendeaktion muss die geschützte Serverroute aufrufen; die Schaltfläche ist hier nur das Zustandsbeispiel.",
   ], "tsx"),
-  entry("storage", "Serverbeiträge", "Pluginidentität und Dateiablage", "Plugins können Daten für die ganze Anwendung oder für eine einzelne Unterhaltung speichern. Die Anwendung stellt jedem Plugin dafür eigene Ablagepfade bereit und ordnet sie seiner Kennung zu.", "Innerhalb von register(host); Dateien werden hier noch nicht erzeugt.", `
+  entry("storage", "Serverbeiträge", "Pluginidentität und Dateiablage", "Plugins können Daten für die ganze Anwendung oder für einen einzelnen Run speichern. Die Anwendung stellt jedem Plugin dafür eigene Ablagepfade bereit und ordnet sie seiner Kennung zu.", "Innerhalb von register(host); Dateien werden hier noch nicht erzeugt.", `
 const pluginId = host.manifest.id;
 const globalFile = host.storage.root("settings.json");
 const runFile = host.storage.session(runId, "notes.json");
@@ -242,7 +242,7 @@ host.channels(implementChannel(heartbeat, (_params, emit) => service.onBeat((at)
     "Die Web-Hälfte ruft denselben Vertrag mit rpc.call auf und abonniert Kanäle mit rpc.subscribe; ein Kanal liefert beim Öffnen seine Abmeldefunktion zurück.",
     "context nennt access, signal, progress, die aufrufende Verbindung und ob die Anfrage lokal ist. Eine Operation mit implementedBy client führt der verbundene Client aus; der Server ruft sie über context.connection.call auf.",
   ]),
-  entry("lifecycle", "Serverbeiträge", "Start, Run-Ende und Shutdown", "Ein Plugin kann bei Anwendungsstart, beim Stoppen oder Löschen einer Unterhaltung und beim Herunterfahren eigene Funktionen ausführen. So lassen sich seine Hintergrunddienste und Ressourcen passend starten und aufräumen.", "register(host); service ist ein zuvor erzeugter Dienst mit den hier gezeigten Methoden.", `
+  entry("lifecycle", "Serverbeiträge", "Start, Run-Ende und Shutdown", "Ein Plugin kann bei Anwendungsstart, beim Stoppen oder Löschen eines Runs und beim Herunterfahren eigene Funktionen ausführen. So lassen sich seine Hintergrunddienste und Ressourcen passend starten und aufräumen.", "register(host); service ist ein zuvor erzeugter Dienst mit den hier gezeigten Methoden.", `
 host.lifecycle({
   id: "ragents.example.lifecycle",
   initialize: () => service.initialize(),
@@ -321,7 +321,7 @@ host.agentRuntime({
     "Beide Hooks laufen je Agent; der erste Parameter nennt Run, Agent, Audience und Arbeitsverzeichnis. call.kept und call.keep halten einen JSON-Wert im Gesprächsverlauf des Agenten, auch über einen Neustart; das Modell sieht ihn nie.",
     "Ein Beitrag registriert keine Werkzeuge; Werkzeuge kommen über host.functions. Ein zurückgegebener Hinweis gilt nur für den nächsten Modellaufruf und landet nicht im Journal.",
   ]),
-  entry("models", "Serverbeiträge", "Modelle und Agentenprofile", "Der Modellkatalog nennt die KI-Modelle, die für Agenten auswählbar sind. Ein Agentenprofil kombiniert ein Modell mit Einstellungen wie Denktiefe und Ausführungsgrenzen. Solche Agentenprofile beschreiben einzelne Agenten; das Anwendungsprofil stellt die gesamte Installation zusammen.", "register(host); modelId ist eine zuvor geprüfte, konfigurierte OpenRouter-Modellkennung.", `
+  entry("models", "Serverbeiträge", "Modelle und Rollen", "Der Modellkatalog nennt die KI-Modelle, die für Agenten auswählbar sind. Eine Rolle kombiniert ein Modell mit Einstellungen wie Denktiefe und Ausführungsgrenzen. Solche Rollen beschreiben einzelne Agenten; das Profil stellt die gesamte Installation zusammen.", "register(host); modelId ist eine zuvor geprüfte, konfigurierte OpenRouter-Modellkennung.", `
 host.profiles({
   id: "ragents.example.models",
   models: () => [{ driver: "agent", provider: "openrouter", model: modelId,
@@ -344,9 +344,9 @@ host.skills({
   paths: () => [skillDirectory],
 });`, ["host.prompts", "host.skills"], [
     "requiresTools bindet einen Promptteil an die tatsächlich verfügbaren Funktionen. Ein Skill ist kein ausführbarer Actor und kein Plugin.",
-    "Alternativ wird skills/<name>/SKILL.md aus dem Plugin-Ordner eingelesen. start: true mit title und category ergänzt einen Einstieg; prompt kann einen eigenen Startauftrag vorgeben, sonst wird der Body verwendet. Explizite Beiträge und automatisch geladene Ordner-Assets dürfen sich nicht unbeabsichtigt doppeln.",
+    "Alternativ wird skills/<name>/SKILL.md aus dem Plugin-Ordner eingelesen. start: true mit title und category ergänzt eine Vorlage; prompt kann einen eigenen Startauftrag vorgeben, sonst wird der Body verwendet. Explizite Beiträge und automatisch geladene Ordner-Assets dürfen sich nicht unbeabsichtigt doppeln.",
   ]),
-  entry("start-entries", "Serverbeiträge", "Skills und Run-Scripts als Einstieg", "Die Startfläche bietet Vorlagen für eine neue Unterhaltung an. Ein Skill verbindet einen bearbeitbaren Startauftrag mit einer Arbeitsanleitung und optionalen Dateien. Ein Run-Script liefert einen programmierten Aufbau. Plugins melden beide Arten über denselben Vertrag an.", "Innerhalb von register(host); text-review ist ein registrierter Skill.", `
+  entry("start-entries", "Serverbeiträge", "Skills und Run-Scripts als Vorlage", "Die Startseite bietet Vorlagen für einen neuen Run an. Ein Skill verbindet einen bearbeitbaren Startauftrag mit einer Arbeitsanleitung und optionalen Dateien. Ein Run-Script liefert einen programmierten Aufbau. Plugins melden beide Arten über denselben Vertrag an.", "Innerhalb von register(host); text-review ist ein registrierter Skill.", `
 host.startEntries({
   id: "ragents.example.start", title: "Text prüfen",
   description: "Beginnt mit einem Prüfauftrag.", order: 100,
@@ -354,12 +354,12 @@ host.startEntries({
   action: "skill", skill: "text-review", category: "Zusammenarbeit",
   prompt: "Bitte prüfe meinen Text auf Widersprüche.",
 });`, ["host.startEntries", "start.id", "start.title", "start.description", "start.order", "start.guide", "start.tags", "start.fixedStartOptions"], [
-    "category ist für Skill-Einstiege genau ein freier, nicht leerer Text und bestimmt ihre Gruppe auf der Startfläche. tags ist davon unabhängig eine optionale Liste von Schlagworten für Suche, Filter und Referenz. Nur die Tags werden in SKILL.md- und RUN.md-Frontmatter kommagetrennt angegeben. Die Referenz-Extension liefert Demos und mögliche High-Level-Testfälle. Ihre description erklärt den Demonstrationszweck; Anwendungsfall, Konzeptdemo und Produktkonzepte stehen in tags. Die öffentliche Generierung prüft mindestens zwei unterschiedliche Beispiele pro Produktkonzept. UI-Controls haben keine Beispielquote und müssen nicht vollständig in den Demos vorkommen. Reine Bedienkonzepte verwenden getrennte Anleitungen aus walkthroughs.ts der Referenz-Extension. Diese erzeugen keine Startkarten und erweitern den StartEntry-Vertrag nicht.",
+    "category ist für Skill-Vorlagen genau ein freier, nicht leerer Text und bestimmt ihre Gruppe auf der Startseite. tags ist davon unabhängig eine optionale Liste von Schlagworten für Suche, Filter und Referenz. Nur die Tags werden in SKILL.md- und RUN.md-Frontmatter kommagetrennt angegeben. Das Referenz-Plugin liefert Demos und mögliche High-Level-Testfälle. Ihre description erklärt den Demonstrationszweck; Anwendungsfall, Konzeptdemo und Produktkonzepte stehen in tags. Die öffentliche Generierung prüft mindestens zwei unterschiedliche Beispiele pro Produktkonzept. UI-Controls haben keine Beispielquote und müssen nicht vollständig in den Demos vorkommen. Reine Bedienkonzepte verwenden getrennte Anleitungen aus walkthroughs.ts des Referenz-Plugins. Diese erzeugen keine Vorlagen und erweitern den StartEntry-Vertrag nicht.",
     "action: skill verwendet den registrierten Skillnamen. action: script enthält ein RunScriptPackage. guide verweist auf einen gleichnamigen Web-Leitfaden.",
-    "fixedStartOptions legt Startoptionen für jeden Run über den Einstieg fest, etwa { \"ragents.workspace.binding\": { kind: \"fresh\" } }; in RUN.md heißt die Kopfzeile fixed-start-options. Eine vorher abweichende Wahl ist beim Start ein Fehler, die Startfläche zeigt die Option fest.",
+    "fixedStartOptions legt Startoptionen für jeden Run über die Vorlage fest, etwa { \"ragents.workspace.binding\": { machine: \"server\", folder: \"fresh\" } }; in RUN.md heißt die Kopfzeile fixed-start-options. Eine vorher abweichende Wahl ist beim Start ein Fehler, die Startseite zeigt die Option fest.",
     "In Auftrag übernehmen öffnet für jeden Skill den Vorbereitungschat mit dem bearbeitbaren Startauftrag, auch nach einem Leitfaden. Erst Run erstellen sendet den Auftrag mit dem Skillbezug; beim Script wird der Startwert an den vorbereiteten Actor übergeben.",
   ]),
-  entry("start-options", "Serverbeiträge", "Startwerte prüfen und einfrieren", "Startoptionen sind Werte, die vor einer neuen Unterhaltung gewählt werden, etwa das Modell. Das Plugin legt erlaubte Werte, einen Standardwert und die Prüfung der Auswahl fest. Beim Start wird der gewählte Wert für die Unterhaltung gespeichert und fixiert.", "Innerhalb von register(host); Type kommt aus typebox.", `
+  entry("start-options", "Serverbeiträge", "Startwerte prüfen und einfrieren", "Startoptionen sind Werte, die vor einem neuen Run gewählt werden, etwa das Modell. Das Plugin legt erlaubte Werte, einen Standardwert und die Prüfung der Auswahl fest. Beim Start wird der gewählte Wert für den Run gespeichert und fixiert.", "Innerhalb von register(host); Type kommt aus typebox.", `
 host.startOptions({
   id: "ragents.example.mode",
   schema: Type.String({ enum: ["brief", "detailed"] }),
@@ -378,12 +378,12 @@ host.startOptions({
     "Ein voreingestellter Wert muss ebenfalls gültig sein; eine fehlende Voraussetzung wird nicht still ersetzt.",
     "defaultValue, accept und describe bekommen neben runId den handelnden Benutzer als userId, ohne Anmeldung null. Das optionale ownerOnly(value) behält einen Run mit diesem Wert zum Bedienen seinem Eigentümer vor; lesen und stoppen bleiben allen, die ihn sehen.",
   ]),
-  entry("session-metadata", "Serverbeiträge", "Run-Metadaten bereitstellen", "Ein Plugin kann kurze Zusatzangaben zu einer Unterhaltung liefern, etwa einen Bearbeitungsstatus. Solche Metadaten stehen der Oberfläche zur Anzeige zur Verfügung. Die zugrunde liegenden Fachdaten bleiben beim Plugin.", "Innerhalb von register(host); Beispiel ohne eigene Datenablage.", `
+  entry("session-metadata", "Serverbeiträge", "Run-Metadaten bereitstellen", "Ein Plugin kann kurze Zusatzangaben zu einem Run liefern, etwa einen Bearbeitungsstatus. Solche Metadaten stehen der Oberfläche zur Anzeige zur Verfügung. Die zugrunde liegenden Fachdaten bleiben beim Plugin.", "Innerhalb von register(host); Beispiel ohne eigene Datenablage.", `
 host.sessionMetadata({
   id: "ragents.example.metadata",
   describe: ({ runId }) => ({ run: runId, label: "Beispiel" }),
 });`, ["host.sessionMetadata"], ["Die passende Anzeige wird getrennt als sessionMetadata- oder Header-Beitrag in der Web-Hälfte registriert."]),
-  entry("script-runtime", "Serverbeiträge", "Die TypeScript-Laufzeit einbinden", "Die TypeScript-Laufzeit führt die programmierten Abläufe einer Unterhaltung aus. Der Server bindet sie über den Beitrag script ein. Dieser stellt die Ausführung und die verfügbaren Programmierfunktionen bereit.", "Verdrahtungsbeispiel; createRuntime erfüllt ScriptContribution['create'].", `
+  entry("script-runtime", "Serverbeiträge", "Die TypeScript-Laufzeit einbinden", "Die TypeScript-Laufzeit führt die programmierten Abläufe eines Runs aus. Der Server bindet sie über den Beitrag script ein. Dieser stellt die Ausführung und die verfügbaren Programmierfunktionen bereit.", "Verdrahtungsbeispiel; createRuntime erfüllt ScriptContribution['create'].", `
 function registerRuntime(host: PluginRegistration, createRuntime: ScriptContribution["create"]) {
   host.script({ id: "ragents.example.script", create: createRuntime });
 }`, ["host.script"], [
@@ -410,7 +410,7 @@ const productUi = {
     stepsVisible: true, stepsExpandable: true, selectable: true,
   },
 } satisfies WebPlugin;`, ["web.brand", "web.chatDisplayPolicy"], ["Mehrere Branding-Beiträge oder mehrere Chat-Display-Policies sind Fehler. Ein Fachplugin neben einem bestehenden Produkt liefert normalerweise keines von beiden."], "tsx"),
-  entry("web-tabs", "Web-Beiträge", "Feste und dynamische Reiter", "Ein Plugin kann einen eigenen Reiter mit Symbol, Inhalt und optional einer Statusmarkierung ergänzen. Feste Reiter sind immer Teil seines Angebots. Dynamische Reiter entstehen passend zum Zustand der geöffneten Unterhaltung.", "Eigenschaften eines WebPlugin; exampleTabs(session) ist eine eigene, validierende Projektion.", `
+  entry("web-tabs", "Web-Beiträge", "Feste und dynamische Reiter", "Ein Plugin kann einen eigenen Reiter mit Symbol, Inhalt und optional einer Statusmarkierung ergänzen. Feste Reiter sind immer Teil seines Angebots. Dynamische Reiter entstehen passend zum Zustand des geöffneten Runs.", "Eigenschaften eines WebPlugin; exampleTabs(session) ist eine eigene, validierende Projektion.", `
 const tabs = {
   id: "ragents.example",
   workspaceTabs: [{
@@ -424,39 +424,39 @@ const tabs = {
     "available(session) filtert die Verfügbarkeit, keepMounted erhält eine inaktive Ansicht. Polling wird trotzdem anhand von active gesteuert.",
     "Auch dynamische Tab-IDs müssen eindeutig sein. Im Run-Panel stehen dieselben Reiter in der Symbolleiste am rechten Rand.",
   ], "tsx"),
-  entry("web-canvas", "Web-Beiträge", "Eine zentrale Arbeitsfläche", "Die zentrale Arbeitsfläche eines Runs zeigt die Beteiligten als Kacheln. Ein Plugin kann die Darstellung dieser Fläche übernehmen. Dafür erhält es die vorhandenen Funktionen für Chats, Navigation, Kartenabschnitte und zusätzliche Elemente.", "Eigenschaften eines WebPlugin; RunPanel ist die Fassung für das Run-Panel.", `
-const canvasUi = {
+  entry("web-surface", "Web-Beiträge", "Eine zentrale Fläche", "Die zentrale Fläche eines Runs zeigt die Beteiligten als Kacheln. Ein Plugin kann die Darstellung dieser Fläche übernehmen. Dafür erhält es die vorhandenen Funktionen für Chats, Navigation, Kartenabschnitte und zusätzliche Elemente.", "Eigenschaften eines WebPlugin; RunPanel ist die Fassung für das Run-Panel.", `
+const surfaceUi = {
   id: "ragents.example",
-  canvas: {
+  surface: {
     Center: ({ renderChat }) => <div>{renderChat()}<p>Eigene Fläche</p></div>,
     RunPanel: ({ renderChat }) => <div>{renderChat()}</div>,
   },
-} satisfies WebPlugin;`, ["web.canvas"], [
-    "Es gibt höchstens einen Canvas-Beitrag. Das Beispiel ersetzt die zentrale Fläche; es ergänzt nicht automatisch die bestehende Orchestrierungsfläche. Ohne RunPanel zeigt das Run-Panel nur den Chat.",
-    "toolbarLeft ist Teil des renderChat-Vertrags für den Canvas-Eigentümer. Es gibt keinen allgemeinen Composer-Toolbar-Registry-Slot.",
+} satisfies WebPlugin;`, ["web.surface"], [
+    "Es gibt höchstens einen Flächenbeitrag. Das Beispiel ersetzt die zentrale Fläche; es ergänzt nicht automatisch die bestehende Fläche der Orchestrierung. Ohne RunPanel zeigt das Run-Panel nur den Chat.",
+    "toolbarLeft ist Teil des renderChat-Vertrags für den Eigentümer der Fläche. Es gibt keinen allgemeinen Composer-Toolbar-Registry-Slot.",
   ], "tsx"),
-  entry("web-canvas-elements", "Web-Beiträge", "Elemente auf der vorhandenen Fläche", "Ein Plugin kann zusätzliche Elemente als Kacheln auf der vorhandenen Arbeitsfläche anzeigen. Es liefert dazu die Beschreibung des Elements und seine Darstellung. Das Element ist eine Oberfläche und bearbeitet selbst keine Aufträge.", "Eigenschaften eines WebPlugin.", `
+  entry("web-surface-elements", "Web-Beiträge", "Elemente auf der vorhandenen Fläche", "Ein Plugin kann zusätzliche Elemente als Kacheln auf der vorhandenen Fläche anzeigen. Es liefert dazu die Beschreibung des Elements und seine Darstellung. Das Element ist eine Oberfläche und bearbeitet selbst keine Aufträge.", "Eigenschaften eines WebPlugin.", `
 const elements = {
   id: "ragents.example",
-  canvasElements: [{
+  surfaceElements: [{
     id: "ragents.example.note", order: 100,
     select: () => [{ id: "example-note", title: "Hinweis", visible: true }],
     Element: ({ definition }) => <p>{definition.title}</p>,
   }],
-} satisfies WebPlugin;`, ["web.canvasElements", "canvasElement.id", "canvasElement.visible", "canvasElement.title", "canvasElement.anchorActorId", "canvasElement.entity", "canvasElement.data"], ["Definitionen nennen nur ihre id; title ist optional. visible: false nimmt ein Element aus der Fläche, ohne eine fehlende Kachelreferenz zu melden. Ohne visible ist es sichtbar. Die Größe bestimmt die Kachel, nicht der Beitrag. anchorActorId, entity und eigene data sind optional. Die Kachelaufteilung entscheidet über die Platzierung; der Beitrag allein erzeugt keine Actor-Identität. Das Run-Panel erkennt Besitzer an anchorActorId, auch bei visible: false."], "tsx"),
-  entry("web-card-sections", "Web-Beiträge", "Abschnitte an Actor-Karten", "Die Beteiligten einer Unterhaltung heißen Actors und werden auf der Arbeitsfläche als Karten dargestellt. Ein Plugin kann diese Karten um eigene Abschnitte ergänzen, etwa für Dokumente oder einen Status.", "Eigenschaften eines WebPlugin; ein neutraler Abschnitt ohne Zugriff auf Actor-Felder.", `
+} satisfies WebPlugin;`, ["web.surfaceElements", "surfaceElement.id", "surfaceElement.visible", "surfaceElement.title", "surfaceElement.anchorActorId", "surfaceElement.entity", "surfaceElement.data"], ["Definitionen nennen nur ihre id; title ist optional. visible: false nimmt ein Element aus der Fläche, ohne eine fehlende Kachelreferenz zu melden. Ohne visible ist es sichtbar. Die Größe bestimmt die Kachel, nicht der Beitrag. anchorActorId, entity und eigene data sind optional. Die Kachelaufteilung entscheidet über die Platzierung; der Beitrag allein erzeugt keine Actor-Identität. Das Run-Panel erkennt Besitzer an anchorActorId, auch bei visible: false."], "tsx"),
+  entry("web-card-sections", "Web-Beiträge", "Abschnitte an Actor-Karten", "Die Beteiligten eines Runs heißen Actors und werden auf der Fläche als Karten dargestellt. Ein Plugin kann diese Karten um eigene Abschnitte ergänzen, etwa für Dokumente oder einen Status.", "Eigenschaften eines WebPlugin; ein neutraler Abschnitt ohne Zugriff auf Actor-Felder.", `
 const cards = {
   id: "ragents.example",
   cardSections: [{ id: "ragents.example.note", order: 100,
     Section: () => <p>Zusätzlicher Karteninhalt</p> }],
 } satisfies WebPlugin;`, ["web.cardSections"], ["actor ist an dieser Grenze unknown. Wer Actor-Felder benutzt, muss sie mit dem Vertrag des zuständigen Plugins prüfen. Ein leerer Beitrag kann null rendern."], "tsx"),
-  entry("web-context", "Web-Beiträge", "Laufdaten und React-Kontext", "Mehrere Oberflächenbeiträge eines Plugins können gemeinsame Daten zur geöffneten Unterhaltung benötigen. Ein SessionProvider reicht diese über React-Kontext weiter. Mit needsRunView fordert das Plugin zusätzlich den vom Server bereitgestellten Zustand der Unterhaltung an.", "Eigenschaften eines WebPlugin; der Provider kann hier eigene Context.Provider einsetzen.", `
+  entry("web-context", "Web-Beiträge", "Run-Daten und React-Kontext", "Mehrere Oberflächenbeiträge eines Plugins können gemeinsame Daten zum geöffneten Run benötigen. Ein SessionProvider reicht diese über React-Kontext weiter. Mit needsRunView fordert das Plugin zusätzlich den vom Server bereitgestellten Zustand des Runs an.", "Eigenschaften eines WebPlugin; der Provider kann hier eigene Context.Provider einsetzen.", `
 const sessionUi = {
   id: "ragents.example",
   needsRunView: true,
   SessionProvider: ({ children, session }) => <section aria-label={session.session.title}>{children}</section>,
 } satisfies WebPlugin;`, ["web.needsRunView", "web.SessionProvider"], ["session.runView ist unknown und muss vor fachlichem Zugriff validiert werden. Ein Provider besitzt session und navigation und wird nur für aktive Plugins eingebunden."], "tsx"),
-  entry("web-headers", "Web-Beiträge", "Übersicht, globale Toolbar und Leisten des Runs", "Ein Plugin kann Informationen für die ganze Anwendung oder für die gerade geöffnete Unterhaltung anzeigen. Beiträge für die ganze Anwendung stehen in der Übersicht oder in der globalen Kopfzeile; Beiträge zur Unterhaltung folgen dem ausgewählten Run. Dafür gibt es overviewPanels mit einer Platzierungswahl und sessionHeaders für die Titelleiste oder die Leiste oben am Canvas.", "Eigenschaften eines WebPlugin.", `
+  entry("web-headers", "Web-Beiträge", "Übersicht, globale Toolbar und Leisten des Runs", "Ein Plugin kann Informationen für die ganze Anwendung oder für den gerade geöffneten Run anzeigen. Beiträge für die ganze Anwendung stehen in der Übersicht oder in der globalen Kopfzeile; Beiträge zum Run folgen der aktuellen Auswahl. Dafür gibt es overviewPanels mit einer Platzierungswahl und sessionHeaders für die Titelleiste oder die Leiste oben an der Fläche.", "Eigenschaften eines WebPlugin.", `
 const headers = {
   id: "ragents.example",
   overviewPanels: [
@@ -471,7 +471,7 @@ const headers = {
     Header: ({ session }) => <span>{session.running ? "In Arbeit" : "Bereit"}</span> }],
   sessionStatus: [{ id: "ragents.example.run-status", order: 100,
     Status: ({ session }) => <span>{session.connected ? "Verbunden" : "Getrennt"}</span> }],
-} satisfies WebPlugin;`, ["web.overviewPanels", "web.sessionHeaders", "web.sessionStatus"], ["Der Kontext liefert Registry, open, onOpen, onClose und onBusy. Ohne placement steht der Beitrag in der Übersicht und wird beim ersten Öffnen gemountet. Toolbar-Beiträge sind ab Anwendungsstart gemountet; eigene Verbindungen aktivieren sie erst bei Nutzung. Der Host koordiniert das gegenseitige Schließen. sessionHeaders verwendet standardmäßig placement: header; placement: canvas setzt den Beitrag in die Leiste oben am Canvas. Diese bleibt auch bei einer App-Vollansicht bedienbar. Run-Kopf und untere Statusgruppen erhalten SessionContext und Navigation und folgen dem aktiven Run."], "tsx"),
+} satisfies WebPlugin;`, ["web.overviewPanels", "web.sessionHeaders", "web.sessionStatus"], ["Der Kontext liefert Registry, open, onOpen, onClose und onBusy. Ohne placement steht der Beitrag in der Übersicht und wird beim ersten Öffnen gemountet. Toolbar-Beiträge sind ab Anwendungsstart gemountet; eigene Verbindungen aktivieren sie erst bei Nutzung. Der Host koordiniert das gegenseitige Schließen. sessionHeaders verwendet standardmäßig placement: header; placement: surface setzt den Beitrag in die Leiste oben an der Fläche. Diese bleibt auch bei einer App-Vollansicht bedienbar. Run-Kopf und untere Statusgruppen erhalten SessionContext und Navigation und folgen dem aktiven Run."], "tsx"),
   entry("web-settings", "Web-Beiträge", "Bearbeitbare Plugin-Einstellungen", "Ein Plugin kann eine eigene Oberfläche zum Bearbeiten seiner Einstellungen anbieten. Mit category steht sie unter Modelle oder Darstellung, zusätzlich auf der Einstellungsseite des Plugins. Die Anwendung ordnet sie dem aktiven Plugin zu.", "Eigenschaften eines WebPlugin; ExampleSettings ist die eigene React-Komponente des Plugins.", `
 import { useState } from "react";
 function ExampleSettings() {
@@ -491,8 +491,8 @@ const settingsUi = {
     order: 100,
     Settings: ExampleSettings,
   }],
-} satisfies WebPlugin;`, ["web.settings", "settings.id", "settings.label", "settings.category", "settings.readRight", "settings.order", "settings.Settings"], ["category: models zeigt den Beitrag unter Modelle, appearance unter Darstellung. Ohne category bleibt er bei der zugehörigen Extension. Die Formularbereiche laden unabhängig vom technischen Beitragskatalog.", "readRight blendet den Beitrag ohne das genannte Recht aus; ohne Angabe gilt settings.read. Die Komponente prüft ihr Schreibrecht mit useAccess und die Serverroute zusätzlich mit requiredRights.", "Das Beispiel hält den Wert nur lokal. Settings erhält keine Props; das Plugin verbindet seine Komponente selbst mit Konfiguration, gemeinsamem Zustand und eigenen Serverrouten. Kennungen sind global eindeutig; order ist optional und standardmäßig 0. Ohne aktives Plugin wird kein Einstellungsbereich eingebunden."], "tsx"),
-  entry("web-start", "Web-Beiträge", "Startoptionen und Leitfäden bedienen", "Vor einer neuen Unterhaltung können Startoptionen direkt gewählt oder in einem Einrichtungsdialog gesammelt werden. Das Plugin liefert dafür die Oberfläche und verbindet ihre Werte mit dem jeweiligen Serververtrag. Ein Leitfaden ist ein solcher Dialog für einen vorbereiteten Ablauf.", "Eigenschaften eines WebPlugin; die Option wird zusätzlich serverseitig registriert.", `
+} satisfies WebPlugin;`, ["web.settings", "settings.id", "settings.label", "settings.category", "settings.readRight", "settings.order", "settings.Settings"], ["category: models zeigt den Beitrag unter Modelle, appearance unter Darstellung. Ohne category bleibt er beim zugehörigen Plugin. Die Formularbereiche laden unabhängig vom technischen Beitragskatalog.", "readRight blendet den Beitrag ohne das genannte Recht aus; ohne Angabe gilt settings.read. Die Komponente prüft ihr Schreibrecht mit useAccess und die Serverroute zusätzlich mit requiredRights.", "Das Beispiel hält den Wert nur lokal. Settings erhält keine Props; das Plugin verbindet seine Komponente selbst mit Konfiguration, gemeinsamem Zustand und eigenen Serverrouten. Kennungen sind global eindeutig; order ist optional und standardmäßig 0. Ohne aktives Plugin wird kein Einstellungsbereich eingebunden."], "tsx"),
+  entry("web-start", "Web-Beiträge", "Startoptionen und Leitfäden bedienen", "Vor einem neuen Run können Startoptionen direkt gewählt oder in einem Einrichtungsdialog gesammelt werden. Das Plugin liefert dafür die Oberfläche und verbindet ihre Werte mit dem jeweiligen Serververtrag. Ein Leitfaden ist ein solcher Dialog für einen vorbereiteten Ablauf.", "Eigenschaften eines WebPlugin; die Option wird zusätzlich serverseitig registriert.", `
 const starters = {
   id: "ragents.example",
   startOptions: [{ id: "ragents.example.mode", placement: "composer",
@@ -504,9 +504,9 @@ const starters = {
       <button onClick={onCancel}>Abbrechen</button>
     </div> }],
 } satisfies WebPlugin;`, ["web.startOptions", "web.guides"], [
-    "placement setzt die Option in die Eingabeleiste (composer) oder unter die Eingabe auf die Startfläche (surface, Vorgabe). Der Host zeigt sie nur an der gewählten Stelle; Modell und Denktiefe verwenden composer.",
+    "placement setzt die Option in die Eingabeleiste (composer) oder unter die Eingabe auf die Startseite (page, Vorgabe). Der Host zeigt sie nur an der gewählten Stelle; Modell und Denktiefe verwenden composer.",
     "Das Objekt im Beispiel ist ein Script-Startwert. Ein Skill-Leitfaden liefert stattdessen den Text der ersten Nachricht. Der StartEntry verweist mit guide auf diese Kennung.",
-    "Die Referenz-Extension liefert zwei vollständige Leitfäden: ConversationGuide sammelt Thema und Rundenzahl für eine Gesprächsrunde; SharedBoardGuide sammelt Titel und ersten Eintrag für ein gemeinsames Sammelboard. Beide beginnen erst nach Abschluss mit dem Run. Die Scripts prüfen die Eingaben vor dem Aufbau.",
+    "Das Referenz-Plugin liefert zwei vollständige Leitfäden: ConversationGuide sammelt Thema und Rundenzahl für eine Gesprächsrunde; SharedBoardGuide sammelt Titel und ersten Eintrag für ein gemeinsames Sammelboard. Beide beginnen erst nach Abschluss mit dem Run. Die Scripts prüfen die Eingaben vor dem Aufbau.",
   ], "tsx", [
     { title: "Beide React-Leitfäden", file: "plugins/ragents.reference/web/StartGuides.tsx" },
     { title: "Registrierung der Leitfäden", file: "plugins/ragents.reference/web/index.tsx" },
@@ -522,13 +522,13 @@ const presenters = {
   entityPresenters: [{ reveal: (entity) => entity.type === "example-note"
     ? { tabId: "ragents.example.overview", selection: entity.id } : undefined }],
 } satisfies WebPlugin;`, ["web.toolPresenters", "web.entityPresenters"], ["navigation.openTab öffnet einen registrierten Reiter; revealEntity verwendet die Presenter. selection ist ein eigener geprüfter Vertrag zwischen Aufrufer und Zielpanel."], "tsx"),
-  entry("web-metadata", "Web-Beiträge", "Metadaten in Liste und Kopf", "Zusatzangaben zu einer Unterhaltung können in der Run-Liste und in ihrer Kopfzeile erscheinen. Das Plugin erhält die Daten der Unterhaltung und den Anzeigeort. So kann es denselben Status je nach Platz kurz oder ausführlicher darstellen.", "Eigenschaften eines WebPlugin.", `
+  entry("web-metadata", "Web-Beiträge", "Metadaten in Liste und Kopf", "Zusatzangaben zu einem Run können in der Run-Liste und in seiner Kopfzeile erscheinen. Das Plugin erhält die Daten des Runs und den Anzeigeort. So kann es denselben Status je nach Platz kurz oder ausführlicher darstellen.", "Eigenschaften eines WebPlugin.", `
 const metadata = {
   id: "ragents.example",
   sessionMetadata: [{ id: "ragents.example.metadata", order: 100,
     Metadata: ({ placement }) => <span>{placement === "list" ? "B" : "Beispiel"}</span> }],
 } satisfies WebPlugin;`, ["web.sessionMetadata"], ["Die Bereitstellung fachlicher Werte erfolgt über den serverseitigen sessionMetadata-Beitrag. Die Web-Hälfte zeigt die Werte an."], "tsx"),
-  entry("web-attention", "Web-Beiträge", "Aufmerksamkeit und wartende Aktionen", "Ein Plugin kann markieren, dass eine Unterhaltung Aufmerksamkeit braucht. Wartet eine Aktion des Plugins auf eine Eingabe, stellt sein eigener actionViews-Beitrag sie dar und beantwortet sie über seinen Vertrag; der Kern kennt ihre Form nicht. Markierung und Darstellung sind getrennte Beiträge.", "Eigenschaften eines WebPlugin; answerQuestion ist der eigene geprüfte HTTP-Client.", `
+  entry("web-attention", "Web-Beiträge", "Aufmerksamkeit und wartende Aktionen", "Ein Plugin kann markieren, dass ein Run Aufmerksamkeit braucht. Wartet eine Aktion des Plugins auf eine Eingabe, stellt sein eigener actionViews-Beitrag sie dar und beantwortet sie über seinen Vertrag; der Kern kennt ihre Form nicht. Markierung und Darstellung sind getrennte Beiträge.", "Eigenschaften eines WebPlugin; answerQuestion ist der eigene geprüfte HTTP-Client.", `
 const interaction = {
   id: "ragents.example",
   attention: [{ id: "ragents.example.attention",
@@ -576,7 +576,7 @@ await context.functions.actor_input({
     "Aufrufnamen verwenden Unterstriche, etwa actor_input. Punktierte Namen wie actor.input sind Grants. Zusätzliche Rechte des Actors erweitern einen installierten Build nicht automatisch.",
     "invocation.kind kennt input, snippet, tool und app-action. event und schedule sind bereits als Typwerte deklariert, besitzen aber derzeit keinen eigenen Auslöser.",
   ]),
-  entry("subscriptions", "Actor-Programme", "Ereignisse abonnieren und Nachrichten weitergeben", "Ereignisse melden, was in einer Unterhaltung geschehen ist, etwa dass ein Agent einen Beitrag abgeschlossen hat. Ein Abonnement, die Subscription, stellt passende neue Ereignisse einem Beteiligten als Nachricht zu. Ein programmierter Vermittler kann daraufhin das Ergebnis weitergeben oder den nächsten Arbeitsschritt anstoßen.", "Ausschnitt in einem Actor-Handler; die aufgeführten Capability-Aufrufe müssen freigegeben sein.", `
+  entry("subscriptions", "Actor-Programme", "Ereignisse abonnieren und Nachrichten weitergeben", "Ereignisse melden, was in einem Run geschehen ist, etwa dass ein Agent einen Beitrag abgeschlossen hat. Ein Abonnement, die Subscription, stellt passende neue Ereignisse einem Beteiligten als Nachricht zu. Ein programmierter Vermittler kann daraufhin das Ergebnis weitergeben oder den nächsten Arbeitsschritt anstoßen.", "Ausschnitt in einem Actor-Handler; die aufgeführten Capability-Aufrufe müssen freigegeben sein.", `
 await context.functions.event_subscribe({
   sourceActorIds: ["@reviewer"],
   eventTypes: ["model.output.completed"],
@@ -586,7 +586,7 @@ await context.functions.event_subscribe({
     "event_unsubscribe entfernt die Subscription. Bereits gespeicherte Events werden nach einem Serverneustart nicht erneut zugestellt.",
     "context.std.mediators.route liefert eine Input-Funktion für feste Weiterleitungsregeln und speichert ihren Zustand ausdrücklich. context.std.now und context.std.id beziehen sich auf den aktuellen Actor-Turn.",
   ]),
-  entry("run-scripts", "Actor-Programme", "Ein Run-Script als vorbereitetes Setup", "Ein Run-Script ist ein vollständiges Actor-Programmpaket für den Start einer Unterhaltung. Der Host aktiviert es mit demselben Compiler und denselben Fachtests wie ein während des Runs geschriebenes Programm.", "RUN.md; daneben liegen package.json, src/server.ts und tests/*.test.ts.", `
+  entry("run-scripts", "Actor-Programme", "Ein Run-Script als vorbereitetes Setup", "Ein Run-Script ist ein vollständiges Actor-Programm für den Start eines Runs. Der Host aktiviert es mit demselben Compiler und denselben Fachtests wie ein während des Runs geschriebenes Programm.", "RUN.md; daneben liegen package.json, src/server.ts und tests/*.test.ts.", `
 ---
 title: Beispiel vorbereiten
 description: Zählt den ersten Startauftrag.
@@ -650,7 +650,7 @@ export const contract = {
     "Das Zustandsschema akzeptiert {} als Initialwert. input und output bestimmen die Typen des zugehörigen Handlers; capabilities nennt seine benötigten Run-Fähigkeiten.",
     "Ohne targets steht die Funktion aktiven ausführbaren Actors zur Verfügung. self meint den Besitzer des Programms, @handle ein bestimmtes Ziel. card: true erzeugt das Formular aus demselben Eingabevertrag. Eine optionale confirmation fordert eine Bestätigung vor der Aktion.",
     "Nach der Aktivierung steht die Funktion schon im laufenden Modellturn in context.functions bereit. typescript_api liefert ihren aktuellen Vertrag. Erneute Aktivierung aktualisiert das Schema; Entfernen zieht die Funktion zurück.",
-    "Pro Actor ist ein Programmpaket aktiv; weitere Funktionen und Views werden darin ergänzt. Eine reine View braucht keinen Backend-Vertrag. Optionales input im Vertrag verlangt onInput in der Implementierung und ist nur für TypeScript-Actors verfügbar.",
+    "Pro Actor ist ein Actor-Programm aktiv; weitere Funktionen und Views werden darin ergänzt. Eine reine View braucht keinen Backend-Vertrag. Optionales input im Vertrag verlangt onInput in der Implementierung und ist nur für TypeScript-Actors verfügbar.",
   ]),
   entry("app-handler", "Actor-Programme", "Eine Funktion für View und Werkzeug", "Die Funktion verarbeitet eine typisierte Eingabe und ändert den Zustand ihres Actors. Aufrufe aus dessen React-View und über die TypeScript-API verwenden genau diese Implementierung, ohne zusätzlichen Modell-Turn.", "src/server.ts; package.json.ragents.backend nennt diesen Einstieg.", `
 import { defineActor } from "@ragents/server";
@@ -686,7 +686,7 @@ test("erhält vorhandene Einträge", async () => {
     "createTestContext stellt Zustand, Abbruchsignal und explizit angegebene typisierte Funktionen unter functions bereit. Die Mocks sind TypeScript-Funktionen im Test und kein Werkzeugargument des Modells.",
     "Ein Fachtest prüft die gemeinsame Funktion. Eine echte Browserprüfung muss zusätzlich die sichtbare Bedienung nachweisen.",
   ]),
-  entry("app-placements", "Actor-Programme", "Views als Kacheln", "Eine aktivierte View kann als Kachel auf der Arbeitsfläche liegen und gehört dabei zu ihrem Actor. Der Benutzer kann sie im Host vergrößern; mehrere Views zeigen denselben Actor-Zustand.", "Ein Eintrag in package.json.ragents.views.", `
+  entry("app-placements", "Actor-Programme", "Views als Kacheln", "Eine aktivierte View kann als Kachel auf der Fläche liegen und gehört dabei zu ihrem Actor. Der Benutzer kann sie im Host vergrößern; mehrere Views zeigen denselben Actor-Zustand.", "Ein Eintrag in package.json.ragents.views.", `
 { "id": "main", "title": "Liste", "client": "src/client.tsx" }`, [], [
     "actor_view_set_visibility verwendet Paketname/Viewname oder einen eindeutigen Titel. Die View-Kennung ist innerhalb des Pakets eindeutig. Eine View hat keine eigene Größe; die Kachel gibt sie vor, und der zugehörige Actor ist ihr Anker.",
     "actor_view_set_visibility schaltet eine View sichtbar oder unsichtbar. Funktionen und Actor-Zustand bleiben erhalten; die lokale Vollansicht gehört zur Benutzerbedienung.",
@@ -706,7 +706,7 @@ function App() {
   </>;
 }
 createRoot(document.getElementById("root")!).render(<App />);`, ["app.ready", "app.run", "app.actor", "app.principal", "app.state", "app.chat", "app.capabilities", "appState.read", "appState.subscribe", "appCapabilities.list", "appCapabilities.call"], [
-    "context.actor beschreibt den Besitzer der View. ready bestätigt die Bridge, run und principal die gebundene Unterhaltung und Bedieneridentität.",
+    "context.actor beschreibt den Besitzer der View. ready bestätigt die Bridge, run und principal den gebundenen Run und die Bedieneridentität.",
     "useAppState liest Actor-Zustand reaktiv. state.read und subscribe liefern alternativ Snapshot und Änderungsmeldungen.",
     "context.capabilities.call ruft eine deklarierte Actor-Funktion auf. Lokale Entwürfe gehören in React-Zustand; ein Funktionsaufruf startet keinen Modell-Turn.",
   ], "tsx"),
@@ -724,7 +724,7 @@ createRoot(document.getElementById("root")!).render(<App />);`, ["chat.read", "c
     "UI.MessageList zeigt kontrollierte Nachrichten mit benannten Absendern. Die App liefert Reihenfolge und Inhalt; der Baustein erzeugt keine Antworten.",
     "Die Bausteinreferenz zeigt aktuelle Props und lokale Demos der Komponenten.",
   ], "tsx"),
-  entry("product-policy", "Produkt- und Laufzeitverträge", "Eine Produktpolitik bereitstellen", "Der Koordinator ist der zentrale KI-Ansprechpartner einer Unterhaltung und kann Aufgaben an weitere Agenten verteilen. Die Produktpolitik legt seinen Start, die Rollen der Beteiligten und ihre Anweisungen fest. Eine eigene Anwendung stellt diese Regeln als Dienst bereit.", "register(host); policy erfüllt ProductRuntimePolicy, productRuntimeToken kommt aus dem neutralen Server-Host.", `
+  entry("product-policy", "Produkt- und Laufzeitverträge", "Eine Produktpolitik bereitstellen", "Der Koordinator ist der zentrale KI-Ansprechpartner eines Runs und kann Aufgaben an weitere Agenten verteilen. Die Produktpolitik legt seinen Start, die Rollen der Beteiligten und ihre Anweisungen fest. Eine eigene Anwendung stellt diese Regeln als Dienst bereit.", "register(host); policy erfüllt ProductRuntimePolicy, productRuntimeToken kommt aus dem neutralen Server-Host.", `
 const policy: ProductRuntimePolicy = {
   coordinator: {
     handle: "coordinator", displayName: "Koordinator", profile: "example-reviewer",
@@ -739,17 +739,17 @@ host.provide(productRuntimeToken, policy);`, ["product.coordinator", "product.ro
     "coordinator beschreibt Handle, Anzeigename, Profil, Run-Titel und Owner. roleFor bestimmt primary oder worker, contract liefert den Rollenprompt, promptComposition die Komposition und systemPrompts den Katalog.",
     "Ein neues Fachplugin registriert keinen zweiten Produktdienst neben einem bestehenden Produkt. Die Konfiguration muss einen vollständigen Modellkatalog für das verwendete Profil bereitstellen.",
   ]),
-  entry("workspace-policy", "Produkt- und Laufzeitverträge", "Arbeitsbereiche auflösen", "Ein Arbeitsbereich legt fest, in welchen Verzeichnissen die Agenten einer Unterhaltung mit Dateien und Prozessen arbeiten. Der Dienst WorkspaceRuntime löst diesen Bereich auf und beschreibt ihn. Ein optionaler WorkspaceResolver kann die Zuordnung anpassen, ohne den ganzen Dienst zu ersetzen.", "register(host); workspaceResolverToken kommt aus dem neutralen Server-Host.", `
+  entry("workspace-policy", "Produkt- und Laufzeitverträge", "Arbeitsbereiche auflösen", "Ein Arbeitsbereich legt fest, in welchen Verzeichnissen die Agenten eines Runs mit Dateien und Prozessen arbeiten. Der Dienst WorkspaceRuntime löst diesen Bereich auf und beschreibt ihn. Ein optionaler WorkspaceResolver kann die Zuordnung anpassen, ohne den ganzen Dienst zu ersetzen.", "register(host); workspaceResolverToken kommt aus dem neutralen Server-Host.", `
 host.provide(workspaceResolverToken, {
   resolve: async ({ directory }) => ({ cwd: directory }),
-});`, ["workspace.resolve", "workspace.describe", "workspace.kindOf", "workspace.toolNaming", "workspace.transfer", "resolver.optionId", "resolver.kind", "resolver.resolve", "resolver.stopSession", "resolver.deleteSession"], [
-    "resolve der vollständigen WorkspaceRuntime liefert eine SessionWorkspace mit cwd, currentRoot und runOperation; optional kommen gitEnv, gitConfig und extraEnv hinzu. describe liefert Modus und Verzeichnismuster; kindOf nennt die Art des Arbeitsbereichs eines Runs, und toolNaming kann die vorhandenen Dateiwerkzeuge benennen.",
-    "Ein Resolver erhält runId, directory, choice und emitSystem. optionId verbindet die Auswahl mit einer registrierten Startoption. kind beschreibt Kennung, Bezeichnung, Serverordner und Anzeigemuster des beigesteuerten Arbeitsbereichs. Der gezeigte Resolver behält das vom Host vorbereitete Run-Verzeichnis bei.",
+});`, ["workspace.resolve", "workspace.describe", "workspace.placementOf", "workspace.toolNaming", "workspace.transfer", "resolver.optionId", "resolver.kind", "resolver.workstation", "resolver.resolve", "resolver.stopSession", "resolver.deleteSession"], [
+    "resolve der vollständigen WorkspaceRuntime liefert eine SessionWorkspace mit cwd, currentRoot und runOperation; optional kommen gitEnv, gitConfig und extraEnv hinzu. describe liefert Modus und Verzeichnismuster; placementOf nennt getrennt, ob ein Run auf dem Server oder einem Arbeitsplatz arbeitet und ob in einem neuen oder vorhandenen Ordner, dazu die Art eines beigesteuerten Ordners, und toolNaming kann die vorhandenen Dateiwerkzeuge benennen.",
+    "Ein Resolver erhält runId, directory, choice und emitSystem. optionId verbindet die Auswahl mit einer registrierten Startoption. kind beschreibt Kennung, Bezeichnung, Serverordner und Anzeigemuster des beigesteuerten Arbeitsbereichs auf dem Server. workstation stellt den neuen Ordner auf einem Arbeitsplatz: Bezeichnung und Schritte aus Operationen des Executors dort, die nach dem Anlegen (prepare) und vor dem Wegräumen (release) laufen; ohne workstation gibt es mit einem Resolver dort keinen neuen Ordner. Der gezeigte Resolver behält das vom Host vorbereitete Run-Verzeichnis bei.",
     "stopSession und deleteSession ergänzen optional die Lebenszyklusgrenzen des beigesteuerten Arbeitsbereichs. Beim Stoppen erhält der Resolver auch den Abbau der Host-Sandbox; das Löschen folgt erst danach.",
-    "transfer beantwortet den Umzug eines Runs auf einen anderen Server: boundDirectory nennt einen gebundenen Projektordner dieses Rechners, assertDirectory prüft einen Ersatzordner, rebind bindet den Run dort an.",
+    "transfer beantwortet den Umzug eines Runs auf einen anderen Server: boundDirectory nennt einen vorhandenen Ordner dieses Rechners, an den der Run gebunden ist, assertDirectory prüft einen Ersatzordner, rebind bindet den Run dort an.",
     "Datei- und Prozessarbeit erfolgt über die vorhandene Workspace-Grenze. Ein Plugin wechselt nicht eigenmächtig das globale Arbeitsverzeichnis des Servers.",
   ]),
-  entry("document-store", "Produkt- und Laufzeitverträge", "Dokumentablage und Git-Ansichten", "Die Dokumentablage ordnet jeder Unterhaltung ein Verzeichnis für ihre Dateien zu. Eine zusätzliche Git-Ansicht kann den Branch, Änderungen und Dateiinhalte eines Arbeitsbereichs liefern. Plugins stellen diese Dienste bereit, damit andere Beiträge dieselben Daten verwenden können.", "register(host); store und gitView erfüllen DocumentStore bzw. GitWorkspaceView.", `
+  entry("document-store", "Produkt- und Laufzeitverträge", "Dokumentablage und Git-Ansichten", "Die Dokumentablage ordnet jedem Run ein Verzeichnis für ihre Dateien zu. Eine zusätzliche Git-Ansicht kann den Branch, Änderungen und Dateiinhalte eines Arbeitsbereichs liefern. Plugins stellen diese Dienste bereit, damit andere Beiträge dieselben Daten verwenden können.", "register(host); store und gitView erfüllen DocumentStore bzw. GitWorkspaceView.", `
 host.provide(documentStoreToken, store);
 host.provide(gitWorkspaceViewToken, gitView);`, ["documents.directoryFor", "documents.describe", "gitView.branch", "gitView.changes", "gitView.file"], [
     "DocumentStore löst mit directoryFor(runId) das Dokumentverzeichnis auf und beschreibt sein Verzeichnismuster.",
@@ -856,7 +856,7 @@ export async function buildHomepageExtensions(repoRoot: string): Promise<Homepag
   const stale = [...covered].filter((key) => !actual.has(key));
   if (missing.length || stale.length) throw new Error(`Die Entwicklerreferenz ist nicht vollständig. Neu: ${missing.join(", ") || "keine"}; entfernt: ${stale.join(", ") || "keine"}.`);
   for (const extension of extensions) {
-    if (!extension.example || !extension.description) throw new Error(`Die Erweiterung ${extension.id} hat kein Beispiel.`);
+    if (!extension.example || !extension.description) throw new Error(`Der Eintrag ${extension.id} hat kein Beispiel.`);
     if (extension.language === "json") JSON.parse(extension.example);
     if (extension.language === "typescript" || extension.language === "tsx") {
       const result = ts.transpileModule(extension.example, { fileName: `${extension.id}.${extension.language === "tsx" ? "tsx" : "ts"}`, reportDiagnostics: true, compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.ReactJSX } });
@@ -864,10 +864,10 @@ export async function buildHomepageExtensions(repoRoot: string): Promise<Homepag
     }
   }
   const groups = [...new Set(extensions.map((extension) => extension.category))];
-  const html = `<header class="intro"><p class="eyebrow">Für Entwickler</p><h1>RAgents erweitern</h1><p class="lead">RAgents lässt sich um typisierte Funktionen, Oberflächen und programmierte Abläufe ergänzen. Snippets und Actor-Programme verwenden dieselben registrierten Funktionen. Ein Plugin bündelt eine solche Erweiterung für die ganze Anwendung. Eine einzelne Unterhaltung heißt Run; innerhalb eines Runs können eigene Abläufe und kleine Bedienoberflächen, die Mini-Apps, entstehen.</p></header><p>Die Beispiele zeigen, wo diese Erweiterungen eingebunden werden: Serverbeiträge führen Funktionen aus, Web-Beiträge ergänzen die Oberfläche der Anwendung. Programmierte Abläufe und Mini-Apps gehören zur jeweiligen Unterhaltung. Die Produkt- und Laufzeitverträge beschreiben die Einbindung in eine eigene Anwendung.</p>
-<p>New to the project? The <a href="guide.html">guide</a> explains the runtime, model context, and execution forms. <a href="guide-extensions.html">Plugins, profiles, and skills</a> leads to the relevant extension points.</p><p class="note">The code blocks are excerpts, and each one names its intended location. Application extensions are built with the host, while code for a single run is checked and tested before installation.</p><nav class="section-nav" aria-label="Extensions">${groups.map((group, index) => `<a href="#extensions-${index}">${escape(group)}</a>`).join("")}<a href="#access-rights">Built-in permissions</a><a href="#extension-contracts">Contracts</a></nav>
+  const html = `<header class="intro"><p class="eyebrow">Für Entwickler</p><h1>RAgents erweitern</h1><p class="lead">RAgents lässt sich um typisierte Funktionen, Oberflächen und programmierte Abläufe ergänzen. Snippets und Actor-Programme verwenden dieselben registrierten Funktionen. Ein Plugin bündelt solche Ergänzungen für die ganze Anwendung. Eine einzelne Arbeit mit eigenem Journal heißt Run; innerhalb eines Runs können eigene Abläufe und kleine Bedienoberflächen, die Mini-Apps, entstehen.</p></header><p>Die Beispiele zeigen, wo diese Ergänzungen eingebunden werden: Serverbeiträge führen Funktionen aus, Web-Beiträge ergänzen die Oberfläche der Anwendung. Programmierte Abläufe und Mini-Apps gehören zum jeweiligen Run. Die Produkt- und Laufzeitverträge beschreiben die Einbindung in eine eigene Anwendung.</p>
+<p>New to the project? The <a href="guide.html">guide</a> explains the runtime, model context, and execution forms. <a href="guide-plugins.html">Plugins, profiles, and skills</a> leads to the relevant extension points.</p><p class="note">The code blocks are excerpts, and each one names its intended location. Plugins are built with the host, while code for a single run is checked and tested before installation.</p><nav class="section-nav" aria-label="Extension points">${groups.map((group, index) => `<a href="#extensions-${index}">${escape(group)}</a>`).join("")}<a href="#access-rights">Built-in permissions</a><a href="#extension-contracts">Contracts</a></nav>
 ${groups.map((group, index) => `<section id="extensions-${index}"><h2>${escape(group)}</h2>${extensions.filter((extension) => extension.category === group).map((extension) => `<article id="extension-${extension.id}"><h3>${escape(extension.title)}</h3><p>${escape(extension.description)}</p><details><summary>Beispiel (${extension.language})</summary><p class="example-context">${escape(extension.environment)}</p><pre><code class="language-${extension.language}">${escape(extension.example)}</code></pre></details>${extension.sources?.length ? `<p>${extension.sources.map((source) => `<a href="../../${escape(source.file)}">${escape(source.title)}</a>`).join(" / ")}</p>` : ""}${extension.notes.length ? `<ul>${extension.notes.map((note) => `<li>${escape(note)}</li>`).join("")}</ul>` : ""}</article>`).join("")}</section>`).join("\n")}
-<section id="access-rights"><h2>Eingebaute Rechte</h2><p>Rechte legen fest, welche Daten ein Benutzer lesen und welche Aktionen er ausführen darf. Die Liste zeigt die in RAgents eingebauten Rechtenamen und ihre Bedeutung. Plugins können zusätzliche eigene Rechte prüfen.</p><table><thead><tr><th>Recht</th><th>Bedeutung</th></tr></thead><tbody>${permissions.map((permission) => `<tr><td><code>${escape(permission.id)}</code></td><td>${escape(permission.description)}</td></tr>`).join("")}</tbody></table><h3>Kernmethoden</h3><p>Die Tabelle ordnet den Methoden der JSON-RPC-API ihre nötigen Rechte zu. Methoden ohne feste Rechte prüft der Host je Run; für den globalen Koordinator, den KI-Ansprechpartner über alle Unterhaltungen hinweg, gilt eine zusätzliche eigene Laufregel.</p><table><thead><tr><th>Methode</th><th>Rechte</th></tr></thead><tbody>${methodRights.map((method) => `<tr><td><code>${escape(method.id)}</code></td><td>${escape(method.rights.join(", ") || "je Run")}</td></tr>`).join("")}</tbody></table></section>
-<section id="extension-contracts"><h2>Aktuelle Vertragsflächen</h2><p>Ein Vertrag legt die Namen, Felder und Typen fest, die eine Erweiterung bereitstellen oder verwenden kann. Die folgenden Definitionen stammen direkt aus den TypeScript-Schnittstellen und Paketbeschreibungen im Code. Sie dienen zum Nachschlagen der genauen Anforderungen zu den Beispielen oben.</p>${loaded.map(({ contract, keys, text }) => `<details><summary>${escape(contract.name)} (${keys.length} Felder)</summary><pre><code>${escape(text)}</code></pre></details>`).join("")}</section>`;
+<section id="access-rights"><h2>Eingebaute Rechte</h2><p>Rechte legen fest, welche Daten ein Benutzer lesen und welche Aktionen er ausführen darf. Die Liste zeigt die in RAgents eingebauten Rechtenamen und ihre Bedeutung. Plugins können zusätzliche eigene Rechte prüfen.</p><table><thead><tr><th>Recht</th><th>Bedeutung</th></tr></thead><tbody>${permissions.map((permission) => `<tr><td><code>${escape(permission.id)}</code></td><td>${escape(permission.description)}</td></tr>`).join("")}</tbody></table><h3>Kernmethoden</h3><p>Die Tabelle ordnet den Methoden der JSON-RPC-API ihre nötigen Rechte zu. Methoden ohne feste Rechte prüft der Host je Run; für den globalen Koordinator, den KI-Ansprechpartner über alle Runs hinweg, gilt eine zusätzliche eigene Regel.</p><table><thead><tr><th>Methode</th><th>Rechte</th></tr></thead><tbody>${methodRights.map((method) => `<tr><td><code>${escape(method.id)}</code></td><td>${escape(method.rights.join(", ") || "je Run")}</td></tr>`).join("")}</tbody></table></section>
+<section id="extension-contracts"><h2>Aktuelle Vertragsflächen</h2><p>Ein Vertrag legt die Namen, Felder und Typen fest, die ein Plugin bereitstellen oder verwenden kann. Die folgenden Definitionen stammen direkt aus den TypeScript-Schnittstellen und Paketbeschreibungen im Code. Sie dienen zum Nachschlagen der genauen Anforderungen zu den Beispielen oben.</p>${loaded.map(({ contract, keys, text }) => `<details><summary>${escape(contract.name)} (${keys.length} Felder)</summary><pre><code>${escape(text)}</code></pre></details>`).join("")}</section>`;
   return { html, extensions, permissions, methodRights, contracts: loaded.map(({ contract, text }) => ({ name: contract.name, file: contract.file, text })) };
 }

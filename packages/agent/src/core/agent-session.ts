@@ -1,16 +1,14 @@
-/** One agent: model and thinking level, prompts, persistence, auto-compaction and retry, steering, extension hooks and tools. */
+/** One agent: model and thinking level, prompts, persistence, auto-compaction and retry, extension hooks and tools. */
 
 import type {
 	Agent,
 	AgentEvent,
 	AgentMessage,
 	AgentTool,
-	AgentToolCall,
-	AgentToolResult,
 	PrepareNextTurnContext,
 	ThinkingLevel,
 } from "../loop/index.ts";
-import type { AssistantMessage, AuthResult, Message, Model, ProviderHeaders, TextContent, UserAttachment, UserContent } from "@ragents/ai";
+import type { AssistantMessage, AuthResult, Model, ProviderHeaders, UserAttachment, UserContent } from "@ragents/ai";
 import {
 	clampThinkingLevel,
 	getSupportedThinkingLevels,
@@ -54,11 +52,6 @@ export type AgentSessionEvent =
 			willRetry: boolean;
 	  }
 	| { type: "agent_settled" }
-	| {
-			type: "queue_update";
-			steering: readonly string[];
-			followUp: readonly string[];
-	  }
 	| { type: "compaction_start"; reason: "threshold" | "overflow" }
 	| { type: "thinking_level_changed"; level: ThinkingLevel }
 	| {
@@ -105,8 +98,6 @@ export interface ExtensionBindings {
 /** Options for AgentSession.prompt() */
 export interface PromptOptions {
 	attachments?: UserAttachment[];
-	/** When streaming, how to queue the message: "steer" (interrupt) or "followUp" (wait). Required if streaming. */
-	streamingBehavior?: "steer" | "followUp";
 	/** Observes whether the prompt was accepted or rejected before the agent run starts. */
 	preflightResult?: (success: boolean) => void;
 }
@@ -127,9 +118,6 @@ function estimateMessagesTokens(messages: AgentMessage[]): number {
 /** Standard thinking levels */
 const THINKING_LEVELS: ThinkingLevel[] = ["off", "minimal", "low", "medium", "high"];
 
-/** Cap for backgrounded tool results delivered as steering text. */
-const BACKGROUND_RESULT_MAX_CHARS = 30_000;
-
 export class AgentSession {
 	readonly agent: Agent;
 	readonly sessionManager: SessionManager;
@@ -142,11 +130,6 @@ export class AgentSession {
 	private _disposed = false;
 	private _idleWaitPromise: Promise<void> | undefined;
 	private _resolveIdleWait: (() => void) | undefined;
-
-	/** Tracks pending steering messages. Removed when delivered. */
-	private _steeringMessages: string[] = [];
-	/** Tracks pending follow-up messages. Removed when delivered. */
-	private _followUpMessages: string[] = [];
 
 	// Compaction state
 	private _autoCompactionAbortController: AbortController | undefined = undefined;
@@ -195,8 +178,6 @@ export class AgentSession {
 		this._unsubscribeAgent = this.agent.subscribe(this._handleAgentEvent);
 		this._installAgentToolHooks();
 		this._installAgentNextTurnRefresh();
-		this.agent.onBackgroundToolResult = (toolCall, result, isError) =>
-			this._handleBackgroundToolResult(toolCall, result, isError);
 
 		this._buildRuntime();
 	}
@@ -307,14 +288,6 @@ export class AgentSession {
 		}
 	}
 
-	private _emitQueueUpdate(): void {
-		this._emit({
-			type: "queue_update",
-			steering: [...this._steeringMessages],
-			followUp: [...this._followUpMessages],
-		});
-	}
-
 	private _getIdleWaitPromise(): Promise<void> {
 		if (!this._idleWaitPromise) {
 			this._idleWaitPromise = new Promise((resolve) => {
@@ -347,26 +320,8 @@ export class AgentSession {
 
 	/** Internal handler for agent events - shared by subscribe and reconnect */
 	private _handleAgentEvent = async (event: AgentEvent): Promise<void> => {
-		// When a user message starts, check if it's from either queue and remove it BEFORE emitting
-		// This ensures the UI sees the updated queue state
 		if (event.type === "message_start" && event.message.role === "user") {
 			this._overflowRecoveryAttempted = false;
-			const messageText = this._getUserMessageText(event.message);
-			if (messageText) {
-				// Check steering queue first
-				const steeringIndex = this._steeringMessages.indexOf(messageText);
-				if (steeringIndex !== -1) {
-					this._steeringMessages.splice(steeringIndex, 1);
-					this._emitQueueUpdate();
-				} else {
-					// Check follow-up queue
-					const followUpIndex = this._followUpMessages.indexOf(messageText);
-					if (followUpIndex !== -1) {
-						this._followUpMessages.splice(followUpIndex, 1);
-						this._emitQueueUpdate();
-					}
-				}
-			}
 		}
 
 		// Notify all listeners
@@ -415,15 +370,6 @@ export class AgentSession {
 			}
 		}
 		return false;
-	}
-
-	/** Extract text content from a message */
-	private _getUserMessageText(message: Message): string {
-		if (message.role !== "user") return "";
-		const content = message.content;
-		if (typeof content === "string") return content;
-		const textBlocks = content.filter((c) => c.type === "text");
-		return textBlocks.map((c) => (c as TextContent).text).join("");
 	}
 
 	/** Find the last assistant message in agent state (including aborted ones) */
@@ -652,15 +598,10 @@ export class AgentSession {
 			this._retryAttempt = 0;
 		}
 
-		if (await this._checkCompaction(msg)) {
-			return true;
-		}
-
-		// The agent loop drains both queues before emitting agent_end; anything queued since needs a continuation.
-		return this.agent.hasQueuedMessages();
+		return await this._checkCompaction(msg);
 	}
 
-	/** Run a prompt, or queue it by `streamingBehavior` while the agent runs; without model or key it throws. */
+	/** Run a prompt; while the agent runs, or without model or key, it throws. */
 	async prompt(text: string, options?: PromptOptions): Promise<void> {
 		const preflightResult = options?.preflightResult;
 		const attachments = options?.attachments;
@@ -669,21 +610,8 @@ export class AgentSession {
 		try {
 			this._assertNotDisposed();
 
-			// If streaming, queue via steer() or followUp() based on option
 			if (this.isStreaming) {
-				if (!options?.streamingBehavior) {
-					throw new Error(
-						"Agent is already processing. Specify streamingBehavior ('steer' or 'followUp') to queue the message.",
-					);
-				}
-				if (options.streamingBehavior === "followUp") {
-					await this.followUp(text, attachments);
-				} else {
-					await this.steer(text, attachments);
-				}
-				this._assertNotDisposed();
-				preflightResult?.(true);
-				return;
+				throw new Error("Agent is already processing.");
 			}
 
 			// Validate model
@@ -732,81 +660,6 @@ export class AgentSession {
 		if (this._disposed) {
 			throw new Error("Agent session is disposed.");
 		}
-	}
-
-	/** Queue a message for the next model call after the running tool calls of the current turn. */
-	async steer(text: string, attachments?: UserAttachment[]): Promise<void> {
-		this._steeringMessages.push(text);
-		this._emitQueueUpdate();
-		const content: UserContent[] = [{ type: "text", text }];
-		if (attachments) {
-			content.push(...attachments);
-		}
-		this.agent.steer({
-			role: "user",
-			content,
-			timestamp: Date.now(),
-		});
-	}
-
-	/** Queue a message for when the agent has no more tool calls or steering messages. */
-	async followUp(text: string, attachments?: UserAttachment[]): Promise<void> {
-		this._followUpMessages.push(text);
-		this._emitQueueUpdate();
-		const content: UserContent[] = [{ type: "text", text }];
-		if (attachments) {
-			content.push(...attachments);
-		}
-		this.agent.followUp({
-			role: "user",
-			content,
-			timestamp: Date.now(),
-		});
-	}
-
-	/**
-	 * Deliver the real result of a backgrounded tool call as a queued steering message.
-	 * Steering reaches the model at the next loop boundary; when the agent is idle it is
-	 * injected at the start of the next run (an idle followUp would not trigger a run either
-	 * and drains later than steering, so steering is used in both cases).
-	 */
-	private _handleBackgroundToolResult(toolCall: AgentToolCall, result: AgentToolResult<any>, isError: boolean): void {
-		const text = (result.content ?? [])
-			.filter((entry): entry is TextContent => entry.type === "text")
-			.map((entry) => entry.text)
-			.join("\n");
-		const capped =
-			text.length > BACKGROUND_RESULT_MAX_CHARS
-				? `${text.slice(0, BACKGROUND_RESULT_MAX_CHARS)}\n[...truncated]`
-				: text;
-		const status = isError ? ` status="error"` : "";
-		const body = `<background-tool-result name="${toolCall.name}" callId="${toolCall.id}"${status}>\n${capped}\n</background-tool-result>`;
-		void this.steer(body);
-	}
-
-	/**
-	 * Clear all queued messages and return them.
-	 * Useful for restoring to editor when user aborts.
-	 * @returns Object with steering and followUp arrays
-	 */
-	clearQueue(): { steering: string[]; followUp: string[] } {
-		const steering = [...this._steeringMessages];
-		const followUp = [...this._followUpMessages];
-		this._steeringMessages = [];
-		this._followUpMessages = [];
-		this.agent.clearAllQueues();
-		this._emitQueueUpdate();
-		return { steering, followUp };
-	}
-
-	/** Get pending steering messages (read-only) */
-	getSteeringMessages(): readonly string[] {
-		return this._steeringMessages;
-	}
-
-	/** Get pending follow-up messages (read-only) */
-	getFollowUpMessages(): readonly string[] {
-		return this._followUpMessages;
 	}
 
 	/**
@@ -1078,9 +931,7 @@ export class AgentSession {
 				return true;
 			}
 
-			// Auto-compaction can complete while follow-up/steering/custom messages are waiting.
-			// Continue once so queued messages are delivered.
-			return this.agent.hasQueuedMessages();
+			return false;
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : "compaction failed";
 			if (started) {

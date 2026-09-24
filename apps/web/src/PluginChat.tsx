@@ -26,17 +26,17 @@ import { useRunStore } from "./RunStore";
 import { withToolSummaries } from "./toolLine";
 import { StartOptionBadges, StartOptionsProvider } from "./StartOptions";
 import { useAttachmentCapabilities } from "./chat/useAttachmentCapabilities";
-import { StartSurface } from "./StartSurface";
+import { StartSelection } from "./StartSelection";
 import { WorkspacePanel, useWorkspacePanelState, type WorkspacePanelState } from "./WorkspacePanel";
 import { StatusGroup } from "./StatusGroup";
-import { CanvasShortcuts } from "./CanvasShortcuts";
+import { SurfaceShortcuts } from "./SurfaceShortcuts";
 import { RunPanelHeader } from "./run-panel/RunPanelHeader";
 import { RunPanelRail } from "./run-panel/RunPanelRail";
 import { RunPanelWorkspace } from "./run-panel/RunPanelWorkspace";
 import { activeWorkspaceTab, saveRunPanelWorkspaceState, useRunPanelWorkspaceState } from "./run-panel/workspace-state";
 import { ToolbarItem, ToolbarText } from "./Toolbar";
 import { DialogTitle, Spinner } from "./ui";
-import { CanvasModalContext, RunModalContext } from "./ui/dialog";
+import { SurfaceModalContext, RunModalContext } from "./ui/dialog";
 import { Modal } from "./ui/modal";
 import {
   ChatStepsProvider,
@@ -45,9 +45,9 @@ import {
   useToolRenderer,
   useChatSteps,
   primaryChatActor,
-  useCanvasController,
-  type ChatSurfaceOptions,
-  type ExtensionEvent,
+  useSurfaceController,
+  type ChatDisplayOptions,
+  type PluginEvent,
   type PluginRegistry,
   type SessionContext,
   type SessionNavigation,
@@ -57,7 +57,7 @@ import {
 
 const chatElementClass = "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border-soft/60 bg-card/55";
 
-/** workspace: Canvas und Werkstatt; panel: das Run-Panel; element: genau ein Canvas-Element in voller Größe. */
+/** workspace: Fläche und Werkstatt; panel: das Run-Panel; element: genau ein Flächenelement in voller Größe. */
 export type ChatLayout = "workspace" | "panel" | { element: string };
 
 interface PluginChatProps {
@@ -91,7 +91,7 @@ interface ChatWorkspaceProps {
   startDialog?: { onClose: () => void; initialEntryId?: string };
   onStarted?: () => void;
   onModalContainer: (element: HTMLDivElement | null) => void;
-  onCanvasModalContainer: (element: HTMLDivElement | null) => void;
+  onSurfaceModalContainer: (element: HTMLDivElement | null) => void;
   navigation: SessionNavigation;
   pendingTabIds: readonly string[];
   registry: PluginRegistry;
@@ -104,15 +104,15 @@ export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "wo
   const access = useAccess();
   const startOnly = startDialog !== undefined;
   const [modalContainer, setModalContainer] = useState<HTMLDivElement | null>(null);
-  const [canvasModalContainer, setCanvasModalContainer] = useState<HTMLDivElement | null>(null);
-  const [extensionEvents, setExtensionEvents] = useState<readonly ExtensionEvent[]>([]);
+  const [surfaceModalContainer, setSurfaceModalContainer] = useState<HTMLDivElement | null>(null);
+  const [pluginEvents, setPluginEvents] = useState<readonly PluginEvent[]>([]);
   const onChatEvent = useCallback((event: ChatEvent) => {
-    if (event.kind === "reset") setExtensionEvents([]);
-    if (event.kind !== "extension") return;
+    if (event.kind === "reset") setPluginEvents([]);
+    if (event.kind !== "plugin") return;
     const { pluginId, type, payload, at } = event;
-    setExtensionEvents((current) => [...current, { pluginId, type, payload, at }]);
+    setPluginEvents((current) => [...current, { pluginId, type, payload, at }]);
   }, []);
-  const { messages, running, connected, startup, send: sendMessage, startSkill, start, stop } = useChat(session.id, onChatEvent, !startOnly);
+  const { messages, running, connected, startup, send: sendMessage, startSkill, start } = useChat(session.id, onChatEvent, !startOnly);
   const send = useCallback((text: string, attachments?: ChatAttachmentInput[], entryId?: string) =>
     entryId === undefined ? sendMessage(text, attachments) : startSkill(entryId, text, attachments), [sendMessage, startSkill]);
   const runStore = useRunStore(session.id, startOnly || registry.needsRunView || onViewed !== undefined, !startOnly);
@@ -148,7 +148,7 @@ export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "wo
 
   const sessionContext = useMemo<SessionContext>(() => ({
     connected,
-    extensionEvents,
+    pluginEvents,
     messages,
     actorConversations: runStore.conversations,
     conversationError: runStore.error,
@@ -158,8 +158,7 @@ export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "wo
     send,
     session,
     start,
-    stop,
-  }), [connected, extensionEvents, messages, runStore.view, runStore.conversations, runStore.error, running, startup, send, session, start, stop]);
+  }), [connected, pluginEvents, messages, runStore.view, runStore.conversations, runStore.error, running, startup, send, session, start]);
 
   const registeredTabs = useMemo(() => registry.registeredTabs(sessionContext, access), [access, registry, sessionContext]);
   const availableTabs = useMemo(() => registry.availableTabs(sessionContext, access), [access, registry, sessionContext]);
@@ -167,7 +166,7 @@ export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "wo
 
   const openTab = useCallback((tabId: string, selection?: unknown) => {
     if (!registeredTabs.some((tab) => tab.id === tabId)) {
-      throw new Error("Arbeitsbereichs-Tab ist nicht registriert: " + tabId);
+      throw new Error("Reiter der Leiste ist nicht registriert: " + tabId);
     }
     if (selection !== undefined) {
       setTabSelections((current) => ({ ...current, [tabId]: selection }));
@@ -216,7 +215,7 @@ export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "wo
 
   return (
     <RunModalContext.Provider value={startOnly ? null : modalContainer}>
-    <CanvasModalContext.Provider value={startOnly ? null : canvasModalContainer}>
+    <SurfaceModalContext.Provider value={startOnly ? null : surfaceModalContainer}>
     <ChatStepsProvider policy={registry.chatDisplayPolicy}>
       <StartOptionsProvider
         connected={connected}
@@ -238,7 +237,7 @@ export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "wo
             workspaceHeaderContainer={workspaceHeaderContainer}
             statusContainer={statusContainer}
             onModalContainer={setModalContainer}
-            onCanvasModalContainer={setCanvasModalContainer}
+            onSurfaceModalContainer={setSurfaceModalContainer}
             onStarted={reportStarted}
             startDialog={startDialog}
             navigation={navigation}
@@ -251,12 +250,12 @@ export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "wo
         </PluginSessionProviders>
       </StartOptionsProvider>
     </ChatStepsProvider>
-    </CanvasModalContext.Provider>
+    </SurfaceModalContext.Provider>
     </RunModalContext.Provider>
   );
 }
 
-/** Der Reiterzustand je Layout: im Web ein flüchtiger Reiter und der gespeicherte Aufklappzustand, im Run-Panel der je Run gespeicherte offene Reiter der Tab-Fläche. */
+/** Der Reiterzustand je Layout: im Web ein flüchtiger Reiter und der gespeicherte Aufklappzustand, im Run-Panel der je Run gespeicherte offene Reiter der Leiste. */
 function useWorkspaceTabs(runId: string, layout: ChatLayout, availableTabs: readonly WorkspaceTabContribution[]) {
   const [requestedTabId, setRequestedTabId] = useState<string>();
   const [workspaceState, updateWorkspaceState] = useWorkspacePanelState(runId);
@@ -292,8 +291,8 @@ function UserLocationReporter({ activeTabId, onChange, panelVisible, runId, tabs
   runId: string;
   tabs: readonly WorkspaceTabContribution[];
 }) {
-  const canvas = useCanvasController();
-  const location = runUserLocation(runId, activeTabId, tabs, panelVisible, canvas?.selection);
+  const surface = useSurfaceController();
+  const location = runUserLocation(runId, activeTabId, tabs, panelVisible, surface?.selection);
   const { tab, selection } = location;
   const type = selection?.type;
   const id = selection?.id;
@@ -314,7 +313,7 @@ function ChatWorkspace({
   workspaceHeaderContainer,
   statusContainer = null,
   onModalContainer,
-  onCanvasModalContainer,
+  onSurfaceModalContainer,
   onStarted,
   startDialog,
   navigation,
@@ -327,7 +326,7 @@ function ChatWorkspace({
   const access = useAccess();
   const [runToolbarContainer, setRunToolbarContainer] = useState<HTMLDivElement | null>(null);
   const headerContributions = registry.headersFor(session, access, "header");
-  const canvasContributions = registry.headersFor(session, access, "canvas");
+  const surfaceContributions = registry.headersFor(session, access, "surface");
   const startSession = useMemo<SessionContext>(() => {
     const attempt = async (work: () => Promise<void>) => {
       await work();
@@ -352,16 +351,16 @@ function ChatWorkspace({
     };
   }, [attentionActive]);
   const hasWorkspace = !startDialog && tabs.length > 0;
-  const CanvasCenter = registry.canvas?.Center;
-  const CanvasRunPanel = registry.canvas?.RunPanel;
+  const SurfaceCenter = registry.surface?.Center;
+  const SurfaceRunPanel = registry.surface?.RunPanel;
   const bindCompactContainers = useCallback((element: HTMLDivElement | null) => {
     onModalContainer(element);
-    onCanvasModalContainer(element);
-  }, [onCanvasModalContainer, onModalContainer]);
+    onSurfaceModalContainer(element);
+  }, [onSurfaceModalContainer, onModalContainer]);
 
   const renderTool = useToolRenderer();
 
-  const renderChat = (options: ChatSurfaceOptions = {}) => (
+  const renderChat = (options: ChatDisplayOptions = {}) => (
     <ChatSurface
       autoFocus={autoFocusChat}
       onAutoFocusSettled={onAutoFocusChatSettled}
@@ -373,8 +372,8 @@ function ChatWorkspace({
 
   if (startDialog) return (
     <Modal className="gap-0 p-0 [&_[data-slot=dialog-body]:has([data-preparation])]:overflow-hidden" nextBehavior="push" onClose={startDialog.onClose} scope="page" showCloseButton size="full">
-      <DialogTitle className="sr-only">Neue Unterhaltung</DialogTitle>
-      <StartSurface registry={registry} session={startSession} initialEntryId={startDialog.initialEntryId} />
+      <DialogTitle className="sr-only">Neuer Run</DialogTitle>
+      <StartSelection registry={registry} session={startSession} initialEntryId={startDialog.initialEntryId} />
     </Modal>
   );
 
@@ -409,16 +408,16 @@ function ChatWorkspace({
       {header}
       <div className="relative isolate flex min-h-0 min-w-0 flex-1" ref={bindCompactContainers}>
         {typeof layout === "object"
-          ? <CanvasElementView elementId={layout.element} navigation={navigation} registry={registry} session={session} />
+          ? <SurfaceElementView elementId={layout.element} navigation={navigation} registry={registry} session={session} />
           : <>
             <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-              {CanvasRunPanel
-                ? <CanvasRunPanel
+              {SurfaceRunPanel
+                ? <SurfaceRunPanel
                   toolbarContainer={toolbarContainer}
                   runToolbarContainer={null}
                   statusContainer={statusContainer}
                   cardSections={registry.cardSections}
-                  canvasElements={registry.canvasElements}
+                  surfaceElements={registry.surfaceElements}
                   navigation={navigation}
                   renderChat={renderChat}
                   session={session}
@@ -442,21 +441,21 @@ function ChatWorkspace({
         ref={onModalContainer}
       >
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {(CanvasCenter || canvasContributions.length > 0) && <div aria-label="Apps und Actors" className="flex min-h-[52px] min-w-0 flex-none items-stretch border-b border-border bg-[color-mix(in_srgb,var(--canvas)_55%,var(--card))]" role="region">
+          {(SurfaceCenter || surfaceContributions.length > 0) && <div aria-label="Apps und Actors" className="flex min-h-[52px] min-w-0 flex-none items-stretch border-b border-border bg-[color-mix(in_srgb,var(--surface)_55%,var(--card))]" role="region">
             <div className="flex flex-none items-stretch empty:hidden" ref={setRunToolbarContainer} />
-            <CanvasShortcuts key={session.session.id}>
-              {canvasContributions.map(({ id, Header }) => <Header key={id} navigation={navigation} session={session} />)}
-            </CanvasShortcuts>
+            <SurfaceShortcuts key={session.session.id}>
+              {surfaceContributions.map(({ id, Header }) => <Header key={id} navigation={navigation} session={session} />)}
+            </SurfaceShortcuts>
           </div>}
-        <div className="relative isolate flex min-h-0 min-w-0 flex-1" ref={onCanvasModalContainer}>
-        {CanvasCenter
+        <div className="relative isolate flex min-h-0 min-w-0 flex-1" ref={onSurfaceModalContainer}>
+        {SurfaceCenter
             ? (
-              <CanvasCenter
+              <SurfaceCenter
                 toolbarContainer={toolbarContainer}
                 runToolbarContainer={runToolbarContainer}
                 statusContainer={statusContainer}
                 cardSections={registry.cardSections}
-                canvasElements={registry.canvasElements}
+                surfaceElements={registry.surfaceElements}
                 navigation={navigation}
                 renderChat={renderChat}
                 session={session}
@@ -483,7 +482,7 @@ function ChatWorkspace({
 }
 
 function DefaultCenter({ renderChat }: {
-  renderChat: (options?: ChatSurfaceOptions) => ReactNode;
+  renderChat: (options?: ChatDisplayOptions) => ReactNode;
 }) {
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1">
@@ -494,14 +493,14 @@ function DefaultCenter({ renderChat }: {
   );
 }
 
-/** Ein Canvas-Element in voller Größe, etwa eine Mini-App im Editorbereich von VS Code. */
-function CanvasElementView({ elementId, navigation, registry, session }: {
+/** Ein Flächenelement in voller Größe, etwa eine Mini-App im Editorbereich von VS Code. */
+function SurfaceElementView({ elementId, navigation, registry, session }: {
   elementId: string;
   navigation: SessionNavigation;
   registry: PluginRegistry;
   session: SessionContext;
 }) {
-  const match = registry.canvasElements.flatMap((contribution) => contribution.select(session)
+  const match = registry.surfaceElements.flatMap((contribution) => contribution.select(session)
     .filter((definition) => definition.id === elementId && definition.visible !== false)
     .map((definition) => ({ Element: contribution.Element, definition })))[0];
   if (!match) return <div className="m-auto max-w-[420px] p-6 text-center text-muted-foreground" role="status">
@@ -521,7 +520,7 @@ function ChatSurface({
 }: {
   autoFocus?: boolean;
   onAutoFocusSettled?: () => void;
-  options: ChatSurfaceOptions;
+  options: ChatDisplayOptions;
   renderTool: (tool: ToolInfo) => ReactNode;
   session: SessionContext;
 }) {

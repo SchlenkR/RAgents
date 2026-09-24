@@ -4,7 +4,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import test from "node:test";
 import { createAccessContext, DomainError, Journal, LiveBus, Orchestration } from "@ragents/engine";
 import { project, viewOf } from "../../../packages/ragents/src/domain/projection.ts";
-import { manualExecution, allGrants, testServices } from "../../../packages/ragents/tests/support.ts";
+import { executionFor, manualExecution, allGrants, testServices } from "../../../packages/ragents/tests/support.ts";
 import type { ChatSessionLike } from "../src/chat-handler.ts";
 import { attachmentContentPath, coreContracts } from "../src/api/contracts.ts";
 import { coreMethods } from "../src/api/core-methods.ts";
@@ -321,5 +321,23 @@ test("actor history endpoint returns the run snapshot and preserves explicit una
     assert.equal(unavailable.status, 404);
     assert.match(unavailable.body.error ?? "", /nicht verfügbar/);
     assert.throws(() => f.session("missing-run").actorConversations(), (error) => error instanceof DomainError && error.status === 404);
+  } finally { f.journal.close(); }
+});
+
+test("a message steered into the running turn is marked in the primary chat and the actor history", () => {
+  const f = fixture();
+  try {
+    const agent = f.runtime.spawnAgent(f.context(), f.id, {
+      handle: "steerable", displayName: "steerable", prompt: "", grants: allGrants(), toolNames: [],
+      execution: executionFor("steerable", { profile: "agent", isolateWorkspace: false }),
+    }).actors.find((actor) => actor.handle === "steerable")!;
+    f.runtime.selectPrimaryActor(f.context(), f.id, agent.id);
+    const turn = f.start(agent.id, "Baue die Seite.");
+    const steered = f.input(agent.id, "Nimm Blau statt Rot.");
+    const users = (messages: Message[]) => messages.filter((message) => message.role === "user").map((message) => [message.text, message.steered === true]);
+    assert.deepEqual(users(f.primaryHistory(agent.id)), [["Baue die Seite.", false], ["Nimm Blau statt Rot.", false]]);
+    f.runtime.steerInputs(f.context(agent.id, turn), f.id, agent.id, { turnId: turn, inputIds: [steered.id] });
+    assert.deepEqual(users(f.primaryHistory(agent.id)), [["Baue die Seite.", false], ["Nimm Blau statt Rot.", true]]);
+    assert.deepEqual(users(f.history().actors[agent.id]!), [["Baue die Seite.", false], ["Nimm Blau statt Rot.", true]]);
   } finally { f.journal.close(); }
 });

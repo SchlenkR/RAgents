@@ -9,7 +9,7 @@ import { methodReference, openRpcDocument } from "../src/api/reference.ts";
 import { overseerContracts } from "../../../plugins/ragents.overseer/contract.ts";
 import { managementMethods } from "../../../plugins/ragents.overseer/server/api.ts";
 import { RunDirectory } from "../../../plugins/ragents.overseer/server/run-directory.ts";
-import type { ManagedRunStart, SessionManagement } from "../src/ragents/global-chat.ts";
+import type { ManagedRunStart, RunManagement } from "../src/ragents/global-chat.ts";
 import { startRpcServer } from "./rpc-fixture.ts";
 
 const viewOf = (id: string): RunView => ({ id, revision: 3, title: "Analyse", ownerId: "owner", primaryActorId: "worker", createdAt: "2026-09-07T00:00:00Z", forkedFrom: null, actors: [], inputs: [], turns: [], subscriptions: [], pluginStates: [], actions: [], artifacts: [] });
@@ -34,7 +34,7 @@ const hostWith = async (t: TestContext) => {
 test("reference and OpenRPC follow the registered contracts of methods and channels", async (t) => {
   const { host, directory } = await hostWith(t);
   const methods = managementMethods({
-    root: host, management: () => { throw new Error("Die Referenz fragt keine Läufe ab"); },
+    root: host, management: () => { throw new Error("Die Referenz fragt keine Runs ab"); },
     directory: new RunDirectory(path.join(directory, "references.json")), authentication: { kind: "open" },
   });
   host.methods.register("ragents.overseer", methods);
@@ -61,7 +61,7 @@ test("reference and OpenRPC follow the registered contracts of methods and chann
 
 test("the management methods validate input, resolve references, page events and await accepted work", async (t) => {
   const { host, directory } = await hostWith(t);
-  const runs: Awaited<ReturnType<SessionManagement["list"]>> = [{ id: "first", title: "Analyse", createdAt: 0, updatedAt: 1 }, { id: "second", title: "Analyse", updatedAt: 2 }];
+  const runs: Awaited<ReturnType<RunManagement["list"]>> = [{ id: "first", title: "Analyse", createdAt: 0, updatedAt: 1 }, { id: "second", title: "Analyse", updatedAt: 2 }];
   const starts: ManagedRunStart[] = [];
   const sends: Array<[string, string]> = [];
   const stops: string[] = [];
@@ -69,7 +69,7 @@ test("the management methods validate input, resolve references, page events and
   let signalCreate: (() => void) | undefined;
   let pauseCreate = false;
   let invalidResult = false;
-  const management: SessionManagement = {
+  const management: RunManagement = {
     list: async () => invalidResult ? [{ ...runs[0], updatedAt: "wrong" }] as never : runs,
     view: viewOf, events: () => [eventOf(1), eventOf(2), eventOf(3)],
     create: async (start) => {
@@ -95,12 +95,12 @@ test("the management methods validate input, resolve references, page events and
   };
 
   const list = await call(overseerContracts.listRuns.id, {});
-  assert.deepEqual((list.result as Array<{ reference: string }>).map((entry) => entry.reference), ["Lauf 1", "Lauf 2"]);
+  assert.deepEqual((list.result as Array<{ reference: string }>).map((entry) => entry.reference), ["Run 1", "Run 2"]);
   assert.equal((await failure(overseerContracts.readRun.id, { run: "Analyse" })).data?.status, 409);
   assert.equal((await failure(overseerContracts.readRun.id, { run: "missing" })).data?.status, 404);
   assert.equal(((await call(overseerContracts.readRun.id, { run: "first" })).result as RunView).id, "first");
-  assert.equal(((await call(overseerContracts.readRun.id, { run: "Lauf 2" })).result as RunView).id, "second");
-  const page = (await call(overseerContracts.readEvents.id, { run: "Lauf 1", after: 1, limit: 1, type: "model.output.completed" })).result as { events: JournalEvent[]; nextAfter: number; hasMore: boolean };
+  assert.equal(((await call(overseerContracts.readRun.id, { run: "Run 2" })).result as RunView).id, "second");
+  const page = (await call(overseerContracts.readEvents.id, { run: "Run 1", after: 1, limit: 1, type: "model.output.completed" })).result as { events: JournalEvent[]; nextAfter: number; hasMore: boolean };
   assert.deepEqual(page.events, [eventOf(2)]);
   assert.equal(page.hasMore, true);
   const finalPage = (await call(overseerContracts.readEvents.id, { run: "first", after: page.nextAfter, limit: 1 })).result as { events: JournalEvent[]; hasMore: boolean };

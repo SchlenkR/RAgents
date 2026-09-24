@@ -22,7 +22,7 @@ test("an unreadable run view keeps the run as a list row and names the problem i
   const summary = runSummaryFrom(session({ running: false }), runView({ inputs: [{ actorId: "coordinator" }] as never }));
   assert.equal(summary.state, "idle");
   assert.equal(summary.pendingActions, 0);
-  assert.match(summary.problem ?? "", /Die Laufansicht ist nicht lesbar: /);
+  assert.match(summary.problem ?? "", /Die Run-Ansicht ist nicht lesbar: /);
 });
 
 test("without a run view the summary keeps the list row", () => {

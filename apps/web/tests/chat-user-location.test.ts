@@ -8,7 +8,7 @@ import type { ChatAttachmentInput } from "../../server/src/chat-events.ts";
 const tabs = [{ id: "orchestration", label: "Actors" }, { id: "files", label: "Dateien" }];
 const selected = { type: "actor", id: "actor-a" };
 
-test("run location uses the current tab label and only the canvas entity reference", () => {
+test("run location uses the current tab label and only the surface entity reference", () => {
   const source = { ...selected, content: "Unrelated panel payload", prompt: "Private form draft" };
   const location = runUserLocation("run-a", "orchestration", tabs, true, source);
   assert.deepEqual(location, { runId: "run-a", tab: "Actors", selection: selected });
@@ -17,25 +17,25 @@ test("run location uses the current tab label and only the canvas entity referen
   assert.deepEqual(runUserLocation("run-a", "removed-tab", tabs, true, undefined), { runId: "run-a", tab: null, selection: null });
 });
 
-test("collapsing the workspace removes the tab while preserving visible canvas selection", () => {
+test("collapsing the workspace removes the tab while preserving visible surface selection", () => {
   assert.deepEqual(runUserLocation("run-a", "orchestration", tabs, false, selected), { runId: "run-a", tab: null, selection: selected });
   assert.deepEqual(runUserLocation("run-a", "orchestration", tabs, true, undefined), { runId: "run-a", tab: "Actors", selection: null });
 });
 
 test("changing or deselecting the active run immediately removes stale details", () => {
   const previous = runUserLocation("run-a", "orchestration", tabs, true, selected);
-  assert.deepEqual(chatUserLocation("run-a", false, previous), { surface: "run", runId: "run-a", tab: "Actors", selection: selected });
-  assert.deepEqual(chatUserLocation("run-b", false, previous), { surface: "run", runId: "run-b", tab: null, selection: null });
-  assert.deepEqual(chatUserLocation(undefined, false, previous), { surface: "home", runId: null, tab: null, selection: null });
-  assert.deepEqual(chatUserLocation("run-b", false, undefined), { surface: "run", runId: "run-b", tab: null, selection: null });
+  assert.deepEqual(chatUserLocation("run-a", false, previous), { page: "run", runId: "run-a", tab: "Actors", selection: selected });
+  assert.deepEqual(chatUserLocation("run-b", false, previous), { page: "run", runId: "run-b", tab: null, selection: null });
+  assert.deepEqual(chatUserLocation(undefined, false, previous), { page: "home", runId: null, tab: null, selection: null });
+  assert.deepEqual(chatUserLocation("run-b", false, undefined), { page: "run", runId: "run-b", tab: null, selection: null });
   const next = runUserLocation("run-b", "files", tabs, true, { type: "artifact", id: "artifact-b" });
-  assert.deepEqual(chatUserLocation("run-b", false, next), { surface: "run", runId: "run-b", tab: "Dateien", selection: { type: "artifact", id: "artifact-b" } });
+  assert.deepEqual(chatUserLocation("run-b", false, next), { page: "run", runId: "run-b", tab: "Dateien", selection: { type: "artifact", id: "artifact-b" } });
 });
 
-test("overview snapshots identify the surface without leaking the covered tab or selection", () => {
+test("overview snapshots identify the page without leaking the covered tab or selection", () => {
   const run = runUserLocation("run-a", "orchestration", tabs, true, selected);
-  assert.deepEqual(chatUserLocation("run-a", true, run), { surface: "overview", runId: "run-a", tab: null, selection: null });
-  assert.deepEqual(chatUserLocation(undefined, true, run), { surface: "overview", runId: null, tab: null, selection: null });
+  assert.deepEqual(chatUserLocation("run-a", true, run), { page: "overview", runId: "run-a", tab: null, selection: null });
+  assert.deepEqual(chatUserLocation(undefined, true, run), { page: "overview", runId: null, tab: null, selection: null });
 });
 
 interface SendCall { id: number; method: string; params: Record<string, unknown> }
@@ -56,9 +56,9 @@ test("each send serializes its current location separately while normal chat and
   await sendChatMessage("global", "Startseite?", undefined, chatUserLocation(undefined, false, run), client);
   await sendChatMessage("normal", "Normaler Auftrag", [attachment], undefined, client);
   assert.deepEqual(calls.map((call) => call.method), Array(4).fill("ragents.chat.send"));
-  assert.deepEqual(calls[0]!.params, { runId: "global", text: "Was sehe ich?", attachments: [attachment], userLocation: { surface: "run", runId: "run-a", tab: "Actors", selection: selected } });
-  assert.deepEqual(calls[1]!.params, { runId: "global", text: "Und jetzt?", userLocation: { surface: "run", runId: "run-b", tab: null, selection: null } });
-  assert.deepEqual(calls[2]!.params, { runId: "global", text: "Startseite?", userLocation: { surface: "home", runId: null, tab: null, selection: null } });
+  assert.deepEqual(calls[0]!.params, { runId: "global", text: "Was sehe ich?", attachments: [attachment], userLocation: { page: "run", runId: "run-a", tab: "Actors", selection: selected } });
+  assert.deepEqual(calls[1]!.params, { runId: "global", text: "Und jetzt?", userLocation: { page: "run", runId: "run-b", tab: null, selection: null } });
+  assert.deepEqual(calls[2]!.params, { runId: "global", text: "Startseite?", userLocation: { page: "home", runId: null, tab: null, selection: null } });
   assert.deepEqual(calls[3]!.params, { runId: "normal", text: "Normaler Auftrag", attachments: [attachment] });
 });
 

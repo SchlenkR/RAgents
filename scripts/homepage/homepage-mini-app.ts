@@ -9,7 +9,7 @@ const uiSource = "apps/web/src/actor-programs/client-ui/index.tsx";
 const bridgeNamespace = "homepage-mini-app";
 
 const html = `<!doctype html>
-<html lang="en" data-ui-surface="mini-app">
+<html lang="en" data-ui-frame="mini-app">
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="connect-src 'none'">

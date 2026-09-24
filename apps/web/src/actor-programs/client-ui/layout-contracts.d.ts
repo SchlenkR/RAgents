@@ -29,5 +29,5 @@ export interface GridProps {
 export declare function AppLayout(props: AppLayoutProps): ReactElement;
 /** Vertical content or a wrapping row with consistent spacing. */
 export declare function Stack(props: StackProps): ReactElement;
-/** Equal responsive columns based on the container width, including inside a canvas frame. */
+/** Equal responsive columns based on the container width, including inside a surface frame. */
 export declare function Grid(props: GridProps): ReactElement;

@@ -26,16 +26,16 @@ const sessionInfo = openJson<SessionInfo>("SessionInfo");
 
 /** Rechte je Run prüft der Host dynamisch; Verträge ohne `rights` nennen ihre Regel in der Beschreibung. */
 export const coreContracts = {
-  sessions: {
+  runs: {
     list: defineOperation({
-      id: "ragents.sessions.list",
+      id: "ragents.runs.list",
       description: "Alle Runs des Profils mit Titel, Zeiten und Metadaten. Recht: runs.read.",
       rights: ["runs.read"],
       input: Type.Object({}, { additionalProperties: false }),
       result: Type.Array(sessionInfo),
     }),
     delete: defineOperation({
-      id: "ragents.sessions.delete",
+      id: "ragents.runs.delete",
       description: "Einen Run mit seinen Daten löschen. Rechte: runs.read und runs.delete.",
       rights: ["runs.read", "runs.delete"],
       input: Type.Object({ runId }, { additionalProperties: false }),
@@ -45,13 +45,13 @@ export const coreContracts = {
   chat: {
     send: defineOperation({
       id: "ragents.chat.send",
-      description: "Eine Nachricht an den Koordinator des Runs; startet einen neuen Run oder funkt in einen laufenden. Mit entry startet sie den Run über diesen Skill-Einstieg und dessen festgelegte Startoptionen. Rechte: runs.read und runs.write, für einen neuen Run runs.create; beim globalen Chat dessen Rechte.",
+      description: "Eine Nachricht an den Koordinator des Runs; startet einen neuen Run oder funkt in einen laufenden. Mit entry startet sie den Run über diese Skill-Vorlage und deren festgelegte Startoptionen. Rechte: runs.read und runs.write, für einen neuen Run runs.create; beim globalen Chat dessen Rechte.",
       input: Type.Object({
         runId,
         text: Type.Optional(Type.String()),
         attachments: Type.Optional(Type.Array(attachment)),
         userLocation: Type.Optional(openJson<ChatUserLocation>("ChatUserLocation")),
-        entry: Type.Optional(Type.String({ minLength: 1, description: "Kennung des Skill-Einstiegs, über den diese Nachricht den Run startet" })),
+        entry: Type.Optional(Type.String({ minLength: 1, description: "Kennung der Skill-Vorlage, über die diese Nachricht den Run startet" })),
       }, { additionalProperties: false }),
       result: Type.Null(),
     }),
@@ -63,7 +63,7 @@ export const coreContracts = {
     }),
     start: defineOperation({
       id: "ragents.chat.start",
-      description: "Einen Run über einen Run-Script-Einstieg starten, ohne Nachricht; die Startoptionen, die der Einstieg festlegt, gelten. Rechte: runs.read, runs.write und die Freigabe des Einstiegs.",
+      description: "Einen Run über eine Script-Vorlage starten, ohne Nachricht; die Startoptionen, die die Vorlage festlegt, gelten. Rechte: runs.read, runs.write und die Freigabe der Vorlage.",
       input: Type.Object({ runId, entry: Type.String({ minLength: 1 }), input: Type.Optional(Type.Any()) }, { additionalProperties: false }),
       result: Type.Null(),
     }),
@@ -105,7 +105,7 @@ export const coreContracts = {
   transfer: {
     export: defineOperation({
       id: "ragents.runs.export",
-      description: "Einen gestoppten Run als Archiv holen: Journal, Payloads, Modellkontexte und die Plugin-Ablagen seiner Session. Rechte: runs.read und runs.inspect.",
+      description: "Einen gestoppten Run als Archiv holen: Journal, Payloads, Modellkontexte und seine Plugin-Ablagen. Rechte: runs.read und runs.inspect.",
       rights: ["runs.read", "runs.inspect"],
       input: Type.Object({ runId }, { additionalProperties: false }),
       result: openJson<RunTransferExport>("RunTransferExport"),
@@ -161,7 +161,7 @@ export const coreContracts = {
   plugins: {
     bootstrap: defineOperation({
       id: "ragents.plugins.bootstrap",
-      description: "Produkt, aktive Plugins mit Web-Konfiguration und freigegebene Einstiege für die Oberfläche.",
+      description: "Produkt, aktive Plugins mit Web-Konfiguration und freigegebene Vorlagen für die Oberfläche.",
       input: Type.Object({}, { additionalProperties: false }),
       result: openJson<PublicPluginProfile>("PublicPluginProfile"),
     }),
@@ -176,8 +176,8 @@ export const coreContracts = {
     }),
   },
   channels: {
-    sessions: defineChannel({
-      id: "ragents.sessions",
+    runs: defineChannel({
+      id: "ragents.runs",
       description: "Meldet jede Änderung der Run-Liste. Recht: runs.read.",
       rights: ["runs.read"],
       params: Type.Object({}, { additionalProperties: false }),

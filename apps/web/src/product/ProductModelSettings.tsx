@@ -7,7 +7,7 @@ import { modelDraftOf, requestProductModelSettings } from "./model-settings";
 import { modelDefaultsChangedEvent } from "../model-settings-events";
 
 const profileLabels: Record<string, { title: string; description: string }> = {
-  coordinator: { title: "Run-Koordinator", description: "Die Vorgabe beim Start einer neuen Unterhaltung." },
+  coordinator: { title: "Run-Koordinator", description: "Die Vorgabe beim Start eines neuen Runs." },
   relay: { title: "Vermittler", description: "Agenten, die Nachrichten und Ergebnisse weitergeben." },
   standard: { title: "Agenten", description: "Die Vorgabe für weitere Agenten im Run." },
   reviewer: { title: "Prüfung", description: "Die Vorgabe für Agenten mit Prüfauftrag." },
@@ -82,7 +82,7 @@ export function ProductModelSettings({ pluginId }: { pluginId: string }) {
     event.preventDefault();
     void save();
   }}>
-    <p className={noteClass}>Für dieses Produktprofil gespeichert. Bereits angelegte Actors behalten ihr Modell.
+    <p className={noteClass}>Für dieses Profil gespeichert. Bereits angelegte Actors behalten ihr Modell.
       Eine ausdrücklich gewählte Modellauswahl im Run hat Vorrang.</p>
     {!writable && <p className={noteClass}>Du hast Lesezugriff auf diese Einstellungen.</p>}
     <div className="grid gap-4">

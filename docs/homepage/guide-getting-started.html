@@ -29,12 +29,12 @@
   --border-strong: #a397b2;
   --shell: #cbd6e4;
   --app: #dce3ed;
-  --canvas: #e8e2e6;
-  --canvas-dot: #79aab43b;
-  --canvas-glow-mint: #92cfbfad;
-  --canvas-glow-blue: #8bbfe5a6;
-  --canvas-light: #ffffffb3;
-  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
+  --surface: #e8e2e6;
+  --surface-dot: #79aab43b;
+  --surface-glow-mint: #92cfbfad;
+  --surface-glow-blue: #8bbfe5a6;
+  --surface-light: #ffffffb3;
+  --surface-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #9ccfc5b3, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #9ec6e4b3, transparent 56%),
         radial-gradient(ellipse at 28% 0%, #c4b0dfb3, transparent 58%),
@@ -81,12 +81,12 @@
   --border-strong: #8e809f;
   --shell: #242e40;
   --app: #212632;
-  --canvas: #29232e;
-  --canvas-dot: #7cafbc30;
-  --canvas-glow-mint: #317d686b;
-  --canvas-glow-blue: #417daa80;
-  --canvas-light: #80bfc71f;
-  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
+  --surface: #29232e;
+  --surface-dot: #7cafbc30;
+  --surface-glow-mint: #317d686b;
+  --surface-glow-blue: #417daa80;
+  --surface-light: #80bfc71f;
+  --surface-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #2c625e99, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #355674a6, transparent 56%),
         radial-gradient(ellipse at 28% 0%, #59446f99, transparent 58%),
@@ -128,26 +128,7 @@
       <a href="index.html">Product</a>
       <a href="guide.html" aria-current="page">Guide</a>
     </nav>
-  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html" aria-current="page">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-extensions.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Get started</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html" aria-current="page">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-extensions.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Get started</h1><p>Install RAgents, start a profile, and create your first run.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#use-the-tile-workspace">Use the tile workspace</a><a href="#install-locally">Install locally</a><a href="#configure-model-access-and-start">Configure model access and start</a><a href="#create-your-first-run">Create your first run</a><a href="#build-after-changes">Build after changes</a></nav></details><h2 id="use-the-tile-workspace">Use the tile workspace</h2>
-<p>A run&#39;s workspace consists of tiles. Each tile shows an actor or mini-app, and together they
-fill the available space. There is no panning or zooming. Tiles use flat surfaces, outlines,
-and rounded corners without depth. Mini-app content appears at its original size both in the
-tile and in full view.</p>
-<p>Drag an actor or mini-app from the header onto one of a tile&#39;s docking targets. Left and right
-create a side-by-side split; top and bottom create a vertical split. Targets at the outer edge
-split the entire workspace. Before you release, a preview shows the resulting area. Drag an
-existing tile by its title bar; the X removes it from the layout. Its content remains available
-through the header. Without access to the actors view, removal and reordering are disabled: the
-X and drag handle are hidden. Dividers for adjusting size ratios remain available.</p>
-<p>Drag a divider to the desired ratio; releasing it saves the value. Escape cancels the active
-resize. With keyboard focus on a divider, arrow keys change its size while Home and End set the
-allowed limits. When space is tight, the &quot;Sichtbare Kachel&quot; (visible tile) selector displays one item at a time
-without discarding the layout. You can also ask the coordinator: &quot;App on the left, chat on the
-right, 50:50&quot; or &quot;One tile on top, two below at a 2:1 ratio.&quot; Until a layout is specified, the
-workspace arranges visible participants itself. Your changes remain saved until the program
-changes its layout. A new program layout is applied automatically so added tiles appear at
-once. &quot;Programmvorgabe übernehmen&quot; (apply program layout) in the status bar can reset your own layout earlier.</p>
-<h2 id="install-locally">Install locally</h2>
+  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html" aria-current="page">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Get started</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html" aria-current="page">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Get started</h1><p>Install RAgents, start a profile, and create your first run.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#install-locally">Install locally</a><a href="#configure-model-access-and-start">Configure model access and start</a><a href="#build-after-changes">Build after changes</a><a href="#create-your-first-run">Create your first run</a><a href="#use-the-surface">Use the surface</a></nav></details><h2 id="install-locally">Install locally</h2>
 <p>The application is built from the repository with Node.js and pnpm. Run these commands from
 the repository root:</p>
 <pre><code class="language-sh">pnpm install
@@ -195,25 +176,6 @@ first chat message does not start them.</p>
 startup fails. The address stays fixed and a running instance is not terminated. An explicitly
 set <code>PORT</code> must be between 1 and 65535; 0 is invalid. The final server message displays the URL.
 A warning about JavaScript bundle size does not prevent startup.</p>
-<p>With <code>scripts/start.sh core --dev</code>, the backend runs on 4710 and Vite on 5710. The script checks
-both fixed ports first and points <code>API_TARGET</code> at the backend. Vite always uses the backend port
-plus 1000, so an explicitly set <code>PORT</code> moves both. With <code>strictPort</code>, Vite does not switch
-to another port when its port is occupied. A standalone <code>pnpm dev:web</code> uses port 5710 and
-<code>http://localhost:4710</code> as its proxy target. In dev mode, Vite serves the host interface from its
-sources with hot reload, while plugin interfaces come from the server as bundles, rebuilt by
-<code>pnpm build:plugins --watch</code>; a changed plugin interface appears after reloading the page. The
-stylesheet also comes from the server and is recompiled on every request, so new classes in host
-code appear after a reload.</p>
-<h2 id="create-your-first-run">Create your first run</h2>
-<p>The top-left corner opens the run overview. Choose &quot;Neuer Run&quot; to open the start selection. It
-contains skills with editable tasks and run scripts with programmed setups. The preview shows
-the selected entry. Before starting, you can discuss an adopted skill task in the preparation
-chat. Give a clear go-ahead such as &quot;Start&quot;, or choose &quot;Run erstellen&quot; (create run). Merely confirming a detail
-does not start anything. Some entries collect values in a setup dialog first.</p>
-<p>Inside the run, the coordinator processes the task. Additional agents and mini-apps appear in
-the workspace when the workflow creates them. The global coordinator in the header has its own
-conversation and can oversee several runs. The journal and &quot;Executions&quot; tab make events and
-TypeScript calls traceable.</p>
 <h2 id="build-after-changes">Build after changes</h2>
 <p>Server changes take effect after a restart. There is one web interface for every profile, built
 with the host into <code>apps/web/dist</code>; plugin interfaces are loaded at runtime from the plugin bundles
@@ -227,4 +189,33 @@ bundles or an outdated interface and names <code>pnpm build:plugins</code> or <c
 <code>pnpm publish:package</code> publishes it (see Work without a checkout). The question mark next to
 Settings opens the included help. For separate static hosting, <code>pnpm generate:homepage</code> creates
 the same website under <code>docs/homepage/dist</code>.</p>
-<p class="guide-source">Source: <a href="../../docs/operations.md">docs/operations.md</a>. <a href="guide-getting-started.md">This chapter as Markdown</a>.</p><p><a href="guide-clients.html">Use Web and VS Code</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide-runtime.html">Previous: Actors and messages</a><a href="guide-clients.html">Next: Web and VS Code</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>
+<h2 id="create-your-first-run">Create your first run</h2>
+<p>The top-left corner opens the run overview. Choose &quot;Neuer Run&quot; to open the start selection. It
+contains skill templates with editable tasks and script templates with programmed setups. The
+preview shows the selected template. Before starting, you can discuss an adopted skill task in the preparation
+chat. Give a clear go-ahead such as &quot;Start&quot;, or choose &quot;Run erstellen&quot; (create run). Merely confirming a detail
+does not start anything. Some templates collect values in a setup dialog first.</p>
+<p>Inside the run, the coordinator processes the task. Additional agents and mini-apps appear on
+the surface when the workflow creates them. The global coordinator in the header has its own
+conversation and can oversee several runs. The journal and &quot;Executions&quot; tab make events and
+TypeScript calls traceable.</p>
+<h2 id="use-the-surface">Use the surface</h2>
+<p>A run&#39;s surface consists of tiles. Each tile shows an actor or mini-app, and together they
+fill the available space. There is no panning or zooming. Tiles use flat surfaces, outlines,
+and rounded corners without depth. Mini-app content appears at its original size both in the
+tile and in full view.</p>
+<p>Drag an actor or mini-app from the header onto one of a tile&#39;s docking targets. Left and right
+create a side-by-side split; top and bottom create a vertical split. Targets at the outer edge
+split the entire surface. Before you release, a preview shows the resulting area. Drag an
+existing tile by its title bar; the X removes it from the layout. Its content remains available
+through the header. Without access to the actors view, removal and reordering are disabled: the
+X and drag handle are hidden. Dividers for adjusting size ratios remain available.</p>
+<p>Drag a divider to the desired ratio; releasing it saves the value. Escape cancels the active
+resize. With keyboard focus on a divider, arrow keys change its size while Home and End set the
+allowed limits. When space is tight, the &quot;Sichtbare Kachel&quot; (visible tile) selector displays one item at a time
+without discarding the layout. You can also ask the coordinator: &quot;App on the left, chat on the
+right, 50:50&quot; or &quot;One tile on top, two below at a 2:1 ratio.&quot; Until a layout is specified, the
+surface arranges visible participants itself. Your changes remain saved until the program
+changes its layout. A new program layout is applied automatically so added tiles appear at
+once. &quot;Programmvorgabe übernehmen&quot; (apply program layout) in the status bar can reset your own layout earlier.</p>
+<p class="guide-source">Source: <a href="../../docs/operations.md">docs/operations.md</a>, <a href="../../docs/usage.md">docs/usage.md</a>. <a href="guide-getting-started.md">This chapter as Markdown</a>.</p><p><a href="guide-clients.html">Use Web and VS Code</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide-runtime.html">Previous: Actors and messages</a><a href="guide-clients.html">Next: Web and VS Code</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>

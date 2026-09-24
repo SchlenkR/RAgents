@@ -42,9 +42,9 @@ export interface ChatInputHandle {
 
 /**
  * Die Eingabe-Karte: rahmenlose Textarea oben, Toolbar unter einer Haarlinie. Eigene
- * Knöpfe kommen deklarativ über `actions` oder frei über die Slots links/rechts; im Lauf
- * bleibt der Stop-Knopf sichtbar, und Tippen zeigt daneben den Senden-Knopf, der zum
- * Dazwischenfunken wird. `rows` bestimmt die Starthöhe; mit `maxRows` wächst die Textarea
+ * Knöpfe kommen deklarativ über `actions` oder frei über die Slots links/rechts; bei
+ * laufender Arbeit bleibt der Stop-Knopf sichtbar, und Tippen zeigt daneben den Senden-Knopf,
+ * der zum Dazwischenfunken wird. `rows` bestimmt die Starthöhe; mit `maxRows` wächst die Textarea
  * mit dem Inhalt bis zu dieser Zeilenzahl und scrollt danach.
  */
 export function ChatInputToolbar({
@@ -211,7 +211,7 @@ export function ChatInputToolbar({
   // Die Toolbar-Fassung pulsiert waehrend der Arbeit; der Host gibt nur den Radius vor.
   const rootClasses = cn(
     "flex shrink-0 flex-col overflow-hidden rounded-[var(--input-card-radius,var(--radius-xl))] border border-border-strong bg-background shadow-bar transition-colors focus-within:border-primary",
-    "in-data-[surface=material]:rounded-xl in-data-[surface=material]:border-glass-edge/50 in-data-[surface=material]:bg-background",
+    "in-data-[tone=material]:rounded-xl in-data-[tone=material]:border-glass-edge/50 in-data-[tone=material]:bg-background",
     toolbar && "h-full min-w-0 flex-row items-center rounded-lg data-[working=true]:animate-working-pulse data-[working=true]:border-primary motion-reduce:data-[working=true]:animate-none",
     fileInput.dragging && "outline-2 outline-offset-[3px] outline-dashed outline-primary",
   );
@@ -220,11 +220,11 @@ export function ChatInputToolbar({
     inline ? "min-w-0 flex-1 px-2.5 py-2" : toolbar ? "w-full min-w-0 flex-auto px-2 py-[3px] leading-[1.3]" : "px-3 pt-3 pb-2",
   );
   const toolbarRowClasses = cn(
-    "flex items-center gap-2 border-t border-border-soft px-2 py-1.5 in-data-[surface=overseer-details]:flex-nowrap",
+    "flex items-center gap-2 border-t border-border-soft px-2 py-1.5 in-data-[tone=overseer-details]:flex-nowrap",
     inline && "flex-none gap-1 border-t-0 p-1",
     toolbar && "flex-wrap border-t-0",
   );
-  const toolbarSideClasses = "flex min-w-0 items-center gap-2 in-data-[surface=overseer-details]:flex-nowrap";
+  const toolbarSideClasses = "flex min-w-0 items-center gap-2 in-data-[tone=overseer-details]:flex-nowrap";
   const changeDraft = useCallback((text: string) => {
     draftRevision.current += 1;
     setDraft(text);
@@ -389,7 +389,7 @@ export function ChatInputToolbar({
 
   const attachmentPreviews = (
     attachments.length > 0 && (
-        <ul className="flex max-h-[240px] flex-wrap gap-2 overflow-y-auto px-3 pt-2.5 in-data-[surface=overseer-details]:max-h-40 in-data-[surface=overseer-details]:overflow-y-auto" aria-label="Anhänge">
+        <ul className="flex max-h-[240px] flex-wrap gap-2 overflow-y-auto px-3 pt-2.5 in-data-[tone=overseer-details]:max-h-40 in-data-[tone=overseer-details]:overflow-y-auto" aria-label="Anhänge">
           {attachments.map((entry) => (
             <li className={attachmentItemClasses} key={entry.id}>
               {entry.status === "ready" && entry.input.mediaType.startsWith("image/") && (
@@ -461,7 +461,7 @@ export function ChatInputToolbar({
   </>;
   const detailToolbar = (
       <div className={toolbarRowClasses} data-input="controls">
-        <div className={cn(toolbarSideClasses, "in-data-[surface=overseer-details]:flex-none", inline || toolbar ? "flex-none" : "flex-auto")}>
+        <div className={cn(toolbarSideClasses, "in-data-[tone=overseer-details]:flex-none", inline || toolbar ? "flex-none" : "flex-auto")}>
           <Button
             aria-label="Dateien anhängen"
             disabled={disabled || sending}
@@ -486,7 +486,7 @@ export function ChatInputToolbar({
           ))}
           {toolbarLeft}
         </div>
-        <div className={cn(toolbarSideClasses, "in-data-[surface=overseer-details]:flex-1", inline || toolbar ? "flex-none" : "flex-[0_1_auto]")}>
+        <div className={cn(toolbarSideClasses, "in-data-[tone=overseer-details]:flex-1", inline || toolbar ? "flex-none" : "flex-[0_1_auto]")}>
           {toolbarRight}
           {!toolbar && sendButtons}
         </div>

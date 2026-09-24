@@ -37,7 +37,7 @@ const firstReferenceCard = () => {
   const owner = "ragents.reference";
   const card = [...folderSkills(pluginFolder(owner), owner).startEntries].sort((left, right) => left.order! - right.order!)[0];
   assert.ok(card);
-  assert.equal(card.title, "Hallo Welt auf der Arbeitsfläche");
+  assert.equal(card.title, "Hallo Welt auf der Fläche");
   return card;
 };
 
@@ -102,7 +102,7 @@ const createFixture = (runId: string, entries: readonly PublicStartEntry[] = [])
       handle: "coordinator",
       displayName: "Koordinator",
       profile: "coordinator",
-      runTitle: "Neue Unterhaltung",
+      runTitle: "Neuer Run",
       ownerHandle: "owner",
       ownerDisplayName: "Owner",
     },
@@ -218,7 +218,7 @@ test("the first reference skill completes a run left at run.created", async () =
     { commandId: "failed-first-start" },
     {
       runId,
-      title: "Neue Unterhaltung",
+      title: "Neuer Run",
       ownerHandle: "owner",
       ownerDisplayName: "Owner",
     },
@@ -266,7 +266,7 @@ test("explicit non-default startup selections are persisted atomically with run 
   }
 });
 
-test("a skill entry that fixes the model starts its run through the chat HTTP path with exactly that model", async () => {
+test("a skill template that fixes the model starts its run through the chat HTTP path with exactly that model", async () => {
   const card = firstReferenceCard();
   const runId = "fixed-model-card-run";
   const entry: PublicStartEntry = { ...card, owner: "ragents.reference", fixedStartOptions: { [modelStartOptionId]: { model: "other-first", thinking: "high" } } };

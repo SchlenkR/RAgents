@@ -16,7 +16,7 @@ import { callerDirectory } from "../../apps/server/src/profile-target.ts";
 import { startRpcServer } from "../../apps/server/tests/rpc-fixture.ts";
 import { WORKSPACE_BINDING_OPTION_ID } from "../../plugins/ragents.workspace/contract.ts";
 import { noteHost } from "../remote/connect.ts";
-import { execute, parseArguments, type TurnOutcome } from "./agent-cli.ts";
+import { advance, execute, INITIAL_FOLLOW_STATE, parseArguments, type TurnOutcome } from "./agent-cli.ts";
 import { journalFile } from "./journal.ts";
 
 const health: HttpRouteContribution = {
@@ -128,7 +128,7 @@ test("run bindet den Ordner per path, wartet auf das Turn-Ende und nennt den Run
   assert.equal(code, 0);
   assert.equal(context.selections.length, 1);
   assert.equal(context.selections[0]!.optionId, WORKSPACE_BINDING_OPTION_ID);
-  assert.deepEqual(context.selections[0]!.value, { kind: "path", path: context.directory });
+  assert.deepEqual(context.selections[0]!.value, { machine: "server", folder: { path: context.directory } });
   assert.equal(context.messages[0]!.text, "Behebe den Typfehler");
   assert.deepEqual(context.lines.slice(0, 3), ["> read {\"path\":\"src/broken.ts\"}", "< read 2.5s ok", "Erledigt."]);
   assert.match(context.lines.at(-1)!, /^run: [0-9a-f-]{36}$/);
@@ -224,11 +224,11 @@ test("ein Profil ohne die Ordnerbindung startet den Run trotzdem", { timeout: 20
   assert.equal(context.messages[0]!.text, "Auftrag ohne Bindung");
 });
 
-test("ein Einstieg darf seinen Chatpartner erst einrichten; der Auftrag wartet darauf", { timeout: 20_000 }, async (t) => {
+test("eine Vorlage darf ihren Chatpartner erst einrichten; der Auftrag wartet darauf", { timeout: 20_000 }, async (t) => {
   const context = await harness(t, "completed", false, 2);
-  assert.equal(await execute({ kind: "run", profile: "developer", folder: context.directory, text: "Auftrag am Einstieg", entry: "workshop.tickets.implement-task", json: false }, collect(context.lines)), 0);
+  assert.equal(await execute({ kind: "run", profile: "developer", folder: context.directory, text: "Auftrag an der Vorlage", entry: "workshop.tickets.implement-task", json: false }, collect(context.lines)), 0);
   assert.deepEqual(context.entries, ["workshop.tickets.implement-task"]);
-  assert.equal(context.messages[0]!.text, "Auftrag am Einstieg");
+  assert.equal(context.messages[0]!.text, "Auftrag an der Vorlage");
 });
 
 test("RAGENTS_PROFILE ist das Vorgabeprofil aller Agentenbefehle", (t) => {
@@ -279,4 +279,17 @@ test("die Kommandozeile nennt Befehl, Ordner, Auftrag und Schalter", () => {
   assert.throws(() => parseArguments(["run", "/work", "Baue", "--profile"]), /braucht einen Wert/);
   assert.throws(() => parseArguments(["send", "../flucht", "Text"]), /Ungültige Run-Id/);
   assert.throws(() => parseArguments(["stop", "--host", "abc"]), /keine Run-Id/);
+});
+
+test("send follows a message that joined a running turn as steering to that turn's end", () => {
+  const event = (sequence: number, type: string, payload: Record<string, unknown>) => ({ sequence, type, actorId: "agent_coordinator", occurredAt: "2026-09-24T10:00:00.000Z", payload });
+  const events = [
+    event(1, "actor.input.enqueued", { inputId: "input-1", actorId: "agent_coordinator", content: "Baue die Seite." }),
+    event(2, "turn.started", { turnId: "turn-1", inputId: "input-1" }),
+    event(3, "actor.input.enqueued", { inputId: "input-2", actorId: "agent_coordinator", content: "Nimm Blau." }),
+    event(4, "turn.input-steered", { turnId: "turn-1", inputId: "input-2" }),
+    event(5, "turn.finished", { turnId: "turn-1", outcome: "completed" }),
+  ];
+  assert.deepEqual(events.reduce((state, entry) => advance(state, entry, "Nimm Blau."), INITIAL_FOLLOW_STATE),
+    { inputId: "input-2", turnId: "turn-1", outcome: "completed", reason: undefined });
 });

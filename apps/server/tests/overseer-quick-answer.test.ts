@@ -4,13 +4,14 @@ import test from "node:test";
 import { Value } from "typebox/value";
 import { Journal, LiveBus, Orchestration, type ToolScope } from "@ragents/engine";
 import { manualExecution, testServices } from "../../../packages/ragents/tests/support.ts";
-import { OVERSEER_PLUGIN_ID, OVERSEER_RUN_ID, QUICK_ANSWER_MAX_LENGTH } from "../../../plugins/ragents.overseer/contract.ts";
+import { OVERSEER_PLUGIN_ID, QUICK_ANSWER_MAX_LENGTH } from "../../../plugins/ragents.overseer/contract.ts";
+import { coordinatorRunId } from "../../../plugins/ragents.overseer/server/coordinator.ts";
 import { createQuickAnswerTool } from "../../../plugins/ragents.overseer/server/quick-answer.ts";
 import type { ChatEvent } from "../src/chat-events.ts";
 import type { Engine } from "../src/ragents/engine.ts";
 import { RunChatSession } from "../src/ragents/session.ts";
 
-const fixture = (runId = OVERSEER_RUN_ID) => {
+const fixture = (runId = coordinatorRunId("alice")) => {
   const services = testServices();
   const journal = new Journal(":memory:", services);
   const runtime = new Orchestration(journal, services);
@@ -50,6 +51,8 @@ test("quick_answer is restricted to the global primary agent, including direct e
   const tool = createQuickAnswerTool();
   try {
     assert.equal(tool.available(global.actor, global.view), true);
+    const single = fixture(coordinatorRunId(null));
+    try { assert.equal(tool.available(single.actor, single.view), true, "also the one coordinator without login"); } finally { single.close(); }
     assert.equal(tool.available(ordinary.actor, ordinary.view), false);
     assert.equal(tool.available({ ...global.actor, id: "secondary" }, global.view), false);
     assert.equal(tool.available({ ...global.actor, grants: [] }, global.view), false);
@@ -85,7 +88,7 @@ test("quick_answer requires and trims both bounded single-line question and answ
   } finally { data.close(); }
 });
 
-test("quick answers stream as persisted extensions with stable event identities through reconnect and fresh replay", () => {
+test("quick answers stream as persisted plugin events with stable event identities through reconnect and fresh replay", () => {
   const data = fixture();
   const tool = createQuickAnswerTool();
   try {
@@ -96,7 +99,7 @@ test("quick answers stream as persisted extensions with stable event identities 
     tool.run(data.scope, "first-answer", { question: "Ist die Prüfung abgeschlossen?", text: "Die Prüfung ist abgeschlossen." } as never);
     tool.run(data.scope, "first-answer", { question: "Ist die Prüfung abgeschlossen?", text: "Die Prüfung ist abgeschlossen." } as never);
     tool.run(data.scope, "second-answer", { question: "Ist die Prüfung abgeschlossen?", text: "Auch der Build ist erfolgreich." } as never);
-    const answers = live.filter((event) => event.kind === "extension");
+    const answers = live.filter((event) => event.kind === "plugin");
     assert.equal(answers.length, 2);
     assert.deepEqual(answers[0].payload, { scope: { kind: "run" }, state: { kind: "quick-answer", question: "Ist die Prüfung abgeschlossen?", text: "Die Prüfung ist abgeschlossen." } });
     assert.equal(answers[0].pluginId, OVERSEER_PLUGIN_ID);
@@ -108,13 +111,13 @@ test("quick answers stream as persisted extensions with stable event identities 
     assert.notEqual(answers[0].journal?.eventId, answers[1].journal?.eventId);
     const replay: ChatEvent[] = [];
     data.session.subscribe((event) => replay.push(event))();
-    assert.deepEqual(replay.filter((event) => event.kind === "extension"), answers);
+    assert.deepEqual(replay.filter((event) => event.kind === "plugin"), answers);
     assert.equal(replay.at(-1)?.kind, "replay-end");
     data.session.dispose();
     const fresh = data.createSession();
     fresh.attach();
     const restored: ChatEvent[] = [];
     fresh.subscribe((event) => restored.push(event))();
-    assert.deepEqual(restored.filter((event) => event.kind === "extension"), answers);
+    assert.deepEqual(restored.filter((event) => event.kind === "plugin"), answers);
   } finally { data.close(); }
 });

@@ -16,7 +16,8 @@ export {
   type WorkspaceExecutorModule,
   type WorkspaceModuleFactory,
 } from "./module.js";
-export { workspaceExecutorModules } from "./modules.js";
+export { workspaceExecutorModules, type WorkspaceExecutorModuleOptions } from "./modules.js";
+export { RUN_FOLDER_OPERATIONS, runFolderModule, type RunFolderCreated } from "./run-folders.js";
 export {
   FILE_OPERATIONS,
   FILE_READ_LIMIT,
@@ -78,7 +79,7 @@ export { safeProcessEnvironment } from "./safe-environment.js";
 export { createSandboxTools, sandboxToolsModule, withAnnotation } from "./sandbox-tools.js";
 export { type SessionIdent } from "./session-ident.js";
 export { shellPlatformText } from "./shell-platform.js";
-export { ragentsDataRoot } from "./tools.js";
+export { ragentsDataRoot, workspaceDataDirectory } from "./tools.js";
 export {
   LanguageServerHost,
   changedWorkspaceFiles,

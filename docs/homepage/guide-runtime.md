@@ -4,7 +4,7 @@ Runs, actors, messages, turns, and the journal form the shared runtime.
 
 ## Runs and participants
 
-A run is a conversation with its own participants, working files, and journal. An actor is a
+A run is a piece of work with its own participants, working files, and journal. An actor is a
 participant in that run: the human owner, an LLM agent, or a TypeScript actor. LLM agents
 process tasks with a model; TypeScript actors execute their programmed input handler. The actor
 selected as primary is the user's direct chat partner. This choice does not depend on who
@@ -26,17 +26,28 @@ The scheduler processes at most one turn per actor:
 
 1. It claims exactly one waiting ActorInput.
 2. It assembles the toolset, working directory, and system prompt.
-3. The driver processes only this input.
+3. The driver processes this input; an agent's driver also takes steering (see below).
 4. Model output, reasoning, runtime output, and tool calls are automatically recorded as
    events in the journal.
 5. The turn ends as `completed`, `failed`, or `interrupted`.
 
-Additional inputs wait for the next turn. They are not injected into a running turn. An input
-that refers to the running turn, such as a reminder or a status note, would therefore always be
-outdated when processed and must not be queued. Only an agent hook can enter a running turn: the
-`beforeModelCall` hook of an `agentRuntime` contribution adds a hidden note before each model
-request without ending the turn. This is how actor-program project diagnostics work for actors
-equipped with actor-program tools, and how a product plugin can provide progress reminders.
+Inputs that arrive while an agent's turn runs join that turn as steering. Before each model
+request, the turn takes all waiting inputs of its actor in journal order and hands them to the
+model after the results of the tool calls that were running; a running tool call is neither
+aborted nor cut short. If the model has just given its final answer, a joined input starts
+another model request in the same turn. The journal records each joined input with
+`turn.input-steered`, and the chat marks the message as fed into the running turn. An input that
+arrives after the last model request of the turn, or after the turn was interrupted, starts the
+actor's next turn instead. TypeScript actors have no model and take no steering; their inputs
+always wait for the next turn. An input longer than 30,000 characters does not join; it and every
+later input wait for the next turn, so the order stays intact.
+
+A hidden note about the running turn, such as a status note or a progress reminder, does not
+belong in an input: an input appears in the chat and starts a new turn once the current one has
+ended. Such a note comes from an agent hook: the `beforeModelCall` hook of an `agentRuntime`
+contribution adds it before each model request without ending the turn. This is how
+actor-program project diagnostics work for actors equipped with actor-program tools, and how a
+product plugin can provide progress reminders.
 
 A failed turn, or one interrupted by a server restart, is not queued or executed again
 automatically. ActorInputs that were already queued but not yet claimed remain waiting. After
@@ -48,8 +59,9 @@ turn outcome.
 For an LLM, one turn can include several model requests and TypeScript snippets. `return` ends
 the current snippet and gives its findings to the model. The model can then decide what to do
 and execute another snippet within the same turn. A snippet does not wait for later agent
-responses or events: a subscription creates a new ActorInput and therefore a later turn. The
-programming language needs no additional decision point for this.
+responses or events: a subscription creates a new ActorInput, which reaches the model at the
+earliest after the snippet, as steering or in a later turn. The programming language needs no
+additional decision point for this.
 
 ## Model context across turns
 
@@ -81,7 +93,7 @@ run are separate, explicitly labeled actions.
 
 In the run title bar, a user with write permission can request a complete stop through "Run
 stoppen" (stop run) and a confirmation. The primary actor can also trigger it with `run_stop`. Both use the
-same host stop boundary; the conversation and files remain intact. The function call initiates
+same host stop boundary; the chat and files remain intact. The function call initiates
 the stop but does not wait for cleanup of its own turn. Acceptance is not proof of completion.
 Cleanup errors are reported in the server log while the stop path's normal quarantine remains
 in effect.
@@ -91,7 +103,7 @@ in effect.
 - `actor_stop`: Stops the actor, interrupts its running turn, and disposes its model runtime
   after the turn. Its active descendants are stopped in the same journal command, so a branch is
   never stopped halfway. The journal names the actor that called `actor_stop` as the one who
-  stopped them. Run data and plugin sessions remain.
+  stopped them. Run data and the run's plugin data remain.
 - Run stop: The scheduler temporarily accepts no new work for this run; concurrent stop calls
   are handled together. The primary actor remains, but its running work is interrupted. All
   other agents and TypeScript actors in the user's ownership tree are stopped. Agent runtimes
@@ -99,7 +111,7 @@ in effect.
   pending app actions. An open confirmation question is discarded through `ragents.ask` in the
   journal and the domain operation is no longer invoked. The run can be reused afterward.
 - Run deletion: The scheduler stops the run. Its agent runtimes are then disposed and plugin
-  deletion hooks run. The chat, recovery data, and journal are archived; session-bound plugin
+  deletion hooks run. The chat, recovery data, and journal are archived; run-bound plugin
   data, including its logs, is removed afterward.
 - Server shutdown: The scheduler interrupts running work and waits for it to finish. It then
   shuts down all agent runtimes and plugin services. Persisted run data remains intact.
@@ -198,11 +210,11 @@ Equipped LLMs receive `typescript_api` and `typescript_eval`, plus an automatica
 overview of their available TypeScript functions with names and short descriptions. The
 overview stays current during the turn. Domain functions are called through
 `context.functions` in snippets. Additional native tools require explicit registration. Roles
-and work boundaries remain prompt instructions. Alongside a profile, `agent_spawn` accepts
-`model` and `thinking` from the model list. A profile supplies only the driver, provider,
+and work boundaries remain prompt instructions. Alongside a role (field `profile`), `agent_spawn` accepts
+`model` and `thinking` from the model list. A role supplies only the driver, provider,
 reasoning level, timeout, and workspace default; the product model list defines which models are
-available. If neither a model nor a profile that supplies one is present when an agent starts,
-the error lists the available profiles for the selected driver. A manual profile is not
+available. If neither a model nor a role that supplies one is present when an agent starts,
+the error lists the available roles for the selected driver. A manual role is not
 suggested as an agent's model choice.
 
 ## Journal and projection

@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { DomainError, isRunId, pluginStateAt, type RunView } from "@ragents/engine";
 import type { ChatUserLocation } from "@ragents/host/chat-context.js";
-import type { GlobalChatPolicy, SessionManagement } from "@ragents/host/ragents/global-chat.js";
-import { OVERSEER_PLUGIN_ID, OVERSEER_RUN_ID } from "../contract.js";
+import type { GlobalChatPolicy, RunManagement } from "@ragents/host/ragents/global-chat.js";
+import { OVERSEER_PLUGIN_ID } from "../contract.js";
+import { isCoordinatorRunId } from "./coordinator.js";
 import type { RunDirectory } from "./run-directory.js";
 
 const record = (value: unknown): value is Record<string, unknown> => !!value && typeof value === "object" && !Array.isArray(value);
@@ -12,15 +13,15 @@ const unavailable = "Kein Oberflächenkontext für diese Nachricht übermittelt.
 
 export function parseUserLocation(value: unknown): ChatUserLocation | undefined {
   if (value === undefined) return undefined;
-  if (!record(value) || Object.keys(value).some((key) => !["surface", "runId", "tab", "selection"].includes(key))
-    || typeof value.surface !== "string" || !["home", "overview", "run"].includes(value.surface)
-    || !(value.runId === null || (typeof value.runId === "string" && isRunId(value.runId) && value.runId !== OVERSEER_RUN_ID))
+  if (!record(value) || Object.keys(value).some((key) => !["page", "runId", "tab", "selection"].includes(key))
+    || typeof value.page !== "string" || !["home", "overview", "run"].includes(value.page)
+    || !(value.runId === null || (typeof value.runId === "string" && isRunId(value.runId) && !isCoordinatorRunId(value.runId)))
     || !(value.tab === null || shortText(value.tab, 120))
     || !(value.selection === null || (record(value.selection) && Object.keys(value.selection).length === 2
       && shortText(value.selection.type, 40) && shortText(value.selection.id, 120)))
-    || (value.surface === "run" && value.runId === null)
-    || (value.surface === "home" && value.runId !== null)
-    || (value.surface !== "run" && (value.tab !== null || value.selection !== null))) {
+    || (value.page === "run" && value.runId === null)
+    || (value.page === "home" && value.runId !== null)
+    || (value.page !== "run" && (value.tab !== null || value.selection !== null))) {
     throw new DomainError("invalid-user-location", "Der Oberflächenkontext enthält keinen gültigen Standort.", 400);
   }
   return value as unknown as ChatUserLocation;
@@ -56,11 +57,11 @@ function selectedElement(view: RunView, selection: NonNullable<ChatUserLocation[
   return "Element inzwischen nicht mehr vorhanden oder hier nicht auflösbar";
 }
 
-export function createUserLocationContext(management: () => SessionManagement, directory: RunDirectory): Pick<GlobalChatPolicy, "inputContext" | "contextPrompt"> {
+export function createUserLocationContext(management: () => RunManagement, directory: RunDirectory): Pick<GlobalChatPolicy, "inputContext" | "contextPrompt"> {
   return {
-    inputContext: async (runtime, value) => {
+    inputContext: async (runtime, coordinatorId, value) => {
       const location = parseUserLocation(value);
-      const lines = [location ? `Oberfläche: ${{ home: "Startansicht ohne geöffneten Run", overview: "Run-Übersicht", run: "geöffneter Run" }[location.surface]}.` : unavailable];
+      const lines = [location ? `Oberfläche: ${{ home: "Startansicht ohne geöffneten Run", overview: "Run-Übersicht", run: "geöffneter Run" }[location.page]}.` : unavailable];
       if (location?.runId) {
         const run = (await management().list()).find((entry) => entry.id === location.runId);
         if (run) {
@@ -71,21 +72,21 @@ export function createUserLocationContext(management: () => SessionManagement, d
         } else lines.push("Der beim Absenden geöffnete Run ist inzwischen nicht mehr verfügbar.");
       }
       const commandId = `user-location:${randomUUID()}`;
-      const ownerId = runtime.view(OVERSEER_RUN_ID).ownerId;
-      runtime.replacePluginState({ actorId: ownerId, commandId }, OVERSEER_RUN_ID, {
+      const ownerId = runtime.view(coordinatorId).ownerId;
+      runtime.replacePluginState({ actorId: ownerId, commandId }, coordinatorId, {
         pluginId: OVERSEER_PLUGIN_ID, scope: { kind: "actor", actorId: ownerId },
         state: { kind: "user-location", text: lines.join("\n") },
       });
-      const event = runtime.events(OVERSEER_RUN_ID).find((entry) => entry.commandId === commandId && (entry.type === "plugin.state-replaced" || entry.type === "plugin.state-patched"));
+      const event = runtime.events(coordinatorId).find((entry) => entry.commandId === commandId && (entry.type === "plugin.state-replaced" || entry.type === "plugin.state-patched"));
       if (!event) throw new Error("Der Oberflächenkontext wurde nicht journalisiert.");
       return [event.eventId];
     },
-    contextPrompt: (runtime, actor) => {
-      const view = runtime.view(OVERSEER_RUN_ID);
+    contextPrompt: (runtime, coordinatorId, actor) => {
+      const view = runtime.view(coordinatorId);
       const turnId = actor.lifecycle.kind === "running" ? actor.lifecycle.turnId : undefined;
       const inputId = view.turns.find((turn) => turn.id === turnId)?.inputId;
       const sources = view.inputs.find((input) => input.id === inputId)?.sourceEventIds ?? [];
-      const events = runtime.events(OVERSEER_RUN_ID);
+      const events = runtime.events(coordinatorId);
       const event = events.find((entry) => sources.includes(entry.eventId)
         && (entry.type === "plugin.state-replaced" || entry.type === "plugin.state-patched") && entry.payload.pluginId === OVERSEER_PLUGIN_ID);
       const state = event && (event.type === "plugin.state-replaced" || event.type === "plugin.state-patched") ? pluginStateAt(events, event) : undefined;

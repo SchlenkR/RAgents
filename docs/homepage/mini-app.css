@@ -1432,6 +1432,9 @@
     border-top-width: calc(1px * var(--tw-divide-y-reverse));
     border-bottom-width: calc(1px * calc(1 - var(--tw-divide-y-reverse)));
   }
+  .self-baseline {
+    align-self: baseline;
+  }
   .self-center {
     align-self: center;
   }
@@ -1679,12 +1682,6 @@
   .bg-\(--tone-soft\) {
     background-color: var(--tone-soft);
   }
-  .bg-\[color-mix\(in_srgb\,var\(--canvas\)_55\%\,var\(--card\)\)\] {
-    background-color: var(--canvas);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in srgb,var(--canvas) 55%,var(--card));
-    }
-  }
   .bg-\[color-mix\(in_srgb\,var\(--flow-status\)_12\%\,var\(--card\)\)\] {
     background-color: var(--flow-status);
     @supports (color: color-mix(in lab, red, red)) {
@@ -1707,6 +1704,12 @@
     background-color: var(--primary);
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in srgb,var(--primary) 12%,var(--background));
+    }
+  }
+  .bg-\[color-mix\(in_srgb\,var\(--surface\)_55\%\,var\(--card\)\)\] {
+    background-color: var(--surface);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in srgb,var(--surface) 55%,var(--card));
     }
   }
   .bg-accent {
@@ -1880,8 +1883,8 @@
   .bg-transparent {
     background-color: transparent;
   }
-  .bg-\[image\:var\(--canvas-backdrop\)\] {
-    background-image: var(--canvas-backdrop);
+  .bg-\[image\:var\(--surface-backdrop\)\] {
+    background-image: var(--surface-backdrop);
   }
   .bg-\[linear-gradient\(to_right\,var\(--scroll-cover\,var\(--background\)\)_50\%\,transparent\)_left\/20px_100\%_no-repeat_local\,linear-gradient\(to_left\,var\(--scroll-cover\,var\(--background\)\)_50\%\,transparent\)_right\/20px_100\%_no-repeat_local\,linear-gradient\(to_right\,\#00000047\,transparent\)_left\/14px_100\%_no-repeat_scroll\,linear-gradient\(to_left\,\#00000047\,transparent\)_right\/14px_100\%_no-repeat_scroll\] {
     background-image: linear-gradient(to right,var(--scroll-cover,var(--background)) 50%,transparent) left/20px 100% no-repeat local,linear-gradient(to left,var(--scroll-cover,var(--background)) 50%,transparent) right/20px 100% no-repeat local,linear-gradient(to right,#00000047,transparent) left/14px 100% no-repeat scroll,linear-gradient(to left,#00000047,transparent) right/14px 100% no-repeat scroll;
@@ -3583,53 +3586,38 @@
   :where([data-slot="button-group"]) .in-data-\[slot\=button-group\]\:rounded-lg {
     border-radius: var(--radius);
   }
-  :where([data-surface="material"]) .in-data-\[surface\=material\]\:rounded-\[9px\] {
+  :where([data-tone="material"]) .in-data-\[tone\=material\]\:rounded-\[9px\] {
     border-radius: 9px;
   }
-  :where([data-surface="material"]) .in-data-\[surface\=material\]\:rounded-xl {
+  :where([data-tone="material"]) .in-data-\[tone\=material\]\:rounded-xl {
     border-radius: calc(var(--radius) * 1.4);
   }
-  :where([data-surface="material"]) .in-data-\[surface\=material\]\:border-glass-edge\/20 {
+  :where([data-tone="material"]) .in-data-\[tone\=material\]\:border-glass-edge\/20 {
     border-color: var(--glass-edge);
     @supports (color: color-mix(in lab, red, red)) {
       border-color: color-mix(in oklab, var(--glass-edge) 20%, transparent);
     }
   }
-  :where([data-surface="material"]) .in-data-\[surface\=material\]\:border-glass-edge\/50 {
+  :where([data-tone="material"]) .in-data-\[tone\=material\]\:border-glass-edge\/50 {
     border-color: var(--glass-edge);
     @supports (color: color-mix(in lab, red, red)) {
       border-color: color-mix(in oklab, var(--glass-edge) 50%, transparent);
     }
   }
-  :where([data-surface="material"]) .in-data-\[surface\=material\]\:bg-background {
+  :where([data-tone="material"]) .in-data-\[tone\=material\]\:bg-background {
     background-color: var(--background);
   }
-  :where([data-surface="material"]) .in-data-\[surface\=material\]\:bg-primary\/15 {
+  :where([data-tone="material"]) .in-data-\[tone\=material\]\:bg-primary\/15 {
     background-color: var(--primary);
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--primary) 15%, transparent);
     }
   }
-  :where([data-surface="material"]) .in-data-\[surface\=material\]\:p-0 {
+  :where([data-tone="material"]) .in-data-\[tone\=material\]\:p-0 {
     padding: 0px;
   }
-  :where([data-surface="material"]) .in-data-\[surface\=material\]\:text-foreground {
+  :where([data-tone="material"]) .in-data-\[tone\=material\]\:text-foreground {
     color: var(--foreground);
-  }
-  :where([data-surface="overseer-details"]) .in-data-\[surface\=overseer-details\]\:max-h-40 {
-    max-height: calc(var(--spacing) * 40);
-  }
-  :where([data-surface="overseer-details"]) .in-data-\[surface\=overseer-details\]\:flex-1 {
-    flex: 1;
-  }
-  :where([data-surface="overseer-details"]) .in-data-\[surface\=overseer-details\]\:flex-none {
-    flex: none;
-  }
-  :where([data-surface="overseer-details"]) .in-data-\[surface\=overseer-details\]\:flex-nowrap {
-    flex-wrap: nowrap;
-  }
-  :where([data-surface="overseer-details"]) .in-data-\[surface\=overseer-details\]\:overflow-y-auto {
-    overflow-y: auto;
   }
   :where([data-tone="on-color"]) .in-data-\[tone\=on-color\]\:border-white\/35 {
     border-color: color-mix(in srgb, #fff 35%, transparent);
@@ -3678,6 +3666,21 @@
   }
   :where([data-tone="on-color"]) .in-data-\[tone\=on-color\]\:marker\:text-inherit::-webkit-details-marker {
     color: inherit;
+  }
+  :where([data-tone="overseer-details"]) .in-data-\[tone\=overseer-details\]\:max-h-40 {
+    max-height: calc(var(--spacing) * 40);
+  }
+  :where([data-tone="overseer-details"]) .in-data-\[tone\=overseer-details\]\:flex-1 {
+    flex: 1;
+  }
+  :where([data-tone="overseer-details"]) .in-data-\[tone\=overseer-details\]\:flex-none {
+    flex: none;
+  }
+  :where([data-tone="overseer-details"]) .in-data-\[tone\=overseer-details\]\:flex-nowrap {
+    flex-wrap: nowrap;
+  }
+  :where([data-tone="overseer-details"]) .in-data-\[tone\=overseer-details\]\:overflow-y-auto {
+    overflow-y: auto;
   }
   .has-aria-expanded\:bg-muted\/50:has([aria-expanded="true"]) {
     background-color: var(--secondary);
@@ -5006,7 +5009,7 @@
   .\[\&\>\*\:first-child\]\:mt-0 > :first-child {
     margin-top: 0px;
   }
-  :where([data-surface="material"]) .in-data-\[surface\=material\]\:\[\&\>\*\:first-child\]\:mt-0 > :first-child {
+  :where([data-tone="material"]) .in-data-\[tone\=material\]\:\[\&\>\*\:first-child\]\:mt-0 > :first-child {
     margin-top: 0px;
   }
   .\[\&\>\*\:last-child\]\:mb-0 > :last-child {
@@ -5228,12 +5231,12 @@
   --border-strong: #a397b2;
   --shell: #cbd6e4;
   --app: #dce3ed;
-  --canvas: #e8e2e6;
-  --canvas-dot: #79aab43b;
-  --canvas-glow-mint: #92cfbfad;
-  --canvas-glow-blue: #8bbfe5a6;
-  --canvas-light: #ffffffb3;
-  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
+  --surface: #e8e2e6;
+  --surface-dot: #79aab43b;
+  --surface-glow-mint: #92cfbfad;
+  --surface-glow-blue: #8bbfe5a6;
+  --surface-light: #ffffffb3;
+  --surface-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #9ccfc5b3, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #9ec6e4b3, transparent 56%),
         radial-gradient(ellipse at 28% 0%, #c4b0dfb3, transparent 58%),
@@ -5280,12 +5283,12 @@
   --border-strong: #8e809f;
   --shell: #242e40;
   --app: #212632;
-  --canvas: #29232e;
-  --canvas-dot: #7cafbc30;
-  --canvas-glow-mint: #317d686b;
-  --canvas-glow-blue: #417daa80;
-  --canvas-light: #80bfc71f;
-  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
+  --surface: #29232e;
+  --surface-dot: #7cafbc30;
+  --surface-glow-mint: #317d686b;
+  --surface-glow-blue: #417daa80;
+  --surface-light: #80bfc71f;
+  --surface-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #2c625e99, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #355674a6, transparent 56%),
         radial-gradient(ellipse at 28% 0%, #59446f99, transparent 58%),

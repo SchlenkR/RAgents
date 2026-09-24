@@ -189,7 +189,7 @@ test("Befehle: ein Abbruch und der Stopp des Runs beenden einen laufenden Befehl
     const stopped = f.run({ ...waiting("gestoppt.pid"), timeoutMs: 60_000 });
     const second = await pidOf("gestoppt.pid");
     await f.executor.stopRun("run-1");
-    await assert.rejects(stopped, /Der Befehl wurde mit seinem Lauf beendet/);
+    await assert.rejects(stopped, /Der Befehl wurde mit seinem Run beendet/);
     assert.equal(processExists(second), false);
     await f.executor.stopRun("run-1");
   } finally {

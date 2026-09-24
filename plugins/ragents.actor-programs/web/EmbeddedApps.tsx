@@ -3,8 +3,8 @@ import { cn, Spinner } from "@ragents/web/ui";
 import { isRecord } from "@ragents/web/lib/guards";
 import { runActorFrom } from "@ragents/web/run-view";
 import type {
-  CanvasElementContext,
-  CanvasElementDefinition,
+  SurfaceElementContext,
+  SurfaceElementDefinition,
   CardSectionContext,
   SessionContext,
 } from "@ragents/web/PluginRegistry";
@@ -12,7 +12,7 @@ import { HostConfirmation, pendingConfirmationFor, actorProgramApps, useActorPro
 import { ActorViewFrame } from "./ActorViewFrame";
 import { FunctionForm } from "./FunctionForm";
 
-const cardClass = "flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-panel border border-glass-edge bg-glass-app shadow-card backdrop-blur-[8px] in-data-[surface=material]:rounded-[inherit] in-data-[surface=material]:border-0 in-data-[surface=material]:bg-transparent in-data-[surface=material]:shadow-none in-data-[surface=material]:backdrop-filter-none";
+const cardClass = "flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-panel border border-glass-edge bg-glass-app shadow-card backdrop-blur-[8px] in-data-[tone=material]:rounded-[inherit] in-data-[tone=material]:border-0 in-data-[tone=material]:bg-transparent in-data-[tone=material]:shadow-none in-data-[tone=material]:backdrop-filter-none";
 
 export function ActorProgramToolCardSection({ actor, session }: CardSectionContext) {
   const inspect = useAccess().can("runs.inspect");
@@ -33,15 +33,15 @@ export function ActorProgramToolCardSection({ actor, session }: CardSectionConte
   );
 }
 
-export const actorProgramCanvasElements = (session: SessionContext): readonly CanvasElementDefinition[] =>
-  actorProgramApps(session).flatMap((module): CanvasElementDefinition[] => {
+export const actorProgramSurfaceElements = (session: SessionContext): readonly SurfaceElementDefinition[] =>
+  actorProgramApps(session).flatMap((module): SurfaceElementDefinition[] => {
     const rawPlacements = module.app.placements;
     const placement = Array.isArray(rawPlacements) ? rawPlacements.find((entry) => isRecord(entry) && entry.kind === "canvas") : undefined;
-    const canvas = isRecord(placement) ? placement : undefined;
-    if (canvas && typeof canvas.anchorActorId !== "string") {
-      throw new Error(`Die Canvas-Platzierung der Actor-Ansicht ${module.title} ist ungültig`);
+    const surface = isRecord(placement) ? placement : undefined;
+    if (surface && typeof surface.anchorActorId !== "string") {
+      throw new Error(`Die Flächenplatzierung der Actor-Ansicht ${module.title} ist ungültig`);
     }
-    if (canvas && canvas.anchorActorId !== module.actorId) throw new Error(`Die Ansicht ${module.title} gehört zu @${module.actorHandle}.`);
+    if (surface && surface.anchorActorId !== module.actorId) throw new Error(`Die Ansicht ${module.title} gehört zu @${module.actorHandle}.`);
     return [{
       id: module.id,
       title: module.title,
@@ -52,7 +52,7 @@ export const actorProgramCanvasElements = (session: SessionContext): readonly Ca
     }];
   });
 
-export function ActorProgramCanvasElement({ definition, session }: CanvasElementContext) {
+export function ActorProgramSurfaceElement({ definition, session }: SurfaceElementContext) {
   const { api, invoke, listing, runId } = useActorPrograms();
   const app = listing?.apps.find((candidate) => candidate.id === definition.id);
   const confirmation = app ? pendingConfirmationFor(session, app) : undefined;

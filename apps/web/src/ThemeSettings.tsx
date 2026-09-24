@@ -14,7 +14,7 @@ export function ThemeSettings() {
   return <div className="mx-auto flex max-w-[1020px] flex-col gap-6 px-[clamp(20px,4vw,46px)] pt-7 pb-12 max-sm:px-3.5 max-sm:pt-5 max-sm:pb-9">
     <header>
       <h2 className="text-[1.08rem] text-foreground">Darstellung</h2>
-      <p className="mt-2 max-w-[780px] text-xs leading-[1.55] text-muted-foreground">Farben für die gesamte Oberfläche, den Canvas und das Seitenpanel.</p>
+      <p className="mt-2 max-w-[780px] text-xs leading-[1.55] text-muted-foreground">Farben für die gesamte Oberfläche, die Fläche und die Leiste.</p>
     </header>
     <section aria-labelledby="theme-settings-title">
       <Card className="flex-row flex-wrap items-center gap-5 p-6 max-sm:p-4">

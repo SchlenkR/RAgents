@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { isValidElement, type ComponentProps, type ReactElement } from "react";
-import { openStartEntry } from "../src/StartSurface.tsx";
+import { openStartEntry } from "../src/StartSelection.tsx";
 import { RunPreparationChat } from "../src/RunPreparationChat.tsx";
 import { PluginRegistry, type EntryGuideContext, type SessionContext, type SkillStartEntry } from "../src/PluginRegistry.tsx";
 import { createModalController } from "../src/ui/modal-controller.ts";

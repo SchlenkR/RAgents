@@ -326,7 +326,7 @@ export const agentTools: RunFunction[] = [
         name: "actor_input",
         label: "Enqueue Actor Input",
         description: "Enqueue plain text and optional artifacts for one actor. The actor receives no routing envelope.",
-        longDescription: "This only confirms enqueueing, not processing, an answer or completion. Agents interpret natural language. TypeScript actors only process their programmed input protocol: use their documented functions, or send an exact supported program input after inspecting the program. Never address an unknown script with a natural-language task or assume an idle or completed turn means the requested work happened.",
+        longDescription: "This only confirms enqueueing, not processing, an answer or completion. An agent in the middle of a turn receives the text in that turn before its next model request; otherwise it starts the agent's next turn. Agents interpret natural language. TypeScript actors only process their programmed input protocol: use their documented functions, or send an exact supported program input after inspecting the program. Never address an unknown script with a natural-language task or assume an idle or completed turn means the requested work happened.",
         schema: actorInputSchema,
         resultSchema: eventResultSchema,
         available: needs("actor.input"),
@@ -576,7 +576,7 @@ export const agentTools: RunFunction[] = [
         label: "Configure Run",
         description:
             "Set the run title and/or choose the primary actor the chat talks to. Give title, primaryActor or both; "
-            + "the primary actor must be an active agent or script actor of this run.",
+            + "the primary actor must be an active agent or TypeScript actor of this run.",
         schema: Type.Object({
             title: Type.Optional(Type.String({ minLength: 1, maxLength: 200, description: "Neuer Titel des Runs" })),
             primaryActor: Type.Optional(Type.String({

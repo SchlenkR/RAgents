@@ -1,17 +1,17 @@
 import { createLocalStorageSetting } from "@ragents/web/lib/local-storage-setting";
 import { useEffect, useMemo } from "react";
-import { ORCHESTRATION_PLUGIN_ID, canvasLayoutOf } from "../contract";
-import { canvasTileEntities, canvasTileNodeOf, type CanvasTileNode } from "../tiled-layout";
+import { ORCHESTRATION_PLUGIN_ID, surfaceLayoutOf } from "../contract";
+import { surfaceTileEntities, surfaceTileNodeOf, type SurfaceTileNode } from "../tiled-layout";
 import type { RunView } from "@ragents/web/run-view";
 
-export interface CanvasPresentation {
-  root: CanvasTileNode | null;
+export interface SurfacePresentation {
+  root: SurfaceTileNode | null;
   programBasis?: string;
 }
 
-export const canvasPresentationStorageKey = (runId: string) => `ragents.orchestration.tile-presentation:${runId}`;
+export const surfacePresentationStorageKey = (runId: string) => `ragents.orchestration.tile-presentation:${runId}`;
 
-export function parseCanvasPresentation(raw: string | null): CanvasPresentation | null {
+export function parseSurfacePresentation(raw: string | null): SurfacePresentation | null {
   if (raw === null || raw === "null") return null;
   const value: unknown = JSON.parse(raw);
   if (!value || typeof value !== "object" || Array.isArray(value)
@@ -19,7 +19,7 @@ export function parseCanvasPresentation(raw: string | null): CanvasPresentation 
     || ("programBasis" in value && typeof value.programBasis !== "string")) {
     throw new Error("Die gespeicherte Kachelansicht ist ungültig.");
   }
-  return { root: value.root === null ? null : canvasTileNodeOf(value.root),
+  return { root: value.root === null ? null : surfaceTileNodeOf(value.root),
     ...("programBasis" in value ? { programBasis: value.programBasis as string } : {}),
   };
 }
@@ -27,41 +27,41 @@ export function parseCanvasPresentation(raw: string | null): CanvasPresentation 
 const setting = createLocalStorageSetting({
   changeEvent: "ragents-tile-presentation-change",
   matchesKey: (key) => key.startsWith("ragents.orchestration.tile-presentation:"),
-  parse: parseCanvasPresentation,
+  parse: parseSurfacePresentation,
   serialize: JSON.stringify,
 });
 
-export const useCanvasPresentationOverride = (runId: string) => setting.useValue(canvasPresentationStorageKey(runId));
-export const saveCanvasPresentation = (runId: string, value: CanvasPresentation | null) =>
-  setting.save(canvasPresentationStorageKey(runId), value);
+export const useSurfacePresentationOverride = (runId: string) => setting.useValue(surfacePresentationStorageKey(runId));
+export const saveSurfacePresentation = (runId: string, value: SurfacePresentation | null) =>
+  setting.save(surfacePresentationStorageKey(runId), value);
 
-export const canvasProgramBasis = (program: CanvasPresentation): string => JSON.stringify({ root: program.root });
+export const surfaceProgramBasis = (program: SurfacePresentation): string => JSON.stringify({ root: program.root });
 
-export function currentCanvasOverride(personal: CanvasPresentation | null, program: CanvasPresentation): CanvasPresentation | null {
+export function currentSurfaceOverride(personal: SurfacePresentation | null, program: SurfacePresentation): SurfacePresentation | null {
   if (!personal) return null;
-  if (personal.programBasis !== undefined) return personal.programBasis === canvasProgramBasis(program) ? personal : null;
-  const entities = new Set(canvasTileEntities(personal.root));
-  return canvasTileEntities(program.root).some((entity) => !entities.has(entity)) ? null : personal;
+  if (personal.programBasis !== undefined) return personal.programBasis === surfaceProgramBasis(program) ? personal : null;
+  const entities = new Set(surfaceTileEntities(personal.root));
+  return surfaceTileEntities(program.root).some((entity) => !entities.has(entity)) ? null : personal;
 }
 
-export function useCanvasPresentation(runId: string, view: RunView | undefined) {
+export function useSurfacePresentation(runId: string, view: RunView | undefined) {
   const state = view?.pluginStates.find((entry) => entry.pluginId === ORCHESTRATION_PLUGIN_ID && entry.scope.kind === "run")?.state;
   const stateKey = useMemo(() => state === undefined ? undefined : JSON.stringify(state), [state]);
   const programLayout = useMemo(() => {
-    try { return { layout: stateKey === undefined ? undefined : canvasLayoutOf(JSON.parse(stateKey)) }; }
+    try { return { layout: stateKey === undefined ? undefined : surfaceLayoutOf(JSON.parse(stateKey)) }; }
     catch (error) { return { error: error instanceof Error ? error.message : String(error) }; }
   }, [stateKey]);
-  const program = useMemo((): CanvasPresentation => ({ root: programLayout.layout?.root ?? null }), [programLayout]);
-  const programBasis = useMemo(() => canvasProgramBasis(program), [program]);
-  const storedLayout = useCanvasPresentationOverride(runId);
-  const personalLayout = view && !programLayout.error ? currentCanvasOverride(storedLayout, program) : storedLayout;
+  const program = useMemo((): SurfacePresentation => ({ root: programLayout.layout?.root ?? null }), [programLayout]);
+  const programBasis = useMemo(() => surfaceProgramBasis(program), [program]);
+  const storedLayout = useSurfacePresentationOverride(runId);
+  const personalLayout = view && !programLayout.error ? currentSurfaceOverride(storedLayout, program) : storedLayout;
   useEffect(() => {
-    if (storedLayout && !personalLayout) saveCanvasPresentation(runId, null);
+    if (storedLayout && !personalLayout) saveSurfacePresentation(runId, null);
   }, [runId, storedLayout, personalLayout]);
   return { programLayout, personalLayout, presentation: personalLayout ?? program, programBasis };
 }
 
-export function initialTileLayout(entities: readonly string[], direction: "horizontal" | "vertical" = "horizontal"): CanvasTileNode | null {
+export function initialTileLayout(entities: readonly string[], direction: "horizontal" | "vertical" = "horizontal"): SurfaceTileNode | null {
   if (entities.length === 0) return null;
   if (entities.length === 1) return { entity: entities[0]! };
   const middle = Math.ceil(entities.length / 2);

@@ -1,6 +1,6 @@
 {
   "id": "ragents.orchestration",
   "exports": {
-    "web": ["web/canvas-stage", "web/program-slot", "web/tile-docking"]
+    "web": ["web/surface-entities", "web/program-slot", "web/tile-docking"]
   }
 }

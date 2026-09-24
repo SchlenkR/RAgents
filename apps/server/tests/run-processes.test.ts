@@ -460,7 +460,7 @@ test("die Methoden liefern den Stand und der Ereigniskanal den Strom", async () 
       },
     },
     ensureWorkspaceAccess: (_access: unknown, runId: string) => {
-      if (runId === "run-gone") throw new Error("Die Unterhaltung wurde gelöscht");
+      if (runId === "run-gone") throw new Error("Der Run wurde gelöscht");
     },
   };
   const [snapshotMethod, stopMethod] = createProcessMethods(options);

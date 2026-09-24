@@ -85,7 +85,7 @@ const failsWith = async (call: Promise<unknown>, code: string): Promise<Checked<
 };
 
 const clientBinding = (env: CheckEnvironment): WorkspaceBinding =>
-  ({ kind: "client", client: env.container.clientId, label: env.container.label, path: env.folder });
+  ({ machine: { client: env.container.clientId, label: env.container.label }, folder: { path: env.folder } });
 
 interface ToolOutcome {
   readonly name: string;
@@ -230,9 +230,10 @@ const checkRegistry = async (env: CheckEnvironment): Promise<boolean> => {
 const checkBinding = (env: CheckEnvironment): Promise<true | undefined> =>
   env.report.check("Run", "alice bindet einen Run an den Ordner im Container", async () => {
     const state = await env.users.alice.call(coreContracts.startOptions.select, { runId: env.runId, optionId: WORKSPACE_BINDING_OPTION_ID, value: clientBinding(env) });
-    const value = state.value as WorkspaceBinding;
-    expect(value.kind === "client" && value.client === env.container.clientId && value.path === env.folder, `Gespeichert ist ${JSON.stringify(state.value)}`);
-    return passed(`${value.label}: ${value.path}, Run ${env.runId.slice(0, 8)}`);
+    const { machine, folder } = state.value as WorkspaceBinding;
+    expect(machine !== "server" && machine.client === env.container.clientId && folder !== "fresh" && !("fresh" in folder) && folder.path === env.folder,
+      `Gespeichert ist ${JSON.stringify(state.value)}`);
+    return passed(`${machine.label}: ${folder.path}, Run ${env.runId.slice(0, 8)}`);
   });
 
 const checkTools = async (env: CheckEnvironment): Promise<void> => {
@@ -306,6 +307,49 @@ const checkTools = async (env: CheckEnvironment): Promise<void> => {
     const missing = ["bash", "read", "write"].filter((tool) => !logs.split("\n").some((line) => line.startsWith(`${prefix}${tool} `) && line.endsWith(" ok")));
     expect(missing.length === 0, `Im Protokoll des Arbeitsplatzes fehlen ${missing.join(", ")}:\n${tail(logs)}`);
     return passed("bash, read und write stehen im Protokoll des Containers");
+  });
+};
+
+const FRESH_FILE = "neu.txt";
+
+/** Der neue Ordner je Run entsteht im Container unter dem Ordner für Runs des Arbeitsplatzes und verschwindet mit dem Run. */
+const checkFreshFolder = async (env: CheckEnvironment): Promise<void> => {
+  const { report, users, container } = env;
+  const run = { ...env, runId: randomUUID() };
+  const titles = ["write und bash arbeiten im neuen Ordner im Container, nicht auf dem Server", "das Löschen des Runs nimmt den Ordner im Container mit"];
+  const bound = await report.check("Neuer Ordner", "alice bindet einen Run an einen neuen Ordner im Container", async () => {
+    const state = await users.alice.call(coreContracts.startOptions.select, {
+      runId: run.runId,
+      optionId: WORKSPACE_BINDING_OPTION_ID,
+      value: { machine: { client: container.clientId, label: container.label }, folder: "fresh" },
+    });
+    const { machine, folder } = state.value as WorkspaceBinding;
+    expect(machine !== "server" && machine.client === container.clientId && folder !== "fresh" && "fresh" in folder
+      && folder.path.endsWith(`/${run.runId}`), `Gespeichert ist ${JSON.stringify(state.value)}`);
+    return { value: folder.path, detail: folder.path };
+  });
+  if (!bound) {
+    report.skip("Neuer Ordner", titles, "es gibt keinen Run mit neuem Ordner");
+    return;
+  }
+  await report.check("Neuer Ordner", titles[0]!, async () => {
+    const turn = await runScript(run, "Schreibe in den neuen Ordner.", {
+      id: "neuer-ordner",
+      steps: [{ tool: "write", input: { path: FRESH_FILE, content: `Neu ${env.nonce}\n` } }, { tool: "bash", input: { command: "pwd" } }],
+    });
+    completedText(stepOf(turn, 0, "write"));
+    const pwd = completedText(stepOf(turn, 1, "bash")).trim().split("\n")[0];
+    expect(pwd === bound, `pwd meldet ${pwd} statt ${bound}`);
+    const inside = await containerExec(container.name, ["cat", path.posix.join(bound, FRESH_FILE)]);
+    expect(inside.code === 0 && inside.stdout.includes(env.nonce), `${FRESH_FILE} fehlt im neuen Ordner im Container: ${inside.stderr.trim()}`);
+    expect(!existsSync(bound), `${bound} gibt es auch auf dem Server`);
+    return passed(`${path.posix.join(bound, FRESH_FILE)} im Container`);
+  });
+  await report.check("Neuer Ordner", titles[1]!, async () => {
+    await users.alice.call(coreContracts.runs.delete, { runId: run.runId });
+    await waitFor(async () => (await containerExec(container.name, ["test", "-e", bound])).code !== 0 ? true : undefined,
+      15_000, `Das Verschwinden von ${bound} im Container`);
+    return passed(`${bound} ist weg`);
   });
 };
 
@@ -425,7 +469,7 @@ const checkProcesses = async (env: CheckEnvironment): Promise<void> => {
 const checkRights = async (env: CheckEnvironment): Promise<void> => {
   const { report, users, runId } = env;
   await report.check("Rechte", "bob sieht den Run von alice nicht in der Liste", async () => {
-    const sessions = await users.bob.call(coreContracts.sessions.list, {});
+    const sessions = await users.bob.call(coreContracts.runs.list, {});
     expect(!sessions.some((session) => session.id === runId), "Der Run steht in der Liste von bob");
     return passed(`${sessions.length} Run(s) in der Liste von bob`);
   });
@@ -438,7 +482,7 @@ const checkRights = async (env: CheckEnvironment): Promise<void> => {
     return passed("dreimal run-not-found");
   });
   await report.check("Rechte", "admin sieht den Run und sein Journal", async () => {
-    const sessions = await users.admin.call(coreContracts.sessions.list, {});
+    const sessions = await users.admin.call(coreContracts.runs.list, {});
     expect(sessions.some((session) => session.id === runId), "Der Run fehlt in der Liste von admin");
     const events = await users.admin.call(runContracts.events, { runId });
     expect(events.length > 0, "Das Journal ist für admin leer");
@@ -548,7 +592,7 @@ const checkStopAll = (env: CheckEnvironment): Promise<true | undefined> =>
 
 /** Die fachlichen Prüfungen in fester Reihenfolge; fehlt eine Voraussetzung, werden die abhängigen Prüfungen übersprungen. */
 export const runChecks = async (env: CheckEnvironment): Promise<void> => {
-  const areas = ["Run", "Werkzeuge", "Dateien", "Prozesse", "Rechte", "Stopp", "Trennen", "Strom weg"];
+  const areas = ["Run", "Werkzeuge", "Neuer Ordner", "Dateien", "Prozesse", "Rechte", "Stopp", "Trennen", "Strom weg"];
   if (!await checkRegistry(env)) {
     for (const area of areas) env.report.skip(area, ["alle Prüfungen"], "der Arbeitsplatz ist nicht angemeldet");
     return;
@@ -559,6 +603,7 @@ export const runChecks = async (env: CheckEnvironment): Promise<void> => {
   }
   await checkTools(env);
   await checkAttachment(env);
+  await checkFreshFolder(env);
   if (env.browserPort !== undefined) await checkBrowser(env, env.browserPort);
   await checkFiles(env);
   await checkProcesses(env);

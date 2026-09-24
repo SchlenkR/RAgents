@@ -51,7 +51,7 @@ the journal does not execute the recorded work again. The
 
 ## Mini-apps make the work interactive
 
-An actor can have a small interface: a mini-app in the workspace. It displays the actor's data
+An actor can have a small interface: a mini-app on the surface. It displays the actor's data
 and calls its functions. In the word game, this interface contains the start button, progress,
 and word list. On the collection board, both an AI assistant and a person can add entries to
 the same list.
@@ -62,10 +62,10 @@ functions, state, and interface connect.
 
 ## Plugins provide capabilities and reusable setups
 
-A plugin can add file functions, questions, or interface components, for example. A product
-profile selects the workspace's plugins and settings. A skill tells a model how to approach a
+A plugin can add file functions, questions, or interface components, for example. A profile
+selects the workspace's plugins and settings. A skill tells a model how to approach a
 task. A run script, by contrast, provides the programs for a prepared setup.
 
 Run scripts can provide a reusable setup and its interface while model responses remain
-variable. Skills and prepared workflows appear as selectable entries when the active profile
+variable. Skills and prepared workflows appear as selectable templates when the active profile
 provides them.

@@ -11,7 +11,7 @@ const promptComposition = [
   "Run-Koordinator: Produktprompt und Aufbauanweisung, unabhängig vom gewählten Primary-Actor.",
   "Weitere Actors behalten ihren eigenen Actor-Prompt; die Primary-Auswahl bestimmt nur Ausgabe und Rollenvertrag.",
   "ActorInputs und aktueller Run-Zustand kommen getrennt als Turn-Kontext hinzu.",
-  "Actors mit Arbeitsbereichswerkzeugen bekommen die Beschreibung des Arbeitsbereichs als letztes Kapitel; die Agentenlaufzeit ergänzt Skills und Extension-Beiträge.",
+  "Actors mit Arbeitsbereichswerkzeugen bekommen die Beschreibung des Arbeitsbereichs als letztes Kapitel; die Agentenlaufzeit ergänzt Skills und Hooks.",
 ].join(" ");
 
 export const ragentsProductRuntime = {

@@ -7,7 +7,7 @@ const MAX_PROMPT_CHARS = 4_000;
 const MAX_TITLE_CHARS = 80;
 
 const instruction =
-  "Du fasst den ersten Auftrag einer Unterhaltung als Listentitel zusammen. "
+  "Du fasst den ersten Auftrag eines Runs als Listentitel zusammen. "
   + "Antworte NUR mit einer Titelzeile: drei bis acht Wörter, höchstens 80 Zeichen, in der Sprache des Auftrags. "
   + "Nenne die konkrete Aufgabe, keine Einleitung, keine Anführungszeichen, kein Satzzeichen am Ende. "
   + "Verwende die Begriffe des Auftrags und erhalte seine unterscheidenden Fachbegriffe. "

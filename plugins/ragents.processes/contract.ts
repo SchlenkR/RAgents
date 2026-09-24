@@ -36,14 +36,14 @@ const runId = Type.String({ minLength: 1, maxLength: 64, description: "Kennung d
 export const processesContracts = {
   snapshot: defineOperation({
     id: "ragents.processes.snapshot",
-    description: "Die beobachteten Prozesse eines Laufs mit ihren offenen Ports. Rechte: runs.read und ragents.processes.read.",
+    description: "Die beobachteten Prozesse eines Runs mit ihren offenen Ports. Rechte: runs.read und ragents.processes.read.",
     rights: ["runs.read", "ragents.processes.read"],
     input: Type.Object({ runId }, { additionalProperties: false }),
     result: openJson<RunProcessSnapshot>("RunProcessSnapshot"),
   }),
   stop: defineOperation({
     id: "ragents.processes.stop",
-    description: "Einen Prozess des Laufs beenden. Rechte: runs.read, runs.write und runs.inspect.",
+    description: "Einen Prozess des Runs beenden. Rechte: runs.read, runs.write und runs.inspect.",
     rights: ["runs.read", "runs.write", "runs.inspect"],
     input: Type.Object({
       runId,
@@ -53,7 +53,7 @@ export const processesContracts = {
   }),
   live: defineChannel({
     id: "ragents.processes",
-    description: "Der laufende Stand der Prozessüberwachung eines Laufs. Rechte: runs.read und ragents.processes.read.",
+    description: "Der laufende Stand der Prozessüberwachung eines Runs. Rechte: runs.read und ragents.processes.read.",
     rights: ["runs.read", "ragents.processes.read"],
     params: Type.Object({ runId }, { additionalProperties: false }),
     message: openJson<RunProcessMessage>("RunProcessMessage"),

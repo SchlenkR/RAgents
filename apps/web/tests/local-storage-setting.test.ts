@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { subscribeStorageChanges } from "../src/lib/local-storage-setting";
 import { actorHeaderStorageKey, saveActorHeaderMode } from "../../../plugins/ragents.orchestration/web/actor-header-settings";
-import { canvasViewStorageKey, DEFAULT_CANVAS_VIEW_PREFERENCES, saveCanvasViewPreferences } from "../../../plugins/ragents.orchestration/web/canvas-view-settings";
-import { canvasPresentationStorageKey, saveCanvasPresentation } from "../../../plugins/ragents.orchestration/web/tiled-view-settings";
+import { surfaceViewStorageKey, DEFAULT_SURFACE_VIEW_PREFERENCES, saveSurfaceViewPreferences } from "../../../plugins/ragents.orchestration/web/surface-view-settings";
+import { surfacePresentationStorageKey, saveSurfacePresentation } from "../../../plugins/ragents.orchestration/web/tiled-view-settings";
 
 test("storage subscriptions accept their keys and clear events and remove their listener", () => {
   const browser = new EventTarget() as unknown as Window;
@@ -46,28 +46,28 @@ test("orchestration settings keep their formats, run scopes and same-tab change 
 
   saveActorHeaderMode("first", "agent");
   saveActorHeaderMode("second", "script");
-  saveCanvasViewPreferences("first", DEFAULT_CANVAS_VIEW_PREFERENCES);
-  saveCanvasPresentation("first", { root: { entity: "@anna" } });
+  saveSurfaceViewPreferences("first", DEFAULT_SURFACE_VIEW_PREFERENCES);
+  saveSurfacePresentation("first", { root: { entity: "@anna" } });
   assert.deepEqual(values, new Map([
     [actorHeaderStorageKey("first"), "agent"],
     [actorHeaderStorageKey("second"), "script"],
-    [canvasViewStorageKey("first"), JSON.stringify(DEFAULT_CANVAS_VIEW_PREFERENCES)],
-    [canvasPresentationStorageKey("first"), '{"root":{"entity":"@anna"}}'],
+    [surfaceViewStorageKey("first"), JSON.stringify(DEFAULT_SURFACE_VIEW_PREFERENCES)],
+    [surfacePresentationStorageKey("first"), '{"root":{"entity":"@anna"}}'],
   ]));
   assert.deepEqual(notifications, ["ragents-actor-header-change", "ragents-actor-header-change", "ragents-actor-visibility-change", "ragents-tile-presentation-change"]);
 
   const stored = new Map(values);
   assert.throws(() => saveActorHeaderMode("first", "invalid" as "all"), /ungültig/);
-  assert.throws(() => saveCanvasViewPreferences("first", { actorVisibility: { anna: "no" as unknown as boolean } }), /ungültig/);
-  assert.throws(() => saveCanvasPresentation("first", { root: { entity: "shape:thema" } }), /erwartet @handle oder app:/);
+  assert.throws(() => saveSurfaceViewPreferences("first", { actorVisibility: { anna: "no" as unknown as boolean } }), /ungültig/);
+  assert.throws(() => saveSurfacePresentation("first", { root: { entity: "shape:thema" } }), /erwartet @handle oder app:/);
   assert.deepEqual(values, stored);
   assert.equal(notifications.length, 4);
 
   browser.localStorage.setItem = () => { throw new Error("Speicher voll"); };
   for (const save of [
     () => saveActorHeaderMode("first", "all"),
-    () => saveCanvasViewPreferences("first", DEFAULT_CANVAS_VIEW_PREFERENCES),
-    () => saveCanvasPresentation("first", { root: { entity: "@anna" } }),
+    () => saveSurfaceViewPreferences("first", DEFAULT_SURFACE_VIEW_PREFERENCES),
+    () => saveSurfacePresentation("first", { root: { entity: "@anna" } }),
   ]) assert.throws(save, /Speicher voll/);
   assert.deepEqual(values, stored);
   assert.equal(notifications.length, 4);

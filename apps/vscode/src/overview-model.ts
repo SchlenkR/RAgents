@@ -1,11 +1,11 @@
-import type { PanelPage, PanelState, TargetEntry, TargetRoute, TargetRun, TargetState, TargetView } from "../../web/src/panel/contract";
+import type { ConnectionEntry, ConnectionRoute, ConnectionRun, ConnectionState, ConnectionView, PanelPage, PanelState } from "../../web/src/panel/contract";
 import type { RunPanelTheme } from "../../web/src/run-panel/host-contract";
 import { connectionAddress, profileNameOf, serverHost } from "./connections";
 import type { RunSummary } from "./run-model";
-import type { SessionStatus, TargetSnapshot } from "./sessions";
+import type { ConnectionSnapshot, SessionStatus } from "./sessions";
 import type { StartEntrySummary } from "./store";
 
-const targetState = (status: SessionStatus): TargetState => {
+const stateOf = (status: SessionStatus): ConnectionState => {
   switch (status.kind) {
     case "stopped": return { kind: "stopped" };
     case "starting": return status.detail === undefined ? { kind: "starting" } : { kind: "starting", detail: status.detail };
@@ -18,7 +18,7 @@ const targetState = (status: SessionStatus): TargetState => {
   }
 };
 
-const targetRun = (run: RunSummary): TargetRun => ({
+const runOf = (run: RunSummary): ConnectionRun => ({
   id: run.id,
   title: run.title,
   state: run.state,
@@ -27,7 +27,7 @@ const targetRun = (run: RunSummary): TargetRun => ({
   ...(run.problem !== undefined ? { problem: run.problem } : {}),
 });
 
-const targetEntry = (entry: StartEntrySummary): TargetEntry => ({
+const entryOf = (entry: StartEntrySummary): ConnectionEntry => ({
   id: entry.id,
   title: entry.title,
   description: entry.description,
@@ -36,19 +36,19 @@ const targetEntry = (entry: StartEntrySummary): TargetEntry => ({
   ...(entry.guide !== undefined ? { guided: true } : {}),
 });
 
-const targetRoute = (snapshot: TargetSnapshot): TargetRoute => snapshot.connection.kind === "profile"
+const routeOf = (snapshot: ConnectionSnapshot): ConnectionRoute => snapshot.connection.kind === "profile"
   ? { kind: "profile", profile: profileNameOf(snapshot.connection.profileFile) }
   : { kind: "server", host: serverHost(snapshot.connection.url), localHost: snapshot.localHost };
 
-/** Eine Umgebung, wie die Übersicht sie zeigt: Zustand, Ziel, ihre Runs und ihre Startvorlagen. */
-export const targetView = (snapshot: TargetSnapshot): TargetView => ({
+/** Ein Server, wie die Übersicht ihn zeigt: Zustand, Zielzeile, seine Runs und seine Vorlagen. */
+export const connectionView = (snapshot: ConnectionSnapshot): ConnectionView => ({
   name: snapshot.connection.name,
   kind: snapshot.connection.kind,
   address: connectionAddress(snapshot.connection),
-  route: targetRoute(snapshot),
-  state: targetState(snapshot.status),
-  runs: snapshot.runs.map(targetRun),
-  entries: snapshot.entries.map(targetEntry),
+  route: routeOf(snapshot),
+  state: stateOf(snapshot.status),
+  runs: snapshot.runs.map(runOf),
+  entries: snapshot.entries.map(entryOf),
   ...(snapshot.defaultEntry !== undefined ? { defaultEntry: snapshot.defaultEntry } : {}),
   canCreate: snapshot.canCreate,
   ...(snapshot.user !== undefined ? { user: snapshot.user } : {}),
@@ -61,42 +61,42 @@ export const targetView = (snapshot: TargetSnapshot): TargetView => ({
 export interface PanelInput {
   theme: RunPanelTheme;
   page: PanelPage;
-  targets: readonly TargetSnapshot[];
+  connections: readonly ConnectionSnapshot[];
   profileSuggestions: readonly string[];
   /** Namen aus ragents.hostEnvironment ohne Wert in der SecretStorage. */
   missingSecrets: readonly string[];
   problem: string | undefined;
   pickedProfileFile: string | undefined;
-  runsEnvironment: string | undefined;
+  runsConnection: string | undefined;
 }
 
-/** Der ganze Zustand der Panelseite; sie zeichnet daraus Start, Runs oder Umgebungen. */
+/** Der ganze Zustand der Panelseite; sie zeichnet daraus Start, Runs oder Server. */
 export const panelState = (input: PanelInput): PanelState => ({
   theme: input.theme,
   page: input.page,
-  targets: input.targets.map(targetView),
+  connections: input.connections.map(connectionView),
   profileSuggestions: [...input.profileSuggestions],
   ...(input.missingSecrets.length > 0 ? { missingSecrets: [...input.missingSecrets] } : {}),
   ...(input.problem !== undefined ? { problem: input.problem } : {}),
   ...(input.pickedProfileFile !== undefined ? { pickedProfileFile: input.pickedProfileFile } : {}),
-  ...(input.runsEnvironment !== undefined ? { runsEnvironment: input.runsEnvironment } : {}),
+  ...(input.runsConnection !== undefined ? { runsConnection: input.runsConnection } : {}),
 });
 
-/** Wie viele Umgebungen gerade verbunden sind; die Statusleiste nennt diese Zahl. */
-export const connectedTargets = (targets: readonly TargetSnapshot[]): number =>
-  targets.filter((target) => target.status.kind === "connected").length;
+/** Wie viele Server gerade verbunden sind; die Statusleiste nennt diese Zahl. */
+export const connectedCount = (snapshots: readonly ConnectionSnapshot[]): number =>
+  snapshots.filter((snapshot) => snapshot.status.kind === "connected").length;
 
-/** Wartende Eingaben über alle Umgebungen hinweg; das Abzeichen am Run-Panel zählt sie. */
-export const pendingActions = (targets: readonly TargetSnapshot[]): number =>
-  targets.reduce((sum, target) => sum + target.runs.reduce((count, run) => count + run.pendingActions, 0), 0);
+/** Wartende Eingaben über alle Server hinweg; das Abzeichen am Run-Panel zählt sie. */
+export const pendingActions = (snapshots: readonly ConnectionSnapshot[]): number =>
+  snapshots.reduce((sum, snapshot) => sum + snapshot.runs.reduce((count, run) => count + run.pendingActions, 0), 0);
 
 /** "Neuer Run" belegt eine Startoption nur vor, wenn die gewählte Vorlage sie nicht selbst festlegt. */
 export const preselectable = (entry: StartEntrySummary | undefined, optionId: string): boolean =>
   entry?.fixedStartOptions === undefined || !Object.hasOwn(entry.fixedStartOptions, optionId);
 
-/** Ein Eintrag der Auswahl "Neuer Run": eine Umgebung, dazu eine ihrer Vorlagen oder der freie Auftrag. */
+/** Ein Eintrag der Auswahl "Neuer Run": ein Server, dazu eine seiner Vorlagen oder der freie Auftrag. */
 export interface NewRunChoice {
-  target: string;
+  connection: string;
   entryId: string | undefined;
   title: string;
   description: string;
@@ -105,25 +105,25 @@ export interface NewRunChoice {
 
 const kindWord = (entry: StartEntrySummary): string => entry.action === "skill" ? "Skill" : "Run-Script";
 
-/** Die erste Wahl einer Umgebung: ihr Default-Einstieg, sonst der freie Auftrag. */
-const firstChoice = (target: TargetSnapshot): NewRunChoice => {
-  const name = target.connection.name;
-  const entry = target.entries.find((candidate) => candidate.id === target.defaultEntry);
+/** Die erste Wahl eines Servers: seine Default-Vorlage, sonst der freie Auftrag. */
+const firstChoice = (snapshot: ConnectionSnapshot): NewRunChoice => {
+  const name = snapshot.connection.name;
+  const entry = snapshot.entries.find((candidate) => candidate.id === snapshot.defaultEntry);
   return entry === undefined
-    ? { target: name, entryId: undefined, title: "Neuer Run", description: "ohne Vorlage", detail: undefined }
-    : { target: name, entryId: entry.id, title: entry.title, description: `${kindWord(entry)} \u00b7 Standard`, detail: entry.description };
+    ? { connection: name, entryId: undefined, title: "Neuer Run", description: "ohne Vorlage", detail: undefined }
+    : { connection: name, entryId: entry.id, title: entry.title, description: `${kindWord(entry)} \u00b7 Standard`, detail: entry.description };
 };
 
-/** Die Umgebungen, die neue Runs erlauben, je mit dem freien Auftrag oder ihrem Default zuerst und dann ihren Vorlagen. */
-export const newRunChoices = (targets: readonly TargetSnapshot[]): Array<{ group: string; choices: NewRunChoice[] }> =>
-  targets
-    .filter((target) => target.status.kind === "connected" && target.canCreate)
-    .map((target) => ({
-      group: target.connection.name,
+/** Die Server, die neue Runs erlauben, je mit dem freien Auftrag oder ihrem Default zuerst und dann ihren Vorlagen. */
+export const newRunChoices = (snapshots: readonly ConnectionSnapshot[]): Array<{ group: string; choices: NewRunChoice[] }> =>
+  snapshots
+    .filter((snapshot) => snapshot.status.kind === "connected" && snapshot.canCreate)
+    .map((snapshot) => ({
+      group: snapshot.connection.name,
       choices: [
-        firstChoice(target),
-        ...target.entries.filter((entry) => entry.id !== target.defaultEntry).map((entry) => ({
-          target: target.connection.name,
+        firstChoice(snapshot),
+        ...snapshot.entries.filter((entry) => entry.id !== snapshot.defaultEntry).map((entry) => ({
+          connection: snapshot.connection.name,
           entryId: entry.id,
           title: entry.title,
           description: kindWord(entry),
@@ -132,16 +132,16 @@ export const newRunChoices = (targets: readonly TargetSnapshot[]): Array<{ group
       ],
     }));
 
-/** Auf welche Umgebung sich ein Befehl bezieht: die gewählte, sonst die einzige passende, sonst die Frage. */
-export const resolveTarget = (
-  targets: readonly TargetSnapshot[],
+/** Auf welchen Server sich ein Befehl bezieht: den gewählten, sonst den einzigen passenden, sonst die Frage. */
+export const resolveConnection = (
+  snapshots: readonly ConnectionSnapshot[],
   selected: string | undefined,
-  matches: (target: TargetSnapshot) => boolean,
-): { kind: "target"; name: string } | { kind: "ask"; candidates: readonly TargetSnapshot[] } | { kind: "none" } => {
-  const chosen = targets.find((target) => target.connection.name === selected);
-  if (chosen && matches(chosen)) return { kind: "target", name: chosen.connection.name };
-  const candidates = targets.filter(matches);
+  matches: (snapshot: ConnectionSnapshot) => boolean,
+): { kind: "connection"; name: string } | { kind: "ask"; candidates: readonly ConnectionSnapshot[] } | { kind: "none" } => {
+  const chosen = snapshots.find((snapshot) => snapshot.connection.name === selected);
+  if (chosen && matches(chosen)) return { kind: "connection", name: chosen.connection.name };
+  const candidates = snapshots.filter(matches);
   if (candidates.length === 0) return { kind: "none" };
-  if (candidates.length === 1) return { kind: "target", name: candidates[0]!.connection.name };
+  if (candidates.length === 1) return { kind: "connection", name: candidates[0]!.connection.name };
   return { kind: "ask", candidates };
 };

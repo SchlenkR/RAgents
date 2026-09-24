@@ -237,21 +237,21 @@ function FixedStartOption({ conflict, option, registry }: { conflict: boolean; o
 }
 
 /** Die Startoptionen einer Stelle; was die gewählte Vorlage festlegt, steht fest mit ihrem Wert statt zur Wahl. */
-export function StartOptionControls({ disabled, registry, placement = "surface", fixed = noneFixed }: {
+export function StartOptionControls({ disabled, registry, placement = "page", fixed = noneFixed }: {
   disabled: boolean;
   registry: PluginRegistry;
-  placement?: "surface" | "composer";
+  placement?: "page" | "composer";
   fixed?: Readonly<Record<string, unknown>>;
 }) {
   const access = useAccess();
   const control = useStartOptions();
   const loadError = control.errors.get("");
   if (!access.can("runs.create") || !access.can("runs.inspect")) return null;
-  const here = control.options.filter((option) => (registry.startOptions.get(option.id)?.placement ?? "surface") === placement);
+  const here = control.options.filter((option) => (registry.startOptions.get(option.id)?.placement ?? "page") === placement);
   const conflicts = new Set(conflictingStartOptions(here, fixed).map((option) => option.id));
   return (
     <>
-      {placement === "surface" && loadError && <p className="text-[0.75rem] text-destructive" role="alert">{loadError}</p>}
+      {placement === "page" && loadError && <p className="text-[0.75rem] text-destructive" role="alert">{loadError}</p>}
       {shownStartOptions(here, fixed).map(({ option, fixed: isFixed }) => {
         if (isFixed) return <FixedStartOption conflict={conflicts.has(option.id)} key={option.id} option={option} registry={registry} />;
         const Control = registry.startOptions.get(option.id)?.Control ?? ChoiceControl;

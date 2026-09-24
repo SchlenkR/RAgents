@@ -45,7 +45,7 @@ export default defineActor(contract, {
         }
         const catalog = await context.functions.model_list({});
         const profile = catalog.profiles.find((entry) => entry.driver === "agent" && entry.name === "standard");
-        if (!profile) throw new Error("Das Modellprofil standard fehlt.");
+        if (!profile) throw new Error("Die Rolle standard fehlt.");
         const actors = [];
         for (const participant of participants) {
           const actor = await context.functions.agent_spawn({ handle: participant.handle, displayName: participant.name, prompt, profile: profile.name, tools: [] });

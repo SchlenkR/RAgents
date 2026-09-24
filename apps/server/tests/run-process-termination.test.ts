@@ -76,7 +76,7 @@ test("the run marker is checked again before signaling", async () => {
   const f = fixture([record(10)], [[10, "run-a"]]);
   let reads = 0;
   f.table.runMarkers = async () => new Map([[10, ++reads === 1 ? "run-a" : "run-b"]]);
-  await assert.rejects(f.terminator().stop("run-a", processIdOf(record(10))), /nicht mehr zu diesem Lauf/);
+  await assert.rejects(f.terminator().stop("run-a", processIdOf(record(10))), /nicht mehr zu diesem Run/);
   assert.deepEqual(f.signals, []);
 });
 

@@ -124,7 +124,7 @@ const runCommand = async (context: WorkspaceProcessContext, command: CheckedComm
 export const commandModule = (platform: NodeJS.Platform = process.platform): WorkspaceModuleFactory => (host) => {
   const running = new Map<string, Set<RunningCommand>>();
   const stopAll = async (commands: readonly RunningCommand[]): Promise<void> => {
-    for (const command of commands) command.controller.abort(new Error("Der Befehl wurde mit seinem Lauf beendet"));
+    for (const command of commands) command.controller.abort(new Error("Der Befehl wurde mit seinem Run beendet"));
     await Promise.allSettled(commands.map((command) => command.finished));
   };
   const run: WorkspaceOperation = async ({ runId, input, signal }) => {

@@ -244,7 +244,7 @@ export function applyEvent(
             if (input.lifecycle.kind === "claimed")
                 throw new Error(`Input ${input.id} already belongs to turn ${input.lifecycle.turnId}.`);
 
-            input.lifecycle = { kind: "claimed", turnId: event.payload.turnId };
+            input.lifecycle = { kind: "claimed", turnId: event.payload.turnId, steered: false };
             target.lifecycle = {
                 kind: "running",
                 turnId: event.payload.turnId,
@@ -263,6 +263,17 @@ export function applyEvent(
                 outputs: [],
                 toolCalls: [],
             });
+            break;
+        }
+
+        case "turn.input-steered": {
+            const current = turn(state, event.payload.turnId);
+            const input = state.inputs.get(event.payload.inputId);
+
+            if (!input)
+                throw new Error(`Input ${event.payload.inputId} does not exist.`);
+
+            input.lifecycle = { kind: "claimed", turnId: current.id, steered: true };
             break;
         }
 

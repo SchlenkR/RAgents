@@ -96,12 +96,12 @@ const assert = require("node:assert/strict");
 const path = require("node:path");
 const settings = vscode.workspace.settings;
 const host = path.join(process.cwd(), "host");
-const names = (api) => api.panel().targets.map((target) => target.name);
+const names = (api) => api.panel().connections.map((connection) => connection.name);
 
 /** Die Panelseite schickt genau diese Aktionen; sie schreiben ragents.connections und melden Fehler in der Seite. */
 const checkPanelActions = async (api) => {
   assert.equal(api.panel().page, "start", "die Erweiterung beginnt auf der Start-Seite");
-  for (const page of ["runs", "environments", "start"]) {
+  for (const page of ["runs", "connections", "start"]) {
     await api.panelAction({ action: "page", page });
     assert.equal(api.panel().page, page);
   }
@@ -138,7 +138,7 @@ const checkPanelActions = async (api) => {
   assert.notEqual(api.panel().problem, undefined, "eine Profildatei, die es nicht gibt, kommt nicht durch");
 
   await api.panelAction({ action: "stopProfile", name: "entwicklung" });
-  assert.equal(api.panel().targets[2].state.kind, "stopped");
+  assert.equal(api.panel().connections[2].state.kind, "stopped");
 
   await api.panelAction({ action: "remove", name: "zweite" });
   assert.deepEqual(names(api), ["erste-neu", "entwicklung"]);
@@ -152,7 +152,7 @@ const checkPanelActions = async (api) => {
   ]);
   settings["ragents.hostPath"] = "";
 
-  const entwicklung = api.panel().targets[1];
+  const entwicklung = api.panel().connections[1];
   assert.equal(entwicklung.kind, "profile");
   assert.equal(entwicklung.address, path.join(host, "ragents.config.developer.ts"));
 };

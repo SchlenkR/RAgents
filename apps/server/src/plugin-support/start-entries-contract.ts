@@ -11,11 +11,11 @@ export interface StartEntryBase {
   order?: number;
   guide?: string;
   tags?: readonly string[];
-  /** Startoptionen, die der Einstieg festlegt: ein Run über ihn läuft genau mit diesen Werten. */
+  /** Startoptionen, die die Vorlage festlegt: ein Run über sie läuft genau mit diesen Werten. */
   fixedStartOptions?: Readonly<Record<string, JsonValue>>;
 }
 
-/** One entry of the start surface as GET /api/plugins publishes it; a script entry never carries its source. */
+/** One template of the start page as ragents.plugins.bootstrap publishes it; a script template never carries its source. */
 export type StartEntry = StartEntryBase & (
   | { action: "skill"; skill: string; category: string; prompt: string }
   | { action: "script"; coordinator: boolean; category?: string }
@@ -31,7 +31,7 @@ const text = (value: unknown): value is string => typeof value === "string" && v
 
 const BASE_FIELDS = ["id", "owner", "title", "description", "order", "guide", "tags", "fixedStartOptions", "action"];
 
-const invalid = (detail: string): Error => new Error(`Die Plugin-Konfiguration enthält einen ungültigen Einstieg: ${detail}`);
+const invalid = (detail: string): Error => new Error(`Die Plugin-Konfiguration enthält eine ungültige Vorlage: ${detail}`);
 
 export const startEntryFrom = (value: unknown): StartEntry => {
   if (!isRecord(value)) throw invalid("kein Objekt");

@@ -2,19 +2,35 @@ import { mkdir, realpath } from "node:fs/promises";
 import path from "node:path";
 import type { JsonValue, RunState, WorkspaceToolNaming } from "@ragents/engine";
 import { DomainError } from "@ragents/engine";
-import type { SandboxHomeEnvironment, WorkspaceExecutor } from "@ragents/workspace-executor";
+import {
+  RUN_FOLDER_OPERATIONS,
+  type RunFolderCreated,
+  type SandboxHomeEnvironment,
+  type WorkspaceExecuteOptions,
+  type WorkspaceExecutor,
+} from "@ragents/workspace-executor";
 import type {
   SessionWorkspace,
+  WorkspaceFolderStep,
+  WorkspacePlacement,
   WorkspaceResolver,
   WorkspaceRuntime,
   WorkspaceRuntimeDescription,
   WorkspaceTransfer,
+  WorkstationFolderContext,
 } from "@ragents/host/ragents/workspace-runtime.js";
 import { storedStartOption } from "@ragents/host/ragents/start-option-state.js";
 import { sandboxToolNaming } from "./workspace-tool-naming.js";
 import { WorkspaceSandboxHost } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
-import type { WorkspaceBinding } from "../contract.js";
-import { bindingOf, boundServerDirectory, serverDirectoryBinding, workspaceOwnerOf } from "./binding.js";
+import { FRESH_WORKSPACE_LABEL, isFreshFolder, type ExistingWorkspaceFolder, type WorkspaceBinding } from "../contract.js";
+import {
+  bindingOf,
+  boundServerDirectory,
+  isWorkstationBinding,
+  serverDirectoryFolder,
+  workspaceOwnerOf,
+  type WorkstationBinding,
+} from "./binding.js";
 import type { WorkspaceClientRegistry } from "./clients.js";
 
 export interface RunWorkspaceRuntimeOptions {
@@ -33,7 +49,7 @@ export interface RunWorkspaceRuntimeOptions {
 
 const runNotStarted = (): DomainError => new DomainError(
   "run-not-started",
-  "Die Unterhaltung ist noch nicht gestartet; das Arbeitsverzeichnis entsteht mit der ersten Nachricht.",
+  "Der Run ist noch nicht gestartet; das Arbeitsverzeichnis entsteht mit der ersten Nachricht.",
   409,
 );
 
@@ -54,6 +70,14 @@ const clientProjectDescription = (projectPath: string, label: string): string =>
   `It is a real project. Keep its structure, and never delete or reorganize files unless you are asked to. ${lookAround}`,
 ].join("\n");
 
+const freshWorkstationDescription = (folderPath: string, label: string): string => [
+  "# Working directory",
+  "",
+  `Your working directory is \`${folderPath}\` on the workplace "${label}", not on the server: a folder of this conversation alone.`,
+  "Every workspace tool runs there, and a relative path refers to that folder.",
+  "It starts empty unless the profile prepared content in it. Look around in it before you say anything about what is already there.",
+].join("\n");
+
 const freshDescription = (cwd: string): string => [
   "# Working directory",
   "",
@@ -68,13 +92,15 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
   readonly transfer: WorkspaceTransfer;
   readonly #options: RunWorkspaceRuntimeOptions;
   readonly #nugetCacheDirectory: string;
+  /** Die neuen Ordner auf Arbeitsplätzen, die in diesem Serverlauf schon angelegt oder in Arbeit sind. */
+  readonly #preparations = new Map<string, Promise<void>>();
 
   constructor(options: RunWorkspaceRuntimeOptions) {
     this.#options = options;
     this.transfer = {
       boundDirectory: (runId) => boundServerDirectory(options.runState(runId)),
-      assertDirectory: (directory) => void serverDirectoryBinding(directory),
-      rebind: (runId, directory) => options.storeBinding(runId, serverDirectoryBinding(directory)),
+      assertDirectory: (directory) => void serverDirectoryFolder(directory),
+      rebind: (runId, directory) => options.storeBinding(runId, { machine: "server", folder: serverDirectoryFolder(directory) }),
     };
     this.#nugetCacheDirectory = path.join(options.globalDirectory, "nuget-cache");
     this.sandbox = new WorkspaceSandboxHost({
@@ -103,30 +129,83 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     return { home, nugetPackages: this.#nugetCacheDirectory };
   }
 
-  /** Bei Bindung `client` führt der Arbeitsplatz des Run-Eigentümers aus, sonst der Executor des Servers. */
+  /** Auf einem Arbeitsplatz führt dessen Executor im Namen des Run-Eigentümers aus, sonst der des Servers. */
   #executorFor(runId: string): WorkspaceExecutor | undefined {
     const state = this.#options.runState(runId);
     const binding = bindingOf(state);
-    return binding.kind === "client"
-      ? this.#options.clients.executorFor(workspaceOwnerOf(state), binding.client, binding.label, binding.path)
-      : undefined;
+    if (!isWorkstationBinding(binding)) return undefined;
+    const { machine, folder } = binding;
+    const executor = this.#options.clients.executorFor(workspaceOwnerOf(state), machine.client, machine.label, folder.path);
+    return "fresh" in folder ? this.#preparing(state, binding, executor) : executor;
+  }
+
+  /** Vor dem ersten Auftrag eines Runs legt der Arbeitsplatz dessen neuen Ordner an; Aufräumen legt nie einen an. */
+  #preparing(state: RunState | null, binding: WorkstationBinding, executor: WorkspaceExecutor): WorkspaceExecutor {
+    return {
+      ...executor,
+      execute: async (runId, operation, input, options = {}) => {
+        if (!options.whenReachable) await this.#prepared(runId, state, binding, executor);
+        return executor.execute(runId, operation, input, options);
+      },
+    };
+  }
+
+  #prepared(runId: string, state: RunState | null, binding: WorkstationBinding, executor: WorkspaceExecutor): Promise<void> {
+    const known = this.#preparations.get(runId);
+    if (known) return known;
+    const preparation = this.#prepare(runId, state, binding, executor).catch((error: unknown) => {
+      this.#preparations.delete(runId);
+      throw error;
+    });
+    this.#preparations.set(runId, preparation);
+    return preparation;
+  }
+
+  /** Nur ein eben angelegter Ordner bekommt die Schritte des Beitrags; scheitert einer, verschwindet er wieder, und der nächste Auftrag beginnt neu. */
+  async #prepare(runId: string, state: RunState | null, binding: WorkstationBinding, executor: WorkspaceExecutor): Promise<void> {
+    const { created } = await executor.execute(runId, RUN_FOLDER_OPERATIONS.create, null) as RunFolderCreated;
+    const steps = created ? this.#contribution()?.workstation?.prepare(this.#workstationContext(runId, state, binding)) ?? [] : [];
+    try {
+      await this.#runSteps(runId, executor, steps);
+    } catch (error) {
+      await executor.execute(runId, RUN_FOLDER_OPERATIONS.remove, null, { whenReachable: true });
+      throw error;
+    }
+  }
+
+  async #runSteps(runId: string, executor: WorkspaceExecutor, steps: readonly WorkspaceFolderStep[], options: WorkspaceExecuteOptions = {}): Promise<void> {
+    for (const step of steps) await executor.execute(runId, step.operation, step.input, options);
+  }
+
+  #workstationContext(runId: string, state: RunState | null, binding: WorkstationBinding): WorkstationFolderContext {
+    const contribution = this.#contribution();
+    return {
+      runId,
+      path: binding.folder.path,
+      label: binding.machine.label,
+      choice: contribution && state ? this.#choiceFor(state, contribution) : null,
+    };
   }
 
   async resolve(runId: string, emitSystem: (text: string) => void): Promise<SessionWorkspace> {
     const state = this.#options.runState(runId);
     if (!state) throw runNotStarted();
     const binding = bindingOf(state);
-    switch (binding.kind) {
-      case "fresh": return this.#fresh(runId, state, emitSystem);
-      case "path": return this.#bound(binding, emitSystem);
-      case "client": return this.#clientSide(binding, emitSystem);
-    }
+    if (isWorkstationBinding(binding)) return this.#workstation(runId, state, binding, emitSystem);
+    const { folder } = binding;
+    return isFreshFolder(folder) ? this.#fresh(runId, state, emitSystem) : this.#bound(folder, emitSystem);
   }
 
-  /** Die Art des Arbeitsbereichs: der Beitrag benennt den Ordner je Run, die übrigen Bindungen sich selbst. */
-  kindOf(runId: string): string {
-    const binding = bindingOf(this.#options.runState(runId));
-    return binding.kind === "fresh" ? this.#contribution()?.kind?.id ?? "fresh" : binding.kind;
+  placementOf(runId: string): WorkspacePlacement {
+    const { machine, folder } = bindingOf(this.#options.runState(runId));
+    const placement: WorkspacePlacement = {
+      machine: machine === "server" ? "server" : "client",
+      folder: isFreshFolder(folder) ? "fresh" : "existing",
+    };
+    const contribution = this.#contribution();
+    const contributed = placement.folder === "fresh" && (placement.machine === "server" || contribution?.workstation !== undefined);
+    const kind = contributed ? contribution?.kind?.id : undefined;
+    return kind === undefined ? placement : { ...placement, kind };
   }
 
   async #fresh(runId: string, state: RunState, emitSystem: (text: string) => void): Promise<SessionWorkspace> {
@@ -150,8 +229,8 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     };
   }
 
-  #bound(binding: Extract<WorkspaceBinding, { kind: "path" }>, emitSystem: (text: string) => void): SessionWorkspace {
-    const cwd = path.resolve(binding.path);
+  #bound(folder: ExistingWorkspaceFolder, emitSystem: (text: string) => void): SessionWorkspace {
+    const cwd = path.resolve(folder.path);
     const existing = async (): Promise<string> => {
       try {
         return await realpath(cwd);
@@ -169,18 +248,23 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
   }
 
   /** Der Arbeitsbereich liegt auf dem Arbeitsplatz; der Server kennt nur seinen Pfad, und jeder lokale Griff darauf scheitert laut. */
-  #clientSide(
-    binding: Extract<WorkspaceBinding, { kind: "client" }>,
-    emitSystem: (text: string) => void,
-  ): SessionWorkspace {
-    emitSystem(`Arbeitsbereich: ${binding.path} (Projektordner auf dem Arbeitsplatz ${binding.label})`);
+  #workstation(runId: string, state: RunState, binding: WorkstationBinding, emitSystem: (text: string) => void): SessionWorkspace {
+    const { machine: { label }, folder } = binding;
+    const fresh = "fresh" in folder;
+    const workstation = this.#contribution()?.workstation;
+    emitSystem(fresh
+      ? `Arbeitsbereich: ${folder.path} (${workstation?.label ?? FRESH_WORKSPACE_LABEL} auf dem Arbeitsplatz ${label})`
+      : `Arbeitsbereich: ${folder.path} (Projektordner auf dem Arbeitsplatz ${label})`);
     const remote = (): Promise<string> => Promise.reject(new Error(
-      `Der Arbeitsbereich ${binding.path} liegt auf dem Arbeitsplatz ${binding.label}, nicht auf dem Server; `
+      `Der Arbeitsbereich ${folder.path} liegt auf dem Arbeitsplatz ${label}, nicht auf dem Server; `
       + "er ist nur über den Executor des Runs (SandboxServices.execute) erreichbar.",
     ));
+    const description = !fresh
+      ? clientProjectDescription(folder.path, label)
+      : workstation?.description?.(this.#workstationContext(runId, state, binding)) ?? freshWorkstationDescription(folder.path, label);
     return {
-      cwd: binding.path,
-      description: clientProjectDescription(binding.path, binding.label),
+      cwd: folder.path,
+      description,
       currentRoot: remote,
       runOperation: (operation) => operation(),
     };
@@ -206,7 +290,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     if (resolver.optionId === undefined) return null;
     const choice = storedStartOption(state, resolver.optionId);
     if (choice === undefined) {
-      throw new Error(`Die Startoption ${resolver.optionId} des Workspace-Resolvers ist in der Unterhaltung nicht gespeichert`);
+      throw new Error(`Die Startoption ${resolver.optionId} des Workspace-Resolvers ist im Run nicht gespeichert`);
     }
     return choice;
   }
@@ -223,19 +307,35 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     return this.#options.resolver();
   }
 
-  /** Der Beitrag räumt nur hinter den Runs auf, deren Arbeitsbereich er gestellt hat. */
-  #contributionFor(runId: string): WorkspaceResolver | undefined {
-    return bindingOf(this.#options.runState(runId)).kind === "fresh" ? this.#contribution() : undefined;
+  /** Auf dem Server gehört ein neuer Ordner samt Stopp und Löschen dem Beitrag; auf einem Arbeitsplatz räumt ihn der Host weg. */
+  #serverContributionFor(runId: string): WorkspaceResolver | undefined {
+    const { machine, folder } = bindingOf(this.#options.runState(runId));
+    return machine === "server" && isFreshFolder(folder) ? this.#contribution() : undefined;
+  }
+
+  /** Ist der Arbeitsplatz nicht erreichbar, bleibt der Ordner dort mit Hinweis liegen; der Run ist trotzdem gelöscht. */
+  async #removeWorkstationFolder(runId: string): Promise<void> {
+    this.#preparations.delete(runId);
+    const state = this.#options.runState(runId);
+    const binding = bindingOf(state);
+    if (!isWorkstationBinding(binding) || !("fresh" in binding.folder)) return;
+    const { machine, folder } = binding;
+    const executor = this.#options.clients.executorFor(workspaceOwnerOf(state), machine.client, machine.label, folder.path);
+    const steps = this.#contribution()?.workstation?.release?.(this.#workstationContext(runId, state, binding)) ?? [];
+    await this.#runSteps(runId, executor, steps, { whenReachable: true });
+    if (await executor.execute(runId, RUN_FOLDER_OPERATIONS.remove, null, { whenReachable: true }) !== null) return;
+    console.warn(`Der Ordner ${folder.path} des Runs ${runId} bleibt auf dem Arbeitsplatz ${machine.label}, weil er nicht erreichbar war.`);
   }
 
   async deleteSession(runId: string): Promise<void> {
-    const contribution = this.#contributionFor(runId);
+    const contribution = this.#serverContributionFor(runId);
     await this.stopSession(runId);
+    await this.#removeWorkstationFolder(runId);
     await contribution?.deleteSession?.(runId);
   }
 
   stopSession(runId: string): Promise<void> {
-    const contribution = this.#contributionFor(runId);
+    const contribution = this.#serverContributionFor(runId);
     const sandbox = (): Promise<void> => this.sandbox.shutdown(runId);
     return contribution?.stopSession ? contribution.stopSession(runId, sandbox) : sandbox();
   }

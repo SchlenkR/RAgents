@@ -13,7 +13,8 @@ import {
   type WorkspaceClientInfo,
 } from "../../../plugins/ragents.workspace/contract.ts";
 import {
-  workspaceBindingChoices,
+  workspaceFolderChoices,
+  workspaceMachineChoices,
   WorkspaceBindingBadge,
   WorkspaceBindingControl,
   WorkspaceMetadata,
@@ -23,6 +24,7 @@ const client = (values: Partial<WorkspaceClientInfo> & { id: string; label: stri
   hostname: "workstation",
   platform: "darwin",
   folders: ["/Users/example/repos/eins", "/Users/example/repos/zwei"],
+  runsDirectory: "/Users/example/.local/share/ragents/workspace/runs",
   ...values,
 });
 
@@ -40,10 +42,21 @@ const option = (
 });
 
 const presentationWith = (...clients: WorkspaceClientInfo[]) =>
-  ({ kind: "workspace-binding", clients, freshLabel: "Leerer Ordner je Run", serverFolders: true });
+  ({ kind: "workspace-binding", clients, fresh: { server: "Leerer Ordner je Run", client: "Leerer Ordner je Run" }, serverFolders: true });
 
 const contributedPresentation = (...clients: WorkspaceClientInfo[]) =>
-  ({ kind: "workspace-binding", clients, freshLabel: "Worktree je Run", serverFolders: false });
+  ({ kind: "workspace-binding", clients, fresh: { server: "Worktree je Run", client: null }, serverFolders: false });
+
+const serverFresh: WorkspaceBinding = { machine: "server", folder: "fresh" };
+
+const serverProject: WorkspaceBinding = { machine: "server", folder: { path: "/Users/example/repos/eins" } };
+
+const notebookProject: WorkspaceBinding = { machine: { client: "laptop-01", label: "Notebook" }, folder: { path: "/Users/example/repos/eins" } };
+
+const notebookFresh: WorkspaceBinding = {
+  machine: { client: "laptop-01", label: "Notebook" },
+  folder: { path: "/Users/example/.local/share/ragents/workspace/runs/run-1", fresh: true },
+};
 
 const session = (binding: WorkspaceBinding, summary: string): SessionInfo => ({
   id: "run-1",
@@ -59,81 +72,93 @@ const control = (value: unknown, presentation: unknown) => renderToStaticMarkup(
   setValue: async () => {},
 }));
 
-test("die Auswahl nennt beide Serverarten und jeden verbundenen Arbeitsplatz", () => {
+test("der Rechner nennt den Server und jeden verbundenen Arbeitsplatz", () => {
   const clients = [client({ id: "laptop-01", label: "Notebook" }), client({ id: "studio-02", label: "Mac Studio" })];
-  assert.deepEqual(workspaceBindingChoices(presentationWith(...clients), { kind: "fresh" }), [
-    { value: "fresh", label: "Leerer Ordner je Run" },
-    { value: "path", label: "Ordner auf dem Server" },
+  assert.deepEqual(workspaceMachineChoices(presentationWith(...clients), serverFresh), [
+    { value: "server", label: "Server" },
     { value: "laptop-01", label: "Arbeitsplatz Notebook" },
     { value: "studio-02", label: "Arbeitsplatz Mac Studio" },
   ]);
 });
 
-test("ein gebundener, nicht mehr verbundener Arbeitsplatz bleibt als Auswahl erhalten", () => {
-  const binding: WorkspaceBinding = { kind: "client", client: "laptop-01", label: "Notebook", path: "/Users/example/repos/eins" };
-  assert.deepEqual(workspaceBindingChoices(presentationWith(), binding).at(-1), {
+test("ein gebundener, nicht mehr verbundener Arbeitsplatz bleibt als Rechner erhalten", () => {
+  assert.deepEqual(workspaceMachineChoices(presentationWith(), notebookProject).at(-1), {
     value: "laptop-01",
     label: "Arbeitsplatz Notebook (nicht verbunden)",
   });
-  assert.equal(workspaceBindingChoices(presentationWith(client({ id: "laptop-01", label: "Notebook" })), binding).length, 3);
+  assert.equal(workspaceMachineChoices(presentationWith(client({ id: "laptop-01", label: "Notebook" })), notebookProject).length, 2);
 });
 
-test("ein beigesteuerter Arbeitsbereich benennt die erste Art und lässt Serverordner weg", () => {
-  assert.deepEqual(workspaceBindingChoices(contributedPresentation(client({ id: "laptop-01", label: "Notebook" })), { kind: "fresh" }), [
-    { value: "fresh", label: "Worktree je Run" },
-    { value: "laptop-01", label: "Arbeitsplatz Notebook" },
-  ]);
-  const html = control({ kind: "fresh" }, contributedPresentation());
+test("der Ordner bietet auf jedem Rechner den neuen und den vorhandenen an, soweit es sie dort gibt", () => {
+  const both = [{ value: "fresh", label: "Leerer Ordner je Run" }, { value: "existing", label: "Vorhandener Ordner" }];
+  assert.deepEqual(workspaceFolderChoices(presentationWith(), "server"), both);
+  assert.deepEqual(workspaceFolderChoices(presentationWith(), "laptop-01"), both);
+  assert.deepEqual(workspaceFolderChoices(contributedPresentation(), "server"), [{ value: "fresh", label: "Worktree je Run" }]);
+  assert.deepEqual(workspaceFolderChoices(contributedPresentation(), "laptop-01"), [{ value: "existing", label: "Vorhandener Ordner" }]);
+});
+
+test("ein beigesteuerter Arbeitsbereich benennt den neuen Ordner und lässt vorhandene Serverordner weg", () => {
+  const html = control(serverFresh, contributedPresentation());
   assert.ok(html.includes("Worktree je Run"));
-  assert.ok(!html.includes("Ordner auf dem Server"));
+  assert.ok(!html.includes("Vorhandener Ordner"));
+  assert.ok(!html.includes("Absoluter Pfad"));
 });
 
-test("die Control zeigt die gewählte Art, den Pfad und die angebotenen Ordner", () => {
-  const html = control(
-    { kind: "client", client: "laptop-01", label: "Notebook", path: "/Users/example/repos/eins" },
-    presentationWith(client({ id: "laptop-01", label: "Notebook" })),
-  );
+test("die Control zeigt Rechner, Ordner, Pfad und die angebotenen Ordner", () => {
+  const html = control(notebookProject, presentationWith(client({ id: "laptop-01", label: "Notebook" })));
   assert.ok(html.includes("Arbeitsbereich"));
   assert.ok(html.includes("Arbeitsplatz Notebook"));
+  assert.ok(html.includes("Vorhandener Ordner"));
   assert.ok(html.includes('value="/Users/example/repos/eins"'));
   assert.ok(html.includes("Angebotener Ordner"));
-  const fresh = control({ kind: "fresh" }, presentationWith());
+  const fresh = control(serverFresh, presentationWith());
   assert.ok(fresh.includes("Leerer Ordner je Run"));
   assert.ok(!fresh.includes("Absoluter Pfad"));
+  const workstationFresh = control(notebookFresh, presentationWith(client({ id: "laptop-01", label: "Notebook" })));
+  assert.ok(workstationFresh.includes("Arbeitsplatz Notebook"));
+  assert.ok(workstationFresh.includes("Leerer Ordner je Run"));
+  assert.ok(!workstationFresh.includes("Absoluter Pfad"), "den Pfad des neuen Ordners wählt niemand");
+  assert.ok(!workstationFresh.includes("Angebotener Ordner"));
 });
 
 test("eine unlesbare Darstellung oder ein unlesbarer Wert meldet den Fehler statt zu raten", () => {
-  const broken = control({ kind: "fresh" }, { kind: "choice", options: [] });
+  const broken = control(serverFresh, { kind: "choice", options: [] });
   assert.ok(broken.includes('role="alert"'));
   assert.ok(broken.includes(`Die Startoption ${WORKSPACE_BINDING_OPTION_ID} liefert keine Arbeitsbereich-Darstellung`));
   const wrongValue = control({ kind: "path" }, presentationWith());
   assert.ok(wrongValue.includes(`Der Wert der Startoption ${WORKSPACE_BINDING_OPTION_ID} ist keine Arbeitsbereich-Bindung`));
+  const mixed = control({ machine: "server", folder: { path: "/srv", fresh: true } }, presentationWith());
+  assert.ok(mixed.includes("ist keine Arbeitsbereich-Bindung"), "einen neuen Ordner mit Pfad gibt es nur auf einem Arbeitsplatz");
 });
 
-test("das Abzeichen erscheint erst, wenn die Bindung mit dem Start eingefroren ist", () => {
-  const badge = (value: unknown, locked: boolean) => renderToStaticMarkup(createElement(WorkspaceBindingBadge, {
-    option: option(value, presentationWith(), locked),
-    session: {} as SessionContext,
-  }));
-  const bound = { kind: "path", path: "/Users/example/repos/eins" };
-  assert.equal(badge(bound, false), "");
-  assert.ok(badge(bound, true).includes("Arbeitsbereich"));
-  assert.ok(badge(bound, true).includes("/Users/example/repos/eins"));
+test("das Abzeichen erscheint erst, wenn die Bindung mit dem Start eingefroren ist, auch für ein älteres Journal", () => {
+  const badge = (value: unknown, locked: boolean, presentation: unknown = presentationWith()) =>
+    renderToStaticMarkup(createElement(WorkspaceBindingBadge, {
+      option: option(value, presentation, locked),
+      session: {} as SessionContext,
+    }));
+  assert.equal(badge(serverProject, false), "");
+  assert.ok(badge(serverProject, true).includes("Arbeitsbereich"));
+  assert.ok(badge(serverProject, true).includes("/Users/example/repos/eins"));
+  assert.ok(badge(serverFresh, true).includes("Leerer Ordner je Run"));
+  assert.ok(badge(serverFresh, true, contributedPresentation()).includes("Worktree je Run"));
+  assert.ok(badge(notebookProject, true).includes("Notebook: /Users/example/repos/eins"));
+  assert.ok(badge(notebookFresh, true).includes("Notebook: /Users/example/.local/share/ragents/workspace/runs/run-1 (Leerer Ordner je Run)"));
+  assert.ok(badge({ kind: "path", path: "/Users/example/repos/eins" }, true).includes("/Users/example/repos/eins"));
+  assert.ok(badge({ kind: "client", client: "laptop-01", label: "Notebook", path: "/Users/example/repos/eins" }, true)
+    .includes("Notebook: /Users/example/repos/eins"));
   assert.ok(badge({ kind: "fresh" }, true).includes("Leerer Ordner je Run"));
-  assert.ok(renderToStaticMarkup(createElement(WorkspaceBindingBadge, {
-    option: option({ kind: "fresh" }, contributedPresentation(), true),
-    session: {} as SessionContext,
-  })).includes("Worktree je Run"));
   assert.ok(badge({ kind: "anders" }, true).includes("Arbeitsbereich unlesbar"));
 });
 
 test("die Run-Liste zeigt nur einen abweichenden Arbeitsbereich, die Kopfzeile immer", () => {
   const metadata = (placement: "header" | "list", info: SessionInfo) =>
     renderToStaticMarkup(createElement(WorkspaceMetadata, { placement, session: info }));
-  assert.equal(metadata("list", session({ kind: "fresh" }, "Leerer Ordner je Run")), "");
-  assert.ok(metadata("header", session({ kind: "fresh" }, "Leerer Ordner je Run")).includes("Leerer Ordner je Run"));
-  const bound = session({ kind: "path", path: "/Users/example/repos/eins" }, "/Users/example/repos/eins");
+  assert.equal(metadata("list", session(serverFresh, "Leerer Ordner je Run")), "");
+  assert.ok(metadata("header", session(serverFresh, "Leerer Ordner je Run")).includes("Leerer Ordner je Run"));
+  const bound = session(serverProject, "/Users/example/repos/eins");
   assert.ok(metadata("list", bound).includes("/Users/example/repos/eins"));
   assert.ok(metadata("list", bound).includes("Arbeitsbereich: /Users/example/repos/eins"));
+  assert.ok(metadata("list", session(notebookFresh, "Notebook: neuer Ordner")).includes("Notebook: neuer Ordner"), "ein neuer Ordner auf einem Arbeitsplatz weicht ab");
   assert.equal(metadata("list", { id: "run-2", title: "Ohne", updatedAt: 0 }), "");
 });

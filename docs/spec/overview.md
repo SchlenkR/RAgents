@@ -7,14 +7,14 @@ Kapiteln unter `docs/spec/`:
 - `core.md`: Run, Actor, ActorInput, Turn, Event, Subscription, Journal, Scheduler, Stopp-Pfade.
 - `typescript-platform.md`: die gemeinsame TypeScript-Ausführungsplattform, TypeScript-Actors und
   Run-Scripts.
-- `run-modules.md`: Actor-Programme mit Funktionen, intrinsischem Zustand und React-Views.
-- `plugins.md`: Plugin-Vertrag, Plugin-Ordner, Web als Plugin-Host, Startfläche und Einstiege,
-  Language-Server-Plugins, Skill-Einstiege.
-- `profiles.md`: Produktprofile und Konfiguration.
+- `actor-programs.md`: Actor-Programme mit Funktionen, intrinsischem Zustand und React-Views.
+- `plugins.md`: Plugin-Vertrag, Plugin-Ordner, Web als Plugin-Host, Startseite und Vorlagen,
+  Language-Server-Plugins, Skill-Vorlagen.
+- `profiles.md`: Profile und Konfiguration.
 
 Jedes Kapitel endet mit seinen offenen Grenzen. Was noch nicht ist, steht in `docs/concepts/`.
 Das Warum jeder Änderung steht als datierter Eintrag in `docs/decisions.md`, die Bedienung in
-`docs/operations.md`. Die verbindliche Event-Liste steht nur im Code
+`docs/usage.md`, der Betrieb in `docs/operations.md`. Die verbindliche Event-Liste steht nur im Code
 (`packages/ragents/src/domain/events.ts`), ebenso Plugin-Vertrag und Actor-Programm-Schemata
 (`packages/ragents/src/plugin-types.ts`, `apps/server/src/plugin-support/actor-programs/app-project.ts`).
 
@@ -68,7 +68,7 @@ the journal does not execute the recorded work again. The
 
 ## Mini-apps make the work interactive
 
-An actor can have a small interface: a mini-app in the workspace. It displays the actor's data
+An actor can have a small interface: a mini-app on the surface. It displays the actor's data
 and calls its functions. In the word game, this interface contains the start button, progress,
 and word list. On the collection board, both an AI assistant and a person can add entries to
 the same list.
@@ -79,30 +79,30 @@ functions, state, and interface connect.
 
 ## Plugins provide capabilities and reusable setups
 
-A plugin can add file functions, questions, or interface components, for example. A product
-profile selects the workspace's plugins and settings. A skill tells a model how to approach a
+A plugin can add file functions, questions, or interface components, for example. A profile
+selects the workspace's plugins and settings. A skill tells a model how to approach a
 task. A run script, by contrast, provides the programs for a prepared setup.
 
 Run scripts can provide a reusable setup and its interface while model responses remain
-variable. Skills and prepared workflows appear as selectable entries when the active profile
+variable. Skills and prepared workflows appear as selectable templates when the active profile
 provides them.
 <!-- /guide:ideas -->
 
 ## Produkt
 
 RAgents ist ein programmierbarer AI-Harness mit einer Weboberfläche: Chat, Agenten und kleine
-Bedienoberflächen auf einer gemeinsamen Kachelfläche. Agenten können mit unterschiedlichen Modellen arbeiten;
+Bedienoberflächen auf einer gemeinsamen Fläche. Agenten können mit unterschiedlichen Modellen arbeiten;
 die ausgelieferte Modellanbindung läuft über OpenRouter. TypeScript-Actors steuern feste
 Abläufe; TypeScript- und LLM-Actors können eigene Funktionen, Zustand und React-Views besitzen. Plugins erweitern die
 Arbeitsumgebung um typisierte Funktionen, Prompts, Dienste und UI; ein Profil stellt sie zusammen.
 Die Oberflächen eines Actors heißen in der Benutzeroberfläche, auf der Homepage und in den
 erzeugten Referenzen Mini-Apps. Technisch sind sie React-Views eines Actors.
-Skill-Einstiege werden nach einer verpflichtenden, frei benannten Kategorie gruppiert. Die
+Skill-Vorlagen werden nach einer verpflichtenden, frei benannten Kategorie gruppiert. Die
 neutrale Referenz stellt Mini-Apps an den Anfang; Schlagworte ergänzen Suche und Filter.
 
 Kleine TypeScript-Snippets führen einmalige Aufgaben und Aufbauaufrufe aus, ohne einen eigenen
 Actor zu benötigen. Snippets und dauerhafte Actor-Programme verwenden dieselben typisierten
-Funktionen der Extensions über `context.functions`. Ausgerüstete Modelle erhalten automatisch
+Funktionen der Plugins über `context.functions`. Ausgerüstete Modelle erhalten automatisch
 die verfügbaren Funktionsnamen mit Kurzbeschreibungen, laden die Details über `typescript_api`
 und führen Snippets mit `typescript_eval` aus. Diese beiden Werkzeuge gehören
 zur Server-Grundausstattung, unabhängig vom optionalen Plugin für Actor-Programme. Fachliche Aufträge beschreiben
@@ -111,12 +111,12 @@ Ein vorbereitetes Setup kann durch ein Run-Script aufgebaut werden. Skills verbi
 Arbeitsanweisungen für Agenten mit optionalen bearbeitbaren Startaufträgen und ergänzenden
 Dateien; TypeScript kann Aufbau und spätere Übergaben festlegen, während Modellantworten
 variabel bleiben. Die Produkt-Homepage unter `docs/homepage/index.html` erklärt diese Verbindung
-anhand des Profils `showcase` und seiner Referenzeinstiege. Der Einstieg stellt programmierbare
+anhand des Profils `showcase` und seiner Referenzvorlagen. Der Einstieg stellt programmierbare
 Setups in den Vordergrund. Jede Kernfunktion hat auf der Homepage drei Stufen: einen
 farbigen, leicht gedrehten Sticker im Einstieg mit höchstens zwei Zeilen Text als Themenlink,
 einen Abschnitt auf der Hauptseite mit Konzept, Nutzen, einem Funktionsschema und dem Link
 "Mehr über ..." in ein Guide-Kapitel, und dieses Guide-Kapitel aus markierten Abschnitten der
-Spec oder der Betriebsdokumentation. Die Abschnitte tragen `data-core-feature`; die
+Spec, der Bedienung oder des Betriebs. Die Abschnitte tragen `data-core-feature`; die
 Homepage-Prüfung verlangt je Kernfunktion genau einen Sticker, einen Abschnitt und einen
 Guide-Link, und einen Sticker ohne Abschnitt oder einen Abschnitt ohne Guide-Kapitel gibt es
 nicht. Sieben Sticker erschließen Setups, Mini-Apps, Agenten, die miteinander reden, KI mit
@@ -125,10 +125,10 @@ kleinen Ansichten stehen sie unter dem Einstiegstext. Der Einstieg hat unter den
 zusätzlichen Abstand; seine Hintergrundfarben und Kreise laufen weich ins Weiß der folgenden
 Abschnitte aus. Die Funktionsabschnitte nennen unter ihrer Konzeptüberschrift in einem kurzen
 Schlagsatz den Nutzen; nummerierte Oberzeilen entfallen. Danach folgt eine eigenständig
-verständliche Einführung: was das Konzept ist, welche Rolle es in der Unterhaltung hat und wie
+verständliche Einführung: was das Konzept ist, welche Rolle es im Run hat und wie
 es mit den anderen Beteiligten zusammenarbeitet. Die Hauptseite sagt je Fähigkeit einen Satz,
 nicht mehr: Technische Regeln und Bedienungsdetails (Knöpfe, Abstände, Pixelmaße,
-Tastaturwege, Speicherorte je Browser) stehen in `docs/operations.md` und damit im Guide, nicht
+Tastaturwege, Speicherorte je Browser) stehen in `docs/usage.md` und damit im Guide, nicht
 auf der Hauptseite; wer eine Bedienung ändert, ergänzt dort und nicht hier. Die Hauptseite
 erklärt zuerst die Konzepte unabhängig von einzelnen Anwendungsfällen. Überschriften benennen
 die Konzepte, nicht die Samples. Die Vorschauen sind ausdrücklich als Beispiele für das
@@ -141,13 +141,13 @@ sowie Werkzeuge und Mini-Apps. Die Texte stehen links im normalen Dokumentfluss.
 Breite hält CSS rechts einen gemeinsamen Rahmen unter der Kopfzeile fest. GSAP ScrollTrigger
 wechselt dessen Inhalt beim Erreichen des nächsten Textabschnitts; Position und Größe des
 Rahmens bleiben während der Schritte stabil. Die eingebetteten Vorschauen melden ihre
-Inhaltshöhe; Frames und Bühne wachsen mit, auch nach eigener Bedienung. Es gibt keinen
-zusätzlichen Scrollbereich innerhalb der Vorschauen. Passt die Bühne nicht vollständig unter die Kopfzeile,
+Inhaltshöhe; Frames und Vorschau wachsen mit, auch nach eigener Bedienung. Es gibt keinen
+zusätzlichen Scrollbereich innerhalb der Vorschauen. Passt die Vorschau nicht vollständig unter die Kopfzeile,
 stehen Texte und Vorschauen paarweise im normalen Seitenlauf. Das gilt auch bei reduzierter Bewegung.
 Die Fixierung benötigt keine DOM-Umsortierung: Alle Darstellungen und die Mini-App bleiben
-permanent in derselben Bühne. Mobil und ohne JavaScript ordnet CSS die Texte und Bilder paarweise
-an. Vier Sprunglinks unter der festen Bühne führen zu den Textabschnitten. Erst am Ende der
-vierten Funktion scrollt die Bühne mit der Seite weiter.
+permanent in derselben Vorschau. Mobil und ohne JavaScript ordnet CSS die Texte und Bilder paarweise
+an. Vier Sprunglinks unter der festen Vorschau führen zu den Textabschnitten. Erst am Ende der
+vierten Funktion scrollt die Vorschau mit der Seite weiter.
 
 Die Scrollposition steuert konkrete, schematisch dargestellte Referenzabläufe. Das Setup zeigt
 die drei Aufbauaufrufe des Run-Scripts `shared-actor-list`: Listenhelfer anlegen, Listenprogramm
@@ -168,7 +168,7 @@ Sample-Zustand noch Framehöhe. Die Größenanpassung beginnt nach dem Laden all
 Während einer Größenmeldung entsteht kein innerer Scrollbalken.
 Die verlinkten Samples bringen denselben Aufbau und dieselbe Oberfläche für einen echten Run mit.
 Der Mini-App-Abschnitt zeigt die tatsächlich bedienbare gemeinsame Liste aus dem
-Referenzeinstieg `shared-actor-list` in einem Iframe. Oberfläche, Listenfunktion, Controls und
+Referenzvorlage `shared-actor-list` in einem Iframe. Oberfläche, Listenfunktion, Controls und
 Styles stammen aus dessen Originalquellen. Ein lokaler Browseradapter ersetzt den Run-Zugriff;
 die Demo startet keinen Run und sendet keine Eingaben an einen Server. Sie beginnt mit einer
 gekennzeichneten Beispielnotiz. Weitere Einträge entstehen nur durch die Bedienung der Liste;
@@ -180,38 +180,38 @@ mit `connect-src 'none'` sperrt Netzwerkverbindungen aus der Demo im Browser.
 Die Konzepttexte bleiben zugänglich; nur inaktive Darstellungen sind
 für Tastatur und Screenreader ausgeblendet. Die Seite verändert weder Mausrad- noch
 Touch-Ereignisse und rastet nicht ein. Auf kleineren Ansichten steht jede Darstellung bei ihrem
-Text. Die Funktionsschemata für Setup, Ereignisse und Arbeitsfläche animieren während ihres Wegs
+Text. Die Funktionsschemata für Setup, Ereignisse und Fläche animieren während ihres Wegs
 durch den Viewport. Diese Animationen sind direkt
 an den Scrollfortschritt gebunden, stehen bei unveränderter Scrollposition still und laufen
 beim Zurückscrollen rückwärts. Ohne JavaScript und beim Drucken bleiben Erklärung und Links
 auf die Samples lesbar; die lokalen React-Vorschauen benötigen JavaScript. Bei reduzierter Bewegung bleibt die Mini-App
 bedienbar. Im normalen Seitenlauf trennt ein Abstand die aufeinanderfolgenden Beispiele;
-Konzepttext und Vorschau beginnen jeweils oben in ihrer Zeile. Änderungen der Fensterbreite wechseln zwischen fester Bühne und
+Konzepttext und Vorschau beginnen jeweils oben in ihrer Zeile. Änderungen der Fensterbreite wechseln zwischen fester Vorschau und
 paarweiser Darstellung; die Bewegungseinstellung steuert nur Animationen. Geöffnete Details
 aktualisieren die Scrollgrenzen. Maßgeblich ist der Viewport der Homepage, in der eingebetteten Hilfe also
-das kleinere Iframe. Die Bühne richtet ihre Höhe nach den Inhalten aus und bleibt nur bei
+das kleinere Iframe. Die Vorschau richtet ihre Höhe nach den Inhalten aus und bleibt nur bei
 ausreichendem Platz fixiert. Die Mini-App-Controls bleiben bedienbar.
 
-Danach erklärt ein beschriftetes Schema die gemeinsame Arbeitsfläche und die
-Unterhaltung als Run. Ereignisse und Abonnements sowie das Journal ergänzen die Kernfunktionen
+Danach erklärt ein beschriftetes Schema die gemeinsame Fläche und den
+Run. Ereignisse und Abonnements sowie das Journal ergänzen die Kernfunktionen
 in einem eigenen Abschnitt. Die Seite bleibt eine Folge von Abschnitten in einer Spalte;
 Text und Grafik stehen auf breiten Ansichten nebeneinander, mobil untereinander. Jeder
 Funktionsabschnitt nennt Nutzen, ein vorhandenes Referenzbeispiel und einen passenden Link zur
 Vertiefung. Rückfragen und Dateien ergänzen die Funktionsübersicht. Ein farblich abgesetzter
 Entwicklungsbereich erschließt Plugins, Profile und die Referenzen für Menschen und Modelle.
-Vorhandene Einstiege und Installation folgen anschließend; Grenzen und Anwendungsideen stehen
+Vorhandene Vorlagen und Installation folgen anschließend; Grenzen und Anwendungsideen stehen
 im letzten Abschnitt.
 Ein Funktionsschema zeigt, wie ein abgeschlossenes Agentenergebnis über passende Abonnements
 als Nachricht an Agenten und TypeScript-Actors gelangt: Erst erreicht es den Filter, dann beide
-Empfänger. Im Schema der Arbeitsfläche folgen auf die Auftragsannahme die Bearbeitung und eine nutzbare
+Empfänger. Im Schema der Fläche folgen auf die Auftragsannahme die Bearbeitung und eine nutzbare
 Mini-App; das Journal hebt die zugehörigen Arbeitsschritte hervor. Das Journal besitzt ein
 interaktives Replay-Lesebeispiel ohne Server; ohne JavaScript bleiben alle Einträge und der
 Endzustand lesbar. Icons und Funktionsschemata sind direkt als HTML und SVG eingebettet und
-zeigen keine echten Läufe. Das Schema der Arbeitsfläche übernimmt die matte, warm graulila Fläche
+zeigen keine echten Runs. Das Schema der Fläche übernimmt den matten, warm graulila Hintergrund
 und die geraden Tiefenkörper des Schichtwerk-Stils. Lavendel, Ton, Senfgelb und Kalkweiß
 unterscheiden Koordinator, weitere KI-Actors, TypeScript-Actors und Mini-Apps. Abgerundete Kanten,
 Konturen und nach rechts oben gestufte Seitenflächen machen die Tiefe sichtbar. Aktuell sind keine
-Screenshots eingebunden; neue Aufnahmen müssen echte Läufe des Profils core im aktuellen
+Screenshots eingebunden; neue Aufnahmen müssen echte Runs des Profils core im aktuellen
 Oberflächenstil zeigen.
 
 Die Kopfzeile mit Wortmarke und Hauptnavigation bleibt beim Scrollen sichtbar. Hauptseite,
@@ -233,18 +233,19 @@ Die intern erzeugten Textfassungen `reference.md` und `developer.md` bilden die 
 Entwicklerreferenz; sie gehören nicht zum öffentlichen Export und werden von der Produktseite
 nicht verlinkt. Ihre Seiten- und Themeneinstiege erklären den jeweiligen
 Baustein vor den technischen Verträgen und Codebeispielen. Der Generator unter `scripts/homepage/` liest neutrale Werkzeuge,
-Schemas, UI-Verträge, Mini-App-Vorlagen und Einstiege aus dem Code. Kleine Entwicklungsbeispiele
-erklären die Erweiterungsflächen; Vertragsabdeckung und generierte Dateien werden geprüft.
+Schemas, UI-Verträge, Mini-App-Vorlagen und die Vorlagen der Startseite aus dem Code. Kleine Entwicklungsbeispiele
+erklären die Erweiterungspunkte; Vertragsabdeckung und generierte Dateien werden geprüft.
 Die Referenzgenerierung komponiert die Plugins isoliert mit vorhandenen öffentlichen
-Katalogmodellen; Netzaufrufe und Modellläufe sind dabei gesperrt.
+Katalogmodellen; Netzaufrufe und Modellaufrufe sind dabei gesperrt.
 Private Profile, Konfigurationswerte und Laufzeitdaten gehören nicht zu diesen Seiten.
 
 `guide.html` erschließt neun zusammenhängende Kapitel: Grundideen, Laufzeit, Einstieg, die drei
 Zugänge Web, VS Code und Konsole, verteiltes Arbeiten, TypeScript-Funktionen, Actor-Programme
 und Mini-Apps, Plugins und Skills sowie Zugriff. Die Kapitel liegen als
 `guide-<id>.html` und als Markdown vor. Ihre Texte stammen direkt aus ausdrücklich mit
-`<!-- guide:<id> -->` und `<!-- /guide:<id> -->` markierten Abschnitten der Spec und
-`docs/operations.md`; mehrere Blöcke eines Kapitels werden in Dokumentreihenfolge zusammengefügt.
+`<!-- guide:<id> -->` und `<!-- /guide:<id> -->` markierten Abschnitten der Spec, von
+`docs/usage.md` und `docs/operations.md`; mehrere Blöcke eines Kapitels werden in
+Dokumentreihenfolge zusammengefügt, bei mehreren Quelldateien in deren festgelegter Reihenfolge.
 Es gibt keine zweite redaktionelle Kopie. `scripts/homepage/homepage-guide.ts` hält Kapitelreihenfolge,
 Seiteneinstiege und Verweise und rendert das Markdown mit Marked beim Build. Der Browser braucht
 dafür weder eine Markdown-Laufzeit noch einen Dokumentationsserver. Kapitelübersicht,
@@ -260,20 +261,20 @@ Seiten- oder Sprungziele im Export. Interne Betriebsangaben, Entscheidungen und 
 werden nicht pauschal veröffentlicht. Die Markdown-Kapitel stehen im LLM-Index; alle
 Guide-Dateien gehören zum statischen Export und zur eingebetteten Hilfe.
 
-Die mitgelieferten neutralen Referenzeinstiege sind Demos für RAgents-Konzepte und mögliche
+Die mitgelieferten neutralen Referenzvorlagen sind Demos für RAgents-Konzepte und mögliche
 High-Level-Testfälle. Sie sind als Anwendungsfälle und Konzeptdemos verschlagwortet. Die
-Beispielübersicht wird aus diesen Tags und dem Konzeptkatalog der Referenz-Extension erzeugt;
+Beispielübersicht wird aus diesen Tags und dem Konzeptkatalog des Referenz-Plugins erzeugt;
 die Prüfung verlangt mindestens zwei Beispiele pro erfasstem Produktkonzept. Kundenspezifische
-Abläufe gehören nicht zu diesem Katalog. Jeder Skill-Einstieg enthält einen Prompt und zählt
+Abläufe gehören nicht zu diesem Katalog. Jede Skill-Vorlage enthält einen Prompt und zählt
 als ein Beispiel. UI-Controls sind keine eigenen Demo-Konzepte und haben keine Beispielquote.
 Die Demos kombinieren die für ihren Anwendungsfall passenden Controls; eine vollständige
-Control-Abdeckung ist kein Ziel. Die Beschreibung jedes Demo-Einstiegs erklärt, was er zeigen
-soll und wodurch er sich von ähnlichen Fällen unterscheidet. Neue Produktkonzepte erhalten
+Control-Abdeckung ist kein Ziel. Die Beschreibung jeder Demo-Vorlage erklärt, was sie zeigen
+soll und wodurch sie sich von ähnlichen Fällen unterscheidet. Neue Produktkonzepte erhalten
 mindestens zwei unterschiedliche neutrale Beispiele. Anwendungsfälle und Konzeptdemos sind zwei überlappende Perspektiven;
 reine Bedienabläufe werden als solche in der Referenz beschrieben und nicht als ausführbare
-Run-Einstiege ausgegeben.
-Der UI-Katalog, seine Typabhängigkeiten und Props entstehen aus den exportierten Verträgen der
-Mini-App-Extension; die Prop-Tabellen decken die eigenen Bausteine ab, die shadcn-Komponenten
+Vorlagen ausgegeben.
+Der UI-Katalog, seine Typabhängigkeiten und Props entstehen aus den exportierten Verträgen des
+Mini-App-Plugins; die Prop-Tabellen decken die eigenen Bausteine ab, die shadcn-Komponenten
 sind bei shadcn und Base UI dokumentiert. Die interaktiven UI-Demos zeigen dieselben Komponenten
 wie die Mini-Apps. Compiler, Laufzeit-Nachschlagewerkzeug und Referenz verwenden denselben
 Dateisammler; eine Prüfung gleicht die Verträge mit den tatsächlichen Komponentenexporten ab.
@@ -304,12 +305,12 @@ derselben Aufruf- und Zeitgrenzen. Bericht, Antworten je Versuch und tatsächlic
 Leseabdeckung liegen in einem neuen Ausgabeordner außerhalb des Repositorys. Belege dürfen
 mehrere lückenlos gelesene Ausschnitte umfassen. `--resume` setzt nur
 die Synthese mit gespeicherten Prüferberichten fort, wenn Quellenstand, Fokus und Modus
-unverändert sind; der neue Lauf erhält ein eigenes Budget und einen neuen Ausgabeordner.
+unverändert sind; der neue Durchlauf erhält ein eigenes Budget und einen neuen Ausgabeordner.
 Die Prüfung verändert keine Quellen und beansprucht keine vollständige Abdeckung. Ein Dry-Run prüft
 Parameter und Korpus ohne Modellaufruf. Die Konsole macht Rollen, Phasen, Quellzugriffe,
 Modellaufrufe und Wartezeiten mit Zeitstempeln sichtbar; der Abschluss nennt Dauer und
 Ergebnisordner. Das Werkzeug ist kein Plugin und führt keine
-Run-Snippets oder Actor-Programme aus. Aufruf und Grenzen stehen in `docs/operations.md`.
+Run-Snippets oder Actor-Programme aus. Aufruf und Grenzen stehen in `docs/development.md`.
 
 Alle UI-Entwürfe liegen unter `docs/ui-drafts/`. Die bestehende Seite
 `docs/ui-drafts/index.html` sammelt die Entwurfsseiten als eigene Tabs, einschließlich älterer
@@ -332,7 +333,7 @@ kleine Checkboxen und schmale Fortschrittsleisten erhalten engere, schwächere S
 größere Felder behalten die volle Wirkung. Der globale Stärkeregler multipliziert diese
 Größenabstufung; eine Skalierung der gesamten Szene verändert ihre Proportionen nicht.
 Die Boxenfronten verwenden feste matte Farben; eine mausabhängige Beleuchtung gibt es nicht.
-Die produktive Gestaltung der Kachelfläche übernimmt die matten Flächen und geraden Konturen
+Die produktive Gestaltung der Fläche übernimmt die matten Farben und geraden Konturen
 dieser Materialrichtung, aber keine Tiefe; die Einzelheiten beschreibt `plugins.md`. Der
 Offline-Entwurf bleibt als eigener
 Vergleich in der bestehenden Übersicht erhalten und ist keine Aufnahme eines echten Runs.
@@ -353,7 +354,7 @@ Bundles und verlangt, dass sie zu ihren Quellen passen.
 Alle Skripte wechseln in die Repository-Wurzel und brechen beim ersten Fehler ab.
 `.vscode/tasks.json` bietet dafür drei Tasks: `build` (Standard), `check` und `open: homepage`.
 Die Tasks enthalten nur Skriptaufrufe. Bestehende pnpm-Befehle für Teilbuilds und Einzelprüfungen
-bleiben ohne zusätzliche Wrapper-Skripte verfügbar. Die Bedienung steht in `docs/operations.md`.
+bleiben ohne zusätzliche Wrapper-Skripte verfügbar. Die Bedienung steht in `docs/development.md`.
 
 ## Leitsatz
 
@@ -370,42 +371,71 @@ und Journal. Ein Modell muss diese Welt nicht kennen. Mit leerer Werkzeugauswahl
 seinen normalen Systemprompt und den Text seines aktuellen Inputs.
 
 Fachlichkeit und externe Integrationen sind keine Bestandteile des neutralen Cores. Sie werden
-durch ein Anwendungsprofil und dessen Plugins ergänzt. Ein anderes Produkt soll denselben Core
+durch ein Profil und dessen Plugins ergänzt. Ein anderes Produkt soll denselben Core
 ohne diese Plugins und deren Tabs verwenden können.
 
 ## Begriffe
 
 | Begriff              | Bedeutung                                                                                                                                                                                  |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Agentenlaufzeit      | Laufzeit eines einzelnen Agenten: Modell, privater Kontext, Agentenschleife, Tool-Aufrufe, Skills, Compaction, Provider und Extensions.                                                    |
+| Agentenlaufzeit      | Laufzeit eines einzelnen Agenten: Modell, privater Kontext, Agentenschleife, Tool-Aufrufe, Skills, Compaction, Provider und Hooks.                                                         |
 | RAgents Core         | Produktneutraler Mehragenten-Kern: Runs, Actors, ActorInputs, Turns, Events, Subscriptions, Journal, Scheduler, Artefakte und Plugin-Host.                                                 |
-| Plugin               | Eine vertikale Produktfähigkeit. Es kann gemeinsam Serverdienste, Agent-Extensions, Tools, Skills, Promptteile, Methoden, UI-Beiträge, Daten und Lebenszyklus liefern.                     |
-| Agent-Extension      | der offizielle Erweiterungsmechanismus der Agentenlaufzeit für EINE AgentSession. Eine Extension kann Tools oder Ressourcen registrieren und auf Ereignisse der Agentenlaufzeit reagieren. |
+| Plugin               | Eine vertikale Produktfähigkeit. Es kann gemeinsam Serverdienste, Hooks, Tools, Skills, Promptteile, Methoden, UI-Beiträge, Daten und Lebenszyklus liefern.                     |
+| Hook                 | Ein Eingriff in Modell- und Werkzeugaufrufe EINER AgentSession über das Extension-System der Agentenlaufzeit. Ein Hook kann Tools oder Ressourcen registrieren und auf Ereignisse der Agentenlaufzeit reagieren. |
 | Skill                | Eine Arbeitsanleitung für das Modell mit optionalem Startauftrag und ergänzenden Dateien. Ein Skill ist weder Plugin noch ausführbarer Actor.                                                                                                  |
 | Actor                | Ein Teilnehmer des Runs: der menschliche Owner, ein Agent mit Modell oder ein TypeScript-Actor aus TypeScript. Nur ausführbare Actors besitzen Inputs, Turns und einen Lebenszyklus.       |
 | ActorInput           | Ein Auftrag aus Text, optionalen Artefakten und optionaler Event-Herkunft für genau einen Actor. Ein Input wird höchstens von einem Turn beansprucht.                                      |
-| Turn                 | Genau eine Ausführung eines Actors für genau einen ActorInput. Neue Inputs verändern einen laufenden Turn nicht.                                                                           |
+| Turn                 | Eine Ausführung eines Actors, begonnen mit genau einem ActorInput. Inputs an einen Agenten mit laufendem Turn speist dieser vor seiner nächsten Modellanfrage ein (Steering).              |
 | Event                | Unveränderlicher Fakt im Journal v4, zum Beispiel Modelltext, Reasoning, Tool-Aufruf, Turn-Abschluss, Action oder Artefakt.                                                                |
 | Subscription         | Strukturierter Filter eines Actors auf neue beobachtbare Events. Jeder Treffer erzeugt einen neuen ActorInput für den Subscriber.                                                          |
 | Primary-Actor        | Der ausdrücklich gewählte Actor, dessen Modelltext das Produkt als sichtbaren Chat behandelt. Diese Rolle ist unabhängig von der Erzeugerlinie.                                            |
 | TypeScript-Actor     | Ein Actor, dessen Turn deterministisches TypeScript statt eines Modells ausführt. Er besitzt keine Agent-Session, verwendet aber dieselben registrierten Dienste und Werkzeuge.            |
-| Actor-Programm | Ein privates TypeScript-Paket, das einem Actor Funktionen, Input-Verarbeitung und optionale React-Views bereitstellt. |
+| Actor-Programm | Ein privates TypeScript-Paket, das einem Actor Funktionen, Input-Verarbeitung und optionale React-Views bereitstellt; ein typgeprüfter TypeScript-Build mit nativer Node-Ausführung auf der gemeinsamen RAgents-Ausführungsplattform. |
 | Actor-Zustand | Intrinsische journalisierte Daten eines Actors, gemeinsam für seine Funktionen, Input-Verarbeitung und Views. |
 | Mini-App | Eine React-Oberfläche ihres Actors. Sie zeigt dessen Zustand und ruft Funktionen ohne zusätzlichen Modell-Turn auf. |
 | Werkzeugkarte        | Eine vom Host aus dem typisierten Werkzeugvertrag erzeugte Eingabe direkt am Zielagenten, ohne zusätzliche Fensterhülle. Sie enthält keinen eigenen App-Code.                                               |
-| App-Host             | Eine Kachel der Arbeitsfläche mit lokaler Vollansicht für den Benutzer. Beide laden dieselbe vollständige Mini-App.                                                                  |
-| Run-Programm         | Typgeprüfter TypeScript-Build mit nativer Node-Ausführung auf der gemeinsamen RAgents-Ausführungsplattform.                                                                |
+| App-Host             | Eine Kachel der Fläche mit lokaler Vollansicht für den Benutzer. Beide laden dieselbe vollständige Mini-App.                                                                  |
 | Komponente           | Ein wiederverwendbarer Baustein ohne Installations- und Produktlebenszyklus, zum Beispiel die Chat-Bausteine in apps/web/src/chat.                                                         |
-| Anwendungsprofil     | Die ausdrückliche, geordnete Zusammenstellung von Core und Plugins zu einem Produkt, zum Beispiel `core`.                                                                                  |
+| Profil               | Die ausdrückliche, geordnete Zusammenstellung von Core und Plugins zu einem Produkt, zum Beispiel `core`.                                                                                  |
 
-PLUGIN bedeutet also nicht Tool und auch nicht Agent-Extension. Beides sind mögliche Facetten eines
+PLUGIN bedeutet also nicht Tool und auch nicht Hook. Beides sind mögliche Facetten eines
 Plugins. Ein Integrationsplugin bündelt beispielsweise Client, Projektion, Methoden,
 Agenten- und Logik-Werkzeuge, Promptregeln, Web-Tab und Lösch-Lebenszyklus.
+
+## Glossar
+
+Ein Begriff je Sache, in Doku, Oberfläche, Guide und Code. Die rechte Spalte nennt, was dafür
+nicht mehr verwendet wird. Begriffe des Codes stehen in Namen, Methoden und Verträgen.
+
+| Sache | Doku und Oberfläche | Guide (en) | Code | nicht mehr |
+| --- | --- | --- | --- | --- |
+| eine Arbeit mit genau einem Journal | Run | run | `runId`, `ragents.runs.*` | Lauf, Unterhaltung, Session (für den Run) |
+| frei angeordnete Kacheln der Actors und Mini-Apps eines Runs | Fläche | surface | `surface` | Canvas, Arbeitsfläche, Kachelfläche |
+| ein Element der Fläche | Kachel | tile | `tile` | Kachel für Einträge der Startseite |
+| die eine Mini-App groß im Run-Panel | Bühne | stage | `stage` | Fläche für diese Mini-App |
+| Eintrag der Startseite, Art Skill oder Script | Vorlage | template | `StartEntry` | Einstieg, Startvorlage, Skill-Einstieg, Startkarte, Kachel |
+| Kopie eines Runs bis zu einem Zeitpunkt (Konzept) | Run-Fork | run fork | `forkRun` | Run-Vorlage |
+| Dateien und Executor eines Runs | Arbeitsbereich | workspace | `workspace` | Arbeitsordner, Arbeitsbereich für Panels |
+| angemeldeter Rechner oder VS-Code-Fenster | Arbeitsplatz | workstation | `WorkspaceClient` | Arbeitsbereich für den Rechner |
+| Reiterleiste neben Chat und Bühne | Leiste | tab bar | `workspaceTabs` | rechter Arbeitsbereich, rechtes Panel |
+| Eintrag der VS-Code-Erweiterung für einen RAgents-Server | Server | server | `Connection` | Umgebung, Ziel, Target |
+| Chat eines Benutzers über allen seinen Runs | globaler Koordinator | global coordinator | Plugin `ragents.overseer` | übergeordneter Koordinator, Overseer |
+| Datei `ragents.config.<name>.ts` | Profil | profile | `PRODUCT_PROFILE` | Anwendungsprofil, Produktprofil |
+| Modellvorgabe `coordinator`, `standard`, `relay` | Rolle | role | `profile` in `model_list` und Journal | Agentprofil, Koordinatorprofil, Rollenprofil |
+| Erweiterungseinheit von RAgents | Plugin | plugin | `plugin` | Extension, Erweiterung |
+| Zusatz zu VS Code | Erweiterung | extension | `apps/vscode` | Plugin |
+| Eingriff in Modell- und Werkzeugaufrufe eines Agenten | Hook | hook | `agentRuntime` | Agent-Extension |
+| privates TypeScript-Paket eines Actors | Actor-Programm | actor program | `actorProgram` | Run-Programm, Run-Modul, Programmpaket |
+
+Zwei Namen bleiben im Code, obwohl die Doku anders spricht: Die Rolle heißt in Journal, Katalog
+und `model_list` weiter `profile`, weil Journale sie so tragen und es keine Migrationen gibt; der
+Plugin-Vertrag nennt einen Run in Typnamen noch `Session` (`SessionContext`, `sessionMetadata`,
+`storage.session`), die Nachrichtenschicht nicht mehr.
 
 ## Architektur
 
 ```text
-Anwendungsprofil, zum Beispiel core
+Profil, zum Beispiel core
   |
   +-- geordnete Liste der Plugins (in core 18)
   |
@@ -418,15 +448,15 @@ Anwendungsprofil, zum Beispiel core
   |     +-- eine langlebige AgentSession je RAgents-Agent
   |     +-- ragents-turn-dispatcher
   |     +-- ragents-skill-preload über before_agent_start
-  |     +-- Agent-Extensions und Skills der Plugins
+  |     +-- Hooks und Skills der Plugins
   |
   +-- Produkt- und Arbeitsbereichsverträge
   |     +-- ProductRuntime: Koordinator, Anzeige, Profil und Rollenvertrag
   |     +-- WorkspaceRuntime: statischer oder run-gebundener Arbeitsbereich
   |
   +-- Web-Plugin-Host
-  |     +-- generische Chat- und Arbeitsbereichsschale
-  |     +-- Slots für Tabs, Presenter, Session-Metadaten, Provider und Arbeitsfläche
+  |     +-- generische Schale aus Chat und Leiste
+  |     +-- Slots für Tabs, Presenter, Run-Metadaten, Provider und Fläche
   |
   +-- installierte Plugins
         +-- Orchestrierung        +-- Arbeitsbereich
@@ -449,8 +479,8 @@ Die Verantwortungen sind klar getrennt:
 - Plugins besitzen Fachlichkeit und Integrationen. Der Core kennt keine Fachdomäne.
 - Die Chat-Bausteine liefern UI. Sie entscheiden nicht, welche Plugins installiert sind.
 
-Die Agent-Session und das RAgents-Journal sind keine konkurrierenden Kopien. Die Agent-Session ist die
-kanonische Unterhaltung des Modells. Das Journal ist die kanonische gemeinsame Welt des Runs.
+Die Agent-Session und das RAgents-Journal sind keine konkurrierenden Kopien. Die Agent-Session ist das
+kanonische Gespräch des Modells. Das Journal ist die kanonische gemeinsame Welt des Runs.
 RAgents speichert dort die semantische Projektion von Modell-, Tool- und Laufzeitereignissen.
 
 ## Kurs
@@ -464,12 +494,12 @@ Drei Grundsätze gelten überall; ihre datierten Begründungen stehen in `docs/d
   nicht weiter ausgebaut, bis der erste echte Fachfall darauf läuft.
 - Sicherheit ist derzeit nachrangig. Sandbox-Härtung und konzeptionelle Rechte (Capabilities,
   Grants, Delegation) sind kein Investitionsziel, solange das Produkt nicht danach verlangt. Die
-  harten Grenzen bleiben Dateirechte und die Session-UID des Betriebssystems.
+  harten Grenzen bleiben Dateirechte und die Betriebssystem-UID je Run.
 - Keine Migrationen, keine Altpfad-Kompatibilität. Es gibt keinen Migrations-Erweiterungspunkt;
   die Profildaten unter `~/.local/share/ragents/<profil>` gelten als wegwerfbare
   Entwicklungsdaten. Alte oder beschädigte Journale werden mit ihrer Ursache isoliert; der Server
   und andere Runs bleiben nutzbar. Originaldateien bleiben erhalten, und die betroffene Run-ID
-  wird nicht als neue Unterhaltung wiederverwendet.
+  wird nicht als neuer Run wiederverwendet.
 
 ## Verbindliche Regeln
 
@@ -479,16 +509,16 @@ Drei Grundsätze gelten überall; ihre datierten Begründungen stehen in `docs/d
    Serverstart. Nur Implementierung und Profil werden ergänzt.
 3. EINE WAHRHEIT: Eine Fachoperation hat genau eine Implementierung. Verschiedene Facetten rufen
    denselben Dienst oder Command-Handler auf.
-4. LEBENSZYKLUS: Jeder Hintergrundprozess gehört einem Plugin und hat Start-, Session-, Stop- und
+4. LEBENSZYKLUS: Jeder Hintergrundprozess gehört einem Plugin und hat Start-, Run-, Stop- und
    Shutdown-Grenzen.
 5. NAMENSRAUM: Konfiguration, persistierte Daten, Routen und Beiträge tragen die Plugin-Kennung.
-6. EINE KOMPOSITION: Prompt, Skills, Profile, Agent-Extensions, Logik-Werkzeuge, Server und Web
+6. EINE KOMPOSITION: Prompt, Skills, Profile, Hooks, Logik-Werkzeuge, Server und Web
    folgen derselben Pluginliste.
 7. KEINE VERSTECKTE AKTIVITÄT: Nicht installierte Plugins starten nichts. Inaktive Ansichten
    pollen nicht ohne ausdrücklich erklärte Hintergrundfunktion.
 8. EINE AUSFÜHRUNGSPLATTFORM: Jede run-lokale Logik verwendet denselben TypeScript-Compiler,
    `RunContext`, Funktionsvertrag, Typprüfung und verwaltete native Ausführung. Einmalige
-   Snippets benötigen kein dauerhaftes Programmpaket. Fachtests stehen als
+   Snippets benötigen kein dauerhaftes Actor-Programm. Fachtests stehen als
    normale TypeScript-Testdateien im Actor-Paket.
 
 Fünf Regeln gelten für Verträge und Typen, quer durch alle Kapitel:

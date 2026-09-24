@@ -3,10 +3,13 @@ import { createServer, type IncomingMessage } from "node:http";
 import test from "node:test";
 import { canStartEntry, createAccessContext, HttpContributionRegistry, unrestrictedAccess, type AccessContext } from "@ragents/engine";
 import { runRights } from "../src/api/rights.ts";
-import { accessServiceToken, isAccessServiceRequest } from "../src/access-service.ts";
+import { coordinatorAccessToken, coordinatorRequestUser } from "../src/access-service.ts";
+import { createAccessSessionManager } from "../src/access-session.ts";
+import { coordinatorRunId, isCoordinatorRunId } from "../../../plugins/ragents.overseer/server/coordinator.ts";
 
 const access = (...rights: string[]): AccessContext => createAccessContext({ enabled: true, user: { id: "user", label: "User", rights } });
-const global = { runId: "overseer", read: "ragents.overseer.read", write: "ragents.overseer.write" };
+const global = { isCoordinator: isCoordinatorRunId, runIdFor: coordinatorRunId, read: "ragents.overseer.read", write: "ragents.overseer.write" };
+const coordinator = coordinatorRunId("user");
 
 test("run rights follow the kind of access and the global chat uses its own rights", () => {
   assert.deepEqual(runRights("example", "read", undefined), ["runs.read"]);
@@ -14,10 +17,10 @@ test("run rights follow the kind of access and the global chat uses its own righ
   assert.deepEqual(runRights("example", "write", undefined), ["runs.read", "runs.write"]);
   assert.deepEqual(runRights("example", "write-inspect", undefined), ["runs.read", "runs.write", "runs.inspect"]);
   assert.deepEqual(runRights("example", "write", global), ["runs.read", "runs.write"]);
-  assert.deepEqual(runRights("overseer", "read", global), [global.read]);
-  assert.deepEqual(runRights("overseer", "inspect", global), [global.read, "runs.inspect"]);
-  assert.deepEqual(runRights("overseer", "write", global), [global.read, global.write]);
-  assert.deepEqual(runRights("overseer", "write-inspect", global), [global.read, global.write, "runs.inspect"]);
+  assert.deepEqual(runRights(coordinator, "read", global), [global.read]);
+  assert.deepEqual(runRights(coordinator, "inspect", global), [global.read, "runs.inspect"]);
+  assert.deepEqual(runRights(coordinator, "write", global), [global.read, global.write]);
+  assert.deepEqual(runRights(coordinator, "write-inspect", global), [global.read, global.write, "runs.inspect"]);
   assert.equal(access("runs.*").can("runs.read"), false);
   assert.equal(access("runs.write").can("runs.read"), false);
   assert.equal(access("*").can("extension.custom"), true);
@@ -65,16 +68,49 @@ test("delivery routes keep their own rights check before the handler runs", asyn
   }
 });
 
-test("the internal service identity is accepted only locally for the message layer and help", () => {
+test("a coordinator token names its user and is accepted only locally for the message layer and help", () => {
   const request = (address: string, token: string) => ({ socket: { remoteAddress: address }, headers: { authorization: `Bearer ${token}` } }) as IncomingMessage;
   const url = (path: string) => new URL(path, "http://localhost");
-  const valid = request("127.0.0.1", accessServiceToken());
-  assert.equal(isAccessServiceRequest(valid, url("/rpc")), true);
-  assert.equal(isAccessServiceRequest(valid, url("/rpc/stream")), true);
-  assert.equal(isAccessServiceRequest(valid, url("/help/llms.txt")), true);
-  for (const path of ["/api/access", "/files/runs/example/artifacts/a", "/api/plugins/ragents.overseer/settings"]) assert.equal(isAccessServiceRequest(valid, url(path)), false);
-  assert.equal(isAccessServiceRequest(request("203.0.113.7", accessServiceToken()), url("/rpc")), false);
-  assert.equal(isAccessServiceRequest(request("127.0.0.1", "legacy-token"), url("/rpc")), false);
+  const alice = coordinatorAccessToken("alice");
+  assert.equal(coordinatorAccessToken("alice"), alice, "one token per user for the lifetime of the server");
+  assert.notEqual(coordinatorAccessToken("bob"), alice);
+  assert.notEqual(coordinatorAccessToken(null), alice);
+  const valid = request("127.0.0.1", alice);
+  assert.deepEqual(coordinatorRequestUser(valid, url("/rpc")), { userId: "alice" });
+  assert.deepEqual(coordinatorRequestUser(valid, url("/rpc/stream")), { userId: "alice" });
+  assert.deepEqual(coordinatorRequestUser(valid, url("/help/llms.txt")), { userId: "alice" });
+  assert.deepEqual(coordinatorRequestUser(request("::1", coordinatorAccessToken("bob")), url("/rpc")), { userId: "bob" });
+  assert.deepEqual(coordinatorRequestUser(request("127.0.0.1", coordinatorAccessToken(null)), url("/rpc")), { userId: null });
+  for (const path of ["/api/access", "/files/runs/example/artifacts/a", "/api/plugins/ragents.overseer/settings"]) assert.equal(coordinatorRequestUser(valid, url(path)), undefined);
+  assert.equal(coordinatorRequestUser(request("203.0.113.7", alice), url("/rpc")), undefined);
+  assert.equal(coordinatorRequestUser(request("127.0.0.1", "legacy-token"), url("/rpc")), undefined);
+});
+
+test("a coordinator acts with the current access of its user and never with more", () => {
+  const users = createAccessSessionManager({
+    users: [
+      { id: "alice", label: "Alice", password: "alice-secret", rights: ["runs.read", "runs.write", "ragents.overseer.read", "ragents.overseer.write"] },
+      { id: "admin", label: "Admin", password: "admin-secret", rights: ["*"] },
+    ],
+    cookieName: "test-user",
+  });
+  const alice = createAccessContext(users.coordinatorSnapshot("alice"));
+  assert.equal(alice.enabled, true);
+  assert.equal(alice.user?.id, "alice");
+  assert.equal(alice.can("runs.write"), true);
+  for (const right of ["runs.create", "runs.read.all", "runs.inspect", "settings.write"]) assert.equal(alice.can(right), false, right);
+  assert.equal(createAccessContext(users.coordinatorSnapshot("admin")).can("runs.read.all"), true);
+  for (const userId of ["removed", null]) {
+    const unknown = createAccessContext(users.coordinatorSnapshot(userId));
+    assert.equal(unknown.enabled, true);
+    assert.equal(unknown.user, null, "an unknown user is not signed in");
+    assert.equal(unknown.can("runs.read"), false);
+  }
+  const guest = { id: "guest", label: "Gast", rights: ["runs.read"] };
+  const anonymous = createAccessSessionManager({ anonymousUser: guest, cookieName: "test-user" });
+  assert.deepEqual(anonymous.coordinatorSnapshot(null), { enabled: false, user: guest });
+  assert.equal(createAccessContext(anonymous.coordinatorSnapshot(null)).can("runs.write"), false);
+  assert.equal(createAccessContext(anonymous.coordinatorSnapshot("guest")).can("runs.read"), false, "without users no named coordinator has access");
 });
 
 test("setup approvals replace neither write rights nor free run creation", () => {

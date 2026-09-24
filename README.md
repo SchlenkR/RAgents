@@ -7,7 +7,7 @@ shared workspace. Agents can work independently or in parallel, hand results to 
 use the same data and functions as the UI. Every run is recorded in an append-only journal, so its
 state remains inspectable and can be reconstructed after a restart.
 
-[Website](https://schlenkr.github.io/RAgents/) | [Marketplace](https://marketplace.visualstudio.com/items?itemName=purestate.ragents-vscode) | [Guide](https://schlenkr.github.io/RAgents/guide.html) | [Plugin guide](https://schlenkr.github.io/RAgents/guide-extensions.html)
+[Website](https://schlenkr.github.io/RAgents/) | [Marketplace](https://marketplace.visualstudio.com/items?itemName=purestate.ragents-vscode) | [Guide](https://schlenkr.github.io/RAgents/guide.html) | [Plugin guide](https://schlenkr.github.io/RAgents/guide-plugins.html)
 
 ![RAgents overview with multiple runs and reusable setups](https://raw.githubusercontent.com/SchlenkR/RAgents/main/apps/vscode/media/screenshots/overview.png)
 
@@ -15,15 +15,15 @@ state remains inspectable and can be reconstructed after a restart.
 
 - Work with several RAgents servers and local profiles at the same time.
 - Watch agents talk to agents, start helpers, and hand results to one another.
-- Use four focused pages: start, runs, run panel, and environments.
+- Use four focused pages: start, runs, run panel, and servers.
 - Chat and work with mini-apps in the secondary sidebar or an editor tab.
 - Let a run read, edit, and execute code in the current VS Code workspace.
 - Start a prepared setup with one click.
 
 ## Getting started
 
-Open the RAgents panel in the secondary sidebar. Select **Umgebungen** (environments), then
-**Neue Umgebung** (new environment), and add a server or local profile.
+Open the RAgents panel in the secondary sidebar. Select **Server**, then
+**Neuer Server** (new server), and add a server or local profile.
 
 ```json
 {
@@ -35,17 +35,17 @@ Open the RAgents panel in the secondary sidebar. Select **Umgebungen** (environm
 ```
 
 Servers connect automatically. Local profiles are started in the background. Credentials are
-stored in VS Code's SecretStorage. One unavailable environment does not block the others.
+stored in VS Code's SecretStorage. One unavailable server does not block the others.
 
 ## Inside the extension
 
-**Start** shows your environments, recent runs, and every available template. **Runs** adds search,
-filtering, and batch deletion. **Umgebungen** (environments) manages connections, profiles, and sign-in.
+**Start** shows your servers, recent runs, and every available template. **Runs** adds search,
+filtering, and batch deletion. **Server** manages connections, profiles, and sign-in.
 
-The **run panel** keeps the chat visible and opens workspace tabs beside it for files, documents,
+The **run panel** keeps the chat visible and opens tabs in the tab bar beside it for files, documents,
 functions, executions, and diagnostics. The open tab and its height are remembered per run.
 
-![A run with its chat, mini-app, and workspace tabs](https://raw.githubusercontent.com/SchlenkR/RAgents/main/apps/vscode/media/screenshots/run-with-explorer.png)
+![A run with its chat, mini-app, and tab bar](https://raw.githubusercontent.com/SchlenkR/RAgents/main/apps/vscode/media/screenshots/run-with-explorer.png)
 
 ## Local workspaces
 

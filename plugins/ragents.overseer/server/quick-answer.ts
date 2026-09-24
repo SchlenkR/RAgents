@@ -4,7 +4,8 @@ import {
   type RunFunction, type ToolContributor,
 } from "@ragents/engine";
 import { toolDescriptorFrom } from "@ragents/host/plugin-support/agent-tool.js";
-import { OVERSEER_PLUGIN_ID, OVERSEER_RUN_ID, QUICK_ANSWER_MAX_LENGTH } from "../contract.js";
+import { OVERSEER_PLUGIN_ID, QUICK_ANSWER_MAX_LENGTH } from "../contract.js";
+import { isCoordinatorRunId } from "./coordinator.js";
 
 const metadata = {
   name: "quick_answer",
@@ -17,7 +18,7 @@ const metadata = {
 const available = defineToolAvailability({
   availability: "conditional",
   availabilityDetail: "Nur für den globalen Primary-Koordinator mit plugin.state.write.",
-}, (actor, view) => view.id === OVERSEER_RUN_ID && actor.kind === "agent"
+}, (actor, view) => isCoordinatorRunId(view.id) && actor.kind === "agent"
   && actor.id === view.primaryActorId && holdsUsable(actor, "plugin.state.write"));
 
 export const createQuickAnswerTool = (): RunFunction => defineRunFunction({

@@ -3,7 +3,7 @@ import { WorkspaceOperationError } from "./errors.js";
 import type { WorkspaceExecutorModule, WorkspaceModuleFactory, WorkspaceOperation } from "./module.js";
 
 /** Der Stand des Executors; Server und Arbeitsplatz müssen denselben tragen. */
-export const WORKSPACE_EXECUTOR_VERSION = "2";
+export const WORKSPACE_EXECUTOR_VERSION = "3";
 
 export interface WorkspaceExecuteOptions {
   toolCallId?: string;

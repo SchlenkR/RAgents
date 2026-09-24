@@ -5,7 +5,7 @@ export const referenceConcepts = [
   { id: "fifo", label: "Input-Warteschlange" },
   { id: "stop", label: "Actor-Stopp" },
   { id: "artifacts", label: "Artefakte und Zugriff" },
-  { id: "tiles", label: "Kachelfläche", entryKind: "walkthrough" },
+  { id: "tiles", label: "Fläche", entryKind: "walkthrough" },
   { id: "actor-views", label: "Mini-Apps" },
   { id: "actor-state", label: "Actor-Zustand" },
   { id: "llm-actor-view", label: "LLM-Actor mit View" },

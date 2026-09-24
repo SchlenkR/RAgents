@@ -31,7 +31,7 @@ function RunChat({name,view}) {
   const partner=primaryChatState(view,'run-a',false);
   return <section aria-label={name}><ChatInputToolbar running onSend={()=>{}} onStop={partner.kind==='active'&&partner.turnRunning?()=>void interruptActorTurn('run-a',partner.actorId):undefined}/></section>;
 }
-function Actor({run,id,lifecycle,presentation='canvas'}) {
+function Actor({run,id,lifecycle,presentation='surface'}) {
   const actor={id,handle:id,kind:'agent',lifecycle};
   const view={id:run,primaryActorId:'coordinator',ownerId:'owner',actors:[actor],inputs:[],turns:[],artifacts:[]};
   return <section aria-label={run+'/'+id}><ActorChatControls actor={actor} view={view} composerVisible running presentation={presentation}/></section>;

@@ -7,7 +7,7 @@ tags: Run-Scripts, Anwendungsfall, Konzeptdemo, Mini-Apps, TypeScript-Actors, Ag
 ---
 
 Das vorbereitete TypeScript-Programm richtet zwei KI-Helfer ohne Werkzeuge ein und zeigt seine
-eigene Mini-App. Beide verwenden das Modellprofil `standard`. Ein Koordinator ist nicht nötig;
+eigene Mini-App. Beide verwenden die Rolle `standard`. Ein Koordinator ist nicht nötig;
 der TypeScript-Actor steuert den Ablauf und ist der Primary-Actor.
 
 Erst "Ideen sammeln" beauftragt die beiden Helfer: Helfer A schlägt ein einfaches Experiment
@@ -19,6 +19,6 @@ Ergebnisliste. Die Ideen sind echte Modellantworten und werden nicht fachlich ge
 Ein Fehler bei einem Helfer lässt das Ergebnis des anderen stehen. Leere Antworten und
 unterbrochene Modell-Turns erscheinen als Fehler. Der Ablauf startet einmal und wiederholt
 weder Aufträge noch fehlgeschlagene Antworten automatisch. Für neue Ideen beginnt ein neuer Run.
-Der Einstieg benötigt keine Startwerte und löst vor dem Button keinen Modellaufruf aus.
+Die Vorlage benötigt keine Startwerte und löst vor dem Button keinen Modellaufruf aus.
 
 Die Homepage verwendet dieselbe React-Ansicht mit ausdrücklich markierten Vorschaudaten.

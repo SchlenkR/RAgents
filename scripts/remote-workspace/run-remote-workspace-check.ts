@@ -45,7 +45,7 @@ const SESSION_MARKER = "RAGENTS_REMOTE_CHECK_SESSION";
 /** Der Server bekommt nur diese Variablen des Aufrufers; Profilschlüssel aus der Shell würden das Prüfprofil sonst überstimmen. */
 const SERVER_INHERITS = ["PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL", "LC_CTYPE", "TMPDIR"] as const;
 const USER_IDS = ["alice", "bob", "admin"] as const;
-/** So lange dürfen Prozesse des Laufs nach dem Ende von selbst ausklingen, etwa der Crash-Handler von Electron. */
+/** So lange dürfen Prozesse des Prüflaufs nach dem Ende von selbst ausklingen, etwa der Crash-Handler von Electron. */
 const LINGER_MS = 15_000;
 
 const usage = `Verwendung: pnpm check:remote-workspace [--shared-path] [--vscode] [--browser]
@@ -99,7 +99,7 @@ const sessionMarker = (session: Session): string => `${process.pid}-${session.id
 const TEMP_PREFIX = "ragents-rwc-";
 const RUNNER_FILE = "runner.pid";
 
-/** Temp-Ordner früherer Läufe, deren Läufer nicht mehr lebt; ohne dessen PID-Datei bleibt ein Ordner unberührt. */
+/** Temp-Ordner früherer Prüfläufe, deren Läufer nicht mehr lebt; ohne dessen PID-Datei bleibt ein Ordner unberührt. */
 const removeOrphanedTempFolders = (): readonly string[] => readdirSync("/tmp").flatMap((name) => {
   if (!name.startsWith(TEMP_PREFIX)) return [];
   const folder = path.join("/tmp", name);
@@ -170,7 +170,7 @@ const runVscodeStep = async (report: Report, owned: Owned, session: Session, ser
 /** Die Runs des Prüfservers; ihre Marker findet das Aufräumen auf diesem Rechner. */
 const serverRunIds = async (owned: Owned, session: Session): Promise<readonly string[]> => {
   if (!owned.server || !owned.serverUrl || hasExited(owned.server)) return [session.runId];
-  const listed = await userClient(owned.serverUrl, session.secrets.admin.token).call(coreContracts.sessions.list, {});
+  const listed = await userClient(owned.serverUrl, session.secrets.admin.token).call(coreContracts.runs.list, {});
   return [...new Set([session.runId, ...listed.map((entry) => entry.id)])];
 };
 
@@ -213,7 +213,7 @@ const cleanUp = async (report: Report, owned: Owned, session: Session): Promise<
   });
 };
 
-/** Nach einem Fehlschlag bleiben die Protokolle von Server, Arbeitsplatz, Image und VS Code; der Ordner ist ohne PID-Datei und bleibt beim nächsten Lauf liegen. */
+/** Nach einem Fehlschlag bleiben die Protokolle von Server, Arbeitsplatz, Image und VS Code; der Ordner ist ohne PID-Datei und bleibt beim nächsten Prüflauf liegen. */
 const keepLogs = (temp: string, session: Session): string | undefined => {
   const logs = readdirSync(temp).filter((name) => name.endsWith(".log"));
   if (logs.length === 0) return undefined;
@@ -233,9 +233,9 @@ const runPhases = async (options: Options, report: Report, owned: Owned, session
     });
     if (!free) return;
   }
-  await report.check("Voraussetzungen", "verwaiste Container früherer Läufe", async () => passed(`${(await removeOrphanedContainers()).length} entfernt`));
-  await report.check("Voraussetzungen", "verwaiste Temp-Ordner früherer Läufe", async () => passed(`${removeOrphanedTempFolders().length} entfernt`));
-  await report.check("Voraussetzungen", "verwaiste Prozesse früherer Läufe", async () => {
+  await report.check("Voraussetzungen", "verwaiste Container früherer Prüfläufe", async () => passed(`${(await removeOrphanedContainers()).length} entfernt`));
+  await report.check("Voraussetzungen", "verwaiste Temp-Ordner früherer Prüfläufe", async () => passed(`${removeOrphanedTempFolders().length} entfernt`));
+  await report.check("Voraussetzungen", "verwaiste Prozesse früherer Prüfläufe", async () => {
     const orphaned = await orphanedProcesses(SESSION_MARKER);
     for (const entry of orphaned) await stopMarkedProcess(entry.pid, [entry.marker]);
     return passed(orphaned.length > 0 ? `beendet: ${orphaned.map((entry) => `PID ${entry.pid} (${entry.command})`).join(", ")}` : "keine");

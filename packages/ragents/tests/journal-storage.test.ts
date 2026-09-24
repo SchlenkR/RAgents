@@ -43,7 +43,7 @@ test("compact records reconstruct every envelope field without changing inline r
     const record = recordFor({ sha256: "a".repeat(64), bytes: 8000, payloadRefs: { state: "ordinary data" } });
     const line = serializeJournalRecord(record, directory);
     const stored = JSON.parse(line);
-    assert.equal(stored.formatVersion, 5);
+    assert.equal(stored.formatVersion, 6);
     assert.equal(stored.occurredAt, record.events[0]!.occurredAt);
 
     for (const field of ["runId", "commandId", "schemaVersion", "occurredAt", "actorId"])
@@ -53,15 +53,16 @@ test("compact records reconstruct every envelope field without changing inline r
     assert.equal(existsSync(join(directory, "payloads")), false);
 });
 
-test("lines of file format 4 stay readable, a newer format is rejected by name", (t) => {
+test("lines of file formats 4 and 5 stay readable, a newer format is rejected by name", (t) => {
     const directory = directoryFor(t);
     const record = recordFor({ value: 1 });
     const stored = JSON.parse(serializeJournalRecord(record, directory));
 
     assert.deepEqual(parseJournalRecord(JSON.stringify({ ...stored, formatVersion: 4 }), directory, "test:1"), record);
+    assert.deepEqual(parseJournalRecord(JSON.stringify({ ...stored, formatVersion: 5 }), directory, "test:2"), record);
     assert.throws(
-        () => parseJournalRecord(JSON.stringify({ ...stored, formatVersion: 6 }), directory, "test:2"),
-        /test:2 has unsupported journal format version 6\./,
+        () => parseJournalRecord(JSON.stringify({ ...stored, formatVersion: 7 }), directory, "test:3"),
+        /test:3 has unsupported journal format version 7\./,
     );
 });
 

@@ -10,9 +10,10 @@ import { Type } from "typebox";
 import { agentTools, createAccessContext, DomainError, ScriptDriver, PluginHost, type AccessContext } from "@ragents/engine";
 import { plugin } from "../../../plugins/ragents.overseer/server/index.ts";
 import { RunDirectory } from "../../../plugins/ragents.overseer/server/run-directory.ts";
-import { OVERSEER_RUN_ID, overseerContracts } from "../../../plugins/ragents.overseer/contract.ts";
+import { overseerContracts } from "../../../plugins/ragents.overseer/contract.ts";
+import { coordinatorRunId } from "../../../plugins/ragents.overseer/server/coordinator.ts";
 import { methodContext } from "./rpc-fixture.ts";
-import { globalChatToken, sessionManagementToken, type SessionManagement } from "../src/ragents/global-chat.ts";
+import { globalChatToken, runManagementToken, type RunManagement } from "../src/ragents/global-chat.ts";
 import { productRuntimeToken } from "../src/ragents/product-runtime.ts";
 import { workspaceRuntimeToken } from "../src/ragents/workspace-runtime.ts";
 import { sandboxServicesToken } from "../src/plugin-support/workspace-sandbox-host.ts";
@@ -26,6 +27,7 @@ process.env.PRODUCT_ID = "test";
 process.env.PRODUCT_TITLE = "Test";
 process.env.COMPACTION_MODEL = "";
 const { RunSessionProvider } = await import("../src/provider.ts");
+const OVERSEER_RUN_ID = coordinatorRunId(null);
 
 test("run references survive sorting, deletion and restart; duplicate titles require a short reference", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "ragents-run-directory-"));
@@ -34,26 +36,26 @@ test("run references survive sorting, deletion and restart; duplicate titles req
     const directory = new RunDirectory(file);
     const one = { id: "first-run", title: "Analyse", updatedAt: 1 };
     const two = { id: "second-run", title: "Analyse", updatedAt: 2 };
-    assert.deepEqual((await directory.describe([one, two])).map((entry) => entry.reference), ["Lauf 1", "Lauf 2"]);
-    assert.deepEqual((await directory.describe([two, one])).map((entry) => entry.reference), ["Lauf 2", "Lauf 1"]);
-    await assert.rejects(directory.resolve("Analyse", [one, two]), /mehrdeutig.*Lauf 1.*Lauf 2/);
-    assert.equal((await directory.resolve("Lauf 2", [one, two])).id, two.id);
+    assert.deepEqual((await directory.describe([one, two])).map((entry) => entry.reference), ["Run 1", "Run 2"]);
+    assert.deepEqual((await directory.describe([two, one])).map((entry) => entry.reference), ["Run 2", "Run 1"]);
+    await assert.rejects(directory.resolve("Analyse", [one, two]), /mehrdeutig.*Run 1.*Run 2/);
+    assert.equal((await directory.resolve("Run 2", [one, two])).id, two.id);
     const restored = new RunDirectory(file);
-    assert.equal((await restored.resolve("Analyse", [two])).reference, "Lauf 2");
-    await assert.rejects(restored.resolve("Lauf 1", [two]), /unbekannt.*Lauf 2/);
+    assert.equal((await restored.resolve("Analyse", [two])).reference, "Run 2");
+    await assert.rejects(restored.resolve("Run 1", [two]), /unbekannt.*Run 2/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
 });
 
 test("global coordinator persists separately and manages ordinary runs through the normal startup and stop lifecycle", async () => {
-  let management: SessionManagement;
+  let management: RunManagement;
   let workspaceResolutions = 0;
   let preparations = 0;
   const createProvider = () => new RunSessionProvider((bridges) => {
     management = bridges.sessions!();
     const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory });
-    host.provideHost(sessionManagementToken, () => management);
+    host.provideHost(runManagementToken, () => management);
     host.register({
       manifest: { id: "test.product" },
       register: (registration) => {
@@ -139,16 +141,18 @@ test("global coordinator persists separately and manages ordinary runs through t
   };
   try {
     await provider.init();
+    const guest = createAccessContext({ enabled: false, user: { id: "guest", label: "Gast", rights: ["ragents.overseer.read"] } });
+    for (const access of [undefined, guest]) assert.deepEqual(await call(overseerContracts.coordinator, {}, access), { runId: OVERSEER_RUN_ID }, "ohne Anmeldung genau ein Koordinator");
     const global = await provider.get(OVERSEER_RUN_ID);
-    global.send("Zeige meine Läufe");
+    global.send("Zeige meine Runs");
     await (global as { settle(): Promise<void> }).settle();
     const globalView = management!.view(OVERSEER_RUN_ID);
     const primary = globalView.actors.find((actor) => actor.id === globalView.primaryActorId);
     assert.ok(primary && primary.kind === "agent");
     assert.deepEqual(primary.toolNames, provider.plugins.service(globalChatToken).toolNames);
-    assert.match(primary.prompt, /übergeordnete Koordinator/);
+    assert.match(primary.prompt, /globale Koordinator/);
     assert.equal(workspaceResolutions, 0, "global chat does not allocate a product workspace");
-    assert.equal(preparations, 0, "global chat does not prepare product sessions");
+    assert.equal(preparations, 0, "global chat does not prepare product runs");
     assert.deepEqual(await provider.list(), []);
     await assert.rejects(provider.delete(OVERSEER_RUN_ID), /kann nicht gelöscht/);
 
@@ -156,7 +160,7 @@ test("global coordinator persists separately and manages ordinary runs through t
     const created = await call(overseerContracts.createRun, { title: "Analyse", message: largeInput, options: { "test.language": "en" } });
     const runId = created.runId as string;
     assert.equal(created.title, "Analyse");
-    assert.equal(created.reference, "Lauf 1");
+    assert.equal(created.reference, "Run 1");
     assert.equal(created.accepted, true);
     const runView = management!.view(runId);
     assert.ok(runView.inputs.some((input) => input.content === largeInput));
@@ -170,18 +174,18 @@ test("global coordinator persists separately and manages ordinary runs through t
 
     const firstPage = await call(overseerContracts.readEvents, { run: "Analyse", limit: 2 });
     assert.equal(firstPage.hasMore, true);
-    const nextPage = await call(overseerContracts.readEvents, { run: "Lauf 1", after: firstPage.nextAfter });
+    const nextPage = await call(overseerContracts.readEvents, { run: "Run 1", after: firstPage.nextAfter });
     assert.ok((nextPage.events as Array<{ sequence: number }>).every((event) => event.sequence > Number(firstPage.nextAfter)));
     assert.ok((nextPage.events as Array<{ payload: { content?: string } }>).some((event) => event.payload.content === largeInput));
-    await call(overseerContracts.sendMessage, { run: "Lauf 1", message: "Prüfe das Ergebnis" });
+    await call(overseerContracts.sendMessage, { run: "Run 1", message: "Prüfe das Ergebnis" });
     assert.ok(management!.view(runId).inputs.some((input) => input.content === "Prüfe das Ergebnis"));
     const stopped = await call(overseerContracts.stopRun, { run: "Analyse" });
     assert.equal(stopped.stopped, true);
     assert.equal(management!.view(runId).primaryActorId, runView.primaryActorId);
 
-    const script = await call(overseerContracts.createRun, { title: "Vorbereiteter Lauf", script: "Test script", input: { topic: "Test" } });
+    const script = await call(overseerContracts.createRun, { title: "Vorbereiteter Run", script: "Test script", input: { topic: "Test" } });
     const scriptView = management!.view(script.runId as string);
-    assert.equal(scriptView.title, "Vorbereiteter Lauf");
+    assert.equal(scriptView.title, "Vorbereiteter Run");
     assert.ok(scriptView.actors.some((actor) => actor.kind === "script"));
     assert.deepEqual(JSON.parse(scriptView.inputs[0].content).input, { topic: "Test" });
     await assert.rejects(call(overseerContracts.createRun, { title: "Fehler", script: "Missing" }), /Gültige Titel und Kennungen.*Test script/);
@@ -190,7 +194,7 @@ test("global coordinator persists separately and manages ordinary runs through t
     await assert.rejects(call(overseerContracts.createRun, { title: "Widerspruch", script: "English script", options: { "test.language": "de" } }), (error: unknown) =>
       error instanceof DomainError && error.code === "start-option-fixed" && error.message.includes("English script"));
     const english = await call(overseerContracts.createRun, { title: "Englisch", script: "English script" });
-    assert.equal(provider.startOptions(english.runId as string, null)[0]!.value, "en", "der Einstieg legt die Sprache fest");
+    assert.equal(provider.startOptions(english.runId as string, null)[0]!.value, "en", "die Vorlage legt die Sprache fest");
 
     const packageDirectory = path.join(dataDirectory, "own-setup");
     await mkdir(packageDirectory);
@@ -240,9 +244,9 @@ test("global coordinator persists separately and manages ordinary runs through t
     const history: unknown[] = [];
     const unsubscribe = restored.subscribe((event) => history.push(event));
     unsubscribe();
-    assert.ok(history.some((event) => (event as { kind: string; text?: string }).kind === "user" && (event as { text: string }).text === "Zeige meine Läufe"));
+    assert.ok(history.some((event) => (event as { kind: string; text?: string }).kind === "user" && (event as { text: string }).text === "Zeige meine Runs"));
     assert.ok((await provider.list()).every((run) => run.id !== OVERSEER_RUN_ID));
-    assert.equal((await call(overseerContracts.readEvents, { run: "Lauf 1", limit: 1 })).runId, runId);
+    assert.equal((await call(overseerContracts.readEvents, { run: "Run 1", limit: 1 })).runId, runId);
     assert.ok(management!.view(runId).inputs.some((input) => input.content === largeInput));
     await provider.delete(runId);
     assert.ok((await provider.list()).every((run) => run.id !== runId));

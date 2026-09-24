@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { CanvasTileNode } from "../../../plugins/ragents.orchestration/tiled-layout.ts";
+import type { SurfaceTileNode } from "../../../plugins/ragents.orchestration/tiled-layout.ts";
 import { dockTile, removeTile, resizeTile, tileEntities, tileGeometry, tileMinimum } from "../../../plugins/ragents.orchestration/web/tile-docking.ts";
 
-const upper: CanvasTileNode = { entity: "@upper" };
-const left: CanvasTileNode = { entity: "@left" };
-const right: CanvasTileNode = { entity: "@right" };
-const lower: CanvasTileNode = { direction: "horizontal", weights: [2, 1], children: [left, right] };
-const root: CanvasTileNode = { direction: "vertical", weights: [1, 1], children: [upper, lower] };
+const upper: SurfaceTileNode = { entity: "@upper" };
+const left: SurfaceTileNode = { entity: "@left" };
+const right: SurfaceTileNode = { entity: "@right" };
+const lower: SurfaceTileNode = { direction: "horizontal", weights: [2, 1], children: [left, right] };
+const root: SurfaceTileNode = { direction: "vertical", weights: [1, 1], children: [upper, lower] };
 
 test("a sibling can move after its old split collapses without losing the target", () => {
   assert.deepEqual(dockTile(root, "@left", "@right", "bottom"), {

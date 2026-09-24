@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "server": {
     "@ragents/engine": [
       "DomainError",
@@ -225,13 +225,13 @@
     ],
     "@ragents/host/ragents/global-chat": [
       "globalChatToken",
-      "sessionManagementToken"
+      "runManagementToken"
     ],
     "@ragents/host/ragents/host-services": [
+      "runGuardToken",
+      "runWorkspaceProviderToken",
       "runtimeProviderToken",
       "secretEnvNamesToken",
-      "sessionGuardToken",
-      "sessionWorkspaceProviderToken",
       "workspaceGuardToken"
     ],
     "@ragents/host/ragents/product-runtime": [
@@ -263,6 +263,7 @@
       "PROCESS_OPERATIONS",
       "ROSLYN_SERVER_FILE",
       "ROSLYN_SERVER_VARIABLE",
+      "RUN_FOLDER_OPERATIONS",
       "RUN_MARKER_ENV",
       "WORKSPACE_EXECUTOR_VERSION",
       "fsharpAdapter",
@@ -686,13 +687,13 @@
       "DiffCode"
     ],
     "@ragents/web/PluginRegistry": [
-      "CanvasControllerProvider",
       "ChatStepsProvider",
+      "SurfaceControllerProvider",
       "chatDisplayPolicyFrom",
       "pluginRoutePrefixFrom",
       "useActionRenderer",
-      "useCanvasController",
       "useChatSteps",
+      "useSurfaceController",
       "useToolRenderer",
       "workspaceAccessible"
     ],
@@ -718,8 +719,7 @@
     "@ragents/web/actor-programs/client-ui/contracts": [],
     "@ragents/web/api": [
       "interruptActorTurn",
-      "sendActorMessage",
-      "stopChatActor"
+      "sendActorMessage"
     ],
     "@ragents/web/chat/ChatInputToolbar": [
       "ChatInputToolbar"
@@ -788,7 +788,7 @@
     ],
     "@ragents/web/run-view": [
       "actorPluginState",
-      "actorSurface",
+      "actorTone",
       "chatPrimaryId",
       "isPendingRunActorInput",
       "runActorFrom",

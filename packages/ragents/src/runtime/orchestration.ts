@@ -379,6 +379,10 @@ export class Orchestration {
         return this.#run(context, runId, "turn.start", { actorId, inputId }, turns.startTurn(actorId, inputId));
     }
 
+    steerInputs(context: CommandContext, runId: string, actorId: string, input: { turnId: string; inputIds: readonly string[] }) {
+        return this.#run(context, runId, "turn.steer", { actorId, ...input }, turns.steerInputs(actorId, input));
+    }
+
     appendModelOutput(context: CommandContext, runId: string, actorId: string, input: { turnId: string; text: string }) {
         return this.#run(context, runId, "model.output.complete", { actorId, ...input }, turns.appendModelOutput(actorId, input));
     }

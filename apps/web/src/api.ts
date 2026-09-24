@@ -8,15 +8,6 @@ import { startOptionStateFrom, type StartOptionState } from "../../server/src/pl
 
 export type { StartOptionState };
 
-export const stopChatActor = async (runId: string, actorId: string, client: RpcClient = rpc): Promise<void> => {
-  await client.call(runContracts.stopActor, {
-    runId,
-    commandId: crypto.randomUUID(),
-    actorId,
-    reason: "Arbeit durch den Bediener gestoppt",
-  });
-};
-
 /** Unterbricht nur den laufenden Turn dieses Actors; der Actor bleibt aktiv, ohne laufenden Turn geschieht nichts. */
 export const interruptActorTurn = async (runId: string, actorId: string, client: RpcClient = rpc): Promise<void> => {
   await client.call(runContracts.interruptTurn, { runId, commandId: crypto.randomUUID(), actorId });
@@ -58,10 +49,10 @@ export interface SessionInfo {
 }
 
 export const listSessions = (client: RpcClient = rpc): Promise<SessionInfo[]> =>
-  client.call(coreContracts.sessions.list, {});
+  client.call(coreContracts.runs.list, {});
 
 export const deleteSession = async (id: string, client: RpcClient = rpc): Promise<void> => {
-  await client.call(coreContracts.sessions.delete, { runId: id });
+  await client.call(coreContracts.runs.delete, { runId: id });
 };
 
 export const getRunView = async (sessionId: string, client: RpcClient = rpc): Promise<unknown | undefined> =>
@@ -135,16 +126,16 @@ export interface SettingsPlugin {
   configuration: readonly SettingsConfigurationDescriptor[];
 }
 
-export interface SettingsAgentExtensionFactory {
+export interface SettingsAgentHookFactory {
   name: string;
   scope: "per-agent";
 }
 
-export interface SettingsAgentExtension {
+export interface SettingsAgentHook {
   id: string;
   owner: string;
   kind: "plugin" | "internal";
-  factories: readonly SettingsAgentExtensionFactory[];
+  factories: readonly SettingsAgentHookFactory[];
   resolvesPerAgent: boolean;
 }
 
@@ -212,7 +203,7 @@ export interface SettingsResponse {
   systemPrompt: SettingsSystemPrompt;
   promptContributions: readonly SettingsPromptContribution[];
   plugins: readonly SettingsPlugin[];
-  agentExtensions: readonly SettingsAgentExtension[];
+  agentHooks: readonly SettingsAgentHook[];
   skills: readonly SettingsSkill[];
   tools: readonly SettingsTool[];
 }
@@ -264,7 +255,7 @@ const isSettingsPlugin = (value: unknown): value is SettingsPlugin =>
     && typeof entry.source === "string"
     && typeof entry.secret === "boolean");
 
-const isAgentExtension = (value: unknown): value is SettingsAgentExtension =>
+const isAgentHook = (value: unknown): value is SettingsAgentHook =>
   isRecord(value)
   && typeof value.id === "string"
   && typeof value.owner === "string"
@@ -367,8 +358,8 @@ const settingsResponseFrom = (value: unknown): SettingsResponse => {
     || !value.promptContributions.every(isPromptContribution)
     || !Array.isArray(value.plugins)
     || !value.plugins.every(isSettingsPlugin)
-    || !Array.isArray(value.agentExtensions)
-    || !value.agentExtensions.every(isAgentExtension)
+    || !Array.isArray(value.agentHooks)
+    || !value.agentHooks.every(isAgentHook)
     || !Array.isArray(value.skills)
     || !value.skills.every(isSettingsSkill)
     || !Array.isArray(value.tools)

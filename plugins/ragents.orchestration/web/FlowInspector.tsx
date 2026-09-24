@@ -43,7 +43,7 @@ interface FlowInspectorProps {
   conversationError?: string;
   primaryRunning: boolean;
   /** Anzeigefläche für den gemerkten Detailgrad; das Popout meldet sich getrennt vom Seiteninspector. */
-  chatSurface?: string;
+  chatDisplay?: string;
 }
 
 const inspectorClass = "flex h-full min-h-0 flex-col bg-card";
@@ -370,7 +370,7 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
 
   const config = driver && driver.kind !== "manual" ? driver.config : undefined;
   const sections: SectionTab[] = [
-    { id: "info", label: "Info: Modell und Laufdetails", icon: <SectionIcon kind="info" />, content: (
+    { id: "info", label: "Info: Modell und Run-Details", icon: <SectionIcon kind="info" />, content: (
       <div className={statusClass}>
         {lifecycle && <StatusPill status={lifecycle} />}
         <span>{primary ? "Primärer Actor" : ACTOR_KIND_LABELS[actor.kind]}</span>
@@ -549,7 +549,7 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
           actor={actor}
           view={view}
           presentation="inspector"
-          surface={props.chatSurface}
+          display={props.chatDisplay}
           className="min-h-0 flex-1"
           primaryMessages={props.primaryMessages}
           conversation={props.actorConversations?.[actor.id]}
@@ -557,7 +557,7 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
           onNavigate={props.onNavigate}
           running={primary ? props.primaryRunning : lifecycle === "running"}
         />
-        <ActorChatControls actor={actor} view={view} composerVisible={props.composerVisible} surface={props.chatSurface}
+        <ActorChatControls actor={actor} view={view} composerVisible={props.composerVisible} display={props.chatDisplay}
           running={primary ? props.primaryRunning : lifecycle === "running"} />
       </SectionTabs>
     </div>

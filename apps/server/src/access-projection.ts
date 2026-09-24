@@ -69,7 +69,7 @@ export const accessibleChatEvent = (event: ChatEvent, access: AccessContext): Ch
   if (event.kind === "tool") return trace ? event : { kind: "tool", id: event.id, name: "", arguments: "", at: event.at };
   if (event.kind === "tool-result") return trace ? event : { kind: "tool-result", id: event.id, result: "", isError: event.isError };
   if (event.kind === "system") return { ...event, text: "Hinweis zur Verarbeitung. Bei Fragen wende Dich an den zuständigen Agenten." };
-  if (event.kind !== "extension") return event;
+  if (event.kind !== "plugin") return event;
   if (hiddenStates.has(event.pluginId)) return undefined;
   if (event.pluginId === "ragents.actor-programs" || event.pluginId === "ragents.actor-programs.invocations") return undefined;
   return event;

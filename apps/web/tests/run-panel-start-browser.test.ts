@@ -65,7 +65,7 @@ test("the run panel shows one loading state from the click to the first content 
 
     await page.goto(`${url}?profile=pending`);
     await notice.waitFor();
-    assert.equal(await titleOf(), "Produktprofil wird geladen");
+    assert.equal(await titleOf(), "Profil wird geladen");
     assert.equal(await notice.getAttribute("data-startup"), "working");
     assert.equal(await notice.locator("[role=progressbar]").count(), 1, "Loading the profile shows the same progress as the run.");
     await page.evaluate(() => window.runStartFixture.activate());
@@ -113,7 +113,7 @@ test("the run panel shows one loading state from the click to the first content 
     await waitForTitle("Der Run wird eingerichtet");
 
     await page.evaluate(() => { window.runStartFixture.elements = [{ id: "start.app--main", title: "Aufbau" }]; });
-    await chat({ kind: "extension", pluginId: "start", type: "app-ready" });
+    await chat({ kind: "plugin", pluginId: "start", type: "app-ready" });
     await page.getByText("Mini-App bereit").waitFor();
     assert.equal(await notice.count(), 0, "The first mini-app ends the loading state.");
     await page.evaluate(() => { window.runStartFixture.elements = []; });

@@ -174,7 +174,7 @@ export const markedProcesses = async (markers: readonly string[]): Promise<reado
   });
 };
 
-/** Prozesse früherer Läufe: ihre Markierung name=<Läufer-PID>-<Sitzung> nennt einen Läufer, der nicht mehr lebt. */
+/** Prozesse früherer Prüfläufe: ihre Markierung name=<Läufer-PID>-<Sitzung> nennt einen Läufer, der nicht mehr lebt. */
 export const orphanedProcesses = async (name: string): Promise<readonly (MarkedProcess & { readonly marker: string })[]> => {
   const listing = await mustRun("/bin/ps", ["-axww", "-E", "-o", "pid=,command="]);
   const pattern = new RegExp(` (${name}=(\\d+)-[0-9a-f]+)(?: |$)`);

@@ -17,7 +17,7 @@ const image: ImageContent = { type: "image", data: "aW1hZ2U=", mimeType: "image/
 const video: UserAttachment = { type: "video", data: "dmlkZW8=", mimeType: "video/mp4" };
 const file: UserAttachment = { type: "file", data: "cGRm", mimeType: "application/pdf", filename: "Notizen.pdf" };
 
-test("prompt, queued input and a reopened session preserve native attachments", async () => {
+test("prompt, steered input and a reopened session preserve native attachments", async () => {
   const directory = mkdtempSync(join(tmpdir(), "ragents-native-media-"));
   const faux = registerFauxProvider({ models: [{ id: "media", input: ["text", "image", "video", "file"] }], tokensPerSecond: 100000 });
   const model = faux.getModel();
@@ -46,9 +46,17 @@ test("prompt, queued input and a reopened session preserve native attachments", 
       (context) => { contexts.push(structuredClone(context)); return fauxAssistantMessage("Video gesehen."); },
       (context) => { contexts.push(structuredClone(context)); return fauxAssistantMessage("Datei gesehen."); },
     ]);
+    const steered = [{ role: "user" as const, content: [{ type: "text" as const, text: "Video" }, video], timestamp: Date.now() }];
+    let released = false;
+    let delivered = false;
+    session.agent.steeringSource = async () => {
+      if (delivered || !released) return [];
+      delivered = true;
+      return steered;
+    };
     const first = session.prompt("Anhänge", { attachments: [image, file] });
     await waiting;
-    await session.prompt("Video", { streamingBehavior: "followUp", attachments: [video] });
+    released = true;
     release();
     await first;
     await session.prompt("Datei", { attachments: [file] });

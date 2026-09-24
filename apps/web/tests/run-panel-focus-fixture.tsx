@@ -47,7 +47,7 @@ const fixture = {
   async call(contract: { id: string }) {
     fixture.calls.push(contract.id);
     switch (contract.id) {
-      case "ragents.sessions.list": return [{ id: "existing", title: "Vorhandener Run", updatedAt: 0 }];
+      case "ragents.runs.list": return [{ id: "existing", title: "Vorhandener Run", updatedAt: 0 }];
       case "ragents.startOptions.list": return [];
       case "ragents.runs.view": return null;
       case "ragents.chat.start": return null;

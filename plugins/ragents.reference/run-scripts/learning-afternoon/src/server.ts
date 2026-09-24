@@ -66,7 +66,7 @@ export default defineActor(contract, {
     if (!state.board) {
       const catalog = await context.functions.model_list({});
       const profile = catalog.profiles.find((entry) => entry.driver === "agent" && entry.name === "standard");
-      if (!profile) throw new Error("Das Modellprofil standard fehlt.");
+      if (!profile) throw new Error("Die Rolle standard fehlt.");
       const prompt = await workflowInstructions(learningWorkflow, "helper", readPrompt);
       const helpers = await Promise.all(initialState.helpers.map(async (helper) => {
         const actor = await context.functions.agent_spawn({ handle: `learning-${helper.id}`, displayName: helper.label, profile: profile.name, prompt, tools: [] });

@@ -384,7 +384,7 @@
     },
     {
       "name": "ragents.ask.answer",
-      "description": "Eine Rückfrage des Laufs beantworten oder verwerfen. Rechte: runs.read und runs.write.",
+      "description": "Eine Rückfrage des Runs beantworten oder verwerfen. Rechte: runs.read und runs.write.",
       "params": [
         {
           "name": "input",
@@ -515,7 +515,7 @@
     },
     {
       "name": "ragents.chat.send",
-      "description": "Eine Nachricht an den Koordinator des Runs; startet einen neuen Run oder funkt in einen laufenden. Mit entry startet sie den Run über diesen Skill-Einstieg und dessen festgelegte Startoptionen. Rechte: runs.read und runs.write, für einen neuen Run runs.create; beim globalen Chat dessen Rechte.",
+      "description": "Eine Nachricht an den Koordinator des Runs; startet einen neuen Run oder funkt in einen laufenden. Mit entry startet sie den Run über diese Skill-Vorlage und deren festgelegte Startoptionen. Rechte: runs.read und runs.write, für einen neuen Run runs.create; beim globalen Chat dessen Rechte.",
       "params": [
         {
           "name": "input",
@@ -569,7 +569,7 @@
               "entry": {
                 "type": "string",
                 "minLength": 1,
-                "description": "Kennung des Skill-Einstiegs, über den diese Nachricht den Run startet"
+                "description": "Kennung der Skill-Vorlage, über die diese Nachricht den Run startet"
               }
             },
             "additionalProperties": false
@@ -658,7 +658,7 @@
     },
     {
       "name": "ragents.chat.start",
-      "description": "Einen Run über einen Run-Script-Einstieg starten, ohne Nachricht; die Startoptionen, die der Einstieg festlegt, gelten. Rechte: runs.read, runs.write und die Freigabe des Einstiegs.",
+      "description": "Einen Run über eine Script-Vorlage starten, ohne Nachricht; die Startoptionen, die die Vorlage festlegt, gelten. Rechte: runs.read, runs.write und die Freigabe der Vorlage.",
       "params": [
         {
           "name": "input",
@@ -734,7 +734,7 @@
     },
     {
       "name": "ragents.documents.files",
-      "description": "Die Dateiablage eines Laufs als Gruppen und lose Dateien. Recht: runs.read.",
+      "description": "Die Dateiablage eines Runs als Gruppen und lose Dateien. Recht: runs.read.",
       "params": [
         {
           "name": "input",
@@ -902,7 +902,7 @@
     },
     {
       "name": "ragents.lsp-fsharp.snapshot",
-      "description": "Zustand und Diagnosen des Sprachservers ragents.lsp-fsharp in einem Lauf. Rechte: runs.read und ragents.lsp-fsharp.read.",
+      "description": "Zustand und Diagnosen des Sprachservers ragents.lsp-fsharp in einem Run. Rechte: runs.read und ragents.lsp-fsharp.read.",
       "params": [
         {
           "name": "input",
@@ -942,7 +942,7 @@
     },
     {
       "name": "ragents.lsp-roslyn.snapshot",
-      "description": "Zustand und Diagnosen des Sprachservers ragents.lsp-roslyn in einem Lauf. Rechte: runs.read und ragents.lsp-roslyn.read.",
+      "description": "Zustand und Diagnosen des Sprachservers ragents.lsp-roslyn in einem Run. Rechte: runs.read und ragents.lsp-roslyn.read.",
       "params": [
         {
           "name": "input",
@@ -982,7 +982,7 @@
     },
     {
       "name": "ragents.lsp-typescript.snapshot",
-      "description": "Zustand und Diagnosen des Sprachservers ragents.lsp-typescript in einem Lauf. Rechte: runs.read und ragents.lsp-typescript.read.",
+      "description": "Zustand und Diagnosen des Sprachservers ragents.lsp-typescript in einem Run. Rechte: runs.read und ragents.lsp-typescript.read.",
       "params": [
         {
           "name": "input",
@@ -1017,6 +1017,42 @@
       "x-rights": [
         "runs.read",
         "ragents.lsp-typescript.read"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.overseer.coordinator",
+      "description": "Die Run-ID des eigenen globalen Koordinators lesen: je angemeldetem Benutzer einer, ohne Anmeldung genau einer.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "runId"
+          ],
+          "properties": {
+            "runId": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "x-owner": "ragents.overseer",
+      "x-rights": [
+        "ragents.overseer.read"
       ],
       "x-implemented-by": "server"
     },
@@ -1152,7 +1188,7 @@
     },
     {
       "name": "ragents.overseer.listRuns",
-      "description": "Vorhandene Unterhaltungen des Profils mit stabilen Referenzen auflisten; der globale Chat gehört nicht zu dieser Liste.",
+      "description": "Die Runs, die der Aufrufer sieht, mit stabilen Referenzen auflisten; die globalen Koordinatoren gehören nicht zu dieser Liste.",
       "params": [
         {
           "name": "input",
@@ -1215,7 +1251,7 @@
     },
     {
       "name": "ragents.overseer.readCatalog",
-      "description": "Installierte Start-Einstiege und Startoptionen mit Eingabeschemata, Standardwerten und Wählbarkeit lesen. createRun startet Nachrichten, installierte Scripts oder lokale Pakete via packageDirectory. Skills liefern bearbeitbare Aufträge für message; dabei den Skillnamen als Arbeitsanleitung nennen.",
+      "description": "Installierte Vorlagen und Startoptionen mit Eingabeschemata, Standardwerten und Wählbarkeit lesen. createRun startet Nachrichten, installierte Scripts oder lokale Pakete via packageDirectory. Skills liefern bearbeitbare Aufträge für message; dabei den Skillnamen als Arbeitsanleitung nennen.",
       "params": [
         {
           "name": "input",
@@ -1332,7 +1368,7 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 512,
-                "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Lauf 1."
+                "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Run 1."
               },
               "after": {
                 "type": "integer",
@@ -1378,6 +1414,10 @@
                   {
                     "type": "string",
                     "const": "turn.started"
+                  },
+                  {
+                    "type": "string",
+                    "const": "turn.input-steered"
                   },
                   {
                     "type": "string",
@@ -1590,6 +1630,10 @@
                       },
                       {
                         "type": "string",
+                        "const": "turn.input-steered"
+                      },
+                      {
+                        "type": "string",
                         "const": "turn.finished"
                       },
                       {
@@ -1780,7 +1824,7 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 512,
-                "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Lauf 1."
+                "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Run 1."
               }
             },
             "additionalProperties": false
@@ -1947,7 +1991,7 @@
     },
     {
       "name": "ragents.overseer.reset",
-      "description": "Das Gespräch des übergeordneten Koordinators samt Modellkontext zurücksetzen; die Modellauswahl und alle Runs bleiben erhalten.",
+      "description": "Das Gespräch des eigenen globalen Koordinators samt Modellkontext zurücksetzen; die Modellauswahl, die Koordinatoren anderer Benutzer und alle Runs bleiben erhalten.",
       "params": [
         {
           "name": "input",
@@ -2000,7 +2044,7 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 512,
-                "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Lauf 1."
+                "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Run 1."
               },
               "message": {
                 "type": "string",
@@ -2050,7 +2094,7 @@
     },
     {
       "name": "ragents.overseer.settings.read",
-      "description": "Die Modellauswahl des übergeordneten Koordinators mit dem verfügbaren Modellkatalog lesen.",
+      "description": "Die Modellauswahl des globalen Koordinators mit dem verfügbaren Modellkatalog lesen.",
       "params": [
         {
           "name": "input",
@@ -2125,7 +2169,7 @@
     },
     {
       "name": "ragents.overseer.settings.save",
-      "description": "Die Modellauswahl des übergeordneten Koordinators setzen; sie gilt ab der nächsten Antwort.",
+      "description": "Die Modellauswahl des globalen Koordinators setzen; sie gilt ab der nächsten Antwort.",
       "params": [
         {
           "name": "input",
@@ -2223,7 +2267,7 @@
     },
     {
       "name": "ragents.overseer.stopRun",
-      "description": "Den Run über seine normale Stoppgrenze stoppen und die Bereinigung abwarten; die Unterhaltung bleibt erhalten.",
+      "description": "Den Run über seine normale Stoppgrenze stoppen und die Bereinigung abwarten; das Gespräch bleibt erhalten.",
       "params": [
         {
           "name": "input",
@@ -2238,7 +2282,7 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 512,
-                "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Lauf 1."
+                "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Run 1."
               }
             },
             "additionalProperties": false
@@ -2283,7 +2327,7 @@
     },
     {
       "name": "ragents.plugins.bootstrap",
-      "description": "Produkt, aktive Plugins mit Web-Konfiguration und freigegebene Einstiege für die Oberfläche.",
+      "description": "Produkt, aktive Plugins mit Web-Konfiguration und freigegebene Vorlagen für die Oberfläche.",
       "params": [
         {
           "name": "input",
@@ -2310,7 +2354,7 @@
     },
     {
       "name": "ragents.processes.snapshot",
-      "description": "Die beobachteten Prozesse eines Laufs mit ihren offenen Ports. Rechte: runs.read und ragents.processes.read.",
+      "description": "Die beobachteten Prozesse eines Runs mit ihren offenen Ports. Rechte: runs.read und ragents.processes.read.",
       "params": [
         {
           "name": "input",
@@ -2350,7 +2394,7 @@
     },
     {
       "name": "ragents.processes.stop",
-      "description": "Einen Prozess des Laufs beenden. Rechte: runs.read, runs.write und runs.inspect.",
+      "description": "Einen Prozess des Runs beenden. Rechte: runs.read, runs.write und runs.inspect.",
       "params": [
         {
           "name": "input",
@@ -2395,7 +2439,7 @@
     },
     {
       "name": "ragents.product.modelSettings.read",
-      "description": "Die Modellvorgaben der Agentprofile mit dem verfügbaren Modellkatalog. Recht: settings.read.",
+      "description": "Die Modellvorgaben der Rollen mit dem verfügbaren Modellkatalog. Recht: settings.read.",
       "params": [
         {
           "name": "input",
@@ -2424,7 +2468,7 @@
     },
     {
       "name": "ragents.product.modelSettings.save",
-      "description": "Die Modellvorgaben der Agentprofile speichern. Rechte: settings.read und settings.write.",
+      "description": "Die Modellvorgaben der Rollen speichern. Rechte: settings.read und settings.write.",
       "params": [
         {
           "name": "input",
@@ -2458,6 +2502,44 @@
       "x-rights": [
         "settings.read",
         "settings.write"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.runs.delete",
+      "description": "Einen Run mit seinen Daten löschen. Rechte: runs.read und runs.delete.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "null"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [
+        "runs.read",
+        "runs.delete"
       ],
       "x-implemented-by": "server"
     },
@@ -2570,7 +2652,7 @@
     },
     {
       "name": "ragents.runs.export",
-      "description": "Einen gestoppten Run als Archiv holen: Journal, Payloads, Modellkontexte und die Plugin-Ablagen seiner Session. Rechte: runs.read und runs.inspect.",
+      "description": "Einen gestoppten Run als Archiv holen: Journal, Payloads, Modellkontexte und seine Plugin-Ablagen. Rechte: runs.read und runs.inspect.",
       "params": [
         {
           "name": "input",
@@ -2710,6 +2792,38 @@
       },
       "x-owner": "host",
       "x-rights": [],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.runs.list",
+      "description": "Alle Runs des Profils mit Titel, Zeiten und Metadaten. Recht: runs.read.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": true,
+            "x-typescript-type": "SessionInfo"
+          }
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [
+        "runs.read"
+      ],
       "x-implemented-by": "server"
     },
     {
@@ -3052,76 +3166,6 @@
       },
       "x-owner": "host",
       "x-rights": [],
-      "x-implemented-by": "server"
-    },
-    {
-      "name": "ragents.sessions.delete",
-      "description": "Einen Run mit seinen Daten löschen. Rechte: runs.read und runs.delete.",
-      "params": [
-        {
-          "name": "input",
-          "required": true,
-          "schema": {
-            "type": "object",
-            "required": [
-              "runId"
-            ],
-            "properties": {
-              "runId": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 64,
-                "description": "Kennung des Runs"
-              }
-            },
-            "additionalProperties": false
-          }
-        }
-      ],
-      "paramStructure": "by-name",
-      "result": {
-        "name": "result",
-        "schema": {
-          "type": "null"
-        }
-      },
-      "x-owner": "host",
-      "x-rights": [
-        "runs.read",
-        "runs.delete"
-      ],
-      "x-implemented-by": "server"
-    },
-    {
-      "name": "ragents.sessions.list",
-      "description": "Alle Runs des Profils mit Titel, Zeiten und Metadaten. Recht: runs.read.",
-      "params": [
-        {
-          "name": "input",
-          "required": true,
-          "schema": {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": false
-          }
-        }
-      ],
-      "paramStructure": "by-name",
-      "result": {
-        "name": "result",
-        "schema": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "additionalProperties": true,
-            "x-typescript-type": "SessionInfo"
-          }
-        }
-      },
-      "x-owner": "host",
-      "x-rights": [
-        "runs.read"
-      ],
       "x-implemented-by": "server"
     },
     {
@@ -3496,7 +3540,8 @@
               "label",
               "hostname",
               "platform",
-              "folders"
+              "folders",
+              "runsDirectory"
             ],
             "properties": {
               "id": {
@@ -3522,6 +3567,11 @@
                   "minLength": 1
                 },
                 "maxItems": 32
+              },
+              "runsDirectory": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Absoluter Ordner, unter dem der Arbeitsplatz die neuen Ordner je Run anlegt"
               }
             },
             "additionalProperties": false
@@ -3549,6 +3599,7 @@
               "hostname",
               "platform",
               "folders",
+              "runsDirectory",
               "executor"
             ],
             "properties": {
@@ -3578,6 +3629,11 @@
                 },
                 "maxItems": 32
               },
+              "runsDirectory": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Absoluter Ordner, unter dem der Arbeitsplatz die neuen Ordner je Run anlegt"
+              },
               "executor": {
                 "type": "string",
                 "minLength": 1,
@@ -3599,7 +3655,8 @@
             "label",
             "hostname",
             "platform",
-            "folders"
+            "folders",
+            "runsDirectory"
           ],
           "properties": {
             "id": {
@@ -3625,6 +3682,11 @@
                 "minLength": 1
               },
               "maxItems": 32
+            },
+            "runsDirectory": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Absoluter Ordner, unter dem der Arbeitsplatz die neuen Ordner je Run anlegt"
             }
           },
           "additionalProperties": false
@@ -3702,7 +3764,7 @@
     },
     {
       "name": "ragents.processes",
-      "description": "Der laufende Stand der Prozessüberwachung eines Laufs. Rechte: runs.read und ragents.processes.read.",
+      "description": "Der laufende Stand der Prozessüberwachung eines Runs. Rechte: runs.read und ragents.processes.read.",
       "params": {
         "type": "object",
         "required": [
@@ -3771,7 +3833,7 @@
       "x-rights": []
     },
     {
-      "name": "ragents.sessions",
+      "name": "ragents.runs",
       "description": "Meldet jede Änderung der Run-Liste. Recht: runs.read.",
       "params": {
         "type": "object",

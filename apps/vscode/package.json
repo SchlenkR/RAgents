@@ -72,14 +72,14 @@
         "icon": "$(list-unordered)"
       },
       {
-        "command": "ragents.environments",
-        "title": "Umgebungen",
+        "command": "ragents.showConnections",
+        "title": "Server",
         "category": "RAgents",
         "icon": "$(settings-gear)"
       },
       {
         "command": "ragents.openConnectionsSetting",
-        "title": "Umgebungen in den Einstellungen",
+        "title": "Server in den Einstellungen",
         "category": "RAgents",
         "icon": "$(json)"
       },
@@ -156,7 +156,7 @@
           "group": "navigation@2"
         },
         {
-          "command": "ragents.environments",
+          "command": "ragents.showConnections",
           "when": "view == ragents.runPanel",
           "group": "navigation@3"
         },
@@ -167,7 +167,7 @@
         },
         {
           "command": "ragents.refresh",
-          "when": "view == ragents.runPanel && ragents.hasTargets",
+          "when": "view == ragents.runPanel && ragents.hasConnections",
           "group": "panel@2"
         },
         {
@@ -193,7 +193,7 @@
         "ragents.connections": {
           "type": "array",
           "default": [],
-          "markdownDescription": "Die Umgebungen der Erweiterung; sie verbindet sich mit allen gleichzeitig. Je Eintrag `name` und `url` (ein RAgents-Server; die Anmeldung fragt das Panel ab; verteilt der Server ein Client-Profil, startet die Erweiterung den Host damit lokal) oder `name` und `profileFile` (eine `ragents.config.<profil>.ts`; die Erweiterung startet den Host daraus still beim Aktivieren).",
+          "markdownDescription": "Die RAgents-Server der Erweiterung; sie verbindet sich mit allen gleichzeitig. Je Eintrag `name` und `url` (ein Server per Adresse; die Anmeldung fragt das Panel ab; verteilt der Server ein Client-Profil, startet die Erweiterung den Host damit lokal) oder `name` und `profileFile` (eine `ragents.config.<profil>.ts`; die Erweiterung startet den Host daraus still beim Aktivieren).",
           "items": {
             "type": "object",
             "required": [

@@ -40,7 +40,7 @@ test("Verbindungen werden geprüft: Server oder Profil, eindeutige Namen, Profil
   assert.match(describeConnection(parsed[0]!), /Profil werkstatt/);
 });
 
-test("ein Ziel wird als Eintrag der Einstellung geschrieben und ist danach wieder lesbar", () => {
+test("ein Server wird als Eintrag der Einstellung geschrieben und ist danach wieder lesbar", () => {
   const parsed = parseConnections([{ name: "Werkstatt", url: "https://werkstatt.example.com/" }, { name: "lokal", profileFile: "/tmp/ragents.config.werkstatt.ts" }]);
   const written = parsed.map(connectionSetting);
   assert.deepEqual(written, [
@@ -63,7 +63,7 @@ test("der Host kommt aus der Einstellung oder aus dem Repo der Erweiterung und d
   assert.throws(() => resolveHostPath(42, root), /ragents\.hostPath muss ein Pfad sein/);
 });
 
-test("ein neues Ziel geht dorthin, wo die Liste schon steht; sonst in die Benutzereinstellung", () => {
+test("ein neuer Server geht dorthin, wo die Liste schon steht; sonst in die Benutzereinstellung", () => {
   const entry = { name: "a", url: "http://x" };
   assert.deepEqual(connectionsLocation(undefined), { scope: "global", entries: [] });
   assert.deepEqual(connectionsLocation({}), { scope: "global", entries: [] });

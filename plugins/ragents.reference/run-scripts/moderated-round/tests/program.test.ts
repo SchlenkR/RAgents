@@ -16,9 +16,9 @@ test("stellt Moderator und Gäste auf und übergibt ihm den Chat", async () => {
   assert.equal(calls.length, completedCalls);
 });
 
-test("ohne ein nutzbares Agentenprofil bleibt der Aufbau unverändert", async () => {
+test("ohne eine nutzbare Rolle bleibt der Aufbau unverändert", async () => {
   const { calls, context } = setupContext([{ name: "coordinator", driver: "agent" }]);
-  await assert.rejects(async () => program.onInput!(startInput(null), context), /Kein Agentenprofil/);
+  await assert.rejects(async () => program.onInput!(startInput(null), context), /Keine Rolle/);
   assert.deepEqual(calls.map((call) => call.name), ["model_list"]);
   assert.deepEqual(context.state.read(), {});
 });

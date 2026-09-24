@@ -58,7 +58,7 @@ const secretValue = async (secrets: SecretReader, name: string): Promise<string 
 const readSecrets = (names: readonly string[], secrets: SecretReader): Promise<(readonly [string, string | undefined])[]> =>
   Promise.all(names.map(async (name) => [name, await secretValue(secrets, name)] as const));
 
-/** Die Namen ohne Wert in der SecretStorage; die Seite Umgebungen nennt sie, damit der fehlende Wert nicht erst beim Start auffällt. */
+/** Die Namen ohne Wert in der SecretStorage; die Seite Server nennt sie, damit der fehlende Wert nicht erst beim Start auffällt. */
 export const missingHostEnvironmentSecrets = async (names: readonly string[], secrets: SecretReader): Promise<string[]> =>
   (await readSecrets(names, secrets)).filter(([, value]) => value === undefined).map(([name]) => name);
 

@@ -70,7 +70,7 @@ export function App() {
   useEffect(() => {
     if (!readRuns || draft) return;
     void refresh();
-    const unsubscribe = rpc.subscribe(coreContracts.channels.sessions, {}, () => void refresh());
+    const unsubscribe = rpc.subscribe(coreContracts.channels.runs, {}, () => void refresh());
     const timer = setInterval(() => void refresh(), 5000);
     return () => { unsubscribe(); clearInterval(timer); };
   }, [draft, readRuns, refresh]);
@@ -148,15 +148,15 @@ export function App() {
   };
 
   if (pluginActivation.status === "loading") {
-    return <div className="m-auto p-6 text-muted-foreground">Produktprofil wird geladen.</div>;
+    return <div className="m-auto p-6 text-muted-foreground">Profil wird geladen.</div>;
   }
   if (pluginActivation.status === "failed") {
     return (
       <div className="flex h-full">
-        <main className="relative z-1 flex min-h-0 min-w-0 flex-1 bg-[image:var(--canvas-backdrop)]">
+        <main className="relative z-1 flex min-h-0 min-w-0 flex-1 bg-[image:var(--surface-backdrop)]">
           <div className={chatWorkspaceClass}>
             <header className="flex min-h-[42px] flex-none items-center gap-3 border-b border-border-soft pr-0.5 pb-2 pl-2.5">
-              <div className="flex min-w-0 flex-1 items-center gap-3 text-[0.82rem] font-semibold text-foreground">Produktprofil nicht verfügbar</div>
+              <div className="flex min-w-0 flex-1 items-center gap-3 text-[0.82rem] font-semibold text-foreground">Profil nicht verfügbar</div>
             </header>
             <Alert className="m-auto max-w-[560px] gap-3 p-6" variant="destructive">
               <p>{pluginActivation.error}</p>
@@ -219,7 +219,7 @@ export function App() {
     <div className="relative flex min-h-0 flex-1 flex-col" ref={setWorkspaceModalContainer}>
     <RunModalContext.Provider value={runModalContainer}>
     <div className="relative flex h-auto min-h-0 flex-1" ref={setRunModalContainer}>
-      <main className="relative z-1 flex min-h-0 min-w-0 flex-1 bg-[image:var(--canvas-backdrop)] @container/chat-content">
+      <main className="relative z-1 flex min-h-0 min-w-0 flex-1 bg-[image:var(--surface-backdrop)] @container/chat-content">
         {readRuns && activeId
           ? (
             <PluginChat

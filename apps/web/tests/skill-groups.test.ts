@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { StartEntryLibrary } from "../src/StartSurface.tsx";
+import { StartEntryLibrary } from "../src/StartSelection.tsx";
 import type { SkillStartEntry } from "../src/PluginRegistry.tsx";
 
 const card = (id: string, category: string, order: number, owner = "example"): SkillStartEntry => ({
   id, owner, action: "skill", skill: id, category, order, title: id, description: "Ein freier Auftrag", prompt: "Ich hätte gern Hilfe.",
 });
 
-test("die Startfläche gruppiert nach freiem Kategorietext über Plugin-Grenzen hinweg", () => {
+test("die Startseite gruppiert nach freiem Kategorietext über Plugin-Grenzen hinweg", () => {
   const html = renderToStaticMarkup(createElement(StartEntryLibrary, {
     skills: [card("später", "Mini-Apps", 30), card("eigener", "Meine frei benannte Gruppe", 20), card("früher", "Mini-Apps", 10, "other")],
     scripts: [], hasGuide: () => false,
@@ -57,7 +57,7 @@ test("Run-Scripts bleiben auswählbar, während ihre Ausführung noch gesperrt i
 });
 
 test("die Vorschau einer Vorlage zeigt, was sie an Startoptionen festlegt, nur bei einer solchen Vorlage", () => {
-  const fixed = { "ragents.workspace.binding": { kind: "fresh" } };
+  const fixed = { "ragents.workspace.binding": { machine: "server", folder: "fresh" } };
   const render = (fixedStartOptions?: typeof fixed) => renderToStaticMarkup(createElement(StartEntryLibrary, {
     skills: [], hasGuide: () => false, launchDisabled: false, onOpen: () => {},
     scripts: [{ id: "script", action: "script", owner: "example", title: "Im Worktree", description: "Ein Ablauf", coordinator: true, ...(fixedStartOptions ? { fixedStartOptions } : {}) }],

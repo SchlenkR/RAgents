@@ -190,7 +190,7 @@ test("fehlendes Standardprofil zeigt einen Fehler ohne Teilnehmer anzulegen", as
   settings.missingProfile = true;
   await program.onInput(firstInput, context);
   assert.equal(context.state.read().status, "error");
-  assert.match(context.state.read().error!, /Modellprofil standard fehlt/);
+  assert.match(context.state.read().error!, /Rolle standard fehlt/);
   assert.deepEqual(calls.map((call) => call.name), ["run_configure", "canvas_layout_replace", "model_list"]);
 });
 

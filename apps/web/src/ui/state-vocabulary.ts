@@ -1,7 +1,7 @@
 /** Das Vokabular aller Seiten: je Zustand genau ein Wort, das im Panel nur als title erscheint. */
 export type RunStateName = "running" | "waiting" | "idle" | "ended" | "failed" | "cancelled";
 
-export type EnvironmentStateName =
+export type ConnectionStateName =
   | "connected" | "ready" | "starting" | "login-required" | "unreachable" | "stopped" | "failed" | "forbidden";
 
 const RUN_WORDS: Record<RunStateName, string> = {
@@ -13,7 +13,7 @@ const RUN_WORDS: Record<RunStateName, string> = {
   cancelled: "abgebrochen",
 };
 
-const ENVIRONMENT_WORDS: Record<EnvironmentStateName, string> = {
+const CONNECTION_WORDS: Record<ConnectionStateName, string> = {
   connected: "verbunden",
   ready: "bereit",
   starting: "startet",
@@ -28,4 +28,4 @@ const ENVIRONMENT_WORDS: Record<EnvironmentStateName, string> = {
 export const runStateWord = (state: RunStateName, open = 0): string =>
   state === "waiting" && open > 0 ? `${RUN_WORDS.waiting} (${open})` : RUN_WORDS[state];
 
-export const environmentStateWord = (state: EnvironmentStateName): string => ENVIRONMENT_WORDS[state];
+export const connectionStateWord = (state: ConnectionStateName): string => CONNECTION_WORDS[state];

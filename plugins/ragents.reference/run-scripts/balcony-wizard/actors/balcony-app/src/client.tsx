@@ -47,7 +47,7 @@ function App() {
         <label htmlFor="interview-progress">{conversation.answers} von {answerCount} Antworten</label>
         <progress className="h-2.5 w-full [accent-color:var(--foreground)]" id="interview-progress" max={answerCount} value={conversation.answers} />
       </UI.Stack>
-      {snapshot?.readOnly && <p>Dieser Lauf ist schreibgeschützt.</p>}
+      {snapshot?.readOnly && <p>Dieser Run ist schreibgeschützt.</p>}
       {(sendError || conversation.error) && <p role="alert">{sendError || conversation.error}</p>}
       {conversation.phase === "start" && !pending && <UI.Stack>
         <p>Du beantwortest immer nur eine Frage. Deine bisherigen Angaben bleiben beim erneuten Öffnen erhalten.</p>

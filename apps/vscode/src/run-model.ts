@@ -10,7 +10,7 @@ export interface RunSummary {
   updatedAt: number;
   state: RunState;
   pendingActions: number;
-  /** Die Laufansicht ließ sich nicht lesen; der Run bleibt als Listenzeile stehen, die übrigen Runs sind nicht betroffen. */
+  /** Die Run-Ansicht ließ sich nicht lesen; der Run bleibt als Listenzeile stehen, die übrigen Runs sind nicht betroffen. */
   problem?: string;
 }
 
@@ -43,14 +43,14 @@ const loadedSummary = (session: SessionInfo, view: RunView): RunSummary => {
   };
 };
 
-/** Die Zusammenfassung eines Runs für Übersicht und Abzeichen; ohne lesbare Laufansicht bleibt nur die Listenzeile. */
+/** Die Zusammenfassung eines Runs für Übersicht und Abzeichen; ohne lesbare Run-Ansicht bleibt nur die Listenzeile. */
 export const runSummaryFrom = (session: SessionInfo, rawView: unknown): RunSummary => {
   const view = runViewFrom(rawView);
   if (!view) return listRow(session);
   try {
     return loadedSummary(session, view);
   } catch (cause) {
-    return { ...listRow(session), problem: `Die Laufansicht ist nicht lesbar: ${cause instanceof Error ? cause.message : String(cause)}` };
+    return { ...listRow(session), problem: `Die Run-Ansicht ist nicht lesbar: ${cause instanceof Error ? cause.message : String(cause)}` };
   }
 };
 

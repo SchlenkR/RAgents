@@ -3,7 +3,6 @@ import { defineOperation } from "@ragents/engine/src/rpc/contract";
 import { eventTypeMap, type EventType } from "@ragents/engine/src/domain/events";
 
 export const OVERSEER_PLUGIN_ID = "ragents.overseer";
-export const OVERSEER_RUN_ID = "overseer";
 export const QUICK_ANSWER_MAX_LENGTH = 240;
 
 export interface QuickAnswerState {
@@ -13,8 +12,8 @@ export interface QuickAnswerState {
 }
 
 export const overseerPermissions = [
-  { id: "ragents.overseer.read", description: "Den übergeordneten Koordinator und seine Modellauswahl ansehen." },
-  { id: "ragents.overseer.write", description: "Dem übergeordneten Koordinator Aufträge geben und sein Gespräch zurücksetzen." },
+  { id: "ragents.overseer.read", description: "Den globalen Koordinator und seine Modellauswahl ansehen." },
+  { id: "ragents.overseer.write", description: "Dem globalen Koordinator Aufträge geben und sein Gespräch zurücksetzen." },
 ] as const;
 
 export interface OverseerModelSelection {
@@ -32,7 +31,7 @@ const text = () => Type.String({ minLength: 1, pattern: "\\S" });
 const empty = object({});
 const jsonObject = Type.Record(Type.String(), Type.Any());
 const eventType = Type.Unsafe<EventType>(Type.Union(Object.keys(eventTypeMap).map((name) => Type.Literal(name))));
-const run = Type.String({ minLength: 1, maxLength: 512, description: "Run-ID, eindeutiger Titel oder stabile Referenz wie Lauf 1." });
+const run = Type.String({ minLength: 1, maxLength: 512, description: "Run-ID, eindeutiger Titel oder stabile Referenz wie Run 1." });
 const identityFields = { runId: Type.String(), title: Type.String(), reference: Type.String() };
 const runSummary = object({ ...identityFields, createdAt: Type.Optional(Type.Number()), updatedAt: Type.Number(), running: Type.Optional(Type.Boolean()), metadata: Type.Optional(jsonObject) });
 const accepted = object({ ...identityFields, accepted: Type.Literal(true) });
@@ -66,11 +65,11 @@ const settingsResult = object({
   models: Type.Array(object({ id: Type.String(), provider: Type.String(), label: Type.String(), thinking: Type.Array(Type.String()) })),
 });
 
-/** Die Verwaltung der Läufe, die Modellauswahl und der Gesprächsreset des übergeordneten Koordinators. */
+/** Die Verwaltung der Runs, die Modellauswahl und der Gesprächsreset des globalen Koordinators. */
 export const overseerContracts = {
   listRuns: defineOperation({
     id: "ragents.overseer.listRuns",
-    description: "Vorhandene Unterhaltungen des Profils mit stabilen Referenzen auflisten; der globale Chat gehört nicht zu dieser Liste.",
+    description: "Die Runs, die der Aufrufer sieht, mit stabilen Referenzen auflisten; die globalen Koordinatoren gehören nicht zu dieser Liste.",
     rights: ["runs.read"],
     input: empty,
     result: Type.Array(runSummary),
@@ -110,14 +109,14 @@ export const overseerContracts = {
   }),
   stopRun: defineOperation({
     id: "ragents.overseer.stopRun",
-    description: "Den Run über seine normale Stoppgrenze stoppen und die Bereinigung abwarten; die Unterhaltung bleibt erhalten.",
+    description: "Den Run über seine normale Stoppgrenze stoppen und die Bereinigung abwarten; das Gespräch bleibt erhalten.",
     rights: ["runs.read", "runs.write"],
     input: object({ run }),
     result: object({ ...identityFields, stopped: Type.Literal(true) }),
   }),
   readCatalog: defineOperation({
     id: "ragents.overseer.readCatalog",
-    description: "Installierte Start-Einstiege und Startoptionen mit Eingabeschemata, Standardwerten und Wählbarkeit lesen. createRun startet Nachrichten, installierte Scripts oder lokale Pakete via packageDirectory. Skills liefern bearbeitbare Aufträge für message; dabei den Skillnamen als Arbeitsanleitung nennen.",
+    description: "Installierte Vorlagen und Startoptionen mit Eingabeschemata, Standardwerten und Wählbarkeit lesen. createRun startet Nachrichten, installierte Scripts oder lokale Pakete via packageDirectory. Skills liefern bearbeitbare Aufträge für message; dabei den Skillnamen als Arbeitsanleitung nennen.",
     rights: ["runs.read", "runs.inspect"],
     input: empty,
     result: object({
@@ -142,22 +141,29 @@ export const overseerContracts = {
   settings: {
     read: defineOperation({
       id: "ragents.overseer.settings.read",
-      description: "Die Modellauswahl des übergeordneten Koordinators mit dem verfügbaren Modellkatalog lesen.",
+      description: "Die Modellauswahl des globalen Koordinators mit dem verfügbaren Modellkatalog lesen.",
       rights: ["ragents.overseer.read"],
       input: empty,
       result: settingsResult,
     }),
     save: defineOperation({
       id: "ragents.overseer.settings.save",
-      description: "Die Modellauswahl des übergeordneten Koordinators setzen; sie gilt ab der nächsten Antwort.",
+      description: "Die Modellauswahl des globalen Koordinators setzen; sie gilt ab der nächsten Antwort.",
       rights: ["ragents.overseer.read", "ragents.overseer.write", "settings.write"],
       input: modelSelection,
       result: settingsResult,
     }),
   },
+  coordinator: defineOperation({
+    id: "ragents.overseer.coordinator",
+    description: "Die Run-ID des eigenen globalen Koordinators lesen: je angemeldetem Benutzer einer, ohne Anmeldung genau einer.",
+    rights: ["ragents.overseer.read"],
+    input: empty,
+    result: object({ runId: Type.String() }),
+  }),
   reset: defineOperation({
     id: "ragents.overseer.reset",
-    description: "Das Gespräch des übergeordneten Koordinators samt Modellkontext zurücksetzen; die Modellauswahl und alle Runs bleiben erhalten.",
+    description: "Das Gespräch des eigenen globalen Koordinators samt Modellkontext zurücksetzen; die Modellauswahl, die Koordinatoren anderer Benutzer und alle Runs bleiben erhalten.",
     rights: ["ragents.overseer.read", "ragents.overseer.write"],
     input: object({ confirm: Type.Literal(true, { description: "Der Gesprächsreset muss ausdrücklich bestätigt werden." }) }),
     result: Type.Null(),

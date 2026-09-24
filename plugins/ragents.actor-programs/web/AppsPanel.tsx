@@ -15,14 +15,14 @@ import { answerQuestion } from "@ragents/plugins/ragents.ask/web/api";
 import { QuestionCard } from "@ragents/plugins/ragents.ask/web/QuestionCard";
 import { ACTOR_PROGRAMS_STATE_ID } from "@ragents/host/plugin-support/actor-programs/contract";
 import {
-  useCanvasController,
+  useSurfaceController,
   type SessionContext,
   type SessionHeaderContext,
   type WorkspaceTabContext,
 } from "@ragents/web/PluginRegistry";
 import { runViewFrom, type RunAction } from "@ragents/web/run-view";
-import { useStageEntities } from "@ragents/plugins/ragents.orchestration/web/canvas-stage";
-import { CANVAS_TILE_DRAG_TYPE } from "@ragents/plugins/ragents.orchestration/web/tile-docking";
+import { useSurfaceEntities } from "@ragents/plugins/ragents.orchestration/web/surface-entities";
+import { SURFACE_TILE_DRAG_TYPE } from "@ragents/plugins/ragents.orchestration/web/tile-docking";
 import { ProgramSlotContext, type ProgramSlot } from "@ragents/plugins/ragents.orchestration/web/program-slot";
 import {
   type RunApp,
@@ -86,7 +86,7 @@ export function ActorProgramsProvider({
   const closeFullscreen = useCallback(() => setFullscreen(undefined), []);
   const openFullscreen = useCallback((appId: string) => {
     if (!actorProgramApps(session).some((app) => app.id === appId && app.app.visible !== false)) {
-      throw new Error("Die Actor-Ansicht ist nicht auf dem Canvas verfügbar.");
+      throw new Error("Die Actor-Ansicht ist nicht auf der Fläche verfügbar.");
     }
     setFullscreen({ runId, appId });
   }, [runId, session]);
@@ -376,11 +376,11 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
   );
 }
 
-/** Ein Klick auf eine Mini-App wählt ihre Kachel auf der Fläche; die Fläche ist der Canvas-Controller des Orchestrierungs-Plugins. */
+/** Ein Klick auf eine Mini-App wählt ihre Kachel auf der Fläche; die Fläche ist der Flächen-Controller des Orchestrierungs-Plugins. */
 export function ActorProgramsHeader({ session }: SessionHeaderContext) {
   const canArrange = useAccess().can("runs.inspect");
-  const canvas = useCanvasController();
-  const stage = useStageEntities(session.session.id);
+  const surface = useSurfaceController();
+  const stage = useSurfaceEntities(session.session.id);
   const { closeFullscreen, fullscreenAppId, openFullscreen } = useActorPrograms();
   const apps = actorProgramApps(session).filter((app) => app.app.visible !== false);
   if (apps.length === 0) return null;
@@ -397,14 +397,14 @@ export function ActorProgramsHeader({ session }: SessionHeaderContext) {
           draggable={canArrange}
           onDragStart={(event) => {
             if (!canArrange) { event.preventDefault(); return; }
-            event.dataTransfer.setData(CANVAS_TILE_DRAG_TYPE, `app:${app.id}`);
+            event.dataTransfer.setData(SURFACE_TILE_DRAG_TYPE, `app:${app.id}`);
             event.dataTransfer.effectAllowed = "move";
             closeFullscreen();
           }}
           onClick={() => {
-            if (!canvas) throw new Error("Die App-Zugänge brauchen den Canvas-Controller des Orchestrierungs-Plugins.");
+            if (!surface) throw new Error("Die App-Zugänge brauchen den Flächen-Controller des Orchestrierungs-Plugins.");
             closeFullscreen();
-            canvas.acceptSelection({ type: "run-app", id: app.id });
+            surface.acceptSelection({ type: "run-app", id: app.id });
           }}
           aria-label={`Mini-App: ${app.title} von @${app.actorHandle}`}
           title={`Mini-App: ${app.title} von @${app.actorHandle}${canArrange ? ". Zum Andocken auf eine Kachel ziehen." : ""}`}

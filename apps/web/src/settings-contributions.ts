@@ -1,5 +1,5 @@
 import type {
-  SettingsAgentExtension,
+  SettingsAgentHook,
   SettingsConfigurationDescriptor,
   SettingsPromptContribution,
   SettingsResponse,
@@ -19,7 +19,7 @@ export type ContributionKind =
   | "prompts"
   | "startEntries"
   | "skills"
-  | "extensions"
+  | "hooks"
   | "configuration"
   | "web";
 
@@ -34,9 +34,9 @@ export const contributionFilters: readonly ContributionFilterOption[] = [
   { id: "all", label: "Alle" },
   { id: "tools", label: "Funktionen" },
   { id: "prompts", label: "Prompts" },
-  { id: "startEntries", label: "Einstiege" },
+  { id: "startEntries", label: "Vorlagen" },
   { id: "skills", label: "Skills" },
-  { id: "extensions", label: "Erweiterungen" },
+  { id: "hooks", label: "Hooks" },
   { id: "configuration", label: "Konfiguration" },
   { id: "web", label: "Web" },
 ];
@@ -62,7 +62,7 @@ export interface PluginGroup {
   prompts: readonly SettingsPromptContribution[];
   startEntries: readonly StartEntry[];
   skills: readonly SettingsSkill[];
-  extensions: readonly SettingsAgentExtension[];
+  hooks: readonly SettingsAgentHook[];
   configuration: readonly SettingsConfigurationDescriptor[];
   settings: readonly (SettingsContribution & { owner: string })[];
   clientConfig: Readonly<Record<string, unknown>> | undefined;
@@ -103,7 +103,7 @@ export const groupContributions = (
   const activeIds = new Set(source.activePlugins.map((plugin) => plugin.id));
   const webPlugins = new Map(source.plugins.map((plugin) => [plugin.id, plugin]));
   const serverPlugins = new Map(settings.plugins.map((plugin) => [plugin.id, plugin]));
-  const extensions = settings.agentExtensions.filter((extension) => extension.kind === "plugin");
+  const hooks = settings.agentHooks.filter((hook) => hook.kind === "plugin");
   const editableSettings = (source.settings ?? []).filter((contribution) => activeIds.has(contribution.owner));
   const owners = [
     ...settings.plugins.map((plugin) => plugin.id),
@@ -111,7 +111,7 @@ export const groupContributions = (
     ...ownersOf(settings.promptContributions),
     ...ownersOf(source.startEntries),
     ...ownersOf(settings.skills),
-    ...ownersOf(extensions),
+    ...ownersOf(hooks),
     ...activeIds,
   ];
   const ordered = [...new Set(owners)];
@@ -127,7 +127,7 @@ export const groupContributions = (
       prompts: settings.promptContributions.filter((contribution) => contribution.owner === id),
       startEntries: source.startEntries.filter((entry) => entry.owner === id),
       skills: settings.skills.filter((skill) => skill.owner === id),
-      extensions: extensions.filter((extension) => extension.owner === id),
+      hooks: hooks.filter((hook) => hook.owner === id),
       configuration: plugin?.configuration ?? [],
       settings: editableSettings.filter((contribution) => contribution.owner === id),
       clientConfig: plugin?.clientConfig,
@@ -166,8 +166,8 @@ export const filterGroup = (
     skills: kept("skills")
       ? group.skills.filter((skill) => matches([skill.id, skill.owner, ...skill.paths]))
       : [],
-    extensions: kept("extensions")
-      ? group.extensions.filter((extension) => matches([extension.id, extension.owner]))
+    hooks: kept("hooks")
+      ? group.hooks.filter((hook) => matches([hook.id, hook.owner]))
       : [],
     configuration,
     settings: kept("configuration")
@@ -183,7 +183,7 @@ export const countContributions = (group: PluginGroup): number =>
   + group.prompts.length
   + group.startEntries.length
   + group.skills.length
-  + group.extensions.length
+  + group.hooks.length
   + group.configuration.length
   + group.settings.length
   + (group.clientConfig === undefined ? 0 : 1)
@@ -229,12 +229,12 @@ const webModuleOf = (plugin: WebPlugin | undefined): PluginWebModule => {
 };
 
 const webContributionsOf = (plugin: WebPlugin): readonly WebContribution[] => [
-  listed("Arbeitsbereichs-Tabs", (plugin.workspaceTabs ?? []).map((tab) => `${tab.id} (${tab.label})`)),
-  flagged("Dynamische Arbeitsbereichs-Tabs", plugin.workspaceTabsFor !== undefined),
+  listed("Reiter der Leiste", (plugin.workspaceTabs ?? []).map((tab) => `${tab.id} (${tab.label})`)),
+  flagged("Dynamische Reiter der Leiste", plugin.workspaceTabsFor !== undefined),
   listed("Leitfäden", (plugin.guides ?? []).map((guide) => guide.id)),
   flagged("Branding", plugin.brand !== undefined),
-  flagged("Canvas", plugin.canvas !== undefined),
-  counted("Canvas-Elemente", (plugin.canvasElements ?? []).length),
+  flagged("Fläche", plugin.surface !== undefined),
+  counted("Flächenelemente", (plugin.surfaceElements ?? []).length),
   counted("Karten-Abschnitte", (plugin.cardSections ?? []).length),
   counted("Werkzeug-Darstellungen", (plugin.toolPresenters ?? []).length),
   counted("Entitäts-Darstellungen", (plugin.entityPresenters ?? []).length),

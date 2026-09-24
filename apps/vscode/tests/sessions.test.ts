@@ -4,7 +4,7 @@ import { WorkspaceClient } from "../../../plugins/ragents.workspace/client/works
 import { MissingEnvironmentError } from "../../server/src/missing-environment";
 import type { Connection } from "../src/connections";
 import { hostEnvironmentSecretKey, provideMissingSecret } from "../src/settings";
-import { TargetSession, type LaunchedTarget, type SecretStore, type SessionServices } from "../src/sessions";
+import { ConnectionSession, type LaunchedConnection, type SecretStore, type SessionServices } from "../src/sessions";
 import { startStubServer, stubProfile, waitFor, type StubServer } from "./fixtures";
 
 const secrets = (initial: Record<string, string> = {}): SecretStore & { values: Map<string, string> } => {
@@ -27,9 +27,9 @@ const harness = (urls: Record<string, string>, stored: Record<string, string> = 
   const launches: string[] = [];
   const store = secrets(stored);
   const services: SessionServices = {
-    workspaceClient: (transport) => new WorkspaceClient(transport, { id: "vscode-test", label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [process.cwd()] }, { hostRoot: () => undefined }),
+    workspaceClient: (transport) => new WorkspaceClient(transport, { id: "vscode-test", label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [process.cwd()], runsDirectory: "/tmp/ragents-runs" }, { hostRoot: () => undefined }),
     secrets: store,
-    launch: (connection: Connection): Promise<LaunchedTarget> => {
+    launch: (connection: Connection): Promise<LaunchedConnection> => {
       launches.push(connection.name);
       const url = urls[connection.name];
       if (!url) throw new Error(`Für ${connection.name} gibt es keinen Stub`);
@@ -46,17 +46,17 @@ const serverConnection = (name: string, url: string): Connection => ({ kind: "se
 
 const profileConnection = (name: string): Connection => ({ kind: "profile", name, profileFile: `/x/ragents.config.${name}.ts` });
 
-const closeAll = async (sessions: readonly TargetSession[], servers: readonly StubServer[]) => {
+const closeAll = async (sessions: readonly ConnectionSession[], servers: readonly StubServer[]) => {
   for (const session of sessions) await session.disconnect();
   for (const server of servers) await server.close();
 };
 
-test("zwei Ziele arbeiten gleichzeitig; Trennen des einen lässt das andere unberührt", async () => {
+test("zwei Server arbeiten gleichzeitig; Trennen des einen lässt den anderen unberührt", async () => {
   const first = await startStubServer();
   const second = await startStubServer();
   const { services } = harness({ A: first.url, B: second.url });
-  const a = new TargetSession(serverConnection("A", first.url), services);
-  const b = new TargetSession(serverConnection("B", second.url), services);
+  const a = new ConnectionSession(serverConnection("A", first.url), services);
+  const b = new ConnectionSession(serverConnection("B", second.url), services);
   try {
     await Promise.all([a.connect(), b.connect()]);
     assert.equal(a.snapshot().status.kind, "connected");
@@ -83,7 +83,7 @@ test("zwei Ziele arbeiten gleichzeitig; Trennen des einen lässt das andere unbe
 test("ein lokales Profil bleibt nicht gestartet, bis jemand es startet", async () => {
   const server = await startStubServer();
   const { services, launches } = harness({ core: server.url });
-  const session = new TargetSession(profileConnection("core"), services);
+  const session = new ConnectionSession(profileConnection("core"), services);
   try {
     assert.deepEqual(session.snapshot().status, { kind: "stopped" });
     assert.deepEqual(session.snapshot().entries, []);
@@ -93,7 +93,7 @@ test("ein lokales Profil bleibt nicht gestartet, bis jemand es startet", async (
     assert.deepEqual(launches, ["core"]);
     await waitFor(() => session.snapshot().entries.length === 2);
     await session.connect();
-    assert.deepEqual(launches, ["core"], "ein laufendes Ziel wird nicht ein zweites Mal gestartet");
+    assert.deepEqual(launches, ["core"], "ein laufender Server wird nicht ein zweites Mal gestartet");
     await session.disconnect();
     assert.deepEqual(session.snapshot().status, { kind: "stopped" });
     await session.connect();
@@ -103,12 +103,12 @@ test("ein lokales Profil bleibt nicht gestartet, bis jemand es startet", async (
   }
 });
 
-test("ein Ziel, das eine Anmeldung verlangt, blockiert die anderen nicht und meldet sich still an", async () => {
+test("ein Server, der eine Anmeldung verlangt, blockiert die anderen nicht und meldet sich still an", async () => {
   const open = await startStubServer();
   const guarded = await startStubServer({ loginRequired: true });
   const { services, secrets: store } = harness({ A: open.url, B: guarded.url });
-  const a = new TargetSession(serverConnection("A", open.url), services);
-  const b = new TargetSession(serverConnection("B", guarded.url), services);
+  const a = new ConnectionSession(serverConnection("A", open.url), services);
+  const b = new ConnectionSession(serverConnection("B", guarded.url), services);
   try {
     await Promise.all([a.connect(), b.connect()]);
     assert.equal(a.snapshot().status.kind, "connected");
@@ -118,7 +118,7 @@ test("ein Ziel, das eine Anmeldung verlangt, blockiert die anderen nicht und mel
     await b.loginWith("alice", "falsch");
     assert.match(b.snapshot().problem ?? "", /stimmen nicht/);
     assert.equal(b.snapshot().status.kind, "login-required");
-    assert.equal(a.snapshot().status.kind, "connected", "die fehlgeschlagene Anmeldung betrifft nur ihr Ziel");
+    assert.equal(a.snapshot().status.kind, "connected", "die fehlgeschlagene Anmeldung betrifft nur ihren Server");
 
     await b.loginWith("alice", "geheim");
     assert.equal(b.snapshot().status.kind, "connected");
@@ -139,7 +139,7 @@ test("ein Ziel, das eine Anmeldung verlangt, blockiert die anderen nicht und mel
 test("ein Server, der das Abmelden ablehnt, behält die gespeicherten Anmeldedaten trotzdem nicht", async () => {
   const guarded = await startStubServer({ loginRequired: true, logoutFails: true });
   const { services, secrets: store } = harness({ B: guarded.url });
-  const session = new TargetSession(serverConnection("B", guarded.url), services);
+  const session = new ConnectionSession(serverConnection("B", guarded.url), services);
   try {
     await session.connect();
     await waitFor(() => session.snapshot().status.kind === "login-required");
@@ -155,10 +155,10 @@ test("ein Server, der das Abmelden ablehnt, behält die gespeicherten Anmeldedat
   }
 });
 
-test("gespeicherte Anmeldedaten melden das Ziel ohne Formular an", async () => {
+test("gespeicherte Anmeldedaten melden den Server ohne Formular an", async () => {
   const guarded = await startStubServer({ loginRequired: true });
   const { services } = harness({ B: guarded.url }, { [`ragents.login:${guarded.url}`]: JSON.stringify({ user: "alice", password: "geheim" }) });
-  const session = new TargetSession(serverConnection("B", guarded.url), services);
+  const session = new ConnectionSession(serverConnection("B", guarded.url), services);
   try {
     await session.connect();
     await waitFor(() => session.snapshot().status.kind === "connected");
@@ -169,10 +169,10 @@ test("gespeicherte Anmeldedaten melden das Ziel ohne Formular an", async () => {
   }
 });
 
-test("ohne Benutzerverwaltung erlaubt ein Ziel neue Runs auch ohne Vorlagen", async () => {
+test("ohne Benutzerverwaltung erlaubt ein Server neue Runs auch ohne Vorlagen", async () => {
   const server = await startStubServer({ profile: stubProfile({ startEntries: [] }) });
   const { services } = harness({ A: server.url });
-  const session = new TargetSession(serverConnection("A", server.url), services);
+  const session = new ConnectionSession(serverConnection("A", server.url), services);
   try {
     await session.connect();
     await waitFor(() => session.snapshot().entries.length === 0 && session.snapshot().status.kind === "connected");
@@ -183,11 +183,11 @@ test("ohne Benutzerverwaltung erlaubt ein Ziel neue Runs auch ohne Vorlagen", as
   }
 });
 
-test("an einem Server ohne Benutzer über das Netz meldet sich der Arbeitsplatz nicht an und die Umgebung nennt den Grund", async () => {
+test("an einem Server ohne Benutzer über das Netz meldet sich der Arbeitsplatz nicht an und der Server nennt den Grund", async () => {
   const server = await startStubServer();
   const remote = server.url.replace("127.0.0.1", "[::ffff:127.0.0.1]");
   const { services } = harness({ A: remote });
-  const session = new TargetSession(serverConnection("A", remote), services);
+  const session = new ConnectionSession(serverConnection("A", remote), services);
   try {
     await session.connect();
     await waitFor(() => session.snapshot().status.kind === "connected");
@@ -200,10 +200,10 @@ test("an einem Server ohne Benutzer über das Netz meldet sich der Arbeitsplatz 
   }
 });
 
-test("der Default-Einstieg des Servers steht im Schnappschuss der Umgebung", async () => {
+test("die Default-Vorlage des Servers steht in seinem Schnappschuss", async () => {
   const server = await startStubServer({ profile: stubProfile({ defaultStartEntry: "ragents.reference.board" }) });
   const { services } = harness({ A: server.url });
-  const session = new TargetSession(serverConnection("A", server.url), services);
+  const session = new ConnectionSession(serverConnection("A", server.url), services);
   try {
     await session.connect();
     await waitFor(() => session.snapshot().defaultEntry === "ragents.reference.board");
@@ -213,9 +213,9 @@ test("der Default-Einstieg des Servers steht im Schnappschuss der Umgebung", asy
   }
 });
 
-test("ein totes Ziel meldet sich als nicht erreichbar, ohne die Sitzung zu verlieren", async () => {
+test("ein toter Server meldet sich als nicht erreichbar, ohne die Sitzung zu verlieren", async () => {
   const { services } = harness({ A: "http://127.0.0.1:1" });
-  const session = new TargetSession(serverConnection("A", "http://127.0.0.1:1"), services);
+  const session = new ConnectionSession(serverConnection("A", "http://127.0.0.1:1"), services);
   try {
     await session.connect();
     assert.equal(session.snapshot().status.kind, "unreachable");
@@ -240,7 +240,7 @@ test("fehlen einem Profil Umgebungsvariablen, führt jeder Wert zum nächsten Ve
       return Promise.resolve({ url: server.url, token: undefined, host: undefined });
     },
   };
-  const session = new TargetSession(profileConnection("core"), services);
+  const session = new ConnectionSession(profileConnection("core"), services);
   const names: string[] = [];
   const gefuehrt = (name: string) => provideMissingSecret(name, {
     names: () => names,
@@ -252,7 +252,7 @@ test("fehlen einem Profil Umgebungsvariablen, führt jeder Wert zum nächsten Ve
   try {
     await session.connect();
     assert.equal(session.snapshot().status.kind, "failed");
-    assert.deepEqual(session.snapshot().missingEnvironment, verlangt[0], "die Umgebung nennt die erste fehlende Variable");
+    assert.deepEqual(session.snapshot().missingEnvironment, verlangt[0], "der Server nennt die erste fehlende Variable");
 
     await gefuehrt(session.snapshot().missingEnvironment!.variable);
     assert.deepEqual(names, ["SERVICE_URL"], "der Name steht danach in ragents.hostEnvironment");
@@ -268,10 +268,10 @@ test("fehlen einem Profil Umgebungsvariablen, führt jeder Wert zum nächsten Ve
   }
 });
 
-test("scheitert die Übernahme eines verteilten Profils an einer Umgebungsvariablen, steht der Befund an der Umgebung", async () => {
+test("scheitert die Übernahme eines verteilten Profils an einer Umgebungsvariablen, steht der Befund am Server", async () => {
   const server = await startStubServer();
   const { services } = harness({ A: server.url });
-  const session = new TargetSession(serverConnection("A", server.url), services);
+  const session = new ConnectionSession(serverConnection("A", server.url), services);
   const missing = { variable: "SERVICE_TOKEN", section: "ragents.example", key: "SERVICE_KEY" };
   try {
     await session.connect();

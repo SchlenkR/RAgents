@@ -93,8 +93,8 @@ npm install -g @schlenkr/ragents
 
 ## Documentation
 
-The specification, the operations guide, the profile and plugin reference and the homepage live in
-the repository: https://github.com/SchlenkR/RAgents
+The specification, the usage and operations guides, the profile and plugin reference and the
+homepage live in the repository: https://github.com/SchlenkR/RAgents
 
 ## License
 

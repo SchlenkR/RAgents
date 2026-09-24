@@ -1,5 +1,5 @@
 import type { JsonValue } from "../../domain/json.ts";
-import type { TurnUsage } from "../../domain/model.ts";
+import { isPendingActorInput, type TurnUsage } from "../../domain/model.ts";
 import { event, type Decision } from "../command.ts";
 import { DomainError } from "../domain-error.ts";
 import { actorById, commandActorOf, assertSelf, clean, executableActorOf } from "../guards.ts";
@@ -44,6 +44,36 @@ export const startTurn =
             type: "turn.started",
             payload: { turnId: services.newId("turn"), inputId },
         })];
+    };
+
+/** Pending inputs join a running agent turn in their journal order; nothing may be skipped. */
+export const steerInputs =
+    (actorId: string, input: { turnId: string; inputIds: readonly string[] }): Decision =>
+    (state, context) => {
+        const target = runningTurn(state, context, actorId, input.turnId);
+
+        if (target.execution.driver.kind !== "agent")
+            throw new DomainError("steering-unsupported", `Actor ${actorId} runs without a model and takes no steering.`, 409);
+
+        if (input.inputIds.length === 0)
+            throw new DomainError("steering-empty", `Steering into turn ${input.turnId} names no input.`, 400);
+
+        const pending = [...state.inputs.values()]
+            .filter((entry) => entry.actorId === actorId && isPendingActorInput(entry))
+            .sort((left, right) => left.sequence - right.sequence)
+            .map((entry) => entry.id);
+
+        if (input.inputIds.some((inputId, index) => pending[index] !== inputId))
+            throw new DomainError(
+                "steering-order",
+                `Steering into turn ${input.turnId} must take the oldest pending inputs in order; pending are ${pending.join(", ") || "none"}.`,
+                409,
+            );
+
+        return input.inputIds.map((inputId) => event(context, {
+            type: "turn.input-steered",
+            payload: { turnId: input.turnId, inputId },
+        }));
     };
 
 const appendText = (

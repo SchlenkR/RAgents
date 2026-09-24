@@ -29,12 +29,12 @@
   --border-strong: #a397b2;
   --shell: #cbd6e4;
   --app: #dce3ed;
-  --canvas: #e8e2e6;
-  --canvas-dot: #79aab43b;
-  --canvas-glow-mint: #92cfbfad;
-  --canvas-glow-blue: #8bbfe5a6;
-  --canvas-light: #ffffffb3;
-  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
+  --surface: #e8e2e6;
+  --surface-dot: #79aab43b;
+  --surface-glow-mint: #92cfbfad;
+  --surface-glow-blue: #8bbfe5a6;
+  --surface-light: #ffffffb3;
+  --surface-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #9ccfc5b3, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #9ec6e4b3, transparent 56%),
         radial-gradient(ellipse at 28% 0%, #c4b0dfb3, transparent 58%),
@@ -81,12 +81,12 @@
   --border-strong: #8e809f;
   --shell: #242e40;
   --app: #212632;
-  --canvas: #29232e;
-  --canvas-dot: #7cafbc30;
-  --canvas-glow-mint: #317d686b;
-  --canvas-glow-blue: #417daa80;
-  --canvas-light: #80bfc71f;
-  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
+  --surface: #29232e;
+  --surface-dot: #7cafbc30;
+  --surface-glow-mint: #317d686b;
+  --surface-glow-blue: #417daa80;
+  --surface-light: #80bfc71f;
+  --surface-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #2c625e99, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #355674a6, transparent 56%),
         radial-gradient(ellipse at 28% 0%, #59446f99, transparent 58%),
@@ -128,7 +128,7 @@
       <a href="index.html">Product</a>
       <a href="guide.html" aria-current="page">Guide</a>
     </nav>
-  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html" aria-current="page">Build mini-apps</a><a href="guide-extensions.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Build mini-apps</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html" aria-current="page">Build mini-apps</a><a href="guide-extensions.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Build mini-apps</h1><p>Expose actor state and functions through interactive React views.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#programs-and-mini-apps">Programs and mini-apps</a><a href="#packages-and-actor-binding">Packages and actor binding</a><a href="#backend-and-client">Backend and client</a><a href="#create-edit-and-activate">Create, edit, and activate</a><a href="#connect-workflow-definition-instructions-and-presentation">Connect workflow definition, instructions, and presentation</a><a href="#display-diagrams-from-data">Display diagrams from data</a><a href="#state-and-lifecycle">State and lifecycle</a></nav></details><h2 id="programs-and-mini-apps">Programs and mini-apps</h2>
+  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html" aria-current="page">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Build mini-apps</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html" aria-current="page">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Build mini-apps</h1><p>Expose actor state and functions through interactive React views.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#programs-and-mini-apps">Programs and mini-apps</a><a href="#packages-and-actor-binding">Packages and actor binding</a><a href="#backend-and-client">Backend and client</a><a href="#create-edit-and-activate">Create, edit, and activate</a><a href="#connect-workflow-definition-instructions-and-presentation">Connect workflow definition, instructions, and presentation</a><a href="#display-diagrams-from-data">Display diagrams from data</a><a href="#state-and-lifecycle">State and lifecycle</a></nav></details><h2 id="programs-and-mini-apps">Programs and mini-apps</h2>
 <p>An executable actor can own a TypeScript program with functions, journaled state, and React
 views. This applies to both TypeScript and LLM actors. Users see these views as mini-apps. A
 mini-app displays its actor&#39;s state and calls that actor&#39;s functions directly; the call requires
@@ -141,7 +141,7 @@ model.</p>
 <h2 id="packages-and-actor-binding">Packages and actor binding</h2>
 <p>Programs are private packages in a prepared pnpm workspace for the run. File functions and
 language servers access them through <code>@actors/&lt;name&gt;/</code>; Bash uses <code>RAGENTS_ACTORS_DIR</code>. The
-workspace interface exposes the program-package collection directly. Normal relative imports
+workspace interface exposes the actor-program collection directly. Normal relative imports
 include local modules, while fixed local dependencies come from the host installation.</p>
 <pre><code class="language-text">@actors/&lt;name&gt;/
   package.json
@@ -166,7 +166,7 @@ package binds to the calling actor. A static view needs neither a dummy actor no
 backend function.</p>
 <p>Activation rejects a program with an input handler on an LLM actor because that actor&#39;s normal
 messages remain with the model driver. A package without an input handler can still add functions
-and views to it. Functions can also exist without a view. Exactly one program package is active
+and views to it. Functions can also exist without a view. Exactly one actor program is active
 per actor; a different package is rejected. Add functions and views to the existing package
 instead. Reactivating that package applies its changed state, including removed functions and
 views.</p>
@@ -312,7 +312,7 @@ layout reserves at least 52 layout pixels between adjacent cards and 94 between 
 labels allowed to require more. An edge with <code>kind: &quot;return&quot;</code> draws a return path outside the
 main sequence without changing its temporal layout.</p>
 <p>Diagrams start at 80 percent of design size, including type, cards, edges, and spacing; the
-center control restores that scale. The canvas has no separate background, border, or dot grid,
+center control restores that scale. The diagram pane has no separate background, border, or dot grid,
 so the diagram sits directly on the mini-app content. Zooming and panning change only the view.
 With <code>viewport=&quot;fit-width&quot;</code>, the graph fits the container automatically, shrinks further when
 needed, and never grows beyond 80 percent. Remaining space is centered. Height follows complete
@@ -339,10 +339,10 @@ into React without remounting the client, preserving local form drafts. Active b
 poll their status until completion.</p>
 <p>Functions on the same actor execute in order; different actors can work in parallel. Every call
 receives an abort signal. The native execution platform owns processes and stop boundaries for
-runs and instances. Stopping a run ends active work, while removing a program package or
+runs and instances. Stopping a run ends active work, while removing an actor program or
 activating a new version terminates execution resources from the previous version. After a
 server restart, previously pending or active mini-app function calls are marked <code>cancelled</code> and
 are not retried automatically. Unclaimed ActorInputs behave differently: they remain queued for
 an actor that is still executable. A mini-app click and a message to an actor use separate
 execution paths. Deleting the run also removes its private app workspace.</p>
-<p class="guide-source">Source: <a href="../../docs/spec/run-modules.md">docs/spec/run-modules.md</a>. <a href="guide-programs.md">This chapter as Markdown</a>.</p><p><a href="guide-extensions.html">Choose an extension form</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide-functions.html">Previous: Work with TypeScript</a><a href="guide-extensions.html">Next: Plugins and skills</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>
+<p class="guide-source">Source: <a href="../../docs/spec/actor-programs.md">docs/spec/actor-programs.md</a>. <a href="guide-programs.md">This chapter as Markdown</a>.</p><p><a href="guide-plugins.html">Choose a plugin form</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide-functions.html">Previous: Work with TypeScript</a><a href="guide-plugins.html">Next: Plugins and skills</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>

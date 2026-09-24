@@ -20,7 +20,7 @@ export const actorConversation = (view: RunView, actor: RunActor): Message[] => 
       const fromOwner = input.enqueuedBy === view.ownerId;
       const attachments = input.artifactIds.map((id) => {
         const artifact = view.artifacts.find((entry) => entry.id === id);
-        if (!artifact) throw new Error(`Anhang ${id} fehlt in der Laufansicht`);
+        if (!artifact) throw new Error(`Anhang ${id} fehlt in der Run-Ansicht`);
         return {
           name: artifact.title, mediaType: artifact.mediaType, size: artifact.size,
           url: `/chat/${encodeURIComponent(view.id)}/attachments/${encodeURIComponent(id)}`,

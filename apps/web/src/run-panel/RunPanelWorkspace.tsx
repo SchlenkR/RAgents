@@ -6,7 +6,7 @@ import { Button } from "../ui";
 import { mountedTabs } from "../WorkspacePanel";
 import { CHAT_MIN_HEIGHT, clampWorkspaceHeight, RUN_PANEL_WORKSPACE_ID, saveRunPanelWorkspaceState, useRunPanelWorkspaceState } from "./workspace-state";
 
-/** Die Tab-Fläche unter dem Chat des Run-Panels: Griff, Kopfzeile mit Reitername und X, darunter das Panel des Beitrags; besuchte keepMounted-Reiter bleiben montiert. */
+/** Die Leiste unter dem Chat des Run-Panels: Griff, Kopfzeile mit Reitername und X, darunter das Panel des Beitrags; besuchte keepMounted-Reiter bleiben montiert. */
 export function RunPanelWorkspace({ navigation, onClose, open, runId, session, tabs }: {
   navigation: SessionNavigation;
   onClose: () => void;
@@ -29,7 +29,7 @@ export function RunPanelWorkspace({ navigation, onClose, open, runId, session, t
   const availableHeight = () => sectionRef.current?.parentElement?.clientHeight ?? Number.POSITIVE_INFINITY;
 
   return <section
-    aria-label="Arbeitsbereich"
+    aria-label="Leiste"
     className="flex flex-none flex-col border-t border-border bg-card"
     hidden={!open}
     id={RUN_PANEL_WORKSPACE_ID}
@@ -44,7 +44,7 @@ export function RunPanelWorkspace({ navigation, onClose, open, runId, session, t
     />
     <header className="flex h-8 flex-none items-center gap-2 border-b border-border px-2.5">
       <h2 className="min-w-0 flex-1 truncate text-[0.76rem] font-semibold">{activeTab?.label}</h2>
-      <Button aria-label="Arbeitsbereich schließen" onClick={onClose} size="icon-xs" title="Arbeitsbereich schließen" variant="ghost"><XIcon /></Button>
+      <Button aria-label="Leiste schließen" onClick={onClose} size="icon-xs" title="Leiste schließen" variant="ghost"><XIcon /></Button>
     </header>
     <div className="relative min-h-0 flex-1 overflow-hidden">
       {mountedTabs(tabs, activeTabId, visited).map((tab) => <div className={cn("absolute inset-0 flex min-h-0 flex-col", tab.id !== activeTabId && "pointer-events-none invisible")} key={tab.id}>
@@ -54,7 +54,7 @@ export function RunPanelWorkspace({ navigation, onClose, open, runId, session, t
   </section>;
 }
 
-/** Der waagerechte Griff über der Tab-Fläche; ziehen nach oben macht sie höher. */
+/** Der waagerechte Griff über der Leiste; ziehen nach oben macht sie höher. */
 function Sash({ onChange, onCommit, value }: { onChange: (next: number) => void; onCommit: (next: number) => void; value: number }) {
   const drag = useRef<{ startY: number; startHeight: number }>(undefined);
   const finish = (event: PointerEvent<HTMLDivElement>) => {
@@ -64,7 +64,7 @@ function Sash({ onChange, onCommit, value }: { onChange: (next: number) => void;
     onCommit(value);
   };
   return <div
-    aria-label="Höhe des Arbeitsbereichs"
+    aria-label="Höhe der Leiste"
     aria-orientation="horizontal"
     aria-valuenow={value}
     className="flex h-2.5 flex-none cursor-row-resize touch-none items-center justify-center border-b border-border bg-shell select-none hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:-outline-offset-2"

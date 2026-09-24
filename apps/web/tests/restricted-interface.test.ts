@@ -8,7 +8,7 @@ import { ChatStepsProvider, PluginRegistry, useChatSteps, type SessionContext } 
 import { ChatMessages } from "../src/chat/ChatMessages";
 import type { Message } from "../src/chat/types";
 import { attachmentCapabilityError } from "../src/chat/attachments";
-import { StartSurface } from "../src/StartSurface";
+import { StartSelection } from "../src/StartSelection";
 import { StartOptionsProvider } from "../src/StartOptions";
 import { createModalController, ModalControllerContext } from "../src/ui/modal-controller";
 import { FlowInspector } from "../../../plugins/ragents.orchestration/web/FlowInspector";
@@ -34,7 +34,7 @@ test("restricted launch shows only the allowed setup without free composer or te
   const session = { session: { id: "run", title: "Run", updatedAt: 0 }, send: async () => {}, start: async () => {} } as unknown as SessionContext;
   const modal = createModalController({ nextBehavior: () => "push", onClose: () => {} });
   const html = renderRestricted(createElement(ModalControllerContext.Provider, { value: modal },
-    createElement(StartOptionsProvider, { connected: true, messageCount: 0, sessionId: "run" }, createElement(StartSurface, { registry, session }))));
+    createElement(StartOptionsProvider, { connected: true, messageCount: 0, sessionId: "run" }, createElement(StartSelection, { registry, session }))));
   assert.match(html, /Abgleichen/);
   assert.match(html, />Starten<\/button>/);
   assert.doesNotMatch(html, /textarea|Anderer Ablauf|Freier Auftrag|Privater Startauftrag|Run-Script|start-source|Startoptionen/);
@@ -97,7 +97,7 @@ test("restricted actor chat shows empty redacted phase chips and working scenes 
   ];
   for (const { message, label } of cases) {
     const html = renderRestricted(createElement(ChatStepsProvider, { policy }, createElement(ActorChat, {
-      actor, view, presentation: "canvas", primaryMessages: [message], running: true, onNavigate: () => {},
+      actor, view, presentation: "surface", primaryMessages: [message], running: true, onNavigate: () => {},
     })));
     assert.match(html, /data-step="row"/);
     assert.match(html, /data-step="chip"/);

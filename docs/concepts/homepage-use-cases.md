@@ -15,8 +15,8 @@ nach festgelegten Bedingungen zustellen. Die Modelle blieben für Analyse, Code�
 Bewertung verantwortlich.
 
 Vor einem Demonstrator müssen ein kleines echtes Projekt, eine konkrete Refactoring-Aufgabe und
-prüfbare Erwartungen feststehen. Erst ein ausgeführter und geprüfter core-Lauf darf als vorhandenes
-Beispiel auf der Homepage erscheinen. Aktuell sollen weder Läufe noch die Anwendung dafür
+prüfbare Erwartungen feststehen. Erst ein ausgeführter und geprüfter core-Run darf als vorhandenes
+Beispiel auf der Homepage erscheinen. Aktuell sollen weder Runs noch die Anwendung dafür
 gestartet werden, weil parallel entwickelt wird.
 
 ## DevOps und betriebliche Abläufe

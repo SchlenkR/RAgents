@@ -46,7 +46,7 @@ const paneClasses = "min-h-0 min-w-0 flex-auto overflow-auto overscroll-contain 
 // Maßgeblich ist die Breite des Bausteins, nicht die des Fensters; CSS und Messung nutzen dieselbe Schwelle.
 const narrowWidth = 900;
 
-/** Controlled grouped selection with a detail surface and a return path on narrow surfaces. */
+/** Controlled grouped selection with a detail page and a return path on narrow screens. */
 export function ListDetail({ label, items, selectedId, onSelect, disabled = false, toolbar,
   detailHeader, children, detailFooter, emptyState, detailLabel = "Details", className }: ListDetailProps) {
   const prefix = useId();

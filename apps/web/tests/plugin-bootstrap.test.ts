@@ -18,7 +18,7 @@ const bootstrap = {
       description: "Eine Karte",
       prompt: "Frei",
     },
-    { id: "test.feature", owner: "test.product", action: "skill", category: "Entwicklung", prompt: "Feature umsetzen", title: "Feature", description: "Ein Lauf", skill: "test-feature-run" },
+    { id: "test.feature", owner: "test.product", action: "skill", category: "Entwicklung", prompt: "Feature umsetzen", title: "Feature", description: "Ein Run", skill: "test-feature-run" },
     { id: "ragents.reference.setup", owner: "ragents.reference", action: "script", title: "Vorgebaut", description: "Ein Script", coordinator: true },
   ],
 };
@@ -52,7 +52,7 @@ test("die Bootstrap-Antwort wird geprüft und in Descriptoren übersetzt", () =>
   assert.throws(() => pluginBootstrapFrom({ ...bootstrap, plugins: [{ id: "x", web: { entry: "" } }] }), /Plugin-Descriptor/);
   assert.throws(() => pluginBootstrapFrom({ ...bootstrap, plugins: [{ id: "x", web: { entry: "/a.js", style: "/a.css" } }] }), /Plugin-Descriptor/);
   assert.throws(() => pluginBootstrapFrom({ ...bootstrap, plugins: [{ id: "x", config: "nein" }] }), /Plugin-Descriptor/);
-  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, startEntries: [{ id: "x" }] }), /ungültigen Einstieg/);
+  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, startEntries: [{ id: "x" }] }), /ungültige Vorlage/);
   assert.throws(() => pluginBootstrapFrom({ ...bootstrap, startEntries: [{ ...bootstrap.startEntries[2], source: "x" }] }), /unbekannte Felder source/);
 });
 
@@ -77,7 +77,7 @@ test("die Aktivierung lädt Web-Hälften per Adresse samt Stylesheet und lässt 
   assert.deepEqual(registry.cardSections.map((section) => section.id), ["ragents.todo.items"]);
   assert.equal(registry.brand.title, "Core");
   assert.deepEqual(stylesheets, ["/plugins/ragents.product/web/index.css"]);
-  assert.deepEqual(registry.startEntries, [], "Einstiege von Plugins außerhalb der Liste fallen weg");
+  assert.deepEqual(registry.startEntries, [], "Vorlagen von Plugins außerhalb der Liste fallen weg");
   const withReference = { ...withProduct, plugins: [...withProduct.plugins, { id: "ragents.reference" }] };
   const active = (await activatePlugins(pluginBootstrapFrom(withReference), loader)).registry;
   assert.deepEqual(active.skillEntries.map((entry) => entry.id), ["ragents.reference.demo"]);

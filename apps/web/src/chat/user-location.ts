@@ -14,7 +14,7 @@ export function runUserLocation(runId: string, activeTabId: string, tabs: readon
 export function chatUserLocation(activeRunId: string | undefined, overviewOpen: boolean, details: ChatRunLocation | undefined): ChatUserLocation {
   const current = activeRunId !== undefined && details?.runId === activeRunId ? details : undefined;
   return {
-    surface: overviewOpen ? "overview" : activeRunId === undefined ? "home" : "run",
+    page: overviewOpen ? "overview" : activeRunId === undefined ? "home" : "run",
     runId: activeRunId ?? null,
     tab: !overviewOpen && current ? current.tab : null,
     selection: !overviewOpen && current?.selection ? { type: current.selection.type, id: current.selection.id } : null,

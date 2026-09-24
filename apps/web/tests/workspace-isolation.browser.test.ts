@@ -97,7 +97,7 @@ createRoot(document.getElementById('root')).render(<App/>);
     localStorage.setItem("ragents.workspacePanelWidth", "900");
   });
   await page.goto(`http://127.0.0.1:${address.port}`);
-  const width = () => page.getByRole("separator", { name: "Breite des Arbeitsbereichs" });
+  const width = () => page.getByRole("separator", { name: "Breite der Leiste" });
   await width().waitFor();
   assert.equal(await width().getAttribute("aria-valuenow"), "560");
   await width().press("ArrowLeft");

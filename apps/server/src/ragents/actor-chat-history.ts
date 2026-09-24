@@ -68,7 +68,7 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
             url: attachmentContentPath(view.id, id) };
         });
         actors[input.actorId].push({ key: event.eventId, role: fromOwner ? "user" : "assistant", sender: input.enqueuedBy,
-          text: input.content, closed: true, at, ...(attachments.length ? { attachments } : {}),
+          text: input.content, closed: true, at, inputId: input.id, ...(attachments.length ? { attachments } : {}),
           ...(fromOwner ? {} : { bubble: { color: colorOf(input.enqueuedBy),
             label: input.subscriptionId ? "Über Subscription zugestellt" : `Zugestellt von @${sender.handle}`, side: "start" } }),
         });
@@ -86,6 +86,11 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
         const actorId = turnActorOf(event.payload.turnId);
         for (const mapped of journalChatEventsOf(event, cursor, interrupted, actorToolId)) append(actorId, mapped, event);
         if (event.type === "model.reasoning.completed") append(actorId, { kind: "turn-done" }, event);
+        break;
+      }
+      case "turn.input-steered": {
+        const actorId = turnActorOf(event.payload.turnId);
+        actors[actorId] = applyEvent(actors[actorId], { kind: "steered", inputId: event.payload.inputId });
         break;
       }
       case "actor.stopped":

@@ -180,11 +180,11 @@ declare const service: {
 });
 
 
-test("Rechtebeispiele führen Profilauflösung und Extension-Prüfung mit echten Verträgen aus", async () => {
+test("Rechtebeispiele führen Profilauflösung und Plugin-Prüfung mit echten Verträgen aus", async () => {
   const result = await buildHomepageExtensions(repoRoot);
   assert.deepEqual(result.permissions, [...builtinPermissions, ...overseerPermissions]);
-  assert.deepEqual(result.methodRights.find((method) => method.id === coreContracts.sessions.delete.id),
-    { id: coreContracts.sessions.delete.id, rights: [...coreContracts.sessions.delete.rights] });
+  assert.deepEqual(result.methodRights.find((method) => method.id === coreContracts.runs.delete.id),
+    { id: coreContracts.runs.delete.id, rights: [...coreContracts.runs.delete.rights] });
   for (const method of result.methodRights) assert.ok(result.html.includes(method.id), method.id);
   for (const permission of result.permissions) assert.ok(result.html.includes(permission.id));
   const example = result.extensions.find((entry) => entry.id === "profile-access")!;

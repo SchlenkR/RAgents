@@ -43,14 +43,14 @@ test("richtet einen Berater ohne Werkzeuge und seine eigene Mini-App als einzige
   assert.equal(calls.length, 5);
 });
 
-test("fehlendes Modellprofil baut keinen unbrauchbaren Berater", async () => {
+test("fehlende Rolle baut keinen unbrauchbaren Berater", async () => {
   const { calls, context } = setup({ missingProfile: true });
-  await assert.rejects(async () => program.onInput!(input, context), /Modellprofil standard fehlt/);
+  await assert.rejects(async () => program.onInput!(input, context), /Rolle standard fehlt/);
   assert.deepEqual(calls.map((call) => call.name), ["model_list"]);
   assert.deepEqual(context.state.read(), {});
 });
 
-test("eine fehlgeschlagene View-Aktivierung setzt weder Canvas noch Erfolgszustand", async () => {
+test("eine fehlgeschlagene View-Aktivierung setzt weder Fläche noch Erfolgszustand", async () => {
   const options = { failActivation: true };
   const { calls, context } = setup(options);
   await assert.rejects(async () => program.onInput!(input, context), /View kann nicht aktiviert/);

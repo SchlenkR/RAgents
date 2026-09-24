@@ -15,7 +15,7 @@ const skillEntry = (overrides: Partial<Record<string, unknown>> = {}) => ({
   id: "test.product.feature-run",
   action: "skill" as const,
   title: "Feature umsetzen",
-  description: "Work Item auswählen und den Lauf starten.",
+  description: "Work Item auswählen und den Run starten.",
   skill: "feature-run",
   category: "Entwicklung",
   prompt: "Setze ein Feature um.",
@@ -56,7 +56,7 @@ const registered = (...entries: Array<Record<string, unknown>>) => {
   return registry;
 };
 
-test("Einstiege beider Aktionen werden mit Besitzer beschrieben und nach Ordnung sortiert", () => {
+test("Vorlagen beider Aktionen werden mit Besitzer beschrieben und nach Ordnung sortiert", () => {
   const registry = registered(skillEntry(), simpleSkillEntry(), scriptEntry());
   assert.deepEqual(registry.describe().map((entry) => [entry.id, entry.owner, entry.action, entry.guide]), [
     ["ragents.reference.setup", "test.plugin", "script", undefined],
@@ -70,7 +70,7 @@ test("Einstiege beider Aktionen werden mit Besitzer beschrieben und nach Ordnung
   assert.equal("files" in script, false);
 });
 
-test("das Run-Script-Paket bleibt serverseitig und ist nur für Script-Einstiege abrufbar", () => {
+test("das Run-Script-Paket bleibt serverseitig und ist nur für Script-Vorlagen abrufbar", () => {
   const registry = registered(skillEntry(), scriptEntry());
   const found = registry.scriptPackage("ragents.reference.setup");
   assert.ok(found);
@@ -102,13 +102,13 @@ test("ein Run-Script braucht Paketdateien mit eindeutigen relativen Pfaden", () 
   assert.throws(() => registered(withScript({ source: "legacy" })), /unbekannte Felder: source/);
 });
 
-test("ein Skill-Einstieg darf nur auf einen registrierten Skill zeigen", () => {
+test("eine Skill-Vorlage darf nur auf einen registrierten Skill zeigen", () => {
   const registry = registered(skillEntry(), scriptEntry());
   registry.assertSkillsKnown([skill("test.product", "feature-run")]);
   assert.throws(() => registry.assertSkillsKnown([skill("test.product", "release-md")]), /unbekannten Skill feature-run/);
 });
 
-test("Skill-Einstiege veröffentlichen genau eine freie Kategorie und leiten sie nicht aus Tags ab", () => {
+test("Skill-Vorlagen veröffentlichen genau eine freie Kategorie und leiten sie nicht aus Tags ab", () => {
   const registry = registered(simpleSkillEntry({ category: "Meine eigene Gruppe", tags: ["Anderes Schlagwort"] }));
   const card = registry.describe()[0]!;
   assert.equal(card.action, "skill");
@@ -127,7 +127,7 @@ const sourceOption = {
   describe: () => ({ kind: "choice", label: "Quelle", options: [] }),
 };
 
-test("ein Einstieg legt Startoptionen fest, die das Web mit ihm sieht", () => {
+test("eine Vorlage legt Startoptionen fest, die das Web mit ihr sieht", () => {
   const registry = registered(scriptEntry({ fixedStartOptions: { "example.source": "clone" } }), simpleSkillEntry());
   assert.deepEqual(registry.entry("ragents.reference.setup")?.fixedStartOptions, { "example.source": "clone" });
   assert.deepEqual(registry.scriptPackage("ragents.reference.setup")?.entry.fixedStartOptions, { "example.source": "clone" });
@@ -156,6 +156,6 @@ test("eine festgelegte Startoption muss beim Versiegeln registriert sein und ihr
     return host;
   };
   assert.throws(() => hostWith({ "example.source": "clone" }, false).seal(), /legt die nicht registrierte Startoption example\.source fest/);
-  assert.throws(() => hostWith({ "example.source": "anders" }).seal(), /festgelegter Wert des Einstiegs ragents\.reference\.demo/);
+  assert.throws(() => hostWith({ "example.source": "anders" }).seal(), /festgelegter Wert der Vorlage ragents\.reference\.demo/);
   hostWith({ "example.source": "clone" }).seal();
 });

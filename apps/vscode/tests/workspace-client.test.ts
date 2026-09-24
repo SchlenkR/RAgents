@@ -31,12 +31,14 @@ const textOf = (value: unknown): string =>
 const started = async (server: StubServer) => {
   const client = new ServerClient(server.url, undefined);
   const directory = await folder();
+  const runs = await folder();
   const workspace = new WorkspaceClient(client, {
     id: CLIENT_ID,
     label: "Notebook",
     hostname: "notebook.local",
     platform: process.platform,
     folders: [directory],
+    runsDirectory: runs,
   }, { hostRoot: () => undefined });
   await workspace.register();
   assert.deepEqual(workspace.status, { kind: "registered" });
@@ -55,6 +57,7 @@ const started = async (server: StubServer) => {
   return {
     client,
     directory,
+    runs,
     workspace,
     call,
     execute: (operation: string, input: unknown, options?: { onProgress?: (value: unknown) => void; signal?: AbortSignal }) =>
@@ -64,10 +67,10 @@ const started = async (server: StubServer) => {
 
 test("der Arbeitsplatz meldet sich an und führt die Werkzeuge in seinem Ordner aus", async () => {
   const server = await startStubServer();
-  const { client, directory, workspace, call, execute } = await started(server);
+  const { client, directory, runs, workspace, call, execute } = await started(server);
   try {
     assert.deepEqual(server.workspaceClients().get(CLIENT_ID), {
-      label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [directory],
+      label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [directory], runsDirectory: runs,
     });
     await writeFile(join(directory, "notiz.md"), "Grüße\n", "utf8");
     assert.match(textOf((await execute("read", { path: "notiz.md" })).value), /Grüße/);
@@ -82,7 +85,7 @@ test("der Arbeitsplatz meldet sich an und führt die Werkzeuge in seinem Ordner 
     assert.deepEqual((await execute("files.read", { path: "neu/datei.txt" })).value, { path: "neu/datei.txt", size: Buffer.byteLength("geändert"), previewable: true, content: "geändert" });
     await assert.rejects(execute("files.read", { path: "../geheim" }), /Ungültiger Pfad: \.\.\/geheim/);
     await assert.rejects(execute("grep", {}), /Der Executor kennt die Operation grep nicht/);
-    assert.deepEqual(workspace.binding(directory), { kind: "client", client: CLIENT_ID, label: "Notebook", path: directory });
+    assert.deepEqual(workspace.binding(directory), { machine: { client: CLIENT_ID, label: "Notebook" }, folder: { path: directory } });
     await execute("stop", null);
     await workspace.unregister();
     assert.deepEqual(workspace.status, { kind: "idle" });
@@ -90,6 +93,29 @@ test("der Arbeitsplatz meldet sich an und führt die Werkzeuge in seinem Ordner 
   } finally {
     client.rpc.close();
     await rm(directory, { recursive: true, force: true });
+    await rm(runs, { recursive: true, force: true });
+    await server.close();
+  }
+});
+
+test("der neue Ordner eines Runs entsteht im Ordner für Runs des Arbeitsplatzes, und nur dieser eine ist neben den angebotenen erlaubt", async () => {
+  const server = await startStubServer();
+  const { client, directory, runs, call } = await started(server);
+  const own = join(runs, RUN);
+  try {
+    assert.deepEqual((await call("runFolder.create", null, own)).value, { created: true });
+    assert.deepEqual((await call("runFolder.create", null, own)).value, { created: false }, "ein vorhandener Ordner bleibt, wie er ist");
+    await call("write", { path: "notiz.md", content: "im Ordner des Runs" }, own);
+    assert.equal(await readFile(join(own, "notiz.md"), "utf8"), "im Ordner des Runs");
+    await assert.rejects(call("read", { path: "notiz.md" }, join(runs, "anderer-run")), /Pfad außerhalb des angebotenen Ordners/,
+      "der Ordner eines anderen Runs ist kein Ordner dieses Auftrags");
+    await assert.rejects(call("read", { path: "x" }, runs), /Pfad außerhalb des angebotenen Ordners/, "der Ordner für Runs selbst ist keiner");
+    assert.deepEqual((await call("runFolder.remove", null, own)).value, { removed: true });
+    await assert.rejects(readFile(join(own, "notiz.md"), "utf8"), /ENOENT/);
+  } finally {
+    client.rpc.close();
+    await rm(directory, { recursive: true, force: true });
+    await rm(runs, { recursive: true, force: true });
     await server.close();
   }
 });
@@ -147,7 +173,7 @@ const withLanguageServer = async (server: StubServer) => {
   const client = new ServerClient(server.url, undefined);
   const directory = await folder();
   const workspace = new WorkspaceClient(client, {
-    id: CLIENT_ID, label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [directory],
+    id: CLIENT_ID, label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [directory], runsDirectory: join(directory, "..", "runs"),
   }, { hostRoot: () => resolve(import.meta.dirname, "../../..") });
   const execute = (operation: string, input: unknown) => {
     const connection = server.workspaceConnection(CLIENT_ID);
@@ -195,7 +221,7 @@ test("nach leeren Ordnern und erneutem Angebot öffnet der Arbeitsplatz wieder S
 test("eine Abmeldung, die beim erneuten Angebot noch läuft, entfernt die neue Anmeldung beim Server nicht",{ timeout: 120_000 }, async () => {
   const server = await startStubServer();
   const { client, directory, workspace, open, close } = await withLanguageServer(server);
-  const unsubscribe = client.rpc.subscribe(coreContracts.channels.sessions, {}, () => undefined);
+  const unsubscribe = client.rpc.subscribe(coreContracts.channels.runs, {}, () => undefined);
   try {
     await workspace.register();
     assert.match(await open(), /1 offene Instanz von TypeScript/);
@@ -216,7 +242,7 @@ test("eine Abmeldung, die beim erneuten Angebot noch läuft, entfernt die neue A
 test("ein toter Server wird als Fehler gemeldet", async () => {
   const offline = new ServerClient("http://127.0.0.1:1", undefined);
   const dead = new WorkspaceClient(offline, {
-    id: "vscode-offline", label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: ["/tmp"],
+    id: "vscode-offline", label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: ["/tmp"], runsDirectory: "/tmp/ragents-runs",
   }, { hostRoot: () => undefined });
   const changes: string[] = [];
   dead.onChange(() => changes.push(dead.status.kind));

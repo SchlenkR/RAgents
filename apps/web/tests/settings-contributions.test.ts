@@ -62,7 +62,7 @@ test("models and appearance select real editable contributions while keeping the
       { id: "product.technical", label: "Technische Optionen", Settings: Empty },
     ] },
     { id: "test.coordinator", settings: [{ id: "global.model", label: "Globaler Koordinator", category: "models", order: 10, Settings: Empty }] },
-    { id: "test.canvas", settings: [{ id: "canvas.runPanel", label: "Run-Panel", category: "appearance", Settings: Empty }] },
+    { id: "test.surface", settings: [{ id: "surface.runPanel", label: "Run-Panel", category: "appearance", Settings: Empty }] },
   ]);
   const models = settingsForCategory(registry.settings, "models", () => true);
   assert.deepEqual(models.map(({id, owner}) => ({id, owner})), [
@@ -70,7 +70,7 @@ test("models and appearance select real editable contributions while keeping the
     { id: "product.models", owner: "test.product" },
   ]);
   assert.equal(models[0], registry.settings.find((entry) => entry.id === "global.model"));
-  assert.deepEqual(settingsForCategory(registry.settings, "appearance", () => true).map((entry) => entry.id), ["canvas.runPanel"]);
+  assert.deepEqual(settingsForCategory(registry.settings, "appearance", () => true).map((entry) => entry.id), ["surface.runPanel"]);
   assert.equal(registry.settings.some((entry) => entry.id === "product.technical"), true);
 });
 
@@ -171,7 +171,7 @@ const settingsWith = (overrides: Partial<SettingsResponse>): SettingsResponse =>
   },
   promptContributions: [],
   plugins: [],
-  agentExtensions: [],
+  agentHooks: [],
   skills: [],
   tools: [],
   ...overrides,
@@ -199,7 +199,7 @@ test("Beiträge landen bei ihrem Eigentümer und die Plugin-Reihenfolge bleibt e
     tools: [tool("t1", "test.tasks", "Suche", "sucht"), tool("t2", "ragents.core", "Notiz", "notiert")],
     skills: [skill("s1", "test.tasks")],
     promptContributions: [{ id: "p1", owner: "ragents.core", order: 10, content: "Inhalt" }],
-    agentExtensions: [
+    agentHooks: [
       { id: "e1", owner: "test.tasks", kind: "plugin", factories: [], resolvesPerAgent: false },
       { id: "e2", owner: "agent", kind: "internal", factories: [], resolvesPerAgent: true },
     ],
@@ -217,7 +217,7 @@ test("Beiträge landen bei ihrem Eigentümer und die Plugin-Reihenfolge bleibt e
   assert.deepEqual(tasks.tools.map((entry) => entry.id), ["t1"]);
   assert.deepEqual(tasks.skills.map((entry) => entry.id), ["s1"]);
   assert.deepEqual(tasks.startEntries.map((entry) => entry.id), ["c1"]);
-  assert.deepEqual(tasks.extensions.map((entry) => entry.id), ["e1"]);
+  assert.deepEqual(tasks.hooks.map((entry) => entry.id), ["e1"]);
   assert.deepEqual(tasks.requires, ["ragents.core"]);
   assert.equal(tasks.configuration.length, 1);
 });
@@ -240,14 +240,14 @@ test("Web-Einstellungen und Übersichtsbeiträge sind beim Eigentümer auffindba
   assert.deepEqual(groupContributions(settingsWith({}), registryWith([])), []);
 });
 
-test("interne Erweiterungen gehören keiner Plugin-Gruppe", () => {
+test("interne Hooks gehören keiner Plugin-Gruppe", () => {
   const settings = settingsWith({
     plugins: [{ id: "ragents.core", requires: [], configuration: [] }],
-    agentExtensions: [{ id: "e2", owner: "agent", kind: "internal", factories: [], resolvesPerAgent: true }],
+    agentHooks: [{ id: "e2", owner: "agent", kind: "internal", factories: [], resolvesPerAgent: true }],
   });
   const groups = groupContributions(settings, sourceWith({}));
   assert.deepEqual(groups.map((group) => group.id), ["ragents.core"]);
-  assert.deepEqual(groupOf(groups, "ragents.core").extensions, []);
+  assert.deepEqual(groupOf(groups, "ragents.core").hooks, []);
 });
 
 test("unbekannte Eigentümer bekommen eine eigene Gruppe am Ende", () => {
@@ -292,7 +292,7 @@ test("das Web-Modul unterscheidet fehlend, beitragslos und beitragend", () => {
   assert.equal(loud.web.state, "contributions");
   if (loud.web.state !== "contributions") return;
   assert.deepEqual(loud.web.contributions.map((entry) => entry.kind), [
-    "Arbeitsbereichs-Tabs",
+    "Reiter der Leiste",
     "Branding",
     "Karten-Abschnitte",
   ]);
@@ -356,7 +356,7 @@ test("ohne Suchtext bleibt die Zählung die Summe aller Beiträge", () => {
     tools: [tool("t1", "test.tasks", "Suche", "sucht")],
     promptContributions: [{ id: "p1", owner: "test.tasks", order: 1, content: "Inhalt" }],
     skills: [skill("s1", "test.tasks")],
-    agentExtensions: [{ id: "e1", owner: "test.tasks", kind: "plugin", factories: [], resolvesPerAgent: false }],
+    agentHooks: [{ id: "e1", owner: "test.tasks", kind: "plugin", factories: [], resolvesPerAgent: false }],
   });
   const registry = new PluginRegistry({
     brand: { title: "Test" },

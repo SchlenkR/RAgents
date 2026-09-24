@@ -23,9 +23,6 @@ import type {
 
 export type AgentEventSink = (event: AgentEvent) => Promise<void> | void;
 
-/** Interim tool result text for a call that keeps running after steering arrived. */
-export const BACKGROUNDED_TOOL_RESULT_TEXT = "[tool still running in background; result will follow]";
-
 /** User message that follows a stop without text and without tool call, typically reasoning-only output. */
 export const EMPTY_RESPONSE_NUDGE =
 	"Deine Antwort enthielt weder Text noch Werkzeugaufruf. Antworte jetzt mit dem nächsten Werkzeugaufruf oder Deiner Antwort.";
@@ -111,117 +108,100 @@ async function runLoop(
 	let config = initialConfig;
 	let firstTurn = true;
 	let emptyStreak = 0;
-	// Check for steering messages at start (user may have typed while waiting)
+	let hasMoreToolCalls = true;
 	let pendingMessages: AgentMessage[] = (await config.getSteeringMessages?.()) || [];
 
-	// Outer loop: continues when queued follow-up messages arrive after agent would stop
-	while (true) {
-		let hasMoreToolCalls = true;
+	while (hasMoreToolCalls || pendingMessages.length > 0) {
+		if (!firstTurn) {
+			await emit({ type: "turn_start" });
+		} else {
+			firstTurn = false;
+		}
 
-		// Inner loop: process tool calls and steering messages
-		while (hasMoreToolCalls || pendingMessages.length > 0) {
-			if (!firstTurn) {
-				await emit({ type: "turn_start" });
-			} else {
-				firstTurn = false;
+		// Process pending messages (inject before next assistant response)
+		if (pendingMessages.length > 0) {
+			for (const message of pendingMessages) {
+				await emit({ type: "message_start", message });
+				await emit({ type: "message_end", message });
+				currentContext.messages.push(message);
+				newMessages.push(message);
 			}
+			pendingMessages = [];
+		}
 
-			// Process pending messages (inject before next assistant response)
-			if (pendingMessages.length > 0) {
-				for (const message of pendingMessages) {
-					await emit({ type: "message_start", message });
-					await emit({ type: "message_end", message });
-					currentContext.messages.push(message);
-					newMessages.push(message);
-				}
-				pendingMessages = [];
+		// Stream assistant response
+		const message = await streamAssistantResponse(currentContext, config, signal, emit, streamFn, emptyStreak > 0);
+		newMessages.push(message);
+
+		if (message.stopReason === "error" || message.stopReason === "aborted") {
+			await emit({ type: "turn_end", message, toolResults: [] });
+			await emit({ type: "agent_end", messages: newMessages });
+			return;
+		}
+
+		emptyStreak = isEmptyResponse(message) ? emptyStreak + 1 : 0;
+
+		// Check for tool calls
+		const toolCalls = message.content.filter((c) => c.type === "toolCall");
+
+		const toolResults: ToolResultMessage[] = [];
+		hasMoreToolCalls = false;
+		if (toolCalls.length > 0) {
+			// A "length" stop means the output was cut off by the token limit, so
+			// every tool call in the message may carry truncated arguments. Fail
+			// them all instead of executing potentially borked calls.
+			const executedToolBatch =
+				message.stopReason === "length"
+					? await failToolCallsFromTruncatedMessage(toolCalls, emit)
+					: await executeToolCalls(currentContext, message, config, signal, emit);
+			toolResults.push(...executedToolBatch.messages);
+			hasMoreToolCalls = !executedToolBatch.terminate;
+
+			for (const result of toolResults) {
+				currentContext.messages.push(result);
+				newMessages.push(result);
 			}
+		}
 
-			// Stream assistant response
-			const message = await streamAssistantResponse(currentContext, config, signal, emit, streamFn, emptyStreak > 0);
-			newMessages.push(message);
+		await emit({ type: "turn_end", message, toolResults });
 
-			if (message.stopReason === "error" || message.stopReason === "aborted") {
-				await emit({ type: "turn_end", message, toolResults: [] });
-				await emit({ type: "agent_end", messages: newMessages });
-				return;
-			}
+		const nextTurnContext = {
+			message,
+			toolResults,
+			context: currentContext,
+			newMessages,
+		};
+		const nextTurnSnapshot = await config.prepareNextTurn?.(nextTurnContext);
+		if (nextTurnSnapshot) {
+			currentContext = nextTurnSnapshot.context ?? currentContext;
+			config = {
+				...config,
+				model: nextTurnSnapshot.model ?? config.model,
+				reasoning:
+					nextTurnSnapshot.thinkingLevel === undefined
+						? config.reasoning
+						: nextTurnSnapshot.thinkingLevel === "off"
+							? undefined
+							: nextTurnSnapshot.thinkingLevel,
+			};
+		}
 
-			emptyStreak = isEmptyResponse(message) ? emptyStreak + 1 : 0;
-
-			// Check for tool calls
-			const toolCalls = message.content.filter((c) => c.type === "toolCall");
-
-			const toolResults: ToolResultMessage[] = [];
-			hasMoreToolCalls = false;
-			if (toolCalls.length > 0) {
-				// A "length" stop means the output was cut off by the token limit, so
-				// every tool call in the message may carry truncated arguments. Fail
-				// them all instead of executing potentially borked calls.
-				const executedToolBatch =
-					message.stopReason === "length"
-						? await failToolCallsFromTruncatedMessage(toolCalls, emit)
-						: await executeToolCalls(currentContext, message, config, signal, emit);
-				toolResults.push(...executedToolBatch.messages);
-				hasMoreToolCalls = !executedToolBatch.terminate;
-
-				for (const result of toolResults) {
-					currentContext.messages.push(result);
-					newMessages.push(result);
-				}
-			}
-
-			await emit({ type: "turn_end", message, toolResults });
-
-			const nextTurnContext = {
+		if (
+			await config.shouldStopAfterTurn?.({
 				message,
 				toolResults,
 				context: currentContext,
 				newMessages,
-			};
-			const nextTurnSnapshot = await config.prepareNextTurn?.(nextTurnContext);
-			if (nextTurnSnapshot) {
-				currentContext = nextTurnSnapshot.context ?? currentContext;
-				config = {
-					...config,
-					model: nextTurnSnapshot.model ?? config.model,
-					reasoning:
-						nextTurnSnapshot.thinkingLevel === undefined
-							? config.reasoning
-							: nextTurnSnapshot.thinkingLevel === "off"
-								? undefined
-								: nextTurnSnapshot.thinkingLevel,
-				};
-			}
-
-			if (
-				await config.shouldStopAfterTurn?.({
-					message,
-					toolResults,
-					context: currentContext,
-					newMessages,
-				})
-			) {
-				await emit({ type: "agent_end", messages: newMessages });
-				return;
-			}
-
-			pendingMessages = (await config.getSteeringMessages?.()) || [];
-			if (emptyStreak > 0) {
-				pendingMessages.push({ role: "user", content: EMPTY_RESPONSE_NUDGE, timestamp: Date.now() });
-			}
+			})
+		) {
+			await emit({ type: "agent_end", messages: newMessages });
+			return;
 		}
 
-		// Agent would stop here. Check for follow-up messages.
-		const followUpMessages = (await config.getFollowUpMessages?.()) || [];
-		if (followUpMessages.length > 0) {
-			// Set as pending so inner loop processes them
-			pendingMessages = followUpMessages;
-			continue;
+		pendingMessages = (await config.getSteeringMessages?.()) || [];
+		if (emptyStreak > 0) {
+			pendingMessages.push({ role: "user", content: EMPTY_RESPONSE_NUDGE, timestamp: Date.now() });
 		}
-
-		// No more messages, exit
-		break;
 	}
 
 	await emit({ type: "agent_end", messages: newMessages });
@@ -444,11 +424,15 @@ async function executeToolCallsSequential(
 				isError: preparation.isError,
 			};
 		} else {
-			const executed = await executeToolCallOrBackground(preparation, config, signal, emit);
-			finalized =
-				executed.backgrounded === true
-					? { toolCall, result: executed.result, isError: executed.isError }
-					: await finalizeExecutedToolCall(currentContext, assistantMessage, preparation, executed, config, signal);
+			const executed = await executePreparedToolCall(preparation, signal, emit);
+			finalized = await finalizeExecutedToolCall(
+				currentContext,
+				assistantMessage,
+				preparation,
+				executed,
+				config,
+				signal,
+			);
 		}
 
 		await emitToolExecutionEnd(finalized, emit);
@@ -502,11 +486,15 @@ async function executeToolCallsParallel(
 		}
 
 		finalizedCalls.push(async () => {
-			const executed = await executeToolCallOrBackground(preparation, config, signal, emit);
-			const finalized =
-				executed.backgrounded === true
-					? { toolCall: preparation.toolCall, result: executed.result, isError: executed.isError }
-					: await finalizeExecutedToolCall(currentContext, assistantMessage, preparation, executed, config, signal);
+			const executed = await executePreparedToolCall(preparation, signal, emit);
+			const finalized = await finalizeExecutedToolCall(
+				currentContext,
+				assistantMessage,
+				preparation,
+				executed,
+				config,
+				signal,
+			);
 			await emitToolExecutionEnd(finalized, emit);
 			return finalized;
 		});
@@ -616,73 +604,10 @@ async function prepareToolCall(
 	}
 }
 
-/** Resolves when steering is queued; null when the config does not support backgrounding. */
-function watchSteering(config: AgentLoopConfig): { promise: Promise<void>; cancel: () => void } | null {
-	const { hasPendingSteering, onSteeringQueued, onBackgroundToolResult } = config;
-	if (!hasPendingSteering || !onSteeringQueued || !onBackgroundToolResult) {
-		return null;
-	}
-	let cancel = () => {};
-	const promise = new Promise<void>((resolve) => {
-		if (hasPendingSteering()) {
-			resolve();
-			return;
-		}
-		cancel = onSteeringQueued(resolve);
-	});
-	return { promise, cancel };
-}
-
-type ToolCallExecution = ExecutedToolCallOutcome & { backgrounded?: boolean };
-
-/**
- * Execute a prepared tool call, racing it against steering arrival.
- * When steering wins, the call keeps running untouched: an interim result is returned
- * immediately and the real result is handed to `onBackgroundToolResult` on completion.
- */
-async function executeToolCallOrBackground(
-	prepared: PreparedToolCall,
-	config: AgentLoopConfig,
-	signal: AbortSignal | undefined,
-	emit: AgentEventSink,
-): Promise<ToolCallExecution> {
-	const watch = watchSteering(config);
-	let backgrounded = false;
-	const execution = executePreparedToolCall(prepared, signal, emit, () => backgrounded);
-	if (!watch) {
-		return execution;
-	}
-
-	try {
-		const winner = await Promise.race([
-			execution.then((executed) => ({ executed })),
-			watch.promise.then(() => null),
-		]);
-		if (winner) {
-			return winner.executed;
-		}
-		backgrounded = true;
-		void execution.then((executed) => {
-			config.onBackgroundToolResult?.(prepared.toolCall, executed.result, executed.isError);
-		});
-		return {
-			result: {
-				content: [{ type: "text", text: BACKGROUNDED_TOOL_RESULT_TEXT }],
-				details: { backgrounded: true },
-			},
-			isError: false,
-			backgrounded: true,
-		};
-	} finally {
-		watch.cancel();
-	}
-}
-
 async function executePreparedToolCall(
 	prepared: PreparedToolCall,
 	signal: AbortSignal | undefined,
 	emit: AgentEventSink,
-	suppressUpdates?: () => boolean,
 ): Promise<ExecutedToolCallOutcome> {
 	const updateEvents: Promise<void>[] = [];
 	let acceptingUpdates = true;
@@ -693,7 +618,7 @@ async function executePreparedToolCall(
 			prepared.args as never,
 			signal,
 			(partialResult) => {
-				if (!acceptingUpdates || suppressUpdates?.() === true) return;
+				if (!acceptingUpdates) return;
 				updateEvents.push(
 					Promise.resolve(
 						emit({

@@ -1,19 +1,19 @@
 import { cn } from "@ragents/web/ui";
 
-export type MaterialSurface = "agent" | "primary" | "script" | "app";
+export type MaterialTone = "agent" | "primary" | "script" | "app";
 
 /** Schichtwerk: matte Front mit geraden Kanten. */
 const materialBaseClass = "relative isolate rounded-panel border-[1.5px] border-(--material-edge) bg-(--material-face) [--material-edge:#514657] dark:[--material-edge:#b7a8bd]";
 
-const materialSurfaceClass: Readonly<Record<MaterialSurface, string>> = {
+const materialToneClass: Readonly<Record<MaterialTone, string>> = {
   agent: "[--material-face:var(--color-glass-agent)]",
   primary: "[--material-face:var(--color-glass-primary)]",
   script: "[--material-face:var(--color-glass-script)]",
   app: "[--material-face:var(--color-glass-app)]",
 };
 
-export const materialCardClass = (surface: MaterialSurface, className?: string) =>
-  cn(materialBaseClass, materialSurfaceClass[surface], className);
+export const materialCardClass = (tone: MaterialTone, className?: string) =>
+  cn(materialBaseClass, materialToneClass[tone], className);
 
 /** Kopfzeile einer Materialkarte: dieselbe Front, eine Spur dunkler, oben gerundet. */
 export const materialHeadClass = "relative flex items-center gap-2 rounded-t-[15.5px] bg-[color-mix(in_srgb,var(--material-face)_96%,black)] px-3 py-2";

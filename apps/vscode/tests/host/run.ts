@@ -9,13 +9,13 @@ import type { JournalEvent } from "../../../../packages/ragents/src/domain/event
 import { WORKSPACE_BINDING_OPTION_ID, workspaceContracts } from "../../../../plugins/ragents.workspace/contract";
 import { actorProgramViews } from "../../../../plugins/ragents.actor-programs/web/program-state";
 import { panelState } from "../../src/overview-model";
-import type { TargetSession } from "../../src/sessions";
+import type { ConnectionSession } from "../../src/sessions";
 import type { RAgentsApi } from "../../src/extension";
 
 /** Eine verbundene Sitzung samt ihren Teilen; fehlt einer, ist der Test an dieser Stelle zu Ende. */
 const parts = (api: RAgentsApi, name: string) => {
-  const session: TargetSession | undefined = api.session(name);
-  if (!session?.store || !session.client || !session.workspaceClient) throw new Error(`Die Umgebung ${name} ist nicht verbunden`);
+  const session: ConnectionSession | undefined = api.session(name);
+  if (!session?.store || !session.client || !session.workspaceClient) throw new Error(`Der Server ${name} ist nicht verbunden`);
   return { session, store: session.store, client: session.client, workspaceClient: session.workspaceClient };
 };
 
@@ -39,7 +39,7 @@ const waitUntil = async <T>(attempt: () => Promise<T | undefined>, timeoutMs: nu
 
 /** Der Ausgabekanal ist von außen nicht lesbar; der Test schneidet seine Zeilen beim Anlegen des Kanals mit. */
 const channelLines: string[] = [];
-// Liegt die Erweiterung woanders als der Testläufer (Lauf gegen eine .vsix), bekommt sie eine eigene vscode-API und der Mitschnitt greift nicht.
+// Liegt die Erweiterung woanders als der Testläufer (ein Test gegen eine .vsix), bekommt sie eine eigene vscode-API und der Mitschnitt greift nicht.
 let channelCaptured = false;
 const createOutputChannel = vscode.window.createOutputChannel;
 (vscode.window as unknown as { createOutputChannel: unknown }).createOutputChannel = (...args: unknown[]) => {
@@ -126,8 +126,8 @@ const EXPECTED_TOOLS = ["read", "edit", "bash", "typescript_open", "typescript_d
 const EXECUTOR_TOOLS = EXPECTED_TOOLS.filter((tool) => tool !== "document_write");
 
 /** Der zweite Pfad: die Erweiterung als Arbeitsplatz mit Bindung client, vom Anmelden bis zum Trennen. */
-const checkWorkspaceBinding = async (api: RAgentsApi, target: string, requested: string, report: Record<string, unknown>): Promise<void> => {
-  const { store, client, workspaceClient } = parts(api, target);
+const checkWorkspaceBinding = async (api: RAgentsApi, connection: string, requested: string, report: Record<string, unknown>): Promise<void> => {
+  const { store, client, workspaceClient } = parts(api, connection);
   const rpc = client.rpc;
   const origin = client.origin;
   const dataDirectory = process.env.DATA_DIR ?? path.join(process.env.HOME ?? "", ".local/share/ragents/developer");
@@ -243,8 +243,8 @@ const checkWorkspaceBinding = async (api: RAgentsApi, target: string, requested:
     interrupted: { sequence: stopped.interrupted.event.sequence, reason: String(stopped.interrupted.payload.reason).slice(0, 300) },
   };
 
-  await api.disconnect(target);
-  await waitFor(() => api.session(target)?.status.kind === "stopped", 30_000, "das Trennen beendet die Sitzung");
+  await api.disconnect(connection);
+  await waitFor(() => api.session(connection)?.status.kind === "stopped", 30_000, "das Trennen beendet die Sitzung");
   const response = await fetch(`${origin}/rpc`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -260,29 +260,29 @@ const checkWorkspaceBinding = async (api: RAgentsApi, target: string, requested:
   if (stopOutcome !== "ok") throw new Error(`ragents.chat.stop über die Verbindung der Sitzung scheiterte nach ${stopDurationMs} ms: ${stopOutcome}`);
 };
 
-/** Die Kachel, die der Kachel-Klick der Übersicht nimmt: ein Run-Script ohne Leitfaden startet ohne Modellantwort. */
+/** Die Vorlage, die der Klick auf Start nimmt: ein Run-Script ohne Leitfaden startet ohne Modellantwort. */
 const TILE_ENTRY = "ragents.reference.moderated-round";
 
-/** Der dritte Pfad: zwei Umgebungen gleichzeitig, ein Kachel-Klick, ein neuer Run auf der zweiten und ein Trennen, das nur eine trifft. */
-const checkTwoTargets = async (api: RAgentsApi, first: string, second: string, requested: string,
-  seen: ReadonlyArray<{ target: string; message: RunPanelHostMessage }>, report: Record<string, unknown>): Promise<void> => {
+/** Der dritte Pfad: zwei Server gleichzeitig, ein Klick auf eine Vorlage, ein neuer Run auf der zweiten und ein Trennen, das nur eine trifft. */
+const checkTwoConnections = async (api: RAgentsApi, first: string, second: string, requested: string,
+  seen: ReadonlyArray<{ connection: string; message: RunPanelHostMessage }>, report: Record<string, unknown>): Promise<void> => {
   const checks: Record<string, unknown> = {};
-  report.twoTargets = checks;
+  report.twoConnections = checks;
   const folder = path.resolve(requested);
 
-  await waitFor(() => api.targets().length === 2 && api.targets().every((target) => target.status.kind === "connected"),
-    120_000, "beide Umgebungen sind verbunden");
-  // Das Client-Profil je Umgebung bringt Produkt und Startvorlagen; das Entwicklerprofil selbst bringt keine Vorlagen mit.
-  await waitFor(() => [first, second].every((name) => parts(api, name).store.product !== undefined), 60_000, "beide Umgebungen haben ihr Profil geladen");
+  await waitFor(() => api.snapshots().length === 2 && api.snapshots().every((snapshot) => snapshot.status.kind === "connected"),
+    120_000, "beide Server sind verbunden");
+  // Das Client-Profil je Server bringt Produkt und Vorlagen; das Entwicklerprofil selbst bringt keine Vorlagen mit.
+  await waitFor(() => [first, second].every((name) => parts(api, name).store.product !== undefined), 60_000, "beide Server haben ihr Profil geladen");
   checks.products = Object.fromEntries([first, second].map((name) => [name, { product: parts(api, name).store.product, entries: parts(api, name).store.startEntries.length }]));
-  const overview = panelState({ theme: "dark", page: "start", targets: api.targets(), profileSuggestions: [], missingSecrets: [], problem: undefined, pickedProfileFile: undefined, runsEnvironment: undefined });
-  checks.overview = overview.targets.map((target) => ({
-    name: target.name, kind: target.kind, state: target.state.kind, runs: target.runs.length, entries: target.entries.length, canCreate: target.canCreate,
+  const overview = panelState({ theme: "dark", page: "start", connections: api.snapshots(), profileSuggestions: [], missingSecrets: [], problem: undefined, pickedProfileFile: undefined, runsConnection: undefined });
+  checks.overview = overview.connections.map((connection) => ({
+    name: connection.name, kind: connection.kind, state: connection.state.kind, runs: connection.runs.length, entries: connection.entries.length, canCreate: connection.canCreate,
   }));
-  if (overview.targets.length !== 2) throw new Error(`Die Übersicht zeigt ${overview.targets.length} Umgebungen statt zwei`);
-  for (const target of overview.targets) {
-    if (target.state.kind !== "connected") throw new Error(`Die Umgebung ${target.name} steht als ${target.state.kind} in der Übersicht`);
-    if (!target.canCreate) throw new Error(`Die Umgebung ${target.name} erlaubt keine neuen Runs`);
+  if (overview.connections.length !== 2) throw new Error(`Die Übersicht zeigt ${overview.connections.length} Server statt zwei`);
+  for (const connection of overview.connections) {
+    if (connection.state.kind !== "connected") throw new Error(`Der Server ${connection.name} steht als ${connection.state.kind} in der Übersicht`);
+    if (!connection.canCreate) throw new Error(`Der Server ${connection.name} erlaubt keine neuen Runs`);
   }
 
   // Der Arbeitsplatz dieses Fensters meldet sich bei beiden Servern mit derselben Kennung an.
@@ -297,43 +297,43 @@ const checkTwoTargets = async (api: RAgentsApi, first: string, second: string, r
     if (!registered.some((entry) => entry.id === workspaceClient.id)) throw new Error(`Der Arbeitsplatz steht bei ${name} nicht in der Registry`);
   }
 
-  // Ein Klick auf eine Kachel der Übersicht: die Erweiterung legt den Run auf seiner Umgebung an, das Run-Panel startet ihn und meldet ihn zurück.
-  const tileTarget = [second, first].find((name) => parts(api, name).store.startEntries.length > 0);
-  if (tileTarget === undefined) {
-    // Das Entwicklerprofil bringt keine Vorlagen mit; die Kachel prüft der Lauf gegen eine Umgebung, die welche hat.
-    checks.tile = { skipped: "Keine der beiden Umgebungen bietet eine Startvorlage an" };
+  // Ein Klick auf eine Vorlage der Übersicht: die Erweiterung legt den Run auf ihrem Server an, das Run-Panel startet ihn und meldet ihn zurück.
+  const tileConnection = [second, first].find((name) => parts(api, name).store.startEntries.length > 0);
+  if (tileConnection === undefined) {
+    // Das Entwicklerprofil bringt keine Vorlagen mit; den Klick auf eine Vorlage prüft der Test gegen einen Server, der welche hat.
+    checks.tile = { skipped: "Keiner der beiden Server bietet eine Vorlage an" };
   } else {
-    const tiles = parts(api, tileTarget).store.startEntries;
+    const tiles = parts(api, tileConnection).store.startEntries;
     const tile = tiles.find((entry) => entry.id === TILE_ENTRY) ?? tiles.find((entry) => entry.action === "script") ?? tiles[0]!;
-    checks.tile = { target: tileTarget, available: tiles.length, chosen: tile.id, category: tile.category };
+    checks.tile = { connection: tileConnection, available: tiles.length, chosen: tile.id, category: tile.category };
     const before = seen.length;
-    await api.panelAction({ action: "newRun", name: tileTarget, entryId: tile.id });
+    await api.panelAction({ action: "newRun", name: tileConnection, entryId: tile.id });
     const started = await waitUntil(async () => seen.slice(before)
-      .find((entry) => entry.target === tileTarget && entry.message.type === "runChanged" && entry.message.runId !== null),
-    180_000, "das Run-Panel meldet den Run der Kachel", 500);
+      .find((entry) => entry.connection === tileConnection && entry.message.type === "runChanged" && entry.message.runId !== null),
+    180_000, "das Run-Panel meldet den Run der Vorlage", 500);
     const tileRunId = (started.message as Extract<RunPanelHostMessage, { type: "runChanged" }>).runId!;
-    await waitFor(() => api.targets().find((target) => target.connection.name === tileTarget)?.runs.some((run) => run.id === tileRunId) === true,
-      120_000, "der Run der Kachel steht in der Übersicht");
-    const tileEvents = await parts(api, tileTarget).client.rpc.call(runContracts.events, { runId: tileRunId }).catch(() => [] as JournalEvent[]);
+    await waitFor(() => api.snapshots().find((snapshot) => snapshot.connection.name === tileConnection)?.runs.some((run) => run.id === tileRunId) === true,
+      120_000, "der Run der Vorlage steht in der Übersicht");
+    const tileEvents = await parts(api, tileConnection).client.rpc.call(runContracts.events, { runId: tileRunId }).catch(() => [] as JournalEvent[]);
     checks.tileRun = {
       runId: tileRunId,
       events: tileEvents.length,
       actors: named(tileEvents, "actor.spawned").map((entry) => String(entry.payload.handle ?? entry.payload.actorId)),
-      title: api.targets().find((target) => target.connection.name === tileTarget)?.runs.find((run) => run.id === tileRunId)?.title,
+      title: api.snapshots().find((snapshot) => snapshot.connection.name === tileConnection)?.runs.find((run) => run.id === tileRunId)?.title,
     };
-    if (tileEvents.length === 0) throw new Error("Der Run der Kachel hat kein Journal");
+    if (tileEvents.length === 0) throw new Error("Der Run der Vorlage hat kein Journal");
 
-    // Das Plus einer Umgebung legt einen leeren Run an: dasselbe newRun ohne entryId, der Auftrag entsteht im Chat.
+    // Das Plus eines Servers legt einen leeren Run an: dasselbe newRun ohne entryId, der Auftrag entsteht im Chat.
     const beforePlus = seen.length;
-    await api.panelAction({ action: "newRun", name: tileTarget });
+    await api.panelAction({ action: "newRun", name: tileConnection });
     const plus = await waitUntil(async () => seen.slice(beforePlus)
-      .find((entry) => entry.target === tileTarget && entry.message.type === "runChanged"
+      .find((entry) => entry.connection === tileConnection && entry.message.type === "runChanged"
         && entry.message.runId !== null && entry.message.runId !== tileRunId),
-    120_000, "das Plus der Umgebung öffnet einen leeren Run", 500);
-    checks.newChat = { target: tileTarget, runId: (plus.message as Extract<RunPanelHostMessage, { type: "runChanged" }>).runId };
+    120_000, "das Plus des Servers öffnet einen leeren Run", 500);
+    checks.newChat = { connection: tileConnection, runId: (plus.message as Extract<RunPanelHostMessage, { type: "runChanged" }>).runId };
 
     // Der Zurück-Pfeil des Run-Panels führt immer auf die Start-Seite; die Hülle schaltet dafür die Seite um.
-    api.selectRun(tileTarget, tileRunId);
+    api.selectRun(tileConnection, tileRunId);
     checks.pageWithRun = api.panel().page;
     if (api.panel().page !== "run") throw new Error(`Mit geöffnetem Run steht die Seite auf ${api.panel().page} statt auf run`);
     await vscode.commands.executeCommand("ragents.showStart");
@@ -341,13 +341,13 @@ const checkTwoTargets = async (api: RAgentsApi, first: string, second: string, r
     if (api.panel().page !== "start") throw new Error(`Der Weg zurück führt auf ${api.panel().page} statt auf start`);
 
     // Die Seite Runs löscht die Auswahl über den Host; die Liste zeigt danach nur noch, was übrig ist.
-    await api.panelAction({ action: "deleteRuns", name: tileTarget, runIds: [tileRunId] });
-    await waitFor(() => api.targets().find((target) => target.connection.name === tileTarget)?.runs.some((run) => run.id === tileRunId) === false,
+    await api.panelAction({ action: "deleteRuns", name: tileConnection, runIds: [tileRunId] });
+    await waitFor(() => api.snapshots().find((snapshot) => snapshot.connection.name === tileConnection)?.runs.some((run) => run.id === tileRunId) === false,
       60_000, "der gelöschte Run ist aus der Liste verschwunden");
-    checks.deletedRun = { runId: tileRunId, left: api.targets().find((target) => target.connection.name === tileTarget)?.runs.length };
+    checks.deletedRun = { runId: tileRunId, left: api.snapshots().find((snapshot) => snapshot.connection.name === tileConnection)?.runs.length };
   }
 
-  // Ein neuer Run auf der zweiten Umgebung mit Bindung client: read und bash laufen hier, nicht auf dem Server.
+  // Ein neuer Run auf dem zweiten Server mit Bindung client: read und bash laufen hier, nicht auf dem Server.
   const { client: secondClient } = parts(api, second);
   const secondWorkspace = parts(api, second).workspaceClient;
   const binding = secondWorkspace.binding(secondWorkspace.folders.find((entry) => path.resolve(entry) === folder)!);
@@ -364,7 +364,7 @@ const checkTwoTargets = async (api: RAgentsApi, first: string, second: string, r
     if (turnId === undefined) return undefined;
     const done = [...named(events, "turn.finished"), ...named(events, "turn.interrupted")].some((entry) => entry.payload.turnId === turnId);
     return done ? events : undefined;
-  }, 300_000, "der Run auf dem zweiten Ziel ist fertig", 2000);
+  }, 300_000, "der Run auf dem zweiten Server ist fertig", 2000);
   const completed = new Set(toolNames(finished, "tool.call.completed"));
   checks.turn = {
     events: finished.length,
@@ -372,45 +372,45 @@ const checkTwoTargets = async (api: RAgentsApi, first: string, second: string, r
     failed: named(finished, "tool.call.failed").map((entry) => ({ name: entry.payload.name, error: String(entry.payload.error).slice(0, 200) })),
   };
   const missing = ["read", "bash"].filter((tool) => !completed.has(tool));
-  if (missing.length > 0) throw new Error(`Auf der zweiten Umgebung fehlen diese Werkzeuge: ${missing.join(", ")}`);
+  if (missing.length > 0) throw new Error(`Auf dem zweiten Server fehlen diese Werkzeuge: ${missing.join(", ")}`);
   const logged = channelLines.filter((line) => line.startsWith(`== ${runId.slice(0, 8)} `));
   checks.outputChannel = channelCaptured ? logged.slice(0, 8) : { captured: false };
   if (channelCaptured && !logged.some((line) => line.includes(" bash "))) throw new Error("Der Ausgabekanal nennt den bash-Aufruf des Arbeitsplatzes nicht");
-  await waitFor(() => api.targets().find((target) => target.connection.name === second)?.runs.some((run) => run.id === runId) === true,
-    60_000, "der neue Run steht in der Übersicht der zweiten Umgebung");
+  await waitFor(() => api.snapshots().find((snapshot) => snapshot.connection.name === second)?.runs.some((run) => run.id === runId) === true,
+    60_000, "der neue Run steht in der Übersicht des zweiten Servers");
 
-  // Trennen der ersten Umgebung lässt die zweite unberührt.
+  // Trennen des ersten Servers lässt den zweiten unberührt.
   await api.disconnect(first);
-  await waitFor(() => api.session(first)?.status.kind === "stopped", 30_000, "die erste Umgebung ist getrennt");
+  await waitFor(() => api.session(first)?.status.kind === "stopped", 30_000, "der erste Server ist getrennt");
   const afterFirst = await parts(api, second).client.rpc.call(workspaceContracts.clients.list, {});
   checks.afterDisconnect = {
     first: api.session(first)?.status,
     second: api.session(second)?.status,
     clientsAtSecond: afterFirst.map((entry) => entry.id),
-    overview: api.targets().map((target) => ({ name: target.connection.name, state: target.status.kind, runs: target.runs.length })),
+    overview: api.snapshots().map((snapshot) => ({ name: snapshot.connection.name, state: snapshot.status.kind, runs: snapshot.runs.length })),
   };
-  if (api.session(second)?.status.kind !== "connected") throw new Error("Das Trennen der ersten Umgebung hat auch die zweite getroffen");
-  if (!afterFirst.some((entry) => entry.id === secondWorkspace.id)) throw new Error("Der Arbeitsplatz ist bei der zweiten Umgebung verschwunden");
+  if (api.session(second)?.status.kind !== "connected") throw new Error("Das Trennen des ersten Servers hat auch den zweiten getroffen");
+  if (!afterFirst.some((entry) => entry.id === secondWorkspace.id)) throw new Error("Der Arbeitsplatz ist beim zweiten Server verschwunden");
 };
 
 /** Der vierte Pfad: die Einstellungsseite, mit denselben Aktionen, die das Webview schickt. */
 const checkSettings = async (api: RAgentsApi, serverUrl: string, profileFile: string, report: Record<string, unknown>): Promise<void> => {
   const checks: Record<string, unknown> = {};
   report.settings = checks;
-  const view = (name: string) => api.panel().targets.find((target) => target.name === name);
-  const names = () => api.panel().targets.map((target) => target.name);
+  const view = (name: string) => api.panel().connections.find((connection) => connection.name === name);
+  const names = () => api.panel().connections.map((connection) => connection.name);
 
-  checks.start = { page: api.panel().page, targets: names(), connections: api.connections() };
-  if (api.panel().targets.length !== 0) throw new Error(`Der Lauf beginnt mit ${api.panel().targets.length} Umgebungen statt ohne`);
+  checks.start = { page: api.panel().page, connections: names(), setting: api.connections() };
+  if (api.panel().connections.length !== 0) throw new Error(`Der Test beginnt mit ${api.panel().connections.length} Servern statt ohne`);
   if (api.panel().page !== "start") throw new Error(`Die Erweiterung beginnt auf ${api.panel().page} statt auf der Start-Seite`);
-  for (const page of ["runs", "environments", "start"] as const) {
+  for (const page of ["runs", "connections", "start"] as const) {
     await api.panelAction({ action: "page", page });
     if (api.panel().page !== page) throw new Error(`Die Aktion page führt nicht auf ${page}`);
   }
 
-  await api.panelAction({ action: "page", page: "environments" });
+  await api.panelAction({ action: "page", page: "connections" });
   checks.page = api.panel().page;
-  if (api.panel().page !== "environments") throw new Error("Die Aktion page führt nicht auf die Seite Umgebungen");
+  if (api.panel().page !== "connections") throw new Error("Die Aktion page führt nicht auf die Seite Server");
   const focusable = await vscode.commands.getCommands(true);
   checks.revealCommand = focusable.includes("ragents.runPanel.focus");
   if (!checks.revealCommand) throw new Error("Den Befehl ragents.runPanel.focus gibt es nicht; das Panel lässt sich nicht von selbst öffnen");
@@ -418,19 +418,19 @@ const checkSettings = async (api: RAgentsApi, serverUrl: string, profileFile: st
 
   await api.panelAction({ action: "addServer", name: "selbsttest", url: serverUrl });
   await waitFor(() => view("selbsttest") !== undefined, 15_000, "der neue Server steht in der Übersicht");
-  checks.addServer = { connections: api.connections(), targets: names(), problem: api.panel().problem };
+  checks.addServer = { setting: api.connections(), connections: names(), problem: api.panel().problem };
   if (api.panel().problem !== undefined) throw new Error(`Der neue Server meldet ${String(api.panel().problem)}`);
   await waitFor(() => view("selbsttest")?.state.kind === "connected", 60_000, "der neue Server ist verbunden");
   checks.serverConnected = view("selbsttest");
 
   await api.panelAction({ action: "addServer", name: "selbsttest", url: serverUrl });
-  checks.duplicateName = { problem: api.panel().problem, targets: names(), connections: api.connections().length };
+  checks.duplicateName = { problem: api.panel().problem, connections: names(), setting: api.connections().length };
   if (api.panel().problem === undefined) throw new Error("Ein doppelter Name kommt ohne Meldung durch");
   if (api.connections().length !== 1) throw new Error("Der doppelte Name steht trotz Meldung in der Einstellung");
 
   await api.panelAction({ action: "addServer", name: "ohne-schema", url: "localhost:4715" });
-  checks.badUrl = { problem: api.panel().problem, targets: names() };
-  if (view("ohne-schema") !== undefined) throw new Error("Eine Adresse ohne http kommt als Ziel durch");
+  checks.badUrl = { problem: api.panel().problem, connections: names() };
+  if (view("ohne-schema") !== undefined) throw new Error("Eine Adresse ohne http kommt als Server durch");
 
   // Ein lokales Profil startet die Erweiterung von selbst; "nicht gestartet" gibt es nicht mehr.
   await api.panelAction({ action: "addProfile", name: "profil", profileFile });
@@ -440,10 +440,10 @@ const checkSettings = async (api: RAgentsApi, serverUrl: string, profileFile: st
   await api.panelAction({ action: "stopProfile", name: "profil" });
   await waitFor(() => view("profil")?.state.kind === "stopped", 60_000, "der stille Start des Profils ist wieder beendet");
 
-  // Bearbeiten ersetzt die Umgebung an ihrer Stelle; die Anmeldedaten hängen an der Adresse und überleben das Umbenennen.
+  // Bearbeiten ersetzt den Server an seiner Stelle; die Anmeldedaten hängen an der Adresse und überleben das Umbenennen.
   await api.panelAction({ action: "updateServer", name: "selbsttest", newName: "selbsttest-neu", url: serverUrl });
-  await waitFor(() => view("selbsttest-neu") !== undefined && view("selbsttest") === undefined, 15_000, "die umbenannte Umgebung steht in der Übersicht");
-  checks.updateServer = { connections: api.connections(), targets: names(), problem: api.panel().problem };
+  await waitFor(() => view("selbsttest-neu") !== undefined && view("selbsttest") === undefined, 15_000, "der umbenannte Server steht in der Übersicht");
+  checks.updateServer = { setting: api.connections(), connections: names(), problem: api.panel().problem };
   if (api.panel().problem !== undefined) throw new Error(`Das Bearbeiten meldet ${String(api.panel().problem)}`);
   await api.panelAction({ action: "updateServer", name: "selbsttest-neu", newName: "selbsttest", url: serverUrl });
   await waitFor(() => view("selbsttest") !== undefined, 15_000, "der alte Name ist zurück");
@@ -451,7 +451,7 @@ const checkSettings = async (api: RAgentsApi, serverUrl: string, profileFile: st
   await api.panelAction({ action: "updateProfile", name: "profil", newName: "profil", profileFile: path.join(path.dirname(profileFile), "ragents.config.gibtesauchnicht.ts") });
   checks.updateProfileMissing = { problem: api.panel().problem, view: view("profil") };
   if (api.panel().problem === undefined) throw new Error("Eine Profildatei, die es nicht gibt, kommt beim Bearbeiten ohne Meldung durch");
-  if (view("profil")?.address !== path.resolve(profileFile)) throw new Error(`Das abgelehnte Bearbeiten hat die Umgebung auf ${String(view("profil")?.address)} geändert`);
+  if (view("profil")?.address !== path.resolve(profileFile)) throw new Error(`Das abgelehnte Bearbeiten hat den Server auf ${String(view("profil")?.address)} geändert`);
 
   checks.profileSuggestions = api.panel().profileSuggestions;
   if (!Array.isArray(api.panel().profileSuggestions)) throw new Error("Die Vorschlagsliste der Profile fehlt im Zustand der Seite");
@@ -463,7 +463,7 @@ const checkSettings = async (api: RAgentsApi, serverUrl: string, profileFile: st
   const missing = path.join(path.dirname(profileFile), "ragents.config.gibtesnicht.ts");
   await api.panelAction({ action: "addProfile", name: "fehlende-datei", profileFile: missing });
   checks.missingProfileFile = { problem: api.panel().problem, present: view("fehlende-datei") !== undefined };
-  if (view("fehlende-datei") !== undefined) throw new Error("Eine Profildatei, die es nicht gibt, kommt als Ziel durch");
+  if (view("fehlende-datei") !== undefined) throw new Error("Eine Profildatei, die es nicht gibt, kommt als Server durch");
   if (api.panel().problem === undefined) throw new Error("Eine Profildatei, die es nicht gibt, bleibt ohne Meldung in der Seite");
 
   // Ein relativer Pfad löst sich gegen das Arbeitsverzeichnis des Extension-Hosts auf; die Meldung nennt deshalb den vollen Pfad.
@@ -501,7 +501,7 @@ const checkSettings = async (api: RAgentsApi, serverUrl: string, profileFile: st
     checks.pickProfile = { captured: false, reason: "Die Erweiterung läuft aus einer eigenen vscode-API; ihr Dateidialog ist von hier nicht zu belegen" };
   }
 
-  // Ein Server ohne Benutzer nimmt keine Anmeldedaten an; der Grund gehört in die Zeile der Umgebung.
+  // Ein Server ohne Benutzer nimmt keine Anmeldedaten an; der Grund gehört in die Zeile des Servers.
   await api.panelAction({ action: "login", name: "selbsttest", user: "niemand", password: "egal" });
   checks.login = { problem: view("selbsttest")?.problem, state: view("selbsttest")?.state.kind, savedLogin: view("selbsttest")?.savedLogin ?? false };
   if (view("selbsttest")?.problem === undefined) throw new Error("Die Anmeldung gegen einen Server ohne Benutzer bleibt ohne Meldung in der Seite");
@@ -515,10 +515,10 @@ const checkSettings = async (api: RAgentsApi, serverUrl: string, profileFile: st
 
   for (const name of ["profil", "selbsttest"]) {
     await api.panelAction({ action: "remove", name });
-    await waitFor(() => view(name) === undefined, 15_000, `die Umgebung ${name} ist entfernt`);
+    await waitFor(() => view(name) === undefined, 15_000, `der Server ${name} ist entfernt`);
   }
-  checks.afterRemove = { targets: names(), connections: api.connections() };
-  if (api.connections().length !== 0) throw new Error(`Nach dem Entfernen stehen noch ${api.connections().length} Umgebungen in ragents.connections`);
+  checks.afterRemove = { connections: names(), setting: api.connections() };
+  if (api.connections().length !== 0) throw new Error(`Nach dem Entfernen stehen noch ${api.connections().length} Server in ragents.connections`);
 };
 
 /** Läuft im Extension-Host eines echten VS Code gegen einen laufenden Server; tests/host/launch.mjs startet ihn. */
@@ -530,10 +530,10 @@ export async function run(): Promise<void> {
     if (!extension) throw new Error("Die Erweiterung purestate.ragents-vscode ist nicht geladen.");
     report.alreadyActive = extension.isActive;
     const api = await extension.activate();
-    const seen: Array<{ target: string; message: RunPanelHostMessage }> = [];
+    const seen: Array<{ connection: string; message: RunPanelHostMessage }> = [];
     api.messages((entry) => seen.push(entry));
     if (process.env.RAGENTS_HOST_TEST_SETTINGS) {
-      // Vierter Testpfad: die Einstellungsseite legt Umgebungen an, meldet Fehler und entfernt wieder.
+      // Vierter Testpfad: die Seite Server legt Server an, meldet Fehler und entfernt wieder.
       await checkSettings(api, process.env.RAGENTS_HOST_TEST_SERVER ?? "http://localhost:4710", process.env.RAGENTS_HOST_TEST_PROFILE ?? "", report);
       report.ok = true;
       if (output) writeFileSync(output, JSON.stringify(report, null, 2));
@@ -541,15 +541,15 @@ export async function run(): Promise<void> {
     }
     const primary = "test";
     const secondary = process.env.RAGENTS_HOST_TEST_SECOND ? "zweit" : undefined;
-    // Jede konfigurierte Umgebung verbindet sich beim Aktivieren von selbst.
+    // Jeder konfigurierte Server verbindet sich beim Aktivieren von selbst.
     const configured = secondary ? [primary, secondary] : [primary];
-    await waitFor(() => api.targets().length === configured.length, 30_000, "die Umgebungen stehen");
+    await waitFor(() => api.snapshots().length === configured.length, 30_000, "die Server stehen");
     for (const name of configured) await waitFor(() => api.session(name)?.client !== undefined, 60_000, `die Sitzung von ${name} steht`);
-    report.targets = api.targets().map((target) => ({ name: target.connection.name, kind: target.connection.kind, url: target.url }));
+    report.connections = api.snapshots().map((snapshot) => ({ name: snapshot.connection.name, kind: snapshot.connection.kind, url: snapshot.url }));
     const workspace = process.env.RAGENTS_HOST_TEST_WORKSPACE;
     if (workspace && secondary) {
-      // Dritter Testpfad: zwei Umgebungen gleichzeitig, Kachel-Klick, ein neuer Run auf der zweiten, ein Trennen, das nur eine trifft.
-      await checkTwoTargets(api, primary, secondary, workspace, seen, report);
+      // Dritter Testpfad: zwei Server gleichzeitig, Klick auf eine Vorlage, ein neuer Run auf der zweiten, ein Trennen, das nur eine trifft.
+      await checkTwoConnections(api, primary, secondary, workspace, seen, report);
       report.ok = true;
       if (output) writeFileSync(output, JSON.stringify(report, null, 2));
       return;
@@ -596,7 +596,7 @@ export async function run(): Promise<void> {
     }
     const { run, apps } = runs.find((entry) => entry.apps.length > 0) ?? runs[0]!;
     api.selectRun(primary, run.id);
-    await waitFor(() => seen.some((entry) => entry.target === primary && entry.message.type === "ready"), 30_000, "Panel meldet ready");
+    await waitFor(() => seen.some((entry) => entry.connection === primary && entry.message.type === "ready"), 30_000, "Panel meldet ready");
     await waitFor(() => seen.some((entry) => entry.message.type === "runChanged" && entry.message.runId === run.id), 15_000, "Panel übernimmt den Run");
     const app = apps[0];
     if (app) {

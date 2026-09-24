@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canvasStartupState } from "../../../plugins/ragents.orchestration/web/canvas-startup.ts";
+import { surfaceStartupState } from "../../../plugins/ragents.orchestration/web/surface-startup.ts";
 import { chatShowsContent } from "../../../plugins/ragents.orchestration/web/run-panel/run-panel-startup.ts";
 import type { Message } from "../src/chat/types.ts";
 
@@ -25,6 +25,6 @@ test("a conversation turn or a question ends the loading state", () => {
 
 test("an idle free run has nothing to wait for once its chat is connected", () => {
   const free = { view: undefined, startup: undefined, running: false, error: undefined };
-  assert.equal(canvasStartupState({ ...free, connected: false })?.kind, "working");
-  assert.equal(canvasStartupState({ ...free, connected: true }), undefined);
+  assert.equal(surfaceStartupState({ ...free, connected: false })?.kind, "working");
+  assert.equal(surfaceStartupState({ ...free, connected: true }), undefined);
 });

@@ -1,12 +1,12 @@
 import { BookIcon, ChevronRightIcon, CodeIcon, PlusIcon, ServerIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "cn";
-import { Button, EnvironmentStateIcon, environmentStateWord, Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "../ui";
-import type { TargetEntry, TargetView } from "./contract";
+import { Button, ConnectionStateIcon, connectionStateWord, Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "../ui";
+import { busyState, connectionState, routeLabel, stateDetail } from "./connection-state";
+import type { ConnectionEntry, ConnectionView } from "./contract";
 import type { PanelPageProps } from "./page-props";
 import { LoginDialog } from "./PanelDialogs";
 import { RunLine, RunList } from "./RunLine";
-import { busyState, environmentState, routeLabel, stateDetail } from "./target-state";
 
 const RECENT_RUNS = 5;
 const NEW_CHAT = { category: "Ohne Vorlage", title: "Neuer Chat", description: "Leerer Run, der Auftrag entsteht im Chat." };
@@ -15,13 +15,13 @@ const sectionClass = "flex items-baseline gap-2 text-[0.66rem] font-bold upperca
 const countClass = "font-mono text-[0.62rem] font-normal tracking-normal opacity-80";
 const tileClass = "group/tile flex h-full min-w-0 flex-col gap-1.5 rounded-[12px] border border-border-soft bg-card p-2.5 text-left [--tone:var(--primary)]"
   + " hover:border-border hover:bg-accent/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring/60";
-const entryIcon = (entry: TargetEntry): ReactNode => entry.kind === "skill"
+const entryIcon = (entry: ConnectionEntry): ReactNode => entry.kind === "skill"
   ? <BookIcon aria-hidden className="size-3.5" />
   : <CodeIcon aria-hidden className="size-3.5" />;
 const chatIcon: ReactNode = <PlusIcon aria-hidden className="size-3.5" />;
 
 /** Die Vorlage hinter defaultEntry; die Erweiterung nennt nur eine Kennung aus entries. */
-const defaultEntryOf = (target: TargetView): TargetEntry | undefined => target.entries.find((entry) => entry.id === target.defaultEntry);
+const defaultEntryOf = (connection: ConnectionView): ConnectionEntry | undefined => connection.entries.find((entry) => entry.id === connection.defaultEntry);
 
 function Section({ title, count, children }: { title: string; count?: number; children?: ReactNode }) {
   return <div className="flex items-baseline justify-between gap-2">
@@ -34,18 +34,18 @@ const chipPartClass = "focus-visible:outline-2 focus-visible:-outline-offset-2 f
 const iconPartClass = "flex w-8 flex-none items-center justify-center";
 
 /** Was der linke Teil des Chips tut: das Wort steht neben dem Namen, das Label im Tooltip; ohne run ist er gesperrt. */
-const chipAction = (target: TargetView, send: PanelPageProps["send"], onLogin: (name: string) => void): { word: string; label: string; run?: () => void } => {
-  switch (environmentState(target)) {
+const chipAction = (connection: ConnectionView, send: PanelPageProps["send"], onLogin: (name: string) => void): { word: string; label: string; run?: () => void } => {
+  switch (connectionState(connection)) {
     case "login-required":
-    case "forbidden": return { word: "Anmelden", label: `An ${target.name} anmelden`, run: () => onLogin(target.name) };
+    case "forbidden": return { word: "Anmelden", label: `An ${connection.name} anmelden`, run: () => onLogin(connection.name) };
     case "unreachable":
-    case "failed": return { word: "Erneut versuchen", label: `${target.name} erneut versuchen`, run: () => send({ action: "retry", name: target.name }) };
-    case "stopped": return target.kind === "profile"
-      ? { word: "Starten", label: `${target.name} starten`, run: () => send({ action: "startProfile", name: target.name }) }
-      : { word: "Verbinden", label: `Mit ${target.name} verbinden`, run: () => send({ action: "connect", name: target.name }) };
-    case "starting": return { word: "startet ...", label: `${target.name} startet` };
+    case "failed": return { word: "Erneut versuchen", label: `${connection.name} erneut versuchen`, run: () => send({ action: "retry", name: connection.name }) };
+    case "stopped": return connection.kind === "profile"
+      ? { word: "Starten", label: `${connection.name} starten`, run: () => send({ action: "startProfile", name: connection.name }) }
+      : { word: "Verbinden", label: `Mit ${connection.name} verbinden`, run: () => send({ action: "connect", name: connection.name }) };
+    case "starting": return { word: "startet ...", label: `${connection.name} startet` };
     case "connected":
-    case "ready": return { word: "", label: `Runs auf ${target.name}`, run: () => send({ action: "page", page: "runs", environment: target.name }) };
+    case "ready": return { word: "", label: `Runs auf ${connection.name}`, run: () => send({ action: "page", page: "runs", connection: connection.name }) };
   }
 };
 
@@ -55,65 +55,65 @@ interface Failure {
 }
 
 /** Das Zustandssymbol als eigener Knopf: bei einem Fehler öffnet es das Popover mit der Meldung, das Schloss den Anmeldedialog. */
-function StateButton({ target, action, failure, onFailure, send, onLogin }: {
-  target: TargetView;
+function StateButton({ connection, action, failure, onFailure, send, onLogin }: {
+  connection: ConnectionView;
   action: ReturnType<typeof chipAction>;
   failure: Failure | undefined;
   onFailure: (failure: Failure | undefined) => void;
   send: PanelPageProps["send"];
   onLogin: (name: string) => void;
 }) {
-  const state = environmentState(target);
-  const detail = stateDetail(target);
-  const missing = target.missingEnvironment;
+  const state = connectionState(connection);
+  const detail = stateDetail(connection);
+  const missing = connection.missingEnvironment;
   if (state === "login-required") {
-    return <button aria-label={`Anmeldung an ${target.name}`} className={cn(iconPartClass, chipPartClass)} onClick={() => onLogin(target.name)} type="button">
-      <EnvironmentStateIcon state={state} />
+    return <button aria-label={`Anmeldung an ${connection.name}`} className={cn(iconPartClass, chipPartClass)} onClick={() => onLogin(connection.name)} type="button">
+      <ConnectionStateIcon state={state} />
     </button>;
   }
-  const shown = detail !== undefined ? { title: environmentStateWord(state), message: detail } : failure;
+  const shown = detail !== undefined ? { title: connectionStateWord(state), message: detail } : failure;
   return <Popover onOpenChange={(next) => onFailure(next ? shown : undefined)} open={failure !== undefined}>
-    <PopoverTrigger aria-label={`Fehler von ${target.name} anzeigen`} className={cn(iconPartClass, chipPartClass)}>
-      <EnvironmentStateIcon state={state} />
+    <PopoverTrigger aria-label={`Fehler von ${connection.name} anzeigen`} className={cn(iconPartClass, chipPartClass)}>
+      <ConnectionStateIcon state={state} />
     </PopoverTrigger>
     {shown && <PopoverContent align="start" className="w-[min(360px,calc(100vw-16px))] gap-2 p-3" collisionPadding={8} dim side="bottom" sideOffset={4}>
       <PopoverHeader><PopoverTitle className="text-[0.8rem] font-semibold text-destructive">{shown.title}</PopoverTitle></PopoverHeader>
       <p className={cn("max-h-[50vh] overflow-auto select-text whitespace-pre-wrap text-[0.72rem] leading-normal [overflow-wrap:anywhere]", shown.message.includes("\n") && "font-mono")}>{shown.message}</p>
       <div className="flex flex-wrap justify-end gap-2">
         <Button onClick={() => send({ action: "showOutput" })} size="xs" variant="ghost">Ausgabe öffnen</Button>
-        {missing && <Button aria-label={`Wert für ${missing.variable} setzen und ${target.name} erneut starten`}
-          onClick={() => { onFailure(undefined); send({ action: "setSecret", name: missing.variable, environment: target.name }); }} size="xs">Wert setzen</Button>}
+        {missing && <Button aria-label={`Wert für ${missing.variable} setzen und ${connection.name} erneut starten`}
+          onClick={() => { onFailure(undefined); send({ action: "setSecret", name: missing.variable, connection: connection.name }); }} size="xs">Wert setzen</Button>}
         {action.run && action.word && <Button onClick={() => { onFailure(undefined); action.run?.(); }} size="xs" variant="secondary">{action.word}</Button>}
       </div>
     </PopoverContent>}
   </Popover>;
 }
 
-/** Eine Umgebung als geteilter Knopf: links Zustand, Name, Aktionswort und Zielzeile, rechts das Plus für den Default oder einen neuen Chat. */
-function EnvironmentTile({ target, send, onLogin }: {
-  target: TargetView;
+/** Ein Server als geteilter Knopf: links Zustand, Name, Aktionswort und Zielzeile, rechts das Plus für den Default oder einen neuen Chat. */
+function ConnectionChip({ connection, send, onLogin }: {
+  connection: ConnectionView;
   send: PanelPageProps["send"];
   onLogin: (name: string) => void;
 }) {
   const [failure, setFailure] = useState<Failure>();
-  const action = chipAction(target, send, onLogin);
-  const state = environmentState(target);
-  const busy = busyState(target);
-  const detail = stateDetail(target);
+  const action = chipAction(connection, send, onLogin);
+  const state = connectionState(connection);
+  const busy = busyState(connection);
+  const detail = stateDetail(connection);
   useEffect(() => { if (!busy && detail === undefined) setFailure(undefined); }, [busy, detail]);
-  const canCreate = target.state.kind === "connected" && target.canCreate;
-  const route = routeLabel(target);
-  const starter = defaultEntryOf(target);
-  const plusLabel = starter ? `Neuer Run aus ${starter.title} auf ${target.name}` : `Neuer Chat auf ${target.name}`;
+  const canCreate = connection.state.kind === "connected" && connection.canCreate;
+  const route = routeLabel(connection);
+  const starter = defaultEntryOf(connection);
+  const plusLabel = starter ? `Neuer Run aus ${starter.title} auf ${connection.name}` : `Neuer Chat auf ${connection.name}`;
   const ownIcon = state === "login-required" || detail !== undefined || failure !== undefined;
   return <li className="flex min-w-0 items-stretch overflow-hidden rounded-md bg-secondary">
-    {ownIcon && <StateButton action={action} failure={failure} onFailure={setFailure} onLogin={onLogin} send={send} target={target} />}
+    {ownIcon && <StateButton action={action} connection={connection} failure={failure} onFailure={setFailure} onLogin={onLogin} send={send} />}
     <button aria-label={action.label} className={cn("group/action flex min-w-0 flex-1 items-center gap-1.5 py-1.5 pr-1.5 pl-2 text-left disabled:cursor-default", chipPartClass)}
       disabled={action.run === undefined} onClick={action.run} title={action.label} type="button">
-      {!ownIcon && <EnvironmentStateIcon state={state} />}
+      {!ownIcon && <ConnectionStateIcon state={state} />}
       <span className="grid min-w-0 flex-1 gap-0.5">
         <span className="flex min-w-0 items-baseline gap-1.5">
-          <span className="max-w-[calc(100%-3rem)] flex-none truncate text-[0.76rem] font-semibold">{target.name}</span>
+          <span className="max-w-[calc(100%-3rem)] flex-none truncate text-[0.76rem] font-semibold">{connection.name}</span>
           {action.word && <span className="ml-auto min-w-0 truncate text-[0.62rem] text-muted-foreground group-enabled/action:group-hover/action:text-foreground">{action.word}</span>}
         </span>
         <span className="truncate font-mono text-[0.62rem] text-muted-foreground" data-cell="route" title={route}>{route}</span>
@@ -121,7 +121,7 @@ function EnvironmentTile({ target, send, onLogin }: {
     </button>
     {canCreate
       ? <button aria-label={plusLabel} className={cn("flex w-7 flex-none items-center justify-center border-l border-border-soft text-muted-foreground hover:text-foreground", chipPartClass)}
-        onClick={() => send({ action: "newRun", name: target.name, ...(starter ? { entryId: starter.id } : {}) })} title={plusLabel} type="button"><PlusIcon aria-hidden className="size-3.5" /></button>
+        onClick={() => send({ action: "newRun", name: connection.name, ...(starter ? { entryId: starter.id } : {}) })} title={plusLabel} type="button"><PlusIcon aria-hidden className="size-3.5" /></button>
       : <span aria-hidden className="w-7 flex-none" />}
   </li>;
 }
@@ -131,7 +131,7 @@ function Tile({ category, title, description, icon, standard, guided, onClick }:
   title: string;
   description: string;
   icon: ReactNode;
-  /** Die Kachel ist der Default-Einstieg ihrer Umgebung. */
+  /** Die Vorlage ist der Default ihres Servers. */
   standard?: boolean;
   guided?: boolean;
   onClick: () => void;
@@ -152,45 +152,45 @@ function Tile({ category, title, description, icon, standard, guided, onClick }:
   </li>;
 }
 
-/** Die Kacheln einer Umgebung: der Einstieg (Standard-Vorlage oder Neuer Chat) zuerst, dann ihre Vorlagen; ab zwei Umgebungen mit Überschrift. */
-function EnvironmentOffers({ target, marked, send }: { target: TargetView; marked: boolean; send: PanelPageProps["send"] }) {
-  const standard = defaultEntryOf(target);
-  const entries = target.entries.filter((entry) => entry.id !== target.defaultEntry);
+/** Die Vorlagen eines Servers: die Standard-Vorlage oder Neuer Chat zuerst, dann die übrigen; ab zwei Servern mit Überschrift. */
+function ConnectionOffers({ connection, marked, send }: { connection: ConnectionView; marked: boolean; send: PanelPageProps["send"] }) {
+  const standard = defaultEntryOf(connection);
+  const entries = connection.entries.filter((entry) => entry.id !== connection.defaultEntry);
   return <div className="grid grid-cols-1 gap-1.5">
-    {marked && <h3 className="flex items-center gap-1.5 pt-1 text-[0.78rem] font-semibold"><EnvironmentStateIcon state={environmentState(target)} />{target.name}</h3>}
-    <ul aria-label={marked ? `Vorlagen auf ${target.name}` : "Vorlagen"} className="grid grid-cols-[repeat(auto-fill,minmax(182px,1fr))] gap-2">
+    {marked && <h3 className="flex items-center gap-1.5 pt-1 text-[0.78rem] font-semibold"><ConnectionStateIcon state={connectionState(connection)} />{connection.name}</h3>}
+    <ul aria-label={marked ? `Vorlagen auf ${connection.name}` : "Vorlagen"} className="grid grid-cols-[repeat(auto-fill,minmax(182px,1fr))] gap-2">
       {standard
-        ? <Tile category={standard.category} description={standard.description} guided={standard.guided} icon={entryIcon(standard)} onClick={() => send({ action: "newRun", name: target.name, entryId: standard.id })} standard title={standard.title} />
-        : <Tile {...NEW_CHAT} icon={chatIcon} onClick={() => send({ action: "newRun", name: target.name })} />}
+        ? <Tile category={standard.category} description={standard.description} guided={standard.guided} icon={entryIcon(standard)} onClick={() => send({ action: "newRun", name: connection.name, entryId: standard.id })} standard title={standard.title} />
+        : <Tile {...NEW_CHAT} icon={chatIcon} onClick={() => send({ action: "newRun", name: connection.name })} />}
       {entries.map((entry) => <Tile category={entry.category} description={entry.description} guided={entry.guided} key={entry.id} icon={entryIcon(entry)}
-        onClick={() => send({ action: "newRun", name: target.name, entryId: entry.id })} title={entry.title} />)}
+        onClick={() => send({ action: "newRun", name: connection.name, entryId: entry.id })} title={entry.title} />)}
     </ul>
   </div>;
 }
 
-/** Die Startseite: die Umgebungen als Block, darunter die letzten Runs und je erreichbarer Umgebung ihr Einstieg vor allen Vorlagen als Kacheln. */
+/** Die Startseite: die Server als Block, darunter die letzten Runs und je erreichbarem Server seine Vorlagen, die Standard-Vorlage oder Neuer Chat zuerst. */
 export function StartPage({ state, send }: PanelPageProps) {
   const [login, setLogin] = useState<string>();
-  const targets = state.targets;
-  const marked = targets.length > 1;
-  const runs = targets.flatMap((target) => target.runs.map((run) => ({ target, run })))
+  const connections = state.connections;
+  const marked = connections.length > 1;
+  const runs = connections.flatMap((connection) => connection.runs.map((run) => ({ connection, run })))
     .sort((left, right) => right.run.updatedAt - left.run.updatedAt);
-  const reachable = targets.filter((target) => target.state.kind === "connected" && target.canCreate);
-  const starters = reachable.map((target) => ({ target, entry: defaultEntryOf(target) }));
-  const offers = reachable.flatMap((target) => target.entries.filter((entry) => entry.id !== target.defaultEntry).map((entry) => ({ target, entry })));
-  const loginTarget = targets.find((target) => target.name === login);
+  const reachable = connections.filter((connection) => connection.state.kind === "connected" && connection.canCreate);
+  const starters = reachable.map((connection) => ({ connection, entry: defaultEntryOf(connection) }));
+  const offers = reachable.flatMap((connection) => connection.entries.filter((entry) => entry.id !== connection.defaultEntry).map((entry) => ({ connection, entry })));
+  const loginConnection = connections.find((connection) => connection.name === login);
   return <div className="@container/panel grid grid-cols-1 gap-4">
     {state.problem && <p className="text-[0.8rem] leading-normal text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
-    {targets.length === 0
+    {connections.length === 0
       ? <div className="grid gap-3">
-        <p className="text-[0.85rem] leading-normal text-muted-foreground">Noch keine Umgebung. Lege einen Server oder ein lokales Profil an.</p>
-        <Button onClick={() => send({ action: "page", page: "environments" })}><ServerIcon data-icon="inline-start" />Umgebung anlegen</Button>
+        <p className="text-[0.85rem] leading-normal text-muted-foreground">Noch kein Server. Lege einen Server per Adresse oder ein lokales Profil an.</p>
+        <Button onClick={() => send({ action: "page", page: "connections" })}><ServerIcon data-icon="inline-start" />Server anlegen</Button>
       </div>
       : <>
         <section className="grid grid-cols-1 gap-1.5">
-          <Section count={targets.length} title="Umgebungen" />
-          <ul aria-label="Umgebungen" className="grid grid-cols-2 gap-1.5 @[560px]/panel:auto-cols-fr @[560px]/panel:grid-flow-col @[560px]/panel:grid-cols-none">
-            {targets.map((target) => <EnvironmentTile key={target.name} onLogin={setLogin} send={send} target={target} />)}
+          <Section count={connections.length} title="Server" />
+          <ul aria-label="Server" className="grid grid-cols-2 gap-1.5 @[560px]/panel:auto-cols-fr @[560px]/panel:grid-flow-col @[560px]/panel:grid-cols-none">
+            {connections.map((connection) => <ConnectionChip connection={connection} key={connection.name} onLogin={setLogin} send={send} />)}
           </ul>
         </section>
         <section className="grid grid-cols-1 gap-1.5">
@@ -199,15 +199,15 @@ export function StartPage({ state, send }: PanelPageProps) {
           </Section>
           {runs.length === 0
             ? <p className="text-[0.75rem] text-muted-foreground">Noch keine Runs.</p>
-            : <RunList environment={marked} label="Zuletzt">
-              {runs.slice(0, RECENT_RUNS).map(({ target, run }) => <RunLine environment={marked} key={`${target.name}:${run.id}`} onOpen={() => send({ action: "openRun", name: target.name, runId: run.id })} run={run} target={target} />)}
+            : <RunList label="Zuletzt" showConnection={marked}>
+              {runs.slice(0, RECENT_RUNS).map(({ connection, run }) => <RunLine connection={connection} key={`${connection.name}:${run.id}`} onOpen={() => send({ action: "openRun", name: connection.name, runId: run.id })} run={run} showConnection={marked} />)}
             </RunList>}
         </section>
         {starters.length > 0 && <section className="grid grid-cols-1 gap-1.5">
           <Section count={starters.length + offers.length} title="Neu" />
-          {reachable.map((target) => <EnvironmentOffers key={target.name} marked={marked} send={send} target={target} />)}
+          {reachable.map((connection) => <ConnectionOffers connection={connection} key={connection.name} marked={marked} send={send} />)}
         </section>}
       </>}
-    {loginTarget && <LoginDialog onClose={() => setLogin(undefined)} send={send} target={loginTarget} />}
+    {loginConnection && <LoginDialog connection={loginConnection} onClose={() => setLogin(undefined)} send={send} />}
   </div>;
 }

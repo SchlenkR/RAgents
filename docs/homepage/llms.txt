@@ -1,12 +1,12 @@
 # RAgents
 
-> Programmierbarer AI-Harness mit Chat, mehreren Agenten, TypeScript-Actors und kleinen Bedienoberflächen auf einer Kachelfläche.
+> Programmierbarer AI-Harness mit Chat, mehreren Agenten, TypeScript-Actors und kleinen Bedienoberflächen auf einer Fläche.
 
 Diese Referenz beschreibt die vorhandenen öffentlichen Bausteine des Profils showcase (die Grundausstattung core und die mitgelieferten Beispiele). Verträge, API und Paketquellen werden aus dem Code erzeugt. Für ein neues Run-Setup zuerst die Anleitung und die typisierte API lesen, dann die benötigten Werkzeugverträge nachschlagen.
 
 ## Verstehen und einsteigen
 
-- [Guide](guide.md): Einstieg, Laufzeit, Zugänge, verteiltes Arbeiten, TypeScript-Funktionen, Mini-Apps, Erweiterungen und Rechte aus der aktuellen Dokumentation.
+- [Guide](guide.md): Einstieg, Laufzeit, Zugänge, verteiltes Arbeiten, TypeScript-Funktionen, Mini-Apps, Plugins und Rechte aus der aktuellen Dokumentation.
 
 - [Core ideas](guide-ideas.md)
 - [Actors and messages](guide-runtime.md)
@@ -15,7 +15,7 @@ Diese Referenz beschreibt die vorhandenen öffentlichen Bausteine des Profils sh
 - [Distributed work](guide-distributed.md)
 - [Work with TypeScript](guide-functions.md)
 - [Build mini-apps](guide-programs.md)
-- [Plugins and skills](guide-extensions.md)
+- [Plugins and skills](guide-plugins.md)
 - [Assign permissions](guide-access.md)
 
 ## Run-Setups
@@ -25,7 +25,7 @@ Diese Referenz beschreibt die vorhandenen öffentlichen Bausteine des Profils sh
 
 ## Referenzen
 
-- [Bausteine](reference.md): Alle statischen Werkzeuge und Operationen mit Ein- und Ergebnisschemata, Actor-Programm-Vorlagen und Einstiege.
+- [Bausteine](reference.md): Alle statischen Werkzeuge und Operationen mit Ein- und Ergebnisschemata, Actor-Programm-Vorlagen und Vorlagen der Startseite.
 - [Entwickeln](developer.md): Erweiterungspunkte, Beispiele und aktuelle Vertragsflächen.
 
 ## Externe Clients

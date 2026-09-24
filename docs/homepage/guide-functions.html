@@ -29,12 +29,12 @@
   --border-strong: #a397b2;
   --shell: #cbd6e4;
   --app: #dce3ed;
-  --canvas: #e8e2e6;
-  --canvas-dot: #79aab43b;
-  --canvas-glow-mint: #92cfbfad;
-  --canvas-glow-blue: #8bbfe5a6;
-  --canvas-light: #ffffffb3;
-  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
+  --surface: #e8e2e6;
+  --surface-dot: #79aab43b;
+  --surface-glow-mint: #92cfbfad;
+  --surface-glow-blue: #8bbfe5a6;
+  --surface-light: #ffffffb3;
+  --surface-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #9ccfc5b3, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #9ec6e4b3, transparent 56%),
         radial-gradient(ellipse at 28% 0%, #c4b0dfb3, transparent 58%),
@@ -81,12 +81,12 @@
   --border-strong: #8e809f;
   --shell: #242e40;
   --app: #212632;
-  --canvas: #29232e;
-  --canvas-dot: #7cafbc30;
-  --canvas-glow-mint: #317d686b;
-  --canvas-glow-blue: #417daa80;
-  --canvas-light: #80bfc71f;
-  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
+  --surface: #29232e;
+  --surface-dot: #7cafbc30;
+  --surface-glow-mint: #317d686b;
+  --surface-glow-blue: #417daa80;
+  --surface-light: #80bfc71f;
+  --surface-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #2c625e99, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #355674a6, transparent 56%),
         radial-gradient(ellipse at 28% 0%, #59446f99, transparent 58%),
@@ -128,7 +128,7 @@
       <a href="index.html">Product</a>
       <a href="guide.html" aria-current="page">Guide</a>
     </nav>
-  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html" aria-current="page">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-extensions.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Work with TypeScript</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html" aria-current="page">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-extensions.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Work with TypeScript</h1><p>Combine functions, program deterministic workflows, and involve models where needed.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#typescript-as-the-ais-way-of-working">TypeScript as the AI&#39;s way of working</a><a href="#one-off-snippets">One-off snippets</a><a href="#state-continuation-and-errors">State, continuation, and errors</a></nav></details><h2 id="typescript-as-the-ais-way-of-working">TypeScript as the AI&#39;s way of working</h2>
+  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html" aria-current="page">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Work with TypeScript</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html" aria-current="page">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Work with TypeScript</h1><p>Combine functions, program deterministic workflows, and involve models where needed.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#typescript-as-the-ais-way-of-working">TypeScript as the AI&#39;s way of working</a><a href="#one-off-snippets">One-off snippets</a><a href="#state-continuation-and-errors">State, continuation, and errors</a></nav></details><h2 id="typescript-as-the-ais-way-of-working">TypeScript as the AI&#39;s way of working</h2>
 <p>The model uses RAgents capabilities by writing TypeScript. The workspace provides callable
 functions for tasks such as reading a file or creating an agent. The model combines them into a
 program, keeping results in variables, checking conditions, and running independent steps in
@@ -211,7 +211,7 @@ return { actors, models };
 <h2 id="state-continuation-and-errors">State, continuation, and errors</h2>
 <p>Snippets can read data, combine results, and set up participants, programs, subscriptions, or
 views. Actor programs handle later events, persistent state, and mini-apps. The choice follows
-the task; a setup does not need a dedicated setup actor. Domain-specific skill entries describe
+the task; a setup does not need a dedicated setup actor. Domain-specific skill templates describe
 the desired result rather than prescribing a technical solution. Technical contracts and guides
 belong in the discoverable environment.</p>
 <p>A snippet acts as its caller. <code>onInput</code> acts as the receiving TypeScript actor. An actor function

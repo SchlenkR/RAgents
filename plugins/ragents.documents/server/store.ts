@@ -17,7 +17,7 @@ export class RunDocumentStore implements DocumentStore {
   }
 
   async directoryFor(runId: string): Promise<string> {
-    if (!isRunId(runId)) throw new Error(`Ungültige Session-Id: ${runId}`);
+    if (!isRunId(runId)) throw new Error(`Ungültige Run-ID: ${runId}`);
     const directory = this.#options.externalRoot
       ? path.join(this.#options.externalRoot, runId)
       : this.#options.sessionDirectory(runId);

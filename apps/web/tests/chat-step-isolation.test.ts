@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { chromium } from "playwright-core";
 
-test("chat detail switches isolate actors and runs while sharing a chat between canvas and inspector", {
+test("chat detail switches isolate actors and runs while sharing a chat between surface and inspector", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 120_000,
 }, async context => {
   await mkdir("/private/tmp/ragents-chat-tool-mode", { recursive: true });
@@ -37,11 +37,11 @@ function Actor({run,id,name,presentation}) {
 }
 createRoot(document.getElementById('root')).render(<ChatStepsProvider policy={{...defaultChatDisplayPolicy,selectable:true}}>
   <NormalChat/>
-  <Actor run="run-a" id="coordinator" name="coordinator-canvas" presentation="canvas"/>
-  <Actor run="run-a" id="implementer" name="implementer" presentation="canvas"/>
+  <Actor run="run-a" id="coordinator" name="coordinator-surface" presentation="surface"/>
+  <Actor run="run-a" id="implementer" name="implementer" presentation="surface"/>
   <Actor run="run-a" id="implementer" name="inspector" presentation="inspector"/>
-  <Actor run="run-a" id="idle" name="idle" presentation="canvas"/>
-  <Actor run="run-b" id="implementer" name="other-run" presentation="canvas"/>
+  <Actor run="run-a" id="idle" name="idle" presentation="surface"/>
+  <Actor run="run-b" id="implementer" name="other-run" presentation="surface"/>
 </ChatStepsProvider>);
 ` },
     outfile: `${directory}/fixture.js`, bundle: true, platform: "browser", format: "iife", jsx: "automatic",
@@ -80,24 +80,24 @@ createRoot(document.getElementById('root')).render(<ChatStepsProvider policy={{.
   const mode = async (name: string, label: string) => {
     await chat(name).getByRole("button", { name: `Detailgrad der Schritte: ${label}`, exact: true }).waitFor();
   };
-  for (const name of ["normal", "coordinator-canvas", "implementer", "inspector", "other-run"]) await mode(name, "aktuell");
+  for (const name of ["normal", "coordinator-surface", "implementer", "inspector", "other-run"]) await mode(name, "aktuell");
   await chat("implementer").getByRole("button", { name: "Detailgrad der Schritte: aktuell", exact: true }).click();
   await mode("implementer", "Symbole");
   await mode("inspector", "Symbole");
   await mode("normal", "aktuell");
-  await mode("coordinator-canvas", "aktuell");
+  await mode("coordinator-surface", "aktuell");
   await mode("other-run", "aktuell");
   assert.equal(await chat("implementer").locator("[data-step=chip] > span").count(), 0);
   await chat("implementer").getByRole("button", { name: "Detailgrad der Schritte: Symbole", exact: true }).click();
   await mode("implementer", "kompakt");
   assert.ok(await chat("implementer").locator("[data-step=chip] > span").count() > 0);
   await chat("normal").getByRole("button", { name: "Detailgrad der Schritte: aktuell", exact: true }).click();
-  await mode("coordinator-canvas", "Symbole");
+  await mode("coordinator-surface", "Symbole");
   await mode("implementer", "kompakt");
   await mode("other-run", "aktuell");
   await page.reload();
   await mode("normal", "Symbole");
-  await mode("coordinator-canvas", "Symbole");
+  await mode("coordinator-surface", "Symbole");
   await mode("implementer", "kompakt");
   await mode("inspector", "kompakt");
   await mode("other-run", "aktuell");

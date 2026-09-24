@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ChevronLeftIcon } from "lucide-react";
 import { ToolbarItem } from "./Toolbar";
 
-export function CanvasShortcuts({ children }: { children: ReactNode }) {
+export function SurfaceShortcuts({ children }: { children: ReactNode }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -23,7 +23,7 @@ export function CanvasShortcuts({ children }: { children: ReactNode }) {
     };
     const wheel = (event: WheelEvent) => {
       if (event.defaultPrevented || event.ctrlKey || viewport.scrollWidth <= viewport.clientWidth + 1) return;
-      if (event.target instanceof Element && event.target.closest("[data-canvas-scroll]")) return;
+      if (event.target instanceof Element && event.target.closest("[data-surface-scroll]")) return;
       event.preventDefault();
       const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
       const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? viewport.clientWidth : 1;

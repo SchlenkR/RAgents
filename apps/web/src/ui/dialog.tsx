@@ -5,20 +5,20 @@ import { XIcon } from "lucide-react"
 
 import { Button } from "./button"
 
-export type ModalScope = "page" | "run" | "workspace" | "canvas"
+export type ModalScope = "page" | "run" | "workspace" | "surface"
 export type DialogSize = "small" | "medium" | "large" | "wide" | "full"
 
 export const RunModalContext = React.createContext<HTMLElement | null>(null)
 export const WorkspaceModalContext = React.createContext<HTMLElement | null>(null)
-export const CanvasModalContext = React.createContext<HTMLElement | null>(null)
+export const SurfaceModalContext = React.createContext<HTMLElement | null>(null)
 
 const inertCounts = new Map<HTMLElement, { count: number; previous: boolean }>()
 
 export function useModalContainer(scope: ModalScope): HTMLElement | null {
   const run = React.useContext(RunModalContext)
   const workspace = React.useContext(WorkspaceModalContext)
-  const canvas = React.useContext(CanvasModalContext)
-  return scope === "canvas" ? canvas : scope === "workspace" ? workspace : scope === "run" ? run : null
+  const surface = React.useContext(SurfaceModalContext)
+  return scope === "surface" ? surface : scope === "workspace" ? workspace : scope === "run" ? run : null
 }
 
 /** Only the siblings inside the scoped container go inert; toolbars outside stay usable. */

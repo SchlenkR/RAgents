@@ -14,10 +14,10 @@ Das React-Frontend mit Plugin-Slots.
 - `run-panel.html` mit `src/run-panel.tsx` ist der zweite Einstieg: das Run-Panel für ein
   Browserfenster oder das Webview der VS-Code-Erweiterung (`src/run-panel/`, Host-Vertrag in
   `host-contract.ts`); Chat, Bühne und Sheet des Run-Panels liefert das Orchestrierungs-Plugin,
-  die Leiste der Arbeitsbereichs-Reiter am rechten Rand und die Tab-Fläche darunter der Rahmen
+  die Leiste am rechten Rand und den Reiterbereich darunter der Rahmen
   (`RunPanelRail`, `RunPanelWorkspace`, Zustand in `workspace-state.ts`).
 - `panel.html` mit `src/panel.tsx` ist der dritte Einstieg und läuft nur im Webview der
-  Erweiterung: die Übersicht über alle Ziele und die Einstellungsseite (`src/panel/`, Vertrag in
+  Erweiterung: die Übersicht über alle Server und die Einstellungsseite (`src/panel/`, Vertrag in
   `contract.ts`). Er braucht keinen Server; `pnpm build:panel` legt ihn nach
   `../vscode/dist/webview`.
 

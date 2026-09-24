@@ -123,7 +123,7 @@ test("attachment-only inputs preserve bytes and replay metadata while journals c
   } finally { await data.close(); }
 });
 
-test("script actors reject chat before publishing attachments or inputs while program inputs remain available", async () => {
+test("TypeScript actors reject chat before publishing attachments or inputs while program inputs remain available", async () => {
   const data = await fixture(["text", "image"]);
   try {
     await data.session.send("Start");

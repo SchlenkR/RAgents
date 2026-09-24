@@ -1,23 +1,23 @@
 import { handleKey } from "@ragents/engine/src/http/contracts";
-import { canvasTileNodeOf } from "./tiled-layout.js";
+import { surfaceTileNodeOf } from "./tiled-layout.js";
 
 export const ORCHESTRATION_PLUGIN_ID = "ragents.orchestration";
 
-export type CanvasEntity =
+export type SurfaceEntity =
   | { kind: "actor"; handle: string }
   | { kind: "app"; id: string };
 
-export type CanvasTileNode =
+export type SurfaceTileNode =
   | { entity: string; chatInput?: boolean }
-  | { direction: "horizontal" | "vertical"; weights: [number, number]; children: [CanvasTileNode, CanvasTileNode] };
+  | { direction: "horizontal" | "vertical"; weights: [number, number]; children: [SurfaceTileNode, SurfaceTileNode] };
 
-export type CanvasLayout = {
-  root: CanvasTileNode | null;
+export type SurfaceLayout = {
+  root: SurfaceTileNode | null;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 
-export const canvasEntityOf = (text: string): CanvasEntity => {
+export const surfaceEntityOf = (text: string): SurfaceEntity => {
   const trimmed = text.trim();
   if (trimmed.startsWith("@")) {
     const handle = handleKey(trimmed);
@@ -33,19 +33,19 @@ export const canvasEntityOf = (text: string): CanvasEntity => {
   return { kind: "app", id };
 };
 
-export const canvasEntityKey = (entity: CanvasEntity): string =>
+export const surfaceEntityKey = (entity: SurfaceEntity): string =>
   entity.kind === "actor" ? `@${entity.handle}` : `app:${entity.id}`;
 
 const LEGACY_KEYS = ["nodes", "shapes", "lines", "mode"] as const;
 
 /** Parses and validates a tile layout; throws a German error naming the first violation. */
-export const canvasLayoutOf = (value: unknown): CanvasLayout => {
+export const surfaceLayoutOf = (value: unknown): SurfaceLayout => {
   if (!isRecord(value)) throw new Error("Die Anordnung muss ein Objekt mit root sein");
   const legacy = LEGACY_KEYS.filter((key) => key in value);
   if (legacy.length > 0) {
-    throw new Error(`Die Programmanordnung stammt aus dem entfernten freien Canvas (${legacy.join(", ")}); `
+    throw new Error(`Die Programmanordnung stammt aus der entfernten freien Fläche (${legacy.join(", ")}); `
       + "canvas_layout_replace mit root setzt sie als Kachelaufteilung neu");
   }
   if (!("root" in value)) throw new Error("root fehlt; erwartet wird eine Kachel, eine Teilung oder null");
-  return { root: value.root === null ? null : canvasTileNodeOf(value.root) };
+  return { root: value.root === null ? null : surfaceTileNodeOf(value.root) };
 };

@@ -9,7 +9,7 @@ import { pluginAsset } from "@ragents/host/plugin-support/plugin-folder.js";
 import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js";
 import { boundToTools, handlebarsPrompt } from "@ragents/host/plugin-support/prompt.js";
 import { documentStoreToken } from "@ragents/host/ragents/document-store.js";
-import { sessionGuardToken } from "@ragents/host/ragents/host-services.js";
+import { runGuardToken } from "@ragents/host/ragents/host-services.js";
 
 const documentsPlugin: RAgentsPlugin = {
   manifest: { id: "ragents.documents" },
@@ -25,7 +25,7 @@ const documentsPlugin: RAgentsPlugin = {
     host.clientConfig({ routePrefix: documentsApiPrefix });
     host.functions(createDocumentToolContributor(filesFor));
     host.prompts(boundToTools({ ...handlebarsPrompt("ragents.documents.prompt", 400, pluginAsset("ragents.documents", "prompt.hbs")), delivery: "initial" }, "document_write"));
-    const files = { filesFor, ensureSession: host.service(sessionGuardToken) };
+    const files = { filesFor, ensureSession: host.service(runGuardToken) };
     host.methods(createFilesMethod(files));
     host.http(createFileContentRoute(files));
   },

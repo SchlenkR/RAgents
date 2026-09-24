@@ -113,6 +113,8 @@ export const journalLines = (events: readonly JournalEvent[], mode: JournalMode,
     } else if (type === "actor.input.enqueued" && mode !== "tools") {
       const input = payload.input as Record<string, unknown> | undefined;
       lines.push(`[${event.sequence}] INPUT -> ${String(payload.actorId ?? "").slice(0, 14)}: ${text(payload.text ?? input?.text).slice(0, 300)}`);
+    } else if (type === "turn.input-steered" && mode !== "tools") {
+      lines.push(`[${event.sequence}] STEERING -> ${actor}: ${String(payload.inputId ?? "")} in ${String(payload.turnId ?? "")}`);
     } else if (type.startsWith("tool.call.") && mode !== "chat") {
       const body = type.endsWith("started") ? payload.input : type.endsWith("failed") ? payload.error : undefined;
       if (body !== undefined) lines.push(`[${event.sequence}] ${type.split(".").pop()} ${actor} ${String(payload.name ?? "")}: ${JSON.stringify(body).slice(0, 300)}`);

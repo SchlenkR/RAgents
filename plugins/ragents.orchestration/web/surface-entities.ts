@@ -9,13 +9,13 @@ const subscribe = (listener: () => void) => {
   return () => listeners.delete(listener);
 };
 
-export function publishStageEntities(runId: string, entities: ReadonlySet<string> | undefined) {
+export function publishSurfaceEntities(runId: string, entities: ReadonlySet<string> | undefined) {
   if (entities) stages.set(runId, entities);
   else stages.delete(runId);
   listeners.forEach((listener) => listener());
 }
 
-export function useStageEntities(runId: string): ReadonlySet<string> {
+export function useSurfaceEntities(runId: string): ReadonlySet<string> {
   const read = () => stages.get(runId) ?? empty;
   return useSyncExternalStore(subscribe, read, read);
 }

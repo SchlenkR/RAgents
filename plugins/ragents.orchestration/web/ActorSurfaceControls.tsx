@@ -4,18 +4,18 @@ import type { SessionContext, SessionHeaderContext } from "@ragents/web/PluginRe
 import { UsersIcon } from "lucide-react";
 import { Input } from "@ragents/web/ui";
 import { ToolbarCopy, ToolbarItem, ToolbarLabel, ToolbarText } from "@ragents/web/Toolbar";
-import { actorVisibleOnCanvas, type CanvasViewPreferences } from "./canvas-view-settings";
+import { actorVisibleOnSurface, type SurfaceViewPreferences } from "./surface-view-settings";
 import { chatPrimaryId, runViewFrom, type RunActor } from "@ragents/web/run-view";
 import { ActorPopout } from "./ActorPopout";
 import { ActorShortcut } from "./ActorShortcut";
 import { ACTOR_HEADER_MODES, ACTOR_HEADER_MODE_LABELS, actorOnStage, actorVisibleInHeader, saveActorHeaderMode, useActorHeaderMode, type ActorHeaderMode } from "./actor-header-settings";
-import { useStageEntities } from "./canvas-stage";
+import { useSurfaceEntities } from "./surface-entities";
 
-export interface ActorCanvasControlsProps {
+export interface ActorSurfaceControlsProps {
   session: SessionContext;
   appActorIds: ReadonlySet<string>;
-  preferences: CanvasViewPreferences;
-  onPreferencesChange: (preferences: CanvasViewPreferences) => void;
+  preferences: SurfaceViewPreferences;
+  onPreferencesChange: (preferences: SurfaceViewPreferences) => void;
 }
 
 const nameClass = "min-w-0 max-w-full text-left font-semibold [overflow-wrap:anywhere]";
@@ -23,7 +23,7 @@ const nameClass = "min-w-0 max-w-full text-left font-semibold [overflow-wrap:any
 const actorType = (actor: RunActor) => actor.kind === "human" ? "Benutzer" : actor.kind === "agent" ? "LLM-Agent" : "TypeScript-Actor";
 const actorStatus = (actor: RunActor) => actor.lifecycle?.kind === "running" ? "Arbeitet" : actor.lifecycle?.kind === "stopped" ? "Gestoppt" : actor.lifecycle?.kind === "idle" ? "Bereit" : "";
 
-export function filterCanvasActors(actors: readonly RunActor[], appActorIds: ReadonlySet<string>, query: string): readonly RunActor[] {
+export function filterSurfaceActors(actors: readonly RunActor[], appActorIds: ReadonlySet<string>, query: string): readonly RunActor[] {
   const words = query.trim().toLocaleLowerCase("de-DE").split(/\s+/).filter(Boolean);
   return actors.filter((actor) => {
     const text = [`@${actor.handle}`, actor.displayName, actor.kind, actorType(actor), actor.lifecycle?.kind, actorStatus(actor), appActorIds.has(actor.id) ? "Mini-App" : ""].join(" ").toLocaleLowerCase("de-DE");
@@ -36,7 +36,7 @@ export function ActorShortcuts({ session }: SessionHeaderContext) {
   const [openKey, setOpenKey] = useState<string>();
   const close = useCallback(() => setOpenKey(undefined), []);
   const mode = useActorHeaderMode(session.session.id);
-  const stage = useStageEntities(session.session.id);
+  const stage = useSurfaceEntities(session.session.id);
   const view = runViewFrom(session.runView);
   const actors = useMemo(() => view?.actors.filter((actor) => actor.kind !== "human" && (inspect || actor.kind === "agent")) ?? [], [inspect, view]);
   const primaryId = view ? chatPrimaryId(view) : undefined;
@@ -69,14 +69,14 @@ export function ActorHeaderModeControl({ runId }: { runId: string }) {
   </ToolbarItem>;
 }
 
-export function ActorCanvasControls({ session, appActorIds, preferences, onPreferencesChange }: ActorCanvasControlsProps) {
+export function ActorSurfaceControls({ session, appActorIds, preferences, onPreferencesChange }: ActorSurfaceControlsProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelId = useId();
   const runView = runViewFrom(session.runView);
   const actors = runView?.actors;
-  const filtered = useMemo(() => filterCanvasActors(actors ?? [], appActorIds, query), [actors, appActorIds, query]);
+  const filtered = useMemo(() => filterSurfaceActors(actors ?? [], appActorIds, query), [actors, appActorIds, query]);
   const close = useCallback((restoreFocus = false) => {
     setOpen(false);
     if (restoreFocus) buttonRef.current?.focus({ preventScroll: true });
@@ -97,18 +97,18 @@ export function ActorCanvasControls({ session, appActorIds, preferences, onPrefe
         <Input className="flex-1" aria-label="Actors durchsuchen" onChange={(event) => setQuery(event.target.value)} placeholder="Handle, Typ oder Status suchen ..." type="search" value={query} />
         <span className="flex-none whitespace-nowrap text-[0.68rem] text-muted-foreground" role="status">{filtered.length} von {actors?.length ?? 0}</span>
       </div>
-      <ActorCanvasList actors={filtered} appActorIds={appActorIds} primaryActorId={runView?.primaryActorId} onPreferencesChange={onPreferencesChange} preferences={preferences} />
+      <ActorSurfaceList actors={filtered} appActorIds={appActorIds} primaryActorId={runView?.primaryActorId} onPreferencesChange={onPreferencesChange} preferences={preferences} />
       <p className="flex-none border-t border-border-soft px-2.5 py-2.5 text-[0.68rem] text-muted-foreground">Persönliche Ansicht dieses Runs</p>
     </ActorPopout>}
   </div>;
 }
 
-export function ActorCanvasList({ actors, appActorIds, primaryActorId, onPreferencesChange, preferences }: {
+export function ActorSurfaceList({ actors, appActorIds, primaryActorId, onPreferencesChange, preferences }: {
   actors: readonly RunActor[];
   appActorIds: ReadonlySet<string>;
   primaryActorId?: string | null;
-  onPreferencesChange: (preferences: CanvasViewPreferences) => void;
-  preferences: CanvasViewPreferences;
+  onPreferencesChange: (preferences: SurfaceViewPreferences) => void;
+  preferences: SurfaceViewPreferences;
 }) {
   return <div className="min-h-0 flex-1 overflow-auto overscroll-contain px-2.5">
     {actors.length === 0 ? <p className="text-muted-foreground">Keine passenden Actors.</p> : <ul className="list-none">{actors.map((actor) => <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5 border-b border-border-soft py-1.5" key={actor.id}>
@@ -122,8 +122,8 @@ export function ActorCanvasList({ actors, appActorIds, primaryActorId, onPrefere
         </span>
       </div>
       {actor.kind !== "human" && <label className="flex cursor-pointer items-center gap-[5px] whitespace-nowrap text-[0.68rem]">
-        <input aria-label={`@${actor.handle} im Canvas anzeigen`} checked={actorVisibleOnCanvas(actor, appActorIds, preferences, primaryActorId)} onChange={(event) => onPreferencesChange({ ...preferences, actorVisibility: { ...preferences.actorVisibility, [actor.id]: event.target.checked } })} type="checkbox" />
-        <span>Canvas</span>
+        <input aria-label={`@${actor.handle} auf der Fläche anzeigen`} checked={actorVisibleOnSurface(actor, appActorIds, preferences, primaryActorId)} onChange={(event) => onPreferencesChange({ ...preferences, actorVisibility: { ...preferences.actorVisibility, [actor.id]: event.target.checked } })} type="checkbox" />
+        <span>Fläche</span>
       </label>}
     </li>)}</ul>}
   </div>;

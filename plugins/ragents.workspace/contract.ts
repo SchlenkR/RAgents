@@ -31,13 +31,30 @@ export const WORKSPACE_BINDING_OPTION_ID = "ragents.workspace.binding";
 
 export const WORKSPACE_METADATA_ID = "ragents.workspace";
 
-/** Wo der Arbeitsbereich eines Runs liegt; wird beim Start als Startoption ins Journal eingefroren. */
-export type WorkspaceBinding =
-  | { kind: "fresh" }
-  | { kind: "path"; path: string }
-  | { kind: "client"; client: string; label: string; path: string };
+/** Auf welchem Rechner der Arbeitsbereich eines Runs liegt: dem Server oder einem Arbeitsplatz, dessen Label die Bindung festhält. */
+export type WorkspaceMachine = "server" | { client: string; label: string };
 
-export const WORKSPACE_BINDING_KINDS = ["fresh", "path", "client"] as const;
+/** Ein vorhandener Ordner, den der Run weder anlegt noch löscht. */
+export type ExistingWorkspaceFolder = {
+  path: string;
+};
+
+/** Der neue Ordner je Run auf einem Arbeitsplatz; seinen Pfad dort hält die Bindung ab dem Wählen fest. */
+export type FreshWorkstationFolder = {
+  path: string;
+  fresh: true;
+};
+
+/** Welcher Ordner: ein neuer je Run oder ein vorhandener; `fresh` auf dem Server legt der Host je Run in seiner Ablage an. */
+export type WorkspaceFolder = "fresh" | ExistingWorkspaceFolder | FreshWorkstationFolder;
+
+/** Wo und in welchem Ordner ein Run arbeitet; wird beim Start als Startoption ins Journal eingefroren. */
+export type WorkspaceBinding = {
+  machine: WorkspaceMachine;
+  folder: WorkspaceFolder;
+};
+
+export const freshServerBinding = (): WorkspaceBinding => ({ machine: "server", folder: "fresh" });
 
 export const WORKSPACE_CLIENT_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 
@@ -47,18 +64,25 @@ export interface WorkspaceClientDescription {
   hostname: string;
   platform: string;
   folders: string[];
+  /** Wo der Arbeitsplatz die neuen Ordner je Run anlegt, je Run ein Unterordner mit dessen Kennung. */
+  runsDirectory: string;
 }
 
 export interface WorkspaceClientInfo extends WorkspaceClientDescription {
   id: string;
 }
 
+/** Wie der neue Ordner je Run auf jedem Rechner heißt: der leere Ordner oder der Beitrag eines Plugins; null, wo es keinen gibt. */
+export interface FreshWorkspaceLabels {
+  server: string;
+  client: string | null;
+}
+
 export interface WorkspaceBindingPresentation {
   kind: "workspace-binding";
   clients: WorkspaceClientInfo[];
-  /** Wie der Arbeitsbereich je Run heißt: der leere Ordner oder der Beitrag eines Plugins. */
-  freshLabel: string;
-  /** Ob ein Ordner des Serverrechners gebunden werden darf. */
+  fresh: FreshWorkspaceLabels;
+  /** Ob ein vorhandener Ordner des Serverrechners gebunden werden darf. */
   serverFolders: boolean;
 }
 
@@ -76,6 +100,7 @@ const clientDescription = {
   hostname: Type.String({ minLength: 1 }),
   platform: Type.String({ minLength: 1 }),
   folders: Type.Array(Type.String({ minLength: 1 }), { maxItems: 32 }),
+  runsDirectory: Type.String({ minLength: 1, description: "Absoluter Ordner, unter dem der Arbeitsplatz die neuen Ordner je Run anlegt" }),
 };
 
 export const clientInfoSchema = Type.Object({
@@ -164,24 +189,57 @@ export const workspaceContracts = {
   },
 } as const;
 
-export const isWorkspaceBinding = (value: unknown): value is WorkspaceBinding => {
-  if (typeof value !== "object" || value === null) return false;
-  const raw = value as Record<string, unknown>;
-  if (raw.kind === "fresh") return true;
-  if (raw.kind === "path") return typeof raw.path === "string" && raw.path.length > 0;
-  if (raw.kind === "client") {
-    return typeof raw.client === "string" && WORKSPACE_CLIENT_ID_PATTERN.test(raw.client)
-      && typeof raw.label === "string" && typeof raw.path === "string" && raw.path.length > 0;
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+
+const hasExactly = (value: Record<string, unknown>, keys: readonly string[]): boolean =>
+  Object.keys(value).length === keys.length && keys.every((key) => Object.hasOwn(value, key));
+
+const isMachine = (value: unknown): value is WorkspaceMachine =>
+  value === "server" || (isRecord(value) && hasExactly(value, ["client", "label"])
+    && typeof value.client === "string" && WORKSPACE_CLIENT_ID_PATTERN.test(value.client) && typeof value.label === "string");
+
+const isFolder = (value: unknown): value is WorkspaceFolder => {
+  if (value === "fresh") return true;
+  if (!isRecord(value) || typeof value.path !== "string" || value.path.length === 0) return false;
+  return hasExactly(value, ["path"]) || (hasExactly(value, ["path", "fresh"]) && value.fresh === true);
+};
+
+/** Einen neuen Ordner mit Pfad gibt es nur auf einem Arbeitsplatz; auf dem Server legt ihn der Host selbst an. */
+export const isWorkspaceBinding = (value: unknown): value is WorkspaceBinding =>
+  isRecord(value) && hasExactly(value, ["machine", "folder"]) && isMachine(value.machine) && isFolder(value.folder)
+  && !(value.machine === "server" && typeof value.folder === "object" && "fresh" in value.folder);
+
+export const isFreshFolder = (folder: WorkspaceFolder): folder is "fresh" | FreshWorkstationFolder =>
+  folder === "fresh" || "fresh" in folder;
+
+/** Die Form vor der Trennung von Rechner und Ordner, `{ kind: "fresh" | "path" | "client" }`, eindeutig in der heutigen. */
+const fromKind = (value: Record<string, unknown>): unknown => {
+  switch (value.kind) {
+    case "fresh": return hasExactly(value, ["kind"]) ? freshServerBinding() : undefined;
+    case "path": return hasExactly(value, ["kind", "path"]) ? { machine: "server", folder: { path: value.path } } : undefined;
+    case "client": return hasExactly(value, ["kind", "client", "label", "path"])
+      ? { machine: { client: value.client, label: value.label }, folder: { path: value.path } }
+      : undefined;
+    default: return undefined;
   }
-  return false;
+};
+
+/** Die gespeicherte Bindung; ältere, unveränderliche Journale tragen die Form mit `kind`, und nur hier wird sie abgebildet. */
+export const storedWorkspaceBinding = (value: unknown): WorkspaceBinding | undefined => {
+  if (isWorkspaceBinding(value)) return value;
+  const mapped = isRecord(value) && Object.hasOwn(value, "kind") ? fromKind(value) : undefined;
+  return isWorkspaceBinding(mapped) ? mapped : undefined;
 };
 
 export const FRESH_WORKSPACE_LABEL = "Leerer Ordner je Run";
 
-export const workspaceBindingSummary = (binding: WorkspaceBinding, freshLabel = FRESH_WORKSPACE_LABEL): string => {
-  switch (binding.kind) {
-    case "fresh": return freshLabel;
-    case "path": return binding.path;
-    case "client": return `${binding.label}: ${binding.path}`;
-  }
+/** Wie der neue Ordner je Run auf dem Rechner der Bindung heißt; ohne Beitrag dort der leere Ordner. */
+const freshLabelOf = (binding: WorkspaceBinding, labels: FreshWorkspaceLabels): string =>
+  (binding.machine === "server" ? labels.server : labels.client) ?? FRESH_WORKSPACE_LABEL;
+
+export const workspaceBindingSummary = (binding: WorkspaceBinding, labels: FreshWorkspaceLabels): string => {
+  const { machine, folder } = binding;
+  const fresh = freshLabelOf(binding, labels);
+  const where = folder === "fresh" ? fresh : "fresh" in folder ? `${folder.path} (${fresh})` : folder.path;
+  return machine === "server" ? where : `${machine.label}: ${where}`;
 };

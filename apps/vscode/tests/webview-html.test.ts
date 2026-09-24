@@ -63,7 +63,7 @@ test("the panel page loads the built web page from the extension and embeds the 
   const state = {
     theme: "dark" as const,
     page: "start" as const,
-    targets: [{ name: "core <lokal>", kind: "profile" as const, address: "/x/ragents.config.core.ts", route: { kind: "profile" as const, profile: "core" }, state: { kind: "stopped" as const }, runs: [], entries: [], canCreate: false }],
+    connections: [{ name: "core <lokal>", kind: "profile" as const, address: "/x/ragents.config.core.ts", route: { kind: "profile" as const, profile: "core" }, state: { kind: "stopped" as const }, runs: [], entries: [], canCreate: false }],
     profileSuggestions: [],
   };
   const html = panelHtml({ nonce: "n0nce", title: "RAgents", state, scriptUri: "https://file+.vscode-resource/dist/webview/panel.js", styleUri: "https://file+.vscode-resource/dist/webview/panel.css", cspSource: "https://file+.vscode-resource" });

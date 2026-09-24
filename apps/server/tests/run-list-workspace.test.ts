@@ -55,7 +55,7 @@ const fixture = () => {
     runOwner: (runId) => (runId === BOUND || runId === OPEN ? "alice" : undefined),
     runOwnerOnly: (runId) => runId === BOUND,
   }));
-  const method = methods.find((candidate) => candidate.contract.id === coreContracts.sessions.list.id)!;
+  const method = methods.find((candidate) => candidate.contract.id === coreContracts.runs.list.id)!;
   const list = async (access: AccessContext): Promise<Map<string, Listed>> => {
     const listed = await method.execute({} as never, methodContext(access)) as Listed[];
     return new Map(listed.map((entry) => [entry.id, entry]));

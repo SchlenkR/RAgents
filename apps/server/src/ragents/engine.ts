@@ -50,7 +50,7 @@ import { storedSystemPrompt } from "./start-option-state.js";
 import { isRunCoordinator } from "./coordinator.js";
 import { runtimeBridgeToken } from "./runtime-bridge.js";
 import { workspaceRuntimeToken } from "./workspace-runtime.js";
-import { globalChatToken } from "./global-chat.js";
+import { globalChatToken, globalRunPolicyOf } from "./global-chat.js";
 import { NodeTypeScriptExecutor } from "../plugin-support/native-typescript-executor.js";
 import { sandboxServicesToken, type SandboxServices } from "../plugin-support/workspace-sandbox-host.js";
 
@@ -80,7 +80,7 @@ export class SessionWorkspaces implements Workspaces {
 
   ensure(runId: string): string {
     const root = this.#roots.get(runId);
-    if (!root) throw new Error(`Für die Unterhaltung ${runId} ist kein Arbeitsverzeichnis bekannt`);
+    if (!root) throw new Error(`Für den Run ${runId} ist kein Arbeitsverzeichnis bekannt`);
     return root.cwd;
   }
 
@@ -208,9 +208,9 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
   });
   const agentRuntime = new AgentSessionDriver({
     modelRuntime: options.modelRuntime,
-    resolveSkills: async (context) => context.runId === globalChat?.runId ? []
+    resolveSkills: async (context) => globalChat?.isCoordinator(context.runId) ? []
       : (await options.plugins.skills.resolve(contributionContextFor(context))).map(skillOfDirectory),
-    resolveExtensionFactories: (context) => context.runId === globalChat?.runId ? [] : options.plugins.agentRuntime.resolve(contributionContextFor(context)),
+    resolveExtensionFactories: (context) => globalChat?.isCoordinator(context.runId) ? [] : options.plugins.agentRuntime.resolve(contributionContextFor(context)),
     sessions: {
       directory: (runId, agentId) => layout.agentChatDir(runId, agentId),
       directoryMode: ROOT_ONLY_MODE,
@@ -236,11 +236,12 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
       provider: globalProfile.provider, model: globalProfile.model,
       thinking: globalProfile.thinking ?? checkedThinkingLevel(config.agentThinking, "AGENT_THINKING"),
     }, () => {
-      if (!journal.stateOf(globalChat.runId)) return [];
-      const view = runtime.view(globalChat.runId);
-      const attachments = new Set(view.inputs.flatMap((input) => input.artifactIds));
-      return [...new Set(view.artifacts.filter((artifact) => attachments.has(artifact.id)).map((artifact) => attachmentInputKind(artifact.mediaType)))]
-        .filter((kind) => kind === "image" || kind === "video" || kind === "file");
+      const kinds = journal.runIds().filter((runId) => globalChat.isCoordinator(runId) && journal.stateOf(runId)).flatMap((runId) => {
+        const view = runtime.view(runId);
+        const attachments = new Set(view.inputs.flatMap((input) => input.artifactIds));
+        return view.artifacts.filter((artifact) => attachments.has(artifact.id)).map((artifact) => attachmentInputKind(artifact.mediaType));
+      });
+      return [...new Set(kinds)].filter((kind) => kind === "image" || kind === "video" || kind === "file");
     });
   }
   const registry = new ToolRegistry();
@@ -272,7 +273,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     selectedSystemPrompts(promptCatalog, promptIdsFor(runId)).map((option) => {
       const text = optionTexts.get(option.id);
       if (text === undefined) {
-        throw new Error(`Der Systemprompt ${option.id} der Unterhaltung ${runId} ist nicht mehr konfiguriert`);
+        throw new Error(`Der Systemprompt ${option.id} des Runs ${runId} ist nicht mehr konfiguriert`);
       }
       return text;
     });
@@ -298,7 +299,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     }, { delivery: "on-demand", toolNames });
     return chapters.map((entry) => entry.content).filter(Boolean).join("\n\n");
   };
-  const systemPromptFor = (runId: string): string => runId === globalChat?.runId
+  const systemPromptFor = (runId: string): string => globalChat?.isCoordinator(runId)
     ? globalChat.prompt : composeWith(runId, textsFor(runId), null);
   const coordinatorPromptFor = (runId: string, toolNames: readonly string[]): string =>
     composeWith(runId, textsFor(runId), toolNames);
@@ -309,7 +310,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     selectedSystemPrompts(promptCatalog, promptCatalog.defaultIds).map((option) => optionTexts.get(option.id) ?? ""),
     null);
   const basePromptFor = (runId: string, actor: ExecutableActor, toolNames: readonly string[]): string => {
-    if (runId === globalChat?.runId) return [globalChat.prompt, outputContractFor("primary"), globalChat.contextPrompt?.(runtime, actor)].filter(Boolean).join("\n\n");
+    if (globalChat?.isCoordinator(runId)) return [globalChat.prompt, outputContractFor("primary"), globalChat.contextPrompt?.(runtime, runId, actor)].filter(Boolean).join("\n\n");
     const role = roleFor(runId, actor);
     const prompt = isRunCoordinator(runtime, runId, actor.id)
       ? coordinatorPromptFor(runId, toolNames)
@@ -330,8 +331,8 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     live,
     modelSelection: (turn, actor) => {
       if (actor.execution.driver.kind !== "agent") throw new Error("Modellwahl benötigt einen Modell-Actor");
-      return turn.runId === globalChat?.runId && globalChat.model
-        ? globalChat.model.forTurn(runtime, actor.id, turn.turnId) : actor.execution.driver.config;
+      return globalChat?.isCoordinator(turn.runId) && globalChat.model
+        ? globalChat.model.forTurn(runtime, turn.runId, actor.id, turn.turnId) : actor.execution.driver.config;
     },
     ...(workspaceToolNaming ? { workspaceToolNaming } : {}),
     basePrompt: basePromptFor,
@@ -386,9 +387,8 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     primaryActorId: (view) => view.primaryActorId,
     stopExternal,
   });
-  const globalPolicy = globalChat?.access ? { runId: globalChat.runId, ...globalChat.access } : undefined;
   const runAccess = {
-    global: globalPolicy,
+    global: globalRunPolicyOf(globalChat),
     ownerOf: (runId: string) => runOwnerOf(journal, runId),
     ownerOnly: (runId: string) => runOwnerOnly(journal, options.plugins.startOptions, runId),
   };

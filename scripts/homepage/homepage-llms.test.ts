@@ -130,7 +130,7 @@ test("Run-Anleitung und Entwicklerreferenz enthalten echte Quellen und unveränd
   }
 });
 
-test("Beispielübersicht verlinkt beide Perspektiven und mindestens zwei Einstiege pro Produktkonzept", async () => {
+test("Beispielübersicht verlinkt beide Perspektiven und mindestens zwei Vorlagen pro Produktkonzept", async () => {
   const { catalog, extensions, guide } = await fixtures();
   const output = buildHomepageLlms(catalog, extensions, guide)["reference.md"];
   const coverage = exampleCoverage(catalog.starts);

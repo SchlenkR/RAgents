@@ -200,5 +200,9 @@ export const createAccessSessionManager = (options: AccessSessionOptions) => {
     response.once("close", release);
     response.once("finish", release);
   };
-  return { enabled, snapshot, handle, track, close: () => { for (const token of sessions.keys()) invalidate(token); } };
+  /** Der Zugang, mit dem die Werkzeuge des Koordinators eines Benutzers handeln: dessen aktueller Stand, null ist der eine Zugang ohne Anmeldung. */
+  const coordinatorSnapshot = (userId: string | null): AccessSnapshot => userId === null
+    ? { enabled, user: enabled ? null : options.anonymousUser ?? null }
+    : { enabled: true, user: passwords.get(userId)?.user ?? null };
+  return { enabled, snapshot, coordinatorSnapshot, handle, track, close: () => { for (const token of sessions.keys()) invalidate(token); } };
 };

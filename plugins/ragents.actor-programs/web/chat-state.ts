@@ -7,7 +7,7 @@ import { programChatNotice } from "@ragents/web/chat/chat-target";
 
 export const resolveChatActor = (session: SessionContext, target: string) => {
   const view = runViewFrom(session.runView);
-  if (!view || view.id !== session.session.id) throw new Error("Die Laufansicht für diesen Chat ist noch nicht verfügbar");
+  if (!view || view.id !== session.session.id) throw new Error("Die Run-Ansicht für diesen Chat ist noch nicht verfügbar");
   const actor = target === "primary"
     ? view.actors.find((entry) => entry.id === view.primaryActorId)
     : actorByHandle(view.actors, target);

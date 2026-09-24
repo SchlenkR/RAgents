@@ -12,15 +12,15 @@ import { overseerOrientation } from "../../../plugins/ragents.overseer/server/or
 import { createActorProgramToolContributors } from "../../../plugins/ragents.actor-programs/server/tool-contributor.ts";
 import { createControlsToolContributor } from "../../../plugins/ragents.actor-programs/server/controls-tool.ts";
 import type { ActorProgramRuntime } from "../../../plugins/ragents.actor-programs/server/runtime.ts";
-import { globalChatToken, sessionManagementToken } from "../src/ragents/global-chat.ts";
+import { globalChatToken, runManagementToken } from "../src/ragents/global-chat.ts";
 
 test("global orientation reflects installed descriptors without resolving tools or exposing internal operations", async () => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-overseer-orientation-"));
   try {
     const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: directory });
-    host.provideHost(sessionManagementToken, () => { throw new Error("Orientation must not start or read a run"); });
+    host.provideHost(runManagementToken, () => { throw new Error("Orientation must not start or read a run"); });
     host.register(plugin.create(host));
-    const initial = overseerOrientation(host);
+    const initial = overseerOrientation(host, true);
     assert.doesNotMatch(initial, /actor_program_create|actor_program_controls/);
     for (const method of host.methods.describe()) assert.ok(initial.includes(`- ${method.id}: `), method.id);
     assert.ok(initial.includes(`- ${overseerContracts.createRun.id}: `));
@@ -32,9 +32,9 @@ test("global orientation reflects installed descriptors without resolving tools 
       registration.operations({ id: "test.internal", label: "Internal", description: "INTERNAL_OPERATION_SECRET", operator: "unavailable", schema: Type.Object({}), resultSchema: Type.Null(), execute: async () => null });
       registration.clientConfig({ privateValue: "CLIENT_CONFIG_SECRET" });
     } });
-    const updated = overseerOrientation(host);
+    const updated = overseerOrientation(host, true);
     assert.match(updated, /actor_program_create: Create a private TypeScript package with fixed libraries/);
-    assert.match(updated, /actor_view_set_visibility: Set Canvas visibility/);
+    assert.match(updated, /actor_view_set_visibility: Set surface visibility/);
     assert.match(updated, /actor_program_controls: Read Mini-App control contracts or the actor-program authoring guide/);
     assert.doesNotMatch(updated, /INTERNAL_OPERATION_SECRET|CLIENT_CONFIG_SECRET|test.internal|resultSchema/);
     assert.match(updated, /öffentliche Hilfe beschreibt core/);
@@ -45,7 +45,7 @@ test("global system prompt includes later plugin registrations and its own quick
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-overseer-policy-"));
   try {
     const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: directory });
-    host.provideHost(sessionManagementToken, () => { throw new Error("Orientation must not start or read a run"); });
+    host.provideHost(runManagementToken, () => { throw new Error("Orientation must not start or read a run"); });
     host.register(plugin.create(host));
     const policy = host.service(globalChatToken);
     assert.deepEqual(policy.toolNames, ["read", "write", "edit", "bash", "quick_answer"]);

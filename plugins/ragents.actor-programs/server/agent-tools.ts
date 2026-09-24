@@ -1,5 +1,5 @@
 import { ToolRegistry, type RunFunction, type ExecutableActor, type PluginHost } from "@ragents/engine";
-import { runtimeProviderToken, sessionWorkspaceProviderToken } from "@ragents/host/ragents/host-services.js";
+import { runtimeProviderToken, runWorkspaceProviderToken } from "@ragents/host/ragents/host-services.js";
 
 export const agentToolsFrom = (host: PluginHost) =>
   async (runId: string, actorId: string, provisional?: ExecutableActor): Promise<readonly RunFunction[]> => {
@@ -11,7 +11,7 @@ export const agentToolsFrom = (host: PluginHost) =>
     }
     const registry = new ToolRegistry();
     host.tools.entries().forEach((contributor) => registry.register(contributor));
-    const workspace = await host.service(sessionWorkspaceProviderToken)(runId);
+    const workspace = await host.service(runWorkspaceProviderToken)(runId);
     const tools = await registry.resolve({
       runId,
       actorId,

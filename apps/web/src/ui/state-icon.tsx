@@ -3,7 +3,7 @@ import {
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { cn } from "cn";
-import { environmentStateWord, runStateWord, type EnvironmentStateName, type RunStateName } from "./state-vocabulary";
+import { connectionStateWord, runStateWord, type ConnectionStateName, type RunStateName } from "./state-vocabulary";
 
 interface Mark {
   readonly Icon: ComponentType<{ className?: string; fill?: string }>;
@@ -21,7 +21,7 @@ const RUN_MARKS: Record<RunStateName, Mark> = {
   cancelled: { Icon: CircleSlashIcon, tone: "text-muted-foreground opacity-70" },
 };
 
-const ENVIRONMENT_MARKS: Record<EnvironmentStateName, Mark> = {
+const CONNECTION_MARKS: Record<ConnectionStateName, Mark> = {
   connected: { Icon: CircleIcon, tone: "text-success", filled: true },
   ready: { Icon: CircleIcon, tone: "text-success", filled: true },
   starting: { Icon: HourglassIcon, tone: "text-info" },
@@ -34,7 +34,7 @@ const ENVIRONMENT_MARKS: Record<EnvironmentStateName, Mark> = {
 
 export const runStateTone = (state: RunStateName): string => RUN_MARKS[state].tone;
 
-export const environmentStateTone = (state: EnvironmentStateName): string => ENVIRONMENT_MARKS[state].tone;
+export const connectionStateTone = (state: ConnectionStateName): string => CONNECTION_MARKS[state].tone;
 
 const markClass = "inline-flex flex-none items-center gap-1";
 
@@ -49,9 +49,9 @@ export function RunStateIcon({ state, open = 0, className }: { state: RunStateNa
   </span>;
 }
 
-export function EnvironmentStateIcon({ state, className }: { state: EnvironmentStateName; className?: string }) {
-  const mark = ENVIRONMENT_MARKS[state];
-  const word = environmentStateWord(state);
+export function ConnectionStateIcon({ state, className }: { state: ConnectionStateName; className?: string }) {
+  const mark = CONNECTION_MARKS[state];
+  const word = connectionStateWord(state);
   const Icon = mark.Icon;
   return <span className={cn(markClass, mark.tone, className)} title={word}>
     <Icon className="size-3.5" {...(mark.filled ? { fill: "currentColor" } : {})} />

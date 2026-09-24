@@ -63,7 +63,7 @@ test("globaler Chat beginnt unabhängig vom Run mit aktuellem, manuell wählbare
   assert.equal(global().mode("coordinator"), "grouped");
 });
 
-test("Canvas, Inspector und Popout desselben Chats merken sich ihren Detailgrad getrennt", (context) => {
+test("Fläche, Inspector und Popout desselben Chats merken sich ihren Detailgrad getrennt", (context) => {
   const values = new Map<string, string>();
   const previous = Object.getOwnPropertyDescriptor(globalThis, "window");
   Object.defineProperty(globalThis, "window", { configurable: true, value: { localStorage: {
@@ -74,23 +74,23 @@ test("Canvas, Inspector und Popout desselben Chats merken sich ihren Detailgrad 
     if (previous) Object.defineProperty(globalThis, "window", previous);
     else Reflect.deleteProperty(globalThis, "window");
   });
-  const control = (surface?: string): ChatStepsControl => {
+  const control = (display?: string): ChatStepsControl => {
     let result: ChatStepsControl | undefined;
     const Probe = () => {
-      result = useChatSteps("run-a", "coordinator", surface);
+      result = useChatSteps("run-a", "coordinator", display);
       return null;
     };
     renderToStaticMarkup(createElement(ChatStepsProvider, { policy: { ...defaultChatDisplayPolicy, selectable: true } }, createElement(Probe)));
     assert.ok(result);
     return result;
   };
-  control("canvas").setMode("agents", "full");
-  assert.equal(control("canvas").mode("agents"), "full");
+  control("surface").setMode("agents", "full");
+  assert.equal(control("surface").mode("agents"), "full");
   assert.equal(control("inspector").mode("agents"), "grouped");
   assert.equal(control("popout").mode("agents"), "grouped");
   assert.equal(control().mode("agents"), "grouped", "ohne Fläche bleibt der bisherige Schlüssel unberührt");
   control("popout").setMode("agents", "compact");
-  assert.equal(control("canvas").mode("agents"), "full");
+  assert.equal(control("surface").mode("agents"), "full");
   assert.equal(control("inspector").mode("agents"), "grouped");
   assert.equal(control("popout").mode("agents"), "compact");
 });

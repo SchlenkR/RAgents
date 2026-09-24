@@ -103,7 +103,7 @@ test("an unreadable run view is isolated: the other runs, the counts and the pro
 });
 
 test("a start entry keeps the start options it fixes, so a new run preselects none of them", async () => {
-  const fixed = { "ragents.workspace.binding": { kind: "fresh" } };
+  const fixed = { "ragents.workspace.binding": { machine: "server", folder: "fresh" } };
   const profile = stubProfile();
   const server = await startStubServer({ profile: { ...profile, startEntries: profile.startEntries.map((entry) => entry.action === "script" ? { ...entry, fixedStartOptions: fixed } : entry) } });
   const store = new RunStore(new ServerClient(server.url, undefined));

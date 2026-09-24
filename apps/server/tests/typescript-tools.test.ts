@@ -83,7 +83,7 @@ test("TypeScript discovery exposes the same registered function with exact schem
     await assert.rejects(run.call("api-missing", "typescript_api", { names: ["actor_stop"] }), /Nicht verfügbare TypeScript-Funktionen/);
 });
 
-test("a real snippet calls an extension under its caller identity without creating actors or programs", async (t) => {
+test("a real snippet calls a plugin function under its caller identity without creating actors or programs", async (t) => {
     const run = await fixture(t, ["counter_update"]);
     const before = run.setup.runtime.view(run.setup.view.id).actors.length;
     const output = await run.call("eval-update", "typescript_eval", { code: `
@@ -116,7 +116,7 @@ test("snippet files resolve workspace aliases and reject escaped paths and confl
     assert.equal(run.count(), 2);
 });
 
-test("the snippet host checks types before side effects and validates extension schema constraints at runtime", async (t) => {
+test("the snippet host checks types before side effects and validates plugin function schema constraints at runtime", async (t) => {
     const run = await fixture(t, ["counter_update"]);
     await assert.rejects(run.call("eval-type-error", "typescript_eval", { code: `
 await context.functions.counter_update({ amount: 1 });

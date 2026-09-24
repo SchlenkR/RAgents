@@ -1,9 +1,9 @@
 import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { ChevronDownIcon, CodeIcon, SparklesIcon, UsersIcon } from "lucide-react";
 import { Badge, cn, Input, Spinner } from "@ragents/web/ui";
-import { ActorHeaderModeControl } from "../ActorCanvasControls";
+import { ActorHeaderModeControl } from "../ActorSurfaceControls";
 import { ActorPopout } from "../ActorPopout";
-import { actorSurface, type RunActor, type RunView } from "@ragents/web/run-view";
+import { actorTone, type RunActor, type RunView } from "@ragents/web/run-view";
 import { pendingInputCount } from "./run-panel-actors";
 
 const chipClass = "flex h-7 min-w-[70px] max-w-[220px] flex-[0_1_auto] cursor-pointer items-center gap-1.5 rounded-full border border-border bg-background pr-2 pl-1 text-[0.72rem] font-semibold text-foreground hover:bg-accent aria-expanded:border-primary focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:outline-offset-1";
@@ -25,9 +25,9 @@ export const filterActors = (actors: readonly RunActor[], query: string): RunAct
 };
 
 function ActorIcon({ actor, className, view }: { actor: RunActor; className?: string; view: RunView }) {
-  const surface = actorSurface(view, actor);
-  return <span className={cn("grid flex-none place-items-center rounded-full text-foreground [&>svg]:size-3", iconClass[surface], className)}>
-    {actor.lifecycle?.kind === "running" ? <Spinner aria-hidden className="size-3" /> : surface === "primary" ? <SparklesIcon /> : actor.kind === "agent" ? <UsersIcon /> : <CodeIcon />}
+  const tone = actorTone(view, actor);
+  return <span className={cn("grid flex-none place-items-center rounded-full text-foreground [&>svg]:size-3", iconClass[tone], className)}>
+    {actor.lifecycle?.kind === "running" ? <Spinner aria-hidden className="size-3" /> : tone === "primary" ? <SparklesIcon /> : actor.kind === "agent" ? <UsersIcon /> : <CodeIcon />}
   </span>;
 }
 

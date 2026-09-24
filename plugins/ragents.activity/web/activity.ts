@@ -72,7 +72,7 @@ const turnFrom = (value: unknown): ActivityTurn[] => {
   }];
 };
 
-/** Liest Actors und Turns aus der Laufansicht; eine noch nicht geladene oder fremde Struktur ergibt nichts. */
+/** Liest Actors und Turns aus der Run-Ansicht; eine noch nicht geladene oder fremde Struktur ergibt nichts. */
 export const activitySourceFrom = (
   runView: unknown,
 ): ActivitySource => {

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { spawn, type ChildProcess } from "node:child_process";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -12,10 +12,12 @@ import {
   WorkspaceOperationError,
   WorkspaceOperationExecutor,
   browserModule,
+  commandModule,
   fileModule,
   hasProcessTable,
   processModule,
   processTableForPlatform,
+  runFolderModule,
   sandboxToolsModule,
   workspaceProcessContext,
   type ProcessTable,
@@ -43,6 +45,7 @@ import { RunBrowser } from "../../../plugins/ragents.browser/server/browser.ts";
 import { stubBrowser } from "../../../packages/workspace-executor/tests/browser-stub.ts";
 import { NodeTypeScriptExecutor } from "../src/plugin-support/native-typescript-executor.ts";
 import { createTypeScriptToolContributor } from "../src/ragents/typescript-tools.ts";
+import type { WorkspaceResolver } from "../src/ragents/workspace-runtime.ts";
 import { methodContext, startRpcServer } from "./rpc-fixture.ts";
 
 // Server und Arbeitsplatz laufen hier auf einem Rechner; der Arbeitsplatz bietet deshalb Pfade an, die es auf dem Server nicht gibt.
@@ -75,6 +78,7 @@ const foreignWorkstation = async (
   label: string,
   folders: Readonly<Record<string, string>>,
   modules: readonly WorkspaceModuleFactory[],
+  runsDirectory = "/fremd/runs",
 ): Promise<{ operations: string[]; disconnect: () => void }> => {
   const client = new RpcClient({ baseUrl: url, retryDelayMs: 50 });
   const contexts = new Map<string, WorkspaceProcessContext>();
@@ -88,7 +92,7 @@ const foreignWorkstation = async (
     modules,
   });
   t.after(client.handle(workspaceClientContracts.execute, async (input, context) => {
-    const local = folders[input.cwd];
+    const local = folders[input.cwd] ?? (input.cwd.startsWith(`${runsDirectory}${path.sep}`) ? input.cwd : undefined);
     if (!local) throw new Error(`Den Ordner ${input.cwd} bietet dieser Arbeitsplatz nicht an`);
     operations.push(input.operation);
     contexts.set(input.runId, workspaceProcessContext({
@@ -110,13 +114,13 @@ const foreignWorkstation = async (
   });
   await until(() => client.status.kind === "connected");
   await client.call(workspaceContracts.clients.register, {
-    id, label, hostname: "fremder-rechner", platform: process.platform, folders: Object.keys(folders), executor: WORKSPACE_EXECUTOR_VERSION,
+    id, label, hostname: "fremder-rechner", platform: process.platform, folders: Object.keys(folders), runsDirectory, executor: WORKSPACE_EXECUTOR_VERSION,
   });
   return { operations, disconnect: () => client.close() };
 };
 
 /** Der Server mit dem echten Arbeitsbereich-Plugin; jeder Run ist an den Arbeitsplatz gebunden, den der Test ihm gibt. */
-const serverFixture = async (t: TestContext) => {
+const serverFixture = async (t: TestContext, resolver?: WorkspaceResolver) => {
   const root = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-foreign-machine-")));
   t.after(() => rm(root, { recursive: true, force: true }));
   const registry = new WorkspaceClientRegistry();
@@ -137,7 +141,7 @@ const serverFixture = async (t: TestContext) => {
     sessionsDirectoryPattern: path.join(sessions, "{runId}", "plugins", "ragents.workspace"),
     sessionWorkspaceFor: (runId) => runtime.resolve(runId, () => undefined),
     skillPaths: async () => [],
-    resolver: () => undefined,
+    resolver: () => resolver,
     runState,
     storeBinding: () => { throw new Error("Der Test bindet nicht um"); },
     clients: registry,
@@ -175,7 +179,7 @@ test("der Reiter Dateien holt Liste, Vorschau und Änderungen vom Arbeitsplatz, 
   const offered = `/fremder-rechner-${randomUUID()}/projekt`;
   await missingOnServer(offered);
   const workstation = await foreignWorkstation(t, server.url, "notebook-0001", "Notebook", { [offered]: project }, [fileModule]);
-  server.bindings.set("fremd", { kind: "client", client: "notebook-0001", label: "Notebook", path: offered });
+  server.bindings.set("fremd", { machine: { client: "notebook-0001", label: "Notebook" }, folder: { path: offered } });
 
   const listing = await server.list("fremd", "workspace", "");
   assert.deepEqual(listing.entries.map((entry) => entry.name), ["src"]);
@@ -202,7 +206,7 @@ test("ein Arbeitsplatz mit dem Ordner / liefert über den Reiter Dateien nie die
   await mkdir(machineRoot, { recursive: true });
   await writeFile(path.join(machineRoot, "nur-auf-dem-arbeitsplatz.txt"), "vom Arbeitsplatz\n");
   await foreignWorkstation(t, server.url, "wurzel-0001", "Wurzel", { "/": machineRoot }, [fileModule]);
-  server.bindings.set("wurzel", { kind: "client", client: "wurzel-0001", label: "Wurzel", path: "/" });
+  server.bindings.set("wurzel", { machine: { client: "wurzel-0001", label: "Wurzel" }, folder: { path: "/" } });
 
   const listing = await server.list("wurzel", "workspace", "");
   assert.deepEqual(listing.entries.map((entry) => entry.name), ["nur-auf-dem-arbeitsplatz.txt"]);
@@ -244,7 +248,7 @@ test("die Prozessanzeige zeigt und beendet die Prozesse des Arbeitsplatzes, nich
     listeningPorts: (pids) => machine.listeningPorts(pids),
   };
   await foreignWorkstation(t, server.url, "notebook-0002", "Notebook", { [offered]: project }, [processModule({ table: () => workstationTable })]);
-  server.bindings.set(runId, { kind: "client", client: "notebook-0002", label: "Notebook", path: offered });
+  server.bindings.set(runId, { machine: { client: "notebook-0002", label: "Notebook" }, folder: { path: offered } });
   const processes = runProcessesOf(server.runtime.sandbox);
 
   const snapshot = await processes.snapshot(runId);
@@ -265,7 +269,7 @@ test("typescript_eval mit path liest die Datei vom Arbeitsplatz und läuft im ei
   const offered = `/fremder-rechner-${randomUUID()}/projekt`;
   await missingOnServer(offered);
   const workstation = await foreignWorkstation(t, server.url, "notebook-0003", "Notebook", { [offered]: project }, [sandboxToolsModule, fileModule]);
-  server.bindings.set("*", { kind: "client", client: "notebook-0003", label: "Notebook", path: offered });
+  server.bindings.set("*", { machine: { client: "notebook-0003", label: "Notebook" }, folder: { path: offered } });
 
   const setup = setupRun({ grants: allGrants(), toolNames: null });
   const native = new NodeTypeScriptExecutor({
@@ -308,7 +312,7 @@ test("die Browserprüfung läuft auf dem Arbeitsplatz, ihre Aufnahmen liegen in 
   const workstation = await foreignWorkstation(t, server.url, "notebook-0004", "Notebook", { [offered]: project },
     [browserModule({ launch: stub.launch, timeoutMs: 500, checkTimeoutMs: 50 })]);
   const runId = "fremder-browser";
-  server.bindings.set(runId, { kind: "client", client: "notebook-0004", label: "Notebook", path: offered });
+  server.bindings.set(runId, { machine: { client: "notebook-0004", label: "Notebook" }, folder: { path: offered } });
   const documents = path.join(server.root, "server", "documents", runId);
   const browser = new RunBrowser({ sandbox: server.runtime.sandbox, filesFor: async () => documents });
   t.after(() => browser.shutdown());
@@ -340,4 +344,49 @@ test("die Browserprüfung läuft auf dem Arbeitsplatz, ihre Aufnahmen liegen in 
   await assert.rejects(browser.snapshot(runId), (error: unknown) => error instanceof DomainError && error.code === "workspace-client-disconnected");
   assert.equal(browser.evidence(runId).url, undefined, "ohne Arbeitsplatz kennt der Server keinen Stand der Seite");
   assert.equal(browser.evidence(runId).screenshots.length, 1);
+});
+
+test("ein neuer Ordner je Run entsteht auf dem Arbeitsplatz als Git-Worktree des Beitrags und verschwindet mit dem Run", async (t) => {
+  const git = (cwd: string, ...args: string[]): string =>
+    execFileSync("git", ["-c", "user.name=Beispiel", "-c", "user.email=beispiel@example.invalid", ...args], { cwd, encoding: "utf8" });
+  const worktreeStep = (repository: string, ...args: string[]) =>
+    ({ operation: "commands.run", input: { program: "git", args: ["-C", repository, "worktree", ...args], timeoutMs: 30_000 } });
+  let repository = "";
+  const resolver: WorkspaceResolver = {
+    workstation: {
+      label: "Git-Worktree je Run",
+      prepare: ({ runId, path: folder }) => [worktreeStep(repository, "add", "-b", `ragents/${runId}`, folder)],
+      release: ({ path: folder }) => [worktreeStep(repository, "remove", "--force", folder)],
+    },
+    resolve: () => Promise.reject(new Error("auf dem Server nicht gefragt")),
+  };
+  const server = await serverFixture(t, resolver);
+  repository = path.join(server.root, "arbeitsplatz", "projekt");
+  const runs = path.join(server.root, "arbeitsplatz", "runs");
+  await mkdir(repository, { recursive: true });
+  git(repository, "init", "-q", "-b", "main");
+  await writeFile(path.join(repository, "README.md"), "Hallo vom Arbeitsplatz\n");
+  git(repository, "add", "README.md");
+  git(repository, "commit", "-q", "-m", "Anfang");
+  const workstation = await foreignWorkstation(t, server.url, "notebook-0005", "Notebook", { [repository]: repository },
+    [runFolderModule((runId) => path.join(runs, runId)), commandModule(), sandboxToolsModule], runs);
+  const runId = "neuer-worktree";
+  const folder = path.join(runs, runId);
+  server.bindings.set(runId, { machine: { client: "notebook-0005", label: "Notebook" }, folder: { path: folder, fresh: true } });
+
+  const workspace = await server.runtime.resolve(runId, () => undefined);
+  assert.equal(workspace.cwd, folder);
+  await missingOnServer(folder);
+  const read = await server.runtime.sandbox.execute(runId, "read", { path: "README.md" }) as { content: Array<{ text: string }> };
+  assert.match(read.content[0]!.text, /Hallo vom Arbeitsplatz/);
+  assert.deepEqual(workstation.operations, ["runFolder.create", "commands.run", "read"]);
+  assert.match(git(repository, "worktree", "list"), new RegExp(`${runId}.*\\[ragents/${runId}\\]`));
+  await server.runtime.sandbox.execute(runId, "read", { path: "README.md" });
+  assert.deepEqual(workstation.operations.slice(3), ["read"], "der Worktree entsteht nur einmal");
+  assert.equal(await stat(path.join(server.root, "server", "sessions", runId, "plugins", "ragents.workspace", "workspace")).catch(() => undefined), undefined);
+
+  await server.runtime.deleteSession(runId);
+  assert.deepEqual(workstation.operations.slice(4), ["stop", "commands.run", "runFolder.remove"]);
+  await missingOnServer(folder);
+  assert.doesNotMatch(git(repository, "worktree", "list"), new RegExp(runId));
 });

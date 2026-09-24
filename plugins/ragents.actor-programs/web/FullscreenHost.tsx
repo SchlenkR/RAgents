@@ -15,7 +15,7 @@ export function FullscreenHost({ session }: { session: SessionContext }) {
   const title = entry.title;
   const confirmation = app ? pendingConfirmationFor(session, app) : undefined;
   return <Dialog key={`${runId}:${fullscreenAppId}`} open onOpenChange={(open) => { if (!open) closeFullscreen(); }}>
-    <DialogContent className="h-[calc(100%-2*clamp(16px,2vw,24px))] w-[calc(100%-2*clamp(16px,2vw,24px))] gap-0 bg-background p-0" initialFocus={closeRef} scope="canvas" showCloseButton={false} size="full">
+    <DialogContent className="h-[calc(100%-2*clamp(16px,2vw,24px))] w-[calc(100%-2*clamp(16px,2vw,24px))] gap-0 bg-background p-0" initialFocus={closeRef} scope="surface" showCloseButton={false} size="full">
     <header className="flex flex-none items-center gap-3 border-b border-border bg-card py-2 pr-3 pl-4">
       <DialogTitle className="min-w-0 flex-1 truncate text-[0.9rem]" render={<h2 />}>{title}</DialogTitle>
       <Button aria-label={`${title} Vollansicht schließen`} className="rounded-full" onClick={closeFullscreen} ref={closeRef} size="icon" title={`${title} Vollansicht schließen`} variant="outline"><XIcon /></Button>

@@ -7,7 +7,7 @@ import { build } from "esbuild";
 import { chromium } from "playwright-core";
 import { tailwindPlugin } from "./tailwind-plugin";
 
-test("die Leiste des Run-Panels öffnet und schließt die Tab-Fläche, merkt Reiter und Höhe je Run und fehlt im Layout app", {
+test("die Symbolleiste des Run-Panels öffnet und schließt die Leiste, merkt Reiter und Höhe je Run und fehlt im Layout app", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1",
   timeout: 120_000,
 }, async (context) => {
@@ -93,14 +93,14 @@ createRoot(document.getElementById('root')).render(<div style={{ width: 600, hei
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`http://127.0.0.1:${address.port}/?run=run-a`);
-  const rail = page.getByRole("navigation", { name: "Reiter des Arbeitsbereichs" });
+  const rail = page.getByRole("navigation", { name: "Reiter der Leiste" });
   const area = page.locator("#run-panel-workspace");
   const button = (label: string) => rail.getByRole("button", { name: label, exact: true });
   const stored = (runId: string) => page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? "null"), `ragents.run-panel.workspace:${runId}`);
   await rail.waitFor();
   assert.deepEqual(await rail.getByRole("button").allTextContents().then((texts) => texts.map((text) => text.trim())), ["3", ""], "Dokumente mit Badge zuerst, dann Dateien");
   assert.deepEqual(await rail.getByRole("button").evaluateAll((buttons) => buttons.map((entry) => entry.getAttribute("aria-label"))), ["Dokumente", "Dateien"]);
-  assert.equal(await area.isHidden(), true, "die Tab-Fläche ist anfangs zu");
+  assert.equal(await area.isHidden(), true, "die Leiste ist anfangs zu");
   assert.equal(await stored("run-a"), null);
 
   await button("Dateien").click();
@@ -129,7 +129,7 @@ createRoot(document.getElementById('root')).render(<div style={{ width: 600, hei
   assert.equal(await area.locator("output").textContent(), "1", "der Zustand des Reiters überlebt den Wechsel");
   assert.equal(await area.getByText(/Dateien (aktiv|inaktiv)/).count(), 0, "der verborgene Reiter ohne keepMounted ist abgebaut");
 
-  const sash = area.getByRole("separator", { name: "Höhe des Arbeitsbereichs" });
+  const sash = area.getByRole("separator", { name: "Höhe der Leiste" });
   assert.equal(await sash.getAttribute("aria-valuenow"), "280");
   await sash.focus();
   await sash.press("ArrowUp");
@@ -156,7 +156,7 @@ createRoot(document.getElementById('root')).render(<div style={{ width: 600, hei
 
   await page.goto(`http://127.0.0.1:${address.port}/?run=run-a`);
   await area.waitFor({ state: "visible" });
-  await area.getByRole("button", { name: "Arbeitsbereich schließen", exact: true }).click();
+  await area.getByRole("button", { name: "Leiste schließen", exact: true }).click();
   await area.waitFor({ state: "hidden" });
   assert.deepEqual(await stored("run-a"), { tab: null, height: 354 });
 

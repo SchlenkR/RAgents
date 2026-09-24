@@ -49,36 +49,36 @@ function App(){const[state,setState]=useState(window.fixture.initial);window.fix
 };
 
 const setPage=(page:Page,next:string)=>page.evaluate((value)=>(window as any).fixture.setState((current:any)=>({...current,page:value})),next);
-const setTargets=(page:Page,targets:unknown[])=>page.evaluate((value)=>(window as any).fixture.setState((current:any)=>({...current,targets:value})),targets);
+const setConnections=(page:Page,connections:unknown[])=>page.evaluate((value)=>(window as any).fixture.setState((current:any)=>({...current,connections:value})),connections);
 const sent=(page:Page)=>page.evaluate(()=>(window as any).fixture.sent.at(-1));
 /** Die linken Kanten einer Spalte der Run-Liste; ein Raster hat je Spalte genau eine. */
 const columnEdges=(page:Page,list:string,cell:string)=>page.evaluate(([label,name])=>
   new Set([...document.querySelectorAll(`ul[aria-label="${label}"] [data-cell="${name}"]`)].map((item)=>Math.round(item.getBoundingClientRect().left))).size,[list,cell]);
 
-test("Start zeigt Umgebungen als geteilte Chips mit Zielzeile, die letzten Runs im Raster und die Vorlagen und startet mit einem Klick",{skip,timeout:120_000},async(context)=>{
-  const url=await preparePage({theme:"dark",page:"start",profileSuggestions:[],targets:all});
+test("Start zeigt die Server als geteilte Chips mit Zielzeile, die letzten Runs im Raster und die Vorlagen und startet mit einem Klick",{skip,timeout:120_000},async(context)=>{
+  const url=await preparePage({theme:"dark",page:"start",profileSuggestions:[],connections:all});
   const browser=await launch();
   try{
     const browserContext=await browser.newContext({viewport:{width:420,height:1100}});const page=await browserContext.newPage();await page.goto(url);
-    await page.getByRole('heading',{name:'Umgebungen'}).waitFor();
+    await page.getByRole('heading',{name:'Server'}).waitFor();
     assert.equal(await page.getByRole('heading',{level:1}).count(),0,'Start hat keine eigene Kopfzeile');
     assert.equal(await page.getByRole('button',{name:'Runs',exact:true}).count(),0,'die Aktionen stehen nur in der Titelzeile von VS Code');
-    assert.equal(await page.getByRole('button',{name:'Umgebungen einrichten'}).count(),0);
+    assert.equal(await page.getByRole('button',{name:'Server einrichten'}).count(),0);
 
-    // Zwei Umgebungen je Zeile bei 420 Pixeln, alle in einer ab 560.
-    const environmentRows=()=>page.evaluate(()=>
-      new Set([...document.querySelectorAll('ul[aria-label="Umgebungen"] > li')].map((item)=>Math.round(item.getBoundingClientRect().top))).size);
-    assert.equal(await environmentRows(),3,'fünf Umgebungen stehen bei 420 Pixeln in drei Zeilen');
+    // Zwei Server je Zeile bei 420 Pixeln, alle in einer ab 560.
+    const connectionRows=()=>page.evaluate(()=>
+      new Set([...document.querySelectorAll('ul[aria-label="Server"] > li')].map((item)=>Math.round(item.getBoundingClientRect().top))).size);
+    assert.equal(await connectionRows(),3,'fünf Server stehen bei 420 Pixeln in drei Zeilen');
     assert.equal(await page.getByRole('button',{name:'Neuer Chat auf workshop'}).count(),1);
     assert.equal(await page.getByRole('button',{name:'Neuer Chat auf review'}).count(),0,'ohne Startrecht kein Plus');
-    const chip=(name:string)=>page.locator('ul[aria-label="Umgebungen"] > li').filter({hasText:name}).first();
+    const chip=(name:string)=>page.locator('ul[aria-label="Server"] > li').filter({hasText:name}).first();
     assert.equal(await chip('workshop').locator('[data-cell="route"]').innerText(),'localhost:4715');
     assert.equal(await chip('core').locator('[data-cell="route"]').innerText(),'workshop.example.com \u00b7 lokal','ein verteiltes Profil läuft lokal');
     assert.equal(await chip('developer').locator('[data-cell="route"]').innerText(),'lokal \u00b7 developer');
     assert.equal(await chip('nachtlauf').locator('[data-cell="route"]').innerText(),'nachtlauf.example.com:8443','ein Port außer dem Standard bleibt stehen');
-    const widths=await page.evaluate(()=>[...document.querySelectorAll('ul[aria-label="Umgebungen"] > li')].map((item)=>Math.round(item.getBoundingClientRect().width)));
+    const widths=await page.evaluate(()=>[...document.querySelectorAll('ul[aria-label="Server"] > li')].map((item)=>Math.round(item.getBoundingClientRect().width)));
     assert.equal(new Set(widths).size,1,`alle Chips sind gleich breit, mit und ohne Plus: ${widths.join(', ')}`);
-    assert.equal(await page.getByRole('button',{name:'developer startet'}).isDisabled(),true,'eine startende Umgebung ist nicht klickbar');
+    assert.equal(await page.getByRole('button',{name:'developer startet'}).isDisabled(),true,'ein startender Server ist nicht klickbar');
 
     // Der linke Teil ist ein Knopf mit Aktionswort: Anmelden, Erneut versuchen, Runs.
     const anmelden=page.getByRole('button',{name:'An review anmelden'});
@@ -105,19 +105,19 @@ test("Start zeigt Umgebungen als geteilte Chips mit Zielzeile, die letzten Runs 
     await page.getByRole('button',{name:'nachtlauf erneut versuchen'}).click();
     assert.deepEqual(await sent(page),{action:'retry',name:'nachtlauf'});
     await page.getByRole('button',{name:'Runs auf workshop'}).click();
-    assert.deepEqual(await sent(page),{action:'page',page:'runs',environment:'workshop'});
+    assert.deepEqual(await sent(page),{action:'page',page:'runs',connection:'workshop'});
 
-    // Weiter zeigt fünf Zeilen aller Umgebungen im Raster, Neu alle Vorlagen flach.
+    // Weiter zeigt fünf Zeilen aller Server im Raster, Neu alle Vorlagen flach.
     assert.equal(await page.getByRole('button',{name:/^Alle 5 Runs/}).count(),1);
     assert.equal(await page.locator('button[title="Redaktionswerkstatt: Landingpage (workshop)"]').count(),1);
     assert.equal(await columnEdges(page,'Zuletzt','time'),1,'die Zeitspalte steht in allen Zeilen an derselben Kante');
-    assert.equal(await columnEdges(page,'Zuletzt','environment'),1,'die Umgebungsspalte steht in allen Zeilen an derselben Kante');
-    assert.equal(await page.locator('ul[aria-label="Vorlagen auf core"] button[title="Wortspiel"]').count(),1,'jede Vorlage jeder Umgebung steht als Kachel in der Gruppe ihrer Umgebung');
+    assert.equal(await columnEdges(page,'Zuletzt','connection'),1,'die Serverspalte steht in allen Zeilen an derselben Kante');
+    assert.equal(await page.locator('ul[aria-label="Vorlagen auf core"] button[title="Wortspiel"]').count(),1,'jede Vorlage jedes Servers steht in der Gruppe ihres Servers');
     assert.equal(await page.getByLabel('Vorlagen suchen').count(),0,'auf Start gibt es keine Suche');
     await shoot(page,`${shots}app-2026-09-22-start-420.png`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 
-    // Ein Klick ist ein Klick: Kachel legt den Run an, das Plus den leeren Chat, die Zeile öffnet den Run.
+    // Ein Klick ist ein Klick: die Vorlage legt den Run an, das Plus den leeren Chat, die Zeile öffnet den Run.
     await page.locator('ul[aria-label="Vorlagen auf core"] button[title="Gesprächsrunde"]').click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'core',entryId:'ragents.reference.circle'});
     await page.getByRole('button',{name:'Neuer Chat auf workshop'}).click();
@@ -125,22 +125,22 @@ test("Start zeigt Umgebungen als geteilte Chips mit Zielzeile, die letzten Runs 
     await page.locator('button[title="Balkon-Planung Südseite (workshop)"]').click();
     assert.deepEqual(await sent(page),{action:'openRun',name:'workshop',runId:'run-b'});
 
-    // Neu gruppiert je erreichbarer Umgebung und beginnt jede Gruppe mit Neuer Chat; mit Default steht dessen Kachel markiert zuerst, und das Plus nimmt ihn.
+    // Neu gruppiert je erreichbarem Server und beginnt jede Gruppe mit Neuer Chat; mit Default steht dessen Vorlage markiert zuerst, und das Plus nimmt ihn.
     const groups=()=>page.evaluate(()=>[...document.querySelectorAll('ul[aria-label^="Vorlagen auf "]')].map((list)=>({
-      environment:list.getAttribute('aria-label')!.replace('Vorlagen auf ',''),
+      connection:list.getAttribute('aria-label')!.replace('Vorlagen auf ',''),
       heading:list.previousElementSibling?.textContent?.trim(),
       titles:[...list.querySelectorAll(':scope > li > button')].map((item)=>item.getAttribute('title')),
     })));
-    const tilesOf=async(environment:string)=>(await groups()).find((group)=>group.environment===environment)!;
-    assert.deepEqual((await groups()).map((group)=>group.environment),['workshop','core'],'eine Gruppe je erreichbarer Umgebung, Reihenfolge wie die Chips');
-    assert.match((await tilesOf('workshop')).heading??'',/workshop$/,'die Gruppe trägt den Umgebungsnamen als Überschrift');
+    const tilesOf=async(connection:string)=>(await groups()).find((group)=>group.connection===connection)!;
+    assert.deepEqual((await groups()).map((group)=>group.connection),['workshop','core'],'eine Gruppe je erreichbarem Server, Reihenfolge wie die Chips');
+    assert.match((await tilesOf('workshop')).heading??'',/workshop$/,'die Gruppe trägt den Servernamen als Überschrift');
     assert.equal((await tilesOf('workshop')).titles[0],'Neuer Chat');
     assert.equal((await tilesOf('core')).titles[0],'Neuer Chat');
-    assert.equal((await groups()).flatMap((group)=>group.titles).length,10,'zwei Chat-Kacheln vor den acht Vorlagen');
+    assert.equal((await groups()).flatMap((group)=>group.titles).length,10,'zweimal Neuer Chat vor den acht Vorlagen');
     await page.locator('ul[aria-label="Vorlagen auf core"] button[title="Neuer Chat"]').click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'core'});
-    const firstTile=(environment:string,title:string)=>page.waitForFunction(([list,expected])=>document.querySelector(`ul[aria-label="Vorlagen auf ${list}"] > li > button`)?.getAttribute('title')===expected,[environment,title]);
-    await setTargets(page,[{...workshop,defaultEntry:'ragents.reference.circle'},core,developer,review,nachtlauf]);
+    const firstTile=(connection:string,title:string)=>page.waitForFunction(([list,expected])=>document.querySelector(`ul[aria-label="Vorlagen auf ${list}"] > li > button`)?.getAttribute('title')===expected,[connection,title]);
+    await setConnections(page,[{...workshop,defaultEntry:'ragents.reference.circle'},core,developer,review,nachtlauf]);
     await firstTile('workshop','Gesprächsrunde');
     assert.deepEqual((await tilesOf('workshop')).titles.slice(0,1),['Gesprächsrunde']);
     assert.equal((await groups()).flatMap((group)=>group.titles).length,9,'der Default steht nicht ein zweites Mal');
@@ -151,10 +151,10 @@ test("Start zeigt Umgebungen als geteilte Chips mit Zielzeile, die letzten Runs 
     await page.getByRole('button',{name:'Neuer Run aus Gesprächsrunde auf workshop'}).click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'workshop',entryId:'ragents.reference.circle'});
     await shoot(page,`${shots}app-2026-09-22-start-standard-420.png`);
-    await setTargets(page,all);
+    await setConnections(page,all);
     await firstTile('workshop','Neuer Chat');
 
-    // Das Zustandssymbol einer gescheiterten Umgebung öffnet die Meldung mit Ausgabe öffnen und Erneut versuchen; das Schloss die Anmeldung.
+    // Das Zustandssymbol eines gescheiterten Servers öffnet die Meldung mit Ausgabe öffnen und Erneut versuchen; das Schloss die Anmeldung.
     await page.getByRole('button',{name:'Fehler von nachtlauf anzeigen'}).click();
     const failure=page.getByRole('dialog',{name:'nicht erreichbar'});
     await failure.waitFor();
@@ -173,7 +173,7 @@ test("Start zeigt Umgebungen als geteilte Chips mit Zielzeile, die letzten Runs 
 
     await page.setViewportSize({width:900,height:1100});
     await page.waitForFunction(()=>innerWidth===900);
-    assert.equal(await environmentRows(),1,'ab 560 Pixeln stehen alle Umgebungen in einer Zeile');
+    assert.equal(await connectionRows(),1,'ab 560 Pixeln stehen alle Server in einer Zeile');
     await shoot(page,`${shots}app-2026-09-22-start-900.png`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     context.diagnostic(`Screenshots: ${shots}`);
@@ -181,17 +181,17 @@ test("Start zeigt Umgebungen als geteilte Chips mit Zielzeile, die letzten Runs 
 });
 
 test("Runs führt alle Runs zusammen, sucht, blendet Beendete aus und löscht nach einer Rückfrage",{skip,timeout:120_000},async(context)=>{
-  const url=await preparePage({theme:"dark",page:"runs",profileSuggestions:[],targets:all});
+  const url=await preparePage({theme:"dark",page:"runs",profileSuggestions:[],connections:all});
   const browser=await launch();
   try{
     const browserContext=await browser.newContext({viewport:{width:420,height:1100}});const page=await browserContext.newPage();await page.goto(url);
     await page.getByRole('heading',{name:'Runs'}).waitFor();
-    assert.equal(await page.getByRole('button',{name:'Umgebungen',exact:true}).count(),0,'die Kopfzeile trägt nur Zurück und Titel');
+    assert.equal(await page.getByRole('button',{name:'Server',exact:true}).count(),0,'die Kopfzeile trägt nur Zurück und Titel');
     const lines=()=>page.locator('ul[aria-label="Runs"] > li').count();
-    assert.equal(await lines(),5,'alle Runs aller Umgebungen stehen hier');
+    assert.equal(await lines(),5,'alle Runs aller Server stehen hier');
     assert.equal(await columnEdges(page,'Runs','time'),1,'die Zeitspalte steht in allen Zeilen an derselben Kante');
-    assert.equal(await columnEdges(page,'Runs','environment'),1,'die Umgebungsspalte steht in allen Zeilen an derselben Kante');
-    const edgesBefore=await page.evaluate(()=>['time','environment'].map((name)=>Math.round(document.querySelector(`ul[aria-label="Runs"] [data-cell="${name}"]`)!.getBoundingClientRect().left)));
+    assert.equal(await columnEdges(page,'Runs','connection'),1,'die Serverspalte steht in allen Zeilen an derselben Kante');
+    const edgesBefore=await page.evaluate(()=>['time','connection'].map((name)=>Math.round(document.querySelector(`ul[aria-label="Runs"] [data-cell="${name}"]`)!.getBoundingClientRect().left)));
     await shoot(page,`${shots}app-2026-09-22-runs-420.png`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 
@@ -205,7 +205,7 @@ test("Runs führt alle Runs zusammen, sucht, blendet Beendete aus und löscht na
     assert.equal(await lines(),1);
     await page.getByLabel('Runs suchen').fill('core');
     await page.waitForFunction(()=>document.querySelectorAll('button[title*="Balkon"]').length===0);
-    assert.equal(await lines(),2,'die Suche kennt auch den Namen der Umgebung');
+    assert.equal(await lines(),2,'die Suche kennt auch den Namen des Servers');
     await page.getByLabel('Runs suchen').fill('gibtesnicht');
     await page.getByRole('status').filter({hasText:'Kein passender Run.'}).waitFor();
     await page.getByLabel('Runs suchen').fill('');
@@ -216,8 +216,8 @@ test("Runs führt alle Runs zusammen, sucht, blendet Beendete aus und löscht na
     await page.getByRole('checkbox',{name:'Wortspiel: Sonne auswählen'}).click();
     await page.getByText('2 ausgewählt').waitFor();
     assert.equal(await columnEdges(page,'Runs','time'),1,'auch mit Kontrollkästchen steht die Zeit in einer Kante');
-    assert.equal(await columnEdges(page,'Runs','environment'),1);
-    const edgesSelecting=await page.evaluate(()=>['time','environment'].map((name)=>Math.round(document.querySelector(`ul[aria-label="Runs"] [data-cell="${name}"]`)!.getBoundingClientRect().left)));
+    assert.equal(await columnEdges(page,'Runs','connection'),1);
+    const edgesSelecting=await page.evaluate(()=>['time','connection'].map((name)=>Math.round(document.querySelector(`ul[aria-label="Runs"] [data-cell="${name}"]`)!.getBoundingClientRect().left)));
     assert.deepEqual(edgesSelecting,edgesBefore,'das Kontrollkästchen verschiebt die rechten Spalten nicht');
     await shoot(page,`${shots}app-2026-09-22-runs-auswahl-420.png`);
     await page.getByRole('button',{name:'Löschen'}).click();
@@ -236,15 +236,15 @@ test("Runs führt alle Runs zusammen, sucht, blendet Beendete aus und löscht na
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 
     await setPage(page,'start');
-    await page.getByRole('heading',{name:'Umgebungen'}).waitFor();
+    await page.getByRole('heading',{name:'Server'}).waitFor();
     await page.setViewportSize({width:420,height:1100});
     assert.equal(await page.getByRole('button',{name:'Zur Start-Seite'}).count(),0);
     context.diagnostic(`Screenshots: ${shots}`);
   }finally{await browser.close()}
 });
 
-test("der Chip auf Start filtert die Seite Runs auf seine Umgebung; der Schalter hebt den Filter auf",{skip,timeout:120_000},async()=>{
-  const url=await preparePage({theme:"dark",page:"runs",runsEnvironment:"core",profileSuggestions:[],targets:all});
+test("der Chip auf Start filtert die Seite Runs auf seinen Server; der Schalter hebt den Filter auf",{skip,timeout:120_000},async()=>{
+  const url=await preparePage({theme:"dark",page:"runs",runsConnection:"core",profileSuggestions:[],connections:all});
   const browser=await launch();
   try{
     const browserContext=await browser.newContext({viewport:{width:420,height:1100}});const page=await browserContext.newPage();await page.goto(url);
@@ -261,12 +261,12 @@ test("der Chip auf Start filtert die Seite Runs auf seine Umgebung; der Schalter
 
 test("ein langer Run-Titel bleibt in der Panelbreite und die Seite scrollt in der Höhe",{skip,timeout:120_000},async()=>{
   const longTitle="LiesAUFTRAGmdUndFühreGenauDiesenAuftragAus".repeat(5);
-  const target={...workshop,runs:[run("run-long",longTitle,"running",1),...workshop.runs]};
-  const url=await preparePage({theme:"dark",page:"start",profileSuggestions:[],targets:[target]});
+  const connection={...workshop,runs:[run("run-long",longTitle,"running",1),...workshop.runs]};
+  const url=await preparePage({theme:"dark",page:"start",profileSuggestions:[],connections:[connection]});
   const browser=await launch();
   try{
     const browserContext=await browser.newContext({viewport:{width:420,height:380}});const page=await browserContext.newPage();await page.goto(url);
-    await page.getByRole('heading',{name:'Umgebungen'}).waitFor();
+    await page.getByRole('heading',{name:'Server'}).waitFor();
     await page.locator('button[title="Wortspiel"]').waitFor();
 
     const metrics=await page.evaluate((title)=>{
@@ -283,7 +283,7 @@ test("ein langer Run-Titel bleibt in der Panelbreite und die Seite scrollt in de
       };
     },longTitle);
     assert.ok(metrics.documentOverflow<=0,`die Seite läuft ${metrics.documentOverflow}px nach rechts über`);
-    assert.ok(metrics.tilesOverflow<=0,`das Kachelraster ist ${metrics.tilesOverflow}px breiter als das Panel`);
+    assert.ok(metrics.tilesOverflow<=0,`das Raster der Vorlagen ist ${metrics.tilesOverflow}px breiter als das Panel`);
     assert.ok(metrics.titleClipped>0,'der lange Run-Titel wird mit Ellipsis abgeschnitten');
     assert.ok(metrics.scrollRoom>0,'die Seite hat einen Scrollbereich in der Höhe');
     assert.ok(metrics.scrollTop>0,'die Seite lässt sich nach unten scrollen');

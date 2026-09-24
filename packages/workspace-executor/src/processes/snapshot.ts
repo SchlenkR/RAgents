@@ -49,7 +49,7 @@ const byPort = (left: WorkspaceProcessPort, right: WorkspaceProcessPort): number
 const byAppearance = (left: WorkspaceProcess, right: WorkspaceProcess): number =>
   left.seenSince.localeCompare(right.seenSince) || left.pid - right.pid;
 
-/** Prozesse des Laufs: Hintergrundprozesse immer, Kinder eines laufenden Werkzeugaufrufs nur mit offenem Port. */
+/** Prozesse des Runs: Hintergrundprozesse immer, Kinder eines laufenden Werkzeugaufrufs nur mit offenem Port. */
 export const runProcessesFrom = (input: ObservationInput): WorkspaceProcess[] => {
   const toolCallGroups = new Set(
     input.records.filter((record) => record.ppid === input.executorPid).map((record) => record.pgid),

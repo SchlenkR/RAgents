@@ -343,12 +343,12 @@ test("the snapshot method answers with every instance of the run and its diagnos
 
 test("the snapshot method reports an unknown session instead of asking the host", async () => {
   const method = snapshotMethod(() => Promise.reject(new Error("nicht gefragt")), () => {
-    throw new Error("Unterhaltung run-9 ist unbekannt");
+    throw new Error("Run run-9 ist unbekannt");
   });
 
   await assert.rejects(
     Promise.resolve().then(() => method.execute({ runId: "run-9" }, methodContext)),
-    /Unterhaltung run-9 ist unbekannt/,
+    /Run run-9 ist unbekannt/,
   );
 });
 

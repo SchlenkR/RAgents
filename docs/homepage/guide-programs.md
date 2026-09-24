@@ -19,7 +19,7 @@ model.
 
 Programs are private packages in a prepared pnpm workspace for the run. File functions and
 language servers access them through `@actors/<name>/`; Bash uses `RAGENTS_ACTORS_DIR`. The
-workspace interface exposes the program-package collection directly. Normal relative imports
+workspace interface exposes the actor-program collection directly. Normal relative imports
 include local modules, while fixed local dependencies come from the host installation.
 
 ```text
@@ -49,7 +49,7 @@ backend function.
 
 Activation rejects a program with an input handler on an LLM actor because that actor's normal
 messages remain with the model driver. A package without an input handler can still add functions
-and views to it. Functions can also exist without a view. Exactly one program package is active
+and views to it. Functions can also exist without a view. Exactly one actor program is active
 per actor; a different package is rejected. Add functions and views to the existing package
 instead. Reactivating that package applies its changed state, including removed functions and
 views.
@@ -222,7 +222,7 @@ labels allowed to require more. An edge with `kind: "return"` draws a return pat
 main sequence without changing its temporal layout.
 
 Diagrams start at 80 percent of design size, including type, cards, edges, and spacing; the
-center control restores that scale. The canvas has no separate background, border, or dot grid,
+center control restores that scale. The diagram pane has no separate background, border, or dot grid,
 so the diagram sits directly on the mini-app content. Zooming and panning change only the view.
 With `viewport="fit-width"`, the graph fits the container automatically, shrinks further when
 needed, and never grows beyond 80 percent. Remaining space is centered. Height follows complete
@@ -254,7 +254,7 @@ poll their status until completion.
 
 Functions on the same actor execute in order; different actors can work in parallel. Every call
 receives an abort signal. The native execution platform owns processes and stop boundaries for
-runs and instances. Stopping a run ends active work, while removing a program package or
+runs and instances. Stopping a run ends active work, while removing an actor program or
 activating a new version terminates execution resources from the previous version. After a
 server restart, previously pending or active mini-app function calls are marked `cancelled` and
 are not retried automatically. Unclaimed ActorInputs behave differently: they remain queued for

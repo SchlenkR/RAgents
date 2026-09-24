@@ -3,7 +3,7 @@ import { coreContracts } from "@ragents/host/api/contracts";
 import { applyEvent, type ChatEvent, type Message, type ChatAttachmentInput, type ChatStartupStatus } from "../../../server/src/chat-events";
 import type { ChatUserLocation } from "../../../server/src/chat-context";
 import { rpc } from "../rpc";
-import { sendChatMessage, startChatEntry, startSkillEntry, stopChat } from "./requests";
+import { sendChatMessage, startChatEntry, startSkillEntry } from "./requests";
 
 export function useChat(sessionId: string, onEvent?: (event: ChatEvent) => void, enabled = true): {
   messages: Message[];
@@ -13,7 +13,6 @@ export function useChat(sessionId: string, onEvent?: (event: ChatEvent) => void,
   send: (text: string, attachments?: ChatAttachmentInput[], userLocation?: ChatUserLocation) => Promise<void>;
   startSkill: (entryId: string, text: string, attachments?: ChatAttachmentInput[]) => Promise<void>;
   start: (entryId: string, input: unknown) => Promise<void>;
-  stop: () => Promise<void>;
 } {
   const [messages, dispatch] = useReducer(applyEvent, [] as Message[]);
   const [running, setRunning] = useState(false);
@@ -44,7 +43,5 @@ export function useChat(sessionId: string, onEvent?: (event: ChatEvent) => void,
 
   const start = useCallback((entryId: string, input: unknown) => startChatEntry(sessionId, entryId, input), [sessionId]);
 
-  const stop = useCallback(() => stopChat(sessionId), [sessionId]);
-
-  return { messages, running, connected, startup, send, startSkill, start, stop };
+  return { messages, running, connected, startup, send, startSkill, start };
 }

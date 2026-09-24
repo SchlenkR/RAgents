@@ -119,7 +119,7 @@ export const removeSessionContainers = async (session: string): Promise<readonly
   return ids;
 };
 
-/** Container früherer Läufe, deren Läufer nicht mehr lebt (etwa nach SIGKILL); nur Container mit den Labels des Läufers. */
+/** Container früherer Prüfläufe, deren Läufer nicht mehr lebt (etwa nach SIGKILL); nur Container mit den Labels des Läufers. */
 export const removeOrphanedContainers = async (): Promise<readonly string[]> => {
   const listing = await mustDocker(["ps", "--all", "--filter", `label=${SESSION_LABEL}`, "--format", `{{.ID}} {{.Label "${RUNNER_LABEL}"}}`]);
   const orphaned = listing.split("\n").filter(Boolean).flatMap((line) => {

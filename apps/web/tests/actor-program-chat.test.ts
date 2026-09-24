@@ -18,7 +18,7 @@ import type { Message } from "../src/chat/types";
 import { chatSnapshotOf, resolveChatActor } from "../../../plugins/ragents.actor-programs/web/chat-state";
 import { RUN_APP_CHAT_SEND, RUN_APP_CHAT_WATCH, validateRunAppBridgeRequest } from "../../../plugins/ragents.actor-programs/web/bridge";
 import { actorChatMessages, actorConversation } from "../src/actor-conversation";
-import { canvasTileChatInput, type CanvasTileNode } from "../../../plugins/ragents.orchestration/tiled-layout";
+import { surfaceTileChatInput, type SurfaceTileNode } from "../../../plugins/ragents.orchestration/tiled-layout";
 import type { RunAction, RunActor, RunView } from "../src/run-view";
 
 const actor = (id: string, handle: string, kind: RunActor["kind"]): RunActor => ({
@@ -31,16 +31,16 @@ const view: RunView = {
   actors: [actor("owner", "user", "human"), primary, worker],
   inputs: [
     { id: "input-2", actorId: worker.id, content: "Weiter", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: primary.id, enqueuedAt: "2026-09-06T10:02:00Z", sequence: 8, lifecycle: { kind: "pending" } },
-    { id: "input-1", actorId: worker.id, content: "Prüfe den Text", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: "owner", enqueuedAt: "2026-09-06T10:00:00Z", sequence: 3, lifecycle: { kind: "claimed", turnId: "turn-1" } },
+    { id: "input-1", actorId: worker.id, content: "Prüfe den Text", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: "owner", enqueuedAt: "2026-09-06T10:00:00Z", sequence: 3, lifecycle: { kind: "claimed", turnId: "turn-1", steered: false } },
     { id: "discarded", actorId: worker.id, content: "Verworfen", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: "owner", enqueuedAt: "2026-09-06T10:00:00Z", sequence: 9, lifecycle: { kind: "discarded", at: "2026-09-06T10:03:00Z", reason: "Stopp" } },
   ],
   turns: [{ id: "turn-1", actorId: worker.id, inputId: "input-1", status: "completed", startedAt: "2026-09-06T10:00:00Z", finishedAt: "2026-09-06T10:01:00Z", reason: null, usage: { inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0, costUsd: 0 }, outputs: [{ sequence: 6, text: "Geprüft", occurredAt: "2026-09-06T10:01:00Z" }] }],
   subscriptions: [], pluginStates: [], actions: [], artifacts: [],
 };
 const session = (overrides: Partial<SessionContext> = {}): SessionContext => ({
-  connected: true, extensionEvents: [], messages: [{ key: "streamed", role: "assistant", text: "Noch nicht fertig" }],
+  connected: true, pluginEvents: [], messages: [{ key: "streamed", role: "assistant", text: "Noch nicht fertig" }],
   running: true, session: { id: view.id, title: view.title, updatedAt: 0 }, runView: view,
-  send: async () => {}, start: async () => {}, stop: async () => {}, respond: async () => {}, ...overrides,
+  send: async () => {}, start: async () => {}, respond: async () => {}, ...overrides,
 });
 
 test("actor chats share the inspector's ordered conversation and exclude discarded inputs", () => {
@@ -144,7 +144,7 @@ test("chat owner retains attachment-only messages and leaves special rows unchan
 test("chat targets are same-run handles; stopped or disconnected actors retain history and reject input", () => {
   assert.throws(() => resolveChatActor(session(), "worker-agent"), /Erlaubt sind primary/);
   assert.throws(() => resolveChatActor(session(), "@user"), /Erlaubt sind primary/);
-  assert.throws(() => resolveChatActor(session({ runView: { ...view, id: "other-run" } }), "primary"), /Laufansicht/);
+  assert.throws(() => resolveChatActor(session({ runView: { ...view, id: "other-run" } }), "primary"), /Run-Ansicht/);
   assert.match(chatSnapshotOf(session({ connected: false }), "@reviewer").error ?? "", /unterbrochen/);
   const stopped = session({ runView: { ...view, actors: [primary, { ...worker, lifecycle: { kind: "stopped", stoppedAt: "2026-09-06T10:03:00Z", reason: "Stopp" } }] } });
   assert.match(chatSnapshotOf(stopped, "@reviewer").error ?? "", /gestoppt/);
@@ -188,7 +188,7 @@ test("actor history retains attachment-only inputs and run-scoped download metad
 });
 
 
-test("LLM canvas chats retain the conversation and expose the shared permanent composer", () => {
+test("LLM surface chats retain the conversation and expose the shared permanent composer", () => {
   const html = renderToStaticMarkup(createElement(ActorChatPreview, { actor: worker, view, onNavigate: () => {} }));
   assert.match(html, /Prüfe den Text/);
   assert.match(html, /Geprüft/);
@@ -243,13 +243,13 @@ test("actor tile question controls respect read-only access and disappear after 
 
 test("a stopped actor's chat shows the reason and the restart instead of a composer, and humans do not receive the actor composer", () => {
   const stopped: RunActor = { ...worker, lifecycle: { kind: "stopped", stoppedAt: "now", reason: "Versehentlich gestoppt" } };
-  const html = renderToStaticMarkup(createElement(ActorChatControls, { actor: stopped, view, presentation: "canvas" }));
+  const html = renderToStaticMarkup(createElement(ActorChatControls, { actor: stopped, view, presentation: "surface" }));
   assert.doesNotMatch(html, /textarea|Dateien anhängen/);
   assert.match(html, new RegExp(`@${worker.handle} gestoppt:</span> Versehentlich gestoppt`));
   assert.match(html, />Neu starten</);
   const reader = createAccessContext({ enabled: true, user: { id: "reader", label: "Reader", rights: ["runs.read", "runs.inspect"] } });
   const readOnly = renderToStaticMarkup(createElement(AccessContext.Provider, { value: { ...reader, logout: async () => {} } },
-    createElement(ActorChatControls, { actor: stopped, view, presentation: "canvas" })));
+    createElement(ActorChatControls, { actor: stopped, view, presentation: "surface" })));
   assert.match(readOnly, /Versehentlich gestoppt/);
   assert.doesNotMatch(readOnly, /Neu starten</);
   const human = renderToStaticMarkup(createElement(ActorChatControls, { actor: view.actors[0], view }));
@@ -261,7 +261,7 @@ test("a stopped actor's chat shows the reason and the restart instead of a compo
 test("script actor controls explain program operation without offering a chat composer", () => {
   const script = actor("program", "word-game", "script");
   const scriptView = { ...view, actors: [...view.actors, script] };
-  for (const presentation of ["canvas", "inspector"] as const) {
+  for (const presentation of ["surface", "inspector"] as const) {
     const html = renderToStaticMarkup(createElement(ActorChatControls, { actor: script, view: scriptView, presentation }));
     assert.doesNotMatch(html, /textarea|Dateien anhängen/);
     assert.match(html, /TypeScript/);
@@ -341,7 +341,7 @@ test("actor chats render show_document through the registered document presenter
       return createElement(DocumentToolCall, { document, active: true, status: "ready", onOpen: () => {} });
     } }] }],
   });
-  for (const actor of [primary, worker]) for (const presentation of ["canvas", "inspector"] as const) {
+  for (const actor of [primary, worker]) for (const presentation of ["surface", "inspector"] as const) {
     const html = renderToStaticMarkup(createElement(ChatStepsProvider, {
       policy: { ...defaultChatDisplayPolicy, modes: { coordinator: "chips", agents: "chips" }, selectable: false },
     }, createElement(PluginSessionProviders, { registry, session: current, navigation },
@@ -387,10 +387,10 @@ test("the tile tree decides per actor whether its composer is shown", () => {
   const root = { direction: "horizontal" as const, weights: [1, 1] as [number, number], children: [
     { entity: `@${worker.handle}`, chatInput: false },
     { entity: `@${primary.handle}` },
-  ] as [CanvasTileNode, CanvasTileNode] };
-  assert.equal(canvasTileChatInput(root, `@${worker.handle}`), false);
-  assert.equal(canvasTileChatInput(root, `@${primary.handle}`), true);
-  assert.equal(canvasTileChatInput(null, `@${worker.handle}`), true);
+  ] as [SurfaceTileNode, SurfaceTileNode] };
+  assert.equal(surfaceTileChatInput(root, `@${worker.handle}`), false);
+  assert.equal(surfaceTileChatInput(root, `@${primary.handle}`), true);
+  assert.equal(surfaceTileChatInput(null, `@${worker.handle}`), true);
 });
 
 test("chat targets resolve handles like the engine: any case and composition", () => {

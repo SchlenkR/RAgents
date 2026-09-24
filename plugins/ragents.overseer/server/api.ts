@@ -2,13 +2,14 @@ import path from "node:path";
 import type { Static } from "typebox";
 import { DomainError, implement, type AccessContext, type JsonValue, type MethodContribution, type PluginHost } from "@ragents/engine";
 import { methodReference, openRpcDocument, type ApiAuthentication } from "@ragents/host/api/reference.js";
-import type { SessionManagement } from "@ragents/host/ragents/global-chat.js";
-import { OVERSEER_RUN_ID, overseerContracts } from "../contract.js";
+import type { RunManagement } from "@ragents/host/ragents/global-chat.js";
+import { overseerContracts } from "../contract.js";
+import { coordinatorRunIdOf } from "./coordinator.js";
 import type { RunDirectory } from "./run-directory.js";
 
 export interface ManagementContext {
   root: PluginHost;
-  management: () => SessionManagement;
+  management: () => RunManagement;
   directory: RunDirectory;
   authentication: ApiAuthentication;
 }
@@ -17,7 +18,7 @@ type CreateInput = Static<typeof overseerContracts.createRun.input>;
 
 const identity = (found: { id: string; title: string; reference: string }) => ({ runId: found.id, title: found.title, reference: found.reference });
 
-/** Aufgelöst wird nur über die Runs des Aufrufers; ein fremder Lauf ist hier so unbekannt wie ein nicht vorhandener. */
+/** Aufgelöst wird nur über die Runs des Aufrufers; ein fremder Run ist hier so unbekannt wie ein nicht vorhandener. */
 const resolve = async (context: ManagementContext, access: AccessContext, reference: string) => {
   const runs = await context.management().list(access);
   const exact = runs.find((entry) => entry.id === reference);
@@ -47,14 +48,17 @@ const create = async (context: ManagementContext, body: CreateInput, access: Acc
     return context.management().create({ ...common, kind: "message", message: body.message.trim() });
   })();
   const found = (await context.directory.describe(await context.management().list())).find((entry) => entry.id === runId);
-  if (!found) throw new DomainError("run-unavailable", "Der erstellte Lauf ist nicht mehr verfügbar", 409);
+  if (!found) throw new DomainError("run-unavailable", "Der erstellte Run ist nicht mehr verfügbar", 409);
   return { ...identity(found), accepted: true as const };
 };
 
 export function managementMethods(context: ManagementContext): MethodContribution[] {
   return [
     implement(overseerContracts.listRuns, async (_input, { access }) =>
-      (await context.directory.describe(await context.management().list(access))).map(({ id, ...entry }) => ({ runId: id, ...entry }))),
+      (await context.directory.describe(await context.management().list(access))).map((entry) => {
+        const { createdAt, running, metadata } = entry as typeof entry & { running?: boolean; metadata?: Record<string, JsonValue> };
+        return { ...identity(entry), updatedAt: entry.updatedAt, ...(createdAt !== undefined ? { createdAt } : {}), ...(running !== undefined ? { running } : {}), ...(metadata ? { metadata } : {}) };
+      })),
     implement(overseerContracts.createRun, (input, { access }) => create(context, input, access)),
     implement(overseerContracts.readRun, async ({ run }, { access }) => context.management().view((await resolve(context, access, run)).id)),
     implement(overseerContracts.readEvents, async ({ run, after, limit, type }, { access }) => {
@@ -76,11 +80,12 @@ export function managementMethods(context: ManagementContext): MethodContributio
     implement(overseerContracts.readCatalog, (_input, { access }) => ({
       entries: [...context.root.startEntries.describe()],
       options: context.root.startOptions.entries().map(({ option }) => {
-        const scope = { runId: OVERSEER_RUN_ID, userId: access.user?.id ?? null };
+        const scope = { runId: coordinatorRunIdOf(access), userId: access.user?.id ?? null };
         const value = context.root.startOptions.defaultValue(option.id, scope);
         return { id: option.id, schema: option.schema, value, selectable: option.selectable(), presentation: option.describe(value, scope) };
       }),
     })),
+    implement(overseerContracts.coordinator, (_input, { access }) => ({ runId: coordinatorRunIdOf(access) })),
     implement(overseerContracts.readReference, () => methodReference(context.root, context.authentication)),
     implement(overseerContracts.readOpenRpc, () => openRpcDocument(context.root, context.authentication)),
   ];

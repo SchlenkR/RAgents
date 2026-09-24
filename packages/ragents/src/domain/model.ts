@@ -74,9 +74,10 @@ export type ScriptActor = ExecutableActorBase & { kind: "script" };
 export type ExecutableActor = AgentActor | ScriptActor;
 export type Actor = HumanActor | ExecutableActor;
 
+/** `steered` marks an input that joined its already running turn instead of starting it. */
 export type ActorInputLifecycle =
     | { kind: "pending" }
-    | { kind: "claimed"; turnId: TurnId }
+    | { kind: "claimed"; turnId: TurnId; steered: boolean }
     | { kind: "discarded"; at: string; reason: string };
 
 export type ActorInput = {

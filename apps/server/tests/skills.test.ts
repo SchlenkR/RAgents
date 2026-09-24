@@ -185,7 +185,7 @@ for (const name of ["missing-category", "empty-category"]) {
 }
 
 
-test("runtime skills remain off the start surface and explicit prompts retain YAML text", () => {
+test("runtime skills remain off the start page and explicit prompts retain YAML text", () => {
   const directory = mkdtempSync(path.join(tmpdir(), "ragents-skills-"));
   try {
     const runtime = path.join(directory, "runtime");
@@ -205,7 +205,7 @@ test("runtime skills remain off the start surface and explicit prompts retain YA
   }
 });
 
-test("external skills register runtime paths and start entries from the same directory", () => {
+test("external skills register runtime paths and templates from the same directory", () => {
   const environment = { ...declaredEnvironment(skillEnvDescriptors), optional: () => fixture("markdown-body") };
   assert.deepEqual(skillsFromEnvironment(environment, "external"), skillsFromDirectory(fixture("markdown-body"), "external"));
   assert.deepEqual(skillsFromEnvironment({ ...declaredEnvironment(skillEnvDescriptors), optional: () => undefined }, "external"), { paths: [], startEntries: [] });

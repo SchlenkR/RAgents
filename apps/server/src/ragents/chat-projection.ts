@@ -24,12 +24,15 @@ export const chatEventsOf = (event: JournalEvent, scope: ChatProjectionScope, cu
   if (event.type === "actor.input.enqueued") {
     if (event.payload.presentation === "background") return [];
     return event.payload.subscriptionId === null && event.actorId === scope.ownerId && event.payload.actorId === scope.primaryActorId
-      ? [{ kind: "user", text: event.payload.content, at,
+      ? [{ kind: "user", text: event.payload.content, inputId: event.payload.inputId, at,
         ...(scope.attachmentOf && event.payload.artifactIds.length > 0
           ? { attachments: event.payload.artifactIds.map(scope.attachmentOf) } : {}),
       }]
       : [];
   }
+
+  if (event.type === "turn.input-steered")
+    return scope.turnOf(event.payload.turnId).actorId === scope.primaryActorId ? [{ kind: "steered", inputId: event.payload.inputId }] : [];
 
   if (event.type === "action.proposed") {
     const asker = event.actorId === scope.primaryActorId
@@ -51,7 +54,7 @@ export const chatEventsOf = (event: JournalEvent, scope: ChatProjectionScope, cu
   if (event.actorId !== scope.primaryActorId) return [];
 
   if (event.type === "plugin.state-replaced" || event.type === "plugin.state-patched") return [{
-    kind: "extension", pluginId: event.payload.pluginId, type: "state-replaced",
+    kind: "plugin", pluginId: event.payload.pluginId, type: "state-replaced",
     payload: { scope: event.payload.scope, state: pluginState }, at,
     journal: { conversationId: scope.conversationId, eventId: event.eventId, sequence: event.sequence },
   }];

@@ -20,7 +20,7 @@ export const createLanguageServerToolContributor = (
   const openMetadata = {
     name: languageServerOpenOperation(id),
     nativeTool: true,
-    description: `Start a ${label} language server instance for this conversation's workspace and load ${rootDescription}. `
+    description: `Start a ${label} language server instance for this run's workspace and load ${rootDescription}. `
       + `Afterwards every edit or write of a ${extensions} file gets its diagnostics appended automatically, `
       + `and ${languageServerDiagnosticsOperation(id)} is available. Idempotent for the same root; other roots stay open.`,
   } as const;
@@ -75,7 +75,7 @@ export const createLanguageServerToolContributor = (
     ...closeMetadata,
     label: `${label} schließen`,
     schema: Type.Object({
-      root: Type.Optional(Type.String({ description: "The open root to stop; omit for every instance of this conversation" })),
+      root: Type.Optional(Type.String({ description: "The open root to stop; omit for every instance of this run" })),
     }),
     resultSchema: Type.String(),
     available: alwaysAvailable,

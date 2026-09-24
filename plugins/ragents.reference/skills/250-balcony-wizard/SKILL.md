@@ -9,4 +9,4 @@ order: 250
 tags: "Anwendungsfall, Konzeptdemo, Mini-Apps, Actor-Funktionen, Actor-Zustand"
 ---
 
-Ich hätte gern einen Balkon-Wizard als eigenständige App auf dem Canvas. Sie vermittelt ein begrenztes Gespräch mit einem KI-Berater im Hintergrund. Nach jeder Antwort wählt das LLM die nächste passende Frage, keine feste Fragenliste. Nach fünf Antworten gibt es Gestaltungstipps. Ich antworte nur in der App; sie zeigt Frage, Fortschritt, Lade- und Fehlerzustände. Nutze gemeinsame Layouts und Formulare. Keine App in einer LLM-Chatkarte.
+Ich hätte gern einen Balkon-Wizard als eigenständige App auf der Fläche. Sie vermittelt ein begrenztes Gespräch mit einem KI-Berater im Hintergrund. Nach jeder Antwort wählt das LLM die nächste passende Frage, keine feste Fragenliste. Nach fünf Antworten gibt es Gestaltungstipps. Ich antworte nur in der App; sie zeigt Frage, Fortschritt, Lade- und Fehlerzustände. Nutze gemeinsame Layouts und Formulare. Keine App in einer LLM-Chatkarte.

@@ -14,7 +14,7 @@ export type {
 export const languageServerSnapshotContract = (pluginId: string) =>
   defineOperation({
     id: `${pluginId}.snapshot`,
-    description: `Zustand und Diagnosen des Sprachservers ${pluginId} in einem Lauf. Rechte: runs.read und ${pluginId}.read.`,
+    description: `Zustand und Diagnosen des Sprachservers ${pluginId} in einem Run. Rechte: runs.read und ${pluginId}.read.`,
     rights: ["runs.read", `${pluginId}.read`],
     input: Type.Object({
       runId: Type.String({ minLength: 1, maxLength: 64, description: "Kennung des Runs" }),

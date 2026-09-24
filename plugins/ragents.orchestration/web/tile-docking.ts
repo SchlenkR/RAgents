@@ -1,6 +1,6 @@
-import type { CanvasTileNode } from "../tiled-layout";
+import type { SurfaceTileNode } from "../tiled-layout";
 
-export const CANVAS_TILE_DRAG_TYPE = "application/x-ragents-canvas-tile";
+export const SURFACE_TILE_DRAG_TYPE = "application/x-ragents-surface-tile";
 export const TILE_DIVIDER_SIZE = 8;
 export const TILE_MIN_WIDTH = 220;
 export const TILE_MIN_HEIGHT = 160;
@@ -15,17 +15,17 @@ export interface TileDivider extends TileRect {
   span: number;
 }
 
-export function tileEntities(root: CanvasTileNode | null): string[] {
+export function tileEntities(root: SurfaceTileNode | null): string[] {
   return root === null ? [] : "entity" in root ? [root.entity] : root.children.flatMap(tileEntities);
 }
 
-function tileLeaf(root: CanvasTileNode | null, entity: string): CanvasTileNode | undefined {
+function tileLeaf(root: SurfaceTileNode | null, entity: string): SurfaceTileNode | undefined {
   if (root === null) return undefined;
   if ("entity" in root) return root.entity === entity ? root : undefined;
   return tileLeaf(root.children[0], entity) ?? tileLeaf(root.children[1], entity);
 }
 
-export function removeTile(root: CanvasTileNode | null, entity: string): CanvasTileNode | null {
+export function removeTile(root: SurfaceTileNode | null, entity: string): SurfaceTileNode | null {
   if (root === null || "entity" in root) return root?.entity === entity ? null : root;
   const first = removeTile(root.children[0], entity);
   const second = removeTile(root.children[1], entity);
@@ -34,24 +34,24 @@ export function removeTile(root: CanvasTileNode | null, entity: string): CanvasT
   return first === root.children[0] && second === root.children[1] ? root : { ...root, children: [first, second] };
 }
 
-export function dockTile(root: CanvasTileNode | null, entity: string, target: string | null, side: TileDockSide): CanvasTileNode | null {
+export function dockTile(root: SurfaceTileNode | null, entity: string, target: string | null, side: TileDockSide): SurfaceTileNode | null {
   if ((root && "entity" in root && root.entity === entity && target === null) || entity === target || (target !== null && !tileEntities(root).includes(target))) return root;
   const remaining = removeTile(root, entity);
-  const leaf: CanvasTileNode = tileLeaf(root, entity) ?? { entity };
+  const leaf: SurfaceTileNode = tileLeaf(root, entity) ?? { entity };
   if (!remaining) return leaf;
-  const wrap = (node: CanvasTileNode): CanvasTileNode => ({
+  const wrap = (node: SurfaceTileNode): SurfaceTileNode => ({
     direction: side === "left" || side === "right" ? "horizontal" : "vertical",
     weights: [1, 1],
     children: side === "left" || side === "top" ? [leaf, node] : [node, leaf],
   });
   if (target === null) return wrap(remaining);
-  const insert = (node: CanvasTileNode): CanvasTileNode => "entity" in node
+  const insert = (node: SurfaceTileNode): SurfaceTileNode => "entity" in node
     ? node.entity === target ? wrap(node) : node
     : { ...node, children: [insert(node.children[0]), insert(node.children[1])] };
   return insert(remaining);
 }
 
-export function tileMinimum(root: CanvasTileNode): { width: number; height: number } {
+export function tileMinimum(root: SurfaceTileNode): { width: number; height: number } {
   if ("entity" in root) return { width: TILE_MIN_WIDTH, height: TILE_MIN_HEIGHT };
   const first = tileMinimum(root.children[0]);
   const second = tileMinimum(root.children[1]);
@@ -60,7 +60,7 @@ export function tileMinimum(root: CanvasTileNode): { width: number; height: numb
     : { width: Math.max(first.width, second.width), height: first.height + second.height + TILE_DIVIDER_SIZE };
 }
 
-export function resizeTile(root: CanvasTileNode, path: readonly number[], ratio: number): CanvasTileNode {
+export function resizeTile(root: SurfaceTileNode, path: readonly number[], ratio: number): SurfaceTileNode {
   if ("entity" in root) return root;
   if (path.length === 0) {
     const bounded = Math.max(0.001, Math.min(0.999, ratio));
@@ -68,15 +68,15 @@ export function resizeTile(root: CanvasTileNode, path: readonly number[], ratio:
   }
   const branch = path[0];
   if (branch !== 0 && branch !== 1) return root;
-  const children: [CanvasTileNode, CanvasTileNode] = [...root.children];
+  const children: [SurfaceTileNode, SurfaceTileNode] = [...root.children];
   children[branch] = resizeTile(children[branch], path.slice(1), ratio);
   return { ...root, children };
 }
 
-export function tileGeometry(root: CanvasTileNode, bounds: TileRect): { leaves: Map<string, TileRect>; dividers: TileDivider[] } {
+export function tileGeometry(root: SurfaceTileNode, bounds: TileRect): { leaves: Map<string, TileRect>; dividers: TileDivider[] } {
   const leaves = new Map<string, TileRect>();
   const dividers: TileDivider[] = [];
-  const visit = (node: CanvasTileNode, rect: TileRect, path: readonly number[]) => {
+  const visit = (node: SurfaceTileNode, rect: TileRect, path: readonly number[]) => {
     if ("entity" in node) { leaves.set(node.entity, rect); return; }
     const horizontal = node.direction === "horizontal";
     const span = Math.max(0, (horizontal ? rect.width : rect.height) - TILE_DIVIDER_SIZE);

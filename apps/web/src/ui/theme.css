@@ -86,11 +86,11 @@
     --color-ring: var(--primary);
     --color-shell: var(--shell);
     --color-app: var(--app);
-    --color-canvas: var(--canvas);
-    --color-canvas-dot: var(--canvas-dot);
-    --color-canvas-glow-mint: var(--canvas-glow-mint);
-    --color-canvas-glow-blue: var(--canvas-glow-blue);
-    --color-canvas-light: var(--canvas-light);
+    --color-surface: var(--surface);
+    --color-surface-dot: var(--surface-dot);
+    --color-surface-glow-mint: var(--surface-glow-mint);
+    --color-surface-glow-blue: var(--surface-glow-blue);
+    --color-surface-light: var(--surface-light);
     --color-backdrop: var(--backdrop);
     --color-glass-agent: var(--glass-agent);
     --color-glass-primary: var(--glass-primary);
@@ -141,12 +141,12 @@
     --border-strong: #a397b2;
     --shell: #cbd6e4;
     --app: #dce3ed;
-    --canvas: #e8e2e6;
-    --canvas-dot: #79aab43b;
-    --canvas-glow-mint: #92cfbfad;
-    --canvas-glow-blue: #8bbfe5a6;
-    --canvas-light: #ffffffb3;
-    --canvas-backdrop:
+    --surface: #e8e2e6;
+    --surface-dot: #79aab43b;
+    --surface-glow-mint: #92cfbfad;
+    --surface-glow-blue: #8bbfe5a6;
+    --surface-light: #ffffffb3;
+    --surface-backdrop:
         radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #9ccfc5b3, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #9ec6e4b3, transparent 56%),
@@ -195,12 +195,12 @@
     --border-strong: #8e809f;
     --shell: #242e40;
     --app: #212632;
-    --canvas: #29232e;
-    --canvas-dot: #7cafbc30;
-    --canvas-glow-mint: #317d686b;
-    --canvas-glow-blue: #417daa80;
-    --canvas-light: #80bfc71f;
-    --canvas-backdrop:
+    --surface: #29232e;
+    --surface-dot: #7cafbc30;
+    --surface-glow-mint: #317d686b;
+    --surface-glow-blue: #417daa80;
+    --surface-light: #80bfc71f;
+    --surface-backdrop:
         radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #2c625e99, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #355674a6, transparent 56%),

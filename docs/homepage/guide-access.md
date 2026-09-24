@@ -31,7 +31,7 @@ the token from the profile and restarting the server revokes it.
 
 Permission names are exact strings; `*` grants all permissions. Without `users` or
 `anonymousUser`, access is unrestricted. An optional `anonymousUser` applies the same permissions
-and allowed start entries without a password. It cannot be combined with `users`. With sign-in
+and allowed templates without a password. It cannot be combined with `users`. With sign-in
 enabled and no valid session, all permissions are denied.
 
 ## Run ownership
@@ -42,13 +42,16 @@ never rewritten. Runs created without authentication have no owner and are visib
 `runs.read.all` when authentication is later enabled.
 
 The server enforces ownership on lists, methods, event channels, and file routes before opening a
-run. An inaccessible run responds like a missing one. A start option can additionally mark a run
+run. An inaccessible run responds like a missing one. Each signed-in user has a global coordinator
+of their own, reachable by nobody else, not even with `runs.read.all`; its tools act with that
+user's access and rights, and runs it creates belong to that user. Without sign-in there is exactly
+one coordinator. A start option can additionally mark a run
 as `ownerOnly`, as the workspace binding does for tools running on the owner's machine. Other
 users with visibility may still read its journal and stop it, but only its owner can send messages,
 answer actions, restart actors, or invoke operations requiring `runs.write`. Its workspace is the
 owner's alone even for reading: the workspace files in the Dateien tab, the process rail, and
-language-server state are refused to everyone else, including `runs.read.all` and the global
-coordinator's service identity (`run-workspace-owner-only`). The run list asks nothing from such a
+language-server state are refused to everyone else, including `runs.read.all`
+(`run-workspace-owner-only`). The run list asks nothing from such a
 workspace on their behalf, and web and VS Code hide what needs it; the Dateien tab then shows only
 the server's file store.
 
@@ -56,7 +59,7 @@ Only a signed-in user of a profile with `users` can register a workstation over 
 server without users (open, `ACCESS_TOKEN`, or `anonymousUser`) has one owner for every client, so it
 accepts a workstation only over a loopback connection and otherwise refuses with
 `workspace-client-login-required`. The VS Code extension then does not register and shows the reason
-on the environment.
+on the server.
 
 `runs.write` permits messages and app actions in existing owned runs. Free-form runs,
 preparation chats, and start options additionally require `runs.create`. Without it, a user can

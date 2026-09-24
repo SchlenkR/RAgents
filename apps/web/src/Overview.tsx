@@ -37,14 +37,14 @@ const overviewSurfaceClass = "pointer-events-auto shadow-pop";
 
 /** The corner button opens the run list and contributions placed in the overview. */
 export function Overview({ onBusy, onClose, onOpen, open, panels, registry, runs }: OverviewProps) {
-  const surfaceRef = useRef<HTMLDivElement>(null);
+  const overviewRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const frame = requestAnimationFrame(() => {
-      const surface = surfaceRef.current;
-      if (!surface || surface.contains(document.activeElement)) return;
-      surface.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)?.focus({ preventScroll: true });
+      const overview = overviewRef.current;
+      if (!overview || overview.contains(document.activeElement)) return;
+      overview.querySelector<HTMLElement>(FOCUSABLE_SELECTOR)?.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
   }, [open]);
@@ -52,7 +52,7 @@ export function Overview({ onBusy, onClose, onOpen, open, panels, registry, runs
   return (
     <Modal className="pointer-events-none flex h-[min(900px,100%)] w-[min(1440px,100%)] flex-col rounded-none bg-transparent p-0 ring-0" keepMounted onClose={onClose} open={open} scope="workspace" size="full">
       <DialogTitle className="sr-only">Übersicht</DialogTitle>
-      <div className="flex min-h-0 min-w-0 flex-1 gap-4 max-[900px]:flex-col" id="app-overview" ref={surfaceRef}>
+      <div className="flex min-h-0 min-w-0 flex-1 gap-4 max-[900px]:flex-col" id="app-overview" ref={overviewRef}>
       {panels.map(({ id, Panel }) => (
         <OverviewPanelHost id={id} key={id} onBusy={onBusy} onClose={onClose} onOpen={onOpen} open={open} Panel={Panel} registry={registry} />
       ))}

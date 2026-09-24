@@ -70,6 +70,10 @@ export type EventPayloads = {
         turnId: TurnId;
         inputId: InputId;
     };
+    "turn.input-steered": {
+        turnId: TurnId;
+        inputId: InputId;
+    };
     "turn.finished": {
         turnId: TurnId;
         usage?: TurnUsage;
@@ -189,6 +193,7 @@ export const eventTypeMap: Record<EventType, true> = {
     "script.created": true,
     "actor.input.enqueued": true,
     "turn.started": true,
+    "turn.input-steered": true,
     "turn.finished": true,
     "turn.interrupted": true,
     "model.output.completed": true,

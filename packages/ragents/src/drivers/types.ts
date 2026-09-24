@@ -7,6 +7,15 @@ import type { ToolInvocation } from "../agents/toolset.ts";
 
 export type AutomatedDriverKind = Exclude<AgentDriverKind, "manual">;
 
+export type TurnAttachment = { name: string; mediaType: string; content: Uint8Array };
+
+/** A pending input that joined the running turn; the driver hands it to the model before its next request. */
+export type SteeredInput = {
+    input: DeliveredInput;
+    prompt: string;
+    attachments: readonly TurnAttachment[];
+};
+
 type TurnDriverFacts = {
     script: {
         driverKind: "script";
@@ -17,6 +26,8 @@ type TurnDriverFacts = {
         selection: ModelSelection;
         forkOf: string | null;
         invoke: (toolCallId: string, name: string, input: JsonValue) => Promise<ToolInvocation>;
+        /** Claims the pending inputs that may join this turn now, in journal order; empty once the turn ends or aborts. */
+        claimSteering: () => readonly SteeredInput[];
     };
 };
 
@@ -43,7 +54,7 @@ export type TurnRequest<Kind extends AutomatedDriverKind = AutomatedDriverKind> 
     turnId: string;
     startedAt: string;
     input: DeliveredInput;
-    attachments?: readonly { name: string; mediaType: string; content: Uint8Array }[];
+    attachments?: readonly TurnAttachment[];
     prompt: string;
     systemPrompt: string;
     /** The working directory of the workspace tools, as the model sees it; it may lie on another machine. */

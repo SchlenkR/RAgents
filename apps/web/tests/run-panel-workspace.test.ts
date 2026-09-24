@@ -42,7 +42,7 @@ function fakeWindow(context: { after: (fn: () => void) => void }) {
   return values;
 }
 
-test("der Zustand der Tab-Fläche wird streng gelesen und die Höhe lässt dem Chat Platz", () => {
+test("der Zustand der Leiste wird streng gelesen und die Höhe lässt dem Chat Platz", () => {
   assert.deepEqual(parseRunPanelWorkspaceState(null), DEFAULT_RUN_PANEL_WORKSPACE_STATE);
   assert.deepEqual(parseRunPanelWorkspaceState(JSON.stringify({ tab: "files", height: 300 })), { tab: "files", height: 300 });
   assert.deepEqual(parseRunPanelWorkspaceState(JSON.stringify({ tab: null, height: 120 })), { tab: null, height: 120 });
@@ -84,7 +84,7 @@ test("Öffnen, erneutes Wählen und Schließen schreiben den Reiter je Run in de
 test("die Leiste zeigt die verfügbaren Reiter in ihrer Reihenfolge, den offenen gedrückt, Badge und Punkt für Neues, Tooltip statt title", () => {
   const ordered = [...tabs].sort((left, right) => left.order - right.order);
   const html = renderToStaticMarkup(createElement(RunPanelRail, { navigation: navigationFor("documents"), onClose: () => {}, open: true, pendingTabIds: ["files"], session, tabs: ordered }));
-  assert.deepEqual(attribute(html, "aria-label"), ["Reiter des Arbeitsbereichs", "Executions", "Dokumente", "Dateien"]);
+  assert.deepEqual(attribute(html, "aria-label"), ["Reiter der Leiste", "Executions", "Dokumente", "Dateien"]);
   assert.deepEqual(attribute(html, "aria-pressed"), ["false", "true", "false"]);
   assert.deepEqual(attribute(html, "title"), []);
   assert.deepEqual(attribute(html, "data-slot").filter((slot) => slot === "tooltip-trigger").length, 3);
@@ -95,13 +95,13 @@ test("die Leiste zeigt die verfügbaren Reiter in ihrer Reihenfolge, den offenen
   assert.deepEqual(attribute(closed, "aria-pressed"), ["false", "false", "false"]);
 });
 
-test("die Tab-Fläche zeigt den offenen Reiter mit Name und Schließen-Knopf und bleibt geschlossen verborgen", () => {
+test("die Leiste zeigt den offenen Reiter mit Name und Schließen-Knopf und bleibt geschlossen verborgen", () => {
   const open = renderToStaticMarkup(createElement(RunPanelWorkspace, { navigation: navigationFor("files"), onClose: () => {}, open: true, runId: "run-a", session, tabs }));
-  assert.match(open, /<section[^>]*aria-label="Arbeitsbereich"[^>]*id="run-panel-workspace"/);
+  assert.match(open, /<section[^>]*aria-label="Leiste"[^>]*id="run-panel-workspace"/);
   assert.doesNotMatch(open, /<section[^>]*hidden=""/);
   assert.match(open, /<h2[^>]*>Dateien<\/h2>/);
-  assert.match(open, /aria-label="Arbeitsbereich schließen"/);
-  assert.match(open, /aria-label="Höhe des Arbeitsbereichs"[^>]*aria-orientation="horizontal"[^>]*aria-valuenow="280"/);
+  assert.match(open, /aria-label="Leiste schließen"/);
+  assert.match(open, /aria-label="Höhe der Leiste"[^>]*aria-orientation="horizontal"[^>]*aria-valuenow="280"/);
   assert.match(open, /Panel Dateien/);
   assert.doesNotMatch(open, /Panel Dokumente|Panel Executions/);
   const closed = renderToStaticMarkup(createElement(RunPanelWorkspace, { navigation: navigationFor(""), onClose: () => {}, open: false, runId: "run-a", session, tabs }));
@@ -121,18 +121,18 @@ test("das Run-Panel zeigt die Leiste nur im Layout panel, eine Mini-App im Edito
   const { PluginRegistry } = await import("../src/PluginRegistry.tsx");
   const registry = new PluginRegistry({
     brand: { title: "Test" }, product: { id: "test", title: "Test" }, startEntries: [],
-    plugins: [{ id: "test", workspaceTabs: tabs, canvasElements: [{ id: "test.apps", order: 1, select: () => [{ id: "board", title: "Board" }], Element: () => createElement("p", null, "Board-App") }] }],
+    plugins: [{ id: "test", workspaceTabs: tabs, surfaceElements: [{ id: "test.apps", order: 1, select: () => [{ id: "board", title: "Board" }], Element: () => createElement("p", null, "Board-App") }] }],
   });
   const run = { id: "run-a", title: "Run", updatedAt: 0 };
   const panel = renderToStaticMarkup(createElement(PluginChat, { layout: "panel", registry, session: run }));
-  const rail = panel.match(/<nav aria-label="Reiter des Arbeitsbereichs"[\s\S]*?<\/nav>/)?.[0] ?? "";
+  const rail = panel.match(/<nav aria-label="Reiter der Leiste"[\s\S]*?<\/nav>/)?.[0] ?? "";
   assert.notEqual(rail, "");
   assert.deepEqual(attribute(rail, "aria-pressed"), ["false", "false", "false"]);
-  assert.match(panel, /<section[^>]*aria-label="Arbeitsbereich"[^>]*hidden=""/);
+  assert.match(panel, /<section[^>]*aria-label="Leiste"[^>]*hidden=""/);
   assert.equal(values.size, 0, "ohne Klick wird nichts gespeichert");
   const element = renderToStaticMarkup(createElement(PluginChat, { layout: { element: "board" }, registry, session: run }));
   assert.match(element, /Board-App/);
-  assert.doesNotMatch(element, /Reiter des Arbeitsbereichs|aria-label="Arbeitsbereich"/);
+  assert.doesNotMatch(element, /Reiter der Leiste|aria-label="Leiste"/);
 });
 
 test("Reiter und Kopfbeiträge, die den Arbeitsbereich brauchen, fehlen bei einem Run, dessen Arbeitsbereich der Betrachter nicht erreicht", async (context) => {
@@ -170,7 +170,7 @@ test("Reiter und Kopfbeiträge, die den Arbeitsbereich brauchen, fehlen bei eine
   }
 
   const rail = (workspaceAccessible: boolean) => renderToStaticMarkup(createElement(PluginChat, { layout: "panel", registry, session: run(workspaceAccessible) }))
-    .match(/<nav aria-label="Reiter des Arbeitsbereichs"[\s\S]*?<\/nav>/)?.[0] ?? "";
+    .match(/<nav aria-label="Reiter der Leiste"[\s\S]*?<\/nav>/)?.[0] ?? "";
   assert.deepEqual(attribute(rail(false), "data-icon"), ["files"]);
   assert.deepEqual(attribute(rail(true), "data-icon"), ["files", "diagnostics"]);
 });

@@ -12,8 +12,8 @@ import { startStdioTransport } from "./rpc/stdio-transport.js";
 import { config, HOST_SECRET_ENV_NAMES, hostConfigKeys } from "./config.js";
 import { configuredAnonymousUser, configuredDefaultStartEntry, configuredUsers, validateConfigFileSections } from "./config-file.js";
 import { createAccessSessionManager, isSameOriginRequest } from "./access-session.js";
-import { isAccessServiceRequest, profileAccessCookieName } from "./access-service.js";
-import { globalChatToken } from "./ragents/global-chat.js";
+import { coordinatorRequestUser, profileAccessCookieName } from "./access-service.js";
+import { globalChatToken, globalRunPolicyOf } from "./ragents/global-chat.js";
 import { PayloadTooLargeError, readBody } from "./plugin-support/http.js";
 import { workspaceRuntimeToken } from "./ragents/workspace-runtime.js";
 import { externalAccessOpen, externalGate, isLocalRequest, loadExternalAccess, setExternalAccess } from "./external-access.js";
@@ -204,8 +204,7 @@ const accessSessions = createAccessSessionManager({
   anonymousUser: configuredAnonymousUser(),
   cookieName: profileAccessCookieName(product.id, config.productProfile),
 });
-const globalChat = provider.plugins.optionalService(globalChatToken);
-const globalAccess = globalChat?.access ? { runId: globalChat.runId, ...globalChat.access } : undefined;
+const globalAccess = globalRunPolicyOf(provider.plugins.optionalService(globalChatToken));
 await loadExternalAccess();
 await provider.init();
 const workspaceMode = provider.plugins.service(workspaceRuntimeToken).describe().mode;
@@ -252,15 +251,14 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     console.log(`${req.method} ${url.pathname} -> ${res.statusCode} (${Date.now() - startedAt} ms)`));
   if (externalGate(req, res)) return;
 
-  const serviceRequest = (accessSessions.enabled || configuredAnonymousUser() !== undefined) && isAccessServiceRequest(req, url);
+  const coordinator = accessSessions.enabled || configuredAnonymousUser() !== undefined ? coordinatorRequestUser(req, url) : undefined;
+  const serviceRequest = coordinator !== undefined;
   if (!serviceRequest && !accessSessions.enabled && await accessGate(
     req, res, url, (pathname) => pathname.startsWith("/api/") || provider.isPluginApiPath(pathname),
     (pathname) => isPublicBundleFile(bundleFolders, pathname), productTitle, accessCookieName,
   )) return;
   if (await accessSessions.handle(req, res, url)) return;
-  const access = createAccessContext(serviceRequest
-    ? { enabled: true, user: { id: "host-service", label: "Host", rights: ["runs.read", "runs.read.all", "runs.write", "runs.create", "runs.inspect"] } }
-    : accessSessions.snapshot(req));
+  const access = createAccessContext(coordinator ? accessSessions.coordinatorSnapshot(coordinator.userId) : accessSessions.snapshot(req));
   const protectedPath = /^\/(?:api|rpc|files)(?:\/|$)/.test(url.pathname) || provider.isPluginApiPath(url.pathname)
     || isBundleSourceMap(bundleFolders, url.pathname);
   if (protectedPath && access.enabled && !access.user) {

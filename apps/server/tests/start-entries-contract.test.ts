@@ -14,7 +14,7 @@ type Mutual<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
 const wireMatchesEngine: Mutual<PublicStartEntry, StartEntry> = true;
 void wireMatchesEngine;
 
-const base = { id: "x.one", owner: "x", title: "Eins", description: "Ein Einstieg" };
+const base = { id: "x.one", owner: "x", title: "Eins", description: "Eine Vorlage" };
 
 test("example tags survive both asset loaders, publication and web parsing", () => {
   const scratch = mkdtempSync(path.join(tmpdir(), "ragents-entry-tags-"));
@@ -129,13 +129,13 @@ test("RUN.md legt Startoptionen als JSON-Objekt fest; Registry, Veröffentlichun
     writeFileSync(path.join(setup, "src/server.ts"), "export default {};\n");
     const runFile = (fixed: string) => writeFileSync(path.join(setup, "RUN.md"),
       `---\ntitle: Im Worktree\ndescription: Arbeitet nur im Ordner je Run\nfixed-start-options: ${fixed}\n---\n`);
-    runFile('{"ragents.workspace.binding": {"kind": "fresh"}}');
+    runFile('{"ragents.workspace.binding": {"machine": "server", "folder": "fresh"}}');
     const [entry] = runScriptsFromDirectory(path.join(scratch, "scripts"), "example");
-    assert.deepEqual(entry?.fixedStartOptions, { "ragents.workspace.binding": { kind: "fresh" } });
+    assert.deepEqual(entry?.fixedStartOptions, { "ragents.workspace.binding": { machine: "server", folder: "fresh" } });
     const registry = new StartEntryContributionRegistry();
     registry.register("example", [entry!]);
     const [published] = registry.describe().map(startEntryFrom);
-    assert.deepEqual(published?.fixedStartOptions, { "ragents.workspace.binding": { kind: "fresh" } });
+    assert.deepEqual(published?.fixedStartOptions, { "ragents.workspace.binding": { machine: "server", folder: "fresh" } });
     runFile("{kind: fresh}");
     assert.throws(() => runScriptsFromDirectory(path.join(scratch, "scripts"), "example"), /fixed-start-options ist kein JSON/);
     runFile('["ragents.workspace.binding"]');

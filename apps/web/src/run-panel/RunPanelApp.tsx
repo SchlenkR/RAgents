@@ -32,19 +32,19 @@ const noticeClass = "m-auto max-w-[420px] p-6 text-center text-muted-foreground"
 const noSelection: ReadonlySet<string> = new Set();
 const newDraft = (): SessionInfo => ({ id: crypto.randomUUID(), title: NEW_RUN_TITLE, updatedAt: Date.now() });
 const placeholderSession = (id: string, title = "Run"): SessionInfo => ({ id, title, updatedAt: Date.now() });
-const profileLoading: StartupNoticeState = { kind: "working", title: "Produktprofil wird geladen", detail: "Die Oberfläche des Servers wird geladen." };
+const profileLoading: StartupNoticeState = { kind: "working", title: "Profil wird geladen", detail: "Die Oberfläche des Servers wird geladen." };
 const hostStarting: StartupNoticeState = { kind: "working", title: "Run wird gestartet", detail: "Der neue Run wird angelegt." };
 const launchStarting: StartupNoticeState = { kind: "working", title: "Run wird gestartet", detail: "Die Vorlage wird gestartet." };
 const noRunSelected: StartupNoticeState = { kind: "waiting", title: "Kein Run gewählt", detail: "Auf der Start-Seite startest Du einen neuen Run oder öffnest einen vorhandenen." };
 const noRunsReadable: StartupNoticeState = { kind: "error", title: "Keine Runs freigegeben", detail: "Für dieses Benutzerkonto sind keine Runs freigegeben." };
 
-/** Das Run-Panel: ein Run mit Chat und Mini-Apps, ohne Run im Browser die Run-Liste; layout=app zeigt genau ein Canvas-Element. */
+/** Das Run-Panel: ein Run mit Chat und Mini-Apps, ohne Run im Browser die Run-Liste; layout=app zeigt genau ein Flächenelement. */
 export function RunPanelApp({ location }: { location: RunPanelLocation }) {
   const activation = usePluginActivation();
   const headless = location.layout === "app";
   if (activation.status === "loading") return <PendingPanel headless={headless} state={profileLoading} />;
   if (activation.status === "failed") return (
-    <PendingPanel headless={headless} state={{ kind: "error", title: "Das Produktprofil konnte nicht geladen werden", detail: activation.error }}>
+    <PendingPanel headless={headless} state={{ kind: "error", title: "Das Profil konnte nicht geladen werden", detail: activation.error }}>
       <Button onClick={() => window.location.reload()} size="sm" variant="outline">Neu laden</Button>
     </PendingPanel>
   );
@@ -180,7 +180,7 @@ function RunPanelPage({ environment, initialRunId, registry }: { environment: st
   const pendingHeader = (title: string) => <>
     <Button aria-label="Zur Start-Seite" className="self-center" onClick={showStart} size="icon-lg" title="Zur Start-Seite" variant="ghost"><ArrowLeftIcon /></Button>
     <strong className={pendingTitleClass}>{title}</strong>
-    {environment && <span className={environmentClass} title={`Umgebung ${environment}`}>{environment}</span>}
+    {environment && <span className={environmentClass} title={`Server ${environment}`}>{environment}</span>}
     <RunPanelMenu onOpenSettings={openSettings} />
   </>;
   const toStart = <Button onClick={showStart} size="sm" variant="outline">Zur Start-Seite</Button>;
@@ -221,14 +221,14 @@ function RunPanelPage({ environment, initialRunId, registry }: { environment: st
     ? <SessionList activeId={runId} onCreate={canCreate ? createRun : undefined} onSelect={selectRun} onToggleSelected={() => undefined} registry={registry} seenRevisions={runReadState.revisions} selectMode={false} selectedIds={noSelection} sessions={sessions} />
     : <p className={noticeClass}>Für dieses Benutzerkonto sind keine Runs freigegeben.</p>;
   return (
-    <div className="flex h-full flex-col bg-[image:var(--canvas-backdrop)]">
+    <div className="flex h-full flex-col bg-[image:var(--surface-backdrop)]">
       {readRuns && runId
         ? (
           <>
             <header className={headerClass}>
               <Button aria-label="Zur Start-Seite" className="self-center" onClick={showStart} size="icon-lg" title="Zur Start-Seite" variant="ghost"><ArrowLeftIcon /></Button>
               <div aria-label="Run-Titelleiste" className="flex min-w-0 flex-1 items-stretch overflow-x-auto no-scrollbar" ref={setHeaderContainer} role="region" />
-              {environment && <span className={environmentClass} title={`Umgebung ${environment}`}>{environment}</span>}
+              {environment && <span className={environmentClass} title={`Server ${environment}`}>{environment}</span>}
               <RunStateIcon className="self-center px-1.5" state={session?.running ? "running" : "idle"} />
               <StopButton className="self-center" disabled={!writeRuns} label="Run stoppen" onClick={stop} size="icon-lg" title="Run mit allen Agenten und Abläufen stoppen" />
               <div aria-label="Werkzeuge des Panels" className="flex flex-none items-center empty:hidden" ref={setToolsContainer} role="toolbar" />
@@ -278,10 +278,10 @@ interface Launch {
   readonly error?: string;
 }
 
-/** Ein Klick auf eine Kachel der Übersicht: Startoptionen setzen, den Einstieg starten, fertig. */
+/** Ein Klick auf eine Vorlage der Startseite: Startoptionen setzen, die Vorlage starten, fertig. */
 async function launchRun(launch: Launch, registry: PluginRegistry, access: AccessContext): Promise<void> {
   const entry = registry.startEntries.find((candidate) => candidate.id === launch.entryId);
-  if (!entry) throw new Error("Diese Startvorlage gibt es in diesem Profil nicht.");
+  if (!entry) throw new Error("Diese Vorlage gibt es in diesem Profil nicht.");
   if (!canStartEntry(access, entry.id)) throw new Error(`${entry.title} ist für dieses Benutzerkonto nicht freigegeben.`);
   if (launch.startOptions) {
     const options = await getStartOptions(launch.runId);
@@ -306,7 +306,7 @@ function HostWaiting({ children, header }: { children: ReactNode; header: ReactN
 
 /** Kopfzeile und darunter der Ladezustand, so wie das Run-Panel ihn später mittig im Chat zeigt; eine einzelne Mini-App hat keine Kopfzeile. */
 function PendingPanel({ children, header, headless = false, state }: { children?: ReactNode; header?: ReactNode; headless?: boolean; state: StartupNoticeState }) {
-  return <div className="flex h-full flex-col bg-[image:var(--canvas-backdrop)]">
+  return <div className="flex h-full flex-col bg-[image:var(--surface-backdrop)]">
     {!headless && <header className={headerClass}>{header}</header>}
     <main className="grid min-h-0 flex-1 place-items-center overflow-hidden p-6"><StartupNotice state={state}>{children}</StartupNotice></main>
   </div>;

@@ -21,7 +21,7 @@ const traceClasses = "flex w-full gap-2 pl-6 text-left text-[11px] leading-[1.37
 const traceButtonClasses = "cursor-pointer rounded-md py-1 pr-2 transition-colors hover:bg-secondary hover:text-foreground focus-visible:bg-secondary focus-visible:text-foreground focus-visible:outline-none";
 const traceIconClasses = "mt-0.5 flex-none opacity-60";
 const traceErrorIconClasses = "mt-0.5 flex-none text-destructive opacity-100";
-const traceLineClasses = "min-w-0 font-mono [overflow-wrap:anywhere]";
+const traceLineClasses = "min-w-0 self-baseline font-mono [overflow-wrap:anywhere]";
 const traceRunningClasses = "ml-1.5 opacity-60";
 
 const chipClasses = cn(
@@ -202,8 +202,8 @@ export function ChatMessages({
   const mitZeit = (inhalt: ReactNode, key: string, at: string | undefined, dicht = false): ReactNode =>
     showTimestamps
       ? (
-        <div className={cn("flex items-start gap-2", dicht ? denseStepClasses : stepClasses)} key={`zeit-${key}`}>
-          <time dateTime={messageDate(at)?.toISOString()} className={cn("flex-none pt-0.5 text-[10.5px] tabular-nums text-muted-foreground opacity-85",
+        <div className={cn("flex items-baseline gap-2", dicht ? denseStepClasses : stepClasses)} key={`zeit-${key}`}>
+          <time dateTime={messageDate(at)?.toISOString()} className={cn("flex-none text-[10.5px] tabular-nums text-muted-foreground opacity-85",
             timestampOptions?.format && timestampOptions.format !== "time" ? "w-[clamp(60px,20%,120px)]" : "w-[34px]")}>
             {messageDate(at) ? timestampLabel(messageDate(at)!, timestampOptions, now) : ""}
           </time>
@@ -311,7 +311,7 @@ export function ChatMessages({
           "[--fade-edge:calc(100%_-_var(--composer-height,0px))]",
           "[-webkit-mask-image:linear-gradient(to_bottom,#000_calc(var(--fade-edge)_-_40px),transparent_calc(var(--fade-edge)_+_16px))]",
           "[mask-image:linear-gradient(to_bottom,#000_calc(var(--fade-edge)_-_40px),transparent_calc(var(--fade-edge)_+_16px))]",
-          "in-data-[surface=material]:p-0",
+          "in-data-[tone=material]:p-0",
         )}
         onScroll={pruefeEnde}
         onWheel={(event) => { if (!event.ctrlKey && event.deltaY < 0) pauseUp(event.currentTarget, event.target); }}
@@ -344,7 +344,7 @@ export function ChatMessages({
             className={cn(
               "mx-auto w-[calc(100%_-_2_*_var(--chat-horizontal-padding,24px))] max-w-[var(--chat-content-max-width,none)] pt-2",
               "pb-[calc(var(--composer-height,0px)_+_max(3.25em,40px))]",
-              "in-data-[surface=material]:[&>*:first-child]:mt-0",
+              "in-data-[tone=material]:[&>*:first-child]:mt-0",
             )}
             ref={threadRef}
           >
@@ -405,7 +405,7 @@ function StepRow({
             ) : (
               <WrenchIcon className={tool?.isError ? "text-destructive" : undefined} size={11} />
             )}
-            {mitText && <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{label}</span>}
+            {mitText && <span className="min-w-0 self-baseline overflow-hidden text-ellipsis whitespace-nowrap">{label}</span>}
             {mitText && <span className="inline-flex w-2.5 flex-none items-center justify-center text-success">{state === "done" && <CheckIcon size={10} />}</span>}
           </>
         );
@@ -656,6 +656,7 @@ function Bubble({
       useBubble && message.bubble && "rounded-full border border-white/30 bg-black/15 px-[7px] py-px tracking-[0.02em]")} data-chat="sender">{sender}</span>}
     <Markdown text={message.text} streaming={message.role === "assistant" && !message.closed} />
     <MessageAttachments message={message} />
+    {message.steered && <small className="mt-1 block text-[0.72rem] leading-[1.45] opacity-70" data-chat="steered">{texts.steered}</small>}
     <MessageActions message={message} options={messageActions} texts={texts} />
   </>;
   const cursor = message.role === "assistant" && message.textCursor ? JSON.stringify(message.textCursor) : undefined;
@@ -669,7 +670,7 @@ function Bubble({
       data-message={message.role === "user" && !message.bubble && variant === "default" ? "user" : "bubble"} data-side={side}>
       <div className={cn(bubbleBodyClasses, "group", message.bubble
         ? "rounded-lg text-white [--scroll-cover:var(--primary)]"
-        : "rounded-[10px_10px_4px_10px] border border-border bg-secondary text-foreground [--scroll-cover:var(--secondary)] in-data-[surface=material]:rounded-[9px] in-data-[surface=material]:border-glass-edge/20 in-data-[surface=material]:bg-primary/15 in-data-[surface=material]:text-foreground")}
+        : "rounded-[10px_10px_4px_10px] border border-border bg-secondary text-foreground [--scroll-cover:var(--secondary)] in-data-[tone=material]:rounded-[9px] in-data-[tone=material]:border-glass-edge/20 in-data-[tone=material]:bg-primary/15 in-data-[tone=material]:text-foreground")}
         data-tone={message.bubble ? "on-color" : undefined}
         style={{ background: message.bubble?.color, maxWidth: bubbleOptions?.maxWidth }}>
         {content}

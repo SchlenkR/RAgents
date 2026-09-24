@@ -56,7 +56,7 @@ const fixture = () => {
     };
 };
 
-test("snippets await typed extension functions and return results and logs under the caller identity", async () => {
+test("snippets await typed plugin functions and return results and logs under the caller identity", async () => {
     const run = fixture();
     const result = await run.execute(`
 const first = await context.functions.increment({ value: 2 });

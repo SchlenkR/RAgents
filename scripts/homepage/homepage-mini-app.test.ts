@@ -47,7 +47,7 @@ test("Die lokale Mini-App bündelt Originalquellen, shadcn-Controls und Tokens o
   const html = files.get("mini-app.html")!;
   const javascript = files.get("mini-app.js")!;
   const css = files.get("mini-app.css")!;
-  assert.match(html, /data-ui-surface="mini-app"/);
+  assert.match(html, /data-ui-frame="mini-app"/);
   assert.match(html, /Local mini-app demo\. Input remains on this page\./);
   assert.match(html, /id="root"/);
   for (const text of ["Shared list", "New item", "Enter text", "data-slot"]) {

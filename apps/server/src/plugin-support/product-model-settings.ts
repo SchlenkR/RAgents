@@ -85,22 +85,22 @@ export class ProductModelSettingsStore {
 
   #selection(name: string): ProductModelDraft["profiles"][number] {
     const selected = this.#current.profiles.find((profile) => profile.name === name);
-    if (!selected) throw invalid(`Das Agentprofil ${name} hat keine Modellvorgabe.`);
+    if (!selected) throw invalid(`Die Rolle ${name} hat keine Modellvorgabe.`);
     return selected;
   }
 
   #validate(value: unknown): ProductModelDraft {
     const { profiles } = objectOf(value, ["profiles"]);
     const expected = this.#agentProfiles();
-    if (!Array.isArray(profiles) || profiles.length !== expected.length) throw invalid(`Vollständig erforderlich sind die Agentprofile: ${expected.map((profile) => profile.name).join(", ")}.`);
+    if (!Array.isArray(profiles) || profiles.length !== expected.length) throw invalid(`Vollständig erforderlich sind die Rollen: ${expected.map((profile) => profile.name).join(", ")}.`);
     const seen = new Set<string>();
     const validated = profiles.map((item: unknown) => {
       const entry = objectOf(item, ["name", "model", "thinking"]);
       const profile = expected.find((candidate) => candidate.name === entry.name);
-      if (!profile) throw invalid(`Unbekanntes Agentprofil ${String(entry.name)}.`);
-      if (seen.has(profile.name)) throw invalid(`Das Agentprofil ${profile.name} steht doppelt.`);
+      if (!profile) throw invalid(`Unbekannte Rolle ${String(entry.name)}.`);
+      if (seen.has(profile.name)) throw invalid(`Die Rolle ${profile.name} steht doppelt.`);
       seen.add(profile.name);
-      if (profile.provider !== this.#choice.provider) throw invalid(`Das Agentprofil ${profile.name} verwendet einen anderen Provider.`);
+      if (profile.provider !== this.#choice.provider) throw invalid(`Die Rolle ${profile.name} verwendet einen anderen Provider.`);
       if (typeof entry.model !== "string" || !this.#choice.options.includes(entry.model)) throw invalid(`Das Modell ${String(entry.model)} steht nicht zur Wahl.`);
       const allowed = this.#choice.thinkingOptionsFor(entry.model);
       if (!isThinkingLevel(entry.thinking) || !allowed.includes(entry.thinking)) throw invalid(`Die Denktiefe ${String(entry.thinking)} ist für ${entry.model} nicht verfügbar (gültig: ${allowed.join(", ")}).`);

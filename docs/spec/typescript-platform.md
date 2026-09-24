@@ -5,7 +5,7 @@ typisierte API der registrierten Run-Funktionen. Actor-Programme verwenden norma
 Ein Programm kann Funktionen, einen Input-Handler und React-Views bereitstellen. Ob ein Actor
 seine normalen Inputs mit einem Modell oder mit TypeScript verarbeitet, bestimmt sein Treiber.
 Aufrufbare Funktionen und der intrinsische Actor-Zustand sind davon unabhängig. Der Paket-
-und Autorenvertrag steht in `run-modules.md`, das Actor-Modell in `core.md`.
+und Autorenvertrag steht in `actor-programs.md`, das Actor-Modell in `core.md`.
 
 ## Ausführung und Kontext
 
@@ -45,9 +45,9 @@ Programme sind private TypeScript-Pakete mit normalen Projektdateien, lokal aufg
 Abhängigkeiten und importierbaren SDK-Typen. Der TypeScript-Language-Server prüft dieselben
 Dateien, die der Build verwendet. Vor Modellanfragen prüft ein Laufzeitbeitrag geänderte Pakete
 und ergänzt einen kurzen Unterschied zum letzten Diagnostikstand. Die Typprüfung schließt
-den unter `package.json.ragents.backend` deklarierten Einstieg immer ein, auch wenn die
+den unter `package.json.ragents.backend` deklarierten Einsprungpunkt immer ein, auch wenn die
 Autorenkonfiguration ihn nicht in `tsconfig.include` erfasst. Vorhandene tsconfig-Dateien
-bleiben erhalten; der Host ergänzt den Einstieg für die Prüfung ausdrücklich.
+bleiben erhalten; der Host ergänzt den Einsprungpunkt für die Prüfung ausdrücklich.
 
 Ein aktivierter Build bindet Quellen, zusätzliche Module, generierte Typen, Capability-Verträge
 und Compilerumgebung. Änderungen an Arbeitsdateien aktivieren sich nicht selbst; der Host
@@ -74,7 +74,7 @@ Tests prüfen Resultate, Zustandsänderungen und tatsächlich ausgeführte Aufru
 Der Executor ordnet Prozesse Run und Instanz zu und besitzt Stopps sowie Shutdown. Abbruch
 beendet auch laufende und wartende Ausführung; eine späte Prozessantwort darf keinen Zustand
 mehr übernehmen. Entfernen oder Ersetzen eines Programms löst dessen Ausführungsressourcen.
-Dateirechte, Session-UID und Prozessumgebung kommen aus dem Serverkontext des Runs
+Dateirechte, UID je Run und Prozessumgebung kommen aus dem Serverkontext des Runs
 (`SandboxServices.serverProcessContextFor`): bei einem Arbeitsbereich auf dem Server aus dessen
 Workspace, bei einem Arbeitsplatz aus einem eigenen Ordner des Runs auf dem Server, nie aus dem
 Ordner des Arbeitsplatzes. Native Ausführung ist keine zusätzliche Sprachsandbox gegen beliebigen
@@ -86,7 +86,7 @@ Actor-Pakete können `@ragents/workflow` für eine gemeinsame Ablaufdefinition v
 Sie liefert dieselben Schritte für LLM-Anleitungen und Mini-App-Diagramme. Das serverseitige
 Untermodul `@ragents/workflow/prompts` liest referenzierte Promptdateien relativ zum
 installierten Paket. Definition, Zustand und Auflösung beschreibt
-[Actor-Programme](run-modules.md#connect-workflow-definition-instructions-and-presentation).
+[Actor-Programme](actor-programs.md#connect-workflow-definition-instructions-and-presentation).
 Die Ausführung bleibt beim Actor; der Workflow-Vertrag ersetzt weder Scheduler noch Rechteprüfung.
 
 Ein TypeScript-Actor verarbeitet einen ActorInput pro Turn. Sein Programm deklariert dafür
@@ -118,7 +118,7 @@ Quelle und Eventtyp, statt technische Informationen aus dem Text zu erraten.
 Der Actor erledigt seinen Auftrag und beendet den Turn. Weitere Inputs oder Subscriptions
 starten spätere Turns; ein Turn wartet nicht auf zukünftige Modellantworten. Funktionen und
 Input-Verarbeitung greifen auf denselben journalisierten Actor-Zustand zu. Auf der
-Kachelfläche bleibt der TypeScript-Actor ein Teilnehmer mit seiner Kennung und seinem Zustand.
+Fläche bleibt der TypeScript-Actor ein Teilnehmer mit seiner Kennung und seinem Zustand.
 Ein LLM-Actor verwendet für ActorInputs weiterhin sein Modell; ein zusätzliches Programm mit
 `onInput` wird an ihm abgewiesen.
 
@@ -235,7 +235,7 @@ bleibt bei `path` der damals ausgeführte Stand erhalten, selbst nach späterer 
 auch ein Compilefehler behält seine Quelle. Scheitert bereits das Lesen der Datei, gibt es
 keinen erfundenen Quelltext-Snapshot.
 
-Der Reiter `Executions` der Orchestrierungs-Extension zeigt diese Historie zusammen mit
+Der Reiter `Executions` des Orchestrierungs-Plugins zeigt diese Historie zusammen mit
 Status, Dauer, Ergebnis, Logs und Fehler. Ältere Inline-Aufrufe können ihren Quelltext aus der
 journalisierten Eingabe anzeigen. Bei alten dateibasierten Aufrufen ohne Snapshot bleibt die
 fehlende historische Quelle sichtbar benannt; die aktuelle Datei ersetzt diesen Nachweis nicht.
@@ -245,7 +245,7 @@ fehlende historische Quelle sichtbar benannt; die aktuelle Datei ersetzt diesen 
 
 Snippets can read data, combine results, and set up participants, programs, subscriptions, or
 views. Actor programs handle later events, persistent state, and mini-apps. The choice follows
-the task; a setup does not need a dedicated setup actor. Domain-specific skill entries describe
+the task; a setup does not need a dedicated setup actor. Domain-specific skill templates describe
 the desired result rather than prescribing a technical solution. Technical contracts and guides
 belong in the discoverable environment.
 
@@ -262,26 +262,26 @@ not wait for future responses; subscriptions deliver them as later ActorInputs.
 
 ## Run-Scripts als vorbereitete Actor-Programme
 
-Ein Run-Script bietet einen vorbereiteten, wiederverwendbaren Start einer Unterhaltung. Ein
+Ein Run-Script bietet einen vorbereiteten, wiederverwendbaren Start eines Runs. Ein
 freier Benutzerauftrag benötigt kein solches Paket. Der globale Koordinator kann vorhandene
 oder selbst erstellte Pakete über die Verwaltungsmethoden starten. Innerhalb eines vorhandenen
 Runs richten Snippets oder Actor-Programme die Umgebung über dieselbe Funktionen-API ein.
 
-Ein Run-Script ist ein vollständiges Actor-Programmpaket für den Start einer Unterhaltung.
+Ein Run-Script ist ein vollständiges Actor-Programm für den Start eines Runs.
 Der Host installiert seinen Setup-Actor und stellt ihm den ersten ActorInput zu. Eine
-Startkarte entsteht durch einen Ordner im Quellordner des Plugins; `ragents plugin build`
+Vorlage entsteht durch einen Ordner im Quellordner des Plugins; `ragents plugin build`
 kopiert ihn ins Bundle (`bundles/<id>/run-scripts/<name>/`), und geladen wird diese Kopie:
 
 ```text
 plugins/<id>/run-scripts/<name>/
   RUN.md                  Titel, Beschreibung, Reihenfolge, optional guide, coordinator, fixed-start-options
-  package.json            ragents.backend verweist auf den Setup-Einstieg
+  package.json            ragents.backend verweist auf den Setup-Einsprungpunkt
   src/server.ts           defineActor mit input und onInput
   tests/program.test.ts    normale node:test-Fachtests
-  actors/<program-name>/  optionale weitere Actor-Programmpakete
+  actors/<program-name>/  optionale weitere Actor-Programme
 ```
 
-Der Ordnername ist der Handle des Setup-Actors, die Einstiegkennung `<plugin>.<name>`.
+Der Ordnername ist der Handle des Setup-Actors, die Vorlagenkennung `<plugin>.<name>`.
 `RUN.md` enthält Metadaten und eine Beschreibung des Fachfalls. Die tatsächlich benötigten
 Capabilities stehen im TypeScript-Vertrag unter `input.capabilities` oder an einer Funktion.
 Es gibt keine zweite Capability-Liste in der Markdown-Datei.
@@ -296,11 +296,11 @@ Der Host bereitet den Arbeitsbereich vor, übernimmt die mitgelieferten Programm
 in die private Sammlung und importiert das Setup-Paket über denselben Aktivierungspfad wie
 ein während des Runs geschriebenes Programm. Typprüfung, Build und Fachtests laufen vor der
 Aktivierung. Der Start braucht dafür keinen Modellaufruf und keinen gesonderten Testnachweis.
-Der Run merkt sich die Einstiegkennung (`ragents.actor-programs.script`); bei Vertragsdrift
+Der Run merkt sich die Vorlagenkennung (`ragents.actor-programs.script`); bei Vertragsdrift
 holt der Host Setup-Paket und mitgelieferte Programme aus den aktuellen Quellen des Plugins
 nach, statt die beim Start kopierten Dateien neu zu bauen.
 
-Während der Vorbereitung meldet die Chat-Session einen flüchtigen Startstatus im bestehenden
+Während der Vorbereitung meldet der Chat des Runs einen flüchtigen Startstatus im bestehenden
 Status-Stream: Vorbereitung des Runs, des Arbeitsverzeichnisses und der Oberfläche. Neue
 Stream-Verbindungen erhalten den aktuellen Stand. Nach dem Einreihen des ersten Inputs endet
 dieser Status; danach liefern die journalisierten Inputs und Turns den Arbeitszustand.
@@ -342,13 +342,13 @@ Werkzeuge des Profils `core`, damit veraltete Beispiele auffallen.
 
 Lokale Pakete außerhalb des Repos können über die gemeinsamen Verwaltungsmethoden mit einem
 Serverdateipfad gestartet werden. Sie verwenden denselben Loader und Aktivierungspfad,
-werden aber nicht dauerhaft als Startkarten registriert. Ein `RUN_SCRIPTS_DIR` existiert nicht.
+werden aber nicht dauerhaft als Vorlagen registriert. Ein `RUN_SCRIPTS_DIR` existiert nicht.
 
 ## Erzeugte Entwicklerreferenz
 
 `docs/homepage/llms.txt` erschließt die erzeugten Referenzen; sie sind interne Build-Ausgaben
 und gehören nicht zum öffentlichen Export der Homepage. `run-setup.md`
-enthält die vollständigen Quellen der showcase-Einstiege einschließlich normaler Tests und
+enthält die vollständigen Quellen der showcase-Vorlagen einschließlich normaler Tests und
 mitgelieferter Actor-Programme. `run-api.d.ts` ist das tatsächliche `@ragents/server`-SDK mit
 den statischen Funktionsverträgen von showcase. Die installierten Pakete erhalten denselben
 Deklarationsgenerator mit ihrem aktuellen Vertragsbestand.

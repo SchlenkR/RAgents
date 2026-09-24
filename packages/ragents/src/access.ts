@@ -28,7 +28,7 @@ export const builtinPermissions = [
   { id: "runs.inspect", description: "Modelle, technische Laufdetails, Journale und Programmquellen ansehen." },
   { id: "runs.trace", description: "Denk- und Werkzeugschritte im Chat mit Inhalt sehen und ihren Detailgrad wählen." },
   { id: "runs.delete", description: "Runs und ihre gespeicherten Daten löschen." },
-  { id: "settings.read", description: "Profil, Konfiguration und Erweiterungen ansehen." },
+  { id: "settings.read", description: "Profil, Konfiguration und Plugins ansehen." },
   { id: "settings.write", description: "Einstellungen und externen Zugang ändern." },
   { id: "models.use", description: "Modelle über das Modell-Relay dieses Servers aufrufen." },
   { id: "profile.fetch", description: "Das Client-Profil dieses Servers beschreiben und herunterladen." },

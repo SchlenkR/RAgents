@@ -35,7 +35,7 @@ test("an external root keeps one subdirectory per run", async () => {
     assert.equal(await store.directoryFor("run-2"), path.join(externalRoot, "run-2"));
     assert.ok((await stat(path.join(externalRoot, "run-2"))).isDirectory());
     assert.deepEqual(store.describe(), { directoryPattern: path.join(externalRoot, "{runId}") });
-    await assert.rejects(store.directoryFor("../escape"), /Ungültige Session-Id/);
+    await assert.rejects(store.directoryFor("../escape"), /Ungültige Run-ID/);
   } finally {
     await remove();
   }

@@ -17,7 +17,7 @@ const byOrder = (left: StartEntry, right: StartEntry) => (left.order ?? Number.M
 const kindLabel = (entry: StartEntry) => entry.action === "skill" ? "Skill" : "Run-Script";
 const entryIcon = (entry: StartEntry) => entry.action === "skill" ? <BookIcon size={18} /> : <CodeIcon size={18} />;
 
-export function StartSurface({ registry, session, initialEntryId }: {
+export function StartSelection({ registry, session, initialEntryId }: {
   registry: PluginRegistry;
   session: SessionContext;
   initialEntryId?: string;
@@ -56,7 +56,7 @@ export function StartSurface({ registry, session, initialEntryId }: {
     openedInitialEntry.current = true;
     const entry = registry.startEntries.find((candidate) => candidate.id === initialEntryId);
     if (!entry || !canStartEntry(access, entry.id)) {
-      setError("Dieser Einstieg ist im aktuellen Profil nicht verfügbar.");
+      setError("Diese Vorlage ist im aktuellen Profil nicht verfügbar.");
       return;
     }
     openStartEntry(entry, registry, modal, sessionRef, run);

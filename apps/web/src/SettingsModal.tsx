@@ -12,7 +12,7 @@ import { modelDefaultsChangedEvent } from "./model-settings-events";
 import {
   getSettings,
   getSettingsSkill,
-  type SettingsAgentExtension,
+  type SettingsAgentHook,
   type SettingsModel,
   type SettingsProfile,
   type SettingsResponse,
@@ -41,14 +41,14 @@ import {
 } from "./settings-contributions";
 
 type SettingsPageSelection =
-  | { kind: "models" | "appearance" | "runtime" | "extensions" }
+  | { kind: "models" | "appearance" | "runtime" | "plugins" }
   | { kind: "plugin"; id: string }
   | { kind: "capability"; id: ContributionKind };
 
 const settingsAreas = [
   { id: "models", label: "Modelle" },
   { id: "appearance", label: "Darstellung" },
-  { id: "extensions", label: "Erweiterungen" },
+  { id: "plugins", label: "Plugins" },
   { id: "runtime", label: "Laufzeit" },
 ] as const;
 const capabilities = contributionFilters.filter(
@@ -97,8 +97,8 @@ type LoadState =
 export function SettingsModal({ onClose, registry }: SettingsModalProps) {
   const access = useAccess();
   const [selection, setSelection] = useState<SettingsPageSelection>({ kind: "models" });
-  const catalogVisible = selection.kind === "extensions" || selection.kind === "plugin" || selection.kind === "capability";
-  const activeArea = catalogVisible ? "extensions" : selection.kind;
+  const catalogVisible = selection.kind === "plugins" || selection.kind === "plugin" || selection.kind === "capability";
+  const activeArea = catalogVisible ? "plugins" : selection.kind;
   const [axis, setAxis] = useState<"plugin" | "capability">("plugin");
   const [lastPlugin, setLastPlugin] = useState<string | null>(null);
   const [lastCapability, setLastCapability] = useState<ContributionKind>("tools");
@@ -181,7 +181,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
     setAxis(next);
     setSelection(next === "capability"
       ? { kind: "capability", id: lastCapability }
-      : lastPlugin === null ? { kind: "extensions" } : { kind: "plugin", id: lastPlugin });
+      : lastPlugin === null ? { kind: "plugins" } : { kind: "plugin", id: lastPlugin });
   }
 
   return (
@@ -202,19 +202,19 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
           aria-current={activeArea === area.id ? "page" : undefined}
           className={cn(settingsAreaClass, activeArea === area.id ? "border-b-primary font-bold text-primary" : "text-muted-foreground hover:text-foreground")}
           key={area.id}
-          onClick={() => area.id === "extensions" ? changeAxis(axis) : setSelection({ kind: area.id })}
+          onClick={() => area.id === "plugins" ? changeAxis(axis) : setSelection({ kind: area.id })}
           type="button"
         >{area.label}</button>)}
       </nav>
       {catalogVisible && <div className="flex flex-none gap-1 border-b border-border-soft px-3.5 py-2.5">
-        <ToggleGroup aria-label="Erweiterungen ordnen" size="sm" spacing={0} value={[axis]} variant="outline"
+        <ToggleGroup aria-label="Plugins ordnen" size="sm" spacing={0} value={[axis]} variant="outline"
           onValueChange={([value]) => { if (value) changeAxis(value === "capability" ? "capability" : "plugin"); }}>
-          <ToggleGroupItem value="plugin">Nach Extension</ToggleGroupItem>
+          <ToggleGroupItem value="plugin">Nach Plugin</ToggleGroupItem>
           <ToggleGroupItem value="capability">Nach Fähigkeit</ToggleGroupItem>
         </ToggleGroup>
       </div>}
       <div className={cn("grid min-h-0 flex-1", catalogVisible ? "grid-cols-[230px_minmax(0,1fr)] max-[900px]:grid-cols-[190px_minmax(0,1fr)] max-md:grid-cols-[minmax(0,1fr)] max-md:grid-rows-[auto_minmax(0,1fr)]" : "grid-cols-[minmax(0,1fr)]")}>
-        {catalogVisible && <nav aria-label="Erweiterungen durchsuchen" className="flex min-w-0 flex-col gap-[3px] overflow-y-auto border-r border-border-soft bg-background/72 px-2.5 py-4 max-md:flex-row max-md:overflow-x-auto max-md:border-r-0 max-md:border-b max-md:border-border-soft max-md:p-2" ref={navigationRef}>
+        {catalogVisible && <nav aria-label="Plugins durchsuchen" className="flex min-w-0 flex-col gap-[3px] overflow-y-auto border-r border-border-soft bg-background/72 px-2.5 py-4 max-md:flex-row max-md:overflow-x-auto max-md:border-r-0 max-md:border-b max-md:border-border-soft max-md:p-2" ref={navigationRef}>
           {axis === "plugin" && filtered.map((group) => {
             const count = countContributions(group);
             const selected = selection.kind === "plugin" && selection.id === group.id;
@@ -272,7 +272,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
           {(catalogVisible || selection.kind === "runtime") && settings === null && state.status === "loading" && (
             <div className={loadStateClass}>
               <Spinner aria-hidden className="size-3" />
-              Laufzeit und Erweiterungen werden geladen.
+              Laufzeit und Plugins werden geladen.
             </div>
           )}
           {(catalogVisible || selection.kind === "runtime") && settings === null && state.status === "failed" && (
@@ -284,7 +284,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
             </div>
           )}
           {settings !== null && selection.kind === "runtime" && <RuntimePage groups={groups} registry={registry} settings={settings} />}
-          {settings !== null && selection.kind === "extensions" && <SettingsPage title="Erweiterungen" description="Durchsuche die installierten Beiträge nach Extension oder Fähigkeit. Wähle eine Extension für ihre Details.">
+          {settings !== null && selection.kind === "plugins" && <SettingsPage title="Plugins" description="Durchsuche die installierten Beiträge nach Plugin oder Fähigkeit. Wähle ein Plugin für seine Details.">
             <div className="grid gap-4">{groups.map((group) => <button className={ownerLinkClass} key={group.id} onClick={() => openPlugin(group.id)} type="button">
               {group.id}<span className={ownerLinkNoteClass}>{countContributions(group)} Beiträge</span>
             </button>)}</div>
@@ -298,7 +298,7 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
               : <PluginPage group={active} key={active.id} settings={registry.settings} />
           )}
           {settings !== null && activeCapability !== undefined && (
-            <SettingsPage title={activeCapability.label} description={`${activeCapability.groups.length} Extensions liefern passende Beiträge. Öffne eine Extension für ihre vollständigen Details.`}>
+            <SettingsPage title={activeCapability.label} description={`${activeCapability.groups.length} Plugins liefern passende Beiträge. Öffne ein Plugin für seine vollständigen Details.`}>
               {activeCapability.groups.length === 0 && <SettingsEmpty>Keine Beiträge gefunden. Wähle eine andere Fähigkeit oder ändere die Suche.</SettingsEmpty>}
               {activeCapability.groups.map((group) => (
                 <PluginPage
@@ -351,7 +351,7 @@ function RuntimePage({ groups, registry, settings }: {
 }) {
   const workspace = settings.runtime.workspace;
   const documents = settings.runtime.documents;
-  const internalExtensions = settings.agentExtensions.filter((extension) => extension.kind === "internal");
+  const internalHooks = settings.agentHooks.filter((hook) => hook.kind === "internal");
   return (
     <SettingsPage
       description={`Die Werte stammen aus der aktuell laufenden ${registry.brand.title}-Instanz. Konfigurationswerte mit Geheimnissen werden vom Server nicht ausgeliefert.`}
@@ -426,17 +426,17 @@ function RuntimePage({ groups, registry, settings }: {
           ))}
         </div>
       </SettingsSection>
-      <SettingsSection count={internalExtensions.length} title="Interne Erweiterungen">
+      <SettingsSection count={internalHooks.length} title="Interne Hooks">
         <p className={sectionCopyClass}>
-          Diese Extensions gehören der Agentenlaufzeit selbst und stammen aus keinem Plugin. Plugin-Erweiterungen
+          Diese Hooks gehören der Agentenlaufzeit selbst und stammen aus keinem Plugin. Hooks eines Plugins
           stehen auf der Seite ihres Plugins.
         </p>
-        {internalExtensions.length === 0
-          ? <SettingsEmpty>Keine interne Agent-Extension registriert.</SettingsEmpty>
+        {internalHooks.length === 0
+          ? <SettingsEmpty>Kein interner Hook registriert.</SettingsEmpty>
           : (
             <div className={cardListClass}>
-              {internalExtensions.map((extension) => (
-                <ExtensionCard extension={extension} key={extension.id} />
+              {internalHooks.map((hook) => (
+                <HookCard hook={hook} key={hook.id} />
               ))}
             </div>
           )}
@@ -470,7 +470,7 @@ function PluginPage({ group, settings, onOpenPlugin }: {
       <header>
         <div className="flex items-center justify-between gap-3">
           {onOpenPlugin
-            ? <button className={ownerLinkClass} onClick={onOpenPlugin} type="button">{group.id}<span className={ownerLinkNoteClass}>Extension öffnen</span></button>
+            ? <button className={ownerLinkClass} onClick={onOpenPlugin} type="button">{group.id}<span className={ownerLinkNoteClass}>Plugin öffnen</span></button>
             : <h2 className={`${pageTitleClass} truncate font-mono`}>{group.id}</h2>}
           {!onOpenPlugin && <span className={statusListClass}>
             <StatusBadge active={group.serverRegistered} label={group.serverRegistered ? "Server registriert" : "Server unbekannt"} />
@@ -506,11 +506,11 @@ function PluginPage({ group, settings, onOpenPlugin }: {
         </SettingsSection>
       )}
       {group.startEntries.length > 0 && (
-        <SettingsSection count={group.startEntries.length} title="Einstiege">
+        <SettingsSection count={group.startEntries.length} title="Vorlagen">
           <p className={sectionCopyClass}>
-            Was das Plugin auf die Startfläche legt. Ein Skill öffnet einen bearbeitbaren Auftrag;
+            Was das Plugin auf die Startseite legt. Ein Skill öffnet einen bearbeitbaren Auftrag;
             ein Run-Script baut den Run selbst auf, bevor
-            der Chat beginnt. Nennt ein Einstieg einen Leitfaden, öffnet der Klick zuerst dessen Dialog.
+            der Chat beginnt. Nennt eine Vorlage einen Leitfaden, öffnet der Klick zuerst dessen Dialog.
           </p>
           <div className={cardListClass}>
             {group.startEntries.map((entry) => (
@@ -571,11 +571,11 @@ function PluginPage({ group, settings, onOpenPlugin }: {
           </div>
         </SettingsSection>
       )}
-      {group.extensions.length > 0 && (
-        <SettingsSection count={group.extensions.length} title="Erweiterungen">
+      {group.hooks.length > 0 && (
+        <SettingsSection count={group.hooks.length} title="Hooks">
           <div className={cardListClass}>
-            {group.extensions.map((extension) => (
-              <ExtensionCard extension={extension} key={extension.id} />
+            {group.hooks.map((hook) => (
+              <HookCard hook={hook} key={hook.id} />
             ))}
           </div>
         </SettingsSection>
@@ -773,21 +773,21 @@ function ProfileCard({ profile }: { profile: SettingsProfile }) {
   );
 }
 
-function ExtensionCard({ extension }: { extension: SettingsAgentExtension }) {
+function HookCard({ hook }: { hook: SettingsAgentHook }) {
   return (
     <article className={cn(cardClass, "grid gap-2")}>
       <header className={cardHeaderClass}>
         <span className={cardCopyClass}>
-          <strong className={cardTitleClass}>{extension.id}</strong>
-          <small className={cardNoteClass}>{extension.owner}</small>
+          <strong className={cardTitleClass}>{hook.id}</strong>
+          <small className={cardNoteClass}>{hook.owner}</small>
         </span>
-        <StatusBadge active label={extension.kind === "internal" ? "Intern" : "Plugin-Beitrag"} />
+        <StatusBadge active label={hook.kind === "internal" ? "Intern" : "Plugin-Beitrag"} />
       </header>
-      <SettingsValue label="Auflösung je Agent" value={extension.resolvesPerAgent ? "Ja" : "Nein"} />
-      {extension.factories.length > 0 && (
+      <SettingsValue label="Auflösung je Agent" value={hook.resolvesPerAgent ? "Ja" : "Nein"} />
+      {hook.factories.length > 0 && (
         <SettingsValue
           label="Factories"
-          value={extension.factories
+          value={hook.factories
             .map((factory) => `${factory.name} (${factory.scope})`)
             .join(", ")}
         />

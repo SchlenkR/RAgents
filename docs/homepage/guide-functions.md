@@ -108,7 +108,7 @@ return { actors, models };
 
 Snippets can read data, combine results, and set up participants, programs, subscriptions, or
 views. Actor programs handle later events, persistent state, and mini-apps. The choice follows
-the task; a setup does not need a dedicated setup actor. Domain-specific skill entries describe
+the task; a setup does not need a dedicated setup actor. Domain-specific skill templates describe
 the desired result rather than prescribing a technical solution. Technical contracts and guides
 belong in the discoverable environment.
 

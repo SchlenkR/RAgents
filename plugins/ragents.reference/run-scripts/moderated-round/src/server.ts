@@ -23,7 +23,7 @@ export default defineActor(contract, {
     const catalog = await context.functions.model_list({});
     const profiles = catalog.profiles.filter((profile) => profile.driver === "agent" && profile.name !== "coordinator");
     const first = profiles[0];
-    if (!first) throw new Error("Kein Agentenprofil außer dem Koordinator; agent_spawn braucht eines.");
+    if (!first) throw new Error("Keine Rolle außer coordinator; agent_spawn braucht eine.");
 
     const moderator = await context.functions.agent_spawn({
       handle: "moderator",

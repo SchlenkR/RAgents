@@ -4,10 +4,17 @@ import type { RunRightsKind } from "@ragents/engine/src/http/methods";
 import type { RunListScope } from "../chat-handler.js";
 
 export interface GlobalRunPolicy {
-  runId: string;
+  /** Jede Kennung, die einem globalen Koordinator vorbehalten ist. */
+  isCoordinator: (runId: string) => boolean;
+  /** Der Koordinator eines Benutzers; ohne Anmeldung (null) gibt es genau einen. */
+  runIdFor: (userId: string | null) => string;
   read: string;
   write: string;
 }
+
+/** Der Koordinator eines Zugangs: ohne Anmeldung der eine, angemeldet der des Benutzers, ohne Benutzer keiner. */
+export const coordinatorRunIdOf = (access: AccessContext, global: GlobalRunPolicy): string | undefined =>
+  !access.enabled ? global.runIdFor(null) : access.user ? global.runIdFor(access.user.id) : undefined;
 
 /** Das Recht, die Runs aller Benutzer zu sehen; ohne es bleibt ein Zugang bei seinen eigenen. */
 export const RUNS_READ_ALL = "runs.read.all";
@@ -20,9 +27,9 @@ export interface RunAccessPolicy {
   ownerOnly: (runId: string) => boolean;
 }
 
-/** Rechte je Run: gewöhnliche Runs über runs.*, der globale Chat über die Rechte seines Plugins. */
+/** Rechte je Run: gewöhnliche Runs über runs.*, die Koordinatoren über die Rechte ihres Plugins. */
 export const runRights = (runId: string, kind: RunRightsKind, global: GlobalRunPolicy | undefined): readonly string[] => {
-  if (global && runId === global.runId) {
+  if (global?.isCoordinator(runId)) {
     const technical = kind === "inspect" || kind === "write-inspect" ? ["runs.inspect"] : [];
     return kind === "read" || kind === "inspect" ? [global.read, ...technical] : [global.read, global.write, ...technical];
   }
@@ -35,16 +42,15 @@ export const runRights = (runId: string, kind: RunRightsKind, global: GlobalRunP
   }
 };
 
-/** Ein Run gehört dem Zugang: ohne Anmeldung gibt es nur einen, der globale Chat ist gemeinsam, runs.read.all sieht alle. */
+/** Ein Run gehört dem Zugang: ohne Anmeldung gibt es nur einen, runs.read.all sieht alle; ein Koordinator gehört nur seinem Benutzer. */
 export const runOwned = (access: AccessContext, runId: string, policy: RunAccessPolicy): boolean =>
-  !access.enabled
-  || (policy.global !== undefined && runId === policy.global.runId)
-  || access.can(RUNS_READ_ALL)
-  || policy.ownerOf(runId) === access.user?.id;
+  policy.global?.isCoordinator(runId)
+    ? runId === coordinatorRunIdOf(access, policy.global)
+    : !access.enabled || access.can(RUNS_READ_ALL) || policy.ownerOf(runId) === access.user?.id;
 
-/** Erreichbar ist zusätzlich eine Kennung ohne Run: sie gehört erst dem, der den Run unter ihr anlegt. */
+/** Erreichbar ist zusätzlich eine Kennung ohne Run: sie gehört erst dem, der den Run unter ihr anlegt; eine Koordinatorkennung nie einem anderen. */
 export const runReachable = (access: AccessContext, runId: string, policy: RunAccessPolicy): boolean =>
-  runOwned(access, runId, policy) || policy.ownerOf(runId) === undefined;
+  runOwned(access, runId, policy) || (!policy.global?.isCoordinator(runId) && policy.ownerOf(runId) === undefined);
 
 /** Bedienen heißt schreiben, starten und antworten; einen Run, den nur sein Eigentümer bedient, bedient auch runs.read.all nicht. */
 export const runOperable = (access: AccessContext, runId: string, policy: RunAccessPolicy): boolean =>

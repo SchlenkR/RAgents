@@ -1,4 +1,4 @@
-/** Die Verträge der Unterhaltungen, gegen die Kernmethoden und Auslieferung arbeiten. */
+/** Die Verträge der Runs, gegen die Kernmethoden und Auslieferung arbeiten. */
 import type { ChatAttachment, ChatAttachmentInput, ChatEvent } from "./chat-events.js";
 import type { ActorConversations } from "./ragents/actor-chat-history.js";
 
@@ -15,7 +15,7 @@ export interface ChatUser {
   label: string;
 }
 
-/** Was der HTTP-Adapter von einer Unterhaltung braucht. */
+/** Was der HTTP-Adapter von einem Run braucht. */
 export interface ChatSessionLike {
   readonly running: boolean;
   subscribe(listener: (event: ChatEvent) => void): () => void;

@@ -7,6 +7,8 @@ import {
     type DriverRegistry,
     type DriverToolEvent,
     type LiveEvent,
+    type SteeredInput,
+    type TurnAttachment,
 } from "../drivers/types.ts";
 import type { JsonValue } from "../domain/json.ts";
 import type { ModelSelection } from "../domain/driver.ts";
@@ -14,7 +16,7 @@ import type { CommandContext } from "../runtime/command.ts";
 import type { Journal } from "../runtime/journal.ts";
 import type { Orchestration } from "../runtime/orchestration.ts";
 import type { ModelCatalog } from "./catalog.ts";
-import { actorRosterText, renderedPromptFor } from "./delivery.ts";
+import { actorRosterText, deliveredInputOf, renderedPromptFor } from "./delivery.ts";
 import type { LiveBus } from "./live.ts";
 import { ToolRegistry, type ToolProvider } from "./plugins.ts";
 import { holdsUsable, type RunFunction } from "./tools.ts";
@@ -47,6 +49,9 @@ export type TurnInterruption = {
 };
 
 const DEFAULT_INTERRUPT_WAIT_MS = 15_000;
+
+/** Longer inputs do not join a running turn; they wait for their own turn. */
+export const STEERING_MAX_CHARS = 30_000;
 
 type ActiveTurn = {
     runId: string;
@@ -877,10 +882,7 @@ export class TurnScheduler {
                 turnId: turn.turnId,
                 startedAt: turn.startedAt,
                 input: turn.input,
-                attachments: turn.input.artifactIds.map((artifactId) => {
-                    const { artifact, content } = this.#runtime.artifactContent(runId, artifactId, actorId);
-                    return { name: artifact.title, mediaType: artifact.mediaType, content };
-                }),
+                attachments: this.#attachmentsOf(runId, actorId, turn.input.artifactIds),
                 prompt: renderedPromptFor(this.#runtime.view(runId), actorId, turn.input),
                 systemPrompt: systemPromptFor(
                     runId,
@@ -931,6 +933,7 @@ export class TurnScheduler {
                         selection: selection!,
                         forkOf: actor.kind === "agent" ? actor.forkOf : null,
                         invoke: (toolCallId: string, name: string, input: JsonValue) => toolset.invoke(toolCallId, name, input),
+                        claimSteering: () => this.#claimSteering(turn, controller.signal),
                     },
                     controller.signal,
                 )
@@ -975,6 +978,52 @@ export class TurnScheduler {
             if (timeout)
                 clearTimeout(timeout);
         }
+    }
+
+    #attachmentsOf(runId: string, actorId: string, artifactIds: readonly string[]): TurnAttachment[] {
+        return artifactIds.map((artifactId) => {
+            const { artifact, content } = this.#runtime.artifactContent(runId, artifactId, actorId);
+            return { name: artifact.title, mediaType: artifact.mediaType, content };
+        });
+    }
+
+    /** The oldest pending inputs join the running turn in journal order, up to the first one over the length limit. */
+    #claimSteering(turn: ClaimedTurn, signal: AbortSignal): readonly SteeredInput[] {
+        if (signal.aborted || !this.#acceptsTurns(turn.runId) || !this.#isRunning(turn))
+            return [];
+
+        const view = this.#runtime.view(turn.runId);
+        const pending = view.inputs
+            .filter((entry) => entry.actorId === turn.actorId && isPendingActorInput(entry))
+            .sort((left, right) => left.sequence - right.sequence)
+            .map((entry) => deliveredInputOf(view, entry));
+        const tooLong = pending.findIndex((entry) => entry.content.length > STEERING_MAX_CHARS);
+        const joining = tooLong === -1 ? pending : pending.slice(0, tooLong);
+
+        if (joining.length === 0)
+            return [];
+
+        const steered = this.#runtime.steerInputs(
+            {
+                actorId: turn.actorId,
+                commandId: `scheduler:${turn.turnId}:steer:${joining[0]!.id}`,
+                turnId: turn.turnId,
+                correlationId: turn.turnId,
+            },
+            turn.runId,
+            turn.actorId,
+            { turnId: turn.turnId, inputIds: joining.map((entry) => entry.id) },
+        );
+
+        return joining.map(({ id }) => {
+            const input = deliveredInputOf(steered, steered.inputs.find((entry) => entry.id === id)!);
+
+            return {
+                input,
+                prompt: renderedPromptFor(steered, turn.actorId, input),
+                attachments: this.#attachmentsOf(turn.runId, turn.actorId, input.artifactIds),
+            };
+        });
     }
 
     #requiredDriver<Kind extends AutomatedDriverKind>(kind: Kind): AgentDriver<Kind> {

@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promi
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { type TestContext } from "node:test";
-import { DomainError, implement } from "@ragents/engine";
+import { DomainError, implement, pluginStateKey, type RunState } from "@ragents/engine";
 import {
   FILE_OPERATIONS,
   PROCESS_OPERATIONS,
@@ -13,7 +13,10 @@ import {
   type WorkspaceProcessSnapshot,
 } from "@ragents/workspace-executor";
 import { workspaceContracts } from "../../plugins/ragents.workspace/contract.ts";
+import { WORKSPACE_BINDING_OPTION_ID } from "../../plugins/ragents.workspace/contract.ts";
+import { workspaceBindingOption } from "../../plugins/ragents.workspace/server/binding.ts";
 import { clientMethods, WorkspaceClientRegistry } from "../../plugins/ragents.workspace/server/clients.ts";
+import { RunWorkspaceRuntime } from "../../plugins/ragents.workspace/server/runtime.ts";
 import { workspaceClientTransport } from "../../plugins/ragents.workspace/client/transport.ts";
 import { WorkspaceClient } from "../../plugins/ragents.workspace/client/workspace-client.ts";
 import { hostRoot } from "../../apps/server/src/host-version.ts";
@@ -81,6 +84,7 @@ test("ohne ausdrücklichen Ordner gilt der Aufrufer aus RAGENTS_CWD, nicht das A
 /** Der kopflose Arbeitsplatz gegen echte Server-Methoden: Anmeldung, Executor und Abmeldung ohne VS Code. */
 const started = async (t: TestContext) => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-client-")));
+  const runs = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-runs-")));
   const registry = new WorkspaceClientRegistry();
   const { url } = await startRpcServer(t, { methods: clientMethods(registry) });
   const transport = workspaceClientTransport(url, undefined);
@@ -90,12 +94,14 @@ const started = async (t: TestContext) => {
     hostname: "cli-host",
     platform: process.platform,
     folders: [directory],
+    runsDirectory: runs,
   }, { hostRoot });
   t.after(async () => {
     transport.rpc.close();
     await rm(directory, { recursive: true, force: true });
+    await rm(runs, { recursive: true, force: true });
   });
-  return { directory, registry, client, transport };
+  return { directory, runs, registry, client, transport };
 };
 
 test("der kopflose Arbeitsplatz meldet sich an und führt die Werkzeuge des Servers aus", async (t) => {
@@ -103,7 +109,7 @@ test("der kopflose Arbeitsplatz meldet sich an und führt die Werkzeuge des Serv
   await client.register();
   assert.deepEqual(client.status, { kind: "registered" });
   assert.deepEqual(registry.list(null).map((entry) => entry.id), [CLIENT]);
-  assert.deepEqual(client.binding(directory), { kind: "client", client: CLIENT, label: "Kopflos", path: directory });
+  assert.deepEqual(client.binding(directory), { machine: { client: CLIENT, label: "Kopflos" }, folder: { path: directory } });
 
   const executor = registry.executorFor(null, CLIENT, "Kopflos", directory);
   assert.equal(executor.version, WORKSPACE_EXECUTOR_VERSION);
@@ -128,6 +134,45 @@ test("der kopflose Arbeitsplatz meldet sich an und führt die Werkzeuge des Serv
   await client.unregister();
   assert.deepEqual(client.status, { kind: "idle" });
   assert.deepEqual(registry.list(null), []);
+});
+
+test("ein Run mit neuem Ordner je Run arbeitet im Ordner für Runs des kopflosen Arbeitsplatzes, und das Löschen nimmt ihn mit", async (t) => {
+  const { runs, registry, client } = await started(t);
+  await client.register();
+  const runId = "neuer-ordner";
+  const binding = workspaceBindingOption(registry, () => undefined)
+    .accept({ machine: { client: CLIENT, label: "" }, folder: "fresh" }, { runId, userId: null });
+  const folder = path.join(runs, runId);
+  assert.deepEqual(binding, { machine: { client: CLIENT, label: "Kopflos" }, folder: { path: folder, fresh: true } });
+  const state = {
+    ownerUserId: null,
+    pluginStates: new Map([[pluginStateKey(WORKSPACE_BINDING_OPTION_ID, { kind: "run" }),
+      { pluginId: WORKSPACE_BINDING_OPTION_ID, scope: { kind: "run" }, state: binding, updatedAt: "2026-09-24T00:00:00.000Z" }]]),
+  } as unknown as RunState;
+  const server = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-server-")));
+  const runtime: RunWorkspaceRuntime = new RunWorkspaceRuntime({
+    globalDirectory: path.join(server, "global"),
+    sessionDirectory: (id, ...segments) => path.join(server, "sessions", id, ...segments),
+    storageRootFor: (id) => path.join(server, "sessions", id),
+    sessionsDirectoryPattern: path.join(server, "sessions", "{runId}"),
+    sessionWorkspaceFor: (id) => runtime.resolve(id, () => undefined),
+    skillPaths: async () => [],
+    resolver: () => undefined,
+    runState: () => state,
+    storeBinding: () => { throw new Error("nicht gefragt"); },
+    clients: registry,
+  });
+  t.after(async () => {
+    await runtime.shutdown();
+    await rm(server, { recursive: true, force: true });
+  });
+  assert.equal((await runtime.resolve(runId, () => undefined)).cwd, folder);
+  await assert.rejects(readFile(path.join(folder, "notiz.md"), "utf8"), /ENOENT/, "das Auflösen legt nichts an");
+  await runtime.sandbox.execute(runId, "write", { path: "notiz.md", content: "auf dem Arbeitsplatz" });
+  assert.equal(await readFile(path.join(folder, "notiz.md"), "utf8"), "auf dem Arbeitsplatz");
+  assert.match(textOf(await runtime.sandbox.execute(runId, "bash", { command: "pwd" })), new RegExp(runId));
+  await runtime.deleteSession(runId);
+  await assert.rejects(readFile(path.join(folder, "notiz.md"), "utf8"), /ENOENT/);
 });
 
 test("die Abmeldung gelingt auch, wenn der Server den Eintrag schon entfernt hat", async (t) => {
@@ -269,7 +314,7 @@ test("die Abmeldung wartet nur begrenzt auf den Server und beendet den Executor 
   const { url } = await startRpcServer(t, { methods });
   const transport = workspaceClientTransport(url, undefined);
   t.after(() => transport.rpc.close());
-  const client = new WorkspaceClient(transport, { id: CLIENT, label: "Kopflos", hostname: "cli-host", platform: process.platform, folders: [directory] }, { hostRoot });
+  const client = new WorkspaceClient(transport, { id: CLIENT, label: "Kopflos", hostname: "cli-host", platform: process.platform, folders: [directory], runsDirectory: path.join(directory, "runs") }, { hostRoot });
   await client.register();
   const executor = registry.executorFor(null, CLIENT, "Kopflos", directory);
   const { ended } = await watching(executor, "run-hang");

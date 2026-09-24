@@ -3,7 +3,7 @@ import test from "node:test";
 import { TurnScheduler } from "../src/agents/scheduler.ts";
 import { catalog, deferred, FakeDriver, noUsage, setupRun } from "./support.ts";
 
-test("an active scheduler releases a removed conversation and schedules its recreated run", async () => {
+test("an active scheduler releases a removed run and schedules its recreated run", async () => {
     const setup = setupRun();
     const driver = new FakeDriver(async () => ({ failure: null, usage: noUsage() }));
     const errors: unknown[] = [];
@@ -19,7 +19,7 @@ test("an active scheduler releases a removed conversation and schedules its recr
         });
         assert.equal(setup.journal.stateOf(setup.view.id), null);
         let view = setup.runtime.createRun({ commandId: "recreate-run" }, {
-            runId: setup.view.id, title: "Fresh conversation", ownerHandle: "owner", ownerDisplayName: "Owner",
+            runId: setup.view.id, title: "Fresh run", ownerHandle: "owner", ownerDisplayName: "Owner",
         });
         view = setup.runtime.spawnAgent({ actorId: view.ownerId, commandId: "recreate-worker" }, view.id, {
             handle: "worker", displayName: "Worker", prompt: "Fresh context", execution: setup.agent.execution, grants: [], toolNames: [],
@@ -33,7 +33,7 @@ test("an active scheduler releases a removed conversation and schedules its recr
     } finally { await scheduler.stop(); setup.journal.close(); }
 });
 
-test("a later halt waits for earlier quarantined cleanup before replacing conversation data", async () => {
+test("a later halt waits for earlier quarantined cleanup before replacing run data", async () => {
     const setup = setupRun();
     const release = deferred();
     const scheduler = new TurnScheduler(setup.runtime, setup.journal, { drivers: { agent: new FakeDriver(async () => ({ failure: null, usage: noUsage() })) }, catalog });

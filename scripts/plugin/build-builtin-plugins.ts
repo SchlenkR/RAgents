@@ -24,7 +24,7 @@ const removeOrphans = async (folders: readonly string[]): Promise<void> => {
   }
 };
 
-// Ohne Typprüfung, weil pnpm -r typecheck die Quellen schon prüft; nur Veraltetes, damit laufende Server und parallele Läufe ihre Bundles behalten.
+// Ohne Typprüfung, weil pnpm -r typecheck die Quellen schon prüft; nur Veraltetes, damit laufende Server und parallele Bauläufe ihre Bundles behalten.
 const main = async (argv: readonly string[]): Promise<number> => {
   const unknown = argv.filter((argument) => argument !== "--watch");
   if (unknown.length > 0) throw new Error(`Unbekanntes Argument: ${unknown.join(" ")} (erlaubt: --watch)`);

@@ -29,12 +29,12 @@
   --border-strong: #a397b2;
   --shell: #cbd6e4;
   --app: #dce3ed;
-  --canvas: #e8e2e6;
-  --canvas-dot: #79aab43b;
-  --canvas-glow-mint: #92cfbfad;
-  --canvas-glow-blue: #8bbfe5a6;
-  --canvas-light: #ffffffb3;
-  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
+  --surface: #e8e2e6;
+  --surface-dot: #79aab43b;
+  --surface-glow-mint: #92cfbfad;
+  --surface-glow-blue: #8bbfe5a6;
+  --surface-light: #ffffffb3;
+  --surface-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #9ccfc5b3, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #9ec6e4b3, transparent 56%),
         radial-gradient(ellipse at 28% 0%, #c4b0dfb3, transparent 58%),
@@ -81,12 +81,12 @@
   --border-strong: #8e809f;
   --shell: #242e40;
   --app: #212632;
-  --canvas: #29232e;
-  --canvas-dot: #7cafbc30;
-  --canvas-glow-mint: #317d686b;
-  --canvas-glow-blue: #417daa80;
-  --canvas-light: #80bfc71f;
-  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
+  --surface: #29232e;
+  --surface-dot: #7cafbc30;
+  --surface-glow-mint: #317d686b;
+  --surface-glow-blue: #417daa80;
+  --surface-light: #80bfc71f;
+  --surface-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #2c625e99, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #355674a6, transparent 56%),
         radial-gradient(ellipse at 28% 0%, #59446f99, transparent 58%),
@@ -128,7 +128,7 @@
       <a href="index.html">Product</a>
       <a href="guide.html" aria-current="page">Guide</a>
     </nav>
-  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html" aria-current="page">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-extensions.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Core ideas</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html" aria-current="page">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-extensions.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Core ideas</h1><p>How AI, TypeScript, and interactive interfaces work together.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#ai-and-typescript-work-together">AI and TypeScript work together</a><a href="#code-controls-the-workflow-models-provide-the-contributions">Code controls the workflow, models provide the contributions</a><a href="#actors-are-the-participants-in-a-run">Actors are the participants in a run</a><a href="#messages-and-events-connect-the-work">Messages and events connect the work</a><a href="#mini-apps-make-the-work-interactive">Mini-apps make the work interactive</a><a href="#plugins-provide-capabilities-and-reusable-setups">Plugins provide capabilities and reusable setups</a></nav></details><h2 id="ai-and-typescript-work-together">AI and TypeScript work together</h2>
+  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html" aria-current="page">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Core ideas</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html" aria-current="page">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Core ideas</h1><p>How AI, TypeScript, and interactive interfaces work together.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#ai-and-typescript-work-together">AI and TypeScript work together</a><a href="#code-controls-the-workflow-models-provide-the-contributions">Code controls the workflow, models provide the contributions</a><a href="#actors-are-the-participants-in-a-run">Actors are the participants in a run</a><a href="#messages-and-events-connect-the-work">Messages and events connect the work</a><a href="#mini-apps-make-the-work-interactive">Mini-apps make the work interactive</a><a href="#plugins-provide-capabilities-and-reusable-setups">Plugins provide capabilities and reusable setups</a></nav></details><h2 id="ai-and-typescript-work-together">AI and TypeScript work together</h2>
 <p>RAgents is a workspace where AI agents, TypeScript programs, and small interfaces work on a
 task together. You can describe a task in the chat or start a prepared sample. The AI can set
 up the required participants and programs itself; a sample comes with that setup already in
@@ -164,7 +164,7 @@ program again so it can assign the next actor.</p>
 the journal does not execute the recorded work again. The
 <a href="guide-runtime.html">runtime guide</a> explains how the pieces fit together.</p>
 <h2 id="mini-apps-make-the-work-interactive">Mini-apps make the work interactive</h2>
-<p>An actor can have a small interface: a mini-app in the workspace. It displays the actor&#39;s data
+<p>An actor can have a small interface: a mini-app on the surface. It displays the actor&#39;s data
 and calls its functions. In the word game, this interface contains the start button, progress,
 and word list. On the collection board, both an AI assistant and a person can add entries to
 the same list.</p>
@@ -172,10 +172,10 @@ the same list.</p>
 LLM actor or a TypeScript actor. <a href="guide-programs.html">Build mini-apps</a> shows how
 functions, state, and interface connect.</p>
 <h2 id="plugins-provide-capabilities-and-reusable-setups">Plugins provide capabilities and reusable setups</h2>
-<p>A plugin can add file functions, questions, or interface components, for example. A product
-profile selects the workspace&#39;s plugins and settings. A skill tells a model how to approach a
+<p>A plugin can add file functions, questions, or interface components, for example. A profile
+selects the workspace&#39;s plugins and settings. A skill tells a model how to approach a
 task. A run script, by contrast, provides the programs for a prepared setup.</p>
 <p>Run scripts can provide a reusable setup and its interface while model responses remain
-variable. Skills and prepared workflows appear as selectable entries when the active profile
+variable. Skills and prepared workflows appear as selectable templates when the active profile
 provides them.</p>
 <p class="guide-source">Source: <a href="../../docs/spec/overview.md">docs/spec/overview.md</a>. <a href="guide-ideas.md">This chapter as Markdown</a>.</p><p><a href="guide-runtime.html">Understand actors and messages</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide.html">Back to the overview</a><a href="guide-runtime.html">Next: Actors and messages</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>

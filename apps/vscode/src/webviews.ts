@@ -11,12 +11,12 @@ export interface FrameSettings {
 }
 
 export interface WebviewBridge {
-  /** Adresse, Darstellung und Token einer Umgebung; nur eine verbundene Sitzung liefert sie. */
-  frame(target: string): FrameSettings | undefined;
-  /** Was das Panel zeigt: der Run einer Umgebung, sonst die Panelseite. */
-  selection(): { target: string; runId: string | undefined } | undefined;
+  /** Adresse, Darstellung und Token eines Servers; nur eine verbundene Sitzung liefert sie. */
+  frame(connection: string): FrameSettings | undefined;
+  /** Was das Panel zeigt: der Run eines Servers, sonst die Panelseite. */
+  selection(): { connection: string; runId: string | undefined } | undefined;
   panel(): PanelState;
-  handle(target: string, message: RunPanelHostMessage): void;
+  handle(connection: string, message: RunPanelHostMessage): void;
   panelAction(message: PanelActionMessage): void;
 }
 
@@ -27,15 +27,15 @@ export type PanelRendering = "page" | "frame-kept" | "frame-created";
 
 const nonce = () => randomBytes(16).toString("base64");
 
-const relay = (webview: vscode.Webview, bridge: WebviewBridge, target: () => string | undefined): vscode.Disposable =>
+const relay = (webview: vscode.Webview, bridge: WebviewBridge, connection: () => string | undefined): vscode.Disposable =>
   webview.onDidReceiveMessage((message: unknown) => {
     if (isPanelActionMessage(message)) { bridge.panelAction(message); return; }
     if (!isRunPanelHostMessage(message)) return;
-    const name = target();
+    const name = connection();
     if (name !== undefined) bridge.handle(name, message);
   });
 
-/** Das RAgents-Panel in der zweiten Seitenleiste: die Übersicht aller Umgebungen oder das Run-Panel des gewählten Runs. */
+/** Das RAgents-Panel in der zweiten Seitenleiste: die Übersicht aller Server oder das Run-Panel des gewählten Runs. */
 export class PanelView implements vscode.WebviewViewProvider {
   #view: vscode.WebviewView | undefined;
   #showsPage = false;
@@ -46,7 +46,7 @@ export class PanelView implements vscode.WebviewViewProvider {
   resolveWebviewView(view: vscode.WebviewView): void {
     this.#view = view;
     view.webview.options = { enableScripts: true, localResourceRoots: [vscode.Uri.joinPath(this.extensionUri, "dist/webview")] };
-    const subscription = relay(view.webview, this.bridge, () => this.bridge.selection()?.target);
+    const subscription = relay(view.webview, this.bridge, () => this.bridge.selection()?.connection);
     view.onDidDispose(() => {
       subscription.dispose();
       if (this.#view === view) this.#view = undefined;
@@ -61,18 +61,18 @@ export class PanelView implements vscode.WebviewViewProvider {
     const view = this.#view;
     if (!view) return "page";
     const selection = this.bridge.selection();
-    const frame = selection ? this.bridge.frame(selection.target) : undefined;
+    const frame = selection ? this.bridge.frame(selection.connection) : undefined;
     if (!selection || !frame) {
       this.#renderPage(view);
       return "page";
     }
-    const key = `${selection.target}|${frame.serverUrl}|${frame.theme}|${frame.accessToken ?? ""}`;
+    const key = `${selection.connection}|${frame.serverUrl}|${frame.theme}|${frame.accessToken ?? ""}`;
     if (!this.#showsPage && this.#frameKey === key) return "frame-kept";
     this.#showsPage = false;
     this.#frameKey = key;
     view.webview.html = frameHtml({
       serverUrl: frame.serverUrl,
-      query: { run: selection.runId, host: "vscode", environment: selection.target, theme: frame.theme, access: frame.accessToken },
+      query: { run: selection.runId, host: "vscode", environment: selection.connection, theme: frame.theme, access: frame.accessToken },
       nonce: nonce(),
       title: PANEL_TITLE,
     });
@@ -110,24 +110,24 @@ export class PanelView implements vscode.WebviewViewProvider {
 
 interface OpenPanel {
   panel: vscode.WebviewPanel;
-  target: string;
+  connection: string;
   runId: string;
   elementId: string;
   title: string;
 }
 
-/** Eine Mini-App als Editor-Reiter; ein Panel je (Umgebung, Run, Element), erneutes Öffnen holt es nach vorn. */
+/** Eine Mini-App als Editor-Reiter; ein Panel je (Server, Run, Element), erneutes Öffnen holt es nach vorn. */
 export class AppPanels {
   readonly #panels = new Map<string, OpenPanel>();
 
-  constructor(private readonly bridge: WebviewBridge, private readonly onPlacementsChanged: (target: string, runId: string) => void) {}
+  constructor(private readonly bridge: WebviewBridge, private readonly onPlacementsChanged: (connection: string, runId: string) => void) {}
 
-  centerElements(target: string, runId: string): ReadonlySet<string> {
-    return new Set([...this.#panels.values()].filter((entry) => entry.target === target && entry.runId === runId).map((entry) => entry.elementId));
+  centerElements(connection: string, runId: string): ReadonlySet<string> {
+    return new Set([...this.#panels.values()].filter((entry) => entry.connection === connection && entry.runId === runId).map((entry) => entry.elementId));
   }
 
-  open(target: string, runId: string, elementId: string, title: string, runTitle: string | undefined): void {
-    const key = `${target}:${runId}:${elementId}`;
+  open(connection: string, runId: string, elementId: string, title: string, runTitle: string | undefined): void {
+    const key = `${connection}:${runId}:${elementId}`;
     const existing = this.#panels.get(key);
     if (existing) {
       existing.panel.reveal(undefined, false);
@@ -138,25 +138,25 @@ export class AppPanels {
       retainContextWhenHidden: true,
       localResourceRoots: [],
     });
-    const entry: OpenPanel = { panel, target, runId, elementId, title };
+    const entry: OpenPanel = { panel, connection, runId, elementId, title };
     this.#panels.set(key, entry);
-    const subscription = relay(panel.webview, this.bridge, () => target);
+    const subscription = relay(panel.webview, this.bridge, () => connection);
     panel.onDidDispose(() => {
       subscription.dispose();
       this.#panels.delete(key);
-      this.onPlacementsChanged(target, runId);
+      this.onPlacementsChanged(connection, runId);
     });
     this.#render(entry);
-    this.onPlacementsChanged(target, runId);
+    this.onPlacementsChanged(connection, runId);
   }
 
-  close(target: string, runId: string, elementId: string): void {
-    this.#panels.get(`${target}:${runId}:${elementId}`)?.panel.dispose();
+  close(connection: string, runId: string, elementId: string): void {
+    this.#panels.get(`${connection}:${runId}:${elementId}`)?.panel.dispose();
   }
 
-  /** Schließt alle Reiter einer Umgebung; eine beendete Sitzung lässt keine Mini-App stehen. */
-  closeTarget(target: string): void {
-    for (const entry of [...this.#panels.values()]) if (entry.target === target) entry.panel.dispose();
+  /** Schließt alle Reiter eines Servers; eine beendete Sitzung lässt keine Mini-App stehen. */
+  closeConnection(connection: string): void {
+    for (const entry of [...this.#panels.values()]) if (entry.connection === connection) entry.panel.dispose();
   }
 
   render(): void {
@@ -172,11 +172,11 @@ export class AppPanels {
   }
 
   #render(entry: OpenPanel): void {
-    const frame = this.bridge.frame(entry.target);
+    const frame = this.bridge.frame(entry.connection);
     if (!frame) return;
     entry.panel.webview.html = frameHtml({
       serverUrl: frame.serverUrl,
-      query: { layout: "app", run: entry.runId, element: entry.elementId, host: "vscode", environment: entry.target, theme: frame.theme, access: frame.accessToken },
+      query: { layout: "app", run: entry.runId, element: entry.elementId, host: "vscode", environment: entry.connection, theme: frame.theme, access: frame.accessToken },
       nonce: nonce(),
       title: entry.title,
     });

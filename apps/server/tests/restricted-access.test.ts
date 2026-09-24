@@ -90,18 +90,18 @@ test("Bootstrap liefert eingeschränkten Benutzern ausschließlich erlaubte Scri
   assert.equal("defaultStartEntry" in host.publicProfile(unrestrictedAccess), false);
 });
 
-test("der Default-Einstieg steht im Bootstrap nur, wenn der Benutzer ihn starten darf; ein unbekannter bricht den Start", () => {
+test("die Default-Vorlage steht im Bootstrap nur, wenn der Benutzer sie starten darf; eine unbekannte bricht den Start", () => {
   assert.equal(exampleHost("example.allowed").publicProfile(operator).defaultStartEntry, "example.allowed");
   assert.equal(exampleHost("example.allowed").publicProfile(unrestrictedAccess).defaultStartEntry, "example.allowed");
   const withheld = exampleHost("example.other").publicProfile(operator);
   assert.equal("defaultStartEntry" in withheld, false, "ohne Freigabe fehlt der Default, die Vorlagen bleiben");
   assert.deepEqual(withheld.startEntries.map((entry) => entry.id), ["example.allowed"]);
   assert.equal(exampleHost("example.other").publicProfile(unrestrictedAccess).defaultStartEntry, "example.other");
-  assert.throws(() => exampleHost("example.missing").seal(), /defaultStartEntry example\.missing ist kein registrierter Einstieg; registriert sind example\.allowed, example\.other, example\.skill/);
-  assert.throws(() => new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: "/private/tmp/ragents-access-tests", defaultStartEntry: "example.missing" }).seal(), /kein Plugin dieses Profils registriert Einstiege/);
+  assert.throws(() => exampleHost("example.missing").seal(), /defaultStartEntry example\.missing ist keine registrierte Vorlage; registriert sind example\.allowed, example\.other, example\.skill/);
+  assert.throws(() => new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: "/private/tmp/ragents-access-tests", defaultStartEntry: "example.missing" }).seal(), /kein Plugin dieses Profils registriert Vorlagen/);
 });
 
-test("Canvas-Projektion behält Ansichten und Fachzustand ohne Modelle, Prompts oder Programme", () => {
+test("Flächenprojektion behält Ansichten und Fachzustand ohne Modelle, Prompts oder Programme", () => {
   const view = {
     id: "example", revision: 7, title: "Example", ownerId: "owner", primaryActorId: "helper", createdAt: "now", forkedFrom: null,
     actors: [{ id: "helper", handle: "helper", displayName: "Helper", kind: "agent", createdAt: "now", createdBy: "owner",
@@ -129,7 +129,7 @@ test("Canvas-Projektion behält Ansichten und Fachzustand ohne Modelle, Prompts 
   assert.equal(accessibleRunView(view, unrestrictedAccess), view);
   assert.equal(accessibleChatEvent({ kind: "thinking", delta: "hidden-reasoning" }, operator)?.kind, "thinking");
   assert.equal(accessibleChatEvent({ kind: "tool-result", id: "tool", result: "hidden-output" }, operator)?.kind, "tool-result");
-  assert.equal(accessibleChatEvent({ kind: "extension", pluginId: "ragents.model", type: "state-replaced", payload: { model: "hidden-model" } }, operator), undefined);
+  assert.equal(accessibleChatEvent({ kind: "plugin", pluginId: "ragents.model", type: "state-replaced", payload: { model: "hidden-model" } }, operator), undefined);
   const history = accessibleActorConversations({ revision: 1, actors: { helper: [
     { key: "1", role: "user", text: "Hello" },
     { key: "2", role: "assistant", sender: "builder", text: "hidden-setup-input" },

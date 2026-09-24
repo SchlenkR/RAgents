@@ -6,20 +6,20 @@ import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { chromium } from "playwright-core";
 
-test("nested fixed actor popouts own their wheel events independently of the canvas shortcut bar", {
+test("nested fixed actor popouts own their wheel events independently of the surface shortcut bar", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 60_000,
 }, async (context) => {
-  const scratch = "/private/tmp/ragents-canvas-popout-scroll";
+  const scratch = "/private/tmp/ragents-surface-popout-scroll";
   await mkdir(scratch, { recursive: true });
   const directory = await mkdtemp(`${scratch}/run-`);
   const root = fileURLToPath(new URL("../../../", import.meta.url));
   await build({stdin:{contents:`import React,{useRef,useState}from'react';import{createRoot}from'react-dom/client';
-import{CanvasShortcuts}from'${root}apps/web/src/CanvasShortcuts.tsx';
+import{SurfaceShortcuts}from'${root}apps/web/src/SurfaceShortcuts.tsx';
 import{ActorPopout}from'${root}plugins/ragents.orchestration/web/ActorPopout.tsx';
 import{ChatMessages}from'${root}apps/web/src/chat/ChatMessages.tsx';
 import '${root}apps/web/src/ui/tailwind.css';
 function App(){const button=useRef(null);const[open,setOpen]=useState(false);const[short,setShort]=useState(false);window.fixture={setShort};const messages=Array.from({length:short?1:30},(_,i)=>({key:String(i),role:'assistant',text:short?'Eine kurze Nachricht.':('Eine ausführliche Nachricht mit mehreren Zeilen. ').repeat(12)}));
-return <main style={{width:600,margin:20}}><CanvasShortcuts><div><button ref={button} onClick={()=>setOpen(true)} style={{height:44}}>Actor öffnen</button><ActorPopout open={open} id="actor" label="Actor-Chat" closeLabel="Schließen" buttonRef={button} onClose={()=>setOpen(false)} width={440} height={500} role="dialog"><div className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain"><div style={{height:"100%",display:"flex",flexDirection:"column"}}><ChatMessages messages={messages}/></div></div></ActorPopout></div>{Array.from({length:20},(_,i)=><button key={i} style={{width:130}}>Weiterer Actor {i}</button>)}</CanvasShortcuts></main>}
+return <main style={{width:600,margin:20}}><SurfaceShortcuts><div><button ref={button} onClick={()=>setOpen(true)} style={{height:44}}>Actor öffnen</button><ActorPopout open={open} id="actor" label="Actor-Chat" closeLabel="Schließen" buttonRef={button} onClose={()=>setOpen(false)} width={440} height={500} role="dialog"><div className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain"><div style={{height:"100%",display:"flex",flexDirection:"column"}}><ChatMessages messages={messages}/></div></div></ActorPopout></div>{Array.from({length:20},(_,i)=><button key={i} style={{width:130}}>Weiterer Actor {i}</button>)}</SurfaceShortcuts></main>}
 createRoot(document.getElementById('root')).render(<App/>);`,resolveDir:`${root}apps/web`,loader:"tsx"},jsx:"automatic",bundle:true,platform:"browser",format:"iife",outfile:`${directory}/app.js`,plugins: [tailwindPlugin([`${root}plugins/ragents.orchestration/web`])], logLevel:"silent"});
   await writeFile(`${directory}/index.html`,'<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="app.css"></head><body><div id="root"></div><script src="app.js"></script></body></html>');
   const browser = await chromium.launch({headless:true,executablePath:process.env.BROWSER_EXECUTABLE_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"});

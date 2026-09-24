@@ -10,7 +10,7 @@ export interface RunPanelPageQuery {
   run?: string;
   element?: string;
   host?: "vscode";
-  /** Der Name der Umgebung, in der dieser Run liegt; die Kopfzeile nennt ihn als Pille. */
+  /** Der Name des Servers, auf dem dieser Run liegt; die Kopfzeile nennt ihn als Pille. */
   environment?: string;
   theme?: RunPanelTheme;
   access?: string;

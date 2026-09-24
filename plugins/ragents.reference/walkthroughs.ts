@@ -3,7 +3,7 @@ export const referenceWalkthroughs = [
     id: "mini-app-owner-inspector",
     title: "Den Helfer hinter einer Mini-App öffnen",
     description: "Die Mini-App bleibt als Kachel sichtbar; ihr Besitzer ist auch ohne eigene Kachel erreichbar.",
-    tags: ["Anwendungsfall", "Konzeptdemo", "Kachelfläche"],
+    tags: ["Anwendungsfall", "Konzeptdemo", "Fläche"],
     steps: [
       "Im Profil showcase Sammelboard einrichten öffnen und den Leitfaden abschließen. Erwartung: Die Liste steht als Kachel auf der Fläche; ihr Besitzer hat keine eigene Kachel.",
       "In der Kopfzeile Actors öffnen und den Namen des Listenbesitzers wählen. Erwartung: Rechts öffnen sich dessen Chat und Details, ohne die Kachelaufteilung zu ändern.",
@@ -15,9 +15,9 @@ export const referenceWalkthroughs = [
     id: "personal-tile-arrangement",
     title: "Eine Gesprächsrunde anders aufteilen",
     description: "Kacheln lassen sich persönlich umstellen und wieder auf die Programmvorgabe zurücksetzen.",
-    tags: ["Anwendungsfall", "Konzeptdemo", "Kachelfläche"],
+    tags: ["Anwendungsfall", "Konzeptdemo", "Fläche"],
     steps: [
-      "Im Profil showcase den Einstieg Gesprächsrunde einrichten ausführen und den Aufbau abwarten. Die vom Run gesetzte Aufteilung ansehen.",
+      "Im Profil showcase die Vorlage Gesprächsrunde einrichten ausführen und den Aufbau abwarten. Die vom Run gesetzte Aufteilung ansehen.",
       "Eine Kachel an ihrer Kopfzeile fassen und am oberen Rand einer anderen Kachel andocken. Erwartung: Die Aufteilung ändert sich sofort; alle Gesprächspartner arbeiten weiter.",
       "Die Trennlinie zwischen zwei Kacheln verschieben und denselben Run im selben Browser neu laden. Erwartung: Die persönliche Aufteilung bleibt erhalten; die Actors und die Programmanordnung sind unverändert.",
       "In der Statusleiste Programmvorgabe übernehmen wählen. Erwartung: Die Fläche zeigt wieder die Aufteilung des Runs; der Knopf verschwindet, bis wieder eine eigene Änderung vorliegt.",
@@ -25,20 +25,20 @@ export const referenceWalkthroughs = [
   },
   {
     id: "global-run-overview",
-    title: "Zwei Unterhaltungen im Blick behalten",
-    description: "Der übergeordnete Koordinator liest vorhandene Runs, während die aktuelle Arbeitsfläche geöffnet bleibt.",
+    title: "Zwei Runs im Blick behalten",
+    description: "Der globale Koordinator liest vorhandene Runs, während die aktuelle Fläche geöffnet bleibt.",
     tags: ["Anwendungsfall", "Konzeptdemo", "Globaler Koordinator"],
     steps: [
-      "Im Profil showcase zwei kurze Unterhaltungen zu einer Leseliste und einem Wochenplan anlegen und ihre Antworten abwarten.",
-      "In die Eingabe Globaler Koordinator in der Kopfzeile klicken und damit seinen Verlauf öffnen. Um eine knappe Übersicht der beiden Unterhaltungen mit ihrem jeweiligen Arbeitsstand bitten.",
-      "Die Run-Liste über die Übersichtsecke oder Cmd+I auf macOS beziehungsweise Ctrl+I öffnen, beide Runs auswählen und die Antwort mit ihren tatsächlichen Unterhaltungen vergleichen. Erwartung: Der globale Chat kann beide Journale berücksichtigen; ein Run-Wechsel erhält seinen eigenen Verlauf.",
+      "Im Profil showcase zwei kurze Runs zu einer Leseliste und einem Wochenplan anlegen und ihre Antworten abwarten.",
+      "In die Eingabe Globaler Koordinator in der Kopfzeile klicken und damit seinen Verlauf öffnen. Um eine knappe Übersicht der beiden Runs mit ihrem jeweiligen Arbeitsstand bitten.",
+      "Die Run-Liste über die Übersichtsecke oder Cmd+I auf macOS beziehungsweise Ctrl+I öffnen, beide Runs auswählen und die Antwort mit ihren tatsächlichen Gesprächen vergleichen. Erwartung: Der globale Chat kann beide Journale berücksichtigen; ein Run-Wechsel erhält seinen eigenen Verlauf.",
       "Einen ungesendeten Entwurf oben eingeben, Escape drücken und den Verlauf wieder öffnen. Erwartung: Das Dropdown schließt ohne Stopp; Entwurf, aktueller Run und globales Gespräch bleiben erhalten.",
     ],
   },
   {
     id: "global-prepared-run",
     title: "Eine vorbereitete Runde global starten",
-    description: "Der übergeordnete Koordinator wählt aus dem vorhandenen Katalog ein Run-Script und erstellt damit einen neuen Run.",
+    description: "Der globale Koordinator wählt aus dem vorhandenen Katalog ein Run-Script und erstellt damit einen neuen Run.",
     tags: ["Anwendungsfall", "Konzeptdemo", "Globaler Koordinator"],
     steps: [
       "In die Eingabe Globaler Koordinator in der Kopfzeile klicken und bitten: Zeige die verfügbaren vorbereiteten Run-Scripts und starte Gesprächsrunde einrichten zum Thema gemeinsames Lernen mit zwei Runden.",
@@ -92,7 +92,7 @@ export const referenceWalkthroughs = [
     steps: [
       "Über das Zahnrad Einstellungen, Modelle und Überschriften öffnen. Bei einer großen Liste mit der Suche ein angebotenes Modell finden, auswählen und Speichern wählen.",
       "Die bestätigte Speicherung abwarten. Erwartung: Die Auswahl bleibt im Formular erhalten; Globaler Koordinator sowie Neue Runs und Agenten behalten ihre eigenen Einstellungen.",
-      "Eine neue Unterhaltung mit einem ausführlicheren Auftrag beginnen und die Run-Liste öffnen. Erwartung: Der ursprüngliche Auftrag ist bereits sichtbar. Sobald ein automatischer Titel erfolgreich erzeugt und gespeichert ist, erscheint die kurze Überschrift ohne zusätzlichen manuellen Listenabruf. Eine feste Antwortzeit wird nicht vorausgesetzt.",
+      "Einen neuen Run mit einem ausführlicheren Auftrag beginnen und die Run-Liste öffnen. Erwartung: Der ursprüngliche Auftrag ist bereits sichtbar. Sobald ein automatischer Titel erfolgreich erzeugt und gespeichert ist, erscheint die kurze Überschrift ohne zusätzlichen manuellen Listenabruf. Eine feste Antwortzeit wird nicht vorausgesetzt.",
       "Eine andere Modellwahl als Entwurf einstellen und Änderungen verwerfen wählen. Erwartung: Die bestätigte Auswahl kehrt zurück; ein schon erzeugter Titel wird nicht ersetzt.",
     ],
   },
@@ -102,21 +102,21 @@ export const referenceWalkthroughs = [
     description: "Neue Erzeugungen lassen sich deaktivieren; vorhandene und ausdrücklich gesetzte Titel bleiben erhalten.",
     tags: ["Anwendungsfall", "Konzeptdemo", "Einstellungen und Modellwahl"],
     steps: [
-      "Eine Unterhaltung mit bereits erzeugtem Kurztitel in der Run-Liste ansehen. Unter Einstellungen, Modelle, Überschriften Keine automatischen Überschriften auswählen und speichern.",
+      "Einen Run mit bereits erzeugtem Kurztitel in der Run-Liste ansehen. Unter Einstellungen, Modelle, Überschriften Keine automatischen Überschriften auswählen und speichern.",
       "Die Anwendung neu laden und die Einstellung erneut ansehen. Erwartung: Die Deaktivierung ist gespeichert; der bestehende Kurztitel bleibt unverändert.",
-      "Eine weitere Unterhaltung mit einem normalen Auftrag beginnen. Erwartung: Die Run-Liste zeigt den Auftrag, ohne dafür einen automatischen Kurztitel anzufordern.",
+      "Einen weiteren Run mit einem normalen Auftrag beginnen. Erwartung: Die Run-Liste zeigt den Auftrag, ohne dafür einen automatischen Kurztitel anzufordern.",
       "Optional Sammelboard einrichten starten und im Leitfaden einen Namen vorgeben. Erwartung: Der vorbereitete Ablauf setzt weiterhin seinen eigenen Run-Titel. Ein später wieder aktiviertes Titelmodell überschreibt diesen Namen nicht.",
     ],
   },
   {
     id: "extension-capability-settings",
-    title: "Eine Fähigkeit ihrer Extension zuordnen",
+    title: "Eine Fähigkeit ihrem Plugin zuordnen",
     description: "Die beiden Ansichten der Einstellungen erschließen denselben Bestand aus unterschiedlichen Richtungen.",
     tags: ["Anwendungsfall", "Konzeptdemo", "Einstellungen und Modellwahl"],
     steps: [
-      "Über das Zahnrad die Einstellungen öffnen und zu Erweiterungen wechseln. In Nach Extension die Actor-Programm-Extension auswählen und ihre Werkzeuge und Web-Beiträge ansehen.",
-      "Zu Nach Fähigkeit wechseln, Werkzeuge auswählen und nach actor_program suchen. Erwartung: Die passenden Beiträge erscheinen mit ihrer jeweiligen Extension als Eigentümer.",
-      "Den Link zur Actor-Programm-Extension öffnen. Erwartung: Ihr vollständiges Inventar ist wieder sichtbar; ein vorheriger Suchfilter verdeckt die Detailseite nicht.",
+      "Über das Zahnrad die Einstellungen öffnen und zu Plugins wechseln. In Nach Plugin das Actor-Programm-Plugin auswählen und ihre Werkzeuge und Web-Beiträge ansehen.",
+      "Zu Nach Fähigkeit wechseln, Werkzeuge auswählen und nach actor_program suchen. Erwartung: Die passenden Beiträge erscheinen mit ihrem jeweiligen Plugin als Eigentümer.",
+      "Den Link zum Actor-Programm-Plugin öffnen. Erwartung: Sein vollständiges Inventar ist wieder sichtbar; ein vorheriger Suchfilter verdeckt die Detailseite nicht.",
       "Zu Modelle wechseln und die Koordinator-Modellwahl öffnen. Nur tatsächlich angebotene Werte sind wählbar; eine ungültige Kombination wird nicht still ersetzt.",
     ],
   },
@@ -126,7 +126,7 @@ export const referenceWalkthroughs = [
     description: "Eine TypeScript-Prüfung macht den zugehörigen Sprachserver in der Prozessanzeige sichtbar.",
     tags: ["Anwendungsfall", "Konzeptdemo", "Prozessanzeige"],
     steps: [
-      "Im Profil showcase den Skill-Einstieg Fehler in einer Terminliste finden ausführen. Voraussetzung ist ein verfügbarer TypeScript-Sprachserver; eine fehlende Voraussetzung muss als Fehler gemeldet werden.",
+      "Im Profil showcase die Skill-Vorlage Fehler in einer Terminliste finden ausführen. Voraussetzung ist ein verfügbarer TypeScript-Sprachserver; eine fehlende Voraussetzung muss als Fehler gemeldet werden.",
       "Nach dem Öffnen des Sprachservers die gemeinsame Kopfzeile des Runs ansehen. Erwartung: Der verwaltete Sprachserver erscheint als zu diesem Run gehörender Prozess.",
       "Einen anderen Run öffnen und zurückwechseln. Erwartung: Die Prozessanzeige folgt dem ausgewählten Run und ist kein gemeinsames Verzeichnis aller Rechnerprozesse.",
       "Die Prozessanzeige dient der Beobachtung. Sie bietet keinen Beenden-Knopf; fehlende Betriebssystemrechte oder Werkzeuge werden als sichtbarer Fehler gemeldet.",
@@ -183,7 +183,7 @@ export const referenceWalkthroughs = [
   {
     id: "restore-conversation-context",
     title: "Zwei Gesprächsverläufe nach Neustart fortsetzen",
-    description: "Normale Unterhaltung und globaler Koordinator behalten ihre jeweils eigene Geschichte.",
+    description: "Normaler Run und globaler Koordinator behalten ihre jeweils eigene Geschichte.",
     tags: ["Anwendungsfall", "Konzeptdemo", "Wiederherstellung nach Neustart"],
     steps: [
       "In einem normalen showcase-Run drei Lernziele besprechen und im globalen Chat eine knappe Übersicht dieses Runs anfordern. Beide Antworten vollständig abwarten und die globale Modellwahl merken.",
@@ -198,7 +198,7 @@ export const referenceWalkthroughs = [
     description: "Ein Bild aus der Zwischenablage wird vor dem Senden geprüft und danach als Anhang im Verlauf gezeigt.",
     tags: ["Anwendungsfall", "Konzeptdemo", "Multimodale Eingaben"],
     steps: [
-      "Eine eigene unkritische Skizze in die Zwischenablage kopieren. Eine neue Unterhaltung öffnen und ein angebotenes Modell wählen, das Bildeingaben unterstützt.",
+      "Eine eigene unkritische Skizze in die Zwischenablage kopieren. Einen neuen Run öffnen und ein angebotenes Modell wählen, das Bildeingaben unterstützt.",
       "Das Bild mit Cmd+V oder Ctrl+V in die Chat-Eingabe einfügen. Erwartung: Eine Bildvorschau erscheint, lässt sich vor dem Senden wieder entfernen und wurde noch nicht allein durch das Einfügen gesendet.",
       "Mit der Frage Welche drei Formen erkennst du? senden. Erwartung: Nach erfolgreicher Annahme stehen Nachricht und dauerhafter Bildanhang im Verlauf; die Antwort wird gegen die tatsächliche Skizze geprüft.",
       "Falls das Zielmodell keine Bildeingaben unterstützt, muss der Composer das Senden mit einer verständlichen Meldung blockieren. Kein passendes Modell im Katalog ist eine fehlende Voraussetzung, kein Anlass für einen behaupteten Bildbefund.",

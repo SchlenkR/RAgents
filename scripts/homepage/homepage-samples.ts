@@ -61,7 +61,7 @@ export async function buildHomepageSamples(repoRoot: string): Promise<Map<string
     if (!javascript || !css) throw new Error(`Die Sample-Vorschau ${id} benötigt JavaScript und CSS.`);
     const tailwind = await buildTailwind([path.join(repoRoot, sampleSource), { base: path.join(repoRoot, "docs/homepage"), pattern: "*.tsx" }]);
     outputs.set(`${id}.html`, `<!doctype html>
-<html lang="en" data-ui-surface="mini-app">
+<html lang="en" data-ui-frame="mini-app">
 <head>
 <meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="connect-src 'none'">

@@ -5,8 +5,8 @@ import { workspaceResolverToken, workspaceRuntimeToken, type WorkspaceResolver }
 import { sandboxServicesToken } from "@ragents/host/plugin-support/workspace-sandbox-host.js";
 import {
   runtimeProviderToken,
-  sessionGuardToken,
-  sessionWorkspaceProviderToken,
+  runGuardToken,
+  runWorkspaceProviderToken,
   workspaceGuardToken,
 } from "@ragents/host/ragents/host-services.js";
 import { pluginAsset } from "@ragents/host/plugin-support/plugin-folder.js";
@@ -24,7 +24,7 @@ import { RunWorkspaceRuntime } from "./runtime.js";
 const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): RAgentsPlugin => ({
   manifest: { id: "ragents.workspace" },
   register: (host) => {
-    const sessionWorkspaceFor = host.service(sessionWorkspaceProviderToken);
+    const sessionWorkspaceFor = host.service(runWorkspaceProviderToken);
     const orchestration = host.service(runtimeProviderToken);
     const runState = (runId: string): RunState | null => {
       try {
@@ -79,7 +79,7 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
       }),
     );
     const browseOptions = {
-      ensureSession: host.service(sessionGuardToken),
+      ensureSession: host.service(runGuardToken),
       ensureWorkspaceAccess: host.service(workspaceGuardToken),
       execute: runtime.sandbox.execute.bind(runtime.sandbox),
       documentsFor: documentsRoot,
@@ -87,8 +87,8 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
     };
     host.methods(...createBrowseMethods(browseOptions), ...clientMethods(clients));
     host.channels(createBrowseChannel(browseOptions));
-    host.startOptions(workspaceBindingOption(clients, () => contribution()?.kind));
-    host.sessionMetadata({ id: WORKSPACE_METADATA_ID, describe: ({ runId }) => sessionMetadataOf(runState(runId), contribution()?.kind) });
+    host.startOptions(workspaceBindingOption(clients, contribution));
+    host.sessionMetadata({ id: WORKSPACE_METADATA_ID, describe: ({ runId }) => sessionMetadataOf(runState(runId), contribution()) });
     host.lifecycle({
       id: "ragents.workspace.lifecycle",
       stopSession: ({ runId }) => runtime.stopSession(runId),

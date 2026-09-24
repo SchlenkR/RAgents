@@ -10,7 +10,7 @@ Host-API-Liste `apps/server/src/host-api.json` fest (`plugins.md`).
 <!-- guide:runtime -->
 ## Runs and participants
 
-A run is a conversation with its own participants, working files, and journal. An actor is a
+A run is a piece of work with its own participants, working files, and journal. An actor is a
 participant in that run: the human owner, an LLM agent, or a TypeScript actor. LLM agents
 process tasks with a model; TypeScript actors execute their programmed input handler. The actor
 selected as primary is the user's direct chat partner. This choice does not depend on who
@@ -50,17 +50,28 @@ The scheduler processes at most one turn per actor:
 
 1. It claims exactly one waiting ActorInput.
 2. It assembles the toolset, working directory, and system prompt.
-3. The driver processes only this input.
+3. The driver processes this input; an agent's driver also takes steering (see below).
 4. Model output, reasoning, runtime output, and tool calls are automatically recorded as
    events in the journal.
 5. The turn ends as `completed`, `failed`, or `interrupted`.
 
-Additional inputs wait for the next turn. They are not injected into a running turn. An input
-that refers to the running turn, such as a reminder or a status note, would therefore always be
-outdated when processed and must not be queued. Only an agent hook can enter a running turn: the
-`beforeModelCall` hook of an `agentRuntime` contribution adds a hidden note before each model
-request without ending the turn. This is how actor-program project diagnostics work for actors
-equipped with actor-program tools, and how a product plugin can provide progress reminders.
+Inputs that arrive while an agent's turn runs join that turn as steering. Before each model
+request, the turn takes all waiting inputs of its actor in journal order and hands them to the
+model after the results of the tool calls that were running; a running tool call is neither
+aborted nor cut short. If the model has just given its final answer, a joined input starts
+another model request in the same turn. The journal records each joined input with
+`turn.input-steered`, and the chat marks the message as fed into the running turn. An input that
+arrives after the last model request of the turn, or after the turn was interrupted, starts the
+actor's next turn instead. TypeScript actors have no model and take no steering; their inputs
+always wait for the next turn. An input longer than 30,000 characters does not join; it and every
+later input wait for the next turn, so the order stays intact.
+
+A hidden note about the running turn, such as a status note or a progress reminder, does not
+belong in an input: an input appears in the chat and starts a new turn once the current one has
+ended. Such a note comes from an agent hook: the `beforeModelCall` hook of an `agentRuntime`
+contribution adds it before each model request without ending the turn. This is how
+actor-program project diagnostics work for actors equipped with actor-program tools, and how a
+product plugin can provide progress reminders.
 
 A failed turn, or one interrupted by a server restart, is not queued or executed again
 automatically. ActorInputs that were already queued but not yet claimed remain waiting. After
@@ -72,8 +83,9 @@ turn outcome.
 For an LLM, one turn can include several model requests and TypeScript snippets. `return` ends
 the current snippet and gives its findings to the model. The model can then decide what to do
 and execute another snippet within the same turn. A snippet does not wait for later agent
-responses or events: a subscription creates a new ActorInput and therefore a later turn. The
-programming language needs no additional decision point for this.
+responses or events: a subscription creates a new ActorInput, which reaches the model at the
+earliest after the snippet, as steering or in a later turn. The programming language needs no
+additional decision point for this.
 <!-- /guide:runtime -->
 
 ### Leere Antworten, Werkzeugaufrufe und Toolset
@@ -107,7 +119,7 @@ kopiert den Quelltext nicht zusätzlich; Detailansichten lesen das gespeicherte 
 Der `TurnToolset` bindet Aufrufe an genau einen Turn. Nach dessen Ende ist die Bindung ungültig.
 Vor Aufrufen löst er den aktuellen Werkzeugbestand erneut über die Registry auf. Die
 AgentSession erneuert zwischen Modellanfragen native Schemata und die erzeugte Systemübersicht aus demselben Bestand, ohne den laufenden Turn zu beenden.
-Agent-Extensions leben dagegen mit der AgentSession und dürfen keinen alten Turnzustand capturen.
+Hooks leben dagegen mit der AgentSession und dürfen keinen alten Turnzustand capturen.
 
 ## Actor-Zustand und Funktionen
 
@@ -122,7 +134,7 @@ benötigt keinen Modell-Turn. ActorInputs bleiben dagegen in der normalen Actor-
 Ein LLM-Actor verarbeitet sie mit seinem Modell, ein TypeScript-Actor mit dem Input-Handler
 seines Programms. Beide können dieselben Arten von Funktionen und React-Views besitzen.
 Der Paket- und Aktivierungslebenszyklus gehört zum Plugin `ragents.actor-programs` und ist in
-`run-modules.md` beschrieben.
+`actor-programs.md` beschrieben.
 
 <!-- guide:runtime -->
 ## Model context across turns
@@ -151,14 +163,26 @@ Vor jedem Prompt bindet ein stabiler Dispatcher den aktuellen Turn mit Toolset, 
 Callbacks und `AbortSignal`. Danach wird diese Bindung gelöst. Damit hält eine langlebige Session
 keine Closure auf einen alten Turn.
 
-Ein ActorInput startet genau einen Turn. Weitere Inputs an einen LAUFENDEN Actor bleiben nach ihrer
-Journal-Sequenz in der Queue und beginnen erst nach dessen Abschluss eigene Turns. Es gibt keine
-Hintergrundzustellung in laufende Werkzeuge und kein Wake-State-Modell. Steering gibt es dagegen
-sehr wohl: eine Nachricht während eines laufenden Tool-Calls bricht diesen nicht ab. Der Call
-liefert sofort ein Zwischenergebnis, die Schleife macht mit dem nächsten LLM-Call weiter, der die
-Nachricht sieht, und das echte Ergebnis wird als getaggte Steering-Nachricht nachgereicht
-(gekappt bei 30000 Zeichen). Zustellung als Steering statt Follow-up, weil ein Follow-up im
-Leerlauf keinen Lauf startet.
+Ein ActorInput beginnt höchstens einen Turn. Weitere Inputs an einen Agenten mit laufendem Turn
+kommen als Steering in diesen Turn: Die Agentenschleife fragt vor der ersten Modellanfrage und
+nach jeder Antwort samt ihren Werkzeugergebnissen ihre Steering-Quelle ab
+(`Agent.steeringSource`), die Laufzeit reicht das an `TurnRequest.claimSteering` weiter. Der
+Scheduler nimmt dann die ältesten wartenden Inputs des Actors in Journal-Reihenfolge, bis vor den
+ersten mit mehr als 30000 Zeichen Inhalt (`STEERING_MAX_CHARS`), und schreibt für jeden ein
+`turn.input-steered` mit Turn und Input, alle in einem Command. Erst danach gehen die Texte als
+Nutzer-Nachrichten in den Modellkontext, aufbereitet wie beim Turn-Start: dieselbe Kopfzeile für
+zugestellte Events, Anhänge als Medien, Text oder abgelegte Datei. Die Entscheidung prüft, dass
+der Turn läuft, sein Actor den Agententreiber hat und kein älterer wartender Input übersprungen
+wird; die Journalprüfung verlangt beim Laden dasselbe außer dem Treiber. Ein so übernommener
+Input ist von diesem Turn beansprucht (`lifecycle` `claimed` mit `steered: true`) und beginnt
+keinen eigenen; wer Inputs ihrem Turn zuordnet, liest deshalb `turn.started` und
+`turn.input-steered`. Nach dem Abbruchsignal, außerhalb des laufenden Turns und während eines
+Run-Stopps übernimmt `claimSteering` nichts. Scheitert die Aufbereitung, etwa weil das Modell ein
+angehängtes Bild nicht annimmt, endet die Schleife mit diesem Fehler, der Turn scheitert daran, und
+der Input bleibt ihm zugeordnet. Ein Input, der nach der letzten Abfrage eintrifft, bleibt wartend
+und beginnt nach dem Turn-Ende einen neuen. Es gibt keine Follow-up-Warteschlange, keine
+Hintergrundzustellung in laufende Werkzeuge und kein Wake-State-Modell: ein Werkzeugaufruf läuft
+bis zu seinem Ergebnis oder Abbruch, und Steering wartet darauf.
 
 Die Zuordnung zur JSONL ist ausdrücklich in `active-session.json` mit Agenten-, Run- und
 Agent-Session-ID gespeichert. Die frühere Auswahl nach der neuesten Dateizeit gibt es nicht mehr:
@@ -189,8 +213,8 @@ Retries, Steering und innere Agentenschleife bleiben bestehen; Erweiterungen sin
 die die Engine selbst anlegt, Skills liest allein der Host, und die Laufzeit liest weder
 Einstellungs- noch Zugangsdateien noch sucht oder installiert sie Pakete.
 Das eigene Verhalten ist Teil dieses Kapitels:
-`AgentSession.setSystemPrompt` setzt den Systemprompt einer langlebigen Session neu und erhält die
-Unterhaltung. Aktualisierte Rollenregeln und kurze Initialhinweise werden so pro Turn wirksam;
+`AgentSession.setSystemPrompt` setzt den Systemprompt einer langlebigen Session neu und erhält das
+Gespräch. Aktualisierte Rollenregeln und kurze Initialhinweise werden so pro Turn wirksam;
 ausdrücklich abgerufene Detailkapitel bleiben Gesprächsinhalte und werden nicht zusätzlich in
 den Systemprompt übernommen. Denktiefe `off` sendet an OpenRouter die explizite Abschaltung
 aus dem Modellkatalog, etwa `reasoning: { effort: "none" }`, oder ohne solches Mapping
@@ -199,8 +223,8 @@ tatsächliche Modell der Agentensession. Eine nicht verfügbare Auswahl beendet 
 einer Fehlermeldung samt gültigen Stufen, bevor eine Modellanfrage gesendet wird; sie wird
 nicht durch eine andere Denktiefe ersetzt. Modellkatalog und Werkzeugverträge erhalten auch die
 erweiterten Stufen der Modelllaufzeit. Beim Erzeugen eines Agenten wird die endgültige Auswahl
-gegen den Modellkatalog geprüft, einschließlich einer aus dem Profil geerbten Denktiefe nach
-einem Modellwechsel. Ohne ausdrückliche Denktiefe oder Profilvorgabe verwendet die Session ihre
+gegen den Modellkatalog geprüft, einschließlich einer aus der Rolle geerbten Denktiefe nach
+einem Modellwechsel. Ohne ausdrückliche Denktiefe oder Rollenvorgabe verwendet die Session ihre
 modellgültige Vorgabe; der Host setzt darüber keine globale Agenten-Denktiefe.
 Die Werkzeug-Validierungsmeldung wiederholt die empfangenen
 Argumente nicht, nennt nur die Feldfehler (bei Enum-Fehlern samt empfangenem Wert und erlaubten
@@ -224,19 +248,13 @@ Die drei `package.json` laden zur
 Laufzeit die TS-Quellen, der Typecheck sieht die generierten `dist/*.d.ts`, die `pnpm build:agent`
 erzeugt.
 
-Steering während eines laufenden Werkzeugaufrufs lässt das Werkzeug weiterarbeiten. Der
-Modellkontext bekommt zunächst ein Zwischenergebnis und die neue Nachricht; das tatsächliche
-Ergebnis folgt als gekennzeichnete Steering-Nachricht, auf 30000 Zeichen begrenzt. Fehler
-bleiben darin als Fehler markiert. Kommt das Ergebnis im Leerlauf an, wartet es auf den
-nächsten Modellaufruf.
-
 Die Dateibearbeitung nennt bei mehrdeutigen Treffern deren Zeilennummern und unterstützt
 gezielte Vorkommen, eine nahe Zeile oder alle Vorkommen. Widersprüchliche Anker und gleich
 nahe Treffer werden abgelehnt. Die Prüfung des zuletzt gelesenen Dateistands erfolgt innerhalb
 derselben Mutationssperre wie das Schreiben, auch bei symbolischen Dateialiasen. Ein Abbruch
 gibt diese Sperre erst frei, wenn eine bereits laufende Dateioperation beendet ist.
 
-In jeder Laufzeit sind zwei interne Agent-Extensions aktiv:
+In jeder Laufzeit sind zwei interne Hooks aktiv:
 
 - `ragents-turn-dispatcher` bindet den aktuellen RAgents-Turn und dessen Toolset an die langlebige
   AgentSession.
@@ -256,6 +274,17 @@ Dieselbe Entscheidung steuert Rollenvertrag und Skill-Auswahl. Das Vorladen erze
 zweite Agent-Session noch einen eigenen Agentenloop. Für `tools: []` lädt die Agentenlaufzeit weder Host-Werkzeuge noch
 Skills oder Preloads.
 
+### Sicherheits-Lockdown der Agentenlaufzeit
+
+Alle Einschränkungen stecken in der Engine-Konfiguration beim Serverstart (weder Modell noch
+Client können sie ändern): Der Systemprompt wird geordnet aus den Beiträgen der aktiven Plugins
+zusammengesetzt. Skills kommen ausschließlich aus deren registrierten Pfaden. Die Werkzeuge stammen
+aus dem RAgents-Core und der Plugin-Registry statt aus einer frei wählbaren Liste. Die
+Agentenlaufzeit liest weder Einstellungs- noch Zugangsdateien; feste Rollen binden die Modelle.
+Capabilities begrenzen die Orchestrierung und ihre Delegation.
+Workspace-Werkzeuge bleiben sichtbar; Rollen werden im Prompt beschrieben und die technische
+Grenze ist die Sandbox je Run. Bash ist darin erlaubt.
+
 <!-- guide:runtime -->
 ## Interrupting a turn, stopping an actor, stopping a run, and shutting down the server
 
@@ -271,7 +300,7 @@ run are separate, explicitly labeled actions.
 
 In the run title bar, a user with write permission can request a complete stop through "Run
 stoppen" (stop run) and a confirmation. The primary actor can also trigger it with `run_stop`. Both use the
-same host stop boundary; the conversation and files remain intact. The function call initiates
+same host stop boundary; the chat and files remain intact. The function call initiates
 the stop but does not wait for cleanup of its own turn. Acceptance is not proof of completion.
 Cleanup errors are reported in the server log while the stop path's normal quarantine remains
 in effect.
@@ -281,7 +310,7 @@ in effect.
 - `actor_stop`: Stops the actor, interrupts its running turn, and disposes its model runtime
   after the turn. Its active descendants are stopped in the same journal command, so a branch is
   never stopped halfway. The journal names the actor that called `actor_stop` as the one who
-  stopped them. Run data and plugin sessions remain.
+  stopped them. Run data and the run's plugin data remain.
 - Run stop: The scheduler temporarily accepts no new work for this run; concurrent stop calls
   are handled together. The primary actor remains, but its running work is interrupted. All
   other agents and TypeScript actors in the user's ownership tree are stopped. Agent runtimes
@@ -289,7 +318,7 @@ in effect.
   pending app actions. An open confirmation question is discarded through `ragents.ask` in the
   journal and the domain operation is no longer invoked. The run can be reused afterward.
 - Run deletion: The scheduler stops the run. Its agent runtimes are then disposed and plugin
-  deletion hooks run. The chat, recovery data, and journal are archived; session-bound plugin
+  deletion hooks run. The chat, recovery data, and journal are archived; run-bound plugin
   data, including its logs, is removed afterward.
 - Server shutdown: The scheduler interrupts running work and waits for it to finish. It then
   shuts down all agent runtimes and plugin services. Persisted run data remains intact.
@@ -318,7 +347,9 @@ erst, wenn der alte Treiber zurückgekehrt ist. Einen Turn, den kein Treiber die
 ausführt, beendet die Unterbrechung nur im Journal. Ohne laufenden Turn geschieht nichts, auch
 kein Fehler. Kein `actor.stopped`, kein Eingriff in Kinder, Abonnements oder die Modell-Session:
 der Actor nimmt die nächste Eingabe als neuen Turn im selben Gespräch an. Der Kern kennt dabei nur
-Turn und Actor.
+Turn und Actor. Was der Turn bis zur Unterbrechung per Steering übernommen hat, bleibt ihm
+zugeordnet und wird nicht erneut zugestellt; was danach eintrifft oder noch wartet, beginnt den
+nächsten Turn.
 
 Die Agentenschleife prüft das Abbruchsignal unmittelbar vor jeder Modellanfrage, also nach
 Kontext-Hooks, Kontextumbau und Schlüsselauflösung. Ein Abbruch während eines Werkzeugaufrufs oder
@@ -375,7 +406,7 @@ Ein erneuter Stopp wartet auch nach einer fehlgeschlagenen Bereinigung alle aktu
 Treibernachläufe ab, bevor er die abschließenden Plugin-Beiträge wiederholt.
 
 Eine Run-Löschung wird vor dem ersten irreversiblen Schritt dauerhaft markiert. Mit dieser
-Markierung ist die Löschanfrage beantwortet (`ragents.sessions.delete` liefert `null`) und der
+Markierung ist die Löschanfrage beantwortet (`ragents.runs.delete` liefert `null`) und der
 Run aus der Liste verschwunden; das
 Stoppen, Entfernen und Archivieren läuft als Löschjob im Hintergrund weiter, Fehler landen im
 Serverlog. Scheitert er oder stürzt der Host ab, beendet der nächste Serverstart diese
@@ -490,14 +521,14 @@ die einem Modell ein Arbeitsverzeichnis nennt: die Agentenlaufzeit hängt an den
 Schedulers nichts über Ordner an, auch keine Zeile `Current working directory`. Ein Actor ohne
 Arbeitsbereichswerkzeuge bekommt weder das Kapitel noch einen Pfad. Sein einziger Dateizugang wäre
 `typescript_eval`, und das arbeitet über `context.functions` und relative Pfade; der Ordner, in dem
-es auf dem Server läuft, ist ein Detail des Hosts und bei der Bindung `client` nicht einmal der
-Ordner des Projekts.
+es auf dem Server läuft, ist ein Detail des Hosts und bei einem Run auf einem Arbeitsplatz nicht
+einmal der Ordner des Projekts.
 
 Die Agentenlaufzeit trennt zwei Ordner. `TurnRequest.workspace` ist das Arbeitsverzeichnis der
 Werkzeuge; es kann auf einem anderen Rechner liegen, und die Laufzeit bleibt nur an diesen Namen
 gebunden. `TurnRequest.runtimeDirectory` liefert erst bei Bedarf den Ordner auf diesem
 Rechner, in dem die Laufzeit ihre eigenen Belange erledigt: ihre Sitzungsdatei trägt ihn, ihre
-Einstellungen, Ressourcen und Erweiterungen sehen ihn, und er muss existieren. Der Host liefert ihn
+Einstellungen, Ressourcen und Hooks sehen ihn, und er muss existieren. Der Host liefert ihn
 über `Workspaces.runtimeDirectory`; bei einem Arbeitsbereich auf dem Server ist es derselbe Ordner,
 bei einem Arbeitsplatz der eigene Ordner des Runs auf dem Server. Eine gespeicherte Sitzung
 öffnet immer im aktuellen `runtimeDirectory`, auch wenn ihr Kopf einen anderen Ordner nennt, etwa
@@ -604,21 +635,21 @@ Equipped LLMs receive `typescript_api` and `typescript_eval`, plus an automatica
 overview of their available TypeScript functions with names and short descriptions. The
 overview stays current during the turn. Domain functions are called through
 `context.functions` in snippets. Additional native tools require explicit registration. Roles
-and work boundaries remain prompt instructions. Alongside a profile, `agent_spawn` accepts
-`model` and `thinking` from the model list. A profile supplies only the driver, provider,
+and work boundaries remain prompt instructions. Alongside a role (field `profile`), `agent_spawn` accepts
+`model` and `thinking` from the model list. A role supplies only the driver, provider,
 reasoning level, timeout, and workspace default; the product model list defines which models are
-available. If neither a model nor a profile that supplies one is present when an agent starts,
-the error lists the available profiles for the selected driver. A manual profile is not
+available. If neither a model nor a role that supplies one is present when an agent starts,
+the error lists the available roles for the selected driver. A manual role is not
 suggested as an agent's model choice.
 <!-- /guide:runtime -->
 
 ### Modellwahl, Bestandsprüfung und Run-Konfiguration
 
 Werkzeugbeschreibung, Feldbeschreibungen und Orchestrierungsprompt verlangen die ausdrückliche
-Profil- oder Modellwahl für jeden LLM-Spawn und erklären, dass das Modell des Aufrufers nicht
-vererbt wird. Die Felder bleiben einzeln optional, weil ein Profil das Modell liefern kann und
+Rollen- oder Modellwahl für jeden LLM-Spawn und erklären, dass das Modell des Aufrufers nicht
+vererbt wird. Die Felder bleiben einzeln optional, weil eine Rolle das Modell liefern kann und
 manuelle beziehungsweise Script-Treiber kein Modell benötigen. Fehlende Auswahl bleibt ein
-harter Fehler; es gibt keine automatische Wahl eines Standardprofils.
+harter Fehler; es gibt keine automatische Wahl einer Standardrolle.
 
 Der Orchestrierungsprompt verlangt vor einer Neuanlage die Bestandsprüfung mit `actor_list`.
 Passende vorhandene Beteiligte erhalten neue Aufgaben über `actor_input`; nur fehlende Rollen
@@ -628,7 +659,7 @@ belegtem Handle einen freien Suffix. Die Laufzeit leitet aus gleichen Namen kein
 
 Den Run selbst konfiguriert `run_configure` unter der Capability `run.configure`: `title`
 schreibt das Ereignis `run.title-changed`, `primaryActor` wählt einen aktiven Agenten oder
-Script-Actor als Primary-Actor (`run.primary-actor-selected`); beides zusammen ist erlaubt, keins
+TypeScript-Actor als Primary-Actor (`run.primary-actor-selected`); beides zusammen ist erlaubt, keins
 von beiden ein benannter Fehler. Der Besitzer des Runs konfiguriert von Rechts wegen, jeder andere
 Actor braucht den Grant; die Journal-Semantik prüft dasselbe beim Laden. Besitzer und Koordinator
 halten alle neun Capability-Namen aus `domain/vocabulary.ts`. Wechselt der Primary-Actor, bindet
@@ -640,7 +671,7 @@ Sie ändern `RunState.title` nicht. Ein ausdrücklich über `run_configure` oder
 gewählter Titel hat in der Oberfläche Vorrang. Modellwahl und Erzeugung beschreibt
 `profiles.md`, die Aktualisierung der Run-Liste `plugins.md`.
 
-## Übergeordneter Koordinator
+## Globaler Koordinator
 
 Seine Modellauswahl liegt dauerhaft in der profilbezogenen Plugin-Ablage. Die Settings-API
 prüft Modell und Reasoning gegen den konfigurierten Katalog und die Modelllaufzeit. Ein
@@ -649,20 +680,35 @@ Modell wird vor dem Speichern abgewiesen. Die Agent-Session und ihr Gespräch bl
 Nach dem Claim eines Turns übernimmt der Scheduler synchron die aktuelle Modellauswahl;
 die Plugin-Policy hält sie mit Turn-Bezug als `plugin.state-replaced` fest. Ein schon
 gestarteter Turn behält seine Auswahl. `Actor.execution` beschreibt weiterhin die
-Startkonfiguration; die tatsächliche Auswahl des übergeordneten Koordinators steht pro Turn
+Startkonfiguration; die tatsächliche Auswahl des globalen Koordinators steht pro Turn
 in dessen Plugin-Ereignis. Gewöhnliche Actors verwenden ihre konfigurierte Ausführung.
 
-Das Plugin `ragents.overseer` stellt eine eigene, dauerhafte Unterhaltung unter der reservierten
-Run-ID `overseer` bereit. Sie verwendet dieselben Chat-Routen, Agentenlaufzeit, Journal- und
-Stop-Grenzen wie andere Unterhaltungen. Erst die erste Nachricht legt den Run an; nach einem
-Neustart bleiben Chat und Modellkontext erhalten. Die normale Unterhaltungsliste blendet ihn aus,
-eine Löschung wird mit dem Fehler `global-chat-protected` (Status 409) abgewiesen. Die Ablage gehört wie alle Runs zum Datenverzeichnis
-des gestarteten Profils.
+Das Plugin `ragents.overseer` gibt jedem angemeldeten Benutzer einen eigenen, dauerhaften
+Run mit dem globalen Koordinator; ohne Anmeldung (offen, `ACCESS_TOKEN`,
+`anonymousUser`) gibt es genau einen. Ihre Run-ID bildet der Server aus dem Benutzer
+(`overseer-` und die ersten 24 Hexzeichen von SHA-256 der Benutzerkennung, ohne Anmeldung
+`overseer-single`); Web und andere Clients fragen sie mit `ragents.overseer.coordinator` ab.
+Eigentümer ist der Benutzer. Die Kennung erreicht nur er: kein anderer Benutzer, auch nicht mit
+`runs.read.all`, und eine noch freie Koordinatorkennung gehört nicht dem, der sie zuerst nennt,
+sondern antwortet jedem anderen mit `run-not-found`. Rechte bleiben die des Plugins
+(`ragents.overseer.read` und `.write`); freie Runs (`runs.create`) braucht die erste Nachricht nicht.
+Der Run verwendet dieselben Chat-Routen, Agentenlaufzeit, Journal- und Stop-Grenzen wie
+andere Runs. Erst die erste Nachricht legt den Run an; nach einem Neustart bleiben Chat
+und Modellkontext erhalten. Die normale Run-Liste blendet alle Koordinatoren aus, eine
+Löschung oder ein Umzug wird mit `global-chat-protected` (Status 409) abgewiesen, ein Import unter
+einer Koordinatorkennung mit `run-transfer-exists`. Die Ablage gehört wie alle Runs zum
+Datenverzeichnis des gestarteten Profils.
+
+Die Kennung `overseer` des früheren gemeinsamen Koordinators bleibt reserviert, gehört aber keinem
+Zugang: Der Server öffnet ihn nicht, niemand erreicht ihn, und sein Journal bleibt unverändert
+liegen. Dasselbe gilt für den Koordinator eines Benutzers, der aus dem Profil entfernt wurde. Ein
+Turn eines solchen Koordinators scheitert an `coordinator-without-access`, weil sein Arbeitsbereich
+keinen Zugang hätte, mit dem er handeln könnte.
 
 Jede aus der Oberfläche gesendete globale Nachricht führt einen kompakten Standort zum
 Absendezeitpunkt mit: Startansicht, Run-Übersicht oder geöffneter Run, aktiver Bereich
 und Reiter sowie ein ausgewähltes Element. Der Browser sendet nur kleine Kennungen. Der Server
-löst den Run-Titel, die vorhandene kurze Laufreferenz und gegebenenfalls den Actor-Namen auf.
+löst den Run-Titel, die vorhandene kurze Run-Referenz und gegebenenfalls den Actor-Namen auf.
 Der Standort dient der Orientierung; er ist weder Auftrag noch Berechtigung für eine Aktion.
 
 Der sichtbare Nutzertext bleibt unverändert. Die aufgelöste Orientierung liegt getrennt im
@@ -686,6 +732,9 @@ Den Grund eines Stopps nennen beide Ansichten einmal: Unterbricht derselbe Comma
 Actors, steht er an der Unterbrechung, und das `actor.stopped` dieses Commands wiederholt ihn
 nicht; ein Stopp ohne laufenden Turn nennt ihn am `actor.stopped`.
 Tool-Argumente entsprechen in beiden Ansichten dem journalisierten JSON, auch bei `null`.
+Jede eingehende Nachricht trägt die Kennung ihres Inputs. Ein `turn.input-steered` markiert sie an
+ihrer ursprünglichen Stelle als in den laufenden Turn eingespeist; die Oberfläche zeigt darunter
+"In den laufenden Turn eingespeist", im Primär-Chat wie im Actor-Verlauf und nach Wiedergabe gleich.
 Eingehende Nachrichten schließen einen laufenden Text- oder Reasoningblock nicht. Weitere
 Textstücke ergänzen denselben Block an seiner ursprünglichen Position, auch wenn danach bereits
 eine neue Eingabe steht. Das gilt ebenso für zugestellte Actor- und Hintergrundinputs.
@@ -719,40 +768,46 @@ leert den Eingabeentwurf nicht. Diese Angaben ermöglichen eine stabile Textproj
 Browser, ohne Ereignisse erneut auszuführen oder Zeitstempel und Textvergleiche als Identität
 zu verwenden.
 
-Die Overseer-Extension bietet einen ausdrücklich bestätigten Gesprächsreset. Der Host sperrt
-währenddessen neue globale Eingaben, beendet den globalen Lauf und wartet dessen tatsächliche
+Das Plugin `ragents.overseer` bietet einen ausdrücklich bestätigten Gesprächsreset. Der Host sperrt
+währenddessen neue globale Eingaben, beendet den globalen Run und wartet dessen tatsächliche
 Laufzeitbereinigung ab, einschließlich einer bereits begonnenen Stopp-Bereinigung. Danach entfernt
 er nur dessen Journal, private Modell-Session und Arbeitsablage. Das bestehende Chat-Sessionobjekt
-meldet den Reset an seine Streams; die nächste Nachricht beginnt einen frischen Run unter der
-reservierten Kennung. Modellwahl, Run-Referenzen und andere Runs bleiben erhalten. Ein vor der
-Löschung dauerhaft gespeicherter Reset-Marker lässt einen begonnenen Reset nach Prozessabbruch
+meldet den Reset an seine Streams; die nächste Nachricht beginnt einen frischen Run unter
+derselben Kennung. Der Reset trifft nur den Koordinator des Aufrufers; Modellwahl, Run-Referenzen,
+die Koordinatoren anderer Benutzer und alle übrigen Runs bleiben erhalten. Ein vor der
+Löschung dauerhaft gespeicherter Reset-Marker (je Koordinator `reset-intents/<runId>.json` in der
+Plugin-Ablage) lässt einen begonnenen Reset nach Prozessabbruch
 beim nächsten Start fertig werden. Bis zum Abschluss oder einem erfolgreichen Wiederholungsversuch
 bleiben neue globale Eingaben gesperrt. Einen automatischen kontextabhängigen Reset gibt es nicht.
 Ein nachlaufender Scheduler-Scan überspringt ein inzwischen entferntes Journal. Wird der Run
 unter derselben Kennung neu angelegt, wird seine neue Arbeit wieder regulär geplant.
 
 Der Produkthost bindet den vom Plugin gelieferten globalen Chat-Vertrag: eigener Prompt,
-Werkzeugauswahl und ein kleines Arbeitsverzeichnis in der Plugin-Ablage. Der übergeordnete
-Koordinator verwendet zunächst das Standardmodell des Produktprofils, aber keine Produktprompts,
-Produkt-Skills, Agent-Extensions oder Vorbereitung eines Produktarbeitsverzeichnisses.
+Werkzeugauswahl und ein kleines Arbeitsverzeichnis in der Plugin-Ablage. Der globale
+Koordinator verwendet zunächst das Standardmodell des Profils, aber keine Produktprompts,
+Produkt-Skills, Hooks oder Vorbereitung eines Produktarbeitsverzeichnisses.
 Seine native Oberfläche enthält `typescript_api`, `typescript_eval` und die freigegebenen
-Datei-/Shellwerkzeuge `read`, `write`, `edit` und `bash`. Einzelne Arbeitsaktionen laufen direkt;
+Dateiwerkzeuge `read`, `write` und `edit`; ohne Anmeldung kommt die Host-Shell `bash` dazu. Mit
+Benutzern hat er keine, weil sie als Serverprozess die Dateien aller Benutzer lesen könnte; seine
+JSON-RPC-Aufrufe schickt er dann aus Snippets mit `fetch`. Einzelne Arbeitsaktionen laufen direkt;
 `quick_answer` für eine ergänzende Kurzantwort und zusammengesetzte Aufrufe verwenden
 dieselbe `context.functions`-API wie normale Runs. Die beiden
 TypeScript-Werkzeuge gehören zur Server-Grundausstattung und benötigen kein Actor-Programm-Plugin.
-Nur sein Arbeitsbereich erhält zusätzlich lesenden Dateizugriff auf den Journalordner des
-Profils. `write` und `edit` dürfen dort nicht schreiben. Die Host-Shell ist keine zusätzliche
+Ohne Anmeldung erhält nur sein Arbeitsbereich zusätzlich lesenden Dateizugriff auf den
+Journalordner des Profils; `write` und `edit` dürfen dort nicht schreiben. Mit Benutzern entfällt
+diese Lesewurzel, weil der Ordner die Journale aller Benutzer enthält; der Koordinator liest
+Journale dann über `ragents.overseer.readEvents`, die nur die Runs seines Benutzers kennt. Die Host-Shell ist keine zusätzliche
 Dateisystem-Sandbox; ihre Arbeitsanweisung verlangt, Laufzeitdaten ausschließlich über die
 Nachrichtenschicht zu ändern. Normale Runs erhalten weder diese zusätzlichen Lesewurzeln noch den API-Zugang.
 
-`quick_answer` steht ausschließlich dem globalen Primary-Agenten mit `plugin.state.write`
+`quick_answer` steht ausschließlich dem globalen Koordinator mit `plugin.state.write`
 zur Verfügung. Es übernimmt die kurze Wiederholung der aktuellen Nutzerfrage als `question`
 und die kurze Antwort als `text`. Beide Felder werden außen getrimmt und müssen jeweils
 nichtleer, ohne Zeilenumbrüche und höchstens 240 UTF-16-Zeichen lang sein. Die Promptanweisung
 verlangt zuerst die vollständige normale Chatantwort und danach Frage und Ergebniszusammenfassung;
 nach erfolgreichem Aufruf wird keine weitere inhaltliche Antwort oder Bestätigung angehängt.
-Das Werkzeug ersetzt den Run-Zustand der Overseer-Extension durch eine Kurzantwort mit beiden Feldern. Die
-journalisierte Änderung erscheint im vorhandenen Extension-Stream als `state-replaced` mit
+Das Werkzeug ersetzt den Run-Zustand des Plugins `ragents.overseer` durch eine Kurzantwort mit beiden Feldern. Die
+journalisierte Änderung erscheint im vorhandenen Plugin-Stream als `state-replaced` mit
 Gesprächsidentität, Event-ID und Journal-Sequenz. Der Zustand und der Ereignisvertrag stehen
 im Code; für die Kurzantwort entsteht kein eigener Zustellkanal.
 
@@ -764,15 +819,15 @@ die Übergabe an den normalen Run-Start; Vertrag und Lebenszyklus stehen in `plu
 
 Das Plugin stellt dieselben Verwaltungsmethoden für externe Clients und den globalen Koordinator
 bereit. Sie kann vorhandene Runs auflisten, ihre Zustände und Journale seitenweise lesen,
-ihren primären Actor beauftragen, sie stoppen und neue Läufe erstellen. Eindeutige Titel,
+ihren primären Actor beauftragen, sie stoppen und neue Runs erstellen. Eindeutige Titel,
 Run-IDs und kurze Referenzen wie `Lauf 1` werden serverseitig aufgelöst. Ein eigener Index in
 der Plugin-Ablage erhält die Referenzen auch nach Sortierung, Löschung und Neustart.
 Mehrdeutige Titel werden mit den gültigen Referenzen abgewiesen. Neue Run-IDs erzeugt der
-Server. Archivierte und gelöschte Läufe sind nicht Teil dieses Zugriffs.
+Server. Archivierte und gelöschte Runs sind nicht Teil dieses Zugriffs.
 
-Neue Läufe starten mit einer Nachricht, einem installierten Run-Script oder einem lokalen
+Neue Runs starten mit einer Nachricht, einem installierten Run-Script oder einem lokalen
 Run-Script-Paket über dessen absoluten Serverdateipfad. Lokale Pakete verwenden dasselbe
-Format und denselben Loader wie installierte Einstiege. Startoptionen-Validierung,
+Format und denselben Loader wie installierte Vorlagen. Startoptionen-Validierung,
 Workspace-Vorbereitung, Check, Test und Installation bleiben der normale Startpfad.
 Der globale Koordinator kann vorbereitete Pakete starten. Der Run-Koordinator verwendet im
 vorhandenen Run TypeScript-Snippets für einmalige Arbeit und Aufbau, oder Actor-Programme
@@ -780,7 +835,7 @@ für dauerhaften Zustand, spätere Nachrichten und Views. Fachliche Aufträge be
 Ergebnis; die technische Umsetzung wählt das Modell anhand der verfügbaren API.
 Aufbaureihenfolge und Wiederholungsgrenzen stehen in `typescript-platform.md`.
 Der Erstellungsaufruf wartet auf dessen Abschluss; erfolgreiche Annahme bedeutet noch nicht,
-dass der erste Turn ausgeführt wurde. Ein Katalog beschreibt die installierten Einstiege
+dass der erste Turn ausgeführt wurde. Ein Katalog beschreibt die installierten Vorlagen
 und gültigen Startoptionen des tatsächlich gestarteten Profils.
 
 Anfrageprüfung, Dispatch, OpenRPC und Markdownreferenz verwenden dieselben ausführbaren
@@ -789,16 +844,30 @@ Arbeitsbereichs aus dem Code erzeugt und nach einem Gesprächsreset erneut berei
 Der Systemprompt enthält einen kompakten, ebenfalls generierten Überblick über diese
 Methoden einschließlich ihrer Benutzerrechte. Dazu kommen Namen und Kurzbeschreibungen
 regulärer Run-Bausteine aus den Engine-Deskriptoren und den öffentlichen Werkzeugdeskriptoren
-der tatsächlich registrierten Plugins und Agent-Extensions. Dadurch sind etwa die installierten
+der tatsächlich registrierten Plugins und Hooks. Dadurch sind etwa die installierten
 Kachel- und Actor-Programm-Fähigkeiten bereits vor dem ersten Referenzzugriff bekannt. Der Prompt
 wird erst beim Lesen aus dem vollständigen Registrierungsstand zusammengesetzt; die Erzeugung
 löst keine Werkzeugfabriken aus und liest weder Konfigurationswerte noch interne Serviceoperationen.
 Dieser Katalog erweitert nicht die feste Werkzeugauswahl des globalen Chats und erteilt keine Rechte:
-Run-Aufrufe bleiben an Actor, Grants, deklarierte Script-Teilmenge und Laufkontext gebunden.
+Run-Aufrufe bleiben an Actor, Grants, deklarierte Script-Teilmenge und Run-Kontext gebunden.
 Genaue Schemas und Codebeispiele lädt der Koordinator bei Bedarf aus der Referenz. Die öffentliche
 Hilfe beschreibt showcase; der Prompt kennzeichnet den Unterschied zum aktiven Profilbestand.
-Die Shell erhält Host-Ursprung, Journalordner und bei aktiviertem Zugangsschutz den Bearer-Token als
-Umgebungsvariablen; der Tokenwert erscheint weder im Prompt noch in der Referenz.
+Shell und Snippets erhalten Host-Ursprung, ohne Anmeldung den Journalordner und bei aktiviertem
+Zugangsschutz den Bearer-Token als Umgebungsvariablen; der Tokenwert erscheint weder im Prompt noch in
+der Referenz.
+`RAGENTS_API_BASE_URL` nennt den lokalen Host mit dem Port, auf dem er tatsächlich lauscht, auch
+nach einem Start mit `--port 0`; ein Server nur über stdio hat keine HTTP-API und setzt die Variable
+nicht. `RAGENTS_JOURNAL_DIR` zeigt ohne Anmeldung auf die echten Journale des Profils, die die
+Shell etwa mit `rg` durchsuchen kann; große Payload-Felder liegen im benachbarten `payloads/`-Ordner,
+`payloadRefs` nennt Hash und Bytezahl, und `ragents.overseer.readEvents` löst diese Referenzen
+vollständig auf. `RAGENTS_API_TOKEN` steht für den Zugang des Benutzers, dem der Koordinator
+gehört: mit Benutzern ein Token je Benutzer, der nur über Loopback und nur für `/rpc`,
+`/rpc/stream` und `/help/` gilt und bei jedem Aufruf den aktuellen Stand dieses Benutzers liefert
+(ein entfernter Benutzer ist nicht angemeldet); mit `anonymousUser` ebenso ein Token für den
+anonymen Zugang; mit `ACCESS_TOKEN` dieser Token; offen keiner. Die Werkzeuge des Koordinators
+sehen und bedienen damit genau, was sein Benutzer darf, und Runs, die sie anlegen, gehören ihm.
+Eine eigene Dienstidentität mit weiteren Rechten gibt es nicht. Die erzeugte Referenz liegt als `rpc-reference.md` und `openrpc.json` im eigenen
+Arbeitsverzeichnis; dieselbe API steht externen Clients mit dem normalen Hostzugang zur Verfügung.
 
 Die Werkzeugauswahl gehört zur journalisierten Actor-Identität. Ein vorhandener globaler Run
 mit einer vom aktuellen Plugin abweichenden Werkzeugauswahl wird beim Senden mit
@@ -866,8 +935,9 @@ liest vollständige Zeilen und verwirft einen unvollständigen letzten Schreibvo
 bleiben beschreibbar. Fehler beim Vorbereiten einer Inhaltsdatei vor dem Journal-Append lassen
 dagegen einen unmittelbaren Wiederholungsversuch zu.
 
-Das Journal schreibt Dateiformat 5 und liest die Dateiformate 4 und 5, beide mit internem
-Eventschema 3. Die Kodierung ist seit 4 unverändert; die Nummer steigt, sobald ein älterer Stand
+Das Journal schreibt Dateiformat 6 und liest die Dateiformate 4, 5 und 6, alle mit internem
+Eventschema 3. Format 6 bringt `turn.input-steered`, das ein älterer Stand nicht kennt. Die
+Kodierung ist seit 4 unverändert; die Nummer steigt, sobald ein älterer Stand
 neu geschriebene Zeilen ablehnen würde, damit er an der ersten solchen Zeile mit der
 Formatversion scheitert statt an einem semantischen Widerspruch. Ältere Dateiformate werden
 ohne automatische Migration für den betroffenen Run abgewiesen.
@@ -878,13 +948,13 @@ Inhaltsdatei isoliert nur diesen Run. Die übrigen Runs und der Server starten w
 Der Fehler enthält Run-ID, Dateipfad und Ursache und wird protokolliert. `loadFailures` und
 `failureOf` liefern die Diagnose; lesende und schreibende Run-Zugriffe melden
 `journal-unavailable` (Status 409). Isolierte Runs erscheinen nicht in der Liste nutzbarer
-Unterhaltungen, erhalten keine Arbeitsverzeichnisse oder Scheduler-Ausführung und können nicht
+Runs, erhalten keine Arbeitsverzeichnisse oder Scheduler-Ausführung und können nicht
 unter derselben ID versehentlich neu angelegt werden. Das gilt auch für den globalen Koordinator.
 Sein ausdrücklicher Gesprächsreset kann die gesperrte ID nach Entfernen der alten Dateien freigeben.
 
 Die Originaldateien eines abgewiesenen Runs bleiben bytegleich. Eine abgerissene letzte Zeile
 wird erst nach erfolgreicher Prüfung aller vollständigen v4-Records repariert. Ein leeres oder
-nicht erkennbares Journal wird nicht zu einer neuen Unterhaltung umgedeutet. Fehler an der
+nicht erkennbares Journal wird nicht zu einem neuen Run umgedeutet. Fehler an der
 gemeinsamen Ablage oder ein aktiver fremder Writer bleiben echte Infrastrukturfehler.
 Beim Neustart werden offene Turns als unterbrochen abgeschlossen, aber nie erneut ausgeführt.
 Ein dabei auftretender Journal-Schreibfehler isoliert ebenfalls nur diesen Run und wird gemeldet. Bereits journalisierte Events werden
@@ -933,8 +1003,8 @@ Ein Run kann von einem Server auf einen anderen wechseln und dort weiterlaufen. 
 `ragents.runs.import` (Rechte `runs.read`, `runs.write` und `runs.create`) nimmt beides an.
 `pnpm run-transfer <quelle-url> <ziel-url> <runId>` verbindet beide Seiten. Das Archiv enthält
 `transfer/manifest.json`, den Ordner `runs/<id>` mit Journal und Payloads und den Ordner
-`sessions/<id>` mit Modellkontexten, Actor-Programmen und allen Plugin-Ablagen der Unterhaltung,
-darunter der Dateiablage und dem Arbeitsverzeichnis der Bindung `fresh`. Halbfertige Journal- und
+`sessions/<id>` mit Modellkontexten, Actor-Programmen und allen Plugin-Ablagen des Runs,
+darunter der Dateiablage und dem neuen Ordner je Run auf dem Server. Halbfertige Journal- und
 Payload-Schreibvorgänge bleiben draußen. Das Manifest nennt Format, Kennung, Host-Commit,
 Executor-Version, Profil, Titel, Revision, Ereigniszahl, einen gebundenen Projektordner und den
 Zeitpunkt.
@@ -947,16 +1017,16 @@ Server; ein zweiter meldet `run-transfer-busy`.
 Der Import entpackt in einen Staging-Ordner unter `transfer/` im Datenordner und prüft, bevor er
 etwas anlegt: Manifestformat, gleicher Host-Commit, gleiche Executor-Version, Übereinstimmung von
 Manifest und Journal, freie Kennung (kein Journal, kein Ordner, kein Archiv, keine Löschabsicht)
-und die Bindung. Dann verschiebt er die Session-Ablage an ihren Platz, übernimmt die Records mit
+und die Bindung. Dann verschiebt er die Run-Ablage an ihren Platz, übernimmt die Records mit
 `Journal.adopt` - dabei entstehen die Payloads im Ziel neu aus den gelesenen Inhalten - und gibt
-den Run über denselben Weg wieder, den der Serverstart geht: Arbeitsbereich auflösen, Session
+den Run über denselben Weg wieder, den der Serverstart geht: Arbeitsbereich auflösen, Run
 öffnen. Der Run behält Kennung, Sequenzen und Ereignisse; er liegt gestoppt und läuft mit der
-nächsten Nachricht weiter. Scheitert die Übernahme, wird die verschobene Session-Ablage wieder
+nächsten Nachricht weiter. Scheitert die Übernahme, wird die verschobene Run-Ablage wieder
 entfernt.
 
 Der Import schreibt kein Ereignis um. Absolute Pfade in `tool.call.*` und in den Modellkontexten
 bleiben die der Quelle; sie sind Historie, denn die Wiedergabe ruft weder Modelle noch Werkzeuge
-erneut auf. Neu aufgelöst wird allein der Arbeitsbereich, und zwar aus der Session-Ablage des
+erneut auf. Neu aufgelöst wird allein der Arbeitsbereich, und zwar aus der Run-Ablage des
 Ziels. Ein Run mit Bindung an einen Projektordner des Quellrechners wird abgelehnt, solange der
 Aufrufer keinen Ersatzordner auf dem Ziel nennt; mit Ersatzordner hängt der Import ein neues
 `plugin.state-replaced` mit der neuen Bindung ans Journal. Die Bindung an einen Arbeitsplatz
@@ -982,5 +1052,9 @@ Werkzeugaufruf neu.
    Modell sieht in seinem Kontext weiterhin die absoluten Pfade der Quelle; greift es sie am Ziel
    wieder auf, scheitert der Werkzeugaufruf an der Arbeitsbereichsgrenze. Beide Hosts müssen
    ihren Commit kennen, aus dem Paket `@schlenkr/ragents` oder aus dem Git-Checkout; ein Host
-   ohne beides kann weder exportieren noch importieren. Eine Dateiablage außerhalb der Session
+   ohne beides kann weder exportieren noch importieren. Eine Dateiablage außerhalb der Run-Ablage
    (`DOCUMENTS_DIR`) zieht nicht mit und bleibt auf der Quelle.
+5. Steering erreicht ein Modell nur zwischen zwei Modellanfragen. Ein lange laufender
+   Werkzeugaufruf verzögert es bis zu seinem Ergebnis; wer sofort umlenken will, unterbricht den
+   Turn. Ein eingespeister Input ändert weder Modellwahl noch Systemprompt des Turns; beides
+   gilt, wie beim Turn-Start bestimmt, bis zu dessen Ende.

@@ -16,7 +16,7 @@ test("beide Perspektiven dürfen sich überschneiden und jedes Beispiel zählt n
   assert.throws(() => exampleCoverage([first, first], concepts), /Duplicate reference example/);
 });
 
-test("private oder fremde Einstiege erfüllen keine Referenzabdeckung", () => {
+test("private oder fremde Vorlagen erfüllen keine Referenzabdeckung", () => {
   assert.throws(() => exampleCoverage([entry("one"), entry("two", { owner: "private.product" })], concepts), /Agententeams \(1\/2\)/);
 });
 
@@ -36,7 +36,7 @@ test("ein Script ersetzt standardmäßig keine Skill-Demo; Script- und gemischte
   assert.equal(exampleCoverage([...starts, entry("script-two", { action: "script" })], [{ ...concepts[0], entryKind: "script" }]).concepts[0].examples.length, 2);
 });
 
-test("Skill-Konzepte brauchen zwei echte Skill-Einstiege", () => {
+test("Skill-Konzepte brauchen zwei echte Skill-Vorlagen", () => {
   const skills = [{ id: "skills", label: "Skills", entryKind: "skill" as const }];
   const starts = [entry("one", { action: "skill", tags: ["Anwendungsfall", "Skills"] }), entry("two", { action: "script", tags: ["Konzeptdemo", "Skills"] })];
   assert.throws(() => exampleCoverage(starts, skills), /Skills \(1\/2\)/);
@@ -81,7 +81,7 @@ test("Bedienbeispiele haben vollständige Schritte und eigene Linkziele in HTML 
 });
 
 
-test("freie Kategorien gruppieren Skill-Einstiege unabhängig von Konzept-Tags", async () => {
+test("freie Kategorien gruppieren Skill-Vorlagen unabhängig von Konzept-Tags", async () => {
   const { groupStartEntries } = await import("./homepage-examples.ts");
   const groups = groupStartEntries([
     { ...entry("last"), category: "Mini-Apps", order: 30 },

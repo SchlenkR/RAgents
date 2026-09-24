@@ -2,29 +2,6 @@
 
 Install RAgents, start a profile, and create your first run.
 
-## Use the tile workspace
-
-A run's workspace consists of tiles. Each tile shows an actor or mini-app, and together they
-fill the available space. There is no panning or zooming. Tiles use flat surfaces, outlines,
-and rounded corners without depth. Mini-app content appears at its original size both in the
-tile and in full view.
-
-Drag an actor or mini-app from the header onto one of a tile's docking targets. Left and right
-create a side-by-side split; top and bottom create a vertical split. Targets at the outer edge
-split the entire workspace. Before you release, a preview shows the resulting area. Drag an
-existing tile by its title bar; the X removes it from the layout. Its content remains available
-through the header. Without access to the actors view, removal and reordering are disabled: the
-X and drag handle are hidden. Dividers for adjusting size ratios remain available.
-
-Drag a divider to the desired ratio; releasing it saves the value. Escape cancels the active
-resize. With keyboard focus on a divider, arrow keys change its size while Home and End set the
-allowed limits. When space is tight, the "Sichtbare Kachel" (visible tile) selector displays one item at a time
-without discarding the layout. You can also ask the coordinator: "App on the left, chat on the
-right, 50:50" or "One tile on top, two below at a 2:1 ratio." Until a layout is specified, the
-workspace arranges visible participants itself. Your changes remain saved until the program
-changes its layout. A new program layout is applied automatically so added tiles appear at
-once. "Programmvorgabe übernehmen" (apply program layout) in the status bar can reset your own layout earlier.
-
 ## Install locally
 
 The application is built from the repository with Node.js and pnpm. Run these commands from
@@ -86,29 +63,6 @@ startup fails. The address stays fixed and a running instance is not terminated.
 set `PORT` must be between 1 and 65535; 0 is invalid. The final server message displays the URL.
 A warning about JavaScript bundle size does not prevent startup.
 
-With `scripts/start.sh core --dev`, the backend runs on 4710 and Vite on 5710. The script checks
-both fixed ports first and points `API_TARGET` at the backend. Vite always uses the backend port
-plus 1000, so an explicitly set `PORT` moves both. With `strictPort`, Vite does not switch
-to another port when its port is occupied. A standalone `pnpm dev:web` uses port 5710 and
-`http://localhost:4710` as its proxy target. In dev mode, Vite serves the host interface from its
-sources with hot reload, while plugin interfaces come from the server as bundles, rebuilt by
-`pnpm build:plugins --watch`; a changed plugin interface appears after reloading the page. The
-stylesheet also comes from the server and is recompiled on every request, so new classes in host
-code appear after a reload.
-
-## Create your first run
-
-The top-left corner opens the run overview. Choose "Neuer Run" to open the start selection. It
-contains skills with editable tasks and run scripts with programmed setups. The preview shows
-the selected entry. Before starting, you can discuss an adopted skill task in the preparation
-chat. Give a clear go-ahead such as "Start", or choose "Run erstellen" (create run). Merely confirming a detail
-does not start anything. Some entries collect values in a setup dialog first.
-
-Inside the run, the coordinator processes the task. Additional agents and mini-apps appear in
-the workspace when the workflow creates them. The global coordinator in the header has its own
-conversation and can oversee several runs. The journal and "Executions" tab make events and
-TypeScript calls traceable.
-
 ## Build after changes
 
 Server changes take effect after a restart. There is one web interface for every profile, built
@@ -123,3 +77,39 @@ bundles or an outdated interface and names `pnpm build:plugins` or `pnpm build:w
 `pnpm publish:package` publishes it (see Work without a checkout). The question mark next to
 Settings opens the included help. For separate static hosting, `pnpm generate:homepage` creates
 the same website under `docs/homepage/dist`.
+
+## Create your first run
+
+The top-left corner opens the run overview. Choose "Neuer Run" to open the start selection. It
+contains skill templates with editable tasks and script templates with programmed setups. The
+preview shows the selected template. Before starting, you can discuss an adopted skill task in the preparation
+chat. Give a clear go-ahead such as "Start", or choose "Run erstellen" (create run). Merely confirming a detail
+does not start anything. Some templates collect values in a setup dialog first.
+
+Inside the run, the coordinator processes the task. Additional agents and mini-apps appear on
+the surface when the workflow creates them. The global coordinator in the header has its own
+conversation and can oversee several runs. The journal and "Executions" tab make events and
+TypeScript calls traceable.
+
+## Use the surface
+
+A run's surface consists of tiles. Each tile shows an actor or mini-app, and together they
+fill the available space. There is no panning or zooming. Tiles use flat surfaces, outlines,
+and rounded corners without depth. Mini-app content appears at its original size both in the
+tile and in full view.
+
+Drag an actor or mini-app from the header onto one of a tile's docking targets. Left and right
+create a side-by-side split; top and bottom create a vertical split. Targets at the outer edge
+split the entire surface. Before you release, a preview shows the resulting area. Drag an
+existing tile by its title bar; the X removes it from the layout. Its content remains available
+through the header. Without access to the actors view, removal and reordering are disabled: the
+X and drag handle are hidden. Dividers for adjusting size ratios remain available.
+
+Drag a divider to the desired ratio; releasing it saves the value. Escape cancels the active
+resize. With keyboard focus on a divider, arrow keys change its size while Home and End set the
+allowed limits. When space is tight, the "Sichtbare Kachel" (visible tile) selector displays one item at a time
+without discarding the layout. You can also ask the coordinator: "App on the left, chat on the
+right, 50:50" or "One tile on top, two below at a 2:1 ratio." Until a layout is specified, the
+surface arranges visible participants itself. Your changes remain saved until the program
+changes its layout. A new program layout is applied automatically so added tiles appear at
+once. "Programmvorgabe übernehmen" (apply program layout) in the status bar can reset your own layout earlier.

@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { environmentStateWord, runStateWord, type EnvironmentStateName, type RunStateName } from "../src/ui/state-vocabulary";
+import { connectionStateWord, runStateWord, type ConnectionStateName, type RunStateName } from "../src/ui/state-vocabulary";
 import { longTime, shortTime } from "../src/ui/relative-time";
-import { environmentState, routeLabel } from "../src/panel/target-state";
-import type { TargetState, TargetView } from "../src/panel/contract";
+import { connectionState, routeLabel } from "../src/panel/connection-state";
+import type { ConnectionState, ConnectionView } from "../src/panel/contract";
 
-const target = (state: TargetState, kind: TargetView["kind"] = "server"): TargetView => ({
+const connection = (state: ConnectionState, kind: ConnectionView["kind"] = "server"): ConnectionView => ({
   name: "workshop", kind, address: "http://localhost:4715", state, runs: [], entries: [], canCreate: true,
   route: kind === "profile" ? { kind: "profile", profile: "workshop" } : { kind: "server", host: "localhost:4715", localHost: false },
 });
@@ -26,8 +26,8 @@ test("jeder Run-Zustand hat genau ein Wort, ein wartender nennt die Zahl offener
   for (const word of Object.values(words)) assert.doesNotMatch(word, /Rückfrage|Werkzeug|Tool/, "kein Werkzeugbegriff im Zustand");
 });
 
-test("jeder Umgebungszustand hat genau ein Wort", () => {
-  const words: Record<EnvironmentStateName, string> = {
+test("jeder Serverzustand hat genau ein Wort", () => {
+  const words: Record<ConnectionStateName, string> = {
     connected: "verbunden",
     ready: "bereit",
     starting: "startet",
@@ -37,27 +37,27 @@ test("jeder Umgebungszustand hat genau ein Wort", () => {
     failed: "gescheitert",
     forbidden: "kein Zugriff",
   };
-  for (const [state, word] of Object.entries(words)) assert.equal(environmentStateWord(state as EnvironmentStateName), word);
+  for (const [state, word] of Object.entries(words)) assert.equal(connectionStateWord(state as ConnectionStateName), word);
 });
 
 test("ein verbundenes lokales Profil ist bereit, ein verbundener Server verbunden", () => {
-  assert.equal(environmentState(target({ kind: "connected" })), "connected");
-  assert.equal(environmentState(target({ kind: "connected" }, "profile")), "ready");
-  assert.equal(environmentState(target({ kind: "starting" }, "profile")), "starting");
-  assert.equal(environmentState(target({ kind: "connecting" })), "starting");
-  assert.equal(environmentState(target({ kind: "login-required", mode: "password" })), "login-required");
-  assert.equal(environmentState(target({ kind: "login-required", mode: "token" })), "login-required");
-  assert.equal(environmentState(target({ kind: "unreachable", message: "fetch failed" })), "unreachable");
-  assert.equal(environmentState(target({ kind: "forbidden", message: "kein Zugriff" })), "forbidden");
-  assert.equal(environmentState(target({ kind: "failed", message: "kein Checkout" }, "profile")), "failed");
-  assert.equal(environmentState(target({ kind: "stopped" })), "stopped");
+  assert.equal(connectionState(connection({ kind: "connected" })), "connected");
+  assert.equal(connectionState(connection({ kind: "connected" }, "profile")), "ready");
+  assert.equal(connectionState(connection({ kind: "starting" }, "profile")), "starting");
+  assert.equal(connectionState(connection({ kind: "connecting" })), "starting");
+  assert.equal(connectionState(connection({ kind: "login-required", mode: "password" })), "login-required");
+  assert.equal(connectionState(connection({ kind: "login-required", mode: "token" })), "login-required");
+  assert.equal(connectionState(connection({ kind: "unreachable", message: "fetch failed" })), "unreachable");
+  assert.equal(connectionState(connection({ kind: "forbidden", message: "kein Zugriff" })), "forbidden");
+  assert.equal(connectionState(connection({ kind: "failed", message: "kein Checkout" }, "profile")), "failed");
+  assert.equal(connectionState(connection({ kind: "stopped" })), "stopped");
 });
 
 test("die Zielzeile nennt lokal und Profil, den Host oder den Host mit lokal, wenn sein Profil hier läuft", () => {
-  const workshop = target({ kind: "connected" });
+  const workshop = connection({ kind: "connected" });
   assert.equal(routeLabel(workshop), "localhost:4715");
   assert.equal(routeLabel({ ...workshop, route: { kind: "server", host: "workshop.example.com:8443", localHost: true } }), "workshop.example.com:8443 \u00b7 lokal");
-  assert.equal(routeLabel(target({ kind: "connected" }, "profile")), "lokal \u00b7 workshop");
+  assert.equal(routeLabel(connection({ kind: "connected" }, "profile")), "lokal \u00b7 workshop");
 });
 
 const MINUTE = 60_000;

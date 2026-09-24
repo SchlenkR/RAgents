@@ -20,8 +20,8 @@ import { nativeExecutorFixture } from "./native-executor-fixture.ts";
 import type { Engine } from "../src/ragents/engine.ts";
 import { RunChatSession } from "../src/ragents/session.ts";
 import { ACTOR_PROGRAMS_STATE_ID, resolveActorView, type ActorProgramState } from "../../../apps/server/src/plugin-support/actor-programs/contract.ts";
-import { ORCHESTRATION_PLUGIN_ID, canvasLayoutOf } from "../../../plugins/ragents.orchestration/contract.ts";
-import { checkLayoutAgainstRun } from "../../../plugins/ragents.orchestration/server/canvas-tool.ts";
+import { ORCHESTRATION_PLUGIN_ID, surfaceLayoutOf } from "../../../plugins/ragents.orchestration/contract.ts";
+import { checkLayoutAgainstRun } from "../../../plugins/ragents.orchestration/server/surface-tool.ts";
 import type { ActorProgramRuntime } from "../../../plugins/ragents.actor-programs/server/runtime.ts";
 import { invocationResult } from "./actor-runtime-fixture.ts";
 
@@ -119,7 +119,7 @@ test("the reference scripts stay honest about their kind", () => {
   }
 });
 
-test("the balcony setup builds its advisor, view and canvas through native core tools before any model input", async () => {
+test("the balcony setup builds its advisor, view and surface through native core tools before any model input", async () => {
   const { host, journal, runtime, registry, close } = await referenceFixture();
   const catalog = new StaticModelCatalog(host.profiles.models(), host.profiles.profiles());
   let modelCalls = 0;
@@ -167,7 +167,7 @@ test("the balcony setup builds its advisor, view and canvas through native core 
     assert.equal(resolveActorView(programs, "@balcony-advisor/main").view.id, app.view.id);
     const state = view.pluginStates.find((entry) => entry.pluginId === ORCHESTRATION_PLUGIN_ID && entry.scope.kind === "run");
     assert.ok(state);
-    const layout = canvasLayoutOf(state.state);
+    const layout = surfaceLayoutOf(state.state);
     assert.deepEqual(checkLayoutAgainstRun(view, layout), layout);
     assert.deepEqual(layout.root, { entity: `app:${app.view.id}` });
   } finally {

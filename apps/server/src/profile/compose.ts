@@ -3,13 +3,13 @@ import { config, HOST_SECRET_ENV_NAMES } from "../config.js";
 import { SESSION_MODE, SESSIONS_MODE } from "../layout.js";
 import { withFolderAssets } from "../plugin-support/plugin-folder.js";
 import type { PluginModule } from "../plugin-support/plugin-module.js";
-import { sessionManagementToken } from "../ragents/global-chat.js";
+import { runManagementToken } from "../ragents/global-chat.js";
 import { registerTypeScriptFunctions } from "../ragents/typescript-tools.js";
 import {
   runtimeProviderToken,
   secretEnvNamesToken,
-  sessionGuardToken,
-  sessionWorkspaceProviderToken,
+  runGuardToken,
+  runWorkspaceProviderToken,
   workspaceGuardToken,
   type HostBridges,
 } from "../ragents/host-services.js";
@@ -26,7 +26,7 @@ export interface ProfileComposition {
   readonly modules: ReadonlyMap<string, PluginModule>;
   /** The plugins with a web half and where the browser loads it; the web loads exactly these. */
   readonly web: ReadonlyMap<string, PluginWebAddresses>;
-  /** Der Einstieg aus defaultStartEntry der Profildatei; der Host lehnt einen nicht registrierten beim Versiegeln ab. */
+  /** Die Vorlage aus defaultStartEntry der Profildatei; der Host lehnt eine nicht registrierte beim Versiegeln ab. */
   readonly defaultStartEntry?: string;
 }
 
@@ -37,11 +37,11 @@ export const composeProfile = (options: ProfileComposition, bridges: HostBridges
     storageModes: { sessionsRoot: SESSIONS_MODE, session: SESSION_MODE },
     ...(options.defaultStartEntry !== undefined ? { defaultStartEntry: options.defaultStartEntry } : {}),
   });
-  host.provideHost(sessionGuardToken, bridges.ensureSession);
+  host.provideHost(runGuardToken, bridges.ensureSession);
   host.provideHost(workspaceGuardToken, bridges.ensureWorkspaceAccess);
-  host.provideHost(sessionWorkspaceProviderToken, bridges.sessionWorkspaceFor);
+  host.provideHost(runWorkspaceProviderToken, bridges.sessionWorkspaceFor);
   host.provideHost(runtimeProviderToken, bridges.runtime);
-  host.provideHost(sessionManagementToken, () => {
+  host.provideHost(runManagementToken, () => {
     if (!bridges.sessions) throw new Error("Der Host stellt keine Sitzungsverwaltung bereit");
     return bridges.sessions();
   });

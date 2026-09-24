@@ -114,13 +114,13 @@ const fileFixture = async () => {
   const actors = path.join(directory, "actors");
   const outside = path.join(directory, "outside");
   await Promise.all([path.join(workspace, "src"), path.join(workspace, ".git"), actors, outside].map((entry) => mkdir(entry, { recursive: true })));
-  await writeFile(path.join(workspace, "notes.md"), "Grüße aus dem Lauf\n");
+  await writeFile(path.join(workspace, "notes.md"), "Grüße aus dem Run\n");
   await writeFile(path.join(workspace, ".env"), "TOKEN=1\n");
   await writeFile(path.join(workspace, "app.bin"), Buffer.from([0x50, 0x00, 0x4b]));
   await writeFile(path.join(workspace, "big.txt"), "x".repeat(FILE_READ_LIMIT + 1));
   await writeFile(path.join(workspace, "src", "index.ts"), "export const x = 1;\n");
   await writeFile(path.join(actors, "setup.ts"), "return 1;\n");
-  await writeFile(path.join(outside, "secret.txt"), "nicht für den Lauf\n");
+  await writeFile(path.join(outside, "secret.txt"), "nicht für den Run\n");
   await symlink(outside, path.join(workspace, "link-out"));
   const executor = new WorkspaceOperationExecutor({ contextFor: contextIn(workspace, { "@actors": actors }), modules: [fileModule] });
   return {
@@ -173,9 +173,9 @@ test("Dateien: Text kommt zurück, eine binäre oder zu große Datei nennt den G
   try {
     assert.deepEqual(await f.read("notes.md"), {
       path: "notes.md",
-      size: Buffer.byteLength("Grüße aus dem Lauf\n"),
+      size: Buffer.byteLength("Grüße aus dem Run\n"),
       previewable: true,
-      content: "Grüße aus dem Lauf\n",
+      content: "Grüße aus dem Run\n",
     });
     const binary = await f.read("app.bin");
     assert.equal(binary.previewable === false ? binary.reason : undefined, "Die Datei ist binär");

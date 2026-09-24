@@ -27,7 +27,7 @@ test("Guide beginnt mit Grundideen und hält Navigation und Inhalt auf kurzen We
   for (const name of ["Understand", "Use", "Build", "Access"]) assert.ok(html.includes(name), name);
   for (const entry of guideChapters) assert.ok(html.includes(`href="guide-${entry.id}.html"`), entry.id);
   const index = guideIndexHtml();
-  for (const href of ["guide-ideas.html", "guide-getting-started.html", "guide-functions.html", "guide-extensions.html"]) assert.ok(index.includes(`href="${href}"`), href);
+  for (const href of ["guide-ideas.html", "guide-getting-started.html", "guide-functions.html", "guide-plugins.html"]) assert.ok(index.includes(`href="${href}"`), href);
 });
 
 test("Guide-Auszüge übernehmen nur die markierten öffentlichen Abschnitte unverändert", () => {
@@ -151,14 +151,16 @@ test("Der echte Guide übernimmt die markierte Spec und erklärt Funktionsmetada
 test("Quelländerungen erreichen HTML und Markdown mit gültigen Links und unveränderten Codebeispielen", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "ragents-guide-source-"));
   try {
-    for (const chapter of guideChapters) {
-      const file = path.join(root, chapter.source);
+    for (const source of guideChapters.flatMap((chapter) => chapter.sources)) {
+      const file = path.join(root, source);
       await mkdir(path.dirname(file), { recursive: true });
-      await writeFile(file, await readFile(path.join(repoRoot, chapter.source), "utf8"));
+      await writeFile(file, await readFile(path.join(repoRoot, source), "utf8"));
     }
     const content = "## Aktuelle Anleitung\n\nNeue Erklärung mit [Zugriff][access].\n\n[access]: homepage/guide-access.html\n\n`[Beispiel](unchanged.md)`\n\n```md\n[Beispiel](unchanged.md)\n```";
-    const operationsChapters = guideChapters.filter((entry) => entry.source === "docs/operations.md").map((entry) => entry.id);
-    await writeFile(path.join(root, "docs/operations.md"), `Privater Vorspann: intern\n${operationsChapters.map((id) => `<!-- guide:${id} -->\n${content}\n<!-- /guide:${id} -->`).join("\n")}`);
+    for (const source of ["docs/operations.md", "docs/usage.md"]) {
+      const chapterIds = guideChapters.filter((entry) => (entry.sources as readonly string[]).includes(source)).map((entry) => entry.id);
+      await writeFile(path.join(root, source), `Privater Vorspann: intern\n${chapterIds.map((id) => `<!-- guide:${id} -->\n${content}\n<!-- /guide:${id} -->`).join("\n")}`);
+    }
     const { chapters } = await buildHomepageGuide(root);
     const chapter = chapters.find(entry => entry.id === "getting-started")!;
     assert.match(chapter.html, /Neue Erklärung mit <a href="guide-access.html">Zugriff<\/a>/);

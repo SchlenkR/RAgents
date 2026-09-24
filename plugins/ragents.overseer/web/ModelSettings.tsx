@@ -29,7 +29,7 @@ export function ModelSettings({ active = true, compact = false, disabled = false
   const thinkingOptions = model?.thinking.map((level) => ({ value: level, label: thinkingLabel(level) })) ?? [];
   if (!readable) return null;
   return (
-    <section aria-label="Modell des übergeordneten Koordinators" className={compact ? "min-w-0 flex-1" : "min-w-0"}>
+    <section aria-label="Modell des globalen Koordinators" className={compact ? "min-w-0 flex-1" : "min-w-0"}>
       <div className={compact ? "flex flex-nowrap items-center gap-2 max-md:gap-1" : "flex flex-wrap items-center gap-2.5"}>
         {settings && model ? <>
           <Select

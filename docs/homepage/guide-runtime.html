@@ -29,12 +29,12 @@
   --border-strong: #a397b2;
   --shell: #cbd6e4;
   --app: #dce3ed;
-  --canvas: #e8e2e6;
-  --canvas-dot: #79aab43b;
-  --canvas-glow-mint: #92cfbfad;
-  --canvas-glow-blue: #8bbfe5a6;
-  --canvas-light: #ffffffb3;
-  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
+  --surface: #e8e2e6;
+  --surface-dot: #79aab43b;
+  --surface-glow-mint: #92cfbfad;
+  --surface-glow-blue: #8bbfe5a6;
+  --surface-light: #ffffffb3;
+  --surface-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #9ccfc5b3, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #9ec6e4b3, transparent 56%),
         radial-gradient(ellipse at 28% 0%, #c4b0dfb3, transparent 58%),
@@ -81,12 +81,12 @@
   --border-strong: #8e809f;
   --shell: #242e40;
   --app: #212632;
-  --canvas: #29232e;
-  --canvas-dot: #7cafbc30;
-  --canvas-glow-mint: #317d686b;
-  --canvas-glow-blue: #417daa80;
-  --canvas-light: #80bfc71f;
-  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
+  --surface: #29232e;
+  --surface-dot: #7cafbc30;
+  --surface-glow-mint: #317d686b;
+  --surface-glow-blue: #417daa80;
+  --surface-light: #80bfc71f;
+  --surface-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #2c625e99, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #355674a6, transparent 56%),
         radial-gradient(ellipse at 28% 0%, #59446f99, transparent 58%),
@@ -128,8 +128,8 @@
       <a href="index.html">Product</a>
       <a href="guide.html" aria-current="page">Guide</a>
     </nav>
-  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html" aria-current="page">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-extensions.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Actors and messages</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html" aria-current="page">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-extensions.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Actors and messages</h1><p>Runs, actors, messages, turns, and the journal form the shared runtime.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#runs-and-participants">Runs and participants</a><a href="#scheduler-and-turns">Scheduler and turns</a><a href="#model-context-across-turns">Model context across turns</a><a href="#interrupting-a-turn-stopping-an-actor-stopping-a-run-and-shutting-down-the-server">Interrupting a turn, stopping an actor, stopping a run, and shutting down the server</a><a href="#actors-inputs-events-and-subscriptions">Actors, inputs, events, and subscriptions</a><a href="#ids-handles-and-creating-actors-again">IDs, handles, and creating actors again</a><a href="#equipping-subagents">Equipping subagents</a><a href="#journal-and-projection">Journal and projection</a></nav></details><h2 id="runs-and-participants">Runs and participants</h2>
-<p>A run is a conversation with its own participants, working files, and journal. An actor is a
+  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html" aria-current="page">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Actors and messages</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html" aria-current="page">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Actors and messages</h1><p>Runs, actors, messages, turns, and the journal form the shared runtime.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#runs-and-participants">Runs and participants</a><a href="#scheduler-and-turns">Scheduler and turns</a><a href="#model-context-across-turns">Model context across turns</a><a href="#interrupting-a-turn-stopping-an-actor-stopping-a-run-and-shutting-down-the-server">Interrupting a turn, stopping an actor, stopping a run, and shutting down the server</a><a href="#actors-inputs-events-and-subscriptions">Actors, inputs, events, and subscriptions</a><a href="#ids-handles-and-creating-actors-again">IDs, handles, and creating actors again</a><a href="#equipping-subagents">Equipping subagents</a><a href="#journal-and-projection">Journal and projection</a></nav></details><h2 id="runs-and-participants">Runs and participants</h2>
+<p>A run is a piece of work with its own participants, working files, and journal. An actor is a
 participant in that run: the human owner, an LLM agent, or a TypeScript actor. LLM agents
 process tasks with a model; TypeScript actors execute their programmed input handler. The actor
 selected as primary is the user&#39;s direct chat partner. This choice does not depend on who
@@ -147,17 +147,27 @@ without inspection permission, the run view contains none of the task text.</p>
 <ol>
 <li>It claims exactly one waiting ActorInput.</li>
 <li>It assembles the toolset, working directory, and system prompt.</li>
-<li>The driver processes only this input.</li>
+<li>The driver processes this input; an agent&#39;s driver also takes steering (see below).</li>
 <li>Model output, reasoning, runtime output, and tool calls are automatically recorded as
 events in the journal.</li>
 <li>The turn ends as <code>completed</code>, <code>failed</code>, or <code>interrupted</code>.</li>
 </ol>
-<p>Additional inputs wait for the next turn. They are not injected into a running turn. An input
-that refers to the running turn, such as a reminder or a status note, would therefore always be
-outdated when processed and must not be queued. Only an agent hook can enter a running turn: the
-<code>beforeModelCall</code> hook of an <code>agentRuntime</code> contribution adds a hidden note before each model
-request without ending the turn. This is how actor-program project diagnostics work for actors
-equipped with actor-program tools, and how a product plugin can provide progress reminders.</p>
+<p>Inputs that arrive while an agent&#39;s turn runs join that turn as steering. Before each model
+request, the turn takes all waiting inputs of its actor in journal order and hands them to the
+model after the results of the tool calls that were running; a running tool call is neither
+aborted nor cut short. If the model has just given its final answer, a joined input starts
+another model request in the same turn. The journal records each joined input with
+<code>turn.input-steered</code>, and the chat marks the message as fed into the running turn. An input that
+arrives after the last model request of the turn, or after the turn was interrupted, starts the
+actor&#39;s next turn instead. TypeScript actors have no model and take no steering; their inputs
+always wait for the next turn. An input longer than 30,000 characters does not join; it and every
+later input wait for the next turn, so the order stays intact.</p>
+<p>A hidden note about the running turn, such as a status note or a progress reminder, does not
+belong in an input: an input appears in the chat and starts a new turn once the current one has
+ended. Such a note comes from an agent hook: the <code>beforeModelCall</code> hook of an <code>agentRuntime</code>
+contribution adds it before each model request without ending the turn. This is how
+actor-program project diagnostics work for actors equipped with actor-program tools, and how a
+product plugin can provide progress reminders.</p>
 <p>A failed turn, or one interrupted by a server restart, is not queued or executed again
 automatically. ActorInputs that were already queued but not yet claimed remain waiting. After
 startup they can be processed if their actor is still executable. Anything a function call has
@@ -167,8 +177,9 @@ turn outcome.</p>
 <p>For an LLM, one turn can include several model requests and TypeScript snippets. <code>return</code> ends
 the current snippet and gives its findings to the model. The model can then decide what to do
 and execute another snippet within the same turn. A snippet does not wait for later agent
-responses or events: a subscription creates a new ActorInput and therefore a later turn. The
-programming language needs no additional decision point for this.</p>
+responses or events: a subscription creates a new ActorInput, which reaches the model at the
+earliest after the snippet, as steering or in a later turn. The programming language needs no
+additional decision point for this.</p>
 <h2 id="model-context-across-turns">Model context across turns</h2>
 <p>Each LLM actor has its own conversation context, which persists across turns. A new input adds
 to that conversation. In server operation, the context is stored separately and reloaded after
@@ -193,7 +204,7 @@ turn of this actor the input offers no stop. Stopping an actor for good and stop
 run are separate, explicitly labeled actions.</p>
 <p>In the run title bar, a user with write permission can request a complete stop through &quot;Run
 stoppen&quot; (stop run) and a confirmation. The primary actor can also trigger it with <code>run_stop</code>. Both use the
-same host stop boundary; the conversation and files remain intact. The function call initiates
+same host stop boundary; the chat and files remain intact. The function call initiates
 the stop but does not wait for cleanup of its own turn. Acceptance is not proof of completion.
 Cleanup errors are reported in the server log while the stop path&#39;s normal quarantine remains
 in effect.</p>
@@ -203,7 +214,7 @@ nothing else; the actor, its model runtime, its children, and the run stay as th
 <li><code>actor_stop</code>: Stops the actor, interrupts its running turn, and disposes its model runtime
 after the turn. Its active descendants are stopped in the same journal command, so a branch is
 never stopped halfway. The journal names the actor that called <code>actor_stop</code> as the one who
-stopped them. Run data and plugin sessions remain.</li>
+stopped them. Run data and the run&#39;s plugin data remain.</li>
 <li>Run stop: The scheduler temporarily accepts no new work for this run; concurrent stop calls
 are handled together. The primary actor remains, but its running work is interrupted. All
 other agents and TypeScript actors in the user&#39;s ownership tree are stopped. Agent runtimes
@@ -211,7 +222,7 @@ and plugins receive their abort signals in parallel. The actor-program plugin al
 pending app actions. An open confirmation question is discarded through <code>ragents.ask</code> in the
 journal and the domain operation is no longer invoked. The run can be reused afterward.</li>
 <li>Run deletion: The scheduler stops the run. Its agent runtimes are then disposed and plugin
-deletion hooks run. The chat, recovery data, and journal are archived; session-bound plugin
+deletion hooks run. The chat, recovery data, and journal are archived; run-bound plugin
 data, including its logs, is removed afterward.</li>
 <li>Server shutdown: The scheduler interrupts running work and waits for it to finish. It then
 shuts down all agent runtimes and plugin services. Persisted run data remains intact.</li>
@@ -311,11 +322,11 @@ isolation or the turn is rejected.</p>
 overview of their available TypeScript functions with names and short descriptions. The
 overview stays current during the turn. Domain functions are called through
 <code>context.functions</code> in snippets. Additional native tools require explicit registration. Roles
-and work boundaries remain prompt instructions. Alongside a profile, <code>agent_spawn</code> accepts
-<code>model</code> and <code>thinking</code> from the model list. A profile supplies only the driver, provider,
+and work boundaries remain prompt instructions. Alongside a role (field <code>profile</code>), <code>agent_spawn</code> accepts
+<code>model</code> and <code>thinking</code> from the model list. A role supplies only the driver, provider,
 reasoning level, timeout, and workspace default; the product model list defines which models are
-available. If neither a model nor a profile that supplies one is present when an agent starts,
-the error lists the available profiles for the selected driver. A manual profile is not
+available. If neither a model nor a role that supplies one is present when an agent starts,
+the error lists the available roles for the selected driver. A manual role is not
 suggested as an agent&#39;s model choice.</p>
 <h2 id="journal-and-projection">Journal and projection</h2>
 <p>The journal is the shared history of a run. Visible state is produced by replaying its events;

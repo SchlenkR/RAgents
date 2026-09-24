@@ -13,7 +13,7 @@ import {
 const view = (overrides: Record<string, unknown> = {}) => ({
   id: "run-1",
   revision: 3,
-  title: "Lauf",
+  title: "Run",
   ownerId: "actor-1",
   primaryActorId: "actor-1",
   createdAt: "2026-01-01T00:00:00.000Z",
@@ -54,7 +54,7 @@ const turn = (overrides: Partial<RunTurn> = {}): RunTurn => ({
   ...overrides,
 });
 
-test("eine vollständige Laufansicht wird unverändert durchgereicht", () => {
+test("eine vollständige Run-Ansicht wird unverändert durchgereicht", () => {
   const value = view();
 
   assert.equal(runViewFrom(value), value);
@@ -74,7 +74,7 @@ test("fehlt eine der Listen, ist die Ansicht ungültig", () => {
   }
 });
 
-test("was keine Laufansicht ist, ergibt keine", () => {
+test("was keine Run-Ansicht ist, ergibt keine", () => {
   assert.equal(runViewFrom(undefined), undefined);
   assert.equal(runViewFrom(null), undefined);
   assert.equal(runViewFrom("run-1"), undefined);
@@ -84,7 +84,7 @@ test("was keine Laufansicht ist, ergibt keine", () => {
 
 test("offen ist eine Eingabe nur ohne Turn und ohne Verwurf", () => {
   assert.equal(isPendingRunActorInput(input()), true);
-  assert.equal(isPendingRunActorInput(input({ lifecycle: { kind: "claimed", turnId: "turn-1" } })), false);
+  assert.equal(isPendingRunActorInput(input({ lifecycle: { kind: "claimed", turnId: "turn-1", steered: false } })), false);
   assert.equal(
     isPendingRunActorInput(input({
       lifecycle: { kind: "discarded", at: "2026-01-01T00:00:01.000Z", reason: "Vorbei" },
@@ -111,7 +111,7 @@ test("ein Turn ohne oder mit unbrauchbarem Antwortfeld ergibt keine Antworten", 
   assert.deepEqual(runTurnOutputs({ ...turn(), outputs: [{ text: 1 }] } as unknown as RunTurn), []);
 });
 
-test("eine Laufansicht bleibt gültig, auch wenn Turns keine Antworten tragen", () => {
+test("eine Run-Ansicht bleibt gültig, auch wenn Turns keine Antworten tragen", () => {
   assert.ok(runViewFrom(view({ turns: [turn()] })));
   assert.ok(runViewFrom(view({ turns: [turn({ outputs: [] })] })));
 });

@@ -1,5 +1,258 @@
 # Entscheidungen
 
+## Chat-Zeitstempel an der ersten Textzeile ausrichten (24.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Chat-Bausteine).
+Zeitstempel und Inhalt teilen die erste Textgrundlinie. Ein fester oberer Versatz passte nicht
+zu den unterschiedlichen Innenabständen von Schrittgruppen und Nachrichtenblasen; dadurch
+stand die Uhrzeit sichtbar höher als die zugehörige Nachricht.
+
+## Ein Begriff je Sache (24.09.2026)
+
+Kapitel: `docs/spec/overview.md` (neuer Abschnitt Glossar, Begriffe), alle Spec-Kapitel,
+`docs/spec/actor-programs.md` (früher `run-modules.md`), `docs/usage.md`, `docs/operations.md`,
+`docs/development.md`, `README.md`, Homepage und Guide (Kapitel `guide-plugins`, früher
+`guide-extensions`), `docs/concepts/run-fork.md` (früher `run-templates.md`). Vorgabe des Owners:
+Doku, Oberfläche und Code sprachen für dieselbe Sache verschiedene Wörter (Canvas, Arbeitsfläche,
+Kachelfläche; Umgebung, Ziel, Target, Connection; Lauf, Unterhaltung, Session; Einstieg,
+Startvorlage, Kachel; übergeordneter Koordinator, Overseer), und dasselbe Wort für verschiedene
+Sachen (Bühne, Vorlage, Arbeitsbereich, Extension).
+
+**Festlegung.** Die Tabelle "Glossar" in `overview.md` ist maßgeblich: Fläche (Code `surface`),
+Kachel nur auf der Fläche, Bühne für die eine Mini-App im Run-Panel, Vorlage für Einträge der
+Startseite (Arten Skill und Script, Code bleibt `StartEntry`), Run-Fork für das Konzept der Kopie,
+Arbeitsbereich und Arbeitsplatz getrennt, Leiste für die Reiterleiste, Server für einen Eintrag der
+VS-Code-Erweiterung (Code `connection`), globaler Koordinator, Profil für die Profildatei und Rolle
+für die Modellvorgabe, Plugin für RAgents und Erweiterung nur für VS Code, Hook statt
+Agent-Extension, Run statt Lauf, Unterhaltung und Session, Actor-Programm als einziger Name der
+Programme. Server statt Umgebung, weil "Umgebung" auf derselben Seite schon Umgebungsvariablen meint
+und jeder Eintrag genau ein RAgents-Server ist, auch das lokal gestartete Profil; so heißt es auch
+in der Bindung (`machine: "server"`).
+
+**Code ohne Altnamen.** Die Host-API 5 ist noch nicht veröffentlicht, darum ändern sich ihre Namen
+ohne neue Nummer und ohne Übergang: `runManagementToken` (Typ `RunManagement`), `runGuardToken`,
+`runWorkspaceProviderToken`, `SurfaceControllerProvider`, `useSurfaceController`, `actorTone`;
+`stopChatActor` entfällt samt `stop` in `SessionContext` und `useChat`. Die Nachrichtenschicht nennt
+`ragents.runs.list`, `ragents.runs.delete` und den Kanal `ragents.runs` statt `ragents.sessions.*`.
+Im Web heißen Slot und Beiträge `surface` und `surfaceElements`, der Dialogbereich `surface`, das
+Chat-Ereignis eines Plugins `kind: "plugin"` (`pluginEvents`), die Einstellungen `agentHooks`. Wo
+"surface" schon etwas anderes meinte, heißt es jetzt nach seiner Sache: Farbton (`actorTone`,
+`data-tone`), Anzeigeort eines Chats (`display`), Seite im Standort des globalen Koordinators
+(`page`) und Platzierung einer Startoption auf der Startseite (`page`). Die VS-Code-Erweiterung
+spricht im Code nur noch von `connection`, Befehls-IDs und Context-Keys eingeschlossen.
+
+**Was bleibt.** Journalisierte Namen ändern sich nicht, weil es keine Migrationen gibt: das Werkzeug
+`canvas_layout_replace` (steht in der Werkzeugauswahl von Actors und in Capabilities aktivierter
+Programme; ein unbekannter Name ließe deren nächsten Turn scheitern), die Platzierungsart `canvas`
+im Zustand der Actor-Programme und die Rolle als `profile` in Journal und `model_list`. Der
+Plugin-Vertrag nennt einen Run in Typnamen noch `Session` (`SessionContext`, `sessionMetadata`,
+`storage.session`); das sind rund 3800 Stellen, teils Agent- und Anmeldesitzungen, und bekommt
+einen eigenen Umbau (TODO). Verworfen: Aliasse für alte Methoden-, Befehls- und Host-API-Namen,
+weil der Kurs keine Altpfade kennt. `docs/decisions.md` bleibt als Geschichte unverändert, nur
+Kapitelverweise zeigen auf die neuen Dateien.
+
+**Globaler Koordinator ohne Shell bei Anmeldung.** Mit Benutzern hat der globale Koordinator kein
+`bash` mehr: die Shell liefe als Serverprozess und könnte die Journale anderer Benutzer lesen. Seine
+JSON-RPC-Aufrufe schickt er dann aus Snippets mit `fetch` und seinem Token aus `process.env`; ohne
+Anmeldung bleibt `bash`. Ein vorhandener Koordinator mit `bash` in der Werkzeugauswahl meldet
+`global-tools-changed`, bis sein Gespräch zurückgesetzt ist. Die Grenze schließt sich damit nicht
+ganz: Snippets sind nativer Node-Code des Servers ohne eigene Systemkennung (`profiles.md`, Offene
+Grenzen). Kapitel: `core.md` (Globaler Koordinator), `profiles.md`.
+
+## Bindung eines Runs: Rechner und Ordner getrennt (24.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Zuständigkeit je Facette, Run-Panel, Host-API, Arbeitsbereich,
+Sandbox-Werkzeuge und Prozesse samt Shell, Dateien, Prozessen und Browser, Offene Grenzen),
+`docs/spec/core.md` (Umzug, Serverordner), `docs/spec/profiles.md` (core), `docs/operations.md`
+(Browser, Session-Isolation, Umzug), `docs/development.md`. Vorgabe des Owners: `ragents.workspace.binding`
+mit `fresh`, `path` und `client` vermischte, WO ein Run arbeitet, mit WELCHEM Ordner, und
+`WorkspaceRuntime.kindOf` vermischte die Art eines beigesteuerten Arbeitsbereichs mit der Bindung.
+
+**Zwei Angaben.** Die Bindung ist `{ machine, folder }`: `machine` ist `"server"` oder
+`{ client, label }`, `folder` ist `"fresh"` oder `{ path }`, alle vier Kombinationen gelten.
+`machine`, weil der Executor genau einer Maschine entscheidet, wo gearbeitet wird, und Spec und
+Executor schon so reden; verworfen: `where` (kein Substantiv, liest sich im Code schlecht) und
+`host` (im Code für `PluginHost` und die Host-API belegt). `folder` statt `workspace`, weil der
+Arbeitsbereich beides zusammen ist.
+
+**Neuer Ordner je Run auf dem Arbeitsplatz.** Der Arbeitsplatz nennt bei der Anmeldung seinen
+Ordner für Runs (`runsDirectory`, Pflicht; VS Code und kopfloser Arbeitsplatz nehmen `runs` in
+ihrem Datenordner), und `accept` hält den Ordner des Runs darunter als `{ path, fresh: true }` fest.
+Die Auflösung braucht den Pfad ohne den Arbeitsplatz und für immer denselben, weil der Server beim
+Start alle Arbeitsbereiche auflöst und Prompt wie Laufzeit ihn nennen. Verworfen: den Pfad beim
+Auflösen aus der Registry zu nehmen (scheitert ohne Verbindung), ein symbolisches `cwd`, das erst der
+Arbeitsplatz auflöst (der Server braucht den Pfad), und den Ordner für Runs im `machine`-Teil
+festzuhalten (er gehört zum Ordner, und die Trennzeichen-Logik stünde zweimal da). Angelegt wird er
+vom Executor dort, mit dem neuen Modul `runFolder` (`create`, `remove`); der des Servers lehnt beides
+ab, weil dort der Host den Ordner anlegt. Der Host legt ihn vor dem ersten Auftrag an, nie beim
+Aufräumen, und nimmt ihn beim Löschen des Runs mit. `WORKSPACE_EXECUTOR_VERSION` ist deshalb 3; ein
+Arbeitsplatz mit älterem Paket wird bei der Anmeldung abgewiesen.
+
+**Beitrag auf dem Arbeitsplatz.** `WorkspaceResolver.workstation` stellt den neuen Ordner dort mit
+Bezeichnung und Schritten, Operationen des Executors mit Eingabe (`prepare` nach dem Anlegen,
+`release` vor dem Wegräumen), weil Code eines Plugins nie auf dem Arbeitsplatz läuft. Ein Git-Worktree
+geht so mit `commands.run` (Test `workspace-foreign-machine.test.ts`); verworfen ist eine eigene
+Worktree-Operation im Executor, solange sie keinen zweiten Nutzer hat. Ein Beitrag ohne
+`workstation` schließt den neuen Ordner auf dem Arbeitsplatz aus (`workspace-binding-unsupported`),
+statt dort still einen leeren anzubieten, der seine Art ersetzt; ein solches externes Plugin bietet ihn deshalb nicht an.
+
+**`placementOf` statt `kindOf`.** Die Laufzeit beantwortet je Run `machine`, `folder` und, wenn ein
+Beitrag den neuen Ordner gestellt hat, `kind`. Ein externes Plugin fragt seinen Worktree jetzt als "auf dem Server und
+von seiner Art" ab. Weil der Dienst hinter `workspaceRuntimeToken` damit ein Mitglied verliert, das
+ein gebautes Bundle aufruft, ist die Host-API 5; neu ist `RUN_FOLDER_OPERATIONS`.
+
+**Keine Migration, eine Abbildung.** Ältere Journale tragen `{ kind: ... }`. `storedWorkspaceBinding`
+bildet die drei Werte beim Lesen auf je genau eine Kombination ab (neuer Ordner auf dem Server,
+vorhandener Ordner auf dem Server, vorhandener Ordner auf dem Arbeitsplatz); Server, `ownerOnly` und
+Web lesen gespeicherte Werte nur über sie. Das ist der einzige Altpfad: Journale sind unveränderlich,
+die Abbildung verliert und erfindet nichts, und Sperren hätte jeden bestehenden Run unbrauchbar
+gemacht, ohne dass etwas unklar wäre. `accept` und festgelegte Startoptionen nehmen nur die neue Form;
+eine Vorlage mit alter Form scheitert beim Start des Profils an der Schemaprüfung. Was keiner Form
+entspricht, sperrt den Run mit Ursache wie bisher.
+
+## Steering: Nachrichten an einen laufenden Turn kommen in diesen Turn (24.09.2026)
+
+Kapitel: `docs/spec/core.md` (Scheduler and turns, Agent-Session und Agentenlaufzeit, Unterbrechen
+eines Turns, Chatprojektion, Dateiformat, Offene Grenzen), `docs/spec/overview.md` (Turn),
+`docs/development.md` (Die fünf Begriffe, Journalbeispiel), dazu die Eingriffs-Liste im Eintrag
+"Eigenes Verhalten in der Agentenlaufzeit". Vorgabe des Owners: Steering sauber verdrahten. Spec
+und Oberfläche versprachen "Dazwischenfunken", die Agentenlaufzeit hatte Warteschlangen dafür,
+aber RAgents rief sie nie: jede Nachricht an einen arbeitenden Agenten wartete auf dessen Ende und
+bekam einen eigenen Turn.
+
+**Die Engine holt, die Laufzeit schiebt nicht.** Die Agentenschleife fragt vor jeder Modellanfrage
+eine Steering-Quelle ab; die Engine beantwortet sie über `TurnRequest.claimSteering`, und erst in
+diesem Augenblick schreibt der Scheduler `turn.input-steered` für die übernommenen Inputs. So gibt
+es kein Fenster, in dem eine Nachricht in der Laufzeit steckt, aber im Journal noch wartet oder
+umgekehrt: was die Quelle nicht mehr abfragt, weil der Turn endet oder abgebrochen ist, bleibt
+wartend und beginnt den nächsten Turn. Verworfen: `AgentSession.steer` bei jedem neuen Input
+aufzurufen, weil die Engine dann nicht wüsste, ob die Schleife die Nachricht vor ihrem Ende noch
+gesehen hat; eine Nachricht wäre entweder doppelt (eigener Turn danach) oder verloren.
+
+**Ein eigenes Ereignis statt eines zweiten Turn-Starts.** `turn.input-steered` nennt Turn und Input;
+der Input gilt als von diesem Turn beansprucht (`steered: true`). `turn.started` bleibt der eine
+Beginn eines Turns, die Wiedergabe alter Journale ändert sich nicht. Weil ein älterer Stand das neue
+Ereignis ablehnen würde, schreibt das Journal Dateiformat 6 und liest weiter 4 und 5. Die
+Journalprüfung verlangt, dass der Turn läuft und kein älterer wartender Input übersprungen wird;
+dass nur ein Agent Steering nimmt, prüft allein die Entscheidung, damit diese Regel später ohne
+Journalbruch wachsen kann.
+
+**Regeln.** Steering gibt es nur für Actors mit dem Agententreiber und nur während ihres Turns; ein
+TypeScript-Actor hat kein Modell, das etwas vor einer nächsten Anfrage sehen könnte, seine Inputs
+warten wie bisher. Übernommen werden alle wartenden Inputs des Actors auf einmal, in
+Journal-Reihenfolge, bis vor den ersten mit mehr als 30000 Zeichen Inhalt: das ist die Grenze, die
+die Spec schon für Steering-Text nannte; ein längerer Text wartet samt allem danach auf einen
+eigenen Turn, statt gekürzt zu werden oder die Reihenfolge zu brechen. Nach dem Abbruchsignal
+übernimmt ein Turn nichts mehr; was er vorher übernommen hat, gehört ihm wie sein Start-Input.
+Die Quelle wird schon vor der ersten Anfrage gefragt, deshalb fasst ein Turn auch Nachrichten
+zusammen, die vor seinem Start schon warteten. Anhänge gehen denselben Weg wie beim Turn-Start;
+scheitert ihre Aufbereitung, scheitert der Turn mit dieser Ursache.
+
+**Werkzeuge laufen zu Ende.** Die Laufzeit konnte einen laufenden Werkzeugaufruf bei Steering in
+den Hintergrund schieben: Zwischenergebnis ans Modell, das echte Ergebnis später als getaggte
+Nachricht. Mit dem Journal verträgt sich das nicht: der Aufruf bliebe über seinen Turn hinaus
+offen, und ein Turn mit offenen Aufrufen scheitert. Entfernt sind deshalb das Weiterlaufenlassen,
+die Follow-up-Warteschlange (RAgents beginnt nach einem Turn ohnehin einen neuen), `steer`,
+`followUp`, `queue_update`, `streamingBehavior` und die Queue-Modi. Wer nicht warten will,
+unterbricht den Turn.
+
+**Sichtbar im Verlauf.** Chat und Actor-Verlauf tragen an jeder eingehenden Nachricht ihre
+Input-Kennung; `turn.input-steered` markiert sie an ihrer Stelle mit "In den laufenden Turn
+eingespeist". Der Senden-Knopf heißt während eines Turns "In den laufenden Turn einspeisen".
+`ragents send` folgt einer eingespeisten Nachricht bis zum Ende ihres Turns. Der Kern kennt dabei
+kein Werkzeug; er kennt Turn, Input und Treiberart.
+
+## Ein globaler Koordinator je Benutzer, seine Werkzeuge handeln als dieser (24.09.2026)
+
+Kapitel: `docs/spec/core.md` (Übergeordneter Koordinator), `docs/spec/profiles.md` (Run ownership,
+Eigentum im Einzelnen, Rechte im Einzelnen, Offene Grenzen), `docs/spec/plugins.md` (Rechte des
+Koordinators, Kopfzeile), `docs/usage.md` (globaler Koordinator). Vorgabe des Owners: jeder
+angemeldete Benutzer hat seinen eigenen Koordinator, ohne Anmeldung genau einen.
+
+**Warum.** Der gemeinsame Run `overseer` handelte über den Token der Dienstidentität `host-service`
+mit `runs.read.all`, `runs.create` und `runs.inspect`. Jeder, der ihm schreiben durfte, bekam damit
+diese Rechte, sah fremde Runs und legte Runs an, die `host-service` gehörten; dazu las die Shell den
+Journalordner aller Benutzer, und alle Benutzer teilten ein Gespräch samt Modellkontext.
+
+**Kennung und Eigentum.** Die Run-ID bildet das Plugin aus dem Benutzer: `overseer-` und 24
+Hexzeichen von SHA-256 der Kennung, ohne Anmeldung `overseer-single`. Ein Hash, weil
+Benutzerkennungen Großbuchstaben und Punkte enthalten dürfen, Run-IDs nicht. `GlobalChatPolicy`
+nennt statt `runId` jetzt `runIdFor` und `isCoordinator`, `workspaceDirectory` je Run,
+`resetIntentDirectory` mit einem Marker je Koordinator, und `inputContext`, `contextPrompt` sowie
+`model.forTurn` bekommen die Run-ID. Die Rechteprüfung (`runOwned`, `runReachable`) lässt eine
+Koordinatorkennung nur für den Benutzer zu, dem sie gehört: nicht für `runs.read.all` und auch
+nicht, solange unter ihr noch kein Run liegt, sonst könnte ein anderer den Koordinator eines
+Benutzers zuerst anlegen und besitzen. Die erste Nachricht an den eigenen Koordinator braucht kein
+`runs.create`; sie legt keinen freien Run an. Web fragt die Kennung mit der neuen Methode
+`ragents.overseer.coordinator` ab; VS Code zeigt keinen Koordinator und brauchte nichts. Verworfen:
+eine Alias-Kennung `overseer`, die der Server je Aufrufer umschreibt, weil jede Route, jeder Kanal
+und jede Dateiadresse mit Run-Bezug sie dann kennen müsste.
+
+**Zugang der Werkzeuge.** Die Dienstidentität `host-service` entfällt. Jeder Koordinator bekommt
+einen Token für seinen Benutzer (`coordinatorAccessToken`), gültig nur über Loopback und nur für
+`/rpc`, `/rpc/stream` und `/help/`; der Server löst ihn bei jedem Aufruf in den aktuellen Stand des
+Benutzers aus der Profildatei auf (`coordinatorSnapshot`), ein entfernter Benutzer ist nicht
+angemeldet. Mit `anonymousUser` steht der Token für den anonymen Zugang, mit `ACCESS_TOKEN` bleibt
+es dieser Token, offen gibt es keinen. Wem ein Koordinator gehört, leitet der Host aus seiner
+Kennung und den konfigurierten Benutzern ab, nicht aus dem Journal. Mit Benutzern entfällt der
+Journalordner als Lesewurzel; Journale liest der Koordinator über `ragents.overseer.readEvents`.
+Die Host-Shell bleibt ohne eigene Systemkennung (Offene Grenze in `profiles.md`).
+
+**Keine Übernahme des alten Gesprächs.** Der frühere gemeinsame Run `overseer` wird keinem Benutzer
+zugeordnet: Er enthält Nachrichten und Ergebnisse mehrerer Benutzer und einen gemeinsamen
+Modellkontext, die sich nicht nach Benutzern trennen lassen, und seine Ergebnisse entstanden mit
+den Rechten von `host-service`. Jedem Benutzer, etwa seinem ersten Schreiber, gehörte damit, was
+andere gefragt hatten. Dazu gilt der Kurs ohne Migrationen. Die Kennung bleibt reserviert
+(`isCoordinator`), damit das Journal nicht als gewöhnlicher Run in Listen auftaucht; der Server
+öffnet ihn nicht, niemand erreicht ihn, sein Journal bleibt bytegleich liegen, und ein Turn scheitert
+an `coordinator-without-access`. Wer ihn nicht mehr braucht, löscht `runs/overseer` und
+`sessions/overseer` bei gestopptem Server. Dasselbe gilt für den Koordinator eines entfernten
+Benutzers.
+
+**Nebenbei.** `ragents.overseer.listRuns` lieferte seit `workspaceAccessible` in der Run-Liste Felder
+außerhalb seines Vertrags und scheiterte über die Nachrichtenschicht; es gibt jetzt nur die
+vertraglichen Felder aus. Die Modellwahl bleibt für alle Koordinatoren gemeinsam. Host-API bleibt
+4: die Form von `globalChatToken` ändert sich, aber keine gelistete Kennung, und nur
+`ragents.overseer` stellt den Vertrag bereit.
+
+## Betriebsdoku geteilt: Bedienung in usage.md, Betrieb in operations.md (24.09.2026)
+
+Kapitel: `docs/usage.md` (neu), `docs/operations.md`, `docs/development.md` (Dokumentation,
+Werkzeuge, Prüfläufe und Veröffentlichung), `docs/spec/core.md` (Übergeordneter Koordinator,
+Sicherheits-Lockdown der Agentenlaufzeit), `docs/spec/plugins.md` (Beispiel eines
+Skill-Einstiegs), `docs/spec/actor-programs.md` (Frame, Layout, Formulare und Chat-Bausteine),
+`docs/spec/overview.md`, `docs/spec/profiles.md`, `scripts/homepage/homepage-guide.ts`. Anlass war
+der Doku-Scan: `operations.md` mischte auf rund 1800 Zeilen Bedienung, Betrieb, Entwicklerwerkzeuge
+und Wiederholungen der Spec.
+
+**Bedienung und Betrieb getrennt.** `docs/usage.md` sagt, was ein Benutzer oder ein Agent als
+Benutzer sieht und tut: Startfläche, Run-Chat, Fläche, Einstellungen, globaler Koordinator,
+Run-Panel, VS-Code-Erweiterung, `ragents run` und `pnpm driver`. `docs/operations.md` sagt, wie
+man RAgents installiert, startet und betreibt: Zugang, Browser, Paket, Connect, Run-Umzug,
+Windows, Datenablage, Arbeitsbereich. Build- und Prüftasks, Homepage-Build, Konzept-Audit,
+Veröffentlichen von Paket und Erweiterung, die echte Browserprobe und der Prüfläufer für den
+entfernten Arbeitsbereich stehen jetzt in `docs/development.md` unter "Werkzeuge, Prüfläufe und
+Veröffentlichung". Verworfen: eine einzige Datei mit schärferen Überschriften, weil Benutzer und
+Betreiber verschiedene Fragen stellen und die Datei trotzdem weiter gewachsen wäre.
+
+**Dubletten zur Spec durch Verweise ersetzt.** Was schon in der Spec stand, ist aus der
+Betriebsdoku verschwunden und wird dort verlinkt: TypeScript-Funktionen und Snippets
+(`typescript-platform.md`), Autorenhinweise zu Actor-Programmen und Skill-Einstiegen
+(`actor-programs.md`, `plugins.md`), Aufbau der Run-Scripts, Prozessstopp, Browserprüfung,
+Arbeitsplätze, Anmeldung, Eigentum und gespeicherte Modell- und Titelvorgaben. Mechanik, die nur
+in der Betriebsdoku stand, ist in die Spec gewandert: die Umgebungsvariablen und die Dienstidentität
+des globalen Koordinators und der Sicherheits-Lockdown nach `core.md`, das Beispiel eines
+Skill-Einstiegs nach `plugins.md`, drei Autorenregeln nach `actor-programs.md`. Der Abschnitt "Feste
+Abläufe" entfällt ganz; er wiederholte `core.md` und beschrieb das Löschen noch ohne Bestätigung.
+
+**Guide-Kapitel aus mehreren Dateien.** `guideChapters` nennt je Kapitel eine Liste von
+Quelldateien desselben Ordners; die Blöcke werden in dieser Reihenfolge zusammengefügt. "Get
+started" nimmt Installation, Start und Neubau aus `operations.md` und danach den ersten Run und
+die Kachelfläche aus `usage.md`, "Web and VS Code" kommt ganz aus `usage.md`, "Distributed work"
+ganz aus `operations.md`. Die Kapitel bleiben dieselben; nur "Get started" ist neu geordnet, und
+sein Absatz zum Entwicklungsbetrieb mit Vite steht jetzt deutsch in `development.md`, weil er
+Entwickler betrifft und nicht Benutzer.
+
 ## Nacharbeit zum Unterbrechen: CLI, Agentenschleife, Werkzeugnamen, Stoppgrund (24.09.2026)
 
 Kapitel: `docs/spec/core.md` (Unterbrechen eines Turns, Equipping subagents, Chatprojektion),
@@ -883,7 +1136,7 @@ erreichten `pnpm dev:web` und `--dev` die Nachrichtenschicht nicht.
 ## Paketnamen @ragents/*, eine Host-API-Liste und Querimporte nur über Exporte (23.09.2026)
 
 Kapitel: `docs/concepts/plugin-bundles.md` (Schritt 1); `docs/spec/plugins.md`, `profiles.md`,
-`core.md`, `overview.md`, `run-modules.md` und `docs/operations.md` ziehen die Namen und Pfade nach
+`core.md`, `overview.md`, `actor-programs.md` und `docs/operations.md` ziehen die Namen und Pfade nach
 ihrer laufenden Übersetzung nach (`TODO.md`). Vorarbeit dafür, dass Plugins als fertige Bundles
 geladen werden: Ein Bundle darf vom Host nur beziehen, was der Host ausdrücklich anbietet, und von
 anderen Plugins nur, was diese ausdrücklich exportieren. Bisher reichte jedes Plugin in beliebige
@@ -1782,7 +2035,7 @@ Zurückspringen während laufender Antworten.
 ## Das Run-Panel bekommt die Arbeitsbereichs-Tabs als Leiste am rechten Rand, der Netz-Tab entfällt (21.09.2026)
 
 Kapitel: `docs/spec/plugins.md` (Web als Plugin-Host: Workspace-Tabs, Canvas-Leiste und
-Actorliste, Run-Panel, Offene Grenzen), `docs/spec/run-modules.md` (Actorliste),
+Actorliste, Run-Panel, Offene Grenzen), `docs/spec/actor-programs.md` (Actorliste),
 `docs/operations.md` (Run-Chat und Arbeitsfläche, Run-Panel und VS-Code-Erweiterung, Als Agent
 bedienen), `docs/homepage/index.html` (Zugänge), `apps/web/README.md`, `apps/vscode/README.md`,
 `apps/vscode/CHANGELOG.md`, `scripts/homepage/homepage-extensions.ts`, `TODO.md`. Vorgabe: Das
@@ -2190,7 +2443,7 @@ Dabei ist die Spec auf den Code gekommen: `closeDelay` steht bei 150 Millisekund
 ## Der freie Canvas ist zurückgebaut, es bleibt die Kachelfläche (21.09.2026)
 
 Kapitel: `docs/spec/plugins.md` (Web als Plugin-Host, Offene Grenzen),
-`docs/spec/run-modules.md` (Werkzeugkarten und Kacheln, Kachel-Host und Funktionen-Reiter),
+`docs/spec/actor-programs.md` (Werkzeugkarten und Kacheln, Kachel-Host und Funktionen-Reiter),
 `docs/spec/typescript-platform.md`, `docs/spec/overview.md`, `docs/spec/core.md`,
 `docs/spec/profiles.md`, `docs/operations.md` (Die Kachelfläche verwenden, Run-Chat und
 Arbeitsfläche, Einstellungen), `README.md`, `docs/homepage/index.html` und der Wortlaut in
@@ -2855,7 +3108,7 @@ Pfad (`PRODUCT_PROFILE_FILE`).
 
 ## `ListDetail` misst sich selbst: Drill-in statt zwei enger Spalten (19.09.2026)
 
-Kapitel: plugins (Startauswahl, Dialoge), run-modules (`ListDetail`). In VS Code ist die Fläche
+Kapitel: plugins (Startauswahl, Dialoge), actor-programs (`ListDetail`). In VS Code ist die Fläche
 oft 700 bis 1000 Pixel breit. Dort blieb die Startauswahl zweispaltig, weil die Umschaltung an
 einer Media-Query auf das Browserfenster hing und erst bei 700 Pixeln griff; Liste und Vorschau
 bekamen je rund 350 Pixel und wurden unlesbar. Festgelegt: (1) Der Baustein ist ein eigener
@@ -2956,7 +3209,7 @@ dieser Architektur.
 ## Die API ist JSON-RPC mit typisierten Verträgen, HTTP und stdio sind Transporte (18.09.2026)
 
 Kapitel: plugins (Nachrichtenschicht, Plugin-Vertrag, Web als Plugin-Host, Arbeitsbereich),
-core (Schichten, Overseer), profiles (Startmodi, Rechte), typescript-platform, run-modules,
+core (Schichten, Overseer), profiles (Startmodi, Rechte), typescript-platform, actor-programs,
 README. Der Server sollte auch als Konsolenprozess ohne Port starten und die Erweiterung
 zwischen HTTP und stdio wechseln können, mit einer Nachrichten-API, die im Web und im Backend
 typsicher ist; die REST-artige HTTP-API sollte weg, nicht hinter einer Fassade weiterleben.
@@ -3302,7 +3555,7 @@ Verlauf wird verworfen.
 
 ## Gesamte Oberfläche auf Tailwind und shadcn, ein Token-File (17.09.2026)
 
-Kapitel: plugins, run-modules. Seit dem 15.09. galt Tailwind nur für die Controls und die
+Kapitel: plugins, actor-programs. Seit dem 15.09. galt Tailwind nur für die Controls und die
 Mini-App-Frames, die übrige Oberfläche lief über rund 8.700 Zeilen eigenes CSS in Host und
 Plugins mit `--qsl-*`-Tokens und einer zweiten Token-Schicht in `theme.css`. Ziel war
 dieselbe Technik allumfassend und ohne Redundanz. Festgelegt:
@@ -3635,7 +3888,7 @@ Kapitel: `docs/spec/plugins.md`; Bedienung angepasst.
 
 ## UI-Bibliothek auf shadcn/ui, Base UI und Tailwind (15.09.2026)
 
-Kapitel: plugins, run-modules. Die eigene Control-Bibliothek vom 07.09. (Button, IconButton,
+Kapitel: plugins, actor-programs. Die eigene Control-Bibliothek vom 07.09. (Button, IconButton,
 Chip, Segmented, Tabs, SelectMenu, Modal, Dialog mit `ui-*`-Klassen und Floating UI) ist durch
 shadcn/ui auf Base UI ersetzt. Ausschlaggebend: Die Mini-Apps schreiben überwiegend Modelle,
 und die kennen die shadcn-API (`variant="outline"`, `Select/SelectTrigger/SelectContent`,
@@ -3661,7 +3914,7 @@ war als Alternative geprüft und wegen der geringeren Bekanntheit verworfen. Fes
 
 Eine Mini-App zeigt nach der Auswahl den Gegenstand im Kopf und vier Reiter über einen neuen
 gemeinsamen `Tabs`-Baustein; Agentenprosa steht in gefalteten Karten, die Aktionsleiste enthält
-nur Aktionen. Kapitel: `docs/spec/run-modules.md`.
+nur Aktionen. Kapitel: `docs/spec/actor-programs.md`.
 
 ## Run-Übersicht nach Aktivität mit persönlichem Lesestand (15.09.2026)
 
@@ -3678,19 +3931,19 @@ Die Verkleinerung des gesamten Mini-App-Frames auf 90 Prozent entfällt; sein Vi
 die tatsächlichen Maße. Diagramme starten und zentrieren bei 100 statt 80 Prozent. Damit
 verkleinern zwei verschachtelte Vorgaben nicht länger Schrift, Controls und Karten.
 Die automatische Breitenanpassung bleibt bei Platzmangel erhalten.
-Betroffen: `docs/spec/run-modules.md`.
+Betroffen: `docs/spec/actor-programs.md`.
 
 ## Mehr Abstand zwischen Diagrammkarten (15.09.2026)
 
 Die Standardabstände der automatischen Anordnung steigen um etwa 30 Prozent: von 40 auf 52
 innerhalb einer Ebene und von 72 auf 94 zwischen Ebenen. So bleibt zwischen den Kästen mehr
-Freiraum. Betroffen: `docs/spec/run-modules.md`.
+Freiraum. Betroffen: `docs/spec/actor-programs.md`.
 
 ## Diagrammkarten an der äußeren Rundung begrenzen (15.09.2026)
 
 Bei Karten ohne Unterpunkte reichte die rechteckige Kopffläche über die unteren runden Ecken.
 Die Karte beschneidet jetzt ihre Inhaltsflächen an ihrer Außenkontur. Abmessungen, Schatten
-und Verbindungen bleiben unverändert. Betroffen: `docs/spec/run-modules.md`.
+und Verbindungen bleiben unverändert. Betroffen: `docs/spec/actor-programs.md`.
 
 ## Pop-out-Scrollen von der Canvas-Leiste abgrenzen (15.09.2026)
 
@@ -3711,7 +3964,7 @@ fehlende Stopcallbacks hatten zuvor einen deaktivierten Sendeknopf hinterlassen.
 Betroffen: `docs/spec/plugins.md`.
 Diagramme behalten Statuschips und kennzeichnen ihre Zustände stärker durch Farbe, ohne
 zusätzliche Höhe. Animation verlangt ein ausdrückliches laufendes Signal statt eines
-impliziten Standardwerts. Betroffen: `docs/spec/run-modules.md`.
+impliziten Standardwerts. Betroffen: `docs/spec/actor-programs.md`.
 
 ## Direkte Arbeitswerkzeuge und lokal begrenzter UI-Zustand (15.09.2026)
 
@@ -3743,7 +3996,7 @@ Der gemeinsame Diagrammrenderer verwendet 80 Prozent als Ausgangs- und Zentriers
 Breitenangepasste Diagramme bleiben höchstens so groß und verkleinern sich bei Platzmangel
 weiter. Die React-Flow-Skalierung erfasst Schrift, Karten, Verbindungen und Abstände gemeinsam;
 die Inhaltshöhe folgt derselben Skalierung. Damit passen FlowDiagram und WorkflowDiagram
-zu den übrigen Mini-App-Inhalten. Betroffenes Kapitel: `docs/spec/run-modules.md`.
+zu den übrigen Mini-App-Inhalten. Betroffenes Kapitel: `docs/spec/actor-programs.md`.
 
 ## Gemeinsamer Scrollraum unter dem letzten Chatbeitrag (15.09.2026)
 
@@ -3775,7 +4028,7 @@ verfügbar; lange Berichte beeinflussen die Kartenhöhe nicht mehr. `detailLevel
 die ausführliche Darstellung als ausdrückliche Option. Bereits installierte Mini-Apps enthalten
 ein eigenes kompiliertes Clientpaket und benötigen einen erneuten Build, um die Änderung zu
 übernehmen. Betroffen:
-`docs/spec/run-modules.md`, `docs/spec/plugins.md` und die öffentliche Bausteinreferenz.
+`docs/spec/actor-programs.md`, `docs/spec/plugins.md` und die öffentliche Bausteinreferenz.
 
 ## Statusleiste mit Randabstand und klareren Trennern (15.09.2026)
 
@@ -3794,7 +4047,7 @@ Ein Fachablauf und der neutrale Lernnachmittag verwenden denselben Vertrag; `Wor
 ihn an die vorhandene Darstellung. Damit ist die Wiederverwendung an zwei echten Abläufen
 geprüft, ohne eine zweite Ablaufmaschine einzuführen. Der Erweiterungs- und Autorenleitfaden
 beschreiben die Verwendung einschließlich Promptauflösung und Erweiterungsgrenzen.
-Betroffene Kapitel: `docs/spec/run-modules.md`, `docs/spec/typescript-platform.md`, `docs/spec/plugins.md`.
+Betroffene Kapitel: `docs/spec/actor-programs.md`, `docs/spec/typescript-platform.md`, `docs/spec/plugins.md`.
 
 ## Redundanzprüfung ausdrücklich am offenen Changeset (15.09.2026)
 
@@ -3811,7 +4064,7 @@ Der gemeinsame Diagrammbaustein erhält strukturierte Knoten und Kanten statt Me
 React Flow stellt Karten, Status und die bedienbare Ansicht dar, ELK berechnet Anordnung und
 Verbindungen. Damit verwenden Mini-Apps dieselbe visuelle Sprache wie die übrige Oberfläche;
 LLMs benötigen weder Diagrammsyntax noch Koordinaten. Mermaid samt Export, Anleitung,
-Vorlage und Abhängigkeit entfällt. Kapitel: `docs/spec/run-modules.md`, `docs/spec/plugins.md`;
+Vorlage und Abhängigkeit entfällt. Kapitel: `docs/spec/actor-programs.md`, `docs/spec/plugins.md`;
 öffentliche Referenz und Homepage angepasst.
 
 ## Kopieren ohne zusätzliche Nachrichtenzeile anbieten (15.09.2026)
@@ -3844,7 +4097,7 @@ Datenmigration und keine Journalumschreibung. Kapitel: `docs/spec/profiles.md`,
 Mini-Apps können Diagramme mit dem gemeinsamen `MermaidDiagram` aus lokalen Quellen rendern.
 Damit müssen sie Graphanordnung, Theme und Fehleranzeige nicht einzeln implementieren.
 Die öffentliche Referenz und die Controls-Vorlage machen den Baustein direkt ausprobierbar.
-Kapitel: `docs/spec/run-modules.md`, `docs/spec/plugins.md`; Bedienung und Homepage angepasst.
+Kapitel: `docs/spec/actor-programs.md`, `docs/spec/plugins.md`; Bedienung und Homepage angepasst.
 
 ## Bash-Abschluss auf macOS bei beendeten Prozessgruppen erhalten (14.09.2026)
 
@@ -3904,7 +4157,7 @@ das aktivierte Actor-Programm statt nur das ältere direkte `actor.source`-Feld.
 erhalten damit denselben Zugang zu ihrem TypeScript-Code. Programm-Plugin, Quellcode-Endpunkt,
 Dateiauswahl und Syntaxhervorhebung bleiben die gemeinsamen Bausteine; es entsteht kein
 zweiter Dateizugriff. Quellen laden erst beim Öffnen und erneut nach einer Programmaktivierung.
-Kapitel: `docs/spec/plugins.md`, `docs/spec/run-modules.md`; Bedienung und Homepage angepasst.
+Kapitel: `docs/spec/plugins.md`, `docs/spec/actor-programs.md`; Bedienung und Homepage angepasst.
 
 ## Erstellungszeitpunkt auf Run-Karten anzeigen (14.09.2026)
 
@@ -3919,7 +4172,7 @@ Kapitel: `docs/spec/plugins.md`; Bedienung und Homepage angepasst.
 Der begrenzte Inhalt von `AppLayout` schnitt den äußeren Fokusrahmen einer Suchzeile links ab.
 Vier Pixel Innenabstand mit ausgleichendem Außenabstand halten den Rahmen innerhalb der
 Scrollfläche und erhalten die bisherige Ausrichtung. Die gemeinsame Layoutregel gilt auch
-für bereits installierte Views beim erneuten Laden. Kapitel: `docs/spec/run-modules.md`;
+für bereits installierte Views beim erneuten Laden. Kapitel: `docs/spec/actor-programs.md`;
 Homepage angepasst.
 
 ## Erweiterungsleitfaden aus konkreten Integrationsbefunden (14.09.2026)
@@ -3931,7 +4184,7 @@ erklärt daraus acht Strategien und eine Entscheidungshilfe für Funktionen, Scr
 und Views. Konkrete Belegpfade und ihre Reichweite bleiben im internen Spec-Kapitel; feste
 Modelle, Fachfilter und Produktpfade werden nicht zu allgemeinen Regeln. Es entsteht kein
 neuer Abstraktionsmechanismus und keine zweite Dokumentationsablage.
-Kapitel: `docs/spec/plugins.md`, `docs/spec/run-modules.md`; Homepage und Guide-Verweise angepasst.
+Kapitel: `docs/spec/plugins.md`, `docs/spec/actor-programs.md`; Homepage und Guide-Verweise angepasst.
 
 ## Kurzer Suchinterpreter und sichtbare Sprachserver-Vorbereitung (14.09.2026)
 
@@ -3961,7 +4214,7 @@ Es verwendet vorhandene Actor-Views und eine lesende Plugin-Operation, keine zus
 Idle und Fehler bleiben vom geprüften Ergebnis getrennt; interne Traces werden nicht geliefert.
 Die Host-Bridge behält 512 kürzlich verwendete Anfrage-IDs statt nach 512 Aufrufen dauerhaft
 abzubrechen. So funktioniert die regelmäßige Statusanzeige auch bei längeren Läufen.
-Kapitel: `docs/spec/plugins.md`, `docs/spec/profiles.md`, `docs/spec/run-modules.md`; Bedienung angepasst.
+Kapitel: `docs/spec/plugins.md`, `docs/spec/profiles.md`, `docs/spec/actor-programs.md`; Bedienung angepasst.
 
 ## Fachanleitungen beim zuständigen Plugin (14.09.2026)
 
@@ -4043,7 +4296,7 @@ Kapitel: `docs/spec/plugins.md`; Homepage angepasst.
 
 Mini-App-Inhalte verwenden in freiem Canvas, Kacheln und Vollansicht denselben
 Faktor 0,9; der innere Frame gleicht die Skalierung aus und füllt weiterhin den verfügbaren Platz.
-Kapitel: `docs/spec/run-modules.md`; Bedienung und Homepage angepasst.
+Kapitel: `docs/spec/actor-programs.md`; Bedienung und Homepage angepasst.
 
 ## Run-Vorbereitung auf dem leeren Canvas anzeigen (14.09.2026)
 
@@ -4060,7 +4313,7 @@ Canvas und eine Fach-Mini-App zeichneten Pfeile jeweils selbst. `SvgEdge` verein
 gemeinsamen Teil einschließlich Zustandsfarben, Marker und Animation. Das Mini-App-SDK
 exportiert denselben Baustein. Ein neutrales Beispiel und die Autorenanleitung geben Modellen
 eine konkrete Gestaltungsvorlage; Layout und fachliche Knoten bleiben beim jeweiligen Fall.
-Kapitel: `docs/spec/run-modules.md`; öffentliche Bausteinreferenz und Homepage ergänzt.
+Kapitel: `docs/spec/actor-programs.md`; öffentliche Bausteinreferenz und Homepage ergänzt.
 
 ## Einheitliche Kartenköpfe für Mini-Apps und Actors (14.09.2026)
 
@@ -4149,7 +4402,7 @@ Mountpunkt. Der Scrollbalken bleibt am rechten Frame-Rand, `AppLayout` verdoppel
 nicht und sein `fill`-Layout bleibt möglich. Die mitgelieferten Apps verzichten auf ihr eigenes
 äußeres Padding; die Autorenanleitung überlässt Seitenlayout und Abstand ausdrücklich dem Host.
 Standalone-Vorschauen behalten ihren Dokumentfluss.
-Kapitel: `docs/spec/run-modules.md`; Produkt-Homepage entsprechend ergänzt.
+Kapitel: `docs/spec/actor-programs.md`; Produkt-Homepage entsprechend ergänzt.
 
 ## Innenabstand der Mini-App-Statuszeile herstellen (13.09.2026)
 
@@ -4173,7 +4426,7 @@ Oberfläche nicht mit einem anderen laufenden Dienst verbindet.
 Der Browsertest deckte außerdem eine technische URL beim Abfragen laufender App-Aktionen auf.
 Die Abfrage verwendet jetzt die App-Route und funktioniert auch ohne technische Einsichtsrechte.
 Laufanzeigen verwenden fachliche Aktionslabels und verbergen technische Kennungen im eingeschränkten Zugang.
-Kapitel: `docs/spec/profiles.md`, `docs/spec/plugins.md`, `docs/spec/run-modules.md`;
+Kapitel: `docs/spec/profiles.md`, `docs/spec/plugins.md`, `docs/spec/actor-programs.md`;
 Bedienung in `docs/operations.md`.
 
 ## Endbenutzerzugang und geführte Setups (13.09.2026)
@@ -4216,7 +4469,7 @@ ohne Chat-Eingabe. Modellbeschreibungen erklären Programmeingaben und die Grenz
 Einreihungsbestätigung. Wortspiel und Lernnachmittag weisen unbekannte direkte Programmeingaben
 als Fehler ab und erhalten dabei ihren Zustand. Der allgemeine ActorInput-Kanal bleibt für
 programmierte Kommandos und Ereignisse bestehen.
-Kapitel: `docs/spec/core.md`, `typescript-platform.md`, `run-modules.md`, `plugins.md`.
+Kapitel: `docs/spec/core.md`, `typescript-platform.md`, `actor-programs.md`, `plugins.md`.
 
 ## Mini-App-Scrollbalken an den Kartenrand rücken (13.09.2026)
 
@@ -4294,7 +4547,7 @@ und eine doppelte Code-/Pfad-Prüfung sind entfernt.
 Die Quellenprüfung unterscheidet echte Kopien von verschiedenen Verträgen: flache
 Prompt-/Run-Script-Köpfe und YAML-Skills bleiben getrennt, ebenso Actor-Guards für
 verschiedene Datenstrukturen und fachliche Fehlerübersetzungen der Fachplugins. Kapitel:
-`docs/spec/plugins.md`, `docs/spec/core.md`, `docs/spec/run-modules.md`; die Homepage
+`docs/spec/plugins.md`, `docs/spec/core.md`, `docs/spec/actor-programs.md`; die Homepage
 beschreibt die gemeinsame Größenanpassung der Pop-outs und Schrittdetails.
 
 ## Verifizierte Laufzeitgrenzen im öffentlichen Guide erklären (13.09.2026)
@@ -4316,7 +4569,7 @@ Modellkontext und Benutzerrechte vermeiden dabei scheinbare Widersprüche zwisch
 Die abschließende Konsistenzprüfung präzisiert außerdem das Aktualisieren desselben Programmpakets
 gegenüber dem abgewiesenen Zweitpaket sowie die Rollen von `create` und `register` und das
 Skill-Metadatum `disable-model-invocation`.
-Kapitel: `docs/spec/core.md`, `run-modules.md`, `profiles.md` und `plugins.md`;
+Kapitel: `docs/spec/core.md`, `actor-programs.md`, `profiles.md` und `plugins.md`;
 die Guide-Texte entstehen aus denselben Quellen.
 
 ## Abschlussantworten des Konzept-Audits prüfen und gezielt korrigieren (13.09.2026)
@@ -4457,7 +4710,7 @@ werden nicht migriert; ungültige Einstellungen lassen sich nach einer Fehlermel
 Eine einzelne Frontkontur, kleinere Kopfzeilen und einmalige seitliche Chatabstände geben dem
 Inhalt mehr Platz. Der Größenanfasser braucht weniger Freiraum rechts. Zwischen Tiefenkörpern
 genügen mindestens 32 Pixel; größere Layout- und Verbindungsabstände bleiben bestehen.
-Kapitel: `docs/spec/plugins.md`, `docs/spec/run-modules.md`; Bedienung und Homepage folgen mit.
+Kapitel: `docs/spec/plugins.md`, `docs/spec/actor-programs.md`; Bedienung und Homepage folgen mit.
 
 ## Markdown im Chat mit Streamdown rendern (13.09.2026)
 
@@ -4481,7 +4734,7 @@ Titelleiste liegt darüber.
 Die Leiste liegt außerhalb des Canvas-Dialogbereichs. App-Auswahl und Vollansichtswechsel
 bleiben dadurch bei geöffneter Mini-App bedienbar. Der vorhandene Plugin-Slot erhält
 `placement: "canvas"`; Beiträge ohne Angabe bleiben in der Titelleiste. Kapitel:
-`docs/spec/plugins.md`, `run-modules.md`; die Produkt-Homepage folgt der neuen Anordnung.
+`docs/spec/plugins.md`, `actor-programs.md`; die Produkt-Homepage folgt der neuen Anordnung.
 
 ## Guide und Code durch getrennte Leser prüfen (13.09.2026)
 
@@ -4510,7 +4763,7 @@ statischen Generator; ein eigener Dokumentationsserver ist nicht erforderlich.
 Kapitel, Markdown-Fassungen, LLM-Index, statischer Export und eingebettete Hilfe entstehen
 gemeinsam. Die Prüfung erkennt fehlende Quellabschnitte und ungültige lokale Seiten- und
 Sprungziele. Private Betriebsdaten und interne Konzepte werden nicht automatisch übernommen.
-Kapitel: `docs/spec/overview.md`, `core.md`, `typescript-platform.md`, `run-modules.md`,
+Kapitel: `docs/spec/overview.md`, `core.md`, `typescript-platform.md`, `actor-programs.md`,
 `plugins.md`, `profiles.md`; Bedienung: `docs/operations.md`.
 
 ## Verfügbare TypeScript-Funktionen automatisch zeigen (13.09.2026)
@@ -4553,13 +4806,13 @@ Kapitel: `docs/spec/plugins.md`, `overview.md` und `typescript-platform.md`.
 Der Abstand gehört zum gemeinsamen Kartencontainer mit Größenanfasser, nicht zur Chat-Eingabe.
 Jeder Inhalt einschließlich Mini-App und Dokumentabschnitten erhält acht Pixel unten und
 30 Pixel rechts. Die zusätzliche Composer-Regel entfällt; Karten ohne Anfasser bleiben unverändert.
-Kapitel: `docs/spec/run-modules.md`.
+Kapitel: `docs/spec/actor-programs.md`.
 
 ## Actors direkt neben den globalen Koordinator setzen (12.09.2026)
 
 Das Actors-Symbol sitzt direkt rechts neben dem globalen Koordinator und vor dem Run-Titel.
 Ein eigener Beitrag in der Kopfzeile hält es unabhängig vom rechten Panel erreichbar.
-Kapitel: `docs/spec/plugins.md` und `run-modules.md`.
+Kapitel: `docs/spec/plugins.md` und `actor-programs.md`.
 
 ## TypeScript-Ausführungen im Sidepanel nachvollziehen (12.09.2026)
 
@@ -4588,7 +4841,7 @@ identische Aufrufe erscheinen nur einmal. Kapitel: `docs/spec/plugins.md`.
 
 Der untere Innenabstand der Canvas-Eingabe beträgt acht Pixel. Rechts bleiben 30 Pixel für den
 innenliegenden Größenanfasser; seine Höhe erzeugt keinen eigenen Fußstreifen.
-Kapitel: `docs/spec/run-modules.md`.
+Kapitel: `docs/spec/actor-programs.md`.
 
 ## Actors in die obere Arbeitsbereichsleiste verschieben (12.09.2026)
 
@@ -4624,18 +4877,18 @@ Die Typprüfung umfasst den deklarierten Backend-Einstieg auch außerhalb von `t
 ohne Autorenkonfigurationen zu überschreiben. Ergebnisse und Zustand werden bereits vor IPC
 als strenges JSON geprüft, damit etwa `Infinity` nicht still als `null` ankommt; TypeBox-Verträge
 werden für ihre Beschreibung ausdrücklich ohne Metadaten als JSON exportiert.
-Geändert: `overview.md`, `typescript-platform.md`, `run-modules.md`, `plugins.md` und `core.md`;
+Geändert: `overview.md`, `typescript-platform.md`, `actor-programs.md`, `plugins.md` und `core.md`;
 README, Bedienung, öffentliche Homepage und generierte Referenzbeispiele folgen demselben Zugang.
 
 ## Zusätzlichen Fußstreifen unter Canvas-Inhalten entfernen (12.09.2026)
 
-Kapitel: run-modules. Die zusätzliche Leerzeile unter der einzeiligen Eingabe ist unerwünscht.
+Kapitel: actor-programs. Die zusätzliche Leerzeile unter der einzeiligen Eingabe ist unerwünscht.
 Die pauschalen 32 Pixel Innenabstand für den Größenanfasser entfallen bei LLM-Karten und
 Mini-Apps. Der Griff bleibt in der Ecke; die bisherige knappe Innenkante der Eingabe genügt.
 
 ## Balkon als vorbereitetes Demo und Abstand zum Größenanfasser (12.09.2026)
 
-Kapitel: plugins, run-modules. Ausdrücklich beauftragt ist ein Balkon-Demo-Setup.
+Kapitel: plugins, actor-programs. Ausdrücklich beauftragt ist ein Balkon-Demo-Setup.
 Das Referenzpaket richtet den Berater und seine eigene App in TypeScript ein; Fragen und
 Empfehlung bleiben beim Modell. Es verwendet die bestehenden Actor- und Chat-Verträge.
 Ein Startknopf trennt den Aufbau vom ersten Modellaufruf, eine erneute Anforderung nach
@@ -4659,7 +4912,7 @@ high als Standard-Denktiefe. Ein reparierter Einzellauf gilt nicht als Nachweis 
 
 ## Zusätzliche Schatteneffekte vollständig entfernen (12.09.2026)
 
-Kapitel: plugins, run-modules, overview. Der Owner möchte den Effekt nach erneut sichtbaren
+Kapitel: plugins, actor-programs, overview. Der Owner möchte den Effekt nach erneut sichtbaren
 Nachziehspuren entfernen. WebGL-Kontaktschatten, Iframe-Runtime, Material-Portnachrichten und
 die Schattenregler entfallen vollständig. Auch der Filter-Schlagschatten der Karten entfällt.
 Die Materialtiefe bleibt unabhängig davon einstellbar. Die bisherigen Offline-Entwürfe bleiben
@@ -4717,7 +4970,7 @@ und der gemessenen Bildschirmfläche des Canvas. Die Zuordnung folgt auch Zoom u
 
 ## Kartenabstand und Mini-App-Farbe korrigieren (12.09.2026)
 
-Kapitel: plugins, run-modules. Der Owner möchte mehr Abstand zwischen den Tiefenkörpern und
+Kapitel: plugins, actor-programs. Der Owner möchte mehr Abstand zwischen den Tiefenkörpern und
 keine beige Mini-App. Der Mindestabstand wächst von 18 auf 40 CSS-Pixel zusätzlich zur
 Extrusion. Mini-App-Fläche und gemeinsame Controls wechseln zu mattem Blaugrau. Der einzelne
 Größenanfasser bleibt außen, sitzt aber zwölf Pixel näher an der Kartenecke.
@@ -4731,7 +4984,7 @@ bleiben im selben Baustein; im rechten Inspector bleibt die bisherige Eingabehö
 
 ## Schichtwerk-Tiefenkörper als Canvas-Material übernehmen (12.09.2026)
 
-Kapitel: plugins, run-modules, overview. Der Owner möchte die ausgearbeitete Materialwirkung des Entwurfs
+Kapitel: plugins, actor-programs, overview. Der Owner möchte die ausgearbeitete Materialwirkung des Entwurfs
 layer-depth-style.html in der laufenden Oberfläche. Gerade matte Fronten, runde Kanten und
 nach rechts oben extrudierte Körper ersetzen die Glaskarten. Die Seitentiefe wird nach hinten
 in drei Stufen heller; die breite Eckenschattierung dunkelt ausschließlich ab. Zwischenlinien
@@ -4787,7 +5040,7 @@ deren Größenverhältnis. Der bestehende Entwurf und seine beiden Vorschauen we
 
 ## Mini-App-Grundlayout und Formularaufbau gemeinsam liefern (12.09.2026)
 
-Kapitel: run-modules. Der Balkon-Wizard zeigte Browser-Standardschrift und ein überlagertes
+Kapitel: actor-programs. Der Balkon-Wizard zeigte Browser-Standardschrift und ein überlagertes
 Textfeld. Die Bibliothek lieferte Fachcontrols, überließ Grundlayout und Typografie jedoch den
 erzeugten App-Quellen. Der Host liefert nun die Basis zentral; AppLayout, Stack und Grid übernehmen
 Rahmen, Abstände und an der Containerbreite orientierte Spalten. Textanalyse und gemeinsame
@@ -4849,7 +5102,7 @@ Entwurfsübersicht; die laufende Oberfläche übernimmt diesen Entwurf noch nich
 
 ## Actor-Schritte beim Wechsel des Hauptchats erhalten (12.09.2026)
 
-Kapitel: plugins, run-modules. Der bisherige Hauptactor fiel nach einem Wechsel auf eine
+Kapitel: plugins, actor-programs. Der bisherige Hauptactor fiel nach einem Wechsel auf eine
 Projektion aus Eingaben und Antworten zurück. Denk- und Werkzeugschritte waren dadurch trotz
 aktiviertem Detailgrad unsichtbar. Der Host liefert jetzt getrennte Gesprächsverläufe je Actor
 aus dem Journal und aktualisiert sie über die vorhandenen Run-Benachrichtigungen. Karten,
@@ -4869,7 +5122,7 @@ zeitliche Reihenfolge wieder her. Varianten übernehmen das Entwurfsdatum ihrer 
 
 ## Journal verschlanken und große Inhalte separat speichern (12.09.2026)
 
-Kapitel: core, run-modules, overview. Der Owner möchte eine stärkere Dateisystemablage und weniger
+Kapitel: core, actor-programs, overview. Der Owner möchte eine stärkere Dateisystemablage und weniger
 überflüssigen Journalinhalt. Dateiformat 4 hält gemeinsame Metadaten einmal pro Command und
 lagert große Payload-Felder als unveränderliche, geprüfte JSON-Dateien im jeweiligen Run aus.
 Eine Abo-Zustellung speichert nur ihre Quelle; beim Fork entsteht ihr Inhalt aus den neu
@@ -4907,7 +5160,7 @@ Eingabe nur noch eine Chatzeile lesbar war.
 
 ## Vergrößerte Mini-Apps nur über dem Canvas öffnen (12.09.2026)
 
-Kapitel: plugins, run-modules. Der Mini-App-Dialog belegt nur die Arbeitsfläche und lässt das
+Kapitel: plugins, actor-programs. Der Mini-App-Dialog belegt nur die Arbeitsfläche und lässt das
 rechte Panel sowie Kopf- und Statusleiste bedienbar. Der vorhandene Modal-Host erhält dafür
 den Bereich `canvas`; Rand, Schatten, weichgezeichneter Hintergrund und Titel machen die
 vergrößerte Ansicht als Dialog erkennbar. Die Mini-App selbst bleibt dieselbe Oberfläche.
@@ -4935,14 +5188,14 @@ und ein auslaufender Hintergrund vermeiden die harte untere Kante bei gleicher E
 
 ## Großbuchstaben in Mini-App-Funktionsaufrufen zulassen (12.09.2026)
 
-Kapitel: run-modules. Der Actor-Vertrag erlaubte `addEntry`, die Mini-App-Aufrufroute dagegen
+Kapitel: actor-programs. Der Actor-Vertrag erlaubte `addEntry`, die Mini-App-Aufrufroute dagegen
 nur kleingeschriebene Namen. Ein Klick wurde dadurch vor der Funktionsausführung mit 404
 abgewiesen. Die Route akzeptiert jetzt dieselben Namen wie der direkte Actor-Funktionsaufruf;
 ein HTTP-Regressionstest prüft den vollständigen Weg bis zum gespeicherten Ergebnis.
 
 ## Bestehende Mini-Apps tatsächlich an die gemeinsame UI binden (12.09.2026)
 
-Kapitel: run-modules. Die Umstellung der Vorlagen änderte bestehende Programmpakete nicht.
+Kapitel: actor-programs. Die Umstellung der Vorlagen änderte bestehende Programmpakete nicht.
 Die gezeigte Notizliste verwendete weiterhin eigene blaue HTML-Buttons und Feldregeln statt
 der gemeinsamen UI. Ihre vorhandene Oberfläche wird auf den gemeinsamen Button und die
 Feldklasse umgestellt. Die Autorenanleitung verlangt diese Bindung für Standardcontrols
@@ -4950,7 +5203,7 @@ ausdrücklich, damit zentrale Stiländerungen beim Laden auch bestehende Apps er
 
 ## Funktionen direkt im Detailpanel aufrufen (12.09.2026)
 
-Kapitel: run-modules. Die Funktionsdetails erhalten ein generisches Eingabeformular samt
+Kapitel: actor-programs. Die Funktionsdetails erhalten ein generisches Eingabeformular samt
 Aufrufstatus, Rückgabewert und Fehleranzeige. Damit lassen sich installierte Funktionen auch
 ohne eigene Mini-App direkt bedienen. Detailpanel und Werkzeugkarten teilen den Formularbaustein;
 der bestehende Funktionsvertrag und Host bestimmen Eingaben, Aufruf und Bestätigungen.
@@ -4969,7 +5222,7 @@ oben links, und beim Öffnen der Übersicht kehrt die Tab-Leiste an ihren linken
 
 ## Signal bis in die Mini-App-Vorlagen durchziehen (12.09.2026)
 
-Kapitel: run-modules. Die gemeinsamen Controls verwendeten bereits Signal, die Vorlagen für
+Kapitel: actor-programs. Die gemeinsamen Controls verwendeten bereits Signal, die Vorlagen für
 Textanalyse und gemeinsame Liste sowie das Sammelboard aber noch eigene blaue Buttons,
 große runde Felder und feste helle Farben. Sie verwenden jetzt die gemeinsamen Controls und
 Theme-Tokens. Die Chat-Eingabe erhält ebenfalls die Signal-Kontur. So kommt der gewählte
@@ -4977,7 +5230,7 @@ Entwurf auch in den mitgelieferten Mini-Apps an. Vorhandene Run-Quellen werden n
 
 ## Actor-Oberflächen für Benutzer Mini-Apps nennen (12.09.2026)
 
-Kapitel: overview, run-modules, plugins. Der Owner möchte die Bezeichnung Mini-App für die
+Kapitel: overview, actor-programs, plugins. Der Owner möchte die Bezeichnung Mini-App für die
 Oberflächen eines Actors. Homepage, Grafiken, Navigation, Referenzen, Beispiele und sichtbare
 App-Bezeichnungen verwenden deshalb Mini-App beziehungsweise Mini-Apps. Die technischen
 View-Verträge und bestehenden Kennungen bleiben erhalten.
@@ -5002,7 +5255,7 @@ Kamerabewegungen werden gebündelt gespeichert und beim Verlassen abschließend 
 
 ## Signal für kompakte Mini-App-Controls (11.09.2026)
 
-Kapitel: plugins, run-modules, overview. Gewählt ist Signal aus den Control-Entwürfen. Die bestehenden
+Kapitel: plugins, actor-programs, overview. Gewählt ist Signal aus den Control-Entwürfen. Die bestehenden
 Mini-App-Controls erhalten deshalb kräftige Konturen, asymmetrische Ecken und gelbe
 Hauptaktionen. Die Trennung von der Aquaglass-Hülle bleibt erhalten. 28 Pixel Standardhöhe,
 kompaktere Formulare und Tabellen sowie eigene helle und dunkle Controlfarben setzen die
@@ -5018,7 +5271,7 @@ einem Punkt.
 
 ## Auswahlmenüs freistellen und Eingaben sofort zum Weiterschreiben leeren (11.09.2026)
 
-Kapitel: plugins, run-modules. Auswahlmenüs wurden von begrenzten Composer-Flächen
+Kapitel: plugins, actor-programs. Auswahlmenüs wurden von begrenzten Composer-Flächen
 abgeschnitten. Das gemeinsame SelectMenu verwendet deshalb den nativen Popover-Toplayer und
 passt seine Position an den verfügbaren Platz an; DOM-Zugehörigkeit und Dialogkontext bleiben
 erhalten. Die Chat-Eingabe leert einen gültigen Auftrag nun sofort beim Absenden. Bei Fehlern
@@ -5028,7 +5281,7 @@ auch der fehlgeschlagene Auftrag samt Anhängen erhalten.
 
 ## Canvas-Licht und runde Dialogaktionen deutlicher gestalten (11.09.2026)
 
-Kapitel: plugins, run-modules, overview. Der Aquaglass-Canvas erhält eine zusammenhängende
+Kapitel: plugins, actor-programs, overview. Der Aquaglass-Canvas erhält eine zusammenhängende
 Lichtfläche ohne Punktraster, mit deutlicherem Mint, Eisblau und hellem Zentrum. Leichte
 Hintergrundunschärfe und kleine Lichtkanten an den Statusicons verstärken die Glaswirkung.
 Die bestehende runde IconButton-Variante erhält eine sichtbare Fläche und wird für Schließen
@@ -5049,7 +5302,7 @@ in docs/ui-drafts/index.html eingetragen.
 
 ## Vorschauaktionen sichtbar am unteren Rand halten (11.09.2026)
 
-Kapitel: plugins, run-modules. Bei langen Vorlagen scrollte die gesamte rechte Detailfläche
+Kapitel: plugins, actor-programs. Bei langen Vorlagen scrollte die gesamte rechte Detailfläche
 mitsamt "In Auftrag übernehmen". Der gemeinsame ListDetail-Baustein füllt jetzt die verfügbare
 Höhe und scrollt nur seinen mittleren Inhalt; Kopf und Aktionsbereich bleiben stehen. Die
 Startfläche begrenzt Liste und Vorschau auf den verfügbaren Platz, statt den ganzen Dialog
@@ -5071,7 +5324,7 @@ weiterhin den tatsächlichen Start; Texte und Startoptionen benötigen nur ihre 
 
 ## Aquaglass als gemeinsamen Oberflächenstil übernehmen (11.09.2026)
 
-Kapitel: plugins, run-modules, overview. Nach den Canvas-Entwürfen fällt die Wahl auf Aquaglass:
+Kapitel: plugins, actor-programs, overview. Nach den Canvas-Entwürfen fällt die Wahl auf Aquaglass:
 plastische, durchscheinende grünblaue Flächen mit hellen Kanten und kleinen Eckradien.
 Gerade Karten behalten ihre klare Ausrichtung; TypeScript-Actors verwenden dafür denselben
 rechteckigen CSS-Aufbau statt des SVG-Umrisses mit abgeschnittenen Ecken. Gemeinsame Tokens
@@ -5088,7 +5341,7 @@ den Canvas an, ohne die Bedienelemente des Hosts ebenfalls auf Fluss umzustellen
 
 ## Startauswahl und Auftragsvorbereitung mit gemeinsamen Controls (11.09.2026)
 
-Kapitel: plugins, run-modules. Gewählt ist Variante C aus den Offline-Entwürfen, weil die
+Kapitel: plugins, actor-programs. Gewählt ist Variante C aus den Offline-Entwürfen, weil die
 bisherigen Karten kaum unterscheidbar waren. Eine gruppierte Liste mit Vorschau nutzt deshalb
 den neuen gemeinsamen `ListDetail`-Baustein, auch für Actor-Views und den öffentlichen Katalog.
 Die originale Quassel-Eingabe verwendet dieselbe begrenzte Breite wie der Chat. Eine Promptkarte
@@ -5109,7 +5362,7 @@ weitere geeignete Modelle und das Abschalten, ohne Agentenmodelle zu verändern.
 
 ## Actors erreichbar halten, Canvas-Sichtbarkeit persönlich wählen (11.09.2026)
 
-Kapitel: plugins, run-modules. Eine Mini-App erschien bisher zusätzlich zur Canvas-Karte ihres
+Kapitel: plugins, actor-programs. Eine Mini-App erschien bisher zusätzlich zur Canvas-Karte ihres
 Actors, obwohl die Oberfläche oft schon alle nötige Bedienung enthält. Die Actorliste in der
 Statusleiste erschließt deshalb jeden Beteiligten unabhängig von seiner Karte. Actors mit
 installierter View sind standardmäßig ausgeblendet; ihre Mini-Apps bleiben sichtbar. Das gilt
@@ -5200,7 +5453,7 @@ bleiben harte Fehler. Ein gescheiterter Scan speichert keine scheinbar fehlenden
 
 ## Dynamische Funktionen im laufenden Modellturn aktualisieren (10.09.2026)
 
-Kapitel: core, plugins, run-modules. Nach der Aktivierung eines Actor-Programms behielt der laufende
+Kapitel: core, plugins, actor-programs. Nach der Aktivierung eines Actor-Programms behielt der laufende
 LLM-Turn bisher seinen alten Werkzeugbestand. Neue Funktionen waren auch für `tool_open`
 unbekannt und erzeugten unnötige Wiederholungen. TurnToolset und AgentSession lösen deshalb
 den Bestand vor weiteren Aufrufen und zwischen Modellanfragen über dieselbe Registry neu
@@ -5216,7 +5469,7 @@ keinen automatischen Modellwechsel und keine Anpassung durch den Treiber.
 
 ## Actor-Programme vereinen Funktionen, Zustand und Views (10.09.2026)
 
-Kapitel: overview, core, typescript-platform, run-modules, plugins, profiles. TypeScript- und
+Kapitel: overview, core, typescript-platform, actor-programs, plugins, profiles. TypeScript- und
 LLM-Actors besitzen denselben intrinsischen Zustand, aufrufbare Funktionen und optionale
 React-Views. Bedienung und Agentenwerkzeuge rufen dieselbe Funktion am selben Actor auf;
 nur eine gewöhnliche Nachricht an einen LLM-Actor braucht dessen Modell. Reine Views binden
@@ -5274,7 +5527,7 @@ Aktion.
 
 ## Mini-Apps und Run-Programme auf natives TypeScript umstellen (10.09.2026)
 
-Kapitel: overview, core, typescript-platform, run-modules, plugins. Die bisherigen Mini-App-
+Kapitel: overview, core, typescript-platform, actor-programs, plugins. Die bisherigen Mini-App-
 Verträge, separaten Prüfaufrufe und eigenen Sprachregeln erzeugten lange Antworten und viele
 Korrekturschleifen. Mini-Apps sind deshalb gewöhnliche private TypeScript-Pakete mit React-
 Frontend, optionalem Backend und normalen Fachtests. Ein TypeBox-Vertrag liefert die Typen
@@ -5308,7 +5561,7 @@ reduzierte Bewegung und Druck ordnen die Grafiken ihren Texten zu; Details bleib
 
 ## Dialogfähigkeit der Mini-Apps entfernen (10.09.2026)
 
-Kapitel: overview, typescript-platform, run-modules, plugins. Mini-Apps sollen kleine
+Kapitel: overview, typescript-platform, actor-programs, plugins. Mini-Apps sollen kleine
 Anwendungen auf dem Canvas sein. Die zusätzliche journalisierte Dialogansicht brachte eigene
 Capabilities, Platzierungen, Tests und Bedienzustände für dieselbe Oberfläche mit. Diese
 Fähigkeit entfällt vollständig samt API, Vorlage und Promptanweisungen. Die vom Benutzer
@@ -5357,7 +5610,7 @@ der erneute Knopfdruck stellt die vorherige Kamera wieder her. Der vorhandene St
 
 ## Mini-App-Inhalte auf dem Canvas verkleinern (09.09.2026)
 
-Kapitel: run-modules. Kleinere App-Fenster allein ließen die enthaltenen Schriften und
+Kapitel: actor-programs. Kleinere App-Fenster allein ließen die enthaltenen Schriften und
 Steuerelemente zu groß gegenüber der restlichen Oberfläche erscheinen. Der Canvas-Host
 stellt deshalb den gesamten Frame-Inhalt mit 80 Prozent und entsprechend größerem inneren
 Viewport dar. Das greift auch für installierte Apps mit fest definierten Pixelgrößen;
@@ -5366,7 +5619,7 @@ Originalgröße, die Fensterbedienung folgt weiterhin den gemeinsamen Host-Grö�
 
 ## Dialogbereiche, Kurzantworten und Kopfzeilenbedienung präzisieren (09.09.2026)
 
-Kapitel: plugins, core, run-modules. Drei reguläre Dialogbereiche machen die Abdeckung
+Kapitel: plugins, core, actor-programs. Drei reguläre Dialogbereiche machen die Abdeckung
 ausdrücklich: `page` umfasst die gesamte Anwendung, `run` den Inhalt ohne beide Leisten und
 `workspace` alles unter der Kopfzeile einschließlich Statusleiste. Die Run-Übersicht verwendet
 Workspace; gezielte lokale Container bleiben etwa für die Koordinator-Resetbestätigung möglich.
@@ -5394,7 +5647,7 @@ ersetzt die lokalen Kopien, damit beide Flächen auch bei Änderungen gleich ges
 
 ## Werkzeugübersicht und technische Detailreferenz trennen (09.09.2026)
 
-Kapitel: plugins, core, run-modules, typescript-platform. Dieselben Werkzeugbeschreibungen
+Kapitel: plugins, core, actor-programs, typescript-platform. Dieselben Werkzeugbeschreibungen
 standen im Systemkontext und erneut am Öffnungswerkzeug; nachgeladene Anleitungen konnten später
 nochmals im Systemprompt erscheinen. Der Systemkontext enthält deshalb die einzige Übersicht.
 Normales Öffnen bestätigt Namen und Ergebnisverträge; die nativen Eingabeschemata werden dabei
@@ -5451,7 +5704,7 @@ verwendet die tatsächlichen Engine-Werkzeugbeschreibungen und prüft auch ungü
 
 ## Studio als gemeinsame Gestaltung mit wählbarem Farbschema (09.09.2026)
 
-Kapitel: plugins, run-modules. Der Owner hat Studio aus der Gestaltungsstudie als Grundlage
+Kapitel: plugins, actor-programs. Der Owner hat Studio aus der Gestaltungsstudie als Grundlage
 gewählt. Feine Konturen, ruhige Flächen, ein Punktraster und getönte Statusfelder ersetzen
 die kräftigen Kartensymbole und Farbwaschungen. Semantische Tokens bündeln auch Konturen,
 Statusflächen und Schatten, damit Themes an einer Stelle gepflegt werden können.
@@ -5549,7 +5802,7 @@ Run-Scripts stehen rechts im übrigen Drittel; bei schmaler Darstellung folgen s
 
 ## Kopfzeile mit vollen Flächen und ohne Werkzeugverknüpfungen (09.09.2026)
 
-Kapitel: plugins, run-modules. Haupteinträge der Kopfzeile nutzen wie die Übersichtsecke die
+Kapitel: plugins, actor-programs. Haupteinträge der Kopfzeile nutzen wie die Übersichtsecke die
 volle Höhe und eine gemeinsame rechte Trennlinie. Kleine Artbeschriftungen und bis zu zwei
 Titelzeilen ordnen Run, App, Aktivität, Prozess, Startoption, Branch und Benutzer zu. So werden
 auch längere Namen in zusammenhängenden Flächen lesbar. Einstellungen und Hilfe behalten ihre
@@ -5574,7 +5827,7 @@ nur für Aufgaben ohne Zugriff auf Dateien, Diagnosen oder andere Werkzeuge.
 
 ## Mini-App-Anleitung erst bei Bedarf laden (09.09.2026)
 
-Kapitel: run-modules. Die Bindung der vollständigen Mini-App-Anleitung an das direkt verfügbare
+Kapitel: actor-programs. Die Bindung der vollständigen Mini-App-Anleitung an das direkt verfügbare
 Nachschlagewerkzeug vergrößerte auch den initialen Kontext fachfremder Aufträge. Eine kurze
 Einführung beschreibt deshalb zunächst die Fähigkeit. Die vollständige Anleitung folgt beim
 ausdrücklichen Abruf mit `mini_app_controls` und `topic: "guide"` aus der gerenderten Promptdatei.
@@ -5586,7 +5839,7 @@ erhalten; eine Control-Auswahl beim Abruf der Anleitung ist ein ausdrücklicher 
 
 ## Eingabehilfen im Feld und kompaktere Controls (09.09.2026)
 
-Kapitel: run-modules. Separate Beschreibungszeilen beanspruchten in Werkzeugkarten viel Höhe.
+Kapitel: actor-programs. Separate Beschreibungszeilen beanspruchten in Werkzeugkarten viel Höhe.
 Text-, Zahl-, JSON- und Stringlisten-Eingaben zeigen die Parameterbeschreibung deshalb als
 Platzhalter. Feldnamen und Pflichtmarkierung bleiben zur Orientierung sichtbar. Checkboxen
 teilen sich mit ihrem Namen eine Zeile; ihre Beschreibung bleibt darunter.
@@ -5754,7 +6007,7 @@ künstlichen Antwortinput und keinen weiteren Turn erzeugt.
 
 ## Verständliche Mockfehler und eindeutige Fehlererwartungen (08.09.2026)
 
-Kapitel: run-modules. Bei falschen Mock-Antworten verdeckte bisher ein vollständiger Ergebnistyp
+Kapitel: actor-programs. Bei falschen Mock-Antworten verdeckte bisher ein vollständiger Ergebnistyp
 den eigentlichen Fehler. Mockprüfungen verwenden nun denselben kompakten Feldpfad-Formatter wie
 Werkzeugargumente. Das benennt verschachtelte Typfehler und vermeidet große Union-Ausgaben.
 
@@ -5807,7 +6060,7 @@ ein Marker als bloßes Argument darf keine fremde Prozesszuordnung erzeugen.
 
 ## Gezielte Control-Verträge und Mock-Ergebnisse vor dem Test (08.09.2026)
 
-Kapitel: run-modules. Eine einzelne Control-Abfrage lieferte bisher sämtliche UI-Typdateien.
+Kapitel: actor-programs. Eine einzelne Control-Abfrage lieferte bisher sämtliche UI-Typdateien.
 Der Abruf folgt jetzt dem TypeScript-Symbolgraphen des gewählten Controls und nimmt nur dessen
 transitive Typabhängigkeiten mit. Katalog, Compiler und öffentliche Gesamtreferenz behalten
 dieselbe Quelle, ohne eine zweite handgepflegte Props-Liste.
@@ -5833,7 +6086,7 @@ auch den letzten verschwindenden Prozess.
 
 ## Absender als Darstellungs-Owner im Chat wählen (08.09.2026)
 
-Kapitel: plugins, run-modules. Der Inspector zeigte auch die eigenen Antworten des ausgewählten
+Kapitel: plugins, actor-programs. Der Inspector zeigte auch die eigenen Antworten des ausgewählten
 Agenten in Sprechblasen. Der gemeinsame Chat-Baustein erhält deshalb einen optionalen Owner,
 der über die Absenderkennung bestimmt, wessen Nachrichten ohne Sprechblase erscheinen. Die
 Entscheidung liegt bei der Ansicht; dieselbe Actor-Projektion bleibt für Gesprächsrunden mit
@@ -5885,7 +6138,7 @@ Die Ansicht verwendet die bestehende Syntaxhervorhebung und bietet keine Codebea
 
 ## Eindeutige Eingabezuständigkeit auf dem Canvas (08.09.2026)
 
-Kapitel: plugins, run-modules. Die Kamera erkannte bisher vor allem vertikal überlaufende
+Kapitel: plugins, actor-programs. Die Kamera erkannte bisher vor allem vertikal überlaufende
 DOM-Bereiche als Scrollziel. Kurze Controls, Eingabefelder und horizontale Inhalte konnten
 stattdessen den Canvas-Zoom auslösen. Die Entscheidung richtet sich jetzt nach der gesamten
 Control-Grenze und berücksichtigt bereits behandelte Ereignisse. So bleibt die Zuständigkeit
@@ -5943,7 +6196,7 @@ sie halten die Bedienung an einem Ort und sparen die zusätzliche Fußzeile.
 
 ## Eine Übersicht statt Run-Dialog, Koordinator-Dropdown und Neuer-Run-Knopf (08.09.2026)
 
-Kapitel: plugins, run-modules. Die Run-Liste lag in einem seitenweiten Dialog, der übergeordnete
+Kapitel: plugins, actor-programs. Die Run-Liste lag in einem seitenweiten Dialog, der übergeordnete
 Koordinator in einem eigenen Dropdown, dazu "Neuer Run" als dritter Knopf in der Kopfzeile: drei
 Wege für eine Frage, nämlich was läuft und womit ich weitermache. Jetzt gibt es links oben eine
 einzige quadratische Ecke von Leistenhöhe, deren ganze Fläche der Knopf ist. Sie klappt die
@@ -6008,7 +6261,7 @@ pausiert Bildtakt und Szenenwechsel, damit auch die neu verwendeten Szenen ruhig
 
 ## Kompakte Appfenster und lesbare Agentenvorschauen (07.09.2026)
 
-Kapitel: run-modules, plugins. Große anfängliche Appfenster nahmen auf dem Canvas viel Platz
+Kapitel: actor-programs, plugins. Große anfängliche Appfenster nahmen auf dem Canvas viel Platz
 ein, während die Agentenköpfe kaum Einblick in die laufende Arbeit gaben. Mini-Apps starten
 deshalb mit höchstens 400 mal 280 CSS-Pixeln; kleinere Vorgaben bleiben erhalten. Ihre Inhalte
 behalten die normale Schriftgröße, größere Arbeitsansichten sind weiterhin über Skalieren
@@ -6049,7 +6302,7 @@ funktionieren sowohl im Hilfedialog als auch im statischen Export.
 
 ## Einfache Nachrichtenliste als Mini-App-Control (07.09.2026)
 
-Kapitel: run-modules. Für Redaktionsnotizen oder Prüfstatus braucht eine Mini-App häufig
+Kapitel: actor-programs. Für Redaktionsnotizen oder Prüfstatus braucht eine Mini-App häufig
 mehrere Absender und lesbare Nachrichten, aber weder Actor-Anbindung noch eine Chateingabe.
 `UI.MessageList` verwendet deshalb die gemeinsame Nachrichtendarstellung mit einem kleinen,
 kontrollierten Datenvertrag. Reihenfolge und Inhalt kommen aus der App; Absenderfarben bleiben
@@ -6073,7 +6326,7 @@ zu verteilen. Rechte, Verträge und Beispiele fließen aus dem Code in die Entwi
 
 ## Kleine Fensterhülle für Canvas-Mini-Apps (07.09.2026)
 
-Kapitel: run-modules, plugins. Ganz ohne Rahmen fehlten den Canvas-Apps erkennbare Grenzen
+Kapitel: actor-programs, plugins. Ganz ohne Rahmen fehlten den Canvas-Apps erkennbare Grenzen
 und eine einfache Möglichkeit, Platz freizugeben. Eine flache Titelzeile bietet Einklappen
 und Vergrößern; sie unterscheidet sich bewusst von den Agentenkarten. Der kleinere
 Größenanfasser hält die Ecke frei. Die lokale Vollansicht verwendet den vorhandenen Dialog
@@ -6106,7 +6359,7 @@ Gespräch mehr Gewicht, ohne die bestehende Dropdown-, Modellwahl- oder Resetlog
 
 ## Mini-Apps unmittelbar auf dem Canvas (07.09.2026)
 
-Kapitel: run-modules, plugins, overview. Die zusätzliche App-Vollansicht im rechten Reiter
+Kapitel: actor-programs, plugins, overview. Die zusätzliche App-Vollansicht im rechten Reiter
 verteilte dieselbe Oberfläche auf mehrere Orte und verlangte für die eigentliche Arbeitsfläche
 eine ausdrückliche Platzierung. Jede installierte App erscheint deshalb standardmäßig auf dem
 Canvas. Fehlende Maße und Platzierungen ergänzt der Host; das Layout ordnet die Elemente an.
@@ -6135,7 +6388,7 @@ sondern verlangen den bereits vorhandenen ausdrücklichen Gesprächsreset.
 
 ## Eine Stimme für alle Steuerelemente (07.09.2026)
 
-Kapitel: plugins, run-modules. Die Oberfläche hatte über dreißig eigene Schaltflächen-Stile:
+Kapitel: plugins, actor-programs. Die Oberfläche hatte über dreißig eigene Schaltflächen-Stile:
 in der Kopfzeile drei verschiedene Knöpfe nebeneinander, Pillen mit fünf Größen, Ghost-Knöpfe
 mit vier Hover-Farben, Fokusringe mal deckend, mal transparent, mal gar nicht. Jedes Plugin
 hatte seinen eigenen Zurück-Knopf. Festgelegt:
@@ -6235,7 +6488,7 @@ enthält weiterhin nur den Skriptaufruf; `pnpm open:homepage` verwendet denselbe
 
 ## Eingebettete Oberflächen ohne zusätzliche Fensterhülle (06.09.2026)
 
-Kapitel: overview, plugins, run-modules. Verschachtelte Kopfzeilen und Rahmen machten kleine
+Kapitel: overview, plugins, actor-programs. Verschachtelte Kopfzeilen und Rahmen machten kleine
 Oberflächen unnötig schwer. Die Mini-App-Extension zeigt Canvas-Apps deshalb ohne Host-Rahmen
 oder Hintergrund und Werkzeugformulare direkt innerhalb der Agentenkarte, ohne zweite Kopfzeile
 oder Einklappknopf. Eingaben, Aktionen, Größenanfasser und nötige Laufzeitmeldungen bleiben
@@ -6252,7 +6505,7 @@ echten Modellkatalog reproduziert den Fehler und prüft die gültige Initialisie
 
 ## Gesprächsreset und Controls aus der Mini-App-Extension (06.09.2026)
 
-Kapitel: core, plugins, run-modules, overview. Der globale Koordinator soll nach einem erledigten
+Kapitel: core, plugins, actor-programs, overview. Der globale Koordinator soll nach einem erledigten
 Auftrag mit frischem Kontext beginnen können. Ein ausdrücklich bestätigter Reset stoppt seine
 Arbeit und entfernt nur seine Unterhaltung. Eine persistierte Absicht und die bestehende
 Stopp-Grenze verhindern, dass ein Prozessabbruch oder späte Laufzeit-Ausgaben den alten Kontext
@@ -6395,7 +6648,7 @@ Bedienhinweise beschreiben die neue Anordnung.
 
 ## Multimodale Eingaben in allen Chats (06.09.2026)
 
-Kapitel: core, plugins, run-modules. Der Owner möchte Bilder aus der Zwischenablage und Dateien
+Kapitel: core, plugins, actor-programs. Der Owner möchte Bilder aus der Zwischenablage und Dateien
 einschließlich Videos direkt in jedem Chat verwenden. Der gemeinsame Composer übernimmt
 Dateiauswahl, Einfügen, Drag-and-drop, Vorschau und den erhaltenen Entwurf bei Ablehnung. Seine
 Sendeaktion trägt Anhänge bis zur Chat-API beziehungsweise durch die Mini-App-Bridge; gebundene
@@ -6474,7 +6727,7 @@ maßgeblich. Die Homepage und die Bedienhinweise beschreiben die neue Anordnung.
 
 ## Vorgefertigte Chat-Controls für Mini-Apps (06.09.2026)
 
-Kapitel: run-modules, plugins. Der Owner möchte mehr vorhandene UI-Bausteine auf dem Canvas nutzen
+Kapitel: actor-programs, plugins. Der Owner möchte mehr vorhandene UI-Bausteine auf dem Canvas nutzen
 und sowohl Actor-gebundene als auch frei gesteuerte Chats anbieten. Mini-Apps erhalten dieselben
 Chat-, Eingabe-, Markdown- und Auswahlkomponenten wie der Host als typisierte `UI`-Bibliothek.
 Die Variante mit Actor-Handle nutzt die bestehende Run-Verbindung und denselben Verlauf wie der
@@ -6489,7 +6742,7 @@ ohne wirkungslose Eingabefelder. Die Homepage beschreibt die neuen Bausteine.
 
 ## Canvas-Mini-Apps ohne Fensterkopf (06.09.2026)
 
-Kapitel: run-modules, plugins. Der Owner möchte die kleinen Bedienoberflächen auf dem Canvas stärker
+Kapitel: actor-programs, plugins. Der Owner möchte die kleinen Bedienoberflächen auf dem Canvas stärker
 in den Vordergrund stellen. Die zusätzliche Kopfzeile mit App-Icon, Titel und Einklapp-Knopf
 entfällt; die App bekommt die gesamte Fläche. Laufzeitmeldungen wandern kompakt an den unteren
 Rand, Skalieren bleibt möglich. Mit dem einzigen Nutzer entfällt auch die Einklapp-Logik aus dem
@@ -6500,7 +6753,7 @@ die vorhandenen Reiter bleiben nutzbar.
 
 ## Seitenweiter Koordinator und getrennte Dialogbereiche (06.09.2026)
 
-Kapitel: plugins, core, profiles, run-modules. Der Owner möchte einen jederzeit erreichbaren Chat
+Kapitel: plugins, core, profiles, actor-programs. Der Owner möchte einen jederzeit erreichbaren Chat
 über allen Runs, während run-eigene Dialoge die Kopfzeile freilassen. `ragents.overseer` liefert
 den ausklappbaren Chat in der neuen oberen Leiste und Werkzeuge zum Lesen der Journale und
 Steuern weiterer Runs. Sein Verlauf ist ein eigener persistenter Run; kurze Referenzen löst der
@@ -6665,9 +6918,9 @@ einer unter den Karten, die Plugins mitbringen. Festgelegt:
 
 ## Konzeptpapiere eingeschmolzen, Kapitel gegen die Entscheidungen abgeglichen (04.09.2026)
 
-Kapitel: run-modules, typescript-platform, core, plugins, profiles, overview. Schritt 2 des
+Kapitel: actor-programs, typescript-platform, core, plugins, profiles, overview. Schritt 2 des
 Doku-Umbaus: `docs/concepts/mini-apps.md` und `docs/concepts/typescript-platform.md` sind in
-`run-modules.md` und `typescript-platform.md` aufgegangen und gelöscht, die Übergangssätze am
+`actor-programs.md` und `typescript-platform.md` aufgegangen und gelöscht, die Übergangssätze am
 Kapitelanfang sind weg. Gestrichen wurde, was Geschichte oder Nachweis ist (Ausgangsproblem der
 Migration, umgesetzte Migration, Abnahme-Listen; Tests sind der Nachweis) und was der Code nicht
 hergibt: `_generated/ragents.d.ts` liegt nirgends, Testnachweise sind serverseitig geführt mit 30
@@ -6713,7 +6966,7 @@ Architekturdokument, die Wissensbasis und zwei umgesetzte Konzeptpapiere, deren 
 Architekturdokument stand. Festgelegt:
 
 - `docs/spec/` ist die Spec: was ist, gültig für HEAD, ein Kapitel je Thema (overview, core,
-  typescript-platform, run-modules, plugins, profiles). Jedes Kapitel endet mit seinen offenen
+  typescript-platform, actor-programs, plugins, profiles). Jedes Kapitel endet mit seinen offenen
   Grenzen. Die Kapitel sind aus dem Architekturdokument und `packages/ragents/docs/` entstanden.
 - `docs/concepts/` enthält nur, was noch nicht ist, mit Status Idee, In Arbeit oder Verworfen. Ein
   umgesetztes Konzept wird ins Kapitel eingeschmolzen und gelöscht; "umgesetzt" ist kein Status.
@@ -7194,12 +7447,14 @@ Diese eigenen Eingriffe prägen das Verhalten; die Liste wird mit jedem Eingriff
 Herkunfts- und Abweichungsdokumente sind bewusst entfallen - was zählt, steht hier. In Klammern
 steht, wo ein Eingriff geprüft wird.
 
-- Steering bricht keinen laufenden Tool-Call ab. Kommt während eines Calls eine Nachricht an,
-  liefert der Call sofort ein Zwischenergebnis, die Schleife macht mit dem nächsten LLM-Call
-  weiter (der die Nachricht sieht), und das echte Ergebnis wird nachgereicht als getaggte
-  Steering-Nachricht (Kappung bei 30000 Zeichen). Zustellung als Steering statt followUp, weil
-  ein followUp im Leerlauf keinen Lauf startet. RAgents selbst ruft Steering nirgends auf
-  (`packages/agent/tests/background-steering.test.ts`).
+- Steering ist eine Quelle, keine Warteschlange: `Agent.steeringSource` wird vor der ersten
+  Modellanfrage und nach jeder Antwort samt ihren Werkzeugergebnissen abgefragt, was sie liefert,
+  geht vor die nächste Anfrage, auch nach einer Schlussantwort; eine Ablehnung beendet den Lauf mit
+  ihrem Fehler. `steer`, `followUp`, die Warteschlangen samt `QueueMode`, `queue_update`,
+  `streamingBehavior` und das Weiterlaufenlassen von Werkzeugen im Hintergrund sind entfernt; ein
+  Werkzeugaufruf läuft bis zu seinem Ergebnis, Steering wartet darauf (Eintrag vom 24.09.2026 zum
+  Steering, `packages/agent/tests/steering.test.ts`, über die Engine in
+  `packages/ragents/tests/steering.test.ts`).
 - Der Systemprompt eines langlebigen Agenten ist nicht mehr unveränderlich:
   `AgentSession.setSystemPrompt` (plus `ResourceLoader.setSystemPrompt`) setzt ihn neu und erhält
   die Unterhaltung - nötig, damit werkzeuggebundene Prompt-Kapitel nach einem `tool_open` ab dem

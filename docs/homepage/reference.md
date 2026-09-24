@@ -1,12 +1,12 @@
 # RAgents: Bausteinreferenz
 
-> Öffentliche Werkzeuge, Operationen, Actor-Programm-Vorlagen und Einstiege des Profils showcase, aus den tatsächlichen Verträgen erzeugt.
+> Öffentliche Werkzeuge, Operationen, Actor-Programm-Vorlagen und Vorlagen der Startseite des Profils showcase, aus den tatsächlichen Verträgen erzeugt.
 
 [Run-Setup-Anleitung und vollständige Pakete](run-setup.md) | [Entwicklerreferenz](developer.md) | [JSON-RPC-API](rpc-api.md) | [LLM-Index](llms.txt)
 
 ## Funktionen und native Werkzeuge
 
-Fachfunktionen werden in Snippets und Actor-Programmen über context.functions aufgerufen. Ausgerüstete LLM-Actors erhalten automatisch die für sie verfügbaren Funktionsnamen mit Kurzbeschreibungen. typescript_api liefert auf Namensanfrage ihre Typen und optionalen Langbeschreibungen, typescript_eval führt Snippets aus. Dies ist der statische Bestand. Verfügbarkeit und Auswahl hängen von Actor, Grants und Run ab. Eigene Actor-Funktionen ergänzen diesen Bestand während einer Unterhaltung.
+Fachfunktionen werden in Snippets und Actor-Programmen über context.functions aufgerufen. Ausgerüstete LLM-Actors erhalten automatisch die für sie verfügbaren Funktionsnamen mit Kurzbeschreibungen. typescript_api liefert auf Namensanfrage ihre Typen und optionalen Langbeschreibungen, typescript_eval führt Snippets aus. Dies ist der statische Bestand. Verfügbarkeit und Auswahl hängen von Actor, Grants und Run ab. Eigene Actor-Funktionen ergänzen diesen Bestand während eines Runs.
 
 ### action_propose
 
@@ -319,6 +319,37 @@ Nur mit der Capability action.propose.
               "turnId": {
                 "type": "string",
                 "description": "ID des gestarteten Turns"
+              },
+              "inputId": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "type",
+          "payload"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "turn.input-steered"
+          },
+          "payload": {
+            "type": "object",
+            "required": [
+              "turnId",
+              "inputId"
+            ],
+            "properties": {
+              "turnId": {
+                "type": "string",
+                "description": "Laufender Turn, in den der Input eingespeist wurde"
               },
               "inputId": {
                 "type": "string"
@@ -1018,7 +1049,7 @@ Enqueue Actor Input
 
 Enqueue plain text and optional artifacts for one actor. The actor receives no routing envelope.
 
-This only confirms enqueueing, not processing, an answer or completion. Agents interpret natural language. TypeScript actors only process their programmed input protocol: use their documented functions, or send an exact supported program input after inspecting the program. Never address an unknown script with a natural-language task or assume an idle or completed turn means the requested work happened.
+This only confirms enqueueing, not processing, an answer or completion. An agent in the middle of a turn receives the text in that turn before its next model request; otherwise it starts the agent's next turn. Agents interpret natural language. TypeScript actors only process their programmed input protocol: use their documented functions, or send an exact supported program input after inspecting the program. Never address an unknown script with a natural-language task or assume an idle or completed turn means the requested work happened.
 
 Eigentümer: engine. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
 
@@ -1297,6 +1328,37 @@ Nur mit der Capability actor.input.
               "turnId": {
                 "type": "string",
                 "description": "ID des gestarteten Turns"
+              },
+              "inputId": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "type",
+          "payload"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "turn.input-steered"
+          },
+          "payload": {
+            "type": "object",
+            "required": [
+              "turnId",
+              "inputId"
+            ],
+            "properties": {
+              "turnId": {
+                "type": "string",
+                "description": "Laufender Turn, in den der Input eingespeist wurde"
               },
               "inputId": {
                 "type": "string"
@@ -2159,7 +2221,7 @@ With topic: guide, explain the TypeScript package workflow through actor_program
 
 Eigentümer: ragents.actor-programs. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: always.
 
-Typisierte UI-Referenz der installierten Actor-Programm-Extension.
+Typisierte UI-Referenz des installierten Actor-Programm-Plugins.
 
 #### Eingabe
 
@@ -2760,6 +2822,37 @@ Nur mit der Capability execution.stopOwned.
               "turnId": {
                 "type": "string",
                 "description": "ID des gestarteten Turns"
+              },
+              "inputId": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "type",
+          "payload"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "turn.input-steered"
+          },
+          "payload": {
+            "type": "object",
+            "required": [
+              "turnId",
+              "inputId"
+            ],
+            "properties": {
+              "turnId": {
+                "type": "string",
+                "description": "Laufender Turn, in den der Input eingespeist wurde"
               },
               "inputId": {
                 "type": "string"
@@ -3747,6 +3840,37 @@ Nur mit der Capability execution.stopOwned.
         "properties": {
           "type": {
             "type": "string",
+            "const": "turn.input-steered"
+          },
+          "payload": {
+            "type": "object",
+            "required": [
+              "turnId",
+              "inputId"
+            ],
+            "properties": {
+              "turnId": {
+                "type": "string",
+                "description": "Laufender Turn, in den der Input eingespeist wurde"
+              },
+              "inputId": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "type",
+          "payload"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
             "const": "turn.finished"
           },
           "payload": {
@@ -4494,7 +4618,7 @@ Für Agenten und Skript-Actors mit der Capability event.subscribe.
 
 Show or hide Actor View
 
-Set Canvas visibility by package-name/view-key or @handle/view-key.
+Set surface visibility by package-name/view-key or @handle/view-key.
 
 Use names you chose; the server resolves the view ID. A unique view title also works.
 
@@ -4515,7 +4639,7 @@ Für ausführbare Actors mit agent.spawn und plugin.state.write.
     "view": {
       "type": "string",
       "minLength": 1,
-      "description": "package-name/view-key or @handle/view-key of an activated view, without the Canvas entity prefix app:. No generated IDs needed."
+      "description": "package-name/view-key or @handle/view-key of an activated view, without the surface entity prefix app:. No generated IDs needed."
     },
     "visible": {
       "type": "boolean"
@@ -5026,6 +5150,37 @@ Nur mit der Capability artifact.publish.
               "turnId": {
                 "type": "string",
                 "description": "ID des gestarteten Turns"
+              },
+              "inputId": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "type",
+          "payload"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "turn.input-steered"
+          },
+          "payload": {
+            "type": "object",
+            "required": [
+              "turnId",
+              "inputId"
+            ],
+            "properties": {
+              "turnId": {
+                "type": "string",
+                "description": "Laufender Turn, in den der Input eingespeist wurde"
               },
               "inputId": {
                 "type": "string"
@@ -6801,7 +6956,7 @@ In jedem Modell-Turn verfügbar.
 
 ### canvas_layout_replace
 
-Replace Canvas Layout
+Replace Surface Layout
 
 Arrange actors and mini-apps as tiles on the viewport-filling work surface, using a binary tree of weighted splits.
 
@@ -6809,7 +6964,7 @@ root is the whole arrangement and replaces the stored one. A tile is {entity:'@h
 
 Eigentümer: ragents.orchestration. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
 
-Nur für Agenten und Script-Actors mit der Capability plugin.state.write.
+Nur für Agenten und TypeScript-Actors mit der Capability plugin.state.write.
 
 #### Eingabe
 
@@ -6824,7 +6979,7 @@ Nur für Agenten und Script-Actors mit der Capability plugin.state.write.
       "anyOf": [
         {
           "$defs": {
-            "CanvasTile": {
+            "SurfaceTile": {
               "anyOf": [
                 {
                   "type": "object",
@@ -6884,10 +7039,10 @@ Nur für Agenten und Script-Actors mit der Capability plugin.state.write.
                       "additionalItems": false,
                       "items": [
                         {
-                          "$ref": "CanvasTile"
+                          "$ref": "SurfaceTile"
                         },
                         {
-                          "$ref": "CanvasTile"
+                          "$ref": "SurfaceTile"
                         }
                       ],
                       "minItems": 2
@@ -6896,10 +7051,10 @@ Nur für Agenten und Script-Actors mit der Capability plugin.state.write.
                   "additionalProperties": false
                 }
               ],
-              "$id": "CanvasTile"
+              "$id": "SurfaceTile"
             }
           },
-          "$ref": "CanvasTile"
+          "$ref": "SurfaceTile"
         },
         {
           "type": "null"
@@ -7152,6 +7307,37 @@ Nur für Agenten und Script-Actors mit der Capability plugin.state.write.
               "turnId": {
                 "type": "string",
                 "description": "ID des gestarteten Turns"
+              },
+              "inputId": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "type",
+          "payload"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "turn.input-steered"
+          },
+          "payload": {
+            "type": "object",
+            "required": [
+              "turnId",
+              "inputId"
+            ],
+            "properties": {
+              "turnId": {
+                "type": "string",
+                "description": "Laufender Turn, in den der Input eingespeist wurde"
               },
               "inputId": {
                 "type": "string"
@@ -9194,6 +9380,37 @@ Nur mit der Capability event.subscribe.
         "properties": {
           "type": {
             "type": "string",
+            "const": "turn.input-steered"
+          },
+          "payload": {
+            "type": "object",
+            "required": [
+              "turnId",
+              "inputId"
+            ],
+            "properties": {
+              "turnId": {
+                "type": "string",
+                "description": "Laufender Turn, in den der Input eingespeist wurde"
+              },
+              "inputId": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "type",
+          "payload"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
             "const": "turn.finished"
           },
           "payload": {
@@ -9886,7 +10103,7 @@ In jedem Modell-Turn verfügbar.
   "properties": {
     "root": {
       "type": "string",
-      "description": "The open root to stop; omit for every instance of this conversation"
+      "description": "The open root to stop; omit for every instance of this run"
     }
   }
 }
@@ -9947,7 +10164,7 @@ In jedem Modell-Turn verfügbar.
 
 FSAC öffnen
 
-Start a FSAC language server instance for this conversation's workspace and load the .sln file (or a single .fsproj). Afterwards every edit or write of a .fs, .fsi, .fsx file gets its diagnostics appended automatically, and fsharp_diagnostics is available. Idempotent for the same root; other roots stay open.
+Start a FSAC language server instance for this run's workspace and load the .sln file (or a single .fsproj). Afterwards every edit or write of a .fs, .fsi, .fsx file gets its diagnostics appended automatically, and fsharp_diagnostics is available. Idempotent for the same root; other roots stay open.
 
 Eigentümer: ragents.lsp-fsharp. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
 
@@ -10281,7 +10498,7 @@ In jedem Modell-Turn verfügbar.
   "properties": {
     "root": {
       "type": "string",
-      "description": "The open root to stop; omit for every instance of this conversation"
+      "description": "The open root to stop; omit for every instance of this run"
     }
   }
 }
@@ -10342,7 +10559,7 @@ In jedem Modell-Turn verfügbar.
 
 Roslyn öffnen
 
-Start a Roslyn language server instance for this conversation's workspace and load the .sln file (or a single .csproj). Afterwards every edit or write of a .cs file gets its diagnostics appended automatically, and roslyn_diagnostics is available. Idempotent for the same root; other roots stay open.
+Start a Roslyn language server instance for this run's workspace and load the .sln file (or a single .csproj). Afterwards every edit or write of a .cs file gets its diagnostics appended automatically, and roslyn_diagnostics is available. Idempotent for the same root; other roots stay open.
 
 Eigentümer: ragents.lsp-roslyn. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
 
@@ -10377,7 +10594,7 @@ In jedem Modell-Turn verfügbar.
 
 Configure Run
 
-Set the run title and/or choose the primary actor the chat talks to. Give title, primaryActor or both; the primary actor must be an active agent or script actor of this run.
+Set the run title and/or choose the primary actor the chat talks to. Give title, primaryActor or both; the primary actor must be an active agent or TypeScript actor of this run.
 
 Eigentümer: engine. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
 
@@ -10646,6 +10863,37 @@ Nur mit der Capability run.configure.
               "turnId": {
                 "type": "string",
                 "description": "ID des gestarteten Turns"
+              },
+              "inputId": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "type",
+          "payload"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "turn.input-steered"
+          },
+          "payload": {
+            "type": "object",
+            "required": [
+              "turnId",
+              "inputId"
+            ],
+            "properties": {
+              "turnId": {
+                "type": "string",
+                "description": "Laufender Turn, in den der Input eingespeist wurde"
               },
               "inputId": {
                 "type": "string"
@@ -11343,7 +11591,7 @@ Nur mit der Capability run.configure.
 
 Run stoppen
 
-Leitet den vollständigen Stopp des eigenen Runs ein: laufende Turns, Werkzeuge, Unteragenten und Plugin-Dienste. Unterhaltung und Dateien bleiben erhalten. Bricht auch den eigenen Turn ab; die Annahme ist keine Bestätigung abgeschlossener Bereinigung. Bei Benutzerwunsch nach vollständigem Abbruch sofort verwenden, keine Abbruchnachricht an beschäftigte Agenten senden.
+Leitet den vollständigen Stopp des eigenen Runs ein: laufende Turns, Werkzeuge, Unteragenten und Plugin-Dienste. Gespräch und Dateien bleiben erhalten. Bricht auch den eigenen Turn ab; die Annahme ist keine Bestätigung abgeschlossener Bereinigung. Bei Benutzerwunsch nach vollständigem Abbruch sofort verwenden, keine Abbruchnachricht an beschäftigte Agenten senden.
 
 Eigentümer: ragents.orchestration. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
 
@@ -11756,6 +12004,37 @@ Nur für Agenten mit der Capability plugin.state.write.
               "turnId": {
                 "type": "string",
                 "description": "ID des gestarteten Turns"
+              },
+              "inputId": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "type",
+          "payload"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "turn.input-steered"
+          },
+          "payload": {
+            "type": "object",
+            "required": [
+              "turnId",
+              "inputId"
+            ],
+            "properties": {
+              "turnId": {
+                "type": "string",
+                "description": "Laufender Turn, in den der Input eingespeist wurde"
               },
               "inputId": {
                 "type": "string"
@@ -12555,7 +12834,7 @@ In jedem Modell-Turn verfügbar.
   "properties": {
     "root": {
       "type": "string",
-      "description": "The open root to stop; omit for every instance of this conversation"
+      "description": "The open root to stop; omit for every instance of this run"
     }
   }
 }
@@ -12669,7 +12948,7 @@ Für aktive ausführbare Actors mit einer Funktionsauswahl.
 
 TypeScript öffnen
 
-Start a TypeScript language server instance for this conversation's workspace and load the directory whose tsconfig.json projects should be served (e.g. src). Afterwards every edit or write of a .ts, .tsx, .mts, .cts, .js, .jsx file gets its diagnostics appended automatically, and typescript_diagnostics is available. Idempotent for the same root; other roots stay open.
+Start a TypeScript language server instance for this run's workspace and load the directory whose tsconfig.json projects should be served (e.g. src). Afterwards every edit or write of a .ts, .tsx, .mts, .cts, .js, .jsx file gets its diagnostics appended automatically, and typescript_diagnostics is available. Idempotent for the same root; other roots stay open.
 
 Eigentümer: ragents.lsp-typescript. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
 
@@ -13324,6 +13603,37 @@ Eigentümer: ragents.orchestration.
               "turnId": {
                 "type": "string",
                 "description": "ID des gestarteten Turns"
+              },
+              "inputId": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "required": [
+          "type",
+          "payload"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "turn.input-steered"
+          },
+          "payload": {
+            "type": "object",
+            "required": [
+              "turnId",
+              "inputId"
+            ],
+            "properties": {
+              "turnId": {
+                "type": "string",
+                "description": "Laufender Turn, in den der Input eingespeist wurde"
               },
               "inputId": {
                 "type": "string"
@@ -14576,7 +14886,7 @@ test("ergänzt Einträge ohne vorhandene Einträge zu verlieren", async () => {
 });
 ```
 
-## Actor-Programmpaket
+## Actor-Programm
 
 actor_program_create erzeugt ein Paket unter @actors/<name>/ mit festen lokalen Abhängigkeiten. Dateiwerkzeuge und Language Server verwenden diesen Alias; Bash nutzt RAGENTS_ACTORS_DIR. Vor Modellanfragen erscheinen kurze Diagnostik-Deltas geänderter Projekte. actor_program_diagnostics liefert den letzten vollständigen Stand, actor_program_activate prüft, baut, testet und aktiviert das Paket.
 
@@ -14831,6 +15141,10 @@ export interface Message {
     action?: PendingAction;
     /** ISO-Zeitpunkt der Nachricht; Anzeige optional (ChatMessages showTimestamps). */
     at?: string;
+    /** Der ActorInput hinter einer eingehenden Nachricht; an ihm hängt die Steering-Markierung. */
+    inputId?: string;
+    /** Die Nachricht ist in einen schon laufenden Turn eingespeist worden, statt einen eigenen zu beginnen. */
+    steered?: boolean;
     /** Farbige Sprechblase statt Fliesstext, z.B. fuer Mehrparteien-Gespraeche. */
     bubble?: {
         color: string;
@@ -14852,8 +15166,12 @@ export type ChatEvent = {
 } | {
     kind: "user";
     text: string;
+    inputId?: string;
     at?: string;
     attachments?: ChatAttachment[];
+} | {
+    kind: "steered";
+    inputId: string;
 } | {
     kind: "text";
     delta: string;
@@ -14898,7 +15216,7 @@ export type ChatEvent = {
 } | {
     kind: "turn-done";
 } | {
-    kind: "extension";
+    kind: "plugin";
     pluginId: string;
     type: string;
     payload?: unknown;
@@ -15217,7 +15535,7 @@ export interface GridProps {
 export declare function AppLayout(props: AppLayoutProps): ReactElement;
 /** Vertical content or a wrapping row with consistent spacing. */
 export declare function Stack(props: StackProps): ReactElement;
-/** Equal responsive columns based on the container width, including inside a canvas frame. */
+/** Equal responsive columns based on the container width, including inside a surface frame. */
 export declare function Grid(props: GridProps): ReactElement;
 ```
 
@@ -15425,11 +15743,11 @@ export { Checkbox };
 ```typescript
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-export type ModalScope = "page" | "run" | "workspace" | "canvas";
+export type ModalScope = "page" | "run" | "workspace" | "surface";
 export type DialogSize = "small" | "medium" | "large" | "wide" | "full";
 export declare const RunModalContext: React.Context<HTMLElement | null>;
 export declare const WorkspaceModalContext: React.Context<HTMLElement | null>;
-export declare const CanvasModalContext: React.Context<HTMLElement | null>;
+export declare const SurfaceModalContext: React.Context<HTMLElement | null>;
 export declare function useModalContainer(scope: ModalScope): HTMLElement | null;
 declare function Dialog({ ...props }: DialogPrimitive.Root.Props): React.JSX.Element;
 declare function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props): React.JSX.Element;
@@ -15569,9 +15887,9 @@ export { ListDetail, type ListDetailItem, type ListDetailProps } from "./ListDet
 export { longTime, shortTime } from "./relative-time";
 export { SectionLabel } from "./SectionLabel";
 export { StartupNotice, type StartupNoticeState } from "./startup-notice";
-export { EnvironmentStateIcon, environmentStateTone, RunStateIcon, runStateTone } from "./state-icon";
+export { ConnectionStateIcon, connectionStateTone, RunStateIcon, runStateTone } from "./state-icon";
 export { StopButton, StopGlyph } from "./stop-button";
-export { environmentStateWord, runStateWord, type EnvironmentStateName, type RunStateName } from "./state-vocabulary";
+export { connectionStateWord, runStateWord, type ConnectionStateName, type RunStateName } from "./state-vocabulary";
 export { SvgEdge, type SvgEdgeProps } from "./SvgEdge";
 export { useFileInput } from "./useFileInput";
 ```
@@ -15619,7 +15937,7 @@ export interface ListDetailProps {
     detailLabel?: string;
     className?: string;
 }
-/** Controlled grouped selection with a detail surface and a return path on narrow surfaces. */
+/** Controlled grouped selection with a detail page and a return path on narrow screens. */
 export declare function ListDetail({ label, items, selectedId, onSelect, disabled, toolbar, detailHeader, children, detailFooter, emptyState, detailLabel, className }: ListDetailProps): import("react").JSX.Element;
 ```
 
@@ -15731,7 +16049,7 @@ export interface StartupNoticeState {
     title: string;
     detail: string;
 }
-/** Der eine Ladezustand für Kachelfläche, Run-Panel und dessen Start: Titel, bei laufender Arbeit ein Fortschrittsbalken, darunter was gerade geschieht. */
+/** Der eine Ladezustand für Fläche, Run-Panel und dessen Start: Titel, bei laufender Arbeit ein Fortschrittsbalken, darunter was gerade geschieht. */
 export declare function StartupNotice({ children, className, state }: {
     children?: ReactNode;
     className?: string;
@@ -15742,16 +16060,16 @@ export declare function StartupNotice({ children, className, state }: {
 #### apps/web/src/ui/state-icon.d.ts
 
 ```typescript
-import { type EnvironmentStateName, type RunStateName } from "./state-vocabulary";
+import { type ConnectionStateName, type RunStateName } from "./state-vocabulary";
 export declare const runStateTone: (state: RunStateName) => string;
-export declare const environmentStateTone: (state: EnvironmentStateName) => string;
+export declare const connectionStateTone: (state: ConnectionStateName) => string;
 export declare function RunStateIcon({ state, open, className }: {
     state: RunStateName;
     open?: number;
     className?: string;
 }): import("react").JSX.Element;
-export declare function EnvironmentStateIcon({ state, className }: {
-    state: EnvironmentStateName;
+export declare function ConnectionStateIcon({ state, className }: {
+    state: ConnectionStateName;
     className?: string;
 }): import("react").JSX.Element;
 ```
@@ -15761,10 +16079,10 @@ export declare function EnvironmentStateIcon({ state, className }: {
 ```typescript
 /** Das Vokabular aller Seiten: je Zustand genau ein Wort, das im Panel nur als title erscheint. */
 export type RunStateName = "running" | "waiting" | "idle" | "ended" | "failed" | "cancelled";
-export type EnvironmentStateName = "connected" | "ready" | "starting" | "login-required" | "unreachable" | "stopped" | "failed" | "forbidden";
+export type ConnectionStateName = "connected" | "ready" | "starting" | "login-required" | "unreachable" | "stopped" | "failed" | "forbidden";
 /** Wartet ein Run, nennt das Wort die Zahl offener Eingaben; ein Werkzeugname steht nie im Zustand. */
 export declare const runStateWord: (state: RunStateName, open?: number) => string;
-export declare const environmentStateWord: (state: EnvironmentStateName) => string;
+export declare const connectionStateWord: (state: ConnectionStateName) => string;
 ```
 
 #### apps/web/src/ui/stop-button.d.ts
@@ -15918,11 +16236,11 @@ The bundled examples demonstrate how RAgents concepts work together and provide 
 
 ### Use case
 
-[Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Eine Liste durch vier KI-Helfer reichen](#start-ragents.reference.20-circle-of-four), [Entscheidung klären](#start-ragents.reference.decision-brief), [Lernziel in Etappen](#start-ragents.reference.learning-sprint), [Nachrichten ohne KI mitzählen](#start-ragents.reference.70-headless-counter), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes), [Eine Liste im Chat und im Fenster pflegen](#start-ragents.reference.100-shared-actor-list), [Sammelboard einrichten](#start-ragents.reference.shared-actor-list), [Gesprächsrunde einrichten](#start-ragents.reference.conversation-circle), [Moderierte Runde ohne Koordinator](#start-ragents.reference.moderated-round), [Balkon-Wizard einrichten](#start-ragents.reference.balcony-wizard), [Redaktionswerkstatt](#start-ragents.reference.150-editorial-workbench), [Lernnachmittag](#start-ragents.reference.learning-afternoon), [Wortspiel starten](#start-ragents.reference.word-game), [Lernbegleitung mit Unterlagen](#start-ragents.reference.160-learning-companion), [Bildsammlung mit Beschriftungen](#start-ragents.reference.170-photo-collection), [Entscheidungswerkstatt](#start-ragents.reference.180-decision-workbench), [Texte prüfen und Ergebnisse gezielt teilen](#start-ragents.reference.190-review-queue), [Fehler in einer Terminliste finden](#start-ragents.reference.200-typescript-diagnostics), [Gespräch an einen Moderator übergeben](#start-ragents.reference.210-moderator-handover), [Vorschläge gemeinsam freigeben](#start-ragents.reference.220-actor-approval-list), [Eine Liste in zwei Ansichten](#start-ragents.reference.230-shared-state-views), [Antworten automatisch sammeln](#start-ragents.reference.240-live-result-list), [Balkon-Wizard](#start-ragents.reference.250-balcony-wizard), [Den Helfer hinter einer Mini-App öffnen](#example-mini-app-owner-inspector), [Eine Gesprächsrunde anders aufteilen](#example-personal-tile-arrangement), [Zwei Unterhaltungen im Blick behalten](#example-global-run-overview), [Eine vorbereitete Runde global starten](#example-global-prepared-run), [Nach einer Planung neu beginnen](#example-reset-completed-global-chat), [Einen Reset zunächst abbrechen](#example-reset-without-losing-draft), [Den Koordinator für kurze Antworten einstellen](#example-coordinator-model-settings), [Das Modell für kurze Überschriften wählen](#example-title-model-selection), [Automatische Überschriften ausschalten](#example-disable-generated-titles), [Eine Fähigkeit ihrer Extension zuordnen](#example-extension-capability-settings), [Den Sprachserver als Run-Prozess sehen](#example-language-server-process), [Eine kurzlebige lokale Vorschau öffnen](#example-local-preview-process), [Einen Entwurf im Dateibaum lesen](#example-workspace-draft-preview), [Gleichnamige Dateien in zwei Runs vergleichen](#example-separate-run-files), [Eine gemeinsame Liste nach Neustart wiederfinden](#example-restore-shared-list), [Zwei Gesprächsverläufe nach Neustart fortsetzen](#example-restore-conversation-context), [Eine eigene Skizze im Chat besprechen](#example-image-paste-conversation), [Einen kurzen Clip mit seinem Ablaufplan vergleichen](#example-video-and-document-drop)
+[Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Eine Liste durch vier KI-Helfer reichen](#start-ragents.reference.20-circle-of-four), [Entscheidung klären](#start-ragents.reference.decision-brief), [Lernziel in Etappen](#start-ragents.reference.learning-sprint), [Nachrichten ohne KI mitzählen](#start-ragents.reference.70-headless-counter), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes), [Eine Liste im Chat und im Fenster pflegen](#start-ragents.reference.100-shared-actor-list), [Sammelboard einrichten](#start-ragents.reference.shared-actor-list), [Gesprächsrunde einrichten](#start-ragents.reference.conversation-circle), [Moderierte Runde ohne Koordinator](#start-ragents.reference.moderated-round), [Balkon-Wizard einrichten](#start-ragents.reference.balcony-wizard), [Redaktionswerkstatt](#start-ragents.reference.150-editorial-workbench), [Lernnachmittag](#start-ragents.reference.learning-afternoon), [Wortspiel starten](#start-ragents.reference.word-game), [Lernbegleitung mit Unterlagen](#start-ragents.reference.160-learning-companion), [Bildsammlung mit Beschriftungen](#start-ragents.reference.170-photo-collection), [Entscheidungswerkstatt](#start-ragents.reference.180-decision-workbench), [Texte prüfen und Ergebnisse gezielt teilen](#start-ragents.reference.190-review-queue), [Fehler in einer Terminliste finden](#start-ragents.reference.200-typescript-diagnostics), [Gespräch an einen Moderator übergeben](#start-ragents.reference.210-moderator-handover), [Vorschläge gemeinsam freigeben](#start-ragents.reference.220-actor-approval-list), [Eine Liste in zwei Ansichten](#start-ragents.reference.230-shared-state-views), [Antworten automatisch sammeln](#start-ragents.reference.240-live-result-list), [Balkon-Wizard](#start-ragents.reference.250-balcony-wizard), [Den Helfer hinter einer Mini-App öffnen](#example-mini-app-owner-inspector), [Eine Gesprächsrunde anders aufteilen](#example-personal-tile-arrangement), [Zwei Runs im Blick behalten](#example-global-run-overview), [Eine vorbereitete Runde global starten](#example-global-prepared-run), [Nach einer Planung neu beginnen](#example-reset-completed-global-chat), [Einen Reset zunächst abbrechen](#example-reset-without-losing-draft), [Den Koordinator für kurze Antworten einstellen](#example-coordinator-model-settings), [Das Modell für kurze Überschriften wählen](#example-title-model-selection), [Automatische Überschriften ausschalten](#example-disable-generated-titles), [Eine Fähigkeit ihrem Plugin zuordnen](#example-extension-capability-settings), [Den Sprachserver als Run-Prozess sehen](#example-language-server-process), [Eine kurzlebige lokale Vorschau öffnen](#example-local-preview-process), [Einen Entwurf im Dateibaum lesen](#example-workspace-draft-preview), [Gleichnamige Dateien in zwei Runs vergleichen](#example-separate-run-files), [Eine gemeinsame Liste nach Neustart wiederfinden](#example-restore-shared-list), [Zwei Gesprächsverläufe nach Neustart fortsetzen](#example-restore-conversation-context), [Eine eigene Skizze im Chat besprechen](#example-image-paste-conversation), [Einen kurzen Clip mit seinem Ablaufplan vergleichen](#example-video-and-document-drop)
 
 ### Concept demo
 
-[Hallo Welt auf der Arbeitsfläche](#start-ragents.reference.95-hello-world), [Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Eine Liste durch vier KI-Helfer reichen](#start-ragents.reference.20-circle-of-four), [Entscheidung klären](#start-ragents.reference.decision-brief), [Eine Nachricht überbringen lassen](#start-ragents.reference.30-llm-without-runtime-knowledge), [Lernziel in Etappen](#start-ragents.reference.learning-sprint), [Drei Aufträge der Reihe nach erledigen](#start-ragents.reference.35-actor-input-fifo), [Gezielt bei anderen Helfern mithören](#start-ragents.reference.40-subscription-matrix), [Eine Weiterleitung wieder abschalten](#start-ragents.reference.50-subscription-removal), [Einen Helfer in der Gesprächsrunde stoppen](#start-ragents.reference.60-stop-in-the-circle), [Eine Notiz gezielt weitergeben](#start-ragents.reference.65-artifact-least-privilege), [Nachrichten ohne KI mitzählen](#start-ragents.reference.70-headless-counter), [Fehler in C# und TypeScript finden](#start-ragents.reference.75-lsp-demo), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes), [Eine Liste im Chat und im Fenster pflegen](#start-ragents.reference.100-shared-actor-list), [Sammelboard einrichten](#start-ragents.reference.shared-actor-list), [Rückfrage, Aufgaben und Dokument zusammen sehen](#start-ragents.reference.110-all-card-slots), [Gesprächsrunde einrichten](#start-ragents.reference.conversation-circle), [Moderierte Runde ohne Koordinator](#start-ragents.reference.moderated-round), [Balkon-Wizard einrichten](#start-ragents.reference.balcony-wizard), [Redaktionswerkstatt](#start-ragents.reference.150-editorial-workbench), [Lernnachmittag](#start-ragents.reference.learning-afternoon), [Wortspiel starten](#start-ragents.reference.word-game), [Lernbegleitung mit Unterlagen](#start-ragents.reference.160-learning-companion), [Bildsammlung mit Beschriftungen](#start-ragents.reference.170-photo-collection), [Entscheidungswerkstatt](#start-ragents.reference.180-decision-workbench), [Texte prüfen und Ergebnisse gezielt teilen](#start-ragents.reference.190-review-queue), [Fehler in einer Terminliste finden](#start-ragents.reference.200-typescript-diagnostics), [Gespräch an einen Moderator übergeben](#start-ragents.reference.210-moderator-handover), [Vorschläge gemeinsam freigeben](#start-ragents.reference.220-actor-approval-list), [Eine Liste in zwei Ansichten](#start-ragents.reference.230-shared-state-views), [Antworten automatisch sammeln](#start-ragents.reference.240-live-result-list), [Balkon-Wizard](#start-ragents.reference.250-balcony-wizard), [Den Helfer hinter einer Mini-App öffnen](#example-mini-app-owner-inspector), [Eine Gesprächsrunde anders aufteilen](#example-personal-tile-arrangement), [Zwei Unterhaltungen im Blick behalten](#example-global-run-overview), [Eine vorbereitete Runde global starten](#example-global-prepared-run), [Nach einer Planung neu beginnen](#example-reset-completed-global-chat), [Einen Reset zunächst abbrechen](#example-reset-without-losing-draft), [Den Koordinator für kurze Antworten einstellen](#example-coordinator-model-settings), [Das Modell für kurze Überschriften wählen](#example-title-model-selection), [Automatische Überschriften ausschalten](#example-disable-generated-titles), [Eine Fähigkeit ihrer Extension zuordnen](#example-extension-capability-settings), [Den Sprachserver als Run-Prozess sehen](#example-language-server-process), [Eine kurzlebige lokale Vorschau öffnen](#example-local-preview-process), [Einen Entwurf im Dateibaum lesen](#example-workspace-draft-preview), [Gleichnamige Dateien in zwei Runs vergleichen](#example-separate-run-files), [Eine gemeinsame Liste nach Neustart wiederfinden](#example-restore-shared-list), [Zwei Gesprächsverläufe nach Neustart fortsetzen](#example-restore-conversation-context), [Eine eigene Skizze im Chat besprechen](#example-image-paste-conversation), [Einen kurzen Clip mit seinem Ablaufplan vergleichen](#example-video-and-document-drop)
+[Hallo Welt auf der Fläche](#start-ragents.reference.95-hello-world), [Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Eine Liste durch vier KI-Helfer reichen](#start-ragents.reference.20-circle-of-four), [Entscheidung klären](#start-ragents.reference.decision-brief), [Eine Nachricht überbringen lassen](#start-ragents.reference.30-llm-without-runtime-knowledge), [Lernziel in Etappen](#start-ragents.reference.learning-sprint), [Drei Aufträge der Reihe nach erledigen](#start-ragents.reference.35-actor-input-fifo), [Gezielt bei anderen Helfern mithören](#start-ragents.reference.40-subscription-matrix), [Eine Weiterleitung wieder abschalten](#start-ragents.reference.50-subscription-removal), [Einen Helfer in der Gesprächsrunde stoppen](#start-ragents.reference.60-stop-in-the-circle), [Eine Notiz gezielt weitergeben](#start-ragents.reference.65-artifact-least-privilege), [Nachrichten ohne KI mitzählen](#start-ragents.reference.70-headless-counter), [Fehler in C# und TypeScript finden](#start-ragents.reference.75-lsp-demo), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes), [Eine Liste im Chat und im Fenster pflegen](#start-ragents.reference.100-shared-actor-list), [Sammelboard einrichten](#start-ragents.reference.shared-actor-list), [Rückfrage, Aufgaben und Dokument zusammen sehen](#start-ragents.reference.110-all-card-slots), [Gesprächsrunde einrichten](#start-ragents.reference.conversation-circle), [Moderierte Runde ohne Koordinator](#start-ragents.reference.moderated-round), [Balkon-Wizard einrichten](#start-ragents.reference.balcony-wizard), [Redaktionswerkstatt](#start-ragents.reference.150-editorial-workbench), [Lernnachmittag](#start-ragents.reference.learning-afternoon), [Wortspiel starten](#start-ragents.reference.word-game), [Lernbegleitung mit Unterlagen](#start-ragents.reference.160-learning-companion), [Bildsammlung mit Beschriftungen](#start-ragents.reference.170-photo-collection), [Entscheidungswerkstatt](#start-ragents.reference.180-decision-workbench), [Texte prüfen und Ergebnisse gezielt teilen](#start-ragents.reference.190-review-queue), [Fehler in einer Terminliste finden](#start-ragents.reference.200-typescript-diagnostics), [Gespräch an einen Moderator übergeben](#start-ragents.reference.210-moderator-handover), [Vorschläge gemeinsam freigeben](#start-ragents.reference.220-actor-approval-list), [Eine Liste in zwei Ansichten](#start-ragents.reference.230-shared-state-views), [Antworten automatisch sammeln](#start-ragents.reference.240-live-result-list), [Balkon-Wizard](#start-ragents.reference.250-balcony-wizard), [Den Helfer hinter einer Mini-App öffnen](#example-mini-app-owner-inspector), [Eine Gesprächsrunde anders aufteilen](#example-personal-tile-arrangement), [Zwei Runs im Blick behalten](#example-global-run-overview), [Eine vorbereitete Runde global starten](#example-global-prepared-run), [Nach einer Planung neu beginnen](#example-reset-completed-global-chat), [Einen Reset zunächst abbrechen](#example-reset-without-losing-draft), [Den Koordinator für kurze Antworten einstellen](#example-coordinator-model-settings), [Das Modell für kurze Überschriften wählen](#example-title-model-selection), [Automatische Überschriften ausschalten](#example-disable-generated-titles), [Eine Fähigkeit ihrem Plugin zuordnen](#example-extension-capability-settings), [Den Sprachserver als Run-Prozess sehen](#example-language-server-process), [Eine kurzlebige lokale Vorschau öffnen](#example-local-preview-process), [Einen Entwurf im Dateibaum lesen](#example-workspace-draft-preview), [Gleichnamige Dateien in zwei Runs vergleichen](#example-separate-run-files), [Eine gemeinsame Liste nach Neustart wiederfinden](#example-restore-shared-list), [Zwei Gesprächsverläufe nach Neustart fortsetzen](#example-restore-conversation-context), [Eine eigene Skizze im Chat besprechen](#example-image-paste-conversation), [Einen kurzen Clip mit seinem Ablaufplan vergleichen](#example-video-and-document-drop)
 
 | Concept | Examples |
 | --- | --- |
@@ -15933,7 +16251,7 @@ The bundled examples demonstrate how RAgents concepts work together and provide 
 | Stopping actors | [Eine Nachricht überbringen lassen](#start-ragents.reference.30-llm-without-runtime-knowledge), [Einen Helfer in der Gesprächsrunde stoppen](#start-ragents.reference.60-stop-in-the-circle), [Texte prüfen und Ergebnisse gezielt teilen](#start-ragents.reference.190-review-queue) |
 | Artifacts and access | [Eine Notiz gezielt weitergeben](#start-ragents.reference.65-artifact-least-privilege), [Texte prüfen und Ergebnisse gezielt teilen](#start-ragents.reference.190-review-queue) |
 | Workspace layout | [Den Helfer hinter einer Mini-App öffnen](#example-mini-app-owner-inspector), [Eine Gesprächsrunde anders aufteilen](#example-personal-tile-arrangement) |
-| Mini-apps | [Hallo Welt auf der Arbeitsfläche](#start-ragents.reference.95-hello-world), [Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes), [Eine Liste im Chat und im Fenster pflegen](#start-ragents.reference.100-shared-actor-list), [Redaktionswerkstatt](#start-ragents.reference.150-editorial-workbench), [Lernbegleitung mit Unterlagen](#start-ragents.reference.160-learning-companion), [Bildsammlung mit Beschriftungen](#start-ragents.reference.170-photo-collection), [Entscheidungswerkstatt](#start-ragents.reference.180-decision-workbench), [Texte prüfen und Ergebnisse gezielt teilen](#start-ragents.reference.190-review-queue), [Vorschläge gemeinsam freigeben](#start-ragents.reference.220-actor-approval-list), [Eine Liste in zwei Ansichten](#start-ragents.reference.230-shared-state-views), [Antworten automatisch sammeln](#start-ragents.reference.240-live-result-list), [Balkon-Wizard](#start-ragents.reference.250-balcony-wizard) |
+| Mini-apps | [Hallo Welt auf der Fläche](#start-ragents.reference.95-hello-world), [Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes), [Eine Liste im Chat und im Fenster pflegen](#start-ragents.reference.100-shared-actor-list), [Redaktionswerkstatt](#start-ragents.reference.150-editorial-workbench), [Lernbegleitung mit Unterlagen](#start-ragents.reference.160-learning-companion), [Bildsammlung mit Beschriftungen](#start-ragents.reference.170-photo-collection), [Entscheidungswerkstatt](#start-ragents.reference.180-decision-workbench), [Texte prüfen und Ergebnisse gezielt teilen](#start-ragents.reference.190-review-queue), [Vorschläge gemeinsam freigeben](#start-ragents.reference.220-actor-approval-list), [Eine Liste in zwei Ansichten](#start-ragents.reference.230-shared-state-views), [Antworten automatisch sammeln](#start-ragents.reference.240-live-result-list), [Balkon-Wizard](#start-ragents.reference.250-balcony-wizard) |
 | Actor state | [Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Nachrichten ohne KI mitzählen](#start-ragents.reference.70-headless-counter), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes), [Eine Liste im Chat und im Fenster pflegen](#start-ragents.reference.100-shared-actor-list), [Entscheidungswerkstatt](#start-ragents.reference.180-decision-workbench), [Vorschläge gemeinsam freigeben](#start-ragents.reference.220-actor-approval-list), [Eine Liste in zwei Ansichten](#start-ragents.reference.230-shared-state-views), [Antworten automatisch sammeln](#start-ragents.reference.240-live-result-list), [Balkon-Wizard](#start-ragents.reference.250-balcony-wizard) |
 | LLM actor with view | [Lernbegleitung mit Unterlagen](#start-ragents.reference.160-learning-companion), [Bildsammlung mit Beschriftungen](#start-ragents.reference.170-photo-collection), [Vorschläge gemeinsam freigeben](#start-ragents.reference.220-actor-approval-list) |
 | Actor chat | [Lernbegleitung mit Unterlagen](#start-ragents.reference.160-learning-companion), [Bildsammlung mit Beschriftungen](#start-ragents.reference.170-photo-collection) |
@@ -15949,9 +16267,9 @@ The bundled examples demonstrate how RAgents concepts work together and provide 
 | Actor functions | [Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Nachrichten ohne KI mitzählen](#start-ragents.reference.70-headless-counter), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes), [Eine Liste im Chat und im Fenster pflegen](#start-ragents.reference.100-shared-actor-list), [Redaktionswerkstatt](#start-ragents.reference.150-editorial-workbench), [Vorschläge gemeinsam freigeben](#start-ragents.reference.220-actor-approval-list), [Eine Liste in zwei Ansichten](#start-ragents.reference.230-shared-state-views), [Balkon-Wizard](#start-ragents.reference.250-balcony-wizard) |
 | Automatic view placement | [Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes) |
 | View visibility | [Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes) |
-| Global coordinator | [Zwei Unterhaltungen im Blick behalten](#example-global-run-overview), [Eine vorbereitete Runde global starten](#example-global-prepared-run) |
+| Global coordinator | [Zwei Runs im Blick behalten](#example-global-run-overview), [Eine vorbereitete Runde global starten](#example-global-prepared-run) |
 | Conversation reset | [Nach einer Planung neu beginnen](#example-reset-completed-global-chat), [Einen Reset zunächst abbrechen](#example-reset-without-losing-draft) |
-| Settings and model selection | [Den Koordinator für kurze Antworten einstellen](#example-coordinator-model-settings), [Das Modell für kurze Überschriften wählen](#example-title-model-selection), [Automatische Überschriften ausschalten](#example-disable-generated-titles), [Eine Fähigkeit ihrer Extension zuordnen](#example-extension-capability-settings) |
+| Settings and model selection | [Den Koordinator für kurze Antworten einstellen](#example-coordinator-model-settings), [Das Modell für kurze Überschriften wählen](#example-title-model-selection), [Automatische Überschriften ausschalten](#example-disable-generated-titles), [Eine Fähigkeit ihrem Plugin zuordnen](#example-extension-capability-settings) |
 | Process display | [Den Sprachserver als Run-Prozess sehen](#example-language-server-process), [Eine kurzlebige lokale Vorschau öffnen](#example-local-preview-process) |
 | Files and workspace | [Einen Entwurf im Dateibaum lesen](#example-workspace-draft-preview), [Gleichnamige Dateien in zwei Runs vergleichen](#example-separate-run-files) |
 | Recovery after restart | [Eine gemeinsame Liste nach Neustart wiederfinden](#example-restore-shared-list), [Zwei Gesprächsverläufe nach Neustart fortsetzen](#example-restore-conversation-context) |
@@ -15982,29 +16300,29 @@ Kacheln lassen sich persönlich umstellen und wieder auf die Programmvorgabe zur
 
 User workflow. Tags: Use case, Concept demo, Workspace layout.
 
-1. Im Profil showcase den Einstieg Gesprächsrunde einrichten ausführen und den Aufbau abwarten. Die vom Run gesetzte Aufteilung ansehen.
+1. Im Profil showcase die Vorlage Gesprächsrunde einrichten ausführen und den Aufbau abwarten. Die vom Run gesetzte Aufteilung ansehen.
 2. Eine Kachel an ihrer Kopfzeile fassen und am oberen Rand einer anderen Kachel andocken. Erwartung: Die Aufteilung ändert sich sofort; alle Gesprächspartner arbeiten weiter.
 3. Die Trennlinie zwischen zwei Kacheln verschieben und denselben Run im selben Browser neu laden. Erwartung: Die persönliche Aufteilung bleibt erhalten; die Actors und die Programmanordnung sind unverändert.
 4. In der Statusleiste Programmvorgabe übernehmen wählen. Erwartung: Die Fläche zeigt wieder die Aufteilung des Runs; der Knopf verschwindet, bis wieder eine eigene Änderung vorliegt.
 
 <a id="example-global-run-overview"></a>
 
-### Zwei Unterhaltungen im Blick behalten
+### Zwei Runs im Blick behalten
 
-Der übergeordnete Koordinator liest vorhandene Runs, während die aktuelle Arbeitsfläche geöffnet bleibt.
+Der globale Koordinator liest vorhandene Runs, während die aktuelle Fläche geöffnet bleibt.
 
 User workflow. Tags: Use case, Concept demo, Global coordinator.
 
-1. Im Profil showcase zwei kurze Unterhaltungen zu einer Leseliste und einem Wochenplan anlegen und ihre Antworten abwarten.
-2. In die Eingabe Globaler Koordinator in der Kopfzeile klicken und damit seinen Verlauf öffnen. Um eine knappe Übersicht der beiden Unterhaltungen mit ihrem jeweiligen Arbeitsstand bitten.
-3. Die Run-Liste über die Übersichtsecke oder Cmd+I auf macOS beziehungsweise Ctrl+I öffnen, beide Runs auswählen und die Antwort mit ihren tatsächlichen Unterhaltungen vergleichen. Erwartung: Der globale Chat kann beide Journale berücksichtigen; ein Run-Wechsel erhält seinen eigenen Verlauf.
+1. Im Profil showcase zwei kurze Runs zu einer Leseliste und einem Wochenplan anlegen und ihre Antworten abwarten.
+2. In die Eingabe Globaler Koordinator in der Kopfzeile klicken und damit seinen Verlauf öffnen. Um eine knappe Übersicht der beiden Runs mit ihrem jeweiligen Arbeitsstand bitten.
+3. Die Run-Liste über die Übersichtsecke oder Cmd+I auf macOS beziehungsweise Ctrl+I öffnen, beide Runs auswählen und die Antwort mit ihren tatsächlichen Gesprächen vergleichen. Erwartung: Der globale Chat kann beide Journale berücksichtigen; ein Run-Wechsel erhält seinen eigenen Verlauf.
 4. Einen ungesendeten Entwurf oben eingeben, Escape drücken und den Verlauf wieder öffnen. Erwartung: Das Dropdown schließt ohne Stopp; Entwurf, aktueller Run und globales Gespräch bleiben erhalten.
 
 <a id="example-global-prepared-run"></a>
 
 ### Eine vorbereitete Runde global starten
 
-Der übergeordnete Koordinator wählt aus dem vorhandenen Katalog ein Run-Script und erstellt damit einen neuen Run.
+Der globale Koordinator wählt aus dem vorhandenen Katalog ein Run-Script und erstellt damit einen neuen Run.
 
 User workflow. Tags: Use case, Concept demo, Global coordinator.
 
@@ -16063,7 +16381,7 @@ User workflow. Tags: Use case, Concept demo, Settings and model selection.
 
 1. Über das Zahnrad Einstellungen, Modelle und Überschriften öffnen. Bei einer großen Liste mit der Suche ein angebotenes Modell finden, auswählen und Speichern wählen.
 2. Die bestätigte Speicherung abwarten. Erwartung: Die Auswahl bleibt im Formular erhalten; Globaler Koordinator sowie Neue Runs und Agenten behalten ihre eigenen Einstellungen.
-3. Eine neue Unterhaltung mit einem ausführlicheren Auftrag beginnen und die Run-Liste öffnen. Erwartung: Der ursprüngliche Auftrag ist bereits sichtbar. Sobald ein automatischer Titel erfolgreich erzeugt und gespeichert ist, erscheint die kurze Überschrift ohne zusätzlichen manuellen Listenabruf. Eine feste Antwortzeit wird nicht vorausgesetzt.
+3. Einen neuen Run mit einem ausführlicheren Auftrag beginnen und die Run-Liste öffnen. Erwartung: Der ursprüngliche Auftrag ist bereits sichtbar. Sobald ein automatischer Titel erfolgreich erzeugt und gespeichert ist, erscheint die kurze Überschrift ohne zusätzlichen manuellen Listenabruf. Eine feste Antwortzeit wird nicht vorausgesetzt.
 4. Eine andere Modellwahl als Entwurf einstellen und Änderungen verwerfen wählen. Erwartung: Die bestätigte Auswahl kehrt zurück; ein schon erzeugter Titel wird nicht ersetzt.
 
 <a id="example-disable-generated-titles"></a>
@@ -16074,22 +16392,22 @@ Neue Erzeugungen lassen sich deaktivieren; vorhandene und ausdrücklich gesetzte
 
 User workflow. Tags: Use case, Concept demo, Settings and model selection.
 
-1. Eine Unterhaltung mit bereits erzeugtem Kurztitel in der Run-Liste ansehen. Unter Einstellungen, Modelle, Überschriften Keine automatischen Überschriften auswählen und speichern.
+1. Einen Run mit bereits erzeugtem Kurztitel in der Run-Liste ansehen. Unter Einstellungen, Modelle, Überschriften Keine automatischen Überschriften auswählen und speichern.
 2. Die Anwendung neu laden und die Einstellung erneut ansehen. Erwartung: Die Deaktivierung ist gespeichert; der bestehende Kurztitel bleibt unverändert.
-3. Eine weitere Unterhaltung mit einem normalen Auftrag beginnen. Erwartung: Die Run-Liste zeigt den Auftrag, ohne dafür einen automatischen Kurztitel anzufordern.
+3. Einen weiteren Run mit einem normalen Auftrag beginnen. Erwartung: Die Run-Liste zeigt den Auftrag, ohne dafür einen automatischen Kurztitel anzufordern.
 4. Optional Sammelboard einrichten starten und im Leitfaden einen Namen vorgeben. Erwartung: Der vorbereitete Ablauf setzt weiterhin seinen eigenen Run-Titel. Ein später wieder aktiviertes Titelmodell überschreibt diesen Namen nicht.
 
 <a id="example-extension-capability-settings"></a>
 
-### Eine Fähigkeit ihrer Extension zuordnen
+### Eine Fähigkeit ihrem Plugin zuordnen
 
 Die beiden Ansichten der Einstellungen erschließen denselben Bestand aus unterschiedlichen Richtungen.
 
 User workflow. Tags: Use case, Concept demo, Settings and model selection.
 
-1. Über das Zahnrad die Einstellungen öffnen und zu Erweiterungen wechseln. In Nach Extension die Actor-Programm-Extension auswählen und ihre Werkzeuge und Web-Beiträge ansehen.
-2. Zu Nach Fähigkeit wechseln, Werkzeuge auswählen und nach actor_program suchen. Erwartung: Die passenden Beiträge erscheinen mit ihrer jeweiligen Extension als Eigentümer.
-3. Den Link zur Actor-Programm-Extension öffnen. Erwartung: Ihr vollständiges Inventar ist wieder sichtbar; ein vorheriger Suchfilter verdeckt die Detailseite nicht.
+1. Über das Zahnrad die Einstellungen öffnen und zu Plugins wechseln. In Nach Plugin das Actor-Programm-Plugin auswählen und ihre Werkzeuge und Web-Beiträge ansehen.
+2. Zu Nach Fähigkeit wechseln, Werkzeuge auswählen und nach actor_program suchen. Erwartung: Die passenden Beiträge erscheinen mit ihrem jeweiligen Plugin als Eigentümer.
+3. Den Link zum Actor-Programm-Plugin öffnen. Erwartung: Sein vollständiges Inventar ist wieder sichtbar; ein vorheriger Suchfilter verdeckt die Detailseite nicht.
 4. Zu Modelle wechseln und die Koordinator-Modellwahl öffnen. Nur tatsächlich angebotene Werte sind wählbar; eine ungültige Kombination wird nicht still ersetzt.
 
 <a id="example-language-server-process"></a>
@@ -16100,7 +16418,7 @@ Eine TypeScript-Prüfung macht den zugehörigen Sprachserver in der Prozessanzei
 
 User workflow. Tags: Use case, Concept demo, Process display.
 
-1. Im Profil showcase den Skill-Einstieg Fehler in einer Terminliste finden ausführen. Voraussetzung ist ein verfügbarer TypeScript-Sprachserver; eine fehlende Voraussetzung muss als Fehler gemeldet werden.
+1. Im Profil showcase die Skill-Vorlage Fehler in einer Terminliste finden ausführen. Voraussetzung ist ein verfügbarer TypeScript-Sprachserver; eine fehlende Voraussetzung muss als Fehler gemeldet werden.
 2. Nach dem Öffnen des Sprachservers die gemeinsame Kopfzeile des Runs ansehen. Erwartung: Der verwaltete Sprachserver erscheint als zu diesem Run gehörender Prozess.
 3. Einen anderen Run öffnen und zurückwechseln. Erwartung: Die Prozessanzeige folgt dem ausgewählten Run und ist kein gemeinsames Verzeichnis aller Rechnerprozesse.
 4. Die Prozessanzeige dient der Beobachtung. Sie bietet keinen Beenden-Knopf; fehlende Betriebssystemrechte oder Werkzeuge werden als sichtbarer Fehler gemeldet.
@@ -16161,7 +16479,7 @@ User workflow. Tags: Use case, Concept demo, Recovery after restart.
 
 ### Zwei Gesprächsverläufe nach Neustart fortsetzen
 
-Normale Unterhaltung und globaler Koordinator behalten ihre jeweils eigene Geschichte.
+Normaler Run und globaler Koordinator behalten ihre jeweils eigene Geschichte.
 
 User workflow. Tags: Use case, Concept demo, Recovery after restart.
 
@@ -16178,7 +16496,7 @@ Ein Bild aus der Zwischenablage wird vor dem Senden geprüft und danach als Anha
 
 User workflow. Tags: Use case, Concept demo, Multimodal input.
 
-1. Eine eigene unkritische Skizze in die Zwischenablage kopieren. Eine neue Unterhaltung öffnen und ein angebotenes Modell wählen, das Bildeingaben unterstützt.
+1. Eine eigene unkritische Skizze in die Zwischenablage kopieren. Einen neuen Run öffnen und ein angebotenes Modell wählen, das Bildeingaben unterstützt.
 2. Das Bild mit Cmd+V oder Ctrl+V in die Chat-Eingabe einfügen. Erwartung: Eine Bildvorschau erscheint, lässt sich vor dem Senden wieder entfernen und wurde noch nicht allein durch das Einfügen gesendet.
 3. Mit der Frage Welche drei Formen erkennst du? senden. Erwartung: Nach erfolgreicher Annahme stehen Nachricht und dauerhafter Bildanhang im Verlauf; die Antwort wird gegen die tatsächliche Skizze geprüft.
 4. Falls das Zielmodell keine Bildeingaben unterstützt, muss der Composer das Senden mit einer verständlichen Meldung blockieren. Kein passendes Modell im Katalog ist eine fehlende Voraussetzung, kein Anlass für einen behaupteten Bildbefund.
@@ -16196,13 +16514,13 @@ User workflow. Tags: Use case, Concept demo, Multimodal input.
 3. Mit der Frage Welche geplanten Schritte sind im Clip sichtbar? senden und die tatsächliche Antwort mit Clip und Ablaufplan vergleichen. Erwartung: Die Anhänge bleiben im Verlauf erneut erreichbar.
 4. Bei fehlender Video- oder PDF-Unterstützung bleibt das Senden blockiert. Es gibt hier keine stille OCR-Ausweichverarbeitung und keine Zusage, dass jedes angebotene Modell die Dateien versteht.
 
-## Einstiege
+## Vorlagen der Startseite
 
 ### Kategorie: Mini-Apps
 
 <a id="start-ragents.reference.95-hello-world"></a>
 
-### ragents.reference.95-hello-world: Hallo Welt auf der Arbeitsfläche
+### ragents.reference.95-hello-world: Hallo Welt auf der Fläche
 
 Zeigt den kleinsten Aufbau einer Mini-App am vorhandenen Actor: eine reine Anzeige ohne neuen Actor oder Serverfunktion.
 
@@ -16212,7 +16530,7 @@ Tags: Konzeptdemo, Mini-Apps.
 {
   "id": "ragents.reference.95-hello-world",
   "owner": "ragents.reference",
-  "title": "Hallo Welt auf der Arbeitsfläche",
+  "title": "Hallo Welt auf der Fläche",
   "description": "Zeigt den kleinsten Aufbau einer Mini-App am vorhandenen Actor: eine reine Anzeige ohne neuen Actor oder Serverfunktion.",
   "order": 5,
   "tags": [
@@ -16222,7 +16540,7 @@ Tags: Konzeptdemo, Mini-Apps.
   "action": "skill",
   "skill": "95-hello-world",
   "category": "Mini-Apps",
-  "prompt": "Ich hätte gern an Deinem vorhandenen Actor eine kleine Oberfläche auf der Arbeitsfläche, die einfach nur Hallo Welt sagt. Sie soll sonst nichts tun. Lege dafür keinen neuen Actor und keine Serverfunktion an."
+  "prompt": "Ich hätte gern an Deinem vorhandenen Actor eine kleine Oberfläche auf der Fläche, die einfach nur Hallo Welt sagt. Sie soll sonst nichts tun. Lege dafür keinen neuen Actor und keine Serverfunktion an."
 }
 ```
 
@@ -16232,8 +16550,8 @@ Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Sk
 
 ```json
 {
-  "title": "Hallo Welt auf der Arbeitsfläche",
-  "message": "Nutze den Skill 95-hello-world für diesen Auftrag.\n\nIch hätte gern an Deinem vorhandenen Actor eine kleine Oberfläche auf der Arbeitsfläche, die einfach nur Hallo Welt sagt. Sie soll sonst nichts tun. Lege dafür keinen neuen Actor und keine Serverfunktion an."
+  "title": "Hallo Welt auf der Fläche",
+  "message": "Nutze den Skill 95-hello-world für diesen Auftrag.\n\nIch hätte gern an Deinem vorhandenen Actor eine kleine Oberfläche auf der Fläche, die einfach nur Hallo Welt sagt. Sie soll sonst nichts tun. Lege dafür keinen neuen Actor und keine Serverfunktion an."
 }
 ```
 
@@ -16308,7 +16626,7 @@ Tags: Anwendungsfall, Konzeptdemo, TypeScript-Actors, Actor-Funktionen, Actor-Zu
   "action": "skill",
   "skill": "90-actor-notes",
   "category": "Mini-Apps",
-  "prompt": "Ich hätte gern einen TypeScript-Actor für meine Notizen. Seine Oberfläche mit Eingabe und Zähler soll von selbst auf der Arbeitsfläche erscheinen: links eine durchsuchbare Titelliste, rechts die ausgewählte Notiz. Ergänze eine erste Notiz über seine Funktion. Blende die Oberfläche kurz aus und wieder ein, ohne den Actor zu löschen oder Notizen zurückzusetzen. Lass sie zum Eintragen meiner nächsten Idee offen."
+  "prompt": "Ich hätte gern einen TypeScript-Actor für meine Notizen. Seine Oberfläche mit Eingabe und Zähler soll von selbst auf der Fläche erscheinen: links eine durchsuchbare Titelliste, rechts die ausgewählte Notiz. Ergänze eine erste Notiz über seine Funktion. Blende die Oberfläche kurz aus und wieder ein, ohne den Actor zu löschen oder Notizen zurückzusetzen. Lass sie zum Eintragen meiner nächsten Idee offen."
 }
 ```
 
@@ -16319,7 +16637,7 @@ Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Sk
 ```json
 {
   "title": "Notizen ausblenden und wiederfinden",
-  "message": "Nutze den Skill 90-actor-notes für diesen Auftrag.\n\nIch hätte gern einen TypeScript-Actor für meine Notizen. Seine Oberfläche mit Eingabe und Zähler soll von selbst auf der Arbeitsfläche erscheinen: links eine durchsuchbare Titelliste, rechts die ausgewählte Notiz. Ergänze eine erste Notiz über seine Funktion. Blende die Oberfläche kurz aus und wieder ein, ohne den Actor zu löschen oder Notizen zurückzusetzen. Lass sie zum Eintragen meiner nächsten Idee offen."
+  "message": "Nutze den Skill 90-actor-notes für diesen Auftrag.\n\nIch hätte gern einen TypeScript-Actor für meine Notizen. Seine Oberfläche mit Eingabe und Zähler soll von selbst auf der Fläche erscheinen: links eine durchsuchbare Titelliste, rechts die ausgewählte Notiz. Ergänze eine erste Notiz über seine Funktion. Blende die Oberfläche kurz aus und wieder ein, ohne den Actor zu löschen oder Notizen zurückzusetzen. Lass sie zum Eintragen meiner nächsten Idee offen."
 }
 ```
 
@@ -16429,7 +16747,7 @@ Tags: Anwendungsfall, Konzeptdemo, Agententeams, Mini-Apps, LLM-Actor mit View, 
   "action": "skill",
   "skill": "160-learning-companion",
   "category": "Mini-Apps",
-  "prompt": "Ich hätte gern einen KI-Tutor mit eigener Oberfläche auf der Arbeitsfläche: Textunterlagen öffnen und lesen, daneben mit genau diesem Tutor sprechen. Ich möchte zwischen Erklären, Beispiel und Verständnisprüfung wählen. Die ausgewählte Datei soll erst nach meinem Klick im Gespräch verwendet werden. Fragen ohne Datei sollen auch gehen. Nutze die vorhandenen Chat-, Datei- und Auswahlbausteine."
+  "prompt": "Ich hätte gern einen KI-Tutor mit eigener Oberfläche auf der Fläche: Textunterlagen öffnen und lesen, daneben mit genau diesem Tutor sprechen. Ich möchte zwischen Erklären, Beispiel und Verständnisprüfung wählen. Die ausgewählte Datei soll erst nach meinem Klick im Gespräch verwendet werden. Fragen ohne Datei sollen auch gehen. Nutze die vorhandenen Chat-, Datei- und Auswahlbausteine."
 }
 ```
 
@@ -16440,7 +16758,7 @@ Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Sk
 ```json
 {
   "title": "Lernbegleitung mit Unterlagen",
-  "message": "Nutze den Skill 160-learning-companion für diesen Auftrag.\n\nIch hätte gern einen KI-Tutor mit eigener Oberfläche auf der Arbeitsfläche: Textunterlagen öffnen und lesen, daneben mit genau diesem Tutor sprechen. Ich möchte zwischen Erklären, Beispiel und Verständnisprüfung wählen. Die ausgewählte Datei soll erst nach meinem Klick im Gespräch verwendet werden. Fragen ohne Datei sollen auch gehen. Nutze die vorhandenen Chat-, Datei- und Auswahlbausteine."
+  "message": "Nutze den Skill 160-learning-companion für diesen Auftrag.\n\nIch hätte gern einen KI-Tutor mit eigener Oberfläche auf der Fläche: Textunterlagen öffnen und lesen, daneben mit genau diesem Tutor sprechen. Ich möchte zwischen Erklären, Beispiel und Verständnisprüfung wählen. Die ausgewählte Datei soll erst nach meinem Klick im Gespräch verwendet werden. Fragen ohne Datei sollen auch gehen. Nutze die vorhandenen Chat-, Datei- und Auswahlbausteine."
 }
 ```
 
@@ -16678,7 +16996,7 @@ Tags: Anwendungsfall, Konzeptdemo, TypeScript-Actors, Subscriptions, Actor-Zusta
   "action": "skill",
   "skill": "240-live-result-list",
   "category": "Mini-Apps",
-  "prompt": "Ich hätte gern zwei KI-Helfer, die je eine kurze Idee für einen gemeinsamen Lernnachmittag vorschlagen. Ihre fertigen Antworten sollen automatisch in einer kleinen Ergebnisliste auf der Arbeitsfläche erscheinen. Ein programmierter Sammler merkt sich die Beiträge; dafür soll keine weitere KI die Texte kopieren. Lass danach einen Helfer eine zweite Idee ergänzen. Die Liste soll von selbst wachsen, auch wenn Du im Chat gerade nichts schreibst."
+  "prompt": "Ich hätte gern zwei KI-Helfer, die je eine kurze Idee für einen gemeinsamen Lernnachmittag vorschlagen. Ihre fertigen Antworten sollen automatisch in einer kleinen Ergebnisliste auf der Fläche erscheinen. Ein programmierter Sammler merkt sich die Beiträge; dafür soll keine weitere KI die Texte kopieren. Lass danach einen Helfer eine zweite Idee ergänzen. Die Liste soll von selbst wachsen, auch wenn Du im Chat gerade nichts schreibst."
 }
 ```
 
@@ -16689,7 +17007,7 @@ Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Sk
 ```json
 {
   "title": "Antworten automatisch sammeln",
-  "message": "Nutze den Skill 240-live-result-list für diesen Auftrag.\n\nIch hätte gern zwei KI-Helfer, die je eine kurze Idee für einen gemeinsamen Lernnachmittag vorschlagen. Ihre fertigen Antworten sollen automatisch in einer kleinen Ergebnisliste auf der Arbeitsfläche erscheinen. Ein programmierter Sammler merkt sich die Beiträge; dafür soll keine weitere KI die Texte kopieren. Lass danach einen Helfer eine zweite Idee ergänzen. Die Liste soll von selbst wachsen, auch wenn Du im Chat gerade nichts schreibst."
+  "message": "Nutze den Skill 240-live-result-list für diesen Auftrag.\n\nIch hätte gern zwei KI-Helfer, die je eine kurze Idee für einen gemeinsamen Lernnachmittag vorschlagen. Ihre fertigen Antworten sollen automatisch in einer kleinen Ergebnisliste auf der Fläche erscheinen. Ein programmierter Sammler merkt sich die Beiträge; dafür soll keine weitere KI die Texte kopieren. Lass danach einen Helfer eine zweite Idee ergänzen. Die Liste soll von selbst wachsen, auch wenn Du im Chat gerade nichts schreibst."
 }
 ```
 
@@ -16718,7 +17036,7 @@ Tags: Anwendungsfall, Konzeptdemo, Mini-Apps, Actor-Funktionen, Actor-Zustand.
   "action": "skill",
   "skill": "250-balcony-wizard",
   "category": "Mini-Apps",
-  "prompt": "Ich hätte gern einen Balkon-Wizard als eigenständige App auf dem Canvas. Sie vermittelt ein begrenztes Gespräch mit einem KI-Berater im Hintergrund. Nach jeder Antwort wählt das LLM die nächste passende Frage, keine feste Fragenliste. Nach fünf Antworten gibt es Gestaltungstipps. Ich antworte nur in der App; sie zeigt Frage, Fortschritt, Lade- und Fehlerzustände. Nutze gemeinsame Layouts und Formulare. Keine App in einer LLM-Chatkarte."
+  "prompt": "Ich hätte gern einen Balkon-Wizard als eigenständige App auf der Fläche. Sie vermittelt ein begrenztes Gespräch mit einem KI-Berater im Hintergrund. Nach jeder Antwort wählt das LLM die nächste passende Frage, keine feste Fragenliste. Nach fünf Antworten gibt es Gestaltungstipps. Ich antworte nur in der App; sie zeigt Frage, Fortschritt, Lade- und Fehlerzustände. Nutze gemeinsame Layouts und Formulare. Keine App in einer LLM-Chatkarte."
 }
 ```
 
@@ -16729,7 +17047,7 @@ Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Sk
 ```json
 {
   "title": "Balkon-Wizard",
-  "message": "Nutze den Skill 250-balcony-wizard für diesen Auftrag.\n\nIch hätte gern einen Balkon-Wizard als eigenständige App auf dem Canvas. Sie vermittelt ein begrenztes Gespräch mit einem KI-Berater im Hintergrund. Nach jeder Antwort wählt das LLM die nächste passende Frage, keine feste Fragenliste. Nach fünf Antworten gibt es Gestaltungstipps. Ich antworte nur in der App; sie zeigt Frage, Fortschritt, Lade- und Fehlerzustände. Nutze gemeinsame Layouts und Formulare. Keine App in einer LLM-Chatkarte."
+  "message": "Nutze den Skill 250-balcony-wizard für diesen Auftrag.\n\nIch hätte gern einen Balkon-Wizard als eigenständige App auf der Fläche. Sie vermittelt ein begrenztes Gespräch mit einem KI-Berater im Hintergrund. Nach jeder Antwort wählt das LLM die nächste passende Frage, keine feste Fragenliste. Nach fünf Antworten gibt es Gestaltungstipps. Ich antworte nur in der App; sie zeigt Frage, Fortschritt, Lade- und Fehlerzustände. Nutze gemeinsame Layouts und Formulare. Keine App in einer LLM-Chatkarte."
 }
 ```
 

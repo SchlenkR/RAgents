@@ -29,7 +29,7 @@ import type {
   ProfileContribution,
   PromptContribution,
   PromptRenderContext,
-  PublicAgentExtensionContribution,
+  PublicAgentHookContribution,
   PublicPluginConfigDescriptor,
   PublicPluginManifest,
   PublicPluginProfile,
@@ -234,7 +234,7 @@ export class AgentContributionRegistry {
     return this.#contributions.entries().map(({ value }) => agentHookExtension(value, context));
   }
 
-  describe(): readonly PublicAgentExtensionContribution[] {
+  describe(): readonly PublicAgentHookContribution[] {
     return this.#contributions.entries().map(({ owner, value }) => ({
       id: value.id,
       owner,
@@ -388,7 +388,7 @@ const SCRIPT_HANDLE = /^[a-z0-9][a-z0-9-]*$/;
 
 const requireText = (entry: { id: unknown }, value: unknown, field: string): void => {
   if (typeof value !== "string" || !value.trim()) {
-    throw new Error(`Einstieg ${String(entry.id)} hat kein gültiges ${field}`);
+    throw new Error(`Vorlage ${String(entry.id)} hat kein gültiges ${field}`);
   }
 };
 
@@ -418,7 +418,7 @@ const validateProgramFiles = (entry: StartEntryContribution, files: unknown): vo
 
 const validateScriptPackage = (entry: StartEntryContribution, script: unknown): void => {
   if (typeof script !== "object" || script === null)
-    throw new Error(`Einstieg ${entry.id} hat kein Run-Script-Paket`);
+    throw new Error(`Vorlage ${entry.id} hat kein Run-Script-Paket`);
   assertKnownFields(entry, script, ["handle", "coordinator", "files", "programs"], "Run-Script");
   const value = script as Record<string, unknown>;
   if (typeof value.handle !== "string" || !SCRIPT_HANDLE.test(value.handle))
@@ -443,11 +443,11 @@ const validateFixedStartOptions = (entry: StartEntryContribution): void => {
   const fixed: unknown = entry.fixedStartOptions;
   if (fixed === undefined) return;
   if (typeof fixed !== "object" || fixed === null || Array.isArray(fixed) || Object.keys(fixed).length === 0) {
-    throw new Error(`Einstieg ${entry.id}: fixedStartOptions muss mindestens eine Startoption auf einen Wert festlegen`);
+    throw new Error(`Vorlage ${entry.id}: fixedStartOptions muss mindestens eine Startoption auf einen Wert festlegen`);
   }
   for (const [optionId, value] of Object.entries(fixed)) {
-    if (!START_OPTION_ID.test(optionId)) throw new Error(`Einstieg ${entry.id} legt die ungültige Startoption-Id ${optionId} fest`);
-    assertJsonValue(value, `Einstieg ${entry.id}: fixedStartOptions.${optionId}`);
+    if (!START_OPTION_ID.test(optionId)) throw new Error(`Vorlage ${entry.id} legt die ungültige Startoption-Id ${optionId} fest`);
+    assertJsonValue(value, `Vorlage ${entry.id}: fixedStartOptions.${optionId}`);
   }
 };
 
@@ -455,38 +455,38 @@ const validateStartEntry = (entry: StartEntryContribution): void => {
   const base = ["id", "title", "description", "order", "guide", "tags", "fixedStartOptions", "action"];
   for (const field of ["id", "title", "description"] as const) requireText(entry, entry[field], field);
   if (entry.order !== undefined && (typeof entry.order !== "number" || !Number.isFinite(entry.order))) {
-    throw new Error(`Einstieg ${entry.id} hat keine gültige Ordnungszahl`);
+    throw new Error(`Vorlage ${entry.id} hat keine gültige Ordnungszahl`);
   }
   if (entry.guide !== undefined && (typeof entry.guide !== "string" || !GUIDE_ID.test(entry.guide))) {
-    throw new Error(`Einstieg ${entry.id} nennt keine gültige Leitfaden-Kennung: ${String(entry.guide)}`);
+    throw new Error(`Vorlage ${entry.id} nennt keine gültige Leitfaden-Kennung: ${String(entry.guide)}`);
   }
   if (entry.tags !== undefined && (!Array.isArray(entry.tags)
     || entry.tags.some((tag) => typeof tag !== "string" || !tag.trim() || tag !== tag.trim())
     || new Set(entry.tags).size !== entry.tags.length)) {
-    throw new Error(`Einstieg ${entry.id}: tags müssen eindeutige, nicht leere Schlagworte sein`);
+    throw new Error(`Vorlage ${entry.id}: tags müssen eindeutige, nicht leere Schlagworte sein`);
   }
   validateFixedStartOptions(entry);
   switch (entry.action) {
     case "skill":
-      assertKnownFields(entry, entry, [...base, "skill", "prompt", "category"], "Einstieg");
+      assertKnownFields(entry, entry, [...base, "skill", "prompt", "category"], "Vorlage");
       requireText(entry, entry.category, "category");
-      if (entry.category !== entry.category.trim()) throw new Error(`Einstieg ${entry.id}: category muss ein einzelner nicht leerer Text sein`);
+      if (entry.category !== entry.category.trim()) throw new Error(`Vorlage ${entry.id}: category muss ein einzelner nicht leerer Text sein`);
       requireText(entry, entry.prompt, "prompt");
       requireText(entry, entry.skill, "skill");
       if (!SKILL_NAME.test(entry.skill)) {
-        throw new Error(`Einstieg ${entry.id} nennt keinen gültigen Skill-Namen: ${entry.skill}`);
+        throw new Error(`Vorlage ${entry.id} nennt keinen gültigen Skill-Namen: ${entry.skill}`);
       }
       return;
     case "script":
-      assertKnownFields(entry, entry, [...base, "script", "category"], "Einstieg");
+      assertKnownFields(entry, entry, [...base, "script", "category"], "Vorlage");
       if (entry.category !== undefined && (typeof entry.category !== "string" || !entry.category.trim() || entry.category !== entry.category.trim())) {
-        throw new Error(`Einstieg ${entry.id}: category muss ein einzelner nicht leerer Text sein`);
+        throw new Error(`Vorlage ${entry.id}: category muss ein einzelner nicht leerer Text sein`);
       }
       validateScriptPackage(entry, entry.script);
       return;
     default:
       throw new Error(
-        `Einstieg ${String((entry as { id: unknown }).id)} hat die unbekannte Aktion ${String((entry as { action: unknown }).action)}; `
+        `Vorlage ${String((entry as { id: unknown }).id)} hat die unbekannte Aktion ${String((entry as { action: unknown }).action)}; `
         + "gültig sind skill und script",
       );
   }
@@ -497,7 +497,7 @@ const byOrderThenId = (left: { order?: number; id: string }, right: { order?: nu
 
 /** Skills with a start prompt and executable run scripts share one registry. */
 export class StartEntryContributionRegistry {
-  readonly #entries = new ContributionRegistry<StartEntryContribution>("Einstieg");
+  readonly #entries = new ContributionRegistry<StartEntryContribution>("Vorlage");
 
   register(owner: string, entries: readonly StartEntryContribution[]): void {
     for (const entry of entries) validateStartEntry(entry);
@@ -509,7 +509,7 @@ export class StartEntryContributionRegistry {
       skill.paths.map((entry) => entry.split(/[\\/]/).filter(Boolean).at(-1) ?? "")));
     for (const { owner, value } of this.#entries.entries()) {
       if (value.action === "skill" && !names.has(value.skill)) {
-        throw new Error(`Einstieg ${value.id} von ${owner} verweist auf den unbekannten Skill ${value.skill}`);
+        throw new Error(`Vorlage ${value.id} von ${owner} verweist auf den unbekannten Skill ${value.skill}`);
       }
     }
   }
@@ -519,9 +519,9 @@ export class StartEntryContributionRegistry {
     for (const { owner, value } of this.#entries.entries()) {
       for (const [optionId, fixed] of Object.entries(value.fixedStartOptions ?? {})) {
         if (!startOptions.entry(optionId)) {
-          throw new Error(`Einstieg ${value.id} von ${owner} legt die nicht registrierte Startoption ${optionId} fest`);
+          throw new Error(`Vorlage ${value.id} von ${owner} legt die nicht registrierte Startoption ${optionId} fest`);
         }
-        startOptions.assertValue(optionId, fixed, `festgelegter Wert des Einstiegs ${value.id}`);
+        startOptions.assertValue(optionId, fixed, `festgelegter Wert der Vorlage ${value.id}`);
       }
     }
   }
@@ -550,12 +550,12 @@ export class StartEntryContributionRegistry {
       .sort(byOrderThenId);
   }
 
-  /** Ein Einstieg, wie das Web ihn sieht; undefined für eine unbekannte Kennung. */
+  /** Eine Vorlage, wie das Web sie sieht; undefined für eine unbekannte Kennung. */
   entry(entryId: string): PublicStartEntry | undefined {
     return this.describe().find((candidate) => candidate.id === entryId);
   }
 
-  /** The run script behind a script entry; undefined for unknown ids and entries of another action. */
+  /** The run script behind a script template; undefined for unknown ids and templates of another action. */
   scriptPackage(entryId: string): (RunScriptPackage & { entry: PublicStartEntry }) | undefined {
     const found = this.#entries.entries().find(({ value }) => value.id === entryId);
     if (!found || found.value.action !== "script") return undefined;
@@ -806,7 +806,7 @@ export class LifecycleContributionRegistry {
 const WORKSPACE_NOT_ACCESSIBLE = "Der Arbeitsbereich dieses Runs ist für diesen Zugang nicht erreichbar.";
 
 export class SessionMetadataContributionRegistry {
-  readonly #metadata = new ContributionRegistry<SessionMetadataContribution>("Session-Metadaten-Beitrag");
+  readonly #metadata = new ContributionRegistry<SessionMetadataContribution>("Run-Metadaten-Beitrag");
 
   register(owner: string, contributions: readonly SessionMetadataContribution[]): void {
     this.#metadata.register(owner, contributions);
@@ -971,7 +971,7 @@ export class StorageRegistry {
       modes: this.#modes,
       root: (...segments: string[]) => joinSafe(path.join(this.#dataDirectory, pluginDirectory), segments),
       session: (runId: string, ...segments: string[]) => {
-        if (!RUN_ID.test(runId)) throw new Error(`Ungültige Session-Id: ${runId}`);
+        if (!RUN_ID.test(runId)) throw new Error(`Ungültige Run-ID: ${runId}`);
         return joinSafe(path.join(this.#dataDirectory, "sessions", runId, pluginDirectory), segments);
       },
     });
@@ -1121,8 +1121,8 @@ export class PluginHost {
     if (defaultStartEntry !== undefined) {
       const entries = this.startEntries.describe().map((entry) => entry.id);
       if (!entries.includes(defaultStartEntry)) {
-        throw new Error(`defaultStartEntry ${defaultStartEntry} ist kein registrierter Einstieg; `
-          + (entries.length > 0 ? `registriert sind ${entries.join(", ")}` : "kein Plugin dieses Profils registriert Einstiege"));
+        throw new Error(`defaultStartEntry ${defaultStartEntry} ist keine registrierte Vorlage; `
+          + (entries.length > 0 ? `registriert sind ${entries.join(", ")}` : "kein Plugin dieses Profils registriert Vorlagen"));
       }
     }
     this.#sealed = true;

@@ -11,7 +11,7 @@ Werkzeuge in RAgents nachzubauen.
 RAgents würde als Client des Agent Client Protocol auftreten. Ein externer ACP-Agent wäre eine
 weitere mögliche Actor-Laufzeit neben dem eingebauten Modell-Agenten, manuellen Actors und
 TypeScript-Actors. ACP übernähme Sitzung, Eingaben, laufende Ausgaben, Pläne, Werkzeugereignisse,
-Berechtigungsfragen und Abbruch. Runs, Zustellung, Journal, Arbeitsverzeichnis, Arbeitsfläche
+Berechtigungsfragen und Abbruch. Runs, Zustellung, Journal, Arbeitsverzeichnis, Fläche
 und die Vermittlung zwischen Actors blieben bei RAgents.
 
 MCP hätte daneben eine eigene Rolle. ACP verbindet RAgents mit dem vollständigen Agenten; MCP

@@ -3,7 +3,7 @@ import { createAccessContext } from "../../../packages/ragents/src/access";
 import { OrchestrationRunPanel } from "../../../plugins/ragents.orchestration/web/run-panel/RunPanel";
 import { AccessContext } from "../src/AccessContext";
 import type { PluginActivationState } from "../src/PluginActivation";
-import { PluginRegistry, type CanvasElementDefinition, type EntryGuideContext } from "../src/PluginRegistry";
+import { PluginRegistry, type SurfaceElementDefinition, type EntryGuideContext } from "../src/PluginRegistry";
 import { RunPanelApp } from "../src/run-panel/RunPanelApp";
 import { RunPanelHostProvider, type RunPanelHost } from "../src/run-panel/host";
 import type { HostRunPanelMessage, RunPanelHostMessage } from "../src/run-panel/host-contract";
@@ -36,8 +36,8 @@ const registry = new PluginRegistry({
   brand: { title: "Startprüfung" }, product: { id: "start", title: "Startprüfung" },
   plugins: [{
     id: "start", needsRunView: true,
-    canvas: { Center: () => null, RunPanel: OrchestrationRunPanel },
-    canvasElements: [{ id: "start.app", order: 0, select: () => fixture.elements, Element: () => <p>Mini-App bereit</p> }],
+    surface: { Center: () => null, RunPanel: OrchestrationRunPanel },
+    surfaceElements: [{ id: "start.app", order: 0, select: () => fixture.elements, Element: () => <p>Mini-App bereit</p> }],
     guides: [{ id: "start.topic", Guide: TopicGuide }],
   }],
   startEntries: [
@@ -52,7 +52,7 @@ const emptyView = (runId: string) => ({ id: runId, revision: 1, title: "Run", ow
 
 const fixture = {
   activation: (query.get("profile") === "pending" ? { status: "loading" } : { status: "ready", registry }) as PluginActivationState,
-  elements: [] as CanvasElementDefinition[],
+  elements: [] as SurfaceElementDefinition[],
   notifications: [] as RunPanelHostMessage[],
   calls: [] as string[],
   starts: [] as Array<{ runId: string; entry: string; input: unknown }>,
@@ -75,7 +75,7 @@ const fixture = {
   async call(contract: { id: string }, params: { runId?: string; entry?: string; input?: unknown }) {
     fixture.calls.push(contract.id);
     switch (contract.id) {
-      case "ragents.sessions.list": return [{ id: "existing", title: "Vorhandener Run", updatedAt: 0 }];
+      case "ragents.runs.list": return [{ id: "existing", title: "Vorhandener Run", updatedAt: 0 }];
       case "ragents.startOptions.list": return [];
       case "ragents.runs.view": return params.runId !== undefined && fixture.views.has(params.runId) ? emptyView(params.runId) : null;
       case "ragents.chat.actorHistory": return { actors: {} };

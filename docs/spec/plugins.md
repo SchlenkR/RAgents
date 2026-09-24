@@ -1,6 +1,6 @@
 # Plugins: Vertrag, Ordner und Web-Host
 
-<!-- guide:extensions -->
+<!-- guide:plugins -->
 ## Core boundary
 
 A plugin bundles a workspace capability such as file access, questions, or actor programs. It
@@ -20,14 +20,14 @@ run and agent: one runs before every model call and may add a hidden note, the o
 tool call and may replace its result; the agent runtime behind them is not part of the plugin
 contract. HTTP routes, UI contributions, and host-wide services remain plugin facets outside an
 individual agent.
-<!-- /guide:extensions -->
+<!-- /guide:plugins -->
 
-<!-- guide:extensions -->
-## Extension guide
+<!-- guide:plugins -->
+## Plugin guide
 
 Start with the domain result and the state that people and models need to share. Then choose the
-smallest existing extension form that fully supports the task. These strategies use the current
-functions, actor programs, language servers, and interfaces; they add no new extension mechanism.
+smallest existing plugin form that fully supports the task. These strategies use the current
+functions, actor programs, language servers, and interfaces; they add no new mechanism.
 
 | Need | Suitable form | Boundary |
 | --- | --- | --- |
@@ -109,12 +109,12 @@ components check permissions, not user names.
 ### 7. Develop mini-apps in the actual host
 
 The iframe constrains interaction, layout, and communication. Use shared controls and the
-declared function bridge. For a dialog spanning host surfaces, the app signals intent through a
+declared function bridge. For a dialog spanning host areas, the app signals intent through a
 function and the owning web-plugin contribution opens it in the correct area. Keep applied server
 state separate from unsent input. Unchanged polling responses must not overwrite drafts, and old
 responses must not replace newer state. Keep loading and errors visible during actions, and retain
 the last valid result after a failed request. Polling must neither overlap nor continue forever
-on hidden surfaces. Test Enter, buttons, focus, narrow tiles, and dialogs inside the real host
+in hidden areas. Test Enter, buttons, focus, narrow tiles, and dialogs inside the real host
 iframe; a render test alone does not prove native interactions work there.
 
 ### 8. Choose evidence for what it proves
@@ -140,13 +140,13 @@ packages and state whether a restart or new prepared run is required.
 6. Update this specification or the relevant neighboring chapter, record the reason in the
    decision log, and carry public changes into the guide.
 
-Contract examples are in the [extension guide](../homepage/guide-extensions.html). The guide to
+Contract examples are in the [plugin guide](../homepage/guide-plugins.html). The guide to
 [building mini-apps](../homepage/guide-programs.html) covers packages, state, and views.
-<!-- /guide:extensions -->
+<!-- /guide:plugins -->
 
-## Befundgrundlage des Erweiterungsleitfadens
+## Befundgrundlage des Plugin-Leitfadens
 
-Die Regeln oben übertragen beobachtete Grenzen auf Erweiterungen. Die folgende Zuordnung
+Die Regeln oben übertragen beobachtete Grenzen auf Plugins. Die folgende Zuordnung
 nennt ihre konkreten Belege; sie ist keine weitere Vertragsliste.
 
 | Beobachtung | Belege im Repository | Reichweite |
@@ -156,7 +156,7 @@ nennt ihre konkreten Belege; sie ist keine weitere Vertragsliste.
 Diese Befunde begründen keine neue generische Such-, Modell- oder Polling-Plattform. Gemeinsame
 Codeabstraktionen entstehen weiterhin erst bei mindestens zwei echten Nutzern.
 
-<!-- guide:extensions -->
+<!-- guide:plugins -->
 ## Plugin contract
 
 A plugin is a source folder named after its ID that keeps both halves and their assets together;
@@ -195,30 +195,30 @@ The server never loads this source folder. `ragents plugin build <folder>` turns
 with exactly one entry point, `ragents-bundle.json`, and the profile names that bundle; the
 built-in plugins become bundles under `bundles/<id>/` with `pnpm build:plugins`. A source folder
 in the profile is a startup error that names the build command.
-<!-- /guide:extensions -->
+<!-- /guide:plugins -->
 
 ### Registrierungen des PluginHost
 
 Der serverseitige `PluginHost` hat Registries für:
 
 - Agent-Hooks (`host.agentRuntime`, Abschnitt Agent-Hooks), Skill-Pfade und Zielgruppen
-- Einstiege (`host.startEntries`): alles, was ein Plugin auf die Startfläche legt, in EINEM
+- Vorlagen (`host.startEntries`): alles, was ein Plugin auf die Startseite legt, in EINEM
   Vertrag mit `id`, `title`, `description`, `order`, optional `guide` (Kennung eines Web-Leitfadens),
   optional `tags` (eindeutige Suchschlagworte) und dem Diskriminator `action`: `skill` trägt den
   registrierten Skillnamen, eine frei benannte `category` und den bearbeitbaren Startauftrag
   `prompt`; `script` trägt ein Run-Script-Paket (`handle`, `coordinator`, `files`, `programs`),
   das nur der Server sieht. Optional legt `fixedStartOptions` Startoptionen fest (Option-Id auf
   Wert, in einer `RUN.md` als Kopfzeile `fixed-start-options` mit einem JSON-Objekt in einer
-  Zeile); ein Run über diesen Einstieg läuft genau mit diesen Werten. Der Host prüft beim Start
+  Zeile); ein Run über diese Vorlage läuft genau mit diesen Werten. Der Host prüft beim Start
   hart, dass jeder Skill registriert, jedes Paket vollständig und jede festgelegte Startoption
   registriert ist und ihr Wert ihrem Schema genügt; das Web prüft, dass ein aktives Plugin den
   Leitfaden liefert.
-  Ein Produkt-Plugin liest zusätzlich `SKILLS_DIR` ein, sodass lokale Skills samt Einstieg
+  Ein Produkt-Plugin liest zusätzlich `SKILLS_DIR` ein, sodass lokale Skills samt Vorlage
   ohne Code und ohne Frontend-Build entstehen
 - typisierte Run-Funktionen (`host.functions`) mit optionaler nativer Werkzeugdarstellung
 - benannte Fachoperationen mit Eingabeschema, Operator-Policy und gemeinsamer Ausführung für
   mehrere Oberflächen
-- Modellprofile und Promptteile
+- Rollen und Promptteile
 - Methoden und Kanäle der Nachrichtenschicht (`host.methods`, `host.channels`, Abschnitt
   Nachrichtenschicht) sowie Auslieferungsrouten (`host.http`) für Dateien und Frames
 - öffentliche Client-Konfiguration; darüber publizieren die Produkt-Plugins auch
@@ -226,23 +226,23 @@ Der serverseitige `PluginHost` hat Registries für:
   `_VISIBLE`, `_EXPANDABLE`, `_SELECTABLE`), die das Web als at-most-one-Beitrag
   `chatDisplayPolicy` an alle Schritt-Render-Stellen durchreicht; gibt das Produkt sie frei,
   schaltet der Benutzer den Detailgrad je Chat selbst um. Die Browserpräferenz ist nach Run,
-  Actor und Anzeigefläche getrennt: Kachel, Seiteninspector und Popout desselben Chats
+  Actor und Anzeigeort getrennt: Kachel, Seiteninspector und Popout desselben Chats
   merken sich je einen eigenen Detailgrad. Andere Actors und Runs bleiben unverändert. Die Rollenwerte der Policy sind nur Vorgaben; ohne Produktvorgabe gilt für Koordinator,
   Agenten und den globalen Koordinator `grouped`
 - typisierte Dienste und namespaced Storage
-- namespaced Session-Metadaten
-- Startoptionen (`host.startOptions`): Werte, die der Benutzer auf der Startfläche wählt und die beim
+- namespaced Run-Metadaten
+- Startoptionen (`host.startOptions`): Werte, die der Benutzer auf der Startseite wählt und die beim
   Start eines Runs als Plugin-Zustand ins Journal eingefroren werden. Eine Option nennt Schema,
   Standardwert, `selectable`, `accept` (prüft und normalisiert einen Wert oder wirft) und `describe`
-  (Darstellung für das Web). Der Host hält den Wert je noch nicht gestarteter Unterhaltung über
+  (Darstellung für das Web). Der Host hält den Wert je noch nicht gestartetem Run über
   `ragents.startOptions.list` und `ragents.startOptions.select`, schreibt beim Start jeden Wert als initialen
   Plugin-Zustand unter der Option-Id und sperrt danach. Jeder Aufruf bekommt im
   `StartOptionContext` neben dem Run den handelnden Benutzer (`userId`, aus dem Zugang der
   jeweiligen Anfrage, ohne Anmeldung `null`): Liste und Wahl den Benutzer der Anfrage, die beim
   Start geschriebenen Vorgaben den Benutzer, der den Run anlegt; gemerkt wird er nirgends.
   Optional erklärt `ownerOnly(value)`, dass einen Run mit diesem gespeicherten Wert nur sein
-  Eigentümer bedient ([profiles.md](profiles.md), Benutzerrechte). Startet ein Run über einen
-  Einstieg, der Startoptionen festlegt, gilt dessen Wert statt Wahl und Vorgabe: `accept` nimmt
+  Eigentümer bedient ([profiles.md](profiles.md), Benutzerrechte). Startet ein Run über eine
+  Vorlage, die Startoptionen festlegt, gilt deren Wert statt Wahl und Vorgabe: `accept` nimmt
   ihn mit dem Benutzer an, der startet, und eine vorher abweichend gewählte Belegung, bei einem
   schon angelegten Run ein anderer gespeicherter Wert, ist der Fehler `start-option-fixed` (409)
   mit Vorlage und Option in der Meldung; still überschrieben wird nichts. Jeder Zustand der Liste nennt
@@ -250,16 +250,16 @@ Der serverseitige `PluginHost` hat Registries für:
   zeigt der Vorbereitungschat den Widerspruch schon vor dem Start (`conflictingStartOptions` in
   `apps/web/src/StartOptions.tsx`), sperrt "Run erstellen" und bietet an, die Werte der Vorlage zu
   übernehmen. Das geschieht an einer
-  Stelle in `RunChatSession` für jeden Weg mit Einstieg: `ragents.chat.start` (Run-Script, auch
+  Stelle in `RunChatSession` für jeden Weg mit Vorlage: `ragents.chat.start` (Run-Script, auch
   aus `pnpm driver`, `ragents run --entry` und `ragents.overseer.createRun` mit `script`) und
-  `ragents.chat.send` mit `entry` (Skill-Einstieg, erste Nachricht aus Vorbereitungschat oder
-  Kachel). Der Kern kennt dabei nur "dieser Einstieg legt diese Option auf diesen Wert fest".
+  `ragents.chat.send` mit `entry` (Skill-Vorlage, erste Nachricht aus Vorbereitungschat oder
+  Startseite). Der Kern kennt dabei nur "diese Vorlage legt diese Option auf diesen Wert fest".
   Modell- und Systemprompt-Wahl sind die
   Startoptionen `ragents.model` und `ragents.system-prompt` des Produkt-Plugins
   (`plugin-support/product-start-options.ts`), der Arbeitsbereich ist die Startoption
   `ragents.workspace.binding` des Workspace-Plugins; der Engine-Kern liest nur den
   Systemprompt-Zustand für die Promptkomposition
-- Initialisierung, Session-Vorbereitung, Stopp, Löschen und Shutdown
+- Initialisierung, Run-Vorbereitung, Stopp, Löschen und Shutdown
 
 Ein Plugin implementiert nur die Facetten, die es braucht:
 
@@ -304,10 +304,10 @@ durch die Aufnahme). Ein Beitrag registriert keine Werkzeuge, die kommen über `
 Die Engine übersetzt jeden Beitrag in genau eine Erweiterung der Agentenlaufzeit, benannt nach
 seiner Kennung (`packages/ragents/src/drivers/agent-hooks.ts`); die Einstellungen zeigen ihn so.
 
-<!-- guide:extensions -->
+<!-- guide:plugins -->
 ## Provide functions
 
-An extension registers functions with `defineRunFunction` and `host.functions`, including a
+A plugin registers functions with `defineRunFunction` and `host.functions`, including a
 short `description`, optional `longDescription`, input and result schemas, and implementation.
 `label` is the human-readable name. The host derives `context.functions.<name>(input)` signatures
 from this data. Snippets and actor programs use the same catalog and execution. Availability and
@@ -352,7 +352,7 @@ type checking, and execution all use the same current set. `tools: []` leaves an
 or workspace access and without a function overview. Named selection and grants constrain
 availability; choosing a snippet or actor program creates neither a second implementation nor
 additional permissions.
-<!-- /guide:extensions -->
+<!-- /guide:plugins -->
 
 ### Promptbeiträge und Orchestrierungsanleitung
 
@@ -382,7 +382,7 @@ verifizieren oder Code ändern soll, benötigt die passenden Werkzeuge.
 Die Orchestrierungsanleitung verlangt nach angelegter Subscription und erteiltem Auftrag das
 Ende des Turns ohne bloße Wartemeldung. Substanzielle Ergebnisse und tatsächliche Phasenwechsel
 werden weiterhin knapp berichtet. Deterministische Aufgaben mit dauerhaftem Zustand werden
-ausdrücklich neben Routing als Einsatz für Script-Actors genannt.
+ausdrücklich neben Routing als Einsatz für TypeScript-Actors genannt.
 
 ### Web-Hälften zur Laufzeit
 
@@ -390,13 +390,13 @@ Das Web des Hosts ist für jedes Profil dasselbe; die Web-Hälften kommen zur La
 vom Server, genau die des Profils. Die Methode `ragents.plugins.bootstrap` liefert in der
 Reihenfolge der Pluginliste je Plugin Kennung, öffentliche Konfiguration und bei einer Web-Hälfte
 deren Adressen (`web.entry`, mit eigenem CSS auch `web.css`, beide unter `/plugins/<id>/web/`),
-dazu die Einstiege (`startEntries`) und `defaultStartEntry`, wenn die Profildatei einen
-Default-Einstieg nennt und der Benutzer ihn starten darf (`profiles.md`); ein Script-Einstieg trägt
-dort nur `action`, `coordinator` und die Kartentexte, nie seine Quelle. Beide Einstiege des Webs
+dazu die Vorlagen (`startEntries`) und `defaultStartEntry`, wenn die Profildatei eine
+Default-Vorlage nennt und der Benutzer sie starten darf (`profiles.md`); eine Script-Vorlage trägt
+dort nur `action`, `coordinator` und die Anzeigetexte, nie ihre Quelle. Beide Einsprungpunkte des Webs
 (`main.tsx`, `run-panel.tsx`) legen vor dem ersten Bundle jedes Modul der Web-Liste der Host-API in
 das Register `globalThis.__ragentsHostModules` (`apps/web/src/host-modules.ts`); die Shims der
 Bundles lesen daraus, so teilen Host und Plugins ein React und jeden Kontext. Der Web-Host lädt
-jeden Einstieg mit `import(url)` und verlinkt dessen CSS hinter dem des Hosts. Eine Web-Hälfte, die
+jeden Einsprungpunkt mit `import(url)` und verlinkt dessen CSS hinter dem des Hosts. Eine Web-Hälfte, die
 nicht lädt oder kein `webPlugin` mit ihrer Kennung exportiert, reißt die Oberfläche nicht mit: sie
 erscheint als Plugin-Fehler mit Kennung, Adresse und Ursache über der Oberfläche
 (`PluginFailureNotice`), das Plugin behält seinen Platz in der Liste ohne Web-Beiträge, und seine
@@ -406,15 +406,15 @@ die Nummer der Host-API und die benutzten Namen zusammen, nicht über einen geme
 (Abschnitt Bundle, Bauwerkzeug und Host-API).
 
 Öffentliche Plugin-Konfiguration steuert auch die tatsächlich aktiven Web-Beiträge. Ein
-installiertes, aber für die aktuelle Umgebung deaktiviertes Plugin bleibt für den Listenabgleich
-im Profil, liefert jedoch weder Provider noch Tabs oder Presenter, und seine Einstiege fallen weg. So verschwindet
-ein Fachplugin in einer Umgebung ohne seine Voraussetzungen gemeinsam mit seinen serverseitigen Beiträgen.
+installiertes, aber für die aktuelle Konfiguration deaktiviertes Plugin bleibt für den Listenabgleich
+im Profil, liefert jedoch weder Provider noch Tabs oder Presenter, und seine Vorlagen fallen weg. So verschwindet
+ein Fachplugin in einer Installation ohne seine Voraussetzungen gemeinsam mit seinen serverseitigen Beiträgen.
 
 ### Transkript eines Actors
 
 `ragents.transcript` ist ein reines Funktionsplugin ohne Web-Hälfte: `actor_transcript` liefert
 den Verlauf eines Actors dieses Runs als kompaktes Transkript aus dem Journal, für Agenten und
-Script-Actors mit `event.subscribe`. Eingaben, Antworttexte und Werkzeugaufrufe stehen je auf
+TypeScript-Actors mit `event.subscribe`. Eingaben, Antworttexte und Werkzeugaufrufe stehen je auf
 einer Zeile, Werkzeugeingaben und -ergebnisse werden auf 200 und 300 Zeichen gekürzt, Reasoning
 entfällt; bei Überschreitung der Zeichengrenze (Vorgabe 20000) entfallen die ältesten Zeilen
 zuerst mit einer sichtbaren Auslassungsmarke. Gedacht für Übergaben, Statusberichte des
@@ -438,13 +438,13 @@ aber eine vorhandene Facette bleibt bei ihrem Besitzer:
 | UI und CSS                | Komponenten und Styles im passenden Web-Plugin                            |
 | Konfiguration             | Deklaration und Auswertung im passenden Server-Plugin                     |
 | Storage                   | `host.storage`, immer unter `plugins/<plugin-id>`                         |
-| Lebenszyklus              | Start, Session-Vorbereitung, Löschen und Shutdown beim Besitzer           |
+| Lebenszyklus              | Start, Run-Vorbereitung, Löschen und Shutdown beim Besitzer               |
 | Provisionierung           | `provision.ts` im Plugin-Ordner, im Bundle ein Export von `server/index.js`; Werkzeuge in `<Datenordner>/tools/<plugin-id>/` |
 
 Die drei Asset-Ordner `skills/`, `run-scripts/` und `prompts/` liest der Host per KONVENTION aus
 dem Bundle-Ordner jedes komponierten Plugins (`pluginFolder(id)` in
 `plugin-support/plugin-folder.ts`, angewandt in `profile/compose.ts`). Ein fehlender Asset-Ordner ist kein Fehler; ein vorhandener mit kaputtem
-Inhalt bleibt ein harter Fehler. Meldet ein Plugin denselben Einstieg oder denselben Skill-Pfad
+Inhalt bleibt ein harter Fehler. Meldet ein Plugin dieselbe Vorlage oder denselben Skill-Pfad
 zusätzlich ausdrücklich an - etwa weil es dabei eine Zielgruppe setzt -, gewinnt die
 ausdrückliche Anmeldung und der Konventionsbeitrag entfällt.
 Assets und Code kommen aus demselben Bundle-Ordner, der den Quellordner spiegelt, sodass ein
@@ -452,38 +452,54 @@ Plugin vollständig in seinem Verzeichnis lebt.
 
 Es gibt deshalb keine zentrale Sammlung für Produktprompts, Skills oder Plugin-Konfiguration.
 Das Entfernen eines Fachplugins entfernt Prompt, Werkzeuge, Projektion, Methoden, Kanäle, Auslieferung,
-Konfiguration, Web-Tab, CSS und Session-Datenzugriff als eine Fähigkeit. Bereits
+Konfiguration, Web-Tab, CSS und Run-Datenzugriff als eine Fähigkeit. Bereits
 persistierte Daten werden dadurch nicht stillschweigend gelöscht. Generische Hilfen für das Laden
 eines Assets oder das Registrieren eines Prompts bleiben wiederverwendbare Host-Komponenten und
 besitzen keine Produktfachlichkeit.
 
 `ProductRuntime` und `WorkspaceRuntime` verhindern umgekehrt, dass der neutrale Host Produktwissen
 benötigt. Das Produkt-Plugin liefert Koordinator-Descriptor, Standardprofil, Anzeige und den
-Rollenvertrag. Das Workspace-Plugin löst den Arbeitsbereich je Lauf auf und beschreibt seinen
+Rollenvertrag. Das Workspace-Plugin löst den Arbeitsbereich je Run auf und beschreibt seinen
 Modus. `ragents.workspace` liest die Bindung des Runs aus der Startoption
-`ragents.workspace.binding` (Abschnitt Arbeitsbereich, Sandbox-Werkzeuge und Prozesse). Bei der
-Art `fresh` legt es je Unterhaltung ein leeres Verzeichnis unter der Session-Ablage an; den Inhalt
-oder ein anderes `cwd` liefert dafür optional ein Plugin über `workspaceResolverToken`
-(`resolve({ runId, directory, choice, emitSystem })`). Meldet der Resolver eine `optionId`, liest
-`ragents.workspace` die Wahl des Benutzers aus dem Journal und reicht sie als `choice` durch.
+`ragents.workspace.binding` (Abschnitt Arbeitsbereich, Sandbox-Werkzeuge und Prozesse). Für einen
+neuen Ordner je Run auf dem Server legt es je Run ein leeres Verzeichnis unter der
+Run-Ablage an; den Inhalt oder ein anderes `cwd` liefert dafür optional ein Plugin über
+`workspaceResolverToken` (`resolve({ runId, directory, choice, emitSystem })`). Meldet der Resolver
+eine `optionId`, liest `ragents.workspace` die Wahl des Benutzers aus dem Journal und reicht sie als
+`choice` durch.
 
 Ein Beitrag darf eine eigene **Art** von Arbeitsbereich mitbringen, ohne den Arbeitsbereich zu
 übernehmen: `WorkspaceResolver.kind` nennt `id` (woran ein Ablauf sie erkennt), `label` (wie die
-Startoption und die Sitzungsdaten sie nennen), `serverFolders` (ob daneben ein Ordner des
+Startoption und die Run-Metadaten sie nennen), `serverFolders` (ob daneben ein Ordner des
 Serverrechners gebunden werden darf) und optional `directoryPattern` für die Anzeige in den
-Einstellungen. Die Art besetzt die Bindung `fresh`: Startoption und Auswahl zeigen statt "Leerer
-Ordner je Run" ihr `label`, `path` wird ohne `serverFolders` mit `workspace-binding-unsupported`
-(400) abgelehnt, und `WorkspaceRuntime.kindOf(runId)` liefert je Run entweder diese `id` oder die
-Bindung `path` beziehungsweise `client`. Das ist die eine Stelle, an der ein Ablauf zentral fragt,
-welcher Art der Arbeitsbereich eines Runs ist. Meldet ein Beitrag eine Art, legt `ragents.workspace`
+Einstellungen. Die Art besetzt den neuen Ordner je Run auf dem Server: Startoption und Auswahl zeigen
+statt "Leerer Ordner je Run" ihr `label`, und ein vorhandener Ordner des Servers wird ohne
+`serverFolders` mit `workspace-binding-unsupported` (400) abgelehnt. `WorkspaceRuntime.placementOf(runId)`
+beantwortet je Run getrennt, wo er arbeitet (`machine`: `server` oder `client`) und in welchem Ordner
+(`folder`: `fresh` oder `existing`), dazu mit `kind` die `id` der Art, wenn ein Beitrag den neuen
+Ordner gestellt hat. Das ist die eine Stelle, an der ein Ablauf zentral fragt, wo und worin ein Run
+arbeitet; einen Mischwert aus beidem gibt es nicht. Meldet ein Beitrag eine Art, legt `ragents.workspace`
 für ihn kein eigenes Verzeichnis an; er bringt seines selbst mit. Die Auflösung liefert dann alles,
 was `SessionWorkspace` kennt: neben `cwd` auch `description`, `gitEnv`, `gitConfig`, `extraEnv`,
 `currentRoot`, `runOperation` und `hostSandbox` (Heimatordner, nur lesbare
 Wurzeln und mit `ident` das Konto, unter dem die Sandbox ausführt). Beenden und Löschen eines Runs
 gehen mit: `stopSession(runId, sandbox)` legt den Stopp des Beitrags um den Stopp der Sandbox des
 Hosts, `deleteSession(runId)` räumt danach weg, was `resolve` angelegt hat. Beide gelten nur für
-Runs, deren Arbeitsbereich der Beitrag gestellt hat; einen an einen Arbeitsplatz gebundenen Run
-räumt allein der Host auf.
+Runs mit einem neuen Ordner auf dem Server; einen Run auf einem Arbeitsplatz räumt allein der Host
+auf.
+
+Den neuen Ordner je Run auf einem Arbeitsplatz legt dessen Executor an (Abschnitt Arbeitsbereich,
+Sandbox-Werkzeuge und Prozesse). Ohne Beitrag bleibt er leer. Mit einem Beitrag gibt es ihn dort nur,
+wenn der Beitrag ihn mit `WorkspaceResolver.workstation` ausdrücklich stellt, sonst lehnt die
+Startoption ihn mit `workspace-binding-unsupported` ab: der Beitrag besetzt den neuen Ordner, und
+ein leerer an seiner Stelle wäre ein stiller Ersatz. `workstation` nennt `label` (Kurzform für
+Startoption und Run-Metadaten), `prepare` und optional `release` und `description`. `prepare` und
+`release` bekommen `runId`, den Pfad des Ordners auf dem Arbeitsplatz, dessen Label und die Wahl
+aus `optionId` und liefern Schritte: Operationen des Executors dort samt Eingabe, etwa
+`commands.run` mit `git worktree add` in einem angebotenen Repository. Code läuft dafür nicht auf
+dem Arbeitsplatz; ein Beitrag kann nur benutzen, was jeder Executor kann. Die Schritte von
+`prepare` laufen einmal, direkt nachdem der Executor den Ordner angelegt hat; die von `release` vor
+dem Wegräumen beim Löschen des Runs.
 
 Vor dem Start des Runs gibt es kein Arbeitsverzeichnis (Fehler `run-not-started`, Status 409), und die
 Auflösung muss für dieselbe Bindung deterministisch sein, weil die Agentenlaufzeit nach einem
@@ -493,10 +509,12 @@ Provider-Cache und reicht es der Agentenlaufzeit als Arbeitsverzeichnis der Werk
 eigenen Ordner bekommt sie getrennt davon (`core.md`, Systemprompt). Neben dem `cwd` liefert die
 Auflösung mit `SessionWorkspace.description` einen Text, der den aufgelösten Arbeitsbereich
 beschreibt; er wird Kapitel im Systemprompt jedes Actors mit Arbeitsbereichswerkzeugen (Abschnitt
-Systemprompt in `core.md`). `ragents.workspace` formuliert ihn je Bindung: `path` nennt den
-Projektordner auf dem Serverrechner, `client` den Projektordner auf dem Arbeitsplatz samt dessen
-Namen, `fresh` den privaten, zunächst leeren Ordner der Unterhaltung mit dem Pfad, den der Resolver
-geliefert hat. Die Chat-Systemnotiz beim Auflösen bleibt daneben der Hinweis für den Benutzer.
+Systemprompt in `core.md`). `ragents.workspace` formuliert ihn je Bindung: ein vorhandener Ordner
+auf dem Server heißt Projektordner auf dem Serverrechner, einer auf einem Arbeitsplatz Projektordner
+dort samt dessen Namen; der neue Ordner auf dem Server ist der private, zunächst leere Ordner des
+Runs mit dem Pfad, den der Resolver geliefert hat, der neue auf einem Arbeitsplatz derselbe
+dort, mit `workstation.description` des Beitrags an seiner Stelle. Die Chat-Systemnotiz beim
+Auflösen bleibt daneben der Hinweis für den Benutzer.
 
 Die Dateiablage ist ein eigener Dienst: `ragents.documents` stellt `documentStoreToken`
 (`directoryFor(runId)`) bereit, standardmäßig unter `host.storage.session(runId, "documents")`,
@@ -505,7 +523,7 @@ kein Bash-Pfad: `document_write` (`path` in der Ablage plus `content`) ist der e
 Eine Datei des Arbeitsbereichs kommt über `read` und dann `content` hinein; eine Kopie über die
 Modellausgabe des `read`-Werkzeugs wäre bei großen Dateien gekürzt. Je Thema entsteht darin ein Unterverzeichnis, `ragents.documents` zeigt es im
 Dokumente-Tab an.
-Actor-Programme verwenden einen eigenen privaten pnpm-Workspace unter ihrer Session-Ablage.
+Actor-Programme verwenden einen eigenen privaten pnpm-Workspace unter ihrer Run-Ablage.
 Seine `actors/`-Sammlung wird als zusätzlicher Arbeitsbereich bereitgestellt: Dateitools und
 Language Server im Executor des Servers lösen `@actors` auf, Bash erhält `RAGENTS_ACTORS_DIR`; der
 Executor eines Arbeitsplatzes kennt diesen Alias nicht. Die Autorisierung und
@@ -530,9 +548,9 @@ ist nicht optional, sondern Teil des Vertrags zwischen Profil und Engine. Der Lo
 dagegen optional: ohne `ragents.orchestration` startet der Server, und ein TypeScript-Actor findet
 zur Laufzeit keinen Treiber.
 
-Session-Metadaten sind ebenfalls Beiträge. Der Server sammelt sie je Run unter der Plugin-ID, das
+Run-Metadaten sind ebenfalls Beiträge. Der Server sammelt sie je Run unter der Plugin-ID, das
 Web rendert die passende Darstellung aus seiner Registry. Ein Workspace-Plugin liefert so
-zum Beispiel den Branch für Unterhaltungsliste und Chat, ohne dass der Session-Core
+zum Beispiel den Branch für Run-Liste und Chat, ohne dass der Core
 Git-Fachlogik kennt. Die Run-Liste fragt Beiträge nur für die Runs ab, die der Aufrufer sehen darf,
 für alle Runs und Beiträge zugleich, und wartet je Beitrag höchstens `SESSION_METADATA_TIMEOUT_MS`
 (1,5 s, `apps/server/src/provider.ts`). Wer bis dahin nicht antwortet oder scheitert, verliert nur
@@ -552,7 +570,7 @@ Speicherpfade sind reine Konvention und nicht deklarierbar: `host.storage.root(.
 UID-Zuordnung und Git-Infrastruktur ab, ein Build-Plugin seine Caches und Zugangskonfiguration -
 jedes unter seinem eigenen Wurzelverzeichnis, ohne gemeinsamen Ordner und ohne Querverweis.
 
-<!-- guide:extensions -->
+<!-- guide:plugins -->
 ## Build and ship a plugin
 
 A plugin written outside this repository takes the same path as a built-in one. The host never
@@ -619,7 +637,7 @@ provisioning. To hand a profile together with its bundles to other machines, a s
 them with the local host ([Distributed work](../homepage/guide-distributed.html)). The client
 profile names such bundles relative to itself (`./` or `../`); the client resolves an absolute or
 `~/` path on its own machine, so the server refuses it.
-<!-- /guide:extensions -->
+<!-- /guide:plugins -->
 
 ## Bundle, Bauwerkzeug und Host-API
 
@@ -632,7 +650,7 @@ Quellen übersetzt, die im Run bearbeitet werden.
 `ragents-plugin.json` (`apps/server/src/plugin-build/plugin-description.ts`): `id` (gleich dem
 Ordnernamen), `exports` je Hälfte (`server`, `web`) als Pfade im Plugin-Ordner ohne Endung,
 importierbar als `@ragents/plugins/<id>/<pfad>`, und `assets` für Dateien oder Ordner, die neben
-der Vorgabe ins Bundle kommen. Andere Felder sind ein Fehler. Die Einstiege bleiben Konvention:
+der Vorgabe ins Bundle kommen. Andere Felder sind ein Fehler. Die Einsprungpunkte bleiben Konvention:
 `server/index.ts`, `web/index.tsx`, `provision.ts`. Quelle und Bundle haben verschiedene
 Dateinamen, damit sie nie verwechselt werden.
 
@@ -645,7 +663,7 @@ Asset-Konvention für Quelle und Bundle gleich gelten:
   ragents-bundle.json    geschrieben vom Bauwerkzeug, nie von Hand
   server/index.js        ESM, exportiert plugin und optional provision
   server/exports/        deklarierte Exporte für andere Plugins
-  server/chunks/         was Einstieg und Exporte teilen
+  server/chunks/         was Einsprungpunkt und Exporte teilen
   web/index.js           ESM, nur mit Web-Hälfte; Lazy-Chunks unter web/chunks/
   web/index.css          eigenes CSS der Web-Hälfte, nur wenn es welches gibt
   web/classes.json       Tailwind-Kandidaten der Web-Hälfte
@@ -668,7 +686,7 @@ Importeurs wählt die Datei. `uses` nennt die Plugins, deren Exporte das Bundle 
 Bauwerkzeug schreibt es, weil `requires` im Code steht, und der Host prüft beim Start, dass jede
 Kennung daraus in der Pluginliste und in `requires` steht. Ein Bundle enthält keine
 plattformabhängigen Binärdateien und kein `node_modules`, damit es auf jedem Rechner dasselbe
-ist; `provision` ist ein Export von `server/index.js`, damit es keinen dritten Einstieg gibt, und
+ist; `provision` ist ein Export von `server/index.js`, damit es keinen dritten Einsprungpunkt gibt, und
 der Import eines Bundles ist deshalb nebenwirkungsfrei. `stand` prüfen alle, die ein Bundle
 kopieren oder wiederverwenden: `pnpm build:package` nach dem Kopieren in das Paket, `ragents
 connect` nach dem Entpacken des Archivs und das Bauwerkzeug, bevor es ein Bundle als aktuell
@@ -717,7 +735,7 @@ behalten (eine Klasse aus dem Host ist im Bundle dieselbe); `@ragents/workflow` 
 auch ohne `package.json` daneben. Für Code außerhalb eines Bundles (Profildateien, Tests über
 Plugin-Quellen, Skripte) bleibt der offene Rückfall: scheitert die normale Auflösung eines
 nackten Bezeichners, gilt er wie aus `apps/server/src/main.ts`, danach aus
-`apps/web/src/main.tsx`. Der Server-Einstieg `main.ts` und `plugin-discovery.ts` registrieren den
+`apps/web/src/main.tsx`. Der Server-Einsprungpunkt `main.ts` und `plugin-discovery.ts` registrieren den
 Hook selbst; Skripte und Tests, die externe Dateien laden, importieren `host-resolution.ts` per
 `--import`.
 
@@ -730,7 +748,7 @@ ihren Platz, Seiten und `host-web.json` zuletzt, Reste gehen danach, so verliert
 den Ordner nie und liefert keine halb geschriebene Datei aus). `apps/web/dist/host-web.json` nennt jede Quelldatei, die der Build
 gelesen hat, mit ihrem Hash, dazu `vite.config.ts` und `pnpm-lock.yaml`. Der Server liefert das
 Web aus, unter `/plugins/<id>/web/...` den Ordner `web/` jedes Bundles seines Profils (nur diesen,
-nie Server-Code oder Assets; mit ETag und `Cache-Control: no-cache`, weil Einstieg und Exporte
+nie Server-Code oder Assets; mit ETag und `Cache-Control: no-cache`, weil Einsprungpunkt und Exporte
 ihren Namen über jeden Bau behalten) und unter `/ragents.css` das eine Stylesheet (Abschnitt zu
 Tailwind unten). Diese Adressen prüft der Server vor jeder Plugin-Route, eine Route darunter ist
 also nie erreichbar. Mit Zugangstoken sind genau diese Dateien ohne Sourcemaps, das Stylesheet und
@@ -754,7 +772,7 @@ selbst deklariert, wird wie eines mit `requires` im Manifest abgewiesen.
 **Host-API.** `apps/server/src/host-api.ts` nennt je Hälfte jedes Modul, das der Host liefert und
 das nie ins Bundle darf, ausdrücklich und ohne Platzhalter, weil das Web-Register jedes einzeln
 importiert, und bei Code des Hosts dazu jeden Wert, den ein Plugin daraus importieren darf. Stand
-Host-API 4: Server 63 Module mit 171 Namen aus Code des Hosts (die Engine samt ihren
+Host-API 5: Server 63 Module mit 173 Namen aus Code des Hosts (die Engine samt ihren
 Vertragsmodulen, `@ragents/workspace-executor`, `@ragents/workflow`, die Bausteine unter
 `@ragents/host/...`) und die Bibliotheken `typebox`, `typebox/value`, `handlebars`,
 `playwright-core`, `tar` (`node:*` ist immer extern); Web 46 Module mit 112 Namen aus Code des
@@ -826,8 +844,8 @@ bei gleicher Host-API erst beim Laden, wenn ein Name fehlt.
 `pnpm ragents plugin build`) baut mit dem esbuild des Hosts und festen Einstellungen, damit jedes
 Bundle gleich aussieht; `tsconfigRaw: {}` schaltet eine `tsconfig.json` des Plugins ab.
 
-- Server: `platform: node`, `format: esm`, `target: node22`, `splitting`, ein Einstieg aus
-  `server/index.ts` (mit `provision.ts` ein erzeugter Einstieg, der beide weiterreicht) und je
+- Server: `platform: node`, `format: esm`, `target: node22`, `splitting`, ein Einsprungpunkt aus
+  `server/index.ts` (mit `provision.ts` ein erzeugter Einsprungpunkt, der beide weiterreicht) und je
   Export einer; extern sind `node:*`, die Server-Liste und Exporte anderer Plugins. Sourcemap
   verlinkt, nicht minifiziert. Jede Datei beginnt mit einem Banner des Werkzeugs, das `require` aus
   `createRequire(import.meta.url)` bildet, damit eine gebündelte CommonJS-Bibliothek Node-Module
@@ -841,8 +859,8 @@ Bundle gleich aussieht; `tsconfigRaw: {}` schaltet eine `tsconfig.json` des Plug
   benutzten nennt. Ein unbekannter Name ist ein Baufehler, und fehlt Register, Modul oder Name,
   wirft das Wertmodul beim Laden mit Modul und Namen. Ein
   Export eines anderen Plugins wird `/plugins/<id>/web/exports/<export>.js`, sodass der Browser das
-  Modul über seine Adresse teilt; wegen `splitting` teilen Einstieg und Exporte desselben Plugins
-  eine Instanz. Bilder und Schriften gehen nach `web/assets/`, eigenes CSS nur über den Einstieg
+  Modul über seine Adresse teilt; wegen `splitting` teilen Einsprungpunkt und Exporte desselben Plugins
+  eine Instanz. Bilder und Schriften gehen nach `web/assets/`, eigenes CSS nur über den Einsprungpunkt
   nach `web/index.css`, die Tailwind-Kandidaten mit dem Scanner von Tailwind aus den gebündelten
   Dateien des eigenen Ordners nach `web/classes.json`.
 - Nackte Importe außerhalb der Liste bündelt es; das `node_modules` des Hosts steht zuletzt im
@@ -861,7 +879,7 @@ Bundle gleich aussieht; `tsconfigRaw: {}` schaltet eine `tsconfig.json` des Plug
   `__filename`, `createRequire` oder `require.resolve` im Plugin-Code; eine gebündelte Bibliothek,
   die über ihren eigenen Ort Dateien sucht; `.node`-Dateien und Pakete mit `os`, `cpu` oder
   plattformabhängigen optionalen Abhängigkeiten; ein `pluginAsset("<id>", "<name>")` mit festem
-  Namen, der nicht ins Bundle kommt; CSS außerhalb des Web-Einstiegs; eine Kennung, die nicht dem
+  Namen, der nicht ins Bundle kommt; CSS außerhalb des Web-Einsprungpunkts; eine Kennung, die nicht dem
   Ordnernamen entspricht, unbekannte Felder und Exporte ohne Quelldatei.
 - Typprüfung in einem TypeScript-Programm je Hälfte über alle genannten Plugins gegen
   `apps/server/tsconfig.plugin.json` und `apps/web/tsconfig.plugin.json` (Pfade auf die Host-API,
@@ -875,12 +893,12 @@ Bundle gleich aussieht; `tsconfigRaw: {}` schaltet eine `tsconfig.json` des Plug
   `apps/server/src/folder-install.ts`). So verschwindet der Bundle-Ordner eines laufenden Hosts nie,
   auch nicht kurz, und unveränderte Dateien bleiben unberührt, `tsx watch` startet also nur neu, wenn
   sich Server-Dateien ändern. Jede Datei ist dabei alt oder neu, das Bundle als Ganzes wechselt nicht
-  in einem Schritt; einen Ordner atomar zu tauschen kann Node nicht. Bauläufe in dasselbe Ziel
+  in einem Schritt; einen Ordner atomar zu tauschen kann Node nicht. Bauten in dasselbe Ziel
   warten über `<out>/.build.lock` aufeinander; die Sperre eines beendeten Prozesses wird übernommen.
   Ein abgelehntes Plugin hinterlässt nichts, und es hält die anderen nicht auf (Exit-Code dann 1).
   Vorgabe für `--out` ist `./dist/plugins` ab dem Aufrufer. `--watch` beobachtet den Plugin-Ordner
   ohne `node_modules` und das Ziel, baut nach jeder Änderung das ganze Plugin neu und liest dafür
-  Beschreibung, Einstiege, Assets und die Exporte der Geschwister jedes Mal frisch; beim Start baut
+  Beschreibung, Einsprungpunkte, Assets und die Exporte der Geschwister jedes Mal frisch; beim Start baut
   es nur, was fehlt oder veraltet ist. Veraltet ist ein Bundle mit anderem `format`, anderer `api`,
   anderem `sourceStand` oder Dateien, die nicht mehr zu `stand` passen.
 
@@ -898,9 +916,9 @@ Abschnitt Build and ship a plugin.
 **Eingebaute Plugins** gehen denselben Weg: `pnpm build:plugins`
 (`scripts/plugin/build-builtin-plugins.ts`) baut von `plugins/*` ohne Typprüfung, weil `pnpm -r
 typecheck` die Quellen schon prüft, nur die veralteten nach `bundles/<id>/` (gitignored), lässt
-aktuelle unberührt und entfernt Bundles ohne Quellordner; `scripts/start.sh`, der Test-Einstieg von
+aktuelle unberührt und entfernt Bundles ohne Quellordner; `scripts/start.sh`, der Test-Einsprungpunkt von
 `apps/server` und `pnpm build:package` rufen es vorher. Ein zweiter Server aus demselben Checkout
-und parallele Testläufe behalten so ihre Bundles. Host-Code, der Plugin-Dateien importiert (Erweiterung, `ragents run`, `connect`,
+und parallele Tests behalten so ihre Bundles. Host-Code, der Plugin-Dateien importiert (VS-Code-Erweiterung, `ragents run`, `connect`,
 `workspace-client`, Homepage-Generator), behandelt sie als Host-Quellen; das Paket trägt dafür
 `plugins/` als Quellen, geladen wird daraus nichts.
 
@@ -941,7 +959,7 @@ eines einzelnen Prozesses; den ganzen Run stoppen `ragents.chat.stop` und `ragen
 den laufenden Turn eines Actors unterbricht `ragents.runs.interruptTurn`.
 
 Im Browser liefert `useAccess` den gleichen Zugriffskontext und `logout`.
-`accessMode` unterscheidet verborgen, nur lesbar und bearbeitbar. Workspace-Tabs, Session-Kopf- und Statusbeiträge können über `readRight` ein eigenes
+`accessMode` unterscheidet verborgen, nur lesbar und bearbeitbar. Workspace-Tabs, Run-Kopf- und Statusbeiträge können über `readRight` ein eigenes
 Leserecht verlangen. Technische Beiträge verwenden `runs.inspect`. Workspace-Tabs und Kopfbeiträge,
 die den Arbeitsbereich des Runs brauchen, erklären das mit `requiresWorkspace: true`; sie fehlen,
 wenn die Run-Liste für den Run `workspaceAccessible: false` meldet (`workspaceAccessible` aus
@@ -951,10 +969,12 @@ ebenfalls ein eigenes Leserecht verlangen; ohne Angabe gilt das Settings-Leserec
 Die Komponente prüft ihre Schreibaktionen ebenfalls. Ausblenden ersetzt keine serverseitige
 Prüfung: Eigene Routen deklarieren ihre erforderlichen Rechte unabhängig von der UI.
 
-Der übergeordnete Koordinator besitzt eigene Rechte im Vertrag von `ragents.overseer`.
+Der globale Koordinator besitzt eigene Rechte im Vertrag von `ragents.overseer`.
 Lesen erlaubt Verlauf und Modellanzeige; Aufträge und Reset brauchen zusätzlich Schreiben.
-Modelländerungen verlangen außerdem Settings-Schreibzugriff. Seine globalen Run-Routen
-werden über die vom Plugin beigetragene `GlobalChatPolicy.access` zugeordnet. Die allgemeine
+Modelländerungen verlangen außerdem Settings-Schreibzugriff. Seine Run-Routen werden über die
+vom Plugin beigetragene `GlobalChatPolicy` zugeordnet: `isCoordinator` erkennt jede
+Koordinatorkennung, `runIdFor` nennt den Koordinator eines Benutzers (ohne Anmeldung `null`), und
+`access` nennt die beiden Rechte. Die Modellwahl gilt für alle Koordinatoren des Profils gemeinsam. Die allgemeine
 Engine enthält keine fest verdrahteten Plugin-Rechtenamen. Der optionale Anmeldemodus und
 seine Grenzen stehen in [profiles.md](profiles.md).
 
@@ -1001,20 +1021,20 @@ JSON-Nachricht je Zeile auf stdin und stdout, der Aufrufer gilt als vertraut und
 Anmeldung ist Transportsache: HTTP mit Cookie, Bearer oder `?access=` wie bisher
 (`/api/access`, `/api/access/login`, `/api/access/logout` bleiben HTTP), stdio ohne.
 
-Kernverträge: `ragents.sessions.*`, `ragents.chat.*`, `ragents.runs.*` (Laufansicht, Journal,
+Kernverträge: `ragents.chat.*`, `ragents.runs.*` (Run-Liste, Run-Ansicht, Journal,
 Warteschlangen, Stopp und Rückfragen aus der Engine), `ragents.startOptions.*`,
 `ragents.runs.prepare`, `ragents.settings.*`, `ragents.plugins.bootstrap`, `ragents.external.set`
-und die Kanäle `ragents.sessions`, `ragents.run` und `ragents.chat`
+und die Kanäle `ragents.runs`, `ragents.run` und `ragents.chat`
 (`apps/server/src/api/contracts.ts`, `packages/ragents/src/http/contracts.ts`). Was keine
 JSON-Nachricht ist, bleibt Auslieferung über `host.http`: statische Oberfläche, Mini-App-Frames,
 Artefakt- und Anhanginhalte unter `/files/runs/<run>/artifacts/<id>` und
-`/files/runs/<run>/attachments/<id>`, Dokumentinhalte, Hilfe und `/health`. Der Erweiterungspunkt
+`/files/runs/<run>/attachments/<id>`, Dokumentinhalte, Hilfe und `/health`. Die Registry
 `http` ist nur noch dafür da; jede JSON-Antwort ist eine Methode.
 
 Die Referenz entsteht aus den Registrierungen: `host.methods.describe()` und
 `host.channels.describe()` liefern Owner, Id, Beschreibung, Rechte und Schemata für die lesbare
 Referenz und das OpenRPC-Dokument. Der Web-Client (`apps/web/src/rpc/client.ts`) läuft auch
-unter Node; Erweiterung und `pnpm driver` verwenden ihn mit eigenem `fetch`.
+unter Node; die VS-Code-Erweiterung und `pnpm driver` verwenden ihn mit eigenem `fetch`.
 
 ## Web als Plugin-Host
 
@@ -1023,7 +1043,7 @@ Jede Seite hält genau EINE Live-Verbindung zum Server: der Client `rpc` (`apps/
 ihn, wenn nichts mehr offen ist. Anfragen gehen als `POST /rpc`. Abonnements sind Kanalverträge:
 `rpc.subscribe(contract, params, onMessage, onError)`; bei Verbindungsverlust verbindet der Client
 neu, abonniert alle Kanäle erneut und ruft `onConnected`-Hörer, weshalb Anbieter beim Abonnieren
-ihren Anfangsstand wiederholen. Kern-Kanäle: `ragents.sessions` (Listenänderungen, sofort eine
+ihren Anfangsstand wiederholen. Kern-Kanäle: `ragents.runs` (Listenänderungen, sofort eine
 Meldung), `ragents.run` (`ready` beim Abonnieren, danach `run` je Journaländerung) und
 `ragents.chat` (die Chat-Ereignisse mit Replay). Plugins registrieren eigene Kanäle über
 `host.channels`: `ragents.processes` je Run, `ragents.workspace.browse` je Run und Wurzel.
@@ -1031,7 +1051,7 @@ Hintergrund: Browser erlauben je Host nur sechs gleichzeitige HTTP/1.1-Verbindun
 vier eigene Streams je Seite plus ein zweiter Tab hatten den Vorrat aufgebraucht, sodass keine
 weitere Anfrage mehr abging.
 
-Die Kachelfläche verwendet Schichtwerk: matte, gerade Kacheln mit 17 Pixeln Eckradius und einer
+Die Fläche verwendet Schichtwerk: matte, gerade Kacheln mit 17 Pixeln Eckradius und einer
 Kontur an Front und Silhouette. Der Primary-Actor trägt Lavendel, weitere LLM-Actors Tonfarbe,
 TypeScript-Actors Senfgelb und Mini-App-Hosts Blaugrau. Kacheln haben keine Tiefe.
 Der Hintergrund kombiniert weiche Farbverläufe in Lavendel, Mint und Blau mit einer
@@ -1041,7 +1061,7 @@ Die Frontflächen bleiben matt und gleichmäßig; die Maus verändert ihre Beleu
 Die Kacheln verwenden keinen Filter-Schlagschatten und keinen WebGL-Schattenrenderer.
 Farben, Schriften, Radien und Schatten stehen zentral in `apps/web/src/ui/theme.css`; Host, Chat,
 Orchestration-Kacheln und gemeinsame Mini-App-Controls verwenden dieselben semantischen Tokens.
-Kopfzeile, rechtes Panel und Statusleiste verwenden ein gemeinsames, deckendes Schieferblau;
+Kopfzeile, Leiste und Statusleiste verwenden ein gemeinsames, deckendes Schieferblau;
 Dialoge und Einstellungen verwenden hellere blaugraue Flächen und lavendelfarbene Auswahlflächen. Text, Konturen und Schatten sind violettgrau abgestimmt. Datei- und
 Statusfarben folgen ebenfalls den zentralen, für Hell und Dunkel definierten Farbtokens.
 Eigene Benutzernachrichten stehen auf einer neutralen Fläche mit Kontur; ausdrücklich
@@ -1056,7 +1076,7 @@ Systemauswahl folgt sie späteren Änderungen der Systemeinstellung. Theme-Wechs
 weder gemountete Ansichten noch Eingabeentwürfe. Ungültige gespeicherte Werte
 und Speicherfehler werden ausdrücklich angezeigt. Die Darstellung ist ein fester Host-Bereich
 und bleibt unabhängig von Beitragsfiltern und dem Laden der Plugin-Einstellungen erreichbar.
-Mini-App-Frames erhalten die aufgelöste Darstellung über ihre vorhandene Bridge (siehe run-modules).
+Mini-App-Frames erhalten die aufgelöste Darstellung über ihre vorhandene Bridge (siehe actor-programs.md).
 
 Menüs, Kopfzeilenhinweise, Actor-Pop-outs, Chat-Schrittdetails, Journal und globaler
 Koordinator sind `Popover`, `Tooltip` und `Select` aus der UI-Bibliothek; Base UI positioniert
@@ -1082,29 +1102,29 @@ externer Fehler und gezieltes Maskieren bleiben bei den jeweiligen Plugins.
 Der zentrale Chat kennt keine festen Fach-Toolnamen. `WorkspacePanel` kennt keine festen Tabs.
 Plugins belegen stattdessen typisierte Slots für:
 
-- Startoptionen der Startfläche (`startOptions`: Bedienkomponente und Abzeichen je Option-Id;
+- Startoptionen der Startseite (`startOptions`: Bedienkomponente und Abzeichen je Option-Id;
   ohne Komponente ein Auswahlmenü aus einer Darstellung `{ kind: "choice", label, options }`).
-  `placement` wählt die Startfläche (`surface`, Vorgabe) oder die Eingabeleiste (`composer`);
+  `placement` wählt die Startseite (`page`, Vorgabe) oder die Eingabeleiste (`composer`);
   der Modellbeitrag verwendet die Eingabeleiste.
-- Übersichtsbeiträge (`overviewPanels`): unabhängige Flächen mit `placement` in der Übersicht
+- Übersichtsbeiträge (`overviewPanels`): unabhängige Bereiche mit `placement` in der Übersicht
   (Vorgabe `overview`) oder der Kopfzeile (`toolbar`); `readRight` begrenzt die Sichtbarkeit.
   Ihr Kontext enthält Registry, Öffnungszustand, `onOpen`, `onClose` und `onBusy`. Der Host
   koordiniert Übersicht und Toolbar-Verlauf. Toolbar-Beiträge sind ab Anwendungsstart gemountet,
   aktivieren eigene Verbindungen aber erst bei Nutzung und erhalten sie danach bei Run-Wechseln.
-- Workspace-Tabs und Badges (`workspaceTabs`, `workspaceTabsFor`): im Web die Reiter des
-  rechten Arbeitsbereichs, im Run-Panel die Symbolleiste am rechten Rand mit der Tab-Fläche
+- Workspace-Tabs und Badges (`workspaceTabs`, `workspaceTabsFor`): im Web die Reiter der
+  Leiste, im Run-Panel die Symbolleiste am rechten Rand mit dem Tab-Bereich
   unter dem Chat; derselbe Beitrag, dieselbe Sichtbarkeit (`readRight`, `requiresWorkspace`, `available`)
-- Tool- und Entity-Presenter; die Session-Provider binden Tool-Darstellungen gemeinsam an
-  Session und Navigation. Standardchat und Actor-Chat konsumieren denselben Renderer.
-- Session-Metadaten
-- Run-Kopfbeiträge (`sessionHeaders`): `placement: "canvas"` setzt den Beitrag in die Leiste
+- Tool- und Entity-Presenter; die Run-Provider binden Tool-Darstellungen gemeinsam an
+  Run und Navigation. Standardchat und Actor-Chat konsumieren denselben Renderer.
+- Run-Metadaten
+- Run-Kopfbeiträge (`sessionHeaders`): `placement: "surface"` setzt den Beitrag in die Flächenleiste
   über der Fläche; ohne Angabe beziehungsweise mit `"header"` bleibt er in der Titelleiste.
-  `ActorProgramsHeader` verwendet die Canvas-Leiste.
-- Session-Provider und Arbeitsfläche; `runToolbarContainer` nimmt links in der Canvas-Leiste
+  `ActorProgramsHeader` verwendet die Flächenleiste.
+- Run-Provider und Fläche (`surface`); `runToolbarContainer` nimmt links in der Flächenleiste
   die Steuerung der Fläche auf, `toolbarContainer` im Run-Panel deren Werkzeuge in der
   Kopfzeile des Run-Panels
 - Run-Statusbeiträge (`sessionStatus`): nach `order` sortierte Gruppen in der gemeinsamen
-  unteren Statusleiste; `Status` erhält denselben Session- und Navigationskontext wie ein
+  unteren Statusleiste; `Status` erhält denselben Run- und Navigationskontext wie ein
   Kopfzeilenbeitrag. Die Fläche erhält über `statusContainer` das Ziel für ihre Statusgruppe.
 - Abschnitte an einem Actor (`cardSections`)
 - Darstellung einer wartenden Aktion (`actionViews`): je Eigentümer genau eine Komponente, die
@@ -1113,29 +1133,29 @@ Plugins belegen stattdessen typisierte Slots für:
   `ragents.ask` erzeugt seine Aktionen mit dem Payload `{ question, options, multi }` und
   beantwortet sie über den eigenen Vertrag `ragents.ask.answer`; der Kern kennt diese Form nicht
   (`docs/spec/core.md`, Wartende Aktionen).
-- Leitfäden (`guides`): je Kennung eine React-Komponente, die der Host beim Klick auf einen
-  Einstieg mit `guide` in einem Dialog zeigt; `onComplete` liefert bei einem Skill den Text der
+- Leitfäden (`guides`): je Kennung eine React-Komponente, die der Host beim Klick auf eine
+  Vorlage mit `guide` in einem Dialog zeigt; `onComplete` liefert bei einem Skill den Text der
   ersten Nachricht, bei einem Run-Script den Startwert als JSON (etwa die Gesprächsrunde
   von `ragents.reference`)
 
 Die gemeinsame Titelleiste ist 45 Pixel hoch. Direkt darunter liegt über der Fläche eine eigene
 mindestens 52 Pixel hohe Leiste für Apps und Actor-Zugänge. Sie hat eine feine untere
 Trennlinie und keinen eigenen
-Schatten; der Schatten der Titelleiste liegt über ihr. Die Canvas-Leiste liegt außerhalb des
-Dialogbereichs `canvas`, sodass sie auch bei geöffneter App-Vollansicht bedienbar bleibt.
+Schatten; der Schatten der Titelleiste liegt über ihr. Die Flächenleiste liegt außerhalb des
+Dialogbereichs `surface`, sodass sie auch bei geöffneter App-Vollansicht bedienbar bleibt.
 Bei Platzmangel erscheinen links und rechts neben den direkten App- und Actor-Zugängen
 Pfeilknöpfe, die um den Großteil der sichtbaren Breite blättern. Am jeweiligen Ende ist der
 Knopf deaktiviert. Mausrad, horizontales Trackpad-Scrollen und Tastaturnavigation bewegen
 denselben Bereich ohne sichtbaren Scrollbalken; Anzeige und Actorliste bleiben links stehen.
 Mausradereignisse innerhalb eines geöffneten Pop-outs gehören dessen Inhalt und werden nicht
 in horizontales Scrollen der Leiste umgewandelt, auch nicht an den Scrollrändern des Inhalts;
-solche Bereiche tragen dafür `data-canvas-scroll`.
+solche Bereiche tragen dafür `data-surface-scroll`.
 Die Pfeile passen sich an Fenstergröße, neue Einträge und Typfilter an. Bei reduzierter
 Bewegung blättern sie ohne Animation. LLM-Actors tragen ein Personen-Symbol auf Tonfarbe,
 TypeScript-Actors ein Code-Symbol auf Senfgelb und Mini-Apps ein Raster-Symbol auf Blaugrau.
 Tooltips und zugängliche Beschriftungen nennen den Typ auch bei eigenen Anzeigenamen.
 
-Die direkten Actor-Einträge in dieser Canvas-Headerzeile öffnen ein Pop-out unter ihrem
+Die direkten Actor-Einträge in dieser Flächenleiste öffnen ein Pop-out unter ihrem
 Knopf. LLM-Actors einschließlich des Run-Koordinators zeigen ihren Chat mit Eingabe
 bei einer gewünschten Breite von 784 CSS-Pixeln, begrenzt durch den verfügbaren Fensterplatz;
 TypeScript-Actors zeigen die vorhandene Actor-Ansicht mit Verlauf und Detailreitern.
@@ -1155,34 +1175,34 @@ offen. Erneuter Klick, Außenklick, Fokus außerhalb, Escape oder X schließen e
 geben den Fokus an den Eintrag zurück. Besuchte Ansichten bleiben verborgen gemountet,
 damit Eingabeentwürfe beim Schließen oder Actor-Wechsel erhalten bleiben. Ein Run-Wechsel
 verwirft diese Ansichten. Das Pop-out ist ein `Popover` mit `keepMounted`, das am Knopf
-hängt und auf den verfügbaren Platz begrenzt bleibt. Der Einstieg öffnet kein rechtes Panel;
-weiterführende Verweise auf einzelne Inputs, Turns und andere Entitäten verwenden dessen
-bestehende Navigation. Übergeordnete Dialoge blenden das Pop-out aus.
+hängt und auf den verfügbaren Platz begrenzt bleibt. Der Eintrag öffnet die Leiste nicht;
+weiterführende Verweise auf einzelne Inputs, Turns und andere Entitäten verwenden deren
+bestehende Navigation. Darüberliegende Dialoge blenden das Pop-out aus.
 
 Links vor `Actors` schaltet der gleichbleibend 120 Pixel breite Knopf `Anzeige` zyklisch
 zwischen `Alle`, `Aktive`, `Sichtbare`, `LLM-Agenten` und `TypeScript` um. `Sichtbare` ist die Vorgabe. `Aktive` zeigt direkte Zugänge für alle
 nicht gestoppten LLM- und TypeScript-Actors. `Alle` ergänzt gestoppte Actors;
 `Sichtbare` zeigt nur Actors, die gerade eine Kachel haben, dazu immer
-den primären Actor; die Grundlage sind dieselben Bühneneinträge, die auch die ausgegrauten Zugänge bestimmen.
+den primären Actor; die Grundlage sind dieselben Flächeneinträge, die auch die ausgegrauten Zugänge bestimmen.
 `LLM-Agenten` und `TypeScript` zeigen nur den jeweiligen Typ, einschließlich gestoppter Actors. Menschliche Beteiligte stehen
 nur in der vollständigen Actorliste. Die Auswahl betrifft die direkten Actor-Zugänge,
 nicht Mini-App-Einträge oder Kacheln, und bleibt im Browser je Run gespeichert.
 Die vollständige Liste unter `Actors` ist in jeder Anzeige erreichbar, einschließlich
-nicht platzierter und gestoppter Actors. Die Liste liegt über der Fläche und dem
-rechten Panel. Durch einen Anzeigewechsel verborgene Chats behalten ihre Entwürfe.
+nicht platzierter und gestoppter Actors. Die Liste liegt über der Fläche und der
+Leiste. Durch einen Anzeigewechsel verborgene Chats behalten ihre Entwürfe.
 Actorliste und Actor-Chats verwenden dasselbe Pop-out-Control mit
 gemeinsamer Positionierung, Kopfzeile und Fläche. Es schließt ohne Abstand am Knopf an und
 öffnet nach unten.
 Toolbar-Knöpfe zeigen während des Drückens und bei geöffneter Fläche eine vertiefte
 Akzentfläche mit innerem Schatten und unterer Markierung; Hover allein vertieft sie nicht.
 
-Die Reiterleiste des Arbeitsbereichs steht in der gemeinsamen Titelleiste neben Einstellungen
-und Hilfe. Ihre kompakten Symbole wählen den Inhalt des rechten Panels. Der vollständige
+Die Reiter der Leiste stehen in der gemeinsamen Titelleiste neben Einstellungen
+und Hilfe. Ihre kompakten Symbole wählen den Inhalt der Leiste. Der vollständige
 Name bleibt als Tooltip und zugängliche Beschriftung erhalten; Hinweise auf neue Inhalte und
 Badges teilen sich je Reiter maximal einen Punkt; der Hinweis auf neue Inhalte hat Vorrang.
 Sprachplugins liefern ihre kurzen Kennzeichen selbst als Symbol,
 etwa `C#`, `TS` oder `F#`; der Host unterscheidet dafür keine Plugin-IDs. Bei Platzmangel lässt
-sich die Leiste horizontal scrollen.
+sich die Reiterreihe horizontal scrollen.
 Header-Reiter und Panelknopf zeigen ihren ersten Tooltip nach 50 Millisekunden Hover und
 sofort bei sichtbarem Tastaturfokus. Ein bereits sichtbarer Tooltip wechselt beim direkten
 Übergang zum nächsten Knopf ohne erneute Verzögerung oder Einblendung. Beim Verlassen bleibt
@@ -1199,32 +1219,32 @@ einzeilige Symbolleiste genau eine Ansicht. Das X links zeigt
 Chat und Eingabe; die übrigen Knöpfe zeigen jeweils einen Detailbereich an derselben Stelle
 mit der gesamten verfügbaren Höhe. Tooltips und zugängliche Beschriftungen enthalten Namen
 und gegebenenfalls Anzahlen. Der Infochip zeigt Status, Actor-Art, Driver, Modell, Denktiefe,
-offene Inputs, Turnzahl und gegebenenfalls Laufkosten. Chat und Eingabe bleiben beim Wechsel
+offene Inputs, Turnzahl und gegebenenfalls Kosten. Chat und Eingabe bleiben beim Wechsel
 verborgen gemountet, damit der Entwurf erhalten bleibt. Pfeiltasten, Home und End wählen die
 Ansicht ebenfalls; bei Platzmangel scrollt die Symbolleiste horizontal.
 
-Das rechte Arbeitsbereichspanel schließt ohne Außenabstände und abgerundete Außenecken an
+Die Leiste schließt ohne Außenabstände und abgerundete Außenecken an
 die Titelleiste und den rechten Fensterrand an und endet oberhalb der Statusleiste. Ein
-Schlagschatten an seiner linken Kante hebt es von der Fläche ab. Kopfzeile und Statusleiste
-werfen ebenfalls einen dezenten Schatten zur Arbeitsfläche hin; alle drei Schatten besitzen
+Schlagschatten an ihrer linken Kante hebt sie von der Fläche ab. Kopfzeile und Statusleiste
+werfen ebenfalls einen dezenten Schatten zur Fläche hin; alle drei Schatten besitzen
 eigene, für helle und dunkle Darstellung abgestimmte Tokens. Der Größenanfasser an dieser Kante verändert weiterhin
-seine Breite. Reiter und Ein-/Ausklappknopf bilden zusammen mit Einstellungen und Hilfe den
-rechten Bereich der gemeinsamen Titelleiste; das Panel hat keine eigene Reiterleiste.
+ihre Breite. Reiter und Ein-/Ausklappknopf bilden zusammen mit Einstellungen und Hilfe den
+rechten Bereich der gemeinsamen Titelleiste; die Leiste hat keine eigene Reiterzeile.
 Einstellungen und Hilfe öffnen ihre Dialoge.
 Der Panelknopf verwendet wie Einstellungen und Hilfe `Button variant="ghost" size="icon-lg"`
 mit einem 22-Pixel-Symbol.
 
-Breite und Aufklappzustand des Panels werden im Browser je Run gehalten. Automatisches
+Breite und Aufklappzustand der Leiste werden im Browser je Run gehalten. Automatisches
 Öffnen eines Reiters in einem Run verändert andere Runs nicht. Der Dateibrowser hält Root,
 versteckte Dateien und Baumzustand ausschließlich in seiner Komponenteninstanz; beim
 Unmount wird dieser Zustand verworfen. Es gibt dafür keinen modulglobalen Speicher.
-Das Panel lässt sich vollständig einklappen. Dann bleibt von ihm nur der Öffnungsknopf in der
+Die Leiste lässt sich vollständig einklappen. Dann bleibt von ihr nur der Öffnungsknopf in der
 Titelleiste sichtbar; Reiter, Inhalt und Größenanfasser sind verborgen. Erneutes Öffnen
 stellt die zuletzt gewählte Breite innerhalb des verfügbaren Platzes wieder her. Breite und
 Öffnungszustand werden im Browser gespeichert. Besuchte Reiter mit `keepMounted` behalten beim
 Reiterwechsel ihren Zustand; Einklappen erhält die gemounteten Inhalte mit `active: false`.
 Eine ausdrückliche Navigation zu einem Reiter,
-zum Beispiel über einen Dokumentknopf im Chat, öffnet das Panel wieder.
+zum Beispiel über einen Dokumentknopf im Chat, öffnet die Leiste wieder.
 
 Der Chat der Actor-Ansicht setzt den ausgewählten Actor als Darstellungs-Owner: Seine eigenen
 Nachrichten erscheinen ohne Sprechblase, Beiträge anderer Beteiligter behalten ihre bisherige
@@ -1239,8 +1259,8 @@ Orchestration-Plugins. Aktuell tragen `ragents.ask` (offene Fragen mit `askedBy 
 aus `RunView.pluginStates`) bei. Die Abschnitte bleiben in ihrer Kachel scrollbar und ändern
 niemals Identität, Capabilities oder Werkzeugauswahl eines Actors.
 
-Die Arbeitsfläche eines Runs ist die Kachelfläche: ein binärer Baum aus Kacheln und Teilungen,
-der den verfügbaren zentralen Bereich füllt, einschließlich Anpassung an das rechte Panel.
+Die Fläche eines Runs ist ein binärer Baum aus Kacheln und Teilungen,
+der den verfügbaren zentralen Bereich füllt, einschließlich Anpassung an die Leiste.
 Eine Kachel zeigt genau einen Actor oder eine Mini-App und scrollt ihren eigenen Inhalt. Eine
 andere Anordnung gibt es nicht: kein Modus, kein Verschieben, kein Zoom, keine Kamera und keine
 freie Platzierung. Kacheln verwenden die Schichtwerk-Flächen, Konturen und Radien, ohne Tiefe.
@@ -1268,7 +1288,7 @@ erscheint eine einzelne Kachel mit einer Auswahl zum Wechseln; die Aufteilung bl
 Verschwundene Inhalte hinterlassen eine entfernbare Hinweiskachel. Neue Teilnehmer bleiben
 in der Kopfzeile erreichbar und verändern eine bestehende Kachelanordnung nicht automatisch.
 
-Die Programmanordnung ist Run-Zustand des Plugins mit `{ root: CanvasTileNode | null }`. Ohne
+Die Programmanordnung ist Run-Zustand des Plugins mit `{ root: SurfaceTileNode | null }`. Ohne
 gespeicherten Kachelbaum - weder vom Programm noch persönlich - teilt die Fläche die sichtbaren
 Teilnehmer einmal per abgeleiteter Startaufteilung auf: sichtbare Mini-Apps und alle nicht
 gestoppten, nicht persönlich ausgeblendeten Actors. Diese Aufteilung wird nicht gespeichert;
@@ -1282,7 +1302,7 @@ Baum, folgt die Fläche der neuen Vorgabe und die persönliche Anordnung entfäl
 der Knopf erscheint nur bei vorhandener persönlicher Anordnung.
 
 Ein Programmzustand mit den Altschlüsseln `nodes`, `shapes`, `lines` oder `mode` wird beim
-Lesen abgewiesen: "Die Programmanordnung stammt aus dem entfernten freien Canvas (<gefundene
+Lesen abgewiesen: "Die Programmanordnung stammt aus der entfernten freien Fläche (<gefundene
 Schlüssel>); canvas_layout_replace mit root setzt sie als Kachelaufteilung neu". Der Fehler
 steht als Alert über der Fläche, der Run läuft weiter, die Fläche verwendet die abgeleitete
 Startaufteilung, und ein Werkzeugaufruf mit `root` repariert den Run. Es gibt weder stille
@@ -1292,14 +1312,14 @@ Toleranz noch eine Migration; ältere Browser-Einträge unter `canvas-presentati
 Die persönliche Actor-Sichtbarkeit liegt getrennt davon je Run im Browser
 (`ragents.orchestration.actor-visibility:<runId>` mit `{ actorVisibility }` je Actor-Id). Ohne
 eigene Wahl stehen der Primary-Actor und Actors mit eigener Mini-App nicht auf der Fläche, alle
-übrigen schon; die Checkbox `Canvas` je Actor in der Actorliste überschreibt das. Sie wirkt auf
+übrigen schon; die Checkbox `Fläche` je Actor in der Actorliste überschreibt das. Sie wirkt auf
 die abgeleitete Startaufteilung und auf die Actor-Chips des Run-Panels, nicht auf einen
 bereits gespeicherten Kachelbaum. Sie braucht nur Leserechte und verändert weder Actors noch
 Programmanordnung oder Journal.
 
 `ragents.orchestration` stellt "Run stoppen" in der Run-Titelleiste für Benutzer mit
 Schreibrecht bereit. Sein Werkzeug `run_stop` erlaubt dem
-Primary-Actor mit `execution.stopOwned`, den eigenen Run über dieselbe Sitzungsverwaltung
+Primary-Actor mit `execution.stopOwned`, den eigenen Run über dieselbe Run-Verwaltung
 vollständig zu stoppen. Die Run-Identität stammt aus dem Aufrufkontext. Der Aufruf wartet
 nicht auf sein eigenes Turnende; Bereinigungsfehler meldet der Host im Serverprotokoll.
 
@@ -1318,7 +1338,7 @@ Umhängen erhalten.
 Der geteilte Vertrag `plugins/ragents.orchestration/contract.ts` parst und prüft die Anordnung
 auf beiden Seiten: höchstens 16 verschachtelte Teilungen und 64 Kacheln, eindeutige Teilnehmer,
 endliche positive Gewichte, `chatInput` nur an Actors. Der Server prüft zusätzlich, dass jeder
-platzierte Actor zum Lauf gehört, nicht gestoppt und nicht der Mensch im Chat ist, und löst
+platzierte Actor zum Run gehört, nicht gestoppt und nicht der Mensch im Chat ist, und löst
 App-Referenzen `app:@handle/view-key` und `app:program-name/view-key` anhand aktivierter
 Actor-Programme zu den internen View-IDs auf; unbekannte, mehrdeutige und zu gestoppten Actors
 gehörende Ansichten werden vor dem Speichern abgewiesen. Sichtbarkeit und Fläche verwenden
@@ -1326,9 +1346,9 @@ dieselbe Namensauflösung, auf der Fläche mit `app:`-Präfix; strukturierte Ref
 eindeutigen Titeln geprüft, und Fehler nennen gültige Paket- und Actor-Bezüge. Die TypeScript-API
 liefert rekursive Typen bis in die verschachtelten Kinder. Der globale Koordinator gibt
 Aufteilungswünsche im Run-Auftrag weiter; der Run-Koordinator erhält dafür den Prompt
-`plugins/ragents.orchestration/canvas.hbs` mit Werkzeugvertrag und Beispielaufteilungen.
+`plugins/ragents.orchestration/surface.hbs` mit Werkzeugvertrag und Beispielaufteilungen.
 
-`visible: false` nimmt ein bekanntes Canvas-Element von der Fläche; seine Kachel verschwindet
+`visible: false` nimmt ein bekanntes Flächenelement von der Fläche; seine Kachel verschwindet
 und erscheint beim Wiederanzeigen erneut.
 
 Mini-App- und Actor-Kachelköpfe teilen Schriftgröße, Titelgewicht, Icon-Rahmen und Abstände;
@@ -1343,23 +1363,23 @@ Anwendungsbreite, 28 Pixel hoch und mit transparentem, verschwommenem
 Hintergrund. Eine feine obere Trennlinie verwendet die Farbe `border`. Der obere Schatten läuft über
 den unteren Rand des Arbeitsinhalts aus; Statusgruppen und geöffnetes Journal liegen darüber.
 Die Gruppen sind `Journal` und, bei persönlicher Anordnung, `Kachelfläche`. `Actors` steht als
-Symbol in der Canvas-Leiste bei den Apps.
+Symbol in der Flächenleiste bei den Apps.
 Der Listenknopf bleibt links stehen, während App-Einträge und direkte Actor-Knöpfe gemeinsam
 horizontal scrollen. Die durchsuchbare Liste öffnet sich nach unten. Die Gruppen nutzen die
 gesamte Leistenhöhe. Links beginnen die Bedienelemente mit 12 Pixel Abstand zum Fensterrand;
 kurze senkrechte Trenner mit je 6 Pixel Abstand oben und unten grenzen die Gruppen ab. Gespräche
 stehen in den Kacheln und den Actor-Pop-outs.
-Eine ausdrückliche App-Auswahl in der Canvas-Leiste wählt die zugehörige Kachel: Sie geht als
-`run-app` an den Canvas-Controller des Orchestrierungs-Plugins (`CanvasController` mit
+Eine ausdrückliche App-Auswahl in der Flächenleiste wählt die zugehörige Kachel: Sie geht als
+`run-app` an den Flächen-Controller des Orchestrierungs-Plugins (`SurfaceController` mit
 `acceptSelection` und `selection`), der auch die Verweise aus Kacheln und Pop-outs annimmt; ein
 Artefakt öffnet dabei die Dokumente, jede andere Entität wird die gewählte Kachel und der
 Standort, den der Chat dem globalen Koordinator meldet. Ohne angeordnete Inhalte zeigt die
 Fläche ihren Leerzustand und lädt zum Ziehen aus der Kopfzeile ein. Die Kacheln zeigen
 Anzeigename und `@handle`.
-Der Lauf-Stopp steht in der Run-Titelleiste, mit Bestätigung und den bestehenden
+Der Run-Stopp steht in der Run-Titelleiste, mit Bestätigung und den bestehenden
 Schreibrechten.
 
-Der Journalbeitrag der Orchestrierungs-Extension öffnet nach oben eine nichtmodale Fläche,
+Der Journalbeitrag des Orchestrierungs-Plugins öffnet nach oben eine nichtmodale Fläche,
 höchstens 900 Pixel breit und 480 Pixel hoch, begrenzt durch den sichtbaren Viewport.
 Sie liest tatsächliche Ereignisse des aktiven Runs aus dessen bestehendem Ereignisendpunkt.
 Laden erfolgt nur bei geöffneter Ansicht, bei Änderungen der vorhandenen Run-Revision und
@@ -1386,21 +1406,21 @@ den journalisierten Aufruf-, Quelltext-, Ergebnis- und Fehlerereignissen; die Id
 sich aus Actor, Turn und Aufruf zusammen. Auch bei fehlgeschlagener Typprüfung bleibt der geprüfte Quelltext sichtbar. Ältere Inline-Aufrufe verwenden ihren damaligen
 `code`-Eingabewert. Fehlt bei einem alten dateibasierten Aufruf ein Quelltext-Snapshot, zeigt
 `Executions` das ausdrücklich an und liest keine heutige Arbeitsdatei als historische Quelle.
-Die native Snippet-Ausführung bleibt auch ohne die optionale Orchestrierungs-Extension
+Die native Snippet-Ausführung bleibt auch ohne das optionale Orchestrierungs-Plugin
 Server-Grundausstattung; nur dieser Reiter entfällt ohne das Plugin.
 
-Direkte Knöpfe in der Canvas-Leiste zeigen alle nichtmenschlichen, nicht gestoppten Actors
+Direkte Knöpfe in der Flächenleiste zeigen alle nichtmenschlichen, nicht gestoppten Actors
 mit `@handle` sowie Anzeigename oder Actor-Art. Ein Klick öffnet sein Pop-out mit der Actor-Ansicht.
 Der primäre Actor des Runs, normalerweise sein Koordinator, erscheint standardmäßig nur in
 dieser Leiste. Sein Chat bleibt im Pop-out erreichbar; eine eigene Kachel lässt sich
 über die Actorliste ausdrücklich freigeben.
 
-`Actors` öffnet in der Canvas-Leiste die Liste aller Actors des Runs, einschließlich des
+`Actors` öffnet in der Flächenleiste die Liste aller Actors des Runs, einschließlich des
 menschlichen Owners und gestoppter Actors. Die Liste öffnet keinen Actor; Gespräche liegen in
 den Kacheln und Pop-outs. Der menschliche Owner bleibt
 über die Liste erreichbar und braucht keine eigene Kachel.
 Jeder Listeneintrag ordnet Handle und Anzeigename nebeneinander an, darunter kompakt Typ,
-Status und gegebenenfalls `Mini-App`. Die Checkbox `Canvas` steht rechts und setzt die
+Status und gegebenenfalls `Mini-App`. Die Checkbox `Fläche` steht rechts und setzt die
 persönliche Actor-Sichtbarkeit. Lange Namen und
 Metadaten umbrechen innerhalb des Eintrags, auch bei schmaler Liste. Die journalisierte
 Sichtbarkeit einer Mini-App bleibt davon unabhängig.
@@ -1437,7 +1457,7 @@ Werkzeugname, mit aufklappbaren Details bei entsprechender Freigabe. Eigene Werk
 werden in diesem Modus nicht verwendet. Ohne Aufklappfreigabe erscheinen nur "Denken" oder
 "Werkzeug läuft", ohne Werkzeugnamen und ohne anklickbare Fläche.
 Frühere Schritte bleiben ausgeblendet.
-Eine folgende Nachricht, das Werkzeugergebnis oder das Laufende entfernt die Anzeige; normale
+Eine folgende Nachricht, das Werkzeugergebnis oder das Turnende entfernt die Anzeige; normale
 Nachrichten und Rückfragen bleiben sichtbar. Nachgeschobene eigene Eingaben hinter dem
 laufenden Schritt entfernen den Chip nicht. Die gemeinsame Arbeitsanimation bleibt zusätzlich
 sichtbar, solange der Agent läuft. Der Run-Chat des Hosts zeigt sie, solange irgendein Agent
@@ -1482,8 +1502,8 @@ Der Leerzustand ist derselbe wie im Actor-Pop-out.
 Der innere Scrollbereich ist per Tastatur fokussierbar; PageUp und PageDown bewegen den
 Verlauf innerhalb der Kachel.
 Der Verlauf ist keine Klickfläche; das Actor-Pop-out öffnen die direkten Zugänge der
-Canvas-Leiste. Verweise im Verlauf (`ablauf:<art>/<id>`) und die Zeilen der Actor-Ansicht gehen
-an den Canvas-Controller: ein Artefakt öffnet die Dokumente, alles andere wird die Auswahl auf
+Flächenleiste. Verweise im Verlauf (`ablauf:<art>/<id>`) und die Zeilen der Actor-Ansicht gehen
+an den Flächen-Controller: ein Artefakt öffnet die Dokumente, alles andere wird die Auswahl auf
 der Fläche.
 Im Verlauf erscheint die Arbeitsanzeige von `ChatMessages` aus `WorkingScenes` und dem
 bestehenden Laufzustand, ohne weitere Datenkanäle. Auch ohne neue Stream-Ereignisse bleibt sie
@@ -1493,25 +1513,25 @@ Bewegung bleiben die Szenen statisch: sowohl Bildtakt als auch Szenenwechsel pau
 
 Eine TypeScript-Kachel zeigt die Actor-Ansicht des Inspectors ohne Chat-Eingabe: Verlauf,
 Detailreiter und den Reiter `Quelltext`. `SourceCode` hebt die TypeScript-Syntax hervor; der
-Inhalt ist schreibgeschützt und scrollbar. Fehlt Quelltext in der Laufansicht, sagt die Ansicht
+Inhalt ist schreibgeschützt und scrollbar. Fehlt Quelltext in der Run-Ansicht, sagt die Ansicht
 das ausdrücklich.
 
 `ragents.actor-programs` trägt den Werkzeuge-Reiter, typisierte Werkzeugkarten und den App-Host
 der Fläche zu diesen Slots bei. Jede installierte App ist dort standardmäßig sichtbar;
 fehlende Platzierungen ergänzt der Server. Sichtbar geschaltete
-Apps erscheinen als volle Flächen in der Canvas-Leiste mit Artbeschriftung und bis zu
+Apps erscheinen als volle Flächen in der Flächenleiste mit Artbeschriftung und bis zu
 zweizeiligem Titel. Die Hauptfläche schließt eine offene Vollansicht und wählt die zugehörige
 Kachel; der separate Vergrößern-Knopf schaltet die Vollansicht um. Die
-vergrößerte App bleibt in der Canvas-Leiste sichtbar hervorgehoben. Der Titel verwendet dort immer
+vergrößerte App bleibt in der Flächenleiste sichtbar hervorgehoben. Der Titel verwendet dort immer
 dasselbe Schriftgewicht 700; beim Umschalten der Vollansicht ändern sich Fläche und Unterkante,
-aber nicht die Titelbreite oder die Position benachbarter Einträge. Es gibt keine rechten Mini-App-Reiter. Installierte Werkzeuge haben keine eigenen Einträge in der Canvas-Leiste;
+aber nicht die Titelbreite oder die Position benachbarter Einträge. Es gibt keine rechten Mini-App-Reiter. Installierte Werkzeuge haben keine eigenen Einträge in der Flächenleiste;
 sie bleiben über den Werkzeuge-Reiter erreichbar. Die Laufzeitsichtbarkeit lässt sich über
 `actor_view_set_visibility` ändern; ausgeblendete Apps behalten Installation und Zustand.
 Eine Mini-App füllt ihre Kachel ohne eigene Kartenhülle, Titelzeile oder Agenten-Icon; den
-Titel trägt der Kachelkopf. Im Dialogbereich `canvas` lässt sie sich über der Arbeitsfläche
+Titel trägt der Kachelkopf. Im Dialogbereich `surface` lässt sie sich über der Fläche
 vergrößern. Genau eine lokale Vollansicht ist offen; ihr Dialog zeigt den
 Mini-App-Titel und Schließen-Knopf sowie Rand und Schatten über der weichgezeichneten Fläche.
-Titelleiste, Canvas-Leiste, Statusleiste und rechtes Panel bleiben bedienbar. In der Vollansicht entfällt eine normale Laufzeitstatuszeile.
+Titelleiste, Flächenleiste, Statusleiste und Leiste bleiben bedienbar. In der Vollansicht entfällt eine normale Laufzeitstatuszeile.
 In der Kachel stehen notwendige Host-Statusmeldungen unter dem App-Inhalt mit 18 Pixeln
 seitlichem Innenabstand. Die einzeilige Statusfläche reserviert immer 28 Pixel Höhe,
 in der Vollansicht 31 Pixel für Fehlermeldungen. Start, Abschluss und Fehler einer Aktion
@@ -1560,7 +1580,7 @@ Geschmack:
 - `Card` ist die EINE Fläche des Hauses: `rounded-panel`, Hostkontur, Kartenfläche und
   `shadow-bar`. Jede statische Fläche und jede Karte ist ein `Card`; Abweichungen stehen als
   `className` daran (`shadow-pop` für Schwebendes, `p-0`, `gap-0`). Schwebende Flächen mit
-  eigener Komponente (`DialogContent`, `PopoverContent`) und die Kacheln der Arbeitsfläche
+  eigener Komponente (`DialogContent`, `PopoverContent`) und die Kacheln der Fläche
   bleiben, was sie sind; leichtere Innenflächen in einer Karte bleiben lokale Klassen.
 - `SectionLabel` ist die kleine Gruppenbeschriftung in Versalien über einem Abschnitt;
   eine Anzahl daneben rutscht an das andere Ende. Beschriftungen, die eine Überschrift oder
@@ -1572,14 +1592,14 @@ Tailwind gilt für die gesamte Oberfläche. Host, Plugins, Mini-App-Bausteine un
 mitgelieferten Mini-Apps schreiben ihre Gestaltung als Utility-Klassen direkt an die Elemente;
 Stylesheets mit eigenen Klassenverträgen gibt es nicht mehr. `apps/web/src/ui/theme.css` ist
 die einzige Token-Quelle: die shadcn-Variablen (`--background`, `--card`, `--primary`,
-`--border`, `--radius` usw.) und die zusätzlichen Hostfarben `shell`, `app`, `canvas`,
+`--border`, `--radius` usw.) und die zusätzlichen Hostfarben `shell`, `app`, `surface`,
 `border-soft`, `border-strong`, `success`, `warning`, `info`, `teal`, `destructive-soft` und
 die Materialfarben `glass-*` stehen dort einmal je Modus, hell und dunkel folgen `data-theme`;
 dazu Schrift, die kompakte Abstandsskala mit `header`, `statusbar` und `workspace-inset`,
 der Kartenradius `rounded-panel`, die Schatten `shadow-bar`, `shadow-status`, `shadow-pop`,
 `shadow-card`, `shadow-workspace`, `shadow-glass-icon` und die Animationen `animate-fade-pulse`,
 `animate-working-pulse`, `animate-ring-pulse`, `animate-edge-flow`, `animate-progress-sweep`.
-`tailwind.css` ist der Host-Einstieg mit Preflight; `frame.css` der Einstieg der Mini-App-Frames.
+`tailwind.css` ist der Host-Einsprungpunkt mit Preflight; `frame.css` der Einsprungpunkt der Mini-App-Frames.
 Das Web bekommt ein einziges Stylesheet vom Server (`/ragents.css`,
 `apps/server/src/web-stylesheet.ts`): `@tailwindcss/node` übersetzt `tailwind.css` für die
 Kandidaten aus den Quellen unter `apps/web/src` und aus `web/classes.json` jedes Web-Bundles des
@@ -1593,7 +1613,7 @@ Bausteine und die jeweiligen Mini-App-Quellen. Wiederkehrende Muster sind Kompon
 `ToolbarItem`, `ToolbarCopy`, `ToolbarLabel` und `ToolbarText` aus `apps/web/src/Toolbar.tsx`,
 Zähler `Badge`, Leerzustände `Empty`, Meldungen `Alert`, Flächen `Card`, Wartezeichen
 `Spinner`. Kontextabhängige Darstellung läuft über `data-*`-Attribute am Rahmen und
-`in-data-[...]`-Varianten in der Komponente, etwa `data-surface="material"` an den
+`in-data-[...]`-Varianten in der Komponente, etwa `data-tone="material"` an den
 Kacheln für Chat und App-Kopf darin. Eigenes CSS bleibt nur für fremd erzeugtes Markup
 mit festen Klassen: die Token-Farben von highlight.js (`apps/web/src/highlighting.css`), das
 Stylesheet von react-diff-view und die Kanten von xyflow im Flussdiagramm
@@ -1623,7 +1643,7 @@ benennen weiterhin die jeweilige Aktion.
 
 Mini-Apps verwenden dieselben Komponenten mit demselben Look; die Mini-App-Laufzeit setzt
 `data-ui-surface="mini-app"` am Frame-Wurzelelement nur noch als Marker für Schrift und
-Grundmaße. Details zu Formularen, Tabellen, Theme-Bridge und eigenem App-CSS stehen in run-modules.
+Grundmaße. Details zu Formularen, Tabellen, Theme-Bridge und eigenem App-CSS stehen in actor-programs.md.
 
 Journalfläche und globaler Koordinator-Verlauf sind `PopoverContent`-Flächen mit eigener
 Öffnungsrichtung und Eckform.
@@ -1649,11 +1669,11 @@ Seiten-`Modal` des Hosts reicht ihn durch:
 - `page` umfasst den gesamten Bildschirm mit Kopfzeile und unterer Statusleiste.
 - `run` umfasst den Run-Inhalt zwischen Kopfzeile und Statusleiste; beide Leisten bleiben frei.
 - `workspace` umfasst alles unter der Kopfzeile einschließlich der unteren Statusleiste.
-- `canvas` umfasst nur die zentrale Arbeitsfläche; Kopfzeile, Statusleiste und rechtes Panel bleiben frei.
+- `surface` umfasst nur die Fläche; Kopfzeile, Statusleiste und Leiste bleiben frei.
 
-Der Host liefert Run-, Workspace- und Canvas-Fläche über `RunModalContext`,
-`WorkspaceModalContext` beziehungsweise `CanvasModalContext` aus `apps/web/src/ui/dialog.tsx`;
-das Portal des Dialogs landet in dieser Fläche. Nur der jeweilige Hintergrundbereich wird
+Der Host liefert Run-, Workspace- und Flächenbereich über `RunModalContext`,
+`WorkspaceModalContext` beziehungsweise `SurfaceModalContext` aus `apps/web/src/ui/dialog.tsx`;
+das Portal des Dialogs landet in diesem Bereich. Nur der jeweilige Hintergrundbereich wird
 inert, außerhalb liegende Leisten bleiben bedienbar; ein Klick dort schließt den Dialog nicht
 (`disablePointerDismissal`, Backdrop-Klick schließt weiterhin). Gezielt bereitgestellte lokale
 Container bleiben möglich, etwa für die Resetbestätigung über dem globalen Chat. Die
@@ -1683,9 +1703,9 @@ Beim Schließen stellt das Modal den vorherigen Fokus nur wieder her, wenn diese
 Modal oder auf dem Dokumentrumpf liegt. Ein absichtlicher Wechsel aus einem Run-Dialog in
 die weiterhin bedienbare Toolbar-Eingabe bleibt erhalten.
 
-`ragents.orchestration` trägt die Flächenkomponente im Web-Slot `canvas` bei.
+`ragents.orchestration` trägt die Flächenkomponente im Web-Slot `surface` bei.
 Die Engine selbst stellt nur die generischen Laufzeitmethoden `ragents.runs.*` bereit. Die
-Flächenkomponente nutzt diese API, ohne dass der Server eine Orchestrierungsfläche kennen
+Flächenkomponente nutzt diese API, ohne dass der Server eine Fläche kennen
 muss. Ihre schreibenden Methoden laufen je Run nacheinander; ein laufender Stopp eines Runs hält
 die Methoden anderer Runs nicht auf. Ein Actor-Feld nimmt ID oder Handle und wird wie jede
 Actor-Referenz aufgelöst (`actorByReference`, `core.md`, IDs und Handles); dieselbe Regel steht
@@ -1708,7 +1728,7 @@ prozentuale Breitenbegrenzung. Zeitstempel bleiben über `showTimestamps` steuer
 einer bei Platzmangel ausblendbaren Beschriftung in die Toolbar setzen.
 Der Run-Chat zeigt diesen Schalter neben dem Detailgrad und merkt die Wahl im Browser je Run und
 primärem Actor, anfangs eingeschaltet. Eine Einbettung des Run-Chats (`renderChat` im
-Canvas-Beitrag) gibt mit `ChatSurfaceOptions` nur, was sie heute braucht: eine zusätzliche Klasse
+Flächenbeitrag) gibt mit `ChatDisplayOptions` nur, was sie heute braucht: eine zusätzliche Klasse
 (`chatElementClassName`), den Zugriff auf den Scrollbereich (`chatScrollerRef`), Elemente links in
 der Eingabeleiste (`toolbarLeft`) und `notice`, das statt des Verlaufs steht, solange es gesetzt
 ist; die Eingabe darunter bleibt bedienbar, das Run-Panel zeigt damit seinen Ladezustand
@@ -1726,6 +1746,8 @@ Präferenzen:
   folgen der eingestellten Zeitzone, teilen auch Schrittgruppen und sind unabhängig von der
   Zeitstempelspalte. Fehlende oder ungültige Nachrichtendaten erzeugen weder Trenner noch
   ungültige Datumsanzeigen. Vorgabe bleibt die lokale Uhrzeit im Format HH:MM.
+  Der Zeitstempel richtet sich an der ersten Textzeile aus, auch bei Schrittgruppen und
+  mehrzeiligen Nachrichten mit unterschiedlichen Innenabständen.
 - `codeBlockOptions` steuert Umbruch, maximale Höhe und einen optionalen Kopierknopf für
   Markdown-Codeblöcke. Inline-Code bleibt unverändert; Kopieren übernimmt den Codeinhalt
   ohne Bedienelemente. Vorgabe bleibt horizontaler Überlauf ohne Kopierknopf.
@@ -1758,17 +1780,17 @@ Assistentennachrichten ohne Sprechblase erscheinen. Der Vergleich verwendet `sen
 unabhängig von Rolle, Farbe und Beschriftung. Ohne Owner oder mit `null` bleiben die
 Nachrichtenvorgaben wirksam. Dieser Darstellungs-Owner vergibt keine Rechte und ist unabhängig
 vom menschlichen Owner eines Runs.
-Mini-Apps erhalten daraus gebündelte, typisierte Controls unter `UI`. Die Mini-App-Extension
+Mini-Apps erhalten daraus gebündelte, typisierte Controls unter `UI`. Das Mini-App-Plugin
 ergänzt Formulare, Tabellen, Dateiauswahl, Fortschritt sowie Dokument- und Diff-Ansichten und
 besitzt auch das automatisch aus den Typverträgen gespeiste Nachschlagewerkzeug. Der Host
 enthält dafür keine neuen Fachzweige. Der Chat kann einem Actor desselben Runs folgen oder
-Verlauf und Sendeaktion von der Mini-App erhalten (siehe run-modules). Die Actor-Ansicht teilt die
+Verlauf und Sendeaktion von der Mini-App erhalten (siehe actor-programs.md). Die Actor-Ansicht teilt die
 Verlaufsprojektion des Inspectors und verwendet die vorhandene Run-Verbindung. Der Eingabebaustein
 wartet auf die Sendeaktion und erhält den Entwurf bei Fehlern. Rückfragen ohne Antwort-Callback
 werden als Text mit Optionen dargestellt.
 
 Ein technischer Abbruch beendet das Warten auf `ask_user` und schließt die offene Frage im
-Journal als `dismissed`. Die Ask-Extension liefert daraus keine Benutzerantwort und keinen
+Journal als `dismissed`. Das Ask-Plugin liefert daraus keine Benutzerantwort und keinen
 neuen ActorInput. Ein ausdrückliches Verwerfen durch den Benutzer erreicht dagegen den
 wartenden Aufruf; Antworten auf wiederhergestellte Fragen ohne aktiven Aufruf werden weiterhin
 als ActorInput zugestellt.
@@ -1812,7 +1834,7 @@ nach dem Neustart ist er wieder Primary-Actor und der Chat geht weiter. Der Chat
 nennt den Grund ebenfalls, bietet den Neustart aber nicht an.
 
 Alle Chat-Eingaben nehmen Anhänge über Dateiauswahl, Drag-and-drop und die Zwischenablage an:
-Startfläche, laufender Chat, globaler Koordinator, Actor-Pop-out und Mini-App-Controls.
+Startauswahl, laufender Chat, globaler Koordinator, Actor-Pop-out und Mini-App-Controls.
 Der gemeinsame Composer zeigt Bilder und Videos als Vorschau und Dateien mit Name und Größe;
 Anhänge lassen sich vor dem Senden entfernen. Auch eine Nachricht ohne Text ist möglich.
 Die Grenzen für Anzahl und Gesamtgröße stehen im gemeinsamen Chat-Anhangsvertrag im Code.
@@ -1832,21 +1854,21 @@ Composer-Toolbar-Slot bietet der Host bewusst nicht an.
 
 Ein Run ist im Web zuerst ein ENTWURF: "Neuer Run" in der Übersicht öffnet einen großen
 seitenweiten Dialog mit dem zugänglichen Namen "Neue Unterhaltung". Der vorherige Run bleibt
-darunter erhalten. Der Inhalt beginnt direkt mit der STARTFLÄCHE, ohne sichtbare Titelzeile
-oder Untertitel. Ein überlagerter Schließen-Knopf sitzt rechts oben; die Startfläche hält dafür
-Platz frei. Auf der Startfläche schließen Escape und Hintergrundklick ebenfalls. Der gemeinsame `Modal` übernimmt
-Fokusführung und Fokusrückgabe. Die Startfläche (`apps/web/src/StartSurface.tsx`) besitzt keine
-eigene Run-Statusleiste, keine Arbeitsfläche und keinen rechten Arbeitsbereich.
-Ihr Modal liegt innerhalb der Session-, Startoptionen- und Plugin-Provider des Chat-Arbeitsbereichs,
+darunter erhalten. Der Inhalt beginnt direkt mit der STARTAUSWAHL, ohne sichtbare Titelzeile
+oder Untertitel. Ein überlagerter Schließen-Knopf sitzt rechts oben; die Startauswahl hält dafür
+Platz frei. In der Startauswahl schließen Escape und Hintergrundklick ebenfalls. Der gemeinsame `Modal` übernimmt
+Fokusführung und Fokusrückgabe. Die Startauswahl (`apps/web/src/StartSelection.tsx`) besitzt keine
+eigene Run-Statusleiste, keine Fläche und keine Leiste.
+Ihr Modal liegt innerhalb der Run-, Startoptionen- und Plugin-Provider der Chat-Ansicht,
 damit auch Folgeschritte dieselben Kontexte erhalten.
 Der Entwurf ersetzt den aktiven Run in der gemeinsamen Kopfzeile nicht; der seitenweite Dialog
 überlagert diese mit dem übrigen Hintergrund.
 Schließen verwirft den lokalen Entwurf, ohne einen Run anzulegen. Das Journal entsteht erst
-beim ersten Einstieg.
+beim Start des Runs.
 
 Die freie Auftragseingabe steht zentriert über der Auswahl. Sie verwendet den originalen
 Quassel-`ChatInputToolbar` mit drei sichtbaren Zeilen, wachsend bis acht Zeilen. Derselbe
-Breitentoken der Startfläche begrenzt sie auf 880 Pixel. Die Auftragseingabe hat keine
+Breitentoken der Startauswahl begrenzt sie auf 880 Pixel. Die Auftragseingabe hat keine
 zusätzliche Überschrift; die Bereiche behalten ihre zugänglichen Namen. Absenden startet den Run.
 Modell und Denktiefe stehen als tastaturbedienbare `Select` in der Eingabeleiste neben
 Anhängen und Detailgrad. Weitere Startoptionen der Plugins stehen darunter. Der Host zeigt
@@ -1874,11 +1896,11 @@ beider Bereiche stehen; die Filterleiste gehört zur Liste und weicht mit ihr.
 Icons, Artbezeichnungen und semantische Farben unterscheiden die beiden Arten.
 Unter 900 Pixeln eigener Breite zeigt der Baustein zuerst die Liste; Auswahl öffnet die Details
 als eigene Seite mit "Zur Auswahl" und entsprechender Fokusführung.
-Jeder Skill-Einstieg hat genau eine verpflichtende `category` als freien, nicht leeren Text; ein
+Jede Skill-Vorlage hat genau eine verpflichtende `category` als freien, nicht leeren Text; ein
 Run-Script darf eine tragen, ohne eine steht es in seiner eigenen Gruppe.
-Die Startfläche gruppiert nach diesem Text über Plugin-Grenzen hinweg und zeigt Überschrift
-und Trefferzahl. Die Reihenfolge folgt der ersten nach `order` sortierten Karte je Gruppe;
-innerhalb der Gruppe bleiben die Karten sortiert. Die Suche berücksichtigt Kategorie, Titel,
+Die Startauswahl gruppiert nach diesem Text über Plugin-Grenzen hinweg und zeigt Überschrift
+und Trefferzahl. Die Reihenfolge folgt der ersten nach `order` sortierten Vorlage je Gruppe;
+innerhalb der Gruppe bleiben die Vorlagen sortiert. Die Suche berücksichtigt Kategorie, Titel,
 Beschreibung, Plugin und Schlagworte. Ein gemeinsames Auswahlmenü filtert zusätzlich nach
 Schlagwort. Listenzeilen zeigen Titel, Kurzbeschreibung und Art. Die Vorschau enthält den
 vollständigen Prompt, Schlagworte als Filteraktionen und das Plugin. Auswählen ändert nur die Vorschau.
@@ -1904,7 +1926,7 @@ der Vertrag steht in `apps/server/src/run-preparation-contract.ts`. Der Host nut
 aufgelöste Koordinatorauswahl wie der spätere Run. `ragents.overseer` liefert den
 Vorbereitungsprompt über den globalen Chat-Vertrag; fehlt er, wird die Anfrage abgelehnt.
 Jede Anfrage erhält eine eigene speicherinterne Agent-Session mit dem mitgesendeten Verlauf.
-Der globale Gesprächskontext, seine Verwaltungswerkzeuge und Produkt-Extensions werden nicht
+Der globale Gesprächskontext, seine Verwaltungswerkzeuge und die Hooks der Plugins werden nicht
 übernommen. Das einzige Werkzeug `start_run` merkt die Übergabe vor, ohne Modellargumente
 für Auftrag, Kennungen oder Dateien zu verlangen. Erst nach einem erfolgreich abgeschlossenen
 Agent-Turn liefert der Server entweder eine Antwort oder den vollständig vorbereiteten
@@ -1940,7 +1962,7 @@ Titel.
 Solange die Fläche noch keine sichtbaren Inhalte hat, zeigt sie beim Laden und Einrichten
 zentral einen animierten Ladebalken mit dem aktuellen Vorbereitungsschritt. Das gilt auch bei
 ausgeblendeten Steueractors. Die Anzeige liegt über den Kacheln
-und berücksichtigt ein geöffnetes rechtes Panel. Nach der
+und berücksichtigt eine geöffnete Leiste. Nach der
 Vorbereitung folgen wartende Inputs und aktive Turns dem tatsächlichen Run-Zustand;
 Rückfragen, Fehler und gestoppte Runs ersetzen den Balken durch einen passenden Hinweis.
 Sichtbare Inhalte lösen die zentrale Anzeige ab. Die Anzeige erfindet keine Prozentwerte.
@@ -1951,7 +1973,7 @@ Startdialoge ignorieren verspätete Sendeantworten, sodass diese keinen neu geö
 schließen können.
 
 Die gemeinsame Kopfzeile enthält links die Übersichtsecke und den globalen Koordinator, danach
-Titel und Metadaten des aktiven Runs, seine Startoptionen, Laufstatus, Fehler und Aufmerksamkeitshinweise. Die Pluginbeiträge
+Titel und Metadaten des aktiven Runs, seine Startoptionen, Run-Status, Fehler und Aufmerksamkeitshinweise. Die Pluginbeiträge
 ergänzen sichtbare Apps, Aktivität und Prozesse. Jeder Haupteintrag nutzt die gemeinsame
 volle Leistenhöhe und Abgrenzung. Installierte Werkzeugverknüpfungen erscheinen hier nicht.
 Die Aktivitätsanzeige liest laufende Werkzeugaufrufe aller Actors aus den `toolCalls` der
@@ -1966,8 +1988,8 @@ ausgeblendet, seine Werkzeuge bleiben sichtbar. Diese Auswahl erfolgt vor der Be
 drei Einträge und der Restzählung. Chatverläufe und ihre Detailstufe werden dadurch nicht erweitert.
 Die run-gebundenen `sessionHeaders` stehen zusammen mit Einstellungen und Hilfe in derselben
 Leiste. `PluginChat` setzt seinen Beitrag per Portal in diese Leiste und erhält dabei seine
-Session-Provider sowie den `RunModalContext`. Eine zusätzliche Titel- oder Platzhalterleiste
-über der Run-Fläche gibt es nicht.
+Run-Provider sowie den `RunModalContext`. Eine zusätzliche Titel- oder Platzhalterleiste
+über der Fläche gibt es nicht.
 
 Die ÜBERSICHT erschließt Runs und die dafür platzierten Pluginbeiträge. Links oben in der
 Kopfzeile sitzt die Übersichtsecke: ein Quadrat von Leistenhöhe mit Funkensymbol. Ein Klick
@@ -2010,13 +2032,13 @@ Client-Wiederholungen und eine Frist von acht Sekunden. OpenRouter wählt Provid
 nach Latenz. Ein Fehler wird protokolliert; der ursprüngliche Auftrag bleibt als Listentext erhalten.
 Diese Erzeugung verändert weder Run-Titel im Journal noch Agentenaufträge.
 
-Nach dem Speichern eines fertigen Titels meldet der Kanal `sessions` die Änderung an den
+Nach dem Speichern eines fertigen Titels meldet der Kanal `ragents.runs` die Änderung an den
 Browser. Die Liste wird dadurch ohne Warten auf den periodischen Abruf aktualisiert. Der
 Fünf-Sekunden-Abruf bleibt für weitere Metadaten erhalten. Die eigentliche Modellantwort hat
 keine garantierte Sofortlaufzeit. Titel aus `run_configure` oder einem vorbereiteten Setup
 haben weiterhin Vorrang; gespeicherte automatische Titel bleiben bei Modellwechsel erhalten.
 
-"Neuer Run" ist die einzige Hauptaktion der Run-Leiste: die erste Karte der Liste (bei null
+"Neuer Run" ist die einzige Hauptaktion der Run-Liste: die erste Karte der Liste (bei null
 Runs die einzige), wie im Run-Panel, und wechselt in den Startdialog. Einzel- und Mehrfachlöschen mit Alle/Keine, Bestätigung und
 sichtbaren Fehlern bleiben erhalten; die Profilrechte bestimmen, ob Öffnen, Erstellen oder
 Löschen angeboten werden. Ohne Run-Leserecht und ohne sichtbaren Beitrag gibt es keine Ecke.
@@ -2026,7 +2048,7 @@ Einstellungen und Hilfe bleiben außerhalb dieses Scrollbereichs erreichbar.
 
 Links stehen die Übersichtsecke und die unabhängigen
 Toolbar-Beiträge. Der flexible Bereich
-daneben zeigt die Angaben zum aktuellen Run; rechts stehen die Arbeitsbereichsreiter und ihr
+daneben zeigt die Angaben zum aktuellen Run; rechts stehen die Reiter der Leiste und ihr
 Ein-/Ausklappknopf sowie das Zahnrad-Symbol für Einstellungen und daneben ein Fragezeichen
 für die Hilfe. Beide Dialogknöpfe haben zugängliche Beschriftungen. Die Hilfe öffnet die mitgelieferte
 Homepage unter `/help/index.html` in einem großen seitenweiten modalen Dialog per Iframe.
@@ -2034,7 +2056,7 @@ Die Seite füllt den Dialog ohne zusätzliche Titelzeile und Innenabstand. Ein �
 Schließen-Button bleibt oben rechts sichtbar; der Dialogname ist für Screenreader hinterlegt.
 Die eingebetteten Seiten reservieren in ihrer Kopfzeile rechts Platz für diesen Button,
 ohne den eigenständigen Export zu verändern.
-Die Unterhaltung bleibt im Hintergrund erhalten und ist währenddessen nicht bedienbar.
+Der Run bleibt im Hintergrund erhalten und ist währenddessen nicht bedienbar.
 Schließen, Escape (auch innerhalb der Hilfe) oder ein Klick auf den Hintergrund schließen den
 Dialog und stellen den Fokus am Hilfeknopf wieder her. Interne Seitenlinks bleiben im Dialog;
 externe Quelllinks öffnen einen neuen Tab. Der Tastaturfokus bleibt im Dialog.
@@ -2043,7 +2065,7 @@ Der Iframe passt seine Höhe an den verfügbaren Dialogplatz an; die Seite scrol
 
 "Sample starten" erscheint in der eingebauten Hilfe nur für Run-Scripts des geladenen Profils
 und mit Lese- und Schreibrecht für Runs. Der Host prüft Ursprung, sendenden Hilfeframe und
-Einstiegkennung. Auch die Sample-Links unter den Homepage-Vorschauen starten in der Hilfe
+Vorlagenkennung. Auch die Sample-Links unter den Homepage-Vorschauen starten in der Hilfe
 den zugehörigen Run statt zur Referenz zu navigieren. Außerhalb der Anwendung bleiben sie
 Links zur Sample-Beschreibung. Ein Klick öffnet die vorhandene Run-Erstellung mit dem gewählten Sample:
 ein benötigter Leitfaden erscheint direkt, ein Sample ohne Leitfaden wird sofort aufgebaut.
@@ -2054,14 +2076,18 @@ liefern 404, Textreferenzen einen lesbaren Textinhalt. `/help` leitet auf `/help
 relative Seitenlinks korrekt auflösen.
 
 `ragents.overseer` liefert den globalen Koordinator als dauerhaften Toolbar-Beitrag rechts
-neben den Übersichtsknöpfen. Die Eingabe zeigt "Globaler Koordinator" als Platzhalter; eine
+neben den Übersichtsknöpfen. Der Beitrag fragt beim Anzeigen und nach jedem Benutzerwechsel mit
+`ragents.overseer.coordinator` die Run-ID des eigenen Koordinators ab und bindet erst dann Chat,
+Detailgrad und Anhänge daran; bis dahin bleibt der Platz leer, ein Fehler erscheint als Ausrufezeichen.
+Die VS-Code-Erweiterung zeigt keinen globalen Koordinator; sie sieht Koordinatoren auch nicht in der
+Run-Liste. Die Eingabe zeigt "Globaler Koordinator" als Platzhalter; eine
 separate Überschrift und ein eigener Dropdown-Pfeil entfallen. Eingabe und Status stehen in
 einer Zeile; die Eingabe bleibt einzeilig und scrollt bei mehr Text, die Kopfzeile behält
 ihre feste Höhe von 45 Pixeln. Der Beitrag ist bis zu 570 Pixel breit. Fokus in das Textfeld
 öffnet den Verlauf als nichtmodales Dropdown unter der Kopfzeile. Die Eingabe bleibt oben; im
 Verlauf gibt es keinen zweiten Composer. Anhang, Detailgrad, Modell, Reasoning und Zurücksetzen
 stehen in einer gemeinsamen Bedienzeile. Bei schmaler Ansicht werden Detailgrad und Reasoning
-kompakt dargestellt; der Modellname wird bei Bedarf gekürzt. Der Beitrag besitzt eine Unterhaltung, einen Entwurf
+kompakt dargestellt; der Modellname wird bei Bedarf gekürzt. Der Beitrag besitzt ein Gespräch, einen Entwurf
 mit Anhängen und einen Stream, unabhängig vom aktiven Run. Die gemeinsame Composer-Logik
 bedient sowohl diese Anordnung als auch die übrigen Chat-Eingaben.
 
@@ -2089,7 +2115,7 @@ Startansicht, Run-Übersicht oder geöffneter Run, aktiver Bereich und Reiter so
 Elementauswahl, etwa einen Actor. Die Run-Übersicht kann den darunter geöffneten Run weiterhin
 nennen; Reiter und Elementauswahl werden nur für die Run-Ansicht mitgegeben. Der Browser
 übermittelt nur kleine Kennungen; der Server
-ergänzt Run-Titel, kurze Laufreferenz und Actor-Namen. So kann eine Frage wie "Was macht dieser
+ergänzt Run-Titel, kurze Run-Referenz und Actor-Namen. So kann eine Frage wie "Was macht dieser
 Actor?" den gerade ausgewählten KI- oder TypeScript-Actor meinen, ohne
 dass der Benutzer eine Kennung abschreibt.
 
@@ -2124,8 +2150,8 @@ Eingabe und Verlauf zählen dabei zusammen. Escape schließt zuerst ein offenes
 Auswahlmenü und danach das Dropdown; beim Schließen aus dem Verlauf kehrt der Fokus zur oberen
 Eingabe zurück, ohne es erneut zu öffnen. Ein erneuter Klick oder Schreibbeginn
 öffnet es wieder. Übersicht und seitenweite Dialoge schließen den Verlauf ebenfalls, erhalten
-aber die Unterhaltung. Die Dropdownhöhe berücksichtigt den sichtbaren Viewport; schmal nutzt
-es die Arbeitsflächenbreite. Die Eingabe bleibt oben erreichbar, ebenso Übersicht, Einstellungen
+aber das Gespräch. Die Dropdownhöhe berücksichtigt den sichtbaren Viewport; schmal nutzt
+es die verfügbare Breite. Die Eingabe bleibt oben erreichbar, ebenso Übersicht, Einstellungen
 und Hilfe.
 
 Der globale Chat verwendet den Detailgrad des Koordinators, ohne Produktvorgabe `grouped`. Sein
@@ -2148,7 +2174,7 @@ bleibt die Texteingabe schreibgeschützt und fokussierbar, damit sich der Verlau
 Fokus öffnen lässt. Sendefunktionen und andere Schreibaktionen sind gesperrt.
 Serververhalten und Werkzeuggrenzen stehen in `core.md`.
 
-Modell und Reasoning-Tiefe des übergeordneten Koordinators lassen sich im Dropdown oberhalb des
+Modell und Reasoning-Tiefe des globalen Koordinators lassen sich im Dropdown oberhalb des
 Verlaufs einstellen. Dieselbe Komponente steht in den Einstellungen unter Modelle und beim
 Plugin `ragents.overseer`. Beide Ansichten teilen einen Zustand; erst eine bestätigte
 Serverantwort übernimmt die neue Auswahl. Während des Speicherns sind Auswahl und Senden
@@ -2176,13 +2202,13 @@ Darstellung enthält Theme und Run-Panel.
 Diese beiden Bereiche laden unabhängig vom technischen Beitragskatalog. Ein Fehler des
 Katalogabrufs blockiert deshalb nicht die vorhandenen Einstellungsformulare.
 
-Erweiterungen enthält das technische Beitragsinventar. "Nach Extension" zeigt links die
+Plugins enthält das technische Beitragsinventar. "Nach Plugin" zeigt links die
 Plugin-Kennungen und rechts deren Details. "Nach Fähigkeit" zeigt Werkzeuge, Prompts,
-Einstiege, Skills, Erweiterungen, Konfiguration und Web über ihre Eigentümer hinweg. Beide
+Vorlagen, Skills, Hooks, Konfiguration und Web über ihre Eigentümer hinweg. Beide
 Ansichten verwenden dieselben Detailkomponenten einschließlich Skill-Dateien. Laufzeit zeigt
 technische Übersichtsfakten, konfigurierte Modelle, Profile und Systemprompt. Diese Kataloge
 sind Leseansichten; neue Modellvorgaben werden im Bereich Modelle bearbeitet.
-Skill-Einstiege zeigen ihren einzelnen Prompt mit einer Kopieraktion.
+Skill-Vorlagen zeigen ihren einzelnen Prompt mit einer Kopieraktion.
 
 Die Einstellungsantwort enthält bei Werkzeugen optional die benötigten Ausführungsrechte
 als `requiredCapabilities`. Die Browserprüfung akzeptiert dieses Feld als Liste von Namen;
@@ -2190,58 +2216,58 @@ Werkzeuge ohne diese Angabe bleiben gültig. Unbekannte Werkzeugfelder, fehlende
 und ungültige Feldtypen werden weiterhin abgelehnt.
 
 Die Suche wirkt in beiden Ansichten auf die Beiträge und ihre Zähler; Fähigkeiten ohne Treffer
-zeigen einen Leerzustand. Die Extension-Ansicht behält zusätzlich den Filter nach Beitragsart.
+zeigen einen Leerzustand. Die Plugin-Ansicht behält zusätzlich den Filter nach Beitragsart.
 Beim Achsenwechsel bleiben Suchtext und die letzte Auswahl je Achse erhalten. Der direkte Link
-zu einer Extension öffnet deren vollständiges Inventar ohne Such- oder Beitragsfilter. Bei
+zu einem Plugin öffnet dessen vollständiges Inventar ohne Such- oder Beitragsfilter. Bei
 schmalen Fenstern stehen die Navigationspunkte in einer Zeile, die seitlich gescrollt werden kann.
 
-Das Run-Panel ist der zweite Einstieg der Web-App: `run-panel.html` (`apps/web/src/run-panel.tsx`)
+Das Run-Panel ist der zweite Einsprungpunkt der Web-App: `run-panel.html` (`apps/web/src/run-panel.tsx`)
 lädt denselben Plugin-Host wie `index.html` und zeigt einen Run als schmale Ansicht, die in einem
 Browserfenster ab 400 Pixeln Breite und im iframe eines fremden Hosts vollständig bedienbar ist.
 `?run=<id>` wählt den Run; ohne `run` zeigt das Run-Panel im Browser die Run-Liste, in der
 "Neuer Run" die erste Karte ist und dieselbe Startauswahl öffnet, und mit Run führt der
 Zurück-Pfeil links in der Kopfzeile auf sie zurück; im Host `vscode` zeigt es die Run-Liste nie
 (Abschnitt zur Erweiterung unten). `?layout=app&run=<id>&element=<id>` zeigt genau ein
-Canvas-Element in voller Größe. `PluginChat` erhält dafür ein `layout`: `workspace` (Kachelfläche und Werkstatt),
-`panel` und `{ element }`. Im Run-Panel bleiben die Sitzungs-Provider, die Kopfzeilenbeiträge
-(als Portal in die Titelleiste des Run-Panels), der Chat und die Arbeitsbereichs-Tabs; die
-Canvas-Leiste entfällt. Der Canvas-Beitrag (`WebPlugin.canvas`) kann neben `Center` ein `RunPanel` liefern, das
-denselben `CanvasCenterContext` erhält; ohne `RunPanel` zeigt das Run-Panel nur den Chat.
+Flächenelement in voller Größe. `PluginChat` erhält dafür ein `layout`: `workspace` (Fläche und Werkstatt),
+`panel` und `{ element }`. Im Run-Panel bleiben die Run-Provider, die Kopfzeilenbeiträge
+(als Portal in die Titelleiste des Run-Panels), der Chat und die Reiter der Leiste; die
+Flächenleiste entfällt. Der Flächenbeitrag (`WebPlugin.surface`) kann neben `Center` ein `RunPanel` liefern, das
+denselben `SurfaceCenterContext` erhält; ohne `RunPanel` zeigt das Run-Panel nur den Chat.
 
-Die Arbeitsbereichs-Tabs (`workspaceTabs`, `workspaceTabsFor`) stehen im Run-Panel als
+Die Reiter der Leiste (`workspaceTabs`, `workspaceTabsFor`) stehen im Run-Panel als
 Symbolleiste am rechten Rand (`RunPanelRail`, `apps/web/src/run-panel/`), unterhalb der
 Kopfzeile über die volle Höhe neben Chat und Mini-App-Bühne: je verfügbarem Reiter ein Knopf mit
 dem `Icon` des Beitrags, dem Namen als Tooltip und zugänglicher Beschriftung, dem Badge des
 Beitrags klein oben rechts und einem Punkt unten rechts, wenn seit dem letzten Besuch etwas
 Neues angekommen ist. Reihenfolge und Sichtbarkeit sind dieselben wie im Web
-(`registry.availableTabs`, also `readRight`, `requiresWorkspace` und `available`). Ein Klick öffnet die Tab-Fläche
-(`RunPanelWorkspace`) als Bereich unter dem Chat und der Bühne über die volle Breite des
+(`registry.availableTabs`, also `readRight`, `requiresWorkspace` und `available`). Ein Klick öffnet den Tab-Bereich
+(`RunPanelWorkspace`) unter dem Chat und der Bühne über die volle Breite des
 Run-Panels: ein waagerechter Griff, eine Kopfzeile mit dem Namen des Reiters und einem X,
 darunter das `Panel` des Beitrags mit demselben `WorkspaceTabContext` wie im Web. Der Knopf des
-offenen Reiters ist gedrückt (`aria-pressed`); ein erneuter Klick oder das X schließt die Fläche.
+offenen Reiters ist gedrückt (`aria-pressed`); ein erneuter Klick oder das X schließt den Bereich.
 Besuchte Reiter mit `keepMounted` bleiben verborgen gemountet und bekommen `active: false`,
-wie im Arbeitsbereich des Webs (`mountedTabs`). Offener Reiter und Höhe der Fläche liegen je Run
+wie in der Leiste des Webs (`mountedTabs`). Offener Reiter und Höhe des Bereichs liegen je Run
 im Browser-Speicher (`ragents.run-panel.workspace:<runId>` mit `{ tab, height }`; `tab: null`
-heißt geschlossen, Vorgabe 280 Pixel, mindestens 120, über der Fläche bleiben 160 Pixel für den
+heißt geschlossen, Vorgabe 280 Pixel, mindestens 120, über dem Bereich bleiben 160 Pixel für den
 Chat); ein anderer Wert ist ein harter Fehler. Der Griff ändert die Höhe mit der Maus und mit
 Pfeil hoch und runter in Schritten von 24 Pixeln. `PluginChat` führt für beide Layouts EINEN
 Reiterzustand: im Web den flüchtigen Reiter und den gespeicherten Aufklappzustand
 (`ragents.workspacePanelState:<runId>`), im Run-Panel den gespeicherten offenen Reiter; deshalb
-öffnet `SessionNavigation.openTab` auch im Run-Panel die Tab-Fläche mit dem verlangten Reiter,
-und `activeTabId` nennt ihn, solange sie offen und der Reiter verfügbar ist, sonst ist es leer.
+öffnet `SessionNavigation.openTab` auch im Run-Panel den Tab-Bereich mit dem verlangten Reiter,
+und `activeTabId` nennt ihn, solange er offen und der Reiter verfügbar ist, sonst ist es leer.
 Ein gemerkter Reiter, der gerade nicht verfügbar ist (etwa `Executions` vor der ersten
-Run-Ansicht), hält die Fläche geschlossen, bis er wieder verfügbar ist. Ohne verfügbaren Reiter
-gibt es weder Leiste noch Fläche; das Layout `app` (eine Mini-App im Editor-Reiter) hat beides
-nie. Der Chat meldet dem globalen Koordinator den Reiter der offenen Fläche als geöffneten
-Bereich, wie das Web den Reiter des aufgeklappten Arbeitsbereichs.
+Run-Ansicht), hält den Bereich geschlossen, bis er wieder verfügbar ist. Ohne verfügbaren Reiter
+gibt es weder Leiste noch Tab-Bereich; das Layout `app` (eine Mini-App im Editor-Reiter) hat beides
+nie. Der Chat meldet dem globalen Koordinator den Reiter des offenen Tab-Bereichs als geöffneten
+Bereich, wie das Web den Reiter der aufgeklappten Leiste.
 Die Kopfzeile des Run-Panels ist eine Zeile (`RunPanelHeader`): Titel, ein pulsierender Punkt
 während der Bearbeitung, das Aufmerksamkeitsabzeichen und ein Chevron; ein Klick auf den Titel
-öffnet die Kopfzeilenbeiträge der Plugins, die Sitzungs-Metadaten und die Startoptionen als
+öffnet die Kopfzeilenbeiträge der Plugins, die Run-Metadaten und die Startoptionen als
 Popover. Die Pop-outs des Run-Panels (Run-Details, Menü, Adressat) dunkeln wie das Sheet den Rest ab
 (`dim` am Popover-Baustein), damit sie sich absetzen. Rechts außen steht ein Menü (`RunPanelMenu`) mit Einstellungen (derselbe Dialog wie in
 der Web-App), im Host `vscode` "Im Browser öffnen" und bei angemeldetem Benutzer "Abmelden"; auch
 die Run-Liste ohne Run und die Kopfzeile des Ladezustands vor einem Run tragen es. `ragents.orchestration` liefert das Run-Panel (`web/run-panel/`): Mini-Apps sind die
-Canvas-Elemente mit `visible !== false`; genau eine bekommt die Bühne ohne Chipzeile und ohne
+Flächenelemente mit `visible !== false`; genau eine bekommt die Bühne ohne Chipzeile und ohne
 Überschrift, erst ab zwei erscheint eine Chip-Reihe darüber (ein `!` bei offener Host-Bestätigung
 oder Rückfrage des besitzenden Actors). Die Bühne zeigt die gewählte App mit
 `presentation: "tiled"`; ihr Knopf für die Mitte oder die Vollansicht erscheint erst beim Zeigen
@@ -2251,8 +2277,8 @@ Bis der Run Inhalt hat, steht im Chat statt des Verlaufs ein Ladezustand (`useRu
 `web/run-panel/run-panel-startup.ts`). Inhalt ist eine Mini-App oder ein Gesprächsbeitrag: eine
 Nachricht des Benutzers, eine Antwort mit Text oder Anhang, eine Rückfrage; Systemzeilen und
 Arbeitsschritte zählen nicht, denn schon die Vorbereitung des Arbeitsbereichs schreibt eine
-Systemzeile. Was dort steht, bestimmt dieselbe Logik wie auf der Kachelfläche
-(`canvasStartupState`): der Verbindungsaufbau, die Vorbereitung mit der Meldung des Servers, die
+Systemzeile. Was dort steht, bestimmt dieselbe Logik wie auf der Fläche
+(`surfaceStartupState`): der Verbindungsaufbau, die Vorbereitung mit der Meldung des Servers, die
 Arbeit der Actors, eine offene Rückfrage, ein gestoppter Run und als Fehler ein gescheiterter oder
 abgebrochener Aufbau oder ein nicht erreichbarer Run-Status, alles an derselben Stelle und in
 derselben Darstellung (`StartupNotice` in `apps/web/src/ui/startup-notice.tsx`: Titel, bei
@@ -2287,14 +2313,14 @@ Zugeschoben zeigt es immer nur Griff, eine Statuszeile und die Eingabe (die
 Statuszeile nennt eine offene Rückfrage, sonst was der Adressat gerade tut, sonst die letzte
 gesprochene Zeile mit Absender). Bei Maus darüber (nach der eingestellten
 Verzögerung, Vorgabe 160 Millisekunden), Fokus in der Eingabe oder Klick auf den Griff gleitet
-es auf die gewählte Höhe (standardmäßig 90 Prozent der Fläche) über die abgedunkelte Bühne; verlässt die Maus das Sheet, gleitet
+es auf die gewählte Höhe (standardmäßig 90 Prozent der verfügbaren Höhe) über die abgedunkelte Bühne; verlässt die Maus das Sheet, gleitet
 es nach der zweiten Verzögerung (Vorgabe 150 Millisekunden) zurück, nach Fokusverlust nach
 festen 220 Millisekunden. Escape, ein Klick auf die Bühne
 oder den Griff senken es sofort; ein offenes Pop-out oder der Fokus in der Eingabe halten es
 oben. Der Griff ist zugleich ziehbar: Hochziehen vergrößert die ausgeklappte Höhe,
 Herunterziehen verkleinert sie bis zum gemessenen Minimum aus Griff, Statuszeile,
 vollständiger Eingabe und Rahmen. Die Messung berücksichtigt auch mehrzeilige Eingaben.
-Die maximale Höhe beträgt 90 Prozent der Fläche. Während des Ziehens pausieren
+Die maximale Höhe beträgt 90 Prozent der verfügbaren Höhe. Während des Ziehens pausieren
 Automatik und Höhenanimation; danach bleibt der Chat auf der gewählten Höhe geöffnet.
 Beim Einklappen kehrt er immer zum gemessenen Minimum zurück. Ein Ziehen löst keinen
 anschließenden Klickwechsel aus. Pfeil hoch und runter verändern die ausgeklappte Höhe am
@@ -2312,7 +2338,7 @@ arbeitenden anderen Actor mit Spinner und wartenden Eingaben. Gewählte App, gew
 Actor, Ansicht (`chat`, `bottom` oder `side`), Chatbreite und ausgeklappte Sheet-Höhe liegen
 je Run im Browser-Speicher
 (`ragents.orchestration.run-panel:<runId>`); ein gespeicherter Zustand ohne Ansicht gilt als
-`side`, ohne Chatbreite als 380 Pixel und ohne ausgeklappte Sheet-Höhe als 90 Prozent der Fläche.
+`side`, ohne Chatbreite als 380 Pixel und ohne ausgeklappte Sheet-Höhe als 90 Prozent der verfügbaren Höhe.
 Die früheren Werte `auto` gelten als `side`, `floating`
 und `docked` als `bottom`, eine gespeicherte Bühnenhöhe wird übergangen; jeder andere Wert ist
 ein harter Fehler.
@@ -2321,7 +2347,7 @@ Das Run-Panel spricht über `apps/web/src/run-panel/host.ts` mit seinem Host. De
 (Standard) öffnet Links selbst und kennt keine Mitte; der Host `vscode` (`?host=vscode`, nur
 eingebettet) sendet `ready`, `runChanged`, `showStart`, `openInCenter`, `returnToRunPanel`, `login`, `logout`,
 `openExternal` und `openPage` per `postMessage` an das umgebende Fenster und nimmt von dort `selectRun`, `newRun`
-(mit vorbelegten Startoptionen und optional der Kennung eines Einstiegs, den die Startauswahl dann
+(mit vorbelegten Startoptionen und optional der Kennung einer Vorlage, die die Startauswahl dann
 gleich öffnet), `placements` (welche Elemente eines Runs in der Mitte liegen) und `theme` entgegen; der
 importfreie Vertrag steht in `run-panel/host-contract.ts`. Nach `newRun` im Host `vscode` fokussiert
 das Panel die sichtbare, schreibbereite Chat-Eingabe einmalig, bei Vorlagen nach erfolgreichem
@@ -2343,18 +2369,18 @@ Vorfahren neben der eigenen Herkunft die Webviews von VS Code (`https://*.vscode
 `vscode-file:`, `vscode-webview:`).
 
 Die VS-Code-Erweiterung unter `apps/vscode` ist ein solcher Host, und zwar für mehrere Server
-zugleich: jede konfigurierte **Umgebung** (ein Server oder ein lokales Profil) hat ihre eigene
-Sitzung mit Verbindung, Runs, Startvorlagen und Arbeitsplatz. "Umgebung" ist der Name in jedem
-sichtbaren Text; im Code heißen die Typen weiter `Target*`. Ohne gewählten Run zeigt das Panel in
-der zweiten Seitenleiste eine von drei Seiten - Start, Runs oder Umgebungen; sie sind eine eigene
+zugleich: jeder konfigurierte **Server** (ein RAgents-Server per Adresse oder ein lokales Profil) hat
+seine eigene Sitzung mit Verbindung, Runs, Vorlagen und Arbeitsplatz. "Server" ist der Name in jedem
+sichtbaren Text; im Code heißen die Typen `Connection*`. Ohne gewählten Run zeigt das Panel in
+der zweiten Seitenleiste eine von drei Seiten - Start, Runs oder Server; sie sind eine eigene
 Seite der Web-App (`panel.html`, `apps/web/src/panel/`), die ohne Server läuft und ihren Zustand als
 `PanelState` von der Erweiterung bekommt und ihre Aktionen als `PanelAction` zurückschickt. Mit
-gewähltem Run steht dort das Run-Panel seines Ziels als iframe; je Mini-App kommt ein Editor-Reiter
+gewähltem Run steht dort das Run-Panel seines Servers als iframe; je Mini-App kommt ein Editor-Reiter
 mit `layout=app` dazu. `PanelState.page` trägt deshalb vier Werte (`start`, `runs`, `run`,
-`environments`), und die Aktion `page` nur die drei, auf die das Panel selbst umschalten darf; mit
-`environment` gibt der Chip auf Start der Seite Runs ihre Umgebung mit, die Erweiterung reicht sie
-als `PanelState.runsEnvironment` zurück. Die Wege zwischen den Seiten und die Befehle (Start, Runs,
-Umgebungen, Neuer Run, Aktualisieren) stehen ausschließlich im `view/title`-Menü der Ansicht; die
+`connections`), und die Aktion `page` nur die drei, auf die das Panel selbst umschalten darf; mit
+`connection` gibt der Chip auf Start der Seite Runs ihren Server mit, die Erweiterung reicht ihn
+als `PanelState.runsConnection` zurück. Die Wege zwischen den Seiten und die Befehle (Start, Runs,
+Server, Neuer Run, Aktualisieren) stehen ausschließlich im `view/title`-Menü der Ansicht; die
 Seiten selbst tragen keine Symbole dafür (`panel/PanelHeader.tsx` hat nur Zurück-Pfeil und Titel,
 Start keine Kopfzeile), und die Befehle `ragents.showStart`, `ragents.showRuns` und
 `ragents.environments` wirken auch, während das iframe des Run-Panels steht. Einfügen, Kopieren und Ausschneiden führt das Run-Panel im Host `vscode` selbst
@@ -2371,20 +2397,20 @@ Textbearbeitung, IME und bereits behandelte Tasten bleiben im Chat. Normale Zeic
 nicht unterdrückt; Druck-, Such- und Speicher-Browserdefaults werden vor der Weitergabe verhindert.
 Die asynchrone Frame-Grenze liefert keine synchrone Rückmeldung über getroffene Belegungen;
 lokale Bearbeitungstasten haben deshalb Vorrang. Einen Explorer-Baum daneben gibt es nicht mehr: Start und
-Runs zeigen dieselben Umgebungen, Runs und Vorlagen flacher, und ein zweiter Navigationsbaum wäre
+Runs zeigen dieselben Server, Runs und Vorlagen flacher, und ein zweiter Navigationsbaum wäre
 eine zweite Wahrheit. Jede Sitzung spricht dieselbe
 Nachrichtenschicht mit demselben Client (`RpcClient` mit eigenem `fetch` und Bearer), hält ihren
 eigenen Ereignisstrom, meldet sich mit `POST /api/access/login` selbst an und liest ihre
-Startvorlagen aus `ragents.plugins.bootstrap` ihres Servers; Betrieb und Grenzen stehen in
-`docs/operations.md`.
+Vorlagen aus `ragents.plugins.bootstrap` ihres Servers; Bedienung und Grenzen stehen in
+`docs/usage.md`.
 
 **Ein Vokabular für alle Seiten.** Je Zustand gibt es genau ein Wort und genau ein farbiges Symbol;
 im Panel steht das Symbol, das Wort nur im `title`. Die Wörter liegen in
 `apps/web/src/ui/state-vocabulary.ts` (ohne React, damit die Erweiterung sie mitlesen kann), die
 Symbole und Farben in `ui/state-icon.tsx`. Ein Run läuft, wartet auf Eingabe (mit der Zahl offener
-Eingaben daneben), ruht, ist beendet, fehlgeschlagen oder abgebrochen; eine Umgebung ist verbunden,
+Eingaben daneben), ruht, ist beendet, fehlgeschlagen oder abgebrochen; ein Server ist verbunden,
 bereit, startet, verlangt eine Anmeldung, ist nicht erreichbar oder gestoppt, dazu gescheitert und
-kein Zugriff als die beiden Fehlerfälle. `panel/target-state.ts` bildet `TargetView` darauf ab: ein
+kein Zugriff als die beiden Fehlerfälle. `panel/connection-state.ts` bildet `ConnectionView` darauf ab: ein
 verbundenes lokales Profil ist **bereit**, ein verbundener Server **verbunden**. Kein Plugin-,
 Werkzeug- oder Mini-App-Name erscheint je als Zustand. Die Zeit ist kompakt und ohne "vor"
 (`ui/relative-time.ts`): `jetzt` unter einer Minute, dann `5 min`, `3 h`, `1 d`, `2 d`, ab sieben
@@ -2398,61 +2424,61 @@ und `RunPanelApp`, `ChatInputToolbar`, `ragents.processes` und der Menüeintrag 
 des ganzen Runs heißt überall "Run stoppen", das Unterbrechen des laufenden Turns im Chat "Arbeit
 stoppen".
 
-**Start** ist die Startseite und hat keine Kopfzeile. Die **Umgebungen** stehen als eigener Block
+**Start** ist die Startseite und hat keine Kopfzeile. Die **Server** stehen als eigener Block
 ganz oben, mit Zahl in der Überschrift, und filtern nicht: gleich breite Chips in einem Raster -
 zwei je Zeile bei 420 Pixeln, alle in einer ab 560 (Container-Query `@[560px]/panel`). Jeder Chip
 ist ein geteilter Knopf: der linke Teil ist ein `button` mit `aria-label`, Zustandssymbol, Name und
 einem Aktionswort in gedämpfter kleiner Schrift, das vom Zustand abhängt ("Anmelden" bei
 `login-required` und `forbidden`, "Erneut versuchen" bei `unreachable` und `failed`, "Starten" bei
 einem gestoppten Profil und "Verbinden" bei einem gestoppten Server, "Runs" bei `connected` und
-`ready` mit der Aktion `page` samt `environment`, "startet ..." bei `starting` als gesperrter
-Knopf); darunter in der Monoschrift der Zeit die Zielzeile aus `TargetView.route`
-(`panel/target-state.ts`, `routeLabel`): `lokal · <profil>`, der Host des Servers oder
+`ready` mit der Aktion `page` samt `connection`, "startet ..." bei `starting` als gesperrter
+Knopf); darunter in der Monoschrift der Zeit die Zielzeile aus `ConnectionView.route`
+(`panel/connection-state.ts`, `routeLabel`): `lokal · <profil>`, der Host des Servers oder
 `<host> · lokal`, wenn ein Server ein Client-Profil verteilt hat. Die Erweiterung liefert `route`
-aus der Verbindung und `TargetSnapshot.localHost`; die Seite rät nichts aus Pfaden oder Adressen.
+aus der Verbindung und `ConnectionSnapshot.localHost`; die Seite rät nichts aus Pfaden oder Adressen.
 Der rechte Teil ist das Plus hinter einer feinen Trennlinie: es schickt `newRun` mit dem
-`entryId` aus `TargetView.defaultEntry`, wenn das Profil der Umgebung einen Default-Einstieg nennt,
+`entryId` aus `ConnectionView.defaultEntry`, wenn das Profil des Servers eine Default-Vorlage nennt,
 sonst ohne `entryId` als leeren Chat; ohne Startrecht steht dort ein leerer Platzhalter gleicher
 Breite. Bei `failed`, `unreachable` und `forbidden` ist das Zustandssymbol ein eigener Knopf
-("Fehler von <Umgebung> anzeigen"), der ein `Popover` mit dem Zustandswort als Titel, der
-Meldung aus `TargetState.message` (`stateDetail`, dieselbe Quelle wie die Seite Umgebungen) und
+("Fehler von <Server> anzeigen"), der ein `Popover` mit dem Zustandswort als Titel, der
+Meldung aus `ConnectionState.message` (`stateDetail`, dieselbe Quelle wie die Seite Server) und
 den Knöpfen "Ausgabe öffnen" (Aktion `showOutput`, die Erweiterung zeigt den Kanal RAgents) und
 dem Aktionswort des Chips öffnet; das Popover überlebt den kurzen Zustand `connecting` eines
-automatischen Neuversuchs und schließt sich, sobald die Umgebung wieder ohne Fehler ist. Bei
-`login-required` öffnet das Schloss den Anmeldedialog ("Anmeldung an <Umgebung>"); in allen
+automatischen Neuversuchs und schließt sich, sobald der Server wieder ohne Fehler ist. Bei
+`login-required` öffnet das Schloss den Anmeldedialog ("Anmeldung an <Server>"); in allen
 anderen Zuständen hat das Symbol keine eigene Aktion. Der eigene Symbolknopf ist 32 Pixel breit
 und zentriert das Symbol; der anschließende Inhalt beginnt mit 8 Pixel Innenabstand. Darunter
 **Weiter** mit den letzten fünf Runs aller
-Umgebungen in `RunList` (`panel/RunLine.tsx`): ein CSS-Grid mit den Spalten Zustand, Titel, Zeit
-und ab zwei Umgebungen Umgebung, im Auswahlmodus davor das Kontrollkästchen; jede Zeile und ihr
+Server in `RunList` (`panel/RunLine.tsx`): ein CSS-Grid mit den Spalten Zustand, Titel, Zeit
+und ab zwei Servern Server, im Auswahlmodus davor das Kontrollkästchen; jede Zeile und ihr
 Knopf sind `grid-cols-subgrid`, damit die Spalten in allen Zeilen an derselben Kante stehen, und
-"Alle N Runs" führt auf die Seite Runs. Kann die Erweiterung die Laufansicht eines Runs nicht
+"Alle N Runs" führt auf die Seite Runs. Kann die Erweiterung die Run-Ansicht eines Runs nicht
 lesen, etwa wegen eines ungültigen Programmzustands, bleibt er als Zeile mit dem Grund stehen
-(`TargetRun.problem`, ein rotes Hinweissymbol mit Tooltip); die übrigen Runs, das Abzeichen und die
-Statusleiste bleiben davon unberührt. Darunter **Neu**, sobald eine Umgebung verbunden ist und
-neue Runs erlaubt: je solcher Umgebung zuerst die Kachel ihres Einstiegs - die Vorlage aus
-`TargetView.defaultEntry` mit dem Kennzeichen "Standard", ohne Default die Kachel "Neuer Chat"
+(`ConnectionRun.problem`, ein rotes Hinweissymbol mit Tooltip); die übrigen Runs, das Abzeichen und die
+Statusleiste bleiben davon unberührt. Darunter **Neu**, sobald ein Server verbunden ist und
+neue Runs erlaubt: je solchem Server zuerst seine Default-Vorlage - die Vorlage aus
+`ConnectionView.defaultEntry` mit dem Kennzeichen "Standard", ohne Default der Eintrag "Neuer Chat"
 (Kategorie "Ohne Vorlage", gestrichelte Kante, Plus-Symbol, `newRun` ohne `entryId`) -, danach
-alle übrigen Vorlagen aller Umgebungen flach als Kacheln, der Default nicht ein zweites Mal; die
-Zahl in der Überschrift zählt alle Kacheln. Eine Kachel zeigt Kategorie,
+alle übrigen Vorlagen aller Server flach, der Default nicht ein zweites Mal; die
+Zahl in der Überschrift zählt alle Einträge. Ein Eintrag zeigt Kategorie,
 Titel, zwei Zeilen Beschreibung, unten "Starten", bei einer Vorlage mit Leitfaden wie in der
-Web-App "Einrichten" (`TargetEntry.guided` aus `guide` der Vorlage), und rechts die Umgebung; Skill rund und
+Web-App "Einrichten" (`ConnectionEntry.guided` aus `guide` der Vorlage), und rechts den Server; Skill rund und
 `--primary`, Run-Script eckig und `--success`, das Raster
 `repeat(auto-fill, minmax(182px, 1fr))`. Eine Suche gibt es hier nicht, und `ListDetail` passt
 nicht, weil er sich nach eigener Breite misst und bei 420 Pixeln zur Liste mit Detailseite würde
 (Entscheidungen vom 19. und 21.09.2026).
 
-**Runs** ist dieselbe zusammengeführte Liste, nur vollständig: Suche über Titel und Umgebung,
-"Beendete ausblenden", der Umgebungsfilter aus `PanelState.runsEnvironment` als gedrückter Schalter
-mit dem Namen (ein Klick hebt ihn auf; die Seite wird je Umgebung neu aufgebaut) und ein
+**Runs** ist dieselbe zusammengeführte Liste, nur vollständig: Suche über Titel und Server,
+"Beendete ausblenden", der Serverfilter aus `PanelState.runsConnection` als gedrückter Schalter
+mit dem Namen (ein Klick hebt ihn auf; die Seite wird je Server neu aufgebaut) und ein
 Auswahlmodus mit Kontrollkästchen, der die Zahl in einer Leiste unten
 nennt und mehrere Runs nach einer Rückfrage im Dialog löscht. Das Löschen selbst ist Sache des
-Hosts: die Seite schickt `deleteRuns` je Umgebung mit den Kennungen, die Erweiterung ruft
-`ragents.sessions.delete` und frischt die Liste auf.
+Hosts: die Seite schickt `deleteRuns` je Server mit den Kennungen, die Erweiterung ruft
+`ragents.runs.delete` und frischt die Liste auf.
 
-**Die Startauswahl des Run-Panels braucht der Host `vscode` nur für Leitfäden.** Ein Klick auf eine Kachel schickt
-`newRun` mit `name` und `entryId`; die Erweiterung legt den Run auf dieser Umgebung an (Bindung
-`client` mit dem Arbeitsbereichsordner, außer die Vorlage legt den Arbeitsbereich selbst fest;
+**Die Startauswahl des Run-Panels braucht der Host `vscode` nur für Leitfäden.** Ein Klick auf eine Vorlage schickt
+`newRun` mit `name` und `entryId`; die Erweiterung legt den Run auf diesem Server an (gebunden an
+sich selbst als Arbeitsplatz mit dem Arbeitsbereichsordner, außer die Vorlage legt den Arbeitsbereich selbst fest;
 dann fragt sie auch nach keinem Ordner, `preselectable` in `overview-model.ts`), das Run-Panel
 setzt im Host `vscode` die Startoptionen, die die Vorlage nicht festlegt
 (`withoutFixedStartOptions`), ruft für ein Run-Script `ragents.chat.start` mit dem Startwert `null`
@@ -2464,18 +2490,18 @@ die Startauswahl mit dieser Vorlage (`initialEntryId`), darin `openStartEntry` m
 dessen Ergebnis der Startwert ist; nach dem Start öffnet sich das Run-Panel auf dem neuen Run, und
 Schließen führt zur Start-Seite. Ein Start zählt nur, solange er der laufende ist: ein späterer
 Klick auf eine Vorlage, ein freier Run, ein gewählter Run oder der Weg zurück lösen ihn ab, sein
-Ergebnis öffnet dann nichts mehr; ein schon angelegter Run bleibt in der Liste. Die Kachel "Neuer Chat" und das Plus einer
-Umgebung ohne Default schicken dasselbe ohne `entryId`; das Run-Panel öffnet dann sofort einen
-leeren Run, dessen Auftrag im Chat entsteht. Der Default-Einstieg kommt vom Server: `RunStore`
-liest `defaultStartEntry` aus `ragents.plugins.bootstrap` und lehnt einen ab, der nicht unter
-den gelieferten Vorlagen ist; `TargetSnapshot.defaultEntry` und `TargetView.defaultEntry` reichen
-ihn durch, die Seite rät nichts. `newRunChoices` in `overview-model.ts` macht ihn zur ersten
-Zeile seiner Umgebung im QuickPick von `ragents.newRun`.
+Ergebnis öffnet dann nichts mehr; ein schon angelegter Run bleibt in der Liste. Der Eintrag "Neuer Chat" und das Plus eines
+Servers ohne Default schicken dasselbe ohne `entryId`; das Run-Panel öffnet dann sofort einen
+leeren Run, dessen Auftrag im Chat entsteht. Die Default-Vorlage kommt vom Server: `RunStore`
+liest `defaultStartEntry` aus `ragents.plugins.bootstrap` und lehnt eine ab, die nicht unter
+den gelieferten Vorlagen ist; `ConnectionSnapshot.defaultEntry` und `ConnectionView.defaultEntry` reichen
+sie durch, die Seite rät nichts. `newRunChoices` in `overview-model.ts` macht sie zur ersten
+Zeile ihres Servers im QuickPick von `ragents.newRun`.
 Die Erweiterung zeigt dafür zuerst das Run-Panel ohne Run und schickt `newRun` danach, bei einem
 neu gebauten iframe erst auf dessen `ready`. Ohne gewählten Run zeigt das Run-Panel im Host
 `vscode` deshalb nie die Run-Liste, sondern unter derselben Kopfzeile wie ein Run (Zurück-Pfeil,
-Titel, Umgebungspille, Menü) den Ladezustand "Run wird gestartet"; schon das Laden des
-Produktprofils davor zeigt ihn in derselben Darstellung. Der Start einer Vorlage behält Kopfzeile,
+Titel, Serverpille, Menü) den Ladezustand "Run wird gestartet"; schon das Laden des
+Profils davor zeigt ihn in derselben Darstellung. Der Start einer Vorlage behält Kopfzeile,
 Darstellung und Stelle bei und nennt den Titel der Vorlage; das Run-Panel setzt den Ladezustand
 danach im Chat fort, bis der Run Inhalt hat, und der neue Run trägt bis zu seinem Eintrag in der
 Run-Liste den Titel seiner Vorlage beziehungsweise "Neuer Run". Scheitert der Start, stehen dort
@@ -2483,24 +2509,24 @@ der Grund und "Zur Start-Seite"; kommt binnen fünf Sekunden keine Startanforder
 "Kein Run gewählt" mit demselben Weg zurück statt eines endlosen Ladezustands.
 Die Kopfzeile des Run-Panels trägt links einen Zurück-Pfeil, der immer auf die Start-Seite führt
 (`showStart`, die Absicht statt ihrer Folge `runChanged`), dann den Run-Titel, rechts die
-Umgebungspille aus `?environment=`, das Zustandssymbol und den Stopp als Symbol.
-`StartSurface` ist der Weg des Browsers und im Host `vscode` der einer Vorlage mit Leitfaden.
-`TargetEntry` trägt dafür neben `id`, `title` und `description` auch `kind`, `category` und
+Serverpille aus `?environment=`, das Zustandssymbol und den Stopp als Symbol.
+`StartSelection` ist der Weg des Browsers und im Host `vscode` der einer Vorlage mit Leitfaden.
+`ConnectionEntry` trägt dafür neben `id`, `title` und `description` auch `kind`, `category` und
 `guided`; ein Run-Script darf in seiner `RUN.md`
 eine eigene `category` nennen, ohne eine steht es unter "Run-Scripts".
 
-**Umgebungen** ist die Seite, auf der eingerichtet wird: je Umgebung eine Zeile mit Symbol,
+**Server** ist die Seite, auf der eingerichtet wird: je Server eine Zeile mit Symbol,
 Name, Art, Adresse oder Profildatei (gekürzt, voller Pfad im Titel) und Zustandssymbol, dazu
 Verbinden und Trennen, Anmelden, Abmelden, Bearbeiten und Entfernen mit Rückfrage im Dialog, unten
-neben "Neue Umgebung" der Sprung in die `settings.json`. Ein
+neben "Neuer Server" der Sprung in die `settings.json`. Ein
 lokales Profil hat kein "Starten" und kein "Stoppen" mehr: die Erweiterung startet es beim
 Aktivieren still als Kindprozess, die Zeile zeigt nur "startet" und dann "bereit". Der Kindprozess
 bekommt neben `PRODUCT_PROFILE`, `PRODUCT_PROFILE_FILE` und `DATA_DIR` auch `RAGENTS_PARENT_PID`
 mit der Prozesskennung der Erweiterung. Beim geordneten Ende wartet `deactivate` darauf, dass alle
 Sitzungen getrennt und alle eigenen Hosts gestoppt sind, höchstens vier Sekunden, weil VS Code den
 Extension-Host beim Neuladen nur kurz räumen lässt; nach einem Absturz oder Force-Quit beendet sich
-der Host über seinen Wächter selbst (Abschnitt Produktprofile in [profiles.md](profiles.md)). Ein
-verwaister Host hielte sonst das Writer-Lock des Profilordners. Nichts davon ist ein Formular auf der Seite: "Neue Umgebung" und
+der Host über seinen Wächter selbst (Abschnitt Profile in [profiles.md](profiles.md)). Ein
+verwaister Host hielte sonst das Writer-Lock des Profilordners. Nichts davon ist ein Formular auf der Seite: "Neuer Server" und
 "Bearbeiten" öffnen denselben Dialog (`panel/PanelDialogs.tsx` auf `ui/dialog.tsx`) mit Umschalter
 Server / Lokales Profil, den Feldern, dem Fehler unter den Feldern und Abbrechen/Speichern; beim
 Profil wählt "Datei wählen ..." über den VS-Code-Dateidialog mit `defaultUri` auf den Host-Ordner,
@@ -2519,7 +2545,7 @@ Zeilennummern, optionale Anker `occurrence`, `nearLine` und `replaceAll`; `expec
 letzten `read` verhindert, dass etwas überschrieben wird, was seit dem Lesen entstanden ist),
 `write` und `bash`. `ls`, `grep`, `find` oder ein eigener Typecheck sind keine Werkzeuge, weil
 `bash` sie kann und die Sandbox keine Berechtigungsstufe unterhalb von Bash kennt. `git` läuft
-ohne Einschränkung im Session-Arbeitsverzeichnis; Zugangsdaten liefert ein Plugin über die
+ohne Einschränkung im Arbeitsverzeichnis des Runs; Zugangsdaten liefert ein Plugin über die
 Git-Umgebung der Sandbox (`SessionWorkspace.gitConfig`) an den Executor des Servers.
 
 Der **Executor** ist das Paket `packages/workspace-executor`, gebaut aus Modulen: jedes Modul
@@ -2548,24 +2574,24 @@ VS-Code-Erweiterung importieren dasselbe Paket, es wird nie zur Laufzeit nachgel
 Dieser Vertrag ist die einzige Naht zum Arbeitsbereich: `WorkspaceRuntime` löst je Run den
 Ordner auf, und `SandboxServices.execute(runId, operation, input, options)` ist der einzige Zugang
 der Plugins zu ihm. Wo eine Operation läuft, entscheidet allein die Bindung des Runs
-(`executorFor`): bei `fresh` und `path` im Executor des Servers, bei `client` in dem des
-Arbeitsplatzes. Die vier Werkzeuge, die Language-Server-Werkzeuge, der Reiter `Dateien`, die
+(`executorFor`): auf dem Server im Executor des Servers, auf einem Arbeitsplatz in dessen, gleich
+ob im neuen oder in einem vorhandenen Ordner. Die vier Werkzeuge, die Language-Server-Werkzeuge, der Reiter `Dateien`, die
 Prozessanzeige, die Browserprüfung und die Quelldatei von `typescript_eval` gehen alle diesen
 Weg; es gibt keinen Zweig
 "lokal oder entfernt" im Code eines Verbrauchers. Jede Methode und jeder Kanal, der von außen zum
 Arbeitsbereich eines Runs führt (Dateien des Arbeitsverzeichnisses, Prozessanzeige, Stand der
 Sprachserver), prüft vorher mit dem Hostdienst `workspaceGuardToken` Run und Zugang: einen Run, den
 nur sein Eigentümer bedient (`ownerOnly`), erreicht auch lesend nur dieser, gleich mit welchen Rechten
-(`run-workspace-owner-only`, 403). Dieselbe Regel entscheidet, welche Session-Metadaten mit
+(`run-workspace-owner-only`, 403). Dieselbe Regel entscheidet, welche Run-Metadaten mit
 `requiresWorkspace` die Run-Liste abfragt, und liefert je Run `workspaceAccessible` für die Oberflächen.
 Die Prüfung kennt keinen Arbeitsplatz, nur das Eigentum am Run;
 Werkzeuge, Lebenszyklus und die Arbeit des Runs selbst laufen in seinem Namen und brauchen sie nicht. Einen lokalen Griff auf den Ordner bekommt kein
-Plugin: bei `client` scheitert `currentRoot()` der `SessionWorkspace` laut mit Ursache, statt
+Plugin: auf einem Arbeitsplatz scheitert `currentRoot()` der `SessionWorkspace` laut mit Ursache, statt
 einen Pfad zu liefern, der auf dem Server benutzbar aussieht. Was wirklich auf
 dem Server läuft, die native Ausführung von `typescript_eval` und die Actor-Programme, bekommt mit
-`SandboxServices.serverProcessContextFor(runId)` einen ausdrücklich benannten Serverkontext: bei
-`fresh` und `path` denselben wie die Werkzeuge, bei `client` einen eigenen Ordner des Runs in der
-Session-Ablage (`plugins/ragents.workspace/server`), der beim ersten Bedarf entsteht, nie den Pfad
+`SandboxServices.serverProcessContextFor(runId)` einen ausdrücklich benannten Serverkontext: auf dem
+Server denselben wie die Werkzeuge, auf einem Arbeitsplatz einen eigenen Ordner des Runs in der
+Run-Ablage (`plugins/ragents.workspace/server`), der beim ersten Bedarf entsteht, nie den Pfad
 des Arbeitsplatzes. `typescript_eval` mit `path` liest seine Quelle über `files.read`: relativ zur
 Wurzel des Runs oder mit einem Alias wie `@actors/...` aus einer zusätzlichen Wurzel dieses
 Executors; der Executor eines Arbeitsplatzes kennt keine Aliasse, dort scheitert der Aufruf mit
@@ -2576,28 +2602,63 @@ den Ordner startet es nicht, und Pfade daran vorbei rechnet es nicht aus. Wer de
 Vertrag erfüllt, entscheidet damit für alle Plugins zugleich, wo der Ordner liegt und wer darin
 ausführt. `ragents.workspace` ist die Erfüllung in core; der
 optionale `WorkspaceResolver` (Abschnitt Zuständigkeit je Facette) ist der
-Haken, über den ein weiteres Plugin den Inhalt eines frischen Ordners oder eine eigene Art von
-Arbeitsbereich beisteuert. In core nutzt ihn kein Plugin.
+Haken, über den ein weiteres Plugin den Inhalt eines neuen Ordners, eine eigene Art von
+Arbeitsbereich auf dem Server oder den neuen Ordner auf einem Arbeitsplatz beisteuert. In core nutzt
+ihn kein Plugin.
 
-Wo der Ordner liegt, entscheidet die Bindung je Run: die Startoption `ragents.workspace.binding` von
-`ragents.workspace` mit dem Wert `{ kind: "fresh" }`, `{ kind: "path", path }` oder
-`{ kind: "client", client, label, path }` (`plugins/ragents.workspace/contract.ts`). Die Vorgabe ist
-`fresh`, der leere Ordner unter der Session-Ablage. `path` ist ein absoluter, beim Wählen
-vorhandener Ordner auf dem Serverrechner; der Run arbeitet direkt darin, und weder Stopp noch
-Löschen des Runs fassen ihn an. `client` ist der Ordner eines verbundenen Arbeitsplatzes des
-handelnden Benutzers; `accept` verlangt, dass dieser Benutzer den Client angemeldet hat und der
-Client den Ordner anbietet, und schreibt sein Label in den Wert, damit der Run ihn auch ohne
-Registry benennen kann. Ein fremder Arbeitsplatz verhält sich dabei wie ein nicht verbundener, und
-die Auswahl im Web (`describe`) nennt nur die Arbeitsplätze dessen, der sie abruft. Ein
-Arbeitsplatz, der die Registry verlassen hat, bleibt in der Auswahl als "Arbeitsplatz <label> (nicht
-verbunden)" stehen, solange die Bindung ihn nennt. Eine Bindung `client` erklärt die Option mit
-`ownerOnly` zu einem Run, den nur sein Eigentümer bedient, weil seine Werkzeuge auf dem Rechner und
-mit den Zugangsdaten dieses Eigentümers laufen; sein Journal lesen und ihn stoppen dürfen alle, die ihn
-sehen, seinen Arbeitsbereich nur er (oben).
-Die VS-Code-Erweiterung und der kopflose Arbeitsplatz (`pnpm workspace-client`) binden immer
-`client`, auch wenn der Server auf demselben Rechner läuft, außer eine Vorlage legt die Bindung fest
-(Plugin-Vertrag, Startoptionen); `path` und `fresh` bleiben für Runs ohne Arbeitsplatz (Web,
-`pnpm driver`, Container). Bei `client` ist der gebundene Ordner das ganze Arbeitsverzeichnis des
+Wo und worin ein Run arbeitet, entscheidet seine Bindung: die Startoption `ragents.workspace.binding`
+von `ragents.workspace` mit zwei getrennten Angaben, `{ machine, folder }`
+(`plugins/ragents.workspace/contract.ts`). `machine` ist der Rechner, `"server"` oder
+`{ client, label }` für einen verbundenen Arbeitsplatz; `folder` ist der Ordner, `"fresh"` für einen
+neuen je Run oder `{ path }` für einen vorhandenen. Alle vier Kombinationen gelten. Die Vorgabe ist
+der neue Ordner auf dem Server, der leere Ordner unter der Run-Ablage. Ein vorhandener Ordner auf
+dem Server ist ein absoluter, beim Wählen vorhandener Ordner des Serverrechners; der Run arbeitet
+direkt darin, und weder Stopp noch Löschen des Runs fassen ihn an. Ein Arbeitsplatz ist einer des
+handelnden Benutzers: `accept` verlangt, dass dieser Benutzer ihn angemeldet hat, bei einem
+vorhandenen Ordner, dass der Arbeitsplatz ihn anbietet, und schreibt sein Label in den Wert, damit der
+Run ihn auch ohne Registry benennen kann. Den neuen Ordner auf einem Arbeitsplatz hält `accept` mit
+seinem Pfad dort fest, `{ path, fresh: true }`: der Ordner mit der Kennung des Runs unter dem Ordner
+für Runs, den der Arbeitsplatz bei der Anmeldung nennt (`runsDirectory`, mit dessen Trennzeichen;
+VS-Code-Erweiterung und kopfloser Arbeitsplatz nehmen `runs` in ihrem Datenordner, unter macOS und
+Linux `~/.local/share/ragents/workspace/runs`). So bleibt die Auflösung ohne den Arbeitsplatz
+möglich und deterministisch. Auf dem Server hat ein neuer Ordner keinen gewählten Pfad; dort ist
+`{ path, fresh: true }` ungültig. Ein fremder Arbeitsplatz verhält sich wie ein nicht verbundener,
+und die Auswahl im Web (`describe`) nennt nur die Arbeitsplätze dessen, der sie abruft, dazu je
+Rechner, wie der neue Ordner dort heißt (`fresh.server`, `fresh.client`, `null` wo es keinen gibt),
+und ob ein vorhandener Ordner des Servers erlaubt ist. Ein Arbeitsplatz, der die Registry verlassen
+hat, bleibt in der Auswahl als "Arbeitsplatz <label> (nicht verbunden)" stehen, solange die Bindung
+ihn nennt. Jede Bindung an einen Arbeitsplatz erklärt die Option mit `ownerOnly` zu einem Run, den
+nur sein Eigentümer bedient, weil seine Werkzeuge auf dem Rechner und mit den Zugangsdaten dieses
+Eigentümers laufen; sein Journal lesen und ihn stoppen dürfen alle, die ihn sehen, seinen
+Arbeitsbereich nur er (oben).
+
+Den neuen Ordner auf einem Arbeitsplatz legt dessen Executor an, mit der Operation
+`runFolder.create` des Moduls für Ordner je Run; nur ein Executor, der einen Ordner für Runs kennt,
+hat es in Betrieb, der des Servers lehnt es mit `run-folder-unavailable` (409) ab. Der Host ruft sie
+vor dem ersten Auftrag des Runs in diesem Serverlauf, nie für Aufräumen (`whenReachable`), und lässt
+danach die Schritte eines Beitrags laufen (`WorkspaceResolver.workstation.prepare`), aber nur, wenn
+der Ordner eben erst entstanden ist; nach einem Neustart findet er ihn vor und ändert nichts.
+Scheitert ein Schritt, räumt `runFolder.remove` den Ordner wieder weg, und der nächste Auftrag
+beginnt neu. Das Löschen des Runs stoppt ihn, lässt die Schritte von `release` laufen und räumt den
+Ordner weg; ist der Arbeitsplatz dabei nicht erreichbar, bleibt der Ordner mit einem Hinweis im
+Protokoll liegen, und der Run ist trotzdem gelöscht. Der Arbeitsplatz selbst nimmt Aufträge nur in
+seinen angebotenen Ordnern an und im Ordner des Runs unter seinem Ordner für Runs, nie im Ordner
+eines anderen Runs; eine Kennung mit Pfadzeichen ist dort kein Ordnername.
+
+Journale sind unveränderlich, und ältere tragen die Bindung in der Form vor dieser Trennung,
+`{ kind: "fresh" }`, `{ kind: "path", path }` oder `{ kind: "client", client, label, path }`.
+`storedWorkspaceBinding` bildet jede davon beim Lesen auf genau eine heutige Kombination ab: neuer
+Ordner auf dem Server, vorhandener Ordner auf dem Server, vorhandener Ordner auf dem Arbeitsplatz.
+Das ist die einzige Stelle, die die alte Form kennt; Server, `ownerOnly` und Web lesen gespeicherte
+Werte nur über sie, `accept` und festgelegte Startoptionen nehmen nur die heutige Form an. Was keiner
+der beiden Formen entspricht, sperrt den Run mit der Ursache "Die gespeicherte
+Arbeitsbereich-Bindung ist ungültig".
+
+Die VS-Code-Erweiterung und der kopflose Arbeitsplatz (`pnpm workspace-client`) binden immer sich
+selbst mit einem angebotenen Ordner, auch wenn der Server auf demselben Rechner läuft, außer eine
+Vorlage legt die Bindung fest (Plugin-Vertrag, Startoptionen); den Server als Rechner wählen Runs
+ohne Arbeitsplatz (Web, `pnpm driver`, Container), den neuen Ordner auf einem Arbeitsplatz die
+Startauswahl. Auf einem Arbeitsplatz ist der gebundene Ordner das ganze Arbeitsverzeichnis des
 Runs und sein `cwd`: diesen Pfad nennt die Beschreibung des Arbeitsbereichs im Systemprompt, weil
 ein Ordner des Servers dort dem Agenten einen anderen Pfad nennen würde, als seine Werkzeuge
 benutzen. Für den Server ist er nur ein Name. Auf dem Server entsteht für einen solchen Run nur bei Bedarf der
@@ -2606,13 +2667,13 @@ eigenen Belange (`Workspaces.runtimeDirectory`, der `cwd` von `serverProcessCont
 Sitzung, ihre Einstellungen und Ressourcen und die Prüfung, dass ihr Ordner existiert. Einen Pfad
 für den Prompt bekommt sie nicht; den nennt allein die Beschreibung des Arbeitsbereichs. Ein angehängter Chat-Anhang, den das
 Modell mit seinen Dateiwerkzeugen lesen soll, geht über die Operation `files.attach` an den Executor
-des Runs und liegt unter `attachments/` im Arbeitsbereich, bei `client` also auf dem Arbeitsplatz.
-Actor-Programme behalten ihren eigenen Ordner unter der Session-Ablage. Die Auflösung scheitert nie
+des Runs und liegt unter `attachments/` im Arbeitsbereich, bei einem Arbeitsplatz also dort.
+Actor-Programme behalten ihren eigenen Ordner unter der Run-Ablage. Die Auflösung scheitert nie
 an einem fehlenden Client oder Ordner, weil der Server beim Start alle Arbeitsbereiche auflöst; erst
 der einzelne Werkzeugaufruf meldet `workspace-client-disconnected` (409) beziehungsweise
 `workspace-path-missing`. Der Prompt des Plugins sagt dem Agenten, dass ein Projektordner das echte
 Projekt des Benutzers ist; welche Bindung gilt, steht als Systemnotiz zu Beginn des Runs. Dieselbe
-Bindung liefert das Plugin als Session-Metadatum `ragents.workspace` (`binding`, `summary`) für
+Bindung liefert das Plugin als Run-Metadatum `ragents.workspace` (`binding`, `summary`) für
 Run-Liste und Kopfzeile.
 
 Ein Arbeitsplatz ist ein Client, der dem Server sein Dateisystem anbietet. Er meldet sich mit
@@ -2625,7 +2686,7 @@ angemeldeten Benutzer eines Profils mit `users` an; ohne Benutzer (offener Serve
 `anonymousUser`) gäbe es für alle Zugänge nur einen Besitzer, und jeder könnte Runs an den Rechner
 eines anderen binden. Dort gilt eine Anmeldung deshalb nur über eine Loopback-Verbindung
 (`MethodContext.local`), sonst scheitert sie mit `workspace-client-login-required` (403). Die
-VS-Code-Erweiterung meldet sich in diesem Fall nicht an und nennt den Grund an der Umgebung. `ragents.workspace.clients.unregister` meldet ab,
+VS-Code-Erweiterung meldet sich in diesem Fall nicht an und nennt den Grund am Server. `ragents.workspace.clients.unregister` meldet ab,
 `ragents.workspace.clients.list` zeigt den Stand: angemeldet ist, wer gerade verbunden ist. Endet
 die Verbindung, verlässt der Arbeitsplatz die Registry; nichts braucht den Eintrag danach, weil
 ein Run die Kennung in seiner Bindung trägt und die Wiederanmeldung ihn neu anlegt. Die Abmeldung
@@ -2702,7 +2763,7 @@ Wurzeln und keine Entscheidung je Pfad. `HOME` ist auf dem Arbeitsplatz das Home
 damit Git, SSH und NuGet mit seinen eigenen Zugangsdaten arbeiten; die `HOME`-Umleitung ist eine
 Eigenschaft des Executors im Container, nicht der Betriebsart. Wohin ein Sprachserver seine
 Protokolle und Zwischenstände legt, sagt der Kontext getrennt (`logDirectory`): im Server die
-Session-Ablage, auf dem Arbeitsplatz ein Ordner unter `os.tmpdir()`, nie das Home des Entwicklers.
+Run-Ablage, auf dem Arbeitsplatz ein Ordner unter `os.tmpdir()`, nie das Home des Entwicklers.
 
 Ein Bash-Ergebnis ist die Ausgabe des Befehls; ein Exit-Code ungleich null steht als letzte
 Zeile im Ergebnis (`Command exited with code N`) und ist kein Werkzeugfehler, etwa `grep` ohne
@@ -2710,9 +2771,8 @@ Treffer. Werkzeugfehler sind nur Start-, Zeitgrenzen- und Abbruchprobleme. `rage
 liefert dazu einen an `bash` gebundenen Promptbeitrag (`plugins/ragents.workspace/server/shell-platform.ts`):
 macOS mit BSD-Werkzeugen (`grep` ohne `-P`, `sed -i ''`), Linux mit GNU-Werkzeugen, Windows mit
 Git Bash (MSYS-Userland mit GNU-Werkzeugen, Windows-Pfade, CRLF); eine unbekannte Plattform ist
-ein Fehler, kein Ratetext. Genannt wird die Plattform des Executors, der den Run ausführt: bei
-`fresh` und `path` die des Servers, bei `client` die, die der Arbeitsplatz bei der Anmeldung
-gemeldet hat. Dafür darf ein Prompt-Beitrag ein `renderForRun(runId)` mitbringen; der Server
+ein Fehler, kein Ratetext. Genannt wird die Plattform des Executors, der den Run ausführt: auf dem
+Server die des Servers, auf einem Arbeitsplatz die, die er bei der Anmeldung gemeldet hat. Dafür darf ein Prompt-Beitrag ein `renderForRun(runId)` mitbringen; der Server
 ersetzt damit den einmal gerenderten Text je Run (`PromptContribution`,
 `PromptContributionRegistry.runOverrides`). Ist der gebundene Arbeitsplatz gerade nicht
 angemeldet, nennt der Beitrag genau das, statt eine Plattform zu raten. Der Executor im Server
@@ -2780,8 +2840,8 @@ statt Anzeige und Stopp scheitern zu lassen. Als root bleibt eine gesperrte Umge
 dem Hinweis auf CAP_SYS_PTRACE. Unter macOS zeigt `ps -E` die Umgebung von Programmen aus dem
 Systemvolume (`/bin`, `/usr/bin`, etwa `sleep`, `bash`, `sh`, `zsh`, `perl`, `ruby`) nicht; ein
 solcher Prozess, der einen Werkzeugaufruf überlebt, ist für die Tabelle keinem Run zuzuordnen
-(Offene Grenzen). `ragents.processes` fragt es über den Executor des Runs, bei
-`client` also auf dem Arbeitsplatz, und zeigt in der Kopfzeile eine volle Leistenfläche je Prozess
+(Offene Grenzen). `ragents.processes` fragt es über den Executor des Runs, bei einem Arbeitsplatz
+also dort, und zeigt in der Kopfzeile eine volle Leistenfläche je Prozess
 mit Art, Label und Port-Links: Hintergrundprozesse immer, Kinder eines laufenden Werkzeugaufrufs
 (direkte Kinder des Executor-Prozesses) nur mit offenem Port. Hintergrund ist an der gestrichelten
 rechten Trennlinie und im Tooltip erkennbar, nie an einer Farbe. Das ist eine Laufzeitressource,
@@ -2813,7 +2873,7 @@ zu dessen Leerzustand und nach dem Schließen zur Kopfzeilennavigation. Sind kei
 mehr vorhanden, entfällt die Anzeige. Escape und Hintergrundklick schließen den Dialog.
 
 Das Prozessplugin beendet einzelne Instanzen über ihre Snapshotreferenz aus PID und Startkennung.
-Der Executor des Runs prüft Laufzuordnung, Startkennung und UID vor jedem Signal erneut; die
+Der Executor des Runs prüft Run-Zuordnung, Startkennung und UID vor jedem Signal erneut; die
 Methode prüft Lese- und Schreibrechte und den Run vor dem Aufruf, und der Abbruch der Anfrage
 erreicht den Executor zwischen seinen Schritten. Der Prozess des Executors (Server oder
 Arbeitsplatz), dessen Vorfahren und PID 1 sind geschützt. Signale gehen ausschließlich an einzelne
@@ -2838,8 +2898,8 @@ Prozessreferenz.
 `ragents.workspace` trägt außerdem den rein lesenden Reiter `Dateien` bei: Arbeitsverzeichnis und
 Dateiablage eines Runs als Baum mit Textvorschau, ohne Schreiben und Löschen; die Methoden
 `ragents.workspace.browse.list` und `ragents.workspace.browse.preview` liefern Baum und Vorschau.
-Den Arbeitsbereich liest der Reiter über das Dateimodul des Executors des Runs, bei `client` also
-auf dem Arbeitsplatz, und die Ortsangabe nennt dann dessen Label und Pfad
+Den Arbeitsbereich liest der Reiter über das Dateimodul des Executors des Runs, bei einem Arbeitsplatz
+also dort, und die Ortsangabe nennt dann dessen Label und Pfad
 (`Arbeitsplatz <label>: <pfad>`). Die Dateiablage von `ragents.documents` liegt auf dem Server und
 gehört nicht zum Arbeitsbereich; der Server liest sie mit denselben Funktionen des Pakets direkt.
 Pfade sind relativ zur Wurzel, ohne `..` und nicht absolut; geprüft wird dort, wo gelesen wird, und
@@ -2981,7 +3041,7 @@ Diagnostik bleiben beim gemeinsamen Language-Server-Client.
 - Grenzen: Roslyn sieht F#-Projekte nur als gebaute DLL, FSAC C#-Projekte ebenso; ein neu
   angelegtes File kennt Roslyn erst, wenn sein Dateiwächter es gemeldet hat.
 
-<!-- guide:extensions -->
+<!-- guide:plugins -->
 ## Skills and starting tasks
 
 Skills belong to their plugin under `skills/<name>/SKILL.md`, with supporting files in the same
@@ -2998,7 +3058,28 @@ through `start: true`. Reusable instructions can also provide a short starting t
 in one skill. Clicking shows only the preview; adopting it opens the preparation chat. Parser
 tests verify files, starting tasks, tags, and publication, while `reference-run-scripts.test.ts`
 checks, tests, and installs every reference package against core.
-<!-- /guide:extensions -->
+<!-- /guide:plugins -->
+
+### Beispiel einer Skill-Vorlage
+
+```markdown
+---
+name: two-perspectives
+description: Zwei Perspektiven auf eine Aufgabe vergleichen.
+start: true
+title: Zwei Perspektiven
+disable-model-invocation: true
+category: Zusammenarbeit
+order: 10
+tags: Anwendungsfall, Konzeptdemo, Agententeams
+---
+Ich hätte gern zwei unterschiedliche Perspektiven auf meine Aufgabe und eine gemeinsame Empfehlung.
+```
+
+Die Datei liegt unter `skills/two-perspectives/SKILL.md`; Ordnername und `name` stimmen überein.
+Ohne eigenes `prompt`-Feld ist der Body zugleich der bearbeitbare Startauftrag. `tags` ist
+optional für allgemeine Plugins und Pflicht im Referenzkatalog; eine leere oder doppelte Angabe
+scheitert beim Einlesen.
 
 ## Referenzfälle aus ragents.reference
 
@@ -3009,26 +3090,26 @@ Integrationen gehören nicht zu diesem Katalog. Das Plugin gehört zum Profil `s
 andere Profil bei Bedarf in seiner Pluginliste auf.
 Die Beispiele haben zwei überlappende Blickrichtungen: Anwendungsfälle beginnen mit einer
 konkreten Aufgabe, Konzeptdemos machen eine Plattformfähigkeit gezielt beobachtbar.
-Jeder Skill-Einstieg beschreibt ein Ziel in einem kurzen, frei formulierten Prompt und zählt als
-ein Beispiel. Seine einzelne Kategorie steht in `category`, unabhängig von Konzept-Tags.
-Die `description` jedes Demo-Einstiegs nennt in kurzem Fließtext seinen Demonstrationszweck:
+Jede Skill-Vorlage beschreibt ein Ziel in einem kurzen, frei formulierten Prompt und zählt als
+ein Beispiel. Ihre einzelne Kategorie steht in `category`, unabhängig von Konzept-Tags.
+Die `description` jeder Demo-Vorlage nennt in kurzem Fließtext ihren Demonstrationszweck:
 welche Konzepte zusammenspielen und was dabei beobachtbar werden soll. Das gilt für Skills und
 Run-Scripts; bei ähnlichen Fällen benennt sie den Unterschied. Der Text steht direkt im
 vorhandenen Beschreibungsfeld und erscheint in Startauswahl und Referenz.
-Der Host besitzt keine feste Liste zulässiger Kategorien. Die Referenzkarten verwenden unter
+Der Host besitzt keine feste Liste zulässiger Kategorien. Die Referenzvorlagen verwenden unter
 anderem Mini-Apps, TypeScript ohne Oberfläche, Zusammenarbeit und Code und Diagnose. Die
 Mini-App-Gruppe enthält reine Views, gemeinsame Funktionen, LLM-Views, mehrere Ansichten
 eines Zustands und automatisch gesammelte Agentenantworten.
-Der Skill-Einstieg Balkon-Wizard fordert eine eigenständige App auf der Fläche an, die ein begrenztes
+Die Skill-Vorlage Balkon-Wizard fordert eine eigenständige App auf der Fläche an, die ein begrenztes
 Gespräch mit einem KI-Berater im Hintergrund vermittelt. Nach jeder Antwort bestimmt das LLM
 die nächste Frage anhand des bisherigen Gesprächs; eine feste Fragenliste erfüllt den Auftrag
 nicht. Antworten werden ausschließlich in der App eingegeben; nach fünf Antworten steht eine
 Gestaltungsempfehlung. Die App ist nicht in eine LLM-Chatkarte integriert.
-Die Karte verlangt gemeinsame Layout- und Formularbausteine sowie
+Die Vorlage verlangt gemeinsame Layout- und Formularbausteine sowie
 Fortschritt, Lade- und Fehlerzustände. Sie ist ein Auftrag zum Aufbau, kein vorinstallierter Wizard.
 
 Daneben bietet das Run-Script `balcony-wizard` ein vorbereitetes Demo derselben Aufgabe.
-Es erstellt ohne Koordinator einen Berater mit Modellprofil `standard` und leerer Werkzeugliste,
+Es erstellt ohne Koordinator einen Berater mit Rolle `standard` und leerer Werkzeugliste,
 bindet die eigene View an ihn und wählt ihn als Primary-Actor. Der Startknopf in der App
 beginnt das Interview; das Setup ruft noch kein Modell auf. Das Formular zählt fünf Antworten,
 der Berater bestimmt die Fragen und die abschließende Empfehlung. Fortschritt und fertige
@@ -3037,17 +3118,17 @@ Modellantworten lassen sich erneut anfordern, ohne eine weitere Benutzerantwort 
 Das Demo verwendet AppLayout, Stack und Form und besitzt kein Chat-Widget. Es ist ein konkretes
 Referenzpaket, keine fachliche Vorgabe an den allgemeinen Run-Builder.
 
-Die Konzeptzuordnung steht in `tags` der Einstiege: bei Skills und Run-Scripts im kommagetrennten
+Die Konzeptzuordnung steht in `tags` der Vorlagen: bei Skills und Run-Scripts im kommagetrennten
 Frontmatter, bei expliziten Beiträgen als Stringliste. Der Host behandelt alle Schlagworte gleich;
 er kennt keinen Referenzkatalog. Namen müssen nicht leer, eindeutig und ohne äußere Leerzeichen
 sein. Die UI zeigt die Schlagworte und verwendet sie für Suche und Auswahlfilter.
 Der Konzeptkatalog liegt ausschließlich in `plugins/ragents.reference/examples.ts`.
-Bedienbeispiele in `plugins/ragents.reference/walkthroughs.ts` ergänzen Konzepte außerhalb eines
-Run-Einstiegs, etwa den globalen Koordinator und die Wiederherstellung. Sie beschreiben konkrete
-Benutzerschritte und erwartetes Verhalten, registrieren aber keine zusätzlichen Run-Einstiege.
-Die erzeugte Referenz bildet daraus und aus den tatsächlichen Einstiegen die beiden
+Bedienbeispiele in `plugins/ragents.reference/walkthroughs.ts` ergänzen Konzepte außerhalb einer
+Vorlage, etwa den globalen Koordinator und die Wiederherstellung. Sie beschreiben konkrete
+Benutzerschritte und erwartetes Verhalten, registrieren aber keine zusätzlichen Vorlagen.
+Die erzeugte Referenz bildet daraus und aus den tatsächlichen Vorlagen die beiden
 Blickrichtungen und die Konzeptübersicht. `pnpm check:homepage` verlangt mindestens zwei
-Beispiele je Produktkonzept sowie gültige Zuordnungen. Für gewöhnliche Konzepte zählen Skill-Einstiege;
+Beispiele je Produktkonzept sowie gültige Zuordnungen. Für gewöhnliche Konzepte zählen Skill-Vorlagen;
 Startleitfäden, Run-Scripts, Bedienbeispiele und der Primary-Actor haben die im Katalog ausdrücklich
 angegebene Zählart. Ein gleiches Szenario als Skill und Script verdoppelt die Fachabdeckung nicht.
 Die Zuordnung ist eine redaktionelle Abdeckung, kein Nachweis erfolgreicher Modellläufe.
@@ -3063,7 +3144,7 @@ nichts. Die Scripts validieren Eingaben vor den ersten Capability-Aufrufen und v
 für den Run-Titel und die Agentenaufträge. Bei ausdrücklich übergebenem `null` gelten die im
 Paket beschriebenen Standardwerte. Der weitere Ablauf bleibt vom Modell gesteuert.
 `Moderierte Runde ohne Koordinator` demonstriert zusätzlich `coordinator: false` und einen
-anderen Primary-Actor. Zwei neutrale Skill-Einstiege führen eine Entscheidung beziehungsweise
+anderen Primary-Actor. Zwei neutrale Skill-Vorlagen führen eine Entscheidung beziehungsweise
 Lerneinheit als wiederverwendbare Arbeitsanweisungen im Chat, ohne einen programmierten Aufbau.
 
 ## Browserprüfungen
@@ -3084,8 +3165,7 @@ mit den Operationen `browser.open`, `browser.snapshot`, `browser.viewport`, `bro
 `browser.state` und `browser.close`; `stopRun` und `shutdown` des Moduls schließen den Browser,
 und nach `shutdown` startet das Modul keinen mehr, sondern lehnt jede Operation an der Seite mit
 Ursache ab.
-Bei `fresh` und `path` startet ihn also der Executor des Servers, bei `client` der des
-Arbeitsplatzes, und `localhost` meint die Maschine, auf der auch die geprüfte Anwendung läuft.
+Auf dem Server startet ihn also der Executor des Servers, auf einem Arbeitsplatz dessen, und `localhost` meint die Maschine, auf der auch die geprüfte Anwendung läuft.
 Die Server-Hälfte des Plugins behält Werkzeugbeschreibungen, Schemata, Skill, die Ablage der
 Aufnahmen, die Evidenz, den gewählten Viewport und den Lebenszyklus und ruft alles andere über
 `SandboxServices.execute`, bei einem Werkzeugaufruf mit dessen Kennung.
@@ -3160,8 +3240,8 @@ mit 200 ms Grenze je Auswertung; sie liefert den Weckgrund als Text oder nichts,
 ein Fehler. Ein Wächter mit gleicher Quelle, gleichem Ziel und gleicher Bedingung wird nicht
 doppelt angelegt; `watch_list` und `watch_remove` verwalten den Bestand. Die Definitionen stehen
 mit Grundlinie, Zähler und den letzten zehn Urteilen (Zeitpunkt, geweckt oder nicht, Grund,
-vorgelegte Änderungen) als Plugin-Zustand am Run im Journal und werden beim Vorbereiten einer
-Session neu kompiliert und wiederhergestellt.
+vorgelegte Änderungen) als Plugin-Zustand am Run im Journal und werden beim Vorbereiten eines
+Runs neu kompiliert und wiederhergestellt.
 
 Der beobachtete Stand ist deterministisch: Lebenszyklus des Quell-Actors, Zahl der beendeten
 Turns, Zustand und Grund des letzten Turns, wartende Eingaben, offene Fragen, der letzte
@@ -3282,21 +3362,21 @@ Recht) liefert das Archiv; ein anderer Stand ist 404. Die Gegenseite ist `ragent
   Executor fragt, ohne das zu erklären, erreicht auch fremde `ownerOnly`-Arbeitsbereiche. Bis die
   Run-Liste einen Run gemeldet hat, zeigen Web und VS Code seine Arbeitsbereichs-Reiter; der Server
   lehnt deren Zugriffe dann mit `run-workspace-owner-only` ab.
-- Die Kachelfläche ordnet nur an, was ihr Baum nennt. Neue Teilnehmer erscheinen nicht von
+- Die Fläche ordnet nur an, was ihr Baum nennt. Neue Teilnehmer erscheinen nicht von
   selbst, sondern bleiben in der Kopfzeile, bis ein Programm oder der Benutzer sie andockt. Ein
   Programmzustand mit den Altschlüsseln `nodes`, `shapes`, `lines` oder `mode` wird nicht
   umgerechnet: der Run meldet ihn und braucht einen Aufruf von `canvas_layout_replace` mit
   `root`.
-- Das Run-Panel kennt genau einen Canvas-Beitrag mit `RunPanel`; sein Zustand liegt je
+- Das Run-Panel kennt genau einen Flächenbeitrag mit `RunPanel`; sein Zustand liegt je
   Browser-Speicher, in VS Code also je Fenster. In der Ansicht "Nur Chat" wird die Mini-App
-  abgebaut; ihr flüchtiger Zustand überlebt den Wechsel nicht. Die Tab-Fläche liegt immer unter
-  Chat und Bühne über die volle Breite; eine Fläche neben dem Chat oder zwei offene Reiter gibt
+  abgebaut; ihr flüchtiger Zustand überlebt den Wechsel nicht. Der Tab-Bereich liegt immer unter
+  Chat und Bühne über die volle Breite; einen Bereich neben dem Chat oder zwei offene Reiter gibt
   es nicht. Run-Panel und Web merken sich ihre Reiter getrennt: derselbe Run kann im Web
   aufgeklappt und im Run-Panel geschlossen sein.
   Das Run-Panel in einem eigenen Bundle ohne iframe (Stufe 2 des Entwurfs) ist nicht gebaut und
   seit der Zwischenablage-Brücke auch nicht mehr nötig.
-  Ein lokales Profil der Erweiterung nennt seine Startvorlagen erst, wenn sein Host läuft; vor dem
-  Start kennt niemand die Einstiege, weil sie erst mit den registrierten Plugins entstehen.
+  Ein lokales Profil der Erweiterung nennt seine Vorlagen erst, wenn sein Host läuft; vor dem
+  Start kennt niemand die Vorlagen, weil sie erst mit den registrierten Plugins entstehen.
   Geholte Host-Fassungen räumt die Erweiterung nicht auf: jede bleibt unter
   `<globalStorage>/hosts/<fassung>/` liegen, rund 250 MB je Fassung, bis jemand den Ordner
   löscht.
@@ -3306,7 +3386,7 @@ Recht) liefert das Archiv; ein anderer Stand ist 404. Die Gegenseite ist `ragent
   "Kein Run gewählt", ein schon angelegter Run steht dann nur auf der Start-Seite. Die Run-Ansicht
   lädt unabhängig vom Chat; bis sie da ist, kann ein Run, dessen einziger Inhalt eine Mini-App
   ist, nach dem Verbinden kurz einen leeren Chat zeigen. Einen Ladezustand im Run zeigt nur ein
-  Canvas-Beitrag mit `RunPanel`; ohne ihn steht der leere Chat.
+  Flächenbeitrag mit `RunPanel`; ohne ihn steht der leere Chat.
 - Die Nachrichtenschicht kennt keine Batch-Anfragen und keinen WebSocket; über HTTP ist jede
   JSON-RPC-Antwort ein HTTP 200 mit `result` oder `error`, nur Transportfehler (kein JSON, zu
   groß, fremde Verbindung) tragen einen anderen Status. Stdio hat keine Anmeldung: wer den
@@ -3322,6 +3402,10 @@ Recht) liefert das Archiv; ein anderer Stand ist 404. Die Gegenseite ist `ragent
   dort gestartet hat, bis er erneut gestoppt wird oder der Arbeitsplatz sich abmeldet. Beim Abmelden
   endet der Executor, losgelöste Hintergrundprozesse eines Runs aber nicht; sie beendet erst ein
   Stopp dieses Runs.
+- Den neuen Ordner eines gelöschten Runs räumt der Server auf dem Arbeitsplatz nur weg, wenn der
+  dabei erreichbar ist; sonst bleibt er unter dem Ordner für Runs des Arbeitsplatzes liegen, ein
+  späteres Aufräumen gibt es nicht. Schritte eines Beitrags sind Operationen, die jeder Executor
+  kennt; eigenen Code bringt ein Beitrag nicht auf den Arbeitsplatz.
 - Auf einem Mac erkennt die Prozesstabelle den Run-Marker von Programmen aus dem Systemvolume
   nicht: `ps -E` zeigt ihre Umgebung nicht (SIP), gemessen für `/bin/sleep`, `/bin/bash`, `/bin/sh`,
   `/bin/zsh`, `/usr/bin/perl`, `/usr/bin/ruby` und `/usr/bin/tail`; Node, Homebrew-Programme und das
@@ -3345,5 +3429,5 @@ Recht) liefert das Archiv; ein anderer Stand ist 404. Die Gegenseite ist `ragent
   bemerkt; bis dahin kann er weitergelaufen sein.
 - Unter Windows brauchen `scripts/start.sh` und die übrigen Shellskripte des Repositorys Git
   Bash. Geprüft ist die Plattform nur in Unit-Tests, die sie simulieren (Shell-Auflösung,
-  Datenordner, Umgebung, Promptbeitrag, Ablehnung der Prozesstabelle); der echte Lauf steht in
+  Datenordner, Umgebung, Promptbeitrag, Ablehnung der Prozesstabelle); der echte Durchlauf steht in
   `TODO.md`.

@@ -27,7 +27,7 @@ export const defaultProfile = (): string => process.env.RAGENTS_PROFILE ?? DEFAU
 
 export const usage = (): string => `Verwendung: ragents <befehl> [argumente]
 
-  run <ordner> "<auftrag>" [--profile <p>] [--entry <einstieg>] [--json]
+  run <ordner> "<auftrag>" [--profile <p>] [--entry <vorlage>] [--json]
       Startet den Host des Profils, falls keiner läuft, legt einen Run mit Bindung path auf den
       Ordner an, schickt den Auftrag und wartet, bis der Turn endet.
   send <run> "<text>" [--profile <p>] [--json]
@@ -241,7 +241,7 @@ export const withLoginHint = async <T>(call: () => Promise<T>): Promise<T> => {
   }
 };
 
-/** Ein Einstieg richtet den Run erst ein und bestimmt dabei seinen Chatpartner; bis dahin lehnt der Server die Nachricht ab. */
+/** Eine Vorlage richtet den Run erst ein und bestimmt dabei seinen Chatpartner; bis dahin lehnt der Server die Nachricht ab. */
 const sendWhenChatReady = async (rpc: RpcClient, runId: string, text: string): Promise<void> => {
   const deadline = Date.now() + CHAT_READY_TIMEOUT_MS;
   for (let attempt = 0; ; attempt += 1) {
@@ -250,7 +250,7 @@ const sendWhenChatReady = async (rpc: RpcClient, runId: string, text: string): P
       return;
     } catch (error) {
       if (!(error instanceof RpcError) || error.domainCode !== "actor-chat-unsupported" || Date.now() >= deadline) throw error;
-      if (attempt === 0) note("== Der Einstieg richtet den Run ein; der Auftrag wartet auf seinen Chatpartner.");
+      if (attempt === 0) note("== Die Vorlage richtet den Run ein; der Auftrag wartet auf seinen Chatpartner.");
       await delay(POLL_INTERVAL_MS);
     }
   }
@@ -281,7 +281,7 @@ export interface FollowState {
 
 export const INITIAL_FOLLOW_STATE: FollowState = { inputId: undefined, turnId: undefined, outcome: undefined, reason: undefined };
 
-/** Verfolgt genau den Turn, den der eigene Text ausgelöst hat: Eingabe, Turn, Ende. */
+/** Verfolgt genau den Turn, der den eigenen Text bearbeitet, ob er ihn begonnen oder eingespeist bekommen hat: Eingabe, Turn, Ende. */
 export const advance = (state: FollowState, event: JournalEvent, text: string): FollowState => {
   const payload = event.payload;
   if (state.inputId === undefined) {
@@ -289,7 +289,7 @@ export const advance = (state: FollowState, event: JournalEvent, text: string): 
     return state;
   }
   if (state.turnId === undefined) {
-    if (event.type === "turn.started" && payload.inputId === state.inputId) return { ...state, turnId: String(payload.turnId) };
+    if ((event.type === "turn.started" || event.type === "turn.input-steered") && payload.inputId === state.inputId) return { ...state, turnId: String(payload.turnId) };
     return state;
   }
   if (payload.turnId !== state.turnId) return state;
@@ -370,7 +370,7 @@ const runCommand = async (command: Extract<AgentCommand, { kind: "run" }>, write
   const runId = randomUUID();
   const options = await withLoginHint(() => rpc.call(coreContracts.startOptions.list, { runId }));
   if (options.some((option) => option.id === WORKSPACE_BINDING_OPTION_ID)) {
-    await withLoginHint(() => rpc.call(coreContracts.startOptions.select, { runId, optionId: WORKSPACE_BINDING_OPTION_ID, value: { kind: "path", path: folder } }));
+    await withLoginHint(() => rpc.call(coreContracts.startOptions.select, { runId, optionId: WORKSPACE_BINDING_OPTION_ID, value: { machine: "server", folder: { path: folder } } }));
     note(`== Run ${runId} auf ${folder} (${baseUrl})`);
   } else {
     note(`== Run ${runId} (${baseUrl}); das Profil ${target.profile} kennt ${WORKSPACE_BINDING_OPTION_ID} nicht und legt seinen Arbeitsbereich selbst an, ${folder} bleibt ungebunden.`);

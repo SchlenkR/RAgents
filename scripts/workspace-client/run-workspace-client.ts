@@ -7,7 +7,7 @@ import { hostRoot } from "../../apps/server/src/host-version.ts";
 import { callerDirectory } from "../../apps/server/src/profile-target.ts";
 import { provisionWorkspace } from "../../apps/server/src/profile/provisioning.ts";
 import { workspaceClientTransport } from "../../plugins/ragents.workspace/client/transport.ts";
-import { WorkspaceClient } from "../../plugins/ragents.workspace/client/workspace-client.ts";
+import { WorkspaceClient, workstationRunsDirectory } from "../../plugins/ragents.workspace/client/workspace-client.ts";
 
 const usage = (): string => `Verwendung: [RAGENTS_TOKEN=<token>] pnpm workspace-client <server-url> [ordner ...] [--id <kennung>] [--label <name>]
 Meldet die Ordner als Arbeitsplatz beim Server an und führt dessen Aufträge mit dem Executor
@@ -72,6 +72,7 @@ const main = async (): Promise<void> => {
     hostname: host,
     platform: process.platform,
     folders,
+    runsDirectory: workstationRunsDirectory(),
   };
   const transport = workspaceClientTransport(parsed.serverUrl, process.env.RAGENTS_TOKEN);
   const client = new WorkspaceClient(transport, identity, {

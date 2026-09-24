@@ -1,6 +1,6 @@
-# Produktprofile und Konfiguration
+# Profile und Konfiguration
 
-## Produktprofile
+## Profile
 
 Das Repository bringt drei neutrale Profile mit: `core` ist die Werkstatt mit allen neutralen
 Plugins und ohne Beispiele, `showcase` dasselbe Profil samt dem Beispielplugin
@@ -62,21 +62,21 @@ Dienst-Secrets stehen als `env("ENV_NAME")`-Referenz in der Datei. Der eigene `u
 erlaubt Passwörter auf ausdrücklichen Wunsch auch im Klartext.
 
 Neben `config`, `users` und `anonymousUser` kann eine Profildatei einen vierten Export
-`defaultStartEntry` haben: die Kennung des Einstiegs, den ein neuer Run ohne Auswahl nimmt.
+`defaultStartEntry` haben: die Kennung der Vorlage, die ein neuer Run ohne Auswahl nimmt.
 
 ```ts
 export const defaultStartEntry = "ragents.reference.word-game";
 ```
 
-Der Wert ist ein String in der Form einer Einstiegkennung (`config-file.ts`,
+Der Wert ist ein String in der Form einer Vorlagenkennung (`config-file.ts`,
 `resolveDefaultStartEntry`); er wird nicht in die Umgebung materialisiert. Der Start prüft beim
 Versiegeln des `PluginHost` (`profile/compose.ts` gibt ihn als `defaultStartEntry` weiter), dass ein
-Plugin des Profils genau diesen Einstieg registriert hat, sonst bricht er mit der Liste der
-registrierten Einstiege ab. `ragents.plugins.bootstrap` liefert ihn als `defaultStartEntry` nur
-an Benutzer, für die der Einstieg freigegeben ist (`publicProfile`); ohne Freigabe fehlt das
+Plugin des Profils genau diese Vorlage registriert hat, sonst bricht er mit der Liste der
+registrierten Vorlagen ab. `ragents.plugins.bootstrap` liefert ihn als `defaultStartEntry` nur
+an Benutzer, für die die Vorlage freigegeben ist (`publicProfile`); ohne Freigabe fehlt das
 Feld, die übrigen Vorlagen bleiben. Die VS-Code-Erweiterung nimmt den Default für das Plus am
-Umgebungs-Chip, die erste Kachel unter Neu und die erste Zeile je Umgebung in `RAgents: Neuer
-Run` ([operations.md](../operations.md), Abschnitt Run panel and VS Code extension). `core`, `showcase` und
+Server-Chip, die erste Vorlage unter Start und die erste Zeile je Server in `RAgents: Neuer
+Run` ([usage.md](../usage.md), Abschnitt Run panel and VS Code extension). `core`, `showcase` und
 `developer` setzen keinen Default.
 
 Validiert wird gegen die EINE Wahrheit der deklarierten Deskriptoren, jetzt zweistufig. Schon der
@@ -97,9 +97,9 @@ blanken Namen in `process.env` materialisiert. Zwei Produkte mit gleichnamigen S
 deshalb je Variante eine eigene Datei.
 
 Das Profil `core` (Produkt-ID `ragents`) ist die neutrale RAgents-Variante. Es bootet ohne jedes
-produktspezifische Plugin mit einem Arbeitsbereich je Unterhaltung, der als Startoption gewählt
-wird (leerer Ordner, Ordner auf dem Server oder verbundener Arbeitsplatz), und ist damit
-zugleich der gelebte Entfernungstest: Chat, Koordinator, Orchestrierungsfläche,
+produktspezifische Plugin mit einem Arbeitsbereich je Run, der als Startoption gewählt
+wird (Rechner: Server oder verbundener Arbeitsplatz; Ordner: neu je Run oder vorhanden), und ist damit
+zugleich der gelebte Entfernungstest: Chat, Koordinator, Fläche,
 TypeScript-Actors, Dokumente und Rückfragen funktionieren ohne Fachplugin. Die neutralen Gegenstücke `ragents.product` (Koordinator, Modelle, Präambel) und
 `ragents.workspace` (Arbeitsverzeichnis je Run + Sandbox-Werkzeuge aus `plugin-support`) stellen die
 Pflichtverträge `ProductRuntime` und `WorkspaceRuntime`. Ein Profil mit eigener Art von
@@ -129,19 +129,19 @@ die Arbeit an einem Projekt: `ragents.orchestration`, `ragents.workspace`, `rage
 sondern einen `anonymousUser` mit allen Rechten, weil es auf dem eigenen Rechner läuft, und
 bezieht seine Modelle über OpenRouter aus `OPENROUTER_API_KEY`. Es ist das Vorgabeprofil der
 Agenten-Unterbefehle (`ragents run`, Abschnitt Control RAgents as an agent in
-[operations.md](../operations.md)) und die Vorlage für ein Ad-hoc-Profil: Datei kopieren,
+[usage.md](../usage.md)) und die Vorlage für ein Ad-hoc-Profil: Datei kopieren,
 umbenennen, Port, Produkt-Deskriptor, Plugins und Modelle ändern.
 
-`ragents.overseer` ergänzt den übergeordneten Koordinator im Kopf der Oberfläche. Das Plugin ist
-auch im Beispielprofil enthalten. Seine Unterhaltung
-und Laufreferenzen bleiben im jeweiligen Profildatenverzeichnis; der Zugriff übergreift keine
+`ragents.overseer` ergänzt den globalen Koordinator im Kopf der Oberfläche. Das Plugin ist
+auch im Beispielprofil enthalten. Sein Run
+und die Run-Referenzen bleiben im jeweiligen Profildatenverzeichnis; der Zugriff übergreift keine
 separat gestarteten Profile. Eine lokale Profildatei muss das Plugin ausdrücklich mit aufführen.
 
-Der übergeordnete Koordinator besitzt eine eigene, im jeweiligen Profildatenverzeichnis
-gespeicherte Modell- und Reasoning-Auswahl. Als anfängliche Vorgabe dient das Koordinatorprofil.
+Der globale Koordinator besitzt eine eigene, im jeweiligen Profildatenverzeichnis
+gespeicherte Modell- und Reasoning-Auswahl. Als anfängliche Vorgabe dient die Rolle `coordinator`.
 Die Produktvorgabe für den Run-Koordinator verwendet `high`.
-Bereits gespeicherte Modellauswahlen bleiben ausdrückliche Vorgaben. Als anfängliche Vorgabe verwendet das Relay-Profil dasselbe konfigurierte Modell und dieselbe
-Denktiefe wie das Koordinatorprofil. Ein Regressionstest prüft beide Profile gegen den echten Modellkatalog.
+Bereits gespeicherte Modellauswahlen bleiben ausdrückliche Vorgaben. Als anfängliche Vorgabe verwendet die Rolle `relay` dasselbe konfigurierte Modell und dieselbe
+Denktiefe wie die Rolle `coordinator`. Ein Regressionstest prüft beide Rollen gegen den echten Modellkatalog.
 Danach verwenden Settings und Koordinator-Chat dieselbe Plugin-Einstellung. Änderungen gelten
 ab dem nächsten Turn ohne Neustart und ändern weder die Startoptionen noch die Modelle anderer
 Runs. Die zulässige Auswahl stammt aus dem konfigurierten Modellkatalog und wird gegen die
@@ -164,8 +164,8 @@ den Fähigkeiten des jeweiligen Provider-Modells im eingebauten Laufzeitkatalog 
 Relay, aus dessen Aliaskatalog. Es gibt keine pauschale Liste pro Produkt. `AGENT_MODEL_REASONING` kann diese Auswahl ausdrücklich
 einschränken; unbekannte Modelle sowie ungültige oder doppelte Stufen sind Konfigurationsfehler.
 Der Server prüft den gesamten angebotenen Katalog zusätzlich gegen die tatsächlich geladene
-Modelllaufzeit und validiert alle Profilvorgaben vor der Nutzung. Beim Modellwechsel auf der
-Startfläche wird die konfigurierte bevorzugte Denktiefe verwendet, falls sie verfügbar ist,
+Modelllaufzeit und validiert alle Profilvorgaben vor der Nutzung. Beim Modellwechsel in der
+Startauswahl wird die konfigurierte bevorzugte Denktiefe verwendet, falls sie verfügbar ist,
 sonst die erste angebotene Stufe; die Auswahl ist vor dem Absenden sichtbar. Ausdrücklich
 übergebene ungültige Werte werden zurückgewiesen.
 
@@ -174,7 +174,7 @@ serverseitig angemeldeten Benutzers, und der Run merkt sich denselben Benutzer a
 Ohne Anmeldung verwenden die Produktvorgaben "Benutzer", und der Run bleibt ohne Eigentümer.
 Ein vorhandener Run behält seinen ursprünglichen Teilnehmer und Eigentümer; ein Loginwechsel
 schreibt das Journal nicht um. Der Run-Besitzer ist keine Festlegung auf den Rechner- oder Repositorybesitzer.
-Die allgemeinen Rechte und eine Einstiegsliste begrenzen einen Bedienerzugang;
+Die allgemeinen Rechte und eine Vorlagenliste begrenzen einen Bedienerzugang;
 neutrale Komponenten enthalten keine Produkt- oder Benutzerabfragen. Ist `MODEL_SELECTABLE`
 aktiv, bleiben freie Starts und technische Auswahl trotzdem an die jeweiligen Benutzerrechte
 gebunden. Ohne jede Quelle - weder Plugin-Ordner noch `SYSTEM_PROMPTS_DIR` - bleibt der Katalog
@@ -213,7 +213,7 @@ Ansage `{"ragents":{"url","token","pid"}}` für den Aufrufer; `--stdio` spricht 
 und stdout, ohne `--port` ohne HTTP, und beendet den Server, wenn die Eingabe endet. Bei `--stdio`
 und `--port 0` geht die Konsole nach stderr, damit stdout dem Protokoll gehört. Der Server bindet
 seinen Port, bevor er seine Plugins und Runs aufbaut, und beantwortet Anfragen erst danach; so nennt
-jede Adresse, die er beim Aufbau vergibt, etwa `RAGENTS_API_BASE_URL` des übergeordneten
+jede Adresse, die er beim Aufbau vergibt, etwa `RAGENTS_API_BASE_URL` des globalen
 Koordinators, auch bei `--port 0` den tatsächlich gebundenen Port. Ohne HTTP (nur `--stdio`) setzt
 er diese Variable nicht. Nennt der Aufrufer sich in `RAGENTS_PARENT_PID`, überwacht der Host diesen
 Prozess alle fünf Sekunden (`apps/server/src/parent-watch.ts`) und fährt geordnet herunter, sobald
@@ -296,21 +296,21 @@ geholten Stand notiert `connect` als `current.json` neben dem Cache (Server, Pro
 Profildatei, Datenordner); `ragents start <profil>` fährt genau ihn wieder hoch, ohne den Server
 zu fragen. Kein Eintrag und mehrere Server mit demselben Profilnamen sind Fehler mit der
 jeweiligen Liste. Die Modelle bezieht ein solches Profil in der Regel über das Relay des Servers
-(`AGENT_PROVIDER: "relay"`, oben im Abschnitt Produktprofile). Persönliche Werte wie den Relay-Token nennt das Client-Profil
+(`AGENT_PROVIDER: "relay"`, oben im Abschnitt Profile). Persönliche Werte wie den Relay-Token nennt das Client-Profil
 als `env(...)`, sie kommen aus der Umgebung des Entwicklers.
 
 ## Bearbeitbare Modellvorgaben
 
-Unter Einstellungen, Modelle stellt das aktive Produkt seine tatsächlichen LLM-Agentprofile
-bereit: in core `coordinator`, `relay` und `standard`. Pro Profil sind Modell und Denktiefe
-bearbeitbar. Das manuelle Profil gehört
+Unter Einstellungen, Modelle stellt das aktive Produkt seine tatsächlichen LLM-Rollen
+bereit: in core `coordinator`, `relay` und `standard`. Pro Rolle sind Modell und Denktiefe
+bearbeitbar. Die manuelle Rolle gehört
 nicht dazu. Anbieter, verfügbare Modelle und bewusst eingeschränkte Denktiefen stammen weiter
 aus der Profildatei und dem geprüften Modellkatalog; die Oberfläche ist kein Konfigurationseditor.
 
 Jede Rolle hat Modell und Denktiefe getrennt in der Profildatei: `AGENT_MODEL` und
-`AGENT_THINKING` für das Standardprofil, `AGENT_COORDINATOR_MODEL` und
+`AGENT_THINKING` für `standard`, `AGENT_COORDINATOR_MODEL` und
 `AGENT_COORDINATOR_THINKING` für `coordinator` und `relay`. Ein Produkt-Plugin kann weitere
-Rollen mit eigenen Schlüsseln anmelden; gespeicherte Profile lassen sich in den
+Rollen mit eigenen Schlüsseln anmelden; gespeicherte Rollen lassen sich in den
 Modelleinstellungen separat anpassen.
 Modell- und Denktiefenvorgaben bleiben getrennt; der Run überschreibt die Denktiefe beim
 Start nicht. Der Modellkatalog begrenzt die erlaubten Stufen je Modell.
@@ -318,8 +318,8 @@ Start nicht. Der Modellkatalog begrenzt die erlaubten Stufen je Modell.
 Die Vorgaben liegen unter `${DATA_DIR}/plugins/<produkt-plugin>/model-settings.json`.
 Jedes Produkt-Plugin besitzt seinen eigenen Store und seine eigenen Methoden
 `ragents.product.modelSettings.read` und `.save`. Lesen benötigt `settings.read`, Speichern
-zusätzlich `settings.write`. Ein Speichervorgang übermittelt alle tatsächlichen Agentprofile;
-fehlende, doppelte oder unbekannte Profile, nicht angebotene Modelle und unzulässige Denktiefen
+zusätzlich `settings.write`. Ein Speichervorgang übermittelt alle tatsächlichen Rollen;
+fehlende, doppelte oder unbekannte Rollen, nicht angebotene Modelle und unzulässige Denktiefen
 werden vor dem Schreiben zurückgewiesen. Die Datei wird atomar ersetzt.
 
 Fehlt die Datei, gelten die validierten konfigurierten Vorgaben. Beschädigte oder ungültige
@@ -336,7 +336,7 @@ eigene Auswahl ändert umgekehrt keine Vorgaben für neue Runs oder Agenten.
 
 Die Titelerzeugung ist ein Host-Dienst mit einer eigenen Modellwahl unter Einstellungen,
 Modelle, Überschriften. Sie verwendet den vorhandenen Laufzeitkatalog des konfigurierten
-`COMPACTION_PROVIDER`, unabhängig von `AGENT_MODELS` und den Agentprofilen. Wählbar sind
+`COMPACTION_PROVIDER`, unabhängig von `AGENT_MODELS` und den Rollen. Wählbar sind
 Modelle mit Texteingabe, die ausgeschaltetes Reasoning unterstützen. Die Titelausführung
 setzt Reasoning immer auf `off`; es gibt keine zusätzliche Denktiefenwahl.
 
@@ -388,7 +388,7 @@ the token from the profile and restarting the server revokes it.
 
 Permission names are exact strings; `*` grants all permissions. Without `users` or
 `anonymousUser`, access is unrestricted. An optional `anonymousUser` applies the same permissions
-and allowed start entries without a password. It cannot be combined with `users`. With sign-in
+and allowed templates without a password. It cannot be combined with `users`. With sign-in
 enabled and no valid session, all permissions are denied.
 <!-- /guide:access -->
 
@@ -415,7 +415,7 @@ und bei den beitragenden Plugins. `AccessContext.can`, `hasRight` und `accessMod
 dieselbe Prüfung. Ein `anonymousUser` begrenzt den Zugang auch ohne Anmeldung. Der öffentliche
 Snapshot enthält nur Anmeldemodus und Benutzer mit Kennung, Anzeigename und Rechten. Die
 Entwicklerreferenz erzeugt Namen, Host-Routenzuordnung und Verträge aus diesem Code und enthält
-geprüfte Beispiele für Leser, Bediener und eine eigene Extension.
+geprüfte Beispiele für Leser, Bediener und ein eigenes Plugin.
 
 Die Anmeldung verwendet Benutzerkennung und Passwort. Der Server hält eine undurchsichtige
 Anmeldesitzung zwölf Stunden im Speicher; das profilbezogene Cookie ist HttpOnly und SameSite=Lax.
@@ -455,13 +455,16 @@ never rewritten. Runs created without authentication have no owner and are visib
 `runs.read.all` when authentication is later enabled.
 
 The server enforces ownership on lists, methods, event channels, and file routes before opening a
-run. An inaccessible run responds like a missing one. A start option can additionally mark a run
+run. An inaccessible run responds like a missing one. Each signed-in user has a global coordinator
+of their own, reachable by nobody else, not even with `runs.read.all`; its tools act with that
+user's access and rights, and runs it creates belong to that user. Without sign-in there is exactly
+one coordinator. A start option can additionally mark a run
 as `ownerOnly`, as the workspace binding does for tools running on the owner's machine. Other
 users with visibility may still read its journal and stop it, but only its owner can send messages,
 answer actions, restart actors, or invoke operations requiring `runs.write`. Its workspace is the
 owner's alone even for reading: the workspace files in the Dateien tab, the process rail, and
-language-server state are refused to everyone else, including `runs.read.all` and the global
-coordinator's service identity (`run-workspace-owner-only`). The run list asks nothing from such a
+language-server state are refused to everyone else, including `runs.read.all`
+(`run-workspace-owner-only`). The run list asks nothing from such a
 workspace on their behalf, and web and VS Code hide what needs it; the Dateien tab then shows only
 the server's file store.
 
@@ -469,7 +472,7 @@ Only a signed-in user of a profile with `users` can register a workstation over 
 server without users (open, `ACCESS_TOKEN`, or `anonymousUser`) has one owner for every client, so it
 accepts a workstation only over a loopback connection and otherwise refuses with
 `workspace-client-login-required`. The VS Code extension then does not register and shows the reason
-on the environment.
+on the server.
 
 `runs.write` permits messages and app actions in existing owned runs. Free-form runs,
 preparation chats, and start options additionally require `runs.create`. Without it, a user can
@@ -483,45 +486,44 @@ removed on the server.
 ### Eigentum im Einzelnen
 
 Das Eigentum gilt für jeden Weg, einen Run anzulegen, auch für `ragents.overseer.createRun`:
-Eigentümer wird der aufrufende Benutzer, beim Dienstzugang des Hosts dessen Benutzer
-`host-service`. Die Rolle mit `*` hat `runs.read.all` automatisch. `run.created` führt neben dem
+Eigentümer wird der aufrufende Benutzer, beim Aufruf aus den Werkzeugen eines globalen
+Koordinators dessen Benutzer. Die Rolle mit `*` hat `runs.read.all` automatisch. `run.created` führt neben dem
 menschlichen Teilnehmer dessen `owner.userId`, der Serverzustand des Runs führt ihn als
-`ownerUserId`; die Laufansicht für Clients nennt ihn nicht. Auch ein Run aus der Zeit vor dieser
+`ownerUserId`; die Run-Ansicht für Clients nennt ihn nicht. Auch ein Run aus der Zeit vor dieser
 Regel hat keinen Eigentümer; ein Run ohne Eigentümer fällt keinem Bediener zu.
 
 Durchgesetzt wird das allein auf dem Server, nicht in der Oberfläche, für die Beiträge der
-Erweiterungen genauso wie für die des Hosts: Die Nachrichtenschicht prüft jede Eingabe mit `runId`
-und jede Adresse mit dem Abschnitt `runs/<kennung>`, der übergeordnete Koordinator löst seine
-Laufreferenzen nur über die Runs des Aufrufers auf, und auch der Oberflächenkontext einer
+Plugins genauso wie für die des Hosts: Die Nachrichtenschicht prüft jede Eingabe mit `runId`
+und jede Adresse mit dem Abschnitt `runs/<kennung>`, der globale Koordinator löst seine
+Run-Referenzen nur über die Runs des Aufrufers auf, und auch der Oberflächenkontext einer
 Nachricht darf keinen fremden Run nennen. Ein fremder Run antwortet mit `run-not-found` (Status
 404); eine geratene Kennung verrät also nicht, dass es den Run gibt. Eine Kennung, unter der noch
 kein Run liegt, bleibt frei: Sie gehört dem, der den Run unter ihr anlegt. Ein Profil ohne
 Anmeldung (`anonymousUser` oder ganz ohne Benutzerliste) hat genau einen Zugang und sieht alles.
-Die private lokale Dienstidentität des Hosts führt `runs.read.all` mit; die gemeinsame
-Unterhaltung des übergeordneten Koordinators bleibt von der Zugehörigkeit ausgenommen und behält
-ihre eigenen Rechte. Ein importierter Run behält den Eigentümer aus seinem Journal; stammt er von
+Jeder Benutzer hat seinen eigenen globalen Koordinator (`core.md`, Globaler
+Koordinator); dessen Kennung erreicht nur er, auch nicht `runs.read.all`, auch nicht, solange noch
+kein Run unter ihr liegt, und der Koordinator behält die Rechte seines Plugins. Ein importierter Run behält den Eigentümer aus seinem Journal; stammt er von
 einem Server ohne Anmeldung, ist er nach dem Import ein Run ohne Eigentümer.
 
 `ownerOnly` erklärt ein Plugin mit einer Startoption; in core tut das die Bindung an einen
 Arbeitsplatz, weil die Werkzeuge eines solchen Runs auf dem Rechner und mit den Zugangsdaten des
 Eigentümers laufen. Lesen und stoppen dürfen einen solchen Run alle, die ihn sehen, auch mit
-`runs.read.all`. Zum Bedienen gehören Nachrichten, Einstiege, Eingaben an einzelne Actors, der
-Neustart eines Actors, Antworten auf wartende Aktionen und jeder Beitrag einer Erweiterung,
+`runs.read.all`. Zum Bedienen gehören Nachrichten, Vorlagen, Eingaben an einzelne Actors, der
+Neustart eines Actors, Antworten auf wartende Aktionen und jeder Beitrag eines Plugins,
 dessen Vertrag `runs.write` verlangt. Jeder andere Zugang bekommt dafür `run-owner-only` (Status
 403); er sieht den Run, eine Tarnung als nicht vorhanden wäre hier falsch. Ein solcher Run ohne
 Eigentümer ist nur ohne Anmeldung bedienbar, denn dort gibt es genau einen Zugang, für den der
 Vorbehalt nicht greift. Der Kern kennt dabei nur diesen Zustand, kein Werkzeug und keinen
-Arbeitsplatz. Die Dienstidentität des Hosts gilt wie jeder andere Zugang, der nicht Eigentümer
-ist: Sie handelt für den Server und damit für jeden, der mit dem übergeordneten Koordinator
-spricht, nicht für den Eigentümer.
+Arbeitsplatz. Die Werkzeuge eines globalen Koordinators handeln als sein Benutzer; einen
+fremden solchen Run sehen und bedienen sie also genau so wenig wie dieser.
 
 ### Rechte im Einzelnen
 
 Ohne `runs.create` startet `ragents.chat.start` nur ein Run-Script aus `user.startEntries`;
-beliebige Texte, andere Einstiegkennungen und technische Startparameter sind gesperrt. Der
+beliebige Texte, andere Vorlagenkennungen und technische Startparameter sind gesperrt. Der
 Katalog enthält für diese Benutzer nur die freigegebenen Scripts. Die Auswahl gilt für neue
 Starts; bestehende eigene Runs bleiben zugänglich. `runs.delete` erlaubt, Runs samt ihren
-gespeicherten Daten zu löschen (`ragents.sessions.delete`).
+gespeicherten Daten zu löschen (`ragents.runs.delete`).
 
 `runs.inspect` schützt Modelle, Journal, Quellen, Werkzeuge und allgemeine technische Einsicht;
 Tabs und lesende Methoden prüfen dasselbe Recht. Ohne `runs.inspect` fehlen technische Reiter,
@@ -543,12 +545,11 @@ Details freizugeben.
 Einstellungen und globaler Koordinator behalten ihre eigenen Rechte. Diese Rechte ersetzen keine
 Ausführungssandbox für selbst geschriebenen nativen Code. Der globale Koordinator hat eigene
 Lese- und Schreibrechte; Änderungen seiner Modellwahl brauchen zusätzlich das Recht zum Schreiben
-von Einstellungen. Sein Arbeitsbereich verwendet eine private lokale Dienstidentität
-ausschließlich für die Verwaltungs-API und Hilfe. Sie darf Runs lesen, schreiben, frei starten
-und technisch einsehen, einen Run, den nur sein Eigentümer bedient, aber nur im Journal lesen und
-stoppen, nie seinen Arbeitsbereich;
-Einstellungen und globaler Reset sind darüber nicht erreichbar. Diese Identität ist kein
-Benutzerzugang und wird nicht an den Browser weitergegeben.
+von Einstellungen. Sein Arbeitsbereich erhält einen lokalen Token für den Zugang seines Benutzers,
+ausschließlich für die Nachrichtenschicht und Hilfe über Loopback; der Server löst ihn bei jedem
+Aufruf in den aktuellen Stand dieses Benutzers auf. Er hat damit genau dessen Rechte, keine
+weiteren, auch für Einstellungen und den eigenen Gesprächsreset; die Anmeldung ist darüber nicht
+erreichbar, und der Token geht nicht an den Browser. Ohne Benutzer, aber mit `anonymousUser` steht der Token für den anonymen Zugang.
 
 <!-- guide:access -->
 ## Function selection and actor grants
@@ -580,6 +581,12 @@ freigegebenen Bestand.
 - Benutzer werden in der Profildatei gepflegt; es gibt weder OAuth noch eine Benutzerverwaltung
   oder Passwortänderung in der Oberfläche. Anmeldesitzungen überleben keinen Serverneustart.
 - Benutzerrechte gelten für das gesamte Profil, nicht je Run oder Agentenwerkzeug.
+- Mit Benutzern hat der globale Koordinator keine Host-Shell. Seine TypeScript-Snippets laufen aber
+  wie alle Snippets als nativer Node-Prozess des Servers ohne eigene Systemkennung und könnten
+  Dateien des Datenverzeichnisses lesen, auch die Journale anderer Benutzer. Das ist die Grenze
+  jedes nativen Codes in Runs; schließen würde sie nur eine Systemkennung je Benutzer.
+- Die Modellwahl der Koordinatoren prüft beim Wechsel die Anhänge aller Koordinatorgespräche,
+  auch die eines früheren gemeinsamen oder eines entfernten Benutzers.
 - Die Provisionierung holt nur, was die Bundles eines Profils als `provision` exportieren;
   Voraussetzungen wie `dotnet` oder ein eigener Chrome bleiben Sache des Entwicklers und brechen
   den Start mit ihrer Anweisung ab. Zu Windows siehe `plugins.md`, Offene Grenzen.

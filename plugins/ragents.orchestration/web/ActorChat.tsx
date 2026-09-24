@@ -10,12 +10,12 @@ import type { RunActor, RunView } from "@ragents/web/run-view";
 
 const emptyMessages: readonly Message[] = [];
 
-export function ActorChat({ actor, view, presentation, surface = presentation, primaryMessages = emptyMessages, conversation, historyError, running = false, className, onNavigate, scrollerRef }: {
+export function ActorChat({ actor, view, presentation, display = presentation, primaryMessages = emptyMessages, conversation, historyError, running = false, className, onNavigate, scrollerRef }: {
   actor: RunActor;
   view: RunView;
-  presentation: "canvas" | "inspector";
+  presentation: "surface" | "inspector";
   /** Schlüssel der Anzeigefläche für den gemerkten Detailgrad; Default ist die Darstellung. */
-  surface?: string;
+  display?: string;
   primaryMessages?: readonly Message[];
   conversation?: readonly Message[];
   historyError?: string;
@@ -25,7 +25,7 @@ export function ActorChat({ actor, view, presentation, surface = presentation, p
   scrollerRef?: (element: HTMLDivElement | null) => void;
 }) {
   const inspect = useAccess().can("runs.inspect");
-  const steps = useChatSteps(view.id, actor.id, surface);
+  const steps = useChatSteps(view.id, actor.id, display);
   const renderTool = useToolRenderer();
   const renderAction = useActionRenderer();
   const configuredMode = steps.mode("agents");

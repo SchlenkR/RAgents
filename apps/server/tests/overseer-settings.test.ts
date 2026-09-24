@@ -151,7 +151,7 @@ test("a model change while busy applies to the next actual prompt and preserves 
   const live = new LiveBus();
   const scheduler = new TurnScheduler(runtime, journal, {
     drivers: { agent: driver }, catalog, live, workspaces: new FixedWorkspaces(directory),
-    modelSelection: (turn, actor) => settings.forTurn(runtime, actor.id, turn.turnId),
+    modelSelection: (turn, actor) => settings.forTurn(runtime, turn.runId, actor.id, turn.turnId),
   });
   const engine = { runtime, journal, scheduler, catalog, live, catalogModels: offered, startOptions: new StartOptionContributionRegistry(), inputCapabilities: (provider: string, model: string) => driver.inputCapabilities(provider, model) } as unknown as Engine;
   const session = new RunChatSession({
@@ -179,8 +179,9 @@ test("a model change while busy applies to the next actual prompt and preserves 
     assert.deepEqual(used, ["first"]);
     assert.equal(runtime.view("overseer").turns[0].id, firstTurnId);
     assert.deepEqual(await session.capabilities("primary", null), { input: ["text", "image"], model: `${provider}/second` });
-    await session.send("Zweite Frage");
     release.resolve();
+    await scheduler.waitForIdle();
+    await session.send("Zweite Frage");
     await scheduler.waitForIdle();
     assert.deepEqual(used, ["first", "second"]);
     assert.equal(priorAnswer, true);

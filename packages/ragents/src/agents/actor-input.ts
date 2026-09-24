@@ -49,6 +49,10 @@ const eventPayloads = {
         turnId: Type.String({ description: "ID des gestarteten Turns" }),
         inputId: Type.String(),
     }),
+    "turn.input-steered": payloadOf<"turn.input-steered">({
+        turnId: Type.String({ description: "Laufender Turn, in den der Input eingespeist wurde" }),
+        inputId: Type.String(),
+    }),
     "turn.finished": payloadOf<"turn.finished">({
         turnId: Type.String({ description: "ID des beendeten Turns" }),
         outcome: Type.String(),

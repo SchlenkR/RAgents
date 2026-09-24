@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Plugins and skills: public documentation for RAgents."><title>Plugins and skills - RAgents</title><link rel="alternate" type="text/markdown" href="guide-extensions.md"><style>/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
+<html lang="en" data-theme="light"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Plugins and skills: public documentation for RAgents."><title>Plugins and skills - RAgents</title><link rel="alternate" type="text/markdown" href="guide-plugins.md"><style>/*! tailwindcss v4.3.3 | MIT License | https://tailwindcss.com */
 :root, :host {
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -29,12 +29,12 @@
   --border-strong: #a397b2;
   --shell: #cbd6e4;
   --app: #dce3ed;
-  --canvas: #e8e2e6;
-  --canvas-dot: #79aab43b;
-  --canvas-glow-mint: #92cfbfad;
-  --canvas-glow-blue: #8bbfe5a6;
-  --canvas-light: #ffffffb3;
-  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
+  --surface: #e8e2e6;
+  --surface-dot: #79aab43b;
+  --surface-glow-mint: #92cfbfad;
+  --surface-glow-blue: #8bbfe5a6;
+  --surface-light: #ffffffb3;
+  --surface-backdrop: radial-gradient(ellipse at 48% 38%, #ffffff80, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #9ccfc5b3, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #9ec6e4b3, transparent 56%),
         radial-gradient(ellipse at 28% 0%, #c4b0dfb3, transparent 58%),
@@ -81,12 +81,12 @@
   --border-strong: #8e809f;
   --shell: #242e40;
   --app: #212632;
-  --canvas: #29232e;
-  --canvas-dot: #7cafbc30;
-  --canvas-glow-mint: #317d686b;
-  --canvas-glow-blue: #417daa80;
-  --canvas-light: #80bfc71f;
-  --canvas-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
+  --surface: #29232e;
+  --surface-dot: #7cafbc30;
+  --surface-glow-mint: #317d686b;
+  --surface-glow-blue: #417daa80;
+  --surface-light: #80bfc71f;
+  --surface-backdrop: radial-gradient(ellipse at 48% 38%, #64577333, transparent 48%),
         radial-gradient(ellipse at 4% 88%, #2c625e99, transparent 58%),
         radial-gradient(ellipse at 96% 12%, #355674a6, transparent 56%),
         radial-gradient(ellipse at 28% 0%, #59446f99, transparent 58%),
@@ -128,7 +128,7 @@
       <a href="index.html">Product</a>
       <a href="guide.html" aria-current="page">Guide</a>
     </nav>
-  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-extensions.html" aria-current="page">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Plugins and skills</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-extensions.html" aria-current="page">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Plugins and skills</h1><p>Choose the right extension form, connect contracts and prompts, and verify lifecycle and UI behavior.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#core-boundary">Core boundary</a><a href="#extension-guide">Extension guide</a><a href="#implementation-sequence">Implementation sequence</a><a href="#plugin-contract">Plugin contract</a><a href="#provide-functions">Provide functions</a><a href="#build-and-ship-a-plugin">Build and ship a plugin</a><a href="#skills-and-starting-tasks">Skills and starting tasks</a></nav></details><h2 id="core-boundary">Core boundary</h2>
+  </header><main class="shell" id="main"><div class="guide-layout"><aside class="guide-sidebar"><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html" aria-current="page">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></aside><details class="guide-mobile-nav"><summary>Guide: Plugins and skills</summary><nav class="guide-chapters" aria-label="Guide navigation"><a href="guide.html">Overview</a><div class="guide-nav-group"><p>Understand</p><a href="guide-ideas.html">Core ideas</a><a href="guide-runtime.html">Actors and messages</a></div><div class="guide-nav-group"><p>Use</p><a href="guide-getting-started.html">Get started</a><a href="guide-clients.html">Web and VS Code</a><a href="guide-distributed.html">Distributed work</a></div><div class="guide-nav-group"><p>Build</p><a href="guide-functions.html">Work with TypeScript</a><a href="guide-programs.html">Build mini-apps</a><a href="guide-plugins.html" aria-current="page">Plugins and skills</a></div><div class="guide-nav-group"><p>Access</p><a href="guide-access.html">Assign permissions</a></div></nav></details><article class="guide-body"><header class="guide-title"><p class="eyebrow"><a href="guide.html">Guide</a></p><h1>Plugins and skills</h1><p>Choose the right plugin form, connect contracts and prompts, and verify lifecycle and UI behavior.</p></header><details class="guide-page-nav"><summary>On this page</summary><nav aria-label="On this page"><a href="#core-boundary">Core boundary</a><a href="#plugin-guide">Plugin guide</a><a href="#implementation-sequence">Implementation sequence</a><a href="#plugin-contract">Plugin contract</a><a href="#provide-functions">Provide functions</a><a href="#build-and-ship-a-plugin">Build and ship a plugin</a><a href="#skills-and-starting-tasks">Skills and starting tasks</a></nav></details><h2 id="core-boundary">Core boundary</h2>
 <p>A plugin bundles a workspace capability such as file access, questions, or actor programs. It
 can contribute functions, prompts, skills, services, and an interface. A profile selects which
 plugins load together. The core provides <code>PluginHost</code> and typed registries but knows no
@@ -144,10 +144,10 @@ run and agent: one runs before every model call and may add a hidden note, the o
 tool call and may replace its result; the agent runtime behind them is not part of the plugin
 contract. HTTP routes, UI contributions, and host-wide services remain plugin facets outside an
 individual agent.</p>
-<h2 id="extension-guide">Extension guide</h2>
+<h2 id="plugin-guide">Plugin guide</h2>
 <p>Start with the domain result and the state that people and models need to share. Then choose the
-smallest existing extension form that fully supports the task. These strategies use the current
-functions, actor programs, language servers, and interfaces; they add no new extension mechanism.</p>
+smallest existing plugin form that fully supports the task. These strategies use the current
+functions, actor programs, language servers, and interfaces; they add no new mechanism.</p>
 <table>
 <thead>
 <tr>
@@ -253,12 +253,12 @@ technical inspection and enforce them on the server. Roles belong in configurati
 components check permissions, not user names.</p>
 <h3 id="7-develop-mini-apps-in-the-actual-host">7. Develop mini-apps in the actual host</h3>
 <p>The iframe constrains interaction, layout, and communication. Use shared controls and the
-declared function bridge. For a dialog spanning host surfaces, the app signals intent through a
+declared function bridge. For a dialog spanning host areas, the app signals intent through a
 function and the owning web-plugin contribution opens it in the correct area. Keep applied server
 state separate from unsent input. Unchanged polling responses must not overwrite drafts, and old
 responses must not replace newer state. Keep loading and errors visible during actions, and retain
 the last valid result after a failed request. Polling must neither overlap nor continue forever
-on hidden surfaces. Test Enter, buttons, focus, narrow tiles, and dialogs inside the real host
+in hidden areas. Test Enter, buttons, focus, narrow tiles, and dialogs inside the real host
 iframe; a render test alone does not prove native interactions work there.</p>
 <h3 id="8-choose-evidence-for-what-it-proves">8. Choose evidence for what it proves</h3>
 <p>Contract tests verify inputs, state transitions, and errors. Integration tests verify real
@@ -281,7 +281,7 @@ reference programs.</li>
 <li>Update this specification or the relevant neighboring chapter, record the reason in the
 decision log, and carry public changes into the guide.</li>
 </ol>
-<p>Contract examples are in the <a href="guide-extensions.html">extension guide</a>. The guide to
+<p>Contract examples are in the <a href="guide-plugins.html">plugin guide</a>. The guide to
 <a href="guide-programs.html">building mini-apps</a> covers packages, state, and views.</p>
 <h2 id="plugin-contract">Plugin contract</h2>
 <p>A plugin is a source folder named after its ID that keeps both halves and their assets together;
@@ -313,7 +313,7 @@ with exactly one entry point, <code>ragents-bundle.json</code>, and the profile 
 built-in plugins become bundles under <code>bundles/&lt;id&gt;/</code> with <code>pnpm build:plugins</code>. A source folder
 in the profile is a startup error that names the build command.</p>
 <h2 id="provide-functions">Provide functions</h2>
-<p>An extension registers functions with <code>defineRunFunction</code> and <code>host.functions</code>, including a
+<p>A plugin registers functions with <code>defineRunFunction</code> and <code>host.functions</code>, including a
 short <code>description</code>, optional <code>longDescription</code>, input and result schemas, and implementation.
 <code>label</code> is the human-readable name. The host derives <code>context.functions.&lt;name&gt;(input)</code> signatures
 from this data. Snippets and actor programs use the same catalog and execution. Availability and
@@ -421,4 +421,4 @@ through <code>start: true</code>. Reusable instructions can also provide a short
 in one skill. Clicking shows only the preview; adopting it opens the preparation chat. Parser
 tests verify files, starting tasks, tags, and publication, while <code>reference-run-scripts.test.ts</code>
 checks, tests, and installs every reference package against core.</p>
-<p class="guide-source">Source: <a href="../../docs/spec/plugins.md">docs/spec/plugins.md</a>. <a href="guide-extensions.md">This chapter as Markdown</a>.</p><p><a href="guide-access.html">Assign permissions</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide-programs.html">Previous: Build mini-apps</a><a href="guide-access.html">Next: Assign permissions</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>
+<p class="guide-source">Source: <a href="../../docs/spec/plugins.md">docs/spec/plugins.md</a>. <a href="guide-plugins.md">This chapter as Markdown</a>.</p><p><a href="guide-access.html">Assign permissions</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide-programs.html">Previous: Build mini-apps</a><a href="guide-access.html">Next: Assign permissions</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>

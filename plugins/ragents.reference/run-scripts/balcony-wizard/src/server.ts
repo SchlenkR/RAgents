@@ -20,7 +20,7 @@ export default defineActor(contract, {
     if (context.state.read().built) return;
     const catalog = await context.functions.model_list({});
     const profile = catalog.profiles.find((entry) => entry.driver === "agent" && entry.name === "standard");
-    if (!profile) throw new Error("Das Modellprofil standard fehlt.");
+    if (!profile) throw new Error("Die Rolle standard fehlt.");
     const advisor = await context.functions.agent_spawn({
       handle: "balcony-advisor", displayName: "Balkon-Berater", prompt, profile: profile.name, tools: [],
     });

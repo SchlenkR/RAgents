@@ -21,7 +21,7 @@ const registryWith = async (platform: string) => {
   const registry = new WorkspaceClientRegistry();
   await registry.register(
     CLIENT,
-    { label: "Laptop", hostname: "laptop", platform, folders: ["C:\\projekte\\werkstatt"] },
+    { label: "Laptop", hostname: "laptop", platform, folders: ["C:\\projekte\\werkstatt"], runsDirectory: "C:\\ragents\\runs" },
     WORKSPACE_EXECUTOR_VERSION,
     connection(),
   );
@@ -48,8 +48,8 @@ test("the prompt names the platform of the executor that runs the run", async ()
   const registry = await registryWith("win32");
   const prompt = shellPlatformPrompt("ragents.workspace.shell.prompt", 102, (runId) =>
     executorShellChapter(registry, "alice", runId === "auf-windows"
-      ? { kind: "client", client: CLIENT, label: "Laptop", path: "C:\\projekte\\werkstatt" }
-      : { kind: "path", path: "/projekte/werkstatt" }));
+      ? { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "C:\\projekte\\werkstatt" } }
+      : { machine: "server", folder: { path: "/projekte/werkstatt" } }));
   assert.equal(prompt.renderForRun?.("auf-windows"), shellPlatformChapter("win32"));
   assert.equal(prompt.renderForRun?.("auf-dem-server"), shellPlatformChapter(process.platform));
   assert.equal(await prompt.render({}), shellPlatformChapter(process.platform));
@@ -57,7 +57,7 @@ test("the prompt names the platform of the executor that runs the run", async ()
 
 test("the platform comes only from a workplace of the run owner, never from another user with the same id", async () => {
   const registry = await registryWith("win32");
-  const binding = { kind: "client", client: CLIENT, label: "Laptop", path: "C:\\projekte\\werkstatt" } as const;
+  const binding = { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "C:\\ragents\\runs\\run-1", fresh: true } } as const;
   assert.equal(executorShellChapter(registry, "alice", binding), shellPlatformChapter("win32"));
   assert.match(executorShellChapter(registry, "bob", binding), /Laptop.*not registered right now/s);
   assert.match(executorShellChapter(registry, null, binding), /Laptop.*not registered right now/s);
@@ -65,10 +65,8 @@ test("the platform comes only from a workplace of the run owner, never from anot
 
 test("an unregistered workplace is named instead of guessing a platform", () => {
   const chapter = executorShellChapter(new WorkspaceClientRegistry(), "alice", {
-    kind: "client",
-    client: CLIENT,
-    label: "Laptop",
-    path: "C:\\projekte\\werkstatt",
+    machine: { client: CLIENT, label: "Laptop" },
+    folder: { path: "C:\\projekte\\werkstatt" },
   });
   assert.match(chapter, /Laptop.*not registered right now/s);
 });

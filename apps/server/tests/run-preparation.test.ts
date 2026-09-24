@@ -292,8 +292,9 @@ const providerFixture = (t: TestContext) => {
   const provider = Object.create(RunSessionProvider.prototype) as InstanceType<typeof RunSessionProvider>;
   const preparations = new Map<string, { controller: AbortController; done: Promise<unknown> }>();
   Object.assign(provider, { sessions: new Map([["draft", session]]), runPreparations: preparations, deleted: new Set(), deleteRequested: new Set(),
-    deleting: new Map(), plugins: { optionalService: () => ({ preparationPrompt }) }, engine, modelRuntime: Promise.resolve(runtime),
-    titleCompactor: { shutdown: async () => {}, cancel: async () => {} }, listListeners: new Set(), sessionWorkspaces: new Map() });
+    deleting: new Map(), plugins: { optionalService: () => ({ preparationPrompt, isCoordinator: () => false }) }, engine, modelRuntime: Promise.resolve(runtime),
+    titleCompactor: { shutdown: async () => {}, cancel: async () => {} }, listListeners: new Set(), sessionWorkspaces: new Map(),
+    globalResets: new Map(), globalResetsRequested: new Set() });
   return { provider, response, started, streamSimple, session, engine, preparations };
 };
 
@@ -369,7 +370,7 @@ test("provider describes only visible runs, in parallel, and a silent or failing
   });
 });
 
-test("provider lists the current journal revision and leaves preparing sessions without one", async (t) => {
+test("provider lists the current journal revision and leaves preparing runs without one", async (t) => {
   const { engine, session, journal } = sessionFixture();
   t.after(() => { session.dispose(); journal.close(); });
   const run = engine.runtime.createRun({ commandId: "create-listed-run" }, {

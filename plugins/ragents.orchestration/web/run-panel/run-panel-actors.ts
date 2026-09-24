@@ -1,4 +1,4 @@
-import type { CanvasElementDefinition } from "@ragents/web/PluginRegistry";
+import type { SurfaceElementDefinition } from "@ragents/web/PluginRegistry";
 import { actorVisibleInHeader, type ActorHeaderMode } from "../actor-header-settings";
 import { chatPrimaryId, type RunActor, type RunView } from "@ragents/web/run-view";
 
@@ -17,7 +17,7 @@ export interface RunPanelActorFilter {
   selectedId: string | undefined;
 }
 
-/** Sichtbar nach der Actor-Anzeige des Canvas; der Koordinator und der gewählte Actor bleiben immer als Chip da. */
+/** Sichtbar nach der Actor-Anzeige der Fläche; der Koordinator und der gewählte Actor bleiben immer als Chip da. */
 export const partitionRunPanelActors = (actors: readonly RunActor[], filter: RunPanelActorFilter): { shown: RunActor[]; hidden: RunActor[] } => {
   const shown: RunActor[] = [];
   const hidden: RunActor[] = [];
@@ -35,5 +35,5 @@ export const pendingActionCount = (view: RunView, askedBy: string): number =>
   view.actions.filter((action) => action.status === "pending" && action.askedBy === askedBy).length;
 
 /** Ein Chip trägt ein Ausrufezeichen, wenn eine Host-Bestätigung oder eine Aktion des Actors auf eine Eingabe wartet. */
-export const elementNeedsAttention = (view: RunView | undefined, definition: CanvasElementDefinition, confirmationPending: boolean): boolean =>
+export const elementNeedsAttention = (view: RunView | undefined, definition: SurfaceElementDefinition, confirmationPending: boolean): boolean =>
   confirmationPending || (view !== undefined && definition.anchorActorId !== undefined && pendingActionCount(view, definition.anchorActorId) > 0);

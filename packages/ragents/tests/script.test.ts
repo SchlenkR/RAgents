@@ -36,7 +36,7 @@ const activeContext = (setup: ReturnType<typeof setupRun>, actorId: string) => {
 const stateOf = (setup: ReturnType<typeof setupRun>, actorId: string) => setup.runtime.view(setup.view.id).pluginStates.find((entry) =>
     entry.pluginId === actorStatePluginId && entry.scope.kind === "actor" && entry.scope.actorId === actorId)?.state;
 
-test("script actors journal only identity and execution while preserving delegation", () => {
+test("TypeScript actors journal only identity and execution while preserving delegation", () => {
     const setup = setupRun({grants: allGrants()});
     try {
         const actor = scriptActor(setup);
@@ -57,7 +57,7 @@ test("script actors journal only identity and execution while preserving delegat
     } finally { setup.journal.close(); }
 });
 
-test("both agent and script actors own intrinsic state without plugin write grants", () => {
+test("both agent and TypeScript actors own intrinsic state without plugin write grants", () => {
     const setup = setupRun();
     try {
         const script = scriptActor(setup);

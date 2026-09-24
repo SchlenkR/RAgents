@@ -9,8 +9,8 @@ import { syncDirectory } from "./durable-fs.ts";
 import type { CommandRecord, JournalCommand } from "./journal.ts";
 
 /** Rises whenever an older stand would reject newly written lines; the encoding is unchanged since 4, so 4 stays readable. */
-export const journalStorageVersion = 5;
-const readableJournalStorageVersions: readonly unknown[] = [4, journalStorageVersion];
+export const journalStorageVersion = 6;
+const readableJournalStorageVersions: readonly unknown[] = [4, 5, journalStorageVersion];
 export const journalPayloadThresholdBytes = 4096;
 
 type PayloadReference = { sha256: string; bytes: number };

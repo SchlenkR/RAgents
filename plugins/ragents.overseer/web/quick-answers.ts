@@ -38,7 +38,7 @@ export function createQuickAnswers() {
         pending = undefined;
         return notice;
       }
-      if (event.kind !== "extension" || event.pluginId !== OVERSEER_PLUGIN_ID || event.type !== "state-replaced") return;
+      if (event.kind !== "plugin" || event.pluginId !== OVERSEER_PLUGIN_ID || event.type !== "state-replaced") return;
       const payload = event.payload;
       if (!payload || typeof payload !== "object" || !("state" in payload)) return;
       if (!("scope" in payload) || !payload.scope || typeof payload.scope !== "object"

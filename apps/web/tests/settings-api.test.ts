@@ -14,7 +14,7 @@ const settings = (): SettingsResponse => ({
     host: { mode: "native", platform: "darwin", workingDirectory: "/tmp" },
     dataDirectory: "/tmp/data", workspace: { directoryPattern: "/tmp/runs" }, documents: null,
   },
-  models: [], profiles: [], promptContributions: [], plugins: [], agentExtensions: [], skills: [],
+  models: [], profiles: [], promptContributions: [], plugins: [], agentHooks: [], skills: [],
   systemPrompt: {
     scope: "product", content: "", finalPromptIsRunSpecific: true,
     composition: "", runtimeContracts: [],

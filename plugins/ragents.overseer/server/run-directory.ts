@@ -15,7 +15,7 @@ export class RunDirectory {
         try {
           const parsed: unknown = JSON.parse(await readFile(this.file, "utf8"));
           if (!Array.isArray(parsed) || !parsed.every((entry) => typeof entry === "string" && isRunId(entry))
-            || new Set(parsed).size !== parsed.length) throw new Error("Die Laufreferenzen haben ein ungültiges Format");
+            || new Set(parsed).size !== parsed.length) throw new Error("Die Run-Referenzen haben ein ungültiges Format");
           this.references = parsed;
         } catch (error) {
           if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
@@ -30,7 +30,7 @@ export class RunDirectory {
         await rename(`${this.file}.tmp`, this.file);
         this.references = references;
       }
-      return runs.map((run) => ({ ...run, reference: `Lauf ${references.indexOf(run.id) + 1}` }));
+      return runs.map((run) => ({ ...run, reference: `Run ${references.indexOf(run.id) + 1}` }));
     });
     this.pending = operation.catch(() => undefined);
     return operation;
@@ -44,6 +44,6 @@ export class RunDirectory {
     const matching = entries.filter((entry) => entry.title.toLocaleLowerCase("de") === wanted);
     if (matching.length === 1) return matching[0];
     const valid = (matching.length > 1 ? matching : entries).map((entry) => `${entry.reference}: ${entry.title}`).join(", ");
-    throw new DomainError(matching.length > 1 ? "ambiguous-run" : "run-not-found", `${matching.length > 1 ? "Der Lauftitel ist mehrdeutig" : "Der Lauf ist unbekannt"}. Verfügbare Läufe: ${valid || "keine"}`, matching.length > 1 ? 409 : 404);
+    throw new DomainError(matching.length > 1 ? "ambiguous-run" : "run-not-found", `${matching.length > 1 ? "Der Run-Titel ist mehrdeutig" : "Der Run ist unbekannt"}. Verfügbare Runs: ${valid || "keine"}`, matching.length > 1 ? 409 : 404);
   }
 }

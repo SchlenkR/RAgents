@@ -5,7 +5,7 @@ import { rpc } from "../rpc";
 
 const POLL_INTERVAL_MS = 5000;
 
-/** Die Run-Liste des Servers, live über den Sitzungskanal und als Sicherheitsnetz alle fünf Sekunden neu geladen. */
+/** Die Run-Liste des Servers, live über den Kanal ragents.runs und als Sicherheitsnetz alle fünf Sekunden neu geladen. */
 export function useSessionList(enabled: boolean): { sessions: SessionInfo[]; unreachable: boolean; refresh: () => Promise<void> } {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [unreachable, setUnreachable] = useState(false);
@@ -33,7 +33,7 @@ export function useSessionList(enabled: boolean): { sessions: SessionInfo[]; unr
   useEffect(() => {
     if (!enabled) return;
     void refresh();
-    const unsubscribe = rpc.subscribe(coreContracts.channels.sessions, {}, () => void refresh());
+    const unsubscribe = rpc.subscribe(coreContracts.channels.runs, {}, () => void refresh());
     const timer = setInterval(() => void refresh(), POLL_INTERVAL_MS);
     return () => { unsubscribe(); clearInterval(timer); };
   }, [enabled, refresh]);

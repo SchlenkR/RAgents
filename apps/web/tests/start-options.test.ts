@@ -50,7 +50,7 @@ test("eine Vorbelegung setzt nur wählbare, offene Optionen und ignoriert Unbeka
     option({ id: "ragents.model", locked: true }),
     option({ id: "test.hidden", selectable: false }),
   ];
-  const binding = { kind: "client", client: "vscode-notebook", label: "Notebook", path: "/work" };
+  const binding = { machine: { client: "vscode-notebook", label: "Notebook" }, folder: { path: "/work" } };
   assert.deepEqual(initialStartOptionUpdates(options, {
     "ragents.workspace.binding": binding,
     "ragents.model": "sonnet",
@@ -60,21 +60,21 @@ test("eine Vorbelegung setzt nur wählbare, offene Optionen und ignoriert Unbeka
   assert.deepEqual(initialStartOptionUpdates(options, {}), []);
 });
 
-test("was eine Vorlage festlegt, belegt niemand vor und die Startfläche zeigt es fest mit seinem Wert", () => {
+test("was eine Vorlage festlegt, belegt niemand vor und die Startseite zeigt es fest mit seinem Wert", () => {
   const option = (values: Partial<StartOptionState> & { id: string }): StartOptionState =>
     ({ owner: "test.plugin", value: null, presentation: null, selectable: true, locked: false, chosen: false, ...values });
-  const fixed = { "ragents.workspace.binding": { kind: "fresh" } };
-  const preselected = { "ragents.workspace.binding": { kind: "client", client: "vscode-notebook", label: "Notebook", path: "/work" }, "ragents.model": "fast" };
+  const fixed = { "ragents.workspace.binding": { machine: "server", folder: "fresh" } };
+  const preselected = { "ragents.workspace.binding": { machine: { client: "vscode-notebook", label: "Notebook" }, folder: { path: "/work" } }, "ragents.model": "fast" };
   assert.deepEqual(withoutFixedStartOptions(preselected, fixed), { "ragents.model": "fast" });
   assert.deepEqual(withoutFixedStartOptions(preselected, undefined), preselected);
 
   const options = [
-    option({ id: "ragents.workspace.binding", value: { kind: "path", path: "/srv" } }),
+    option({ id: "ragents.workspace.binding", value: { machine: "server", folder: { path: "/srv" } } }),
     option({ id: "ragents.model", value: "fast" }),
     option({ id: "test.hidden", selectable: false }),
   ];
   assert.deepEqual(shownStartOptions(options, fixed), [
-    { option: { ...options[0]!, value: { kind: "fresh" }, selectable: false }, fixed: true },
+    { option: { ...options[0]!, value: { machine: "server", folder: "fresh" }, selectable: false }, fixed: true },
     { option: options[1]!, fixed: false },
   ]);
   assert.deepEqual(shownStartOptions(options, {}).map(({ option }) => option.id), ["ragents.workspace.binding", "ragents.model"]);
@@ -83,8 +83,8 @@ test("was eine Vorlage festlegt, belegt niemand vor und die Startfläche zeigt e
 test("the preparation names a choice that contradicts what the template fixes, before the start refuses it", () => {
   const option = (values: Partial<StartOptionState> & { id: string }): StartOptionState =>
     ({ owner: "test.plugin", value: null, presentation: null, selectable: true, locked: false, chosen: true, ...values });
-  const fixed = { "ragents.workspace.binding": { kind: "fresh" }, "ragents.model": { model: "fast", thinking: "off" } };
-  const chosenPath = option({ id: "ragents.workspace.binding", value: { kind: "path", path: "/srv" } });
+  const fixed = { "ragents.workspace.binding": { machine: "server", folder: "fresh" }, "ragents.model": { model: "fast", thinking: "off" } };
+  const chosenPath = option({ id: "ragents.workspace.binding", value: { machine: "server", folder: { path: "/srv" } } });
   assert.deepEqual(conflictingStartOptions([
     chosenPath,
     option({ id: "ragents.model", value: { thinking: "off", model: "fast" } }),

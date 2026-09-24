@@ -8,7 +8,7 @@ Actors sollen neben ihren Werkzeugen die für ihren Auftrag tatsächlich vorhand
 kennen. Offen sind der knappe Bestand nicht als Werkzeug dargestellter Möglichkeiten, die
 Prüfung des endgültigen Driver-Werkzeugbestands und einige widersprüchliche Profil- und
 Skillanweisungen. Die geltende Auslieferung von Werkzeugübersicht, Detailverträgen und
-generierten Anleitungen steht in `docs/spec/plugins.md`, `run-modules.md` und
+generierten Anleitungen steht in `docs/spec/plugins.md`, `actor-programs.md` und
 `typescript-platform.md`; sie wird hier nicht nochmals entworfen.
 
 Es entsteht keine zweite Registry, Dokumentationsplattform oder Rechteverwaltung. Vorhandene
@@ -38,11 +38,11 @@ eigenen unmittelbar nutzbaren Aktionen unterscheiden.
 
 Zu prüfen ist die durchgängige Übereinstimmung zwischen der vom Scheduler erzeugten Übersicht
 und den schließlich vom Driver registrierten Werkzeugen. Der Scheduler verwendet das
-aufgelöste Toolset; Driver, Workspace-Anbindung und Agent-Extensions besitzen weitere
+aufgelöste Toolset; Driver, Workspace-Anbindung und Hooks besitzen weitere
 Registrierungspunkte. Ein statischer Profilkatalog allein belegt deren Übereinstimmung nicht.
 
 Die Prüfung soll normale Actors, exakte Teilmengen, Worker, dynamische Run-Werkzeuge,
-Workspace-Werkzeuge und Plugin-Extensions umfassen. Nicht erlaubte Funktionen dürfen weder als
+Workspace-Werkzeuge und Hooks der Plugins umfassen. Nicht erlaubte Funktionen dürfen weder als
 verfügbar erscheinen noch über einen Dokumentationszugang nutzbar werden. `tools: []` behält
 seine Isolation. Falls eine Abweichung besteht, ist sie an der vorhandenen Auflösung zu beheben,
 ohne einen zweiten Bestand einzuführen.
@@ -74,7 +74,7 @@ Abnahme der verbleibenden Arbeit:
 - Relevante installierte Programme und Views und nicht als Werkzeuge dargestellte Bausteine sind knapp und
   aus ihren tatsächlichen Quellen sichtbar; nicht zugängliche Inhalte bleiben ausgeschlossen.
 - Schedulerübersicht und endgültiger Driverbestand stimmen auch für exakte Teilmengen,
-  zusätzliche Workspace-/Extension-Werkzeuge und dynamische Run-Werkzeuge überein.
+  zusätzliche Workspace-/Hook-Werkzeuge und dynamische Run-Werkzeuge überein.
 - Profilanweisungen widersprechen weder einander noch der verfügbaren Werkzeugauswahl.
 - Skill-Bodies werden bei expliziter Auswahl und Vorladen nicht doppelt in dieselbe Anfrage
   eingebunden.

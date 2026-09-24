@@ -4,7 +4,7 @@ Status: Idee
 
 ## Ausgangspunkt
 
-Die gemeinsame Zustellung ist implementiert und in `docs/spec/run-modules.md` beschrieben:
+Die gemeinsame Zustellung ist implementiert und in `docs/spec/actor-programs.md` beschrieben:
 `useAppState()` bindet React an die Host-Bridge, der Provider übernimmt geänderte Actor-Zustände
 auch bei ruhendem Chat. Erfolgreiche Actor-Funktionen aus Views und Agentenwerkzeugen aktualisieren damit
 denselben Zustand; lokale Formularentwürfe bleiben erhalten.

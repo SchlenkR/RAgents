@@ -61,7 +61,7 @@ test("eine SecretStorage, die nicht antwortet, verhindert den Start nicht", asyn
   assert.match(lines.join("\n"), /SERVICE_TOKEN/);
 });
 
-test("die Seite Umgebungen bekommt genau die Namen ohne Wert, in der Reihenfolge der Einstellung", async () => {
+test("die Seite Server bekommt genau die Namen ohne Wert, in der Reihenfolge der Einstellung", async () => {
   const secrets = secretsOf({ [hostEnvironmentSecretKey("SERVICE_URL")]: "https://beispiel.invalid" });
   assert.deepEqual(await missingHostEnvironmentSecrets([], secrets), [], "ohne deklarierten Namen fehlt nichts");
   assert.deepEqual(await missingHostEnvironmentSecrets(["SERVICE_URL"], secrets), [], "ein gespeicherter Wert fehlt nicht");

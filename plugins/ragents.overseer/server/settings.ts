@@ -4,7 +4,7 @@ import path from "node:path";
 import { DomainError, isThinkingLevel, type CatalogModel, type ModelSelection, type Orchestration } from "@ragents/engine";
 import type { GlobalChatPolicy } from "@ragents/host/ragents/global-chat.js";
 import type { OverseerSettings } from "../contract.js";
-import { OVERSEER_PLUGIN_ID, OVERSEER_RUN_ID } from "../contract.js";
+import { OVERSEER_PLUGIN_ID } from "../contract.js";
 
 type Selection = ModelSelection & { thinking: NonNullable<ModelSelection["thinking"]> };
 type Model = CatalogModel & { input: readonly string[] };
@@ -31,7 +31,7 @@ export class OverseerModelSettings {
   };
 
   readonly selection = (): Selection => {
-    if (!this.current) throw new DomainError("overseer-model-unavailable", "Der übergeordnete Koordinator hat keine konfigurierte Modellauswahl.", 400);
+    if (!this.current) throw new DomainError("overseer-model-unavailable", "Der globale Koordinator hat keine konfigurierte Modellauswahl.", 400);
     return { ...this.validate(this.current) };
   };
 
@@ -53,9 +53,9 @@ export class OverseerModelSettings {
     return operation;
   }
 
-  readonly forTurn = (runtime: Orchestration, actorId: string, turnId: string): ModelSelection => {
+  readonly forTurn = (runtime: Orchestration, runId: string, actorId: string, turnId: string): ModelSelection => {
     const selection = this.selection();
-    runtime.replacePluginState({ actorId: runtime.view(OVERSEER_RUN_ID).ownerId, commandId: `overseer-model:${turnId}` }, OVERSEER_RUN_ID, {
+    runtime.replacePluginState({ actorId: runtime.view(runId).ownerId, commandId: `overseer-model:${turnId}` }, runId, {
       pluginId: OVERSEER_PLUGIN_ID, scope: { kind: "actor", actorId }, state: { turnId, ...selection },
     });
     return selection;

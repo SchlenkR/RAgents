@@ -95,7 +95,7 @@ const fixture = (runId: string, contributions: readonly StartOptionContribution[
       handle: "coordinator",
       displayName: "Koordinator",
       profile: "coordinator",
-      runTitle: "Neue Unterhaltung",
+      runTitle: "Neuer Run",
       ownerHandle: "owner",
       ownerDisplayName: "Owner",
     },
@@ -114,7 +114,7 @@ const fixture = (runId: string, contributions: readonly StartOptionContribution[
   return { journal, runtime, session, prepared };
 };
 
-/** Ein Script-Einstieg samt Paket, wie der Host ihn für den Start herausgibt. */
+/** Eine Script-Vorlage samt Paket, wie der Host sie für den Start herausgibt. */
 const scriptStartOf = (entry: PublicStartEntry | undefined): RunScriptStart | undefined => entry?.action === "script"
   ? { handle: "setup", coordinator: true, files: [{ path: "package.json", content: "{}" }], programs: [], entry }
   : undefined;
@@ -298,7 +298,7 @@ const cloningScript: PublicStartEntry = {
   title: "Klonen per Script", description: "Baut immer im Klon auf.", fixedStartOptions: { "test.workspace.source": "clone" },
 };
 
-test("a skill entry fixes its start option: the value holds, accepted for the user who starts the run", async () => {
+test("a skill template fixes its start option: the value holds, accepted for the user who starts the run", async () => {
   const seen: string[] = [];
   const runId = "fixed-skill";
   const { journal, session } = fixture(runId, [recordedSource(seen), modelStartOption(modelChoice(), "off")], [cloningSkill]);
@@ -337,7 +337,7 @@ test("a different choice before the start is a hard error with its cause, the sa
   }
 });
 
-test("a run script entry fixes its start option through the same place", async () => {
+test("a script template fixes its start option through the same place", async () => {
   const conflicting = fixture("fixed-script-conflict", [workspaceChoice, modelStartOption(modelChoice(), "off")], [cloningScript]);
   try {
     conflicting.session.selectStartOption("test.workspace.source", "empty", "alice");
@@ -359,7 +359,7 @@ test("a run script entry fixes its start option through the same place", async (
   }
 });
 
-test("a message names only a skill entry, and a started run keeps its value against a different entry", async () => {
+test("a message names only a skill template, and a started run keeps its value against a different template", async () => {
   const { journal, session } = fixture("fixed-started", [workspaceChoice, modelStartOption(modelChoice(), "off")], [cloningSkill, cloningScript]);
   try {
     for (const entryId of ["test.unknown", cloningScript.id]) {

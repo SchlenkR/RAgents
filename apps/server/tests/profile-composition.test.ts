@@ -120,7 +120,7 @@ test("die neutrale Showcase-Fixture komponiert echte Plugins und Ordnerbeiträge
   assert.equal(profile.startEntries.filter((entry) => entry.action === "skill").length,
     folderSkills(pluginFolder("ragents.reference"), "ragents.reference").startEntries.length);
   const globalSkills = (await host.skills.global()).map((skill) => path.basename(skill));
-  assert.deepEqual(profile.startEntries.filter((entry) => entry.action === "skill").map((entry) => entry.skill).filter((skill) => !globalSkills.includes(skill)), [], "jeder Skill-Einstieg braucht seinen registrierten Skill");
+  assert.deepEqual(profile.startEntries.filter((entry) => entry.action === "skill").map((entry) => entry.skill).filter((skill) => !globalSkills.includes(skill)), [], "jede Skill-Vorlage braucht ihren registrierten Skill");
   assert.deepEqual(
     profile.startEntries.filter((entry) => entry.action === "script").map((entry) => entry.id),
     ["ragents.reference.shared-actor-list", "ragents.reference.conversation-circle", "ragents.reference.moderated-round", "ragents.reference.balcony-wizard", "ragents.reference.learning-afternoon", "ragents.reference.word-game"],
@@ -145,11 +145,11 @@ test("eine reduzierte Fixture entfernt optionale Actor-Programm- und Referenzbei
   assert.equal(profile.startEntries.some((entry) => entry.owner === "ragents.reference"), false);
 });
 
-test("der Default-Einstieg der Profildatei muss ein registrierter Einstieg sein und steht dann im Bootstrap", async () => {
+test("die Default-Vorlage der Profildatei muss eine registrierte Vorlage sein und steht dann im Bootstrap", async () => {
   const host = await composed(showcaseFixture, "ragents.reference.word-game");
   assert.equal(host.publicProfile().defaultStartEntry, "ragents.reference.word-game");
   assert.equal("defaultStartEntry" in (await composed(showcaseFixture)).publicProfile(), false);
-  await assert.rejects(composed(minimalFixture, "ragents.reference.word-game"), /defaultStartEntry ragents\.reference\.word-game ist kein registrierter Einstieg/);
+  await assert.rejects(composed(minimalFixture, "ragents.reference.word-game"), /defaultStartEntry ragents\.reference\.word-game ist keine registrierte Vorlage/);
 });
 
 test("jedes Plugin trägt sein requires aus dem Modulvertrag ins Manifest", async () => {

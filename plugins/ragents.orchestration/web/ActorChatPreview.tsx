@@ -22,9 +22,9 @@ export const ActorChatPreview = memo(function ActorChatPreview({ actor, view, pr
     element.setAttribute("role", "region");
     element.setAttribute("aria-label", `Chatverlauf von @${actor.handle}`);
   }, [actor.handle]);
-  return <div className="flex min-h-[106px] w-full min-w-0 flex-1 flex-col overflow-hidden rounded-b-[16px] text-left" data-canvas-scroll="true">
-    <ChatPanel className="flex-1" composer={chatInput ? <ActorChatControls actor={actor} view={view} presentation="canvas" running={running} /> : undefined}>
-      <ActorChat actor={actor} view={view} presentation="canvas" primaryMessages={primaryMessages} conversation={conversation} historyError={historyError} running={running} onNavigate={onNavigate} scrollerRef={focusableScroller} />
+  return <div className="flex min-h-[106px] w-full min-w-0 flex-1 flex-col overflow-hidden rounded-b-[16px] text-left" data-surface-scroll="true">
+    <ChatPanel className="flex-1" composer={chatInput ? <ActorChatControls actor={actor} view={view} presentation="surface" running={running} /> : undefined}>
+      <ActorChat actor={actor} view={view} presentation="surface" primaryMessages={primaryMessages} conversation={conversation} historyError={historyError} running={running} onNavigate={onNavigate} scrollerRef={focusableScroller} />
     </ChatPanel>
   </div>;
 });

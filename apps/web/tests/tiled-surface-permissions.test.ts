@@ -7,14 +7,14 @@ import { buildSync } from "esbuild";
 import { fileURLToPath } from "node:url";
 
 const bundle = buildSync({
-  entryPoints: [fileURLToPath(new URL("../../../plugins/ragents.orchestration/web/TiledCanvas.tsx", import.meta.url))],
+  entryPoints: [fileURLToPath(new URL("../../../plugins/ragents.orchestration/web/TiledSurface.tsx", import.meta.url))],
   bundle: true, platform: "node", format: "cjs", jsx: "automatic", write: false, external: ["react"],
 });
-const bundled = { exports: {} as typeof import("../../../plugins/ragents.orchestration/web/TiledCanvas") };
+const bundled = { exports: {} as typeof import("../../../plugins/ragents.orchestration/web/TiledSurface") };
 new Function("require", "module", "exports", bundle.outputFiles[0]!.text)(createRequire(import.meta.url), bundled, bundled.exports);
-const { TiledCanvas } = bundled.exports;
+const { TiledSurface } = bundled.exports;
 
-const render = (canArrange: boolean, available = true) => renderToStaticMarkup(createElement(TiledCanvas, {
+const render = (canArrange: boolean, available = true) => renderToStaticMarkup(createElement(TiledSurface, {
   canArrange,
   root: { entity: "@helper" },
   items: available ? [{ entity: "@helper", title: "Helfer", content: "Chatverlauf" }] : [],

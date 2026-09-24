@@ -35,7 +35,7 @@ import { ChatTextPositions } from "./chat-text-positions.js";
 import type { GlobalChatPolicy } from "./global-chat.js";
 import { actorChatHistoryOf, type ActorConversations } from "./actor-chat-history.js";
 
-const STAMPED_KINDS = new Set<ChatEvent["kind"]>(["user", "text", "thinking", "tool", "system", "action", "extension"]);
+const STAMPED_KINDS = new Set<ChatEvent["kind"]>(["user", "text", "thinking", "tool", "system", "action", "plugin"]);
 
 type LiveTurn = {
   emitProgress: boolean;
@@ -68,16 +68,16 @@ const messageOf = (error: unknown): string => error instanceof Error ? error.mes
 
 const userIdOf = (user: ChatUser | undefined): string | null => user?.id ?? null;
 
-/** Wer einen Run startet und welche Startoptionen sein Einstieg festlegt. */
+/** Wer einen Run startet und welche Startoptionen seine Vorlage festlegt. */
 interface StartChoice {
   readonly userId: string | null;
   readonly fixed: ReadonlyMap<string, JsonValue>;
 }
 
-/** Ein Start ohne Einstieg legt nichts fest. */
+/** Ein Start ohne Vorlage legt nichts fest. */
 const freeChoice = (userId: string | null): StartChoice => ({ userId, fixed: new Map() });
 
-/** A run script entry together with the package the host installs when it is clicked. */
+/** A script template together with the package the host installs when it is clicked. */
 export type RunScriptStart = RunScriptPackage & { entry: PublicStartEntry };
 
 export interface RunChatSessionOptions {
@@ -170,7 +170,7 @@ export class RunChatSession implements ChatSessionLike {
       throw new DomainError("option-not-selectable", `Die Startoption ${optionId} ist fest konfiguriert.`, 409);
     }
     if (this.startLocked) {
-      throw new DomainError("option-locked", "Die Unterhaltung läuft bereits, die Startoptionen stehen fest.", 409);
+      throw new DomainError("option-locked", "Der Run läuft bereits, die Startoptionen stehen fest.", 409);
     }
     this.#startValues.set(optionId, this.#engine.startOptions.accept(optionId, value, this.#startContext(userId)));
     return this.#startOptionState(entry, userId);
@@ -187,7 +187,7 @@ export class RunChatSession implements ChatSessionLike {
     return chosen ?? this.#engine.startOptions.defaultValue(entry.option.id, this.#startContext(choice.userId));
   }
 
-  /** Die eine Stelle, an der ein Einstieg Startoptionen festlegt: mit dem Handelnden angenommen, eine andere Belegung davor ist ein Fehler. */
+  /** Die eine Stelle, an der eine Vorlage Startoptionen festlegt: mit dem Handelnden angenommen, eine andere Belegung davor ist ein Fehler. */
   #startChoice(entry: PublicStartEntry, userId: string | null): StartChoice {
     const state = this.#engine.journal.stateOf(this.id);
     const fixed = new Map(Object.entries(entry.fixedStartOptions ?? {}).map(([optionId, value]) => {
@@ -205,7 +205,7 @@ export class RunChatSession implements ChatSessionLike {
 
   #skillEntry(entryId: string): PublicStartEntry {
     const entry = this.#startEntryFor(entryId);
-    if (!entry || entry.action !== "skill") throw new DomainError("entry-unknown", `Der Einstieg ${entryId} ist kein Skill-Einstieg dieses Profils.`, 404);
+    if (!entry || entry.action !== "skill") throw new DomainError("entry-unknown", `Die Vorlage ${entryId} ist keine Skill-Vorlage dieses Profils.`, 404);
     return entry;
   }
 
@@ -244,7 +244,7 @@ export class RunChatSession implements ChatSessionLike {
     return () => this.#listeners.delete(listener);
   }
 
-  /** Mit einem Skill-Einstieg startet die Nachricht einen neuen Run über ihn, mit den Startoptionen, die er festlegt. */
+  /** Mit einer Skill-Vorlage startet die Nachricht einen neuen Run über sie, mit den Startoptionen, die sie festlegt. */
   send(text: string, attachments?: ChatAttachmentInput[], userLocation?: unknown, user?: ChatUser, entryId?: string): Promise<void> {
     return this.#track(() => this.#send(text, attachments, undefined, userLocation, user, entryId), false);
   }
@@ -282,7 +282,7 @@ export class RunChatSession implements ChatSessionLike {
     return { attachment: this.#attachmentInfo(artifact), content };
   }
 
-  /** Starts the run through a run script entry: no message, the script's first turn builds the run. */
+  /** Starts the run through a script template: no message, the script's first turn builds the run. */
   start(entryId: string, input: unknown, user?: ChatUser): void {
     this.#track(() => this.#start(entryId, input, user));
   }
@@ -296,7 +296,7 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   #track(work: () => Promise<void>, reportError = true): Promise<void> {
-    if (this.#disposed) throw new Error("Die Unterhaltung wurde gelöscht");
+    if (this.#disposed) throw new Error("Der Run wurde gelöscht");
     this.#assertUsable(this.id);
     const operation = work();
     const tracked = operation.catch((error: unknown) => {
@@ -341,8 +341,8 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   postExtension(event: { pluginId: string; type: string; payload?: unknown }): void {
-    if (this.#disposed) throw new Error("Die Unterhaltung wurde gelöscht");
-    this.#emit({ kind: "extension", ...event });
+    if (this.#disposed) throw new Error("Der Run wurde gelöscht");
+    this.#emit({ kind: "plugin", ...event });
   }
 
   resetHistory(): void {
@@ -370,7 +370,7 @@ export class RunChatSession implements ChatSessionLike {
 
   dispose(): void {
     this.#disposed = true;
-    this.#startCancellation?.abort(new Error("Die Unterhaltung wurde gelöscht"));
+    this.#startCancellation?.abort(new Error("Der Run wurde gelöscht"));
     this.#startCancellation = undefined;
     this.#startup = undefined;
     this.#unsubscribeJournal?.();
@@ -395,7 +395,7 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   async #send(text: string, supplied?: ChatAttachmentInput[], target?: string, userLocation?: unknown, user?: ChatUser, entryId?: string): Promise<void> {
-    if (userLocation !== undefined && !this.#inputContext) throw new DomainError("chat-context-unavailable", "Diese Unterhaltung übernimmt keinen Oberflächenkontext.", 400);
+    if (userLocation !== undefined && !this.#inputContext) throw new DomainError("chat-context-unavailable", "Dieser Run übernimmt keinen Oberflächenkontext.", 400);
     const choice = entryId === undefined ? freeChoice(userIdOf(user)) : this.#startChoice(this.#skillEntry(entryId), userIdOf(user));
     const attachments = this.#checkedAttachments(supplied);
     if (!text.trim() && attachments.length === 0) throw new DomainError("empty-message", "Text oder Anhänge fehlen", 400);
@@ -410,7 +410,7 @@ export class RunChatSession implements ChatSessionLike {
     if (target) await this.#prepareWorkspace(this.id, this.#emitSystem());
     this.#assertUsable(this.id);
     if (attachments.length > 0) await this.#checkAttachmentCapabilities(primaryActorId, attachments, choice);
-    const sourceEventIds = !target && this.#inputContext ? await this.#inputContext(this.#engine.runtime, userLocation) : [];
+    const sourceEventIds = !target && this.#inputContext ? await this.#inputContext(this.#engine.runtime, this.id, userLocation) : [];
     this.#assertUsable(this.id);
     const state = this.#engine.runtime.state(this.id);
     this.#assertChatTarget(primaryActorId);
@@ -490,7 +490,7 @@ export class RunChatSession implements ChatSessionLike {
   preparationSelection(userId: string | null): ModelSelection {
     this.#assertUsable(this.id);
     if (this.#disposed || this.started || this.startLocked) {
-      throw new DomainError("preparation-unavailable", "Die Vorbereitung ist nur vor dem Start der Unterhaltung möglich.", 409);
+      throw new DomainError("preparation-unavailable", "Die Vorbereitung ist nur vor dem Start des Runs möglich.", 409);
     }
     const execution = this.#coordinatorExecution(freeChoice(userId));
     if (execution.driver.kind !== "agent") throw new DomainError("preparation-model-required", "Die Vorbereitung benötigt einen Koordinator mit Modelllaufzeit.", 400);
@@ -544,7 +544,7 @@ export class RunChatSession implements ChatSessionLike {
   async #start(entryId: string, input: unknown, user?: ChatUser): Promise<void> {
     await this.#startPackage(() => {
       const found = this.#scriptEntryFor(entryId);
-      if (!found) throw new DomainError("entry-unknown", `Der Einstieg ${entryId} ist kein Run-Script dieses Profils.`, 404);
+      if (!found) throw new DomainError("entry-unknown", `Die Vorlage ${entryId} ist keine Script-Vorlage dieses Profils.`, 404);
       return found;
     }, input, user);
   }

@@ -149,7 +149,7 @@ test("aktuelle Chips verwenden die gemeinsamen Denk- und generischen Werkzeugtex
   assertCurrentChip(show(applyEvent([], { kind: "tool", id: "tool", name: "private_tool", arguments: "Privat" })), "Aktion läuft", false);
 });
 
-test("Arbeitsanzeige bleibt in jedem Detailmodus zusätzlich sichtbar solange der Lauf läuft", () => {
+test("Arbeitsanzeige bleibt in jedem Detailmodus zusätzlich sichtbar solange der Run läuft", () => {
   const thinking = applyEvent([], { kind: "thinking", delta: "Gedanke" });
   const tool = applyEvent(thinking, { kind: "tool", id: "tool", name: "lookup", arguments: "{}" });
   const completed = applyEvent(tool, { kind: "tool-result", id: "tool", result: "Erledigt" });
@@ -163,7 +163,7 @@ test("Arbeitsanzeige bleibt in jedem Detailmodus zusätzlich sichtbar solange de
   }
 });
 
-test("eigene Arbeitsanzeige bleibt neben dem aktuellen Chip bis zum Laufende sichtbar", () => {
+test("eigene Arbeitsanzeige bleibt neben dem aktuellen Chip bis zum Ende des Turns sichtbar", () => {
   const messages = applyEvent([], { kind: "tool", id: "tool", name: "lookup", arguments: "{}" });
   const show = (running: boolean) => renderToStaticMarkup(createElement(ChatMessages, {
     messages, running, working: createElement("span", { role: "status" }, "Eigene Arbeitsanzeige"),

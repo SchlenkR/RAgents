@@ -80,14 +80,14 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
     return sessions.get(runId);
   };
   const assertMaySend = (access: AccessContext, runId: string) => {
-    if (!access.can("runs.create") && !sessions.hasRun?.(runId)) throw new DomainError("access-denied", "Freie Runs sind für diesen Zugang nicht freigegeben.", 403);
+    if (!access.can("runs.create") && !sessions.hasRun?.(runId) && !global?.isCoordinator(runId)) throw new DomainError("access-denied", "Freie Runs sind für diesen Zugang nicht freigegeben.", 403);
   };
   const assertSettingsReachable = (local: boolean) => {
     if (!local && sources.settingsGuarded()) throw new DomainError("settings-local-only", "Einstellungen sind nur lokal oder mit Zugangstoken verfügbar", 403);
   };
   return [
-    implement(coreContracts.sessions.list, (_input, { access }) => sessions.list(runListScope(access, policy))),
-    implement(coreContracts.sessions.delete, async ({ runId }) => { await sessions.delete(runId); return null; }),
+    implement(coreContracts.runs.list, (_input, { access }) => sessions.list(runListScope(access, policy))),
+    implement(coreContracts.runs.delete, async ({ runId }) => { await sessions.delete(runId); return null; }),
     implement(coreContracts.chat.send, async ({ runId, text, attachments, userLocation, entry }, { access }) => {
       assertMaySend(access, runId);
       const located = locatedRun(userLocation);
@@ -156,7 +156,7 @@ export const coreChannels = (sources: Pick<CoreMethodSources, "sessions" | "glob
   const { sessions, global } = sources;
   const policy: RunAccessPolicy = { global, ownerOf: sources.runOwner, ownerOnly: sources.runOwnerOnly };
   return [
-    implementChannel(coreContracts.channels.sessions, (_params, emit) => {
+    implementChannel(coreContracts.channels.runs, (_params, emit) => {
       const notify = () => emit({ type: "changed" });
       const unsubscribe = sessions.subscribeList(notify);
       notify();

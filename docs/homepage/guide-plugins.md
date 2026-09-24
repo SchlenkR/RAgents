@@ -1,6 +1,6 @@
 # Plugins and skills
 
-Choose the right extension form, connect contracts and prompts, and verify lifecycle and UI behavior.
+Choose the right plugin form, connect contracts and prompts, and verify lifecycle and UI behavior.
 
 ## Core boundary
 
@@ -22,11 +22,11 @@ tool call and may replace its result; the agent runtime behind them is not part 
 contract. HTTP routes, UI contributions, and host-wide services remain plugin facets outside an
 individual agent.
 
-## Extension guide
+## Plugin guide
 
 Start with the domain result and the state that people and models need to share. Then choose the
-smallest existing extension form that fully supports the task. These strategies use the current
-functions, actor programs, language servers, and interfaces; they add no new extension mechanism.
+smallest existing plugin form that fully supports the task. These strategies use the current
+functions, actor programs, language servers, and interfaces; they add no new mechanism.
 
 | Need | Suitable form | Boundary |
 | --- | --- | --- |
@@ -108,12 +108,12 @@ components check permissions, not user names.
 ### 7. Develop mini-apps in the actual host
 
 The iframe constrains interaction, layout, and communication. Use shared controls and the
-declared function bridge. For a dialog spanning host surfaces, the app signals intent through a
+declared function bridge. For a dialog spanning host areas, the app signals intent through a
 function and the owning web-plugin contribution opens it in the correct area. Keep applied server
 state separate from unsent input. Unchanged polling responses must not overwrite drafts, and old
 responses must not replace newer state. Keep loading and errors visible during actions, and retain
 the last valid result after a failed request. Polling must neither overlap nor continue forever
-on hidden surfaces. Test Enter, buttons, focus, narrow tiles, and dialogs inside the real host
+in hidden areas. Test Enter, buttons, focus, narrow tiles, and dialogs inside the real host
 iframe; a render test alone does not prove native interactions work there.
 
 ### 8. Choose evidence for what it proves
@@ -139,7 +139,7 @@ packages and state whether a restart or new prepared run is required.
 6. Update this specification or the relevant neighboring chapter, record the reason in the
    decision log, and carry public changes into the guide.
 
-Contract examples are in the [extension guide](guide-extensions.html). The guide to
+Contract examples are in the [plugin guide](guide-plugins.html). The guide to
 [building mini-apps](guide-programs.html) covers packages, state, and views.
 
 ## Plugin contract
@@ -183,7 +183,7 @@ in the profile is a startup error that names the build command.
 
 ## Provide functions
 
-An extension registers functions with `defineRunFunction` and `host.functions`, including a
+A plugin registers functions with `defineRunFunction` and `host.functions`, including a
 short `description`, optional `longDescription`, input and result schemas, and implementation.
 `label` is the human-readable name. The host derives `context.functions.<name>(input)` signatures
 from this data. Snippets and actor programs use the same catalog and execution. Availability and

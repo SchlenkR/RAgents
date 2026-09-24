@@ -18,6 +18,7 @@ export interface ChatTexts {
   stop: string;
   placeholder: string;
   steeringPlaceholder: string;
+  steered: string;
   inputHint: string;
   detailModeTitle: string;
   detailModeOff: string;
@@ -58,10 +59,11 @@ export const defaultTexts: ChatTexts = {
   close: "Schließen",
   jumpToEnd: "Zum Ende springen",
   send: "Senden",
-  sendIntoRun: "In den laufenden Run schicken",
+  sendIntoRun: "In den laufenden Turn einspeisen",
   stop: "Arbeit stoppen",
   placeholder: "Nachricht schreiben ...",
   steeringPlaceholder: "Dazwischenfunken ...",
+  steered: "In den laufenden Turn eingespeist",
   inputHint: "Enter zum Senden - Shift + Enter für eine neue Zeile",
   detailModeTitle: "Detailgrad der Schritte",
   detailModeOff: "nur Antworten",

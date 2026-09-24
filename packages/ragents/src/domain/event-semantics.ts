@@ -395,6 +395,28 @@ export const assertEventSemantics = (
             break;
         }
 
+        case "turn.input-steered": {
+            const turn = runningTurnOf(state, event.payload.turnId);
+            assertTurnAuthor(turn, event);
+            const input = state.inputs.get(event.payload.inputId);
+
+            if (!input)
+                throw new Error(`Input ${event.payload.inputId} does not exist.`);
+
+            if (input.actorId !== turn.actorId)
+                throw new Error(`Input ${input.id} is not addressed to actor ${turn.actorId}.`);
+
+            if (!isPendingActorInput(input))
+                throw new Error(`Input ${input.id} is no longer pending and cannot join turn ${turn.id}.`);
+
+            const earlier = [...state.inputs.values()].find((entry) =>
+                entry.actorId === input.actorId && isPendingActorInput(entry) && entry.sequence < input.sequence);
+
+            if (earlier)
+                throw new Error(`Input ${input.id} cannot join turn ${turn.id} before the earlier input ${earlier.id}.`);
+            break;
+        }
+
         case "turn.finished": {
             const turn = runningTurnOf(state, event.payload.turnId);
             assertTurnAuthor(turn, event);

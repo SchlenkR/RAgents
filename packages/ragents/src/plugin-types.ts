@@ -46,7 +46,7 @@ export interface PublicPluginProfile {
   product: ProductDescriptor;
   plugins: readonly PublicPluginDescriptor[];
   startEntries: readonly PublicStartEntry[];
-  /** The profile's default entry for a new run; present only when it is among the caller's start entries. */
+  /** The profile's default template for a new run; present only when it is among the caller's templates. */
   defaultStartEntry?: string;
 }
 
@@ -77,17 +77,17 @@ export interface PublicPromptSnapshot {
   contributions: readonly PublicPromptContribution[];
 }
 
-export interface PublicAgentExtensionFactory {
+export interface PublicAgentHookFactory {
   name: string;
   scope: "per-agent";
 }
 
 /** A plugin contribution as the settings show it: the host turns it into one extension per agent, named after its id. */
-export interface PublicAgentExtensionContribution {
+export interface PublicAgentHookContribution {
   id: string;
   owner: string;
   kind: "plugin";
-  factories: readonly PublicAgentExtensionFactory[];
+  factories: readonly PublicAgentHookFactory[];
   resolvesPerAgent: true;
 }
 
@@ -215,7 +215,7 @@ export interface AgentContribution {
   ) => ToolResultReplacement | undefined | Promise<ToolResultReplacement | undefined>;
 }
 
-/** What every entry of the start surface shares, whichever action it triggers. */
+/** What every template of the start page shares, whichever action it triggers. */
 export interface StartEntryBase {
   id: string;
   title: string;
@@ -247,13 +247,13 @@ export interface RunScriptPackage {
 
 export type StartEntryContribution = StartEntryBase & (
   | { action: "skill"; skill: string; category: string; prompt: string }
-  /** A run script may name a category of its own; without one the start surfaces group it as a run script. */
+  /** A run script may name a category of its own; without one the start pages group it as a run script. */
   | { action: "script"; script: RunScriptPackage; category?: string }
 );
 
 export type StartEntryAction = StartEntryContribution["action"];
 
-/** The entry as the web sees it: a script entry shows its kind and coordinator flag, never its source. */
+/** The template as the web sees it: a script template shows its kind and coordinator flag, never its source. */
 export type PublicStartEntry = StartEntryBase & { owner: string } & (
   | { action: "skill"; skill: string; category: string; prompt: string }
   | { action: "script"; coordinator: boolean; category?: string }

@@ -29,5 +29,5 @@ Arbeitsanweisung für den Koordinator und erstellt keine zusätzlichen Agenten o
    Option, verbleibende Unsicherheit und ein konkreter nächster Schritt. Die Entscheidung bleibt
    beim Benutzer. Erkläre danach knapp, welche Schritte dieser wiederverwendbare Ablauf geführt hat.
 
-Der Abschluss ist der Vermerk im Chat. Es wird nichts gebucht, verschickt oder außerhalb der
-Unterhaltung verändert. Behaupte keinen Abschluss, solange die Auswahl noch offen ist.
+Der Abschluss ist der Vermerk im Chat. Es wird nichts gebucht, verschickt oder außerhalb des
+Gesprächs verändert. Behaupte keinen Abschluss, solange die Auswahl noch offen ist.

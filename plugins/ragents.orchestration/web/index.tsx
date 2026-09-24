@@ -3,14 +3,14 @@ import { OrchestrationCenter } from "./Center";
 import { OrchestrationRunPanel } from "./run-panel/RunPanel";
 import { DocumentsSection } from "./DocumentsSection";
 import { RunPanelSettings } from "./run-panel/RunPanelSettings";
-import { ActorShortcuts } from "./ActorCanvasControls";
+import { ActorShortcuts } from "./ActorSurfaceControls";
 import { JournalStatus } from "./JournalStatus";
 import { StopRunHeader } from "./StopRunButton";
 import { EXECUTIONS_TAB_ID, ExecutionsPanel, IconExecutions } from "./ExecutionsPanel";
 import { ORCHESTRATION_PLUGIN_ID } from "./constants";
 import { runViewFrom } from "@ragents/web/run-view";
 import {
-  CanvasControllerProvider,
+  SurfaceControllerProvider,
   type EntityReference,
   type SessionProviderProps,
   type WebPlugin,
@@ -18,7 +18,7 @@ import {
 
 export { ORCHESTRATION_PLUGIN_ID } from "./constants";
 
-/** Die Auswahl auf der Kachelfläche: ein Artefakt öffnet die Dokumente, jede andere Entität wird die gewählte Kachel und der gemeldete Standort. */
+/** Die Auswahl auf der Fläche: ein Artefakt öffnet die Dokumente, jede andere Entität wird die gewählte Kachel und der gemeldete Standort. */
 function OrchestrationSessionProvider({ children, navigation, session }: SessionProviderProps) {
   const runView = runViewFrom(session.runView);
   const [selection, setSelection] = useState<EntityReference>();
@@ -34,9 +34,9 @@ function OrchestrationSessionProvider({ children, navigation, session }: Session
   };
 
   return (
-    <CanvasControllerProvider value={{ acceptSelection, selection }}>
+    <SurfaceControllerProvider value={{ acceptSelection, selection }}>
       {children}
-    </CanvasControllerProvider>
+    </SurfaceControllerProvider>
   );
 }
 
@@ -46,12 +46,12 @@ export const webPlugin: WebPlugin = {
   sessionStatus: [{ id: "ragents.orchestration.journal", readRight: "runs.inspect", order: 20, Status: JournalStatus }],
   sessionHeaders: [
     { id: "ragents.orchestration.stop", readRight: "runs.write", order: 100, Header: StopRunHeader },
-    { id: "ragents.orchestration.actors", order: 300, placement: "canvas", Header: ActorShortcuts },
+    { id: "ragents.orchestration.actors", order: 300, placement: "surface", Header: ActorShortcuts },
   ],
   settings: [
     { id: "ragents.orchestration.runPanel", category: "appearance", label: "Run-Panel", Settings: RunPanelSettings },
   ],
-  canvas: { Center: OrchestrationCenter, RunPanel: OrchestrationRunPanel },
+  surface: { Center: OrchestrationCenter, RunPanel: OrchestrationRunPanel },
   cardSections: [{
     id: "ragents.orchestration.documents",
     order: 300,

@@ -10,7 +10,7 @@ import {
   type CatalogModel,
   type PluginHost,
   type ProductDescriptor,
-  type PublicAgentExtensionContribution,
+  type PublicAgentHookContribution,
   type PublicPluginManifest,
   type PublicPromptContribution,
   type PublicSkillContribution,
@@ -45,7 +45,7 @@ export interface SettingsSystemPrompt {
   runtimeContracts: readonly RuntimeContract[];
 }
 
-export interface InternalAgentExtensionContribution {
+export interface InternalAgentHookContribution {
   id: string;
   owner: string;
   kind: "internal";
@@ -80,7 +80,7 @@ export interface SettingsResponse {
   systemPrompt: SettingsSystemPrompt;
   promptContributions: readonly PublicPromptContribution[];
   plugins: readonly PublicPluginManifest[];
-  agentExtensions: readonly (PublicAgentExtensionContribution | InternalAgentExtensionContribution)[];
+  agentHooks: readonly (PublicAgentHookContribution | InternalAgentHookContribution)[];
   skills: readonly PublicSkillContribution[];
   tools: readonly PublicToolDescriptor[];
 }
@@ -103,10 +103,10 @@ const runtimeSettings = (plugins: PluginHost): SettingsRuntime => {
   };
 };
 
-const internalAgentExtensions: readonly InternalAgentExtensionContribution[] = [
+const internalAgentHooks: readonly InternalAgentHookContribution[] = [
   turnDispatcherExtensionName,
   skillPreloadExtensionName,
-].map((name): InternalAgentExtensionContribution => ({
+].map((name): InternalAgentHookContribution => ({
   id: name,
   owner: runtimeOwner,
   kind: "internal",
@@ -202,7 +202,7 @@ export const settingsResponse = async (
   },
   promptContributions: engine.promptContributions,
   plugins: plugins.publicManifests(),
-  agentExtensions: [...plugins.agentRuntime.describe(), ...internalAgentExtensions],
+  agentHooks: [...plugins.agentRuntime.describe(), ...internalAgentHooks],
   skills: await plugins.skills.describe(undefined),
   tools: toolsSettings(plugins),
 });

@@ -21,7 +21,7 @@ const fixture = async (): Promise<{ workspace: string; files: string; remove: ()
   await mkdir(path.join(workspace, "src"), { recursive: true });
   await mkdir(path.join(workspace, ".git"), { recursive: true });
   await mkdir(files, { recursive: true });
-  await writeFile(path.join(workspace, "notes.md"), "Grüße aus dem Lauf\n");
+  await writeFile(path.join(workspace, "notes.md"), "Grüße aus dem Run\n");
   await writeFile(path.join(workspace, ".env"), "TOKEN=1\n");
   await writeFile(path.join(workspace, "app.bin"), Buffer.from([0x50, 0x00, 0x4b]));
   await writeFile(path.join(workspace, "src", "index.ts"), "export const x = 1;\n");
@@ -116,9 +116,9 @@ test("die Vorschau liefert Text und verweigert Binärdateien", async () => {
     assert.deepEqual(await file("workspace", "notes.md"), {
       root: "workspace",
       path: "notes.md",
-      size: Buffer.byteLength("Grüße aus dem Lauf\n"),
+      size: Buffer.byteLength("Grüße aus dem Run\n"),
       previewable: true,
-      content: "Grüße aus dem Lauf\n",
+      content: "Grüße aus dem Run\n",
     });
 
     const binary = await file("workspace", "app.bin");

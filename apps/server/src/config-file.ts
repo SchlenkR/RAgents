@@ -81,7 +81,7 @@ const resolveIdentity = (location: string, entry: Record<string, unknown>): Acce
   if (entry.startEntries !== undefined && (!Array.isArray(entry.startEntries)
     || !entry.startEntries.every((id) => typeof id === "string" && START_ENTRY_ID.test(id))
     || new Set(entry.startEntries).size !== entry.startEntries.length)) {
-    throw new Error(`${location}.startEntries braucht eindeutige Einstiegkennungen als Strings`);
+    throw new Error(`${location}.startEntries braucht eindeutige Vorlagenkennungen als Strings`);
   }
   return Object.freeze({
     id: entry.id,
@@ -102,11 +102,11 @@ export const resolveAnonymousUser = (source: string, raw: unknown): AccessUser |
   return resolveIdentity(location, entry);
 };
 
-/** Der Einstieg, den ein neuer Run ohne Auswahl nimmt; ob er registriert ist, prüft der PluginHost beim Start. */
+/** Die Vorlage, die ein neuer Run ohne Auswahl nimmt; ob sie registriert ist, prüft der PluginHost beim Start. */
 export const resolveDefaultStartEntry = (source: string, raw: unknown): string | undefined => {
   if (raw === undefined) return undefined;
   if (typeof raw !== "string" || !START_ENTRY_ID.test(raw)) {
-    throw new Error(`${source}: defaultStartEntry braucht eine Einstiegkennung als String, etwa "ragents.reference.word-game"`);
+    throw new Error(`${source}: defaultStartEntry braucht eine Vorlagenkennung als String, etwa "ragents.reference.word-game"`);
   }
   return raw;
 };

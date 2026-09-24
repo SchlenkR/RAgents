@@ -40,14 +40,6 @@ export type StreamFn = (
  */
 export type ToolExecutionMode = "sequential" | "parallel";
 
-/**
- * Controls how many queued user messages are injected when the agent loop reaches a queue drain point.
- *
- * - "all": drain and inject every queued message at that point.
- * - "one-at-a-time": drain and inject only the oldest queued message, leaving the rest queued for later drain points.
- */
-export type QueueMode = "all" | "one-at-a-time";
-
 /** A single tool call content block emitted by an assistant message. */
 export type AgentToolCall = Extract<AssistantMessage["content"][number], { type: "toolCall" }>;
 
@@ -180,7 +172,7 @@ export interface AgentLoopConfig extends SimpleStreamOptions {
 	/**
 	 * Called after each turn fully completes and `turn_end` has been emitted.
 	 *
-	 * If it returns true, the loop emits `agent_end` and exits before polling steering or follow-up queues,
+	 * If it returns true, the loop emits `agent_end` and exits before polling steering messages,
 	 * without starting another LLM call. The current assistant response and any tool executions finish normally.
 	 *
 	 * Use this to request a graceful stop after the current turn, e.g. before context gets too full.
@@ -198,53 +190,8 @@ export interface AgentLoopConfig extends SimpleStreamOptions {
 		context: PrepareNextTurnContext,
 	) => AgentLoopTurnUpdate | undefined | Promise<AgentLoopTurnUpdate | undefined>;
 
-	/**
-	 * Returns steering messages to inject into the conversation mid-run.
-	 *
-	 * Called after the current assistant turn finishes executing its tool calls, unless `shouldStopAfterTurn` exits first.
-	 * If messages are returned, they are added to the context before the next LLM call.
-	 * Tool calls from the current assistant message are not skipped.
-	 *
-	 * Use this for "steering" the agent while it's working.
-	 *
-	 * Contract: must not throw or reject. Return [] when no steering messages are available.
-	 */
+	/** Steering polled before the first model request and after each assistant turn; messages join the context, a rejection ends the run. */
 	getSteeringMessages?: () => Promise<AgentMessage[]>;
-
-	/**
-	 * Non-destructive check whether steering messages are queued.
-	 *
-	 * Used together with `onSteeringQueued` and `onBackgroundToolResult` to background
-	 * running tool calls as soon as steering arrives. Contract: must not throw.
-	 */
-	hasPendingSteering?: () => boolean;
-
-	/**
-	 * Registers a listener invoked whenever a steering message is queued.
-	 * Returns an unsubscribe function. Contract: must not throw.
-	 */
-	onSteeringQueued?: (listener: () => void) => () => void;
-
-	/**
-	 * Receives the real result of a tool call whose in-flight execution was backgrounded
-	 * because steering arrived. The loop already emitted an interim tool result for the call;
-	 * implementations typically re-inject the real result as a queued user message.
-	 * Contract: must not throw.
-	 */
-	onBackgroundToolResult?: (toolCall: AgentToolCall, result: AgentToolResult<any>, isError: boolean) => void;
-
-	/**
-	 * Returns follow-up messages to process after the agent would otherwise stop.
-	 *
-	 * Called when the agent has no more tool calls and no steering messages.
-	 * If messages are returned, they're added to the context and the agent
-	 * continues with another turn.
-	 *
-	 * Use this for follow-up messages that should wait until the agent finishes.
-	 *
-	 * Contract: must not throw or reject. Return [] when no follow-up messages are available.
-	 */
-	getFollowUpMessages?: () => Promise<AgentMessage[]>;
 
 	/**
 	 * Tool execution mode.

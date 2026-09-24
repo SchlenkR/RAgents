@@ -7,15 +7,15 @@ import { ServerClient } from "./server-client";
 import { RunStore, type ConnectionStatus, type StartEntrySummary } from "./store";
 import { workspaceRegistrationRefusal } from "./workspace-identity";
 
-/** Zustand einer Umgebung: nicht gestartet, im Aufbau, gescheitert oder der Verbindungszustand seiner Sitzung. */
+/** Zustand eines Servers: nicht gestartet, im Aufbau, gescheitert oder der Verbindungszustand seiner Sitzung. */
 export type SessionStatus =
   | { kind: "stopped" }
   | { kind: "starting"; detail: string | undefined }
   | { kind: "failed"; message: string }
   | ConnectionStatus;
 
-/** Wohin die Sitzung spricht, nachdem die Umgebung gestartet ist. */
-export interface LaunchedTarget {
+/** Wohin die Sitzung spricht, nachdem der Server gestartet ist. */
+export interface LaunchedConnection {
   url: string;
   token: string | undefined;
   host: RunningHost | undefined;
@@ -31,17 +31,17 @@ export interface SessionServices {
   /** Der Arbeitsplatz dieses Fensters mit den Ordnern, die er gerade anbietet. */
   workspaceClient: (transport: { rpc: ServerClient["rpc"] }) => WorkspaceClient;
   secrets: SecretStore;
-  /** Adresse und Token der Umgebung: beim Server die gespeicherte Sitzung, beim Profil der frisch gestartete Host. */
-  launch: (connection: Connection, report: (detail: string) => void) => Promise<LaunchedTarget>;
+  /** Adresse und Token des Servers: bei einer Adresse die gespeicherte Sitzung, beim Profil der frisch gestartete Host. */
+  launch: (connection: Connection, report: (detail: string) => void) => Promise<LaunchedConnection>;
   log: (line: string) => void;
   /** Ein verbundener Server wird einmal gefragt, ob er ein Client-Profil verteilt. */
-  probe: (session: TargetSession) => void;
-  /** Der lokale Host einer Umgebung hat von selbst geendet. */
-  onHostExit: (session: TargetSession, code: number | null) => void;
+  probe: (session: ConnectionSession) => void;
+  /** Der lokale Host eines Servers hat von selbst geendet. */
+  onHostExit: (session: ConnectionSession, code: number | null) => void;
 }
 
-/** Alles, was die Seiten und die Befehle der Erweiterung von einer Umgebung brauchen; ohne VS-Code-Typen. */
-export interface TargetSnapshot {
+/** Alles, was die Seiten und die Befehle der Erweiterung von einem Server brauchen; ohne VS-Code-Typen. */
+export interface ConnectionSnapshot {
   connection: Connection;
   status: SessionStatus;
   url: string | undefined;
@@ -49,7 +49,7 @@ export interface TargetSnapshot {
   localHost: boolean;
   runs: readonly RunSummary[];
   entries: readonly StartEntrySummary[];
-  /** Die Vorlage, die das Plus und die erste Kachel der Umgebung nehmen; ohne sie ist ein neuer Run ein leerer Chat. */
+  /** Die Vorlage, die das Plus des Servers nimmt und die auf Start zuerst steht; ohne sie ist ein neuer Run ein leerer Chat. */
   defaultEntry: string | undefined;
   user: string | undefined;
   canCreate: boolean;
@@ -70,8 +70,8 @@ interface SessionParts {
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
 
-/** Eine Umgebung mit ihrer eigenen Sitzung: Verbindung, Runs, Arbeitsplatz und, bei einem lokalen Profil, ihr Host. */
-export class TargetSession {
+/** Ein Server mit seiner eigenen Sitzung: Verbindung, Runs, Arbeitsplatz und, bei einem lokalen Profil, sein Host. */
+export class ConnectionSession {
   #status: SessionStatus = { kind: "stopped" };
   #parts: SessionParts | undefined;
   #releases: Array<() => void> = [];
@@ -125,7 +125,7 @@ export class TargetSession {
     return () => { this.#listeners.delete(listener); };
   }
 
-  /** Startet die Umgebung, wenn sie noch nicht läuft: Host holen, Sitzung aufbauen, verbinden. */
+  /** Startet den Server, wenn er noch nicht läuft: Host holen, Sitzung aufbauen, verbinden. */
   connect(): Promise<void> {
     if (this.#parts) return this.reconnect();
     this.#connecting ??= this.#launch().finally(() => { this.#connecting = undefined; });
@@ -150,7 +150,7 @@ export class TargetSession {
   }
 
   /** Baut die Sitzung gegen eine Adresse auf; auch der Weg nach der Übernahme eines servergelieferten Profils. */
-  async attach(launched: LaunchedTarget): Promise<void> {
+  async attach(launched: LaunchedConnection): Promise<void> {
     await this.#detach();
     const client = new ServerClient(launched.url, launched.token);
     const store = new RunStore(client);
@@ -187,7 +187,7 @@ export class TargetSession {
     await this.connect();
   }
 
-  /** Ein Fehlschlag neben dem Start, etwa beim Übernehmen eines verteilten Profils; er steht danach an der Umgebung. */
+  /** Ein Fehlschlag neben dem Start, etwa beim Übernehmen eines verteilten Profils; er steht danach am Server. */
   reportProblem(cause: unknown): void {
     this.#problem = messageOf(cause);
     this.#missingEnvironment = missingEnvironmentOf(cause);
@@ -240,7 +240,7 @@ export class TargetSession {
   /** Benutzer und Passwort bleiben je Server in der SecretStorage; die nächste Sitzung meldet sich damit still an. */
   async loginWith(user: string, password: string): Promise<void> {
     const parts = this.#parts;
-    if (!parts) throw new Error(`Die Umgebung ${this.name} ist nicht verbunden.`);
+    if (!parts) throw new Error(`Der Server ${this.name} ist nicht verbunden.`);
     this.#problem = undefined;
     this.#loginUser = user.trim();
     try {
@@ -260,7 +260,7 @@ export class TargetSession {
   /** Ein Profil mit ACCESS_TOKEN fragt statt nach Benutzer und Passwort nach dem Token. */
   async loginWithToken(token: string): Promise<void> {
     const parts = this.#parts;
-    if (!parts) throw new Error(`Die Umgebung ${this.name} ist nicht verbunden.`);
+    if (!parts) throw new Error(`Der Server ${this.name} ist nicht verbunden.`);
     this.#problem = undefined;
     const previous = parts.client.accessToken;
     parts.client.useToken(token.trim());
@@ -278,7 +278,7 @@ export class TargetSession {
   /** Setzt den Sitzungstoken, merkt ihn je Server und verbindet damit neu. */
   async useToken(token: string | undefined): Promise<void> {
     const parts = this.#parts;
-    if (!parts) throw new Error(`Die Umgebung ${this.name} ist nicht verbunden.`);
+    if (!parts) throw new Error(`Der Server ${this.name} ist nicht verbunden.`);
     parts.client.useToken(token);
     const key = connectionSecretKey(this.connection);
     if (key && !parts.host) {
@@ -314,7 +314,7 @@ export class TargetSession {
     this.#notify();
   }
 
-  /** Alles, was ein gemerkter Token und gespeicherte Anmeldedaten dieser Umgebung sind, verschwindet mit ihr. */
+  /** Alles, was ein gemerkter Token und gespeicherte Anmeldedaten dieses Servers sind, verschwindet mit ihm. */
   async forgetSecrets(): Promise<void> {
     for (const key of [connectionSecretKey(this.connection), credentialsSecretKey(this.connection)]) {
       if (key) await this.services.secrets.delete(key);
@@ -322,7 +322,7 @@ export class TargetSession {
     this.#savedLogin = false;
   }
 
-  snapshot(): TargetSnapshot {
+  snapshot(): ConnectionSnapshot {
     const parts = this.#parts;
     const store = parts?.store;
     return {
@@ -342,7 +342,7 @@ export class TargetSession {
     };
   }
 
-  /** Warum der Arbeitsplatz dieses Fensters bei der verbundenen Umgebung nicht angemeldet ist. */
+  /** Warum der Arbeitsplatz dieses Fensters beim verbundenen Server nicht angemeldet ist. */
   #workspaceProblem(parts: SessionParts | undefined): string | undefined {
     if (!parts || parts.store.status.kind !== "connected" || parts.workspaceClient.folders.length === 0) return undefined;
     const refusal = workspaceRegistrationRefusal(parts.store.access, parts.url);

@@ -36,7 +36,7 @@ export default defineActor(contract, {
     const catalog = await context.functions.model_list({});
     const profiles = catalog.profiles.filter((profile) => profile.driver === "agent" && profile.name !== "coordinator");
     const first = profiles[0];
-    if (!first) throw new Error("Kein Agentenprofil außer dem Koordinator; agent_spawn braucht eines.");
+    if (!first) throw new Error("Keine Rolle außer coordinator; agent_spawn braucht eine.");
 
     await context.functions.run_configure({ title: `Sammelboard: ${title}` });
 
@@ -55,8 +55,8 @@ export default defineActor(contract, {
     });
     await context.functions.actor_input({
       actor: "@coordinator",
-      content: `Die gemeinsame Sammlung heißt ${JSON.stringify(title)}. Das Run-Script hat das Programm shared-list an @${helper.handle} gebunden. Seine View ist auf dem Canvas sichtbar; der Helfer ergänzt gerade den ersten Eintrag mit append_to_list. `
-        + "Unten unter Actors öffnet sein Name den Inspector mit Chat und Details. Seine Canvas-Karte ist standardmäßig ausgeblendet und lässt sich in der Actors-Liste bei Bedarf einschalten. "
+      content: `Die gemeinsame Sammlung heißt ${JSON.stringify(title)}. Das Run-Script hat das Programm shared-list an @${helper.handle} gebunden. Seine View ist auf der Fläche sichtbar; der Helfer ergänzt gerade den ersten Eintrag mit append_to_list. `
+        + "Unten unter Actors öffnet sein Name den Inspector mit Chat und Details. Seine Kachel ist standardmäßig ausgeblendet und lässt sich in der Actors-Liste bei Bedarf einschalten. "
         + "Erkläre dem Benutzer in drei Sätzen, wie er die sichtbare Liste bedient, den Helfer öffnet und dass View und Funktion denselben Listenstand teilen.",
     });
 

@@ -60,7 +60,7 @@ export const parseConnections = (value: unknown): Connection[] => {
 export const connectionSecretKey = (connection: Connection): string | undefined =>
   connection.kind === "server" ? `ragents.token:${connection.url}` : undefined;
 
-/** Der Schlüssel in der SecretStorage: Benutzer und Passwort, mit denen sich die Umgebung still anmeldet. */
+/** Der Schlüssel in der SecretStorage: Benutzer und Passwort, mit denen sich die Erweiterung still am Server anmeldet. */
 export const credentialsSecretKey = (connection: Connection): string | undefined =>
   connection.kind === "server" ? `ragents.login:${connection.url}` : undefined;
 
@@ -74,7 +74,7 @@ export const describeConnection = (connection: Connection): string =>
 /** Der Host eines Servers, wie die Zielzeile ihn nennt: ohne Schema und Pfad, mit Port nur, wenn er nicht der Standard ist. */
 export const serverHost = (url: string): string => new URL(url).host;
 
-/** Was die Zeile einer Umgebung zeigt: die Adresse eines Servers oder den Pfad seiner Profildatei. */
+/** Was die Zeile eines Servers zeigt: seine Adresse oder den Pfad seiner Profildatei. */
 export const connectionAddress = (connection: Connection): string =>
   connection.kind === "profile" ? connection.profileFile : connection.url;
 
@@ -91,11 +91,11 @@ export const profileFilesIn = (hostPath: string | undefined): string[] => {
   }
 };
 
-/** Gibt es die Profildatei? Eine Umgebung mit einem Pfad ins Leere scheitert sonst erst beim Starten. */
+/** Gibt es die Profildatei? Ein Server mit einem Pfad ins Leere scheitert sonst erst beim Starten. */
 export const isProfileFile = (profileFile: string): boolean =>
   statSync(profileFile, { throwIfNoEntry: false })?.isFile() === true;
 
-/** Wo die Umgebungen stehen: im Arbeitsbereich, wenn er die Liste führt, sonst beim Benutzer. Arrays mischen sich nicht, der engere Bereich gewinnt ganz. */
+/** Wo die Server stehen: im Arbeitsbereich, wenn er die Liste führt, sonst beim Benutzer. Arrays mischen sich nicht, der engere Bereich gewinnt ganz. */
 export interface ConnectionsLocation {
   readonly scope: "global" | "workspace";
   readonly entries: readonly unknown[];

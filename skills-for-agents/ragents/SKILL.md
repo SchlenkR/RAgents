@@ -36,10 +36,10 @@ ragents stop --host              # den gemerkten Host beenden
 ragents --help                   # die Verwendung, wie ragents help
 ```
 
-`run` startet den Host, falls unter seiner Adresse keiner antwortet, legt den Run mit der Bindung
-`path` auf den absoluten Ordner an (der Server läuft auf demselben Rechner), schickt den Auftrag
+`run` startet den Host, falls unter seiner Adresse keiner antwortet, legt den Run mit dem absoluten
+Ordner als vorhandenem Ordner auf dem Server an (der Server läuft auf demselben Rechner), schickt den Auftrag
 und blockiert, bis der Turn zu Ende ist. `--profile <profil|pfad>` wählt ein anderes Profil,
-`--entry <einstieg>` startet den Run zusätzlich über einen Skill oder ein Run-Script.
+`--entry <vorlage>` startet den Run zusätzlich über eine Skill- oder Script-Vorlage.
 `send` arbeitet im selben Run weiter und wartet genauso. `journal` liest den Verlauf ohne Server,
 `--tools` zeigt die Werkzeugaufrufe statt des Gesprächs.
 

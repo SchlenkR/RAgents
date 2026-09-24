@@ -60,7 +60,7 @@ export interface StartOptionBadgeContext {
 
 export interface StartOptionContribution {
   id: string;
-  placement?: "surface" | "composer";
+  placement?: "page" | "composer";
   Control?: ComponentType<StartOptionControlContext>;
   Badge?: ComponentType<StartOptionBadgeContext>;
 }
@@ -80,7 +80,7 @@ export interface EntryGuideContribution {
   Guide: ComponentType<EntryGuideContext>;
 }
 
-export interface ExtensionEvent {
+export interface PluginEvent {
   pluginId: string;
   type: string;
   payload?: unknown;
@@ -89,19 +89,18 @@ export interface ExtensionEvent {
 
 export interface SessionContext {
   connected: boolean;
-  extensionEvents: readonly ExtensionEvent[];
+  pluginEvents: readonly PluginEvent[];
   messages: Message[];
   actorConversations?: Readonly<Record<string, readonly Message[]>>;
   conversationError?: string;
   runView: unknown;
   running: boolean;
   startup?: ChatStartupStatus;
-  /** Mit entryId startet die Nachricht den Run über diesen Skill-Einstieg und die Startoptionen, die er festlegt. */
+  /** Mit entryId startet die Nachricht den Run über diese Skill-Vorlage und die Startoptionen, die er festlegt. */
   send: (text: string, attachments?: ChatAttachmentInput[], entryId?: string) => Promise<void>;
   session: SessionInfo;
   /** Starts the run through a run script entry, without a message; the value becomes the script's start input. */
   start: (entryId: string, input: JsonValue | null) => Promise<void>;
-  stop: () => Promise<void>;
 }
 
 export interface EntityReference {
@@ -109,13 +108,13 @@ export interface EntityReference {
   id: string;
 }
 
-/** Die Auswahl auf der Arbeitsfläche: Kacheln, Actor-Zugänge und Pop-outs melden sie, die Fläche zeigt sie, der Chat meldet sie als Standort. */
-export interface CanvasController {
+/** Die Auswahl auf der Fläche: Kacheln, Actor-Zugänge und Pop-outs melden sie, die Fläche zeigt sie, der Chat meldet sie als Standort. */
+export interface SurfaceController {
   acceptSelection: (selection: EntityReference | undefined) => void;
   selection: EntityReference | undefined;
 }
 
-export interface ChatSurfaceOptions {
+export interface ChatDisplayOptions {
   chatElementClassName?: string;
   chatScrollerRef?: (element: HTMLDivElement | null) => void;
   toolbarLeft?: ReactNode;
@@ -123,25 +122,25 @@ export interface ChatSurfaceOptions {
   notice?: ReactNode;
 }
 
-export interface CanvasCenterContext {
+export interface SurfaceCenterContext {
   runToolbarContainer: HTMLElement | null;
   toolbarContainer: HTMLElement | null;
   statusContainer: HTMLElement | null;
   cardSections: readonly CardSectionContribution[];
-  canvasElements: readonly CanvasElementContribution[];
+  surfaceElements: readonly SurfaceElementContribution[];
   navigation: SessionNavigation;
-  renderChat: (options?: ChatSurfaceOptions) => ReactNode;
+  renderChat: (options?: ChatDisplayOptions) => ReactNode;
   session: SessionContext;
   tabIds: readonly string[];
 }
 
-export interface CanvasContribution {
-  Center: ComponentType<CanvasCenterContext>;
+export interface SurfaceContribution {
+  Center: ComponentType<SurfaceCenterContext>;
   /** Das Run-Panel (run-panel.html) mit demselben Kontext; ohne Beitrag zeigt es nur den Chat. */
-  RunPanel?: ComponentType<CanvasCenterContext>;
+  RunPanel?: ComponentType<SurfaceCenterContext>;
 }
 
-export interface CanvasElementDefinition {
+export interface SurfaceElementDefinition {
   id: string;
   visible?: boolean;
   title?: string;
@@ -150,17 +149,17 @@ export interface CanvasElementDefinition {
   data?: unknown;
 }
 
-export interface CanvasElementContext {
-  definition: CanvasElementDefinition;
+export interface SurfaceElementContext {
+  definition: SurfaceElementDefinition;
   navigation: SessionNavigation;
   session: SessionContext;
 }
 
-export interface CanvasElementContribution {
+export interface SurfaceElementContribution {
   id: string;
   order: number;
-  select: (session: SessionContext) => readonly CanvasElementDefinition[];
-  Element: ComponentType<CanvasElementContext>;
+  select: (session: SessionContext) => readonly SurfaceElementDefinition[];
+  Element: ComponentType<SurfaceElementContext>;
 }
 
 export interface NavigationTarget {
@@ -217,7 +216,7 @@ export interface SessionHeaderContribution {
   readRight?: string;
   /** Der Beitrag braucht den Arbeitsbereich des Runs und fehlt, wo der Betrachter ihn nicht erreicht. */
   requiresWorkspace?: boolean;
-  placement?: "header" | "canvas";
+  placement?: "header" | "surface";
   id: string;
   order: number;
   Header: ComponentType<SessionHeaderContext>;
@@ -322,8 +321,8 @@ export interface WebPlugin extends WebPluginDescriptor {
   activate?: (config: Readonly<Record<string, unknown>>) => WebPlugin;
   enabled?: (config: Readonly<Record<string, unknown>>) => boolean;
   brand?: ProductBrand;
-  canvas?: CanvasContribution;
-  canvasElements?: CanvasElementContribution[];
+  surface?: SurfaceContribution;
+  surfaceElements?: SurfaceElementContribution[];
   cardSections?: CardSectionContribution[];
   chatDisplayPolicy?: ChatDisplayPolicy;
   startOptions?: StartOptionContribution[];
@@ -365,8 +364,8 @@ export const workspaceAccessible = (session: SessionInfo): boolean => session.wo
 
 export class PluginRegistry {
   readonly brand: ProductBrand;
-  readonly canvas: CanvasContribution | undefined;
-  readonly canvasElements: readonly CanvasElementContribution[];
+  readonly surface: SurfaceContribution | undefined;
+  readonly surfaceElements: readonly SurfaceElementContribution[];
   readonly cardSections: readonly CardSectionContribution[];
   readonly chatDisplayPolicy: ChatDisplayPolicy;
   readonly startOptions: ReadonlyMap<string, StartOptionContribution>;
@@ -404,21 +403,21 @@ export class PluginRegistry {
     if (brands.length === 0) {
       throw new Error("Kein aktives Plugin liefert ein Branding; die Plugin-Liste enthält kein Produkt-Plugin");
     }
-    if (brands.length > 1) throw new Error(`Das Produktprofil benötigt genau ein Branding, gefunden: ${brands.length}`);
+    if (brands.length > 1) throw new Error(`Das Profil benötigt genau ein Branding, gefunden: ${brands.length}`);
     this.brand = brands[0];
     this.workspaceTabs = this.activePlugins
       .flatMap((plugin) => plugin.workspaceTabs ?? [])
       .sort(byTabOrder);
-    assertUnique(this.workspaceTabs, (tab) => tab.id, "Arbeitsbereichs-Tab");
+    assertUnique(this.workspaceTabs, (tab) => tab.id, "Reiter der Leiste");
     this.workspaceTabFactories = this.activePlugins
       .flatMap((plugin) => plugin.workspaceTabsFor ? [plugin.workspaceTabsFor] : []);
-    const canvases = this.activePlugins.flatMap((plugin) => plugin.canvas ? [plugin.canvas] : []);
-    if (canvases.length > 1) throw new Error(`Mehrere Canvas-Beiträge registriert: ${canvases.length}`);
-    this.canvas = canvases[0];
-    this.canvasElements = this.activePlugins
-      .flatMap((plugin) => plugin.canvasElements ?? [])
+    const surfaces = this.activePlugins.flatMap((plugin) => plugin.surface ? [plugin.surface] : []);
+    if (surfaces.length > 1) throw new Error(`Mehrere Flächenbeiträge registriert: ${surfaces.length}`);
+    this.surface = surfaces[0];
+    this.surfaceElements = this.activePlugins
+      .flatMap((plugin) => plugin.surfaceElements ?? [])
       .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
-    assertUnique(this.canvasElements, (element) => element.id, "Canvas-Element-Beitrag");
+    assertUnique(this.surfaceElements, (element) => element.id, "Flächenelement-Beitrag");
     this.cardSections = this.activePlugins
       .flatMap((plugin) => plugin.cardSections ?? [])
       .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
@@ -437,7 +436,7 @@ export class PluginRegistry {
     this.entityPresenters = this.activePlugins.flatMap((plugin) => plugin.entityPresenters ?? []);
     const active = new Set(this.activePlugins.map((plugin) => plugin.id));
     this.startEntries = profile.startEntries.filter((entry) => active.has(entry.owner));
-    assertUnique(this.startEntries, (entry) => entry.id, "Einstieg");
+    assertUnique(this.startEntries, (entry) => entry.id, "Vorlage");
     this.skillEntries = this.startEntries.filter((entry): entry is SkillStartEntry => entry.action === "skill");
     this.scriptEntries = this.startEntries.filter((entry): entry is ScriptStartEntry => entry.action === "script");
     const guides = this.activePlugins.flatMap((plugin) => plugin.guides ?? []);
@@ -445,7 +444,7 @@ export class PluginRegistry {
     this.guides = new Map(guides.map((guide) => [guide.id, guide]));
     for (const entry of this.startEntries) {
       if (entry.guide !== undefined && !this.guides.has(entry.guide)) {
-        throw new Error(`Einstieg ${entry.id} verlangt den Leitfaden ${entry.guide}, den kein aktives Plugin bereitstellt`);
+        throw new Error(`Vorlage ${entry.id} verlangt den Leitfaden ${entry.guide}, den kein aktives Plugin bereitstellt`);
       }
     }
     this.sessionHeaders = this.activePlugins
@@ -479,7 +478,7 @@ export class PluginRegistry {
     if (this.workspaceTabFactories.length === 0) return this.workspaceTabs.filter((tab) => !tab.readRight || access.can(tab.readRight));
     const contributed = this.workspaceTabFactories.flatMap((factory) => factory(session));
     const tabs = [...this.workspaceTabs, ...contributed].sort(byTabOrder);
-    assertUnique(tabs, (tab) => tab.id, "Arbeitsbereichs-Tab");
+    assertUnique(tabs, (tab) => tab.id, "Reiter der Leiste");
     return tabs.filter((tab) => !tab.readRight || access.can(tab.readRight));
   }
 
@@ -488,7 +487,7 @@ export class PluginRegistry {
       .filter((tab) => (!tab.requiresWorkspace || workspaceAccessible(session.session)) && (tab.available?.(session) ?? true));
   }
 
-  headersFor(session: SessionContext, access: AccessContext, placement: "header" | "canvas"): readonly SessionHeaderContribution[] {
+  headersFor(session: SessionContext, access: AccessContext, placement: "header" | "surface"): readonly SessionHeaderContribution[] {
     return this.sessionHeaders.filter((entry) => (entry.placement ?? "header") === placement
       && (!entry.readRight || access.can(entry.readRight))
       && (!entry.requiresWorkspace || workspaceAccessible(session.session)));
@@ -623,10 +622,10 @@ export function primaryChatActor(view: unknown): string {
   return view !== null && typeof view === "object" && "primaryActorId" in view && typeof view.primaryActorId === "string" ? view.primaryActorId : "primary";
 }
 
-/** surface unterscheidet Anzeigeflächen desselben Chats (Canvas, Inspector, Popout); jede merkt sich ihren Detailgrad. */
-export function useChatSteps(runId?: string, actorId = "primary", surface?: string): ChatStepsControl {
+/** display unterscheidet Anzeigeorte desselben Chats (Fläche, Inspector, Popout); jeder merkt sich seinen Detailgrad. */
+export function useChatSteps(runId?: string, actorId = "primary", display?: string): ChatStepsControl {
   const control = useContext(ChatStepsContext);
-  const identity = runId === undefined ? undefined : JSON.stringify(surface === undefined ? [runId, actorId] : [runId, actorId, surface]);
+  const identity = runId === undefined ? undefined : JSON.stringify(display === undefined ? [runId, actorId] : [runId, actorId, display]);
   return useMemo(() => ({
     selectable: control.selectable,
     stepsExpandable: control.stepsExpandable,
@@ -635,13 +634,13 @@ export function useChatSteps(runId?: string, actorId = "primary", surface?: stri
   }), [control, identity]);
 }
 
-const CanvasControllerContext = createContext<CanvasController | undefined>(undefined);
+const SurfaceControllerContext = createContext<SurfaceController | undefined>(undefined);
 
-export function CanvasControllerProvider({ children, value }: PropsWithChildren<{ value: CanvasController }>) {
-  return <CanvasControllerContext.Provider value={value}>{children}</CanvasControllerContext.Provider>;
+export function SurfaceControllerProvider({ children, value }: PropsWithChildren<{ value: SurfaceController }>) {
+  return <SurfaceControllerContext.Provider value={value}>{children}</SurfaceControllerContext.Provider>;
 }
 
-export const useCanvasController = () => useContext(CanvasControllerContext);
+export const useSurfaceController = () => useContext(SurfaceControllerContext);
 
 const ToolRendererContext = createContext<(tool: ToolInfo) => ReactNode>(() => undefined);
 

@@ -29,7 +29,7 @@ Only Node 22 is required: no Git, pnpm, `pnpm install`, or build. The subcommand
 - `ragents provision [<profile>|--workspace]` installs only the required tools.
 - `ragents workspace-client <server-url> [folders ...]` registers this machine as a workspace.
 - `ragents plugin build <folder...>` builds plugin sources into bundles, with type checks; see
-  [Build and ship a plugin](guide-extensions.html).
+  [Build and ship a plugin](guide-plugins.html).
 
 The package runs like the checkout, with the same files in the same places and TypeScript loaded
 at runtime through `tsx`. On first use, the command creates the `node_modules/@ragents/*`
@@ -157,7 +157,8 @@ The script exports the run from the source with `ragents.runs.export` and import
 with `ragents.runs.import`. If each side uses a different token, set `RAGENTS_SOURCE_TOKEN` and
 `RAGENTS_TARGET_TOKEN`. The transfer includes the journal and payloads, model contexts under
 `chat/`, actor programs, and all plugin storage for the run, including `ragents.documents` files
-and the workspace of a run with a `fresh` binding. Running processes, language servers, and
+and the new folder of a run that works on the server. A folder on a workplace stays there, and the
+run keeps its binding to that workplace. Running processes, language servers, and
 browsers are not transferred; they are recreated on the target when next used.
 
 The transfer enforces these prerequisites:
@@ -169,7 +170,7 @@ The transfer enforces these prerequisites:
   target folder, given as an absolute path on the target server. A workspace binding is retained; that workspace reconnects to the target with
   the same ID and as the run owner, or anonymously for an ownerless run.
 - The archive must stay below 16 MiB because it travels as Base64 through the message layer.
-  A workspace containing `node_modules` will exceed this; a `path` binding usually will not.
+  A workspace containing `node_modules` will exceed this; an existing folder on the server usually will not.
 
 Export copies the run. It remains on the source and must be deleted there explicitly after a
 real move, otherwise two journals with the same ID diverge. On the target, the run appears
@@ -193,8 +194,8 @@ The local host and workspace also run on Windows. Requirements are:
 
 The data directory is `%LOCALAPPDATA%\ragents\<profile>` and server-provided profiles use
 `%LOCALAPPDATA%\ragents\remote\<host>\<profile>\`. `DATA_DIR` overrides this. Startup fails when
-`LOCALAPPDATA` is absent. Unix permissions 0700 and 0711 do not apply on Windows, where session
-isolation depends on the user account.
+`LOCALAPPDATA` is absent. Unix permissions 0700 and 0711 do not apply on Windows, where isolation
+per run depends on the user account.
 
 Windows has no process group for command termination, so RAgents ends the process tree with
 `taskkill /T /F`. This is forceful and has no grace period. There is also no process table: for

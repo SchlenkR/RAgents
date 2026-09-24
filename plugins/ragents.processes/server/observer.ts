@@ -22,7 +22,7 @@ const SNAPSHOT_TIMEOUT_TICKS = 5;
 
 const messageOf = (error: unknown): string => error instanceof Error ? error.message : String(error);
 
-/** Fragt je Takt den Stand jedes beobachteten Laufs bei seinem Executor ab, jeden für sich und mit Zeitgrenze, und meldet nur Änderungen. */
+/** Fragt je Takt den Stand jedes beobachteten Runs bei seinem Executor ab, jeden für sich und mit Zeitgrenze, und meldet nur Änderungen. */
 export class RunProcessObserver {
   readonly #options: RunProcessObserverOptions;
   readonly #watches = new Map<string, RunWatch>();

@@ -24,7 +24,7 @@ const appChat = (): ChatConnection => {
 
 const emptyMessages: never[] = [];
 
-const chatSurface = "flex h-full min-h-0 w-full min-w-0 flex-col text-foreground";
+const chatDisplay = "flex h-full min-h-0 w-full min-w-0 flex-col text-foreground";
 
 function ChatInput({ onSend, placeholder, ...props }: ChatInputProps) {
   return <ChatInputToolbar {...props} onSend={onSend} texts={placeholder === undefined ? undefined : {
@@ -36,7 +36,7 @@ function ChatInput({ onSend, placeholder, ...props }: ChatInputProps) {
 function ChatView({ title, showInput = true, onSend, placeholder, rows = 2, maxRows = 6,
   className, error, disabled, attachmentCapabilities, attachmentCapabilitiesError, ...messages }: ControlledChatProps & { error?: string; disabled?: boolean }) {
   return (
-    <section aria-label={title ?? "Chat"} className={cn(chatSurface, "[&_[data-chat=composer]]:px-3 [&_[data-chat=composer]]:pb-3", className)}>
+    <section aria-label={title ?? "Chat"} className={cn(chatDisplay, "[&_[data-chat=composer]]:px-3 [&_[data-chat=composer]]:pb-3", className)}>
       {title && <h2 className="px-4 pt-3 pb-1 text-[14px] font-semibold">{title}</h2>}
       {error && <p className="px-4 py-3 text-[13px] text-destructive" role="alert">{error}</p>}
       <ChatPanel className="flex-1" composer={showInput && onSend ? <ChatInput

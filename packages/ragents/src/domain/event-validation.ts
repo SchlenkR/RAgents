@@ -356,7 +356,8 @@ const payloadOf = (type: EventType, value: unknown, path: string) => {
             return;
         }
 
-        case "turn.started": {
+        case "turn.started":
+        case "turn.input-steered": {
             const payload = exactObject(value, path, ["turnId", "inputId"]);
             stringOf(payload.turnId, `${path}.turnId`);
             stringOf(payload.inputId, `${path}.inputId`);

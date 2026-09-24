@@ -6,7 +6,7 @@ coordinator: false
 tags: Run-Scripts, Anwendungsfall, Konzeptdemo, Mini-Apps, TypeScript-Actors, Agententeams, Subscriptions
 ---
 
-Rot, Gelb, Blau und Grün sind vier LLM-Actors ohne Werkzeuge mit dem Modellprofil `standard`.
+Rot, Gelb, Blau und Grün sind vier LLM-Actors ohne Werkzeuge mit der Rolle `standard`.
 Der TypeScript-Actor besitzt die Mini-App, legt die Teilnehmer an und wird Primary-Actor.
 Erst "Wortspiel starten" in der App beauftragt das erste Modell. Das Ausgangswort ist "Sonne".
 

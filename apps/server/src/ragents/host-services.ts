@@ -6,15 +6,15 @@ import {
   type ServiceToken,
 } from "@ragents/engine";
 import type { SessionWorkspace } from "./workspace-runtime.js";
-import type { SessionManagement } from "./global-chat.js";
+import type { RunManagement } from "./global-chat.js";
 
-export const sessionGuardToken: ServiceToken<(runId: string) => void> = serviceToken("host.session-guard");
+export const runGuardToken: ServiceToken<(runId: string) => void> = serviceToken("host.run-guard");
 
 /** Jeder Weg von außen zum Arbeitsbereich eines Runs (Dateien, Prozesse, Sprachserver) prüft damit Run und Zugang: ein Run, den nur sein Eigentümer bedient, zeigt seinen Arbeitsbereich nur ihm. */
 export const workspaceGuardToken: ServiceToken<(access: AccessContext, runId: string) => void> = serviceToken("host.workspace-guard");
 
-export const sessionWorkspaceProviderToken: ServiceToken<(runId: string) => Promise<SessionWorkspace>> =
-  serviceToken("host.session-workspaces");
+export const runWorkspaceProviderToken: ServiceToken<(runId: string) => Promise<SessionWorkspace>> =
+  serviceToken("host.run-workspaces");
 
 export const secretEnvNamesToken: ServiceToken<() => readonly string[]> = serviceToken("host.secret-env-names");
 
@@ -25,7 +25,7 @@ export interface HostBridges {
   ensureWorkspaceAccess: (access: AccessContext, runId: string) => void;
   runtime: () => Orchestration;
   sessionWorkspaceFor: (runId: string) => Promise<SessionWorkspace>;
-  sessions?: () => SessionManagement;
+  sessions?: () => RunManagement;
 }
 
 export type ProductProfileFactory = (bridges: HostBridges) => PluginHost;

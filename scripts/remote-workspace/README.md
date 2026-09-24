@@ -1,6 +1,6 @@
 # Prüfläufer: Arbeitsbereich auf einem anderen Rechner
 
-Prüft Runs mit der Bindung `client`, deren Arbeitsbereich auf einem fremden Rechner liegt. Der fremde
+Prüft Runs, deren Arbeitsbereich auf einem Arbeitsplatz liegt, also auf einem fremden Rechner. Der fremde
 Rechner ist ein Linux-Container mit eigenem Dateisystem, eigener Prozesstabelle, eigenem `localhost`
 und anderer Plattform; jeder Zugriff des Servers auf seine eigene Maschine fällt damit auf.
 
@@ -45,6 +45,9 @@ Mit `--vscode` öffnet sich ein eigenes VS-Code-Fenster.
   Server arbeitet; der Arbeitsplatz protokolliert die Aufrufe; ein binärer Chat-Anhang liegt unter
   `attachments/` im Container, wo `bash` ihn liest, und weder im Datenordner noch in der Kopie des
   Servers.
+- Neuer Ordner: ein zweiter Run von `alice` mit neuem Ordner je Run auf dem Arbeitsplatz bekommt einen
+  Ordner unter dem Ordner für Runs im Container; `write` und `bash` arbeiten darin, auf dem Server
+  entsteht er nicht, und das Löschen des Runs nimmt ihn im Container mit.
 - Dateien: Liste und Vorschau zeigen den Container; eine Änderung per `docker exec` meldet der Kanal.
 - Prozesse: ein markierter Prozess im Container erscheint, ein markierter Vergleichsprozess auf diesem
   Rechner nicht; Beenden wirkt im Container.
@@ -71,7 +74,7 @@ eigene PID beziehungsweise ihre eigene Prozessgruppe (nur solange deren Anführe
 diesem Rechner nur, wenn ihre Umgebung einen Run-Marker dieses Servers oder die Markierung
 `RAGENTS_REMOTE_CHECK_SESSION=<Läufer-PID>-<Sitzung>` trägt. Das gilt auch bei Strg-C und Fehlern.
 Nach einem harten Abbruch beendet sich der Server über `RAGENTS_PARENT_PID` selbst; Container,
-Temp-Ordner und Prozesse eines toten Läufers räumt der nächste Lauf zu Beginn ab. Schlägt eine
+Temp-Ordner und Prozesse eines toten Läufers räumt der nächste Prüflauf zu Beginn ab. Schlägt eine
 Prüfung fehl, bleiben die Protokolle (Server, Arbeitsplatz, Skriptmodell, Image, VS Code) unter
 `/tmp/ragents-rwc-protokoll-<sitzung>`.
 

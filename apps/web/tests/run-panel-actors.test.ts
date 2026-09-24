@@ -14,7 +14,7 @@ const view: RunView = {
   actors: [actor("owner", "human"), actor("circle", "script", { kind: "idle", since: at }), actor("coordinator", "agent", { kind: "idle", since: at }), actor("mira", "agent", { kind: "running", turnId: "t", inputId: "i", startedAt: at }), actor("old", "agent", { kind: "stopped", stoppedAt: at, reason: "fertig" })],
   inputs: [
     { id: "i1", actorId: "mira", content: "x", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: "owner", enqueuedAt: at, sequence: 1, lifecycle: { kind: "pending" } },
-    { id: "i2", actorId: "mira", content: "y", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: "owner", enqueuedAt: at, sequence: 2, lifecycle: { kind: "claimed", turnId: "t" } },
+    { id: "i2", actorId: "mira", content: "y", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: "owner", enqueuedAt: at, sequence: 2, lifecycle: { kind: "claimed", turnId: "t", steered: false } },
   ],
   turns: [], subscriptions: [], pluginStates: [],
   actions: [{ id: "q1", askedBy: "circle", owner: "ragents.ask", payload: { question: "?", options: [], multi: false }, title: "?", description: null, parameters: {}, input: null, status: "pending", proposedAt: at, resolvedAt: null, resolvedBy: null, result: null }],
@@ -26,7 +26,7 @@ test("the chip row puts the coordinator first and hides scripts without the insp
   assert.deepEqual(runPanelActors(view, false).map((entry) => entry.id), ["coordinator", "mira", "old"]);
 });
 
-test("visibility follows the canvas header mode while coordinator and selection stay pinned", () => {
+test("visibility follows the surface header mode while coordinator and selection stay pinned", () => {
   const actors = runPanelActors(view, true);
   const onStage = (entry: RunActor) => entry.id === "coordinator" || entry.id === "mira";
   const active = partitionRunPanelActors(actors, { mode: "active", onStage, primaryId: "coordinator", selectedId: undefined });

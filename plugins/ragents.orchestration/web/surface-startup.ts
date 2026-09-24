@@ -2,15 +2,15 @@ import type { ChatStartupStatus } from "@ragents/host/chat-events";
 import type { StartupNoticeState } from "@ragents/web/ui";
 import { isPendingRunActorInput, type RunView } from "@ragents/web/run-view";
 
-export type CanvasStartupState = StartupNoticeState;
+export type SurfaceStartupState = StartupNoticeState;
 
-export function canvasStartupState({ view, startup, connected, running, error }: {
+export function surfaceStartupState({ view, startup, connected, running, error }: {
   view: RunView | undefined;
   startup: ChatStartupStatus | undefined;
   connected: boolean;
   running: boolean;
   error: string | undefined;
-}): CanvasStartupState | undefined {
+}): SurfaceStartupState | undefined {
   if (startup?.status === "failed") return { kind: "error", title: "Der Run konnte nicht vorbereitet werden", detail: startup.message };
   if (error) return { kind: "error", title: "Der Run-Status ist nicht erreichbar", detail: error };
   if (startup?.status === "preparing") return { kind: "working", title: "Run wird vorbereitet", detail: startup.message };

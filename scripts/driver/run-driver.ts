@@ -18,7 +18,7 @@ interface DriverConfig {
 }
 
 const usage = (): string => `Verwendung: PRODUCT_PROFILE=<profil> [PRODUCT_PROFILE_FILE=<pfad>] [RAGENTS_DRIVER_USER=<id>] pnpm driver <befehl>
-  new-run [entry]                 legt einen Run über einen Start-Einstieg an (Standard ragents.reference.shared-actor-list)
+  new-run [entry]                 legt einen Run über eine Vorlage an (Standard ragents.reference.shared-actor-list)
   send <runId> <@actor> <text>    schickt eine Nachricht an einen Actor des Runs
   stop <runId>                    unterbricht den laufenden Turn des Primary-Actors; der Run bleibt aktiv
   stop <runId> --run              Not-Aus: bricht alle Turns ab und stoppt alle Actors des Runs
@@ -128,7 +128,7 @@ const main = async (): Promise<void> => {
   } else if (command === "stop") {
     console.log(await stopCommand(rpc, args));
   } else if (command === "sessions") {
-    console.log(JSON.stringify(await rpc.call(coreContracts.sessions.list, {})));
+    console.log(JSON.stringify(await rpc.call(coreContracts.runs.list, {})));
   } else {
     throw new Error(`Unbekannter Befehl ${command}.\n${usage()}`);
   }

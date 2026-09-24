@@ -57,7 +57,7 @@ export const resolveActorView = (programs: readonly ActorProgramDefinition[], re
   const matches = named.length > 0 ? named : views.filter(({ view }) => view.title.toLowerCase() === normalized);
   const names = (entries: typeof views) => entries.map(({ program, view }) => `${program.name}/${view.key} (@${program.actorHandle}/${view.key})`).join(", ") || "keine";
   if (matches.length === 0) {
-    throw new Error(`${reference} ist keine aktive Actor-Ansicht dieses Laufs. Zuerst das Programm aktivieren. Vorhanden: ${names(views)}`);
+    throw new Error(`${reference} ist keine aktive Actor-Ansicht dieses Runs. Zuerst das Programm aktivieren. Vorhanden: ${names(views)}`);
   }
   if (matches.length > 1) throw new Error(`${reference} ist mehrdeutig. Verwende einen eindeutigen Namen: ${names(matches)}`);
   return matches[0]!;

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { canvasStartupState } from "../../../plugins/ragents.orchestration/web/canvas-startup.ts";
+import { surfaceStartupState } from "../../../plugins/ragents.orchestration/web/surface-startup.ts";
 import type { RunAction, RunActor, RunActorInput, RunTurn, RunView } from "../src/run-view.ts";
 
 const at = "2026-09-14T10:00:00.000Z";
@@ -20,7 +20,7 @@ const view = (overrides: Partial<RunView> = {}): RunView => ({
   id: "run-1", title: "Aufbau", ownerId: "owner", primaryActorId: "setup", revision: 1, createdAt: at, forkedFrom: null,
   actors: [], inputs: [], turns: [], subscriptions: [], pluginStates: [], actions: [], artifacts: [], ...overrides,
 });
-const state = (overrides: Partial<Parameters<typeof canvasStartupState>[0]> = {}) => canvasStartupState({
+const state = (overrides: Partial<Parameters<typeof surfaceStartupState>[0]> = {}) => surfaceStartupState({
   view: view(), startup: undefined, connected: true, running: false, error: undefined, ...overrides,
 });
 
@@ -80,7 +80,7 @@ test("stopped scripts with pending inputs or stale running turns never keep the 
 });
 
 test("claimed, discarded and orphaned inputs do not create phantom setup work", () => {
-  for (const lifecycle of [{ kind: "claimed", turnId: "turn-1" }, { kind: "discarded", at, reason: "Verworfen" }] as const) {
+  for (const lifecycle of [{ kind: "claimed", turnId: "turn-1", steered: false }, { kind: "discarded", at, reason: "Verworfen" }] as const) {
     assert.equal(state({ view: view({ actors: [actor()], inputs: [input({ lifecycle })] }) }), undefined);
   }
   assert.equal(state({ view: view({ actors: [actor()], inputs: [input({ actorId: "missing" })] }) }), undefined);

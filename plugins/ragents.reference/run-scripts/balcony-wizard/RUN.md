@@ -6,7 +6,7 @@ coordinator: false
 tags: Run-Scripts, Anwendungsfall, Konzeptdemo, Mini-Apps, LLM-Actor mit View, Frei gesteuerter Chat, Primary-Actor
 ---
 
-Das TypeScript-Setup legt einen Balkon-Berater mit dem Modellprofil `standard` und ausdrücklich
+Das TypeScript-Setup legt einen Balkon-Berater mit der Rolle `standard` und ausdrücklich
 ohne Werkzeuge an. Das mitgelieferte Programm `actors/balcony-app/` bindet eine eigenständige
 Mini-App an diesen Actor. Die Fläche zeigt allein deren Kachel statt einer Chatkachel; ein Koordinator
 wird für diesen Run nicht angelegt. Der Berater wird zum Primary-Actor und behält seinen eigenen
@@ -19,7 +19,7 @@ ein Formular, nicht in ein Chat-Widget. Fortschritt und abgeschlossene Antworten
 dem Neuladen aus dem Gespräch rekonstruieren; eine fehlgeschlagene Modellantwort kann erneut
 angefordert werden, ohne eine weitere Antwort zu zählen.
 
-Der Einstieg benötigt keine Startwerte. Das Setup wird einmal ausgeführt und startet noch keinen
+Die Vorlage benötigt keine Startwerte. Das Setup wird einmal ausgeführt und startet noch keinen
 Modellaufruf. Erst eine Aktion in der App schickt Text an den Berater. Fragen und Empfehlungen
 bleiben Modellantworten; die App prüft ihre fachliche Qualität nicht automatisch.
 

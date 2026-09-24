@@ -249,7 +249,7 @@ test("a function cannot overwrite actor state patched while its native invocatio
   assert.deepEqual(f.runtime.data(f.runId, program.actorId).values, {count: 55, retained});
 });
 
-test("preparing a new conversation does not require its run journal to exist yet", async (t) => {
+test("preparing a new run does not require its run journal to exist yet", async (t) => {
   const f = await actorProgramFixture(t);
   await f.runtime.prepareSession("new-conversation");
   assert.deepEqual(f.runtime.programs("new-conversation"), []);

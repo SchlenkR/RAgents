@@ -8,7 +8,7 @@ export interface StartupNoticeState {
   detail: string;
 }
 
-/** Der eine Ladezustand für Kachelfläche, Run-Panel und dessen Start: Titel, bei laufender Arbeit ein Fortschrittsbalken, darunter was gerade geschieht. */
+/** Der eine Ladezustand für Fläche, Run-Panel und dessen Start: Titel, bei laufender Arbeit ein Fortschrittsbalken, darunter was gerade geschieht. */
 export function StartupNotice({ children, className, state }: { children?: ReactNode; className?: string; state: StartupNoticeState }) {
   return <div aria-live="polite" className={cn("w-[min(360px,100%)] text-center text-foreground", className)} data-startup={state.kind}
     role={state.kind === "error" ? "alert" : "status"}>

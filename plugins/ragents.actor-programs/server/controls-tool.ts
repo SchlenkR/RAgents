@@ -4,7 +4,7 @@ import { toolDescriptorFrom } from "@ragents/host/plugin-support/agent-tool.js";
 import { readClientUiComponentNames, readClientUiComponentContracts } from "@ragents/host/plugin-support/actor-programs/client-contracts.js";
 import { actorProgramGuide } from "./prompts.js";
 
-const available = defineToolAvailability({ availability: "always", availabilityDetail: "Typisierte UI-Referenz der installierten Actor-Programm-Extension." }, () => true);
+const available = defineToolAvailability({ availability: "always", availabilityDetail: "Typisierte UI-Referenz des installierten Actor-Programm-Plugins." }, () => true);
 const metadata = {
   name: "actor_program_controls",
   label: "Actor-Programm-Anleitung und Controls nachschlagen",

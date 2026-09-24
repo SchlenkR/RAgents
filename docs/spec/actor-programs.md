@@ -21,7 +21,7 @@ model.
 
 Programs are private packages in a prepared pnpm workspace for the run. File functions and
 language servers access them through `@actors/<name>/`; Bash uses `RAGENTS_ACTORS_DIR`. The
-workspace interface exposes the program-package collection directly. Normal relative imports
+workspace interface exposes the actor-program collection directly. Normal relative imports
 include local modules, while fixed local dependencies come from the host installation.
 
 ```text
@@ -51,15 +51,15 @@ backend function.
 
 Activation rejects a program with an input handler on an LLM actor because that actor's normal
 messages remain with the model driver. A package without an input handler can still add functions
-and views to it. Functions can also exist without a view. Exactly one program package is active
+and views to it. Functions can also exist without a view. Exactly one actor program is active
 per actor; a different package is rejected. Add functions and views to the existing package
 instead. Reactivating that package applies its changed state, including removed functions and
 views.
 <!-- /guide:programs -->
 
-### Dateirechte der Programmpakete
+### Dateirechte der Actor-Programme
 
-Bei Sessions mit eigener UID gleicht der Host Eigentümer und Schreibrechte der privaten
+Bei Runs mit eigener UID gleicht der Host Eigentümer und Schreibrechte der privaten
 Quell-, SDK- und Build-Dateien innerhalb der Run-Speichergrenze ab. Bibliotheks-Symlinks bleiben
 unverändert. Das Modell muss keine ausgegebenen Speicherpfade übernehmen.
 
@@ -138,13 +138,13 @@ The host manages hashes and technical bindings.
 
 ### Diagnose, Typprüfung und Fachtests
 
-Vor jeder Modellanfrage prüft ein Laufzeitbeitrag geänderte Programmpakete einschließlich
+Vor jeder Modellanfrage prüft ein Laufzeitbeitrag geänderte Actor-Programme einschließlich
 Typen und Build. Der Kontext erhält nur einen kurzen Unterschied zum letzten Fehlerstand;
 unveränderte Projekte und Fehlerlisten werden nicht wiederholt. `actor_program_diagnostics`
 liefert den letzten vollständigen Stand, optional für einen Programmnamen. Die normalen
 Language-Server-Werkzeuge können dieselben Projekte direkt prüfen.
 
-Die Typprüfung umfasst immer den Backend-Einstieg aus `package.json.ragents.backend`, auch
+Die Typprüfung umfasst immer den Backend-Einsprungpunkt aus `package.json.ragents.backend`, auch
 bei einer engeren Dateiauswahl in der erhaltenen Autoren-tsconfig.
 Es gibt keinen getrennten Check-, Test- oder Installationsvertrag für Actor-Programme und
 keine vom Modell weitergereichte Build-Referenz. Bearbeitete Quellen ändern eine laufende
@@ -171,8 +171,8 @@ und Platz bestimmt die Kachel, in der sie steht. Der Benutzer kann sie zusätzli
 lokalen Vollansicht öffnen.
 
 Der zugehörige Actor steht in der persönlichen Standardansicht nicht auf der Fläche, auch bei
-einem LLM-Actor. Die Mini-App bleibt sichtbar und bedienbar. `Actors` in der Canvas-Leiste
-führt den Besitzer auf, ohne eine Kachel anzulegen; die Checkbox `Canvas`
+einem LLM-Actor. Die Mini-App bleibt sichtbar und bedienbar. `Actors` in der Leiste über der Fläche
+führt den Besitzer auf, ohne eine Kachel anzulegen; die Checkbox `Fläche`
 je Actor gibt ihm auf Wunsch eine eigene.
 Auch eine ausgeblendete installierte View zählt weiterhin als eigene Mini-App.
 
@@ -182,12 +182,12 @@ Controls und Abstände erhalten keine zusätzliche Verkleinerung. Die Kachel bes
 blaugraue Fläche mit Kontur und 17 Pixeln Eckradius, ohne Tiefe und ohne zweite innere
 Zierkontur. Ihren Titel trägt der Kachelkopf; die App bringt keine eigene Titelzeile mit.
 
-Der Vergrößern-Knopf öffnet eine lokale Vollansicht im Host-Bereich `canvas`. Sie liegt mit
-16 bis 24 Pixeln Abstand ausschließlich über der Fläche; das rechte Panel, die Titelleiste,
+Der Vergrößern-Knopf öffnet eine lokale Vollansicht im Host-Bereich `surface`. Sie liegt mit
+16 bis 24 Pixeln Abstand ausschließlich über der Fläche; die Reiterleiste, die Titelleiste,
 die Leiste für Apps und Actors sowie die Statusleiste bleiben sichtbar und bedienbar. Der Hintergrund wird wie bei einem Dialog
 abgetönt und mit 4 Pixeln Unschärfe weichgezeichnet. Rahmen, Ecken und Schatten folgen der
 gemeinsamen Dialoggestaltung. Nur die darunterliegende Fläche ist währenddessen inaktiv.
-Der App-Titel in der Canvas-Leiste behält beim Umschalten
+Der App-Titel in der Leiste über der Fläche behält beim Umschalten
 das Schriftgewicht 700; die aktive Fläche und Unterkante zeigen den Zustand, ohne die
 Nachbareinträge zu verschieben. Der Provider hält genau eine Vollansicht; die Auswahl
 einer anderen App ersetzt sie. Die Vollansicht hat eine eigene Titelzeile mit dem App-Namen
@@ -204,7 +204,7 @@ Die Sichtbarkeit der View ist journalisiert. Ausblenden erhält Installation, We
 Aktionen und Zustand. Wiederanzeigen, Neustart und erneute Aktivierung erhalten diese Auswahl.
 Die persönliche Sichtbarkeit ihres Actors wird davon getrennt im
 Browser je Serveradresse und Run gespeichert; sie verändert kein Journal. Es gibt keinen
-zusätzlichen Mini-App-Reiter im rechten Arbeitsbereich.
+zusätzlichen Mini-App-Reiter in der Leiste.
 
 ## Capabilities und Identität
 
@@ -219,8 +219,8 @@ Die Methoden für Mini-Apps und direkte Actor-Funktionen akzeptieren dieselben
 Funktionsnamen einschließlich Großbuchstaben, etwa `addEntry`.
 Der Browser fragt laufende Mini-App-Aufrufe über deren App-Route ab; dafür genügt `runs.read`.
 Die technische Abfrage direkter Actor-Funktionen bleibt durch `runs.inspect` geschützt.
-Laufanzeigen verwenden Aktionslabels. Ohne Label zeigt der eingeschränkte Zugang nur den
-Laufstatus; technische Aktionskennungen bleiben dem Vollzugang vorbehalten.
+Aufrufanzeigen verwenden Aktionslabels. Ohne Label zeigt der eingeschränkte Zugang nur den
+Aufrufstatus; technische Aktionskennungen bleiben dem Vollzugang vorbehalten.
 
 Der Plugin-Host registriert Fachoperationen mit Eingabe- und Ergebnisschema sowie
 Operator-Policy. `direct` erlaubt die Bedieneraktion, `confirm` verlangt eine bestätigte
@@ -234,7 +234,7 @@ die Dateirechte und Ausführungsumgebung gehören zum Run-Workspace.
 Die Leiste über der Fläche zeigt sichtbar geschaltete Apps neben direkten Zugängen zu allen
 nichtmenschlichen, nicht gestoppten Actors. Der Actors-Listenknopf bleibt links stehen;
 App- und Actor-Knöpfe scrollen bei Platzmangel gemeinsam horizontal. Die Leiste liegt
-außerhalb des Dialogbereichs `canvas` und erlaubt Appwechsel während der Vollansicht. Eine feine
+außerhalb des Dialogbereichs `surface` und erlaubt Appwechsel während der Vollansicht. Eine feine
 untere Trennlinie grenzt sie von der Fläche ab; sie besitzt keinen eigenen Schatten.
 Der App-Name wählt ihre Kachel;
 der Vergrößern-Knopf schaltet die lokale Vollansicht. Die aktive Vollansicht ist hervorgehoben.
@@ -395,7 +395,7 @@ labels allowed to require more. An edge with `kind: "return"` draws a return pat
 main sequence without changing its temporal layout.
 
 Diagrams start at 80 percent of design size, including type, cards, edges, and spacing; the
-center control restores that scale. The canvas has no separate background, border, or dot grid,
+center control restores that scale. The diagram pane has no separate background, border, or dot grid,
 so the diagram sits directly on the mini-app content. Zooming and panning change only the view.
 With `viewport="fit-width"`, the graph fits the container automatically, shrinks further when
 needed, and never grows beyond 80 percent. Remaining space is centered. Height follows complete
@@ -463,7 +463,7 @@ Kartenhülle bleibt bestehen; der App-Inhalt erscheint in allen Modi bei 100 Pro
 
 Die Vorlagen für Textanalyse und gemeinsame Liste sowie das Sammelboard verwenden die
 gemeinsamen Bausteine. Ihre Schrift, Flächen und Listen folgen den Theme-Tokens; ein eigener
-fest auf Hell gesetzter Stil entfällt. Bereits angelegte Programmpakete behalten ihre eigenen
+fest auf Hell gesetzter Stil entfällt. Bereits angelegte Actor-Programme behalten ihre eigenen
 Quellen bis zur ausdrücklichen Bearbeitung und Aktivierung.
 
 Statusfarben und Diff-Markierungen verwenden weiter die semantischen Tokens des Hosts.
@@ -594,6 +594,10 @@ sie keine eigenen aufrufbaren Oberflächen hat, benötigt sie keine simulierte C
 keinen Aktionstest. Fügt eine App eigene Aktionen oder Werkzeuge hinzu, gilt für diese die
 gewöhnliche Testpflicht.
 
+Die Bausteine werden mit `import * as UI from "@ragents/client/ui"` eingebunden. `ui-field` gehört
+direkt auf ein Eingabeelement, nie auf dessen Wrapper. `FlowDiagram` stellt mit `layout="star"`
+den ersten Knoten in die Mitte.
+
 ## Host-Bridge
 
 Die Host-Bridge läuft als erstes Script im Dokument, erzeugt einen `MessageChannel` und meldet
@@ -649,7 +653,7 @@ poll their status until completion.
 
 Functions on the same actor execute in order; different actors can work in parallel. Every call
 receives an abort signal. The native execution platform owns processes and stop boundaries for
-runs and instances. Stopping a run ends active work, while removing a program package or
+runs and instances. Stopping a run ends active work, while removing an actor program or
 activating a new version terminates execution resources from the previous version. After a
 server restart, previously pending or active mini-app function calls are marked `cancelled` and
 are not retried automatically. Unclaimed ActorInputs behave differently: they remain queued for
