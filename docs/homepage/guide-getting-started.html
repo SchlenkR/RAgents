@@ -154,12 +154,15 @@ that exact environment variable. Startup fails if it is missing. Existing enviro
 take precedence over profile values; no <code>.env</code> file is loaded. Startup reports a missing
 referenced variable as an error. Configured models and reasoning levels must be valid in the
 available model catalog.</p>
+<p>A profile can also name its models by alias: <code>MODEL_ALIASES</code> in the <code>host</code> section lists
+<code>alias=provider/model</code> or <code>alias=provider/model@thinking</code>, and <code>AGENT_PROVIDER: &quot;alias&quot;</code> makes the
+product use them. The interface, the chat, and the journal then show only the alias names.</p>
 <p>Alternatively, a profile can obtain its models from another RAgents server running the
-<code>ragents.model-relay</code> plugin with <code>RELAY_MODELS</code>: set <code>AGENT_PROVIDER: &quot;relay&quot;</code>, point
-<code>RELAY_URL</code> to that server, use <code>RELAY_TOKEN: env(&quot;...&quot;)</code> with a user&#39;s personal token there,
-and use relay aliases for every model key. Only the relay server can see which model is behind
-an alias. Its log at <code>plugins/ragents.model-relay/relay.log</code> records the user, alias, target,
-and token count for each request.</p>
+<code>ragents.model-relay</code> plugin, which offers that server&#39;s <code>MODEL_ALIASES</code>: set
+<code>AGENT_PROVIDER: &quot;relay&quot;</code>, point <code>RELAY_URL</code> to that server, use <code>RELAY_TOKEN: env(&quot;...&quot;)</code> with a
+user&#39;s personal token there, and use relay aliases for every model key. Only the relay server can
+see which model is behind an alias. Its log at <code>plugins/ragents.model-relay/relay.log</code> records the
+user, alias, target, and token count for each request.</p>
 <p>Then start the neutral profile:</p>
 <pre><code class="language-sh">scripts/start.sh core
 </code></pre>

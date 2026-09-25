@@ -4,8 +4,8 @@ import { pipeline } from "node:stream/promises";
 import type { ReadableStream } from "node:stream/web";
 import type { HttpRouteContribution } from "@ragents/engine";
 import { PayloadTooLargeError, readBody, writeJson } from "@ragents/host/plugin-support/http.js";
+import type { ModelAlias } from "@ragents/host/plugin-support/model-aliases.js";
 import type { ModelUpstream } from "@ragents/host/plugin-support/model-upstreams.js";
-import type { RelayAlias } from "./config.js";
 
 export const RELAY_PATH_PREFIX = "/relay/v1";
 export const RELAY_RIGHT = "models.use";
@@ -21,15 +21,15 @@ export interface ResolvedAlias {
 }
 
 /** Jeder Alias muss auf einen konfigurierten Anbieter und ein Modell aus dessen Katalog zeigen. */
-export const resolveAliases = (aliases: readonly RelayAlias[], upstreams: readonly ModelUpstream[]): readonly ResolvedAlias[] =>
+export const resolveAliases = (aliases: readonly ModelAlias[], upstreams: readonly ModelUpstream[]): readonly ResolvedAlias[] =>
   aliases.map((entry) => {
     const upstream = upstreams.find((candidate) => candidate.id === entry.upstream);
     if (!upstream) {
       const available = upstreams.map((candidate) => candidate.id).join(", ") || "keiner";
-      throw new Error(`RELAY_MODELS: der Anbieter ${entry.upstream} hinter ${entry.alias} ist auf diesem Server nicht konfiguriert (verfügbar: ${available})`);
+      throw new Error(`MODEL_ALIASES: der Anbieter ${entry.upstream} hinter ${entry.alias} ist auf diesem Server nicht konfiguriert (verfügbar: ${available})`);
     }
     const model = upstream.models.find((candidate) => candidate.id === entry.model);
-    if (!model) throw new Error(`RELAY_MODELS: das Modell ${entry.model} hinter ${entry.alias} fehlt im Katalog von ${entry.upstream}`);
+    if (!model) throw new Error(`MODEL_ALIASES: das Modell ${entry.model} hinter ${entry.alias} fehlt im Katalog von ${entry.upstream}`);
     return { alias: entry.alias, upstream, model };
   });
 

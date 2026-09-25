@@ -4,6 +4,7 @@ import {
   type CatalogModel,
   type RAgentsPlugin,
 } from "@ragents/engine";
+import { modelLabel } from "@ragents/host/plugin-support/model-aliases.js";
 import type { ModelChoice } from "@ragents/host/plugin-support/model-choice.js";
 import { modelUpstreamsToken } from "@ragents/host/plugin-support/model-upstreams.js";
 import { pluginAsset } from "@ragents/host/plugin-support/plugin-folder.js";
@@ -30,21 +31,21 @@ const productProfiles = (): AgentProfile[] => {
       name: "coordinator",
       description: "Nur für den Koordinator selbst, nicht für Agenten.",
       model: coordinatorModel,
-      thinking: ragentsProductConfig.coordinatorThinking,
+      thinking: ragentsProductConfig.coordinatorThinking(),
     },
     {
       ...base,
       name: "relay",
       description: "Für Vermittlung mit wenigen Werkzeugen.",
       model: coordinatorModel,
-      thinking: ragentsProductConfig.coordinatorThinking,
+      thinking: ragentsProductConfig.coordinatorThinking(),
     },
     {
       ...base,
       name: "standard",
       description: "Für alle Agenten.",
       model,
-      thinking: ragentsProductConfig.thinking,
+      thinking: ragentsProductConfig.thinking(),
     },
     ...builtinProfiles.filter((profile) => profile.name === "manual"),
   ];
@@ -55,7 +56,7 @@ const productModels = (): CatalogModel[] =>
     driver: "agent" as const,
     provider: ragentsProductConfig.provider,
     model,
-    label: `${ragentsProductConfig.provider}/${model}`,
+    label: modelLabel(ragentsProductConfig.provider, model),
     thinking: ragentsProductConfig.modelChoice.thinkingOptionsFor(model),
   }));
 

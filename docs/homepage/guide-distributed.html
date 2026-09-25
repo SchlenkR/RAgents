@@ -220,7 +220,7 @@ token, must exist in the shell. Between download and startup, <code>connect</cod
 servers and the browser; a prerequisite it cannot install, such as <code>dotnet</code> or a separate Chrome,
 stops with instructions.</p>
 <p>The server needs <code>ragents.profile-distribution</code> with <code>CLIENT_PROFILE_FILE</code>, plus
-<code>ragents.model-relay</code> with <code>RELAY_MODELS</code> for models. Plugins the client profile names by path
+<code>ragents.model-relay</code> with <code>MODEL_ALIASES</code> in its <code>host</code> section for models. Plugins the client profile names by path
 must be bundles built with <code>ragents plugin build</code>; the server checks them at startup. Users
 receive <code>token: env(&quot;...&quot;)</code> and the two permissions. Relay responses and all client-profile
 content, including prompts, skills, run scripts, bundles, and configuration, are present on the

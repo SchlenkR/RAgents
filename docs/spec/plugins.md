@@ -795,7 +795,7 @@ selbst deklariert, wird wie eines mit `requires` im Manifest abgewiesen.
 **Host-API.** `apps/server/src/host-api.ts` nennt je Hälfte jedes Modul, das der Host liefert und
 das nie ins Bundle darf, ausdrücklich und ohne Platzhalter, weil das Web-Register jedes einzeln
 importiert, und bei Code des Hosts dazu jeden Wert, den ein Plugin daraus importieren darf. Stand
-Host-API 5: Server 59 Module mit 178 Namen aus Code des Hosts (die Engine samt ihren
+Host-API 5: Server 60 Module mit 181 Namen aus Code des Hosts (die Engine samt ihren
 Vertragsmodulen, `@ragents/workspace-executor`, `@ragents/workflow`, die Bausteine unter
 `@ragents/host/...`) und die Bibliotheken `typebox`, `typebox/value`, `handlebars`,
 `playwright-core`, `tar` (`node:*` ist immer extern); Web 44 Module mit 117 Namen aus Code des
@@ -3441,8 +3441,10 @@ Der Wächter startet keine Arbeit selbst und kennt keine Fachlogik.
 ## Modell-Relay
 
 `ragents.model-relay` macht die Modelle dieses Servers für andere RAgents-Server nutzbar, ohne
-Anbieter, echten Modellnamen oder Schlüssel preiszugeben. `RELAY_MODELS` ist eine Liste
-`alias=anbieter/modell`; jeder Alias muss auf einen Anbieter zeigen, den ein Produkt-Plugin über
+Anbieter, echten Modellnamen oder Schlüssel preiszugeben. Es bietet die Aliasse des Profils an,
+`MODEL_ALIASES` im Abschnitt `host` (Liste `alias=anbieter/modell`, optional `@denktiefe`; siehe
+[profiles.md](profiles.md)), dieselben, unter denen die eigenen Runs des Servers laufen; ohne
+Aliasse bricht der Start ab. Jeder Alias muss auf einen Anbieter zeigen, den ein Produkt-Plugin über
 den Dienst `modelUpstreamsToken` (`plugin-support/model-upstreams.ts`, Adresse, Schlüssel,
 Katalog) bereitstellt, und auf ein Modell aus dessen Katalog, sonst bricht der Start ab.
 `ragents.product` liefert `openrouter`, sobald `OPENROUTER_API_KEY` gesetzt ist; der Schlüssel

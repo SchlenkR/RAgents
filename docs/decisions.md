@@ -1,5 +1,41 @@
 # Entscheidungen
 
+## Modell-Aliasse des Profils für eigene Runs und Relay (25.09.2026)
+
+Kapitel: `docs/spec/profiles.md` (Modellanbieter), `docs/spec/plugins.md` (Modell-Relay, Host-API),
+`docs/usage.md` (Wählbares Modell), `docs/operations.md`. Vorgabe des Owners. Aliasnamen gab es nur
+für Clients des Relays (`RELAY_MODELS`); die eigenen Runs eines Servers nannten Anbieter und echte
+Modellnamen, und die Modellwahl zeigte `openrouter/<modell>`. Das vorhandene Relay taugte dafür
+nicht: Es ist ein HTTP-Weg für andere Server, der eigene Server müsste sich beim Start selbst
+anfragen und einen Token für sich halten. Festgelegt: `MODEL_ALIASES` im Abschnitt `host`
+(`alias=anbieter/modell`, optional `@denktiefe`, `plugin-support/model-aliases.ts`) ist die eine
+Liste; `RELAY_MODELS` entfällt, das Relay bietet genau diese Aliasse an. Der Server registriert sie
+unter dem Anbieter `alias` in der einen Modelllaufzeit (`ModelRuntime.registerAliases`, ein Eingriff
+in `packages/agent`): Katalogdaten und Denkstufen kommen vom Ziel, die Anfrage geht mit dem Ziel
+hinaus, jedes Ereignis kommt mit Alias zurück, und frühere Antworten des Alias zählen beim Ziel als
+eigene, damit Reasoning-Signaturen erhalten bleiben. Ein Produkt-Plugin nutzt die Aliasse mit
+`AGENT_PROVIDER: "alias"`; ohne `AGENT_MODELS` sind alle Aliasse wählbar, Anzeigen nennen keinen
+Anbieter (`modelLabel`). Die Denktiefe am Alias ist dessen Vorgabe an genau einer Stelle: eine
+Rollen-Denktiefe ohne Wert übernimmt sie (`roleThinkingLevel`), und ein Wechsel im Chat auf einen
+anderen Alias wählt sie vor. `configuredModelAliases`, `modelLabel` und `roleThinkingLevel` stehen
+neu in der Host-API, ohne neue `HOST_API_VERSION`, weil nichts entfällt. `core` und `showcase`
+tragen ihre Relay-Aliasse nun unter `host`.
+
+Katalog: `deepseek/deepseek-v4.1-flash` fehlte. `pnpm update:models` hätte rund 3900 Zeilen
+geändert (neue Modelle, neue Preise und Grenzen, umformatierte Einträge); ergänzt ist deshalb nur
+dieser Eintrag, mit Werten aus `GET /api/v1/models` und `compat` wie die übrigen DeepSeek-V4-Modelle.
+Die Denkstufen folgen dem `reasoning`-Block der API: `supported_efforts` gehen wörtlich hinaus, "off"
+als `effort: "none"`, solange `mandatory` nicht gesetzt ist. Dieselbe Regel leitet
+`update-model-catalog.ts` jetzt für neue Einträge ab; sie ergibt für Qwen3.8 27B, GLM 5.3 und GLM
+5.3 Flash genau die bisher gepflegten Tabellen.
+
+Verworfen: Aliasse als zusätzliche Modelle des echten Anbieters, weil die Anzeige dann den Anbieter
+nennt; Umbenennen des Modells im Katalog allein, weil die Anfrage dann den Alias an den Anbieter
+schickt; eine zweite Aliasliste je Produkt-Plugin. Offen: Titelmodell (`COMPACTION_MODEL`) und
+Werkzeugmodelle von Plugins nennen weiter echte Namen, weil sie über eigene Wege laufen. Nachgewiesen
+mit `apps/server/tests/model-aliases.test.ts` (Katalog, Stufen je Ziel, ausgehender Request je Stufe,
+Rückweg mit Alias, Verlauf, Vorgaben) und `apps/server/tests/model-relay.test.ts`.
+
 ## Adressatenwahl als Baum "wer hat wen erzeugt", Kurzbeschreibung je Actor (25.09.2026)
 
 Kapitel: `docs/spec/plugins.md` (Run-Panel), `docs/spec/core.md` (Besitz, Kurzbeschreibung),

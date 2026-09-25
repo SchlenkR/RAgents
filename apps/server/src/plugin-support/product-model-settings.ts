@@ -2,6 +2,7 @@ import { readFileSync, renameSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { DomainError, implement, isThinkingLevel, type AgentProfile, type MethodContribution, type ThinkingLevel } from "@ragents/engine";
+import { modelLabel } from "./model-aliases.js";
 import type { ModelChoice } from "./model-choice.js";
 import { productModelSettingsContracts, type ProductModelDraft, type ProductModelSettings } from "./product-model-settings-contract.js";
 
@@ -41,6 +42,7 @@ export class ProductModelSettingsStore {
       get selectable() { return choice.selectable; },
       get defaultModel() { return store.#selection("coordinator").model; },
       thinkingOptionsFor: (model) => choice.thinkingOptionsFor(model ?? store.#selection("coordinator").model),
+      ...(choice.defaultThinkingFor ? { defaultThinkingFor: choice.defaultThinkingFor } : {}),
     };
   }
 
@@ -60,7 +62,7 @@ export class ProductModelSettingsStore {
       profiles: this.profiles().filter((profile): profile is AgentModelProfile => profile.driver === "agent")
         .map(({ name, description, provider, model, thinking }) => ({ name, description, provider, model, thinking: thinking! })),
       models: this.#choice.options.map((id) => ({
-        id, provider: this.#choice.provider, label: `${this.#choice.provider}/${id}`,
+        id, provider: this.#choice.provider, label: modelLabel(this.#choice.provider, id),
         thinking: [...this.#choice.thinkingOptionsFor(id)],
       })),
     };

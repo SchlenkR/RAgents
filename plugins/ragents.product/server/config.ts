@@ -5,7 +5,7 @@ import { builtinCatalog, modelChoiceEnvDescriptors, modelChoiceFromEnvironment }
 import { declaredEnvironment } from "@ragents/host/plugin-support/plugin-config.js";
 import { folderSystemPrompts, pluginFolder } from "@ragents/host/plugin-support/plugin-folder.js";
 import { createRelayCatalog, RELAY_PROVIDER, type RelayCatalog } from "@ragents/host/plugin-support/product-relay.js";
-import { checkedThinkingLevel } from "@ragents/host/plugin-support/thinking-level.js";
+import { roleThinkingLevel } from "@ragents/host/plugin-support/thinking-level.js";
 import { skillEnvDescriptors, skillsFromEnvironment } from "@ragents/host/plugin-support/skills.js";
 import {
   lazySystemPromptCatalog,
@@ -50,9 +50,9 @@ export const ragentsProductConfig = Object.freeze({
   relay,
   upstreams: (): readonly ModelUpstream[] => [openrouterUpstream()].filter((upstream): upstream is ModelUpstream => upstream !== undefined),
   model: configuredModel,
-  thinking: checkedThinkingLevel(env.value("AGENT_THINKING", "high"), "AGENT_THINKING"),
+  thinking: () => roleThinkingLevel(env.optional("AGENT_THINKING"), "AGENT_THINKING", provider, configuredModel()),
   coordinatorModel: configuredCoordinatorModel,
-  coordinatorThinking: checkedThinkingLevel(env.value("AGENT_COORDINATOR_THINKING", "high"), "AGENT_COORDINATOR_THINKING"),
+  coordinatorThinking: () => roleThinkingLevel(env.optional("AGENT_COORDINATOR_THINKING"), "AGENT_COORDINATOR_THINKING", provider, configuredCoordinatorModel()),
   systemPromptPath: systemPromptPath ? path.resolve(systemPromptPath) : undefined,
   chatDisplayPolicy: chatDisplayPolicyFromEnvironment(env, { selectable: true }),
   skills: skillsFromEnvironment(env, "ragents.file"),

@@ -2,7 +2,7 @@
 export type { AgentSession } from "./core/agent-session.ts";
 export type { ExtensionAPI, ExtensionError, InlineExtension, ToolDefinition } from "./core/extensions/index.ts";
 export { defineTool } from "./core/extensions/index.ts";
-export { ModelRuntime } from "./core/model-runtime.ts";
+export { aliasedModel, type ModelAlias, ModelRuntime } from "./core/model-runtime.ts";
 export { DefaultResourceLoader } from "./core/resource-loader.ts";
 export {
 	type AgentSessionRuntime,

@@ -35,12 +35,16 @@ take precedence over profile values; no `.env` file is loaded. Startup reports a
 referenced variable as an error. Configured models and reasoning levels must be valid in the
 available model catalog.
 
+A profile can also name its models by alias: `MODEL_ALIASES` in the `host` section lists
+`alias=provider/model` or `alias=provider/model@thinking`, and `AGENT_PROVIDER: "alias"` makes the
+product use them. The interface, the chat, and the journal then show only the alias names.
+
 Alternatively, a profile can obtain its models from another RAgents server running the
-`ragents.model-relay` plugin with `RELAY_MODELS`: set `AGENT_PROVIDER: "relay"`, point
-`RELAY_URL` to that server, use `RELAY_TOKEN: env("...")` with a user's personal token there,
-and use relay aliases for every model key. Only the relay server can see which model is behind
-an alias. Its log at `plugins/ragents.model-relay/relay.log` records the user, alias, target,
-and token count for each request.
+`ragents.model-relay` plugin, which offers that server's `MODEL_ALIASES`: set
+`AGENT_PROVIDER: "relay"`, point `RELAY_URL` to that server, use `RELAY_TOKEN: env("...")` with a
+user's personal token there, and use relay aliases for every model key. Only the relay server can
+see which model is behind an alias. Its log at `plugins/ragents.model-relay/relay.log` records the
+user, alias, target, and token count for each request.
 
 Then start the neutral profile:
 

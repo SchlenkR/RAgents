@@ -39,12 +39,16 @@ take precedence over profile values; no `.env` file is loaded. Startup reports a
 referenced variable as an error. Configured models and reasoning levels must be valid in the
 available model catalog.
 
+A profile can also name its models by alias: `MODEL_ALIASES` in the `host` section lists
+`alias=provider/model` or `alias=provider/model@thinking`, and `AGENT_PROVIDER: "alias"` makes the
+product use them. The interface, the chat, and the journal then show only the alias names.
+
 Alternatively, a profile can obtain its models from another RAgents server running the
-`ragents.model-relay` plugin with `RELAY_MODELS`: set `AGENT_PROVIDER: "relay"`, point
-`RELAY_URL` to that server, use `RELAY_TOKEN: env("...")` with a user's personal token there,
-and use relay aliases for every model key. Only the relay server can see which model is behind
-an alias. Its log at `plugins/ragents.model-relay/relay.log` records the user, alias, target,
-and token count for each request.
+`ragents.model-relay` plugin, which offers that server's `MODEL_ALIASES`: set
+`AGENT_PROVIDER: "relay"`, point `RELAY_URL` to that server, use `RELAY_TOKEN: env("...")` with a
+user's personal token there, and use relay aliases for every model key. Only the relay server can
+see which model is behind an alias. Its log at `plugins/ragents.model-relay/relay.log` records the
+user, alias, target, and token count for each request.
 
 Then start the neutral profile:
 
@@ -246,7 +250,7 @@ servers and the browser; a prerequisite it cannot install, such as `dotnet` or a
 stops with instructions.
 
 The server needs `ragents.profile-distribution` with `CLIENT_PROFILE_FILE`, plus
-`ragents.model-relay` with `RELAY_MODELS` for models. Plugins the client profile names by path
+`ragents.model-relay` with `MODEL_ALIASES` in its `host` section for models. Plugins the client profile names by path
 must be bundles built with `ragents plugin build`; the server checks them at startup. Users
 receive `token: env("...")` and the two permissions. Relay responses and all client-profile
 content, including prompts, skills, run scripts, bundles, and configuration, are present on the

@@ -9,7 +9,8 @@ import type { Api, Model } from "@ragents/ai";
 import { createAccessContext, PluginHost, type AccessContext } from "@ragents/engine";
 import { readBody } from "../src/plugin-support/http.ts";
 import { modelUpstreamsToken, type ModelUpstream } from "../src/plugin-support/model-upstreams.ts";
-import { parseRelayAliases } from "../../../plugins/ragents.model-relay/server/config.ts";
+import { parseModelAliases } from "../src/plugin-support/model-aliases.ts";
+import { relayAliases } from "../../../plugins/ragents.model-relay/server/config.ts";
 import { catalogEntryOf, createRelayRoutes, resolveAliases } from "../../../plugins/ragents.model-relay/server/relay.ts";
 
 process.env.DATA_DIR ??= await mkdtemp(path.join(tmpdir(), "ragents-relay-data-"));
@@ -65,8 +66,8 @@ const relayServer = async (t: TestContext, upstreamUrl: string, access: (request
   const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: directory });
   const upstream: ModelUpstream = { id: "openrouter", baseUrl: `${upstreamUrl}/api/v1`, apiKey: "sk-upstream-secret", models: [secretModel] };
   host.register({ manifest: { id: "test.product" }, register: (registration) => registration.provide(modelUpstreamsToken, () => [upstream]) });
-  process.env.RELAY_MODELS = JSON.stringify(["werkstatt-coordinator=openrouter/vendor/secret-model-9"]);
-  t.after(() => { delete process.env.RELAY_MODELS; });
+  process.env.MODEL_ALIASES = JSON.stringify(["werkstatt-coordinator=openrouter/vendor/secret-model-9"]);
+  t.after(() => { delete process.env.MODEL_ALIASES; });
   host.register(relayModule.create(host));
   host.seal();
   const lines: string[] = [];
@@ -84,17 +85,18 @@ const relayServer = async (t: TestContext, upstreamUrl: string, access: (request
 const withRight = createAccessContext({ enabled: true, user: { id: "dev", label: "Dev", rights: ["models.use"] } });
 const withoutRight = createAccessContext({ enabled: true, user: { id: "reader", label: "Reader", rights: ["runs.read"] } });
 
-test("RELAY_MODELS wird geprüft und jeder Alias an Anbieter und Katalog gebunden", () => {
-  assert.deepEqual(parseRelayAliases(["a=openrouter/x/y", "b=local/z"]), [
+test("MODEL_ALIASES wird geprüft und jeder Alias an Anbieter und Katalog gebunden", () => {
+  assert.deepEqual(parseModelAliases(["a=openrouter/x/y", "b=local/z"]), [
     { alias: "a", upstream: "openrouter", model: "x/y" }, { alias: "b", upstream: "local", model: "z" },
   ]);
-  for (const bad of [[], ["a"], ["a=openrouter"], ["a=/x"], ["A=openrouter/x"], ["a=openrouter/x", "a=openrouter/y"]]) {
-    assert.throws(() => parseRelayAliases(bad), /RELAY_MODELS/);
+  for (const bad of [["a"], ["a=openrouter"], ["a=/x"], ["A=openrouter/x"], ["a=openrouter/x", "a=openrouter/y"]]) {
+    assert.throws(() => parseModelAliases(bad), /MODEL_ALIASES/);
   }
+  assert.throws(() => relayAliases(parseModelAliases([])), /ragents.model-relay braucht MODEL_ALIASES/);
   const upstream: ModelUpstream = { id: "openrouter", baseUrl: "https://u.invalid/v1", apiKey: "k", models: [secretModel] };
-  assert.throws(() => resolveAliases(parseRelayAliases(["a=ollama/x"]), [upstream]), /Anbieter ollama .* nicht konfiguriert \(verfügbar: openrouter\)/);
-  assert.throws(() => resolveAliases(parseRelayAliases(["a=openrouter/x"]), [upstream]), /Modell x hinter a fehlt im Katalog von openrouter/);
-  const entry = catalogEntryOf(resolveAliases(parseRelayAliases(["a=openrouter/vendor/secret-model-9"]), [upstream])[0]!);
+  assert.throws(() => resolveAliases(parseModelAliases(["a=ollama/x"]), [upstream]), /Anbieter ollama .* nicht konfiguriert \(verfügbar: openrouter\)/);
+  assert.throws(() => resolveAliases(parseModelAliases(["a=openrouter/x"]), [upstream]), /Modell x hinter a fehlt im Katalog von openrouter/);
+  const entry = catalogEntryOf(resolveAliases(parseModelAliases(["a=openrouter/vendor/secret-model-9"]), [upstream])[0]!);
   assert.equal(entry.id, "a");
   assert.equal(entry.catalog.contextWindow, 200_000);
   assert.deepEqual(entry.catalog.thinkingLevelMap, { minimal: null });
@@ -161,7 +163,7 @@ test("Anfragen gehen mit echtem Modell und Serverschlüssel hinaus, die Antwort 
 test("die Routen protokollieren Benutzer, Alias und Tokens und melden einen toten Anbieter als 502", async (t) => {
   const lines: string[] = [];
   const upstream: ModelUpstream = { id: "openrouter", baseUrl: "http://127.0.0.1:9/api/v1", apiKey: "k", models: [secretModel] };
-  const routes = createRelayRoutes({ aliases: () => resolveAliases(parseRelayAliases(["a=openrouter/vendor/secret-model-9"]), [upstream]), log: (line) => lines.push(line) });
+  const routes = createRelayRoutes({ aliases: () => resolveAliases(parseModelAliases(["a=openrouter/vendor/secret-model-9"]), [upstream]), log: (line) => lines.push(line) });
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
     const route = routes.find((candidate) => candidate.matches(request, url));

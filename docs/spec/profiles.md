@@ -159,6 +159,25 @@ des Relays; die Modellauswahl zeigt sie als `relay/<alias>`. Ein nicht erreichba
 abgelehnte Anmeldung oder ein leerer Katalog sind Startfehler mit Adresse und Ursache. Auch ein
 zur Laufzeit abgelehnter Modellaufruf nennt die Relay-Adresse vor Status und Text der Antwort.
 
+Ein Profil kann seine Modelle unter eigenen Namen anbieten: `MODEL_ALIASES` im Abschnitt `host`
+ist eine Liste `alias=anbieter/modell` oder `alias=anbieter/modell@denktiefe`
+(`plugin-support/model-aliases.ts`). Das Ziel ist ein Modell aus dem eingebauten Katalog eines
+Anbieters, die Denktiefe eine Stufe, die dieses Modell hat; sonst bricht der Start ab. Dieselbe
+Liste gilt für die eigenen Runs und für `ragents.model-relay`. Für die eigenen Runs registriert
+der Server die Aliasse unter dem Anbieter `alias` in der einen Modelllaufzeit
+(`ModelRuntime.registerAliases`): Ein Alias trägt Katalogdaten und Denkstufen seines Ziels unter
+seinem eigenen Namen, eine Anfrage geht mit dem echten Modell an dessen Anbieter, und jede
+Antwort, jeder Zwischenstand und jede Fehlermeldung kommt mit Alias und Anbieter `alias` zurück;
+frühere Antworten des Alias gelten beim Ziel als eigene, damit Reasoning-Signaturen über Turns
+erhalten bleiben. Mit `AGENT_PROVIDER: "alias"` nennen `AGENT_MODEL`,
+`AGENT_COORDINATOR_MODEL` und `AGENT_MODELS` Aliasse; ohne `AGENT_MODELS` stehen alle Aliasse
+zur Wahl. Oberfläche und Modellkatalog zeigen einen Alias ohne Anbieter (`modelLabel`), das
+Journal speichert Alias und `alias`. Eine Rollen-Denktiefe (`AGENT_THINKING`,
+`AGENT_COORDINATOR_THINKING`) ohne Wert übernimmt die Denktiefe des Alias, sonst `high`
+(`roleThinkingLevel`); wechselt jemand im Chat auf einen anderen Alias, gilt dessen Denktiefe,
+auf das Koordinator-Modell zurück die des Koordinators. Ändert sich das Ziel eines Alias, laufen
+bestehende Runs unter demselben Namen mit dem neuen Ziel weiter.
+
 Vorbereitungschat, Produkt-Modellkatalog und Koordinatoreinstellungen beziehen die Denktiefen aus
 den Fähigkeiten des jeweiligen Provider-Modells im eingebauten Laufzeitkatalog oder, beim
 Relay, aus dessen Aliaskatalog. Es gibt keine pauschale Liste pro Produkt. `AGENT_MODEL_REASONING` kann diese Auswahl ausdrücklich

@@ -1,6 +1,7 @@
 import { getSupportedThinkingLevels, type Api, type Model } from "@ragents/ai";
 import { getBuiltinModels, type BuiltinProvider } from "@ragents/ai/providers/all";
 import { isThinkingLevel, thinkingLevels, type ThinkingLevel } from "@ragents/engine";
+import { ALIAS_PROVIDER, aliasCatalog, modelDefaultThinking } from "./model-aliases.js";
 import type { DeclaredEnvironment } from "./plugin-config.js";
 
 export type ModelCatalogSource = () => readonly Model<Api>[];
@@ -8,7 +9,11 @@ export type ModelCatalogSource = () => readonly Model<Api>[];
 /** Der eingebaute Katalog eines Anbieters; ein Plugin kann einen eigenen Katalog liefern, etwa den eines Relays. */
 export const builtinCatalog = (provider: string): ModelCatalogSource => () => getBuiltinModels(provider as BuiltinProvider);
 
-export const modelThinkingOptions = (provider: string, model: string, catalog: ModelCatalogSource = builtinCatalog(provider)): readonly ThinkingLevel[] => {
+/** Der Katalog, den die Modelllaufzeit für einen Anbieter kennt: die Aliasse des Profils oder den eingebauten. */
+const providerCatalog = (provider: string): ModelCatalogSource =>
+  provider === ALIAS_PROVIDER ? () => aliasCatalog() : builtinCatalog(provider);
+
+export const modelThinkingOptions = (provider: string, model: string, catalog: ModelCatalogSource = providerCatalog(provider)): readonly ThinkingLevel[] => {
   const metadata = catalog().find((entry) => entry.id === model);
   if (!metadata) throw new Error(`Das Modell ${provider}/${model} fehlt im Modellkatalog`);
   return getSupportedThinkingLevels(metadata);
@@ -20,6 +25,8 @@ export interface ModelChoice {
   readonly provider: string;
   readonly selectable: boolean;
   thinkingOptionsFor(model: string | null): readonly ThinkingLevel[];
+  /** Die Denktiefe, die ein Modell mitbringt, wenn es gewählt wird; ohne Angabe gilt die des Koordinators. */
+  defaultThinkingFor?(model: string): ThinkingLevel | undefined;
 }
 
 export const modelChoiceEnvDescriptors = [
@@ -40,7 +47,7 @@ export const modelChoiceFromEnvironment = (
     catalog?: ModelCatalogSource;
   },
 ): ModelChoice => {
-  const catalog = defaults.catalog ?? builtinCatalog(defaults.provider);
+  const catalog = defaults.catalog ?? providerCatalog(defaults.provider);
   const raw = env.optional("MODEL_SELECTABLE");
   if (raw !== undefined && raw !== "" && raw !== "0" && raw !== "1") {
     throw new Error(`MODEL_SELECTABLE muss "0" oder "1" sein, nicht "${raw}"`);
@@ -52,8 +59,9 @@ export const modelChoiceFromEnvironment = (
     const configured = env.list("AGENT_MODELS");
     const duplicate = configured.find((model, index) => configured.indexOf(model) !== index);
     if (duplicate) throw new Error(`AGENT_MODELS nennt ${duplicate} mehrfach`);
-    // Ohne AGENT_MODELS gelten die Modelle des Profils, und Agent und Koordinator dürfen dasselbe haben.
-    const list = configured.length > 0 ? configured : [...new Set(defaults.fallback())];
+    // Ohne AGENT_MODELS gelten alle Aliasse oder die Modelle des Profils, und Agent und Koordinator dürfen dasselbe haben.
+    const fallback = defaults.provider === ALIAS_PROVIDER ? catalog().map((model) => model.id) : defaults.fallback();
+    const list = configured.length > 0 ? configured : [...new Set(fallback)];
     resolvedOptions = Object.freeze([...list]);
     return resolvedOptions;
   };
@@ -106,5 +114,6 @@ export const modelChoiceFromEnvironment = (
       const selected = model ?? defaultModel();
       return reasoningMap().get(selected) ?? modelThinkingOptions(defaults.provider, selected, catalog);
     },
+    defaultThinkingFor: (model: string) => modelDefaultThinking(defaults.provider, model),
   });
 };

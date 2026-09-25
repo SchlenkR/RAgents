@@ -2,13 +2,12 @@ import type { RAgentsPlugin } from "@ragents/engine";
 import { modelUpstreamsToken } from "@ragents/host/plugin-support/model-upstreams.js";
 import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js";
 import { Protocol } from "@ragents/host/protocol.js";
-import { modelRelayConfig, modelRelayConfigDescriptors } from "./config.js";
+import { modelRelayConfig } from "./config.js";
 import { createRelayRoutes, resolveAliases, type ResolvedAlias } from "./relay.js";
 
 const modelRelayPlugin: RAgentsPlugin = {
   manifest: { id: "ragents.model-relay" },
   register: (host) => {
-    host.config(...modelRelayConfigDescriptors);
     const upstreams = host.service(modelUpstreamsToken);
     let resolved: readonly ResolvedAlias[] | undefined;
     const aliases = (): readonly ResolvedAlias[] => resolved ??= resolveAliases(modelRelayConfig.aliases(), upstreams());

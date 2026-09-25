@@ -209,6 +209,25 @@ die Stufen des gewählten Modells an, einschließlich erweiterter Stufen wie `ma
 unterstützt. `AGENT_MODEL_REASONING` ist nur für eine bewusste Einschränkung dieser
 Modellfähigkeiten nötig; ungültige Stufen brechen die Konfiguration ab.
 
+Arbeitet das Profil mit Aliassen (`MODEL_ALIASES` im Abschnitt `host`, `AGENT_PROVIDER: "alias"`
+im Produkt-Plugin), zeigt die Auswahl nur die Aliasnamen, ohne Anbieter und ohne den echten
+Modellnamen, und das Journal speichert dieselben Namen. Die Denktiefen sind die des Modells hinter
+dem Alias. Bringt ein Alias eine eigene Denktiefe mit (`alias=anbieter/modell@high`), steht sie
+beim Wechsel auf diesen Alias vorgewählt:
+
+```typescript
+host: {
+  MODEL_ALIASES: [
+    "team-standard=openrouter/z-ai/glm-5.3-flash@high",
+    "team-fast=openrouter/z-ai/glm-5.3-flash@low",
+  ],
+},
+"ragents.product": {
+  AGENT_PROVIDER: "alias",
+  AGENT_MODEL: "team-standard",
+},
+```
+
 Die Wahl steht schon im leeren Run nach "Neuer Chat" bereit und gilt dann für den ersten Turn;
 ohne Wahl beginnt der Run mit der Vorgabe aus den Einstellungen. Danach bleibt sie in derselben
 Eingabe und gilt ab dem nächsten Turn des Koordinators; ein laufender Turn behält sein Modell, der

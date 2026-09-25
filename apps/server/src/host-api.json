@@ -138,6 +138,10 @@
     "@ragents/host/plugin-support/language-server/plugin": [
       "createLanguageServerPlugin"
     ],
+    "@ragents/host/plugin-support/model-aliases": [
+      "configuredModelAliases",
+      "modelLabel"
+    ],
     "@ragents/host/plugin-support/model-choice": [
       "builtinCatalog",
       "modelChoiceEnvDescriptors",
@@ -204,7 +208,8 @@
       "systemPromptEnvDescriptors"
     ],
     "@ragents/host/plugin-support/thinking-level": [
-      "checkedThinkingLevel"
+      "checkedThinkingLevel",
+      "roleThinkingLevel"
     ],
     "@ragents/host/plugin-support/tool-availability": [
       "alwaysAvailable",

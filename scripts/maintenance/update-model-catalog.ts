@@ -34,6 +34,11 @@ interface ApiPricing {
 	readonly input_cache_write?: string;
 }
 
+interface ApiReasoning {
+	readonly supported_efforts?: unknown;
+	readonly mandatory?: unknown;
+}
+
 interface ApiModel {
 	readonly id?: unknown;
 	readonly name?: unknown;
@@ -45,6 +50,7 @@ interface ApiModel {
 		readonly max_completion_tokens?: unknown;
 	};
 	readonly supported_parameters?: unknown;
+	readonly reasoning?: ApiReasoning;
 }
 
 const catalogUrl = new URL("../../packages/ai/src/providers/openrouter.models.ts", import.meta.url);
@@ -84,11 +90,24 @@ function toInputModalities(value: unknown): readonly InputModality[] {
 	});
 }
 
+const effortLevels = ["minimal", "low", "medium", "high", "xhigh", "max"] as const;
+
+/** Die Denkstufen nach dem reasoning-Block der API: angebotene Stufen gehen wörtlich hinaus, "off" als "none", solange Reasoning nicht Pflicht ist. */
+function thinkingLevelMapOf(reasoning: ApiReasoning | undefined): OpenRouterThinkingLevelMap | undefined {
+	const efforts = reasoning?.supported_efforts;
+	if (!Array.isArray(efforts)) return undefined;
+	return {
+		off: reasoning?.mandatory === true ? null : "none",
+		...Object.fromEntries(effortLevels.map((level) => [level, efforts.includes(level) ? level : null])),
+	};
+}
+
 function toEntry(model: ApiModel): CatalogEntry {
 	const id = String(model.id);
 	const previous = known[id];
 	const supported = Array.isArray(model.supported_parameters) ? model.supported_parameters : [];
 	const contextWindow = toNumber(model.top_provider?.context_length) ?? toNumber(model.context_length) ?? 0;
+	const thinkingLevelMap = previous ? previous.thinkingLevelMap : thinkingLevelMapOf(model.reasoning);
 	return {
 		id,
 		name: typeof model.name === "string" && model.name.length > 0 ? model.name : id,
@@ -97,7 +116,7 @@ function toEntry(model: ApiModel): CatalogEntry {
 		baseUrl,
 		...(previous?.compat ? { compat: previous.compat } : {}),
 		reasoning: supported.includes("reasoning"),
-		...(previous?.thinkingLevelMap ? { thinkingLevelMap: previous.thinkingLevelMap } : {}),
+		...(thinkingLevelMap ? { thinkingLevelMap } : {}),
 		input: toInputModalities(model.architecture?.input_modalities),
 		cost: {
 			input: perMillion(model.pricing?.prompt),

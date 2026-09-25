@@ -1,5 +1,6 @@
 import { Type } from "typebox";
 import { DomainError, isThinkingLevel, type StartOptionContribution, type ThinkingLevel } from "@ragents/engine";
+import { displayProvider } from "./model-aliases.js";
 import type { ModelChoice } from "./model-choice.js";
 import type { SystemPromptCatalog } from "./system-prompts.js";
 import { modelStartOptionId, systemPromptStartOptionId } from "../ragents/start-option-state.js";
@@ -40,7 +41,8 @@ export const modelStartOption = (choice: ModelChoice, preferredThinking: Thinkin
       }
       return { model, thinking: wanted };
     }
-    const preferred = typeof preferredThinking === "function" ? preferredThinking() : preferredThinking;
+    const coordinatorThinking = typeof preferredThinking === "function" ? preferredThinking() : preferredThinking;
+    const preferred = model === choice.defaultModel ? coordinatorThinking : choice.defaultThinkingFor?.(model) ?? coordinatorThinking;
     const thinking = allowed.includes(preferred) ? preferred : allowed[0];
     return thinking ? { model, thinking } : { model };
   };
@@ -59,7 +61,7 @@ export const modelStartOption = (choice: ModelChoice, preferredThinking: Thinkin
       const { model } = value as unknown as ModelStartOptionValue;
       return {
         kind: "model",
-        provider: choice.provider,
+        provider: displayProvider(choice.provider),
         options: [...choice.options],
         thinkingOptions: [...choice.thinkingOptionsFor(model)],
       };

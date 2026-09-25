@@ -118,7 +118,7 @@ servers and the browser; a prerequisite it cannot install, such as `dotnet` or a
 stops with instructions.
 
 The server needs `ragents.profile-distribution` with `CLIENT_PROFILE_FILE`, plus
-`ragents.model-relay` with `RELAY_MODELS` for models. Plugins the client profile names by path
+`ragents.model-relay` with `MODEL_ALIASES` in its `host` section for models. Plugins the client profile names by path
 must be bundles built with `ragents plugin build`; the server checks them at startup. Users
 receive `token: env("...")` and the two permissions. Relay responses and all client-profile
 content, including prompts, skills, run scripts, bundles, and configuration, are present on the

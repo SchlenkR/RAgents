@@ -6,6 +6,8 @@ export const config = {
     PORT: 4713,
     PRODUCT_PROFILE: "showcase",
     COMPACTION_MODEL: "google/gemma-4-26b-a4b-it",
+    // Aliasse für andere RAgents-Server, die ihre Modelle über ragents.model-relay von hier beziehen.
+    MODEL_ALIASES: ["showcase-standard=openrouter/z-ai/glm-5.3-flash", "showcase-coordinator=openrouter/deepseek/deepseek-v4-flash-0731"],
     PRODUCT_ID: "ragents-showcase",
     PRODUCT_TITLE: "RAgents Showcase",
     PLUGINS: [
@@ -48,11 +50,6 @@ export const config = {
     ],
     AGENT_COORDINATOR_MODEL: "z-ai/glm-5.3-flash",
     AGENT_COORDINATOR_THINKING: "high",
-  },
-
-  // Modell-Relay: Aliasse für andere RAgents-Server, die ihre Modelle von hier beziehen.
-  "ragents.model-relay": {
-    RELAY_MODELS: ["showcase-standard=openrouter/z-ai/glm-5.3-flash", "showcase-coordinator=openrouter/deepseek/deepseek-v4-flash-0731"],
   },
 
   "ragents.lsp-roslyn": {

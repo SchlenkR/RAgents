@@ -28,6 +28,7 @@ import {
   type RunTransferPlaces,
 } from "./run-transfer.js";
 import type { StartOptionState } from "./plugin-support/start-options-contract.js";
+import { ALIAS_PROVIDER, validatedModelAliases } from "./plugin-support/model-aliases.js";
 import { runScriptFromDirectory } from "./plugin-support/run-scripts.js";
 import { createEngine, SessionWorkspaces, type Engine } from "./ragents/engine.js";
 import type { ProductProfileFactory } from "./ragents/host-services.js";
@@ -175,11 +176,13 @@ export class RunSessionProvider implements ChatSessionProvider {
     return this.engine;
   }
 
-  /** Die eine Modelllaufzeit des Servers; Anbieter der Plugins sind registriert, bevor jemand ein Modell nachschlägt. */
+  /** Die eine Modelllaufzeit des Servers; Anbieter der Plugins und Aliasse des Profils stehen, bevor jemand ein Modell nachschlägt. */
   private getModelRuntime(): Promise<ModelRuntime> {
     return this.modelRuntime ??= this.plugins.profiles.providers().then((providers) => {
       const runtime = ModelRuntime.create();
       for (const provider of providers) runtime.registerProvider(provider.id, provider.config);
+      const aliases = validatedModelAliases();
+      if (aliases.length > 0) runtime.registerAliases(ALIAS_PROVIDER, aliases);
       return runtime;
     });
   }

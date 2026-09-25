@@ -58,6 +58,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "PayloadTooLargeError", "guardedJsonRoute", "readBody", "readJsonBody", "withAbort", "writeJson",
     ],
     "@ragents/host/plugin-support/language-server/plugin": ["createLanguageServerPlugin"],
+    "@ragents/host/plugin-support/model-aliases": ["configuredModelAliases", "modelLabel"],
     "@ragents/host/plugin-support/model-choice": [
       "builtinCatalog", "modelChoiceEnvDescriptors", "modelChoiceFromEnvironment", "modelThinkingOptions",
     ],
@@ -78,7 +79,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     ],
     "@ragents/host/plugin-support/skills": ["skillEnvDescriptors", "skillsFromEnvironment"],
     "@ragents/host/plugin-support/system-prompts": ["lazySystemPromptCatalog", "systemPromptEnvDescriptors"],
-    "@ragents/host/plugin-support/thinking-level": ["checkedThinkingLevel"],
+    "@ragents/host/plugin-support/thinking-level": ["checkedThinkingLevel", "roleThinkingLevel"],
     "@ragents/host/plugin-support/tool-availability": ["alwaysAvailable", "facesOperator"],
     "@ragents/host/plugin-support/workspace-ownership": ["syncWorkspaceOwnership"],
     "@ragents/host/plugin-support/workspace-sandbox-host": [

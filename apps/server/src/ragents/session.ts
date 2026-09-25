@@ -26,6 +26,7 @@ import {
   type ModelSelection,
 } from "@ragents/engine";
 import type { ActorProgramsService } from "../plugin-support/actor-programs/service.js";
+import { modelLabel } from "../plugin-support/model-aliases.js";
 import type { StartOptionState } from "../plugin-support/start-options-contract.js";
 import type { Engine } from "./engine.js";
 import type { CoordinatorDescriptor } from "./product-runtime.js";
@@ -203,7 +204,7 @@ export class RunChatSession implements ChatSessionLike {
     const supported = await this.#engine.inputCapabilities(provider, model);
     const missing = [...kinds].filter((kind) => (kind === "image" || kind === "video" || kind === "file") && !supported.includes(kind));
     if (missing.length > 0) {
-      throw new DomainError("model-history-unsupported", `Das Gespräch enthält bereits ${missing.join(", ")}-Anhänge, die ${provider}/${model} nicht verarbeiten kann; wähle ein passendes Modell.`, 400);
+      throw new DomainError("model-history-unsupported", `Das Gespräch enthält bereits ${missing.join(", ")}-Anhänge, die ${modelLabel(provider, model)} nicht verarbeiten kann; wähle ein passendes Modell.`, 400);
     }
   }
 
@@ -303,7 +304,7 @@ export class RunChatSession implements ChatSessionLike {
     if (execution.driver.kind === "script") return { input: [], model: "TypeScript" };
     if (execution.driver.kind !== "agent") return { input: ["text"], model: execution.driver.kind };
     const { provider, model } = execution.driver.config;
-    return { input: [...await this.#engine.inputCapabilities(provider, model)], model: `${provider}/${model}` };
+    return { input: [...await this.#engine.inputCapabilities(provider, model)], model: modelLabel(provider, model) };
   }
 
   attachment(artifactId: string): { attachment: ChatAttachment; content: Uint8Array } {
