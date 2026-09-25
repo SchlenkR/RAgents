@@ -75,6 +75,7 @@ test("the visible chat stop awaits the shared run stop and publishes running fal
     assertUsable: () => undefined,
     prepare: async () => undefined,
     prepareWorkspace: async () => undefined,
+    started: async () => undefined,
     scriptEntryFor: () => undefined,
     startEntryFor: () => undefined,
     actorPrograms: unavailableActorPrograms,
@@ -153,7 +154,7 @@ test("chat stop preserves partial text once in live, mid-turn and disk-replayed 
     const session = new RunChatSession({
       engine, id: view.id,
       coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "coordinator", runTitle: "Chat", ownerHandle: "owner", ownerDisplayName: "Owner" },
-      prompt: () => "", assertUsable: () => undefined, prepare: async () => undefined, prepareWorkspace: async () => undefined,
+      prompt: () => "", assertUsable: () => undefined, prepare: async () => undefined, prepareWorkspace: async () => undefined, started: async () => undefined,
       scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: unavailableActorPrograms,
     });
     sessions.push(session);
@@ -275,6 +276,7 @@ test("the chat session follows primary actor changes and releases a stopped prim
     assertUsable: () => undefined,
     prepare: async () => undefined,
     prepareWorkspace: async () => undefined,
+    started: async () => undefined,
     scriptEntryFor: () => undefined,
     startEntryFor: () => undefined,
     actorPrograms: unavailableActorPrograms,
@@ -402,6 +404,7 @@ test("the chat projects journal-only output and suppresses only matching live pr
     assertUsable: () => undefined,
     prepare: async () => undefined,
     prepareWorkspace: async () => undefined,
+    started: async () => undefined,
     scriptEntryFor: () => undefined,
     startEntryFor: () => undefined,
     actorPrograms: unavailableActorPrograms,
@@ -500,6 +503,7 @@ test("a mid-turn attach ignores partial live deltas and projects the complete jo
     assertUsable: () => undefined,
     prepare: async () => undefined,
     prepareWorkspace: async () => undefined,
+    started: async () => undefined,
     scriptEntryFor: () => undefined,
     startEntryFor: () => undefined,
     actorPrograms: unavailableActorPrograms,
@@ -565,6 +569,7 @@ test("the chat session retains a script primary for observation but rejects free
     assertUsable: () => undefined,
     prepare: async () => undefined,
     prepareWorkspace: async () => undefined,
+    started: async () => undefined,
     scriptEntryFor: () => undefined,
     startEntryFor: () => undefined,
     actorPrograms: unavailableActorPrograms,

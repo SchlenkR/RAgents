@@ -26,7 +26,7 @@ export function RunPanelMenu({ onOpenSettings }: { onOpenSettings: () => void })
   return <>
     <Button aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" aria-label="Menü des Panels" className="self-center" onClick={() => setOpen((value) => !value)} ref={buttonRef} size="icon-lg" title="Menü" variant="ghost"><MoreVerticalIcon /></Button>
     <Popover onOpenChange={(next, details) => { if (!next && pressedAnchor(details)) return; setOpen(next); }} open={open}>
-      <PopoverContent align="end" anchor={buttonRef} aria-label="Menü des Panels" className="w-[220px] gap-0 p-1 text-[0.8rem]" collisionPadding={8} dim id={panelId} role="dialog" side="bottom" sideOffset={4}>
+      <PopoverContent align="end" anchor={buttonRef} aria-label="Menü des Panels" className="w-[220px] gap-0 p-1 text-[0.8rem]" collisionPadding={8} dim id={panelId} role="dialog" side="bottom">
         <button className={itemClass} onClick={() => { setOpen(false); onOpenSettings(); }} type="button"><SettingsIcon />Einstellungen</button>
         {host.kind === "vscode" && <button className={itemClass} onClick={() => { setOpen(false); host.openExternal(new URL("/", window.location.href).toString()); }} type="button"><ExternalLinkIcon />Im Browser öffnen</button>}
         {access.enabled && access.user && <button className={itemClass} disabled={pending} onClick={logout} title={access.user.id} type="button"><LogOutIcon /><span className="grid min-w-0"><span>Abmelden</span><span className="truncate text-[0.68rem] text-muted-foreground">{access.user.label}</span></span></button>}

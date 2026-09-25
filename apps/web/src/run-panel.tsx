@@ -6,8 +6,7 @@ import { createRoot } from "react-dom/client";
 import { Button } from "./ui";
 import { AccessGate, AccessScreen } from "./AccessContext";
 import { installAccessToken } from "./access-token";
-import { installClipboardBridge } from "./run-panel/clipboard";
-import { installKeyboardBridge } from "./run-panel/keyboard";
+import { installRunPanelInputBridge } from "./run-panel/input-bridge";
 import { RunPanelApp, HostLogin } from "./run-panel/RunPanelApp";
 import { parseRunPanelLocation } from "./run-panel/run-panel-location";
 import { RunPanelHostProvider, createRunPanelHost } from "./run-panel/host";
@@ -25,9 +24,8 @@ try {
   if (location.access !== undefined) installAccessToken(location.access);
   const host = createRunPanelHost(location.host, window);
   if (location.host === "vscode") {
-    const disposeClipboard = installClipboardBridge(window);
-    const disposeKeyboard = installKeyboardBridge(window);
-    import.meta.hot?.dispose(() => { disposeKeyboard(); disposeClipboard(); });
+    const disposeInput = installRunPanelInputBridge(window);
+    import.meta.hot?.dispose(disposeInput);
   }
   const theme = initializeTheme(window);
   if (location.theme !== undefined) theme.setPreference(location.theme);

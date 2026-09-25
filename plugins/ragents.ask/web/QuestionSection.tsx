@@ -14,7 +14,7 @@ export function QuestionSection({ actor, session }: CardSectionContext) {
   if (!view) return null;
   const actorId = runActorFrom(actor).id;
   const pending = view.actions.filter((action) =>
-    action.owner === ASK_PLUGIN_ID && action.askedBy === actorId && action.status === "pending");
+    action.owner === ASK_PLUGIN_ID && (askPayloadOf(action.payload)?.recipient ?? action.askedBy) === actorId && action.status === "pending");
   if (pending.length === 0) return null;
 
   const answer = (actionId: string, text: string) => {

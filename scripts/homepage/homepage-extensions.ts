@@ -247,14 +247,16 @@ host.lifecycle({
   id: "ragents.example.lifecycle",
   initialize: () => service.initialize(),
   prepareSession: ({ runId }) => service.prepare(runId),
+  sessionStarted: ({ runId, startEntry }) => service.started(runId, startEntry),
   stopSession: ({ runId, signal }) => service.stop(runId, signal),
   afterStopSession: ({ runId, signal }) => service.stop(runId, signal),
   deleteSession: ({ runId }) => service.remove(runId),
   shutdown: () => service.shutdown(),
-});`, ["host.lifecycle", "lifecycle.id", "lifecycle.initialize", "lifecycle.prepareSession", "lifecycle.stopSession", "lifecycle.afterStopSession", "lifecycle.deleteSession", "lifecycle.shutdown"], [
+});`, ["host.lifecycle", "lifecycle.id", "lifecycle.initialize", "lifecycle.prepareSession", "lifecycle.sessionStarted", "lifecycle.stopSession", "lifecycle.afterStopSession", "lifecycle.deleteSession", "lifecycle.shutdown"], [
     "Die Rückgabewerte dürfen void oder Promise<void> sein. Ein Stop-Handler beachtet sein AbortSignal und wartet auf das Ende seiner Arbeit.",
     "afterStopSession läuft nach dem Stillstand der Ausführung und räumt auch spät entstandene Ressourcen auf. Der Run bleibt während dieses zeitlich begrenzten Nachlaufs gesperrt; beide Stop-Phasen müssen wiederholbar sein.",
     "Initialisierung und Vorbereitung folgen der Pluginreihenfolge. Abbau berücksichtigt die umgekehrte Reihenfolge; Stop und Löschen sind unterschiedliche Vorgänge.",
+    "sessionStarted kommt, wenn ein Start den Arbeitsbereich bereitgestellt und den ersten Actor aufgebaut hat, bevor ein Actor Input bekommt. startEntry nennt die Vorlage mit id und action (skill oder script) oder ist null; nach einem Neustart des Hosts kommt der Haken nicht wieder.",
   ]),
   entry("tools", "Serverbeiträge", "Eine typisierte Run-Funktion", "Ein Plugin stellt eine Funktion einmal mit Beschreibung, Eingabe, Ergebnis und Implementierung bereit. Ein LLM verwendet sie in einem TypeScript-Snippet; ein dauerhafter Actor ruft dieselbe Funktion mit derselben API auf.", "register(host); Type aus typebox, Helfer aus @ragents/engine.", `
 const available = defineToolAvailability({
@@ -791,8 +793,9 @@ const adapter: LanguageServerAdapter = {
 export const plugin: PluginModule = {
   requires: ["ragents.workspace"],
   create: () => createLanguageServerPlugin({ id: "ragents.lsp-example", adapter }),
-};`, ["lsp.id", "lsp.label", "lsp.languages", "lsp.rootDescription", "lsp.resolveRoot", "lsp.rootDirectory", "lsp.launch", "lsp.open"], [
+};`, ["lsp.id", "lsp.label", "lsp.languages", "lsp.rootDescription", "lsp.solutionExtensions", "lsp.resolveRoot", "lsp.rootDirectory", "lsp.launch", "lsp.open"], [
     "languages ordnet Dateiendungen Sprachkennungen zu. resolveRoot prüft das Projektziel, rootDirectory nennt den Ordner, dem eine Datei dieses Ziels zugeordnet wird (das Projektverzeichnis selbst bei TypeScript, der Ordner der Projektdatei bei Roslyn und FSAC), launch liefert den Prozessstartvertrag für den Sandbox-Kontext und open ergänzt bei Bedarf serverspezifische Öffnungsschritte.",
+    "solutionExtensions ist optional und nennt die Endungen der Solutions, etwa .sln und .slnx; damit bekommt das Plugin das Werkzeug <id>_solutions, die Solution-Liste und das Umschalten im Reiter. Ein Verzeichnis-Adapter wie dieser lässt es weg.",
     "Die nötigen Serverprogramme werden als Pluginabhängigkeit installiert. Ein fehlendes Programm wird als Fehler gemeldet; es wird kein Ersatzprozess still gestartet.",
     "Benötigte Imports: createRequire aus node:module, path aus node:path, pathToFileURL aus node:url und die neutralen Helfer LanguageServerAdapter, resolveRootDirectory, createLanguageServerPlugin sowie PluginModule. Die LSP-Initialisierung übernimmt der Host; open ergänzt danach nur serverspezifische Schritte.",
   ]),

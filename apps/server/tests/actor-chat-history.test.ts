@@ -56,7 +56,7 @@ function fixture() {
   const session = (runId = id) => new RunChatSession({
     engine: { journal, runtime, live: new LiveBus(), scheduler: { isRunning: () => false } } as unknown as Engine,
     id: runId, coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "coordinator", runTitle: "History", ownerHandle: "human", ownerDisplayName: "Human" },
-    prompt: () => "", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {}, scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: unavailableActorPrograms,
+    prompt: () => "", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {}, started: async () => {}, scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: unavailableActorPrograms,
   });
   return { journal, runtime, id, ownerId, context, coordinator, reviewer, script, input, start, tool, complete, finish, history, primaryHistory, session };
 }

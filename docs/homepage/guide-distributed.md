@@ -183,12 +183,23 @@ After transfer, inspect the journal with `pnpm driver journal <runId>` and plugi
 
 The local host and workspace also run on Windows. Requirements are:
 
-- **Git for Windows** for Git Bash. The executor checks `%ProgramFiles%\Git\bin\bash.exe`, then
-  `%ProgramFiles(x86)%\Git\bin\bash.exe`, then `bash.exe` on `PATH` for Cygwin or MSYS2. If none
-  is found, every `bash` call fails with installation instructions. PowerShell and `cmd.exe` are
-  not used.
+- **The VS Code extension for Windows** brings its own bash. The Marketplace delivers a
+  `win32-x64` or `win32-arm64` build that contains a slim bash with the GNU tools (coreutils,
+  `grep`, `sed`, `awk`, `find`, `diff`, `patch`, `tar`, `unzip`, `cygpath` and more), taken from
+  a fixed Git for Windows release. The `bash` tool uses only this bash, for the workspace and for
+  the local host; an installed Git Bash or a `bash.exe` on `PATH` is never used. PowerShell and
+  `cmd.exe` are not used either.
+- **Git** is your own `git.exe` on `PATH`, for example from Git for Windows. The bundled bash
+  contains no git, so your login works as usual: Git Credential Manager, `~/.gitconfig` and
+  `~/.ssh`. On your own machine the bash inherits your whole environment, except the variables of
+  VS Code itself and `BASH_ENV`/`ENV`.
+- **Without the extension** (`ragents start` or `ragents workspace-client` from the npm package)
+  set `RAGENTS_BASH` to the `bash.exe` of such a bundle, for example
+  `<extension folder>\dist\bash\win32-x64\usr\bin\bash.exe`. Without it every `bash` call fails
+  and names what is missing.
 - **Node.js** is enough with `@schlenkr/ragents`. A checkout additionally needs **pnpm**, and
-  `pnpm install`, `pnpm build:agent`, and `scripts/start.sh` run in Git Bash.
+  `pnpm install`, `pnpm build:agent`, and `scripts/start.sh` need a bash of your own, such as
+  Git Bash.
 - The **.NET SDK** is required when the profile includes Roslyn or FSAC. Provisioning downloads
   the language servers; the TypeScript server comes from the host directory.
 - A **server** on Windows has no process sandbox. Its profile file must switch it off explicitly
@@ -210,4 +221,5 @@ do not depend on the process rail.
 Windows support has not yet been exercised on a physical Windows machine. It is implemented and
 covered by unit tests that simulate the platform. A first real run should verify `pnpm connect`,
 `read`, `edit`, `bash` output and cancellation, diagnostics, and a workspace through
-`pnpm workspace-client`.
+`pnpm workspace-client`, and with the bundled bash `git fetch` and `git push` over HTTPS with Git
+Credential Manager and over SSH.

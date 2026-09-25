@@ -48,6 +48,8 @@ export interface RunWorkspaceRuntimeOptions {
   clients: WorkspaceClientRegistry;
   /** Die Prozess-Sandbox des Servers; ohne sie laufen die Prozesse des Servers ohne. */
   processSandbox?: RunProcessSandboxes;
+  /** Die Bash des Servers aus RAGENTS_BASH; unter Windows Pflicht für das Werkzeug bash. */
+  bash?: string;
 }
 
 const runNotStarted = (): DomainError => new DomainError(
@@ -147,6 +149,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
       executorFor: (runId) => Promise.resolve(this.#executorFor(runId)),
       serverDirectoryFor: (runId) => this.#serverDirectoryFor(runId),
       ...(options.processSandbox ? { processSandbox: options.processSandbox } : {}),
+      ...(options.bash === undefined ? {} : { bash: options.bash }),
     });
   }
 

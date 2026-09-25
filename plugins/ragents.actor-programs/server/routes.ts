@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import type { HttpRouteContribution } from "@ragents/engine";
 import { guardedJsonRoute } from "@ragents/host/plugin-support/http.js";
-import { browserRuntimeStyles } from "@ragents/host/plugin-support/actor-programs/client-runtime.js";
+import { browserInputRuntime, browserRuntimeStyles } from "@ragents/host/plugin-support/actor-programs/client-runtime.js";
 import type { ActorProgramRuntime } from "./runtime.js";
 
 export const miniAppsApiPrefix = "/api/plugins/ragents.actor-programs";
@@ -12,7 +12,7 @@ const escapeForwarder = `
   window.addEventListener("keydown", (event) => {
     if (event.key !== "Escape" || event.defaultPrevented) return;
     queueMicrotask(() => {
-      if (!event.defaultPrevented) parent.postMessage({ type: "ragents.app.escape", version: 1, token: bridgeToken }, "*");
+      if (!event.defaultPrevented) parent.postMessage({ type: "ragents.app.escape", version: 1, token: bridgeToken, keyboard: ragentsInputBridge.keyboardMessage(event, "keydown") }, "*");
     });
   });`;
 
@@ -29,6 +29,7 @@ export const frameContentSecurityPolicy = (nonce: string): string =>
 const escapedScript = (source: string): string => source.replace(/<\/script/gi, "<\\/script");
 
 const typedBridgeSdk = (nonce: string, styles: string): string => `<script nonce="${nonce}">
+${escapedScript(browserInputRuntime)}
 globalThis.__ragentsAppContext = (() => {
   document.documentElement.dataset.uiSurface = "mini-app";
   document.documentElement.dataset.miniAppFrame = "true";
@@ -72,6 +73,10 @@ globalThis.__ragentsAppContext = (() => {
     if (data?.version !== 1) return;
     if (data.type === "ragents.app.ready") {
       applyHostTheme(data.theme);
+      if (data.hostInput === true) {
+        const disposeInput = ragentsInputBridge.installFrameInputBridge(window, port);
+        window.addEventListener("pagehide", disposeInput, { once: true });
+      }
       currentApp = data.app;
       currentState = stateValue(data.state);
       listeners.forEach((listener) => listener(currentState));

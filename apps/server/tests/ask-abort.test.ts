@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { TurnScheduler } from "@ragents/engine";
-import { RuntimeAskService, DISMISSED_ANSWER } from "../../../plugins/ragents.ask/server/ask-service.ts";
+import { RuntimeAskService } from "../../../plugins/ragents.ask/server/ask-service.ts";
+import { DISMISSED_ANSWER } from "../../../plugins/ragents.ask/server/contract.ts";
 import { enqueueAndClaim } from "./runtime-fixture.ts";
 import { allGrants, catalog, deferred, FakeDriver, noUsage, postTo, setupRun } from "../../../packages/ragents/tests/support.ts";
 

@@ -15,8 +15,9 @@ dieses Rechners aus - dasselbe, was die VS-Code-Erweiterung tut, nur ohne VS Cod
 gilt das aktuelle Verzeichnis. Jeder Werkzeugaufruf erscheint als eine Zeile auf stdout.
 Sprachserver und Chromium holt der Start auf diesen Rechner (dasselbe wie pnpm provision
 --workspace); ROSLYN_LANGUAGE_SERVER, FSHARP_LANGUAGE_SERVER und BROWSER_EXECUTABLE_PATH
-übersteuern das, TypeScript und playwright-core kommen aus dem Host-Ordner. Das Skript läuft,
-bis es mit Strg-C beendet wird.`;
+übersteuern das, TypeScript und playwright-core kommen aus dem Host-Ordner. Unter Windows nennt
+RAGENTS_BASH die bash.exe, die RAgents mitbringt (aus der Windows-Fassung der VS-Code-Erweiterung);
+ohne sie scheitert das Werkzeug bash. Das Skript läuft, bis es mit Strg-C beendet wird.`;
 
 export interface WorkspaceClientArguments {
   readonly serverUrl: string;
@@ -77,6 +78,7 @@ const main = async (): Promise<void> => {
   const transport = workspaceClientTransport(parsed.serverUrl, process.env.RAGENTS_TOKEN);
   const client = new WorkspaceClient(transport, identity, {
     hostRoot,
+    bash: process.env.RAGENTS_BASH || undefined,
     onExecuted: ({ runId, operation, durationMs, error }) =>
       console.log(`== ${runId.slice(0, 8)} ${operation} ${durationMs} ms ${error ?? "ok"}`),
   });

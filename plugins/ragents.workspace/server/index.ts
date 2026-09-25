@@ -21,7 +21,7 @@ import { WORKSPACE_BINDING_OPTION_ID, WORKSPACE_METADATA_ID } from "../contract.
 import { bindingOf, executorShellChapter, sessionMetadataOf, workspaceBindingOption, workspaceLocation, workspaceOwnerOf } from "./binding.js";
 import { createBrowseChannel, createBrowseMethods } from "./browse-route.js";
 import { clientMethods, WorkspaceClientRegistry } from "./clients.js";
-import { processSandboxSetting, workspaceConfigDescriptors } from "./config.js";
+import { bashSetting, processSandboxSetting, workspaceConfigDescriptors } from "./config.js";
 import { RunWorkspaceRuntime } from "./runtime.js";
 
 const warnWithoutSandbox = (): void => {
@@ -59,9 +59,11 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
         dataDirectory: path.dirname(host.storage.sessionsRoot),
       })
       : undefined;
+    const bash = bashSetting();
     const runtime = new RunWorkspaceRuntime({
       clients,
       ...(processSandbox ? { processSandbox } : {}),
+      ...(bash === undefined ? {} : { bash }),
       globalDirectory: host.storage.root(),
       sessionDirectory: (runId, ...segments) => host.storage.session(runId, ...segments),
       storageRootFor: (runId) => path.join(host.storage.sessionsRoot, runId),

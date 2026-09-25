@@ -4,6 +4,7 @@ import { PROCESS_SANDBOX_DEFAULT_NETWORK } from "@ragents/host/plugin-support/pr
 export const workspaceConfigDescriptors = [
   { key: "PROCESS_SANDBOX", source: "environment" },
   { key: "PROCESS_SANDBOX_NETWORK", source: "environment" },
+  { key: "RAGENTS_BASH", source: "environment" },
 ] as const;
 
 const env = declaredEnvironment(workspaceConfigDescriptors);
@@ -24,3 +25,6 @@ export const processSandboxSetting = (): ProcessSandboxSetting => {
     : env.list("PROCESS_SANDBOX_NETWORK");
   return { enabled: mode === "on", network };
 };
+
+/** Die Bash, mit der der Executor dieses Servers das Werkzeug bash startet; unter Windows setzt sie die VS-Code-Erweiterung für ihren lokalen Host. */
+export const bashSetting = (): string | undefined => env.optional("RAGENTS_BASH") || undefined;

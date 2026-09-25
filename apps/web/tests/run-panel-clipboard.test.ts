@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { installClipboardBridge } from "../src/run-panel/clipboard.ts";
 
-const field = (tagName: string) => ({ tagName, isContentEditable: false, focused: 0, focus() { this.focused += 1; } });
+const field = (tagName: string) => ({ tagName, isConnected: true, isContentEditable: false, focused: 0, focus() { this.focused += 1; } });
 
 const fakeWindow = (active: ReturnType<typeof field> | null) => {
   const keyListeners: Array<(event: unknown) => void> = [];
@@ -74,4 +74,19 @@ test("other shortcuts and keys handled elsewhere stay untouched", () => {
   assert.equal(press("v", { defaultPrevented: true }), false);
   assert.deepEqual(commands, []);
   assert.deepEqual(posted, []);
+});
+
+test("paste ignores composing shortcuts and a reply after disposal", async () => {
+  const input = field("TEXTAREA");
+  const { browser, posted, commands, press, reply } = fakeWindow(input);
+  const dispose = installClipboardBridge(browser);
+  assert.equal(press("v", { isComposing: true }), false);
+  assert.equal(press("v", { keyCode: 229 }), false);
+  assert.equal(press("v", { getModifierState: () => true }), false);
+  assert.equal(press("V"), true);
+  const request = posted[0] as { id: string };
+  dispose();
+  reply({ type: "clipboardText", id: request.id, text: "Too late" });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(commands, []);
 });

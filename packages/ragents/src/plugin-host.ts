@@ -44,6 +44,7 @@ import type {
   RegisteredStartOption,
   SessionLifecycleContribution,
   SessionMetadata,
+  SessionStartedContext,
   SessionMetadataContribution,
   SkillContribution,
   RunScriptPackage,
@@ -663,6 +664,10 @@ export class LifecycleContributionRegistry {
 
   async prepareSession(runId: string): Promise<void> {
     for (const { value } of this.#lifecycle.entries()) await value.prepareSession?.({ runId });
+  }
+
+  async sessionStarted(runId: string, startEntry: SessionStartedContext["startEntry"]): Promise<void> {
+    for (const { value } of this.#lifecycle.entries()) await value.sessionStarted?.({ runId, startEntry });
   }
 
   beginStopSession(runId: string): PluginStopOperation {

@@ -16,3 +16,12 @@ export const browserRuntimeStyles = buildSync({
   write: false,
   minify: true,
 }).outputFiles[0].text;
+
+export const browserInputRuntime = buildSync({
+  entryPoints: [fileURLToPath(new URL("../../../../web/src/run-panel/input-bridge.ts", import.meta.url))],
+  bundle: true,
+  write: false,
+  minify: true,
+  format: "iife",
+  globalName: "ragentsInputBridge",
+}).outputFiles[0].text;

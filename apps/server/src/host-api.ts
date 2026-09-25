@@ -39,7 +39,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "readClientUiComponentContracts", "readClientUiComponentNames",
     ],
     "@ragents/host/plugin-support/actor-programs/client-runtime": [
-      "FRAME_BODY_CLASS", "FRAME_DOCUMENT_CLASS", "FRAME_ROOT_CLASS", "browserRuntimeStyles",
+      "FRAME_BODY_CLASS", "FRAME_DOCUMENT_CLASS", "FRAME_ROOT_CLASS", "browserInputRuntime", "browserRuntimeStyles",
     ],
     "@ragents/host/plugin-support/actor-programs/contract": [
       "ACTOR_INVOCATIONS_STATE_ID", "ACTOR_PROGRAMS_STATE_ID", "ACTOR_SCRIPT_STATE_ID", "ACTOR_STATE_ID",
@@ -102,8 +102,8 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/workspace-executor": [
       "BROWSER_EXECUTABLE_VARIABLE", "BROWSER_OPERATIONS", "COMMAND_OPERATIONS", "FILE_OPERATIONS",
       "FSHARP_SERVER_FILE", "FSHARP_SERVER_VARIABLE", "PROCESS_OPERATIONS", "ROSLYN_SERVER_FILE",
-      "ROSLYN_SERVER_VARIABLE", "RUN_FOLDER_OPERATIONS", "RUN_MARKER_ENV", "WORKSPACE_EXECUTOR_VERSION", "fsharpAdapter", "listDirectory",
-      "readTextFile", "roslynAdapter", "runManagedProcess", "safeProcessEnvironment", "sandboxRunEnvironment", "sandboxedLaunch",
+      "ROSLYN_SERVER_VARIABLE", "RUN_FOLDER_OPERATIONS", "RUN_MARKER_ENV", "WORKSPACE_EXECUTOR_VERSION", "fsharpAdapter",
+      "languageServerOpenOperation", "languageServerSolutionsOperation", "listDirectory", "readTextFile", "roslynAdapter", "runManagedProcess", "safeProcessEnvironment", "sandboxRunEnvironment", "sandboxedLaunch",
       "shellPlatformText", "startManagedService", "typescriptAdapter", "watchDirectory",
     ],
     "@ragents/workspace-executor/src/git-config-environment": ["withGitConfigPairs"],
@@ -159,6 +159,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/product/ProductModelSettings": ["ProductModelSettings"],
     "@ragents/web/product/start-options": ["productStartOptions"],
     "@ragents/web/rpc": ["rpc"],
+    "@ragents/web/run-panel/input-bridge": ["hostInputEnabled", "isRunPanelKeyboardMessage", "relayFrameInput"],
     "@ragents/web/run-panel/host": ["useCenterElements", "useRunPanelHost"],
     "@ragents/web/run-view": [
       "actorPluginState", "actorTone", "chatPrimaryId", "isPendingRunActorInput", "runActorFrom",

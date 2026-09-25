@@ -15,4 +15,4 @@ pnpm lint
 bash build/homepage.sh --check
 pnpm build:web
 # Das Paket und ein geholter Stand tragen das fertige Web des Hosts; ihre Prüfungen laufen deshalb nach dem Web-Build.
-exec pnpm --filter @ragents/host exec node --import tsx --test ../../scripts/package/build-package.test.ts ../../scripts/package/publish-package.test.ts ../../scripts/vscode/publish-extension.test.ts ../../scripts/remote/connect-start.test.ts
+exec pnpm --filter @ragents/host exec node --import tsx --test ../../scripts/package/build-package.test.ts ../../scripts/package/publish-package.test.ts ../../scripts/vscode/publish-extension.test.ts ../../scripts/vscode/bundle-bash.test.ts ../../scripts/remote/connect-start.test.ts

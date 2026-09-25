@@ -1,10 +1,12 @@
 import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readPackageVersion } from "../../apps/server/src/host-version.ts";
 import { latestPublishedVersion, type NpmRunner } from "../package/publish-package.ts";
 import { compareVersions, nextVersion, readVersion, versionLine, writeVersion } from "../publish-version.ts";
+import { bundleBash, type BashTarget } from "./bundle-bash.ts";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
@@ -16,11 +18,30 @@ export const VSCE_VERSION = "4.0.0";
 const TOKEN_KEY = "AZURE_DEVOPS_VSCE_RAGENTS_PAT";
 const extensionRoot = path.join(repositoryRoot, "apps", "vscode");
 const manifestFile = path.join(extensionRoot, "package.json");
+const ignoreFile = path.join(extensionRoot, ".vscodeignore");
 const outputFolder = path.join(repositoryRoot, "dist");
 
+/** Eine universelle .vsix ohne Bash und je Windows-Plattform eine mit ihrer mitgebrachten Bash. */
+export type VsixTarget = "universal" | BashTarget;
+export const VSIX_TARGETS: readonly VsixTarget[] = ["universal", "win32-x64", "win32-arm64"];
+
+/** Die Positivliste der .vscodeignore, für eine Windows-Plattform um deren Bash erweitert. */
+export const ignoreRules = (base: string, target: VsixTarget): string =>
+  target === "universal" ? base : `${base.trimEnd()}\n!dist/bash/${target}/**\n`;
+
+/** Wie vsce selbst benennt: die Plattform vor der Fassung. */
+export const vsixName = (version: string, target: VsixTarget): string =>
+  target === "universal" ? `${EXTENSION_NAME}-${version}.vsix` : `${EXTENSION_NAME}-${target}-${version}.vsix`;
+
+/** Die Argumente von vsce package je Plattform; die Ignore-Datei trägt die Positivliste dieser Plattform. */
+export const packageArguments = (vsix: string, target: VsixTarget, ignore: string): readonly string[] => [
+  "package", "--no-dependencies", "--ignoreFile", ignore, "--out", vsix, ...(target === "universal" ? [] : ["--target", target]),
+];
+
 const usage = `Verwendung: pnpm publish:vscode [--dry-run]
-Baut die Erweiterung ${EXTENSION_ID}, packt sie nach dist/ und veröffentlicht sie auf dem Visual
-Studio Marketplace. Der Token kommt aus der Umgebungsvariable ${TOKEN_KEY}. --dry-run macht alles
+Baut die Erweiterung ${EXTENSION_ID}, packt sie nach dist/ - universell und für win32-x64 und
+win32-arm64 samt mitgebrachter Bash (pnpm bundle:bash, braucht 7-Zip) - und veröffentlicht alle
+drei auf dem Visual Studio Marketplace. Der Token kommt aus der Umgebungsvariable ${TOKEN_KEY}. --dry-run macht alles
 außer dem Publish und zeigt den Inhalt der .vsix. Die Fassung steht in apps/vscode/package.json;
 das Skript zählt vor dem Packen die letzte Stelle über die zuletzt veröffentlichte hoch, im
 Probelauf nur in der Ausgabe.`;
@@ -129,17 +150,17 @@ export const publishPlan = (manifest: Record<string, unknown>, published: readon
 };
 
 export interface PublishOptions {
-  readonly vsix: string;
+  readonly vsix: readonly string[];
   readonly version: string;
   readonly token: string;
   readonly vsce: VsceRunner;
   readonly log: (line: string) => void;
 }
 
-/** Veröffentlicht die gepackte Datei; der Exit 0 von vsce publish ist die Bestätigung. */
+/** Veröffentlicht die gepackten Dateien in einem Aufruf; der Exit 0 von vsce publish ist die Bestätigung. */
 export const publishVsix = (options: PublishOptions): void => {
   const hide = redacting(options.token);
-  const published = options.vsce(["publish", "--packagePath", options.vsix], { cwd: extensionRoot, token: options.token });
+  const published = options.vsce(["publish", "--packagePath", ...options.vsix], { cwd: extensionRoot, token: options.token });
   const output = `${published.stdout}${published.stderr}`;
   for (const line of output.split("\n")) if (line.trim()) options.log(hide(line));
   if (published.status !== 0) throw new Error(`vsce publish endete mit Code ${published.status}.`);
@@ -166,22 +187,47 @@ const withMarketplaceFiles = <T>(action: () => T): T => {
   }
 };
 
-const packageExtension = (log: (line: string) => void): string => {
+/** Je Plattform eine eigene Ignore-Datei neben dem Lauf; die .vscodeignore im Repo bleibt die universelle. */
+const withIgnoreFiles = <T>(action: (ignoreOf: (target: VsixTarget) => string) => T): T => {
+  const folder = mkdtempSync(path.join(tmpdir(), "ragents-vscodeignore-"));
+  const base = readFileSync(ignoreFile, "utf8");
+  const files = new Map(VSIX_TARGETS.map((target) => {
+    const file = path.join(folder, `${target}.vscodeignore`);
+    writeFileSync(file, ignoreRules(base, target));
+    return [target, file] as const;
+  }));
+  try {
+    return action((target) => files.get(target)!);
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
+};
+
+const packageExtension = async (log: (line: string) => void): Promise<readonly string[]> => {
   run("pnpm", ["--filter", EXTENSION_NAME, "build"], repositoryRoot);
+  for (const target of VSIX_TARGETS) if (target !== "universal") await bundleBash(target, { log });
   mkdirSync(outputFolder, { recursive: true });
-  const vsix = path.join(outputFolder, `${EXTENSION_NAME}-${readVersion(manifestFile)}.vsix`);
-  withMarketplaceFiles(() => run("pnpm", ["dlx", `@vscode/vsce@${VSCE_VERSION}`, "package", "--no-dependencies", "--out", vsix], extensionRoot));
-  log(`== Gepackt: ${path.relative(repositoryRoot, vsix)}`);
-  return vsix;
+  const version = readVersion(manifestFile);
+  return withIgnoreFiles((ignoreOf) => withMarketplaceFiles(() => VSIX_TARGETS.map((target) => {
+    const vsix = path.join(outputFolder, vsixName(version, target));
+    run("pnpm", ["dlx", `@vscode/vsce@${VSCE_VERSION}`, ...packageArguments(vsix, target, ignoreOf(target))], extensionRoot);
+    log(`== Gepackt: ${path.relative(repositoryRoot, vsix)}`);
+    return vsix;
+  })));
 };
 
-const listContents = (log: (line: string) => void): void => {
-  const listed = withMarketplaceFiles(() => runVsce(["ls", "--no-dependencies"], { cwd: extensionRoot }));
-  if (listed.status !== 0) throw new Error(`vsce ls endete mit Code ${listed.status}: ${oneLine(listed.stderr)}`);
-  for (const line of listed.stdout.split("\n")) if (line.trim()) log(line.trim());
-};
+const listContents = (log: (line: string) => void): void => withIgnoreFiles((ignoreOf) => withMarketplaceFiles(() => {
+  for (const target of VSIX_TARGETS) {
+    const listed = runVsce(["ls", "--no-dependencies", "--ignoreFile", ignoreOf(target)], { cwd: extensionRoot });
+    if (listed.status !== 0) throw new Error(`vsce ls endete mit Code ${listed.status}: ${oneLine(listed.stderr)}`);
+    const lines = listed.stdout.split("\n").map((line) => line.trim()).filter(Boolean);
+    const bash = lines.filter((line) => line.startsWith("dist/bash/"));
+    log(`== Inhalt ${target}: ${lines.length} Dateien${bash.length > 0 ? `, davon ${bash.length} unter dist/bash/${target}` : ""}`);
+    for (const line of lines.filter((entry) => !entry.startsWith("dist/bash/"))) log(line);
+  }
+}));
 
-const main = (): void => {
+const main = async (): Promise<void> => {
   const packageOnly = process.argv.includes("--package-only");
   const dryRun = process.argv.includes("--dry-run");
   const unknown = process.argv.slice(2).filter((argument) => argument !== "--dry-run" && argument !== "--package-only");
@@ -197,7 +243,7 @@ const main = (): void => {
   if (!packageOnly && !dryRun) writeVersion(manifestFile, next.version);
   const plan = publishPlan(manifest, published, next.version);
   console.log(`== ${plan.extensionId}@${plan.version}, VS Code ${(manifest.engines as { vscode: string }).vscode}`);
-  const vsix = packageExtension((line) => console.log(line));
+  const vsix = await packageExtension((line) => console.log(line));
   if (packageOnly) return;
   if (dryRun) {
     listContents((line) => console.log(line));
@@ -209,10 +255,8 @@ const main = (): void => {
 
 const moduleUrl: string | undefined = import.meta.url;
 if (moduleUrl && process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(moduleUrl)) {
-  try {
-    main();
-  } catch (error: unknown) {
+  main().catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exit(1);
-  }
+  });
 }

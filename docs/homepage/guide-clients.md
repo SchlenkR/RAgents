@@ -179,10 +179,12 @@ The first entry for each server is its default, marked "Standard", or the free t
 a template. The commands `RAgents: Trennen` (disconnect), `RAgents: Verbinden` (connect), and
 `RAgents: Abmelden` (sign out) apply to the selected run's server or ask when several match.
 
-When the run chat has focus, VS Code shortcuts such as Cmd/Ctrl+P and Cmd/Ctrl+Shift+P still
-work using your keybindings. Text entry, selection, undo, and clipboard actions remain in the
-input field. Keys already handled by chat, such as Enter to send, are not also executed as VS
-Code commands.
+When the run chat or a hosted mini-app input has focus, VS Code shortcuts such as Cmd/Ctrl+P
+and Cmd/Ctrl+Shift+P still work using your keybindings, including key chords. This also applies
+to nested hosted mini-app frames. Text entry, selection, undo, and clipboard actions remain in
+the input field. Dictation tools that paste their result, such as HEX, use the same input path.
+Keys already handled by the chat or mini-app are not also executed as VS Code commands.
+In a regular browser, native keyboard and clipboard behavior remains in use.
 
 If a server profile requires users, both the lock on Start and the Server row open the
 same sign-in dialog. For a profile with `ACCESS_TOKEN`, the dialog requests that token. User name

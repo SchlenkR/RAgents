@@ -408,7 +408,7 @@ function ChatWorkspace({
         {typeof layout === "object"
           ? <SurfaceElementView elementId={layout.element} navigation={navigation} registry={registry} session={session} />
           : <>
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
               {SurfaceRunPanel
                 ? <SurfaceRunPanel
                   toolbarContainer={toolbarContainer}
@@ -422,7 +422,7 @@ function ChatWorkspace({
                   tabIds={tabs.map((tab) => tab.id)}
                 />
                 : <DefaultCenter renderChat={renderChat} />}
-              {hasWorkspace && <RunPanelWorkspace navigation={navigation} onClose={onTogglePanel} open={panelState === "expanded"} runId={session.session.id} session={session} tabs={tabs} />}
+              {hasWorkspace && <RunPanelWorkspace navigation={navigation} onClose={onTogglePanel} open={panelState === "expanded"} session={session} tabs={tabs} />}
             </div>
             {hasWorkspace && <RunPanelRail navigation={navigation} onClose={onTogglePanel} open={panelState === "expanded"} pendingTabIds={pendingTabIds} session={session} tabs={tabs} />}
           </>}

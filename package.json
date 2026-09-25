@@ -15,6 +15,7 @@
     "build:web": "pnpm --filter @ragents/web build",
     "build:package": "pnpm build:agent && pnpm build:plugins && pnpm build:web && pnpm --filter @ragents/host exec node --import tsx ../../scripts/package/build-package.ts",
     "publish:package": "cd apps/server && node --import tsx ../../scripts/package/publish-package.ts",
+    "bundle:bash": "cd apps/vscode && node --import tsx ../../scripts/vscode/bundle-bash.ts",
     "package:vscode": "cd apps/vscode && node --import tsx ../../scripts/vscode/publish-extension.ts --package-only",
     "publish:vscode": "cd apps/vscode && node --import tsx ../../scripts/vscode/publish-extension.ts",
     "publish:all": "pnpm publish:package && pnpm publish:vscode",

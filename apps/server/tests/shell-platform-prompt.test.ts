@@ -31,7 +31,7 @@ const registryWith = async (platform: string) => {
 test("the shell platform text is derived from the platform and names the exit code contract", () => {
   assert.match(shellPlatformText("darwin"), /macOS.*BSD.*`grep` has no `-P`.*sed -i ''/);
   assert.match(shellPlatformText("linux"), /Linux.*GNU.*`grep -P`/);
-  assert.match(shellPlatformText("win32"), /Windows through Git Bash/);
+  assert.match(shellPlatformText("win32"), /Windows with the bash RAgents brings along/);
   for (const platform of ["darwin", "linux", "win32"] as const) assert.match(shellPlatformText(platform), /nonzero exit code.*not as a tool error/);
   assert.throws(() => shellPlatformText("freebsd"), /keine Shell-Beschreibung/);
 });

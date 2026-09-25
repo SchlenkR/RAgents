@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { chmod, mkdir, open, readFile, readdir, realpath, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import type { ChatSessionLike, ChatSessionProvider, RunListScope, SessionInfo } from "./chat-handler.js";
-import { DomainError, isRunId, unrestrictedAccess, type AccessContext, type HttpRouteContribution, type MethodContribution, type PluginHost, type ServiceToken } from "@ragents/engine";
+import { DomainError, isRunId, unrestrictedAccess, type AccessContext, type HttpRouteContribution, type MethodContribution, type PluginHost, type ServiceToken, type SessionStartedContext } from "@ragents/engine";
 import { WORKSPACE_EXECUTOR_VERSION } from "@ragents/workspace-executor";
 import { assertRunRights, assertRunWorkspaceAccess, runIdInPath, runListScope, runReachable, type GlobalRunPolicy, type RunAccessPolicy } from "./api/rights.js";
 import { configuredAnonymousUser, configuredUsers } from "./config-file.js";
@@ -235,6 +235,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       },
       prepare: (runId) => this.prepareRun(runId),
       prepareWorkspace: (runId, emitSystem) => this.prepareWorkspace(runId, emitSystem),
+      started: (runId, startEntry) => this.startedRun(runId, startEntry),
       scriptEntryFor: (entryId) => globalPolicy ? undefined : this.plugins.startEntries.scriptPackage(entryId),
       startEntryFor: (entryId) => globalPolicy ? undefined : this.plugins.startEntries.entry(entryId),
       actorPrograms: {
@@ -469,6 +470,11 @@ export class RunSessionProvider implements ChatSessionProvider {
     this.ensureUsable(id);
     await chmod(layout.chatDir(id), ROOT_ONLY_MODE);
     this.ensureUsable(id);
+  }
+
+  private async startedRun(id: string, startEntry: SessionStartedContext["startEntry"]): Promise<void> {
+    this.ensureUsable(id);
+    if (!this.plugins.optionalService(globalChatToken)?.isCoordinator(id)) await this.plugins.lifecycle.sessionStarted(id, startEntry);
   }
 
   private async prepareWorkspace(id: string, emitSystem: (text: string) => void): Promise<void> {

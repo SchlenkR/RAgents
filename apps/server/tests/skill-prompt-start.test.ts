@@ -17,6 +17,7 @@ import {
   type AgentProfile,
   type CatalogModel,
   type PublicStartEntry,
+  type SessionStartedContext,
 } from "@ragents/engine";
 import { testServices } from "../../../packages/ragents/tests/support.ts";
 import type { ModelChoice } from "../src/plugin-support/model-choice.ts";
@@ -48,6 +49,7 @@ const createFixture = (runId: string, entries: readonly PublicStartEntry[] = [])
   const journal = new Journal(":memory:", services);
   const runtime = new Orchestration(journal, services);
   const live = new LiveBus();
+  const starts: Array<SessionStartedContext["startEntry"]> = [];
   const catalogModels: CatalogModel[] = [
     { driver: "agent", provider: "test", model: "other-first", label: "test/other-first", thinking: ["low", "high"] },
     { driver: "agent", provider: "test", model: "coordinator-default", label: "test/coordinator-default", thinking: ["low", "high"] },
@@ -110,12 +112,15 @@ const createFixture = (runId: string, entries: readonly PublicStartEntry[] = [])
     assertUsable: () => undefined,
     prepare: async () => undefined,
     prepareWorkspace: async () => undefined,
+    started: async (_id, startEntry) => {
+      starts.push(startEntry);
+    },
     scriptEntryFor: () => undefined,
     startEntryFor: (entryId) => entries.find((entry) => entry.id === entryId),
     actorPrograms: unavailableActorPrograms,
   });
 
-  return { journal, runtime, session };
+  return { journal, runtime, session, starts };
 };
 
 const sendThroughChatHttp = async (session: RunChatSession, runId: string, text: string, entry?: string, access?: AccessContext): Promise<void> => {
@@ -205,6 +210,7 @@ test("the first reference skill starts an empty run through the chat HTTP path",
       { pluginId: systemPromptStartOptionId, state: { promptIds: ["general"], shareWithAgents: false } },
       { pluginId: modelStartOptionId, state: { model: "coordinator-default", thinking: "low" } },
     ]);
+    assert.deepEqual(fixture.starts, [null]);
   } finally {
     fixture.journal.close();
   }
@@ -280,6 +286,7 @@ test("a skill template that fixes the model starts its run through the chat HTTP
       { pluginId: modelStartOptionId, state: { model: "other-first", thinking: "high" } },
     ]);
     assert.equal(fixture.journal.stateOf(runId)?.ownerUserId, "operator");
+    assert.deepEqual(fixture.starts, [{ id: entry.id, action: "skill" }]);
   } finally {
     fixture.journal.close();
   }

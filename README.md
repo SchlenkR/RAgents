@@ -55,7 +55,8 @@ window.
 
 Node.js 22 and npm are required. A source checkout also requires Git, pnpm, and installed
 dependencies. Windows is implemented but has only been tested with unit tests that
-simulate the platform; shell commands there require Git Bash.
+simulate the platform; the Windows build of the extension brings its own bash with the GNU tools
+and uses your own Git.
 
 Source, documentation, and issue tracking are in this repository. The host is also published as
 [`@schlenkr/ragents`](https://www.npmjs.com/package/@schlenkr/ragents).

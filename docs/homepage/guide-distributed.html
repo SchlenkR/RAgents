@@ -40,7 +40,7 @@
         radial-gradient(ellipse at 28% 0%, #c4b0dfb3, transparent 58%),
         radial-gradient(ellipse at 88% 100%, #efd3c6a6, transparent 52%),
         linear-gradient(135deg, #edf0f2, #e1dbe8);
-  --backdrop: #28213966;
+  --backdrop: #00000066;
   --glass-agent: #eec4b1;
   --glass-primary: #dcd0e8;
   --glass-script: #e9dca1;
@@ -92,7 +92,7 @@
         radial-gradient(ellipse at 28% 0%, #59446f99, transparent 58%),
         radial-gradient(ellipse at 88% 100%, #694c443d, transparent 52%),
         linear-gradient(135deg, #252b35, #302735);
-  --backdrop: #14101eb3;
+  --backdrop: #00000099;
   --glass-agent: #594039;
   --glass-primary: #47394f;
   --glass-script: #4d462b;
@@ -278,12 +278,23 @@ After transfer, inspect the journal with <code>pnpm driver journal &lt;runId&gt;
 <h2 id="work-on-windows">Work on Windows</h2>
 <p>The local host and workspace also run on Windows. Requirements are:</p>
 <ul>
-<li><strong>Git for Windows</strong> for Git Bash. The executor checks <code>%ProgramFiles%\Git\bin\bash.exe</code>, then
-<code>%ProgramFiles(x86)%\Git\bin\bash.exe</code>, then <code>bash.exe</code> on <code>PATH</code> for Cygwin or MSYS2. If none
-is found, every <code>bash</code> call fails with installation instructions. PowerShell and <code>cmd.exe</code> are
-not used.</li>
+<li><strong>The VS Code extension for Windows</strong> brings its own bash. The Marketplace delivers a
+<code>win32-x64</code> or <code>win32-arm64</code> build that contains a slim bash with the GNU tools (coreutils,
+<code>grep</code>, <code>sed</code>, <code>awk</code>, <code>find</code>, <code>diff</code>, <code>patch</code>, <code>tar</code>, <code>unzip</code>, <code>cygpath</code> and more), taken from
+a fixed Git for Windows release. The <code>bash</code> tool uses only this bash, for the workspace and for
+the local host; an installed Git Bash or a <code>bash.exe</code> on <code>PATH</code> is never used. PowerShell and
+<code>cmd.exe</code> are not used either.</li>
+<li><strong>Git</strong> is your own <code>git.exe</code> on <code>PATH</code>, for example from Git for Windows. The bundled bash
+contains no git, so your login works as usual: Git Credential Manager, <code>~/.gitconfig</code> and
+<code>~/.ssh</code>. On your own machine the bash inherits your whole environment, except the variables of
+VS Code itself and <code>BASH_ENV</code>/<code>ENV</code>.</li>
+<li><strong>Without the extension</strong> (<code>ragents start</code> or <code>ragents workspace-client</code> from the npm package)
+set <code>RAGENTS_BASH</code> to the <code>bash.exe</code> of such a bundle, for example
+<code>&lt;extension folder&gt;\dist\bash\win32-x64\usr\bin\bash.exe</code>. Without it every <code>bash</code> call fails
+and names what is missing.</li>
 <li><strong>Node.js</strong> is enough with <code>@schlenkr/ragents</code>. A checkout additionally needs <strong>pnpm</strong>, and
-<code>pnpm install</code>, <code>pnpm build:agent</code>, and <code>scripts/start.sh</code> run in Git Bash.</li>
+<code>pnpm install</code>, <code>pnpm build:agent</code>, and <code>scripts/start.sh</code> need a bash of your own, such as
+Git Bash.</li>
 <li>The <strong>.NET SDK</strong> is required when the profile includes Roslyn or FSAC. Provisioning downloads
 the language servers; the TypeScript server comes from the host directory.</li>
 <li>A <strong>server</strong> on Windows has no process sandbox. Its profile file must switch it off explicitly
@@ -303,5 +314,6 @@ do not depend on the process rail.</p>
 <p>Windows support has not yet been exercised on a physical Windows machine. It is implemented and
 covered by unit tests that simulate the platform. A first real run should verify <code>pnpm connect</code>,
 <code>read</code>, <code>edit</code>, <code>bash</code> output and cancellation, diagnostics, and a workspace through
-<code>pnpm workspace-client</code>.</p>
+<code>pnpm workspace-client</code>, and with the bundled bash <code>git fetch</code> and <code>git push</code> over HTTPS with Git
+Credential Manager and over SSH.</p>
 <p class="guide-source">Source: <a href="../../docs/operations.md">docs/operations.md</a>. <a href="guide-distributed.md">This chapter as Markdown</a>.</p><p><a href="guide-access.html">Assign tokens and permissions</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide-clients.html">Previous: Web and VS Code</a><a href="guide-functions.html">Next: Work with TypeScript</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>

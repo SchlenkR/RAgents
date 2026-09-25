@@ -28,7 +28,7 @@ const fixture = () => {
   const session = () => new RunChatSession({
     engine, id: run.runId,
     coordinator: { handle: "coordinator", displayName: "Koordinator", profile: "coordinator", runTitle: "Cursor", ownerHandle: "owner", ownerDisplayName: "Owner" },
-    prompt: () => "", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {},
+    prompt: () => "", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {}, started: async () => {},
     scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: unavailableActorPrograms,
   });
   const startTurn = () => {

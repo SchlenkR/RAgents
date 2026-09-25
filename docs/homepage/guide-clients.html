@@ -40,7 +40,7 @@
         radial-gradient(ellipse at 28% 0%, #c4b0dfb3, transparent 58%),
         radial-gradient(ellipse at 88% 100%, #efd3c6a6, transparent 52%),
         linear-gradient(135deg, #edf0f2, #e1dbe8);
-  --backdrop: #28213966;
+  --backdrop: #00000066;
   --glass-agent: #eec4b1;
   --glass-primary: #dcd0e8;
   --glass-script: #e9dca1;
@@ -92,7 +92,7 @@
         radial-gradient(ellipse at 28% 0%, #59446f99, transparent 58%),
         radial-gradient(ellipse at 88% 100%, #694c443d, transparent 52%),
         linear-gradient(135deg, #252b35, #302735);
-  --backdrop: #14101eb3;
+  --backdrop: #00000099;
   --glass-agent: #594039;
   --glass-primary: #47394f;
   --glass-script: #4d462b;
@@ -287,10 +287,12 @@ open in the browser. <code>RAgents: Neuer Run</code> uses a Quick Pick grouped b
 The first entry for each server is its default, marked &quot;Standard&quot;, or the free task without
 a template. The commands <code>RAgents: Trennen</code> (disconnect), <code>RAgents: Verbinden</code> (connect), and
 <code>RAgents: Abmelden</code> (sign out) apply to the selected run&#39;s server or ask when several match.</p>
-<p>When the run chat has focus, VS Code shortcuts such as Cmd/Ctrl+P and Cmd/Ctrl+Shift+P still
-work using your keybindings. Text entry, selection, undo, and clipboard actions remain in the
-input field. Keys already handled by chat, such as Enter to send, are not also executed as VS
-Code commands.</p>
+<p>When the run chat or a hosted mini-app input has focus, VS Code shortcuts such as Cmd/Ctrl+P
+and Cmd/Ctrl+Shift+P still work using your keybindings, including key chords. This also applies
+to nested hosted mini-app frames. Text entry, selection, undo, and clipboard actions remain in
+the input field. Dictation tools that paste their result, such as HEX, use the same input path.
+Keys already handled by the chat or mini-app are not also executed as VS Code commands.
+In a regular browser, native keyboard and clipboard behavior remains in use.</p>
 <p>If a server profile requires users, both the lock on Start and the Server row open the
 same sign-in dialog. For a profile with <code>ACCESS_TOKEN</code>, the dialog requests that token. User name
 and password are stored per server address in VS Code SecretStorage and reused silently next

@@ -31,7 +31,7 @@ export function RunPanelHeader({ attention, contributions, navigation, registry,
       <ChevronDownIcon aria-hidden className="size-3.5 flex-none text-muted-foreground" />
     </button>
     <Popover onOpenChange={(next, details) => { if (!next && pressedAnchor(details)) return; setOpen(next); }} open={open}>
-      <PopoverContent align="start" anchor={buttonRef} aria-label="Run-Details" className="max-h-[70vh] w-[calc(100vw-16px)] gap-0 overflow-auto rounded-md p-0 text-[0.76rem]" collisionPadding={8} dim id={panelId} role="dialog" side="bottom" sideOffset={4}>
+      <PopoverContent align="start" anchor={buttonRef} aria-label="Run-Details" className="max-h-[70vh] w-[calc(100vw-16px)] gap-0 overflow-auto rounded-md p-0 text-[0.76rem]" collisionPadding={8} dim id={panelId} role="dialog" side="bottom">
         <div className="flex flex-wrap items-stretch [&>*]:border-b [&>*]:border-border-soft">
           {registry.sessionMetadata.map(({ id, Metadata }) => <Metadata key={id} placement="header" session={session.session} />)}
           <StartOptionBadges registry={registry} session={session} />

@@ -1,5 +1,120 @@
 # Entscheidungen
 
+## Solution beim Start eines Runs, Solution-Liste und Umschalten im Reiter (25.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Zuständigkeit je Facette, Executor, Language-Server-Plugins),
+`docs/spec/profiles.md` (Rechte im Einzelnen), `docs/development.md` (Erweiterungspunkte).
+Vorgabe des Owners: Ein neuer Run soll die .NET-Solution seines Arbeitsbereichs selbst in Roslyn
+laden, bei mehreren sofort fragen, bei Run-Scripts nie; das Modell soll Solutions finden und
+dazuladen, der Benutzer im Reiter umschalten.
+
+**Warum so.** Ob ein Run über ein Run-Script startet, weiß nur der Start selbst; das Journal kennt
+die Vorlage eines Scripts erst nach dem Aufbau seines Actors, eine freie Nachricht nie. Ein Haken
+des Hosts nach Arbeitsbereich und erstem Actor, vor dem ersten Input, entscheidet das ohne Timing:
+kein Actor hatte einen Turn, also hat noch niemand geöffnet, und der Merker im Journal hält den
+Durchgang auf einen je Run, auch über Neustarts. Das gleichzeitige Öffnen löst der Executor, nicht
+das Plugin: `ifNoneOpen` prüft und belegt in einem Schritt und zählt auch Aufrufe, die ihren Pfad
+noch auflösen. Außerhalb eines Turns darf nur der Eigentümer Befehle geben; deshalb fragt er, wie
+schon die Host-Bestätigung der Actor-Programme, und `ragents.ask` bekommt `recipient`, damit eine
+nach einem Neustart verwaiste Antwort beim Koordinator landet statt zu verfallen.
+
+**Festlegung.** `SessionLifecycleContribution.sessionStarted({ runId, startEntry })` im Kern, ohne
+Wissen über Werkzeuge. Adapter mit `solutionExtensions` (Roslyn) bekommen `<id>_solutions` (Werkzeug
+und Operation, `git ls-files` ohne `node_modules`, `bin`, `obj`, ohne Git die Ordnersuche) und
+`<id>_switch`; `<pluginId>.solutions` und `<pluginId>.switch` (zusätzlich `runs.write` und das
+neue `<pluginId>.write`) bedienen den Reiter. Umschalten wartet nicht auf das Laden, weil ein
+Proxy vor dem Server lange Anfragen abbricht. Das Laden beim Start gehört dem Roslyn-Plugin
+(`ROSLYN_SOLUTION_ON_START`, Vorgabe `"off"`), FSAC und TypeScript bleiben ohne. Eine vom
+Eigentümer gestellte Aktion trägt im Chat keinen Namen mehr, weil sie eine Frage des Hosts ist.
+Öffnet jemand eine Instanz, solange die Startfrage offen ist, verwirft das Plugin sie über das neue
+`AskService.withdraw` (ohne Laden, ohne Input an den Koordinator); den Anlass liefert `onOpened`
+des Sprachserver-Rahmens nach Werkzeug-Öffnen und Umschalten.
+`WORKSPACE_EXECUTOR_VERSION` ist 4: ein älterer Arbeitsplatz kennt die neuen Operationen nicht und
+würde `ifNoneOpen` still übergehen; er wird bei der Anmeldung abgewiesen.
+
+Verworfen: die Entscheidung aus dem Zustand von `ragents.actor-programs` im Journal abzuleiten (ein
+fremdes Plugin, und erst nach dem Aufbau des Script-Actors sichtbar); ein `beforeModelCall`-Haken
+im ersten Turn (fragt erst mit der ersten Nachricht und nur, wenn ein Modell läuft); die Frage im
+Namen des Koordinators (der Kern lässt Befehle eines Agenten nur in seinem Turn zu); Umschalten
+als Folge aus Schnappschuss, Schließen und Öffnen im Server (drei Wege zum Executor, dazwischen
+offen für andere). Offen: Beim Umschalten bleibt ein Öffnen anderer Wurzeln stehen, das noch seinen
+Pfad auflöst; eine Rückfrage nach einem Serverneustart hängt davon ab, dass der Koordinator die
+weitergereichte Antwort in `<id>_open` umsetzt. Belegt durch `language-server-startup.test.ts`
+(Suche mit und ohne Git, `ifNoneOpen`, Umschalten), `roslyn-solution-on-start.test.ts` (0, 1, n,
+Script-Start, einmal je Run, offene Instanz, Antworten, Neustart, Stopp), `language-server.test.ts`,
+`workspace-owner-access.test.ts`, `run-script-start.test.ts`, `skill-prompt-start.test.ts`,
+`start-options.test.ts` und `language-server-panel.test.ts`.
+
+## Unter Windows eine mitgebrachte Bash, auf dem Arbeitsplatz die geerbte Umgebung (25.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Arbeitsbereich: Umgebung, Promptbeitrag der Shell, Bash unter
+Windows; Offene Grenzen), `docs/operations.md` (Work on Windows), `docs/development.md`
+(VS-Code-Erweiterung veröffentlichen). Vorgabe des Owners: Das Modell bekommt weiter genau ein
+Werkzeug `bash`, auch unter Windows. RAgents nimmt dort nur eine Bash, die es selbst mitbringt,
+und `git` bleibt das Git des Benutzers.
+
+**Warum Bash und kein PowerShell-Werkzeug.** Die Modelle sind auf Bash trainiert, unsere Skills,
+Prompts und Run-Scripts sind Bash, und ein zweites Werkzeug hieße je Plattform andere Prompts und
+Beispiele. PowerShell reicht Objekte durch die Pipe statt Text; was ein Modell dort schreibt, ist
+eine andere Sprache mit anderen Fehlern.
+
+**Warum eine mitgebrachte Bash und nicht die Git Bash des Benutzers.** Welche Git-Bash-Fassung
+installiert ist, wo sie liegt und was ihr `/etc/profile`, ihre `bash.bashrc` oder ein `PATH` mit
+Cygwin oder WSL daraus machen, entzieht sich RAgents; eine Suche über `Program Files` und den `PATH`
+fand im schlechtesten Fall das alte `System32\bash.exe` von WSL. Eine feste Fassung aus einem
+festgelegten Archiv (Git for Windows PortableGit, per SHA-256 gepinnt) verhält sich auf jedem
+Rechner gleich und ist Teil der Windows-VSIX. Busybox (`ash`, andere Optionen fast aller Werkzeuge)
+und `just-bash` (eine nachgebaute Bash in JavaScript ohne echte Prozesse) sind keine Bash, auf die
+Modelle und Skripte sich verlassen können. Die Auswahl ist schlank: Bash und die GNU-Textwerkzeuge
+samt ihrer DLLs, die das Build-Skript aus den PE-Importen bestimmt; Git, Perl, Editoren, SSH, GnuPG,
+OpenSSL und Terminals bleiben draußen. Git ist das `git.exe` vom `PATH`, damit Anmeldung
+(Credential Manager), `~/.gitconfig` und `~/.ssh` des Benutzers ohne weiteres greifen.
+
+**Warum der Arbeitsplatz erbt und der Server nicht.** Auf dem eigenen Rechner soll die Bash des
+Runs arbeiten wie das Terminal des Entwicklers: seine Toolchain-Variablen, Proxy-Einstellungen,
+Anmeldungen. Die Allowlist nahm ihm das und brachte nichts, weil die Umgebung ohnehin seine eigene
+ist; ausgenommen bleiben nur die Variablen des umgebenden VS Code und `BASH_ENV`/`ENV`, damit keine
+Startdatei in `bash -c` rutscht. Auf dem Server trägt die Umgebung Schlüssel und Tokens, die nicht
+dem Benutzer des Runs gehören; dort bleibt es bei der Allowlist. Die Wahl ist ein ausdrücklicher
+Parameter (`baseEnvironment`), kein Schalter nach Plattform oder Betriebsart. Der lokale Host der
+Erweiterung erbt noch nicht, weil seine Umgebung Secrets enthält, die die Erweiterung ihm mitgibt
+(`TODO.md`).
+
+**Festlegung.** Der Kontext des Executors trägt die Bash (`bash`); unter Windows ist sie Pflicht,
+ohne sie scheitert `bash` mit Ursache, eine Suche gibt es nicht mehr (`getShellConfig` wirft unter
+Windows ohne Pfad; der Stdin-Weg für WSL entfällt). Gestartet wird überall
+`bash --noprofile --norc -c`; unter Windows steht das `usr/bin` der Bash vorn im `PATH` und
+`MSYSTEM` fällt weg. Die Erweiterung nennt die Bash für ihren Arbeitsplatz direkt und für ihren
+lokalen Host über `RAGENTS_BASH`; ohne Erweiterung setzt man `RAGENTS_BASH` selbst. Gepackt werden
+eine universelle VSIX ohne Bash und je eine für `win32-x64` und `win32-arm64`; die ARM64-Fassung
+trägt dieselben x64-Programme, weil MSYS2 kein natives ARM64-Userland hat. Die Programme stehen
+unter GPLv3 und LGPL; die Bash trägt Lizenztexte, Paketfassungen und die Quellverweise auf Git for
+Windows und MSYS2 in `NOTICE.txt`, verändert ist nur `etc/nsswitch.conf`.
+
+## Tab-Bereich des Run-Panels als Pop-out statt unter dem Chat (25.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Run-Panel, Workspace-Tabs).
+Vorgabe des Owners: Die Reiter der Symbolleiste (Dateien, Language Server, Dokumente ...) öffnen
+nicht mehr unten im Hauptbereich, sondern überdecken ihn fast ganz, wie die übrigen Pop-outs des
+Run-Panels (Run-Details, Adressat). Beim Schließen ist der Hauptbereich unverändert.
+
+**Warum.** Unter dem Chat teilte sich der Tab-Bereich die Höhe mit Chat und Bühne; beide wurden
+klein, und der Griff musste bei jedem Reiter nachgezogen werden.
+
+**Festlegung.** `RunPanelWorkspace` liegt absolut über Chat und Bühne mit abgedunkeltem Rest;
+X, Escape, Klick daneben oder erneuter Klick auf den Knopf schließen. Bei mindestens 960 Pixeln
+Breite, wenn zwei Bereiche nebeneinander stehen, deckt es nur den rechten Teil ab. Griff und Höhe
+entfallen; der Zustand je Run ist nur noch `{ tab }` unter dem neuen Schlüssel
+`ragents.run-panel.workspace-tab:<runId>`, die alten Einträge werden ohne Migration ignoriert.
+
+## Gemeinsamer Pop-out-Abstand und Hintergrund (25.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (gemeinsame UI-Bausteine, Run-Panel).
+Pop-outs übernehmen ihren Abstand von 8 Pixeln aus `PopoverContent`. Dialoge, abdunkelnde
+Pop-outs und Chat-Sheet verwenden denselben Theme-Wert `--backdrop`, damit die stärkere
+Abdunklung zentral gepflegt wird. Die Adressat-Suche steht neben dem Titel im gemeinsamen
+Pop-out-Kopf und durchsucht sichtbare wie ausgeblendete Actors.
+
 ## Homepage als handgeschriebene Seite ohne Strukturprüfung (25.09.2026)
 
 Kapitel: `docs/spec/overview.md` (Produkt-Homepage), `docs/development.md` (Homepage-Regeln).
@@ -358,6 +473,17 @@ die Vorlagen wieder unbemerkt bräche und die Meldung weiter nichts nennte; ein 
 `scaffold`, weil es während des Aufbaus ein halbes Paket zeigt, nach einem Absturz nichts aufräumt
 und im Fehlerfall einen Ordner löschen kann, den inzwischen ein anderer Aufruf angelegt hat.
 
+## Eingabebrücke auch durch Mini-App-Frames (24.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (VS-Code-Erweiterung), `docs/usage.md` (VS-Code-Bedienung).
+Die bisherige Tastatur- und Zwischenablagebrücke endete im Run-Panel. Eine Mini-App liegt in
+einem weiteren iframe; dort funktionierte Tippen, aber HEX-Einfügen und VS-Code-Tastenkürzel
+erreichten ihr Ziel nicht. Die bestehenden Handler werden gemeinsam über die bereits geprüften
+Frame-Verbindungen verwendet. Die VS-Code-Wurzel aktiviert den Transport; weitere gehostete
+Frames reichen ihn weiter. Es gibt keine Sonderbehandlung einzelner Textfelder und keine zweite
+Shortcutliste. Lokale Textbearbeitung und behandelte Ereignisse bleiben lokal; normale Browser
+verwenden weiterhin ihre native Eingabe.
+
 ## Prozess-Sandbox für alles, was ein Run auf dem Server startet (24.09.2026)
 
 Kapitel: `docs/spec/plugins.md` (Arbeitsbereich, neuer Abschnitt Prozess-Sandbox des Servers;
@@ -397,6 +523,19 @@ darüberlegt; ebenso freigegebene Ordner, die einen gesperrten enthalten (etwa e
 den Datenordner), weil Seatbelt die Freigaben innerhalb der Sperre sonst wieder sperrt. Nachgewiesen mit `apps/server/tests/process-sandbox.test.ts`, `pnpm
 check:remote-workspace` und einem echten `dotnet build` samt NuGet-Restore, `npm install`, `pnpm
 install` und `git clone` im Arbeitsbereich unter macOS und Linux (Container).
+
+## Durchgehender Hintergrund für Mini-App und Chat (24.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Run-Panel).
+Die Grundfarbe der Mini-App (`--app`) setzt sich hinter dem reservierten Chatbereich fort.
+Die Bereiche bleiben im Layout getrennt, ohne den bisherigen Farbsprung. Der äußere Rahmen
+bekommt gerade Ecken oben und unten; die innere Chatkarte behält Rahmen und Schatten.
+
+## Statuszeile bündig zur Chat-Eingabe (24.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Run-Panel).
+Die Antwortvorschau im eingeklappten Chat verwendet denselben horizontalen Abstand wie
+die Eingabe. Ihr bisheriger eigener Abstand ließ den Text links über die Feldkante hinausragen.
 
 ## Chat-Zeitstempel an der ersten Textzeile ausrichten (24.09.2026)
 

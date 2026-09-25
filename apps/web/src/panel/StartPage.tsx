@@ -60,7 +60,7 @@ function StateButton({ connection, action, failure, onFailure, send, onLogin }: 
     <PopoverTrigger aria-label={`Fehler von ${connection.name} anzeigen`} className={cn(iconPartClass, chipPartClass)}>
       <ConnectionStateIcon state={state} />
     </PopoverTrigger>
-    {shown && <PopoverContent align="start" className="w-[min(360px,calc(100vw-16px))] gap-2 p-3" collisionPadding={8} dim side="bottom" sideOffset={4}>
+    {shown && <PopoverContent align="start" className="w-[min(360px,calc(100vw-16px))] gap-2 p-3" collisionPadding={8} dim side="bottom">
       <PopoverHeader><PopoverTitle className="text-[0.8rem] font-semibold text-destructive">{shown.title}</PopoverTitle></PopoverHeader>
       <p className={cn("max-h-[50vh] overflow-auto select-text whitespace-pre-wrap text-[0.72rem] leading-normal [overflow-wrap:anywhere]", shown.message.includes("\n") && "font-mono")}>{shown.message}</p>
       <div className="flex flex-wrap justify-end gap-2">

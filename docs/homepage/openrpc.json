@@ -981,6 +981,103 @@
       "x-implemented-by": "server"
     },
     {
+      "name": "ragents.lsp-roslyn.solutions",
+      "description": "Die Solutions im Arbeitsbereich eines Runs und welche davon ragents.lsp-roslyn geöffnet hat. Rechte: runs.read und ragents.lsp-roslyn.read.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "LanguageServerSolutions"
+        }
+      },
+      "x-owner": "ragents.lsp-roslyn",
+      "x-rights": [
+        "runs.read",
+        "ragents.lsp-roslyn.read"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.lsp-roslyn.switch",
+      "description": "Lädt eine Solution in ragents.lsp-roslyn und beendet alle anderen Instanzen des Runs; null beendet alle. Wartet nicht auf das Laden. Rechte: runs.read, runs.write, ragents.lsp-roslyn.read und ragents.lsp-roslyn.write.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "root"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Kennung des Runs"
+              },
+              "root": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "description": "Die Solution relativ zur Wurzel des Arbeitsbereichs"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "description": "null beendet alle Instanzen"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "additionalProperties": true,
+          "x-typescript-type": "LanguageServerSolutions"
+        }
+      },
+      "x-owner": "ragents.lsp-roslyn",
+      "x-rights": [
+        "runs.read",
+        "runs.write",
+        "ragents.lsp-roslyn.read",
+        "ragents.lsp-roslyn.write"
+      ],
+      "x-implemented-by": "server"
+    },
+    {
       "name": "ragents.lsp-typescript.snapshot",
       "description": "Zustand und Diagnosen des Sprachservers ragents.lsp-typescript in einem Run. Rechte: runs.read und ragents.lsp-typescript.read.",
       "params": [

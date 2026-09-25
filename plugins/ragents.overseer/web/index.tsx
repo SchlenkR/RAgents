@@ -179,7 +179,7 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
       </span>
     <Popover modal={false} open={quickAnswer !== undefined}>
       <PopoverContent align="start" anchor={belowHeader} aria-atomic="true" aria-live="polite" className="flex max-w-[calc(100vw-16px)] flex-row items-start gap-1 p-1.5 text-[0.76rem]" collisionPadding={8}
-        finalFocus={false} initialFocus={false} role="status" side="bottom" sideOffset={6}
+        finalFocus={false} initialFocus={false} role="status" side="bottom"
         style={{ width: "min(max(calc(var(--anchor-width) * 2), 480px), var(--available-width))" }}>
         {quickAnswer && <>
           <Button className="h-auto min-w-0 flex-1 justify-start rounded-lg px-2.5 py-2 text-left text-[0.76rem] leading-[1.45] font-normal whitespace-normal [overflow-wrap:anywhere]" variant="ghost" aria-label={`Verlauf öffnen: ${quickAnswer.question} ${quickAnswer.text}`}
@@ -194,7 +194,7 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
     </Popover>
     <Popover modal={false} open={open} onOpenChange={(next, details) => { if (!next) dismiss(details.reason, details.event); }}>
     <PopoverContent align="start" anchor={belowHeader} aria-label="Globaler Koordinator" className="flex min-h-0 flex-col gap-0 overflow-hidden rounded-t-none rounded-b-panel border-t-2 border-t-primary p-0" collisionPadding={8}
-      finalFocus={false} id="overseer-dropdown" initialFocus={false} keepMounted ref={setDropdown} role="region" side="bottom" sideOffset={0}
+      finalFocus={false} id="overseer-dropdown" initialFocus={false} keepMounted ref={setDropdown} role="region" side="bottom"
       style={{ width: "min(760px, var(--available-width))", height: "min(650px, var(--available-height))" }}>
       <div className="flex-none border-b border-border-soft" data-tone="overseer-details" ref={setDetailsContainer} />
       {confirmReset && dialogContainer && <RunModalContext.Provider value={dialogContainer}>

@@ -6,10 +6,9 @@ import {
   createEditToolDefinition,
   createReadToolDefinition,
   createWriteToolDefinition,
-  getShellConfig,
   type BashOperations,
-  type ShellConfig,
 } from "@ragents/agent";
+import { bashLaunch } from "./bash-launch.js";
 import type { WorkspaceProcessContext } from "./context.js";
 import { WorkspaceOperationError } from "./errors.js";
 import { processGroupExists, stopProcessTree } from "./managed-process.js";
@@ -77,13 +76,6 @@ export const createSandboxTools = async (
   let toolOperation: Promise<void> = Promise.resolve();
   let shuttingDown = false;
   const processGroups = new Set<number>();
-
-  /** Kein stiller Ausweg auf `sh`: das Werkzeug heißt bash und der Prompt beschreibt bash. */
-  const resolvedShell = (): ShellConfig => {
-    const shell = getShellConfig();
-    if (!/bash(\.exe)?$/i.test(shell.shell)) throw new Error(`Auf diesem Rechner gibt es keine Bash; ${shell.shell} ist kein Ersatz`);
-    return shell;
-  };
 
   const killProcessGroup = async (pid: number): Promise<void> => {
     if (onWindows) {
@@ -186,25 +178,20 @@ export const createSandboxTools = async (
       const context = await contextFor();
       if (shuttingDown) throw new Error("Die Werkzeuge werden killed");
       options.signal?.throwIfAborted();
-      const shell = resolvedShell();
-      const fromStdin = shell.commandTransport === "stdin";
-      const launch = await sandboxedLaunch(context, { command: shell.shell, args: fromStdin ? shell.args : [...shell.args, command] });
+      const bash = bashLaunch(context.bash, command, context.env);
+      const launch = await sandboxedLaunch(context, bash);
       if (shuttingDown) throw new Error("Die Werkzeuge werden killed");
       options.signal?.throwIfAborted();
       return new Promise((resolve, reject) => {
         const child = spawn(launch.command, [...launch.args], {
           cwd: commandCwd,
           detached: !onWindows,
-          stdio: [fromStdin ? "pipe" : "ignore", "pipe", "pipe"],
-          env: context.env,
+          stdio: ["ignore", "pipe", "pipe"],
+          env: bash.env,
           uid: context.uid,
           gid: context.gid,
           windowsHide: true,
         });
-        if (fromStdin) {
-          child.stdin?.on("error", () => undefined);
-          child.stdin?.end(command);
-        }
         if (child.pid) processGroups.add(child.pid);
         child.stdout?.on("data", options.onData);
         child.stderr?.on("data", options.onData);

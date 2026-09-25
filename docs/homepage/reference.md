@@ -10611,6 +10611,33 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
+### roslyn_solutions
+
+Roslyn Solutions
+
+List the solution files (.sln, .slnx) of this run's workspace and mark which ones the Roslyn language server has open. roslyn_open loads another one in addition; the open ones stay open.
+
+Eigentümer: ragents.lsp-roslyn. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+
+In jedem Modell-Turn verfügbar.
+
+#### Eingabe
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+#### Ergebnis
+
+```json
+{
+  "type": "string"
+}
+```
+
 ### run_configure
 
 Configure Run
@@ -17883,7 +17910,9 @@ Vollständige Paketquellen stehen in [run-setup.md](run-setup.md).
   },
   {
     "id": "ragents.lsp-roslyn",
-    "requires": []
+    "requires": [
+      "ragents.ask"
+    ]
   },
   {
     "id": "ragents.lsp-fsharp",

@@ -35,7 +35,7 @@ export const chatEventsOf = (event: JournalEvent, scope: ChatProjectionScope, cu
     return scope.turnOf(event.payload.turnId).actorId === scope.primaryActorId ? [{ kind: "steered", inputId: event.payload.inputId }] : [];
 
   if (event.type === "action.proposed") {
-    const asker = event.actorId === scope.primaryActorId
+    const asker = event.actorId === scope.primaryActorId || event.actorId === scope.ownerId
       ? undefined
       : scope.labelOf(event.actorId);
     return [actionEventOf(event.payload, at, asker)];

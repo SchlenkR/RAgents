@@ -98,6 +98,34 @@ test("der Arbeitsplatz meldet sich an und führt die Werkzeuge in seinem Ordner 
   }
 });
 
+test("die Bash des Arbeitsplatzes erbt die Umgebung dieses Rechners, ohne VS-Code-Variablen und ohne BASH_ENV", async () => {
+  const server = await startStubServer();
+  const { client, directory, runs, execute } = await started(server);
+  const startup = join(directory, "startup.sh");
+  const names = ["RAGENTS_TEST_OWN_TOOL", "VSCODE_RAGENTS_TEST", "ELECTRON_RAGENTS_TEST", "BASH_ENV"] as const;
+  const saved = Object.fromEntries(names.map((name) => [name, process.env[name]]));
+  try {
+    await writeFile(startup, "echo startdatei-gelesen\n", "utf8");
+    process.env.RAGENTS_TEST_OWN_TOOL = "vom-benutzer";
+    process.env.VSCODE_RAGENTS_TEST = "editor";
+    process.env.ELECTRON_RAGENTS_TEST = "editor";
+    process.env.BASH_ENV = startup;
+    const output = textOf((await execute("bash", {
+      command: 'printf "%s|%s|%s|%s|%s" "$RAGENTS_TEST_OWN_TOOL" "${VSCODE_RAGENTS_TEST-leer}" "${ELECTRON_RAGENTS_TEST-leer}" "${BASH_ENV-leer}" "$CI"',
+    })).value);
+    assert.equal(output.trim(), "vom-benutzer|leer|leer|leer|true");
+  } finally {
+    for (const name of names) {
+      if (saved[name] === undefined) delete process.env[name];
+      else process.env[name] = saved[name];
+    }
+    client.rpc.close();
+    await rm(directory, { recursive: true, force: true });
+    await rm(runs, { recursive: true, force: true });
+    await server.close();
+  }
+});
+
 test("der neue Ordner eines Runs entsteht im Ordner für Runs des Arbeitsplatzes, und nur dieser eine ist neben den angebotenen erlaubt", async () => {
   const server = await startStubServer();
   const { client, directory, runs, call } = await started(server);

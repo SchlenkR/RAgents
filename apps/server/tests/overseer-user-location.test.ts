@@ -74,7 +74,7 @@ const fixture = async (t: TestContext, existingDirectory?: string) => {
       id, engine,
       coordinator: { handle: "coordinator", displayName: "Koordinator", profile: "coordinator", runTitle: "Global", ownerHandle: "owner", ownerDisplayName: "Owner" },
       ...(id === OVERSEER_RUN_ID ? { inputContext: policy.inputContext } : {}),
-      prompt: () => "Lokaler Test", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {},
+      prompt: () => "Lokaler Test", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {}, started: async () => {},
       scriptEntryFor: () => undefined,
       startEntryFor: () => undefined,
       actorPrograms: {

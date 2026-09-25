@@ -286,6 +286,7 @@ host.lifecycle({
   id: "ragents.example.lifecycle",
   initialize: () => service.initialize(),
   prepareSession: ({ runId }) => service.prepare(runId),
+  sessionStarted: ({ runId, startEntry }) => service.started(runId, startEntry),
   stopSession: ({ runId, signal }) => service.stop(runId, signal),
   afterStopSession: ({ runId, signal }) => service.stop(runId, signal),
   deleteSession: ({ runId }) => service.remove(runId),
@@ -299,7 +300,9 @@ afterStopSession läuft nach dem Stillstand der Ausführung und räumt auch spä
 
 Initialisierung und Vorbereitung folgen der Pluginreihenfolge. Abbau berücksichtigt die umgekehrte Reihenfolge; Stop und Löschen sind unterschiedliche Vorgänge.
 
-Vertragsfelder: host.lifecycle, lifecycle.id, lifecycle.initialize, lifecycle.prepareSession, lifecycle.stopSession, lifecycle.afterStopSession, lifecycle.deleteSession, lifecycle.shutdown.
+sessionStarted kommt, wenn ein Start den Arbeitsbereich bereitgestellt und den ersten Actor aufgebaut hat, bevor ein Actor Input bekommt. startEntry nennt die Vorlage mit id und action (skill oder script) oder ist null; nach einem Neustart des Hosts kommt der Haken nicht wieder.
+
+Vertragsfelder: host.lifecycle, lifecycle.id, lifecycle.initialize, lifecycle.prepareSession, lifecycle.sessionStarted, lifecycle.stopSession, lifecycle.afterStopSession, lifecycle.deleteSession, lifecycle.shutdown.
 
 ### Eine typisierte Run-Funktion
 
@@ -1360,11 +1363,13 @@ export const plugin: PluginModule = {
 
 languages ordnet Dateiendungen Sprachkennungen zu. resolveRoot prüft das Projektziel, rootDirectory nennt den Ordner, dem eine Datei dieses Ziels zugeordnet wird (das Projektverzeichnis selbst bei TypeScript, der Ordner der Projektdatei bei Roslyn und FSAC), launch liefert den Prozessstartvertrag für den Sandbox-Kontext und open ergänzt bei Bedarf serverspezifische Öffnungsschritte.
 
+solutionExtensions ist optional und nennt die Endungen der Solutions, etwa .sln und .slnx; damit bekommt das Plugin das Werkzeug <id>_solutions, die Solution-Liste und das Umschalten im Reiter. Ein Verzeichnis-Adapter wie dieser lässt es weg.
+
 Die nötigen Serverprogramme werden als Pluginabhängigkeit installiert. Ein fehlendes Programm wird als Fehler gemeldet; es wird kein Ersatzprozess still gestartet.
 
 Benötigte Imports: createRequire aus node:module, path aus node:path, pathToFileURL aus node:url und die neutralen Helfer LanguageServerAdapter, resolveRootDirectory, createLanguageServerPlugin sowie PluginModule. Die LSP-Initialisierung übernimmt der Host; open ergänzt danach nur serverspezifische Schritte.
 
-Vertragsfelder: lsp.id, lsp.label, lsp.languages, lsp.rootDescription, lsp.resolveRoot, lsp.rootDirectory, lsp.launch, lsp.open.
+Vertragsfelder: lsp.id, lsp.label, lsp.languages, lsp.rootDescription, lsp.solutionExtensions, lsp.resolveRoot, lsp.rootDirectory, lsp.launch, lsp.open.
 
 ## Eingebaute Rechte
 
@@ -1682,6 +1687,8 @@ export interface SessionLifecycleContribution {
   id: string;
   initialize?: () => void | Promise<void>;
   prepareSession?: (context: SessionLifecycleContext) => void | Promise<void>;
+  /** After a start has prepared the workspace and set up the run's first actor, before any actor got input; never after a restart of the host. */
+  sessionStarted?: (context: SessionStartedContext) => void | Promise<void>;
   stopSession?: (context: SessionStopContext) => void | Promise<void>;
   afterStopSession?: (context: SessionStopContext) => void | Promise<void>;
   deleteSession?: (context: SessionLifecycleContext) => void | Promise<void>;
@@ -1990,6 +1997,8 @@ export interface LanguageServerAdapter {
   label: string;
   languages: Readonly<Record<string, string>>;
   rootDescription: string;
+  /** Die Endungen der Solutions, die `<id>_solutions` im Arbeitsbereich sucht; ohne sie gibt es weder Suche noch Umschalten. */
+  solutionExtensions?: readonly string[];
   resolveRoot: (workspaceRoot: string, root: string) => Promise<string>;
   rootDirectory: (root: string) => string;
   launch: (context: WorkspaceProcessContext, root: string) => Promise<LanguageServerLaunch>;

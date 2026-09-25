@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, realpath, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { getShellConfig } from "@ragents/agent";
 import {
   WorkspaceOperationExecutor,
+  bashLaunch,
   hasProcessTable,
+  inheritedProcessEnvironment,
   processTableForPlatform,
   ragentsDataRoot,
   safeProcessEnvironment,
@@ -24,10 +26,12 @@ const textOf = (result: unknown): string =>
     .map((part) => part.text)
     .join("\n");
 
-test("die Shell-Beschreibung kennt win32 und nennt Git Bash, GNU-Werkzeuge, Windows-Pfade und CRLF", () => {
+test("die Shell-Beschreibung kennt win32 und nennt die mitgebrachte Bash, GNU-Werkzeuge, Windows-Programme, Windows-Pfade und CRLF", () => {
   const text = shellPlatformText("win32");
-  assert.match(text, /Git Bash/);
+  assert.match(text, /bash RAgents brings along/);
+  assert.doesNotMatch(text, /Git Bash/);
   assert.match(text, /MSYS userland with the GNU tools/);
+  assert.match(text, /`git`, `dotnet` and `node` are the Windows programs of this machine/);
   assert.match(text, /C:\/project/);
   assert.match(text, /CRLF/);
   for (const platform of ["darwin", "linux", "win32"] as const) {
@@ -36,11 +40,36 @@ test("die Shell-Beschreibung kennt win32 und nennt Git Bash, GNU-Werkzeuge, Wind
   assert.throws(() => shellPlatformText("freebsd"), /keine Shell-Beschreibung/);
 });
 
-test("die Shell-Auflösung nimmt unter Windows Git Bash statt eines festen /bin/bash", () => {
-  assert.throws(() => getShellConfig(undefined, "win32"), /Install Git for Windows/);
-  const resolved = getShellConfig(undefined, process.platform);
-  assert.match(resolved.shell, /bash$|sh$/);
-  assert.deepEqual(resolved.args, ["-c"]);
+test("unter Windows startet bash nur die mitgebrachte Bash, mit ihrem usr/bin vorn im PATH und ohne MSYSTEM", async () => {
+  const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-bundled-bash-")));
+  const bash = path.join(directory, "usr", "bin", "bash.exe");
+  try {
+    assert.throws(() => bashLaunch(undefined, "ls", { Path: "C:\\Windows\\system32" }, "win32"), /nur mit der Bash, die RAgents mitbringt[\s\S]*RAGENTS_BASH/);
+    assert.throws(() => bashLaunch(bash, "ls", {}, "win32"), new RegExp(`Die Bash dieses Executors fehlt: ${bash.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+    await mkdir(path.dirname(bash), { recursive: true });
+    await writeFile(bash, "");
+    const launch = bashLaunch(bash, "find . -name '*.ts'", {
+      Path: "C:\\Windows\\system32;C:\\Program Files\\Git\\cmd",
+      MSYSTEM: "MINGW64",
+      HOME: "C:\\Users\\alice",
+    }, "win32");
+    assert.equal(launch.command, bash);
+    assert.deepEqual(launch.args, ["--noprofile", "--norc", "-c", "find . -name '*.ts'"]);
+    assert.equal(launch.env.PATH, `${path.dirname(bash)};C:\\Windows\\system32;C:\\Program Files\\Git\\cmd`);
+    assert.equal(Object.keys(launch.env).filter((name) => name.toUpperCase() === "PATH").length, 1, "genau eine PATH-Variable");
+    assert.equal(launch.env.MSYSTEM, undefined);
+    assert.equal(launch.env.HOME, "C:\\Users\\alice");
+    assert.equal(bashLaunch(bash, "ls", {}, "win32").env.PATH, path.dirname(bash));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("außerhalb von Windows startet bash die Bash des Systems und lässt PATH unverändert", () => {
+  const launch = bashLaunch(undefined, "ls", { PATH: "/usr/bin", MSYSTEM: "MINGW64" }, "linux");
+  assert.match(launch.command, /bash$/);
+  assert.deepEqual(launch.args, ["--noprofile", "--norc", "-c", "ls"]);
+  assert.deepEqual(launch.env, { PATH: "/usr/bin", MSYSTEM: "MINGW64" });
 });
 
 test("die Bash des Executors läuft über die aufgelöste Shell, nicht über einen festen Pfad", async () => {
@@ -72,6 +101,55 @@ test("der Datenordner liegt unter Windows in %LOCALAPPDATA%, sonst unter ~/.loca
   assert.equal(ragentsDataRoot("C:\\Users\\dev", "win32", { LOCALAPPDATA: local }), path.join(local, "ragents"));
   assert.throws(() => ragentsDataRoot("C:\\Users\\dev", "win32", {}), /LOCALAPPDATA ist nicht gesetzt/);
   assert.equal(ragentsDataRoot("/home/dev", "linux", {}), "/home/dev/.local/share/ragents");
+});
+
+test("der Arbeitsplatz erbt die ganze Umgebung außer Editor-Variablen und Bash-Startdateien, der Server nur die sichere Auswahl", () => {
+  const source = {
+    PATH: "/usr/bin",
+    GH_TOKEN: "vom-benutzer",
+    DOTNET_ROOT: "/opt/dotnet",
+    VSCODE_PID: "7",
+    VSCODE_IPC_HOOK: "/tmp/ipc",
+    ELECTRON_RUN_AS_NODE: "1",
+    BASH_ENV: "/home/user/.bashrc",
+    ENV: "/home/user/.shrc",
+    HOME: "/home/user",
+    GIT_CONFIG_COUNT: "9",
+  };
+  assert.deepEqual(inheritedProcessEnvironment(source), {
+    PATH: "/usr/bin", GH_TOKEN: "vom-benutzer", DOTNET_ROOT: "/opt/dotnet", HOME: "/home/user", GIT_CONFIG_COUNT: "9",
+  });
+  const additions = { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "core.hooksPath", GIT_CONFIG_VALUE_0: "/dev/null", RAGENTS_RUN_ID: "run-1" };
+  const workstation = sandboxEnvironment(source, { base: "inherited", home: { home: "/daten/home" }, additions });
+  assert.equal(workstation.GH_TOKEN, "vom-benutzer");
+  assert.equal(workstation.VSCODE_PID, undefined);
+  assert.equal(workstation.ELECTRON_RUN_AS_NODE, undefined);
+  assert.equal(workstation.BASH_ENV, undefined);
+  assert.equal(workstation.ENV, undefined);
+  assert.equal(workstation.HOME, "/daten/home", "HOME des Runs gilt vor dem geerbten");
+  assert.equal(workstation.USERPROFILE, "/daten/home");
+  assert.equal(workstation.GIT_CONFIG_COUNT, "1", "die Git-Regeln des Runs gelten vor den geerbten");
+  assert.equal(workstation.RAGENTS_RUN_ID, "run-1");
+  for (const server of [
+    sandboxEnvironment(source, { home: { home: "/daten/home" }, additions }),
+    sandboxEnvironment(source, { base: "safe", home: { home: "/daten/home" }, additions }),
+  ]) {
+    assert.equal(server.GH_TOKEN, undefined);
+    assert.equal(server.VSCODE_PID, undefined);
+    assert.equal(server.BASH_ENV, undefined);
+    assert.equal(server.DOTNET_ROOT, "/opt/dotnet");
+    assert.equal(server.PATH, "/usr/bin");
+    assert.equal(server.GIT_CONFIG_COUNT, "1");
+  }
+  const inherited = workspaceProcessContext({
+    runId: "run-1", cwd: "/w", root: "/w", home: { home: "/daten/home" }, logDirectory: "/tmp", hostRoot: undefined,
+    source, baseEnvironment: "inherited", bash: "C:/tools/bash.exe",
+  });
+  assert.equal(inherited.env.GH_TOKEN, "vom-benutzer");
+  assert.equal(inherited.bash, "C:/tools/bash.exe");
+  const safe = workspaceProcessContext({ runId: "run-1", cwd: "/w", root: "/w", home: { home: "/daten/home" }, logDirectory: "/tmp", hostRoot: undefined, source });
+  assert.equal(safe.env.GH_TOKEN, undefined);
+  assert.equal("bash" in safe, false);
 });
 
 test("die HOME-Umleitung der Sandbox setzt auch USERPROFILE", () => {

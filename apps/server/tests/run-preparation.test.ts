@@ -67,7 +67,7 @@ const sessionFixture = () => {
   const unused = async () => { throw new Error("Preparation must not create a workspace or run."); };
   const session = new RunChatSession({ engine, id: "draft", coordinator: { handle: "coordinator", displayName: "Koordinator", profile: "coordinator",
     runTitle: "Neuer Run", ownerHandle: "owner", ownerDisplayName: "Owner" }, prompt: () => "", assertUsable: () => {},
-    prepare: unused, prepareWorkspace: unused, scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: unavailableActorPrograms });
+    prepare: unused, prepareWorkspace: unused, started: unused, scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: unavailableActorPrograms });
   return { engine, session, journal };
 };
 

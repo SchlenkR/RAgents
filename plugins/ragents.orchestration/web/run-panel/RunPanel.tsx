@@ -151,7 +151,7 @@ function RunPanel({ surfaceElements, cardSections, navigation, renderChat, sessi
     ? renderChat({ chatElementClassName: chatSurfaceClass, chatScrollerRef: (element) => { scrollerRef.current = element; }, notice, toolbarLeft: addressee })
     : <ActorRunPanelChat actor={selectedActor} cardSections={cardSections} navigation={navigation} notice={notice} onNavigate={navigate} session={session} toolbarLeft={addressee} view={view} />;
 
-  return <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-run-panel="run" ref={rootRef}>
+  return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-app" data-run-panel="run" ref={rootRef}>
     {chatModeSwitch}
     {layout !== "full" && elements.length > 1 && <nav aria-label="Mini-Apps des Runs" className={chipRowClass}>
       {elements.map(({ definition }) => <ElementChip
@@ -175,7 +175,7 @@ function RunPanel({ surfaceElements, cardSections, navigation, renderChat, sessi
       />}
       {layout === "floating" && <div
         aria-hidden
-        className="absolute inset-0 z-[15] bg-black/25 opacity-0 transition-opacity duration-300 pointer-events-none data-expanded:pointer-events-auto data-expanded:opacity-100 motion-reduce:transition-none dark:bg-black/45"
+        className="absolute inset-0 z-[15] bg-backdrop opacity-0 transition-opacity duration-300 pointer-events-none data-expanded:pointer-events-auto data-expanded:opacity-100 motion-reduce:transition-none"
         data-expanded={sheet.expanded || undefined}
         onClick={sheet.close}
       />}
@@ -214,7 +214,7 @@ function RunPanel({ surfaceElements, cardSections, navigation, renderChat, sessi
           type="button"
         ><span aria-hidden className="h-1 w-9 rounded-full bg-border-strong transition-colors" /></button>}
         {status && <button
-          className={cn("flex h-6 w-full flex-none cursor-pointer items-center gap-2 px-4 text-left text-[0.7rem] transition-opacity duration-200 in-data-expanded:pointer-events-none in-data-expanded:opacity-0 motion-reduce:transition-none", status.kind === "waiting" ? "text-warning" : "text-muted-foreground")}
+          className={cn("flex h-6 w-full flex-none cursor-pointer items-center gap-2 px-[var(--chat-horizontal-padding,24px)] text-left text-[0.7rem] transition-opacity duration-200 in-data-expanded:pointer-events-none in-data-expanded:opacity-0 motion-reduce:transition-none", status.kind === "waiting" ? "text-warning" : "text-muted-foreground")}
           onClick={sheet.toggle}
           ref={statusRef}
           title={status.text}
@@ -441,7 +441,7 @@ function RunPanelStage({ centered, element, navigation, peek, runId, session }: 
   const programs = useProgramSlot();
   const { Element, definition } = element;
   const title = definition.title ?? definition.id;
-  return <section aria-label={`Mini-App ${title}`} className="group/stage relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-card/55" style={peek > 0 ? { paddingBottom: peek } : undefined}>
+  return <section aria-label={`Mini-App ${title}`} className="group/stage relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-app" style={peek > 0 ? { paddingBottom: peek } : undefined}>
     <div className="absolute top-1.5 right-2 z-[5] flex gap-0.5 rounded-lg border border-border bg-card p-0.5 opacity-0 transition-opacity group-hover/stage:opacity-100 group-focus-within/stage:opacity-100 motion-reduce:transition-none">
       {host.kind === "vscode"
         ? <Button aria-label={`${title} in die Mitte legen`} onClick={() => host.openInCenter(runId, definition.id, title)} size="icon-sm" title="In die Mitte legen" variant="ghost"><ArrowUpRightIcon /></Button>

@@ -2,6 +2,7 @@ export {
   sandboxEnvironment,
   sandboxRunEnvironment,
   workspaceProcessContext,
+  type BaseEnvironment,
   type SandboxHomeEnvironment,
   type WorkspaceProcessContext,
 } from "./context.js";
@@ -79,7 +80,8 @@ export { ProcessScanner, type WorkspaceProcessSnapshot } from "./processes/scann
 export { labelOf, runProcessesFrom } from "./processes/snapshot.js";
 export { RunProcessTerminator } from "./processes/terminator.js";
 export { RUN_MARKER_ENV } from "./run-marker.js";
-export { safeProcessEnvironment } from "./safe-environment.js";
+export { editorFreeEnvironment, inheritedProcessEnvironment, safeProcessEnvironment } from "./safe-environment.js";
+export { bashLaunch, type BashLaunch } from "./bash-launch.js";
 export { createSandboxTools, sandboxToolsModule, withAnnotation } from "./sandbox-tools.js";
 export { type SessionIdent } from "./session-ident.js";
 export { shellPlatformText } from "./shell-platform.js";
@@ -94,6 +96,8 @@ export {
   type LanguageServerInstanceSnapshot,
   type LanguageServerSeverity,
   type LanguageServerSnapshot,
+  type LanguageServerSolution,
+  type LanguageServerSolutions,
   type LanguageServerState,
 } from "./language-server/contract.js";
 export { diagnosticEntries, formatDiagnostics } from "./language-server/diagnostics.js";
@@ -103,6 +107,8 @@ export {
   languageServerModule,
   languageServerOpenOperation,
   languageServerSnapshotOperation,
+  languageServerSolutionsOperation,
+  languageServerSwitchOperation,
 } from "./language-server/module.js";
 export { resolveRootDirectory } from "./language-server/roots.js";
 export { LanguageServerSession, withTimeout } from "./language-server/session.js";

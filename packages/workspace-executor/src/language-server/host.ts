@@ -1,11 +1,17 @@
 import { realpath, stat } from "node:fs/promises";
 import path from "node:path";
 import type { WorkspaceProcessContext } from "../context.js";
-import { runManagedProcess } from "../managed-process.js";
 import { sandboxedLaunch } from "../process-sandbox.js";
-import type { LanguageServerDiagnostic, LanguageServerInstanceSnapshot, LanguageServerSnapshot } from "./contract.js";
+import type {
+  LanguageServerDiagnostic,
+  LanguageServerInstanceSnapshot,
+  LanguageServerSnapshot,
+  LanguageServerSolutions,
+  LanguageServerState,
+} from "./contract.js";
 import { diagnosticEntries, formatDiagnostics } from "./diagnostics.js";
 import { LanguageServerSession, withTimeout, type LanguageServerLaunch } from "./session.js";
+import { runGit, workspaceSolutions } from "./workspace-solutions.js";
 import { allowedWorkspacePath, containsWorkspacePath, expandWorkspaceAlias, resolvedWorkspacePath } from "../paths.js";
 
 export interface LanguageServerAdapter {
@@ -13,6 +19,8 @@ export interface LanguageServerAdapter {
   label: string;
   languages: Readonly<Record<string, string>>;
   rootDescription: string;
+  /** Die Endungen der Solutions, die `<id>_solutions` im Arbeitsbereich sucht; ohne sie gibt es weder Suche noch Umschalten. */
+  solutionExtensions?: readonly string[];
   resolveRoot: (workspaceRoot: string, root: string) => Promise<string>;
   rootDirectory: (root: string) => string;
   launch: (context: WorkspaceProcessContext, root: string) => Promise<LanguageServerLaunch>;
@@ -46,7 +54,6 @@ interface ServerEntry {
 const DEFAULT_IDLE_MS = 20 * 60 * 1000;
 const DEFAULT_OPEN_TIMEOUT_MS = 5 * 60 * 1000;
 const DEFAULT_DIAGNOSTICS_TIMEOUT_MS = 60 * 1000;
-const GIT_TIMEOUT_MS = 30 * 1000;
 
 const messageOf = (error: unknown): string => error instanceof Error ? error.message : String(error);
 
@@ -62,23 +69,11 @@ const git = async (
   tool: string,
   args: readonly string[],
 ): Promise<string> => {
-  let output = "";
-  const launch = await sandboxedLaunch(context, { command: "git", args });
-  const result = await runManagedProcess({
-    command: launch.command,
-    args: [...launch.args],
-    cwd: directory,
-    env: context.env,
-    uid: context.uid,
-    gid: context.gid,
-    label: `git ${args[0]}`,
-    timeoutMs: GIT_TIMEOUT_MS,
-    onStdout: (chunk) => { output += chunk.toString("utf8"); },
-  }).catch((error: unknown) => {
+  const result = await runGit(context, directory, args).catch((error: unknown) => {
     throw new Error(`Ohne paths braucht ${tool} ein Git-Arbeitsverzeichnis: ${messageOf(error)}`);
   });
   if (result.code !== 0) throw new Error(`Ohne paths braucht ${tool} ein Git-Arbeitsverzeichnis (git ${args[0]}: Code ${result.code})`);
-  return output;
+  return result.output;
 };
 
 /** Git nennt seine Pfade relativ zur Repo-Wurzel; `-- .` grenzt sie auf die Wurzel der Instanz ein. */
@@ -109,6 +104,7 @@ export class LanguageServerHost {
   readonly #diagnosticsTimeoutMs: number;
   readonly #servers = new Map<string, ServerEntry>();
   readonly #roots = new Map<string, Set<string>>();
+  readonly #requests = new Map<string, number>();
   readonly #lifetimes = new Map<string, object>();
   readonly #closing = new Map<string, Set<Promise<void>>>();
   readonly #idleTimers = new Map<string, NodeJS.Timeout>();
@@ -131,8 +127,51 @@ export class LanguageServerHost {
     return this.adapter.languages[path.extname(filePath).toLowerCase()] !== undefined;
   }
 
-  async open(runId: string, root: string): Promise<string> {
+  /** Mit `ifNoneOpen` prüft und belegt der Aufruf den Run ohne Unterbrechung: läuft schon ein Öffnen oder ist eine Instanz da, lädt er nichts. */
+  async open(runId: string, root: string, ifNoneOpen = false): Promise<string> {
     const lifetime = this.#lifetime(runId);
+    if (ifNoneOpen && !this.#idle(runId)) {
+      return `${this.adapter.label} lädt ${root} nicht: in diesem Run ist schon eine Instanz offen oder im Aufbau`;
+    }
+    this.#requests.set(runId, (this.#requests.get(runId) ?? 0) + 1);
+    try {
+      return await this.#open(runId, lifetime, root);
+    } finally {
+      const remaining = (this.#requests.get(runId) ?? 1) - 1;
+      if (remaining > 0) this.#requests.set(runId, remaining);
+      else this.#requests.delete(runId);
+    }
+  }
+
+  async solutions(runId: string): Promise<LanguageServerSolutions> {
+    const extensions = this.adapter.solutionExtensions;
+    if (!extensions) throw new Error(`${this.adapter.label} sucht keine Solutions`);
+    if (this.#closed) throw this.#stopped();
+    const found = await workspaceSolutions(await this.#contextFor(runId), extensions);
+    return {
+      source: found.source,
+      solutions: found.solutions.map((solution) => ({ ...solution, state: this.#stateOf(runId, solution.root) })),
+      opened: !this.#idle(runId),
+    };
+  }
+
+  /** Lädt die Wurzel und beendet jede andere Instanz des Runs; wartet nicht auf das Laden, `null` beendet alle. */
+  async switchTo(runId: string, root: string | null): Promise<string> {
+    if (root === null) return this.close(runId);
+    const lifetime = this.#lifetime(runId);
+    const { context, absoluteRoot } = await this.#prepare(runId, lifetime, root);
+    const others = this.#openRoots(runId).filter((entry) => entry !== absoluteRoot);
+    await Promise.all(others.map((entry) => this.#closeInstance(runId, entry)));
+    this.#assertLifetime(runId, lifetime);
+    const current = this.#current(runId, absoluteRoot);
+    const kept = current !== undefined && current.state !== "failed";
+    // Ein Fehlschlag steht mit seiner Ursache im Stand der Instanz.
+    if (!kept) void this.#start(runId, context, absoluteRoot).catch(() => undefined);
+    const closed = others.length === 0 ? "" : `; ${others.length === 1 ? "eine andere Instanz" : `${others.length} andere Instanzen`} beendet`;
+    return `${this.adapter.label} ${kept ? "behält" : "lädt"} ${absoluteRoot}${closed}`;
+  }
+
+  async #open(runId: string, lifetime: object, root: string): Promise<string> {
     const { context, absoluteRoot } = await this.#prepare(runId, lifetime, root);
     const current = this.#current(runId, absoluteRoot);
     if (current && current.state !== "failed") {
@@ -392,6 +431,15 @@ export class LanguageServerHost {
 
   #openRoots(runId: string): string[] {
     return [...this.#roots.get(runId) ?? []];
+  }
+
+  #idle(runId: string): boolean {
+    return this.#openRoots(runId).length === 0 && !this.#requests.has(runId);
+  }
+
+  #stateOf(runId: string, root: string): LanguageServerState | null {
+    if (!this.#roots.get(runId)?.has(root)) return null;
+    return this.#current(runId, root)?.state ?? "suspended";
   }
 
   #remember(runId: string, root: string): void {

@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { readPackageVersion } from "../../server/src/host-version";
 import { missingEnvironmentNotice, missingEnvironmentOf } from "../../server/src/missing-environment";
-import { ensureHostPackage, findExecutable, HOST_PACKAGE_NAME, hostPackageFolder, hostPackageSpecifier, installHostPackage, packagedHostVersion, startHost } from "../src/host-process";
+import { bundledBash, ensureHostPackage, findExecutable, HOST_PACKAGE_NAME, hostPackageFolder, hostPackageSpecifier, inheritedEnvironment, installHostPackage, packagedHostVersion, startHost } from "../src/host-process";
 
 const fakeHost = (body: string): { file: string; args: string[]; cwd: string } => {
   const directory = mkdtempSync(path.join(tmpdir(), "ragents-fake-host-"));
@@ -26,7 +26,7 @@ test("der Host wird mit Profil und Datenordner gestartet, die Ansage gelesen und
   const lines: string[] = [];
   const host = await startHost({
     profile: "test", profileFile: "/x/ragents.config.test.ts", dataDirectory: "/tmp/data", environment: { ...process.env },
-    log: (line) => lines.push(line), command: fakeHost(announcing),
+    log: (line) => lines.push(line), command: fakeHost(announcing), bash: undefined,
   });
   assert.equal(host.url, "http://127.0.0.1:43210");
   assert.equal(host.token, "t0ken");
@@ -39,6 +39,7 @@ test("der Host wird mit Profil und Datenordner gestartet, die Ansage gelesen und
 
 const announcingParent = `
 console.log("Elternprozess " + process.env.RAGENTS_PARENT_PID);
+console.log("Bash " + process.env.RAGENTS_BASH);
 console.log(JSON.stringify({ ragents: { url: "http://127.0.0.1:43211", token: null, pid: process.pid } }));
 process.on("SIGTERM", () => process.exit(0));
 setInterval(() => {}, 1000);
@@ -48,9 +49,10 @@ test("der Host kennt die Prozesskennung der Erweiterung und überlebt sie damit 
   const lines: string[] = [];
   const host = await startHost({
     profile: "test", profileFile: "/x/ragents.config.test.ts", dataDirectory: "/tmp/data", environment: { ...process.env },
-    log: (line) => lines.push(line), command: fakeHost(announcingParent),
+    log: (line) => lines.push(line), command: fakeHost(announcingParent), bash: "C:/tools/ragents/usr/bin/bash.exe",
   });
   assert.ok(lines.includes(`Elternprozess ${process.pid}`), lines.join("\n"));
+  assert.ok(lines.includes("Bash C:/tools/ragents/usr/bin/bash.exe"), lines.join("\n"));
   await host.stop();
   assert.equal(await host.exited, 0);
 });
@@ -58,15 +60,15 @@ test("der Host kennt die Prozesskennung der Erweiterung und überlebt sie damit 
 test("ein Host, der vor der Ansage endet oder schweigt, ist ein benannter Fehler mit seinen letzten Zeilen", async () => {
   await assert.rejects(startHost({
     profile: "test", profileFile: "/x", dataDirectory: "/tmp", environment: { ...process.env }, log: () => undefined,
-    command: fakeHost(`console.error("RAgents startet nicht: Port belegt"); process.exit(1);`),
+    command: fakeHost(`console.error("RAgents startet nicht: Port belegt"); process.exit(1);`), bash: undefined,
   }), /endete vor seiner Ansage mit Code 1[\s\S]*Port belegt/);
   await assert.rejects(startHost({
     profile: "test", profileFile: "/x", dataDirectory: "/tmp", environment: { ...process.env }, log: () => undefined,
-    command: fakeHost(`setInterval(() => {}, 1000);`), startTimeoutMs: 300,
+    command: fakeHost(`setInterval(() => {}, 1000);`), startTimeoutMs: 300, bash: undefined,
   }), /nicht gemeldet/);
   await assert.rejects(startHost({
     profile: "test", profileFile: "/x", dataDirectory: "/tmp", environment: { ...process.env }, log: () => undefined,
-    command: { file: "/nirgendwo/node", args: [], cwd: tmpdir() },
+    command: { file: "/nirgendwo/node", args: [], cwd: tmpdir() }, bash: undefined,
   }), /konnte nicht gestartet werden/);
 });
 
@@ -80,11 +82,37 @@ console.error(${JSON.stringify(missingEnvironmentNotice(missing))});
 process.exit(1);
 `);
   const cause = await startHost({
-    profile: "test", profileFile: "/x", dataDirectory: "/tmp", environment: { ...process.env }, log: (line) => lines.push(line), command,
+    profile: "test", profileFile: "/x", dataDirectory: "/tmp", environment: { ...process.env }, log: (line) => lines.push(line), command, bash: undefined,
   }).then(() => undefined, (error: unknown) => error);
   assert.deepEqual(missingEnvironmentOf(cause), missing, `kein benannter Fehler: ${String(cause)}`);
   assert.match((cause as Error).message, /endete vor seiner Ansage mit Code 1[\s\S]*SERVICE_TOKEN/);
   assert.ok(!lines.some((line) => line.startsWith("ragents:missing-environment")), "die Protokollzeile steht nicht im Ausgabekanal");
+});
+
+test("die Windows-Fassung bringt ihre Bash unter dist/bash/<plattform> mit, andere Plattformen nehmen die des Systems", () => {
+  assert.equal(bundledBash("/ext", "win32", "x64"), path.join("/ext", "dist", "bash", "win32-x64", "usr", "bin", "bash.exe"));
+  assert.equal(bundledBash("/ext", "win32", "arm64"), path.join("/ext", "dist", "bash", "win32-arm64", "usr", "bin", "bash.exe"));
+  assert.equal(bundledBash("/ext", "darwin", "arm64"), undefined);
+  assert.equal(bundledBash("/ext", "linux", "x64"), undefined);
+});
+
+test("die geerbte Umgebung lässt nur die Variablen des umgebenden VS Code weg", () => {
+  const saved = { ...process.env };
+  process.env.VSCODE_PID = "1";
+  process.env.ELECTRON_RUN_AS_NODE = "1";
+  process.env.BASH_ENV = "/home/user/.bashrc";
+  try {
+    const environment = inheritedEnvironment();
+    assert.equal(environment.VSCODE_PID, undefined);
+    assert.equal(environment.ELECTRON_RUN_AS_NODE, undefined);
+    assert.equal(environment.BASH_ENV, "/home/user/.bashrc");
+    assert.equal(environment.PATH, process.env.PATH);
+  } finally {
+    for (const name of ["VSCODE_PID", "ELECTRON_RUN_AS_NODE", "BASH_ENV"]) {
+      if (saved[name] === undefined) delete process.env[name];
+      else process.env[name] = saved[name];
+    }
+  }
 });
 
 test("findExecutable sucht im PATH", () => {

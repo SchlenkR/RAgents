@@ -21,6 +21,7 @@ import {
   type AgentProfile,
   type CatalogModel,
   type RunScriptPackage,
+  type SessionStartedContext,
 } from "@ragents/engine";
 import type { ChatEvent } from "../src/chat-events.ts";
 import { testServices } from "../../../packages/ragents/tests/support.ts";
@@ -82,6 +83,7 @@ const createFixture = (runId: string, packages: readonly RunScriptStart[], contr
   startOptions.register("test.product", productStartOptions({ modelChoice, coordinatorThinking: "low", systemPrompts: () => systemPrompts }));
   const files = mkdtempSync("/private/tmp/ragents-run-script-files-");
   const imports: Array<{name: string; files: RunScriptPackage["files"]}> = [];
+  const starts: Array<{entry: SessionStartedContext["startEntry"]; actors: number; inputs: number}> = [];
   const engine = {
     journal,
     runtime,
@@ -106,6 +108,10 @@ const createFixture = (runId: string, packages: readonly RunScriptStart[], contr
     assertUsable: () => undefined,
     prepare: async () => controls.prepare?.(),
     prepareWorkspace: async () => controls.prepareWorkspace?.(),
+    started: async (_id, entry) => {
+      const state = journal.stateOf(runId);
+      starts.push({entry, actors: [...state?.actors.values() ?? []].filter((actor) => actor.kind !== "human").length, inputs: state?.inputs.size ?? 0});
+    },
     scriptEntryFor: (entryId) => packages.find((candidate) => candidate.entry.id === entryId),
     startEntryFor: () => undefined,
     actorPrograms: {
@@ -129,7 +135,7 @@ const createFixture = (runId: string, packages: readonly RunScriptStart[], contr
   const events: ChatEvent[] = [];
   session.subscribe((event) => events.push(event));
   const systemTexts = () => events.flatMap((event) => (event.kind === "system" ? [event.text] : []));
-  return { journal, runtime, session, live, files, events, systemTexts, imports, createSession: () => new RunChatSession(options) };
+  return { journal, runtime, session, live, files, events, systemTexts, imports, starts, createSession: () => new RunChatSession(options) };
 };
 
 const startThroughChatHttp = async (session: RunChatSession, runId: string, body: unknown, access?: AccessContext, action: "start" | "send" = "start"): Promise<number> => {
@@ -314,6 +320,15 @@ test("a local package transports all sources and node tests through the common i
     assert.ok(view.actors.some((actor) => actor.kind === "script" && actor.handle === "own-setup"));
     assert.deepEqual(JSON.parse(view.inputs[0]!.content).input, {topic: "Lokales Thema"});
     await assert.rejects(fixture.session.startPackageAndWait(packageOf(), null), /läuft schon/);
+  } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
+});
+
+test("a script start tells the plugins its template after installing the script and before its first input", async () => {
+  const fixture = createFixture("script-start-hook", [packageOf({ coordinator: false })]);
+  try {
+    await fixture.session.startAndWait("test.example", null);
+    assert.deepEqual(fixture.starts, [{entry: {id: "test.example", action: "script"}, actors: 1, inputs: 0}]);
+    assert.equal(fixture.runtime.view("script-start-hook").inputs.length, 1);
   } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
 });
 

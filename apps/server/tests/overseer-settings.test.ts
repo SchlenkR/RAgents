@@ -157,7 +157,7 @@ test("a model change while busy applies to the next actual prompt and preserves 
   const session = new RunChatSession({
     id: "overseer", engine, modelSelection: settings.selection, toolNames: [],
     coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "coordinator", runTitle: "Global", ownerHandle: "owner", ownerDisplayName: "Owner" },
-    prompt: () => "Test", assertUsable: () => undefined, prepare: async () => undefined, prepareWorkspace: async () => undefined,
+    prompt: () => "Test", assertUsable: () => undefined, prepare: async () => undefined, prepareWorkspace: async () => undefined, started: async () => undefined,
     scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: unavailableActorPrograms,
   });
   const started = deferred();

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { askPayloadOf, ASK_PLUGIN_ID } from "../../../plugins/ragents.ask/ask-payload.ts";
-import { DISMISSED_ANSWER, RuntimeAskService } from "../../../plugins/ragents.ask/server/ask-service.ts";
+import { RuntimeAskService } from "../../../plugins/ragents.ask/server/ask-service.ts";
+import { DISMISSED_ANSWER } from "../../../plugins/ragents.ask/server/contract.ts";
 import { enqueueAndClaim } from "./runtime-fixture.ts";
 import { allGrants, setupRun } from "../../../packages/ragents/tests/support.ts";
 

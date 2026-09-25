@@ -67,7 +67,18 @@ test("die Sprachserver-Operationen prüfen ihre Eingabe, bevor sie eine Wurzel a
   await assert.rejects(executor.execute("run-1", "demo_diagnostics", { paths: "a.demo" }), coded("language-server-input-invalid", /paths muss eine Liste von Texten/));
   await assert.rejects(executor.execute("run-1", "demo_diagnostics", { warnings: "ja" }), coded("language-server-input-invalid", /warnings muss true oder false/));
   assert.deepEqual(await executor.execute("run-1", "demo_snapshot", null), { instances: [] });
+  await assert.rejects(executor.execute("run-1", "demo_open", { root: "a", ifNoneOpen: "ja" }), coded("language-server-input-invalid", /ifNoneOpen muss true oder false sein/));
+  await assert.rejects(executor.execute("run-1", "demo_solutions", null), coded("workspace-operation-unknown"));
+  await assert.rejects(executor.execute("run-1", "demo_switch", { root: null }), coded("workspace-operation-unknown"));
   await executor.shutdown();
+  const withSolutions = new WorkspaceOperationExecutor({
+    contextFor: contextIn(tmpdir()),
+    modules: [languageServerModule([{ ...adapter, solutionExtensions: [".demo"] }])],
+  });
+  await assert.rejects(withSolutions.execute("run-1", "demo_switch", {}), coded("language-server-input-invalid", /demo_switch: root muss ein Text oder null sein/));
+  await assert.rejects(withSolutions.execute("run-1", "demo_switch", { root: 3 }), coded("language-server-input-invalid", /root muss ein Text oder null sein/));
+  assert.match(await withSolutions.execute("run-1", "demo_switch", { root: null }) as string, /ist in diesem Run nicht geöffnet/);
+  await withSolutions.shutdown();
 });
 
 test("jede Operation gehört genau einem Modul, eine unbekannte ist ein Fehler mit Kennung", async () => {

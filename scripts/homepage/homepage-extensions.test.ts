@@ -145,6 +145,7 @@ declare const exampleTabs: NonNullable<WebPlugin["workspaceTabsFor"]>;
 declare const answerQuestion: (id: string, callId: string, payload: unknown) => Promise<void>;
 declare const service: {
   initialize(): Promise<void>; prepare(runId: string): Promise<void>;
+  started(runId: string, startEntry: { id: string; action: "skill" | "script" } | null): Promise<void>;
   stop(runId: string, signal: AbortSignal): Promise<void>;
   remove(runId: string): Promise<void>; shutdown(): Promise<void>;
   ready(): boolean; onBeat(listener: (at: string) => void): () => void;

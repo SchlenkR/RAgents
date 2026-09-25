@@ -43,6 +43,8 @@ Kennungen aus Ergebnissen werden programmgesteuert weiterverwendet, nicht abgesc
 | ragents.external.set | host | settings.write |
 | ragents.lsp-fsharp.snapshot | ragents.lsp-fsharp | runs.read, ragents.lsp-fsharp.read |
 | ragents.lsp-roslyn.snapshot | ragents.lsp-roslyn | runs.read, ragents.lsp-roslyn.read |
+| ragents.lsp-roslyn.solutions | ragents.lsp-roslyn | runs.read, ragents.lsp-roslyn.read |
+| ragents.lsp-roslyn.switch | ragents.lsp-roslyn | runs.read, runs.write, ragents.lsp-roslyn.read, ragents.lsp-roslyn.write |
 | ragents.lsp-typescript.snapshot | ragents.lsp-typescript | runs.read, ragents.lsp-typescript.read |
 | ragents.overseer.coordinator | ragents.overseer | ragents.overseer.read |
 | ragents.overseer.createRun | ragents.overseer | runs.read, runs.write, runs.create |
@@ -1011,6 +1013,93 @@ Eigentümer: ragents.lsp-roslyn. Rechte: runs.read, ragents.lsp-roslyn.read. Aus
   "type": "object",
   "additionalProperties": true,
   "x-typescript-type": "LanguageServerSnapshot"
+}
+```
+
+## ragents.lsp-roslyn.solutions
+
+Die Solutions im Arbeitsbereich eines Runs und welche davon ragents.lsp-roslyn geöffnet hat. Rechte: runs.read und ragents.lsp-roslyn.read.
+
+Eigentümer: ragents.lsp-roslyn. Rechte: runs.read, ragents.lsp-roslyn.read. Ausführung: der Server.
+
+### Eingabe
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Kennung des Runs"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Ergebnis
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "x-typescript-type": "LanguageServerSolutions"
+}
+```
+
+## ragents.lsp-roslyn.switch
+
+Lädt eine Solution in ragents.lsp-roslyn und beendet alle anderen Instanzen des Runs; null beendet alle. Wartet nicht auf das Laden. Rechte: runs.read, runs.write, ragents.lsp-roslyn.read und ragents.lsp-roslyn.write.
+
+Eigentümer: ragents.lsp-roslyn. Rechte: runs.read, runs.write, ragents.lsp-roslyn.read, ragents.lsp-roslyn.write. Ausführung: der Server.
+
+### Eingabe
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId",
+    "root"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Kennung des Runs"
+    },
+    "root": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "description": "Die Solution relativ zur Wurzel des Arbeitsbereichs"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "null beendet alle Instanzen"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Ergebnis
+
+```json
+{
+  "type": "object",
+  "additionalProperties": true,
+  "x-typescript-type": "LanguageServerSolutions"
 }
 ```
 

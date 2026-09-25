@@ -4,6 +4,8 @@ export interface AskPayload {
   question: string;
   options: string[];
   multi: boolean;
+  /** Der Actor, für den die Frage steht, wenn der Eigentümer des Runs sie außerhalb eines Turns stellt. */
+  recipient?: string;
 }
 
 const stringArrayOf = (value: unknown): string[] | undefined =>
@@ -14,5 +16,10 @@ export const askPayloadOf = (payload: unknown): AskPayload | undefined => {
   const candidate = payload as Partial<AskPayload>;
   const options = stringArrayOf(candidate.options);
   if (typeof candidate.question !== "string" || !options) return undefined;
-  return { question: candidate.question, options, multi: candidate.multi === true };
+  return {
+    question: candidate.question,
+    options,
+    multi: candidate.multi === true,
+    ...(typeof candidate.recipient === "string" ? { recipient: candidate.recipient } : {}),
+  };
 };

@@ -7,7 +7,7 @@ import { build } from "esbuild";
 import { chromium } from "playwright-core";
 import { tailwindPlugin } from "./tailwind-plugin";
 
-test("die Symbolleiste des Run-Panels öffnet und schließt die Leiste, merkt Reiter und Höhe je Run und fehlt im Layout app", {
+test("die Symbolleiste des Run-Panels öffnet und schließt die Leiste als Pop-out, merkt den Reiter je Run und fehlt im Layout app", {
   skip: process.env.RAGENTS_BROWSER_TESTS !== "1",
   timeout: 120_000,
 }, async (context) => {
@@ -96,7 +96,7 @@ createRoot(document.getElementById('root')).render(<div style={{ width: 600, hei
   const rail = page.getByRole("navigation", { name: "Reiter der Leiste" });
   const area = page.locator("#run-panel-workspace");
   const button = (label: string) => rail.getByRole("button", { name: label, exact: true });
-  const stored = (runId: string) => page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? "null"), `ragents.run-panel.workspace:${runId}`);
+  const stored = (runId: string) => page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? "null"), `ragents.run-panel.workspace-tab:${runId}`);
   await rail.waitFor();
   assert.deepEqual(await rail.getByRole("button").allTextContents().then((texts) => texts.map((text) => text.trim())), ["3", ""], "Dokumente mit Badge zuerst, dann Dateien");
   assert.deepEqual(await rail.getByRole("button").evaluateAll((buttons) => buttons.map((entry) => entry.getAttribute("aria-label"))), ["Dokumente", "Dateien"]);
@@ -109,12 +109,12 @@ createRoot(document.getElementById('root')).render(<div style={{ width: 600, hei
   assert.equal(await button("Dateien").getAttribute("aria-pressed"), "true");
   assert.equal(await button("Dokumente").getAttribute("aria-pressed"), "false");
   await area.getByText("Dateien aktiv", { exact: true }).waitFor();
-  assert.deepEqual(await stored("run-a"), { tab: "files", height: 280 });
+  assert.deepEqual(await stored("run-a"), { tab: "files" });
 
   await button("Dateien").click();
   await area.waitFor({ state: "hidden" });
   assert.equal(await button("Dateien").getAttribute("aria-pressed"), "false");
-  assert.deepEqual(await stored("run-a"), { tab: null, height: 280 });
+  assert.deepEqual(await stored("run-a"), { tab: null });
 
   await button("Dokumente").click();
   await area.getByText("Dokumente-Panel", { exact: true }).waitFor();
@@ -129,26 +129,25 @@ createRoot(document.getElementById('root')).render(<div style={{ width: 600, hei
   assert.equal(await area.locator("output").textContent(), "1", "der Zustand des Reiters überlebt den Wechsel");
   assert.equal(await area.getByText(/Dateien (aktiv|inaktiv)/).count(), 0, "der verborgene Reiter ohne keepMounted ist abgebaut");
 
-  const sash = area.getByRole("separator", { name: "Höhe der Leiste" });
-  assert.equal(await sash.getAttribute("aria-valuenow"), "280");
-  await sash.focus();
-  await sash.press("ArrowUp");
-  assert.equal(await sash.getAttribute("aria-valuenow"), "304");
-  assert.equal(await area.evaluate((element) => element.getBoundingClientRect().height), 304);
-  assert.deepEqual(await stored("run-a"), { tab: "documents", height: 304 });
-  const box = await sash.boundingBox();
-  assert.ok(box);
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-  await page.mouse.down();
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 50, { steps: 5 });
-  await page.mouse.up();
-  assert.equal(await sash.getAttribute("aria-valuenow"), "354");
-  assert.deepEqual(await stored("run-a"), { tab: "documents", height: 354 });
+  const areaBox = await area.boundingBox();
+  const railBox = await rail.boundingBox();
+  assert.ok(areaBox && railBox);
+  assert.ok(areaBox.height > 700 && areaBox.x + areaBox.width <= railBox.x, "das Pop-out füllt fast die ganze Höhe links neben der Symbolleiste");
+  await area.press("Escape");
+  await area.waitFor({ state: "hidden" });
+  assert.deepEqual(await stored("run-a"), { tab: null });
+  await button("Dokumente").click();
+  await area.waitFor({ state: "visible" });
+  await page.mouse.click(railBox.x - 3, railBox.y + railBox.height - 3);
+  await area.waitFor({ state: "hidden" });
+  assert.deepEqual(await stored("run-a"), { tab: null }, "ein Klick daneben schließt");
+  await button("Dokumente").click();
+  await area.waitFor({ state: "visible" });
+  assert.deepEqual(await stored("run-a"), { tab: "documents" });
 
   await page.reload();
   await area.waitFor({ state: "visible" });
   assert.equal(await area.getByRole("heading").textContent(), "Dokumente", "der offene Reiter ist je Run gemerkt");
-  assert.equal(await sash.getAttribute("aria-valuenow"), "354", "die Höhe ist je Run gemerkt");
 
   await page.goto(`http://127.0.0.1:${address.port}/?run=run-b`);
   await rail.waitFor();
@@ -156,9 +155,10 @@ createRoot(document.getElementById('root')).render(<div style={{ width: 600, hei
 
   await page.goto(`http://127.0.0.1:${address.port}/?run=run-a`);
   await area.waitFor({ state: "visible" });
+  await page.mouse.move(20, 400);
   await area.getByRole("button", { name: "Leiste schließen", exact: true }).click();
   await area.waitFor({ state: "hidden" });
-  assert.deepEqual(await stored("run-a"), { tab: null, height: 354 });
+  assert.deepEqual(await stored("run-a"), { tab: null });
 
   await page.goto(`http://127.0.0.1:${address.port}/?run=run-a&layout=app`);
   await page.getByText("Der Run wird geladen ...", { exact: true }).waitFor();

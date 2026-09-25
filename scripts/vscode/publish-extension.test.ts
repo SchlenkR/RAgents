@@ -11,7 +11,9 @@ import {
   expectedHostPackageVersion,
   EXTENSION_ID,
   EXTENSION_NAME,
+  ignoreRules,
   oneLine,
+  packageArguments,
   PUBLISHER,
   publishedVersions,
   publishEnvironment,
@@ -20,6 +22,8 @@ import {
   publishVsix,
   redacting,
   verifyToken,
+  VSIX_TARGETS,
+  vsixName,
   type VsceResult,
   type VsceRunner,
 } from "./publish-extension.ts";
@@ -150,13 +154,13 @@ test("ein Herausgeber, den es noch nicht gibt, bekommt seinen Hinweis", () => {
 test("der Publish meldet die veröffentlichte Fassung und einen Fehlschlag", () => {
   const { vsce, calls } = fakeVsce({ publish: { status: 0, stdout: " DONE  Published purestate.ragents-vscode v0.1.0\n", stderr: "" } });
   const lines: string[] = [];
-  publishVsix({ vsix: "/dist/ragents-vscode-0.1.0.vsix", version: "0.1.0", token: "pat_geheim", vsce, log: (line) => lines.push(line) });
-  assert.deepEqual(calls.map((call) => call.args), [["publish", "--packagePath", "/dist/ragents-vscode-0.1.0.vsix"]]);
+  publishVsix({ vsix: ["/dist/ragents-vscode-0.1.0.vsix", "/dist/ragents-vscode-win32-x64-0.1.0.vsix"], version: "0.1.0", token: "pat_geheim", vsce, log: (line) => lines.push(line) });
+  assert.deepEqual(calls.map((call) => call.args), [["publish", "--packagePath", "/dist/ragents-vscode-0.1.0.vsix", "/dist/ragents-vscode-win32-x64-0.1.0.vsix"]]);
   assert.equal(calls[0]!.token, "pat_geheim");
   assert.deepEqual(lines, [" DONE  Published purestate.ragents-vscode v0.1.0", `== Veröffentlicht: ${EXTENSION_ID}@0.1.0`]);
   const failing = fakeVsce({ publish: { status: 1, stdout: "", stderr: "ERROR 403 Forbidden mit pat_geheim\n" } });
   const shown: string[] = [];
-  assert.throws(() => publishVsix({ vsix: "/dist/ragents-vscode-0.1.0.vsix", version: "0.1.0", token: "pat_geheim", vsce: failing.vsce, log: (line) => shown.push(line) }),
+  assert.throws(() => publishVsix({ vsix: ["/dist/ragents-vscode-0.1.0.vsix"], version: "0.1.0", token: "pat_geheim", vsce: failing.vsce, log: (line) => shown.push(line) }),
     (error: Error) => error.message === "vsce publish endete mit Code 1." && !error.message.includes("\n"));
   assert.deepEqual(shown, ["ERROR 403 Forbidden mit <AZURE_DEVOPS_VSCE_RAGENTS_PAT>"]);
 });
@@ -165,4 +169,20 @@ test("jede Fehlermeldung ist eine Zeile", () => {
   assert.equal(oneLine("ERROR code 401\n\n  ERROR not authorized\n"), "ERROR code 401; ERROR not authorized");
   const brokenShow = fakeVsce({ show: { status: 1, stdout: "", stderr: "ERROR network\nERROR ECONNREFUSED\n" } });
   assert.throws(() => publishedVersions(EXTENSION_ID, brokenShow.vsce), /Code 1: ERROR network; ERROR ECONNREFUSED$/);
+});
+
+test("die Erweiterung wird universell ohne Bash und je Windows-Plattform mit ihrer Bash gepackt", () => {
+  const base = readFileSync(path.join(import.meta.dirname, "../../apps/vscode/.vscodeignore"), "utf8");
+  assert.deepEqual(VSIX_TARGETS, ["universal", "win32-x64", "win32-arm64"]);
+  assert.equal(ignoreRules(base, "universal"), base);
+  assert.doesNotMatch(base, /dist\/bash/, "die universelle Positivliste nimmt keine Bash auf");
+  const x64 = ignoreRules(base, "win32-x64");
+  assert.ok(x64.startsWith(base.trimEnd()));
+  assert.match(x64, /\n!dist\/bash\/win32-x64\/\*\*\n$/);
+  assert.doesNotMatch(x64, /win32-arm64/);
+  assert.equal(vsixName("0.1.4", "universal"), "ragents-vscode-0.1.4.vsix");
+  assert.equal(vsixName("0.1.4", "win32-arm64"), "ragents-vscode-win32-arm64-0.1.4.vsix");
+  assert.deepEqual(packageArguments("/out/a.vsix", "universal", "/tmp/u.ignore"), ["package", "--no-dependencies", "--ignoreFile", "/tmp/u.ignore", "--out", "/out/a.vsix"]);
+  assert.deepEqual(packageArguments("/out/b.vsix", "win32-x64", "/tmp/x.ignore"),
+    ["package", "--no-dependencies", "--ignoreFile", "/tmp/x.ignore", "--out", "/out/b.vsix", "--target", "win32-x64"]);
 });

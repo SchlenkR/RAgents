@@ -3,8 +3,8 @@ import { isClipboardRunPanelMessage } from "./host-contract";
 type EditingAction = "paste" | "copy" | "cut";
 
 const actionOf = (event: KeyboardEvent): EditingAction | undefined => {
-  if (!(event.metaKey || event.ctrlKey) || event.altKey) return undefined;
-  switch (event.key) {
+  if (!(event.metaKey || event.ctrlKey) || event.altKey || event.isComposing || event.keyCode === 229 || event.getModifierState?.("AltGraph")) return undefined;
+  switch (event.key.toLowerCase()) {
     case "v": return "paste";
     case "c": return "copy";
     case "x": return "cut";
@@ -20,7 +20,7 @@ const isEditable = (element: Element | null): element is HTMLElement =>
  * den Befehl nur an das Dokument seines Webviews weiter, nicht in ein iframe fremder Herkunft. Das
  * Run-Panel führt ihn deshalb selbst aus; den Text der Zwischenablage holt es über die Hülle.
  */
-export function installClipboardBridge(browser: Window): () => void {
+export function createClipboardReader(browser: Window) {
   const parent = browser.parent;
   const pending = new Map<string, (text: string) => void>();
 
@@ -38,6 +38,17 @@ export function installClipboardBridge(browser: Window): () => void {
     parent.postMessage({ type: "clipboardRead", id }, "*");
   });
 
+  browser.addEventListener("message", onMessage);
+  return {
+    read,
+    dispose: () => { browser.removeEventListener("message", onMessage); pending.forEach((settle) => settle("")); pending.clear(); },
+  };
+}
+
+export function installClipboardBridge(browser: Window, readClipboard?: () => Promise<string>): () => void {
+  let active = true;
+  const reader = readClipboard ? undefined : createClipboardReader(browser);
+  const read = readClipboard ?? reader!.read;
   const onKeyDown = (event: KeyboardEvent) => {
     const action = actionOf(event);
     if (action === undefined || event.defaultPrevented) return;
@@ -49,16 +60,16 @@ export function installClipboardBridge(browser: Window): () => void {
       return;
     }
     void read().then((text) => {
-      if (!text || !isEditable(target)) return;
+      if (!active || !text || !isEditable(target) || !target.isConnected) return;
       target.focus();
       browser.document.execCommand("insertText", false, text);
     });
   };
 
-  browser.addEventListener("message", onMessage);
   browser.addEventListener("keydown", onKeyDown, true);
   return () => {
-    browser.removeEventListener("message", onMessage);
+    active = false;
+    reader?.dispose();
     browser.removeEventListener("keydown", onKeyDown, true);
   };
 }

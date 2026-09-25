@@ -320,10 +320,17 @@ export interface SessionStopContext extends SessionLifecycleContext {
   signal: AbortSignal;
 }
 
+export interface SessionStartedContext extends SessionLifecycleContext {
+  /** The template the run was started from; null for a start without one. */
+  startEntry: { id: string; action: StartEntryAction } | null;
+}
+
 export interface SessionLifecycleContribution {
   id: string;
   initialize?: () => void | Promise<void>;
   prepareSession?: (context: SessionLifecycleContext) => void | Promise<void>;
+  /** After a start has prepared the workspace and set up the run's first actor, before any actor got input; never after a restart of the host. */
+  sessionStarted?: (context: SessionStartedContext) => void | Promise<void>;
   stopSession?: (context: SessionStopContext) => void | Promise<void>;
   afterStopSession?: (context: SessionStopContext) => void | Promise<void>;
   deleteSession?: (context: SessionLifecycleContext) => void | Promise<void>;

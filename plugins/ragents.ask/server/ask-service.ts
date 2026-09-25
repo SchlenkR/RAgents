@@ -6,10 +6,8 @@ import {
   type JournalEvent,
   type Orchestration,
 } from "@ragents/engine";
-import { ASK_PLUGIN_ID } from "../ask-payload.js";
-import type { AskCall, AskRequest, AskService } from "./contract.js";
-
-export const DISMISSED_ANSWER = "Der Benutzer hat die Frage verworfen.";
+import { askPayloadOf, ASK_PLUGIN_ID } from "../ask-payload.js";
+import { DISMISSED_ANSWER, type AskCall, type AskRequest, type AskService } from "./contract.js";
 
 const answerOf = (decision: "approved" | "dismissed", result: unknown): string =>
   decision !== "approved" ? DISMISSED_ANSWER : typeof result === "string" ? result : result === null || result === undefined ? "" : JSON.stringify(result);
@@ -41,7 +39,12 @@ export class RuntimeAskService implements AskService {
       description: request.description,
       parameters: request.parameters,
       input: { label: "Antwort", placeholder: null, required: true },
-      payload: { question: request.question, options: [...request.options], multi: request.multi === true },
+      payload: {
+        question: request.question,
+        options: [...request.options],
+        multi: request.multi === true,
+        ...(request.recipient ? { recipient: request.recipient } : {}),
+      },
     });
     const proposed = runtime.events(call.runId).find((event) =>
       event.type === "action.proposed" && event.commandId === call.commandId);
@@ -66,6 +69,25 @@ export class RuntimeAskService implements AskService {
         ? { decision: "dismissed", result: null }
         : { decision: "approved", result: input.answer ?? null },
     );
+  }
+
+  withdraw(runId: string, actionId: string): void {
+    const runtime = this.#requireRuntime();
+    const state = runtime.state(runId);
+    const action = state.actions.get(actionId);
+    if (action?.owner !== ASK_PLUGIN_ID || action.status !== "pending") return;
+    this.#aborting.add(actionId);
+    try {
+      runtime.resolveAction(
+        { actorId: state.ownerId, commandId: `ask-withdraw:${actionId}:${randomUUID()}` },
+        runId,
+        actionId,
+        { decision: "dismissed", result: null },
+      );
+    } finally {
+      this.#aborting.delete(actionId);
+    }
+    this.#waiters.get(actionId)?.(DISMISSED_ANSWER);
   }
 
   #awaitAnswer(runId: string, actionId: string, signal: AbortSignal | undefined): Promise<string> {
@@ -131,14 +153,15 @@ export class RuntimeAskService implements AskService {
       const state = runtime.state(runId);
       const action = state.actions.get(actionId);
       if (!action) return;
-      const asker = state.actors.get(action.askedBy);
-      if (!asker || asker.kind === "human" || asker.lifecycle.kind === "stopped") return;
+      const recipientId = askPayloadOf(action.payload)?.recipient ?? action.askedBy;
+      const recipient = state.actors.get(recipientId);
+      if (!recipient || recipient.kind === "human" || recipient.lifecycle.kind === "stopped") return;
       runtime.enqueueInput(
         { actorId: state.ownerId, commandId: `ask-input:${actionId}` },
         runId,
         {
-          actorId: action.askedBy,
-          content: `Antwort auf deine Frage: ${action.title}\nAntwort: ${answer}`,
+          actorId: recipientId,
+          content: `Antwort auf ${recipientId === action.askedBy ? "deine Frage" : "die Frage"}: ${action.title}\nAntwort: ${answer}`,
         },
       );
     } catch (error) {

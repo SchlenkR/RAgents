@@ -22,7 +22,7 @@ import {
   JsonRpcConnection,
   JsonRpcError,
 } from "@ragents/workspace-executor/src/language-server/json-rpc.ts";
-import { createLanguageServerSnapshotMethod } from "../src/plugin-support/language-server/snapshot-method.ts";
+import { createLanguageServerSnapshotMethod, createLanguageServerSolutionMethods } from "../src/plugin-support/language-server/snapshot-method.ts";
 import type { SandboxServices } from "../src/plugin-support/workspace-sandbox-host.ts";
 import { createAccessContext, type MethodConnection, type MethodContext } from "@ragents/engine";
 
@@ -309,6 +309,7 @@ const snapshotMethod = (execute: SandboxServices["execute"], ensureSession: (run
     adapterId: "roslyn",
     sandbox: { execute } as SandboxServices,
     ensureWorkspaceAccess: (_access, runId) => ensureSession(runId),
+    opened: () => undefined,
   });
 
 test("the snapshot method answers with every instance of the run and its diagnostics", async () => {
@@ -350,6 +351,34 @@ test("the snapshot method reports an unknown session instead of asking the host"
     Promise.resolve().then(() => method.execute({ runId: "run-9" }, methodContext)),
     /Run run-9 ist unbekannt/,
   );
+});
+
+test("listing and switching solutions check the workspace first and switching answers with the fresh list", async () => {
+  const listing = { source: "git", solutions: [{ path: "src/Demo.sln", root: "/work/src/Demo.sln", state: "opening" }], opened: true };
+  const guarded: string[] = [];
+  const called: Array<[string, unknown]> = [];
+  const notified: string[] = [];
+  const [solutions, change] = createLanguageServerSolutionMethods({
+    pluginId: "ragents.lsp-roslyn",
+    adapterId: "roslyn",
+    sandbox: { execute: (_runId: string, operation: string, input: unknown) => {
+      called.push([operation, input]);
+      return Promise.resolve(operation === "roslyn_solutions" ? listing : "Roslyn lädt /work/src/Demo.sln");
+    } } as SandboxServices,
+    ensureWorkspaceAccess: (_access, runId) => { guarded.push(runId); },
+    opened: (runId) => { notified.push(runId); },
+  });
+  assert.equal(solutions.contract.id, "ragents.lsp-roslyn.solutions");
+  assert.deepEqual(solutions.contract.rights, ["runs.read", "ragents.lsp-roslyn.read"]);
+  assert.equal(change.contract.id, "ragents.lsp-roslyn.switch");
+  assert.deepEqual(change.contract.rights, ["runs.read", "runs.write", "ragents.lsp-roslyn.read", "ragents.lsp-roslyn.write"]);
+  assert.deepEqual(await solutions.execute({ runId: "run-1" }, methodContext), listing);
+  assert.deepEqual(await change.execute({ runId: "run-1", root: "src/Demo.sln" }, methodContext), listing);
+  assert.deepEqual(guarded, ["run-1", "run-1"]);
+  assert.deepEqual(called, [["roslyn_solutions", null], ["roslyn_switch", { root: "src/Demo.sln" }], ["roslyn_solutions", null]]);
+  assert.deepEqual(notified, ["run-1"], "switching to a solution counts as opening");
+  await change.execute({ runId: "run-1", root: null }, methodContext);
+  assert.deepEqual(notified, ["run-1"], "closing everything opens nothing");
 });
 
 test("solution projects are resolved next to the .sln with forward slashes", async () => {

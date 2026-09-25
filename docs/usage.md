@@ -82,8 +82,13 @@ Gespräche stehen in den Kacheln und in den
 Actor-Pop-outs. Der Run-Koordinator ist standardmäßig nur in der Actor-Leiste über der Fläche
 erreichbar. Ein Klick auf seinen Eintrag öffnet den Chat als Pop-out darunter. Diese
 Chatansichten sind bis zu 784 Pixel breit und passen sich bei schmalen Fenstern an. Andere
-LLM-Einträge öffnen ihren Chat, TypeScript-Einträge ihre Actor-Ansicht. Ein erneuter Klick,
-Escape, Außenklick oder das X im Pop-out-Kopf schließt das Pop-out; ungesendete Texte bleiben
+LLM-Einträge öffnen ihren Chat, TypeScript-Einträge ihre Actor-Ansicht.
+
+Pop-outs halten einen kleinen Abstand zum aufrufenden Control. Abdunkelnde Pop-outs, Dialoge
+und das Chat-Sheet verwenden denselben stärkeren Hintergrund. Im Adressat-Pop-out steht die
+Suche nach Handle oder Aufgabe direkt neben dem Titel und durchsucht auch ausgeblendete Actors.
+
+Ein erneuter Klick, Escape, Außenklick oder das X im Pop-out-Kopf schließt das Pop-out; ungesendete Texte bleiben
 beim Schließen und Actor-Wechsel erhalten. Über die Actorliste kannst Du ihm zusätzlich eine
 eigene Kachel geben. In der Ansichtsleiste wählt die Sprechblase den Verlauf, die anderen
 Symbole jeweils eine Detailansicht. Der Code-Reiter zeigt bei Actors mit installiertem Programm
@@ -680,10 +685,12 @@ The first entry for each server is its default, marked "Standard", or the free t
 a template. The commands `RAgents: Trennen` (disconnect), `RAgents: Verbinden` (connect), and
 `RAgents: Abmelden` (sign out) apply to the selected run's server or ask when several match.
 
-When the run chat has focus, VS Code shortcuts such as Cmd/Ctrl+P and Cmd/Ctrl+Shift+P still
-work using your keybindings. Text entry, selection, undo, and clipboard actions remain in the
-input field. Keys already handled by chat, such as Enter to send, are not also executed as VS
-Code commands.
+When the run chat or a hosted mini-app input has focus, VS Code shortcuts such as Cmd/Ctrl+P
+and Cmd/Ctrl+Shift+P still work using your keybindings, including key chords. This also applies
+to nested hosted mini-app frames. Text entry, selection, undo, and clipboard actions remain in
+the input field. Dictation tools that paste their result, such as HEX, use the same input path.
+Keys already handled by the chat or mini-app are not also executed as VS Code commands.
+In a regular browser, native keyboard and clipboard behavior remains in use.
 
 If a server profile requires users, both the lock on Start and the Server row open the
 same sign-in dialog. For a profile with `ACCESS_TOKEN`, the dialog requests that token. User name

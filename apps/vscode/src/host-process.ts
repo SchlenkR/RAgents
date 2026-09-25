@@ -3,6 +3,7 @@ import { accessSync, constants, readFileSync, statSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
 import { createInterface, type Interface } from "node:readline";
+import { editorFreeEnvironment } from "@ragents/workspace-executor/src/safe-environment";
 import { MissingEnvironmentError, parseMissingEnvironmentNotice, type MissingEnvironment } from "../../server/src/missing-environment";
 import { isHostRoot } from "./connections";
 
@@ -30,6 +31,8 @@ export interface HostStartOptions {
   environment: NodeJS.ProcessEnv;
   log: (line: string) => void;
   command: HostCommand;
+  /** Die mitgebrachte Bash für den Executor des Hosts; unter Windows Pflicht, sonst ohne Angabe die des Systems. */
+  bash: string | undefined;
   startTimeoutMs?: number;
 }
 
@@ -39,9 +42,11 @@ const KEPT_LINES = 30;
 const DRAIN_TIMEOUT_MS = 1_000;
 
 /** Die Umgebung der Erweiterung ohne die Variablen des umgebenden VS Code, damit Kindprozesse sich nicht daran hängen. */
-export const inheritedEnvironment = (): Record<string, string> => Object.fromEntries(Object.entries(process.env)
-  .filter(([name, value]) => typeof value === "string" && !name.startsWith("VSCODE_") && !name.startsWith("ELECTRON_"))
-  .map(([name, value]) => [name, value as string]));
+export const inheritedEnvironment = (): Record<string, string> => editorFreeEnvironment(process.env);
+
+/** Die Bash, die die Windows-Fassung der Erweiterung mitbringt; auf anderen Plattformen gilt die des Systems. */
+export const bundledBash = (extensionPath: string, platform: NodeJS.Platform = process.platform, arch: string = process.arch): string | undefined =>
+  platform === "win32" ? path.join(extensionPath, "dist", "bash", `${platform}-${arch}`, "usr", "bin", "bash.exe") : undefined;
 
 /** Sucht ein Programm im PATH; unter Windows mit den Endungen aus PATHEXT. */
 export const findExecutable = (name: string, environment: NodeJS.ProcessEnv = process.env): string | undefined => {
@@ -160,6 +165,7 @@ export const startHost = (options: HostStartOptions): Promise<RunningHost> => ne
     DATA_DIR: options.dataDirectory,
     // Der lokale Host ist der Arbeitsplatz des Entwicklers: dort bleibt es seine eigene Bash.
     PROCESS_SANDBOX: options.environment.PROCESS_SANDBOX ?? "off",
+    ...(options.bash === undefined ? {} : { RAGENTS_BASH: options.bash }),
     // Der Host überwacht diesen Prozess und beendet sich, wenn ihn ein Reload oder Absturz von VS Code mitnimmt.
     RAGENTS_PARENT_PID: String(process.pid),
   };

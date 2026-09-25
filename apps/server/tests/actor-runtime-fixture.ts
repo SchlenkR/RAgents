@@ -8,7 +8,7 @@ import { NodeTypeScriptExecutor } from "../src/plugin-support/native-typescript-
 
 export const emptyStateSchema = {type: "object", properties: {}, additionalProperties: false} as const;
 export const runtimeFor = (setup: ReturnType<typeof setupRun>, directory: string, operations = new OperationContributionRegistry(),
-  askService: AskService = {ask: async () => { throw new Error("Unexpected operator question"); }},
+  askService: AskService = {ask: async () => { throw new Error("Unexpected operator question"); }, withdraw: () => undefined},
   scriptSources: ActorProgramRuntimeOptions["scriptSources"] = () => undefined) => {
   const serverProcessContextFor = async (runId: string) => ({runId, cwd: directory, root: directory, home: directory,
     logDirectory: directory, hostRoot: undefined, env: {PATH: process.env.PATH, HOME: directory, RAGENTS_RUN_ID: runId, NO_COLOR: "1"}});

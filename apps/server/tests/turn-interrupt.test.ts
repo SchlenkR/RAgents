@@ -27,7 +27,7 @@ const chatSession = (engine: Engine, runId: string) => {
   const session = new RunChatSession({
     engine, id: runId,
     coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "coordinator", runTitle: "Chat", ownerHandle: "owner", ownerDisplayName: "Owner" },
-    prompt: () => "", assertUsable: () => undefined, prepare: async () => undefined, prepareWorkspace: async () => undefined,
+    prompt: () => "", assertUsable: () => undefined, prepare: async () => undefined, prepareWorkspace: async () => undefined, started: async () => undefined,
     scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: unavailableActorPrograms,
   });
   const events: ChatEvent[] = [];

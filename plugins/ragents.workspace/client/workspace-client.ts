@@ -43,6 +43,8 @@ export interface WorkspaceClientExecution {
 export interface WorkspaceClientOptions {
   /** Die Host-Wurzel dieses Rechners, aus der die Sprachserver aufgelöst werden; sie kann erst später entstehen. */
   hostRoot: () => string | undefined;
+  /** Die Bash dieses Rechners für das Werkzeug bash; unter Windows die mitgebrachte und Pflicht, sonst ohne Angabe die des Systems. */
+  bash?: string | undefined;
   onExecuted?: (execution: WorkspaceClientExecution) => void;
 }
 
@@ -244,7 +246,7 @@ export class WorkspaceClient {
     }
   }
 
-  /** Der Entwickler arbeitet auf seinem Arbeitsplatz mit seinen eigenen Zugangsdaten; HOME bleibt sein Home. */
+  /** Der Entwickler arbeitet auf seinem Arbeitsplatz mit seinen eigenen Zugangsdaten und seiner ganzen Umgebung; HOME bleibt sein Home. */
   async #execute(
     executor: WorkspaceOperationExecutor,
     runs: Map<string, WorkspaceProcessContext>,
@@ -263,6 +265,8 @@ export class WorkspaceClient {
       logDirectory: join(tmpdir(), "ragents-workspace-logs", input.runId),
       hostRoot: this.options.hostRoot(),
       additions: input.env,
+      baseEnvironment: "inherited",
+      ...(this.options.bash === undefined ? {} : { bash: this.options.bash }),
     }));
     const startedAt = Date.now();
     let failure: string | undefined;

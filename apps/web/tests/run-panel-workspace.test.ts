@@ -8,7 +8,6 @@ import { RunPanelRail } from "../src/run-panel/RunPanelRail.tsx";
 import { RunPanelWorkspace } from "../src/run-panel/RunPanelWorkspace.tsx";
 import {
   activeWorkspaceTab,
-  clampWorkspaceHeight,
   DEFAULT_RUN_PANEL_WORKSPACE_STATE,
   parseRunPanelWorkspaceState,
   runPanelWorkspaceStorageKey,
@@ -42,23 +41,19 @@ function fakeWindow(context: { after: (fn: () => void) => void }) {
   return values;
 }
 
-test("der Zustand der Leiste wird streng gelesen und die Höhe lässt dem Chat Platz", () => {
+test("der Zustand der Leiste wird streng gelesen", () => {
   assert.deepEqual(parseRunPanelWorkspaceState(null), DEFAULT_RUN_PANEL_WORKSPACE_STATE);
-  assert.deepEqual(parseRunPanelWorkspaceState(JSON.stringify({ tab: "files", height: 300 })), { tab: "files", height: 300 });
-  assert.deepEqual(parseRunPanelWorkspaceState(JSON.stringify({ tab: null, height: 120 })), { tab: null, height: 120 });
-  assert.throws(() => parseRunPanelWorkspaceState(JSON.stringify({ tab: "files" })), /ungültig/);
-  assert.throws(() => parseRunPanelWorkspaceState(JSON.stringify({ tab: 3, height: 300 })), /ungültig/);
-  assert.throws(() => parseRunPanelWorkspaceState(JSON.stringify({ tab: "files", height: 20 })), /ungültig/);
-  assert.throws(() => parseRunPanelWorkspaceState(JSON.stringify({ tab: "files", height: 300, extra: 1 })), /ungültig/);
-  assert.equal(clampWorkspaceHeight(50, 800), 120);
-  assert.equal(clampWorkspaceHeight(700, 800), 640);
-  assert.equal(clampWorkspaceHeight(300.4, Number.POSITIVE_INFINITY), 300);
+  assert.deepEqual(parseRunPanelWorkspaceState(JSON.stringify({ tab: "files" })), { tab: "files" });
+  assert.deepEqual(parseRunPanelWorkspaceState(JSON.stringify({ tab: null })), { tab: null });
+  assert.throws(() => parseRunPanelWorkspaceState(JSON.stringify({})), /ungültig/);
+  assert.throws(() => parseRunPanelWorkspaceState(JSON.stringify({ tab: 3 })), /ungültig/);
+  assert.throws(() => parseRunPanelWorkspaceState(JSON.stringify({ tab: "files", height: 300 })), /ungültig/);
 });
 
 test("der offene Reiter gilt nur, solange die Fläche offen und der Reiter verfügbar ist", () => {
-  assert.equal(activeWorkspaceTab({ tab: null, height: 280 }, tabs), "");
-  assert.equal(activeWorkspaceTab({ tab: "documents", height: 280 }, tabs), "documents");
-  assert.equal(activeWorkspaceTab({ tab: "removed", height: 280 }, tabs), "");
+  assert.equal(activeWorkspaceTab({ tab: null }, tabs), "");
+  assert.equal(activeWorkspaceTab({ tab: "documents" }, tabs), "documents");
+  assert.equal(activeWorkspaceTab({ tab: "removed" }, tabs), "");
 });
 
 test("Öffnen, erneutes Wählen und Schließen schreiben den Reiter je Run in den Browser-Speicher", (context) => {
@@ -70,15 +65,12 @@ test("Öffnen, erneutes Wählen und Schließen schreiben den Reiter je Run in de
     saveRunPanelWorkspaceState("run-a", { ...state, tab: activeWorkspaceTab(state, tabs) === tabId ? null : tabId });
   };
   click("files");
-  assert.deepEqual(stored(), { tab: "files", height: 280 });
+  assert.deepEqual(stored(), { tab: "files" });
   click("documents");
   assert.equal(activeWorkspaceTab(stored(), tabs), "documents");
   click("documents");
-  assert.deepEqual(stored(), { tab: null, height: 280 });
-  saveRunPanelWorkspaceState("run-a", { ...stored(), height: 400 });
+  assert.deepEqual(stored(), { tab: null });
   assert.equal(values.has(runPanelWorkspaceStorageKey("run-b")), false);
-  assert.throws(() => saveRunPanelWorkspaceState("run-a", { tab: "files", height: 10 }), /ungültig/);
-  assert.deepEqual(stored(), { tab: null, height: 400 });
 });
 
 test("die Leiste zeigt die verfügbaren Reiter in ihrer Reihenfolge, den offenen gedrückt, Badge und Punkt für Neues, Tooltip statt title", () => {
@@ -95,17 +87,18 @@ test("die Leiste zeigt die verfügbaren Reiter in ihrer Reihenfolge, den offenen
   assert.deepEqual(attribute(closed, "aria-pressed"), ["false", "false", "false"]);
 });
 
-test("die Leiste zeigt den offenen Reiter mit Name und Schließen-Knopf und bleibt geschlossen verborgen", () => {
-  const open = renderToStaticMarkup(createElement(RunPanelWorkspace, { navigation: navigationFor("files"), onClose: () => {}, open: true, runId: "run-a", session, tabs }));
+test("die Leiste zeigt den offenen Reiter als Pop-out mit Name, Schließen-Knopf und Abdunklung und bleibt geschlossen verborgen", () => {
+  const open = renderToStaticMarkup(createElement(RunPanelWorkspace, { navigation: navigationFor("files"), onClose: () => {}, open: true, session, tabs }));
   assert.match(open, /<section[^>]*aria-label="Leiste"[^>]*id="run-panel-workspace"/);
   assert.doesNotMatch(open, /<section[^>]*hidden=""/);
   assert.match(open, /<h2[^>]*>Dateien<\/h2>/);
   assert.match(open, /aria-label="Leiste schließen"/);
-  assert.match(open, /aria-label="Höhe der Leiste"[^>]*aria-orientation="horizontal"[^>]*aria-valuenow="280"/);
+  assert.match(open, /bg-backdrop/);
   assert.match(open, /Panel Dateien/);
   assert.doesNotMatch(open, /Panel Dokumente|Panel Executions/);
-  const closed = renderToStaticMarkup(createElement(RunPanelWorkspace, { navigation: navigationFor(""), onClose: () => {}, open: false, runId: "run-a", session, tabs }));
+  const closed = renderToStaticMarkup(createElement(RunPanelWorkspace, { navigation: navigationFor(""), onClose: () => {}, open: false, session, tabs }));
   assert.match(closed, /<section[^>]*hidden=""/);
+  assert.doesNotMatch(closed, /bg-backdrop/);
   assert.doesNotMatch(closed, /Panel Dateien|Panel Dokumente|Panel Executions/);
 });
 

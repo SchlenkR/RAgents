@@ -52,7 +52,7 @@ export function JournalStatus({ session }: SessionHeaderContext) {
     </button>
     <Popover open={open} onOpenChange={(next) => { if (!next) close(); }}>
     <PopoverContent align="start" anchor={buttonRef} aria-label="Journal des Runs" className="flex min-h-0 min-w-0 flex-col gap-0 overflow-hidden rounded-t-sm rounded-b-none p-0 text-[0.76rem]" collisionPadding={8} id={panelId}
-      initialFocus={searchRef} role="region" side="top" sideOffset={0} style={{ width: "min(900px, var(--available-width))", height: "min(480px, var(--available-height))" }}>
+      initialFocus={searchRef} role="region" side="top" style={{ width: "min(900px, var(--available-width))", height: "min(480px, var(--available-height))" }}>
       <header className="flex flex-none items-center gap-2 border-b border-border-soft px-2.5 py-2">
         <div className="flex min-w-0 flex-1 items-baseline gap-2.5 [&>span]:truncate"><strong>Journal</strong><span className="text-muted-foreground">{session.session.title || "Run"}</span></div>
         <Button onClick={() => setReload((value) => value + 1)} size="sm" variant="ghost">Aktualisieren</Button>

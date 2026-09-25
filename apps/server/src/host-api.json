@@ -95,6 +95,7 @@
       "FRAME_BODY_CLASS",
       "FRAME_DOCUMENT_CLASS",
       "FRAME_ROOT_CLASS",
+      "browserInputRuntime",
       "browserRuntimeStyles"
     ],
     "@ragents/host/plugin-support/actor-programs/contract": [
@@ -278,6 +279,8 @@
       "RUN_MARKER_ENV",
       "WORKSPACE_EXECUTOR_VERSION",
       "fsharpAdapter",
+      "languageServerOpenOperation",
+      "languageServerSolutionsOperation",
       "listDirectory",
       "readTextFile",
       "roslynAdapter",
@@ -797,6 +800,11 @@
     ],
     "@ragents/web/rpc": [
       "rpc"
+    ],
+    "@ragents/web/run-panel/input-bridge": [
+      "hostInputEnabled",
+      "isRunPanelKeyboardMessage",
+      "relayFrameInput"
     ],
     "@ragents/web/run-panel/host": [
       "useCenterElements",

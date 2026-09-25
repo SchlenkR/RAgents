@@ -452,6 +452,16 @@ aber eine vorhandene Facette bleibt bei ihrem Besitzer:
 | Lebenszyklus              | Start, Run-Vorbereitung, Löschen und Shutdown beim Besitzer               |
 | Provisionierung           | `provision.ts` im Plugin-Ordner, im Bundle ein Export von `server/index.js`; Werkzeuge in `<Datenordner>/tools/<plugin-id>/` |
 
+Der Lebenszyklus (`host.lifecycle`) hat neben `initialize`, `prepareSession`, den Stoppphasen,
+`deleteSession` und `shutdown` den Haken `sessionStarted({ runId, startEntry })`. Der Host ruft
+ihn, wenn ein Start den Arbeitsbereich bereitgestellt und den ersten Actor aufgebaut hat, bevor
+irgendein Actor Input bekommt, und nennt die Vorlage des Starts (`{ id, action }` mit `skill` oder
+`script`) oder `null` für einen Start ohne Vorlage. Der Start wartet auf ihn; was länger dauert,
+führt das Plugin selbst weiter. Nach einem Neustart des Hosts kommt er nicht wieder, ein nach
+einem Fehlschlag wiederholter Start ruft ihn erneut; wer nur einmal handeln darf, hält seinen
+Merker im Journal. Der globale Koordinator bekommt ihn nicht. Der Haken kennt kein Werkzeug; was
+ein Plugin damit tut, bleibt seine Sache.
+
 Die drei Asset-Ordner `skills/`, `run-scripts/` und `prompts/` liest der Host per KONVENTION aus
 dem Bundle-Ordner jedes komponierten Plugins (`pluginFolder(id)` in
 `plugin-support/plugin-folder.ts`, angewandt in `profile/compose.ts`). Ein fehlender Asset-Ordner ist kein Fehler; ein vorhandener mit kaputtem
@@ -1147,7 +1157,7 @@ Plugins belegen stattdessen typisierte Slots für:
   aktivieren eigene Verbindungen aber erst bei Nutzung und erhalten sie danach bei Run-Wechseln.
 - Workspace-Tabs und Badges (`workspaceTabs`, `workspaceTabsFor`): im Web die Reiter der
   Leiste, im Run-Panel die Symbolleiste am rechten Rand mit dem Tab-Bereich
-  unter dem Chat; derselbe Beitrag, dieselbe Sichtbarkeit (`readRight`, `requiresWorkspace`, `available`)
+  als Pop-out über Chat und Bühne; derselbe Beitrag, dieselbe Sichtbarkeit (`readRight`, `requiresWorkspace`, `available`)
 - Tool- und Entity-Presenter; die Run-Provider binden Tool-Darstellungen gemeinsam an
   Run und Navigation. Standardchat und Actor-Chat konsumieren denselben Renderer.
 - Run-Metadaten
@@ -1680,7 +1690,10 @@ Mini-Apps verwenden dieselben Komponenten mit demselben Look; die Mini-App-Laufz
 Grundmaße. Details zu Formularen, Tabellen, Theme-Bridge und eigenem App-CSS stehen in actor-programs.md.
 
 Journalfläche und globaler Koordinator-Verlauf sind `PopoverContent`-Flächen mit eigener
-Öffnungsrichtung und Eckform.
+Öffnungsrichtung und Eckform. `PopoverContent` hält standardmäßig 8 Pixel Abstand zum
+aufrufenden Control. Dialoge, abdunkelnde Pop-outs und das Chat-Sheet verwenden gemeinsam
+`--backdrop` aus dem Theme (Schwarz mit 40 Prozent Deckkraft im hellen und 60 Prozent im dunklen
+Theme); einzelne Flächen definieren keine eigene Abdunklungsfarbe.
 
 Einstellungen und Hilfe verwenden rechts in der Kopfzeile große Ghost-Icon-Knöpfe. Die übrigen
 Haupteinträge verwenden wie die Übersichtsecke die volle Leistenhöhe. Gemeinsame
@@ -1837,7 +1850,12 @@ Ein technischer Abbruch beendet das Warten auf `ask_user` und schließt die offe
 Journal als `dismissed`. Das Ask-Plugin liefert daraus keine Benutzerantwort und keinen
 neuen ActorInput. Ein ausdrückliches Verwerfen durch den Benutzer erreicht dagegen den
 wartenden Aufruf; Antworten auf wiederhergestellte Fragen ohne aktiven Aufruf werden weiterhin
-als ActorInput zugestellt.
+als ActorInput zugestellt. Außerhalb eines Turns fragt der Eigentümer des Runs (`AskCall.agentId`,
+`turnId: null`); `AskRequest.recipient` nennt dann den Actor, für den die Frage steht. Er steht im
+Payload, bekommt eine solche Antwort als ActorInput und zeigt die Frage in seiner Karte und im
+Hinweis "fragt". Eine vom Eigentümer gestellte Aktion trägt im Hauptchat keinen Namen davor.
+`AskService.withdraw(runId, actionId)` verwirft eine offene Frage des Plugins: ein wartender Aufruf
+bekommt die Verwurfsantwort, ein Actor bekommt keinen Input.
 
 Jeder Chatverlauf reserviert unter dem letzten Beitrag zwei normale Textzeilen freien
 Scrollraum, mindestens die 40 Pixel der unteren Ausblendzone. Eine sichtbare Eingabebox
@@ -2267,16 +2285,18 @@ dem `Icon` des Beitrags, dem Namen als Tooltip und zugänglicher Beschriftung, d
 Beitrags klein oben rechts und einem Punkt unten rechts, wenn seit dem letzten Besuch etwas
 Neues angekommen ist. Reihenfolge und Sichtbarkeit sind dieselben wie im Web
 (`registry.availableTabs`, also `readRight`, `requiresWorkspace` und `available`). Ein Klick öffnet den Tab-Bereich
-(`RunPanelWorkspace`) unter dem Chat und der Bühne über die volle Breite des
-Run-Panels: ein waagerechter Griff, eine Kopfzeile mit dem Namen des Reiters und einem X,
+(`RunPanelWorkspace`) als Pop-out über Chat und Bühne, links neben der Symbolleiste: ringsum
+8 Pixel Abstand, die Fläche darunter mit `--backdrop` abgedunkelt; ist der Inhalt des Run-Panels
+mindestens 960 Pixel breit (Container `chat-content`, zwei Bereiche nebeneinander), deckt es nur
+die rechten 60 Prozent ab. Oben eine Kopfzeile mit dem Namen des Reiters und einem X,
 darunter das `Panel` des Beitrags mit demselben `WorkspaceTabContext` wie im Web. Der Knopf des
-offenen Reiters ist gedrückt (`aria-pressed`); ein erneuter Klick oder das X schließt den Bereich.
+offenen Reiters ist gedrückt (`aria-pressed`); ein erneuter Klick, das X, Escape oder ein Klick
+auf die abgedunkelte Fläche schließt den Bereich, der Chat darunter behält Größe und Zustand.
+Beim Öffnen bekommt das Pop-out den Fokus.
 Besuchte Reiter mit `keepMounted` bleiben verborgen gemountet und bekommen `active: false`,
-wie in der Leiste des Webs (`mountedTabs`). Offener Reiter und Höhe des Bereichs liegen je Run
-im Browser-Speicher (`ragents.run-panel.workspace:<runId>` mit `{ tab, height }`; `tab: null`
-heißt geschlossen, Vorgabe 280 Pixel, mindestens 120, über dem Bereich bleiben 160 Pixel für den
-Chat); ein anderer Wert ist ein harter Fehler. Der Griff ändert die Höhe mit der Maus und mit
-Pfeil hoch und runter in Schritten von 24 Pixeln. `PluginChat` führt für beide Layouts EINEN
+wie in der Leiste des Webs (`mountedTabs`). Der offene Reiter liegt je Run
+im Browser-Speicher (`ragents.run-panel.workspace-tab:<runId>` mit `{ tab }`; `tab: null`
+heißt geschlossen); ein anderer Wert ist ein harter Fehler. `PluginChat` führt für beide Layouts EINEN
 Reiterzustand: im Web den flüchtigen Reiter und den gespeicherten Aufklappzustand
 (`ragents.workspacePanelState:<runId>`), im Run-Panel den gespeicherten offenen Reiter; deshalb
 öffnet `SessionNavigation.openTab` auch im Run-Panel den Tab-Bereich mit dem verlangten Reiter,
@@ -2441,7 +2461,16 @@ Nachrichten gehen nicht an den Extension-Host. Einfügen, Kopieren, Ausschneiden
 Textbearbeitung, IME und bereits behandelte Tasten bleiben im Chat. Normale Zeicheneingabe wird
 nicht unterdrückt; Druck-, Such- und Speicher-Browserdefaults werden vor der Weitergabe verhindert.
 Die asynchrone Frame-Grenze liefert keine synchrone Rückmeldung über getroffene Belegungen;
-lokale Bearbeitungstasten haben deshalb Vorrang. Einen Explorer-Baum daneben gibt es nicht mehr: Start und
+lokale Bearbeitungstasten haben deshalb Vorrang.
+
+Gehostete Mini-App-Frames verwenden dieselben Eingabehandler. Die bestehende, per Frame-Token
+geprüfte MessagePort-Verbindung transportiert Tastaturereignisse und Zwischenablageanfragen
+bis zum Run-Panel; Antworten gehen an den anfragenden Frame zurück. Die VS-Code-Wurzel
+aktiviert diese Fähigkeit, weitere gehostete Frames reichen sie weiter. Ohne diese Aktivierung
+bleibt im normalen Browser die native Eingabe erhalten. Die Funktion hängt nicht von einem
+bestimmten Chat-Baustein ab, sondern gilt auch für normale Textfelder in Mini-Apps.
+
+Einen Explorer-Baum daneben gibt es nicht mehr: Start und
 Runs zeigen dieselben Server, Runs und Vorlagen flacher, und ein zweiter Navigationsbaum wäre
 eine zweite Wahrheit. Jede Sitzung spricht dieselbe
 Nachrichtenschicht mit demselben Client (`RpcClient` mit eigenem `fetch` und Bearer), hält ihren
@@ -2604,7 +2633,7 @@ ablehnen; wer wieder einen braucht, baut einen neuen. Der Executor selbst
 dieselben Module (`workspaceExecutorModules()`): die vier Sandbox-Werkzeuge mit Prozessgruppen,
 Umgebung und Pfadprüfung (`read`, `edit`, `write`, `bash`), die Language-Server-Sitzungen mit den
 drei Adaptern Roslyn, FSAC und TypeScript (`<id>_open`, `<id>_diagnostics`, `<id>_close`,
-`<id>_snapshot`), die Dateien (`files.list`, `files.read`, `files.watch`, `files.attach`), die
+`<id>_snapshot`, mit Solutions `<id>_solutions` und `<id>_switch`), die Dateien (`files.list`, `files.read`, `files.watch`, `files.attach`), die
 Prozesse (`processes.snapshot`, `processes.stop`, `processes.stopAll`), die Befehle (`commands.run`)
 und der Browser der Browserprüfung (`browser.*`, Abschnitt Browserprüfungen). Nach `edit` und
 `write` fragt das Werkzeugmodul alle Module nach einer Anmerkung zur geschriebenen Datei; die
@@ -2817,9 +2846,20 @@ erkennbar bleibt, dass nicht der Server weg ist; eine begonnene Bash kann trotzd
 wird nicht kaschiert. Ein fachlicher Fehler des Arbeitsplatzes kommt mit Kennung und Status als
 derselbe `DomainError` an wie aus dem Executor des Servers.
 
-Die Umgebung baut jeder Executor aus seiner eigenen Maschine: sichere Variablen des Prozesses,
-`HOME`, `USER`/`LOGNAME` (mit eigenem Konto dessen Name, sonst die Werte des Prozesses dieser
-Maschine) und die Variablen seiner Wurzeln. Vom Server kommt nur, was ortsunabhängig ist:
+Die Umgebung baut jeder Executor aus seiner eigenen Maschine: eine Grundlage, `HOME`,
+`USER`/`LOGNAME` (mit eigenem Konto dessen Name, sonst die Werte des Prozesses dieser Maschine)
+und die Variablen seiner Wurzeln. Die Grundlage wählt der Aufrufer ausdrücklich
+(`baseEnvironment` von `workspaceProcessContext`, `base` von `sandboxEnvironment` in
+`packages/workspace-executor/src/context.ts`): `"safe"` ist die Allowlist sicherer Variablen
+(`safe-environment.ts`) und gilt ohne Angabe, also im Executor des Servers, dessen Umgebung
+Geheimnisse anderer Benutzer trägt. `"inherited"` ist die ganze Umgebung des Prozesses ohne
+`VSCODE_*`, `ELECTRON_*`, `BASH_ENV` und `ENV` (`inheritedProcessEnvironment`); sie nimmt der
+Arbeitsplatz (`WorkspaceClient`), der auf dem eigenen Rechner des Entwicklers läuft, damit dessen
+Werkzeuge, Toolchain-Variablen und Anmeldungen genauso wirken wie in seinem Terminal. Die ersten
+beiden Ausschlüsse teilt die Erweiterung für ihre Kindprozesse (`editorFreeEnvironment`), die
+letzten beiden halten Startdateien des Benutzers aus `bash -c` heraus. `HOME`, `USERPROFILE`,
+Run-Marker, Git-Regeln und die Zusätze des Runs überschreiben die Grundlage in beiden Fällen. Vom
+Server kommt nur, was ortsunabhängig ist:
 Run-Marker, `CI`, `GIT_OPTIONAL_LOCKS` und die Git-Regeln der Sandbox. Git-Zugangsdaten und
 Toolchain-Pfade des Servers wandern nicht in eine fremde Bash. Ein Executor sieht ausschließlich
 die Ordner seiner Maschine: im Server die Wurzel des Runs (bei einem Run auf einem Arbeitsplatz
@@ -2848,8 +2888,10 @@ dort und ohne diese Variablen. Eine Bash sieht nie beide Maschinen; eine eigene 
 auf den Server gibt es nicht, weil er den Node-Prozessen gleicht, die ein Run dort ohnehin
 startet, und derselben Sandbox folgt. `ragents.workspace`
 liefert dazu einen an `bash` gebundenen Promptbeitrag (`plugins/ragents.workspace/server/shell-platform.ts`):
-macOS mit BSD-Werkzeugen (`grep` ohne `-P`, `sed -i ''`), Linux mit GNU-Werkzeugen, Windows mit
-Git Bash (MSYS-Userland mit GNU-Werkzeugen, Windows-Pfade, CRLF); eine unbekannte Plattform ist
+macOS mit BSD-Werkzeugen (`grep` ohne `-P`, `sed -i ''`, `/bin/bash` 3.2 ohne assoziative Arrays
+und `mapfile`), Linux mit GNU-Werkzeugen, Windows mit der mitgebrachten Bash (MSYS-Userland mit
+GNU-Werkzeugen; `git`, `dotnet` und `node` sind die Windows-Programme des Rechners und nehmen
+Windows-Pfade; CRLF); eine unbekannte Plattform ist
 ein Fehler, kein Ratetext. Genannt wird die Plattform des Executors, der den Run ausführt: auf dem
 Server die des Servers, auf einem Arbeitsplatz die, die er bei der Anmeldung gemeldet hat. Dafür darf ein Prompt-Beitrag ein `renderForRun(runId)` mitbringen; der Server
 ersetzt damit den einmal gerenderten Text je Run (`PromptContribution`,
@@ -2891,12 +2933,32 @@ nur eine nachweislich leere oder vollständig beendete Gruppe gilt als aufgeräu
 Prozesse, eine fehlgeschlagene Statusabfrage und unlesbare Ergebnisse bleiben Fehler. Ein
 solcher beendeter Rest verwirft damit weder Ausgabe noch Exitstatus des eigentlichen Befehls.
 
+Welche Bash das Werkzeug `bash` startet, trägt der Kontext des Executors (`bash` in
+`WorkspaceProcessContext`); `bashLaunch` (`packages/workspace-executor/src/bash-launch.ts`) macht
+daraus den Start `bash --noprofile --norc -c <befehl>`. Unter macOS und Linux gilt ohne Angabe
+`/bin/bash`, sonst `bash` vom `PATH` (`getShellConfig` in `packages/agent/src/utils/shell.ts`);
+ein Ausweg auf `sh` ist ausgeschlossen.
+
 Unter Windows läuft der Executor mit denselben Node-Standard-APIs und ohne eigene
-Plattformschicht. Die Bash kommt aus der Shell-Auflösung des Agent-Pakets
-(`packages/agent/src/utils/shell.ts`): Git Bash aus `%ProgramFiles%\Git\bin\bash.exe`, sonst
-`bash.exe` vom `PATH`, und das alte `System32\bash.exe` bekommt seinen Befehl über stdin. Ohne
-Bash ist der Aufruf ein Fehler mit Anleitung; ein stiller Ausweg auf `sh` ist ausgeschlossen,
-auch unter Unix. Prozessgruppen gibt es dort nicht:
+Plattformschicht. Die Bash ist dort ausschließlich die, die RAgents mitbringt: ein Ausschnitt aus
+dem festgelegten PortableGit-Archiv von Git for Windows mit `bash.exe`, `sh.exe`, coreutils,
+`grep`, `sed`, `gawk`, `find`, `xargs`, den diffutils, `patch`, `tar`, `gzip`, `bzip2`, `unzip`,
+`less`, `file`, `which`, `cygpath`, `dos2unix` und den DLLs, die diese Programme laden, dazu
+`etc/fstab` und ein eigenes `etc/nsswitch.conf` (`db_home: env windows`). Git, Perl, Editoren,
+GnuPG, OpenSSH, OpenSSL und Terminalprogramme gehören nicht dazu; `git` ist das `git.exe` des
+Benutzers vom `PATH`, mit seinem Credential Manager, seiner `~/.gitconfig` und seinem `~/.ssh`.
+Eine Git-Bash-Installation des Benutzers oder ein `bash.exe` vom `PATH` nimmt RAgents nie. Fehlt
+im Kontext die Bash oder liegt sie nicht am genannten Ort, scheitert der Aufruf mit dieser
+Ursache. Den Pfad setzt, wer den Executor baut: die Erweiterung für ihren Arbeitsplatz aus
+`<Erweiterung>/dist/bash/<plattform>-<arch>/usr/bin/bash.exe` und für ihren lokalen Host als
+Umgebungsvariable `RAGENTS_BASH` (Sektion `ragents.workspace`, im Executor des Servers als `bash`
+von `WorkspaceSandboxHost`); `ragents workspace-client` liest `RAGENTS_BASH` ebenso. Vor den
+`PATH` des Prozesses setzt `bashLaunch` das `usr/bin` der Bash, sonst gewännen `find.exe` und
+`sort.exe` aus `System32`; eine andere Schreibweise von `PATH` (`Path`) geht darin auf, und
+`MSYSTEM` fällt weg, weil es einer Git-Bash-Anmeldung gehört. `HOME` und `USERPROFILE` setzt der
+Kontext wie überall. Gebaut wird der Ausschnitt mit `pnpm bundle:bash`
+(`scripts/vscode/bundle-bash.ts`, Einzelheiten in `docs/development.md`). Prozessgruppen gibt es
+unter Windows nicht:
 statt eines Signals an die negative PID beendet `taskkill /T /F` den Prozessbaum
 (`killProcessTree` im Agent-Paket), und weil taskkill nebenher läuft, gibt es keine Zusage, wann
 der letzte Enkel weg ist; eine Frist vor SIGKILL entfällt damit ebenfalls. Der Datenordner liegt
@@ -3154,9 +3216,10 @@ und beenden den zugehörigen verwalteten Prozess. Prozessstart, Dokumentabgleich
 Diagnostik bleiben beim gemeinsamen Language-Server-Client.
 
 - Je Plugin drei native Werkzeuge: `<id>_open(root)`, `<id>_diagnostics(paths?, root?, warnings?)`
-  und `<id>_close(root?)`. Der Server startet durch einen ausdrücklichen Funktionsaufruf eines
-  Agenten oder vorbereiteten Actor-Programms. Produktspezifische Wurzeln gehören zum aufrufenden
-  Plugin, nicht zum Host.
+  und `<id>_close(root?)`, mit Solutions ein viertes, `<id>_solutions`. Der Server startet durch
+  einen ausdrücklichen Funktionsaufruf eines Agenten oder vorbereiteten Actor-Programms, durch die
+  Auswahl im Reiter oder, wo eingeschaltet, beim Start des Runs (Solutions, unten).
+  Produktspezifische Wurzeln gehören zum aufrufenden Plugin, nicht zum Host.
 - Der Schlüssel einer Instanz ist Run PLUS Wurzel, nicht der Run allein: `<id>_open` startet eine
   Instanz für genau diese Wurzel, wenn es sie noch nicht gibt, und lässt die übrigen Instanzen
   desselben Runs stehen. Für dieselbe Wurzel ist der Aufruf idempotent. Die Rückgabe nennt die
@@ -3195,6 +3258,51 @@ Diagnostik bleiben beim gemeinsamen Language-Server-Client.
   beenden sie; Run-Stopp und Shutdown beenden alle Instanzen des Runs. Kein Journal-Zustand: nach
   einem Host-Neustart ist nichts geöffnet, `<id>_diagnostics` scheitert hart, die Annotation
   bleibt still.
+- Solutions: Ein Adapter mit `solutionExtensions` (heute nur Roslyn mit `.sln` und `.slnx`; FSAC
+  und TypeScript nicht) bekommt die Operationen `<id>_solutions` und `<id>_switch` und das
+  Werkzeug `<id>_solutions`. Die Suche läuft im Executor mit `git ls-files --cached --others
+  --exclude-standard` in der Wurzel des Arbeitsbereichs, also verfolgte und neue, nicht ignorierte
+  Dateien, ohne Pfade unter `node_modules`, `bin` und `obj`, nur vorhandene Dateien innerhalb des
+  Arbeitsbereichs. Ohne Git-Arbeitsverzeichnis durchsucht sie den Ordner selbst, sechs Ebenen tief
+  und ohne versteckte Ordner, und sagt das (`source: "directory"`). Jede Solution nennt ihren Pfad
+  relativ zur Wurzel, ihre aufgelöste Wurzel und ihren Zustand im Run (`null` für nicht offen);
+  `opened` sagt, ob schon eine Instanz offen ist oder gerade geöffnet wird. `<id>_open` bleibt
+  additiv: das Modell lädt weitere Solutions dazu.
+- `<id>_open` nimmt für Plugins `ifNoneOpen: true` an: Prüfen und Belegen geschehen im Executor ohne
+  Unterbrechung. Läuft schon ein Öffnen des Runs, auch eines, das noch seinen Pfad auflöst, oder ist
+  eine Instanz da, auch eine gescheiterte oder nach Leerlauf beendete, lädt der Aufruf nichts und
+  sagt das.
+- Umschalten: `<pluginId>.switch` (Rechte `runs.read`, `runs.write`, `<pluginId>.read` und
+  `<pluginId>.write`) lädt die gewählte Solution, beendet jede andere Instanz des Runs und wartet
+  nicht auf das Laden, damit keine Anfrage minutenlang offen bleibt; eine schon geladene bleibt,
+  `root: null` beendet alle. `<pluginId>.solutions` (Rechte `runs.read` und `<pluginId>.read`)
+  liefert die Liste. Beide prüfen vorher mit `workspaceGuardToken` Run und Zugang wie der
+  Schnappschuss. Der Reiter zeigt über den Instanzen die Auswahl "Solution" mit "Keine" und jeder
+  gefundenen Solution; sie steht auf der einen offenen Solution, auf "Keine" oder zeigt mehrere
+  beziehungsweise eine andere offene Wurzel an. Ohne Schreibrechte ist sie gesperrt. Ob ein Plugin
+  Solutions kennt, sagt dem Web `clientConfig.solutions`.
+- Solution beim Start: `ragents.lsp-roslyn` lädt mit `ROSLYN_SOLUTION_ON_START: "on"` (ohne Angabe
+  `"off"`, jeder andere Wert bricht den Start ab) beim Start eines Runs die Solution. Es hängt sich
+  in den Lebenszyklus-Haken `sessionStarted` (Abschnitt Zuständigkeit je Facette) und schreibt
+  zuerst einen Merker als Plugin-Zustand des Runs ins Journal; steht er schon da, tut es nichts,
+  auch nach einem Neustart des Hosts. Ein Start über ein Run-Script (`startEntry.action` ist
+  `script`) bekommt den Merker und sonst nichts: das Script lädt selbst, was es braucht, und niemand
+  wird gefragt. Sonst listet es die Solutions über den Executor, der den Arbeitsbereich schon
+  bereitgestellt hat. Keine oder eine schon offene oder öffnende Instanz: nichts. Genau eine: sie
+  wird mit `ifNoneOpen` geladen, ein gleichzeitiges Öffnen durch Modell, Script oder Reiter kann
+  also nichts doppelt starten. Mehrere: eine Rückfrage über `ragents.ask` mit jeder Solution und
+  "Keine laden", gestellt, bevor der Haken zurückkehrt und damit vor dem ersten Input des Runs.
+  Außerhalb eines Turns darf nur der Eigentümer des Runs Befehle geben, deshalb fragt er, und die
+  Frage trägt den Koordinator als `recipient`: sie steht im Chat des Koordinators ohne Namen davor
+  und in seiner Karte. Die Antwort lädt die gewählte Solution, "Keine laden" und Verwerfen laden
+  nichts, eine freie Antwort geht als Input an den Koordinator. Nach einem Neustart wartet niemand
+  mehr auf die Frage; `ragents.ask` reicht die Antwort dann an den `recipient`, und der Koordinator
+  lädt selbst mit `<id>_open`. Stopp und Löschen des Runs verwerfen eine offene Frage. Öffnet
+  jemand eine Instanz, solange die Frage offen ist (Modell oder Actor-Programm mit `<id>_open`,
+  Umschalten im Reiter), verwirft das Plugin sie mit `AskService.withdraw`: der wartende Aufruf
+  bekommt die Verwurfsantwort, lädt nichts und reicht nichts weiter, auch nach einem Neustart
+  nicht. Den Anlass meldet der Rahmen über `onOpened` von `createLanguageServerPlugin` nach jedem
+  erfolgreichen Öffnen über das Werkzeug oder `<pluginId>.switch` mit einer Solution.
 - Fehler immer, Warnungen nur gezählt (auf Anfrage gelistet), gedeckelt bei 30 Zeilen.
 - Der TypeScript-Adapter setzt `publishesOnlyChangedDiagnostics`: weil
   typescript-language-server bei unverändert leerer Diagnostik nach `didChange` nichts
@@ -3614,7 +3722,12 @@ Recht) liefert das Archiv; ein anderer Stand ist 404. Die Gegenseite ist `ragent
   `EnvHttpProxyAgent is experimental` auf stderr. Die Bibliothek ist eine Forschungsvorschau
   (Fassung 0.0.x). Unter Linux in einem Container braucht bubblewrap Benutzer-Namensräume, also
   gelockerte Container-Profile (`docs/operations.md`).
-- Unter Windows brauchen `scripts/start.sh` und die übrigen Shellskripte des Repositorys Git
-  Bash. Geprüft ist die Plattform nur in Unit-Tests, die sie simulieren (Shell-Auflösung,
-  Datenordner, Umgebung, Promptbeitrag, Ablehnung der Prozesstabelle); der echte Durchlauf steht in
-  `TODO.md`.
+- Unter Windows brauchen `scripts/start.sh` und die übrigen Shellskripte des Repositorys eine
+  eigene Bash des Entwicklers (etwa Git Bash); die mitgebrachte Bash gilt nur für das Werkzeug
+  `bash` der Runs. Ohne Erweiterung (`ragents start`, `ragents workspace-client` aus dem npm-Paket)
+  gibt es unter Windows keine mitgebrachte Bash; dort muss `RAGENTS_BASH` auf eine solche
+  `bash.exe` zeigen, etwa aus einer installierten Windows-Fassung der Erweiterung. Die mitgebrachte
+  Bash für win32-arm64 besteht aus denselben x64-Programmen wie für win32-x64, weil MSYS2 kein
+  natives ARM64-Userland hat; sie läuft in der Emulation von Windows. Geprüft ist die Plattform nur
+  in Unit-Tests, die sie simulieren (Shell-Auflösung, Datenordner, Umgebung, Promptbeitrag,
+  Ablehnung der Prozesstabelle); der echte Durchlauf steht in `TODO.md`.

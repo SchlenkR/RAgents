@@ -11,6 +11,10 @@ export const languageServerCloseOperation = (adapterId: string): string => `${ad
 
 export const languageServerSnapshotOperation = (adapterId: string): string => `${adapterId}_snapshot`;
 
+export const languageServerSolutionsOperation = (adapterId: string): string => `${adapterId}_solutions`;
+
+export const languageServerSwitchOperation = (adapterId: string): string => `${adapterId}_switch`;
+
 const messageOf = (error: unknown): string => error instanceof Error ? error.message : String(error);
 
 const settledAll = async (operations: readonly Promise<void>[]): Promise<void> => {
@@ -34,6 +38,18 @@ const optionalRoot = (operation: string, value: unknown): string | undefined => 
   return value;
 };
 
+const solutionOperationsOf = (server: LanguageServerHost): Array<readonly [string, WorkspaceOperation]> => {
+  const change = languageServerSwitchOperation(server.adapter.id);
+  return [
+    [languageServerSolutionsOperation(server.adapter.id), ({ runId }) => server.solutions(runId)],
+    [change, ({ runId, input }) => {
+      const { root } = fieldsOf(change, input);
+      if (root !== null && typeof root !== "string") throw invalid(change, "root muss ein Text oder null sein");
+      return server.switchTo(runId, root);
+    }],
+  ];
+};
+
 const operationsOf = (server: LanguageServerHost): Array<readonly [string, WorkspaceOperation]> => {
   const { id } = server.adapter;
   const open = languageServerOpenOperation(id);
@@ -41,9 +57,11 @@ const operationsOf = (server: LanguageServerHost): Array<readonly [string, Works
   const diagnostics = languageServerDiagnosticsOperation(id);
   return [
     [open, ({ runId, input }) => {
-      const root = optionalRoot(open, fieldsOf(open, input).root);
-      if (root === undefined) throw invalid(open, "root fehlt");
-      return server.open(runId, root);
+      const { root, ifNoneOpen } = fieldsOf(open, input);
+      const checked = optionalRoot(open, root);
+      if (checked === undefined) throw invalid(open, "root fehlt");
+      if (ifNoneOpen !== undefined && typeof ifNoneOpen !== "boolean") throw invalid(open, "ifNoneOpen muss true oder false sein");
+      return server.open(runId, checked, ifNoneOpen ?? false);
     }],
     [close, ({ runId, input }) => server.close(runId, optionalRoot(close, fieldsOf(close, input).root))],
     [diagnostics, ({ runId, input }) => {
@@ -53,6 +71,7 @@ const operationsOf = (server: LanguageServerHost): Array<readonly [string, Works
       return server.diagnostics(runId, paths as readonly string[] | undefined, warnings ?? false, optionalRoot(diagnostics, root));
     }],
     [languageServerSnapshotOperation(id), ({ runId }) => server.snapshot(runId)],
+    ...server.adapter.solutionExtensions ? solutionOperationsOf(server) : [],
   ];
 };
 
@@ -66,7 +85,7 @@ const footprintsOf = (server: LanguageServerHost): Array<readonly [string, (inpu
   ];
 };
 
-/** Die Sprachserver dieser Maschine: je Adapter Öffnen, Diagnostik, Schließen und Stand, dazu die Diagnostik geschriebener Dateien. */
+/** Die Sprachserver dieser Maschine: je Adapter Öffnen, Diagnostik, Schließen und Stand, mit Solutions auch Suche und Umschalten, dazu die Diagnostik geschriebener Dateien. */
 export const languageServerModule = (
   adapters: readonly LanguageServerAdapter[],
   options: LanguageServerHostOptions = {},

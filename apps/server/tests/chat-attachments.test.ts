@@ -42,7 +42,7 @@ const fixture = async (input: readonly string[]) => {
     id: "attachment-run", engine,
     coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "coordinator", runTitle: "Attachments", ownerHandle: "owner", ownerDisplayName: "Owner" },
     prompt: () => "Test", assertUsable: () => undefined, prepare: async () => undefined,
-    prepareWorkspace: async () => undefined, scriptEntryFor: () => undefined, startEntryFor: () => undefined,
+    prepareWorkspace: async () => undefined, started: async () => undefined, scriptEntryFor: () => undefined, startEntryFor: () => undefined,
     actorPrograms: unavailableActorPrograms,
   });
   const session = create();

@@ -81,18 +81,13 @@ export function createLocalBashOperations(options?: { shellPath?: string }): Bas
 				throw new Error(`Working directory does not exist: ${cwd}\nCannot execute bash commands.`);
 			}
 
-			const commandFromStdin = shellConfig.commandTransport === "stdin";
-			const child = spawn(shellConfig.shell, commandFromStdin ? shellConfig.args : [...shellConfig.args, command], {
+			const child = spawn(shellConfig.shell, [...shellConfig.args, command], {
 				cwd,
 				detached: process.platform !== "win32",
 				env: env ?? process.env,
-				stdio: [commandFromStdin ? "pipe" : "ignore", "pipe", "pipe"],
+				stdio: ["ignore", "pipe", "pipe"],
 				windowsHide: true,
 			});
-			if (commandFromStdin) {
-				child.stdin?.on("error", () => {});
-				child.stdin?.end(command);
-			}
 			let timedOut = false;
 			let timeoutHandle: NodeJS.Timeout | undefined;
 			const onAbort = () => {

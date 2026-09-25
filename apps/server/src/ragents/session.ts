@@ -21,6 +21,7 @@ import {
   type RegisteredStartOption,
   type RunScriptPackage,
   type RunView,
+  type SessionStartedContext,
   type StartOptionContext,
   type AgentExecution,
   type ModelSelection,
@@ -70,14 +71,15 @@ const messageOf = (error: unknown): string => error instanceof Error ? error.mes
 
 const userIdOf = (user: ChatUser | undefined): string | null => user?.id ?? null;
 
-/** Wer einen Run startet und welche Startoptionen seine Vorlage festlegt. */
+/** Wer einen Run startet, über welche Vorlage und welche Startoptionen sie festlegt. */
 interface StartChoice {
   readonly userId: string | null;
+  readonly entry: SessionStartedContext["startEntry"];
   readonly fixed: ReadonlyMap<string, JsonValue>;
 }
 
 /** Ein Start ohne Vorlage legt nichts fest. */
-const freeChoice = (userId: string | null): StartChoice => ({ userId, fixed: new Map() });
+const freeChoice = (userId: string | null): StartChoice => ({ userId, entry: null, fixed: new Map() });
 
 /** A script template together with the package the host installs when it is clicked. */
 export type RunScriptStart = RunScriptPackage & { entry: PublicStartEntry };
@@ -94,6 +96,8 @@ export interface RunChatSessionOptions {
   assertUsable: (id: string) => void;
   prepare: (id: string, emitSystem: (text: string) => void) => Promise<void>;
   prepareWorkspace: (id: string, emitSystem: (text: string) => void) => Promise<void>;
+  /** Nach dem Aufbau des ersten Actors im vorbereiteten Arbeitsbereich, bevor ein Actor Input bekommt. */
+  started: (id: string, startEntry: SessionStartedContext["startEntry"]) => Promise<void>;
   scriptEntryFor: (entryId: string) => RunScriptStart | undefined;
   startEntryFor: (entryId: string) => PublicStartEntry | undefined;
   actorPrograms: ActorProgramsService;
@@ -111,6 +115,7 @@ export class RunChatSession implements ChatSessionLike {
   readonly #assertUsable: (id: string) => void;
   readonly #prepare: (id: string, emitSystem: (text: string) => void) => Promise<void>;
   readonly #prepareWorkspace: (id: string, emitSystem: (text: string) => void) => Promise<void>;
+  readonly #started: (id: string, startEntry: SessionStartedContext["startEntry"]) => Promise<void>;
   readonly #scriptEntryFor: (entryId: string) => RunScriptStart | undefined;
   readonly #startEntryFor: (entryId: string) => PublicStartEntry | undefined;
   readonly #actorPrograms: ActorProgramsService;
@@ -144,6 +149,7 @@ export class RunChatSession implements ChatSessionLike {
     this.#assertUsable = options.assertUsable;
     this.#prepare = options.prepare;
     this.#prepareWorkspace = options.prepareWorkspace;
+    this.#started = options.started;
     this.#scriptEntryFor = options.scriptEntryFor;
     this.#startEntryFor = options.startEntryFor;
     this.#actorPrograms = options.actorPrograms;
@@ -232,7 +238,7 @@ export class RunChatSession implements ChatSessionLike {
       }
       return [optionId, accepted] as const;
     }));
-    return { userId, fixed };
+    return { userId, entry: { id: entry.id, action: entry.action }, fixed };
   }
 
   #skillEntry(entryId: string): PublicStartEntry {
@@ -623,6 +629,8 @@ export class RunChatSession implements ChatSessionLike {
     await this.#prepareWorkspace(this.id, this.#emitSystem());
     this.#assertUsable(this.id);
     this.#ensureCoordinatorAsPrimary(choice);
+    await this.#started(this.id, choice.entry);
+    this.#assertUsable(this.id);
   }
 
   async #startWithScript(found: RunScriptStart, input: JsonValue | null, signal: AbortSignal, user: ChatUser | undefined, choice: StartChoice): Promise<void> {
@@ -650,6 +658,8 @@ export class RunChatSession implements ChatSessionLike {
       this.#engine.runtime.selectPrimaryActor({actorId: state.ownerId, commandId: `run-script-primary:${this.id}`}, this.id, installed.actorId);
       this.#bind(installed.actorId);
     }
+    await this.#started(this.id, choice.entry);
+    this.#assertUsable(this.id);
     const options = Object.fromEntries(this.#engine.startOptions.entries()
       .map((option) => [option.option.id, this.#startValueOf(option, choice)]));
     signal.throwIfAborted();

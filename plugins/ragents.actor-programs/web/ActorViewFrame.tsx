@@ -1,3 +1,4 @@
+import { hostInputEnabled, isRunPanelKeyboardMessage, relayFrameInput } from "@ragents/web/run-panel/input-bridge";
 import { useAccess } from "@ragents/web/AccessContext";
 import { cn } from "@ragents/web/ui";
 import { useResolvedTheme } from "@ragents/web/theme";
@@ -201,6 +202,9 @@ export function ActorViewFrame({
     installedApp: RunApp,
   ) => {
     if (generation !== bridgeGenerationRef.current || port !== portRef.current) return;
+    if (relayFrameInput(window, value, (message) => {
+      if (generation === bridgeGenerationRef.current && port === portRef.current) port.postMessage(message);
+    })) return;
     const message = value as { type?: unknown; version?: unknown } | null;
     if (message?.type === RUN_APP_CONNECTED && message.version === RUN_APP_BRIDGE_VERSION) {
       bridgeConnectedRef.current = true;
@@ -290,6 +294,7 @@ export function ActorViewFrame({
       type: RUN_APP_READY,
       version: RUN_APP_BRIDGE_VERSION,
       theme: themeRef.current,
+      hostInput: hostInputEnabled(window),
       app: {
         id: installedApp.id,
         actorId: installedApp.actorId,
@@ -319,11 +324,11 @@ export function ActorViewFrame({
       else pendingPort = port;
     };
     const receiveReady = (event: MessageEvent<unknown>) => {
-      const data = event.data as { type?: unknown; version?: unknown; token?: unknown } | null;
+      const data = event.data as { type?: unknown; version?: unknown; token?: unknown; keyboard?: unknown } | null;
       if (event.source === frame.contentWindow && event.origin === "null"
         && data?.type === "ragents.app.escape" && data.version === RUN_APP_BRIDGE_VERSION
         && data.token === bridgeToken) {
-        window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+        window.dispatchEvent(new KeyboardEvent("keydown", { ...(isRunPanelKeyboardMessage(data.keyboard) ? data.keyboard.event : { key: "Escape" }), bubbles: true, cancelable: true }));
         return;
       }
       if (event.source !== frame.contentWindow

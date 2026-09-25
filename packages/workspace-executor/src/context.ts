@@ -1,7 +1,7 @@
 import { withGitConfigPairs, type GitConfigPairs } from "./git-config-environment.js";
 import type { ProcessSandbox } from "./process-sandbox.js";
 import { RUN_MARKER_ENV } from "./run-marker.js";
-import { safeProcessEnvironment } from "./safe-environment.js";
+import { inheritedProcessEnvironment, safeProcessEnvironment } from "./safe-environment.js";
 import type { SessionIdent } from "./session-ident.js";
 import type { ResolvedWorkspaceRoot } from "./paths.js";
 
@@ -25,6 +25,8 @@ export interface WorkspaceProcessContext {
   runOperation?: <T>(operation: () => Promise<T>) => Promise<T>;
   /** Die Prozess-Sandbox dieses Runs; fehlt sie, starten Prozesse ohne. */
   sandbox?: ProcessSandbox;
+  /** Die Bash, mit der das Werkzeug bash startet; unter Windows Pflicht, sonst gilt ohne Angabe die des Systems. */
+  bash?: string;
 }
 
 export interface SandboxHomeEnvironment {
@@ -32,7 +34,12 @@ export interface SandboxHomeEnvironment {
   nugetPackages?: string;
 }
 
+/** Woraus die Umgebung eines Prozesses entsteht: "safe" nimmt nur die sichere Auswahl (Server), "inherited" alles außer Editor-Variablen und Bash-Startdateien (eigener Rechner). */
+export type BaseEnvironment = "safe" | "inherited";
+
 export interface SandboxEnvironmentOptions {
+  /** Ohne Angabe "safe": wer nichts wählt, gibt nur die sichere Auswahl weiter. */
+  base?: BaseEnvironment;
   home: SandboxHomeEnvironment;
   ident?: { name: string };
   pathVariables?: Readonly<Record<string, string>>;
@@ -66,12 +73,12 @@ export const sandboxRunEnvironment = (runId: string, workspace: {
 const accountEnvironment = (source: NodeJS.ProcessEnv, ident: { name: string } | undefined): Record<string, string> =>
   ident ? { USER: ident.name, LOGNAME: ident.name } : onlyStrings({ USER: source.USER, LOGNAME: source.LOGNAME });
 
-/** Die Umgebung eines Sandbox-Prozesses: die sichere Umgebung dieser Maschine plus die Beiträge des Runs. */
+/** Die Umgebung eines Sandbox-Prozesses: die gewählte Grundlage dieser Maschine plus die Beiträge des Runs. */
 export const sandboxEnvironment = (
   source: NodeJS.ProcessEnv,
-  { home, ident, pathVariables, additions }: SandboxEnvironmentOptions,
+  { base = "safe", home, ident, pathVariables, additions }: SandboxEnvironmentOptions,
 ): NodeJS.ProcessEnv => ({
-  ...safeProcessEnvironment(source),
+  ...(base === "inherited" ? inheritedProcessEnvironment(source) : safeProcessEnvironment(source)),
   HOME: home.home,
   USERPROFILE: home.home,
   ...accountEnvironment(source, ident),
@@ -94,6 +101,8 @@ export interface WorkspaceContextOptions {
   runOperation?: <T>(operation: () => Promise<T>) => Promise<T>;
   sandbox?: ProcessSandbox;
   source?: NodeJS.ProcessEnv;
+  baseEnvironment?: BaseEnvironment;
+  bash?: string;
 }
 
 const namedEntries = (
@@ -128,6 +137,7 @@ export const workspaceProcessContext = (options: WorkspaceContextOptions): Works
     logDirectory: options.logDirectory,
     hostRoot: options.hostRoot,
     env: sandboxEnvironment(options.source ?? process.env, {
+      ...(options.baseEnvironment === undefined ? {} : { base: options.baseEnvironment }),
       home: options.home,
       ...(options.ident ? { ident: options.ident } : {}),
       pathVariables,
@@ -140,5 +150,6 @@ export const workspaceProcessContext = (options: WorkspaceContextOptions): Works
     pathVariables,
     ...(options.runOperation === undefined ? {} : { runOperation: options.runOperation }),
     ...(options.sandbox === undefined ? {} : { sandbox: options.sandbox }),
+    ...(options.bash === undefined ? {} : { bash: options.bash }),
   };
 };

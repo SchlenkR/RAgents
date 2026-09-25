@@ -153,7 +153,7 @@
         radial-gradient(ellipse at 28% 0%, #c4b0dfb3, transparent 58%),
         radial-gradient(ellipse at 88% 100%, #efd3c6a6, transparent 52%),
         linear-gradient(135deg, #edf0f2, #e1dbe8);
-    --backdrop: #28213966;
+    --backdrop: #00000066;
     --glass-agent: #eec4b1;
     --glass-primary: #dcd0e8;
     --glass-script: #e9dca1;
@@ -207,7 +207,7 @@
         radial-gradient(ellipse at 28% 0%, #59446f99, transparent 58%),
         radial-gradient(ellipse at 88% 100%, #694c443d, transparent 52%),
         linear-gradient(135deg, #252b35, #302735);
-    --backdrop: #14101eb3;
+    --backdrop: #00000099;
     --glass-agent: #594039;
     --glass-primary: #47394f;
     --glass-script: #4d462b;

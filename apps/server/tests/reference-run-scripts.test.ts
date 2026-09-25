@@ -137,7 +137,7 @@ test("the balcony setup builds its advisor, view and surface through native core
   const session = new RunChatSession({
     engine, id: "balcony-reference-run",
     coordinator: { handle: "coordinator", displayName: "Koordinator", profile: "coordinator", runTitle: "Balkon-Wizard", ownerHandle: "owner", ownerDisplayName: "Owner" },
-    prompt: () => "Unexpected coordinator", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {},
+    prompt: () => "Unexpected coordinator", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {}, started: async () => {},
     scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: host.service(actorProgramsToken),
   });
   try {
@@ -210,7 +210,7 @@ for (const sample of ["word-game", "learning-afternoon"]) {
     const session = new RunChatSession({
       engine, id: `reference-${sample}`,
       coordinator: { handle: "coordinator", displayName: "Koordinator", profile: "coordinator", runTitle: entry.title, ownerHandle: "reader", ownerDisplayName: "Reader" },
-      prompt: () => "Unexpected coordinator", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {},
+      prompt: () => "Unexpected coordinator", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {}, started: async () => {},
       scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: programs,
     });
     try {

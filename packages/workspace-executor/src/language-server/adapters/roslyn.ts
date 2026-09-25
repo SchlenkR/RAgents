@@ -26,6 +26,7 @@ export const roslynAdapter: LanguageServerAdapter = {
   label: "Roslyn",
   languages,
   rootDescription: "the .sln file (or a single .csproj)",
+  solutionExtensions: [".sln", ".slnx"],
   resolveRoot: (workspaceRoot, root) => resolveRootFile(workspaceRoot, root, [".sln", ".slnx", ".csproj"]),
   rootDirectory: (root) => path.dirname(root),
   launch: async (context, root) => ({

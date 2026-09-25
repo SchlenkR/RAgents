@@ -4,7 +4,7 @@ import {
   type WebPluginDescriptor,
 } from "@ragents/web/PluginRegistry";
 import { runViewFrom, type RunView } from "@ragents/web/run-view";
-import { ASK_PLUGIN_ID } from "../ask-payload";
+import { askPayloadOf, ASK_PLUGIN_ID } from "../ask-payload";
 import { AskActionView } from "./AskActionView";
 import { QuestionSection } from "./QuestionSection";
 
@@ -22,7 +22,7 @@ const attentionFor = (session: SessionContext) => {
   return {
     active: true as const,
     label: rest.length === 0
-      ? `@${askerHandle(view, first.askedBy)} fragt`
+      ? `@${askerHandle(view, askPayloadOf(first.payload)?.recipient ?? first.askedBy)} fragt`
       : `${rest.length + 1} Rückfragen offen`,
   };
 };

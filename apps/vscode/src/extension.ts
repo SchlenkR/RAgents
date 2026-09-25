@@ -8,7 +8,7 @@ import { prepareProfile } from "../../../scripts/remote/connect";
 import { ensureHostLinks } from "../../../scripts/package/host-links.mjs";
 import { connectionSecretKey, connectionSetting, connectionsLocation, describeConnection, isProfileFile, parseConnections, profileFilesIn, profileNameOf, resolveHostPath, type Connection, type ConnectionsLocation } from "./connections";
 import { DOCUMENT_SCHEME, journalUri, RunDocuments } from "./documents";
-import { ensureHostPackage, hostCommand, inheritedEnvironment, packagedHostVersion, provisionTools, startHost, type RunningHost } from "./host-process";
+import { bundledBash, ensureHostPackage, hostCommand, inheritedEnvironment, packagedHostVersion, provisionTools, startHost, type RunningHost } from "./host-process";
 import { connectedCount, connectionView, newRunChoices, panelState, pendingActions, preselectable, resolveConnection, type NewRunChoice } from "./overview-model";
 import type { ServerClient } from "./server-client";
 import { ConnectionSession, type ConnectionSnapshot, type LaunchedConnection, type SessionServices } from "./sessions";
@@ -338,6 +338,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     report("Host starten ...");
     const host = await startHost({
       profile: profileNameOf(profileFile), profileFile, dataDirectory, environment, log, command: hostCommand(hostPath, environment),
+      bash: bundledBash(context.extensionPath),
     });
     log(`== Host läuft unter ${host.url} (PID ${host.pid}, Profil ${profileFile}, Daten ${dataDirectory})`);
     await context.globalState.update(HOST_PATH_KEY, hostPath);
@@ -388,6 +389,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
   const services: SessionServices = {
     workspaceClient: (transport) => new WorkspaceClient(transport, identity(), {
       hostRoot: knownHost,
+      bash: bundledBash(context.extensionPath),
       onExecuted: ({ runId, operation, durationMs, error }) => log(`== ${runId.slice(0, 8)} ${operation} ${durationMs} ms ${error ?? "ok"}`),
     }),
     secrets: context.secrets,

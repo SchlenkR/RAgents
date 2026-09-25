@@ -558,7 +558,9 @@ Standardwert oder der Wert der Vorlage. Dieselben Rechte gelten für die Modellw
 Chat-Eingabe eines laufenden Runs, die derselbe Aufruf ist; ohne sie fehlt dort die Auswahl. Fachliche
 Zustände und Mini-App-Aktionen bleiben verfügbar, einschließlich der Ergebnisabfrage laufender
 App-Aktionen. Language-Server-Ansichten verwenden ihr eigenes `<pluginId>.read`; damit lassen sich
-Diagnosen unabhängig von Modell- und Werkzeugdetails freigeben.
+Diagnosen unabhängig von Modell- und Werkzeugdetails freigeben. Eine Solution im Reiter umschalten
+verlangt zusätzlich `runs.write` und `<pluginId>.write`, weil es Sprachserver des Runs beendet und
+startet.
 
 `runs.trace` gibt ohne die übrige technische Einsicht die Denk- und Werkzeugschritte des Chats
 mit Inhalt frei und erlaubt dem Benutzer, ihren Detailgrad selbst zu wählen. Ohne dieses Recht

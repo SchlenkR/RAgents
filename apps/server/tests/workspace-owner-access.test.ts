@@ -102,6 +102,8 @@ test("Dateien-Reiter, Prozessanzeige und Sprachserver prüfen den Zugang zum Arb
     ["ragents.processes.snapshot", { runId }],
     ["ragents.processes.stop", { runId, processId: `1-${"0".repeat(64)}` }],
     ...snapshotMethods.map((method) => [method, { runId }] as const),
+    ["ragents.lsp-roslyn.solutions", { runId }],
+    ["ragents.lsp-roslyn.switch", { runId, root: null }],
   ];
   const channels = (runId: string): ReadonlyArray<readonly [string, unknown]> => [
     ["ragents.workspace.browse", { runId, root: "workspace" }],

@@ -108,6 +108,9 @@ const fixture = (runId: string, contributions: readonly StartOptionContribution[
     prepareWorkspace: async () => {
       prepared.push(`workspace:${journal.stateOf(runId) === null ? "before-run" : "after-run"}`);
     },
+    started: async (_id, startEntry) => {
+      prepared.push(`started:${startEntry?.id ?? "free"}:${journal.stateOf(runId)?.inputs.size}`);
+    },
     scriptEntryFor: (entryId) => scriptStartOf(entries.find((entry) => entry.id === entryId)),
     startEntryFor: (entryId) => entries.find((entry) => entry.id === entryId),
     actorPrograms: unavailableActorPrograms,
@@ -235,7 +238,7 @@ test("a plugin option travels into the journal at start and is locked afterwards
     assert.ok(state);
     assert.equal(storedStartOption(state, "test.workspace.source"), "clone");
     assert.deepEqual(storedStartOption(state, modelStartOptionId), { model: "fast", thinking: "off" });
-    assert.deepEqual(prepared, ["prepare", "workspace:after-run"]);
+    assert.deepEqual(prepared, ["prepare", "workspace:after-run", "started:free:0"]);
     const view = runtime.view(runId);
     const primary = view.actors.find((actor) => actor.id === view.primaryActorId);
     assert.ok(primary && primary.kind === "agent");

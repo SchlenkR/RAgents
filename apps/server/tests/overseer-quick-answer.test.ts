@@ -36,7 +36,7 @@ const fixture = (runId = coordinatorRunId("alice")) => {
     const session = new RunChatSession({
     engine: { runtime, journal, live: new LiveBus(), scheduler: { isRunning: () => false } } as unknown as Engine,
     id: runId, coordinator: { handle: "coordinator", displayName: "Koordinator", profile: "coordinator", runTitle: "Coordinator", ownerHandle: "owner", ownerDisplayName: "Owner" },
-    prompt: () => "", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {},
+    prompt: () => "", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {}, started: async () => {},
     scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: unavailableActorPrograms,
     });
     sessions.push(session);

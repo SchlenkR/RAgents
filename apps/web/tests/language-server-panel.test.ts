@@ -9,6 +9,7 @@ import { buildSync } from "esbuild";
 import type {
   LanguageServerInstanceSnapshot,
   LanguageServerSnapshot,
+  LanguageServerSolutions,
 } from "../../server/src/plugin-support/language-server/contract";
 
 const module = { exports: {} };
@@ -84,4 +85,36 @@ test("every open root of the run gets its own card with root, state and diagnost
   assert.match(html, /1 Fehler, 0 Warnungen in 1 Datei/);
   assert.doesNotMatch(html, /Kein Sprachserver/);
   assert.match(render({ instances: [instance()] }), /1 Instanz/);
+});
+
+const solutions: LanguageServerSolutions = {
+  source: "git",
+  solutions: [
+    { path: "src/Demo.sln", root: "/workspace/src/Demo.sln", state: null },
+    { path: "tools/Acme.slnx", root: "/workspace/tools/Acme.slnx", state: null },
+  ],
+  opened: false,
+};
+const withChoice = (state: LanguageServerSnapshot, choice: Partial<import("../src/language-server/language-server-plugin").SolutionChoice> = {}) =>
+  renderToStaticMarkup(createElement(LanguageServerPanelView, {
+    settings: { label: "Language Server", openTool: "language_open" }, snapshot: state, pending: false, onRefresh: () => {},
+    choice: { solutions, switching: false, writable: true, onSwitch: () => {}, ...choice },
+  }));
+
+test("the solution choice names the single open solution, none, or several open instances", () => {
+  const none = withChoice({ instances: [] });
+  assert.match(none, /aria-label="Solution wählen"/);
+  assert.match(none, />Keine</);
+  const one = withChoice({ instances: [instance({ root: "/workspace/tools/Acme.slnx" })] });
+  assert.match(one, /tools\/Acme\.slnx/);
+  const several = withChoice({ instances: [instance({ root: "/workspace/src/Demo.sln" }), instance({ root: "/workspace/tools/Acme.slnx" })] });
+  assert.match(several, /2 Instanzen offen/);
+  assert.match(withChoice({ instances: [instance({ root: "/workspace/src/Single.csproj" })] }), /Andere Wurzel offen/);
+});
+
+test("the solution choice is disabled without write rights, reports errors and an empty workspace", () => {
+  assert.match(withChoice({ instances: [] }, { writable: false }), /Umschalten verlangt Schreibrechte/);
+  assert.match(withChoice({ instances: [] }, { error: "Umschalten fehlgeschlagen" }), /Umschalten fehlgeschlagen/);
+  assert.match(withChoice({ instances: [] }, { solutions: { source: "directory", solutions: [], opened: false } }), /Keine Solution im Arbeitsbereich/);
+  assert.doesNotMatch(render({ instances: [] }), /Solution wählen/);
 });

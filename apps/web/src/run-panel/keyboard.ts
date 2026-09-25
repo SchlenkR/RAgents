@@ -10,25 +10,24 @@ const isLocalEditingKey = (event: KeyboardEvent, element: Element | null): boole
   return (event.metaKey || event.ctrlKey) && !event.altKey && (key === "z" || (!event.shiftKey && ["a", "y"].includes(key)));
 };
 
-export function installKeyboardBridge(browser: Window): () => void {
+export const keyboardMessage = (event: KeyboardEvent, type: "keydown" | "keyup"): RunPanelKeyboardMessage => ({
+  type: "keyboardEvent",
+  event: {
+    type,
+    key: event.key,
+    code: event.code,
+    keyCode: event.keyCode,
+    ctrlKey: event.ctrlKey,
+    metaKey: event.metaKey,
+    shiftKey: event.shiftKey,
+    altKey: event.altKey,
+    repeat: event.repeat,
+  },
+});
+
+export function installKeyboardBridge(browser: Window, send: (message: RunPanelKeyboardMessage) => void = (message) => browser.parent.postMessage(message, "*")): () => void {
   const forwarded = new Set<string>();
-  const post = (event: KeyboardEvent, type: "keydown" | "keyup") => {
-    const message: RunPanelKeyboardMessage = {
-      type: "keyboardEvent",
-      event: {
-        type,
-        key: event.key,
-        code: event.code,
-        keyCode: event.keyCode,
-        ctrlKey: event.ctrlKey,
-        metaKey: event.metaKey,
-        shiftKey: event.shiftKey,
-        altKey: event.altKey,
-        repeat: event.repeat,
-      },
-    };
-    browser.parent.postMessage(message, "*");
-  };
+  const post = (event: KeyboardEvent, type: "keydown" | "keyup") => send(keyboardMessage(event, type));
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.defaultPrevented || event.isComposing || event.keyCode === 229
       || event.key === "Dead" || event.key === "Process" || event.getModifierState("AltGraph")

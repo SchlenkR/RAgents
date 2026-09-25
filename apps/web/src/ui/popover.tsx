@@ -15,7 +15,7 @@ function PopoverContent({
   align = "center",
   alignOffset = 0,
   side = "bottom",
-  sideOffset = 4,
+  sideOffset = 8,
   anchor,
   collisionPadding,
   keepMounted,
@@ -33,7 +33,7 @@ function PopoverContent({
     <PopoverPrimitive.Portal keepMounted={keepMounted}>
       {dim && (
         <PopoverPrimitive.Backdrop
-          className="fixed inset-0 z-[105] bg-black/25 transition-opacity duration-200 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0 dark:bg-black/45"
+          className="fixed inset-0 z-[105] bg-backdrop transition-opacity duration-200 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
           data-slot="popover-backdrop"
         />
       )}

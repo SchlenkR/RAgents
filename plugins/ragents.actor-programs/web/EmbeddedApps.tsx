@@ -1,5 +1,5 @@
 import { useAccess } from "@ragents/web/AccessContext";
-import { cn, Spinner } from "@ragents/web/ui";
+import { Spinner } from "@ragents/web/ui";
 import { isRecord } from "@ragents/web/lib/guards";
 import { runActorFrom } from "@ragents/web/run-view";
 import type {
@@ -11,8 +11,6 @@ import type {
 import { HostConfirmation, pendingConfirmationFor, actorProgramApps, useActorPrograms } from "./AppsPanel";
 import { ActorViewFrame } from "./ActorViewFrame";
 import { FunctionForm } from "./FunctionForm";
-
-const cardClass = "flex h-full min-h-0 min-w-0 flex-col overflow-hidden rounded-panel border border-glass-edge bg-glass-app shadow-card backdrop-blur-[8px] in-data-[tone=material]:rounded-[inherit] in-data-[tone=material]:border-0 in-data-[tone=material]:bg-transparent in-data-[tone=material]:shadow-none in-data-[tone=material]:backdrop-filter-none";
 
 export function ActorProgramToolCardSection({ actor, session }: CardSectionContext) {
   const inspect = useAccess().can("runs.inspect");
@@ -74,7 +72,7 @@ export function ActorProgramSurfaceElement({ definition, session }: SurfaceEleme
     </div>
   );
   return (
-    <article aria-label={title} className={cn(cardClass, "w-full rounded-none border-0 bg-transparent shadow-none backdrop-filter-none")}>
+    <article aria-label={title} className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden">
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden [&>[data-slot=host-confirmation]]:max-h-[65%] [&>[data-slot=host-confirmation]]:flex-[0_1_auto] [&>[data-slot=host-confirmation]]:overflow-auto">
         {confirmation && <HostConfirmation action={confirmation} key={confirmation.id} session={session} />}
         {frame}

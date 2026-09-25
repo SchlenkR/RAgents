@@ -273,6 +273,9 @@
   .inset-0 {
     inset: 0px;
   }
+  .inset-2 {
+    inset: calc(var(--spacing) * 2);
+  }
   .inset-x-0 {
     inset-inline: 0px;
   }
@@ -706,9 +709,6 @@
   .h-1 {
     height: var(--spacing);
   }
-  .h-2\.5 {
-    height: calc(var(--spacing) * 2.5);
-  }
   .h-5 {
     height: calc(var(--spacing) * 5);
   }
@@ -888,9 +888,6 @@
   }
   .w-9 {
     width: calc(var(--spacing) * 9);
-  }
-  .w-10 {
-    width: calc(var(--spacing) * 10);
   }
   .w-72 {
     width: calc(var(--spacing) * 72);
@@ -1174,6 +1171,9 @@
   .animate-fade-pulse {
     animation: var(--animate-fade-pulse);
   }
+  .animate-in {
+    animation: enter var(--tw-animation-duration,var(--tw-duration,.15s))var(--tw-ease,ease)var(--tw-animation-delay,0s)var(--tw-animation-iteration-count,1)var(--tw-animation-direction,normal)var(--tw-animation-fill-mode,none);
+  }
   .animate-progress-sweep {
     animation: var(--animate-progress-sweep);
   }
@@ -1191,9 +1191,6 @@
   }
   .cursor-pointer {
     cursor: pointer;
-  }
-  .cursor-row-resize {
-    cursor: row-resize;
   }
   .touch-none {
     touch-action: none;
@@ -1715,6 +1712,9 @@
   .bg-app {
     background-color: var(--app);
   }
+  .bg-backdrop {
+    background-color: var(--backdrop);
+  }
   .bg-background {
     background-color: var(--background);
   }
@@ -1748,29 +1748,14 @@
       background-color: color-mix(in oklab, var(--background) 92%, transparent);
     }
   }
-  .bg-black\/10 {
-    background-color: color-mix(in srgb, #000 10%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-black) 10%, transparent);
-    }
-  }
   .bg-black\/15 {
     background-color: color-mix(in srgb, #000 15%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-black) 15%, transparent);
     }
   }
-  .bg-black\/25 {
-    background-color: color-mix(in srgb, #000 25%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-black) 25%, transparent);
-    }
-  }
   .bg-border {
     background-color: var(--border);
-  }
-  .bg-border-strong {
-    background-color: var(--border-strong);
   }
   .bg-card {
     background-color: var(--card);
@@ -2727,6 +2712,10 @@
     --tw-duration: 200ms;
     transition-duration: 200ms;
   }
+  .fade-in-0 {
+    --tw-enter-opacity: calc(0/100);
+    --tw-enter-opacity: 0;
+  }
   .outline-dashed {
     --tw-outline-style: dashed;
     outline-style: dashed;
@@ -2742,6 +2731,10 @@
   .select-text {
     -webkit-user-select: text;
     user-select: text;
+  }
+  .zoom-in-95 {
+    --tw-enter-scale: calc(95*1%);
+    --tw-enter-scale: .95;
   }
   .\!running {
     animation-play-state: running !important;
@@ -4516,6 +4509,11 @@
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
   }
+  @container chat-content (width >= 960px) {
+    .\@min-\[960px\]\/chat-content\:left-\[40\%\] {
+      left: 40%;
+    }
+  }
   @container field-group (width >= 28rem) {
     .\@md\/field-group\:flex-row {
       flex-direction: row;
@@ -4535,12 +4533,6 @@
   }
   .dark\:border-input:where([data-theme="dark"], [data-theme="dark"] *) {
     border-color: var(--border);
-  }
-  .dark\:bg-black\/45:where([data-theme="dark"], [data-theme="dark"] *) {
-    background-color: color-mix(in srgb, #000 45%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-black) 45%, transparent);
-    }
   }
   .dark\:bg-destructive\/20:where([data-theme="dark"], [data-theme="dark"] *) {
     background-color: var(--destructive);
@@ -5242,7 +5234,7 @@
         radial-gradient(ellipse at 28% 0%, #c4b0dfb3, transparent 58%),
         radial-gradient(ellipse at 88% 100%, #efd3c6a6, transparent 52%),
         linear-gradient(135deg, #edf0f2, #e1dbe8);
-  --backdrop: #28213966;
+  --backdrop: #00000066;
   --glass-agent: #eec4b1;
   --glass-primary: #dcd0e8;
   --glass-script: #e9dca1;
@@ -5294,7 +5286,7 @@
         radial-gradient(ellipse at 28% 0%, #59446f99, transparent 58%),
         radial-gradient(ellipse at 88% 100%, #694c443d, transparent 52%),
         linear-gradient(135deg, #252b35, #302735);
-  --backdrop: #14101eb3;
+  --backdrop: #00000099;
   --glass-agent: #594039;
   --glass-primary: #47394f;
   --glass-script: #4d462b;

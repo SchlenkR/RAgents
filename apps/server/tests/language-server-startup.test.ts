@@ -24,12 +24,21 @@ const deferred = <T = void>() => {
 
 const prompt = <T>(value: Promise<T>) => withTimeout(value, 1_000, () => new Error("The snapshot or stop waited for adapter.open"));
 
+const until = async (condition: () => Promise<boolean>): Promise<void> => {
+  while (!await condition()) await new Promise((resolve) => setTimeout(resolve, 10));
+};
+
 const only = (snapshot: LanguageServerSnapshot) => {
   assert.equal(snapshot.instances.length, 1, JSON.stringify(snapshot));
   return snapshot.instances[0];
 };
 
-const fixture = async (t: TestContext, open: LanguageServerAdapter["open"], options: LanguageServerHostOptions = {}) => {
+const fixture = async (
+  t: TestContext,
+  open: LanguageServerAdapter["open"],
+  options: LanguageServerHostOptions = {},
+  overrides: Partial<Pick<LanguageServerAdapter, "resolveRoot" | "rootDirectory" | "solutionExtensions">> = {},
+) => {
   const scratch = "/private/tmp/ragents-lsp-startup";
   await mkdir(scratch, { recursive: true });
   const directory = await realpath(await mkdtemp(path.join(scratch, "host-")));
@@ -47,6 +56,7 @@ const fixture = async (t: TestContext, open: LanguageServerAdapter["open"], opti
     id: "typescript", label: "Test LSP", languages: { ".ts": "typescript" }, rootDescription: "directory",
     resolveRoot: resolveRootDirectory,
     rootDirectory: (selectedRoot) => selectedRoot,
+    ...overrides,
     launch: async (_context, selectedRoot) => {
       launches++;
       return {
@@ -71,7 +81,7 @@ const fixture = async (t: TestContext, open: LanguageServerAdapter["open"], opti
   };
   const host = new LanguageServerHost(adapter, (runId) => sandbox.contextFor(runId), { openTimeoutMs: 2_000, diagnosticsTimeoutMs: 1_000, ...options });
   t.after(async () => { await host.shutdown(); await rm(directory, { recursive: true, force: true }); });
-  return { host, root, second, adapter, sandbox, sessions, launches: () => launches };
+  return { host, directory, root, second, adapter, sandbox, sessions, launches: () => launches };
 };
 
 test("opening snapshots return immediately and concurrent same-root calls share the real process", { timeout: 5_000 }, async (t) => {
@@ -311,4 +321,80 @@ test("shutdown joins an idle cleanup already in progress and clears the remember
   } finally {
     release.resolve();
   }
+});
+
+const solutionAdapter = {
+  resolveRoot: async (_workspaceRoot: string, selectedRoot: string) => selectedRoot,
+  rootDirectory: (selectedRoot: string) => path.dirname(selectedRoot),
+  solutionExtensions: [".sln", ".slnx"],
+};
+
+test("solutions come from git without node_modules, bin and obj, name their open state and fall back to the folder without git", { timeout: 10_000 }, async (t) => {
+  const run = await fixture(t, async (_session, selectedRoot) => `${path.basename(selectedRoot)} geladen`, {}, solutionAdapter);
+  const files = ["src/Demo.sln", "tools/Acme.slnx", "node_modules/pkg/Package.sln", "src/bin/Debug/Copy.sln", "src/obj/Copy.sln", ".hidden/Hidden.sln", "src/Demo.csproj"];
+  for (const file of files) {
+    await mkdir(path.dirname(path.join(run.directory, file)), { recursive: true });
+    await writeFile(path.join(run.directory, file), "");
+  }
+  assert.deepEqual(await run.host.solutions("run"), {
+    source: "directory",
+    solutions: [
+      { path: "src/Demo.sln", root: path.join(run.directory, "src/Demo.sln"), state: null },
+      { path: "tools/Acme.slnx", root: path.join(run.directory, "tools/Acme.slnx"), state: null },
+    ],
+    opened: false,
+  });
+  await rm(path.join(run.directory, ".hidden"), { recursive: true });
+  execFileSync("git", ["init", "-q"], { cwd: run.directory });
+  execFileSync("git", ["add", "src/Demo.sln"], { cwd: run.directory });
+  await writeFile(path.join(run.directory, ".gitignore"), "ignored/\n");
+  await mkdir(path.join(run.directory, "ignored"));
+  await writeFile(path.join(run.directory, "ignored/Ignored.sln"), "");
+  assert.match(await run.host.open("run", "src/Demo.sln"), /Demo\.sln geladen/);
+  assert.deepEqual(await run.host.solutions("run"), {
+    source: "git",
+    solutions: [
+      { path: "src/Demo.sln", root: path.join(run.directory, "src/Demo.sln"), state: "ready" },
+      { path: "tools/Acme.slnx", root: path.join(run.directory, "tools/Acme.slnx"), state: null },
+    ],
+    opened: true,
+  });
+});
+
+test("an open with ifNoneOpen loads nothing while another open resolves or an instance exists", { timeout: 5_000 }, async (t) => {
+  const entered = deferred();
+  const release = deferred();
+  const run = await fixture(t, async () => "geladen");
+  const context = run.sandbox.contextFor;
+  const blocking = t.mock.method(run.sandbox, "contextFor", async (runId: string) => {
+    entered.resolve();
+    await release.promise;
+    return context(runId);
+  });
+  const first = run.host.open("run", run.root);
+  await entered.promise;
+  assert.match(await run.host.open("run", run.second, true), /lädt .*second nicht: in diesem Run ist schon eine Instanz offen oder im Aufbau/);
+  release.resolve();
+  await first;
+  blocking.mock.restore();
+  assert.match(await run.host.open("run", run.second, true), /nicht: in diesem Run ist schon eine Instanz offen/);
+  assert.equal(run.launches(), 1);
+  await run.host.close("run");
+  assert.match(await run.host.open("run", run.second, true), /geladen \(Wurzel .*second\)/);
+  assert.equal(run.launches(), 2);
+});
+
+test("switching loads the chosen root without waiting, closes every other instance, keeps a loaded one and null closes all", { timeout: 5_000 }, async (t) => {
+  const loaded = deferred<string>();
+  const run = await fixture(t, async (_session, selectedRoot) => selectedRoot === run.second ? loaded.promise : "Erste geladen");
+  await run.host.open("run", run.root);
+  assert.match(await prompt(run.host.switchTo("run", run.second)), /lädt .*second; eine andere Instanz beendet/);
+  assert.equal(run.sessions[0].exited, true);
+  assert.deepEqual((await run.host.snapshot("run")).instances.map((instance) => [instance.root, instance.state]), [[run.second, "opening"]]);
+  loaded.resolve("Zweite geladen");
+  await until(async () => only(await run.host.snapshot("run")).state === "ready");
+  assert.match(await run.host.switchTo("run", run.second), /behält .*second$/);
+  assert.equal(run.launches(), 2);
+  assert.match(await run.host.switchTo("run", null), /eine Instanz beendet/);
+  assert.deepEqual(await run.host.snapshot("run"), { instances: [] });
 });

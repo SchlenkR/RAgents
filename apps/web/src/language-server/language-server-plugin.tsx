@@ -1,17 +1,19 @@
-import { Alert, AlertDescription, Badge, Button, Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle, Spinner } from "../ui";
+import { Alert, AlertDescription, Badge, Button, Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Spinner } from "../ui";
 import { useEffect, useState, type ComponentType } from "react";
 import type {
   LanguageServerInstanceSnapshot,
   LanguageServerSeverity,
   LanguageServerSnapshot,
+  LanguageServerSolutions,
   LanguageServerState,
 } from "@ragents/host/plugin-support/language-server/contract";
+import { useAccess } from "../AccessContext";
 import {
   type WebPlugin,
   type WebPluginDescriptor,
   type WorkspaceTabContext,
 } from "../PluginRegistry";
-import { fetchLanguageServerSnapshot } from "./api";
+import { fetchLanguageServerSnapshot, fetchLanguageServerSolutions, switchLanguageServerSolution } from "./api";
 
 const POLL_MS = 5000;
 const BADGE_POLL_MS = 15000;
@@ -20,7 +22,20 @@ interface TabSettings {
   label: string;
   openTool: string;
   pluginId: string;
+  solutions: boolean;
 }
+
+export interface SolutionChoice {
+  solutions?: LanguageServerSolutions;
+  error?: string;
+  switching: boolean;
+  writable: boolean;
+  onSwitch: (root: string | null) => void;
+}
+
+const NO_SOLUTION = "none";
+
+const solutionValue = (path: string): string => `solution:${path}`;
 
 const severityLabels: Readonly<Record<LanguageServerSeverity, string>> = {
   error: "Fehler",
@@ -51,6 +66,17 @@ const headerLabel = (snapshot: LanguageServerSnapshot | undefined): string => {
 
 const countLabel = (count: number, singular: string, plural: string): string =>
   `${count} ${count === 1 ? singular : plural}`;
+
+const messageOf = (caught: unknown): string => caught instanceof Error ? caught.message : String(caught);
+
+/** Genau eine offene Instanz einer gefundenen Solution oder keine ergibt eine Auswahl; mehrere oder eine andere Wurzel nicht. */
+const selectedSolution = (solutions: LanguageServerSolutions, snapshot: LanguageServerSnapshot): string | null => {
+  const roots = snapshot.instances.map((instance) => instance.root);
+  if (roots.length === 0) return NO_SOLUTION;
+  if (roots.length > 1) return null;
+  const open = solutions.solutions.find((solution) => solution.root === roots[0]);
+  return open ? solutionValue(open.path) : null;
+};
 
 const errorsOf = (snapshot: LanguageServerSnapshot | undefined): number =>
   (snapshot?.instances ?? [])
@@ -120,14 +146,110 @@ const useSnapshot = (pluginId: string, runId: string, active: boolean, pollMs: n
   return { snapshot, error, pending, refresh: () => setRefreshKey((value) => value + 1) };
 };
 
+const useSolutions = (pluginId: string, runId: string, active: boolean, onSwitched: () => void) => {
+  const [solutions, setSolutions] = useState<LanguageServerSolutions>();
+  const [error, setError] = useState<string>();
+  const [switching, setSwitching] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (!active) return;
+    let disposed = false;
+    fetchLanguageServerSolutions(pluginId, runId).then(
+      (value) => {
+        if (disposed) return;
+        setSolutions(value);
+        setError(undefined);
+      },
+      (caught: unknown) => {
+        if (!disposed) setError(messageOf(caught));
+      },
+    );
+    return () => { disposed = true; };
+  }, [active, pluginId, refreshKey, runId]);
+
+  const switchTo = (root: string | null) => {
+    setSwitching(true);
+    setError(undefined);
+    switchLanguageServerSolution(pluginId, runId, root)
+      .then(setSolutions, (caught: unknown) => setError(messageOf(caught)))
+      .finally(() => {
+        setSwitching(false);
+        onSwitched();
+      });
+  };
+
+  return { solutions, error, switching, switchTo, refresh: () => setRefreshKey((value) => value + 1) };
+};
+
 const panelFor = (settings: TabSettings) => {
   function LanguageServerPanel({ active, session }: WorkspaceTabContext) {
     const { snapshot, error, pending, refresh } = useSnapshot(settings.pluginId, session.session.id, active);
-    return <LanguageServerPanelView settings={settings} snapshot={snapshot} error={error} pending={pending} onRefresh={refresh} />;
+    const access = useAccess();
+    const choice = useSolutions(settings.pluginId, session.session.id, active && settings.solutions, refresh);
+    const refreshAll = () => {
+      refresh();
+      choice.refresh();
+    };
+    return (
+      <LanguageServerPanelView
+        settings={settings}
+        snapshot={snapshot}
+        error={error}
+        pending={pending}
+        onRefresh={settings.solutions ? refreshAll : refresh}
+        choice={settings.solutions ? {
+          solutions: choice.solutions,
+          error: choice.error,
+          switching: choice.switching,
+          writable: access.can("runs.write") && access.can(`${settings.pluginId}.write`),
+          onSwitch: choice.switchTo,
+        } : undefined}
+      />
+    );
   }
 
   return LanguageServerPanel;
 };
+
+function SolutionSelect({ choice, snapshot }: { choice: SolutionChoice; snapshot: LanguageServerSnapshot | undefined }) {
+  const { solutions } = choice;
+  if (!solutions || !snapshot) return null;
+  if (solutions.solutions.length === 0) {
+    return <p className="border-t border-border-soft px-2.5 py-2 text-xs text-muted-foreground">Keine Solution im Arbeitsbereich.</p>;
+  }
+  const openRoots = new Set(snapshot.instances.map((instance) => instance.root));
+  const items = [
+    { value: NO_SOLUTION, path: null, label: "Keine" },
+    ...solutions.solutions.map((solution) => ({
+      value: solutionValue(solution.path),
+      path: solution.path,
+      label: openRoots.has(solution.root) ? `${solution.path} (offen)` : solution.path,
+    })),
+  ];
+  const instances = snapshot.instances.length;
+
+  return (
+    <div className="flex items-center gap-2 border-t border-border-soft px-2.5 py-2">
+      <span className="flex-none text-xs text-muted-foreground">Solution</span>
+      <Select
+        disabled={!choice.writable || choice.switching}
+        items={items}
+        onValueChange={(value) => {
+          const item = items.find((entry) => entry.value === value);
+          if (item) choice.onSwitch(item.path);
+        }}
+        value={selectedSolution(solutions, snapshot)}
+      >
+        <SelectTrigger aria-label="Solution wählen" className="min-w-0 flex-1" size="sm" title={choice.writable ? undefined : "Umschalten verlangt Schreibrechte"}>
+          <SelectValue placeholder={instances > 1 ? `${instances} Instanzen offen` : "Andere Wurzel offen"} />
+        </SelectTrigger>
+        <SelectContent>{items.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
+      </Select>
+      {choice.switching && <Spinner aria-label="Wird umgeschaltet" />}
+    </div>
+  );
+}
 
 function LanguageServerInstanceView({ instance }: { instance: LanguageServerInstanceSnapshot }) {
   const diagnosticsAvailable = instance.state === "ready" || instance.state === "suspended";
@@ -190,12 +312,13 @@ function LanguageServerInstanceView({ instance }: { instance: LanguageServerInst
   );
 }
 
-export function LanguageServerPanelView({ settings, snapshot, error, pending, onRefresh }: {
+export function LanguageServerPanelView({ settings, snapshot, error, pending, onRefresh, choice }: {
   settings: Pick<TabSettings, "label" | "openTool">;
   snapshot?: LanguageServerSnapshot;
   error?: string;
   pending: boolean;
   onRefresh: () => void;
+  choice?: SolutionChoice;
 }) {
   const instances = snapshot?.instances ?? [];
 
@@ -210,7 +333,9 @@ export function LanguageServerPanelView({ settings, snapshot, error, pending, on
           <IconRefresh className={pending ? "animate-spin" : undefined} />
         </Button>
       </header>
+      {choice && <SolutionSelect choice={choice} snapshot={snapshot} />}
       {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
+      {choice?.error && <Alert variant="destructive"><AlertDescription>{choice.error}</AlertDescription></Alert>}
       {snapshot && instances.length === 0 && (
         <Empty>
           <EmptyHeader>
@@ -261,6 +386,7 @@ export const languageServerWebPlugin = (pluginId: string, Icon: ComponentType = 
       label: textFrom(config, "label", pluginId),
       openTool: textFrom(config, "openTool", pluginId),
       pluginId,
+      solutions: config.solutions === true,
     }, Icon),
   };
 };

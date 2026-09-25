@@ -241,7 +241,7 @@ Beiträge meldet das Plugin in `register(registration)` über die an das Plugin 
 | `config`          | Konfigurationsschlüssel, streng geprüft            |
 | `clientConfig`    | Werte, die das Web-Plugin sehen darf               |
 | `storage`         | Ablage unter `plugins/<id>`, global und je Run     |
-| `lifecycle`       | Haken bei Anlage und Löschung eines Runs           |
+| `lifecycle`       | Haken bei Anlage, Start und Löschung eines Runs    |
 | `sessionMetadata` | zusätzliche Angaben zum Run                        |
 
 ### Erweiterungspunkte im Web
@@ -624,7 +624,7 @@ einen lokalen Test-Endpunkt. Dafür werden keine API-Schlüssel oder externen Mo
 Veröffentlichen: `pnpm publish:vscode` (Task `vscode: publish`) ist ein Schritt. Es prüft den Token
 mit `vsce verify-pat purestate`, fragt mit `vsce show purestate.ragents-vscode --json` die
 veröffentlichten Fassungen ab, zählt die letzte Stelle der höchsten davon hoch, schreibt die neue
-Fassung in `apps/vscode/package.json`, baut, packt und veröffentlicht die gepackte Datei. Die erste
+Fassung in `apps/vscode/package.json`, baut, packt und veröffentlicht die gepackten Dateien. Die erste
 Zeile der Ausgabe nennt sie: `== Fassung 0.1.2, zuletzt veröffentlicht 0.1.1`. Liegt noch nichts im
 Marketplace, gilt die Fassung aus der `package.json`; steht dort schon eine höhere als die
 veröffentlichte - jemand hat von Hand auf `0.2.0` gestellt -, gewinnt die `package.json`. Geschrieben
@@ -643,7 +643,28 @@ von Hand ist sie nur für eine neue Minor- oder Major-Fassung zu ändern. `pnpm 
 ohne Token und rührt die Fassung nicht an. Der Task `publish: all` (`pnpm publish:all`)
 veröffentlicht erst das Paket und danach die Erweiterung und bricht beim ersten Fehler ab. Was in die `.vsix` geht, steht in `apps/vscode/.vscodeignore`: `dist/`
 (ohne Sourcemaps und Testläufer), `media/`, `package.json`, `README.md`, `CHANGELOG.md` und die
-`LICENSE`. Das Skript kopiert `README.md` und `LICENSE` für den Aufruf von `vsce` aus der Wurzel
+`LICENSE`.
+
+Gepackt werden drei Dateien nach `dist/`: eine universelle `ragents-vscode-<fassung>.vsix` ohne
+Bash und je eine für `win32-x64` und `win32-arm64` (`vsce package --target`), die zusätzlich die
+mitgebrachte Bash unter `dist/bash/<plattform>` trägt; der Marketplace liefert Windows-Rechnern die
+passende, allen anderen die universelle, und `vsce publish` bekommt alle drei in einem Aufruf. Für
+die Windows-Dateien schreibt das Skript je Lauf eine eigene Ignore-Datei in den Temp-Ordner: die
+Positivliste der `.vscodeignore` plus `!dist/bash/<plattform>/**`; die `.vscodeignore` im Repo
+bleibt die universelle. Die Bash selbst baut `pnpm bundle:bash [win32-x64] [win32-arm64]`
+(`scripts/vscode/bundle-bash.ts`; das Packen ruft es selbst auf): es lädt das festgelegte
+PortableGit-Archiv von Git for Windows (Fassung, Dateinamen und SHA-256 als Konstanten im Skript),
+prüft den Hash, packt mit 7-Zip aus (`7zz` oder `7z` im `PATH`, sonst ein Fehler mit
+Installationshinweis) und kopiert eine feste Liste von Programmen samt der DLLs, die sie laden.
+Diese Hülle bestimmt das Skript selbst aus den Import- und Delay-Import-Tabellen der PE-Dateien
+(`scripts/vscode/pe-imports.ts`); eine DLL, die weder in `usr/bin` liegt noch eine
+Windows-Systembibliothek ist, bricht den Bau ab, ebenso Git, Perl, Editoren, SSH, GnuPG, OpenSSL
+oder ein Terminalprogramm in der Auswahl. Dazu kommen `etc/fstab`, ein eigenes
+`etc/nsswitch.conf`, die Lizenztexte unter `licenses/` und ein `NOTICE.txt` mit Quellarchiv,
+Paketfassungen und Quellverweisen. Das Archiv bleibt unter `<tmp>/ragents-bash-cache` liegen;
+`apps/vscode/dist/` ist nicht eingecheckt. Eine neue Git-for-Windows-Fassung heißt: Tag, Dateinamen
+und beide Hashes im Skript ändern und `pnpm bundle:bash` laufen lassen. Wer die Erweiterung unter
+Windows aus dem Checkout startet, baut die Bash vorher einmal mit `pnpm bundle:bash win32-x64`. Das Skript kopiert `README.md` und `LICENSE` für den Aufruf von `vsce` aus der Wurzel
 daneben und entfernt die Kopien danach wieder. Das Marketplace-README und das GitHub-README haben
 damit dieselbe Quelle.
 

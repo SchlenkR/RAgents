@@ -79,6 +79,8 @@ export interface WorkspaceSandboxHostOptions {
   serverDirectoryFor?: (runId: string) => Promise<string>;
   /** Die Prozess-Sandbox, in der jeder Prozess des Executors dieses Servers startet; ohne sie laufen Prozesse ohne. */
   processSandbox?: RunProcessSandboxes;
+  /** Die Bash des Executors dieses Servers; unter Windows Pflicht, sonst ohne Angabe die des Systems. */
+  bash?: string;
 }
 
 const sandboxDescriptions: Readonly<Record<string, string>> = {
@@ -225,6 +227,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
       additions: sandboxRunEnvironment(runId, workspace),
       runOperation: workspace.runOperation,
       ...(sandbox ? { sandbox } : {}),
+      ...(this.#options.bash === undefined ? {} : { bash: this.#options.bash }),
     });
   }
 

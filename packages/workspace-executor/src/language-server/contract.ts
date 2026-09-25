@@ -25,3 +25,17 @@ export interface LanguageServerInstanceSnapshot {
 export interface LanguageServerSnapshot {
   instances: readonly LanguageServerInstanceSnapshot[];
 }
+
+export interface LanguageServerSolution {
+  /** Relativ zur Wurzel des Arbeitsbereichs, mit Schrägstrichen. */
+  path: string;
+  root: string;
+  state: LanguageServerState | null;
+}
+
+export interface LanguageServerSolutions {
+  source: "git" | "directory";
+  solutions: readonly LanguageServerSolution[];
+  /** Ob im Run schon eine Instanz dieser Sprache offen ist oder gerade geöffnet wird. */
+  opened: boolean;
+}
