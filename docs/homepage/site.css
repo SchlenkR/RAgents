@@ -31,20 +31,25 @@ html { scrollbar-gutter: stable; }
 @media (max-width: 900px) {
   .masthead { gap: 18px; }
 }
+.nav-burger { display: none; }
 @media (max-width: 720px) {
-  .masthead { flex-wrap: wrap; gap: 6px; padding-block: 12px 8px; }
-  .masthead nav { width: 100%; justify-content: space-between; }
+  html { --header-height: 61px; }
+  .masthead { flex-wrap: wrap; gap: 10px; padding-block: 10px; }
+  .masthead nav { display: contents; }
+  .masthead .brand { margin-right: auto; }
+  .masthead nav a:not(.nav-github) { display: none; order: 3; flex-basis: 100%; min-height: 44px; padding-inline: 2px; border-top: 1px solid #e3ecf2; font-size: 16px; }
+  html[data-menu-open] .masthead nav a:not(.nav-github) { display: flex; }
+  .masthead nav .nav-github { order: 1; min-height: 40px; padding: 5px 12px; font-size: 14px; }
+  .nav-burger { order: 2; display: inline-grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1.5px solid #223347; border-radius: 8px; background: #fff; color: #223347; box-shadow: 3px 4px 0 #2233471a; cursor: pointer; }
+  .nav-burger svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+  .nav-burger .burger-close, html[data-menu-open] .nav-burger .burger-open { display: none; }
+  html[data-menu-open] .nav-burger .burger-close { display: block; }
+  .nav-burger:focus-visible { outline: 3px solid #2a94fa; outline-offset: 4px; }
 }
 @media (max-width: 640px) {
-  html { --header-height: 109px; }
   .shell { width: calc(100% - 36px); }
   .masthead .brand { font-size: 21px; }
   .masthead .brand-icon { width: 25px; height: 25px; }
-  .masthead nav { font-size: 13px; gap: 14px; }
-  .masthead .link-icon { width: 13px; height: 13px; }
-}
-@media (max-width: 360px) {
-  .masthead nav { flex-wrap: wrap; justify-content: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
 @media print {

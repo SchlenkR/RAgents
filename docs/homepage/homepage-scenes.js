@@ -292,7 +292,7 @@
       const run = height + 16 <= room ? Math.round(runs[name] * view) : 0;
       return { top: Math.round(inset + Math.max(8, (room - height) / 2)), height, run };
     };
-    const arrange = () => items.forEach(item => {
+    const arrange = () => document.documentElement.hasAttribute('data-menu-open') || items.forEach(item => {
       const { top, height, run } = plan(item);
       item.scene.style.setProperty('--scene-top', `${top}px`);
       item.track.style.height = run > 0 ? `${Math.ceil(height + run)}px` : '';

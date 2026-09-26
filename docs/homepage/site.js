@@ -5,6 +5,26 @@
   measureHeader();
   new ResizeObserver(measureHeader).observe(header);
 
+  const burger = header.querySelector('.nav-burger');
+  if (burger) {
+    const menu = state => {
+      root.toggleAttribute('data-menu-open', state);
+      burger.setAttribute('aria-expanded', String(state));
+      measureHeader();
+    };
+    burger.addEventListener('click', () => menu(!root.hasAttribute('data-menu-open')));
+    document.addEventListener('click', event => {
+      if (!root.hasAttribute('data-menu-open') || burger.contains(event.target)) return;
+      if (event.target.closest('a') || !event.target.closest('.masthead, .subnav')) menu(false);
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape' || !root.hasAttribute('data-menu-open')) return;
+      menu(false);
+      burger.focus();
+    });
+    matchMedia('(min-width: 721px)').addEventListener('change', event => event.matches && menu(false));
+  }
+
   const story = document.querySelector('.feature-story');
   if (!story) return;
   const { gsap, ScrollTrigger } = window;

@@ -754,3 +754,11 @@ html { scroll-behavior: auto !important; scroll-snap-type: none !important; }
 .subnav[data-compact][data-open] .subnav-inner { position: absolute; top: 100%; left: 0; right: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px; margin: 0; padding: 10px 16px 14px; border-bottom: 1px solid #dfe7ef; background: #fff; box-shadow: 0 18px 30px -24px #12273799; }
 .subnav[data-compact][data-open] .subnav-inner a { justify-content: center; min-height: 34px; font-size: 13.5px; }
 .dm-story[data-pinned] .dm-dg { width: min(100%, calc((100svh - var(--header-height, 80px) - var(--subnav-h, 41px) - 150px) * 560 / 380)); margin-inline: auto; }
+@media (max-width: 720px) {
+  :root { --subnav-h: 0px; }
+  .subnav { display: none; }
+  html[data-menu-open] .subnav { display: block; padding: 2px 18px 14px; border-bottom: 1px solid #dfe7ef; box-shadow: 0 18px 30px -24px #12273799; background: #fff; }
+  html[data-menu-open] .subnav .subnav-toggle { display: none; }
+  html[data-menu-open] .subnav .subnav-inner { position: static; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; }
+  html[data-menu-open] .subnav .subnav-inner a { justify-content: flex-start; min-height: 36px; font-size: 14px; }
+}
