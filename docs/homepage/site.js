@@ -142,6 +142,7 @@
   gsap.addEventListener('matchMedia', restorePosition);
   window.addEventListener('scroll', rememberPosition, { passive: true });
   window.addEventListener('resize', () => {
+    if (innerWidth === measuredWidth && innerWidth < 960) return;
     cancelAnimationFrame(resizeFrame);
     resizeFrame = requestAnimationFrame(restorePosition);
   });

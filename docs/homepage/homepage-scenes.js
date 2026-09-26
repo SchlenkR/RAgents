@@ -281,11 +281,15 @@
       track.append(scene);
       return { name, tl, scene, track };
     });
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position: fixed; top: 0; height: 100svh; visibility: hidden; pointer-events: none;';
+    document.body.append(probe);
     const plan = ({ name, scene }) => {
       const inset = bars.reduce((sum, bar) => sum + bar.offsetHeight, 0);
-      const room = innerHeight - inset;
+      const view = probe.offsetHeight;
+      const room = view - inset;
       const height = scene.offsetHeight;
-      const run = height + 16 <= room ? Math.round(runs[name] * innerHeight) : 0;
+      const run = height + 16 <= room ? Math.round(runs[name] * view) : 0;
       return { top: Math.round(inset + Math.max(8, (room - height) / 2)), height, run };
     };
     const arrange = () => items.forEach(item => {
@@ -309,6 +313,7 @@
       ScrollTrigger.create({ animation: item.tl, scrub: true, invalidateOnRefresh: true, start: () => start(item), end: () => end(item) });
     });
     return () => {
+      probe.remove();
       resized.disconnect();
       ScrollTrigger.removeEventListener('refreshInit', arrange);
       items.forEach(({ scene, track }) => {
