@@ -762,3 +762,23 @@ html { scroll-behavior: auto !important; scroll-snap-type: none !important; }
   html[data-menu-open] .subnav .subnav-inner { position: static; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; }
   html[data-menu-open] .subnav .subnav-inner a { justify-content: flex-start; min-height: 36px; font-size: 14px; }
 }
+.ua-section { padding-block: 88px 80px; border-bottom: 1px solid var(--line-soft); background: radial-gradient(ellipse at 80% 40%, #eef3ff 0, transparent 60%); }
+.ua-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 64px; align-items: center; }
+.ua-grid h2 { font-size: clamp(30px, 3.4vw, 44px); }
+.ua-lead { margin-top: 18px; color: var(--muted); font-size: 17px; line-height: 1.7; }
+.ua-grid .feature-benefits { margin-top: 22px; }
+.ua-grid .feature-benefits li { font-size: 17px; }
+.ua-links { display: flex; flex-wrap: wrap; gap: 12px 28px; margin-top: 24px; }
+.ua-term { min-width: 0; color: #e7eef7; border: 2px solid var(--sk-ink); border-radius: 12px; background: #1d2b3c; box-shadow: 5px 7px 0 #2334472e, 0 20px 36px -20px #12273799; overflow: hidden; }
+.ua-bar { display: flex; align-items: center; gap: 6px; padding: 9px 12px; color: #9fb6cd; border-bottom: 1.5px solid var(--sk-ink); background: #28405a; font: 600 12px/1.2 var(--mono); }
+.ua-bar i { width: 10px; height: 10px; border-radius: 50%; background: #ff8f7a; }
+.ua-bar i:nth-child(2) { background: #ffd166; }
+.ua-bar i:nth-child(3) { background: #6fcf9f; }
+.ua-bar span { margin-left: 8px; }
+.ua-term pre { margin: 0; padding: 16px 16px 18px; font: 12.5px/1.7 var(--mono); white-space: pre; overflow-x: auto; }
+.ua-cmd { color: #fff; font-weight: 700; }
+.ua-cmd b { margin-right: .35em; color: #6fcf9f; }
+.ua-out { color: var(--c-app); }
+.ua-note { color: #8a9bb0; }
+@media (max-width: 980px) { .ua-grid { grid-template-columns: minmax(0, 1fr); gap: 36px; } }
+@media (max-width: 640px) { .ua-section { padding-block: 56px; } .ua-term pre { font-size: 11.5px; padding: 14px; } }
