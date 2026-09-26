@@ -39,10 +39,6 @@ const replaceEditSchema = Type.Object(
 const editSchema = Type.Object(
 	{
 		path: Type.String({ description: "Path to the file to edit (relative or absolute)" }),
-		expectedHash: Type.Optional(Type.String({
-			description: "SHA-256 from the latest read. The edit is rejected if the file changed since that read.",
-			pattern: "^[a-f0-9]{64}$",
-		})),
 		edits: Type.Array(replaceEditSchema, {
 			description:
 				"One or more targeted replacements. Each edit is matched against the original file, not incrementally. Do not include overlapping or nested edits. If two changes touch the same block or nearby lines, merge them into one edit instead.",
@@ -133,7 +129,7 @@ export function createEditToolDefinition(
 		name: "edit",
 		label: "edit",
 		description:
-			"Edit a single file using exact text replacement. Pass expectedHash from the latest read so the edit is rejected if the file changed meanwhile. Every edits[].oldText must match a unique, non-overlapping region of the original file, or be anchored with occurrence, nearLine or replaceAll. If two changes affect the same block or nearby lines, merge them into one edit instead of emitting overlapping edits. Do not include large unchanged regions just to connect distant changes.",
+			"Edit a single file using exact text replacement. Read the file first; the edit is rejected if the file changed since that read. Every edits[].oldText must match a unique, non-overlapping region of the original file, or be anchored with occurrence, nearLine or replaceAll. If two changes affect the same block or nearby lines, merge them into one edit instead of emitting overlapping edits. Do not include large unchanged regions just to connect distant changes.",
 		promptSnippet:
 			"Make precise file edits with exact text replacement, including multiple disjoint edits in one call",
 		promptGuidelines: [
@@ -142,7 +138,6 @@ export function createEditToolDefinition(
 			"Each edits[].oldText is matched against the original file, not after earlier edits are applied. Do not emit overlapping or nested edits. Merge nearby changes into one edit.",
 			"Keep edits[].oldText as small as possible while still being unique in the file. Do not pad with large unchanged regions.",
 			"If oldText is not unique, the error lists every occurrence with its line number. Pick one with occurrence (1-based) or nearLine instead of padding oldText with more context, and use replaceAll only when every occurrence must change.",
-			"Pass expectedHash from the latest read so an edit cannot overwrite a file that changed since you inspected it.",
 		],
 		parameters: editSchema,
 		prepareArguments: prepareEditArguments,
@@ -174,10 +169,6 @@ export function createEditToolDefinition(
 
 				// Read the file.
 				const buffer = await ops.readFile(absolutePath);
-				const currentHash = createHash("sha256").update(buffer).digest("hex");
-				if (input.expectedHash && input.expectedHash !== currentHash) {
-					throw new Error(`Could not edit ${path}: stale read. Expected SHA-256 ${input.expectedHash}, current SHA-256 ${currentHash}. Read the file again before editing.`);
-				}
 				const rawContent = buffer.toString("utf-8");
 				throwIfAborted();
 
@@ -203,7 +194,7 @@ export function createEditToolDefinition(
 					content: [
 						{
 							type: "text",
-							text: `Successfully replaced ${replacementCount} block(s) in ${path}. New content SHA-256: ${contentHash}.`,
+							text: `Successfully replaced ${replacementCount} block(s) in ${path}.`,
 						},
 					],
 					details: { diff: diffResult.diff, patch, firstChangedLine: diffResult.firstChangedLine, contentHash },

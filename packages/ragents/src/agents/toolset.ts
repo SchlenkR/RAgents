@@ -164,7 +164,7 @@ export class TurnToolset {
         this.tools.splice(0, this.tools.length, ...this.functions.filter((tool) => tool.nativeTool === true));
     }
 
-    async invoke(toolCallId: string, name: string, input: JsonValue): Promise<ToolInvocation> {
+    async invoke(toolCallId: string, name: string, input: JsonValue, modelContext?: string): Promise<ToolInvocation> {
         await this.refresh();
         const tool = this.tools.find((entry) => entry.name === name);
 
@@ -173,7 +173,7 @@ export class TurnToolset {
 
         assertJsonValue(input, `Tool ${name} input`);
         const tolerated = withoutUnknownFields(tool.schema, input);
-        const output = await this.#execute(toolCallId, tool, tolerated.input, tolerated.ignoredFields);
+        const output = await this.#execute(toolCallId, tool, tolerated.input, tolerated.ignoredFields, modelContext);
 
         return { output, ignoredFields: tolerated.ignoredFields };
     }
@@ -186,7 +186,7 @@ export class TurnToolset {
         return this.#execute(toolCallId, fn, input, []);
     }
 
-    async #execute(toolCallId: string, tool: RunFunction, input: JsonValue, ignoredFields: readonly string[]): Promise<JsonValue> {
+    async #execute(toolCallId: string, tool: RunFunction, input: JsonValue, ignoredFields: readonly string[], modelContext?: string): Promise<JsonValue> {
         const name = tool.name;
 
         assertJsonValue(input, `Tool ${name} input`);
@@ -225,7 +225,7 @@ export class TurnToolset {
         );
 
         try {
-            const output = await tool.run(this.#scope, toolCallId, input as never);
+            const output = await tool.run(modelContext === undefined ? this.#scope : { ...this.#scope, modelContext }, toolCallId, input as never);
             this.#assertActive();
             if (!Value.Check(tool.resultSchema, output))
                 throw new Error(`Tool ${name} returned output that does not match its result schema: ${schemaComplaints(tool.resultSchema, output, "output")}.`);

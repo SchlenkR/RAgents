@@ -17,6 +17,8 @@ interface BrowserSession {
   closed: boolean;
   checked: boolean;
   errors: string[];
+  /** Adressen, deren fehlgeschlagene Anfrage schon gemeldet ist; HTTP-Status, Konsole und Netzwerk melden dieselbe Ursache nur einmal. */
+  failedRequests: Set<string>;
   screenshots: string[];
 }
 
@@ -185,6 +187,7 @@ export class BrowserPages {
       closed: false,
       checked: false,
       errors: [],
+      failedRequests: new Set(),
       screenshots: [],
     };
     this.#sessions.set(runId, session);
@@ -212,6 +215,7 @@ export class BrowserPages {
     session.checked = false;
     session.screenshots = [];
     session.errors = [];
+    session.failedRequests = new Set();
   }
 
   async #page(session: BrowserSession): Promise<Page> {
@@ -227,10 +231,20 @@ export class BrowserPages {
       session.errors.push(text.slice(0, 2000));
       if (session.errors.length > 100) session.errors.shift();
     };
-    page.on("console", (message) => { if (message.type() === "error") addError(`Konsole: ${message.text()}`); });
+    const addRequestError = (url: string, text: string) => {
+      if (session.failedRequests.has(url)) return;
+      session.failedRequests.add(url);
+      addError(text);
+    };
+    page.on("console", (message) => {
+      if (message.type() !== "error") return;
+      const source = message.text().startsWith("Failed to load resource") ? message.location().url : "";
+      if (source) addRequestError(source, `Konsole: ${message.text()} (${source})`);
+      else addError(`Konsole: ${message.text()}`);
+    });
     page.on("pageerror", (error) => addError(`JavaScript: ${error.message}`));
-    page.on("requestfailed", (request) => addError(`Netzwerk: ${request.method()} ${request.url()} ${request.failure()?.errorText}`));
-    page.on("response", (response) => { if (response.status() >= 400) addError(`HTTP ${response.status()}: ${response.url()}`); });
+    page.on("requestfailed", (request) => addRequestError(request.url(), `Netzwerk: ${request.method()} ${request.url()} ${request.failure()?.errorText}`));
+    page.on("response", (response) => { if (response.status() >= 400) addRequestError(response.url(), `HTTP ${response.status()}: ${response.url()}`); });
     page.on("framenavigated", (frame) => { if (frame === page.mainFrame()) this.#resetEvidence(session); });
     page.on("popup", (popup) => {
       addError(`Die Anwendung hat ein neues Fenster geöffnet: ${popup.url()}. Popups werden nicht bedient.`);

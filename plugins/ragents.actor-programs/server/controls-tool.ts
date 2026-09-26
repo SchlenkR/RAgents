@@ -9,14 +9,14 @@ const metadata = {
   name: "actor_program_controls",
   label: "Actor-Programm-Anleitung und Controls nachschlagen",
   description: "Read Mini-App control contracts or the actor-program authoring guide.",
-  longDescription: "With topic: guide, explain the TypeScript package workflow through actor_program_activate. Otherwise list control names, or select one component (for example Form) for its TypeScript props and supporting types. Import controls from @ragents/client/ui and use these exact props.",
+  longDescription: "With topic: guide, explain the TypeScript package workflow through actor_program_activate. Otherwise list control names, or select one component (for example Form) for only its TypeScript props and supporting types. Import controls from @ragents/client/ui and use these exact props.",
 };
 
 export const describeClientControls = (component?: string) => {
   const components = readClientUiComponentNames();
   if (component === undefined) return { components };
   if (!components.includes(component)) throw new Error(`Unbekanntes Control ${component}. Gültig: ${components.join(", ")}`);
-  return { components, component, files: readClientUiComponentContracts(component) };
+  return { files: readClientUiComponentContracts(component) };
 };
 
 export const createControlsToolContributor = (): ToolContributor => ({
@@ -31,11 +31,8 @@ export const createControlsToolContributor = (): ToolContributor => ({
     }, { additionalProperties: false }),
     resultSchema: Type.Union([
       Type.Object({ guide: Type.String() }, { additionalProperties: false }),
-      Type.Object({
-        components: Type.Array(Type.String()),
-        component: Type.Optional(Type.String()),
-        files: Type.Optional(Type.Record(Type.String(), Type.String())),
-      }, { additionalProperties: false }),
+      Type.Object({ components: Type.Array(Type.String()) }, { additionalProperties: false }),
+      Type.Object({ files: Type.Record(Type.String(), Type.String()) }, { additionalProperties: false }),
     ]),
     run: async (_scope, _call, input) => {
       if (input.topic === "guide") {

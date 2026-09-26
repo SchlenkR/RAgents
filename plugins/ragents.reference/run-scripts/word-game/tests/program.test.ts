@@ -25,12 +25,11 @@ function fixture(initialState: WordGameState = {}) {
         calls.push({ name: "agent_spawn", input });
         return { id: `actor-${input.handle}`, handle: input.handle };
       },
-      run_configure: async (input) => { calls.push({ name: "run_configure", input }); return []; },
-      canvas_layout_replace: async (input) => { calls.push({ name: "canvas_layout_replace", input }); return []; },
+      run_configure: async (input) => { calls.push({ name: "run_configure", input }); return null; },
+      canvas_layout_replace: async (input) => { calls.push({ name: "canvas_layout_replace", input }); return null; },
       event_subscribe: async (input) => {
         calls.push({ name: "event_subscribe", input });
-        return { ...input, includeSelf: false, sourceActorIds: input.sourceActorIds ?? null, sourceActorKinds: null, sources: null,
-          status: "active", subscriptionId: "subscription", subscriberId: "test-actor", createdAt: "2026-09-13T12:00:00Z", createdBy: "test-actor", createdSequence: 1 };
+        return { subscriptionId: "subscription", sources: input.sourceActorIds ?? null };
       },
       actor_input: async (input) => {
         calls.push({ name: "actor_input", input });

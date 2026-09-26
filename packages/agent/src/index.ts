@@ -1,6 +1,6 @@
 // Everything the engine, the server and the workspace executor use; the rest is internal.
 export type { AgentSession } from "./core/agent-session.ts";
-export type { ExtensionAPI, ExtensionError, InlineExtension, ToolDefinition } from "./core/extensions/index.ts";
+export type { ExtensionAPI, ExtensionContext, ExtensionError, InlineExtension, ToolDefinition } from "./core/extensions/index.ts";
 export { defineTool } from "./core/extensions/index.ts";
 export { aliasedModel, type ModelAlias, ModelRuntime } from "./core/model-runtime.ts";
 export { DefaultResourceLoader } from "./core/resource-loader.ts";

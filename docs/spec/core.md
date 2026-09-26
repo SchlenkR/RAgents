@@ -488,9 +488,14 @@ ohne Ursache im Journal, auch wenn das Werkzeug oder das Modell keinen Text geli
 
 Ein Werkzeugergebnis wiederholt nie, was das Modell selbst geschrieben hat. Die eine
 Redaktionsstelle ist `toolResultEventOf` in `packages/ragents/src/agents/actor-input.ts`: sie
-streicht aus jeder Event-Payload auf dem Weg zum Modell rekursiv die Hash-Schlüssel und die
-wörtlichen Eingabe-Echos (`prompt`, `source`, `execution`, `content`, `state`). Journal,
-`event_query` und die RunView fürs Web bleiben vollständig.
+übernimmt aus jeder Event-Payload auf dem Weg zum Modell nur die Felder ihres Ergebnisschemas,
+also Kennungen, keine Hashes und keine Eingabe-Echos (`reason`, `title`, `prompt`, `content`,
+`state`). Eine Funktion, die Events liefert, nennt mit `eventResultSchemaOf(...)` genau die Typen,
+die sie erzeugt (`actor_input`: `actor.input.enqueued`), sodass auch ihr TypeScript-Ergebnistyp
+nur diese kennt. Ein Aufruf, der nur bestätigt (`event_unsubscribe`, `run_configure`,
+`canvas_layout_replace`, `todo_replace`), liefert `null`; `event_subscribe` liefert nur
+`subscriptionId` und die aufgelösten `sources`. Journal, `event_query` und die RunView fürs Web
+bleiben vollständig.
 
 ### Zustellung von Abonnements
 
@@ -573,7 +578,8 @@ zusammengezogen, eine leere ist ein Fehler. `agent.spawned` und `script.created`
 Payload fest, die Projektion setzt sonst `null`; Journale ohne das Feld laden deshalb unverändert.
 `agent_spawn` nimmt sie als Feld `description`, ein Actor-Programm gibt beim Anlegen seines
 TypeScript-Actors die Beschreibung seines Pakets mit, auf die Grenze gekürzt. `actor_list` liefert
-sie neben `createdBy`. Der Kern liest sie nie; sie ist kein Rollenvertrag und ändert keine Rechte.
+sie neben `createdBy`, dazu je Actor die Größe seiner Werkzeugauswahl (`toolCount`, `null` für eine
+offene) und die Namen nur mit `toolNames: true`. Der Kern liest sie nie; sie ist kein Rollenvertrag und ändert keine Rechte.
 Der Host erkennt seinen Run-Koordinator am bestehenden journalisierten Erzeugungsbefehl, auch
 nach Forks. Produkt- und Aufbauprompt sowie Koordinator-Skills bleiben bei diesem Actor.
 Ein zum Primary gewählter Fachagent behält seinen Fachprompt und seine Agenten-Beiträge;
@@ -679,7 +685,7 @@ belegtem Handle einen freien Suffix. Die Laufzeit leitet aus gleichen Namen kein
 Den Run selbst konfiguriert `run_configure` unter der Capability `run.configure`: `title`
 schreibt das Ereignis `run.title-changed`, `primaryActor` wählt einen aktiven Agenten oder
 TypeScript-Actor als Primary-Actor (`run.primary-actor-selected`); beides zusammen ist erlaubt, keins
-von beiden ein benannter Fehler. Der Besitzer des Runs konfiguriert von Rechts wegen, jeder andere
+von beiden ein benannter Fehler; der Aufruf bestätigt mit `null`. Der Besitzer des Runs konfiguriert von Rechts wegen, jeder andere
 Actor braucht den Grant; die Journal-Semantik prüft dasselbe beim Laden. Besitzer und Koordinator
 halten alle neun Capability-Namen aus `domain/vocabulary.ts`. Wechselt der Primary-Actor, bindet
 sich der Chat neu an ihn. Ein Run-Script (`typescript-platform.md`) nutzt genau das, wenn es

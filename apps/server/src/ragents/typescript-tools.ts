@@ -4,7 +4,8 @@ import {
     defineRunFunction,
     defineToolAvailability,
     executeTypeScriptSnippet,
-    typeScriptSnippetDeclarations,
+    runCapabilityDeclarations,
+    typeScriptSnippetContextDeclarations,
     type RunCapabilityDescriptor,
     type RunFunction,
     type PluginHost,
@@ -18,7 +19,7 @@ const metadata = [
     {
         name: "typescript_api",
         label: "TypeScript API",
-        description: "Discover the typed functions available to this actor. Omit names for a compact searchable list; pass exact names for their TypeScript declarations with field documentation and the matching guidance. JSON schemas with validation constraints are added only on request. Functions are called as await context.functions.name(input) from snippets and actor programs.",
+        description: "Discover the typed functions available to this actor. Omit names for a compact searchable list; pass exact names for their entries in RAgentsCapabilityMap with field documentation and the matching guidance. JSON schemas with validation constraints are added only on request. Functions are called as await context.functions.name(input) from snippets and actor programs; context: true returns the declarations of context itself once.",
     },
     {
         name: "typescript_eval",
@@ -60,6 +61,8 @@ const apiEntrySchema = Type.Object({
     resultSchema: Type.Optional(Type.Unknown()),
 }, { additionalProperties: false });
 
+const contextGuidance = "The context belongs to the calling actor: functions act as context.principal. In a snippet, context.state starts as {} and is discarded when it finishes. Actor programs retain their declared state and can receive later inputs. TypeScript checks calls against the declared input and result types before execution; schema constraints are also validated by the host.";
+
 const schemaJson = (schema: RunFunction["schema"]) => {
     const value: unknown = JSON.parse(JSON.stringify(schema));
     assertJsonValue(value, "Function schema");
@@ -91,13 +94,16 @@ export const createTypeScriptToolContributor = (options: TypeScriptToolOptions):
                 query: Type.Optional(Type.String({ minLength: 1, description: "Search names and descriptions. Omit for all available names." })),
                 names: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { minItems: 1, uniqueItems: true, description: "Exact function names whose complete declarations and guidance are needed." })),
                 schemas: Type.Optional(Type.Boolean({ description: "With names: also return the JSON schemas including validation constraints such as lengths and patterns." })),
+                context: Type.Optional(Type.Boolean({ description: "Alone: the declarations of context itself (run, actor, state, log, std with mediators), the same for every function." })),
             }, { additionalProperties: false }),
             resultSchema: Type.Object({
-                functions: Type.Array(apiEntrySchema),
+                functions: Type.Optional(Type.Array(apiEntrySchema)),
                 declarations: Type.Optional(Type.String()),
                 guidance: Type.Optional(Type.String()),
             }, { additionalProperties: false }),
             run: async (scope, _id, input) => {
+                if (input.context && (input.names || input.query !== undefined || input.schemas)) throw new Error("typescript_api erwartet context allein, ohne names, query oder schemas.");
+                if (input.context) return { declarations: typeScriptSnippetContextDeclarations, guidance: contextGuidance };
                 if (input.names && input.query !== undefined) throw new Error("typescript_api erwartet names oder query, nicht beides.");
                 if (input.schemas && !input.names) throw new Error("typescript_api liefert JSON-Schemas nur zu ausgewählten names.");
                 const functions = functionsOf(scope);
@@ -108,19 +114,15 @@ export const createTypeScriptToolContributor = (options: TypeScriptToolOptions):
                 const query = input.query?.toLocaleLowerCase();
                 const selected = input.names ? functions.filter((entry) => input.names!.includes(entry.name))
                     : query ? functions.filter((entry) => `${entry.name} ${entry.label} ${entry.description}`.toLocaleLowerCase().includes(query)) : functions;
+                const guidance = input.names ? await scope.functionGuidance(input.names) : "";
                 return {
                     functions: selected.map(({ name, label, description, longDescription, schema, resultSchema }) => ({
                         name, label, description,
                         ...(input.names && longDescription ? { longDescription } : {}),
                         ...(input.schemas ? { inputSchema: schemaJson(schema), resultSchema: schemaJson(resultSchema) } : {}),
                     })),
-                    ...(input.names ? {
-                        declarations: typeScriptSnippetDeclarations(selected.map(descriptorOf)),
-                        guidance: [
-                            "The context belongs to the calling actor: functions act as context.principal. In a snippet, context.state starts as {} and is discarded when it finishes. Actor programs retain their declared state and can receive later inputs. TypeScript checks calls against the declared input and result types before execution; schema constraints are also validated by the host.",
-                            await scope.functionGuidance(input.names),
-                        ].filter(Boolean).join("\n\n"),
-                    } : {}),
+                    ...(input.names ? { declarations: runCapabilityDeclarations(selected.map(descriptorOf)) } : {}),
+                    ...(guidance ? { guidance } : {}),
                 };
             },
         }),

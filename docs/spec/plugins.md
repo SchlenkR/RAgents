@@ -358,7 +358,8 @@ The server registers `typescript_api` and `typescript_eval` as native foundation
 plugins. Models use them to discover functions and execute TypeScript snippets. The optional
 actor-program plugin adds persistent programs and views; removing it does not remove snippets or
 other plugin functions. A named `typescript_api` request returns exact declarations, long
-descriptions, and attached guidance; list and search return short descriptions. Catalog and
+descriptions, and attached guidance; the declarations of `context` itself come once through
+`context: true`; list and search return short descriptions. Catalog and
 signatures come from the live registry, with no second hand-maintained capability list.
 
 Model-facing functions return compact results. Lists and large structures appear only on
@@ -2634,14 +2635,38 @@ Anmeldedaten behält - sie hängen an der Adresse, nicht am Namen.
 ## Arbeitsbereich, Sandbox-Werkzeuge und Prozesse
 
 Die Workspace-Plugins geben Agenten genau vier
-Sandbox-Werkzeuge aus `@ragents/workspace-executor`: `read` (Zeilennummern, Kürzung, SHA-256
-des Inhalts), `edit` (eindeutiger Treffer; bei mehrdeutigem `oldText` nennt es die Fundstellen mit
-Zeilennummern, optionale Anker `occurrence`, `nearLine` und `replaceAll`; `expectedHash` aus dem
-letzten `read` verhindert, dass etwas überschrieben wird, was seit dem Lesen entstanden ist),
-`write` und `bash`. `ls`, `grep`, `find` oder ein eigener Typecheck sind keine Werkzeuge, weil
+Sandbox-Werkzeuge aus `@ragents/workspace-executor`: `read` (Zeilennummern, Kürzung bei 2000
+Zeilen oder 50 KB), `edit` (eindeutiger Treffer; bei mehrdeutigem `oldText` nennt es die Fundstellen mit
+Zeilennummern, optionale Anker `occurrence`, `nearLine` und `replaceAll`), `write` und `bash`
+(die letzten 2000 Zeilen oder 20 KB, Zeilen über 1000 Zeichen gekürzt und markiert, die volle
+Ausgabe dann in einer Logdatei, deren Pfad das Ergebnis nennt). `ls`, `grep`, `find` oder ein eigener Typecheck sind keine Werkzeuge, weil
 `bash` sie kann und die Sandbox keine Berechtigungsstufe unterhalb von Bash kennt. `git` läuft
 ohne Einschränkung im Arbeitsverzeichnis des Runs; Zugangsdaten liefert ein Plugin über die
 Git-Umgebung der Sandbox (`SessionWorkspace.gitConfig`) an den Executor des Servers.
+
+**Gesehener Dateistand.** Das Modell nennt nie einen Hash; den Stand einer Datei führt der Host.
+Ein direkter Aufruf von `read`, `edit` oder `write` durch das Modell gibt den Stand mit, den
+dieser Actor zuletzt von der Datei gesehen hat: nach einem `read` samt Ausschnitt (`offset`,
+`limit`), nach einem eigenen erfolgreichen `edit` oder `write` ohne. Der Server
+(`WorkspaceSandboxHost`) hält ihn im Speicher je Run, Actor, Modellkontext und Pfad, wie das
+Modell ihn schreibt, und reicht ihn dem Executor der Maschine, die die Datei hat, als Feld `seen`
+der Operation (`null`: nichts gesehen); der Executor vergleicht aufgelöste Datei und SHA-256 des
+Inhalts und meldet den neuen Stand in `details.seen` zurück (`packages/workspace-executor/src/sandbox-tools.ts`).
+Der Executor bleibt so ohne Zustand, auch auf einem Arbeitsplatz. `edit` auf eine Datei ohne
+gesehenen Stand scheitert mit `workspace-file-unread` ("Datei zuerst mit read lesen"), auf eine
+seitdem geänderte mit `workspace-file-changed` ("... seit dem Lesen geändert ...; erneut lesen");
+`write` prüft dasselbe für eine bestehende Datei, eine neue entsteht ohne `read`. Nach eigenem
+`edit` oder `write` gilt der neue Stand als gesehen. Ein erneutes `read` desselben Ausschnitts
+einer unveränderten Datei antwortet mit "Unverändert seit dem letzten read in diesem Gespräch;
+der frühere Inhalt gilt weiter."; ein Stand aus `edit` oder `write` löst das nicht aus, weil das
+Modell dann nicht den ganzen Inhalt gesehen hat. Der Modellkontext (`ToolScope.modelContext`,
+von der Agentenlaufzeit bei jedem direkten Aufruf gesetzt) nennt die Sitzung des Agenten und ihre
+letzte Verdichtung; nach einer Compaction oder in einer neuen Sitzung beginnt der Merker leer.
+Aufrufe aus TypeScript (Snippets, Actor-Programme) und `files.read` laufen ohne Merker, weil ihr
+Ergebnis nicht im Modellkontext landet: sie prüfen nichts und merken nichts. Neustart des Servers,
+Fork (ein neuer Actor), Run-Umzug und Stopp des Runs leeren den Merker; das verlangt höchstens ein
+neues `read`, nie einen falschen Hinweis. Eine Eingabe mit dem früheren Feld `expectedHash` wird
+ignoriert, alte Journale bleiben lesbar, und ein Replay führt kein Werkzeug neu aus.
 
 Der **Executor** ist das Paket `packages/workspace-executor`, gebaut aus Modulen: jedes Modul
 registriert benannte Operationen, deren Handler den Prozesskontext dieser Maschine bekommen, und
@@ -2657,7 +2682,8 @@ drei Adaptern Roslyn, FSAC und TypeScript (`<id>_open`, `<id>_diagnostics`, `<id
 Prozesse (`processes.snapshot`, `processes.stop`, `processes.stopAll`), die Befehle (`commands.run`)
 und der Browser der Browserprüfung (`browser.*`, Abschnitt Browserprüfungen). Nach `edit` und
 `write` fragt das Werkzeugmodul alle Module nach einer Anmerkung zur geschriebenen Datei; die
-Sprachserver hängen so ihre Diagnostik an. Die Schnittstelle ist
+Sprachserver hängen so ihre Diagnostik an. Meldungen der Dateiwerkzeuge nennen den Pfad so, wie
+das Modell ihn übergeben hat, auch mit Alias, nie den aufgelösten unter dem Datenordner. Die Schnittstelle ist
 `execute(runId, operation, input, options)` mit Fortschritt als JSON-Wert und Abbruch, dazu
 `stopRun(runId)` und `shutdown()`; der Executor kennt weder Engine noch Run-Vertrag noch Plugins,
 sondern nur Ordner, Umgebung und Aufrufe seiner eigenen Maschine. Ein fachlicher Fehler einer
@@ -3497,7 +3523,8 @@ prüft mit `count` die Anzahl sichtbarer Treffer eines Ziels statt seiner Eindeu
 (`0` belegt Abwesenheit). Reine Sichtbarkeits- und Adressprüfungen in `browser_check` warten
 höchstens 5 Sekunden, Aktionen die volle Zeitgrenze von 15 Sekunden.
 Konsole, JavaScript-Ausnahmen und fehlgeschlagene Netzwerkantworten fließen in
-die Prüfung ein. Erfolgreiche explizite Assertions erzeugen einen Zeitstempel; Aktionen,
+die Prüfung ein; eine fehlgeschlagene Anfrage steht nur einmal in der Fehlerliste, auch wenn
+HTTP-Status, Konsole ("Failed to load resource") und Netzwerk sie melden. Erfolgreiche explizite Assertions erzeugen einen Zeitstempel; Aktionen,
 Navigation verwerfen ihn; neue Fehler bleiben in der Fehlerliste des Runs sichtbar, ohne die
 Prüfung zu verwerfen. Ein Screenshot allein ist kein erfolgreicher Test.
 

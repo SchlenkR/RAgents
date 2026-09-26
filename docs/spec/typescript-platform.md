@@ -171,8 +171,12 @@ fully typed in snippets, actor programs, and the public run API. Resolution incl
 `$defs` references; external references are not loaded.
 
 Without selected names, `typescript_api` returns the compact catalog. `query` searches names and
-short descriptions. With `names`, the result includes TypeScript declarations, available long
-descriptions, and guidance attached to those exact functions. Declarations include each
+short descriptions. With `names`, the result includes the entries of those functions in
+`RAgentsCapabilityMap` as TypeScript declarations, available long descriptions, and guidance
+attached to those exact functions. The declarations of `context` itself (`run`, `actor`, `state`,
+`log`, `std` with its mediators) are the same for every function, so `context: true` returns them
+once with the general guidance instead of every answer repeating them. A result type made of
+journal events lists only the event types the function actually produces. Declarations include each
 property's `description` as a comment. A schema shared by several functions appears once as a
 named alias. JSON Schemas with validation rules such as lengths and patterns are added to a name
 selection only with `schemas: true`. This input asks for the actor-list contract; it is a tool

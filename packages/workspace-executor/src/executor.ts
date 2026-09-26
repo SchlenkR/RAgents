@@ -4,7 +4,7 @@ import type { WorkspaceExecutorModule, WorkspaceModuleFactory, WorkspaceOperatio
 import { NO_ROOTS, type OperationFootprint } from "./paths.js";
 
 /** Der Stand des Executors; Server und Arbeitsplatz müssen denselben tragen. */
-export const WORKSPACE_EXECUTOR_VERSION = "4";
+export const WORKSPACE_EXECUTOR_VERSION = "5";
 
 export interface WorkspaceExecuteOptions {
   toolCallId?: string;

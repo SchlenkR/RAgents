@@ -1,5 +1,37 @@
 # Entscheidungen
 
+## Dateistand beim Host statt Hash im Aufruf, wie Claude Code (26.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Arbeitsbereich, Sandbox-Werkzeuge und Prozesse, "Gesehener
+Dateistand"). Vorgabe des Owners: `read`, `edit` und `write` verwalten den Dateistand wie Claude
+Code, das Modell übergibt nie einen Hash.
+
+**Warum so.** In echten Runs trugen 13 `edit`-Aufrufe `expectedHash`, 9 richtig abgeschrieben, 4
+erfunden; alle vier Ablehnungen wegen eines veralteten Stands gingen auf erfundene Hashes zurück,
+keine auf eine echte Änderung. Dazu las ein Run dieselbe unveränderte Datei sechsmal vollständig.
+Ein Hash im Aufruf verlangt, dass das Modell 64 Hexzeichen abtippt, gegen die Regel "Modelle
+tippen nichts ab".
+
+**Festlegung.** `expectedHash` fällt aus dem Schema von `edit`, die Zeile `[Content SHA-256: ...]`
+aus `read`, der Hash aus der Erfolgsmeldung von `edit`. Den gesehenen Stand führt der Server je
+Run, Actor, Modellkontext und Pfad im Speicher und reicht ihn dem Executor als Feld `seen`; der
+Executor prüft Datei und Inhalts-Hash und meldet den neuen Stand zurück. `edit` und `write` auf
+eine bestehende, nicht gelesene oder seitdem geänderte Datei scheitern mit benannter Ursache, ein
+unverändertes erneutes `read` desselben Ausschnitts antwortet mit einem Hinweis. Der Modellkontext
+kommt von der Agentenlaufzeit (Sitzung und letzte Compaction, `ToolScope.modelContext`); nur
+direkte Aufrufe des Modells tragen ihn, Aufrufe aus TypeScript laufen ohne Merker.
+`WORKSPACE_EXECUTOR_VERSION` ist 5, weil ein älterer Arbeitsplatz `seen` nicht kennt und keinen
+Stand zurückmeldet.
+
+Verworfen: der Merker im Executor (auf einem Arbeitsplatz überlebt er einen Serverneustart und
+träfe nach einer Verdichtung auf einen neu gezählten Modellkontext, also ein falsches
+"unverändert"); ein Schlüssel über die aufgelöste Datei auf dem Server (der Server kennt die Pfade
+eines Arbeitsplatzes nicht, deshalb Pfad wie geschrieben plus Prüfung der aufgelösten Datei im
+Executor); Modifikationszeit und Größe statt Inhalts-Hash (zu grob bei schnellen Änderungen gleicher
+Größe). Grenze: Nennt das Modell dieselbe Datei mit einem anderen Pfad (Alias gegen relativ), gilt
+sie als ungelesen; das verlangt ein `read`, nie einen falschen Hinweis. Diese Festlegung ersetzt die
+Zeile zum `expectedHash` im Eintrag zu den Abweichungen der Agentenlaufzeit weiter unten.
+
 ## Schlanke Werkzeugergebnisse als Regel (26.09.2026)
 
 Kapitel: `docs/spec/plugins.md` (Plugin-Leitfaden, Abschnitt 9, Befundgrundlage),
@@ -19,6 +51,27 @@ zeigen weiter volle SHA-256-Werte.
 Handbuch. Abfragen sind ausgenommen: Ihre Antwort ist das verlangte Ergebnis und keine
 Wiederholung, deshalb bleibt `event_query` vollständig und nur durch sein Limit begrenzt. Die
 gefundenen Verstöße stehen in `TODO.md`.
+
+**Umsetzung.** Kapitel zusätzlich `docs/spec/core.md` (Werkzeugergebnisse, `actor_list`,
+`run_configure`), `docs/spec/typescript-platform.md` (`typescript_api`), `docs/spec/actor-programs.md`
+(Testbericht, `actor_program_controls`) und `docs/spec/plugins.md` (Sandbox-Werkzeuge,
+Browserprüfung). `bash` gibt höchstens 20 KB aus und kürzt Zeilen über 1000 Zeichen sichtbar, die
+volle Ausgabe bleibt in der Logdatei; `read` behält 50 KB und 2000 Zeilen, weil es mit `offset`
+seitenweise liest, sein Hinweis für eine überlange Zeile zerlegt sie mit `fold`. Fehlgeschlagene
+Tests einer Aktivierung meldet ein eigener Reporter mit Zahl, Name, Meldung, erwartet und
+tatsächlich und der Stelle relativ zum Programm statt roher TAP-Ausgabe. Der Browser meldet eine
+fehlgeschlagene Anfrage einmal statt als HTTP-, Konsolen- und Netzwerkfehler. Meldungen von
+`read`, `edit` und `write` nennen den Pfad wie übergeben. Ändernde Werkzeuge bestätigen knapp:
+`event_subscribe` liefert `subscriptionId` und `sources`, `event_unsubscribe`, `run_configure`,
+`canvas_layout_replace` und `todo_replace` `null`. Event-Ergebnisse nennen per
+`eventResultSchemaOf` nur ihre tatsächlichen Typen, und ihre Payloads wiederholen weder `reason`
+noch `title` noch `mediaType`; `eventResultSchema` bleibt für fremde Plugins bis zum nächsten
+Sprung der Host-API. `typescript_api` liefert zu `names` nur die Einträge in
+`RAgentsCapabilityMap`, die Deklarationen von `context` einmal über `context: true`.
+`actor_program_controls` liefert zu einem Control nur dessen Dateien, `actor_list` statt der
+Werkzeugliste deren Größe und die Namen nur mit `toolNames: true`, weil kein Code die Liste liest.
+In Zahlen: das Ergebnis von `typescript_api` für eine Funktion sinkt um rund 2,6 KB, der
+Ergebnistyp von `actor_input` von rund 4 KB auf 0,4 KB.
 
 ## Solution beim Start eines Runs, Solution-Liste und Umschalten im Reiter (25.09.2026)
 

@@ -6,6 +6,7 @@ import {
   type RunFunction,
   type PluginContext,
   type ToolContributor,
+  type ToolScope,
 } from "@ragents/engine";
 import {
   createBashToolDefinition,
@@ -23,6 +24,7 @@ import {
   type AddressedRoots,
   type ResolvedWorkspaceRoot,
   type SandboxHomeEnvironment,
+  type SeenFile,
   type SessionIdent,
   type WorkspaceExecuteOptions,
   type WorkspaceExecutor,
@@ -30,7 +32,7 @@ import {
 } from "@ragents/workspace-executor";
 import { hostRoot } from "../host-version.js";
 import type { SandboxFolder, SessionWorkspace } from "../ragents/workspace-runtime.js";
-import { agentToolFrom, toolDescriptorFrom, type AgentToolDefinition } from "./agent-tool.js";
+import { agentToolFrom, textOf, toolDescriptorFrom, type AgentToolDefinition, type ToolOutput } from "./agent-tool.js";
 import type { RunProcessSandboxes } from "./process-sandbox.js";
 import { SKILLS_ALIAS, skillRootAlias } from "./skills.js";
 import { alwaysAvailable } from "./tool-availability.js";
@@ -106,6 +108,8 @@ const sandboxDescriptorDefinitions = [
 const sandboxDescriptors = sandboxDescriptorDefinitions.map((definition) =>
   toolDescriptorFrom(describeSandboxTool(definition), alwaysAvailable));
 
+const fileToolNames = new Set(["read", "edit", "write"]);
+
 interface StableRunParts {
   ident?: SessionIdent;
   home: SandboxHomeEnvironment;
@@ -141,6 +145,8 @@ export class WorkspaceSandboxHost implements SandboxServices {
   readonly #workspaceRoots: RegisteredWorkspaceRoot[] = [];
   readonly #local: WorkspaceOperationExecutor;
   readonly #stable = new Map<string, Promise<StableRunParts>>();
+  /** Je Run der Dateistand, den ein Modell zuletzt gesehen hat, nach Actor, Modellkontext und Pfad; nur im Speicher, ein Verlust verlangt höchstens ein neues read. */
+  readonly #seen = new Map<string, Map<string, SeenFile>>();
 
   constructor(options: WorkspaceSandboxHostOptions) {
     this.#options = options;
@@ -302,6 +308,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
   /** Auch ein Run mit eigenem Executor hat auf dem Server markierte Prozesse der TypeScript-Plattform; beide Executoren räumen ab. */
   async shutdown(runId: string): Promise<void> {
     this.#stable.delete(runId);
+    this.#seen.delete(runId);
     const remote = await this.#options.executorFor?.(runId);
     const results = await Promise.allSettled([this.#local.stopRun(runId), ...(remote ? [remote.stopRun(runId)] : [])]);
     const failed = results.find((result): result is PromiseRejectedResult => result.status === "rejected");
@@ -310,6 +317,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
 
   shutdownAll(): Promise<void> {
     this.#stable.clear();
+    this.#seen.clear();
     return this.#local.shutdown();
   }
 
@@ -332,7 +340,23 @@ export class WorkspaceSandboxHost implements SandboxServices {
             ...(signal ? { signal } : {}),
           }),
       } as AgentToolDefinition;
-      return agentToolFrom(proxy, alwaysAvailable, described.name === "bash" ? "sequential" : "parallel");
+      const tool = agentToolFrom(proxy, alwaysAvailable, described.name === "bash" ? "sequential" : "parallel");
+      return fileToolNames.has(described.name)
+        ? { ...tool, run: (scope: ToolScope, toolCallId: string, input: never) => this.#fileToolCall(context.runId, described.name, scope, toolCallId, input) }
+        : tool;
     }));
+  }
+
+  /** Ein direkter Aufruf des Modells gibt den Stand mit, den es von der Datei gesehen hat, und merkt sich den neuen; ein Aufruf aus TypeScript arbeitet ohne. */
+  async #fileToolCall(runId: string, name: string, scope: ToolScope, toolCallId: string, input: { path: string }): Promise<string> {
+    const options = { toolCallId, ...(scope.signal ? { signal: scope.signal } : {}) };
+    if (scope.modelContext === undefined) return textOf(await this.execute(runId, name, input, options) as ToolOutput);
+    const known = this.#seen.get(runId) ?? new Map<string, SeenFile>();
+    const key = [scope.caller.actorId, scope.modelContext, path.posix.normalize(input.path)].join("\0");
+    const result = await this.execute(runId, name, { ...input, seen: known.get(key) ?? null }, options) as ToolOutput & { details?: { seen?: SeenFile } };
+    const seen = result.details?.seen;
+    if (!seen) throw new Error(`Der Executor meldet nach ${name} keinen Dateistand; Server und Arbeitsplatz brauchen denselben Executor-Stand`);
+    this.#seen.set(runId, known.set(key, seen));
+    return textOf(result);
   }
 }

@@ -123,7 +123,8 @@ export interface RunContextDeclarationsOptions {
     readonly program: string;
 }
 
-const capabilityMap = (capabilities: readonly RunCapabilityDescriptor[]): string => {
+/** The types of the given functions as `RAgentsCapabilityMap`, without the declarations of the context around them. */
+export const runCapabilityDeclarations = (capabilities: readonly RunCapabilityDescriptor[]): string => {
     const seen = new Set<string>();
     const declarations: string[] = [];
     const sorted = [...capabilities].sort((left, right) => left.id.localeCompare(right.id));
@@ -159,10 +160,8 @@ const capabilityMap = (capabilities: readonly RunCapabilityDescriptor[]): string
     return `${declarations.join("\n")}${declarations.length > 0 ? "\n\n" : ""}type RAgentsCapabilityMap = ${map};`;
 };
 
-export const createRunContextDeclarations = (options: RunContextDeclarationsOptions): string => `
-${capabilityMap(options.capabilities)}
-
-interface RAgentsRunState<State> {
+/** The declarations of the context itself, the same for every function selection. */
+export const runContextFrameDeclarations = (stateType: string, program: string): string => `interface RAgentsRunState<State> {
   read(): State;
   replace(value: State): void;
 }
@@ -193,7 +192,10 @@ interface RAgentsRunContext<State, Capabilities> {
   throwIfAborted(): void;
 }
 
-type RunContext = RAgentsRunContext<${options.stateType}, RAgentsCapabilityMap>;
+type RunContext = RAgentsRunContext<${stateType}, RAgentsCapabilityMap>;
 
-${options.program.trim()}
-`.trimStart();
+${program.trim()}
+`;
+
+export const createRunContextDeclarations = (options: RunContextDeclarationsOptions): string =>
+    `${runCapabilityDeclarations(options.capabilities)}\n\n${runContextFrameDeclarations(options.stateType, options.program)}`;

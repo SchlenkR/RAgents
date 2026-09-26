@@ -6,16 +6,17 @@ import { scriptStdDeclarations } from "../script/std.ts";
 import { compileVirtualTypeScriptAsync } from "./async-compiler.ts";
 import type { VirtualTypeScriptDiagnostic } from "./compiler.ts";
 import type { NativeTypeScriptExecutor, NativeTypeScriptProgram, NativeTypeScriptRequest } from "./native-executor.ts";
-import { createRunContextDeclarations, runCapabilityContract, type RunCapabilityDescriptor } from "./run-context.ts";
+import { createRunContextDeclarations, runCapabilityContract, runContextFrameDeclarations, type RunCapabilityDescriptor } from "./run-context.ts";
 
 const snippetFile = "snippet.ts";
+const snippetStateType = "Record<string, unknown>";
+const snippetProgram = `${scriptStdDeclarations}\ninterface RAgentsRunContext<State, Capabilities> { readonly std: RAgentsStd; }\ndeclare const context: RunContext;`;
 
 export const typeScriptSnippetDeclarations = (capabilities: readonly RunCapabilityDescriptor[]): string =>
-    createRunContextDeclarations({
-        capabilities,
-        stateType: "Record<string, unknown>",
-        program: `${scriptStdDeclarations}\ninterface RAgentsRunContext<State, Capabilities> { readonly std: RAgentsStd; }\ndeclare const context: RunContext;`,
-    });
+    createRunContextDeclarations({ capabilities, stateType: snippetStateType, program: snippetProgram });
+
+/** What a snippet's context offers besides its functions (run, actor, state, log, std with mediators); typescript_api gives it once on request. */
+export const typeScriptSnippetContextDeclarations = runContextFrameDeclarations(snippetStateType, snippetProgram);
 
 export interface TypeScriptSnippetSource {
     readonly code: string;

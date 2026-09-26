@@ -74,6 +74,7 @@ export {
     actorInputSchema,
     enqueueActorInput,
     eventResultSchema,
+    eventResultSchemaOf,
     type ActorInputRequest,
 } from "./agents/actor-input.ts";
 export {

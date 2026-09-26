@@ -15,6 +15,7 @@ import { compileAppBackend, installServerSdk, prepareAppProject, prepareAppWorks
 import { syncWorkspaceOwnership } from "@ragents/host/plugin-support/workspace-ownership.js";
 import { runManagedProcess, sandboxedLaunch, type WorkspaceProcessContext } from "@ragents/workspace-executor";
 import { runModuleTemplates, templateById, templateFiles } from "./templates.js";
+import { createTestReport, testReporterArgument } from "./test-report.js";
 import { FRAME_BODY_CLASS, FRAME_DOCUMENT_CLASS, FRAME_ROOT_CLASS } from "@ragents/host/plugin-support/actor-programs/client-runtime.js";
 import { buildTailwind } from "@ragents/host/plugin-support/actor-programs/tailwind.js";
 import type { AskService } from "@ragents/plugins/ragents.ask/server/contract.js";
@@ -388,13 +389,14 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             const tests = compiled.files.filter((file) => /^tests\/.*\.test\.tsx?$/.test(file.path));
             if (tests.length) {
                 const processContext = await this.#options.serverProcessContextFor(runId);
-                let output = "";
-                const launch = await sandboxedLaunch(processContext, { command: process.execPath, args: ["--import", "tsx", "--test", ...tests.map((file) => file.path)] });
+                const report = await createTestReport(compiled.directory);
+                let stderr = "";
+                const launch = await sandboxedLaunch(processContext, { command: process.execPath, args: ["--import", "tsx", "--test", testReporterArgument, ...tests.map((file) => file.path)] });
                 const result = await runManagedProcess({ command: launch.command, args: [...launch.args], cwd: compiled.directory,
                     env: processContext.env, uid: processContext.uid, gid: processContext.gid, label: `Tests ${name}`, signal, timeoutMs: 60000,
-                    onStdout: (chunk) => { output = (output + chunk.toString()).slice(-12000); }, onStderr: (chunk) => { output = (output + chunk.toString()).slice(-12000); } });
+                    onStdout: (chunk) => report.stdout(chunk.toString()), onStderr: (chunk) => { stderr = (stderr + chunk.toString()).slice(-12000); } });
                 if (result.code !== 0 || result.timedOut)
-                    throw new Error(`Tests für ${name} fehlgeschlagen:\n${output}`);
+                    throw new Error(report.report(name, { code: result.code, timedOut: result.timedOut, stderr }));
             }
             if (canonicalHash(compiled.files) !== canonicalHash(await projectSourceFiles(compiled.directory)))
                 throw new Error("Paketdateien wurden während der Prüfung geändert; erneut aktivieren.");

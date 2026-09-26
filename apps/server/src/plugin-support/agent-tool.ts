@@ -17,7 +17,7 @@ export interface AgentToolMetadata {
   readonly nativeTool?: boolean;
 }
 
-type ToolOutput = { content?: ReadonlyArray<{ type: string; text?: string }> };
+export type ToolOutput = { content?: ReadonlyArray<{ type: string; text?: string }> };
 
 type BoundExecute = (
   toolCallId: string,
@@ -27,7 +27,7 @@ type BoundExecute = (
   ctx: unknown,
 ) => Promise<ToolOutput>;
 
-const textOf = (result: ToolOutput): string =>
+export const textOf = (result: ToolOutput): string =>
   (result.content ?? [])
     .filter((part) => part.type === "text" && typeof part.text === "string")
     .map((part) => part.text)

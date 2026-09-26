@@ -2,7 +2,7 @@ import {
   actorInputSchema,
   agentTools,
   enqueueActorInput,
-  eventResultSchema,
+  eventResultSchemaOf,
   ScriptDriver,
   type ActorInputRequest,
   type RAgentsPlugin,
@@ -29,7 +29,7 @@ const orchestrationPlugin: RAgentsPlugin = {
       description: "Reiht für einen Actor einen normalen Texteingang unter der gebundenen Identität ein - "
         + "als Agent oder, aus einer App-Aktion, als Besitzer des Runs. Bestätigt nur das Einreihen. TypeScript-Actors verstehen ausschließlich ihr programmiertes Eingabeprotokoll, keine freien Aufträge.",
       schema: actorInputSchema,
-      resultSchema: eventResultSchema,
+      resultSchema: eventResultSchemaOf("actor.input.enqueued"),
       operator: "direct",
       execute: (context, input) =>
         enqueueActorInput(host.service(runtimeProviderToken)(), {

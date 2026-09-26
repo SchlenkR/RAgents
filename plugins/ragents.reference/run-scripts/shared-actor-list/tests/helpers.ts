@@ -15,7 +15,7 @@ export const setupContext = (profiles = [{ name: "coordinator", driver: "agent" 
     return name === "model_list" ? {
       profiles: profiles.map((profile) => ({ ...profile, description: "Testprofil", turnTimeoutMs: null,
         isolateWorkspace: false, provider: "test", model: "test" })), models: [],
-    } : [];
+    } : name === "actor_input" ? [] : null;
   }]));
   return { calls, context: createTestContext<{ built?: boolean }>({ state: {}, functions }) };
 };

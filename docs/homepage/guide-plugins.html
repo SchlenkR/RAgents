@@ -349,7 +349,8 @@ the system overview calls them direct tools.</p>
 plugins. Models use them to discover functions and execute TypeScript snippets. The optional
 actor-program plugin adds persistent programs and views; removing it does not remove snippets or
 other plugin functions. A named <code>typescript_api</code> request returns exact declarations, long
-descriptions, and attached guidance; list and search return short descriptions. Catalog and
+descriptions, and attached guidance; the declarations of <code>context</code> itself come once through
+<code>context: true</code>; list and search return short descriptions. Catalog and
 signatures come from the live registry, with no second hand-maintained capability list.</p>
 <p>Model-facing functions return compact results. Lists and large structures appear only on
 explicit request and in reduced form; mini-apps obtain complete state through their own

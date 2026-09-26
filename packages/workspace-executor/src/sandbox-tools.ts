@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
-import { stat } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import {
   createBashToolDefinition,
@@ -45,7 +46,61 @@ export const DEFAULT_BASH_TIMEOUT_SECONDS = (() => {
   return Number.isFinite(value) && value > 0 ? value : 600;
 })();
 
-type ToolResult = { content?: Array<{ type: string; text?: string }> };
+type ToolResult = { content?: Array<{ type: string; text?: string }>; details?: unknown };
+
+/** Der Stand einer Datei, den das Modell zuletzt gesehen hat; der Host führt ihn je Actor und gibt ihn mit, das Modell nennt ihn nie. */
+export interface SeenFile {
+  readonly file: string;
+  readonly hash: string;
+  /** Nur nach einem read: der gelesene Ausschnitt. */
+  readonly read?: { readonly offset?: number; readonly limit?: number };
+}
+
+/** Die Eingabe der Dateiwerkzeuge: was das Modell übergibt, und nur bei dessen direktem Aufruf der Stand, den es gesehen hat (`null`: keiner). */
+type FileToolInput = {
+  readonly path?: unknown;
+  readonly offset?: number;
+  readonly limit?: number;
+  readonly content?: string;
+  readonly seen?: SeenFile | null;
+};
+
+type FileToolName = "read" | "edit" | "write";
+
+const unchangedNotice = "Unverändert seit dem letzten read in diesem Gespräch; der frühere Inhalt gilt weiter.";
+
+const sha256 = (content: Buffer | string): string => createHash("sha256").update(content).digest("hex");
+
+/** Der Inhalts-Hash einer Datei; eine fehlende Datei hat keinen. */
+const currentHash = async (file: string): Promise<string | undefined> => {
+  try {
+    return sha256(await readFile(file));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    throw error;
+  }
+};
+
+const detailHash = (result: unknown, name: FileToolName): string => {
+  const hash = (result as { details?: { contentHash?: unknown } }).details?.contentHash;
+  if (typeof hash !== "string") throw new Error(`Das Werkzeug ${name} meldet keinen Inhalts-Hash`);
+  return hash;
+};
+
+/** Ein Ergebnis und ein Fehler nennen den Pfad so, wie das Modell ihn übergeben hat, nicht den aufgelösten. */
+const withShownPath = (result: unknown, resolved: string, shown: string): unknown => {
+  const typed = result as ToolResult;
+  if (resolved === shown || !Array.isArray(typed.content)) return result;
+  return { ...typed, content: typed.content.map((part) => typeof part.text === "string" ? { ...part, text: part.text.replaceAll(resolved, shown) } : part) };
+};
+
+const errorWithShownPath = (error: unknown, resolved: string, shown: string): unknown => {
+  if (resolved === shown || !(error instanceof Error) || !error.message.includes(resolved)) return error;
+  const message = error.message.replaceAll(resolved, shown);
+  return error instanceof WorkspaceOperationError
+    ? new WorkspaceOperationError(error.code, message, error.status)
+    : new Error(message, { cause: error });
+};
 
 export const withAnnotation = (result: unknown, note: string | undefined): unknown => {
   if (!note || typeof result !== "object" || result === null) return result;
@@ -139,18 +194,55 @@ export const createSandboxTools = async (
     };
   };
 
-  const guarded = (execute: ToolExecute, writing: boolean): ToolExecute => {
+  /** Bei einem direkten Aufruf des Modells prüft ein Schreiben den gesehenen Stand und ein erneutes read eines unveränderten Ausschnitts antwortet knapp. */
+  const checkedAgainstSeen = async (name: FileToolName, file: string, shown: string, input: FileToolInput, seen: SeenFile | null): Promise<ToolResult | undefined> => {
+    if (name === "read") {
+      const sameView = seen?.read !== undefined && seen.file === file && seen.read.offset === input.offset && seen.read.limit === input.limit;
+      return sameView && await currentHash(file) === seen.hash ? { content: [{ type: "text", text: unchangedNotice }], details: { seen } } : undefined;
+    }
+    const current = await currentHash(file);
+    if (current === undefined) return undefined;
+    if (seen === null || seen.file !== file) throw new WorkspaceOperationError("workspace-file-unread", `${shown}: Datei zuerst mit read lesen.`, 409);
+    if (seen.hash !== current) {
+      throw new WorkspaceOperationError("workspace-file-changed",
+        `${shown}: Datei wurde seit dem Lesen geändert (vom Benutzer, einem Formatter oder einem anderen Actor); erneut lesen.`, 409);
+    }
+    return undefined;
+  };
+
+  const seenAfter = (name: FileToolName, file: string, input: FileToolInput, result: unknown): SeenFile => {
+    if (name === "write") return { file, hash: sha256(input.content ?? "") };
+    if (name === "edit") return { file, hash: detailHash(result, name) };
+    return {
+      file,
+      hash: detailHash(result, name),
+      read: { ...input.offset === undefined ? {} : { offset: input.offset }, ...input.limit === undefined ? {} : { limit: input.limit } },
+    };
+  };
+
+  const guarded = (name: FileToolName, execute: ToolExecute): ToolExecute => {
+    const writing = name !== "read";
     const checked: ToolExecute = async (toolCallId, input, signal, onUpdate, ctx) => {
-      const params = input as { path?: unknown } | undefined;
+      const { seen, ...params } = (input ?? {}) as FileToolInput;
       const context = await contextFor();
-      const requested = typeof params?.path === "string"
-        ? expandPathVariables(expandWorkspaceAlias(params.path, context.workspaceAliases ?? {}), context.pathVariables ?? {})
-        : undefined;
-      const writable = [context.root, ...context.additionalRoots ?? []];
-      await assertInsideRoots(requested ?? params?.path, writing ? writable : [...writable, ...context.readOnlyRoots ?? []]);
-      const result = await execute(toolCallId, requested === undefined ? input : { ...params, path: requested }, signal, onUpdate, ctx);
-      if (!writing || !annotate || requested === undefined) return result;
-      return withAnnotation(result, await annotate(path.resolve(cwd, requested)));
+      const shown = typeof params.path === "string" ? params.path : undefined;
+      const requested = shown === undefined
+        ? undefined
+        : expandPathVariables(expandWorkspaceAlias(shown, context.workspaceAliases ?? {}), context.pathVariables ?? {});
+      try {
+        const writable = [context.root, ...context.additionalRoots ?? []];
+        await assertInsideRoots(requested ?? params.path, writing ? writable : [...writable, ...context.readOnlyRoots ?? []]);
+        const file = requested === undefined ? undefined : path.resolve(cwd, requested);
+        const tracked = seen !== undefined && file !== undefined && shown !== undefined;
+        const early = tracked ? await checkedAgainstSeen(name, file, shown, params, seen) : undefined;
+        if (early) return early;
+        const result = await execute(toolCallId, requested === undefined ? params : { ...params, path: requested }, signal, onUpdate, ctx);
+        const recorded = tracked ? { ...result as ToolResult, details: { ...(result as ToolResult).details as object, seen: seenAfter(name, file, params, result) } } : result;
+        const annotated = writing && annotate && file !== undefined ? withAnnotation(recorded, await annotate(file)) : recorded;
+        return requested === undefined || shown === undefined ? annotated : withShownPath(annotated, requested, shown);
+      } catch (error) {
+        throw requested === undefined || shown === undefined ? error : errorWithShownPath(error, requested, shown);
+      }
     };
     return writing ? serial(checked) : concurrent(checked);
   };
@@ -256,9 +348,9 @@ export const createSandboxTools = async (
 
   const executeOf = (definition: { execute: unknown }): ToolExecute => definition.execute as ToolExecute;
   const wrapped: ReadonlyArray<readonly [string, ToolExecute]> = [
-    ["read", guarded(executeOf(createReadToolDefinition(cwd)), false)],
-    ["edit", guarded(executeOf(createEditToolDefinition(cwd)), true)],
-    ["write", guarded(executeOf(createWriteToolDefinition(cwd)), true)],
+    ["read", guarded("read", executeOf(createReadToolDefinition(cwd)))],
+    ["edit", guarded("edit", executeOf(createEditToolDefinition(cwd)))],
+    ["write", guarded("write", executeOf(createWriteToolDefinition(cwd)))],
     ["bash", serial(inFolder(executeOf(createBashToolDefinition(cwd, { operations: bashOperations }))))],
   ];
   return {

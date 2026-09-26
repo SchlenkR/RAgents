@@ -25,7 +25,8 @@ type TurnDriverFacts = {
         driverKind: "agent";
         selection: ModelSelection;
         forkOf: string | null;
-        invoke: (toolCallId: string, name: string, input: JsonValue) => Promise<ToolInvocation>;
+        /** `modelContext` names the model context the result enters, see `ToolScope.modelContext`; without it file tools track no seen state. */
+        invoke: (toolCallId: string, name: string, input: JsonValue, modelContext?: string) => Promise<ToolInvocation>;
         /** Claims the pending inputs that may join this turn now, in journal order; empty once the turn ends or aborts. */
         claimSteering: () => readonly SteeredInput[];
     };

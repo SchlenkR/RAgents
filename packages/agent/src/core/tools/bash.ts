@@ -7,7 +7,10 @@ import { resolvePath } from "../../utils/paths.ts";
 import { getShellConfig, killProcessTree } from "../../utils/shell.ts";
 import type { ToolDefinition } from "../extensions/types.ts";
 import { OutputAccumulator } from "./output-accumulator.ts";
-import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, type TruncationResult } from "./truncate.ts";
+import { DEFAULT_MAX_LINES, formatSize, type TruncationResult } from "./truncate.ts";
+
+export const BASH_MAX_BYTES = 20 * 1024;
+export const BASH_MAX_LINE_CHARS = 1000;
 
 const MAX_TIMEOUT_MS = 2_147_483_647;
 const MAX_TIMEOUT_SECONDS = MAX_TIMEOUT_MS / 1000;
@@ -164,7 +167,7 @@ export function createBashToolDefinition(
 	return {
 		name: "bash",
 		label: "bash",
-		description: `Execute a bash command in the working directory, or in the folder given as cwd. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last ${DEFAULT_MAX_LINES} lines or ${DEFAULT_MAX_BYTES / 1024}KB (whichever is hit first). If truncated, full output is saved to a temp file. Optionally provide a timeout in seconds.`,
+		description: `Execute a bash command in the working directory, or in the folder given as cwd. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last ${DEFAULT_MAX_LINES} lines or ${BASH_MAX_BYTES / 1024}KB (whichever is hit first), and lines longer than ${BASH_MAX_LINE_CHARS} characters are shortened. If anything was cut, the full output is saved to a temp file. Optionally provide a timeout in seconds.`,
 		promptSnippet: "Execute bash commands (ls, grep, find, etc.)",
 		parameters: bashSchema,
 		async execute(
@@ -176,7 +179,7 @@ export function createBashToolDefinition(
 		) {
 			const resolvedCommand = commandPrefix ? `${commandPrefix}\n${command}` : command;
 			const spawnContext = resolveSpawnContext(resolvedCommand, folder === undefined ? cwd : resolvePath(folder, cwd), spawnHook);
-			const output = new OutputAccumulator({ tempFilePrefix: "agent-bash" });
+			const output = new OutputAccumulator({ maxBytes: BASH_MAX_BYTES, maxLineChars: BASH_MAX_LINE_CHARS, tempFilePrefix: "agent-bash" });
 			let acceptingOutput = true;
 			let updateTimer: NodeJS.Timeout | undefined;
 			let updateDirty = false;
@@ -252,8 +255,11 @@ export function createBashToolDefinition(
 					} else if (truncation.truncatedBy === "lines") {
 						text += `\n\n[Showing lines ${startLine}-${endLine} of ${truncation.totalLines}. Full output: ${snapshot.fullOutputPath}]`;
 					} else {
-						text += `\n\n[Showing lines ${startLine}-${endLine} of ${truncation.totalLines} (${formatSize(DEFAULT_MAX_BYTES)} limit). Full output: ${snapshot.fullOutputPath}]`;
+						text += `\n\n[Showing lines ${startLine}-${endLine} of ${truncation.totalLines} (${formatSize(BASH_MAX_BYTES)} limit). Full output: ${snapshot.fullOutputPath}]`;
 					}
+				} else if (output.hasShortenedLines()) {
+					details = { fullOutputPath: snapshot.fullOutputPath };
+					text += `\n\n[Lines longer than ${BASH_MAX_LINE_CHARS} characters are shortened. Full output: ${snapshot.fullOutputPath}]`;
 				}
 				return { text, details };
 			};

@@ -4,7 +4,6 @@ import {
   actorByHandle,
   defineRunFunction,
   defineToolAvailability,
-  eventResultSchema,
   holdsUsable,
   type RunFunction,
   type RunView,
@@ -122,9 +121,9 @@ export const createSurfaceTool = (): RunFunction =>
   defineRunFunction({
     ...surfaceToolMetadata,
     schema: surfaceLayoutSchema,
-    resultSchema: eventResultSchema,
+    resultSchema: Type.Null(),
     available: canDesignSurface,
-    run: ({ runtime, caller, context, eventsFor }, toolCallId, input) => {
+    run: ({ runtime, caller, context }, toolCallId, input) => {
       const view = runtime.view(caller.runId);
       const layout = checkLayoutAgainstRun(view, parsedLayout(input));
       runtime.replacePluginState(context(toolCallId), caller.runId, {
@@ -132,7 +131,7 @@ export const createSurfaceTool = (): RunFunction =>
         scope: { kind: "run" },
         state: layout,
       });
-      return eventsFor(toolCallId);
+      return null;
     },
   });
 

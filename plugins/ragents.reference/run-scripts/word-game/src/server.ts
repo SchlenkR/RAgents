@@ -60,7 +60,6 @@ export default defineActor(contract, {
           eventTypes: ["turn.finished", "turn.interrupted", "actor.stopped"],
           sourceActorIds: state.participants!.map((participant) => participant.id),
         });
-        if (subscription.status !== "active") throw new Error("Das Ereignisabo ist nicht aktiv.");
         context.state.replace(await dispatch({ ...state, subscriptionId: subscription.subscriptionId }, context));
         return;
       }

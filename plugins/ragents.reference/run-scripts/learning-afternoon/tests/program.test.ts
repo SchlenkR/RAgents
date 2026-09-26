@@ -27,12 +27,7 @@ function setup(options: { missingProfile?: boolean; failDispatch?: string; befor
       const handle = (input as { handle: string }).handle;
       return { id: `actor-${handle}`, handle };
     }
-    if (name === "event_subscribe") return {
-      subscriptionId: "ideas", subscriberId: "test-actor", sourceActorIds: ["actor-learning-experiment", "actor-learning-quiz"],
-      sources: ["@learning-experiment", "@learning-quiz"], sourceActorKinds: null,
-      eventTypes: ["turn.finished", "turn.interrupted", "actor.stopped"], includeSelf: false,
-      createdBy: "test-actor", createdAt: "2026-09-13T12:00:00.000Z", createdSequence: 1, status: "active",
-    };
+    if (name === "event_subscribe") return { subscriptionId: "ideas", sources: ["@learning-experiment", "@learning-quiz"] };
     if (name === "event_query") return history.filter((event) => (input as { actorIds: string[] }).actorIds.includes(event.actorId));
     if (name === "actor_input") {
       const actor = (input as { actor: string }).actor;
@@ -40,7 +35,7 @@ function setup(options: { missingProfile?: boolean; failDispatch?: string; befor
       if (actor === options.failDispatch) throw new Error("Auftrag konnte nicht gesendet werden.");
       return [{ type: "actor.input.enqueued", payload: { actorId: `actor-${actor.slice(1)}`, inputId: `input-${actor.slice(1)}` } }];
     }
-    return [];
+    return null;
   }]));
   return { calls, context: Object.assign(createTestContext<{ board?: LearningState; subscriptionId?: string }>({ state: {}, functions }), { history }) };
 }

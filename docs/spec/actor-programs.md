@@ -196,6 +196,11 @@ Fachtests liegen als normale `node:test`-Dateien unter `tests/**/*.test.ts` und 
 `program.onInput` mit konkreten Eingaben auf. `@ragents/server/testing` liefert
 `createTestContext` mit Zustand und expliziten Funktions-Mocks unter `functions`. Ergebnis und gespeicherter
 Zustand werden getrennt geprüft. Eine reine View braucht keine erfundene Serveraktion.
+Die Aktivierung lässt die Tests mit einem eigenen Reporter laufen (`server/test-report.ts`) und
+meldet einen Fehlschlag knapp: Zahl bestandener und fehlgeschlagener Tests, je fehlgeschlagenem
+Test Name, Meldung, bei Assertions erwartet und tatsächlich, und die Stelle in der Testdatei
+relativ zum Programm; eine Testdatei, die nicht lädt, nennt die Fehlerzeile ihrer Ausgabe.
+Laufzeiten, Node-interne Stack-Zeilen und absolute Pfade fehlen.
 
 ## Werkzeugkarten und Kacheln
 
@@ -545,7 +550,7 @@ Unified-Diff dar, berechnet und schreibt selbst keine Änderungen.
 
 `actor_program_controls` liest mit `topic: "controls"` den Control-Katalog aus den exportierten
 Typverträgen der Bausteinsammlung; ohne `topic` gilt dieselbe Auswahl. Ohne `component` liefert es
-nur die Namen. Mit einem Control folgt die Antwort dessen
+nur die Namen. Mit einem Control enthält die Antwort nur `files`, ohne die Namensliste, und folgt dessen
 TypeScript-Symbolen und enthält ausschließlich die gewählte Deklaration sowie ihre transitiv
 benötigten Typen und Imports; andere Controls und unbenutzte Typen fehlen. Umbenannte Exporte
 und lokale Verweise bleiben auflösbar. Mit `topic: "guide"` liefert es stattdessen die

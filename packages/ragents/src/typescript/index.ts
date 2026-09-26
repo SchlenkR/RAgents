@@ -21,6 +21,7 @@ export { typeScriptTypeFromSchema, typeScriptTypesFromSchema } from "./schema.ts
 export {
     createRunContextDeclarations,
     runCapabilityBindingHash,
+    runCapabilityDeclarations,
     runCapabilityContract,
     runCapabilityContractHash,
     runContextApiVersion,
@@ -39,6 +40,7 @@ export type { NativeTypeScriptProgram, NativeTypeScriptRequest, NativeTypeScript
 export {
     compileTypeScriptSnippet,
     executeTypeScriptSnippet,
+    typeScriptSnippetContextDeclarations,
     typeScriptSnippetDeclarations,
     TypeScriptSnippetCompilationError,
     TypeScriptSnippetExecutionError,

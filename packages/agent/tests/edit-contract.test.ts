@@ -38,7 +38,7 @@ test("ambiguous edits name matching lines and explicit anchors select the intend
   }
 });
 
-test("queued edits check the expected hash inside the file lock, including symbolic aliases", async () => {
+test("queued edits through a symbolic alias wait for the file lock and see the previous edit", async () => {
   const directory = await mkdtemp(join(tmpdir(), "ragents-edit-race-"));
   const path = join(directory, "example.txt");
   const alias = join(directory, "alias.txt");
@@ -54,15 +54,14 @@ test("queued edits check the expected hash inside the file lock, including symbo
   try {
     await writeFile(path, original);
     await symlink(path, alias);
-    const first = tool.execute("first", { path, expectedHash: hash(original), edits: [{ oldText: "eins", newText: "drei" }] });
+    const first = tool.execute("first", { path, edits: [{ oldText: "eins", newText: "drei" }] });
     await entered.promise;
-    const second = tool.execute("second", { path: alias, expectedHash: hash(original), edits: [{ oldText: "zwei", newText: "vier" }] });
-    const rejected = assert.rejects(second, /stale read/);
+    const second = tool.execute("second", { path: alias, edits: [{ oldText: "zwei", newText: "vier" }] });
     assert.equal(reads, 1);
     release.resolve();
     const result = await first;
-    await rejected;
-    assert.equal(await readFile(path, "utf8"), "drei\nzwei\n");
+    await second;
+    assert.equal(await readFile(path, "utf8"), "drei\nvier\n");
     assert.equal(result.details?.contentHash, hash("drei\nzwei\n"));
   } finally {
     release.resolve();

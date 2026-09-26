@@ -60,7 +60,6 @@ const eventPayloads = {
     }),
     "turn.interrupted": payloadOf<"turn.interrupted">({
         turnId: Type.String({ description: "ID des unterbrochenen Turns" }),
-        reason: Type.String(),
     }),
     "model.output.completed": payloadOf<"model.output.completed">({
         turnId: Type.String({ description: "Turn, zu dem die Ausgabe gehört" }),
@@ -101,11 +100,9 @@ const eventPayloads = {
     }),
     "actor.stopped": payloadOf<"actor.stopped">({
         actorId: Type.String({ description: "ID des gestoppten Actors" }),
-        reason: Type.String(),
     }),
     "actor.restarted": payloadOf<"actor.restarted">({
         actorId: Type.String({ description: "ID des neu gestarteten Actors" }),
-        reason: Type.String(),
     }),
     "subscription.created": payloadOf<"subscription.created">({
         subscriptionId: Type.String({ description: "ID der neuen Subscription" }),
@@ -113,7 +110,6 @@ const eventPayloads = {
     }),
     "subscription.removed": payloadOf<"subscription.removed">({
         subscriptionId: Type.String({ description: "ID der entfernten Subscription" }),
-        reason: Type.String(),
     }),
     "subscription.failed": payloadOf<"subscription.failed">({
         subscriptionId: Type.String({ description: "ID der gescheiterten Subscription" }),
@@ -122,7 +118,6 @@ const eventPayloads = {
     }),
     "action.proposed": payloadOf<"action.proposed">({
         actionId: Type.String({ description: "ID der vorgeschlagenen Aktion" }),
-        title: Type.String(),
     }),
     "action.resolved": payloadOf<"action.resolved">({
         actionId: Type.String({ description: "ID der aufgelösten Aktion" }),
@@ -131,8 +126,6 @@ const eventPayloads = {
     "artifact.published": payloadOf<"artifact.published">({
         artifact: Type.Object({
             id: Type.String({ description: "ID des Artefakts; artifact_read liest es damit" }),
-            title: Type.String(),
-            mediaType: Type.String(),
         }, { additionalProperties: false }),
     }),
     "plugin.state-replaced": payloadOf<"plugin.state-replaced">({
@@ -143,17 +136,15 @@ const eventPayloads = {
     }),
 } satisfies Record<EventType, TSchema>;
 
-export const eventResultSchema: TSchema = Type.Array(
-    Type.Union(Object.entries(eventPayloads).map(([type, payload]) => Type.Object({
-        type: Type.Literal(type),
-        payload,
-    }, { additionalProperties: false }))),
-    {
-        description:
-            "Die Journal-Events dieses Aufrufs. Die payload nennt die Kennungen des Ergebnisses; "
-            + "Eingaben und Hashes wiederholt sie nicht.",
-    },
-);
+/** Die Journal-Events eines Aufrufs, eingegrenzt auf die Typen, die er tatsächlich erzeugt. */
+export const eventResultSchemaOf = (...types: readonly EventType[]): TSchema => {
+    const variants = types.map((type) => Type.Object({ type: Type.Literal(type), payload: eventPayloads[type] }, { additionalProperties: false }));
+    return Type.Array(variants.length === 1 ? variants[0]! : Type.Union(variants), {
+        description: "Die Journal-Events dieses Aufrufs. Die payload nennt die Kennungen des Ergebnisses; Eingaben und Hashes wiederholt sie nicht.",
+    });
+};
+
+export const eventResultSchema: TSchema = eventResultSchemaOf(...Object.keys(eventPayloads) as EventType[]);
 
 const pickedBySchema = (schema: TSchema, value: JsonValue): JsonValue => {
     const properties = (schema as { properties?: Record<string, TSchema> }).properties;

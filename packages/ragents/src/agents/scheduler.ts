@@ -932,7 +932,7 @@ export class TurnScheduler {
                         driverKind: "agent",
                         selection: selection!,
                         forkOf: actor.kind === "agent" ? actor.forkOf : null,
-                        invoke: (toolCallId: string, name: string, input: JsonValue) => toolset.invoke(toolCallId, name, input),
+                        invoke: (toolCallId: string, name: string, input: JsonValue, modelContext?: string) => toolset.invoke(toolCallId, name, input, modelContext),
                         claimSteering: () => this.#claimSteering(turn, controller.signal),
                     },
                     controller.signal,

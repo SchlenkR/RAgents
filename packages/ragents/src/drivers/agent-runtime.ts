@@ -15,6 +15,7 @@ import {
     type AgentSessionRuntime,
     type CreateAgentSessionRuntimeFactory,
     type ExtensionAPI,
+    type ExtensionContext,
     type ExtensionError,
     type InlineExtension,
     type ModelRuntime,
@@ -245,6 +246,10 @@ const asJson = (value: unknown) => {
 };
 
 const asJsonValue = (value: unknown): JsonValue => JSON.parse(asJson(value)) as JsonValue;
+
+/** The conversation and its latest compaction; a new session or a compaction yields another model context. */
+const modelContextOf = (branch: readonly SessionEntry[]): string =>
+    `${branch[0]?.id ?? ""}:${branch.findLast((entry) => entry.type === "compaction")?.id ?? ""}`;
 
 const asText = (value: unknown): string => {
     if (typeof value === "string")
@@ -589,7 +594,7 @@ class TurnDispatcher {
                     executionMode:
                         entry.executionMode ??
                         (entry.name.startsWith("agent_") ? "sequential" : "parallel"),
-                    execute: async (toolCallId: string, params: unknown, toolSignal: AbortSignal | undefined) => {
+                    execute: async (toolCallId: string, params: unknown, toolSignal: AbortSignal | undefined, _onUpdate: unknown, context: ExtensionContext) => {
                         const current = this.#turn;
 
                         if (!current)
@@ -600,7 +605,7 @@ class TurnDispatcher {
 
                         assertJsonValue(params, `agent tool ${entry.name} input`);
                         this.#unexecutedManagedCalls.delete(toolCallId);
-                        const call = await current.request.invoke(toolCallId, entry.name, params);
+                        const call = await current.request.invoke(toolCallId, entry.name, params, modelContextOf(context.sessionManager.getBranch()));
                         const text = typeof call.output === "string" ? call.output : asJson(call.output);
 
                         return {

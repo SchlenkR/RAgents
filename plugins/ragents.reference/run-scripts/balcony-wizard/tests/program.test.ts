@@ -21,7 +21,7 @@ function setup(options: { missingProfile?: boolean; failActivation?: boolean } =
       const activation = value as { name: string; actor: string };
       return { name: activation.name, actor: activation.actor, views: 1, active: true };
     }
-    return [];
+    return null;
   }]));
   const context = createTestContext<{ built?: boolean }>({ state: {}, functions });
   return { calls, context };

@@ -222,7 +222,8 @@ The server registers `typescript_api` and `typescript_eval` as native foundation
 plugins. Models use them to discover functions and execute TypeScript snippets. The optional
 actor-program plugin adds persistent programs and views; removing it does not remove snippets or
 other plugin functions. A named `typescript_api` request returns exact declarations, long
-descriptions, and attached guidance; list and search return short descriptions. Catalog and
+descriptions, and attached guidance; the declarations of `context` itself come once through
+`context: true`; list and search return short descriptions. Catalog and
 signatures come from the live registry, with no second hand-maintained capability list.
 
 Model-facing functions return compact results. Lists and large structures appear only on

@@ -69,7 +69,7 @@ test("interrupting a turn ends only that turn: the actor, its session and its ch
         const input = postTo(setup.runtime, setup.view, childId, "child-input", "Arbeite weiter.").inputs.at(-1)!;
         setup.runtime.startTurn({ actorId: childId, commandId: "child-turn" }, setup.view.id, childId, input.id);
         request.publish({ kind: "text", delta: "Sichtbarer Anfang" });
-        await request.invoke("call-wait", "wait_tool", {}).catch(() => undefined);
+        await request.invoke("call-wait", "wait_tool", {}, "context").catch(() => undefined);
         request.emit({ kind: "assistant-interrupted", text: "Sichtbarer Anfang" });
         return { failure: null, usage: noUsage() };
     });

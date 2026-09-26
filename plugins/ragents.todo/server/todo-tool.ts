@@ -3,7 +3,6 @@ import {
   DomainError,
   defineRunFunction,
   defineToolAvailability,
-  eventResultSchema,
   holdsUsable,
   type RunFunction,
 } from "@ragents/engine";
@@ -56,15 +55,15 @@ export const createTodoTool = (): RunFunction =>
         }),
       ),
     }),
-    resultSchema: eventResultSchema,
+    resultSchema: Type.Null(),
     available: canManageTodos,
-    run: ({ runtime, caller, context, eventsFor }, toolCallId, input) => {
+    run: ({ runtime, caller, context }, toolCallId, input) => {
       runtime.replacePluginState(context(toolCallId), caller.runId, {
         pluginId: TODO_PLUGIN_ID,
         scope: { kind: "actor", actorId: caller.actorId },
         state: { todos: checked(input.todos) },
       });
 
-      return eventsFor(toolCallId);
+      return null;
     },
   });

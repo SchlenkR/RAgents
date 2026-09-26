@@ -13,7 +13,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "DomainError", "RPC_ERROR_CODES", "RpcError", "ScriptDriver", "ToolRegistry", "actorByHandle",
       "actorByReference", "actorDescriptionMaxLength", "actorInputSchema", "agentTools", "assertJsonValue", "builtinProfiles", "canonicalHash",
       "compileVirtualTypeScriptAsync", "defineRunFunction", "defineToolAvailability", "emptyUsage",
-      "enqueueActorInput", "eventResultSchema", "handleKey", "holdsUsable", "implement", "implementChannel",
+      "enqueueActorInput", "eventResultSchema", "eventResultSchemaOf", "handleKey", "holdsUsable", "implement", "implementChannel",
       "isRunId", "isThinkingLevel", "modelToolDescriptors", "pluginStateAt", "runCapabilityBindingHash",
       "runCapabilityContractHash", "schemaComplaints", "scriptInputOf", "serviceToken",
     ],

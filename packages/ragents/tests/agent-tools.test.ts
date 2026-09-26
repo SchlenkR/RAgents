@@ -315,10 +315,10 @@ test("event tools expose subscriptions and journal queries", async () => {
             sourceActorIds: ["@worker"],
             eventTypes: ["model.output.completed"],
             includeSelf: true,
-        }) as { sourceActorIds: string[]; sources: string[] };
+        }) as { subscriptionId: string; sources: string[] };
 
         assert.equal(listed[0]?.subscriptionId, subscription.subscriptionId);
-        assert.deepEqual(byHandle.sourceActorIds, [setup.agent.id]);
+        assert.deepEqual(Object.keys(byHandle).sort(), ["sources", "subscriptionId"]);
         assert.deepEqual(byHandle.sources, ["@worker"]);
         assert.deepEqual(queried.map((entry) => entry.type), ["subscription.created"]);
     } finally {

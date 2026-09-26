@@ -21,6 +21,7 @@
       "emptyUsage",
       "enqueueActorInput",
       "eventResultSchema",
+      "eventResultSchemaOf",
       "handleKey",
       "holdsUsable",
       "implement",

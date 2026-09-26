@@ -13,7 +13,7 @@ import { observableEventTypes } from "../domain/vocabulary.ts";
 import type { CommandContext } from "../runtime/command.ts";
 import { addressedActorOf, inheritedGrants } from "../runtime/guards.ts";
 import type { Orchestration } from "../runtime/orchestration.ts";
-import { actorInputSchema, enqueueActorInput, eventResultSchema } from "./actor-input.ts";
+import { actorInputSchema, enqueueActorInput, eventResultSchemaOf } from "./actor-input.ts";
 import { resolveExecution, type ModelCatalog } from "./catalog.ts";
 import {
     capabilitySchema,
@@ -42,6 +42,8 @@ export type ToolScope = {
     functionGuidance: (names: readonly string[]) => Promise<string>;
     availableFunctions: () => readonly RunFunction[];
     resolveToolsFor: (actor: Actor, view?: RunView, onUnavailable?: (tool: RunFunction) => void) => Promise<readonly RunFunction[]>;
+    /** Only for a direct call of the model: names the model context its result enters; it changes when that context is compacted or replaced. */
+    modelContext?: string;
 };
 
 export type ToolAvailability = (actor: Actor, view: RunView) => boolean;
@@ -142,7 +144,10 @@ const actorListResultSchema = Type.Array(Type.Object({
     lifecycle: Type.String(),
     createdBy: Type.Union([Type.String(), Type.Null()]),
     description: Type.Union([Type.String(), Type.Null()]),
-    tools: Type.Union([Type.Array(Type.String()), Type.Null()]),
+    toolCount: Type.Union([Type.Integer({ minimum: 0 }), Type.Null()], {
+        description: "Number of selected tools; 0 is a plain LLM, null an open, dynamically resolved toolset.",
+    }),
+    toolNames: Type.Optional(Type.Array(Type.String(), { description: "Only with toolNames: true, for a fixed selection." })),
 }, { additionalProperties: false }));
 
 const actorReferenceSchema = Type.Object({
@@ -289,6 +294,15 @@ const subscriptionView = (view: RunView, subscription: EventSubscription) => {
     };
 };
 
+const subscriptionCreatedSchema = Type.Object({
+    subscriptionId: Type.String({ description: "ID der Subscription; event_unsubscribe nimmt sie als subscriptionId" }),
+    sources: Type.Union([Type.Array(Type.String()), Type.Null()], {
+        description: "Die aufgelösten Quell-Actors als @handle, soweit auflösbar, sonst als ID; null = alle.",
+    }),
+}, { additionalProperties: false });
+
+const acknowledgementSchema = Type.Null({ description: "Erledigt; ein Fehler wirft." });
+
 const subscriptionResult = (runtime: Orchestration, runId: string, commandId: string) => {
     const created = runtime.events(runId).findLast(
         (event) => event.commandId === commandId && event.type === "subscription.created",
@@ -302,28 +316,36 @@ const subscriptionResult = (runtime: Orchestration, runId: string, commandId: st
     if (!subscription)
         throw new Error(`Subscription ${created.payload.subscriptionId} does not exist after creation.`);
 
-    return subscriptionView(runtime.view(runId), subscription);
+    const { subscriptionId, sources } = subscriptionView(runtime.view(runId), subscription);
+
+    return { subscriptionId, sources };
 };
 
 export const agentTools: RunFunction[] = [
     tool({
         name: "actor_list",
         label: "List Actors",
-        description: "List existing actors with their identity, lifecycle and function selection.",
-        longDescription: "Check before spawning: reuse suitable participants, including actors created by a setup or another actor. Only kind agent is a conversational partner. A script executes its programmed input protocol; it does not interpret arbitrary natural-language requests. Inspect its documented functions or program before using it.",
-        schema: Type.Object({}, { additionalProperties: false }),
+        description: "List existing actors with their identity, lifecycle and the size of their function selection.",
+        longDescription: "Check before spawning: reuse suitable participants, including actors created by a setup or another actor. Only kind agent is a conversational partner. A script executes its programmed input protocol; it does not interpret arbitrary natural-language requests. Inspect its documented functions or program before using it. toolNames: true also lists the names of each fixed selection.",
+        schema: Type.Object({
+            toolNames: Type.Optional(Type.Boolean({ description: "Also list the tool names of each actor with a fixed selection." })),
+        }, { additionalProperties: false }),
         resultSchema: actorListResultSchema,
         available: needs("actor.input"),
-        run: ({ runtime, caller }) => runtime.view(caller.runId).actors.map((actor) => ({
-            id: actor.id,
-            handle: actor.handle,
-            displayName: actor.displayName,
-            kind: actor.kind,
-            lifecycle: actor.kind === "human" ? "human" : actor.lifecycle.kind,
-            createdBy: actor.kind === "human" ? null : actor.createdBy,
-            description: actor.kind === "human" ? null : actor.description,
-            tools: actor.kind === "human" || actor.toolNames === null ? null : [...actor.toolNames],
-        })),
+        run: ({ runtime, caller }, _toolCallId, input) => runtime.view(caller.runId).actors.map((actor) => {
+            const selected = actor.kind === "human" ? null : actor.toolNames;
+            return {
+                id: actor.id,
+                handle: actor.handle,
+                displayName: actor.displayName,
+                kind: actor.kind,
+                lifecycle: actor.kind === "human" ? "human" : actor.lifecycle.kind,
+                createdBy: actor.kind === "human" ? null : actor.createdBy,
+                description: actor.kind === "human" ? null : actor.description,
+                toolCount: selected === null ? null : selected.length,
+                ...(input.toolNames && selected !== null ? { toolNames: [...selected] } : {}),
+            };
+        }),
     }),
     tool({
         name: "actor_input",
@@ -331,7 +353,7 @@ export const agentTools: RunFunction[] = [
         description: "Enqueue plain text and optional artifacts for one actor. The actor receives no routing envelope.",
         longDescription: "This only confirms enqueueing, not processing, an answer or completion. An agent in the middle of a turn receives the text in that turn before its next model request; otherwise it starts the agent's next turn. Agents interpret natural language. TypeScript actors only process their programmed input protocol: use their documented functions, or send an exact supported program input after inspecting the program. Never address an unknown script with a natural-language task or assume an idle or completed turn means the requested work happened.",
         schema: actorInputSchema,
-        resultSchema: eventResultSchema,
+        resultSchema: eventResultSchemaOf("actor.input.enqueued"),
         available: needs("actor.input"),
         run: ({ runtime, caller, context }, toolCallId, input) =>
             enqueueActorInput(runtime, context(toolCallId), caller.runId, input),
@@ -347,7 +369,7 @@ export const agentTools: RunFunction[] = [
             eventTypes: Type.Array(observableEventTypeSchema, { minItems: 1, uniqueItems: true }),
             includeSelf: Type.Optional(Type.Boolean()),
         }, { additionalProperties: false }),
-        resultSchema: subscriptionSchema,
+        resultSchema: subscriptionCreatedSchema,
         available: needs("event.subscribe"),
         run: ({ runtime, caller, context }, toolCallId, input) => {
             const command = context(toolCallId);
@@ -374,12 +396,12 @@ export const agentTools: RunFunction[] = [
             subscriptionId: Type.String({ minLength: 1, description: "subscriptionId aus event_subscribe oder event_subscription_list" }),
             reason: Type.String({ minLength: 1 }),
         }, { additionalProperties: false }),
-        resultSchema: eventResultSchema,
+        resultSchema: acknowledgementSchema,
         available: needs("event.subscribe"),
-        run: ({ runtime, caller, context, eventsFor }, toolCallId, input) => {
+        run: ({ runtime, caller, context }, toolCallId, input) => {
             runtime.removeSubscription(context(toolCallId), caller.runId, input.subscriptionId, input.reason);
 
-            return eventsFor(toolCallId);
+            return null;
         },
     }),
     tool({
@@ -493,7 +515,7 @@ export const agentTools: RunFunction[] = [
                 required: Type.Boolean(),
             }, { additionalProperties: false })),
         }, { additionalProperties: false }),
-        resultSchema: eventResultSchema,
+        resultSchema: eventResultSchemaOf("action.proposed"),
         available: needs("action.propose"),
         run: ({ runtime, caller, context, eventsFor }, toolCallId, input) => {
             runtime.proposeAction(context(toolCallId), caller.runId, {
@@ -589,9 +611,9 @@ export const agentTools: RunFunction[] = [
                 description: "Handle oder ID des Actors, mit dem der Chat des Benutzers spricht",
             })),
         }, { additionalProperties: false }),
-        resultSchema: eventResultSchema,
+        resultSchema: acknowledgementSchema,
         available: needs("run.configure"),
-        run: ({ runtime, caller, context, eventsFor }, toolCallId, input) => {
+        run: ({ runtime, caller, context }, toolCallId, input) => {
             if (input.title === undefined && input.primaryActor === undefined)
                 throw new Error("run_configure braucht title oder primaryActor; gültig sind { title }, { primaryActor } und beides zusammen.");
 
@@ -607,7 +629,7 @@ export const agentTools: RunFunction[] = [
                 runtime.selectPrimaryActor(context(toolCallId, "primary"), caller.runId, target.id);
             }
 
-            return ["title", "primary"].flatMap((step) => eventsFor(toolCallId, step));
+            return null;
         },
     }),
     tool({
@@ -618,7 +640,7 @@ export const agentTools: RunFunction[] = [
             actorId: Type.String({ minLength: 1, description: "Handle oder ID" }),
             reason: Type.String({ minLength: 1 }),
         }, { additionalProperties: false }),
-        resultSchema: eventResultSchema,
+        resultSchema: eventResultSchemaOf("actor.restarted", "run.primary-actor-selected"),
         available: needs("execution.stopOwned"),
         run: ({ runtime, caller, context, eventsFor }, toolCallId, input) => {
             const target = addressedActorOf(runtime.view(caller.runId).actors, input.actorId);
@@ -639,7 +661,7 @@ export const agentTools: RunFunction[] = [
             actorId: Type.String({ minLength: 1, description: "Handle oder ID" }),
             reason: Type.String({ minLength: 1 }),
         }, { additionalProperties: false }),
-        resultSchema: eventResultSchema,
+        resultSchema: eventResultSchemaOf("turn.interrupted", "actor.stopped", "subscription.removed"),
         available: needs("execution.stopOwned"),
         run: ({ runtime, caller, context, eventsFor }, toolCallId, input) => {
             const target = addressedActorOf(runtime.view(caller.runId).actors, input.actorId);
@@ -664,7 +686,7 @@ export const agentTools: RunFunction[] = [
             content: Type.String(),
             previousVersionId: Type.Optional(Type.String({ minLength: 1 })),
         }, { additionalProperties: false }),
-        resultSchema: eventResultSchema,
+        resultSchema: eventResultSchemaOf("artifact.published"),
         available: needs("artifact.publish"),
         run: ({ runtime, caller, context, eventsFor }, toolCallId, input) => {
             runtime.publishArtifact(context(toolCallId), caller.runId, {

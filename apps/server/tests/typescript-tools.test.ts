@@ -68,7 +68,10 @@ test("TypeScript discovery exposes the same registered function with exact schem
     assert.ok(detail !== null && typeof detail === "object" && !Array.isArray(detail));
     assert.match(String(detail.declarations), /"counter_update"/);
     assert.match(String(detail.declarations), /"amount": number/);
-    assert.match(String(detail.declarations), /readonly functions:/);
+    assert.doesNotMatch(String(detail.declarations), /readonly functions:/);
+    const context = await run.call("api-context", "typescript_api", { context: true });
+    assert.ok(context !== null && typeof context === "object" && !Array.isArray(context));
+    assert.match(String(context.declarations), /readonly functions:/);
     assert.match(String(detail.guidance), /Counter extension usage guide/);
     assert.match(String(detail.declarations), /\/\*\* Positive increment\. \*\/ "amount": number/);
     assert.doesNotMatch(JSON.stringify(detail.functions), /inputSchema/);
@@ -161,7 +164,7 @@ return { now, stable: now === context.std.now(), ids: [context.std.id(), context
     assert.equal(result.result.stable, true);
     assert.deepEqual(result.result.ids, ["eval-std:1", "eval-std:2"]);
     assert.equal(result.result.route, "function");
-    const api = await run.call("std-api", "typescript_api", { names: ["counter_update"] });
+    const api = await run.call("std-api", "typescript_api", { context: true });
     assert.match(JSON.stringify(api), /readonly std: RAgentsStd/);
 });
 

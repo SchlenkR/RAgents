@@ -7,6 +7,8 @@ import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, type TruncationResult, truncateTa
 export interface OutputAccumulatorOptions {
 	maxLines?: number;
 	maxBytes?: number;
+	/** Lines longer than this are shortened in snapshots and marked; the temp file keeps them whole. */
+	maxLineChars?: number;
 	tempFilePrefix?: string;
 }
 
@@ -25,6 +27,16 @@ function byteLength(text: string): number {
 	return Buffer.byteLength(text, "utf-8");
 }
 
+const shortenedLines = (text: string, maxLineChars: number): string =>
+	text
+		.split("\n")
+		.map((line) =>
+			line.length > maxLineChars
+				? `${line.slice(0, maxLineChars)} [line shortened, ${line.length - maxLineChars} more characters]`
+				: line,
+		)
+		.join("\n");
+
 /**
  * Incrementally tracks streaming output with bounded memory.
  *
@@ -35,6 +47,7 @@ function byteLength(text: string): number {
 export class OutputAccumulator {
 	private readonly maxLines: number;
 	private readonly maxBytes: number;
+	private readonly maxLineChars: number | undefined;
 	private readonly maxRollingBytes: number;
 	private readonly tempFilePrefix: string;
 	private readonly decoder = new TextDecoder();
@@ -48,6 +61,8 @@ export class OutputAccumulator {
 	private completedLines = 0;
 	private totalLines = 0;
 	private currentLineBytes = 0;
+	private currentLineChars = 0;
+	private longestLineChars = 0;
 	private hasOpenLine = false;
 	private finished = false;
 
@@ -57,6 +72,7 @@ export class OutputAccumulator {
 	constructor(options: OutputAccumulatorOptions = {}) {
 		this.maxLines = options.maxLines ?? DEFAULT_MAX_LINES;
 		this.maxBytes = options.maxBytes ?? DEFAULT_MAX_BYTES;
+		this.maxLineChars = options.maxLineChars;
 		this.maxRollingBytes = Math.max(this.maxBytes * 2, 1);
 		this.tempFilePrefix = options.tempFilePrefix ?? "agent-output";
 	}
@@ -89,7 +105,8 @@ export class OutputAccumulator {
 	}
 
 	snapshot(options: { persistIfTruncated?: boolean } = {}): OutputSnapshot {
-		const tailTruncation = truncateTail(this.getSnapshotText(), {
+		const text = this.getSnapshotText();
+		const tailTruncation = truncateTail(this.maxLineChars === undefined ? text : shortenedLines(text, this.maxLineChars), {
 			maxLines: this.maxLines,
 			maxBytes: this.maxBytes,
 		});
@@ -145,6 +162,10 @@ export class OutputAccumulator {
 		return this.currentLineBytes;
 	}
 
+	hasShortenedLines(): boolean {
+		return this.maxLineChars !== undefined && Math.max(this.longestLineChars, this.currentLineChars) > this.maxLineChars;
+	}
+
 	private appendDecodedText(text: string): void {
 		if (text.length === 0) {
 			return;
@@ -159,18 +180,22 @@ export class OutputAccumulator {
 		}
 
 		let newlines = 0;
-		let lastNewline = -1;
+		let lineStart = 0;
 		for (let i = text.indexOf("\n"); i !== -1; i = text.indexOf("\n", i + 1)) {
+			this.longestLineChars = Math.max(this.longestLineChars, this.currentLineChars + i - lineStart);
+			this.currentLineChars = 0;
 			newlines++;
-			lastNewline = i;
+			lineStart = i + 1;
 		}
 		if (newlines === 0) {
 			this.currentLineBytes += bytes;
+			this.currentLineChars += text.length;
 			this.hasOpenLine = true;
 		} else {
 			this.completedLines += newlines;
-			const tail = text.slice(lastNewline + 1);
+			const tail = text.slice(lineStart);
 			this.currentLineBytes = byteLength(tail);
+			this.currentLineChars = tail.length;
 			this.hasOpenLine = tail.length > 0;
 		}
 		this.totalLines = this.completedLines + (this.hasOpenLine ? 1 : 0);
@@ -204,7 +229,10 @@ export class OutputAccumulator {
 
 	private shouldUseTempFile(): boolean {
 		return (
-			this.totalRawBytes > this.maxBytes || this.totalDecodedBytes > this.maxBytes || this.totalLines > this.maxLines
+			this.totalRawBytes > this.maxBytes ||
+			this.totalDecodedBytes > this.maxBytes ||
+			this.totalLines > this.maxLines ||
+			this.hasShortenedLines()
 		);
 	}
 
