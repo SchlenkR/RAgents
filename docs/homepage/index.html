@@ -901,11 +901,7 @@
       <symbol id="dm-i-run" viewBox="0 0 24 24"><path d="M12 3c.8 4.6 3.4 7.2 8 8-4.6.8-7.2 3.4-8 8-.8-4.6-3.4-7.2-8-8 4.6-.8 7.2-3.4 8-8Z"/></symbol>
       <symbol id="dm-i-models" viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></symbol>
       <symbol id="dm-i-tools" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4 2.5-2.5Z"/></symbol>
-      <symbol id="dm-i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></symbol>
-      <symbol id="dm-i-cloud" viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1-.6-8A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9Z"/></symbol>
-      <symbol id="dm-i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
       <symbol id="dm-i-profile" viewBox="0 0 24 24"><path d="M5 4h13v16H6.5A2.5 2.5 0 0 1 4 17.5V5a1 1 0 0 1 1-1Zm-1 13.5A2.5 2.5 0 0 1 6.5 15H18M8 8h6M8 11h4"/></symbol>
-      <symbol id="dm-i-box" viewBox="0 0 24 24"><path d="M3 8l9-5 9 5v8l-9 5-9-5Z"/><path d="M3 8l9 5 9-5M12 13v8"/></symbol>
       <symbol id="dm-i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
     </svg>
 
@@ -1008,106 +1004,7 @@ https://ragents.example.com</div>
         </div>
           </article>
         </div>
-        <div class="dm-stage">
-          <figure class="dm-scene" data-dm-scene="dm-local" style="--i: 0">
-          <div class="dm-scene-heading">One laptop, one process</div>
-          <div class="dm-dg"><div class="dm-dg-in">
-            <svg class="dm-lines" viewBox="0 0 560 380" preserveAspectRatio="none" aria-hidden="true">
-              <path class="dm-ln dm-flow" d="M112 120H300"/>
-              <path class="dm-ln" d="M300 120V272"/>
-              <path class="dm-ln dm-faint" d="M112 272H300"/>
-              <path class="dm-ln dm-flow" d="M300 120C400 120 420 190 480 190"/>
-            </svg>
-            <div class="dm-machine dm-laptop" style="--x:16;--y:36;--w:392;--h:322"><span class="dm-machine-label"><svg aria-hidden="true"><use href="#dm-i-laptop"/></svg>Your laptop</span></div>
-            <div class="dm-node dm-cream" style="--x:112;--y:120"><span class="dm-glyph dm-sq"><svg aria-hidden="true"><use href="#dm-i-browser"/></svg></span><span><strong>VS Code</strong><small>or a browser</small></span></div>
-            <div class="dm-node dm-agent" style="--x:300;--y:120"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-run"/></svg></span><span><strong>Runs <span class="dm-think"><i></i><i></i><i></i></span></strong><small>agents, journal</small></span></div>
-            <div class="dm-node dm-app" style="--x:300;--y:272"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-tools"/></svg></span><span><strong>Tools</strong><small>shell, Git, LSP</small></span></div>
-            <div class="dm-node dm-note" style="--x:112;--y:272"><span class="dm-glyph dm-sq"><svg aria-hidden="true"><use href="#dm-i-folder"/></svg></span><span><strong>Your folder</strong><small>~/project</small></span></div>
-            <div class="dm-node dm-person" style="--x:484;--y:190"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-cloud"/></svg></span><span><strong>Provider</strong><small>your key</small></span></div>
-            <span class="dm-lbl" style="--x:206;--y:100">live</span>
-            <span class="dm-lbl dm-agent" style="--x:420;--y:132">model calls</span>
-          </div></div>
-          <figcaption>Everything but the model calls stays on your laptop.</figcaption>
-        </figure>
-          <figure class="dm-scene dm-t2" data-dm-scene="dm-server-mode" style="--i: 1">
-          <div class="dm-scene-heading">One server, many browsers</div>
-          <div class="dm-dg"><div class="dm-dg-in">
-            <svg class="dm-lines" viewBox="0 0 560 380" preserveAspectRatio="none" aria-hidden="true">
-              <path class="dm-ln dm-flow" d="M76 92C190 92 200 110 296 110"/>
-              <path class="dm-ln dm-flow dm-rev" d="M76 196C190 196 206 110 296 110"/>
-              <path class="dm-ln dm-flow" d="M76 300C196 300 214 110 296 110"/>
-              <path class="dm-ln" d="M296 110H468"/>
-              <path class="dm-ln" d="M296 110C296 200 380 190 380 268"/>
-            </svg>
-            <div class="dm-machine dm-server" style="--x:176;--y:36;--w:368;--h:322"><span class="dm-machine-label"><svg aria-hidden="true"><use href="#dm-i-server"/></svg>Server</span><span class="dm-machine-foot">no install on any client</span></div>
-            <div class="dm-node dm-cream" style="--x:76;--y:92"><span class="dm-glyph dm-sq"><svg aria-hidden="true"><use href="#dm-i-browser"/></svg></span><span><strong>Browser</strong><small>you</small></span></div>
-            <div class="dm-node dm-cream" style="--x:76;--y:196"><span class="dm-glyph dm-sq"><svg aria-hidden="true"><use href="#dm-i-browser"/></svg></span><span><strong>Browser</strong><small>a teammate</small></span></div>
-            <div class="dm-node dm-cream" style="--x:76;--y:300"><span class="dm-glyph dm-sq"><svg aria-hidden="true"><use href="#dm-i-browser"/></svg></span><span><strong>Browser</strong><small>a client</small></span></div>
-            <div class="dm-node dm-agent" style="--x:296;--y:110"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-run"/></svg></span><span><strong>Runs <span class="dm-think"><i></i><i></i><i></i></span></strong><small>agents, journal</small></span></div>
-            <div class="dm-node dm-coord" style="--x:468;--y:110"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-models"/></svg></span><span><strong>Models</strong><small>keys stay here</small></span></div>
-            <div class="dm-node dm-app" style="--x:380;--y:268"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-folder"/></svg></span><span><strong>A folder per run</strong><small>files, shell, Git, sandboxed</small></span></div>
-          </div></div>
-          <figcaption>Every browser talks to its run. Files and tools stay on the server.</figcaption>
-        </figure>
-          <figure class="dm-scene dm-t3" data-dm-scene="dm-hybrid" style="--i: 2">
-          <div class="dm-scene-heading">Coordinate centrally, run tools locally</div>
-          <div class="dm-dg"><div class="dm-dg-in">
-            <svg class="dm-lines" viewBox="0 0 560 380" preserveAspectRatio="none" aria-hidden="true">
-              <path class="dm-ln dm-flow" d="M140 110H420"/>
-              <path class="dm-ln dm-flow" d="M420 110C340 150 250 220 140 268"/>
-              <path class="dm-ln dm-flow dm-rev" d="M420 118C360 190 270 260 150 276"/>
-              <path class="dm-ln" d="M420 110V268"/>
-            </svg>
-            <div class="dm-machine dm-laptop" style="--x:16;--y:36;--w:248;--h:322"><span class="dm-machine-label"><svg aria-hidden="true"><use href="#dm-i-laptop"/></svg>Your laptop</span><span class="dm-machine-foot">only you see these files</span></div>
-            <div class="dm-machine dm-server" style="--x:296;--y:36;--w:248;--h:322"><span class="dm-machine-label"><svg aria-hidden="true"><use href="#dm-i-server"/></svg>Server</span></div>
-            <div class="dm-node dm-cream" style="--x:140;--y:110"><span class="dm-glyph dm-sq"><svg aria-hidden="true"><use href="#dm-i-browser"/></svg></span><span><strong>VS Code</strong><small>chat, mini-apps</small></span></div>
-            <div class="dm-node dm-app" style="--x:140;--y:268"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-tools"/></svg></span><span><strong>Tools</strong><small>your checkout</small></span></div>
-            <div class="dm-node dm-agent" style="--x:420;--y:110"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-run"/></svg></span><span><strong>Run A <span class="dm-think"><i></i><i></i><i></i></span></strong><small>agents, journal</small></span></div>
-            <div class="dm-node dm-coord" style="--x:420;--y:268"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-models"/></svg></span><span><strong>Models</strong><small>keys stay here</small></span></div>
-            <span class="dm-lbl" style="--x:280;--y:92">chat, live</span>
-            <span class="dm-lbl dm-agent" style="--x:318;--y:166">tool call</span>
-            <span class="dm-lbl dm-ok" style="--x:250;--y:262">result</span>
-          </div></div>
-          <figcaption>The run sends a tool call to your laptop. It runs on your files, the result goes back.</figcaption>
-        </figure>
-          <figure class="dm-scene dm-t4" data-dm-scene="dm-connected" style="--i: 3">
-          <div class="dm-scene-heading">Local runs, central profile and models</div>
-          <div class="dm-dg"><div class="dm-dg-in">
-            <svg class="dm-lines" viewBox="0 0 560 380" preserveAspectRatio="none" aria-hidden="true">
-              <path class="dm-ln dm-once" d="M420 110H140"/>
-              <path class="dm-ln dm-flow" d="M140 110C250 150 320 268 420 268"/>
-              <path class="dm-ln" d="M140 110V268"/>
-            </svg>
-            <div class="dm-machine dm-laptop" style="--x:16;--y:36;--w:248;--h:322"><span class="dm-machine-label"><svg aria-hidden="true"><use href="#dm-i-laptop"/></svg>Your laptop</span></div>
-            <div class="dm-machine dm-server" style="--x:296;--y:36;--w:248;--h:322"><span class="dm-machine-label"><svg aria-hidden="true"><use href="#dm-i-server"/></svg>Server</span></div>
-            <div class="dm-node dm-agent" style="--x:140;--y:110"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-run"/></svg></span><span><strong>Runs <span class="dm-think"><i></i><i></i><i></i></span></strong><small>journal stays here</small></span></div>
-            <div class="dm-node dm-app" style="--x:140;--y:268"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-tools"/></svg></span><span><strong>Tools</strong><small>your checkout</small></span></div>
-            <div class="dm-node dm-script" style="--x:420;--y:110"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-profile"/></svg></span><span><strong>Profile</strong><small>prompts, skills, plugins</small></span></div>
-            <div class="dm-node dm-coord" style="--x:420;--y:268"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-models"/></svg></span><span><strong>Model relay</strong><small>aliases only</small></span></div>
-            <span class="dm-lbl" style="--x:280;--y:92">once, cached</span>
-            <span class="dm-lbl dm-agent" style="--x:292;--y:212">model calls</span>
-            <span class="dm-lbl dm-lock" style="--x:420;--y:326">provider and key hidden</span>
-          </div></div>
-          <figcaption>The profile arrives once. Model calls go through the relay, which shows only an alias.</figcaption>
-        </figure>
-          <figure class="dm-scene dm-t5" data-dm-scene="dm-transfer" style="--i: 4">
-          <div class="dm-scene-heading">A run changes machines</div>
-          <div class="dm-dg"><div class="dm-dg-in">
-            <svg class="dm-lines" viewBox="0 0 560 380" preserveAspectRatio="none" aria-hidden="true">
-              <path class="dm-ln dm-flow" d="M116 120C210 120 220 200 280 200"/>
-              <path class="dm-ln dm-flow" d="M280 200C340 200 350 120 444 120"/>
-            </svg>
-            <div class="dm-machine dm-laptop" style="--x:16;--y:36;--w:200;--h:322"><span class="dm-machine-label"><svg aria-hidden="true"><use href="#dm-i-laptop"/></svg>Notebook</span></div>
-            <div class="dm-machine dm-server" style="--x:344;--y:36;--w:200;--h:322"><span class="dm-machine-label"><svg aria-hidden="true"><use href="#dm-i-server"/></svg>Always-on server</span></div>
-            <div class="dm-node dm-agent" style="--x:116;--y:120;opacity:.7"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-run"/></svg></span><span><strong>Run A</strong><small>stopped</small></span></div>
-            <div class="dm-node dm-note" style="--x:116;--y:268"><span><strong>Copy stays</strong><small>until you delete it</small></span></div>
-            <div class="dm-node dm-pkg" style="--x:280;--y:200"><span class="dm-pkg-head"><span class="dm-glyph dm-sq"><svg aria-hidden="true"><use href="#dm-i-box"/></svg></span><strong>Run archive</strong></span><ul><li>journal</li><li>model context</li><li>actor programs</li><li>plugin storage</li></ul></div>
-            <div class="dm-node dm-agent" style="--x:444;--y:120"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-run"/></svg></span><span><strong>Run A <span class="dm-think"><i></i><i></i><i></i></span></strong><small>continues</small></span></div>
-            <div class="dm-node dm-note" style="--x:444;--y:268"><span><strong>Processes, LSPs</strong><small>start on first use</small></span></div>
-          </div></div>
-          <figcaption>Export copies the run, import continues it. Same host version on both sides.</figcaption>
-        </figure>
-        </div>
+        <div class="dm-stage" data-dm-stage></div>
       </div>
 
     <div class="dm-matrix-wrap">
