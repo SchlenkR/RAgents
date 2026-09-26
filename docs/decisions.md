@@ -16,7 +16,9 @@ Event-Payloads; Plugin-Funktionen liefern ihre Ergebnisse daran vorbei, und `rea
 zeigen weiter volle SHA-256-Werte.
 
 **Festlegung.** Die Regel steht als Abschnitt 9 im Plugin-Leitfaden und als Kurzregel im
-Handbuch. Die gefundenen Verstöße stehen in `TODO.md`.
+Handbuch. Abfragen sind ausgenommen: Ihre Antwort ist das verlangte Ergebnis und keine
+Wiederholung, deshalb bleibt `event_query` vollständig und nur durch sein Limit begrenzt. Die
+gefundenen Verstöße stehen in `TODO.md`.
 
 ## Solution beim Start eines Runs, Solution-Liste und Umschalten im Reiter (25.09.2026)
 

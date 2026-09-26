@@ -135,10 +135,11 @@ Every tool result stays in the context of all later turns. A result reports what
 references, facts the call established, and what the next decision needs. It never repeats the
 input, neither literally nor as a normalized copy. A changing call returns an acknowledgement or
 the change, not the complete state; a separate status function provides the full picture on
-request. Catalogs that do not change during a run, such as rule lists, component lists, or
-environments, belong in the prompt or behind a lookup, not in every result. Server bookkeeping
-stays on the server: event envelopes, correlation and command IDs, schema versions, hashes,
-absolute host paths, and timings. A failure names its cause and the next step instead of
+request. A query is different: its answer is the requested data, so it returns that data in
+full, bounded only by its limit. Catalogs that do not change during a run, such as rule lists,
+component lists, or environments, belong in the prompt or behind a lookup, not in every result.
+Server bookkeeping nobody asked for stays on the server: event envelopes in an acknowledgement,
+hashes, absolute host paths, and timings. A failure names its cause and the next step instead of
 forwarding a raw test-runner or stack dump. A query the server can resolve itself, such as a
 status group, stays a parameter instead of expanded text the model has to carry along.
 Open-ended output such as shell output, logs, queries, and event lists has a small default limit
