@@ -32,7 +32,7 @@
     const width = scenes[0].getBoundingClientRect().width;
     if (width !== previewWidth) previewHeight = 0;
     previewWidth = width;
-    previewHeight = Math.max(560, ...scenes.map(scene => scene.scrollHeight));
+    previewHeight = Math.max(420, ...scenes.map(scene => scene.scrollHeight));
     story.style.setProperty('--preview-stage-height', `${Math.ceil(previewHeight)}px`);
     const fits = previewHeight <= innerHeight - topInset() - 24;
     if (fits !== previewFits) {
