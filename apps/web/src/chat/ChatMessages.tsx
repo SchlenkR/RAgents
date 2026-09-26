@@ -8,7 +8,7 @@ import { StepPopover } from "./StepPopover";
 import { PendingActionCard } from "./PendingActionCard";
 import { WorkingScenes } from "./WorkingScenes";
 import { attachmentDownloadUrl, formatAttachmentSize } from "./attachments";
-import { CheckIcon, ChevronDownIcon, ChevronRightIcon, LayersIcon, SparklesIcon, WrenchIcon } from "lucide-react";
+import { CheckIcon, ChevronDownIcon, ChevronRightIcon, ChevronUpIcon, LayersIcon, SparklesIcon, WrenchIcon } from "lucide-react";
 import { appearanceStyle, type ChatAppearance, type TimestampOptions, type CodeBlockOptions, type BubbleOptions, type MessageActionsOptions } from "./options";
 import { messageDate, timestampDay, timestampLabel } from "./timestamps";
 import { MessageActions } from "./MessageActions";
@@ -33,6 +33,8 @@ const chipClasses = cn(
   "data-[state=done]:opacity-85",
 );
 const chipInteractiveClasses = "cursor-pointer hover:border-border hover:bg-secondary hover:text-foreground focus-visible:border-border focus-visible:bg-secondary focus-visible:text-foreground focus-visible:outline-none data-[state=done]:hover:opacity-100 data-[state=done]:focus-visible:opacity-100";
+
+const collapseAtBottomFrom = 11;
 
 const bubbleBodyClasses = "relative max-w-[86%] px-3 py-2 leading-[var(--chat-line-height,1.625)] [overflow-wrap:anywhere] @max-[620px]/chat:max-w-full";
 
@@ -461,6 +463,14 @@ function StepGroup({
   toolArgumentsText: (tool: ToolInfo) => string;
 }) {
   const [offen, setOffen] = useState(false);
+  const kopf = useRef<HTMLButtonElement>(null);
+  const vonUntenEingeklappt = useRef(false);
+  useLayoutEffect(() => {
+    if (!offen && vonUntenEingeklappt.current) {
+      vonUntenEingeklappt.current = false;
+      kopf.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [offen]);
   const letzte = messages[messages.length - 1];
   const fehler = messages.some((message) => message.tool?.isError);
   const anzahl = messages.length === 1 ? texts.stepGroupOne : texts.stepGroupMany.replace("{count}", String(messages.length));
@@ -472,6 +482,7 @@ function StepGroup({
         aria-expanded={offen}
         className={cn(traceClasses, traceButtonClasses, "items-center pl-1", aktiv && "animate-fade-pulse motion-reduce:animate-none")}
         onClick={() => setOffen((wert) => !wert)}
+        ref={kopf}
         type="button"
       >
         <ChevronRightIcon className={cn("flex-none opacity-60 transition-transform", offen && "rotate-90")} size={12} />
@@ -487,6 +498,20 @@ function StepGroup({
             <TraceLine className="pl-3" expandierbar={expandierbar} key={message.key} message={message} texts={texts} toolArgumentsText={toolArgumentsText} />
           ))}
         </div>
+      )}
+      {offen && messages.length >= collapseAtBottomFrom && (
+        <button
+          className={cn(traceClasses, traceButtonClasses, "mt-0.5 items-center pl-1")}
+          data-step="group-collapse"
+          onClick={() => {
+            vonUntenEingeklappt.current = true;
+            setOffen(false);
+          }}
+          type="button"
+        >
+          <ChevronUpIcon className="flex-none opacity-60" size={12} />
+          <span className={traceLineClasses}>{texts.stepGroupCollapse}</span>
+        </button>
       )}
     </div>
   );

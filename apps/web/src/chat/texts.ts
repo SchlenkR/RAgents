@@ -7,6 +7,7 @@ export interface ChatTexts {
   toolChip: string;
   stepGroupOne: string;
   stepGroupMany: string;
+  stepGroupCollapse: string;
   thinkingTitle: string;
   toolTitle: string;
   argumentsLabel: string;
@@ -52,6 +53,7 @@ export const defaultTexts: ChatTexts = {
   toolChip: "Werkzeug",
   stepGroupOne: "1 Schritt",
   stepGroupMany: "{count} Schritte",
+  stepGroupCollapse: "Einklappen",
   thinkingTitle: "Thinking-Trace",
   toolTitle: "Tool-Call",
   argumentsLabel: "Argumente",
