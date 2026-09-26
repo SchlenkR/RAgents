@@ -154,21 +154,22 @@
     },
 
     typescript: (art, tl) => {
-      const panels = [...art.querySelectorAll('[data-cm-panel]')];
-      const within = (panel, name) => [...panel.querySelectorAll(`[data-cm-${name}]`)];
-      const start = index => .2 + index * 1.5;
-      const appear = { autoAlpha: 1, x: 0, y: 0, xPercent: 0, yPercent: 0, scale: 1, duration: .8, ease: 'power1.out' };
-      const move = (targets, from, at) => targets.length > 0 && tl.fromTo(targets, from, { ...appear }, at);
-      panels.forEach((panel, index) => {
-        const at = start(index);
-        move([panel], { autoAlpha: 0, y: 16 }, at);
-        move(within(panel, 'fn'), { autoAlpha: 0, xPercent: index > 0 ? -40 : 0 }, at);
-        move([...within(panel, 'shell'), ...within(panel, 'head'), ...within(panel, 'extra'), ...within(panel, 'note')], { autoAlpha: 0, scale: 1.08 }, at + .4);
+      const tabs = [...art.querySelectorAll('[data-tsx-tab]')];
+      const panes = [...art.querySelectorAll('[data-tsx-pane]')];
+      const press = art.querySelector('[data-tsx-press]');
+      const at = index => .4 + index * 2;
+      const current = time => panes.reduce((found, _pane, index) => time >= at(index) - .4 ? index : found, 0);
+      tl.set(panes.slice(1), { autoAlpha: 0 }, 0);
+      panes.slice(1).forEach((pane, offset) => {
+        tl.to(panes[offset], { autoAlpha: 0, duration: .3, ease: 'none' }, at(offset + 1) - .4);
+        tl.fromTo(pane, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: .4 }, at(offset + 1) - .2);
       });
-      move(within(panels[4], 'cursor'), { autoAlpha: 0, xPercent: 160, yPercent: 140 }, start(4) + .4);
-      tl.to(within(panels[4], 'press'), { scale: .92, duration: .2, yoyo: true, repeat: 1, ease: 'power1.inOut' }, start(4) + 1.2);
-      move(within(panels[5], 'bolt'), { autoAlpha: 0, xPercent: -200 }, start(5) + .2);
-      tl.to({}, { duration: .6 }, start(5) + 1);
+      tl.to(press, { scale: .9, duration: .2, yoyo: true, repeat: 1, ease: 'power1.inOut' }, at(2) + 1);
+      clock(tl, at(4), time => {
+        const index = current(time);
+        tabs.forEach((tab, position) => tab.classList.toggle('on', position === index));
+        panes[1].classList.toggle('fixed', time >= at(1) + 1.1);
+      });
     },
 
     events: (art, tl) => {

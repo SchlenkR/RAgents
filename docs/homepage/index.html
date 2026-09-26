@@ -796,62 +796,45 @@
   </div></div></div>
   <figcaption id="ui-caption">You and the agent work in the same UI, on the same state.</figcaption>
 </figure>
-<figure class="story-scene v2 scene-ts" data-story-scene="typescript" aria-labelledby="ts-caption"><div class="scene-heading"><span>One function, many wrappers</span></div>
-  
-  <div class="art-wrap"><div class="art" data-art="typescript" role="img" aria-label="A comic strip in six panels. You write the function build(branch). Your plugin registers it once. Agents get it wrapped as a tool. AI-written TypeScript gets it as a typed call that is checked before it runs. A mini-app gets it as a button that needs no model. A program gets it as a trigger on each merge."><div class="art-canvas">
-    <div class="cm-strip">
-      <div class="cm-panel" data-cm-panel>
-        <span class="cm-cap"><b>1</b>You write it</span>
-        <div class="cm-stage">
-          <span class="glyph cm-you" data-cm-extra><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4-6.5 8-6.5s7 2 8 6.5"/></svg></span>
-          <span class="cm-fn cm-typing" data-cm-fn><span data-cm-type>build(branch)</span></span>
-        </div>
-        <span class="cm-note" data-cm-note>a plain typed function</span>
+<figure class="story-scene v2 scene-ts" data-story-scene="typescript" aria-labelledby="ts-caption"><div class="scene-heading"><span>One function, many callers</span></div>
+  <div class="art-wrap"><div class="art" data-art="typescript" role="img" aria-label="Code: a plugin registers the typed function build once with defineRunFunction. Below, four callers use it in turn: an agent calls it as a tool, AI-written TypeScript calls it and the type check catches a misspelled property first, a button in a mini-app calls it without a model, and a program calls it when an event arrives."><div class="art-canvas">
+    <div class="tsx">
+      <div class="tsx-editor">
+        <div class="tsx-bar"><i></i><i></i><i></i><span>your plugin</span></div>
+<pre class="tsx-code"><span class="f">host.functions</span>(<span class="f">defineRunFunction</span>({
+  <span class="p">name</span>: <span class="s">"build"</span>,
+  <span class="p">label</span>: <span class="s">"Build a branch"</span>,
+  <span class="p">description</span>: <span class="s">"Builds a branch and runs the tests."</span>,
+  <span class="p">schema</span>: Type.<span class="f">Object</span>({ <span class="p">branch</span>: Type.<span class="f">String</span>() }),
+  <span class="p">resultSchema</span>: Type.<span class="f">Object</span>({ <span class="p">ok</span>: Type.<span class="f">Boolean</span>() }),
+  <span class="p">available</span>,
+  <span class="p">run</span>: (_scope, _callId, { branch }) =&gt; ci.<span class="f">build</span>(branch),
+}));</pre>
       </div>
-      <div class="cm-panel" data-cm-panel>
-        <span class="cm-cap"><b>2</b>Register it once</span>
-        <div class="cm-stage">
-          <div class="cm-shelf">
-            <span class="cm-shelf-head"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3v5m6-5v5M7 8h10v3a5 5 0 0 1-10 0V8Zm5 8v5"/></svg>your plugin</span>
-            <span class="cm-slot"><span class="cm-fn" data-cm-fn>build(branch)</span></span>
-            <span class="cm-fn off">merge(branch)</span>
-            <span class="cm-fn off">push(branch)</span>
-          </div>
+      <div class="tsx-callers">
+        <div class="tsx-tabs"><span data-tsx-tab>Agent tool</span><span data-tsx-tab>AI-written code</span><span data-tsx-tab>Button</span><span data-tsx-tab>Program</span></div>
+        <div class="tsx-panes">
+<pre class="tsx-pane" data-tsx-pane><span class="c">@builder calls the tool</span>
+<span class="f">build</span>({ <span class="p">branch</span>: <span class="s">"main"</span> })
+<span class="ok">-&gt; { ok: true }</span></pre>
+<pre class="tsx-pane" data-tsx-pane><span class="c">@builder writes a snippet, checked before it runs</span>
+<span class="k">const</span> results = <span class="k">await</span> Promise.<span class="f">all</span>([<span class="s">"main"</span>, <span class="s">"release"</span>]
+  .<span class="f">map</span>(branch =&gt; context.functions.<span class="f">build</span>({ <span data-tsx-typo><span class="err">brnach</span>: branch</span><span data-tsx-fix><span class="p">branch</span></span> })));
+<span class="tsx-msg" data-tsx-error>TS2561 'brnach' does not exist. Did you mean 'branch'?</span><span class="tsx-msg good" data-tsx-fixed>type check passed, runs both builds in parallel</span></pre>
+<pre class="tsx-pane" data-tsx-pane><span class="c">a button in a mini-app, no model involved</span>
+&lt;<span class="f">Button</span> <span class="p">onClick</span>={() =&gt;
+  context.capabilities.<span class="f">call</span>(<span class="s">"build"</span>, { <span class="p">branch</span>: <span class="s">"main"</span> })}&gt;
+  Build main
+&lt;/<span class="f">Button</span>&gt;  <span class="tsx-button" data-tsx-press>Build main</span></pre>
+<pre class="tsx-pane" data-tsx-pane><span class="c">a program reacts when an event arrives</span>
+<span class="p">onInput</span>: <span class="k">async</span> (input, context) =&gt; {
+  <span class="k">await</span> context.functions.<span class="f">build</span>({ <span class="p">branch</span>: <span class="s">"main"</span> });
+}</pre>
         </div>
-        <span class="cm-note" data-cm-note>one registration</span>
-      </div>
-      <div class="cm-panel" data-cm-panel>
-        <span class="cm-cap"><b>3</b>Agents get a tool</span>
-        <div class="cm-stage">
-          <div class="cm-pack cm-tool"><span class="cm-shell" data-cm-shell></span><span class="cm-head" data-cm-head><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4 2.5-2.5Z"/></svg>tool</span><span class="cm-fn" data-cm-fn>build(branch)</span><span class="cm-foot" data-cm-head>{ branch: string }</span></div>
-        </div>
-        <span class="cm-note" data-cm-note><span class="glyph cm-mini agent"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c.8 4.6 3.4 7.2 8 8-4.6.8-7.2 3.4-8 8-.8-4.6-3.4-7.2-8-8 4.6-.8 7.2-3.4 8-8Z"/></svg></span>an agent calls it</span>
-      </div>
-      <div class="cm-panel" data-cm-panel>
-        <span class="cm-cap"><b>4</b>AI code gets a typed call</span>
-        <div class="cm-stage">
-          <div class="cm-pack cm-code"><span class="cm-shell" data-cm-shell></span><span class="cm-head" data-cm-head><i>await</i> context</span><span class="cm-head cm-indent" data-cm-head>.functions</span><span class="cm-line cm-indent"><span class="cm-head" data-cm-head>.</span><span class="cm-fn" data-cm-fn>build(branch)</span></span></div>
-        </div>
-        <span class="cm-note cm-stamp" data-cm-note><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>type-checked</span>
-      </div>
-      <div class="cm-panel" data-cm-panel>
-        <span class="cm-cap"><b>5</b>Apps get a button</span>
-        <div class="cm-stage">
-          <div class="cm-pack cm-app"><span class="cm-shell" data-cm-shell></span><span class="cm-head" data-cm-head><i></i><i></i><i></i>Branch sync</span><span class="cm-button" data-cm-press><span class="cm-ring" data-cm-head></span><span class="cm-fn" data-cm-fn>build(branch)</span></span></div>
-          <svg class="cursor cm-cursor" data-cm-cursor viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v16l4.5-4 3 6.5 2.8-1.3-3-6.3H18L5 3Z"/></svg>
-        </div>
-        <span class="cm-note" data-cm-note>click, no model call</span>
-      </div>
-      <div class="cm-panel" data-cm-panel>
-        <span class="cm-cap"><b>6</b>Programs get a trigger</span>
-        <div class="cm-stage">
-          <div class="cm-pack cm-prog"><span class="cm-shell" data-cm-shell></span><span class="cm-bolt" data-cm-bolt><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg></span><span class="cm-head" data-cm-head>on merged</span><span class="cm-fn" data-cm-fn>build(branch)</span></div>
-        </div>
-        <span class="cm-note" data-cm-note>runs on every merge</span>
       </div>
     </div>
   </div></div></div>
-  <figcaption id="ts-caption">Registered once, wrapped four ways. Same checks, same journal.</figcaption>
+  <figcaption id="ts-caption">Registered once, called four ways. Same checks, same journal.</figcaption>
 </figure>
 <figure class="story-scene v2 scene-events" data-story-scene="events" aria-labelledby="events-caption"><div class="scene-heading"><span>The run's journal</span></div>
   
