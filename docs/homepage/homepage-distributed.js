@@ -11,6 +11,7 @@
   const tones = { ui: 'dm-cream', runs: 'dm-agent', ghost: 'dm-note', tools: 'dm-app', models: 'dm-coord', profile: 'dm-script' };
   const modes = [
     {
+      step: 'Laptop',
       heading: 'One laptop, one process',
       caption: 'Everything but the model calls stays on your laptop.',
       idle: 'server',
@@ -18,24 +19,28 @@
       links: [['ui', 'runs', ''], ['runs', 'tools', ''], ['runs', 'models', 'model calls']],
     },
     {
+      step: 'Server',
       heading: 'One server, many browsers',
       caption: 'Every browser talks to its run. Files and tools stay on the server.',
       items: { ui: ['laptop', 'Browsers', 'you, your team, clients'], runs: ['server', 'Runs', 'agents, journal'], tools: ['server', 'Tools', 'a folder per run'], models: ['server', 'Models', 'keys stay here'], profile: ['server', 'Profile', 'prompts, skills, plugins'] },
       links: [['ui', 'runs', 'live'], ['runs', 'tools', ''], ['runs', 'models', '']],
     },
     {
+      step: 'Server + laptop',
       heading: 'Coordinate centrally, run tools locally',
       caption: 'The run sends a tool call to your laptop. It runs on your files, the result goes back.',
       items: { ui: ['laptop', 'VS Code', 'chat, mini-apps'], runs: ['server', 'Runs', 'agents, journal'], tools: ['laptop', 'Tools', 'your checkout'], models: ['server', 'Models', 'keys stay here'], profile: ['server', 'Profile', 'prompts, skills, plugins'] },
       links: [['ui', 'runs', 'chat, live'], ['runs', 'tools', 'tool call'], ['runs', 'models', '']],
     },
     {
+      step: 'Connected',
       heading: 'Local runs, central profile and models',
       caption: 'The profile arrives once. Model calls go through the relay, which shows only an alias.',
       items: { ui: ['laptop', 'VS Code', 'or a browser'], runs: ['laptop', 'Runs', 'journal stays here'], tools: ['laptop', 'Tools', 'your checkout'], models: ['server', 'Model relay', 'aliases only'], profile: ['server', 'Profile', 'fetched once'] },
       links: [['ui', 'runs', ''], ['runs', 'tools', ''], ['runs', 'models', 'model calls'], ['profile', 'runs', 'once, cached']],
     },
     {
+      step: 'Move a run',
       heading: 'A run changes machines',
       caption: 'The run continues on the server. Its folder stays bound to your laptop.',
       items: { ui: ['laptop', 'Browser', 'or VS Code'], runs: ['server', 'Run A', 'continues here'], ghost: ['laptop', 'Run A', 'copy until deleted'], tools: ['laptop', 'Tools', 'folder stays'], models: ['server', 'Models', 'keys stay here'], profile: ['server', 'Profile', 'prompts, skills, plugins'] },
@@ -53,8 +58,8 @@
     const lanes = { laptop: [], server: [] };
     order.filter(key => mode.items[key]).forEach(key => lanes[mode.items[key][0]].push(key));
     return Object.fromEntries(Object.entries(lanes).flatMap(([lane, keys]) => keys.map((key, index) => [key, {
-      x: lane === 'laptop' ? 140 : 420,
-      y: 60 + (index + .5) * 280 / keys.length,
+      x: lane === 'laptop' ? 234 : 326,
+      y: 70 + (index + .5) * 290 / keys.length,
       index,
     }])));
   };
@@ -63,18 +68,19 @@
       const middle = (from.x + to.x) / 2;
       return { d: `M${from.x} ${from.y}C${middle} ${from.y} ${middle} ${to.y} ${to.x} ${to.y}`, x: middle, y: (from.y + to.y) / 2 };
     }
-    if (Math.abs(from.index - to.index) === 1) return { d: `M${from.x} ${from.y}V${to.y}`, x: from.x + 44, y: (from.y + to.y) / 2 };
-    const bow = from.x + 140;
-    return { d: `M${from.x} ${from.y}C${bow} ${from.y} ${bow} ${to.y} ${to.x} ${to.y}`, x: from.x + 108, y: (from.y + to.y) / 2 };
+    const side = from.x < 280 ? 1 : -1;
+    if (Math.abs(from.index - to.index) === 1) return { d: `M${from.x} ${from.y}V${to.y}`, x: from.x + side * 46, y: (from.y + to.y) / 2 };
+    const bow = from.x + side * 56;
+    return { d: `M${from.x} ${from.y}C${bow} ${from.y} ${bow} ${to.y} ${to.x} ${to.y}`, x: from.x + side * 86, y: (from.y + to.y) / 2 };
   };
 
   const build = fixed => {
     const figure = document.createElement('figure');
     figure.className = `dm-scene ${fixed ? 'dm-static' : 'dm-live'}`;
     figure.setAttribute('role', 'img');
-    figure.innerHTML = `<div class="dm-scene-heading"></div><div class="dm-dg"><div class="dm-dg-in">
-      <div class="dm-machine dm-laptop" style="--x:16;--y:36;--w:248;--h:322"><span class="dm-machine-label">${icon('laptop')}Your laptop</span><span class="dm-machine-foot"></span></div>
-      <div class="dm-machine dm-server" style="--x:296;--y:36;--w:248;--h:322"><span class="dm-machine-label">${icon('server')}Server</span><span class="dm-machine-foot"></span></div>
+    figure.innerHTML = `${fixed ? '' : '<div class="dm-stepper"></div>'}<div class="dm-scene-heading"></div><div class="dm-dg"><div class="dm-dg-in">
+      <div class="dm-machine dm-laptop"><span class="dm-machine-label">${icon('laptop')}Your laptop</span><span class="dm-machine-foot"></span></div>
+      <div class="dm-machine dm-server"><span class="dm-machine-label">${icon('server')}Server</span><span class="dm-machine-foot"></span></div>
     </div></div><figcaption></figcaption>`;
     const canvas = figure.querySelector('.dm-dg-in');
     const lines = svg('svg', { class: 'dm-lines', viewBox: '0 0 560 380', preserveAspectRatio: 'none', 'aria-hidden': 'true' });
@@ -82,7 +88,7 @@
     const nodes = Object.fromEntries(order.map(key => {
       const node = document.createElement('div');
       node.className = `dm-node dm-move ${tones[key]}`;
-      node.innerHTML = `<span class="dm-glyph${key === 'ui' ? ' dm-sq' : ''}">${icon(icons[key])}</span><span><strong></strong><small></small></span>`;
+      node.innerHTML = `<span class="dm-glyph">${icon(icons[key])}</span><span><strong></strong><small></small></span>`;
       canvas.append(node);
       return [key, node];
     }));
@@ -104,6 +110,7 @@
         const item = mode.items[key];
         node.classList.toggle('dm-gone', !item);
         if (!item) return;
+        node.classList.toggle('dm-left', item[0] === 'laptop');
         node.style.setProperty('--x', spots[key].x);
         node.style.setProperty('--y', spots[key].y);
         node.querySelector('strong').textContent = item[1];
@@ -126,6 +133,19 @@
 
   const live = build(false);
   stage.append(live.figure);
+  const stepper = live.figure.querySelector('.dm-stepper');
+  const buttons = modes.map((mode, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.innerHTML = `<span>0${index + 1}</span>${mode.step}`;
+    button.addEventListener('click', () => {
+      const step = steps[index];
+      const top = step.getBoundingClientRect().top + scrollY + step.offsetHeight / 2 - innerHeight / 2;
+      scrollTo({ top, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    });
+    return button;
+  });
+  stepper.append(...buttons);
   modes.forEach((_mode, index) => {
     const copy = build(true);
     copy.show(index);
@@ -136,6 +156,10 @@
   const select = index => {
     active = index;
     live.show(index);
+    buttons.forEach((button, position) => {
+      if (position === index) button.setAttribute('aria-current', 'step');
+      else button.removeAttribute('aria-current');
+    });
   };
   select(0);
   requestAnimationFrame(() => live.figure.classList.add('dm-ready'));
