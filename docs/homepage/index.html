@@ -664,6 +664,7 @@
   <script src="homepage-story-nav.js" defer></script>
   <script src="homepage-subnav.js" defer></script>
   <script src="homepage-plugins.js" defer></script>
+  <script src="homepage-distributed.js" defer></script>
 </head>
 <body>
   <a class="skip" href="#main">Skip to content</a>
@@ -719,7 +720,7 @@
             <div class="feature-copy"><h3 id="events-title">Event-driven workflows</h3><ul class="feature-benefits"><li>An agent starts when another one finishes</li><li>Replies arrive later as new input, nobody waits</li><li>A watcher without a model wakes an agent that hangs</li><li>Agents read the run's journal</li><li>Fork an agent with its memory</li></ul><p class="concept-intro">Every step of a run is an event in the journal. Agents and programs subscribe to the events they care about.</p><details class="technical"><summary>How it works</summary><p>A subscription turns matching events, such as another agent's finished turn, into new input. A watcher is a TypeScript condition without a model, for example no progress for 120 seconds. Agents query the journal themselves and read other agents' transcripts for handoffs.</p></details><a class="text-link" href="guide-runtime.html">Learn more about events<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div>
           </article>
           <article class="story-step" id="distributed" aria-labelledby="distributed-title">
-            <div class="feature-copy"><h3 id="distributed-title">Distributed across server and laptop</h3><ul class="feature-benefits"><li>Runs, agents and models live on the server</li><li>Laptops and browsers connect to a run</li><li>Messages flow both ways, live</li><li>Tools run on the machine that has the files</li><li>One server, many clients</li></ul><p class="concept-intro">Coordinate centrally, and let the tools run where the files are.</p><details class="technical"><summary>How it works</summary><p>The host owns runs, journal, agents, plugins and model access. The workspace executor provides files, shell, Git, processes and language servers, next to the host or on a connected laptop. <code>ragents connect</code> fetches a client profile from the server, and the model relay shares models without revealing providers or keys.</p></details><a class="text-link" href="guide-distributed.html">Learn more about distributed work<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div>
+            <div class="feature-copy"><h3 id="distributed-title">Distributed across server and laptop</h3><ul class="feature-benefits"><li>Runs, agents and models live on the server</li><li>Laptops and browsers connect to a run</li><li>Messages flow both ways, live</li><li>Tools run on the machine that has the files</li><li>One server, many clients</li></ul><p class="concept-intro">Coordinate centrally, and let the tools run where the files are.</p><details class="technical"><summary>How it works</summary><p>The host owns runs, journal, agents, plugins and model access. The workspace executor provides files, shell, Git, processes and language servers, next to the host or on a connected laptop. <code>ragents connect</code> fetches a client profile from the server, and the model relay shares models without revealing providers or keys.</p></details><a class="text-link" href="#distributed-modes">See the four setups<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div>
           </article>
         </div>
         <div class="story-stage">
@@ -881,6 +882,244 @@
           <div class="story-progress" aria-hidden="true"><span></span></div>
         </div>
       </div>
+    </section>
+
+    <section class="dm-section" id="distributed-modes" aria-labelledby="dm-title">
+    <svg width="0" height="0" class="dm-sprite" aria-hidden="true">
+      <symbol id="dm-i-server" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="7" rx="2"/><rect x="4" y="14" width="16" height="7" rx="2"/><path d="M8 6.5h.01M8 17.5h.01"/></symbol>
+      <symbol id="dm-i-laptop" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="10" rx="1.5"/><path d="M2.5 19h19"/></symbol>
+      <symbol id="dm-i-browser" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M3 9h18M6.5 6.5h.01M9 6.5h.01"/></symbol>
+      <symbol id="dm-i-run" viewBox="0 0 24 24"><path d="M12 3c.8 4.6 3.4 7.2 8 8-4.6.8-7.2 3.4-8 8-.8-4.6-3.4-7.2-8-8 4.6-.8 7.2-3.4 8-8Z"/></symbol>
+      <symbol id="dm-i-models" viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9Z"/><path d="m4 7.5 8 4.5 8-4.5M12 12v9"/></symbol>
+      <symbol id="dm-i-tools" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L4 17l3 3 5.3-5.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4 2.5-2.5Z"/></symbol>
+      <symbol id="dm-i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></symbol>
+      <symbol id="dm-i-cloud" viewBox="0 0 24 24"><path d="M7 18a4 4 0 0 1-.6-8A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9Z"/></symbol>
+      <symbol id="dm-i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+      <symbol id="dm-i-profile" viewBox="0 0 24 24"><path d="M5 4h13v16H6.5A2.5 2.5 0 0 1 4 17.5V5a1 1 0 0 1 1-1Zm-1 13.5A2.5 2.5 0 0 1 6.5 15H18M8 8h6M8 11h4"/></symbol>
+      <symbol id="dm-i-box" viewBox="0 0 24 24"><path d="M3 8l9-5 9 5v8l-9 5-9-5Z"/><path d="M3 8l9 5 9-5M12 13v8"/></symbol>
+      <symbol id="dm-i-arrow" viewBox="0 0 24 24"><path d="M5 12h14m-5-5 5 5-5 5"/></symbol>
+    </svg>
+
+    <div class="dm-head">
+      <div class="shell">
+        <p class="eyebrow">Distributed</p>
+        <h2 id="dm-title">Pick where each part runs</h2>
+        <p class="dm-lead">Runs, models and tools do not have to live on the same machine. Coordinate centrally, let the tools run where the files are, and choose the split per team and per run.</p>
+
+        <nav class="dm-tabs" aria-label="Modes">
+          <a class="dm-tab" href="#dm-local"><span class="dm-num">01</span><strong>On your laptop</strong><small>Everything local, nothing to operate</small><span class="dm-mini"><i></i></span></a>
+          <a class="dm-tab" href="#dm-server-mode"><span class="dm-num">02</span><strong>On the server</strong><small>Open a browser, nothing to install</small><span class="dm-mini"><i class="dm-s"></i></span></a>
+          <a class="dm-tab" href="#dm-hybrid"><span class="dm-num">03</span><strong>Server plus laptop</strong><small>Runs on the server, tools on your files</small><span class="dm-mini"><i class="dm-s"></i><i class="dm-arrow">&harr;</i><i></i></span></a>
+          <a class="dm-tab" href="#dm-connected"><span class="dm-num">04</span><strong>Connected laptop</strong><small>Local runs, the team's profile and models</small><span class="dm-mini"><i></i><i class="dm-arrow">&larr;</i><i class="dm-s"></i></span></a>
+          <a class="dm-tab dm-tab-transfer" href="#dm-transfer"><span class="dm-num">+</span><strong>Move a run</strong><small>Continue a run on another machine</small><span class="dm-mini"><i></i><i class="dm-arrow">&rarr;</i><i class="dm-s"></i></span></a>
+        </nav>
+      </div>
+    </div>
+
+      <div class="shell dm-story" data-dm-story>
+        <div class="dm-steps">
+          <article class="dm-step" id="dm-local" style="--i: 0" aria-labelledby="dm-t-local">
+            <div class="feature-copy">
+          <p class="eyebrow">01 On your laptop</p>
+          <h3 id="dm-t-local">Everything on one machine</h3>
+          <ul class="feature-benefits">
+            <li>Host, runs and tools in one process</li>
+            <li>VS Code starts it for you</li>
+            <li>Model calls go straight to your provider</li>
+            <li>No server to operate</li>
+          </ul>
+          <p class="dm-when"><b>Choose this when</b> you try RAgents, or work alone on your own code.</p>
+          <div class="dm-cmd"><span class="dm-prompt">$ </span>npm install -g @schlenkr/ragents
+<span class="dm-prompt">$ </span>ragents start developer</div>
+          <a class="text-link" href="guide-getting-started.html">Get started<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#dm-i-arrow"/></svg></a>
+        </div>
+          </article>
+          <article class="dm-step" id="dm-server-mode" style="--i: 1" aria-labelledby="dm-t-server">
+            <div class="feature-copy">
+          <p class="eyebrow">02 On the server</p>
+          <h3 id="dm-t-server">Everything on the server</h3>
+          <ul class="feature-benefits">
+            <li>Runs, agents, models and files on one server</li>
+            <li>Open a link, nothing to install</li>
+            <li>Each run works in its own folder, isolated</li>
+            <li>Sign-in and rights per user</li>
+          </ul>
+          <p class="dm-when"><b>Choose this when</b> your team or your clients should just open a link and start.</p>
+          <div class="dm-cmd"><span class="dm-comment"># in the browser</span>
+https://ragents.example.com</div>
+          <a class="text-link" href="guide-access.html">Learn more about access<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#dm-i-arrow"/></svg></a>
+        </div>
+          </article>
+          <article class="dm-step" id="dm-hybrid" style="--i: 2" aria-labelledby="dm-t-hybrid">
+            <div class="feature-copy">
+          <p class="eyebrow">03 Server plus laptop</p>
+          <h3 id="dm-t-hybrid">The server coordinates, your laptop does the work</h3>
+          <ul class="feature-benefits">
+            <li>Runs, agents and models stay on the server</li>
+            <li>Your laptop offers a folder to a run</li>
+            <li>Tool calls run on your files and return the result</li>
+            <li>Only you can see your files, even in a shared run</li>
+          </ul>
+          <p class="dm-when"><b>Choose this when</b> the code lives on your machine, but coordination and models should be central.</p>
+          <div class="dm-cmd"><span class="dm-comment"># VS Code: open the folder, start a run. Or:</span>
+<span class="dm-prompt">$ </span>ragents workspace-client \
+    https://ragents.example.com ~/project</div>
+          <a class="text-link" href="guide-clients.html">Learn more about VS Code and the CLI<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#dm-i-arrow"/></svg></a>
+        </div>
+          </article>
+          <article class="dm-step" id="dm-connected" style="--i: 3" aria-labelledby="dm-t-connected">
+            <div class="feature-copy">
+          <p class="eyebrow">04 Connected laptop</p>
+          <h3 id="dm-t-connected">Your runs, the team's setup and models</h3>
+          <ul class="feature-benefits">
+            <li>Runs and journal stay on your laptop</li>
+            <li>Profile, prompts, skills and plugins come from the server</li>
+            <li>Models by alias: provider and key never leave the server</li>
+            <li>Revoke access centrally, per user</li>
+          </ul>
+          <p class="dm-when"><b>Choose this when</b> developers should work locally, but with the team's setup and models.</p>
+          <div class="dm-cmd"><span class="dm-prompt">$ </span>RAGENTS_TOKEN=&lt;token&gt; ragents connect \
+    https://ragents.example.com</div>
+          <a class="text-link" href="guide-distributed.html">Learn more about connecting<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#dm-i-arrow"/></svg></a>
+        </div>
+          </article>
+          <article class="dm-step" id="dm-transfer" style="--i: 4" aria-labelledby="dm-t-transfer">
+            <div class="feature-copy">
+          <p class="eyebrow">+ Move a run</p>
+          <h3 id="dm-t-transfer">Start here, continue there</h3>
+          <ul class="feature-benefits">
+            <li>Journal, model context and plugin storage move along</li>
+            <li>The run continues with the next message</li>
+            <li>A folder on your laptop stays bound to your laptop</li>
+            <li>Processes and language servers restart on first use</li>
+          </ul>
+          <p class="dm-when"><b>Choose this when</b> a long run should leave your notebook for an always-on machine, or you want to inspect a server run locally.</p>
+          <div class="dm-cmd"><span class="dm-prompt">$ </span>pnpm run-transfer &lt;source&gt; &lt;target&gt; &lt;runId&gt;</div>
+          <a class="text-link" href="guide-distributed.html">Learn more about transfers<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#dm-i-arrow"/></svg></a>
+        </div>
+          </article>
+        </div>
+        <div class="dm-stage">
+          <figure class="dm-scene" data-dm-scene="dm-local" style="--i: 0">
+          <div class="dm-scene-heading">One laptop, one process</div>
+          <div class="dm-dg"><div class="dm-dg-in">
+            <svg class="dm-lines" viewBox="0 0 560 380" preserveAspectRatio="none" aria-hidden="true">
+              <path class="dm-ln dm-flow" d="M112 120H300"/>
+              <path class="dm-ln" d="M300 120V272"/>
+              <path class="dm-ln dm-faint" d="M112 272H300"/>
+              <path class="dm-ln dm-flow" d="M300 120C400 120 420 190 480 190"/>
+            </svg>
+            <div class="dm-machine dm-laptop" style="--x:16;--y:36;--w:392;--h:322"><span class="dm-machine-label"><svg aria-hidden="true"><use href="#dm-i-laptop"/></svg>Your laptop</span></div>
+            <div class="dm-node dm-cream" style="--x:112;--y:120"><span class="dm-glyph dm-sq"><svg aria-hidden="true"><use href="#dm-i-browser"/></svg></span><span><strong>VS Code</strong><small>or a browser</small></span></div>
+            <div class="dm-node dm-agent" style="--x:300;--y:120"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-run"/></svg></span><span><strong>Runs <span class="dm-think"><i></i><i></i><i></i></span></strong><small>agents, journal</small></span></div>
+            <div class="dm-node dm-app" style="--x:300;--y:272"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-tools"/></svg></span><span><strong>Tools</strong><small>shell, Git, LSP</small></span></div>
+            <div class="dm-node dm-note" style="--x:112;--y:272"><span class="dm-glyph dm-sq"><svg aria-hidden="true"><use href="#dm-i-folder"/></svg></span><span><strong>Your folder</strong><small>~/project</small></span></div>
+            <div class="dm-node dm-person" style="--x:484;--y:190"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-cloud"/></svg></span><span><strong>Provider</strong><small>your key</small></span></div>
+            <span class="dm-lbl" style="--x:206;--y:100">live</span>
+            <span class="dm-lbl dm-agent" style="--x:420;--y:132">model calls</span>
+          </div></div>
+          <figcaption>Everything but the model calls stays on your laptop.</figcaption>
+        </figure>
+          <figure class="dm-scene dm-t2" data-dm-scene="dm-server-mode" style="--i: 1">
+          <div class="dm-scene-heading">One server, many browsers</div>
+          <div class="dm-dg"><div class="dm-dg-in">
+            <svg class="dm-lines" viewBox="0 0 560 380" preserveAspectRatio="none" aria-hidden="true">
+              <path class="dm-ln dm-flow" d="M76 92C190 92 200 110 296 110"/>
+              <path class="dm-ln dm-flow dm-rev" d="M76 196C190 196 206 110 296 110"/>
+              <path class="dm-ln dm-flow" d="M76 300C196 300 214 110 296 110"/>
+              <path class="dm-ln" d="M296 110H468"/>
+              <path class="dm-ln" d="M296 110C296 200 380 190 380 268"/>
+            </svg>
+            <div class="dm-machine dm-server" style="--x:176;--y:36;--w:368;--h:322"><span class="dm-machine-label"><svg aria-hidden="true"><use href="#dm-i-server"/></svg>Server</span><span class="dm-machine-foot">no install on any client</span></div>
+            <div class="dm-node dm-cream" style="--x:76;--y:92"><span class="dm-glyph dm-sq"><svg aria-hidden="true"><use href="#dm-i-browser"/></svg></span><span><strong>Browser</strong><small>you</small></span></div>
+            <div class="dm-node dm-cream" style="--x:76;--y:196"><span class="dm-glyph dm-sq"><svg aria-hidden="true"><use href="#dm-i-browser"/></svg></span><span><strong>Browser</strong><small>a teammate</small></span></div>
+            <div class="dm-node dm-cream" style="--x:76;--y:300"><span class="dm-glyph dm-sq"><svg aria-hidden="true"><use href="#dm-i-browser"/></svg></span><span><strong>Browser</strong><small>a client</small></span></div>
+            <div class="dm-node dm-agent" style="--x:296;--y:110"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-run"/></svg></span><span><strong>Runs <span class="dm-think"><i></i><i></i><i></i></span></strong><small>agents, journal</small></span></div>
+            <div class="dm-node dm-coord" style="--x:468;--y:110"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-models"/></svg></span><span><strong>Models</strong><small>keys stay here</small></span></div>
+            <div class="dm-node dm-app" style="--x:380;--y:268"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-folder"/></svg></span><span><strong>A folder per run</strong><small>files, shell, Git, sandboxed</small></span></div>
+          </div></div>
+          <figcaption>Every browser talks to its run. Files and tools stay on the server.</figcaption>
+        </figure>
+          <figure class="dm-scene dm-t3" data-dm-scene="dm-hybrid" style="--i: 2">
+          <div class="dm-scene-heading">Coordinate centrally, run tools locally</div>
+          <div class="dm-dg"><div class="dm-dg-in">
+            <svg class="dm-lines" viewBox="0 0 560 380" preserveAspectRatio="none" aria-hidden="true">
+              <path class="dm-ln dm-flow" d="M140 110H420"/>
+              <path class="dm-ln dm-flow" d="M420 110C340 150 250 220 140 268"/>
+              <path class="dm-ln dm-flow dm-rev" d="M420 118C360 190 270 260 150 276"/>
+              <path class="dm-ln" d="M420 110V268"/>
+            </svg>
+            <div class="dm-machine dm-laptop" style="--x:16;--y:36;--w:248;--h:322"><span class="dm-machine-label"><svg aria-hidden="true"><use href="#dm-i-laptop"/></svg>Your laptop</span><span class="dm-machine-foot">only you see these files</span></div>
+            <div class="dm-machine dm-server" style="--x:296;--y:36;--w:248;--h:322"><span class="dm-machine-label"><svg aria-hidden="true"><use href="#dm-i-server"/></svg>Server</span></div>
+            <div class="dm-node dm-cream" style="--x:140;--y:110"><span class="dm-glyph dm-sq"><svg aria-hidden="true"><use href="#dm-i-browser"/></svg></span><span><strong>VS Code</strong><small>chat, mini-apps</small></span></div>
+            <div class="dm-node dm-app" style="--x:140;--y:268"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-tools"/></svg></span><span><strong>Tools</strong><small>your checkout</small></span></div>
+            <div class="dm-node dm-agent" style="--x:420;--y:110"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-run"/></svg></span><span><strong>Run A <span class="dm-think"><i></i><i></i><i></i></span></strong><small>agents, journal</small></span></div>
+            <div class="dm-node dm-coord" style="--x:420;--y:268"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-models"/></svg></span><span><strong>Models</strong><small>keys stay here</small></span></div>
+            <span class="dm-lbl" style="--x:280;--y:92">chat, live</span>
+            <span class="dm-lbl dm-agent" style="--x:318;--y:166">tool call</span>
+            <span class="dm-lbl dm-ok" style="--x:250;--y:262">result</span>
+          </div></div>
+          <figcaption>The run sends a tool call to your laptop. It runs on your files, the result goes back.</figcaption>
+        </figure>
+          <figure class="dm-scene dm-t4" data-dm-scene="dm-connected" style="--i: 3">
+          <div class="dm-scene-heading">Local runs, central profile and models</div>
+          <div class="dm-dg"><div class="dm-dg-in">
+            <svg class="dm-lines" viewBox="0 0 560 380" preserveAspectRatio="none" aria-hidden="true">
+              <path class="dm-ln dm-once" d="M420 110H140"/>
+              <path class="dm-ln dm-flow" d="M140 110C250 150 320 268 420 268"/>
+              <path class="dm-ln" d="M140 110V268"/>
+            </svg>
+            <div class="dm-machine dm-laptop" style="--x:16;--y:36;--w:248;--h:322"><span class="dm-machine-label"><svg aria-hidden="true"><use href="#dm-i-laptop"/></svg>Your laptop</span></div>
+            <div class="dm-machine dm-server" style="--x:296;--y:36;--w:248;--h:322"><span class="dm-machine-label"><svg aria-hidden="true"><use href="#dm-i-server"/></svg>Server</span></div>
+            <div class="dm-node dm-agent" style="--x:140;--y:110"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-run"/></svg></span><span><strong>Runs <span class="dm-think"><i></i><i></i><i></i></span></strong><small>journal stays here</small></span></div>
+            <div class="dm-node dm-app" style="--x:140;--y:268"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-tools"/></svg></span><span><strong>Tools</strong><small>your checkout</small></span></div>
+            <div class="dm-node dm-script" style="--x:420;--y:110"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-profile"/></svg></span><span><strong>Profile</strong><small>prompts, skills, plugins</small></span></div>
+            <div class="dm-node dm-coord" style="--x:420;--y:268"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-models"/></svg></span><span><strong>Model relay</strong><small>aliases only</small></span></div>
+            <span class="dm-lbl" style="--x:280;--y:92">once, cached</span>
+            <span class="dm-lbl dm-agent" style="--x:292;--y:212">model calls</span>
+            <span class="dm-lbl dm-lock" style="--x:420;--y:326">provider and key hidden</span>
+          </div></div>
+          <figcaption>The profile arrives once. Model calls go through the relay, which shows only an alias.</figcaption>
+        </figure>
+          <figure class="dm-scene dm-t5" data-dm-scene="dm-transfer" style="--i: 4">
+          <div class="dm-scene-heading">A run changes machines</div>
+          <div class="dm-dg"><div class="dm-dg-in">
+            <svg class="dm-lines" viewBox="0 0 560 380" preserveAspectRatio="none" aria-hidden="true">
+              <path class="dm-ln dm-flow" d="M116 120C210 120 220 200 280 200"/>
+              <path class="dm-ln dm-flow" d="M280 200C340 200 350 120 444 120"/>
+            </svg>
+            <div class="dm-machine dm-laptop" style="--x:16;--y:36;--w:200;--h:322"><span class="dm-machine-label"><svg aria-hidden="true"><use href="#dm-i-laptop"/></svg>Notebook</span></div>
+            <div class="dm-machine dm-server" style="--x:344;--y:36;--w:200;--h:322"><span class="dm-machine-label"><svg aria-hidden="true"><use href="#dm-i-server"/></svg>Always-on server</span></div>
+            <div class="dm-node dm-agent" style="--x:116;--y:120;opacity:.7"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-run"/></svg></span><span><strong>Run A</strong><small>stopped</small></span></div>
+            <div class="dm-node dm-note" style="--x:116;--y:268"><span><strong>Copy stays</strong><small>until you delete it</small></span></div>
+            <div class="dm-node dm-pkg" style="--x:280;--y:200"><span class="dm-pkg-head"><span class="dm-glyph dm-sq"><svg aria-hidden="true"><use href="#dm-i-box"/></svg></span><strong>Run archive</strong></span><ul><li>journal</li><li>model context</li><li>actor programs</li><li>plugin storage</li></ul></div>
+            <div class="dm-node dm-agent" style="--x:444;--y:120"><span class="dm-glyph"><svg aria-hidden="true"><use href="#dm-i-run"/></svg></span><span><strong>Run A <span class="dm-think"><i></i><i></i><i></i></span></strong><small>continues</small></span></div>
+            <div class="dm-node dm-note" style="--x:444;--y:268"><span><strong>Processes, LSPs</strong><small>start on first use</small></span></div>
+          </div></div>
+          <figcaption>Export copies the run, import continues it. Same host version on both sides.</figcaption>
+        </figure>
+        </div>
+      </div>
+
+    <div class="dm-matrix-wrap">
+      <div class="shell">
+        <div class="dm-matrix-card">
+          <h3 id="dm-matrix-title">What runs where</h3>
+          <p>Four setups, one host. Only the location of each part changes.</p>
+          <table class="dm-matrix">
+            <thead><tr><th></th><th>01 On your laptop</th><th>02 On the server</th><th>03 Server plus laptop</th><th>04 Connected laptop</th></tr></thead>
+            <tbody>
+              <tr><th>Runs, agents, journal</th><td><span class="dm-chip dm-l">laptop</span></td><td><span class="dm-chip dm-s">server</span></td><td><span class="dm-chip dm-s">server</span></td><td><span class="dm-chip dm-l">laptop</span></td></tr>
+              <tr><th>Files, shell, Git</th><td><span class="dm-chip dm-l">laptop</span></td><td><span class="dm-chip dm-s">server</span><small>isolated per run</small></td><td><span class="dm-chip dm-l">laptop</span><small>only you see them</small></td><td><span class="dm-chip dm-l">laptop</span></td></tr>
+              <tr><th>Models and keys</th><td><span class="dm-chip dm-l">laptop</span><small>your own key</small></td><td><span class="dm-chip dm-s">server</span></td><td><span class="dm-chip dm-s">server</span></td><td><span class="dm-chip dm-s">server</span><small>via relay, keys stay hidden</small></td></tr>
+              <tr><th>Profile and plugins</th><td><span class="dm-chip dm-l">laptop</span></td><td><span class="dm-chip dm-s">server</span></td><td><span class="dm-chip dm-s">server</span></td><td><span class="dm-chip dm-s">server</span><small>fetched once, cached</small></td></tr>
+              <tr><th>Interface</th><td><span class="dm-chip dm-n">VS Code or browser</span></td><td><span class="dm-chip dm-n">any browser</span></td><td><span class="dm-chip dm-n">VS Code or browser</span></td><td><span class="dm-chip dm-n">VS Code or browser</span></td></tr>
+              <tr><th>Install</th><td><span class="dm-chip dm-n">Node or VS Code</span></td><td><span class="dm-chip dm-n">nothing</span></td><td><span class="dm-chip dm-n">Node or VS Code</span></td><td><span class="dm-chip dm-n">Node or VS Code</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
     </section>
 
     <section class="team-section" id="team" aria-labelledby="team-title">

@@ -129,6 +129,24 @@ External connections and real projects require live acceptance. Keep test data i
 temporary directories and fail visibly when product connections are absent. Build affected
 packages and state whether a restart or new prepared run is required.
 
+### 9. Return only what the model does not already have
+
+Every tool result stays in the context of all later turns. A result reports what is new: created
+references, facts the call established, and what the next decision needs. It never repeats the
+input, neither literally nor as a normalized copy. A changing call returns an acknowledgement or
+the change, not the complete state; a separate status function provides the full picture on
+request. Catalogs that do not change during a run, such as rule lists, component lists, or
+environments, belong in the prompt or behind a lookup, not in every result. Server bookkeeping
+stays on the server: event envelopes, correlation and command IDs, schema versions, hashes,
+absolute host paths, and timings. A failure names its cause and the next step instead of
+forwarding a raw test-runner or stack dump. A query the server can resolve itself, such as a
+status group, stays a parameter instead of expanded text the model has to carry along.
+Open-ended output such as shell output, logs, queries, and event lists has a small default limit
+and a limit per line, puts relevant parts first (errors, warnings, the end of a log), and says how
+to read more. Reading unchanged content again returns a short notice instead of the content.
+Measure result sizes in real runs; a result that regularly exceeds a few kilobytes needs a
+narrower contract.
+
 ## Implementation sequence
 
 1. Identify the owner, domain state, and required decisions; inspect existing functions and
@@ -152,6 +170,7 @@ nennt ihre konkreten Belege; sie ist keine weitere Vertragsliste.
 | Beobachtung | Belege im Repository | Reichweite |
 | --- | --- | --- |
 | Enter und Knopf scheiterten im Sandbox-Frame; lange Statusabfragen erschöpften die Bridge | `apps/web/tests/actor-view-frame.test.ts`, `plugins/ragents.actor-programs/web/ActorViewFrame.tsx` | Host-Interaktion und längere Nutzung prüfen; Einschränkung gilt für Mini-App-Iframes |
+| In 25 echten Runs kam die Hälfte aller Werkzeugausgaben an Modelle aus 41 Aufrufen über 8 KB: ganzer Zustand nach jeder Änderung, Bash-Ausgaben bis 50 KB aus einer einzigen minifizierten Zeile, volle Event-Hüllen, wiederholte Deklarationen | `packages/agent/src/core/tools/truncate.ts`, `packages/ragents/src/agents/actor-input.ts` (`toolResultEventOf` redigiert nur Event-Payloads) | Abschnitt 9; gilt für jedes Werkzeug und jede Plugin-Funktion |
 
 Diese Befunde begründen keine neue generische Such-, Modell- oder Polling-Plattform. Gemeinsame
 Codeabstraktionen entstehen weiterhin erst bei mindestens zwei echten Nutzern.

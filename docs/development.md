@@ -917,6 +917,10 @@ So dokumentierst du deine Arbeit:
 - Modelle tippen nichts ab: Werkzeugverträge dürfen nie verlangen, dass ein LLM Hashes, Tokens,
   IDs, Pfade oder Dateiinhalte aus früheren Ausgaben reproduziert - immer serverseitig auflösen
   oder per Referenz arbeiten.
+- Werkzeugergebnisse bleiben schlank: nur, was das Modell noch nicht hat. Kein Echo der Eingabe,
+  kein ganzer Zustand nach einer Änderung, keine unveränderlichen Kataloge, keine
+  Server-Buchhaltung (Event-Hüllen, Hashes, absolute Pfade, Laufzeiten), offene Ausgaben mit
+  kleiner Grenze auch je Zeile. Einzelheiten im Plugin-Leitfaden, Abschnitt 9 in `docs/spec/plugins.md`.
 
 ## Weiterlesen
 

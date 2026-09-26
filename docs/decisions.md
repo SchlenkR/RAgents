@@ -1,5 +1,23 @@
 # Entscheidungen
 
+## Schlanke Werkzeugergebnisse als Regel (26.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Plugin-Leitfaden, Abschnitt 9, Befundgrundlage),
+`docs/development.md` (Regeln). Vorgabe des Owners: Werkzeugergebnisse liefern nur, was das Modell
+noch nicht hat.
+
+**Warum so.** Eine Auswertung von 25 echten Runs eines Server-Profils ergab rund 1,3 MB
+Werkzeugausgabe direkt an Modelle, die Hälfte davon aus 41 Aufrufen über 8 KB. Wörtliche Echos
+waren selten; die Masse kam aus dem ganzen Zustand nach jeder Änderung samt unveränderlicher
+Kataloge, aus der Bash-Grenze von 50 KB (einmal fast vollständig eine einzige minifizierte Zeile),
+aus vollständigen Event-Hüllen und aus Deklarationen, die jede Antwort wiederholt. Die bestehende
+Festlegung "kein Echo, kein Hex" (`docs/spec/core.md`) greift nur an `toolResultEventOf` für
+Event-Payloads; Plugin-Funktionen liefern ihre Ergebnisse daran vorbei, und `read` und `edit`
+zeigen weiter volle SHA-256-Werte.
+
+**Festlegung.** Die Regel steht als Abschnitt 9 im Plugin-Leitfaden und als Kurzregel im
+Handbuch. Die gefundenen Verstöße stehen in `TODO.md`.
+
 ## Solution beim Start eines Runs, Solution-Liste und Umschalten im Reiter (25.09.2026)
 
 Kapitel: `docs/spec/plugins.md` (Zuständigkeit je Facette, Executor, Language-Server-Plugins),
