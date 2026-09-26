@@ -5,7 +5,7 @@
   measureHeader();
   new ResizeObserver(measureHeader).observe(header);
 
-  const burger = header.querySelector('.nav-burger');
+  const burger = header.querySelector('.nav-menu');
   if (burger) {
     const menu = state => {
       root.toggleAttribute('data-menu-open', state);

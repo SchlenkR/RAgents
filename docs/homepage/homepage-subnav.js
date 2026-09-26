@@ -35,8 +35,11 @@
     open(false);
     toggle.focus();
   });
+  const menuLabel = document.querySelector('[data-menu-label]');
+  const menuFallback = menuLabel?.textContent;
   const mark = index => {
     label.textContent = index < 0 ? fallback : links[index].textContent;
+    if (menuLabel) menuLabel.textContent = index < 0 ? menuFallback : links[index].textContent;
     links.forEach((link, position) => {
       if (position !== index) return link.removeAttribute('aria-current');
       link.setAttribute('aria-current', 'true');

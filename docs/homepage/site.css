@@ -31,20 +31,24 @@ html { scrollbar-gutter: stable; }
 @media (max-width: 900px) {
   .masthead { gap: 18px; }
 }
-.nav-burger { display: none; }
+.nav-menu { display: none; }
 @media (max-width: 720px) {
   html { --header-height: 61px; }
   .masthead { flex-wrap: wrap; gap: 10px; padding-block: 10px; }
   .masthead nav { display: contents; }
-  .masthead .brand { margin-right: auto; }
+  .masthead .brand { flex: none; }
   .masthead nav a:not(.nav-github) { display: none; order: 3; flex-basis: 100%; min-height: 44px; padding-inline: 2px; border-top: 1px solid #e3ecf2; font-size: 16px; }
   html[data-menu-open] .masthead nav a:not(.nav-github) { display: flex; }
-  .masthead nav .nav-github { order: 1; min-height: 40px; padding: 5px 12px; font-size: 14px; }
-  .nav-burger { order: 2; display: inline-grid; place-items: center; width: 40px; height: 40px; padding: 0; border: 1.5px solid #223347; border-radius: 8px; background: #fff; color: #223347; box-shadow: 3px 4px 0 #2233471a; cursor: pointer; }
-  .nav-burger svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
-  .nav-burger .burger-close, html[data-menu-open] .nav-burger .burger-open { display: none; }
-  html[data-menu-open] .nav-burger .burger-close { display: block; }
-  .nav-burger:focus-visible { outline: 3px solid #2a94fa; outline-offset: 4px; }
+  .masthead nav .nav-github { order: 2; min-height: 40px; padding: 5px 12px; font-size: 14px; }
+  .nav-menu { order: 1; display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 0; max-width: 46%; min-height: 34px; margin-inline: auto; padding: 4px 10px 4px 14px; border: 0; border-radius: 999px; background: #233447; color: #fff; font: 600 13.5px/1.2 Inter, system-ui, -apple-system, sans-serif; cursor: pointer; }
+  .nav-menu span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nav-menu svg { flex: none; width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: transform .15s; }
+  html[data-menu-open] .nav-menu svg { transform: scaleY(-1); }
+  .nav-menu:focus-visible { outline: 3px solid #2a94fa; outline-offset: 4px; }
+}
+@media (max-width: 440px) {
+  .masthead nav .nav-github { padding-inline: 9px; }
+  .masthead nav .nav-github .gh-label { display: none; }
 }
 @media (max-width: 640px) {
   .shell { width: calc(100% - 36px); }
