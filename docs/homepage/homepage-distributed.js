@@ -137,7 +137,7 @@
   const buttons = modes.map((mode, index) => {
     const button = document.createElement('button');
     button.type = 'button';
-    button.innerHTML = `<span>0${index + 1}</span>${mode.step}`;
+    button.textContent = mode.step;
     button.addEventListener('click', () => {
       const step = steps[index];
       const top = step.getBoundingClientRect().top + scrollY + step.offsetHeight / 2 - innerHeight / 2;
