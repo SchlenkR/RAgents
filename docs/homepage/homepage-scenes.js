@@ -173,6 +173,27 @@
     },
 
     events: (art, tl) => {
+      const rows = [...art.querySelectorAll('[data-j-row]')];
+      const list = art.querySelector('[data-j-list]');
+      const foot = art.querySelector('[data-j-foot]');
+      const first = 3;
+      let shown = -1;
+      clock(tl, rows.length - first + 1, time => {
+        const count = Math.min(rows.length, first + Math.floor(time));
+        if (count === shown) return;
+        shown = count;
+        rows.forEach((row, index) => {
+          row.classList.toggle('on', index < count);
+          row.classList.toggle('jr-lit', index === count - 1 && row.classList.contains('jr-flash'));
+        });
+        const hidden = rows.slice(count).reduce((sum, row) => sum + row.offsetHeight, 0);
+        list.style.transform = `translateY(${hidden}px)`;
+        const note = rows.slice(0, count).reverse().find(row => row.dataset.jNote);
+        foot.innerHTML = note ? note.dataset.jNote : '';
+      });
+    },
+
+    workflows: (art, tl) => {
       const cards = [...art.querySelectorAll('[data-e-card]')];
       const dots = [...art.querySelectorAll('[data-e-dot]')];
       const stubs = [...art.querySelectorAll('[data-e-stub]')];
@@ -196,7 +217,7 @@
       travel(tl, packet, down, 6.2, { from: share(384), to: share(466), duration: .7 });
       tl.to(spine, { strokeDashoffset: 0, duration: .5, ease: 'none' }, 7.3);
       clock(tl, 8, time => {
-        timer.textContent = String(Math.round(Math.max(0, Math.min(1, (time - 3.7) / 1.3)) * 120));
+        timer.textContent = String(Math.round(Math.max(0, Math.min(1, (time - 2.75) / 1.2)) * 12));
       });
     },
 
@@ -272,7 +293,7 @@
   });
   media.add('(prefers-reduced-motion: no-preference) and (max-width: 959.98px)', () => {
     const bars = [document.querySelector('.masthead'), document.querySelector('.subnav')].filter(Boolean);
-    const runs = { setups: 2.4, agents: 2, ui: 3, typescript: 2.4, events: 2.2, distributed: 2.8 };
+    const runs = { setups: 2.4, agents: 2, ui: 3, typescript: 2.4, events: 2.6, workflows: 2.2, distributed: 2.8 };
     const items = timelines.map(({ name, art, tl }, index) => {
       const scene = art.closest('.story-scene');
       const track = document.createElement('div');
