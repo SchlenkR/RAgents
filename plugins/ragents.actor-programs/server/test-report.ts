@@ -79,7 +79,7 @@ export const createTestReport = async (directory: string) => {
     const describe = (failure: Extract<TestRecord, { kind: "fail" }>): string => {
         const fileOutput = failure.message === "test failed" && failure.file !== null ? stderrByFile.get(failure.file) ?? stderrByFile.get(relative(failure.file)) : undefined;
         const message = fileOutput ? errorLines(fileOutput).join("; ") : failure.generated ? failure.message.split("\n")[0]!.replace(/:$/, "") : failure.message.trim().slice(0, 500);
-        const values = failure.expected === undefined ? "" : ` - erwartet ${failure.expected}, tatsächlich ${failure.actual}`;
+        const values = failure.expected === undefined || failure.expected === failure.actual ? "" : ` - erwartet ${failure.expected}, tatsächlich ${failure.actual}`;
         return `- ${failure.name} (${placeOf(failure)}): ${relative(message)}${relative(values)}`;
     };
 
