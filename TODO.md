@@ -4,6 +4,7 @@ Eingang für alles, hier schreiben der Owner und die KI. Eine Zeile je Eintrag, 
 
 ## Offen
 
+- Schlanke Werkzeugergebnisse (26.09.2026): der Typenstub `node_modules/@ragents/server/index.d.ts` eines Actor-Programms enthält die Verträge aller Capabilities des Profils (in einem echten Server-Profil 51 KB); ein Modell, das ihn mit `read` liest, bekommt sie alle, auch fremde Plugins. Auf die deklarierten Capabilities des Programms beschränken oder die Suche über `typescript_api` nahelegen.
 - Schlanke Werkzeugergebnisse (26.09.2026): die Browserwerkzeuge liefern nach jeder Aktion (`browser_click`, `browser_fill`, `browser_snapshot` ...) wieder alle Fehler seit der Navigation (`errors` in `BrowserSnapshot`); nur neue melden, die Liste auf Nachfrage.
 - Schlanke Werkzeugergebnisse (26.09.2026): `typescript_api` mit `names` wiederholt in `functions` Name, Label und Kurzbeschreibung, die das Modell aus dem Prompt schon hat; nur `longDescription` ist neu.
 - Host-API (26.09.2026): `eventResultSchema` (Union aller Event-Typen) hat im Repo keinen Nutzer mehr, seit jede Funktion `eventResultSchemaOf` nennt; beim nächsten Sprung von `HOST_API_VERSION` streichen.

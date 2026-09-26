@@ -21,8 +21,21 @@ import { buildTailwind } from "@ragents/host/plugin-support/actor-programs/tailw
 import type { AskService } from "@ragents/plugins/ragents.ask/server/contract.js";
 const NAME = /^[a-z][a-z0-9-]{0,63}$/;
 const errorText = (error: unknown): string => error instanceof Error ? error.message : String(error);
-const complaints = (lines: readonly string[], fallback: string): string =>
-    lines.map((line) => line.trim()).filter((line) => line !== "").join("\n") || fallback;
+const maxShownComplaints = 10;
+const maxComplaintLength = 240;
+/** A failed check names the count and the first complaints; `lines` keeps all of them for actor_program_diagnostics. */
+const checkFailure = (title: string, lines: readonly string[], fallback: string): Error => {
+    const all = [...new Set(lines.map((line) => line.trim()).filter((line) => line !== ""))];
+    if (all.length === 0)
+        return new Error(fallback);
+    const shown = all.slice(0, maxShownComplaints).map((line) => line.length > maxComplaintLength ? `${line.slice(0, maxComplaintLength - 3)}...` : line);
+    const omitted = all.length - shown.length;
+    return Object.assign(new Error([
+        `${title}: ${all.length} Fehler.`,
+        ...shown,
+        ...(omitted > 0 ? [`... und ${omitted} weitere; alle mit actor_program_diagnostics.`] : []),
+    ].join("\n")), { lines: all });
+};
 const actorDescriptionOf = (text: string | undefined): string | undefined => {
     const line = (text ?? "").replace(/\s+/g, " ").trim();
     return line.length <= actorDescriptionMaxLength ? line || undefined : `${line.slice(0, actorDescriptionMaxLength - 3).trimEnd()}...`;
@@ -345,14 +358,16 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const hasServerFiles = pkg.backend || (await projectSourceFiles(directory)).some((file) => /^tests\/.*\.tsx?$/.test(file.path));
         const serverErrors = hasServerFiles ? typecheckServerProject(directory, pkg.backend) : [];
         if (serverErrors.length)
-            throw new Error(complaints(serverErrors, `Die Typprüfung von ${name} schlug ohne Meldung fehl.`));
+            throw checkFailure(`Typprüfung von ${name}`, serverErrors, `Die Typprüfung von ${name} schlug ohne Meldung fehl.`);
         const clients: CompiledProgram["clients"] = [];
         const views: ActorProgramDefinition["views"] = [];
         for (const view of pkg.views ?? []) {
             const client = await compileClientProject({ directory, entryPoint: view.client, stateSchema: contract.state, actions: functions.map((fn) => ({ id: fn.id, inputSchema: fn.inputSchema, resultSchema: fn.resultSchema })) });
             if (!client.valid)
-                throw new Error(complaints(client.diagnostics.map((item) => `${item.fileName} ${item.message}`),
-                    `Der Client-Build von ${view.client} schlug ohne Meldung fehl.`));
+                throw checkFailure(`Client-Build von ${view.client}`,
+                    client.diagnostics.filter((item) => item.category === "error").map((item) =>
+                        `${item.fileName ?? view.client}${item.start ? `:${item.start.line}:${item.start.column}` : ""} ${item.message.replace(/\s*\n\s*/g, " ")}`),
+                    `Der Client-Build von ${view.client} schlug ohne Meldung fehl.`);
             const styles = view.styles ? await inside(directory, view.styles) : "";
             if (/@import\b|url\s*\(\s*["']?\s*(?:https?:|\/\/)/i.test(styles))
                 throw new Error("Ansichts-CSS darf keine externen Ressourcen laden.");

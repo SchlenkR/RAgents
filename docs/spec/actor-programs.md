@@ -186,7 +186,11 @@ liefert den letzten vollständigen Stand, optional für einen Programmnamen. Die
 Language-Server-Werkzeuge können dieselben Projekte direkt prüfen.
 
 Die Typprüfung umfasst immer den Backend-Einsprungpunkt aus `package.json.ragents.backend`, auch
-bei einer engeren Dateiauswahl in der erhaltenen Autoren-tsconfig.
+bei einer engeren Dateiauswahl in der erhaltenen Autoren-tsconfig. Scheitern Typprüfung oder
+Client-Build bei der Aktivierung, nennt die Meldung die Zahl der Fehler und die ersten zehn als je
+eine Zeile `Datei:Zeile:Spalte Meldung`, höchstens 240 Zeichen, dazu "und N weitere";
+`actor_program_diagnostics` kennt die vollständige Liste (`checkFailure` in
+`plugins/ragents.actor-programs/server/runtime.ts`).
 Es gibt keinen getrennten Check-, Test- oder Installationsvertrag für Actor-Programme und
 keine vom Modell weitergereichte Build-Referenz. Bearbeitete Quellen ändern eine laufende
 Installation erst nach erneuter erfolgreicher Aktivierung.

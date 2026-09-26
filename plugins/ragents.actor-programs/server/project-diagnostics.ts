@@ -27,6 +27,8 @@ export interface ProjectDiagnosticsOptions {
 const messageOf = (error: unknown): string => error instanceof Error ? error.message : String(error);
 const fingerprintOf = (value: unknown): string => createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const errorLines = (error: unknown): string[] => {
+  const complete = error instanceof Error ? (error as { lines?: unknown }).lines : undefined;
+  if (Array.isArray(complete) && complete.every((line) => typeof line === "string")) return [...new Set(complete as string[])];
   const lines = messageOf(error).split("\n").map((line) => line.trim()).filter(Boolean);
   const issues = lines.filter((line) => !/^(Build failed with \d+ errors?:|.*(?:Typprüfung|Typecheck|Diagnostik).*:)$/i.test(line));
   return [...new Set(issues.length ? issues : lines)];

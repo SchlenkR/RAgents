@@ -1,5 +1,13 @@
 # Entscheidungen
 
+## Fehlermeldungen der Actor-Programm-Aktivierung begrenzt (26.09.2026)
+
+Kapitel: `docs/spec/actor-programs.md` (Diagnose, Typprüfung und Fachtests). Ein Testlauf mit 25
+absichtlichen Typfehlern lieferte 2,5 KB, eine Zeile je Fehler; die Menge war aber unbegrenzt, und
+Meldungen des Client-Builds kamen ohne Zeile und Spalte. Die Aktivierung meldet jetzt wie der
+Testbericht die Zahl und die ersten zehn Fehler mit Stelle, den Rest nennt
+`actor_program_diagnostics` (Plugin-Leitfaden, Abschnitt 9).
+
 ## Dateistand beim Host statt Hash im Aufruf, wie Claude Code (26.09.2026)
 
 Kapitel: `docs/spec/plugins.md` (Arbeitsbereich, Sandbox-Werkzeuge und Prozesse, "Gesehener
