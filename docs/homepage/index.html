@@ -660,7 +660,6 @@
   <script src="site.js" defer></script>
   <script src="homepage-scenes.js" defer></script>
   <script src="homepage-stickers.js" defer></script>
-  <script src="homepage-bullets.js" defer></script>
   <script src="homepage-story-nav.js" defer></script>
   <script src="homepage-subnav.js" defer></script>
   <script src="homepage-plugins.js" defer></script>
@@ -715,7 +714,7 @@
             <div class="feature-copy"><h3 id="ui-title">Agents with their own UI</h3><ul class="feature-benefits"><li>The AI builds a UI while it works</li><li>Extensions ship UIs ready to use</li><li>You and the agent use the same UI and state</li><li>Your click goes straight to the agent</li><li>A new UI goes live after its tests pass</li></ul><p class="concept-intro">People are used to working with interfaces. A UI shows what the agent is doing, and you step in with a click.</p><details class="technical"><summary>How it works</summary><p>A mini-app is a React view on the state of an agent or a TypeScript program. Its buttons call the program's typed functions directly. The AI type-checks and tests a new view before it goes live; if a rebuild fails, the old version stays active. In VS Code, a mini-app opens in its own editor tab.</p></details><a class="text-link" href="guide-programs.html">Learn more about mini-apps<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div>
           </article>
           <article class="story-step" id="typescript" aria-labelledby="typescript-title">
-            <div class="feature-copy"><h3 id="typescript-title">Tools are TypeScript functions</h3><ul class="feature-benefits"><li>Register a typed function once, from your own plugin</li><li>Agents get it as a tool</li><li>AI-written code calls it, type-checked first</li><li>A button calls it directly, without a model</li><li>Programs call it when events arrive</li></ul><p class="concept-intro">Ten single tool calls mean ten model rounds. One TypeScript snippet keeps results, checks conditions and runs steps in parallel.</p><details class="technical"><summary>How it works</summary><p>A snippet runs once and returns its result to the model. A program keeps its state and reacts to later messages. A setup starts agents, programs and UIs. All of them call the same typed functions, with the same permission checks.</p></details><a class="text-link" href="guide-functions.html">Learn more about functions<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div>
+            <div class="feature-copy"><h3 id="typescript-title">Tools are TypeScript functions</h3><ul class="feature-benefits"><li>Register a typed function once, from your own plugin</li><li>Agents get it as a tool</li><li>AI-written code calls it, type-checked first</li><li>A button calls it without a model</li><li>Programs call it when events arrive</li></ul><p class="concept-intro">Ten single tool calls mean ten model rounds. One TypeScript snippet keeps results, checks conditions and runs steps in parallel.</p><details class="technical"><summary>How it works</summary><p>A snippet runs once and returns its result to the model. A program keeps its state and reacts to later messages. A setup starts agents, programs and UIs. All of them call the same typed functions, with the same permission checks.</p></details><a class="text-link" href="guide-functions.html">Learn more about functions<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div>
           </article>
           <article class="story-step" id="events" aria-labelledby="events-title">
             <div class="feature-copy"><h3 id="events-title">Event-driven journal</h3><ul class="feature-benefits"><li>An agent starts when another one finishes</li><li>Replies arrive later as new input, nobody waits</li><li>A watcher without a model wakes an agent that hangs</li><li>Agents read the run's journal</li><li>Fork an agent with its memory</li></ul><p class="concept-intro">Every step of a run is an event in the journal. Agents and programs subscribe to the events they care about.</p><details class="technical"><summary>How it works</summary><p>A subscription turns matching events, such as another agent's finished turn, into new input. A watcher is a TypeScript condition without a model, for example no progress for 120 seconds. Agents query the journal themselves and read other agents' transcripts for handoffs.</p></details><a class="text-link" href="guide-runtime.html">Learn more about events<svg class="link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg></a></div>
@@ -775,39 +774,45 @@
   <figcaption id="ui-caption">You and the agent work in the same UI, on the same state.</figcaption>
 </figure>
 <figure class="story-scene v2 scene-ts" data-story-scene="typescript" aria-labelledby="ts-caption"><div class="scene-heading"><span>One function, many callers</span></div>
-  <div class="art-wrap"><div class="art" data-art="typescript" role="img" aria-label="Code: a plugin registers the typed function build once with defineRunFunction. Below, four callers use it in turn: an agent calls it as a tool, AI-written TypeScript calls it and the type check catches a misspelled property first, a button in a mini-app calls it without a model, and a program calls it when an event arrives."><div class="art-canvas">
+  <div class="art-wrap"><div class="art" data-art="typescript" role="img" aria-label="Code: a plugin registers the typed function build once with defineRunFunction and nativeTool. Below, four callers use it in turn: an agent calls it as a native tool, AI-written TypeScript calls it and the type check catches a misspelled property first, a button in a mini-app calls it through its program without a model, and the same program calls it when input arrives."><div class="art-canvas">
     <div class="tsx">
       <div class="tsx-editor">
         <div class="tsx-bar"><i></i><i></i><i></i><span>your plugin</span></div>
-<pre class="tsx-code"><span class="f">host.functions</span>(<span class="f">defineRunFunction</span>({
+<pre class="tsx-code"><span class="k">const</span> build = <span class="f">defineRunFunction</span>({
   <span class="p">name</span>: <span class="s">"build"</span>,
   <span class="p">label</span>: <span class="s">"Build a branch"</span>,
   <span class="p">description</span>: <span class="s">"Builds a branch and runs the tests."</span>,
   <span class="p">schema</span>: Type.<span class="f">Object</span>({ <span class="p">branch</span>: Type.<span class="f">String</span>() }),
   <span class="p">resultSchema</span>: Type.<span class="f">Object</span>({ <span class="p">ok</span>: Type.<span class="f">Boolean</span>() }),
-  <span class="p">available</span>,
-  <span class="p">run</span>: (_scope, _callId, { branch }) =&gt; ci.<span class="f">build</span>(branch),
-}));</pre>
+  <span class="p">available</span>: alwaysAvailable,
+  <span class="p">nativeTool</span>: <span class="k">true</span>,
+  <span class="p">run</span>: (_scope, _callId, { branch }) =&gt; <span class="f">buildAndTest</span>(branch),
+});
+host.<span class="f">functions</span>(build);</pre>
       </div>
       <div class="tsx-callers">
         <div class="tsx-tabs"><span data-tsx-tab>Agent tool</span><span data-tsx-tab>AI-written code</span><span data-tsx-tab>Button</span><span data-tsx-tab>Program</span></div>
         <div class="tsx-panes">
-<pre class="tsx-pane" data-tsx-pane><span class="c">@builder calls the tool</span>
+<pre class="tsx-pane" data-tsx-pane><span class="c">@builder calls the native tool</span>
 <span class="f">build</span>({ <span class="p">branch</span>: <span class="s">"main"</span> })
 <span class="ok">-&gt; { ok: true }</span></pre>
 <pre class="tsx-pane" data-tsx-pane><span class="c">@builder writes a snippet, checked before it runs</span>
 <span class="k">const</span> results = <span class="k">await</span> Promise.<span class="f">all</span>([<span class="s">"main"</span>, <span class="s">"release"</span>]
   .<span class="f">map</span>(branch =&gt; context.functions.<span class="f">build</span>({ <span data-tsx-typo><span class="err">brnach</span>: branch</span><span data-tsx-fix><span class="p">branch</span></span> })));
-<span class="tsx-msg" data-tsx-error>TS2561 'brnach' does not exist. Did you mean 'branch'?</span><span class="tsx-msg good" data-tsx-fixed>type check passed, runs both builds in parallel</span></pre>
+<span class="k">return</span> results.<span class="f">filter</span>(result =&gt; !result.ok);
+<span class="tsx-msg" data-tsx-error>error TS2561: 'brnach' does not exist. Did you mean 'branch'?</span><span class="tsx-msg good" data-tsx-fixed>type check passed, both builds run in parallel</span></pre>
 <pre class="tsx-pane" data-tsx-pane><span class="c">a button in a mini-app, no model involved</span>
-&lt;<span class="f">Button</span> <span class="p">onClick</span>={() =&gt;
+&lt;<span class="f">UI.Button</span> <span class="p">onClick</span>={() =&gt;
   context.capabilities.<span class="f">call</span>(<span class="s">"build"</span>, { <span class="p">branch</span>: <span class="s">"main"</span> })}&gt;
   Build main
-&lt;/<span class="f">Button</span>&gt;  <span class="tsx-button" data-tsx-press>Build main</span></pre>
-<pre class="tsx-pane" data-tsx-pane><span class="c">a program reacts when an event arrives</span>
-<span class="p">onInput</span>: <span class="k">async</span> (input, context) =&gt; {
-  <span class="k">await</span> context.functions.<span class="f">build</span>({ <span class="p">branch</span>: <span class="s">"main"</span> });
-}</pre>
+&lt;/<span class="f">UI.Button</span>&gt;  <span class="tsx-button" data-tsx-press>Build main</span></pre>
+<pre class="tsx-pane" data-tsx-pane><span class="c">the mini-app's program: button and events</span>
+<span class="f">defineActor</span>(contract, {
+  <span class="p">functions</span>: {
+    <span class="f">build</span>: (input, context) =&gt; context.functions.<span class="f">build</span>(input),
+  },
+  <span class="p">onInput</span>: (input, context) =&gt; context.functions.<span class="f">build</span>({ <span class="p">branch</span>: <span class="s">"main"</span> }),
+});</pre>
         </div>
       </div>
     </div>
@@ -841,36 +846,29 @@
   </div></div></div>
   <figcaption id="events-caption">Subscriptions and watchers turn journal events into new work.</figcaption>
 </figure>
-<figure class="story-scene v2 scene-events" data-story-scene="workflows" aria-labelledby="workflows-caption"><div class="scene-heading"><span>One workflow, both kinds of steps</span></div>
-  
-  <div class="art-wrap"><div class="art" data-art="workflows" role="img" aria-label="A release workflow as a timeline of six steps. TypeScript collects the merged changes, the agent @writer drafts the release notes, TypeScript builds and tests in 12 seconds without tokens, you approve in the mini-app, TypeScript tags and publishes, and @writer announces the release."><div class="art-canvas">
+<figure class="story-scene v2 scene-events" data-story-scene="workflows" aria-labelledby="workflows-caption"><div class="scene-heading"><span>A review loop</span></div>
+  <div class="art-wrap"><div class="art" data-art="workflows" role="img" aria-label="A code review workflow with a loop. A pull request is opened, TypeScript runs the tests, the agent @reviewer reviews the change. If it requests changes, the agent @author fixes them and the loop goes back to the tests. TypeScript counts the rounds and stops after three. Once @reviewer approves, TypeScript merges."><div class="art-canvas">
     <svg class="art-lines" viewBox="0 0 540 520" aria-hidden="true">
-      <path class="e-spine base" d="M270 30 V 500"/>
-      <path class="e-spine draw" data-e="spine" pathLength="1" d="M270 30 V 500"/>
-      <path class="e-stub" data-e-stub d="M250 70 H 232"/>
-      <path class="e-stub" data-e-stub d="M290 150 H 308"/>
-      <path class="e-stub" data-e-stub d="M250 228 H 232"/>
-      <path class="e-stub" data-e-stub d="M290 304 H 308"/>
-      <path class="e-stub" data-e-stub d="M250 384 H 232"/>
-      <path class="e-stub" data-e-stub d="M290 466 H 308"/>
-      <path class="edge" data-path="e-down" d="M270 70 V 466"/>
+      <path class="wf-edge" data-wf="open" d="M270 92V150"/>
+      <path class="wf-edge" data-wf="test" d="M270 194V262"/>
+      <path class="wf-edge wf-loop" data-wf="fix" d="M190 284C120 284 96 262 96 236"/>
+      <path class="wf-edge wf-loop" data-wf="retest" d="M96 196C96 176 124 172 190 172"/>
+      <path class="wf-edge" data-wf="merge" d="M270 306V392"/>
     </svg>
-    <div class="sk e-head">Release workflow</div>
-    <span class="e-dot" style="top: calc(70 * 100% / 520)" data-e-dot>TS</span>
-    <span class="e-dot" style="top: calc(150 * 100% / 520)" data-e-dot>AI</span>
-    <span class="e-dot" style="top: calc(228 * 100% / 520)" data-e-dot>TS</span>
-    <span class="e-dot" style="top: calc(304 * 100% / 520)" data-e-dot>you</span>
-    <span class="e-dot" style="top: calc(384 * 100% / 520)" data-e-dot>TS</span>
-    <span class="e-dot" style="top: calc(466 * 100% / 520)" data-e-dot>AI</span>
-    <div class="sk script e-card e-l e-1" data-e-card><div class="node"><span class="glyph square">TS</span><span><strong>Collect merged changes</strong><small>TypeScript, the same every time</small></span></div></div>
-    <div class="sk agent e-card e-r e-2" data-e-card><div class="node"><span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c.8 4.6 3.4 7.2 8 8-4.6.8-7.2 3.4-8 8-.8-4.6-3.4-7.2-8-8 4.6-.8 7.2-3.4 8-8Z"/></svg></span><span><strong><span class="mono">@writer</span> drafts the notes</strong><small>a model chooses the words</small></span></div></div>
-    <div class="sk script e-card e-l e-3" data-e-card><div class="node"><span class="glyph square">TS</span><span><strong>Build and test</strong><span class="tag ok"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span class="e-timer" data-e="timer">12</span> s, no tokens</span></span></div></div>
-    <div class="sk person e-card e-r e-4" data-e-card><div class="node"><span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.5 4-6.5 8-6.5s7 2 8 6.5"/></svg></span><span><strong>You approve</strong><small>one click in the mini-app</small></span></div></div>
-    <div class="sk script e-card e-l e-5" data-e-card><div class="node"><span class="glyph square">TS</span><span><strong>Tag and publish</strong><small>exactly the steps you wrote</small></span></div></div>
-    <div class="sk agent e-card e-r e-6" data-e-card><div class="node"><span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c.8 4.6 3.4 7.2 8 8-4.6.8-7.2 3.4-8 8-.8-4.6-3.4-7.2-8-8 4.6-.8 7.2-3.4 8-8Z"/></svg></span><span><strong><span class="mono">@writer</span> announces it</strong><small>AI where judgment helps</small></span></div></div>
+    <div class="sk note wf-card" style="--x: 270; --y: 70" data-wf-card><div class="node"><span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M6 8.5v7M18 15.5V11a4 4 0 0 0-4-4h-3m2-2-2 2 2 2"/></svg></span><span><strong>Pull request opened</strong></span></div></div>
+    <div class="sk script wf-card" style="--x: 270; --y: 172" data-wf-card><div class="node"><span class="glyph square">TS</span><span><strong>Run the tests</strong><small>TypeScript, no tokens</small></span></div></div>
+    <div class="sk agent wf-card" style="--x: 270; --y: 284" data-wf-card><div class="node"><span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c.8 4.6 3.4 7.2 8 8-4.6.8-7.2 3.4-8 8-.8-4.6-3.4-7.2-8-8 4.6-.8 7.2-3.4 8-8Z"/></svg></span><span><strong><span class="mono">@reviewer</span> reviews</strong><small>a model judges the diff</small></span></div></div>
+    <div class="sk agent wf-card" style="--x: 96; --y: 216" data-wf-card><div class="node"><span class="glyph"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c.8 4.6 3.4 7.2 8 8-4.6.8-7.2 3.4-8 8-.8-4.6-3.4-7.2-8-8 4.6-.8 7.2-3.4 8-8Z"/></svg></span><span><strong><span class="mono">@author</span> fixes</strong><small>gets the notes as input</small></span></div></div>
+    <div class="sk script wf-card" style="--x: 270; --y: 414" data-wf-card><div class="node"><span class="glyph square">TS</span><span><strong>Merge</strong><small>only after approval</small></span></div></div>
+    <span class="wf-label" style="--x: 150; --y: 318">changes requested</span>
+    <span class="wf-label" style="--x: 322; --y: 350">approved</span>
+    <span class="wf-round" style="--x: 430; --y: 172" data-wf-round>round 1 of max 3</span>
+    <span class="tag warn wf-verdict" style="--x: 430; --y: 284" data-wf-notes>2 notes</span>
+    <span class="tag ok wf-verdict" style="--x: 430; --y: 284" data-wf-ok>approved</span>
+    <span class="tag ok wf-verdict" style="--x: 430; --y: 414" data-wf-merged>merged</span>
     <span class="packet dot p-coord" data-packet></span>
   </div></div></div>
-  <figcaption id="workflows-caption">Code keeps the order, agents step in where a model helps.</figcaption>
+  <figcaption id="workflows-caption">Code runs the loop and stops after three rounds. Models review and fix.</figcaption>
 </figure>
 <figure class="story-scene v2 scene-dist" data-story-scene="distributed" aria-labelledby="dist-caption"><div class="scene-heading"><span>One server, many clients</span></div>
   

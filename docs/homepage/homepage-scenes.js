@@ -161,11 +161,11 @@
       const current = time => panes.reduce((found, _pane, index) => time >= at(index) - .4 ? index : found, 0);
       tl.set(panes.slice(1), { autoAlpha: 0 }, 0);
       panes.slice(1).forEach((pane, offset) => {
-        tl.to(panes[offset], { autoAlpha: 0, duration: .3, ease: 'none' }, at(offset + 1) - .4);
+        tl.to(panes[offset], { autoAlpha: 0, duration: .15, ease: 'none' }, at(offset + 1) - .35);
         tl.fromTo(pane, { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: .4 }, at(offset + 1) - .2);
       });
       tl.to(press, { scale: .9, duration: .2, yoyo: true, repeat: 1, ease: 'power1.inOut' }, at(2) + 1);
-      clock(tl, at(4), time => {
+      clock(tl, at(3) + 1.2, time => {
         const index = current(time);
         tabs.forEach((tab, position) => tab.classList.toggle('on', position === index));
         panes[1].classList.toggle('fixed', time >= at(1) + 1.1);
@@ -194,30 +194,23 @@
     },
 
     workflows: (art, tl) => {
-      const cards = [...art.querySelectorAll('[data-e-card]')];
-      const dots = [...art.querySelectorAll('[data-e-dot]')];
-      const stubs = [...art.querySelectorAll('[data-e-stub]')];
-      const spine = art.querySelector('[data-e="spine"]');
+      const cards = [...art.querySelectorAll('[data-wf-card]')];
+      const edge = name => art.querySelector(`[data-wf="${name}"]`);
       const packet = art.querySelector('[data-packet]');
-      const down = art.querySelector('[data-path="e-down"]');
-      const timer = art.querySelector('[data-e="timer"]');
-      const ys = [70, 150, 228, 304, 384, 466];
-      const share = y => (y - 70) / (466 - 70);
-      const times = [.3, 1.8, 2.6, 3.6, 5.6, 6.9];
-      tl.set([...cards, ...dots, ...stubs], { autoAlpha: 0 }, 0);
-      tl.set(spine, { strokeDashoffset: 1 }, 0);
-      times.forEach((at, index) => {
-        tl.to(spine, { strokeDashoffset: 1 - (ys[index] - 30) / 470, duration: index === 0 ? .3 : at - times[index - 1], ease: 'none' }, index === 0 ? 0 : times[index - 1]);
-        pop(tl, dots[index], at, { duration: .3 });
-        tl.to(stubs[index], { autoAlpha: 1, duration: .2 }, at + .1);
-        pop(tl, cards[index], at + .15);
-      });
-      travel(tl, packet, down, 1, { from: share(70), to: share(150), duration: .8 });
-      travel(tl, packet, down, 4.9, { from: share(304), to: share(384), duration: .7 });
-      travel(tl, packet, down, 6.2, { from: share(384), to: share(466), duration: .7 });
-      tl.to(spine, { strokeDashoffset: 0, duration: .5, ease: 'none' }, 7.3);
-      clock(tl, 8, time => {
-        timer.textContent = String(Math.round(Math.max(0, Math.min(1, (time - 2.75) / 1.2)) * 12));
+      const round = art.querySelector('[data-wf-round]');
+      const [notes, approved, merged] = ['notes', 'ok', 'merged'].map(name => art.querySelector(`[data-wf-${name}]`));
+      const [opened, tests, review, fix, merge] = cards;
+      const hops = [['open', .3], ['test', 1.5], ['fix', 3.1], ['retest', 4.3], ['test', 5.5], ['merge', 7.1]];
+      const visits = [[opened, 0, .4], [tests, 1.1, 1.6], [review, 2.3, 3.1], [fix, 3.9, 4.3], [tests, 5.1, 5.5], [review, 6.3, 7.1], [merge, 7.9, 8.6]];
+      tl.set([notes, approved, merged], { autoAlpha: 0 }, 0);
+      hops.forEach(([name, at]) => travel(tl, packet, edge(name), at, { duration: .8 }));
+      pop(tl, notes, 2.8);
+      tl.to(notes, { autoAlpha: 0, duration: .2 }, 5.5);
+      pop(tl, approved, 6.8);
+      pop(tl, merged, 8.2);
+      clock(tl, 8.8, time => {
+        cards.forEach(card => card.classList.toggle('halo', visits.some(([target, from, to]) => target === card && time >= from && time < to)));
+        round.textContent = `round ${time >= 4.9 ? 2 : 1} of max 3`;
       });
     },
 
@@ -271,7 +264,6 @@
   };
 
   const absoluteTop = element => element.getBoundingClientRect().top + scrollY;
-  const pinned = () => story.hasAttribute('data-pinned');
   const timelines = Object.entries(scenes).map(([name, build]) => {
     const art = story.querySelector(`[data-art="${name}"]`);
     const tl = gsap.timeline({ paused: true, defaults: { ease: 'power2.out', lazy: false } });
@@ -280,28 +272,18 @@
   });
 
   const media = gsap.matchMedia();
-  media.add('(prefers-reduced-motion: no-preference) and (min-width: 960px)', () => {
-    timelines.forEach(({ name, art, tl }) => {
-      const step = document.getElementById(name);
-      const scene = art.closest('.story-scene');
-      ScrollTrigger.create({
-        animation: tl, scrub: true, invalidateOnRefresh: true,
-        start: () => pinned() ? absoluteTop(step) - innerHeight * .5 : absoluteTop(scene) - innerHeight * .85,
-        end: () => pinned() ? absoluteTop(step) + step.offsetHeight - innerHeight * .8 : absoluteTop(scene) + scene.offsetHeight * .7 - innerHeight * .5
-      });
-    });
-  });
-  media.add('(prefers-reduced-motion: no-preference) and (max-width: 959.98px)', () => {
+  media.add('(prefers-reduced-motion: no-preference)', () => {
     const bars = [document.querySelector('.masthead'), document.querySelector('.subnav')].filter(Boolean);
-    const runs = { setups: 2.4, agents: 2, ui: 3, typescript: 2.4, events: 2.6, workflows: 2.2, distributed: 2.8 };
+    const runs = { setups: 2.4, agents: 2, ui: 3, typescript: 2, events: 2.6, workflows: 2.2, distributed: 2.8 };
     const items = timelines.map(({ name, art, tl }, index) => {
       const scene = art.closest('.story-scene');
+      const step = document.getElementById(name);
       const track = document.createElement('div');
       track.className = 'story-scene-track';
-      track.style.gridRow = String(index * 2 + 2);
+      track.style.setProperty('--story-index', index);
       scene.before(track);
       track.append(scene);
-      return { name, tl, scene, track };
+      return { name, tl, scene, step, track };
     });
     const probe = document.createElement('div');
     probe.style.cssText = 'position: fixed; top: 0; height: 100svh; visibility: hidden; pointer-events: none;';
@@ -312,11 +294,13 @@
       const room = view - inset;
       const height = scene.offsetHeight;
       const run = height + 16 <= room ? Math.round(runs[name] * view) : 0;
-      return { top: Math.round(inset + Math.max(8, (room - height) / 2)), height, run };
+      return { inset, room, top: Math.round(inset + Math.max(8, (room - height) / 2)), height, run };
     };
     const arrange = () => document.documentElement.hasAttribute('data-menu-open') || items.forEach(item => {
-      const { top, height, run } = plan(item);
+      const { inset, room, top, height, run } = plan(item);
+      const copy = item.step.querySelector('.feature-copy');
       item.scene.style.setProperty('--scene-top', `${top}px`);
+      item.step.style.setProperty('--copy-top', `${Math.round(inset + Math.max(8, (room - copy.offsetHeight) / 2))}px`);
       item.track.style.height = run > 0 ? `${Math.ceil(height + run)}px` : '';
     });
     const start = item => {
@@ -338,8 +322,9 @@
       probe.remove();
       resized.disconnect();
       ScrollTrigger.removeEventListener('refreshInit', arrange);
-      items.forEach(({ scene, track }) => {
+      items.forEach(({ scene, step, track }) => {
         scene.style.removeProperty('--scene-top');
+        step.style.removeProperty('--copy-top');
         track.replaceWith(scene);
       });
     };
