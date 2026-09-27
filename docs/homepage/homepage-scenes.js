@@ -271,36 +271,65 @@
     return { name, art, tl };
   });
 
+  const ticker = list => {
+    const lines = [...list.children].map(item => item.textContent);
+    const element = document.createElement('div');
+    element.className = 'story-ticker';
+    element.setAttribute('aria-hidden', 'true');
+    element.innerHTML = `<p></p><span>${lines.map(() => '<i></i>').join('')}</span>`;
+    const text = element.querySelector('p');
+    const dots = [...element.querySelectorAll('i')];
+    let shown = -1;
+    const show = progress => {
+      const index = Math.min(lines.length - 1, Math.floor(progress * lines.length));
+      if (index === shown) return;
+      shown = index;
+      text.textContent = lines[index];
+      dots.forEach((dot, position) => dot.classList.toggle('on', position === index));
+    };
+    show(0);
+    return { element, show };
+  };
+
   const media = gsap.matchMedia();
-  media.add('(prefers-reduced-motion: no-preference)', () => {
+  media.add({ motion: '(prefers-reduced-motion: no-preference)', wide: '(min-width: 960px)' }, context => {
+    if (!context.conditions.motion) return;
+    const { wide } = context.conditions;
     const bars = [document.querySelector('.masthead'), document.querySelector('.subnav')].filter(Boolean);
     const runs = { setups: 2.4, agents: 2, ui: 3, typescript: 2, events: 2.6, workflows: 2.2, distributed: 2.8 };
     const items = timelines.map(({ name, art, tl }, index) => {
       const scene = art.closest('.story-scene');
       const step = document.getElementById(name);
+      const mark = document.createComment('');
       const track = document.createElement('div');
+      const stick = document.createElement('div');
+      const bullets = ticker(step.querySelector('.feature-benefits'));
       track.className = 'story-scene-track';
+      stick.className = 'story-stick';
       track.style.setProperty('--story-index', index);
-      scene.before(track);
-      track.append(scene);
-      return { name, tl, scene, step, track };
+      scene.before(mark);
+      if (wide) mark.before(track);
+      else step.querySelector('h3').after(track);
+      stick.append(scene, bullets.element);
+      track.append(stick);
+      return { name, tl, scene, step, mark, track, stick, bullets };
     });
     const probe = document.createElement('div');
     probe.style.cssText = 'position: fixed; top: 0; height: 100svh; visibility: hidden; pointer-events: none;';
     document.body.append(probe);
-    const plan = ({ name, scene }) => {
+    const plan = ({ name, stick }) => {
       const inset = bars.reduce((sum, bar) => sum + bar.offsetHeight, 0);
       const view = probe.offsetHeight;
       const room = view - inset;
-      const height = scene.offsetHeight;
+      const height = stick.offsetHeight;
       const run = height + 16 <= room ? Math.round(runs[name] * view) : 0;
       return { inset, room, top: Math.round(inset + Math.max(8, (room - height) / 2)), height, run };
     };
     const arrange = () => document.documentElement.hasAttribute('data-menu-open') || items.forEach(item => {
       const { inset, room, top, height, run } = plan(item);
       const copy = item.step.querySelector('.feature-copy');
-      item.scene.style.setProperty('--scene-top', `${top}px`);
-      item.step.style.setProperty('--copy-top', `${Math.round(inset + Math.max(8, (room - copy.offsetHeight) / 2))}px`);
+      item.stick.style.setProperty('--scene-top', `${top}px`);
+      if (wide) item.step.style.setProperty('--copy-top', `${Math.round(inset + Math.max(8, (room - copy.offsetHeight) / 2))}px`);
       item.track.style.height = run > 0 ? `${Math.ceil(height + run)}px` : '';
     });
     const start = item => {
@@ -309,23 +338,27 @@
     };
     const end = item => {
       const { run } = plan(item);
-      return run > 0 ? start(item) + run : absoluteTop(item.track) + item.scene.offsetHeight * .7 - innerHeight * .5;
+      return run > 0 ? start(item) + run : absoluteTop(item.track) + item.stick.offsetHeight * .7 - innerHeight * .5;
     };
     const resized = new ResizeObserver(() => ScrollTrigger.refresh());
     arrange();
     ScrollTrigger.addEventListener('refreshInit', arrange);
     items.forEach(item => {
-      resized.observe(item.scene);
-      ScrollTrigger.create({ animation: item.tl, scrub: true, invalidateOnRefresh: true, start: () => start(item), end: () => end(item) });
+      resized.observe(item.stick);
+      ScrollTrigger.create({
+        animation: item.tl, scrub: true, invalidateOnRefresh: true, start: () => start(item), end: () => end(item),
+        onUpdate: self => item.bullets.show(self.progress)
+      });
     });
     return () => {
       probe.remove();
       resized.disconnect();
       ScrollTrigger.removeEventListener('refreshInit', arrange);
-      items.forEach(({ scene, step, track }) => {
-        scene.style.removeProperty('--scene-top');
+      items.forEach(({ scene, step, mark, track, bullets }) => {
         step.style.removeProperty('--copy-top');
-        track.replaceWith(scene);
+        mark.replaceWith(scene);
+        bullets.element.remove();
+        track.remove();
       });
     };
   });

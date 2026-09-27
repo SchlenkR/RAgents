@@ -7,7 +7,7 @@ html { scrollbar-gutter: stable; }
 ::-webkit-scrollbar-thumb:hover { background: #394b63; }
 .shell { width: min(1120px, calc(100% - 64px)); margin-inline: auto; }
 .masthead {
-  position: sticky; top: 0; z-index: 5;
+  position: sticky; top: 0; z-index: 20;
   display: flex; align-items: center; justify-content: space-between; gap: 28px;
   padding-block: 17px; border-bottom: 1px solid #e3ecf2;
   background: #fffffff2; color: #223347; backdrop-filter: blur(16px);

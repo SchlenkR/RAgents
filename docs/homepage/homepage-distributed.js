@@ -146,11 +146,12 @@
     return button;
   });
   stepper.append(...buttons);
-  modes.forEach((_mode, index) => {
+  const copies = modes.map((_mode, index) => {
     const copy = build(true);
     copy.show(index);
     copy.figure.style.setProperty('--i', index);
     stage.append(copy.figure);
+    return copy.figure;
   });
   let active = 0;
   const select = index => {
@@ -186,6 +187,75 @@
     return () => {
       ScrollTrigger.removeEventListener('refreshInit', pin);
       release();
+    };
+  });
+
+  const ticker = list => {
+    const lines = [...list.children].map(item => item.textContent);
+    const element = document.createElement('div');
+    element.className = 'story-ticker';
+    element.setAttribute('aria-hidden', 'true');
+    element.innerHTML = `<p></p><span>${lines.map(() => '<i></i>').join('')}</span>`;
+    const text = element.querySelector('p');
+    const dots = [...element.querySelectorAll('i')];
+    let shown = -1;
+    const show = progress => {
+      const index = Math.min(lines.length - 1, Math.floor(progress * lines.length));
+      if (index === shown) return;
+      shown = index;
+      text.textContent = lines[index];
+      dots.forEach((dot, position) => dot.classList.toggle('on', position === index));
+    };
+    show(0);
+    return { element, show };
+  };
+
+  gsap.matchMedia().add('screen and (max-width: 959.98px) and (prefers-reduced-motion: no-preference)', () => {
+    const bars = [header, document.querySelector('.subnav')].filter(Boolean);
+    const items = copies.map((figure, index) => {
+      const step = steps[index];
+      const track = document.createElement('div');
+      const stick = document.createElement('div');
+      const bullets = ticker(step.querySelector('.feature-benefits'));
+      track.className = 'story-scene-track dm-track';
+      stick.className = 'story-stick';
+      stick.append(figure, bullets.element);
+      track.append(stick);
+      step.querySelector('h3').after(track);
+      return { track, stick, bullets };
+    });
+    const probe = document.createElement('div');
+    probe.style.cssText = 'position: fixed; top: 0; height: 100svh; visibility: hidden; pointer-events: none;';
+    document.body.append(probe);
+    const plan = ({ stick }) => {
+      const inset = bars.reduce((sum, bar) => sum + bar.offsetHeight, 0);
+      const room = probe.offsetHeight - inset;
+      const height = stick.offsetHeight;
+      const run = height + 16 <= room ? Math.round(1.6 * room) : 0;
+      return { top: Math.round(inset + Math.max(8, (room - height) / 2)), height, run };
+    };
+    const arrange = () => document.documentElement.hasAttribute('data-menu-open') || items.forEach(item => {
+      const { top, height, run } = plan(item);
+      item.stick.style.setProperty('--scene-top', `${top}px`);
+      item.track.style.height = run > 0 ? `${Math.ceil(height + run)}px` : '';
+    });
+    arrange();
+    ScrollTrigger.addEventListener('refreshInit', arrange);
+    items.forEach(item => ScrollTrigger.create({
+      invalidateOnRefresh: true,
+      start: () => item.track.getBoundingClientRect().top + scrollY - plan(item).top,
+      end: () => item.track.getBoundingClientRect().top + scrollY - plan(item).top + Math.max(1, plan(item).run),
+      onUpdate: self => item.bullets.show(self.progress)
+    }));
+    ScrollTrigger.refresh();
+    return () => {
+      probe.remove();
+      ScrollTrigger.removeEventListener('refreshInit', arrange);
+      items.forEach(({ track, bullets }, index) => {
+        bullets.element.remove();
+        stage.append(copies[index]);
+        track.remove();
+      });
     };
   });
 })();
