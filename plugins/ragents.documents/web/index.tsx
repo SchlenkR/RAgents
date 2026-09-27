@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import type { ToolInfo } from "@ragents/web/chat/types";
+import type { ToolInfo } from "quassel/events";
 import {
   DocumentPanel,
   DocumentToolCall,

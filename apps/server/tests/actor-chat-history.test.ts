@@ -11,7 +11,7 @@ import { coreMethods } from "../src/api/core-methods.ts";
 import { coreSources, methodContext } from "./rpc-fixture.ts";
 import { actorChatHistoryOf } from "../src/ragents/actor-chat-history.ts";
 import { chatHistoryOf } from "../src/ragents/chat-projection.ts";
-import { applyEvent, type Message } from "../src/chat-events.ts";
+import { applyEvent, type Message } from "quassel/events";
 import type { Engine } from "../src/ragents/engine.ts";
 import { RunChatSession } from "../src/ragents/session.ts";
 import { unavailableActorPrograms } from "./actor-programs-fixture.ts";

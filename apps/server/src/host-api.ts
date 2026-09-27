@@ -1,5 +1,5 @@
 /** The number of the host API a plugin is built against; it changes with every incompatible change of a list, a listed name or a library. */
-export const HOST_API_VERSION = 5;
+export const HOST_API_VERSION = 6;
 
 /** A library the host shares whole, as its installed version exports it; host code instead names each value it offers. */
 export const LIBRARY = "library";
@@ -13,7 +13,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "DomainError", "RPC_ERROR_CODES", "RpcError", "ScriptDriver", "ToolRegistry", "actorByHandle",
       "actorByReference", "actorDescriptionMaxLength", "actorInputSchema", "agentTools", "assertJsonValue", "builtinProfiles", "canonicalHash",
       "compileVirtualTypeScriptAsync", "defineRunFunction", "defineToolAvailability", "emptyUsage",
-      "enqueueActorInput", "eventResultSchema", "eventResultSchemaOf", "handleKey", "holdsUsable", "implement", "implementChannel",
+      "enqueueActorInput", "eventResultSchemaOf", "handleKey", "holdsUsable", "implement", "implementChannel",
       "isRunId", "isThinkingLevel", "modelToolDescriptors", "pluginStateAt", "runCapabilityBindingHash",
       "runCapabilityContractHash", "schemaComplaints", "scriptInputOf", "serviceToken",
     ],
@@ -120,8 +120,6 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/engine/src/domain/json": [],
     "@ragents/engine/src/http/contracts": ["actorByHandle", "handleKey", "openJson", "runContracts"],
     "@ragents/engine/src/rpc/contract": ["defineChannel", "defineOperation"],
-    "@ragents/host/chat-attachments": ["parseChatAttachments"],
-    "@ragents/host/chat-events": [],
     "@ragents/host/plugin-support/actor-programs/contract": [
       "ACTOR_INVOCATIONS_STATE_ID", "ACTOR_PROGRAMS_STATE_ID", "ACTOR_STATE_ID", "actorProgramContracts",
     ],
@@ -139,14 +137,8 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     "@ragents/web/actor-programs/client-ui/contracts": [],
     "@ragents/web/api": ["interruptActorTurn", "sendActorMessage"],
     "@ragents/web/chat-view-settings": ["ChatViewSwitches", "useChatViewSettings"],
-    "@ragents/web/chat/ChatInputToolbar": ["ChatInputToolbar"],
-    "@ragents/web/chat/ChatMessages": ["ChatMessages"],
-    "@ragents/web/chat/ChatPanel": ["ChatPanel"],
-    "@ragents/web/chat/DetailModeSwitch": ["DetailModeSwitch"],
-    "@ragents/web/chat/Markdown": ["Markdown"],
     "@ragents/web/chat/StoppedActorNotice": ["StoppedActorNotice"],
     "@ragents/web/chat/chat-target": ["programChatNotice", "runIsWorking"],
-    "@ragents/web/chat/types": [],
     "@ragents/web/chat/useAttachmentCapabilities": ["getAttachmentCapabilities", "useAttachmentCapabilities"],
     "@ragents/web/chat/useChat": ["useChat"],
     "@ragents/web/language-server/language-server-plugin": ["languageServerWebPlugin"],
@@ -176,6 +168,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "TabsList", "TabsTrigger", "Textarea", "Toggle", "ToggleGroup", "ToggleGroupItem", "buttonVariants", "cn",
     ],
     "@ragents/web/ui/dialog": ["RunModalContext"],
+    "quassel": LIBRARY,
     "react": LIBRARY,
     "react-dom": LIBRARY,
     "react/jsx-runtime": LIBRARY,

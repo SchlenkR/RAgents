@@ -1,0 +1,41 @@
+/* The chat building blocks come from quassel; its variables read the host's tokens, so theme.css stays the one source. */
+@import "quassel/chat.css";
+
+:root {
+    --qsl-color-scheme: light;
+    --qsl-font: --theme(--font-sans);
+    --qsl-mono: --theme(--font-mono);
+    --qsl-radius: var(--radius);
+    --qsl-background: var(--background);
+    --qsl-foreground: var(--foreground);
+    --qsl-card: var(--card);
+    --qsl-primary: var(--primary);
+    --qsl-primary-foreground: var(--primary-foreground);
+    --qsl-secondary: var(--secondary);
+    --qsl-muted-foreground: var(--muted-foreground);
+    --qsl-destructive: var(--destructive);
+    --qsl-success: var(--success);
+    --qsl-border: var(--border);
+    --qsl-border-soft: var(--border-soft);
+    --qsl-border-strong: var(--border-strong);
+    --qsl-glass-edge: var(--glass-edge);
+    --qsl-bar-shadow: var(--bar-shadow);
+    --qsl-pop-shadow: var(--pop-shadow);
+    --qsl-card-shadow: var(--card-shadow);
+    --qsl-spacing: --theme(--spacing);
+    --qsl-text-xs: --theme(--text-xs);
+    --qsl-text-xs--line-height: --theme(--text-xs--line-height);
+    --qsl-text-sm: --theme(--text-sm);
+    --qsl-text-sm--line-height: --theme(--text-sm--line-height);
+    --qsl-text-base: --theme(--text-base);
+    --qsl-text-base--line-height: --theme(--text-base--line-height);
+    --qsl-text-lg: --theme(--text-lg);
+    --qsl-text-lg--line-height: --theme(--text-lg--line-height);
+    --qsl-text-xl: --theme(--text-xl);
+    --qsl-text-xl--line-height: --theme(--text-xl--line-height);
+    --qsl-radius-panel: --theme(--radius-panel);
+}
+
+:root[data-theme="dark"] {
+    --qsl-color-scheme: dark;
+}

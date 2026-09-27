@@ -10,7 +10,9 @@ Das React-Frontend mit Plugin-Slots.
   Register; die Bundles lesen React, Kontexte und Bausteine von dort. Das Stylesheet kommt als
   `/ragents.css` vom Server, übersetzt aus `src/ui/tailwind.css` für die Klassen des Hosts und
   der Bundles.
-- Die Chat-Bausteine liegen als Eigencode in `src/chat/`, die Design-Tokens daneben in `src/`.
+- Die Chat-Bausteine kommen aus der Bibliothek quassel; `src/chat/` hält nur die Anbindung an den
+  Run und `QuasselHost` mit den Grundbausteinen aus `src/ui/` als Slots. Die Design-Tokens stehen
+  in `src/ui/theme.css`, `src/ui/quassel.css` gibt sie an quassel weiter.
 - `run-panel.html` mit `src/run-panel.tsx` ist der zweite Einstieg: das Run-Panel für ein
   Browserfenster oder das Webview der VS-Code-Erweiterung (`src/run-panel/`, Host-Vertrag in
   `host-contract.ts`); Chat, Bühne und Sheet des Run-Panels liefert das Orchestrierungs-Plugin,

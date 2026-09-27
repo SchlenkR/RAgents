@@ -136,7 +136,7 @@ test("the floating chat sheet keeps its complete composer visible and remembers 
     await page.evaluate(() => {
       const root = document.getElementById("root")!;
       root.style.width = "346.5px";
-      root.style.setProperty("--chat-font-size", "13.3px");
+      root.style.setProperty("--qsl-chat-font-size", "13.3px");
     });
     await input.fill("Eine längere Eingabe, die bei schmaler Breite mehrere Zeilen benötigt.\nZweite Zeile\nDritte Zeile\nVierte Zeile");
     await collapse();

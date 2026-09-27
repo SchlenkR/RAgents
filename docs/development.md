@@ -99,7 +99,7 @@ aus Plugins.
 | `packages/workspace-executor` | der Arbeitsplatz-Executor aus Modulen: Sandbox-Werkzeuge, Sprachserver, Dateien, Prozesse, Befehle, Browser; im Server wie im Arbeitsplatz derselbe |
 | `packages/ai`         | die LLM-Anbindung (openrouter)                                                                       |
 | `apps/server`         | Node-Backend, Plugin-Suche, Profil-Komposition; `plugin-support/` sind Host-Bausteine, keine Plugins |
-| `apps/web`            | React-Frontend mit Plugin-Slots; Chat-Bausteine in `src/chat`, Run-Panel in `src/run-panel`         |
+| `apps/web`            | React-Frontend mit Plugin-Slots; Chat-Anbindung an quassel in `src/chat`, Run-Panel in `src/run-panel` |
 | `apps/vscode`         | VS-Code-Erweiterung: Seiten Start, Runs und Server, Run-Panel und Mini-Apps als Webviews, Arbeitsplatz für Runs |
 | `scripts`             | Einstiege `start.sh`, `start-vscode.sh`; Werkzeuge in Unterordnern, `remote/` für `pnpm connect`, `provision/` für `pnpm provision`, `workspace-client/` für `pnpm workspace-client`, `remote-workspace/` für `pnpm check:remote-workspace`, `run-transfer/` für `pnpm run-transfer` |
 | `selftest`            | Katalog und Protokoll der autonomen Testrunden                                                       |
@@ -430,6 +430,30 @@ Befehl `ragents` des Pakets),
 `scripts/workspace-client/` (`pnpm workspace-client`: ein Arbeitsplatz ohne VS Code),
 `scripts/remote-workspace/` (`pnpm check:remote-workspace`: der Arbeitsbereich auf einem anderen
 Rechner, mit Docker) und `scripts/maintenance/` (Modellkatalog, Konzept-Audit).
+
+### quassel und RAgents zusammen entwickeln
+
+Die Chat-Bausteine sind die Bibliothek quassel (github.com/SchlenkR/quassel, npm `quassel`); RAgents
+bezieht sie als gewöhnliche Abhängigkeit (`^0.2.0` in der Wurzel, `apps/web` und `apps/server`,
+`minimumReleaseAgeExclude` in `pnpm-workspace.yaml` für frisch veröffentlichte Fassungen). Wer
+beide zugleich ändert, verlinkt quassel vorübergehend auf seine Quellen:
+
+```yaml
+# pnpm-workspace.yaml, nur lokal
+overrides:
+  quassel: link:/path/to/quassel/packages/quassel
+```
+
+Danach `pnpm install`; im quassel-Repo hält `pnpm --filter quassel dev` das Stylesheet
+`build/chat.css` aktuell. Gearbeitet wird mit `scripts/start.sh <profil> --dev`: Vite und `tsx`
+übersetzen die TypeScript-Quellen von quassel mit, das Stylesheet übersetzt der Server je Abruf,
+eine Änderung zeigt sich nach dem Neuladen. `pnpm build:web` und die Typprüfung gehen so nicht:
+die Mini-App-Demo der Homepage nimmt nur Quellen des Repos an, und die Quellen von quassel sehen
+eine zweite Kopie der React-Typen. Vor jedem Commit fallen `overrides` und die damit geänderte
+`pnpm-lock.yaml` wieder heraus (`pnpm install` danach); geprüft und eingecheckt wird immer gegen
+eine veröffentlichte Fassung. Eine neue Fassung von quassel übernimmt RAgents mit
+`pnpm up -r quassel`; ändert sie Namen, die Plugins benutzen, gehören `pnpm update:host-api` und
+eine neue `HOST_API_VERSION` dazu (`docs/spec/plugins.md`, Abschnitt Host-API).
 
 ## Werkzeuge, Prüfläufe und Veröffentlichung
 

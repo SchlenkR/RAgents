@@ -23,7 +23,7 @@ import {
   type RunScriptPackage,
   type SessionStartedContext,
 } from "@ragents/engine";
-import type { ChatEvent } from "../src/chat-events.ts";
+import type { ChatEvent } from "quassel/events";
 import { testServices } from "../../../packages/ragents/tests/support.ts";
 import type { ModelChoice } from "../src/plugin-support/model-choice.ts";
 import { productStartOptions } from "../src/plugin-support/product-start-options.ts";

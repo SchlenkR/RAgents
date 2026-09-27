@@ -116,7 +116,9 @@ export const bundleWebRegister = async (specifiers: readonly string[], format: "
 const webRuntimeNames = async (specifiers: readonly string[], root: string): Promise<Readonly<Record<string, readonly string[]>>> => {
   const code = await bundleWebRegister(specifiers, "cjs", root);
   const module = { exports: {} as { hostModules?: Record<string, object> } };
-  vm.runInNewContext(code, { module, exports: module.exports, console, setTimeout, clearTimeout, queueMicrotask, TextEncoder, TextDecoder, URL });
+  // Browser builds such as the one micromark uses for entities create an element while loading.
+  const document = { createElement: () => ({}) };
+  vm.runInNewContext(code, { module, exports: module.exports, console, setTimeout, clearTimeout, queueMicrotask, TextEncoder, TextDecoder, URL, document });
   const modules = module.exports.hostModules;
   if (!modules) throw new Error("Das Register der Web-Hälfte liefert keine Module");
   return Object.fromEntries(Object.entries(modules).map(([specifier, namespace]) => [specifier, Object.keys(namespace)]));

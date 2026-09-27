@@ -5,6 +5,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Button } from "./ui";
 import { AccessGate, AccessScreen } from "./AccessContext";
+import { QuasselHost } from "./chat/QuasselHost";
 import { installAccessToken } from "./access-token";
 import { installRunPanelInputBridge } from "./run-panel/input-bridge";
 import { RunPanelApp, HostLogin } from "./run-panel/RunPanelApp";
@@ -33,11 +34,13 @@ try {
   import.meta.hot?.dispose(() => theme.dispose());
   reactRoot.render(
     <StrictMode>
-      <RunPanelHostProvider value={host}>
-        <PageOpenerProvider value={location.host === "vscode" ? { open: host.openPage } : undefined}>
-          <AccessGate Login={location.host === "vscode" ? HostLogin : undefined}><RunPanelApp location={location} /></AccessGate>
-        </PageOpenerProvider>
-      </RunPanelHostProvider>
+      <QuasselHost>
+        <RunPanelHostProvider value={host}>
+          <PageOpenerProvider value={location.host === "vscode" ? { open: host.openPage } : undefined}>
+            <AccessGate Login={location.host === "vscode" ? HostLogin : undefined}><RunPanelApp location={location} /></AccessGate>
+          </PageOpenerProvider>
+        </RunPanelHostProvider>
+      </QuasselHost>
     </StrictMode>,
   );
 } catch (cause) {

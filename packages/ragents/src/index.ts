@@ -73,7 +73,6 @@ export type { ToolChapters } from "./agents/tool-orientation.ts";
 export {
     actorInputSchema,
     enqueueActorInput,
-    eventResultSchema,
     eventResultSchemaOf,
     type ActorInputRequest,
 } from "./agents/actor-input.ts";

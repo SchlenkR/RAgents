@@ -8,3 +8,5 @@ allowBuilds:
   canvas: false
   esbuild: true
   protobufjs: false
+minimumReleaseAgeExclude:
+  - quassel

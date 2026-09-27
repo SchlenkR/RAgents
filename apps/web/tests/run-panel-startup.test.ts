@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { surfaceStartupState } from "../../../plugins/ragents.orchestration/web/surface-startup.ts";
 import { chatShowsContent } from "../../../plugins/ragents.orchestration/web/run-panel/run-panel-startup.ts";
-import type { Message } from "../src/chat/types.ts";
+import type { Message } from "quassel/events";
 
 const message = (role: Message["role"], text: string, extra: Partial<Message> = {}): Message => ({ key: `${role}-${text}`, role, text, closed: true, ...extra });
 

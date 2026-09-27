@@ -14,7 +14,7 @@ import { coordinatorRunId, SHARED_OVERSEER_RUN_ID } from "../../../plugins/ragen
 import { RunDirectory } from "../../../plugins/ragents.overseer/server/run-directory.ts";
 import { createUserLocationContext, parseUserLocation } from "../../../plugins/ragents.overseer/server/user-location.ts";
 import type { ChatUserLocation } from "../src/chat-context.ts";
-import type { ChatEvent } from "../src/chat-events.ts";
+import type { ChatEvent } from "quassel/events";
 import { coreContracts } from "../src/api/contracts.ts";
 import { coreMethods } from "../src/api/core-methods.ts";
 import { coreSources, methodContext } from "./rpc-fixture.ts";

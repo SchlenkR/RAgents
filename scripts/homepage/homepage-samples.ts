@@ -21,7 +21,7 @@ export async function buildHomepageSamples(repoRoot: string): Promise<Map<string
         || relative.startsWith("apps/web/src/actor-programs/client-ui/")
         || relative === "apps/server/src/plugin-support/actor-programs/workflow/index.ts"
         || relative.startsWith("apps/web/src/chat/") || relative.startsWith("apps/web/src/ui/")
-        || ["apps/web/src/SourceCode.tsx", "apps/web/src/DiffCode.tsx", "apps/web/src/highlighting.ts", "apps/web/src/highlighting.css", "apps/web/src/diff-view.css", "apps/web/src/Toolbar.tsx", "apps/server/src/chat-events.ts", "apps/server/src/chat-attachments.ts"].includes(relative)
+        || ["apps/web/src/SourceCode.tsx", "apps/web/src/DiffCode.tsx", "apps/web/src/highlighting.ts", "apps/web/src/highlighting.css", "apps/web/src/diff-view.css", "apps/web/src/Toolbar.tsx"].includes(relative)
         || relative.startsWith("node_modules/") || relative.startsWith("apps/web/node_modules/");
       if (!allowed) throw new Error(`Die Sample-Vorschau importiert eine nicht freigegebene Quelle: ${relative}`);
     };

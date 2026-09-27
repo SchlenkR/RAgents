@@ -2,9 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ChatMessages } from "../src/chat/ChatMessages.tsx";
-import { applyEvent, type Message } from "../src/chat/types.ts";
-import { DETAIL_MODES, detailModeLabel } from "../src/chat/DetailModeSwitch.tsx";
+import { ChatMessages, applyEvent, type Message, DETAIL_MODES, detailModeLabel } from "quassel";
 import { CHAT_DETAIL_MODES } from "../../server/src/plugin-support/chat-display-contract.ts";
 
 const render = (messages: Message[], running = true) => renderToStaticMarkup(createElement(ChatMessages, { messages, running }));

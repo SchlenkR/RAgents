@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import vm from "node:vm";
 import { frameHtml } from "../../../plugins/ragents.actor-programs/server/routes.ts";
-import type { ChatAttachmentInput } from "../src/chat-events.ts";
+import type { ChatAttachmentInput } from "quassel/events";
 
 for (const platformVersion of [2] as const) {
   test(`the v${platformVersion} frame applies the host theme without replacing app styles or state`, async () => {

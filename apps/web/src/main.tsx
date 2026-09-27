@@ -6,6 +6,7 @@ import { createRoot } from "react-dom/client";
 import { Button } from "./ui";
 import { App } from "./App";
 import { AccessGate, AccessScreen } from "./AccessContext";
+import { QuasselHost } from "./chat/QuasselHost";
 import { initializeTheme } from "./theme";
 import { installHostModules } from "./host-modules";
 
@@ -19,7 +20,7 @@ try {
   import.meta.hot?.dispose(() => theme.dispose());
   reactRoot.render(
     <StrictMode>
-      <AccessGate><App /></AccessGate>
+      <QuasselHost><AccessGate><App /></AccessGate></QuasselHost>
     </StrictMode>,
   );
 } catch (cause) {

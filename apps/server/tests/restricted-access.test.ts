@@ -4,7 +4,7 @@ import { createAccessContext, emptyUsage, PluginHost, unrestrictedAccess, type R
 import { coreContracts } from "../src/api/contracts.ts";
 import { coreMethods } from "../src/api/core-methods.ts";
 import { accessibleActorConversations, accessibleChatEvent, accessibleRunView } from "../src/access-projection.ts";
-import { applyEvent, type ChatEvent, type Message } from "../src/chat-events.ts";
+import { applyEvent, type ChatEvent, type Message } from "quassel/events";
 import { coreSources, startRpcServer } from "./rpc-fixture.ts";
 
 const operator = createAccessContext({ enabled: false, user: {

@@ -1,5 +1,5 @@
 import { DomainError, type JournalEvent, type RunView } from "@ragents/engine";
-import { applyEvent, type ChatEvent, type Message } from "../chat-events.js";
+import { applyEvent, type ChatEvent, type Message } from "quassel/events";
 import { ChatTextPositions } from "./chat-text-positions.js";
 import { attachmentContentPath } from "../api/contracts.js";
 import { actionEventOf, actionResolvedEventOf, journalChatEventsOf } from "./journal-chat-events.js";

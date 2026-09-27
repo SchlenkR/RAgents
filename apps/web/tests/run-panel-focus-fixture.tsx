@@ -6,8 +6,9 @@ import { PluginRegistry } from "../src/PluginRegistry";
 import { RunPanelApp } from "../src/run-panel/RunPanelApp";
 import { RunPanelHostProvider, type RunPanelHost } from "../src/run-panel/host";
 import type { HostRunPanelMessage, RunPanelHostMessage } from "../src/run-panel/host-contract";
-import { ChatInputToolbar } from "../src/chat/ChatInputToolbar";
+import { ChatInputToolbar } from "quassel";
 import "../src/ui/tailwind.css";
+import { QuasselHost } from "../src/chat/QuasselHost";
 
 type Subscription = { id: string; runId?: string; message: (event: unknown) => void; error?: (message: string) => void };
 const subscriptions = new Set<Subscription>();
@@ -79,4 +80,4 @@ function App() {
   </AccessContext.Provider>;
 }
 
-createRoot(document.getElementById("root")!).render(<App />);
+createRoot(document.getElementById("root")!).render(<QuasselHost><App /></QuasselHost>);

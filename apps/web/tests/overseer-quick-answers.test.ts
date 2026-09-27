@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { ChatEvent, ChatJournalCursor } from "../../server/src/chat-events";
+import type { ChatEvent, ChatJournalCursor } from "quassel/events";
 import { OVERSEER_PLUGIN_ID, QUICK_ANSWER_MAX_LENGTH } from "../../../plugins/ragents.overseer/contract";
 import { createQuickAnswers } from "../../../plugins/ragents.overseer/web/quick-answers";
 

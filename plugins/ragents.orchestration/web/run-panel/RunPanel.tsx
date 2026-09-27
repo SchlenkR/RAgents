@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { createPortal } from "react-dom";
 import { ArrowUpRightIcon, LayoutGridIcon, Maximize2Icon, MessageSquareIcon, PanelBottomIcon, PanelRightIcon } from "lucide-react";
 import { useAccess } from "@ragents/web/AccessContext";
-import { ChatPanel } from "@ragents/web/chat/ChatPanel";
+import { ChatPanel } from "quassel";
 import { runIsWorking } from "@ragents/web/chat/chat-target";
 import { useCenterElements, useRunPanelHost } from "@ragents/web/run-panel/host";
 import type { SurfaceCenterContext, SurfaceElementContribution, SurfaceElementDefinition, CardSectionContribution, SessionContext, SessionNavigation } from "@ragents/web/PluginRegistry";
@@ -214,7 +214,7 @@ function RunPanel({ surfaceElements, cardSections, navigation, renderChat, sessi
           type="button"
         ><span aria-hidden className="h-1 w-9 rounded-full bg-border-strong transition-colors" /></button>}
         {status && <button
-          className={cn("flex h-6 w-full flex-none cursor-pointer items-center gap-2 px-[var(--chat-horizontal-padding,24px)] text-left text-[0.7rem] transition-opacity duration-200 in-data-expanded:pointer-events-none in-data-expanded:opacity-0 motion-reduce:transition-none", status.kind === "waiting" ? "text-warning" : "text-muted-foreground")}
+          className={cn("flex h-6 w-full flex-none cursor-pointer items-center gap-2 px-[var(--qsl-chat-horizontal-padding,24px)] text-left text-[0.7rem] transition-opacity duration-200 in-data-expanded:pointer-events-none in-data-expanded:opacity-0 motion-reduce:transition-none", status.kind === "waiting" ? "text-warning" : "text-muted-foreground")}
           onClick={sheet.toggle}
           ref={statusRef}
           title={status.text}
@@ -517,7 +517,7 @@ function ActorRunPanelChat({ actor, cardSections, navigation, notice, onNavigate
 
 /** Der Ladezustand mittig im Chat; er rückt nur hoch, wo er sonst unter die Eingabe geriete. */
 function RunPanelStartup({ state }: { state: SurfaceStartupState }) {
-  return <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto_minmax(var(--composer-height,0px),1fr)] justify-items-center overflow-hidden p-6">
+  return <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto_minmax(var(--qsl-composer-height,0px),1fr)] justify-items-center overflow-hidden p-6">
     <StartupNotice className="row-start-2" state={state} />
   </div>;
 }

@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from "react";
-import type { ChatAttachment } from "../../../../server/src/chat-events";
+import type { ChatAttachment } from "./chat-contracts";
 
 export interface MessageListItem {
   /** Stable key within this list. */

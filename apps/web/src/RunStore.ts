@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { coreContracts } from "@ragents/host/api/contracts";
 import { getActorConversations, getRunView } from "./api";
-import type { Message } from "./chat/types";
+import type { Message } from "quassel/events";
 import { rpc } from "./rpc";
 
 export interface RunStoreState {

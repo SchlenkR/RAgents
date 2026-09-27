@@ -1,4 +1,4 @@
-import type { Message, ToolInfo } from "./chat/types";
+import type { Message, ToolInfo } from "quassel/events";
 
 const SUMMARY_LIMIT = 140;
 

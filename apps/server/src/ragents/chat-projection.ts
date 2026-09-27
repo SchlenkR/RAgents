@@ -1,4 +1,4 @@
-import type { ChatAttachment, ChatEvent, ChatTextCursor } from "../chat-events.js";
+import type { ChatAttachment, ChatEvent, ChatTextCursor } from "quassel/events";
 import { PluginStateProjection, type JournalEvent, type Turn } from "@ragents/engine";
 import { ChatTextPositions } from "./chat-text-positions.js";
 import { actionEventOf, actionResolvedEventOf, journalChatEventsOf, type InterruptedToolCalls } from "./journal-chat-events.js";

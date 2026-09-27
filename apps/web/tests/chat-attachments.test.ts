@@ -2,8 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ChatMessages } from "../src/chat/ChatMessages";
-import { attachmentDownloadUrl, attachmentCapabilityError, attachmentMediaType, encodeAttachment, MAX_CHAT_ATTACHMENT_BYTES, validateAttachmentSelection } from "../src/chat/attachments";
+import { ChatMessages, attachmentDownloadUrl, attachmentCapabilityError, attachmentMediaType, encodeAttachment, MAX_CHAT_ATTACHMENT_BYTES, validateAttachmentSelection } from "quassel";
 
 test("attachment budgets include existing selections and permit exact boundaries", () => {
   assert.doesNotThrow(() => validateAttachmentSelection([{ size: 1 }], [{ size: MAX_CHAT_ATTACHMENT_BYTES - 1 }]));

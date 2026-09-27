@@ -51,7 +51,7 @@ export async function buildHomepageUi(repoRoot: string): Promise<HomepageUiResul
       || relative.startsWith("apps/web/src/actor-programs/client-ui/")
       || relative.startsWith("apps/web/src/chat/")
       || relative.startsWith("apps/web/src/ui/")
-      || ["apps/web/src/SourceCode.tsx", "apps/web/src/DiffCode.tsx", "apps/web/src/highlighting.ts", "apps/web/src/highlighting.css", "apps/web/src/diff-view.css", "apps/web/src/Toolbar.tsx", "apps/server/src/chat-events.ts", "apps/server/src/chat-attachments.ts"].includes(relative)
+      || ["apps/web/src/SourceCode.tsx", "apps/web/src/DiffCode.tsx", "apps/web/src/highlighting.ts", "apps/web/src/highlighting.css", "apps/web/src/diff-view.css", "apps/web/src/Toolbar.tsx"].includes(relative)
       || relative.startsWith("node_modules/") || /^apps\/web\/node_modules\//.test(relative);
     if (!allowed) throw new Error(`The public UI reference imports a source that is not approved: ${relative}`);
   };

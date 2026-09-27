@@ -1,4 +1,4 @@
-import type { Message } from "@ragents/web/chat/types";
+import type { Message } from "quassel/events";
 
 /** Die eine Zeile des zugeschobenen Sheets: was der Chat gerade tut oder zuletzt gesagt hat. */
 export interface SheetStatus {

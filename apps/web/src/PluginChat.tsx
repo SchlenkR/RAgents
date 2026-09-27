@@ -10,15 +10,12 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { ChatInputToolbar } from "./chat/ChatInputToolbar";
+import { ChatInputToolbar, ChatMessages, ChatPanel, type ChatAttachmentInput, type ChatEvent, type ToolInfo } from "quassel";
 import { primaryChatState, primaryIsProgram, programChatNotice, runIsWorking } from "./chat/chat-target";
 import { StoppedActorNotice } from "./chat/StoppedActorNotice";
-import { ChatMessages } from "./chat/ChatMessages";
-import { ChatPanel } from "./chat/ChatPanel";
 import { ChatViewSwitches, useChatViewSettings } from "./chat-view-settings";
 import { useChat } from "./chat/useChat";
 import { runUserLocation, type ChatRunLocation } from "./chat/user-location";
-import type { ChatAttachmentInput, ChatEvent, ToolInfo } from "./chat/types";
 import { dismissAction, interruptActorTurn, type SessionInfo } from "./api";
 import { useRunStore } from "./RunStore";
 import { withToolSummaries } from "./toolLine";
@@ -33,7 +30,7 @@ import { RunPanelRail } from "./run-panel/RunPanelRail";
 import { RunPanelWorkspace } from "./run-panel/RunPanelWorkspace";
 import { activeWorkspaceTab, saveRunPanelWorkspaceState, useRunPanelWorkspaceState } from "./run-panel/workspace-state";
 import { ToolbarItem, ToolbarText } from "./Toolbar";
-import { DialogTitle, Spinner } from "./ui";
+import { cn, DialogTitle, Spinner } from "./ui";
 import { SurfaceModalContext, RunModalContext } from "./ui/dialog";
 import { Modal } from "./ui/modal";
 import {
@@ -536,14 +533,14 @@ function ChatSurface({
   const partner = primaryChatState(session.runView, session.session.id, session.running);
   return (
     <ChatPanel
-      className={options.chatElementClassName ? `${chatElementClass} ${options.chatElementClassName}` : chatElementClass}
+      className={cn(chatElementClass, options.chatElementClassName)}
       composer={
         primaryIsProgram(session.runView, session.session.id) ? <div className="flex min-w-0 flex-col gap-1.5">
           <p className="text-muted-foreground">{programChatNotice}</p>
           <div className="flex min-w-0 flex-wrap items-center gap-2">{options.toolbarLeft}<ChatViewSwitches collapsible={false} settings={chatView} /></div>
         </div>
-        : partner.kind === "stopped" ? <div className="[--input-card-radius:var(--radius-lg)]"><StoppedActorNotice actor={partner.actor} runId={session.session.id} toolbar={<>{options.toolbarLeft}<ChatViewSwitches collapsible={false} settings={chatView} /></>} /></div>
-        : <div className="[--input-card-radius:var(--radius-lg)]">
+        : partner.kind === "stopped" ? <div className="[--qsl-input-card-radius:var(--radius-lg)]"><StoppedActorNotice actor={partner.actor} runId={session.session.id} toolbar={<>{options.toolbarLeft}<ChatViewSwitches collapsible={false} settings={chatView} /></>} /></div>
+        : <div className="[--qsl-input-card-radius:var(--radius-lg)]">
           {sendError && <p className="text-[0.8rem] text-destructive" role="alert">{sendError}</p>}
           <ChatInputToolbar
             {...attachments}

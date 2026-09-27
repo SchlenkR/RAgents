@@ -8,6 +8,7 @@ import { RunPanelApp } from "../src/run-panel/RunPanelApp";
 import { RunPanelHostProvider, type RunPanelHost } from "../src/run-panel/host";
 import type { HostRunPanelMessage, RunPanelHostMessage } from "../src/run-panel/host-contract";
 import "../src/ui/tailwind.css";
+import { QuasselHost } from "../src/chat/QuasselHost";
 
 type Subscription = { id: string; runId?: string; message: (event: unknown) => void };
 const subscriptions = new Set<Subscription>();
@@ -102,8 +103,8 @@ new MutationObserver(() => { if (document.body.textContent?.includes("Vorhandene
 
 const access = createAccessContext({ enabled: true, user: { id: "tester", label: "Tester", rights, startEntries: ["start.script", "start.other", "start.guided"] } });
 const initialRun = query.get("run") ?? undefined;
-createRoot(document.getElementById("root")!).render(<AccessContext.Provider value={{ ...access, logout: async () => {} }}>
+createRoot(document.getElementById("root")!).render(<QuasselHost><AccessContext.Provider value={{ ...access, logout: async () => {} }}>
   <RunPanelHostProvider value={host}>
     <RunPanelApp location={{ layout: "panel", runId: initialRun, host: host.kind, connection: "lokal", theme: undefined, access: undefined }} />
   </RunPanelHostProvider>
-</AccessContext.Provider>);
+</AccessContext.Provider></QuasselHost>);

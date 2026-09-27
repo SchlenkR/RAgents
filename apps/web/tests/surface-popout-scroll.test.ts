@@ -16,7 +16,7 @@ test("nested fixed actor popouts own their wheel events independently of the sur
   await build({stdin:{contents:`import React,{useRef,useState}from'react';import{createRoot}from'react-dom/client';
 import{SurfaceShortcuts}from'${root}apps/web/src/SurfaceShortcuts.tsx';
 import{ActorPopout}from'${root}plugins/ragents.orchestration/web/ActorPopout.tsx';
-import{ChatMessages}from'${root}apps/web/src/chat/ChatMessages.tsx';
+import{ChatMessages}from'quassel';
 import '${root}apps/web/src/ui/tailwind.css';
 function App(){const button=useRef(null);const[open,setOpen]=useState(false);const[short,setShort]=useState(false);window.fixture={setShort};const messages=Array.from({length:short?1:30},(_,i)=>({key:String(i),role:'assistant',text:short?'Eine kurze Nachricht.':('Eine ausführliche Nachricht mit mehreren Zeilen. ').repeat(12)}));
 return <main style={{width:600,margin:20}}><SurfaceShortcuts><div><button ref={button} onClick={()=>setOpen(true)} style={{height:44}}>Actor öffnen</button><ActorPopout open={open} id="actor" label="Actor-Chat" closeLabel="Schließen" buttonRef={button} onClose={()=>setOpen(false)} width={440} height={500} role="dialog"><div className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain"><div style={{height:"100%",display:"flex",flexDirection:"column"}}><ChatMessages messages={messages}/></div></div></ActorPopout></div>{Array.from({length:20},(_,i)=><button key={i} style={{width:130}}>Weiterer Actor {i}</button>)}</SurfaceShortcuts></main>}

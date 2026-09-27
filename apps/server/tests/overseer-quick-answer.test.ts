@@ -7,7 +7,7 @@ import { manualExecution, testServices } from "../../../packages/ragents/tests/s
 import { OVERSEER_PLUGIN_ID, QUICK_ANSWER_MAX_LENGTH } from "../../../plugins/ragents.overseer/contract.ts";
 import { coordinatorRunId } from "../../../plugins/ragents.overseer/server/coordinator.ts";
 import { createQuickAnswerTool } from "../../../plugins/ragents.overseer/server/quick-answer.ts";
-import type { ChatEvent } from "../src/chat-events.ts";
+import type { ChatEvent } from "quassel/events";
 import type { Engine } from "../src/ragents/engine.ts";
 import { RunChatSession } from "../src/ragents/session.ts";
 

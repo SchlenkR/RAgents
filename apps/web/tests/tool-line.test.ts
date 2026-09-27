@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import type { Message, ToolInfo } from "../src/chat/types.ts";
+import type { Message, ToolInfo } from "quassel/events";
 import { toolLine, toolSummary, withToolSummaries } from "../src/toolLine.ts";
 
 const tool = (args: string, name = "read"): ToolInfo => ({ id: "t1", name, arguments: args });

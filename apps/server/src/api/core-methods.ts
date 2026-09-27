@@ -1,5 +1,5 @@
 import { canStartEntry, DomainError, implement, implementChannel, type AccessContext, type ChannelContribution, type MethodContribution, type PluginHost } from "@ragents/engine";
-import { parseChatAttachments } from "../chat-attachments.js";
+import { parseChatAttachments } from "quassel/events";
 import type { ChatSessionLike, ChatSessionProvider, ChatUser } from "../chat-handler.js";
 import { accessibleActorConversations, accessibleChatEvent } from "../access-projection.js";
 import type { StartOptionState } from "../plugin-support/start-options-contract.js";

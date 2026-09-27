@@ -1,5 +1,5 @@
 import { emptyUsage, type AccessContext, type JsonValue, type PluginState, type RunView } from "@ragents/engine";
-import type { ChatEvent, Message } from "./chat-events.js";
+import type { ChatEvent, Message } from "quassel/events";
 import type { ActorConversations } from "./ragents/actor-chat-history.js";
 
 const record = (value: JsonValue | undefined): Record<string, JsonValue | undefined> | undefined =>

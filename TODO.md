@@ -7,7 +7,6 @@ Eingang für alles, hier schreiben der Owner und die KI. Eine Zeile je Eintrag, 
 - Schlanke Werkzeugergebnisse (26.09.2026): der Typenstub `node_modules/@ragents/server/index.d.ts` eines Actor-Programms enthält die Verträge aller Capabilities des Profils (in einem echten Server-Profil 51 KB); ein Modell, das ihn mit `read` liest, bekommt sie alle, auch fremde Plugins. Auf die deklarierten Capabilities des Programms beschränken oder die Suche über `typescript_api` nahelegen.
 - Schlanke Werkzeugergebnisse (26.09.2026): die Browserwerkzeuge liefern nach jeder Aktion (`browser_click`, `browser_fill`, `browser_snapshot` ...) wieder alle Fehler seit der Navigation (`errors` in `BrowserSnapshot`); nur neue melden, die Liste auf Nachfrage.
 - Schlanke Werkzeugergebnisse (26.09.2026): `typescript_api` mit `names` wiederholt in `functions` Name, Label und Kurzbeschreibung, die das Modell aus dem Prompt schon hat; nur `longDescription` ist neu.
-- Host-API (26.09.2026): `eventResultSchema` (Union aller Event-Typen) hat im Repo keinen Nutzer mehr, seit jede Funktion `eventResultSchemaOf` nennt; beim nächsten Sprung von `HOST_API_VERSION` streichen.
 - Homepage (26.09.2026): nach den schlanken Werkzeugergebnissen `build/homepage.sh` laufen lassen (Guide-Seiten aus den geänderten Guide-Abschnitten, `docs/homepage/run-api.d.ts`, `run-setup.md`, `reference.*`); bis dahin sind `homepage-run-api.test.ts` (word-game gegen die alten Ergebnistypen, veraltete Paketquellen) und `generate-homepage.ts --check` rot.
 
 - Modellwahl im Chat (24.09.2026): eine Vorlage mit festgelegtem `ragents.model` bindet das Modell nur für den Start, danach wechselt jeder mit `runs.inspect`; und der Wechsel prüft nur Anhänge von Eingaben, nicht Bilder aus Werkzeugergebnissen im Gespräch. Entscheiden, ob die Vorlage den Wechsel sperrt und ob die Prüfung den Modellkontext lesen soll.
@@ -104,7 +103,7 @@ Eingang für alles, hier schreiben der Owner und die KI. Eine Zeile je Eintrag, 
 
 - Prozessbereinigung als root im Linux-Container mit und ohne CAP_SYS_PTRACE live prüfen; den Linux-Pfad ohne root mit echtem /proc prüft seit dem 23.09.2026 `pnpm check:remote-workspace`, Parser- und Ablaufregressionen sowie echte macOS-Prozesse die Servertests.
 
-- Reste der Vendor-Herkunft im Chat-Code: deutsche Bezeichner in apps/web/src/chat und apps/server/src/chat-handler.ts.
+- Reste der Vendor-Herkunft im Chat-Code: deutsche Bezeichner in apps/server/src/chat-handler.ts.
 
 
 - Umlautverlust aus Selbsttest Runde 6 bei erneutem echtem Fehlfall zwischen Providertext und Plattform eingrenzen; interleavte Werkzeugargumente und byteweise geteiltes UTF-8/SSE sind verlustfrei getestet.

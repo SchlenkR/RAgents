@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { applyEvent, type ChatEvent, type Message } from "../src/chat-events.ts";
+import { applyEvent, type ChatEvent, type Message } from "quassel/events";
 
 test("incoming user messages leave streamed text in its original block", () => {
   const cursor = { conversationId: "conversation", sequence: 7, offset: 5 };

@@ -2,6 +2,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "./theme.css";
+@import "./quassel.css";
 
 @layer base {
     html, body, #root {

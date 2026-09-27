@@ -1,10 +1,9 @@
 import { ActorChat } from "./ActorChat";
 import { ActorChatControls } from "./ActorChatControls";
-import { ChatPanel } from "@ragents/web/chat/ChatPanel";
+import { ChatPanel, type Message } from "quassel";
 import { memo, useCallback } from "react";
 import type { FlowSelection } from "./FlowInspector";
 import type { RunActor, RunView } from "@ragents/web/run-view";
-import type { Message } from "@ragents/web/chat/types";
 
 export const ActorChatPreview = memo(function ActorChatPreview({ actor, view, primaryMessages, conversation, historyError, chatInput = true, running = false, onNavigate }: {
   actor: RunActor;

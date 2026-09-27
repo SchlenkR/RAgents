@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { coreContracts } from "@ragents/host/api/contracts";
-import { applyEvent, type ChatEvent, type Message, type ChatAttachmentInput, type ChatStartupStatus } from "../../../server/src/chat-events";
+import { applyEvent, type ChatEvent, type Message, type ChatAttachmentInput, type ChatStartupStatus } from "quassel/events";
 import type { ChatUserLocation } from "../../../server/src/chat-context";
 import { rpc } from "../rpc";
 import { sendChatMessage, startChatEntry, startSkillEntry } from "./requests";

@@ -826,12 +826,14 @@ selbst deklariert, wird wie eines mit `requires` im Manifest abgewiesen.
 **Host-API.** `apps/server/src/host-api.ts` nennt je Hälfte jedes Modul, das der Host liefert und
 das nie ins Bundle darf, ausdrücklich und ohne Platzhalter, weil das Web-Register jedes einzeln
 importiert, und bei Code des Hosts dazu jeden Wert, den ein Plugin daraus importieren darf. Stand
-Host-API 5: Server 60 Module mit 181 Namen aus Code des Hosts (die Engine samt ihren
+Host-API 6: Server 60 Module mit 184 Namen aus Code des Hosts (die Engine samt ihren
 Vertragsmodulen, `@ragents/workspace-executor`, `@ragents/workflow`, die Bausteine unter
 `@ragents/host/...`) und die Bibliotheken `typebox`, `typebox/value`, `handlebars`,
-`playwright-core`, `tar` (`node:*` ist immer extern); Web 44 Module mit 117 Namen aus Code des
+`playwright-core`, `tar` (`node:*` ist immer extern); Web 37 Module mit 114 Namen aus Code des
 Hosts (die Module unter `@ragents/web/...` und die browserfähigen Verträge von Engine und Host)
-und die Bibliotheken `react`, `react-dom`, `react/jsx-runtime`, `typebox`. Eine Bibliothek steht
+und die Bibliotheken `react`, `react-dom`, `react/jsx-runtime`, `typebox` und `quassel` (die
+Chat-Bausteine, weil Slots, Link-Politik und Ansage-Region Kontext und Modulzustand mit dem Host
+teilen; `quassel/events` ist ohne Zustand und wird gebündelt). Eine Bibliothek steht
 mit `LIBRARY` ganz darin, so wie ihre installierte Fassung sie ausliefert; ein Modul des Hosts
 steht mit einer Namensliste darin, ein Modul, aus dem Plugins nur Typen beziehen, mit einer
 leeren. Typen stehen in keiner Liste, weil sie im Bundle verschwinden. Hinein gehört, was
@@ -1665,6 +1667,14 @@ der Kartenradius `rounded-panel`, die Schatten `shadow-bar`, `shadow-status`, `s
 `shadow-card`, `shadow-workspace`, `shadow-glass-icon` und die Animationen `animate-fade-pulse`,
 `animate-working-pulse`, `animate-ring-pulse`, `animate-edge-flow`, `animate-progress-sweep`.
 `tailwind.css` ist der Host-Einsprungpunkt mit Preflight; `frame.css` der Einsprungpunkt der Mini-App-Frames.
+Beide binden hinter den Utilities des Hosts `quassel.css` ein: das fertig übersetzte Stylesheet
+der Chat-Bausteine `quassel/chat.css` (Klassen mit Präfix `qsl:`, Variablen `--qsl-*`) und die
+Abbildung jeder Variable von quassel auf die Tokens aus `theme.css` (Farben, Schriften, Radius,
+Schatten, `--qsl-color-scheme` je Modus, Abstands- und Schriftskala über `--theme()`), sodass
+jede Änderung am Theme auch den Chat trifft. Weil quassels Klassen hinter denen des Hosts
+stehen, gewinnen sie bei gleicher Spezifität, auch gegen die Grundklassen der Slots; eine Klasse,
+die der Host über `className` an einen Baustein von quassel gibt und die dort mit einer eigenen
+Klasse kollidiert, braucht deshalb `!` (etwa `min-h-16!` im globalen Koordinator).
 Das Web bekommt ein einziges Stylesheet vom Server (`/ragents.css`,
 `apps/server/src/web-stylesheet.ts`): `@tailwindcss/node` übersetzt `tailwind.css` für die
 Kandidaten aus den Quellen unter `apps/web/src` und aus `web/classes.json` jedes Web-Bundles des
@@ -1786,8 +1796,22 @@ eingebetteten Modus genau einen `RunStore` und ein Kanal-Abonnement. React verte
 `RunView` über einen versionierten Same-Origin-Bridge-Vertrag an Fläche und Pop-outs. Die
 Fläche öffnet eingebettet keinen zweiten Stream.
 
-Die Chat-Bausteine bleiben unabhängig: RAgents und Plugins dürfen sie verwenden, sie selbst kennen
-nur den Wire-Vertrag der ChatEvents und kein Produkt.
+Die Chat-Bausteine kommen aus der eigenständigen Bibliothek quassel (npm `quassel`,
+github.com/SchlenkR/quassel, MIT): `ChatPanel`, `ChatMessages`, `ChatInputToolbar`,
+`DetailModeSwitch`, `TimestampSwitch`, `Markdown` und ihre Helfer aus `quassel`, der Wire-Vertrag
+der ChatEvents samt `applyEvent` und der Prüfung der Anhänge aus `quassel/events`, den Server und
+Web gleichermaßen importieren. Sie kennen kein Produkt. In RAgents bleibt, was den Run kennt:
+`useChat`, `requests`, `useAttachmentCapabilities`, `StoppedActorNotice`, `chat-target` und
+`user-location` unter `apps/web/src/chat/`, auf dem Server `chat-handler.ts`. `QuasselHost`
+(`apps/web/src/chat/QuasselHost.tsx`) gibt quassel die Grundbausteine des Hosts als Slots
+(`Button`, `Toggle`, `Card`, `StopButton`, `Popover`, `PopoverContent` aus `apps/web/src/ui`) und
+lässt in Markdown die Links in einen Run (`ablauf:actor/...`, `input`, `turn`, `subscription`,
+`action`, `artifact`) durch; ohne ihn verwirft quassel jedes andere Schema als http, https, mailto,
+tel, ftp, irc und xmpp. `main.tsx` und `run-panel.tsx` legen ihn um die ganze Oberfläche, also auch
+um jedes Plugin, die Mini-App-Bausteine um ihren Chat, `ChatMessages`, `Markdown`, `MessageList`
+und `DocumentViewer`. Der Verlauf ist keine Live-Region: fertige Antworten und neue Aktionen sagt
+quassel einmal über seine gemeinsame Region an; der globale Koordinator schaltet das mit
+`announce={false}` ab.
 `ChatPanel` und `ChatMessages` nutzen standardmäßig die volle verfügbare Breite mit 24 Pixeln
 Seitenabstand. `maxWidth` und `horizontalPadding` passen diese Maße von außen an; die Vorgaben
 des Panels gelten gemeinsam für Verlauf und Eingabe. Antworten haben keine zusätzliche

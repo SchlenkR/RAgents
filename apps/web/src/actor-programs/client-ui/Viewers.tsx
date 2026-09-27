@@ -1,5 +1,6 @@
 import React from "react";
-import { Markdown } from "../../chat/Markdown";
+import { Markdown } from "quassel";
+import { QuasselHost } from "../../chat/QuasselHost";
 import { DiffCode } from "../../DiffCode";
 import { SourceCode } from "../../SourceCode";
 import { cn, Progress } from "../../ui";
@@ -27,7 +28,7 @@ export function TaskProgress({ title = "Aufgaben", tasks, showProgress = true }:
 export function DocumentViewer({ title, content, format = "text", language, filename }: DocumentViewerProps) {
   return <section aria-label={title ?? filename ?? "Dokument"} className="min-w-0 text-sm">
     {(title || filename) && <h3 className="mb-2 text-[15px] font-semibold">{title ?? filename}</h3>}
-    {format === "markdown" ? <Markdown text={content} />
+    {format === "markdown" ? <QuasselHost><Markdown text={content} /></QuasselHost>
       : format === "code" ? <SourceCode content={content} language={language} path={filename ?? ""} />
         : <pre className="m-0 font-[inherit] break-words whitespace-pre-wrap">{content}</pre>}
   </section>;

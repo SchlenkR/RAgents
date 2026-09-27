@@ -1,5 +1,5 @@
 import type { ReactElement, ReactNode } from "react";
-import type { ChatAttachment, ChatAttachmentCapabilities, ChatAttachmentInput, Message } from "../../../../server/src/chat-events";
+import type { ChatAttachment, ChatAttachmentCapabilities, ChatAttachmentInput, Message } from "./chat-contracts";
 
 export * from "../../ui";
 export * from "./file-contracts";

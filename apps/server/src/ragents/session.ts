@@ -2,8 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import type { ChatAttachment, ChatAttachmentInput, ChatEvent, ChatStartupStatus } from "../chat-events.js";
-import { parseChatAttachments } from "../chat-attachments.js";
+import { parseChatAttachments, type ChatAttachment, type ChatAttachmentInput, type ChatEvent, type ChatStartupStatus } from "quassel/events";
 import { attachmentContentPath } from "../api/contracts.js";
 import type { ChatSessionLike, ChatUser } from "../chat-handler.js";
 import {

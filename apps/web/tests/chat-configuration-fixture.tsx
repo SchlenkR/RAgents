@@ -1,11 +1,9 @@
 import { createRoot } from "react-dom/client";
 import { StrictMode } from "react";
 import { flushSync } from "react-dom";
-import { ChatInputToolbar } from "../src/chat/ChatInputToolbar";
-import { ChatMessages } from "../src/chat/ChatMessages";
-import { ChatPanel } from "../src/chat/ChatPanel";
-import type { Message } from "../src/chat/types";
+import { ChatInputToolbar, ChatMessages, ChatPanel, type Message } from "quassel";
 import "../src/ui/tailwind.css";
+import { QuasselHost } from "../src/chat/QuasselHost";
 
 const root = createRoot(document.getElementById("app")!);
 const fixture = {
@@ -23,7 +21,7 @@ const fixture = {
   })),
   update() {
     flushSync(() => root.render(
-      <StrictMode>
+      <StrictMode><QuasselHost>
       <ChatPanel scrollOnSend={fixture.scrollOnSend} composer={
         <ChatInputToolbar key={fixture.composerKey} sendShortcut={fixture.sendShortcut} onSend={async (text) => {
           if (fixture.rejectSend) throw new Error("Senden fehlgeschlagen");
@@ -38,7 +36,7 @@ const fixture = {
           { id: "failure", label: "Fehler auslösen", onClick: async () => { throw new Error("Aktion fehlgeschlagen"); } },
         ] : [] }} />
       </ChatPanel>
-      </StrictMode>,
+      </QuasselHost></StrictMode>,
     ));
   },
 };

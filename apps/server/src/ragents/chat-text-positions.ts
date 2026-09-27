@@ -1,5 +1,5 @@
 import type { JournalEvent } from "@ragents/engine";
-import type { ChatTextCursor } from "../chat-events.js";
+import type { ChatTextCursor } from "quassel/events";
 
 const textUnits = (text: string): number => text.replace(/\s/g, "").length;
 

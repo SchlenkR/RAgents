@@ -14,8 +14,7 @@ import {
   Spinner,
 } from "@ragents/web/ui";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Markdown } from "@ragents/web/chat/Markdown";
-import type { Message } from "@ragents/web/chat/types";
+import { Markdown, type Message } from "quassel";
 import { formatBytes } from "@ragents/web/lib/format";
 import { SourceCode } from "@ragents/web/SourceCode";
 

@@ -306,7 +306,7 @@ ohne diese Plugins und deren Tabs verwenden können.
 | Mini-App | Eine React-Oberfläche ihres Actors. Sie zeigt dessen Zustand und ruft Funktionen ohne zusätzlichen Modell-Turn auf. |
 | Werkzeugkarte        | Eine vom Host aus dem typisierten Werkzeugvertrag erzeugte Eingabe direkt am Zielagenten, ohne zusätzliche Fensterhülle. Sie enthält keinen eigenen App-Code.                                               |
 | App-Host             | Eine Kachel der Fläche mit lokaler Vollansicht für den Benutzer. Beide laden dieselbe vollständige Mini-App.                                                                  |
-| Komponente           | Ein wiederverwendbarer Baustein ohne Installations- und Produktlebenszyklus, zum Beispiel die Chat-Bausteine in apps/web/src/chat.                                                         |
+| Komponente           | Ein wiederverwendbarer Baustein ohne Installations- und Produktlebenszyklus, zum Beispiel die Chat-Bausteine der Bibliothek quassel.                                                         |
 | Profil               | Die ausdrückliche, geordnete Zusammenstellung von Core und Plugins zu einem Produkt, zum Beispiel `core`.                                                                                  |
 
 PLUGIN bedeutet also nicht Tool und auch nicht Hook. Beides sind mögliche Facetten eines

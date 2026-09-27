@@ -18,7 +18,7 @@ import { WorkspaceSandboxHost, sandboxServicesToken } from "../src/plugin-suppor
 import { globalChatToken, runManagementToken, type RunManagement } from "../src/ragents/global-chat.ts";
 import { productRuntimeToken } from "../src/ragents/product-runtime.ts";
 import { workspaceRuntimeToken } from "../src/ragents/workspace-runtime.ts";
-import type { ChatEvent } from "../src/chat-events.ts";
+import type { ChatEvent } from "quassel/events";
 import type { Engine } from "../src/ragents/engine.ts";
 
 const directory = await mkdtemp(path.join(tmpdir(), "ragents-overseer-reset-"));

@@ -19,9 +19,8 @@ test("chat detail switches isolate actors and runs while sharing a chat between 
 import React from 'react';
 import {createRoot} from 'react-dom/client';
 import {ChatStepsProvider,defaultChatDisplayPolicy,useChatSteps,primaryChatActor} from './apps/web/src/PluginRegistry';
-import {DetailModeSwitch} from './apps/web/src/chat/DetailModeSwitch';
-import {ChatMessages} from './apps/web/src/chat/ChatMessages';
-import {ChatInputToolbar} from './apps/web/src/chat/ChatInputToolbar';
+import {ChatInputToolbar, ChatMessages, DetailModeSwitch} from 'quassel';
+import {QuasselHost} from './apps/web/src/chat/QuasselHost';
 import {ActorChat} from './plugins/ragents.orchestration/web/ActorChat';
 import {ActorChatControls} from './plugins/ragents.orchestration/web/ActorChatControls';
 import './apps/web/src/ui/tailwind.css';
@@ -35,14 +34,14 @@ function Actor({run,id,name,presentation}) {
   const view={id:run,primaryActorId:'coordinator',ownerId:'owner',actors:[actor],inputs:[],turns:[],artifacts:[]};
   return <section aria-label={name}><ActorChatControls actor={actor} view={view} composerVisible running={id !== "idle"} presentation={presentation}/><ActorChat actor={actor} view={view} presentation={presentation} primaryMessages={messages} conversation={messages} onNavigate={()=>{}}/></section>;
 }
-createRoot(document.getElementById('root')).render(<ChatStepsProvider policy={{...defaultChatDisplayPolicy,selectable:true}}>
+createRoot(document.getElementById('root')).render(<QuasselHost><ChatStepsProvider policy={{...defaultChatDisplayPolicy,selectable:true}}>
   <NormalChat/>
   <Actor run="run-a" id="coordinator" name="coordinator-surface" presentation="surface"/>
   <Actor run="run-a" id="implementer" name="implementer" presentation="surface"/>
   <Actor run="run-a" id="implementer" name="inspector" presentation="inspector"/>
   <Actor run="run-a" id="idle" name="idle" presentation="surface"/>
   <Actor run="run-b" id="implementer" name="other-run" presentation="surface"/>
-</ChatStepsProvider>);
+</ChatStepsProvider></QuasselHost>);
 ` },
     outfile: `${directory}/fixture.js`, bundle: true, platform: "browser", format: "iife", jsx: "automatic",
     define: { "process.env.NODE_ENV": '"production"' }, plugins: [tailwindPlugin([`${root}apps/web/src/chat`])], logLevel: "silent",

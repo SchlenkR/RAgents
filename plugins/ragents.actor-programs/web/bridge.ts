@@ -1,6 +1,5 @@
 import { isRecord } from "@ragents/web/lib/guards";
-import type { ChatAttachmentInput } from "@ragents/host/chat-events";
-import { parseChatAttachments } from "@ragents/host/chat-attachments";
+import { parseChatAttachments, type ChatAttachmentInput } from "quassel/events";
 
 export const RUN_APP_BRIDGE_VERSION = 1;
 

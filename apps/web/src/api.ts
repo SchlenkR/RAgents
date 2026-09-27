@@ -3,7 +3,7 @@ import { coreContracts } from "@ragents/host/api/contracts";
 import { hasExactKeys, isRecord } from "./lib/guards";
 import { rpc } from "./rpc";
 import type { RpcClient } from "./rpc/client";
-import type { ChatAttachmentInput, Message } from "./chat/types";
+import type { ChatAttachmentInput, Message } from "quassel/events";
 import { startOptionStateFrom, type StartOptionState } from "../../server/src/plugin-support/start-options-contract";
 
 export type { StartOptionState };

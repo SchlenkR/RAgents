@@ -1,5 +1,5 @@
 /** Die Verträge der Runs, gegen die Kernmethoden und Auslieferung arbeiten. */
-import type { ChatAttachment, ChatAttachmentInput, ChatEvent } from "./chat-events.js";
+import type { ChatAttachment, ChatAttachmentInput, ChatEvent } from "quassel/events";
 import type { ActorConversations } from "./ragents/actor-chat-history.js";
 
 export interface SessionInfo {

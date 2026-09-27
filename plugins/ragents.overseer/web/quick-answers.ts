@@ -1,4 +1,4 @@
-import type { ChatEvent } from "@ragents/host/chat-events";
+import type { ChatEvent } from "quassel/events";
 import { OVERSEER_PLUGIN_ID, QUICK_ANSWER_MAX_LENGTH } from "../contract";
 
 export interface QuickAnswerNotice {

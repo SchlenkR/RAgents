@@ -1,5 +1,44 @@
 # Entscheidungen
 
+## Chat-Bausteine aus der Bibliothek quassel (27.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Host-API, Tailwind und Stylesheet, Chat-Bausteine),
+`docs/spec/overview.md` (Begriffe), `docs/development.md` (Ordner, quassel und RAgents zusammen
+entwickeln). Ersetzt "Kein Vendor-Konstrukt mehr (01.09.2026)": Der Chat ist wieder eine eigene
+Bibliothek, quassel (github.com/SchlenkR/quassel, npm `quassel`, MIT), herausgelöst aus dem Stand
+4a9deed, und RAgents bezieht sie als Abhängigkeit statt einer Kopie.
+
+**Warum so.** Die Chat-Bausteine kannten schon vorher kein Produkt; als Bibliothek sind sie für
+andere Anwendungen nutzbar, und RAgents trägt keine zweite Fassung mehr. Damit es EINE Optik
+bleibt, rendert quassel mit den Grundbausteinen des Hosts und liest dessen Tokens.
+
+**Festlegung.** Aus `apps/web/src/chat/` sind die allgemeinen Bausteine entfernt, ebenso
+`apps/server/src/chat-events.ts` und `chat-attachments.ts`; Server und Web importieren den Vertrag
+aus `quassel/events`, die Komponenten aus `quassel`. `QuasselHost` gibt quassel `Button`, `Toggle`,
+`Card`, `StopButton`, `Popover` und `PopoverContent` aus `apps/web/src/ui` als Slots und erlaubt die
+Links `ablauf:...` in jedem Markdown; die Einsprungpunkte des Webs und die Chat- und
+Markdown-Bausteine der Mini-Apps legen ihn um ihren Inhalt. `apps/web/src/ui/quassel.css` bindet
+`quassel/chat.css` hinter den Utilities des Hosts ein und bildet jede `--qsl-*`-Variable auf die
+Tokens aus `theme.css` ab. Plugins teilen quassel als ganze Bibliothek über die Host-API, weil
+Slots, Link-Politik und Ansage-Region Kontext und Modulzustand sind; die Module
+`@ragents/web/chat/{ChatInputToolbar,ChatMessages,ChatPanel,DetailModeSwitch,Markdown,types}` und
+`@ragents/host/chat-{events,attachments}` fallen weg. Das ist `HOST_API_VERSION` 6; gesammelt
+fällt dabei auch `eventResultSchema` aus `@ragents/engine`, das seit dem 26.09.2026 keinen Nutzer
+mehr hat. Umbenannt sind die Variablen des Chats (`--chat-*`, `--composer-height`,
+`--input-card-radius`, `--scroll-cover` tragen `--qsl-`), `announceMessages` heißt `announce`: der
+Verlauf ist keine Live-Region mehr, quassel sagt fertige Antworten und neue Aktionen einmal an.
+Die öffentlichen Chat-Typen der Mini-Apps (`Message`, `ChatAttachment` und ihre Teile) deklariert
+`client-ui/chat-contracts.d.ts` selbst, weil der Vertrag für Autoren ohne fremde Pakete lesbar
+bleiben muss; die Typprüfung von Client-UI und Brücke hält ihn in beiden Richtungen mit quassel
+gleich. Getestet wird das Verhalten des Chats weiter in `apps/web/tests`, gegen quassel mit der
+Verdrahtung von RAgents, weil quassel selbst keine Tests hat.
+
+Verworfen: Weiterleitungsmodule unter `@ragents/web/chat/*` (die Host-API bliebe stabil, jeder
+Baustein hätte aber zwei Namen); quassels eigene Grundbausteine (dieselbe Optik, aber eine zweite
+Quelle, die bei jeder Änderung an `apps/web/src/ui` auseinanderliefe); quassels Stylesheet vor
+den Utilities des Hosts (dann gewännen die Grundklassen der Slots, etwa Rundung und Innenabstand,
+gegen quassels Klassen).
+
 ## Fehlermeldungen der Actor-Programm-Aktivierung begrenzt (26.09.2026)
 
 Kapitel: `docs/spec/actor-programs.md` (Diagnose, Typprüfung und Fachtests). Ein Testlauf mit 25

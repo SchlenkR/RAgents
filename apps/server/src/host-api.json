@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "server": {
     "@ragents/engine": [
       "DomainError",
@@ -20,7 +20,6 @@
       "defineToolAvailability",
       "emptyUsage",
       "enqueueActorInput",
-      "eventResultSchema",
       "eventResultSchemaOf",
       "handleKey",
       "holdsUsable",
@@ -686,10 +685,6 @@
       "defineChannel",
       "defineOperation"
     ],
-    "@ragents/host/chat-attachments": [
-      "parseChatAttachments"
-    ],
-    "@ragents/host/chat-events": [],
     "@ragents/host/plugin-support/actor-programs/contract": [
       "ACTOR_INVOCATIONS_STATE_ID",
       "ACTOR_PROGRAMS_STATE_ID",
@@ -741,21 +736,6 @@
       "ChatViewSwitches",
       "useChatViewSettings"
     ],
-    "@ragents/web/chat/ChatInputToolbar": [
-      "ChatInputToolbar"
-    ],
-    "@ragents/web/chat/ChatMessages": [
-      "ChatMessages"
-    ],
-    "@ragents/web/chat/ChatPanel": [
-      "ChatPanel"
-    ],
-    "@ragents/web/chat/DetailModeSwitch": [
-      "DetailModeSwitch"
-    ],
-    "@ragents/web/chat/Markdown": [
-      "Markdown"
-    ],
     "@ragents/web/chat/StoppedActorNotice": [
       "StoppedActorNotice"
     ],
@@ -763,7 +743,6 @@
       "programChatNotice",
       "runIsWorking"
     ],
-    "@ragents/web/chat/types": [],
     "@ragents/web/chat/useAttachmentCapabilities": [
       "getAttachmentCapabilities",
       "useAttachmentCapabilities"
@@ -877,6 +856,50 @@
     ],
     "@ragents/web/ui/dialog": [
       "RunModalContext"
+    ],
+    "quassel": [
+      "ChatInputToolbar",
+      "ChatMessages",
+      "ChatPanel",
+      "ChatSendContext",
+      "DETAIL_MODES",
+      "DetailModeSwitch",
+      "MAX_CHAT_ATTACHMENTS",
+      "MAX_CHAT_ATTACHMENT_BYTES",
+      "Markdown",
+      "MarkdownCodeBlocks",
+      "MarkdownLinks",
+      "MessageActions",
+      "PendingActionCard",
+      "QuasselProvider",
+      "StepPopover",
+      "TimestampSwitch",
+      "WorkingScenes",
+      "announce",
+      "appearanceStyle",
+      "applyEvent",
+      "attachmentCapabilityError",
+      "attachmentDownloadUrl",
+      "attachmentMediaType",
+      "compactToolLine",
+      "copyChatText",
+      "createChatScroll",
+      "createChatSendScope",
+      "defaultComponents",
+      "defaultTexts",
+      "detailModeLabel",
+      "encodeAttachment",
+      "fillText",
+      "formatAttachmentSize",
+      "markdownPlainText",
+      "messageDate",
+      "prettyJson",
+      "stepState",
+      "timestampDay",
+      "timestampLabel",
+      "useChatAction",
+      "useQuasselComponents",
+      "validateAttachmentSelection"
     ],
     "react": [
       "Activity",

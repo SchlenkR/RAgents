@@ -1,7 +1,6 @@
 import * as engineSrcDomainEvents from "@ragents/engine/src/domain/events";
 import * as engineSrcHttpContracts from "@ragents/engine/src/http/contracts";
 import * as engineSrcRpcContract from "@ragents/engine/src/rpc/contract";
-import * as hostChatAttachments from "@ragents/host/chat-attachments";
 import * as hostPluginSupportActorProgramsContract from "@ragents/host/plugin-support/actor-programs/contract";
 import * as webAccessContext from "@ragents/web/AccessContext";
 import * as webDiffCode from "@ragents/web/DiffCode";
@@ -13,11 +12,6 @@ import * as webAccessToken from "@ragents/web/access-token";
 import * as webActorConversation from "@ragents/web/actor-conversation";
 import * as webApi from "@ragents/web/api";
 import * as webChatViewSettings from "@ragents/web/chat-view-settings";
-import * as webChatChatInputToolbar from "@ragents/web/chat/ChatInputToolbar";
-import * as webChatChatMessages from "@ragents/web/chat/ChatMessages";
-import * as webChatChatPanel from "@ragents/web/chat/ChatPanel";
-import * as webChatDetailModeSwitch from "@ragents/web/chat/DetailModeSwitch";
-import * as webChatMarkdown from "@ragents/web/chat/Markdown";
 import * as webChatStoppedActorNotice from "@ragents/web/chat/StoppedActorNotice";
 import * as webChatChatTarget from "@ragents/web/chat/chat-target";
 import * as webChatUseAttachmentCapabilities from "@ragents/web/chat/useAttachmentCapabilities";
@@ -39,6 +33,7 @@ import * as webTheme from "@ragents/web/theme";
 import * as webToolLine from "@ragents/web/toolLine";
 import * as webUi from "@ragents/web/ui";
 import * as webUiDialog from "@ragents/web/ui/dialog";
+import * as quassel from "quassel";
 import * as react from "react";
 import * as reactDom from "react-dom";
 import * as reactJsxRuntime from "react/jsx-runtime";
@@ -50,7 +45,6 @@ export const hostModules: Readonly<Record<string, object>> = {
   "@ragents/engine/src/domain/events": engineSrcDomainEvents,
   "@ragents/engine/src/http/contracts": engineSrcHttpContracts,
   "@ragents/engine/src/rpc/contract": engineSrcRpcContract,
-  "@ragents/host/chat-attachments": hostChatAttachments,
   "@ragents/host/plugin-support/actor-programs/contract": hostPluginSupportActorProgramsContract,
   "@ragents/web/AccessContext": webAccessContext,
   "@ragents/web/DiffCode": webDiffCode,
@@ -62,11 +56,6 @@ export const hostModules: Readonly<Record<string, object>> = {
   "@ragents/web/actor-conversation": webActorConversation,
   "@ragents/web/api": webApi,
   "@ragents/web/chat-view-settings": webChatViewSettings,
-  "@ragents/web/chat/ChatInputToolbar": webChatChatInputToolbar,
-  "@ragents/web/chat/ChatMessages": webChatChatMessages,
-  "@ragents/web/chat/ChatPanel": webChatChatPanel,
-  "@ragents/web/chat/DetailModeSwitch": webChatDetailModeSwitch,
-  "@ragents/web/chat/Markdown": webChatMarkdown,
   "@ragents/web/chat/StoppedActorNotice": webChatStoppedActorNotice,
   "@ragents/web/chat/chat-target": webChatChatTarget,
   "@ragents/web/chat/useAttachmentCapabilities": webChatUseAttachmentCapabilities,
@@ -88,6 +77,7 @@ export const hostModules: Readonly<Record<string, object>> = {
   "@ragents/web/toolLine": webToolLine,
   "@ragents/web/ui": webUi,
   "@ragents/web/ui/dialog": webUiDialog,
+  "quassel": quassel,
   "react": react,
   "react-dom": reactDom,
   "react/jsx-runtime": reactJsxRuntime,

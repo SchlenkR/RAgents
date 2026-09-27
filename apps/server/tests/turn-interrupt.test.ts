@@ -5,7 +5,7 @@ import test from "node:test";
 import { Journal, LiveBus, Orchestration, TurnScheduler, runtimeMethods } from "@ragents/engine";
 import { runContracts } from "@ragents/engine/src/http/contracts";
 import { catalog, deferred, executionFor, FakeDriver, noUsage, registryOf, testServices } from "../../../packages/ragents/tests/support.ts";
-import { applyEvent, type ChatEvent, type Message } from "../src/chat-events.ts";
+import { applyEvent, type ChatEvent, type Message } from "quassel/events";
 import type { Engine } from "../src/ragents/engine.ts";
 import { RunChatSession } from "../src/ragents/session.ts";
 import { methodContext } from "./rpc-fixture.ts";

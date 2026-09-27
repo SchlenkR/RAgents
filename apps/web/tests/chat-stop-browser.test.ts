@@ -18,7 +18,8 @@ test("a chat's stop interrupts only the running turn of its own actor, and a sto
     stdin: { resolveDir: root, loader: "tsx", contents: `
 import React from 'react';
 import {createRoot} from 'react-dom/client';
-import {ChatInputToolbar} from './apps/web/src/chat/ChatInputToolbar';
+import {ChatInputToolbar} from 'quassel';
+import {QuasselHost} from './apps/web/src/chat/QuasselHost';
 import {primaryChatState} from './apps/web/src/chat/chat-target';
 import {interruptActorTurn} from './apps/web/src/api';
 import {ActorChatControls} from './plugins/ragents.orchestration/web/ActorChatControls';
@@ -36,14 +37,14 @@ function Actor({run,id,lifecycle,presentation='surface'}) {
   const view={id:run,primaryActorId:'coordinator',ownerId:'owner',actors:[actor],inputs:[],turns:[],artifacts:[]};
   return <section aria-label={run+'/'+id}><ActorChatControls actor={actor} view={view} composerVisible running presentation={presentation}/></section>;
 }
-createRoot(document.getElementById('root')).render(<>
+createRoot(document.getElementById('root')).render(<QuasselHost>
   <RunChat name="run-chat" view={runView(running,idle)}/>
   <RunChat name="run-chat-worker-busy" view={runView(idle,running)}/>
   <Actor run="run-a" id="implementer" lifecycle={running}/>
   <Actor run="run-b" id="implementer" lifecycle={running} presentation="inspector"/>
   <Actor run="run-a" id="waiting" lifecycle={idle}/>
   <Actor run="run-a" id="stopped" lifecycle={{kind:'stopped',stoppedAt:'now',reason:'Versehentlich gestoppt'}} presentation="panel"/>
-</>);
+</QuasselHost>);
 ` },
     outfile: `${directory}/fixture.js`, bundle: true, platform: "browser", format: "iife", jsx: "automatic",
     define: { "process.env.NODE_ENV": '"production"' }, plugins: [tailwindPlugin([`${root}apps/web/src/chat`])], logLevel: "silent",

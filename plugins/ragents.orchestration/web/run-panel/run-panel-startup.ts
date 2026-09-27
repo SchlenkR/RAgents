@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Message } from "@ragents/web/chat/types";
+import type { Message } from "quassel/events";
 import type { SurfaceStartupState } from "../surface-startup";
 
 /** So lange überbrückt der Ladezustand eine beendete Arbeit, bis die Run-Ansicht dem Startstatus nachgezogen hat. */

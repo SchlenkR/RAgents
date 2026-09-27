@@ -1,4 +1,4 @@
-import type { Message } from "./chat/types";
+import type { Message } from "quassel/events";
 import { withToolSummaries } from "./toolLine";
 import { runTurnOutputs, type RunActor, type RunActorInput, type RunView } from "./run-view";
 

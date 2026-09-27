@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { Markdown } from "../src/chat/Markdown.tsx";
-import { ChatMessages } from "../src/chat/ChatMessages.tsx";
-import { applyEvent } from "../src/chat/types.ts";
+import { Markdown, ChatMessages, applyEvent } from "quassel";
+import { QuasselHost } from "../src/chat/QuasselHost";
 
-const renderMarkdown = (text: string, streaming = false) => renderToStaticMarkup(createElement(Markdown, { text, streaming }));
+const renderMarkdown = (text: string, streaming = false) =>
+  renderToStaticMarkup(createElement(QuasselHost, null, createElement(Markdown, { text, streaming })));
 
 test("Markdown rendert Trennlinien, verschachtelte Listen und GFM-Tabellen", () => {
   const html = renderMarkdown("Vorher\n\n---\n\n1. Außen\n   - Innen\n\n| Name | Wert |\n| --- | --- |\n| Test | 42 |");

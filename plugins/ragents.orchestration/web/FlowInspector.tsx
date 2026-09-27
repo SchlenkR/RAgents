@@ -4,7 +4,7 @@ import { Badge, Button, Empty, EmptyDescription, EmptyHeader, EmptyTitle, Input,
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { ActorChat } from "./ActorChat";
 import { ActorChatControls } from "./ActorChatControls";
-import type { Message } from "@ragents/web/chat/types";
+import type { Message } from "quassel/events";
 import {
   isPendingRunActorInput,
   runArtifactContentUrl,

@@ -1,8 +1,7 @@
 import { useAccess } from "@ragents/web/AccessContext";
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@ragents/web/ui";
 import { useCallback, useMemo } from "react";
-import { ChatMessages } from "@ragents/web/chat/ChatMessages";
-import type { Message } from "@ragents/web/chat/types";
+import { ChatMessages, type Message } from "quassel";
 import { useActionRenderer, useToolRenderer } from "@ragents/web/PluginRegistry";
 import { useChatViewSettings } from "@ragents/web/chat-view-settings";
 import { actorChatMessages } from "@ragents/web/actor-conversation";

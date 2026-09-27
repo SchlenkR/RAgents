@@ -2,8 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement, type ComponentProps } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ChatMessages } from "../src/chat/ChatMessages.tsx";
-import type { Message } from "../src/chat/types.ts";
+import { ChatMessages, type Message } from "quassel";
 
 const messages: Message[] = [
   { key: "question", role: "user", text: "Meine Frage", sender: "owner", at: "2026-09-22T14:05:00Z" },
@@ -127,10 +126,10 @@ test("bubble options expose alignment, width and resolved sender labels", () => 
 
 test("chat typography keeps numeric line height unitless and numeric gaps in pixels", () => {
   const html = render({ appearance: { fontSize: 18, lineHeight: 1.8, messageGap: 24, denseMessageGap: "0.75rem" } });
-  assert.match(html, /--chat-font-size:18px/);
-  assert.match(html, /--chat-line-height:1.8(?:;|")/);
-  assert.match(html, /--chat-message-gap:24px/);
-  assert.match(html, /--chat-dense-message-gap:0.75rem/);
+  assert.match(html, /--qsl-chat-font-size:18px/);
+  assert.match(html, /--qsl-chat-line-height:1.8(?:;|")/);
+  assert.match(html, /--qsl-chat-message-gap:24px/);
+  assert.match(html, /--qsl-chat-dense-message-gap:0.75rem/);
 });
 
 test("code block settings leave inline code alone and offer optional block copying", () => {

@@ -4,7 +4,7 @@ import { runPanelActors, elementNeedsAttention, partitionRunPanelActors, pending
 import { chatLayoutFor, clampChatWidth, DEFAULT_RUN_PANEL_STATE, parseRunPanelState } from "../../../plugins/ragents.orchestration/web/run-panel/run-panel-state.ts";
 import { DEFAULT_RUN_PANEL_SETTINGS, parseRunPanelSettings } from "../../../plugins/ragents.orchestration/web/run-panel/run-panel-settings.ts";
 import { sheetStatus } from "../../../plugins/ragents.orchestration/web/run-panel/sheet-status.ts";
-import type { Message } from "../../../apps/web/src/chat/types.ts";
+import type { Message } from "quassel/events";
 import type { RunActor, RunView } from "../src/run-view.ts";
 
 const at = "2026-09-17T10:00:00Z";

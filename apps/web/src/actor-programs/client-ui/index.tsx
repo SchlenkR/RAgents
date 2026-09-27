@@ -1,9 +1,7 @@
-import { useCallback, useSyncExternalStore } from "react";
+import { useCallback, useSyncExternalStore, type ComponentProps } from "react";
 import { cn } from "../../ui";
-import { ChatPanel } from "../../chat/ChatPanel";
-import { ChatMessages } from "../../chat/ChatMessages";
-import { ChatInputToolbar } from "../../chat/ChatInputToolbar";
-import { Markdown } from "../../chat/Markdown";
+import { ChatPanel, ChatMessages as QuasselChatMessages, ChatInputToolbar, Markdown as QuasselMarkdown } from "quassel";
+import { QuasselHost } from "../../chat/QuasselHost";
 import type { ActorChatProps, ChatAttachmentInput, ChatConnection, ChatInputProps, ChatProps, ControlledChatProps } from "./contracts";
 
 export * from "../../ui";
@@ -26,11 +24,19 @@ const emptyMessages: never[] = [];
 
 const chatDisplay = "flex h-full min-h-0 w-full min-w-0 flex-col text-foreground";
 
+function ChatMessages(props: ComponentProps<typeof QuasselChatMessages>) {
+  return <QuasselHost><QuasselChatMessages {...props} /></QuasselHost>;
+}
+
+function Markdown(props: ComponentProps<typeof QuasselMarkdown>) {
+  return <QuasselHost><QuasselMarkdown {...props} /></QuasselHost>;
+}
+
 function ChatInput({ onSend, placeholder, ...props }: ChatInputProps) {
-  return <ChatInputToolbar {...props} onSend={onSend} texts={placeholder === undefined ? undefined : {
+  return <QuasselHost><ChatInputToolbar {...props} onSend={onSend} texts={placeholder === undefined ? undefined : {
     placeholder,
     steeringPlaceholder: placeholder,
-  }} />;
+  }} /></QuasselHost>;
 }
 
 function ChatView({ title, showInput = true, onSend, placeholder, rows = 2, maxRows = 6,
@@ -39,7 +45,7 @@ function ChatView({ title, showInput = true, onSend, placeholder, rows = 2, maxR
     <section aria-label={title ?? "Chat"} className={cn(chatDisplay, "[&_[data-chat=composer]]:px-3 [&_[data-chat=composer]]:pb-3", className)}>
       {title && <h2 className="px-4 pt-3 pb-1 text-[14px] font-semibold">{title}</h2>}
       {error && <p className="px-4 py-3 text-[13px] text-destructive" role="alert">{error}</p>}
-      <ChatPanel className="flex-1" composer={showInput && onSend ? <ChatInput
+      <QuasselHost><ChatPanel className="flex-1" composer={showInput && onSend ? <ChatInput
         attachmentCapabilities={attachmentCapabilities}
         attachmentCapabilitiesError={attachmentCapabilitiesError}
         disabled={disabled}
@@ -49,8 +55,8 @@ function ChatView({ title, showInput = true, onSend, placeholder, rows = 2, maxR
         rows={rows}
         running={messages.running}
       /> : undefined}>
-        <ChatMessages {...messages} />
-      </ChatPanel>
+        <QuasselChatMessages {...messages} />
+      </ChatPanel></QuasselHost>
     </section>
   );
 }

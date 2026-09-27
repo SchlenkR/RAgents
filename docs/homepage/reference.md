@@ -5543,155 +5543,6 @@ export declare function useAppState(): Readonly<AppState>;
 
 Einstieg: apps/web/src/actor-programs/client-ui/contracts.d.ts. Alle lokal referenzierten Typdateien folgen automatisch; Deklarationen aus Implementierungsdateien erzeugt TypeScript. Externe Standardtypen wie React und DOM gehören zu ihren Bibliotheken. Im App-Paket stehen diese Bausteine als @ragents/client/ui zum regulären Import bereit; context und useAppState werden aus @ragents/client importiert.
 
-#### apps/server/src/chat-events.d.ts
-
-```typescript
-export type Role = "user" | "assistant" | "thinking" | "tool" | "system" | "action";
-export interface ChatAttachmentInput {
-    name: string;
-    mediaType: string;
-    data: string;
-}
-export interface ChatAttachment {
-    name: string;
-    mediaType: string;
-    size: number;
-    url: string;
-}
-export interface ChatAttachmentCapabilities {
-    input: readonly string[];
-    model: string;
-}
-export interface ToolInfo {
-    id: string;
-    name: string;
-    arguments: string;
-    result?: string;
-    isError?: boolean;
-}
-export interface ChatTextCursor {
-    conversationId: string;
-    sequence: number;
-    /** Accumulated non-whitespace UTF-16 units in the turn anchored by sequence. */
-    offset: number;
-}
-export interface ChatJournalCursor {
-    conversationId: string;
-    eventId: string;
-    sequence: number;
-}
-/**
- * Eine Aktion, die auf eine Eingabe des Benutzers wartet. Form und Inhalt von `payload` und
- * `result` gehören dem Plugin in `owner`; `status` gesetzt heißt: erledigt, die Karte ist Beleg.
- */
-export interface PendingAction {
-    actionId: string;
-    owner: string | null;
-    payload: unknown;
-    status?: "approved" | "dismissed";
-    result?: unknown;
-}
-export interface Message {
-    key: string;
-    role: Role;
-    /** Absenderkennung für die Darstellung; unabhängig von Rolle und Sprechblasenlabel. */
-    sender?: string;
-    text: string;
-    textCursor?: ChatTextCursor;
-    closed?: boolean;
-    attachments?: ChatAttachment[];
-    tool?: ToolInfo;
-    action?: PendingAction;
-    /** ISO-Zeitpunkt der Nachricht; Anzeige optional (ChatMessages showTimestamps). */
-    at?: string;
-    /** Der ActorInput hinter einer eingehenden Nachricht; an ihm hängt die Steering-Markierung. */
-    inputId?: string;
-    /** Die Nachricht ist in einen schon laufenden Turn eingespeist worden, statt einen eigenen zu beginnen. */
-    steered?: boolean;
-    /** Farbige Sprechblase statt Fliesstext, z.B. fuer Mehrparteien-Gespraeche. */
-    bubble?: {
-        color: string;
-        side: "start" | "end";
-        label?: string;
-    };
-}
-export interface ChatStartupStatus {
-    status: "preparing" | "failed";
-    message: string;
-}
-export type ChatEvent = {
-    kind: "reset";
-    reason?: "conversation-reset";
-    conversationId: string | null;
-} | {
-    kind: "replay-end";
-    conversationId: string | null;
-} | {
-    kind: "user";
-    text: string;
-    inputId?: string;
-    at?: string;
-    attachments?: ChatAttachment[];
-} | {
-    kind: "steered";
-    inputId: string;
-} | {
-    kind: "text";
-    delta: string;
-    at?: string;
-    cursor: ChatTextCursor;
-} | {
-    kind: "thinking";
-    delta: string;
-    at?: string;
-} | {
-    kind: "tool";
-    id: string;
-    name: string;
-    arguments: string;
-    label?: string;
-    at?: string;
-} | {
-    kind: "tool-result";
-    id: string;
-    result: string;
-    isError?: boolean;
-} | {
-    kind: "action";
-    actionId: string;
-    owner: string | null;
-    text: string;
-    payload: unknown;
-    at?: string;
-} | {
-    kind: "action-resolved";
-    actionId: string;
-    status: "approved" | "dismissed";
-    result: unknown;
-} | {
-    kind: "system";
-    text: string;
-    at?: string;
-} | {
-    kind: "status";
-    running: boolean;
-    startup?: ChatStartupStatus;
-} | {
-    kind: "turn-done";
-} | {
-    kind: "plugin";
-    pluginId: string;
-    type: string;
-    payload?: unknown;
-    at?: string;
-    journal?: ChatJournalCursor;
-};
-/** Eingehende Nachrichten lassen den laufenden Ausgabeblock offen. */
-export declare function applyEvent(messages: Message[], event: ChatEvent): Message[];
-export declare function prettyJson(value: string): string;
-export declare function compactToolLine(tool: ToolInfo): string;
-```
-
 #### apps/server/src/plugin-support/actor-programs/workflow/index.d.ts
 
 ```typescript
@@ -5776,11 +5627,80 @@ export declare function workflowInstructions(definition: WorkflowDefinition, rol
 export declare function workflowGraph(definition: WorkflowDefinition, state: WorkflowState): WorkflowGraph;
 ```
 
+#### apps/web/src/actor-programs/client-ui/chat-contracts.d.ts
+
+```typescript
+export type Role = "user" | "assistant" | "thinking" | "tool" | "system" | "action";
+
+export interface ChatAttachmentInput {
+  name: string;
+  mediaType: string;
+  data: string;
+}
+
+export interface ChatAttachment {
+  name: string;
+  mediaType: string;
+  size: number;
+  url: string;
+}
+
+export interface ChatAttachmentCapabilities {
+  input: readonly string[];
+  model: string;
+}
+
+export interface ToolInfo {
+  id: string;
+  name: string;
+  arguments: string;
+  result?: string;
+  isError?: boolean;
+}
+
+export interface ChatTextCursor {
+  conversationId: string;
+  sequence: number;
+  /** Accumulated non-whitespace UTF-16 units in the turn anchored by sequence. */
+  offset: number;
+}
+
+/** An action waiting for input from the user; payload and result belong to the plugin in owner, a set status marks it done. */
+export interface PendingAction {
+  actionId: string;
+  owner: string | null;
+  payload: unknown;
+  status?: "approved" | "dismissed";
+  result?: unknown;
+}
+
+export interface Message {
+  key: string;
+  role: Role;
+  /** Sender identity for the display, independent of role and bubble label. */
+  sender?: string;
+  text: string;
+  textCursor?: ChatTextCursor;
+  closed?: boolean;
+  attachments?: ChatAttachment[];
+  tool?: ToolInfo;
+  action?: PendingAction;
+  /** ISO time of the message, shown with showTimestamps. */
+  at?: string;
+  /** The actor input behind an incoming message; the steering mark belongs to it. */
+  inputId?: string;
+  /** The message went into a turn that was already running instead of starting its own. */
+  steered?: boolean;
+  /** A colored bubble instead of plain text, for example in conversations of several parties. */
+  bubble?: { color: string; side: "start" | "end"; label?: string };
+}
+```
+
 #### apps/web/src/actor-programs/client-ui/contracts.d.ts
 
 ```typescript
 import type { ReactElement, ReactNode } from "react";
-import type { ChatAttachment, ChatAttachmentCapabilities, ChatAttachmentInput, Message } from "../../../../server/src/chat-events";
+import type { ChatAttachment, ChatAttachmentCapabilities, ChatAttachmentInput, Message } from "./chat-contracts";
 
 export * from "../../ui";
 export * from "./file-contracts";
@@ -6006,7 +5926,7 @@ export declare function Grid(props: GridProps): ReactElement;
 
 ```typescript
 import type { ReactElement, ReactNode } from "react";
-import type { ChatAttachment } from "../../../../server/src/chat-events";
+import type { ChatAttachment } from "./chat-contracts";
 
 export interface MessageListItem {
   /** Stable key within this list. */

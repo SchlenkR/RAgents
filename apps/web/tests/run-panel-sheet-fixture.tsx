@@ -3,10 +3,9 @@ import { OrchestrationRunPanel } from "../../../plugins/ragents.orchestration/we
 import type { RunView } from "../src/run-view";
 import { createBrowserHost, RunPanelHostProvider } from "../src/run-panel/host";
 import type { SessionContext } from "../src/PluginRegistry";
-import { ChatPanel } from "../src/chat/ChatPanel";
-import { ChatInputToolbar } from "../src/chat/ChatInputToolbar";
-import { ChatMessages } from "../src/chat/ChatMessages";
+import { ChatPanel, ChatInputToolbar, ChatMessages } from "quassel";
 import "../src/ui/tailwind.css";
+import { QuasselHost } from "../src/chat/QuasselHost";
 
 const runId = new URLSearchParams(location.search).get("run") ?? "sheet-a";
 const at = "2026-09-22T10:00:00Z";
@@ -26,7 +25,7 @@ const session: SessionContext = {
 };
 const host = createBrowserHost(window);
 
-createRoot(document.getElementById("root")!).render(<RunPanelHostProvider value={host}>
+createRoot(document.getElementById("root")!).render(<QuasselHost><RunPanelHostProvider value={host}>
   <OrchestrationRunPanel
     surfaceElements={[{ id: "mini", order: 0, select: () => [{ id: "mini", title: "Bühne" }], Element: () => <button id="stage-button" className="m-8 self-start">Mini-App bedienen</button> }]}
     cardSections={[]} navigation={{ activeTabId: "", openTab() {}, revealEntity: () => false, selectionFor: () => undefined }}
@@ -37,4 +36,4 @@ createRoot(document.getElementById("root")!).render(<RunPanelHostProvider value=
       <ChatMessages messages={session.messages} scrollerRef={options.chatScrollerRef} />
     </ChatPanel>}
   />
-</RunPanelHostProvider>);
+</RunPanelHostProvider></QuasselHost>);

@@ -3,8 +3,7 @@ import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogH
 import { RunModalContext } from "@ragents/web/ui/dialog";
 import { XIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChatMessages } from "@ragents/web/chat/ChatMessages";
-import { ChatInputToolbar, type ChatInputHandle } from "@ragents/web/chat/ChatInputToolbar";
+import { ChatMessages, ChatInputToolbar, type ChatInputHandle, type ChatEvent } from "quassel";
 import { useChat } from "@ragents/web/chat/useChat";
 import { useAttachmentCapabilities } from "@ragents/web/chat/useAttachmentCapabilities";
 import { ChatStepsProvider, type OverviewPanelContext, type WebPlugin } from "@ragents/web/PluginRegistry";
@@ -14,7 +13,6 @@ import { rpc } from "@ragents/web/rpc";
 import { interruptActorTurn } from "@ragents/web/api";
 import { runContracts } from "@ragents/engine/src/http/contracts";
 import { runViewFrom } from "@ragents/web/run-view";
-import type { ChatEvent } from "@ragents/host/chat-events";
 import { OVERSEER_PLUGIN_ID, overseerContracts } from "../contract";
 import { ModelSettings, useModelSettings } from "./ModelSettings";
 import { overseerChatDisplayPolicy, overseerChatStorageKeyPrefix } from "./chat-display";
@@ -218,7 +216,7 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
       {!writable && <p className={noteClass}>Du hast Lesezugriff auf dieses Gespräch.</p>}
       {connectionNote && <p className={noteClass} role="status">{connectionNote}</p>}
       {error && <p className={errorClass} role="alert">{error}</p>}
-      <ChatMessages announceMessages={false} className="min-h-16 flex-1" scrollerRef={setScroller}
+      <ChatMessages announce={false} className="min-h-16! flex-1" scrollerRef={setScroller}
         detailMode={chatView.detailMode}
         emptyState={<div className="m-auto max-w-[480px] p-8 text-[0.9rem] leading-[1.6] text-muted-foreground max-md:p-5"><strong className="text-foreground">Ein Chat für die gesamte Werkstatt</strong><p>Schreibe deinen Auftrag oben in die Titelleiste. Hier erscheinen Antworten zu deinen Runs und laufenden Arbeiten.</p></div>}
         messages={messages} running={chat.running} showTimestamps={chatView.showTimestamps} stepsExpandable={chatView.stepsExpandable}

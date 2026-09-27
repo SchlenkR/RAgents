@@ -144,8 +144,6 @@ export const eventResultSchemaOf = (...types: readonly EventType[]): TSchema => 
     });
 };
 
-export const eventResultSchema: TSchema = eventResultSchemaOf(...Object.keys(eventPayloads) as EventType[]);
-
 const pickedBySchema = (schema: TSchema, value: JsonValue): JsonValue => {
     const properties = (schema as { properties?: Record<string, TSchema> }).properties;
 

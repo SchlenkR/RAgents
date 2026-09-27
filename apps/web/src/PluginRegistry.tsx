@@ -10,11 +10,9 @@ import {
 } from "react";
 import { useAccess } from "./AccessContext";
 import { unrestrictedAccess, type AccessContext } from "../../../packages/ragents/src/access";
-import { DETAIL_MODES } from "./chat/DetailModeSwitch";
-import type { ChatAttachmentInput, DetailMode, Message, PendingAction, ToolInfo } from "./chat/types";
+import { DETAIL_MODES, type ChatAttachmentInput, type DetailMode, type Message, type PendingAction, type ToolInfo, type ChatStartupStatus } from "quassel";
 import type { SessionInfo } from "./api";
 import type { ChatUserLocation } from "../../server/src/chat-context";
-import type { ChatStartupStatus } from "../../server/src/chat-events";
 import { CHAT_STEP_SCOPES, type ChatStepScope } from "../../server/src/plugin-support/chat-display-contract";
 import type { StartOptionState } from "../../server/src/plugin-support/start-options-contract";
 import type { OfferedMachines } from "./offered-machines";

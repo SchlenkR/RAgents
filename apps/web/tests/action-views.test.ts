@@ -2,9 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ChatMessages } from "../src/chat/ChatMessages.tsx";
+import { ChatMessages, applyEvent, type Message, type PendingAction } from "quassel";
 import { PluginRegistry, type SessionContext, type WebPlugin } from "../src/PluginRegistry.tsx";
-import { applyEvent, type Message, type PendingAction } from "../src/chat/types.ts";
 
 const waiting = (owner: string | null): Message[] => applyEvent([], {
   kind: "action", actionId: "action-1", owner, text: "Welche Farbe?",

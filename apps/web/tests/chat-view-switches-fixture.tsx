@@ -10,11 +10,12 @@ import { AccessContext } from "../src/AccessContext";
 import type { PluginActivationState } from "../src/PluginActivation";
 import { ChatStepsProvider, defaultChatDisplayPolicy, PluginRegistry, type SessionContext, type SkillStartEntry } from "../src/PluginRegistry";
 import { RunPreparationChat } from "../src/RunPreparationChat";
-import type { Message } from "../src/chat/types";
+import type { Message } from "quassel/events";
 import { RunPanelApp } from "../src/run-panel/RunPanelApp";
 import { RunPanelHostProvider, type RunPanelHost } from "../src/run-panel/host";
 import type { RunActor, RunView } from "../src/run-view";
 import "../src/ui/tailwind.css";
+import { QuasselHost } from "../src/chat/QuasselHost";
 
 type Subscription = { id: string; runId?: string; message: (event: unknown) => void };
 const subscriptions = new Set<Subscription>();
@@ -110,10 +111,10 @@ function Parts() {
   </ChatStepsProvider>;
 }
 
-createRoot(document.getElementById("root")!).render(<AccessContext.Provider value={{ ...access, logout: async () => {} }}>
+createRoot(document.getElementById("root")!).render(<QuasselHost><AccessContext.Provider value={{ ...access, logout: async () => {} }}>
   {new URLSearchParams(location.search).get("mode") === "parts"
     ? <Parts />
     : <RunPanelHostProvider value={host}>
       <RunPanelApp location={{ layout: "panel", runId: "demo", host: "vscode", connection: "lokal", theme: undefined, access: undefined }} />
     </RunPanelHostProvider>}
-</AccessContext.Provider>);
+</AccessContext.Provider></QuasselHost>);

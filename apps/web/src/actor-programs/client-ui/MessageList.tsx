@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import { cn } from "../../ui";
-import { ChatMessages } from "../../chat/ChatMessages";
-import type { Message } from "../../../../server/src/chat-events";
+import { ChatMessages, type Message } from "quassel";
+import { QuasselHost } from "../../chat/QuasselHost";
 import type { MessageListProps } from "./message-list-contracts";
 
 const hues = [212, 158, 28, 283, 350, 190, 95, 320, 55, 245];
@@ -24,7 +24,7 @@ export function MessageList({ messages, label = "Messages", className, ...props 
   })), [messages]);
   return (
     <section aria-label={label} className={cn("flex h-full min-h-0 w-full min-w-0 flex-col text-foreground", className)}>
-      <ChatMessages {...props} detailMode="off" messages={rendered} />
+      <QuasselHost><ChatMessages {...props} detailMode="off" messages={rendered} /></QuasselHost>
     </section>
   );
 }

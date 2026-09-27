@@ -1,5 +1,5 @@
 import { coreContracts } from "@ragents/host/api/contracts";
-import type { ChatAttachmentInput } from "../../../server/src/chat-events";
+import type { ChatAttachmentInput } from "quassel/events";
 import type { ChatUserLocation } from "../../../server/src/chat-context";
 import type { StartEntry } from "../../../server/src/plugin-support/start-entries-contract";
 import { preparedRunInput } from "../../../server/src/run-preparation-input";
