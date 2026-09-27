@@ -263,7 +263,7 @@ Neugenerierung veraltete Referenzen nicht verdeckt; die Prüfungen des Pakets la
 das Paket das gebaute Web trägt. Die Referenz komponiert das Profil `showcase` aus den eingebauten
 Bundles und verlangt, dass sie zu ihren Quellen passen.
 Alle Skripte wechseln in die Repository-Wurzel und brechen beim ersten Fehler ab.
-`.vscode/tasks.json` bietet dafür drei Tasks: `build` (Standard), `check` und `open: homepage`.
+`.vscode/tasks.json` bietet dafür drei Tasks: `RAgents: build` (Standard), `RAgents: check` und `RAgents: homepage öffnen`.
 Die Tasks enthalten nur Skriptaufrufe. Bestehende pnpm-Befehle für Teilbuilds und Einzelprüfungen
 bleiben ohne zusätzliche Wrapper-Skripte verfügbar. Die Bedienung steht in `docs/development.md`.
 

@@ -466,9 +466,9 @@ Arbeitsverzeichnis starten; sie benötigen Bash und das installierte pnpm.
 
 | Task | Skript | Zweck |
 | --- | --- | --- |
-| `build` | `build/build.sh` | Agentenlaufzeit, eingebaute Plugins, Web und Homepage bauen |
-| `check` | `build/check.sh` | Vollständige Projektprüfung einschließlich Homepage |
-| `open: homepage` | `build/homepage.sh --open` | Homepage bauen und im Standardbrowser öffnen (macOS) |
+| `RAgents: build` | `build/build.sh` | Agentenlaufzeit, eingebaute Plugins, Web und Homepage bauen |
+| `RAgents: check` | `build/check.sh` | Vollständige Projektprüfung einschließlich Homepage |
+| `RAgents: homepage öffnen` | `build/homepage.sh --open` | Homepage bauen und im Standardbrowser öffnen (macOS) |
 
 `pnpm build`, `pnpm check` und `pnpm open:homepage` verwenden dieselben Abläufe.
 `pnpm generate:homepage` ruft `build/homepage.sh` ohne Option auf, `pnpm check:homepage`
@@ -664,7 +664,7 @@ den Grund dazu. `vsce` selbst kommt über `pnpm dlx @vscode/vsce@4.0.0`, die Fas
 `scripts/vscode/publish-extension.ts`. Die Fassung der Erweiterung steht in
 `apps/vscode/package.json` und hängt nicht an der `version` der Wurzel, die dem npm-Paket gehört;
 von Hand ist sie nur für eine neue Minor- oder Major-Fassung zu ändern. `pnpm package:vscode` packt
-ohne Token und rührt die Fassung nicht an. Der Task `publish: all` (`pnpm publish:all`)
+ohne Token und rührt die Fassung nicht an. `pnpm publish:all`
 veröffentlicht erst das Paket und danach die Erweiterung und bricht beim ersten Fehler ab. Was in die `.vsix` geht, steht in `apps/vscode/.vscodeignore`: `dist/`
 (ohne Sourcemaps und Testläufer), `media/`, `package.json`, `README.md`, `CHANGELOG.md` und die
 `LICENSE`.
@@ -694,7 +694,7 @@ damit dieselbe Quelle.
 
 Einrichtung zum Entwickeln:
 
-1. `scripts/start-vscode.sh core` (auch ein anderes Profil oder eine Serveradresse; Task `vscode: start`)
+1. `scripts/start-vscode.sh core` (auch ein anderes Profil oder eine Serveradresse)
    startet bei Bedarf den Server, baut die Erweiterung und startet eine eigene VS-Code-Instanz mit
    ihr und dem Repo als Ordner, mit einem Eintrag für diesen Server;
    Layout und Anmeldung dieser Instanz bleiben unter `~/.local/share/ragents/vscode`. Alternativ F5
@@ -756,10 +756,8 @@ Umgebung des `npm`-Kindprozesses; er steht in keiner Datei und in keiner Ausgabe
 bricht der Aufruf ab. Abgelehnt wird weiterhin eine Fassung, die auf npm schon liegt - nach dem
 Hochzählen kann das nicht mehr passieren, die Prüfung bleibt trotzdem stehen. Nach dem Publish
 nennt das Script die veröffentlichte Fassung; die Registrierung braucht danach noch ein paar
-Sekunden, bis sie sie ausliefert und anzeigt. Die VS-Code-Tasks `package: build` und
-`package: publish` rufen dieselben Skripte, `publish: all` (`pnpm publish:all`) veröffentlicht
-Paket und Erweiterung nacheinander und bricht beim ersten Fehler ab; `npm_key` kommt dort aus der
-Umgebung von VS Code.
+Sekunden, bis sie sie ausliefert und anzeigt. `pnpm publish:all` veröffentlicht Paket und
+Erweiterung nacheinander und bricht beim ersten Fehler ab.
 
 ### Echte Browserprobe
 
@@ -908,8 +906,7 @@ So dokumentierst du deine Arbeit:
 
 ### Arbeiten
 
-- Lokaler Server: Der Owner startet ihn SELBST über die VS-Code-Tasks oder `scripts/start.sh
-  <profil>`. Keine Hintergrundinstanz starten, Laufzeitdaten nur auf Ansage anfassen. Belegte
+- Lokaler Server: Der Owner startet ihn SELBST über `scripts/start.sh <profil>`. Keine Hintergrundinstanz starten, Laufzeitdaten nur auf Ansage anfassen. Belegte
   Ports brechen den Start ab; keine Ersatzports suchen oder andere Instanzen beenden. Nach
   Web-Änderungen `pnpm build:web` und "Neustart nötig" sagen; Serveränderungen greifen erst
   nach Neustart. Ausnahme: Dateien, die der Server je Aufruf als `new Worker(...)` lädt (etwa

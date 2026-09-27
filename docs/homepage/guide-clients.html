@@ -205,10 +205,10 @@ The status bar shows the number of connected servers and opens the start page wh
 the root <code>README.md</code> for details.</p>
 <p>Install the extension from the Marketplace as <code>purestate.ragents-vscode</code> using &quot;Extensions:
 Install Extension&quot; or <code>code --install-extension purestate.ragents-vscode</code>. To install a locally
-packaged file, run <code>pnpm package:vscode</code> (task <code>vscode: package</code>), which builds
+packaged file, run <code>pnpm package:vscode</code>, which builds
 <code>dist/ragents-vscode-&lt;version&gt;.vsix</code>, then use &quot;Extensions: Install from VSIX&quot; or
-<code>code --install-extension dist/ragents-vscode-&lt;version&gt;.vsix --force</code>. The <code>vscode: install</code>
-task (<code>scripts/vscode/install-local.sh</code>) performs both steps, rebuilds the built-in plugins, and
+<code>code --install-extension dist/ragents-vscode-&lt;version&gt;.vsix --force</code>. <code>scripts/vscode/install-local.sh</code>
+performs both steps, rebuilds the built-in plugins, and
 rebuilds the web interface if it no longer matches its sources, so that hosts from this checkout
 start again. The script then restarts manually launched
 servers (<code>scripts/start.sh</code>, identified by <code>RAGENTS_LAUNCH=start.sh</code> in their environment, with logs under

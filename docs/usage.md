@@ -591,10 +591,10 @@ the root `README.md` for details.
 
 Install the extension from the Marketplace as `purestate.ragents-vscode` using "Extensions:
 Install Extension" or `code --install-extension purestate.ragents-vscode`. To install a locally
-packaged file, run `pnpm package:vscode` (task `vscode: package`), which builds
+packaged file, run `pnpm package:vscode`, which builds
 `dist/ragents-vscode-<version>.vsix`, then use "Extensions: Install from VSIX" or
-`code --install-extension dist/ragents-vscode-<version>.vsix --force`. The `vscode: install`
-task (`scripts/vscode/install-local.sh`) performs both steps, rebuilds the built-in plugins, and
+`code --install-extension dist/ragents-vscode-<version>.vsix --force`. `scripts/vscode/install-local.sh`
+performs both steps, rebuilds the built-in plugins, and
 rebuilds the web interface if it no longer matches its sources, so that hosts from this checkout
 start again. The script then restarts manually launched
 servers (`scripts/start.sh`, identified by `RAGENTS_LAUNCH=start.sh` in their environment, with logs under
