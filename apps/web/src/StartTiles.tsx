@@ -6,7 +6,7 @@ const NEW_CHAT = { category: "Ohne Vorlage", title: "Neuer Chat", description: "
 
 const sectionClass = "flex items-baseline gap-2 text-[0.66rem] font-bold uppercase tracking-[0.06em] text-muted-foreground";
 const countClass = "font-mono text-[0.62rem] font-normal tracking-normal opacity-80";
-const tileClass = "group/tile flex h-full min-w-0 flex-col gap-1.5 rounded-[12px] border border-border-soft bg-card p-2.5 text-left [--tone:var(--primary)]"
+const tileClass = "group/tile flex h-full w-full min-w-0 flex-col gap-1.5 rounded-[12px] border border-border-soft bg-card p-2.5 text-left [--tone:var(--primary)]"
   + " enabled:hover:border-border enabled:hover:bg-accent/40 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring/60 disabled:opacity-60";
 const entryIcon = (entry: ConnectionEntry): ReactNode => entry.kind === "skill"
   ? <BookIcon aria-hidden className="size-3.5" />
