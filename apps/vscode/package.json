@@ -240,6 +240,13 @@
             "patternErrorMessage": "Erlaubt sind Buchstaben, Ziffern und _, nicht mit einer Ziffer am Anfang."
           }
         },
+        "ragents.zoom": {
+          "type": "number",
+          "default": 100,
+          "minimum": 50,
+          "maximum": 200,
+          "description": "Size of the entire RAgents interface in percent, including chat and mini-apps. Changes apply immediately."
+        },
         "ragents.theme": {
           "type": "string",
           "enum": [

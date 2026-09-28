@@ -116,3 +116,12 @@ test("bricht der Benutzer die Eingabe ab, bleibt der Name in der Einstellung und
   assert.deepEqual(flow.steps, ["einstellung SERVICE_TOKEN", "frage SERVICE_TOKEN"]);
   assert.equal(flow.stored.size, 0);
 });
+
+test("zoom accepts percentages between 50 and 200 and rejects invalid settings", async () => {
+  const { parseZoomSetting, ZOOM_MAX, ZOOM_MIN } = await import("../src/settings");
+  const { readFileSync } = await import("node:fs");
+  const schema = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).contributes.configuration.properties["ragents.zoom"];
+  assert.deepEqual([schema.minimum, schema.maximum], [ZOOM_MIN, ZOOM_MAX]);
+  for (const zoom of [50, 90, 100, 112.5, 125, 200]) assert.equal(parseZoomSetting(zoom), zoom);
+  for (const zoom of [undefined, null, "100", false, 49, 201, NaN, Infinity]) assert.throws(() => parseZoomSetting(zoom), /ragents\.zoom/);
+});

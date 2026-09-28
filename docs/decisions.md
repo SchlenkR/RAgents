@@ -1,5 +1,22 @@
 # Entscheidungen
 
+## Eigener Gesamtzoom für VS Code (27.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (VS-Code-Hülle), `docs/usage.md` (Run panel and VS Code extension).
+
+**Warum so.** Die Oberfläche kann bei unverändertem VS-Code-Fensterzoom zu groß wirken.
+Eine reine Schriftgrößenänderung verkleinert weder Abstände noch Bedienelemente und Mini-Apps.
+
+**Festlegung.** `ragents.zoom` skaliert die gesamte RAgents-Oberfläche in VS Code als Prozentwert
+von 50 bis 200, mit Standard 100. CSS-Zoom sitzt ausschließlich an der äußersten Webview-Hülle;
+verschachtelte Frames erben die Darstellung, ohne den Faktor erneut anzuwenden. Eine eigene
+Host-Nachricht aktualisiert offene Ansichten ohne Neuladen, damit Eingaben und Mini-App-Zustand
+erhalten bleiben. Der Browser und VS Codes Fenster-, Editor- und Chat-Schrifteinstellungen
+werden nicht verändert. Ein ungültiger Wert ist ein harter Fehler, der sichtbar bleibt: jede
+Ansicht zeigt dann die Meldung statt ihres Inhalts, statt still mit 100 Prozent weiterzulaufen oder
+leer zu bleiben; die Grenzen stehen einmal als `ZOOM_MIN`/`ZOOM_MAX` in `settings.ts`, ein Test hält
+das Schema in `package.json` gleich.
+
 ## Modellkontext als Projektion des Journals, die Sitzungsschicht fällt weg (27.09.2026)
 
 Kapitel: `docs/spec/core.md` (Laufzeitgrenze, Model context across turns, Modellkontext und

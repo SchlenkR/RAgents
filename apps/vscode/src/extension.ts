@@ -12,7 +12,7 @@ import { bundledBash, ensureHostPackage, hostCommand, inheritedEnvironment, pack
 import { connectedCount, connectionView, newRunChoices, panelState, pendingActions, preselectable, resolveConnection, type NewRunChoice } from "./overview-model";
 import type { ServerClient } from "./server-client";
 import { ConnectionSession, type ConnectionSnapshot, type LaunchedConnection, type SessionServices } from "./sessions";
-import { hostEnvironmentSecretKey, isEnvironmentName, missingHostEnvironmentSecrets, parseHostEnvironment, parseThemeSetting, provideMissingSecret, resolveTheme, withHostEnvironmentSecrets, withRelaySession } from "./settings";
+import { hostEnvironmentSecretKey, isEnvironmentName, missingHostEnvironmentSecrets, parseHostEnvironment, parseThemeSetting, parseZoomSetting, provideMissingSecret, resolveTheme, withHostEnvironmentSecrets, withRelaySession } from "./settings";
 import { connectionState, kindLabel } from "../../web/src/panel/connection-state";
 import { connectionStateWord } from "../../web/src/ui/state-vocabulary";
 import type { PanelAction, PanelActionMessage, PanelPage, PanelState } from "../../web/src/panel/contract";
@@ -59,6 +59,8 @@ const workspaceFolders = (): string[] => (vscode.workspace.workspaceFolders ?? [
 
 const configuredConnections = (): Connection[] => parseConnections(vscode.workspace.getConfiguration("ragents").get("connections"));
 
+const configuredZoom = () => parseZoomSetting(vscode.workspace.getConfiguration("ragents").get("zoom", 100));
+
 const configuredTheme = () => parseThemeSetting(vscode.workspace.getConfiguration("ragents").get("theme"));
 
 const sameConnection = (left: Connection, right: Connection): boolean =>
@@ -103,6 +105,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
   };
 
   const bridge = {
+    zoom: configuredZoom,
     frame: frameFor,
     selection: () => selection,
     panel: () => panelState({
@@ -700,6 +703,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       panels.post({ type: "theme", theme });
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration("ragents.zoom")) {
+        panel.zoomChanged();
+        panels.zoomChanged();
+      }
       if (event.affectsConfiguration("ragents.theme")) rerender();
       if (event.affectsConfiguration("ragents.connections")) void syncConnections();
       if (event.affectsConfiguration("ragents.hostPath") && [...sessions.values()].some((session) => session.host)) {

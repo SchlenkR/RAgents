@@ -2481,6 +2481,14 @@ die Bitte an den Host (`AccessGate` mit eigenem `Login`). Die Mini-App-Frames er
 Vorfahren neben der eigenen Herkunft die Webviews von VS Code (`https://*.vscode-cdn.net`,
 `vscode-file:`, `vscode-webview:`).
 
+Die VS-Code-Hülle skaliert ihre gesamte Oberfläche mit `ragents.zoom` (50 bis 200 Prozent,
+Standard 100), unabhängig vom Fensterzoom und den Schriftgrößeneinstellungen von VS Code.
+Die Skalierung gilt einmal an der äußersten Hülle, auch für verschachtelte Mini-Apps. Start,
+Runs, Server, Run-Panel und Mini-App-Editor-Reiter übernehmen Änderungen per Host-Nachricht
+ohne Neuladen und behalten ihren Zustand. Normale Browserseiten bleiben unverändert. Ein Wert
+außerhalb der Grenzen ist ein Fehler: jede Ansicht zeigt statt ihres Inhalts die Meldung und baut
+sich neu auf, sobald die Einstellung wieder gültig ist.
+
 Die VS-Code-Erweiterung unter `apps/vscode` ist ein solcher Host, und zwar für mehrere Server
 zugleich: jeder konfigurierte **Server** (ein RAgents-Server per Adresse oder ein lokales Profil) hat
 seine eigene Sitzung mit Verbindung, Runs, Vorlagen und Arbeitsplatz. "Server" ist der Name in jedem

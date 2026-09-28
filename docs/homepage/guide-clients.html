@@ -296,6 +296,13 @@ to nested hosted mini-app frames. Text entry, selection, undo, and clipboard act
 the input field. Dictation tools that paste their result, such as HEX, use the same input path.
 Keys already handled by the chat or mini-app are not also executed as VS Code commands.
 In a regular browser, native keyboard and clipboard behavior remains in use.</p>
+<p>To make RAgents smaller or larger independently of VS Code&#39;s window zoom, set <code>ragents.zoom</code>
+in VS Code Settings. The value is a percentage from 50 to 200, with 100 as the default;
+for example, <code>&quot;ragents.zoom&quot;: 90</code> makes the whole interface 10% smaller. It applies to Start,
+Runs, Server, the run panel, and mini-app editor tabs, including nested mini-apps. Changes take
+effect immediately without reloading the page or losing input drafts. Regular browser pages
+are unaffected. This scales text, controls, and spacing together; it is independent of
+<code>editor.fontSize</code> and the built-in chat font settings.</p>
 <p>If a server profile requires users, both the lock on Start and the Server row open the
 same sign-in dialog. For a profile with <code>ACCESS_TOKEN</code>, the dialog requests that token. User name
 and password are stored per server address in VS Code SecretStorage and reused silently next

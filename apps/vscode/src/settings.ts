@@ -20,6 +20,14 @@ export const parseThemeSetting = (value: unknown): ThemeSetting => {
   throw new Error(`ragents.theme muss auto, light oder dark sein, nicht ${JSON.stringify(value)}`);
 };
 
+export const ZOOM_MIN = 50;
+export const ZOOM_MAX = 200;
+
+export const parseZoomSetting = (value: unknown): number => {
+  if (typeof value === "number" && Number.isFinite(value) && value >= ZOOM_MIN && value <= ZOOM_MAX) return value;
+  throw new Error(`ragents.zoom must be between ${ZOOM_MIN} and ${ZOOM_MAX} percent, not ${JSON.stringify(value)}`);
+};
+
 export const resolveTheme = (setting: ThemeSetting, editorTheme: RunPanelTheme): RunPanelTheme => setting === "auto" ? editorTheme : setting;
 
 export const tokenSecretKey = (serverUrl: string): string => `ragents.access-token:${serverUrl}`;

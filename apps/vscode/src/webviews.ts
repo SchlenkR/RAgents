@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import * as vscode from "vscode";
 import { isRunPanelHostMessage, type RunPanelHostMessage, type RunPanelTheme, type HostRunPanelMessage } from "../../web/src/run-panel/host-contract";
 import { isPanelActionMessage, type PanelActionMessage, type PanelState } from "../../web/src/panel/contract";
-import { frameHtml, panelHtml } from "./webview-html";
+import { errorHtml, frameHtml, panelHtml } from "./webview-html";
 
 export interface FrameSettings {
   serverUrl: string;
@@ -11,6 +11,7 @@ export interface FrameSettings {
 }
 
 export interface WebviewBridge {
+  zoom(): number;
   /** Adresse, Darstellung und Token eines Servers; nur eine verbundene Sitzung liefert sie. */
   frame(connection: string): FrameSettings | undefined;
   /** Was das Panel zeigt: der Run eines Servers, sonst die Panelseite. */
@@ -23,9 +24,13 @@ export interface WebviewBridge {
 const PANEL_TITLE = "RAgents";
 
 /** Was das Panel nach dem Zeichnen zeigt; ein behaltenes iframe braucht seine Befehle als Nachricht. */
-export type PanelRendering = "page" | "frame-kept" | "frame-created";
+export type PanelRendering = "page" | "frame-kept" | "frame-created" | "error";
 
 const nonce = () => randomBytes(16).toString("base64");
+
+const zoomOf = (bridge: WebviewBridge): { zoom: number } | { error: string } => {
+  try { return { zoom: bridge.zoom() }; } catch (cause) { return { error: cause instanceof Error ? cause.message : String(cause) }; }
+};
 
 const relay = (webview: vscode.Webview, bridge: WebviewBridge, connection: () => string | undefined): vscode.Disposable =>
   webview.onDidReceiveMessage((message: unknown) => {
@@ -39,6 +44,7 @@ const relay = (webview: vscode.Webview, bridge: WebviewBridge, connection: () =>
 export class PanelView implements vscode.WebviewViewProvider {
   #view: vscode.WebviewView | undefined;
   #showsPage = false;
+  #showsError = false;
   #frameKey: string | undefined;
 
   constructor(private readonly bridge: WebviewBridge, private readonly extensionUri: vscode.Uri) {}
@@ -60,10 +66,19 @@ export class PanelView implements vscode.WebviewViewProvider {
   render(): PanelRendering {
     const view = this.#view;
     if (!view) return "page";
+    const zoom = zoomOf(this.bridge);
+    if ("error" in zoom) {
+      this.#showsPage = false;
+      this.#frameKey = undefined;
+      this.#showsError = true;
+      view.webview.html = errorHtml({ nonce: nonce(), title: PANEL_TITLE, message: zoom.error });
+      return "error";
+    }
+    this.#showsError = false;
     const selection = this.bridge.selection();
     const frame = selection ? this.bridge.frame(selection.connection) : undefined;
     if (!selection || !frame) {
-      this.#renderPage(view);
+      this.#renderPage(view, zoom.zoom);
       return "page";
     }
     const key = `${selection.connection}|${frame.serverUrl}|${frame.theme}|${frame.accessToken ?? ""}`;
@@ -75,11 +90,12 @@ export class PanelView implements vscode.WebviewViewProvider {
       query: { run: selection.runId, host: "vscode", connection: selection.connection, theme: frame.theme, access: frame.accessToken },
       nonce: nonce(),
       title: PANEL_TITLE,
+      zoom: zoom.zoom,
     });
     return "frame-created";
   }
 
-  #renderPage(view: vscode.WebviewView): void {
+  #renderPage(view: vscode.WebviewView, zoom: number): void {
     const state = this.bridge.panel();
     if (this.#showsPage) {
       void view.webview.postMessage({ type: "ragents.panel.state", state });
@@ -89,7 +105,13 @@ export class PanelView implements vscode.WebviewViewProvider {
     this.#frameKey = undefined;
     const webview = view.webview;
     const asset = (name: string) => webview.asWebviewUri(vscode.Uri.joinPath(this.extensionUri, "dist/webview", name)).toString();
-    webview.html = panelHtml({ nonce: nonce(), title: PANEL_TITLE, state, scriptUri: asset("panel.js"), styleUri: asset("panel.css"), cspSource: webview.cspSource });
+    webview.html = panelHtml({ nonce: nonce(), title: PANEL_TITLE, state, zoom, scriptUri: asset("panel.js"), styleUri: asset("panel.css"), cspSource: webview.cspSource });
+  }
+
+  zoomChanged(): void {
+    const zoom = zoomOf(this.bridge);
+    if (this.#showsError || "error" in zoom) this.render();
+    else void this.#view?.webview.postMessage({ type: "ragents.zoom", zoom: zoom.zoom });
   }
 
   post(message: HostRunPanelMessage): void {
@@ -114,6 +136,7 @@ interface OpenPanel {
   runId: string;
   elementId: string;
   title: string;
+  showsError: boolean;
 }
 
 /** Eine Mini-App als Editor-Reiter; ein Panel je (Server, Run, Element), erneutes Öffnen holt es nach vorn. */
@@ -138,7 +161,7 @@ export class AppPanels {
       retainContextWhenHidden: true,
       localResourceRoots: [],
     });
-    const entry: OpenPanel = { panel, connection, runId, elementId, title };
+    const entry: OpenPanel = { panel, connection, runId, elementId, title, showsError: false };
     this.#panels.set(key, entry);
     const subscription = relay(panel.webview, this.bridge, () => connection);
     panel.onDidDispose(() => {
@@ -163,6 +186,14 @@ export class AppPanels {
     for (const entry of this.#panels.values()) this.#render(entry);
   }
 
+  zoomChanged(): void {
+    const zoom = zoomOf(this.bridge);
+    for (const entry of this.#panels.values()) {
+      if (entry.showsError || "error" in zoom) this.#render(entry);
+      else void entry.panel.webview.postMessage({ type: "ragents.zoom", zoom: zoom.zoom });
+    }
+  }
+
   post(message: HostRunPanelMessage): void {
     for (const entry of this.#panels.values()) void entry.panel.webview.postMessage(message);
   }
@@ -174,11 +205,18 @@ export class AppPanels {
   #render(entry: OpenPanel): void {
     const frame = this.bridge.frame(entry.connection);
     if (!frame) return;
+    const zoom = zoomOf(this.bridge);
+    entry.showsError = "error" in zoom;
+    if ("error" in zoom) {
+      entry.panel.webview.html = errorHtml({ nonce: nonce(), title: entry.title, message: zoom.error });
+      return;
+    }
     entry.panel.webview.html = frameHtml({
       serverUrl: frame.serverUrl,
       query: { layout: "app", run: entry.runId, element: entry.elementId, host: "vscode", connection: entry.connection, theme: frame.theme, access: frame.accessToken },
       nonce: nonce(),
       title: entry.title,
+      zoom: zoom.zoom,
     });
   }
 }

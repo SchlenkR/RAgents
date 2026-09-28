@@ -697,6 +697,14 @@ the input field. Dictation tools that paste their result, such as HEX, use the s
 Keys already handled by the chat or mini-app are not also executed as VS Code commands.
 In a regular browser, native keyboard and clipboard behavior remains in use.
 
+To make RAgents smaller or larger independently of VS Code's window zoom, set `ragents.zoom`
+in VS Code Settings. The value is a percentage from 50 to 200, with 100 as the default;
+for example, `"ragents.zoom": 90` makes the whole interface 10% smaller. It applies to Start,
+Runs, Server, the run panel, and mini-app editor tabs, including nested mini-apps. Changes take
+effect immediately without reloading the page or losing input drafts. Regular browser pages
+are unaffected. This scales text, controls, and spacing together; it is independent of
+`editor.fontSize` and the built-in chat font settings.
+
 If a server profile requires users, both the lock on Start and the Server row open the
 same sign-in dialog. For a profile with `ACCESS_TOKEN`, the dialog requests that token. User name
 and password are stored per server address in VS Code SecretStorage and reused silently next
@@ -709,6 +717,8 @@ After expiry or a server restart, that server asks for sign-in again without aff
 ## Einstellungen und Verhalten der VS-Code-Erweiterung
 
 - `ragents.theme` (`auto`, `light`, `dark`) wirkt sofort.
+- `ragents.zoom` (50 bis 200 Prozent, Standard 100) skaliert die gesamte Oberfläche einschließlich
+   Mini-Apps sofort, ohne Seiten neu zu laden. Der Fensterzoom von VS Code bleibt unverändert.
 - `ragents.hostEnvironment` führt die Namen der Umgebungsvariablen, die ein lokal gestarteter
    Host zusätzlich zur geerbten Umgebung bekommt. In der Einstellung stehen nur Namen; die Werte
    legt der Befehl "RAgents: Secret setzen" in die SecretStorage von VS Code, "RAgents: Secret

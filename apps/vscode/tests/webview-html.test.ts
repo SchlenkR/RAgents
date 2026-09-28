@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { runPanelPageUrl, isClipboardRunPanelMessage, isRunPanelClipboardMessage, isRunPanelHostMessage, isHostRunPanelMessage } from "../../web/src/run-panel/host-contract";
-import { frameHtml, panelHtml } from "../src/webview-html";
+import { errorHtml, frameHtml, panelHtml } from "../src/webview-html";
 import { parseServerUrl, parseThemeSetting, resolveTheme } from "../src/settings";
 
 test("the webview hull frames run-panel.html of the server with a strict CSP and relays messages by origin", () => {
@@ -75,4 +75,21 @@ test("the panel page loads the built web page from the extension and embeds the 
   assert.match(html, /<script type="application\/json" id="state">\{"theme":"dark"/);
   assert.match(html, /core \\u003clokal>/);
   assert.doesNotMatch(html, /iframe|frame-src/);
+});
+
+test("zoom is applied only by the outer hull and validates the initial setting", () => {
+  const options = { serverUrl: "http://localhost:4710", query: { host: "vscode" as const }, nonce: "zoom", title: "RAgents", zoom: 125 };
+  const html = frameHtml(options);
+  assert.match(html, /--ragents-zoom:1\.25/);
+  assert.match(html, /zoom:var\(--ragents-zoom\)/);
+  assert.match(html, /height:100%;width:100%/);
+  assert.match(html, /event\.data\?\.type !== "ragents.zoom"/);
+  assert.throws(() => frameHtml({ ...options, zoom: 0 }), /ragents\.zoom/);
+});
+
+test("an invalid setting shows its error instead of an empty view", () => {
+  const html = errorHtml({ nonce: "n0nce", title: "RAgents", message: "ragents.zoom must be between 50 and 200 percent, not 300 <b>" });
+  assert.match(html, /RAgents: ragents\.zoom must be between 50 and 200 percent, not 300 &lt;b&gt;/);
+  assert.match(html, /default-src 'none'/);
+  assert.doesNotMatch(html, /<script|<iframe/);
 });
