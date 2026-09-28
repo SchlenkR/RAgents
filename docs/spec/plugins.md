@@ -239,6 +239,18 @@ Der serverseitige `PluginHost` hat Registries für:
 - benannte Fachoperationen mit Eingabeschema, Operator-Policy und gemeinsamer Ausführung für
   mehrere Oberflächen
 - Rollen und Promptteile
+- eine Laufbedingung je Plugin (`host.runCondition(condition)`): eine synchrone Funktion der
+  Run-Id, die das Plugin liefert; der Kern kennt dabei weder Produkt noch Werkzeug. Trifft sie für
+  einen Run nicht zu, fehlen dort die laufbezogenen Beiträge des Plugins ganz: seine Promptteile
+  (auch Kapitel auf Anfrage und ein gewählter Systemprompt, den es anmeldet), seine Funktionen
+  nativ und in `context.functions`, seine Skills samt denen aus seinem `skills/`-Ordner und seine
+  Agent-Hooks. Dienste, Methoden, Kanäle, Auslieferungsrouten, Startoptionen, Vorlagen,
+  Lebenszyklus, Run-Metadaten, Web-Hälfte und Profilkatalog bleiben. Der Host fragt die
+  Bedingung bei jeder Promptkomposition und bei jeder Auflösung von Werkzeugen, Skills und Hooks
+  eines Runs; sie liest deshalb einen gespeicherten Entscheid, statt ihn zu ermitteln. Wirft sie,
+  scheitert der Turn mit dieser Ursache, und der Run bleibt gesperrt, bis sie wieder antwortet.
+  Ein Plugin ohne Bedingung gilt in jedem Run; eine zweite Anmeldung ist ein Registrierungsfehler
+  (`RunConditionRegistry` in `packages/ragents/src/plugin-host.ts`)
 - Methoden und Kanäle der Nachrichtenschicht (`host.methods`, `host.channels`, Abschnitt
   Nachrichtenschicht) sowie Auslieferungsrouten (`host.http`) für Dateien und Frames
 - öffentliche Client-Konfiguration; darüber publizieren die Produkt-Plugins auch
@@ -399,7 +411,10 @@ gilt `initial`; der Helfer `boundToTools` setzt werkzeuggebundene Beiträge stan
 `on-demand`. Kurze Hinweise können ausdrücklich initial bleiben, etwa die Mini-App-Einführung,
 der Dokumenthinweis und die Regeln des Arbeitsbereichs. Die Bindung prüft die tatsächlich verfügbaren Funktionen. Worker erhalten ebenfalls passende gebundene Initialhinweise.
 Lange Detailkapitel werden nur auf Anfrage gerendert und nicht in spätere Systemprompts
-übernommen. Die Actor-SDK-Typen verwenden die aktuellen Funktionsverträge; die endgültige Buildprüfung
+übernommen. Was je Run anders lautet oder fehlt (`renderForRun`, Laufbedingung des Plugins), gilt
+für jede Auslieferung gleich: im Systemprompt des Koordinators, in den gebundenen Initialhinweisen
+der Worker, in den Kapiteln auf Anfrage und für den Promptteil der gewählten Systemprompts, dessen
+Text der Koordinator bekommt und mit `shareWithAgents` auch jeder Worker. Die Actor-SDK-Typen verwenden die aktuellen Funktionsverträge; die endgültige Buildprüfung
 grenzt sie anhand des Programms und seines Actors ein.
 Mini-Apps liefern ihre vollständige Anleitung separat über `actor_program_controls` mit `topic: "guide"`.
 
@@ -490,7 +505,8 @@ dem Bundle-Ordner jedes komponierten Plugins (`pluginFolder(id)` in
 `plugin-support/plugin-folder.ts`, angewandt in `profile/compose.ts`). Ein fehlender Asset-Ordner ist kein Fehler; ein vorhandener mit kaputtem
 Inhalt bleibt ein harter Fehler. Meldet ein Plugin dieselbe Vorlage oder denselben Skill-Pfad
 zusätzlich ausdrücklich an - etwa weil es dabei eine Zielgruppe setzt -, gewinnt die
-ausdrückliche Anmeldung und der Konventionsbeitrag entfällt.
+ausdrückliche Anmeldung und der Konventionsbeitrag entfällt, und zwar in jedem Run: lässt der
+ausdrückliche Beitrag den Pfad für einen Run weg, kommt er dort nicht über den Ordner zurück.
 Assets und Code kommen aus demselben Bundle-Ordner, der den Quellordner spiegelt, sodass ein
 Plugin vollständig in seinem Verzeichnis lebt.
 
@@ -2975,7 +2991,8 @@ GNU-Werkzeugen; `git`, `dotnet` und `node` sind die Windows-Programme des Rechne
 Windows-Pfade; CRLF); eine unbekannte Plattform ist
 ein Fehler, kein Ratetext. Genannt wird die Plattform des Executors, der den Run ausführt: auf dem
 Server die des Servers, auf einem Arbeitsplatz die, die er bei der Anmeldung gemeldet hat. Dafür darf ein Prompt-Beitrag ein `renderForRun(runId)` mitbringen; der Server
-ersetzt damit den einmal gerenderten Text je Run (`PromptContribution`,
+ersetzt damit den einmal gerenderten Text je Run, ein leerer Text lässt den Beitrag dort weg,
+`undefined` behält den gerenderten (`PromptContribution`,
 `PromptContributionRegistry.runOverrides`). Ist der gebundene Arbeitsplatz gerade nicht
 angemeldet, nennt der Beitrag genau das, statt eine Plattform zu raten. Der Executor im Server
 leitet `HOME` je Run um, damit Werkzeuge nur dort schreiben; unter Windows geht `USERPROFILE`

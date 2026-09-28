@@ -271,32 +271,39 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     });
   const boundToTools = (entry: PublicPromptContribution, toolNames: readonly string[]): boolean =>
     entry.requiresTools.some((name) => toolNames.includes(name));
-  /** Ein Beitrag darf je Run anders lauten, etwa die Shell-Plattform des Executors, der den Run ausführt. */
-  const contentFor = (runId: string | null): ((entry: PublicPromptContribution) => string) => {
+  /** Ein Beitrag darf je Run anders lauten oder fehlen, etwa die Shell-Plattform des Executors oder ein Plugin, dessen Laufbedingung nicht zutrifft; das gilt auch für die gewählten Systemprompts. */
+  const contentFor = (runId: string | null, texts: () => readonly string[]): ((entry: PublicPromptContribution) => string) => {
     const overrides = runId === null ? undefined : options.plugins.prompts.runOverrides(runId);
-    return (entry) => overrides?.get(entry.id) ?? entry.content;
+    return (entry) => overrides?.get(entry.id)
+      ?? (systemPromptSelectionPromptIds.has(entry.id) ? texts().join("\n\n") : entry.content);
   };
   const composeWith = (runId: string | null, texts: readonly string[], toolNames: readonly string[] | null): string => {
-    const content = contentFor(runId);
+    const content = contentFor(runId, () => texts);
     return baseSnapshot
       .contributions
       .filter((entry) => entry.delivery === "initial")
       .filter((entry) => toolNames === null || entry.requiresTools.length === 0 || boundToTools(entry, toolNames))
-      .map((entry) => systemPromptSelectionPromptIds.has(entry.id) ? texts.join("\n\n") : content(entry))
+      .map(content)
       .filter(Boolean)
       .join("\n\n");
   };
-  const chaptersFor = async (toolNames: readonly string[]): Promise<string> => {
+  const chaptersFor = async (runId: string, toolNames: readonly string[]): Promise<string> => {
     const chapters = await options.plugins.prompts.describe({
     }, { delivery: "on-demand", toolNames });
-    return chapters.map((entry) => entry.content).filter(Boolean).join("\n\n");
+    const content = contentFor(runId, () => []);
+    return chapters.map(content).filter(Boolean).join("\n\n");
   };
   const systemPromptFor = (runId: string): string => globalChat?.isCoordinator(runId)
     ? globalChat.prompt : composeWith(runId, textsFor(runId), null);
   const coordinatorPromptFor = (runId: string, toolNames: readonly string[]): string =>
     composeWith(runId, textsFor(runId), toolNames);
-  const agentPromptFor = (runId: string): string =>
-    storedSystemPrompt(journal.stateOf(runId)).shareWithAgents ? textsFor(runId).join("\n\n") : "";
+  const selectionPrompts = baseSnapshot.contributions.filter((entry) => systemPromptSelectionPromptIds.has(entry.id));
+  const agentPromptFor = (runId: string): string => {
+    if (!storedSystemPrompt(journal.stateOf(runId)).shareWithAgents) return "";
+    if (selectionPrompts.length === 0) return textsFor(runId).join("\n\n");
+    const content = contentFor(runId, () => textsFor(runId));
+    return selectionPrompts.map(content).filter(Boolean).join("\n\n");
+  };
   const systemPrompt = composeWith(
     null,
     selectedSystemPrompts(promptCatalog, promptCatalog.defaultIds).map((option) => optionTexts.get(option.id) ?? ""),
@@ -309,7 +316,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
       : [agentPromptFor(runId), actor.kind === "agent" ? actor.prompt : "",
           ...baseSnapshot.contributions
             .filter((entry) => entry.delivery === "initial" && boundToTools(entry, toolNames))
-            .map(contentFor(runId)),
+            .map(contentFor(runId, () => textsFor(runId))),
         ].filter(Boolean).join("\n\n");
     return [prompt, productRuntime.contract(role), outputContractFor(role)]
       .filter(Boolean)
@@ -331,7 +338,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     ...(workspaceToolNaming ? { workspaceToolNaming } : {}),
     basePrompt: basePromptFor,
     contract: (actor) => coreContractFor(actor),
-    toolChapters: (_runId, _actor, toolNames) => chaptersFor(toolNames),
+    toolChapters: (runId, _actor, toolNames) => chaptersFor(runId, toolNames),
     onError: (error) => console.error(`Turn fehlgeschlagen: ${error instanceof Error ? error.stack ?? error.message : String(error)}`),
   });
   const stopExternal: RunStopBoundary = (runId, stopJournal) => scheduler.haltRun(runId, async (

@@ -277,9 +277,12 @@ export interface PromptContribution {
   delivery?: "initial" | "on-demand";
   requiresTools?: readonly string[];
   render: (context: PromptRenderContext) => string | Promise<string>;
-  /** Hängt der Beitrag am einzelnen Run, ersetzt dieser Text den von `render` - synchron, damit der Turn ihn ohne Warten hat. */
-  renderForRun?: (runId: string) => string;
+  /** Hängt der Beitrag am einzelnen Run, ersetzt dieser Text den von `render`, undefined behält ihn - synchron, damit der Turn ihn ohne Warten hat. */
+  renderForRun?: (runId: string) => string | undefined;
 }
+
+/** Ob die laufbezogenen Beiträge eines Plugins in einem Run gelten; der Host fragt je Run, ein Wurf lässt dessen Turn mit dieser Ursache scheitern. */
+export type RunCondition = (runId: string) => boolean;
 
 export type ModelProviderConfig = Parameters<ModelRuntime["registerProvider"]>[1];
 
@@ -420,6 +423,8 @@ export interface PluginRegistration {
   agentRuntime: (...contributions: readonly AgentContribution[]) => void;
   profiles: (...contributions: readonly ProfileContribution[]) => void;
   prompts: (...contributions: readonly PromptContribution[]) => void;
+  /** Prompts, Funktionen, Skills und Agent-Hooks dieses Plugins gelten nur in Runs, für die die Bedingung zutrifft; höchstens eine je Plugin. */
+  runCondition: (condition: RunCondition) => void;
   provide: <T>(token: ServiceToken<T>, service: T) => void;
   service: <T>(token: ServiceToken<T>) => T;
   optionalService: <T>(token: ServiceToken<T>) => T | undefined;

@@ -1,5 +1,41 @@
 # Entscheidungen
 
+## Laufbedingung je Plugin (28.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Registrierungen des PluginHost, Promptbeiträge und
+Orchestrierungsanleitung, Zuständigkeit je Facette, Arbeitsbereich mit `renderForRun`).
+
+**Warum so.** Ein Profil kann Fachplugins enthalten, deren Prompts, Funktionen und Skills nur für
+Runs in einem bestimmten Projekt gelten. Bindet ein Benutzer einen Run an einen fremden Ordner
+seines Arbeitsplatzes, bekam das Modell sie trotzdem und wandte die Fachregeln auf das fremde
+Projekt an. Die vorhandenen Wege deckten das nur je Facette und lückenhaft: `renderForRun` wirkte
+weder auf Kapitel auf Anfrage noch auf die gewählten Systemprompts, statische Werkzeugbeiträge
+kennen keine Bedingung je Run, und ein ausdrücklich angemeldeter Skill kam über den Ordner des
+Plugins zurück, sobald der ausdrückliche Beitrag ihn für einen Run wegließ. Eine eigene Prüfung
+in jedem Beitrag jedes Plugins vergisst beim nächsten Beitrag eine.
+
+**Festlegung.** `host.runCondition(condition)` hängt alle laufbezogenen Beiträge eines Plugins an
+eine synchrone Bedingung der Run-Id, die das Plugin liefert: Promptteile jeder Auslieferung,
+Funktionen, Skills samt Ordner-Skills und Agent-Hooks. Der Host wertet sie an den vier Stellen
+aus, an denen er diese Beiträge je Run auflöst (`PromptContributionRegistry.runOverrides`,
+`ToolRegistry.resolve` über `ToolContributor.runCondition`, `SkillContributionRegistry.describe`,
+`AgentContributionRegistry.resolve`); was den Run nicht betrifft, fehlt dort, statt als nicht
+verfügbar zu erscheinen. Ein Wurf der Bedingung lässt den Turn mit ihrer Ursache scheitern, damit
+ein unentschiedener Run nicht still mit oder ohne die Beiträge weiterläuft. Dazu gilt jede
+Ersetzung je Run überall gleich: in Kapiteln auf Anfrage, im Promptteil der gewählten
+Systemprompts (Koordinator und, mit `shareWithAgents`, Worker), und `renderForRun` darf
+`undefined` liefern, um den gerenderten Text zu behalten; so kann ein Produkt-Plugin, das nicht
+als Ganzes bedingt ist, einzelne Teile je Run weglassen. Ein ausdrücklich angemeldeter Skillpfad
+gehört in jedem Run dem ausdrücklichen Beitrag. Erster Nutzer sind die Fachplugins eines externen
+Profils, deren Beiträge nur in Runs gelten, die das Plugin beim Start als Runs seines Projekts
+erkennt und im Journal festhält.
+
+**Verworfen.** Die Bedingung in die Verfügbarkeit jeder Funktion zu legen (`available`):
+Deskriptor und Funktion müssten in jedem Plugin gleich umgebaut werden, und Promptteile, Skills
+und Hooks blieben offen. Die Bedingung je Beitrag statt je Plugin: mehr Anmeldestellen für
+dieselbe Aussage; wer innerhalb eines Plugins unterscheiden muss, nimmt `renderForRun` oder
+Skillpfade je Kontext.
+
 ## Eigener Gesamtzoom für VS Code (27.09.2026)
 
 Kapitel: `docs/spec/plugins.md` (VS-Code-Hülle), `docs/usage.md` (Run panel and VS Code extension).

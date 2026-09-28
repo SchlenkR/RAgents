@@ -41,6 +41,7 @@ import type {
   RAgentsPlugin,
   ServiceToken,
   RegisteredStartOption,
+  RunCondition,
   SessionLifecycleContribution,
   SessionMetadata,
   SessionStartedContext,
@@ -83,6 +84,24 @@ class ContributionRegistry<T extends { id: string }> {
 
   entries(): readonly Owned<T>[] {
     return this.#entries;
+  }
+}
+
+/** Die Laufbedingung je Plugin; ein Plugin ohne gilt in jedem Run. */
+export class RunConditionRegistry {
+  readonly #conditions = new Map<string, RunCondition>();
+
+  register(owner: string, condition: RunCondition): void {
+    if (this.#conditions.has(owner)) throw new Error(`Plugin ${owner} hat bereits eine Laufbedingung`);
+    this.#conditions.set(owner, condition);
+  }
+
+  has(owner: string): boolean {
+    return this.#conditions.has(owner);
+  }
+
+  applies(owner: string, runId: string): boolean {
+    return this.#conditions.get(owner)?.(runId) ?? true;
   }
 }
 
@@ -219,6 +238,11 @@ export class OperationContributionRegistry {
 
 export class AgentContributionRegistry {
   readonly #contributions = new ContributionRegistry<AgentContribution>("Agent-Beitrag");
+  readonly #conditions: RunConditionRegistry;
+
+  constructor(conditions = new RunConditionRegistry()) {
+    this.#conditions = conditions;
+  }
 
   register(owner: string, contributions: readonly AgentContribution[]): void {
     for (const contribution of contributions) {
@@ -230,7 +254,9 @@ export class AgentContributionRegistry {
   }
 
   resolve(context: AgentContributionContext): readonly AgentHook[] {
-    return this.#contributions.entries().map(({ value }) => agentHookOf(value, context));
+    return this.#contributions.entries()
+      .filter(({ owner }) => this.#conditions.applies(owner, context.runId))
+      .map(({ value }) => agentHookOf(value, context));
   }
 
   describe(): readonly PublicAgentHookContribution[] {
@@ -246,6 +272,11 @@ export class AgentContributionRegistry {
 
 export class ToolContributionRegistry {
   readonly #contributors: Owned<ToolContributor>[] = [];
+  readonly #conditions: RunConditionRegistry;
+
+  constructor(conditions = new RunConditionRegistry()) {
+    this.#conditions = conditions;
+  }
 
   register(owner: string, contributors: readonly ToolContributor[]): void {
     for (const contributor of contributors) {
@@ -278,7 +309,9 @@ export class ToolContributionRegistry {
   }
 
   entries(): readonly ToolContributor[] {
-    return this.#contributors.map(({ value }) => value);
+    return this.#contributors.map(({ owner, value }) => this.#conditions.has(owner)
+      ? { ...value, runCondition: (runId: string) => this.#conditions.applies(owner, runId) }
+      : value);
   }
 
   describe(): readonly PublicToolDescriptor[] {
@@ -295,6 +328,11 @@ export class ToolContributionRegistry {
 
 export class PromptContributionRegistry {
   readonly #prompts = new ContributionRegistry<PromptContribution>("Prompt-Beitrag");
+  readonly #conditions: RunConditionRegistry;
+
+  constructor(conditions = new RunConditionRegistry()) {
+    this.#conditions = conditions;
+  }
 
   register(owner: string, prompts: readonly PromptContribution[]): void {
     this.#prompts.register(owner, prompts);
@@ -330,10 +368,13 @@ export class PromptContributionRegistry {
     })));
   }
 
-  /** Die Beiträge, die für diesen Run anders lauten als im Schnappschuss; alles andere bleibt der gerenderte Text. */
+  /** Die Beiträge, die für diesen Run anders lauten als im Schnappschuss; ein leerer Text fehlt dort, alles andere bleibt der gerenderte Text. */
   runOverrides(runId: string): ReadonlyMap<string, string> {
-    return new Map([...this.#prompts.entries()].flatMap(({ value }) =>
-      value.renderForRun ? [[value.id, value.renderForRun(runId).trim()] as const] : []));
+    return new Map([...this.#prompts.entries()].flatMap(({ owner, value }) => {
+      if (!this.#conditions.applies(owner, runId)) return [[value.id, ""] as const];
+      const text = value.renderForRun?.(runId);
+      return text === undefined ? [] : [[value.id, text.trim()] as const];
+    }));
   }
 
   static handlebarsContext(context: PromptRenderContext): Record<string, unknown> {
@@ -343,6 +384,11 @@ export class PromptContributionRegistry {
 
 export class SkillContributionRegistry {
   readonly #skills = new ContributionRegistry<SkillContribution>("Skill-Beitrag");
+  readonly #conditions: RunConditionRegistry;
+
+  constructor(conditions = new RunConditionRegistry()) {
+    this.#conditions = conditions;
+  }
 
   register(owner: string, skills: readonly SkillContribution[]): void {
     for (const skill of skills) {
@@ -385,7 +431,7 @@ export class SkillContributionRegistry {
       id: value.id,
       owner,
       audiences: value.audiences ?? allAudiences,
-      paths: await value.paths(context),
+      paths: context && !this.#conditions.applies(owner, context.runId) ? [] : await value.paths(context),
     })));
   }
 }
@@ -1068,10 +1114,11 @@ export class PluginHost {
   readonly channels = new ChannelContributionRegistry();
   readonly http = new HttpContributionRegistry();
   readonly operations = new OperationContributionRegistry();
-  readonly agentRuntime = new AgentContributionRegistry();
-  readonly tools = new ToolContributionRegistry();
-  readonly prompts = new PromptContributionRegistry();
-  readonly skills = new SkillContributionRegistry();
+  readonly runConditions = new RunConditionRegistry();
+  readonly agentRuntime = new AgentContributionRegistry(this.runConditions);
+  readonly tools = new ToolContributionRegistry(this.runConditions);
+  readonly prompts = new PromptContributionRegistry(this.runConditions);
+  readonly skills = new SkillContributionRegistry(this.runConditions);
   readonly startEntries = new StartEntryContributionRegistry();
   readonly profiles = new ProfileContributionRegistry();
   readonly script = new ScriptContributionRegistry();
@@ -1121,6 +1168,7 @@ export class PluginHost {
       agentRuntime: (...entries) => this.agentRuntime.register(manifest.id, entries),
       profiles: (...entries) => this.profiles.register(manifest.id, entries),
       prompts: (...entries) => this.prompts.register(manifest.id, entries),
+      runCondition: (condition) => this.runConditions.register(manifest.id, condition),
       provide: (token, service) => this.#services.provide(manifest.id, token, service),
       service: (token) => this.#services.require(token),
       optionalService: (token) => this.#services.optional(token),

@@ -61,6 +61,35 @@ test("a plugin registers one typed function with generated descriptors and no na
     }
 });
 
+test("a plugin's run condition removes its functions from every run it does not apply to", async () => {
+    for (const applies of [true, false]) {
+        const setup = setupRun({ grants: allGrants(), toolNames: ["sum", "gated_sum"] });
+        try {
+            const host = hostWith(sum());
+            host.register({
+                manifest: { id: "test.gated" },
+                register: (registration) => {
+                    registration.functions(defineRunFunction({
+                        name: "gated_sum",
+                        label: "Gated sum",
+                        description: "Adds two numbers in some runs.",
+                        schema: Type.Object({ left: Type.Number(), right: Type.Number() }, { additionalProperties: false }),
+                        resultSchema: Type.Number(),
+                        available: () => true,
+                        run: (_scope, _id, input) => input.left + input.right,
+                    }));
+                    registration.runCondition((runId) => applies && runId === setup.view.id);
+                },
+            });
+            const toolset = await toolsetFor(setup, host);
+            assert.deepEqual(toolset.functions.map((entry) => entry.name), applies ? ["sum", "gated_sum"] : ["sum"]);
+            assert.ok(host.tools.describe().some((entry) => entry.name === "gated_sum"), "the profile catalog keeps the function");
+        } finally {
+            setup.journal.close();
+        }
+    }
+});
+
 test("an explicit native tool uses the same function implementation and journal replay", async () => {
     const setup = setupRun({ grants: allGrants(), toolNames: ["sum"] });
     try {

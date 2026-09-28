@@ -4,6 +4,7 @@ Eingang für alles, hier schreiben der Owner und die KI. Eine Zeile je Eintrag, 
 
 ## Offen
 
+- Laufbedingung je Plugin (28.09.2026): `ragents.workspace` lässt seine allgemeinen Regeln (kein entferntes Git, kein Netz aus `bash`) für das ganze Profil weg, sobald ein Beitrag eine eigene Art stellt, auch für Runs auf einem Arbeitsplatz-Ordner, deren Plugin-Beiträge per Laufbedingung fehlen; entscheiden, ob die Regeln je Run gelten sollen (etwa `renderForRun` nach der Platzierung), was dann auch die bisherigen Arbeitsplatz-Runs solcher Profile ändert.
 - Modellkontext aus dem Journal (27.09.2026): die Kompaktierung ist nur hostweit einstellbar (`AGENT_COMPACTION_RESERVE_TOKENS`, `AGENT_COMPACTION_KEEP_RECENT_TOKENS`); entscheiden, ob Rollen oder Profile eigene Werte brauchen, und dann über `AgentRuntimeManagerOptions.settings` je Actor.
 - Modellkontext aus dem Journal (27.09.2026): mit echten Modellen durchspielen (Kompaktierung mit kleinen Werten, Fork mitten im Turn, Bild vom Browser); Neustarts und Cache-Treffer über Werkzeugschleife und Turns sind mit Claude Haiku 4.5 gemessen (`docs/decisions.md`), die übrigen Tests laufen nur mit dem Faux-Anbieter.
 

@@ -74,8 +74,9 @@ export const withFolderAssets = (plugin: RAgentsPlugin): RAgentsPlugin => ({
     if (skillPaths.length === 0) return;
     host.skills({
       id: `${plugin.manifest.id}.folder-skills`,
+      // Ein ausdrücklich angemeldeter Pfad gehört in jedem Run dem ausdrücklichen Beitrag, auch wo der ihn für diesen Run weglässt.
       paths: async (context) => {
-        const explicit = await Promise.all(explicitSkills.map((skill) => skill.paths(context)));
+        const explicit = await Promise.all(explicitSkills.flatMap((skill) => [skill.paths(undefined), skill.paths(context)]));
         const taken = new Set(explicit.flat());
         return skillPaths.filter((skillPath) => !taken.has(skillPath));
       },

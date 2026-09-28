@@ -462,7 +462,26 @@ requiresTools bindet einen Promptteil an die tatsächlich verfügbaren Funktione
 
 Alternativ wird skills/<name>/SKILL.md aus dem Plugin-Ordner eingelesen. start: true mit title und category ergänzt eine Vorlage; prompt kann einen eigenen Startauftrag vorgeben, sonst wird der Body verwendet. Explizite Beiträge und automatisch geladene Ordner-Assets dürfen sich nicht unbeabsichtigt doppeln.
 
+renderForRun(runId) ersetzt den Text eines Promptteils für einen Run, ein leerer Text lässt ihn dort weg, undefined behält ihn; das gilt auch für die gewählten Systemprompts des Produkts und für Kapitel, die erst auf Anfrage kommen.
+
 Vertragsfelder: host.prompts, host.skills.
+
+### Beiträge nur in bestimmten Runs
+
+Ein Plugin kann seine Prompts, Funktionen, Skills und Agent-Hooks an eine Bedingung je Run hängen, etwa weil sie nur für Runs in einem bestimmten Projekt gelten. In allen anderen Runs fehlen sie, als gäbe es das Plugin dort nicht; Dienste, Methoden, Startoptionen und Web-Beiträge bleiben.
+
+Einsatzort: Innerhalb von register(host); die Menge füllt das Plugin selbst, etwa aus dem Journal.
+
+```typescript
+const domainRuns = new Set<string>();
+host.runCondition((runId) => domainRuns.has(runId));
+```
+
+Die Bedingung ist synchron und läuft bei jeder Promptkomposition, Werkzeug-, Skill- und Hook-Auflösung eines Runs. Sie liest einen im Journal gespeicherten Entscheid, statt ihn neu zu ermitteln.
+
+Wirft sie, scheitert der Turn des Runs mit dieser Ursache; so bleibt ein Run gesperrt, dessen Entscheid nicht ermittelt werden konnte. Höchstens eine Bedingung je Plugin.
+
+Vertragsfelder: host.runCondition.
 
 ### Skills und Run-Scripts als Vorlage
 
@@ -1658,6 +1677,8 @@ export interface PluginRegistration {
   agentRuntime: (...contributions: readonly AgentContribution[]) => void;
   profiles: (...contributions: readonly ProfileContribution[]) => void;
   prompts: (...contributions: readonly PromptContribution[]) => void;
+  /** Prompts, Funktionen, Skills und Agent-Hooks dieses Plugins gelten nur in Runs, für die die Bedingung zutrifft; höchstens eine je Plugin. */
+  runCondition: (condition: RunCondition) => void;
   provide: <T>(token: ServiceToken<T>, service: T) => void;
   service: <T>(token: ServiceToken<T>) => T;
   optionalService: <T>(token: ServiceToken<T>) => T | undefined;

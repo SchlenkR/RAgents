@@ -347,6 +347,13 @@ host.skills({
 });`, ["host.prompts", "host.skills"], [
     "requiresTools bindet einen Promptteil an die tatsächlich verfügbaren Funktionen. Ein Skill ist kein ausführbarer Actor und kein Plugin.",
     "Alternativ wird skills/<name>/SKILL.md aus dem Plugin-Ordner eingelesen. start: true mit title und category ergänzt eine Vorlage; prompt kann einen eigenen Startauftrag vorgeben, sonst wird der Body verwendet. Explizite Beiträge und automatisch geladene Ordner-Assets dürfen sich nicht unbeabsichtigt doppeln.",
+    "renderForRun(runId) ersetzt den Text eines Promptteils für einen Run, ein leerer Text lässt ihn dort weg, undefined behält ihn; das gilt auch für die gewählten Systemprompts des Produkts und für Kapitel, die erst auf Anfrage kommen.",
+  ]),
+  entry("run-condition", "Serverbeiträge", "Beiträge nur in bestimmten Runs", "Ein Plugin kann seine Prompts, Funktionen, Skills und Agent-Hooks an eine Bedingung je Run hängen, etwa weil sie nur für Runs in einem bestimmten Projekt gelten. In allen anderen Runs fehlen sie, als gäbe es das Plugin dort nicht; Dienste, Methoden, Startoptionen und Web-Beiträge bleiben.", "Innerhalb von register(host); die Menge füllt das Plugin selbst, etwa aus dem Journal.", `
+const domainRuns = new Set<string>();
+host.runCondition((runId) => domainRuns.has(runId));`, ["host.runCondition"], [
+    "Die Bedingung ist synchron und läuft bei jeder Promptkomposition, Werkzeug-, Skill- und Hook-Auflösung eines Runs. Sie liest einen im Journal gespeicherten Entscheid, statt ihn neu zu ermitteln.",
+    "Wirft sie, scheitert der Turn des Runs mit dieser Ursache; so bleibt ein Run gesperrt, dessen Entscheid nicht ermittelt werden konnte. Höchstens eine Bedingung je Plugin.",
   ]),
   entry("start-entries", "Serverbeiträge", "Skills und Run-Scripts als Vorlage", "Die Startseite bietet Vorlagen für einen neuen Run an. Ein Skill verbindet einen bearbeitbaren Startauftrag mit einer Arbeitsanleitung und optionalen Dateien. Ein Run-Script liefert einen programmierten Aufbau. Plugins melden beide Arten über denselben Vertrag an.", "Innerhalb von register(host); text-review ist ein registrierter Skill.", `
 host.startEntries({

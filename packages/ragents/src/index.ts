@@ -27,6 +27,7 @@ export {
     PluginHost,
     ProfileContributionRegistry,
     PromptContributionRegistry,
+    RunConditionRegistry,
     SessionMetadataContributionRegistry,
     SkillContributionRegistry,
     StartEntryContributionRegistry,

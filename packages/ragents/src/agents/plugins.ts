@@ -19,6 +19,8 @@ export type ToolContributor = {
     name: string;
     descriptors: readonly ToolDescriptor[];
     dynamic?: boolean;
+    /** Ob die Werkzeuge in einem Run gelten; ohne Angabe in jedem, sonst fehlen sie dort ganz. */
+    runCondition?: (runId: string) => boolean;
     tools: (context: PluginContext) => readonly RunFunction[] | Promise<readonly RunFunction[]>;
 };
 
@@ -74,6 +76,9 @@ export class ToolRegistry implements ToolProvider {
         const taken = new Set(agentTools.map((entry) => entry.name));
 
         for (const plugin of this.#plugins) {
+            if (plugin.runCondition && !plugin.runCondition(context.runId))
+                continue;
+
             const tools = await plugin.tools(context);
             this.#assertDescriptors(plugin, tools);
 

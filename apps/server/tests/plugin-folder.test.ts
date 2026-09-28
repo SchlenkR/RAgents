@@ -141,3 +141,22 @@ test("the convention leaves a skill the plugin registered with its own audience 
   assert.ok(!paths.includes(explicit));
   assert.deepEqual(paths, folderSkillPaths(folder).filter((entry) => entry !== explicit));
 });
+
+test("a skill the plugin registered for some runs only does not come back through the convention in the others", async () => {
+  const folder = pluginFolder("ragents.reference");
+  const explicit = path.join(folder, "skills", "95-hello-world");
+  const plugin: RAgentsPlugin = {
+    manifest: { id: "ragents.reference" },
+    register: (host) => host.skills({
+      id: "ragents.reference.hello-world.skill",
+      paths: (context) => context?.runId === "without-skill" ? [] : [explicit],
+    }),
+  };
+
+  const { skills } = registered(plugin);
+  const folderSkills = skills.find((skill) => skill.id === "ragents.reference.folder-skills");
+  assert.ok(folderSkills);
+
+  const paths = await folderSkills.paths({ runId: "without-skill", agentId: "agent", audience: "agent", workspace: folder });
+  assert.ok(!paths.includes(explicit));
+});

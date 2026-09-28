@@ -6,6 +6,7 @@ import {
     AgentContributionRegistry,
     LifecycleContributionRegistry,
     OperationContributionRegistry,
+    PluginHost,
     StartOptionContributionRegistry,
 } from "../src/plugin-host.ts";
 import { canonicalHash } from "../src/runtime/canonical-hash.ts";
@@ -479,4 +480,52 @@ test("agent hooks reach the driver bound to their agent: they keep data, add not
     assert.equal(await loud.afterToolCall!({ toolName: "read", isError: false }, { signal: undefined, modelReadsImages: true }), undefined);
     assert.equal(await hookOf("quiet").beforeModelCall!(call(false)), undefined);
     assert.deepEqual(seen, [{ agent: "loud", kept: 3, images: true }, { agent: "quiet", kept: 3, images: false }]);
+});
+
+test("a run condition takes prompts, skills and agent hooks of its plugin out of the runs it does not apply to", async () => {
+    const host = new PluginHost({
+        product: { id: "test", title: "Test" },
+        dataDirectory: "/private/tmp/ragents-run-condition",
+        storageModes: { sessionsRoot: 0o700, session: 0o700 },
+    });
+    const contribute = (id: string, condition?: (runId: string) => boolean) => host.register({
+        manifest: { id },
+        register: (registration) => {
+            registration.prompts(
+                { id: `${id}.prompt`, order: 1, render: () => `Text von ${id}.` },
+                { id: `${id}.per-run`, order: 2, render: () => "Vorgabe.", renderForRun: (runId) => runId === "own-text" ? `Eigener Text von ${id}.` : undefined },
+            );
+            registration.skills({ id: `${id}.skills`, paths: () => [`/skills/${id}`] });
+            registration.agentRuntime({ id: `${id}.hook`, beforeModelCall: () => undefined });
+            if (condition) registration.runCondition(condition);
+        },
+    });
+    contribute("test.open");
+    contribute("test.gated", (runId) => {
+        if (runId === "broken") throw new Error("Die Bedingung ist für diesen Run nicht ermittelt.");
+        return runId !== "foreign";
+    });
+    assert.throws(
+        () => host.register({ manifest: { id: "test.twice" }, register: (registration) => {
+            registration.runCondition(() => true);
+            registration.runCondition(() => false);
+        } }),
+        /Plugin test\.twice hat bereits eine Laufbedingung/,
+    );
+    const agent = (runId: string) => ({ runId, agentId: "agent", audience: "agent" as const, workspace: "/unused" });
+
+    assert.deepEqual(Object.fromEntries(host.prompts.runOverrides("own-text")), {
+        "test.open.per-run": "Eigener Text von test.open.",
+        "test.gated.per-run": "Eigener Text von test.gated.",
+    });
+    assert.deepEqual(Object.fromEntries(host.prompts.runOverrides("foreign")), {
+        "test.gated.prompt": "",
+        "test.gated.per-run": "",
+    });
+    assert.deepEqual(await host.skills.resolve(agent("own")), ["/skills/test.open", "/skills/test.gated"]);
+    assert.deepEqual(await host.skills.resolve(agent("foreign")), ["/skills/test.open"]);
+    assert.deepEqual(await host.skills.global(), ["/skills/test.open", "/skills/test.gated"]);
+    assert.deepEqual(host.agentRuntime.resolve(agent("own")).map((hook) => hook.id), ["test.open.hook", "test.gated.hook"]);
+    assert.deepEqual(host.agentRuntime.resolve(agent("foreign")).map((hook) => hook.id), ["test.open.hook"]);
+    assert.throws(() => host.prompts.runOverrides("broken"), /nicht ermittelt/);
 });
