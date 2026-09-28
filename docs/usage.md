@@ -170,7 +170,10 @@ des Turns: Ein Agent speist sie vor seiner nächsten Modellanfrage in den laufen
 (Steering). Der Senden-Knopf heißt in dieser Zeit "In den laufenden Turn einspeisen", und im
 Verlauf steht unter der Nachricht "In den laufenden Turn eingespeist". Ein TypeScript-Actor und
 ein Text über 30000 Zeichen bekommen dagegen einen eigenen Turn. Die Antwort bleibt
-zusammenhängend vor Deiner neuen Nachricht stehen. Unter dem letzten Beitrag bleiben etwa zwei
+zusammenhängend vor Deiner neuen Nachricht stehen. Wartet der Agent gerade darauf, dass Du seine
+Rückfrage beantwortest, gilt Deine Nachricht als Überspringen: Die Frage schließt sich als nicht
+beantwortet, und der Agent liest Deine Nachricht. Liegt Deine Nachricht noch ungelesen bei ihm,
+wenn er fragen will, erscheint die Frage gar nicht erst. Unter dem letzten Beitrag bleiben etwa zwei
 Zeilen freier Scrollraum. Hat der Actor des Chats gerade einen Turn und ist die Eingabe leer,
 unterbricht "Arbeit stoppen" nur diesen Turn; der Actor nimmt danach die nächste Nachricht an.
 Ist er gestoppt, steht an der Stelle der Eingabe der Grund samt "Neu starten". Die Darstellung der Werkzeugaufrufe

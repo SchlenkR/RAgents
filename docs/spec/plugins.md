@@ -1921,6 +1921,17 @@ Hinweis "fragt". Eine vom Eigentümer gestellte Aktion trägt im Hauptchat keine
 `AskService.withdraw(runId, actionId)` verwirft eine offene Frage des Plugins: ein wartender Aufruf
 bekommt die Verwurfsantwort, ein Actor bekommt keinen Input.
 
+Eine Nachricht eines Menschen an den Fragenden erledigt eine Frage, die dessen laufenden Turn
+blockiert, also eine mit `AskCall.turnId` gestellte: Sobald für ihn ein noch nicht beanspruchter
+Input mit `origin: "human"` wartet (`docs/spec/core.md`, Herkunft eines Inputs), schließt das
+Plugin die Frage als `dismissed` mit dem Ergebnis `{ supersededBy: <inputId> }`. Der wartende
+Aufruf bekommt "Not answered: the user sent a new message instead." (`SUPERSEDED_ANSWER`), ein
+Antwort-Input entsteht nicht, und die Nachricht kommt nach dem Werkzeugergebnis als Steering in den
+Turn. Wartet eine solche Nachricht schon, wenn das Werkzeug fragt, legt das Plugin keine Frage an
+und liefert denselben Text sofort. Fragen ohne Turn wie die Startfrage von `ragents.lsp-roslyn`,
+Inputs ohne `origin` und Nachrichten an einen anderen Actor lassen eine Frage offen. Im Chat zeigt
+der Beleg einer so erledigten Frage diesen Text statt "Der Benutzer hat die Frage verworfen."
+
 Jeder Chatverlauf reserviert unter dem letzten Beitrag zwei normale Textzeilen freien
 Scrollraum, mindestens die 40 Pixel der unteren Ausblendzone. Eine sichtbare Eingabebox
 reserviert zusätzlich ihre gemessene Höhe. Der Abstand gehört zum Inhalts-Padding des

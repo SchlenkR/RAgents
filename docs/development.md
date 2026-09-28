@@ -32,13 +32,13 @@ Ausführlicher stehen die Begriffe in `docs/spec/overview.md`.
 Eine Zeile JSON je Command-Entscheidung, append-only. Die Zeile enthält den Command, seinen
 Zeitpunkt und ein Array seiner Events. `sequence` zählt über alle Events des Runs lückenlos hoch.
 Das folgende Beispiel zeigt eine Zeile, wie sie in `journal.jsonl` auf der Platte steht
-(Dateiformat 7), zum Lesen eingerückt; Kennungen, Hash und Nutzungszahlen sind gekürzt. Es ist ein
+(Dateiformat 8), zum Lesen eingerückt; Kennungen, Hash und Nutzungszahlen sind gekürzt. Es ist ein
 abgeschlossener Modellschritt: der Text als beobachtbares `model.output.completed`, danach der
 Schritt selbst, der den Text nicht wiederholt:
 
 ```json
 {
-  "formatVersion": 7,
+  "formatVersion": 8,
   "runId": "example-run",
   "command": {
     "id": "scheduler:review-turn:context:step:4",

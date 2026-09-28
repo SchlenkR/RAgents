@@ -222,6 +222,7 @@ export function applyEvent(
                 actorId: event.payload.actorId,
                 content: event.payload.subscriptionId === null ? event.payload.content : JSON.stringify(source),
                 ...(event.payload.presentation ? { presentation: event.payload.presentation } : {}),
+                ...(event.payload.origin ? { origin: event.payload.origin } : {}),
                 artifactIds: event.payload.artifactIds,
                 enqueuedBy: event.actorId,
                 enqueuedAt: event.occurredAt,

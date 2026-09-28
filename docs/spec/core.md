@@ -640,6 +640,23 @@ nur diese kennt. Ein Aufruf, der nur bestätigt (`event_unsubscribe`, `run_confi
 `subscriptionId` und die aufgelösten `sources`. Journal, `event_query` und die RunView fürs Web
 bleiben vollständig.
 
+### Herkunft eines Inputs
+
+`enqueuedBy` nennt, wer einen Input eingereiht hat, nicht, wer ihn geschrieben hat. Unter dem
+Owner laufen außer den Nachrichten eines Menschen auch die automatischen Meldungen an Ersteller,
+Inputs von Plugins (die Antwort auf eine Rückfrage aus `ragents.ask`, die Solution-Antwort aus
+`ragents.lsp-roslyn`, die Weckung eines Wächters aus `ragents.watch`), der Start-Input eines
+Run-Scripts und jeder Input über `ragents.runs.enqueueInput`. Die Chatnachricht eines Menschen
+trägt deshalb zusätzlich `origin: "human"`, im Payload von `actor.input.enqueued` und im
+ActorInput der Projektion. Gesetzt wird das Feld nur vom Chatweg des Hosts: `ragents.chat.send`
+und `ragents.chat.sendToActor`, über den auch `ragents.overseer.sendMessage` und die erste
+Nachricht von `ragents.overseer.createRun` einreihen. Wer über diese Methoden mit dem Zugang
+eines Benutzers schreibt, etwa der globale Koordinator oder eine Mini-App, gilt dabei als dieser
+Mensch. Entscheidung und Journalprüfung lassen das Feld nur bei einem menschlichen handelnden
+Actor zu (die Entscheidung weist sonst mit `input-origin-invalid`, Status 403, ab) und nie an
+einem Subscription-Input. Der Kern wertet es nicht aus; Plugins lesen es, so erledigt
+`ragents.ask` damit eine Rückfrage, die den Turn des Fragenden blockiert (`plugins.md`).
+
 ### Zustellung von Abonnements
 
 Ein Subscription-Input speichert genau die Referenz auf sein unveränderliches Quellevent,
@@ -1048,7 +1065,7 @@ every LLM agent is part of the journal as well; working files are stored separat
 
 ### Dateiformat, Schreibgrenzen und Wiedergabe
 
-Jeder Run besitzt eine lesbare `journal.jsonl` im Dateiformat v7 und bei großen Inhalten einen
+Jeder Run besitzt eine lesbare `journal.jsonl` im Dateiformat v8 und bei großen Inhalten einen
 benachbarten Ordner `payloads/`. Eine Zeile enthält einen Command mit allen daraus entstandenen
 Events. Formatversion, Run-ID, Command und Zeitpunkt stehen einmal im gemeinsamen Umschlag;
 Actor und Command-ID sowie die interne Event-Schemaversion werden beim Lesen ergänzt.
@@ -1097,12 +1114,15 @@ liest vollständige Zeilen und verwirft einen unvollständigen letzten Schreibvo
 bleiben beschreibbar. Fehler beim Vorbereiten einer Inhaltsdatei vor dem Journal-Append lassen
 dagegen einen unmittelbaren Wiederholungsversuch zu.
 
-Das Journal schreibt und liest nur Dateiformat 7 mit internem Eventschema 3. Format 7 bringt den
-Modellkontext (`model.input.presented`, `model.step.completed`, `model.tool-result.presented`,
-`context.compacted`); ältere Journale tragen keinen und werden mit dieser Ursache ohne Migration
-für den betroffenen Run abgewiesen. Die Kodierung ist seit 4 unverändert; die Nummer steigt,
-sobald ein älterer Stand neu geschriebene Zeilen ablehnen würde, damit er an der ersten solchen
-Zeile mit der Formatversion scheitert statt an einem semantischen Widerspruch.
+Das Journal schreibt Dateiformat 8 und liest die Formate 7 und 8, beide mit internem Eventschema 3.
+Format 7 bringt den Modellkontext (`model.input.presented`, `model.step.completed`,
+`model.tool-result.presented`, `context.compacted`); ältere Journale tragen keinen und werden mit
+dieser Ursache ohne Migration für den betroffenen Run abgewiesen. Format 8 bringt `origin` an
+`actor.input.enqueued` (Abschnitt Herkunft eines Inputs); eine Zeile im Format 7 trägt das Feld
+nie und bleibt deshalb lesbar, ein Format nach 8 wird abgewiesen. Die Kodierung ist seit 4
+unverändert; die Nummer steigt, sobald ein älterer Stand neu geschriebene Zeilen ablehnen würde,
+damit er an der ersten solchen Zeile mit der Formatversion scheitert statt an einem semantischen
+Widerspruch.
 Jeder Run wird zunächst vollständig geprüft und projiziert, bevor seine Events, Kennungen
 und Zustände in die gemeinsame Laufzeit übernommen werden. Ein altes Format, beschädigtes JSON,
 ein ungültiges Event, ein semantischer Widerspruch, ein unlesbares Journal oder eine fehlende

@@ -1,5 +1,8 @@
 export const ASK_PLUGIN_ID = "ragents.ask";
 
+/** What the asking tool call gets when a person's message to the asker closes its question. */
+export const SUPERSEDED_ANSWER = "Not answered: the user sent a new message instead.";
+
 export interface AskPayload {
   question: string;
   options: string[];
@@ -22,4 +25,10 @@ export const askPayloadOf = (payload: unknown): AskPayload | undefined => {
     multi: candidate.multi === true,
     ...(typeof candidate.recipient === "string" ? { recipient: candidate.recipient } : {}),
   };
+};
+
+export const supersedingInputOf = (result: unknown): string | undefined => {
+  if (typeof result !== "object" || result === null) return undefined;
+  const { supersededBy } = result as { supersededBy?: unknown };
+  return typeof supersededBy === "string" ? supersededBy : undefined;
 };

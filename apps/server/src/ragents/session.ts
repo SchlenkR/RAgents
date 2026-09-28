@@ -464,7 +464,7 @@ export class RunChatSession implements ChatSessionLike {
     this.#engine.runtime.enqueueInput(
       { actorId: state.ownerId, commandId: `chat:${randomUUID()}` },
       this.id,
-      { actorId: primaryActorId, content: text, artifactIds, sourceEventIds },
+      { actorId: primaryActorId, content: text, artifactIds, sourceEventIds, origin: "human" },
     );
   }
 

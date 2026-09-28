@@ -17,8 +17,8 @@ export type EnqueueInput = {
     artifactIds?: readonly string[];
     presentation?: "background";
 } & (
-    | { content: string; sourceEventIds?: readonly string[]; subscriptionId?: null }
-    | { content?: never; sourceEventIds: readonly [string]; subscriptionId: string }
+    | { content: string; sourceEventIds?: readonly string[]; subscriptionId?: null; origin?: "human" }
+    | { content?: never; sourceEventIds: readonly [string]; subscriptionId: string; origin?: never }
 );
 
 export const enqueueInput =
@@ -43,6 +43,9 @@ export const enqueueInput =
             assertCapability(caller, "actor.input", { kind: "run" });
         }
 
+        if (input.origin === "human" && caller.kind !== "human")
+            throw new DomainError("input-origin-invalid", "Only a human can enqueue an input of human origin.", 403);
+
         const artifactIds = [...new Set(input.artifactIds ?? [])];
 
         for (const artifactId of artifactIds)
@@ -55,6 +58,7 @@ export const enqueueInput =
             actorId: target.id,
             artifactIds,
             ...(input.presentation !== undefined ? { presentation: input.presentation } : {}),
+            ...(input.origin !== undefined ? { origin: input.origin } : {}),
         };
 
         if (subscriptionId && firstSourceEventId === undefined)

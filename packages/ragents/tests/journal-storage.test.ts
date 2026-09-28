@@ -43,7 +43,7 @@ test("compact records reconstruct every envelope field without changing inline r
     const record = recordFor({ sha256: "a".repeat(64), bytes: 8000, payloadRefs: { state: "ordinary data" } });
     const line = serializeJournalRecord(record, directory);
     const stored = JSON.parse(line);
-    assert.equal(stored.formatVersion, 7);
+    assert.equal(stored.formatVersion, 8);
     assert.equal(stored.occurredAt, record.events[0]!.occurredAt);
 
     for (const field of ["runId", "commandId", "schemaVersion", "occurredAt", "actorId"])
@@ -53,17 +53,21 @@ test("compact records reconstruct every envelope field without changing inline r
     assert.equal(existsSync(join(directory, "payloads")), false);
 });
 
-test("only file format 7 is readable, an older one without model context and a newer one are rejected by name", (t) => {
+test("file formats 7 and 8 are readable, older ones without model context and a newer one are rejected by name", (t) => {
     const directory = directoryFor(t);
     const record = recordFor({ value: 1 });
     const stored = JSON.parse(serializeJournalRecord(record, directory));
 
-    assert.deepEqual(parseJournalRecord(JSON.stringify(stored), directory, "test:1"), record);
-    for (const version of [4, 5, 6, 8])
+    assert.equal(stored.formatVersion, 8);
+    for (const version of [7, 8])
+        assert.deepEqual(parseJournalRecord(JSON.stringify({ ...stored, formatVersion: version }), directory, `test:${version}`), record);
+    for (const version of [4, 5, 6, 9]) {
+        const hint = version < 7 ? " Journals before format 7 hold no model context and are not migrated." : "";
         assert.throws(
             () => parseJournalRecord(JSON.stringify({ ...stored, formatVersion: version }), directory, `test:${version}`),
-            new RegExp(`test:${version} has unsupported journal format version ${version}\\.`),
+            { message: `test:${version} has unsupported journal format version ${version}.${hint}` },
         );
+    }
 });
 
 test("payload threshold counts serialized UTF-8 bytes and deduplicates immutable values", (t) => {

@@ -431,9 +431,13 @@ const payloadOf = (type: EventType, value: unknown, path: string) => {
                 "artifactIds",
                 "sourceEventIds",
                 "subscriptionId",
-            ], ["presentation"]);
+            ], ["presentation", "origin"]);
             if (payload.presentation !== undefined && payload.presentation !== "background")
                 fail(`${path}.presentation`, "must be background");
+            if (payload.origin !== undefined && payload.origin !== "human")
+                fail(`${path}.origin`, "must be human");
+            if (subscriptionInput && Object.hasOwn(payload, "origin"))
+                fail(`${path}.origin`, "is not supported for a subscription input");
             stringOf(payload.inputId, `${path}.inputId`);
             actorIdOf(payload.actorId, `${path}.actorId`);
             stringArrayOf(payload.artifactIds, `${path}.artifactIds`);

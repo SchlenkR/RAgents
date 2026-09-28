@@ -8,9 +8,10 @@ import { isRunId } from "../domain/portable-id.ts";
 import { syncDirectory } from "./durable-fs.ts";
 import type { CommandRecord, JournalCommand } from "./journal.ts";
 
-/** Rises whenever an older stand would reject newly written lines; the journal reads only this version. */
-export const journalStorageVersion = 7;
-const readableJournalStorageVersions: readonly unknown[] = [journalStorageVersion];
+/** Rises whenever an older stand would reject newly written lines; format 7 stays readable because it only lacks the input origin. */
+export const journalStorageVersion = 8;
+const oldestReadableJournalStorageVersion = 7;
+const readableJournalStorageVersions: readonly unknown[] = [oldestReadableJournalStorageVersion, journalStorageVersion];
 export const journalPayloadThresholdBytes = 4096;
 
 type PayloadReference = { sha256: string; bytes: number };
@@ -162,7 +163,7 @@ export const parseJournalRecord = (line: string, runDirectory: string, location:
 
     if (!readableJournalStorageVersions.includes(record.formatVersion))
         throw new Error(`${location} has unsupported journal format version ${String(record.formatVersion)}.${
-            typeof record.formatVersion === "number" && record.formatVersion < journalStorageVersion
+            typeof record.formatVersion === "number" && record.formatVersion < oldestReadableJournalStorageVersion
                 ? " Journals before format 7 hold no model context and are not migrated."
                 : ""}`);
 

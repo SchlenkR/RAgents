@@ -319,6 +319,7 @@ test("a local package transports all sources and node tests through the common i
     assert.equal(view.title, "Eigenes Setup");
     assert.ok(view.actors.some((actor) => actor.kind === "script" && actor.handle === "own-setup"));
     assert.deepEqual(JSON.parse(view.inputs[0]!.content).input, {topic: "Lokales Thema"});
+    assert.equal(view.inputs[0]!.origin, undefined);
     await assert.rejects(fixture.session.startPackageAndWait(packageOf(), null), /läuft schon/);
   } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
 });

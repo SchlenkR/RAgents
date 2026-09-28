@@ -1,5 +1,44 @@
 # Entscheidungen
 
+## Eine Nachricht des Menschen beendet eine blockierende Rückfrage (28.09.2026)
+
+Kapitel: `docs/spec/core.md` (Herkunft eines Inputs; Dateiformat, Schreibgrenzen und Wiedergabe),
+`docs/spec/plugins.md` (Web als Plugin-Host, Rückfragen von `ragents.ask`), `docs/usage.md`
+(Run-Chat und Fläche), `docs/development.md` (Journalbeispiel).
+
+**Warum so.** `ask_user` hält den Turn des Fragenden an, bis die Frage beantwortet ist, und
+Steering wartet auf das Ergebnis eines laufenden Werkzeugaufrufs. Schrieb der Benutzer statt einer
+Antwort eine Nachricht, blieb sie hinter dem blockierten Werkzeug liegen, die Frage blieb offen, und
+der Run hing, bis jemand antwortete. Eine Nachricht, die ein Mensch an den Fragenden schreibt, macht
+die Frage hinfällig. Dafür braucht der Kern ein Feld: Das Journal konnte die Nachricht eines
+Menschen nicht von Systemeingaben unterscheiden, weil `enqueuedBy` für alle der Owner ist, auch für
+die automatischen Meldungen an Ersteller, die Solution-Antwort von `ragents.lsp-roslyn`, den
+Antwort-Input von `ragents.ask`, die Weckung eines Wächters, den Start-Input eines Run-Scripts und
+`ragents.runs.enqueueInput`.
+
+**Festlegung.** `actor.input.enqueued` und der ActorInput tragen optional `origin: "human"`.
+Gesetzt wird es nur vom Chatweg des Hosts (`ragents.chat.send`, `ragents.chat.sendToActor`);
+Entscheidung und Journalprüfung lassen es nur bei einem menschlichen handelnden Actor zu
+(`input-origin-invalid`, 403) und nie an einem Subscription-Input. Der Kern prüft und projiziert
+das Feld, wertet es aber nicht aus. Das Journal schreibt Format 8, weil ein älterer Stand die neuen
+Zeilen ablehnen würde; Format 7 bleibt lesbar, denn es kann das Feld nicht tragen. `ragents.ask`
+folgt einer Regel, die am Zustand hängt statt an der Reihenfolge: Eine Frage, die einen laufenden
+Turn blockiert (mit `AskCall.turnId` gestellt), gilt als erledigt, sobald für den Fragenden ein noch
+nicht beanspruchter Input mit `origin: "human"` wartet, gleich ob er vor oder nach der Frage kam.
+Kommt er danach, schließt das Plugin die Frage als `dismissed` mit `{ supersededBy: <inputId> }`,
+der Aufruf bekommt `SUPERSEDED_ANSWER`, ein Antwort-Input entsteht nicht, und die Nachricht folgt
+als Steering. Wartet er schon, stellt das Plugin keine Frage. Fragen ohne Turn, Inputs ohne
+`origin` und Nachrichten an einen anderen Actor lassen eine Frage offen. Der Beleg im Web zeigt
+`SUPERSEDED_ANSWER` statt des Verwurfstexts. quassel und das Aktionsmodell des Kerns bleiben
+unverändert.
+
+Verworfen: die Karte in quassel auszublenden (das verdeckt das Hängen nur und gälte für alle
+Clients); die Nachricht als Antwort zu werten (der Text stünde doppelt im Kontext, Anhänge gingen
+verloren, und oft wechselt die Nachricht das Thema); auf jeden Input unter dem Owner zu reagieren
+(automatische Meldungen an Ersteller würden Fragen schließen); das Präfix `chat:` der Command-ID als
+Merkmal (eine stille Konvention); auch Fragen ohne Turn zu erledigen (die Startfrage von
+`ragents.lsp-roslyn` lüde dann keine Solution).
+
 ## Laufbedingung je Plugin (28.09.2026)
 
 Kapitel: `docs/spec/plugins.md` (Registrierungen des PluginHost, Promptbeiträge und

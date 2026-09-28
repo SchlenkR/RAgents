@@ -358,6 +358,9 @@ export const assertEventSemantics = (
             for (const artifactId of event.payload.artifactIds)
                 assertArtifactRead(state, event.actorId, artifactId);
 
+            if (event.payload.origin === "human" && existingActorOf(state, event.actorId).kind !== "human")
+                throw new Error(`Input ${event.payload.inputId} of human origin was not enqueued by a human actor.`);
+
             if (event.payload.subscriptionId) {
                 const subscription = state.subscriptions.get(event.payload.subscriptionId);
 

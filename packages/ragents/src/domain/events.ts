@@ -93,6 +93,7 @@ export type EventPayloads = {
         actorId: ActorId;
         artifactIds: string[];
         presentation?: "background";
+        origin?: "human";
     } & (
         | { subscriptionId: null; sourceEventIds: string[]; content: string }
         | { subscriptionId: SubscriptionId; sourceEventIds: [string]; content?: never }

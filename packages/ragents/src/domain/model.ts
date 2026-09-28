@@ -89,6 +89,8 @@ export type ActorInput = {
     actorId: ActorId;
     content: string;
     presentation?: "background";
+    /** Set only on a person's own message, because system inputs are enqueued under the owner too. */
+    origin?: "human";
     artifactIds: readonly ArtifactId[];
     enqueuedBy: ActorId;
     enqueuedAt: string;

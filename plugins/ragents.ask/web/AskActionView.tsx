@@ -1,7 +1,7 @@
 import { useAccess } from "@ragents/web/AccessContext";
 import { useState } from "react";
 import type { ActionViewContext } from "@ragents/web/PluginRegistry";
-import { askPayloadOf } from "../ask-payload";
+import { askPayloadOf, SUPERSEDED_ANSWER, supersedingInputOf } from "../ask-payload";
 import { answerQuestion } from "./api";
 import { QuestionCard } from "./QuestionCard";
 
@@ -25,7 +25,8 @@ export function AskActionView({ action, session, text }: ActionViewContext) {
       <QuestionCard
         answer={action.status === undefined
           ? undefined
-          : action.status === "approved" ? answerTextOf(action.result) : "Der Benutzer hat die Frage verworfen."}
+          : action.status === "approved" ? answerTextOf(action.result)
+          : supersedingInputOf(action.result) !== undefined ? SUPERSEDED_ANSWER : "Der Benutzer hat die Frage verworfen."}
         onAnswer={access.can("runs.write") ? answer : undefined}
         question={question}
         text={text}

@@ -94,6 +94,7 @@ test("attachment-only inputs preserve bytes and replay metadata while journals c
     await data.session.send("", [sent]);
     const view = data.runtime.view("attachment-run");
     assert.equal(view.inputs[0].content, "");
+    assert.equal(view.inputs[0].origin, "human");
     assert.equal(view.inputs[0].artifactIds.length, 1);
     const artifactId = view.inputs[0].artifactIds[0];
     const loaded = data.session.attachment(artifactId);
@@ -111,6 +112,7 @@ test("attachment-only inputs preserve bytes and replay metadata while journals c
     assert.deepEqual(user.attachments, [loaded.attachment]);
     await data.session.sendToActor(view.primaryActorId!, "Weiter", [attachment("report.pdf", "application/pdf")]);
     assert.equal(data.runtime.view("attachment-run").inputs.length, 2);
+    assert.equal(data.runtime.view("attachment-run").inputs[1].origin, "human");
     const other = data.runtime.createRun({ commandId: "other-run" }, { runId: "other-run", title: "Other", ownerHandle: "owner", ownerDisplayName: "Owner" });
     assert.throws(() => data.runtime.artifactContent(other.id, artifactId, other.ownerId), /does not exist/);
     data.session.dispose();
