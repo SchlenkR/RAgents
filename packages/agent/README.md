@@ -1,18 +1,19 @@
 # @ragents/agent
 
-Die Agentenlaufzeit: Schleife, Sitzung, Werkzeuge.
+Die Agentenlaufzeit: Schleife, Kompaktierung, Werkzeuge.
 
 - `loop/` ist die Agenten-Schleife: aus einer Nachricht wird ein Zug aus Modellaufruf,
   Werkzeugaufrufen und Ergebnis. `loop/types.ts` trägt `AgentMessage`, `AgentTool`,
-  `AgentEvent` und `ThinkingLevel`.
-- `core/agent-session.ts` hält eine Sitzung zusammen: Modell, Denktiefe, Systemprompt,
-  Werkzeuge, automatische Kompaktierung und Wiederholung, Steering.
-  `core/session-manager.ts` schreibt ihren Verlauf als JSONL, `core/model-runtime.ts` kennt
-  die Modelle der Anbieter.
-- `core/extensions/` sind die drei Hooks, über die die Engine eingreift: `before_agent_start`,
-  `context` vor jedem Modellaufruf und `tool_result`. Eine Erweiterung ist immer eine
-  Inline-Fabrik; Dateien, Pakete, Einstellungen und Zugangsdaten liest dieses Paket nicht.
-- Werkzeuge unter `core/tools/`: read, write, edit, bash. Der Arbeitsplatz-Executor ruft sie
-  mit eigenen Operationen auf; sie liefern Text und strukturierte Details.
+  `AgentEvent` und `ThinkingLevel`. Vor jedem Modellaufruf holt die Schleife ihren Kontext über
+  `transformContext`; die Engine liefert dort die Projektion des Journals.
+- `core/context-log.ts` ist der Modellkontext als geordnete Folge von Nachrichten und
+  Kompaktierungen, `core/compaction/` verdichtet ihn. Beides kennt kein Journal; die Engine
+  schreibt das Ergebnis selbst.
+- `core/model-runtime.ts` kennt die Modelle der Anbieter, `core/skills.ts` den Skill-Katalog im
+  Systemprompt.
+- Werkzeuge unter `core/tools/`: read, write, edit, bash (`core/tool-definition.ts`). Der
+  Arbeitsplatz-Executor ruft sie mit eigenen Operationen auf; sie liefern Text und strukturierte
+  Details.
 
-Gegabelter Fremdcode; Herkunft und eigene Eingriffe stehen in `docs/decisions.md`.
+Dateien, Pakete, Einstellungen und Zugangsdaten liest dieses Paket nicht. Gegabelter Fremdcode;
+Herkunft und eigene Eingriffe stehen in `docs/decisions.md`.

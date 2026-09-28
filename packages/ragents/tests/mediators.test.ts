@@ -18,6 +18,7 @@ import {
     noUsage,
     postTo,
     testServices,
+    textStep,
 } from "./support.ts";
 
 const scriptTestClock = "2026-01-01T00:00:00.000Z";
@@ -657,7 +658,7 @@ test("an installed mediator carries a real circle of agents to its artifact", as
 
     const answers = new Map(members.map((actor, index) => [actor.id, ["Blume", "Wiese", "Himmel"][index] as string]));
     const driver = new FakeDriver(async (request) => {
-        request.emit({ kind: "assistant", text: `Gerne!\n\n${answers.get(request.agentId) ?? "nichts"}` });
+        request.recordContext({ kind: "step", step: textStep(`Gerne!\n\n${answers.get(request.agentId) ?? "nichts"}`) });
 
         return { failure: null, usage: noUsage() };
     });

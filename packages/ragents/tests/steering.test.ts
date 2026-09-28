@@ -16,7 +16,7 @@ import { FixedWorkspaces } from "../src/agents/workspaces.ts";
 import { thinkingLevels } from "../src/domain/driver.ts";
 import type { JournalEvent } from "../src/domain/events.ts";
 import { project } from "../src/domain/projection.ts";
-import { AgentSessionDriver } from "../src/drivers/agent.ts";
+import { AgentLoopDriver } from "../src/drivers/agent.ts";
 import type { SteeredInput } from "../src/drivers/types.ts";
 import { Journal } from "../src/runtime/journal.ts";
 import { Orchestration } from "../src/runtime/orchestration.ts";
@@ -31,6 +31,7 @@ import {
     registryOf,
     setupRun,
     testServices,
+    textStep,
 } from "./support.ts";
 
 const steeredEventsOf = (events: readonly JournalEvent[]) =>
@@ -52,7 +53,7 @@ test("a message to an actor with a running turn joins that turn in order, and th
     const driver = new FakeDriver(async (request) => {
         await posted.promise;
         claims.push(request.claimSteering(), request.claimSteering());
-        request.emit({ kind: "assistant", text: "Beides berücksichtigt." });
+        request.recordContext({ kind: "step", step: textStep("Beides berücksichtigt.") });
         return { failure: null, usage: noUsage() };
     });
     const scheduler = new TurnScheduler(runtime, journal, { drivers: registryOf(driver), catalog });
@@ -243,7 +244,7 @@ const fauxSetup = (directory: string) => {
         grants: allGrants(),
         execution: resolveExecution(fauxCatalog, { profile: "agent", isolateWorkspace: false }, "worker", models),
     });
-    const driver = new AgentSessionDriver({ modelRuntime });
+    const driver = new AgentLoopDriver({ modelRuntime });
 
     return { faux, fauxCatalog, setup, driver, directory };
 };

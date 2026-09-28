@@ -254,9 +254,10 @@ RAGENTS_TOKEN=&lt;token&gt; pnpm run-transfer &lt;source&gt; &lt;target&gt; &lt;
 </code></pre>
 <p>The script exports the run from the source with <code>ragents.runs.export</code> and imports it on the target
 with <code>ragents.runs.import</code>. If each side uses a different token, set <code>RAGENTS_SOURCE_TOKEN</code> and
-<code>RAGENTS_TARGET_TOKEN</code>. The transfer includes the journal and payloads, model contexts under
-<code>chat/</code>, actor programs, and all plugin storage for the run, including <code>ragents.documents</code> files
-and the new folder of a run that works on the server. A folder on a workstation stays there, and the
+<code>RAGENTS_TARGET_TOKEN</code>. The transfer includes the journal and payloads, which also hold the model
+contexts of the run&#39;s agents, the stored contents the run refers to (attachments and the media of
+the model contexts), actor programs, and all plugin storage for the run, including
+<code>ragents.documents</code> files and the new folder of a run that works on the server. A folder on a workstation stays there, and the
 run keeps its binding to that workstation. Running processes, language servers, and
 browsers are not transferred; they are recreated on the target when next used.</p>
 <p>The transfer enforces these prerequisites:</p>
@@ -269,6 +270,10 @@ target folder, given as an absolute path on the target server. A workspace bindi
 the same ID and as the run owner, or anonymously for an ownerless run.</li>
 <li>The archive must stay below 16 MiB because it travels as Base64 through the message layer.
 A workspace containing <code>node_modules</code> will exceed this; an existing folder on the server usually will not.</li>
+<li>Symbolic links travel only when they are relative and stay inside the run&#39;s storage. Links under
+<code>node_modules</code> that point elsewhere, such as a package manager&#39;s absolute links, are left out
+and come back with the next install in the workspace. Any other link pointing outside stops the
+export with <code>run-transfer-link</code> and names the links; replace them with files or relative links.</li>
 </ul>
 <p>Export copies the run. It remains on the source and must be deleted there explicitly after a
 real move, otherwise two journals with the same ID diverge. On the target, the run appears

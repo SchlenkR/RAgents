@@ -5,7 +5,7 @@ import { Type } from "typebox";
 import { waitForChildProcess } from "../../utils/child-process.ts";
 import { resolvePath } from "../../utils/paths.ts";
 import { getShellConfig, killProcessTree } from "../../utils/shell.ts";
-import type { ToolDefinition } from "../extensions/types.ts";
+import type { ToolDefinition } from "../tool-definition.ts";
 import { OutputAccumulator } from "./output-accumulator.ts";
 import { DEFAULT_MAX_LINES, formatSize, type TruncationResult } from "./truncate.ts";
 
@@ -64,12 +64,7 @@ export interface BashOperations {
 	) => Promise<{ exitCode: number | null }>;
 }
 
-/**
- * Create bash operations using the built-in local shell execution backend.
- *
- * This is useful for extensions that intercept user_bash and still want the
- * standard local shell behavior while wrapping or rewriting commands.
- */
+/** Bash operations on the built-in local shell. */
 export function createLocalBashOperations(options?: { shellPath?: string }): BashOperations {
 	return {
 		exec: async (command, cwd, { onData, signal, timeout, env }) => {
@@ -168,14 +163,12 @@ export function createBashToolDefinition(
 		name: "bash",
 		label: "bash",
 		description: `Execute a bash command in the working directory, or in the folder given as cwd. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last ${DEFAULT_MAX_LINES} lines or ${BASH_MAX_BYTES / 1024}KB (whichever is hit first), and lines longer than ${BASH_MAX_LINE_CHARS} characters are shortened. If anything was cut, the full output is saved to a temp file. Optionally provide a timeout in seconds.`,
-		promptSnippet: "Execute bash commands (ls, grep, find, etc.)",
 		parameters: bashSchema,
 		async execute(
 			_toolCallId,
 			{ command, timeout, cwd: folder }: { command: string; timeout?: number; cwd?: string },
 			signal?: AbortSignal,
 			onUpdate?,
-			_ctx?,
 		) {
 			const resolvedCommand = commandPrefix ? `${commandPrefix}\n${command}` : command;
 			const spawnContext = resolveSpawnContext(resolvedCommand, folder === undefined ? cwd : resolvePath(folder, cwd), spawnHook);

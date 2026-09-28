@@ -321,9 +321,11 @@ Agenten außer dem globalen Koordinator:
 
 - `beforeModelCall(agent, call)` vor jedem Modellaufruf eines Turns. Ein zurückgegebener Text
   erreicht das Modell als verborgener Hinweis hinter dem Gesprächsverlauf, nur für diesen Aufruf;
-  der Chat zeigt ihn nicht, das Journal nennt ihn nicht. `call.kept` ist der JSON-Wert, den dieser
-  Beitrag zuletzt mit `call.keep(value)` im Gesprächsverlauf des Agenten abgelegt hat, auch nach
-  einem Neustart des Hosts; das Modell sieht ihn nie.
+  der Chat zeigt ihn nicht, das Journal nennt ihn nicht, er ist kein Modellkontext. `call.kept` ist
+  der JSON-Wert, den dieser Beitrag zuletzt mit `call.keep(value)` für den Agenten abgelegt hat,
+  auch nach einem Neustart des Hosts: er steht als `plugin.state-replaced` mit Actor-Scope unter
+  der Kennung des Beitrags im Journal; das Modell sieht ihn nie. Nach dem Ende des Turns scheitert
+  `call.keep`.
 - `afterToolCall(agent, outcome, call)` nach jedem Werkzeugaufruf mit dessen Namen und ob er
   scheiterte. Ein zurückgegebenes Ergebnis aus Text- und Bildteilen ersetzt, was das Modell von
   dem Aufruf sieht; `isError` markiert es als Fehler.
@@ -332,8 +334,8 @@ Beide sehen `call.signal` des laufenden Aufrufs und `call.modelReadsImages`. Nut
 Projektprüfung der Actor-Programme (Hinweis bei neuen oder behobenen Fehlern, Stand in
 `call.kept`) und die Bildanzeige des Browsers (ersetzt das Ergebnis von `browser_view_screenshot`
 durch die Aufnahme). Ein Beitrag registriert keine Werkzeuge, die kommen über `host.functions`.
-Die Engine übersetzt jeden Beitrag in genau eine Erweiterung der Agentenlaufzeit, benannt nach
-seiner Kennung (`packages/ragents/src/drivers/agent-hooks.ts`); die Einstellungen zeigen ihn so.
+Die Engine bindet jeden Beitrag an den Agenten und ruft ihn direkt auf
+(`packages/ragents/src/drivers/agent-hooks.ts`); die Einstellungen zeigen ihn unter seiner Kennung.
 
 <!-- guide:plugins -->
 ## Provide functions
@@ -615,7 +617,8 @@ Ein Beitrag, der den Arbeitsbereich des Runs erreicht, erklärt das mit `require
 Der Host ruft ihn nur für Runs, deren Arbeitsbereich der Aufrufer erreichen darf (dieselbe Regel wie
 `workspaceGuardToken`); sonst steht er ohne Aufruf mit dem Grund unter `metadataUnavailable`. Eine
 Liste ohne Aufrufer (hostintern) erreicht keinen Arbeitsbereich eines `ownerOnly`-Runs. Je Run
-meldet die Liste dazu `workspaceAccessible`, das generische Signal für die Oberflächen.
+meldet die Liste dazu `workspaceAccessible`, das generische Signal für die Oberflächen. Ein
+gesperrter Run (`locked`, `core.md`) bekommt keine Beiträge.
 
 Speicherpfade sind reine Konvention und nicht deklarierbar: `host.storage.root(...)` liegt unter
 `${DATA_DIR}/plugins/<plugin-id>/`, `host.storage.session(runId, ...)` unter
@@ -2017,7 +2020,7 @@ Vorbereitungsverlauf wird beim Verlassen seines Schritts verworfen.
 der Vertrag steht in `apps/server/src/run-preparation-contract.ts`. Der Host nutzt dieselbe
 aufgelöste Koordinatorauswahl wie der spätere Run. `ragents.overseer` liefert den
 Vorbereitungsprompt über den globalen Chat-Vertrag; fehlt er, wird die Anfrage abgelehnt.
-Jede Anfrage erhält eine eigene speicherinterne Agent-Session mit dem mitgesendeten Verlauf.
+Jede Anfrage läuft direkt auf der Agentenschleife mit dem mitgesendeten Verlauf im Speicher.
 Der globale Gesprächskontext, seine Verwaltungswerkzeuge und die Hooks der Plugins werden nicht
 übernommen. Das einzige Werkzeug `start_run` merkt die Übergabe vor, ohne Modellargumente
 für Auftrag, Kennungen oder Dateien zu verlangen. Erst nach einem erfolgreich abgeschlossenen
@@ -2684,8 +2687,9 @@ seitdem geänderte mit `workspace-file-changed` ("... seit dem Lesen geändert .
 einer unveränderten Datei antwortet mit "Unverändert seit dem letzten read in diesem Gespräch;
 der frühere Inhalt gilt weiter."; ein Stand aus `edit` oder `write` löst das nicht aus, weil das
 Modell dann nicht den ganzen Inhalt gesehen hat. Der Modellkontext (`ToolScope.modelContext`,
-von der Agentenlaufzeit bei jedem direkten Aufruf gesetzt) nennt die Sitzung des Agenten und ihre
-letzte Verdichtung; nach einer Compaction oder in einer neuen Sitzung beginnt der Merker leer.
+von der Agentenlaufzeit bei jedem direkten Aufruf gesetzt) nennt das Gespräch des Runs und die
+letzte Verdichtung des Actors (`core.md`); nach einer Compaction oder einem Gesprächsreset beginnt
+der Merker leer.
 Aufrufe aus TypeScript (Snippets, Actor-Programme) und `files.read` laufen ohne Merker, weil ihr
 Ergebnis nicht im Modellkontext landet: sie prüfen nichts und merken nichts. Neustart des Servers,
 Fork (ein neuer Actor), Run-Umzug und Stopp des Runs leeren den Merker; das verlangt höchstens ein
@@ -2826,10 +2830,9 @@ Vorbereitungschat im Run-Panel von VS Code; der Browser bietet keinen Arbeitspla
 Runs und sein `cwd`: diesen Pfad nennt die Beschreibung des Arbeitsbereichs im Systemprompt, weil
 ein Ordner des Servers dort dem Agenten einen anderen Pfad nennen würde, als seine Werkzeuge
 benutzen. Für den Server ist er nur ein Name. Auf dem Server entsteht für einen solchen Run nur bei Bedarf der
-eigene Ordner für Arbeit, die dort läuft (oben); in ihm arbeitet auch die Agentenlaufzeit für ihre
-eigenen Belange (`Workspaces.runtimeDirectory`, der `cwd` von `serverProcessContextFor`): ihre
-Sitzung, ihre Einstellungen und Ressourcen und die Prüfung, dass ihr Ordner existiert. Einen Pfad
-für den Prompt bekommt sie nicht; den nennt allein die Beschreibung des Arbeitsbereichs. Ein angehängter Chat-Anhang, den das
+eigene Ordner für Arbeit, die dort läuft (oben, der `cwd` von `serverProcessContextFor`). Die
+Agentenlaufzeit braucht keinen Ordner, ihr Modellkontext steht im Journal; einen Pfad für den Prompt
+nennt allein die Beschreibung des Arbeitsbereichs. Ein angehängter Chat-Anhang, den das
 Modell mit seinen Dateiwerkzeugen lesen soll, geht über die Operation `files.attach` an den Executor
 des Runs und liegt unter `attachments/` im Arbeitsbereich, bei einem Arbeitsplatz also dort.
 Actor-Programme behalten ihren eigenen Ordner unter der Run-Ablage. Die Auflösung scheitert nie

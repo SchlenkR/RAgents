@@ -8,7 +8,7 @@ import test from "node:test";
 import type { UncommittedEvent } from "../src/domain/events.ts";
 import { Journal, type CommandRecord } from "../src/runtime/journal.ts";
 import { Orchestration } from "../src/runtime/orchestration.ts";
-import { manualExecution, testServices } from "./support.ts";
+import { manualExecution, testServices, textStep } from "./support.ts";
 
 const scenario = () => {
     const services = testServices();
@@ -588,11 +588,11 @@ test("fork rewrites inherited source-event references to the fork event IDs", ()
     source = runtime.startTurn({ actorId: speaker.id, commandId: "turn" }, source.id, speaker.id, input.id);
     const running = source.actors.find((entry) => entry.id === speaker.id);
     assert.ok(running && running.kind !== "human" && running.lifecycle.kind === "running");
-    source = runtime.appendModelOutput(
+    source = runtime.completeModelStep(
         { actorId: speaker.id, commandId: "output", turnId: running.lifecycle.turnId },
         source.id,
         speaker.id,
-        { turnId: running.lifecycle.turnId, text: "Hello" },
+        { turnId: running.lifecycle.turnId, step: textStep("Hello") },
     );
     const sourceDelivery = source.inputs.find((entry) => entry.subscriptionId !== null);
     assert.ok(sourceDelivery);

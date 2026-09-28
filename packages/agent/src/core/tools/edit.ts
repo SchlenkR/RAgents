@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { constants } from "fs";
 import { access as fsAccess, readFile as fsReadFile, writeFile as fsWriteFile } from "fs/promises";
 import { type Static, Type } from "typebox";
-import type { ToolDefinition } from "../extensions/types.ts";
+import type { ToolDefinition } from "../tool-definition.ts";
 import { applyEditsToNormalizedContent, detectLineEnding, type Edit, generateDiffString, generateUnifiedPatch, normalizeToLF, restoreLineEndings, stripBom } from "./edit-diff.ts";
 import { withFileMutationQueue } from "./file-mutation-queue.ts";
 import { resolveToCwd } from "./path-utils.ts";
@@ -130,18 +130,9 @@ export function createEditToolDefinition(
 		label: "edit",
 		description:
 			"Edit a single file using exact text replacement. Read the file first; the edit is rejected if the file changed since that read. Every edits[].oldText must match a unique, non-overlapping region of the original file, or be anchored with occurrence, nearLine or replaceAll. If two changes affect the same block or nearby lines, merge them into one edit instead of emitting overlapping edits. Do not include large unchanged regions just to connect distant changes.",
-		promptSnippet:
-			"Make precise file edits with exact text replacement, including multiple disjoint edits in one call",
-		promptGuidelines: [
-			"Use edit for precise changes (edits[].oldText must match exactly)",
-			"When changing multiple separate locations in one file, use one edit call with multiple entries in edits[] instead of multiple edit calls",
-			"Each edits[].oldText is matched against the original file, not after earlier edits are applied. Do not emit overlapping or nested edits. Merge nearby changes into one edit.",
-			"Keep edits[].oldText as small as possible while still being unique in the file. Do not pad with large unchanged regions.",
-			"If oldText is not unique, the error lists every occurrence with its line number. Pick one with occurrence (1-based) or nearLine instead of padding oldText with more context, and use replaceAll only when every occurrence must change.",
-		],
 		parameters: editSchema,
 		prepareArguments: prepareEditArguments,
-		async execute(_toolCallId, input: EditToolInput, signal?: AbortSignal, _onUpdate?, _ctx?) {
+		async execute(_toolCallId, input: EditToolInput, signal?: AbortSignal) {
 			const { path, edits } = validateEditInput(input);
 			const absolutePath = resolveToCwd(path, cwd);
 

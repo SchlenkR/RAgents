@@ -15,13 +15,15 @@ import {
     postTo,
     registryOf,
     setupRun,
+    textStep,
+    thinkingStep,
 } from "./support.ts";
 
 test("the scheduler gives one ActorInput to a turn and records normal model output", async () => {
     const setup = setupRun();
     const driver = new FakeDriver(async (request) => {
-        request.emit({ kind: "reasoning", text: "Checking." });
-        request.emit({ kind: "assistant", text: "Complete." });
+        request.recordContext({ kind: "step", step: thinkingStep("Checking.") });
+        request.recordContext({ kind: "step", step: textStep("Complete.") });
 
         return { failure: null, usage: noUsage() };
     });
@@ -292,7 +294,7 @@ test("subscription removal skips queued deliveries and preserves normal FIFO wor
     const deliveryQueued = deferred();
     const driver = new FakeDriver(async (request) => {
         if (request.input.content === "Initial work") {
-            request.emit({ kind: "assistant", text: "Observable output." });
+            request.recordContext({ kind: "step", step: textStep("Observable output.") });
             deliveryQueued.resolve();
             await release.promise;
         }
@@ -376,11 +378,11 @@ test("subscription removal between idle scan and claim prevents the turn", async
     );
     const actor = running.actors.find((entry) => entry.id === setup.agent.id);
     assert.ok(actor && actor.kind !== "human" && actor.lifecycle.kind === "running");
-    const delivered = setup.runtime.appendModelOutput(
+    const delivered = setup.runtime.completeModelStep(
         { actorId: setup.agent.id, commandId: "race-source-output", turnId: actor.lifecycle.turnId },
         setup.view.id,
         setup.agent.id,
-        { turnId: actor.lifecycle.turnId, text: "Observable output." },
+        { turnId: actor.lifecycle.turnId, step: textStep("Observable output.") },
     ).inputs.find((input) => input.subscriptionId === subscription.id);
     assert.ok(delivered);
     setup.runtime.finishTurn(
@@ -578,7 +580,6 @@ for (const withWorkspace of [true, false]) {
             workspaces: {
                 ensure: () => process.cwd(),
                 description: () => "# Working directory\n\nYour working directory is a project folder.",
-                runtimeDirectory: () => Promise.resolve(process.cwd()),
                 storeAttachment: () => Promise.reject(new Error("Der Test legt keine Anhänge ab.")),
             },
         });

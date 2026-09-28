@@ -20,12 +20,17 @@ export type EventSemanticContext = {
     events: Map<string, JournalEvent>;
     /** Tool calls with a recorded source, by turn and call; their state stands in the turn. */
     sourcedToolCalls: Set<string>;
+    /** Inputs and tool results already presented to the model, by turn and input or call. */
+    presented: Set<string>;
 };
 
 export const eventSemanticContext = (): EventSemanticContext => ({
     events: new Map(),
     sourcedToolCalls: new Set(),
+    presented: new Set(),
 });
+
+const modelContextEventTypes: ReadonlySet<string> = new Set(["model.input.presented", "model.step.completed", "model.tool-result.presented"]);
 
 const existingActorOf = (state: RunState, actorId: string): Actor => {
     const actor = state.actors.get(actorId);
@@ -438,6 +443,46 @@ export const assertEventSemantics = (
             break;
         }
 
+        case "model.input.presented": {
+            const turn = runningTurnOf(state, event.payload.turnId);
+            assertTurnAuthor(turn, event);
+
+            if (event.payload.inputId !== null) {
+                const input = state.inputs.get(event.payload.inputId);
+
+                if (!input || input.lifecycle.kind !== "claimed" || input.lifecycle.turnId !== turn.id)
+                    throw new Error(`Input ${event.payload.inputId} does not belong to turn ${turn.id}.`);
+
+                if (context.presented.has(`${turn.id}\0input\0${input.id}`))
+                    throw new Error(`Input ${input.id} was already presented in turn ${turn.id}.`);
+            }
+            break;
+        }
+
+        case "model.tool-result.presented": {
+            const turn = runningTurnOf(state, event.payload.turnId);
+            assertTurnAuthor(turn, event);
+            const call = toolCallOf(turn, event.payload.toolCallId);
+
+            if (call.status === "running")
+                throw new Error(`Tool call ${call.id} in turn ${turn.id} has no result yet.`);
+
+            if (context.presented.has(`${turn.id}\0call\0${call.id}`))
+                throw new Error(`The result of tool call ${call.id} in turn ${turn.id} was already presented.`);
+            break;
+        }
+
+        case "context.compacted": {
+            const turn = runningTurnOf(state, event.payload.turnId);
+            assertTurnAuthor(turn, event);
+            const firstKept = context.events.get(event.payload.firstKeptEventId);
+
+            if (!firstKept || !modelContextEventTypes.has(firstKept.type))
+                throw new Error(`Compaction keeps from ${event.payload.firstKeptEventId}, which is no model context event.`);
+            break;
+        }
+
+        case "model.step.completed":
         case "model.output.completed":
         case "model.output.interrupted":
         case "model.reasoning.completed":
@@ -653,4 +698,10 @@ export const recordEventSemantics = (event: JournalEvent, context: EventSemantic
 
     if (event.type === "tool.call.source")
         context.sourcedToolCalls.add(toolCallKey(event.payload.turnId, event.payload.toolCallId));
+
+    if (event.type === "model.input.presented" && event.payload.inputId !== null)
+        context.presented.add(`${event.payload.turnId}\0input\0${event.payload.inputId}`);
+
+    if (event.type === "model.tool-result.presented")
+        context.presented.add(`${event.payload.turnId}\0call\0${event.payload.toolCallId}`);
 };

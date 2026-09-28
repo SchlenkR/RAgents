@@ -1,7 +1,6 @@
 import path from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { InlineExtension } from "@ragents/agent";
-import { agentHookExtension } from "./drivers/agent-hooks.ts";
+import { agentHookOf, type AgentHook } from "./drivers/agent-hooks.ts";
 import { Value } from "typebox/value";
 import { canStartEntry, defaultHttpRights, isAccessRight, unrestrictedAccess, type AccessContext } from "./access.ts";
 import { DomainError } from "./runtime/domain-error.ts";
@@ -230,8 +229,8 @@ export class AgentContributionRegistry {
     this.#contributions.register(owner, contributions);
   }
 
-  resolve(context: AgentContributionContext): readonly InlineExtension[] {
-    return this.#contributions.entries().map(({ value }) => agentHookExtension(value, context));
+  resolve(context: AgentContributionContext): readonly AgentHook[] {
+    return this.#contributions.entries().map(({ value }) => agentHookOf(value, context));
   }
 
   describe(): readonly PublicAgentHookContribution[] {

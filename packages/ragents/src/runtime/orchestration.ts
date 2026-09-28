@@ -1,4 +1,8 @@
-import type { JournalEvent, UncommittedEvent } from "../domain/events.ts";
+import type { ImageContent, TextContent, UserContent } from "@ragents/ai";
+
+import type { EventPayloads, JournalEvent, ModelInputContent, ModelToolResultPart, UncommittedEvent } from "../domain/events.ts";
+import { derivedToolResultText } from "../domain/tool-result-text.ts";
+import { ModelContexts } from "../agents/model-context.ts";
 import { assertJsonValue, type JsonObject, type JsonValue } from "../domain/json.ts";
 import type {
     ActionInput,
@@ -41,17 +45,32 @@ export type { CommandContext } from "./command.ts";
 
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : String(error);
 
+const firstOf = <Value, Found extends Value>(values: Iterable<Value>, matches: (value: Value) => value is Found): Found | undefined => {
+    for (const value of values)
+        if (matches(value))
+            return value;
+
+    return undefined;
+};
+
 export class Orchestration {
     readonly #journal: Journal;
     readonly #services: RuntimeServices;
     readonly #artifactContents: ArtifactContents;
     readonly #suppressedSubscriptionRuns = new Set<string>();
+    readonly #modelContexts: ModelContexts;
 
     constructor(journal: Journal, services: RuntimeServices, artifactContents: ArtifactContents = new MemoryArtifactContents()) {
         this.#journal = journal;
         this.#services = services;
         this.#artifactContents = artifactContents;
+        this.#modelContexts = new ModelContexts({
+            eventsSince: (runId, sequence) => this.#journal.eventsSince(runId, sequence),
+            firstEventId: (runId) => this.#journal.firstEventId(runId),
+            media: (hash) => this.mediaContent(hash),
+        });
         this.#journal.subscribe((events) => {
+            this.#releaseModelContexts(events);
             this.#dispatchSubscriptions(events);
             this.#dispatchCreatorAlerts(events);
         });
@@ -105,6 +124,21 @@ export class Orchestration {
             throw new DomainError("run-not-found", `Run ${runId} does not exist.`, 404);
 
         return state;
+    }
+
+    /** A value of the current state without cloning all of it; `read` must neither keep nor change the state. */
+    select<Value>(runId: string, read: (state: RunState) => Value): Value {
+        const found = this.#journal.select(runId, (state) => ({ value: read(state) }));
+
+        if (!found)
+            throw new DomainError("run-not-found", `Run ${runId} does not exist.`, 404);
+
+        return found.value;
+    }
+
+    /** The events of a run from the newest back, without copying the journal. */
+    recentEvents(runId: string) {
+        return this.#journal.recentEvents(runId);
     }
 
     view(runId: string) {
@@ -275,6 +309,14 @@ export class Orchestration {
                 };
             }
 
+            if (entry.type === "context.compacted") {
+                return {
+                    ...entry,
+                    ...identities,
+                    payload: { ...entry.payload, firstKeptEventId: rewriteEventId(entry.payload.firstKeptEventId) },
+                };
+            }
+
             if (entry.type === "subscription.failed") {
                 return {
                     ...entry,
@@ -385,20 +427,109 @@ export class Orchestration {
         return this.#run(context, runId, "turn.steer", { actorId, ...input }, turns.steerInputs(actorId, input));
     }
 
-    appendModelOutput(context: CommandContext, runId: string, actorId: string, input: { turnId: string; text: string }) {
-        return this.#run(context, runId, "model.output.complete", { actorId, ...input }, turns.appendModelOutput(actorId, input));
-    }
-
     appendInterruptedModelOutput(context: CommandContext, runId: string, actorId: string, input: { turnId: string; text: string }) {
         return this.#run(context, runId, "model.output.interrupt", { actorId, ...input }, turns.appendInterruptedModelOutput(actorId, input));
     }
 
-    appendModelReasoning(context: CommandContext, runId: string, actorId: string, input: { turnId: string; text: string }) {
-        return this.#run(context, runId, "model.reasoning.complete", { actorId, ...input }, turns.appendModelReasoning(actorId, input));
-    }
-
     appendRuntimeOutput(context: CommandContext, runId: string, actorId: string, input: { turnId: string; text: string }) {
         return this.#run(context, runId, "runtime.output.record", { actorId, ...input }, turns.appendRuntimeOutput(actorId, input));
+    }
+
+    /** The model context of an actor, extended by the events since the last call. */
+    modelContext(runId: string, actorId: string) {
+        return this.#modelContexts.contextOf(runId, actorId);
+    }
+
+    /** How many actor contexts are held in memory. */
+    heldModelContexts() {
+        return this.#modelContexts.size;
+    }
+
+    #releaseModelContexts(events: readonly JournalEvent[]) {
+        for (const event of events) {
+            if ((event.type !== "turn.finished" && event.type !== "turn.interrupted") || this.#journal.failureOf(event.runId))
+                continue;
+
+            const actorId = this.#journal.select(event.runId, (state) => state.turns.get(event.payload.turnId)?.actorId);
+
+            if (actorId)
+                this.#modelContexts.forgetActor(event.runId, actorId);
+        }
+    }
+
+    /** Removes a run from the journal and everything held for it in memory; its files stay. */
+    forgetRun(runId: string) {
+        this.#modelContexts.forget(runId);
+        return this.#journal.forget(runId);
+    }
+
+    /** The Base64 of stored media bytes, for the model context. */
+    mediaContent(hash: string): string {
+        return Buffer.from(this.#artifactContents.read(hash)).toString("base64");
+    }
+
+    #storedMedia(data: string): string {
+        return this.#artifactContents.put(Buffer.from(data, "base64")).hash;
+    }
+
+    presentModelInput(
+        context: CommandContext,
+        runId: string,
+        actorId: string,
+        input: { turnId: string; inputId: string | null; content: string | readonly UserContent[] },
+    ) {
+        const content: ModelInputContent = typeof input.content === "string"
+            ? input.content
+            : input.content.map((part) => {
+                if (part.type === "text") return { type: "text" as const, text: part.text };
+                const hash = this.#storedMedia(part.data);
+                return part.type === "file"
+                    ? { type: "file" as const, mimeType: part.mimeType, filename: part.filename, hash }
+                    : { type: part.type, mimeType: part.mimeType, hash };
+            });
+        const payload = { turnId: input.turnId, inputId: input.inputId, content };
+
+        return this.#run(context, runId, "model.input.present", { actorId, ...payload }, turns.presentModelInput(actorId, payload));
+    }
+
+    completeModelStep(context: CommandContext, runId: string, actorId: string, input: { turnId: string; step: turns.CompletedModelStep }) {
+        const step = JSON.parse(JSON.stringify(input.step)) as turns.CompletedModelStep;
+
+        return this.#run(context, runId, "model.step.complete", { actorId, turnId: input.turnId, step }, turns.completeModelStep(actorId, { turnId: input.turnId, step }));
+    }
+
+    /** Stores what the model saw of a tool result; the content is left out when it is exactly the text of the recorded result. */
+    presentToolResult(
+        context: CommandContext,
+        runId: string,
+        actorId: string,
+        input: { turnId: string; toolCallId: string; toolName: string; isError: boolean; content: readonly (TextContent | ImageContent)[] },
+    ) {
+        const content: ModelToolResultPart[] = input.content.map((part) => part.type === "text"
+            ? { type: "text", text: part.text }
+            : { type: "image", mimeType: part.mimeType, hash: this.#storedMedia(part.data) });
+        const recorded = firstOf(this.recentEvents(runId), (event): event is Extract<JournalEvent, { type: "tool.call.completed" | "tool.call.failed" }> =>
+            (event.type === "tool.call.completed" || event.type === "tool.call.failed")
+            && event.actorId === actorId
+            && event.payload.turnId === input.turnId
+            && event.payload.toolCallId === input.toolCallId);
+        const derived = recorded !== undefined
+            && content.length === 1
+            && content[0]!.type === "text"
+            && content[0]!.text === derivedToolResultText(recorded);
+        const payload = {
+            turnId: input.turnId,
+            toolCallId: input.toolCallId,
+            toolName: input.toolName,
+            isError: input.isError,
+            ...(derived ? {} : { content }),
+        };
+
+        return this.#run(context, runId, "model.tool-result.present", { actorId, ...payload }, turns.presentToolResult(actorId, payload));
+    }
+
+    compactContext(context: CommandContext, runId: string, actorId: string, input: EventPayloads["context.compacted"]) {
+        return this.#run(context, runId, "context.compact", { actorId, ...input }, turns.compactContext(actorId, input));
     }
 
     startToolCall(

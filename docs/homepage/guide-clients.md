@@ -144,7 +144,9 @@ soon as it becomes writable. Opening an existing run does not move focus there a
 
 **Runs** shows the complete list in the same grid, with search, "Beendete ausblenden" (hide finished), a server
 filter carried over from Start, and a selection mode that deletes several runs after a dialog
-confirmation. Checkboxes occupy an additional first column without shifting the others.
+confirmation. Checkboxes occupy an additional first column without shifting the others. A run the
+server has locked, for example because its journal uses an older format, shows a warning icon whose
+tooltip names the cause; it does not open, but the selection mode deletes it.
 
 **Server** is the configuration page. You can add, edit, sign in, sign out, connect,
 disconnect, and remove servers with confirmation, then open `settings.json` from the link

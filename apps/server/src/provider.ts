@@ -1,10 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { chmod, mkdir, open, readFile, readdir, realpath, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import type { ChatSessionLike, ChatSessionProvider, RunListScope, SessionInfo } from "./chat-handler.js";
-import { DomainError, isRunId, unrestrictedAccess, type AccessContext, type HttpRouteContribution, type MethodContribution, type PluginHost, type ServiceToken, type SessionStartedContext } from "@ragents/engine";
+import { DomainError, isRunId, unrestrictedAccess, type AccessContext, type HttpRouteContribution, type Journal, type JournalLoadFailure, type MethodContribution, type PluginHost, type ServiceToken, type SessionStartedContext } from "@ragents/engine";
 import { WORKSPACE_EXECUTOR_VERSION } from "@ragents/workspace-executor";
 import { assertRunRights, assertRunWorkspaceAccess, runIdInPath, runListScope, runReachable, type GlobalRunPolicy, type RunAccessPolicy } from "./api/rights.js";
 import { configuredAnonymousUser, configuredUsers } from "./config-file.js";
@@ -17,6 +17,8 @@ import {
   assertRunIdFree,
   assertRunStopped,
   assertWorkspaceReplacement,
+  contentHashesOf,
+  installContents,
   installSessionDirectory,
   packRunArchive,
   runTransferStagingDirectory,
@@ -314,7 +316,10 @@ export class RunSessionProvider implements ChatSessionProvider {
         ...(Object.keys(metadata.unavailable).length > 0 ? { metadataUnavailable: metadata.unavailable } : {}),
       };
     }));
-    const infos = described.filter((info): info is ListedSession => info !== undefined);
+    const locked = engine.journal.unavailableRuns()
+      .filter(({ runId }) => !isCoordinator(runId) && !this.deleteRequested.has(runId) && !this.deleted.has(runId) && visible(runId))
+      .map((failure) => lockedSession(failure, engine.journal));
+    const infos = [...described.filter((info): info is ListedSession => info !== undefined), ...locked];
     for (const [id, session] of this.sessions) {
       if (isCoordinator(id) || !visible(id)) continue;
       if (this.deleteRequested.has(id) || this.deleted.has(id)) continue;
@@ -466,10 +471,6 @@ export class RunSessionProvider implements ChatSessionProvider {
     this.ensureUsable(id);
     if (!this.plugins.optionalService(globalChatToken)?.isCoordinator(id)) await this.plugins.lifecycle.prepareSession(id);
     this.ensureUsable(id);
-    await mkdir(layout.chatDir(id), { recursive: true, mode: ROOT_ONLY_MODE });
-    this.ensureUsable(id);
-    await chmod(layout.chatDir(id), ROOT_ONLY_MODE);
-    this.ensureUsable(id);
   }
 
   private async startedRun(id: string, startEntry: SessionStartedContext["startEntry"]): Promise<void> {
@@ -496,7 +497,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     return this.deleting.get(id)?.done;
   }
 
-  /** Ein gestoppter Run als Archiv: Journal, Payloads, Modellkontexte und seine Plugin-Ablagen. */
+  /** Ein gestoppter Run als Archiv: Journal, Payloads, die Inhalte, auf die er verweist, und seine Plugin-Ablagen. */
   exportRun(id: string): Promise<RunTransferExport> {
     this.ensureUsable(id);
     if (this.plugins.optionalService(globalChatToken)?.isCoordinator(id)) {
@@ -524,7 +525,12 @@ export class RunSessionProvider implements ChatSessionProvider {
         boundDirectory: this.workspaceTransfer().boundDirectory(id),
         exportedAt: new Date().toISOString(),
       };
-      const archive = await packRunArchive({ places: this.transferPlaces(), runId: id, manifest });
+      const archive = await packRunArchive({
+        places: this.transferPlaces(),
+        runId: id,
+        manifest,
+        contentHashes: contentHashesOf(engine.journal.load(id)),
+      });
       return { manifest, archive: archive.toString("base64") };
     });
   }
@@ -543,6 +549,7 @@ export class RunSessionProvider implements ChatSessionProvider {
         assertWorkspaceReplacement(manifest, workspacePath);
         if (workspacePath !== undefined) transfer.assertDirectory(workspacePath);
         const sessionDirectory = await installSessionDirectory({ places, runId: manifest.runId, staging, mode: SESSION_MODE });
+        await installContents({ places, staging });
         const engine = this.requireEngine();
         try {
           engine.journal.adopt(unpacked.records);
@@ -639,7 +646,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       await settled;
       await this.plugins.optionalService(sandboxServicesToken)?.shutdown(id);
       await this.removeGlobalConversation(id, policy);
-      engine.journal.forget(id);
+      engine.runtime.forgetRun(id);
       this.sessionWorkspaces.delete(id);
       this.workspaces.forget(id);
     });
@@ -756,7 +763,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     if (failures.length > 0) throw new AggregateError(failures, `Run ${id} konnte nicht gestoppt werden`);
     await this.plugins.lifecycle.deleteSession(id);
     await this.archiveSession(id);
-    this.engine?.journal.forget(id);
+    this.engine?.runtime.forgetRun(id);
     this.sessions.delete(id);
     this.sessionWorkspaces.delete(id);
     this.workspaces.forget(id);
@@ -870,6 +877,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   private async archiveSession(id: string): Promise<void> {
     const target = layout.archiveSessionDir(id);
     await mkdir(target, { recursive: true, mode: ROOT_ONLY_MODE });
+    // Journale vor Format 7 hielten den Modellkontext unter sessions/<id>/chat; er bleibt im Archiv erhalten.
     const moves = [
       [path.join(layout.sessionDir(id), "chat"), "chat"],
       [path.join(layout.runsDir, id), "run"],
@@ -892,6 +900,21 @@ export class RunSessionProvider implements ChatSessionProvider {
     await this.syncDirectory(layout.runsDir);
   }
 }
+
+/** Ein gesperrter Run ohne Plugin-Metadaten und Arbeitsbereich; ohne geladenen Zustand zählt die Journaldatei. */
+const lockedSession = (failure: JournalLoadFailure, journal: Journal): ListedSession => {
+  const state = journal.stateOf(failure.runId);
+  const updatedAt = state ? Date.parse(journal.updatedAt(failure.runId) ?? state.createdAt) : statSync(failure.path, { throwIfNoEntry: false })?.mtimeMs ?? 0;
+  return {
+    id: failure.runId,
+    title: state?.title ?? failure.runId,
+    ...(state ? { createdAt: Date.parse(state.createdAt), revision: state.revision } : {}),
+    updatedAt,
+    running: false,
+    workspaceAccessible: false,
+    locked: failure.message,
+  };
+};
 
 const sessionTitle = (text: string | undefined): string | undefined => {
   const lines = text?.split(/\r?\n/).map((line) => line.trim()).filter(Boolean) ?? [];

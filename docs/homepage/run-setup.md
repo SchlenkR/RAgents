@@ -1794,7 +1794,7 @@ test("der gemeinsame Ablauf liefert Helferaufträge, Prompt und parallele Graphz
   await program.onInput(eventOf("experiment", "actor.stopped", {}), context);
   const failed = workflowGraph(learningWorkflow, learningWorkflowState(context.state.read().board!));
   assert.deepEqual(failed.nodes.map((node) => [node.id, node.status]), [["experiment", "blocked"], ["quiz", "done"], ["collect", "blocked"]]);
-  assert.match(failed.nodes.find((node) => node.id === "collect")!.detail!, /1 von 2/);
+  assert.match(failed.nodes.find((node) => node.id === "collect")!.detail!, /1 of 2/);
 });
 ```
 
@@ -2203,7 +2203,7 @@ test("wartet auf spätere Ereignisse, zählt zwölf Beiträge und beendet die We
   assert.deepEqual(inputs.map((call) => (call.input as { actor: string }).actor), words.map((_word, index) => `actor-${participants[index % 4]!.handle}`));
   assert.equal(context.state.read().status, "completed");
   assert.equal(context.state.read().entries?.length, 12);
-  assert.match(context.state.read().document!, /12\. Grün: Blume/);
+  assert.match(context.state.read().document!, /12\. Green: Blume/);
   assert.equal(context.state.read().pendingInputId, undefined);
   assert.deepEqual(await program.functions.start({}, context), { accepted: false });
 });
@@ -2229,7 +2229,7 @@ for (const scenario of [
   { name: "Modellfehler", word: "Strand", options: { outcome: "failed" } },
   { name: "Unterbrechung", word: "Strand", options: { type: "turn.interrupted" } },
   { name: "Mehrwortantwort", word: "Schöner Strand", options: {} },
-  { name: "wiederholtes Ausgangswort", word: "sonne", options: {} },
+  { name: "wiederholtes Ausgangswort", word: "sun", options: {} },
 ]) {
   test(`${scenario.name} bleibt als Fehler sichtbar und startet nicht erneut`, async () => {
     const { context, calls, response, start } = fixture();
@@ -2354,7 +2354,7 @@ test("ein gestoppter aktueller Teilnehmer hält das Spiel an", async () => {
   await start();
   await program.onInput(response("Strand", { type: "actor.stopped" }), context);
   assert.equal(context.state.read().status, "error");
-  assert.match(context.state.read().error!, /Rot wurde gestoppt/);
+  assert.match(context.state.read().error!, /Red wurde gestoppt/);
   assert.equal(context.state.read().entries?.length, 0);
 });
 ```
@@ -2379,7 +2379,7 @@ export interface CapabilityContracts { "action_propose": { input: { "description
 "actor_stop": { input: { /** Handle oder ID */ "actorId": string; "reason": string; }; output: Array<({ "payload": { /** ID der entfernten Subscription */ "subscriptionId": string; }; "type": "subscription.removed"; }) | ({ "payload": { /** ID des gestoppten Actors */ "actorId": string; }; "type": "actor.stopped"; }) | ({ "payload": { /** ID des unterbrochenen Turns */ "turnId": string; }; "type": "turn.interrupted"; })> };
 "actor_transcript": { input: { /** Handle mit oder ohne @ oder ID eines Actors dieses Runs */ "actor": string; /** Obergrenze in Zeichen, Standard 20000; die ältesten Zeilen entfallen zuerst */ "maxChars"?: number; }; output: { "actorId": string; "handle": string; "lines": number; "text": string; "truncated": boolean; } };
 "actor_view_set_visibility": { input: { /** package-name/view-key or @handle/view-key of an activated view, without the surface entity prefix app:. No generated IDs needed. */ "view": string; "visible": boolean; }; output: { "view": string; "visible": boolean; } };
-"agent_spawn": { input: { /** Sehr kurze Beschreibung der Aufgabe für die Übersicht der Beteiligten, wenige Wörter wie "prüft die Regel zu Kommentaren" */ "description"?: string; /** Anzeigename; ohne Angabe der Handle */ "displayName"?: string; "driver"?: ("agent") | ("manual") | ("script"); /** Handle oder ID eines LLM-Agenten dieses Runs, dessen bisheriger Modellkontext in den neuen Agenten kopiert wird */ "forkOf"?: string; "handle": string; "isolateWorkspace"?: boolean; /** Model from model_list. Required for an LLM agent unless profile supplies a model; also overrides the profile's model. */ "model"?: string; /** Execution profile from model_list. Normally supply this field: an LLM agent needs a model-bearing profile or an explicit model. The caller's model is not inherited. */ "profile"?: string; "prompt": string; /** Provider from model_list for an explicit model selection; may be omitted when the profile or an unambiguous catalog entry supplies it. */ "provider"?: string; "thinking"?: ("high") | ("low") | ("max") | ("medium") | ("minimal") | ("off") | ("xhigh"); /** Required explicit selection: [] for plain text-only work including app-mediated conversations; an array for exact existing tool names; null only when the task needs an open, dynamically resolved toolset. Never inherits the caller's tools. Names of future, not yet activated actor functions are invalid; choose null when those must become available later. */ "tools": (Array<string>) | (null); "turnTimeoutMs"?: number; "withoutCapabilities"?: Array<("action.propose") | ("actor.input") | ("agent.spawn") | ("artifact.publish") | ("event.subscribe") | ("execution.stopOwned") | ("plugin.state.write") | ("run.configure") | ("workspace.use")>; }; output: { /** Actual unique handle, including any suffix assigned during creation. */ "handle": string; /** Stable actor reference for actor_input and other functions. */ "id": string; } };
+"agent_spawn": { input: { /** Sehr kurze Beschreibung der Aufgabe für die Übersicht der Beteiligten, wenige Wörter wie "prüft die Regel zu Kommentaren" */ "description"?: string; /** Anzeigename; ohne Angabe der Handle */ "displayName"?: string; "driver"?: ("agent") | ("manual") | ("script"); /** Handle or ID of an LLM agent of this run whose model context up to the end of its last finished turn is copied into the new agent */ "forkOf"?: string; "handle": string; "isolateWorkspace"?: boolean; /** Model from model_list. Required for an LLM agent unless profile supplies a model; also overrides the profile's model. */ "model"?: string; /** Execution profile from model_list. Normally supply this field: an LLM agent needs a model-bearing profile or an explicit model. The caller's model is not inherited. */ "profile"?: string; "prompt": string; /** Provider from model_list for an explicit model selection; may be omitted when the profile or an unambiguous catalog entry supplies it. */ "provider"?: string; "thinking"?: ("high") | ("low") | ("max") | ("medium") | ("minimal") | ("off") | ("xhigh"); /** Required explicit selection: [] for plain text-only work including app-mediated conversations; an array for exact existing tool names; null only when the task needs an open, dynamically resolved toolset. Never inherits the caller's tools. Names of future, not yet activated actor functions are invalid; choose null when those must become available later. */ "tools": (Array<string>) | (null); "turnTimeoutMs"?: number; "withoutCapabilities"?: Array<("action.propose") | ("actor.input") | ("agent.spawn") | ("artifact.publish") | ("event.subscribe") | ("execution.stopOwned") | ("plugin.state.write") | ("run.configure") | ("workspace.use")>; }; output: { /** Actual unique handle, including any suffix assigned during creation. */ "handle": string; /** Stable actor reference for actor_input and other functions. */ "id": string; } };
 "artifact_publish": { input: { "content": string; "mediaType": string; "previousVersionId"?: string; "title": string; }; output: Array<{ "payload": { "artifact": { /** ID des Artefakts; artifact_read liest es damit */ "id": string; }; }; "type": "artifact.published"; }> };
 "artifact_read": { input: { "artifactId": string; }; output: { "artifact": { "createdAt": string; "createdBy": string; "id": string; "mediaType": string; "previousVersionId": (null) | (string); "size": number; "title": string; }; "content": string; "encoding": ("base64") | ("utf8"); } };
 "ask_user": { input: ({ /** true = Mehrfachauswahl erlaubt */ "multi"?: boolean; /** Antwortoptionen (2 bis 6 Stück) */ "options": Array<string>; /** Die Frage an den Benutzer, kurz und konkret */ "question": string; }) & ({ [key: string]: unknown }); output: string };

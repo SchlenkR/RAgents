@@ -27,7 +27,6 @@ type ToolExecute = (
   input: unknown,
   signal: AbortSignal | undefined,
   onUpdate: ((update: ToolUpdate) => void) | undefined,
-  context: unknown,
 ) => Promise<unknown>;
 
 export interface SandboxToolCall {
@@ -177,17 +176,17 @@ export const createSandboxTools = async (
     await allowedWorkspacePath(path.resolve(cwd, String(raw)), roots);
   };
 
-  const concurrent = (execute: ToolExecute): ToolExecute => (toolCallId, input, signal, onUpdate, context) => {
+  const concurrent = (execute: ToolExecute): ToolExecute => (toolCallId, input, signal, onUpdate) => {
     if (shuttingDown) throw new Error("Die Werkzeuge werden killed");
     if (signal?.aborted) throw new Error("Abgebrochen");
-    const run = () => execute(toolCallId, input, signal, onUpdate, context);
+    const run = () => execute(toolCallId, input, signal, onUpdate);
     return initial.runOperation ? initial.runOperation(run) : run();
   };
 
   const serial = (execute: ToolExecute): ToolExecute => {
     const inner = concurrent(execute);
-    return (toolCallId, input, signal, onUpdate, context) => {
-      const call = () => inner(toolCallId, input, signal, onUpdate, context);
+    return (toolCallId, input, signal, onUpdate) => {
+      const call = () => inner(toolCallId, input, signal, onUpdate);
       const result = toolOperation.then(call, call);
       toolOperation = result.then(() => undefined, () => undefined);
       return result;
@@ -222,7 +221,7 @@ export const createSandboxTools = async (
 
   const guarded = (name: FileToolName, execute: ToolExecute): ToolExecute => {
     const writing = name !== "read";
-    const checked: ToolExecute = async (toolCallId, input, signal, onUpdate, ctx) => {
+    const checked: ToolExecute = async (toolCallId, input, signal, onUpdate) => {
       const { seen, ...params } = (input ?? {}) as FileToolInput;
       const context = await contextFor();
       const shown = typeof params.path === "string" ? params.path : undefined;
@@ -236,7 +235,7 @@ export const createSandboxTools = async (
         const tracked = seen !== undefined && file !== undefined && shown !== undefined;
         const early = tracked ? await checkedAgainstSeen(name, file, shown, params, seen) : undefined;
         if (early) return early;
-        const result = await execute(toolCallId, requested === undefined ? params : { ...params, path: requested }, signal, onUpdate, ctx);
+        const result = await execute(toolCallId, requested === undefined ? params : { ...params, path: requested }, signal, onUpdate);
         const recorded = tracked ? { ...result as ToolResult, details: { ...(result as ToolResult).details as object, seen: seenAfter(name, file, params, result) } } : result;
         const annotated = writing && annotate && file !== undefined ? withAnnotation(recorded, await annotate(file)) : recorded;
         return requested === undefined || shown === undefined ? annotated : withShownPath(annotated, requested, shown);
@@ -248,9 +247,9 @@ export const createSandboxTools = async (
   };
 
   /** Der Ordner eines Bash-Aufrufs: relativ zum Arbeitsverzeichnis oder mit Alias, auf jedem Rechner gleich, darum nie absolut, und immer in einer Wurzel des Runs. */
-  const inFolder = (execute: ToolExecute): ToolExecute => async (toolCallId, input, signal, onUpdate, ctx) => {
+  const inFolder = (execute: ToolExecute): ToolExecute => async (toolCallId, input, signal, onUpdate) => {
     const params = input as { cwd?: unknown } | undefined;
-    if (params?.cwd === undefined) return execute(toolCallId, input, signal, onUpdate, ctx);
+    if (params?.cwd === undefined) return execute(toolCallId, input, signal, onUpdate);
     const requested = params.cwd;
     if (typeof requested !== "string" || requested === "" || path.isAbsolute(requested)) {
       throw new WorkspaceOperationError("workspace-path-invalid",
@@ -262,7 +261,7 @@ export const createSandboxTools = async (
     if (!(await stat(directory).catch(() => undefined))?.isDirectory()) {
       throw new WorkspaceOperationError("workspace-path-not-found", `Den Ordner ${requested} gibt es nicht`, 404);
     }
-    return execute(toolCallId, { ...params, cwd: directory }, signal, onUpdate, ctx);
+    return execute(toolCallId, { ...params, cwd: directory }, signal, onUpdate);
   };
 
   const startBash: BashOperations["exec"] = async (command, commandCwd, options) => {
@@ -355,7 +354,7 @@ export const createSandboxTools = async (
   ];
   return {
     tools: new Map(wrapped.map(([name, execute]) =>
-      [name, (input: unknown, call: SandboxToolCall) => execute(call.toolCallId, input, call.signal, call.onUpdate, undefined)])),
+      [name, (input: unknown, call: SandboxToolCall) => execute(call.toolCallId, input, call.signal, call.onUpdate)])),
     shutdown,
   };
 };

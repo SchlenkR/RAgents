@@ -1,10 +1,10 @@
 import { readFile } from "node:fs/promises";
 
-import { stripFrontmatter, type InlineExtension, type ModelRuntime, type Skill } from "@ragents/agent";
+import { stripFrontmatter, type ModelRuntime, type Skill } from "@ragents/agent";
 
 import type { TurnUsage } from "../domain/model.ts";
 
-export const skillPreloadExtensionName = "ragents-skill-preload";
+export const skillPreloadHookName = "ragents-skill-preload";
 
 export type SkillCatalogEntry = {
     name: string;
@@ -130,64 +130,54 @@ const preloadedSkills = async (skills: readonly Skill[]): Promise<string> => {
     ].join("\n\n");
 };
 
-export const createSkillPreloadExtension = (options: SkillPreloadOptions): InlineExtension => ({
-    name: skillPreloadExtensionName,
-    factory: (agent) => {
-        agent.on("before_agent_start", async (event, context) => {
-            try {
-                const skills = event.systemPromptOptions.skills ?? [];
+export type SkillPreloadRequest = {
+    prompt: string;
+    skills: readonly Skill[];
+    model: ReturnType<ModelRuntime["getModels"]>[number];
+    signal: AbortSignal | undefined;
+};
 
-                if (skills.length === 0)
-                    return;
+/** Selects skills for the task of a turn and returns their bodies as a section of this turn's system prompt, or undefined. */
+export type SkillPreload = (request: SkillPreloadRequest) => Promise<string | undefined>;
 
-                const explicit = explicitSkillNames(event.prompt, skills);
-                let names: readonly string[] | null = explicit.length > 0 ? explicit : null;
-                let candidates = skills;
+export const createSkillPreload = (options: SkillPreloadOptions): SkillPreload => async ({ prompt, skills, model, signal }) => {
+    try {
+        if (skills.length === 0)
+            return undefined;
 
-                if (explicit.length === 0) {
-                    candidates = skills.filter((skill) => !skill.disableModelInvocation);
-                    const catalog = candidates.map(({ name, description }) => ({ name, description }));
+        const explicit = explicitSkillNames(prompt, skills);
+        let names: readonly string[] | null = explicit.length > 0 ? explicit : null;
+        let candidates = skills;
 
-                    if (catalog.length === 0)
-                        return;
+        if (explicit.length === 0) {
+            candidates = skills.filter((skill) => !skill.disableModelInvocation);
+            const catalog = candidates.map(({ name, description }) => ({ name, description }));
 
-                    const selector = options.selector ?? (context.model
-                        ? agentSelector(
-                            options.modelRuntime,
-                            context.model,
-                            options.maxSelectionTokens ?? 100,
-                            options.onUsage,
-                        )
-                        : null);
+            if (catalog.length === 0)
+                return undefined;
 
-                    if (!selector)
-                        return;
+            const selector = options.selector ?? agentSelector(
+                options.modelRuntime,
+                model,
+                options.maxSelectionTokens ?? 100,
+                options.onUsage,
+            );
 
-                    names = await selector({
-                        prompt: event.prompt,
-                        skills: catalog,
-                        signal: context.signal,
-                    });
-                }
+            names = await selector({ prompt, skills: catalog, signal });
+        }
 
-                if (!names || names.length === 0)
-                    return;
+        if (!names || names.length === 0)
+            return undefined;
 
-                const selected = names
-                    .map((name) => candidates.find((skill) => skill.name === name))
-                    .filter((skill): skill is Skill => skill !== undefined);
+        const selected = names
+            .map((name) => candidates.find((skill) => skill.name === name))
+            .filter((skill): skill is Skill => skill !== undefined);
 
-                if (selected.length === 0)
-                    return;
-
-                return {
-                    systemPrompt: `${event.systemPrompt}\n\n${await preloadedSkills(selected)}`,
-                };
-            } catch (error) {
-                options.onDiagnostic?.(
-                    `Agent skill preloading fell back to the skill catalog: ${error instanceof Error ? error.message : String(error)}`,
-                );
-            }
-        });
-    },
-});
+        return selected.length === 0 ? undefined : await preloadedSkills(selected);
+    } catch (error) {
+        options.onDiagnostic?.(
+            `Agent skill preloading fell back to the skill catalog: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return undefined;
+    }
+};

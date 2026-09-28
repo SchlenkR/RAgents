@@ -164,18 +164,46 @@ export class TurnToolset {
         this.tools.splice(0, this.tools.length, ...this.functions.filter((tool) => tool.nativeTool === true));
     }
 
+    /** A model's tool call always lands in the journal: a failure before the start is recorded as start and failure. */
     async invoke(toolCallId: string, name: string, input: JsonValue, modelContext?: string): Promise<ToolInvocation> {
-        await this.refresh();
-        const tool = this.tools.find((entry) => entry.name === name);
+        const prepared = await this.#beforeStart(toolCallId, name, input, async () => {
+            await this.refresh();
+            const tool = this.tools.find((entry) => entry.name === name);
 
-        if (!tool)
-            throw new Error(`Tool ${name} is not available to actor ${this.#turn.actorId}.`);
+            if (!tool)
+                throw new Error(`Tool ${name} is not available to actor ${this.#turn.actorId}.`);
 
-        assertJsonValue(input, `Tool ${name} input`);
-        const tolerated = withoutUnknownFields(tool.schema, input);
-        const output = await this.#execute(toolCallId, tool, tolerated.input, tolerated.ignoredFields, modelContext);
+            assertJsonValue(input, `Tool ${name} input`);
+            const tolerated = withoutUnknownFields(tool.schema, input);
 
-        return { output, ignoredFields: tolerated.ignoredFields };
+            if (!this.#replayOf(toolCallId) && !Value.Check(tool.schema, tolerated.input))
+                throw new Error(inputComplaint(tool, tolerated.input, tolerated.ignoredFields));
+
+            return { tool, tolerated };
+        });
+        const output = await this.#execute(toolCallId, prepared.tool, prepared.tolerated.input, prepared.tolerated.ignoredFields, modelContext);
+
+        return { output, ignoredFields: prepared.tolerated.ignoredFields };
+    }
+
+    async #beforeStart<T>(toolCallId: string, name: string, input: JsonValue, prepare: () => Promise<T>): Promise<T> {
+        try {
+            return await prepare();
+        } catch (error) {
+            if (this.#replayOf(toolCallId))
+                throw error;
+
+            try {
+                this.#assertActive();
+                assertJsonValue(input, `Tool ${name} input`);
+            } catch {
+                throw error;
+            }
+
+            this.#runtime.startToolCall(this.#context(toolCallId, "started"), this.#turn.runId, this.#turn.actorId, { turnId: this.#turn.turnId, toolCallId, name, input });
+            this.#runtime.failToolCall(this.#context(toolCallId, "failed"), this.#turn.runId, this.#turn.actorId, { turnId: this.#turn.turnId, toolCallId, name, error: errorText(error) });
+            throw error;
+        }
     }
 
     async invokeFunction(toolCallId: string, name: string, input: JsonValue): Promise<JsonValue> {
@@ -282,18 +310,17 @@ export class TurnToolset {
     }
 
     #replayOf(toolCallId: string) {
-        const events = this.#runtime.events(this.#turn.runId).filter((event): event is ToolCallEvent => {
-            if (
-                event.type !== "tool.call.started" &&
-                event.type !== "tool.call.completed" &&
-                event.type !== "tool.call.failed"
-            )
-                return false;
+        const events: ToolCallEvent[] = [];
 
-            return event.actorId === this.#turn.actorId &&
-                event.payload.turnId === this.#turn.turnId &&
-                event.payload.toolCallId === toolCallId;
-        });
+        for (const event of this.#runtime.recentEvents(this.#turn.runId)) {
+            if (event.type === "turn.started" && event.payload.turnId === this.#turn.turnId)
+                break;
+
+            if ((event.type === "tool.call.started" || event.type === "tool.call.completed" || event.type === "tool.call.failed")
+                && event.actorId === this.#turn.actorId && event.payload.turnId === this.#turn.turnId && event.payload.toolCallId === toolCallId)
+                events.unshift(event);
+        }
+
         const started = events.find((event) => event.type === "tool.call.started");
         const terminal = events.findLast(
             (event) => event.type === "tool.call.completed" || event.type === "tool.call.failed",

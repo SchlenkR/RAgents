@@ -4,6 +4,7 @@ import {
   ARTIFACT_CONTENT_PATH,
   ChannelContributionRegistry,
   createAccessContext,
+  DomainError,
   implement,
   implementChannel,
   MethodContributionRegistry,
@@ -127,7 +128,10 @@ export const startStubServer = async (options: { loginRequired?: boolean; tokenG
   methods.register("stub", [
     implement(coreContracts.runs.list, () => sessions),
     implement(coreContracts.plugins.bootstrap, () => profile),
-    implement(runContracts.view, ({ runId }) => runId === view.id ? servedView(view) : null),
+    implement(runContracts.view, ({ runId }) => {
+      if (sessions.some((entry) => entry.id === runId && entry.locked !== undefined)) throw new DomainError("journal-unavailable", `Journal für Run ${runId} ist nicht verfügbar`, 409);
+      return runId === view.id ? servedView(view) : null;
+    }),
     implement(runContracts.events, () => JOURNAL as JournalEvent[]),
     // Wie im Server geht der Stopp erst an den Arbeitsplatz und wird erst danach beantwortet.
     implement(runContracts.stopAll, async ({ runId }) => {

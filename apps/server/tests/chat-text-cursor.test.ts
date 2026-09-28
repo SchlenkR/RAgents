@@ -2,7 +2,7 @@ import { unavailableActorPrograms } from "./actor-programs-fixture.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Journal, LiveBus, Orchestration } from "@ragents/engine";
-import { manualExecution, testServices } from "../../../packages/ragents/tests/support.ts";
+import { manualExecution, testServices, textStep } from "../../../packages/ragents/tests/support.ts";
 import { applyEvent, type ChatEvent, type Message } from "quassel/events";
 import type { Engine } from "../src/ragents/engine.ts";
 import { RunChatSession } from "../src/ragents/session.ts";
@@ -39,7 +39,7 @@ const fixture = () => {
     live.publish(run.runId, run.actorId, { kind: "turn-started", turnId: actor.lifecycle.turnId });
     return actor.lifecycle.turnId;
   };
-  const output = (turnId: string, text: string) => runtime.appendModelOutput({ actorId: run.actorId, commandId: services.newId("command"), turnId }, run.runId, run.actorId, { turnId, text });
+  const output = (turnId: string, text: string) => runtime.completeModelStep({ actorId: run.actorId, commandId: services.newId("command"), turnId }, run.runId, run.actorId, { turnId, step: textStep(text) });
   return { ...run, journal, runtime, live, session, startTurn, output, createRun };
 };
 

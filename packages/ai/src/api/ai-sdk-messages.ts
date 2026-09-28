@@ -1,4 +1,4 @@
-import type { AssistantModelMessage, FilePart, JSONValue, ModelMessage, UserContent as SdkUserContent } from "ai";
+import type { AssistantModelMessage, FilePart, JSONValue, ModelMessage, ToolResultPart, UserContent as SdkUserContent } from "ai";
 import type { Api, AssistantMessage, Context, Model, UserContent } from "../types.ts";
 import { sanitizeSurrogates } from "../utils/sanitize-unicode.ts";
 import { transformMessages } from "./transform-messages.ts";
@@ -54,21 +54,33 @@ function assistantMessage(message: AssistantMessage): AssistantModelMessage | un
 	};
 }
 
+/** The breakpoint sits on the last lasting block; on a part, because the SDK merges tool messages and copies a message mark onto every result. */
+function markCacheBoundary(message: ModelMessage | undefined, cacheControl: CacheControl): void {
+	if (!message || message.role === "system") return;
+	const lastPart = message.role === "tool" ? message.content.filter((part): part is ToolResultPart => part.type === "tool-result").at(-1)
+		: message.role === "user" && Array.isArray(message.content) ? message.content.at(-1) : undefined;
+	const target = lastPart ?? message;
+	target.providerOptions = { ...target.providerOptions, openrouter: { ...target.providerOptions?.openrouter, cacheControl } };
+}
+
 export function convertMessages(context: Context, model: Model<Api>, cacheControl?: CacheControl): ModelMessage[] {
 	const result: ModelMessage[] = [];
 	if (context.systemPrompt) result.push({ role: "system", content: sanitizeSurrogates(context.systemPrompt),
 		...(cacheControl ? { providerOptions: { openrouter: { cacheControl } } } : {}),
 	});
 	const messages = transformMessages(context.messages, model);
+	let boundary: ModelMessage | undefined;
 	for (let index = 0; index < messages.length; index += 1) {
 		const message = messages[index]!;
 		if (message.role === "user") {
 			const content = typeof message.content === "string" ? sanitizeSurrogates(message.content)
 				: message.content.filter((part) => part.type !== "text" || part.text.length > 0).map(userContent);
 			if (typeof content === "string" || content.length > 0) result.push({ role: "user", content });
+			if (!message.transient) boundary = result.at(-1);
 		} else if (message.role === "assistant") {
 			const converted = assistantMessage(message);
 			if (converted) result.push(converted);
+			boundary = result.at(-1);
 		} else {
 			const images: FilePart[] = [];
 			while (messages[index]?.role === "toolResult") {
@@ -87,16 +99,9 @@ export function convertMessages(context: Context, model: Model<Api>, cacheContro
 			}
 			index -= 1;
 			if (images.length > 0) result.push({ role: "user", content: [{ type: "text", text: "Attached image(s) from tool result:" }, ...images] });
+			boundary = result.at(-1);
 		}
 	}
-	if (cacheControl) {
-		const lastMessage = [...result].reverse().find((message) => (message.role === "user" || message.role === "assistant")
-			&& (typeof message.content === "string" ? message.content.length > 0
-				: message.content.some((part) => part.type === "text")));
-		if (lastMessage) lastMessage.providerOptions = {
-			...lastMessage.providerOptions,
-			openrouter: { ...lastMessage.providerOptions?.openrouter, cacheControl },
-		};
-	}
+	if (cacheControl) markCacheBoundary(boundary, cacheControl);
 	return result;
 }

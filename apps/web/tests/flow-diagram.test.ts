@@ -64,7 +64,7 @@ test("FlowDiagram is SSR-safe and rejects invalid graphs without stale content",
     { nodes: [{ id: "a", label: "A" }], edges: [{source:"a", target:"missing"}] },
     { nodes: [{ id: "", label: "A" }], edges: [] },
   ]) assert.match(renderToStaticMarkup(createElement(FlowDiagram, { ...props, label: "Fehler" })), /role="alert"/);
-  assert.match(renderToStaticMarkup(createElement(FlowDiagram, { nodes: [], edges: [], label: "Leer" })), /Keine Knoten/);
+  assert.match(renderToStaticMarkup(createElement(FlowDiagram, { nodes: [], edges: [], label: "Leer" })), /No nodes available/);
 });
 
 test("FlowDiagram renders offline, routes edges and preserves layout and viewport on status updates", {

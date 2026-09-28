@@ -7,6 +7,7 @@ import type { WorkspaceToolNaming } from "../src/agents/workspace-tools.ts";
 import { thinkingLevels, type AgentExecution } from "../src/domain/driver.ts";
 import type { CapabilityGrant, CapabilityName, RunView } from "../src/domain/model.ts";
 import type { AgentDriver, DriverRegistry, TurnRequest, TurnResult } from "../src/drivers/types.ts";
+import type { CompletedModelStep } from "../src/runtime/decisions/turns.ts";
 import { Journal } from "../src/runtime/journal.ts";
 import { Orchestration } from "../src/runtime/orchestration.ts";
 import type { RuntimeServices } from "../src/runtime/services.ts";
@@ -103,6 +104,17 @@ export class FakeDriver implements AgentDriver<"agent"> {
         return this.#handle(request, signal);
     }
 }
+
+const stepOf = (content: CompletedModelStep["content"]): CompletedModelStep => ({
+    api: "fake", provider: "fake", model: "fake", stopReason: "stop", timestamp: 1, content,
+    usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+});
+
+/** A completed model step that says the text; the journal writes its model.output.completed with it. */
+export const textStep = (text: string) => stepOf([{ type: "text", text }]);
+
+/** A completed model step that only thinks; the journal writes its model.reasoning.completed with it. */
+export const thinkingStep = (thinking: string) => stepOf([{ type: "thinking", thinking }]);
 
 export const noUsage = () => ({
     inputTokens: 0,

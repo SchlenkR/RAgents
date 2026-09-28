@@ -261,6 +261,8 @@ export interface UserMessage {
 	role: "user";
 	content: string | UserContent[];
 	timestamp: number; // Unix timestamp in milliseconds
+	/** A note for this one request only; the cache boundary stays in front of it. */
+	transient?: true;
 }
 
 export interface AssistantMessage {

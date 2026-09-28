@@ -13,7 +13,7 @@ import { capabilityNames } from "../src/domain/vocabulary.ts";
 import { DomainError } from "../src/runtime/domain-error.ts";
 import { Journal, type CommandRecord } from "../src/runtime/journal.ts";
 import { Orchestration } from "../src/runtime/orchestration.ts";
-import { manualExecution, testServices } from "./support.ts";
+import { manualExecution, testServices, textStep, thinkingStep } from "./support.ts";
 
 const grant = (capability: CapabilityGrant["capability"], delegable = true): CapabilityGrant => ({
     capability,
@@ -89,17 +89,17 @@ test("a v3 run is reconstructed from actor, input, turn and event records", () =
     const { journal, runtime, view } = create();
     const worker = spawn(runtime, view, "worker", [], view.ownerId, undefined, []).actor;
     const turn = start(runtime, runtime.view(view.id), worker.id, "work");
-    runtime.appendModelReasoning(
+    runtime.completeModelStep(
         { actorId: worker.id, commandId: "reasoning", turnId: turn.turnId },
         view.id,
         worker.id,
-        { turnId: turn.turnId, text: "I will answer directly." },
+        { turnId: turn.turnId, step: thinkingStep("I will answer directly.") },
     );
-    runtime.appendModelOutput(
+    runtime.completeModelStep(
         { actorId: worker.id, commandId: "output", turnId: turn.turnId },
         view.id,
         worker.id,
-        { turnId: turn.turnId, text: "Done." },
+        { turnId: turn.turnId, step: textStep("Done.") },
     );
     const finished = runtime.finishTurn(
         { actorId: worker.id, commandId: "finish", turnId: turn.turnId },
@@ -120,7 +120,9 @@ test("a v3 run is reconstructed from actor, input, turn and event records", () =
             "actor.input.enqueued",
             "turn.started",
             "model.reasoning.completed",
+            "model.step.completed",
             "model.output.completed",
+            "model.step.completed",
             "turn.finished",
         ],
     );
@@ -135,11 +137,11 @@ test("normal model output is a durable observable event", () => {
     const { journal, runtime, view } = create();
     const worker = spawn(runtime, view, "worker").actor;
     const turn = start(runtime, runtime.view(view.id), worker.id, "answer");
-    runtime.appendModelOutput(
+    runtime.completeModelStep(
         { actorId: worker.id, commandId: "answer-output", turnId: turn.turnId },
         view.id,
         worker.id,
-        { turnId: turn.turnId, text: "A normal answer." },
+        { turnId: turn.turnId, step: textStep("A normal answer.") },
     );
 
     const output = runtime.events(view.id).find((entry) => entry.type === "model.output.completed");
@@ -154,23 +156,23 @@ test("the view carries the model outputs of a non-primary actor in journal order
     runtime.selectPrimaryActor({ actorId: view.ownerId, commandId: "primary" }, view.id, primary.id);
     const worker = spawn(runtime, runtime.view(view.id), "worker").actor;
     const turn = start(runtime, runtime.view(view.id), worker.id, "answer");
-    runtime.appendModelReasoning(
+    runtime.completeModelStep(
         { actorId: worker.id, commandId: "worker-reasoning", turnId: turn.turnId },
         view.id,
         worker.id,
-        { turnId: turn.turnId, text: "Nur ein Gedanke." },
+        { turnId: turn.turnId, step: thinkingStep("Nur ein Gedanke.") },
     );
-    runtime.appendModelOutput(
+    runtime.completeModelStep(
         { actorId: worker.id, commandId: "worker-first", turnId: turn.turnId },
         view.id,
         worker.id,
-        { turnId: turn.turnId, text: "Erste Antwort." },
+        { turnId: turn.turnId, step: textStep("Erste Antwort.") },
     );
-    const answered = runtime.appendModelOutput(
+    const answered = runtime.completeModelStep(
         { actorId: worker.id, commandId: "worker-second", turnId: turn.turnId },
         view.id,
         worker.id,
-        { turnId: turn.turnId, text: "Zweite Antwort." },
+        { turnId: turn.turnId, step: textStep("Zweite Antwort.") },
     );
 
     assert.notEqual(answered.primaryActorId, worker.id);
@@ -241,11 +243,11 @@ test("a structured subscription delivers each matching source event exactly once
     const sourceTurn = start(runtime, runtime.view(view.id), source.id, "source");
     const published: string[] = [];
     const unsubscribe = journal.subscribe((events) => published.push(...events.map((event) => event.type)));
-    runtime.appendModelOutput(
+    runtime.completeModelStep(
         { actorId: source.id, commandId: "source-output", turnId: sourceTurn.turnId },
         view.id,
         source.id,
-        { turnId: sourceTurn.turnId, text: "Observed." },
+        { turnId: sourceTurn.turnId, step: textStep("Observed.") },
     );
 
     const delivered = runtime.view(view.id).inputs.filter((entry) => entry.subscriptionId === subscription.id);
@@ -264,14 +266,14 @@ test("a structured subscription delivers each matching source event exactly once
     const delivery = deliveredInputOf(runtime.view(view.id), delivered[0]!);
     assert.equal(delivery.content, "Observed.");
     assert.equal(delivery.event?.eventId, sourceEvent?.eventId);
-    assert.deepEqual(published, ["model.output.completed", "actor.input.enqueued"]);
+    assert.deepEqual(published, ["model.output.completed", "model.step.completed", "actor.input.enqueued"]);
     unsubscribe();
 
-    runtime.appendModelReasoning(
+    runtime.completeModelStep(
         { actorId: source.id, commandId: "source-reasoning", turnId: sourceTurn.turnId },
         view.id,
         source.id,
-        { turnId: sourceTurn.turnId, text: "Not subscribed." },
+        { turnId: sourceTurn.turnId, step: thinkingStep("Not subscribed.") },
     );
     assert.equal(runtime.view(view.id).inputs.filter((entry) => entry.subscriptionId === subscription.id).length, 1);
     runtime.finishTurn(
@@ -325,11 +327,11 @@ test("removing a subscription discards only its pending deliveries and journals 
     assert.ok(subscription);
 
     const first = start(runtime, runtime.view(view.id), source.id, "discard-source-first");
-    runtime.appendModelOutput(
+    runtime.completeModelStep(
         { actorId: source.id, commandId: "discard-output-first", turnId: first.turnId },
         view.id,
         source.id,
-        { turnId: first.turnId, text: "First event." },
+        { turnId: first.turnId, step: textStep("First event.") },
     );
     runtime.finishTurn(
         { actorId: source.id, commandId: "discard-finish-first", turnId: first.turnId },
@@ -338,11 +340,11 @@ test("removing a subscription discards only its pending deliveries and journals 
         { turnId: first.turnId, outcome: "completed" },
     );
     const second = start(runtime, runtime.view(view.id), source.id, "discard-source-second");
-    runtime.appendModelOutput(
+    runtime.completeModelStep(
         { actorId: source.id, commandId: "discard-output-second", turnId: second.turnId },
         view.id,
         source.id,
-        { turnId: second.turnId, text: "Second event." },
+        { turnId: second.turnId, step: textStep("Second event.") },
     );
     runtime.finishTurn(
         { actorId: source.id, commandId: "discard-finish-second", turnId: second.turnId },
@@ -449,11 +451,11 @@ test("journal load preserves pending deliveries for legacy v3 subscription remov
     const subscription = subscribed.subscriptions[0];
     assert.ok(subscription);
     const sourceTurn = start(runtime, runtime.view(view.id), source.id, "legacy-source");
-    const delivered = runtime.appendModelOutput(
+    const delivered = runtime.completeModelStep(
         { actorId: source.id, commandId: "legacy-source-output", turnId: sourceTurn.turnId },
         view.id,
         source.id,
-        { turnId: sourceTurn.turnId, text: "Legacy delivery." },
+        { turnId: sourceTurn.turnId, step: textStep("Legacy delivery.") },
     ).inputs.find((input) => input.subscriptionId === subscription.id);
     assert.ok(delivered);
     runtime.finishTurn(
@@ -523,11 +525,11 @@ test("removing a subscription does not discard a delivery whose turn already sta
     const subscription = subscribed.subscriptions[0];
     assert.ok(subscription);
     const sourceTurn = start(runtime, runtime.view(view.id), source.id, "running-source");
-    const delivered = runtime.appendModelOutput(
+    const delivered = runtime.completeModelStep(
         { actorId: source.id, commandId: "running-source-output", turnId: sourceTurn.turnId },
         view.id,
         source.id,
-        { turnId: sourceTurn.turnId, text: "Start delivery." },
+        { turnId: sourceTurn.turnId, step: textStep("Start delivery.") },
     ).inputs.find((input) => input.subscriptionId === subscription.id);
     assert.ok(delivered);
     runtime.startTurn(
@@ -587,11 +589,11 @@ test("an incremental append needs no run directory fsync and keeps a delivered s
     let appendError: unknown;
 
     try {
-        runtime.appendModelOutput(
+        runtime.completeModelStep(
             { actorId: source.id, commandId: "source-post-commit-output", turnId: sourceTurn.turnId },
             view.id,
             source.id,
-            { turnId: sourceTurn.turnId, text: "Committed before fsync failed." },
+            { turnId: sourceTurn.turnId, step: textStep("Committed before fsync failed.") },
         );
     } catch (error) {
         appendError = error;
@@ -623,11 +625,11 @@ test("runtime restart does not catch up subscriptions from existing journal even
     const subscription = subscribed.subscriptions[0];
     assert.ok(subscription);
     const sourceTurn = start(runtime, runtime.view(view.id), source.id, "source-before-restart");
-    runtime.appendModelOutput(
+    runtime.completeModelStep(
         { actorId: source.id, commandId: "source-before-restart-output", turnId: sourceTurn.turnId },
         view.id,
         source.id,
-        { turnId: sourceTurn.turnId, text: "Already observed by the old runtime." },
+        { turnId: sourceTurn.turnId, step: textStep("Already observed by the old runtime.") },
     );
     assert.equal(runtime.view(view.id).inputs.filter((entry) => entry.subscriptionId === subscription.id).length, 1);
 

@@ -1,4 +1,9 @@
+import type { ImageContent, TextContent, UserContent } from "@ragents/ai";
+
 import type { AgentDriverKind, ModelSelection } from "../domain/driver.ts";
+import type { EventPayloads } from "../domain/events.ts";
+import type { CompletedModelStep } from "../runtime/decisions/turns.ts";
+import type { ModelContext } from "../agents/model-context.ts";
 import type { JsonValue } from "../domain/json.ts";
 import type { TurnUsage } from "../domain/model.ts";
 import type { DeliveredInput } from "../agents/delivery.ts";
@@ -24,19 +29,32 @@ type TurnDriverFacts = {
     agent: {
         driverKind: "agent";
         selection: ModelSelection;
-        forkOf: string | null;
         /** `modelContext` names the model context the result enters, see `ToolScope.modelContext`; without it file tools track no seen state. */
         invoke: (toolCallId: string, name: string, input: JsonValue, modelContext?: string) => Promise<ToolInvocation>;
         /** Claims the pending inputs that may join this turn now, in journal order; empty once the turn ends or aborts. */
         claimSteering: () => readonly SteeredInput[];
+        /** The model context of this agent as the journal holds it now. */
+        modelContext: () => ModelContext;
+        /** Records what enters the model context; only a recorded entry is context. */
+        recordContext: (entry: ModelContextRecord) => void;
+        /** What a hook kept for this agent, in the journal as plugin state of the actor. */
+        hookState: {
+            kept: (hookId: string) => JsonValue | undefined;
+            keep: (hookId: string, value: JsonValue) => void;
+        };
     };
 };
 
 export type DriverEvent =
-    | { kind: "assistant"; text: string }
     | { kind: "assistant-interrupted"; text: string }
-    | { kind: "reasoning"; text: string }
     | { kind: "runtime"; text: string };
+
+/** What a driver writes into the model context of its agent, in the order the model sees it. */
+export type ModelContextRecord =
+    | { kind: "input"; inputId: string | null; content: string | readonly UserContent[] }
+    | { kind: "step"; step: CompletedModelStep }
+    | { kind: "tool-result"; toolCallId: string; toolName: string; isError: boolean; content: readonly (TextContent | ImageContent)[] }
+    | { kind: "compaction"; compaction: Omit<EventPayloads["context.compacted"], "turnId"> };
 
 export type DriverToolEvent =
     | { kind: "started"; id: string; name: string; input: JsonValue }
@@ -60,8 +78,6 @@ export type TurnRequest<Kind extends AutomatedDriverKind = AutomatedDriverKind> 
     systemPrompt: string;
     /** The working directory of the workspace tools, as the model sees it; it may lie on another machine. */
     workspace: string;
-    /** The folder on this machine for the driver's own work, resolved only when a driver needs it. */
-    runtimeDirectory: () => Promise<string>;
     /** Stores an attached file under attachments/ of the workspace, where the workspace tools read it; returns its name there. */
     storeAttachment: (name: string, content: Uint8Array) => Promise<string>;
     tools: readonly RunFunction[];

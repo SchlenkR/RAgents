@@ -11,12 +11,12 @@ import { fauxAssistantMessage, fauxToolCall, registerFauxProvider, type Context 
 import { resolveExecution, StaticModelCatalog, type CatalogModel } from "../src/agents/catalog.ts";
 import { ToolRegistry } from "../src/agents/plugins.ts";
 import { TurnScheduler } from "../src/agents/scheduler.ts";
-import { defineRunFunction, defineToolAvailability } from "../src/agents/tools.ts";
+import { defineRunFunction, defineToolAvailability, describeToolAvailability } from "../src/agents/tools.ts";
 import { FixedWorkspaces } from "../src/agents/workspaces.ts";
 import { thinkingLevels } from "../src/domain/driver.ts";
 import { validatedEventPayloadOf } from "../src/domain/event-validation.ts";
 import type { JournalEvent } from "../src/domain/events.ts";
-import { AgentSessionDriver } from "../src/drivers/agent.ts";
+import { AgentLoopDriver } from "../src/drivers/agent.ts";
 import { allGrants, postTo, setupRun } from "./support.ts";
 
 const always = defineToolAvailability({
@@ -81,19 +81,31 @@ const causelessTool = defineRunFunction({
     run: (): string => { throw new Error(""); },
 });
 
+let vanished = false;
+
+const vanishingTool = defineRunFunction({
+    name: "vanishing_tool",
+    label: "vanishing_tool",
+    description: "Erste Zeile von vanishing_tool. Fällt nach der Auswahl weg.",
+    schema: Type.Object({}, { additionalProperties: false }),
+    resultSchema: Type.String(),
+    available: defineToolAvailability({ availability: "conditional", availabilityDetail: "Bis zum Wegfall." }, () => !vanished),
+    nativeTool: true,
+    run: () => "Noch da.",
+});
+
 const registryWithTools = () => {
     const registry = new ToolRegistry();
     registry.register({
         name: "test.validation",
-        descriptors: [strictTool, contextTool, nestedTool, silentTool, causelessTool].map((tool) => ({
+        descriptors: [strictTool, contextTool, nestedTool, silentTool, causelessTool, vanishingTool].map((tool) => ({
             name: tool.name,
             description: tool.description,
             scope: "per-turn",
             nativeTool: true,
-            availability: "always",
-            availabilityDetail: "In jedem Turn verfügbar.",
+            ...describeToolAvailability(tool.available),
         })),
-        tools: () => [strictTool, contextTool, nestedTool, silentTool, causelessTool],
+        tools: () => [strictTool, contextTool, nestedTool, silentTool, causelessTool, vanishingTool],
     });
 
     return registry;
@@ -152,7 +164,7 @@ const fauxScheduler = async (directory: string, responses: Parameters<ReturnType
         grants: allGrants(),
         execution: resolveExecution(fauxCatalog, { profile: "agent", isolateWorkspace: false }, "worker", models),
     });
-    const driver = new AgentSessionDriver({ modelRuntime });
+    const driver = new AgentLoopDriver({ modelRuntime });
     const scheduler = new TurnScheduler(setup.runtime, setup.journal, {
         drivers: { agent: driver },
         catalog: fauxCatalog,
@@ -240,6 +252,54 @@ test("ein Werkzeugfehler ohne Meldung steht mit Ursache oder Ersatztext im Journ
             causeless[1]?.type === "tool.call.failed" ? causeless[1].payload.error : "",
             "Fehler ohne Ursache",
         );
+    } finally {
+        await close();
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test("ein Werkzeug, das zwischen Auswahl und Aufruf wegfällt, gibt dem Modell ein Fehlerergebnis und der Turn läuft weiter", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "ragents-tool-vanished-"));
+    vanished = false;
+    let seen: string | null = null;
+    const { run, close } = await fauxScheduler(directory, [
+        () => { vanished = true; return fauxAssistantMessage([fauxToolCall("vanishing_tool", {}, { id: "call-vanished" })]); },
+        (context: Context) => { seen = toolResultTextOf(context, "call-vanished"); return fauxAssistantMessage("Fertig."); },
+    ]);
+
+    try {
+        const events = await run();
+        const calls = toolCallEventsOf(events, "call-vanished");
+
+        assert.deepEqual(calls.map((event) => event.type), ["tool.call.started", "tool.call.failed"]);
+        assert.match(seen ?? "", /not available/);
+        assert.deepEqual(events.filter((event) => event.type === "turn.finished").map((event) => event.type === "turn.finished" && event.payload.outcome), ["completed"]);
+    } finally {
+        vanished = false;
+        await close();
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test("eine im Turn wiederverwendete Aufrufkennung wird eindeutig, jeder Aufruf läuft und der Turn endet normal", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "ragents-tool-reused-id-"));
+    let seen: Context | undefined;
+    const { run, close } = await fauxScheduler(directory, [
+        () => fauxAssistantMessage([fauxToolCall("strict_tool", { target: "A" }, { id: "call-same" })]),
+        () => fauxAssistantMessage([fauxToolCall("strict_tool", { target: "B" }, { id: "call-same" })]),
+        () => fauxAssistantMessage([fauxToolCall("strict_tool", { target: "A" }, { id: "call-same" }), fauxToolCall("strict_tool", { target: "C" }, { id: "call-same" })]),
+        (context: Context) => { seen = context; return fauxAssistantMessage("Fertig."); },
+    ]);
+
+    try {
+        const events = await run();
+        const started = events.filter((event) => event.type === "tool.call.started");
+        const ids = started.map((event) => event.type === "tool.call.started" && event.payload.toolCallId);
+
+        assert.equal(new Set(ids).size, 4);
+        assert.deepEqual(started.map((event) => event.type === "tool.call.started" && event.payload.input), [{ target: "A" }, { target: "B" }, { target: "A" }, { target: "C" }]);
+        assert.deepEqual(ids.map((id) => toolResultTextOf(seen!, id as string)), ["A", "B", "A", "C"]);
+        assert.deepEqual(events.filter((event) => event.type === "turn.finished").map((event) => event.type === "turn.finished" && event.payload.outcome), ["completed"]);
     } finally {
         await close();
         rmSync(directory, { recursive: true, force: true });

@@ -102,6 +102,23 @@ test("an unreadable run view is isolated: the other runs, the counts and the pro
   }
 });
 
+test("a locked run stays in the list with its cause, and the store never asks for its view", async () => {
+  const server = await startStubServer();
+  const store = new RunStore(new ServerClient(server.url, undefined));
+  try {
+    server.setSessions([session(), session({ id: "run-locked", title: "run-locked", updatedAt: 1, running: false, locked: "unsupported journal format 6" })]);
+    await store.start();
+    await waitFor(() => store.pendingActions === 1);
+    assert.deepEqual(store.status, { kind: "connected" });
+    assert.deepEqual(store.run("run-locked"), {
+      id: "run-locked", title: "run-locked", updatedAt: 1, state: "idle", pendingActions: 0, locked: "unsupported journal format 6",
+    });
+  } finally {
+    store.dispose();
+    await server.close();
+  }
+});
+
 test("a start entry keeps the start options it fixes, so a new run preselects none of them", async () => {
   const fixed = { "ragents.workspace.binding": { machine: "server", folder: "fresh" } };
   const profile = stubProfile();

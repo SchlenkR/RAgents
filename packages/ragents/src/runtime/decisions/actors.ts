@@ -132,6 +132,16 @@ const forkSourceOf = (state: RunState, reference: string): string => {
     if (source.execution.driver.kind !== "agent")
         throw new DomainError("invalid-value", `Fork source ${reference} has no model context to fork.`, 400);
 
+    const finishedContext = [...state.turns.values()].some((turn) =>
+        turn.actorId === source.id && turn.status !== "running" && state.contextTurns.has(turn.id));
+
+    if (source.forkOf === null && !finishedContext)
+        throw new DomainError(
+            "fork-without-turn",
+            `Fork source ${reference} has no model context from a finished turn yet; a fork takes the context of finished turns only, never of the running one.`,
+            409,
+        );
+
     return source.id;
 };
 

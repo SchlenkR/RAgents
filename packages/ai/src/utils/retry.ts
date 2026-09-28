@@ -97,5 +97,19 @@ export function isRetryableAssistantError(message: AssistantMessage): boolean {
 	if (message.stopReason !== "error" || !message.errorMessage) return false;
 	const errorMessage = message.errorMessage;
 	if (NON_RETRYABLE_PROVIDER_LIMIT_ERROR_PATTERN.test(errorMessage)) return false;
+	if (isDeterministicClientError(errorMessage)) return false;
 	return RETRYABLE_PROVIDER_ERROR_PATTERN.test(errorMessage);
+}
+
+const RETRYABLE_CLIENT_STATUSES = new Set([408, 409, 429]);
+
+/** The status leads the formatted error ("400: body", "Relay url (400): body"), sits in a JSON body ("code"/"status": 400) or follows "HTTP". */
+const ERROR_STATUS_PATTERN = /^(\d{3}): |\((\d{3})\): |"(?:code|status)"\s*:\s*(\d{3})\b|\bHTTP\s*(\d{3})\b/i;
+
+/** A rejected request fails the same way again: 4xx other than timeout, conflict and throttling, or Anthropic's invalid_request_error. */
+function isDeterministicClientError(errorMessage: string): boolean {
+	if (/invalid_request_error/.test(errorMessage)) return true;
+	const match = ERROR_STATUS_PATTERN.exec(errorMessage);
+	const status = Number(match?.slice(1).find((group) => group !== undefined));
+	return status >= 400 && status < 500 && !RETRYABLE_CLIENT_STATUSES.has(status);
 }

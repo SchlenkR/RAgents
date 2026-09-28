@@ -114,7 +114,9 @@ test("iframe Escape reaches the host unless the app handles it first", async () 
   keydown({ key: "Escape", defaultPrevented: false });
   await new Promise<void>((resolve) => queueMicrotask(resolve));
   assert.equal(sent.length, 1);
-  assert.deepEqual(JSON.parse(JSON.stringify(sent[0])), { type: "ragents.app.escape", version: 1, token: "frame-token" });
+  assert.deepEqual(JSON.parse(JSON.stringify(sent[0])), {
+    type: "ragents.app.escape", version: 1, token: "frame-token", keyboard: { type: "keyboardEvent", event: { type: "keydown", key: "Escape" } },
+  });
 });
 
 test("the delivered chat SDK shares subscriptions, retains stable snapshots and settles sends", async () => {

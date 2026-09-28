@@ -66,10 +66,13 @@ additional decision point for this.
 ## Model context across turns
 
 Each LLM actor has its own conversation context, which persists across turns. A new input adds
-to that conversation. In server operation, the context is stored separately and reloaded after
-a restart. A new actor starts with its own context or, when spawned with `forkOf`, with a copy
-of another LLM actor's context from the same run. Updating the system prompt does not replace
-the existing conversation history.
+to that conversation. The context is part of the run's journal: every input as the model received
+it, every completed model step, every tool result as the model saw it, and every compaction are
+recorded there, and the context is read back from those records before each model request. After
+a restart the actor therefore continues with exactly the same context. A new actor starts with its
+own context or, when spawned with `forkOf`, with an unchanged copy of the context another LLM actor
+of the same run had at the end of its last finished turn before the spawn. Updating the system
+prompt does not replace the existing conversation history.
 
 Programmed actor state stores explicitly assigned data for functions and mini-apps. Before a
 replacement state is diffed and journaled, it is converted to JSON form: keys whose value is
@@ -78,6 +81,10 @@ a value remains invalid. The journal records the run's shared events and derives
 from them. These three forms of state serve different purposes: the visible chat is not a full
 copy of the current model context, and a new turn does not mean the model starts without its
 conversation memory.
+
+When the context grows too large, the agent compacts it: older parts are replaced by a summary
+written by the model, and recent parts are kept. A compaction is recorded in the journal as well,
+and the chat shows a short system note.
 
 ## Interrupting a turn, stopping an actor, stopping a run, and shutting down the server
 
@@ -198,12 +205,12 @@ before its first turn, and the stop reason names the unknown tools. The selectio
 inherited, although delegable engine capabilities still are. `withoutCapabilities` removes
 named technical permissions. Availability and grants also apply when the value is `null`.
 `forkOf` (a handle or ID) makes the new agent a fork of an LLM agent in the same run:
-`agent.spawned` records the source, and on the new agent's first turn the agent driver copies
-the source's stored context branch into its own context file. The copy ends before the source's
-first unanswered function call and contains no reasoning blocks; the new agent supplies its own
-system prompt, functions, and model. Later turns from the source are not copied. Both source and
-fork require the agent driver; a source without stored context is a hard error on the fork's
-first turn. A plain LLM receives no function overview. Its driver must explicitly support this
+`agent.spawned` records the source, and the new agent's context begins with an unchanged copy of
+the source's context up to the end of the source's last finished turn, reasoning blocks included.
+Nothing from the turn the source is running at the spawn is copied, and no text is inserted; the
+new agent supplies its own system prompt, functions, and model. Later turns from the source do not
+reach the fork. Both source and fork require the agent driver; a source without a finished turn that
+reached the model, and not itself a fork, is rejected with `fork-without-turn`. A plain LLM receives no function overview. Its driver must explicitly support this
 isolation or the turn is rejected.
 
 Equipped LLMs receive `typescript_api` and `typescript_eval`, plus an automatically generated
@@ -221,5 +228,5 @@ suggested as an agent's model choice.
 
 The journal is the shared history of a run. Visible state is produced by replaying its events;
 models and functions are not called again in the process. Recorded responses, function calls,
-state changes, and interruptions therefore remain traceable after a restart. Working files and
-private model context are stored separately outside the journal.
+state changes, and interruptions therefore remain traceable after a restart. The model context of
+every LLM agent is part of the journal as well; working files are stored separately.

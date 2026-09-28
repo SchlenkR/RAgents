@@ -214,5 +214,5 @@ test("der gemeinsame Ablauf liefert Helferaufträge, Prompt und parallele Graphz
   await program.onInput(eventOf("experiment", "actor.stopped", {}), context);
   const failed = workflowGraph(learningWorkflow, learningWorkflowState(context.state.read().board!));
   assert.deepEqual(failed.nodes.map((node) => [node.id, node.status]), [["experiment", "blocked"], ["quiz", "done"], ["collect", "blocked"]]);
-  assert.match(failed.nodes.find((node) => node.id === "collect")!.detail!, /1 von 2/);
+  assert.match(failed.nodes.find((node) => node.id === "collect")!.detail!, /1 of 2/);
 });

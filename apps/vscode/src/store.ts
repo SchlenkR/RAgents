@@ -249,7 +249,7 @@ export class RunStore {
       if (this.#status.kind !== "connected") this.#set({ kind: "connected" });
       else this.#notify();
       await Promise.all(sessions
-        .filter((session) => this.#views.get(session.id)?.revision !== session.revision)
+        .filter((session) => session.locked === undefined && this.#views.get(session.id)?.revision !== session.revision)
         .map((session) => this.#loadView(session.id, session.revision)));
     } catch (cause) {
       if (generation !== this.#generation) return;

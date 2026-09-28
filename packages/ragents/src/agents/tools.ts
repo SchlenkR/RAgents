@@ -544,13 +544,13 @@ export const agentTools: RunFunction[] = [
             + "It inherits delegable capabilities, but tools is required and never inherited: select exact names, [] for text-only work, or explicit null for an open, dynamically resolved toolset. "
             + "An empty tools array creates a plain LLM with no runtime, workspace or host tools; "
             + "drivers without plain-LLM isolation are rejected. "
-            + "forkOf copies the model context of an existing LLM agent of this run into the new agent at its first turn: the copy ends before any unfinished tool call and carries no reasoning; the new agent still gets its own prompt, tools and model.",
+            + "forkOf gives the new agent an unchanged copy of the model context of an existing LLM agent of this run, up to the end of that agent's last finished turn; nothing of its running turn is copied, and a source without a finished turn is rejected. The new agent still gets its own prompt, tools and model, and its first input follows the copy.",
         schema: Type.Object({
             handle: Type.String({ minLength: 1 }),
             displayName: Type.Optional(Type.String({ minLength: 1, description: "Anzeigename; ohne Angabe der Handle" })),
             description: Type.Optional(Type.String({ minLength: 1, maxLength: actorDescriptionMaxLength, description: "Sehr kurze Beschreibung der Aufgabe für die Übersicht der Beteiligten, wenige Wörter wie \"prüft die Regel zu Kommentaren\"" })),
             prompt: Type.String(),
-            forkOf: Type.Optional(Type.String({ minLength: 1, description: "Handle oder ID eines LLM-Agenten dieses Runs, dessen bisheriger Modellkontext in den neuen Agenten kopiert wird" })),
+            forkOf: Type.Optional(Type.String({ minLength: 1, description: "Handle or ID of an LLM agent of this run whose model context up to the end of its last finished turn is copied into the new agent" })),
             tools: Type.Union([Type.Array(Type.String({ minLength: 1 }), { uniqueItems: true }), Type.Null()], { description: "Required explicit selection: [] for plain text-only work including app-mediated conversations; an array for exact existing tool names; null only when the task needs an open, dynamically resolved toolset. Never inherits the caller's tools. Names of future, not yet activated actor functions are invalid; choose null when those must become available later." }),
             withoutCapabilities: Type.Optional(Type.Array(capabilitySchema, { uniqueItems: true })),
             ...executionSchema,

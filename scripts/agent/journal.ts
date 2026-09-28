@@ -84,7 +84,7 @@ export const usageByActor = (events: readonly JournalEvent[]): Map<string, Actor
   const result = new Map<string, ActorUsage>();
   for (const event of events) {
     const model = event.payload.usage as Record<string, unknown> | undefined;
-    if (!model) continue;
+    if (!model || event.type === "model.step.completed") continue;
     const entry = result.get(event.actorId) ?? { calls: 0, inputTokens: 0, cacheReadTokens: 0, outputTokens: 0, costUsd: 0 };
     entry.calls += 1;
     for (const key of ["inputTokens", "cacheReadTokens", "outputTokens", "costUsd"] as const) {
@@ -111,8 +111,10 @@ export const journalLines = (events: readonly JournalEvent[], mode: JournalMode,
       const output = text(payload.text);
       if (output.trim()) lines.push(`[${event.sequence}] ${actor}: ${output.slice(0, 800)}`);
     } else if (type === "actor.input.enqueued" && mode !== "tools") {
-      const input = payload.input as Record<string, unknown> | undefined;
-      lines.push(`[${event.sequence}] INPUT -> ${String(payload.actorId ?? "").slice(0, 14)}: ${text(payload.text ?? input?.text).slice(0, 300)}`);
+      const content = payload.subscriptionId ? `[event ${String((payload.sourceEventIds as string[] | undefined)?.[0] ?? "")}]` : text(payload.content);
+      lines.push(`[${event.sequence}] INPUT -> ${String(payload.actorId ?? "").slice(0, 14)}: ${content.slice(0, 300)}`);
+    } else if (type === "context.compacted" && mode !== "tools") {
+      lines.push(`[${event.sequence}] CONTEXT COMPACTED ${actor}: about ${String(payload.tokensBefore)} tokens summarized`);
     } else if (type === "turn.input-steered" && mode !== "tools") {
       lines.push(`[${event.sequence}] STEERING -> ${actor}: ${String(payload.inputId ?? "")} in ${String(payload.turnId ?? "")}`);
     } else if (type.startsWith("tool.call.") && mode !== "chat") {

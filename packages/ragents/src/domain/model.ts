@@ -215,6 +215,8 @@ export type RunState = {
     pluginStates: ReadonlyMap<string, PluginState>;
     actions: ReadonlyMap<ActionId, Action>;
     artifacts: ReadonlyMap<ArtifactId, Artifact>;
+    /** Turns that presented input to the model, with their actor; only they leave model context behind. */
+    contextTurns: ReadonlyMap<TurnId, ActorId>;
 };
 
 /** Der Actor, den ein Event betrifft: bei Turn-Enden der Besitzer des Turns, bei Stopp und Neustart der Ziel-Actor, sonst der Schreiber. */
@@ -241,8 +243,8 @@ export const eventSubjectOf = (state: RunState, event: JournalEvent): ActorId =>
 
 type Collections = "actors" | "inputs" | "turns" | "subscriptions" | "pluginStates" | "actions" | "artifacts";
 
-/** Die Run-Ansicht für Clients; der Eigentümer bleibt serverseitig und steht nicht in ihr. */
-export type RunView = Omit<RunState, Collections | "ownerUserId"> & {
+/** Die Run-Ansicht für Clients; Eigentümer und Kontext-Turns bleiben serverseitig und stehen nicht in ihr. */
+export type RunView = Omit<RunState, Collections | "ownerUserId" | "contextTurns"> & {
     actors: Actor[];
     inputs: ActorInput[];
     turns: Turn[];

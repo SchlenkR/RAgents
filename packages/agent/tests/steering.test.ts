@@ -1,15 +1,9 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import test from "node:test";
 import { Type } from "typebox";
 import { fauxAssistantMessage, fauxToolCall, registerFauxProvider } from "../../ai/src/index.ts";
 import type { AssistantMessage, Context } from "../../ai/src/types.ts";
-import { createAgentSession } from "../src/core/sdk.ts";
-import { SessionManager } from "../src/core/session-manager.ts";
-import { ModelRuntime } from "../src/core/model-runtime.ts";
-import { DefaultResourceLoader } from "../src/core/resource-loader.ts";
+import { Agent } from "../src/loop/agent.ts";
 import type { AgentMessage } from "../src/loop/types.ts";
 
 const deferred = () => {
@@ -26,34 +20,25 @@ const textsOf = (context: Context) => context.messages.flatMap((message) => {
   return [typeof message.content === "string" ? message.content : message.content.map((part) => part.type === "text" ? part.text : "").join("")];
 });
 
-const withSession = async (
+const withAgent = async (
   name: string,
   tool: (signal: AbortSignal | undefined) => Promise<string>,
-  run: (session: Awaited<ReturnType<typeof createAgentSession>>["session"], faux: ReturnType<typeof registerFauxProvider>) => Promise<void>,
+  run: (agent: Agent, faux: ReturnType<typeof registerFauxProvider>) => Promise<void>,
 ) => {
-  const directory = mkdtempSync(join(tmpdir(), "ragents-steering-"));
   const faux = registerFauxProvider({ models: [{ id: name, reasoning: false }], tokensPerSecond: 100000 });
-  const model = faux.getModel();
-  let session: Awaited<ReturnType<typeof createAgentSession>>["session"] | undefined;
   try {
-    const modelRuntime = ModelRuntime.create();
-    modelRuntime.registerProvider(model.provider, { api: faux.api, apiKey: "faux-key", baseUrl: model.baseUrl, models: [model] });
-    const resourceLoader = new DefaultResourceLoader({});
-    await resourceLoader.reload();
-    ({ session } = await createAgentSession({
-      cwd: directory, modelRuntime, model, settings: { compaction: { enabled: false }, retry: { enabled: false } }, resourceLoader,
-      sessionManager: SessionManager.inMemory(directory),
-      tools: ["slow_tool"],
-      customTools: [{ name: "slow_tool", label: "Slow", description: "Wait for a test gate", parameters: Type.Object({}),
-        execute: async (_id, _args, signal) => ({ content: [{ type: "text", text: await tool(signal) }], details: {} }),
-      }],
-    }));
-    await session.bindExtensions({});
-    await run(session, faux);
+    const agent = new Agent({
+      initialState: {
+        model: faux.getModel(),
+        tools: [{ name: "slow_tool", label: "Slow", description: "Wait for a test gate", parameters: Type.Object({}),
+          execute: async (_id, _args, signal) => ({ content: [{ type: "text", text: await tool(signal) }], details: {} }),
+        }],
+      },
+      getApiKey: () => "faux-key",
+    });
+    await run(agent, faux);
   } finally {
-    session?.dispose();
     faux.unregister();
-    rmSync(directory, { recursive: true, force: true });
   }
 };
 
@@ -61,16 +46,16 @@ test("steering waits for the running tool and reaches the next model request in 
   const started = deferred();
   const release = deferred();
   let toolSignal: AbortSignal | undefined;
-  await withSession("steering-tool", async (signal) => {
+  await withAgent("steering-tool", async (signal) => {
     toolSignal = signal;
     started.resolve();
     await release.promise;
     return "Werkzeug fertig";
-  }, async (session, faux) => {
+  }, async (agent, faux) => {
     const contexts: Context[] = [];
     const queued: AgentMessage[] = [];
     let polls = 0;
-    session.agent.steeringSource = async () => {
+    agent.steeringSource = async () => {
       polls++;
       return queued.splice(0);
     };
@@ -78,7 +63,7 @@ test("steering waits for the running tool and reaches the next model request in 
       () => fauxAssistantMessage([fauxToolCall("slow_tool", {}, { id: "slow-call" })]),
       (context) => { contexts.push({ messages: structuredClone(context.messages) }); return fauxAssistantMessage("Neue Richtung verstanden."); },
     ]);
-    const running = session.prompt("Los");
+    const running = agent.prompt(userText("Los"));
     await started.promise;
     queued.push(userText("Erste Korrektur"), userText("Zweite Korrektur"));
     release.resolve();
@@ -91,10 +76,10 @@ test("steering waits for the running tool and reaches the next model request in 
 });
 
 test("steering after a final answer continues the same run with another model request", { timeout: 10000 }, async () => {
-  await withSession("steering-answer", async () => "unbenutzt", async (session, faux) => {
+  await withAgent("steering-answer", async () => "unbenutzt", async (agent, faux) => {
     const contexts: Context[] = [];
     const queued: AgentMessage[] = [];
-    session.agent.steeringSource = async () => queued.splice(0);
+    agent.steeringSource = async () => queued.splice(0);
     faux.setResponses([
       () => {
         queued.push(userText("Noch ein Nachtrag"));
@@ -103,22 +88,22 @@ test("steering after a final answer continues the same run with another model re
       (context) => { contexts.push({ messages: structuredClone(context.messages) }); return fauxAssistantMessage("Nachtrag gelesen."); },
     ]);
     let endings = 0;
-    const unsubscribe = session.subscribe((event) => {
+    const unsubscribe = agent.subscribe((event) => {
       if (event.type === "agent_end") endings++;
     });
-    await session.prompt("Frage");
+    await agent.prompt(userText("Frage"));
     unsubscribe();
     assert.equal(endings, 1, "ein einziger Lauf");
     assert.deepEqual(textsOf(contexts[0]!), ["Frage", "Noch ein Nachtrag"]);
-    const last = session.messages.at(-1) as AssistantMessage;
+    const last = agent.state.messages.at(-1) as AssistantMessage;
     assert.equal(last.content[0]?.type === "text" ? last.content[0].text : "", "Nachtrag gelesen.");
   });
 });
 
 test("a failing steering source ends the run with its cause instead of another model request", { timeout: 10000 }, async () => {
-  await withSession("steering-failure", async () => "Werkzeug fertig", async (session, faux) => {
+  await withAgent("steering-failure", async () => "Werkzeug fertig", async (agent, faux) => {
     let polls = 0;
-    session.agent.steeringSource = async () => {
+    agent.steeringSource = async () => {
       polls++;
       if (polls > 1) throw new Error("Eingabe nicht lesbar");
       return [];
@@ -128,9 +113,9 @@ test("a failing steering source ends the run with its cause instead of another m
       () => { requests++; return fauxAssistantMessage([fauxToolCall("slow_tool", {}, { id: "call" })]); },
       () => { requests++; return fauxAssistantMessage("Nie erreicht."); },
     ]);
-    await session.prompt("Los");
+    await agent.prompt(userText("Los"));
     assert.equal(requests, 1);
-    const last = session.messages.at(-1) as AssistantMessage;
+    const last = agent.state.messages.at(-1) as AssistantMessage;
     assert.equal(last.stopReason, "error");
     assert.equal(last.errorMessage, "Eingabe nicht lesbar");
   });

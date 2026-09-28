@@ -1,12 +1,5 @@
 import path from "node:path";
-import { isPortableId } from "@ragents/engine";
 import { config } from "./config.js";
-
-const portableId = (value: string, name: string) => {
-  if (!isPortableId(value)) throw new Error(`${name} must be a lowercase portable ID.`);
-
-  return value;
-};
 
 export const layout = {
   runsDir: path.join(config.dataDir, "runs"),
@@ -18,14 +11,6 @@ export const layout = {
   serverLog: path.join(config.dataDir, "logs/server.log"),
 
   sessionDir: (id: string) => path.join(config.dataDir, "sessions", id),
-  chatDir: (id: string) => path.join(config.dataDir, "sessions", id, "chat"),
-  agentChatDir: (id: string, agentId: string) => path.join(
-    config.dataDir,
-    "sessions",
-    portableId(id, "Run ID"),
-    "chat",
-    portableId(agentId, "Actor ID"),
-  ),
   deleteIntentFile: (id: string) => path.join(config.dataDir, "delete-intents", `${id}.json`),
   archiveSessionDir: (id: string) => path.join(config.dataDir, "archive", id),
   recoverySessionDir: (id: string) => path.join(config.dataDir, "recovery", id),

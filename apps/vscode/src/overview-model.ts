@@ -25,6 +25,7 @@ const runOf = (run: RunSummary): ConnectionRun => ({
   pendingActions: run.pendingActions,
   updatedAt: run.updatedAt,
   ...(run.problem !== undefined ? { problem: run.problem } : {}),
+  ...(run.locked !== undefined ? { locked: run.locked } : {}),
 });
 
 const entryOf = (entry: StartEntrySummary): ConnectionEntry => ({

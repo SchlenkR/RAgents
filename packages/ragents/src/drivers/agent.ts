@@ -10,12 +10,13 @@ export type {
     AgentRuntimeContext,
     AgentRuntimeDiagnostic,
     AgentRuntimeManagerOptions,
-    AgentSessionStore,
 } from "./agent-runtime.ts";
-export { AgentRuntimeManager, turnDispatcherExtensionName } from "./agent-runtime.ts";
+export { AgentRuntimeManager } from "./agent-runtime.ts";
+export { agentHookOf, type AgentHook } from "./agent-hooks.ts";
 export {
-    createSkillPreloadExtension,
-    skillPreloadExtensionName,
+    createSkillPreload,
+    skillPreloadHookName,
+    type SkillPreload,
     type SkillPreloadConfiguration,
     type SkillPreloadOptions,
     type SkillCatalogEntry,
@@ -23,17 +24,18 @@ export {
     type SkillSelector,
 } from "./skill-preload.ts";
 
-export type AgentSessionDriverOptions = Omit<AgentRuntimeManagerOptions, "modelRuntime"> & {
+export type AgentLoopDriverOptions = Omit<AgentRuntimeManagerOptions, "modelRuntime"> & {
     modelRuntime?: ModelRuntime | Promise<ModelRuntime>;
 };
 
-export class AgentSessionDriver implements AgentDriver<"agent"> {
+/** The driver of LLM actors: the agent loop on the model context the journal holds. */
+export class AgentLoopDriver implements AgentDriver<"agent"> {
     readonly kind = "agent" as const;
     readonly supportsPlainLlm = true;
     readonly #modelRuntime: Promise<ModelRuntime>;
     readonly #runtimeManager: AgentRuntimeManager;
 
-    constructor(options: AgentSessionDriverOptions = {}) {
+    constructor(options: AgentLoopDriverOptions = {}) {
         this.#modelRuntime = Promise.resolve(options.modelRuntime ?? ModelRuntime.create());
         this.#runtimeManager = new AgentRuntimeManager({ ...options, modelRuntime: this.#modelRuntime });
     }

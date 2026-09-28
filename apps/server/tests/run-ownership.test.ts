@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -97,12 +97,16 @@ test("der Eigentümer eines Runs steht in seinem Journal und überlebt einen Neu
     runtime.createRun({ commandId: "create-legacy" }, { runId: LEGACY, title: "Bestand", ownerHandle: "owner", ownerDisplayName: "Owner" });
     assert.equal("ownerUserId" in runtime.view(OWN), false, "die Run-Ansicht für Clients nennt den Benutzer nicht");
     first.close();
+    const ownRecord = JSON.parse(readFileSync(path.join(directory, "runs", OWN, "journal.jsonl"), "utf8").split("\n")[0]!);
+    mkdirSync(path.join(directory, "runs", "locked-run"));
+    writeFileSync(path.join(directory, "runs", "locked-run", "journal.jsonl"), JSON.stringify({ ...ownRecord, runId: "locked-run", formatVersion: 3 }) + "\n");
 
     const second = new Journal(path.join(directory, "runs"), testServices());
     try {
       assert.equal(runOwnerOf(second, OWN), "alice");
       assert.equal(runOwnerOf(second, LEGACY), null);
       assert.equal(runOwnerOf(second, FRESH), undefined);
+      assert.equal(runOwnerOf(second, "locked-run"), null, "ein gesperrtes Journal nennt keinen Eigentümer, der Run gehört wie ein Bestandsrun keinem Bediener");
       assert.equal(second.stateOf(OWN)?.actors.get(second.stateOf(OWN)!.ownerId)?.displayName, "Alice");
     } finally { second.close(); }
   } finally { rmSync(directory, { recursive: true, force: true }); }

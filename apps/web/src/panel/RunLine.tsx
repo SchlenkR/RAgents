@@ -33,13 +33,15 @@ export function RunLine({ connection, run, showConnection, selecting, selected, 
   onToggle?: () => void;
 }) {
   const time = shortTime(run.updatedAt);
+  const problem = run.locked !== undefined ? `Locked: ${run.locked}` : run.problem;
   return <li className="col-span-full grid grid-cols-subgrid items-center">
     {selecting && <Checkbox aria-label={`${run.title} auswählen`} checked={selected === true} className="ml-1" onCheckedChange={() => onToggle?.()} />}
-    <button className={cn(lineClass, selecting ? "col-[2/-1]" : "col-span-full")} onClick={() => (selecting ? onToggle?.() : onOpen())} title={showConnection ? `${run.title} (${connection.name})` : run.title} type="button">
+    <button aria-disabled={run.locked !== undefined && !selecting} className={cn(lineClass, selecting ? "col-[2/-1]" : "col-span-full", "aria-disabled:cursor-default aria-disabled:hover:bg-transparent")}
+      onClick={() => (selecting ? onToggle?.() : run.locked === undefined && onOpen())} title={showConnection ? `${run.title} (${connection.name})` : run.title} type="button">
       <RunStateIcon open={run.pendingActions} state={run.state} />
       <span className="flex min-w-0 items-center gap-1.5">
         <span className="min-w-0 truncate text-[0.8rem] font-medium">{run.title}</span>
-        {run.problem !== undefined && <span className="flex flex-none text-destructive" title={run.problem}><CircleAlertIcon aria-hidden className="size-3.5" /><span className="sr-only">{run.problem}</span></span>}
+        {problem !== undefined && <span className="flex flex-none text-destructive" title={problem}><CircleAlertIcon aria-hidden className="size-3.5" /><span className="sr-only">{problem}</span></span>}
       </span>
       <span className="w-[42px] text-right font-mono text-[0.62rem] text-muted-foreground" data-cell="time" title={longTime(run.updatedAt)}>{time}</span>
       {showConnection && <span className="max-w-[92px] truncate text-[0.64rem] font-semibold text-muted-foreground" data-cell="connection" title={connection.name}>{connection.name}</span>}

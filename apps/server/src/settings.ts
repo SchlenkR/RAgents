@@ -3,8 +3,7 @@ import { readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import {
   modelToolDescriptors,
-  skillPreloadExtensionName,
-  turnDispatcherExtensionName,
+  skillPreloadHookName,
   runtimeOwner,
   type AgentProfile,
   type CatalogModel,
@@ -104,8 +103,7 @@ const runtimeSettings = (plugins: PluginHost): SettingsRuntime => {
 };
 
 const internalAgentHooks: readonly InternalAgentHookContribution[] = [
-  turnDispatcherExtensionName,
-  skillPreloadExtensionName,
+  skillPreloadHookName,
 ].map((name): InternalAgentHookContribution => ({
   id: name,
   owner: runtimeOwner,

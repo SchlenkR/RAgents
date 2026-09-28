@@ -271,8 +271,9 @@ bleiben ohne zusätzliche Wrapper-Skripte verfügbar. Die Bedienung steht in `do
 
 > RAgents ist eine ereignisbasierte Mehragenten-Laufzeit aus Runs, Actors, ActorInputs, Turns und Subscriptions. Modelllaufzeit und Produktumgebung bleiben austauschbare Beiträge.
 
-Die Agentenlaufzeit ist die vollständige Standardlaufzeit des aktuellen Produkts. RAgents baut die Agentenschleife der Agentenlaufzeit,
-Sessions, Provideranbindung, Skills, Compaction oder Extension-System nicht nach. Der Core bindet
+Die Agentenlaufzeit ist die vollständige Standardlaufzeit des aktuellen Produkts. RAgents baut die
+Agentenschleife der Agentenlaufzeit, Provideranbindung und Compaction nicht nach; der Agent-Driver
+sitzt direkt auf der Schleife und hält den Modellkontext im Journal. Der Core bindet
 Modelllaufzeiten trotzdem nur über einen Driver-Vertrag: der Agent-Driver erhält ActorInput und
 Ereignisgrenzen über diesen Vertrag; ein TypeScript-Actor verwendet stattdessen den TypeScript-Driver.
 Weitere Modelllaufzeiten wären neue Driver gegen denselben Vertrag.
@@ -289,10 +290,10 @@ ohne diese Plugins und deren Tabs verwenden können.
 
 | Begriff              | Bedeutung                                                                                                                                                                                  |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Agentenlaufzeit      | Laufzeit eines einzelnen Agenten: Modell, privater Kontext, Agentenschleife, Tool-Aufrufe, Skills, Compaction, Provider und Hooks.                                                         |
+| Agentenlaufzeit      | Laufzeit eines einzelnen Agenten: Modell, Agentenschleife auf dem Modellkontext aus dem Journal, Tool-Aufrufe, Skills, Compaction, Provider und Hooks.                                     |
 | RAgents Core         | Produktneutraler Mehragenten-Kern: Runs, Actors, ActorInputs, Turns, Events, Subscriptions, Journal, Scheduler, Artefakte und Plugin-Host.                                                 |
 | Plugin               | Eine vertikale Produktfähigkeit. Es kann gemeinsam Serverdienste, Hooks, Tools, Skills, Promptteile, Methoden, UI-Beiträge, Daten und Lebenszyklus liefern.                     |
-| Hook                 | Ein Eingriff in Modell- und Werkzeugaufrufe EINER AgentSession über das Extension-System der Agentenlaufzeit. Ein Hook kann Tools oder Ressourcen registrieren und auf Ereignisse der Agentenlaufzeit reagieren. |
+| Hook                 | Ein Eingriff in Modell- und Werkzeugaufrufe EINES Agenten: vor jedem Modellaufruf (`beforeModelCall`) und nach jedem Werkzeugaufruf (`afterToolCall`). Ein Hook registriert keine Werkzeuge. |
 | Skill                | Eine Arbeitsanleitung für das Modell mit optionalem Startauftrag und ergänzenden Dateien. Ein Skill ist weder Plugin noch ausführbarer Actor.                                                                                                  |
 | Actor                | Ein Teilnehmer des Runs: der menschliche Owner, ein Agent mit Modell oder ein TypeScript-Actor aus TypeScript. Nur ausführbare Actors besitzen Inputs, Turns und einen Lebenszyklus.       |
 | ActorInput           | Ein Auftrag aus Text, optionalen Artefakten und optionaler Event-Herkunft für genau einen Actor. Ein Input wird höchstens von einem Turn beansprucht.                                      |
@@ -300,7 +301,7 @@ ohne diese Plugins und deren Tabs verwenden können.
 | Event                | Unveränderlicher Fakt im Journal v4, zum Beispiel Modelltext, Reasoning, Tool-Aufruf, Turn-Abschluss, Action oder Artefakt.                                                                |
 | Subscription         | Strukturierter Filter eines Actors auf neue beobachtbare Events. Jeder Treffer erzeugt einen neuen ActorInput für den Subscriber.                                                          |
 | Primary-Actor        | Der ausdrücklich gewählte Actor, dessen Modelltext das Produkt als sichtbaren Chat behandelt. Diese Rolle ist unabhängig von der Erzeugerlinie.                                            |
-| TypeScript-Actor     | Ein Actor, dessen Turn deterministisches TypeScript statt eines Modells ausführt. Er besitzt keine Agent-Session, verwendet aber dieselben registrierten Dienste und Werkzeuge.            |
+| TypeScript-Actor     | Ein Actor, dessen Turn deterministisches TypeScript statt eines Modells ausführt. Er besitzt keinen Modellkontext, verwendet aber dieselben registrierten Dienste und Werkzeuge.           |
 | Actor-Programm | Ein privates TypeScript-Paket, das einem Actor Funktionen, Input-Verarbeitung und optionale React-Views bereitstellt; ein typgeprüfter TypeScript-Build mit nativer Node-Ausführung auf der gemeinsamen RAgents-Ausführungsplattform. |
 | Actor-Zustand | Intrinsische journalisierte Daten eines Actors, gemeinsam für seine Funktionen, Input-Verarbeitung und Views. |
 | Mini-App | Eine React-Oberfläche ihres Actors. Sie zeigt dessen Zustand und ruft Funktionen ohne zusätzlichen Modell-Turn auf. |
@@ -355,10 +356,10 @@ Profil, zum Beispiel core
   |     +-- Scheduler und Logik-Laufzeit
   |     +-- PluginHost und Nachrichtenschicht (JSON-RPC)
   |
-  +-- AgentRuntimeManager
-  |     +-- eine langlebige AgentSession je RAgents-Agent
-  |     +-- ragents-turn-dispatcher
-  |     +-- ragents-skill-preload über before_agent_start
+  +-- AgentLoopDriver
+  |     +-- je Turn eine AgentTurn direkt auf der Agentenschleife
+  |     +-- Modellkontext als Projektion des Journals
+  |     +-- ragents-skill-preload je Turn
   |     +-- Hooks und Skills der Plugins
   |
   +-- Produkt- und Arbeitsbereichsverträge
@@ -383,16 +384,16 @@ Profil, zum Beispiel core
 
 Die Verantwortungen sind klar getrennt:
 
-- Die Agentenlaufzeit besitzt den privaten Modellkontext, Providerdialog, die innere Agentenschleife,
-  Tool-Calling, Skills, Compaction und providernahe Retries.
+- Die Agentenlaufzeit besitzt Providerdialog, die innere Agentenschleife, Tool-Calling, Skills,
+  Compaction und providernahe Retries; den Modellkontext liest und schreibt sie im Journal.
 - RAgents besitzt den Mehragentenzustand, ActorInputs, Ereigniszustellung, Orchestrierung,
   langlebige TypeScript-Actors und das gemeinsame Journal.
 - Plugins besitzen Fachlichkeit und Integrationen. Der Core kennt keine Fachdomäne.
 - Die Chat-Bausteine liefern UI. Sie entscheiden nicht, welche Plugins installiert sind.
 
-Die Agent-Session und das RAgents-Journal sind keine konkurrierenden Kopien. Die Agent-Session ist das
-kanonische Gespräch des Modells. Das Journal ist die kanonische gemeinsame Welt des Runs.
-RAgents speichert dort die semantische Projektion von Modell-, Tool- und Laufzeitereignissen.
+Das Journal ist die kanonische gemeinsame Welt des Runs und zugleich das Gespräch jedes Modells:
+es hält verlustfrei, was ein Modell gesehen hat, und der Modellkontext ist eine Projektion daraus
+(`core.md`, Modellkontext und Agentenlaufzeit). Eine zweite, private Kopie gibt es nicht.
 
 ## Kurs
 

@@ -346,6 +346,12 @@ export class Journal {
         return [...this.#loadFailures.values()];
     }
 
+    /** Every locked run with its cause: journals rejected at load and runs isolated by a write failure. */
+    unavailableRuns(): readonly JournalLoadFailure[] {
+        return [...new Set([...this.#loadFailures.keys(), ...this.#writeFailures.keys()])]
+            .flatMap((runId) => this.failureOf(runId) ?? []);
+    }
+
     failureOf(runId: string): JournalLoadFailure | null {
         const failure = this.#loadFailures.get(runId);
         const writeFailure = this.#writeFailures.get(runId);
@@ -367,6 +373,34 @@ export class Journal {
     load(runId: RunId) {
         this.assertRunAvailable(runId);
         return [...(this.#runs.get(runId)?.events ?? [])];
+    }
+
+    /** The events after the given sequence; the sequence counts from 1 without gaps. */
+    eventsSince(runId: RunId, sequence: number): JournalEvent[] {
+        this.assertRunAvailable(runId);
+        return (this.#runs.get(runId)?.events ?? []).slice(sequence);
+    }
+
+    /** The events from the newest back, without copying the journal; a caller stops as soon as it has what it needs. */
+    *recentEvents(runId: RunId): Generator<JournalEvent> {
+        this.assertRunAvailable(runId);
+        const events = this.#runs.get(runId)?.events ?? [];
+
+        for (let index = events.length - 1; index >= 0; index--)
+            yield events[index]!;
+    }
+
+    /** A value read from the current state without cloning all of it; `read` must neither keep nor change the state. */
+    select<Value>(runId: RunId, read: (state: RunState) => Value): Value | null {
+        this.assertRunAvailable(runId);
+        const state = this.#runs.get(runId)?.state;
+
+        return state ? clone(read(state)) : null;
+    }
+
+    firstEventId(runId: RunId): string | undefined {
+        this.assertRunAvailable(runId);
+        return this.#runs.get(runId)?.events[0]?.eventId;
     }
 
     records(runId: RunId): readonly CommandRecord[] {
@@ -571,6 +605,7 @@ export class Journal {
             const semantics = log ? {
                 events: new Map(log.semantics.events),
                 sourcedToolCalls: new Set(log.semantics.sourcedToolCalls),
+                presented: new Set(log.semantics.presented),
             } : eventSemanticContext();
             let state: RunDraft | null = log?.state ? forkProjection(log.state) : null;
 

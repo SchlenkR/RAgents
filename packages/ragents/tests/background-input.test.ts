@@ -6,7 +6,7 @@ import { TurnScheduler } from "../src/agents/scheduler.ts";
 import { validatedEventPayloadOf } from "../src/domain/event-validation.ts";
 import { Journal } from "../src/runtime/journal.ts";
 import { Orchestration } from "../src/runtime/orchestration.ts";
-import { FakeDriver, catalog, executionFor, noUsage, registryOf, testServices } from "./support.ts";
+import { FakeDriver, catalog, executionFor, noUsage, registryOf, testServices, textStep } from "./support.ts";
 
 test("background inputs survive journal reload and reach the actor once with their full content", async (t) => {
     const directory = mkdtempSync("/private/tmp/ragents-background-input-");
@@ -34,7 +34,7 @@ test("background inputs survive journal reload and reach the actor once with the
     const restored = new Journal(directory, services);
     const resumed = new Orchestration(restored, services);
     const driver = new FakeDriver(async (request) => {
-        request.emit({ kind: "assistant", text: "Die Implementierung läuft." });
+        request.recordContext({ kind: "step", step: textStep("Die Implementierung läuft.") });
 
         return { failure: null, usage: noUsage() };
     });

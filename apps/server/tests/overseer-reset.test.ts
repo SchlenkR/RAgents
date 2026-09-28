@@ -20,6 +20,7 @@ import { productRuntimeToken } from "../src/ragents/product-runtime.ts";
 import { workspaceRuntimeToken } from "../src/ragents/workspace-runtime.ts";
 import type { ChatEvent } from "quassel/events";
 import type { Engine } from "../src/ragents/engine.ts";
+import type { SessionInfo } from "../src/chat-handler.ts";
 
 const directory = await mkdtemp(path.join(tmpdir(), "ragents-overseer-reset-"));
 process.env.DATA_DIR = directory;
@@ -134,7 +135,8 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     await globalStarted.promise;
     assert.ok((await readdir(path.join(directory, "runs", G, "payloads"))).length > 0);
     const oldActor = management!.view(G).primaryActorId;
-    assert.ok(existsSync(path.join(directory, "sessions", G, "chat", oldActor!)));
+    assert.ok(oldActor);
+    assert.match(await readFile(path.join(directory, "runs", G, "journal.jsonl"), "utf8"), /"model\.input\.presented"/, "der Modellkontext steht im Journal");
     const reset = management!.resetGlobal(G);
     assert.equal(management!.resetGlobal(G), reset);
     await assert.rejects(provider.get(G), /zurückgesetzt/);
@@ -222,6 +224,9 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
       await mkdir(path.join(directory, "runs", id), { recursive: true });
       await writeFile(path.join(directory, "runs", id, "journal.jsonl"), content);
     }
+    const oldSession = path.join(directory, "sessions", corruptId, "chat", "agent", "ragents-old.jsonl");
+    await mkdir(path.dirname(oldSession), { recursive: true });
+    await writeFile(oldSession, "{\"type\":\"session\"}\n");
     for (let restart = 0; restart < 2; restart++) {
       resolvedWorkspaces.length = 0;
       provider = createProvider();
@@ -238,9 +243,26 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
           { code: "journal-unavailable", status: 409 });
         assert.equal(await readFile(path.join(directory, "runs", id, "journal.jsonl"), "utf8"), content);
       }
-      assert.equal((provider as unknown as { engine: Engine }).engine.journal.loadFailures().length, unavailable.size);
+      const journal = (provider as unknown as { engine: Engine }).engine.journal;
+      assert.equal(journal.loadFailures().length, unavailable.size);
+      const listed = await provider.list() as (SessionInfo & { workspaceAccessible?: boolean })[];
+      for (const id of unavailable.keys()) {
+        const entry = listed.find((run) => run.id === id);
+        if (id === G) { assert.equal(entry, undefined, "der globale Koordinator bleibt auch gesperrt aus der Run-Liste"); continue; }
+        assert.equal(entry?.locked, journal.failureOf(id)?.message, "ein gesperrter Run bleibt mit seiner Ursache in der Liste");
+        assert.equal(entry?.workspaceAccessible, false);
+      }
+      assert.match(listed.find((run) => run.id === legacyId)?.locked ?? "", /format/i);
       if (restart === 0) await provider.shutdown();
     }
+    await provider.delete(corruptId);
+    await provider.deletion(corruptId);
+    assert.equal((await provider.list()).some((run) => run.id === corruptId), false, "der gelöschte gesperrte Run verschwindet aus der Liste");
+    assert.equal((provider as unknown as { engine: Engine }).engine.journal.failureOf(corruptId), null);
+    assert.equal(existsSync(path.join(directory, "runs", corruptId)), false);
+    assert.equal(await readFile(path.join(directory, "archive", corruptId, "run", "journal.jsonl"), "utf8"), unavailable.get(corruptId));
+    assert.equal(await readFile(path.join(directory, "archive", corruptId, "chat", "agent", "ragents-old.jsonl"), "utf8"), "{\"type\":\"session\"}\n", "die Sitzung des alten Formats bleibt im Archiv");
+    unavailable.delete(corruptId);
     faux.setResponses([
       () => fauxAssistantMessage("Gesunder Run nach beschädigten Journalen"),
       () => fauxAssistantMessage("Neuer Run nach beschädigten Journalen"),

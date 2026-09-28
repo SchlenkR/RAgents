@@ -5,7 +5,7 @@ import path from "node:path";
 import test, { after } from "node:test";
 import { Type } from "typebox";
 import {
-  AgentSessionDriver,
+  AgentLoopDriver,
   PluginHost,
   defineRunFunction,
   defineToolAvailability,
@@ -33,7 +33,7 @@ test("coordinator prompts survive primary handover while dynamic guides remain e
   let revision = 1;
   let guideRenders = 0;
   let unrelatedRenders = 0;
-  t.mock.method(AgentSessionDriver.prototype, "runTurn", async (request: TurnRequest<"agent">) => {
+  t.mock.method(AgentLoopDriver.prototype, "runTurn", async (request: TurnRequest<"agent">) => {
     requests.push(request);
     if (request.input.content === "open") {
       results.push((await request.invoke("open", "typescript_api", {})).output);

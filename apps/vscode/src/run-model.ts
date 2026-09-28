@@ -12,6 +12,8 @@ export interface RunSummary {
   pendingActions: number;
   /** Die Run-Ansicht ließ sich nicht lesen; der Run bleibt als Listenzeile stehen, die übrigen Runs sind nicht betroffen. */
   problem?: string;
+  /** Warum der Server den Run gesperrt hat; er öffnet sich nicht mehr, löschen bleibt möglich. */
+  locked?: string;
 }
 
 const actorStatusOf = (view: RunView, actor: RunActor): ActorStatus => {
@@ -29,6 +31,7 @@ const runStateOf = (session: SessionInfo, statuses: readonly ActorStatus[], pend
 
 const listRow = (session: SessionInfo): RunSummary => ({
   id: session.id, title: session.title, updatedAt: session.updatedAt, state: session.running ? "running" : "idle", pendingActions: 0,
+  ...(session.locked !== undefined ? { locked: session.locked } : {}),
 });
 
 const loadedSummary = (session: SessionInfo, view: RunView): RunSummary => {
@@ -45,7 +48,7 @@ const loadedSummary = (session: SessionInfo, view: RunView): RunSummary => {
 
 /** Die Zusammenfassung eines Runs für Übersicht und Abzeichen; ohne lesbare Run-Ansicht bleibt nur die Listenzeile. */
 export const runSummaryFrom = (session: SessionInfo, rawView: unknown): RunSummary => {
-  const view = runViewFrom(rawView);
+  const view = session.locked === undefined ? runViewFrom(rawView) : undefined;
   if (!view) return listRow(session);
   try {
     return loadedSummary(session, view);

@@ -10,7 +10,7 @@ import { coreContracts } from "../src/api/contracts.ts";
 import { coreMethods } from "../src/api/core-methods.ts";
 import { coreSources, methodContext } from "./rpc-fixture.ts";
 import { Journal, LiveBus, Orchestration, RunStopper, TurnScheduler, type RunStopCommand } from "@ragents/engine";
-import { manualExecution, catalog, deferred, executionFor, FakeDriver, noUsage, registryOf, testServices } from "../../../packages/ragents/tests/support.ts";
+import { manualExecution, catalog, deferred, executionFor, FakeDriver, noUsage, registryOf, testServices, textStep } from "../../../packages/ragents/tests/support.ts";
 import { applyEvent, type ChatEvent, type Message } from "quassel/events";
 import type { Engine } from "../src/ragents/engine.ts";
 import { RunChatSession } from "../src/ragents/session.ts";
@@ -420,18 +420,18 @@ test("the chat projects journal-only output and suppresses only matching live pr
     });
 
     live.publish(view.id, primary.id, { kind: "turn-started", turnId });
-    runtime.appendModelOutput(
+    runtime.completeModelStep(
       { actorId: primary.id, commandId: "journal-only", turnId },
       view.id,
       primary.id,
-      { turnId, text: "Journal only" },
+      { turnId, step: textStep("Journal only") },
     );
     live.publish(view.id, primary.id, { kind: "text", delta: "Streamed" });
-    runtime.appendModelOutput(
+    runtime.completeModelStep(
       { actorId: primary.id, commandId: "streamed", turnId },
       view.id,
       primary.id,
-      { turnId, text: "Streamed" },
+      { turnId, step: textStep("Streamed") },
     );
     runtime.finishTurn(
       { actorId: primary.id, commandId: "finish", turnId },
@@ -446,6 +446,44 @@ test("the chat projects journal-only output and suppresses only matching live pr
     assert.equal(projected.filter((event) => event.text === "Streamed").length, 1);
     assert.equal(projected.filter((event) => event.kind === "turn-done").length, 1);
     assert.ok(projected.some((event) => event.kind === "system" && event.text === "Primary stopped"));
+  } finally {
+    session.dispose();
+    journal.close();
+  }
+});
+
+test("a turn the owner interrupts ends the chat once, although the owner writes the interruption", () => {
+  const services = testServices();
+  const journal = new Journal(":memory:", services);
+  const runtime = new Orchestration(journal, services);
+  let view = runtime.createRun({ commandId: "create-interrupt-run" }, { runId: "interrupt-run", title: "Unterbrechen", ownerHandle: "owner", ownerDisplayName: "Owner" });
+  view = runtime.spawnAgent({ actorId: view.ownerId, commandId: "spawn-primary" }, view.id, {
+    handle: "coordinator", displayName: "Koordinator", prompt: "", execution: manualExecution(), grants: [], toolNames: [],
+  });
+  const primary = view.actors.find((actor) => actor.kind === "agent")!;
+  view = runtime.selectPrimaryActor({ actorId: view.ownerId, commandId: "select-primary" }, view.id, primary.id);
+  view = runtime.enqueueInput({ actorId: view.ownerId, commandId: "input" }, view.id, { actorId: primary.id, content: "Start" });
+  const input = view.inputs.find((entry) => entry.actorId === primary.id)!;
+  view = runtime.startTurn({ actorId: primary.id, commandId: "turn" }, view.id, primary.id, input.id);
+  const running = view.actors.find((actor) => actor.id === primary.id)!;
+  assert.ok(running.kind === "agent" && running.lifecycle.kind === "running");
+  const turnId = running.lifecycle.turnId;
+  const live = new LiveBus();
+  const engine = { journal, runtime, live, scheduler: { isRunning: () => true } } as unknown as Engine;
+  const session = new RunChatSession({
+    engine, id: view.id,
+    coordinator: { handle: "coordinator", displayName: "Koordinator", profile: "coordinator", runTitle: "Neuer Run", ownerHandle: "owner", ownerDisplayName: "Owner" },
+    prompt: () => "", assertUsable: () => undefined, prepare: async () => undefined, prepareWorkspace: async () => undefined,
+    started: async () => undefined, scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: unavailableActorPrograms,
+  });
+  const kinds: string[] = [];
+  try {
+    assert.equal(session.attach(), true);
+    session.subscribe((event) => { if (event.kind === "turn-done" || event.kind === "system") kinds.push(event.kind); });
+    live.publish(view.id, primary.id, { kind: "turn-started", turnId });
+    runtime.interruptTurn({ actorId: view.ownerId, commandId: "interrupt" }, view.id, primary.id, { turnId, reason: "Vom Bediener unterbrochen" });
+    live.publish(view.id, primary.id, { kind: "turn-finished", turnId, outcome: "abandoned" });
+    assert.deepEqual(kinds, ["system", "turn-done"]);
   } finally {
     session.dispose();
     journal.close();
@@ -516,11 +554,11 @@ test("a mid-turn attach ignores partial live deltas and projects the complete jo
       if (event.kind === "text") texts.push(event.delta);
     });
     live.publish(view.id, primary.id, { kind: "text", delta: "Late suffix" });
-    runtime.appendModelOutput(
+    runtime.completeModelStep(
       { actorId: primary.id, commandId: "complete-output", turnId },
       view.id,
       primary.id,
-      { turnId, text: "Complete answer" },
+      { turnId, step: textStep("Complete answer") },
     );
 
     assert.deepEqual(texts, ["Complete answer"]);

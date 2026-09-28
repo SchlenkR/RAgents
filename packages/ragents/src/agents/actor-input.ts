@@ -61,6 +61,21 @@ const eventPayloads = {
     "turn.interrupted": payloadOf<"turn.interrupted">({
         turnId: Type.String({ description: "ID des unterbrochenen Turns" }),
     }),
+    "model.input.presented": payloadOf<"model.input.presented">({
+        turnId: Type.String({ description: "Turn in which the model was given the input" }),
+    }),
+    "model.step.completed": payloadOf<"model.step.completed">({
+        turnId: Type.String({ description: "Turn the model step belongs to" }),
+        stopReason: Type.String(),
+    }),
+    "model.tool-result.presented": payloadOf<"model.tool-result.presented">({
+        turnId: Type.String(),
+        toolCallId: Type.String({ description: "ID of the tool call" }),
+    }),
+    "context.compacted": payloadOf<"context.compacted">({
+        turnId: Type.String({ description: "Turn in which the context was compacted" }),
+        tokensBefore: Type.Integer(),
+    }),
     "model.output.completed": payloadOf<"model.output.completed">({
         turnId: Type.String({ description: "Turn, zu dem die Ausgabe gehört" }),
     }),

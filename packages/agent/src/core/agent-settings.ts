@@ -1,7 +1,7 @@
-/** The few knobs of an agent session; everything else is fixed. */
+/** The few knobs of an agent's runtime; everything else is fixed. */
 export interface AgentSettings {
 	compaction: { enabled: boolean; reserveTokens: number; keepRecentTokens: number };
-	/** Retries of the session after a retryable model error, with exponential backoff. */
+	/** Retries after a retryable model error, with exponential backoff. */
 	retry: { enabled: boolean; maxRetries: number; baseDelayMs: number };
 	/** Timeout and retries of a single provider request; unset values leave the SDK defaults. */
 	providerRequest: { timeoutMs: number; maxRetries?: number; maxRetryDelayMs: number };

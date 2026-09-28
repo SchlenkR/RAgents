@@ -71,7 +71,7 @@ const record = (
 });
 
 const diskRecord = (value: ReturnType<typeof record> | CommandRecord) => ({
-    formatVersion: value.formatVersion === 3 ? 4 : value.formatVersion,
+    formatVersion: value.formatVersion === 3 ? 7 : value.formatVersion,
     runId: value.runId,
     command: value.command,
     occurredAt: value.events[0]!.occurredAt,
@@ -905,6 +905,7 @@ test("isolated journals preserve bytes and cannot reserve IDs or block healthy r
     assert.throws(() => journal.adopt([record() as CommandRecord]), { code: "journal-unavailable", status: 409 });
     const runtime = new Orchestration(journal, services(200));
     assert.throws(() => runtime.state("run-1"), { code: "journal-unavailable", status: 409 });
+    assert.throws(() => runtime.modelContext("run-1", "human-1"), { code: "journal-unavailable", status: 409 });
     assert.equal(journal.append("run-2", secondCommand(), [secondEvent()]).length, 1);
     const created = runtime.createRun({ commandId: "new-run" }, {
         title: "Still running", ownerHandle: "owner", ownerDisplayName: "Owner",

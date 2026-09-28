@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test, { type TestContext } from "node:test";
-import { allGrants, setupRun } from "../../../packages/ragents/tests/support.ts";
+import { allGrants, setupRun, textStep, thinkingStep } from "../../../packages/ragents/tests/support.ts";
 import { compactTranscript, createTranscriptTool } from "../../../plugins/ragents.transcript/server/transcript.ts";
 
 const fixture = (t: TestContext) => {
@@ -12,12 +12,12 @@ const fixture = (t: TestContext) => {
   const queued = runtime.enqueueInput({ actorId: owner, commandId: "input" }, runId, { actorId: agent.id, content: "Bitte  prüfen\n\nund melden" });
   const turnId = runtime.startTurn({ actorId: agent.id, commandId: "start" }, runId, agent.id, queued.inputs.at(-1)!.id).turns.at(-1)!.id;
   const command = (id: string) => ({ actorId: agent.id, turnId, commandId: id });
-  runtime.appendModelReasoning(command("reasoning"), runId, agent.id, { turnId, text: "Geheimes Nachdenken" });
+  runtime.completeModelStep(command("reasoning"), runId, agent.id, { turnId, step: thinkingStep("Geheimes Nachdenken") });
   runtime.startToolCall(command("read-start"), runId, agent.id, { turnId, toolCallId: "c1", name: "read", input: { path: "a.ts" } });
   runtime.completeToolCall(command("read-done"), runId, agent.id, { turnId, toolCallId: "c1", name: "read", output: "x".repeat(1000) });
   runtime.startToolCall(command("bash-start"), runId, agent.id, { turnId, toolCallId: "c2", name: "bash", input: { command: "ls" } });
   runtime.failToolCall(command("bash-failed"), runId, agent.id, { turnId, toolCallId: "c2", name: "bash", error: "nicht erlaubt" });
-  runtime.appendModelOutput(command("output"), runId, agent.id, { turnId, text: "Fertig geprüft." });
+  runtime.completeModelStep(command("output"), runId, agent.id, { turnId, step: textStep("Fertig geprüft.") });
   runtime.finishTurn(command("finish"), runId, agent.id, { turnId, outcome: "completed" });
   return { runtime, runId, agent };
 };

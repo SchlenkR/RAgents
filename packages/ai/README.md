@@ -8,4 +8,4 @@ Die LLM-Anbindung: Modelle beschreiben, Anfragen stellen, Antworten streamen.
 
 Das SDK übernimmt HTTP, Providerformat und Streaming. Nachrichtenkonvertierung, Modellkatalog, Kostenberechnung und der Vertrag zur Agentenlaufzeit bleiben hier. Die Protokollkennung `openai-completions` bleibt für Modelle und gespeicherte Sitzungen erhalten; sie bezeichnet keine eigene Providerimplementierung mehr.
 
-Zugang kommt nur als API-Schlüssel: aus der Registrierung eines Anbieters oder aus `OPENROUTER_API_KEY`. Schleife und Sitzung liegen in `@ragents/agent`. Herkunft und eigene Eingriffe stehen in `docs/decisions.md`.
+Zugang kommt nur als API-Schlüssel: aus der Registrierung eines Anbieters oder aus `OPENROUTER_API_KEY`. Schleife und Kompaktierung liegen in `@ragents/agent`. Herkunft und eigene Eingriffe stehen in `docs/decisions.md`.

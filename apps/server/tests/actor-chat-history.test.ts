@@ -4,7 +4,7 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import test from "node:test";
 import { createAccessContext, DomainError, Journal, LiveBus, Orchestration } from "@ragents/engine";
 import { project, viewOf } from "../../../packages/ragents/src/domain/projection.ts";
-import { executionFor, manualExecution, allGrants, testServices } from "../../../packages/ragents/tests/support.ts";
+import { executionFor, manualExecution, allGrants, testServices, textStep, thinkingStep } from "../../../packages/ragents/tests/support.ts";
 import type { ChatSessionLike } from "../src/chat-handler.ts";
 import { attachmentContentPath, coreContracts } from "../src/api/contracts.ts";
 import { coreMethods } from "../src/api/core-methods.ts";
@@ -66,7 +66,7 @@ test("actor histories survive a primary switch mid-tool, parallel actors, reused
   try {
     const a = f.coordinator.id, b = f.reviewer.id;
     const first = f.start(a, "Erster Auftrag");
-    f.runtime.appendModelReasoning(f.context(a, first), f.id, a, { turnId: first, text: "Ich prüfe die Notizen." });
+    f.runtime.completeModelStep(f.context(a, first), f.id, a, { turnId: first, step: thinkingStep("Ich prüfe die Notizen.") });
     assert.equal(f.history().actors[a].at(-1)?.closed, true);
     f.tool(a, first, "first.txt");
     const other = f.start(b, "Andere Aufgabe");
@@ -76,7 +76,7 @@ test("actor histories survive a primary switch mid-tool, parallel actors, reused
     assert.deepEqual(f.history().actors[a], before.actors[a]);
     f.complete(a, first, "Erstes Ergebnis");
     f.runtime.failToolCall(f.context(b, other), f.id, b, { turnId: other, toolCallId: "same-id", name: "read", error: "Fremder Fehler" });
-    f.runtime.appendModelOutput(f.context(a, first), f.id, a, { turnId: first, text: "Antwort eins" });
+    f.runtime.completeModelStep(f.context(a, first), f.id, a, { turnId: first, step: textStep("Antwort eins") });
     f.finish(a, first);
     const second = f.start(a, "Zweiter Auftrag");
     f.tool(a, second, "second.txt");
@@ -106,11 +106,11 @@ test("primary and actor journals share text and tool payloads while keeping acto
   try {
     const actor = f.coordinator.id;
     const first = f.start(actor, "Erster Auftrag");
-    f.runtime.appendModelReasoning(f.context(actor, first), f.id, actor, { turnId: first, text: "Erster Gedanke." });
-    f.runtime.appendModelReasoning(f.context(actor, first), f.id, actor, { turnId: first, text: "Zweiter Gedanke." });
+    f.runtime.completeModelStep(f.context(actor, first), f.id, actor, { turnId: first, step: thinkingStep("Erster Gedanke.") });
+    f.runtime.completeModelStep(f.context(actor, first), f.id, actor, { turnId: first, step: thinkingStep("Zweiter Gedanke.") });
     f.runtime.startToolCall(f.context(actor, first), f.id, actor, { turnId: first, toolCallId: "same-id", name: "read", input: null });
     f.complete(actor, first, "Ergebnis");
-    f.runtime.appendModelOutput(f.context(actor, first), f.id, actor, { turnId: first, text: "Die Antwort." });
+    f.runtime.completeModelStep(f.context(actor, first), f.id, actor, { turnId: first, step: textStep("Die Antwort.") });
     f.finish(actor, first);
     const second = f.start(actor, "Zweiter Auftrag");
     f.tool(actor, second, "second.txt");
@@ -183,13 +183,13 @@ test("background prompts stay out of primary and actor chats while normal messag
   try {
     const actor = f.coordinator.id;
     const first = f.start(actor, "Wie läuft die Umsetzung?");
-    f.runtime.appendModelOutput(f.context(actor, first), f.id, actor, { turnId: first, text: "Ich prüfe den Fortschritt." });
+    f.runtime.completeModelStep(f.context(actor, first), f.id, actor, { turnId: first, step: textStep("Ich prüfe den Fortschritt.") });
     f.finish(actor, first);
     const queued = f.runtime.enqueueInput(f.context(), f.id, {
       actorId: actor, content: "Interner Prüfauftrag", presentation: "background",
     }).inputs.at(-1)!;
     const turn = f.runtime.startTurn(f.context(actor), f.id, actor, queued.id).turns.at(-1)!.id;
-    f.runtime.appendModelOutput(f.context(actor, turn), f.id, actor, { turnId: turn, text: "Die Implementierung läuft weiter." });
+    f.runtime.completeModelStep(f.context(actor, turn), f.id, actor, { turnId: turn, step: textStep("Die Implementierung läuft weiter.") });
     f.finish(actor, turn);
     const expected = ["Wie läuft die Umsetzung?", "Ich prüfe den Fortschritt.", "Die Implementierung läuft weiter."];
     assert.deepEqual(f.primaryHistory(actor).map((message) => message.text), expected);
@@ -216,17 +216,17 @@ for (const source of ["owner", "background", "actor"] as const) {
       const actor = f.coordinator.id;
       const turn = f.start(actor, "Erster Auftrag");
       const senderTurn = source === "actor" ? f.start(f.reviewer.id, "Prüfe den Auftrag") : undefined;
-      f.runtime.appendModelOutput(f.context(actor, turn), f.id, actor, { turnId: turn, text: "Hallo" });
+      f.runtime.completeModelStep(f.context(actor, turn), f.id, actor, { turnId: turn, step: textStep("Hallo") });
       const before = f.history().actors[actor].at(-1)!;
       const incoming = source === "background"
         ? f.runtime.enqueueInput(f.context(), f.id, { actorId: actor, content: "Ergänzung", presentation: "background" }).inputs.at(-1)!
         : f.input(actor, "Ergänzung", source === "actor" ? f.reviewer.id : f.ownerId, senderTurn);
       assert.equal(f.history().actors[actor].find((message) => message.key === before.key)?.closed, before.closed);
-      f.runtime.appendModelOutput(f.context(actor, turn), f.id, actor, { turnId: turn, text: " Welt" });
+      f.runtime.completeModelStep(f.context(actor, turn), f.id, actor, { turnId: turn, step: textStep(" Welt") });
       const continued = f.history().actors[actor];
       assert.deepEqual(continued.map((message) => message.text), source === "background"
-        ? ["Erster Auftrag", "HalloWelt"]
-        : ["Erster Auftrag", "HalloWelt", "Ergänzung"]);
+        ? ["Erster Auftrag", "Hallo Welt"]
+        : ["Erster Auftrag", "Hallo Welt", "Ergänzung"]);
       assert.equal(continued[1].key, before.key);
       assert.equal(continued[1].sender, actor);
       assert.equal(continued[1].textCursor?.sequence, before.textCursor?.sequence);
@@ -235,10 +235,10 @@ for (const source of ["owner", "background", "actor"] as const) {
       f.finish(actor, turn);
       assert.equal(f.history().actors[actor][1].closed, true);
       const next = f.runtime.startTurn(f.context(actor), f.id, actor, incoming.id).turns.at(-1)!.id;
-      f.runtime.appendModelOutput(f.context(actor, next), f.id, actor, { turnId: next, text: "Neue Antwort" });
+      f.runtime.completeModelStep(f.context(actor, next), f.id, actor, { turnId: next, step: textStep("Neue Antwort") });
       f.finish(actor, next);
       const result = f.history();
-      assert.deepEqual(result.actors[actor].filter((message) => message.sender === actor).map((message) => message.text), ["HalloWelt", "Neue Antwort"]);
+      assert.deepEqual(result.actors[actor].filter((message) => message.sender === actor).map((message) => message.text), ["Hallo Welt", "Neue Antwort"]);
       const events = f.runtime.events(f.id);
       assert.deepEqual(actorChatHistoryOf(viewOf(project(events)!), events), result);
     } finally { f.journal.close(); }

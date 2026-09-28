@@ -1,3 +1,4 @@
+import type { EventPayloads, ModelInputContent, ModelStepBlock, ModelToolResultPart, UncommittedEvent } from "../../domain/events.ts";
 import type { JsonValue } from "../../domain/json.ts";
 import { isPendingActorInput, type TurnUsage } from "../../domain/model.ts";
 import { event, type Decision } from "../command.ts";
@@ -77,7 +78,7 @@ export const steerInputs =
     };
 
 const appendText = (
-    type: "model.output.completed" | "model.output.interrupted" | "model.reasoning.completed" | "runtime.output.recorded",
+    type: "model.output.interrupted" | "runtime.output.recorded",
     actorId: string,
     input: { turnId: string; text: string },
 ): Decision => (state, context) => {
@@ -86,17 +87,75 @@ const appendText = (
     return [event(context, { type, payload: { turnId: input.turnId, text: clean(input.text, "text") } })];
 };
 
-export const appendModelOutput = (actorId: string, input: { turnId: string; text: string }): Decision =>
-    appendText("model.output.completed", actorId, input);
-
 export const appendInterruptedModelOutput = (actorId: string, input: { turnId: string; text: string }): Decision =>
     appendText("model.output.interrupted", actorId, input);
 
-export const appendModelReasoning = (actorId: string, input: { turnId: string; text: string }): Decision =>
-    appendText("model.reasoning.completed", actorId, input);
-
 export const appendRuntimeOutput = (actorId: string, input: { turnId: string; text: string }): Decision =>
     appendText("runtime.output.recorded", actorId, input);
+
+/** The input exactly as the model received it, at its place between the model steps. */
+export const presentModelInput =
+    (actorId: string, input: { turnId: string; inputId: string | null; content: ModelInputContent }): Decision =>
+    (state, context) => {
+        runningTurn(state, context, actorId, input.turnId);
+
+        return [event(context, { type: "model.input.presented", payload: input })];
+    };
+
+export type CompletedModelStep = Omit<EventPayloads["model.step.completed"], "turnId" | "content"> & {
+    content: readonly (
+        | { type: "text"; text: string; textSignature?: string }
+        | { type: "thinking"; thinking: string; thinkingSignature?: string; redacted?: boolean }
+        | Extract<ModelStepBlock, { type: "toolCall" }>
+    )[];
+};
+
+/** One command: the text and reasoning a step made visible as observation events, then the step itself, which does not repeat them. */
+export const completeModelStep =
+    (actorId: string, input: { turnId: string; step: CompletedModelStep }): Decision =>
+    (state, context) => {
+        runningTurn(state, context, actorId, input.turnId);
+        const observed: UncommittedEvent[] = [];
+        const content = input.step.content.map((block): ModelStepBlock => {
+            if (block.type === "text" && block.text.trim()) {
+                observed.push(event(context, { type: "model.output.completed", payload: { turnId: input.turnId, text: block.text } }));
+                const { text: _text, ...rest } = block;
+                return rest;
+            }
+
+            if (block.type === "thinking" && block.thinking.trim()) {
+                observed.push(event(context, { type: "model.reasoning.completed", payload: { turnId: input.turnId, text: block.thinking } }));
+                const { thinking: _thinking, ...rest } = block;
+                return rest;
+            }
+
+            return { ...block };
+        });
+
+        return [
+            ...observed,
+            event(context, { type: "model.step.completed", payload: { turnId: input.turnId, ...input.step, content } }),
+        ];
+    };
+
+export const presentToolResult =
+    (
+        actorId: string,
+        input: { turnId: string; toolCallId: string; toolName: string; isError: boolean; content?: ModelToolResultPart[] },
+    ): Decision =>
+    (state, context) => {
+        runningTurn(state, context, actorId, input.turnId);
+
+        return [event(context, { type: "model.tool-result.presented", payload: input })];
+    };
+
+export const compactContext =
+    (actorId: string, input: EventPayloads["context.compacted"]): Decision =>
+    (state, context) => {
+        runningTurn(state, context, actorId, input.turnId);
+
+        return [event(context, { type: "context.compacted", payload: input })];
+    };
 
 export const startToolCall =
     (actorId: string, input: { turnId: string; toolCallId: string; name: string; input: JsonValue; ignoredFields?: string[] }): Decision =>

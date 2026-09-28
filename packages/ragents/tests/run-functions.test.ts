@@ -107,7 +107,8 @@ test("a native call drops unknown root fields, a function call and nested unknow
         await assert.rejects(toolset.invokeFunction("function-strict", "context", { previous: "[]" }), /Tool context takes no input: input has unknown field previous\. Fix the named fields/);
         await assert.rejects(toolset.invoke("missing", "sum", { left: 1, extra: true }), /Tool sum received input that does not match its schema: input has unknown field extra; input is missing required field right\./);
         await assert.rejects(toolset.invoke("nested", "nested", { options: { depth: 1, colour: "red" } }), /options has unknown field colour/);
-        assert.equal(setup.runtime.events(setup.view.id).filter((entry) => entry.type === "tool.call.failed").length, 0);
+        assert.deepEqual(setup.runtime.events(setup.view.id).flatMap((entry) => entry.type === "tool.call.failed" ? [entry.payload.toolCallId] : []), ["missing", "nested"],
+            "a rejected model call stands in the journal as start and failure, so its result can reach the model");
     } finally {
         setup.journal.close();
     }

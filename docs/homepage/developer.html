@@ -257,25 +257,19 @@ const result = await host.invokeOperation(
   descriptor.id,
   operationContext,
   { text: &quot; Beispiel &quot; },
-);</code></pre></details><ul><li>operationContext trägt runId, invocationId, signal und einen Agenten- oder Bediener-Principal. Die Implementierung darf keine fremde Identität aus Browsereingaben übernehmen.</li><li>Die Bestätigung eines Bedieneraufrufs muss aus dem vorgesehenen Bestätigungspfad stammen; ein selbst erfundener Nachweis ist kein Ersatz.</li></ul></article><article id="extension-agent-runtime"><h3>AgentSession-Extensions beitragen</h3><p>Jeder KI-Agent hat eine eigene AgentSession, die seinen Modellkontext und seine Werkzeugaufrufe verwaltet. Eine Agent-Extension erweitert diese Sitzung, etwa um ein zusätzliches Werkzeug. Das Plugin stellt dafür die Erzeugungsfunktion und die Werkzeugbeschreibungen bereit.</p><details><summary>Beispiel (typescript)</summary><p class="example-context">register(host); InlineExtension kommt aus @aicontainer/agent, Type aus typebox.</p><pre><code class="language-typescript">const description = &quot;Gibt einen Text unverändert zurück.&quot;;
-const extension: InlineExtension = {
-  name: &quot;example-echo&quot;,
-  factory: (api) =&gt; {
-    api.registerTool({
-      name: &quot;example_echo&quot;, label: &quot;Echo&quot;, description,
-      parameters: Type.Object({ text: Type.String() }),
-      execute: async (_id, input, signal) =&gt; {
-        signal?.throwIfAborted();
-        return { content: [{ type: &quot;text&quot;, text: input.text }], details: {} };
-      },
-    });
+);</code></pre></details><ul><li>operationContext trägt runId, invocationId, signal und einen Agenten- oder Bediener-Principal. Die Implementierung darf keine fremde Identität aus Browsereingaben übernehmen.</li><li>Die Bestätigung eines Bedieneraufrufs muss aus dem vorgesehenen Bestätigungspfad stammen; ein selbst erfundener Nachweis ist kein Ersatz.</li></ul></article><article id="extension-agent-runtime"><h3>In die Modellaufrufe eines Agenten eingreifen</h3><p>Jeder KI-Agent ruft sein Modell in einem Turn mehrmals auf, dazwischen laufen seine Werkzeuge. Ein Agent-Beitrag hängt sich mit zwei Hooks dazwischen: vor jedem Modellaufruf kann er dem Modell einen verborgenen Hinweis mitgeben, nach jedem Werkzeugaufruf dessen Ergebnis ersetzen. Die Agentenlaufzeit dahinter sieht das Plugin nie.</p><details><summary>Beispiel (typescript)</summary><p class="example-context">register(host); der Hinweis erscheint nicht im Chat.</p><pre><code class="language-typescript">host.agentRuntime({
+  id: &quot;ragents.example.reminder&quot;,
+  beforeModelCall: (agent, call) =&gt; {
+    const count = typeof call.kept === &quot;number&quot; ? call.kept + 1 : 1;
+    call.keep(count);
+    return agent.audience === &quot;agent&quot; &amp;&amp; count % 10 === 0
+      ? &quot;Melde dem Koordinator kurz deinen Stand, bevor du weiterarbeitest.&quot;
+      : undefined;
   },
-};
-host.agentRuntime({
-  id: &quot;ragents.example.extensions&quot;, global: [extension],
-  tools: [{ name: &quot;example_echo&quot;, description, scope: &quot;per-agent&quot;,
-    availability: &quot;always&quot;, availabilityDetail: &quot;In dieser Agent-Session verfügbar.&quot; }],
-});</code></pre></details><ul><li>global bedeutet eine allgemein beigetragene Factory, keine einzige globale AgentSession. resolve(context) ergänzt Factories gezielt je Agent; der Kontext enthält Run, Agent, Audience und Arbeitsverzeichnis.</li><li>Falls die Extension Werkzeuge registriert, muss tools deren per-agent-Deskriptoren vollständig angeben. Änderungen gelten im Lebenszyklus der AgentSession, nicht als freie globale Hintergrundaktivität.</li></ul></article><article id="extension-models"><h3>Modelle und Agentenprofile</h3><p>Der Modellkatalog nennt die KI-Modelle, die für Agenten auswählbar sind. Ein Agentenprofil kombiniert ein Modell mit Einstellungen wie Denktiefe und Ausführungsgrenzen. Solche Agentenprofile beschreiben einzelne Agenten; das Anwendungsprofil stellt die gesamte Installation zusammen.</p><details><summary>Beispiel (typescript)</summary><p class="example-context">register(host); modelId ist eine zuvor geprüfte, konfigurierte OpenRouter-Modellkennung.</p><pre><code class="language-typescript">host.profiles({
+  afterToolCall: (_agent, outcome) =&gt; outcome.toolName === &quot;example_probe&quot; &amp;&amp; outcome.isError
+    ? { content: [{ type: &quot;text&quot;, text: &quot;Die Probe ist gescheitert; nicht wiederholen.&quot; }], isError: true }
+    : undefined,
+});</code></pre></details><ul><li>Beide Hooks laufen je Agent; der erste Parameter nennt Run, Agent, Audience und Arbeitsverzeichnis. call.kept und call.keep halten einen JSON-Wert im Gesprächsverlauf des Agenten, auch über einen Neustart; das Modell sieht ihn nie.</li><li>Ein Beitrag registriert keine Werkzeuge; Werkzeuge kommen über host.functions. Ein zurückgegebener Hinweis gilt nur für den nächsten Modellaufruf und landet nicht im Journal.</li></ul></article><article id="extension-models"><h3>Modelle und Agentenprofile</h3><p>Der Modellkatalog nennt die KI-Modelle, die für Agenten auswählbar sind. Ein Agentenprofil kombiniert ein Modell mit Einstellungen wie Denktiefe und Ausführungsgrenzen. Solche Agentenprofile beschreiben einzelne Agenten; das Anwendungsprofil stellt die gesamte Installation zusammen.</p><details><summary>Beispiel (typescript)</summary><p class="example-context">register(host); modelId ist eine zuvor geprüfte, konfigurierte OpenRouter-Modellkennung.</p><pre><code class="language-typescript">host.profiles({
   id: &quot;ragents.example.models&quot;,
   models: () =&gt; [{ driver: &quot;agent&quot;, provider: &quot;openrouter&quot;, model: modelId,
     label: &quot;Konfiguriertes Modell&quot;, thinking: [&quot;off&quot;, &quot;low&quot;, &quot;high&quot;] }],

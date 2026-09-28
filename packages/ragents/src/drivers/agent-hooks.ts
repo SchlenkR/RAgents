@@ -1,40 +1,27 @@
-import type { InlineExtension } from "@ragents/agent";
-import type { JsonValue } from "../domain/json.ts";
-import type { AgentContribution, AgentContributionContext, AgentHookContext } from "../plugin-types.ts";
+import type {
+  AgentContribution,
+  AgentContributionContext,
+  AgentHookContext,
+  ModelCallContext,
+  ToolCallOutcome,
+  ToolResultReplacement,
+} from "../plugin-types.ts";
 
-const hookContextOf = (context: { signal: AbortSignal | undefined; model: { input: readonly string[] } | undefined }): AgentHookContext => ({
-  signal: context.signal,
-  modelReadsImages: context.model?.input.includes("image") === true,
-});
+/** A hook of a plugin, bound to one agent; the agent driver calls it directly. */
+export interface AgentHook {
+  readonly id: string;
+  readonly beforeModelCall?: (call: ModelCallContext) => string | undefined | Promise<string | undefined>;
+  readonly afterToolCall?: (outcome: ToolCallOutcome, call: AgentHookContext) =>
+    ToolResultReplacement | undefined | Promise<ToolResultReplacement | undefined>;
+}
 
-/** The one place that turns the hooks of a plugin into an extension of the agent runtime; plugins never see the runtime. */
-export const agentHookExtension = (contribution: AgentContribution, agent: AgentContributionContext): InlineExtension => ({
-  name: contribution.id,
-  factory: (api) => {
-    const { beforeModelCall, afterToolCall } = contribution;
-    if (beforeModelCall) {
-      api.on("context", async (event, context) => {
-        const stored = context.sessionManager.getBranch()
-          .filter((entry) => entry.type === "custom" && entry.customType === contribution.id)
-          .at(-1);
-        const note = await beforeModelCall(agent, {
-          ...hookContextOf(context),
-          kept: stored?.type === "custom" ? stored.data as JsonValue : undefined,
-          keep: (value) => api.appendEntry(contribution.id, value),
-        });
-        if (note === undefined) return undefined;
-        return { messages: [...event.messages, { role: "custom" as const, customType: contribution.id, content: note, display: false, timestamp: Date.now() }] };
-      });
-    }
-    if (afterToolCall) {
-      api.on("tool_result", async (event, context) => {
-        const replacement = await afterToolCall(agent, { toolName: event.toolName, isError: event.isError }, hookContextOf(context));
-        if (replacement === undefined) return undefined;
-        return {
-          content: replacement.content.map((part) => ({ ...part })),
-          ...(replacement.isError === undefined ? {} : { isError: replacement.isError }),
-        };
-      });
-    }
-  },
-});
+/** The one place that binds the hooks of a plugin to an agent; plugins never see the agent runtime. */
+export const agentHookOf = (contribution: AgentContribution, agent: AgentContributionContext): AgentHook => {
+  const { id, beforeModelCall, afterToolCall } = contribution;
+
+  return {
+    id,
+    ...(beforeModelCall ? { beforeModelCall: (call: ModelCallContext) => beforeModelCall(agent, call) } : {}),
+    ...(afterToolCall ? { afterToolCall: (outcome: ToolCallOutcome, call: AgentHookContext) => afterToolCall(agent, outcome, call) } : {}),
+  };
+};

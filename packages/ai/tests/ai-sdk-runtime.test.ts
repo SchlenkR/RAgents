@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { Type } from "typebox";
-import { stream, streamSimple } from "../src/api/ai-sdk.ts";
-import type { AssistantMessageEvent, Context, Model } from "../src/types.ts";
+import { cacheMarksOf, stream, streamSimple } from "../src/api/ai-sdk.ts";
+import { isRetryableAssistantError } from "../src/utils/retry.ts";
+import type { AssistantMessage, AssistantMessageEvent, Context, Model, ToolResultMessage } from "../src/types.ts";
 
 const model: Model<"openai-completions"> = {
 	id: "test/runtime",
@@ -56,6 +57,31 @@ test("SDK requests retain routing, mapped effort, cache boundaries and context l
 	assert.ok(cached.body.max_tokens > 0 && cached.body.max_tokens < 904);
 	assert.equal(JSON.stringify(requests[1]!.body).includes("cache_control"), false);
 	assert.equal(requests[1]!.headers.has("x-session-id"), false);
+});
+
+test("parallel tool results carry one cache boundary, so the request stays at system, last tool and one message mark", async (t) => {
+	const bodies: Array<Record<string, any>> = [];
+	t.mock.method(globalThis, "fetch", async (_input: unknown, init: RequestInit) => {
+		bodies.push(JSON.parse(String(init.body)));
+		return response([chunk({ content: "Fertig" }, "stop")]);
+	});
+	const anthropic: Model<"openai-completions"> = { ...model, id: "anthropic/test" };
+	for (const calls of [1, 2, 3, 8]) {
+		const ids = Array.from({ length: calls }, (_value, index) => `call-${index}`);
+		const request: AssistantMessage = {
+			role: "assistant", api: model.api, provider: model.provider, model: anthropic.id, stopReason: "toolUse", timestamp: 2,
+			usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+			content: ids.map((id) => ({ type: "toolCall", id, name: "echo", arguments: { text: id } })),
+		};
+		const results = ids.map((id): ToolResultMessage => ({ role: "toolResult", toolCallId: id, toolName: "echo", isError: false, timestamp: 3, content: [{ type: "text", text: id }] }));
+		const result = await streamSimple(anthropic, { ...context, systemPrompt: "Systemregeln", messages: [...context.messages, request, ...results] }, { apiKey: "test-only" }).result();
+		assert.equal(result.errorMessage, undefined, `${calls} calls`);
+		const body = bodies.at(-1)!;
+		assert.equal(cacheMarksOf(body), 3, `${calls} calls`);
+		const marked = (body.messages as Array<{ role: string; tool_call_id?: string; cache_control?: unknown }>)
+			.filter((message) => message.role === "tool" && message.cache_control).map((message) => message.tool_call_id);
+		assert.deepEqual(marked, [ids.at(-1)], `${calls} calls`);
+	}
 });
 
 function chunk(delta: unknown, finishReason: string | null = null) {
@@ -260,6 +286,32 @@ test("HTTP failures retain their response body and do not retry by default", asy
 	assert.match(result.errorMessage ?? "", /upstream capacity exhausted: diagnostic-123/);
 	assert.equal(events.at(-1)?.type, "error");
 });
+
+test("a rejected request is not retried, while timeout, conflict, throttling and server errors are", async (t) => {
+	const rejected = JSON.stringify({ error: { message: "Provider returned error", code: 400, metadata: { raw: JSON.stringify({
+		type: "error", error: { type: "invalid_request_error", message: "A maximum of 4 blocks with cache_control may be provided. Found 5." } }) } } });
+	let reply = { status: 400, body: rejected };
+	t.mock.method(globalThis, "fetch", async () => new Response(reply.body, { status: reply.status }));
+	const retryable = async (status: number, body = JSON.stringify({ error: { message: "Provider returned error", code: status } })) => {
+		reply = { status, body };
+		const result = await stream(model, context, { apiKey: "test-only" }).result();
+		assert.equal(result.stopReason, "error");
+		return isRetryableAssistantError(result);
+	};
+	assert.equal(await retryable(400, rejected), false);
+	for (const status of [400, 401, 404, 422]) assert.equal(await retryable(status), false, String(status));
+	for (const status of [408, 409, 429, 500, 502, 503]) assert.equal(await retryable(status), true, String(status));
+	const failed = (errorMessage: string) => isRetryableAssistantError({ ...fauxFailure, errorMessage });
+	assert.equal(failed('Provider returned error {"status": 400, "message": "bad"}'), false);
+	assert.equal(failed("Provider returned error: HTTP 400 Bad Request"), false);
+	assert.equal(failed("Provider returned error: HTTP 429 Too Many Requests"), true);
+	assert.equal(failed('Provider returned error {"status": 503}'), true);
+});
+
+const fauxFailure: AssistantMessage = {
+	role: "assistant", content: [], api: "openai-completions", provider: "openrouter", model: "test", stopReason: "error", timestamp: 1,
+	usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+};
 
 test("a rejected relay call names the relay address before status and body", async (t) => {
 	t.mock.method(globalThis, "fetch", async () => new Response(

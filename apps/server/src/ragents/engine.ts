@@ -7,7 +7,7 @@ import {
   Journal,
   LiveBus,
   Orchestration,
-  AgentSessionDriver,
+  AgentLoopDriver,
   attachmentInputKind,
   RunStopper,
   type PluginHost,
@@ -39,7 +39,7 @@ import { config } from "../config.js";
 import { accessibleRunView } from "../access-projection.js";
 import { assertRunRights } from "../api/rights.js";
 import { runOwnerOf, runOwnerOnly } from "./run-owner.js";
-import { layout, ROOT_ONLY_MODE } from "../layout.js";
+import { layout } from "../layout.js";
 import { renderSystemPromptOption, systemPromptSelectionPromptIds } from "../plugin-support/prompt.js";
 import { actorProgramsToken } from "../plugin-support/actor-programs/service.js";
 import { checkedThinkingLevel } from "../plugin-support/thinking-level.js";
@@ -86,11 +86,6 @@ export class SessionWorkspaces implements Workspaces {
 
   description(runId: string): string | undefined {
     return this.#roots.get(runId)?.description;
-  }
-
-  /** Der Ordner auf diesem Server für Arbeit des Runs, die hier läuft; bei einem Arbeitsplatz nie dessen Pfad. */
-  async runtimeDirectory(runId: string): Promise<string> {
-    return (await this.#sandbox().serverProcessContextFor(runId)).cwd;
   }
 
   async storeAttachment(runId: string, name: string, content: Uint8Array): Promise<string> {
@@ -206,15 +201,12 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     workspace: context.workspace,
     audience: isRunCoordinator(runtime, context.runId, context.agentId) ? "coordinator" : "agent",
   });
-  const agentRuntime = new AgentSessionDriver({
+  const agentRuntime = new AgentLoopDriver({
     modelRuntime: options.modelRuntime,
     resolveSkills: async (context) => globalChat?.isCoordinator(context.runId) ? []
       : (await options.plugins.skills.resolve(contributionContextFor(context))).map(skillOfDirectory),
-    resolveExtensionFactories: (context) => globalChat?.isCoordinator(context.runId) ? [] : options.plugins.agentRuntime.resolve(contributionContextFor(context)),
-    sessions: {
-      directory: (runId, agentId) => layout.agentChatDir(runId, agentId),
-      directoryMode: ROOT_ONLY_MODE,
-    },
+    resolveHooks: (context) => globalChat?.isCoordinator(context.runId) ? [] : options.plugins.agentRuntime.resolve(contributionContextFor(context)),
+    settings: { compaction: config.agentCompaction },
   });
   const configuredModels = await Promise.all(options.plugins.profiles.models().map(async (model) => {
     if (model.driver !== "agent") return model;

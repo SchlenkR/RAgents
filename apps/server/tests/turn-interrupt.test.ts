@@ -4,7 +4,7 @@ import test from "node:test";
 
 import { Journal, LiveBus, Orchestration, TurnScheduler, runtimeMethods } from "@ragents/engine";
 import { runContracts } from "@ragents/engine/src/http/contracts";
-import { catalog, deferred, executionFor, FakeDriver, noUsage, registryOf, testServices } from "../../../packages/ragents/tests/support.ts";
+import { catalog, deferred, executionFor, FakeDriver, noUsage, registryOf, testServices, textStep } from "../../../packages/ragents/tests/support.ts";
 import { applyEvent, type ChatEvent, type Message } from "quassel/events";
 import type { Engine } from "../src/ragents/engine.ts";
 import { RunChatSession } from "../src/ragents/session.ts";
@@ -42,7 +42,7 @@ test("the chat's stop interrupts only the primary's turn: its text stays, the ch
   const partial = "Angefangene Antwort";
   const driver = new FakeDriver(async (request, signal) => {
     if (driver.requests.length > 1) {
-      request.emit({ kind: "assistant", text: "Weiter geht es." });
+      request.recordContext({ kind: "step", step: textStep("Weiter geht es.") });
       return { failure: null, usage: noUsage() };
     }
     request.publish({ kind: "text", delta: partial });

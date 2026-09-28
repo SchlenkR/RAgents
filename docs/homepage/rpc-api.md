@@ -1535,6 +1535,22 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
         },
         {
           "type": "string",
+          "const": "model.input.presented"
+        },
+        {
+          "type": "string",
+          "const": "model.step.completed"
+        },
+        {
+          "type": "string",
+          "const": "model.tool-result.presented"
+        },
+        {
+          "type": "string",
+          "const": "context.compacted"
+        },
+        {
+          "type": "string",
           "const": "model.output.completed"
         },
         {
@@ -1745,6 +1761,22 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
               {
                 "type": "string",
                 "const": "turn.interrupted"
+              },
+              {
+                "type": "string",
+                "const": "model.input.presented"
+              },
+              {
+                "type": "string",
+                "const": "model.step.completed"
+              },
+              {
+                "type": "string",
+                "const": "model.tool-result.presented"
+              },
+              {
+                "type": "string",
+                "const": "context.compacted"
               },
               {
                 "type": "string",

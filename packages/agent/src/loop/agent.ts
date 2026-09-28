@@ -123,6 +123,11 @@ type ActiveRun = {
  * `Agent` owns the current transcript, emits lifecycle events, executes tools,
  * and polls its steering source before each model request.
  */
+const runFailures = new WeakSet<object>();
+
+/** Whether a message is the stand-in the agent reports for a failed run; no model produced it. */
+export const isRunFailure = (message: AgentMessage): boolean => runFailures.has(message);
+
 export class Agent {
 	private _state: MutableAgentState;
 	private readonly listeners = new Set<(event: AgentEvent, signal: AbortSignal) => Promise<void> | void>();
@@ -363,7 +368,7 @@ export class Agent {
 	}
 
 	private async handleRunFailure(error: unknown, aborted: boolean): Promise<void> {
-		const failureMessage = {
+		const failureMessage: AgentMessage = {
 			role: "assistant",
 			content: [{ type: "text", text: "" }],
 			api: this._state.model.api,
@@ -373,7 +378,8 @@ export class Agent {
 			stopReason: aborted ? "aborted" : "error",
 			errorMessage: error instanceof Error ? error.message : String(error),
 			timestamp: Date.now(),
-		} satisfies AgentMessage;
+		};
+		runFailures.add(failureMessage);
 		await this.processEvents({ type: "message_start", message: failureMessage });
 		await this.processEvents({ type: "message_end", message: failureMessage });
 		await this.processEvents({ type: "turn_end", message: failureMessage, toolResults: [] });

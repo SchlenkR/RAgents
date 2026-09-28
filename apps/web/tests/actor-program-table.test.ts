@@ -54,15 +54,15 @@ test("Tabelle rendert echte Tabellenstruktur, kontrollierte Auswahl, eigene Zell
   assert.ok(!empty.includes('type="checkbox"'));
   const loading = renderToStaticMarkup(createElement(DataTable<Row>, { rows: [], columns, rowKey: (row) => row.id, loading: true, emptyText: "Keine Kontakte" }));
   assert.ok(loading.includes('aria-busy="true"'));
-  assert.ok(loading.includes("Wird geladen"));
+  assert.ok(loading.includes("Loading..."));
   assert.ok(!loading.includes("Keine Kontakte"));
 });
 
 test("mehrdeutige Zeilen, Spalten und Aktionen scheitern ausdrücklich", () => {
   const base = { rows, columns, rowKey: (row: Row) => row.id };
-  assert.throws(() => renderToStaticMarkup(createElement(DataTable<Row>, { ...base, rowKey: () => "same" })), /Tabellenzeilen/);
-  assert.throws(() => renderToStaticMarkup(createElement(DataTable<Row>, { ...base, columns: [columns[0], columns[0]] })), /Spalten/);
+  assert.throws(() => renderToStaticMarkup(createElement(DataTable<Row>, { ...base, rowKey: () => "same" })), /Table rows/);
+  assert.throws(() => renderToStaticMarkup(createElement(DataTable<Row>, { ...base, columns: [columns[0], columns[0]] })), /columns/);
   assert.throws(() => renderToStaticMarkup(createElement(DataTable<Row>, { ...base, actions: [
     { id: "same", label: "A", onClick: () => {} }, { id: "same", label: "B", onClick: () => {} },
-  ] })), /Tabellenaktionen/);
+  ] })), /Table actions/);
 });

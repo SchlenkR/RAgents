@@ -62,6 +62,8 @@ export const journalChatEventsOf = (
       ];
     case "actor.stopped":
       return [{ kind: "system", text: event.payload.reason, at }];
+    case "context.compacted":
+      return [{ kind: "system", text: `Model context compacted: the model now sees the history before this point (about ${event.payload.tokensBefore} tokens) only as a summary.`, at }];
     default:
       return [];
   }

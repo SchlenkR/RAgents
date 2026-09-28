@@ -46,6 +46,8 @@ export interface SessionInfo {
   metadata?: Readonly<Record<string, unknown>>;
   /** Warum ein Metadaten-Beitrag keinen Wert hat: gescheitert oder nicht rechtzeitig geantwortet. */
   metadataUnavailable?: Readonly<Record<string, string>>;
+  /** Warum der Server den Run gesperrt hat; ein gesperrter Run lässt sich nur noch löschen. */
+  locked?: string;
 }
 
 export const listSessions = (client: RpcClient = rpc): Promise<SessionInfo[]> =>

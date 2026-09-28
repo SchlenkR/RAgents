@@ -9,7 +9,7 @@ import { defineRunFunction } from "../src/agents/tools.ts";
 import { runContracts } from "../src/http/contracts.ts";
 import { runtimeMethods } from "../src/http/methods.ts";
 import type { MethodContext } from "../src/rpc/contribution.ts";
-import { FakeDriver, allGrants, catalog, deferred, manualExecution, noUsage, postTo, registryOf, setupRun } from "./support.ts";
+import { FakeDriver, allGrants, catalog, deferred, manualExecution, noUsage, postTo, registryOf, setupRun, textStep } from "./support.ts";
 
 const context: MethodContext = {
     access: unrestrictedAccess,
@@ -59,7 +59,7 @@ test("interrupting a turn ends only that turn: the actor, its session and its ch
     const registry = new ToolRegistry().register({ name: "wait", dynamic: true, descriptors: [], tools: () => [waitTool] });
     const driver = new FakeDriver(async (request) => {
         if (driver.requests.length > 1) {
-            request.emit({ kind: "assistant", text: "Weiter geht es." });
+            request.recordContext({ kind: "step", step: textStep("Weiter geht es.") });
             return { failure: null, usage: noUsage() };
         }
         const spawned = setup.runtime.spawnAgent({ actorId: setup.agent.id, commandId: "spawn-child", turnId: request.turnId }, setup.view.id, {

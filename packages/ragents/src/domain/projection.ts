@@ -50,6 +50,7 @@ export const forkProjection = (state: RunDraft): RunDraft => ({
     subscriptions: new Map(state.subscriptions),
     pluginStates: new Map(state.pluginStates),
     artifacts: new Map(state.artifacts),
+    contextTurns: new Map(state.contextTurns),
 });
 
 const actor = (state: RunDraft, id: string) => {
@@ -129,6 +130,7 @@ const created = (event: Extract<JournalEvent, { type: "run.created" }>): RunDraf
     pluginStates: new Map(),
     actions: new Map(),
     artifacts: new Map(),
+    contextTurns: new Map(),
 });
 
 export function applyEvent(
@@ -349,6 +351,13 @@ export function applyEvent(
         case "model.output.interrupted":
         case "runtime.output.recorded":
         case "tool.call.source":
+        case "model.step.completed":
+        case "model.tool-result.presented":
+        case "context.compacted":
+            break;
+
+        case "model.input.presented":
+            state.contextTurns.set(event.payload.turnId, event.actorId);
             break;
 
         case "actor.tools.opened": {

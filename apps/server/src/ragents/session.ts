@@ -856,9 +856,9 @@ export class RunChatSession implements ChatSessionLike {
         const cursor = this.#textPositions.observe(event);
         const primaryActorId = this.#primaryActorId;
         if (!primaryActorId) continue;
-        if (event.actorId === primaryActorId
-          && (event.type === "turn.finished" || event.type === "turn.interrupted")
-          && this.#liveTurns.has(event.payload.turnId)) this.#journalFinishedTurns.add(event.payload.turnId);
+        if ((event.type === "turn.finished" || event.type === "turn.interrupted")
+          && this.#liveTurns.has(event.payload.turnId)
+          && this.#engine.runtime.state(this.id).turns.get(event.payload.turnId)?.actorId === primaryActorId) this.#journalFinishedTurns.add(event.payload.turnId);
         if (live) continue;
         for (const chatEvent of chatEventsOf(event, this.#scope(primaryActorId), cursor, this.#pluginStates)) this.#emit(chatEvent);
       }

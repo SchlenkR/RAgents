@@ -16,9 +16,9 @@ ausschließlich die Übernahme eines tatsächlich aufgebauten Runs.
 
 Die Engine besitzt `Orchestration.forkRun` für einen Fork an einer Kommandogrenze. Eine
 Bedienoberfläche und eine Methode der Nachrichtenschicht, die den Fork mit den übrigen Daten des
-Runs verbindet, fehlen. Der Fork des Journals allein genügt für eine benutzbare Kopie nicht:
-Modellkontexte, Arbeitsdateien sowie Quellen und Builds der Actor-Programme liegen zusätzlich in der
-Ablage des Runs.
+Runs verbindet, fehlen. Der Fork des Journals bringt die Modellkontexte der Agenten schon mit;
+für eine benutzbare Kopie genügt er trotzdem nicht: Arbeitsdateien sowie Quellen und Builds der
+Actor-Programme liegen zusätzlich in der Ablage des Runs.
 
 Eine Umsetzung muss Journal und Ablage zusammen übernehmen und alle darin gebundenen Run- und
 Actor-Referenzen konsistent halten. Quellen und installierter Programmstand gehören zusammen; ein
@@ -38,7 +38,7 @@ aufbauen. Ein zweiter deklarativer Seed-Vertrag ist dafür nicht vorgesehen.
 
 ## Offene Entscheidungen
 
-- Modellkontexte mitkopieren oder mit einer ausdrücklichen Aufbau-Zusammenfassung neu starten.
+- Modellkontexte aus dem Journal übernehmen oder mit einer ausdrücklichen Aufbau-Zusammenfassung neu starten.
 - Dateiablage vollständig übernehmen oder eine klar ausgewählte Teilmenge kopieren.
 - Quellen, Builds und private Arbeitsdateien ohne Verweise auf den ursprünglichen Run übernehmen.
 - Ausgangs-Run weiter bearbeitbar lassen oder vor unbeabsichtigter Nutzung schützen.

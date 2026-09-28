@@ -32,15 +32,17 @@ Ausführlicher stehen die Begriffe in `docs/spec/overview.md`.
 Eine Zeile JSON je Command-Entscheidung, append-only. Die Zeile enthält den Command, seinen
 Zeitpunkt und ein Array seiner Events. `sequence` zählt über alle Events des Runs lückenlos hoch.
 Das folgende Beispiel zeigt eine Zeile, wie sie in `journal.jsonl` auf der Platte steht
-(Dateiformat 6), zum Lesen eingerückt; Kennungen und Hash sind gekürzt:
+(Dateiformat 7), zum Lesen eingerückt; Kennungen, Hash und Nutzungszahlen sind gekürzt. Es ist ein
+abgeschlossener Modellschritt: der Text als beobachtbares `model.output.completed`, danach der
+Schritt selbst, der den Text nicht wiederholt:
 
 ```json
 {
-  "formatVersion": 6,
+  "formatVersion": 7,
   "runId": "example-run",
   "command": {
-    "id": "command-17",
-    "type": "model.output.complete",
+    "id": "scheduler:review-turn:context:step:4",
+    "type": "model.step.complete",
     "actorId": "reviewer",
     "requestHash": "9f2c..."
   },
@@ -50,11 +52,28 @@ Das folgende Beispiel zeigt eine Zeile, wie sie in `journal.jsonl` auf der Platt
       "eventId": "event-12",
       "sequence": 12,
       "type": "model.output.completed",
-      "correlationId": null,
+      "correlationId": "review-turn",
       "causationId": null,
       "payload": {
         "turnId": "review-turn",
         "text": "Die Prüfung ist abgeschlossen."
+      }
+    },
+    {
+      "eventId": "event-13",
+      "sequence": 13,
+      "type": "model.step.completed",
+      "correlationId": "review-turn",
+      "causationId": null,
+      "payload": {
+        "turnId": "review-turn",
+        "content": [{ "type": "text" }],
+        "api": "openai-completions",
+        "provider": "openrouter",
+        "model": "example/model",
+        "usage": { "input": 1200, "output": 9, "cacheRead": 1100, "cacheWrite": 0, "totalTokens": 2309, "cost": { "total": 0.001 } },
+        "stopReason": "stop",
+        "timestamp": 1790244900000
       }
     }
   ]
@@ -67,8 +86,8 @@ Im Speicher sieht dieselbe Zeile anders aus: Beim Lesen wird daraus ein `Command
 Lesen aufgelöst. Die verbindlichen Typen stehen in `packages/ragents/src/runtime/journal.ts`,
 `packages/ragents/src/runtime/journal-storage.ts` (Dateiformat) und
 `packages/ragents/src/domain/events.ts`. Aus den Ereignissen wird der Run-Zustand wiederhergestellt,
-ohne Modelle oder Werkzeuge erneut auszuführen. Modellkontexte und Arbeitsdateien liegen zusätzlich
-außerhalb des Journals. Eine schrittweise Erklärung bietet die
+ohne Modelle oder Werkzeuge erneut auszuführen; auch der Modellkontext jedes Agenten ist eine
+Projektion daraus. Arbeitsdateien liegen zusätzlich außerhalb des Journals. Eine schrittweise Erklärung bietet die
 [Homepage](homepage/index.html#journal); die Grenzen stehen in `docs/spec/core.md`.
 
 ## Aufbau
@@ -95,7 +114,7 @@ aus Plugins.
 | --------------------- | ---------------------------------------------------------------------------------------------------- |
 | `plugins`             | ein Ordner je Plugin, mit `server/`, `web/` und seinen Assets                                        |
 | `packages/ragents`    | die Engine: Journal, Actors, Turns, Events, Scheduler, TypeScript-Plattform                          |
-| `packages/agent`      | die Agentenlaufzeit: Agenten-Schleife, Sitzung, Werkzeuge (read, write, edit, bash)                  |
+| `packages/agent`      | die Agentenlaufzeit: Agenten-Schleife, Kompaktierung, Werkzeuge (read, write, edit, bash)            |
 | `packages/workspace-executor` | der Arbeitsplatz-Executor aus Modulen: Sandbox-Werkzeuge, Sprachserver, Dateien, Prozesse, Befehle, Browser; im Server wie im Arbeitsplatz derselbe |
 | `packages/ai`         | die LLM-Anbindung (openrouter)                                                                       |
 | `apps/server`         | Node-Backend, Plugin-Suche, Profil-Komposition; `plugin-support/` sind Host-Bausteine, keine Plugins |

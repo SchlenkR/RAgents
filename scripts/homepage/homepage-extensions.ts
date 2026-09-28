@@ -763,14 +763,19 @@ const testDriver: AgentDriver<"agent"> = {
   supportsPlainLlm: true,
   async runTurn(request, signal) {
     signal.throwIfAborted();
-    request.emit({ kind: "assistant", text: request.input.content });
+    request.recordContext({ kind: "step", step: {
+      api: "test", provider: "test", model: "echo", stopReason: "stop", timestamp: Date.now(),
+      content: [{ type: "text", text: request.input.content }],
+      usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0,
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
+    } });
     return { failure: null, usage: {
       inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, costUsd: 0,
     } };
   },
 };`, ["driver.kind", "driver.supportsPlainLlm", "driver.runTurn", "driver.disposeAgent", "driver.reviveAgent", "driver.haltRun", "driver.waitForRunSettlement", "driver.disposeRun", "driver.shutdown"], [
     "kind bestimmt die Treiberart. supportsPlainLlm erklärt den Betrieb ohne RAgents-Werkzeuge. Optional sind disposeAgent, reviveAgent, haltRun, waitForRunSettlement, disposeRun und shutdown für die zugehörigen Lebenszyklusgrenzen.",
-    "request liefert unter anderem die zugestellte Eingabe, Prompt, Modellwahl, Werkzeugliste, invoke und Ereignisausgabe. Der Rückgabewert enthält failure und usage.",
+    "request liefert unter anderem die zugestellte Eingabe, Prompt, Modellwahl, Werkzeugliste, invoke und recordContext; ein Modellschritt im Modellkontext ist zugleich die sichtbare Antwort. Der Rückgabewert enthält failure und usage.",
     "Es gibt keine host.drivers-Registry. Die derzeitige DriverRegistry kennt die festen Arten agent und script; eine neue Art verlangt eine bewusste Engine-Integration. profiles allein erweitert diese Grenze nicht.",
   ]),
   entry("language-server", "Produkt- und Laufzeitverträge", "Einen Language Server anbinden", "Ein Language Server analysiert Quellcode und liefert Sprachfunktionen wie Fehlermeldungen und Symbolsuche. Ein Adapter beschreibt, wie RAgents das passende Projekt erkennt und den Server startet. Die vorhandene Einbindung macht diese Funktionen als Werkzeuge und Serverzugriffe verfügbar.", "Server-Einstieg für einen einfachen TypeScript-LSP. Node-Helfer und die neutralen language-server-Hosttypen werden importiert.", `

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test, { after } from "node:test";
 import {
-  AgentSessionDriver,
+  AgentLoopDriver,
   createAccessContext,
   DomainError,
   MethodContributionRegistry,
@@ -49,9 +49,9 @@ const denied = (error: unknown) => error instanceof DomainError && error.code ==
 
 test("the chat chooses model and thinking with runs.inspect only: before the first message for the first turn, later for the next one", async (t) => {
   const selections: ModelSelection[] = [];
-  t.mock.method(AgentSessionDriver.prototype, "thinkingCapabilities", async (_provider: string, model: string) => thinking[model as keyof typeof thinking]);
-  t.mock.method(AgentSessionDriver.prototype, "inputCapabilities", async () => ["text"]);
-  t.mock.method(AgentSessionDriver.prototype, "runTurn", async (request: TurnRequest<"agent">) => {
+  t.mock.method(AgentLoopDriver.prototype, "thinkingCapabilities", async (_provider: string, model: string) => thinking[model as keyof typeof thinking]);
+  t.mock.method(AgentLoopDriver.prototype, "inputCapabilities", async () => ["text"]);
+  t.mock.method(AgentLoopDriver.prototype, "runTurn", async (request: TurnRequest<"agent">) => {
     selections.push(request.selection);
     return { failure: null, usage: noUsage() };
   });
@@ -81,7 +81,7 @@ test("the chat chooses model and thinking with runs.inspect only: before the fir
   const engine = await createEngine({ plugins, workspaces, assertAvailable: () => {}, assertRunUsable: () => {} });
   const session = new RunChatSession({
     engine, id: runId, coordinator, prompt: () => "", assertUsable: () => undefined,
-    prepare: async () => undefined, prepareWorkspace: async () => undefined,
+    prepare: async () => undefined, prepareWorkspace: async () => undefined, started: async () => undefined,
     scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: unavailableActorPrograms,
   });
   const methods = coreMethods(coreSources({

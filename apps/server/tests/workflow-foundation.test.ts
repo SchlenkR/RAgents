@@ -36,9 +36,9 @@ test("role instructions combine owned prompts with goals, completion and bounded
   const loaded: string[] = [];
   const result = await workflowInstructions(definition(), "worker", async reference => { loaded.push(reference); return `Inhalt ${reference}`; });
   assert.deepEqual(loaded, ["prompts/worker.md", "prompts/implement.md"]);
-  for (const value of ["Akzeptanzkriterien erfüllen", "Änderungen gemeldet", "Eigene Arbeitsschritte planen", "Höchstens 3", "Pflichtschritte bleiben verbindlich", "Abnahme abwarten", "Alle Regeln bestanden", "Korrektur erforderlich", "Rückweg"]) assert.ok(result.includes(value), value);
+  for (const value of ["Akzeptanzkriterien erfüllen", "Änderungen gemeldet", "Eigene Arbeitsschritte planen", "At most 3", "required steps remain mandatory", "Abnahme abwarten", "Alle Regeln bestanden", "Korrektur erforderlich", "return path"]) assert.ok(result.includes(value), value);
   assert.doesNotMatch(result, /Inhalt prompts\/review/);
-  await assert.rejects(workflowInstructions(definition(), "missing", async () => "text"), /Unbekannte Rolle/);
+  await assert.rejects(workflowInstructions(definition(), "missing", async () => "text"), /Unknown role/);
   await assert.rejects(workflowInstructions(definition(), "worker", async () => "  "), /Prompt/);
   await assert.rejects(workflowInstructions(definition(), "worker", async () => { throw new Error("missing file"); }), /missing file/);
 });

@@ -11,7 +11,7 @@ export const COMPACTION_SUMMARY_PREFIX = `The conversation history before this p
 export const COMPACTION_SUMMARY_SUFFIX = `
 </summary>`;
 
-/** Message that an extension injects into the context of a model call. */
+/** A hidden note that a hook adds to one model call; it is not part of the context. */
 export interface CustomMessage<T = unknown> {
 	role: "custom";
 	customType: string;
@@ -39,24 +39,17 @@ declare module "../loop/types.ts" {
 export function createCompactionSummaryMessage(
 	summary: string,
 	tokensBefore: number,
-	timestamp: string,
+	timestamp: number,
 ): CompactionSummaryMessage {
 	return {
 		role: "compactionSummary",
 		summary: summary,
 		tokensBefore,
-		timestamp: new Date(timestamp).getTime(),
+		timestamp,
 	};
 }
 
-/**
- * Transform AgentMessages (including custom types) to LLM-compatible Messages.
- *
- * This is used by:
- * - Agent's transormToLlm option (for prompt calls and queued messages)
- * - Compaction's generateSummary (for summarization)
- * - Custom extensions and tools
- */
+/** Transform AgentMessages, including hook notes and compaction summaries, to LLM messages. */
 export function convertToLlm(messages: AgentMessage[]): Message[] {
 	return messages
 		.map((m): Message | undefined => {
@@ -67,6 +60,7 @@ export function convertToLlm(messages: AgentMessage[]): Message[] {
 						role: "user",
 						content,
 						timestamp: m.timestamp,
+						transient: true,
 					};
 				}
 				case "compactionSummary":

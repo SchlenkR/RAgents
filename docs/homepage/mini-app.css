@@ -1461,6 +1461,12 @@
     --tw-border-style: dashed;
     border-style: dashed;
   }
+  .border-\[color-mix\(in_srgb\,var\(--destructive\)_55\%\,var\(--border\)\)\] {
+    border-color: var(--destructive);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in srgb,var(--destructive) 55%,var(--border));
+    }
+  }
   .border-\[color-mix\(in_srgb\,var\(--flow-status\)_60\%\,var\(--border\)\)\] {
     border-color: var(--flow-status);
     @supports (color: color-mix(in lab, red, red)) {
@@ -1511,6 +1517,9 @@
   }
   .border-transparent {
     border-color: transparent;
+  }
+  .border-t-destructive {
+    border-top-color: var(--destructive);
   }
   .border-t-info {
     border-top-color: var(--info);
@@ -1618,6 +1627,12 @@
     background-color: currentcolor;
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, currentcolor 11%, transparent);
+    }
+  }
+  .bg-destructive\/8 {
+    background-color: var(--destructive);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--destructive) 8%, transparent);
     }
   }
   .bg-destructive\/10 {
@@ -3372,8 +3387,16 @@
   .aria-disabled\:pointer-events-none[aria-disabled="true"] {
     pointer-events: none;
   }
+  .aria-disabled\:cursor-default[aria-disabled="true"] {
+    cursor: default;
+  }
   .aria-disabled\:opacity-50[aria-disabled="true"] {
     opacity: 50%;
+  }
+  @media (hover: hover) {
+    .aria-disabled\:hover\:bg-transparent[aria-disabled="true"]:hover {
+      background-color: transparent;
+    }
   }
   .aria-expanded\:bg-accent[aria-expanded="true"] {
     background-color: var(--accent);

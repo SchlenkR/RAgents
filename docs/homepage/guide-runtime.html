@@ -184,10 +184,13 @@ earliest after the snippet, as steering or in a later turn. The programming lang
 additional decision point for this.</p>
 <h2 id="model-context-across-turns">Model context across turns</h2>
 <p>Each LLM actor has its own conversation context, which persists across turns. A new input adds
-to that conversation. In server operation, the context is stored separately and reloaded after
-a restart. A new actor starts with its own context or, when spawned with <code>forkOf</code>, with a copy
-of another LLM actor&#39;s context from the same run. Updating the system prompt does not replace
-the existing conversation history.</p>
+to that conversation. The context is part of the run&#39;s journal: every input as the model received
+it, every completed model step, every tool result as the model saw it, and every compaction are
+recorded there, and the context is read back from those records before each model request. After
+a restart the actor therefore continues with exactly the same context. A new actor starts with its
+own context or, when spawned with <code>forkOf</code>, with an unchanged copy of the context another LLM actor
+of the same run had at the end of its last finished turn before the spawn. Updating the system
+prompt does not replace the existing conversation history.</p>
 <p>Programmed actor state stores explicitly assigned data for functions and mini-apps. Before a
 replacement state is diffed and journaled, it is converted to JSON form: keys whose value is
 <code>undefined</code> are treated as absent both in memory and on disk, while a <code>set</code> state change without
@@ -195,6 +198,9 @@ a value remains invalid. The journal records the run&#39;s shared events and der
 from them. These three forms of state serve different purposes: the visible chat is not a full
 copy of the current model context, and a new turn does not mean the model starts without its
 conversation memory.</p>
+<p>When the context grows too large, the agent compacts it: older parts are replaced by a summary
+written by the model, and recent parts are kept. A compaction is recorded in the journal as well,
+and the chat shows a short system note.</p>
 <h2 id="interrupting-a-turn-stopping-an-actor-stopping-a-run-and-shutting-down-the-server">Interrupting a turn, stopping an actor, stopping a run, and shutting down the server</h2>
 <p>All stop paths follow the same principle: block new work first, then cancel, wait for running
 work, and only then release resources. The exact boundary differs:</p>
@@ -313,12 +319,12 @@ before its first turn, and the stop reason names the unknown tools. The selectio
 inherited, although delegable engine capabilities still are. <code>withoutCapabilities</code> removes
 named technical permissions. Availability and grants also apply when the value is <code>null</code>.
 <code>forkOf</code> (a handle or ID) makes the new agent a fork of an LLM agent in the same run:
-<code>agent.spawned</code> records the source, and on the new agent&#39;s first turn the agent driver copies
-the source&#39;s stored context branch into its own context file. The copy ends before the source&#39;s
-first unanswered function call and contains no reasoning blocks; the new agent supplies its own
-system prompt, functions, and model. Later turns from the source are not copied. Both source and
-fork require the agent driver; a source without stored context is a hard error on the fork&#39;s
-first turn. A plain LLM receives no function overview. Its driver must explicitly support this
+<code>agent.spawned</code> records the source, and the new agent&#39;s context begins with an unchanged copy of
+the source&#39;s context up to the end of the source&#39;s last finished turn, reasoning blocks included.
+Nothing from the turn the source is running at the spawn is copied, and no text is inserted; the
+new agent supplies its own system prompt, functions, and model. Later turns from the source do not
+reach the fork. Both source and fork require the agent driver; a source without a finished turn that
+reached the model, and not itself a fork, is rejected with <code>fork-without-turn</code>. A plain LLM receives no function overview. Its driver must explicitly support this
 isolation or the turn is rejected.</p>
 <p>Equipped LLMs receive <code>typescript_api</code> and <code>typescript_eval</code>, plus an automatically generated
 overview of their available TypeScript functions with names and short descriptions. The
@@ -333,6 +339,6 @@ suggested as an agent&#39;s model choice.</p>
 <h2 id="journal-and-projection">Journal and projection</h2>
 <p>The journal is the shared history of a run. Visible state is produced by replaying its events;
 models and functions are not called again in the process. Recorded responses, function calls,
-state changes, and interruptions therefore remain traceable after a restart. Working files and
-private model context are stored separately outside the journal.</p>
+state changes, and interruptions therefore remain traceable after a restart. The model context of
+every LLM agent is part of the journal as well; working files are stored separately.</p>
 <p class="guide-source">Source: <a href="../../docs/spec/core.md">docs/spec/core.md</a>. <a href="guide-runtime.md">This chapter as Markdown</a>.</p><p><a href="guide-getting-started.html">Get started</a></p><nav class="guide-next" aria-label="Continue reading"><a href="guide-ideas.html">Previous: Core ideas</a><a href="guide-getting-started.html">Next: Get started</a></nav></article></div></main><footer class="shell"><p>Generated from public documentation. Rebuild with <code>pnpm generate:homepage</code>. Verify with <code>pnpm check:homepage</code>.</p><nav aria-label="More pages"><a href="index.html">Homepage</a><a href="guide.html">Guide</a></nav></footer></body></html>

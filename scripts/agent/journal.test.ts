@@ -16,7 +16,10 @@ const events: readonly JournalEvent[] = [
     { sequence: 3, type: "tool.call.failed", payload: { name: "typescript_eval", error: "kaputt" } },
     { sequence: 4, type: "model.output.completed", payload: { text: "Fertig", usage: { inputTokens: 200, cacheReadTokens: 0, outputTokens: 20, costUsd: 0.002 } } },
   ].map((entry) => ({ ...entry, actorId: "agent_coordinator", occurredAt: "2026-09-21T10:00:00.000Z" })),
-  { sequence: 5, type: "actor.input.enqueued", actorId: "human_alice", occurredAt: "2026-09-21T10:00:01.000Z", payload: { actorId: "agent_coordinator", text: "Bitte weiter" } },
+  { sequence: 5, type: "actor.input.enqueued", actorId: "human_alice", occurredAt: "2026-09-21T10:00:01.000Z", payload: { actorId: "agent_coordinator", subscriptionId: null, content: "Bitte weiter" } },
+  { sequence: 6, type: "model.step.completed", actorId: "agent_coordinator", occurredAt: "2026-09-21T10:00:02.000Z", payload: { usage: { input: 5, output: 1 } } },
+  { sequence: 7, type: "context.compacted", actorId: "agent_coordinator", occurredAt: "2026-09-21T10:00:03.000Z", payload: { tokensBefore: 1200 } },
+  { sequence: 8, type: "actor.input.enqueued", actorId: "agent_coordinator", occurredAt: "2026-09-21T10:00:04.000Z", payload: { actorId: "agent_watcher", subscriptionId: "sub-1", sourceEventIds: ["event-4"] } },
 ];
 
 test("usageByActor summiert Modellaufrufe je Actor", () => {
@@ -31,13 +34,15 @@ test("journalLines filtert nach Modus und Sequenz", () => {
     "[3] tool.call.failed agent_coordina: {\"name\":\"typescript_eval\",\"error\":\"kaputt\"}",
     "[4] agent_coordina: Fertig",
     "[5] INPUT -> agent_coordina: Bitte weiter",
-    "-- letzte Sequenz: 5",
+    "[7] CONTEXT COMPACTED agent_coordina: about 1200 tokens summarized",
+    "[8] INPUT -> agent_watcher: [event event-4]",
+    "-- letzte Sequenz: 8",
   ]);
   assert.deepEqual(journalLines(events, "tools", 3), [
     "[3] failed agent_coordina typescript_eval: \"kaputt\"",
-    "-- letzte Sequenz: 5",
+    "-- letzte Sequenz: 8",
   ]);
-  assert.equal(journalLines(events, "all", 0).length, 6);
+  assert.equal(journalLines(events, "all", 0).length, 8);
 });
 
 test("der Leser liefert nur, was seit dem letzten Aufruf dazugekommen ist", async (t) => {

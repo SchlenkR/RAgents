@@ -81,6 +81,7 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
       case "tool.call.completed":
       case "tool.call.failed":
       case "runtime.output.recorded":
+      case "context.compacted":
       case "turn.finished":
       case "turn.interrupted": {
         const actorId = turnActorOf(event.payload.turnId);

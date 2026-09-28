@@ -899,6 +899,7 @@
       "timestampLabel",
       "useChatAction",
       "useQuasselComponents",
+      "useQuasselPortalContainer",
       "validateAttachmentSelection"
     ],
     "react": [

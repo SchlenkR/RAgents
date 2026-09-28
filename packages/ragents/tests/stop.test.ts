@@ -7,7 +7,7 @@ import type { CapabilityGrant, RunView } from "../src/domain/model.ts";
 import { Journal } from "../src/runtime/journal.ts";
 import { Orchestration } from "../src/runtime/orchestration.ts";
 import { RunStopper } from "../src/runtime/stop.ts";
-import { manualExecution, catalog, testServices } from "./support.ts";
+import { manualExecution, catalog, testServices, textStep } from "./support.ts";
 
 const grant = (capability: CapabilityGrant["capability"]): CapabilityGrant => ({
     capability,
@@ -146,11 +146,11 @@ test("stopping an actor removes its active subscriptions", () => {
     const subscription = subscribed.subscriptions.at(-1);
     assert.ok(subscription);
     const sourceTurn = start(runtime, runtime.view(view.id), source.id, "source-output");
-    const delivered = runtime.appendModelOutput(
+    const delivered = runtime.completeModelStep(
         { actorId: source.id, commandId: "source-output", turnId: sourceTurn },
         view.id,
         source.id,
-        { turnId: sourceTurn, text: "Pending delivery." },
+        { turnId: sourceTurn, step: textStep("Pending delivery.") },
     ).inputs.find((input) => input.subscriptionId === subscription.id);
     assert.ok(delivered);
     runtime.finishTurn(

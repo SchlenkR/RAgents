@@ -29,6 +29,8 @@ export interface ConnectionRun {
   readonly updatedAt: number;
   /** Die Erweiterung konnte die Run-Ansicht nicht lesen; die Zeile nennt den Grund. */
   readonly problem?: string;
+  /** Warum der Server den Run gesperrt hat; die Zeile öffnet ihn nicht, löschen bleibt möglich. */
+  readonly locked?: string;
 }
 
 export interface ConnectionEntry {

@@ -13,6 +13,7 @@ import {
     postTo,
     setupRun,
     testServices,
+    textStep,
 } from "./support.ts";
 
 test("a subscription delivery reaches an agent as a readable header with its own text", async () => {
@@ -51,7 +52,7 @@ test("a subscription delivery reaches an agent as a readable header with its own
     });
     const driver = new FakeDriver(async (request) => {
         if (request.agentId === rot.id)
-            request.emit({ kind: "assistant", text: "rot: Anfang" });
+            request.recordContext({ kind: "step", step: textStep("rot: Anfang") });
 
         return { failure: null, usage: noUsage() };
     });

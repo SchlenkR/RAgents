@@ -14,7 +14,7 @@ import {
   TurnScheduler,
   type RuntimeServices,
 } from "@ragents/engine";
-import { noUsage, testServices } from "../../../packages/ragents/tests/support.ts";
+import { noUsage, testServices, textStep } from "../../../packages/ragents/tests/support.ts";
 import { actorProgramsToken } from "../src/plugin-support/actor-programs/service.ts";
 import { nativeExecutorFixture } from "./native-executor-fixture.ts";
 import type { Engine } from "../src/ragents/engine.ts";
@@ -198,7 +198,7 @@ for (const sample of ["word-game", "learning-afternoon"]) {
           active++;
           parallel = Math.max(parallel, active);
           await new Promise((resolve) => setTimeout(resolve, 20));
-          request.emit({ kind: "assistant", text });
+          request.recordContext({ kind: "step", step: textStep(text) });
           active--;
           return { failure: null, usage: noUsage() };
         } },
@@ -236,7 +236,7 @@ for (const sample of ["word-game", "learning-afternoon"]) {
         assert.equal(state.status, "completed", JSON.stringify(state));
         assert.deepEqual(calls, Array.from({ length: 12 }, (_, index) => ["red", "yellow", "blue", "green"][index % 4]));
         assert.deepEqual(state.entries, words.map((word, index) => ({ participant: index % 4, word })));
-        assert.match(String(state.document), /12\. Grün: Zug/);
+        assert.match(String(state.document), /12\. Green: Zug/);
         assert.equal(parallel, 1);
       } else {
         const board = state.board as { phase: string; helpers: { status: string; text: string }[] };

@@ -8,6 +8,8 @@ export interface SessionInfo {
   createdAt?: number;
   updatedAt: number;
   revision?: number;
+  /** Warum der Run gesperrt ist; er bleibt sichtbar und löschbar, alles andere meldet journal-unavailable. */
+  locked?: string;
 }
 
 export interface ChatUser {

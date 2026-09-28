@@ -17,6 +17,35 @@ import type {
 } from "./model.ts";
 import type { JsonChange, JsonObject, JsonValue } from "./json.ts";
 
+/** A media part the model saw, stored by the SHA-256 of its bytes in the artifact contents instead of Base64. */
+export type ModelMediaPart =
+    | { type: "image" | "video"; mimeType: string; hash: string }
+    | { type: "file"; mimeType: string; filename: string; hash: string };
+
+export type ModelTextPart = { type: "text"; text: string };
+
+/** The content of a user message exactly as the model received it. */
+export type ModelInputContent = string | (ModelTextPart | ModelMediaPart)[];
+
+export type ModelToolResultPart = ModelTextPart | { type: "image"; mimeType: string; hash: string };
+
+/** A block of a model step; text and thinking without their own field stand in the observation events of the same command, in order. */
+export type ModelStepBlock =
+    | { type: "text"; text?: string; textSignature?: string }
+    | { type: "thinking"; thinking?: string; thinkingSignature?: string; redacted?: boolean }
+    | { type: "toolCall"; id: string; name: string; arguments: JsonObject; thoughtSignature?: string };
+
+export type ModelStepUsage = {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheWrite: number;
+    cacheWrite1h?: number;
+    reasoning?: number;
+    totalTokens: number;
+    cost: { input: number; output: number; cacheRead: number; cacheWrite: number; total: number };
+};
+
 export type EventPayloads = {
     "run.created": {
         title: string;
@@ -83,6 +112,45 @@ export type EventPayloads = {
     "turn.interrupted": {
         turnId: TurnId;
         reason: string;
+    };
+    "model.input.presented": {
+        turnId: TurnId;
+        /** The claimed input, or null for a message of the agent loop itself. */
+        inputId: InputId | null;
+        content: ModelInputContent;
+    };
+    "model.step.completed": {
+        turnId: TurnId;
+        api: string;
+        provider: string;
+        model: string;
+        responseModel?: string;
+        responseId?: string;
+        usage: ModelStepUsage;
+        stopReason: "stop" | "length" | "toolUse" | "error";
+        errorMessage?: string;
+        diagnostics?: JsonValue[];
+        timestamp: number;
+        content: ModelStepBlock[];
+    };
+    "model.tool-result.presented": {
+        turnId: TurnId;
+        toolCallId: string;
+        toolName: string;
+        isError: boolean;
+        /** Absent when the model saw exactly the text of the call's tool.call.completed or tool.call.failed. */
+        content?: ModelToolResultPart[];
+    };
+    "context.compacted": {
+        turnId: TurnId;
+        summary: string;
+        /** The first context event after the cut; everything before it is replaced by the summary. */
+        firstKeptEventId: string;
+        tokensBefore: number;
+        provider: string;
+        model: string;
+        readFiles: string[];
+        modifiedFiles: string[];
     };
     "model.output.completed": {
         turnId: TurnId;
@@ -198,6 +266,10 @@ export const eventTypeMap: Record<EventType, true> = {
     "turn.input-steered": true,
     "turn.finished": true,
     "turn.interrupted": true,
+    "model.input.presented": true,
+    "model.step.completed": true,
+    "model.tool-result.presented": true,
+    "context.compacted": true,
     "model.output.completed": true,
     "model.output.interrupted": true,
     "model.reasoning.completed": true,

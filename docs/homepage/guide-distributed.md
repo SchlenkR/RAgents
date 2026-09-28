@@ -155,9 +155,10 @@ RAGENTS_TOKEN=<token> pnpm run-transfer <source> <target> <runId> --workspace /p
 
 The script exports the run from the source with `ragents.runs.export` and imports it on the target
 with `ragents.runs.import`. If each side uses a different token, set `RAGENTS_SOURCE_TOKEN` and
-`RAGENTS_TARGET_TOKEN`. The transfer includes the journal and payloads, model contexts under
-`chat/`, actor programs, and all plugin storage for the run, including `ragents.documents` files
-and the new folder of a run that works on the server. A folder on a workstation stays there, and the
+`RAGENTS_TARGET_TOKEN`. The transfer includes the journal and payloads, which also hold the model
+contexts of the run's agents, the stored contents the run refers to (attachments and the media of
+the model contexts), actor programs, and all plugin storage for the run, including
+`ragents.documents` files and the new folder of a run that works on the server. A folder on a workstation stays there, and the
 run keeps its binding to that workstation. Running processes, language servers, and
 browsers are not transferred; they are recreated on the target when next used.
 
@@ -171,6 +172,10 @@ The transfer enforces these prerequisites:
   the same ID and as the run owner, or anonymously for an ownerless run.
 - The archive must stay below 16 MiB because it travels as Base64 through the message layer.
   A workspace containing `node_modules` will exceed this; an existing folder on the server usually will not.
+- Symbolic links travel only when they are relative and stay inside the run's storage. Links under
+  `node_modules` that point elsewhere, such as a package manager's absolute links, are left out
+  and come back with the next install in the workspace. Any other link pointing outside stops the
+  export with `run-transfer-link` and names the links; replace them with files or relative links.
 
 Export copies the run. It remains on the source and must be deleted there explicitly after a
 real move, otherwise two journals with the same ID diverge. On the target, the run appears

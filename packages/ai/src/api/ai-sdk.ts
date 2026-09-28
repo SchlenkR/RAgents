@@ -261,7 +261,18 @@ function applyRequestCompatibility(payload: unknown, model: Model<"openai-comple
 	}
 	if (cacheControl && body.tools?.length) body.tools[body.tools.length - 1].cache_control = cacheControl;
 	if (!body.tools && body.messages.some((message) => message.role === "tool")) body.tools = [];
+	const marks = cacheMarksOf(body);
+	if (marks > MAX_CACHE_MARKS) throw new Error(`The request carries ${marks} cache marks; Anthropic accepts at most ${MAX_CACHE_MARKS}.`);
 }
+
+const MAX_CACHE_MARKS = 4;
+
+/** Counts cache_control blocks anywhere in the request body, as the provider counts them. */
+export const cacheMarksOf = (value: unknown): number => {
+	if (Array.isArray(value)) return value.reduce((sum: number, item) => sum + cacheMarksOf(item), 0);
+	if (!value || typeof value !== "object") return 0;
+	return Object.entries(value).reduce((sum, [key, item]) => sum + (key === "cache_control" && item ? 1 : cacheMarksOf(item)), 0);
+};
 
 export const streamSimple: StreamFunction<"openai-completions", SimpleStreamOptions> = (model, context, options) => {
 	const reasoning = options?.reasoning ? clampThinkingLevel(model, options.reasoning) : undefined;

@@ -1082,7 +1082,7 @@ Spawn Agent
 
 Create an idle LLM agent with an explicit model or profile and function selection.
 
-Create a new idle agent only when no existing actor fits the required role. Check actor_list first when available; actor_input reuses an existing actor. Read model_list before the first spawn and pass a model-bearing profile, or an explicit model selection from that catalog. handle and prompt alone cannot create an LLM agent; the caller's model is not inherited. It inherits delegable capabilities, but tools is required and never inherited: select exact names, [] for text-only work, or explicit null for an open, dynamically resolved toolset. An empty tools array creates a plain LLM with no runtime, workspace or host tools; drivers without plain-LLM isolation are rejected. forkOf copies the model context of an existing LLM agent of this run into the new agent at its first turn: the copy ends before any unfinished tool call and carries no reasoning; the new agent still gets its own prompt, tools and model.
+Create a new idle agent only when no existing actor fits the required role. Check actor_list first when available; actor_input reuses an existing actor. Read model_list before the first spawn and pass a model-bearing profile, or an explicit model selection from that catalog. handle and prompt alone cannot create an LLM agent; the caller's model is not inherited. It inherits delegable capabilities, but tools is required and never inherited: select exact names, [] for text-only work, or explicit null for an open, dynamically resolved toolset. An empty tools array creates a plain LLM with no runtime, workspace or host tools; drivers without plain-LLM isolation are rejected. forkOf gives the new agent an unchanged copy of the model context of an existing LLM agent of this run, up to the end of that agent's last finished turn; nothing of its running turn is copied, and a source without a finished turn is rejected. The new agent still gets its own prompt, tools and model, and its first input follows the copy.
 
 Eigentümer: engine. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
 
@@ -1120,7 +1120,7 @@ Nur mit der Capability agent.spawn.
     "forkOf": {
       "type": "string",
       "minLength": 1,
-      "description": "Handle oder ID eines LLM-Agenten dieses Runs, dessen bisheriger Modellkontext in den neuen Agenten kopiert wird"
+      "description": "Handle or ID of an LLM agent of this run whose model context up to the end of its last finished turn is copied into the new agent"
     },
     "tools": {
       "anyOf": [

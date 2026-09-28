@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { ModelRuntime } from "@ragents/agent";
 import { fauxAssistantMessage, getSupportedThinkingLevels, registerFauxProvider } from "@ragents/ai";
-import { AgentSessionDriver, FixedWorkspaces, Journal, LiveBus, Orchestration, PluginHost, StartOptionContributionRegistry, StaticModelCatalog, TurnScheduler, type CatalogModel } from "@ragents/engine";
+import { AgentLoopDriver, FixedWorkspaces, Journal, LiveBus, Orchestration, PluginHost, StartOptionContributionRegistry, StaticModelCatalog, TurnScheduler, type CatalogModel } from "@ragents/engine";
 import { deferred, testServices } from "../../../packages/ragents/tests/support.ts";
 import { overseerContracts } from "../../../plugins/ragents.overseer/contract.ts";
 import { OverseerModelSettings } from "../../../plugins/ragents.overseer/server/settings.ts";
@@ -140,7 +140,7 @@ test("a model change while busy applies to the next actual prompt and preserves 
   const modelRuntime = ModelRuntime.create();
   const provider = faux.getModel().provider;
   modelRuntime.registerProvider(provider, { baseUrl: faux.getModel().baseUrl, apiKey: "faux-key", api: faux.api, models: faux.models.map((model) => ({ ...model })) });
-  const driver = new AgentSessionDriver({ modelRuntime });
+  const driver = new AgentLoopDriver({ modelRuntime });
   const offered = models.map((model) => ({ ...model, provider }));
   const settings = new OverseerModelSettings(path.join(directory, "settings.json"));
   await settings.initialize(offered, { ...initial, provider }, () => []);

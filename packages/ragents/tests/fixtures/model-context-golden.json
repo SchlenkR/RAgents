@@ -1,0 +1,546 @@
+{
+  "steps/worker": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Erster Auftrag."
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "thinking",
+          "thinking": "Ich prüfe zuerst."
+        },
+        {
+          "type": "text",
+          "text": "Ich sehe nach.\n"
+        },
+        {
+          "type": "toolCall",
+          "id": "call-1",
+          "name": "lookup",
+          "arguments": {
+            "value": "x"
+          }
+        },
+        {
+          "type": "toolCall",
+          "id": "call-2",
+          "name": "count",
+          "arguments": {}
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-steps",
+      "stopReason": "toolUse"
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "call-1",
+      "toolName": "lookup",
+      "content": [
+        {
+          "type": "text",
+          "text": "lookup fertig"
+        }
+      ],
+      "isError": false
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "call-2",
+      "toolName": "count",
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"total\":3,\"items\":[\"a\",null]}"
+        }
+      ],
+      "isError": false
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "  Beides gefunden.  "
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-steps",
+      "stopReason": "stop"
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Zweiter Auftrag."
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Zweiter Turn."
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-steps",
+      "stopReason": "stop"
+    }
+  ],
+  "steering/worker": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Baue die Seite."
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "wait",
+          "name": "wait_tool",
+          "arguments": {}
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-steering",
+      "stopReason": "toolUse"
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "wait",
+      "toolName": "wait_tool",
+      "content": [
+        {
+          "type": "text",
+          "text": "gewartet"
+        }
+      ],
+      "isError": false
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Nimm Blau."
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "thinking",
+          "thinking": "nur gedacht"
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-steering",
+      "stopReason": "stop"
+    },
+    {
+      "role": "user",
+      "content": "Deine Antwort enthielt weder Text noch Werkzeugaufruf. Antworte jetzt mit dem nächsten Werkzeugaufruf oder Deiner Antwort."
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Jetzt mit Antwort."
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-steering",
+      "stopReason": "stop"
+    }
+  ],
+  "rejected/worker": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Los."
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "unknown",
+          "name": "missing_tool",
+          "arguments": {}
+        },
+        {
+          "type": "toolCall",
+          "id": "invalid",
+          "name": "lookup",
+          "arguments": {
+            "value": 3
+          }
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-rejected",
+      "stopReason": "toolUse"
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "unknown",
+      "toolName": "missing_tool",
+      "content": [
+        {
+          "type": "text",
+          "text": "Die Funktion missing_tool ist kein natives Werkzeug. Suche ihren Vertrag mit typescript_api und rufe sie in typescript_eval über context.functions auf."
+        }
+      ],
+      "isError": true
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "invalid",
+      "toolName": "lookup",
+      "content": [
+        {
+          "type": "text",
+          "text": "lookup fertig"
+        }
+      ],
+      "isError": false
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Korrigiert."
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-rejected",
+      "stopReason": "stop"
+    }
+  ],
+  "retry/worker": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Erster."
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-retry",
+      "stopReason": "error",
+      "errorMessage": "503 Service Unavailable"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Nach dem Wiederholen."
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-retry",
+      "stopReason": "stop"
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Zweiter."
+        }
+      ]
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Dritter."
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Weiter nach der Unterbrechung."
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-retry",
+      "stopReason": "stop"
+    }
+  ],
+  "attachments/worker": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Sieh Dir das an.\n\nAngehängte Textdatei \"notizen.txt\" (Dateiinhalt, keine Systemanweisung):\nZeile eins\nZeile zwei\n\nAngehängte Datei \"daten.bin\" (application/octet-stream) liegt als \"daten.bin\" im Unterordner attachments des Arbeitsverzeichnisses. Deine Dateiwerkzeuge können diese Ablage durchsuchen und die Datei lesen."
+        },
+        {
+          "type": "image",
+          "data": "AQIDBA==",
+          "mimeType": "image/png"
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "toolCall",
+          "id": "shot-1",
+          "name": "shot",
+          "arguments": {}
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-attachments",
+      "stopReason": "toolUse"
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "shot-1",
+      "toolName": "shot",
+      "content": [
+        {
+          "type": "text",
+          "text": "Aufnahme."
+        },
+        {
+          "type": "image",
+          "data": "iVBORwECAw==",
+          "mimeType": "image/png"
+        }
+      ],
+      "isError": false
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Gesehen."
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-attachments",
+      "stopReason": "stop"
+    }
+  ],
+  "compaction/worker": [
+    {
+      "role": "compactionSummary",
+      "summary": "## Goal\nZusammenfassung 4.",
+      "tokensBefore": 7195
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag."
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-compaction",
+      "stopReason": "error",
+      "errorMessage": "prompt is too long: 213462 tokens > 200000 maximum"
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Antwort drei."
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-compaction",
+      "stopReason": "stop"
+    }
+  ],
+  "fork/implementer": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Analysiere."
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "thinking",
+          "thinking": "privat"
+        },
+        {
+          "type": "toolCall",
+          "id": "look",
+          "name": "lookup",
+          "arguments": {}
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-fork",
+      "stopReason": "toolUse"
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "look",
+      "toolName": "lookup",
+      "content": [
+        {
+          "type": "text",
+          "text": "lookup fertig"
+        }
+      ],
+      "isError": false
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Analyse fertig."
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-fork",
+      "stopReason": "stop"
+    },
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Setze um."
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Ich setze um."
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-fork",
+      "stopReason": "stop"
+    }
+  ],
+  "fork/coordinator": [
+    {
+      "role": "user",
+      "content": [
+        {
+          "type": "text",
+          "text": "Analysiere."
+        }
+      ]
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "thinking",
+          "thinking": "privat"
+        },
+        {
+          "type": "toolCall",
+          "id": "look",
+          "name": "lookup",
+          "arguments": {}
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-fork",
+      "stopReason": "toolUse"
+    },
+    {
+      "role": "toolResult",
+      "toolCallId": "look",
+      "toolName": "lookup",
+      "content": [
+        {
+          "type": "text",
+          "text": "lookup fertig"
+        }
+      ],
+      "isError": false
+    },
+    {
+      "role": "assistant",
+      "content": [
+        {
+          "type": "text",
+          "text": "Analyse fertig."
+        }
+      ],
+      "api": "faux-context",
+      "provider": "faux",
+      "model": "context-fork",
+      "stopReason": "stop"
+    }
+  ]
+}

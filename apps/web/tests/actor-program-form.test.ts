@@ -19,14 +19,14 @@ test("Form validiert alle Feldarten und bewahrt kontrollierte Werte unverändert
   const invalid = Object.freeze({ name: "  ", count: -1, agreed: false, mode: "missing" });
   const errors = validateForm(fields, invalid);
   assert.deepEqual(Object.keys(errors), ["name", "count", "agreed", "mode"]);
-  assert.match(errors.count, /Mindestens 0/);
-  assert.match(errors.mode, /angebotenen/);
+  assert.match(errors.count, /Minimum: 0/);
+  assert.match(errors.mode, /available values/);
   assert.deepEqual(invalid, { name: "  ", count: -1, agreed: false, mode: "missing" });
-  assert.match(validateForm(fields, { ...valid, count: 11 }).count, /Höchstens 10/);
-  assert.match(validateForm(fields, { ...valid, count: Number.NaN }).count, /gültige Zahl/);
-  assert.match(validateForm(fields, { ...valid, count: "3" }).count, /gültige Zahl/);
-  assert.match(validateForm(fields, { ...valid, count: null }).count, /ausfüllen/);
-  assert.match(validateForm(fields, { ...valid, note: true }).note, /Text/);
+  assert.match(validateForm(fields, { ...valid, count: 11 }).count, /Maximum: 10/);
+  assert.match(validateForm(fields, { ...valid, count: Number.NaN }).count, /valid number/);
+  assert.match(validateForm(fields, { ...valid, count: "3" }).count, /valid number/);
+  assert.match(validateForm(fields, { ...valid, count: null }).count, /required/);
+  assert.match(validateForm(fields, { ...valid, note: true }).note, /Enter text/);
 });
 
 test("optionale leere und deaktivierte Felder blockieren nicht; zusätzliche Validierung löscht keine Pflichtfehler", () => {
@@ -41,7 +41,7 @@ test("optionale leere und deaktivierte Felder blockieren nicht; zusätzliche Val
     return { name: "Bereits vergeben." };
   }), { name: "Bereits vergeben." });
   assert.equal(seen, valid);
-  assert.match(validateForm(fields, { ...valid, name: "" }, () => ({ name: "" })).name, /ausfüllen/);
+  assert.match(validateForm(fields, { ...valid, name: "" }, () => ({ name: "" })).name, /required/);
 });
 
 test("Form rendert verbundene Labels, Hinweise und den vorhandenen SelectMenu; readOnly bietet keine Sendeaktion", () => {
@@ -65,5 +65,5 @@ test("Form rendert verbundene Labels, Hinweise und den vorhandenen SelectMenu; r
   assert.ok(readonly.includes('readOnly=""'));
   assert.throws(() => renderToStaticMarkup(createElement(Form, {
     fields: [fields[0], fields[0]], values: valid, onChange: () => {},
-  })), /eindeutige/);
+  })), /unique/);
 });

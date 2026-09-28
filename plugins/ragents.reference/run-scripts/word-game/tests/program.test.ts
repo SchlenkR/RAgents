@@ -96,7 +96,7 @@ test("wartet auf spätere Ereignisse, zählt zwölf Beiträge und beendet die We
   assert.deepEqual(inputs.map((call) => (call.input as { actor: string }).actor), words.map((_word, index) => `actor-${participants[index % 4]!.handle}`));
   assert.equal(context.state.read().status, "completed");
   assert.equal(context.state.read().entries?.length, 12);
-  assert.match(context.state.read().document!, /12\. Grün: Blume/);
+  assert.match(context.state.read().document!, /12\. Green: Blume/);
   assert.equal(context.state.read().pendingInputId, undefined);
   assert.deepEqual(await program.functions.start({}, context), { accepted: false });
 });
@@ -122,7 +122,7 @@ for (const scenario of [
   { name: "Modellfehler", word: "Strand", options: { outcome: "failed" } },
   { name: "Unterbrechung", word: "Strand", options: { type: "turn.interrupted" } },
   { name: "Mehrwortantwort", word: "Schöner Strand", options: {} },
-  { name: "wiederholtes Ausgangswort", word: "sonne", options: {} },
+  { name: "wiederholtes Ausgangswort", word: "sun", options: {} },
 ]) {
   test(`${scenario.name} bleibt als Fehler sichtbar und startet nicht erneut`, async () => {
     const { context, calls, response, start } = fixture();
@@ -247,6 +247,6 @@ test("ein gestoppter aktueller Teilnehmer hält das Spiel an", async () => {
   await start();
   await program.onInput(response("Strand", { type: "actor.stopped" }), context);
   assert.equal(context.state.read().status, "error");
-  assert.match(context.state.read().error!, /Rot wurde gestoppt/);
+  assert.match(context.state.read().error!, /Red wurde gestoppt/);
   assert.equal(context.state.read().entries?.length, 0);
 });

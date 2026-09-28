@@ -32,8 +32,13 @@ const formatTimestamp = (time: number): string => {
     : date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
 };
 
-/** Running, unread and resting runs differ only in their accent colour; the card layout stays the same. */
+/** Running, unread, locked and resting runs differ only in their accent colour; the card layout stays the same. */
 const tones = {
+  locked: {
+    card: "border-[color-mix(in_srgb,var(--destructive)_55%,var(--border))]",
+    head: "border-t-destructive bg-destructive/8",
+    text: "text-destructive",
+  },
   running: {
     card: "border-[color-mix(in_srgb,var(--info)_55%,var(--border))]",
     head: "border-t-info bg-info/8",
@@ -80,8 +85,8 @@ export function SessionList({
         <ul className={gridClass}>
           {index === 0 && createCard}
           {group.sessions.map((session) => {
-            const notice = runActivityNotice(session, seenRevisions[session.id]);
-            const tone = tones[session.running ? "running" : notice ? "unread" : "idle"];
+            const notice = session.locked === undefined ? runActivityNotice(session, seenRevisions[session.id]) : undefined;
+            const tone = tones[session.locked !== undefined ? "locked" : session.running ? "running" : notice ? "unread" : "idle"];
             const picked = session.id === activeId || (selectMode && selectedIds.has(session.id));
             return (
               <li
@@ -106,9 +111,10 @@ export function SessionList({
                   aria-current={session.id === activeId ? "true" : undefined}
                   aria-pressed={selectMode ? selectedIds.has(session.id) : undefined}
                   className={cn(
-                    "flex min-h-[148px] min-w-0 flex-1 cursor-pointer flex-col items-stretch gap-2.5 rounded-[11px] px-4 pb-4 text-left focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2",
+                    "flex min-h-[148px] min-w-0 flex-1 cursor-pointer flex-col items-stretch gap-2.5 rounded-[11px] px-4 pb-4 text-left focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:cursor-default",
                     selectMode && "pl-9",
                   )}
+                  disabled={session.locked !== undefined && !selectMode}
                   onClick={() => (selectMode ? onToggleSelected(session.id) : onSelect(session.id))}
                   type="button"
                 >
@@ -117,16 +123,18 @@ export function SessionList({
                     <span className="flex min-h-[18px] flex-wrap items-center gap-x-3.5 gap-y-1.5">
                       <span className={cn("flex items-center gap-[7px] text-[0.75rem]", tone.text)}>
                         {session.running ? <Spinner aria-hidden className="size-3" /> : <span aria-hidden className="size-[7px] flex-none rounded-full bg-current" />}
-                        {session.running ? "Läuft" : session.id === activeId ? "Geöffnet" : "Ruhend"}
+                        {session.locked !== undefined ? "Locked" : session.running ? "Läuft" : session.id === activeId ? "Geöffnet" : "Ruhend"}
                       </span>
                       {notice && <span className="inline-flex items-center gap-1.5 text-[0.7rem] font-semibold text-primary" title={notice === "updated" ? "Neue Journal-Aktivität seit Deinem letzten Ansehen dieses Runs" : "In diesem Browser noch nicht angesehen"}>
                         <span aria-hidden className="size-[7px] flex-none rounded-full bg-current" />{notice === "updated" ? "Neue Aktivität" : "Nicht angesehen"}
                       </span>}
                     </span>
                   </span>
-                  {registry.sessionMetadata.map(({ id, Metadata }) => (
-                    <Metadata key={id} placement="list" session={session} />
-                  ))}
+                  {session.locked !== undefined
+                    ? <span className="text-[0.75rem] leading-[1.45] text-destructive [overflow-wrap:anywhere]">{session.locked}</span>
+                    : registry.sessionMetadata.map(({ id, Metadata }) => (
+                      <Metadata key={id} placement="list" session={session} />
+                    ))}
                   <span className="mt-auto grid gap-0.5 text-muted-foreground">
                     {session.createdAt !== undefined && <span className="text-[0.7rem] tabular-nums">Erstellt <time dateTime={new Date(session.createdAt).toISOString()}>
                       {new Date(session.createdAt).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}

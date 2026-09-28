@@ -18,7 +18,7 @@ const assistant = (content: AssistantMessage["content"]): AssistantMessage => ({
   stopReason: "stop", timestamp: 1,
 });
 
-async function payloadOf(context: Context): Promise<Record<string, unknown>> {
+async function payloadOf(context: Context, cacheControl?: { type: "ephemeral"; ttl?: "1h" }): Promise<Record<string, unknown>> {
   let payload: Record<string, unknown> | undefined;
   const provider = createOpenRouter({ apiKey: "test-only", fetch: async (_url, options) => {
     payload = JSON.parse(String(options?.body));
@@ -26,7 +26,9 @@ async function payloadOf(context: Context): Promise<Record<string, unknown>> {
       choices: [{ index: 0, message: { role: "assistant", content: "OK" }, finish_reason: "stop" }],
       usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }), { headers: { "content-type": "application/json" } });
   } });
-  await generateText({ model: provider.chat(model.id), messages: convertMessages(context, model), maxRetries: 0 });
+  const converted = convertMessages(context, model, cacheControl);
+  await generateText({ model: provider.chat(model.id), system: converted.filter((message) => message.role === "system"),
+    messages: converted.filter((message) => message.role !== "system"), maxRetries: 0 });
   assert.ok(payload);
   return payload;
 }
@@ -93,14 +95,55 @@ test("SDK provider carries native user media and filenames without empty text", 
   ] }]);
 });
 
-test("cache mark retains reasoning details and skips media-only messages", () => {
+test("the cache mark sits on the last block of the request, also on a media-only message, and keeps reasoning details", () => {
   const cacheControl = { type: "ephemeral", ttl: "1h" } as const;
   const messages = convertMessages({ messages: [assistant([
     { type: "thinking", thinking: "Gedanke" }, { type: "text", text: "Antwort" },
   ]), { role: "user", timestamp: 2, content: [{ type: "video", data: "dmlkZW8=", mimeType: "video/mp4" }] }] }, model, cacheControl);
-  assert.deepEqual(messages[0]?.providerOptions?.openrouter?.cacheControl, cacheControl);
+  assert.equal(messages[0]?.providerOptions?.openrouter?.cacheControl, undefined);
   assert.ok(messages[0]?.providerOptions?.openrouter?.reasoning_details);
-  assert.equal(messages[1]?.providerOptions, undefined);
+  const last = messages[1];
+  assert.ok(last?.role === "user" && Array.isArray(last.content));
+  assert.deepEqual(last.content.at(-1)?.providerOptions?.openrouter?.cacheControl, cacheControl);
+});
+
+test("in a tool loop the cache mark follows the newest tool result instead of staying on the last text", async () => {
+  const cacheControl = { type: "ephemeral" } as const;
+  const context: Context = { systemPrompt: "Regeln", messages: [
+    { role: "user", content: "Schlage k1 und k2 nach.", timestamp: 1 },
+    assistant([{ type: "toolCall", id: "one", name: "lookup", arguments: { key: "k1" } }]),
+    { role: "toolResult", toolCallId: "one", toolName: "lookup", timestamp: 2, isError: false, content: [{ type: "text", text: "eins" }] },
+    assistant([{ type: "toolCall", id: "two", name: "lookup", arguments: { key: "k2" } }]),
+    { role: "toolResult", toolCallId: "two", toolName: "lookup", timestamp: 3, isError: false, content: [{ type: "text", text: "zwei" }] },
+  ] };
+  const payload = await payloadOf(context, cacheControl);
+  const marked = (payload.messages as Array<Record<string, unknown>>).flatMap((message, index) => [
+    ...(message.cache_control ? [`${index}:${String(message.role)}`] : []),
+    ...(Array.isArray(message.content) ? message.content.filter((part: { cache_control?: unknown }) => part.cache_control).map(() => `${index}:${String(message.role)}:part`) : []),
+  ]);
+  assert.deepEqual(marked, ["0:system:part", "5:tool"]);
+
+  const withImage = await payloadOf({ ...context, messages: [...context.messages.slice(0, -1), {
+    ...context.messages.at(-1)!, content: [{ type: "text", text: "zwei" }, { type: "image", data: "aW1hZ2U=", mimeType: "image/png" }],
+  } as Context["messages"][number]] }, cacheControl);
+  const last = (withImage.messages as Array<{ role: string; content: Array<{ type: string; cache_control?: unknown }> }>).at(-1)!;
+  assert.equal(last.role, "user");
+  assert.deepEqual(last.content.map((part) => [part.type, part.cache_control ?? null]), [["text", null], ["image_url", cacheControl]]);
+});
+
+test("a note for one request stays behind the cache boundary, which marks the last lasting message", async () => {
+	const context: Context = { systemPrompt: "Regeln", messages: [
+		{ role: "user", content: "Schlage k1 nach.", timestamp: 1 },
+		assistant([{ type: "toolCall", id: "one", name: "lookup", arguments: { key: "k1" } }]),
+		{ role: "toolResult", toolCallId: "one", toolName: "lookup", timestamp: 2, isError: false, content: [{ type: "text", text: "eins" }] },
+		{ role: "user", content: [{ type: "text", text: "Hinweis nur für diese Anfrage." }], timestamp: 3, transient: true },
+	] };
+	const payload = await payloadOf(context, { type: "ephemeral" });
+	const marked = (payload.messages as Array<Record<string, unknown>>).flatMap((message, index) => [
+		...(message.cache_control ? [`${index}:${String(message.role)}`] : []),
+		...(Array.isArray(message.content) ? message.content.filter((part: { cache_control?: unknown }) => part.cache_control).map(() => `${index}:${String(message.role)}:part`) : []),
+	]);
+	assert.deepEqual(marked, ["0:system:part", "3:tool"]);
 });
 
 test("tool images follow all consecutive tool results and unsupported media fails", () => {

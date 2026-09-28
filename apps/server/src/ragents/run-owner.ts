@@ -1,10 +1,11 @@
 import type { Journal, StartOptionContributionRegistry } from "@ragents/engine";
 import { storedStartOption } from "./start-option-state.js";
 
-/** Der Benutzer eines Runs aus seinem Journal: null ohne Eigentümer, undefined für eine Kennung ohne Run. */
+/** Der Benutzer eines Runs aus seinem Journal: null ohne Eigentümer und für ein gesperrtes Journal ohne Zustand, undefined für eine Kennung ohne Run. */
 export const runOwnerOf = (journal: Journal, runId: string): string | null | undefined => {
   const state = journal.stateOf(runId);
-  return state ? state.ownerUserId : undefined;
+  if (state) return state.ownerUserId;
+  return journal.failureOf(runId) ? null : undefined;
 };
 
 /** Nur der Eigentümer bedient einen Run, dessen gespeicherte Startoption das für ihren Wert erklärt. */

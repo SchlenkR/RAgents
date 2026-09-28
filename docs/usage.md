@@ -64,7 +64,10 @@ Klick auf den abgedunkelten Hintergrund schließen sie mit Rückgabe des Fokus z
 Mehrfachlöschen erscheinen abhängig von deinen Rechten; die Mehrfachauswahl bietet Alle, Keine
 und eine Löschbestätigung. Gelöschte Runs verschwinden sofort aus der Liste; das Aufräumen
 (Prozesse, Arbeitsverzeichnis, Archiv) erledigt der Server danach im Hintergrund. Fehler bleiben
-sichtbar. Lange Listen lassen sich scrollen.
+sichtbar. Lange Listen lassen sich scrollen. Einen Run, dessen Journal der Server nicht laden
+konnte (etwa ein älteres Dateiformat), zeigt die Übersicht rot als "Locked" mit der Ursache. Er
+lässt sich nicht öffnen, aber einzeln oder in der Mehrfachauswahl löschen; das Löschen legt seine
+Dateien unverändert ins Archiv. Mit Anmeldung sieht einen solchen Run nur, wer alle Runs sehen darf.
 Solange kein fertiger automatischer Titel vorliegt, zeigt die Run-Liste den ursprünglichen
 Auftrag. Nach erfolgreicher Erzeugung und Speicherung erscheint die kurze Überschrift, ohne
 auf den nächsten regelmäßigen Listenabruf zu warten. Bei deaktivierter oder fehlgeschlagener
@@ -650,7 +653,9 @@ soon as it becomes writable. Opening an existing run does not move focus there a
 
 **Runs** shows the complete list in the same grid, with search, "Beendete ausblenden" (hide finished), a server
 filter carried over from Start, and a selection mode that deletes several runs after a dialog
-confirmation. Checkboxes occupy an additional first column without shifting the others.
+confirmation. Checkboxes occupy an additional first column without shifting the others. A run the
+server has locked, for example because its journal uses an older format, shows a warning icon whose
+tooltip names the cause; it does not open, but the selection mode deletes it.
 
 **Server** is the configuration page. You can add, edit, sign in, sign out, connect,
 disconnect, and remove servers with confirmation, then open `settings.json` from the link

@@ -34,7 +34,9 @@ Commands -> Orchestration -> Journal v4 -> Projection -> LiveBus
                 |                 |
                 |                 +-> JSON-RPC (HTTP oder stdio) und Web-Projektion
                 |
-                +-> TurnScheduler -> AgentDriver -> AgentRuntimeManager -> AgentSession
+                +-> TurnScheduler -> AgentLoopDriver -> AgentTurn -> Agentenschleife
+                                  |        ^
+                                  |        +-- Modellkontext = Projektion des Journals
                                   \-> ScriptDriver -> TypeScript-Plattform -> Node-Prozess
 ```
 
@@ -118,8 +120,8 @@ kopiert den Quelltext nicht zusätzlich; Detailansichten lesen das gespeicherte 
 
 Der `TurnToolset` bindet Aufrufe an genau einen Turn. Nach dessen Ende ist die Bindung ungültig.
 Vor Aufrufen löst er den aktuellen Werkzeugbestand erneut über die Registry auf. Die
-AgentSession erneuert zwischen Modellanfragen native Schemata und die erzeugte Systemübersicht aus demselben Bestand, ohne den laufenden Turn zu beenden.
-Hooks leben dagegen mit der AgentSession und dürfen keinen alten Turnzustand capturen.
+Agentenlaufzeit erneuert zwischen Modellanfragen native Schemata und die erzeugte Systemübersicht aus demselben Bestand, ohne den laufenden Turn zu beenden.
+Hooks leben dagegen mit der Laufzeit des Agenten über seine Turns hinweg und dürfen keinen alten Turnzustand capturen.
 
 ## Actor-Zustand und Funktionen
 
@@ -140,10 +142,13 @@ Der Paket- und Aktivierungslebenszyklus gehört zum Plugin `ragents.actor-progra
 ## Model context across turns
 
 Each LLM actor has its own conversation context, which persists across turns. A new input adds
-to that conversation. In server operation, the context is stored separately and reloaded after
-a restart. A new actor starts with its own context or, when spawned with `forkOf`, with a copy
-of another LLM actor's context from the same run. Updating the system prompt does not replace
-the existing conversation history.
+to that conversation. The context is part of the run's journal: every input as the model received
+it, every completed model step, every tool result as the model saw it, and every compaction are
+recorded there, and the context is read back from those records before each model request. After
+a restart the actor therefore continues with exactly the same context. A new actor starts with its
+own context or, when spawned with `forkOf`, with an unchanged copy of the context another LLM actor
+of the same run had at the end of its last finished turn before the spawn. Updating the system
+prompt does not replace the existing conversation history.
 
 Programmed actor state stores explicitly assigned data for functions and mini-apps. Before a
 replacement state is diffed and journaled, it is converted to JSON form: keys whose value is
@@ -152,16 +157,118 @@ a value remains invalid. The journal records the run's shared events and derives
 from them. These three forms of state serve different purposes: the visible chat is not a full
 copy of the current model context, and a new turn does not mean the model starts without its
 conversation memory.
+
+When the context grows too large, the agent compacts it: older parts are replaced by a summary
+written by the model, and recent parts are kept. A compaction is recorded in the journal as well,
+and the chat shows a short system note.
 <!-- /guide:runtime -->
 
-## Agent-Session und Agentenlaufzeit
+## Modellkontext und Agentenlaufzeit
 
-Der LLM-Actor besitzt genau eine `AgentSessionRuntime`, die beim ersten Turn geöffnet wird.
-`AgentRuntimeManager` verwaltet diese Laufzeiten nach `runId + agentId`.
+Den Modellkontext eines LLM-Actors hält allein das Journal. Es ist verlustfrei für alles, was das
+Modell sieht; der Kontext ist eine reine, deterministische Projektion daraus
+(`modelContextOf` in `packages/ragents/src/agents/model-context.ts`). Die Projektion rendert nie
+neu, sie liest gespeicherte Formen. Deshalb bleibt der Präfix jeder Anfrage über Turns und
+Neustarts hinweg bytegleich, was der Prompt-Cache der Anbieter braucht, und ein Actor arbeitet
+nach einem Serverneustart mit genau demselben Kontext weiter. Eine private Sitzungsdatei der
+Laufzeit gibt es nicht.
 
-Vor jedem Prompt bindet ein stabiler Dispatcher den aktuellen Turn mit Toolset, Turn-ID,
-Callbacks und `AbortSignal`. Danach wird diese Bindung gelöst. Damit hält eine langlebige Session
-keine Closure auf einen alten Turn.
+### Was ins Journal geht
+
+Vier Events tragen den Kontext, alle im Namen des Actors und seines laufenden Turns (die
+verbindlichen Payloads stehen in `domain/events.ts`):
+
+- `model.input.presented`: eine Nutzer-Nachricht genau so, wie sie ans Modell ging, an ihrer Stelle
+  zwischen den Modellschritten: der Input, der den Turn beginnt, jeder per Steering übernommene
+  Input (`inputId`) und der Nachstoß der Schleife nach einer leeren Antwort (`inputId` `null`). Der
+  Text ist gerendert, mit der Kopfzeile zugestellter Events und eingebetteten Textanhängen. Bilder,
+  Videos und PDFs stehen als SHA-256 ihrer Bytes unter `artifacts/` (`{ type, mimeType, hash }`,
+  Dateien mit `filename`), nie als Base64.
+- `model.step.completed`: die vollständige Assistant-Nachricht eines Modellschritts, ungekürzt, mit
+  Text-, Thinking- (Signaturen, `redacted`) und Werkzeugaufruf-Blöcken (`thoughtSignature`), dazu
+  `api`, `provider`, `model`, `usage`, `stopReason`, `errorMessage` und der Zeitpunkt des Anbieters.
+  Er steht mit den Beobachtungs-Events in einem Command: davor je nichtleerem Thinking-Block ein
+  `model.reasoning.completed` und je nichtleerem Textblock ein `model.output.completed`, in
+  Blockreihenfolge und ungekürzt; der Schritt selbst wiederholt diesen Text nicht, ein Block ohne
+  eigenes Textfeld nimmt den nächsten Text seiner Art aus seinem Command. Ein Schritt, den der
+  Anbieter mit einem Fehler beendet, wird geschrieben, ein abgebrochener nie.
+- `model.tool-result.presented`: was das Modell von einem Werkzeugaufruf sah, nach dem Ersatz durch
+  `afterToolCall`, mit `isError`, Bilder als Hash. Ist es genau der Text des `tool.call.completed`
+  (Ausgabe als Text oder JSON) beziehungsweise `tool.call.failed` desselben Aufrufs, fehlt `content`
+  (`domain/tool-result-text.ts`); nötig wird es durch einen Hinweis auf ignorierte Felder, durch
+  `recordOutput` oder durch einen Hook.
+- `context.compacted`: eine Kompaktierung mit Zusammenfassung, dem ersten behaltenen Kontext-Event
+  (`firstKeptEventId`), `tokensBefore`, dem verwendeten Modell und den gelesenen und geänderten
+  Dateien.
+
+Ein Modellschritt ist erst Kontext, wenn sein Command geschrieben ist. Die Agentenschleife bekommt
+den Kontext vor jeder Modellanfrage neu aus der Projektion (`transformContext`), nicht aus ihrem
+eigenen Speicher; scheitert das Schreiben, weil der Turn inzwischen beendet ist, endet die Schleife.
+Ein Absturz hinterlässt deshalb keinen halben Schritt: der Turn endet beim nächsten Start als
+unterbrochen, und der nächste Turn beginnt nach der zuletzt vorgelegten Eingabe.
+
+### Projektion
+
+Die Projektion liest die Events des Actors in Journalreihenfolge. Ein Fork (`forkOf`) beginnt mit
+einer Kopie des Kontexts seiner Quelle bis zum Ende ihres letzten beendeten Turns vor seinem
+`agent.spawned`. Aus dem Turn, den die Quelle beim Spawn gerade ausführt, übernimmt er nichts, auch
+nicht dessen Eingabe; die Kopie ist unverändert, mit Reasoning-Blöcken und ohne eingefügten Text.
+Ob Reasoning beim Modell des Forks wiedergegeben wird, entscheidet wie bei jedem Schritt
+`transform-messages`. Die Entscheidung prüft dieselbe Bedingung wie die Projektion: Hat die Quelle
+vor dem Spawn keinen beendeten Turn, der dem Modell eine Eingabe vorgelegt hat (`RunState.contextTurns`),
+und ist sie nicht selbst ein Fork, lehnt `agent_spawn` den Fork mit `fork-without-turn` (409) ab; ein
+Turn, der vor der ersten Modellanfrage scheiterte oder abbrach, zählt nicht. Spätere Turns der Quelle
+gehören dem Fork nicht. Danach gilt die letzte Kompaktierung: ihre Zusammenfassung, die Einträge ab dem ersten behaltenen
+und alles danach (`packages/agent/src/core/context-log.ts`). Die Regeln für Schritte mit Fehler oder
+Abbruch, für Werkzeugaufrufe ohne Ergebnis (ein synthetisches Fehlerergebnis) und für das Replay von
+Reasoning beim selben Modell bleiben in `packages/ai/src/api/transform-messages.ts`. Modellwahl und
+Denktiefe sind kein Kontext: jeder Schritt nennt sein Modell selbst. Was die Projektion liefert,
+ergänzt die Laufzeit je Anfrage nur um die Notizen der Hooks (`AgentTurn` in
+`drivers/agent-turn.ts`).
+
+Die Kennung eines Modellkontexts (`ToolScope.modelContext`, Grundlage des gesehenen Dateistands in
+`plugins.md`) ist das `run.created` des Runs plus die letzte Kompaktierung des Actors; sie wechselt
+mit jeder Kompaktierung. Ein Run-Fork (`forkRun`) übernimmt mit dem Journal auch die Modellkontexte
+seiner Agenten.
+
+### Gehaltener Kontext
+
+Die Laufzeit liest den Kontext nicht vor jeder Anfrage aus dem ganzen Journal. `ModelContexts`
+(`model-context.ts`, erreichbar über `Orchestration.modelContext`) hält ihn je Run und Actor im
+Speicher und hängt nur die Events seit dem letzten Stand an (`Journal.eventsSince`); eine Lücke in
+den Sequenzen ist ein harter Fehler. Das Ergebnis ist dasselbe wie `modelContextOf` über das ganze
+Journal, die Golden-Fälle prüfen beides bytegleich. Den geerbten Teil eines Forks bestimmt der Stand
+einmal, weil er vor dem Spawn endet. Eine Kompaktierung ist ein Event wie jedes andere. Gehalten wird
+der Stand nur während eines Turns: endet der Turn des Actors (`turn.finished` oder
+`turn.interrupted`), gibt die Laufzeit ihn frei, und der nächste Turn baut ihn beim ersten Zugriff
+einmal aus dem Journal. So belegen ruhende Runs keinen Speicher, auch nicht mit den Medien ihrer
+Kontexte, die als Bytes im gehaltenen Stand liegen. Ebenso neu gebaut wird nach einem Serverstart und
+wenn der Run unter einem anderen ersten Event steht als beim letzten Zugriff. Löschen und
+Gesprächsreset verwerfen ihn mit dem Journal (`forgetRun`); ein gesperrter Run liefert keinen
+Kontext, sondern `journal-unavailable`. Der gelieferte Kontext ist eingefroren.
+`Orchestration.heldModelContexts` nennt die Zahl der gehaltenen Stände.
+
+### Turns eines Agenten
+
+`AgentLoopDriver` (`drivers/agent.ts`) hält je `runId + agentId` eine `ManagedAgentRuntime` mit den
+aufgelösten Skills, den Hooks der Plugins und dem Skill-Vorladen; ein Gespräch hält sie nicht. Je
+Turn setzt eine `AgentTurn` direkt auf die Agentenschleife (`Agent` aus `@ragents/agent`): sie
+bindet die Werkzeuge des Turns, liest den Kontext, legt die Nachrichten der Schleife als Events ab
+(`TurnRequest.recordContext`) und löst sich am Turn-Ende, sodass nichts eine Closure auf einen alten
+Turn hält. Sichtbare Antworten und Reasoning entstehen nur aus einem Modellschritt
+(`recordContext` mit `step`); `TurnRequest.emit` kennt nur noch den abgebrochenen Text und
+Laufzeitausgaben.
+
+Jeder Werkzeugaufruf des Modells steht im Journal, auch einer, der vor seinem Start scheitert: fehlt
+das Werkzeug beim Aufruf, scheitert die Auffrischung der Werkzeuge oder passt die Eingabe nicht, schreibt
+`TurnToolset.invoke` Start und Fehler nach, und das Modell bekommt das Fehlerergebnis. Der Turn läuft
+weiter. Die Kennung eines Aufrufs ist im Modellkontext eindeutig: nennt ein Modell eine schon
+benutzte Kennung, bekommt der Aufruf vor seiner Ausführung und vor dem Journal die Endung `-2`,
+`-3` und so weiter. Scheitert die Agentenschleife selbst, etwa beim Auffrischen der Werkzeuge
+zwischen zwei Schritten, endet der Turn mit diesem Fehler; die Ersatznachricht der Schleife
+(`isRunFailure`) ist kein Modellschritt und geht nicht ins Journal. Nach einem Abbruch während der
+Wartezeit einer Wiederholung oder während einer Kompaktierung meldet die Laufzeit keine gescheiterte
+Verdichtung.
 
 Ein ActorInput beginnt höchstens einen Turn. Weitere Inputs an einen Agenten mit laufendem Turn
 kommen als Steering in diesen Turn: Die Agentenschleife fragt vor der ersten Modellanfrage und
@@ -184,17 +291,45 @@ und beginnt nach dem Turn-Ende einen neuen. Es gibt keine Follow-up-Warteschlang
 Hintergrundzustellung in laufende Werkzeuge und kein Wake-State-Modell: ein Werkzeugaufruf läuft
 bis zu seinem Ergebnis oder Abbruch, und Steering wartet darauf.
 
-Die Zuordnung zur JSONL ist ausdrücklich in `active-session.json` mit Agenten-, Run- und
-Agent-Session-ID gespeichert. Die frühere Auswahl nach der neuesten Dateizeit gibt es nicht mehr:
-fehlt der Marker, entsteht eine neue Agent-Session.
+Streaming bleibt flüchtig: Text-, Thinking- und Werkzeug-Deltas gehen über den Live-Bus
+(`TurnRequest.publish`) unverzögert an Web, VS Code und CLI; das Journal bekommt keine Deltas, je
+Modellschritt genau einen Command an dessen Ende. Wer mitten im Schritt verbindet, bekommt den
+bisherigen Stand aus dem Puffer der Chat-Sitzung des Servers. Ein Abbruch schreibt den bis dahin
+sichtbaren Text einmal als `model.output.interrupted` (Abschnitt Stoppablauf); der abgebrochene
+Schritt ist kein Kontext.
 
-Beiträge an die Agentenlaufzeit werden aus dem aktiven Profil geladen und über die offizielle API der Agentenlaufzeit gebunden. Beliebiger
-TypeScript-Code aus `.agent/extensions` im Arbeitsrepository wird nicht automatisch ausgeführt.
-Compaction und Retries der Agentenlaufzeit bleiben aktiv. Ob ein Turn am Modell scheitert,
-entscheidet dessen letzte Antwort: einen Anbieterfehler, den die Session danach erfolgreich
-wiederholt oder nach einer Kompaktierung fortsetzt, übersteht der Turn; nur wenn die letzte
-Antwort ein Fehler ist, endet er als `failed` mit dessen Meldung. Abbruch und Fehler eines
-Hooks bleiben, einmal eingetreten, das Ergebnis des Turns.
+### Wiederholung und Kompaktierung
+
+Ob ein Turn am Modell scheitert, entscheidet dessen letzte Antwort: einen Anbieterfehler, den die
+Laufzeit danach erfolgreich wiederholt oder nach einer Kompaktierung fortsetzt, übersteht der Turn;
+nur wenn die letzte Antwort ein Fehler ist, endet er als `failed` mit dessen Meldung. Abbruch und
+Fehler eines Hooks bleiben, einmal eingetreten, das Ergebnis des Turns. Ein wiederholbarer
+Anbieterfehler (Überlast, Ratenbegrenzung, Serverfehler; nicht der Überlauf und keine abgewiesene
+Anfrage mit 4xx außer 408, 409 und 429) wird bis zu dreimal mit
+exponentiellem Abstand ab zwei Sekunden wiederholt; der Fehlerschritt bleibt im Journal, das Modell
+sieht ihn nicht.
+
+Kompaktiert wird wie bisher, jetzt auf der Projektion: nach einer Antwort, deren Kontext über
+`contextWindow - reserveTokens` liegt, ohne Wiederholung; nach einem Überlauffehler desselben
+Modells einmal je Nutzer-Nachricht mit anschließender Wiederholung; und vor einem neuen Turn, wenn
+die letzte Antwort dafür spricht. Behalten werden rund `keepRecentTokens` der jüngsten Einträge, nie
+ab einem Werkzeugergebnis; schneidet das mitten in einen Turn, fasst ein zweiter Aufruf dessen
+Anfang eigens zusammen. Eine vorhandene Zusammenfassung wird fortgeschrieben, nicht neu erstellt.
+Ob eine Antwort vor der letzten Kompaktierung liegt, entscheidet ihre Stelle im Journal. Eine
+Wiederholung und die Fortsetzung nach einer Kompaktierung setzen hinter allen Fehlerschritten am Ende
+des Kontexts an, weil das Journal jeden davon behält. Die
+Vorgaben (`reserveTokens` 16384, `keepRecentTokens` 20000) setzt der Host über
+`AGENT_COMPACTION_RESERVE_TOKENS` und `AGENT_COMPACTION_KEEP_RECENT_TOKENS` (`docs/operations.md`).
+Eine gescheiterte Kompaktierung steht im Serverprotokoll; der Turn läuft ohne sie weiter.
+
+### Hooks und Skills
+
+Die Hooks der Plugins (`beforeModelCall`, `afterToolCall`, `plugins.md`) ruft die Laufzeit direkt
+auf (`AgentHook`, `drivers/agent-hooks.ts`). Die Notizen von `beforeModelCall` hängt sie nur an die
+eine Anfrage; sie sind kein Kontext. Was ein Hook mit `call.keep` behält, steht als
+`plugin.state-replaced` mit Actor-Scope unter der Kennung des Beitrags im Journal und kommt als
+`call.kept` zurück, auch nach einem Neustart. Beliebiger TypeScript-Code aus dem Arbeitsrepository
+wird nicht ausgeführt.
 
 Die Agentenlaufzeit liegt in zwei eigenen Paketen unter `packages/`:
 `@ragents/ai` bindet OpenRouter über Vercel AI SDK Core (`ai`) und
@@ -205,27 +340,38 @@ Werkzeugausführung durch das SDK. Werkzeugvalidierung, Werkzeugausführung und 
 Modellschritte gehören der Agentenlaufzeit. Anfrage- und Antwort-Hooks arbeiten am tatsächlichen
 HTTP-Vertrag, Abbruch und Zeitlimit gelten für den SDK-Aufruf; Transportwiederholungen sind
 standardmäßig deaktiviert. Modellkatalog, Kontextbegrenzung, Cachemarkierungen und lokale
-Kostenberechnung bleiben erhalten. Die Protokollkennung `openai-completions` gilt weiterhin
-für Modellbeschreibungen und gespeicherte Sitzungen.
-`@ragents/agent` enthält Agentenschleife, Session und Werkzeuge. Beide Pakete bleiben
-gegabelter Fremdcode; ein Rebase auf das Upstream-Projekt ist aufgegeben. Sessions, Compaction,
-Retries, Steering und innere Agentenschleife bleiben bestehen; Erweiterungen sind nur die Hooks,
-die die Engine selbst anlegt, Skills liest allein der Host, und die Laufzeit liest weder
-Einstellungs- noch Zugangsdateien noch sucht oder installiert sie Pakete.
+Kostenberechnung bleiben erhalten. Für Modelle mit Anthropic-Cache (`cacheControlFormat` oder
+`anthropic/...`) setzt der Adapter drei Cachemarken, solange `AGENT_CACHE_RETENTION` nicht `none`
+ist: am Systemprompt, am letzten Werkzeug und an der letzten Nachricht der Anfrage
+(`markCacheBoundary` in `packages/ai/src/api/ai-sdk-messages.ts`), und zwar an deren letztem Teil:
+am letzten Werkzeugergebnis oder am letzten Teil einer Nutzer-Nachricht, nie an der Tool-Nachricht,
+weil der Provider eine Nachrichten-Marke auf jedes zusammengefasste Werkzeugergebnis überträgt. In
+einer Werkzeugschleife wandert die letzte Marke so mit jedem Ergebnis nach hinten, und jede Anfrage
+liest den Präfix der vorigen aus dem Cache. Die verborgenen Notizen der Hooks gelten nur für eine
+Anfrage (`UserMessage.transient`); die letzte Marke steht vor ihnen an der letzten bleibenden
+Nachricht, damit eine wechselnde Notiz den Präfix nicht bricht. Mehr als vier Marken im fertigen Anfragekörper sind ein
+harter Fehler vor dem Senden, weil Anthropic die Anfrage sonst mit 400 abweist. Abgewiesene
+Anfragen (4xx außer 408, 409 und 429) wiederholt die Laufzeit nicht. Die Protokollkennung `openai-completions` gilt weiterhin
+für Modellbeschreibungen und gespeicherte Modellschritte.
+`@ragents/agent` enthält Agentenschleife, Kompaktierung, Modelllaufzeit und Werkzeuge. Beide Pakete
+bleiben gegabelter Fremdcode; ein Rebase auf das Upstream-Projekt ist aufgegeben. Skills liest
+allein der Host, und die Laufzeit liest weder Einstellungs- noch Zugangsdateien noch sucht oder
+installiert sie Pakete.
 Das eigene Verhalten ist Teil dieses Kapitels:
-`AgentSession.setSystemPrompt` setzt den Systemprompt einer langlebigen Session neu und erhält das
-Gespräch. Aktualisierte Rollenregeln und kurze Initialhinweise werden so pro Turn wirksam;
-ausdrücklich abgerufene Detailkapitel bleiben Gesprächsinhalte und werden nicht zusätzlich in
-den Systemprompt übernommen. Denktiefe `off` sendet an OpenRouter die explizite Abschaltung
+Der Systemprompt ist der des Turns, bei neuen Werkzeugen mitten im Turn der erneuerte, dazu der
+Skillkatalog, wenn der Agent `read` hat, und die für diesen Turn vorgeladenen Skills; ein leerer
+Systemprompt bleibt leer. Aktualisierte Rollenregeln und kurze Initialhinweise werden so pro Turn
+wirksam; ausdrücklich abgerufene Detailkapitel bleiben Gesprächsinhalte und werden nicht zusätzlich
+in den Systemprompt übernommen. Denktiefe `off` sendet an OpenRouter die explizite Abschaltung
 aus dem Modellkatalog, etwa `reasoning: { effort: "none" }`, oder ohne solches Mapping
 `reasoning: { enabled: false }`. Vor jedem Turn prüft RAgents die gewählte Denktiefe gegen das
-tatsächliche Modell der Agentensession. Eine nicht verfügbare Auswahl beendet den Turn mit
+tatsächliche Modell des Turns. Eine nicht verfügbare Auswahl beendet den Turn mit
 einer Fehlermeldung samt gültigen Stufen, bevor eine Modellanfrage gesendet wird; sie wird
 nicht durch eine andere Denktiefe ersetzt. Modellkatalog und Werkzeugverträge erhalten auch die
 erweiterten Stufen der Modelllaufzeit. Beim Erzeugen eines Agenten wird die endgültige Auswahl
 gegen den Modellkatalog geprüft, einschließlich einer aus der Rolle geerbten Denktiefe nach
-einem Modellwechsel. Ohne ausdrückliche Denktiefe oder Rollenvorgabe verwendet die Session ihre
-modellgültige Vorgabe; der Host setzt darüber keine globale Agenten-Denktiefe.
+einem Modellwechsel. Ohne ausdrückliche Denktiefe oder Rollenvorgabe gilt `medium`, auf die Stufen
+des Modells begrenzt; der Host setzt darüber keine globale Agenten-Denktiefe.
 Die Werkzeug-Validierungsmeldung wiederholt die empfangenen
 Argumente nicht, nennt nur die Feldfehler (bei Enum-Fehlern samt empfangenem Wert und erlaubten
 Werten, ein Pfad nur einmal) und fordert zur Korrektur auf. Bereits gültige Werkzeugargumente
@@ -254,20 +400,17 @@ nahe Treffer werden abgelehnt. Die Prüfung des zuletzt gelesenen Dateistands er
 derselben Mutationssperre wie das Schreiben, auch bei symbolischen Dateialiasen. Ein Abbruch
 gibt diese Sperre erst frei, wenn eine bereits laufende Dateioperation beendet ist.
 
-In jeder Laufzeit sind zwei interne Hooks aktiv:
-
-- `ragents-turn-dispatcher` bindet den aktuellen RAgents-Turn und dessen Toolset an die langlebige
-  AgentSession.
-- `ragents-skill-preload` hängt ausgewählte Skill-Bodies über `before_agent_start` der Agentenlaufzeit nur an den
-  Systemprompt des aktuellen Turns. Explizite Skillnamen werden deterministisch aufgelöst. Sonst
-  klassifiziert ein kurzer Aufruf desselben ausgewählten Agent-Modells nur Aufgabe, Zielgruppe,
-  Skillnamen und Beschreibungen. Er sieht keine Skill-Bodies und darf `ABSTAIN` liefern. Fehler
-  blockieren den Hauptturn nicht, sondern lassen den normalen Skill-Katalog der Agentenlaufzeit unverändert.
+Das Skill-Vorladen (`ragents-skill-preload`, `drivers/skill-preload.ts`) hängt ausgewählte
+Skill-Bodies nur an den Systemprompt des aktuellen Turns. Explizite Skillnamen werden
+deterministisch aufgelöst. Sonst klassifiziert ein kurzer Aufruf desselben ausgewählten
+Agent-Modells nur Aufgabe, Zielgruppe, Skillnamen und Beschreibungen. Er sieht keine Skill-Bodies
+und darf `ABSTAIN` liefern. Fehler blockieren den Hauptturn nicht, sondern lassen den normalen
+Skill-Katalog unverändert.
 
 Ein Skillname gilt im ganzen Profil genau einmal, auch über Zielgruppen hinweg, weil er den Ordner
 bestimmt, unter dem das Modell den Skill erreicht. Liefern zwei Plugins einen Skill gleichen
 Namens, bricht der Start mit beiden Ordnern ab (`SkillContributionRegistry.assertUniqueNames`);
-bekommt eine Laufzeit trotzdem zwei, scheitert ihr Öffnen und damit der Turn mit beiden
+bekommt eine Laufzeit trotzdem zwei, scheitert ihr Anlegen und damit der Turn mit beiden
 SKILL.md-Pfaden, statt dass Katalog und Vorladen still den ersten nehmen. Katalog und Vorladen
 nennen einen Skill unter `Skill.location`, `@skills/<name>/SKILL.md`: dem Ort, an dem die
 Werkzeuge des Modells ihn in jeder Bindung nur lesend erreichen (`plugins.md`, Abschnitt
@@ -276,9 +419,9 @@ den Body liest (`Skill.filePath`). Relative Pfade in einem Skill gelten in seine
 
 Die Produktrolle stammt aus genau einer Policy des aktiven `ProductRuntime`: Der in
 `primaryActorId` gewählte Actor ist `primary`, alle anderen ausführbaren Actors sind `worker`.
-Dieselbe Entscheidung steuert Rollenvertrag und Skill-Auswahl. Das Vorladen erzeugt weder eine
-zweite Agent-Session noch einen eigenen Agentenloop. Für `tools: []` lädt die Agentenlaufzeit weder Host-Werkzeuge noch
-Skills oder Preloads.
+Dieselbe Entscheidung steuert Rollenvertrag und Skill-Auswahl. Das Vorladen erzeugt keinen
+eigenen Agentenloop. Für `tools: []` lädt die Agentenlaufzeit weder Host-Werkzeuge noch
+Skills, Hooks oder Preloads.
 
 ### Sicherheits-Lockdown der Agentenlaufzeit
 
@@ -351,7 +494,7 @@ dann folgt `turn.interrupted` im Namen des Owners mit dem Grund der Anfrage. Hä
 die Frist nicht ein, endet der Turn im Journal trotzdem; die nächste Eingabe des Actors beginnt
 erst, wenn der alte Treiber zurückgekehrt ist. Einen Turn, den kein Treiber dieses Schedulers
 ausführt, beendet die Unterbrechung nur im Journal. Ohne laufenden Turn geschieht nichts, auch
-kein Fehler. Kein `actor.stopped`, kein Eingriff in Kinder, Abonnements oder die Modell-Session:
+kein Fehler. Kein `actor.stopped`, kein Eingriff in Kinder, Abonnements oder den Modellkontext:
 der Actor nimmt die nächste Eingabe als neuen Turn im selben Gespräch an. Der Kern kennt dabei nur
 Turn und Actor. Was der Turn bis zur Unterbrechung per Steering übernommen hat, bleibt ihm
 zugeordnet und wird nicht erneut zugestellt; was danach eintrifft oder noch wartet, beginnt den
@@ -537,16 +680,9 @@ Arbeitsbereichswerkzeuge bekommt weder das Kapitel noch einen Pfad. Sein einzige
 es auf dem Server läuft, ist ein Detail des Hosts und bei einem Run auf einem Arbeitsplatz nicht
 einmal der Ordner des Projekts.
 
-Die Agentenlaufzeit trennt zwei Ordner. `TurnRequest.workspace` ist das Arbeitsverzeichnis der
-Werkzeuge; es kann auf einem anderen Rechner liegen, und die Laufzeit bleibt nur an diesen Namen
-gebunden. `TurnRequest.runtimeDirectory` liefert erst bei Bedarf den Ordner auf diesem
-Rechner, in dem die Laufzeit ihre eigenen Belange erledigt: ihre Sitzungsdatei trägt ihn, ihre
-Einstellungen, Ressourcen und Hooks sehen ihn, und er muss existieren. Der Host liefert ihn
-über `Workspaces.runtimeDirectory`; bei einem Arbeitsbereich auf dem Server ist es derselbe Ordner,
-bei einem Arbeitsplatz der eigene Ordner des Runs auf dem Server. Eine gespeicherte Sitzung
-öffnet immer im aktuellen `runtimeDirectory`, auch wenn ihr Kopf einen anderen Ordner nennt, etwa
-nach einem Run-Umzug oder aus der Zeit, als dort der Arbeitsbereich stand; der Kopf wird dafür
-nicht geprüft.
+`TurnRequest.workspace` ist das Arbeitsverzeichnis der Werkzeuge; es kann auf einem anderen
+Rechner liegen, und die Agentenlaufzeit bleibt nur an diesen Namen gebunden. Einen eigenen Ordner
+braucht sie nicht, weil ihr Modellkontext im Journal steht.
 
 ### Artefakte, Anhänge und Besitz
 
@@ -562,8 +698,9 @@ legt der Host über `Workspaces.storeAttachment` unter `attachments/` im Arbeits
 Rechner, auf dem die Dateiwerkzeuge arbeiten (bei einem Arbeitsplatz dort, nicht auf dem Server);
 der Treiber schreibt nichts selbst in das Arbeitsverzeichnis. Der Treiber
 prüft die nötigen Modell- und Werkzeugfähigkeiten auch bei Zustellung außerhalb der Chat-API.
-Die private Agent-Session erhält die Medieninhalte für spätere Modellaufrufe; die Run-Projektion
-liefert stattdessen Downloadmetadaten für den Chat-Verlauf.
+Der Modellkontext hält die Medien als SHA-256 ihrer Bytes unter `artifacts/`
+(`model.input.presented`) und liest sie für jede Modellanfrage neu; die Run-Projektion liefert
+stattdessen Downloadmetadaten für den Chat-Verlauf.
 
 Besitz folgt ausschließlich `createdBy` und wird nur für Stopprechte und rekursive Stopps benutzt.
 `createdBy` ist der Actor des Commands, der `agent.spawned` oder `script.created` geschrieben hat;
@@ -648,12 +785,12 @@ before its first turn, and the stop reason names the unknown tools. The selectio
 inherited, although delegable engine capabilities still are. `withoutCapabilities` removes
 named technical permissions. Availability and grants also apply when the value is `null`.
 `forkOf` (a handle or ID) makes the new agent a fork of an LLM agent in the same run:
-`agent.spawned` records the source, and on the new agent's first turn the agent driver copies
-the source's stored context branch into its own context file. The copy ends before the source's
-first unanswered function call and contains no reasoning blocks; the new agent supplies its own
-system prompt, functions, and model. Later turns from the source are not copied. Both source and
-fork require the agent driver; a source without stored context is a hard error on the fork's
-first turn. A plain LLM receives no function overview. Its driver must explicitly support this
+`agent.spawned` records the source, and the new agent's context begins with an unchanged copy of
+the source's context up to the end of the source's last finished turn, reasoning blocks included.
+Nothing from the turn the source is running at the spawn is copied, and no text is inserted; the
+new agent supplies its own system prompt, functions, and model. Later turns from the source do not
+reach the fork. Both source and fork require the agent driver; a source without a finished turn that
+reached the model, and not itself a fork, is rejected with `fork-without-turn`. A plain LLM receives no function overview. Its driver must explicitly support this
 isolation or the turn is rejected.
 
 Equipped LLMs receive `typescript_api` and `typescript_eval`, plus an automatically generated
@@ -701,7 +838,7 @@ gewählter Titel hat in der Oberfläche Vorrang. Modellwahl und Erzeugung beschr
 Seine Modellauswahl liegt dauerhaft in der profilbezogenen Plugin-Ablage. Die Settings-API
 prüft Modell und Reasoning gegen den konfigurierten Katalog und die Modelllaufzeit. Ein
 Modellwechsel darf die bereits zugestellten Medien nicht unlesbar machen; ein inkompatibles
-Modell wird vor dem Speichern abgewiesen. Die Agent-Session und ihr Gespräch bleiben erhalten.
+Modell wird vor dem Speichern abgewiesen. Das Gespräch bleibt erhalten, es steht im Journal.
 Nach dem Claim eines Turns übernimmt der Scheduler synchron die aktuelle Modellauswahl;
 die Plugin-Policy hält sie mit Turn-Bezug als `plugin.state-replaced` fest. Ein schon
 gestarteter Turn behält seine Auswahl. `Actor.execution` beschreibt weiterhin die
@@ -769,8 +906,8 @@ Text aus verschiedenen Gesprächen oder Turns wird anhand des Cursors getrennt.
 Die Chatprojektion liefert jeden sichtbaren Assistant-Text mit einem verpflichtenden stabilen Cursor. Die
 Gesprächsidentität ist die Event-ID von `run.created`; die Position innerhalb des Gesprächs
 verwendet die Journal-Sequenz von `turn.started` und einen Offset im akkumulierten Turn-Text.
-Der Offset zählt UTF-16-Einheiten ohne Leerraum, damit Live-Chunks und erneut geladene,
-getrimmte Journalblöcke dieselbe Position ergeben. Werkzeug- und Reasoningereignisse erhöhen
+Der Offset zählt UTF-16-Einheiten ohne Leerraum, damit Live-Chunks und erneut geladene
+Journalblöcke dieselbe Position ergeben, auch wenn ein Block an seinen Rändern Leerraum trägt. Werkzeug- und Reasoningereignisse erhöhen
 ihn nicht. `Message.textCursor` enthält die zuletzt projizierte Textposition. Der ausführbare
 Vertrag für `ChatTextCursor` und die Stream-Ereignisse bleibt im Code.
 Die Cursorabdeckung verhindert doppelte Textausgabe nach Streaming, ohne spätere nur im Journal
@@ -796,7 +933,7 @@ zu verwenden.
 Das Plugin `ragents.overseer` bietet einen ausdrücklich bestätigten Gesprächsreset. Der Host sperrt
 währenddessen neue globale Eingaben, beendet den globalen Run und wartet dessen tatsächliche
 Laufzeitbereinigung ab, einschließlich einer bereits begonnenen Stopp-Bereinigung. Danach entfernt
-er nur dessen Journal, private Modell-Session und Arbeitsablage. Das bestehende Chat-Sessionobjekt
+er nur dessen Journal samt Modellkontext und Arbeitsablage. Das bestehende Chat-Sessionobjekt
 meldet den Reset an seine Streams; die nächste Nachricht beginnt einen frischen Run unter
 derselben Kennung. Der Reset trifft nur den Koordinator des Aufrufers; Modellwahl, Run-Referenzen,
 die Koordinatoren anderer Benutzer und alle übrigen Runs bleiben erhalten. Ein vor der
@@ -837,7 +974,7 @@ Gesprächsidentität, Event-ID und Journal-Sequenz. Der Zustand und der Ereignis
 im Code; für die Kurzantwort entsteht kein eigener Zustellkanal.
 
 Der globale Koordinator teilt seinen Grundprompt mit der eigenständigen Vorbereitungsrolle
-für neue Skill-Aufträge. Deren speicherinterne Agent-Session hat ein eigenes Gespräch und
+für neue Skill-Aufträge. Sie läuft direkt auf der Agentenschleife mit einem eigenen Gespräch im Speicher und
 ausschließlich die Startfunktion für den besprochenen Auftrag. Sie übernimmt weder den
 globalen Verlauf noch dessen Verwaltungszugriffe. Ein sinngemäßes Go des Benutzers erlaubt
 die Übergabe an den normalen Run-Start; Vertrag und Lebenszyklus stehen in `plugins.md`.
@@ -905,13 +1042,13 @@ eine automatische Journalmigration findet nicht statt.
 
 The journal is the shared history of a run. Visible state is produced by replaying its events;
 models and functions are not called again in the process. Recorded responses, function calls,
-state changes, and interruptions therefore remain traceable after a restart. Working files and
-private model context are stored separately outside the journal.
+state changes, and interruptions therefore remain traceable after a restart. The model context of
+every LLM agent is part of the journal as well; working files are stored separately.
 <!-- /guide:runtime -->
 
 ### Dateiformat, Schreibgrenzen und Wiedergabe
 
-Jeder Run besitzt eine lesbare `journal.jsonl` im Dateiformat v5 und bei großen Inhalten einen
+Jeder Run besitzt eine lesbare `journal.jsonl` im Dateiformat v7 und bei großen Inhalten einen
 benachbarten Ordner `payloads/`. Eine Zeile enthält einen Command mit allen daraus entstandenen
 Events. Formatversion, Run-ID, Command und Zeitpunkt stehen einmal im gemeinsamen Umschlag;
 Actor und Command-ID sowie die interne Event-Schemaversion werden beim Lesen ergänzt.
@@ -960,21 +1097,27 @@ liest vollständige Zeilen und verwirft einen unvollständigen letzten Schreibvo
 bleiben beschreibbar. Fehler beim Vorbereiten einer Inhaltsdatei vor dem Journal-Append lassen
 dagegen einen unmittelbaren Wiederholungsversuch zu.
 
-Das Journal schreibt Dateiformat 6 und liest die Dateiformate 4, 5 und 6, alle mit internem
-Eventschema 3. Format 6 bringt `turn.input-steered`, das ein älterer Stand nicht kennt. Die
-Kodierung ist seit 4 unverändert; die Nummer steigt, sobald ein älterer Stand
-neu geschriebene Zeilen ablehnen würde, damit er an der ersten solchen Zeile mit der
-Formatversion scheitert statt an einem semantischen Widerspruch. Ältere Dateiformate werden
-ohne automatische Migration für den betroffenen Run abgewiesen.
+Das Journal schreibt und liest nur Dateiformat 7 mit internem Eventschema 3. Format 7 bringt den
+Modellkontext (`model.input.presented`, `model.step.completed`, `model.tool-result.presented`,
+`context.compacted`); ältere Journale tragen keinen und werden mit dieser Ursache ohne Migration
+für den betroffenen Run abgewiesen. Die Kodierung ist seit 4 unverändert; die Nummer steigt,
+sobald ein älterer Stand neu geschriebene Zeilen ablehnen würde, damit er an der ersten solchen
+Zeile mit der Formatversion scheitert statt an einem semantischen Widerspruch.
 Jeder Run wird zunächst vollständig geprüft und projiziert, bevor seine Events, Kennungen
 und Zustände in die gemeinsame Laufzeit übernommen werden. Ein altes Format, beschädigtes JSON,
 ein ungültiges Event, ein semantischer Widerspruch, ein unlesbares Journal oder eine fehlende
 Inhaltsdatei isoliert nur diesen Run. Die übrigen Runs und der Server starten weiter.
 Der Fehler enthält Run-ID, Dateipfad und Ursache und wird protokolliert. `loadFailures` und
 `failureOf` liefern die Diagnose; lesende und schreibende Run-Zugriffe melden
-`journal-unavailable` (Status 409). Isolierte Runs erscheinen nicht in der Liste nutzbarer
-Runs, erhalten keine Arbeitsverzeichnisse oder Scheduler-Ausführung und können nicht
-unter derselben ID versehentlich neu angelegt werden. Das gilt auch für den globalen Koordinator.
+`journal-unavailable` (Status 409). Isolierte Runs stehen in `ragents.runs.list` als gesperrt, mit der
+Ursache unter `locked`, ohne Titelerzeugung, Plugin-Metadaten und Arbeitsbereich
+(`workspaceAccessible: false`); Web und VS Code öffnen sie nicht, bieten aber das Löschen an. Ein
+Journal, das sich nicht laden ließ, nennt keinen Eigentümer; die Rechteprüfung behandelt den Run wie
+einen ohne Eigentümer, sichtbar und löschbar also mit `runs.read.all` oder ohne Anmeldung. Das
+Löschen archiviert die Dateien unverändert und gibt die Sperre frei. Isolierte Runs erhalten keine
+Arbeitsverzeichnisse oder Scheduler-Ausführung und können nicht unter derselben ID versehentlich neu
+angelegt werden. `Journal.unavailableRuns` nennt alle gesperrten Runs, auch die nach einem
+Schreibfehler. Das gilt auch für den globalen Koordinator.
 Sein ausdrücklicher Gesprächsreset kann die gesperrte ID nach Entfernen der alten Dateien freigeben.
 
 Die Originaldateien eines abgewiesenen Runs bleiben bytegleich. Eine abgerissene letzte Zeile
@@ -999,8 +1142,7 @@ Shutdown-Zeitüberschreitung, über einen `exit`-Hook.
 Run- und Actor-IDs verwenden im Journal dieselbe portable Grammatik: 1 bis 64 kleingeschriebene
 ASCII-Zeichen, alphanumerischer Anfang und Abschluss, dazwischen zusätzlich `_` und `-`.
 Reservierte Windows-Gerätenamen sind ausgeschlossen. Dadurch können weder Pfadsegmente verlassen
-noch auf case-insensitiven Dateisystemen zwei logische Identitäten auf dieselbe Ablage zeigen. Der
-Server validiert beide Kennungen an der actorbezogenen Sessionablage zusätzlich.
+noch auf case-insensitiven Dateisystemen zwei logische Identitäten auf dieselbe Ablage zeigen.
 
 Projektionen werden beim Start aus dem Journal rekonstruiert und danach inkrementell
 fortgeschrieben. Vor dem Schreiben prüft das Journal nur die neuen Events gegen eine isolierte
@@ -1012,8 +1154,8 @@ kopiert ihre Maps und darin erst die gelesenen, veränderbaren Einträge; unver�
 und historische Texte werden geteilt. Der semantische Index wird weiterhin kopiert. Die Kosten
 eines Appends sind deshalb nicht konstant und wachsen mit dem gespeicherten Zustand und
 Ereignisbestand. Replay liest gespeicherte Ereignisse; es wiederholt weder Modellaufrufe noch
-Werkzeugwirkungen. Die Modellkontexte der Agenten, Arbeitsdateien, Dokumentinhalte, Artefaktbytes
-und bestimmte Modulquellen liegen zusätzlich außerhalb des Journalordners. Das Journal allein ist
+Werkzeugwirkungen. Arbeitsdateien, Dokumentinhalte, Artefaktbytes samt den Medien der
+Modellkontexte und bestimmte Modulquellen liegen zusätzlich außerhalb des Journalordners. Das Journal allein ist
 deshalb keine vollständige Datensicherung und kann externe Änderungen nicht zurückrollen.
 Die Projektion enthält nur den aktuellen Run-Zustand. Zeitlich geordnete Modell-,
 Tool- und Runtime-Ausgaben bleiben als Events im Journal und werden über `event_query` oder die
@@ -1027,10 +1169,17 @@ Ein Run kann von einem Server auf einen anderen wechseln und dort weiterlaufen. 
 (Rechte `runs.read` und `runs.inspect`) liefert Manifest und ein `tar.gz` als Base64,
 `ragents.runs.import` (Rechte `runs.read`, `runs.write` und `runs.create`) nimmt beides an.
 `pnpm run-transfer <quelle-url> <ziel-url> <runId>` verbindet beide Seiten. Das Archiv enthält
-`transfer/manifest.json`, den Ordner `runs/<id>` mit Journal und Payloads und den Ordner
-`sessions/<id>` mit Modellkontexten, Actor-Programmen und allen Plugin-Ablagen des Runs,
-darunter der Dateiablage und dem neuen Ordner je Run auf dem Server. Halbfertige Journal- und
-Payload-Schreibvorgänge bleiben draußen. Das Manifest nennt Format, Kennung, Host-Commit,
+`transfer/manifest.json`, den Ordner `runs/<id>` mit Journal und Payloads, samt den
+Modellkontexten, den Ordner `sessions/<id>` mit Actor-Programmen und allen Plugin-Ablagen des
+Runs, darunter der Dateiablage und dem neuen Ordner je Run auf dem Server, und unter `artifacts/`
+die Inhalte, auf die der Run verweist: veröffentlichte Artefakte und Medien der Modellkontexte. Der
+Import prüft jeden Inhalt gegen seinen Hash-Namen und legt fehlende ab. Halbfertige Journal- und
+Payload-Schreibvorgänge bleiben draußen. Symbolische Verweise nimmt der Export nur mit, wenn sie
+relativ sind und in der Ablage des Runs bleiben (`runs/<id>`, `sessions/<id>`). Verweise unter
+`node_modules`, die hinausführen, etwa die absoluten eines Paketmanagers, lässt er weg; die nächste
+Installation im Arbeitsbereich legt sie neu an. Jeder andere Verweis nach außen bricht den Export
+mit `run-transfer-link` (409) und der Liste dieser Verweise ab, statt am Ziel ins Leere zu zeigen.
+Das Manifest nennt Format, Kennung, Host-Commit,
 Executor-Version, Profil, Titel, Revision, Ereigniszahl, einen gebundenen Projektordner und den
 Zeitpunkt.
 
@@ -1049,7 +1198,7 @@ den Run über denselben Weg wieder, den der Serverstart geht: Arbeitsbereich auf
 nächsten Nachricht weiter. Scheitert die Übernahme, wird die verschobene Run-Ablage wieder
 entfernt.
 
-Der Import schreibt kein Ereignis um. Absolute Pfade in `tool.call.*` und in den Modellkontexten
+Der Import schreibt kein Ereignis um. Absolute Pfade in `tool.call.*` und im Modellkontext
 bleiben die der Quelle; sie sind Historie, denn die Wiedergabe ruft weder Modelle noch Werkzeuge
 erneut auf. Neu aufgelöst wird allein der Arbeitsbereich, und zwar aus der Run-Ablage des
 Ziels. Ein Run mit Bindung an einen Projektordner des Quellrechners wird abgelehnt, solange der
@@ -1062,7 +1211,7 @@ Werkzeugaufruf neu.
 
 ## Offene Grenzen
 
-1. Modell-JSONL, externe Tool-Effekte und RAgents-Journal bilden keine atomare Transaktion.
+1. Externe Werkzeugeffekte und das RAgents-Journal bilden keine atomare Transaktion.
    RAgents löst diese Grenze NICHT durch automatische Wiederholung: Ein beim Neustart offener Turn
    wird `interrupted`, und sein beanspruchter ActorInput bleibt diesem Turn zugeordnet. Falls der
    Auftrag erneut laufen soll, braucht es einen neuen ausdrücklichen ActorInput. Dasselbe gilt für

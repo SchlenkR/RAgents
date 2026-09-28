@@ -24,6 +24,7 @@ import type { WorkspaceToolNaming } from "./workspace-tools.ts";
 import { TurnToolset } from "./toolset.ts";
 import { toolOrientationText } from "./tool-orientation.ts";
 import { claimTurn, type ClaimedTurn } from "./turn.ts";
+import { turnModelContext } from "./model-context.ts";
 import { FixedWorkspaces, type Workspaces } from "./workspaces.ts";
 
 export type TurnSchedulerOptions = {
@@ -899,7 +900,6 @@ export class TurnScheduler {
                     workspaceChapter,
                 ),
                 workspace,
-                runtimeDirectory: () => this.#workspaces.runtimeDirectory(runId),
                 storeAttachment: (name: string, content: Uint8Array) => this.#workspaces.storeAttachment(runId, name, content),
                 tools: driverRef.kind === "script" ? toolset.functions : toolset.tools,
                 allowedToolNames: actor.toolNames,
@@ -931,9 +931,9 @@ export class TurnScheduler {
                         ...request,
                         driverKind: "agent",
                         selection: selection!,
-                        forkOf: actor.kind === "agent" ? actor.forkOf : null,
                         invoke: (toolCallId: string, name: string, input: JsonValue, modelContext?: string) => toolset.invoke(toolCallId, name, input, modelContext),
                         claimSteering: () => this.#claimSteering(turn, controller.signal),
+                        ...turnModelContext(this.#runtime, turn, () => emitted++),
                     },
                     controller.signal,
                 )
@@ -1059,12 +1059,8 @@ export class TurnScheduler {
         };
         const payload = { turnId: turn.turnId, text: driverEvent.text };
 
-        if (driverEvent.kind === "assistant")
-            this.#runtime.appendModelOutput(context, turn.runId, turn.actorId, payload);
-        else if (driverEvent.kind === "assistant-interrupted")
+        if (driverEvent.kind === "assistant-interrupted")
             this.#runtime.appendInterruptedModelOutput(context, turn.runId, turn.actorId, payload);
-        else if (driverEvent.kind === "reasoning")
-            this.#runtime.appendModelReasoning(context, turn.runId, turn.actorId, payload);
         else
             this.#runtime.appendRuntimeOutput(context, turn.runId, turn.actorId, payload);
     }

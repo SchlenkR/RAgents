@@ -1,62 +1,27 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { Type } from "typebox";
 
-import {
-    ModelRuntime,
-    type ExtensionAPI,
-    type InlineExtension,
-} from "@ragents/agent";
+import { convertToLlm, ModelRuntime } from "@ragents/agent";
 import { fauxAssistantMessage, fauxText, fauxThinking, fauxToolCall, registerFauxProvider, type Context, type InputModality } from "@ragents/ai";
 
-import {
-    createTurnAbortLatch,
-    forkableBranch,
-    AgentRuntimeManager,
-} from "../src/drivers/agent-runtime.ts";
-import { AgentSessionDriver } from "../src/drivers/agent.ts";
-import { defineRunFunction } from "../src/agents/tools.ts";
-import type { DriverEvent, TurnRequest } from "../src/drivers/types.ts";
-import { deferred } from "./support.ts";
+import { modelContextOf, turnModelContext } from "../src/agents/model-context.ts";
+import { defineRunFunction, type RunFunction } from "../src/agents/tools.ts";
+import { claimTurn } from "../src/agents/turn.ts";
+import type { JsonValue } from "../src/domain/json.ts";
+import { agentHookOf, type AgentHook } from "../src/drivers/agent-hooks.ts";
+import { createTurnAbortLatch, AgentRuntimeManager } from "../src/drivers/agent-runtime.ts";
+import { AgentLoopDriver } from "../src/drivers/agent.ts";
+import type { LiveEvent, TurnRequest, TurnResult } from "../src/drivers/types.ts";
+import type { AgentContribution } from "../src/plugin-types.ts";
+import { Journal } from "../src/runtime/journal.ts";
+import { Orchestration } from "../src/runtime/orchestration.ts";
+import { deferred, executionFor, testServices } from "./support.ts";
 
-const requestFor = (): TurnRequest<"agent"> => ({
-    driverKind: "agent",
-    forkOf: null,
-    runId: "run-1",
-    agentId: "agent-1",
-    turnId: "turn-2",
-    startedAt: "2026-08-27T12:00:00.000Z",
-    input: {
-        id: "input-1",
-        actorId: "agent-1",
-        content: "Original input.",
-        artifactIds: [],
-        sourceEventIds: [],
-        subscriptionId: null,
-        enqueuedBy: "human-1",
-        enqueuedAt: "2026-08-27T12:00:00.000Z",
-        sequence: 1,
-        lifecycle: { kind: "claimed", turnId: "turn-2", steered: false },
-        event: null,
-    },
-    prompt: "Original input.",
-    selection: { provider: "faux", model: "unconfigured" },
-    systemPrompt: "System contract.",
-    workspace: process.cwd(),
-    runtimeDirectory: () => Promise.resolve(process.cwd()),
-    storeAttachment: () => Promise.reject(new Error("Der Test legt keine Anhänge ab.")),
-    tools: [],
-    allowedToolNames: null,
-    invoke: async () => ({ output: null, ignoredFields: [] }),
-    claimSteering: () => [],
-    emit: () => undefined,
-    publish: () => undefined,
-});
-
-const within = async <T>(operation: Promise<T>, timeoutMs = 1_000): Promise<T> => {
+const within = async <T>(operation: Promise<T>, timeoutMs = 3_000): Promise<T> => {
     let timer: ReturnType<typeof setTimeout> | undefined;
 
     try {
@@ -72,9 +37,8 @@ const within = async <T>(operation: Promise<T>, timeoutMs = 1_000): Promise<T> =
     }
 };
 
-const fauxModelRuntime = async (directory: string, id: string, responses: number, input?: InputModality[]) => {
-    const faux = registerFauxProvider({ models: [{ id, reasoning: false, ...(input ? { input } : {}) }] });
-    faux.setResponses(Array.from({ length: responses }, (_, index) => fauxAssistantMessage(`Antwort ${index + 1}.`)));
+const fauxModelRuntime = (id: string, input?: InputModality[], tokensPerSecond = 100_000) => {
+    const faux = registerFauxProvider({ models: [{ id, reasoning: false, ...(input ? { input } : {}) }], tokensPerSecond });
     const modelRuntime = ModelRuntime.create();
     const model = faux.getModel();
     modelRuntime.registerProvider(model.provider, {
@@ -82,33 +46,154 @@ const fauxModelRuntime = async (directory: string, id: string, responses: number
         apiKey: "faux-key",
         api: faux.api,
         models: faux.models.map((entry) => ({
-            id: entry.id,
-            name: entry.name,
-            api: entry.api,
-            reasoning: entry.reasoning,
-            input: entry.input,
-            cost: entry.cost,
-            contextWindow: entry.contextWindow,
-            maxTokens: entry.maxTokens,
-            baseUrl: entry.baseUrl,
+            id: entry.id, name: entry.name, api: entry.api, reasoning: entry.reasoning, input: entry.input,
+            cost: entry.cost, contextWindow: entry.contextWindow, maxTokens: entry.maxTokens, baseUrl: entry.baseUrl,
         })),
     });
 
     return { faux, modelRuntime, selection: { provider: model.provider, model: model.id } };
 };
 
+type TurnOverrides = Partial<Omit<TurnRequest<"agent">, "invoke">> & {
+    invoke?: (toolCallId: string, name: string, input: JsonValue) => Promise<JsonValue>;
+};
+
+/** A run with one agent in a journal; each turn is claimed, handed to the driver and ended like the scheduler does. */
+const journalHarness = (selection: { provider: string; model: string }, directory = ":memory:") => {
+    const services = testServices();
+    const journal = new Journal(directory, services);
+    const runtime = new Orchestration(journal, services);
+    const run = runtime.createRun({ commandId: "create" }, { title: "Driver", ownerHandle: "owner", ownerDisplayName: "Owner" });
+    const agentId = runtime.spawnAgent({ actorId: run.ownerId, commandId: "spawn" }, run.id, {
+        handle: "agent", displayName: "Agent", prompt: "Arbeite.",
+        execution: executionFor("agent", { profile: "agent", isolateWorkspace: false }), grants: [], toolNames: null,
+    }).actors.find((actor) => actor.kind === "agent")!.id;
+
+    return harnessOver(selection, journal, runtime, run.id, agentId);
+};
+
+const harnessOver = (
+    selection: { provider: string; model: string },
+    journal: Journal,
+    runtime: Orchestration,
+    runId: string,
+    agentId: string,
+    prefix = "",
+) => {
+    const run = { id: runId, ownerId: runtime.view(runId).ownerId };
+    let posts = 0;
+    const published: LiveEvent[] = [];
+
+    const request = (prompt: string, overrides: TurnOverrides = {}): TurnRequest<"agent"> => {
+        const inputId = runtime.enqueueInput({ actorId: run.ownerId, commandId: `${prefix}post-${++posts}` }, run.id, { actorId: agentId, content: prompt })
+            .inputs.at(-1)!.id;
+        const turn = claimTurn(runtime, run.id, agentId, inputId, `${prefix}claim-${posts}`);
+        let emitted = 0;
+        const command = (kind: string) => ({ actorId: agentId, commandId: `${turn.turnId}:${kind}:${emitted++}`, turnId: turn.turnId });
+        const invoke = overrides.invoke ?? (async () => null);
+
+        return {
+            driverKind: "agent",
+            runId: run.id,
+            agentId,
+            turnId: turn.turnId,
+            startedAt: turn.startedAt,
+            input: turn.input,
+            prompt,
+            selection,
+            systemPrompt: "System contract.",
+            workspace: process.cwd(),
+            storeAttachment: () => Promise.reject(new Error("Der Test legt keine Anhänge ab.")),
+            tools: [],
+            allowedToolNames: null,
+            claimSteering: () => [],
+            emit: (event) => {
+                if (event.kind === "assistant-interrupted")
+                    runtime.appendInterruptedModelOutput(command("interrupted"), run.id, agentId, { turnId: turn.turnId, text: event.text });
+            },
+            recordTool: (event) => {
+                if (event.kind === "started")
+                    runtime.startToolCall(command("tool"), run.id, agentId, { turnId: turn.turnId, toolCallId: event.id, name: event.name, input: event.input });
+                else if (event.kind === "failed")
+                    runtime.failToolCall(command("tool"), run.id, agentId, { turnId: turn.turnId, toolCallId: event.id, name: event.name, error: event.error });
+                else
+                    runtime.completeToolCall(command("tool"), run.id, agentId, { turnId: turn.turnId, toolCallId: event.id, name: event.name, output: event.output });
+            },
+            publish: (event) => { published.push(event); },
+            ...turnModelContext(runtime, turn, () => emitted++),
+            ...overrides,
+            invoke: async (toolCallId, name, input) => {
+                runtime.startToolCall(command("tool"), run.id, agentId, { turnId: turn.turnId, toolCallId, name, input });
+                try {
+                    const output = await invoke(toolCallId, name, input);
+                    runtime.completeToolCall(command("tool"), run.id, agentId, { turnId: turn.turnId, toolCallId, name, output });
+                    return { output, ignoredFields: [] };
+                } catch (error) {
+                    runtime.failToolCall(command("tool"), run.id, agentId, { turnId: turn.turnId, toolCallId, name, error: error instanceof Error ? error.message : String(error) });
+                    throw error;
+                }
+            },
+        };
+    };
+
+    /** Ends the turn in the journal the way the scheduler does after the driver returned. */
+    const finish = (request: TurnRequest<"agent">, result: TurnResult, aborted = false) => {
+        const context = { actorId: agentId, commandId: `${request.turnId}:end`, turnId: request.turnId };
+        const running = runtime.state(run.id).actors.get(agentId);
+
+        if (running?.kind === "human" || running?.lifecycle.kind !== "running")
+            return result;
+
+        if (aborted)
+            runtime.interruptTurn(context, run.id, agentId, { turnId: request.turnId, reason: "Test" });
+        else
+            runtime.finishTurn(context, run.id, agentId, result.failure
+                ? { turnId: request.turnId, outcome: "failed", reason: result.failure }
+                : { turnId: request.turnId, outcome: "completed" });
+
+        return result;
+    };
+
+    const outputsOf = (turnId: string) => runtime.events(run.id).flatMap((event) => {
+        if ((event.type === "model.output.completed" || event.type === "model.reasoning.completed" || event.type === "model.output.interrupted")
+            && event.payload.turnId === turnId)
+            return [`${event.type}: ${event.payload.text}`];
+        return [];
+    });
+
+    return { journal, runtime, runId: run.id, agentId, request, finish, outputsOf, published };
+};
+
+const turnOf = async (
+    harness: ReturnType<typeof journalHarness>,
+    manager: AgentRuntimeManager,
+    prompt: string,
+    overrides: TurnOverrides = {},
+    signal = new AbortController().signal,
+) => {
+    const request = harness.request(prompt, overrides);
+    const result = await manager.runTurn(request, signal);
+
+    return { request, result: harness.finish(request, result, signal.aborted) };
+};
+
+const nativeTool = (name: string, description = `Execute ${name}.`): RunFunction => defineRunFunction({
+    name, label: name, description, nativeTool: true,
+    schema: Type.Object({}, { additionalProperties: false }), resultSchema: Type.Null(),
+    available: () => true, run: () => null,
+}) as RunFunction;
+
+const hooksOf = (...contributions: AgentContribution[]) => (context: { runId: string; agentId: string; workspace: string }): AgentHook[] =>
+    contributions.map((contribution) => agentHookOf(contribution, { ...context, audience: "agent" }));
+
 for (const selectionKind of ["open", "selected"] as const) {
     test(`native tools refresh before each model request with ${selectionKind} function selection`, async () => {
-        const directory = mkdtempSync(join(tmpdir(), "ragents-native-tool-refresh-"));
-        const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, `native-refresh-${selectionKind}`, 0);
+        const { faux, modelRuntime, selection } = fauxModelRuntime(`native-refresh-${selectionKind}`);
+        const harness = journalHarness(selection);
         const manager = new AgentRuntimeManager({ modelRuntime });
         let revision = 0;
         const calls: string[] = [];
-        const tools = ["native_first", "native_second"].map((name) => defineRunFunction({
-            name, label: name, description: `Execute ${name}.`, nativeTool: true,
-            schema: Type.Object({}, { additionalProperties: false }), resultSchema: Type.Null(),
-            available: () => true, run: () => null,
-        }));
+        const tools = ["native_first", "native_second"].map((name) => nativeTool(name));
         faux.setResponses([
             (context) => {
                 assert.deepEqual(context.tools?.map((tool) => tool.name), ["native_first"]);
@@ -127,50 +212,43 @@ for (const selectionKind of ["open", "selected"] as const) {
             },
         ]);
         try {
-            const result = await manager.runTurn({
-                ...requestFor(), workspace: directory, selection,
+            const { result } = await turnOf(harness, manager, "Los.", {
                 tools: [tools[0]!],
                 allowedToolNames: selectionKind === "open" ? null : tools.map((tool) => tool.name),
                 refreshTools: async () => ({ tools: tools.slice(revision, revision + 1), systemPrompt: `Revision ${revision}.` }),
                 invoke: async (_id, name) => {
                     calls.push(name);
                     revision++;
-                    return { output: null, ignoredFields: [] };
+                    return null;
                 },
-            }, new AbortController().signal);
+            });
             assert.equal(result.failure, null);
             assert.deepEqual(calls, ["native_first", "native_second"]);
             assert.equal(revision, 2);
         } finally {
             await manager.shutdown();
             faux.unregister();
-            rmSync(directory, { recursive: true, force: true });
         }
     });
 }
 
 test("selected functions retain both TypeScript infrastructure tools through refresh and subsequent turns", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "ragents-selected-typescript-refresh-"));
-    const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, "selected-typescript-refresh", 0);
+    const { faux, modelRuntime, selection } = fauxModelRuntime("selected-typescript-refresh");
+    const harness = journalHarness(selection);
     const manager = new AgentRuntimeManager({ modelRuntime });
     const names = ["typescript_api", "typescript_eval"];
     const calls: string[] = [];
     let refreshes = 0;
-    const tools = () => names.map((name) => defineRunFunction({
-        name, label: name, description: `${name}, revision ${refreshes}.`, nativeTool: true,
-        schema: Type.Object({}, { additionalProperties: false }), resultSchema: Type.Null(),
-        available: () => true, run: () => null,
-    }));
-    faux.setResponses(Array.from({ length: 6 }, (_, index) => (context) => {
+    const tools = () => names.map((name) => nativeTool(name, `${name}, revision ${refreshes}.`));
+    faux.setResponses(Array.from({ length: 6 }, (_, index) => (context: Context) => {
         assert.deepEqual(context.tools?.map((tool) => tool.name).sort(), [...names].sort());
         assert.ok(context.tools?.every((tool) => tool.description.includes(`revision ${refreshes}.`)));
         return index % 3 === 2 ? fauxAssistantMessage("Fertig.")
             : fauxAssistantMessage([fauxToolCall(names[index % 3]!, {}, { id: `infrastructure-${index}` })]);
     }));
     try {
-        for (const turnId of ["first-turn", "second-turn"]) {
-            const result = await manager.runTurn({
-                ...requestFor(), workspace: directory, selection, turnId,
+        for (const prompt of ["Erster.", "Zweiter."]) {
+            const { result } = await turnOf(harness, manager, prompt, {
                 allowedToolNames: ["read"],
                 tools: tools(),
                 refreshTools: async () => {
@@ -179,9 +257,9 @@ test("selected functions retain both TypeScript infrastructure tools through ref
                 },
                 invoke: async (_id, name) => {
                     calls.push(name);
-                    return { output: null, ignoredFields: [] };
+                    return null;
                 },
-            }, new AbortController().signal);
+            });
             assert.equal(result.failure, null);
         }
         assert.deepEqual(calls, [...names, ...names]);
@@ -189,13 +267,11 @@ test("selected functions retain both TypeScript infrastructure tools through ref
     } finally {
         await manager.shutdown();
         faux.unregister();
-        rmSync(directory, { recursive: true, force: true });
     }
 });
 
 test("catalog and runtime agree on model reasoning including max and reject off and medium before requests", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "ragents-thinking-contract-"));
-    const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, "thinking-contract", 0);
+    const { faux, modelRuntime, selection } = fauxModelRuntime("thinking-contract");
     const model = faux.getModel();
     modelRuntime.registerProvider(model.provider, {
         baseUrl: model.baseUrl, apiKey: "faux-key", api: faux.api,
@@ -203,129 +279,214 @@ test("catalog and runtime agree on model reasoning including max and reject off 
     });
     let calls = 0;
     faux.setResponses([() => { calls += 1; return fauxAssistantMessage("Antwort"); }]);
+    const harness = journalHarness(selection);
     const manager = new AgentRuntimeManager({ modelRuntime });
-    const driver = new AgentSessionDriver({ modelRuntime });
+    const driver = new AgentLoopDriver({ modelRuntime });
     try {
         const entry = (await driver.catalog()).find((entry) => entry.provider === model.provider && entry.model === model.id);
         assert.deepEqual(entry?.thinking, ["low", "high", "max"]);
         assert.deepEqual(await driver.thinkingCapabilities(model.provider, model.id), entry?.thinking);
-        const request = { ...requestFor(), workspace: directory, selection: { ...selection, thinking: "off" as const } };
-        const rejected = await manager.runTurn(request, new AbortController().signal);
-        assert.match(rejected.failure ?? "", /Denktiefe off.*gültig: low, high, max/);
+        const rejected = await turnOf(harness, manager, "Aus.", { selection: { ...selection, thinking: "off" } });
+        assert.match(rejected.result.failure ?? "", /thinking level off.*valid: low, high, max/);
         assert.equal(calls, 0);
-        const medium = await manager.runTurn({ ...request, turnId: "invalid-medium", selection: { ...selection, thinking: "medium" } }, new AbortController().signal);
-        assert.match(medium.failure ?? "", /Denktiefe medium.*gültig: low, high, max/);
+        const medium = await turnOf(harness, manager, "Mittel.", { selection: { ...selection, thinking: "medium" } });
+        assert.match(medium.result.failure ?? "", /thinking level medium.*valid: low, high, max/);
         assert.equal(calls, 0);
-        const result = await manager.runTurn({ ...request, turnId: "valid-thinking", selection: { ...selection, thinking: "max" } }, new AbortController().signal);
-        assert.equal(result.failure, null);
+        const valid = await turnOf(harness, manager, "Maximal.", { selection: { ...selection, thinking: "max" } });
+        assert.equal(valid.result.failure, null);
         assert.equal(calls, 1);
     } finally {
         await manager.shutdown();
         await driver.shutdown();
         faux.unregister();
-        rmSync(directory, { recursive: true, force: true });
     }
 });
 
 test("The agent runtime nudges a reasoning-only answer once and fails the turn after a second one", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "ragents-empty-response-"));
-    const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, "empty-response", 0);
+    const { faux, modelRuntime, selection } = fauxModelRuntime("empty-response");
+    const harness = journalHarness(selection);
     const manager = new AgentRuntimeManager({ modelRuntime });
     const reasoningOnly = () => fauxAssistantMessage([fauxThinking("Noch am Überlegen.")]);
-    const outputs: string[] = [];
     faux.setResponses([reasoningOnly, () => fauxAssistantMessage("Fertig."), reasoningOnly, reasoningOnly, () => fauxAssistantMessage("Unerreichbar.")]);
     try {
-        const request = { ...requestFor(), workspace: directory, selection, emit: (event: { kind: string; text: string }) => { outputs.push(`${event.kind}: ${event.text}`); } };
-        const recovered = await manager.runTurn(request, new AbortController().signal);
-        assert.equal(recovered.failure, null);
-        assert.deepEqual(outputs, ["reasoning: Noch am Überlegen.", "assistant: Fertig."]);
-        outputs.length = 0;
-        const failed = await manager.runTurn({ ...request, turnId: "second-turn" }, new AbortController().signal);
-        assert.equal(failed.failure, "Modell lieferte zweimal eine leere Antwort.");
-        assert.deepEqual(outputs, ["reasoning: Noch am Überlegen.", "reasoning: Noch am Überlegen."]);
+        const recovered = await turnOf(harness, manager, "Los.");
+        assert.equal(recovered.result.failure, null);
+        assert.deepEqual(harness.outputsOf(recovered.request.turnId), [
+            "model.reasoning.completed: Noch am Überlegen.",
+            "model.output.completed: Fertig.",
+        ]);
+        const failed = await turnOf(harness, manager, "Noch einmal.");
+        assert.equal(failed.result.failure, "Modell lieferte zweimal eine leere Antwort.");
+        assert.deepEqual(harness.outputsOf(failed.request.turnId), [
+            "model.reasoning.completed: Noch am Überlegen.",
+            "model.reasoning.completed: Noch am Überlegen.",
+        ]);
     } finally {
         await manager.shutdown();
         faux.unregister();
-        rmSync(directory, { recursive: true, force: true });
     }
 });
 
-test("A turn whose provider error the session retries successfully does not fail", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "ragents-provider-retry-"));
-    const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, "provider-retry", 0);
-    const manager = new AgentRuntimeManager({ modelRuntime });
-    const outputs: string[] = [];
+test("A turn whose provider error the runtime retries successfully does not fail", async () => {
+    const { faux, modelRuntime, selection } = fauxModelRuntime("provider-retry");
+    const harness = journalHarness(selection);
+    const manager = new AgentRuntimeManager({ modelRuntime, settings: { retry: { baseDelayMs: 10 } } });
     faux.setResponses([
         () => fauxAssistantMessage([], { stopReason: "error", errorMessage: "503 Service Unavailable" }),
         () => fauxAssistantMessage("Fertig."),
     ]);
     try {
-        const request = { ...requestFor(), workspace: directory, selection, emit: (event: { kind: string; text: string }) => { outputs.push(`${event.kind}: ${event.text}`); } };
-        const result = await within(manager.runTurn(request, new AbortController().signal), 10_000);
+        const { request, result } = await within(turnOf(harness, manager, "Los."), 10_000);
         assert.equal(result.failure, null);
         assert.equal(faux.state.callCount, 2);
-        assert.deepEqual(outputs, ["assistant: Fertig."]);
+        assert.deepEqual(harness.outputsOf(request.turnId), ["model.output.completed: Fertig."]);
+        const steps = harness.runtime.events(harness.runId).filter((event) => event.type === "model.step.completed");
+        assert.deepEqual(steps.map((event) => event.type === "model.step.completed" && event.payload.stopReason), ["error", "stop"]);
     } finally {
         await manager.shutdown();
         faux.unregister();
-        rmSync(directory, { recursive: true, force: true });
     }
 });
 
-test("A turn whose context overflow the session compacts and continues does not fail", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "ragents-overflow-compaction-"));
-    const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, "overflow-compaction", 0);
+test("A turn whose context overflow the runtime compacts and continues does not fail", async () => {
+    const { faux, modelRuntime, selection } = fauxModelRuntime("overflow-compaction");
+    const harness = journalHarness(selection);
     const manager = new AgentRuntimeManager({ modelRuntime });
-    const outputs: string[] = [];
     const answers = [
-        fauxAssistantMessage("Antwort 1."),
-        fauxAssistantMessage([], { stopReason: "error", errorMessage: "prompt is too long: 213462 tokens > 200000 maximum" }),
-        fauxAssistantMessage("Fertig."),
+        () => fauxAssistantMessage("Antwort 1."),
+        () => fauxAssistantMessage([], { stopReason: "error", errorMessage: "prompt is too long: 213462 tokens > 200000 maximum" }),
+        () => fauxAssistantMessage("Fertig."),
     ];
     let summaries = 0;
-    faux.setResponses(Array.from({ length: 5 }, () => (context) => {
+    faux.setResponses(Array.from({ length: 5 }, () => (context: Context) => {
         if (context.systemPrompt?.startsWith("You are a context summarization assistant")) {
             summaries += 1;
             return fauxAssistantMessage("## Goal\nZusammenfassung.");
         }
         const answer = answers.shift();
         assert.ok(answer, "unexpected model request");
-        return answer;
+        return answer();
     }));
     try {
-        const request = { ...requestFor(), workspace: directory, selection, emit: (event: { kind: string; text: string }) => { outputs.push(`${event.kind}: ${event.text}`); } };
-        assert.equal((await manager.runTurn(request, new AbortController().signal)).failure, null);
-        outputs.length = 0;
-        const result = await within(manager.runTurn({ ...request, turnId: "overflow-turn", prompt: "x".repeat(100_000) }, new AbortController().signal), 10_000);
+        assert.equal((await turnOf(harness, manager, "Erster.")).result.failure, null);
+        const { request, result } = await within(turnOf(harness, manager, "x".repeat(100_000)), 10_000);
         assert.equal(result.failure, null);
         assert.equal(summaries, 1);
         assert.equal(answers.length, 0);
-        assert.deepEqual(outputs, ["assistant: Fertig."]);
+        assert.deepEqual(harness.outputsOf(request.turnId), ["model.output.completed: Fertig."]);
+        const compaction = harness.runtime.events(harness.runId).find((event) => event.type === "context.compacted");
+        assert.ok(compaction?.type === "context.compacted");
+        assert.equal(compaction.payload.turnId, request.turnId);
+        assert.equal(compaction.payload.model, selection.model);
     } finally {
         await manager.shutdown();
         faux.unregister();
-        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test("An overflow right after a retried provider error compacts and continues behind both error steps", async () => {
+    const { faux, modelRuntime, selection } = fauxModelRuntime("overflow-after-retry");
+    const harness = journalHarness(selection);
+    const manager = new AgentRuntimeManager({ modelRuntime, settings: { retry: { baseDelayMs: 10 } } });
+    const answers = [
+        () => fauxAssistantMessage("Antwort 1."),
+        () => fauxAssistantMessage([], { stopReason: "error", errorMessage: "503 Service Unavailable" }),
+        () => fauxAssistantMessage([], { stopReason: "error", errorMessage: "prompt is too long: 213462 tokens > 200000 maximum" }),
+        () => fauxAssistantMessage("Fertig."),
+    ];
+    faux.setResponses(Array.from({ length: 6 }, () => (context: Context) => {
+        if (context.systemPrompt?.startsWith("You are a context summarization assistant"))
+            return fauxAssistantMessage("## Goal\nZusammenfassung.");
+        const answer = answers.shift();
+        assert.ok(answer, "unexpected model request");
+        return answer();
+    }));
+    try {
+        assert.equal((await turnOf(harness, manager, "Erster.")).result.failure, null);
+        const { request, result } = await within(turnOf(harness, manager, "x".repeat(100_000)), 10_000);
+        assert.equal(result.failure, null);
+        assert.equal(answers.length, 0);
+        assert.deepEqual(harness.outputsOf(request.turnId), ["model.output.completed: Fertig."]);
+    } finally {
+        await manager.shutdown();
+        faux.unregister();
+    }
+});
+
+test("A loop failure without a model call fails the turn but writes no model step", async () => {
+    const { faux, modelRuntime, selection } = fauxModelRuntime("loop-failure");
+    const harness = journalHarness(selection);
+    const manager = new AgentRuntimeManager({ modelRuntime });
+    faux.setResponses([() => fauxAssistantMessage("Antwort.")]);
+    let refreshes = 0;
+    try {
+        const { request, result } = await turnOf(harness, manager, "Los.", {
+            refreshTools: async () => {
+                refreshes += 1;
+                if (refreshes > 1)
+                    throw new Error("Die Werkzeuge sind nicht lesbar.");
+                return { tools: [], systemPrompt: "System contract." };
+            },
+        });
+        assert.equal(result.failure, "Die Werkzeuge sind nicht lesbar.");
+        const steps = harness.runtime.events(harness.runId).filter((event) => event.type === "model.step.completed" && event.payload.turnId === request.turnId);
+        assert.deepEqual(steps.map((event) => event.type === "model.step.completed" && event.payload.stopReason), ["stop"]);
+    } finally {
+        await manager.shutdown();
+        faux.unregister();
+    }
+});
+
+test("An abort during a compaction ends the turn without reporting a failed compaction", async () => {
+    const { faux, modelRuntime, selection } = fauxModelRuntime("abort-compaction");
+    const harness = journalHarness(selection);
+    const diagnostics: string[] = [];
+    const manager = new AgentRuntimeManager({ modelRuntime, onDiagnostic: (diagnostic) => { diagnostics.push(diagnostic.message); } });
+    const controller = new AbortController();
+    const answers = [
+        () => fauxAssistantMessage("Antwort 1."),
+        () => fauxAssistantMessage([], { stopReason: "error", errorMessage: "prompt is too long: 213462 tokens > 200000 maximum" }),
+    ];
+    faux.setResponses(Array.from({ length: 4 }, () => (context: Context, options: { signal?: AbortSignal } | undefined) => {
+        if (context.systemPrompt?.startsWith("You are a context summarization assistant")) {
+            controller.abort();
+            return new Promise((_resolve, reject) => {
+                if (options?.signal?.aborted) reject(new Error("aborted"));
+                options?.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+            });
+        }
+        const answer = answers.shift();
+        assert.ok(answer, "unexpected model request");
+        return answer();
+    }));
+    try {
+        assert.equal((await turnOf(harness, manager, "Erster.")).result.failure, null);
+        await within(turnOf(harness, manager, "x".repeat(100_000), {}, controller.signal), 10_000);
+        assert.deepEqual(diagnostics.filter((message) => /Verdichtung|compaction/i.test(message)), []);
+    } finally {
+        await manager.shutdown();
+        faux.unregister();
     }
 });
 
 test("A turn whose provider error survives every retry fails with the last error", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "ragents-provider-error-"));
-    const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, "provider-error", 0);
+    const { faux, modelRuntime, selection } = fauxModelRuntime("provider-error");
+    const harness = journalHarness(selection);
     const manager = new AgentRuntimeManager({ modelRuntime });
     faux.setResponses([() => fauxAssistantMessage([], { stopReason: "error", errorMessage: "invalid request: unknown parameter" })]);
     try {
-        const result = await manager.runTurn({ ...requestFor(), workspace: directory, selection }, new AbortController().signal);
+        const { result } = await turnOf(harness, manager, "Los.");
         assert.equal(result.failure, "invalid request: unknown parameter");
     } finally {
         await manager.shutdown();
         faux.unregister();
-        rmSync(directory, { recursive: true, force: true });
     }
 });
 
 test("Two skills with the same name, say from two plugins, fail the runtime creation and name both", async () => {
     const directory = mkdtempSync(join(tmpdir(), "ragents-duplicate-skills-"));
-    const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, "duplicate-skills", 1);
+    const { faux, modelRuntime, selection } = fauxModelRuntime("duplicate-skills");
+    const harness = journalHarness(selection);
     const skillIn = (plugin: string) => ({
         name: "review",
         description: "Prüft Änderungen.",
@@ -336,7 +497,7 @@ test("Two skills with the same name, say from two plugins, fail the runtime crea
     });
     const manager = new AgentRuntimeManager({ modelRuntime, resolveSkills: () => [skillIn("first"), skillIn("second")] });
     try {
-        const result = await manager.runTurn({ ...requestFor(), workspace: directory, selection }, new AbortController().signal);
+        const { result } = await turnOf(harness, manager, "Los.");
         assert.equal(
             result.failure,
             `Der Skill review ist mehrfach vorhanden: ${skillIn("first").filePath}, ${skillIn("second").filePath}.`,
@@ -351,7 +512,8 @@ test("Two skills with the same name, say from two plugins, fail the runtime crea
 
 test("Preloading names the location the tools reach, never the host path of the SKILL.md", async () => {
     const directory = mkdtempSync(join(tmpdir(), "ragents-skill-location-"));
-    const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, "skill-location", 0);
+    const { faux, modelRuntime, selection } = fauxModelRuntime("skill-location");
+    const harness = journalHarness(selection);
     mkdirSync(join(directory, "review"));
     writeFileSync(join(directory, "review", "SKILL.md"), "---\nname: review\ndescription: Prüft Änderungen.\n---\nLies checkliste.md.\n");
     const skill = {
@@ -369,7 +531,7 @@ test("Preloading names the location the tools reach, never the host path of the 
     }]);
     const manager = new AgentRuntimeManager({ modelRuntime, resolveSkills: () => [skill] });
     try {
-        const result = await manager.runTurn({ ...requestFor(), prompt: "/skill:review bitte", workspace: directory, selection }, new AbortController().signal);
+        const { result } = await turnOf(harness, manager, "/skill:review bitte");
         assert.equal(result.failure, null);
         assert.equal(prompts.length, 1);
         assert.match(prompts[0]!, /<preloaded_skill name="review" location="@skills\/review\/SKILL\.md">\nLies checkliste\.md\./);
@@ -381,9 +543,9 @@ test("Preloading names the location the tools reach, never the host path of the 
     }
 });
 
-test("The agent runtime delivers attachment-only images, video and PDF as native model content", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "ragents-native-attachments-"));
-    const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, "native-attachments", 0, ["text", "image", "video", "file"]);
+test("The agent runtime delivers attachment-only images, video and PDF as native model content and keeps them as hashes", async () => {
+    const { faux, modelRuntime, selection } = fauxModelRuntime("native-attachments", ["text", "image", "video", "file"]);
+    const harness = journalHarness(selection);
     const manager = new AgentRuntimeManager({ modelRuntime });
     let received: unknown;
     faux.setResponses([(context) => {
@@ -393,14 +555,14 @@ test("The agent runtime delivers attachment-only images, video and PDF as native
     }]);
     try {
         const content = new Uint8Array([0, 255, 13, 4]);
-        const result = await manager.runTurn({
-            ...requestFor(), workspace: directory, selection, prompt: "",
+        const { result } = await turnOf(harness, manager, "Anhänge.", {
+            prompt: "",
             attachments: [
                 { name: "photo.png", mediaType: "image/png", content },
                 { name: "clip.mp4", mediaType: "video/mp4", content },
                 { name: "report.pdf", mediaType: "application/pdf", content },
             ],
-        }, new AbortController().signal);
+        });
         assert.equal(result.failure, null);
         const data = Buffer.from(content).toString("base64");
         assert.deepEqual(received, [
@@ -408,58 +570,90 @@ test("The agent runtime delivers attachment-only images, video and PDF as native
             { type: "video", data, mimeType: "video/mp4" },
             { type: "file", data, mimeType: "application/pdf", filename: "report.pdf" },
         ]);
+        const presented = harness.runtime.events(harness.runId).find((event) => event.type === "model.input.presented");
+        assert.ok(presented?.type === "model.input.presented" && Array.isArray(presented.payload.content));
+        assert.doesNotMatch(JSON.stringify(presented.payload), new RegExp(data.replaceAll("+", "\\+").replaceAll("/", "\\/")));
+        assert.ok(presented.payload.content.slice(1).every((part) => part.type !== "text" && /^[0-9a-f]{64}$/.test(part.hash)));
     } finally {
         await manager.shutdown();
         faux.unregister();
-        rmSync(directory, { recursive: true, force: true });
     }
 });
 
 for (const stop of ["signal", "halt"] as const) {
-    test(`the agent runtime preserves streamed text once when stopped by ${stop}`, async () => {
-        const directory = mkdtempSync(join(tmpdir(), "ragents-partial-output-"));
-        const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, `partial-${stop}`, 0);
+    test(`the agent runtime preserves streamed text once when stopped by ${stop}, and the unfinished step is no context`, async () => {
+        const { faux, modelRuntime, selection } = fauxModelRuntime(`partial-${stop}`);
         faux.setResponses([fauxAssistantMessage("Already visible text that would continue for much longer.")]);
+        const harness = journalHarness(selection);
         const manager = new AgentRuntimeManager({ modelRuntime, turnAbortTimeoutMs: 30 });
         const controller = new AbortController();
-        const outputs: DriverEvent[] = [];
         const visible: string[] = [];
         let halt: Promise<void> | undefined;
         try {
-            const result = await within(manager.runTurn({
-                ...requestFor(), workspace: directory, selection,
-                emit: (event) => outputs.push(event),
+            const request = harness.request("Los.", {
                 publish: (event) => {
                     if (event.kind !== "text") return;
                     visible.push(event.delta);
-                    if (stop === "halt") halt = manager.haltRun("run-1");
+                    if (stop === "halt") halt = manager.haltRun(harness.runId);
                     else controller.abort();
                 },
-            }, controller.signal), 3_000);
+            });
+            const result = await within(manager.runTurn(request, controller.signal));
             await halt;
             assert.match(result.failure ?? "", /aborted/);
             assert.ok(visible.join("").length > 0);
-            assert.deepEqual(outputs, [{ kind: "assistant-interrupted", text: visible.join("") }]);
+            assert.deepEqual(harness.outputsOf(request.turnId), [`model.output.interrupted: ${visible.join("").trim()}`]);
             await manager.shutdown();
-            assert.deepEqual(outputs, [{ kind: "assistant-interrupted", text: visible.join("") }]);
+            assert.deepEqual(harness.outputsOf(request.turnId), [`model.output.interrupted: ${visible.join("").trim()}`]);
+            const types = harness.runtime.events(harness.runId).map((event) => event.type);
+            assert.equal(types.includes("model.step.completed"), false, "ein abgebrochener Schritt ist kein Kontext");
+            assert.equal(types.includes("model.input.presented"), true);
         } finally {
             controller.abort();
             await manager.shutdown();
             faux.unregister();
-            rmSync(directory, { recursive: true, force: true });
         }
     });
 }
 
+test("text and thinking stream live as deltas while the journal gets one step at its end", async () => {
+    const { faux, modelRuntime, selection } = fauxModelRuntime("live-deltas", undefined, 2_000);
+    faux.setResponses([fauxAssistantMessage([fauxThinking("Ich denke nach, ".repeat(10)), fauxText("Die Antwort kommt Stück für Stück. ".repeat(6))])]);
+    const harness = journalHarness(selection);
+    const manager = new AgentRuntimeManager({ modelRuntime });
+    const stepsWhileStreaming: number[] = [];
+    try {
+        const { request, result } = await turnOf(harness, manager, "Los.", {
+            publish: (event) => {
+                harness.published.push(event);
+                stepsWhileStreaming.push(harness.runtime.events(harness.runId).filter((entry) => entry.type === "model.step.completed").length);
+            },
+        });
+        assert.equal(result.failure, null);
+        const thinking = harness.published.filter((event) => event.kind === "thinking");
+        const text = harness.published.filter((event) => event.kind === "text");
+        assert.ok(thinking.length > 1 && text.length > 1, "mehrere Deltas je Block");
+        assert.equal(thinking.map((event) => event.kind === "thinking" ? event.delta : "").join(""), "Ich denke nach, ".repeat(10));
+        assert.equal(text.map((event) => event.kind === "text" ? event.delta : "").join(""), "Die Antwort kommt Stück für Stück. ".repeat(6));
+        assert.ok(stepsWhileStreaming.every((count) => count === 0), "kein Schritt im Journal, solange er streamt");
+        const types = harness.runtime.events(harness.runId).filter((event) => event.payload && "turnId" in event.payload && event.payload.turnId === request.turnId).map((event) => event.type);
+        assert.deepEqual(types.filter((type) => type.startsWith("model.")), ["model.input.presented", "model.reasoning.completed", "model.output.completed", "model.step.completed"]);
+        const step = harness.runtime.events(harness.runId).find((event) => event.type === "model.step.completed");
+        assert.ok(step?.type === "model.step.completed");
+        assert.deepEqual(step.payload.content, [{ type: "thinking" }, { type: "text" }], "der Schritt wiederholt Text und Denken nicht");
+        assert.equal(new Set(harness.runtime.events(harness.runId).filter((event) => event.type.startsWith("model.") && event.type !== "model.input.presented").map((event) => event.commandId)).size, 1);
+    } finally {
+        await manager.shutdown();
+        faux.unregister();
+    }
+});
+
 test("a turn aborted during a tool call keeps the agent runtime: the next turn continues the same conversation", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "ragents-interrupted-turn-"));
-    const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, "interrupted-turn", 0);
+    const { faux, modelRuntime, selection } = fauxModelRuntime("interrupted-turn");
+    const harness = journalHarness(selection);
     const manager = new AgentRuntimeManager({ modelRuntime, turnAbortTimeoutMs: 1_000 });
     const controller = new AbortController();
-    const tool = defineRunFunction({
-        name: "long_step", label: "Long step", description: "Takes a while.", nativeTool: true,
-        schema: Type.Object({}), resultSchema: Type.Null(), available: () => true, run: () => null,
-    });
+    const tool = nativeTool("long_step", "Takes a while.");
     const userTexts = (context: Context) => context.messages.flatMap((message) => message.role === "user"
         ? [typeof message.content === "string" ? message.content : message.content.map((part) => part.type === "text" ? part.text : "").join("")]
         : []);
@@ -471,55 +665,57 @@ test("a turn aborted during a tool call keeps the agent runtime: the next turn c
         return fauxAssistantMessage("Weiter geht es.");
     };
     faux.setResponses([fauxAssistantMessage([fauxToolCall("long_step", {}, { id: "long" })], { stopReason: "toolUse" }), answer, answer]);
-    const outputs: DriverEvent[] = [];
     try {
-        const interrupted = await within(manager.runTurn({
-            ...requestFor(), workspace: directory, selection, tools: [tool],
+        const interrupted = await within(turnOf(harness, manager, "Original input.", {
+            tools: [tool],
             invoke: () => new Promise((_resolve, reject) => {
                 controller.signal.addEventListener("abort", () => reject(new Error("Werkzeug abgebrochen.")), { once: true });
                 controller.abort();
             }),
-        }, controller.signal), 3_000);
-        assert.match(interrupted.failure ?? "", /aborted/);
+        }, controller.signal));
+        assert.match(interrupted.result.failure ?? "", /aborted/);
         assert.equal(faux.state.callCount, 1, "nach dem Abbruch im Werkzeug fragt die Schleife das Modell nicht noch einmal an");
-        const next = await within(manager.runTurn({
-            ...requestFor(), workspace: directory, selection, tools: [tool], turnId: "turn-3", prompt: "Weiter.",
-            emit: (event) => outputs.push(event),
-        }, new AbortController().signal), 3_000);
-        assert.equal(next.failure, null);
-        assert.deepEqual(outputs, [{ kind: "assistant", text: "Weiter geht es." }]);
+        const next = await within(turnOf(harness, manager, "Weiter.", { tools: [tool] }));
+        assert.equal(next.result.failure, null);
+        assert.deepEqual(harness.outputsOf(next.request.turnId), ["model.output.completed: Weiter geht es."]);
         assert.ok(continued[0]?.some((text) => text.includes("Original input.")), "der erste Auftrag bleibt im Gespräch");
     } finally {
         controller.abort();
         await manager.shutdown();
         faux.unregister();
-        rmSync(directory, { recursive: true, force: true });
     }
 });
 
 test("an abort while a context hook still runs sends no model request once the hook returns", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "ragents-abort-in-hook-"));
-    const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, "abort-in-hook", 1);
+    const { faux, modelRuntime, selection } = fauxModelRuntime("abort-in-hook");
+    faux.setResponses([fauxAssistantMessage("Nie gesendet.")]);
+    const harness = journalHarness(selection);
     const controller = new AbortController();
     const hookEntered = Promise.withResolvers<void>();
     const hookRelease = Promise.withResolvers<void>();
     const hookReturned = Promise.withResolvers<void>();
-    const extension: InlineExtension = (agent) => {
-        agent.on("context", async () => {
-            hookEntered.resolve();
-            await hookRelease.promise;
-            hookReturned.resolve();
-        });
-    };
-    const manager = new AgentRuntimeManager({ modelRuntime, extensionFactories: [extension], turnAbortTimeoutMs: 30 });
+    const manager = new AgentRuntimeManager({
+        modelRuntime,
+        turnAbortTimeoutMs: 30,
+        resolveHooks: hooksOf({
+            id: "test.slow",
+            beforeModelCall: async () => {
+                hookEntered.resolve();
+                await hookRelease.promise;
+                hookReturned.resolve();
+                return undefined;
+            },
+        }),
+    });
     try {
-        const turn = manager.runTurn({ ...requestFor(), workspace: directory, selection }, controller.signal);
+        const request = harness.request("Los.");
+        const turn = manager.runTurn(request, controller.signal);
         await within(hookEntered.promise);
         controller.abort();
         hookRelease.resolve();
         assert.match((await within(turn)).failure ?? "", /aborted/);
         await within(hookReturned.promise);
-        await within(manager.waitForRunSettlement("run-1") ?? Promise.resolve());
+        await within(manager.waitForRunSettlement(harness.runId) ?? Promise.resolve());
         await new Promise((resolve) => setTimeout(resolve, 20));
         assert.equal(faux.state.callCount, 0);
     } finally {
@@ -527,23 +723,58 @@ test("an abort while a context hook still runs sends no model request once the h
         hookRelease.resolve();
         await manager.shutdown();
         faux.unregister();
-        rmSync(directory, { recursive: true, force: true });
     }
 });
 
+test("a hook note reaches only its model call, and what a hook keeps stands in the journal for later turns", async () => {
+    const { faux, modelRuntime, selection } = fauxModelRuntime("hook-state");
+    const harness = journalHarness(selection);
+    const seenKept: unknown[] = [];
+    const lastUserTexts: string[] = [];
+    faux.setResponses([1, 2].map(() => (context: Context) => {
+        const last = context.messages.at(-1);
+        lastUserTexts.push(last?.role === "user" && Array.isArray(last.content) ? last.content.map((part) => part.type === "text" ? part.text : "").join("") : String(last?.content));
+        return fauxAssistantMessage("Gesehen.");
+    }));
+    const manager = new AgentRuntimeManager({
+        modelRuntime,
+        resolveHooks: hooksOf({
+            id: "test.counter",
+            beforeModelCall: (_agent, call) => {
+                seenKept.push(call.kept);
+                call.keep({ calls: typeof call.kept === "object" && call.kept !== null && "calls" in call.kept ? Number(call.kept.calls) + 1 : 1 });
+                return "Verborgener Hinweis.";
+            },
+        }),
+    });
+    try {
+        await turnOf(harness, manager, "Erster.");
+        await turnOf(harness, manager, "Zweiter.");
+        assert.deepEqual(seenKept, [undefined, { calls: 1 }]);
+        assert.deepEqual(lastUserTexts, ["Verborgener Hinweis.", "Verborgener Hinweis."]);
+        const context = JSON.stringify(turnModelContextOf(harness).messages);
+        assert.doesNotMatch(context, /Verborgener Hinweis/, "der Hinweis ist nicht Teil des Kontexts");
+        const state = harness.runtime.view(harness.runId).pluginStates.find((entry) => entry.pluginId === "test.counter");
+        assert.deepEqual(state?.scope, { kind: "actor", actorId: harness.agentId });
+        assert.deepEqual(state?.state, { calls: 2 });
+    } finally {
+        await manager.shutdown();
+        faux.unregister();
+    }
+});
+
+const turnModelContextOf = (harness: ReturnType<typeof journalHarness>) =>
+    modelContextOf(harness.runtime.events(harness.runId), harness.agentId, (hash) => harness.runtime.mediaContent(hash));
+
 for (const stopDuring of ["tool", "next-message", "thinking"] as const) {
     test(`stopping during ${stopDuring} preserves only the unfinished message text`, async () => {
-        const directory = mkdtempSync(join(tmpdir(), "ragents-partial-boundary-"));
-        const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, `partial-boundary-${stopDuring}`, 0);
+        const { faux, modelRuntime, selection } = fauxModelRuntime(`partial-boundary-${stopDuring}`);
+        const harness = journalHarness(selection);
         const manager = new AgentRuntimeManager({ modelRuntime });
         const controller = new AbortController();
-        const outputs: DriverEvent[] = [];
         const visible: string[] = [];
         const first = "Completed message.";
-        const tool = defineRunFunction({
-            name: "next_step", label: "Next step", description: "Continue the task.", nativeTool: true,
-            schema: Type.Object({}), resultSchema: Type.Null(), available: () => true, run: () => null,
-        });
+        const tool = nativeTool("next_step", "Continue the task.");
         faux.setResponses(stopDuring === "thinking"
             ? [fauxAssistantMessage([fauxThinking("Reasoning before any answer."), fauxText("Unseen answer.")])]
             : [
@@ -551,29 +782,28 @@ for (const stopDuring of ["tool", "next-message", "thinking"] as const) {
                 fauxAssistantMessage("The unfinished next message keeps going."),
             ]);
         try {
-            await within(manager.runTurn({
-                ...requestFor(), workspace: directory, selection, tools: [tool],
-                emit: (event) => outputs.push(event),
+            const { request } = await within(turnOf(harness, manager, "Los.", {
+                tools: [tool],
                 invoke: async () => {
                     if (stopDuring === "tool") controller.abort();
-                    return { output: null, ignoredFields: [] };
+                    return null;
                 },
                 publish: (event) => {
                     if (event.kind === "thinking" && stopDuring === "thinking") controller.abort();
+                    const outputs = harness.outputsOf(harness.runtime.view(harness.runId).turns.at(-1)!.id);
                     if (event.kind !== "text" || outputs.length === 0) return;
                     visible.push(event.delta);
                     controller.abort();
                 },
-            }, controller.signal), 3_000);
-            assert.deepEqual(outputs, stopDuring === "thinking" ? [] : [
-                { kind: "assistant", text: first },
-                ...(stopDuring === "next-message" ? [{ kind: "assistant-interrupted", text: visible.join("") }] : []),
+            }, controller.signal));
+            assert.deepEqual(harness.outputsOf(request.turnId), stopDuring === "thinking" ? [] : [
+                `model.output.completed: ${first}`,
+                ...(stopDuring === "next-message" ? [`model.output.interrupted: ${visible.join("").trim()}`] : []),
             ]);
         } finally {
             controller.abort();
             await manager.shutdown();
             faux.unregister();
-            rmSync(directory, { recursive: true, force: true });
         }
     });
 }
@@ -609,57 +839,39 @@ test("The agent runtime latches an abort during preflight and rejects before acc
 });
 
 test("The agent runtime reports runtime creation failures before submission", async () => {
+    const harness = journalHarness({ provider: "faux", model: "unconfigured" });
     const unavailable = Promise.reject(new Error("agent setup unavailable."));
     const manager = new AgentRuntimeManager({ modelRuntime: unavailable });
-    const result = await manager.runTurn(requestFor(), new AbortController().signal);
+    const { result } = await turnOf(harness, manager, "Los.");
 
     assert.equal(result.failure, "agent setup unavailable.");
 });
 
-test("The agent runtime run halt aborts a hanging extension factory during runtime creation", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "ragents-agent-factory-abort-"));
+test("The agent runtime run halt aborts a hook resolution that hangs during runtime creation and waits for its real end", async () => {
+    const harness = journalHarness({ provider: "faux", model: "unconfigured" });
     let creationSignal: AbortSignal | undefined;
-    let extensionApi: ExtensionAPI | undefined;
-    let lateApiError: unknown;
-    let lateEffect = false;
-    let markStarted: () => void = () => undefined;
-    let releaseFactory: () => void = () => undefined;
-    const started = new Promise<void>((resolveStarted) => {
-        markStarted = resolveStarted;
+    const started = deferred();
+    const release = deferred();
+    const manager = new AgentRuntimeManager({
+        modelRuntime: ModelRuntime.create(),
+        resolveHooks: async (_context, signal) => {
+            creationSignal = signal;
+            started.resolve();
+            await release.promise;
+            return [];
+        },
     });
-    const factoryRelease = new Promise<void>((resolveFactory) => {
-        releaseFactory = resolveFactory;
-    });
-    const extension: InlineExtension = async (agent, context) => {
-        extensionApi = agent;
-        creationSignal = context.signal;
-        markStarted();
-        await factoryRelease;
-
-        try {
-            agent.getAllTools();
-            lateEffect = true;
-        } catch (error) {
-            lateApiError = error;
-        }
-    };
 
     try {
-        const modelRuntime = ModelRuntime.create();
-        const manager = new AgentRuntimeManager({
-            modelRuntime,
-            extensionFactories: [extension],
-        });
-        const request = { ...requestFor(), workspace: directory };
+        const request = harness.request("Los.");
         const turn = manager.runTurn(request, new AbortController().signal);
 
-        await within(started);
+        await within(started.promise);
         await within(manager.haltRun(request.runId));
         const result = await within(turn);
         const settlement = manager.waitForRunSettlement(request.runId);
 
         assert.equal(creationSignal?.aborted, true);
-        assert.throws(() => extensionApi?.getAllTools(), /Extension creation was aborted/);
         assert.match(result.failure ?? "", /stopping/);
         assert.ok(settlement);
 
@@ -670,36 +882,35 @@ test("The agent runtime run halt aborts a hanging extension factory during runti
         await new Promise<void>((resolveImmediate) => setImmediate(resolveImmediate));
         assert.equal(settled, false);
 
-        releaseFactory();
+        release.resolve();
         await within(settlement);
-        assert.equal(lateEffect, false);
-        assert.match(lateApiError instanceof Error ? lateApiError.message : String(lateApiError), /Extension creation was aborted/);
         await manager.shutdown();
     } finally {
-        releaseFactory();
-        rmSync(directory, { recursive: true, force: true });
+        release.resolve();
     }
 });
 
 test("The agent runtime manager shutdown waits beyond the turn deadline for a hanging hook", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "ragents-agent-global-shutdown-settlement-"));
     const release = deferred();
     const started = deferred();
-    const extension: InlineExtension = (agent) => {
-        agent.on("context", async () => {
-            started.resolve();
-            await release.promise;
-        });
-    };
+    const { faux, modelRuntime, selection } = fauxModelRuntime("global-shutdown");
+    faux.setResponses([fauxAssistantMessage("Nie gesendet.")]);
+    const harness = journalHarness(selection);
 
     try {
-        const { modelRuntime, selection } = await fauxModelRuntime(directory, "global-shutdown", 1);
         const manager = new AgentRuntimeManager({
             modelRuntime,
-            extensionFactories: [extension],
             turnAbortTimeoutMs: 30,
+            resolveHooks: hooksOf({
+                id: "test.hanging",
+                beforeModelCall: async () => {
+                    started.resolve();
+                    await release.promise;
+                    return undefined;
+                },
+            }),
         });
-        const turn = manager.runTurn({ ...requestFor(), workspace: directory, selection }, new AbortController().signal);
+        const turn = manager.runTurn(harness.request("Los."), new AbortController().signal);
         await within(started.promise);
         const shutdown = manager.shutdown();
         assert.match((await within(turn)).failure ?? "", /aborted|did not settle/);
@@ -713,78 +924,42 @@ test("The agent runtime manager shutdown waits beyond the turn deadline for a ha
         await within(shutdown);
     } finally {
         release.resolve();
-        rmSync(directory, { recursive: true, force: true });
+        faux.unregister();
     }
 });
 
-test("The agent runtime halt quarantines a turn whose extension callback ignores abort", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "ragents-agent-turn-abort-deadline-"));
-    const faux = registerFauxProvider({ models: [{ id: "abort-deadline", reasoning: false }] });
+test("The agent runtime halt quarantines a turn whose hook ignores abort, and the late hook reaches nothing", async () => {
+    const { faux, modelRuntime, selection } = fauxModelRuntime("abort-deadline");
     faux.setResponses([fauxAssistantMessage("Late answer that nobody sees.")]);
+    const harness = journalHarness(selection);
     const controller = new AbortController();
-    let manager: AgentRuntimeManager | undefined;
-    let extensionApi: ExtensionAPI | undefined;
-    let lateApiError: unknown;
-    let markStarted: () => void = () => undefined;
-    let releaseInput: () => void = () => undefined;
-    const started = new Promise<void>((resolveStarted) => {
-        markStarted = resolveStarted;
-    });
-    const inputRelease = new Promise<void>((resolveInput) => {
-        releaseInput = resolveInput;
-    });
-    const extension: InlineExtension = (agent) => {
-        extensionApi = agent;
-        agent.on("context", async () => {
-            markStarted();
-            await inputRelease;
-
-            try {
-                agent.getAllTools();
-            } catch (error) {
-                lateApiError = error;
-            }
-
-            throw new Error("Late hook failure.");
-        });
-    };
-    const emitted: unknown[] = [];
+    const started = deferred();
+    const release = deferred();
+    let lateKeep: unknown;
     const published: unknown[] = [];
+    const manager = new AgentRuntimeManager({
+        modelRuntime,
+        turnAbortTimeoutMs: 30,
+        resolveHooks: hooksOf({
+            id: "test.ignores-abort",
+            beforeModelCall: async (_agent, call) => {
+                started.resolve();
+                await release.promise;
+                try {
+                    call.keep("zu spät");
+                } catch (error) {
+                    lateKeep = error;
+                }
+                throw new Error("Late hook failure.");
+            },
+        }),
+    });
 
     try {
-        const modelRuntime = ModelRuntime.create();
-        const model = faux.getModel();
-        modelRuntime.registerProvider(model.provider, {
-            baseUrl: model.baseUrl,
-            apiKey: "faux-key",
-            api: faux.api,
-            models: faux.models.map((entry) => ({
-                id: entry.id,
-                name: entry.name,
-                api: entry.api,
-                reasoning: entry.reasoning,
-                input: entry.input,
-                cost: entry.cost,
-                contextWindow: entry.contextWindow,
-                maxTokens: entry.maxTokens,
-                baseUrl: entry.baseUrl,
-            })),
-        });
-        manager = new AgentRuntimeManager({
-            modelRuntime,
-            extensionFactories: [extension],
-            turnAbortTimeoutMs: 30,
-        });
-        const request = {
-            ...requestFor(),
-            workspace: directory,
-            selection: { provider: model.provider, model: model.id },
-            emit: (event: Parameters<TurnRequest["emit"]>[0]) => emitted.push(event),
-            publish: (event: Parameters<TurnRequest["publish"]>[0]) => published.push(event),
-        };
+        const request = harness.request("Los.", { publish: (event) => published.push(event) });
         const turn = manager.runTurn(request, controller.signal);
 
-        await within(started);
+        await within(started.promise);
         const halt = manager.haltRun(request.runId);
         const result = await within(turn);
         await within(halt);
@@ -792,7 +967,6 @@ test("The agent runtime halt quarantines a turn whose extension callback ignores
 
         assert.match(result.failure ?? "", /aborted/);
         assert.ok(settlement);
-        assert.throws(() => extensionApi?.getAllTools(), /stale/);
 
         let settled = false;
         void settlement.then(() => {
@@ -801,236 +975,176 @@ test("The agent runtime halt quarantines a turn whose extension callback ignores
         await new Promise<void>((resolveImmediate) => setImmediate(resolveImmediate));
         assert.equal(settled, false);
 
-        releaseInput();
+        release.resolve();
         await within(settlement);
         await new Promise<void>((resolveImmediate) => setImmediate(resolveImmediate));
-        assert.match(lateApiError instanceof Error ? lateApiError.message : String(lateApiError), /stale/);
-        assert.deepEqual(emitted, []);
+        assert.match(lateKeep instanceof Error ? lateKeep.message : String(lateKeep), /stale/);
+        assert.deepEqual(harness.outputsOf(request.turnId), []);
         assert.deepEqual(published, []);
+        assert.equal(faux.state.callCount, 0);
     } finally {
         controller.abort(new Error("Test cleanup."));
-        releaseInput();
-        await manager?.shutdown().catch(() => undefined);
+        release.resolve();
+        await manager.shutdown().catch(() => undefined);
         faux.unregister();
-        rmSync(directory, { recursive: true, force: true });
     }
 });
 
-test("The agent runtime halt disposes its extensions but allows the run to create a fresh runtime", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "ragents-agent-halt-"));
-    const apis: ExtensionAPI[] = [];
-    const extension: InlineExtension = (agent) => {
-        apis.push(agent);
-    };
+test("The agent runtime halt drops its runtime but allows the run to create a fresh one, and a disposed run stays retired", async () => {
+    const { faux, modelRuntime, selection } = fauxModelRuntime("halt-fresh");
+    faux.setResponses([fauxAssistantMessage("Eins."), fauxAssistantMessage("Zwei.")]);
+    const harness = journalHarness(selection);
+    let resolutions = 0;
+    const manager = new AgentRuntimeManager({
+        modelRuntime,
+        resolveHooks: () => {
+            resolutions++;
+            return [];
+        },
+    });
 
     try {
-        const { modelRuntime, selection } = await fauxModelRuntime(directory, "halt-fresh", 2);
-        const manager = new AgentRuntimeManager({
-            modelRuntime,
-            extensionFactories: [extension],
-        });
-        const request = { ...requestFor(), workspace: directory, selection };
+        await turnOf(harness, manager, "Erster.");
+        await manager.haltRun(harness.runId);
+        assert.equal(resolutions, 1);
+        await turnOf(harness, manager, "Zweiter.");
+        await manager.disposeRun(harness.runId);
 
-        await manager.runTurn(request, new AbortController().signal);
-        await manager.haltRun(request.runId);
-        assert.equal(apis.length, 1);
-        assert.throws(() => apis[0]!.getAllTools(), /stale/);
-        await manager.runTurn({ ...request, turnId: "turn-3" }, new AbortController().signal);
-        await manager.disposeRun(request.runId);
-
-        assert.equal(apis.length, 2);
-        assert.throws(() => apis[1]!.getAllTools(), /stale/);
-        await assert.rejects(
-            manager.runTurn({ ...request, turnId: "turn-4" }, new AbortController().signal),
-            /has been retired/,
-        );
+        assert.equal(resolutions, 2);
+        const request = harness.request("Dritter.");
+        await assert.rejects(manager.runTurn(request, new AbortController().signal), /has been retired/);
     } finally {
-        rmSync(directory, { recursive: true, force: true });
-    }
-});
-
-test("The agent session directory is created with the configured mode and never adopts a stray session file", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "ragents-agent-session-store-"));
-    const chatDirectory = join(directory, "chat", "agent-1");
-    const stray = join(directory, "chat", "agent-1", "stray.jsonl");
-    const faux = registerFauxProvider({ models: [{ id: "session-store", reasoning: false }] });
-    faux.setResponses([fauxAssistantMessage("Answer.")]);
-    let manager: AgentRuntimeManager | undefined;
-
-    try {
-        const modelRuntime = ModelRuntime.create();
-        const model = faux.getModel();
-        modelRuntime.registerProvider(model.provider, {
-            baseUrl: model.baseUrl,
-            apiKey: "faux-key",
-            api: faux.api,
-            models: faux.models.map((entry) => ({
-                id: entry.id,
-                name: entry.name,
-                api: entry.api,
-                reasoning: entry.reasoning,
-                input: entry.input,
-                cost: entry.cost,
-                contextWindow: entry.contextWindow,
-                maxTokens: entry.maxTokens,
-                baseUrl: entry.baseUrl,
-            })),
-        });
-        mkdirSync(chatDirectory, { recursive: true, mode: 0o755 });
-        writeFileSync(stray, "");
-        manager = new AgentRuntimeManager({
-            modelRuntime,
-            sessions: {
-                directory: (_runId, agentId) => join(directory, "chat", agentId),
-                directoryMode: 0o700,
-            },
-        });
-        const request = {
-            ...requestFor(),
-            workspace: directory,
-            selection: { provider: model.provider, model: model.id },
-        };
-
-        await manager.runTurn(request, new AbortController().signal);
-
-        assert.equal(statSync(chatDirectory).mode & 0o777, 0o700);
-        const marker = JSON.parse(readFileSync(join(chatDirectory, "active-session.json"), "utf8")) as { file: string };
-        assert.match(marker.file, /^ragents-.*\.jsonl$/);
-    } finally {
-        await manager?.shutdown();
-        rmSync(directory, { recursive: true, force: true });
-    }
-});
-
-test("forkableBranch keeps the source branch up to its last answered tool call and drops reasoning", () => {
-    const message = (id: string, parentId: string | null, message: unknown) => ({ type: "message", id, parentId, timestamp: "now", message });
-    const branch = [
-        message("u1", null, { role: "user", content: "Analysiere", timestamp: 1 }),
-        message("a1", "u1", { role: "assistant", content: [fauxThinking("privat"), fauxText("Ich lese."), fauxToolCall("bash", { command: "ls" }, { id: "call-1" })], stopReason: "toolUse", timestamp: 2 }),
-        message("t1", "a1", { role: "toolResult", toolCallId: "call-1", toolName: "bash", content: [fauxText("src")], isError: false, timestamp: 3 }),
-        message("a2", "t1", { role: "assistant", content: [fauxText("Start."), fauxToolCall("implementation_start", {}, { id: "call-2" })], stopReason: "toolUse", timestamp: 4 }),
-    ] as unknown as import("@ragents/agent").SessionEntry[];
-
-    const kept = forkableBranch(branch);
-
-    assert.deepEqual(kept.map((entry) => entry.id), ["u1", "a1", "t1"]);
-    const first = kept[1];
-    assert.ok(first?.type === "message" && first.message.role === "assistant");
-    assert.deepEqual(first.message.content.map((block) => block.type), ["text", "toolCall"]);
-});
-
-test("A forked agent starts its first turn with the source agent's context", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "ragents-agent-fork-"));
-    const faux = registerFauxProvider({ models: [{ id: "fork", reasoning: false }] });
-    const contexts: { messages: unknown[] }[] = [];
-    let manager: AgentRuntimeManager | undefined;
-
-    try {
-        const modelRuntime = ModelRuntime.create();
-        const model = faux.getModel();
-        modelRuntime.registerProvider(model.provider, {
-            baseUrl: model.baseUrl, apiKey: "faux-key", api: faux.api,
-            models: faux.models.map((entry) => ({ id: entry.id, name: entry.name, api: entry.api, reasoning: entry.reasoning, input: entry.input, cost: entry.cost, contextWindow: entry.contextWindow, maxTokens: entry.maxTokens, baseUrl: entry.baseUrl })),
-        });
-        const lookup = defineRunFunction({
-            name: "lookup", label: "lookup", description: "Nachschlagen.", nativeTool: true,
-            schema: Type.Object({}, { additionalProperties: false }), resultSchema: Type.String(),
-            available: () => true, run: () => "",
-        });
-        manager = new AgentRuntimeManager({
-            modelRuntime,
-            sessions: { directory: (_runId, agentId) => join(directory, "chat", agentId), directoryMode: 0o700 },
-        });
-        faux.setResponses([
-            () => fauxAssistantMessage([fauxThinking("nachsehen"), fauxToolCall("lookup", {}, { id: "look" })]),
-            () => fauxAssistantMessage("Analyse fertig."),
-            (context) => { contexts.push({ messages: structuredClone(context.messages) }); return fauxAssistantMessage("Ich setze um."); },
-        ]);
-        const base = { ...requestFor(), workspace: directory, selection: { provider: model.provider, model: model.id }, tools: [lookup], allowedToolNames: ["lookup"], invoke: async () => ({ output: "Recht TREND_DELETE_ARCHIVES ist auskommentiert", ignoredFields: [] }) };
-
-        await manager.runTurn({ ...base, agentId: "coordinator", prompt: "Analysiere den Auftrag." }, new AbortController().signal);
-        await manager.runTurn({ ...base, agentId: "implementer", forkOf: "coordinator", turnId: "turn-3", prompt: "Setze um.", systemPrompt: "Implementierer." }, new AbortController().signal);
-
-        const marker = JSON.parse(readFileSync(join(directory, "chat", "implementer", "active-session.json"), "utf8")) as { file: string };
-        const lines = readFileSync(join(directory, "chat", "implementer", marker.file), "utf8").trim().split("\n").map((line) => JSON.parse(line) as Record<string, unknown>);
-        assert.match(String(lines[0]!.parentSession), /chat\/coordinator\/ragents-.*\.jsonl$/);
-        const history = JSON.stringify(contexts[0]!.messages);
-        assert.match(history, /Analysiere den Auftrag/);
-        assert.match(history, /TREND_DELETE_ARCHIVES/);
-        assert.match(history, /Analyse fertig/);
-        assert.match(history, /Setze um/);
-        assert.doesNotMatch(history, /nachsehen/);
-    } finally {
-        await manager?.shutdown();
-        rmSync(directory, { recursive: true, force: true });
-    }
-});
-
-test("a stored session opens with its context in another runtime directory, as after a run move", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "ragents-moved-session-"));
-    const [before, after] = ["before", "after"].map((name) => join(directory, name));
-    mkdirSync(before!);
-    mkdirSync(after!);
-    const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, "moved-session", 0);
-    const seen: string[][] = [];
-    faux.setResponses([1, 2].map((index) => (context) => {
-        seen.push(context.messages.map((message) => message.role));
-        return fauxAssistantMessage(`Antwort ${index}.`);
-    }));
-    const store = { directory: (_runId: string, agentId: string) => join(directory, "chat", agentId), directoryMode: 0o700 };
-    const request = { ...requestFor(), workspace: directory, selection };
-    try {
-        const first = new AgentRuntimeManager({ modelRuntime, sessions: store });
-        try {
-            assert.equal((await first.runTurn({ ...request, runtimeDirectory: () => Promise.resolve(before!) }, new AbortController().signal)).failure, null);
-        } finally {
-            await first.shutdown();
-        }
-        const second = new AgentRuntimeManager({ modelRuntime, sessions: store });
-        try {
-            const result = await second.runTurn({ ...request, turnId: "turn-3", runtimeDirectory: () => Promise.resolve(after!) }, new AbortController().signal);
-            assert.equal(result.failure, null);
-        } finally {
-            await second.shutdown();
-        }
-        assert.deepEqual(seen, [["user"], ["user", "assistant", "user"]]);
-    } finally {
+        await manager.shutdown();
         faux.unregister();
-        rmSync(directory, { recursive: true, force: true });
     }
 });
 
-test("the runtime adds no path of its own to the system prompt and keeps its session in its own folder", async () => {
-    const directory = mkdtempSync(join(tmpdir(), "ragents-remote-workspace-"));
-    const runtimeDirectory = join(directory, "server");
-    mkdirSync(runtimeDirectory);
-    const workspace = join(directory, "only-on-the-workstation", "project");
-    const { faux, modelRuntime, selection } = await fauxModelRuntime(directory, "remote-workspace", 0);
+test("the runtime adds nothing of its own to the system prompt", async () => {
+    const { faux, modelRuntime, selection } = fauxModelRuntime("plain-prompt");
     const prompts: string[] = [];
-    faux.setResponses([1, 2].map(() => (context) => {
+    faux.setResponses([1, 2].map(() => (context: Context) => {
         prompts.push(context.systemPrompt ?? "");
         return fauxAssistantMessage("Erledigt.");
     }));
-    const store = { directory: (_runId: string, agentId: string) => join(directory, "chat", agentId), directoryMode: 0o700 };
-    const request = { ...requestFor(), workspace, selection, runtimeDirectory: () => Promise.resolve(runtimeDirectory) };
-    const first = new AgentRuntimeManager({ modelRuntime, sessions: store });
+    const harness = journalHarness(selection);
+    const manager = new AgentRuntimeManager({ modelRuntime });
     try {
-        assert.equal((await first.runTurn(request, new AbortController().signal)).failure, null);
-        await first.shutdown();
-        const second = new AgentRuntimeManager({ modelRuntime, sessions: store });
-        try {
-            assert.equal((await second.runTurn({ ...request, turnId: "turn-3" }, new AbortController().signal)).failure, null);
-        } finally {
-            await second.shutdown();
-        }
-        assert.equal(prompts.length, 2);
-        assert.ok(prompts.every((prompt) => prompt === request.systemPrompt));
-        const stored = JSON.parse(readFileSync(join(directory, "chat", "agent-1", "active-session.json"), "utf8")) as { file: string };
-        const header = JSON.parse(readFileSync(join(directory, "chat", "agent-1", stored.file), "utf8").split("\n")[0]!) as { cwd: string };
-        assert.equal(header.cwd, runtimeDirectory);
+        await turnOf(harness, manager, "Erster.", { workspace: "/only/on/the/workstation" });
+        await turnOf(harness, manager, "Zweiter.", { workspace: "/only/on/the/workstation" });
+        assert.deepEqual(prompts, ["System contract.", "System contract."]);
     } finally {
-        await first.shutdown();
+        await manager.shutdown();
+        faux.unregister();
+    }
+});
+
+test("after a restart of the host an agent continues with a byte-identical model context", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "ragents-restart-context-"));
+    const { faux, modelRuntime, selection } = fauxModelRuntime("restart-context", ["text", "image"]);
+    const requests: Context[] = [];
+    const record = (answer: () => ReturnType<typeof fauxAssistantMessage>) => (context: Context) => {
+        requests.push(JSON.parse(JSON.stringify(context)) as Context);
+        return answer();
+    };
+    faux.setResponses([
+        record(() => fauxAssistantMessage([fauxThinking("Plan."), fauxText("Ich sehe nach.\n"), fauxToolCall("lookup", { value: 1 }, { id: "look" })], { stopReason: "toolUse" })),
+        record(() => fauxAssistantMessage("  Gefunden.  ")),
+        record(() => fauxAssistantMessage("Nach dem Neustart.")),
+    ]);
+    const lookup = defineRunFunction({
+        name: "lookup", label: "lookup", description: "Nachschlagen.", nativeTool: true,
+        schema: Type.Object({ value: Type.Number() }, { additionalProperties: false }), resultSchema: Type.Unknown(),
+        available: () => true, run: () => null,
+    }) as RunFunction;
+
+    try {
+        const first = journalHarness(selection, directory);
+        const before = new AgentRuntimeManager({ modelRuntime });
+        await turnOf(first, before, "Erster Auftrag.", { tools: [lookup], invoke: async () => ({ found: ["a", null] }) });
+        await before.shutdown();
+        const contextBefore = JSON.stringify(modelContextOf(first.runtime.events(first.runId), first.agentId, (hash) => first.runtime.mediaContent(hash)));
+        first.journal.close();
+
+        let next = 0;
+        const services = { ...testServices(13), newId: (kind: string) => `${kind}-after-${++next}` };
+        const journal = new Journal(directory, services);
+        const runtime = new Orchestration(journal, services);
+        const second = harnessOver(selection, journal, runtime, first.runId, first.agentId, "after-");
+        const contextAfter = JSON.stringify(modelContextOf(runtime.events(first.runId), first.agentId, (hash) => runtime.mediaContent(hash)));
+        assert.equal(contextAfter, contextBefore, "die Projektion ist nach dem Neustart bytegleich");
+        assert.equal(JSON.stringify(runtime.modelContext(first.runId, first.agentId)), contextBefore, "der gehaltene Kontext entsteht nach dem Neustart einmal aus dem Journal");
+
+        const after = new AgentRuntimeManager({ modelRuntime });
+        try {
+            const { result } = await turnOf(second, after, "Nach dem Neustart.", { tools: [lookup] });
+            assert.equal(result.failure, null);
+        } finally {
+            await after.shutdown();
+            journal.close();
+        }
+
+        const withoutLast = (context: Context) => JSON.stringify(context.messages.slice(0, -1));
+        const expected = JSON.stringify(convertToLlm(JSON.parse(contextBefore).messages));
+        assert.equal(withoutLast(requests[2]!), expected, "der Präfix der ersten Anfrage nach dem Neustart ist bytegleich");
+        assert.equal(JSON.stringify(requests[2]!.messages.slice(0, requests[1]!.messages.length)), JSON.stringify(requests[1]!.messages));
+        assert.equal(requests[2]!.systemPrompt, requests[1]!.systemPrompt);
+        assert.equal(JSON.stringify(requests[2]!.tools), JSON.stringify(requests[1]!.tools));
+    } finally {
         faux.unregister();
         rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test("a crash in the middle of a stream leaves no half step: the turn ends as interrupted and the next one starts after the input", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "ragents-crash-context-"));
+    const snapshot = mkdtempSync(join(tmpdir(), "ragents-crash-snapshot-"));
+    const { faux, modelRuntime, selection } = fauxModelRuntime("crash-context", undefined, 500);
+    const streaming = deferred();
+    faux.setResponses([
+        fauxAssistantMessage("Eine lange Antwort, die niemand zu Ende sieht. ".repeat(20)),
+        (context: Context) => {
+            assert.deepEqual(context.messages.map((message) => message.role), ["user", "user"]);
+            return fauxAssistantMessage("Weiter.");
+        },
+    ]);
+    try {
+        const first = journalHarness(selection, directory);
+        const before = new AgentRuntimeManager({ modelRuntime });
+        const controller = new AbortController();
+        const running = before.runTurn(first.request("Erster.", {
+            publish: () => streaming.resolve(),
+        }), controller.signal);
+        await within(streaming.promise);
+        const { cpSync } = await import("node:fs");
+        cpSync(directory, snapshot, { recursive: true, filter: (source) => !source.includes(".writer.lock") });
+        controller.abort();
+        await running;
+        await before.shutdown();
+        first.journal.close();
+
+        let next = 0;
+        const services = { ...testServices(13), newId: (kind: string) => `${kind}-after-${++next}` };
+        const journal = new Journal(snapshot, services);
+        const runtime = new Orchestration(journal, services);
+        const view = runtime.view(first.runId);
+        assert.deepEqual(view.turns.map((turn) => turn.status), ["interrupted"]);
+        const types = runtime.events(first.runId).map((event) => event.type);
+        assert.ok(types.includes("model.input.presented"));
+        assert.equal(types.includes("model.step.completed"), false);
+        assert.equal(types.includes("model.output.completed"), false);
+
+        const second = harnessOver(selection, journal, runtime, first.runId, first.agentId, "after-");
+        const after = new AgentRuntimeManager({ modelRuntime });
+        try {
+            const { result } = await turnOf(second, after, "Zweiter.");
+            assert.equal(result.failure, null);
+        } finally {
+            await after.shutdown();
+            journal.close();
+        }
+    } finally {
+        faux.unregister();
+        rmSync(directory, { recursive: true, force: true });
+        rmSync(snapshot, { recursive: true, force: true });
     }
 });

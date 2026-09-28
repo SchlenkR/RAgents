@@ -1,14 +1,8 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import test from "node:test";
 import { fauxAssistantMessage, registerFauxProvider } from "../../ai/src/index.ts";
 import type { Context, ImageContent, UserAttachment } from "../../ai/src/types.ts";
-import { createAgentSession } from "../src/core/sdk.ts";
-import { SessionManager } from "../src/core/session-manager.ts";
-import { ModelRuntime } from "../src/core/model-runtime.ts";
-import { DefaultResourceLoader } from "../src/core/resource-loader.ts";
+import { Agent } from "../src/loop/agent.ts";
 import { generateSummary, estimateTokens } from "../src/core/compaction/compaction.ts";
 import { collectUserAttachments, serializeConversation } from "../src/core/compaction/utils.ts";
 import { convertToLlm } from "../src/core/messages.ts";
@@ -17,25 +11,10 @@ const image: ImageContent = { type: "image", data: "aW1hZ2U=", mimeType: "image/
 const video: UserAttachment = { type: "video", data: "dmlkZW8=", mimeType: "video/mp4" };
 const file: UserAttachment = { type: "file", data: "cGRm", mimeType: "application/pdf", filename: "Notizen.pdf" };
 
-test("prompt, steered input and a reopened session preserve native attachments", async () => {
-  const directory = mkdtempSync(join(tmpdir(), "ragents-native-media-"));
+test("prompt, steered input and a later prompt keep native attachments in the context", async () => {
   const faux = registerFauxProvider({ models: [{ id: "media", input: ["text", "image", "video", "file"] }], tokensPerSecond: 100000 });
-  const model = faux.getModel();
-  const startAttachments: (UserAttachment[] | undefined)[] = [];
-  const resourceLoader = new DefaultResourceLoader({
-    extensionFactories: [(api) => {
-      api.on("before_agent_start", (event) => { startAttachments.push(event.attachments); });
-    }],
-  });
-  let session: Awaited<ReturnType<typeof createAgentSession>>["session"] | undefined;
   try {
-    const modelRuntime = ModelRuntime.create();
-    modelRuntime.registerProvider(model.provider, { api: faux.api, apiKey: "faux-key", baseUrl: model.baseUrl, models: [model] });
-    await resourceLoader.reload();
-    const sessionManager = SessionManager.create(directory, join(directory, "sessions"));
-    ({ session } = await createAgentSession({ cwd: directory, modelRuntime, model,
-      settings: { compaction: { enabled: false } }, sessionManager, resourceLoader, tools: [] }));
-    await session.bindExtensions({});
+    const agent = new Agent({ initialState: { model: faux.getModel() }, getApiKey: () => "faux-key", convertToLlm });
     const contexts: Context[] = [];
     let started!: () => void;
     let release!: () => void;
@@ -49,29 +28,25 @@ test("prompt, steered input and a reopened session preserve native attachments",
     const steered = [{ role: "user" as const, content: [{ type: "text" as const, text: "Video" }, video], timestamp: Date.now() }];
     let released = false;
     let delivered = false;
-    session.agent.steeringSource = async () => {
+    agent.steeringSource = async () => {
       if (delivered || !released) return [];
       delivered = true;
       return steered;
     };
-    const first = session.prompt("Anhänge", { attachments: [image, file] });
+    const first = agent.prompt({ role: "user", content: [{ type: "text", text: "Anhänge" }, image, file], timestamp: Date.now() });
     await waiting;
     released = true;
     release();
     await first;
-    await session.prompt("Datei", { attachments: [file] });
+    await agent.prompt({ role: "user", content: [{ type: "text", text: "Datei" }, file], timestamp: Date.now() });
     assert.equal(contexts.length, 3);
-    assert.deepEqual(startAttachments, [[image, file], [file]]);
     assert.deepEqual(collectUserAttachments(contexts[0]!.messages), [image, file]);
     assert.deepEqual(collectUserAttachments(contexts[1]!.messages), [image, file, video]);
     assert.deepEqual(collectUserAttachments(contexts[2]!.messages), [image, file, video, file]);
     assert.equal(contexts[0]!.messages[0]?.role, "user");
     assert.match(serializeConversation(contexts[0]!.messages), /Anhänge/);
-    const restored = SessionManager.open(sessionManager.getSessionFile()!, join(directory, "sessions"));
-    assert.deepEqual(collectUserAttachments(convertToLlm(restored.buildSessionContext().messages)), [image, file, video, file]);
   } finally {
-    session?.dispose();
-    rmSync(directory, { recursive: true, force: true });
+    faux.unregister();
   }
 });
 

@@ -200,6 +200,98 @@ const usageOf = (value: unknown, path: string) => {
         fail(`${path}.costUsd`, "must not be negative");
 };
 
+const sha256Of = (value: unknown, path: string) => {
+    if (typeof value !== "string" || !/^[0-9a-f]{64}$/.test(value))
+        fail(path, "must be a lowercase SHA-256");
+};
+
+const modelTextPartOf = (value: unknown, path: string) => {
+    const part = exactObject(value, path, ["type", "text"]);
+    stringOf(part.text, `${path}.text`);
+};
+
+const modelInputPartOf = (value: unknown, path: string) => {
+    const candidate = objectOf(value, path);
+
+    if (candidate.type === "text")
+        return modelTextPartOf(value, path);
+
+    if (candidate.type !== "image" && candidate.type !== "video" && candidate.type !== "file")
+        fail(`${path}.type`, "must be text, image, video or file");
+
+    const part = exactObject(value, path, candidate.type === "file" ? ["type", "mimeType", "filename", "hash"] : ["type", "mimeType", "hash"]);
+    nonEmptyStringOf(part.mimeType, `${path}.mimeType`);
+    sha256Of(part.hash, `${path}.hash`);
+
+    if (candidate.type === "file")
+        stringOf(part.filename, `${path}.filename`);
+};
+
+const modelToolResultPartOf = (value: unknown, path: string) => {
+    const candidate = objectOf(value, path);
+
+    if (candidate.type === "text")
+        return modelTextPartOf(value, path);
+
+    if (candidate.type !== "image")
+        fail(`${path}.type`, "must be text or image");
+
+    const part = exactObject(value, path, ["type", "mimeType", "hash"]);
+    nonEmptyStringOf(part.mimeType, `${path}.mimeType`);
+    sha256Of(part.hash, `${path}.hash`);
+};
+
+const optionalStringOf = (payload: ObjectValue, key: string, path: string) => {
+    if (Object.hasOwn(payload, key))
+        stringOf(payload[key], `${path}.${key}`);
+};
+
+const modelStepBlockOf = (value: unknown, path: string) => {
+    const candidate = objectOf(value, path);
+
+    if (candidate.type === "text") {
+        const block = exactObject(value, path, ["type"], ["text", "textSignature"]);
+        optionalStringOf(block, "text", path);
+        optionalStringOf(block, "textSignature", path);
+        return;
+    }
+
+    if (candidate.type === "thinking") {
+        const block = exactObject(value, path, ["type"], ["thinking", "thinkingSignature", "redacted"]);
+        optionalStringOf(block, "thinking", path);
+        optionalStringOf(block, "thinkingSignature", path);
+
+        if (Object.hasOwn(block, "redacted"))
+            booleanOf(block.redacted, `${path}.redacted`);
+
+        return;
+    }
+
+    if (candidate.type !== "toolCall")
+        fail(`${path}.type`, "must be text, thinking or toolCall");
+
+    const block = exactObject(value, path, ["type", "id", "name", "arguments"], ["thoughtSignature"]);
+    nonEmptyStringOf(block.id, `${path}.id`);
+    stringOf(block.name, `${path}.name`);
+    objectOf(block.arguments, `${path}.arguments`);
+    assertJsonValue(block.arguments, `${path}.arguments`);
+    optionalStringOf(block, "thoughtSignature", path);
+};
+
+const modelStepUsageOf = (value: unknown, path: string) => {
+    const usage = exactObject(value, path, ["input", "output", "cacheRead", "cacheWrite", "totalTokens", "cost"], ["cacheWrite1h", "reasoning"]);
+
+    for (const key of ["input", "output", "cacheRead", "cacheWrite", "totalTokens", "cacheWrite1h", "reasoning"]) {
+        if (Object.hasOwn(usage, key))
+            finiteNumberOf(usage[key], `${path}.${key}`);
+    }
+
+    const cost = exactObject(usage.cost, `${path}.cost`, ["input", "output", "cacheRead", "cacheWrite", "total"]);
+
+    for (const key of Object.keys(cost))
+        finiteNumberOf(cost[key], `${path}.cost.${key}`);
+};
+
 const pluginScopeOf = (value: unknown, path: string) => {
     const candidate = objectOf(value, path);
 
@@ -388,6 +480,80 @@ const payloadOf = (type: EventType, value: unknown, path: string) => {
             const payload = exactObject(value, path, ["turnId", "reason"]);
             stringOf(payload.turnId, `${path}.turnId`);
             stringOf(payload.reason, `${path}.reason`);
+            return;
+        }
+
+        case "model.input.presented": {
+            const payload = exactObject(value, path, ["turnId", "inputId", "content"]);
+            stringOf(payload.turnId, `${path}.turnId`);
+            nullableStringOf(payload.inputId, `${path}.inputId`);
+
+            if (typeof payload.content !== "string")
+                arrayOf(payload.content, `${path}.content`, modelInputPartOf);
+
+            return;
+        }
+
+        case "model.step.completed": {
+            const payload = exactObject(
+                value,
+                path,
+                ["turnId", "api", "provider", "model", "usage", "stopReason", "timestamp", "content"],
+                ["responseModel", "responseId", "errorMessage", "diagnostics"],
+            );
+            stringOf(payload.turnId, `${path}.turnId`);
+            nonEmptyStringOf(payload.api, `${path}.api`);
+            nonEmptyStringOf(payload.provider, `${path}.provider`);
+            nonEmptyStringOf(payload.model, `${path}.model`);
+            optionalStringOf(payload, "responseModel", path);
+            optionalStringOf(payload, "responseId", path);
+            optionalStringOf(payload, "errorMessage", path);
+            modelStepUsageOf(payload.usage, `${path}.usage`);
+
+            if (!["stop", "length", "toolUse", "error"].includes(payload.stopReason as string))
+                fail(`${path}.stopReason`, "must be stop, length, toolUse or error");
+
+            finiteNumberOf(payload.timestamp, `${path}.timestamp`);
+            arrayOf(payload.content, `${path}.content`, modelStepBlockOf);
+
+            if (Object.hasOwn(payload, "diagnostics"))
+                arrayOf(payload.diagnostics, `${path}.diagnostics`, assertJsonValue);
+
+            return;
+        }
+
+        case "model.tool-result.presented": {
+            const payload = exactObject(value, path, ["turnId", "toolCallId", "toolName", "isError"], ["content"]);
+            stringOf(payload.turnId, `${path}.turnId`);
+            nonEmptyStringOf(payload.toolCallId, `${path}.toolCallId`);
+            stringOf(payload.toolName, `${path}.toolName`);
+            booleanOf(payload.isError, `${path}.isError`);
+
+            if (Object.hasOwn(payload, "content"))
+                arrayOf(payload.content, `${path}.content`, modelToolResultPartOf);
+
+            return;
+        }
+
+        case "context.compacted": {
+            const payload = exactObject(value, path, [
+                "turnId",
+                "summary",
+                "firstKeptEventId",
+                "tokensBefore",
+                "provider",
+                "model",
+                "readFiles",
+                "modifiedFiles",
+            ]);
+            stringOf(payload.turnId, `${path}.turnId`);
+            nonEmptyStringOf(payload.summary, `${path}.summary`);
+            nonEmptyStringOf(payload.firstKeptEventId, `${path}.firstKeptEventId`);
+            nonNegativeIntegerOf(payload.tokensBefore, `${path}.tokensBefore`);
+            nonEmptyStringOf(payload.provider, `${path}.provider`);
+            nonEmptyStringOf(payload.model, `${path}.model`);
+            stringArrayOf(payload.readFiles, `${path}.readFiles`);
+            stringArrayOf(payload.modifiedFiles, `${path}.modifiedFiles`);
             return;
         }
 

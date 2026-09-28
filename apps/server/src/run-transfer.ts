@@ -1,8 +1,9 @@
-import { existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { existsSync, readlinkSync, Stats } from "node:fs";
 import { chmod, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { create as createTar, extract as extractTar } from "tar";
-import { DomainError, isPendingActorInput, isRunId, type CommandRecord, type RunState } from "@ragents/engine";
+import { create as createTar, extract as extractTar, type ReadEntry } from "tar";
+import { DomainError, isPendingActorInput, isRunId, type CommandRecord, type JournalEvent, type RunState } from "@ragents/engine";
 import { parseJournalRecord } from "@ragents/engine/src/runtime/journal-storage";
 
 export const RUN_TRANSFER_FORMAT_VERSION = 1;
@@ -100,16 +101,36 @@ export const assertRunIdFree = (options: { runId: string; known: boolean; direct
   }
 };
 
+/** Die Inhalte unter artifacts/, auf die der Run verweist: veröffentlichte Artefakte und Medien seiner Modellkontexte. */
+export const contentHashesOf = (events: readonly JournalEvent[]): string[] => [...new Set(events.flatMap((event) => {
+  if (event.type === "artifact.published") return [event.payload.artifact.hash];
+  const content = event.type === "model.input.presented" || event.type === "model.tool-result.presented" ? event.payload.content : undefined;
+  return Array.isArray(content) ? content.flatMap((part) => "hash" in part ? [part.hash] : []) : [];
+}))].sort();
+
+const sha256 = /^[0-9a-f]{64}$/;
+
 // Halbfertige Journal- und Payload-Schreibvorgänge gehören nie ins Archiv.
 const temporary = (entry: string): boolean => {
   const name = path.basename(entry);
   return name.startsWith(".journal.") || name.startsWith(".payload.");
 };
 
+/** A link travels only inside the run's tree; one out of it below node_modules is left for the next install, elsewhere refused. */
+const linkDecision = (dataDirectory: string, entry: string): "keep" | "skip" | "refuse" => {
+  const file = path.join(dataDirectory, entry);
+  const target = readlinkSync(file);
+  const root = path.join(dataDirectory, ...entry.split("/").slice(0, 2));
+  const resolved = path.resolve(path.dirname(file), target);
+  if (!path.isAbsolute(target) && (resolved === root || resolved.startsWith(`${root}${path.sep}`))) return "keep";
+  return entry.split("/").includes("node_modules") ? "skip" : "refuse";
+};
+
 export const packRunArchive = async (options: {
   places: RunTransferPlaces;
   runId: string;
   manifest: RunTransferManifest;
+  contentHashes: readonly string[];
 }): Promise<Buffer> => {
   const runId = assertRunId(options.runId);
   const { dataDirectory } = options.places;
@@ -123,14 +144,35 @@ export const packRunArchive = async (options: {
     RUN_TRANSFER_MANIFEST_ENTRY,
     `runs/${runId}`,
     ...(existsSync(runTransferSessionDirectory(dataDirectory, runId)) ? [`sessions/${runId}`] : []),
+    ...options.contentHashes.map((hash) => {
+      if (!sha256.test(hash) || !existsSync(path.join(dataDirectory, "artifacts", hash))) {
+        throw new DomainError("run-transfer-missing", `The content ${hash} of run ${runId} is missing under artifacts`, 404);
+      }
+      return `artifacts/${hash}`;
+    }),
   ];
   const chunks: Buffer[] = [];
+  const refused: string[] = [];
+  const portable = (entry: string, stat: Stats | ReadEntry): boolean => {
+    if (temporary(entry)) return false;
+    if (!(stat instanceof Stats) || !stat.isSymbolicLink()) return true;
+    const decision = linkDecision(dataDirectory, entry);
+    if (decision === "refuse") refused.push(entry);
+    return decision === "keep";
+  };
   try {
-    for await (const chunk of createTar({ gzip: true, cwd: dataDirectory, portable: true, filter: (entry) => !temporary(entry) }, entries)) {
+    for await (const chunk of createTar({ gzip: true, cwd: dataDirectory, portable: true, filter: portable }, entries)) {
       chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
     }
   } finally {
     await rm(manifestFile, { force: true });
+  }
+  if (refused.length > 0) {
+    throw new DomainError(
+      "run-transfer-link",
+      `Run ${runId} contains links that would point nowhere on the target: ${refused.join(", ")}. Replace them with files or relative links inside the run.`,
+      409,
+    );
   }
   const archive = Buffer.concat(chunks);
   if (archive.byteLength > RUN_TRANSFER_MAX_ARCHIVE_BYTES) {
@@ -234,6 +276,14 @@ export const unpackRunArchive = async (options: {
   if (existsSync(path.join(staging, "sessions"))) {
     await onlyEntry(path.join(staging, "sessions"), manifest.runId, "Der Ordner sessions des Archivs");
   }
+  if (existsSync(path.join(staging, "artifacts"))) {
+    for (const name of await readdir(path.join(staging, "artifacts"))) {
+      const content = sha256.test(name) ? await readFile(path.join(staging, "artifacts", name)) : undefined;
+      if (!content || createHash("sha256").update(content).digest("hex") !== name) {
+        throw new DomainError("run-transfer-invalid", `The archive content artifacts/${name} does not match its name`, 400);
+      }
+    }
+  }
   const lines = (await readFile(journalFile, "utf8")).split("\n").filter((line) => line.trim().length > 0);
   const records = lines.map((line, index) => parseJournalRecord(line, runDirectory, `${journalFile}:${index + 1}`));
   if (records.length === 0) throw new DomainError("run-transfer-invalid", `Das Journal des Runs ${manifest.runId} im Archiv ist leer`, 400);
@@ -244,6 +294,17 @@ export const unpackRunArchive = async (options: {
     throw new DomainError("run-transfer-invalid", `Das Manifest nennt ${manifest.events} Ereignisse, das Journal im Archiv hat ${events}`, 400);
   }
   return { manifest, staging, records };
+};
+
+/** Legt die Inhalte des Archivs unter artifacts/ des Ziels ab; vorhandene sind wegen ihres Hash-Namens dieselben. */
+export const installContents = async (options: { places: RunTransferPlaces; staging: string }): Promise<void> => {
+  const source = path.join(options.staging, "artifacts");
+  if (!existsSync(source)) return;
+  const target = path.join(options.places.dataDirectory, "artifacts");
+  await mkdir(target, { recursive: true });
+  for (const name of await readdir(source)) {
+    if (!existsSync(path.join(target, name))) await rename(path.join(source, name), path.join(target, name));
+  }
 };
 
 /** Legt die Session-Ablage des Archivs an ihrem Platz im Ziel ab; das Journal übernimmt danach die Records. */

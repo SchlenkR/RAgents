@@ -1,5 +1,210 @@
 # Entscheidungen
 
+## Modellkontext als Projektion des Journals, die Sitzungsschicht fällt weg (27.09.2026)
+
+Kapitel: `docs/spec/core.md` (Laufzeitgrenze, Model context across turns, Modellkontext und
+Agentenlaufzeit mit Projektion, Gehaltener Kontext und Cachemarken, Equipping subagents, Artefakte,
+Journal and projection, Dateiformat, Run-Umzug, Offene Grenzen), `docs/spec/overview.md` (Begriffe,
+Architektur, Verantwortungen, Leitsatz), `docs/spec/plugins.md` (Agent-Hooks, Gesehener Dateistand,
+Vorbereitungschat, Arbeitsplatz, Run-Metadaten), `docs/operations.md` (Datenablage, Transfer a run,
+Kompaktierung), `docs/usage.md` (Runs wechseln, Run panel), `docs/development.md` (Ordner),
+`packages/agent/README.md`. Zieht den offenen Punkt aus "Agentenlaufzeit eingeschmolzen"
+(24.09.2026): die Engine sitzt direkt auf der Schleife; Session, Session-Runtime und Dienste sind weg.
+
+**Warum so.** Der Modellkontext eines Agenten stand in einer privaten Sitzungsdatei der gegabelten
+Laufzeit (`sessions/<run>/chat/<agent>/ragents-<uuid>.jsonl` mit `active-session.json`), neben dem
+Journal und nicht atomar mit ihm. Fork kopierte Dateien, ein Run-Umzug trug zwei Ablagen, ein
+Absturz konnte beide auseinanderlaufen lassen, und die Kompaktierung war nur in der Sitzung
+sichtbar. Jetzt ist das Journal verlustfrei für alles, was das Modell sieht, und der Kontext ist
+eine reine, deterministische Projektion daraus. Die Projektion rendert nie neu, sie liest
+gespeicherte Formen; dadurch bleibt der Präfix einer Anfrage über Turns und Neustarts hinweg
+bytegleich, was der Prompt-Cache der Anbieter braucht.
+
+**Schema (Journal-Dateiformat 7).** Vier neue Events, alle vom Actor des laufenden Turns:
+
+- `model.input.presented` (`turnId`, `inputId` oder `null`, `content`): die Nutzer-Nachricht genau so,
+  wie sie ans Modell ging, beim Turn-Start und beim Steering an ihrer Stelle zwischen den Schritten;
+  `null` ist der Nachstoß der Schleife nach einer leeren Antwort. Der Text ist gerendert (Kopfzeilen
+  zugestellter Events, eingebettete Textanhänge); Bilder, Videos und PDFs stehen als SHA-256 ihrer
+  Bytes in `artifacts/` (`{ type, mimeType, hash }`, bei Dateien mit `filename`), nie als Base64.
+- `model.step.completed` (`turnId`, `api`, `provider`, `model`, `responseModel`, `responseId`,
+  `usage`, `stopReason`, `errorMessage`, `diagnostics`, `timestamp`, `content`): die vollständige
+  Assistant-Nachricht eines Modellschritts mit Text-, Thinking- (Signaturen, `redacted`) und
+  Werkzeugaufruf-Blöcken (`thoughtSignature`). Er steht in EINEM Command zusammen mit den
+  Beobachtungs-Events `model.reasoning.completed` und `model.output.completed`, die davor den Text
+  der nichtleeren Blöcke tragen, ungekürzt und in Blockreihenfolge; ein Block ohne eigenes Textfeld
+  nimmt den nächsten dieser Texte. So gibt es keine doppelte Datenhaltung und keinen Schritt ohne
+  seine Texte. Ein Schritt mit `stopReason` `error` wird geschrieben (Überlauf- und
+  Wiederholungsentscheidung nach einem Neustart), ein abgebrochener nie.
+- `model.tool-result.presented` (`turnId`, `toolCallId`, `toolName`, `isError`, `content`): was das
+  Modell von einem Werkzeugaufruf sah, nach dem Ersatz durch `afterToolCall`, Bilder als Hash.
+  `content` fehlt, wenn es genau der Text des `tool.call.completed` beziehungsweise
+  `tool.call.failed` desselben Aufrufs ist (`domain/tool-result-text.ts`); nur ein Hinweis auf
+  ignorierte Felder, `recordOutput` oder ein Hook machen es nötig.
+- `context.compacted` (`turnId`, `summary`, `firstKeptEventId`, `tokensBefore`, `provider`, `model`,
+  `readFiles`, `modifiedFiles`): eine Kompaktierung; alles vor dem ersten behaltenen Kontext-Event
+  ersetzt die Zusammenfassung.
+
+Die Projektion (`agents/model-context.ts`, `modelContextOf(events, actorId, media)`) liest die
+Events des Actors in Journalreihenfolge, stellt einem Fork eine unveränderte Kopie des Kontexts
+seiner Quelle bis zum Ende ihres letzten beendeten Turns vor dem `agent.spawned` voran und wendet die
+letzte Kompaktierung an (`packages/agent/src/core/context-log.ts`). Die Regeln für unvollständige
+Werkzeugaufrufe, fehlerhafte und abgebrochene Schritte und das Reasoning-Replay bleiben in
+`transform-messages`. Ein Modellschritt ist erst Kontext, wenn sein Event geschrieben ist; die
+Schleife bekommt vor JEDER Modellanfrage die Projektion (`transformContext`), nicht ihren eigenen
+Speicher. Die Kennung des Modellkontexts für den gesehenen Dateistand ist `run.created` plus letzte
+Kompaktierung. Der Zustand der Hooks (`call.keep`/`call.kept`) steht als `plugin.state-replaced` mit
+Actor-Scope unter der Kennung des Beitrags im Journal.
+
+**Abweichungen von der Vorgabe.** Kein eigenes Event für Modell- und Denktiefenwechsel: jeder Schritt
+trägt `api`, `provider` und `model`, danach entscheidet `transform-messages` über das
+Reasoning-Replay; die Denktiefe ist kein Kontext. `model.output.completed` und
+`model.reasoning.completed` bleiben echte Journal-Events statt Ableitungen, weil sie der
+beobachtbare Vertrag sind (Abonnements, Zustellung mit `sourceEventIds`, `event_query`, Run-Scripts,
+Chat, Transkript); stattdessen trägt der Schritt ihren Text nicht noch einmal. Dafür sind sie
+ungekürzt: der Text muss für Signaturen und den Cache byteexakt bleiben. `model.output.interrupted`
+bleibt die Anzeige eines abgebrochenen Stroms und ist kein Kontext.
+
+**Laufzeit.** `@ragents/agent` verliert `agent-session`, `agent-session-runtime`,
+`agent-session-services`, `sdk`, `session-manager`, `resource-loader`, `system-prompt`, das
+Erweiterungssystem (`core/extensions/`) und `source-info`, `auth-guidance`, `defaults`. Es bleiben
+Schleife, Modelllaufzeit, Werkzeuge, Skills, Kompaktierung (jetzt über `ContextLogEntry` statt
+Sitzungseinträgen) und `ToolDefinition` (`core/tool-definition.ts`). Die Engine setzt je Turn eine
+`AgentTurn` (`drivers/agent-turn.ts`) direkt auf `Agent`: Werkzeuge, Systemprompt plus Skillkatalog
+und vorgeladene Skills, Hooks als direkte Aufrufe (`AgentHook`, `drivers/agent-hooks.ts`),
+Wiederholung mit Backoff, Kompaktierung an der Schwelle und nach einem Überlauf samt einmaliger
+Wiederholung, geteilte Turns und inkrementelle Zusammenfassung wie bisher. Ob eine Antwort vor der
+letzten Kompaktierung liegt, entscheidet ihre Stelle im Journal statt eines Zeitvergleichs.
+`AgentSessionDriver` heißt `AgentLoopDriver`, `resolveExtensionFactories` heißt `resolveHooks`,
+`TurnRequest` verliert `forkOf` und `runtimeDirectory` (mit `Workspaces.runtimeDirectory`) und
+bekommt `modelContext`, `recordContext` und `hookState`. Ein leerer Systemprompt bleibt leer; der
+alte Ersatzprompt der Laufzeit mit Arbeitsverzeichnis entfällt. Der Vorbereitungschat läuft direkt
+auf `Agent`. Kompaktierung ist von außen einstellbar: `AGENT_COMPACTION_RESERVE_TOKENS` und
+`AGENT_COMPACTION_KEEP_RECENT_TOKENS` in Umgebung oder Profil (`host`).
+
+**Fork heißt kopieren.** Bisher bekam ein Fork den Kontext der Quelle bis zum Spawn, gekürzt vor den
+ersten Werkzeugaufruf ohne Ergebnis und ohne Reasoning-Blöcke. Weil die Quelle beim Spawn meist
+selbst mitten in einem Turn steht (sie ruft gerade `agent_spawn`), kam so ein halber Turn mit der
+eigenen Eingabe, aber ohne Abschluss in den Fork. Jetzt endet die Kopie am Ende des letzten
+beendeten Turns der Quelle; aus dem laufenden kommt nichts, eingefügt wird nichts. Reasoning bleibt
+drin: für das Entfernen gab es keinen dokumentierten Grund, und ob es beim Modell des Forks
+wiedergegeben wird, entscheidet `transform-messages` wie bei jedem Schritt. Ohne beendeten Turn der
+Quelle lehnt `agent_spawn` mit `fork-without-turn` (409) ab, statt erst im ersten Turn des Forks zu
+scheitern. Verworfen: den laufenden Turn bis zum Spawn mitzunehmen und mit einem erklärenden Text
+abzuschließen (eingefügter Text wäre kein Kontext, den die Quelle je hatte).
+
+**Cachemarken in der Werkzeugschleife.** Die letzte der drei Anthropic-Cachemarken (Systemprompt,
+letztes Werkzeug, letzte Nachricht) stand an der letzten Textnachricht der Anfrage und blieb damit
+in einer Werkzeugschleife hinter den neuen Werkzeugergebnissen zurück. Jetzt sitzt sie an der
+wirklich letzten Nachricht (`markCacheBoundary`, `packages/ai/src/api/ai-sdk-messages.ts`), und zwar
+an ihrem letzten Teil: am letzten Werkzeugergebnis beziehungsweise am letzten Teil einer
+Nutzer-Nachricht, nur bei einer Assistant-Nachricht an der Nachricht selbst. Eine Marke an der
+Tool-Nachricht wäre falsch: das AI SDK fasst aufeinanderfolgende Tool-Nachrichten zusammen, und der
+OpenRouter-Provider überträgt eine Nachrichten-Marke auf jedes Werkzeugergebnis. Ab drei parallelen
+Werkzeugaufrufen standen so mehr als vier Marken in der Anfrage, und Anthropic wies jeden solchen
+Turn mit 400 ab ("A maximum of 4 blocks with cache_control may be provided"). Der Adapter zählt die
+Marken jetzt im fertigen Anfragekörper und bricht mit mehr als vier vor dem Senden ab; der Test
+zählt sie bei 1, 2, 3 und 8 parallelen Aufrufen im Körper, den der Provider erzeugt (immer drei).
+Gemessen über OpenRouter mit Claude Haiku 4.5 und acht aufeinanderfolgenden Werkzeugaufrufen in
+einem Turn, cacheRead je Schritt: 0 (cacheWrite 13651), 13651, 15931, 17952, 19973, 21994, 24015,
+26036, 28057, ungecachter Input je Schritt 6 Token. Mit der alten Stelle blieb cacheRead bei 23397
+stehen, während der ungecachte Input von 2838 auf 12750 wuchs. Über Turns: nach einem Neustart
+13219 gelesen und 16789 geschrieben (Anthropic lässt beim neuen Nutzer-Turn das Thinking früherer
+Turns weg, der Präfix ändert sich einmal), danach ohne Neustart 30008/63 und nach einem weiteren
+Neustart 30071/61; der Präfix bleibt also über Neustarts bytegleich. Nach der Korrektur mit vier und
+drei parallelen Lesezugriffen: kein 400, cacheRead je Schritt 7032 (cacheWrite 6635), 13667, 14346,
+14441, 14535; im nächsten Turn 13667 und 14503. Verworfen: `cache_control` oben im Anfragekörper
+(keine Wirkung, cacheRead blieb flach).
+
+**Keine Wiederholung abgewiesener Anfragen.** Das Muster für OpenRouters "Provider returned error"
+machte auch deterministische 400 wiederholbar; ein Turn schrieb so viermal denselben Fehlerschritt.
+`isRetryableAssistantError` (`packages/ai/src/utils/retry.ts`) wiederholt 4xx außer 408, 409 und 429
+nicht mehr, ebenso Anthropics `invalid_request_error`; der Status steht vorn in der Fehlermeldung
+("400: ...", "Relay ... (400): ...") oder als `"code": 400` im Körper des Anbieters.
+
+**Gehaltener Kontext.** Vor jeder Modellanfrage das ganze Journal zu projizieren und die Medien neu
+zu lesen, wächst mit dem Run. `ModelContexts` (`model-context.ts`, `Orchestration.modelContext`)
+hält den Kontext je Run und Actor und hängt nur die neuen Events an (`Journal.eventsSince`); nach
+einem Neustart wird er einmal gebaut, bei einem anderen ersten Event des Runs neu. Löschen und
+Gesprächsreset verwerfen ihn (`Orchestration.forgetRun`), ein gesperrter Run liefert keinen. Die
+Projektion bleibt die einzige Quelle: die Golden-Fälle vergleichen gehaltenen und vollständig
+projizierten Kontext bytegleich. Verworfen: ein gemeinsamer Medienpuffer über Actors und Runs hinweg
+(er bliebe nach dem Löschen eines Runs hängen); die Medien liegen stattdessen einmal je Actor im
+gehaltenen Kontext.
+
+**Umzug und Verweise.** Der Export scheiterte an absoluten Verweisen, wie sie Paketmanager unter
+`node_modules` anlegen. Jetzt nimmt er relative Verweise innerhalb der Run-Ablage mit, lässt
+hinausführende unter `node_modules` weg (die nächste Installation legt sie neu an) und bricht bei
+jedem anderen hinausführenden Verweis mit `run-transfer-link` ab.
+
+**Gesperrte Runs bleiben sichtbar.** Ein Run mit abgewiesenem Journal, etwa aus Format 4 bis 6,
+verschwand aus der Liste und ließ sich deshalb nicht löschen. Jetzt steht er in
+`ragents.runs.list` mit der Ursache unter `locked` (`Journal.unavailableRuns`, auch nach einem
+Schreibfehler); Web und VS Code zeigen ihn gesperrt, öffnen ihn nicht und bieten das Löschen an, das
+die Dateien unverändert archiviert. Ohne lesbares Journal kennt niemand den Eigentümer; der Run gilt
+deshalb als Run ohne Eigentümer (mit Anmeldung nur mit `runs.read.all` sichtbar und löschbar).
+
+**Kleinere Folgen.** Unterbricht der Eigentümer eines Chats dessen Turn, meldete der Chat das Ende
+zweimal; jetzt meldet nur der Turn des Hauptactors sein Ende. Das CLI-Journal (`pnpm driver
+journal`) zeigt Eingaben wieder mit ihrem Inhalt, Abonnement-Eingaben als Verweis auf ihr Ereignis
+und Kompaktierungen als eigene Zeile.
+
+**Nach dem Review.** Eine Wiederholung und die Fortsetzung nach einer Kompaktierung schneiden jetzt
+alle Fehlerschritte am Ende ab; nach zwei Fehlerschritten und einem Überlauf endete der Turn sonst an
+"Cannot continue from message role: assistant". Jeder Werkzeugaufruf des Modells steht im Journal:
+scheitert er vor dem Start (Werkzeug fehlt, Auffrischung scheitert, Eingabe passt nicht), schreibt
+`TurnToolset.invoke` Start und Fehler nach, statt den Turn an der fehlenden Präsentation scheitern zu
+lassen. Eine vom Modell wiederverwendete Aufrufkennung bekommt vor der Ausführung eine Endung (`-2`),
+weil das Journal Aufrufe je Turn über ihre Kennung führt; verworfen wurde, die Wiederholung als
+Fehlerergebnis zu melden (Anthropic verlangt ohnehin eindeutige Kennungen, und ein Modell ohne diese
+Pflicht wäre an einer Formalie gescheitert). Die Ersatznachricht der Agentenschleife bei einem
+Fehler außerhalb eines Modellaufrufs (`isRunFailure`) geht nicht mehr als `model.step.completed` ins
+Journal. `fork-without-turn` prüft dieselbe Bedingung wie die Projektion: ein beendeter Turn, der dem
+Modell eine Eingabe vorgelegt hat (neu `RunState.contextTurns`, nicht in der Run-Ansicht), oder eine
+Quelle, die selbst ein Fork ist. Der gehaltene Kontext gilt nur während eines Turns und wird am
+Turn-Ende freigegeben; verworfen wurde, nur Hashes zu halten und die Medien je Anfrage aufzulösen, weil
+dann auch der fertige Kontext je Anfrage neu entstünde. `presentToolResult` und die Wiederholprüfung
+der Werkzeuge lesen das Journal rückwärts bis zum Turn-Anfang statt es je Aufruf zu kopieren
+(`Journal.recentEvents`), die Hooks lesen ihren Zustand über `Journal.select` statt über einen Klon
+des ganzen Zustands. Hook-Notizen tragen `transient`, die Cachemarke steht davor. Ein Abbruch während
+Wiederholungswartezeit oder Kompaktierung meldet keine gescheiterte Verdichtung mehr. Die
+Wiederholungsprüfung erkennt den Status auch in `"status": 400` und "HTTP 400". Beim Löschen eines
+Runs mit altem Journal wandert `sessions/<id>/chat` mit ins Archiv. Entfernt sind die Treiberereignisse
+`assistant` und `reasoning` samt `appendModelOutput` und `appendModelReasoning` (Tests schreiben
+Modellschritte), `ToolDefinition.promptSnippet` und `promptGuidelines`, der nie übergebene
+`ToolExecutionContext` und verwaiste Exporte von `@ragents/agent`.
+
+**Streaming.** Unverändert: Text-, Thinking- und Werkzeug-Deltas gehen flüchtig über den
+Live-Bus an Web, VS Code und CLI, das Journal bekommt je Schritt einmal den Command am Schrittende.
+Ein Client, der mitten im Schritt verbindet, bekommt wie bisher den Puffer der Chat-Sitzung des
+Servers. Ein Abbruch schreibt den sichtbaren Text als `model.output.interrupted`, der abgebrochene
+Schritt geht nicht in den Kontext; ein Absturz hinterlässt keinen halben Schritt, der Turn endet beim
+Neustart als unterbrochen.
+
+**Rückbau.** Der Ordner `sessions/<run>/chat/` und `active-session.json` entfallen samt Anlegen,
+Archivieren und `layout.chatDir`/`agentChatDir`. Der Run-Umzug trägt statt der Sitzungen die
+Inhalte unter `artifacts/`, auf die der Run verweist (`contentHashesOf`); damit ziehen auch
+Chat-Anhänge mit. Ein Run-Fork (`forkRun`) erbt die Modellkontexte seiner Agenten jetzt mit dem
+Journal. Journale der Formate 4 bis 6 tragen keinen Modellkontext und werden mit dieser Ursache
+abgewiesen; wie jedes ungültige Journal sperren sie nur ihren Run.
+
+**Geprüft.** Vor dem Rückbau lief ein Äquivalenztest mit dem Faux-Anbieter gegen die alte Sitzung
+(Werkzeugaufrufe, mehrere Schritte, Steering, Nachstoß, abgelehnte Aufrufe, Anbieterfehler mit
+Wiederholung, Abbruch mitten im Strom, Anhänge, Bildersatz durch einen Hook, Kompaktierung an der
+Schwelle und nach Überlauf, Fork); Projektion und Sitzungskontext waren gleich, auch nach
+`convertToLlm`. Seine Kontexte sind jetzt die erwarteten Werte in
+`packages/ragents/tests/fixtures/model-context-golden.json`, mit Ausnahme der Fälle `fork/*`: die
+stammen aus der neuen Fork-Semantik (Kopie bis zum letzten beendeten Turn, mit Reasoning), die alte
+Sitzung kürzte anders. Dazu kommen Tests für Neustart
+(bytegleicher Präfix der ersten Anfrage danach), Absturz mitten im Strom, Streaming ohne
+Schritt-Events vor dem Schrittende und den Hook-Zustand.
+
+Verworfen: Ausgaben- und Reasoning-Events nur noch in der Projektion abzuleiten (Abonnements,
+Zustellung und `event_query` bräuchten virtuelle Events mit eigenen Kennungen und Sequenzen);
+jeden Schritt vollständig zu speichern und die Beobachtungs-Events daneben (doppelter Text);
+Medien als Base64 im Journal; die Projektion nur bei Turn-Beginn zu lesen (dann wäre ein nicht
+geschriebener Schritt trotzdem Kontext).
+
 ## Chat-Bausteine aus der Bibliothek quassel (27.09.2026)
 
 Kapitel: `docs/spec/plugins.md` (Host-API, Tailwind und Stylesheet, Chat-Bausteine),

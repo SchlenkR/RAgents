@@ -287,9 +287,10 @@ RAGENTS_TOKEN=<token> pnpm run-transfer <source> <target> <runId> --workspace /p
 
 The script exports the run from the source with `ragents.runs.export` and imports it on the target
 with `ragents.runs.import`. If each side uses a different token, set `RAGENTS_SOURCE_TOKEN` and
-`RAGENTS_TARGET_TOKEN`. The transfer includes the journal and payloads, model contexts under
-`chat/`, actor programs, and all plugin storage for the run, including `ragents.documents` files
-and the new folder of a run that works on the server. A folder on a workstation stays there, and the
+`RAGENTS_TARGET_TOKEN`. The transfer includes the journal and payloads, which also hold the model
+contexts of the run's agents, the stored contents the run refers to (attachments and the media of
+the model contexts), actor programs, and all plugin storage for the run, including
+`ragents.documents` files and the new folder of a run that works on the server. A folder on a workstation stays there, and the
 run keeps its binding to that workstation. Running processes, language servers, and
 browsers are not transferred; they are recreated on the target when next used.
 
@@ -303,6 +304,10 @@ The transfer enforces these prerequisites:
   the same ID and as the run owner, or anonymously for an ownerless run.
 - The archive must stay below 16 MiB because it travels as Base64 through the message layer.
   A workspace containing `node_modules` will exceed this; an existing folder on the server usually will not.
+- Symbolic links travel only when they are relative and stay inside the run's storage. Links under
+  `node_modules` that point elsewhere, such as a package manager's absolute links, are left out
+  and come back with the next install in the workspace. Any other link pointing outside stops the
+  export with `run-transfer-link` and names the links; replace them with files or relative links.
 
 Export copies the run. It remains on the source and must be deleted there explicitly after a
 real move, otherwise two journals with the same ID diverge. On the target, the run appears
@@ -395,6 +400,26 @@ immer erlaubt. Ein Werkzeug, das ins Netz will, bekommt außerhalb der Liste die
 Proxys. Unter macOS braucht pnpm über corepack ein `packageManager` in der `package.json` des
 Arbeitsbereichs, weil corepack sonst an einem gesperrten Ordner oberhalb abbricht.
 
+## Kompaktierung des Modellkontexts
+
+Der Modellkontext eines Agenten steht im Journal (`docs/spec/core.md`, Modellkontext und
+Agentenlaufzeit). Wird er zu groß, verdichtet ihn die Agentenlaufzeit: nach einer Antwort, deren
+Kontext über `contextWindow - reserveTokens` liegt, und nach einem Überlauffehler des Anbieters.
+Behalten werden rund `keepRecentTokens` der jüngsten Einträge; der Rest wird zu einer
+Zusammenfassung. Jede Verdichtung steht als `context.compacted` im Journal, der Chat zeigt eine
+Systemzeile. Die Vorgaben sind `reserveTokens` 16384 und `keepRecentTokens` 20000. Der Host setzt
+sie für alle Agenten über zwei Umgebungsvariablen, die auch in `host` eines Profils stehen dürfen:
+
+- `AGENT_COMPACTION_RESERVE_TOKENS`: der Abstand zum Kontextfenster des Modells; zugleich die
+  Grenze für die Länge der Zusammenfassung (80 Prozent davon, höchstens die Ausgabegrenze des
+  Modells).
+- `AGENT_COMPACTION_KEEP_RECENT_TOKENS`: wie viel des jüngsten Verlaufs unverdichtet bleibt.
+
+Beide sind positive Zahlen; ein ungültiger Wert bricht den Start ab. Um eine Verdichtung gezielt
+auszulösen, etwa für eine Vorführung, liegt `AGENT_COMPACTION_RESERVE_TOKENS` knapp unter dem
+Kontextfenster des gewählten Modells (bei 200000 Token etwa 196000, dann verdichtet schon ein
+Kontext über 4000 Token) und `AGENT_COMPACTION_KEEP_RECENT_TOKENS` klein (etwa 1000).
+
 ## Datenablage und Protokolle
 
 Standardmäßig liegt jedes Profil unter `~/.local/share/ragents/<profil>`, unter Windows unter
@@ -421,12 +446,12 @@ global `plugins/<pluginId>/` und je Run `sessions/<runId>/plugins/<pluginId>/`.
 
 ```
 ${DATA_DIR}/
-  runs/<runId>/journal.jsonl      kompaktes Engine-Journal v4 mit Commands und Events
+  runs/<runId>/journal.jsonl      kompaktes Engine-Journal v7 mit Commands und Events, samt
+                                  den Modellkontexten der Agenten
   runs/<runId>/payloads/          unveränderliche große JSON-Inhalte, je SHA-256 eine Datei
-  artifacts/<sha256>              unveränderliche Artefaktinhalte
+  artifacts/<sha256>              unveränderliche Artefaktinhalte, auch die Medien der Modellkontexte
   sessions/                       0711 root: durchquerbar, aber nicht auflistbar
     <runId>/                      0711 root
-      chat/<agentId>/             0700 root - Agent-Sitzung je Agent (Modellkontext über Turns hinweg)
       plugins/                    0711 root - je Plugin genau ein Unterordner
         ragents.documents/
           documents/              Dateiablage des Runs (document_write), ohne DOCUMENTS_DIR
@@ -443,7 +468,8 @@ ${DATA_DIR}/
                                   beim nächsten Start daran erkannt und zu Ende geführt
   recovery/                       0700 root - Wiederherstellungsdaten je Run; wandern beim
                                   Löschen mit ins Archiv (heute legt noch nichts darin ab)
-  archive/<runId>/                Chat, Wiederherstellungsdaten und Journal gelöschter Runs
+  archive/<runId>/                Wiederherstellungsdaten und Journal gelöschter Runs, bei
+                                  Journalen vor Format 7 auch deren Sitzungen unter chat/
   transfer/                       Arbeitsordner des Run-Umzugs: manifest.json während eines
                                   Exports, import/ während eines Imports; beides wird danach
                                   wieder entfernt
@@ -459,12 +485,15 @@ Ein einzelner Run wechselt den Server nicht von Hand, sondern mit `pnpm run-tran
 "Transfer a run"). Ein Journal-Backup oder manueller Umzug umfasst immer den gesamten `runs/<runId>/`-Ordner,
 also auch `payloads/`. Die einzelne JSONL-Datei reicht bei ausgelagerten Inhalten nicht.
 Die Archivierung gelöschter Runs übernimmt diesen Ordner vollständig. Andere Run-Daten wie
-Modellkontexte und Arbeitsdateien bleiben zusätzlich erforderlich. Journale früherer Dateiformate
+Arbeitsdateien und die Inhalte unter `artifacts/` bleiben zusätzlich erforderlich. Journale früherer Dateiformate
 werden für den betroffenen Run abgewiesen; der Server startet trotzdem. Auch beschädigte oder
 unvollständige Journale und fehlende Inhaltsdateien betreffen nur ihren Run. Das Serverprotokoll
-nennt Run-ID, Dateipfad und Ursache. Gesperrte Runs erscheinen nicht in der Liste nutzbarer
-Runs; ein direkter Zugriff meldet den Fehler `journal-unavailable` (Status 409). Die Dateien
-bleiben erhalten und werden nicht automatisch migriert, verschoben oder gelöscht. Auch ein
+nennt Run-ID, Dateipfad und Ursache. Gesperrte Runs stehen in der Run-Liste als gesperrt mit
+dieser Ursache (`locked`); Web und VS Code öffnen sie nicht, bieten aber das Löschen an. Ein Journal,
+das sich nicht laden ließ, nennt keinen Eigentümer; mit Anmeldung sieht und löscht den Run deshalb
+nur, wer `runs.read.all` hat. Jeder andere Zugriff meldet den Fehler `journal-unavailable` (Status
+409). Die Dateien bleiben erhalten und werden nicht automatisch migriert, verschoben oder gelöscht;
+erst das ausdrückliche Löschen verschiebt sie unverändert ins Archiv. Auch ein
 altes Journal des globalen Koordinators verhindert den Serverstart nicht; sein ausdrücklich
 bestätigter Gesprächsreset beginnt danach wieder ein neues Gespräch. Für andere Runs kann eine
 bewusste Reparatur mit anschließendem Neustart die vorhandene Ablage wieder nutzbar machen.
@@ -474,7 +503,7 @@ Es gibt keine automatischen Migrationen und keine Suche nach alten Datenpfaden. 
 Bestände werden nur auf ausdrücklichen Auftrag bei gestopptem Server umgezogen; der Server
 zieht nichts selbst um und löscht keinen alten Bestand.
 
-Lesen: `tail -200 ${DATA_DIR}/logs/server.log`, `ls ${DATA_DIR}/sessions/<id>/chat/`.
+Lesen: `tail -200 ${DATA_DIR}/logs/server.log`, `pnpm driver journal <runId>` für das Journal eines Runs samt Modelleingaben und Verdichtungen.
 
 Die Rechte sind so gesetzt, dass ein Run sein eigenes Arbeitsverzeichnis erreicht, aber weder
 die Nachbar-Runs auflisten noch deren Chat und Plugin-Protokolle lesen kann. Die

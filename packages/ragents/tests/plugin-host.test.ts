@@ -444,7 +444,7 @@ test("start options validate their contribution, defaults and accepted values ag
     );
 });
 
-test("agent hooks reach the runtime as one extension per agent that keeps data, adds notes and replaces tool results", async () => {
+test("agent hooks reach the driver bound to their agent: they keep data, add notes and replace tool results", async () => {
     const registry = new AgentContributionRegistry();
     assert.throws(() => registry.register("test.plugin", [{ id: "test.empty" }]), /keinen Hook/);
     const seen: unknown[] = [];
@@ -462,31 +462,21 @@ test("agent hooks reach the runtime as one extension per agent that keeps data, 
     assert.deepEqual(registry.describe(), [{
         id: "test.hooks", owner: "test.plugin", kind: "plugin", factories: [{ name: "test.hooks", scope: "per-agent" }], resolvesPerAgent: true,
     }]);
-    const connect = async (agentId: string) => {
-        const [extension] = registry.resolve({ runId: "run-1", agentId, audience: "agent", workspace: "/unused" });
-        assert.ok(extension && typeof extension !== "function");
-        assert.equal(extension.name, "test.hooks");
-        const handlers = new Map<string, (event: unknown, context: unknown) => Promise<unknown>>();
-        const entries: unknown[] = [{ type: "custom", customType: "other", data: 7 }, { type: "custom", customType: "test.hooks", data: 3 }];
-        await extension.factory({
-            on: (name: string, handler: (event: unknown, context: unknown) => Promise<unknown>) => { handlers.set(name, handler); },
-            appendEntry: (customType: string, data: unknown) => { entries.push({ type: "custom", customType, data }); },
-        } as never, {} as never);
-        const context = { signal: undefined, model: { input: ["text", "image"] }, sessionManager: { getBranch: () => entries } };
-        return { handlers, entries, context };
+    const kept: unknown[] = [];
+    const hookOf = (agentId: string) => {
+        const [hook] = registry.resolve({ runId: "run-1", agentId, audience: "agent", workspace: "/unused" });
+        assert.ok(hook);
+        assert.equal(hook.id, "test.hooks");
+        return hook;
     };
-    const loud = await connect("loud");
-    const result = await loud.handlers.get("context")!({ type: "context", messages: [{ role: "user", content: "Hallo" }] }, loud.context) as { messages: { role: string; customType?: string; content: unknown; display?: boolean }[] };
-    assert.deepEqual(result.messages.map((message) => [message.role, message.customType, message.content, message.display]), [
-        ["user", undefined, "Hallo", undefined],
-        ["custom", "test.hooks", "Hinweis", false],
-    ]);
-    assert.deepEqual(loud.entries.at(-1), { type: "custom", customType: "test.hooks", data: { count: 4 } });
-    assert.deepEqual(await loud.handlers.get("tool_result")!({ toolName: "shot", isError: false }, loud.context), {
+    const loud = hookOf("loud");
+    const call = (modelReadsImages: boolean) => ({ signal: undefined, modelReadsImages, kept: 3, keep: (value: unknown) => { kept.push(value); } });
+    assert.equal(await loud.beforeModelCall!(call(true)), "Hinweis");
+    assert.deepEqual(kept, [{ count: 4 }]);
+    assert.deepEqual(await loud.afterToolCall!({ toolName: "shot", isError: false }, { signal: undefined, modelReadsImages: true }), {
         content: [{ type: "image", data: "AA==", mimeType: "image/png" }], isError: false,
     });
-    assert.equal(await loud.handlers.get("tool_result")!({ toolName: "read", isError: false }, loud.context), undefined);
-    const quiet = await connect("quiet");
-    assert.equal(await quiet.handlers.get("context")!({ type: "context", messages: [] }, { ...quiet.context, model: undefined }), undefined);
+    assert.equal(await loud.afterToolCall!({ toolName: "read", isError: false }, { signal: undefined, modelReadsImages: true }), undefined);
+    assert.equal(await hookOf("quiet").beforeModelCall!(call(false)), undefined);
     assert.deepEqual(seen, [{ agent: "loud", kept: 3, images: true }, { agent: "quiet", kept: 3, images: false }]);
 });

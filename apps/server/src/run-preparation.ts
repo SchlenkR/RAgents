@@ -1,6 +1,6 @@
-import { createAgentSession, DefaultResourceLoader, defineTool, SessionManager, type ModelRuntime } from "@ragents/agent";
+import { Agent, convertToLlm, type AgentTool, type ModelRuntime } from "@ragents/agent";
 import { Type } from "typebox";
-import type { Message } from "@ragents/ai";
+import { clampThinkingLevel, type Message } from "@ragents/ai";
 import { DomainError, type ModelSelection } from "@ragents/engine";
 import { prepareInputAttachments } from "../../../packages/ragents/src/drivers/attachments.ts";
 import { MAX_CHAT_REQUEST_BYTES, parseChatAttachments } from "quassel/events";
@@ -86,13 +86,8 @@ export const prepareRunMessage = async (options: {
     }
     signal.throwIfAborted();
     const systemPrompt = [options.prompt, options.request.skillName ? `Ausgewählter Skill: ${options.request.skillName}` : ""].filter(Boolean).join("\n\n");
-    const resourceLoader = new DefaultResourceLoader({ systemPrompt });
-    await resourceLoader.reload({ signal });
-    signal.throwIfAborted();
-    const sessionManager = SessionManager.inMemory();
-    for (const message of messages.slice(0, -1)) sessionManager.appendMessage(message);
     let startRequested = false;
-    const startRun = defineTool({
+    const startRun: AgentTool = {
       name: "start_run", label: "Run starten",
       description: "Den besprochenen Run starten, ausschließlich nach dem ausdrücklichen sinngemäßen Go des Benutzers zur Ausführung. Keine feste Formulierung nötig. Eine Detailbestätigung, ein Zitat oder eine Fähigkeitsfrage genügt nicht. Der Host übernimmt Auftrag, Skill und Anhänge aus dem Gespräch sowie die Startoptionen.",
       parameters: Type.Object({}),
@@ -101,23 +96,25 @@ export const prepareRunMessage = async (options: {
         startRequested = true;
         return { content: [{ type: "text", text: "Start zur Übergabe vorgemerkt. Nach Abschluss dieser Antwort übernimmt die Oberfläche den Auftrag." }], details: {} };
       },
+    };
+    if (!(await runtime.checkAuth(model.provider))) throw new Error(`No key is configured for the provider ${model.provider}.`);
+    const agent = new Agent({
+      initialState: { systemPrompt, model, thinkingLevel: clampThinkingLevel(model, selection.thinking ?? "off"), tools: [startRun], messages: messages.slice(0, -1) },
+      convertToLlm,
+      streamFn: (streamModel, context, streamOptions) => runtime.streamSimple(streamModel, context, { ...streamOptions, maxRetries: 0, timeoutMs: PREPARATION_TIMEOUT_MS }),
     });
-    const { session } = await createAgentSession({ modelRuntime: runtime,
-      model, thinkingLevel: selection.thinking ?? "off", resourceLoader, sessionManager,
-      settings: { compaction: { enabled: false }, retry: { enabled: false }, providerRequest: { maxRetries: 0, timeoutMs: PREPARATION_TIMEOUT_MS } },
-      tools: [startRun.name], customTools: [startRun],
-    });
-    const abort = () => { void session.abort(); };
+    const abort = () => { agent.abort(); };
     signal.addEventListener("abort", abort, { once: true });
     try {
       signal.throwIfAborted();
       const latest = messages.at(-1)!;
       if (latest.role !== "user") throw new Error("Die letzte Nachricht muss vom Benutzer kommen.");
       const content = latest.content;
-      await session.prompt(typeof content === "string" ? content : content.filter((part) => part.type === "text").map((part) => part.text).join("\n"),
-        typeof content === "string" ? {} : { attachments: content.filter((part) => part.type !== "text") });
+      await agent.prompt({ role: "user", timestamp: Date.now(), content: typeof content === "string"
+        ? [{ type: "text", text: content }]
+        : [{ type: "text", text: content.filter((part) => part.type === "text").map((part) => part.text).join("\n") }, ...content.filter((part) => part.type !== "text")] });
       signal.throwIfAborted();
-      const completed = session.messages.at(-1);
+      const completed = agent.state.messages.at(-1);
       if (!completed || completed.role !== "assistant" || completed.stopReason !== "stop") {
         throw new DomainError("preparation-model-failed", completed?.role === "assistant"
           ? completed.errorMessage ?? `Die Vorbereitung wurde nicht vollständig beantwortet (${completed.stopReason}).`
@@ -129,7 +126,6 @@ export const prepareRunMessage = async (options: {
       return { kind: "reply", text };
     } finally {
       signal.removeEventListener("abort", abort);
-      session.dispose();
     }
   } catch (error) {
     if (options.signal.aborted) throw new DomainError("preparation-aborted", "Die Vorbereitung wurde abgebrochen.", 499);

@@ -9,7 +9,7 @@ import {
   type ToolExecutionMode,
 } from "@ragents/engine";
 
-export type AgentToolDefinition = ToolDefinition<any, any, any> & { longDescription?: string; nativeTool?: boolean };
+export type AgentToolDefinition = ToolDefinition<any, any> & { longDescription?: string; nativeTool?: boolean };
 
 export interface AgentToolMetadata {
   readonly name: string;
@@ -24,7 +24,6 @@ type BoundExecute = (
   params: unknown,
   signal: AbortSignal | undefined,
   onUpdate: unknown,
-  ctx: unknown,
 ) => Promise<ToolOutput>;
 
 export const textOf = (result: ToolOutput): string =>
@@ -49,7 +48,7 @@ export const agentToolFrom = (
     available,
     ...(executionMode ? { executionMode } : {}),
     run: async (scope, toolCallId, input) =>
-      textOf(await (definition.execute as BoundExecute)(toolCallId, input, scope.signal, undefined, undefined)),
+      textOf(await (definition.execute as BoundExecute)(toolCallId, input, scope.signal, undefined)),
   });
 
 export const toolDescriptorFrom = (
