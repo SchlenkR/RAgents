@@ -25,6 +25,10 @@ export const nextVersion = (current: string, published: readonly string[]): Next
   return { version: compareVersions(current, raised) > 0 ? current : raised, latest };
 };
 
+/** npm-Paket und Erweiterung tragen dieselbe Fassung: eine Stelle über allem, was lokal oder veröffentlicht schon vergeben ist. */
+export const releaseVersion = (current: readonly string[], published: readonly string[]): NextVersion =>
+  nextVersion([...current].sort(compareVersions).at(-1)!, published);
+
 /** Die Zeile, die jeder Publish zuerst sagt: welche Fassung es wird und was zuletzt draußen war. */
 export const versionLine = (next: NextVersion): string =>
   `== Fassung ${next.version}, ${next.latest === undefined ? "noch nichts veröffentlicht" : `zuletzt veröffentlicht ${next.latest}`}`;

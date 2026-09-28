@@ -387,9 +387,11 @@ veröffentlicht es. Damit genügt Node 22 -
 beliebiger Stelle; ihre Bundles baut ihr Autor mit `ragents plugin build` aus dem Paket, samt
 Typprüfung gegen die Host-API. Das Paket bringt dafür alles mit, dazu das fertige Web und alle
 eingebauten Plugins als Bundles; beim Anwender wird nichts gebaut, Vite gehört nicht dazu. Die Fassung des Pakets ist die
-`version` dieser Wurzel-`package.json`; `pnpm publish:package` zählt vor dem Bauen die letzte
-Stelle über die zuletzt veröffentlichte hoch und schreibt sie dorthin (unten, "Paket bauen und
-veröffentlichen"). Betrieb in `docs/operations.md` unter "Work without a checkout", die Anleitung
+`version` dieser Wurzel-`package.json`. npm-Paket und VS-Code-Erweiterung tragen immer dieselbe
+Fassung: `pnpm publish:package` nimmt eine Stelle über der höheren der beiden lokalen Fassungen und
+der zuletzt auf npm veröffentlichten und schreibt sie in beide `package.json`; `pnpm publish:vscode`
+bricht ab, wenn seine Fassung nicht die des Pakets ist. Veröffentlicht wird deshalb immer beides
+zusammen, zuerst das Paket (`pnpm publish:all`, unten "Paket bauen und veröffentlichen"). Betrieb in `docs/operations.md` unter "Work without a checkout", die Anleitung
 für Plugin-Autoren im Abschnitt "Build and ship a plugin" in `docs/spec/plugins.md`.
 
 Die Adresse ist fest: `http://localhost:4710` für `core`. Der Port steht in `host.PORT` der

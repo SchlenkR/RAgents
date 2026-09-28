@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { compareVersions, nextVersion, readVersion, versionLine, writeHostPackageVersion, writeVersion } from "../publish-version.ts";
+import { compareVersions, readVersion, releaseVersion, versionLine, writeHostPackageVersion, writeVersion } from "../publish-version.ts";
 import { buildPackage, PACKAGE_FOLDER, PACKAGE_NAME } from "./build-package.ts";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -121,11 +121,12 @@ const main = async (): Promise<void> => {
   if (!token) throw new Error(`npm_key fehlt: der npm-Token mit Schreibrecht auf ${PACKAGE_NAME}.\n${usage}`);
   const manifestFile = path.join(repositoryRoot, "package.json");
   const published = publishedVersions(PACKAGE_NAME, runNpm);
-  const next = nextVersion(readVersion(manifestFile), published);
-  console.log(versionLine(next));
   const extensionManifestFile = path.join(repositoryRoot, "apps", "vscode", "package.json");
+  const next = releaseVersion([readVersion(manifestFile), readVersion(extensionManifestFile)], published);
+  console.log(versionLine(next));
   if (!dryRun) {
     writeVersion(manifestFile, next.version);
+    writeVersion(extensionManifestFile, next.version);
     writeHostPackageVersion(extensionManifestFile, next.version);
   }
   const built = await buildPackage(path.join(repositoryRoot, "dist", PACKAGE_FOLDER));

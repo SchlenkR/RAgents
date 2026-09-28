@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { nextVersion, readVersion, versionLine, writeHostPackageVersion, writeVersion } from "../publish-version.ts";
+import { nextVersion, readVersion, releaseVersion, versionLine, writeHostPackageVersion, writeVersion } from "../publish-version.ts";
 import { PACKAGE_NAME } from "./build-package.ts";
 import { latestPublishedVersion, oneLine, publishDirectory, publishedVersions, publishEnvironment, publishPlan, redacting, type NpmResult, type NpmRunner } from "./publish-package.ts";
 
@@ -76,6 +76,11 @@ test("die nächste Fassung kommt aus der veröffentlichten Liste, eine höhere i
   assert.deepEqual(nextVersion("0.1.0", publishedVersions(PACKAGE_NAME, unknown.npm)), { version: "0.1.0" });
   assert.equal(versionLine({ version: "0.1.2", latest: "0.1.1" }), "== Fassung 0.1.2, zuletzt veröffentlicht 0.1.1");
   assert.equal(versionLine({ version: "0.1.0" }), "== Fassung 0.1.0, noch nichts veröffentlicht");
+});
+
+test("npm package and VS Code extension get one version above both local versions and the published ones", () => {
+  assert.deepEqual(releaseVersion(["0.1.7", "0.1.6"], ["0.1.6", "0.1.7"]), { version: "0.1.8", latest: "0.1.7" });
+  assert.deepEqual(releaseVersion(["0.1.7", "0.1.9"], ["0.1.7"]), { version: "0.1.9", latest: "0.1.7" });
 });
 
 test("geschrieben wird nur die Zeile mit version, der Probelauf rechnet nur", () => {

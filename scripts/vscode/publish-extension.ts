@@ -240,6 +240,10 @@ const main = async (): Promise<void> => {
   const published = packageOnly ? [] : publishedVersions(EXTENSION_ID, runVsce);
   const next = nextVersion(readVersion(manifestFile), published);
   if (!packageOnly) console.log(versionLine(next));
+  const packageVersion = readVersion(path.join(repositoryRoot, "package.json"));
+  if (!packageOnly && next.version !== packageVersion) {
+    throw new Error(`npm package and VS Code extension share one version: the extension would be ${next.version}, the npm package is ${packageVersion}; publish both together (pnpm publish:all)`);
+  }
   if (!packageOnly && !dryRun) writeVersion(manifestFile, next.version);
   const plan = publishPlan(manifest, published, next.version);
   console.log(`== ${plan.extensionId}@${plan.version}, VS Code ${(manifest.engines as { vscode: string }).vscode}`);
