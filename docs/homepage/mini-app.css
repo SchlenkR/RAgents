@@ -4906,6 +4906,9 @@
   .qsl\:z-\[110\] {
     z-index: 110;
   }
+  .qsl\:-mx-\[16px\] {
+    margin-inline: calc(16px * -1);
+  }
   .qsl\:mx-auto {
     margin-inline: auto;
   }
@@ -5018,6 +5021,9 @@
   }
   .qsl\:max-h-\[240px\] {
     max-height: 240px;
+  }
+  .qsl\:max-h-\[calc\(var\(--qsl-panel-height\,100dvh\)_\/_2\)\] {
+    max-height: calc(var(--qsl-panel-height,100dvh) / 2);
   }
   .qsl\:max-h-\[min\(70vh\,620px\)\] {
     max-height: min(70vh, 620px);
@@ -5196,6 +5202,9 @@
   .qsl\:gap-\[5px\] {
     gap: 5px;
   }
+  .qsl\:gap-\[var\(--qsl-chat-dense-message-gap\,8px\)\] {
+    gap: var(--qsl-chat-dense-message-gap,8px);
+  }
   :where(.qsl\:space-y-0 > :not(:last-child)) {
     --tw-space-y-reverse: 0;
     margin-block-start: 0;
@@ -5342,6 +5351,9 @@
   .qsl\:bg-\[linear-gradient\(to_right\,var\(--qsl-scroll-cover\,var\(--qsl-background\)\)_50\%\,transparent\)_left\/20px_100\%_no-repeat_local\,linear-gradient\(to_left\,var\(--qsl-scroll-cover\,var\(--qsl-background\)\)_50\%\,transparent\)_right\/20px_100\%_no-repeat_local\,linear-gradient\(to_right\,\#00000047\,transparent\)_left\/14px_100\%_no-repeat_scroll\,linear-gradient\(to_left\,\#00000047\,transparent\)_right\/14px_100\%_no-repeat_scroll\] {
     background-image: linear-gradient(to right,var(--qsl-scroll-cover,var(--qsl-background)) 50%,transparent) left/20px 100% no-repeat local,linear-gradient(to left,var(--qsl-scroll-cover,var(--qsl-background)) 50%,transparent) right/20px 100% no-repeat local,linear-gradient(to right,#00000047,transparent) left/14px 100% no-repeat scroll,linear-gradient(to left,#00000047,transparent) right/14px 100% no-repeat scroll;
   }
+  .qsl\:\[mask-image\:linear-gradient\(to_bottom\,\#000_calc\(100\%_-_var\(--qsl-chat-message-gap\,16px\)\)\,transparent\)\] {
+    mask-image: linear-gradient(to bottom,#000 calc(100% - var(--qsl-chat-message-gap,16px)),transparent);
+  }
   .qsl\:\[mask-image\:linear-gradient\(to_bottom\,\#000_calc\(var\(--qsl-fade-edge\)_-_40px\)\,transparent_calc\(var\(--qsl-fade-edge\)_\+_16px\)\)\] {
     mask-image: linear-gradient(to bottom,#000 calc(var(--qsl-fade-edge) - 40px),transparent calc(var(--qsl-fade-edge) + 16px));
   }
@@ -5389,6 +5401,9 @@
   }
   .qsl\:px-\[7px\] {
     padding-inline: 7px;
+  }
+  .qsl\:px-\[16px\] {
+    padding-inline: 16px;
   }
   .qsl\:px-\[var\(--qsl-chat-horizontal-padding\,24px\)\] {
     padding-inline: var(--qsl-chat-horizontal-padding,24px);
@@ -5440,6 +5455,9 @@
   }
   .qsl\:pb-\[calc\(var\(--qsl-composer-height\,0px\)_\+_max\(3\.25em\,40px\)\)\] {
     padding-bottom: calc(var(--qsl-composer-height,0px) + max(3.25em, 40px));
+  }
+  .qsl\:pb-\[var\(--qsl-chat-message-gap\,16px\)\] {
+    padding-bottom: var(--qsl-chat-message-gap,16px);
   }
   .qsl\:pl-1 {
     padding-left: var(--qsl-spacing);
@@ -5735,6 +5753,9 @@
   .qsl\:\[--qsl-scroll-cover\:var\(--qsl-secondary\)\] {
     --qsl-scroll-cover: var(--qsl-secondary);
   }
+  .qsl\:\[-webkit-mask-image\:linear-gradient\(to_bottom\,\#000_calc\(100\%_-_var\(--qsl-chat-message-gap\,16px\)\)\,transparent\)\] {
+    -webkit-mask-image: linear-gradient(to bottom,#000 calc(100% - var(--qsl-chat-message-gap,16px)),transparent);
+  }
   .qsl\:\[-webkit-mask-image\:linear-gradient\(to_bottom\,\#000_calc\(var\(--qsl-fade-edge\)_-_40px\)\,transparent_calc\(var\(--qsl-fade-edge\)_\+_16px\)\)\] {
     -webkit-mask-image: linear-gradient(to bottom,#000 calc(var(--qsl-fade-edge) - 40px),transparent calc(var(--qsl-fade-edge) + 16px));
   }
@@ -5769,6 +5790,9 @@
   }
   .qsl\:placeholder\:text-muted-foreground::placeholder {
     color: var(--qsl-muted-foreground);
+  }
+  .qsl\:empty\:hidden:empty {
+    display: none;
   }
   .qsl\:focus-within\:pointer-events-auto:focus-within {
     pointer-events: auto;

@@ -884,6 +884,7 @@
       "encodeAttachment",
       "fillText",
       "formatAttachmentSize",
+      "formatElapsed",
       "markdownPlainText",
       "messageDate",
       "prettyJson",
@@ -891,6 +892,7 @@
       "timestampDay",
       "timestampLabel",
       "useChatAction",
+      "useElapsed",
       "useQuasselComponents",
       "useQuasselPortalContainer",
       "validateAttachmentSelection"

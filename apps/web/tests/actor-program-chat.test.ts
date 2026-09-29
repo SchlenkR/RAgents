@@ -2,13 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ChatStepsProvider, defaultChatDisplayPolicy, PluginRegistry, PluginSessionProviders, type SessionContext, type SessionNavigation } from "../src/PluginRegistry";
+import { ChatStepsProvider, defaultChatDisplayPolicy, PluginRegistry, PluginSessionProviders, useActionRenderer, type SessionContext, type SessionNavigation } from "../src/PluginRegistry";
 import { ActorChat } from "../../../plugins/ragents.orchestration/web/ActorChat";
 import { DocumentToolCall, documentMessagesFrom, documentsFrom } from "../../../plugins/ragents.documents/web/DocumentViewer";
 import { ActorChatPreview } from "../../../plugins/ragents.orchestration/web/ActorChatPreview";
 import { ActorTile } from "../../../plugins/ragents.orchestration/web/ActorTile";
 import { ActorChatControls } from "../../../plugins/ragents.orchestration/web/ActorChatControls";
-import { QuestionSection } from "../../../plugins/ragents.ask/web/QuestionSection";
+import { webPlugin as askWebPlugin } from "../../../plugins/ragents.ask/web/index";
 import { AccessContext } from "../src/AccessContext";
 import { createAccessContext } from "../../../packages/ragents/src/access";
 import { Chat as AppChat } from "../../../apps/web/src/actor-programs/client-ui/index";
@@ -198,46 +198,69 @@ test("LLM surface chats retain the conversation and expose the shared permanent 
   assert.doesNotMatch(html, /Modell auswählen|Denktiefe|Anheften|<select/);
 });
 
-const renderQuestionTile = (writable: boolean, status: RunAction["status"] = "pending") => {
-  const question: RunAction = { id: "review-window", askedBy: worker.id, owner: "ragents.ask", title: "Welche Prüffrist gilt?",
-    description: "Beide Varianten sind fachlich möglich.", payload: { question: "Welche Prüffrist gilt?", options: ["3 Tage", "14 Tage"], multi: false },
-    parameters: {}, input: null, status, proposedAt: "now", resolvedAt: null, resolvedBy: null, result: null };
-  const currentView = { ...view, actions: [question, { ...question, id: "other-question", askedBy: primary.id, title: "Fremde Frage" }] };
+const questionAction: RunAction = { id: "review-window", askedBy: worker.id, owner: "ragents.ask", title: "Welche Prüffrist gilt?",
+  description: "Beide Varianten sind fachlich möglich.", payload: { question: "Welche Prüffrist gilt?", options: ["3 Tage", "14 Tage"], multi: false },
+  parameters: {}, input: null, status: "pending", proposedAt: "now", resolvedAt: null, resolvedBy: null, result: null };
+const askRegistry = new PluginRegistry({ brand: { title: "Test" }, product: { id: "test", title: "Test" }, startEntries: [], plugins: [askWebPlugin] }, new Map());
+const tileNavigation: SessionNavigation = { activeTabId: "", openTab: () => {}, revealEntity: () => false, selectionFor: () => undefined };
+const questionTileSession = (status: RunAction["status"]) => {
+  const currentView = { ...view, actions: [{ ...questionAction, status }, { ...questionAction, id: "other-question", askedBy: primary.id, title: "Fremde Frage" }] };
+  return session({ runView: currentView, actorConversations: { [worker.id]: [
+    { key: "message", role: "assistant", sender: worker.id, text: "Ich brauche eine Entscheidung." },
+    { key: questionAction.id, role: "action", text: questionAction.title, action: {
+      actionId: questionAction.id, owner: "ragents.ask", payload: questionAction.payload,
+      ...(status === "approved" ? { status: "approved" as const, result: "14 Tage" } : {}),
+    } },
+  ] } });
+};
+const withAskPlugin = (writable: boolean, tileSession: SessionContext, content: ReturnType<typeof createElement>) => {
   const access = createAccessContext({ enabled: true, user: { id: "operator", label: "Operator", rights: writable ? ["runs.read", "runs.write"] : ["runs.read"] } });
   return renderToStaticMarkup(createElement(AccessContext.Provider, { value: { ...access, logout: async () => {} } },
-    createElement(ChatStepsProvider, { policy: defaultChatDisplayPolicy }, createElement(ActorTile, {
-      actor: worker, view: currentView, session: session({ runView: currentView, actorConversations: { [worker.id]: [
-        { key: "message", role: "assistant", sender: worker.id, text: "Ich brauche eine Entscheidung." },
-        { key: question.id, role: "action", text: question.title, action: {
-          actionId: question.id, owner: "ragents.ask", payload: question.payload,
-          ...(status === "approved" ? { status: "approved" as const, result: "14 Tage" } : {}),
-        } },
-      ] } }), navigation: { activeTabId: "", openTab: () => {}, revealEntity: () => false, selectionFor: () => undefined },
-      onSelect: () => {}, cardSections: [{ id: "ragents.ask.questions", order: 100, Section: QuestionSection }],
-    }))));
+    createElement(ChatStepsProvider, { policy: defaultChatDisplayPolicy },
+      createElement(PluginSessionProviders, { navigation: tileNavigation, registry: askRegistry, session: tileSession }, content))));
+};
+const renderQuestionTile = (writable: boolean, status: RunAction["status"] = "pending") => {
+  const tileSession = questionTileSession(status);
+  return withAskPlugin(writable, tileSession, createElement(ActorTile, {
+    actor: worker, view: tileSession.runView as RunView, session: tileSession, navigation: tileNavigation, onSelect: () => {}, cardSections: askRegistry.cardSections,
+  }));
+};
+const renderOpenQuestionAction = (writable: boolean) => {
+  function OpenQuestion() {
+    return useActionRenderer()({ actionId: questionAction.id, owner: "ragents.ask", payload: questionAction.payload }, questionAction.title);
+  }
+  return withAskPlugin(writable, questionTileSession("pending"), createElement(OpenQuestion));
 };
 
-test("restricted actor tiles retain chat and make their pending questions answerable through the existing card section", () => {
+test("an open question leaves the tile transcript for the dock at the input and no longer needs a card section", () => {
+  assert.deepEqual(askRegistry.cardSections, []);
   const html = renderQuestionTile(true);
   assert.match(html, /Ich brauche eine Entscheidung/);
+  assert.match(html, /data-chat="composer"/);
   assert.match(html, /<textarea[^>]*aria-label="Nachricht an @reviewer/);
   assert.doesNotMatch(html, /<textarea[^>]*disabled/);
-  assert.match(html, /<button[^>]*data-question="option"[^>]*>3 Tage<\/button>/);
-  assert.match(html, /<button[^>]*data-question="option"[^>]*>14 Tage<\/button>/);
-  assert.match(html, /placeholder="\.\.\. oder frei antworten"/);
-  assert.doesNotMatch(html, /Fremde Frage|Modell auswählen|Denktiefe/);
-  assert.equal((html.match(/Rückfrage/g) ?? []).length, 1);
+  assert.doesNotMatch(html, /Welche Prüffrist gilt|data-question=|wartet auf Eingabe|Fremde Frage|Modell auswählen|Denktiefe/);
+  assert.doesNotMatch(html, /data-slot="card-sections"[^>]*>[^<]/);
 });
 
-test("actor tile question controls respect read-only access and disappear after resolution", () => {
-  const readonly = renderQuestionTile(false);
-  assert.match(readonly, /Welche Prüffrist gilt/);
-  assert.match(readonly, /<textarea[^>]*disabled=""/);
-  assert.doesNotMatch(readonly, /data-question="option"|oder frei antworten/);
+test("the tile renders an open question through the ask view, answerable only with write access", () => {
+  const writable = renderOpenQuestionAction(true);
+  assert.match(writable, /Welche Prüffrist gilt\?/);
+  assert.match(writable, /<button[^>]*data-question="option"[^>]*>3 Tage<\/button>/);
+  assert.match(writable, /<button[^>]*data-question="option"[^>]*>14 Tage<\/button>/);
+  assert.match(writable, /placeholder="\.\.\. oder frei antworten"/);
+  const readonly = renderOpenQuestionAction(false);
+  assert.match(readonly, /Welche Prüffrist gilt\?/);
+  assert.match(readonly, /<li>3 Tage<\/li><li>14 Tage<\/li>/);
+  assert.doesNotMatch(readonly, /data-question="option"|oder frei antworten|<button/);
+  assert.match(renderQuestionTile(false), /<textarea[^>]*disabled=""/);
+});
+
+test("an answered question stays in the tile transcript as a receipt without controls", () => {
   const answered = renderQuestionTile(true, "approved");
-  assert.match(answered, /data-action="resolved"/);
-  assert.match(answered, /14 Tage/);
-  assert.doesNotMatch(answered, /Rückfrage|data-question="option"|oder frei antworten/);
+  assert.match(answered, /data-quassel-transcript[\s\S]*Welche Prüffrist gilt\?[\s\S]*data-question="answered"[^>]*>.*14 Tage[\s\S]*data-chat="composer"/);
+  assert.match(answered, /data-chat="actions"><\/div>/);
+  assert.doesNotMatch(answered, /data-question="option"|oder frei antworten|wartet auf Eingabe/);
 });
 
 test("a stopped actor's chat shows the reason and the restart instead of a composer, and humans do not receive the actor composer", () => {

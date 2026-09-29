@@ -170,7 +170,11 @@ des Turns: Ein Agent speist sie vor seiner nächsten Modellanfrage in den laufen
 (Steering). Der Senden-Knopf heißt in dieser Zeit "In den laufenden Turn einspeisen", und im
 Verlauf steht unter der Nachricht "In den laufenden Turn eingespeist". Ein TypeScript-Actor und
 ein Text über 30000 Zeichen bekommen dagegen einen eigenen Turn. Die Antwort bleibt
-zusammenhängend vor Deiner neuen Nachricht stehen. Wartet der Agent gerade darauf, dass Du seine
+zusammenhängend vor Deiner neuen Nachricht stehen. Eine offene Rückfrage steht in jedem Chat mit
+Eingabe direkt darüber, im Run-Chat wie in Kacheln und im Run-Panel, und dort beantwortest Du sie
+auch; mehrere stehen untereinander, und wird es mehr als die halbe Chathöhe, scrollt dieser Bereich
+für sich. Beantwortet oder verworfen rückt sie als Beleg an ihre Stelle im Verlauf. Mit Lesezugriff
+siehst Du Frage und Optionen ohne Bedienung. Wartet der Agent gerade darauf, dass Du seine
 Rückfrage beantwortest, gilt Deine Nachricht als Überspringen: Die Frage schließt sich als nicht
 beantwortet, und der Agent liest Deine Nachricht. Liegt Deine Nachricht noch ungelesen bei ihm,
 wenn er fragen will, erscheint die Frage gar nicht erst. Unter dem letzten Beitrag bleiben etwa zwei
@@ -547,8 +551,10 @@ The extension can also open a mini-app as an editor tab in the center, which wor
 "Nur Chat" in the run panel.
 
 In "Chat unten", the handle controls the expanded chat height. Dragging up makes it taller;
-dragging down makes it shorter. The chosen height is stored per run. The collapsed chat always
-shows only the handle, status, and complete input, including multiple input lines. Hovering or
+dragging down makes it shorter. The chosen height is stored per run. The collapsed chat shows the
+handle, status, and complete input, including multiple input lines. An open question sits
+completely above the input there as well: the collapsed chat grows by its height, up to half of
+the panel, and the status line reads "Wartet auf Eingabe" (waiting for input). Hovering or
 writing opens the chat to the chosen height (90 percent of the panel by default). Dragging leaves
 the chat open at its new height. Clicking the handle opens or closes it. With
 keyboard focus on the handle, up and down change the height, Home and End select its limits, and

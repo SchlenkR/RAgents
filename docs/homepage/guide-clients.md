@@ -32,8 +32,10 @@ The extension can also open a mini-app as an editor tab in the center, which wor
 "Nur Chat" in the run panel.
 
 In "Chat unten", the handle controls the expanded chat height. Dragging up makes it taller;
-dragging down makes it shorter. The chosen height is stored per run. The collapsed chat always
-shows only the handle, status, and complete input, including multiple input lines. Hovering or
+dragging down makes it shorter. The chosen height is stored per run. The collapsed chat shows the
+handle, status, and complete input, including multiple input lines. An open question sits
+completely above the input there as well: the collapsed chat grows by its height, up to half of
+the panel, and the status line reads "Wartet auf Eingabe" (waiting for input). Hovering or
 writing opens the chat to the chosen height (90 percent of the panel by default). Dragging leaves
 the chat open at its new height. Clicking the handle opens or closes it. With
 keyboard focus on the handle, up and down change the height, Home and End select its limits, and

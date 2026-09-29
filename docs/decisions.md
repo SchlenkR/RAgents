@@ -1,5 +1,39 @@
 # Entscheidungen
 
+## Offene Rückfragen stehen über der Eingabe (29.09.2026)
+
+Kapitel: `docs/spec/plugins.md` (Web als Plugin-Host: `actionViews` und `cardSections`, Kacheln,
+Rückfragen von `ragents.ask`, Run-Panel mit Sheet), `docs/usage.md` (Run-Chat und Fläche; Run panel
+and VS Code extension).
+
+**Warum so.** Eine offene Rückfrage stand bisher an ihrer Stelle im Verlauf und rutschte mit jeder
+weiteren Zeile nach oben; in Kacheln und im Actor-Chat des Run-Panels stand sie zusätzlich als
+Kartenabschnitt von `ragents.ask` unter dem Verlauf, also zweimal. Wer antworten soll, sucht die
+Frage dort, wo er schreibt, wie bei einem Terminal-Agenten. quassel 0.3.0 rendert offene Aktionen in
+einem `ChatPanel` mit Eingabe jetzt selbst in einem Dock direkt über der Eingabe und erledigte als
+Beleg im Verlauf; damit ist der Kartenabschnitt überflüssig. Im zugeschobenen Sheet des Run-Panels
+hätte das Dock die Frage abgeschnitten: Sein Deckel ist die halbe Höhe des eigenen Rahmens, und
+dieser Rahmen ist zugeschoben nur so hoch wie seine gemessene Eingabe samt Dock. Die beiden Größen
+schaukeln sich bis etwa zur Höhe der Eingabe hoch, die Frage scrollte in rund 90 Pixeln.
+
+**Festlegung.** `ragents.ask` trägt keinen `cardSections`-Beitrag mehr (`QuestionSection` entfällt),
+nur noch `actionViews` und `attention`; seine Frage erscheint über `AskActionView` im Dock jedes
+Chats mit Eingabe, auch in einer Kachel mit ausgeblendeter Eingabe. Das Sheet setzt
+`--qsl-panel-height` an der Eingabe auf die verfügbare Höhe (90 Prozent des Bereichs), sodass das
+Dock bis zur Hälfte davon wächst und die Frage auch zugeschoben vollständig zeigt; die Messung des
+Minimums schließt das Dock ohnehin ein, die Bühne reserviert den Platz mit. Die Statuszeile des
+Sheets wiederholt die Frage nicht mehr, sondern meldet "Wartet auf Eingabe" beziehungsweise "Wartet
+auf N Eingaben". Eine Actor-Kachel hält wie bei Kartenbeiträgen mindestens 260 Pixel, solange eine
+Aktion offen ist. Der Kern und das Web kennen dabei nur offene Aktionen, keine Frageform. Eine
+Frage, die der Eigentümer des Runs für einen anderen Actor als den Koordinator stellt
+(`recipient`), steht damit nur noch im Run-Chat; heute stellt nur `ragents.lsp-roslyn` solche
+Fragen, und zwar an den Koordinator.
+
+Verworfen: das Sheet bei offener Aktion automatisch aufzuklappen (es verdeckt die Mini-App, auf die
+sich die Frage oft bezieht, und klappt beim Verlassen mit der Maus wieder zu); den Kartenabschnitt
+neben dem Dock zu behalten (dieselbe Frage zweimal); das Dock in quassel an eine andere Bezugsgröße
+zu binden (nur das Sheet misst sich an seiner Eingabe, jeder andere Rahmen hat eine eigene Höhe).
+
 ## Sprachserver und Browser kommen als Beitrag zum Executor aus ihren Plugins (29.09.2026)
 
 Kapitel: `docs/spec/plugins.md` (Plugin contract, Zuständigkeit je Facette, Build and ship a

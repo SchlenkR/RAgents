@@ -12,7 +12,7 @@ export function ActorTile({ actor, view, cardSections, chatInput, session, navig
   navigation: SessionNavigation;
   onSelect: (selection: EntityReference) => void;
 }) {
-  return <div className="flex flex-col overflow-hidden has-[>[data-slot=card-sections]:not(:empty)]:min-h-[260px]">
+  return <div className="flex flex-col overflow-hidden has-[>[data-slot=card-sections]:not(:empty)]:min-h-[260px] has-[[data-chat=actions]:not(:empty)]:min-h-[260px]">
     <ActorChatPreview actor={actor} view={view} chatInput={chatInput} running={actor.lifecycle?.kind === "running"}
       conversation={session.actorConversations?.[actor.id]} historyError={session.conversationError}
       onNavigate={onSelect} primaryMessages={actor.id === view.primaryActorId ? session.messages : undefined} />

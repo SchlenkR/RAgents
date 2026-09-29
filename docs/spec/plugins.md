@@ -1237,6 +1237,14 @@ Plugins belegen stattdessen typisierte Slots für:
 - Darstellung einer wartenden Aktion (`actionViews`): je Eigentümer genau eine Komponente, die
   Titel, Payload und Ergebnis der Aktion bekommt und ihre Form selbst kennt. Der Chat zeigt eine
   Aktion ohne registrierte Darstellung generisch: Titel, "wartet auf Eingabe" und "Verwerfen".
+  Wo sie steht, entscheidet quassel nach ihrem Zustand: Offen rendert `ChatMessages` sie in einem
+  `ChatPanel` mit Eingabe im Dock direkt über der Eingabe (`data-chat="actions"`, höchstens die
+  halbe Rahmenhöhe `--qsl-panel-height`, darüber scrollt es) und nicht im Verlauf; bestätigt
+  oder verworfen steht sie als Beleg an ihrer Stelle im Verlauf. Das gilt für Run-Chat,
+  Actor-Chat im Run-Panel und Kacheln, die alle `ChatPanel` mit Eingabe verwenden. Ohne
+  `ChatPanel` mit Eingabe, im Actor-Inspector (Leiste und TypeScript-Kacheln) und beim globalen
+  Koordinator, bleiben offene Aktionen im Verlauf. Das Web kennt dafür nur offene Aktionen,
+  keine Frageform.
   `ragents.ask` erzeugt seine Aktionen mit dem Payload `{ question, options, multi }` und
   beantwortet sie über den eigenen Vertrag `ragents.ask.answer`; der Kern kennt diese Form nicht
   (`docs/spec/core.md`, Wartende Aktionen).
@@ -1361,9 +1369,10 @@ Der Beitrag `cardSections` (`id`, `order`, `Section`) rendert Abschnitte an jede
 seiner Kachel wie im Run-Panel; ein Beitrag ohne Inhalt liefert `null`, mehrere Beiträge
 an demselben Actor sind der Normalfall. Das Kern-Web kennt das Actor-Domänenmodell an dieser Grenze NICHT: der Kontext
 reicht `actor` untypisiert durch, und das beitragende Plugin parst ihn über den Vertrag des
-Orchestration-Plugins. Aktuell tragen `ragents.ask` (offene Fragen mit `askedBy === actor.id`),
-`ragents.orchestration` (Artefakte mit `createdBy === actor.id`) und `ragents.todo` (Actor-Scope
-aus `RunView.pluginStates`) bei. Die Abschnitte bleiben in ihrer Kachel scrollbar und ändern
+Orchestration-Plugins. Aktuell tragen `ragents.orchestration` (Artefakte mit
+`createdBy === actor.id`) und `ragents.todo` (Actor-Scope aus `RunView.pluginStates`) bei.
+Offene Aktionen sind kein Kartenbeitrag; sie stehen im Dock des Chats (Abschnitt zu
+`actionViews`). Die Abschnitte bleiben in ihrer Kachel scrollbar und ändern
 niemals Identität, Capabilities oder Werkzeugauswahl eines Actors.
 
 Die Fläche eines Runs ist ein binärer Baum aus Kacheln und Teilungen,
@@ -1372,9 +1381,11 @@ Eine Kachel zeigt genau einen Actor oder eine Mini-App und scrollt ihren eigenen
 andere Anordnung gibt es nicht: kein Modus, kein Verschieben, kein Zoom, keine Kamera und keine
 freie Platzierung. Kacheln verwenden die Schichtwerk-Flächen, Konturen und Radien, ohne Tiefe.
 Mini-Apps füllen die Kachel in Originalgröße ohne einen zweiten App-Kopf. LLM-Kacheln zeigen
-ihren Chat, standardmäßig mit Eingabe, und die vorhandenen Kartenbeiträge einschließlich
-bedienbarer Rückfragen. TypeScript-Kacheln zeigen ihren Verlauf und ihre Details; ohne
-`runs.inspect` erscheinen sie gar nicht auf der Fläche.
+ihren Chat, standardmäßig mit Eingabe, offene Rückfragen bedienbar im Dock direkt über der
+Eingabe (auch wenn die Eingabe der Kachel ausgeblendet ist) und die vorhandenen Kartenbeiträge.
+Solange ein Kartenbeitrag Inhalt hat oder eine Aktion offen ist, ist der Inhalt der Kachel
+mindestens 260 Pixel hoch; in einer kleineren Kachel scrollt er. TypeScript-Kacheln zeigen ihren
+Verlauf und ihre Details; ohne `runs.inspect` erscheinen sie gar nicht auf der Fläche.
 
 Entfernen und Umordnen von Kacheln setzen `runs.inspect` voraus, dasselbe Recht wie die
 Actors-Ansicht. Ohne dieses Recht fehlen X und Verschiebegriff in den Kachelköpfen; Köpfe und
@@ -1563,7 +1574,7 @@ eines laufenden Chats höchstens der letzte Schritt als gemeinsamer Quassel-Chip
 Werkzeugname, mit aufklappbaren Details bei entsprechender Freigabe. Eigene Werkzeugrenderer
 werden in diesem Modus nicht verwendet. Ohne Aufklappfreigabe erscheinen nur "Denken" oder
 "Werkzeug läuft", ohne Werkzeugnamen und ohne anklickbare Fläche.
-Frühere Schritte bleiben ausgeblendet.
+Frühere Schritte bleiben ausgeblendet. Läuft ein Werkzeug länger als drei Sekunden, zeigt sein Schritt dahinter die Laufzeit (quassel `toolElapsedThreshold`), damit ein langsamer Schritt nicht wie ein hängender aussieht.
 Eine folgende Nachricht, das Werkzeugergebnis oder das Turnende entfernt die Anzeige; normale
 Nachrichten und Rückfragen bleiben sichtbar. Nachgeschobene eigene Eingaben hinter dem
 laufenden Schritt entfernen den Chip nicht. Die gemeinsame Arbeitsanimation bleibt zusätzlich
@@ -1937,8 +1948,9 @@ neuen ActorInput. Ein ausdrückliches Verwerfen durch den Benutzer erreicht dage
 wartenden Aufruf; Antworten auf wiederhergestellte Fragen ohne aktiven Aufruf werden weiterhin
 als ActorInput zugestellt. Außerhalb eines Turns fragt der Eigentümer des Runs (`AskCall.agentId`,
 `turnId: null`); `AskRequest.recipient` nennt dann den Actor, für den die Frage steht. Er steht im
-Payload, bekommt eine solche Antwort als ActorInput und zeigt die Frage in seiner Karte und im
-Hinweis "fragt". Eine vom Eigentümer gestellte Aktion trägt im Hauptchat keinen Namen davor.
+Payload, bekommt eine solche Antwort als ActorInput und steht im Hinweis "fragt"; die Frage
+selbst erscheint wie jede Aktion des Eigentümers im Run-Chat, nicht im Chat eines anderen
+Actors. Eine vom Eigentümer gestellte Aktion trägt im Hauptchat keinen Namen davor.
 `AskService.withdraw(runId, actionId)` verwirft eine offene Frage des Plugins: ein wartender Aufruf
 bekommt die Verwurfsantwort, ein Actor bekommt keinen Input.
 
@@ -2456,17 +2468,22 @@ und Schlagschatten auch im eingeklappten Zustand). Der Griff sitzt in einer komp
 Tastaturfokus markiert nur den kleinen Balken, nicht die gesamte Zeile.
 Die Statuszeile nutzt denselben horizontalen Abstand wie die Chat-Eingabe; ihre linke Kante
 ist mit dem Eingabefeld bündig.
-Zugeschoben zeigt es immer nur Griff, eine Statuszeile und die Eingabe (die
-Statuszeile nennt eine offene Rückfrage, sonst was der Adressat gerade tut, sonst die letzte
-gesprochene Zeile mit Absender). Bei Maus darüber (nach der eingestellten
-Verzögerung, Vorgabe 160 Millisekunden), Fokus in der Eingabe oder Klick auf den Griff gleitet
+Zugeschoben zeigt es immer nur Griff, eine Statuszeile und die Eingabe samt den offenen Aktionen
+im Dock darüber (die Statuszeile meldet dann "Wartet auf Eingabe", bei mehreren "Wartet auf N
+Eingaben", sonst was der Adressat gerade tut, sonst die letzte gesprochene Zeile mit Absender).
+Das Dock misst im Sheet nicht die halbe Höhe des eigenen Rahmens, der zugeschoben nur so hoch
+ist wie seine Eingabe, sondern die halbe verfügbare Höhe: Das Sheet setzt `--qsl-panel-height`
+an der Eingabe auf 90 Prozent des Bereichs (`--sheet-available-height`). So steht eine offene
+Frage auch zugeschoben vollständig da, das Sheet wächst um ihre Höhe, die Bühne reserviert
+diesen Platz mit, und nach der Antwort kehrt es zum Minimum ohne Dock zurück. Bei Maus darüber
+(nach der eingestellten Verzögerung, Vorgabe 160 Millisekunden), Fokus in der Eingabe oder Klick auf den Griff gleitet
 es auf die gewählte Höhe (standardmäßig 90 Prozent der verfügbaren Höhe) über die abgedunkelte Bühne; verlässt die Maus das Sheet, gleitet
 es nach der zweiten Verzögerung (Vorgabe 150 Millisekunden) zurück, nach Fokusverlust nach
 festen 220 Millisekunden. Escape, ein Klick auf die Bühne
 oder den Griff senken es sofort; ein offenes Pop-out oder der Fokus in der Eingabe halten es
 oben. Der Griff ist zugleich ziehbar: Hochziehen vergrößert die ausgeklappte Höhe,
 Herunterziehen verkleinert sie bis zum gemessenen Minimum aus Griff, Statuszeile,
-vollständiger Eingabe und Rahmen. Die Messung berücksichtigt auch mehrzeilige Eingaben.
+vollständiger Eingabe samt Dock und Rahmen. Die Messung berücksichtigt auch mehrzeilige Eingaben.
 Die maximale Höhe beträgt 90 Prozent der verfügbaren Höhe. Während des Ziehens pausieren
 Automatik und Höhenanimation; danach bleibt der Chat auf der gewählten Höhe geöffnet.
 Beim Einklappen kehrt er immer zum gemessenen Minimum zurück. Ein Ziehen löst keinen

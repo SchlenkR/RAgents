@@ -99,6 +99,10 @@ test("the sheet status line names a waiting action, the current work or the last
   assert.deepEqual(sheetStatus([message("user", "Hallo"), message("thinking", "hm")], true, "coordinator"), { kind: "working", text: "@coordinator denkt ..." });
   assert.deepEqual(sheetStatus([message("tool", "", { tool: { id: "t", name: "bash", arguments: "" } })], true, "coordinator"), { kind: "working", text: "@coordinator nutzt bash ..." });
   assert.deepEqual(sheetStatus([message("assistant", "Ich melde mich", { sender: "@mira" })], true, "coordinator"), { kind: "working", text: "@mira antwortet: Ich melde mich" });
-  assert.deepEqual(sheetStatus([message("assistant", "Fertig", { closed: true }), message("action", "Welche App?", { action: { actionId: "q1", owner: "ragents.ask", payload: null } })], true, "coordinator"), { kind: "waiting", text: "Wartet auf Eingabe: Welche App?" });
+  assert.deepEqual(sheetStatus([message("assistant", "Fertig", { closed: true }), message("action", "Welche App?", { action: { actionId: "q1", owner: "ragents.ask", payload: null } })], true, "coordinator"), { kind: "waiting", text: "Wartet auf Eingabe" });
+  const open = (key: string) => message("action", key, { action: { actionId: key, owner: "ragents.ask", payload: null } });
+  const answered = message("action", "Erledigt?", { action: { actionId: "done", owner: "ragents.ask", payload: null, status: "approved", result: "ja" } });
+  assert.deepEqual(sheetStatus([open("q1"), answered, open("q2")], true, "coordinator"), { kind: "waiting", text: "Wartet auf 2 Eingaben" });
+  assert.equal(sheetStatus([answered], false, "coordinator").kind, "idle");
   assert.equal(sheetStatus([message("assistant", "x".repeat(200), { closed: true })], false, "coordinator").text.length, 160 + "@coordinator: ".length);
 });

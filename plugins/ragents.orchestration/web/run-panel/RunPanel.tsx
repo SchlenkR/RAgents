@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode, type RefObject } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUpRightIcon, LayoutGridIcon, Maximize2Icon, MessageSquareIcon, PanelBottomIcon, PanelRightIcon } from "lucide-react";
 import { useAccess } from "@ragents/web/AccessContext";
@@ -181,7 +181,7 @@ function RunPanel({ surfaceElements, cardSections, navigation, renderChat, sessi
       />}
       <section
         aria-label="Chat"
-        className={cn(chatLayoutClass[layout], layout === "floating" && "[&:not([data-expanded])_[data-slot=card-sections]]:hidden [&[data-sheet-resizing]_[data-slot=card-sections]]:hidden")}
+        className={cn(chatLayoutClass[layout], layout === "floating" && "[&_[data-chat=composer]]:[--qsl-panel-height:var(--sheet-available-height)] [&:not([data-expanded])_[data-slot=card-sections]]:hidden [&[data-sheet-resizing]_[data-slot=card-sections]]:hidden")}
         data-expanded={layout === "floating" && sheet.expanded ? true : undefined}
         data-sheet-resizing={resize.height !== undefined || undefined}
         data-view={primarySelected ? "chat" : "actor-chat"}
@@ -190,7 +190,7 @@ function RunPanel({ surfaceElements, cardSections, navigation, renderChat, sessi
         onPointerEnter={layout === "floating" ? (event) => { if (event.pointerType === "mouse") sheet.openLater(); } : undefined}
         onPointerLeave={layout === "floating" ? () => sheet.closeLater(settings.closeDelay) : undefined}
         ref={sheetRef}
-        style={layout === "floating" ? { height: resize.height ?? (sheet.expanded ? expandedHeight : geometry.minimum), transition: resize.height !== undefined ? "none" : undefined } : undefined}
+        style={layout === "floating" ? { height: resize.height ?? (sheet.expanded ? expandedHeight : geometry.minimum), transition: resize.height !== undefined ? "none" : undefined, "--sheet-available-height": `${geometry.available}px` } as CSSProperties : undefined}
       >
         {layout === "floating" && <button
           aria-expanded={sheet.expanded}
@@ -307,9 +307,9 @@ function useSheet(active: boolean, sheetRef: RefObject<HTMLElement | null>, grab
   return { expanded, held, open, openLater, closeLater, close, toggle, pauseResize, finishResize };
 }
 
-/** Die Höhe des zugeschobenen Sheets: Griff, Statuszeile und Eingabe, gemessen an der Eingabe des Chat-Rahmens. */
+/** Die Höhe des zugeschobenen Sheets: Griff, Statuszeile und Eingabe samt offener Aktionen darüber, gemessen an der Eingabe des Chat-Rahmens. */
 function useSheetPeek(active: boolean, sheetRef: RefObject<HTMLElement | null>, grabRef: RefObject<HTMLButtonElement | null>, statusRef: RefObject<HTMLButtonElement | null>, actorId: string | undefined) {
-  const [geometry, setGeometry] = useState({ minimum: 0, maximum: 0, scale: 1 });
+  const [geometry, setGeometry] = useState({ minimum: 0, maximum: 0, available: 0, scale: 1 });
   useLayoutEffect(() => {
     if (!active) return;
     const sheet = sheetRef.current;
@@ -325,8 +325,9 @@ function useSheetPeek(active: boolean, sheetRef: RefObject<HTMLElement | null>, 
       const scale = width / Number.parseFloat(style.width);
       const minimum = Math.ceil((grab.getBoundingClientRect().height + (status?.getBoundingClientRect().height ?? 0)
         + composer.getBoundingClientRect().height) / scale + Number.parseFloat(style.borderTopWidth) + Number.parseFloat(style.borderBottomWidth));
-      const maximum = Math.max(minimum, Math.floor(container.getBoundingClientRect().height / scale * 0.9));
-      setGeometry((previous) => previous.minimum === minimum && previous.maximum === maximum && previous.scale === scale ? previous : { minimum, maximum, scale });
+      const available = Math.floor(container.getBoundingClientRect().height / scale * 0.9);
+      const maximum = Math.max(minimum, available);
+      setGeometry((previous) => previous.minimum === minimum && previous.maximum === maximum && previous.available === available && previous.scale === scale ? previous : { minimum, maximum, available, scale });
     };
     const observer = new ResizeObserver(measure);
     observer.observe(composer);

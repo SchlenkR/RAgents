@@ -6,7 +6,6 @@ import {
 import { runViewFrom, type RunView } from "@ragents/web/run-view";
 import { askPayloadOf, ASK_PLUGIN_ID } from "../ask-payload";
 import { AskActionView } from "./AskActionView";
-import { QuestionSection } from "./QuestionSection";
 
 const pendingQuestions = (view: RunView) =>
   view.actions.filter((action) => action.owner === ASK_PLUGIN_ID && action.status === "pending");
@@ -33,11 +32,6 @@ const configuredPlugin = (descriptor: WebPluginDescriptor): WebPlugin => ({
   actionViews: [{
     owner: ASK_PLUGIN_ID,
     View: AskActionView,
-  }],
-  cardSections: [{
-    id: "ragents.ask.questions",
-    order: 100,
-    Section: QuestionSection,
   }],
   attention: [{
     id: "ragents.ask.pending-questions",

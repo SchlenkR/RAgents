@@ -1,6 +1,6 @@
 import type { Message } from "quassel/events";
 
-/** Die eine Zeile des zugeschobenen Sheets: was der Chat gerade tut oder zuletzt gesagt hat. */
+/** Die eine Zeile des zugeschobenen Sheets: was der Chat gerade tut oder zuletzt gesagt hat; offene Aktionen selbst stehen im Dock darunter. */
 export interface SheetStatus {
   text: string;
   kind: "idle" | "working" | "waiting";
@@ -16,8 +16,8 @@ const senderOf = (message: Message, handle: string): string =>
 
 export function sheetStatus(messages: readonly Message[], working: boolean, handle: string): SheetStatus {
   const last = messages[messages.length - 1];
-  const waiting = [...messages].reverse().find((message) => message.role === "action" && message.action?.status === undefined);
-  if (waiting) return { kind: "waiting", text: `Wartet auf Eingabe: ${firstLine(waiting.text) || "Antwort erwartet"}` };
+  const waiting = messages.filter((message) => message.role === "action" && message.action?.status === undefined).length;
+  if (waiting > 0) return { kind: "waiting", text: waiting === 1 ? "Wartet auf Eingabe" : `Wartet auf ${waiting} Eingaben` };
   if (working) {
     if (last?.role === "thinking" && !last.closed) return { kind: "working", text: `@${handle} denkt ...` };
     if (last?.role === "tool" && last.tool && last.tool.result === undefined) return { kind: "working", text: `@${handle} nutzt ${last.tool.name} ...` };
