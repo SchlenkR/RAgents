@@ -3,7 +3,6 @@ import { ragentsProductConfig } from "./config.js";
 
 const contract = [
   "General rules:",
-  "- Wherever you write German (chat, commit messages, documents, comments), always use real umlauts (ä/ö/ü/Ä/Ö/Ü) and a real ß, never ae/oe/ue/ss.",
   "- Only characters of the German keyboard: as a dash always the simple hyphen -, no em or en dashes, no ellipsis characters, no typographic quotation marks. ... instead of an ellipsis, -> instead of an arrow.",
 ].join("\n");
 
