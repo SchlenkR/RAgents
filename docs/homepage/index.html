@@ -40,6 +40,7 @@ a { color: inherit; text-underline-offset: 4px; }
 .masthead nav { display: flex; gap: 26px; align-items: center; font-weight: 600; font-size: 15px; }
 .masthead nav a { transition: color .2s, background .2s, border-color .2s; }
 .masthead nav a:not(.nav-github):hover { color: var(--accent); }
+.nav-menu { display: none; }
 .nav-github { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border: 1.5px solid var(--line); border-radius: 8px; }
 .nav-github svg { width: 17px; height: 17px; }
 .nav-icon { display: none; width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -267,6 +268,7 @@ a { color: inherit; text-underline-offset: 4px; }
       <a href="guide.html" aria-label="Guide"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6.5C10 5 7 4.5 3.5 5v13c3.5-.5 6.5 0 8.5 1.5 2-1.5 5-2 8.5-1.5V5C17 4.5 14 5 12 6.5Z"/><path d="M12 6.5v13"/></svg><span class="nav-label">Guide</span></a>
       <a class="nav-github" href="https://github.com/SchlenkR/RAgents" aria-label="GitHub"><svg class="gh-icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.3-3.4-1.3-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.6 9.6 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.4 4.7-4.6 5 .4.3.7.9.7 1.9V21c0 .3.2.6.7.5A10 10 0 0 0 12 2Z"/></svg><span class="gh-label">GitHub</span></a>
     </nav>
+    <button class="nav-menu" type="button" aria-expanded="false" aria-controls="main-navigation"><span data-menu-label>Menu</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
   </header>
   <nav class="chapters" aria-label="Chapters" data-chapters><div class="play" role="group" aria-label="Autoplay" data-play><button type="button" data-mode="pause" aria-pressed="false" aria-label="Pause"><svg viewBox="0 0 12 12" aria-hidden="true"><rect x="2" y="1.5" width="3" height="9" rx=".8"/><rect x="7" y="1.5" width="3" height="9" rx=".8"/></svg></button><button type="button" data-mode="play" aria-pressed="true" aria-label="Play"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.6v8.8L10.4 6Z"/></svg></button><button type="button" data-mode="fast" aria-pressed="false" aria-label="Fast forward"><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M.6 2.2v7.6L6 6ZM6 2.2v7.6L11.4 6Z"/></svg></button></div><button type="button" class="chapters-toggle" data-chapters-toggle aria-expanded="false"><span data-chapters-label></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg><i></i></button><div class="chapters-list" data-chapters-list></div></nav>
 </div>
