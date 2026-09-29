@@ -351,7 +351,7 @@ export class LanguageServerHost {
       await this.#exists(path.resolve(context.root, expandWorkspaceAlias(file, context.workspaceAliases ?? {}))) ? { path: file, diagnostics: [...diagnostics] } : null));
     return entries
       .filter((entry): entry is { path: string; diagnostics: LanguageServerDiagnostic[] } => entry !== null)
-      .sort((left, right) => left.path.localeCompare(right.path, "de"));
+      .sort((left, right) => left.path.localeCompare(right.path, "en"));
   }
 
   async #changed(

@@ -12,7 +12,7 @@ import {
 import {
   WORKSPACE_EXECUTOR_VERSION,
   sandboxRunEnvironment,
-  type ExecutorContributionStand,
+  type ExecutorContributionRevision,
   type WorkspaceExecuteOptions,
   type WorkspaceExecutor,
 } from "@ragents/workspace-executor";
@@ -92,12 +92,12 @@ const assertExecutor = (label: string, executor: string): void => {
   );
 };
 
-const described = (contributions: readonly ExecutorContributionStand[]): string =>
-  contributions.map(({ plugin, stand }) => `${plugin} (${stand.slice(0, 12)})`).join(", ") || "none";
+const described = (contributions: readonly ExecutorContributionRevision[]): string =>
+  contributions.map(({ plugin, revision }) => `${plugin} (${revision.slice(0, 12)})`).join(", ") || "none";
 
 /** A workstation runs what the server's plugins contribute; with other contributions the same tools would behave differently there than on the server. */
-const assertContributions = (label: string, expected: readonly ExecutorContributionStand[], given: readonly ExecutorContributionStand[]): void => {
-  const key = (entry: ExecutorContributionStand): string => `${entry.plugin}\0${entry.stand}`;
+const assertContributions = (label: string, expected: readonly ExecutorContributionRevision[], given: readonly ExecutorContributionRevision[]): void => {
+  const key = (entry: ExecutorContributionRevision): string => `${entry.plugin}\0${entry.revision}`;
   const same = expected.length === given.length && expected.every((entry) => given.some((other) => key(other) === key(entry)));
   if (same) return;
   throw new DomainError(
@@ -122,21 +122,21 @@ export const assertMayRegister = (access: AccessContext, local: boolean): void =
 /** Knows the signed-in workstations per owner, holds per client the connection through which the server calls it back, and the stops that have not reached it. */
 export class WorkspaceClientRegistry {
   /** What the server's plugins contribute to the executor; every workstation must carry exactly these contributions. */
-  readonly contributions: readonly ExecutorContributionStand[];
+  readonly contributions: readonly ExecutorContributionRevision[];
   readonly #clients = new Map<string, ClientEntry>();
   /** Stops that have not reached the workstation yet, per workstation and run with the folder of the binding. */
   readonly #pendingStops = new Map<string, Map<string, string>>();
   readonly #stopRetries = new Map<string, NodeJS.Timeout>();
 
-  constructor(contributions: readonly ExecutorContributionStand[]) {
-    this.contributions = contributions.map(({ plugin, stand }) => ({ plugin, stand }));
+  constructor(contributions: readonly ExecutorContributionRevision[]) {
+    this.contributions = contributions.map(({ plugin, revision }) => ({ plugin, revision }));
   }
 
   async register(
     id: string,
     description: WorkspaceClientDescription,
     executor: string,
-    contributions: readonly ExecutorContributionStand[],
+    contributions: readonly ExecutorContributionRevision[],
     connection: MethodConnection,
   ): Promise<WorkspaceClientInfo> {
     if (connection.streamless) {

@@ -102,7 +102,7 @@ export const PLUGIN_ID_PATTERN = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
 
 const executorContributions = Type.Array(Type.Object({
   plugin: Type.String({ pattern: PLUGIN_ID_PATTERN.source, maxLength: 128, description: "ID of the plugin" }),
-  stand: Type.String({ pattern: "^[0-9a-f]{64}$", description: "SHA-256 of the contribution file" }),
+  revision: Type.String({ pattern: "^[0-9a-f]{64}$", description: "SHA-256 of the contribution file" }),
 }, { additionalProperties: false }), { maxItems: 64, description: "The plugins' contributions to the executor, in the order of the server's plugin list" });
 
 const clientDescription = {

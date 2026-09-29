@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import {tmpdir} from "node:os";
+import {join} from "node:path";
 import test from "node:test";
 import {mkdir,mkdtemp,writeFile} from "node:fs/promises";
 import {tailwindPlugin} from "./tailwind-plugin";
@@ -7,7 +9,7 @@ import {build} from "esbuild";
 import {chromium} from "playwright-core";
 import type {Page} from "playwright-core";
 
-const shots=fileURLToPath(new URL("../../../docs/ui-drafts/",import.meta.url));
+const shots=`${join(tmpdir(),"ragents-browser-shots")}/`;
 
 const entry=(id:string,title:string,description:string,kind:string,category:string)=>({id,title,description,kind,category});
 const entries=[
@@ -114,7 +116,7 @@ test("Start shows the servers as split chips with a route line, the recent runs 
     assert.equal(await columnEdges(page,'Recent','connection'),1,'the server column is at the same edge in all lines');
     assert.equal(await page.locator('ul[aria-label="Templates on core"] button[title="Word game"]').count(),1,'every template of every server is in its server group');
     assert.equal(await page.getByLabel('Search templates').count(),0,'Start has no search');
-    await shoot(page,`${shots}app-2026-09-22-start-420.png`);
+    await shoot(page,`${shots}start-420.png`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 
     // One click is one click: the template creates the run, the plus the empty chat, the line opens the run.
@@ -150,7 +152,7 @@ test("Start shows the servers as split chips with a route line, the recent runs 
     assert.deepEqual(await sent(page),{action:'newRun',name:'workshop',entryId:'ragents.reference.circle'});
     await page.getByRole('button',{name:'New run from Discussion circle on workshop'}).click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'workshop',entryId:'ragents.reference.circle'});
-    await shoot(page,`${shots}app-2026-09-22-start-standard-420.png`);
+    await shoot(page,`${shots}start-default-420.png`);
     await setConnections(page,all);
     await firstTile('workshop','New chat');
 
@@ -160,7 +162,7 @@ test("Start shows the servers as split chips with a route line, the recent runs 
     await failure.waitFor();
     await failure.getByText('fetch failed').waitFor();
     await page.evaluate(()=>Promise.all(document.getAnimations().map((animation)=>animation.finished)));
-    await page.screenshot({path:`${shots}app-2026-09-22-start-fehler-420.png`});
+    await page.screenshot({path:`${shots}start-error-420.png`});
     await failure.getByRole('button',{name:'Open output'}).click();
     assert.deepEqual(await sent(page),{action:'showOutput'});
     await failure.getByRole('button',{name:'Retry'}).click();
@@ -174,7 +176,7 @@ test("Start shows the servers as split chips with a route line, the recent runs 
     await page.setViewportSize({width:900,height:1100});
     await page.waitForFunction(()=>innerWidth===900);
     assert.equal(await connectionRows(),1,'from 560 pixels on all servers are in one row');
-    await shoot(page,`${shots}app-2026-09-22-start-900.png`);
+    await shoot(page,`${shots}start-900.png`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     context.diagnostic(`Screenshots: ${shots}`);
   }finally{await browser.close()}
@@ -192,7 +194,7 @@ test("Runs brings all runs together, searches, hides ended ones and deletes afte
     assert.equal(await columnEdges(page,'Runs','time'),1,'the time column is at the same edge in all lines');
     assert.equal(await columnEdges(page,'Runs','connection'),1,'the server column is at the same edge in all lines');
     const edgesBefore=await page.evaluate(()=>['time','connection'].map((name)=>Math.round(document.querySelector(`ul[aria-label="Runs"] [data-cell="${name}"]`)!.getBoundingClientRect().left)));
-    await shoot(page,`${shots}app-2026-09-22-runs-420.png`);
+    await shoot(page,`${shots}runs-420.png`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 
     await page.getByRole('button',{name:'Hide ended'}).click();
@@ -219,12 +221,12 @@ test("Runs brings all runs together, searches, hides ended ones and deletes afte
     assert.equal(await columnEdges(page,'Runs','connection'),1);
     const edgesSelecting=await page.evaluate(()=>['time','connection'].map((name)=>Math.round(document.querySelector(`ul[aria-label="Runs"] [data-cell="${name}"]`)!.getBoundingClientRect().left)));
     assert.deepEqual(edgesSelecting,edgesBefore,'the checkbox does not move the right columns');
-    await shoot(page,`${shots}app-2026-09-22-runs-auswahl-420.png`);
+    await shoot(page,`${shots}runs-selection-420.png`);
     await page.getByRole('button',{name:'Delete'}).click();
     const dialog=page.getByRole('dialog');
     await dialog.waitFor();
     await dialog.getByRole('heading',{name:'Delete 2 runs?'}).waitFor();
-    await page.screenshot({path:`${shots}app-2026-09-22-runs-loeschen-420.png`});
+    await page.screenshot({path:`${shots}runs-delete-420.png`});
     await dialog.getByRole('button',{name:'Delete'}).click();
     assert.deepEqual(await sent(page),{action:'deleteRuns',name:'workshop',runIds:['run-b','run-c']});
     await page.waitForSelector('[role=dialog]',{state:'detached'});
@@ -232,7 +234,7 @@ test("Runs brings all runs together, searches, hides ended ones and deletes afte
 
     await page.setViewportSize({width:900,height:1100});
     await page.waitForFunction(()=>innerWidth===900);
-    await shoot(page,`${shots}app-2026-09-22-runs-900.png`);
+    await shoot(page,`${shots}runs-900.png`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 
     await setPage(page,'start');

@@ -3578,7 +3578,7 @@ Owner: ragents.workspace. Rights: runs.write. Execution: the server.
     "type": "object",
     "required": [
       "plugin",
-      "stand"
+      "revision"
     ],
     "properties": {
       "plugin": {
@@ -3587,7 +3587,7 @@ Owner: ragents.workspace. Rights: runs.write. Execution: the server.
         "maxLength": 128,
         "description": "ID of the plugin"
       },
-      "stand": {
+      "revision": {
         "type": "string",
         "pattern": "^[0-9a-f]{64}$",
         "description": "SHA-256 of the contribution file"
@@ -3744,7 +3744,7 @@ Owner: ragents.workspace. Rights: runs.write. Execution: the server.
             "type": "object",
             "required": [
               "plugin",
-              "stand"
+              "revision"
             ],
             "properties": {
               "plugin": {
@@ -3753,7 +3753,7 @@ Owner: ragents.workspace. Rights: runs.write. Execution: the server.
                 "maxLength": 128,
                 "description": "ID of the plugin"
               },
-              "stand": {
+              "revision": {
                 "type": "string",
                 "pattern": "^[0-9a-f]{64}$",
                 "description": "SHA-256 of the contribution file"

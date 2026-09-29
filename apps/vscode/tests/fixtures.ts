@@ -17,7 +17,7 @@ import { coreContracts, type HostBootstrap } from "../../server/src/api/contract
 import { RpcDispatcher } from "../../server/src/rpc/dispatcher";
 import { RpcHttpTransport } from "../../server/src/rpc/http-transport";
 import { workspaceClientContracts, workspaceContracts, type WorkspaceClientDescription } from "../../../plugins/ragents.workspace/contract";
-import { WORKSPACE_EXECUTOR_VERSION, type ExecutorContributionStand } from "@ragents/workspace-executor";
+import { WORKSPACE_EXECUTOR_VERSION, type ExecutorContributionRevision } from "@ragents/workspace-executor";
 import type { SessionInfo } from "../../web/src/api";
 import type { PublicPluginProfile } from "../../../packages/ragents/src/plugin-types";
 import type { RunView } from "../../web/src/run-view";
@@ -124,7 +124,7 @@ export const startStubServer = async (options: {
   logoutFails?: boolean;
   profile?: PublicPluginProfile;
   /** What the stub's plugins contribute to the executor; a workspace must bring exactly that. */
-  contributions?: readonly ExecutorContributionStand[];
+  contributions?: readonly ExecutorContributionRevision[];
   /** The RAgents version in the bootstrap; null omits it like a server that is older than this field. */
   version?: string | null;
   /** This is how the server rejects every registration of a workspace, e.g. with a different executor revision. */

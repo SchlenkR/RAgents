@@ -42,7 +42,7 @@ corrected balcony prompt card. Result: failed, already before the first user ans
 - The coordinator prompt actually loaded contains the tightened TypeScript setup rule.
   GLM 5.3 Flash with thinking depth low ignores it anyway: direct `agent_spawn` in sequence 46,
   direct activation in sequence 89, direct canvas calls from sequence 92. Only
-  `balkon-wizard` with a React view is created, no setup handler. The setup takes about 3 minutes 51 seconds,
+  `balcony-wizard` with a React view is created, no setup handler. The setup takes about 3 minutes 51 seconds,
   42 tool calls, and six failed calls. Several faulty source drafts
   are corrected along the way; the activation finally passes the type and build check.
 - The advisor is created with a valid model profile. The earlier problem of the missing
@@ -52,11 +52,11 @@ corrected balcony prompt card. Result: failed, already before the first user ans
   The unbound prompt contribution `ask.hbs` is not automatically delivered to the secondary actor.
 - The canvas check rejects an unknown group, the wrong view reference, and a line
   to the human owner before saving. The coordinator corrects the calls;
-  at the end `app:@balkon-berater/main` is placed as a real app. No error box for a
+  at the end `app:@balcony-advisor/main` is placed as a real app. No error box for a
   nonexistent app. The own advisor card is hidden by default.
 - The app appears as a separate canvas window and uses AppLayout, Stack, and Form.
   On clicking "Start consultation", the task reaches the advisor. It calls
-  `ask_user` in sequence 113, whereupon sequence 114 creates a waiting action. The question appears in the
+  `ask_user` in sequence 113, whereupon sequence 114 creates a pending action. The question appears in the
   coordinator inspector, while the app considers its model turn to be running. In the real DOM
   the textarea and "Send answer" stay disabled. The flow exclusively via the form
   is blocked; five answers and the final evaluation could therefore not be checked.
@@ -194,10 +194,10 @@ ran in a separate Chrome instance against the real web build, including iframe a
 
 - Text analysis, run `8f1e480b-389d-4217-83bb-60e089cb4689`: The free prompt card created
   an actor package with one successful activation. Two browser calls with
-  `Die Welt ist groß.\nUnd schön.` each returned 29 characters, 6 words, and 2 lines.
+  `The world is big.\nAnd beautiful.` each returned 32 characters, 6 words, and 2 lines.
   Canvas and full view showed the same call counter 2. The journal still contained
   exactly the one coordinator turn; the operation produced no further model turn.
-  The checked full view is at `docs/homepage/screenshots/actor-text-analysis.png`.
+  The full view was checked visually.
 - Counter, run `adaf5d01-84a9-4ef5-8555-6a9774f6979a`: The unchanged free card created
   an actor without a view, activated it once, and sent three separate ActorInputs.
   Three completed native turns with zero model tokens each resulted in
@@ -304,7 +304,7 @@ no hash copying, arrays arrive, T09 clean. New root causes:
    null to work around the ?. error).
 2. No number[] parameter type for script tools - four compile detours in T07.
 3. Models still copy IDs/paths and mangle them (subscription ID in T01-B,
-   typo folder .ronard in the workspace root because of a copied relative path).
+   a typo folder in the workspace root because of a copied relative path).
 4. Smaller points noted: a chat answer does not resolve an open question card (T02-B),
    the edit tool can break up JSON with ambiguous blocks (T06-B), the coordinator can
    list the file storage of other runs (T04-A).
@@ -316,7 +316,7 @@ Fixes after round 2 (verified, engine 167 + server 60 tests green):
   format requirements are binding; logic_test with a real start state (a fresh actor reads
   null); target agents must exist before script_tool_check; stateSchema requirements
   explicit.
-- Typo folder .ronard removed from the workspace root.
+- The typo folder removed from the workspace root.
 
 Server restarted at 22:0x.
 
@@ -456,8 +456,8 @@ Platform findings (category bug/ux), by frequency:
 6. tool_open discards the correct names too when one name is wrong (T13-B), two rounds lost.
 7. ls with an unexpanded $RAGENTS_FILES_DIR reports "(empty directory)" instead of an error
    (T04-B).
-8. Umlauts in streamed tool arguments are occasionally lost ("frs Format",
-   "auerhalb"), the prose text of the same message is intact (T04-A). Check the streaming path of the
+8. Umlauts in streamed tool arguments are occasionally lost (German words arrived without their
+   umlaut or sharp s), the prose text of the same message is intact (T04-A). Check the streaming path of the
    arguments.
 9. thinking "off" is written into the agent session as thinkingLevel "low" for glm,
    correctly "off" for deepseek (T11); matching this, reasoning events despite "off" (T03, T10, T12).

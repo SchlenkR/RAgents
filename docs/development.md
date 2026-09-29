@@ -88,7 +88,7 @@ reading. The binding types are in `packages/ragents/src/runtime/journal.ts`,
 `packages/ragents/src/domain/events.ts`. The run state is restored from the events without
 running models or tools again; the model context of every agent is also a projection of them.
 Working files additionally live outside the journal. The
-[homepage](homepage/index.html#journal) offers a step-by-step explanation; the limits are in
+[homepage](homepage/index.html#events) offers a step-by-step explanation; the limits are in
 `docs/spec/core.md`.
 
 ## Architecture
@@ -280,7 +280,7 @@ A web plugin fills slots in the frontend (`WebPlugin` in `apps/web/src/PluginReg
 `needsRunView`, `SessionProvider`, `sessionHeaders`, `sessionStatus`, `overviewPanels`,
 `settings`, `workspaceTabs`, `workspaceTabsFor`, `toolPresenters`, `entityPresenters`, `guides`,
 `sessionMetadata`, `actionViews`, `attention`; plus `activate` and `enabled`. `actionViews`
-render waiting actions whose payload only the owning plugin knows. `workspaceTabs` are fixed tabs, `workspaceTabsFor` is a factory that derives
+render pending actions whose payload only the owning plugin knows. `workspaceTabs` are fixed tabs, `workspaceTabsFor` is a factory that derives
 tabs per run from the running state. Mini-apps get their own tile by default;
 their visibility can be toggled in the run, and the user can open a local full view.
 `startOptions` provides, per server-side start option, its own control component and a badge
@@ -340,7 +340,7 @@ technical views have their own permissions. A template list limits new runs to
 prepared setups. A run belongs to the user who created it; `runs.read.all` shows
 the runs of all users. The [profile spec](spec/profiles.md) describes setup and limits;
 verified neutral examples are in the internally generated
-[developer reference](homepage/developer.md#share-read-access-and-prepared-setups).
+[developer reference](homepage/developer.md#grant-reading-and-prepared-setups).
 
 ## Configuration
 
@@ -486,7 +486,7 @@ a second copy of the React types. Before every commit, `overrides` and the `pnpm
 changed by it are removed again (`pnpm install` afterwards); checks and commits are always made against
 a published version. RAgents takes over a new quassel version with
 `pnpm up -r quassel`; if it changes names that plugins use, `pnpm update:host-api` and
-a new `HOST_API_VERSION` are needed (`docs/spec/plugins.md`, section Host API).
+a new `HOST_API_VERSION` are needed (`docs/spec/plugins.md`, section Bundle, build tool, and host API).
 
 ## Tools, checks, and publishing
 
@@ -586,7 +586,7 @@ The second command checks generator types, guide excerpts, the exclusion rules, 
 and jump targets, and that a rebuild produces no changes;
 it is also part of `pnpm check`. If outputs differ, regenerate the reference. New
 extension points need an example in `scripts/homepage/homepage-extensions.ts`; coverage
-is checked against the actual contracts. UI demos are maintained in
+is checked against the actual contracts. UI demos are maintained as a source in
 `docs/homepage/reference-ui.tsx`, their props come from the public UI contract.
 
 Tool discovery composes only the neutral plugins from the literal
@@ -594,7 +594,7 @@ core list in a separate process with its own temporary storage and a fixed
 test configuration. It starts no lifecycles, models, tools, or runs. The real
 profile configuration is not executed. Private product names and local paths in the
 outputs abort the generation. The finished pages need only their local JS/CSS
-files; the UI demos work in the browser without a backend.
+files.
 
 ### Checking concept against implementation
 
@@ -907,8 +907,9 @@ Nothing is both; a concept does not survive its implementation.
   roles (agent, script, mini-app, server, laptop) instead of concrete example workflows; every scene has
   its own visual language. Scroll animations are tied directly to scroll progress (without smoothing,
   without overshoot). Usage details (buttons, spacing, pixel sizes, storage locations) belong in
-  `docs/usage.md`, never on the main page. Screenshots under `docs/homepage/screenshots/` show
-  real runs with neutral example data. Private product names and integrations do not appear
+  `docs/usage.md`, never on the main page. Screenshots on the main page show
+  real runs with neutral example data; browser tests write their screenshots to the system
+  temp directory (`ragents-browser-shots`), never into the repository. Private product names and integrations do not appear
   on the public pages. No external runtime resources. The generator does not check the content
   of the main page; it only takes over its header for the guide pages.
 - `docs/homepage/guide.html` and `guide-*.html`: generated guide for getting started, way of working, and
@@ -921,15 +922,8 @@ Nothing is both; a concept does not survive its implementation.
   conceptual mini-app. Generated technical files such as `reference.md`, `developer.md`,
   `llms.txt`, `rpc-api.md`, and `openrpc.json` remain internal build outputs and are not
   published. The executable sample previews are not part of the public export either.
-- `docs/ui-drafts/`: every UI draft is an HTML page with one or two PNG screenshots
-  next to it (headless Chrome) and a tab in `docs/ui-drafts/index.html`: add an
-  `<article>` block there by hand, as described in the file's comment. This applies to ALL
-  existing and new draft pages. There is exactly one tab per HTML page in the overview,
-  newest collections first. Variants within the same page stay in that page's own menu
-  and do not get duplicate tabs at the top (12.09.2026). In the card grid, every
-  variant stays directly visible with its own preview. Sort by the original draft date;
-  adding something later does not make old drafts new. Keep existing direct links and
-  add missing older pages. No separate draft overviews. No build.
+- UI drafts are not committed: they are made locally for comparison, and the chosen direction
+  goes into the spec.
 - There are no other places.
 
 How to document your work:

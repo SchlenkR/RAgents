@@ -69,7 +69,7 @@ level) and `apps/server/tests/model-relay.test.ts` (catalog and client of the re
 
 ## Windows ends the MSYS group of a bash call, `timeout` up to 3600 seconds (29.09.2026)
 
-Chapters: `docs/operations.md` (Work on Windows, time limit of `bash`), `docs/spec/plugins.md`.
+Chapters: `docs/operations.md` (Work on Windows, Time limit of `bash`), `docs/spec/plugins.md`.
 Occasion: a real test on a Windows 11 machine showed that `sleep.exe` kept running after a
 timeout. MSYS does not attach the children of bash to its Windows process tree; `taskkill /T` on
 bash never reaches them. Stop and timeout thus let every command keep running on Windows, including
@@ -124,9 +124,9 @@ size (only the sheet measures itself against its input, every other frame has it
 
 ## Plugins project their states themselves, the core no longer names a plugin, VS Code shows a different version (29.09.2026)
 
-Chapters: `docs/spec/plugins.md` (Registrations of the PluginHost, Responsibility per facet, Web
-halves at runtime, Workspace, Sandbox tools and processes with the sign-in of a workstation and the
-server's process sandbox, Open limits), `docs/spec/profiles.md` (Rights in detail),
+Chapters: `docs/spec/plugins.md` (PluginHost registrations, Ownership per facet, Web
+halves at runtime, Workspace, sandbox tools, and processes with the sign-in of a workstation and the
+server's process sandbox, Open limits), `docs/spec/profiles.md` (Permissions in detail),
 `docs/spec/core.md` (Global coordinator), `docs/usage.md` (Run panel and VS Code extension),
 `docs/operations.md` (Workstation), `docs/development.md` (Extension points in the server). Continues
 point (6) of "Language servers and browser come as a contribution to the executor from their
@@ -190,8 +190,8 @@ versions, and precisely then the warning should appear.
 
 ## Language servers and browser come as a contribution to the executor from their plugins (29.09.2026)
 
-Chapters: `docs/spec/plugins.md` (Plugin contract, Responsibility per facet, Build and ship a
-plugin, Bundle, build tool and host API, Workspace, Sandbox tools and processes with the new
+Chapters: `docs/spec/plugins.md` (Plugin contract, Ownership per facet, Build and ship a
+plugin, Bundle, build tool, and host API, Workspace, sandbox tools, and processes with the new
 section Contributions to the executor, Provisioning per plugin, Language server plugins, Browser
 checks, Open limits), `docs/development.md` (Which folder contains what, What goes through
 plugins), `docs/operations.md` (Workstation), `docs/usage.md` (Servers page of the extension).
@@ -342,7 +342,7 @@ engine for a single user. Verified with `packages/agent/tests/bash.test.ts`,
 
 ## Compaction values belong to the model (28.09.2026)
 
-Chapters: `docs/spec/core.md` (Model context across turns, What goes into the journal, Retry and
+Chapters: `docs/spec/core.md` (Model context across turns, What goes into the journal, Retries and
 compaction, File format), `docs/spec/profiles.md` (Relay providers and aliases),
 `docs/spec/plugins.md` (Model relay), `docs/operations.md` (Configure model access and start,
 Compaction of the model context), `docs/usage.md` (Selectable model), `docs/development.md`
@@ -445,7 +445,7 @@ change with every VS Code version, and not there without VS Code); a separate se
 
 ## A message from the human ends a blocking question (28.09.2026)
 
-Chapters: `docs/spec/core.md` (Origin of an input; File format, write limits and replay),
+Chapters: `docs/spec/core.md` (Origin of an input; File format, write boundaries, and replay),
 `docs/spec/plugins.md` (Web as plugin host, Questions from `ragents.ask`), `docs/usage.md` (Run
 chat and surface), `docs/development.md` (Journal example).
 
@@ -482,8 +482,8 @@ marker (a silent convention); also settling questions without a turn (the start 
 
 ## Run condition per plugin (28.09.2026)
 
-Chapters: `docs/spec/plugins.md` (Registrations of the PluginHost, Prompt contributions and
-orchestration guide, Responsibility per facet, Workspace with `renderForRun`).
+Chapters: `docs/spec/plugins.md` (PluginHost registrations, Prompt contributions and
+orchestration guidance, Ownership per facet, Workspace with `renderForRun`).
 
 **Why.** A profile can contain domain plugins whose prompts, functions and skills apply only to
 runs in a particular project. If a user bound a run to an unrelated folder of their workstation, the
@@ -538,8 +538,8 @@ Chapters: `docs/spec/core.md` (Runtime boundary, Model context across turns, Mod
 agent runtime with projection, Held context and cache markers, Equipping subagents, Artifacts,
 Journal and projection, File format, Run transfer, Open limits), `docs/spec/overview.md` (Terms,
 Architecture, Responsibilities, Guiding principle), `docs/spec/plugins.md` (Agent hooks, Seen file
-state, Preparation chat, Workstation, Run metadata), `docs/operations.md` (Data storage, Transfer a
-run, Compaction), `docs/usage.md` (Switch runs, Run panel), `docs/development.md` (Folders),
+state, Preparation chat, Workstation, Run metadata), `docs/operations.md` (Data storage and logs, Transfer a
+run, Compaction of the model context), `docs/usage.md` (Switch runs, Run panel), `docs/development.md` (Folders),
 `packages/agent/README.md`. Resolves the open point from "Agent runtime merged in" (24.09.2026):
 the engine sits directly on the loop; session, session runtime and services are gone.
 
@@ -733,7 +733,7 @@ context).
 ## Chat building blocks from the quassel library (27.09.2026)
 
 Chapters: `docs/spec/plugins.md` (Host API, Tailwind and stylesheet, Chat building blocks),
-`docs/spec/overview.md` (Terms), `docs/development.md` (Folders, Develop quassel and RAgents
+`docs/spec/overview.md` (Terms), `docs/development.md` (Folders, Developing quassel and RAgents
 together). Replaces "No more vendor construct (01.09.2026)": the chat is again a separate library,
 quassel (github.com/SchlenkR/quassel, npm `quassel`, MIT), extracted from state 4a9deed, and RAgents
 consumes it as a dependency instead of a copy.
@@ -746,7 +746,7 @@ quassel renders with the host's base building blocks and reads its tokens.
 `apps/server/src/chat-events.ts` and `chat-attachments.ts`; server and web import the contract from
 `quassel/events`, the components from `quassel`. `QuasselHost` gives quassel `Button`, `Toggle`,
 `Card`, `StopButton`, `Popover` and `PopoverContent` from `apps/web/src/ui` as slots and allows the
-links `ablauf:...` in every Markdown; the web's entry points and the chat and Markdown building
+links `flow:...` in every Markdown; the web's entry points and the chat and Markdown building
 blocks of the mini-apps wrap it around their content. `apps/web/src/ui/quassel.css` includes
 `quassel/chat.css` after the host's utilities and maps every `--qsl-*` variable to the tokens from
 `theme.css`. Plugins share quassel as a whole library via the host API, because slots, link policy
@@ -771,7 +771,7 @@ would win over quassel's classes).
 
 ## Error messages of actor program activation limited (26.09.2026)
 
-Chapters: `docs/spec/actor-programs.md` (Diagnostics, type check and domain tests). A test run with
+Chapters: `docs/spec/actor-programs.md` (Diagnostics, type check, and domain tests). A test run with
 25 deliberate type errors returned 2.5 KB, one line per error; but the amount was unlimited, and
 messages of the client build came without line and column. Like the test report, the activation
 now reports the count and the first ten errors with location; `actor_program_diagnostics` names the
@@ -779,7 +779,7 @@ rest (plugin guide, section 9).
 
 ## File state at the host instead of a hash in the call, like Claude Code (26.09.2026)
 
-Chapters: `docs/spec/plugins.md` (Workspace, Sandbox tools and processes, "Seen file state").
+Chapters: `docs/spec/plugins.md` (Workspace, sandbox tools, and processes, "Seen file state").
 Owner's requirement: `read`, `edit` and `write` manage the file state like Claude Code, the model
 never passes a hash.
 
@@ -827,7 +827,7 @@ stays complete and limited only by its limit. The violations found are in `TODO.
 **Implementation.** Additional chapters: `docs/spec/core.md` (Tool results, `actor_list`,
 `run_configure`), `docs/spec/typescript-platform.md` (`typescript_api`),
 `docs/spec/actor-programs.md` (Test report, `actor_program_controls`) and `docs/spec/plugins.md`
-(Sandbox tools, Browser check). `bash` outputs at most 20 KB and visibly truncates lines over 1000
+(Workspace, sandbox tools, and processes; Browser checks). `bash` outputs at most 20 KB and visibly truncates lines over 1000
 characters, the full output stays in the log file; `read` keeps 50 KB and 2000 lines, because it
 reads page by page with `offset`, and its notice for an overlong line splits it with `fold`. Failed
 tests of an activation are reported by a dedicated reporter with count, name, message, expected and
@@ -847,8 +847,8 @@ about 4 KB to 0.4 KB.
 
 ## Solution at the start of a run, solution list and switching in the tab (25.09.2026)
 
-Chapters: `docs/spec/plugins.md` (Responsibility per facet, Executor, Language server plugins),
-`docs/spec/profiles.md` (Rights in detail), `docs/development.md` (Extension points). Owner's
+Chapters: `docs/spec/plugins.md` (Ownership per facet, Executor, Language server plugins),
+`docs/spec/profiles.md` (Permissions in detail), `docs/development.md` (Extension points). Owner's
 requirement: a new run should load the .NET solution of its workspace into Roslyn by itself, ask
 immediately if there are several, never for run scripts; the model should find and additionally
 load solutions, the user switch in the tab.
@@ -1073,7 +1073,7 @@ Verified with `scripts/agent/agent-cli.test.ts`.
 ## Model and thinking level in the run's chat, also after the start (24.09.2026)
 
 Chapters: `docs/usage.md` (Selectable model), `docs/spec/plugins.md` (Start options, Slots),
-`docs/spec/profiles.md` (Rights in detail). Owner's requirement. Since the start selection shows
+`docs/spec/profiles.md` (Permissions in detail). Owner's requirement. Since the start selection shows
 only tiles, the model of a new run could only be chosen in the preparation chat of a template with
 a guide, and after the first message not at all. Decided: the model selection stands in the chat
 input of every run (`ChatSurface` in `PluginChat.tsx`, so browser and run panel in VS Code are the
@@ -1150,7 +1150,7 @@ the cause; the health poll every five seconds is dropped. `journal` still reads 
 
 ## Every start option names its rights (24.09.2026)
 
-Chapters: `docs/spec/profiles.md` (Rights in detail), `docs/spec/plugins.md` (Start options).
+Chapters: `docs/spec/profiles.md` (Permissions in detail), `docs/spec/plugins.md` (Start options).
 Owner's requirement. `ragents.startOptions.list` and `.select` required `runs.inspect` across the
 board; a user without this right could therefore bind a run to their folder or workstation neither in
 the web nor in VS Code nor via `ragents run`, although only the model selection gives technical
@@ -1165,7 +1165,7 @@ plugin without `rights` is thus visible without `runs.inspect`.
 ## Forms in the mini-app frame, activating after removal (24.09.2026)
 
 Chapters: `docs/spec/actor-programs.md` (Backend and client, Create, edit, and activate, Tile host
-and Functions tab). Owner's requirement. A view's frame was sandboxed without `allow-forms`;
+and functions tab). Owner's requirement. A view's frame was sandboxed without `allow-forms`;
 Chromium then fired no `submit` ("Blocked form submission"), and `UI.Form` never submitted.
 Decided: `allow-forms` in the iframe attribute and in the CSP directive `sandbox`;
 `form-action 'none'` stays, a real submission to an address remains impossible. Verified in
@@ -1178,11 +1178,11 @@ other owner remains an error with a cause.
 
 ## Every root belongs to a machine: an alias runs on the server, even in a run on a workstation (24.09.2026)
 
-Chapters: `docs/spec/plugins.md` (Responsibility per facet; Workspace, sandbox tools and processes;
-Process sandbox of the server; Language server plugins; Skills and starting tasks),
+Chapters: `docs/spec/plugins.md` (Ownership per facet; Workspace, sandbox tools, and processes;
+Server process sandbox; Language server plugins; Skills and starting tasks),
 `docs/spec/actor-programs.md` (Packages and actor binding), `docs/spec/core.md` (Skills of the
 agent runtime, Workspace in the system prompt), `docs/spec/typescript-platform.md` (Execute code),
-`docs/operations.md` (Process sandbox, Data storage, Isolation per run). Owner's requirement.
+`docs/operations.md` (Server process sandbox, Data storage and logs, Isolation per run). Owner's requirement.
 
 **Finding.** A run bound to a workstation sent every operation to its executor, but only the server's
 executor knew the server's roots: the workspace of the actor programs under `@actors` and the skill
@@ -1255,7 +1255,7 @@ binding (`TODO.md`).
 
 ## Additional folders for the process sandbox in the workspace contract (24.09.2026)
 
-Chapters: `docs/spec/plugins.md` (Responsibility per facet, Process sandbox of the server). A
+Chapters: `docs/spec/plugins.md` (Ownership per facet, Server process sandbox). A
 workspace contributed by a plugin can need folders outside its folder: a Git worktree per run
 whose shared repository (`git rev-parse --git-common-dir`) lies elsewhere. The sandbox blocked it,
 and Git via bash failed with `not a git repository`. Decided: `SessionWorkspace.sandboxFolders`,
@@ -1330,9 +1330,9 @@ events stay local; normal browsers continue to use their native input.
 
 ## Process sandbox for everything a run starts on the server (24.09.2026)
 
-Chapters: `docs/spec/plugins.md` (Workspace, new section Process sandbox of the server; Open
-limits), `docs/spec/profiles.md` (Rights in detail, Open limits), `docs/operations.md` (Server
-process sandbox, Data storage). Owner's requirement: on the server, `bash`, `commands.run` and the
+Chapters: `docs/spec/plugins.md` (Workspace, new section Server process sandbox; Open
+limits), `docs/spec/profiles.md` (Permissions in detail, Open limits), `docs/operations.md` (Server
+process sandbox, Data storage and logs). Owner's requirement: on the server, `bash`, `commands.run` and the
 Node processes of the TypeScript platform run in a process sandbox; on a workstation it stays the
 developer's bash.
 
@@ -1443,10 +1443,10 @@ closed: snippets are native Node code of the server without their own system acc
 
 ## Binding of a run: machine and folder separated (24.09.2026)
 
-Chapters: `docs/spec/plugins.md` (Responsibility per facet, Run panel, Host API, Workspace, Sandbox
-tools and processes including shell, files, processes and browser, Open limits),
+Chapters: `docs/spec/plugins.md` (Ownership per facet, Run panel, Host API, Workspace, sandbox
+tools, and processes including shell, files, processes and browser, Open limits),
 `docs/spec/core.md` (Transfer, Server folder), `docs/spec/profiles.md` (core), `docs/operations.md`
-(Browser, Session isolation, Transfer), `docs/development.md`. Owner's requirement:
+(Browser, Session isolation, Transfer a run), `docs/development.md`. Owner's requirement:
 `ragents.workspace.binding` with `fresh`, `path` and `client` mixed up WHERE a run works with WHICH
 folder, and `WorkspaceRuntime.kindOf` mixed up the kind of a contributed workspace with the
 binding.
@@ -1544,7 +1544,7 @@ of its turn. The core knows no tool in this; it knows turn, input and driver kin
 ## One global coordinator per user, its tools act as that user (24.09.2026)
 
 Chapters: `docs/spec/core.md` (Parent coordinator), `docs/spec/profiles.md` (Run ownership,
-Ownership in detail, Rights in detail, Open limits), `docs/spec/plugins.md` (Rights of the
+Ownership in detail, Permissions in detail, Open limits), `docs/spec/plugins.md` (Rights of the
 coordinator, Header), `docs/usage.md` (Global coordinator). Owner's requirement: every signed-in
 user has their own coordinator, without sign-in exactly one.
 
@@ -1596,7 +1596,7 @@ contract.
 ## Operations docs split: usage in usage.md, operations in operations.md (24.09.2026)
 
 Chapters: `docs/usage.md` (new), `docs/operations.md`, `docs/development.md` (Documentation,
-Tools, check runs and publishing), `docs/spec/core.md` (Parent coordinator, Security lockdown of
+Tools, checks, and publishing), `docs/spec/core.md` (Parent coordinator, Security lockdown of
 the agent runtime), `docs/spec/plugins.md` (Example of a skill entry),
 `docs/spec/actor-programs.md` (Frame, layout, forms, and chat building blocks),
 `docs/spec/overview.md`, `docs/spec/profiles.md`, `scripts/homepage/homepage-guide.ts`. The
@@ -1609,7 +1609,7 @@ extension, `ragents run` and `pnpm driver`. `docs/operations.md` says how to ins
 operate RAgents: access, browser, package, connect, run transfer, Windows, data storage, workspace.
 Build and check tasks, homepage build, concept audit, publishing of package and extension, the real
 browser probe and the check runner for the remote workspace now stand in `docs/development.md`
-under "Tools, check runs and publishing". Rejected: a single file with sharper headings, because
+under "Tools, checks, and publishing". Rejected: a single file with sharper headings, because
 users and operators ask different questions and the file would have kept growing anyway.
 
 **Duplicates of the spec replaced by references.** What was already in the spec has disappeared
@@ -1828,8 +1828,8 @@ extension then does not sign in and names the reason at the server.
 ## Bundles: used names in the manifest, file swap instead of folder swap, build only what is stale (24.09.2026)
 
 Chapters: `docs/spec/plugins.md` (Build and ship a plugin, Web halves at runtime, Bundle, build
-tool and host API, Profile distribution, Open limits), `docs/spec/profiles.md` (Start paths,
-server-delivered profiles, access token), `docs/development.md`, `docs/operations.md`. The
+tool, and host API, Profile distribution, Open limits), `docs/spec/profiles.md` (Start paths,
+Server-delivered profiles, access token), `docs/development.md`, `docs/operations.md`. The
 occasion was the review of the plugin bundles with eight significant findings.
 
 **Names instead of just a number.** New names of the host API come without a new number; a bundle
@@ -1859,13 +1859,13 @@ runs collided at the target. Node cannot swap a folder atomically (that would ne
 every changed file arrives at its place individually by rename, the manifest last, remnants
 afterwards; unchanged files stay, and `tsx watch` restarts only on changed server files. A lock
 file per target makes parallel runs wait. The same applies to the web. `pnpm build:plugins` builds
-only what is stale; so that a library or tool update still arrives, `sourceStand` includes the
+only what is stale; so that a library or tool update still arrives, `sourceRevision` includes the
 host's inputs (lockfile or `package.json`, host API, build tool).
 
 **Minor items.** `--watch` builds each time from a freshly read description. The stylesheet is
 recompiled as soon as a class list changes, not only in dev mode. Free without a token are only the
 delivered files of the web halves, no source maps (they carry the source text) and no plugin routes
-under `/plugins/`. `stand` now has readers: package build, `connect` and the staleness check. The
+under `/plugins/`. `revision` now has readers: package build, `connect` and the staleness check. The
 distributor rejects a client profile with an absolute or `~/` path, instead of the client loading
 a foreign bundle or none; `connect` creates no links from the archive.
 
@@ -2040,7 +2040,7 @@ started, was wrong since the bundles with a source folder in `PLUGINS`, and the 
 ## Host API 4: only what plugins import, without the agent runtime, dead code in the same go (24.09.2026)
 
 Chapters: `docs/spec/plugins.md` (Core boundary, Plugin contract including the new section Agent
-hooks, Build and ship a plugin, Bundle, build tool and host API with the rules, Chat building
+hooks, Build and ship a plugin, Bundle, build tool, and host API with the rules, Chat building
 blocks, Workspace), `docs/spec/core.md` (Inputs during a turn), `docs/development.md`,
 `docs/operations.md`. The occasion was the scans of server, web and extension, plugins and agent
 runtime at the state of 24.09.2026, which independently recommended shortening the host API before
@@ -2228,7 +2228,7 @@ and the tests per change are corrected.
 
 Chapters: `docs/spec/profiles.md` (Optional sign-in and rights), `docs/spec/plugins.md`
 (Environment of the executor, Language server, Open limits), `docs/operations.md` (Operate as an
-agent, Run transfer). The occasion was the scan of server, executor and scripts at the state of
+agent, Transfer a run). The occasion was the scan of server, executor and scripts at the state of
 24.09.2026; every fix has a test that was red before.
 
 **Managed runs belong to their caller.** `ragents.overseer.createRun` and the rest of the session
@@ -2311,7 +2311,7 @@ against any other read error of a single run view.
 
 ## Plugins as bundles completed: the profile distribution distributes bundles, the package builds foreign plugins, the concept is spec (24.09.2026)
 
-Chapters: `docs/spec/plugins.md` (Build and ship a plugin, Bundle, build tool and host API, Bundles
+Chapters: `docs/spec/plugins.md` (Build and ship a plugin, Bundle, build tool, and host API, Bundles
 at any location, Profile distribution, Open limits), `docs/spec/profiles.md` (Product profiles,
 Server-delivered profiles), `docs/operations.md` (Build and check tasks, Work without a checkout,
 Connect to a server), `docs/development.md`, `scripts/package/README.md`, homepage (Distributed
@@ -2405,7 +2405,7 @@ the server is the shared path of `pnpm start`, `ragents run`, `ragents start` an
 extension, and all four run the same way from the package, where there is nothing to build. A
 build at startup would need Vite, cost about 7 s, would compete for the same `apps/web/dist` and
 `bundles/` with several hosts of one checkout, and would hide that the checkout has changed.
-Detection works via hashes: the build tool writes `sourceStand` into the manifest (hash over the
+Detection works via hashes: the build tool writes `sourceRevision` into the manifest (hash over the
 source folder without `node_modules` and without its target) instead of `source`, the web build
 writes `host-web.json` with every read source file and its hash. An external bundle no longer names
 its source folder; therefore only its repo checks whether it fits, building before start and
@@ -2528,7 +2528,7 @@ generated and checked.
 ## A runner checks the workspace on a foreign machine, and the agent runtime works by itself on the server (23.09.2026)
 
 Chapters: `docs/spec/core.md` (System prompt and agent runtime, Chat attachments, Run stop),
-`docs/spec/plugins.md` (Workspace, sandbox tools and processes; Open limits),
+`docs/spec/plugins.md` (Workspace, sandbox tools, and processes; Open limits),
 `docs/spec/profiles.md` (Start modes) and `docs/operations.md` (Session isolation, Build and check
 tasks, Stop services and background processes, Attachments in the chat, Parent coordinator,
 Selectable model). Until today all tests with server and workstation ran on one machine, on which
@@ -2567,7 +2567,7 @@ scheduler appended it only when workspace tools came from the agent runtime; `ra
 however, provides them as functions, and then they dropped out of this list. The scheduler's test
 knew only the first path. Now every workspace tool counts, regardless of where it comes from; the
 agent of a workstation run reads "Your working directory is the project folder ... on the
-workplace ..., not on the server" instead of a raw line, an actor without these tools keeps the
+workstation ..., not on the server" instead of a raw line, an actor without these tools keeps the
 line with the path of the workspace.
 
 Second, the emergency stop failed after browser use in the container. The cause was not ending
@@ -2616,7 +2616,7 @@ the container and that the prompt names the workstation's folder, not that of th
 
 ## A stopped executor is never reused, every sign-in of a workstation builds its own (23.09.2026)
 
-Chapters: `docs/spec/plugins.md` (Workspace, sandbox tools and processes; Browser checks).
+Chapters: `docs/spec/plugins.md` (Workspace, sandbox tools, and processes; Browser checks).
 The workstation (`WorkspaceClient`) held one executor for its whole lifetime. Signing out, including
 the one from `update` without a folder, ended it with `shutdown`, a later sign-in kept using it:
 the language server host stayed ended (`TypeScript start was stopped`) until the extension
@@ -2640,10 +2640,10 @@ running executor.
 
 ## The browser check runs at the run's executor, the server holds its evidence (23.09.2026)
 
-Chapters: `docs/spec/plugins.md` (Browser checks; Workspace, sandbox tools and processes;
+Chapters: `docs/spec/plugins.md` (Browser checks; Workspace, sandbox tools, and processes;
 Provisioning per plugin; Self-contained plugin folder and ownership; Open limits),
 `docs/operations.md` (Check web applications in the browser, Session isolation) and
-`docs/development.md` (Develop). `ragents.browser` always started Chrome on the server. For a run
+`docs/development.md` (Developing). `ragents.browser` always started Chrome on the server. For a run
 bound to a workstation, however, the agent starts the checked application on the workstation, and
 `localhost` of the server browser is a different machine. The entry "The workspace has exactly one
 access path" of the same day had therefore announced the browser check as the next module of the
@@ -2697,7 +2697,7 @@ the field of the contract.
 
 ## A plugin calls a program in the workspace as a command without a shell at the executor (23.09.2026)
 
-Chapters: `docs/spec/plugins.md` (Workspace, sandbox tools and processes). Since the executor is
+Chapters: `docs/spec/plugins.md` (Workspace, sandbox tools, and processes). Since the executor is
 the only access to the workspace (entry "The workspace has exactly one access path" of the same
 day), a plugin that itself needs a program in a run's folder had no way there. `bash` is a tool of
 the model: with a shell, serial per run and with an output for the model instead of an exit code
@@ -2734,9 +2734,9 @@ rework of the same day.
 
 ## The workspace has exactly one access path, the run's executor (23.09.2026)
 
-Chapters: `docs/spec/plugins.md` (Workspace, sandbox tools and processes; Language server plugins;
+Chapters: `docs/spec/plugins.md` (Workspace, sandbox tools, and processes; Language server plugins;
 Open limits), `docs/spec/typescript-platform.md` (native execution, Execute code, Open limits) and
-`docs/operations.md` (Stop services and background processes, Work on Windows, Data storage,
+`docs/operations.md` (Stop services and background processes, Work on Windows, Data storage and logs,
 Session isolation). A run bound to a workstation sent only the model's tool calls to the
 workstation, and that via a fixed list in the executor: four sandbox tools, hard-wired language
 server names, `stop`. Everything else that touches the workspace's machine got a local handle on
@@ -2837,9 +2837,9 @@ state.
 ## Workstations belong to their user, a run bound to one is operated only by its owner (23.09.2026)
 
 Chapters: `docs/spec/plugins.md` (Plugin contract: start options; Rights in server and web
-contributions; Workspace, sandbox tools and processes; Open limits), `docs/spec/profiles.md` (User
-rights) and `docs/operations.md` (Sign-in and profile permissions, Session isolation, Run
-transfer). A run with the binding `client` executes `read`, `write`, `edit`, `bash` and the
+contributions; Workspace, sandbox tools, and processes; Open limits), `docs/spec/profiles.md` (Ownership
+in detail) and `docs/operations.md` (Sign-in and profile permissions, Session isolation, Transfer
+a run). A run with the binding `client` executes `read`, `write`, `edit`, `bash` and the
 language servers on a workstation's machine, with its `HOME` and thus with the Git, SSH and NuGet
 credentials of its developer. The sign-in remembered the user, but nobody checked it afterwards.
 Four gaps followed from this. `ragents.workspace.clients.list` showed all workstations to everyone
@@ -2942,8 +2942,8 @@ The diagrams explain contracts and relationships; they do not claim executed mod
 ## The workspace has an owner, a custom kind is a contribution (22.09.2026)
 
 Chapters: `docs/spec/plugins.md` (Self-contained plugin folder and ownership; Workspace, sandbox
-tools and processes), `docs/spec/profiles.md` (Profile core) and `docs/operations.md` (Data
-storage, Session isolation). A profile that builds its workspace differently from the host had only
+tools, and processes), `docs/spec/profiles.md` (Profile core) and `docs/operations.md` (Data
+storage and logs, Session isolation). A profile that builds its workspace differently from the host had only
 one way so far: its own plugin that registers `workspaceRuntimeToken` and `sandboxServicesToken`
 itself. That way it cannot run next to `ragents.workspace` - `ServiceRegistry.provide` aborts at
 the second provider -, and everything the host can already do in terms of workspace mechanics (the
@@ -2974,8 +2974,8 @@ statement than a second path nobody sees.
 
 ## A run belongs to the user who created it (22.09.2026)
 
-Chapters: `docs/spec/profiles.md` (User rights) and `docs/operations.md` (Sign-in and profile
-rights). Until now all users with read access shared the runs of a profile. Every developer access
+Chapters: `docs/spec/profiles.md` (Run ownership) and `docs/operations.md` (Sign-in and profile
+permissions). Until now all users with read access shared the runs of a profile. Every developer access
 thus saw the tasks, journals and working directories of all others, and a guessed run id was
 enough to open someone else's run.
 
@@ -3300,7 +3300,7 @@ there anyway.
 
 ## The engine no longer knows a tool shape: one waiting action with an opaque payload (22.09.2026)
 
-Chapters: `docs/spec/core.md` (Waiting actions), `docs/spec/plugins.md` (Core boundary, Web as
+Chapters: `docs/spec/core.md` (Pending actions), `docs/spec/plugins.md` (Core boundary, Web as
 plugin host), `docs/operations.md` (Run panel and VS Code extension). Owner's finding: the engine
 must not know any tool and any tool shape, but it knew exactly one.
 `packages/ragents/src/domain/events.ts` carried, next to the generic `kind: "action"`, the case
@@ -3404,12 +3404,12 @@ canvas controller as the one selection on the surface: app entries of the canvas
 pop-outs report it, an artifact opens the documents, everything else becomes the selected tile and
 the location for the global coordinator. `FlowInspector` and its tests remain for the later entry
 point from the chat; until then references to its detail pages only lead to the selection (Open
-boundaries).
+limits).
 
 ## The work column is called run panel (21.09.2026)
 
 Chapters: `docs/spec/plugins.md` (Web as plugin host, Run panel in the extension, Open
-boundaries), `docs/operations.md` (Run panel and VS Code extension, Settings),
+limits), `docs/operations.md` (Run panel and VS Code extension, Settings),
 `docs/development.md`, `docs/homepage/index.html` (Access paths), `apps/web/README.md`,
 `apps/vscode/README.md`, `apps/vscode/CHANGELOG.md`, `TODO.md`. The embedded run view used to be
 called the work column, in code `column`: the page `column.html`, the folder
@@ -3767,7 +3767,7 @@ not 450, and the 220 milliseconds after focus loss were not written down anywher
 ## The free canvas is removed, the tile surface remains (21.09.2026)
 
 Chapters: `docs/spec/plugins.md` (Web as plugin host, Open limits),
-`docs/spec/actor-programs.md` (Tool cards and tiles, Tile host and Functions tab),
+`docs/spec/actor-programs.md` (Tool cards and tiles, Tile host and functions tab),
 `docs/spec/typescript-platform.md`, `docs/spec/overview.md`, `docs/spec/core.md`,
 `docs/spec/profiles.md`, `docs/operations.md` (Use the tile surface, Run chat and work surface,
 Settings), `README.md`, `docs/homepage/index.html` and the wording in `docs/concepts/`. Work now
@@ -4132,7 +4132,7 @@ and the build says which - that is recorded as a limit.
 ## A run moves as an archive: same host version, same id, replay as after a restart (20.09.2026)
 
 Chapters: core (Moving a run to another server, Open limits), operations (Transfer a run, Data
-storage); concept `docs/concepts/run-transfer.md`. The item "run transfer between servers" was a
+storage and logs); concept `docs/concepts/run-transfer.md`. The item "run transfer between servers" was a
 later line in `remote-profile.md` with three open questions. They are now decided, each in the
 direction of the simplest solution that holds.
 
@@ -4217,7 +4217,7 @@ only a foreign one stays 403.
 ## The relay names only the alias, titles without a title model block no start (20.09.2026)
 
 Chapters: plugins (Model relay, Open limits), profiles (Model providers, Model for automatic
-headings), operations (Connect to a server). The relay run with two local servers showed two
+titles), operations (Connect to a server). The relay run with two local servers showed two
 product bugs.
 
 First, a client profile with `COMPACTION_PROVIDER: "relay"` and an empty `COMPACTION_MODEL` did
@@ -4300,7 +4300,7 @@ workstation with `roslyn_open` and `typescript_diagnostics` on both paths.
 ## Windows as a client platform, built without a real run (20.09.2026)
 
 Chapters: plugins (Sandbox tools and processes, Open limits), operations (Work on Windows, Data
-storage); concept `docs/concepts/remote-profile.md`, package 7. The executor started `/bin/bash`
+storage and logs); concept `docs/concepts/remote-profile.md`, package 7. The executor started `/bin/bash`
 hard-coded, sent signals to negative PIDs, always put its data under `~/.local/share`, and the
 prompt contribution on the shell platform only knew darwin and linux. On a Windows workstation none
 of it would have run. The principle stays: Node standard APIs and Git Bash, no platform layer of
@@ -4354,7 +4354,7 @@ message remains. (3) `show_document`, like `document_write`, is a native model t
 
 ## One workstation executor, the same everywhere (20.09.2026)
 
-Chapters: plugins (Workspace, Sandbox tools and processes; Language server plugins;
+Chapters: plugins (Workspace, sandbox tools, and processes; Language server plugins;
 Self-contained plugin folders; Open limits), operations (Session isolation); concept
 `docs/concepts/workspace-tools-proxy.md`. The `client` binding from 18.09.2026 sent five basic
 operations (`readFile`, `writeFile`, `access`, `mkdir`, `exec`) to the workstation and left the
@@ -4457,7 +4457,7 @@ Windows, Linux secondary.
 
 Chapters: profiles (Server-delivered profiles, Sign-in, Model providers, Open limits), plugins
 (Model relay, Profile distribution), operations (Sign-in, Model access, Connect to a server, Data
-storage), README. Packages 1 to 5 from `docs/concepts/remote-profile.md` are built; the concept
+storage and logs), README. Packages 1 to 5 from `docs/concepts/remote-profile.md` are built; the concept
 only keeps the open packages 6 to 9. Decided during the build: (1) Two rights of their own instead
 of `runs.read`: `models.use` for the relay and `profile.fetch` for profile distribution, so that a
 developer token does not have to read runs of the central server. (2) The host version must match
@@ -4538,7 +4538,7 @@ without legacy paths.
 
 ## Workspace: one contract as the seam, binding per run as the direction (18.09.2026)
 
-Chapters: plugins (Workspace, Sandbox tools and processes; Open limits), homepage (Sticker in the
+Chapters: plugins (Workspace, sandbox tools, and processes; Open limits), homepage (Sticker in the
 hero, section The workspace). For publication without the private product, the VS Code extension
 lacks the link to the project folder: it does not know the workspace, and core works in an empty
 folder per run. Requirement: the extension should know where the files are, and a workstation
@@ -4904,7 +4904,7 @@ general or domain-specific:
    An input never reaches a running turn; the reminder was only processed afterwards as a turn of
    its own ("The report has been submitted after the fact"), changed detail texts, and the
    coordinator answered the follow-up ping with "No change". The reminder text expected exactly
-   this case, the delay was built in. General rule in `core.md` (Scheduler and turn): an input
+   this case, the delay was built in. General rule in `core.md` (Scheduler and turns): an input
    that refers to the running turn is always stale when processed and must not be queued; the only
    way into a running turn is the agent runtime's context contribution (`agentRuntime`
    contribution, event `context`), as the project diagnostics of the actor programs already use
@@ -4930,7 +4930,7 @@ general or domain-specific:
    diagnostics; the prompts say what is direct and require bundling independent calls in one
    response. Calls whose result is passed on stay snippets, so that no values get copied by hand.
 
-Chapters: `docs/spec/core.md` (Scheduler and turn), `docs/spec/plugins.md` (Web as plugin host).
+Chapters: `docs/spec/core.md` (Scheduler and turns), `docs/spec/plugins.md` (Web as plugin host).
 The generated references under `docs/homepage/` have been updated with `pnpm generate:homepage`.
 
 ## `scripts/` organized by topic (16.09.2026)
@@ -4972,7 +4972,7 @@ timeout; and one instance delivered its report via a tool call, after which its 
 Requirement: time limits stay, reviews may take long. Decided:
 
 1. A tool result in the journal stays valid, no matter how the turn ends afterwards; the rule is
-   in `core.md` (Scheduler and turn).
+   in `core.md` (Scheduler and turns).
 2. On a response without text and without a tool call, the agent loop
    (`packages/agent-core/src/agent-loop.ts`) nudges exactly once with a user message; if the next
    response stays empty, it becomes the error response "Model returned an empty response twice."
@@ -4982,7 +4982,7 @@ Requirement: time limits stay, reviews may take long. Decided:
    package, added to `build/check.sh`) and `packages/ragents/tests/agent-runtime.test.ts` for the
    driver's turn result.
 
-Chapters: `docs/spec/core.md` (Scheduler and turn). The generated references under
+Chapters: `docs/spec/core.md` (Scheduler and turns). The generated references under
 `docs/homepage/` are to be updated with `pnpm generate:homepage`.
 
 ## Findings from two autonomous runs (16.09.2026)
@@ -5014,7 +5014,7 @@ and implemented:
    way out; pure visibility and address checks wait at most 5 seconds instead of 15 (six failed
    attempts of 15 seconds each).
 
-Chapters: `docs/spec/core.md` (Actors, inputs, events and subscriptions), `docs/spec/plugins.md`
+Chapters: `docs/spec/core.md` (Actors, inputs, events, and subscriptions), `docs/spec/plugins.md`
 (Sandbox tools, Browser checks). The generated references under `docs/homepage/` are to be updated
 with `pnpm generate:homepage`.
 
@@ -6199,7 +6199,7 @@ it is not additionally distributed to domain agents via the general tool quick g
 
 ## Resolve canvas views before saving (12.09.2026)
 
-Chapters: plugins. The balcony run placed `app:balkon-wizard/wizard`, while the active
+Chapters: plugins. The balcony run placed `app:balcony-wizard/wizard`, while the active
 view had a different internal name. The layout stored this reference unchecked and only showed an
 error on the surface. The tool now resolves self-chosen program or actor names with a
 view key on the server and rejects unknown views before any state change.
@@ -6361,9 +6361,9 @@ right corner. A larger hit area keeps them usable without covering the input are
 ## Keep individual styles visible in the draft overview (12.09.2026)
 
 Chapters: overview. Merging the top tabs had also removed the individual previews from
-the card grid; Plakat, for example, was only reachable behind Farbwerk.
+the card grid; Poster, for example, was only reachable behind Farbwerk.
 The grid again shows each style with its own preview and a direct variant link.
-Only the top bar merges collections. Teamraster, Gesprächsrunde, and the synth interfaces
+Only the top bar merges collections. Team grid, Conversation circle, and the synth interfaces
 had been wrongly dated 11.09. when added later; their original 05.09. restores the
 chronological order. Variants take over the draft date of their collection.
 
@@ -6544,7 +6544,7 @@ an additional fixed width is not needed for this.
 Chapters: overview. The owner wants to find previous and future UI drafts permanently in the
 existing overview. The rule is stated explicitly in the project AGENTS.md and in the
 global Codex work instructions: add new tabs, keep existing ones, and add missing older
-drafts. Team-Raster, Gesprächsrunde, and the synth interfaces are now also
+drafts. Team grid, Conversation circle, and the synth interfaces are now also
 listed in docs/ui-drafts/index.html.
 
 ## Keep preview actions visible at the bottom edge (11.09.2026)

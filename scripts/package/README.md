@@ -24,7 +24,7 @@ npm install -g @schlenkr/ragents
   ```
 
 - `start <profile|path>` - start a profile shipped with the package (`core`, `developer`,
-  `showcase`), your own `ragents.config.<name>.ts` anywhere on disk, or a stand that `connect`
+  `showcase`), your own `ragents.config.<name>.ts` anywhere on disk, or a revision that `connect`
   already fetched, without asking the server. The web interface comes finished with the package,
   the same for every profile; the web halves of the plugins load from their bundles.
 

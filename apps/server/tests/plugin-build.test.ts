@@ -10,7 +10,7 @@ import ts from "typescript";
 import { HOST_API_VERSION, HOST_MODULES_GLOBAL, providedByHost } from "../src/host-api.ts";
 import { readHostApiRecord } from "../src/host-version.ts";
 import { buildPlugins, watchPlugins, type PluginBuildOutcome } from "../src/plugin-build/build.ts";
-import { BUNDLE_FORMAT, bundleStand, sourceStandOf, type BundleManifest } from "../src/profile/bundle-manifest.ts";
+import { BUNDLE_FORMAT, bundleRevision, sourceRevisionOf, type BundleManifest } from "../src/profile/bundle-manifest.ts";
 import { importBundles, loadPlugins, resolvePluginEntries } from "../src/profile/plugin-discovery.ts";
 import { readPluginSource, sourceFileOf } from "../src/plugin-build/plugin-description.ts";
 import { pluginsRoot } from "../src/plugin-support/plugins-root.ts";
@@ -86,10 +86,10 @@ test("all built-in plugins build into bundles with exactly one entry point, usin
       assert.deepEqual(JSON.parse(readFileSync(path.join(bundle, "ragents-bundle.json"), "utf8")) as BundleManifest, manifest);
       assert.equal(manifest.format, BUNDLE_FORMAT);
       assert.equal(manifest.api, HOST_API_VERSION);
-      assert.equal(manifest.sourceStand, sourceStandOf(folder), `${id}: the source stand names the folder the bundle is built from`);
+      assert.equal(manifest.sourceRevision, sourceRevisionOf(folder), `${id}: the source revision names the folder the bundle is built from`);
       assert.equal("source" in manifest, false, "a bundle names no path to its sources");
       assert.equal(manifest.id, id);
-      assert.equal(manifest.stand, bundleStand(bundle), `${id}: the stand does not cover all files`);
+      assert.equal(manifest.revision, bundleRevision(bundle), `${id}: the revision does not cover all files`);
       assert.ok(existsSync(path.join(bundle, manifest.server)), `${id}: ${manifest.server} is missing`);
       assert.equal(manifest.web !== undefined, sourceFileOf(path.join(folder, "web/index")) !== undefined, `${id}: web half`);
       if (manifest.web) {
@@ -313,8 +313,8 @@ export const executor: WorkspaceExecutorContribution = (machine) => ({ languageS
     assert.deepEqual(readdirSync(path.join(bundle, "executor")).sort(), ["index.mjs", "index.mjs.map"], "one file, no chunks");
     const loaded = await loadPlugins([bundle]);
     assert.equal(loaded.modules.get("acme.lsp-demo") !== undefined, true);
-    assert.deepEqual(loaded.executor.map(({ plugin, stand }) => ({ plugin, stand })), [
-      { plugin: "acme.lsp-demo", stand: createHash("sha256").update(readFileSync(file)).digest("hex") },
+    assert.deepEqual(loaded.executor.map(({ plugin, revision }) => ({ plugin, revision })), [
+      { plugin: "acme.lsp-demo", revision: createHash("sha256").update(readFileSync(file)).digest("hex") },
     ]);
     const { parts } = prepareExecutorContribution(loaded.executor[0]!, "/tools/acme.lsp-demo");
     assert.deepEqual(parts.languageServers?.map((server) => server.id), ["demo"]);
@@ -380,7 +380,7 @@ test("type errors, a wrong id and unknown fields are build errors", async () => 
       "acme.missing-export/server/index.ts": SERVER_INDEX("acme.missing-export", ""),
     });
     const outcomes = await buildPlugins([path.join(root, "acme.typed")], { out: path.join(root, "dist"), typecheck: true });
-    assert.match(problemsOf(outcomes, "acme.typed"), /Typen: server\/index\.ts:2:14: Type 'string' is not assignable to type 'number'/);
+    assert.match(problemsOf(outcomes, "acme.typed"), /Types: server\/index\.ts:2:14: Type 'string' is not assignable to type 'number'/);
     assert.match(problemsOf(outcomes, "acme.typed"), /__dirname is not allowed in a bundle/, "type errors do not hide the other findings");
     assert.equal(existsSync(path.join(root, "dist/acme.typed")), false);
     await assert.rejects(buildPlugins([path.join(root, "acme.renamed")], { out: path.join(root, "dist"), typecheck: false }), /the id acme\.other differs from the folder name acme\.renamed/);
@@ -505,7 +505,7 @@ test("pnpm build:plugins builds only what is outdated and swaps files one by one
     assert.equal(inode("acme.changed/prompt.hbs"), before.prompt, "an unchanged file stays as it is");
     assert.notEqual(inode("acme.changed/server/index.js"), before.entry);
     assert.match(readFileSync(path.join(out, "acme.changed/server/index.js"), "utf8"), /"new"/);
-    assert.equal(built(outcomes[0]).manifest.stand, bundleStand(path.join(out, "acme.changed")), "no leftovers of the old version");
+    assert.equal(built(outcomes[0]).manifest.revision, bundleRevision(path.join(out, "acme.changed")), "no leftovers of the old version");
     writeFileSync(path.join(out, "acme.kept/prompt.hbs"), "changed by hand\n");
     assert.deepEqual((await buildPlugins(folders, { out, typecheck: false, onlyOutdated: true })).map((outcome) => outcome.id), ["acme.kept"], "a damaged bundle is outdated");
   } finally {
@@ -552,7 +552,7 @@ test("--watch builds only bundles at startup that are missing or do not match th
   }
 });
 
-test("the source stand leaves out a target inside the plugin folder so that a second build yields the same stand", async () => {
+test("the source revision leaves out a target inside the plugin folder so that a second build yields the same revision", async () => {
   const root = scratch();
   try {
     const folder = path.join(root, "acme.inside");
@@ -561,12 +561,12 @@ test("the source stand leaves out a target inside the plugin folder so that a se
       "server/index.ts": "export const plugin = { create: () => ({ manifest: { id: \"acme.inside\" }, register: () => {} }) };\n",
     });
     const out = path.join(folder, "dist");
-    const first = built((await buildPlugins([folder], { out, typecheck: false }))[0]).manifest.sourceStand;
-    const second = built((await buildPlugins([folder], { out, typecheck: false }))[0]).manifest.sourceStand;
+    const first = built((await buildPlugins([folder], { out, typecheck: false }))[0]).manifest.sourceRevision;
+    const second = built((await buildPlugins([folder], { out, typecheck: false }))[0]).manifest.sourceRevision;
     assert.equal(second, first);
-    assert.equal(first, sourceStandOf(folder, [out]));
+    assert.equal(first, sourceRevisionOf(folder, [out]));
     writeFileSync(path.join(folder, "server/index.ts"), "export const plugin = { create: () => ({ manifest: { id: \"acme.inside\" }, register: () => {} }) };\n// new\n");
-    assert.notEqual(built((await buildPlugins([folder], { out, typecheck: false }))[0]).manifest.sourceStand, first);
+    assert.notEqual(built((await buildPlugins([folder], { out, typecheck: false }))[0]).manifest.sourceRevision, first);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

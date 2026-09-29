@@ -210,26 +210,9 @@ phases, source access, model calls, and waiting times visible with timestamps; t
 duration and result folder. The tool is not a plugin and runs no run snippets or actor programs.
 Invocation and limits are in `docs/development.md`.
 
-All UI drafts are under `docs/ui-drafts/`. The existing page `docs/ui-drafts/index.html` collects
-the draft pages as separate tabs, including older drafts. Each variant has its own preview card in
-the grid; only the top tab bar groups variants into collections. Preview cards and existing direct
-links open the chosen variant directly in the associated collection. Missing older pages are added
-later. Tabs and overview cards are sorted by original draft date descending, newest drafts first.
-Variants take the date of their collection; adding them later does not change it. For the same
-date, the order of the entries in the HTML file applies. The card grid fills the available width
-without horizontal scrolling and arranges the collections row by row from the top left. When the
-overview opens, the grid starts at the top and the tab bar at the left; the browser does not
-restore an old scroll position. Every HTML draft has one or two PNG previews next to the file and
-needs no build. The layered depth body draft combines stepped boxes with switchable soft contact
-shadows from WebGL. The controls stay operable HTML elements; shadow strength, elevation, and
-recess can be compared locally. Missing WebGL is reported visibly. Extent, offset, and opacity of
-the contact shadows follow the shorter control edge: small checkboxes and narrow progress bars get
-tighter, weaker shadows, larger fields keep the full effect. The global strength slider multiplies
-this size grading; scaling the whole scene does not change its proportions. The box fronts use
-fixed matte colors; there is no mouse-dependent lighting. The productive design of the surface
-takes over the matte colors and straight outlines of this material direction, but no depth; the
-details are described in `plugins.md`. The offline draft stays in the existing overview as a
-separate comparison and is not a recording of a real run.
+UI drafts are not part of the repository: they are made locally for comparison and are not
+committed. The productive design of the surface uses matte colors and straight outlines without
+depth; the details are described in `plugins.md`.
 
 
 Under `build/` there are three executable scripts: `build.sh` builds the agent runtime, built-in

@@ -341,10 +341,10 @@ test("if the server rejects the workspace because of its revision, the different
 });
 
 test("with the same version, a rejected revision is an error; another refusal stays a problem of the workspace", async () => {
-  const stand = await startStubServer({ refuseRegistration: { code: "workspace-executor-contributions", message: "The workspace Notebook brings none of the executor contributions." } });
+  const refusing = await startStubServer({ refuseRegistration: { code: "workspace-executor-contributions", message: "The workspace Notebook brings none of the executor contributions." } });
   const other = await startStubServer({ refuseRegistration: { code: "workspace-client-busy", message: "Not right now." } });
-  const { services } = harness({ A: stand.url, B: other.url });
-  const a = new ConnectionSession(serverConnection("A", stand.url), services);
+  const { services } = harness({ A: refusing.url, B: other.url });
+  const a = new ConnectionSession(serverConnection("A", refusing.url), services);
   const b = new ConnectionSession(serverConnection("B", other.url), services);
   try {
     await Promise.all([a.connect(), b.connect()]);
@@ -358,7 +358,7 @@ test("with the same version, a rejected revision is an error; another refusal st
     assert.equal(b.snapshot().versionNotice, undefined);
     assert.equal(b.snapshot().problem, "Workspace not registered: Not right now.");
   } finally {
-    await closeAll([a, b], [stand, other]);
+    await closeAll([a, b], [refusing, other]);
   }
 });
 

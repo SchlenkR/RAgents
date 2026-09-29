@@ -10,7 +10,7 @@ import {
   languageServerSnapshotOperation,
   loadExecutorContribution,
   ripgrepAvailable,
-  type ExecutorContributionStand,
+  type ExecutorContributionRevision,
   type LanguageServerSnapshot,
 } from "@ragents/workspace-executor";
 import { runContracts } from "../../../packages/ragents/src/http/contracts";
@@ -244,9 +244,9 @@ test("a stop over the same connection goes through while a workspace task is ope
 const HOST_ROOT = resolve(import.meta.dirname, "../../..");
 
 /** The TypeScript contribution from the built bundles of this checkout, as a server requires it. */
-const typescriptContribution = async (): Promise<ExecutorContributionStand> => {
-  const { plugin, stand } = await loadExecutorContribution("ragents.lsp-typescript", join(HOST_ROOT, "bundles", "ragents.lsp-typescript", EXECUTOR_CONTRIBUTION_FILE));
-  return { plugin, stand };
+const typescriptContribution = async (): Promise<ExecutorContributionRevision> => {
+  const { plugin, revision } = await loadExecutorContribution("ragents.lsp-typescript", join(HOST_ROOT, "bundles", "ragents.lsp-typescript", EXECUTOR_CONTRIBUTION_FILE));
+  return { plugin, revision };
 };
 
 /** A workspace with the TypeScript language server from the host of this checkout; the language server host keeps state across calls. */
@@ -335,9 +335,9 @@ test("without required contributions, the workspace executor knows no language s
 });
 
 test("a missing bundle, a different revision, or a missing host make the registration fail with a cause", async () => {
-  const cases: Array<{ contributions: ExecutorContributionStand[]; hostRoot: string | undefined; expected: RegExp; mismatch: boolean }> = [
-    { contributions: [{ plugin: "acme.missing", stand: "0".repeat(64) }], hostRoot: HOST_ROOT, expected: /The executor contribution of acme\.missing is missing at .*acme\.missing[/\\]executor[/\\]index\.mjs.*must carry the same bundles as the server/, mismatch: true },
-    { contributions: [{ plugin: "ragents.lsp-typescript", stand: "0".repeat(64) }], hostRoot: HOST_ROOT, expected: /has the version [0-9a-f]{12}, required is 000000000000\. The host of this workstation/, mismatch: true },
+  const cases: Array<{ contributions: ExecutorContributionRevision[]; hostRoot: string | undefined; expected: RegExp; mismatch: boolean }> = [
+    { contributions: [{ plugin: "acme.missing", revision: "0".repeat(64) }], hostRoot: HOST_ROOT, expected: /The executor contribution of acme\.missing is missing at .*acme\.missing[/\\]executor[/\\]index\.mjs.*must carry the same bundles as the server/, mismatch: true },
+    { contributions: [{ plugin: "ragents.lsp-typescript", revision: "0".repeat(64) }], hostRoot: HOST_ROOT, expected: /has the version [0-9a-f]{12}, required is 000000000000\. The host of this workstation/, mismatch: true },
     { contributions: [await typescriptContribution()], hostRoot: undefined, expected: /The server requires the executor contributions of ragents\.lsp-typescript; this workstation knows no host/, mismatch: false },
   ];
   for (const { contributions, hostRoot, expected, mismatch } of cases) {

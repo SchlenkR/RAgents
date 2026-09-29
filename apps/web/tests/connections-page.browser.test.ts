@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import {tmpdir} from "node:os";
+import {join} from "node:path";
 import test from "node:test";
 import {mkdir,mkdtemp,writeFile} from "node:fs/promises";
 import {tailwindPlugin} from "./tailwind-plugin";
@@ -7,7 +9,7 @@ import {build} from "esbuild";
 import {chromium} from "playwright-core";
 import type {Page} from "playwright-core";
 
-const shots=fileURLToPath(new URL("../../../docs/ui-drafts/",import.meta.url));
+const shots=`${join(tmpdir(),"ragents-browser-shots")}/`;
 const suggestions=["/Users/example/repos/RAgents/ragents.config.core.ts","/Users/example/repos/RAgents/ragents.config.developer.ts"];
 const server=(name:string,state:unknown,extra:Record<string,unknown>={})=>({name,kind:"server",address:"http://localhost:4715",state,runs:[],entries:[],canCreate:true,...extra});
 const core={name:"core",kind:"profile",address:"/Users/example/repos/RAgents/ragents.config.core.ts",state:{kind:"starting"},runs:[],entries:[],canCreate:false};
@@ -34,7 +36,7 @@ function App(){const[state,setState]=useState(window.fixture.initial);window.fix
     await dialog.waitFor();
     await page.locator('#connection-url').fill('localhost:4715');
     await page.locator('#connection-name').fill('workshop');
-    await page.screenshot({path:`${shots}app-2026-09-22-umgebungen-neu-420.png`,fullPage:true});
+    await page.screenshot({path:`${shots}servers-new-420.png`,fullPage:true});
     await page.getByRole('button',{name:'Create'}).click();
     assert.deepEqual(await sent(page),{action:'addServer',name:'workshop',url:'localhost:4715'});
 
@@ -80,7 +82,7 @@ function App(){const[state,setState]=useState(window.fixture.initial);window.fix
     assert.equal(await page.getByRole('button',{name:'Start',exact:true}).count(),0);
     assert.equal(await page.getByRole('button',{name:'Stop',exact:true}).count(),0);
     assert.equal(await page.locator('[title="starting"]').count(),1);
-    await page.screenshot({path:`${shots}app-2026-09-22-umgebungen-420.png`,fullPage:true});
+    await page.screenshot({path:`${shots}servers-420.png`,fullPage:true});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 
     // Edit sends update so that the saved credentials survive a rename.
@@ -96,7 +98,7 @@ function App(){const[state,setState]=useState(window.fixture.initial);window.fix
     // Sign-in is the same dialog as on the Start page.
     await page.getByRole('button',{name:'Sign in'}).click();
     await dialog.getByRole('heading',{name:'Sign in to workshop-new'}).waitFor();
-    await page.screenshot({path:`${shots}app-2026-09-22-umgebungen-anmelden-420.png`,fullPage:true});
+    await page.screenshot({path:`${shots}servers-sign-in-420.png`,fullPage:true});
     await page.getByLabel('Password').fill('secret');
     await dialog.getByRole('button',{name:'Sign in'}).click();
     assert.deepEqual(await sent(page),{action:'login',name:'workshop-new',user:'alex',password:'secret'});
@@ -106,7 +108,7 @@ function App(){const[state,setState]=useState(window.fixture.initial);window.fix
     // Remove asks for confirmation in the dialog, not in the row.
     await page.getByRole('button',{name:'Remove core'}).click();
     await dialog.getByRole('heading',{name:'Remove core?'}).waitFor();
-    await page.screenshot({path:`${shots}app-2026-09-22-umgebungen-entfernen-420.png`,fullPage:true});
+    await page.screenshot({path:`${shots}servers-remove-420.png`,fullPage:true});
     await dialog.getByRole('button',{name:'Cancel'}).click();
     await closed();
     await page.getByRole('button',{name:'Remove core'}).click();
@@ -126,12 +128,12 @@ function App(){const[state,setState]=useState(window.fixture.initial);window.fix
     await page.setViewportSize({width:900,height:1000});
     await page.waitForFunction(()=>innerWidth===900);
     await patch(page,{connections:[server('workshop-new',{kind:'connected'},{user:'alex',savedLogin:true}),core]});
-    await page.screenshot({path:`${shots}app-2026-09-22-umgebungen-900.png`,fullPage:true});
+    await page.screenshot({path:`${shots}servers-900.png`,fullPage:true});
     await page.getByRole('button',{name:'New server'}).click();
     await dialog.waitFor();
     await page.getByRole('button',{name:'Local profile'}).click();
     await page.getByRole('button',{name:/^developer/}).click();
-    await page.screenshot({path:`${shots}app-2026-09-22-umgebungen-neu-900.png`,fullPage:true});
+    await page.screenshot({path:`${shots}servers-new-900.png`,fullPage:true});
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     context.diagnostic(`Screenshots: ${shots}`);
   }finally{await browser.close()}

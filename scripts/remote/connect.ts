@@ -10,7 +10,7 @@ import { ragentsDataRoot } from "../../apps/server/src/data-directory.ts";
 import { filesBelow } from "../../apps/server/src/folder-install.ts";
 import { removeHostRecord, writeHostRecord } from "../../apps/server/src/host-record.ts";
 import { hostRoot, readHostApiVersion, readHostPackage } from "../../apps/server/src/host-version.ts";
-import { BUNDLE_MANIFEST_FILE, bundleStand } from "../../apps/server/src/profile/bundle-manifest.ts";
+import { BUNDLE_MANIFEST_FILE, bundleRevision } from "../../apps/server/src/profile/bundle-manifest.ts";
 import { readProfileTarget } from "../../apps/server/src/profile-target.ts";
 import { RpcClient } from "../../apps/web/src/rpc/client.ts";
 import { profileDistributionContracts, type ClientProfileDescription } from "../../plugins/ragents.profile-distribution/contract.ts";
@@ -135,9 +135,9 @@ const markAsModule = async (directory: string): Promise<void> => {
 const assertArchivedBundles = (staging: string): void => {
   for (const manifestFile of filesBelow(staging).filter((file) => path.posix.basename(file) === BUNDLE_MANIFEST_FILE)) {
     const folder = path.join(staging, ...path.posix.dirname(manifestFile).split("/"));
-    const manifest = JSON.parse(readFileSync(path.join(folder, BUNDLE_MANIFEST_FILE), "utf8")) as { id?: unknown; stand?: unknown };
-    if (bundleStand(folder) !== manifest.stand) {
-      throw new Error(`The bundle ${String(manifest.id)} in the server's archive does not have the files it was built with (stand in ${manifestFile}); rebuild it on the server and repeat ragents connect`);
+    const manifest = JSON.parse(readFileSync(path.join(folder, BUNDLE_MANIFEST_FILE), "utf8")) as { id?: unknown; revision?: unknown };
+    if (bundleRevision(folder) !== manifest.revision) {
+      throw new Error(`The bundle ${String(manifest.id)} in the server's archive does not have the files it was built with (revision in ${manifestFile}); rebuild it on the server and repeat ragents connect`);
     }
   }
 };

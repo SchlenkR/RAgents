@@ -1,6 +1,6 @@
 # Operations
 
-Installation, startup, access, the npm package, distributed work with server, workspace, and run
+Installation, startup, access, the npm package, distributed work with server, workstation, and run
 transfer, Windows, and data storage. What a user sees and does is in `docs/usage.md`, build,
 checks, and publishing in `docs/development.md`, the structure of the system in `docs/spec/`, and
 the why in `docs/decisions.md`.
@@ -108,7 +108,7 @@ For an optional sign-in mode, your own `ragents.config.<profile>.ts` adds a `use
 the permissions; the password is plain text or refers with `env(...)` to a locally provided
 environment variable. An example is in [profiles.md](spec/profiles.md) under "Sign-in and
 permissions", complete examples in the internally generated
-[developer reference](homepage/developer.md#share-read-access-and-prepared-setups). The valid built-in permission names and the host route mapping are in the
+[developer reference](homepage/developer.md#grant-reading-and-prepared-setups). The valid built-in permission names and the host route mapping are in the
 [automatically generated developer reference](homepage/developer.md).
 
 Restart after a change. Without `users` there is no user sign-in; an empty list or a missing

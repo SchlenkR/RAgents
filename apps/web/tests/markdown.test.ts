@@ -32,7 +32,7 @@ test("incomplete links stay without a clickable target, complete links are kept"
   const complete = renderMarkdown("[Target](https://example.org)");
   assert.match(complete, /href="https:\/\/example.org"/);
   assert.match(complete, /rel="noreferrer"/);
-  assert.match(renderMarkdown("[Agent](ablauf:actor/test)"), /href="ablauf:actor\/test"/);
+  assert.match(renderMarkdown("[Agent](flow:actor/test)"), /href="flow:actor\/test"/);
   assert.match(renderMarkdown("[File](./report.md)"), /href="\.\/report.md"/);
 });
 

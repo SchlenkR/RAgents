@@ -404,8 +404,8 @@ test("without runs.inspect the user binds folder and workstation but neither see
 });
 
 test("a workstation carries exactly the executor contributions of the server, learns them before it registers and is refused with any other", async (t) => {
-  const roslyn = { plugin: "acme.lsp-demo", stand: "a".repeat(64) };
-  const other = { plugin: "acme.lsp-other", stand: "b".repeat(64) };
+  const roslyn = { plugin: "acme.lsp-demo", revision: "a".repeat(64) };
+  const other = { plugin: "acme.lsp-other", revision: "b".repeat(64) };
   const registry = new WorkspaceClientRegistry([roslyn, other]);
   assert.deepEqual((await registry.register(CLIENT, description(), WORKSPACE_EXECUTOR_VERSION, [other, roslyn], stubConnection())).id, CLIENT, "the order does not matter");
   const refusal = (given: string, expected: string) => (error: unknown) =>
@@ -413,7 +413,7 @@ test("a workstation carries exactly the executor contributions of the server, le
     && error.message.includes(`brings the executor contributions ${given}, the server requires ${expected}`);
   await assert.rejects(registry.register("client-00000005", description(), WORKSPACE_EXECUTOR_VERSION, [roslyn], stubConnection()),
     refusal("acme.lsp-demo (aaaaaaaaaaaa)", "acme.lsp-demo (aaaaaaaaaaaa), acme.lsp-other (bbbbbbbbbbbb)"));
-  await assert.rejects(registry.register("client-00000006", description(), WORKSPACE_EXECUTOR_VERSION, [roslyn, { ...other, stand: "c".repeat(64) }], stubConnection()),
+  await assert.rejects(registry.register("client-00000006", description(), WORKSPACE_EXECUTOR_VERSION, [roslyn, { ...other, revision: "c".repeat(64) }], stubConnection()),
     refusal("acme.lsp-demo (aaaaaaaaaaaa), acme.lsp-other (cccccccccccc)", "acme.lsp-demo (aaaaaaaaaaaa), acme.lsp-other (bbbbbbbbbbbb)"));
   await assert.rejects(new WorkspaceClientRegistry([]).register(CLIENT, description(), WORKSPACE_EXECUTOR_VERSION, [roslyn], stubConnection()), refusal("acme.lsp-demo (aaaaaaaaaaaa)", "none"));
 

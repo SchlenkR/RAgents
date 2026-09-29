@@ -42,10 +42,10 @@ const LANGUAGE_SERVER_PLUGINS = ["ragents.lsp-roslyn", "ragents.lsp-fsharp", "ra
 test("the language servers come from their plugins: the server loads the contributions with the bundles, a workstation the same files in the same state", async () => {
   const loaded = await loadPlugins(["ragents.orchestration", "ragents.ask", ...LANGUAGE_SERVER_PLUGINS]);
   assert.deepEqual(loaded.executor.map((entry) => entry.plugin), [...LANGUAGE_SERVER_PLUGINS]);
-  for (const { plugin, stand } of loaded.executor) {
+  for (const { plugin, revision } of loaded.executor) {
     const file = path.join(hostRoot(), "bundles", plugin, EXECUTOR_CONTRIBUTION_FILE);
-    assert.equal(stand, createHash("sha256").update(await readFile(file)).digest("hex"), plugin);
-    assert.equal((await loadExecutorContribution(plugin, file, stand)).stand, stand, `${plugin}: the workstation loads the same file`);
+    assert.equal(revision, createHash("sha256").update(await readFile(file)).digest("hex"), plugin);
+    assert.equal((await loadExecutorContribution(plugin, file, revision)).revision, revision, `${plugin}: the workstation loads the same file`);
   }
   const servers = loaded.executor.map((entry) => prepareExecutorContribution(entry, pluginToolsDirectory("/data", entry.plugin)).parts.languageServers!.map((server) => server.id));
   assert.deepEqual(servers, [["roslyn"], ["fsharp"], ["typescript"]]);

@@ -78,7 +78,7 @@ export const workspaceSolutions = async (
   const tracked = await gitSolutions(context, extensions);
   const candidates = [...new Set(tracked ?? await directorySolutions(context.root, extensions))]
     .filter((relative) => matches(relative, extensions))
-    .sort((left, right) => left.localeCompare(right, "de"));
+    .sort((left, right) => left.localeCompare(right, "en"));
   const workspaceRoot = await realpath(context.root);
   const found = await Promise.all(candidates.map(async (relative): Promise<FoundSolution | undefined> => {
     const absolute = path.join(context.root, relative);

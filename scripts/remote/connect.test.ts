@@ -35,12 +35,12 @@ const packWithSymlink = async (folder: string): Promise<{ archive: Buffer; versi
   return { archive, version: createHash("sha256").update(archive).digest("hex") };
 };
 
-const fakeServer = async (t: TestContext, options: { bundleStand?: string; symlink?: boolean } = {}) => {
+const fakeServer = async (t: TestContext, options: { bundleRevision?: string; symlink?: boolean } = {}) => {
   const root = await mkdtemp(path.join(tmpdir(), "ragents-connect-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const serverBundles = path.join(root, "server-host", "bundles");
   writeBundle(path.join(serverBundles, "ragents.orchestration"));
-  writeBundle(path.join(root, "server", "plugins", "workshop.demo"), options.bundleStand === undefined ? {} : { manifest: { stand: options.bundleStand } });
+  writeBundle(path.join(root, "server", "plugins", "workshop.demo"), options.bundleRevision === undefined ? {} : { manifest: { revision: options.bundleRevision } });
   const profileFile = path.join(root, "server", "ragents.config.workshop-client.ts");
   await writeFile(profileFile, `export const config = { host: { PRODUCT_PROFILE: "workshop-client", PLUGINS: ["ragents.orchestration", "./plugins/workshop.demo"] } };\n`);
   const packed = options.symlink ? await packWithSymlink(path.join(root, "server")) : await packClientProfile(await inspectClientProfile(profileFile, serverBundles));
@@ -130,12 +130,12 @@ test("connect fetches profile file and bundles once, checks the version and remo
   await assert.rejects(() => prepareProfile({ serverUrl: url, token: "wrong", dataRoot, hostPath }), /provides no client profile/);
 });
 
-test("a bundle in the archive whose files do not match its stand is not taken into the cache", async (t) => {
-  const { root, url } = await fakeServer(t, { bundleStand: "f".repeat(64) });
+test("a bundle in the archive whose files do not match its revision is not taken into the cache", async (t) => {
+  const { root, url } = await fakeServer(t, { bundleRevision: "f".repeat(64) });
   const dataRoot = path.join(root, "data-root");
   const hostPath = await clientHost(root, "checkout");
   await assert.rejects(() => prepareProfile({ serverUrl: url, token: testToken, dataRoot, hostPath }),
-    /The bundle workshop\.demo in the server's archive does not have the files it was built with \(stand in plugins\/workshop\.demo\/ragents-bundle\.json\); rebuild it on the server/);
+    /The bundle workshop\.demo in the server's archive does not have the files it was built with \(revision in plugins\/workshop\.demo\/ragents-bundle\.json\); rebuild it on the server/);
   assert.equal(existsSync(path.join(dataRoot, "remote", `127.0.0.1-${new URL(url).port}`, "workshop-client", "current.json")), false);
 });
 

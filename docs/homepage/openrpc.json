@@ -3679,7 +3679,7 @@
             "type": "object",
             "required": [
               "plugin",
-              "stand"
+              "revision"
             ],
             "properties": {
               "plugin": {
@@ -3688,7 +3688,7 @@
                 "maxLength": 128,
                 "description": "ID of the plugin"
               },
-              "stand": {
+              "revision": {
                 "type": "string",
                 "pattern": "^[0-9a-f]{64}$",
                 "description": "SHA-256 of the contribution file"
@@ -3851,7 +3851,7 @@
                       "type": "object",
                       "required": [
                         "plugin",
-                        "stand"
+                        "revision"
                       ],
                       "properties": {
                         "plugin": {
@@ -3860,7 +3860,7 @@
                           "maxLength": 128,
                           "description": "ID of the plugin"
                         },
-                        "stand": {
+                        "revision": {
                           "type": "string",
                           "pattern": "^[0-9a-f]{64}$",
                           "description": "SHA-256 of the contribution file"

@@ -15,7 +15,7 @@ import {
   workspaceDataDirectory,
   workspaceExecutorModules,
   workspaceProcessContext,
-  type ExecutorContributionStand,
+  type ExecutorContributionRevision,
   type PreparedExecutorContribution,
   type WorkspaceProcessContext,
 } from "@ragents/workspace-executor";
@@ -119,8 +119,8 @@ const contextOf = (runs: ReadonlyMap<string, WorkspaceProcessContext>, runId: st
   return Promise.resolve(context);
 };
 
-const sameContributions = (left: readonly ExecutorContributionStand[], right: readonly ExecutorContributionStand[]): boolean =>
-  left.length === right.length && left.every((entry) => right.some((other) => other.plugin === entry.plugin && other.stand === entry.stand));
+const sameContributions = (left: readonly ExecutorContributionRevision[], right: readonly ExecutorContributionRevision[]): boolean =>
+  left.length === right.length && left.every((entry) => right.some((other) => other.plugin === entry.plugin && other.revision === entry.revision));
 
 /** The bundles of a workstation are the built-in ones of its host; it cannot run a plugin that is missing there. */
 const contributionFileOf = (hostRoot: string, plugin: string): string => join(hostRoot, "bundles", plugin, EXECUTOR_CONTRIBUTION_FILE);
@@ -128,7 +128,7 @@ const contributionFileOf = (hostRoot: string, plugin: string): string => join(ho
 /** Loads the contributions the server requires from the bundles of this machine's host; a missing bundle or a different version is an error with a cause. */
 const loadedContributions = async (
   hostRoot: string | undefined,
-  wanted: readonly ExecutorContributionStand[],
+  wanted: readonly ExecutorContributionRevision[],
 ): Promise<readonly PreparedExecutorContribution[]> => {
   if (wanted.length === 0) return [];
   if (!hostRoot) {
@@ -136,9 +136,9 @@ const loadedContributions = async (
       + "knows no host from whose bundles it could load them. It gets one with the first connection to a distributing "
       + "server or through the setting ragents.hostPath");
   }
-  return Promise.all(wanted.map(async ({ plugin, stand }) => {
+  return Promise.all(wanted.map(async ({ plugin, revision }) => {
     if (!PLUGIN_ID_PATTERN.test(plugin)) throw new Error(`The server names ${plugin} as a plugin; that is not a plugin ID`);
-    const loaded = await loadExecutorContribution(plugin, contributionFileOf(hostRoot, plugin), stand).catch((cause: unknown) => {
+    const loaded = await loadExecutorContribution(plugin, contributionFileOf(hostRoot, plugin), revision).catch((cause: unknown) => {
       throw new VersionMismatch(`${messageOf(cause)}. The host of this workstation (${hostRoot}) must carry the same bundles as the server: `
         + "the RAgents extension or the package @schlenkr/ragents in the server's version, in a checkout pnpm build:plugins");
     });
@@ -149,7 +149,7 @@ const loadedContributions = async (
 /** An executor from the contributions the server required at sign-in. */
 interface BuiltExecutor {
   readonly executor: WorkspaceOperationExecutor;
-  readonly contributions: readonly ExecutorContributionStand[];
+  readonly contributions: readonly ExecutorContributionRevision[];
 }
 
 /** What a sign-in on this machine holds: its own executor, the tasks of its runs, and its handlers on the message layer. */
@@ -261,7 +261,7 @@ export class WorkspaceClient {
   }
 
   /** Keeps the executor as long as the server requires the same contributions; otherwise it builds a new one from the bundles of this machine and ends the old one. */
-  async #built(attachment: Attachment, wanted: readonly ExecutorContributionStand[]): Promise<BuiltExecutor> {
+  async #built(attachment: Attachment, wanted: readonly ExecutorContributionRevision[]): Promise<BuiltExecutor> {
     const current = attachment.built;
     if (current && sameContributions(current.contributions, wanted)) return current;
     const contributions = await loadedContributions(this.options.hostRoot(), wanted);
@@ -273,7 +273,7 @@ export class WorkspaceClient {
           contributions: contributions.map((contribution) => contribution.parts),
         }),
       }),
-      contributions: contributions.map(({ plugin, stand }) => ({ plugin, stand })),
+      contributions: contributions.map(({ plugin, revision }) => ({ plugin, revision })),
     };
     if (attachment !== this.#attachment) {
       await built.executor.shutdown();

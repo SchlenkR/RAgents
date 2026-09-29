@@ -10,7 +10,7 @@ import {
   PROCESS_OPERATIONS,
   WORKSPACE_EXECUTOR_VERSION,
   loadExecutorContribution,
-  type ExecutorContributionStand,
+  type ExecutorContributionRevision,
   type FileListing,
   type FileWatchProgress,
   type WorkspaceProcessSnapshot,
@@ -85,7 +85,7 @@ test("without an explicit folder the caller from RAGENTS_CWD applies, not the sc
 });
 
 /** The headless workspace against real server methods: registration, executor and unregistration without VS Code. */
-const started = async (t: TestContext, contributions: readonly ExecutorContributionStand[] = []) => {
+const started = async (t: TestContext, contributions: readonly ExecutorContributionRevision[] = []) => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-client-")));
   const runs = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-runs-")));
   const registry = new WorkspaceClientRegistry(contributions);
@@ -141,7 +141,7 @@ test("the headless workspace registers and executes the server's tools", async (
 
 test("the headless workspace loads the contributions the server requires from its host's bundles and serves their operations", async (t) => {
   const typescript = await loadExecutorContribution("ragents.lsp-typescript", path.join(hostRoot(), "bundles", "ragents.lsp-typescript", EXECUTOR_CONTRIBUTION_FILE));
-  const { directory, registry, client } = await started(t, [{ plugin: typescript.plugin, stand: typescript.stand }]);
+  const { directory, registry, client } = await started(t, [{ plugin: typescript.plugin, revision: typescript.revision }]);
   await client.register();
   assert.deepEqual(client.status, { kind: "registered" });
   const executor = registry.executorFor(null, CLIENT, "Headless", directory);

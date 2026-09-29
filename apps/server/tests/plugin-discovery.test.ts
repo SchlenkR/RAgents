@@ -6,7 +6,7 @@ import test from "node:test";
 
 import { DomainError } from "@ragents/engine";
 import { discoverPluginIds, importBundles, loadPlugins, resolvePluginEntries, staleBuiltInBundles } from "../src/profile/plugin-discovery.ts";
-import { BUNDLE_FORMAT, isFetchedBundle, sourceStandOf } from "../src/profile/bundle-manifest.ts";
+import { BUNDLE_FORMAT, isFetchedBundle, sourceRevisionOf } from "../src/profile/bundle-manifest.ts";
 import { bundlesRoot, pluginFolder } from "../src/plugin-support/plugins-root.ts";
 import { PLUGIN_ENTRY_SOURCE, writeBundle, type BundleFixture } from "./bundle-fixture.ts";
 
@@ -104,17 +104,17 @@ test("a built-in bundle counts as outdated as soon as its source folder changes;
     writeFileSync(path.join(sources, id, "ragents-plugin.json"), JSON.stringify({ id }));
     writeFileSync(path.join(sources, id, "server", "index.ts"), PLUGIN_ENTRY_SOURCE);
   }
-  const stand = sourceStandOf(path.join(sources, "test.fresh"));
+  const revision = sourceRevisionOf(path.join(sources, "test.fresh"));
   mkdirSync(path.join(sources, "test.fresh", "node_modules", "lib"), { recursive: true });
   writeFileSync(path.join(sources, "test.fresh", "node_modules", "lib", "index.js"), "");
-  assert.equal(sourceStandOf(path.join(sources, "test.fresh")), stand, "node_modules does not count toward the source stand");
+  assert.equal(sourceRevisionOf(path.join(sources, "test.fresh")), revision, "node_modules does not count toward the source revision");
   const root = bundleRoot({
-    "test.fresh": { manifest: { sourceStand: stand } },
-    "test.changed": { manifest: { sourceStand: sourceStandOf(path.join(sources, "test.changed")) } },
-    "test.unknown": { manifest: { sourceStand: "0".repeat(64) } },
+    "test.fresh": { manifest: { sourceRevision: revision } },
+    "test.changed": { manifest: { sourceRevision: sourceRevisionOf(path.join(sources, "test.changed")) } },
+    "test.unknown": { manifest: { sourceRevision: "0".repeat(64) } },
   });
   writeFileSync(path.join(sources, "test.changed", "server", "extra.ts"), "export const extra = 1;\n");
-  const elsewhere = bundleRoot({ "test.elsewhere": { manifest: { sourceStand: "0".repeat(64) } } });
+  const elsewhere = bundleRoot({ "test.elsewhere": { manifest: { sourceRevision: "0".repeat(64) } } });
   const plugins = resolvePluginEntries(["test.fresh", "test.changed", "test.unknown", path.join(elsewhere, "test.elsewhere")], process.cwd(), root);
   assert.deepEqual(staleBuiltInBundles(plugins, sources, root), ["test.changed"]);
 });

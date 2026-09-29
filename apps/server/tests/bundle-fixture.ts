@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { HOST_API_VERSION } from "../src/host-api.ts";
-import { BUNDLE_FORMAT, BUNDLE_MANIFEST_FILE, bundleStand, type BundleManifest } from "../src/profile/bundle-manifest.ts";
+import { BUNDLE_FORMAT, BUNDLE_MANIFEST_FILE, bundleRevision, type BundleManifest } from "../src/profile/bundle-manifest.ts";
 
 export const PLUGIN_ENTRY_SOURCE = "export const plugin = { create: () => ({ manifest: { id: \"x\" }, register: () => {} }) };\n";
 
@@ -11,7 +11,7 @@ export interface BundleFixture {
   readonly files?: Readonly<Record<string, string>>;
 }
 
-/** Writes a small bundle as the build tool would, without building it; the folder name is the id, the stand covers its files. */
+/** Writes a small bundle as the build tool would, without building it; the folder name is the id, the revision covers its files. */
 export const writeBundle = (folder: string, fixture: BundleFixture = {}): string => {
   mkdirSync(path.join(folder, "server"), { recursive: true });
   writeFileSync(path.join(folder, "server", "index.js"), fixture.server ?? PLUGIN_ENTRY_SOURCE);
@@ -24,8 +24,8 @@ export const writeBundle = (folder: string, fixture: BundleFixture = {}): string
     id: path.basename(folder),
     api: HOST_API_VERSION,
     hostNames: { server: {}, web: {} },
-    stand: bundleStand(folder),
-    sourceStand: "0".repeat(64),
+    revision: bundleRevision(folder),
+    sourceRevision: "0".repeat(64),
     server: "server/index.js",
     exports: { server: {}, web: {} },
     uses: [],

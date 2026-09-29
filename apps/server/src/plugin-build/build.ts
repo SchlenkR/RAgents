@@ -12,8 +12,8 @@ import { checkedHostApiRecord, hostRoot, type HostApiRecord } from "../host-vers
 import {
   BUNDLE_FORMAT,
   BUNDLE_MANIFEST_FILE,
-  bundleStand,
-  sourceStandOf,
+  bundleRevision,
+  sourceRevisionOf,
   type BundleManifest,
   type HostNames,
 } from "../profile/bundle-manifest.js";
@@ -537,8 +537,8 @@ const buildPlugin = async (folder: string, environment: BuildEnvironment, typeEr
         server: hostNamesOf(serverImports.flatMap((imports) => imports.names)),
         web: hostNamesOf(web ? webHostNames(web.metafile) : []),
       },
-      stand: bundleStand(staging),
-      sourceStand: sourceStandOf(source.folder, [realpathSync.native(environment.out)], environment.root),
+      revision: bundleRevision(staging),
+      sourceRevision: sourceRevisionOf(source.folder, [realpathSync.native(environment.out)], environment.root),
       server: "server/index.js",
       ...(webEntry ? {
         web: {
@@ -589,8 +589,8 @@ const bundleIsCurrent = (folder: string, out: string, root = hostRoot()): boolea
   if (!existsSync(file)) return false;
   const manifest = JSON.parse(readFileSync(file, "utf8")) as Partial<BundleManifest>;
   return manifest.format === BUNDLE_FORMAT && manifest.api === HOST_API_VERSION
-    && manifest.sourceStand === sourceStandOf(folder, [realpathSync.native(out)], root)
-    && manifest.stand === bundleStand(bundle);
+    && manifest.sourceRevision === sourceRevisionOf(folder, [realpathSync.native(out)], root)
+    && manifest.revision === bundleRevision(bundle);
 };
 
 /** Builds each plugin folder into <out>/<id>; a failing plugin does not stop the others, and parallel builds into the same folder wait for each other. */
@@ -603,7 +603,7 @@ export const buildPlugins = async (folders: readonly string[], options: PluginBu
     const typeProblems = options.typecheck ? typecheckPlugins(chosen, context.root) : new Map<string, readonly string[]>();
     const outcomes: PluginBuildOutcome[] = [];
     for (const source of chosen) {
-      const typeErrors = (typeProblems.get(source.description.id) ?? []).map((problem) => `Typen: ${problem}`);
+      const typeErrors = (typeProblems.get(source.description.id) ?? []).map((problem) => `Types: ${problem}`);
       outcomes.push(await buildPlugin(source.folder, environmentOf(context, folders), typeErrors));
     }
     return outcomes;

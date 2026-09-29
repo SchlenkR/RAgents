@@ -389,15 +389,15 @@ Saved model settings take precedence over the profile file. Changes
 in the interface apply to newly created actors without a restart; config and run prompt changes
 require a restart and, for the new coordinator prompt, a new implementation run.
 
-Under "Headings" you independently choose the model for short automatic
+Under "Titles" you independently choose the model for short automatic
 list titles. With a large model list, the search helps. "Save" applies the selection,
-"Discard changes" discards only the draft. "No automatic headings" followed by
+"Discard changes" discards only the draft. "No automatic titles" followed by
 saving disables new generations; existing titles are kept.
 The selection applies from the next generation and does not change any agent models.
 
 Offered are text models of the configured `COMPACTION_PROVIDER` that can work without
 reasoning; default, storage, and error cases are in [profiles.md](spec/profiles.md) under
-"Model for automatic headings".
+"Model for automatic titles".
 
 "Appearance" contains the interface choice and the run panel settings. "Plugins" contains
 "By plugin" and "By capability" as technical catalogs with search. Clicking the

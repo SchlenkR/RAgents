@@ -27,7 +27,7 @@ const usage = `Usage: ragents <command> [arguments]
   stop <run> | stop --host         cancel the running turn or stop the remembered host
   connect <server-url>             fetch the client profile with its bundles and start the local server with it
   start <profile|path>             start a profile of the package, an own profile file or a
-                                   fetched stand; the UI comes prebuilt
+                                   fetched revision; the UI comes prebuilt
   provision [<profile>|--workspace] fetch the plugins' tools
   workspace-client <server-url>    register this machine as a workspace
   plugin build <folder...>         build plugin source folders into bundles (--out, --watch)

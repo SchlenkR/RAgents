@@ -19,18 +19,15 @@ export const todoStatusOf = (value: unknown): TodoStatus | undefined => {
 
   switch (value.trim().toLowerCase()) {
     case "open":
-    case "offen":
     case "pending":
       return "open";
     case "active":
     case "doing":
     case "in_progress":
-    case "in arbeit":
     case "running":
       return "active";
     case "completed":
     case "done":
-    case "erledigt":
     case "finished":
       return "completed";
     default:

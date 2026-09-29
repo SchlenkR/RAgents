@@ -32,7 +32,7 @@ export function ActorChat({ actor, view, presentation, display = presentation, p
   const detailMode = inspect || configuredMode === "off" ? configuredMode : "current";
   const messages = useMemo(() => actorChatMessages(view, actor, primaryMessages, conversation), [view, actor, primaryMessages, conversation]);
   const openLink = useCallback((href: string) => {
-    const match = /^ablauf:(actor|input|turn|subscription|action|artifact)\/(.+)$/.exec(href);
+    const match = /^flow:(actor|input|turn|subscription|action|artifact)\/(.+)$/.exec(href);
     if (!match) return false;
     if (!inspect) return true;
     onNavigate({ type: match[1] as FlowSelection["type"], id: match[2] });

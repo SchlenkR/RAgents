@@ -12,20 +12,16 @@ test("the status values of the contract are open, active and completed", () => {
 test("synonyms and spellings map to the three status values", () => {
   const expected: Readonly<Record<string, string>> = {
     open: "open",
-    offen: "open",
     pending: "open",
-    " OFFEN ": "open",
+    " PENDING ": "open",
     active: "active",
     doing: "active",
     in_progress: "active",
-    "in arbeit": "active",
-    "In Arbeit": "active",
     running: "active",
     completed: "completed",
     done: "completed",
-    erledigt: "completed",
     finished: "completed",
-    "Erledigt ": "completed",
+    "Done ": "completed",
   };
 
   for (const [input, status] of Object.entries(expected)) {

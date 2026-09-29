@@ -10,7 +10,7 @@ import { isCheckout } from "../host-web.js";
 import { bundlesRoot, pluginIdOf } from "../plugin-support/plugins-root.js";
 
 export const BUNDLE_MANIFEST_FILE = "ragents-bundle.json";
-export const BUNDLE_FORMAT = 4;
+export const BUNDLE_FORMAT = 5;
 
 /** The value names a half imports from each module of the host API. */
 export type HostNames = Readonly<Record<string, readonly string[]>>;
@@ -23,9 +23,9 @@ export interface BundleManifest {
   /** The names of the host API the bundle uses, per half; a host that lacks one refuses the bundle. */
   readonly hostNames: Readonly<Record<HostApiHalf, HostNames>>;
   /** A hash over every file of the bundle; copies and the build tool check it. */
-  readonly stand: string;
+  readonly revision: string;
   /** A hash over the source folder and the host inputs of the build; a checkout compares it with its built-in plugins. */
-  readonly sourceStand: string;
+  readonly sourceRevision: string;
   readonly server: string;
   readonly web?: { readonly entry: string; readonly css?: string; readonly classes: string };
   /** The contribution to every executor, a self-contained file that any Node process loads. */
@@ -35,7 +35,7 @@ export interface BundleManifest {
   readonly assets: readonly string[];
 }
 
-const MANIFEST_KEYS = new Set(["format", "id", "api", "hostNames", "stand", "sourceStand", "server", "web", "executor", "exports", "uses", "assets"]);
+const MANIFEST_KEYS = new Set(["format", "id", "api", "hostNames", "revision", "sourceRevision", "server", "web", "executor", "exports", "uses", "assets"]);
 const SOURCE_MARKERS = ["ragents-plugin.json", "server/index.ts", "server/index.tsx"];
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -98,7 +98,7 @@ const buildInputsOf = (root: string): readonly string[] => [
 ];
 
 /** A hash over every file of a plugin source folder except dependencies and the given output folders, together with the build inputs of the host. */
-export const sourceStandOf = (folder: string, skipped: readonly string[] = [], root = hostRoot()): string => {
+export const sourceRevisionOf = (folder: string, skipped: readonly string[] = [], root = hostRoot()): string => {
   const hash = createHash("sha256");
   for (const relative of sourceFiles(folder, new Set(skipped))) hash.update(`${relative}\0${fileDigest(path.join(folder, relative))}\n`);
   for (const input of buildInputsOf(root)) hash.update(`host:${input}\0${fileDigest(path.join(root, input))}\n`);
@@ -106,7 +106,7 @@ export const sourceStandOf = (folder: string, skipped: readonly string[] = [], r
 };
 
 /** A hash over every file of the bundle except its manifest and what Finder leaves behind, stable across machines. */
-export const bundleStand = (folder: string): string => {
+export const bundleRevision = (folder: string): string => {
   const hash = createHash("sha256");
   const files = filesBelow(folder).filter((name) => name !== BUNDLE_MANIFEST_FILE && path.posix.basename(name) !== ".DS_Store");
   for (const relative of files) hash.update(`${relative}\0${fileDigest(path.join(folder, relative))}\n`);
@@ -114,9 +114,9 @@ export const bundleStand = (folder: string): string => {
 };
 
 /** A copy of a bundle, from a package or an archive, must carry exactly the files it was built with. */
-export const assertBundleStand = (folder: string, manifest: Pick<BundleManifest, "id" | "stand">): void => {
-  if (bundleStand(folder) !== manifest.stand) {
-    throw new Error(`The bundle ${manifest.id} in ${folder} no longer has the files it was built with (stand); ${rebuildHint(folder)}`);
+export const assertBundleRevision = (folder: string, manifest: Pick<BundleManifest, "id" | "revision">): void => {
+  if (bundleRevision(folder) !== manifest.revision) {
+    throw new Error(`The bundle ${manifest.id} in ${folder} no longer has the files it was built with (revision); ${rebuildHint(folder)}`);
   }
 };
 
@@ -166,8 +166,8 @@ export const readBundleManifest = (folder: string): BundleManifest => {
   if (unknown.length > 0) throw new Error(`${file}: unknown fields ${unknown.join(", ")}; ${rebuildHint(folder)}`);
   const malformed = [
     ...(isHostNames(raw.hostNames) ? [] : ["hostNames"]),
-    ...(typeof raw.stand === "string" ? [] : ["stand"]),
-    ...(typeof raw.sourceStand === "string" ? [] : ["sourceStand"]),
+    ...(typeof raw.revision === "string" ? [] : ["revision"]),
+    ...(typeof raw.sourceRevision === "string" ? [] : ["sourceRevision"]),
     ...(typeof raw.server === "string" ? [] : ["server"]),
     ...(isWeb(raw.web) ? [] : ["web"]),
     ...(raw.executor === undefined || raw.executor === EXECUTOR_CONTRIBUTION_FILE ? [] : ["executor"]),

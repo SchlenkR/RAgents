@@ -797,7 +797,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     const ids: string[] = [];
 
     for (const entry of entries) {
-      if (!entry.isDirectory() || entry.name === "ohne-session") continue;
+      if (!entry.isDirectory()) continue;
       if (!isRunId(entry.name)) throw new Error(`Invalid run archive: ${entry.name}`);
       ids.push(entry.name);
     }

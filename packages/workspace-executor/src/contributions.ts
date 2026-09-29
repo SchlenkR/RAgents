@@ -41,18 +41,18 @@ export interface WorkspaceExecutorParts {
 export type WorkspaceExecutorContribution = (machine: WorkspaceExecutorMachine) => WorkspaceExecutorParts;
 
 /** Whose contribution in which version; server and workspace require the same ones. */
-export interface ExecutorContributionStand {
+export interface ExecutorContributionRevision {
   readonly plugin: string;
   /** SHA-256 of the file of the contribution. */
-  readonly stand: string;
+  readonly revision: string;
 }
 
-export interface LoadedExecutorContribution extends ExecutorContributionStand {
+export interface LoadedExecutorContribution extends ExecutorContributionRevision {
   readonly contribution: WorkspaceExecutorContribution;
 }
 
 /** A contribution built for this machine. */
-export interface PreparedExecutorContribution extends ExecutorContributionStand {
+export interface PreparedExecutorContribution extends ExecutorContributionRevision {
   readonly parts: WorkspaceExecutorParts;
 }
 
@@ -91,11 +91,11 @@ export const loadExecutorContribution = async (plugin: string, file: string, exp
   const content = await readFile(file).catch((cause: unknown) => {
     throw new Error(`The executor contribution of ${plugin} is missing at ${file}: ${messageOf(cause)}`);
   });
-  const stand = createHash("sha256").update(content).digest("hex");
-  if (expected !== undefined && stand !== expected) {
-    throw new Error(`The executor contribution of ${plugin} at ${file} has the version ${stand.slice(0, 12)}, required is ${expected.slice(0, 12)}`);
+  const revision = createHash("sha256").update(content).digest("hex");
+  if (expected !== undefined && revision !== expected) {
+    throw new Error(`The executor contribution of ${plugin} at ${file} has the version ${revision.slice(0, 12)}, required is ${expected.slice(0, 12)}`);
   }
-  const exported = await import(`${pathToFileURL(file).href}?stand=${stand}`).catch((cause: unknown) => {
+  const exported = await import(`${pathToFileURL(file).href}?revision=${revision}`).catch((cause: unknown) => {
     throw new Error(`The executor contribution of ${plugin} (${file}) does not load: ${messageOf(cause)}`, { cause });
   }) as Readonly<Record<string, unknown>>;
   const contribution = exported.executor;
@@ -103,7 +103,7 @@ export const loadExecutorContribution = async (plugin: string, file: string, exp
     throw new Error(`The bundle ${plugin} exports no valid executor contribution in ${file}; expected is `
       + "\"export const executor: WorkspaceExecutorContribution\" as a function of the machine");
   }
-  return { plugin, stand, contribution: contribution as WorkspaceExecutorContribution };
+  return { plugin, revision, contribution: contribution as WorkspaceExecutorContribution };
 };
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
@@ -146,5 +146,5 @@ export const prepareExecutorContribution = (loaded: LoadedExecutorContribution, 
     const problems = adapterProblems(server);
     if (problems.length > 0) throw invalid(`the language server ${index + 1} needs ${problems.join(", ")}`);
   }
-  return { plugin: loaded.plugin, stand: loaded.stand, parts: parts as WorkspaceExecutorParts };
+  return { plugin: loaded.plugin, revision: loaded.revision, parts: parts as WorkspaceExecutorParts };
 };

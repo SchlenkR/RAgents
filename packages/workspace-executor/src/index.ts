@@ -23,7 +23,7 @@ export {
   executorMachine,
   loadExecutorContribution,
   prepareExecutorContribution,
-  type ExecutorContributionStand,
+  type ExecutorContributionRevision,
   type LoadedExecutorContribution,
   type PreparedExecutorContribution,
   type WorkspaceExecutorContribution,

@@ -16,7 +16,7 @@ roughly 1 million subagent tokens plus a few cents of DeepSeek via OpenRouter.
   conversation (`sessions/<id>/plugins/ragents.workspace/workspace`); the test agent puts a copy of the
   desired documents into it before the first message, or a
   resolver plugin provides them (round 6 still ran with the old STATIC_WORKSPACE_DIR).
-- README.md read, section "For AI assistants".
+- `docs/development.md` read, section "For AI assistants".
 
 ## Procedure
 

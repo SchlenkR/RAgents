@@ -101,7 +101,7 @@ a domain plugin. The neutral counterparts `ragents.product` (coordinator, models
 `ragents.workspace` (working directory per run + sandbox tools from `plugin-support`) provide the
 mandatory contracts `ProductRuntime` and `WorkspaceRuntime`. A profile with its own kind of
 workspace does not replace `ragents.workspace` but contributes it through `workspaceResolverToken`
-(section Responsibility per facet in `plugins.md`); the workspace thus still has exactly one owner.
+(section Ownership per facet in `plugins.md`); the workspace thus still has exactly one owner.
 
 Plugin list of `core` in order: `ragents.orchestration`, `ragents.workspace`, `ragents.product`,
 `ragents.overseer`, `ragents.activity`, `ragents.processes`, `ragents.documents`,
@@ -360,7 +360,7 @@ version without a new host API. If something differs, `connect` aborts before do
 not switch by itself: in the package with `npm install -g @schlenkr/ragents@<packageVersion>`, in
 the checkout with `git checkout <hostVersion>` together with `pnpm build:plugins` and
 `pnpm build:web`, for a missing bundle in the checkout first with `pnpm build:plugins`. After
-unpacking, `connect` checks the `stand` of every bundle in the archive before it takes the version
+unpacking, `connect` checks the `revision` of every bundle in the archive before it takes the version
 into the cache. The start performs the remaining checks as for every profile: manifest, `format`
 and `api` of every bundle, the used names of the host API (`hostNames`) against `host-api.json` of
 the local host, `uses` against plugin list and `requires`, the keys per plugin against its
@@ -603,7 +603,7 @@ program sources are missing, the surface shows mini-apps and LLM conversations, 
 control actors stay hidden. The server then redacts models, prompts, grants, tool outputs, and
 technical start states in the run and chat snapshots (`access-projection.ts`). It shows plugin
 states and the chat events for them as the plugin defines with its access projection
-([plugins.md](plugins.md), registrations of the PluginHost): the actor programs, for example, leave
+([plugins.md](plugins.md), PluginHost registrations): the actor programs, for example, leave
 only name, actor, and views of a program and only the time of the last change of its calls, and
 their chat events are dropped. The stored value of a start option including its chat event is
 visible only to whoever has its `rights`, so model and system prompt only with `runs.inspect`. All
@@ -629,7 +629,7 @@ without revealing technical details.
 
 Settings and the global coordinator keep their own permissions. These permissions do not replace
 an execution sandbox for self-written native code; on the server, the process sandbox takes care of
-that ([plugins.md](plugins.md), process sandbox of the server). The global coordinator has its own
+that ([plugins.md](plugins.md), Server process sandbox). The global coordinator has its own
 read and write permissions; changes to its model selection additionally require the permission to
 write settings. Its workspace receives a local token for its user's access, exclusively for the
 message layer and help over loopback; the server resolves it on every call to the current state of

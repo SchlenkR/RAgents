@@ -3,7 +3,6 @@ import test from "node:test";
 import { Value } from "typebox/value";
 import type { ToolScope } from "@ragents/engine";
 
-import { todoStateOf } from "../../../plugins/ragents.todo/contract.ts";
 import { createTodoTool } from "../../../plugins/ragents.todo/server/todo-tool.ts";
 
 const stateAfterReplace = (input: unknown): unknown => {
@@ -31,7 +30,7 @@ test("todo_replace exposes one canonical typed status contract", () => {
     ],
   }), true);
   assert.equal(Value.Check(schema, {
-    todos: [{ id: "legacy", text: "Old", status: "erledigt" }],
+    todos: [{ id: "unknown", text: "Unknown", status: "waiting" }],
   }), false);
 });
 
@@ -53,22 +52,6 @@ test("the trained status idioms are stored as the canonical values", () => {
       { id: "done", text: "Done", status: "done" },
       { id: "active", text: "Running", status: "in_progress" },
       { id: "open", text: "Open", status: "pending" },
-    ],
-  }), {
-    todos: [
-      { id: "done", text: "Done", status: "completed" },
-      { id: "active", text: "Running", status: "active" },
-      { id: "open", text: "Open", status: "open" },
-    ],
-  });
-});
-
-test("historical to-do states are normalized when read", () => {
-  assert.deepEqual(todoStateOf({
-    todos: [
-      { id: "done", text: "Done", status: "erledigt" },
-      { id: "active", text: "Running", status: "in Arbeit" },
-      { id: "open", text: "Open", status: "offen" },
     ],
   }), {
     todos: [

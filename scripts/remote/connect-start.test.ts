@@ -48,11 +48,11 @@ test("a server distributes a profile with a foreign bundle; connect fetches it i
     assert.ok(connectOutput.some((line) => line.includes("== Profile workshop-client from server") && line.includes("(fetched)")), connectOutput.join("\n"));
 
     const cache = path.join(home, ".local/share/ragents/remote", `127.0.0.1-${new URL(distributing.url).port}`, "workshop-client", "profiles");
-    const [stand] = readdirSync(cache);
-    assert.ok(stand, "connect stores the version in the empty data folder");
-    assert.equal(existsSync(path.join(cache, stand, "ragents.config.workshop-client.ts")), true);
-    assert.equal(existsSync(path.join(cache, stand, "dist/plugins/acme.greeting/ragents-bundle.json")), true, "the foreign bundle comes ready-made in the archive");
-    assert.equal(existsSync(path.join(cache, stand, "web")), false, "the archive carries no web app");
+    const [revision] = readdirSync(cache);
+    assert.ok(revision, "connect stores the version in the empty data folder");
+    assert.equal(existsSync(path.join(cache, revision, "ragents.config.workshop-client.ts")), true);
+    assert.equal(existsSync(path.join(cache, revision, "dist/plugins/acme.greeting/ragents-bundle.json")), true, "the foreign bundle comes ready-made in the archive");
+    assert.equal(existsSync(path.join(cache, revision, "web")), false, "the archive carries no web app");
     await assertGreetingServed(client, hostWebDirectory(root));
   } finally {
     for (const child of children.reverse()) await stopChild(child);

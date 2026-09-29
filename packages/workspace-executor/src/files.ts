@@ -101,7 +101,7 @@ const entryOf = async (directory: string, name: string, isDirectory: boolean): P
 
 const byKindThenName = (left: FileEntry, right: FileEntry): number =>
   (left.kind === right.kind ? 0 : left.kind === "directory" ? -1 : 1)
-  || left.name.localeCompare(right.name, "de");
+  || left.name.localeCompare(right.name, "en");
 
 const directoryIn = async (base: string, checked: string): Promise<string> => {
   const directory = await inside(base, checked);

@@ -107,12 +107,12 @@ test("unrelated extension states and actor-scoped states never create a quick-an
   const event = answer(8);
   const ignored: ChatEvent[] = [
     { kind: "status", running: true },
-    { kind: "user", text: "Kurzantwort" },
+    { kind: "user", text: "Short answer" },
     { ...event, pluginId: "ragents.other" },
     { ...event, type: "other" },
     { ...event, payload: undefined },
     { ...event, payload: { scope: { kind: "run" }, state: { kind: "other", text: "Other state" } } },
-    { ...event, payload: { scope: { kind: "actor", actorId: "helper" }, state: { kind: "quick-answer", text: "Actor-Zustand" } } },
+    { ...event, payload: { scope: { kind: "actor", actorId: "helper" }, state: { kind: "quick-answer", text: "Actor state" } } },
   ];
   for (const ignoredEvent of ignored) assert.equal(state.event(ignoredEvent), undefined);
   assert.deepEqual(state.event(event), { question: "Short question?", id: "conversation-a:8", text: "Answer 8" });

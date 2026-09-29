@@ -28,7 +28,7 @@ const withFolder = async (use: (folder: string) => Promise<void>): Promise<void>
   }
 };
 
-const loaded = (contribution: WorkspaceExecutorContribution): LoadedExecutorContribution => ({ plugin: "acme.demo", stand: "0".repeat(64), contribution });
+const loaded = (contribution: WorkspaceExecutorContribution): LoadedExecutorContribution => ({ plugin: "acme.demo", revision: "0".repeat(64), contribution });
 
 test("a contribution loads as a file, its version is the SHA-256 of its content, and new content never comes from the module cache", async () => {
   await withFolder(async (folder) => {
@@ -37,13 +37,13 @@ test("a contribution loads as a file, its version is the SHA-256 of its content,
     await writeFile(file, first);
     const one = await loadExecutorContribution("acme.demo", file);
     assert.equal(one.plugin, "acme.demo");
-    assert.equal(one.stand, createHash("sha256").update(first).digest("hex"));
+    assert.equal(one.revision, createHash("sha256").update(first).digest("hex"));
     assert.equal(prepareExecutorContribution(one, "/tools/acme.demo").parts.languageServers?.[0]?.label, "/tools/acme.demo");
     await writeFile(file, first.replace("label: machine.toolsDirectory", "label: \"new\""));
     const two = await loadExecutorContribution("acme.demo", file);
-    assert.notEqual(two.stand, one.stand);
+    assert.notEqual(two.revision, one.revision);
     assert.equal(prepareExecutorContribution(two, "/tools").parts.languageServers?.[0]?.label, "new");
-    assert.equal((await loadExecutorContribution("acme.demo", file, two.stand)).stand, two.stand);
+    assert.equal((await loadExecutorContribution("acme.demo", file, two.revision)).revision, two.revision);
   });
 });
 
@@ -78,7 +78,7 @@ test("the machine checks what a contribution returns; a wrong shape is an error 
     machines.push(machine.toolsDirectory);
     return {};
   }), "/tools/acme.demo");
-  assert.deepEqual(prepared, { plugin: "acme.demo", stand: "0".repeat(64), parts: {} });
+  assert.deepEqual(prepared, { plugin: "acme.demo", revision: "0".repeat(64), parts: {} });
   assert.deepEqual(machines, ["/tools/acme.demo"]);
 });
 

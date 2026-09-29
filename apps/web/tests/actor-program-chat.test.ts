@@ -131,10 +131,10 @@ test("chat owner retains attachment-only messages and leaves special rows unchan
     assert.doesNotMatch(html, /data-message="user"|data-message="bubble"|background:#123456/);
   }
   const messages: Message[] = [
-    { key: "tool", role: "tool", sender: "reviewer", text: "Liest", tool: { id: "read", name: "read", arguments: "{}", result: "Fertig" } },
+    { key: "tool", role: "tool", sender: "reviewer", text: "Reading", tool: { id: "read", name: "read", arguments: "{}", result: "Done" } },
     { key: "thinking", role: "thinking", sender: "reviewer", text: "Thinking it over" },
-    { key: "system", role: "system", sender: "reviewer", text: "Unterbrochen" },
-    { key: "question", role: "question", sender: "reviewer", text: "Welche Farbe?", question: { callId: "color", options: ["Blau", "Rot"] } },
+    { key: "system", role: "system", sender: "reviewer", text: "Interrupted" },
+    { key: "question", role: "question", sender: "reviewer", text: "Which color?", question: { callId: "color", options: ["Blue", "Red"] } },
   ];
   const render = (owner?: string) => renderToStaticMarkup(createElement(ChatMessages, { messages, owner, detailMode: "full" }));
   assert.equal(render("reviewer"), render());
@@ -153,8 +153,8 @@ test("chat targets are same-run handles; stopped or disconnected actors retain h
 test("the chat bridge validates target and input and does not accept a caller-supplied run", () => {
   const common = { version: 1, requestId: "request-1", actor: "@reviewer" };
   assert.equal(validateRunAppBridgeRequest({ ...common, type: RUN_APP_CHAT_WATCH }).ok, true);
-  assert.deepEqual(validateRunAppBridgeRequest({ ...common, type: RUN_APP_CHAT_SEND, text: " Hallo ", runId: "other-run" }), {
-    ok: true, request: { ...common, type: RUN_APP_CHAT_SEND, text: "Hallo" },
+  assert.deepEqual(validateRunAppBridgeRequest({ ...common, type: RUN_APP_CHAT_SEND, text: " Hello ", runId: "other-run" }), {
+    ok: true, request: { ...common, type: RUN_APP_CHAT_SEND, text: "Hello" },
   });
   for (const input of ["", " ", "x".repeat(65536), null]) {
     assert.equal(validateRunAppBridgeRequest({ ...common, type: RUN_APP_CHAT_SEND, text: input }).ok, false);

@@ -118,7 +118,7 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
   page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
   await page.goto(`http://127.0.0.1:${address.port}`);
   await page.locator("iframe").waitFor();
-  context.diagnostic(`Isolierte Hostframe-Fixture: ${directory}`);
+  context.diagnostic(`Isolated host frame fixture: ${directory}`);
   return { page, errors, consoleErrors };
 };
 

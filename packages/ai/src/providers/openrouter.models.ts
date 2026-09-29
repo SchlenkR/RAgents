@@ -1,5 +1,5 @@
-// Statischer Modellkatalog für openrouter. Einzige Quelle: es gibt keinen
-// Laufzeit-Store und keine Auffrischung über das Netz.
+// Static model catalog for openrouter. Single source: there is no
+// runtime store and no refresh over the network.
 
 import type { Model } from "../types.ts";
 

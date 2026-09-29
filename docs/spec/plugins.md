@@ -278,7 +278,7 @@ The server-side `PluginHost` has registries for:
   respective request, `null` without sign-in): list and choice the user of the request, the defaults
   written at the start the user who creates the run; it is not remembered anywhere.
   Optionally `ownerOnly(value)` declares that a run with this stored value is operated only by its
-  owner ([profiles.md](profiles.md), User rights). Optionally `rights` names rights needed beyond
+  owner ([profiles.md](profiles.md), Ownership in detail). Optionally `rights` names rights needed beyond
   `runs.create`, such as `runs.inspect` for an option whose presentation gives
   technical insight: without them the option is missing from the list, the choice (also through `options`
   of `ragents.overseer.createRun`) fails with `access-denied` (403), and at the start its
@@ -567,8 +567,7 @@ creates no directory of its own for it; the contribution brings its own. The res
 `SessionWorkspace` knows: besides `cwd` also `description`, `gitEnv`, `gitConfig`, `extraEnv`,
 `currentRoot`, `runOperation`, `hostSandbox` (home folder, read-only
 roots, and with `ident` the account under which the sandbox executes), and `sandboxFolders` (folders
-outside the workspace that the run's process sandbox allows, section Process sandbox
-of the server). Ending and deleting a run
+outside the workspace that the run's process sandbox allows, section Server process sandbox). Ending and deleting a run
 follow suit: `stopSession(runId, sandbox)` wraps the contribution's stop around the stop of the host's
 sandbox, `deleteSession(runId)` then cleans up what `resolve` created. Both apply only to
 runs with a new folder on the server; a run on a workstation is cleaned up by the host alone.
@@ -592,10 +591,10 @@ resolution must be deterministic for the same binding, because the agent runtime
 working directory after a restart. The host calls the resolution only after the run has been
 created, so that the start options are in the journal; the scheduler receives the `cwd` per run through the
 provider cache and passes it to the agent runtime as the tools' working directory; it receives its
-own folder separately from that (`core.md`, System prompt). Besides the `cwd`, the resolution
+own folder separately from that (`core.md`, Actor roster and workspace in the system prompt). Besides the `cwd`, the resolution
 provides with `SessionWorkspace.description` a text that describes the resolved workspace;
 it becomes a chapter in the system prompt of every actor with workspace tools (section
-System prompt in `core.md`). `ragents.workspace` words it per binding: an existing folder
+Actor roster and workspace in the system prompt in `core.md`). `ragents.workspace` words it per binding: an existing folder
 on the server is called the project folder on the server machine, one on a workstation the project folder
 there including that workstation's name; the new folder on the server is the run's private, initially empty folder
 with the path the resolver provided, the new one on a workstation the same
@@ -776,8 +775,8 @@ asset convention apply equally to source and bundle:
 
 The manifest (`profile/bundle-manifest.ts`, `format` 4) names `id`, `api` (the number of the
 host API it was built against), `hostNames` (per half and module, the host API names the
-bundle actually uses), `stand` (hash over all files of the bundle except the manifest and
-`.DS_Store`), `sourceStand` (hash over the source folder without `node_modules` and without the build
+bundle actually uses), `revision` (hash over all files of the bundle except the manifest and
+`.DS_Store`), `sourceRevision` (hash over the source folder without `node_modules` and without the build
 target, plus over the host inputs that shape every bundle: `host-api.ts`, `host-api.json`,
 build tool and description reader, in the checkout `pnpm-lock.yaml`, in the package its `package.json`),
 `server`, for a
@@ -793,7 +792,7 @@ platform-dependent binaries and no `node_modules`, so that it is the same on eve
 importing a bundle is therefore free of side effects. The contribution to the executor, on the other hand, is a
 separate file, because it must also load in a process that knows neither the host's resolution hook nor
 TypeScript sources, the VS Code extension host (section Workspace, sandbox tools,
-and processes); `.mjs`, so that Node reads it as ESM without a `package.json` next to it. `stand` is checked by everyone who
+and processes); `.mjs`, so that Node reads it as ESM without a `package.json` next to it. `revision` is checked by everyone who
 copies or reuses a bundle: `pnpm build:package` after copying into the package, `ragents
 connect` after unpacking the archive, and the build tool before it leaves a bundle in place as
 current.
@@ -817,7 +816,7 @@ bundle has a web half, the composer sets `manifest.web` to its addresses.
 
 **Matching against the sources.** In a checkout (recognizable by `.git`), the server additionally checks at startup
 that the profile's built-in bundles match their sources under `plugins/`: the
-manifest field `sourceStand` is a hash over the source folder and the host inputs, written
+manifest field `sourceRevision` is a hash over the source folder and the host inputs, written
 by the build tool; if it differs, startup aborts with the IDs and `pnpm build:plugins`. An
 update of a bundled library, of the build tool, or of the host API thus makes every bundle
 outdated. A package has no sources that change. The host does not check bundles from elsewhere
@@ -1020,7 +1019,7 @@ bundle looks the same; `tsconfigRaw: {}` disables a `tsconfig.json` of the plugi
   without `node_modules` and the target, rebuilds the whole plugin after every change, and for that reads
   the description, entry points, assets, and the siblings' exports afresh each time; at startup it builds
   only what is missing or outdated. A bundle is outdated if it has a different `format`, a different `api`,
-  a different `sourceStand`, or files that no longer match `stand`.
+  a different `sourceRevision`, or files that no longer match `revision`.
 
 The package `@schlenkr/ragents` carries the build tool including esbuild, TypeScript, Tailwind's
 scanner, the Node and React types, the host API sources, and the built types of the
@@ -1643,7 +1642,7 @@ The empty state is the same as in the actor popout.
 The inner scroll area can be focused by keyboard; PageUp and PageDown move the
 history within the tile.
 The history is not a click surface; the direct entries of the surface bar open the actor popout.
-Links in the history (`ablauf:<kind>/<id>`) and the rows of the actor view go
+Links in the history (`flow:<kind>/<id>`) and the rows of the actor view go
 to the surface controller: an artifact opens the documents, everything else becomes the selection on
 the surface.
 The history shows the working display of `ChatMessages` from `WorkingScenes` and the
@@ -1879,7 +1878,7 @@ web import alike. They know no product. What knows the run stays in RAgents:
 `user-location` under `apps/web/src/chat/`, on the server `chat-handler.ts`. `QuasselHost`
 (`apps/web/src/chat/QuasselHost.tsx`) gives quassel the host's basic building blocks as slots
 (`Button`, `Toggle`, `Card`, `StopButton`, `Popover`, `PopoverContent` from `apps/web/src/ui`) and
-lets links into a run (`ablauf:actor/...`, `input`, `turn`, `subscription`,
+lets links into a run (`flow:actor/...`, `input`, `turn`, `subscription`,
 `action`, `artifact`) through in Markdown; without it quassel discards every scheme other than http, https, mailto,
 tel, ftp, irc, and xmpp. `main.tsx` and `run-panel.tsx` wrap it around the whole interface, that is, also
 around every plugin, and the mini-app building blocks around their chat, `ChatMessages`, `Markdown`, `MessageList`,
@@ -3892,7 +3891,7 @@ bundle and symbolic links in a bundle are startup errors of the distributor, not
 omission, as is a bundle that the client profile file names absolutely or with `~/`: the client
 resolves the file on its own machine and would find under this path not the delivered
 bundle but nothing or a foreign one. The client profile file therefore names shipped bundles with `./` or
-`../` relative to itself. After unpacking, `connect` checks the `stand` of every bundle in the archive.
+`../` relative to itself. After unpacking, `connect` checks the `revision` of every bundle in the archive.
 
 The archive contains exactly the profile file and the files of these bundles, relative to their
 shared folder, as a deterministic `tar.gz` (package `tar`, pure JavaScript, without

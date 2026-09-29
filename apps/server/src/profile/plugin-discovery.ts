@@ -14,7 +14,7 @@ import {
   pluginsRoot,
   registerPluginFolder,
 } from "../plugin-support/plugins-root.js";
-import { assertHostNames, BUNDLE_MANIFEST_FILE, isBuiltInBundle, readBundleManifest, sourceStandOf, type BundleManifest } from "./bundle-manifest.js";
+import { assertHostNames, BUNDLE_MANIFEST_FILE, isBuiltInBundle, readBundleManifest, sourceRevisionOf, type BundleManifest } from "./bundle-manifest.js";
 
 /** The built-in bundles; build folders of the build tool start with a dot and do not count. */
 export const discoverPluginIds = (root = bundlesRoot): readonly string[] => {
@@ -77,7 +77,7 @@ export const webAddressesOf = (plugin: ResolvedPlugin): PluginWebAddresses | und
 export const staleBuiltInBundles = (plugins: readonly ResolvedPlugin[], sources = pluginsRoot, root = bundlesRoot): readonly string[] =>
   plugins.filter((plugin) => isBuiltInBundle(plugin.folder, root)
     && existsSync(path.join(sources, plugin.id, "ragents-plugin.json"))
-    && sourceStandOf(path.join(sources, plugin.id)) !== plugin.manifest.sourceStand)
+    && sourceRevisionOf(path.join(sources, plugin.id)) !== plugin.manifest.sourceRevision)
     .map((plugin) => plugin.id);
 
 const assertUsesInProfile = (plugins: readonly ResolvedPlugin[]): void => {

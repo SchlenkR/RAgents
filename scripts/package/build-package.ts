@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { readHostVersion, readPackageVersion } from "../../apps/server/src/host-version.ts";
 import { hostWebDirectory, hostWebProblem, isCheckout } from "../../apps/server/src/host-web.ts";
 import { runtimeLibraries } from "../../apps/server/src/plugin-support/actor-programs/runtime-libraries.ts";
-import { assertBundleStand, readBundleManifest, sourceStandOf } from "../../apps/server/src/profile/bundle-manifest.ts";
+import { assertBundleRevision, readBundleManifest, sourceRevisionOf } from "../../apps/server/src/profile/bundle-manifest.ts";
 import { builtInPluginFolders } from "../plugin/build-builtin-plugins.ts";
 
 export const PACKAGE_NAME = "@schlenkr/ragents";
@@ -216,7 +216,7 @@ const assertBuiltInBundles = (root: string): void => {
   for (const folder of builtInPluginFolders(path.join(root, "plugins"))) {
     const bundle = path.join(root, "bundles", path.basename(folder));
     if (!statSync(bundle, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`The bundle ${bundle} is missing; run pnpm build:plugins first`);
-    if (readBundleManifest(bundle).sourceStand !== sourceStandOf(folder)) throw new Error(`The bundle ${bundle} no longer matches ${folder}; run pnpm build:plugins first`);
+    if (readBundleManifest(bundle).sourceRevision !== sourceRevisionOf(folder)) throw new Error(`The bundle ${bundle} no longer matches ${folder}; run pnpm build:plugins first`);
   }
 };
 
@@ -249,7 +249,7 @@ export const buildPackage = async (target: string, root = repositoryRoot): Promi
   }
   for (const folder of builtInPluginFolders(path.join(root, "plugins"))) {
     const bundle = path.join(target, "bundles", path.basename(folder));
-    assertBundleStand(bundle, readBundleManifest(bundle));
+    assertBundleRevision(bundle, readBundleManifest(bundle));
   }
   for (const file of await copyDeclarations(root, target)) {
     fileCount += 1;
