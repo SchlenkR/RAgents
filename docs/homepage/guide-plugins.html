@@ -351,8 +351,8 @@ bound identity apply equally, while a program&#39;s <code>capabilities</code> li
 <p>Every domain function is available through <code>context.functions</code> in <code>typescript_eval</code>.
 <code>nativeTool: true</code> additionally exposes it as a native model tool when the model normally must
 read its result before taking the next step: browser interactions, domain reports and status,
-language diagnostics, <code>read</code>, <code>edit</code>, <code>write</code>, <code>bash</code>, <code>document_write</code>, <code>show_document</code>, and
-<code>browser_view_screenshot</code>, which can return image pixels only natively. Snippets remain the right
+language diagnostics, <code>read</code>, <code>edit</code>, <code>write</code>, <code>bash</code>, <code>document_write</code>, <code>show_document</code>,
+<code>ask_user</code>, and <code>browser_view_screenshot</code>, which can return image pixels only natively. Snippets remain the right
 form for calls that combine, filter, or pass results onward, including data queries, management
 functions, list results, and values passed from earlier responses without transcription. Native
 tools remain callable from snippets. The building-block reference marks them in the catalog and

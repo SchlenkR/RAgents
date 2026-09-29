@@ -394,8 +394,8 @@ bound identity apply equally, while a program's `capabilities` limit its install
 Every domain function is available through `context.functions` in `typescript_eval`.
 `nativeTool: true` additionally exposes it as a native model tool when the model normally must
 read its result before taking the next step: browser interactions, domain reports and status,
-language diagnostics, `read`, `edit`, `write`, `bash`, `document_write`, `show_document`, and
-`browser_view_screenshot`, which can return image pixels only natively. Snippets remain the right
+language diagnostics, `read`, `edit`, `write`, `bash`, `document_write`, `show_document`,
+`ask_user`, and `browser_view_screenshot`, which can return image pixels only natively. Snippets remain the right
 form for calls that combine, filter, or pass results onward, including data queries, management
 functions, list results, and values passed from earlier responses without transcription. Native
 tools remain callable from snippets. The building-block reference marks them in the catalog and

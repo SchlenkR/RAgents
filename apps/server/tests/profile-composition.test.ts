@@ -147,7 +147,7 @@ test("a reduced fixture removes optional actor program and reference contributio
   assert.ok(host.optionalService(workspaceRuntimeToken), "WorkspaceRuntime is missing");
   assert.deepEqual(names(host.operations.describe()), ["actor_input"]);
   assert.equal(host.tools.describe().some((tool) => tool.name.startsWith("actor_program_") || tool.name.startsWith("actor_view_")), false);
-  assert.deepEqual(host.tools.describe().filter((entry) => entry.nativeTool).map((entry) => entry.name).sort(), ["bash", "document_write", "edit", "read", "show_document", "typescript_api", "typescript_eval", "write"]);
+  assert.deepEqual(host.tools.describe().filter((entry) => entry.nativeTool).map((entry) => entry.name).sort(), ["ask_user", "bash", "document_write", "edit", "read", "show_document", "typescript_api", "typescript_eval", "write"]);
   assert.deepEqual(await host.skills.global(), []);
   assert.equal(profile.startEntries.some((entry) => entry.owner === "ragents.reference"), false);
   assert.equal(host.accessProjections.state(programState, restricted), programState, "without the plugin the host knows no projection");

@@ -6,6 +6,7 @@ import type { AskService } from "./contract.js";
 export const askToolMetadata = {
   name: "ask_user",
   label: "Question",
+  nativeTool: true,
   description: "Asks the user for a required decision with answer options and waits for the answer.",
   longDescription: "Always use this tool when you need a decision from the user "
     + "(e.g. choosing a branch or a time range), instead of only asking the question as text. "

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 import test from "node:test";
 import { announcement, assertGreetingServed, GREETING_PLUGIN, isolatedDirectory, profileSource, stopChild, writeFiles } from "../../apps/server/tests/foreign-plugin-fixture.ts";
 import { buildPackage, PACKAGE_FOLDER, PACKAGE_NAME } from "./build-package.ts";
@@ -33,6 +34,13 @@ test("from the installed package a third-party author builds their plugin in an 
     assert.equal(installed.code, 0, installed.output);
     const packageRoot = path.join(prefix, "lib", "node_modules", ...PACKAGE_NAME.split("/"));
     const ragents = path.join(prefix, "bin", "ragents");
+
+    const compiler = path.join(packageRoot, "packages/ragents/src/typescript/async-compiler.ts");
+    const compiled = run(process.execPath, ["--import", "tsx", "--input-type=module", "--eval",
+      `const { compileVirtualTypeScriptAsync } = await import(${JSON.stringify(pathToFileURL(compiler).href)});
+const result = await compileVirtualTypeScriptAsync({ sources: [{ fileName: "main.ts", text: "export const answer: number = 42;" }] });
+if (!result.valid) throw new Error(JSON.stringify(result.diagnostics));`], path.join(packageRoot, "apps/server"));
+    assert.equal(compiled.code, 0, `the compiler worker starts under node_modules: ${compiled.output}`);
 
     const work = path.join(directory, "work");
     mkdirSync(work);

@@ -51,9 +51,19 @@ const pool: PooledWorker[] = [];
 const workerWaiters: WorkerWaiter[] = [];
 let nextRequestId = 0;
 
+const LOADER_FLAGS = ["--import", "--loader", "--experimental-loader", "--require", "-r"] as const;
+
+/** Only the loader flags of the host (such as --import tsx); Node strips no types under node_modules, and debugger or memory flags stay behind. */
+const loaderArguments = (execArgv: readonly string[]): readonly string[] =>
+    execArgv.flatMap((argument, index) => {
+        if (LOADER_FLAGS.some((flag) => argument.startsWith(`${flag}=`))) return [argument];
+        if (LOADER_FLAGS.some((flag) => argument === flag) && index + 1 < execArgv.length) return [argument, execArgv[index + 1]!];
+        return [];
+    });
+
 const spawnWorker = (): PooledWorker => {
     const worker = new Worker(new URL("./compiler-worker.ts", import.meta.url), {
-        execArgv: [],
+        execArgv: [...loaderArguments(process.execArgv)],
         name: "ragents-typescript-compiler",
         resourceLimits: COMPILER_RESOURCE_LIMITS,
     });

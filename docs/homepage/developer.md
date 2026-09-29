@@ -331,7 +331,7 @@ description is the short description in the automatic function overview, label t
 
 Snippets and actor programs call context.functions.example_trim({ text }); input and result types come from the same registration.
 
-nativeTool: true additionally offers the same function as a native model tool. That remains the exception: by default the shared TypeScript API is enough, and the option is only justified when the detour through TypeScript loses something (file tools, native image input).
+nativeTool: true additionally offers the same function as a native model tool. That remains the exception: by default the shared TypeScript API is enough, and the option is only justified for calls the model reads and acts on by itself, without combining, filtering, or passing the result onward (file tools, browser interactions, domain reports and status, language diagnostics, native image input).
 
 host.functions also accepts contributions with functions and descriptors resolved at runtime. Static descriptors match the inventory; dynamic: true marks a variable function list with empty static descriptors.
 

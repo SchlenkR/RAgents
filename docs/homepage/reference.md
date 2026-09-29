@@ -1553,7 +1553,7 @@ Asks the user for a required decision with answer options and waits for the answ
 
 Always use this tool when you need a decision from the user (e.g. choosing a branch or a time range), instead of only asking the question as text. With multi=true the user may choose several options; the answer is then joined with '; '. Instead of choosing an option, the user can always answer freely - so expect the answer to be arbitrary text.
 
-Owner: ragents.ask. Scope: per-turn. Native model tool: no. Availability: always.
+Owner: ragents.ask. Scope: per-turn. Native model tool: yes. Availability: always.
 
 Available in every turn; the question always goes to the user of the run.
 
