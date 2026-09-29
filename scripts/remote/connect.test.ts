@@ -24,11 +24,11 @@ const { parseArguments, prepareProfile, remoteLayout, serverFolderName } = await
 const hostVersion = "0123456789abcdef0123456789abcdef01234567";
 const testToken = "fixture";
 
-/** Ein Archiv, wie es der Verteiler nie packt: mit einer Verknüpfung im Bundle, die auf eine fremde Datei zeigt. */
+/** An archive the distributor never packs: with a link in the bundle that points to a foreign file. */
 const packWithSymlink = async (folder: string): Promise<{ archive: Buffer; version: string }> => {
-  await symlink("/etc/hosts", path.join(folder, "plugins", "werkstatt.demo", "web-link"));
+  await symlink("/etc/hosts", path.join(folder, "plugins", "workshop.demo", "web-link"));
   const chunks: Buffer[] = [];
-  for await (const chunk of createTar({ gzip: true, cwd: folder, portable: true, noMtime: true }, ["ragents.config.werkstatt-client.ts", "plugins"])) {
+  for await (const chunk of createTar({ gzip: true, cwd: folder, portable: true, noMtime: true }, ["ragents.config.workshop-client.ts", "plugins"])) {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
   const archive = Buffer.concat(chunks);
@@ -40,14 +40,14 @@ const fakeServer = async (t: TestContext, options: { bundleStand?: string; symli
   t.after(() => rm(root, { recursive: true, force: true }));
   const serverBundles = path.join(root, "server-host", "bundles");
   writeBundle(path.join(serverBundles, "ragents.orchestration"));
-  writeBundle(path.join(root, "server", "plugins", "werkstatt.demo"), options.bundleStand === undefined ? {} : { manifest: { stand: options.bundleStand } });
-  const profileFile = path.join(root, "server", "ragents.config.werkstatt-client.ts");
-  await writeFile(profileFile, `export const config = { host: { PRODUCT_PROFILE: "werkstatt-client", PLUGINS: ["ragents.orchestration", "./plugins/werkstatt.demo"] } };\n`);
+  writeBundle(path.join(root, "server", "plugins", "workshop.demo"), options.bundleStand === undefined ? {} : { manifest: { stand: options.bundleStand } });
+  const profileFile = path.join(root, "server", "ragents.config.workshop-client.ts");
+  await writeFile(profileFile, `export const config = { host: { PRODUCT_PROFILE: "workshop-client", PLUGINS: ["ragents.orchestration", "./plugins/workshop.demo"] } };\n`);
   const packed = options.symlink ? await packWithSymlink(path.join(root, "server")) : await packClientProfile(await inspectClientProfile(profileFile, serverBundles));
   const description: ClientProfileDescription = {
-    profile: "werkstatt-client", version: packed.version, hostApi: HOST_API_VERSION, hostVersion, packageVersion: "0.2.0", file: "ragents.config.werkstatt-client.ts",
+    profile: "workshop-client", version: packed.version, hostApi: HOST_API_VERSION, hostVersion, packageVersion: "0.2.0", file: "ragents.config.workshop-client.ts",
     size: packed.archive.byteLength, archivePath: profileArchivePath(packed.version),
-    plugins: [{ id: "ragents.orchestration", source: "host" }, { id: "werkstatt.demo", source: "archive" }],
+    plugins: [{ id: "ragents.orchestration", source: "host" }, { id: "workshop.demo", source: "archive" }],
   };
   const tokens: string[] = [];
   let archiveRequests = 0;
@@ -55,7 +55,7 @@ const fakeServer = async (t: TestContext, options: { bundleStand?: string; symli
     tokens.push(request.headers.authorization ?? "");
     if (request.headers.authorization !== `Bearer ${testToken}`) {
       response.writeHead(401, { "Content-Type": "application/json" });
-      response.end(JSON.stringify({ error: "Bitte melde dich an.", code: "login-required" }));
+      response.end(JSON.stringify({ error: "Please sign in.", code: "login-required" }));
       return;
     }
     if (request.method === "POST" && request.url === "/rpc") {
@@ -78,24 +78,24 @@ const fakeServer = async (t: TestContext, options: { bundleStand?: string; symli
   await once(server, "listening");
   t.after(() => new Promise<void>((resolve) => server.close(() => resolve())));
   const address = server.address();
-  if (!address || typeof address === "string") throw new Error("Kein Port");
+  if (!address || typeof address === "string") throw new Error("No port");
   return { root, url: `http://127.0.0.1:${address.port}`, description, tokens, archiveRequests: () => archiveRequests };
 };
 
-test("Argumente, Serverordner und Ablage folgen festen Regeln", () => {
-  assert.deepEqual(parseArguments(["https://werkstatt.example.com", "--clean", "--port", "0", "--no-start"]), { serverUrl: "https://werkstatt.example.com", port: 0, clean: true, start: false });
-  assert.throws(() => parseArguments([]), /Serveradresse fehlt/);
-  assert.throws(() => parseArguments(["http://a", "http://b"]), /Unbekanntes Argument/);
+test("arguments, server folder and storage follow fixed rules", () => {
+  assert.deepEqual(parseArguments(["https://workshop.example.com", "--clean", "--port", "0", "--no-start"]), { serverUrl: "https://workshop.example.com", port: 0, clean: true, start: false });
+  assert.throws(() => parseArguments([]), /server address is missing/);
+  assert.throws(() => parseArguments(["http://a", "http://b"]), /Unknown argument/);
   assert.throws(() => parseArguments(["http://a", "--port", "x"]), /--port/);
-  assert.equal(serverFolderName("https://werkstatt.example.com/"), "werkstatt.example.com");
+  assert.equal(serverFolderName("https://workshop.example.com/"), "workshop.example.com");
   assert.equal(serverFolderName("http://localhost:4710"), "localhost-4710");
-  assert.throws(() => serverFolderName("ftp://x"), /http oder https/);
-  const layout = remoteLayout("/data", "https://werkstatt.example.com", "werkstatt-client");
-  assert.equal(layout.profiles, path.join("/data", "remote", "werkstatt.example.com", "werkstatt-client", "profiles"));
-  assert.equal(layout.data, path.join("/data", "remote", "werkstatt.example.com", "werkstatt-client", "data"));
+  assert.throws(() => serverFolderName("ftp://x"), /http or https/);
+  const layout = remoteLayout("/data", "https://workshop.example.com", "workshop-client");
+  assert.equal(layout.profiles, path.join("/data", "remote", "workshop.example.com", "workshop-client", "profiles"));
+  assert.equal(layout.data, path.join("/data", "remote", "workshop.example.com", "workshop-client", "data"));
 });
 
-/** Ein Host des Clients an beliebiger Stelle: seine Host-API, seine eingebauten Bundles und, als Paket, seine package.json. */
+/** A client host at any location: its host API, its built-in bundles and, as a package, its package.json. */
 const clientHost = async (root: string, name: string, options: { api?: number; builtIns?: readonly string[]; packageVersion?: string } = {}): Promise<string> => {
   const folder = path.join(root, name);
   await mkdir(path.join(folder, path.dirname(HOST_API_RECORD_FILE)), { recursive: true });
@@ -107,19 +107,19 @@ const clientHost = async (root: string, name: string, options: { api?: number; b
   return folder;
 };
 
-test("connect holt Profildatei und Bundles einmal, prüft den Stand und räumt alte Stände auf Wunsch weg; das Web kommt vom Host", async (t) => {
+test("connect fetches profile file and bundles once, checks the version and removes old versions on request; the web app comes from the host", async (t) => {
   const { root, url, description, tokens, archiveRequests } = await fakeServer(t);
   const dataRoot = path.join(root, "data-root");
   const hostPath = await clientHost(root, "checkout");
   const first = await prepareProfile({ serverUrl: url, token: testToken, dataRoot, hostPath });
   assert.equal(first.downloaded, true);
-  assert.equal(first.profileFile, path.join(dataRoot, "remote", `127.0.0.1-${new URL(url).port}`, "werkstatt-client", "profiles", description.version, "ragents.config.werkstatt-client.ts"));
-  assert.match(await readFile(first.profileFile, "utf8"), /PRODUCT_PROFILE: "werkstatt-client"/);
-  assert.equal(existsSync(path.join(first.cacheDirectory, "plugins", "werkstatt.demo", "ragents-bundle.json")), true, "das Bundle liegt fertig im Cache");
-  assert.equal(existsSync(path.join(first.cacheDirectory, "web")), false, "der Stand bringt kein Web mit");
+  assert.equal(first.profileFile, path.join(dataRoot, "remote", `127.0.0.1-${new URL(url).port}`, "workshop-client", "profiles", description.version, "ragents.config.workshop-client.ts"));
+  assert.match(await readFile(first.profileFile, "utf8"), /PRODUCT_PROFILE: "workshop-client"/);
+  assert.equal(existsSync(path.join(first.cacheDirectory, "plugins", "workshop.demo", "ragents-bundle.json")), true, "the bundle is ready in the cache");
+  assert.equal(existsSync(path.join(first.cacheDirectory, "web")), false, "the version brings no web app");
   assert.equal(existsSync(first.dataDirectory), true);
   const current = JSON.parse(await readFile(path.join(path.dirname(path.dirname(first.cacheDirectory)), "current.json"), "utf8")) as Record<string, string>;
-  assert.deepEqual(current, { serverUrl: url, profile: "werkstatt-client", version: description.version, profileFile: first.profileFile, dataDirectory: first.dataDirectory });
+  assert.deepEqual(current, { serverUrl: url, profile: "workshop-client", version: description.version, profileFile: first.profileFile, dataDirectory: first.dataDirectory });
   assert.ok(tokens.every((token) => token === `Bearer ${testToken}`));
   const stale = path.join(path.dirname(first.cacheDirectory), "0".repeat(64));
   await mkdir(stale, { recursive: true });
@@ -127,54 +127,54 @@ test("connect holt Profildatei und Bundles einmal, prüft den Stand und räumt a
   assert.equal(second.downloaded, false);
   assert.equal(archiveRequests(), 1);
   assert.equal(existsSync(stale), false);
-  await assert.rejects(() => prepareProfile({ serverUrl: url, token: "wrong", dataRoot, hostPath }), /liefert kein Client-Profil/);
+  await assert.rejects(() => prepareProfile({ serverUrl: url, token: "wrong", dataRoot, hostPath }), /provides no client profile/);
 });
 
-test("ein Bundle im Archiv, dessen Dateien nicht zu seinem stand passen, wird nicht in den Cache übernommen", async (t) => {
+test("a bundle in the archive whose files do not match its stand is not taken into the cache", async (t) => {
   const { root, url } = await fakeServer(t, { bundleStand: "f".repeat(64) });
   const dataRoot = path.join(root, "data-root");
   const hostPath = await clientHost(root, "checkout");
   await assert.rejects(() => prepareProfile({ serverUrl: url, token: testToken, dataRoot, hostPath }),
-    /Das Bundle werkstatt\.demo im Archiv des Servers hat nicht die Dateien, mit denen es gebaut wurde \(stand in plugins\/werkstatt\.demo\/ragents-bundle\.json\); auf dem Server neu bauen/);
-  assert.equal(existsSync(path.join(dataRoot, "remote", `127.0.0.1-${new URL(url).port}`, "werkstatt-client", "current.json")), false);
+    /The bundle workshop\.demo in the server's archive does not have the files it was built with \(stand in plugins\/workshop\.demo\/ragents-bundle\.json\); rebuild it on the server/);
+  assert.equal(existsSync(path.join(dataRoot, "remote", `127.0.0.1-${new URL(url).port}`, "workshop-client", "current.json")), false);
 });
 
-test("eine Verknüpfung im Archiv wird nicht angelegt, connect bricht mit Ursache ab", async (t) => {
+test("a link in the archive is not created, connect aborts with the cause", async (t) => {
   const { root, url } = await fakeServer(t, { symlink: true });
   const hostPath = await clientHost(root, "checkout");
   await assert.rejects(() => prepareProfile({ serverUrl: url, token: testToken, dataRoot: path.join(root, "data-root"), hostPath }),
-    /Das Archiv enthält Einträge, die weder Datei noch Ordner sind: plugins\/werkstatt\.demo\/web-link \(SymbolicLink\)/);
+    /The archive contains entries that are neither file nor folder: plugins\/workshop\.demo\/web-link \(SymbolicLink\)/);
 });
 
-test("connect nimmt nur Stand, Profil und Datei an, die im Cache bleiben", async (t) => {
+test("connect accepts only version, profile and file that stay in the cache", async (t) => {
   const { root, url, description } = await fakeServer(t);
   const dataRoot = path.join(root, "data-root");
   const hostPath = await clientHost(root, "checkout");
   const original = { ...description };
   for (const [field, value] of [
     ["version", `../../${"a".repeat(58)}`],
-    ["profile", "../werkstatt"],
-    ["file", "../ragents.config.werkstatt-client.ts"],
-    ["file", "plugins/fremd.ts"],
+    ["profile", "../workshop"],
+    ["file", "../ragents.config.workshop-client.ts"],
+    ["file", "plugins/foreign.ts"],
   ] as const) {
     Object.assign(description, original, { [field]: value });
     await assert.rejects(() => prepareProfile({ serverUrl: url, token: testToken, dataRoot, hostPath }),
-      new RegExp(`ungültiges Client-Profil: ${field} `));
+      new RegExp(`invalid client profile: ${field} `));
   }
-  assert.equal(existsSync(path.join(dataRoot, "remote")), false, "ein ungültiges Profil legt nichts an");
+  assert.equal(existsSync(path.join(dataRoot, "remote")), false, "an invalid profile creates nothing");
 });
 
-test("connect verlangt dieselbe Host-API und die eingebauten Bundles des Profils und nennt den Weg zum Stand des Servers", async (t) => {
+test("connect requires the same host API and the profile's built-in bundles and names the way to the server's version", async (t) => {
   const { root, url } = await fakeServer(t);
   const dataRoot = path.join(root, "data-root");
-  const older = await clientHost(root, "alter-checkout", { api: HOST_API_VERSION - 1 });
+  const older = await clientHost(root, "old-checkout", { api: HOST_API_VERSION - 1 });
   await assert.rejects(() => prepareProfile({ serverUrl: url, token: testToken, dataRoot, hostPath: older }),
-    new RegExp(`für Host-API ${HOST_API_VERSION}, der Host .* bietet Host-API ${HOST_API_VERSION - 1}\\.\\nWechsle auf den Commit des Servers: git -C .* checkout 0123456789abcdef`, "s"));
-  const packaged = await clientHost(root, "paket", { api: HOST_API_VERSION + 1, packageVersion: "0.1.0" });
+    new RegExp(`for host API ${HOST_API_VERSION}, the host .* offers host API ${HOST_API_VERSION - 1}\\.\\nSwitch to the server's commit: git -C .* checkout 0123456789abcdef`, "s"));
+  const packaged = await clientHost(root, "package", { api: HOST_API_VERSION + 1, packageVersion: "0.1.0" });
   await assert.rejects(() => prepareProfile({ serverUrl: url, token: testToken, dataRoot, hostPath: packaged }),
-    /bietet Host-API \d+\.\nHol die Fassung des Servers: npm install -g @schlenkr\/ragents@0\.2\.0 \(installiert ist 0\.1\.0\)/);
-  const unbuilt = await clientHost(root, "ungebaut", { builtIns: [] });
+    /offers host API \d+\.\nGet the server's version: npm install -g @schlenkr\/ragents@0\.2\.0 \(installed is 0\.1\.0\)/);
+  const unbuilt = await clientHost(root, "unbuilt", { builtIns: [] });
   await assert.rejects(() => prepareProfile({ serverUrl: url, token: testToken, dataRoot, hostPath: unbuilt }),
-    /kein Bundle hat: ragents\.orchestration\.\nIm Checkout zuerst pnpm build:plugins/);
-  assert.equal(existsSync(path.join(dataRoot, "remote")), false, "ohne passenden Host wird nichts geholt");
+    /has no bundle: ragents\.orchestration\.\nIn the checkout, run pnpm build:plugins first/);
+  assert.equal(existsSync(path.join(dataRoot, "remote")), false, "without a fitting host nothing is fetched");
 });

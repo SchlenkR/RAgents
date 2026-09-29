@@ -43,7 +43,7 @@ createRoot(document.getElementById('root')).render(<QuasselHost>
   <Actor run="run-a" id="implementer" lifecycle={running}/>
   <Actor run="run-b" id="implementer" lifecycle={running} presentation="inspector"/>
   <Actor run="run-a" id="waiting" lifecycle={idle}/>
-  <Actor run="run-a" id="stopped" lifecycle={{kind:'stopped',stoppedAt:'now',reason:'Versehentlich gestoppt'}} presentation="panel"/>
+  <Actor run="run-a" id="stopped" lifecycle={{kind:'stopped',stoppedAt:'now',reason:'Stopped by mistake'}} presentation="panel"/>
 </QuasselHost>);
 ` },
     outfile: `${directory}/fixture.js`, bundle: true, platform: "browser", format: "iife", jsx: "automatic",
@@ -77,36 +77,36 @@ createRoot(document.getElementById('root')).render(<QuasselHost>
   await page.route("**/rpc", async route => {
     const message = route.request().postDataJSON() as { id: number; method: string; params: { runId: string; actorId: string } };
     if (message.method !== "ragents.runs.interruptTurn" && message.method !== "ragents.runs.restartActor") {
-      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ jsonrpc: "2.0", id: message.id, error: { code: -32601, message: "Im Test nicht verfügbar" } }) });
+      await route.fulfill({ contentType: "application/json", body: JSON.stringify({ jsonrpc: "2.0", id: message.id, error: { code: -32601, message: "Not available in the test" } }) });
       return;
     }
     requests.push(`${message.method} ${message.params.runId}/${message.params.actorId}`);
     await route.fulfill({
       contentType: "application/json",
       body: JSON.stringify(requests.length === 1
-        ? { jsonrpc: "2.0", id: message.id, error: { code: -32000, message: "Unterbrechen nicht möglich" } }
+        ? { jsonrpc: "2.0", id: message.id, error: { code: -32000, message: "Interrupt not possible" } }
         : { jsonrpc: "2.0", id: message.id, result: null }),
     });
   });
   await page.goto(`http://127.0.0.1:${address.port}`);
   const chat = (name: string) => page.getByRole("region", { name, exact: true });
-  const stop = (name: string) => chat(name).getByRole("button", { name: "Arbeit stoppen", exact: true });
+  const stop = (name: string) => chat(name).getByRole("button", { name: "Stop work", exact: true });
   await stop("run-a/implementer").waitFor();
-  assert.equal(await stop("run-a/waiting").count(), 0, "ohne eigenen Turn bietet die Eingabe keinen Stopp an");
-  assert.equal(await stop("run-chat-worker-busy").count(), 0, "arbeitet ein anderer Actor, stoppt der Run-Chat nichts");
-  await chat("run-a/stopped").getByRole("status").filter({ hasText: "@stopped gestoppt: Versehentlich gestoppt" }).waitFor();
+  assert.equal(await stop("run-a/waiting").count(), 0, "without its own turn the input offers no stop");
+  assert.equal(await stop("run-chat-worker-busy").count(), 0, "if another actor is working, the run chat stops nothing");
+  await chat("run-a/stopped").getByRole("status").filter({ hasText: "@stopped stopped: Stopped by mistake" }).waitFor();
   assert.equal(await chat("run-a/stopped").getByRole("textbox").count(), 0);
 
   await stop("run-a/implementer").click();
-  await chat("run-a/implementer").getByRole("alert").filter({ hasText: "Unterbrechen nicht möglich" }).waitFor();
+  await chat("run-a/implementer").getByRole("alert").filter({ hasText: "Interrupt not possible" }).waitFor();
   assert.equal(await chat("run-b/implementer").getByRole("alert").count(), 0);
   await stop("run-a/implementer").click();
   await stop("run-b/implementer").click();
   await stop("run-chat").click();
-  await chat("run-a/implementer").getByRole("textbox").fill("Weitere Anweisung");
+  await chat("run-a/implementer").getByRole("textbox").fill("Further instruction");
   assert.equal(await stop("run-a/implementer").count(), 0);
-  assert.equal(await chat("run-a/implementer").getByRole("button", { name: "Senden", exact: true }).isEnabled(), true);
-  await chat("run-a/stopped").getByRole("button", { name: "Neu starten", exact: true }).click();
+  assert.equal(await chat("run-a/implementer").getByRole("button", { name: "Send", exact: true }).isEnabled(), true);
+  await chat("run-a/stopped").getByRole("button", { name: "Restart", exact: true }).click();
   for (let attempt = 0; attempt < 50 && requests.length < 5; attempt += 1) await page.waitForTimeout(50);
   assert.deepEqual(requests, [
     "ragents.runs.interruptTurn run-a/implementer",

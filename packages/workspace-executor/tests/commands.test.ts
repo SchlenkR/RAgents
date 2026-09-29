@@ -23,7 +23,7 @@ const coded = (code: string, pattern?: RegExp) => (error: unknown): boolean =>
 const until = async (condition: () => Promise<boolean>, timeoutMs = 5000): Promise<void> => {
   const started = Date.now();
   while (!await condition()) {
-    if (Date.now() - started > timeoutMs) throw new Error("Bedingung wurde nicht erfüllt.");
+    if (Date.now() - started > timeoutMs) throw new Error("Condition was not met.");
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
 };
@@ -38,7 +38,7 @@ const commandFixture = async (platform: NodeJS.Platform = process.platform) => {
   const workspace = path.join(directory, "workspace");
   const outside = path.join(directory, "outside");
   await Promise.all([path.join(workspace, "src"), outside].map((entry) => mkdir(entry, { recursive: true })));
-  await writeFile(path.join(workspace, "notes.md"), "Notizen\n");
+  await writeFile(path.join(workspace, "notes.md"), "Notes\n");
   await symlink(outside, path.join(workspace, "link-out"));
   const operations: string[] = [];
   const contextFor = (runId: string): Promise<WorkspaceProcessContext> => Promise.resolve({
@@ -50,7 +50,7 @@ const commandFixture = async (platform: NodeJS.Platform = process.platform) => {
       logDirectory: directory,
       hostRoot: undefined,
       additions: sandboxRunEnvironment(runId),
-      source: { PATH: process.env.PATH, SERVER_SECRET: "nur auf dem Server" },
+      source: { PATH: process.env.PATH, SERVER_SECRET: "only on the server" },
     }),
     runOperation: async <T>(operation: () => Promise<T>): Promise<T> => {
       operations.push(runId);
@@ -72,35 +72,35 @@ const commandFixture = async (platform: NodeJS.Platform = process.platform) => {
   };
 };
 
-test("Befehle: das Programm läuft ohne Shell mit wörtlichen Argumenten im gewählten Ordner, mit der Umgebung des Executors", async () => {
+test("commands: the program runs without a shell with literal arguments in the chosen folder, with the environment of the executor", async () => {
   const f = await commandFixture();
   try {
     const result = await f.run({
       ...node(
         [
           "process.stdout.write(JSON.stringify({ args: process.argv.slice(1), cwd: process.cwd(), marker: process.env.RAGENTS_RUN_ID, secret: process.env.SERVER_SECRET ?? null, home: process.env.HOME }));",
-          "process.stderr.write('Warnung');",
+          "process.stderr.write('Warning');",
           "process.exit(3);",
         ].join(""),
-        "$HOME; echo nie",
+        "$HOME; echo never",
         "a b",
         "*",
       ),
       cwd: "./src/",
       timeoutMs: 10_000,
     });
-    assert.equal(result.exitCode, 3, "ein Exit-Code ungleich null ist ein Ergebnis, kein Fehler");
-    assert.equal(result.stderr, "Warnung");
+    assert.equal(result.exitCode, 3, "a nonzero exit code is a result, not an error");
+    assert.equal(result.stderr, "Warning");
     assert.equal(result.stdoutTruncated, false);
     assert.equal(result.stderrTruncated, false);
     assert.deepEqual(JSON.parse(result.stdout), {
-      args: ["$HOME; echo nie", "a b", "*"],
+      args: ["$HOME; echo never", "a b", "*"],
       cwd: path.join(f.workspace, "src"),
       marker: "run-1",
       secret: null,
       home: f.directory,
     });
-    assert.deepEqual(f.operations, ["run-1"], "der Rahmen des Arbeitsbereichs umschließt den Befehl");
+    assert.deepEqual(f.operations, ["run-1"], "the frame of the workspace wraps the command");
     const root = await f.run({ ...node("process.stdout.write(process.cwd())"), timeoutMs: 10_000 });
     assert.deepEqual(root, { exitCode: 0, stdout: f.workspace, stderr: "", stdoutTruncated: false, stderrTruncated: false });
   } finally {
@@ -108,22 +108,22 @@ test("Befehle: das Programm läuft ohne Shell mit wörtlichen Argumenten im gew�
   }
 });
 
-test("Befehle: der Arbeitsordner wird geprüft wie ein Pfad des Dateimoduls", async () => {
+test("commands: the working folder is checked like a path of the file module", async () => {
   const f = await commandFixture();
   try {
     const at = (cwd: string) => f.run({ ...node("process.exit(0)"), cwd, timeoutMs: 10_000 });
-    await assert.rejects(at("../outside"), coded("workspace-path-invalid", /Ungültiger Pfad: \.\.\/outside/));
+    await assert.rejects(at("../outside"), coded("workspace-path-invalid", /Invalid path: \.\.\/outside/));
     await assert.rejects(at(f.workspace), coded("workspace-path-invalid"));
     await assert.rejects(at("src\\sub"), coded("workspace-path-invalid"));
-    await assert.rejects(at("link-out"), coded("workspace-path-invalid", /außerhalb des Arbeitsverzeichnisses/));
-    await assert.rejects(at("nirgends"), coded("workspace-path-not-found", /Nicht gefunden: nirgends/));
-    await assert.rejects(at("notes.md"), coded("workspace-path-invalid", /Kein Verzeichnis: notes\.md/));
+    await assert.rejects(at("link-out"), coded("workspace-path-invalid", /outside the working directory/));
+    await assert.rejects(at("nowhere"), coded("workspace-path-not-found", /Not found: nowhere/));
+    await assert.rejects(at("notes.md"), coded("workspace-path-invalid", /Not a directory: notes\.md/));
   } finally {
     await f.close();
   }
 });
 
-test("Befehle: die Ausgabe ist je Datenstrom begrenzt, der Befehl läuft zu Ende und behält seinen Exit-Code", async () => {
+test("commands: the output is limited per stream, the command runs to completion and keeps its exit code", async () => {
   const f = await commandFixture();
   try {
     const result = await f.run({
@@ -144,26 +144,26 @@ test("Befehle: die Ausgabe ist je Datenstrom begrenzt, der Befehl läuft zu Ende
   }
 });
 
-test("Befehle: ungültige Eingaben, ein fehlendes Programm und eine überschrittene Zeitgrenze sind Fehler mit Kennung", async () => {
+test("commands: invalid inputs, a missing program and an exceeded timeout are errors with a code", async () => {
   const f = await commandFixture();
   const windows = await commandFixture("win32");
   try {
-    await assert.rejects(f.run({ timeoutMs: 1000 }), coded("command-invalid", /braucht ein Programm/));
+    await assert.rejects(f.run({ timeoutMs: 1000 }), coded("command-invalid", /needs a program/));
     await assert.rejects(f.run({ program: "", timeoutMs: 1000 }), coded("command-invalid"));
-    await assert.rejects(f.run({ program: "git", args: ["status", 1], timeoutMs: 1000 }), coded("command-invalid", /Argumente/));
-    await assert.rejects(f.run({ program: "git", args: ["a\0b"], timeoutMs: 1000 }), coded("command-invalid", /Nullzeichen/));
-    await assert.rejects(f.run({ program: "git", cwd: 1, timeoutMs: 1000 }), coded("command-invalid", /Arbeitsordner/));
-    await assert.rejects(f.run({ program: "git" }), coded("command-invalid", /Zeitgrenze/));
-    await assert.rejects(f.run({ program: "git", timeoutMs: 1.5 }), coded("command-invalid", /Zeitgrenze/));
-    await assert.rejects(f.run({ program: "git", timeoutMs: 1000, maxOutputBytes: COMMAND_OUTPUT_LIMIT + 1 }), coded("command-invalid", /Ausgabegrenze/));
-    await assert.rejects(windows.run({ program: "pnpm.cmd", timeoutMs: 1000 }), coded("command-invalid", /braucht unter Windows eine Shell/));
+    await assert.rejects(f.run({ program: "git", args: ["status", 1], timeoutMs: 1000 }), coded("command-invalid", /arguments/));
+    await assert.rejects(f.run({ program: "git", args: ["a\0b"], timeoutMs: 1000 }), coded("command-invalid", /null characters/));
+    await assert.rejects(f.run({ program: "git", cwd: 1, timeoutMs: 1000 }), coded("command-invalid", /working folder/));
+    await assert.rejects(f.run({ program: "git" }), coded("command-invalid", /timeout/));
+    await assert.rejects(f.run({ program: "git", timeoutMs: 1.5 }), coded("command-invalid", /timeout/));
+    await assert.rejects(f.run({ program: "git", timeoutMs: 1000, maxOutputBytes: COMMAND_OUTPUT_LIMIT + 1 }), coded("command-invalid", /output limit/));
+    await assert.rejects(windows.run({ program: "pnpm.cmd", timeoutMs: 1000 }), coded("command-invalid", /needs a shell on Windows/));
     await assert.rejects(
-      f.run({ program: "ragents-gibt-es-nicht", timeoutMs: 10_000 }),
-      coded("command-unavailable", /Das Programm ragents-gibt-es-nicht gibt es auf diesem Rechner nicht/),
+      f.run({ program: "ragents-does-not-exist", timeoutMs: 10_000 }),
+      coded("command-unavailable", /The program ragents-does-not-exist does not exist on this machine/),
     );
     await assert.rejects(
       f.run({ ...node("setTimeout(() => {}, 30000)"), timeoutMs: 200 }),
-      coded("command-timeout", /Zeitgrenze von 200 ms/),
+      coded("command-timeout", /timeout of 200 ms/),
     );
   } finally {
     await f.close();
@@ -171,7 +171,7 @@ test("Befehle: ungültige Eingaben, ein fehlendes Programm und eine überschritt
   }
 });
 
-test("Befehle: ein Abbruch und der Stopp des Runs beenden einen laufenden Befehl samt Prozess", async () => {
+test("commands: an abort and the stop of the run end a running command together with its process", async () => {
   const f = await commandFixture();
   const waiting = (marker: string) => node(`require('node:fs').writeFileSync(${JSON.stringify(marker)}, String(process.pid)); setTimeout(() => {}, 30000);`);
   const pidOf = async (marker: string): Promise<number> => {
@@ -180,16 +180,16 @@ test("Befehle: ein Abbruch und der Stopp des Runs beenden einen laufenden Befehl
   };
   try {
     const controller = new AbortController();
-    const aborted = f.run({ ...waiting("abgebrochen.pid"), timeoutMs: 60_000 }, controller.signal);
-    const first = await pidOf("abgebrochen.pid");
+    const aborted = f.run({ ...waiting("aborted.pid"), timeoutMs: 60_000 }, controller.signal);
+    const first = await pidOf("aborted.pid");
     controller.abort();
     await assert.rejects(aborted);
     assert.equal(processExists(first), false);
 
-    const stopped = f.run({ ...waiting("gestoppt.pid"), timeoutMs: 60_000 });
-    const second = await pidOf("gestoppt.pid");
+    const stopped = f.run({ ...waiting("stopped.pid"), timeoutMs: 60_000 });
+    const second = await pidOf("stopped.pid");
     await f.executor.stopRun("run-1");
-    await assert.rejects(stopped, /Der Befehl wurde mit seinem Run beendet/);
+    await assert.rejects(stopped, /The command was ended with its run/);
     assert.equal(processExists(second), false);
     await f.executor.stopRun("run-1");
   } finally {

@@ -29,5 +29,5 @@ test("an installed token rides along as bearer on same-origin requests and as qu
   ]);
   assert.equal(withAccessToken("/files/runs/run-a/artifacts/art-1"), "/files/runs/run-a/artifacts/art-1?access=tok%2Fen");
   assert.equal(withAccessToken("/apps/x/frame?revision=1"), "/apps/x/frame?revision=1&access=tok%2Fen");
-  assert.throws(() => installAccessToken("again", browser), /bereits installiert/);
+  assert.throws(() => installAccessToken("again", browser), /already installed/);
 });

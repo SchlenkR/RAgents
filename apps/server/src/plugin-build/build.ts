@@ -86,8 +86,8 @@ const hostModuleShim = (specifier: string, names: readonly string[]): string => 
 const HOST_READ_SOURCE = [
   `export const read = (specifier, name) => {`,
   `  const module = globalThis[${JSON.stringify(HOST_MODULES_GLOBAL)}]?.[specifier];`,
-  `  if (module === undefined) throw new Error(\`Der Host stellt \${specifier} nicht bereit\`);`,
-  `  if (!(name in module)) throw new Error(\`Der Host stellt \${name} aus \${specifier} nicht bereit; das Bundle ist gegen einen neueren Host gebaut\`);`,
+  `  if (module === undefined) throw new Error(\`The host does not provide \${specifier}\`);`,
+  `  if (!(name in module)) throw new Error(\`The host does not provide \${name} from \${specifier}; the bundle was built against a newer host\`);`,
   `  return module[name];`,
   `};`,
 ].join("\n");
@@ -119,15 +119,15 @@ export const pluginCodeProblems = (file: string, text: string, id: string, asset
   };
   const visit = (node: ts.Node): void => {
     if (ts.isMetaProperty(node) && node.keywordToken === ts.SyntaxKind.ImportKeyword) {
-      report(node, "import.meta ist im Bundle nicht erlaubt; Dateien des Plugins gehen über pluginAsset(id, name) oder pluginFolder(id)");
+      report(node, "import.meta is not allowed in a bundle; the plugin's files go through pluginAsset(id, name) or pluginFolder(id)");
     } else if (ts.isIdentifier(node) && ["__dirname", "__filename", "createRequire"].includes(node.text)) {
-      report(node, `${node.text} ist im Bundle nicht erlaubt; Dateien des Plugins gehen über pluginAsset(id, name) oder pluginFolder(id)`);
+      report(node, `${node.text} is not allowed in a bundle; the plugin's files go through pluginAsset(id, name) or pluginFolder(id)`);
     } else if (ts.isPropertyAccessExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "require" && node.name.text === "resolve") {
-      report(node, "require.resolve ist im Bundle nicht erlaubt; Dateien des Plugins gehen über pluginAsset(id, name) oder pluginFolder(id)");
+      report(node, "require.resolve is not allowed in a bundle; the plugin's files go through pluginAsset(id, name) or pluginFolder(id)");
     } else if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "pluginAsset") {
       const [owner, name] = node.arguments;
       if (owner && name && ts.isStringLiteralLike(owner) && ts.isStringLiteralLike(name) && owner.text === id && !coveredByAssets(assets, name.text)) {
-        report(name, `pluginAsset nennt ${name.text}, das nicht ins Bundle kommt; unter assets in ragents-plugin.json nennen`);
+        report(name, `pluginAsset names ${name.text}, which does not go into the bundle; name it under assets in ragents-plugin.json`);
       }
     }
     ts.forEachChild(node, visit);
@@ -153,10 +153,10 @@ const platformProblem = (packageRoot: string): string | undefined => {
     name?: string; os?: unknown; cpu?: unknown; optionalDependencies?: Record<string, string>;
   };
   const name = manifest.name ?? path.basename(packageRoot);
-  if (manifest.os !== undefined || manifest.cpu !== undefined) return `Das Paket ${name} ist an Betriebssystem oder Prozessor gebunden (os/cpu in package.json)`;
+  if (manifest.os !== undefined || manifest.cpu !== undefined) return `The package ${name} is bound to an operating system or processor (os/cpu in package.json)`;
   const platformDependencies = Object.keys(manifest.optionalDependencies ?? {}).filter((dependency) => PLATFORM_PACKAGE.test(dependency));
   if (platformDependencies.length > 0) {
-    return `Das Paket ${name} hat plattformabhängige optionale Abhängigkeiten (${platformDependencies.join(", ")}); Natives stellt der Host bereit oder die Provisionierung holt es`;
+    return `The package ${name} has platform-dependent optional dependencies (${platformDependencies.join(", ")}); native code is provided by the host or fetched by the provisioning`;
   }
   return undefined;
 };
@@ -188,8 +188,8 @@ const boundaryPlugin = (
 
     /** The executor contribution loads in every process without the host's loader, the VS Code extension included. */
     const outsideContribution = (specifier: string) => ({ errors: [{
-      text: `${specifier}: der Executor-Beitrag lädt in jedem Node-Prozess ohne die Auflösung des Hosts; er importiert nur node:*, eigene Dateien, `
-        + "gebündelte Bibliotheken und vom Host Typen (import type), alles andere bekommt er über die Maschine",
+      text: `${specifier}: the executor contribution loads in every Node process without the host's resolution; it imports only node:*, its own files, `
+        + "bundled libraries and types from the host (import type), everything else it gets through the machine",
     }] });
 
     const crossImport = (owner: string, name: string) => {
@@ -211,7 +211,7 @@ const boundaryPlugin = (
     }));
 
     build.onResolve({ filter: /\.node$/ }, (args) => ({
-      errors: [{ text: `${args.path} ist eine plattformabhängige Binärdatei; Natives stellt der Host bereit oder die Provisionierung holt es nach <Datenordner>/tools/${id}/` }],
+      errors: [{ text: `${args.path} is a platform-dependent binary; native code is provided by the host or fetched by the provisioning into <data-folder>/tools/${id}/` }],
     }));
 
     build.onResolve({ filter: /.*/ }, async (args) => {
@@ -221,35 +221,35 @@ const boundaryPlugin = (
       if (specifier.startsWith("node:") || isBuiltin(specifier)) {
         return half === "server"
           ? { path: specifier, external: true }
-          : { errors: [{ text: `${specifier} ist ein Node-Modul und gibt es im Browser nicht` }] };
+          : { errors: [{ text: `${specifier} is a Node module and does not exist in the browser` }] };
       }
       if (isBare(specifier)) {
         const cross = /^@ragents\/plugins\/([^/]+)\/(.+)$/.exec(specifier);
         if (cross) {
           const [, owner, rawName] = cross as unknown as [string, string, string];
           const name = normalizedSpecifier(rawName);
-          if (owner === id) return { errors: [{ text: `${specifier} importiert das eigene Plugin über den Paketnamen; eigene Dateien relativ importieren` }] };
+          if (owner === id) return { errors: [{ text: `${specifier} imports the plugin itself through the package name; import own files relatively` }] };
           const other = environment.catalog(owner);
-          if (!other) return { errors: [{ text: `Das Plugin ${owner} aus ${specifier} liegt weder neben ${id} noch im Host` }] };
+          if (!other) return { errors: [{ text: `The plugin ${owner} from ${specifier} is neither next to ${id} nor in the host` }] };
           if (!other.description.exports[half].includes(name)) {
-            return { errors: [{ text: `${owner} exportiert ${name} für die ${half}-Hälfte nicht; der Export gehört in dessen ragents-plugin.json unter exports.${half}` }] };
+            return { errors: [{ text: `${owner} does not export ${name} for the ${half} half; the export belongs in its ragents-plugin.json under exports.${half}` }] };
           }
           return crossImport(owner, name);
         }
         if (selfContained && (providedByHost(half, specifier) || hostOnly(specifier))) return outsideContribution(specifier);
         if (providedByHost(half, specifier)) {
           if (args.kind === "dynamic-import" && (half === "web" || !isLibrary(half, specifier))) {
-            return { errors: [{ text: `import() von ${specifier}: ein Modul des Hosts wird statisch importiert, damit der Bau jeden Namen gegen die Host-API prüft` }] };
+            return { errors: [{ text: `import() of ${specifier}: a host module is imported statically so that the build checks every name against the host API` }] };
           }
           if (args.kind === "require-call" && half === "server") {
-            return { errors: [{ text: `require(${JSON.stringify(specifier)}): der Host liefert ${specifier} nur per import; im Bundle gäbe es sonst eine zweite Kopie oder keine` }] };
+            return { errors: [{ text: `require(${JSON.stringify(specifier)}): the host provides ${specifier} only through import; otherwise the bundle would get a second copy or none` }] };
           }
           return half === "server"
             ? { path: specifier, external: true }
             : { path: normalizedSpecifier(specifier), namespace: HOST_NAMESPACE, sideEffects: false };
         }
         if (hostOnly(specifier)) {
-          return { errors: [{ text: `${specifier} steht nicht in der ${half}-Liste der Host-API (apps/server/src/host-api.ts); ein Plugin bezieht vom Host nur, was dort steht` }] };
+          return { errors: [{ text: `${specifier} is not in the ${half} list of the host API (apps/server/src/host-api.ts); a plugin gets from the host only what is listed there` }] };
         }
         return undefined;
       }
@@ -258,19 +258,19 @@ const boundaryPlugin = (
       if (resolved.errors.length > 0) return { errors: resolved.errors };
       const owner = owningPluginFolder(resolved.path);
       if (owner === source.folder) return { path: resolved.path, sideEffects: resolved.sideEffects };
-      if (!owner) return { errors: [{ text: `${specifier} liegt außerhalb des Plugin-Ordners (${resolved.path}); ein Plugin importiert relativ nur eigene Dateien` }] };
+      if (!owner) return { errors: [{ text: `${specifier} is outside the plugin folder (${resolved.path}); a plugin imports only its own files relatively` }] };
       const other = readPluginSource(owner);
       const name = exportOfFile(other, half, resolved.path);
       if (!name) {
         const relative = path.relative(owner, resolved.path).split(path.sep).join("/").replace(/\.(ts|tsx)$/, "");
-        return { errors: [{ text: `${other.description.id} exportiert ${relative} für die ${half}-Hälfte nicht; der Export gehört in dessen ragents-plugin.json unter exports.${half}` }] };
+        return { errors: [{ text: `${other.description.id} does not export ${relative} for the ${half} half; the export belongs in its ragents-plugin.json under exports.${half}` }] };
       }
       return crossImport(other.description.id, name);
     });
 
     build.onLoad({ filter: /.*/, namespace: HOST_NAMESPACE }, (args) => {
       const names = environment.record.web[args.path];
-      if (!names) return { errors: [{ text: `host-api.json kennt ${args.path} nicht; pnpm update:host-api` }] };
+      if (!names) return { errors: [{ text: `host-api.json does not know ${args.path}; pnpm update:host-api` }] };
       return { contents: hostModuleShim(args.path, names), loader: "js" };
     });
     build.onLoad({ filter: /.*/, namespace: HOST_VALUE_NAMESPACE }, (args) => {
@@ -293,7 +293,7 @@ const boundaryPlugin = (
       const located = LIBRARY_LOCATIONS.filter(([pattern]) => pattern.test(text)).map(([, name]) => name);
       const errors = [
         ...(platform ? [{ text: platform }] : []),
-        ...(located.length > 0 ? [{ text: `${path.relative(packageRoot, args.path)} in ${path.basename(packageRoot)} sucht Dateien über den eigenen Ort (${located.join(", ")}); im Bundle gibt es diesen Ort nicht` }] : []),
+        ...(located.length > 0 ? [{ text: `${path.relative(packageRoot, args.path)} in ${path.basename(packageRoot)} locates files through its own location (${located.join(", ")}); in the bundle this location does not exist` }] : []),
       ];
       return errors.length > 0 ? { errors } : { contents: text, loader };
     });
@@ -329,7 +329,7 @@ const serverHostImports = (file: string, text: string, record: HostApiRecord): S
   const problems: string[] = [];
   const take = (specifier: string, name: string, offered: readonly string[]): void => {
     if (offered.includes(name)) names.push([normalizedSpecifier(specifier), name]);
-    else problems.push(`${file} importiert ${name} aus ${specifier}, das die Host-API nicht anbietet (host-api.json)`);
+    else problems.push(`${file} imports ${name} from ${specifier}, which the host API does not offer (host-api.json)`);
   };
   for (const statement of source.statements) {
     if (ts.isExportDeclaration(statement) && statement.moduleSpecifier && ts.isStringLiteral(statement.moduleSpecifier)) {
@@ -338,7 +338,7 @@ const serverHostImports = (file: string, text: string, record: HostApiRecord): S
       if (!offered) continue;
       const clause = statement.exportClause;
       if (clause && ts.isNamedExports(clause)) for (const element of clause.elements) take(specifier, (element.propertyName ?? element.name).text, offered);
-      else if (!isLibrary("server", specifier)) problems.push(`${file} reicht ${specifier} ganz weiter; aus einem Modul des Hosts nur einzelne Namen importieren`);
+      else if (!isLibrary("server", specifier)) problems.push(`${file} re-exports ${specifier} as a whole; import only individual names from a host module`);
       continue;
     }
     if (!ts.isImportDeclaration(statement)) continue;
@@ -352,7 +352,7 @@ const serverHostImports = (file: string, text: string, record: HostApiRecord): S
       for (const element of bindings.elements) take(specifier, (element.propertyName ?? element.name).text, offered);
     } else if (bindings && ts.isNamespaceImport(bindings) && !isLibrary("server", specifier)) {
       const reads = namespaceReads(source, bindings.name);
-      if (reads.escapes) problems.push(`${file} benutzt den Namensraum ${bindings.name.text} aus ${specifier} als Ganzes; aus einem Modul des Hosts nur einzelne Namen lesen, damit der Bau sie prüft`);
+      if (reads.escapes) problems.push(`${file} uses the namespace ${bindings.name.text} from ${specifier} as a whole; read only individual names from a host module so that the build checks them`);
       for (const name of new Set(reads.names)) take(specifier, name, offered);
     }
   }
@@ -461,9 +461,9 @@ const tailwindCandidates = (source: PluginSource, metafile: Metafile): readonly 
 
 const copyAsset = async (from: string, to: string, name: string): Promise<void> => {
   const stats = lstatSync(from);
-  if (stats.isSymbolicLink()) throw new Error(`Das Asset ${name} enthält eine Verknüpfung (${from}); ein Bundle enthält nur Dateien`);
+  if (stats.isSymbolicLink()) throw new Error(`The asset ${name} contains a link (${from}); a bundle contains only files`);
   if (stats.isDirectory()) {
-    if (path.basename(from) === "node_modules") throw new Error(`Das Asset ${name} enthält node_modules; ein Bundle bringt keine Abhängigkeiten mit`);
+    if (path.basename(from) === "node_modules") throw new Error(`The asset ${name} contains node_modules; a bundle brings no dependencies`);
     await mkdir(to, { recursive: true });
     for (const entry of readdirSync(from).sort()) {
       if (!SKIPPED_ASSET_FILES.has(entry)) await copyAsset(path.join(from, entry), path.join(to, entry), name);
@@ -497,7 +497,7 @@ const buildPlugin = async (folder: string, environment: BuildEnvironment, typeEr
     in: sourceFileOf(path.join(source.folder, name))!,
     out: `exports/${name}`,
   }));
-  if (!serverEntry) return failed(["server/index.ts fehlt; jedes Plugin hat eine Server-Hälfte mit dem Modulvertrag"]);
+  if (!serverEntry) return failed(["server/index.ts is missing; every plugin has a server half with the module contract"]);
   const hasWeb = webEntry !== undefined || source.description.exports.web.length > 0;
   const results = await Promise.all([
     buildHalf(source, "server", [{ in: provision ? "ragents-entry:server" : serverEntry, out: "index" }, ...exportEntries("server")], environment, assets),
@@ -511,7 +511,7 @@ const buildPlugin = async (folder: string, environment: BuildEnvironment, typeEr
   const target = path.join(environment.out, id);
   const relativeOf = (file: OutputFile): string => path.relative(target, file.path).split(path.sep).join("/");
   const strayCss = files.map(relativeOf).filter((name) => name.endsWith(".css") && name !== "web/index.css");
-  if (strayCss.length > 0) return failed(strayCss.map((name) => `${name}: CSS gibt es nur über den Web-Einstieg (web/index.css)`));
+  if (strayCss.length > 0) return failed(strayCss.map((name) => `${name}: CSS exists only through the web entry (web/index.css)`));
   const serverImports = files.filter((file) => relativeOf(file).startsWith("server/") && file.path.endsWith(".js"))
     .map((file) => serverHostImports(relativeOf(file), file.text, environment.record));
   const importProblems = serverImports.flatMap((imports) => imports.problems);
@@ -573,7 +573,7 @@ interface HostBuildContext {
 const hostContextFor = (folders: readonly string[], options: Pick<PluginBuildOptions, "out" | "root">): HostBuildContext => {
   const ids = folders.map((folder) => path.basename(path.resolve(folder)));
   const duplicate = ids.find((id, index) => ids.indexOf(id) !== index);
-  if (duplicate) throw new Error(`Das Plugin ${duplicate} ist mehrfach genannt`);
+  if (duplicate) throw new Error(`The plugin ${duplicate} is named more than once`);
   const root = options.root ?? hostRoot();
   return { root, record: checkedHostApiRecord(root), out: path.resolve(options.out) };
 };
@@ -654,7 +654,7 @@ export const watchPlugins = async (
       running = current;
       pending.add(current);
     };
-    // Beim Start nur Veraltetes, damit ein Server, der gerade mit diesen Bundles startet, keine getauschten Dateien sieht.
+    // At startup only outdated ones, so that a server that is just starting with these bundles sees no swapped files.
     run(true);
     watchers.push(watch(folder, { recursive: true }, (_event, name) => {
       const changed = name ? path.join(folder, name.toString()) : folder;

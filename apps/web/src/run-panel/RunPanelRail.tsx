@@ -2,10 +2,10 @@ import type { SessionContext, SessionNavigation, WorkspaceTabContribution } from
 import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../ui";
 import { RUN_PANEL_WORKSPACE_ID } from "./workspace-state";
 
-/** Ein Zähler-Badge des Beitrags sitzt klein oben rechts am Knopf, der Punkt für Neues unten rechts. */
+/** A contribution's counter badge sits small at the top right of the button, the dot for news at the bottom right. */
 const railButtonClass = "relative aria-pressed:bg-accent aria-pressed:text-primary [&_[data-slot=badge]]:absolute [&_[data-slot=badge]]:-top-0.5 [&_[data-slot=badge]]:-right-0.5 [&_[data-slot=badge]]:h-3.5 [&_[data-slot=badge]]:min-w-3.5 [&_[data-slot=badge]]:px-1 [&_[data-slot=badge]]:py-0 [&_[data-slot=badge]]:text-[0.58rem] [&_[data-slot=badge]]:leading-none";
 
-/** Die Symbolleiste am rechten Rand des Run-Panels: je Reiter der Leiste ein Knopf, der die Leiste mit diesem Reiter öffnet oder wieder schließt. */
+/** The toolbar at the right edge of the run panel: one button per sidebar tab that opens the sidebar with this tab or closes it again. */
 export function RunPanelRail({ navigation, onClose, open, pendingTabIds, session, tabs }: {
   navigation: SessionNavigation;
   onClose: () => void;
@@ -14,7 +14,7 @@ export function RunPanelRail({ navigation, onClose, open, pendingTabIds, session
   session: SessionContext;
   tabs: readonly WorkspaceTabContribution[];
 }) {
-  return <TooltipProvider><nav aria-label="Reiter der Leiste" className="flex w-9 flex-none flex-col items-center gap-1 border-l border-border bg-shell py-1.5">
+  return <TooltipProvider><nav aria-label="Sidebar tabs" className="flex w-9 flex-none flex-col items-center gap-1 border-l border-border bg-shell py-1.5">
     {tabs.map((tab) => {
       const active = open && tab.id === navigation.activeTabId;
       const pending = pendingTabIds.includes(tab.id);
@@ -31,7 +31,7 @@ export function RunPanelRail({ navigation, onClose, open, pendingTabIds, session
           {tab.Badge && <tab.Badge active={active} navigation={navigation} selection={navigation.selectionFor(tab.id)} session={session} />}
           {pending && <span aria-hidden className="absolute right-1 bottom-1 size-1.5 rounded-full bg-primary" />}
         </TooltipTrigger>
-        <TooltipContent side="left" sideOffset={8}>{pending ? `${tab.label} - es gibt Neues` : tab.label}</TooltipContent>
+        <TooltipContent side="left" sideOffset={8}>{pending ? `${tab.label} - new activity` : tab.label}</TooltipContent>
       </Tooltip>;
     })}
   </nav></TooltipProvider>;

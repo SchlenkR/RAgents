@@ -1,8 +1,8 @@
 ---
 name: example-skill
-description: "Ein Beispielskill aus dem Plugin-Ordner."
+description: "An example skill from the plugin folder."
 ---
 
-# Beispielskill
+# Example skill
 
-Ein Skill, den nur der Test benutzt.
+A skill that only the test uses.

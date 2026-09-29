@@ -18,7 +18,7 @@ import {
 
 export { ORCHESTRATION_PLUGIN_ID } from "./constants";
 
-/** Die Auswahl auf der Fläche: ein Artefakt öffnet die Dokumente, jede andere Entität wird die gewählte Kachel und der gemeldete Standort. */
+/** The selection on the surface: an artifact opens the documents, every other entity becomes the selected tile and the reported location. */
 function OrchestrationSessionProvider({ children, navigation, session }: SessionProviderProps) {
   const runView = runViewFrom(session.runView);
   const [selection, setSelection] = useState<EntityReference>();
@@ -49,7 +49,7 @@ export const webPlugin: WebPlugin = {
     { id: "ragents.orchestration.actors", order: 300, placement: "surface", Header: ActorShortcuts },
   ],
   settings: [
-    { id: "ragents.orchestration.runPanel", category: "appearance", label: "Run-Panel", Settings: RunPanelSettings },
+    { id: "ragents.orchestration.runPanel", category: "appearance", label: "Run panel", Settings: RunPanelSettings },
   ],
   surface: { Center: OrchestrationCenter, RunPanel: OrchestrationRunPanel },
   cardSections: [{

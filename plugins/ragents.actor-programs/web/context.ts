@@ -25,6 +25,6 @@ export const useOptionalActorPrograms = () => useContext(ActorProgramsContext);
 
 export const useActorPrograms = (): ActorProgramsContextValue => {
   const value = useOptionalActorPrograms();
-  if (!value) throw new Error("Der Actor-Programm-Provider ist nicht aktiv");
+  if (!value) throw new Error("The actor program provider is not active");
   return value;
 };

@@ -20,29 +20,29 @@ const webBundle = (folder: string, classes: unknown): string => writeBundle(fold
     "web/index.css": ".acme-probe { color: red; }\n",
     "web/classes.json": JSON.stringify(classes),
     "web/chunks/part.js": "export const part = 1;\n",
-    "prompt.hbs": "vertraulich\n",
+    "prompt.hbs": "confidential\n",
   },
 });
 
-test("das gebaute Web fehlt, hat keinen Quellstand oder passt nicht mehr zu seinen Quellen", () => {
+test("the built web is missing, has no source record or no longer matches its sources", () => {
   const host = scratch();
   const web = path.join(host, "apps/web/dist");
   const source = path.join(host, "apps/web/src/main.tsx");
   mkdirSync(path.dirname(source), { recursive: true });
   writeFileSync(source, "export {};\n");
-  assert.match(hostWebProblem(web, host, false) ?? "", /Das Web des Hosts fehlt unter .*dist \(index\.html, run-panel\.html\)/);
+  assert.match(hostWebProblem(web, host, false) ?? "", /The host's web is missing under .*dist \(index\.html, run-panel\.html\)/);
   mkdirSync(web, { recursive: true });
   writeFileSync(path.join(web, "index.html"), "<!doctype html>\n");
   writeFileSync(path.join(web, "run-panel.html"), "<!doctype html>\n");
-  assert.equal(hostWebProblem(web, host, false), undefined, "ohne Quellen zählt nur, dass es das Web gibt");
-  assert.match(hostWebProblem(web, host, true) ?? "", /hat keinen Quellstand \(host-web\.json\)/);
+  assert.equal(hostWebProblem(web, host, false), undefined, "without sources, only the existence of the web counts");
+  assert.match(hostWebProblem(web, host, true) ?? "", /has no source record \(host-web\.json\)/);
   writeFileSync(path.join(web, HOST_WEB_RECORD), JSON.stringify(hostWebRecordOf(host, [source])));
   assert.equal(hostWebProblem(web, host, true), undefined);
   writeFileSync(source, "export const changed = 1;\n");
-  assert.match(hostWebProblem(web, host, true) ?? "", /passt nicht mehr zu seinen Quellen \(geändert: apps\/web\/src\/main\.tsx\)/);
+  assert.match(hostWebProblem(web, host, true) ?? "", /no longer matches its sources \(changed: apps\/web\/src\/main\.tsx\)/);
 });
 
-test("unter /plugins/<id>/web/ liefert der Host nur die Web-Hälfte der Bundles des Profils, mit ETag", async () => {
+test("under /plugins/<id>/web/ the host serves only the web half of the profile's bundles, with an ETag", async () => {
   const bundles = scratch();
   const folder = webBundle(path.join(bundles, "acme.probe"), []);
   const folders = new Map([["acme.probe", folder]]);
@@ -54,7 +54,7 @@ test("unter /plugins/<id>/web/ liefert der Host nur die Web-Hälfte der Bundles 
   assert.equal((await webBundleFile(folders, "/plugins/acme.probe/web/index.js", entry.headers.ETag)).status, 304);
   const chunk = await webBundleFile(folders, "/plugins/acme.probe/web/chunks/part.js", undefined);
   assert.equal(chunk.status, 200);
-  assert.equal(chunk.headers["Cache-Control"], "public, max-age=31536000, immutable", "ein Chunk trägt seinen Hash im Namen");
+  assert.equal(chunk.headers["Cache-Control"], "public, max-age=31536000, immutable", "a chunk carries its hash in its name");
   assert.equal((await webBundleFile(folders, "/plugins/acme.probe/web/index.css", undefined)).headers["Content-Type"], "text/css");
   for (const pathname of [
     "/plugins/acme.probe/server/index.js",
@@ -68,25 +68,25 @@ test("unter /plugins/<id>/web/ liefert der Host nur die Web-Hälfte der Bundles 
   }
 });
 
-test("ohne Token gehen nur die ausgelieferten Dateien der Web-Hälften, keine Sourcemaps und keine anderen Pfade unter /plugins/", () => {
+test("without a token only the served files of the web halves pass, no source maps and no other paths under /plugins/", () => {
   const folders = new Map([["acme.probe", "/bundles/acme.probe"]]);
   assert.equal(isPublicBundleFile(folders, "/plugins/acme.probe/web/index.js"), true);
   assert.equal(isPublicBundleFile(folders, "/plugins/acme.probe/web/chunks/part-X1.js"), true);
-  assert.equal(isPublicBundleFile(folders, "/plugins/acme.probe/web/index.js.map"), false, "die Sourcemap trägt den Quelltext");
+  assert.equal(isPublicBundleFile(folders, "/plugins/acme.probe/web/index.js.map"), false, "the source map carries the source code");
   assert.equal(isBundleSourceMap(folders, "/plugins/acme.probe/web/index.js.map"), true);
   for (const pathname of ["/plugins/acme.probe/data", "/plugins/acme.probe/webhook", "/plugins/acme.other/web/index.js", "/plugins/", "/plugins/acme.probe/web/"]) {
     assert.equal(isPublicBundleFile(folders, pathname), false, pathname);
   }
   assert.equal(isWebBundlePath(folders, "/plugins/acme.probe/web/index.js"), true);
-  assert.equal(isWebBundlePath(folders, "/plugins/acme.probe/api"), false, "eine Plugin-Route unter /plugins/<id>/ bleibt hinter dem Zugang");
+  assert.equal(isWebBundlePath(folders, "/plugins/acme.probe/api"), false, "a plugin route under /plugins/<id>/ stays behind the access check");
 });
 
-test("ein Stylesheet aus den Kandidaten des Hosts und der Bundles, in der Reihenfolge von Tailwind", async () => {
+test("one stylesheet from the candidates of the host and the bundles, in Tailwind order", async () => {
   const css = (await compileStylesheet(root, ["max-md:inline", "hidden", "dark:bg-input/30", "bg-background", "p-2"], false)).css;
-  assert.ok(css.indexOf(".hidden") < css.indexOf(".max-md\\:inline"), "eine Basis-Utility steht vor ihrer Variante");
+  assert.ok(css.indexOf(".hidden") < css.indexOf(".max-md\\:inline"), "a base utility comes before its variant");
   assert.ok(css.indexOf(".bg-background") < css.indexOf(".dark\\:bg-input\\/30"));
-  assert.match(css, /--spacing: 0\.235rem/, "das Theme des Hosts ist dabei");
-  assert.ok(hostWebClasses(root).includes("bg-background"), "die Quellen des Host-Webs liefern ihre Klassen");
+  assert.match(css, /--spacing: 0\.235rem/, "the host theme is included");
+  assert.ok(hostWebClasses(root).includes("bg-background"), "the sources of the host web provide their classes");
 
   const bundles = scratch();
   const folder = webBundle(path.join(bundles, "acme.probe"), ["bg-[#123456]"]);
@@ -94,18 +94,18 @@ test("ein Stylesheet aus den Kandidaten des Hosts und der Bundles, in der Reihen
   const fixed = await createStylesheet({ root, bundles: plugins, dev: false });
   const dev = await createStylesheet({ root, bundles: plugins, dev: true });
   assert.match((await fixed()).css, /#123456/);
-  assert.doesNotMatch((await fixed()).css, /\n  /, "außerhalb des Dev-Modus minifiziert");
+  assert.doesNotMatch((await fixed()).css, /\n  /, "minified outside dev mode");
   assert.match((await dev()).css, /\n  /);
   const unchanged = await fixed();
-  assert.equal(await fixed(), unchanged, "ohne neue Klassen bleibt es beim übersetzten Stylesheet");
+  assert.equal(await fixed(), unchanged, "without new classes the compiled stylesheet stays");
   writeFileSync(path.join(folder, "web/classes.json"), JSON.stringify(["bg-[#654321]"]));
   const rebuilt = await fixed();
-  assert.match(rebuilt.css, /#654321/, "ein neu gebautes Bundle bringt seine Klassen auch ohne Dev-Modus nach einem Neuladen mit");
-  assert.doesNotMatch(rebuilt.css, /\n  /, "weiter minifiziert");
+  assert.match(rebuilt.css, /#654321/, "a rebuilt bundle brings its classes after a reload even without dev mode");
+  assert.doesNotMatch(rebuilt.css, /\n  /, "still minified");
   assert.notEqual(rebuilt.etag, unchanged.etag);
-  assert.match((await dev()).css, /#654321/, "im Dev-Modus je Abruf neu");
+  assert.match((await dev()).css, /#654321/, "new on every request in dev mode");
 
   const broken = webBundle(path.join(bundles, "acme.broken"), { classes: [] });
   await assert.rejects(createStylesheet({ root, bundles: resolvePluginEntries([broken]), dev: false }),
-    /Die Klassenliste .*classes\.json des Bundles acme\.broken ist keine Liste von Texten; mit ragents plugin build <quellordner> neu bauen/);
+    /The class list .*classes\.json of the bundle acme\.broken is not a list of strings; rebuild with ragents plugin build <source-folder>/);
 });

@@ -31,7 +31,7 @@ export class OverseerModelSettings {
   };
 
   readonly selection = (): Selection => {
-    if (!this.current) throw new DomainError("overseer-model-unavailable", "Der globale Koordinator hat keine konfigurierte Modellauswahl.", 400);
+    if (!this.current) throw new DomainError("overseer-model-unavailable", "The global coordinator has no configured model selection.", 400);
     return { ...this.validate(this.current) };
   };
 
@@ -70,14 +70,14 @@ export class OverseerModelSettings {
   }
 
   private validate(value: unknown): Selection {
-    if (!value || typeof value !== "object" || Array.isArray(value)) throw new DomainError("overseer-model-invalid", "provider, model und thinking sind erforderlich.", 400);
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new DomainError("overseer-model-invalid", "provider, model and thinking are required.", 400);
     const selected = value as Record<string, unknown>;
-    if (Object.keys(selected).some((key) => key !== "provider" && key !== "model" && key !== "thinking")) throw new DomainError("overseer-model-invalid", "Erlaubt sind nur provider, model und thinking.", 400);
+    if (Object.keys(selected).some((key) => key !== "provider" && key !== "model" && key !== "thinking")) throw new DomainError("overseer-model-invalid", "Only provider, model and thinking are allowed.", 400);
     const model = this.models.find((entry) => entry.provider === selected.provider && entry.model === selected.model);
-    if (!model) throw new DomainError("overseer-model-unknown", `Unbekanntes Modell. Gültig: ${this.models.map((entry) => `${entry.provider}/${entry.model}`).join(", ") || "keine"}.`, 400);
-    if (!isThinkingLevel(selected.thinking) || !model.thinking.includes(selected.thinking)) throw new DomainError("overseer-thinking-unsupported", `Reasoning ${String(selected.thinking)} ist für ${model.provider}/${model.model} nicht verfügbar. Gültig: ${model.thinking.join(", ") || "keine"}.`, 400);
+    if (!model) throw new DomainError("overseer-model-unknown", `Unknown model. Valid: ${this.models.map((entry) => `${entry.provider}/${entry.model}`).join(", ") || "none"}.`, 400);
+    if (!isThinkingLevel(selected.thinking) || !model.thinking.includes(selected.thinking)) throw new DomainError("overseer-thinking-unsupported", `Reasoning ${String(selected.thinking)} is not available for ${model.provider}/${model.model}. Valid: ${model.thinking.join(", ") || "none"}.`, 400);
     const missing = this.requiredInputs().filter((kind) => !model.input.includes(kind));
-    if (missing.length > 0) throw new DomainError("overseer-history-unsupported", `Das Gespräch enthält bereits ${missing.join(", ")}-Anhänge. ${model.provider}/${model.model} kann diese nicht verarbeiten; wähle ein passendes Modell.`, 400);
+    if (missing.length > 0) throw new DomainError("overseer-history-unsupported", `The conversation already contains ${missing.join(", ")} attachments. ${model.provider}/${model.model} cannot process them; choose a suitable model.`, 400);
     return { provider: model.provider, model: model.model, thinking: selected.thinking };
   }
 }

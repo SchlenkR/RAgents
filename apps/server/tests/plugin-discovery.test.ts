@@ -22,7 +22,7 @@ const bundleRoot = (bundles: Readonly<Record<string, BundleFixture | undefined>>
 const withRequires = (requires: readonly string[], body = ""): string =>
   `${body}export const plugin = { requires: ${JSON.stringify(requires)}, create: () => ({ manifest: { id: "x" }, register: () => {} }) };\n`;
 
-test("jeder Ordner unter bundles ist ein gebautes Plugin; der Host lädt nur Bundles", async () => {
+test("every folder under bundles is a built plugin; the host loads only bundles", async () => {
   const ids = discoverPluginIds();
 
   assert.ok(ids.includes("ragents.orchestration"));
@@ -32,13 +32,13 @@ test("jeder Ordner unter bundles ist ein gebautes Plugin; der Host lädt nur Bun
   assert.deepEqual(loaded.known, ids);
   assert.deepEqual(loaded.ids, ["ragents.orchestration", "ragents.ask", "ragents.todo"]);
   assert.deepEqual([...loaded.web.keys()].sort(), ["ragents.ask", "ragents.orchestration", "ragents.todo"]);
-  assert.deepEqual(loaded.web.get("ragents.todo"), { entry: "/plugins/ragents.todo/web/index.js" }, "die Adresse folgt dem Manifest, ein CSS nur, wenn das Bundle eins hat");
+  assert.deepEqual(loaded.web.get("ragents.todo"), { entry: "/plugins/ragents.todo/web/index.js" }, "the address follows the manifest, a CSS only if the bundle has one");
   assert.deepEqual(loaded.bundles.map((plugin) => plugin.folder), loaded.ids.map((id) => path.join(bundlesRoot, id)));
   assert.equal(typeof loaded.modules.get("ragents.orchestration")?.create, "function");
   assert.equal(pluginFolder("ragents.ask"), path.join(bundlesRoot, "ragents.ask"));
 });
 
-test("ein Bundle außerhalb des Hosts wird per Pfad genannt; der Ordnername ist die Kennung", async () => {
+test("a bundle outside the host is named by path; the folder name is the id", async () => {
   const elsewhere = bundleRoot({ "test.elsewhere": {} });
   const absolute = path.join(elsewhere, "test.elsewhere");
 
@@ -50,18 +50,18 @@ test("ein Bundle außerhalb des Hosts wird per Pfad genannt; der Ordnername ist 
   assert.deepEqual(resolvePluginEntries(["./test.elsewhere"], elsewhere).map(({ id, folder }) => ({ id, folder })), [{ id: "test.elsewhere", folder: absolute }]);
 });
 
-test("ein Quellordner oder ein Ordner ohne Manifest im Profil ist ein harter Fehler mit Ursache", async () => {
+test("a source folder or a folder without a manifest in the profile is a hard error with its cause", async () => {
   const elsewhere = bundleRoot({ "test.empty": undefined, "test.source": undefined });
   mkdirSync(path.join(elsewhere, "test.source", "server"));
   writeFileSync(path.join(elsewhere, "test.source", "server", "index.ts"), PLUGIN_ENTRY_SOURCE);
 
-  await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.missing")]), /hat keinen Ordner/);
-  await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.source")]), /ist ein Quellordner, kein Bundle: mit ragents plugin build .*test\.source bauen/);
-  await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.empty")]), /ist kein Bundle: ragents-bundle\.json fehlt/);
-  assert.throws(() => discoverPluginIds(elsewhere), /ist kein Bundle/);
+  await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.missing")]), /has no folder/);
+  await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.source")]), /is a source folder, not a bundle: build it with ragents plugin build .*test\.source/);
+  await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.empty")]), /is not a bundle: ragents-bundle\.json is missing/);
+  assert.throws(() => discoverPluginIds(elsewhere), /is not a bundle/);
 });
 
-test("Format und Host-API des Bundles müssen zum Host passen, sonst nennt der Start den Befehl zum Neubauen", async () => {
+test("format and host API of the bundle must match the host, otherwise the start names the command to rebuild", async () => {
   const elsewhere = bundleRoot({
     "test.old-format": { manifest: { format: 1 } },
     "test.old-api": { manifest: { api: 0 } },
@@ -72,32 +72,32 @@ test("Format und Host-API des Bundles müssen zum Host passen, sonst nennt der S
   });
 
   await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.old-format")]),
-    new RegExp(`Das Bundle test\\.old-format hat das Format 1, dieser Host liest Format ${BUNDLE_FORMAT}; mit ragents plugin build <quellordner> neu bauen`));
+    new RegExp(`The bundle test\\.old-format has format 1, this host reads format ${BUNDLE_FORMAT}; rebuild with ragents plugin build <source-folder>`));
   await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.old-api")]),
-    /Das Bundle test\.old-api ist für Host-API 0 gebaut, dieser Host bietet \d+; mit ragents plugin build .* neu bauen/);
-  await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.other-id")]), /meldet die Kennung test\.renamed/);
+    /The bundle test\.old-api is built for host API 0, this host offers \d+; rebuild with ragents plugin build .*/);
+  await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.other-id")]), /reports the id test\.renamed/);
   const dataRoot = mkdtempSync(path.join(tmpdir(), "ragents-data-root-"));
-  const fetched = path.join(dataRoot, "remote", "werkstatt.example.com", "werkstatt-client", "profiles", "abc", "dist", "plugins", "test.old-api");
+  const fetched = path.join(dataRoot, "remote", "workshop.example.com", "workshop-client", "profiles", "abc", "dist", "plugins", "test.old-api");
   assert.equal(isFetchedBundle(fetched, dataRoot), true);
   assert.equal(isFetchedBundle(path.join(elsewhere, "test.old-api"), dataRoot), false);
-  await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.extra-field")]), /web fehlt oder hat die falsche Form/);
-  await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.outside-web")]), /server\/index\.js liegt nicht unter web\//);
-  await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.missing-web")]), /Dem Bundle test\.missing-web fehlt web\/index\.js; mit ragents plugin build/);
+  await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.extra-field")]), /web is missing or has the wrong shape/);
+  await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.outside-web")]), /server\/index\.js is not under web\//);
+  await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.missing-web")]), /The bundle test\.missing-web is missing web\/index\.js; rebuild with ragents plugin build/);
 });
 
-test("ein Bundle, das Namen der Host-API braucht, die dieser Host nicht hat, scheitert beim Start mit Ursache", async () => {
+test("a bundle that needs host API names this host does not have fails at startup with its cause", async () => {
   const elsewhere = bundleRoot({
-    "test.newer-name": { manifest: { hostNames: { server: { "@ragents/engine": ["DomainError"] }, web: { "@ragents/web/ui": ["Button", "NeuerKnopf"] } } } },
-    "test.newer-module": { manifest: { hostNames: { server: { "@ragents/host/neu": ["etwas"] }, web: {} } } },
+    "test.newer-name": { manifest: { hostNames: { server: { "@ragents/engine": ["DomainError"] }, web: { "@ragents/web/ui": ["Button", "NewButton"] } } } },
+    "test.newer-module": { manifest: { hostNames: { server: { "@ragents/host/new": ["something"] }, web: {} } } },
     "test.fitting": { manifest: { hostNames: { server: { "@ragents/engine": ["DomainError"] }, web: { "@ragents/web/ui": ["Button"] } } } },
   });
   await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.newer-name")]),
-    /Das Bundle test\.newer-name braucht aus der Host-API \d+ Namen, die dieser Host nicht anbietet \(web @ragents\/web\/ui: NeuerKnopf\); es ist gegen einen neueren Host gebaut: den Host aktualisieren, sonst mit ragents plugin build <quellordner> neu bauen/);
-  await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.newer-module")]), /nicht anbietet \(server @ragents\/host\/neu\)/);
+    /The bundle test\.newer-name needs names from host API \d+ that this host does not offer \(web @ragents\/web\/ui: NewButton\); it was built against a newer host: update the host, otherwise rebuild with ragents plugin build <source-folder>/);
+  await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.newer-module")]), /does not offer \(server @ragents\/host\/new\)/);
   assert.deepEqual(resolvePluginEntries([path.join(elsewhere, "test.fitting")]).map((plugin) => plugin.id), ["test.fitting"]);
 });
 
-test("ein eingebautes Bundle gilt als veraltet, sobald sich sein Quellordner ändert; Bundles von anderswo prüft der Host nicht", async () => {
+test("a built-in bundle counts as outdated as soon as its source folder changes; the host does not check bundles from elsewhere", async () => {
   const sources = mkdtempSync(path.join(tmpdir(), "ragents-sources-"));
   for (const id of ["test.fresh", "test.changed"]) {
     mkdirSync(path.join(sources, id, "server"), { recursive: true });
@@ -107,7 +107,7 @@ test("ein eingebautes Bundle gilt als veraltet, sobald sich sein Quellordner än
   const stand = sourceStandOf(path.join(sources, "test.fresh"));
   mkdirSync(path.join(sources, "test.fresh", "node_modules", "lib"), { recursive: true });
   writeFileSync(path.join(sources, "test.fresh", "node_modules", "lib", "index.js"), "");
-  assert.equal(sourceStandOf(path.join(sources, "test.fresh")), stand, "node_modules zählt nicht zum Quellstand");
+  assert.equal(sourceStandOf(path.join(sources, "test.fresh")), stand, "node_modules does not count toward the source stand");
   const root = bundleRoot({
     "test.fresh": { manifest: { sourceStand: stand } },
     "test.changed": { manifest: { sourceStand: sourceStandOf(path.join(sources, "test.changed")) } },
@@ -119,61 +119,61 @@ test("ein eingebautes Bundle gilt als veraltet, sobald sich sein Quellordner än
   assert.deepEqual(staleBuiltInBundles(plugins, sources, root), ["test.changed"]);
 });
 
-test("ein Einstiegspunkt ohne gültigen plugin-Export ist ein harter Fehler", async () => {
+test("an entry point without a valid plugin export is a hard error", async () => {
   const root = bundleRoot({
     "test.without-export": { server: "export const other = 1;\n" },
     "test.without-create": { server: "export const plugin = { requires: [] };\n" },
   });
 
-  await assert.rejects(() => loadPlugins(["test.without-export"], root), /exportiert in server\/index\.js keinen gültigen Einstiegspunkt/);
-  await assert.rejects(() => loadPlugins(["test.without-create"], root), /exportiert in server\/index\.js keinen gültigen Einstiegspunkt/);
+  await assert.rejects(() => loadPlugins(["test.without-export"], root), /exports no valid entry point in server\/index\.js/);
+  await assert.rejects(() => loadPlugins(["test.without-create"], root), /exports no valid entry point in server\/index\.js/);
 });
 
-test("eine unbekannte Kennung und ein nicht gebautes eingebautes Plugin brechen den Start ab", async () => {
-  await assert.rejects(() => loadPlugins(["ragents.orchestration", "ragents.nowhere"]), /Unbekanntes Plugin ragents\.nowhere; eingebaut sind: /);
+test("an unknown id and an unbuilt built-in plugin abort the start", async () => {
+  await assert.rejects(() => loadPlugins(["ragents.orchestration", "ragents.nowhere"]), /Unknown plugin ragents\.nowhere; built in are: /);
   const root = bundleRoot({});
-  await assert.rejects(() => loadPlugins(["ragents.ask"], root), /Das eingebaute Plugin ragents\.ask ist nicht gebaut: .* fehlt; im Checkout mit pnpm build:plugins bauen/);
+  await assert.rejects(() => loadPlugins(["ragents.ask"], root), /The built-in plugin ragents\.ask is not built: .* is missing; build it in the checkout with pnpm build:plugins/);
 });
 
-test("ein fehlendes requires bricht den Start ab", async () => {
+test("a missing requires aborts the start", async () => {
   await assert.rejects(
     () => loadPlugins(["ragents.documents"]),
-    /Plugin ragents\.documents benötigt das fehlende Plugin ragents\.orchestration/,
+    /Plugin ragents\.documents needs the missing plugin ragents\.orchestration/,
   );
 });
 
-test("eine falsche Reihenfolge bricht den Start ab", async () => {
+test("a wrong order aborts the start", async () => {
   await assert.rejects(
     () => loadPlugins(["ragents.documents", "ragents.orchestration"]),
-    /Plugin ragents\.orchestration muss vor ragents\.documents registriert werden/,
+    /Plugin ragents\.orchestration must be registered before ragents\.documents/,
   );
 });
 
-test("eine doppelte Plugin-ID bricht den Start ab, auch per Pfad", async () => {
+test("a duplicate plugin id aborts the start, also by path", async () => {
   await assert.rejects(
     () => loadPlugins(["ragents.orchestration", "ragents.orchestration"]),
-    /Plugin ragents\.orchestration steht mehrfach in der Pluginliste/,
+    /Plugin ragents\.orchestration appears more than once in the plugin list/,
   );
   const elsewhere = bundleRoot({ "ragents.orchestration": {} });
   await assert.rejects(
     () => loadPlugins(["ragents.orchestration", path.join(elsewhere, "ragents.orchestration")]),
-    /Plugin ragents\.orchestration steht mehrfach in der Pluginliste/,
+    /Plugin ragents\.orchestration appears more than once in the plugin list/,
   );
 });
 
-test("was ein Bundle aus anderen Bundles nutzt, steht in der Pluginliste und in requires", async () => {
+test("what a bundle uses from other bundles is in the plugin list and in requires", async () => {
   const elsewhere = bundleRoot({
     "test.uses-missing": { manifest: { uses: ["ragents.todo"] } },
     "test.uses-undeclared": { manifest: { uses: ["ragents.orchestration"] } },
   });
 
   await assert.rejects(() => loadPlugins(["ragents.orchestration", path.join(elsewhere, "test.uses-missing")]),
-    /Plugin test\.uses-missing benötigt das fehlende Plugin ragents\.todo; sein Bundle importiert dessen Exporte/);
+    /Plugin test\.uses-missing needs the missing plugin ragents\.todo; its bundle imports that plugin's exports/);
   await assert.rejects(() => loadPlugins(["ragents.orchestration", path.join(elsewhere, "test.uses-undeclared")]),
-    /Das Bundle test\.uses-undeclared importiert Exporte von ragents\.orchestration, nennt es aber nicht in requires/);
+    /The bundle test\.uses-undeclared imports exports of ragents\.orchestration, but does not name it in requires/);
 });
 
-test("ein Bundle bezieht vom Host nur die Server-Liste, mit denselben Modulen wie der Host, und von Bundles nur deren Exporte", async () => {
+test("a bundle gets only the server list from the host, with the same modules as the host, and only their exports from bundles", async () => {
   const elsewhere = bundleRoot({
     "test.host-modules": {
       server: withRequires(["ragents.ask"], [
@@ -195,7 +195,7 @@ test("ein Bundle bezieht vom Host nur die Server-Liste, mit denselben Modulen wi
   assert.equal(probe.workflow, "function");
   assert.ok(probe.ask > 0);
   await assert.rejects(() => loadPlugins([path.join(elsewhere, "test.unlisted")]),
-    /Das Bundle test\.unlisted lädt nicht: Das Bundle test\.unlisted importiert lucide-react, das der Host nicht bereitstellt/);
+    /The bundle test\.unlisted does not load: The bundle test\.unlisted imports lucide-react, which the host does not provide/);
   await assert.rejects(() => loadPlugins(["ragents.ask", path.join(elsewhere, "test.no-export")]),
-    /das Bundle ragents\.ask exportiert server\/nothing aber nicht für den Server/);
+    /the bundle ragents\.ask does not export server\/nothing for the server/);
 });

@@ -26,7 +26,7 @@ async function contractFixture() {
   const directory = await mkdtemp(path.join(os.tmpdir(), "homepage-extensions-"));
   const source = await readFile(path.join(repoRoot, "scripts/homepage/homepage-extensions.ts"), "utf8");
   const paths = new Set([...source.matchAll(/\bfile: "([^"]+)"/g)].map((match) => match[1]!));
-  assert.ok(paths.size > 0, "Die Fixture muss die erfassten Verträge enthalten.");
+  assert.ok(paths.size > 0, "The fixture must contain the captured contracts.");
   for (const relative of paths) {
     const target = path.join(directory, relative);
     await mkdir(path.dirname(target), { recursive: true });
@@ -40,7 +40,7 @@ for (const mutation of [
   { file: "apps/web/src/PluginRegistry.tsx", declaration: "export interface WebPlugin extends WebPluginDescriptor {", key: "web.homepageTestContribution" },
   { file: "apps/server/src/config-definition.ts", declaration: "export interface ProfileAnonymousUser {", key: "profileUser.homepageTestContribution" },
 ]) {
-  test(`nicht dokumentierter Beitrag ${mutation.key} stoppt die Generierung`, async () => {
+  test(`undocumented contribution ${mutation.key} stops the generation`, async () => {
     const root = await contractFixture();
     try {
       const target = path.join(root, mutation.file);
@@ -54,14 +54,14 @@ for (const mutation of [
   });
 }
 
-test("entferntes dokumentiertes Feld stoppt die Generierung", async () => {
+test("removed documented field stops the generation", async () => {
   const root = await contractFixture();
   try {
     const target = path.join(root, "apps/web/src/PluginRegistry.tsx");
     const source = await readFile(target, "utf8");
     assert.ok(source.includes("  needsRunView?: boolean;"));
     await writeFile(target, source.replace("  needsRunView?: boolean;", ""));
-    await assert.rejects(buildHomepageExtensions(root), /entfernt: web\.needsRunView/);
+    await assert.rejects(buildHomepageExtensions(root), /removed: web\.needsRunView/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -77,10 +77,10 @@ function literal(node: ts.Node): unknown {
     assert.ok(ts.isPropertyAssignment(property));
     return [ts.isIdentifier(property.name) || ts.isStringLiteral(property.name) ? property.name.text : property.name.getText(), literal(property.initializer)];
   }));
-  throw new Error("Das Vertragsbeispiel muss literale Eingabewerte verwenden.");
+  throw new Error("The contract example must use literal input values.");
 }
 
-test("gezeigte Actor- und Subscription-Aufrufe entsprechen den echten Werkzeugverträgen", async () => {
+test("shown actor and subscription calls match the real tool contracts", async () => {
   const { extensions } = await buildHomepageExtensions(repoRoot);
   const examples = extensions.filter((entry) => entry.id === "run-capabilities" || entry.id === "subscriptions");
   let checked = 0;
@@ -92,8 +92,8 @@ test("gezeigte Actor- und Subscription-Aufrufe entsprechen den echten Werkzeugve
         const [input] = node.arguments;
         assert.ok(input);
         const tool = agentTools.find((tool) => tool.name === name.text);
-        assert.ok(tool, `Werkzeug ${name.text} ist vorhanden.`);
-        assert.ok(Value.Check(tool.schema, literal(input)), `Beispiel für ${name.text} muss dessen aktuelles Schema erfüllen.`);
+        assert.ok(tool, `Tool ${name.text} exists.`);
+        assert.ok(Value.Check(tool.schema, literal(input)), `Example for ${name.text} must satisfy its current schema.`);
         checked += 1;
       }
       ts.forEachChild(node, visit);
@@ -103,16 +103,16 @@ test("gezeigte Actor- und Subscription-Aufrufe entsprechen den echten Werkzeugve
   assert.equal(checked, 2);
 });
 
-test("das dokumentierte Actor-Programm-Paket entspricht dem Autorenvertrag", async () => {
+test("the documented actor program package matches the authoring contract", async () => {
   const { extensions } = await buildHomepageExtensions(repoRoot);
   const example = extensions.find((extension) => extension.id === "app-package");
   assert.ok(example);
   assert.ok(Value.Check(appPackageSchema, JSON.parse(example.example).ragents));
 });
 
-test("Server- und Web-Beispiele erfüllen mit ihrem benannten Kontext die echten TypeScript-Verträge", async () => {
+test("server and web examples satisfy the real TypeScript contracts with their named context", async () => {
   const { extensions } = await buildHomepageExtensions(repoRoot);
-  const examples = extensions.filter((entry) => entry.category === "Serverbeiträge" || entry.category === "Web-Beiträge"
+  const examples = extensions.filter((entry) => entry.category === "Server contributions" || entry.category === "Web contributions"
     || ["product-policy", "workspace-policy", "document-store", "driver", "language-server"].includes(entry.id));
   assert.ok(examples.length >= 32);
   const prelude = `
@@ -180,7 +180,7 @@ declare const service: {
 });
 
 
-test("Rechtebeispiele führen Profilauflösung und Plugin-Prüfung mit echten Verträgen aus", async () => {
+test("permission examples run profile resolution and plugin checks with real contracts", async () => {
   const result = await buildHomepageExtensions(repoRoot);
   assert.deepEqual(result.permissions, [...builtinPermissions, ...overseerPermissions]);
   assert.deepEqual(result.methodRights.find((method) => method.id === coreContracts.runs.delete.id),
@@ -228,7 +228,7 @@ test("Rechtebeispiele führen Profilauflösung und Plugin-Prüfung mit echten Ve
   assert.deepEqual(JSON.parse(body), { editable: false });
 });
 
-test("native Actor-Programm-Beispiele bauen mit dem SDK und bestehen ihre Fachtests", async () => {
+test("native actor program examples build with the SDK and pass their domain tests", async () => {
   const { extensions } = await buildHomepageExtensions(repoRoot);
   const source = (id: string): string => {
     const example = extensions.find((entry) => entry.id === id);

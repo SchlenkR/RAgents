@@ -6,20 +6,20 @@ import { processAlive, watchParentProcess } from "../src/parent-watch.ts";
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-test("ohne RAGENTS_PARENT_PID gibt es keinen Wächter", () => {
+test("without RAGENTS_PARENT_PID there is no watcher", () => {
   let gone = 0;
   const stop = watchParentProcess({ parentPid: undefined, onGone: () => { gone += 1; }, alive: () => false, intervalMs: 1 });
   assert.equal(stop, undefined);
   assert.equal(gone, 0);
 });
 
-test("eine gesetzte, aber unsinnige Elternkennung ist ein harter Fehler", () => {
+test("a set but nonsensical parent id is a hard error", () => {
   for (const given of ["", " ", "0", "-1", "1.5", "abc", "12x", `${Number.MAX_SAFE_INTEGER}0`]) {
     assert.throws(() => watchParentProcess({ parentPid: given, onGone: () => undefined }), /RAGENTS_PARENT_PID/, given);
   }
 });
 
-test("ist der Elternprozess weg, fährt der Host genau einmal herunter", async () => {
+test("when the parent process is gone, the host shuts down exactly once", async () => {
   const gone: number[] = [];
   let lives = true;
   const stop = watchParentProcess({ parentPid: "4711", onGone: (pid) => gone.push(pid), alive: () => lives, intervalMs: 1 });
@@ -34,7 +34,7 @@ test("ist der Elternprozess weg, fährt der Host genau einmal herunter", async (
   stop();
 });
 
-test("die Lebendprüfung erkennt den eigenen Prozess und einen beendeten Prozess", async () => {
+test("the liveness check recognizes its own process and an ended process", async () => {
   assert.equal(processAlive(process.pid), true);
   const child = spawn(process.execPath, ["-e", ""], { stdio: "ignore" });
   await once(child, "exit");

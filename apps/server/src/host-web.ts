@@ -40,7 +40,7 @@ const readRecord = (file: string): HostWebRecord | undefined => {
   const inputs = raw.inputs;
   if (typeof inputs !== "object" || inputs === null || Array.isArray(inputs)
     || Object.values(inputs).some((hash) => typeof hash !== "string")) {
-    throw new Error(`${file} hat nicht die erwartete Form`);
+    throw new Error(`${file} does not have the expected shape`);
   }
   return { inputs: inputs as Record<string, string> };
 };
@@ -48,12 +48,12 @@ const readRecord = (file: string): HostWebRecord | undefined => {
 /** Why a built web cannot be served as it is; with sources, a checkout also compares it with the files it was built from. */
 export const hostWebProblem = (directory: string, root: string, sources: boolean): string | undefined => {
   const missing = HOST_WEB_PAGES.filter((page) => !isFile(path.join(directory, page)));
-  if (missing.length > 0) return `Das Web des Hosts fehlt unter ${directory} (${missing.join(", ")})`;
+  if (missing.length > 0) return `The host's web is missing under ${directory} (${missing.join(", ")})`;
   if (!sources) return undefined;
   const record = readRecord(path.join(directory, HOST_WEB_RECORD));
-  if (!record) return `Das Web des Hosts unter ${directory} hat keinen Quellstand (${HOST_WEB_RECORD})`;
+  if (!record) return `The host's web under ${directory} has no source record (${HOST_WEB_RECORD})`;
   const changed = changedInputs(record, root);
   if (changed.length === 0) return undefined;
-  const shown = changed.slice(0, 5).join(", ") + (changed.length > 5 ? ` und ${changed.length - 5} weitere` : "");
-  return `Das Web des Hosts unter ${directory} passt nicht mehr zu seinen Quellen (geändert: ${shown})`;
+  const shown = changed.slice(0, 5).join(", ") + (changed.length > 5 ? ` and ${changed.length - 5} more` : "");
+  return `The host's web under ${directory} no longer matches its sources (changed: ${shown})`;
 };

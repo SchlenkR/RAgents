@@ -1,7 +1,7 @@
 ---
 name: invalid
 start: true
-category: Beispiele
+category: Examples
 title: Test
-description: Beschreibung
+description: Description
 ---

@@ -25,10 +25,10 @@ export type RunFilesListing = Static<typeof filesListing>;
 export const documentsContracts = {
   files: defineOperation({
     id: "ragents.documents.files",
-    description: "Die Dateiablage eines Runs als Gruppen und lose Dateien. Recht: runs.read.",
+    description: "A run's file store as groups and loose files. Right: runs.read.",
     rights: ["runs.read"],
     input: Type.Object({
-      runId: Type.String({ minLength: 1, maxLength: 64, description: "Kennung des Runs" }),
+      runId: Type.String({ minLength: 1, maxLength: 64, description: "Run id" }),
     }, { additionalProperties: false }),
     result: filesListing,
   }),

@@ -21,7 +21,7 @@ const modelPresentationFrom = (presentation: unknown, optionId: string): ModelPr
   const raw = presentation as Record<string, unknown> | null;
   if (typeof raw !== "object" || raw === null || raw.kind !== "model"
     || typeof raw.provider !== "string" || !isStringList(raw.options) || !isStringList(raw.thinkingOptions)) {
-    throw new Error(`Die Startoption ${optionId} liefert keine Modell-Darstellung`);
+    throw new Error(`The start option ${optionId} does not provide a model presentation`);
   }
   return { provider: raw.provider, options: raw.options, thinkingOptions: raw.thinkingOptions };
 };
@@ -30,7 +30,7 @@ const modelValueFrom = (value: unknown, optionId: string): ModelValue => {
   const raw = value as Record<string, unknown> | null;
   if (typeof raw !== "object" || raw === null || typeof raw.model !== "string"
     || (raw.thinking !== undefined && typeof raw.thinking !== "string")) {
-    throw new Error(`Der Wert der Startoption ${optionId} ist keine Modellwahl`);
+    throw new Error(`The value of start option ${optionId} is not a model choice`);
   }
   return { model: raw.model, ...(typeof raw.thinking === "string" ? { thinking: raw.thinking } : {}) };
 };
@@ -66,7 +66,7 @@ export function ModelControl({ disabled, error, option, setValue }: StartOptionC
   return (
     <div className="grid flex-1 min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-1.5">
       <Select disabled={disabled} items={modelOptions} value={value.model} onValueChange={(model) => { if (model !== null) chooseModel(model); }}>
-        <SelectTrigger aria-label="Modell" className="min-w-0 max-w-full" size="sm"><SelectValue /></SelectTrigger>
+        <SelectTrigger aria-label="Model" className="min-w-0 max-w-full" size="sm"><SelectValue /></SelectTrigger>
         <SelectContent>{modelOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
       </Select>
       {presentation.thinkingOptions.length > 0 && (

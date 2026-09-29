@@ -14,11 +14,11 @@ const skill = (owner: string, folder: string) => ({
 const skillEntry = (overrides: Partial<Record<string, unknown>> = {}) => ({
   id: "test.product.feature-run",
   action: "skill" as const,
-  title: "Feature umsetzen",
-  description: "Work Item auswählen und den Run starten.",
+  title: "Implement feature",
+  description: "Choose a work item and start the run.",
   skill: "feature-run",
-  category: "Entwicklung",
-  prompt: "Setze ein Feature um.",
+  category: "Development",
+  prompt: "Implement a feature.",
   guide: "test.product.work-item",
   order: 10,
   ...overrides,
@@ -26,11 +26,11 @@ const skillEntry = (overrides: Partial<Record<string, unknown>> = {}) => ({
 
 const simpleSkillEntry = (overrides: Partial<Record<string, unknown>> = {}) => ({
   id: "ragents.reference.demo",
-  action: "skill" as const, category: "Beispiele",
+  action: "skill" as const, category: "Examples",
   skill: "demo",
   title: "Demo",
-  description: "Eine Karte.",
-  prompt: "Frei",
+  description: "A card.",
+  prompt: "Free",
   order: 20,
   ...overrides,
 });
@@ -38,8 +38,8 @@ const simpleSkillEntry = (overrides: Partial<Record<string, unknown>> = {}) => (
 const scriptEntry = (overrides: Partial<Record<string, unknown>> = {}) => ({
   id: "ragents.reference.setup",
   action: "script" as const,
-  title: "Vorgebaut",
-  description: "Ein Run aus einem Script.",
+  title: "Prebuilt",
+  description: "A run from a script.",
   order: 5,
   script: {
     handle: "setup",
@@ -56,7 +56,7 @@ const registered = (...entries: Array<Record<string, unknown>>) => {
   return registry;
 };
 
-test("Vorlagen beider Aktionen werden mit Besitzer beschrieben und nach Ordnung sortiert", () => {
+test("templates of both actions are described with their owner and sorted by order", () => {
   const registry = registered(skillEntry(), simpleSkillEntry(), scriptEntry());
   assert.deepEqual(registry.describe().map((entry) => [entry.id, entry.owner, entry.action, entry.guide]), [
     ["ragents.reference.setup", "test.plugin", "script", undefined],
@@ -70,59 +70,59 @@ test("Vorlagen beider Aktionen werden mit Besitzer beschrieben und nach Ordnung 
   assert.equal("files" in script, false);
 });
 
-test("das Run-Script-Paket bleibt serverseitig und ist nur für Script-Vorlagen abrufbar", () => {
+test("the run script package stays on the server and can only be fetched for script templates", () => {
   const registry = registered(skillEntry(), scriptEntry());
   const found = registry.scriptPackage("ragents.reference.setup");
   assert.ok(found);
   assert.deepEqual(found.files, scriptEntry().script.files);
   assert.equal(found.entry.owner, "test.plugin");
   assert.equal(registry.scriptPackage("test.product.feature-run"), undefined);
-  assert.equal(registry.scriptPackage("nirgends"), undefined);
+  assert.equal(registry.scriptPackage("nowhere"), undefined);
 });
 
-test("fremde Felder, leere Pflichtfelder und falsche Kennungen sind harte Fehler", () => {
-  assert.throws(() => registered(skillEntry({ skill: "" })), /kein gültiges skill/);
-  assert.throws(() => registered(skillEntry({ skill: "Falscher Name" })), /Skill-Namen/);
-  assert.throws(() => registered(skillEntry({ instructions: "b" })), /unbekannte Felder/);
-  assert.throws(() => registered(skillEntry({ guide: "Leitfaden!" })), /Leitfaden-Kennung/);
-  assert.throws(() => registered(simpleSkillEntry({ prompt: " " })), /kein gültiges prompt/);
-  assert.throws(() => registered(simpleSkillEntry({ prompts: { technical: "a", free: "b" } })), /unbekannte Felder: prompts/);
-  assert.throws(() => registered(simpleSkillEntry({ action: "magic" })), /unbekannte Aktion magic/);
+test("foreign fields, empty required fields and wrong ids are hard errors", () => {
+  assert.throws(() => registered(skillEntry({ skill: "" })), /no valid skill/);
+  assert.throws(() => registered(skillEntry({ skill: "Wrong name" })), /skill name/);
+  assert.throws(() => registered(skillEntry({ instructions: "b" })), /unknown fields/);
+  assert.throws(() => registered(skillEntry({ guide: "Guide!" })), /guide id/);
+  assert.throws(() => registered(simpleSkillEntry({ prompt: " " })), /no valid prompt/);
+  assert.throws(() => registered(simpleSkillEntry({ prompts: { technical: "a", free: "b" } })), /unknown fields: prompts/);
+  assert.throws(() => registered(simpleSkillEntry({ action: "magic" })), /unknown action magic/);
 });
 
-test("ein Run-Script braucht Paketdateien mit eindeutigen relativen Pfaden", () => {
+test("a run script needs package files with unique relative paths", () => {
   const withScript = (script: Record<string, unknown>) => scriptEntry({ script: { ...scriptEntry().script, ...script } });
-  assert.throws(() => registered(withScript({ files: [] })), /files braucht Paketdateien/);
-  assert.throws(() => registered(withScript({ files: [{path: "src/server.ts", content: ""}] })), /package.json fehlt/);
-  assert.throws(() => registered(withScript({ files: [{path: "../package.json", content: ""}] })), /ungültiger Paketpfad/);
-  assert.throws(() => registered(withScript({ files: [{path: "package.json", content: ""}, {path: "package.json", content: ""}] })), /ist doppelt/);
-  assert.throws(() => registered(withScript({ programs: [{name: "setup", files: scriptEntry().script.files}] })), /Programm setup ist doppelt/);
-  assert.throws(() => registered(withScript({ coordinator: "yes" })), /coordinator muss true oder false/);
-  assert.throws(() => registered(withScript({ handle: "Set Up" })), /handle muss ein Handle/);
-  assert.throws(() => registered(withScript({ source: "legacy" })), /unbekannte Felder: source/);
+  assert.throws(() => registered(withScript({ files: [] })), /files needs package files/);
+  assert.throws(() => registered(withScript({ files: [{path: "src/server.ts", content: ""}] })), /package.json is missing/);
+  assert.throws(() => registered(withScript({ files: [{path: "../package.json", content: ""}] })), /invalid package path/);
+  assert.throws(() => registered(withScript({ files: [{path: "package.json", content: ""}, {path: "package.json", content: ""}] })), /is duplicated/);
+  assert.throws(() => registered(withScript({ programs: [{name: "setup", files: scriptEntry().script.files}] })), /program setup is duplicated/);
+  assert.throws(() => registered(withScript({ coordinator: "yes" })), /coordinator must be true or false/);
+  assert.throws(() => registered(withScript({ handle: "Set Up" })), /handle must be a handle/);
+  assert.throws(() => registered(withScript({ source: "legacy" })), /unknown fields: source/);
 });
 
-test("eine Skill-Vorlage darf nur auf einen registrierten Skill zeigen", () => {
+test("a skill template may only point to a registered skill", () => {
   const registry = registered(skillEntry(), scriptEntry());
   registry.assertSkillsKnown([skill("test.product", "feature-run")]);
-  assert.throws(() => registry.assertSkillsKnown([skill("test.product", "release-md")]), /unbekannten Skill feature-run/);
+  assert.throws(() => registry.assertSkillsKnown([skill("test.product", "release-md")]), /unknown skill feature-run/);
 });
 
-test("ein Skillname gilt im ganzen Profil einmal, auch über Zielgruppen hinweg, und ein zweiter Ordner gleichen Namens scheitert beim Start", async () => {
+test("a skill name applies once in the whole profile, across audiences too, and a second folder with the same name fails at startup", async () => {
   const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: "/unused", storageModes: { sessionsRoot: 0o700, session: 0o700 } });
   for (const [owner, audience] of [["first", "coordinator"], ["second", "agent"]] as const) {
     host.register({ manifest: { id: `${owner}.plugin` }, register: (registration) =>
       registration.skills({ id: `${owner}.review`, audiences: [audience], paths: () => [`/plugins/${owner}/skills/review`] }) });
   }
-  await assert.rejects(host.initialize(), /Der Skillname review ist im Profil mehrfach vergeben: \/plugins\/first\/skills\/review, \/plugins\/second\/skills\/review/);
+  await assert.rejects(host.initialize(), /The skill name review is used more than once in the profile: \/plugins\/first\/skills\/review, \/plugins\/second\/skills\/review/);
 });
 
-test("Skill-Vorlagen veröffentlichen genau eine freie Kategorie und leiten sie nicht aus Tags ab", () => {
-  const registry = registered(simpleSkillEntry({ category: "Meine eigene Gruppe", tags: ["Anderes Schlagwort"] }));
+test("skill templates publish exactly one free category and do not derive it from tags", () => {
+  const registry = registered(simpleSkillEntry({ category: "My own group", tags: ["Other keyword"] }));
   const card = registry.describe()[0]!;
   assert.equal(card.action, "skill");
-  assert.equal(card.action === "skill" && card.category, "Meine eigene Gruppe");
-  for (const category of [undefined, null, "", " ", " führend", ["Eine", "Zwei"], 1]) {
+  assert.equal(card.action === "skill" && card.category, "My own group");
+  for (const category of [undefined, null, "", " ", " leading", ["One", "Two"], 1]) {
     assert.throws(() => registered(simpleSkillEntry({ category })), /category/);
   }
 });
@@ -133,29 +133,29 @@ const sourceOption = {
   selectable: () => true,
   defaultValue: () => "empty",
   accept: (value: unknown) => value === "clone" ? "clone" : "empty",
-  describe: () => ({ kind: "choice", label: "Quelle", options: [] }),
+  describe: () => ({ kind: "choice", label: "Source", options: [] }),
 };
 
-test("eine Vorlage legt Startoptionen fest, die das Web mit ihr sieht", () => {
+test("a template fixes start options that the web sees with it", () => {
   const registry = registered(scriptEntry({ fixedStartOptions: { "example.source": "clone" } }), simpleSkillEntry());
   assert.deepEqual(registry.entry("ragents.reference.setup")?.fixedStartOptions, { "example.source": "clone" });
   assert.deepEqual(registry.scriptPackage("ragents.reference.setup")?.entry.fixedStartOptions, { "example.source": "clone" });
   assert.equal(registry.entry("ragents.reference.demo")?.fixedStartOptions, undefined);
-  assert.equal(registry.entry("nirgends"), undefined);
+  assert.equal(registry.entry("nowhere"), undefined);
   const options = new StartOptionContributionRegistry();
   options.register("example.plugin", [sourceOption]);
   registry.assertFixedStartOptionsKnown(options);
 });
 
-test("festgelegte Startoptionen brauchen ein Objekt mit gültigen Kennungen und JSON-Werten", () => {
+test("fixed start options need an object with valid ids and JSON values", () => {
   for (const fixedStartOptions of [{}, [], "clone", null]) {
-    assert.throws(() => registered(simpleSkillEntry({ fixedStartOptions })), /fixedStartOptions muss mindestens eine Startoption/, JSON.stringify(fixedStartOptions));
+    assert.throws(() => registered(simpleSkillEntry({ fixedStartOptions })), /fixedStartOptions must fix at least one start option/, JSON.stringify(fixedStartOptions));
   }
-  assert.throws(() => registered(simpleSkillEntry({ fixedStartOptions: { "Keine Id": "x" } })), /ungültige Startoption-Id Keine Id/);
+  assert.throws(() => registered(simpleSkillEntry({ fixedStartOptions: { "No id": "x" } })), /invalid start option id No id/);
   assert.throws(() => registered(simpleSkillEntry({ fixedStartOptions: { "example.source": () => "clone" } })), /fixedStartOptions\.example\.source/);
 });
 
-test("eine festgelegte Startoption muss beim Versiegeln registriert sein und ihrem Schema genügen", () => {
+test("a fixed start option must be registered at sealing and satisfy its schema", () => {
   const hostWith = (fixed: Record<string, unknown>, withOption = true) => {
     const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: "/unused", storageModes: { sessionsRoot: 0o700, session: 0o700 } });
     host.register({ manifest: { id: "example.plugin" }, register: (registration) => {
@@ -164,7 +164,7 @@ test("eine festgelegte Startoption muss beim Versiegeln registriert sein und ihr
     } });
     return host;
   };
-  assert.throws(() => hostWith({ "example.source": "clone" }, false).seal(), /legt die nicht registrierte Startoption example\.source fest/);
-  assert.throws(() => hostWith({ "example.source": "anders" }).seal(), /festgelegter Wert der Vorlage ragents\.reference\.demo/);
+  assert.throws(() => hostWith({ "example.source": "clone" }, false).seal(), /fixes the unregistered start option example\.source/);
+  assert.throws(() => hostWith({ "example.source": "other" }).seal(), /fixed value of template ragents\.reference\.demo/);
   hostWith({ "example.source": "clone" }).seal();
 });

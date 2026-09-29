@@ -23,7 +23,7 @@ export async function buildHomepageSamples(repoRoot: string): Promise<Map<string
         || relative.startsWith("apps/web/src/chat/") || relative.startsWith("apps/web/src/ui/")
         || ["apps/web/src/SourceCode.tsx", "apps/web/src/DiffCode.tsx", "apps/web/src/highlighting.ts", "apps/web/src/highlighting.css", "apps/web/src/diff-view.css", "apps/web/src/Toolbar.tsx"].includes(relative)
         || relative.startsWith("node_modules/") || relative.startsWith("apps/web/node_modules/");
-      if (!allowed) throw new Error(`Die Sample-Vorschau importiert eine nicht freigegebene Quelle: ${relative}`);
+      if (!allowed) throw new Error(`The sample preview imports a source that is not approved: ${relative}`);
     };
     const result = await build({
       absWorkingDir: repoRoot,
@@ -54,11 +54,11 @@ export async function buildHomepageSamples(repoRoot: string): Promise<Map<string
     const inputs = Object.keys(result.metafile.inputs);
     for (const input of inputs) assertSource(input);
     for (const required of [entrySource, `${sampleSource}/view.tsx`]) {
-      if (!inputs.includes(required)) throw new Error(`Die Sample-Vorschau verwendet die Originalquelle nicht: ${required}`);
+      if (!inputs.includes(required)) throw new Error(`The sample preview does not use the original source: ${required}`);
     }
     const javascript = result.outputFiles.find(file => file.path.endsWith(".js"))?.text;
     const css = result.outputFiles.find(file => file.path.endsWith(".css"))?.text;
-    if (!javascript || !css) throw new Error(`Die Sample-Vorschau ${id} benötigt JavaScript und CSS.`);
+    if (!javascript || !css) throw new Error(`The sample preview ${id} requires JavaScript and CSS.`);
     const tailwind = await buildTailwind([path.join(repoRoot, sampleSource), { base: path.join(repoRoot, "docs/homepage"), pattern: "*.tsx" }]);
     outputs.set(`${id}.html`, `<!doctype html>
 <html lang="en" data-ui-frame="mini-app">

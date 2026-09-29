@@ -1,1 +1,1 @@
-Diese Karte hat keinen Kopf.
+This card has no header.

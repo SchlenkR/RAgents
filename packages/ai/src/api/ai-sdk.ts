@@ -39,18 +39,18 @@ async function runStream(model: Model<"openai-completions">, context: Context, o
 			? { type: "ephemeral" as const, ...(retention === "long" ? { ttl: "1h" as const } : {}) }
 			: undefined;
 		const messages = convertMessages(context, model, cacheControl);
+		const effort = options?.reasoningEffort;
+		const offEffort = model.thinkingLevelMap?.off;
+		const reasoning: Reasoning = effort ? { effort: model.thinkingLevelMap?.[effort] ?? effort }
+			: typeof offEffort === "string" ? { effort: offEffort } : { enabled: false };
 		const provider = createSdkProvider(model, {
 			...options,
 			headers: { ...(retention !== "none" && options?.sessionId ? { "x-session-id": options.sessionId } : {}), ...options?.headers },
 			onPayload: async (payload, target) => {
-				applyRequestCompatibility(payload, model, cacheControl);
+				applyRequestCompatibility(payload, model, cacheControl, reasoning);
 				return options?.onPayload?.(payload, target);
 			},
 		});
-		const effort = options?.reasoningEffort;
-		const offEffort = model.thinkingLevelMap?.off;
-		const reasoning = effort ? { effort: model.thinkingLevelMap?.[effort] ?? effort }
-			: typeof offEffort === "string" ? { effort: offEffort } : { enabled: false };
 		const hasPdf = context.messages.some((message) => message.role === "user" && Array.isArray(message.content)
 			&& message.content.some((part) => part.type === "file" && part.mimeType === "application/pdf"));
 		const result = streamText({
@@ -252,13 +252,39 @@ function convertUsage(usage: LanguageModelUsage, model: Model<"openai-completion
 	return result;
 }
 
-function applyRequestCompatibility(payload: unknown, model: Model<"openai-completions">, cacheControl: { type: "ephemeral"; ttl?: "1h" } | undefined) {
-	const body = payload as { messages: Array<{ role: string; reasoning?: string; reasoning_content?: string }>; tools?: Array<{ cache_control?: unknown }> };
+type Reasoning = { effort: string } | { enabled: false };
+
+type RequestBody = {
+	messages: Array<{ role: string; reasoning?: string; reasoning_content?: string; reasoning_details?: unknown }>;
+	tools?: Array<{ cache_control?: unknown }>;
+	reasoning?: unknown;
+	reasoning_effort?: string;
+	chat_template_kwargs?: Record<string, unknown>;
+};
+
+/** Qwen chat templates read thinking only from chat_template_kwargs and earlier thinking only as reasoning_content. */
+function applyQwenChatTemplate(body: RequestBody, reasoning: Reasoning | undefined) {
+	const effort = reasoning && "effort" in reasoning ? reasoning.effort : undefined;
+	delete body.reasoning;
+	body.chat_template_kwargs = { ...body.chat_template_kwargs, enable_thinking: effort !== undefined, preserve_thinking: true };
+	if (effort === undefined) delete body.reasoning_effort;
+	else body.reasoning_effort = effort;
+	for (const message of body.messages) {
+		if (message.role !== "assistant") continue;
+		if (message.reasoning !== undefined) message.reasoning_content = message.reasoning;
+		delete message.reasoning;
+		delete message.reasoning_details;
+	}
+}
+
+function applyRequestCompatibility(payload: unknown, model: Model<"openai-completions">, cacheControl: { type: "ephemeral"; ttl?: "1h" } | undefined, reasoning: Reasoning) {
+	const body = payload as RequestBody;
 	if (model.compat?.requiresReasoningContentOnAssistantMessages) {
 		for (const message of body.messages) {
 			if (message.role === "assistant") message.reasoning_content = message.reasoning ?? "";
 		}
 	}
+	if (model.compat?.thinkingFormat === "qwen-chat-template") applyQwenChatTemplate(body, model.reasoning ? reasoning : undefined);
 	if (cacheControl && body.tools?.length) body.tools[body.tools.length - 1].cache_control = cacheControl;
 	if (!body.tools && body.messages.some((message) => message.role === "tool")) body.tools = [];
 	const marks = cacheMarksOf(body);

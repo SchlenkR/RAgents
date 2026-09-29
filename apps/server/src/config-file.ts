@@ -15,7 +15,7 @@ import { defaultDataDirectory } from "./data-directory.js";
 import { MissingEnvironmentError } from "./missing-environment.js";
 import { isPluginPath, pluginFolderFor } from "./plugin-support/plugins-root.js";
 
-// Der Befund über eine fehlende Umgebungsvariable gehört zum Laden der Konfiguration; main.ts holt ihn darum von hier.
+// The finding about a missing environment variable belongs to loading the configuration; that is why main.ts gets it from here.
 export { missingEnvironmentOf, reportMissingEnvironment } from "./missing-environment.js";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -55,33 +55,33 @@ const resolveUserToken = (
 ): string | undefined => {
   if (raw === undefined) return undefined;
   if (!isEnvironmentReference(raw) || typeof raw.name !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(raw.name)) {
-    throw new Error(`${location}.token braucht env("ENV_NAME"); ein Token steht nie im Klartext in der Profildatei`);
+    throw new Error(`${location}.token needs env("ENV_NAME"); a token never appears in plain text in the profile file`);
   }
-  // Ein Benutzer meldet sich weiter mit seinem Passwort an; ohne gesetzte Variable hat er nur keinen persönlichen Token.
+  // A user still signs in with their password; without the variable set they just have no personal token.
   const token = environment[raw.name];
   if (!token) return undefined;
-  // $ und ! sind tabu, weil der Verbraucher den Token als API-Schlüssel mit Vorlagen- und Befehlssyntax auswertet.
+  // $ and ! are off limits because the consumer evaluates the token as an API key with template and command syntax.
   if (token.length < MIN_TOKEN_LENGTH || token.length > MAX_TOKEN_LENGTH || !/^[\x21-\x7e]+$/.test(token) || /[$!]/.test(token)) {
-    throw new Error(`${location}.token (${raw.name}) braucht ${MIN_TOKEN_LENGTH} bis ${MAX_TOKEN_LENGTH} druckbare ASCII-Zeichen ohne Leerzeichen, $ und !`);
+    throw new Error(`${location}.token (${raw.name}) needs ${MIN_TOKEN_LENGTH} to ${MAX_TOKEN_LENGTH} printable ASCII characters without spaces, $ and !`);
   }
   return token;
 };
 
 const resolveIdentity = (location: string, entry: Record<string, unknown>): AccessUser => {
   if (typeof entry.id !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,63}$/.test(entry.id)) {
-    throw new Error(`${location}.id braucht 1 bis 64 Zeichen: Buchstaben, Ziffern, Punkt, Unterstrich oder Bindestrich`);
+    throw new Error(`${location}.id needs 1 to 64 characters: letters, digits, period, underscore or hyphen`);
   }
   if (entry.label !== undefined && (typeof entry.label !== "string" || !entry.label.trim() || entry.label.length > 120)) {
-    throw new Error(`${location}.label braucht 1 bis 120 Zeichen`);
+    throw new Error(`${location}.label needs 1 to 120 characters`);
   }
   if (!Array.isArray(entry.rights) || !entry.rights.every(isAccessRight)) {
-    throw new Error(`${location}.rights braucht gültige Rechte als Strings oder "*" für alle Rechte`);
+    throw new Error(`${location}.rights needs valid rights as strings or "*" for all rights`);
   }
-  if (new Set(entry.rights).size !== entry.rights.length) throw new Error(`${location}.rights enthält doppelte Rechte`);
+  if (new Set(entry.rights).size !== entry.rights.length) throw new Error(`${location}.rights contains duplicate rights`);
   if (entry.startEntries !== undefined && (!Array.isArray(entry.startEntries)
     || !entry.startEntries.every((id) => typeof id === "string" && START_ENTRY_ID.test(id))
     || new Set(entry.startEntries).size !== entry.startEntries.length)) {
-    throw new Error(`${location}.startEntries braucht eindeutige Vorlagenkennungen als Strings`);
+    throw new Error(`${location}.startEntries needs unique template ids as strings`);
   }
   return Object.freeze({
     id: entry.id,
@@ -94,19 +94,19 @@ const resolveIdentity = (location: string, entry: Record<string, unknown>): Acce
 export const resolveAnonymousUser = (source: string, raw: unknown): AccessUser | undefined => {
   if (raw === undefined) return undefined;
   const location = `${source}: anonymousUser`;
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error(`${location} ist kein Benutzer`);
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error(`${location} is not a user`);
   const entry = raw as Record<string, unknown>;
   if (Object.keys(entry).some((key) => !["id", "label", "rights", "startEntries"].includes(key))) {
-    throw new Error(`${location} erlaubt nur id, label, rights und startEntries`);
+    throw new Error(`${location} allows only id, label, rights and startEntries`);
   }
   return resolveIdentity(location, entry);
 };
 
-/** Die Vorlage, die ein neuer Run ohne Auswahl nimmt; ob sie registriert ist, prüft der PluginHost beim Start. */
+/** The template a new run takes without a choice; whether it is registered is checked by the PluginHost at startup. */
 export const resolveDefaultStartEntry = (source: string, raw: unknown): string | undefined => {
   if (raw === undefined) return undefined;
   if (typeof raw !== "string" || !START_ENTRY_ID.test(raw)) {
-    throw new Error(`${source}: defaultStartEntry braucht eine Vorlagenkennung als String, etwa "acme.tasks.setup"`);
+    throw new Error(`${source}: defaultStartEntry needs a template id as a string, such as "acme.tasks.setup"`);
   }
   return raw;
 };
@@ -118,30 +118,30 @@ export const resolveProfileUsers = (
 ): readonly ResolvedProfileUser[] | undefined => {
   if (raw === undefined) return undefined;
   if (!Array.isArray(raw) || raw.length === 0) {
-    throw new Error(`${source}: users muss eine nicht leere Liste sein; ohne users ist die Anmeldung ausgeschaltet`);
+    throw new Error(`${source}: users must be a non-empty list; without users, sign-in is turned off`);
   }
   const ids = new Set<string>();
   const tokens = new Map<string, string>();
   return raw.map((value: unknown, index: number) => {
     const location = `${source}: users[${index}]`;
-    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${location} ist kein Benutzer`);
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${location} is not a user`);
     const entry = value as Record<string, unknown>;
     if (Object.keys(entry).some((key) => !["id", "label", "password", "token", "rights", "startEntries"].includes(key))) {
-      throw new Error(`${location} erlaubt nur id, label, password, token, rights und startEntries`);
+      throw new Error(`${location} allows only id, label, password, token, rights and startEntries`);
     }
     const user = resolveIdentity(location, entry);
-    if (ids.has(user.id)) throw new Error(`${location}.id ist doppelt: ${user.id}`);
+    if (ids.has(user.id)) throw new Error(`${location}.id is a duplicate: ${user.id}`);
     ids.add(user.id);
     if (typeof entry.password !== "string" && (!isEnvironmentReference(entry.password)
       || typeof entry.password.name !== "string" || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(entry.password.name))) {
-      throw new Error(`${location}.password braucht einen Text oder env("ENV_NAME")`);
+      throw new Error(`${location}.password needs a text or env("ENV_NAME")`);
     }
     const password = typeof entry.password === "string" ? entry.password : environment[entry.password.name];
-    if (!password || password.length > 2048) throw new Error(`${location}.password fehlt, ist leer oder länger als 2048 Zeichen`);
+    if (!password || password.length > 2048) throw new Error(`${location}.password is missing, empty or longer than 2048 characters`);
     const token = resolveUserToken(location, entry.token, environment);
     if (token !== undefined) {
       const other = tokens.get(token);
-      if (other) throw new Error(`${location}.token ist derselbe wie bei Benutzer ${other}; jeder Token gehört genau einem Benutzer`);
+      if (other) throw new Error(`${location}.token is the same as for user ${other}; every token belongs to exactly one user`);
       tokens.set(token, user.id);
     }
     return Object.freeze({ ...user, password, ...(token !== undefined ? { token } : {}) });
@@ -152,7 +152,7 @@ export const listFromEnvironmentValue = (value: string): readonly string[] | und
   if (!value.startsWith("[")) return undefined;
   const parsed = JSON.parse(value) as unknown;
   if (!Array.isArray(parsed) || parsed.some((entry) => typeof entry !== "string")) {
-    throw new Error(`Der Wert ${value} sieht aus wie eine Liste, ist aber keine Liste von Strings`);
+    throw new Error(`The value ${value} looks like a list, but is not a list of strings`);
   }
   return parsed as string[];
 };
@@ -164,16 +164,16 @@ const materialize = (value: Exclude<ConfigValue, EnvironmentReference | Provisio
   return JSON.stringify(value);
 };
 
-/** Der Datenordner des Hosts, in dessen tools/ die Provisionierung ihre Werkzeuge legt. */
+/** The host's data folder, in whose tools/ the provisioning puts its tools. */
 const dataDirectoryOf = (source: string, raw: RAgentsConfig): string => {
   const configured = raw.host?.DATA_DIR;
   if (isEnvironmentReference(configured) && process.env[configured.name] === undefined) {
     throw new MissingEnvironmentError({ variable: configured.name, section: "host", key: "DATA_DIR" },
-      `${source}: host.DATA_DIR verweist auf die nicht gesetzte Umgebungsvariable ${configured.name}`);
+      `${source}: host.DATA_DIR refers to the unset environment variable ${configured.name}`);
   }
   const fromFile = isEnvironmentReference(configured) ? process.env[configured.name] : typeof configured === "string" ? configured : undefined;
   const profile = process.env.PRODUCT_PROFILE;
-  if (!profile) throw new Error(`${source}: ohne PRODUCT_PROFILE gibt es keinen Datenordner und damit keinen Werkzeugordner`);
+  if (!profile) throw new Error(`${source}: without PRODUCT_PROFILE there is no data folder and therefore no tool folder`);
   return path.resolve(process.env.DATA_DIR ?? fromFile ?? defaultDataDirectory(profile));
 };
 
@@ -187,21 +187,21 @@ const entryFor = (source: string, section: string, key: string, value: ConfigVal
     const resolved = process.env[value.name];
     if (resolved === undefined) {
       throw new MissingEnvironmentError({ variable: value.name, section, key },
-        `${source}: ${section}.${key} verweist mit env("${value.name}") auf eine Umgebungsvariable, `
-        + `die in dieser Shell nicht gesetzt ist. Setze sie vor dem Start (export ${value.name}=...) oder `
-        + "hinterlege sie in der Startdatei Deiner Shell; Secrets stehen nie in der Konfigurationsdatei.");
+        `${source}: ${section}.${key} refers with env("${value.name}") to an environment variable `
+        + `that is not set in this shell. Set it before starting (export ${value.name}=...) or `
+        + "put it in your shell's startup file; secrets never appear in the configuration file.");
     }
     return { section, key, value: resolved, viaReference: true, overriddenByEnvironment };
   }
   if (typeof value === "string" && ENVIRONMENT_PLACEHOLDER.test(value)) {
     throw new Error(
-      `${source}: ${section}.${key} steht als Text "${value}" in der Konfiguration; `
-      + `eine Referenz auf die Umgebung wird als env("...") geschrieben`);
+      `${source}: ${section}.${key} appears as the text "${value}" in the configuration; `
+      + `a reference to the environment is written as env("...")`);
   }
   if (SECRET_KEY_PATTERN.test(key)) {
     throw new Error(
-      `${source}: ${section}.${key} ist ein Secret und darf nicht im Klartext in der Konfiguration stehen; `
-      + `per Umgebungsvariable setzen oder als env("ENV_NAME") referenzieren`);
+      `${source}: ${section}.${key} is a secret and must not appear in plain text in the configuration; `
+      + `set it through an environment variable or reference it as env("ENV_NAME")`);
   }
   return { section, key, value: materialize(value), viaReference: false, overriddenByEnvironment };
 };
@@ -221,7 +221,7 @@ const parseEntries = (source: string, raw: RAgentsConfig): readonly ConfigFileEn
     const existing = byKey.get(entry.key);
     if (existing && existing.value !== entry.value) {
       throw new Error(
-        `${source}: ${entry.key} steht in ${existing.section} und ${entry.section} mit unterschiedlichen Werten`);
+        `${source}: ${entry.key} appears in ${existing.section} and ${entry.section} with different values`);
     }
     byKey.set(entry.key, entry);
   }
@@ -236,14 +236,14 @@ export const profileFileName = (profile: string): string => `ragents.config.${pr
 export const profileFilePath = (root: string, environment: Readonly<Record<string, string | undefined>> = process.env): string | undefined => {
   const profile = environment.PRODUCT_PROFILE;
   if (!profile) return undefined;
-  if (!PROFILE_NAME.test(profile)) throw new Error(`PRODUCT_PROFILE ist kein gültiger Profilname: ${profile}`);
+  if (!PROFILE_NAME.test(profile)) throw new Error(`PRODUCT_PROFILE is not a valid profile name: ${profile}`);
   const file = environment.PRODUCT_PROFILE_FILE;
   if (!file) return path.join(root, profileFileName(profile));
   const source = path.resolve(file);
   if (path.basename(source) !== profileFileName(profile)) {
-    throw new Error(`PRODUCT_PROFILE_FILE ${source} passt nicht zum Profil ${profile}; erwartet wird ${profileFileName(profile)}`);
+    throw new Error(`PRODUCT_PROFILE_FILE ${source} does not match the profile ${profile}; expected is ${profileFileName(profile)}`);
   }
-  if (!statSync(source, { throwIfNoEntry: false })?.isFile()) throw new Error(`Die Profildatei ${source} fehlt`);
+  if (!statSync(source, { throwIfNoEntry: false })?.isFile()) throw new Error(`The profile file ${source} is missing`);
   return source;
 };
 
@@ -260,12 +260,12 @@ const readProfileConfiguration = async (root: string): Promise<LoadedConfigFile 
   const module = await import(pathToFileURL(source).href) as Record<string, unknown>;
   const loadedConfig = module.config;
   if (typeof loadedConfig !== "object" || loadedConfig === null) {
-    throw new Error(`${source} exportiert keine Konstante config mit den Konfigurationssektionen`);
+    throw new Error(`${source} does not export a constant config with the configuration sections`);
   }
   const raw = withPluginPaths(source, loadedConfig as RAgentsConfig);
   const users = resolveProfileUsers(source, module.users);
   const anonymousUser = resolveAnonymousUser(source, module.anonymousUser);
-  if (users && anonymousUser) throw new Error(`${source}: users und anonymousUser schließen einander aus`);
+  if (users && anonymousUser) throw new Error(`${source}: users and anonymousUser exclude each other`);
   const defaultStartEntry = resolveDefaultStartEntry(source, module.defaultStartEntry);
   return { path: source, entries: parseEntries(source, raw), users, anonymousUser, defaultStartEntry };
 };
@@ -274,7 +274,7 @@ let loadedConfigFile: LoadedConfigFile | undefined;
 let loadCompleted = false;
 
 export const loadConfigFile = async (root = rootDir): Promise<void> => {
-  if (loadCompleted) throw new Error("Die Konfiguration wurde bereits geladen");
+  if (loadCompleted) throw new Error("The configuration has already been loaded");
   loadedConfigFile = await readProfileConfiguration(root);
   loadCompleted = true;
   if (!loadedConfigFile) return;
@@ -285,8 +285,8 @@ export const loadConfigFile = async (root = rootDir): Promise<void> => {
     applied++;
   }
   const overridden = loadedConfigFile.entries.length - applied;
-  console.log(`Konfiguration ${loadedConfigFile.path} geladen `
-    + `(${applied} Werte übernommen, ${overridden} durch Umgebung überstimmt)`);
+  console.log(`Configuration ${loadedConfigFile.path} loaded `
+    + `(${applied} values applied, ${overridden} overridden by the environment)`);
 };
 
 export const configFilePath = (): string | null => loadedConfigFile?.path ?? null;
@@ -306,7 +306,7 @@ export interface ConfigFileValidationContext {
 }
 
 export const validateConfigFileSections = (context: ConfigFileValidationContext): void => {
-  if (!loadCompleted) throw new Error("Die Konfiguration muss vor ihrer Prüfung geladen werden");
+  if (!loadCompleted) throw new Error("The configuration must be loaded before it is checked");
   if (!loadedConfigFile) return;
   const source = loadedConfigFile.path;
   const known = new Set(context.knownPluginIds);
@@ -315,21 +315,21 @@ export const validateConfigFileSections = (context: ConfigFileValidationContext)
   for (const section of new Set(loadedConfigFile.entries.map((entry) => entry.section))) {
     if (section === "host") continue;
     if (!known.has(section)) {
-      throw new Error(`${source}: unbekannte Sektion ${section}; bekannt sind host, ${[...known].join(", ")}`);
+      throw new Error(`${source}: unknown section ${section}; known are host, ${[...known].join(", ")}`);
     }
     if (!active.has(section)) {
-      console.log(`Konfiguration: Sektion ${section} gehört zu einem inaktiven Plugin und wird ignoriert`);
+      console.log(`Configuration: section ${section} belongs to an inactive plugin and is ignored`);
     }
   }
   for (const entry of loadedConfigFile.entries) {
     if (secret.has(entry.key) && !entry.viaReference) {
       throw new Error(
-        `${source}: ${entry.section}.${entry.key} ist als Secret deklariert und darf nicht im Klartext `
-        + `in der Konfiguration stehen; per Umgebungsvariable setzen oder als env("ENV_NAME") referenzieren`);
+        `${source}: ${entry.section}.${entry.key} is declared as a secret and must not appear in plain text `
+        + `in the configuration; set it through an environment variable or reference it as env("ENV_NAME")`);
     }
     if (entry.section === "host") {
       if (!context.hostKeys.includes(entry.key)) {
-        throw new Error(`${source}: host.${entry.key} ist kein Host-Schlüssel; erlaubt sind ${context.hostKeys.join(", ")}`);
+        throw new Error(`${source}: host.${entry.key} is not a host key; allowed are ${context.hostKeys.join(", ")}`);
       }
       continue;
     }
@@ -337,8 +337,8 @@ export const validateConfigFileSections = (context: ConfigFileValidationContext)
     const declared = context.declaredKeysFor(entry.section);
     if (!declared.includes(entry.key)) {
       throw new Error(
-        `${source}: ${entry.section}.${entry.key} ist für dieses Plugin nicht deklariert; `
-        + (declared.length > 0 ? `deklariert sind ${declared.join(", ")}` : "das Plugin deklariert keine Schlüssel"));
+        `${source}: ${entry.section}.${entry.key} is not declared for this plugin; `
+        + (declared.length > 0 ? `declared are ${declared.join(", ")}` : "the plugin declares no keys"));
     }
   }
 };

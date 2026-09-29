@@ -119,7 +119,7 @@ const BUILTIN_APIS: [Api, ProviderStreams][] = [["openai-completions", aiSdkApi(
 
 const builtinApiProviderInstances = new Map<Api, ReturnType<typeof getApiProvider>>();
 
-// Registriert die eingebauten APIs, ohne bereits registrierte Overrides zu überschreiben.
+// Registers the built-in APIs without overwriting already registered overrides.
 export function registerBuiltInApiProviders(): void {
 	for (const [api, streams] of BUILTIN_APIS) {
 		if (!getApiProvider(api)) {

@@ -45,8 +45,8 @@ const runCommand = async (file: string, args: string[], toleratedExitCodes: read
   } catch (error) {
     const failure = error as Error & { code?: number | string; stdout?: string; stderr?: string };
     if (typeof failure.code === "number" && toleratedExitCodes.includes(failure.code)) return failure.stdout ?? "";
-    if (failure.code === "ENOENT") throw new Error(`${file} ist nicht installiert; die Prozessüberwachung braucht es`);
-    throw new Error(`${file} ${args[0]} ist fehlgeschlagen: ${(failure.stderr || failure.message).trim()}`);
+    if (failure.code === "ENOENT") throw new Error(`${file} is not installed; the process monitor needs it`);
+    throw new Error(`${file} ${args[0]} failed: ${(failure.stderr || failure.message).trim()}`);
   }
 };
 
@@ -59,7 +59,7 @@ const MARKER_TOKEN = new RegExp(`(?:^|\\s)${RUN_MARKER_ENV}=(\\S+)`);
 
 export class ProcessChangedError extends Error {
   constructor(readonly pid: number) {
-    super(`Prozess ${pid} hat sich während der Umgebungsabfrage geändert`);
+    super(`Process ${pid} changed during the environment query`);
     this.name = "ProcessChangedError";
   }
 }
@@ -67,7 +67,7 @@ export class ProcessChangedError extends Error {
 export const parseDarwinProcessTable = (text: string): ProcessRecord[] =>
   text.split("\n").filter((line) => line.trim() !== "").map((line) => {
     const match = DARWIN_TABLE_LINE.exec(line);
-    if (!match) throw new Error(`Unlesbare Prozesszeile von ps: ${line}`);
+    if (!match) throw new Error(`Unreadable process line from ps: ${line}`);
     return {
       pid: Number(match[1]),
       ppid: Number(match[2]),
@@ -126,7 +126,7 @@ export const parseLsofListeners = (text: string): Map<number, WorkspaceProcessPo
 const darwinCommands = (text: string): Map<number, string> => new Map(text.split("\n")
   .filter((line) => line.trim() !== "").map((line) => {
     const match = /^\s*(\d+)\s+(.*)$/.exec(line);
-    if (!match) throw new Error("Unlesbare Befehlszeile von ps");
+    if (!match) throw new Error("Unreadable command line from ps");
     return [Number(match[1]), match[2]];
   }));
 
@@ -191,7 +191,7 @@ const explainAccess = (error: unknown, pid: number, what: string): Error => {
   const code = (error as NodeJS.ErrnoException).code;
   if (code === "EACCES" || code === "EPERM") {
     return new Error(
-      `${what} von Prozess ${pid} ist nicht lesbar (${code}); als root braucht die Prozessüberwachung CAP_SYS_PTRACE`,
+      `${what} of process ${pid} is not readable (${code}); as root the process monitor needs CAP_SYS_PTRACE`,
     );
   }
   return error instanceof Error ? error : new Error(String(error));
@@ -209,7 +209,7 @@ export const parseLinuxStat = (text: string): LinuxStat => {
   const open = text.indexOf("(");
   const close = text.lastIndexOf(")");
   const fields = open >= 0 && close > open ? text.slice(close + 2).trim().split(" ") : [];
-  if (fields.length < 20) throw new Error(`Unlesbare stat-Zeile: ${text.trim()}`);
+  if (fields.length < 20) throw new Error(`Unreadable stat line: ${text.trim()}`);
   return {
     comm: text.slice(open + 1, close),
     state: fields[0],
@@ -260,7 +260,7 @@ export const addressFromHex = (hex: string): string => {
     if (groups.every((group) => group === 0)) return WILDCARD;
     return formatIpv6(groups);
   }
-  throw new Error(`Unbekannte Adressform in /proc/net/tcp: ${hex}`);
+  throw new Error(`Unknown address form in /proc/net/tcp: ${hex}`);
 };
 
 export interface LinuxListener {
@@ -271,7 +271,7 @@ export interface LinuxListener {
 export const parseLinuxTcpTable = (text: string): LinuxListener[] =>
   text.split("\n").slice(1).filter((line) => line.trim() !== "").flatMap((line) => {
     const fields = line.trim().split(/\s+/);
-    if (fields.length < 10) throw new Error(`Unlesbare Zeile in /proc/net/tcp: ${line.trim()}`);
+    if (fields.length < 10) throw new Error(`Unreadable line in /proc/net/tcp: ${line.trim()}`);
     if (fields[3] !== "0A") return [];
     const [hexAddress, hexPort] = fields[1].split(":");
     return [{ inode: fields[9], port: { port: parseInt(hexPort, 16), address: addressFromHex(hexAddress) } }];
@@ -297,7 +297,7 @@ const readLinuxRecord = async (proc: string, pid: number): Promise<ProcessRecord
   const parsed = parseLinuxStat(stat);
   if (parsed.state === "Z") return undefined;
   const uid = Number(/^Uid:\s+(\d+)/m.exec(status)?.[1]);
-  if (!Number.isInteger(uid)) throw new Error(`${proc}/${pid}/status nennt keine Uid`);
+  if (!Number.isInteger(uid)) throw new Error(`${proc}/${pid}/status names no Uid`);
   const args = cmdline.toString("utf8").split("\0").filter((argument) => argument !== "");
   return {
     pid,
@@ -315,7 +315,7 @@ const readLinuxMarker = async (proc: string, pid: number, asRoot: boolean): Prom
     environ = await readFile(`${proc}/${pid}/environ`);
   } catch (error) {
     if (isGone(error) || (isDenied(error) && !asRoot)) return undefined;
-    throw explainAccess(error, pid, "Die Umgebung");
+    throw explainAccess(error, pid, "The environment");
   }
   const prefix = `${RUN_MARKER_ENV}=`;
   const entry = environ.toString("utf8").split("\0").find((candidate) => candidate.startsWith(prefix));
@@ -344,7 +344,7 @@ const linuxSocketInodes = async (proc: string, pid: number, asRoot: boolean): Pr
     names = await readdir(directory);
   } catch (error) {
     if (isGone(error) || (isDenied(error) && !asRoot)) return [];
-    throw explainAccess(error, pid, "Die Dateideskriptoren");
+    throw explainAccess(error, pid, "The file descriptors");
   }
   const inodes: string[] = [];
   for (const name of names) {
@@ -353,7 +353,7 @@ const linuxSocketInodes = async (proc: string, pid: number, asRoot: boolean): Pr
       target = await readlink(`${directory}/${name}`);
     } catch (error) {
       if (isGone(error) || (isDenied(error) && !asRoot)) continue;
-      throw explainAccess(error, pid, "Die Dateideskriptoren");
+      throw explainAccess(error, pid, "The file descriptors");
     }
     const match = /^socket:\[(\d+)\]$/.exec(target);
     if (match) inodes.push(match[1]);
@@ -362,13 +362,13 @@ const linuxSocketInodes = async (proc: string, pid: number, asRoot: boolean): Pr
 };
 
 export interface LinuxProcessTableOptions {
-  /** Der Ordner der Prozessdateien; Tests nennen einen eigenen. */
+  /** The folder of the process files; tests name their own. */
   readonly proc?: string;
-  /** Als root ist eine gesperrte Umgebung ein fehlendes Recht; sonst hat sich ein eigener Prozess unlesbar gemacht. */
+  /** As root a locked environment is a missing right; otherwise one of our own processes made itself unreadable. */
   readonly asRoot?: boolean;
 }
 
-/** Ohne root liest die Tabelle nur eigene Prozesse; einer, der sich unlesbar gemacht hat (PR_SET_DUMPABLE, etwa ein Chrome-Helfer oder ssh-agent), trägt keinen erkennbaren Marker. */
+/** Without root the table reads only our own processes; one that made itself unreadable (PR_SET_DUMPABLE, such as a Chrome helper or ssh-agent) carries no recognizable marker. */
 export const linuxProcessTable = (options: LinuxProcessTableOptions = {}): ProcessTable => {
   const proc = options.proc ?? "/proc";
   const asRoot = options.asRoot ?? process.getuid?.() === 0;
@@ -403,7 +403,7 @@ export const linuxProcessTable = (options: LinuxProcessTableOptions = {}): Proce
   };
 };
 
-/** Nur macOS und Linux haben eine Prozesstabelle, aus der sich Run-Marker lesen lassen. */
+/** Only macOS and Linux have a process table from which run markers can be read. */
 export const hasProcessTable = (platform: NodeJS.Platform = process.platform): boolean =>
   platform === "darwin" || platform === "linux";
 
@@ -411,8 +411,8 @@ export const processTableForPlatform = (platform: NodeJS.Platform = process.plat
   if (platform === "darwin") return darwinProcessTable();
   if (platform === "linux") return linuxProcessTable();
   if (platform === "win32") {
-    throw new Error("Unter Windows gibt es keine Prozesstabelle: für Runs, die auf diesem Rechner arbeiten, zeigt und beendet "
-      + "die Prozessüberwachung nichts. Die Werkzeuge des Arbeitsbereichs brauchen sie nicht.");
+    throw new Error("There is no process table on Windows: for runs working on this machine the process monitor "
+      + "shows and ends nothing. The tools of the workspace do not need it.");
   }
-  throw new Error(`Die Prozessüberwachung kennt die Plattform ${platform} nicht (nur darwin und linux)`);
+  throw new Error(`The process monitor does not know the platform ${platform} (only darwin and linux)`);
 };

@@ -13,12 +13,12 @@ export function titleModelSettingsFrom(value: unknown): TitleModelSettings {
   if (!isRecord(value) || !Array.isArray(value.models)
     || !value.models.every((model) => isRecord(model) && text(model.provider) && text(model.id) && text(model.label))
     || (value.selection !== null && (!isRecord(value.selection) || !text(value.selection.provider) || !text(value.selection.model)))) {
-    throw new Error("Der Server hat ungültige Einstellungen für Überschriften geliefert.");
+    throw new Error("The server returned invalid title settings.");
   }
   const settings = value as unknown as TitleModelSettings;
   const keys = settings.models.map((model) => titleSelectionKey({ provider: model.provider, model: model.id }));
   if (new Set(keys).size !== keys.length || (settings.selection !== null && !keys.includes(titleSelectionKey(settings.selection)))) {
-    throw new Error("Die Einstellungen für Überschriften passen nicht zum verfügbaren Modellkatalog.");
+    throw new Error("The title settings do not match the available model catalog.");
   }
   return settings;
 }
@@ -26,16 +26,16 @@ export function titleModelSettingsFrom(value: unknown): TitleModelSettings {
 export function titleSelectionFromKey(key: string, models: TitleModelSettings["models"]): TitleModelSelection | null {
   if (key === "null") return null;
   const model = models.find((entry) => titleSelectionKey({ provider: entry.provider, model: entry.id }) === key);
-  if (!model) throw new Error("Das ausgewählte Modell für Überschriften ist nicht verfügbar.");
+  if (!model) throw new Error("The selected model for titles is not available.");
   return { provider: model.provider, model: model.id };
 }
 
 export function titleModelOptions(models: TitleModelSettings["models"], selection: TitleModelSelection | null, query: string) {
-  const search = query.trim().toLocaleLowerCase("de-DE");
+  const search = query.trim().toLocaleLowerCase("en-US");
   return [
-    { value: "null", label: "Keine automatischen Überschriften" },
+    { value: "null", label: "No automatic titles" },
     ...models.filter((model) => (model.provider === selection?.provider && model.id === selection.model)
-      || `${model.label} ${model.id}`.toLocaleLowerCase("de-DE").includes(search))
+      || `${model.label} ${model.id}`.toLocaleLowerCase("en-US").includes(search))
       .map((model) => ({ value: titleSelectionKey({ provider: model.provider, model: model.id }), label: model.label })),
   ];
 }

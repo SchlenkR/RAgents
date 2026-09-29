@@ -34,7 +34,7 @@ test("private workspace files get writable owner permissions without following i
     await writeFile(generated, "new generated", { mode: 0o400 });
     await syncWorkspaceOwnership(workspace, identity);
     assert.equal((await stat(generated)).mode & 0o777, 0o600);
-    await assert.rejects(syncWorkspaceOwnership(library, identity), /Speichergrenze/);
+    await assert.rejects(syncWorkspaceOwnership(library, identity), /storage boundary/);
   } finally { await chmod(library, 0o700).catch(() => undefined); await rm(directory, { recursive: true, force: true }); }
 });
 

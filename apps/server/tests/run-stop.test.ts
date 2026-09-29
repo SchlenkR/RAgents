@@ -30,7 +30,7 @@ test("the visible chat stop awaits the shared run stop and publishes running fal
   );
   view = runtime.spawnAgent({ actorId: view.ownerId, commandId: "spawn-coordinator" }, view.id, {
     handle: "coordinator",
-    displayName: "Koordinator",
+    displayName: "Coordinator",
     prompt: "",
     execution: manualExecution(),
     grants: [],
@@ -65,9 +65,9 @@ test("the visible chat stop awaits the shared run stop and publishes running fal
     id: view.id,
     coordinator: {
       handle: "coordinator",
-      displayName: "Koordinator",
+      displayName: "Coordinator",
       profile: "coordinator",
-      runTitle: "Neuer Run",
+      runTitle: "New run",
       ownerHandle: "owner",
       ownerDisplayName: "Owner",
     },
@@ -111,7 +111,7 @@ test("the visible chat stop awaits the shared run stop and publishes running fal
     assert.equal(await responsePromise, null);
     assert.equal(stopCall?.runId, view.id);
     assert.match(stopCall?.input.commandId ?? "", /^chat-stop:/);
-    assert.equal(stopCall?.input.reason, "Not-Aus durch den Bediener");
+    assert.equal(stopCall?.input.reason, "Emergency stop by the operator");
     assert.equal(session.running, false);
     assert.equal(statuses.at(-1), false);
   } finally {
@@ -135,10 +135,10 @@ test("chat stop preserves partial text once in live, mid-turn and disk-replayed 
   }).actors.find((actor) => actor.kind === "agent")!;
   runtime.selectPrimaryActor({ actorId: view.ownerId, commandId: "select" }, view.id, primary.id);
   const started = deferred();
-  const partial = "Angefangene Antwort";
+  const partial = "Partial answer";
   const driver = new FakeDriver(async (request, signal) => {
-    request.publish({ kind: "text", delta: "Angefangene " });
-    request.publish({ kind: "text", delta: "Antwort" });
+    request.publish({ kind: "text", delta: "Partial " });
+    request.publish({ kind: "text", delta: "answer" });
     started.resolve();
     await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
     request.emit({ kind: "assistant-interrupted", text: partial });
@@ -266,9 +266,9 @@ test("the chat session follows primary actor changes and releases a stopped prim
     id: view.id,
     coordinator: {
       handle: "coordinator",
-      displayName: "Koordinator",
+      displayName: "Coordinator",
       profile: "coordinator",
-      runTitle: "Neuer Run",
+      runTitle: "New run",
       ownerHandle: "owner",
       ownerDisplayName: "Owner",
     },
@@ -308,9 +308,9 @@ test("the chat session follows primary actor changes and releases a stopped prim
       if (events.some((event) =>
         event.runId === view.id
         && event.type === "actor.input.enqueued"
-        && event.payload.content === "Hallo Second")) inputEnqueued.resolve();
+        && event.payload.content === "Hello Second")) inputEnqueued.resolve();
     });
-    session.send("Hallo Second");
+    session.send("Hello Second");
     await inputEnqueued.promise;
     unsubscribe();
     const input = [...runtime.state(view.id).inputs.values()].at(-1);
@@ -333,9 +333,9 @@ test("the chat session follows primary actor changes and releases a stopped prim
     const rebound = deferred();
     const unsubscribeRebound = journal.subscribe((events) => {
       if (events.some((event) => event.type === "actor.input.enqueued"
-        && event.payload.content === "Hallo First")) rebound.resolve();
+        && event.payload.content === "Hello First")) rebound.resolve();
     });
-    session.send("Hallo First");
+    session.send("Hello First");
     await rebound.promise;
     unsubscribeRebound();
     assert.equal(session.started, true);
@@ -363,7 +363,7 @@ test("the chat projects journal-only output and suppresses only matching live pr
   );
   view = runtime.spawnAgent({ actorId: view.ownerId, commandId: "spawn-primary" }, view.id, {
     handle: "coordinator",
-    displayName: "Koordinator",
+    displayName: "Coordinator",
     prompt: "",
     execution: manualExecution(),
     grants: [],
@@ -394,9 +394,9 @@ test("the chat projects journal-only output and suppresses only matching live pr
     id: view.id,
     coordinator: {
       handle: "coordinator",
-      displayName: "Koordinator",
+      displayName: "Coordinator",
       profile: "coordinator",
-      runTitle: "Neuer Run",
+      runTitle: "New run",
       ownerHandle: "owner",
       ownerDisplayName: "Owner",
     },
@@ -456,9 +456,9 @@ test("a turn the owner interrupts ends the chat once, although the owner writes 
   const services = testServices();
   const journal = new Journal(":memory:", services);
   const runtime = new Orchestration(journal, services);
-  let view = runtime.createRun({ commandId: "create-interrupt-run" }, { runId: "interrupt-run", title: "Unterbrechen", ownerHandle: "owner", ownerDisplayName: "Owner" });
+  let view = runtime.createRun({ commandId: "create-interrupt-run" }, { runId: "interrupt-run", title: "Interrupt", ownerHandle: "owner", ownerDisplayName: "Owner" });
   view = runtime.spawnAgent({ actorId: view.ownerId, commandId: "spawn-primary" }, view.id, {
-    handle: "coordinator", displayName: "Koordinator", prompt: "", execution: manualExecution(), grants: [], toolNames: [],
+    handle: "coordinator", displayName: "Coordinator", prompt: "", execution: manualExecution(), grants: [], toolNames: [],
   });
   const primary = view.actors.find((actor) => actor.kind === "agent")!;
   view = runtime.selectPrimaryActor({ actorId: view.ownerId, commandId: "select-primary" }, view.id, primary.id);
@@ -472,7 +472,7 @@ test("a turn the owner interrupts ends the chat once, although the owner writes 
   const engine = { journal, runtime, live, scheduler: { isRunning: () => true } } as unknown as Engine;
   const session = new RunChatSession({
     engine, id: view.id,
-    coordinator: { handle: "coordinator", displayName: "Koordinator", profile: "coordinator", runTitle: "Neuer Run", ownerHandle: "owner", ownerDisplayName: "Owner" },
+    coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "coordinator", runTitle: "New run", ownerHandle: "owner", ownerDisplayName: "Owner" },
     prompt: () => "", assertUsable: () => undefined, prepare: async () => undefined, prepareWorkspace: async () => undefined,
     started: async () => undefined, scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: unavailableActorPrograms,
   });
@@ -481,7 +481,7 @@ test("a turn the owner interrupts ends the chat once, although the owner writes 
     assert.equal(session.attach(), true);
     session.subscribe((event) => { if (event.kind === "turn-done" || event.kind === "system") kinds.push(event.kind); });
     live.publish(view.id, primary.id, { kind: "turn-started", turnId });
-    runtime.interruptTurn({ actorId: view.ownerId, commandId: "interrupt" }, view.id, primary.id, { turnId, reason: "Vom Bediener unterbrochen" });
+    runtime.interruptTurn({ actorId: view.ownerId, commandId: "interrupt" }, view.id, primary.id, { turnId, reason: "Interrupted by the operator" });
     live.publish(view.id, primary.id, { kind: "turn-finished", turnId, outcome: "abandoned" });
     assert.deepEqual(kinds, ["system", "turn-done"]);
   } finally {
@@ -500,7 +500,7 @@ test("a mid-turn attach ignores partial live deltas and projects the complete jo
   );
   view = runtime.spawnAgent({ actorId: view.ownerId, commandId: "spawn-primary" }, view.id, {
     handle: "coordinator",
-    displayName: "Koordinator",
+    displayName: "Coordinator",
     prompt: "",
     execution: manualExecution(),
     grants: [],
@@ -531,9 +531,9 @@ test("a mid-turn attach ignores partial live deltas and projects the complete jo
     id: view.id,
     coordinator: {
       handle: "coordinator",
-      displayName: "Koordinator",
+      displayName: "Coordinator",
       profile: "coordinator",
-      runTitle: "Neuer Run",
+      runTitle: "New run",
       ownerHandle: "owner",
       ownerDisplayName: "Owner",
     },
@@ -597,9 +597,9 @@ test("the chat session retains a script primary for observation but rejects free
     id: view.id,
     coordinator: {
       handle: "coordinator",
-      displayName: "Koordinator",
+      displayName: "Coordinator",
       profile: "coordinator",
-      runTitle: "Neuer Run",
+      runTitle: "New run",
       ownerHandle: "owner",
       ownerDisplayName: "Owner",
     },
@@ -614,7 +614,7 @@ test("the chat session retains a script primary for observation but rejects free
   });
   try {
     assert.equal(session.attach(), true);
-    await assert.rejects(session.send("Hallo Script"), /TypeScript-Actor und kein Chatpartner/);
+    await assert.rejects(session.send("Hello Script"), /is a TypeScript actor, not a chat partner/);
     assert.equal(runtime.view(view.id).primaryActorId, script.id);
     assert.equal(runtime.view(view.id).inputs.length, 0);
   } finally {

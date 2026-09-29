@@ -14,16 +14,16 @@ const tileOf = (entry: StartEntry, guided: boolean, technical: boolean): Connect
   title: entry.title,
   description: entry.description,
   kind: entry.action,
-  category: entry.category ?? (technical ? "Run-Scripts" : "Abläufe"),
+  category: entry.category ?? (technical ? "Run scripts" : "Workflows"),
   ...(guided ? { guided: true } : {}),
 });
 
-/** Die Startauswahl eines Entwurfs: dieselben Kacheln wie Start in VS Code; Neuer Chat öffnet den leeren Run, eine Vorlage startet sofort oder nach ihrem Leitfaden. */
+/** The start selection of a draft: the same tiles as Start in VS Code; New chat opens the empty run, a template starts right away or after its guide. */
 export function StartSelection({ registry, session, initialEntryId, onOpen }: {
   registry: PluginRegistry;
   session: SessionContext;
   initialEntryId?: string;
-  /** Der Entwurf wird zum offenen Run, als leerer Chat oder nach dem Start einer Vorlage. */
+  /** The draft becomes the open run, as an empty chat or after a template starts. */
   onOpen: () => void;
 }) {
   const access = useAccess();
@@ -61,7 +61,7 @@ export function StartSelection({ registry, session, initialEntryId, onOpen }: {
   const open = useCallback((entryId: string) => {
     const entry = registry.startEntries.find((candidate) => candidate.id === entryId);
     if (!entry || !canStartEntry(access, entry.id)) {
-      setError("Diese Vorlage ist im aktuellen Profil nicht verfügbar.");
+      setError("This template is not available in the current profile.");
       return;
     }
     openStartEntry(entry, registry, modal, sessionRef, launch);
@@ -74,17 +74,17 @@ export function StartSelection({ registry, session, initialEntryId, onOpen }: {
   }, [disabled, initialEntryId, open]);
 
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto px-10 pt-6 pb-5 max-md:px-3 max-md:pt-11 max-md:pb-4">
-    <section aria-label="Startauswahl" className="mx-auto grid w-full max-w-composer grid-cols-1 gap-1.5">
-      <StartSection count={startTileCount(tiles, defaultEntry, free)} title="Neu" />
+    <section aria-label="Start selection" className="mx-auto grid w-full max-w-composer grid-cols-1 gap-1.5">
+      <StartSection count={startTileCount(tiles, defaultEntry, free)} title="New" />
       {error && <p className="text-[0.8rem] text-destructive" role="alert">{error}</p>}
       {tiles.length === 0 && !free
-        ? <p className="text-[0.75rem] text-muted-foreground" role="status">Für dieses Benutzerkonto ist keine Vorlage freigegeben.</p>
-        : <StartTiles defaultEntry={defaultEntry} disabled={disabled} entries={tiles} label="Vorlagen" onNewChat={free ? onOpen : undefined} onStart={open} />}
+        ? <p className="text-[0.75rem] text-muted-foreground" role="status">No template is shared with this user account.</p>
+        : <StartTiles defaultEntry={defaultEntry} disabled={disabled} entries={tiles} label="Templates" onNewChat={free ? onOpen : undefined} onStart={open} />}
     </section>
   </div>;
 }
 
-/** Eine Vorlage öffnen: ihr Leitfaden fragt zuerst, ein Skill mit Leitfaden geht danach in den Vorbereitungschat, alles andere startet sofort. */
+/** Opens a template: its guide asks first, a skill with a guide then moves to the preparation chat, everything else starts right away. */
 export function openStartEntry(entry: StartEntry, registry: PluginRegistry, modal: ModalController,
   sessionRef: RefObject<SessionContext>, launch: (entry: StartEntry, value: JsonValue | null) => Promise<void>) {
   const guide = registry.guideFor(entry);
@@ -100,11 +100,11 @@ export function openStartEntry(entry: StartEntry, registry: PluginRegistry, moda
           void launch(entry, value);
           return;
         }
-        if (typeof value !== "string" || !value.trim()) throw new Error(`Der Leitfaden für ${entry.title} muss einen nicht leeren Auftrag liefern.`);
+        if (typeof value !== "string" || !value.trim()) throw new Error(`The guide for ${entry.title} must return a non-empty task.`);
         const prompt = value;
         completed = true;
         controller.back();
-        modal.open({ title: "Auftrag vorbereiten", subtitle: entry.title,
+        modal.open({ title: "Prepare task", subtitle: entry.title,
           render: () => <RunPreparationChat entry={entry} initialPrompt={prompt} registry={registry} sessionRef={sessionRef} /> });
       }} />,
   });

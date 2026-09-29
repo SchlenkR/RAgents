@@ -2,11 +2,11 @@
 name: 65-artifact-least-privilege
 start: true
 disable-model-invocation: true
-title: "Eine Notiz gezielt weitergeben"
-description: "Zeigt, wie die ausdrückliche Weitergabe einer Notiz den Lesezugriff steuert und ein abgelehnter Zugriff die Freigabe unverändert lässt."
-category: "Dateien und Ergebnisse"
+title: "Pass on a note selectively"
+description: "Shows how explicitly passing on a note controls read access and how a rejected access leaves the sharing unchanged."
+category: "Files and results"
 order: 65
-tags: "Konzeptdemo, Artefakte und Zugriff"
+tags: "Concept demo, Artifacts and access"
 ---
 
-Ich hätte gern drei KIs: die erste schreibt eine kurze geheime Notiz und gibt sie ausdrücklich an die zweite weiter, die dritte erfährt nur, dass es die Notiz gibt. Prüf für mich, wer sie wirklich lesen kann und wer nicht, und ob der abgelehnte Versuch daran etwas ändert. Den Inhalt der Notiz schreibst Du mir dabei nicht noch einmal hin.
+I would like three AIs: the first writes a short secret note and explicitly passes it on to the second, the third only learns that the note exists. Check for me who can really read it and who cannot, and whether the rejected attempt changes anything. Do not write the content of the note out for me again.

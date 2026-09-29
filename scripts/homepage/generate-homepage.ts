@@ -24,7 +24,7 @@ function page(header: string, title: string, body: string, tokens: string, scrip
 
 async function main() {
   const check = process.argv.includes("--check");
-  if (process.argv.slice(2).some((arg) => arg !== "--check")) throw new Error("Aufruf: generate-homepage.ts [--check]");
+  if (process.argv.slice(2).some((arg) => arg !== "--check")) throw new Error("Usage: generate-homepage.ts [--check]");
   const scratch = await mkdtemp(path.join(tmpdir(), "ragents-reference-"));
   try {
     const require = createRequire(path.join(repoRoot, "apps/server/package.json"));

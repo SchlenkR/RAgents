@@ -131,7 +131,7 @@ export function ActorViewFrame({
         const saved = entry;
         void pending.then((result) => { saved.result = result; });
       }
-      publish(entry.result ?? { attachmentCapabilitiesError: "Modellfähigkeiten werden geprüft ..." });
+      publish(entry.result ?? { attachmentCapabilitiesError: "Checking model capabilities ..." });
       if (!entry.result) void entry.pending.then(publish);
     } catch (cause) {
       publish({ attachmentCapabilitiesError: cause instanceof Error ? cause.message : String(cause) });
@@ -157,7 +157,7 @@ export function ActorViewFrame({
     setActionError(undefined);
     setSubmitting((current) => [...current, request.requestId]);
     try {
-      if (!writableRef.current) throw new Error("Du hast Lesezugriff auf diese Actor-Ansicht.");
+      if (!writableRef.current) throw new Error("You have read-only access to this actor view.");
       const invocation = await invoke(
         installedApp.id,
         installedApp.revision,
@@ -219,7 +219,7 @@ export function ActorViewFrame({
     }
     const { request } = validation;
     if (recentRequestIdsRef.current.has(request.requestId)) {
-      postError(port, request.requestId, "Diese requestId wurde bereits verwendet");
+      postError(port, request.requestId, "This requestId has already been used");
       return;
     }
     recentRequestIdsRef.current.add(request.requestId);
@@ -240,7 +240,7 @@ export function ActorViewFrame({
     if (request.type === RUN_APP_CHAT_SEND) {
       void (async () => {
         try {
-          if (!writableRef.current) throw new Error("Du hast Lesezugriff auf diesen Chat.");
+          if (!writableRef.current) throw new Error("You have read-only access to this chat.");
           const current = sessionRef.current;
           const snapshot = chatSnapshotOf(current, request.actor);
           if (snapshot.error) throw new Error(snapshot.error);
@@ -263,7 +263,7 @@ export function ActorViewFrame({
     }
     const action = installedApp.actions.find((entry) => entry.id === request.actionId);
     if (!action) {
-      postError(port, request.requestId, "Die angeforderte App-Aktion ist nicht installiert");
+      postError(port, request.requestId, "The requested app action is not installed");
       return;
     }
     void executeRequest(request, port, generation, installedApp);
@@ -280,7 +280,7 @@ export function ActorViewFrame({
     port.onmessage = (event) => handlePortMessage(event.data, port, generation, installedApp);
     port.onmessageerror = () => {
       if (generation === bridgeGenerationRef.current && port === portRef.current) {
-        postError(port, undefined, "Die App hat eine unlesbare Nachricht gesendet");
+        postError(port, undefined, "The app sent an unreadable message");
       }
     };
     port.start();
@@ -356,13 +356,13 @@ export function ActorViewFrame({
       pendingPort?.close();
       pendingPort = undefined;
       closeBridge();
-      setFrameError("Die App hat ihre installierte Seite verlassen und wurde getrennt.");
+      setFrameError("The app left its installed page and was disconnected.");
     };
     window.addEventListener("message", receiveReady);
     frame.addEventListener("load", handleLoad);
     frame.src = `${frameUrl}#ragentsBridge=${encodeURIComponent(bridgeToken)}`;
     const timeout = window.setTimeout(() => {
-      if (!bridgeConnectedRef.current) setFrameError("Die App hat keine gültige Host-Bridge geöffnet.");
+      if (!bridgeConnectedRef.current) setFrameError("The app did not open a valid host bridge.");
     }, 5_000);
     return () => {
       window.clearTimeout(timeout);
@@ -410,30 +410,30 @@ export function ActorViewFrame({
     ? app.actions.find((action) => action.id === confirmationInvocation.actionId)
     : undefined;
   const status = frameError
-    ? { tone: "error", title: "App getrennt", detail: frameError }
+    ? { tone: "error", title: "App disconnected", detail: frameError }
     : submitting.length > 0
-      ? { tone: "running", title: "Aktion wird gestartet", detail: `${submitting.length} Anfrage(n)` }
+      ? { tone: "running", title: "Starting action", detail: `${submitting.length} request(s)` }
       : confirmationAction
-        ? { tone: "confirm", title: "Wartet auf Deine Bestätigung", detail: confirmationAction.label }
+        ? { tone: "confirm", title: "Waiting for your confirmation", detail: confirmationAction.label }
         : active.length > 0
-          ? { tone: "running", title: "Aktion läuft", detail: active.map((invocation) =>
+          ? { tone: "running", title: "Action running", detail: active.map((invocation) =>
             app.actions.find((action) => action.id === invocation.actionId)?.label.trim()
               || (access.can("runs.inspect") ? invocation.actionId : "")).filter(Boolean).join(", ") }
           : actionError
-            ? { tone: "error", title: "Aktion fehlgeschlagen", detail: actionError }
+            ? { tone: "error", title: "Action failed", detail: actionError }
             : latest?.status === "failed"
-              ? { tone: "error", title: "Letzte Aktion fehlgeschlagen", detail: latest.error }
+              ? { tone: "error", title: "Last action failed", detail: latest.error }
               : latest?.status === "cancelled"
-                ? { tone: "muted", title: "Letzte Aktion abgebrochen", detail: latest.actionId }
+                ? { tone: "muted", title: "Last action cancelled", detail: latest.actionId }
                 : latest?.status === "succeeded"
                   ? {
                       tone: "success",
-                      title: "Letzte Aktion abgeschlossen",
+                      title: "Last action completed",
                       detail: latest.output.at(-1) ?? latest.actionId,
                     }
                   : bridgeReady
                     ? undefined
-                    : { tone: "muted", title: "App wird geladen", detail: "Bridge noch nicht verbunden" };
+                    : { tone: "muted", title: "Loading app", detail: "Bridge not connected yet" };
 
   const visibleStatus = status && (presentation === "fullscreen" ? status.tone === "error" : status.tone !== "success") ? status : undefined;
 

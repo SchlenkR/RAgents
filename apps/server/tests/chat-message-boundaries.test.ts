@@ -4,33 +4,33 @@ import { applyEvent, type ChatEvent, type Message } from "quassel/events";
 
 test("incoming user messages leave streamed text in its original block", () => {
   const cursor = { conversationId: "conversation", sequence: 7, offset: 5 };
-  const first = applyEvent([], { kind: "text", delta: "Hallo", cursor, at: "2026-09-15T10:00:00Z" });
-  const incoming = applyEvent(first, { kind: "user", text: "Eine Ergänzung" });
+  const first = applyEvent([], { kind: "text", delta: "Hello", cursor, at: "2026-09-15T10:00:00Z" });
+  const incoming = applyEvent(first, { kind: "user", text: "An addition" });
   assert.equal(incoming[0].closed, first[0].closed);
-  const continued = applyEvent(incoming, { kind: "text", delta: " Welt", cursor: { ...cursor, offset: 9 } });
+  const continued = applyEvent(incoming, { kind: "text", delta: " team", cursor: { ...cursor, offset: 9 } });
   assert.deepEqual(continued.map((message) => [message.role, message.text]), [
-    ["assistant", "Hallo Welt"], ["user", "Eine Ergänzung"],
+    ["assistant", "Hello team"], ["user", "An addition"],
   ]);
   assert.equal(continued[0].key, first[0].key);
   assert.equal(continued[0].at, first[0].at);
   assert.deepEqual(continued[0].textCursor, { ...cursor, offset: 9 });
-  assert.equal(first[0].text, "Hallo");
-  assert.equal(incoming[0].text, "Hallo");
+  assert.equal(first[0].text, "Hello");
+  assert.equal(incoming[0].text, "Hello");
 });
 
 test("turn completion closes a stream before queued users and the next turn gets a new block", () => {
   const events: ChatEvent[] = [
-    { kind: "text", delta: "Erste Antwort", cursor: { conversationId: "conversation", sequence: 7, offset: 12 } },
-    { kind: "user", text: "Nächster Auftrag" },
-    { kind: "user", text: "Noch eine Ergänzung" },
+    { kind: "text", delta: "First answer", cursor: { conversationId: "conversation", sequence: 7, offset: 12 } },
+    { kind: "user", text: "Next task" },
+    { kind: "user", text: "One more addition" },
     { kind: "turn-done" },
   ];
   const completed = events.reduce(applyEvent, [] as Message[]);
   assert.equal(completed[0].closed, true);
   const next = applyEvent(completed, {
-    kind: "text", delta: "Zweite Antwort", cursor: { conversationId: "conversation", sequence: 11, offset: 13 },
+    kind: "text", delta: "Second answer", cursor: { conversationId: "conversation", sequence: 11, offset: 13 },
   });
-  assert.deepEqual(next.map((message) => message.text), ["Erste Antwort", "Nächster Auftrag", "Noch eine Ergänzung", "Zweite Antwort"]);
+  assert.deepEqual(next.map((message) => message.text), ["First answer", "Next task", "One more addition", "Second answer"]);
   assert.notEqual(next[0].key, next[3].key);
 });
 
@@ -40,10 +40,10 @@ for (const cursor of [
 ]) {
   test(`text from ${cursor.conversationId}/${cursor.sequence} never merges with a different cursor anchor`, () => {
     const first = applyEvent([], {
-      kind: "text", delta: "Alt", cursor: { conversationId: "conversation", sequence: 7, offset: 3 },
+      kind: "text", delta: "Old", cursor: { conversationId: "conversation", sequence: 7, offset: 3 },
     });
-    const next = applyEvent(first, { kind: "text", delta: "Neu", cursor });
-    assert.deepEqual(next.map((message) => message.text), ["Alt", "Neu"]);
+    const next = applyEvent(first, { kind: "text", delta: "New", cursor });
+    assert.deepEqual(next.map((message) => message.text), ["Old", "New"]);
     assert.equal(next[0].closed, true);
     assert.deepEqual(next[0].textCursor, first[0].textCursor);
     assert.deepEqual(next[1].textCursor, cursor);
@@ -52,17 +52,17 @@ for (const cursor of [
 
 test("thinking continues across incoming users and closes before the next output phase", () => {
   const events: ChatEvent[] = [
-    { kind: "thinking", delta: "Ich prüfe" },
-    { kind: "user", text: "Bitte gründlich" },
-    { kind: "thinking", delta: " die Details." },
+    { kind: "thinking", delta: "I am checking" },
+    { kind: "user", text: "Please be thorough" },
+    { kind: "thinking", delta: " the details." },
   ];
   const thinking = events.reduce(applyEvent, [] as Message[]);
   assert.deepEqual(thinking.map((message) => [message.role, message.text]), [
-    ["thinking", "Ich prüfe die Details."], ["user", "Bitte gründlich"],
+    ["thinking", "I am checking the details."], ["user", "Please be thorough"],
   ]);
   assert.equal(applyEvent(thinking, { kind: "turn-done" })[0].closed, true);
   const answer = applyEvent(thinking, {
-    kind: "text", delta: "Ergebnis", cursor: { conversationId: "conversation", sequence: 7, offset: 8 },
+    kind: "text", delta: "Result", cursor: { conversationId: "conversation", sequence: 7, offset: 8 },
   });
   assert.equal(answer[0].closed, true);
   assert.deepEqual(answer.map((message) => message.role), ["thinking", "user", "assistant"]);

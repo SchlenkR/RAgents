@@ -33,7 +33,7 @@ test("the shipped core coordinator and relay use supported model reasoning capab
   try {
     const runtime = ModelRuntime.create();
     const model = runtime.getModel("openrouter", product.AGENT_COORDINATOR_MODEL);
-    assert.ok(model, "Das Koordinator-Modell fehlt im Modellkatalog");
+    assert.ok(model, "The coordinator model is missing from the model catalog");
     const supported = getSupportedThinkingLevels(model);
     const settings = new OverseerModelSettings(path.join(directory, "settings.json"));
     await settings.initialize([{
@@ -54,7 +54,7 @@ test("the shipped core coordinator and relay use supported model reasoning capab
     assert.equal(relay.thinking, product.AGENT_COORDINATOR_THINKING);
     assert.equal(relay.thinking, coordinator.thinking);
     assert.ok(supported.includes(relay.thinking));
-    assert.match(relay.description, new RegExp(`Denktiefe ${relay.thinking}`));
+    assert.match(relay.description, new RegExp(`thinking level ${relay.thinking}`));
   } finally {
     for (const [key, value] of previous) {
       if (value === undefined) delete process.env[key];
@@ -89,7 +89,7 @@ test("failed initial persistence keeps the overseer selection unavailable", asyn
     await mkdir(`${file}.tmp`);
     const settings = new OverseerModelSettings(file);
     await assert.rejects(settings.initialize(models, initial, () => []), /EISDIR/);
-    assert.throws(() => settings.selection(), /keine konfigurierte Modellauswahl/);
+    assert.throws(() => settings.selection(), /no configured model selection/);
     await assert.rejects(readFile(file, "utf8"), { code: "ENOENT" });
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
@@ -102,8 +102,8 @@ test("overseer settings persist independently, reject invalid selections and ret
     await settings.initialize(models, initial, () => []);
     assert.equal(settings.get().models.length, 2);
     await settings.save(next);
-    await assert.rejects(settings.save({ ...next, thinking: "medium" }), /Reasoning.*Gültig/);
-    await assert.rejects(settings.save({ ...next, provider: "other" }), /Unbekanntes Modell/);
+    await assert.rejects(settings.save({ ...next, thinking: "medium" }), /Reasoning.*Valid/);
+    await assert.rejects(settings.save({ ...next, provider: "other" }), /Unknown model/);
     assert.deepEqual(settings.selection(), next);
     const restored = new OverseerModelSettings(file);
     await restored.initialize(models, initial, () => []);
@@ -116,7 +116,7 @@ test("overseer settings persist independently, reject invalid selections and ret
     assert.deepEqual(settings.selection(), next);
     assert.deepEqual(JSON.parse(await readFile(file, "utf8")), next);
     await writeFile(file, JSON.stringify({ ...next, model: "removed" }));
-    await assert.rejects(new OverseerModelSettings(file).initialize(models, initial, () => []), /Unbekanntes Modell/);
+    await assert.rejects(new OverseerModelSettings(file).initialize(models, initial, () => []), /Unknown model/);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
@@ -130,7 +130,7 @@ test("the settings methods share read and save state and reject a model incompat
   assert.deepEqual(saved.result, (await server.call(overseerContracts.settings.read.id, {})).result);
   const rejected = await server.call(overseerContracts.settings.save.id, initial);
   assert.equal((rejected.error?.data as { status: number }).status, 400);
-  assert.match(rejected.error!.message, /image-Anhänge/);
+  assert.match(rejected.error!.message, /image attachments/);
   assert.equal(settings.get().thinking, "low");
 });
 
@@ -165,13 +165,13 @@ test("a model change while busy applies to the next actual prompt and preserves 
   const used: string[] = [];
   let priorAnswer = false;
   faux.setResponses([
-    async (_context, _options, _state, model) => { used.push(model.id); started.resolve(); await release.promise; return fauxAssistantMessage("Erste Antwort bleibt erhalten."); },
-    (context, _options, _state, model) => { used.push(model.id); priorAnswer = JSON.stringify(context.messages).includes("Erste Antwort bleibt erhalten."); return fauxAssistantMessage("Zweite Antwort."); },
+    async (_context, _options, _state, model) => { used.push(model.id); started.resolve(); await release.promise; return fauxAssistantMessage("The first answer is kept."); },
+    (context, _options, _state, model) => { used.push(model.id); priorAnswer = JSON.stringify(context.messages).includes("The first answer is kept."); return fauxAssistantMessage("Second answer."); },
   ]);
   try {
     assert.deepEqual(await driver.thinkingCapabilities(provider, "first"), ["off"]);
     scheduler.start();
-    await session.send("Erste Frage");
+    await session.send("First question");
     await started.promise;
     const actorId = runtime.view("overseer").primaryActorId;
     const firstTurnId = runtime.view("overseer").turns[0].id;
@@ -181,7 +181,7 @@ test("a model change while busy applies to the next actual prompt and preserves 
     assert.deepEqual(await session.capabilities("primary", null), { input: ["text", "image"], model: `${provider}/second` });
     release.resolve();
     await scheduler.waitForIdle();
-    await session.send("Zweite Frage");
+    await session.send("Second question");
     await scheduler.waitForIdle();
     assert.deepEqual(used, ["first", "second"]);
     assert.equal(priorAnswer, true);

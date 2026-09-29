@@ -17,21 +17,21 @@ export type AddresseeNode = AddresseeActorNode | AddresseeGroupNode;
 
 export type AddresseeStatus = "running" | "input" | "waiting" | "stopped";
 
-/** Ab so vielen gleichartigen Geschwistern fasst der Baum sie zu einer Gruppe zusammen. */
+/** From this many similar siblings on, the tree combines them into a group. */
 export const ADDRESSEE_GROUP_MIN = 4;
-/** Erst bei mehr Einträgen erscheint die Suche. */
+/** The search appears only with more entries than this. */
 export const ADDRESSEE_SEARCH_ABOVE = 12;
 const SUMMARY_LENGTH = 90;
 
 const STATUS_WORDS: Readonly<Record<AddresseeStatus, readonly [one: string, many: string]>> = {
-  running: ["arbeitet", "arbeiten"],
-  input: ["wartet auf Eingabe", "warten auf Eingabe"],
-  waiting: ["wartet", "warten"],
-  stopped: ["gestoppt", "gestoppt"],
+  running: ["working", "working"],
+  input: ["waiting for input", "waiting for input"],
+  waiting: ["waiting", "waiting"],
+  stopped: ["stopped", "stopped"],
 };
 const STATUS_ORDER: readonly AddresseeStatus[] = ["running", "input", "waiting", "stopped"];
 
-const lower = (text: string) => text.toLocaleLowerCase("de-DE");
+const lower = (text: string) => text.toLocaleLowerCase("en-US");
 
 const shortened = (text: string): string => {
   const line = text.split("\n").map((entry) => entry.replace(/\s+/g, " ").trim()).find((entry) => entry !== "") ?? "";
@@ -48,7 +48,7 @@ export const addresseeStatus = (view: RunView, actor: RunActor): AddresseeStatus
 
 export const addresseeStatusWord = (status: AddresseeStatus, count = 1): string => STATUS_WORDS[status][count === 1 ? 0 : 1];
 
-/** Zählt die Zustände einer Gruppe in fester Reihenfolge, etwa "3 arbeiten, 34 warten". */
+/** Counts the states of a group in a fixed order, e.g. "3 working, 34 waiting". */
 export const addresseeStatusCounts = (view: RunView, actors: readonly RunActor[]): string => {
   const counts = new Map<AddresseeStatus, number>();
   for (const status of actors.map((actor) => addresseeStatus(view, actor))) counts.set(status, (counts.get(status) ?? 0) + 1);
@@ -58,7 +58,7 @@ export const addresseeStatusCounts = (view: RunView, actors: readonly RunActor[]
   }).join(", ");
 };
 
-/** Die Kurzbeschreibung je Actor: die beim Erzeugen gesetzte, sonst der gekürzte erste Auftrag, sonst ein abweichender Anzeigename. */
+/** The short description per actor: the one set on creation, otherwise the shortened first task, otherwise a differing display name. */
 export const addresseeSummaries = (view: RunView): ((actor: RunActor) => string | undefined) => {
   const firstInputs = new Map<string, { sequence: number; content: string }>();
   for (const input of view.inputs) {
@@ -76,7 +76,7 @@ export const addresseeSummaries = (view: RunView): ((actor: RunActor) => string 
   };
 };
 
-/** Der nächste Erzeuger nach `createdBy`, der selbst im Baum steht; ein Mensch oder ein unbekannter Erzeuger macht den Actor zur Wurzel. */
+/** The nearest creator along `createdBy` that is itself in the tree; a human or an unknown creator makes the actor a root. */
 export const addresseeParentId = (byId: ReadonlyMap<string, RunActor>, included: ReadonlySet<string>, actor: RunActor): string | null => {
   const visited = new Set([actor.id]);
   let current = actor.createdBy;
@@ -105,7 +105,7 @@ const groupLabel = (handles: readonly string[]): string => {
   return `@${stem}*`;
 };
 
-/** Wer hat wen erzeugt: Koordinator oben, Unteragenten darunter, gleichartige Geschwister (Art und Handle-Stamm) als Gruppe. */
+/** Who created whom: coordinator on top, subagents below, similar siblings (kind and handle stem) as a group. */
 export const addresseeTree = (view: RunView, actors: readonly RunActor[]): AddresseeNode[] => {
   const byId = new Map(view.actors.map((actor) => [actor.id, actor]));
   const included = new Set(actors.map((actor) => actor.id));
@@ -138,7 +138,7 @@ export const addresseeTree = (view: RunView, actors: readonly RunActor[]): Addre
   return level(null);
 };
 
-/** Die Actors, die zur Suche passen, samt ihren Erzeugern im Baum, damit jeder Treffer an seinem Platz steht. */
+/** The actors matching the search, together with their creators in the tree, so every match stands in its place. */
 export const addresseeMatches = (view: RunView, actors: readonly RunActor[], query: string, summary: (actor: RunActor) => string | undefined): RunActor[] => {
   const words = lower(query).trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return [...actors];
@@ -158,7 +158,7 @@ export const addresseeMatches = (view: RunView, actors: readonly RunActor[], que
   return actors.filter((actor) => kept.has(actor.id));
 };
 
-/** Ob ein Actor in einem Zweig steckt, etwa damit eine Gruppe mit dem gewählten Actor offen startet. */
+/** Whether an actor is in a branch, e.g. so a group containing the selected actor starts open. */
 export const addresseeNodeContains = (node: AddresseeNode, actorId: string): boolean =>
   node.kind === "actor"
     ? node.actor.id === actorId || node.children.some((child) => addresseeNodeContains(child, actorId))

@@ -5,26 +5,26 @@ import { facesOperator } from "@ragents/host/plugin-support/tool-availability.js
 
 export const showDocumentToolMetadata = {
   name: "show_document",
-  label: "Dokument anzeigen",
+  label: "Show document",
   nativeTool: true,
-  description: "Zeigt Dokumente vollständig in der Oberfläche; Dateipfade gelten nur für die Dateiablage dieses Runs.",
-  longDescription: "Nutze dieses Werkzeug IMMER, wenn der Benutzer den "
-    + "Inhalt einer Datei oder ein längeres Dokument sehen möchte - statt den Inhalt in die "
-    + "Chat-Antwort zu kopieren oder zu paraphrasieren. path zeigt ausschließlich eine Datei aus "
-    + "der Dateiablage dieses Runs an, NICHT aus deinem Arbeitsverzeichnis. "
-    + "Alles andere - Dateien des Arbeitsverzeichnisses und selbst erzeugte Inhalte - geht über "
-    + "content; stammt der Inhalt aus einer Datei, übernimm ihn dort WÖRTLICH aus dem letzten "
-    + "read- oder write-Ergebnis, niemals aus dem Gedächtnis neu getippt.",
+  description: "Shows documents completely in the interface; file paths only apply to this run's file store.",
+  longDescription: "ALWAYS use this tool when the user wants to see the "
+    + "content of a file or a longer document - instead of copying or paraphrasing the content in the "
+    + "chat answer. path only shows a file from "
+    + "this run's file store, NOT from your working directory. "
+    + "Everything else - files of the working directory and content you produced yourself - goes through "
+    + "content; if the content comes from a file, take it VERBATIM from the last "
+    + "read or write result, never retyped from memory.",
 } as const;
 
-const sourceRule = "content und path schließen einander aus: gültig sind { title, content, format } für "
-  + "selbst erzeugte Inhalte und Dateien des Arbeitsverzeichnisses und { title, path, format } für Dateien "
-  + "der Dateiablage - genau eines von beiden muss gesetzt sein.";
+const sourceRule = "content and path exclude each other: valid are { title, content, format } for "
+  + "self-produced content and files of the working directory, and { title, path, format } for files "
+  + "of the file store - exactly one of the two must be set.";
 
-const titleSchema = Type.String({ description: "Titel der Anzeige, z.B. der Dateiname" });
+const titleSchema = Type.String({ description: "Title of the display, e.g. the file name" });
 const formatSchema = Type.Optional(Type.Union(
   [Type.Literal("markdown"), Type.Literal("text"), Type.Literal("html")],
-  { description: "Darstellung, Default markdown" }));
+  { description: "Rendering, default markdown" }));
 
 const documentSource = (input: { content?: string; path?: string }):
   | { kind: "content" }
@@ -40,14 +40,14 @@ export const createShowDocumentTool = (filesFor: (runId: string) => Promise<stri
     schema: Type.Object({
       title: titleSchema,
       content: Type.Optional(Type.String({
-        description: "Der vollständige Inhalt - für Dateien aus dem Arbeitsverzeichnis und für "
-          + "selbst erzeugte Inhalte, also alles, was nicht in der Dateiablage liegt. " + sourceRule,
+        description: "The complete content - for files from the working directory and for "
+          + "self-produced content, i.e. everything that is not in the file store. " + sourceRule,
       })),
       path: Type.Optional(Type.String({
-        description: "Datei aus der Dateiablage dieses Runs, relativ zur Ablage (z.B. thema/datei.md). "
-          + "Nur dort abgelegte Dateien sind so anzeigbar - für Pfade des Arbeitsverzeichnisses "
-          + "content nutzen. Der Inhalt wird direkt aus der Datei angezeigt und muss nie "
-          + "abgetippt werden. " + sourceRule,
+        description: "File from this run's file store, relative to the store (e.g. topic/file.md). "
+          + "Only files stored there can be shown this way - for paths of the working directory "
+          + "use content. The content is shown directly from the file and never has to be "
+          + "retyped. " + sourceRule,
       })),
       format: formatSchema,
     }, { additionalProperties: false }),
@@ -57,17 +57,17 @@ export const createShowDocumentTool = (filesFor: (runId: string) => Promise<stri
       const source = documentSource(input);
 
       if (source.kind === "content")
-        return `Dem Benutzer angezeigt: ${input.title}`;
+        return `Shown to the user: ${input.title}`;
 
       const path = source.path;
       if (path.startsWith("/") || path.split("/").includes(".."))
-        throw new Error("path muss relativ zur Dateiablage sein, ohne führenden / und ohne ..");
+        throw new Error("path must be relative to the file store, without a leading / and without ..");
       if (!await runFileExists(await filesFor(caller.runId), path))
         throw new Error(
-          `${source.path} liegt nicht in der Dateiablage dieses Runs. Über path sind nur Dateien der `
-          + "Dateiablage anzeigbar - für Dateien aus dem Arbeitsverzeichnis und für selbst erzeugte "
-          + "Inhalte den Inhalt über content übergeben.",
+          `${source.path} is not in this run's file store. Only files of the `
+          + "file store can be shown via path - for files from the working directory and for self-produced "
+          + "content, pass the content via content.",
         );
-      return `Dem Benutzer angezeigt: ${input.title} (Datei ${path} aus der Dateiablage)`;
+      return `Shown to the user: ${input.title} (file ${path} from the file store)`;
     },
   });

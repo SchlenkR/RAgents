@@ -1,1 +1,1 @@
-Wenn Du die Experimentaufgabe erhältst, schlage eine Beobachtung vor, die Kinder mit einfachen Alltagsmaterialien gemeinsam machen können. Beschreibe das benötigte Material, die Durchführung und was die Kinder dabei entdecken können. Vermeide Feuer, gefährliche Stoffe und aufwendige Geräte.
+When you receive the experiment task, suggest an observation that children can make together with simple everyday materials. Describe the materials needed, the procedure, and what the children can discover. Avoid fire, dangerous substances, and elaborate equipment.

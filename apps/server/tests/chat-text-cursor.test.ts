@@ -18,7 +18,7 @@ const fixture = () => {
       runId: "cursor-run", title: "Cursor", ownerHandle: "owner", ownerDisplayName: "Owner",
     });
     view = runtime.spawnAgent({ actorId: view.ownerId, commandId: services.newId("command") }, view.id, {
-      handle: "coordinator", displayName: "Koordinator", prompt: "", execution: manualExecution(), grants: [], toolNames: [],
+      handle: "coordinator", displayName: "Coordinator", prompt: "", execution: manualExecution(), grants: [], toolNames: [],
     });
     const actor = view.actors.find((entry) => entry.kind === "agent")!;
     runtime.selectPrimaryActor({ actorId: view.ownerId, commandId: services.newId("command") }, view.id, actor.id);
@@ -27,12 +27,12 @@ const fixture = () => {
   const run = createRun();
   const session = () => new RunChatSession({
     engine, id: run.runId,
-    coordinator: { handle: "coordinator", displayName: "Koordinator", profile: "coordinator", runTitle: "Cursor", ownerHandle: "owner", ownerDisplayName: "Owner" },
+    coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "coordinator", runTitle: "Cursor", ownerHandle: "owner", ownerDisplayName: "Owner" },
     prompt: () => "", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {}, started: async () => {},
     scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: unavailableActorPrograms,
   });
   const startTurn = () => {
-    const view = runtime.enqueueInput({ actorId: run.ownerId, commandId: services.newId("command") }, run.runId, { actorId: run.actorId, content: "Weiter" });
+    const view = runtime.enqueueInput({ actorId: run.ownerId, commandId: services.newId("command") }, run.runId, { actorId: run.actorId, content: "Continue" });
     const next = runtime.startTurn({ actorId: run.actorId, commandId: services.newId("command") }, run.runId, run.actorId, view.inputs.at(-1)!.id);
     const actor = next.actors.find((entry) => entry.id === run.actorId)!;
     assert.ok(actor.kind === "agent" && actor.lifecycle.kind === "running");
@@ -55,14 +55,14 @@ test("assistant cursors survive chunking, trimmed blocks, tool activity and a fr
     session.subscribe((event) => events.push(event));
     assert.equal(events.at(-1)?.kind, "replay-end");
     const turnId = data.startTurn();
-    data.live.publish(data.runId, data.actorId, { kind: "text", delta: "  Hal" });
+    data.live.publish(data.runId, data.actorId, { kind: "text", delta: "  Hel" });
     data.live.publish(data.runId, data.actorId, { kind: "text", delta: "lo \n" });
-    data.output(turnId, "Hallo");
-    data.live.publish(data.runId, data.actorId, { kind: "thinking", delta: "Nachdenken zählt nicht" });
+    data.output(turnId, "Hello");
+    data.live.publish(data.runId, data.actorId, { kind: "thinking", delta: "Thinking does not count" });
     data.live.publish(data.runId, data.actorId, { kind: "tool", id: "tool-1", name: "read", arguments: "{}" });
-    data.live.publish(data.runId, data.actorId, { kind: "tool-result", id: "tool-1", result: "Gelesen" });
-    data.live.publish(data.runId, data.actorId, { kind: "text", delta: " Welt! " });
-    data.output(turnId, "Welt!");
+    data.live.publish(data.runId, data.actorId, { kind: "tool-result", id: "tool-1", result: "Read" });
+    data.live.publish(data.runId, data.actorId, { kind: "text", delta: " there " });
+    data.output(turnId, "there");
     const live = textEvents(events);
     assert.deepEqual(live.map((event) => event.cursor?.offset), [3, 5, 10]);
 
@@ -95,11 +95,11 @@ test("journal-only text advances the same cursor before live text and subsequent
     data.output(turnId, "Journal");
     data.live.publish(data.runId, data.actorId, { kind: "text", delta: " Live" });
     data.output(turnId, "Live");
-    data.output(turnId, "Journal danach");
+    data.output(turnId, "Journal, later");
     data.runtime.finishTurn({ actorId: data.actorId, commandId: "finish-first", turnId }, data.runId, data.actorId, { turnId, outcome: "completed" });
     data.live.publish(data.runId, data.actorId, { kind: "turn-finished", turnId, outcome: "completed" });
     const second = data.startTurn();
-    data.output(second, "Neu");
+    data.output(second, "New");
     const texts = textEvents(events);
     assert.deepEqual(texts.map((event) => event.cursor.offset), [7, 11, 24, 3]);
     assert.ok(texts[3].cursor.sequence > texts[2].cursor.sequence);

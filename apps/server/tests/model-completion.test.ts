@@ -3,7 +3,7 @@ import test, { type TestContext } from "node:test";
 import { openRouterCompletionModel, type TextCompletionRequest } from "../src/plugin-support/model-completion.ts";
 
 const request = (overrides: Partial<TextCompletionRequest> = {}): TextCompletionRequest => ({
-  systemPrompt: "Antworte knapp.", text: "Wie spät ist es?", thinking: "low",
+  systemPrompt: "Answer briefly.", text: "What time is it?", thinking: "low",
   temperature: 0, maxTokens: 64, timeoutMs: 5_000, signal: new AbortController().signal, ...overrides,
 });
 
@@ -26,18 +26,18 @@ const answering = (t: TestContext, delta: object, finishReason: string, status =
 };
 
 test("a completion model asks one question without history or tools over the fastest provider", async (t) => {
-  const payloads = answering(t, { content: "Mittag" }, "stop");
+  const payloads = answering(t, { content: "Noon" }, "stop");
   const model = openRouterCompletionModel("z-ai/glm-5.3-flash");
   assert.ok(model);
   assert.deepEqual(model.thinkingLevels, ["low", "high", "max"]);
-  assert.deepEqual(await model.complete(request()), { kind: "text", text: "Mittag" });
+  assert.deepEqual(await model.complete(request()), { kind: "text", text: "Noon" });
   assert.equal(payloads.length, 1);
   const [payload] = payloads;
   assert.equal(payload!.model, "z-ai/glm-5.3-flash");
   assert.deepEqual(payload!.provider, { sort: "latency" });
   assert.deepEqual(payload!.messages, [
-    { role: "system", content: [{ type: "text", text: "Antworte knapp." }] },
-    { role: "user", content: "Wie spät ist es?" },
+    { role: "system", content: [{ type: "text", text: "Answer briefly." }] },
+    { role: "user", content: "What time is it?" },
   ]);
   assert.equal(payload!.tools, undefined);
   assert.equal(payload!.temperature, 0);
@@ -48,7 +48,7 @@ test("a completion model asks one question without history or tools over the fas
 
 test("unfinished answers, tool calls and failed requests are no text and are never retried", async (t) => {
   const model = openRouterCompletionModel("z-ai/glm-5.3-flash")!;
-  const cut = answering(t, { content: "Mitt" }, "length");
+  const cut = answering(t, { content: "Noo" }, "length");
   assert.deepEqual(await model.complete(request()), { kind: "unfinished" });
   assert.equal(cut.length, 1);
   t.mock.restoreAll();

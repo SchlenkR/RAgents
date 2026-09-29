@@ -8,16 +8,16 @@ export interface Settings {
 }
 
 export const parseServerUrl = (value: unknown): string => {
-  if (typeof value !== "string" || !value.trim()) throw new Error("ragents.serverUrl ist leer.");
+  if (typeof value !== "string" || !value.trim()) throw new Error("ragents.serverUrl is empty.");
   const url = new URL(value.trim());
-  if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error(`ragents.serverUrl muss mit http:// oder https:// beginnen, nicht ${url.protocol}`);
-  if (url.pathname !== "/" || url.search || url.hash) throw new Error("ragents.serverUrl nennt nur Host und Port, keinen Pfad.");
+  if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error(`ragents.serverUrl must start with http:// or https://, not ${url.protocol}`);
+  if (url.pathname !== "/" || url.search || url.hash) throw new Error("ragents.serverUrl names only host and port, no path.");
   return url.origin;
 };
 
 export const parseThemeSetting = (value: unknown): ThemeSetting => {
   if (value === "auto" || value === "light" || value === "dark") return value;
-  throw new Error(`ragents.theme muss auto, light oder dark sein, nicht ${JSON.stringify(value)}`);
+  throw new Error(`ragents.theme must be auto, light, or dark, not ${JSON.stringify(value)}`);
 };
 
 export const ZOOM_MIN = 50;
@@ -40,19 +40,19 @@ export interface SecretReader {
 
 export const isEnvironmentName = (value: string): boolean => ENVIRONMENT_NAME.test(value);
 
-/** Die Namen aus ragents.hostEnvironment; die Einstellung führt nur Namen, die Werte stehen in der SecretStorage. */
+/** The names from ragents.hostEnvironment; the setting holds only names, the values are in the SecretStorage. */
 export const parseHostEnvironment = (value: unknown): string[] => {
   if (value === undefined || value === null) return [];
-  if (!Array.isArray(value)) throw new Error("ragents.hostEnvironment muss eine Liste von Namen sein");
+  if (!Array.isArray(value)) throw new Error("ragents.hostEnvironment must be a list of names");
   const names = value.map((entry, index) => {
     const name = typeof entry === "string" ? entry.trim() : "";
-    if (!isEnvironmentName(name)) throw new Error(`ragents.hostEnvironment[${index}] ist kein Name einer Umgebungsvariablen (Buchstaben, Ziffern und _, nicht mit einer Ziffer am Anfang)`);
+    if (!isEnvironmentName(name)) throw new Error(`ragents.hostEnvironment[${index}] is not the name of an environment variable (letters, digits, and _, not starting with a digit)`);
     return name;
   });
   return [...new Set(names)];
 };
 
-/** Der Schlüssel in der SecretStorage: der Wert, den ein gestarteter Host als diese Umgebungsvariable bekommt. */
+/** The key in the SecretStorage: the value a started host gets as this environment variable. */
 export const hostEnvironmentSecretKey = (name: string): string => `ragents.host-env:${name}`;
 
 const secretValue = async (secrets: SecretReader, name: string): Promise<string | undefined> => {
@@ -66,23 +66,23 @@ const secretValue = async (secrets: SecretReader, name: string): Promise<string 
 const readSecrets = (names: readonly string[], secrets: SecretReader): Promise<(readonly [string, string | undefined])[]> =>
   Promise.all(names.map(async (name) => [name, await secretValue(secrets, name)] as const));
 
-/** Die Namen ohne Wert in der SecretStorage; die Seite Server nennt sie, damit der fehlende Wert nicht erst beim Start auffällt. */
+/** The names without a value in the SecretStorage; the server page names them so the missing value does not only show up at start. */
 export const missingHostEnvironmentSecrets = async (names: readonly string[], secrets: SecretReader): Promise<string[]> =>
   (await readSecrets(names, secrets)).filter(([, value]) => value === undefined).map(([name]) => name);
 
-/** Die Schritte, aus denen der geführte Weg zu einem fehlenden Wert besteht; die Erweiterung hängt VS Code daran. */
+/** The steps of the guided way to a missing value; the extension attaches VS Code to them. */
 export interface SecretSteps {
-  /** Die Namen, die ragents.hostEnvironment gerade führt. */
+  /** The names ragents.hostEnvironment currently holds. */
   names: () => readonly string[];
   writeNames: (names: readonly string[]) => Promise<void>;
-  /** Fragt nach dem Wert; ein Abbruch ist undefined. */
+  /** Asks for the value; a cancel is undefined. */
   askValue: () => Promise<string | undefined>;
   store: (value: string) => Promise<void>;
   retry: () => Promise<void>;
 }
 
-/** Der Name gehört vor der Frage nach dem Wert in die Einstellung, sonst reicht die Erweiterung ihn nie an einen Host weiter;
- * erst danach kommt der Wert und mit ihm der neue Versuch. */
+/** The name goes into the setting before asking for the value, otherwise the extension never passes it on to a host;
+ * only then comes the value and with it the new attempt. */
 export const provideMissingSecret = async (name: string, steps: SecretSteps): Promise<boolean> => {
   const names = steps.names();
   if (!names.includes(name)) await steps.writeNames([...names, name]);
@@ -93,11 +93,11 @@ export const provideMissingSecret = async (name: string, steps: SecretSteps): Pr
   return true;
 };
 
-/** Was ein verteiltes Profil an sein Relay braucht, steht schon in der Sitzung; sie schlägt eine geerbte Variable, aber nicht den gesetzten Wert aus der SecretStorage. */
+/** What a distributed profile needs for its relay is already in the session; it beats an inherited variable, but not the value set in the SecretStorage. */
 export const withRelaySession = (environment: NodeJS.ProcessEnv, serverUrl: string, token: string): NodeJS.ProcessEnv =>
   ({ ...environment, RAGENTS_RELAY_URL: serverUrl, RAGENTS_RELAY_TOKEN: token });
 
-/** Die Umgebung eines Hosts: das Geerbte, überlagert von den Werten aus der SecretStorage; fehlt einer, nennt das Protokoll nur seinen Namen. */
+/** The environment of a host: the inherited one, overlaid by the values from the SecretStorage; if one is missing, the log names only its name. */
 export const withHostEnvironmentSecrets = async (
   inherited: NodeJS.ProcessEnv,
   names: readonly string[],
@@ -106,6 +106,6 @@ export const withHostEnvironmentSecrets = async (
 ): Promise<NodeJS.ProcessEnv> => {
   const read = await readSecrets(names, secrets);
   const missing = read.filter(([, value]) => value === undefined).map(([name]) => name);
-  if (missing.length > 0) log(`== ragents.hostEnvironment: kein Wert in der SecretStorage für ${missing.join(", ")}; Befehl "RAgents: Secret setzen"`);
+  if (missing.length > 0) log(`== ragents.hostEnvironment: no value in the SecretStorage for ${missing.join(", ")}; command "RAgents: Set secret"`);
   return { ...inherited, ...Object.fromEntries(read.filter((entry): entry is readonly [string, string] => entry[1] !== undefined)) };
 };

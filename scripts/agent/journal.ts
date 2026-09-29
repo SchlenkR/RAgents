@@ -26,11 +26,11 @@ export interface ActorUsage {
 export const RUN_ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
 export const journalFile = (dataDirectory: string, runId: string): string => {
-  if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Ungültige Run-Id: ${runId}`);
+  if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Invalid run id: ${runId}`);
   return path.join(dataDirectory, "runs", runId, "journal.jsonl");
 };
 
-/** Ein Journalsatz trägt Actor und Zeitpunkt im Kommando, seine Ereignisse nicht; beides zusammen ist ein Ereignis. */
+/** A journal record carries actor and time in the command, its events do not; both together make an event. */
 const eventsOf = (line: string): readonly JournalEvent[] => {
   const record = JSON.parse(line) as JournalRecord;
   const actorId = record.command?.actorId ?? "";
@@ -43,7 +43,7 @@ const eventsOf = (line: string): readonly JournalEvent[] => {
   }));
 };
 
-/** Liest ein Journal fortlaufend: jeder Aufruf liefert die Ereignisse, die seit dem letzten dazugekommen sind. */
+/** Reads a journal continuously: each call returns the events added since the last one. */
 export class JournalReader {
   readonly #file: string;
   #offset = 0;
@@ -76,7 +76,7 @@ export class JournalReader {
 
 export const readJournal = (dataDirectory: string, runId: string): readonly JournalEvent[] => {
   const reader = new JournalReader(dataDirectory, runId);
-  if (!existsSync(reader.file)) throw new Error(`Journal fehlt: ${reader.file}`);
+  if (!existsSync(reader.file)) throw new Error(`Journal missing: ${reader.file}`);
   return reader.next();
 };
 
@@ -126,6 +126,6 @@ export const journalLines = (events: readonly JournalEvent[], mode: JournalMode,
       lines.push(`[${event.sequence}] ${type} ${actor}: ${JSON.stringify(payload).slice(0, 300)}`);
     }
   }
-  lines.push(`-- letzte Sequenz: ${events.at(-1)?.sequence ?? 0}`);
+  lines.push(`-- last sequence: ${events.at(-1)?.sequence ?? 0}`);
   return lines;
 };

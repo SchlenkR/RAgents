@@ -106,7 +106,7 @@ test("a coordinator acts with the current access of its user and never with more
     assert.equal(unknown.user, null, "an unknown user is not signed in");
     assert.equal(unknown.can("runs.read"), false);
   }
-  const guest = { id: "guest", label: "Gast", rights: ["runs.read"] };
+  const guest = { id: "guest", label: "Guest", rights: ["runs.read"] };
   const anonymous = createAccessSessionManager({ anonymousUser: guest, cookieName: "test-user" });
   assert.deepEqual(anonymous.coordinatorSnapshot(null), { enabled: false, user: guest });
   assert.equal(createAccessContext(anonymous.coordinatorSnapshot(null)).can("runs.write"), false);

@@ -1,1 +1,1 @@
-Nur ein Prompt.
+Just a prompt.

@@ -8,7 +8,7 @@ dev=""
 for arg in "$@"; do
     case "$arg" in
         --dev) dev="1" ;;
-        -*) echo "Unbekanntes Argument: $arg (erlaubt: <profil>, <pfad zu ragents.config.<profil>.ts>, --dev)" >&2; exit 1 ;;
+        -*) echo "Unknown argument: $arg (allowed: <profile>, <path to ragents.config.<profile>.ts>, --dev)" >&2; exit 1 ;;
         *) selection="$arg" ;;
     esac
 done
@@ -25,17 +25,17 @@ available_profiles() {
 
 if [ -z "$selection" ] && [ -n "${PRODUCT_PROFILE_FILE:-}" ]; then
     selection="$PRODUCT_PROFILE_FILE"
-    echo "== Profildatei kommt aus der Umgebung: $selection"
+    echo "== Profile file comes from the environment: $selection"
 elif [ -z "$selection" ] && [ -n "${PRODUCT_PROFILE:-}" ]; then
     selection="$PRODUCT_PROFILE"
-    echo "== Profil kommt aus der Umgebung: $selection"
+    echo "== Profile comes from the environment: $selection"
 elif [ -z "$selection" ]; then
     profiles=$(available_profiles)
     if [ -z "$profiles" ]; then
-        echo "Keine Konfiguration gefunden: $root/ragents.config.<profil>.ts" >&2
+        echo "No configuration found: $root/ragents.config.<profile>.ts" >&2
         exit 1
     fi
-    echo "Welche Variante? (Profilname oder Pfad zu einer ragents.config.<profil>.ts)"
+    echo "Which variant? (profile name or path to a ragents.config.<profile>.ts)"
     index=0
     while read -r name; do
         index=$((index + 1))
@@ -49,12 +49,12 @@ elif [ -z "$selection" ]; then
     done <<< "$profiles"
     if [ -z "$selection" ]; then selection="$choice"; fi
     if [ -z "$selection" ]; then
-        echo "Ungültige Auswahl." >&2
+        echo "Invalid choice." >&2
         exit 1
     fi
 fi
 
-# Ein Profil ist ein Name (Datei im Repo) oder ein Pfad zu einer ragents.config.<profil>.ts an beliebiger Stelle.
+# A profile is a name (file in the repo) or a path to a ragents.config.<profile>.ts anywhere.
 case "$selection" in
     */*|*.ts)
         config_file="$(cd "$(dirname "$selection")" 2>/dev/null && pwd)/$(basename "$selection")" || config_file="$selection"
@@ -62,7 +62,7 @@ case "$selection" in
         profile="${profile#ragents.config.}"
         profile="${profile%.ts}"
         if [ "$(basename "$config_file")" != "ragents.config.$profile.ts" ] || [ -z "$profile" ]; then
-            echo "Eine Profildatei heißt ragents.config.<profil>.ts: $selection" >&2
+            echo "A profile file is named ragents.config.<profile>.ts: $selection" >&2
             exit 1
         fi
         ;;
@@ -72,14 +72,14 @@ case "$selection" in
         ;;
 esac
 if [ ! -f "$config_file" ]; then
-    echo "Konfiguration fehlt: $config_file" >&2
+    echo "Configuration missing: $config_file" >&2
     exit 1
 fi
 
-# Eine .env gibt es bewusst nicht - Secrets kommen aus der Shell-Umgebung, die Konfiguration liest sie mit env("NAME").
+# There is deliberately no .env - secrets come from the shell environment, the configuration reads them with env("NAME").
 export PRODUCT_PROFILE="$profile"
 export PRODUCT_PROFILE_FILE="$config_file"
-echo "== Profil $profile ($config_file)"
+echo "== Profile $profile ($config_file)"
 
 PORT="$(cd "$root/apps/server" && node --import tsx --input-type=module -e '
 import "./src/host-resolution.ts";
@@ -91,7 +91,7 @@ try {
     await assertServerPortAvailable(port);
     console.log(port);
 } catch (error) {
-    console.error(`RAgents startet nicht: ${error.message}`);
+    console.error(`RAgents does not start: ${error.message}`);
     process.exit(1);
 }
 ')"
@@ -106,12 +106,12 @@ try {
     const configured = config.host.DATA_DIR;
     const reference = configured?.kind === "environment";
     const value = reference ? process.env[configured.name] : configured;
-    if (reference && value === undefined) throw new Error(`host.DATA_DIR verweist auf die nicht gesetzte Umgebungsvariable ${configured.name}.`);
+    if (reference && value === undefined) throw new Error(`host.DATA_DIR refers to the unset environment variable ${configured.name}.`);
     const directory = path.resolve(process.env.DATA_DIR ?? value ?? defaultDataDirectory(process.env.PRODUCT_PROFILE));
     await assertDataDirectoryIsolated(directory);
     console.log(directory);
 } catch (error) {
-    console.error(`RAgents startet nicht: ${error.message}`);
+    console.error(`RAgents does not start: ${error.message}`);
     process.exit(1);
 }
 ')"
@@ -120,21 +120,21 @@ export DATA_DIR
 cd "$root"
 
 if [ -n "$dev" ]; then
-    # Die Oberfläche läuft im Dev-Modus fest auf Backendport plus 1000.
+    # In dev mode the UI always runs on the backend port plus 1000.
     web_port=$((PORT + 1000))
     (cd "$root/apps/server" && node --import tsx --input-type=module -e '
 import { assertServerPortAvailable } from "./src/startup.ts";
 try { await assertServerPortAvailable(Number(process.argv[1])); }
 catch (error) {
-    console.error(`RAgents-Oberfläche startet nicht: ${error.message}`);
+    console.error(`RAgents UI does not start: ${error.message}`);
     process.exit(1);
 }
 ' "$web_port")
-    # Der Server lädt nur Bundles; vor jedem Start entsteht neu, was nicht mehr zu seinen Quellen passt.
+    # The server loads only bundles; before every start, whatever no longer matches its sources is rebuilt.
     pnpm build:plugins
     export API_TARGET="http://localhost:$PORT"
     export RAGENTS_DEV=1
-    echo "== Dev-Modus (Server http://localhost:$PORT, Oberfläche http://localhost:$web_port, Daten: $DATA_DIR)"
+    echo "== Dev mode (server http://localhost:$PORT, UI http://localhost:$web_port, data: $DATA_DIR)"
     trap 'kill 0' EXIT
     pnpm build:plugins --watch &
     pnpm dev:server &
@@ -142,18 +142,18 @@ catch (error) {
     wait
 else
     pnpm build:plugins
-    # Ein Web für alle Profile: gebaut wird nur, wenn es fehlt oder nicht mehr zu seinen Quellen passt.
+    # One web for all profiles: it is built only if it is missing or no longer matches its sources.
     web_problem="$(cd "$root/apps/server" && node --import tsx --input-type=module -e '
 import { hostRoot } from "./src/host-version.ts";
 import { hostWebDirectory, hostWebProblem, isCheckout } from "./src/host-web.ts";
 console.log(hostWebProblem(hostWebDirectory(hostRoot()), hostRoot(), isCheckout(hostRoot())) ?? "");
 ')"
     if [ -n "$web_problem" ]; then
-        echo "== $web_problem; Web bauen"
+        echo "== $web_problem; building web"
         pnpm build:web
     fi
-    # scripts/vscode/install-local.sh erkennt daran die von Hand gestarteten Server.
+    # scripts/vscode/install-local.sh recognizes the manually started servers by this.
     export RAGENTS_LAUNCH="start.sh"
-    echo "== Server starten: http://localhost:$PORT (Daten: $DATA_DIR)"
+    echo "== Starting server: http://localhost:$PORT (data: $DATA_DIR)"
     exec pnpm start
 fi

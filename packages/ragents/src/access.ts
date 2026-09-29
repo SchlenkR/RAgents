@@ -5,7 +5,7 @@ export interface AccessUser {
   readonly startEntries?: readonly string[];
 }
 
-/** Abfrageparameter, unter dem GET-Abrufe ohne Header (Ereignisstrom, iframes) einen Zugangstoken mitgeben. */
+/** Query parameter under which GET requests without headers (event stream, iframes) pass an access token. */
 export const ACCESS_TOKEN_QUERY = "access";
 
 export const isAccessRight = (value: unknown): value is string =>
@@ -21,17 +21,17 @@ export interface AccessContext extends AccessSnapshot {
 }
 
 export const builtinPermissions = [
-  { id: "runs.read", description: "Runs, Chats, Journale und Arbeitsbereiche ansehen." },
-  { id: "runs.read.all", description: "Die Runs aller Benutzer sehen und bedienen, nicht nur die eigenen; einen Run, den nur sein Eigentümer bedient, nur im Journal lesen und stoppen, ohne seinen Arbeitsbereich." },
-  { id: "runs.write", description: "Vorhandene Runs steuern, Nachrichten senden, freigegebene Setups starten und App-Aktionen ausführen." },
-  { id: "runs.create", description: "Freie Runs erstellen, Startoptionen wählen und Aufträge vorbereiten." },
-  { id: "runs.inspect", description: "Modelle, technische Laufdetails, Journale und Programmquellen ansehen." },
-  { id: "runs.trace", description: "Denk- und Werkzeugschritte im Chat mit Inhalt sehen und ihren Detailgrad wählen." },
-  { id: "runs.delete", description: "Runs und ihre gespeicherten Daten löschen." },
-  { id: "settings.read", description: "Profil, Konfiguration und Plugins ansehen." },
-  { id: "settings.write", description: "Einstellungen und externen Zugang ändern." },
-  { id: "models.use", description: "Modelle über das Modell-Relay dieses Servers aufrufen." },
-  { id: "profile.fetch", description: "Das Client-Profil dieses Servers beschreiben und herunterladen." },
+  { id: "runs.read", description: "View runs, chats, journals and workspaces." },
+  { id: "runs.read.all", description: "See and operate the runs of all users, not only your own; a run that only its owner operates can only be read in the journal and stopped, without its workspace." },
+  { id: "runs.write", description: "Control existing runs, send messages, start released setups and execute app actions." },
+  { id: "runs.create", description: "Create free runs, choose start options and prepare tasks." },
+  { id: "runs.inspect", description: "View models, technical run details, journals and program sources." },
+  { id: "runs.trace", description: "See thinking and tool steps in the chat with their content and choose their level of detail." },
+  { id: "runs.delete", description: "Delete runs and their stored data." },
+  { id: "settings.read", description: "View profile, configuration and plugins." },
+  { id: "settings.write", description: "Change settings and external access." },
+  { id: "models.use", description: "Call models through the model relay of this server." },
+  { id: "profile.fetch", description: "Describe and download the client profile of this server." },
 ] as const;
 
 export const hasRight = (access: AccessSnapshot, right: string): boolean =>

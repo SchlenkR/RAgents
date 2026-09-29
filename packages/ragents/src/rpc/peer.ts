@@ -48,13 +48,13 @@ const CANCEL_GRACE_MS = 5_000;
 export const rpcFailureOf = (id: RpcId | null, error: unknown): RpcFailure => {
   if (error instanceof RpcError) return rpcFailure(id, error.code, error.message, error.data);
   if (error instanceof DomainError) return rpcFailure(id, RPC_ERROR_CODES.application, error.message, { code: error.code, status: error.status });
-  if (error instanceof Error && error.name === "AbortError") return rpcFailure(id, RPC_ERROR_CODES.cancelled, "Abgebrochen");
+  if (error instanceof Error && error.name === "AbortError") return rpcFailure(id, RPC_ERROR_CODES.cancelled, "Cancelled");
   return rpcFailure(id, RPC_ERROR_CODES.internal, error instanceof Error ? error.message : String(error));
 };
 
 export const rpcErrorOf = (failure: RpcFailure): RpcError => new RpcError(failure.error.code, failure.error.message, failure.error.data);
 
-/** Eine Seite einer JSON-RPC-Verbindung: schickt und beantwortet Anfragen, kennt Abbruch und Fortschritt, ohne Transport. */
+/** One side of a JSON-RPC connection: sends and answers requests, knows cancellation and progress, without transport. */
 export class RpcPeer {
   readonly #send: RpcPeerOptions["send"];
   readonly #pending = new Map<RpcId, PendingCall>();
@@ -75,17 +75,17 @@ export class RpcPeer {
 
   request(method: string, params: unknown, options: RpcCallOptions = {}): Promise<unknown> {
     if (this.#closed !== undefined) return Promise.reject(new RpcError(RPC_ERROR_CODES.connectionClosed, this.#closed));
-    if (options.signal?.aborted) return Promise.reject(new RpcError(RPC_ERROR_CODES.cancelled, "Abgebrochen"));
+    if (options.signal?.aborted) return Promise.reject(new RpcError(RPC_ERROR_CODES.cancelled, "Cancelled"));
     const id = this.#nextId++;
     return new Promise((resolve, reject) => {
       let grace: ReturnType<typeof setTimeout> | undefined;
       const timer = options.timeoutMs === undefined ? undefined : setTimeout(() => {
         this.notify(RPC_METHODS.cancel, { id } satisfies RpcCancelParams);
-        settle({ error: new RpcError(RPC_ERROR_CODES.timeout, `Keine Antwort auf ${method} innerhalb von ${options.timeoutMs} ms`) });
+        settle({ error: new RpcError(RPC_ERROR_CODES.timeout, `No response to ${method} within ${options.timeoutMs} ms`) });
       }, options.timeoutMs);
       const cancel = () => {
         this.notify(RPC_METHODS.cancel, { id } satisfies RpcCancelParams);
-        grace = setTimeout(() => settle({ error: new RpcError(RPC_ERROR_CODES.cancelled, "Abgebrochen") }), CANCEL_GRACE_MS);
+        grace = setTimeout(() => settle({ error: new RpcError(RPC_ERROR_CODES.cancelled, "Cancelled") }), CANCEL_GRACE_MS);
       };
       const settle: PendingCall["settle"] = (outcome) => {
         if (!this.#pending.delete(id)) return;
@@ -108,18 +108,18 @@ export class RpcPeer {
   }
 
   onRequest(method: string, handler: RpcRequestHandler): () => void {
-    if (this.#requestHandlers.has(method)) throw new Error(`Die Methode ${method} hat bereits einen Handler`);
+    if (this.#requestHandlers.has(method)) throw new Error(`The method ${method} already has a handler`);
     this.#requestHandlers.set(method, handler);
     return () => { if (this.#requestHandlers.get(method) === handler) this.#requestHandlers.delete(method); };
   }
 
   onNotification(method: string, handler: RpcNotificationHandler): () => void {
-    if (this.#notificationHandlers.has(method)) throw new Error(`Die Benachrichtigung ${method} hat bereits einen Handler`);
+    if (this.#notificationHandlers.has(method)) throw new Error(`The notification ${method} already has a handler`);
     this.#notificationHandlers.set(method, handler);
     return () => { if (this.#notificationHandlers.get(method) === handler) this.#notificationHandlers.delete(method); };
   }
 
-  /** Bearbeitet jede Anfrage ohne eigenen Handler, etwa der Dispatcher des Servers. */
+  /** Handles every request without its own handler, such as the dispatcher of the server. */
   fallback(handler: RpcFallbackHandler | undefined): void {
     this.#fallback = handler;
   }
@@ -152,10 +152,10 @@ export class RpcPeer {
       else pending.settle({ result: message.result });
       return;
     }
-    void this.#deliver(rpcFailure(null, RPC_ERROR_CODES.invalidRequest, "Die Nachricht ist kein gültiges JSON-RPC")).catch(() => undefined);
+    void this.#deliver(rpcFailure(null, RPC_ERROR_CODES.invalidRequest, "The message is not valid JSON-RPC")).catch(() => undefined);
   }
 
-  /** Bricht alle laufenden Handler ab, etwa wenn der Strom weg ist, über den ihre Antwort ginge; eigene Aufrufe bleiben möglich. */
+  /** Cancels all running handlers, for example when the stream their response would go through is gone; own calls stay possible. */
   cancelIncoming(): void {
     for (const controller of this.#running.values()) controller.abort();
     this.#running.clear();
@@ -203,7 +203,7 @@ export class RpcPeer {
         ? await handler(request.params, context)
         : this.#fallback
           ? await this.#fallback(request.method, request.params, context)
-          : (() => { throw new RpcError(RPC_ERROR_CODES.methodNotFound, `Unbekannte Methode: ${request.method}`); })();
+          : (() => { throw new RpcError(RPC_ERROR_CODES.methodNotFound, `Unknown method: ${request.method}`); })();
       if (this.#closed === undefined) await this.#deliver({ jsonrpc: "2.0", id: request.id, result: result === undefined ? null : result });
     } catch (error) {
       if (this.#closed === undefined) await this.#deliver(rpcFailureOf(request.id, error)).catch(() => undefined);

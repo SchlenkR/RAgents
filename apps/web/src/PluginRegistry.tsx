@@ -50,7 +50,7 @@ export interface StartOptionControlContext {
   disabled: boolean;
   error: string | undefined;
   setValue: (value: unknown) => Promise<void>;
-  /** Welche Rechner der Host für neue Runs anbietet; eine Option mit Rechnerwahl zeigt nur diese. */
+  /** Which machines the host offers for new runs; an option with a machine choice shows only these. */
   machines: OfferedMachines;
 }
 
@@ -97,7 +97,7 @@ export interface SessionContext {
   runView: unknown;
   running: boolean;
   startup?: ChatStartupStatus;
-  /** Mit entryId startet die Nachricht den Run über diese Skill-Vorlage und die Startoptionen, die er festlegt. */
+  /** With entryId the message starts the run through this skill template and the start options it fixes. */
   send: (text: string, attachments?: ChatAttachmentInput[], entryId?: string) => Promise<void>;
   session: SessionInfo;
   /** Starts the run through a run script entry, without a message; the value becomes the script's start input. */
@@ -109,7 +109,7 @@ export interface EntityReference {
   id: string;
 }
 
-/** Die Auswahl auf der Fläche: Kacheln, Actor-Zugänge und Pop-outs melden sie, die Fläche zeigt sie, der Chat meldet sie als Standort. */
+/** The selection on the surface: tiles, actor entry points and pop-outs report it, the surface shows it, the chat reports it as the location. */
 export interface SurfaceController {
   acceptSelection: (selection: EntityReference | undefined) => void;
   selection: EntityReference | undefined;
@@ -119,7 +119,7 @@ export interface ChatDisplayOptions {
   chatElementClassName?: string;
   chatScrollerRef?: (element: HTMLDivElement | null) => void;
   toolbarLeft?: ReactNode;
-  /** Steht statt des Verlaufs, solange gesetzt; die Eingabe bleibt bedienbar. */
+  /** Shown instead of the history while set; the input stays usable. */
   notice?: ReactNode;
 }
 
@@ -137,7 +137,7 @@ export interface SurfaceCenterContext {
 
 export interface SurfaceContribution {
   Center: ComponentType<SurfaceCenterContext>;
-  /** Das Run-Panel (run-panel.html) mit demselben Kontext; ohne Beitrag zeigt es nur den Chat. */
+  /** The run panel (run-panel.html) with the same context; without a contribution it shows only the chat. */
   RunPanel?: ComponentType<SurfaceCenterContext>;
 }
 
@@ -203,7 +203,7 @@ export interface WorkspaceTabContribution {
   Panel: ComponentType<WorkspaceTabContext>;
   Badge?: ComponentType<WorkspaceTabContext>;
   available?: (session: SessionContext) => boolean;
-  /** Der Reiter braucht den Arbeitsbereich des Runs und fehlt, wo der Betrachter ihn nicht erreicht. */
+  /** The tab needs the run's workspace and is missing where the viewer cannot reach it. */
   requiresWorkspace?: boolean;
   keepMounted?: boolean;
 }
@@ -215,7 +215,7 @@ export interface SessionHeaderContext {
 
 export interface SessionHeaderContribution {
   readRight?: string;
-  /** Der Beitrag braucht den Arbeitsbereich des Runs und fehlt, wo der Betrachter ihn nicht erreicht. */
+  /** The contribution needs the run's workspace and is missing where the viewer cannot reach it. */
   requiresWorkspace?: boolean;
   placement?: "header" | "surface";
   id: string;
@@ -287,7 +287,7 @@ export interface SessionMetadataContribution {
   Metadata: ComponentType<SessionMetadataContext>;
 }
 
-/** Die Darstellung einer wartenden Aktion durch das Plugin, dem sie gehört. */
+/** How a waiting action is shown by the plugin that owns it. */
 export interface ActionViewContext {
   action: PendingAction;
   text: string;
@@ -358,11 +358,11 @@ export interface ProductProfile {
   plugins: WebPlugin[];
   product: ProductDescriptor;
   startEntries: readonly StartEntry[];
-  /** Die Vorlage, die die Startauswahl statt Neuer Chat zuerst zeigt; der Server nennt sie nur, wenn er sie auch liefert. */
+  /** The template the start selection shows first instead of New chat; the server names it only if it also delivers it. */
   defaultStartEntry?: string;
 }
 
-/** Einen Run, den der Server noch nicht gelistet hat, zeigt die Oberfläche als erreichbar; jeden Zugriff prüft der Server selbst. */
+/** The interface shows a run the server has not listed yet as reachable; the server checks every access itself. */
 export const workspaceAccessible = (session: SessionInfo): boolean => session.workspaceAccessible !== false;
 
 export class PluginRegistry {
@@ -405,88 +405,88 @@ export class PluginRegistry {
     const brands = [profile.brand, ...this.activePlugins.map((plugin) => plugin.brand)]
       .filter((brand): brand is ProductBrand => brand !== undefined);
     if (brands.length === 0) {
-      throw new Error("Kein aktives Plugin liefert ein Branding; die Plugin-Liste enthält kein Produkt-Plugin");
+      throw new Error("No active plugin provides branding; the plugin list contains no product plugin");
     }
-    if (brands.length > 1) throw new Error(`Das Profil benötigt genau ein Branding, gefunden: ${brands.length}`);
+    if (brands.length > 1) throw new Error(`The profile needs exactly one branding, found: ${brands.length}`);
     this.brand = brands[0];
     this.workspaceTabs = this.activePlugins
       .flatMap((plugin) => plugin.workspaceTabs ?? [])
       .sort(byTabOrder);
-    assertUnique(this.workspaceTabs, (tab) => tab.id, "Reiter der Leiste");
+    assertUnique(this.workspaceTabs, (tab) => tab.id, "Sidebar tab");
     this.workspaceTabFactories = this.activePlugins
       .flatMap((plugin) => plugin.workspaceTabsFor ? [plugin.workspaceTabsFor] : []);
     const surfaces = this.activePlugins.flatMap((plugin) => plugin.surface ? [plugin.surface] : []);
-    if (surfaces.length > 1) throw new Error(`Mehrere Flächenbeiträge registriert: ${surfaces.length}`);
+    if (surfaces.length > 1) throw new Error(`Multiple surface contributions registered: ${surfaces.length}`);
     this.surface = surfaces[0];
     this.surfaceElements = this.activePlugins
       .flatMap((plugin) => plugin.surfaceElements ?? [])
       .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
-    assertUnique(this.surfaceElements, (element) => element.id, "Flächenelement-Beitrag");
+    assertUnique(this.surfaceElements, (element) => element.id, "Surface element contribution");
     this.cardSections = this.activePlugins
       .flatMap((plugin) => plugin.cardSections ?? [])
       .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
-    assertUnique(this.cardSections, (section) => section.id, "Karten-Abschnitt");
+    assertUnique(this.cardSections, (section) => section.id, "Card section");
     this.needsRunView = this.activePlugins.some((plugin) => plugin.needsRunView);
     const chatPolicies = this.activePlugins.flatMap((plugin) => plugin.chatDisplayPolicy ? [plugin.chatDisplayPolicy] : []);
-    if (chatPolicies.length > 1) throw new Error(`Mehrere Chat-Display-Policies registriert: ${chatPolicies.length}`);
+    if (chatPolicies.length > 1) throw new Error(`Multiple chat display policies registered: ${chatPolicies.length}`);
     this.chatDisplayPolicy = chatPolicies[0] ?? defaultChatDisplayPolicy;
     const startOptions = this.activePlugins.flatMap((plugin) => plugin.startOptions ?? []);
-    assertUnique(startOptions, (option) => option.id, "Startoption");
+    assertUnique(startOptions, (option) => option.id, "Start option");
     this.startOptions = new Map(startOptions.map((option) => [option.id, option]));
 
     const toolPresenters = this.activePlugins.flatMap((plugin) => plugin.toolPresenters ?? []);
-    assertUnique(toolPresenters, (presenter) => presenter.toolName, "Tool-Presenter");
+    assertUnique(toolPresenters, (presenter) => presenter.toolName, "Tool presenter");
     this.toolPresenters = new Map(toolPresenters.map((presenter) => [presenter.toolName, presenter]));
     this.entityPresenters = this.activePlugins.flatMap((plugin) => plugin.entityPresenters ?? []);
     const active = new Set(this.activePlugins.map((plugin) => plugin.id));
     this.startEntries = profile.startEntries.filter((entry) => active.has(entry.owner));
-    assertUnique(this.startEntries, (entry) => entry.id, "Vorlage");
+    assertUnique(this.startEntries, (entry) => entry.id, "Template");
     if (profile.defaultStartEntry !== undefined && !this.startEntries.some((entry) => entry.id === profile.defaultStartEntry)) {
-      throw new Error(`Die Default-Vorlage ${profile.defaultStartEntry} ist keine Vorlage eines aktiven Plugins`);
+      throw new Error(`The default template ${profile.defaultStartEntry} is not a template of an active plugin`);
     }
     this.defaultStartEntry = profile.defaultStartEntry;
     this.skillEntries = this.startEntries.filter((entry): entry is SkillStartEntry => entry.action === "skill");
     this.scriptEntries = this.startEntries.filter((entry): entry is ScriptStartEntry => entry.action === "script");
     const guides = this.activePlugins.flatMap((plugin) => plugin.guides ?? []);
-    assertUnique(guides, (guide) => guide.id, "Leitfaden");
+    assertUnique(guides, (guide) => guide.id, "Guide");
     this.guides = new Map(guides.map((guide) => [guide.id, guide]));
     for (const entry of this.startEntries) {
       if (entry.guide !== undefined && !this.guides.has(entry.guide)) {
-        throw new Error(`Vorlage ${entry.id} verlangt den Leitfaden ${entry.guide}, den kein aktives Plugin bereitstellt`);
+        throw new Error(`Template ${entry.id} requires the guide ${entry.guide}, which no active plugin provides`);
       }
     }
     this.sessionHeaders = this.activePlugins
       .flatMap((plugin) => plugin.sessionHeaders ?? [])
       .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
-    assertUnique(this.sessionHeaders, (header) => header.id, "Session-Kopfbeitrag");
+    assertUnique(this.sessionHeaders, (header) => header.id, "Session header contribution");
     this.sessionStatus = this.activePlugins
       .flatMap((plugin) => plugin.sessionStatus ?? [])
       .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
-    assertUnique(this.sessionStatus, (status) => status.id, "Session-Statusbeitrag");
+    assertUnique(this.sessionStatus, (status) => status.id, "Session status contribution");
     this.overviewPanels = this.activePlugins
       .flatMap((plugin) => plugin.overviewPanels ?? [])
       .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
-    assertUnique(this.overviewPanels, (panel) => panel.id, "Übersichtsbeitrag");
+    assertUnique(this.overviewPanels, (panel) => panel.id, "Overview contribution");
     this.settings = this.activePlugins
       .flatMap((plugin) => (plugin.settings ?? []).map((contribution) => ({ ...contribution, owner: plugin.id })))
       .sort((left, right) => (left.order ?? 0) - (right.order ?? 0) || left.id.localeCompare(right.id));
-    assertUnique(this.settings, (contribution) => contribution.id, "Einstellungsbeitrag");
+    assertUnique(this.settings, (contribution) => contribution.id, "Settings contribution");
     this.sessionMetadata = this.activePlugins
       .flatMap((plugin) => plugin.sessionMetadata ?? [])
       .sort((left, right) => left.order - right.order || left.id.localeCompare(right.id));
-    assertUnique(this.sessionMetadata, (metadata) => metadata.id, "Session-Metadaten");
+    assertUnique(this.sessionMetadata, (metadata) => metadata.id, "Session metadata");
     const actionViews = this.activePlugins.flatMap((plugin) => plugin.actionViews ?? []);
-    assertUnique(actionViews, (view) => view.owner, "Aktionsdarstellung");
+    assertUnique(actionViews, (view) => view.owner, "Action view");
     this.actionViews = new Map(actionViews.map((view) => [view.owner, view]));
     this.attention = this.activePlugins.flatMap((plugin) => plugin.attention ?? []);
-    assertUnique(this.attention, (contribution) => contribution.id, "Attention-Beitrag");
+    assertUnique(this.attention, (contribution) => contribution.id, "Attention contribution");
   }
 
   registeredTabs(session: SessionContext, access: AccessContext = unrestrictedAccess): readonly WorkspaceTabContribution[] {
     if (this.workspaceTabFactories.length === 0) return this.workspaceTabs.filter((tab) => !tab.readRight || access.can(tab.readRight));
     const contributed = this.workspaceTabFactories.flatMap((factory) => factory(session));
     const tabs = [...this.workspaceTabs, ...contributed].sort(byTabOrder);
-    assertUnique(tabs, (tab) => tab.id, "Reiter der Leiste");
+    assertUnique(tabs, (tab) => tab.id, "Sidebar tab");
     return tabs.filter((tab) => !tab.readRight || access.can(tab.readRight));
   }
 
@@ -526,12 +526,12 @@ export const pluginRoutePrefixFrom = (
 ): string => {
   const expected = `/api/plugins/${pluginId}`;
   if (config.routePrefix === undefined) {
-    throw new Error(`Plugin-Konfiguration für ${pluginId} enthält keinen routePrefix`);
+    throw new Error(`Plugin configuration for ${pluginId} has no routePrefix`);
   }
   if (config.routePrefix !== expected) {
     throw new Error(
-      `Plugin-Konfiguration für ${pluginId} enthält einen falschen routePrefix: `
-      + `${String(config.routePrefix)} statt ${expected}`,
+      `Plugin configuration for ${pluginId} has a wrong routePrefix: `
+      + `${String(config.routePrefix)} instead of ${expected}`,
     );
   }
   return config.routePrefix;
@@ -543,23 +543,23 @@ export const chatDisplayPolicyFrom = (
 ): ChatDisplayPolicy => {
   const raw = config.chatSteps;
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-    throw new Error(`Plugin-Konfiguration für ${pluginId} enthält kein chatSteps-Objekt`);
+    throw new Error(`Plugin configuration for ${pluginId} has no chatSteps object`);
   }
   const { modes, stepsVisible, stepsExpandable, selectable } = raw as Record<string, unknown>;
   if (typeof stepsVisible !== "boolean" || typeof stepsExpandable !== "boolean" || typeof selectable !== "boolean") {
     throw new Error(
-      `chatSteps von ${pluginId} braucht boolesche Felder stepsVisible, stepsExpandable und selectable`,
+      `chatSteps of ${pluginId} needs the boolean fields stepsVisible, stepsExpandable and selectable`,
     );
   }
   if (typeof modes !== "object" || modes === null || Array.isArray(modes)) {
-    throw new Error(`chatSteps von ${pluginId} enthält kein modes-Objekt`);
+    throw new Error(`chatSteps of ${pluginId} has no modes object`);
   }
   const entries = CHAT_STEP_SCOPES.map((scope) => {
     const mode = (modes as Record<string, unknown>)[scope];
     if (!DETAIL_MODES.includes(mode as DetailMode)) {
       throw new Error(
-        `chatSteps.modes.${scope} von ${pluginId} muss einer der Werte ${DETAIL_MODES.join(", ")} sein, `
-        + `nicht ${String(mode)}`,
+        `chatSteps.modes.${scope} of ${pluginId} must be one of the values ${DETAIL_MODES.join(", ")}, `
+        + `not ${String(mode)}`,
       );
     }
     return [scope, mode as DetailMode] as const;
@@ -630,7 +630,7 @@ export function primaryChatActor(view: unknown): string {
   return view !== null && typeof view === "object" && "primaryActorId" in view && typeof view.primaryActorId === "string" ? view.primaryActorId : "primary";
 }
 
-/** display unterscheidet Anzeigeorte desselben Chats (Fläche, Inspector, Popout); jeder merkt sich seinen Detailgrad. */
+/** display distinguishes places that show the same chat (surface, inspector, pop-out); each remembers its detail level. */
 export function useChatSteps(runId?: string, actorId = "primary", display?: string): ChatStepsControl {
   const control = useContext(ChatStepsContext);
   const identity = runId === undefined ? undefined : JSON.stringify(display === undefined ? [runId, actorId] : [runId, actorId, display]);
@@ -694,8 +694,8 @@ const assertUnique = <T,>(values: readonly T[], keyOf: (value: T) => string, lab
   const keys = new Set<string>();
   for (const value of values) {
     const key = keyOf(value);
-    if (!key) throw new Error(`${label} ohne ID`);
-    if (keys.has(key)) throw new Error(`${label} doppelt registriert: ${key}`);
+    if (!key) throw new Error(`${label} without ID`);
+    if (keys.has(key)) throw new Error(`${label} registered twice: ${key}`);
     keys.add(key);
   }
 };
@@ -706,10 +706,10 @@ const activatePlugin = (plugin: WebPlugin, config: Readonly<Record<string, unkno
     activated = plugin.activate?.(config) ?? plugin;
   } catch (caught) {
     const message = caught instanceof Error ? caught.message : String(caught);
-    throw new Error(`Plugin-Aktivierung fehlgeschlagen: ${plugin.id}: ${message}`);
+    throw new Error(`Plugin activation failed: ${plugin.id}: ${message}`);
   }
   if (activated.id !== plugin.id) {
-    throw new Error(`Plugin-Aktivierung hat den Descriptor verändert: ${plugin.id}`);
+    throw new Error(`Plugin activation changed the descriptor: ${plugin.id}`);
   }
   return activated;
 };

@@ -1,4 +1,4 @@
-// Der Katalog ist auf den einzigen genutzten Provider reduziert.
+// The catalog is reduced to the only provider in use.
 import { OPENROUTER_MODELS } from "./providers/openrouter.models.ts";
 
 export const MODELS = {

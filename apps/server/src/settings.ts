@@ -125,7 +125,7 @@ const toolsSettings = (plugins: PluginHost): readonly PublicToolDescriptor[] => 
   ];
   const names = new Set<string>();
   for (const tool of tools) {
-    if (names.has(tool.name)) throw new Error(`Werkzeug ${tool.name} ist im öffentlichen Katalog mehrfach registriert`);
+    if (names.has(tool.name)) throw new Error(`Tool ${tool.name} is registered more than once in the public catalog`);
     names.add(tool.name);
   }
   return tools;

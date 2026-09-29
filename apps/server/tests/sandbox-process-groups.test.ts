@@ -107,7 +107,7 @@ for (const output of [new Error("ps denied"), "", "unreadable process row"]) {
       return originalKill(pid, signal);
     });
     mockProcessTable(t, output);
-    await assert.rejects(processGroupExists(987654), /ps denied|ungültige Prozessliste/);
+    await assert.rejects(processGroupExists(987654), /ps denied|invalid process list/);
   });
 }
 
@@ -148,7 +148,7 @@ test("macOS treats empty or unknown state columns as present, skips unparsable r
   assert.equal(await processGroupExists(202), false);
   assert.equal(await processGroupExists(303), false);
   mockProcessTable(t, " S+\n\n");
-  await assert.rejects(processGroupExists(101), /ungültige Prozessliste/);
+  await assert.rejects(processGroupExists(101), /invalid process list/);
 });
 
 test("Bash reports failed process inspection instead of reporting success", { skip: !darwin }, async (t) => {
@@ -217,7 +217,7 @@ test("Bash rejects promptly when both group termination and child.kill throw", {
   const running = bash.execute("kill-denied", { command: "printf 'ready\\n'; sleep 2" }, abort.signal, (result) => {
     if (result.content.some((entry) => entry.text?.includes("ready"))) started();
   });
-  const rejected = assert.rejects(running, /Bash-Prozess konnte nicht beendet werden/);
+  const rejected = assert.rejects(running, /Bash process could not be ended/);
   await ready;
   abort.abort();
   await rejected;

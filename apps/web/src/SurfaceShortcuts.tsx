@@ -51,10 +51,10 @@ export function SurfaceShortcuts({ children }: { children: ReactNode }) {
   };
 
   return <div className="flex min-w-0 flex-1" ref={containerRef}>
-    {scroll.overflow && <ToolbarItem as="button" aria-controls={id} aria-label="Apps und Actors nach links" className="w-8 justify-center px-0" disabled={!scroll.left} onClick={() => move(-1)} title="Nach links blättern" type="button"><ChevronLeftIcon size={18} /></ToolbarItem>}
-    <div aria-label="Apps und Actors durchblättern" className="flex min-w-0 flex-1 items-stretch overflow-x-auto no-scrollbar focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:-outline-offset-3" id={id} ref={viewportRef} role="group" tabIndex={0}>
+    {scroll.overflow && <ToolbarItem as="button" aria-controls={id} aria-label="Scroll apps and actors left" className="w-8 justify-center px-0" disabled={!scroll.left} onClick={() => move(-1)} title="Scroll left" type="button"><ChevronLeftIcon size={18} /></ToolbarItem>}
+    <div aria-label="Browse apps and actors" className="flex min-w-0 flex-1 items-stretch overflow-x-auto no-scrollbar focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:-outline-offset-3" id={id} ref={viewportRef} role="group" tabIndex={0}>
       <div className="flex w-max flex-none items-stretch" ref={contentRef}>{children}</div>
     </div>
-    {scroll.overflow && <ToolbarItem as="button" aria-controls={id} aria-label="Apps und Actors nach rechts" className="w-8 justify-center border-r-0 border-l border-border px-0 [&>svg]:rotate-180" disabled={!scroll.right} onClick={() => move(1)} title="Nach rechts blättern" type="button"><ChevronLeftIcon size={18} /></ToolbarItem>}
+    {scroll.overflow && <ToolbarItem as="button" aria-controls={id} aria-label="Scroll apps and actors right" className="w-8 justify-center border-r-0 border-l border-border px-0 [&>svg]:rotate-180" disabled={!scroll.right} onClick={() => move(1)} title="Scroll right" type="button"><ChevronLeftIcon size={18} /></ToolbarItem>}
   </div>;
 }

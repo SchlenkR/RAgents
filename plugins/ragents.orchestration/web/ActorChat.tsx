@@ -14,7 +14,7 @@ export function ActorChat({ actor, view, presentation, display = presentation, p
   actor: RunActor;
   view: RunView;
   presentation: "surface" | "inspector";
-  /** Schlüssel der Anzeigefläche für den gemerkten Detailgrad; Default ist die Darstellung. */
+  /** Key of the display surface for the remembered detail level; defaults to the presentation. */
   display?: string;
   primaryMessages?: readonly Message[];
   conversation?: readonly Message[];
@@ -43,7 +43,7 @@ export function ActorChat({ actor, view, presentation, display = presentation, p
     <ChatMessages
     className={className}
     detailMode={detailMode}
-    emptyState={<Empty><EmptyHeader><EmptyTitle>{actor.kind === "script" ? "Noch kein Verlauf" : "Noch kein Gespräch"}</EmptyTitle><EmptyDescription>{actor.kind === "script" ? "Hier erscheinen Programmeingaben und ihre Verarbeitung." : "Schreibe eine Nachricht, um das Gespräch zu beginnen."}</EmptyDescription></EmptyHeader></Empty>}
+    emptyState={<Empty><EmptyHeader><EmptyTitle>{actor.kind === "script" ? "No history yet" : "No conversation yet"}</EmptyTitle><EmptyDescription>{actor.kind === "script" ? "Program inputs and their processing appear here." : "Write a message to start the conversation."}</EmptyDescription></EmptyHeader></Empty>}
     messages={messages}
     renderAction={renderAction}
     renderTool={renderTool}

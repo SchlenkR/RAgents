@@ -30,7 +30,7 @@ const errorLines = (error: unknown): string[] => {
   const complete = error instanceof Error ? (error as { lines?: unknown }).lines : undefined;
   if (Array.isArray(complete) && complete.every((line) => typeof line === "string")) return [...new Set(complete as string[])];
   const lines = messageOf(error).split("\n").map((line) => line.trim()).filter(Boolean);
-  const issues = lines.filter((line) => !/^(Build failed with \d+ errors?:|.*(?:Typprüfung|Typecheck|Diagnostik).*:)$/i.test(line));
+  const issues = lines.filter((line) => !/^(Build failed with \d+ errors?:|.*(?:Typecheck|Diagnostics).*:)$/i.test(line));
   return [...new Set(issues.length ? issues : lines)];
 };
 const allErrors = (snapshot: ProjectDiagnosticsSnapshot): string[] => Object.entries(snapshot.programs)
@@ -71,7 +71,7 @@ export const createProjectDiagnostics = (options: ProjectDiagnosticsOptions) => 
           let fingerprint: string;
           let errors: string[] = [];
           try {
-            if (entry.isSymbolicLink()) throw new Error("Actor-Projekte dürfen keine Symlinks sein.");
+            if (entry.isSymbolicLink()) throw new Error("Actor projects must not be symlinks.");
             fingerprint = fingerprintOf(await projectSourceFiles(path.join(directory, entry.name)));
           } catch (error) {
             errors = errorLines(error);
@@ -108,13 +108,13 @@ export const createProjectDiagnostics = (options: ProjectDiagnosticsOptions) => 
       const after = new Set(allErrors(next));
       const added = [...after].filter((error) => !before.has(error));
       const resolved = [...before].filter((error) => !after.has(error));
-      const changes = [...added.map((error) => `Neu: ${error}`), ...resolved.map((error) => `Behoben: ${error}`)];
+      const changes = [...added.map((error) => `New: ${error}`), ...resolved.map((error) => `Fixed: ${error}`)];
       const lines = changes.slice(0, maxDeltaLines).map((line) => line.length > maxLineLength ? `${line.slice(0, maxLineLength - 3)}...` : line);
       const omitted = changes.length - lines.length;
       return [
-        `Actor-Programm-Projektprüfung (TypeScript und Build): ${after.size} Fehler in ${Object.keys(next.programs).length} Projekten; ${added.length} neu, ${resolved.length} behoben.`,
+        `Actor program project check (TypeScript and build): ${after.size} errors in ${Object.keys(next.programs).length} projects; ${added.length} new, ${resolved.length} fixed.`,
         ...lines,
-        ...(omitted > 0 ? [`${omitted} weitere Änderungen. Vollständiger letzter Stand: actor_program_diagnostics.`] : []),
+        ...(omitted > 0 ? [`${omitted} more changes. Complete last state: actor_program_diagnostics.`] : []),
       ].join("\n");
     },
   };
@@ -122,11 +122,11 @@ export const createProjectDiagnostics = (options: ProjectDiagnosticsOptions) => 
     contribution,
     latest(runId: string, actorId: string, programName?: string): string {
       const snapshot = snapshots.get(runId)?.get(actorId);
-      if (!snapshot) return "Noch kein Actor-Programm-Projektstand für diesen Agenten geprüft.";
+      if (!snapshot) return "No actor program project state checked for this agent yet.";
       const programs = Object.entries(snapshot.programs).filter(([id]) => programName === undefined || id === programName);
-      if (programs.length === 0) return programName ? `Kein geprüfter Projektstand für ${programName}.` : "Keine Actor-Programm-Projekte vorhanden.";
+      if (programs.length === 0) return programName ? `No checked project state for ${programName}.` : "No actor program projects exist.";
       return programs.sort(([left], [right]) => left.localeCompare(right)).map(([id, program]) =>
-        [`${id}: ${program.errors.length} Fehler`, ...program.errors].join("\n")).join("\n\n");
+        [`${id}: ${program.errors.length} errors`, ...program.errors].join("\n")).join("\n\n");
     },
     forget(runId: string): void { snapshots.delete(runId); },
   };

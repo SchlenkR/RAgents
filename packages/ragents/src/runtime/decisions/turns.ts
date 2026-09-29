@@ -202,7 +202,7 @@ export const recordToolCallSource =
         return [event(context, { type: "tool.call.source", payload: input })];
     };
 
-const failureText = (error: string | null | undefined) => error?.trim() || "Fehler ohne Ursache";
+const failureText = (error: string | null | undefined) => error?.trim() || "Error without a cause";
 
 export const failToolCall =
     (actorId: string, input: { turnId: string; toolCallId: string; name: string; error: string }): Decision =>

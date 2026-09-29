@@ -38,12 +38,12 @@ export const errorHtml = ({ nonce, title, message }: { nonce: string; title: str
 
 export const serverOrigin = (serverUrl: string): string => new URL(serverUrl).origin;
 
-/** Das Webview ist nur eine Hülle: ein iframe auf run-panel.html, ein Skript für die Nachrichten zur Erweiterung und der Zugriff auf die Zwischenablage, den das iframe nicht hat. */
+/** The webview is only a shell: an iframe on run-panel.html, a script for the messages to the extension, and the clipboard access the iframe does not have. */
 export const frameHtml = ({ serverUrl, query, nonce, title, zoom = 100 }: FrameOptions): string => {
   const origin = serverOrigin(serverUrl);
   const url = runPanelPageUrl(serverUrl, query);
   return `<!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; frame-src ${origin}; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}';">
@@ -95,15 +95,15 @@ export interface PanelPageOptions {
   title: string;
   zoom?: number;
   state: PanelState;
-  /** Die gebaute Seite aus dist/webview, als Webview-Adressen, plus die CSP-Quelle des Webviews. */
+  /** The built page from dist/webview, as webview addresses, plus the CSP source of the webview. */
   scriptUri: string;
   styleUri: string;
   cspSource: string;
 }
 
-/** Ohne geöffneten Run zeigt das Panel die Seite des Webs (React, Tailwind) aus den Dateien der Erweiterung. */
+/** Without an open run, the panel shows the web page (React, Tailwind) from the extension's files. */
 export const panelHtml = ({ nonce, title, state, scriptUri, styleUri, cspSource, zoom = 100 }: PanelPageOptions): string => `<!DOCTYPE html>
-<html lang="de" data-theme="${state.theme}">
+<html lang="en" data-theme="${state.theme}">
 <head>
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'nonce-${nonce}'; style-src ${cspSource} 'unsafe-inline'; font-src ${cspSource}; img-src ${cspSource} data:;">

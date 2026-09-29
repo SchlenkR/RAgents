@@ -73,15 +73,15 @@ export const processExists = (pid: number): boolean => {
   }
 };
 
-/** Windows kennt keine Prozessgruppe und kein SIGKILL: der Baum geht über taskkill /T /F, und zwar ohne Wartezusage. */
+/** Windows knows no process group and no SIGKILL: the tree goes through taskkill /T /F, and without a promise to wait. */
 export const stopProcessTree = (pid: number): void => {
   if (processExists(pid)) killProcessTree(pid);
 };
 
-/** Markiert unter Windows die Prozesse eines bash-Aufrufs: MSYS hängt die Kinder der Bash nicht an deren Windows-Prozessbaum, taskkill /T erreicht sie nicht. */
+/** Marks the processes of a bash call on Windows: MSYS does not attach the children of the bash to its Windows process tree, so taskkill /T does not reach them. */
 export const MSYS_CALL_ENV = "RAGENTS_BASH_CALL";
 
-/** Die Windows-Kennungen aller MSYS-Prozesse in den Prozessgruppen, in denen ein Prozess die Markierung trägt, auch nach dem Ende der Bash selbst. */
+/** The Windows ids of all MSYS processes in the process groups in which a process carries the marker, even after the bash itself has ended. */
 const msysGroupScript = (marker: string): string => [
   "groups=' '",
   `for d in /proc/[0-9]*; do tr '\\0' '\\n' < "$d/environ" 2>/dev/null | grep -qxF '${MSYS_CALL_ENV}=${marker}' && groups="$groups$(cat "$d/pgid") "; done`,
@@ -93,16 +93,16 @@ const execFileText = (file: string, args: readonly string[], env?: NodeJS.Proces
     execFile(file, [...args], { env, windowsHide: true, timeout: 15_000 }, (error, stdout) => resolve({ stdout, error }));
   });
 
-/** Beendet unter Windows alles, was ein bash-Aufruf mit dieser Markierung gestartet hat, samt den nativen Bäumen darunter. */
+/** Ends on Windows everything that a bash call with this marker started, including the native trees below it. */
 export const stopMsysCall = async (bash: string, env: NodeJS.ProcessEnv, marker: string): Promise<void> => {
   const launch = bashLaunch({ bash, rg: undefined }, msysGroupScript(marker), env, "win32");
   const listing = await execFileText(launch.command, launch.args, launch.env);
-  if (listing.error) throw new Error(`Die Prozesse des bash-Aufrufs ließen sich nicht ermitteln: ${listing.error.message}`);
+  if (listing.error) throw new Error(`The processes of the bash call could not be determined: ${listing.error.message}`);
   const winpids = [...new Set(listing.stdout.split(/\s+/).filter((pid) => /^\d+$/.test(pid)))];
   if (winpids.length === 0) return;
   await execFileText("taskkill", ["/F", "/T", ...winpids.flatMap((pid) => ["/PID", pid])]);
   const alive = winpids.filter((pid) => processExists(Number(pid)));
-  if (alive.length > 0) throw new Error(`Die Prozesse ${alive.join(", ")} des bash-Aufrufs laufen nach taskkill weiter`);
+  if (alive.length > 0) throw new Error(`The processes ${alive.join(", ")} of the bash call keep running after taskkill`);
 };
 
 const darwinProcessGroupExists = (pid: number): Promise<boolean> =>
@@ -114,7 +114,7 @@ const darwinProcessGroupExists = (pid: number): Promise<boolean> =>
       }
       const rows = stdout.split("\n").map((line) => /^\s*(\d+)\s*(\S*)\s*$/.exec(line)).filter((row) => row !== null);
       if (rows.length === 0) {
-        reject(new Error(`macOS-Prozessgruppe ${pid}: ungültige Prozessliste: ${stdout.slice(0, 200)}`));
+        reject(new Error(`macOS process group ${pid}: invalid process list: ${stdout.slice(0, 200)}`));
         return;
       }
       resolve(rows.some((row) => Number(row[1]) === pid && !row[2].startsWith("Z")));
@@ -192,7 +192,7 @@ const joinProcessGroup = async (
     while (await processGroupExists(pid)) {
       if (Date.now() >= deadline) {
         throw new ProcessGroupJoinError(
-          `${label}: Prozessgruppe ${pid} konnte nicht beendet werden`,
+          `${label}: process group ${pid} could not be ended`,
         );
       }
       await new Promise<void>((finish) => setTimeout(finish, PROCESS_GROUP_POLL_MS));
@@ -201,7 +201,7 @@ const joinProcessGroup = async (
     if (error instanceof ProcessGroupJoinError) throw error;
     const detail = error instanceof Error ? error.message : String(error);
     throw new ProcessGroupJoinError(
-      `${label}: Prozessgruppe ${pid} konnte nicht geprüft werden: ${detail}`,
+      `${label}: process group ${pid} could not be checked: ${detail}`,
     );
   }
 };
@@ -212,7 +212,7 @@ export const runManagedProcess = (options: ManagedProcessOptions): Promise<Manag
       const reason = options.signal?.reason;
       return reason instanceof Error
         ? reason
-        : new Error(`${options.label} wurde abgebrochen`);
+        : new Error(`${options.label} was cancelled`);
     };
     if (options.signal?.aborted) {
       reject(abortError());
@@ -247,7 +247,7 @@ export const runManagedProcess = (options: ManagedProcessOptions): Promise<Manag
       terminationTimer = setTimeout(() => {
         sendSignal("SIGKILL");
         processError ??= new ProcessGroupJoinError(
-          `${options.label}: Prozessgruppe ${pid ?? "unbekannt"} hat die Beendigungsfrist überschritten`,
+          `${options.label}: process group ${pid ?? "unknown"} exceeded the termination grace period`,
         );
         child.stdout?.destroy();
         child.stderr?.destroy();
@@ -350,7 +350,7 @@ export const startManagedService = (options: ManagedServiceOptions): ManagedServ
     finished,
     exited: () => exited,
     send: (message) => new Promise<void>((resolve, reject) => {
-      if (!child.connected) return reject(new Error(`${options.label}: IPC-Verbindung ist geschlossen`));
+      if (!child.connected) return reject(new Error(`${options.label}: IPC connection is closed`));
       child.send(message as import("node:child_process").Serializable, (error) => error ? reject(error) : resolve());
     }),
   };

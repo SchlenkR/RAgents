@@ -19,7 +19,7 @@ const model: Model<"openai-completions"> = {
 };
 
 const context: Context = {
-	messages: [{ role: "user", content: "Hallo", timestamp: 1 }],
+	messages: [{ role: "user", content: "Hello", timestamp: 1 }],
 	tools: [{ name: "echo", description: "Echo", parameters: Type.Object({ text: Type.String() }) }],
 };
 
@@ -27,7 +27,7 @@ test("SDK requests retain routing, mapped effort, cache boundaries and context l
 	const requests: Array<{ body: Record<string, any>; headers: Headers }> = [];
 	t.mock.method(globalThis, "fetch", async (_input: unknown, init: RequestInit) => {
 		requests.push({ body: JSON.parse(String(init.body)), headers: new Headers(init.headers) });
-		return response([chunk({ content: "Hallo" }, "stop")]);
+		return response([chunk({ content: "Hello" }, "stop")]);
 	});
 	const routedModel: Model<"openai-completions"> = {
 		...model,
@@ -37,7 +37,7 @@ test("SDK requests retain routing, mapped effort, cache boundaries and context l
 		compat: { openRouterRouting: { sort: "latency", allow_fallbacks: false } },
 	};
 	for (const cacheRetention of ["long", "none"] as const) {
-		const result = await streamSimple(routedModel, { ...context, systemPrompt: "Systemregeln" }, {
+		const result = await streamSimple(routedModel, { ...context, systemPrompt: "System rules" }, {
 			apiKey: "test-only",
 			reasoning: "high",
 			cacheRetention,
@@ -63,7 +63,7 @@ test("parallel tool results carry one cache boundary, so the request stays at sy
 	const bodies: Array<Record<string, any>> = [];
 	t.mock.method(globalThis, "fetch", async (_input: unknown, init: RequestInit) => {
 		bodies.push(JSON.parse(String(init.body)));
-		return response([chunk({ content: "Fertig" }, "stop")]);
+		return response([chunk({ content: "Done" }, "stop")]);
 	});
 	const anthropic: Model<"openai-completions"> = { ...model, id: "anthropic/test" };
 	for (const calls of [1, 2, 3, 8]) {
@@ -74,7 +74,7 @@ test("parallel tool results carry one cache boundary, so the request stays at sy
 			content: ids.map((id) => ({ type: "toolCall", id, name: "echo", arguments: { text: id } })),
 		};
 		const results = ids.map((id): ToolResultMessage => ({ role: "toolResult", toolCallId: id, toolName: "echo", isError: false, timestamp: 3, content: [{ type: "text", text: id }] }));
-		const result = await streamSimple(anthropic, { ...context, systemPrompt: "Systemregeln", messages: [...context.messages, request, ...results] }, { apiKey: "test-only" }).result();
+		const result = await streamSimple(anthropic, { ...context, systemPrompt: "System rules", messages: [...context.messages, request, ...results] }, { apiKey: "test-only" }).result();
 		assert.equal(result.errorMessage, undefined, `${calls} calls`);
 		const body = bodies.at(-1)!;
 		assert.equal(cacheMarksOf(body), 3, `${calls} calls`);
@@ -107,10 +107,10 @@ async function collect(source: ReturnType<typeof stream>) {
 
 test("text, thinking and parallel tools retain their indices and balanced event lifecycles", async (t) => {
 	t.mock.method(globalThis, "fetch", async () => response([
-		chunk({ reasoning: "Prüfe " }),
-		chunk({ reasoning: "beide." }),
-		chunk({ content: "Ich " }),
-		chunk({ content: "prüfe." }),
+		chunk({ reasoning: "Checking " }),
+		chunk({ reasoning: "both." }),
+		chunk({ content: "I " }),
+		chunk({ content: "check." }),
 		chunk({ tool_calls: [{ index: 0, id: "call-a", type: "function", function: { name: "echo", arguments: "{" } }] }),
 		chunk({ tool_calls: [{ index: 1, id: "call-b", type: "function", function: { name: "echo", arguments: "{" } }] }),
 		chunk({ tool_calls: [{ index: 1, function: { arguments: '"text":"B"}' } }] }),
@@ -139,15 +139,15 @@ test("text, thinking and parallel tools retain their indices and balanced event 
 			assert.equal(event.partial.content[contentIndex]?.type, result.content[contentIndex]?.type);
 		}
 	}
-	assert.deepEqual(events.filter((event) => event.type === "thinking_delta").map((event) => event.delta), ["Prüfe ", "beide."]);
-	assert.deepEqual(events.filter((event) => event.type === "text_delta").map((event) => event.delta), ["Ich ", "prüfe."]);
+	assert.deepEqual(events.filter((event) => event.type === "thinking_delta").map((event) => event.delta), ["Checking ", "both."]);
+	assert.deepEqual(events.filter((event) => event.type === "text_delta").map((event) => event.delta), ["I ", "check."]);
 	assert.ok(events.findIndex((event) => event.type === "thinking_end") < events.findIndex((event) => event.type === "text_start"));
 });
 
 for (const encryptedOnly of [false, true]) {
 	test(`reasoning details survive a follow-up prompt (${encryptedOnly ? "encrypted only" : "signed text and encrypted"})`, async (t) => {
 		const details = [
-			...(!encryptedOnly ? [{ type: "reasoning.text", text: "Prüfung", signature: "signed-thought", format: "anthropic-claude-v1", index: 0 }] : []),
+			...(!encryptedOnly ? [{ type: "reasoning.text", text: "Check", signature: "signed-thought", format: "anthropic-claude-v1", index: 0 }] : []),
 			{ type: "reasoning.encrypted", data: "opaque-encrypted-state", id: "reasoning-id", format: "openai-responses-v1", index: 1 },
 		];
 		const requests: Array<{ messages: Array<{ role: string; reasoning_details?: unknown }> }> = [];
@@ -155,9 +155,9 @@ for (const encryptedOnly of [false, true]) {
 			requests.push(JSON.parse(String(init.body)));
 			return response(requests.length === 1 ? [
 				chunk({ reasoning_details: details }),
-				chunk({ content: "Ergebnis" }),
+				chunk({ content: "Result" }),
 				chunk({}, "stop"),
-			] : [chunk({ content: "Fortsetzung" }, "stop")]);
+			] : [chunk({ content: "Continuation" }, "stop")]);
 		});
 		const first = await stream(model, context, { apiKey: "test-only" }).result();
 		assert.equal(first.errorMessage, undefined);
@@ -169,7 +169,7 @@ for (const encryptedOnly of [false, true]) {
 			assert.equal(thinking.thinking, "");
 		}
 		const second = await stream(model, {
-			messages: [...context.messages, first, { role: "user", content: "Weiter", timestamp: 2 }],
+			messages: [...context.messages, first, { role: "user", content: "Continue", timestamp: 2 }],
 		}, { apiKey: "test-only" }).result();
 		assert.equal(second.errorMessage, undefined);
 		assert.equal(requests.length, 2);
@@ -179,7 +179,7 @@ for (const encryptedOnly of [false, true]) {
 
 test("usage includes cache and reasoning tokens and preserves actual response identity", async (t) => {
 	t.mock.method(globalThis, "fetch", async () => response([
-		chunk({ content: "Ergebnis" }, "length"),
+		chunk({ content: "Result" }, "length"),
 		{ ...chunk({}), choices: [], usage: {
 			prompt_tokens: 100,
 			completion_tokens: 30,
@@ -212,14 +212,14 @@ test("usage includes cache and reasoning tokens and preserves actual response id
 for (const field of ["reasoning_content", "reasoning_text"]) {
 	test(`${field} remains visible thinking when an upstream provider uses the alias`, async (t) => {
 		t.mock.method(globalThis, "fetch", async () => response([
-			chunk({ [field]: "Prüfung " }),
-			chunk({ [field]: "abgeschlossen" }),
-			chunk({ content: "Ergebnis" }, "stop"),
+			chunk({ [field]: "Check " }),
+			chunk({ [field]: "complete" }),
+			chunk({ content: "Result" }, "stop"),
 		]));
 		const { events, result } = await collect(stream(model, context, { apiKey: "test-only" }));
 		assert.equal(result.errorMessage, undefined);
-		assert.equal(result.content.find((part) => part.type === "thinking")?.thinking, "Prüfung abgeschlossen");
-		assert.deepEqual(events.filter((event) => event.type === "thinking_delta").map((event) => event.delta), ["Prüfung ", "abgeschlossen"]);
+		assert.equal(result.content.find((part) => part.type === "thinking")?.thinking, "Check complete");
+		assert.deepEqual(events.filter((event) => event.type === "thinking_delta").map((event) => event.delta), ["Check ", "complete"]);
 	});
 }
 
@@ -243,7 +243,7 @@ test("payload and response hooks finish before their next stage and null removes
 		assert.equal(headers.get("x-keep"), "kept");
 		assert.equal(headers.get("authorization"), null);
 		assert.equal(JSON.parse(String(init.body)).temperature, 0.25);
-		return response([chunk({ content: "Hallo" }, "stop")]);
+		return response([chunk({ content: "Hello" }, "stop")]);
 	});
 	const source = stream({ ...model, headers: { "X-Remove": "old", "X-Keep": "kept" } }, context, {
 		apiKey: "test-only",
@@ -315,9 +315,9 @@ const fauxFailure: AssistantMessage = {
 
 test("a rejected relay call names the relay address before status and body", async (t) => {
 	t.mock.method(globalThis, "fetch", async () => new Response(
-		JSON.stringify({ error: "Bitte melde dich an.", code: "login-required" }), { status: 401 },
+		JSON.stringify({ error: "Please sign in.", code: "login-required" }), { status: 401 },
 	));
-	const relayModel: Model<"openai-completions"> = { ...model, provider: "relay", baseUrl: "https://relay.invalid/relay/v1", id: "werkstatt-coordinator" };
+	const relayModel: Model<"openai-completions"> = { ...model, provider: "relay", baseUrl: "https://relay.invalid/relay/v1", id: "workshop-coordinator" };
 	const result = await stream(relayModel, context, { apiKey: "test-only" }).result();
 	assert.equal(result.stopReason, "error");
 	assert.match(result.errorMessage ?? "", /^Relay https:\/\/relay\.invalid\/relay\/v1 \(401\): .*login-required/);
@@ -327,21 +327,21 @@ test("a rejected relay call names the relay address before status and body", asy
 
 test("a single tool chunk retains repairable JSON arguments", async (t) => {
 	t.mock.method(globalThis, "fetch", async () => response([
-		chunk({ tool_calls: [{ index: 0, id: "call-repair", type: "function", function: { name: "echo", arguments: '{"text":"Hallo"' } }] }),
+		chunk({ tool_calls: [{ index: 0, id: "call-repair", type: "function", function: { name: "echo", arguments: '{"text":"Hello"' } }] }),
 		chunk({}, "tool_calls"),
 	]));
 	const { events, result } = await collect(stream(model, context, { apiKey: "test-only" }));
 	assert.equal(result.errorMessage, undefined);
 	assert.equal(result.stopReason, "toolUse");
-	assert.deepEqual(result.content.find((part) => part.type === "toolCall")?.arguments, { text: "Hallo" });
+	assert.deepEqual(result.content.find((part) => part.type === "toolCall")?.arguments, { text: "Hello" });
 	const ended = events.find((event) => event.type === "toolcall_end");
 	assert.ok(ended?.type === "toolcall_end");
-	assert.deepEqual(ended.toolCall.arguments, { text: "Hallo" });
+	assert.deepEqual(ended.toolCall.arguments, { text: "Hello" });
 });
 
 test("a complete tool call followed by DONE without finish_reason remains a failed stream", async (t) => {
 	t.mock.method(globalThis, "fetch", async () => response([
-		chunk({ tool_calls: [{ index: 0, id: "call-unfinished", type: "function", function: { name: "echo", arguments: '{"text":"Hallo"}' } }] }),
+		chunk({ tool_calls: [{ index: 0, id: "call-unfinished", type: "function", function: { name: "echo", arguments: '{"text":"Hello"}' } }] }),
 	]));
 	const { events, result } = await collect(stream(model, context, { apiKey: "test-only" }));
 	assert.equal(result.stopReason, "error");

@@ -65,7 +65,7 @@ const operatorRights = ["runs.read", "runs.write", "runs.create", "runs.inspect"
 const alice = createAccessContext({ enabled: true, user: { id: "alice", label: "Alice", rights: operatorRights } });
 const bob = createAccessContext({ enabled: true, user: { id: "bob", label: "Bob", rights: operatorRights } });
 const admin = createAccessContext({ enabled: true, user: { id: "root", label: "Root", rights: ["*"] } });
-const anonymous = createAccessContext({ enabled: false, user: { id: "anonymous", label: "Gast", rights: ["*"] } });
+const anonymous = createAccessContext({ enabled: false, user: { id: "anonymous", label: "Guest", rights: ["*"] } });
 
 const failure = (error: unknown): { code: string; status: number } =>
   error instanceof DomainError ? { code: error.code, status: error.status } : { code: String(error), status: 0 };
@@ -76,7 +76,7 @@ const runAccessOf = (journal: Journal, startOptions = new StartOptionContributio
   ownerOnly: (runId) => runOwnerOnly(journal, startOptions, runId),
 });
 
-/** Ein Aufruf über den echten Dispatcher: Rechte, Vertrag und die Zugehörigkeit des Runs wie im Server. */
+/** A call through the real dispatcher: rights, contract and run ownership as in the server. */
 const dispatcher = (methods: MethodContributionRegistry, channels: ChannelContributionRegistry, access: AccessContext, runAccess = policy) => {
   const target = new RpcDispatcher({
     methods,
@@ -88,14 +88,14 @@ const dispatcher = (methods: MethodContributionRegistry, channels: ChannelContri
     target.dispatch(connection, method, params, { id: 1, signal: new AbortController().signal, progress: () => undefined });
 };
 
-test("der Eigentümer eines Runs steht in seinem Journal und überlebt einen Neustart", () => {
+test("the owner of a run is stored in its journal and survives a restart", () => {
   const directory = mkdtempSync(path.join(tmpdir(), "ragents-run-owner-"));
   try {
     const first = new Journal(path.join(directory, "runs"), testServices());
     const runtime = new Orchestration(first, testServices());
-    runtime.createRun({ commandId: "create-own" }, { runId: OWN, title: "Eigener", ownerHandle: "alice", ownerDisplayName: "Alice", ownerUserId: "alice" });
-    runtime.createRun({ commandId: "create-legacy" }, { runId: LEGACY, title: "Bestand", ownerHandle: "owner", ownerDisplayName: "Owner" });
-    assert.equal("ownerUserId" in runtime.view(OWN), false, "die Run-Ansicht für Clients nennt den Benutzer nicht");
+    runtime.createRun({ commandId: "create-own" }, { runId: OWN, title: "Own", ownerHandle: "alice", ownerDisplayName: "Alice", ownerUserId: "alice" });
+    runtime.createRun({ commandId: "create-legacy" }, { runId: LEGACY, title: "Legacy", ownerHandle: "owner", ownerDisplayName: "Owner" });
+    assert.equal("ownerUserId" in runtime.view(OWN), false, "the run view for clients does not name the user");
     first.close();
     const ownRecord = JSON.parse(readFileSync(path.join(directory, "runs", OWN, "journal.jsonl"), "utf8").split("\n")[0]!);
     mkdirSync(path.join(directory, "runs", "locked-run"));
@@ -106,31 +106,31 @@ test("der Eigentümer eines Runs steht in seinem Journal und überlebt einen Neu
       assert.equal(runOwnerOf(second, OWN), "alice");
       assert.equal(runOwnerOf(second, LEGACY), null);
       assert.equal(runOwnerOf(second, FRESH), undefined);
-      assert.equal(runOwnerOf(second, "locked-run"), null, "ein gesperrtes Journal nennt keinen Eigentümer, der Run gehört wie ein Bestandsrun keinem Bediener");
+      assert.equal(runOwnerOf(second, "locked-run"), null, "a locked journal names no owner, the run belongs to no operator like a legacy run");
       assert.equal(second.stateOf(OWN)?.actors.get(second.stateOf(OWN)!.ownerId)?.displayName, "Alice");
     } finally { second.close(); }
   } finally { rmSync(directory, { recursive: true, force: true }); }
 });
 
-test("die Regel je Run: eigener Run, fremder Run, Bestandsrun, freie Kennung, globaler Chat und der Betrieb ohne Anmeldung", () => {
+test("the rule per run: own run, foreign run, legacy run, free id, global chat and operation without sign-in", () => {
   assert.equal(runOwned(alice, OWN, policy), true);
   assert.equal(runOwned(alice, FOREIGN, policy), false);
   assert.equal(runReachable(alice, FOREIGN, policy), false);
-  assert.equal(runOwned(alice, LEGACY, policy), false, "ein Run ohne Eigentümer gehört keinem Bediener");
+  assert.equal(runOwned(alice, LEGACY, policy), false, "a run without an owner belongs to no operator");
   assert.equal(runReachable(alice, LEGACY, policy), false);
   assert.equal(runOwned(alice, FRESH, policy), false);
-  assert.equal(runReachable(alice, FRESH, policy), true, "eine Kennung ohne Run gehört dem, der ihn anlegt");
-  assert.equal(runOwned(alice, GLOBAL, policy), true, "jeder Benutzer hat seinen eigenen Koordinator");
-  assert.equal(runReachable(alice, BOB_COORDINATOR, policy), false, "den Koordinator eines anderen erreicht niemand");
-  assert.equal(runReachable(admin, GLOBAL, policy), false, "auch nicht mit runs.read.all");
-  assert.equal(runReachable(bob, coordinatorRunId("carol"), policy), false, "eine freie Koordinatorkennung gehört nicht dem, der sie zuerst nennt");
-  assert.equal(runReachable(alice, SHARED_OVERSEER_RUN_ID, policy), false, "der frühere gemeinsame Koordinator gehört niemandem, auch nicht seinem ersten Schreiber");
-  assert.equal(runReachable(anonymous, SINGLE, policy), true, "ohne Anmeldung genau ein Koordinator");
+  assert.equal(runReachable(alice, FRESH, policy), true, "an id without a run belongs to whoever creates it");
+  assert.equal(runOwned(alice, GLOBAL, policy), true, "every user has their own coordinator");
+  assert.equal(runReachable(alice, BOB_COORDINATOR, policy), false, "nobody reaches someone else's coordinator");
+  assert.equal(runReachable(admin, GLOBAL, policy), false, "not even with runs.read.all");
+  assert.equal(runReachable(bob, coordinatorRunId("carol"), policy), false, "a free coordinator id does not belong to whoever names it first");
+  assert.equal(runReachable(alice, SHARED_OVERSEER_RUN_ID, policy), false, "the former shared coordinator belongs to nobody, not even its first writer");
+  assert.equal(runReachable(anonymous, SINGLE, policy), true, "exactly one coordinator without sign-in");
   assert.equal(runReachable(unrestrictedAccess, SINGLE, policy), true);
   for (const runId of [GLOBAL, BOB_COORDINATOR, SHARED_OVERSEER_RUN_ID]) assert.equal(runReachable(anonymous, runId, policy), false, runId);
   for (const runId of [OWN, FOREIGN, LEGACY, FRESH]) {
     assert.equal(runOwned(admin, runId, policy), true);
-    assert.equal(runOwned(anonymous, runId, policy), true, "ohne Anmeldung gibt es genau einen Zugang");
+    assert.equal(runOwned(anonymous, runId, policy), true, "without sign-in there is exactly one access");
     assert.equal(runOwned(unrestrictedAccess, runId, policy), true);
   }
   assert.equal(runIdInPath("/files/runs/own-run/artifacts/a1"), OWN);
@@ -138,7 +138,7 @@ test("die Regel je Run: eigener Run, fremder Run, Bestandsrun, freie Kennung, gl
   assert.equal(runIdInPath("/api/plugins/ragents.overseer/settings"), undefined);
 });
 
-test("die Rechteprüfung je Run weist einen fremden Run wie einen nicht vorhandenen ab und lässt den Administrator durch", () => {
+test("the rights check per run rejects a foreign run like a nonexistent one and lets the administrator through", () => {
   for (const kind of ["read", "inspect", "write", "write-inspect"] as const) {
     assert.doesNotThrow(() => assertRunRights(alice, OWN, kind, policy));
     assert.doesNotThrow(() => assertRunRights(admin, FOREIGN, kind, policy));
@@ -149,7 +149,7 @@ test("die Rechteprüfung je Run weist einen fremden Run wie einen nicht vorhande
     });
     assert.throws(() => assertRunRights(alice, LEGACY, kind, policy), /does not exist/);
   }
-  // Fehlende Rechte bleiben ein Rechtefehler, auch beim eigenen Run.
+  // Missing rights stay a rights error, also for an own run.
   const reader = createAccessContext({ enabled: true, user: { id: "alice", label: "Alice", rights: ["runs.read"] } });
   assert.throws(() => assertRunRights(reader, OWN, "write", policy), (error: unknown) => {
     assert.deepEqual(failure(error), { code: "access-denied", status: 403 });
@@ -157,25 +157,25 @@ test("die Rechteprüfung je Run weist einen fremden Run wie einen nicht vorhande
   });
 });
 
-/** Der Vertrag eines Plugins: jeder Beitrag mit runId fällt unter dieselbe Regel, ohne eigenen Code. */
+/** The contract of a plugin: every contribution with runId falls under the same rule, without its own code. */
 const extensionContracts = {
   method: defineOperation({
     id: "example.extension.read",
-    description: "Ein Beitrag eines Plugins mit Run-Bezug.",
+    description: "A plugin contribution related to a run.",
     rights: ["runs.read"],
     input: Type.Object({ runId: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
     result: Type.Object({ seen: Type.String() }),
   }),
   channel: defineChannel({
     id: "example.extension",
-    description: "Ein Ereigniskanal eines Plugins mit Run-Bezug.",
+    description: "An event channel of a plugin related to a run.",
     rights: ["runs.read"],
     params: Type.Object({ runId: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
     message: Type.Object({ changed: Type.Literal(true) }),
   }),
 };
 
-test("jede Kernmethode, jeder Kanal und jeder Plugin-Beitrag mit runId weist einen fremden Run ab", async (t) => {
+test("every core method, every channel and every plugin contribution with runId rejects a foreign run", async (t) => {
   const reached: string[] = [];
   const session = {
     running: false,
@@ -190,7 +190,7 @@ test("jede Kernmethode, jeder Kanal und jeder Plugin-Beitrag mit runId weist ein
   const sources = coreSources({
     get: async (runId: string) => { reached.push(`get:${runId}`); return session; },
     hasRun: () => true,
-    list: async () => [{ id: OWN, title: "Eigener", updatedAt: 2 }, { id: FOREIGN, title: "Fremder", updatedAt: 1 }, { id: LEGACY, title: "Bestand", updatedAt: 0 }],
+    list: async () => [{ id: OWN, title: "Own", updatedAt: 2 }, { id: FOREIGN, title: "Foreign", updatedAt: 1 }, { id: LEGACY, title: "Legacy", updatedAt: 0 }],
     delete: async (runId: string) => { reached.push(`delete:${runId}`); },
     subscribeRun: () => () => undefined,
     startOptions: () => [],
@@ -212,15 +212,15 @@ test("jede Kernmethode, jeder Kanal und jeder Plugin-Beitrag mit runId weist ein
 
   const calls = (runId: string): Array<[string, unknown]> => [
     [coreContracts.runs.delete.id, { runId }],
-    [coreContracts.chat.send.id, { runId, text: "Hallo" }],
-    [coreContracts.chat.sendToActor.id, { runId, actorId: "helper", text: "Hallo" }],
+    [coreContracts.chat.send.id, { runId, text: "Hello" }],
+    [coreContracts.chat.sendToActor.id, { runId, actorId: "helper", text: "Hello" }],
     [coreContracts.chat.start.id, { runId, entry: "example.allowed" }],
     [coreContracts.chat.stop.id, { runId }],
     [coreContracts.chat.capabilities.id, { runId }],
     [coreContracts.chat.actorHistory.id, { runId }],
     [coreContracts.startOptions.list.id, { runId }],
     [coreContracts.startOptions.select.id, { runId, optionId: "example", value: null }],
-    [coreContracts.prepare.id, { runId, messages: [{ role: "user", text: "Auftrag" }] }],
+    [coreContracts.prepare.id, { runId, messages: [{ role: "user", text: "Task" }] }],
     [coreContracts.transfer.export.id, { runId }],
     [extensionContracts.method.id, { runId }],
   ];
@@ -230,7 +230,7 @@ test("jede Kernmethode, jeder Kanal und jeder Plugin-Beitrag mit runId weist ein
     [extensionContracts.channel.id, { runId }],
   ];
 
-  await t.test("ein zweiter Benutzer erreicht keinen der Beiträge", async () => {
+  await t.test("a second user reaches none of the contributions", async () => {
     const call = dispatcher(methods, channels, bob);
     for (const [method, params] of [...calls(OWN), ...calls(LEGACY)]) {
       await assert.rejects(call(method, params), (error: unknown) => {
@@ -244,10 +244,10 @@ test("jede Kernmethode, jeder Kanal und jeder Plugin-Beitrag mit runId weist ein
         return true;
       });
     }
-    assert.deepEqual(reached, [], "kein Beitrag hat den fremden Run überhaupt geöffnet");
+    assert.deepEqual(reached, [], "no contribution opened the foreign run at all");
   });
 
-  await t.test("der Eigentümer und der Administrator kommen durch", async () => {
+  await t.test("the owner and the administrator get through", async () => {
     for (const [access, runId] of [[alice, OWN], [admin, FOREIGN], [admin, LEGACY]] as const) {
       const call = dispatcher(methods, channels, access);
       for (const [method, params] of calls(runId)) await call(method, params);
@@ -258,11 +258,11 @@ test("jede Kernmethode, jeder Kanal und jeder Plugin-Beitrag mit runId weist ein
   });
 });
 
-test("die Run-Liste zeigt nur eigene Runs, Bestandsruns nur dem Administrator und ohne Anmeldung alles", async () => {
+test("the run list shows only own runs, legacy runs only to the administrator and everything without sign-in", async () => {
   const listed = [
-    { id: OWN, title: "Eigener", updatedAt: 3 },
-    { id: FOREIGN, title: "Fremder", updatedAt: 2 },
-    { id: LEGACY, title: "Bestand", updatedAt: 1 },
+    { id: OWN, title: "Own", updatedAt: 3 },
+    { id: FOREIGN, title: "Foreign", updatedAt: 2 },
+    { id: LEGACY, title: "Legacy", updatedAt: 1 },
   ];
   const sources = coreSources({ list: async (scope?: RunListScope) => listed.filter((entry) => scope!.visible(entry.id)) }, { runOwner: (runId) => owners[runId], global: policy.global });
   const list = coreMethods(sources).find((entry) => entry.contract.id === coreContracts.runs.list.id)!;
@@ -275,12 +275,12 @@ test("die Run-Liste zeigt nur eigene Runs, Bestandsruns nur dem Administrator un
   assert.deepEqual(await titles(anonymous), [OWN, FOREIGN, LEGACY]);
 });
 
-test("die Laufzeitmethoden der Engine weisen fremde Runs ab und arbeiten für den Administrator weiter", async () => {
+test("the runtime methods of the engine reject foreign runs and keep working for the administrator", async () => {
   const journal = new Journal(":memory:", testServices());
   try {
     const runtime = new Orchestration(journal, testServices());
     const access = runAccessOf(journal);
-    runtime.createRun({ commandId: "create-own" }, { runId: OWN, title: "Eigener", ownerHandle: "alice", ownerDisplayName: "Alice", ownerUserId: "alice" });
+    runtime.createRun({ commandId: "create-own" }, { runId: OWN, title: "Own", ownerHandle: "alice", ownerDisplayName: "Alice", ownerUserId: "alice" });
     const methods = runtimeMethods({
       runtime,
       assertRunRights: (context, runId, kind) => assertRunRights(context, runId, kind, access),
@@ -295,11 +295,11 @@ test("die Laufzeitmethoden der Engine weisen fremde Runs ab und arbeiten für de
     const inputs = [
       [runContracts.view.id, { runId: OWN }],
       [runContracts.events.id, { runId: OWN }],
-      [runContracts.enqueueInput.id, { runId: OWN, commandId: "c1", actorId: "helper", content: "Hallo" }],
+      [runContracts.enqueueInput.id, { runId: OWN, commandId: "c1", actorId: "helper", content: "Hello" }],
       [runContracts.restartActor.id, { runId: OWN, commandId: "c2", actorId: "helper" }],
-      [runContracts.stopActor.id, { runId: OWN, commandId: "c3", actorId: "helper", reason: "Ende" }],
+      [runContracts.stopActor.id, { runId: OWN, commandId: "c3", actorId: "helper", reason: "End" }],
       [runContracts.resolveAction.id, { runId: OWN, commandId: "c4", actionId: "a1", decision: "approved" }],
-      [runContracts.stopAll.id, { runId: OWN, commandId: "c5", reason: "Ende" }],
+      [runContracts.stopAll.id, { runId: OWN, commandId: "c5", reason: "End" }],
       [runContracts.interruptTurn.id, { runId: OWN, commandId: "c6", actorId: "helper" }],
     ] as const;
     for (const [id, input] of inputs) {
@@ -307,7 +307,7 @@ test("die Laufzeitmethoden der Engine weisen fremde Runs ab und arbeiten für de
         assert.deepEqual(failure(error), { code: "run-not-found", status: 404 }, id);
         return true;
       });
-      // Der Administrator passiert die Zugehörigkeit; was danach scheitert, ist Fachlogik dieses leeren Runs.
+      // The administrator passes the ownership check; whatever fails afterwards is domain logic of this empty run.
       const reached = await call(id, input, admin).then(() => undefined, (error: unknown) => failure(error).code);
       assert.notEqual(reached, "run-not-found", id);
     }
@@ -315,11 +315,11 @@ test("die Laufzeitmethoden der Engine weisen fremde Runs ab und arbeiten für de
   } finally { journal.close(); }
 });
 
-test("Artefakte und Anhänge eines fremden Runs sind nicht abrufbar", async (t) => {
+test("artifacts and attachments of a foreign run cannot be fetched", async (t) => {
   const journal = new Journal(":memory:", testServices());
   t.after(() => journal.close());
   const runtime = new Orchestration(journal, testServices());
-  runtime.createRun({ commandId: "create-own" }, { runId: OWN, title: "Eigener", ownerHandle: "alice", ownerDisplayName: "Alice", ownerUserId: "alice" });
+  runtime.createRun({ commandId: "create-own" }, { runId: OWN, title: "Own", ownerHandle: "alice", ownerDisplayName: "Alice", ownerUserId: "alice" });
   const access = runAccessOf(journal);
   const provider = {
     get: async () => ({
@@ -328,7 +328,7 @@ test("Artefakte und Anhänge eines fremden Runs sind nicht abrufbar", async (t) 
       send: () => undefined,
       start: () => undefined,
       stop: () => undefined,
-      attachment: () => ({ attachment: { name: "bild.png", mediaType: "image/png", size: 3, id: "a1" }, content: new Uint8Array([1, 2, 3]) }),
+      attachment: () => ({ attachment: { name: "image.png", mediaType: "image/png", size: 3, id: "a1" }, content: new Uint8Array([1, 2, 3]) }),
     }),
     list: async () => [],
     delete: async () => undefined,
@@ -358,7 +358,7 @@ test("Artefakte und Anhänge eines fremden Runs sind nicht abrufbar", async (t) 
   await admins.arrayBuffer();
 });
 
-test("der Oberflächenkontext einer Nachricht kann keinen fremden Run nennen", async () => {
+test("the UI context of a message cannot name a foreign run", async () => {
   const locations: unknown[] = [];
   const sources = coreSources({
     get: async () => ({ running: false, subscribe: () => () => undefined, send: (_text: string, _attachments: unknown, location: unknown) => { locations.push(location); }, start: () => undefined, stop: () => undefined }),
@@ -366,7 +366,7 @@ test("der Oberflächenkontext einer Nachricht kann keinen fremden Run nennen", a
   } as never, { runOwner: (runId) => owners[runId], global: policy.global });
   const send = coreMethods(sources).find((entry) => entry.contract.id === coreContracts.chat.send.id)!;
   const call = (access: AccessContext, userLocation: unknown, runId = coordinatorRunId(access.user!.id)) =>
-    send.execute({ runId, text: "Hallo", userLocation } as never,
+    send.execute({ runId, text: "Hello", userLocation } as never,
       { access, signal: new AbortController().signal, progress: () => undefined, connection: undefined as never, local: true });
   await assert.rejects(call(alice, { page: "run", runId: FOREIGN, tab: null, selection: null }), (error: unknown) => {
     assert.deepEqual(failure(error), { code: "run-not-found", status: 404 });
@@ -384,10 +384,10 @@ test("der Oberflächenkontext einer Nachricht kann keinen fremden Run nennen", a
   assert.equal(locations.length, 2);
 });
 
-test("der globale Koordinator löst Runs nur über die Runs des Aufrufers auf", async (t) => {
+test("the global coordinator resolves runs only among the caller's runs", async (t) => {
   const directory = mkdtempSync(path.join(tmpdir(), "ragents-run-owner-overseer-"));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
-  const runs = [{ id: OWN, title: "Eigener", updatedAt: 2 }, { id: FOREIGN, title: "Fremder", updatedAt: 1 }];
+  const runs = [{ id: OWN, title: "Own", updatedAt: 2 }, { id: FOREIGN, title: "Foreign", updatedAt: 1 }];
   const read: string[] = [];
   const management: RunManagement = {
     list: async (access) => access ? runs.filter((entry) => runOwned(access, entry.id, policy)) : runs,
@@ -417,10 +417,10 @@ test("der globale Koordinator löst Runs nur über die Runs des Aufrufers auf", 
     ((await dispatcher(registry, channels, access)(overseerContracts.listRuns.id, {})) as Array<{ runId: string }>).map((entry) => entry.runId);
   assert.deepEqual(await listed(alice), [OWN]);
   assert.deepEqual(await listed(admin), [OWN, FOREIGN]);
-  for (const reference of [FOREIGN, "Fremder"]) {
-    await assert.rejects(dispatcher(registry, channels, alice)(overseerContracts.readRun.id, { run: reference }), /unbekannt/i, reference);
+  for (const reference of [FOREIGN, "Foreign"]) {
+    await assert.rejects(dispatcher(registry, channels, alice)(overseerContracts.readRun.id, { run: reference }), /unknown/i, reference);
   }
-  assert.deepEqual(read, [], "kein fremder Run wurde geöffnet");
+  assert.deepEqual(read, [], "no foreign run was opened");
   await dispatcher(registry, channels, admin)(overseerContracts.readRun.id, { run: FOREIGN });
   assert.deepEqual(read, [FOREIGN]);
 });
@@ -430,7 +430,7 @@ const hostService = createAccessContext({
   user: { id: "host-service", label: "Host", rights: ["runs.read", "runs.read.all", "runs.write", "runs.create", "runs.inspect"] },
 });
 
-test("einen Run, den nur sein Eigentümer bedient, lesen und stoppen alle mit runs.read.all, bedienen aber nur er", () => {
+test("a run that only its owner operates can be read and stopped by everyone with runs.read.all, but operated only by the owner", () => {
   for (const access of [admin, hostService]) {
     for (const kind of ["read", "inspect", "stop"] as const) assert.doesNotThrow(() => assertRunRights(access, BOUND, kind, policy), kind);
     for (const kind of ["write", "write-inspect"] as const) {
@@ -439,16 +439,16 @@ test("einen Run, den nur sein Eigentümer bedient, lesen und stoppen alle mit ru
         return true;
       });
     }
-    assert.doesNotThrow(() => assertRunRights(access, FOREIGN, "write", policy), "ohne Erklärung eines Plugins bedient runs.read.all weiter");
+    assert.doesNotThrow(() => assertRunRights(access, FOREIGN, "write", policy), "without a declaration from a plugin runs.read.all keeps operating");
   }
   for (const kind of ["read", "inspect", "stop", "write", "write-inspect"] as const) {
     assert.doesNotThrow(() => assertRunRights(alice, BOUND, kind, policy), kind);
-    assert.doesNotThrow(() => assertRunRights(anonymous, BOUND, kind, policy), "ohne Anmeldung gibt es genau einen Zugang");
+    assert.doesNotThrow(() => assertRunRights(anonymous, BOUND, kind, policy), "without sign-in there is exactly one access");
     assert.throws(() => assertRunRights(bob, BOUND, kind, policy), /does not exist/);
   }
 });
 
-test("ein an einen Arbeitsplatz gebundener Run ist über die Laufzeitmethoden für einen Fremden nur lesbar und stoppbar", async () => {
+test("a run bound to a workstation is only readable and stoppable for someone else through the runtime methods", async () => {
   const journal = new Journal(":memory:", testServices());
   try {
     const runtime = new Orchestration(journal, testServices());
@@ -456,11 +456,11 @@ test("ein an einen Arbeitsplatz gebundener Run ist über die Laufzeitmethoden f�
     startOptions.register("ragents.workspace", [workspaceBindingOption(new WorkspaceClientRegistry([]), () => undefined)]);
     const workstation = { kind: "client", client: "client-00000001", label: "Laptop", path: "/home/alice/project" };
     runtime.createRun({ commandId: "create-bound" }, {
-      runId: BOUND, title: "Gebunden", ownerHandle: "alice", ownerDisplayName: "Alice", ownerUserId: "alice",
+      runId: BOUND, title: "Bound", ownerHandle: "alice", ownerDisplayName: "Alice", ownerUserId: "alice",
       initialPluginStates: [{ pluginId: WORKSPACE_BINDING_OPTION_ID, state: workstation }],
     });
     runtime.createRun({ commandId: "create-own" }, {
-      runId: OWN, title: "Eigener", ownerHandle: "alice", ownerDisplayName: "Alice", ownerUserId: "alice",
+      runId: OWN, title: "Own", ownerHandle: "alice", ownerDisplayName: "Alice", ownerUserId: "alice",
       initialPluginStates: [{ pluginId: WORKSPACE_BINDING_OPTION_ID, state: { kind: "fresh" } }],
     });
     const access = runAccessOf(journal, startOptions);
@@ -482,7 +482,7 @@ test("ein an einen Arbeitsplatz gebundener Run ist über die Laufzeitmethoden f�
       }
     };
     const operating = (runId: string) => [
-      [runContracts.enqueueInput.id, { runId, commandId: `i-${runId}`, actorId: "helper", content: "Baue das Projekt" }],
+      [runContracts.enqueueInput.id, { runId, commandId: `i-${runId}`, actorId: "helper", content: "Build the project" }],
       [runContracts.restartActor.id, { runId, commandId: `r-${runId}`, actorId: "helper" }],
       [runContracts.resolveAction.id, { runId, commandId: `a-${runId}`, actionId: "a1", decision: "approved" }],
     ] as const;
@@ -494,8 +494,8 @@ test("ein an einen Arbeitsplatz gebundener Run ist über die Laufzeitmethoden f�
     for (const [id, input] of [
       [runContracts.view.id, { runId: BOUND }],
       [runContracts.events.id, { runId: BOUND }],
-      [runContracts.stopActor.id, { runId: BOUND, commandId: "s1", actorId: "helper", reason: "Ende" }],
-      [runContracts.stopAll.id, { runId: BOUND, commandId: "s2", reason: "Ende" }],
+      [runContracts.stopActor.id, { runId: BOUND, commandId: "s1", actorId: "helper", reason: "End" }],
+      [runContracts.stopAll.id, { runId: BOUND, commandId: "s2", reason: "End" }],
       [runContracts.interruptTurn.id, { runId: BOUND, commandId: "s3", actorId: "helper" }],
     ] as const) {
       assert.notEqual(await outcome(id, input, admin), "run-owner-only", id);
@@ -503,7 +503,7 @@ test("ein an einen Arbeitsplatz gebundener Run ist über die Laufzeitmethoden f�
   } finally { journal.close(); }
 });
 
-test("Chat, Vorlagen und Plugins mit runs.write bedienen einen solchen Run nur für seinen Eigentümer", async () => {
+test("chat, templates and plugins with runs.write operate such a run only for its owner", async () => {
   const reached: string[] = [];
   const session = {
     running: false,
@@ -516,7 +516,7 @@ test("Chat, Vorlagen und Plugins mit runs.write bedienen einen solchen Run nur f
   };
   const answer = defineOperation({
     id: "example.extension.answer",
-    description: "Eine Rückfrage eines Plugins beantworten.",
+    description: "Answer a question of a plugin.",
     rights: ["runs.read", "runs.write"],
     input: Type.Object({ runId: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
     result: Type.Null(),
@@ -533,8 +533,8 @@ test("Chat, Vorlagen und Plugins mit runs.write bedienen einen solchen Run nur f
     implementChannel(extensionContracts.channel, ({ runId }, emit) => { reached.push(`channel:${runId}`); emit({ changed: true }); return () => undefined; }),
   ]);
   const operating: Array<[string, unknown]> = [
-    [coreContracts.chat.send.id, { runId: BOUND, text: "Hallo" }],
-    [coreContracts.chat.sendToActor.id, { runId: BOUND, actorId: "helper", text: "Hallo" }],
+    [coreContracts.chat.send.id, { runId: BOUND, text: "Hello" }],
+    [coreContracts.chat.sendToActor.id, { runId: BOUND, actorId: "helper", text: "Hello" }],
     [coreContracts.chat.start.id, { runId: BOUND, entry: "example.allowed" }],
     [answer.id, { runId: BOUND }],
   ];
@@ -552,7 +552,7 @@ test("Chat, Vorlagen und Plugins mit runs.write bedienen einen solchen Run nur f
     await call(RPC_METHODS.subscribe, { channel: extensionContracts.channel.id, params: { runId: BOUND } });
   }
   const observed = ["stop", `extension:${BOUND}`, `channel:${BOUND}`];
-  assert.deepEqual(reached, [...observed, ...observed], "lesen und stoppen erreicht den Run, bedienen nie");
+  assert.deepEqual(reached, [...observed, ...observed], "reading and stopping reach the run, operating never does");
   const call = dispatcher(methods, channels, alice);
   for (const [method, params] of operating) await call(method, params);
   assert.deepEqual(reached.slice(observed.length * 2), ["send", "sendToActor", "start", `answer:${BOUND}`]);

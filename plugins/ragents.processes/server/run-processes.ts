@@ -5,11 +5,11 @@ import type { RunProcessSnapshot } from "../contract.js";
 export interface RunProcesses {
   snapshot: (runId: string, signal?: AbortSignal) => Promise<RunProcessSnapshot>;
   terminate: (runId: string, processId: string, signal: AbortSignal) => Promise<void>;
-  /** Ist der Arbeitsplatz nicht erreichbar, holt der Stopp des Runs (`stopRun` seines Executors) das Beenden nach, sobald er wieder da ist. */
+  /** If the workspace is unreachable, the run's stop (`stopRun` of its executor) catches up on ending once it is back. */
   stopAll: (runId: string, signal?: AbortSignal) => Promise<void>;
 }
 
-/** Die Prozesse eines Runs liegen beim Executor, der ihn ausführt; wo das ist, entscheidet allein seine Bindung. */
+/** A run's processes live at the executor running it; where that is is decided solely by its binding. */
 export const runProcessesOf = (sandbox: Pick<SandboxServices, "execute">): RunProcesses => ({
   snapshot: async (runId, signal) => {
     const observed = await sandbox.execute(runId, PROCESS_OPERATIONS.snapshot, {}, signal ? { signal } : {}) as Omit<RunProcessSnapshot, "runId">;

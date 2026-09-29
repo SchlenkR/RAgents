@@ -18,8 +18,8 @@ import { coreSources, dispatchMethod, startRpcServer } from "./rpc-fixture.ts";
 
 const CLIENT = "client-00000001";
 
-const description = (folders: string[] = ["/home/beispiel/project"]) =>
-  ({ label: "Laptop", hostname: "laptop", platform: "darwin", folders, runsDirectory: "/home/beispiel/.local/share/ragents/workspace/runs", ripgrep: true });
+const description = (folders: string[] = ["/home/example/project"]) =>
+  ({ label: "Laptop", hostname: "laptop", platform: "darwin", folders, runsDirectory: "/home/example/.local/share/ragents/workspace/runs", ripgrep: true });
 
 const onServer = (folder: "fresh" | { path: string }) => ({ machine: "server", folder });
 
@@ -28,7 +28,7 @@ const onLaptop = (folder: "fresh" | { path: string }, label = "") => ({ machine:
 const until = async (condition: () => boolean, timeoutMs = 3000) => {
   const started = Date.now();
   while (!condition()) {
-    if (Date.now() - started > timeoutMs) throw new Error("Bedingung wurde nicht erfüllt.");
+    if (Date.now() - started > timeoutMs) throw new Error("Condition was not met.");
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 };
@@ -37,14 +37,14 @@ interface StubConnection extends MethodConnection {
   end: () => void;
 }
 
-/** Eine Verbindung ohne Gegenstelle; sie meldet nur ihren Besitzer und ihr Ende. */
+/** A connection without a peer; it reports only its owner and its end. */
 const stubConnection = (userId: string | null = "alice", streamless = false): StubConnection => {
   const listeners = new Set<() => void>();
   return {
     id: randomUUID(),
     userId,
     streamless,
-    call: () => Promise.reject(new Error("Dieser Arbeitsplatz antwortet nicht")),
+    call: () => Promise.reject(new Error("This workstation does not respond")),
     onClose: (listener) => {
       listeners.add(listener);
       return () => { listeners.delete(listener); };
@@ -63,7 +63,7 @@ const registryWith = async () => {
   return { registry, connection };
 };
 
-/** Server mit den Arbeitsplatz-Methoden und ein Client, der die Rückrufe beantwortet. */
+/** Server with the workstation methods and a client that answers the callbacks. */
 const fixture = async (t: TestContext) => {
   const registry = new WorkspaceClientRegistry([]);
   const { url } = await startRpcServer(t, { methods: clientMethods(registry) });
@@ -77,7 +77,7 @@ test("registration binds the calling connection, checks the executor and its end
   const connection = stubConnection();
   const info = await registry.register(CLIENT, description(), WORKSPACE_EXECUTOR_VERSION, [], connection);
   assert.deepEqual(info, { ...description(), id: CLIENT });
-  await assert.rejects(registry.register("client-00000004", description(), "abweichend", [], stubConnection()), (error: unknown) =>
+  await assert.rejects(registry.register("client-00000004", description(), "different", [], stubConnection()), (error: unknown) =>
     error instanceof DomainError && error.code === "workspace-executor-version" && error.status === 409);
   await assert.rejects(registry.register("client-00000003", description(), WORKSPACE_EXECUTOR_VERSION, [], stubConnection("alice", true)), (error: unknown) =>
     error instanceof DomainError && error.code === "stream-required" && error.status === 409);
@@ -106,14 +106,14 @@ test("the same id under two users gives two workstations that never touch each o
   await registry.register(CLIENT, description(["/home/bob/project"]), WORKSPACE_EXECUTOR_VERSION, [], bobs);
   assert.deepEqual(registry.info("alice", CLIENT)?.folders, ["/home/alice/project"]);
   assert.deepEqual(registry.info("bob", CLIENT)?.folders, ["/home/bob/project"]);
-  assert.equal(registry.info(null, CLIENT), undefined, "ohne Benutzer gibt es diesen Arbeitsplatz nicht");
+  assert.equal(registry.info(null, CLIENT), undefined, "without a user this workstation does not exist");
 
   registry.unregister("bob", CLIENT, bobs);
-  assert.deepEqual(registry.info("alice", CLIENT)?.folders, ["/home/alice/project"], "die Abmeldung eines anderen trifft ihn nicht");
+  assert.deepEqual(registry.info("alice", CLIENT)?.folders, ["/home/alice/project"], "another user's sign-out does not affect it");
   await registry.register(CLIENT, description(["/home/bob/project"]), WORKSPACE_EXECUTOR_VERSION, [], bobs);
   alices.end();
   assert.equal(registry.info("alice", CLIENT), undefined);
-  assert.deepEqual(registry.info("bob", CLIENT)?.folders, ["/home/bob/project"], "die Trennung eines anderen trifft ihn nicht");
+  assert.deepEqual(registry.info("bob", CLIENT)?.folders, ["/home/bob/project"], "another user's disconnect does not affect it");
 });
 
 test("a user lists only the workstations he registered himself", async () => {
@@ -128,7 +128,7 @@ test("a user lists only the workstations he registered himself", async () => {
   };
   assert.deepEqual(await listed("alice"), [CLIENT]);
   assert.deepEqual(await listed("bob"), ["client-00000002"]);
-  assert.deepEqual(await listed("carol"), [], "auch runs.read.all zeigt keinen fremden Arbeitsplatz");
+  assert.deepEqual(await listed("carol"), [], "even runs.read.all shows no foreign workstation");
 });
 
 test("the server runs the executor of the registered workstation over its connection", async (t) => {
@@ -140,9 +140,9 @@ test("the server runs the executor of the registered workstation over its connec
     if (input.operation === "bash" && (input.input as { command: string }).command === "sleep 60") {
       return new Promise((resolve) => context.signal.addEventListener("abort", () => resolve({ value: { content: [] } })));
     }
-    if (input.operation === "files.read") throw new DomainError("workspace-path-invalid", "Ungültiger Pfad: ../geheim", 400);
-    context.progress({ text: "hallo" });
-    return { value: { content: [{ type: "text", text: `${input.operation} erledigt` }] } };
+    if (input.operation === "files.read") throw new DomainError("workspace-path-invalid", "Invalid path: ../secret", 400);
+    context.progress({ text: "hello" });
+    return { value: { content: [{ type: "text", text: `${input.operation} done` }] } };
   }));
   await until(() => client.status.kind === "connected");
 
@@ -152,25 +152,25 @@ test("the server runs the executor of the registered workstation over its connec
   assert.deepEqual(registered, { ...description(), id: CLIENT });
   assert.deepEqual(await client.call(workspaceContracts.clients.list, {}), [registered]);
 
-  const executor = registry.executorFor(null, CLIENT, "Laptop", "/home/beispiel/project");
+  const executor = registry.executorFor(null, CLIENT, "Laptop", "/home/example/project");
   assert.equal(executor.version, WORKSPACE_EXECUTOR_VERSION);
   const read = await executor.execute("run-1", "read", { path: "a.txt" }, { toolCallId: "call-1" });
-  assert.deepEqual(read, { content: [{ type: "text", text: "read erledigt" }] });
+  assert.deepEqual(read, { content: [{ type: "text", text: "read done" }] });
   assert.deepEqual(calls[0], {
-    operation: "read", toolCallId: "call-1", cwd: "/home/beispiel/project", env: calls[0]!.env, input: { path: "a.txt" },
+    operation: "read", toolCallId: "call-1", cwd: "/home/example/project", env: calls[0]!.env, input: { path: "a.txt" },
   });
   assert.equal(calls[0]!.env[RUN_MARKER_ENV], "run-1");
   assert.equal(calls[0]!.env.CI, "true");
   assert.equal(calls[0]!.env.GIT_CONFIG_COUNT, "3");
-  assert.ok(Object.keys(calls[0]!.env).every((name) => !name.startsWith("GIT_ASKPASS")), "keine Zugangsdaten des Servers");
+  assert.ok(Object.keys(calls[0]!.env).every((name) => !name.startsWith("GIT_ASKPASS")), "no credentials of the server");
 
-  await executor.execute("run-1", "bash", { command: "printf hallo" }, { onProgress: (value) => progress.push(value) });
+  await executor.execute("run-1", "bash", { command: "printf hello" }, { onProgress: (value) => progress.push(value) });
   await until(() => progress.length === 1);
-  assert.deepEqual(progress, [{ text: "hallo" }]);
-  assert.equal(calls[1]!.toolCallId, undefined, "ohne Werkzeugaufruf keine Kennung");
-  await assert.rejects(executor.execute("run-1", "files.read", { path: "../geheim" }), (error: unknown) =>
-    error instanceof DomainError && error.code === "workspace-path-invalid" && error.status === 400 && error.message === "Ungültiger Pfad: ../geheim");
-  await assert.rejects(executor.execute("run-1", "files.watch", {}, { untilAborted: true }), /braucht dafür ein Abbruchsignal/);
+  assert.deepEqual(progress, [{ text: "hello" }]);
+  assert.equal(calls[1]!.toolCallId, undefined, "no id without a tool call");
+  await assert.rejects(executor.execute("run-1", "files.read", { path: "../secret" }), (error: unknown) =>
+    error instanceof DomainError && error.code === "workspace-path-invalid" && error.status === 400 && error.message === "Invalid path: ../secret");
+  await assert.rejects(executor.execute("run-1", "files.watch", {}, { untilAborted: true }), /needs an abort signal for that/);
 
   const controller = new AbortController();
   const cancelled = executor.execute("run-1", "bash", { command: "sleep 60" }, { signal: controller.signal });
@@ -183,7 +183,7 @@ test("the server runs the executor of the registered workstation over its connec
   client.close();
   await assert.rejects(interrupted, (error: unknown) =>
     error instanceof DomainError && error.code === "workspace-client-disconnected"
-    && error.message.includes("Laptop") && error.message.includes("Verbindung verloren"));
+    && error.message.includes("Laptop") && error.message.includes("lost the connection"));
   await until(() => registry.info(null, CLIENT) === undefined);
   await assert.rejects(executor.execute("run-1", "read", { path: "a.txt" }), (error: unknown) =>
     error instanceof DomainError && error.code === "workspace-client-disconnected" && error.status === 409);
@@ -206,16 +206,16 @@ test("an older or newer workstation learns both executor versions and what to up
   const versionRefusal = (message: string) => (error: unknown) =>
     error instanceof RpcError && error.domainCode === "workspace-executor-version" && error.status === 409 && error.message === message;
   await assert.rejects(client.call(workspaceContracts.clients.register, { id: CLIENT, ...olderDescription, executor: "5" }), versionRefusal(
-    `Der Arbeitsplatz Laptop bringt den Executor 5 mit, der Server verlangt ${WORKSPACE_EXECUTOR_VERSION}. `
-      + "Die RAgents-Erweiterung in VS Code beziehungsweise das Paket @schlenkr/ragents auf dem Arbeitsplatz aktualisieren."));
+    `The workstation Laptop brings executor 5, the server requires ${WORKSPACE_EXECUTOR_VERSION}. `
+      + "Update the RAgents extension in VS Code or the package @schlenkr/ragents on the workstation."));
   const newerExecutor = String(Number(WORKSPACE_EXECUTOR_VERSION) + 1);
   const newer = { id: CLIENT, ...description(), shell: "zsh", executor: newerExecutor };
   await assert.rejects(client.call(workspaceContracts.clients.register, newer), versionRefusal(
-    `Der Arbeitsplatz Laptop bringt den Executor ${newerExecutor} mit, der Server verlangt ${WORKSPACE_EXECUTOR_VERSION}. `
-      + "Den Server auf die Fassung des Arbeitsplatzes aktualisieren."));
+    `The workstation Laptop brings executor ${newerExecutor}, the server requires ${WORKSPACE_EXECUTOR_VERSION}. `
+      + "Update the server to the workstation's version."));
   await assert.rejects(client.call(workspaceContracts.clients.register, { id: CLIENT, ...olderDescription, executor: WORKSPACE_EXECUTOR_VERSION, contributions: [] }), (error: unknown) =>
     error instanceof RpcError && error.code === RPC_ERROR_CODES.invalidParams
-    && error.message === "Ungültige Eingabe für ragents.workspace.clients.register: params is missing required field ripgrep");
+    && error.message === "Invalid input for ragents.workspace.clients.register: params is missing required field ripgrep");
   assert.deepEqual(await client.call(workspaceContracts.clients.list, {}), []);
 });
 
@@ -227,37 +227,37 @@ test("the start option accepts only bindings that can be resolved later, on both
     const context = { runId: "run-1", userId: "alice" };
     assert.deepEqual(option.defaultValue(context), onServer("fresh"));
     assert.deepEqual(option.accept(onServer("fresh"), context), onServer("fresh"));
-    assert.throws(() => option.accept(onServer({ path: "relative" }), context), /absoluter Pfad/);
-    assert.throws(() => option.accept(onServer({ path: path.join(root, "missing") }), context), /existiert auf dem Server nicht/);
+    assert.throws(() => option.accept(onServer({ path: "relative" }), context), /absolute path/);
+    assert.throws(() => option.accept(onServer({ path: path.join(root, "missing") }), context), /does not exist on the server/);
     await mkdir(path.join(root, "project"));
     assert.deepEqual(option.accept(onServer({ path: path.join(root, "project") }), context), onServer({ path: path.join(root, "project") }));
     assert.throws(() => option.accept({ machine: "server", folder: { path: path.join(root, "project"), fresh: true } }, context),
       (error: unknown) => error instanceof DomainError && error.code === "workspace-binding-invalid");
-    assert.throws(() => option.accept(onLaptop({ path: "/home/other" }), context), /bietet den Ordner/);
+    assert.throws(() => option.accept(onLaptop({ path: "/home/other" }), context), /does not offer the folder/);
     assert.deepEqual(
-      option.accept(onLaptop({ path: "/home/beispiel/project/src" }), context),
-      onLaptop({ path: "/home/beispiel/project/src" }, "Laptop"),
+      option.accept(onLaptop({ path: "/home/example/project/src" }), context),
+      onLaptop({ path: "/home/example/project/src" }, "Laptop"),
     );
-    const fresh = { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "/home/beispiel/.local/share/ragents/workspace/runs/run-1", fresh: true } };
-    assert.deepEqual(option.accept(onLaptop("fresh"), context), fresh, "der neue Ordner bekommt seinen Pfad unter dem Ordner für Runs des Arbeitsplatzes");
-    assert.deepEqual(option.accept(fresh, context), fresh, "ein schon eingefrorener neuer Ordner bleibt derselbe");
+    const fresh = { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "/home/example/.local/share/ragents/workspace/runs/run-1", fresh: true } };
+    assert.deepEqual(option.accept(onLaptop("fresh"), context), fresh, "the new folder gets its path below the workstation's folder for runs");
+    assert.deepEqual(option.accept(fresh, context), fresh, "an already frozen new folder stays the same");
     assert.deepEqual(option.describe(onServer("fresh"), context), {
       kind: "workspace-binding",
       clients: [{ ...description(), id: CLIENT }],
-      fresh: { server: "Leerer Ordner je Run", client: "Leerer Ordner je Run" },
+      fresh: { server: "Empty folder per run", client: "Empty folder per run" },
       serverFolders: true,
     });
     connection.end();
-    assert.throws(() => option.accept(onLaptop({ path: "/home/beispiel/project" }), context), /nicht verbunden/);
-    assert.throws(() => option.accept(onLaptop("fresh"), context), /nicht verbunden/);
+    assert.throws(() => option.accept(onLaptop({ path: "/home/example/project" }), context), /not connected/);
+    assert.throws(() => option.accept(onLaptop("fresh"), context), /not connected/);
     assert.deepEqual(option.describe(onServer("fresh"), context), {
       kind: "workspace-binding",
       clients: [],
-      fresh: { server: "Leerer Ordner je Run", client: "Leerer Ordner je Run" },
+      fresh: { server: "Empty folder per run", client: "Empty folder per run" },
       serverFolders: true,
     });
-    assert.throws(() => option.accept({ kind: "fresh" }, context), /kein gültiges Format/, "die Form vor der Trennung ist keine Wahl mehr");
-    assert.throws(() => option.accept({ machine: "elsewhere", folder: "fresh" }, context), /kein gültiges Format/);
+    assert.throws(() => option.accept({ kind: "fresh" }, context), /no valid format/, "the shape before the split is no longer a choice");
+    assert.throws(() => option.accept({ machine: "elsewhere", folder: "fresh" }, context), /no valid format/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -265,7 +265,7 @@ test("the start option accepts only bindings that can be resolved later, on both
 
 test("a new folder per run on a workstation sits under its runs folder with the separator of that machine", async () => {
   const registry = new WorkspaceClientRegistry([]);
-  await registry.register(CLIENT, { ...description(["C:\\projekte\\werkstatt"]), platform: "win32", runsDirectory: "C:\\ragents\\runs\\" },
+  await registry.register(CLIENT, { ...description(["C:\\projects\\workshop"]), platform: "win32", runsDirectory: "C:\\ragents\\runs\\" },
     WORKSPACE_EXECUTOR_VERSION, [], stubConnection());
   const option = workspaceBindingOption(registry, () => undefined);
   assert.deepEqual(option.accept(onLaptop("fresh"), { runId: "run-7", userId: "alice" }), {
@@ -278,32 +278,32 @@ test("a contribution names the new folder on the server, keeps folders of the se
   const root = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-binding-")));
   try {
     const { registry } = await registryWith();
-    const kind = { id: "example.worktree", label: "Worktree je Run", serverFolders: false };
-    const resolve = () => Promise.reject(new Error("nicht gefragt"));
+    const kind = { id: "example.worktree", label: "Worktree per run", serverFolders: false };
+    const resolve = () => Promise.reject(new Error("not asked"));
     const option = workspaceBindingOption(registry, () => ({ kind, resolve }));
     const context = { runId: "run-1", userId: "alice" };
     await mkdir(path.join(root, "project"));
     assert.throws(
       () => option.accept(onServer({ path: path.join(root, "project") }), context),
       (error: unknown) => error instanceof DomainError && error.code === "workspace-binding-unsupported"
-        && error.message.includes("Worktree je Run"),
+        && error.message.includes("Worktree per run"),
     );
     assert.deepEqual(option.accept(onServer("fresh"), context), onServer("fresh"));
     assert.throws(
       () => option.accept(onLaptop("fresh"), context),
-      (error: unknown) => error instanceof DomainError && error.code === "workspace-binding-unsupported" && error.message.includes("nur auf dem Server"),
+      (error: unknown) => error instanceof DomainError && error.code === "workspace-binding-unsupported" && error.message.includes("only on the server"),
     );
-    assert.deepEqual(option.accept(onLaptop({ path: "/home/beispiel/project" }), context), onLaptop({ path: "/home/beispiel/project" }, "Laptop"));
+    assert.deepEqual(option.accept(onLaptop({ path: "/home/example/project" }), context), onLaptop({ path: "/home/example/project" }, "Laptop"));
     assert.deepEqual(option.describe(onServer("fresh"), context), {
       kind: "workspace-binding",
       clients: [{ ...description(), id: CLIENT }],
-      fresh: { server: "Worktree je Run", client: null },
+      fresh: { server: "Worktree per run", client: null },
       serverFolders: false,
     });
-    const workstation = { label: "Git-Worktree je Run", prepare: () => [] };
+    const workstation = { label: "Git worktree per run", prepare: () => [] };
     const both = workspaceBindingOption(registry, () => ({ kind, workstation, resolve }));
     assert.equal((both.accept(onLaptop("fresh"), context) as { folder: { fresh?: boolean } }).folder.fresh, true);
-    assert.deepEqual((both.describe(onServer("fresh"), context) as { fresh: unknown }).fresh, { server: "Worktree je Run", client: "Git-Worktree je Run" });
+    assert.deepEqual((both.describe(onServer("fresh"), context) as { fresh: unknown }).fresh, { server: "Worktree per run", client: "Git worktree per run" });
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -312,24 +312,24 @@ test("a contribution names the new folder on the server, keeps folders of the se
 test("a workstation of another user is neither offered nor accepted as binding, and only a workstation reserves the run for its owner", async () => {
   const { registry } = await registryWith();
   const option = workspaceBindingOption(registry, () => undefined);
-  const binding = onLaptop({ path: "/home/beispiel/project" });
+  const binding = onLaptop({ path: "/home/example/project" });
   const alice = { runId: "run-1", userId: "alice" };
   const bob = { runId: "run-2", userId: "bob" };
-  assert.deepEqual(option.accept(binding, alice), onLaptop({ path: "/home/beispiel/project" }, "Laptop"));
+  assert.deepEqual(option.accept(binding, alice), onLaptop({ path: "/home/example/project" }, "Laptop"));
   assert.throws(() => option.accept(binding, bob), (error: unknown) =>
     error instanceof DomainError && error.code === "workspace-client-disconnected" && error.status === 409);
   assert.throws(() => option.accept(onLaptop("fresh"), bob), (error: unknown) =>
     error instanceof DomainError && error.code === "workspace-client-disconnected");
-  assert.throws(() => option.accept(binding, { runId: "run-3", userId: null }), /nicht verbunden/);
+  assert.throws(() => option.accept(binding, { runId: "run-3", userId: null }), /not connected/);
   assert.deepEqual((option.describe(onServer("fresh"), alice) as { clients: unknown[] }).clients, [{ ...description(), id: CLIENT }]);
   assert.deepEqual((option.describe(onServer("fresh"), bob) as { clients: unknown[] }).clients, []);
 
-  assert.equal(option.ownerOnly?.(onLaptop({ path: "/home/beispiel/project" }, "Laptop")), true);
-  assert.equal(option.ownerOnly?.(option.accept(onLaptop("fresh"), alice)), true, "auch der neue Ordner auf dem Arbeitsplatz");
+  assert.equal(option.ownerOnly?.(onLaptop({ path: "/home/example/project" }, "Laptop")), true);
+  assert.equal(option.ownerOnly?.(option.accept(onLaptop("fresh"), alice)), true, "also the new folder on the workstation");
   assert.equal(option.ownerOnly?.(onServer("fresh")), false);
   assert.equal(option.ownerOnly?.(onServer({ path: "/srv/project" })), false);
-  assert.equal(option.ownerOnly?.({ kind: "client", client: CLIENT, label: "Laptop", path: "/home/beispiel/project" }), true,
-    "ein eingefrorener Wert eines älteren Journals gilt nach seiner Abbildung");
+  assert.equal(option.ownerOnly?.({ kind: "client", client: CLIENT, label: "Laptop", path: "/home/example/project" }), true,
+    "a frozen value of an older journal applies after its mapping");
   assert.equal(option.ownerOnly?.({ kind: "path", path: "/srv/project" }), false);
 });
 
@@ -348,12 +348,12 @@ test("choosing the binding in the web takes the user of the request, not any reg
   const rights = ["runs.read", "runs.write", "runs.create", "runs.inspect", "runs.read.all"];
   const as = (id: string) => createAccessContext({ enabled: true, user: { id, label: id, rights } });
   const select = (id: string) => dispatchMethod(methods, coreContracts.startOptions.select.id, {
-    runId: "draft-run", optionId: "ragents.workspace.binding", value: onLaptop({ path: "/home/beispiel/project" }),
+    runId: "draft-run", optionId: "ragents.workspace.binding", value: onLaptop({ path: "/home/example/project" }),
   }, as(id));
   await assert.rejects(select("bob"), (error: unknown) => error instanceof DomainError && error.code === "workspace-client-disconnected");
   assert.deepEqual(chosen, []);
   await select("alice");
-  assert.deepEqual(chosen, [onLaptop({ path: "/home/beispiel/project" }, "Laptop")]);
+  assert.deepEqual(chosen, [onLaptop({ path: "/home/example/project" }, "Laptop")]);
 });
 
 test("without runs.inspect the user binds folder and workstation but neither sees nor chooses model or system prompt", async () => {
@@ -390,8 +390,8 @@ test("without runs.inspect the user binds folder and workstation but neither see
   assert.deepEqual(offered.map((option) => option.id), [WORKSPACE_BINDING_OPTION_ID]);
   assert.doesNotMatch(JSON.stringify(offered), /private-model|private-provider|Private prompt/);
   await select(WORKSPACE_BINDING_OPTION_ID, onServer({ path: tmpdir() }), developer);
-  await select(WORKSPACE_BINDING_OPTION_ID, onLaptop({ path: "/home/beispiel/project" }), developer);
-  assert.deepEqual(chosen.get(WORKSPACE_BINDING_OPTION_ID), onLaptop({ path: "/home/beispiel/project" }, "Laptop"));
+  await select(WORKSPACE_BINDING_OPTION_ID, onLaptop({ path: "/home/example/project" }), developer);
+  assert.deepEqual(chosen.get(WORKSPACE_BINDING_OPTION_ID), onLaptop({ path: "/home/example/project" }, "Laptop"));
   for (const optionId of [modelStartOptionId, systemPromptStartOptionId]) {
     await assert.rejects(select(optionId, optionId === modelStartOptionId ? { model: "private-model" } : { promptIds: [], shareWithAgents: false }, developer), (error: unknown) =>
       error instanceof DomainError && error.code === "access-denied" && error.status === 403 && error.message.includes("runs.inspect"), optionId);
@@ -407,15 +407,15 @@ test("a workstation carries exactly the executor contributions of the server, le
   const roslyn = { plugin: "acme.lsp-demo", stand: "a".repeat(64) };
   const other = { plugin: "acme.lsp-other", stand: "b".repeat(64) };
   const registry = new WorkspaceClientRegistry([roslyn, other]);
-  assert.deepEqual((await registry.register(CLIENT, description(), WORKSPACE_EXECUTOR_VERSION, [other, roslyn], stubConnection())).id, CLIENT, "die Reihenfolge zählt nicht");
+  assert.deepEqual((await registry.register(CLIENT, description(), WORKSPACE_EXECUTOR_VERSION, [other, roslyn], stubConnection())).id, CLIENT, "the order does not matter");
   const refusal = (given: string, expected: string) => (error: unknown) =>
     error instanceof DomainError && error.code === "workspace-executor-contributions" && error.status === 409
-    && error.message.includes(`bringt die Executor-Beiträge ${given} mit, der Server verlangt ${expected}`);
+    && error.message.includes(`brings the executor contributions ${given}, the server requires ${expected}`);
   await assert.rejects(registry.register("client-00000005", description(), WORKSPACE_EXECUTOR_VERSION, [roslyn], stubConnection()),
     refusal("acme.lsp-demo (aaaaaaaaaaaa)", "acme.lsp-demo (aaaaaaaaaaaa), acme.lsp-other (bbbbbbbbbbbb)"));
   await assert.rejects(registry.register("client-00000006", description(), WORKSPACE_EXECUTOR_VERSION, [roslyn, { ...other, stand: "c".repeat(64) }], stubConnection()),
     refusal("acme.lsp-demo (aaaaaaaaaaaa), acme.lsp-other (cccccccccccc)", "acme.lsp-demo (aaaaaaaaaaaa), acme.lsp-other (bbbbbbbbbbbb)"));
-  await assert.rejects(new WorkspaceClientRegistry([]).register(CLIENT, description(), WORKSPACE_EXECUTOR_VERSION, [roslyn], stubConnection()), refusal("acme.lsp-demo (aaaaaaaaaaaa)", "keine"));
+  await assert.rejects(new WorkspaceClientRegistry([]).register(CLIENT, description(), WORKSPACE_EXECUTOR_VERSION, [roslyn], stubConnection()), refusal("acme.lsp-demo (aaaaaaaaaaaa)", "none"));
 
   const { url } = await startRpcServer(t, { methods: clientMethods(registry) });
   const client = new RpcClient({ baseUrl: url, retryDelayMs: 50 });
@@ -424,7 +424,7 @@ test("a workstation carries exactly the executor contributions of the server, le
   const newerExecutor = String(Number(WORKSPACE_EXECUTOR_VERSION) + 1);
   await assert.rejects(client.call(workspaceContracts.clients.contributions, { label: "Laptop", executor: newerExecutor, shell: "zsh" } as never), (error: unknown) =>
     error instanceof RpcError && error.domainCode === "workspace-executor-version" && error.status === 409
-    && error.message.includes(`bringt den Executor ${newerExecutor} mit, der Server verlangt ${WORKSPACE_EXECUTOR_VERSION}`));
+    && error.message.includes(`brings executor ${newerExecutor}, the server requires ${WORKSPACE_EXECUTOR_VERSION}`));
 });
 
 test("a sign-off removes only the entry its own connection holds", async () => {
@@ -434,14 +434,14 @@ test("a sign-off removes only the entry its own connection holds", async () => {
   await registry.register(CLIENT, description(["/home/alice/a"]), WORKSPACE_EXECUTOR_VERSION, [], first);
   await registry.register(CLIENT, description(["/home/alice/b"]), WORKSPACE_EXECUTOR_VERSION, [], second);
   registry.unregister("alice", CLIENT, first);
-  assert.deepEqual(registry.info("alice", CLIENT)?.folders, ["/home/alice/b"], "eine alte Verbindung meldet die neue nicht ab");
+  assert.deepEqual(registry.info("alice", CLIENT)?.folders, ["/home/alice/b"], "an old connection does not sign off the new one");
   first.end();
   assert.deepEqual(registry.info("alice", CLIENT)?.folders, ["/home/alice/b"]);
   registry.unregister("alice", CLIENT, second);
   assert.equal(registry.info("alice", CLIENT), undefined);
 });
 
-/** Ein Arbeitsplatz über eine echte Verbindung, der jede Operation mitschreibt; `hang` lässt eine Operation offen, bis der Strom endet. */
+/** A workstation over a real connection that records every operation; `hang` keeps an operation open until the stream ends. */
 const workstation = async (t: TestContext, url: string, hang: readonly string[] = []) => {
   const client = new RpcClient({ baseUrl: url, retryDelayMs: 50 });
   const operations: string[] = [];
@@ -460,7 +460,7 @@ test("a stop while the workstation is away is held and delivered when it registe
   const { registry } = await fixture(t);
   const url = (await startRpcServer(t, { methods: clientMethods(registry) })).url;
   const first = await workstation(t, url);
-  const executor = registry.executorFor(null, CLIENT, "Laptop", "/home/beispiel/project");
+  const executor = registry.executorFor(null, CLIENT, "Laptop", "/home/example/project");
   first.client.close();
   await until(() => registry.info(null, CLIENT) === undefined);
 
@@ -479,18 +479,18 @@ test("a new connection of the same workstation takes over: open calls of the old
   const { registry } = await fixture(t);
   const url = (await startRpcServer(t, { methods: clientMethods(registry) })).url;
   const old = await workstation(t, url, ["bash", "stop"]);
-  const executor = registry.executorFor(null, CLIENT, "Laptop", "/home/beispiel/project");
+  const executor = registry.executorFor(null, CLIENT, "Laptop", "/home/example/project");
   const running = executor.execute("run-1", "bash", { command: "sleep 600" }).then(() => undefined, (error: unknown) => error);
   const stopping = executor.stopRun("run-2");
   await until(() => old.operations.length === 2);
   const begun = Date.now();
   assert.equal(await executor.execute("run-2", "processes.stopAll", {}, { whenReachable: true }), null);
-  assert.ok(Date.now() - begun < 1000, "Aufräumen neben einem ausstehenden Stopp wartet nicht auf ihn");
+  assert.ok(Date.now() - begun < 1000, "cleanup next to a pending stop does not wait for it");
   assert.equal(old.operations.length, 2);
 
   const renewed = await workstation(t, url);
   const failure = await running;
-  assert.ok(failure instanceof DomainError && failure.code === "workspace-client-disconnected" && /abgelöst/.test(failure.message), String(failure));
+  assert.ok(failure instanceof DomainError && failure.code === "workspace-client-disconnected" && /replaced the sign-in/.test(failure.message), String(failure));
   await stopping;
   await until(() => renewed.operations.includes("stop:run-2"));
   await until(() => registry.pendingStops(null, CLIENT).length === 0);
@@ -505,12 +505,12 @@ test("without user sign-in the server accepts a workstation only over a loopback
   await until(() => client.status.kind === "connected");
   const register = () => client.call(workspaceContracts.clients.register, { id: CLIENT, ...description(), executor: WORKSPACE_EXECUTOR_VERSION, contributions: [] });
   await assert.rejects(register(), (error: unknown) =>
-    error instanceof RpcError && error.domainCode === "workspace-client-login-required" && error.status === 403 && /Loopback/.test(error.message));
+    error instanceof RpcError && error.domainCode === "workspace-client-login-required" && error.status === 403 && /loopback/.test(error.message));
   assert.deepEqual(registry.list(null), []);
 
-  const anonymous = createAccessContext({ enabled: false, user: { id: "gast", label: "Gast", rights: ["runs.read", "runs.write"] } });
+  const anonymous = createAccessContext({ enabled: false, user: { id: "guest", label: "Guest", rights: ["runs.read", "runs.write"] } });
   const signedIn = createAccessContext({ enabled: true, user: { id: "alice", label: "Alice", rights: ["runs.read", "runs.write"] } });
-  assert.throws(() => assertMayRegister(anonymous, false), /keine Benutzeranmeldung/);
+  assert.throws(() => assertMayRegister(anonymous, false), /no user sign-in/);
   assert.doesNotThrow(() => assertMayRegister(anonymous, true));
   assert.doesNotThrow(() => assertMayRegister(signedIn, false));
 

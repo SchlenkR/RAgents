@@ -11,26 +11,26 @@ const shots=fileURLToPath(new URL("../../../docs/ui-drafts/",import.meta.url));
 
 const entry=(id:string,title:string,description:string,kind:string,category:string)=>({id,title,description,kind,category});
 const entries=[
-  entry("ragents.reference.board","Sammelboard","Ein Listenhelfer mit eigener Funktion, Mini-App und gemeinsamem Zustand.","skill","Mini-Apps"),
-  entry("ragents.reference.notes","Notizbrett","Notizen ausblenden und wiederfinden, ohne den Actor zu verlieren.","skill","Mini-Apps"),
-  entry("ragents.reference.circle","Gesprächsrunde","Vier Helfer sprechen reihum, der Koordinator führt die Runden.","script","Moderation"),
-  entry("ragents.reference.word","Wortspiel","Vier Modelle reichen Wörter weiter, ein Actor beendet nach zwölf.","script","Spiele"),
+  entry("ragents.reference.board","Collection board","A list helper with its own function, mini-app and shared state.","skill","Mini-apps"),
+  entry("ragents.reference.notes","Notes board","Hide notes and find them again without losing the actor.","skill","Mini-apps"),
+  entry("ragents.reference.circle","Discussion circle","Four helpers speak in turn, the coordinator leads the rounds.","script","Moderation"),
+  entry("ragents.reference.word","Word game","Four models pass words along, an actor ends after twelve.","script","Games"),
 ];
 const MINUTE=60_000;
 const run=(id:string,title:string,state:string,minutes:number)=>({id,title,state,pendingActions:state==="waiting"?2:0,updatedAt:Date.now()-minutes*MINUTE});
 const workshop={name:"workshop",kind:"server",address:"http://localhost:4715",route:{kind:"server",host:"localhost:4715",localHost:false},state:{kind:"connected"},user:"alex",
-  runs:[run("run-a","Redaktionswerkstatt: Landingpage","running",0),run("run-b","Balkon-Planung Südseite","waiting",5),run("run-c","Wortspiel: Sonne","ended",1440*3)],entries,canCreate:true};
+  runs:[run("run-a","Editorial workshop: landing page","running",0),run("run-b","Balcony plan south side","waiting",5),run("run-c","Word game: sun","ended",1440*3)],entries,canCreate:true};
 const core={name:"core",kind:"server",address:"https://workshop.example.com",route:{kind:"server",host:"workshop.example.com",localHost:true},state:{kind:"connected"},
-  runs:[run("run-d","Moderierte Runde: Gute Zusammenarbeit","idle",180),run("run-e","Entscheidung klären: Hosting","ended",1440*5)],entries,canCreate:true};
+  runs:[run("run-d","Moderated round: good collaboration","idle",180),run("run-e","Clarify decision: hosting","ended",1440*5)],entries,canCreate:true};
 const developer={name:"developer",kind:"profile",address:"/Users/example/repos/RAgents/ragents.config.developer.ts",route:{kind:"profile",profile:"developer"},state:{kind:"starting"},runs:[],entries:[],canCreate:false};
 const review={name:"review",kind:"server",address:"https://review.example.com",route:{kind:"server",host:"review.example.com",localHost:false},state:{kind:"login-required",mode:"password"},runs:[],entries:[],canCreate:false};
-const nachtlauf={name:"nachtlauf",kind:"server",address:"https://nachtlauf.example.com:8443",route:{kind:"server",host:"nachtlauf.example.com:8443",localHost:false},state:{kind:"unreachable",message:"fetch failed"},runs:[],entries:[],canCreate:false};
-const all=[workshop,core,developer,review,nachtlauf];
+const nightrun={name:"nightrun",kind:"server",address:"https://nightrun.example.com:8443",route:{kind:"server",host:"nightrun.example.com:8443",localHost:false},state:{kind:"unreachable",message:"fetch failed"},runs:[],entries:[],canCreate:false};
+const all=[workshop,core,developer,review,nightrun];
 
 const skip=process.env.RAGENTS_BROWSER_TESTS!=="1";
 const launch=()=>chromium.launch({headless:true,executablePath:process.env.BROWSER_EXECUTABLE_PATH??"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"});
 
-/** Das Panel scrollt in main statt im Dokument; für ein Bild der ganzen Seite wächst der Viewport kurz auf die Inhaltshöhe. */
+/** The panel scrolls in main instead of the document; for a full-page image the viewport briefly grows to the content height. */
 const shoot=async(page:Page,path:string)=>{
   const {width,height}=page.viewportSize()!;
   const content=await page.evaluate(()=>document.querySelector('main')!.scrollHeight);
@@ -39,7 +39,7 @@ const shoot=async(page:Page,path:string)=>{
   await page.setViewportSize({width,height});
 };
 
-/** Bündelt das Panel mit Tailwind in einen frischen Ordner und legt die Seite mit dem Anfangszustand daneben. */
+/** Bundles the panel with Tailwind into a fresh folder and puts the page with the initial state next to it. */
 const preparePage=async(initial:unknown):Promise<string>=>{
   const scratch="/private/tmp/ragents-panel-pages";await mkdir(scratch,{recursive:true});const directory=await mkdtemp(`${scratch}/page-`);const root=fileURLToPath(new URL("../../../",import.meta.url));
   await build({stdin:{contents:`import React,{useState}from'react';import{createRoot}from'react-dom/client';import{PanelPage}from'${root}apps/web/src/panel/PanelPage.tsx';import'${root}apps/web/src/ui/tailwind.css';
@@ -51,43 +51,43 @@ function App(){const[state,setState]=useState(window.fixture.initial);window.fix
 const setPage=(page:Page,next:string)=>page.evaluate((value)=>(window as any).fixture.setState((current:any)=>({...current,page:value})),next);
 const setConnections=(page:Page,connections:unknown[])=>page.evaluate((value)=>(window as any).fixture.setState((current:any)=>({...current,connections:value})),connections);
 const sent=(page:Page)=>page.evaluate(()=>(window as any).fixture.sent.at(-1));
-/** Die linken Kanten einer Spalte der Run-Liste; ein Raster hat je Spalte genau eine. */
+/** The left edges of a run list column; a grid has exactly one per column. */
 const columnEdges=(page:Page,list:string,cell:string)=>page.evaluate(([label,name])=>
   new Set([...document.querySelectorAll(`ul[aria-label="${label}"] [data-cell="${name}"]`)].map((item)=>Math.round(item.getBoundingClientRect().left))).size,[list,cell]);
 
-test("Start zeigt die Server als geteilte Chips mit Zielzeile, die letzten Runs im Raster und die Vorlagen und startet mit einem Klick",{skip,timeout:120_000},async(context)=>{
+test("Start shows the servers as split chips with a route line, the recent runs in a grid and the templates, and starts with one click",{skip,timeout:120_000},async(context)=>{
   const url=await preparePage({theme:"dark",page:"start",profileSuggestions:[],connections:all});
   const browser=await launch();
   try{
     const browserContext=await browser.newContext({viewport:{width:420,height:1100}});const page=await browserContext.newPage();await page.goto(url);
     await page.getByRole('heading',{name:'Server'}).waitFor();
-    assert.equal(await page.getByRole('heading',{level:1}).count(),0,'Start hat keine eigene Kopfzeile');
-    assert.equal(await page.getByRole('button',{name:'Runs',exact:true}).count(),0,'die Aktionen stehen nur in der Titelzeile von VS Code');
-    assert.equal(await page.getByRole('button',{name:'Server einrichten'}).count(),0);
+    assert.equal(await page.getByRole('heading',{level:1}).count(),0,'Start has no header of its own');
+    assert.equal(await page.getByRole('button',{name:'Runs',exact:true}).count(),0,'the actions are only in the VS Code title bar');
+    assert.equal(await page.getByRole('button',{name:'Set up server'}).count(),0);
 
-    // Zwei Server je Zeile bei 420 Pixeln, alle in einer ab 560.
+    // Two servers per row at 420 pixels, all in one from 560 on.
     const connectionRows=()=>page.evaluate(()=>
       new Set([...document.querySelectorAll('ul[aria-label="Server"] > li')].map((item)=>Math.round(item.getBoundingClientRect().top))).size);
-    assert.equal(await connectionRows(),3,'fünf Server stehen bei 420 Pixeln in drei Zeilen');
-    assert.equal(await page.getByRole('button',{name:'Neuer Chat auf workshop'}).count(),1);
-    assert.equal(await page.getByRole('button',{name:'Neuer Chat auf review'}).count(),0,'ohne Startrecht kein Plus');
+    assert.equal(await connectionRows(),3,'five servers take three rows at 420 pixels');
+    assert.equal(await page.getByRole('button',{name:'New chat on workshop'}).count(),1);
+    assert.equal(await page.getByRole('button',{name:'New chat on review'}).count(),0,'no plus without the start right');
     const chip=(name:string)=>page.locator('ul[aria-label="Server"] > li').filter({hasText:name}).first();
     assert.equal(await chip('workshop').locator('[data-cell="route"]').innerText(),'localhost:4715');
-    assert.equal(await chip('core').locator('[data-cell="route"]').innerText(),'workshop.example.com \u00b7 lokal','ein verteiltes Profil läuft lokal');
-    assert.equal(await chip('developer').locator('[data-cell="route"]').innerText(),'lokal \u00b7 developer');
-    assert.equal(await chip('nachtlauf').locator('[data-cell="route"]').innerText(),'nachtlauf.example.com:8443','ein Port außer dem Standard bleibt stehen');
+    assert.equal(await chip('core').locator('[data-cell="route"]').innerText(),'workshop.example.com \u00b7 local','a distributed profile runs locally');
+    assert.equal(await chip('developer').locator('[data-cell="route"]').innerText(),'local \u00b7 developer');
+    assert.equal(await chip('nightrun').locator('[data-cell="route"]').innerText(),'nightrun.example.com:8443','a non-default port stays');
     const widths=await page.evaluate(()=>[...document.querySelectorAll('ul[aria-label="Server"] > li')].map((item)=>Math.round(item.getBoundingClientRect().width)));
-    assert.equal(new Set(widths).size,1,`alle Chips sind gleich breit, mit und ohne Plus: ${widths.join(', ')}`);
-    assert.equal(await page.getByRole('button',{name:'developer startet'}).isDisabled(),true,'ein startender Server ist nicht klickbar');
+    assert.equal(new Set(widths).size,1,`all chips are the same width, with and without plus: ${widths.join(', ')}`);
+    assert.equal(await page.getByRole('button',{name:'developer is starting'}).isDisabled(),true,'a starting server is not clickable');
 
-    // Der linke Teil ist ein Knopf mit Aktionswort: Anmelden, Erneut versuchen, Runs.
-    const anmelden=page.getByRole('button',{name:'An review anmelden'});
-    assert.equal(await anmelden.count(),1);
-    assert.match(await anmelden.innerText(),/Anmelden\s+review\.example\.com$/,'das Aktionswort steht neben dem Namen, die Zielzeile darunter');
+    // The left part is a button with an action word: Sign in, Retry, Runs.
+    const signIn=page.getByRole('button',{name:'Sign in to review'});
+    assert.equal(await signIn.count(),1);
+    assert.match(await signIn.innerText(),/Sign in\s+review\.example\.com$/,'the action word is next to the name, the route line below');
     const placement=await chip('review').evaluate((item)=>{
-      const state=item.querySelector<HTMLElement>('button[aria-label="Anmeldung an review"]')!;
+      const state=item.querySelector<HTMLElement>('button[aria-label="Sign-in for review"]')!;
       const icon=state.querySelector<HTMLElement>('svg')!;
-      const action=item.querySelector<HTMLElement>('button[aria-label="An review anmelden"]')!;
+      const action=item.querySelector<HTMLElement>('button[aria-label="Sign in to review"]')!;
       const text=action.querySelector<HTMLElement>(':scope > span')!;
       const stateBox=state.getBoundingClientRect();
       const iconBox=icon.getBoundingClientRect();
@@ -96,139 +96,139 @@ test("Start zeigt die Server als geteilte Chips mit Zielzeile, die letzten Runs 
         textInset:text.getBoundingClientRect().left-action.getBoundingClientRect().left,
       };
     });
-    assert.ok(placement.iconOffset<0.5,`das Zustandssymbol ist mittig: ${placement.iconOffset}`);
-    assert.ok(placement.textInset>=7.5,`der Text hat nominell 8 Pixel Abstand: ${placement.textInset}`);
-    await anmelden.click();
+    assert.ok(placement.iconOffset<0.5,`the state icon is centered: ${placement.iconOffset}`);
+    assert.ok(placement.textInset>=7.5,`the text has a nominal 8 pixel inset: ${placement.textInset}`);
+    await signIn.click();
     await page.getByRole('dialog').waitFor();
     await page.keyboard.press('Escape');
     await page.waitForSelector('[role=dialog]',{state:'detached'});
-    await page.getByRole('button',{name:'nachtlauf erneut versuchen'}).click();
-    assert.deepEqual(await sent(page),{action:'retry',name:'nachtlauf'});
-    await page.getByRole('button',{name:'Runs auf workshop'}).click();
+    await page.getByRole('button',{name:'Retry nightrun'}).click();
+    assert.deepEqual(await sent(page),{action:'retry',name:'nightrun'});
+    await page.getByRole('button',{name:'Runs on workshop'}).click();
     assert.deepEqual(await sent(page),{action:'page',page:'runs',connection:'workshop'});
 
-    // Weiter zeigt fünf Zeilen aller Server im Raster, Neu alle Vorlagen flach.
-    assert.equal(await page.getByRole('button',{name:/^Alle 5 Runs/}).count(),1);
-    assert.equal(await page.locator('button[title="Redaktionswerkstatt: Landingpage (workshop)"]').count(),1);
-    assert.equal(await columnEdges(page,'Zuletzt','time'),1,'die Zeitspalte steht in allen Zeilen an derselben Kante');
-    assert.equal(await columnEdges(page,'Zuletzt','connection'),1,'die Serverspalte steht in allen Zeilen an derselben Kante');
-    assert.equal(await page.locator('ul[aria-label="Vorlagen auf core"] button[title="Wortspiel"]').count(),1,'jede Vorlage jedes Servers steht in der Gruppe ihres Servers');
-    assert.equal(await page.getByLabel('Vorlagen suchen').count(),0,'auf Start gibt es keine Suche');
+    // Continue shows five lines of all servers in the grid, New all templates flat.
+    assert.equal(await page.getByRole('button',{name:/^All 5 runs/}).count(),1);
+    assert.equal(await page.locator('button[title="Editorial workshop: landing page (workshop)"]').count(),1);
+    assert.equal(await columnEdges(page,'Recent','time'),1,'the time column is at the same edge in all lines');
+    assert.equal(await columnEdges(page,'Recent','connection'),1,'the server column is at the same edge in all lines');
+    assert.equal(await page.locator('ul[aria-label="Templates on core"] button[title="Word game"]').count(),1,'every template of every server is in its server group');
+    assert.equal(await page.getByLabel('Search templates').count(),0,'Start has no search');
     await shoot(page,`${shots}app-2026-09-22-start-420.png`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 
-    // Ein Klick ist ein Klick: die Vorlage legt den Run an, das Plus den leeren Chat, die Zeile öffnet den Run.
-    await page.locator('ul[aria-label="Vorlagen auf core"] button[title="Gesprächsrunde"]').click();
+    // One click is one click: the template creates the run, the plus the empty chat, the line opens the run.
+    await page.locator('ul[aria-label="Templates on core"] button[title="Discussion circle"]').click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'core',entryId:'ragents.reference.circle'});
-    await page.getByRole('button',{name:'Neuer Chat auf workshop'}).click();
+    await page.getByRole('button',{name:'New chat on workshop'}).click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'workshop'});
-    await page.locator('button[title="Balkon-Planung Südseite (workshop)"]').click();
+    await page.locator('button[title="Balcony plan south side (workshop)"]').click();
     assert.deepEqual(await sent(page),{action:'openRun',name:'workshop',runId:'run-b'});
 
-    // Neu gruppiert je erreichbarem Server und beginnt jede Gruppe mit Neuer Chat; mit Default steht dessen Vorlage markiert zuerst, und das Plus nimmt ihn.
-    const groups=()=>page.evaluate(()=>[...document.querySelectorAll('ul[aria-label^="Vorlagen auf "]')].map((list)=>({
-      connection:list.getAttribute('aria-label')!.replace('Vorlagen auf ',''),
+    // New groups per reachable server and starts each group with New chat; with a default, its template comes first and marked, and the plus takes it.
+    const groups=()=>page.evaluate(()=>[...document.querySelectorAll('ul[aria-label^="Templates on "]')].map((list)=>({
+      connection:list.getAttribute('aria-label')!.replace('Templates on ',''),
       heading:list.previousElementSibling?.textContent?.trim(),
       titles:[...list.querySelectorAll(':scope > li > button')].map((item)=>item.getAttribute('title')),
     })));
     const tilesOf=async(connection:string)=>(await groups()).find((group)=>group.connection===connection)!;
-    assert.deepEqual((await groups()).map((group)=>group.connection),['workshop','core'],'eine Gruppe je erreichbarem Server, Reihenfolge wie die Chips');
-    assert.match((await tilesOf('workshop')).heading??'',/workshop$/,'die Gruppe trägt den Servernamen als Überschrift');
-    assert.equal((await tilesOf('workshop')).titles[0],'Neuer Chat');
-    assert.equal((await tilesOf('core')).titles[0],'Neuer Chat');
-    assert.equal((await groups()).flatMap((group)=>group.titles).length,10,'zweimal Neuer Chat vor den acht Vorlagen');
-    await page.locator('ul[aria-label="Vorlagen auf core"] button[title="Neuer Chat"]').click();
+    assert.deepEqual((await groups()).map((group)=>group.connection),['workshop','core'],'one group per reachable server, in the order of the chips');
+    assert.match((await tilesOf('workshop')).heading??'',/workshop$/,'the group carries the server name as its heading');
+    assert.equal((await tilesOf('workshop')).titles[0],'New chat');
+    assert.equal((await tilesOf('core')).titles[0],'New chat');
+    assert.equal((await groups()).flatMap((group)=>group.titles).length,10,'New chat twice before the eight templates');
+    await page.locator('ul[aria-label="Templates on core"] button[title="New chat"]').click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'core'});
-    const firstTile=(connection:string,title:string)=>page.waitForFunction(([list,expected])=>document.querySelector(`ul[aria-label="Vorlagen auf ${list}"] > li > button`)?.getAttribute('title')===expected,[connection,title]);
-    await setConnections(page,[{...workshop,defaultEntry:'ragents.reference.circle'},core,developer,review,nachtlauf]);
-    await firstTile('workshop','Gesprächsrunde');
-    assert.deepEqual((await tilesOf('workshop')).titles.slice(0,1),['Gesprächsrunde']);
-    assert.equal((await groups()).flatMap((group)=>group.titles).length,9,'der Default steht nicht ein zweites Mal');
-    const standardTile=page.locator('ul[aria-label="Vorlagen auf workshop"] button[title="Gesprächsrunde"]');
-    assert.equal(await standardTile.getByText('Standard').count(),1);
+    const firstTile=(connection:string,title:string)=>page.waitForFunction(([list,expected])=>document.querySelector(`ul[aria-label="Templates on ${list}"] > li > button`)?.getAttribute('title')===expected,[connection,title]);
+    await setConnections(page,[{...workshop,defaultEntry:'ragents.reference.circle'},core,developer,review,nightrun]);
+    await firstTile('workshop','Discussion circle');
+    assert.deepEqual((await tilesOf('workshop')).titles.slice(0,1),['Discussion circle']);
+    assert.equal((await groups()).flatMap((group)=>group.titles).length,9,'the default does not appear a second time');
+    const standardTile=page.locator('ul[aria-label="Templates on workshop"] button[title="Discussion circle"]');
+    assert.equal(await standardTile.getByText('Default').count(),1);
     await standardTile.click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'workshop',entryId:'ragents.reference.circle'});
-    await page.getByRole('button',{name:'Neuer Run aus Gesprächsrunde auf workshop'}).click();
+    await page.getByRole('button',{name:'New run from Discussion circle on workshop'}).click();
     assert.deepEqual(await sent(page),{action:'newRun',name:'workshop',entryId:'ragents.reference.circle'});
     await shoot(page,`${shots}app-2026-09-22-start-standard-420.png`);
     await setConnections(page,all);
-    await firstTile('workshop','Neuer Chat');
+    await firstTile('workshop','New chat');
 
-    // Das Zustandssymbol eines gescheiterten Servers öffnet die Meldung mit Ausgabe öffnen und Erneut versuchen; das Schloss die Anmeldung.
-    await page.getByRole('button',{name:'Fehler von nachtlauf anzeigen'}).click();
-    const failure=page.getByRole('dialog',{name:'nicht erreichbar'});
+    // The state icon of a failed server opens the message with Open output and Retry; the lock opens the sign-in.
+    await page.getByRole('button',{name:'Show error of nightrun'}).click();
+    const failure=page.getByRole('dialog',{name:'unreachable'});
     await failure.waitFor();
     await failure.getByText('fetch failed').waitFor();
     await page.evaluate(()=>Promise.all(document.getAnimations().map((animation)=>animation.finished)));
     await page.screenshot({path:`${shots}app-2026-09-22-start-fehler-420.png`});
-    await failure.getByRole('button',{name:'Ausgabe öffnen'}).click();
+    await failure.getByRole('button',{name:'Open output'}).click();
     assert.deepEqual(await sent(page),{action:'showOutput'});
-    await failure.getByRole('button',{name:'Erneut versuchen'}).click();
-    assert.deepEqual(await sent(page),{action:'retry',name:'nachtlauf'});
+    await failure.getByRole('button',{name:'Retry'}).click();
+    assert.deepEqual(await sent(page),{action:'retry',name:'nightrun'});
     await page.waitForSelector('[role=dialog]',{state:'detached'});
-    await page.getByRole('button',{name:'Anmeldung an review'}).click();
-    await page.getByRole('dialog',{name:'Anmelden an review'}).waitFor();
+    await page.getByRole('button',{name:'Sign-in for review'}).click();
+    await page.getByRole('dialog',{name:'Sign in to review'}).waitFor();
     await page.keyboard.press('Escape');
     await page.waitForSelector('[role=dialog]',{state:'detached'});
 
     await page.setViewportSize({width:900,height:1100});
     await page.waitForFunction(()=>innerWidth===900);
-    assert.equal(await connectionRows(),1,'ab 560 Pixeln stehen alle Server in einer Zeile');
+    assert.equal(await connectionRows(),1,'from 560 pixels on all servers are in one row');
     await shoot(page,`${shots}app-2026-09-22-start-900.png`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     context.diagnostic(`Screenshots: ${shots}`);
   }finally{await browser.close()}
 });
 
-test("Runs führt alle Runs zusammen, sucht, blendet Beendete aus und löscht nach einer Rückfrage",{skip,timeout:120_000},async(context)=>{
+test("Runs brings all runs together, searches, hides ended ones and deletes after a confirmation",{skip,timeout:120_000},async(context)=>{
   const url=await preparePage({theme:"dark",page:"runs",profileSuggestions:[],connections:all});
   const browser=await launch();
   try{
     const browserContext=await browser.newContext({viewport:{width:420,height:1100}});const page=await browserContext.newPage();await page.goto(url);
     await page.getByRole('heading',{name:'Runs'}).waitFor();
-    assert.equal(await page.getByRole('button',{name:'Server',exact:true}).count(),0,'die Kopfzeile trägt nur Zurück und Titel');
+    assert.equal(await page.getByRole('button',{name:'Server',exact:true}).count(),0,'the header carries only back and the title');
     const lines=()=>page.locator('ul[aria-label="Runs"] > li').count();
-    assert.equal(await lines(),5,'alle Runs aller Server stehen hier');
-    assert.equal(await columnEdges(page,'Runs','time'),1,'die Zeitspalte steht in allen Zeilen an derselben Kante');
-    assert.equal(await columnEdges(page,'Runs','connection'),1,'die Serverspalte steht in allen Zeilen an derselben Kante');
+    assert.equal(await lines(),5,'all runs of all servers are here');
+    assert.equal(await columnEdges(page,'Runs','time'),1,'the time column is at the same edge in all lines');
+    assert.equal(await columnEdges(page,'Runs','connection'),1,'the server column is at the same edge in all lines');
     const edgesBefore=await page.evaluate(()=>['time','connection'].map((name)=>Math.round(document.querySelector(`ul[aria-label="Runs"] [data-cell="${name}"]`)!.getBoundingClientRect().left)));
     await shoot(page,`${shots}app-2026-09-22-runs-420.png`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
 
-    await page.getByRole('button',{name:'Beendete ausblenden'}).click();
-    await page.waitForFunction(()=>document.querySelectorAll('button[title*="Wortspiel: Sonne"]').length===0);
+    await page.getByRole('button',{name:'Hide ended'}).click();
+    await page.waitForFunction(()=>document.querySelectorAll('button[title*="Word game: sun"]').length===0);
     assert.equal(await lines(),3);
-    await page.getByRole('button',{name:'Beendete ausblenden'}).click();
+    await page.getByRole('button',{name:'Hide ended'}).click();
 
-    await page.getByLabel('Runs suchen').fill('balkon');
-    await page.waitForFunction(()=>document.querySelectorAll('button[title*="Redaktionswerkstatt"]').length===0);
+    await page.getByLabel('Search runs').fill('balcony');
+    await page.waitForFunction(()=>document.querySelectorAll('button[title*="Editorial workshop"]').length===0);
     assert.equal(await lines(),1);
-    await page.getByLabel('Runs suchen').fill('core');
-    await page.waitForFunction(()=>document.querySelectorAll('button[title*="Balkon"]').length===0);
-    assert.equal(await lines(),2,'die Suche kennt auch den Namen des Servers');
-    await page.getByLabel('Runs suchen').fill('gibtesnicht');
-    await page.getByRole('status').filter({hasText:'Kein passender Run.'}).waitFor();
-    await page.getByLabel('Runs suchen').fill('');
+    await page.getByLabel('Search runs').fill('core');
+    await page.waitForFunction(()=>document.querySelectorAll('button[title*="Balcony"]').length===0);
+    assert.equal(await lines(),2,'the search also knows the server name');
+    await page.getByLabel('Search runs').fill('doesnotexist');
+    await page.getByRole('status').filter({hasText:'No matching run.'}).waitFor();
+    await page.getByLabel('Search runs').fill('');
 
-    // Auswählen, zwei Runs markieren, im Dialog bestätigen.
-    await page.getByRole('button',{name:'Auswählen'}).click();
-    await page.getByRole('checkbox',{name:'Balkon-Planung Südseite auswählen'}).click();
-    await page.getByRole('checkbox',{name:'Wortspiel: Sonne auswählen'}).click();
-    await page.getByText('2 ausgewählt').waitFor();
-    assert.equal(await columnEdges(page,'Runs','time'),1,'auch mit Kontrollkästchen steht die Zeit in einer Kante');
+    // Select, mark two runs, confirm in the dialog.
+    await page.getByRole('button',{name:'Select'}).click();
+    await page.getByRole('checkbox',{name:'Select Balcony plan south side'}).click();
+    await page.getByRole('checkbox',{name:'Select Word game: sun'}).click();
+    await page.getByText('2 selected').waitFor();
+    assert.equal(await columnEdges(page,'Runs','time'),1,'the time stays at one edge with checkboxes too');
     assert.equal(await columnEdges(page,'Runs','connection'),1);
     const edgesSelecting=await page.evaluate(()=>['time','connection'].map((name)=>Math.round(document.querySelector(`ul[aria-label="Runs"] [data-cell="${name}"]`)!.getBoundingClientRect().left)));
-    assert.deepEqual(edgesSelecting,edgesBefore,'das Kontrollkästchen verschiebt die rechten Spalten nicht');
+    assert.deepEqual(edgesSelecting,edgesBefore,'the checkbox does not move the right columns');
     await shoot(page,`${shots}app-2026-09-22-runs-auswahl-420.png`);
-    await page.getByRole('button',{name:'Löschen'}).click();
+    await page.getByRole('button',{name:'Delete'}).click();
     const dialog=page.getByRole('dialog');
     await dialog.waitFor();
-    await dialog.getByRole('heading',{name:'2 Runs löschen?'}).waitFor();
+    await dialog.getByRole('heading',{name:'Delete 2 runs?'}).waitFor();
     await page.screenshot({path:`${shots}app-2026-09-22-runs-loeschen-420.png`});
-    await dialog.getByRole('button',{name:'Löschen'}).click();
+    await dialog.getByRole('button',{name:'Delete'}).click();
     assert.deepEqual(await sent(page),{action:'deleteRuns',name:'workshop',runIds:['run-b','run-c']});
     await page.waitForSelector('[role=dialog]',{state:'detached'});
-    assert.equal(await page.getByText('ausgewählt').count(),0,'nach dem Löschen endet der Auswahlmodus');
+    assert.equal(await page.getByText('selected').count(),0,'after deleting the selection mode ends');
 
     await page.setViewportSize({width:900,height:1100});
     await page.waitForFunction(()=>innerWidth===900);
@@ -238,40 +238,40 @@ test("Runs führt alle Runs zusammen, sucht, blendet Beendete aus und löscht na
     await setPage(page,'start');
     await page.getByRole('heading',{name:'Server'}).waitFor();
     await page.setViewportSize({width:420,height:1100});
-    assert.equal(await page.getByRole('button',{name:'Zur Start-Seite'}).count(),0);
+    assert.equal(await page.getByRole('button',{name:'Back to Start'}).count(),0);
     context.diagnostic(`Screenshots: ${shots}`);
   }finally{await browser.close()}
 });
 
-test("der Chip auf Start filtert die Seite Runs auf seinen Server; der Schalter hebt den Filter auf",{skip,timeout:120_000},async()=>{
+test("the chip on Start filters the Runs page to its server; the toggle removes the filter",{skip,timeout:120_000},async()=>{
   const url=await preparePage({theme:"dark",page:"runs",runsConnection:"core",profileSuggestions:[],connections:all});
   const browser=await launch();
   try{
     const browserContext=await browser.newContext({viewport:{width:420,height:1100}});const page=await browserContext.newPage();await page.goto(url);
     await page.getByRole('heading',{name:'Runs'}).waitFor();
     const lines=()=>page.locator('ul[aria-label="Runs"] > li').count();
-    assert.equal(await lines(),2,'nur die Runs von core');
-    const filter=page.getByRole('button',{name:'Nur core'});
+    assert.equal(await lines(),2,'only the runs of core');
+    const filter=page.getByRole('button',{name:'Only core'});
     assert.equal(await filter.getAttribute('aria-pressed'),'true');
     await filter.click();
     await page.waitForFunction(()=>document.querySelectorAll('ul[aria-label="Runs"] > li').length===5);
-    assert.equal(await filter.count(),0,'ohne Filter verschwindet der Schalter');
+    assert.equal(await filter.count(),0,'without a filter the toggle disappears');
   }finally{await browser.close()}
 });
 
-test("ein langer Run-Titel bleibt in der Panelbreite und die Seite scrollt in der Höhe",{skip,timeout:120_000},async()=>{
-  const longTitle="LiesAUFTRAGmdUndFühreGenauDiesenAuftragAus".repeat(5);
+test("a long run title stays within the panel width and the page scrolls vertically",{skip,timeout:120_000},async()=>{
+  const longTitle="ReadTASKmdAndCarryOutExactlyThisTask".repeat(5);
   const connection={...workshop,runs:[run("run-long",longTitle,"running",1),...workshop.runs]};
   const url=await preparePage({theme:"dark",page:"start",profileSuggestions:[],connections:[connection]});
   const browser=await launch();
   try{
     const browserContext=await browser.newContext({viewport:{width:420,height:380}});const page=await browserContext.newPage();await page.goto(url);
     await page.getByRole('heading',{name:'Server'}).waitFor();
-    await page.locator('button[title="Wortspiel"]').waitFor();
+    await page.locator('button[title="Word game"]').waitFor();
 
     const metrics=await page.evaluate((title)=>{
       const main=document.querySelector('main')!;
-      const tiles=document.querySelector('ul[aria-label="Vorlagen"]')!;
+      const tiles=document.querySelector('ul[aria-label="Templates"]')!;
       const span=document.querySelector(`button[title="${title}"] span.truncate`)!;
       main.scrollTop=100;
       return {
@@ -282,10 +282,10 @@ test("ein langer Run-Titel bleibt in der Panelbreite und die Seite scrollt in de
         scrollTop:main.scrollTop,
       };
     },longTitle);
-    assert.ok(metrics.documentOverflow<=0,`die Seite läuft ${metrics.documentOverflow}px nach rechts über`);
-    assert.ok(metrics.tilesOverflow<=0,`das Raster der Vorlagen ist ${metrics.tilesOverflow}px breiter als das Panel`);
-    assert.ok(metrics.titleClipped>0,'der lange Run-Titel wird mit Ellipsis abgeschnitten');
-    assert.ok(metrics.scrollRoom>0,'die Seite hat einen Scrollbereich in der Höhe');
-    assert.ok(metrics.scrollTop>0,'die Seite lässt sich nach unten scrollen');
+    assert.ok(metrics.documentOverflow<=0,`the page overflows ${metrics.documentOverflow}px to the right`);
+    assert.ok(metrics.tilesOverflow<=0,`the template grid is ${metrics.tilesOverflow}px wider than the panel`);
+    assert.ok(metrics.titleClipped>0,'the long run title is cut off with an ellipsis');
+    assert.ok(metrics.scrollRoom>0,'the page has a vertical scroll area');
+    assert.ok(metrics.scrollTop>0,'the page can be scrolled down');
   }finally{await browser.close()}
 });

@@ -11,7 +11,7 @@ import { assertBundleStand, readBundleManifest, sourceStandOf } from "../../apps
 import { builtInPluginFolders } from "../plugin/build-builtin-plugins.ts";
 
 export const PACKAGE_NAME = "@schlenkr/ragents";
-/** Der Ordner unter dist/; der Paketname hat einen Scope, der Ordnername bleibt schlicht. */
+/** The folder under dist/; the package name has a scope, the folder name stays plain. */
 export const PACKAGE_FOLDER = "ragents";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -19,12 +19,12 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 const SKIPPED_FOLDERS = new Set(["node_modules", "dist", ".git"]);
 const SKIPPED_FILES = new Set([".DS_Store"]);
 
-/** Die Prüfungen der Unterbefehle laufen im Checkout; im Paket wäre nur ihr Testmaterial zu sehen. */
+/** The subcommands' tests run in the checkout; in the package only their test material would be visible. */
 const SKIPPED_IN_PACKAGE = /^scripts\/.*\.test\.tsx?$/;
 
 const packagePath = (packageRoot: string, file: string): string => path.relative(packageRoot, file).split(path.sep).join("/");
 
-/** Die neutralen Profile des Repositories; ragents start fährt sie aus dem Paket wie aus dem Checkout. */
+/** The repository's neutral profiles; ragents start runs them from the package as from the checkout. */
 export const PACKAGED_PROFILES = ["core", "developer", "showcase"] as const;
 
 export const PACKAGE_LICENSE = "PolyForm-Shield-1.0.0";
@@ -32,7 +32,7 @@ export const PACKAGE_AUTHOR = "Ronald Schlenker";
 export const REPOSITORY_URL = "https://github.com/SchlenkR/RAgents";
 export const PACKAGE_KEYWORDS = ["agents", "llm", "actors", "typescript", "csharp", "fsharp", "vscode"] as const;
 
-/** Lizenz und Listing-README liegen an der Wurzel des Pakets, ihre Quellen im Repository woanders. */
+/** License and listing README are at the root of the package, their sources elsewhere in the repository. */
 export const PACKAGE_ROOT_FILES: readonly (readonly [string, string])[] = [
   ["LICENSE", "LICENSE"],
   ["scripts/package/README.md", "README.md"],
@@ -42,7 +42,7 @@ const ROOT_FILE_SOURCES = new Set(PACKAGE_ROOT_FILES.map(([source]) => source));
 
 const skippedInPackage = (relative: string): boolean => SKIPPED_IN_PACKAGE.test(relative) || ROOT_FILE_SOURCES.has(relative);
 
-/** Was der Host zur Laufzeit lädt: Server, Engine, das fertige Web, die eingebauten Bundles, Plugin-Quellen für Verträge und das Bauwerkzeug, Profile und die Skripte hinter den Unterbefehlen; dazu kommen die Typen aus declarationFolders. */
+/** What the host loads at runtime: server, engine, the built web, the built-in bundles, plugin sources for contracts and the build tool, profiles and the scripts behind the subcommands; plus the types from declarationFolders. */
 export const packageContents = (root = repositoryRoot): readonly string[] => [
   "apps/server/package.json",
   "apps/server/tsconfig.json",
@@ -67,7 +67,7 @@ export const packageContents = (root = repositoryRoot): readonly string[] => [
   "scripts/workspace-client",
 ];
 
-/** Die gegabelte Agentenlaufzeit läuft aus ihren Quellen, ihre Typen gibt es nur gebaut; das Bauwerkzeug prüft fremde Plugins gegen sie. */
+/** The forked agent runtime runs from its sources, its types exist only built; the build tool checks third-party plugins against them. */
 export const declarationFolders = (root = repositoryRoot): readonly string[] =>
   readdirSync(path.join(root, "packages"), { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
@@ -78,13 +78,13 @@ export const declarationFolders = (root = repositoryRoot): readonly string[] =>
     })
     .map((entry) => `packages/${entry.name}/dist`);
 
-/** Was der Host ausführt, in eine Mini-App bündelt oder beim Bauen eines Plugins liest. */
+/** What the host executes, bundles into a mini-app or reads when building a plugin. */
 const SCANNED = ["apps/server/src", "apps/web", "packages", "plugins", "scripts"];
 const PACKAGE_NAME_PATTERN = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/;
 const SCAN_SKIPPED = new Set(["node_modules", "dist"]);
 const SCANNED_EXTENSIONS = new Set([".ts", ".tsx", ".mts", ".mjs", ".js", ".css"]);
 const IMPORT_PATTERN = /\b(?:from|import|require(?:\.resolve)?)\s*\(?\s*["']([^"'\n]+)["']/g;
-/** Ein Beitrag zum Executor löst Pakete zur Laufzeit aus dem Host auf; auch sie muss das Paket tragen. */
+/** An executor contribution resolves packages from the host at runtime; the package must carry them too. */
 const HOST_PACKAGE_PATTERN = /\bhostPackageFile\([^,()]*,\s*["']([^"'\n]+)["']/g;
 
 const files = async (folder: string, skippedFolders: ReadonlySet<string> = SKIPPED_FOLDERS): Promise<readonly string[]> => {
@@ -142,12 +142,12 @@ const declaredWebDependencies = (packageDirectory: string): readonly string[] =>
   return Object.keys(declared);
 };
 
-/** Die Pakete, die der ausgeführte Teil des Pakets wirklich importiert, plus die zur Laufzeit verlinkten Bibliotheken
- * und die, die das Web des Hosts den web-Hälften fremder Plugins anbietet. */
+/** The packages that the executed part of the package actually imports, plus the libraries linked at runtime
+ * and those that the host's web offers to the web halves of third-party plugins. */
 export const requiredPackages = (packageDirectory: string): ReadonlyMap<string, string> => {
   const sources = new Map<string, string>();
-  for (const name of runtimeLibraries) sources.set(name, "plugins/ragents.actor-programs (verlinkt zur Laufzeit)");
-  for (const name of declaredWebDependencies(packageDirectory)) sources.set(name, "apps/web/package.json (für die web-Hälften der Plugins)");
+  for (const name of runtimeLibraries) sources.set(name, "plugins/ragents.actor-programs (linked at runtime)");
+  for (const name of declaredWebDependencies(packageDirectory)) sources.set(name, "apps/web/package.json (for the web halves of the plugins)");
   for (const folder of scanRoots(packageDirectory)) {
     for (const file of scannedFiles(folder)) {
       const content = readFileSync(file, "utf8");
@@ -179,7 +179,7 @@ const anchors = (root: string): readonly string[] => [
     .filter((file) => statSync(file, { throwIfNoEntry: false })?.isFile() === true)),
 ];
 
-/** Die Fassungen, die dieser Checkout für ein Paket installiert hat; die jüngste kommt ins Paket. */
+/** The versions this checkout has installed for a package; the newest goes into the package. */
 export const installedVersions = (name: string, root = repositoryRoot): readonly string[] => {
   const found = new Set<string>();
   for (const anchor of anchors(root)) {
@@ -193,7 +193,7 @@ export const installedVersions = (name: string, root = repositoryRoot): readonly
     }
   }
   const versions = [...found].sort(compareVersions);
-  if (versions.length === 0) throw new Error(`Das Paket ${name} ist in diesem Checkout nicht installiert; ohne Fassung kann es nicht ins Paket`);
+  if (versions.length === 0) throw new Error(`The package ${name} is not installed in this checkout; without a version it cannot go into the package`);
   return versions;
 };
 
@@ -205,25 +205,25 @@ export interface BuiltPackage {
   readonly flattened: readonly string[];
 }
 
-/** Das Paket liefert das Web fertig aus; es muss gebaut sein und zu seinen Quellen passen. */
+/** The package ships the web prebuilt; it must be built and match its sources. */
 const assertHostWeb = (root: string): void => {
   const problem = hostWebProblem(hostWebDirectory(root), root, isCheckout(root));
-  if (problem) throw new Error(`${problem}; vorher pnpm build:web`);
+  if (problem) throw new Error(`${problem}; run pnpm build:web first`);
 };
 
-/** Jedes eingebaute Plugin muss als Bundle vorliegen und zu seinen Quellen passen, sonst startet das Paket kein Profil. */
+/** Every built-in plugin must exist as a bundle and match its sources, otherwise the package starts no profile. */
 const assertBuiltInBundles = (root: string): void => {
   for (const folder of builtInPluginFolders(path.join(root, "plugins"))) {
     const bundle = path.join(root, "bundles", path.basename(folder));
-    if (!statSync(bundle, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`Das Bundle ${bundle} fehlt; vorher pnpm build:plugins`);
-    if (readBundleManifest(bundle).sourceStand !== sourceStandOf(folder)) throw new Error(`Das Bundle ${bundle} passt nicht mehr zu ${folder}; vorher pnpm build:plugins`);
+    if (!statSync(bundle, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`The bundle ${bundle} is missing; run pnpm build:plugins first`);
+    if (readBundleManifest(bundle).sourceStand !== sourceStandOf(folder)) throw new Error(`The bundle ${bundle} no longer matches ${folder}; run pnpm build:plugins first`);
   }
 };
 
 const copyDeclarations = async (root: string, target: string): Promise<readonly string[]> => {
   const copied: string[] = [];
   for (const folder of declarationFolders(root)) {
-    if (!statSync(path.join(root, folder), { throwIfNoEntry: false })?.isDirectory()) throw new Error(`${folder} fehlt; vorher pnpm build:agent`);
+    if (!statSync(path.join(root, folder), { throwIfNoEntry: false })?.isDirectory()) throw new Error(`${folder} is missing; run pnpm build:agent first`);
     for (const file of (await files(path.join(root, folder))).filter((name) => name.endsWith(".d.ts"))) {
       const destination = path.join(target, path.relative(root, file));
       await mkdir(path.dirname(destination), { recursive: true });
@@ -242,7 +242,7 @@ export const buildPackage = async (target: string, root = repositoryRoot): Promi
   let fileCount = 0;
   let byteSize = 0;
   for (const entry of packageContents(root)) {
-    // Ein Bundle ist fertig gebaut und kommt ganz ins Paket, auch ein Asset-Ordner namens dist.
+    // A bundle is fully built and goes into the package completely, including an asset folder named dist.
     const copied = await copyTo(path.join(root, entry), path.join(target, entry), target, entry === "bundles" ? new Set() : undefined);
     fileCount += copied.length;
     for (const file of copied) byteSize += statSync(file).size;
@@ -272,7 +272,7 @@ export const buildPackage = async (target: string, root = repositoryRoot): Promi
   const manifest = {
     name: PACKAGE_NAME,
     version: readPackageVersion(root),
-    description: "RAgents-Host: Server, Engine, Plugins und Werkzeuge ohne Quell-Checkout",
+    description: "RAgents host: server, engine, plugins and tools without a source checkout",
     keywords: [...PACKAGE_KEYWORDS],
     homepage: "https://schlenkr.github.io/RAgents/",
     bugs: { url: `${REPOSITORY_URL}/issues` },
@@ -296,18 +296,18 @@ export const buildPackage = async (target: string, root = repositoryRoot): Promi
 const main = async (): Promise<void> => {
   const pack = process.argv.includes("--pack");
   const unknown = process.argv.slice(2).filter((argument) => argument !== "--pack");
-  if (unknown.length) throw new Error(`Unbekanntes Argument: ${unknown.join(" ")} (erlaubt: --pack)`);
+  if (unknown.length) throw new Error(`Unknown argument: ${unknown.join(" ")} (allowed: --pack)`);
   const target = path.join(repositoryRoot, "dist", PACKAGE_FOLDER);
   const built = await buildPackage(target);
-  console.log(`== Paket ${PACKAGE_NAME}@${built.manifest.version as string} in ${built.directory}`);
-  console.log(`== Host-Version ${(built.manifest.ragents as { hostVersion: string }).hostVersion}`);
-  console.log(`== ${built.fileCount} Dateien, ${(built.byteSize / 1024 / 1024).toFixed(1)} MB, ${Object.keys(built.manifest.dependencies as object).length} Abhängigkeiten`);
+  console.log(`== Package ${PACKAGE_NAME}@${built.manifest.version as string} in ${built.directory}`);
+  console.log(`== Host version ${(built.manifest.ragents as { hostVersion: string }).hostVersion}`);
+  console.log(`== ${built.fileCount} files, ${(built.byteSize / 1024 / 1024).toFixed(1)} MB, ${Object.keys(built.manifest.dependencies as object).length} dependencies`);
   for (const [name, version] of Object.entries(built.manifest.dependencies as Record<string, string>)) console.log(`   ${name}@${version}`);
-  for (const entry of built.flattened) console.log(`== Mehrfachfassung abgeflacht: ${entry}`);
+  for (const entry of built.flattened) console.log(`== Multiple versions flattened: ${entry}`);
   if (!pack) return;
   const packed = spawnSync("npm", ["pack", "--pack-destination", path.dirname(built.directory)], { cwd: built.directory, encoding: "utf8", stdio: ["ignore", "pipe", "inherit"] });
-  if (packed.status !== 0) throw new Error(`npm pack endete mit Code ${packed.status}`);
-  console.log(`== Archiv ${path.join(path.dirname(built.directory), packed.stdout.trim().split("\n").at(-1) ?? "")}`);
+  if (packed.status !== 0) throw new Error(`npm pack ended with code ${packed.status}`);
+  console.log(`== Archive ${path.join(path.dirname(built.directory), packed.stdout.trim().split("\n").at(-1) ?? "")}`);
 };
 
 const moduleUrl: string | undefined = import.meta.url;

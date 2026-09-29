@@ -159,7 +159,7 @@ const staleLockReason = (lockPath: string, staleAfterMs: number): string | null 
     const owners = readdirSync(lockPath).filter((name) => name.startsWith("owner-") && name.endsWith(".json"));
 
     if (owners.length === 0)
-        return "kein Besitzer eingetragen";
+        return "no owner recorded";
 
     if (owners.length > 1)
         return null;
@@ -176,7 +176,7 @@ const staleLockReason = (lockPath: string, staleAfterMs: number): string | null 
     const sameHost = typeof owner.hostname !== "string" || owner.hostname === hostname();
 
     if (sameHost && pid !== null && !processAlive(pid))
-        return `Prozess ${pid} lebt nicht mehr`;
+        return `process ${pid} is no longer alive`;
 
     const lastSeen = typeof owner.heartbeatAt === "string"
         ? owner.heartbeatAt
@@ -186,9 +186,9 @@ const staleLockReason = (lockPath: string, staleAfterMs: number): string | null 
     if (!Number.isFinite(age) || age <= staleAfterMs)
         return null;
 
-    const who = sameHost ? `Prozess ${pid ?? "?"}` : `Prozess ${pid ?? "?"} auf ${String(owner.hostname)}`;
+    const who = sameHost ? `process ${pid ?? "?"}` : `process ${pid ?? "?"} on ${String(owner.hostname)}`;
 
-    return `${who} ohne Herzschlag seit ${Math.round(age / 1000)} s`;
+    return `${who} without heartbeat for ${Math.round(age / 1000)} s`;
 };
 
 const assertRunId = (runId: string) => {
@@ -280,7 +280,7 @@ export class Journal {
         this.#path = path === ":memory:" ? null : path;
         this.#services = services;
         this.#onListenerError = options.onListenerError ?? ((error) => console.error("Journal listener failed:", error));
-        this.#onLoadError = options.onLoadError ?? ((failure) => console.error(`Journal ${failure.runId} (${failure.path}) ist nicht verfügbar: ${failure.message}`));
+        this.#onLoadError = options.onLoadError ?? ((failure) => console.error(`Journal ${failure.runId} (${failure.path}) is not available: ${failure.message}`));
         this.#onStaleLock = options.onStaleLock ?? ((message) => console.warn(message));
         this.#heartbeatIntervalMs = options.writerHeartbeatIntervalMs ?? writerHeartbeatIntervalMs;
         this.#staleAfterMs = options.writerStaleAfterMs ?? writerStaleAfterMs;
@@ -367,7 +367,7 @@ export class Journal {
         const failure = this.failureOf(runId);
 
         if (failure)
-            throw new DomainError("journal-unavailable", `Journal für Run ${runId} ist nicht verfügbar: ${failure.message}`, 409);
+            throw new DomainError("journal-unavailable", `Journal for run ${runId} is not available: ${failure.message}`, 409);
     }
 
     load(runId: RunId) {
@@ -832,7 +832,7 @@ export class Journal {
                 try {
                     this.#onLoadError(failure);
                 } catch (reportError) {
-                    console.error(`Journal ${runId} (${path}) ist nicht verfügbar: ${failure.message}`, reportError);
+                    console.error(`Journal ${runId} (${path}) is not available: ${failure.message}`, reportError);
                 }
             }
         }
@@ -867,7 +867,7 @@ export class Journal {
 
     #assertLockHeld() {
         if (this.#lockLost)
-            throw new Error("Das Journal-Lock wurde von außen entfernt; dieses Journal nimmt keine Schreibvorgänge mehr an.");
+            throw new Error("The journal lock was removed from outside; this journal no longer accepts writes.");
     }
 
     #releaseWriterLock() {
@@ -920,7 +920,7 @@ export class Journal {
                 );
 
             removeLock(lockPath);
-            this.#onStaleLock(`Verwaistes Journal-Lock ${lockPath} übernommen: ${reason}.`);
+            this.#onStaleLock(`Took over orphaned journal lock ${lockPath}: ${reason}.`);
 
             if (!createLockDirectory(lockPath))
                 throw new Error(`Another runtime process took ${lockPath} while its stale lock was being replaced.`);
@@ -976,7 +976,7 @@ export class Journal {
                 this.#heartbeat = null;
             }
 
-            this.#onStaleLock(`Das Journal-Lock ${ownerPath} wurde von außen entfernt; dieses Journal nimmt keine Schreibvorgänge mehr an.`);
+            this.#onStaleLock(`The journal lock ${ownerPath} was removed from outside; this journal no longer accepts writes.`);
 
             return;
         }

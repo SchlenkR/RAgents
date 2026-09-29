@@ -30,7 +30,7 @@ test("managed mini-app frames relay editing and host shortcuts across both neste
       document.execCommand = (command, showUI, value) => {
         if (command !== "paste") return original(command, showUI, value);
         state.reads += 1;
-        document.activeElement.value = "Diktierter Satz.";
+        document.activeElement.value = "Dictated sentence.";
         return true;
       };
     })();` });
@@ -48,14 +48,14 @@ test("managed mini-app frames relay editing and host shortcuts across both neste
       await editor.evaluate((element: HTMLTextAreaElement) => element.setSelectionRange(7, 15));
       const before = await state();
       await editor.press("Meta+v");
-      await level.locator("#value").filter({ hasText: "before Diktierter Satz. after" }).waitFor();
-      assert.equal(await editor.inputValue(), "before Diktierter Satz. after");
+      await level.locator("#value").filter({ hasText: "before Dictated sentence. after" }).waitFor();
+      assert.equal(await editor.inputValue(), "before Dictated sentence. after");
       assert.equal((await state()).reads, before.reads + 1);
       assert.equal(await editor.evaluate((element) => element === document.activeElement), true);
       await editor.press("Meta+z");
       assert.equal(await editor.inputValue(), "before selected after");
       await editor.press("Meta+Shift+z");
-      assert.equal(await editor.inputValue(), "before Diktierter Satz. after");
+      assert.equal(await editor.inputValue(), "before Dictated sentence. after");
       const beforeCommands = (await state()).keys.length;
       await editor.press("Meta+Alt+9");
       await editor.press("Meta+k");
@@ -95,15 +95,15 @@ test("managed mini-app frames relay editing and host shortcuts across both neste
       await editable.focus();
       await editable.press("Meta+a");
       await editable.press("Meta+v");
-      await editable.filter({ hasText: "Diktierter Satz." }).waitFor();
+      await editable.filter({ hasText: "Dictated sentence." }).waitFor();
       const input = level.locator("#input");
       await input.fill("");
       await input.press("Meta+v");
       await input.evaluate((element: HTMLInputElement) => new Promise<void>((resolve) => {
-        if (element.value === "Diktierter Satz.") resolve();
+        if (element.value === "Dictated sentence.") resolve();
         else element.addEventListener("input", () => resolve(), { once: true });
       }));
-      assert.equal(await input.inputValue(), "Diktierter Satz.");
+      assert.equal(await input.inputValue(), "Dictated sentence.");
     }
     await page.goto(`${server}/run-panel.html`);
     const native = page.frameLocator("iframe").frameLocator("#nested").locator("#editor");

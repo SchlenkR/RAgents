@@ -43,10 +43,10 @@ test("pasting in the run panel asks the hull for the text and inserts it into th
   assert.equal(press("v"), true);
   const request = posted[0] as { type: string; id: string };
   assert.equal(request.type, "clipboardRead");
-  reply({ type: "clipboardText", id: "fremd", text: "verworfen" });
-  reply({ type: "clipboardText", id: request.id, text: "Diktierter Satz." });
+  reply({ type: "clipboardText", id: "foreign", text: "discarded" });
+  reply({ type: "clipboardText", id: request.id, text: "Dictated sentence." });
   await new Promise((resolve) => setImmediate(resolve));
-  assert.deepEqual(commands, [{ name: "insertText", text: "Diktierter Satz." }]);
+  assert.deepEqual(commands, [{ name: "insertText", text: "Dictated sentence." }]);
   assert.equal(input.focused, 1);
 });
 

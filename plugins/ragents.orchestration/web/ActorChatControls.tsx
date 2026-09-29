@@ -26,8 +26,8 @@ export function ActorChatControls({ actor, view, composerVisible = true, present
   const [stopError, setStopError] = useState<string>();
   const chatView = useChatViewSettings(view.id, actor.id, "agents", display);
   const attachments = useAttachmentCapabilities(view.id, actor.id, JSON.stringify(actor.execution?.driver.config));
-  const disabledReason = !writable ? "Du hast Lesezugriff auf diesen Run." : undefined;
-  const switches = <ChatViewSwitches collapsible={presentation === "surface"} settings={chatView} />;
+  const disabledReason = !writable ? "You have read access to this run." : undefined;
+  const switches = <ChatViewSwitches settings={chatView} />;
   if (!composerVisible || actor.kind === "human") return <div className={controlsClass}>{toolbarLeft}{switches}</div>;
   if (actor.kind === "script") return <div className={controlsClass}><p className={noteClass}>{programChatNotice}</p>{toolbarLeft}{switches}</div>;
   if (actor.lifecycle?.kind === "stopped") return <div className={presentation === "inspector" ? "flex-shrink-0 px-5 pt-2.5 pb-3.5" : undefined}>
@@ -47,11 +47,11 @@ export function ActorChatControls({ actor, view, composerVisible = true, present
       } : undefined}
       rows={1}
       running={running}
-      texts={{ placeholder: disabledReason ?? `Nachricht an @${actor.handle} ...` }}
+      texts={{ placeholder: disabledReason ?? `Message to @${actor.handle} ...` }}
       toolbarLeft={<>
         {toolbarLeft}
         {switches}
-        {presentation === "inspector" && <span className="truncate text-[0.7rem] text-muted-foreground">an @{actor.handle}</span>}
+        {presentation === "inspector" && <span className="truncate text-[0.7rem] text-muted-foreground">to @{actor.handle}</span>}
       </>}
       toolbarRight={toolbarRight}
     />

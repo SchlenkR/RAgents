@@ -38,7 +38,7 @@ const firstReferenceCard = () => {
   const owner = "ragents.reference";
   const card = [...folderSkills(pluginFolder(owner), owner).startEntries].sort((left, right) => left.order! - right.order!)[0];
   assert.ok(card);
-  assert.equal(card.title, "Hallo Welt auf der Fläche");
+  assert.equal(card.title, "Hello world on the surface");
   return card;
 };
 
@@ -102,9 +102,9 @@ const createFixture = (runId: string, entries: readonly PublicStartEntry[] = [])
     id: runId,
     coordinator: {
       handle: "coordinator",
-      displayName: "Koordinator",
+      displayName: "Coordinator",
       profile: "coordinator",
-      runTitle: "Neuer Run",
+      runTitle: "New run",
       ownerHandle: "owner",
       ownerDisplayName: "Owner",
     },
@@ -224,7 +224,7 @@ test("the first reference skill completes a run left at run.created", async () =
     { commandId: "failed-first-start" },
     {
       runId,
-      title: "Neuer Run",
+      title: "New run",
       ownerHandle: "owner",
       ownerDisplayName: "Owner",
     },

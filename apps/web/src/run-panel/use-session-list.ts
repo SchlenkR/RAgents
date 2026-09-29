@@ -5,7 +5,7 @@ import { rpc } from "../rpc";
 
 const POLL_INTERVAL_MS = 5000;
 
-/** Die Run-Liste des Servers, live über den Kanal ragents.runs und als Sicherheitsnetz alle fünf Sekunden neu geladen. */
+/** The server's run list, live over the ragents.runs channel and reloaded every five seconds as a safety net. */
 export function useSessionList(enabled: boolean): { sessions: SessionInfo[]; unreachable: boolean; refresh: () => Promise<void> } {
   const [sessions, setSessions] = useState<SessionInfo[]>([]);
   const [unreachable, setUnreachable] = useState(false);

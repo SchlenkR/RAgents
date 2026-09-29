@@ -7,10 +7,10 @@ import { modelDraftOf, requestProductModelSettings } from "./model-settings";
 import { modelDefaultsChangedEvent } from "../model-settings-events";
 
 const profileLabels: Record<string, { title: string; description: string }> = {
-  coordinator: { title: "Run-Koordinator", description: "Die Vorgabe beim Start eines neuen Runs." },
-  relay: { title: "Vermittler", description: "Agenten, die Nachrichten und Ergebnisse weitergeben." },
-  standard: { title: "Agenten", description: "Die Vorgabe für weitere Agenten im Run." },
-  reviewer: { title: "Prüfung", description: "Die Vorgabe für Agenten mit Prüfauftrag." },
+  coordinator: { title: "Run coordinator", description: "The default when a new run starts." },
+  relay: { title: "Relay", description: "Agents that pass on messages and results." },
+  standard: { title: "Agents", description: "The default for further agents in the run." },
+  reviewer: { title: "Review", description: "The default for agents with a review task." },
 };
 
 type LoadState = { status: "loading" } | { status: "failed"; error: string }
@@ -54,9 +54,9 @@ export function ProductModelSettings({ pluginId }: { pluginId: string }) {
   if (!readable) return null;
   if (state.status === "failed") return <Alert variant="destructive">
     <AlertDescription>{state.error}</AlertDescription>
-    <AlertAction><Button onClick={() => setRetry((value) => value + 1)} size="sm" variant="outline">Erneut laden</Button></AlertAction>
+    <AlertAction><Button onClick={() => setRetry((value) => value + 1)} size="sm" variant="outline">Reload</Button></AlertAction>
   </Alert>;
-  if (state.status !== "ready" || !draft) return <p role="status">Modellvorgaben werden geladen ...</p>;
+  if (state.status !== "ready" || !draft) return <p role="status">Loading model defaults ...</p>;
   const { settings } = state;
   const change = (name: string, model: string, thinking: ProductModelDraft["profiles"][number]["thinking"]) => {
     setDraft({ profiles: draft.profiles.map((profile) => profile.name === name ? { ...profile, model, thinking } : profile) });
@@ -73,18 +73,18 @@ export function ProductModelSettings({ pluginId }: { pluginId: string }) {
       const saved = await requestProductModelSettings(pluginId, { draft });
       setState({ status: "ready", settings: saved });
       setDraft(modelDraftOf(saved));
-      setNotice("Vorgaben gespeichert. Sie gelten für neue Actors und noch nicht gestartete Runs.");
+      setNotice("Defaults saved. They apply to new actors and runs that have not started yet.");
       window.dispatchEvent(new Event(modelDefaultsChangedEvent));
     } catch (cause) { setError(messageOf(cause)); }
     finally { saving.current = false; setPending(false); }
   };
-  return <form className="grid min-w-0 gap-4.5" aria-label="Modellvorgaben für neue Runs und Agenten" onSubmit={(event) => {
+  return <form className="grid min-w-0 gap-4.5" aria-label="Model defaults for new runs and agents" onSubmit={(event) => {
     event.preventDefault();
     void save();
   }}>
-    <p className={noteClass}>Für dieses Profil gespeichert. Bereits angelegte Actors behalten ihr Modell.
-      Eine ausdrücklich gewählte Modellauswahl im Run hat Vorrang.</p>
-    {!writable && <p className={noteClass}>Du hast Lesezugriff auf diese Einstellungen.</p>}
+    <p className={noteClass}>Saved for this profile. Actors that already exist keep their model.
+      A model explicitly chosen in the run takes precedence.</p>
+    {!writable && <p className={noteClass}>You have read access to these settings.</p>}
     <div className="grid gap-4">
       {settings.profiles.map((profile) => {
         const value = draft.profiles.find((entry) => entry.name === profile.name)!;
@@ -102,9 +102,9 @@ export function ProductModelSettings({ pluginId }: { pluginId: string }) {
                 const next = settings.models.find((entry) => entry.id === model && entry.provider === profile.provider)!;
                 const thinking = next.thinking.includes(value.thinking) ? value.thinking : next.thinking[0]!;
                 change(profile.name, model, thinking);
-                if (thinking !== value.thinking) setNotice(`Für ${label.title} wurde die verfügbare Reasoning-Stufe ${thinkingLabel(thinking)} gewählt. Prüfe sie vor dem Speichern.`);
+                if (thinking !== value.thinking) setNotice(`The available reasoning level ${thinkingLabel(thinking)} was chosen for ${label.title}. Check it before saving.`);
               }}>
-              <SelectTrigger aria-label="Modell" className={triggerClass}><SelectValue /></SelectTrigger>
+              <SelectTrigger aria-label="Model" className={triggerClass}><SelectValue /></SelectTrigger>
               <SelectContent>{modelOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
             </Select>
             <Select disabled={!writable || pending || metadata.thinking.length < 2} items={thinkingOptions} value={value.thinking}
@@ -120,11 +120,11 @@ export function ProductModelSettings({ pluginId }: { pluginId: string }) {
       })}
     </div>
     <div className="flex flex-wrap items-center gap-2.5">
-      <Button type="submit" disabled={!writable || pending || !dirty}>{pending ? "Wird gespeichert ..." : "Vorgaben speichern"}</Button>
+      <Button type="submit" disabled={!writable || pending || !dirty}>{pending ? "Saving ..." : "Save defaults"}</Button>
       {dirty && <Button disabled={pending} variant="outline" onClick={() => {
         setDraft(modelDraftOf(settings)); setError(undefined); setNotice(undefined);
-      }}>Änderungen verwerfen</Button>}
-      <span className={`${noteClass} basis-full`} role="status">{notice ?? (dirty ? "Ungespeicherte Änderungen" : "")}</span>
+      }}>Discard changes</Button>}
+      <span className={`${noteClass} basis-full`} role="status">{notice ?? (dirty ? "Unsaved changes" : "")}</span>
     </div>
     {error && <Alert variant="destructive"><AlertDescription>{error}</AlertDescription></Alert>}
   </form>;

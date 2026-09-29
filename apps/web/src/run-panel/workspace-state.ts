@@ -1,7 +1,7 @@
 import { createLocalStorageSetting } from "../lib/local-storage-setting";
 import type { WorkspaceTabContribution } from "../PluginRegistry";
 
-/** Persönlicher Zustand der Leiste im Run-Panel je Run: der offene Reiter, null heißt geschlossen. */
+/** Personal state of the sidebar in the run panel per run: the open tab, null means closed. */
 export interface RunPanelWorkspaceState {
   tab: string | null;
 }
@@ -18,12 +18,12 @@ export function parseRunPanelWorkspaceState(raw: string | null): RunPanelWorkspa
   if (!value || typeof value !== "object" || Array.isArray(value)
     || Object.keys(value).some((key) => key !== "tab")
     || !("tab" in value) || !(value.tab === null || typeof value.tab === "string")) {
-    throw new Error("Der gespeicherte Zustand der Leiste ist ungültig.");
+    throw new Error("The saved sidebar state is invalid.");
   }
   return value as RunPanelWorkspaceState;
 }
 
-/** Der Reiter der offenen Leiste; leer, wenn sie geschlossen ist oder der gemerkte Reiter gerade nicht verfügbar ist. */
+/** The tab of the open sidebar; empty when it is closed or the remembered tab is currently not available. */
 export const activeWorkspaceTab = (state: RunPanelWorkspaceState, tabs: readonly WorkspaceTabContribution[]): string =>
   state.tab !== null && tabs.some((tab) => tab.id === state.tab) ? state.tab : "";
 

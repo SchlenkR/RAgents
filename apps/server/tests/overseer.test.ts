@@ -34,15 +34,15 @@ test("run references survive sorting, deletion and restart; duplicate titles req
   try {
     const file = path.join(root, "references.json");
     const directory = new RunDirectory(file);
-    const one = { id: "first-run", title: "Analyse", updatedAt: 1 };
-    const two = { id: "second-run", title: "Analyse", updatedAt: 2 };
+    const one = { id: "first-run", title: "Analysis", updatedAt: 1 };
+    const two = { id: "second-run", title: "Analysis", updatedAt: 2 };
     assert.deepEqual((await directory.describe([one, two])).map((entry) => entry.reference), ["Run 1", "Run 2"]);
     assert.deepEqual((await directory.describe([two, one])).map((entry) => entry.reference), ["Run 2", "Run 1"]);
-    await assert.rejects(directory.resolve("Analyse", [one, two]), /mehrdeutig.*Run 1.*Run 2/);
+    await assert.rejects(directory.resolve("Analysis", [one, two]), /ambiguous.*Run 1.*Run 2/);
     assert.equal((await directory.resolve("Run 2", [one, two])).id, two.id);
     const restored = new RunDirectory(file);
-    assert.equal((await restored.resolve("Analyse", [two])).reference, "Run 2");
-    await assert.rejects(restored.resolve("Run 1", [two]), /unbekannt.*Run 2/);
+    assert.equal((await restored.resolve("Analysis", [two])).reference, "Run 2");
+    await assert.rejects(restored.resolve("Run 1", [two]), /unknown.*Run 2/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -60,7 +60,7 @@ test("global coordinator persists separately and manages ordinary runs through t
       manifest: { id: "test.product" },
       register: (registration) => {
         registration.provide(productRuntimeToken, {
-          coordinator: { handle: "coordinator", displayName: "Koordinator", profile: "manual", runTitle: "Neuer Run", ownerHandle: "owner", ownerDisplayName: "Owner" },
+          coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "manual", runTitle: "New run", ownerHandle: "owner", ownerDisplayName: "Owner" },
           roleFor: (view, actor) => view.primaryActorId === actor.id ? "primary" : "worker",
           contract: () => "Product-specific contract",
           promptComposition: "test",
@@ -101,7 +101,7 @@ test("global coordinator persists separately and manages ordinary runs through t
         registration.startOptions({
           id: "test.language", schema: Type.String(), selectable: () => true,
           defaultValue: () => "de", accept: (value) => {
-            if (value !== "de" && value !== "en") throw new Error("Gültige Sprachen: de, en");
+            if (value !== "de" && value !== "en") throw new Error("Valid languages: de, en");
             return value;
           }, describe: () => ({ options: ["de", "en"] }),
         }, {
@@ -136,30 +136,30 @@ test("global coordinator persists separately and manages ordinary runs through t
   let provider = createProvider();
   const call = async <C extends { id: string }>(contract: C, input: unknown, access?: AccessContext): Promise<Record<string, unknown>> => {
     const found = provider.plugins.methods.find(contract.id);
-    if (!found) throw new Error(`Die Methode ${contract.id} ist nicht registriert`);
+    if (!found) throw new Error(`The method ${contract.id} is not registered`);
     return await found.contribution.execute(input as never, methodContext(access)) as Record<string, unknown>;
   };
   try {
     await provider.init();
-    const guest = createAccessContext({ enabled: false, user: { id: "guest", label: "Gast", rights: ["ragents.overseer.read"] } });
-    for (const access of [undefined, guest]) assert.deepEqual(await call(overseerContracts.coordinator, {}, access), { runId: OVERSEER_RUN_ID }, "ohne Anmeldung genau ein Koordinator");
+    const guest = createAccessContext({ enabled: false, user: { id: "guest", label: "Guest", rights: ["ragents.overseer.read"] } });
+    for (const access of [undefined, guest]) assert.deepEqual(await call(overseerContracts.coordinator, {}, access), { runId: OVERSEER_RUN_ID }, "without sign-in exactly one coordinator");
     const global = await provider.get(OVERSEER_RUN_ID);
-    global.send("Zeige meine Runs");
+    global.send("Show my runs");
     await (global as { settle(): Promise<void> }).settle();
     const globalView = management!.view(OVERSEER_RUN_ID);
     const primary = globalView.actors.find((actor) => actor.id === globalView.primaryActorId);
     assert.ok(primary && primary.kind === "agent");
     assert.deepEqual(primary.toolNames, provider.plugins.service(globalChatToken).toolNames);
-    assert.match(primary.prompt, /globale Koordinator/);
+    assert.match(primary.prompt, /global coordinator/);
     assert.equal(workspaceResolutions, 0, "global chat does not allocate a product workspace");
     assert.equal(preparations, 0, "global chat does not prepare product runs");
     assert.deepEqual(await provider.list(), []);
-    await assert.rejects(provider.delete(OVERSEER_RUN_ID), /kann nicht gelöscht/);
+    await assert.rejects(provider.delete(OVERSEER_RUN_ID), /cannot be deleted/);
 
-    const largeInput = "Analysiere " + "den vollständigen Inhalt. ".repeat(300).trimEnd();
-    const created = await call(overseerContracts.createRun, { title: "Analyse", message: largeInput, options: { "test.language": "en" } });
+    const largeInput = "Analyze " + "the complete content. ".repeat(300).trimEnd();
+    const created = await call(overseerContracts.createRun, { title: "Analysis", message: largeInput, options: { "test.language": "en" } });
     const runId = created.runId as string;
-    assert.equal(created.title, "Analyse");
+    assert.equal(created.title, "Analysis");
     assert.equal(created.reference, "Run 1");
     assert.equal(created.accepted, true);
     const runView = management!.view(runId);
@@ -172,70 +172,70 @@ test("global coordinator persists separately and manages ordinary runs through t
     assert.equal(workspaceResolutions, 1);
     assert.equal((await provider.list()).length, 1);
 
-    const firstPage = await call(overseerContracts.readEvents, { run: "Analyse", limit: 2 });
+    const firstPage = await call(overseerContracts.readEvents, { run: "Analysis", limit: 2 });
     assert.equal(firstPage.hasMore, true);
     const nextPage = await call(overseerContracts.readEvents, { run: "Run 1", after: firstPage.nextAfter });
     assert.ok((nextPage.events as Array<{ sequence: number }>).every((event) => event.sequence > Number(firstPage.nextAfter)));
     assert.ok((nextPage.events as Array<{ payload: { content?: string } }>).some((event) => event.payload.content === largeInput));
-    await call(overseerContracts.sendMessage, { run: "Run 1", message: "Prüfe das Ergebnis" });
-    assert.ok(management!.view(runId).inputs.some((input) => input.content === "Prüfe das Ergebnis"));
-    const stopped = await call(overseerContracts.stopRun, { run: "Analyse" });
+    await call(overseerContracts.sendMessage, { run: "Run 1", message: "Check the result" });
+    assert.ok(management!.view(runId).inputs.some((input) => input.content === "Check the result"));
+    const stopped = await call(overseerContracts.stopRun, { run: "Analysis" });
     assert.equal(stopped.stopped, true);
     assert.equal(management!.view(runId).primaryActorId, runView.primaryActorId);
 
-    const script = await call(overseerContracts.createRun, { title: "Vorbereiteter Run", script: "Test script", input: { topic: "Test" } });
+    const script = await call(overseerContracts.createRun, { title: "Prepared run", script: "Test script", input: { topic: "Test" } });
     const scriptView = management!.view(script.runId as string);
-    assert.equal(scriptView.title, "Vorbereiteter Run");
+    assert.equal(scriptView.title, "Prepared run");
     assert.ok(scriptView.actors.some((actor) => actor.kind === "script"));
     assert.deepEqual(JSON.parse(scriptView.inputs[0].content).input, { topic: "Test" });
-    await assert.rejects(call(overseerContracts.createRun, { title: "Fehler", script: "Missing" }), /Gültige Titel und Kennungen.*Test script/);
-    await assert.rejects(call(overseerContracts.createRun, { title: "Fehler", message: "Hi", options: { "test.language": "xx" } }), /Gültige Sprachen/);
-    await assert.rejects(call(overseerContracts.createRun, { title: "Compilerfehler", script: "Broken script" }), /Build failed|Expected/);
-    await assert.rejects(call(overseerContracts.createRun, { title: "Widerspruch", script: "English script", options: { "test.language": "de" } }), (error: unknown) =>
+    await assert.rejects(call(overseerContracts.createRun, { title: "Error", script: "Missing" }), /Valid titles and ids.*Test script/);
+    await assert.rejects(call(overseerContracts.createRun, { title: "Error", message: "Hi", options: { "test.language": "xx" } }), /Valid languages/);
+    await assert.rejects(call(overseerContracts.createRun, { title: "Compiler error", script: "Broken script" }), /Build failed|Expected/);
+    await assert.rejects(call(overseerContracts.createRun, { title: "Contradiction", script: "English script", options: { "test.language": "de" } }), (error: unknown) =>
       error instanceof DomainError && error.code === "start-option-fixed" && error.message.includes("English script"));
-    const english = await call(overseerContracts.createRun, { title: "Englisch", script: "English script" });
-    assert.equal(provider.startOptions(english.runId as string, null)[0]!.value, "en", "die Vorlage legt die Sprache fest");
+    const english = await call(overseerContracts.createRun, { title: "English", script: "English script" });
+    assert.equal(provider.startOptions(english.runId as string, null)[0]!.value, "en", "the template fixes the language");
 
     const packageDirectory = path.join(dataDirectory, "own-setup");
     await mkdir(packageDirectory);
-    await writeFile(path.join(packageDirectory, "RUN.md"), "---\ntitle: Lokales Paket\ndescription: Eigenes Run-Setup\n---\n");
+    await writeFile(path.join(packageDirectory, "RUN.md"), "---\ntitle: Local package\ndescription: Own run setup\n---\n");
     for (const file of setupPackageFiles()) {
       const target = path.join(packageDirectory, file.path);
       await mkdir(path.dirname(target), {recursive: true});
       await writeFile(target, file.content);
     }
-    const local = await call(overseerContracts.createRun, { title: "Eigener Aufbau", packageDirectory, input: { topic: "Lokal" } });
+    const local = await call(overseerContracts.createRun, { title: "Own setup", packageDirectory, input: { topic: "Local" } });
     const localView = management!.view(local.runId as string);
-    assert.equal(localView.title, "Eigener Aufbau");
+    assert.equal(localView.title, "Own setup");
     assert.ok(localView.actors.some((actor) => actor.kind === "script" && actor.handle === "own-setup"));
-    assert.deepEqual(JSON.parse(localView.inputs[0]!.content).input, { topic: "Lokal" });
-    assert.ok(!provider.plugins.startEntries.describe().some((entry) => entry.title === "Lokales Paket"));
+    assert.deepEqual(JSON.parse(localView.inputs[0]!.content).input, { topic: "Local" });
+    assert.ok(!provider.plugins.startEntries.describe().some((entry) => entry.title === "Local package"));
 
-    const bound = await call(overseerContracts.createRun, { title: "Am Arbeitsplatz", message: "Baue", options: { "test.machine": "workstation" } });
+    const bound = await call(overseerContracts.createRun, { title: "On the workstation", message: "Build", options: { "test.machine": "workstation" } });
     const admin = createAccessContext({ enabled: true, user: { id: "root", label: "Root", rights: ["*"] } });
-    await assert.rejects(call(overseerContracts.sendMessage, { run: bound.reference, message: "Fremder Auftrag" }, admin), (error: unknown) =>
+    await assert.rejects(call(overseerContracts.sendMessage, { run: bound.reference, message: "Foreign task" }, admin), (error: unknown) =>
       error instanceof DomainError && error.code === "run-owner-only" && error.status === 403);
-    assert.ok(!management!.view(bound.runId as string).inputs.some((input) => input.content === "Fremder Auftrag"));
+    assert.ok(!management!.view(bound.runId as string).inputs.some((input) => input.content === "Foreign task"));
     assert.equal((await call(overseerContracts.readRun, { run: bound.reference }, admin)).id, bound.runId);
     assert.equal((await call(overseerContracts.stopRun, { run: bound.reference }, admin)).stopped, true);
 
     const alice = createAccessContext({ enabled: true, user: { id: "alice", label: "Alice", rights: ["runs.read", "runs.write", "runs.create"] } });
     const bob = createAccessContext({ enabled: true, user: { id: "bob", label: "Bob", rights: ["runs.read", "runs.write", "runs.create"] } });
     const ownRuns = [
-      await call(overseerContracts.createRun, { title: "Von Alice", message: "Baue" }, alice),
-      await call(overseerContracts.createRun, { title: "Script von Alice", script: "Test script" }, alice),
-      await call(overseerContracts.createRun, { title: "Paket von Alice", packageDirectory }, alice),
+      await call(overseerContracts.createRun, { title: "From Alice", message: "Build" }, alice),
+      await call(overseerContracts.createRun, { title: "Script from Alice", script: "Test script" }, alice),
+      await call(overseerContracts.createRun, { title: "Package from Alice", packageDirectory }, alice),
     ];
     for (const own of ownRuns) {
-      assert.equal(provider.runOwner(own.runId as string), "alice", `${String(own.title)} gehört dem Aufrufer`);
+      assert.equal(provider.runOwner(own.runId as string), "alice", `${String(own.title)} belongs to the caller`);
       assert.equal((await call(overseerContracts.readRun, { run: own.runId }, alice)).id, own.runId);
       await assert.rejects(call(overseerContracts.readRun, { run: own.runId }, bob), (error: unknown) =>
         error instanceof DomainError && error.code === "run-not-found");
     }
     assert.deepEqual((await call(overseerContracts.listRuns, {}, alice) as unknown as Array<{ runId: string }>).map((entry) => entry.runId).sort(),
       ownRuns.map((own) => own.runId as string).sort());
-    await call(overseerContracts.sendMessage, { run: ownRuns[0]!.runId, message: "Weiter, Alice" }, alice);
-    assert.ok(management!.view(ownRuns[0]!.runId as string).inputs.some((input) => input.content === "Weiter, Alice"));
+    await call(overseerContracts.sendMessage, { run: ownRuns[0]!.runId, message: "Continue, Alice" }, alice);
+    assert.ok(management!.view(ownRuns[0]!.runId as string).inputs.some((input) => input.content === "Continue, Alice"));
 
     await provider.shutdown();
     provider = createProvider();
@@ -244,7 +244,7 @@ test("global coordinator persists separately and manages ordinary runs through t
     const history: unknown[] = [];
     const unsubscribe = restored.subscribe((event) => history.push(event));
     unsubscribe();
-    assert.ok(history.some((event) => (event as { kind: string; text?: string }).kind === "user" && (event as { text: string }).text === "Zeige meine Runs"));
+    assert.ok(history.some((event) => (event as { kind: string; text?: string }).kind === "user" && (event as { text: string }).text === "Show my runs"));
     assert.ok((await provider.list()).every((run) => run.id !== OVERSEER_RUN_ID));
     assert.equal((await call(overseerContracts.readEvents, { run: "Run 1", limit: 1 })).runId, runId);
     assert.ok(management!.view(runId).inputs.some((input) => input.content === largeInput));

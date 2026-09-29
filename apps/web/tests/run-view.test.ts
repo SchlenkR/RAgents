@@ -31,7 +31,7 @@ const view = (overrides: Record<string, unknown> = {}) => ({
 const input = (overrides: Partial<RunActorInput> = {}): RunActorInput => ({
   id: "input-1",
   actorId: "actor-1",
-  content: "Hallo",
+  content: "Hello",
   artifactIds: [],
   sourceEventIds: [],
   subscriptionId: null,
@@ -54,18 +54,18 @@ const turn = (overrides: Partial<RunTurn> = {}): RunTurn => ({
   ...overrides,
 });
 
-test("eine vollständige Run-Ansicht wird unverändert durchgereicht", () => {
+test("a complete run view is passed through unchanged", () => {
   const value = view();
 
   assert.equal(runViewFrom(value), value);
 });
 
-test("ein fehlender primärer Actor ist erlaubt, ein falscher Typ nicht", () => {
+test("a missing primary actor is allowed, a wrong type is not", () => {
   assert.ok(runViewFrom(view({ primaryActorId: null })));
   assert.equal(runViewFrom(view({ primaryActorId: 7 })), undefined);
 });
 
-test("fehlt eine der Listen, ist die Ansicht ungültig", () => {
+test("if one of the lists is missing, the view is invalid", () => {
   const lists = ["actors", "inputs", "turns", "subscriptions", "pluginStates", "actions", "artifacts"];
 
   for (const list of lists) {
@@ -74,7 +74,7 @@ test("fehlt eine der Listen, ist die Ansicht ungültig", () => {
   }
 });
 
-test("was keine Run-Ansicht ist, ergibt keine", () => {
+test("what is not a run view yields none", () => {
   assert.equal(runViewFrom(undefined), undefined);
   assert.equal(runViewFrom(null), undefined);
   assert.equal(runViewFrom("run-1"), undefined);
@@ -82,40 +82,40 @@ test("was keine Run-Ansicht ist, ergibt keine", () => {
   assert.equal(runViewFrom(view({ ownerId: undefined })), undefined);
 });
 
-test("offen ist eine Eingabe nur ohne Turn und ohne Verwurf", () => {
+test("an input is pending only without a turn and without being discarded", () => {
   assert.equal(isPendingRunActorInput(input()), true);
   assert.equal(isPendingRunActorInput(input({ lifecycle: { kind: "claimed", turnId: "turn-1", steered: false } })), false);
   assert.equal(
     isPendingRunActorInput(input({
-      lifecycle: { kind: "discarded", at: "2026-01-01T00:00:01.000Z", reason: "Vorbei" },
+      lifecycle: { kind: "discarded", at: "2026-01-01T00:00:01.000Z", reason: "Over" },
     })),
     false,
   );
 });
 
-test("Modellantworten eines Turns kommen nach sequence sortiert", () => {
+test("model responses of a turn come sorted by sequence", () => {
   const outputs = runTurnOutputs(turn({
     outputs: [
-      { text: "zweitens", sequence: 9, occurredAt: "2026-01-01T00:00:02.000Z" },
-      { text: "erstens", sequence: 4, occurredAt: "2026-01-01T00:00:01.000Z" },
+      { text: "second", sequence: 9, occurredAt: "2026-01-01T00:00:02.000Z" },
+      { text: "first", sequence: 4, occurredAt: "2026-01-01T00:00:01.000Z" },
     ],
   }));
 
-  assert.deepEqual(outputs.map((output) => output.text), ["erstens", "zweitens"]);
+  assert.deepEqual(outputs.map((output) => output.text), ["first", "second"]);
 });
 
-test("ein Turn ohne oder mit unbrauchbarem Antwortfeld ergibt keine Antworten", () => {
+test("a turn without or with an unusable response field yields no responses", () => {
   assert.deepEqual(runTurnOutputs(turn()), []);
   assert.deepEqual(runTurnOutputs(turn({ outputs: undefined })), []);
-  assert.deepEqual(runTurnOutputs({ ...turn(), outputs: "kaputt" } as unknown as RunTurn), []);
+  assert.deepEqual(runTurnOutputs({ ...turn(), outputs: "broken" } as unknown as RunTurn), []);
   assert.deepEqual(runTurnOutputs({ ...turn(), outputs: [{ text: 1 }] } as unknown as RunTurn), []);
 });
 
-test("eine Run-Ansicht bleibt gültig, auch wenn Turns keine Antworten tragen", () => {
+test("a run view stays valid even when turns carry no responses", () => {
   assert.ok(runViewFrom(view({ turns: [turn()] })));
   assert.ok(runViewFrom(view({ turns: [turn({ outputs: [] })] })));
 });
 
-test("Kennungen in Auslieferungspfaden werden kodiert", () => {
+test("identifiers in delivery paths are encoded", () => {
   assert.equal(runArtifactContentUrl("run/1", "a b"), "/files/runs/run%2F1/artifacts/a%20b");
 });

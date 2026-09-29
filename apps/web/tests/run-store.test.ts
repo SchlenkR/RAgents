@@ -85,18 +85,18 @@ function fixture(t: TestContext) {
   return { requests, views, errors, conversations, subscribe, emit, settled, tick, timers: { get size() { return timerCount; } } };
 }
 
-test("langsame Run-Antworten bleiben bei fortlaufenden Kanalereignissen sichtbar", async (t) => {
+test("slow run responses stay visible during continuous channel events", async (t) => {
   const f = fixture(t);
   await f.subscribe("new-run");
   for (let index = 0; index < 12; index++) {
     await f.emit("run");
     await f.tick();
   }
-  assert.equal(f.requests.length, 1, "laufende Anfrage wird nicht durch weitere Anfragen überholt");
+  assert.equal(f.requests.length, 1, "a running request is not overtaken by further requests");
   f.requests[0]!.resolve({ id: "new-run", revision: 1 });
   await f.settled();
   assert.deepEqual(f.views, [{ id: "new-run", revision: 1 }]);
-  assert.equal(f.requests.length, 2, "alle zwischenzeitlichen Ereignisse ergeben eine Folgeanfrage");
+  assert.equal(f.requests.length, 2, "all intermediate events result in one follow-up request");
   await f.emit("run");
   await f.tick();
   f.requests[1]!.resolve({ id: "new-run", revision: 2 });
@@ -105,7 +105,7 @@ test("langsame Run-Antworten bleiben bei fortlaufenden Kanalereignissen sichtbar
   assert.equal(f.requests.length, 3);
 });
 
-test("ein noch nicht gestarteter Run wird auch bei einem frühen ready-Ereignis geladen", async (t) => {
+test("a run that has not started yet is loaded even on an early ready event", async (t) => {
   const f = fixture(t);
   await f.subscribe("new-run");
   await f.emit("ready");
@@ -118,7 +118,7 @@ test("ein noch nicht gestarteter Run wird auch bei einem frühen ready-Ereignis 
   assert.deepEqual(f.views, [undefined, { id: "new-run" }]);
 });
 
-test("Abmelden verwirft späte Antworten und bereits eingereihte Kanalereignisse", async (t) => {
+test("unsubscribing discards late responses and already queued channel events", async (t) => {
   const f = fixture(t);
   const close = await f.subscribe("old-run");
   await f.emit("run");
@@ -137,13 +137,13 @@ test("Abmelden verwirft späte Antworten und bereits eingereihte Kanalereignisse
   assert.equal(f.requests.length, 2);
 });
 
-test("fehlgeschlagene Run-Abfragen melden den Fehler und erlauben den nächsten Refresh", async (t) => {
+test("failed run queries report the error and allow the next refresh", async (t) => {
   const f = fixture(t);
   await f.subscribe("new-run");
-  f.requests[0]!.fail("Nicht erreichbar");
+  f.requests[0]!.fail("Unreachable");
   await f.settled();
   assert.deepEqual(f.views, []);
-  assert.deepEqual(f.errors, ["Nicht erreichbar"]);
+  assert.deepEqual(f.errors, ["Unreachable"]);
   await f.emit("run");
   await f.tick();
   f.requests[1]!.resolve({ id: "new-run" });
@@ -179,10 +179,10 @@ test("actor history failures are visible and do not replace an existing history"
   await f.subscribe("trace-run", true);
   f.requests[0]!.resolve({ id: "trace-run", revision: 4 });
   await f.settled();
-  f.requests[1]!.fail("Gespräch nicht erreichbar");
+  f.requests[1]!.fail("Conversation unreachable");
   await f.settled();
   assert.deepEqual(f.conversations, []);
-  assert.deepEqual(f.errors, ["Gespräch nicht erreichbar"]);
+  assert.deepEqual(f.errors, ["Conversation unreachable"]);
   await f.emit("run");
   await f.tick();
   f.requests[2]!.resolve({ id: "trace-run", revision: 5 });

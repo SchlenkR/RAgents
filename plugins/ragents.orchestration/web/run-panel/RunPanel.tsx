@@ -35,9 +35,9 @@ const chatLayoutClass: Readonly<Record<ChatLayout, string>> = {
 const chatSurfaceClass = "rounded-none border-0 bg-transparent";
 const chatModeButtonClass = "aria-pressed:bg-accent aria-pressed:text-primary";
 const chatModes: readonly { Icon: typeof MessageSquareIcon; label: string; mode: RunPanelChatMode; title: string }[] = [
-  { Icon: MessageSquareIcon, label: "Nur Chat", mode: "chat", title: "Nur Chat: der Chat füllt das Run-Panel, die Mini-App tritt zurück" },
-  { Icon: PanelBottomIcon, label: "Chat unten", mode: "bottom", title: "Chat unten: das Sheet über der Mini-App" },
-  { Icon: PanelRightIcon, label: "Chat rechts", mode: "side", title: "Chat rechts: neben der Mini-App" },
+  { Icon: MessageSquareIcon, label: "Chat only", mode: "chat", title: "Chat only: the chat fills the run panel, the mini-app steps back" },
+  { Icon: PanelBottomIcon, label: "Chat at bottom", mode: "bottom", title: "Chat at bottom: the sheet over the mini-app" },
+  { Icon: PanelRightIcon, label: "Chat on right", mode: "side", title: "Chat on right: next to the mini-app" },
 ];
 
 interface RunPanelElement {
@@ -153,7 +153,7 @@ function RunPanel({ surfaceElements, cardSections, navigation, renderChat, sessi
 
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-app" data-run-panel="run" ref={rootRef}>
     {chatModeSwitch}
-    {layout !== "full" && elements.length > 1 && <nav aria-label="Mini-Apps des Runs" className={chipRowClass}>
+    {layout !== "full" && elements.length > 1 && <nav aria-label="Mini-apps of the run" className={chipRowClass}>
       {elements.map(({ definition }) => <ElementChip
         centered={centered.has(definition.id)}
         definition={definition}
@@ -194,7 +194,7 @@ function RunPanel({ surfaceElements, cardSections, navigation, renderChat, sessi
       >
         {layout === "floating" && <button
           aria-expanded={sheet.expanded}
-          aria-label="Höhe des ausgeklappten Chats"
+          aria-label="Height of the expanded chat"
           aria-orientation="horizontal"
           aria-valuemin={geometry.minimum}
           aria-valuemax={geometry.maximum}
@@ -210,7 +210,7 @@ function RunPanel({ surfaceElements, cardSections, navigation, renderChat, sessi
           onLostPointerCapture={resize.onPointerCancel}
           ref={grabRef}
           role="separator"
-          title={`Ziehen: ausgeklappte Höhe einstellen. Klicken: ${sheet.expanded ? "Chat absenken" : "Chat hochschieben"}.`}
+          title={`Drag: set the expanded height. Click: ${sheet.expanded ? "lower chat" : "raise chat"}.`}
           type="button"
         ><span aria-hidden className="h-1 w-9 rounded-full bg-border-strong transition-colors" /></button>}
         {status && <button
@@ -229,14 +229,14 @@ function RunPanel({ surfaceElements, cardSections, navigation, renderChat, sessi
   </div>;
 }
 
-/** Die drei Ansichten des Run-Panels in der Kopfzeile; "Chat rechts" bleibt gesperrt, solange das Run-Panel zu schmal ist. */
+/** The three views of the run panel in the header; "Chat on right" stays disabled while the run panel is too narrow. */
 function ChatModeSwitch({ narrow, onChange, selected, sideWidth }: {
   narrow: boolean;
   onChange: (mode: RunPanelChatMode) => void;
   selected: RunPanelChatMode;
   sideWidth: number;
 }) {
-  return <div aria-label="Ansicht des Run-Panels" className="flex flex-none items-center gap-0.5 self-center rounded-lg border border-border bg-card p-0.5" role="group">
+  return <div aria-label="Run panel view" className="flex flex-none items-center gap-0.5 self-center rounded-lg border border-border bg-card p-0.5" role="group">
     {chatModes.map(({ Icon, label, mode, title }) => {
       const blocked = mode === "side" && narrow;
       return <Button
@@ -247,14 +247,14 @@ function ChatModeSwitch({ narrow, onChange, selected, sideWidth }: {
         key={mode}
         onClick={() => onChange(mode)}
         size="icon-sm"
-        title={blocked ? `Chat bleibt unten, solange das Panel schmaler als ${sideWidth} Pixel ist` : title}
+        title={blocked ? `Chat stays at the bottom while the panel is narrower than ${sideWidth} pixels` : title}
         variant="ghost"
       ><Icon /></Button>;
     })}
   </div>;
 }
 
-/** Das Sheet: Maus, Fokus oder der Griff schieben es hoch; Escape, die Bühne oder der Griff senken es. Ein offenes Pop-out hält es oben. */
+/** The sheet: mouse, focus or the grip raise it; Escape, the stage or the grip lower it. An open pop-out keeps it up. */
 function useSheet(active: boolean, sheetRef: RefObject<HTMLElement | null>, grabRef: RefObject<HTMLButtonElement | null>, blocked: boolean, openDelay: number) {
   const [expanded, setExpanded] = useState(false);
   const [held, setHeld] = useState(false);
@@ -307,7 +307,7 @@ function useSheet(active: boolean, sheetRef: RefObject<HTMLElement | null>, grab
   return { expanded, held, open, openLater, closeLater, close, toggle, pauseResize, finishResize };
 }
 
-/** Die Höhe des zugeschobenen Sheets: Griff, Statuszeile und Eingabe samt offener Aktionen darüber, gemessen an der Eingabe des Chat-Rahmens. */
+/** The height of the collapsed sheet: grip, status line and input including open actions above it, measured on the input of the chat frame. */
 function useSheetPeek(active: boolean, sheetRef: RefObject<HTMLElement | null>, grabRef: RefObject<HTMLButtonElement | null>, statusRef: RefObject<HTMLButtonElement | null>, actorId: string | undefined) {
   const [geometry, setGeometry] = useState({ minimum: 0, maximum: 0, available: 0, scale: 1 });
   useLayoutEffect(() => {
@@ -317,7 +317,7 @@ function useSheetPeek(active: boolean, sheetRef: RefObject<HTMLElement | null>, 
     const status = statusRef.current;
     const composer = sheet?.querySelector<HTMLElement>('[data-chat="composer"]');
     const container = sheet?.parentElement;
-    if (!sheet || !grab || !composer || !container) throw new Error("Das Sheet des Panels findet Griff, Eingabe oder Rahmen nicht.");
+    if (!sheet || !grab || !composer || !container) throw new Error("The panel sheet cannot find the grip, input or frame.");
     const measure = () => {
       const style = getComputedStyle(sheet);
       const width = sheet.getBoundingClientRect().width;
@@ -422,10 +422,10 @@ function ElementChip({ centered, definition, onSelect, selected, session, view }
   const programs = useProgramSlot();
   const title = definition.title ?? definition.id;
   const attention = elementNeedsAttention(view, definition, programs?.needsAnswer(session, definition.id) ?? false);
-  return <button aria-pressed={selected && !centered} className={chipClass} data-tone="app" onClick={onSelect} title={centered ? `${title} liegt in der Mitte. Klick holt das Fenster nach vorn.` : `Mini-App ${title} anzeigen`} type="button">
+  return <button aria-pressed={selected && !centered} className={chipClass} data-tone="app" onClick={onSelect} title={centered ? `${title} is in the center. Click brings the window to the front.` : `Show mini-app ${title}`} type="button">
     <span className="grid size-5 flex-none place-items-center rounded-full bg-glass-app text-foreground [&>svg]:size-3"><LayoutGridIcon /></span>
     <span className="truncate">{title}</span>
-    {attention && <span aria-label="Antwort erwartet" className="grid size-4 flex-none place-items-center rounded-full bg-warning text-[0.62rem] font-bold text-background" role="img">!</span>}
+    {attention && <span aria-label="Answer expected" className="grid size-4 flex-none place-items-center rounded-full bg-warning text-[0.62rem] font-bold text-background" role="img">!</span>}
     {centered && <ArrowUpRightIcon aria-hidden className="size-3 flex-none text-muted-foreground" />}
   </button>;
 }
@@ -442,24 +442,24 @@ function RunPanelStage({ centered, element, navigation, peek, runId, session }: 
   const programs = useProgramSlot();
   const { Element, definition } = element;
   const title = definition.title ?? definition.id;
-  return <section aria-label={`Mini-App ${title}`} className="group/stage relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-app" style={peek > 0 ? { paddingBottom: peek } : undefined}>
+  return <section aria-label={`Mini-app ${title}`} className="group/stage relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-app" style={peek > 0 ? { paddingBottom: peek } : undefined}>
     <div className="absolute top-1.5 right-2 z-[5] flex gap-0.5 rounded-lg border border-border bg-card p-0.5 opacity-0 transition-opacity group-hover/stage:opacity-100 group-focus-within/stage:opacity-100 motion-reduce:transition-none">
       {host.kind === "vscode"
-        ? <Button aria-label={`${title} in die Mitte legen`} onClick={() => host.openInCenter(runId, definition.id, title)} size="icon-sm" title="In die Mitte legen" variant="ghost"><ArrowUpRightIcon /></Button>
-        : programs && <Button aria-label={`${title} in Vollansicht öffnen`} onClick={() => programs.openFullscreen(definition.id)} size="icon-sm" title="Vollansicht" variant="ghost"><Maximize2Icon /></Button>}
+        ? <Button aria-label={`Move ${title} to the center`} onClick={() => host.openInCenter(runId, definition.id, title)} size="icon-sm" title="Move to the center" variant="ghost"><ArrowUpRightIcon /></Button>
+        : programs && <Button aria-label={`Open ${title} in full view`} onClick={() => programs.openFullscreen(definition.id)} size="icon-sm" title="Full view" variant="ghost"><Maximize2Icon /></Button>}
     </div>
     <div className="relative flex min-h-0 flex-1 flex-col" data-run-panel="stage">
       {centered
         ? <div className="m-auto grid gap-3 p-4 text-center text-[0.76rem] text-muted-foreground" role="status">
-          <span>{title} liegt in der Mitte.</span>
-          <Button onClick={() => host.returnToRunPanel(runId, definition.id)} size="sm" variant="outline">Zurück ins Panel</Button>
+          <span>{title} is in the center.</span>
+          <Button onClick={() => host.returnToRunPanel(runId, definition.id)} size="sm" variant="outline">Back to panel</Button>
         </div>
         : <Element definition={definition} navigation={navigation} session={session} />}
     </div>
   </section>;
 }
 
-/** Der senkrechte Griff zwischen Bühne und Chat daneben; ziehen nach links macht den Chat breiter. */
+/** The vertical grip between stage and the chat next to it; dragging left makes the chat wider. */
 function Sash({ onChange, onCommit, value }: { onChange: (next: number) => void; onCommit: (next: number) => void; value: number }) {
   const drag = useRef<{ startX: number; startWidth: number }>(undefined);
   const finish = (event: PointerEvent<HTMLDivElement>) => {
@@ -469,7 +469,7 @@ function Sash({ onChange, onCommit, value }: { onChange: (next: number) => void;
     onCommit(value);
   };
   return <div
-    aria-label="Breite des Chats"
+    aria-label="Chat width"
     aria-orientation="vertical"
     aria-valuenow={value}
     className="flex w-2.5 flex-none cursor-col-resize touch-none items-center justify-center border-r border-l border-border bg-shell select-none hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:-outline-offset-2"
@@ -516,7 +516,7 @@ function ActorRunPanelChat({ actor, cardSections, navigation, notice, onNavigate
   </div>;
 }
 
-/** Der Ladezustand mittig im Chat; er rückt nur hoch, wo er sonst unter die Eingabe geriete. */
+/** The loading state centered in the chat; it only moves up where it would otherwise end up under the input. */
 function RunPanelStartup({ state }: { state: SurfaceStartupState }) {
   return <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)_auto_minmax(var(--qsl-composer-height,0px),1fr)] justify-items-center overflow-hidden p-6">
     <StartupNotice className="row-start-2" state={state} />

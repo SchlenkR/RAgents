@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { modelAliasEnvDescriptors } from "./plugin-support/model-aliases.js";
+import { modelProviderEnvDescriptors } from "./plugin-support/model-providers.js";
 import { declaredEnvironment } from "./plugin-support/plugin-config.js";
 import { defaultDataDirectory } from "./data-directory.js";
 import { hostWebDirectory } from "./host-web.js";
@@ -13,6 +14,7 @@ export const hostConfigDescriptors = [
   { key: "AGENT_THINKING", source: "environment" },
   { key: "COMPACTION_PROVIDER", source: "environment" },
   { key: "COMPACTION_MODEL", source: "environment" },
+  ...modelProviderEnvDescriptors,
   ...modelAliasEnvDescriptors,
   { key: "PRODUCT_PROFILE", source: "environment" },
   { key: "PLUGINS", source: "environment" },

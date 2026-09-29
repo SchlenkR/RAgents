@@ -7,12 +7,12 @@ let installed: string | undefined;
 const sameOrigin = (url: string, browser: Window): boolean => new URL(url, browser.location.href).origin === browser.location.origin;
 
 /**
- * Hält den Zugangstoken einer Seite, die ohne Anmeldecookie läuft (iframe in einem VS-Code-Webview):
- * jeder Abruf an den eigenen Server trägt ihn als Bearer, Adressen ohne Header (Ereignisstrom, Frames) als Abfrageparameter.
+ * Holds the access token of a page that runs without a sign-in cookie (iframe in a VS Code webview):
+ * every fetch to its own server carries it as a bearer, addresses without headers (event stream, frames) as a query parameter.
  */
 export function installAccessToken(token: string, browser: Window = window): void {
-  if (!token) throw new Error("Der Zugangstoken ist leer.");
-  if (installed !== undefined) throw new Error("Der Zugangstoken ist bereits installiert.");
+  if (!token) throw new Error("The access token is empty.");
+  if (installed !== undefined) throw new Error("The access token is already installed.");
   installed = token;
   const original = browser.fetch.bind(browser);
   browser.fetch = (input, init) => {
@@ -24,7 +24,7 @@ export function installAccessToken(token: string, browser: Window = window): voi
 
 export const accessTokenInstalled = (): boolean => installed !== undefined;
 
-/** Hängt den installierten Token an eine Serveradresse an; ohne Token bleibt die Adresse unverändert. */
+/** Appends the installed token to a server address; without a token the address stays unchanged. */
 export function withAccessToken(path: string): string {
   if (installed === undefined) return path;
   return `${path}${path.includes("?") ? "&" : "?"}${ACCESS_TOKEN_QUERY}=${encodeURIComponent(installed)}`;

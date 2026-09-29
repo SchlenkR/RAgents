@@ -19,8 +19,8 @@ const tab = (id: string, label: string, order: number, extra: Partial<WorkspaceT
   id, label, order, Icon: () => createElement(Icon, { text: id }), Panel: () => createElement("p", null, `Panel ${label}`), ...extra,
 });
 const tabs = [
-  tab("files", "Dateien", 260),
-  tab("documents", "Dokumente", 200, { Badge: () => createElement(Badge, { variant: "secondary" }, "3"), keepMounted: true }),
+  tab("files", "Files", 260),
+  tab("documents", "Documents", 200, { Badge: () => createElement(Badge, { variant: "secondary" }, "3"), keepMounted: true }),
   tab("executions", "Executions", 110),
 ];
 const session = { session: { id: "run-a", title: "Run", updatedAt: 0 }, messages: [] } as unknown as SessionContext;
@@ -41,22 +41,22 @@ function fakeWindow(context: { after: (fn: () => void) => void }) {
   return values;
 }
 
-test("der Zustand der Leiste wird streng gelesen", () => {
+test("the sidebar state is parsed strictly", () => {
   assert.deepEqual(parseRunPanelWorkspaceState(null), DEFAULT_RUN_PANEL_WORKSPACE_STATE);
   assert.deepEqual(parseRunPanelWorkspaceState(JSON.stringify({ tab: "files" })), { tab: "files" });
   assert.deepEqual(parseRunPanelWorkspaceState(JSON.stringify({ tab: null })), { tab: null });
-  assert.throws(() => parseRunPanelWorkspaceState(JSON.stringify({})), /ungültig/);
-  assert.throws(() => parseRunPanelWorkspaceState(JSON.stringify({ tab: 3 })), /ungültig/);
-  assert.throws(() => parseRunPanelWorkspaceState(JSON.stringify({ tab: "files", height: 300 })), /ungültig/);
+  assert.throws(() => parseRunPanelWorkspaceState(JSON.stringify({})), /invalid/);
+  assert.throws(() => parseRunPanelWorkspaceState(JSON.stringify({ tab: 3 })), /invalid/);
+  assert.throws(() => parseRunPanelWorkspaceState(JSON.stringify({ tab: "files", height: 300 })), /invalid/);
 });
 
-test("der offene Reiter gilt nur, solange die Fläche offen und der Reiter verfügbar ist", () => {
+test("the open tab applies only while the surface is open and the tab is available", () => {
   assert.equal(activeWorkspaceTab({ tab: null }, tabs), "");
   assert.equal(activeWorkspaceTab({ tab: "documents" }, tabs), "documents");
   assert.equal(activeWorkspaceTab({ tab: "removed" }, tabs), "");
 });
 
-test("Öffnen, erneutes Wählen und Schließen schreiben den Reiter je Run in den Browser-Speicher", (context) => {
+test("opening, selecting again and closing write the tab per run to browser storage", (context) => {
   const values = fakeWindow(context);
   const key = runPanelWorkspaceStorageKey("run-a");
   const stored = () => parseRunPanelWorkspaceState(values.get(key) ?? null);
@@ -73,10 +73,10 @@ test("Öffnen, erneutes Wählen und Schließen schreiben den Reiter je Run in de
   assert.equal(values.has(runPanelWorkspaceStorageKey("run-b")), false);
 });
 
-test("die Leiste zeigt die verfügbaren Reiter in ihrer Reihenfolge, den offenen gedrückt, Badge und Punkt für Neues, Tooltip statt title", () => {
+test("the sidebar shows the available tabs in their order, the open one pressed, badge and dot for new items, tooltip instead of title", () => {
   const ordered = [...tabs].sort((left, right) => left.order - right.order);
   const html = renderToStaticMarkup(createElement(RunPanelRail, { navigation: navigationFor("documents"), onClose: () => {}, open: true, pendingTabIds: ["files"], session, tabs: ordered }));
-  assert.deepEqual(attribute(html, "aria-label"), ["Reiter der Leiste", "Executions", "Dokumente", "Dateien"]);
+  assert.deepEqual(attribute(html, "aria-label"), ["Sidebar tabs", "Executions", "Documents", "Files"]);
   assert.deepEqual(attribute(html, "aria-pressed"), ["false", "true", "false"]);
   assert.deepEqual(attribute(html, "title"), []);
   assert.deepEqual(attribute(html, "data-slot").filter((slot) => slot === "tooltip-trigger").length, 3);
@@ -87,22 +87,22 @@ test("die Leiste zeigt die verfügbaren Reiter in ihrer Reihenfolge, den offenen
   assert.deepEqual(attribute(closed, "aria-pressed"), ["false", "false", "false"]);
 });
 
-test("die Leiste zeigt den offenen Reiter als Pop-out mit Name, Schließen-Knopf und Abdunklung und bleibt geschlossen verborgen", () => {
+test("the sidebar shows the open tab as a pop-out with name, close button and backdrop and stays hidden when closed", () => {
   const open = renderToStaticMarkup(createElement(RunPanelWorkspace, { navigation: navigationFor("files"), onClose: () => {}, open: true, session, tabs }));
-  assert.match(open, /<section[^>]*aria-label="Leiste"[^>]*id="run-panel-workspace"/);
+  assert.match(open, /<section[^>]*aria-label="Sidebar"[^>]*id="run-panel-workspace"/);
   assert.doesNotMatch(open, /<section[^>]*hidden=""/);
-  assert.match(open, /<h2[^>]*>Dateien<\/h2>/);
-  assert.match(open, /aria-label="Leiste schließen"/);
+  assert.match(open, /<h2[^>]*>Files<\/h2>/);
+  assert.match(open, /aria-label="Close sidebar"/);
   assert.match(open, /bg-backdrop/);
-  assert.match(open, /Panel Dateien/);
-  assert.doesNotMatch(open, /Panel Dokumente|Panel Executions/);
+  assert.match(open, /Panel Files/);
+  assert.doesNotMatch(open, /Panel Documents|Panel Executions/);
   const closed = renderToStaticMarkup(createElement(RunPanelWorkspace, { navigation: navigationFor(""), onClose: () => {}, open: false, session, tabs }));
   assert.match(closed, /<section[^>]*hidden=""/);
   assert.doesNotMatch(closed, /bg-backdrop/);
-  assert.doesNotMatch(closed, /Panel Dateien|Panel Dokumente|Panel Executions/);
+  assert.doesNotMatch(closed, /Panel Files|Panel Documents|Panel Executions/);
 });
 
-test("das Run-Panel zeigt die Leiste nur im Layout panel, eine Mini-App im Editor-Reiter bekommt keine", async (context) => {
+test("the run panel shows the sidebar only in the panel layout, a mini-app in an editor tab gets none", async (context) => {
   const values = fakeWindow(context);
   const previous = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
   Object.defineProperty(globalThis, "localStorage", { configurable: true, value: (globalThis as unknown as { window: { localStorage: Storage } }).window.localStorage });
@@ -118,17 +118,17 @@ test("das Run-Panel zeigt die Leiste nur im Layout panel, eine Mini-App im Edito
   });
   const run = { id: "run-a", title: "Run", updatedAt: 0 };
   const panel = renderToStaticMarkup(createElement(PluginChat, { layout: "panel", registry, session: run }));
-  const rail = panel.match(/<nav aria-label="Reiter der Leiste"[\s\S]*?<\/nav>/)?.[0] ?? "";
+  const rail = panel.match(/<nav aria-label="Sidebar tabs"[\s\S]*?<\/nav>/)?.[0] ?? "";
   assert.notEqual(rail, "");
   assert.deepEqual(attribute(rail, "aria-pressed"), ["false", "false", "false"]);
-  assert.match(panel, /<section[^>]*aria-label="Leiste"[^>]*hidden=""/);
-  assert.equal(values.size, 0, "ohne Klick wird nichts gespeichert");
+  assert.match(panel, /<section[^>]*aria-label="Sidebar"[^>]*hidden=""/);
+  assert.equal(values.size, 0, "nothing is stored without a click");
   const element = renderToStaticMarkup(createElement(PluginChat, { layout: { element: "board" }, registry, session: run }));
   assert.match(element, /Board-App/);
-  assert.doesNotMatch(element, /Reiter der Leiste|aria-label="Leiste"/);
+  assert.doesNotMatch(element, /Sidebar tabs|aria-label="Sidebar"/);
 });
 
-test("Reiter und Kopfbeiträge, die den Arbeitsbereich brauchen, fehlen bei einem Run, dessen Arbeitsbereich der Betrachter nicht erreicht", async (context) => {
+test("tabs and header contributions that need the workspace are missing for a run whose workspace the viewer cannot reach", async (context) => {
   fakeWindow(context);
   const previous = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
   Object.defineProperty(globalThis, "localStorage", { configurable: true, value: (globalThis as unknown as { window: { localStorage: Storage } }).window.localStorage });
@@ -143,7 +143,7 @@ test("Reiter und Kopfbeiträge, die den Arbeitsbereich brauchen, fehlen bei eine
     brand: { title: "Test" }, product: { id: "test", title: "Test" }, startEntries: [],
     plugins: [{
       id: "test",
-      workspaceTabs: [tab("files", "Dateien", 260), tab("diagnostics", "Diagnose", 300, { requiresWorkspace: true })],
+      workspaceTabs: [tab("files", "Files", 260), tab("diagnostics", "Diagnostics", 300, { requiresWorkspace: true })],
       sessionHeaders: [
         { id: "test.processes", order: 1, requiresWorkspace: true, Header: () => null },
         { id: "test.activity", order: 2, Header: () => null },
@@ -155,7 +155,7 @@ test("Reiter und Kopfbeiträge, die den Arbeitsbereich brauchen, fehlen bei eine
   const ids = (entries: readonly { id: string }[]) => entries.map((entry) => entry.id);
 
   assert.deepEqual(ids(registry.availableTabs(contextOf(false))), ["files"]);
-  assert.deepEqual(ids(registry.registeredTabs(contextOf(false))), ["files", "diagnostics"], "registriert bleibt der Reiter, ein Verweis darauf wirft nicht");
+  assert.deepEqual(ids(registry.registeredTabs(contextOf(false))), ["files", "diagnostics"], "the tab stays registered, a reference to it does not throw");
   assert.deepEqual(ids(registry.headersFor(contextOf(false), unrestrictedAccess, "header")), ["test.activity"]);
   for (const reachable of [true, undefined]) {
     assert.deepEqual(ids(registry.availableTabs(contextOf(reachable))), ["files", "diagnostics"]);
@@ -163,19 +163,19 @@ test("Reiter und Kopfbeiträge, die den Arbeitsbereich brauchen, fehlen bei eine
   }
 
   const rail = (workspaceAccessible: boolean) => renderToStaticMarkup(createElement(PluginChat, { layout: "panel", registry, session: run(workspaceAccessible) }))
-    .match(/<nav aria-label="Reiter der Leiste"[\s\S]*?<\/nav>/)?.[0] ?? "";
+    .match(/<nav aria-label="Sidebar tabs"[\s\S]*?<\/nav>/)?.[0] ?? "";
   assert.deepEqual(attribute(rail(false), "data-icon"), ["files"]);
   assert.deepEqual(attribute(rail(true), "data-icon"), ["files", "diagnostics"]);
 });
 
-test("der Reiter Dateien bietet ohne erreichbaren Arbeitsbereich nur die Dateiablage an", async () => {
+test("the Files tab offers only the file storage without a reachable workspace", async () => {
   const { FileBrowserPanel } = await import("../../../plugins/ragents.workspace/web/FileBrowser.tsx");
   const render = (workspaceAccessible: boolean) => renderToStaticMarkup(createElement(FileBrowserPanel, {
     active: true, navigation: navigationFor("files"), selection: undefined,
     session: { session: { id: "run-a", title: "Run", updatedAt: 0, workspaceAccessible }, messages: [] } as unknown as SessionContext,
   }));
   const foreign = render(false);
-  assert.match(foreign, /Dateiablage/);
-  assert.doesNotMatch(foreign, /Arbeitsverzeichnis/);
-  assert.match(render(true), /Arbeitsverzeichnis[\s\S]*Dateiablage/);
+  assert.match(foreign, /File storage/);
+  assert.doesNotMatch(foreign, /Working directory/);
+  assert.match(render(true), /Working directory[\s\S]*File storage/);
 });

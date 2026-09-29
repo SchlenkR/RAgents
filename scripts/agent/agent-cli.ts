@@ -1,4 +1,4 @@
-// Der Hook löst @ragents/* auch für eine Profildatei außerhalb des Hosts auf; im Paket gibt es dort kein node_modules.
+// The hook resolves @ragents/* also for a profile file outside the host; in the package there is no node_modules there.
 import "../../apps/server/src/host-resolution.ts";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
@@ -24,42 +24,42 @@ const POLL_INTERVAL_MS = 400;
 const HEALTH_TIMEOUT_MS = 2_000;
 const CHAT_READY_TIMEOUT_MS = 60_000;
 
-/** Vorgabeprofil der Agentenbefehle; RAGENTS_PROFILE gilt für alle Befehle derselben Shell. */
+/** Default profile of the agent commands; RAGENTS_PROFILE applies to all commands of the same shell. */
 export const defaultProfile = (): string => process.env.RAGENTS_PROFILE ?? DEFAULT_PROFILE;
 
-export const usage = (): string => `Verwendung: ragents <befehl> [argumente]
+export const usage = (): string => `Usage: ragents <command> [arguments]
 
-  run [<ordner>] "<auftrag>" [--profile <p>] [--entry <vorlage>] [--workstation <kennung>] [--json]
-      Startet den Host des Profils, falls keiner läuft, legt einen Run mit Bindung path auf den
-      Ordner an, schickt den Auftrag und wartet, bis der Turn endet. Ein einzelner Wert ist immer
-      der Auftrag: ohne <ordner> wählt run keine Bindung, es gilt die Vorgabe des Profils oder die
-      der Vorlage. Legt die Vorlage die Bindung fest, ist ein <ordner> ein Fehler. Mit
-      --workstation liegt der Ordner auf dem am Host angemeldeten Arbeitsplatz mit dieser Kennung
-      (pnpm workspace-client <server-url> <ordner> --id <kennung>) statt auf dem Server; ohne ihn
-      bricht run ab, und ohne <ordner> gibt es kein --workstation.
+  run [<folder>] "<task>" [--profile <p>] [--entry <template>] [--workstation <id>] [--json]
+      Starts the profile's host if none is running, creates a run with a path binding to the
+      folder, sends the task and waits until the turn ends. A single value is always the task:
+      without <folder>, run chooses no binding; the default of the profile or of the template
+      applies. If the template fixes the binding, a <folder> is an error. With --workstation the
+      folder is on the workstation with this id that is registered with the host
+      (pnpm workspace-client <server-url> <folder> --id <id>) instead of on the server; without
+      it, run aborts, and without <folder> there is no --workstation.
   send <run> "<text>" [--profile <p>] [--json]
-      Folgeauftrag im selben Run, gleiches Warten.
+      Follow-up task in the same run, same waiting.
   journal <run> [--profile <p>] [--json] [--tools]
-      Den Verlauf des Runs kompakt lesen: aus dem Datenordner des Profils, mit RAGENTS_URL vom
-      Server (dort mit dem Recht runs.inspect).
-  stop <run> [--profile <p>]      den laufenden Turn des Primary-Actors unterbrechen; der Run
-                                  bleibt aktiv und nimmt den nächsten Auftrag an
+      Read the run's history compactly: from the profile's data folder, with RAGENTS_URL from the
+      server (there with the permission runs.inspect).
+  stop <run> [--profile <p>]      interrupt the running turn of the primary actor; the run
+                                  stays active and accepts the next task
   stop <run> --run [--profile <p>]
-      Not-Aus: alle Turns abbrechen und alle Actors des Runs stoppen
-  stop --host [--profile <p>]     den gemerkten Host beenden
-  plugin build <ordner...> [--out <o>] [--watch] [--no-typecheck]
-      Plugin-Quellordner zu Bundles bauen; Einzelheiten mit plugin --help.
+      Emergency stop: cancel all turns and stop all actors of the run
+  stop --host [--profile <p>]     stop the remembered host
+  plugin build <folder...> [--out <o>] [--watch] [--no-typecheck]
+      Build plugin source folders into bundles; details with plugin --help.
 
-<p> ist ein Profilname neben dem Host oder der Pfad zu einer ragents.config.<profil>.ts an
-beliebiger Stelle; ohne --profile gilt RAGENTS_PROFILE, sonst ${DEFAULT_PROFILE}. Exit-Code:
-0 fertig, 2 abgebrochen, 1 fehlgeschlagen oder Verbindungsproblem. Die letzte Zeile auf stdout
-ist "run: <id>". run und send folgen dem Turn über den Server (Kanal ragents.run und
-ragents.runs.view), auch auf einem anderen Rechner; Werkzeugzeilen zeigt der Server nur mit
-runs.inspect, --json liefert dieselben Schritte als JSON. Reißt die Verbindung ab, endet der
-Befehl mit 1 und der Ursache. Die Adresse kommt aus <Datenordner>/host.json, sonst aus RAGENTS_URL, sonst aus
-host.PORT des Profils; RAGENTS_TOKEN geht als Bearer-Token mit, falls das Profil eine Anmeldung
-verlangt. Der so gestartete Host baut die Oberfläche nicht - ein Agent braucht sie nicht; mit
-Oberfläche startet ragents start <profil>.`;
+<p> is a profile name next to the host or the path to a ragents.config.<profile>.ts anywhere;
+without --profile, RAGENTS_PROFILE applies, otherwise ${DEFAULT_PROFILE}. Exit code:
+0 done, 2 cancelled, 1 failed or connection problem. The last line on stdout
+is "run: <id>". run and send follow the turn through the server (channel ragents.run and
+ragents.runs.view), also on another machine; the server shows tool lines only with
+runs.inspect, --json returns the same steps as JSON. If the connection breaks, the
+command ends with 1 and the cause. The address comes from <data folder>/host.json, otherwise from RAGENTS_URL, otherwise from
+host.PORT of the profile; RAGENTS_TOKEN is sent as a bearer token if the profile requires
+sign-in. A host started this way does not build the UI - an agent does not need it; ragents
+start <profile> starts it with the UI.`;
 
 export type AgentCommand =
   | { readonly kind: "run"; readonly profile: string; readonly folder: string | undefined; readonly text: string; readonly entry: string | undefined; readonly json: boolean; readonly workstation?: string }
@@ -92,13 +92,13 @@ const scan = (argv: readonly string[], allowed: readonly string[]): Flags => {
       positional.push(argument);
       continue;
     }
-    if (!allowed.includes(argument)) throw new Error(`Unbekanntes Argument: ${argument}\n\n${usage()}`);
+    if (!allowed.includes(argument)) throw new Error(`Unknown argument: ${argument}\n\n${usage()}`);
     if (!VALUE_FLAGS.has(argument)) {
       switches.add(argument);
       continue;
     }
     const value = argv[index + 1];
-    if (value === undefined || value.startsWith("--")) throw new Error(`${argument} braucht einen Wert.`);
+    if (value === undefined || value.startsWith("--")) throw new Error(`${argument} needs a value.`);
     values.set(argument, value);
     index += 1;
   }
@@ -118,13 +118,13 @@ export const parseArguments = (argv: readonly string[]): AgentCommand => {
   const [command, ...rest] = argv;
   if (command === "run") {
     const flags = scan(rest, ["--profile", "--entry", "--workstation", "--json"]);
-    if (flags.positional.length > 2) throw new Error(`run nimmt höchstens zwei Werte, nicht ${flags.positional.length}.`);
+    if (flags.positional.length > 2) throw new Error(`run takes at most two values, not ${flags.positional.length}.`);
     const [folder, text] = flags.positional.length === 2 ? flags.positional : [undefined, flags.positional[0]];
-    if (!text) throw new Error(`run braucht "<auftrag>", davor optional <ordner>.\n\n${usage()}`);
-    if (folder === "") throw new Error("run braucht einen nicht leeren <ordner> oder nur den Auftrag.");
-    if (flags.workstation !== undefined && folder === undefined) throw new Error("--workstation braucht <ordner>, den Pfad auf dem Arbeitsplatz.");
+    if (!text) throw new Error(`run needs "<task>", optionally preceded by <folder>.\n\n${usage()}`);
+    if (folder === "") throw new Error("run needs a non-empty <folder> or only the task.");
+    if (flags.workstation !== undefined && folder === undefined) throw new Error("--workstation needs <folder>, the path on the workstation.");
     if (flags.workstation !== undefined && !WORKSPACE_CLIENT_ID_PATTERN.test(flags.workstation)) {
-      throw new Error(`Ungültige Arbeitsplatz-Kennung: ${flags.workstation} (8 bis 64 Zeichen aus Buchstaben, Ziffern, _ und -).`);
+      throw new Error(`Invalid workstation id: ${flags.workstation} (8 to 64 characters from letters, digits, _ and -).`);
     }
     return { kind: "run", profile: flags.profile, folder, text, entry: flags.entry, json: flags.json,
       ...(flags.workstation ? { workstation: flags.workstation } : {}) };
@@ -132,33 +132,33 @@ export const parseArguments = (argv: readonly string[]): AgentCommand => {
   if (command === "send") {
     const flags = scan(rest, ["--profile", "--json"]);
     const [runId, text, ...extra] = flags.positional;
-    if (!runId || !text) throw new Error(`send braucht <run> und "<text>".\n\n${usage()}`);
-    if (extra.length > 0) throw new Error(`send nimmt genau zwei Werte, nicht ${flags.positional.length}.`);
-    if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Ungültige Run-Id: ${runId}`);
+    if (!runId || !text) throw new Error(`send needs <run> and "<text>".\n\n${usage()}`);
+    if (extra.length > 0) throw new Error(`send takes exactly two values, not ${flags.positional.length}.`);
+    if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Invalid run id: ${runId}`);
     return { kind: "send", profile: flags.profile, runId, text, json: flags.json };
   }
   if (command === "journal") {
     const flags = scan(rest, ["--profile", "--json", "--tools"]);
     const [runId, ...extra] = flags.positional;
-    if (!runId) throw new Error(`journal braucht <run>.\n\n${usage()}`);
-    if (extra.length > 0) throw new Error(`journal nimmt genau einen Wert, nicht ${flags.positional.length}.`);
-    if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Ungültige Run-Id: ${runId}`);
+    if (!runId) throw new Error(`journal needs <run>.\n\n${usage()}`);
+    if (extra.length > 0) throw new Error(`journal takes exactly one value, not ${flags.positional.length}.`);
+    if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Invalid run id: ${runId}`);
     return { kind: "journal", profile: flags.profile, runId, json: flags.json, tools: flags.tools };
   }
   if (command === "stop") {
     const flags = scan(rest, ["--profile", "--host", "--run"]);
-    if (flags.host && flags.run) throw new Error("stop nimmt entweder --host oder --run.");
+    if (flags.host && flags.run) throw new Error("stop takes either --host or --run.");
     if (flags.host) {
-      if (flags.positional.length > 0) throw new Error("stop --host nimmt keine Run-Id.");
+      if (flags.positional.length > 0) throw new Error("stop --host takes no run id.");
       return { kind: "stop-host", profile: flags.profile };
     }
     const [runId, ...extra] = flags.positional;
-    if (!runId) throw new Error(`stop braucht <run> oder --host.\n\n${usage()}`);
-    if (extra.length > 0) throw new Error(`stop nimmt genau einen Wert, nicht ${flags.positional.length}.`);
-    if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Ungültige Run-Id: ${runId}`);
+    if (!runId) throw new Error(`stop needs <run> or --host.\n\n${usage()}`);
+    if (extra.length > 0) throw new Error(`stop takes exactly one value, not ${flags.positional.length}.`);
+    if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Invalid run id: ${runId}`);
     return { kind: flags.run ? "stop-run" : "stop", profile: flags.profile, runId };
   }
-  throw new Error(command ? `Unbekannter Befehl: ${command}\n\n${usage()}` : usage());
+  throw new Error(command ? `Unknown command: ${command}\n\n${usage()}` : usage());
 };
 
 export const loadProfile = (selection: string, root = hostRoot()): Promise<ProfileTarget> => selectProfileTarget(selection, root);
@@ -179,7 +179,7 @@ const note = (line: string): void => { process.stderr.write(`${line}\n`); };
 const tail = (file: string, lines: number): string =>
   (statSync(file, { throwIfNoEntry: false })?.isFile() ? readFileSync(file, "utf8") : "").split("\n").slice(-lines).join("\n");
 
-/** Der gemerkte Host, sonst RAGENTS_URL, sonst die Adresse aus host.PORT des Profils. */
+/** The remembered host, otherwise RAGENTS_URL, otherwise the address from host.PORT of the profile. */
 export const addressOf = async (target: ProfileTarget): Promise<string> => {
   const noted = readHostRecord(target.dataDirectory);
   if (noted && await healthy(noted.url)) return noted.url;
@@ -204,8 +204,8 @@ const startHost = async (target: ProfileTarget): Promise<void> => {
   });
   child.unref();
   closeSync(handle);
-  if (!child.pid) throw new Error(`Der Host ${target.profile} ließ sich nicht starten; das Log steht in ${log}.`);
-  note(`== Host ${target.profile} startet auf ${target.baseUrl} (Log ${log})`);
+  if (!child.pid) throw new Error(`The host ${target.profile} could not be started; the log is in ${log}.`);
+  note(`== Host ${target.profile} starting on ${target.baseUrl} (log ${log})`);
   const deadline = Date.now() + HOST_START_TIMEOUT_MS;
   while (Date.now() < deadline) {
     if (await healthy(target.baseUrl)) {
@@ -216,19 +216,19 @@ const startHost = async (target: ProfileTarget): Promise<void> => {
         log,
         startedAt: new Date().toISOString(),
       });
-      note(`== Host bereit unter ${target.baseUrl} (PID ${child.pid})`);
+      note(`== Host ready at ${target.baseUrl} (PID ${child.pid})`);
       return;
     }
     if (child.exitCode !== null || child.signalCode !== null) break;
     await delay(500);
   }
-  throw new Error(`Der Host ${target.profile} antwortet nicht unter ${target.baseUrl}. Ende von ${log}:\n${tail(log, 20)}`);
+  throw new Error(`The host ${target.profile} does not respond at ${target.baseUrl}. End of ${log}:\n${tail(log, 20)}`);
 };
 
 const ensureHost = async (target: ProfileTarget): Promise<string> => {
   const address = await addressOf(target);
   if (await healthy(address)) return address;
-  if (process.env.RAGENTS_URL) throw new Error(`Unter ${process.env.RAGENTS_URL} (RAGENTS_URL) antwortet kein RAgents-Server.`);
+  if (process.env.RAGENTS_URL) throw new Error(`No RAgents server responds at ${process.env.RAGENTS_URL} (RAGENTS_URL).`);
   await startHost(target);
   return target.baseUrl;
 };
@@ -247,10 +247,10 @@ const client = (baseUrl: string): RpcClient => {
   });
 };
 
-export const LOGIN_REQUIRED = "Das Profil verlangt eine Anmeldung; setze RAGENTS_TOKEN auf den persönlichen Token deines Benutzers "
-  + "(im Profil `token: env(...)`).";
+export const LOGIN_REQUIRED = "The profile requires sign-in; set RAGENTS_TOKEN to your user's personal token "
+  + "(in the profile `token: env(...)`).";
 
-/** Ein 401 ist keine Fehlermeldung des Servers wert, sondern der Hinweis auf den persönlichen Token des Profils. */
+/** A 401 is not worth a server error message, but a hint to the profile's personal token. */
 export const withLoginHint = async <T>(call: () => Promise<T>): Promise<T> => {
   try {
     return await call();
@@ -260,7 +260,7 @@ export const withLoginHint = async <T>(call: () => Promise<T>): Promise<T> => {
   }
 };
 
-/** Eine Vorlage richtet den Run erst ein und bestimmt dabei seinen Chatpartner; bis dahin lehnt der Server die Nachricht ab. */
+/** A template first sets up the run and determines its chat partner in doing so; until then the server rejects the message. */
 const sendWhenChatReady = async (rpc: RpcClient, runId: string, text: string): Promise<void> => {
   const deadline = Date.now() + CHAT_READY_TIMEOUT_MS;
   for (let attempt = 0; ; attempt += 1) {
@@ -269,7 +269,7 @@ const sendWhenChatReady = async (rpc: RpcClient, runId: string, text: string): P
       return;
     } catch (error) {
       if (!(error instanceof RpcError) || error.domainCode !== "actor-chat-unsupported" || Date.now() >= deadline) throw error;
-      if (attempt === 0) note("== Die Vorlage richtet den Run ein; der Auftrag wartet auf seinen Chatpartner.");
+      if (attempt === 0) note("== The template is setting up the run; the task waits for its chat partner.");
       await delay(POLL_INTERVAL_MS);
     }
   }
@@ -291,7 +291,7 @@ const seconds = (from: string | undefined, to: string | undefined): string => {
   return Number.isNaN(start) || Number.isNaN(end) ? "?" : ((end - start) / 1000).toFixed(1);
 };
 
-/** Ein Schritt des eigenen Turns: `line` für stdout (fehlt bei einem sauberen Ende), `data` für --json. */
+/** A step of the own turn: `line` for stdout (missing on a clean end), `data` for --json. */
 export interface ProgressEntry {
   readonly key: string;
   readonly at: string;
@@ -307,7 +307,7 @@ export interface TurnProgress {
 
 const PENDING: TurnProgress = { entries: [], outcome: undefined, reason: undefined };
 
-const TOOL_ENDS: Readonly<Record<Exclude<TurnToolCall["status"], "running">, string>> = { completed: "ok", failed: "Fehler", interrupted: "abgebrochen" };
+const TOOL_ENDS: Readonly<Record<Exclude<TurnToolCall["status"], "running">, string>> = { completed: "ok", failed: "error", interrupted: "cancelled" };
 
 const toolEntries = (call: TurnToolCall): ProgressEntry[] => [
   { key: `tool:${call.id}`, at: call.startedAt, line: `> ${call.name}`, data: { kind: "tool", call } },
@@ -322,12 +322,12 @@ const toolEntries = (call: TurnToolCall): ProgressEntry[] => [
 const endEntry = (turn: Turn): ProgressEntry => ({
   key: `turn:${turn.id}`,
   at: turn.finishedAt ?? turn.startedAt,
-  line: turn.status === "failed" ? `! Turn fehlgeschlagen: ${shorten(turn.reason, 300)}`
-    : turn.status === "interrupted" ? `! Turn abgebrochen: ${shorten(turn.reason, 300)}` : undefined,
+  line: turn.status === "failed" ? `! Turn failed: ${shorten(turn.reason, 300)}`
+    : turn.status === "interrupted" ? `! Turn cancelled: ${shorten(turn.reason, 300)}` : undefined,
   data: { kind: "turn", id: turn.id, status: turn.status, reason: turn.reason },
 });
 
-/** Die neue Eingabe des Owners mit diesem Text, der Turn, der sie begonnen oder eingespeist bekommen hat, und seine Schritte ab ihr. */
+/** The owner's new input with this text, the turn that started with it or had it fed in, and its steps from it on. */
 export const progressOf = (view: RunView | null, known: ReadonlySet<string>, text: string): TurnProgress => {
   const input = view?.inputs.find((entry) => !known.has(entry.id) && entry.enqueuedBy === view.ownerId && entry.subscriptionId === null
     && entry.content.trim() === text.trim());
@@ -347,12 +347,12 @@ export const progressOf = (view: RunView | null, known: ReadonlySet<string>, tex
 };
 
 interface RunWatch {
-  /** Kehrt zurück, sobald der Kanal seit dem letzten Aufruf etwas gemeldet hat; ein Abriss des Stroms ist ein harter Fehler. */
+  /** Returns as soon as the channel has reported something since the last call; a broken stream is a hard error. */
   readonly changed: () => Promise<void>;
   readonly close: () => void;
 }
 
-/** Wie Web und VS Code: der Kanal ragents.run meldet erst ready, dann jede Journaländerung; den Stand liefert ragents.runs.view. */
+/** Like web and VS Code: the channel ragents.run first reports ready, then every journal change; ragents.runs.view returns the state. */
 const watchRun = (rpc: RpcClient, runId: string): RunWatch => {
   let dirty = false;
   let failure: Error | undefined;
@@ -369,7 +369,7 @@ const watchRun = (rpc: RpcClient, runId: string): RunWatch => {
   const unsubscribe = rpc.subscribe(coreContracts.channels.run, { runId }, () => {
     dirty = true;
     signal();
-  }, (message) => fail(`Der Ereignisstrom des Runs fällt aus: ${message}`));
+  }, (message) => fail(`The run's event stream failed: ${message}`));
   const stopStatus = rpc.onStatus((status) => {
     if (status.kind === "unauthorized") fail(LOGIN_REQUIRED);
   });
@@ -396,7 +396,7 @@ interface FollowOptions {
   readonly send: () => Promise<void>;
 }
 
-/** Abonniert den Run, merkt sich die vorhandenen Eingaben, schickt den Auftrag und folgt ihm über die Run-Ansicht bis zum Turn-Ende. */
+/** Subscribes to the run, remembers the existing inputs, sends the task and follows it through the run view until the turn ends. */
 const follow = async (options: FollowOptions): Promise<TurnOutcome> => {
   const { rpc, runId } = options;
   const watch = watchRun(rpc, runId);
@@ -411,7 +411,7 @@ const follow = async (options: FollowOptions): Promise<TurnOutcome> => {
   }
 };
 
-/** Nach dem Senden läuft der Turn beim Server weiter, was immer hier scheitert; der Fehler sagt das. */
+/** After sending, the turn keeps running on the server whatever fails here; the error says so. */
 const followSent = async (options: FollowOptions, watch: RunWatch, known: ReadonlySet<string>): Promise<TurnOutcome> => {
   const { rpc, runId } = options;
   try {
@@ -431,7 +431,7 @@ const followSent = async (options: FollowOptions, watch: RunWatch, known: Readon
     }
   } catch (error) {
     if (error instanceof RpcError && error.status === 401) throw error;
-    throw new Error(`Der Turn in ${runId} lässt sich über ${options.baseUrl} nicht weiter verfolgen und läuft dort womöglich weiter: `
+    throw new Error(`The turn in ${runId} can no longer be followed through ${options.baseUrl} and may still be running there: `
       + (error instanceof Error ? error.message : String(error)));
   }
 };
@@ -440,26 +440,26 @@ export type LineWriter = (line: string) => void;
 
 const toStdout: LineWriter = (line) => { process.stdout.write(`${line}\n`); };
 
-/** Der angemeldete Arbeitsplatz mit dieser Kennung, wie die Startoption ihn nennt; fehlt er, bricht run mit Ursache ab. */
+/** The registered workstation with this id, as the start option names it; if it is missing, run aborts with the cause. */
 const workstationOf = (presentation: unknown, id: string): { client: string; label: string } => {
   const clients = (presentation as WorkspaceBindingPresentation | null)?.clients ?? [];
   const found = clients.find((entry) => entry.id === id);
   if (!found) {
-    const registered = clients.map((entry) => `${entry.id} (${entry.label})`).join(", ") || "keiner";
-    throw new Error(`Am Host ist kein Arbeitsplatz mit der Kennung ${id} angemeldet; angemeldet: ${registered}. Anmelden mit pnpm workspace-client <server-url> <ordner> --id ${id}.`);
+    const registered = clients.map((entry) => `${entry.id} (${entry.label})`).join(", ") || "none";
+    throw new Error(`No workstation with the id ${id} is registered with the host; registered: ${registered}. Register with pnpm workspace-client <server-url> <folder> --id ${id}.`);
   }
   return { client: found.id, label: found.label };
 };
 
-/** Legt die Vorlage die Ordnerbindung selbst fest, widerspricht ihr jeder genannte Ordner; run überstimmt keine Seite still. */
+/** If the template fixes the folder binding itself, any given folder contradicts it; run silently overrules neither side. */
 const assertEntryLeavesBinding = async (rpc: RpcClient, entryId: string, folder: string): Promise<void> => {
   const { startEntries } = await withLoginHint(() => rpc.call(coreContracts.plugins.bootstrap, {}));
   const entry = startEntries.find((candidate) => candidate.id === entryId);
-  if (!entry) throw new Error(`Die Vorlage ${entryId} gibt es in diesem Profil nicht, oder sie ist für Deinen Benutzer nicht freigegeben.`);
+  if (!entry) throw new Error(`The template ${entryId} does not exist in this profile, or it is not enabled for your user.`);
   const fixed = entry.fixedStartOptions?.[WORKSPACE_BINDING_OPTION_ID];
   if (fixed !== undefined) {
-    throw new Error(`Die Vorlage ${entryId} legt die Ordnerbindung selbst fest (${JSON.stringify(fixed)}), genannt ist aber der Ordner ${folder}. `
-      + "Lass <ordner> weg oder starte ohne diese Vorlage.");
+    throw new Error(`The template ${entryId} fixes the folder binding itself (${JSON.stringify(fixed)}), but the folder ${folder} was given. `
+      + "Leave out <folder> or start without this template.");
   }
 };
 
@@ -468,28 +468,28 @@ const bindFolder = async (rpc: RpcClient, runId: string, folder: string, command
   const options = await withLoginHint(() => rpc.call(coreContracts.startOptions.list, { runId }));
   const binding = options.find((option) => option.id === WORKSPACE_BINDING_OPTION_ID);
   if (command.workstation) {
-    if (!binding) throw new Error(`Das Profil ${profile} kennt ${WORKSPACE_BINDING_OPTION_ID} nicht; ohne Ordnerbindung gibt es keinen Arbeitsplatz für --workstation.`);
+    if (!binding) throw new Error(`The profile ${profile} does not know ${WORKSPACE_BINDING_OPTION_ID}; without a folder binding there is no workstation for --workstation.`);
     const machine = workstationOf(binding.presentation, command.workstation);
     await withLoginHint(() => rpc.call(coreContracts.startOptions.select, { runId, optionId: WORKSPACE_BINDING_OPTION_ID, value: { machine, folder: { path: folder } } }));
-    note(`== Run ${runId} auf Arbeitsplatz ${machine.label}: ${folder} (${baseUrl})`);
+    note(`== Run ${runId} on workstation ${machine.label}: ${folder} (${baseUrl})`);
   } else if (binding) {
     await withLoginHint(() => rpc.call(coreContracts.startOptions.select, { runId, optionId: WORKSPACE_BINDING_OPTION_ID, value: { machine: "server", folder: { path: folder } } }));
-    note(`== Run ${runId} auf ${folder} (${baseUrl})`);
+    note(`== Run ${runId} on ${folder} (${baseUrl})`);
   } else {
-    note(`== Run ${runId} (${baseUrl}); das Profil ${profile} kennt ${WORKSPACE_BINDING_OPTION_ID} nicht und legt seinen Arbeitsbereich selbst an, ${folder} bleibt ungebunden.`);
+    note(`== Run ${runId} (${baseUrl}); the profile ${profile} does not know ${WORKSPACE_BINDING_OPTION_ID} and creates its workspace itself, ${folder} stays unbound.`);
   }
 };
 
 const runCommand = async (command: Extract<AgentCommand, { kind: "run" }>, write: LineWriter): Promise<number> => {
   const folder = command.folder === undefined || (command.workstation && path.win32.isAbsolute(command.folder))
     ? command.folder : path.resolve(callerDirectory(), command.folder);
-  if (folder !== undefined && !command.workstation && !statSync(folder, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`Kein Verzeichnis: ${folder}`);
+  if (folder !== undefined && !command.workstation && !statSync(folder, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`Not a directory: ${folder}`);
   const target = await loadProfile(command.profile);
   const baseUrl = await ensureHost(target);
   const rpc = client(baseUrl);
   const runId = randomUUID();
   if (folder !== undefined) await bindFolder(rpc, runId, folder, command, target.profile, baseUrl);
-  else note(`== Run ${runId} (${baseUrl}) ohne Ordner; die Bindung kommt aus ${command.entry ? `der Vorlage ${command.entry} oder ` : ""}der Vorgabe des Profils ${target.profile}.`);
+  else note(`== Run ${runId} (${baseUrl}) without a folder; the binding comes from ${command.entry ? `the template ${command.entry} or ` : ""}the default of the profile ${target.profile}.`);
   if (command.entry) await withLoginHint(() => rpc.call(coreContracts.chat.start, { runId, entry: command.entry }));
   const outcome = await withLoginHint(() => follow({ rpc, baseUrl, runId, text: command.text, json: command.json, write,
     send: () => command.entry
@@ -502,7 +502,7 @@ const runCommand = async (command: Extract<AgentCommand, { kind: "run" }>, write
 const sendCommand = async (command: Extract<AgentCommand, { kind: "send" }>, write: LineWriter): Promise<number> => {
   const target = await loadProfile(command.profile);
   const baseUrl = await addressOf(target);
-  if (!await healthy(baseUrl)) throw new Error(`Unter ${baseUrl} antwortet kein RAgents-Server; starte ihn mit ragents run.`);
+  if (!await healthy(baseUrl)) throw new Error(`No RAgents server responds at ${baseUrl}; start it with ragents run.`);
   const rpc = client(baseUrl);
   const outcome = await withLoginHint(() => follow({ rpc, baseUrl, runId: command.runId, text: command.text, json: command.json, write,
     send: () => rpc.call(coreContracts.chat.send, { runId: command.runId, text: command.text }).then(() => undefined) }));
@@ -510,7 +510,7 @@ const sendCommand = async (command: Extract<AgentCommand, { kind: "send" }>, wri
   return EXIT_CODES[outcome];
 };
 
-/** Mit RAGENTS_URL liegt das Journal beim Server, nicht im Datenordner des lokalen Profils; ragents.runs.events braucht runs.inspect. */
+/** With RAGENTS_URL the journal is on the server, not in the data folder of the local profile; ragents.runs.events needs runs.inspect. */
 const serverJournal = async (target: ProfileTarget, runId: string): Promise<readonly JournalEvent[]> => {
   const baseUrl = await addressOf(target);
   try {
@@ -518,7 +518,7 @@ const serverJournal = async (target: ProfileTarget, runId: string): Promise<read
     return events.map((event) => ({ sequence: event.sequence, type: event.type, actorId: event.actorId, occurredAt: event.occurredAt,
       payload: event.payload as Record<string, unknown> }));
   } catch (error) {
-    if (error instanceof RpcError && error.status === 403) throw new Error(`Das Journal über ${baseUrl} braucht das Recht runs.inspect: ${error.message}`);
+    if (error instanceof RpcError && error.status === 403) throw new Error(`The journal through ${baseUrl} needs the permission runs.inspect: ${error.message}`);
     throw error;
   }
 };
@@ -536,11 +536,11 @@ const stopCommand = async (command: Extract<AgentCommand, { kind: "stop" | "stop
   const rpc = client(await addressOf(target));
   if (command.kind === "stop-run") {
     await withLoginHint(() => stopWholeRun(rpc, command.runId));
-    note(`== Run ${command.runId} angehalten (Not-Aus)`);
+    note(`== Run ${command.runId} stopped (emergency stop)`);
     return 0;
   }
   const actorId = await withLoginHint(() => interruptPrimaryTurn(rpc, command.runId));
-  note(`== Laufender Turn von ${actorId} in ${command.runId} unterbrochen; der Run bleibt aktiv`);
+  note(`== Running turn of ${actorId} in ${command.runId} interrupted; the run stays active`);
   return 0;
 };
 
@@ -553,7 +553,7 @@ const alive = (pid: number): boolean => {
   }
 };
 
-/** Die PID, die der Host unter dieser Adresse selbst nennt; undefined, wenn dort kein Host antwortet. */
+/** The PID the host at this address reports itself; undefined if no host responds there. */
 const hostPidAt = async (baseUrl: string): Promise<number | undefined> => {
   try {
     const response = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS) });
@@ -567,17 +567,17 @@ const hostPidAt = async (baseUrl: string): Promise<number | undefined> => {
 const stopHostCommand = async (command: Extract<AgentCommand, { kind: "stop-host" }>): Promise<number> => {
   const target = await loadProfile(command.profile);
   const noted = readHostRecord(target.dataDirectory);
-  if (!noted) throw new Error(`Für das Profil ${command.profile} ist kein Host gemerkt (${hostRecordFile(target.dataDirectory)} fehlt).`);
+  if (!noted) throw new Error(`No host is remembered for the profile ${command.profile} (${hostRecordFile(target.dataDirectory)} is missing).`);
   if (!alive(noted.pid)) {
     removeHostRecord(target.dataDirectory);
-    note(`== Der gemerkte Host (PID ${noted.pid}) läuft nicht mehr; der Vermerk ist weg.`);
+    note(`== The remembered host (PID ${noted.pid}) is no longer running; the record is removed.`);
     return 0;
   }
   const answering = await hostPidAt(noted.url);
   if (answering !== noted.pid) {
     removeHostRecord(target.dataDirectory);
-    const found = answering === undefined ? "kein Host, der seine PID nennt" : `ein anderer Host (PID ${answering})`;
-    throw new Error(`Unter ${noted.url} antwortet ${found}; die gemerkte PID ${noted.pid} gehört nicht nachweislich zum Host und wird nicht beendet. Der Vermerk ist weg.`);
+    const found = answering === undefined ? "no host that reports its PID" : `another host (PID ${answering})`;
+    throw new Error(`Found at ${noted.url}: ${found}; the remembered PID ${noted.pid} does not provably belong to the host and is not stopped. The record is removed.`);
   }
   process.kill(noted.pid, "SIGTERM");
   const deadline = Date.now() + HOST_STOP_TIMEOUT_MS;
@@ -587,7 +587,7 @@ const stopHostCommand = async (command: Extract<AgentCommand, { kind: "stop-host
     await delay(500);
   }
   removeHostRecord(target.dataDirectory);
-  note(`== Host ${noted.url} (PID ${noted.pid}) beendet`);
+  note(`== Host ${noted.url} (PID ${noted.pid}) stopped`);
   return 0;
 };
 

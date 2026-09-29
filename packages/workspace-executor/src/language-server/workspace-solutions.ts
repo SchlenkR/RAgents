@@ -52,7 +52,7 @@ const gitSolutions = async (context: WorkspaceProcessContext, extensions: readon
     "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--",
     ...extensions.map((extension) => `:(icase)*${extension}`),
   ]);
-  if (listed.code !== 0) throw new Error(`git ls-files ist mit Code ${listed.code} gescheitert`);
+  if (listed.code !== 0) throw new Error(`git ls-files failed with code ${listed.code}`);
   return listed.output.split("\0").filter(Boolean);
 };
 
@@ -70,7 +70,7 @@ const directorySolutions = async (root: string, extensions: readonly string[], r
   return nested.flat();
 };
 
-/** Ohne Git-Arbeitsverzeichnis durchsucht es den Ordner selbst, sechs Ebenen tief und ohne versteckte Ordner. */
+/** Without a Git working directory it searches the folder itself, six levels deep and without hidden folders. */
 export const workspaceSolutions = async (
   context: WorkspaceProcessContext,
   extensions: readonly string[],

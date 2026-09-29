@@ -25,13 +25,13 @@ test("todo_replace exposes one canonical typed status contract", () => {
 
   assert.equal(Value.Check(schema, {
     todos: [
-      { id: "done", text: "Fertig", status: "completed" },
-      { id: "active", text: "Läuft", status: "active" },
-      { id: "open", text: "Offen", status: "open" },
+      { id: "done", text: "Done", status: "completed" },
+      { id: "active", text: "Running", status: "active" },
+      { id: "open", text: "Open", status: "open" },
     ],
   }), true);
   assert.equal(Value.Check(schema, {
-    todos: [{ id: "legacy", text: "Alt", status: "erledigt" }],
+    todos: [{ id: "legacy", text: "Old", status: "erledigt" }],
   }), false);
 });
 
@@ -40,9 +40,9 @@ test("todo_replace accepts the trained status idioms", () => {
 
   assert.equal(Value.Check(schema, {
     todos: [
-      { id: "done", text: "Fertig", status: "done" },
-      { id: "active", text: "Läuft", status: "in_progress" },
-      { id: "open", text: "Offen", status: "pending" },
+      { id: "done", text: "Done", status: "done" },
+      { id: "active", text: "Running", status: "in_progress" },
+      { id: "open", text: "Open", status: "pending" },
     ],
   }), true);
 });
@@ -50,15 +50,15 @@ test("todo_replace accepts the trained status idioms", () => {
 test("the trained status idioms are stored as the canonical values", () => {
   assert.deepEqual(stateAfterReplace({
     todos: [
-      { id: "done", text: "Fertig", status: "done" },
-      { id: "active", text: "Läuft", status: "in_progress" },
-      { id: "open", text: "Offen", status: "pending" },
+      { id: "done", text: "Done", status: "done" },
+      { id: "active", text: "Running", status: "in_progress" },
+      { id: "open", text: "Open", status: "pending" },
     ],
   }), {
     todos: [
-      { id: "done", text: "Fertig", status: "completed" },
-      { id: "active", text: "Läuft", status: "active" },
-      { id: "open", text: "Offen", status: "open" },
+      { id: "done", text: "Done", status: "completed" },
+      { id: "active", text: "Running", status: "active" },
+      { id: "open", text: "Open", status: "open" },
     ],
   });
 });
@@ -66,15 +66,15 @@ test("the trained status idioms are stored as the canonical values", () => {
 test("historical to-do states are normalized when read", () => {
   assert.deepEqual(todoStateOf({
     todos: [
-      { id: "done", text: "Fertig", status: "erledigt" },
-      { id: "active", text: "Läuft", status: "in Arbeit" },
-      { id: "open", text: "Offen", status: "offen" },
+      { id: "done", text: "Done", status: "erledigt" },
+      { id: "active", text: "Running", status: "in Arbeit" },
+      { id: "open", text: "Open", status: "offen" },
     ],
   }), {
     todos: [
-      { id: "done", text: "Fertig", status: "completed" },
-      { id: "active", text: "Läuft", status: "active" },
-      { id: "open", text: "Offen", status: "open" },
+      { id: "done", text: "Done", status: "completed" },
+      { id: "active", text: "Running", status: "active" },
+      { id: "open", text: "Open", status: "open" },
     ],
   });
 });

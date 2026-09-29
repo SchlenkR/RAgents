@@ -14,7 +14,7 @@ export const RUN_TRANSFER_MANIFEST_ENTRY = `${RUN_TRANSFER_DIRECTORY}/manifest.j
 
 export const RUN_TRANSFER_MAX_ARCHIVE_BYTES = 16 * 1024 * 1024;
 
-/** Was ein Archiv über den Run sagt, den es trägt; das Ziel prüft daran, ob es ihn annehmen kann. */
+/** What an archive says about the run it carries; the target uses it to check whether it can accept the run. */
 export interface RunTransferManifest {
   readonly formatVersion: number;
   readonly runId: string;
@@ -24,20 +24,20 @@ export interface RunTransferManifest {
   readonly title: string;
   readonly revision: number;
   readonly events: number;
-  /** Der Projektordner auf dem Rechner der Quelle, an den der Run gebunden ist; null, wenn der Arbeitsbereich mitzieht. */
+  /** The project folder on the source machine to which the run is bound; null if the workspace moves along. */
   readonly boundDirectory: string | null;
   readonly exportedAt: string;
 }
 
 export interface RunTransferExport {
   readonly manifest: RunTransferManifest;
-  /** Das tar.gz als Base64, weil die Nachrichtenschicht JSON überträgt. */
+  /** The tar.gz as Base64, because the message layer transfers JSON. */
   readonly archive: string;
 }
 
 export interface RunTransferImport {
   readonly manifest: RunTransferManifest;
-  /** Die letzte Sequenz des wiedergegebenen Journals auf dem Ziel. */
+  /** The last sequence of the replayed journal on the target. */
   readonly sequence: number;
   readonly events: number;
   readonly workspace: string;
@@ -60,11 +60,11 @@ export const runTransferStagingDirectory = (dataDirectory: string, name: string)
   path.join(dataDirectory, RUN_TRANSFER_DIRECTORY, name);
 
 const assertRunId = (runId: string): string => {
-  if (!isRunId(runId)) throw new DomainError("invalid-run", `Ungültige Run-Kennung: ${runId}`, 400);
+  if (!isRunId(runId)) throw new DomainError("invalid-run", `Invalid run id: ${runId}`, 400);
   return runId;
 };
 
-/** Der Export braucht einen ruhenden Run: sonst wäre das Archiv ein Schnappschuss mitten in einem Turn. */
+/** The export needs an idle run: otherwise the archive would be a snapshot in the middle of a turn. */
 export const assertRunStopped = (options: {
   runId: string;
   state: RunState;
@@ -74,34 +74,34 @@ export const assertRunStopped = (options: {
   const { runId, state } = options;
   const working = [...state.actors.values()].find((actor) => actor.kind !== "human"
     && (actor.lifecycle.kind === "running" || options.isRunning(actor.id)));
-  if (working) throw new DomainError("run-transfer-running", `Der Run ${runId} arbeitet gerade (@${working.handle}); stoppe ihn vor dem Umzug.`, 409);
+  if (working) throw new DomainError("run-transfer-running", `The run ${runId} is working right now (@${working.handle}); stop it before the move.`, 409);
   const pending = [...state.inputs.values()].find(isPendingActorInput);
   if (pending) {
     const target = state.actors.get(pending.actorId)?.handle ?? pending.actorId;
-    throw new DomainError("run-transfer-running", `Der Run ${runId} hat eine wartende Eingabe für @${target}; warte sie ab oder stoppe den Run.`, 409);
+    throw new DomainError("run-transfer-running", `The run ${runId} has a pending input for @${target}; wait for it or stop the run.`, 409);
   }
-  if (options.sessionRunning) throw new DomainError("run-transfer-running", `Der Run ${runId} arbeitet gerade; stoppe ihn vor dem Umzug.`, 409);
+  if (options.sessionRunning) throw new DomainError("run-transfer-running", `The run ${runId} is working right now; stop it before the move.`, 409);
 };
 
-/** Ein Run mit Bindung an einen Projektordner der Quelle braucht auf dem Ziel einen Ersatzordner. */
+/** A run bound to a project folder of the source needs a replacement folder on the target. */
 export const assertWorkspaceReplacement = (manifest: RunTransferManifest, workspacePath: string | undefined): void => {
   if (manifest.boundDirectory === null || workspacePath !== undefined) return;
   throw new DomainError(
     "run-transfer-binding",
-    `Der Run ${manifest.runId} ist an den Projektordner ${manifest.boundDirectory} des Quellservers gebunden; nenne beim Import einen Ersatzordner auf diesem Server.`,
+    `The run ${manifest.runId} is bound to the project folder ${manifest.boundDirectory} of the source server; name a replacement folder on this server when importing.`,
     409,
   );
 };
 
-/** Der Run behält seine Kennung, also muss sie im Ziel frei sein: kein Journal, kein Ordner, kein Archiv. */
+/** The run keeps its id, so it must be free on the target: no journal, no folder, no archive. */
 export const assertRunIdFree = (options: { runId: string; known: boolean; directories: readonly string[] }): void => {
-  if (options.known) throw new DomainError("run-transfer-exists", `Den Run ${options.runId} gibt es auf diesem Server schon.`, 409);
+  if (options.known) throw new DomainError("run-transfer-exists", `The run ${options.runId} already exists on this server.`, 409);
   for (const directory of options.directories) {
-    if (existsSync(directory)) throw new DomainError("run-transfer-exists", `Die Kennung ${options.runId} ist auf diesem Server belegt: ${directory}`, 409);
+    if (existsSync(directory)) throw new DomainError("run-transfer-exists", `The id ${options.runId} is taken on this server: ${directory}`, 409);
   }
 };
 
-/** Die Inhalte unter artifacts/, auf die der Run verweist: veröffentlichte Artefakte und Medien seiner Modellkontexte. */
+/** The contents under artifacts/ that the run refers to: published artifacts and media of its model contexts. */
 export const contentHashesOf = (events: readonly JournalEvent[]): string[] => [...new Set(events.flatMap((event) => {
   if (event.type === "artifact.published") return [event.payload.artifact.hash];
   const content = event.type === "model.input.presented" || event.type === "model.tool-result.presented" ? event.payload.content : undefined;
@@ -110,7 +110,7 @@ export const contentHashesOf = (events: readonly JournalEvent[]): string[] => [.
 
 const sha256 = /^[0-9a-f]{64}$/;
 
-// Halbfertige Journal- und Payload-Schreibvorgänge gehören nie ins Archiv.
+// Half-finished journal and payload writes never belong in the archive.
 const temporary = (entry: string): boolean => {
   const name = path.basename(entry);
   return name.startsWith(".journal.") || name.startsWith(".payload.");
@@ -135,7 +135,7 @@ export const packRunArchive = async (options: {
   const runId = assertRunId(options.runId);
   const { dataDirectory } = options.places;
   if (!existsSync(path.join(runTransferRunDirectory(dataDirectory, runId), "journal.jsonl"))) {
-    throw new DomainError("run-transfer-missing", `Der Run ${runId} hat kein Journal unter ${runTransferRunDirectory(dataDirectory, runId)}`, 404);
+    throw new DomainError("run-transfer-missing", `The run ${runId} has no journal under ${runTransferRunDirectory(dataDirectory, runId)}`, 404);
   }
   const manifestFile = path.join(dataDirectory, ...RUN_TRANSFER_MANIFEST_ENTRY.split("/"));
   await mkdir(path.dirname(manifestFile), { recursive: true, mode: 0o700 });
@@ -178,7 +178,7 @@ export const packRunArchive = async (options: {
   if (archive.byteLength > RUN_TRANSFER_MAX_ARCHIVE_BYTES) {
     throw new DomainError(
       "run-transfer-too-large",
-      `Das Archiv des Runs ${runId} hat ${archive.byteLength} Byte und überschreitet die Grenze von ${RUN_TRANSFER_MAX_ARCHIVE_BYTES} Byte der Nachrichtenschicht`,
+      `The archive of run ${runId} has ${archive.byteLength} bytes and exceeds the message layer's limit of ${RUN_TRANSFER_MAX_ARCHIVE_BYTES} bytes`,
       413,
     );
   }
@@ -186,22 +186,22 @@ export const packRunArchive = async (options: {
 };
 
 const manifestOf = (value: unknown, location: string): RunTransferManifest => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${location} ist kein Objekt`);
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error(`${location} is not an object`);
   const raw = value as Record<string, unknown>;
   const text = (key: string): string => {
     const entry = raw[key];
-    if (typeof entry !== "string" || !entry) throw new Error(`${location}.${key} fehlt`);
+    if (typeof entry !== "string" || !entry) throw new Error(`${location}.${key} is missing`);
     return entry;
   };
   const count = (key: string): number => {
     const entry = raw[key];
-    if (typeof entry !== "number" || !Number.isSafeInteger(entry) || entry < 0) throw new Error(`${location}.${key} ist keine Anzahl`);
+    if (typeof entry !== "number" || !Number.isSafeInteger(entry) || entry < 0) throw new Error(`${location}.${key} is not a count`);
     return entry;
   };
   if (raw.formatVersion !== RUN_TRANSFER_FORMAT_VERSION) {
-    throw new Error(`${location}.formatVersion ${String(raw.formatVersion)} wird nicht unterstützt; erwartet ${RUN_TRANSFER_FORMAT_VERSION}`);
+    throw new Error(`${location}.formatVersion ${String(raw.formatVersion)} is not supported; expected ${RUN_TRANSFER_FORMAT_VERSION}`);
   }
-  if (raw.boundDirectory !== null && typeof raw.boundDirectory !== "string") throw new Error(`${location}.boundDirectory ist weder Pfad noch null`);
+  if (raw.boundDirectory !== null && typeof raw.boundDirectory !== "string") throw new Error(`${location}.boundDirectory is neither a path nor null`);
   return {
     formatVersion: RUN_TRANSFER_FORMAT_VERSION,
     runId: assertRunId(text("runId")),
@@ -224,10 +224,10 @@ export interface UnpackedRun {
 
 const onlyEntry = async (directory: string, expected: string, location: string): Promise<void> => {
   const unexpected = (await readdir(directory)).filter((entry) => entry !== expected);
-  if (unexpected.length > 0) throw new DomainError("run-transfer-invalid", `${location} enthält neben ${expected} noch ${unexpected.join(", ")}`, 400);
+  if (unexpected.length > 0) throw new DomainError("run-transfer-invalid", `${location} contains ${unexpected.join(", ")} besides ${expected}`, 400);
 };
 
-/** Entpackt das Archiv in einen Staging-Ordner des Ziels und liest Manifest und Journalrecords daraus. */
+/** Unpacks the archive into a staging folder of the target and reads the manifest and journal records from it. */
 export const unpackRunArchive = async (options: {
   places: RunTransferPlaces;
   archive: Buffer;
@@ -241,16 +241,16 @@ export const unpackRunArchive = async (options: {
   await extractTar({ file, cwd: staging, strict: true });
   await rm(file);
   const manifestFile = path.join(staging, ...RUN_TRANSFER_MANIFEST_ENTRY.split("/"));
-  if (!existsSync(manifestFile)) throw new DomainError("run-transfer-invalid", `Das Archiv enthält kein ${RUN_TRANSFER_MANIFEST_ENTRY}`, 400);
+  if (!existsSync(manifestFile)) throw new DomainError("run-transfer-invalid", `The archive contains no ${RUN_TRANSFER_MANIFEST_ENTRY}`, 400);
   let parsed: unknown;
   try {
     parsed = JSON.parse(await readFile(manifestFile, "utf8"));
   } catch (error) {
-    throw new DomainError("run-transfer-invalid", `Das Manifest des Archivs ist kein gültiges JSON: ${error instanceof Error ? error.message : String(error)}`, 400);
+    throw new DomainError("run-transfer-invalid", `The archive's manifest is not valid JSON: ${error instanceof Error ? error.message : String(error)}`, 400);
   }
   let manifest: RunTransferManifest;
   try {
-    manifest = manifestOf(parsed, "Das Manifest");
+    manifest = manifestOf(parsed, "The manifest");
   } catch (error) {
     throw new DomainError("run-transfer-invalid", error instanceof Error ? error.message : String(error), 400);
   }
@@ -258,23 +258,23 @@ export const unpackRunArchive = async (options: {
   if (manifest.hostVersion !== hostVersion) {
     throw new DomainError(
       "run-transfer-host-version",
-      `Das Archiv kommt vom Host ${manifest.hostVersion}, dieser Server läuft auf ${hostVersion}; ein Umzug geht nur zwischen gleichen Host-Versionen`,
+      `The archive comes from host ${manifest.hostVersion}, this server runs ${hostVersion}; a move only works between equal host versions`,
       409,
     );
   }
   if (manifest.executorVersion !== executorVersion) {
     throw new DomainError(
       "run-transfer-executor-version",
-      `Das Archiv bringt den Executor ${manifest.executorVersion} mit, dieser Server hat ${executorVersion}`,
+      `The archive brings executor ${manifest.executorVersion}, this server has ${executorVersion}`,
       409,
     );
   }
   const runDirectory = path.join(staging, "runs", manifest.runId);
   const journalFile = path.join(runDirectory, "journal.jsonl");
-  if (!existsSync(journalFile)) throw new DomainError("run-transfer-invalid", `Das Archiv enthält kein Journal für den Run ${manifest.runId}`, 400);
-  await onlyEntry(path.join(staging, "runs"), manifest.runId, "Der Ordner runs des Archivs");
+  if (!existsSync(journalFile)) throw new DomainError("run-transfer-invalid", `The archive contains no journal for run ${manifest.runId}`, 400);
+  await onlyEntry(path.join(staging, "runs"), manifest.runId, "The archive's runs folder");
   if (existsSync(path.join(staging, "sessions"))) {
-    await onlyEntry(path.join(staging, "sessions"), manifest.runId, "Der Ordner sessions des Archivs");
+    await onlyEntry(path.join(staging, "sessions"), manifest.runId, "The archive's sessions folder");
   }
   if (existsSync(path.join(staging, "artifacts"))) {
     for (const name of await readdir(path.join(staging, "artifacts"))) {
@@ -286,17 +286,17 @@ export const unpackRunArchive = async (options: {
   }
   const lines = (await readFile(journalFile, "utf8")).split("\n").filter((line) => line.trim().length > 0);
   const records = lines.map((line, index) => parseJournalRecord(line, runDirectory, `${journalFile}:${index + 1}`));
-  if (records.length === 0) throw new DomainError("run-transfer-invalid", `Das Journal des Runs ${manifest.runId} im Archiv ist leer`, 400);
+  if (records.length === 0) throw new DomainError("run-transfer-invalid", `The journal of run ${manifest.runId} in the archive is empty`, 400);
   const foreign = records.find((record) => record.runId !== manifest.runId);
-  if (foreign) throw new DomainError("run-transfer-invalid", `Das Journal im Archiv gehört zum Run ${foreign.runId}, nicht zu ${manifest.runId}`, 400);
+  if (foreign) throw new DomainError("run-transfer-invalid", `The journal in the archive belongs to run ${foreign.runId}, not to ${manifest.runId}`, 400);
   const events = records.reduce((total, record) => total + record.events.length, 0);
   if (events !== manifest.events) {
-    throw new DomainError("run-transfer-invalid", `Das Manifest nennt ${manifest.events} Ereignisse, das Journal im Archiv hat ${events}`, 400);
+    throw new DomainError("run-transfer-invalid", `The manifest names ${manifest.events} events, the journal in the archive has ${events}`, 400);
   }
   return { manifest, staging, records };
 };
 
-/** Legt die Inhalte des Archivs unter artifacts/ des Ziels ab; vorhandene sind wegen ihres Hash-Namens dieselben. */
+/** Places the archive's contents under the target's artifacts/; existing ones are the same because of their hash name. */
 export const installContents = async (options: { places: RunTransferPlaces; staging: string }): Promise<void> => {
   const source = path.join(options.staging, "artifacts");
   if (!existsSync(source)) return;
@@ -307,7 +307,7 @@ export const installContents = async (options: { places: RunTransferPlaces; stag
   }
 };
 
-/** Legt die Session-Ablage des Archivs an ihrem Platz im Ziel ab; das Journal übernimmt danach die Records. */
+/** Places the archive's session storage at its place on the target; the journal then takes over the records. */
 export const installSessionDirectory = async (options: {
   places: RunTransferPlaces;
   runId: string;
@@ -317,7 +317,7 @@ export const installSessionDirectory = async (options: {
   const source = path.join(options.staging, "sessions", options.runId);
   if (!existsSync(source)) return null;
   const target = runTransferSessionDirectory(options.places.dataDirectory, options.runId);
-  if (existsSync(target)) throw new DomainError("run-transfer-exists", `Die Session-Ablage ${target} gibt es schon`, 409);
+  if (existsSync(target)) throw new DomainError("run-transfer-exists", `The session storage ${target} already exists`, 409);
   await mkdir(path.dirname(target), { recursive: true });
   await rename(source, target);
   await chmod(target, options.mode);

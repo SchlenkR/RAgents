@@ -31,7 +31,7 @@ import * as UI from "@ragents/client/ui";
 const reactClient = `const App = () => {
   const state = useAppState();
   const [text, setText] = React.useState("");
-  const [summary, setSummary] = React.useState("Bereit");
+  const [summary, setSummary] = React.useState("Ready");
 
   const analyse = async (): Promise<void> => {
     const answer = await context.capabilities.call("analyse", { text });
@@ -40,9 +40,9 @@ const reactClient = `const App = () => {
 
   return (
     <>
-      <p>Analysen: {state.analyses ?? 0}</p>
+      <p>Analyses: {state.analyses ?? 0}</p>
       <textarea onChange={(event) => setText(event.target.value)} value={text} />
-      <button onClick={() => { void analyse(); }} type="button">Analysieren</button>
+      <button onClick={() => { void analyse(); }} type="button">Analyze</button>
       <ul>
         {[summary].map((entry, index) => <li key={index}>{entry}</li>)}
       </ul>
@@ -51,7 +51,7 @@ const reactClient = `const App = () => {
 };
 
 const root = document.getElementById("root");
-if (!root) throw new Error("Das Wurzelelement #root fehlt.");
+if (!root) throw new Error("The root element #root is missing.");
 createRoot(root).render(<App />);
 `;
 
@@ -71,11 +71,11 @@ test("the client SDK exposes its owning actor with an immutable id and handle", 
   assert.ok(changed.diagnostics.some((diagnostic) => diagnostic.message.includes("read-only")));
 });
 
-test("MessageList ist ohne Chatrollen typisiert und hat keine Sendeaktion", async () => {
-  const valid = await compile(`const messages = [{ key: "analysis", sender: "Analyse", text: "Fertig" }, { key: "review", sender: "Prüfung", text: "Gelesen", side: "end" }] as const;
+test("MessageList is typed without chat roles and has no send action", async () => {
+  const valid = await compile(`const messages = [{ key: "analysis", sender: "Analysis", text: "Done" }, { key: "review", sender: "Review", text: "Read", side: "end" }] as const;
 const App = () => <UI.MessageList messages={messages} showTimestamps />;`);
   assert.equal(valid.valid, true, JSON.stringify(valid.diagnostics));
-  const missingSender = await compile('const App = () => <UI.MessageList messages={[{ key: "a", text: "Hallo" }]} />;');
+  const missingSender = await compile('const App = () => <UI.MessageList messages={[{ key: "a", text: "Hello" }]} />;');
   assert.equal(missingSender.valid, false);
   const withInput = await compile('const App = () => <UI.MessageList messages={[]} onSend={() => {}} />;');
   assert.equal(withInput.valid, false);
@@ -133,10 +133,10 @@ test("normal TypeScript imports carry component types and diagnostics across sou
 });
 
 test("a type error in a JSX property is rejected by name", async () => {
-  const result = await compile(`const App = () => <button disabled="ja" type="button">Los</button>;
+  const result = await compile(`const App = () => <button disabled="yes" type="button">Go</button>;
 
 const root = document.getElementById("root");
-if (!root) throw new Error("Das Wurzelelement #root fehlt.");
+if (!root) throw new Error("The root element #root is missing.");
 createRoot(root).render(<App />);
 `);
 

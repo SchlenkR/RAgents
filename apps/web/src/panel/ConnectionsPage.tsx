@@ -10,7 +10,7 @@ import { PanelHeader } from "./PanelHeader";
 
 const fileNameOf = (address: string): string => address.split(/[/\\]/).pop() ?? address;
 
-/** Ein lokales Profil startet die Erweiterung selbst; nur ein Server per Adresse kennt Verbinden, Trennen und Anmelden. */
+/** The extension starts a local profile itself; only a server by address knows connect, disconnect, and sign-in. */
 function RowActions({ connection, busy, send, onLogin }: {
   connection: ConnectionView;
   busy: boolean;
@@ -22,16 +22,16 @@ function RowActions({ connection, busy, send, onLogin }: {
   const missing = connection.missingEnvironment;
   if (missing) {
     return <>
-      <Button aria-label={`Wert für ${missing.variable} setzen und ${connection.name} erneut starten`} disabled={busy}
-        onClick={() => send({ action: "setSecret", name: missing.variable, connection: connection.name })} size="xs"><KeyIcon data-icon="inline-start" />Wert setzen</Button>
-      <Button disabled={busy} onClick={() => send({ action: "retry", name: connection.name })} size="xs" variant="secondary">Erneut versuchen</Button>
+      <Button aria-label={`Set value for ${missing.variable} and restart ${connection.name}`} disabled={busy}
+        onClick={() => send({ action: "setSecret", name: missing.variable, connection: connection.name })} size="xs"><KeyIcon data-icon="inline-start" />Set value</Button>
+      <Button disabled={busy} onClick={() => send({ action: "retry", name: connection.name })} size="xs" variant="secondary">Retry</Button>
     </>;
   }
-  if (state === "login-required" || state === "forbidden") return <Button disabled={busy} onClick={() => onLogin(connection.name)} size="xs" variant="secondary">Anmelden</Button>;
-  if (state === "unreachable" || state === "failed") return <Button disabled={busy} onClick={() => send({ action: "retry", name: connection.name })} size="xs" variant="secondary">Erneut versuchen</Button>;
+  if (state === "login-required" || state === "forbidden") return <Button disabled={busy} onClick={() => onLogin(connection.name)} size="xs" variant="secondary">Sign in</Button>;
+  if (state === "unreachable" || state === "failed") return <Button disabled={busy} onClick={() => send({ action: "retry", name: connection.name })} size="xs" variant="secondary">Retry</Button>;
   if (profile) return null;
-  if (state === "connected") return <Button disabled={busy} onClick={() => send({ action: "disconnect", name: connection.name })} size="xs" variant="ghost">Trennen</Button>;
-  if (state === "stopped") return <Button disabled={busy} onClick={() => send({ action: "connect", name: connection.name })} size="xs" variant="secondary">Verbinden</Button>;
+  if (state === "connected") return <Button disabled={busy} onClick={() => send({ action: "disconnect", name: connection.name })} size="xs" variant="ghost">Disconnect</Button>;
+  if (state === "stopped") return <Button disabled={busy} onClick={() => send({ action: "connect", name: connection.name })} size="xs" variant="secondary">Connect</Button>;
   return null;
 }
 
@@ -62,31 +62,31 @@ function ConnectionRow({ connection, send, onEdit, onLogin, onRemove }: {
     {notice && <p className={cn("col-span-2 text-[0.7rem] leading-normal [overflow-wrap:anywhere]", notice.level === "error" ? "text-destructive" : "text-warning")} data-notice={notice.level} role={notice.level === "error" ? "alert" : "status"}>{notice.text}</p>}
     <span className="col-span-2 flex flex-wrap items-center gap-1.5">
       <RowActions busy={busy} connection={connection} onLogin={onLogin} send={send} />
-      {connection.savedLogin && <Button disabled={busy} onClick={() => send({ action: "logout", name: connection.name })} size="xs" variant="ghost">Abmelden</Button>}
-      <Button onClick={() => onEdit(connection.name)} size="xs" variant="ghost"><PencilIcon data-icon="inline-start" />Bearbeiten</Button>
-      <Button aria-label={`${connection.name} entfernen`} className="ml-auto" onClick={() => onRemove(connection.name)} size="icon-sm" variant="ghost"><Trash2Icon /></Button>
+      {connection.savedLogin && <Button disabled={busy} onClick={() => send({ action: "logout", name: connection.name })} size="xs" variant="ghost">Sign out</Button>}
+      <Button onClick={() => onEdit(connection.name)} size="xs" variant="ghost"><PencilIcon data-icon="inline-start" />Edit</Button>
+      <Button aria-label={`Remove ${connection.name}`} className="ml-auto" onClick={() => onRemove(connection.name)} size="icon-sm" variant="ghost"><Trash2Icon /></Button>
     </span>
   </li>;
 }
 
-/** Namen aus ragents.hostEnvironment, zu denen kein Wert gespeichert ist; ohne ihn startet der lokale Host ohne diese Umgebungsvariable. */
+/** Names from ragents.hostEnvironment with no saved value; without it the local host starts without this environment variable. */
 function MissingSecrets({ names, send }: { names: readonly string[]; send: (action: PanelAction) => void }) {
   return <section className="grid grid-cols-1 gap-1.5">
-    <h2 className="text-[0.66rem] font-bold uppercase tracking-[0.06em] text-muted-foreground">Fehlende Werte</h2>
+    <h2 className="text-[0.66rem] font-bold uppercase tracking-[0.06em] text-muted-foreground">Missing values</h2>
     <p className="text-[0.7rem] leading-normal text-muted-foreground">
-      Zu diesen Namen aus ragents.hostEnvironment liegt kein Wert in der SecretStorage; ein lokal gestarteter Host bekommt die Umgebungsvariable nicht.
+      These names from ragents.hostEnvironment have no value in the SecretStorage; a locally started host does not get the environment variable.
     </p>
     <ul className="grid grid-cols-1">
       {names.map((name) => <li className="flex items-center gap-2 border-b border-border-soft px-1 py-2.5 last:border-b-0" key={name}>
         <KeyIcon aria-hidden className="size-3.5 flex-none text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate font-mono text-[0.72rem]" title={name}>{name}</span>
-        <Button aria-label={`Wert für ${name} setzen`} onClick={() => send({ action: "setSecret", name })} size="xs" variant="secondary">Wert setzen</Button>
+        <Button aria-label={`Set value for ${name}`} onClick={() => send({ action: "setSecret", name })} size="xs" variant="secondary">Set value</Button>
       </li>)}
     </ul>
   </section>;
 }
 
-/** Die Einrichtung: die Server als Zeilen, dahinter die Dialoge zum Anlegen, Bearbeiten, Anmelden und Entfernen. */
+/** The setup: the servers as rows, behind them the dialogs to create, edit, sign in, and remove. */
 export function ConnectionsPage({ state, send }: PanelPageProps) {
   const [dialog, setDialog] = useState<{ kind: "new" } | { kind: "edit"; name: string }>();
   const [login, setLogin] = useState<string>();
@@ -100,21 +100,21 @@ export function ConnectionsPage({ state, send }: PanelPageProps) {
     {state.problem && <p className="text-[0.8rem] leading-normal text-destructive [overflow-wrap:anywhere]" role="alert">{state.problem}</p>}
     <section className="grid grid-cols-1 gap-1.5">
       {state.connections.length === 0
-        ? <p className="text-[0.85rem] leading-normal text-muted-foreground">Noch kein Server.</p>
+        ? <p className="text-[0.85rem] leading-normal text-muted-foreground">No server yet.</p>
         : <ul className="grid grid-cols-1">
           {state.connections.map((connection) => <ConnectionRow connection={connection} key={connection.name} onEdit={(name) => setDialog({ kind: "edit", name })} onLogin={setLogin} onRemove={setRemoving} send={send} />)}
         </ul>}
     </section>
     {missingSecrets.length > 0 && <MissingSecrets names={missingSecrets} send={send} />}
     <div className="flex flex-wrap items-center gap-2">
-      <Button onClick={() => setDialog({ kind: "new" })} size="sm"><PlusIcon data-icon="inline-start" />Neuer Server</Button>
-      <Button aria-label="Einstellung öffnen" onClick={() => send({ action: "settingsFile" })} size="sm" title="Einstellung öffnen (settings.json)" variant="ghost"><SettingsIcon data-icon="inline-start" />settings.json</Button>
+      <Button onClick={() => setDialog({ kind: "new" })} size="sm"><PlusIcon data-icon="inline-start" />New server</Button>
+      <Button aria-label="Open setting" onClick={() => send({ action: "settingsFile" })} size="sm" title="Open setting (settings.json)" variant="ghost"><SettingsIcon data-icon="inline-start" />settings.json</Button>
     </div>
-    {open && <ConnectionDialog connection={editing} key={editing?.name ?? "neu"} onClose={() => setDialog(undefined)} send={send} state={state} />}
+    {open && <ConnectionDialog connection={editing} key={editing?.name ?? "new"} onClose={() => setDialog(undefined)} send={send} state={state} />}
     {loginConnection && <LoginDialog connection={loginConnection} onClose={() => setLogin(undefined)} send={send} />}
-    {removing !== undefined && <ConfirmDialog confirmLabel="Entfernen" onClose={() => setRemoving(undefined)}
-      onConfirm={() => { send({ action: "remove", name: removing }); setRemoving(undefined); }} title={`${removing} entfernen?`}>
-      Der Server verschwindet aus ragents.connections. Gespeicherte Anmeldedaten gehen dabei verloren. Runs auf dem Server bleiben, wo sie sind.
+    {removing !== undefined && <ConfirmDialog confirmLabel="Remove" onClose={() => setRemoving(undefined)}
+      onConfirm={() => { send({ action: "remove", name: removing }); setRemoving(undefined); }} title={`Remove ${removing}?`}>
+      The server is removed from ragents.connections. Saved credentials are lost. Runs on the server stay where they are.
     </ConfirmDialog>}
   </div>;
 }

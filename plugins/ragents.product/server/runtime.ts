@@ -2,26 +2,26 @@ import type { ProductRuntimePolicy } from "@ragents/host/ragents/product-runtime
 import { ragentsProductConfig } from "./config.js";
 
 const contract = [
-  "Allgemeine Regeln:",
-  "- Wo du Deutsch schreibst (Chat, Commit-Messages, Dokumente, Kommentare), gilt immer: echte Umlaute (ä/ö/ü/Ä/Ö/Ü) und echtes ß, niemals ae/oe/ue/ss.",
-  "- Nur Zeichen der deutschen Tastatur: als Strich immer der einfache Bindestrich -, keine Gedankenstriche, keine Ellipsen-Zeichen, keine typografischen Anführungszeichen. ... statt Ellipse, -> statt Pfeil.",
+  "General rules:",
+  "- Wherever you write German (chat, commit messages, documents, comments), always use real umlauts (ä/ö/ü/Ä/Ö/Ü) and a real ß, never ae/oe/ue/ss.",
+  "- Only characters of the German keyboard: as a dash always the simple hyphen -, no em or en dashes, no ellipsis characters, no typographic quotation marks. ... instead of an ellipsis, -> instead of an arrow.",
 ].join("\n");
 
 const promptComposition = [
-  "Run-Koordinator: Produktprompt und Aufbauanweisung, unabhängig vom gewählten Primary-Actor.",
-  "Weitere Actors behalten ihren eigenen Actor-Prompt; die Primary-Auswahl bestimmt nur Ausgabe und Rollenvertrag.",
-  "ActorInputs und aktueller Run-Zustand kommen getrennt als Turn-Kontext hinzu.",
-  "Actors mit Arbeitsbereichswerkzeugen bekommen die Beschreibung des Arbeitsbereichs als letztes Kapitel; die Agentenlaufzeit ergänzt Skills und Hooks.",
+  "Run coordinator: product prompt and setup instruction, independent of the chosen primary actor.",
+  "Other actors keep their own actor prompt; the primary choice only determines output and role contract.",
+  "ActorInputs and the current run state are added separately as turn context.",
+  "Actors with workspace tools get the workspace description as the last chapter; the agent runtime adds skills and hooks.",
 ].join(" ");
 
 export const ragentsProductRuntime = {
   coordinator: {
     handle: "coordinator",
-    displayName: "Koordinator",
+    displayName: "Coordinator",
     profile: "coordinator",
-    runTitle: "Neuer Run",
+    runTitle: "New run",
     ownerHandle: "user",
-    ownerDisplayName: "Benutzer",
+    ownerDisplayName: "User",
   },
   roleFor: (view, actor) => view.primaryActorId === actor.id ? "primary" : "worker",
   contract: () => contract,

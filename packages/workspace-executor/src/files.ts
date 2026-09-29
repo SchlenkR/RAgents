@@ -18,7 +18,7 @@ export const FILE_OPERATIONS = {
   attach: "files.attach",
 } as const;
 
-/** Der Unterordner der Wurzel, in dem angehängte Dateien eines Runs liegen. */
+/** The subfolder of the root in which attached files of a run are stored. */
 export const ATTACHMENT_DIRECTORY = "attachments";
 
 export interface FileEntry {
@@ -29,7 +29,7 @@ export interface FileEntry {
 }
 
 export interface FileListing {
-  /** Der echte Pfad der Wurzel auf dieser Maschine. */
+  /** The real path of the root on this machine. */
   location: string;
   path: string;
   entries: FileEntry[];
@@ -40,7 +40,7 @@ export type FileText =
   | { path: string; size: number; previewable: true; content: string }
   | { path: string; size: number; previewable: false; reason: string };
 
-/** Erst `ready`, sobald die Beobachtung steht, danach je entprellter Änderung `changed`. */
+/** First `ready` once the watch is in place, then `changed` per debounced change. */
 export type FileWatchProgress = { kind: "ready" } | { kind: "changed" };
 
 export interface FileWatchListener {
@@ -57,11 +57,11 @@ const missing = (error: unknown): boolean => {
   return code === "ENOENT" || code === "ENOTDIR";
 };
 
-/** Ein Pfad unterhalb einer Wurzel: relativ, mit `/` getrennt und ohne `..`; `.` und leere Abschnitte fallen weg. */
+/** A path below a root: relative, separated by `/` and without `..`; `.` and empty segments are dropped. */
 export const relativeWorkspacePath = (value: string): string => {
   const segments = value.split("/").filter((segment) => segment !== "" && segment !== ".");
   if (value.includes("\0") || value.includes("\\") || path.isAbsolute(value) || segments.includes("..")) {
-    throw invalid(`Ungültiger Pfad: ${value}`);
+    throw invalid(`Invalid path: ${value}`);
   }
   return segments.join("/");
 };
@@ -70,25 +70,25 @@ const realRoot = async (root: string): Promise<string> => {
   try {
     return await realpath(root);
   } catch (error) {
-    if (missing(error)) throw notFound(`Den Ordner ${root} gibt es nicht`);
+    if (missing(error)) throw notFound(`The folder ${root} does not exist`);
     throw error;
   }
 };
 
-/** Löst einen geprüften relativen Pfad auf; ein Symlink darf nicht aus der Wurzel führen. */
+/** Resolves a checked relative path; a symlink must not lead out of the root. */
 const inside = async (base: string, relative: string): Promise<string> => {
   let real: string;
   try {
     real = await realpath(relative ? path.join(base, ...relative.split("/")) : base);
   } catch (error) {
-    if (missing(error)) throw notFound(`Nicht gefunden: ${relative || "."}`);
+    if (missing(error)) throw notFound(`Not found: ${relative || "."}`);
     throw error;
   }
-  if (!containsWorkspacePath(base, real)) throw invalid(`Pfad außerhalb des Arbeitsverzeichnisses: ${relative}`);
+  if (!containsWorkspacePath(base, real)) throw invalid(`Path outside the working directory: ${relative}`);
   return real;
 };
 
-/** Ein Eintrag, der zwischen Auflisten und Abfragen verschwindet, gehört nicht mehr zum Ordner. */
+/** An entry that disappears between listing and querying no longer belongs to the folder. */
 const entryOf = async (directory: string, name: string, isDirectory: boolean): Promise<FileEntry | undefined> => {
   try {
     const info = await lstat(path.join(directory, name));
@@ -105,15 +105,15 @@ const byKindThenName = (left: FileEntry, right: FileEntry): number =>
 
 const directoryIn = async (base: string, checked: string): Promise<string> => {
   const directory = await inside(base, checked);
-  if (!(await lstat(directory)).isDirectory()) throw invalid(`Kein Verzeichnis: ${checked || "."}`);
+  if (!(await lstat(directory)).isDirectory()) throw invalid(`Not a directory: ${checked || "."}`);
   return directory;
 };
 
-/** Der echte Pfad eines Ordners unterhalb der Wurzel, geprüft wie jeder Pfad dieses Moduls. */
+/** The real path of a folder below the root, checked like every path of this module. */
 export const workspaceDirectory = async (root: string, relative: string): Promise<string> =>
   directoryIn(await realRoot(root), relativeWorkspacePath(relative));
 
-/** Listet einen Ordner unterhalb der Wurzel: Ordner zuerst, dann alphabetisch, höchstens `FILE_LIST_LIMIT` Einträge. */
+/** Lists a folder below the root: folders first, then alphabetically, at most `FILE_LIST_LIMIT` entries. */
 export const listDirectory = async (root: string, relative: string): Promise<FileListing> => {
   const checked = relativeWorkspacePath(relative);
   const base = await realRoot(root);
@@ -130,26 +130,26 @@ export const listDirectory = async (root: string, relative: string): Promise<Fil
   };
 };
 
-/** Liest eine Textdatei unterhalb der Wurzel; eine zu große oder binäre Datei nennt statt des Inhalts den Grund. */
+/** Reads a text file below the root; a file that is too large or binary names the reason instead of the content. */
 export const readTextFile = async (root: string, relative: string): Promise<FileText> => {
   const checked = relativeWorkspacePath(relative);
   const file = await inside(await realRoot(root), checked);
   const info = await lstat(file);
-  if (!info.isFile()) throw invalid(`Keine Datei: ${checked || "."}`);
+  if (!info.isFile()) throw invalid(`Not a file: ${checked || "."}`);
   const described = { path: checked, size: info.size };
   if (info.size > FILE_READ_LIMIT) {
-    return { ...described, previewable: false, reason: `Die Datei ist größer als ${FILE_READ_LIMIT / 1024} KB und wird nicht gelesen` };
+    return { ...described, previewable: false, reason: `The file is larger than ${FILE_READ_LIMIT / 1024} KB and is not read` };
   }
   const content = await readFile(file);
-  if (content.includes(0)) return { ...described, previewable: false, reason: "Die Datei ist binär" };
+  if (content.includes(0)) return { ...described, previewable: false, reason: "The file is binary" };
   return { ...described, previewable: true, content: content.toString("utf8") };
 };
 
-/** Legt eine angehängte Datei unter einem freien Namen in `attachments` unterhalb der Wurzel ab, nie über eine vorhandene. */
+/** Stores an attached file under a free name in `attachments` below the root, never over an existing one. */
 export const storeAttachment = async (root: string, original: string, content: Uint8Array): Promise<string> => {
   const directory = path.join(await realRoot(root), ATTACHMENT_DIRECTORY);
   await mkdir(directory, { recursive: true, mode: 0o755 });
-  if (!(await lstat(directory)).isDirectory()) throw invalid("Das Anhangsverzeichnis ist kein normales Verzeichnis.");
+  if (!(await lstat(directory)).isDirectory()) throw invalid("The attachments directory is not a regular directory.");
   const name = path.basename(original).replace(/[^a-zA-Z0-9._-]/g, "_") || "attachment";
   for (let index = 1; index <= 10000; index += 1) {
     const candidate = index === 1 ? name : `${index}-${name}`;
@@ -160,10 +160,10 @@ export const storeAttachment = async (root: string, original: string, content: U
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
     }
   }
-  throw invalid("Im Anhangsverzeichnis sind zu viele gleichnamige Dateien.");
+  throw invalid("The attachments directory has too many files with the same name.");
 };
 
-/** Beobachtet einen Ordner rekursiv und meldet Änderungen entprellt; der Rückgabewert beendet die Beobachtung. */
+/** Watches a folder recursively and reports changes debounced; the return value ends the watch. */
 export const watchDirectory = async (root: string, listener: FileWatchListener): Promise<() => void> => {
   const directory = await realRoot(root);
   let debounce: NodeJS.Timeout | undefined;
@@ -183,17 +183,17 @@ export const watchDirectory = async (root: string, listener: FileWatchListener):
 
 const pathOf = (input: unknown): string => {
   const value = (input as { path?: unknown } | null)?.path;
-  if (typeof value !== "string") throw invalid("Die Eingabe braucht einen Pfad als Text");
+  if (typeof value !== "string") throw invalid("The input needs a path as text");
   return value;
 };
 
-/** Mit Alias spricht die Eingabe dessen Wurzel an, sonst die des Runs. */
+/** With an alias the input addresses its root, otherwise the one of the run. */
 const aliasFootprint = (input: unknown): OperationFootprint => {
   const alias = (input as { alias?: unknown } | null)?.alias;
   return { roots: typeof alias === "string" ? { aliases: [aliasOf(alias) ?? alias], runRoot: false } : { aliases: [], runRoot: true } };
 };
 
-/** Beobachtet bis zum Abbruch; eine gescheiterte Beobachtung beendet die Operation mit ihrer Ursache. */
+/** Watches until aborted; a failed watch ends the operation with its cause. */
 const watchUntilAborted = (root: string, signal: AbortSignal, progress: (value: FileWatchProgress) => void): Promise<null> =>
   new Promise((resolve, reject) => {
     let close: (() => void) | undefined;
@@ -219,16 +219,16 @@ const watchUntilAborted = (root: string, signal: AbortSignal, progress: (value: 
     }, finish);
   });
 
-/** Dateien des Runs auf dieser Maschine: auflisten, Text lesen, beobachten und Anhänge ablegen, relativ zur Wurzel des Runs oder eines Alias. */
+/** Files of the run on this machine: list, read text, watch and store attachments, relative to the root of the run or of an alias. */
 export const fileModule: WorkspaceModuleFactory = (host) => {
-  /** Die offenen Beobachtungen je Run; Stopp und Shutdown beenden sie, auch wenn ihr Aufrufer nie abbricht. */
+  /** The open watches per run; stop and shutdown end them, even if their caller never aborts. */
   const watches = new Map<string, Set<AbortController>>();
   let closed = false;
   const endWatches = (runId: string): void => {
     for (const controller of watches.get(runId) ?? []) controller.abort();
     watches.delete(runId);
   };
-  /** Alias und Pfad bilden zusammen einen Ort; unter einem gemeinsamen Alias wie `@skills` nennt der Pfad zuerst den Ordner der Wurzel. */
+  /** Alias and path together form a location; under a shared alias like `@skills` the path names the folder of the root first. */
   const locate = async (runId: string, input: unknown): Promise<{ root: string; path: string }> => {
     const context = await host.contextFor(runId);
     const alias = (input as { alias?: unknown } | null)?.alias;
@@ -246,7 +246,7 @@ export const fileModule: WorkspaceModuleFactory = (host) => {
   };
   const attach: WorkspaceOperation = async ({ runId, input }) => {
     const { name, content } = (input ?? {}) as { name?: unknown; content?: unknown };
-    if (typeof name !== "string" || typeof content !== "string") throw invalid("Ein Anhang braucht name und content (Base64) als Text");
+    if (typeof name !== "string" || typeof content !== "string") throw invalid("An attachment needs name and content (Base64) as text");
     return { name: await storeAttachment((await host.contextFor(runId)).root, name, Buffer.from(content, "base64")) };
   };
   const read: WorkspaceOperation = async ({ runId, input }) => {
@@ -254,8 +254,8 @@ export const fileModule: WorkspaceModuleFactory = (host) => {
     return readTextFile(root, requested);
   };
   const watchFiles: WorkspaceOperation = async ({ runId, signal, progress }) => {
-    if (!signal || !progress) throw new Error(`${FILE_OPERATIONS.watch} läuft bis zum Abbruch und braucht Abbruchsignal und Fortschritt`);
-    if (closed) throw new Error("Das Dateimodul ist beendet und beobachtet nichts mehr");
+    if (!signal || !progress) throw new Error(`${FILE_OPERATIONS.watch} runs until aborted and needs an abort signal and progress`);
+    if (closed) throw new Error("The file module has ended and watches nothing anymore");
     const own = new AbortController();
     const running = watches.get(runId) ?? new Set<AbortController>();
     watches.set(runId, running.add(own));

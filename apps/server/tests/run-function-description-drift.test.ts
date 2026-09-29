@@ -128,7 +128,7 @@ test("the drift check flags foreign field names in German prose and identifier-l
 
 test("run function descriptions name no field of another contract that their own schemas lack", async () => {
   const functions = await allRunFunctions();
-  assert.ok(functions.length > 40, `Nur ${functions.length} Funktionen geladen`);
+  assert.ok(functions.length > 40, `Only ${functions.length} functions loaded`);
   const drifts = driftsOf(functions, proseExceptions);
-  assert.deepEqual(drifts, [], `Funktionsbeschreibungen nennen Felder, die ihr eigener Vertrag nicht kennt:\n${drifts.join("\n")}`);
+  assert.deepEqual(drifts, [], `Function descriptions name fields their own contract does not know:\n${drifts.join("\n")}`);
 });

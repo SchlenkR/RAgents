@@ -56,15 +56,15 @@ const presentationFrom = (presentation: unknown, optionId: string): WorkspaceBin
   if (typeof raw !== "object" || raw === null || raw.kind !== "workspace-binding"
     || !Array.isArray(raw.clients) || !raw.clients.every(isClientInfo)
     || !isFreshLabels(raw.fresh) || typeof raw.serverFolders !== "boolean") {
-    throw new Error(`Die Startoption ${optionId} liefert keine Arbeitsbereich-Darstellung`);
+    throw new Error(`The start option ${optionId} does not provide a workspace presentation`);
   }
   return { kind: "workspace-binding", clients: raw.clients, fresh: raw.fresh, serverFolders: raw.serverFolders };
 };
 
-/** Auch ein eingefrorener Wert aus einem älteren Journal; dieselbe Abbildung wie auf dem Server. */
+/** Also a frozen value from an older journal; the same mapping as on the server. */
 const bindingFrom = (value: unknown, optionId: string): WorkspaceBinding => {
   const binding = storedWorkspaceBinding(value);
-  if (!binding) throw new Error(`Der Wert der Startoption ${optionId} ist keine Arbeitsbereich-Bindung`);
+  if (!binding) throw new Error(`The value of the start option ${optionId} is not a workspace binding`);
   return binding;
 };
 
@@ -77,11 +77,11 @@ const pathOf = (binding: WorkspaceBinding): string => {
   return isFreshFolder(folder) ? "" : folder.path;
 };
 
-/** Ein neuer Ordner auf einem Arbeitsplatz ist dieselbe Wahl, ob schon mit Pfad eingefroren oder nicht. */
+/** A new folder on a workstation is the same choice, whether already frozen with a path or not. */
 const sameBinding = (left: WorkspaceBinding, right: WorkspaceBinding): boolean =>
   machineOf(left) === machineOf(right) && folderOf(left) === folderOf(right) && pathOf(left) === pathOf(right);
 
-/** Der Server, die verbundenen Arbeitsplätze nur, wo der Host sie anbietet, und ein schon gewählter Arbeitsplatz, damit die Wahl lesbar bleibt. */
+/** The server, the connected workstations only where the host offers them, and an already chosen workstation so that the choice stays readable. */
 export const workspaceMachineChoices = (
   presentation: WorkspaceBindingPresentation,
   binding: WorkspaceBinding,
@@ -91,17 +91,17 @@ export const workspaceMachineChoices = (
   const clients = machines === "all" ? presentation.clients : [];
   const current = machine === SERVER || clients.some((client) => client.id === machine.client) ? []
     : [{ value: machine.client, label: presentation.clients.some((client) => client.id === machine.client)
-      ? `Arbeitsplatz ${machine.label}` : `Arbeitsplatz ${machine.label} (nicht verbunden)` }];
+      ? `Workstation ${machine.label}` : `Workstation ${machine.label} (not connected)` }];
   return [
     { value: SERVER, label: "Server" },
-    ...clients.map((client) => ({ value: client.id, label: `Arbeitsplatz ${client.label}` })),
+    ...clients.map((client) => ({ value: client.id, label: `Workstation ${client.label}` })),
     ...current,
   ];
 };
 
-/** Auf dem Server gibt es den neuen Ordner immer, einen vorhandenen nur ohne Beitrag, der ihn ausschließt; auf einem Arbeitsplatz umgekehrt. */
+/** On the server, the new folder always exists, an existing one only without a contribution that excludes it; on a workstation the other way around. */
 export const workspaceFolderChoices = (presentation: WorkspaceBindingPresentation, machine: string): BindingChoice[] => {
-  const existing = { value: "existing", label: "Vorhandener Ordner" };
+  const existing = { value: "existing", label: "Existing folder" };
   if (machine === SERVER) {
     return [{ value: "fresh", label: presentation.fresh.server }, ...(presentation.serverFolders ? [existing] : [])];
   }
@@ -181,25 +181,25 @@ export function WorkspaceBindingControl({ disabled, error, machines: offeredMach
 
   return (
     <div className="flex w-full flex-col items-start gap-2">
-      <span className="text-[0.72rem] font-semibold text-muted-foreground">Arbeitsbereich</span>
+      <span className="text-[0.72rem] font-semibold text-muted-foreground">Workspace</span>
       <div className="flex w-full flex-wrap items-end gap-2">
         <div className="flex flex-col gap-1">
-          <span className={labelClass}>Rechner</span>
+          <span className={labelClass}>Machine</span>
           <Select disabled={disabled} items={machines} onValueChange={(next) => { if (next !== null) chooseMachine(next); }} value={machine}>
-            <SelectTrigger aria-label="Rechner des Arbeitsbereichs" className="min-w-0 max-w-full" size="sm"><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label="Workspace machine" className="min-w-0 max-w-full" size="sm"><SelectValue /></SelectTrigger>
             <SelectContent>{machines.map((choice) => <SelectItem key={choice.value} value={choice.value}>{choice.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         <div className="flex flex-col gap-1">
-          <span className={labelClass}>Ordner</span>
+          <span className={labelClass}>Folder</span>
           <Select disabled={disabled} items={folderChoices} onValueChange={(next) => { if (next !== null) chooseFolder(next as FolderChoice); }} value={folder}>
-            <SelectTrigger aria-label="Ordner des Arbeitsbereichs" className="min-w-0 max-w-full" size="sm"><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label="Workspace folder" className="min-w-0 max-w-full" size="sm"><SelectValue /></SelectTrigger>
             <SelectContent>{folderChoices.map((choice) => <SelectItem key={choice.value} value={choice.value}>{choice.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         {folder === "existing" && (
           <div className="flex min-w-[15rem] flex-1 flex-col gap-1">
-            <Label className={labelClass} htmlFor={pathId}>Absoluter Pfad</Label>
+            <Label className={labelClass} htmlFor={pathId}>Absolute path</Label>
             <Input
               className="h-7 text-sm"
               disabled={disabled}
@@ -207,16 +207,16 @@ export function WorkspaceBindingControl({ disabled, error, machines: offeredMach
               onBlur={() => commit(machine, folder, path)}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => { if (event.key === "Enter") commit(machine, folder, path); }}
-              placeholder="/Users/name/projekt"
+              placeholder="/Users/name/project"
               value={path}
             />
           </div>
         )}
         {offered.length > 0 && (
           <div className="flex flex-col gap-1">
-            <span className={labelClass}>Angebotener Ordner</span>
+            <span className={labelClass}>Offered folder</span>
             <Select disabled={disabled} items={offered} onValueChange={(next) => { if (next !== null) chooseOffered(next); }} value={offered.some((entry) => entry.value === path) ? path : null}>
-              <SelectTrigger aria-label="Angebotener Ordner" className="min-w-0 max-w-full" size="sm"><SelectValue placeholder="Übernehmen" /></SelectTrigger>
+              <SelectTrigger aria-label="Offered folder" className="min-w-0 max-w-full" size="sm"><SelectValue placeholder="Apply" /></SelectTrigger>
               <SelectContent>{offered.map((entry) => <SelectItem key={entry.value} value={entry.value}>{entry.label}</SelectItem>)}</SelectContent>
             </Select>
           </div>
@@ -238,12 +238,12 @@ export function WorkspaceBindingBadge({ option }: StartOptionBadgeContext) {
   try {
     binding = bindingFrom(option.value, option.id);
   } catch (cause) {
-    return <ToolbarItem title={messageOf(cause)}><ToolbarText>Arbeitsbereich unlesbar</ToolbarText></ToolbarItem>;
+    return <ToolbarItem title={messageOf(cause)}><ToolbarText>Workspace unreadable</ToolbarText></ToolbarItem>;
   }
   const summary = workspaceBindingSummary(binding, freshLabelsOf(option.presentation));
   return (
-    <ToolbarItem title={`Arbeitsbereich: ${summary}`}>
-      <ToolbarCopy><ToolbarLabel>Arbeitsbereich</ToolbarLabel><ToolbarText>{summary}</ToolbarText></ToolbarCopy>
+    <ToolbarItem title={`Workspace: ${summary}`}>
+      <ToolbarCopy><ToolbarLabel>Workspace</ToolbarLabel><ToolbarText>{summary}</ToolbarText></ToolbarCopy>
     </ToolbarItem>
   );
 }
@@ -255,16 +255,16 @@ export function WorkspaceMetadata({ placement, session }: SessionMetadataContext
     const { machine, folder } = metadata.binding;
     if (machine === "server" && folder === "fresh") return null;
     return (
-      <span className="flex max-w-full items-center gap-1.5 overflow-hidden pl-px text-xs text-muted-foreground" title={`Arbeitsbereich: ${metadata.summary}`}>
+      <span className="flex max-w-full items-center gap-1.5 overflow-hidden pl-px text-xs text-muted-foreground" title={`Workspace: ${metadata.summary}`}>
         <FolderIcon aria-hidden className="size-3 flex-none" />
         <span className="truncate">{metadata.summary}</span>
       </span>
     );
   }
   return (
-    <ToolbarItem title={`Arbeitsbereich: ${metadata.summary}`}>
+    <ToolbarItem title={`Workspace: ${metadata.summary}`}>
       <FolderIcon aria-hidden className="size-3.5" />
-      <ToolbarCopy><ToolbarLabel>Arbeitsbereich</ToolbarLabel><ToolbarText>{metadata.summary}</ToolbarText></ToolbarCopy>
+      <ToolbarCopy><ToolbarLabel>Workspace</ToolbarLabel><ToolbarText>{metadata.summary}</ToolbarText></ToolbarCopy>
     </ToolbarItem>
   );
 }

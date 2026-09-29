@@ -31,13 +31,13 @@ export interface ContributionFilterOption {
 }
 
 export const contributionFilters: readonly ContributionFilterOption[] = [
-  { id: "all", label: "Alle" },
-  { id: "tools", label: "Funktionen" },
+  { id: "all", label: "All" },
+  { id: "tools", label: "Functions" },
   { id: "prompts", label: "Prompts" },
-  { id: "startEntries", label: "Vorlagen" },
+  { id: "startEntries", label: "Templates" },
   { id: "skills", label: "Skills" },
   { id: "hooks", label: "Hooks" },
-  { id: "configuration", label: "Konfiguration" },
+  { id: "configuration", label: "Configuration" },
   { id: "web", label: "Web" },
 ];
 
@@ -82,19 +82,19 @@ export const toolKindLabel = (kind: SettingsTool["kind"]): string => {
 };
 
 export const toolScopeLabel = (scope: SettingsTool["scope"]): string => {
-  if (scope === "global") return "Laufzeitweit";
-  if (scope === "per-agent") return "Je Agent";
-  return "Je Turn";
+  if (scope === "global") return "Runtime-wide";
+  if (scope === "per-agent") return "Per agent";
+  return "Per turn";
 };
 
 export const toolAvailabilityLabel = (availability: SettingsTool["availability"]): string =>
-  availability === "always" ? "Grundsätzlich verfügbar" : "Bedingt verfügbar";
+  availability === "always" ? "Always available" : "Conditionally available";
 
 export const functionSurfaceLabel = (nativeTool: SettingsTool["nativeTool"]): string =>
-  nativeTool === true ? "LLM-Werkzeug" : "TypeScript-Funktion";
+  nativeTool === true ? "LLM tool" : "TypeScript function";
 
 export const skillAudienceLabel = (audience: SettingsSkill["audiences"][number]): string =>
-  audience === "coordinator" ? "Koordinator" : "Agenten";
+  audience === "coordinator" ? "Coordinator" : "Agents";
 
 export const groupContributions = (
   settings: SettingsResponse,
@@ -141,17 +141,17 @@ export const filterGroup = (
   filter: ContributionFilter,
   searchText: string,
 ): PluginGroup => {
-  const needle = searchText.trim().toLocaleLowerCase("de-DE");
+  const needle = searchText.trim().toLocaleLowerCase("en-US");
   const kept = (kind: ContributionKind) => filter === "all" || filter === kind;
   const matches = (haystack: readonly (string | undefined)[]) =>
     needle === "" || haystack.filter((part): part is string => part !== undefined)
-      .join(" ").toLocaleLowerCase("de-DE").includes(needle);
+      .join(" ").toLocaleLowerCase("en-US").includes(needle);
   const configuration = kept("configuration")
     ? group.configuration.filter((entry) => matches([entry.key, entry.source]))
     : [];
   const clientConfig = kept("configuration")
     && group.clientConfig !== undefined
-    && matches([group.id, "Client-Konfiguration", JSON.stringify(group.clientConfig)])
+    && matches([group.id, "Client configuration", JSON.stringify(group.clientConfig)])
     ? group.clientConfig
     : undefined;
   return {
@@ -203,14 +203,14 @@ const webCount = (web: PluginWebModule): number =>
 const filterWebModule = (web: PluginWebModule, needle: string): PluginWebModule => {
   if (web.state !== "contributions") return needle === "" ? web : { state: "hidden" };
   const contributions = web.contributions.filter((contribution) =>
-    [contribution.kind, ...contribution.details].join(" ").toLocaleLowerCase("de-DE").includes(needle));
+    [contribution.kind, ...contribution.details].join(" ").toLocaleLowerCase("en-US").includes(needle));
   return contributions.length === 0 && needle !== "" ? { state: "hidden" } : { state: "contributions", contributions };
 };
 
 const ownersOf = (items: readonly { owner: string }[]): readonly string[] => items.map((item) => item.owner);
 
 export const entryActionLabel = (entry: StartEntry): string =>
-  entry.action === "skill" ? "Skill" : "Run-Script";
+  entry.action === "skill" ? "Skill" : "Run script";
 
 const entrySearchParts = (entry: StartEntry): readonly (string | undefined)[] => [
   entry.id,
@@ -229,24 +229,24 @@ const webModuleOf = (plugin: WebPlugin | undefined): PluginWebModule => {
 };
 
 const webContributionsOf = (plugin: WebPlugin): readonly WebContribution[] => [
-  listed("Reiter der Leiste", (plugin.workspaceTabs ?? []).map((tab) => `${tab.id} (${tab.label})`)),
-  flagged("Dynamische Reiter der Leiste", plugin.workspaceTabsFor !== undefined),
-  listed("Leitfäden", (plugin.guides ?? []).map((guide) => guide.id)),
+  listed("Sidebar tabs", (plugin.workspaceTabs ?? []).map((tab) => `${tab.id} (${tab.label})`)),
+  flagged("Dynamic sidebar tabs", plugin.workspaceTabsFor !== undefined),
+  listed("Guides", (plugin.guides ?? []).map((guide) => guide.id)),
   flagged("Branding", plugin.brand !== undefined),
-  flagged("Fläche", plugin.surface !== undefined),
-  counted("Flächenelemente", (plugin.surfaceElements ?? []).length),
-  counted("Karten-Abschnitte", (plugin.cardSections ?? []).length),
-  counted("Werkzeug-Darstellungen", (plugin.toolPresenters ?? []).length),
-  counted("Entitäts-Darstellungen", (plugin.entityPresenters ?? []).length),
-  counted("Session-Kopfbeiträge", (plugin.sessionHeaders ?? []).length),
-  listed("Übersichtsbeiträge", (plugin.overviewPanels ?? []).map((panel) => panel.id)),
-  listed("Einstellungen", (plugin.settings ?? []).map((setting) => `${setting.id} (${setting.label})`)),
-  counted("Session-Metadaten", (plugin.sessionMetadata ?? []).length),
-  counted("Attention-Beiträge", (plugin.attention ?? []).length),
-  listed("Startoptionen", (plugin.startOptions ?? []).map((option) => option.id)),
-  flagged("Chat-Darstellung", plugin.chatDisplayPolicy !== undefined),
-  listed("Aktionsdarstellungen", (plugin.actionViews ?? []).map((view) => view.owner)),
-  flagged("Session-Provider", plugin.SessionProvider !== undefined),
+  flagged("Surface", plugin.surface !== undefined),
+  counted("Surface elements", (plugin.surfaceElements ?? []).length),
+  counted("Card sections", (plugin.cardSections ?? []).length),
+  counted("Tool presenters", (plugin.toolPresenters ?? []).length),
+  counted("Entity presenters", (plugin.entityPresenters ?? []).length),
+  counted("Session header contributions", (plugin.sessionHeaders ?? []).length),
+  listed("Overview contributions", (plugin.overviewPanels ?? []).map((panel) => panel.id)),
+  listed("Settings", (plugin.settings ?? []).map((setting) => `${setting.id} (${setting.label})`)),
+  counted("Session metadata", (plugin.sessionMetadata ?? []).length),
+  counted("Attention contributions", (plugin.attention ?? []).length),
+  listed("Start options", (plugin.startOptions ?? []).map((option) => option.id)),
+  flagged("Chat display", plugin.chatDisplayPolicy !== undefined),
+  listed("Action views", (plugin.actionViews ?? []).map((view) => view.owner)),
+  flagged("Session provider", plugin.SessionProvider !== undefined),
 ].filter((contribution): contribution is WebContribution => contribution !== undefined);
 
 const listed = (kind: string, details: readonly string[]): WebContribution | undefined =>

@@ -1,34 +1,33 @@
-# Anwendungsideen für vorbereitete Setups
+# Use case ideas for prepared setups
 
-Status: Idee
+Status: Idea
 
-Die Homepage erklärt den Nutzen vorbereiteter Setups an zwei möglichen Einsatzfeldern. Beide
-sind Anwendungsideen und keine mitgelieferten Referenzabläufe. Ihre Darstellung im letzten
-Abschnitt ist ausdrücklich so beschriftet; es gibt dafür noch keine Abbildungen echter Runs.
+The homepage explains the benefit of prepared setups using two possible fields of application.
+Both are use case ideas and not bundled reference workflows. Their presentation in the last
+section is explicitly labeled as such; there are no images of real runs for them yet.
 
 ## Refactoring
 
-Ein Run-Script könnte Analyse-, Umsetzungs- und Prüfagenten samt Werkzeugen und Kachelaufteilung anlegen.
-Eine Actor-View würde Vorschläge und Bearbeitungsstände zeigen und den Benutzer den Umfang der
-Änderung auswählen lassen. TypeScript-Actors würden Ergebnisse sammeln und die nächsten Inputs
-nach festgelegten Bedingungen zustellen. Die Modelle blieben für Analyse, Codeänderungen und
-Bewertung verantwortlich.
+A run script could create analysis, implementation, and review agents together with tools and a tile layout.
+An actor view would show proposals and editing states and let the user choose the scope of the
+change. TypeScript actors would collect results and deliver the next inputs according to defined
+conditions. The models would remain responsible for analysis, code changes, and assessment.
 
-Vor einem Demonstrator müssen ein kleines echtes Projekt, eine konkrete Refactoring-Aufgabe und
-prüfbare Erwartungen feststehen. Erst ein ausgeführter und geprüfter core-Run darf als vorhandenes
-Beispiel auf der Homepage erscheinen. Aktuell sollen weder Runs noch die Anwendung dafür
-gestartet werden, weil parallel entwickelt wird.
+Before a demonstrator, a small real project, a concrete refactoring task, and verifiable
+expectations must be settled. Only an executed and verified core run may appear on the homepage
+as an existing example. For now, neither runs nor the application should be started for it,
+because development is happening in parallel.
 
-## DevOps und betriebliche Abläufe
+## DevOps and operational workflows
 
-Ein weiteres Setup könnte Daten aus angebundenen Systemen zusammentragen, Agenten mit deren
-Bewertung beauftragen und Ergebnisse in einer gemeinsamen Oberfläche zur Bearbeitung anbieten.
-Die Integrationen, verbindlichen Übergaben und menschlichen Entscheidungen wären für den
-konkreten Fachfall als Plugins und Setup festzulegen. Es gibt noch keinen allgemeinen
-Unternehmensworkflow als Referenz im Profil core.
+Another setup could gather data from connected systems, task agents with assessing it, and offer
+the results for editing in a shared interface. The integrations, binding handoffs, and human
+decisions would have to be defined as plugins and a setup for the concrete domain case. There is
+no general enterprise workflow as a reference in the core profile yet.
 
-## Übernahme nach Umsetzung
+## Adoption after implementation
 
-Nach einem fertigen Demonstrator werden dessen Fähigkeiten in der passenden Spec beschrieben,
-der Homepage-Abschnitt von der Idee zum vorhandenen Beispiel geändert und echte Screenshots
-eingesetzt. Das umgesetzte Szenario wird hier entfernt; nach Umsetzung beider entfällt diese Datei.
+Once a demonstrator is finished, its capabilities are described in the matching spec, the
+homepage section is changed from an idea to an existing example, and real screenshots are
+inserted. The implemented scenario is removed here; once both are implemented, this file is
+dropped.

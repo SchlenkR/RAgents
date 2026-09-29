@@ -1,6 +1,6 @@
 import type { Static, TSchema } from "typebox";
 
-/** Eine Anfrage mit Antwort; der Server führt sie aus, oder ein verbundener Client, wenn `implementedBy` das sagt. */
+/** A request with a response; the server executes it, or a connected client if `implementedBy` says so. */
 export interface OperationContract<I extends TSchema = TSchema, R extends TSchema = TSchema> {
   readonly kind: "operation";
   readonly id: string;
@@ -11,7 +11,7 @@ export interface OperationContract<I extends TSchema = TSchema, R extends TSchem
   readonly implementedBy: "server" | "client";
 }
 
-/** Ein Kanal liefert nach dem Abonnieren Nachrichten, bis das Abonnement endet. */
+/** After subscribing, a channel delivers messages until the subscription ends. */
 export interface ChannelContract<P extends TSchema = TSchema, M extends TSchema = TSchema> {
   readonly kind: "channel";
   readonly id: string;
@@ -32,7 +32,7 @@ export type ChannelMessage<C> = C extends ChannelContract<TSchema, infer M> ? St
 export const CONTRACT_ID = /^[a-z][a-z0-9-]*(?:\.[a-zA-Z][a-zA-Z0-9-]*)+$/;
 
 const assertContractId = (id: string): void => {
-  if (!CONTRACT_ID.test(id)) throw new Error(`Ungültige Vertrags-Id: ${id}`);
+  if (!CONTRACT_ID.test(id)) throw new Error(`Invalid contract id: ${id}`);
 };
 
 export const defineOperation = <I extends TSchema, R extends TSchema>(definition: {
@@ -44,7 +44,7 @@ export const defineOperation = <I extends TSchema, R extends TSchema>(definition
   implementedBy?: "server" | "client";
 }): OperationContract<I, R> => {
   assertContractId(definition.id);
-  if (!definition.description.trim()) throw new Error(`Operation ${definition.id} hat keine Beschreibung`);
+  if (!definition.description.trim()) throw new Error(`Operation ${definition.id} has no description`);
   return Object.freeze({
     kind: "operation",
     id: definition.id,
@@ -64,7 +64,7 @@ export const defineChannel = <P extends TSchema, M extends TSchema>(definition: 
   message: M;
 }): ChannelContract<P, M> => {
   assertContractId(definition.id);
-  if (!definition.description.trim()) throw new Error(`Kanal ${definition.id} hat keine Beschreibung`);
+  if (!definition.description.trim()) throw new Error(`Channel ${definition.id} has no description`);
   return Object.freeze({
     kind: "channel",
     id: definition.id,

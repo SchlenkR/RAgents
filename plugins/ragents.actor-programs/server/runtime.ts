@@ -31,16 +31,16 @@ const checkFailure = (title: string, lines: readonly string[], fallback: string)
     const shown = all.slice(0, maxShownComplaints).map((line) => line.length > maxComplaintLength ? `${line.slice(0, maxComplaintLength - 3)}...` : line);
     const omitted = all.length - shown.length;
     return Object.assign(new Error([
-        `${title}: ${all.length} Fehler.`,
+        `${title}: ${all.length} errors.`,
         ...shown,
-        ...(omitted > 0 ? [`... und ${omitted} weitere; alle mit actor_program_diagnostics.`] : []),
+        ...(omitted > 0 ? [`... and ${omitted} more; all with actor_program_diagnostics.`] : []),
     ].join("\n")), { lines: all });
 };
 const actorDescriptionOf = (text: string | undefined): string | undefined => {
     const line = (text ?? "").replace(/\s+/g, " ").trim();
     return line.length <= actorDescriptionMaxLength ? line || undefined : `${line.slice(0, actorDescriptionMaxLength - 3).trimEnd()}...`;
 };
-const exposed = defineToolAvailability({ availability: "conditional", availabilityDetail: "Veröffentlichte Funktion eines aktiven Actors im Run." }, () => true);
+const exposed = defineToolAvailability({ availability: "conditional", availabilityDetail: "Published function of an active actor in the run." }, () => true);
 const objectSchema = { type: "object", additionalProperties: true };
 const checked = (schema: object, value: unknown, label: string): JsonValue => {
     const result = jsonValue(value, label);
@@ -50,17 +50,17 @@ const checked = (schema: object, value: unknown, label: string): JsonValue => {
 };
 const safePath = (name: string): string => {
     if (!name || path.isAbsolute(name) || name.includes("\\") || name.includes("\0") || name.split("/").some((part) => !part || part === "." || part === ".."))
-        throw new Error(`Ungültiger Paketpfad ${name}.`);
+        throw new Error(`Invalid package path ${name}.`);
     return name;
 };
 const inside = async (directory: string, relative: string): Promise<string> => {
     const root = await realpath(directory);
     const file = await realpath(path.join(root, safePath(relative)));
     if (!file.startsWith(`${root}${path.sep}`))
-        throw new Error(`Paketpfad ${relative} liegt außerhalb des Pakets.`);
+        throw new Error(`Package path ${relative} is outside the package.`);
     const stat = await lstat(file);
     if (!stat.isFile() || stat.size > 2000000)
-        throw new Error(`Ungültige oder zu große Paketdatei ${relative}.`);
+        throw new Error(`Invalid or too large package file ${relative}.`);
     return readFile(file, "utf8");
 };
 const occupied = (file: string): boolean => {
@@ -74,8 +74,8 @@ const occupied = (file: string): boolean => {
         throw error;
     }
 };
-const packageExists = (name: string): Error => new Error(`Das Paket ${name} existiert bereits.`);
-// Prüfung und rename synchron hintereinander, weil rename einen leeren Zielordner still ersetzt.
+const packageExists = (name: string): Error => new Error(`The package ${name} already exists.`);
+// Check and rename synchronously one after the other, because rename silently replaces an empty target folder.
 const commitPackage = (staged: string, directory: string, name: string): void => {
     if (occupied(directory))
         throw packageExists(name);
@@ -126,7 +126,7 @@ export interface ActorProgramRuntimeOptions {
     agentToolsFor: (runId: string, actorId: string, provisional?: ExecutableActor) => Promise<readonly RunFunction[]>;
     askService: () => AskService;
     reservedToolNames: () => readonly string[];
-    /** Programme, Tests und Builds laufen auf dem Server, auch bei einem Arbeitsbereich auf einem Arbeitsplatz. */
+    /** Programs, tests, and builds run on the server, even with a workspace on a workstation. */
     serverProcessContextFor: (runId: string) => Promise<WorkspaceProcessContext>;
     operations: ActorOperationPort;
     directoryFor: (runId: string) => string;
@@ -168,16 +168,16 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     actor(runId: string, actorId: string): ExecutableActor {
         const actor = this.view(runId).actors.find((candidate) => candidate.id === actorId);
         if (!actor || actor.kind === "human" || actor.lifecycle.kind === "stopped")
-            throw new Error("Der Actor ist nicht aktiv.");
+            throw new Error("The actor is not active.");
         if (this.#removing.has(`${runId}\0${actorId}`))
-            throw new Error("Das Actor-Paket wird entfernt.");
+            throw new Error("The actor package is being removed.");
         return actor;
     }
     resolveActor(runId: string, callerId: string, reference: string): ExecutableActor {
         const actors = this.view(runId).actors;
         const found = reference === "self" ? actors.find((candidate) => candidate.id === callerId) : actorByHandle(actors, reference);
         if (!found)
-            throw new Error(`Actor ${reference} ist unbekannt.`);
+            throw new Error(`Actor ${reference} is unknown.`);
         return this.actor(runId, found.id);
     }
     data(runId: string, actorId: string): ActorDataState {
@@ -187,7 +187,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         return { version: 1, revision, values: (entry?.state ?? {}) as Record<string, unknown> };
     }
     #writeProgram(context: CommandContext, runId: string, actorId: string, program: ActorProgramDefinition | null): void {
-        this.runtime().replacePluginState(this.operatorContext(runId), runId, { pluginId: ACTOR_PROGRAMS_STATE_ID, scope: { kind: "actor", actorId }, state: jsonValue({ version: 1, program }, "Actor-Programm") });
+        this.runtime().replacePluginState(this.operatorContext(runId), runId, { pluginId: ACTOR_PROGRAMS_STATE_ID, scope: { kind: "actor", actorId }, state: jsonValue({ version: 1, program }, "Actor program") });
     }
     #script(runId: string): ActorScriptState | undefined {
         return this.view(runId).pluginStates.find((entry) => entry.pluginId === ACTOR_SCRIPT_STATE_ID && entry.scope.kind === "run")?.state as unknown as ActorScriptState | undefined;
@@ -196,7 +196,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         for (const source of files) {
             const file = path.join(directory, safePath(source.path));
             if (source.path.split("/").includes("node_modules"))
-                throw new Error("Paketquellen dürfen keine Abhängigkeiten überschreiben.");
+                throw new Error("Package sources must not overwrite dependencies.");
             await mkdir(path.dirname(file), { recursive: true });
             await writeFile(file, source.content, { flag: "wx" });
         }
@@ -215,14 +215,14 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             await this.#activate(this.operatorContext(runId, "refresh"), runId, program.name, false, signal);
         }
         catch (error) {
-            throw new Error(`Der Capability-Vertrag von ${program.name} hat sich geändert und die Neuaktivierung scheiterte: ${errorText(error)}`);
+            throw new Error(`The capability contract of ${program.name} has changed and the reactivation failed: ${errorText(error)}`);
         }
     }
     async #bound<T extends CapabilityContract>(runId: string, actorId: string, revision: string | undefined, signal: AbortSignal, contractOf: (program: ActorProgramDefinition) => T, descriptorsFor: BackendBinding["descriptorsFor"]): Promise<{ program: ActorProgramDefinition; contract: T; descriptors: readonly RunCapabilityDescriptor[] }> {
         const current = () => {
             const program = this.programs(runId).find((entry) => entry.actorId === actorId);
             if (!program)
-                throw new Error("Der Actor besitzt kein aktives Programm.");
+                throw new Error("The actor has no active program.");
             return program;
         };
         const bind = (program: ActorProgramDefinition) => {
@@ -232,14 +232,14 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         };
         const program = current();
         if (revision !== undefined && program.revision !== revision)
-            throw new Error("Das Actor-Paket wurde ersetzt.");
+            throw new Error("The actor package was replaced.");
         const bound = bind(program);
         if (!bound.drifted)
             return bound;
         await this.#refresh(runId, program, signal);
         const refreshed = bind(current());
         if (refreshed.drifted)
-            throw new Error(`Der Capability-Vertrag von ${program.name} weicht auch nach der Neuaktivierung ab.`);
+            throw new Error(`The capability contract of ${program.name} still differs after the reactivation.`);
         return refreshed;
     }
     async workspaceDirectory(runId: string): Promise<string> { this.#knownRuns.add(runId); return prepareAppWorkspace(path.join(this.#options.directoryFor(runId), "actor-workspace")); }
@@ -250,7 +250,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const directory = path.join(actors, name);
         const key = `${runId}\0${name}`;
         if (this.#creating.has(key))
-            throw new Error(`Das Paket ${name} wird gerade angelegt.`);
+            throw new Error(`The package ${name} is being created.`);
         if (occupied(directory))
             throw packageExists(name);
         this.#creating.add(key);
@@ -303,16 +303,16 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         this.#assertName(name);
         const directory = path.join(await this.workspaceDirectory(runId), name);
         if ((await lstat(directory)).isSymbolicLink())
-            throw new Error("Actor-Pakete dürfen keine Symlinks sein.");
+            throw new Error("Actor packages must not be symlinks.");
         await prepareAppProject(directory);
         const pkg = await readAppPackage(directory);
         const previous = this.programs(runId).find((program) => program.name === name);
         const owner = reference ? this.resolveActor(runId, callerId, reference) : previous ? this.actor(runId, previous.actorId) : !pkg.backend ? this.actor(runId, callerId) : undefined;
         if (previous && owner?.id !== previous.actorId)
-            throw new Error("Ein aktiviertes Paket kann nicht zu einem anderen Actor wechseln.");
+            throw new Error("An activated package cannot move to another actor.");
         const caller = this.view(runId).actors.find((candidate) => candidate.id === callerId);
         if (!caller)
-            throw new Error("Aufrufender Actor fehlt.");
+            throw new Error("Calling actor is missing.");
         const provisional: ExecutableActor = owner ?? {
             id: "pending", handle: name, displayName: pkg.title, kind: "script", grants: caller.grants.filter((grant) => grant.delegable),
             createdAt: new Date().toISOString(), createdBy: callerId, description: actorDescriptionOf(pkg.description) ?? null, execution: { driver: { kind: "script", config: {} }, workspacePath: null, turnTimeoutMs: null }, lifecycle: { kind: "idle", since: new Date().toISOString() }, usage: emptyUsage(), toolNames: null, openedToolNames: [],
@@ -325,23 +325,23 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const backend = pkg.backend ? await compileAppBackend({ directory, backend: pkg.backend, runId, executor: this.runtime().nativeTypeScriptExecutor, signal }) : undefined;
         const contract: AppContract = backend?.contract ?? { state: objectSchema, functions: {} };
         if (contract.input && owner?.kind === "agent")
-            throw new Error("Ein LLM-Actor verarbeitet Eingaben mit seinem Agententreiber; onInput ist nur für TypeScript-Actors erlaubt.");
+            throw new Error("An LLM actor processes inputs with its agent driver; onInput is only allowed for TypeScript actors.");
         if (contract.state.type !== "object")
-            throw new Error("Actor-Zustand muss ein Object-Schema sein.");
+            throw new Error("Actor state must be an object schema.");
         const state = owner ? this.data(runId, owner.id).values : {};
-        checked(contract.state, state, "Actor-Zustand");
+        checked(contract.state, state, "Actor state");
         const actorId = owner?.id ?? "pending";
         const actorHandle = owner?.handle ?? name;
         const functions: ActorFunctionDefinition[] = Object.entries(contract.functions).map(([id, fn]) => {
             if (!/^[a-zA-Z][a-zA-Z0-9_-]{0,63}$/.test(id))
-                throw new Error(`Ungültiger Funktionsname ${id}.`);
+                throw new Error(`Invalid function name ${id}.`);
             if (fn.tool && !/^[a-z][a-z0-9_]{0,63}$/.test(fn.tool.name))
-                throw new Error(`Ungültiger Werkzeugname ${fn.tool.name}.`);
+                throw new Error(`Invalid tool name ${fn.tool.name}.`);
             const capabilities = fn.capabilities ?? [];
             const selected = capabilities.map((name) => {
                 const entry = available.find((item) => item.id === name);
                 if (!entry)
-                    throw new Error(`Capability ${name} ist nicht verfügbar.`);
+                    throw new Error(`Capability ${name} is not available.`);
                 return entry;
             });
             return { id, label: fn.label, description: fn.description ?? fn.label, inputSchema: fn.input, resultSchema: fn.output, capabilityIds: capabilities, capabilityContractHash: runCapabilityContractHash(selected), confirmation: fn.confirmation ?? null,
@@ -351,26 +351,26 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const inputDescriptors = inputCapabilities.map((id) => {
             const found = available.find((entry) => entry.id === id);
             if (!found)
-                throw new Error(`Eingabe-Capability ${id} ist nicht verfügbar.`);
+                throw new Error(`Input capability ${id} is not available.`);
             return found;
         });
         await installClientSdk(directory, { stateSchema: contract.state, actions: functions.map((fn) => ({ id: fn.id, inputSchema: fn.inputSchema, resultSchema: fn.resultSchema })) });
         const hasServerFiles = pkg.backend || (await projectSourceFiles(directory)).some((file) => /^tests\/.*\.tsx?$/.test(file.path));
         const serverErrors = hasServerFiles ? typecheckServerProject(directory, pkg.backend) : [];
         if (serverErrors.length)
-            throw checkFailure(`Typprüfung von ${name}`, serverErrors, `Die Typprüfung von ${name} schlug ohne Meldung fehl.`);
+            throw checkFailure(`Typecheck of ${name}`, serverErrors, `The typecheck of ${name} failed without a message.`);
         const clients: CompiledProgram["clients"] = [];
         const views: ActorProgramDefinition["views"] = [];
         for (const view of pkg.views ?? []) {
             const client = await compileClientProject({ directory, entryPoint: view.client, stateSchema: contract.state, actions: functions.map((fn) => ({ id: fn.id, inputSchema: fn.inputSchema, resultSchema: fn.resultSchema })) });
             if (!client.valid)
-                throw checkFailure(`Client-Build von ${view.client}`,
+                throw checkFailure(`Client build of ${view.client}`,
                     client.diagnostics.filter((item) => item.category === "error").map((item) =>
                         `${item.fileName ?? view.client}${item.start ? `:${item.start.line}:${item.start.column}` : ""} ${item.message.replace(/\s*\n\s*/g, " ")}`),
-                    `Der Client-Build von ${view.client} schlug ohne Meldung fehl.`);
+                    `The client build of ${view.client} failed without a message.`);
             const styles = view.styles ? await inside(directory, view.styles) : "";
             if (/@import\b|url\s*\(\s*["']?\s*(?:https?:|\/\/)/i.test(styles))
-                throw new Error("Ansichts-CSS darf keine externen Ressourcen laden.");
+                throw new Error("View CSS must not load external resources.");
             const clientFile = `view-${view.id}.mjs`;
             clients.push({ file: clientFile, javaScript: client.javaScript });
             views.push({ id: `${name}--${view.id}`, key: view.id, title: view.title ?? pkg.title, visible: previous?.views.find((item) => item.key === view.id)?.visible ?? true,
@@ -392,7 +392,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     async #activate(context: CommandContext, runId: string, name: string, idle: boolean, signal?: AbortSignal, reference?: string) {
         const key = `${runId}\0${name}`;
         if (this.#installing.has(key))
-            throw new Error(`Paket ${name} wird bereits aktiviert.`);
+            throw new Error(`Package ${name} is already being activated.`);
         const epoch = this.invocationPermit(runId);
         this.#installing.add(key);
         const original = this.programs(runId).find((item) => item.name === name);
@@ -414,23 +414,23 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                     throw new Error(report.report(name, { code: result.code, timedOut: result.timedOut, stderr }));
             }
             if (canonicalHash(compiled.files) !== canonicalHash(await projectSourceFiles(compiled.directory)))
-                throw new Error("Paketdateien wurden während der Prüfung geändert; erneut aktivieren.");
+                throw new Error("Package files were changed during the check; activate again.");
             if (epoch !== this.invocationPermit(runId))
-                throw new Error("Der Run wurde während der Aktivierung gestoppt.");
+                throw new Error("The run was stopped during the activation.");
             if (this.programs(runId).find((item) => item.name === name)?.revision !== original?.revision)
-                throw new Error("Das Paket wurde zwischenzeitlich geändert.");
+                throw new Error("The package was changed in the meantime.");
             if (idle)
                 this.#assertIdle(runId, definition.actorId);
             const names = new Set([...agentTools.map((tool) => tool.name), ...this.#options.reservedToolNames(), ...this.programs(runId).filter((program) => program.name !== name).flatMap((program) => program.functions.flatMap((fn) => fn.tool ? [fn.tool.name] : []))]);
             for (const fn of definition.functions)
                 if (fn.tool) {
                     if (names.has(fn.tool.name))
-                        throw new Error(`Werkzeugname ${fn.tool.name} ist bereits vergeben.`);
+                        throw new Error(`Tool name ${fn.tool.name} is already taken.`);
                     names.add(fn.tool.name);
                 }
             const occupied = this.programs(runId).find((program) => program.actorId === definition.actorId && program.name !== name);
             if (occupied)
-                throw new Error(`Actor @${definition.actorHandle} besitzt bereits das Paket ${occupied.name}. Ergänze darin Funktionen oder Ansichten.`);
+                throw new Error(`Actor @${definition.actorHandle} already owns the package ${occupied.name}. Add functions or views there.`);
             await mkdir(definition.directory, { recursive: true });
             for (const source of compiled.files) {
                 const file = path.join(definition.directory, safePath(source.path));
@@ -447,35 +447,35 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             await syncWorkspaceOwnership(definition.directory, await this.#options.serverProcessContextFor(runId));
             signal?.throwIfAborted();
             if (epoch !== this.invocationPermit(runId))
-                throw new Error("Der Run wurde während der Aktivierung gestoppt.");
+                throw new Error("The run was stopped during the activation.");
             if (this.programs(runId).find((item) => item.name === name)?.revision !== original?.revision)
-                throw new Error("Das Paket wurde zwischenzeitlich geändert.");
+                throw new Error("The package was changed in the meantime.");
             if (!compiled.createActor) {
                 this.actor(runId, definition.actorId);
                 if (idle)
                     this.#assertIdle(runId, definition.actorId);
-                checked(definition.stateSchema, this.data(runId, definition.actorId).values, "Actor-Zustand");
+                checked(definition.stateSchema, this.data(runId, definition.actorId).values, "Actor state");
                 if (this.programs(runId).some((item) => item.actorId === definition.actorId && item.name !== name))
-                    throw new Error("Der Actor besitzt inzwischen ein anderes Paket.");
+                    throw new Error("The actor now owns another package.");
             }
             const currentNames = new Set([...agentTools.map((tool) => tool.name), ...this.#options.reservedToolNames(), ...this.programs(runId).filter((program) => program.name !== name).flatMap((program) => program.functions.flatMap((fn) => fn.tool ? [fn.tool.name] : []))]);
             for (const fn of definition.functions)
                 if (fn.tool) {
                     if (currentNames.has(fn.tool.name))
-                        throw new Error(`Werkzeugname ${fn.tool.name} ist inzwischen vergeben.`);
+                        throw new Error(`Tool name ${fn.tool.name} has been taken in the meantime.`);
                     currentNames.add(fn.tool.name);
                 }
-            jsonValue({ version: 1, program: definition }, "Actor-Programm");
+            jsonValue({ version: 1, program: definition }, "Actor program");
             if (compiled.createActor) {
                 const actors = this.view(runId).actors;
                 const caller = actors.find((actor) => actor.id === context.actorId)!;
                 const holder = actors.find((actor) => actor.handle === name);
                 if (holder?.kind === "script" && holder.lifecycle.kind === "stopped") {
-                    checked(definition.stateSchema, this.data(runId, holder.id).values, "Actor-Zustand");
-                    this.runtime().restartActor(context, runId, holder.id, "Actor-Paket erneut aktiviert");
+                    checked(definition.stateSchema, this.data(runId, holder.id).values, "Actor state");
+                    this.runtime().restartActor(context, runId, holder.id, "Actor package activated again");
                 }
                 else if (holder)
-                    throw new Error(`Handle @${name} gehört bereits dem ${holder.kind !== "human" && holder.lifecycle.kind === "stopped" ? "gestoppten" : "aktiven"} Actor ${holder.displayName}; nur ein gestoppter TypeScript-Actor wird beim Aktivieren neu gestartet. Wähle einen anderen Paketnamen.`);
+                    throw new Error(`Handle @${name} already belongs to the ${holder.kind !== "human" && holder.lifecycle.kind === "stopped" ? "stopped" : "active"} actor ${holder.displayName}; only a stopped TypeScript actor is restarted on activation. Choose another package name.`);
                 else
                     this.runtime().createScriptActor(context, runId, { handle: name, displayName: definition.title, description: actorDescriptionOf(definition.description), grants: caller.grants.filter((grant) => grant.delegable), toolNames: null });
                 const actor = this.resolveActor(runId, context.actorId, `@${name}`);
@@ -506,7 +506,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const program = this.#program(runId, name);
         this.#assertIdle(runId, program.actorId);
         if (this.#installing.has(`${runId}\0${name}`))
-            throw new Error("Das Paket wird gerade aktiviert.");
+            throw new Error("The package is being activated.");
         const actor = this.actor(runId, program.actorId);
         const key = `${runId}\0${program.actorId}`;
         this.#removing.add(key);
@@ -514,7 +514,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             await this.stopActor(runId, program.actorId);
             this.#writeProgram(context, runId, program.actorId, null);
             if (actor.kind === "script")
-                this.runtime().stopActor(context, runId, program.actorId, "Actor-Paket entfernt");
+                this.runtime().stopActor(context, runId, program.actorId, "Actor package removed");
             await rm(program.directory, { recursive: true, force: true });
         }
         finally {
@@ -551,9 +551,9 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const program = this.#program(runId, viewId);
         const view = program.views.find((item) => item.id === viewId);
         if (!view || program.revision !== revision)
-            throw new Error("Die Ansicht wurde ersetzt oder entfernt.");
+            throw new Error("The view was replaced or removed.");
         if (!program.stylesFile)
-            throw new Error("Das Programm stammt aus einer älteren Aktivierung ohne Stylesheet-Datei. Bitte erneut aktivieren.");
+            throw new Error("The program comes from an older activation without a stylesheet file. Please activate again.");
         const frameStyles = readFileSync(path.join(program.directory, program.stylesFile), "utf8");
         return { ...view, styles: `${frameStyles}\n${view.styles}`, platformVersion: 2 as const, clientJavaScript: readFileSync(path.join(program.directory, view.clientFile), "utf8") };
     }
@@ -571,7 +571,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         const key = `${runId}\0${actorId}`;
         const previous = this.#queues.get(key) ?? Promise.resolve();
         const operation = previous.then(() => { signal.throwIfAborted(); if (permit !== this.invocationPermit(runId))
-            throw new Error("Der Run wurde vor dem Funktionsstart gestoppt."); this.actor(runId, actorId); return execute(); });
+            throw new Error("The run was stopped before the function started."); this.actor(runId, actorId); return execute(); });
         const queued = operation.then(() => undefined, () => undefined);
         this.#queues.set(key, queued);
         try {
@@ -589,10 +589,10 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         initial: ActorDataState;
     }> {
         if (!program.backendFile)
-            throw new Error("Der Actor besitzt kein TypeScript-Backend.");
+            throw new Error("The actor has no TypeScript backend.");
         const current = this.#program(runId, program.name);
         if (current.revision !== program.revision)
-            throw new Error("Das Actor-Paket wurde ersetzt.");
+            throw new Error("The actor package was replaced.");
         const logs: string[] = [];
         let calls = 0;
         const initial = this.data(runId, program.actorId);
@@ -604,39 +604,39 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 logs.push((typeof value === "string" ? value : JSON.stringify(value)).slice(0, 2000)); }, call: async (name, value) => {
                 const capability = descriptors.find((entry) => entry.id === name);
                 if (!capability)
-                    throw new Error(`Capability ${name} ist nicht deklariert.`);
+                    throw new Error(`Capability ${name} is not declared.`);
                 if (++calls > 64)
-                    throw new Error("Ein Aufruf darf höchstens 64 Capabilities ausführen.");
+                    throw new Error("A call may run at most 64 capabilities.");
                 if (program.functions.some((fn) => fn.tool?.name === name))
-                    throw new Error("Eine Actor-Funktion darf sich nicht über ein Werkzeug selbst aufrufen; verwende eine gemeinsame TypeScript-Funktion.");
-                checked(capability.schema, value, `Eingabe ${name}`);
+                    throw new Error("An actor function must not call itself through a tool; use a shared TypeScript function.");
+                checked(capability.schema, value, `Input ${name}`);
                 const output = await binding.call(name, value, calls);
-                return checked(capability.resultSchema, output, `Ergebnis ${name}`);
+                return checked(capability.resultSchema, output, `Result ${name}`);
             } });
         signal.throwIfAborted();
         this.actor(runId, program.actorId);
-        const state = checked(program.stateSchema, result.state, "Actor-Zustand");
+        const state = checked(program.stateSchema, result.state, "Actor state");
         return { result: result.result, logs, state, initial };
     }
     #commitState(runId: string, actorId: string, state: JsonValue, initial: ActorDataState): void {
         if (canonicalHash(state) === canonicalHash(initial.values))
             return;
         if (this.data(runId, actorId).revision !== initial.revision)
-            throw new Error("Der Actor-Zustand wurde während des Aufrufs geändert. Erneut aufrufen.");
+            throw new Error("The actor state was changed during the call. Call again.");
         this.runtime().replaceActorState(this.operatorContext(runId), runId, actorId, state);
     }
     #executeFunction(runId: string, bound: ActorProgramDefinition, declared: ActorFunctionDefinition, input: unknown, binding: BackendBinding, signal: AbortSignal): Promise<JsonValue> {
         const functionOf = (program: ActorProgramDefinition): ActorFunctionDefinition => {
             const fn = program.functions.find((entry) => entry.id === declared.id);
             if (!fn)
-                throw new Error("Die Funktion ist nicht deklariert.");
+                throw new Error("The function is not declared.");
             return fn;
         };
         return this.#serial(runId, bound.actorId, signal, async () => {
             const { program, contract: fn, descriptors } = await this.#bound(runId, bound.actorId, bound.revision, signal, functionOf, binding.descriptorsFor);
-            const value = checked(fn.inputSchema, input, `Eingabe ${fn.id}`);
+            const value = checked(fn.inputSchema, input, `Input ${fn.id}`);
             const result = await this.#backend(runId, program, { kind: "function", functionId: fn.id, input: value }, binding, descriptors, signal);
-            const output = checked(fn.resultSchema, result.result, `Ergebnis ${fn.id}`);
+            const output = checked(fn.resultSchema, result.result, `Result ${fn.id}`);
             this.#commitState(runId, program.actorId, result.state, result.initial);
             binding.output?.push(...result.logs);
             return output;
@@ -647,7 +647,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         try {
             const inputOf = (program: ActorProgramDefinition) => {
                 if (!program.input)
-                    throw new Error("Dieser TypeScript-Actor besitzt keinen onInput-Handler.");
+                    throw new Error("This TypeScript actor has no onInput handler.");
                 return program.input;
             };
             const descriptorsFor = (capabilityIds: readonly string[]) => agentCapabilityBinding(this.actor(request.runId, request.agentId), request.tools, capabilityIds, new Set()).descriptors;
@@ -666,42 +666,42 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         }
     }
     invocationPermit(runId: string): number { if (this.#shuttingDown || this.#stopping.has(runId))
-        throw new Error("Der Run wird gestoppt."); return this.#epochs.get(runId) ?? 0; }
+        throw new Error("The run is being stopped."); return this.#epochs.get(runId) ?? 0; }
     startInvocation(runId: string, viewId: string, revision: string, functionId: string, requestId: string, input: unknown, permit = this.invocationPermit(runId)) {
         const program = this.#program(runId, viewId);
         if (!program.views.some((view) => view.id === viewId))
-            throw new Error("Die Ansicht ist unbekannt.");
+            throw new Error("The view is unknown.");
         return this.#start(runId, program, viewId, revision, functionId, requestId, input, permit);
     }
     startFunctionInvocation(runId: string, actorHandle: string, revision: string, functionId: string, requestId: string, input: unknown, permit = this.invocationPermit(runId)) {
         const program = this.programs(runId).find((entry) => entry.actorHandle === handleKey(actorHandle));
         if (!program)
-            throw new Error("Der Actor veröffentlicht kein Programm.");
+            throw new Error("The actor publishes no program.");
         return this.#start(runId, program, program.name, revision, functionId, requestId, input, permit);
     }
     #start(runId: string, program: ActorProgramDefinition, viewId: string, revision: string, functionId: string, requestId: string, input: unknown, permit: number): ActorFunctionInvocation {
         this.#knownRuns.add(runId);
         if (permit !== this.invocationPermit(runId))
-            throw new Error("Der Run wurde inzwischen gestoppt.");
+            throw new Error("The run has been stopped in the meantime.");
         if (program.revision !== revision)
-            throw new Error("Das Actor-Paket wurde ersetzt. Ansicht aktualisieren.");
+            throw new Error("The actor package was replaced. Refresh the view.");
         const fn = program.functions.find((entry) => entry.id === functionId);
         if (!fn)
-            throw new Error("Die Funktion ist nicht deklariert.");
+            throw new Error("The function is not declared.");
         const state = this.#invocations(runId);
         const prior = state.invocations.find((entry) => entry.requestId === requestId);
         if (prior) {
             if (prior.actorId !== program.actorId || prior.actionId !== functionId || prior.revision !== revision || canonicalHash(prior.input) !== canonicalHash(input))
-                throw new Error("Die Request-ID wurde bereits für einen anderen Aufruf verwendet.");
+                throw new Error("The request ID was already used for another call.");
             return prior;
         }
         if (!requestId || requestId.length > 200 || state.requestIds.includes(requestId))
-            throw new Error("Ungültige oder bereits verarbeitete Request-ID.");
+            throw new Error("Invalid or already processed request ID.");
         if (state.requestIds.length >= 10000)
-            throw new Error("Der Run hat seine Aufrufgrenze erreicht.");
+            throw new Error("The run has reached its call limit.");
         if ([...this.#active.values()].filter((entry) => entry.runId === runId).length >= 8)
-            throw new Error("Es laufen bereits acht Actor-Funktionen.");
-        checked(fn.inputSchema, input, "Funktionseingabe");
+            throw new Error("Eight actor functions are already running.");
+        checked(fn.inputSchema, input, "Function input");
         const invocation: ActorFunctionInvocation = { id: randomUUID(), requestId, actorId: program.actorId, actorHandle: program.actorHandle, appId: viewId, revision, actionId: functionId, input, output: [], createdAt: new Date().toISOString(), status: "queued" };
         this.#replaceInvocation(runId, invocation, true);
         const controller = new AbortController();
@@ -710,15 +710,15 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             this.#replaceInvocation(runId, started);
             try {
                 if (fn.confirmation && !await this.#confirm(runId, invocation, fn.confirmation, controller.signal))
-                    throw new Error("Die Funktion wurde nicht bestätigt.");
+                    throw new Error("The function was not confirmed.");
                 const descriptorsFor = (capabilityIds: readonly string[]) => operatorCapabilityBinding(this.ownerId(runId), this.#options.operations.list(), capabilityIds).descriptors;
                 const output: string[] = [];
                 const result = await this.#executeFunction(runId, program, fn, input, { output, id: invocation.id, kind: "app-action", principal: { id: this.ownerId(runId), kind: "operator" }, descriptorsFor, call: async (name, value, index) => {
                         const operation = this.#options.operations.operation(name)!;
                         const id = `${invocation.id}:capability:${index}`;
-                        const confirmation = operation.operator === "confirm" ? await this.#confirm(runId, invocation, `${operation.label} ausführen?`, controller.signal, value) : true;
+                        const confirmation = operation.operator === "confirm" ? await this.#confirm(runId, invocation, `Run ${operation.label}?`, controller.signal, value) : true;
                         if (!confirmation)
-                            throw new Error("Die Aktion wurde nicht bestätigt.");
+                            throw new Error("The action was not confirmed.");
                         return this.#options.operations.invoke(name, { runId, invocationId: id, principal: { kind: "operator", actorId: this.ownerId(runId) }, signal: controller.signal, ...(operation.operator === "confirm" ? { operatorConfirmation: { operationId: name, invocationId: id, inputHash: canonicalHash(value) } } : {}) }, value);
                     } }, controller.signal);
                 this.#replaceInvocation(runId, { ...started, status: "succeeded", result, output, finishedAt: new Date().toISOString() });
@@ -733,7 +733,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     invocation(runId: string, reference: string, id: string): ActorFunctionInvocation {
         const invocation = this.#invocations(runId).invocations.find((entry) => entry.id === id && (entry.appId === reference || entry.actorHandle === reference));
         if (!invocation)
-            throw new Error("Der Funktionsaufruf ist unbekannt.");
+            throw new Error("The function call is unknown.");
         return invocation;
     }
     #invocations(runId: string): InvocationState { return (this.view(runId).pluginStates.find((entry) => entry.pluginId === ACTOR_INVOCATIONS_STATE_ID && entry.scope.kind === "run")?.state as unknown as InvocationState) ?? { version: 1, invocations: [], requestIds: [] }; }
@@ -747,27 +747,27 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             finished.shift();
             state.invocations = [...active, ...finished];
         }
-        assertJsonValue(state, "Actor-Aufrufe");
+        assertJsonValue(state, "Actor calls");
         this.runtime().replacePluginState(this.operatorContext(runId), runId, { pluginId: ACTOR_INVOCATIONS_STATE_ID, scope: { kind: "run" }, state });
     }
     async #confirm(runId: string, invocation: ActorFunctionInvocation, question: string, signal: AbortSignal, input = invocation.input): Promise<boolean> {
-        const answer = await this.#options.askService().ask({ runId, agentId: this.ownerId(runId), turnId: null, commandId: `actor-confirm:${randomUUID()}` }, { question: `${question}\nEingabe: ${JSON.stringify(input).slice(0, 500)}`, options: ["Ausführen", "Abbrechen"], multi: false, description: `Funktion ${invocation.actionId} von @${invocation.actorHandle}`, parameters: { source: ACTOR_PROGRAMS_STATE_ID, invocationId: invocation.id } }, signal);
-        return answer === "Ausführen";
+        const answer = await this.#options.askService().ask({ runId, agentId: this.ownerId(runId), turnId: null, commandId: `actor-confirm:${randomUUID()}` }, { question: `${question}\nInput: ${JSON.stringify(input).slice(0, 500)}`, options: ["Run", "Cancel"], multi: false, description: `Function ${invocation.actionId} of @${invocation.actorHandle}`, parameters: { source: ACTOR_PROGRAMS_STATE_ID, invocationId: invocation.id } }, signal);
+        return answer === "Run";
     }
     #program(runId: string, reference: string): ActorProgramDefinition {
         const program = this.programs(runId).find((entry) => entry.name === reference || entry.views.some((view) => view.id === reference));
         if (!program)
-            throw new Error(`Actor-Paket ${reference} ist nicht aktiv.`);
+            throw new Error(`Actor package ${reference} is not active.`);
         return program;
     }
     #instance(program: ActorProgramDefinition): string { return `actor:${program.actorId}:${program.revision}`; }
     #assertName(name: string): void { if (!NAME.test(name))
-        throw new Error("Paketnamen beginnen mit einem Kleinbuchstaben und enthalten höchstens 64 Kleinbuchstaben, Ziffern oder Bindestriche."); }
+        throw new Error("Package names begin with a lowercase letter and contain at most 64 lowercase letters, digits, or hyphens."); }
     #assertIdle(runId: string, actorId: string): void { if (this.#queues.has(`${runId}\0${actorId}`) || [...this.#active.values()].some((entry) => entry.runId === runId && entry.actorId === actorId))
-        throw new Error("Der Actor hat noch laufende Funktionen oder Eingaben."); }
+        throw new Error("The actor still has running functions or inputs."); }
     async stopActor(runId: string, actorId: string): Promise<void> {
         const active = [...this.#active.values()].filter((entry) => entry.runId === runId && entry.actorId === actorId);
-        active.forEach((entry) => entry.controller.abort(new Error("Actor gestoppt.")));
+        active.forEach((entry) => entry.controller.abort(new Error("Actor stopped.")));
         const state = this.view(runId).pluginStates.find((entry) => entry.pluginId === ACTOR_PROGRAMS_STATE_ID && entry.scope.kind === "actor" && entry.scope.actorId === actorId)?.state as unknown as ActorProgramState | undefined;
         if (state?.program)
             await this.runtime().nativeTypeScriptExecutor.stopInstance(runId, this.#instance(state.program));
@@ -778,7 +778,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         this.#stopping.add(runId);
         try {
             const active = [...this.#active.values()].filter((entry) => entry.runId === runId);
-            active.forEach((entry) => entry.controller.abort(new Error("Run gestoppt.")));
+            active.forEach((entry) => entry.controller.abort(new Error("Run stopped.")));
             await this.runtime().nativeTypeScriptExecutor.stopRun(runId);
             await Promise.allSettled([...active.map((entry) => entry.completed), ...[...this.#queues].filter(([key]) => key.startsWith(`${runId}\0`)).map(([, queue]) => queue)]);
         }
@@ -790,7 +790,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     async prepareSession(runId: string): Promise<void> { this.#knownRuns.add(runId); if (!this.runtime().listRuns().some(run => run.id === runId))
         return; for (const invocation of this.#invocations(runId).invocations)
         if (invocation.status === "queued" || invocation.status === "running")
-            this.#replaceInvocation(runId, { ...invocation, status: "cancelled", error: "Der Server wurde während des Aufrufs beendet.", finishedAt: new Date().toISOString() }); }
+            this.#replaceInvocation(runId, { ...invocation, status: "cancelled", error: "The server was stopped during the call.", finishedAt: new Date().toISOString() }); }
     async stopSession(runId: string, _signal?: AbortSignal): Promise<void> { await this.stopRun(runId); }
     async disposeRun(runId: string): Promise<void> { await this.stopRun(runId); }
     async deleteSession(runId: string): Promise<void> { await this.stopRun(runId); await rm(this.#options.directoryFor(runId), { recursive: true, force: true }); }

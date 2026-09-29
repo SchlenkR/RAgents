@@ -22,11 +22,11 @@ import { executor as typescriptExecutor } from "../../../plugins/ragents.lsp-typ
 import { hostRoot } from "../src/host-version.ts";
 
 const enabled = process.env.RAGENTS_LSP_TESTS === "1";
-const skip = enabled ? false : "RAGENTS_LSP_TESTS=1 setzen (die Sprachserver holt pnpm provision --workspace)";
+const skip = enabled ? false : "set RAGENTS_LSP_TESTS=1 (pnpm provision --workspace fetches the language servers)";
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures", "lsp");
 const RUN = "run-lsp";
 
-/** Der Sprachserver eines Plugins, wie ihn der Executor eines Arbeitsplatzes aus dessen Beitrag baut. */
+/** A plugin's language server, as a workstation's executor builds it from the plugin's contribution. */
 const languageServerOf = (plugin: string, contribution: WorkspaceExecutorContribution): LanguageServerAdapter =>
   contribution(executorMachine(pluginToolsDirectory(hostDataDirectory(), plugin))).languageServers![0]!;
 
@@ -80,20 +80,20 @@ test("Roslyn reports C# errors of an edited file without a build", { skip, timeo
   try {
     await restore(ws.context, "Sample.sln");
     const summary = await host.open(RUN, "Sample.sln");
-    assert.match(summary, /Sample\.sln geladen/);
-    assert.match(await host.open(RUN, "Sample.sln"), /bereits geöffnet/);
+    assert.match(summary, /Loaded Sample\.sln/);
+    assert.match(await host.open(RUN, "Sample.sln"), /already open/);
 
     const greeter = path.join(ws.root, "CSharpLib", "Greeter.cs");
     const original = await readFile(greeter, "utf8");
-    assert.equal(await host.diagnostics(RUN, ["CSharpLib/Greeter.cs"], false), "Diagnostik (Roslyn) CSharpLib/Greeter.cs: keine Fehler");
+    assert.equal(await host.diagnostics(RUN, ["CSharpLib/Greeter.cs"], false), "Diagnostics (Roslyn) CSharpLib/Greeter.cs: no errors");
 
     await writeFile(greeter, "namespace CSharpLib;\n\npublic static class Greeter\n{\n    public static int Value = \"text\";\n}\n");
     const annotation = await host.annotate(RUN, greeter);
-    assert.match(annotation ?? "", /^Diagnostik \(Roslyn\) CSharpLib\/Greeter\.cs: 1 Fehler/m);
+    assert.match(annotation ?? "", /^Diagnostics \(Roslyn\) CSharpLib\/Greeter\.cs: 1 error/m);
     assert.match(annotation ?? "", /CSharpLib\/Greeter\.cs:5:31 error CS0029/);
 
     await writeFile(greeter, original);
-    assert.equal(await host.diagnostics(RUN, ["CSharpLib/Greeter.cs"], false), "Diagnostik (Roslyn) CSharpLib/Greeter.cs: keine Fehler");
+    assert.equal(await host.diagnostics(RUN, ["CSharpLib/Greeter.cs"], false), "Diagnostics (Roslyn) CSharpLib/Greeter.cs: no errors");
 
     const created = path.join(ws.root, "CSharpLib", "Broken.cs");
     await writeFile(created, "namespace CSharpLib;\n\npublic static class Broken\n{\n    public static int Value = \"text\";\n}\n");
@@ -111,19 +111,19 @@ test("FSAC reports F# errors of an edited project file", { skip, timeout: 600_00
   const host = new LanguageServerHost(languageServerOf("ragents.lsp-fsharp", fsharpExecutor), ws.contextFor);
   try {
     await restore(ws.context, "Sample.sln");
-    assert.match(await host.open(RUN, "Sample.sln"), /1 F#-Projekt aus Sample\.sln geladen/);
+    assert.match(await host.open(RUN, "Sample.sln"), /Loaded 1 F# project from Sample\.sln/);
 
     const library = path.join(ws.root, "FSharpLib", "Library.fs");
     const original = await readFile(library, "utf8");
-    assert.equal(await host.diagnostics(RUN, ["FSharpLib/Library.fs"], false), "Diagnostik (FSAC) FSharpLib/Library.fs: keine Fehler");
+    assert.equal(await host.diagnostics(RUN, ["FSharpLib/Library.fs"], false), "Diagnostics (FSAC) FSharpLib/Library.fs: no errors");
 
     await writeFile(library, `${original}\nlet broken: int = "text"\n`);
     const annotation = await host.annotate(RUN, library);
-    assert.match(annotation ?? "", /^Diagnostik \(FSAC\) FSharpLib\/Library\.fs: 1 Fehler/m);
+    assert.match(annotation ?? "", /^Diagnostics \(FSAC\) FSharpLib\/Library\.fs: 1 error/m);
     assert.match(annotation ?? "", /FSharpLib\/Library\.fs:5:19 error 1:/);
 
     await writeFile(library, original);
-    assert.equal(await host.diagnostics(RUN, ["FSharpLib/Library.fs"], false), "Diagnostik (FSAC) FSharpLib/Library.fs: keine Fehler");
+    assert.equal(await host.diagnostics(RUN, ["FSharpLib/Library.fs"], false), "Diagnostics (FSAC) FSharpLib/Library.fs: no errors");
   } finally {
     await host.shutdown();
     await ws.dispose();
@@ -134,36 +134,36 @@ test("TypeScript reports errors of an edited file and lists changed files via gi
   const ws = await workspace("typescript");
   const host = new LanguageServerHost(languageServerOf("ragents.lsp-typescript", typescriptExecutor), ws.contextFor);
   try {
-    assert.match(await host.open(RUN, "."), /TypeScript-Server auf workspace bereit/);
-    const clean = "Diagnostik (TypeScript) src/index.ts: keine Fehler";
+    assert.match(await host.open(RUN, "."), /TypeScript server ready on workspace/);
+    const clean = "Diagnostics (TypeScript) src/index.ts: no errors";
     assert.equal(await host.diagnostics(RUN, ["src/index.ts"], false), clean);
 
     const startedAt = Date.now();
     assert.equal(await host.diagnostics(RUN, ["src/index.ts"], false), clean);
     const repeatMs = Date.now() - startedAt;
-    assert.ok(repeatMs < 5_000, `die unveränderte Datei brauchte erneut ${repeatMs} ms`);
+    assert.ok(repeatMs < 5_000, `the unchanged file took ${repeatMs} ms again`);
 
     const index = path.join(ws.root, "src", "index.ts");
-    await writeFile(index, "export const count: number = 3;\nexport const label = \"drei\";\n");
+    await writeFile(index, "export const count: number = 3;\nexport const label = \"three\";\n");
     const cleanEditAt = Date.now();
     assert.equal(await host.annotate(RUN, index), clean);
     const cleanEditMs = Date.now() - cleanEditAt;
-    assert.ok(cleanEditMs < 10_000, `die fehlerfreie Änderung brauchte ${cleanEditMs} ms`);
+    assert.ok(cleanEditMs < 10_000, `the error-free change took ${cleanEditMs} ms`);
 
-    await writeFile(index, "export const count: number = \"drei\";\n");
+    await writeFile(index, "export const count: number = \"three\";\n");
     const annotation = await host.annotate(RUN, index);
-    assert.match(annotation ?? "", /^Diagnostik \(TypeScript\) src\/index\.ts: 1 Fehler/m);
+    assert.match(annotation ?? "", /^Diagnostics \(TypeScript\) src\/index\.ts: 1 error/m);
     assert.match(annotation ?? "", /src\/index\.ts:1:14 error 2322/);
     assert.equal(await host.diagnostics(RUN, ["src/index.ts"], false), annotation);
 
-    await assert.rejects(host.diagnostics(RUN, ["tsconfig.json"], false), /keine TypeScript-Endung/);
-    await assert.rejects(host.diagnostics(RUN, undefined, false), /Git-Arbeitsverzeichnis/);
+    await assert.rejects(host.diagnostics(RUN, ["tsconfig.json"], false), /no TypeScript extension/);
+    await assert.rejects(host.diagnostics(RUN, undefined, false), /Git working directory/);
 
     for (const args of [["init", "-q"], ["add", "."], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "init"]]) {
       const result = await runManagedProcess({ command: "git", args, cwd: ws.root, env: ws.context.env, label: "git", timeoutMs: 30_000 });
       assert.equal(result.code, 0);
     }
-    assert.equal(await host.diagnostics(RUN, undefined, false), "Keine geänderten TypeScript-Dateien in den geöffneten Wurzeln");
+    assert.equal(await host.diagnostics(RUN, undefined, false), "No changed TypeScript files in the open roots");
     await writeFile(path.join(ws.root, "src", "extra.ts"), "export const x: string = 1;\n");
     assert.match(await host.diagnostics(RUN, undefined, false), /src\/extra\.ts:1:14 error 2322/);
   } finally {

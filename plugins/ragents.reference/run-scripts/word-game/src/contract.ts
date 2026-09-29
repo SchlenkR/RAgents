@@ -12,8 +12,8 @@ export const contract = {
   }, { additionalProperties: false }),
   functions: {
     start: {
-      label: "Wortspiel starten",
-      description: "Startet die zwölf Beiträge genau einmal über den Steueractor.",
+      label: "Start word game",
+      description: "Starts the twelve contributions exactly once through the control actor.",
       input: Type.Object({}, { additionalProperties: false }),
       output: Type.Object({ accepted: Type.Boolean() }, { additionalProperties: false }),
       capabilities: ["actor_input"],

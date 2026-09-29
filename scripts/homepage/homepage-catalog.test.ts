@@ -7,10 +7,10 @@ import { assertPublicOutput, publicPackageFiles, showcasePluginIds } from "./hom
 import { readHomepageUiContracts } from "./homepage-ui-contracts.js";
 import { readClientUiComponentNames, readClientUiContractFiles } from "../../apps/server/src/plugin-support/actor-programs/client-contracts.js";
 
-test("Profilinventar liest ausschließlich literale IDs und führt die Konfiguration nicht aus", () => {
+test("profile inventory reads only literal IDs and does not execute the configuration", () => {
   const root = mkdtempSync(path.join(tmpdir(), "ragents-profile-reference-"));
   try {
-    writeFileSync(path.join(root, "ragents.config.showcase.ts"), 'throw new Error("nicht ausführen"); const config = { host: { PLUGINS: ["ragents.example"] }, token: process.env.SECRET };');
+    writeFileSync(path.join(root, "ragents.config.showcase.ts"), 'throw new Error("do not execute"); const config = { host: { PLUGINS: ["ragents.example"] }, token: process.env.SECRET };');
     assert.deepEqual(showcasePluginIds(root), ["ragents.example"]);
     for (const plugins of ['["private.product"]', '["ragents.example", "ragents.example"]', 'loadPlugins()', '[]', '[...otherPlugins]']) {
       writeFileSync(path.join(root, "ragents.config.showcase.ts"), `const config = { host: { PLUGINS: ${plugins} } };`);
@@ -19,25 +19,25 @@ test("Profilinventar liest ausschließlich literale IDs und führt die Konfigura
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test("öffentliche Artefakte lehnen private Produktnamen und lokale Pfade ab", () => {
+test("public artifacts reject private product names and local paths", () => {
   for (const value of ["plugins/private.product", "plugins/Private.Product", "/Users/example/repo", "/private/tmp/example", "/tmp/example", "PRIVATE_MODEL_API_KEY"]) {
     assert.throws(() => assertPublicOutput(value));
   }
   assert.doesNotThrow(() => assertPublicOutput("ragents.reference / plugins/ragents.actor-programs / UI.Chat"));
 });
 
-test("Run-Pakete enthalten unveränderte verschachtelte Dateien und folgen keinen Verweisen", () => {
+test("run packages contain unchanged nested files and follow no links", () => {
   const root = mkdtempSync(path.join(tmpdir(), "ragents-package-reference-"));
   try {
     mkdirSync(path.join(root, "apps/example/src"), { recursive: true });
-    writeFileSync(path.join(root, "RUN.md"), "---\ntitle: Beispiel\n---\n");
+    writeFileSync(path.join(root, "RUN.md"), "---\ntitle: Example\n---\n");
     writeFileSync(path.join(root, "apps/example/src/client.tsx"), "const view = <p>Grüße</p>;\n");
     const files = publicPackageFiles(root);
-    assert.equal(files["RUN.md"], "---\ntitle: Beispiel\n---\n");
+    assert.equal(files["RUN.md"], "---\ntitle: Example\n---\n");
     assert.equal(files["apps/example/src/client.tsx"], "const view = <p>Grüße</p>;\n");
     assert.deepEqual(files, publicPackageFiles(root));
     symlinkSync(path.join(root, "RUN.md"), path.join(root, "alias.md"));
-    assert.throws(() => publicPackageFiles(root), /Ungültiger Dateityp/);
+    assert.throws(() => publicPackageFiles(root), /Invalid file type/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -52,13 +52,13 @@ function uiFixture() {
   write(ui + "contracts.d.ts", 'export { Widget } from "./widget-contracts";\n');
   write(ui + "widget-contracts.d.ts", `import type { Details } from "./nested/details";
 interface Base {
-  /** Inhalt des Eintrags. */
+  /** Content of the entry. */
   details: Details;
 }
 export interface Editable extends Base { mode: "edit"; onChange: (value: Details) => void; }
 export interface ReadonlyProps extends Base { mode: "read"; onChange?: never; }
 export type WidgetProps = Editable | ReadonlyProps;
-/** Ein öffentlicher Baustein. */
+/** A public building block. */
 export declare function Widget(props: WidgetProps): null;
 `);
   write(ui + "nested/details.d.ts", 'import type { Payload } from "../payload";\nexport interface Details { payload: Payload; next?: Details; }\n');
@@ -68,7 +68,7 @@ export declare function Widget(props: WidgetProps): null;
   return { root, write, ui };
 }
 
-test("UI-Referenz folgt Reexports und lokalen Typabhängigkeiten ohne Komponentenliste", () => {
+test("UI reference follows re-exports and local type dependencies without a component list", () => {
   const { root, ui, write } = uiFixture();
   try {
     const result = readHomepageUiContracts(root);
@@ -79,10 +79,10 @@ test("UI-Referenz folgt Reexports und lokalen Typabhängigkeiten ohne Komponente
     assert.ok(result.files[ui + "payload.d.ts"].includes("interface Payload"));
     assert.equal(result.components[0].name, "Widget");
     assert.equal(result.components[0].hasDemo, true);
-    assert.equal(result.components[0].description, "Ein öffentlicher Baustein.");
+    assert.equal(result.components[0].description, "A public building block.");
     assert.equal(result.components[0].variants.length, 2);
     const props = result.components[0].variants.flatMap((variant) => variant.props);
-    assert.ok(props.some((prop) => prop.name === "details" && prop.type === "Details" && prop.description === "Inhalt des Eintrags."));
+    assert.ok(props.some((prop) => prop.name === "details" && prop.type === "Details" && prop.description === "Content of the entry."));
     assert.ok(props.some((prop) => prop.name === "onChange" && prop.type === "never" && prop.optional));
     write(ui + "extra-contracts.d.ts", 'export declare function Extra(props: { enabled?: boolean }): null;');
     write(ui + "contracts.d.ts", 'export { Widget } from "./widget-contracts"; export { Extra } from "./extra-contracts";');
@@ -95,14 +95,14 @@ test("UI-Referenz folgt Reexports und lokalen Typabhängigkeiten ohne Komponente
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
-test("UI-Referenz lehnt fehlende Runtime-Exporte, widersprüchliche Props und verlorene Typdateien ab", () => {
+test("UI reference rejects missing runtime exports, conflicting props, and lost type files", () => {
   const { root, ui, write } = uiFixture();
   try {
     write(ui + "index.tsx", 'export function Other(props: { value: string }): null { void props; return null; }');
-    assert.throws(() => readHomepageUiContracts(root), /Runtime-Export/);
+    assert.throws(() => readHomepageUiContracts(root), /runtime export/);
     write(ui + "index.tsx", 'export function Widget(props: { incompatible: number }): null { void props; return null; }');
-    assert.throws(() => readHomepageUiContracts(root), /Typvertrag nicht/);
+    assert.throws(() => readHomepageUiContracts(root), /does not satisfy the public type contract/);
     rmSync(path.join(root, ui, "nested/details.d.ts"));
-    assert.throws(() => readClientUiContractFiles(root), /Nicht auflösbarer lokaler UI-Typverweis/);
+    assert.throws(() => readClientUiContractFiles(root), /Unresolvable local UI type reference/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

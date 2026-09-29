@@ -21,13 +21,13 @@ const orchestrationPlugin: RAgentsPlugin = {
     host.functions(createSurfaceToolContributor());
     host.functions(createRunStopContributor(
       (runId) => host.service(runManagementToken)().stop(runId),
-      (error) => console.error("Run-Stopp durch den Koordinator fehlgeschlagen", error),
+      (error) => console.error("Run stop by the coordinator failed", error),
     ));
     host.operations({
       id: "actor_input",
-      label: "Actor-Input einreihen",
-      description: "Reiht für einen Actor einen normalen Texteingang unter der gebundenen Identität ein - "
-        + "als Agent oder, aus einer App-Aktion, als Besitzer des Runs. Bestätigt nur das Einreihen. TypeScript-Actors verstehen ausschließlich ihr programmiertes Eingabeprotokoll, keine freien Aufträge.",
+      label: "Enqueue actor input",
+      description: "Enqueues a normal text input for an actor under the bound identity - "
+        + "as an agent or, from an app action, as the owner of the run. Only confirms the enqueueing. TypeScript actors understand only their programmed input protocol, no free-form tasks.",
       schema: actorInputSchema,
       resultSchema: eventResultSchemaOf("actor.input.enqueued"),
       operator: "direct",

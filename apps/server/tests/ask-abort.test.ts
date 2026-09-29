@@ -8,11 +8,11 @@ import { allGrants, catalog, deferred, FakeDriver, noUsage, postTo, setupRun } f
 
 const setupAsk = () => {
   const setup = setupRun({ grants: allGrants() });
-  const turn = enqueueAndClaim(setup.runtime, setup.view, setup.agent.id, "input", "Bitte frage nach.", "turn");
+  const turn = enqueueAndClaim(setup.runtime, setup.view, setup.agent.id, "input", "Please ask.", "turn");
   const initialInputs = setup.runtime.view(setup.view.id).inputs;
   const service = new RuntimeAskService();
   service.bind(setup.runtime);
-  const ask = (commandId: string, signal?: AbortSignal) => service.ask({ runId: setup.view.id, agentId: setup.agent.id, turnId: turn.turnId, commandId }, { question: "Welcher nächste Schritt?", options: ["Weiter", "Pause"] }, signal);
+  const ask = (commandId: string, signal?: AbortSignal) => service.ask({ runId: setup.view.id, agentId: setup.agent.id, turnId: turn.turnId, commandId }, { question: "Which next step?", options: ["Continue", "Pause"] }, signal);
   return { ...setup, service, ask, turn, initialInputs };
 };
 
@@ -21,7 +21,7 @@ test("aborting a waiting question dismisses its UI without enqueuing a discarded
   const controller = new AbortController();
   try {
     const pending = setup.ask("question", controller.signal);
-    const rejected = assert.rejects(pending, /abgebrochen/);
+    const rejected = assert.rejects(pending, /cancelled/);
     controller.abort();
     await rejected;
     await new Promise((resolve) => setImmediate(resolve));
@@ -37,7 +37,7 @@ test("aborting a waiting question dismisses its UI without enqueuing a discarded
 test("an already aborted question cannot produce a fallback actor input", async () => {
   const setup = setupAsk();
   try {
-    await assert.rejects(setup.ask("question", AbortSignal.abort()), /abgebrochen/);
+    await assert.rejects(setup.ask("question", AbortSignal.abort()), /cancelled/);
     await new Promise((resolve) => setImmediate(resolve));
     assert.deepEqual(setup.runtime.view(setup.view.id).inputs, setup.initialInputs);
   } finally {
@@ -63,13 +63,13 @@ test("an ordinary answer to a restored question without an active waiter remains
   const setup = setupAsk();
   try {
     setup.runtime.proposeAction({ actorId: setup.agent.id, commandId: "restored-question", turnId: setup.turn.turnId }, setup.view.id, {
-      owner: "ragents.ask", payload: { question: "Fortsetzen?", options: ["Weiter"], multi: false }, title: "Fortsetzen?", input: { label: "Antwort", placeholder: null, required: true },
+      owner: "ragents.ask", payload: { question: "Resume?", options: ["Continue"], multi: false }, title: "Resume?", input: { label: "Answer", placeholder: null, required: true },
     });
     const question = setup.runtime.view(setup.view.id).actions[0];
-    setup.service.answer(setup.view.id, question.id, { answer: "Weiter" });
+    setup.service.answer(setup.view.id, question.id, { answer: "Continue" });
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(setup.runtime.view(setup.view.id).inputs.length, 2);
-    assert.match(setup.runtime.view(setup.view.id).inputs[1].content, /Antwort: Weiter$/);
+    assert.match(setup.runtime.view(setup.view.id).inputs[1].content, /Answer: Continue$/);
   } finally {
     setup.journal.close();
   }
@@ -81,14 +81,14 @@ test("stopping the scheduler while ask_user waits leaves no synthetic answer or 
   service.bind(setup.runtime);
   const waiting = deferred();
   const driver = new FakeDriver(async (request, signal) => {
-    const answer = service.ask({ runId: request.runId, agentId: request.agentId, turnId: request.turnId, commandId: "question" }, { question: "Fortsetzen?", options: ["Ja"] }, signal);
+    const answer = service.ask({ runId: request.runId, agentId: request.agentId, turnId: request.turnId, commandId: "question" }, { question: "Resume?", options: ["Yes"] }, signal);
     waiting.resolve();
     await answer;
     return { failure: null, usage: noUsage() };
   });
   const scheduler = new TurnScheduler(setup.runtime, setup.journal, { drivers: { agent: driver }, catalog });
   try {
-    postTo(setup.runtime, setup.view, setup.agent.id, "input", "Bitte frage nach.");
+    postTo(setup.runtime, setup.view, setup.agent.id, "input", "Please ask.");
     scheduler.start();
     await waiting.promise;
     await scheduler.stopRun(setup.view.id);

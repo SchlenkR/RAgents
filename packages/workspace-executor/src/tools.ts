@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import path from "node:path";
 
-/** Unter Windows liegen die Daten in `%LOCALAPPDATA%\ragents`, sonst unter `~/.local/share/ragents`. */
+/** On Windows the data lives in `%LOCALAPPDATA%\ragents`, otherwise under `~/.local/share/ragents`. */
 export const ragentsDataRoot = (
   home = homedir(),
   platform: NodeJS.Platform = process.platform,
@@ -9,17 +9,17 @@ export const ragentsDataRoot = (
 ): string => {
   if (platform !== "win32") return path.resolve(home, ".local/share/ragents");
   const local = environment.LOCALAPPDATA;
-  if (!local) throw new Error("LOCALAPPDATA ist nicht gesetzt; unter Windows liegt der Datenordner in %LOCALAPPDATA%\\ragents.");
+  if (!local) throw new Error("LOCALAPPDATA is not set; on Windows the data folder is in %LOCALAPPDATA%\\ragents.");
   return path.join(local, "ragents");
 };
 
-/** Der Werkzeugordner eines Plugins: was seine Provisionierung auf diese Maschine legt. */
+/** The tools folder of a plugin: what its provisioning puts on this machine. */
 export const pluginToolsDirectory = (dataDirectory: string, pluginId: string): string =>
   path.join(dataDirectory, "tools", pluginId);
 
-/** Ein Arbeitsplatz hat kein Profil; seine Werkzeuge liegen in einem eigenen Datenordner neben denen der Profile. */
+/** A workspace has no profile; its tools live in a data folder of its own next to those of the profiles. */
 export const workspaceDataDirectory = (home = homedir()): string => path.join(ragentsDataRoot(home), "workspace");
 
-/** Der Datenordner dieses Prozesses: DATA_DIR wie beim Server, sonst der des Arbeitsplatzes ohne Profil. */
+/** The data folder of this process: DATA_DIR as on the server, otherwise the one of the workspace without a profile. */
 export const hostDataDirectory = (environment: NodeJS.ProcessEnv = process.env): string =>
   path.resolve(environment.DATA_DIR ?? workspaceDataDirectory());

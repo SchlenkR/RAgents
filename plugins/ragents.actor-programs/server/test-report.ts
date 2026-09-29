@@ -79,7 +79,7 @@ export const createTestReport = async (directory: string) => {
     const describe = (failure: Extract<TestRecord, { kind: "fail" }>): string => {
         const fileOutput = failure.message === "test failed" && failure.file !== null ? stderrByFile.get(failure.file) ?? stderrByFile.get(relative(failure.file)) : undefined;
         const message = fileOutput ? errorLines(fileOutput).join("; ") : failure.generated ? failure.message.split("\n")[0]!.replace(/:$/, "") : failure.message.trim().slice(0, 500);
-        const values = failure.expected === undefined || failure.expected === failure.actual ? "" : ` - erwartet ${failure.expected}, tatsächlich ${failure.actual}`;
+        const values = failure.expected === undefined || failure.expected === failure.actual ? "" : ` - expected ${failure.expected}, actual ${failure.actual}`;
         return `- ${failure.name} (${placeOf(failure)}): ${relative(message)}${relative(values)}`;
     };
 
@@ -93,12 +93,12 @@ export const createTestReport = async (directory: string) => {
             record(pending);
             pending = "";
             const summary = outcome.timedOut
-                ? `Tests für ${name} nach Zeitüberschreitung abgebrochen: ${passed} bestanden, ${failed} fehlgeschlagen.`
-                : `Tests für ${name} fehlgeschlagen: ${passed} bestanden, ${failed} fehlgeschlagen.`;
+                ? `Tests for ${name} canceled after a timeout: ${passed} passed, ${failed} failed.`
+                : `Tests for ${name} failed: ${passed} passed, ${failed} failed.`;
             const details = failures.map(describe);
-            const more = failed > failures.length ? [`... und ${failed - failures.length} weitere`] : [];
+            const more = failed > failures.length ? [`... and ${failed - failures.length} more`] : [];
             const withoutResult = failed === 0
-                ? [`Der Testlauf endete${outcome.code === null ? "" : ` mit Code ${outcome.code}`} ohne fehlgeschlagenen Test:`, ...errorLines([...unparsed, ...outcome.stderr.split("\n")]).map(relative)]
+                ? [`The test run ended${outcome.code === null ? "" : ` with code ${outcome.code}`} without a failed test:`, ...errorLines([...unparsed, ...outcome.stderr.split("\n")]).map(relative)]
                 : [];
             return [summary, ...details, ...more, ...withoutResult].join("\n");
         },

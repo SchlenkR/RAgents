@@ -38,30 +38,30 @@ const NO_SOLUTION = "none";
 const solutionValue = (path: string): string => `solution:${path}`;
 
 const severityLabels: Readonly<Record<LanguageServerSeverity, string>> = {
-  error: "Fehler",
-  warning: "Warnung",
-  information: "Hinweis",
-  hint: "Tipp",
+  error: "Error",
+  warning: "Warning",
+  information: "Info",
+  hint: "Hint",
 };
 
 const textFrom = (config: Readonly<Record<string, unknown>>, key: string, pluginId: string): string => {
   const value = config[key];
-  if (typeof value !== "string" || !value) throw new Error(`Plugin-Konfiguration für ${pluginId} enthält kein ${key}`);
+  if (typeof value !== "string" || !value) throw new Error(`Plugin configuration for ${pluginId} contains no ${key}`);
   return value;
 };
 
 const stateLabel = (state: LanguageServerState): string => {
-  if (state === "opening") return "wird geladen";
-  if (state === "failed") return "fehlgeschlagen";
-  if (state === "suspended") return "nach Leerlauf beendet";
-  return "bereit";
+  if (state === "opening") return "loading";
+  if (state === "failed") return "failed";
+  if (state === "suspended") return "ended after idle";
+  return "ready";
 };
 
 const headerLabel = (snapshot: LanguageServerSnapshot | undefined): string => {
-  if (!snapshot) return "wird geladen";
+  if (!snapshot) return "loading";
   const count = snapshot.instances.length;
-  if (count === 0) return "nicht gestartet";
-  return count === 1 ? "1 Instanz" : `${count} Instanzen`;
+  if (count === 0) return "not started";
+  return count === 1 ? "1 instance" : `${count} instances`;
 };
 
 const countLabel = (count: number, singular: string, plural: string): string =>
@@ -69,7 +69,7 @@ const countLabel = (count: number, singular: string, plural: string): string =>
 
 const messageOf = (caught: unknown): string => caught instanceof Error ? caught.message : String(caught);
 
-/** Genau eine offene Instanz einer gefundenen Solution oder keine ergibt eine Auswahl; mehrere oder eine andere Wurzel nicht. */
+/** Exactly one open instance of a found solution, or none, yields a selection; several or a different root do not. */
 const selectedSolution = (solutions: LanguageServerSolutions, snapshot: LanguageServerSnapshot): string | null => {
   const roots = snapshot.instances.map((instance) => instance.root);
   if (roots.length === 0) return NO_SOLUTION;
@@ -216,15 +216,15 @@ function SolutionSelect({ choice, snapshot }: { choice: SolutionChoice; snapshot
   const { solutions } = choice;
   if (!solutions || !snapshot) return null;
   if (solutions.solutions.length === 0) {
-    return <p className="border-t border-border-soft px-2.5 py-2 text-xs text-muted-foreground">Keine Solution im Arbeitsbereich.</p>;
+    return <p className="border-t border-border-soft px-2.5 py-2 text-xs text-muted-foreground">No solution in the workspace.</p>;
   }
   const openRoots = new Set(snapshot.instances.map((instance) => instance.root));
   const items = [
-    { value: NO_SOLUTION, path: null, label: "Keine" },
+    { value: NO_SOLUTION, path: null, label: "None" },
     ...solutions.solutions.map((solution) => ({
       value: solutionValue(solution.path),
       path: solution.path,
-      label: openRoots.has(solution.root) ? `${solution.path} (offen)` : solution.path,
+      label: openRoots.has(solution.root) ? `${solution.path} (open)` : solution.path,
     })),
   ];
   const instances = snapshot.instances.length;
@@ -241,12 +241,12 @@ function SolutionSelect({ choice, snapshot }: { choice: SolutionChoice; snapshot
         }}
         value={selectedSolution(solutions, snapshot)}
       >
-        <SelectTrigger aria-label="Solution wählen" className="min-w-0 flex-1" size="sm" title={choice.writable ? undefined : "Umschalten verlangt Schreibrechte"}>
-          <SelectValue placeholder={instances > 1 ? `${instances} Instanzen offen` : "Andere Wurzel offen"} />
+        <SelectTrigger aria-label="Choose solution" className="min-w-0 flex-1" size="sm" title={choice.writable ? undefined : "Switching requires write permission"}>
+          <SelectValue placeholder={instances > 1 ? `${instances} instances open` : "Other root open"} />
         </SelectTrigger>
         <SelectContent>{items.map((item) => <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectContent>
       </Select>
-      {choice.switching && <Spinner aria-label="Wird umgeschaltet" />}
+      {choice.switching && <Spinner aria-label="Switching" />}
     </div>
   );
 }
@@ -267,32 +267,32 @@ function LanguageServerInstanceView({ instance }: { instance: LanguageServerInst
       {instance.state === "opening" && (
         <Empty className={compactEmpty} role="status">
           <EmptyHeader>
-            <EmptyMedia><Spinner aria-label="Wird geladen" /></EmptyMedia>
-            <EmptyTitle>Sprachserver wird geladen</EmptyTitle>
-            <EmptyDescription>{instance.summary || "Die Initialisierung läuft."}</EmptyDescription>
+            <EmptyMedia><Spinner aria-label="Loading" /></EmptyMedia>
+            <EmptyTitle>Loading language server</EmptyTitle>
+            <EmptyDescription>{instance.summary || "Initialization is running."}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       )}
       {instance.state === "failed" && (
         <Empty className={`${compactEmpty} text-destructive`} role="alert">
           <EmptyHeader>
-            <EmptyTitle>Sprachserver nicht verfügbar</EmptyTitle>
-            <EmptyDescription className="whitespace-pre-wrap text-destructive [overflow-wrap:anywhere]">{instance.summary || "Beim Laden ist ein Fehler aufgetreten."}</EmptyDescription>
+            <EmptyTitle>Language server unavailable</EmptyTitle>
+            <EmptyDescription className="whitespace-pre-wrap text-destructive [overflow-wrap:anywhere]">{instance.summary || "An error occurred while loading."}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       )}
       {diagnosticsAvailable && rows.length === 0 && (
         <Empty className={compactEmpty}>
           <EmptyHeader>
-            <EmptyTitle>Keine Diagnosen</EmptyTitle>
-            <EmptyDescription>{files.length === 0 ? "Bisher wurde keine Datei geprüft." : "Alle geprüften Dateien sind fehlerfrei."}</EmptyDescription>
+            <EmptyTitle>No diagnostics</EmptyTitle>
+            <EmptyDescription>{files.length === 0 ? "No file has been checked yet." : "All checked files are free of errors."}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       )}
       {rows.length > 0 && (
         <>
           <div className="border-y border-border-soft px-2.5 py-1.5 text-xs text-muted-foreground">
-            {`${countLabel(errors, "Fehler", "Fehler")}, ${countLabel(warnings, "Warnung", "Warnungen")} in ${countLabel(files.length, "Datei", "Dateien")}`}
+            {`${countLabel(errors, "error", "errors")}, ${countLabel(warnings, "warning", "warnings")} in ${countLabel(files.length, "file", "files")}`}
           </div>
           <div className="px-1.5 pt-1 pb-2.5">
             {rows.map((row, index) => (
@@ -329,7 +329,7 @@ export function LanguageServerPanelView({ settings, snapshot, error, pending, on
           <span className="text-[0.8rem] font-medium text-foreground">{settings.label}</span>
           <span className="text-xs text-muted-foreground">{headerLabel(snapshot)}</span>
         </div>
-        <Button aria-label="Diagnosen aktualisieren" onClick={onRefresh} size="icon" title="Aktualisieren" variant="ghost">
+        <Button aria-label="Refresh diagnostics" onClick={onRefresh} size="icon" title="Refresh" variant="ghost">
           <IconRefresh className={pending ? "animate-spin" : undefined} />
         </Button>
       </header>
@@ -340,8 +340,8 @@ export function LanguageServerPanelView({ settings, snapshot, error, pending, on
         <Empty>
           <EmptyHeader>
             <EmptyMedia><IconDiagnostics /></EmptyMedia>
-            <EmptyTitle>Kein Sprachserver</EmptyTitle>
-            <EmptyDescription>{`${settings.label}-Sprachserver ist nicht gestartet - ein Agent startet ihn mit ${settings.openTool}.`}</EmptyDescription>
+            <EmptyTitle>No language server</EmptyTitle>
+            <EmptyDescription>{`${settings.label} language server is not started - an agent starts it with ${settings.openTool}.`}</EmptyDescription>
           </EmptyHeader>
         </Empty>
       )}

@@ -11,7 +11,7 @@ export const fileSelection = (current: readonly File[], incoming: readonly File[
     if (accepted.length && !accepted.some((type) => type.startsWith(".")
       ? file.name.toLowerCase().endsWith(type)
       : type.endsWith("/*") ? file.type.toLowerCase().startsWith(type.slice(0, -1)) : file.type.toLowerCase() === type)) {
-      throw new Error(`Dateityp von ${file.name} nicht erlaubt. Erlaubt: ${options.accept}`);
+      throw new Error(`File type of ${file.name} not allowed. Allowed: ${options.accept}`);
     }
   }
   const result = options.multiple === false ? [...incoming] : [...current];

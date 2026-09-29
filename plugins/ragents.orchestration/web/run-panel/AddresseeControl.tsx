@@ -11,7 +11,7 @@ import { ActorIcon, AddresseeTree } from "./AddresseeTree";
 const chipClass = "flex h-7 min-w-[70px] max-w-[220px] flex-[0_1_auto] cursor-pointer items-center gap-1.5 rounded-full border border-border bg-background pr-2 pl-1 text-[0.72rem] font-semibold text-foreground hover:bg-accent aria-expanded:border-primary focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:outline-offset-1";
 const busyClass = "flex h-7 min-w-0 flex-[0_1_auto] cursor-pointer items-center gap-1.5 rounded-md px-1.5 text-[0.7rem] text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:outline-offset-1";
 
-/** Der Adressat des Chats als Chip in der Eingabeleiste; das Pop-out zeigt die Actors als Baum nach Erzeuger, die ausgeblendeten hinter ihrer Zahl. */
+/** The chat's addressee as a chip in the input bar; the pop-out shows the actors as a tree by creator, the hidden ones behind their count. */
 export function AddresseeControl({ hidden, onOpenChange, onReveal, onSelect, runId, selected, shown, technical, view }: {
   hidden: readonly RunActor[];
   onOpenChange: (open: boolean) => void;
@@ -57,13 +57,13 @@ export function AddresseeControl({ hidden, onOpenChange, onReveal, onSelect, run
     (reveal ? onReveal : onSelect)(actor);
     close(true);
   };
-  const busyTitle = working.map((actor) => `@${actor.handle} arbeitet`).join(", ");
+  const busyTitle = working.map((actor) => `@${actor.handle} is working`).join(", ");
   const busyPending = working.length > 0 ? pendingInputCount(view, working[0].id) : 0;
   const treeProps = { onToggle: toggle, openByDefault: searching, selectedId: selected.id, summary, technical, toggled, view };
   const listClass = "px-1.5 py-1";
 
   return <>
-    <button aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" className={chipClass} onClick={() => change(!open)} ref={buttonRef} title={`Adressat: @${selected.handle}. Klick wählt einen anderen Actor`} type="button">
+    <button aria-controls={open ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog" className={chipClass} onClick={() => change(!open)} ref={buttonRef} title={`Addressee: @${selected.handle}. Click to choose another actor`} type="button">
       <ActorIcon actor={selected} className="size-5" view={view} />
       <span className="truncate">@{selected.handle}</span>
       <ChevronDownIcon aria-hidden className="size-3 flex-none text-muted-foreground" />
@@ -74,16 +74,16 @@ export function AddresseeControl({ hidden, onOpenChange, onReveal, onSelect, run
       {busyPending > 0 && <Badge className="h-4 min-w-4 px-1 text-[0.6rem]" variant="secondary">{busyPending}</Badge>}
       {working.length > 1 && <span className="flex-none">+{working.length - 1}</span>}
     </button>}
-    {open && <ActorPopout buttonRef={buttonRef} closeLabel="Adressat schließen" height={460} id={panelId} label="Adressat" onClose={close} open placement="top" role="dialog" width="available">
+    {open && <ActorPopout buttonRef={buttonRef} closeLabel="Close addressee" height={460} id={panelId} label="Addressee" onClose={close} open placement="top" role="dialog" width="available">
       {shown.length + hidden.length > ADDRESSEE_SEARCH_ABOVE && <div className="flex-none border-b border-border-soft px-2.5 py-1.5">
-        <Input aria-label="Actors durchsuchen" className="h-7" onChange={(event) => setQuery(event.target.value)} placeholder="Handle oder Aufgabe suchen ..." type="search" value={query} />
+        <Input aria-label="Search actors" className="h-7" onChange={(event) => setQuery(event.target.value)} placeholder="Search handle or task ..." type="search" value={query} />
       </div>}
       <div className="min-h-0 flex-1 overflow-auto overscroll-contain" ref={revealSelected}>
         <AddresseeTree className={listClass} nodes={shownTree} onPick={(actor) => pick(actor, false)} {...treeProps} />
-        {searching && shownTree.length === 0 && hiddenMatches.length === 0 && <p className="px-3.5 py-2 text-muted-foreground">Kein Actor passt zur Suche.</p>}
+        {searching && shownTree.length === 0 && hiddenMatches.length === 0 && <p className="px-3.5 py-2 text-muted-foreground">No actor matches the search.</p>}
         {hidden.length > 0 && (!searching || hiddenMatches.length > 0) && <div className="border-t border-border-soft">
           <button aria-expanded={hiddenOpen} className="flex w-full cursor-pointer items-center justify-between gap-2 px-3.5 py-2 text-left text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:-outline-offset-2" onClick={() => setHiddenListed(!hiddenOpen)} type="button">
-            <span>{hidden.length} ausgeblendete Actors</span>
+            <span>{hidden.length} hidden actors</span>
             <ChevronDownIcon aria-hidden className={cn("size-3.5 flex-none transition-transform", hiddenOpen && "rotate-180")} />
           </button>
           {hiddenOpen && <AddresseeTree className={listClass} nodes={hiddenTree} onPick={(actor) => pick(actor, true)} {...treeProps} />}

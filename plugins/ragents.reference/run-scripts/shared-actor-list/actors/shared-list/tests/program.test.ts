@@ -5,9 +5,9 @@ import { createTestContext } from "@ragents/server/testing";
 import { contract } from "../src/contract.ts";
 import program from "../src/server.ts";
 
-test("ergänzt Einträge ohne vorhandene Einträge zu verlieren", async () => {
+test("adds entries without losing existing entries", async () => {
   const context = createTestContext<Static<typeof contract.state>>({ state: {} });
-  assert.deepEqual(await program.functions.append({"text": "  Erster Eintrag  "}, context), {"text": "Erster Eintrag", "entries": ["Erster Eintrag"]});
-  assert.deepEqual(await program.functions.append({"text": "Zweiter Eintrag"}, context), {"text": "Zweiter Eintrag", "entries": ["Erster Eintrag", "Zweiter Eintrag"]});
-  assert.deepEqual(context.state.read(), {"entries": ["Erster Eintrag", "Zweiter Eintrag"]});
+  assert.deepEqual(await program.functions.append({"text": "  First entry  "}, context), {"text": "First entry", "entries": ["First entry"]});
+  assert.deepEqual(await program.functions.append({"text": "Second entry"}, context), {"text": "Second entry", "entries": ["First entry", "Second entry"]});
+  assert.deepEqual(context.state.read(), {"entries": ["First entry", "Second entry"]});
 });

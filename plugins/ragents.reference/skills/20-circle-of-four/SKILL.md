@@ -2,11 +2,11 @@
 name: 20-circle-of-four
 start: true
 disable-model-invocation: true
-title: "Eine Liste durch vier KI-Helfer reichen"
-description: "Zeigt beim Aufbau eines Wortspiels, wie vier KI-Helfer nacheinander beitragen und ein TypeScript-Actor die Weitergabe nach zwölf Wörtern beendet."
-category: "Zusammenarbeit"
+title: "Pass a list through four AI helpers"
+description: "Shows, while building a word game, how four AI helpers contribute one after another and a TypeScript actor ends the handover after twelve words."
+category: "Collaboration"
 order: 20
-tags: "Anwendungsfall, Konzeptdemo, Agententeams, TypeScript-Actors, Subscriptions"
+tags: "Use case, Concept demo, Agent teams, TypeScript actors, Subscriptions"
 ---
 
-Ich hätte gern vier KIs mit den Namen rot, gelb, blau und grün, die reihum ein Wortspiel spielen: jede hängt ein Wort an, das ihr zum zuletzt genannten einfällt. Nach zwölf Beiträgen ist Schluss, und ich will die fertige Liste als Dokument sehen.
+I would like four AIs named red, yellow, blue, and green that play a word game in rotation: each one appends a word that comes to mind for the last one named. After twelve contributions it is over, and I want to see the finished list as a document.

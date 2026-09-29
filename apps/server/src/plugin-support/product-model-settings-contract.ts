@@ -14,18 +14,18 @@ export interface ProductModelSettings {
 
 const settings = openJson<ProductModelSettings>("ProductModelSettings");
 
-/** Je Produktplugin ein Paar: die Modellvorgaben lesen und speichern. */
+/** One pair per product plugin: read and save the model defaults. */
 export const productModelSettingsContracts = (pluginId: string) => ({
   read: defineOperation({
     id: `${pluginId}.modelSettings.read`,
-    description: "Die Modellvorgaben der Rollen mit dem verfügbaren Modellkatalog. Recht: settings.read.",
+    description: "The model defaults of the roles with the available model catalog. Right: settings.read.",
     rights: ["settings.read"],
     input: Type.Object({}, { additionalProperties: false }),
     result: settings,
   }),
   save: defineOperation({
     id: `${pluginId}.modelSettings.save`,
-    description: "Die Modellvorgaben der Rollen speichern. Rechte: settings.read und settings.write.",
+    description: "Save the model defaults of the roles. Rights: settings.read and settings.write.",
     rights: ["settings.read", "settings.write"],
     input: Type.Object({ value: openJson<ProductModelDraft>("ProductModelDraft") }, { additionalProperties: false }),
     result: settings,

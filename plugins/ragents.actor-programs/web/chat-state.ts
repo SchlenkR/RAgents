@@ -7,13 +7,13 @@ import { programChatNotice } from "@ragents/web/chat/chat-target";
 
 export const resolveChatActor = (session: SessionContext, target: string) => {
   const view = runViewFrom(session.runView);
-  if (!view || view.id !== session.session.id) throw new Error("Die Run-Ansicht für diesen Chat ist noch nicht verfügbar");
+  if (!view || view.id !== session.session.id) throw new Error("The run view for this chat is not available yet");
   const actor = target === "primary"
     ? view.actors.find((entry) => entry.id === view.primaryActorId)
     : actorByHandle(view.actors, target);
   if (!actor || actor.kind === "human") {
     const names = view.actors.filter((entry) => entry.kind !== "human").map((entry) => `@${entry.handle}`).join(", ");
-    throw new Error(`Das Chat-Ziel ist nicht verfügbar. Erlaubt sind primary und: ${names || "noch keine Actors"}`);
+    throw new Error(`The chat target is not available. Allowed are primary and: ${names || "no actors yet"}`);
   }
   return { view, actor };
 };
@@ -23,8 +23,8 @@ export const chatSnapshotOf = (session: SessionContext, target: string): ChatSna
     const { view, actor } = resolveChatActor(session, target);
     const primary = actor.id === view.primaryActorId;
     const error = actor.kind === "script" ? programChatNotice : session.conversationError ?? (!session.connected
-      ? "Die Verbindung zum Run ist unterbrochen"
-      : actor.lifecycle?.kind === "stopped" ? `@${actor.handle} gestoppt: ${actor.lifecycle.reason}. Er nimmt keine Eingaben an, bis er neu gestartet wird` : undefined);
+      ? "The connection to the run is interrupted"
+      : actor.lifecycle?.kind === "stopped" ? `@${actor.handle} stopped: ${actor.lifecycle.reason}. It accepts no input until it is restarted` : undefined);
     return {
       owner: actor.id,
       messages: actorChatMessages(view, actor, session.messages, session.actorConversations?.[actor.id]),

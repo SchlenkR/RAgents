@@ -23,7 +23,7 @@ const parsedConfig = (file: string): ts.ParsedCommandLine => {
       throw new Error(ts.flattenDiagnosticMessageText(diagnostic.messageText, " "));
     },
   });
-  if (!parsed) throw new Error(`${file} ist keine gültige tsconfig`);
+  if (!parsed) throw new Error(`${file} is not a valid tsconfig`);
   return parsed;
 };
 
@@ -40,7 +40,7 @@ export const typeViews = (half: HostApiHalf, root = hostRoot()): ReadonlyMap<str
   const importer = path.join(root, place.importer);
   const resolved = hostApiModules(half).map((specifier) => {
     const module = ts.resolveModuleName(specifier, importer, options, ts.sys).resolvedModule;
-    if (!module) throw new Error(`${specifier} ist für die ${half}-Hälfte nicht auflösbar`);
+    if (!module) throw new Error(`${specifier} cannot be resolved for the ${half} half`);
     return { specifier, module };
   });
   const probe = path.join(path.dirname(importer), "__host-api-probe__.ts");
@@ -55,7 +55,7 @@ export const typeViews = (half: HostApiHalf, root = hostRoot()): ReadonlyMap<str
   const imports = program.getSourceFile(probe)!.statements.filter(ts.isImportDeclaration);
   return new Map(resolved.map(({ specifier, module }, index) => {
     const symbol = checker.getSymbolAtLocation(imports[index]!.moduleSpecifier);
-    if (!symbol) throw new Error(`${specifier}: ${module.resolvedFileName} hat kein Modulsymbol`);
+    if (!symbol) throw new Error(`${specifier}: ${module.resolvedFileName} has no module symbol`);
     const values = checker.getExportsOfModule(symbol).filter((exported) => {
       const target = exported.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(exported) : exported;
       return (target.flags & ts.SymbolFlags.Value) !== 0;
@@ -120,7 +120,7 @@ const webRuntimeNames = async (specifiers: readonly string[], root: string): Pro
   const document = { createElement: () => ({}) };
   vm.runInNewContext(code, { module, exports: module.exports, console, setTimeout, clearTimeout, queueMicrotask, TextEncoder, TextDecoder, URL, document });
   const modules = module.exports.hostModules;
-  if (!modules) throw new Error("Das Register der Web-Hälfte liefert keine Module");
+  if (!modules) throw new Error("The web half's register yields no modules");
   return Object.fromEntries(Object.entries(modules).map(([specifier, namespace]) => [specifier, Object.keys(namespace)]));
 };
 
@@ -129,12 +129,12 @@ const listedNames = (half: HostApiHalf, specifier: string, view: TypeView): read
   const listed = hostApi[half][specifier]!;
   const hostCode = specifier.startsWith("@ragents/");
   if (listed === LIBRARY) {
-    if (hostCode) throw new Error(`${specifier} ist Code des Hosts, keine Bibliothek; host-api.ts nennt seine Namen einzeln`);
+    if (hostCode) throw new Error(`${specifier} is host code, not a library; host-api.ts names its names individually`);
     return LIBRARY;
   }
-  if (!hostCode) throw new Error(`${specifier} ist eine Bibliothek; host-api.ts gibt sie ganz frei`);
+  if (!hostCode) throw new Error(`${specifier} is a library; host-api.ts releases it as a whole`);
   const missing = listed.filter((name) => !view.names.includes(name));
-  if (missing.length > 0) throw new Error(`host-api.ts nennt für ${specifier} ${missing.join(", ")}, das Modul exportiert es nicht als Wert`);
+  if (missing.length > 0) throw new Error(`host-api.ts names ${missing.join(", ")} for ${specifier}, but the module does not export it as a value`);
   return [...listed].sort();
 };
 

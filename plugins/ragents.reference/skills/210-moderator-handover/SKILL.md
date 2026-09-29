@@ -2,11 +2,11 @@
 name: 210-moderator-handover
 start: true
 disable-model-invocation: true
-title: "Gespräch an einen Moderator übergeben"
-description: "Zeigt die Übergabe eines laufenden Chats an einen anderen Primary-Actor. Der Moderator übernimmt als direkter Ansprechpartner und hält den Aufgabenfortschritt fest."
-category: "Zusammenarbeit"
+title: "Hand a conversation over to a moderator"
+description: "Shows the handover of a running chat to another primary actor. The moderator takes over as the direct contact and records the task progress."
+category: "Collaboration"
 order: 210
-tags: "Rückfragen, To-dos, Anwendungsfall, Konzeptdemo, Agententeams, Primary-Actor"
+tags: "Questions, To-dos, Use case, Concept demo, Agent teams, Primary actor"
 ---
 
-Ich hätte gern einen Workshop für einen ruhigeren Arbeitstag: Ein Planer bringt zwei Ideen mit, ein skeptischer Gast prüft die Nachteile. Ein Moderator übernimmt die Runde und spricht danach direkt mit mir im Chat, damit ich einen Vorschlag auswählen kann. Zeig die drei auf der Fläche und übergib das Gespräch wirklich an den Moderator. Seine Aufgabenliste zeigt den Fortschritt.
+I would like a workshop for a calmer workday: a planner brings two ideas, a skeptical guest examines the downsides. A moderator takes over the round and then talks directly with me in the chat so that I can pick a proposal. Show the three on the surface and actually hand the conversation over to the moderator. Its task list shows the progress.

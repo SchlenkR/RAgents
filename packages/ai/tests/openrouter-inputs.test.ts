@@ -12,11 +12,11 @@ const model: Model<"openai-completions"> = {
 const attachments: UserAttachment[] = [
   { type: "image", data: "aW1hZ2U=", mimeType: "image/png" },
   { type: "video", data: "dmlkZW8=", mimeType: "video/mp4" },
-  { type: "file", data: "cGRm", mimeType: "application/pdf", filename: "Entwurf.pdf" },
+  { type: "file", data: "cGRm", mimeType: "application/pdf", filename: "Draft.pdf" },
 ];
 
 test("OpenRouter payload carries native image, video and named PDF bytes and pins native PDF handling", async () => {
-  const context: Context = { messages: [{ role: "user", content: [{ type: "text", text: "Vergleiche die Anhänge." }, ...attachments], timestamp: 1 }] };
+  const context: Context = { messages: [{ role: "user", content: [{ type: "text", text: "Compare the attachments." }, ...attachments], timestamp: 1 }] };
   let payload: unknown;
   const result = await stream(model, context, {
     apiKey: "payload-only",
@@ -24,13 +24,13 @@ test("OpenRouter payload carries native image, video and named PDF bytes and pin
   }).result();
   assert.match(result.errorMessage ?? "", /payload captured/);
   assert.deepEqual((payload as { messages: unknown[] }).messages, [{ role: "user", content: [
-    { type: "text", text: "Vergleiche die Anhänge." },
+    { type: "text", text: "Compare the attachments." },
     { type: "image_url", image_url: { url: "data:image/png;base64,aW1hZ2U=" } },
     { type: "video_url", video_url: { url: "data:video/mp4;base64,dmlkZW8=" } },
-    { type: "file", file: { filename: "Entwurf.pdf", file_data: "data:application/pdf;base64,cGRm" } },
+    { type: "file", file: { filename: "Draft.pdf", file_data: "data:application/pdf;base64,cGRm" } },
   ] }]);
   assert.deepEqual((payload as { plugins: unknown[] }).plugins, [{ id: "file-parser", pdf: { engine: "native" } }]);
-  assert.deepEqual(context.messages[0]?.content, [{ type: "text", text: "Vergleiche die Anhänge." }, ...attachments]);
+  assert.deepEqual(context.messages[0]?.content, [{ type: "text", text: "Compare the attachments." }, ...attachments]);
 });
 
 test("unsupported media fails before provider payload instead of being dropped or interpreted as an image", async () => {
@@ -47,7 +47,7 @@ test("unsupported media fails before provider payload instead of being dropped o
 test("follow-up context preserves all original media without rewriting source messages", () => {
   const context: Context = { messages: [
     { role: "user", content: attachments, timestamp: 1 },
-    { role: "user", content: "Nun die zweite Szene.", timestamp: 2 },
+    { role: "user", content: "Now the second scene.", timestamp: 2 },
   ] };
   assert.deepEqual(transformMessages(context.messages, model), context.messages);
 });

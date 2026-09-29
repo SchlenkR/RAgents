@@ -1,18 +1,18 @@
 ---
-title: Sammelboard einrichten
-description: "Ein vorbereitetes Setup zeigt einen LLM-Listenhelfer mit eigener Funktion, Mini-App und gemeinsamem Zustand. Ein Startleitfaden legt Titel und ersten Eintrag fest."
+title: Set up collection board
+description: "A prepared setup shows an LLM list helper with its own function, mini-app, and shared state. A start guide sets the title and the first entry."
 order: 100
 guide: ragents.reference.shared-actor-list
-tags: Run-Scripts, Anwendungsfall, Konzeptdemo, Startleitfaden, Actor-Funktionen, Actor-Zustand, Mini-Apps, LLM-Actor mit View
+tags: Run scripts, Use case, Concept demo, Start guide, Actor functions, Actor state, Mini-apps, LLM actor with view
 ---
 
-Das Setup legt einen echten LLM-Listenhelfer an und bindet das mitgelieferte Programm
-`actors/shared-list/` an ihn. Seine Funktion `append_to_list` und die React-View teilen den
-intrinsischen Zustand dieses Actors. `actor_program_activate` prüft und aktiviert das bereits
-vom Host kopierte Paket. Ein eigener App-Actor oder eine zweite Listenimplementierung entsteht nicht.
+The setup creates a real LLM list helper and binds the bundled program
+`actors/shared-list/` to it. Its function `append_to_list` and the React view share the
+intrinsic state of this actor. `actor_program_activate` checks and activates the package
+the host has already copied. No separate app actor or second list implementation is created.
 
-Der Leitfaden übergibt `{ "title": "...", "firstEntry": "..." }`. Der Titel hat 1 bis 160 Zeichen,
-der erste Eintrag 1 bis 2000 Zeichen. `null` startet mit "Gemeinsame Liste" und
-"Hallo aus dem Run-Script". Ungültige Werte werden vor dem Aufbau abgelehnt. Nach dem Aufbau
-bekommt der Listenhelfer den ausdrücklichen Auftrag, den ersten Eintrag über seine Funktion
-anzulegen. Die Pakettests prüfen Konfiguration, Zustand und die tatsächliche Aufrufreihenfolge.
+The guide passes `{ "title": "...", "firstEntry": "..." }`. The title has 1 to 160 characters,
+the first entry 1 to 2000 characters. `null` starts with "Shared list" and
+"Hello from the run script". Invalid values are rejected before the setup. After the setup,
+the list helper receives the explicit task to create the first entry through its function.
+The package tests check configuration, state, and the actual call order.

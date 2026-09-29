@@ -16,7 +16,7 @@ export interface BrowseEntry {
 
 export interface BrowseListing {
   root: BrowseRoot;
-  /** Wo die Wurzel liegt; bei einem Arbeitsplatz mit dessen Label. */
+  /** Where the root is; on a workstation with its label. */
   location: string;
   path: string;
   entries: BrowseEntry[];
@@ -31,24 +31,24 @@ export const WORKSPACE_BINDING_OPTION_ID = "ragents.workspace.binding";
 
 export const WORKSPACE_METADATA_ID = "ragents.workspace";
 
-/** Auf welchem Rechner der Arbeitsbereich eines Runs liegt: dem Server oder einem Arbeitsplatz, dessen Label die Bindung festhält. */
+/** On which machine the workspace of a run is: the server or a workstation whose label the binding records. */
 export type WorkspaceMachine = "server" | { client: string; label: string };
 
-/** Ein vorhandener Ordner, den der Run weder anlegt noch löscht. */
+/** An existing folder that the run neither creates nor deletes. */
 export type ExistingWorkspaceFolder = {
   path: string;
 };
 
-/** Der neue Ordner je Run auf einem Arbeitsplatz; seinen Pfad dort hält die Bindung ab dem Wählen fest. */
+/** The new folder per run on a workstation; the binding records its path there from the moment it is chosen. */
 export type FreshWorkstationFolder = {
   path: string;
   fresh: true;
 };
 
-/** Welcher Ordner: ein neuer je Run oder ein vorhandener; `fresh` auf dem Server legt der Host je Run in seiner Ablage an. */
+/** Which folder: a new one per run or an existing one; for `fresh` on the server, the host creates one per run in its storage. */
 export type WorkspaceFolder = "fresh" | ExistingWorkspaceFolder | FreshWorkstationFolder;
 
-/** Wo und in welchem Ordner ein Run arbeitet; wird beim Start als Startoption ins Journal eingefroren. */
+/** Where and in which folder a run works; frozen into the journal as a start option at the start. */
 export type WorkspaceBinding = {
   machine: WorkspaceMachine;
   folder: WorkspaceFolder;
@@ -58,15 +58,15 @@ export const freshServerBinding = (): WorkspaceBinding => ({ machine: "server", 
 
 export const WORKSPACE_CLIENT_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 
-/** Was ein Arbeitsplatz bei der Anmeldung über sich sagt. */
+/** What a workstation says about itself at sign-in. */
 export interface WorkspaceClientDescription {
   label: string;
   hostname: string;
   platform: string;
   folders: string[];
-  /** Wo der Arbeitsplatz die neuen Ordner je Run anlegt, je Run ein Unterordner mit dessen Kennung. */
+  /** Where the workstation creates the new folders per run, one subfolder per run named with its ID. */
   runsDirectory: string;
-  /** Ob die Bash des Arbeitsplatzes rg findet; der Prompt richtet die Suche danach. */
+  /** Whether the workstation's bash finds rg; the prompt adjusts the search accordingly. */
   ripgrep: boolean;
 }
 
@@ -74,7 +74,7 @@ export interface WorkspaceClientInfo extends WorkspaceClientDescription {
   id: string;
 }
 
-/** Wie der neue Ordner je Run auf jedem Rechner heißt: der leere Ordner oder der Beitrag eines Plugins; null, wo es keinen gibt. */
+/** What the new folder per run is called on each machine: the empty folder or a plugin's contribution; null where there is none. */
 export interface FreshWorkspaceLabels {
   server: string;
   client: string | null;
@@ -84,7 +84,7 @@ export interface WorkspaceBindingPresentation {
   kind: "workspace-binding";
   clients: WorkspaceClientInfo[];
   fresh: FreshWorkspaceLabels;
-  /** Ob ein vorhandener Ordner des Serverrechners gebunden werden darf. */
+  /** Whether an existing folder of the server machine may be bound. */
   serverFolders: boolean;
 }
 
@@ -93,25 +93,25 @@ export interface WorkspaceSessionMetadata {
   summary: string;
 }
 
-const clientId = Type.String({ pattern: "^[A-Za-z0-9_-]{8,64}$", description: "Stabile Kennung des Arbeitsplatzes" });
+const clientId = Type.String({ pattern: "^[A-Za-z0-9_-]{8,64}$", description: "Stable ID of the workstation" });
 
-const executorVersion = Type.String({ minLength: 1, maxLength: 64, description: "Stand des Executors, den der Arbeitsplatz mitbringt" });
+const executorVersion = Type.String({ minLength: 1, maxLength: 64, description: "Version of the executor that the workstation brings" });
 
-/** Die Kennung eines Plugins; ein Arbeitsplatz sucht dessen Bundle unter genau diesem Namen, ein Pfad kann darin nicht stecken. */
+/** The ID of a plugin; a workstation looks for its bundle under exactly this name, so it cannot contain a path. */
 export const PLUGIN_ID_PATTERN = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
 
 const executorContributions = Type.Array(Type.Object({
-  plugin: Type.String({ pattern: PLUGIN_ID_PATTERN.source, maxLength: 128, description: "Kennung des Plugins" }),
-  stand: Type.String({ pattern: "^[0-9a-f]{64}$", description: "SHA-256 der Datei des Beitrags" }),
-}, { additionalProperties: false }), { maxItems: 64, description: "Die Beiträge der Plugins zum Executor, in der Reihenfolge der Pluginliste des Servers" });
+  plugin: Type.String({ pattern: PLUGIN_ID_PATTERN.source, maxLength: 128, description: "ID of the plugin" }),
+  stand: Type.String({ pattern: "^[0-9a-f]{64}$", description: "SHA-256 of the contribution file" }),
+}, { additionalProperties: false }), { maxItems: 64, description: "The plugins' contributions to the executor, in the order of the server's plugin list" });
 
 const clientDescription = {
   label: Type.String({ minLength: 1, maxLength: 120 }),
   hostname: Type.String({ minLength: 1 }),
   platform: Type.String({ minLength: 1 }),
   folders: Type.Array(Type.String({ minLength: 1 }), { maxItems: 32 }),
-  runsDirectory: Type.String({ minLength: 1, description: "Absoluter Ordner, unter dem der Arbeitsplatz die neuen Ordner je Run anlegt" }),
-  ripgrep: Type.Boolean({ description: "Ob die Bash des Arbeitsplatzes rg findet" }),
+  runsDirectory: Type.String({ minLength: 1, description: "Absolute folder under which the workstation creates the new folders per run" }),
+  ripgrep: Type.Boolean({ description: "Whether the workstation's bash finds rg" }),
 };
 
 export const clientInfoSchema = Type.Object({
@@ -119,7 +119,7 @@ export const clientInfoSchema = Type.Object({
   ...clientDescription,
 }, { additionalProperties: false });
 
-/** Die Anmeldung, wie ein Arbeitsplatz mit dem Executor des Servers sie sendet. */
+/** The sign-in as a workstation with the server's executor sends it. */
 export const clientRegistrationSchema = Type.Object({
   id: clientId,
   ...clientDescription,
@@ -127,53 +127,53 @@ export const clientRegistrationSchema = Type.Object({
   contributions: executorContributions,
 }, { additionalProperties: false });
 
-/** Ein Arbeitsplatz mit einem anderen Executor kennt die Form dieses Stands nicht; der Server lehnt ihn an seinem Stand ab, nicht an der Form. */
+/** A workstation with a different executor does not know the shape of this version; the server rejects it by its version, not by its shape. */
 const otherExecutorRegistration = Type.Object({ label: clientDescription.label, executor: executorVersion }, {
-  description: "Anmeldung mit einem anderen Executor-Stand in beliebiger Form; der Server lehnt sie mit workspace-executor-version ab",
+  description: "Sign-in with a different executor version in any shape; the server rejects it with workspace-executor-version",
 });
 
-const absolutePath = Type.String({ minLength: 1, description: "Absoluter Pfad im gebundenen Ordner" });
+const absolutePath = Type.String({ minLength: 1, description: "Absolute path in the bound folder" });
 
-/** Keine Operation eines Moduls: gibt frei, was der Executor des Arbeitsplatzes für den Run hält. */
+/** Not an operation of a module: releases what the workstation's executor holds for the run. */
 export const WORKSPACE_CLIENT_STOP_OPERATION = "stop";
 
-/** Die eine Operation, die der Server auf dem Arbeitsplatz ruft; Fortschritt ist der JSON-Wert der Operation, bei Bash { text }. */
+/** The one operation the server calls on the workstation; progress is the JSON value of the operation, for bash { text }. */
 export const workspaceClientContracts = {
   execute: defineOperation({
     id: "ragents.workspace.client.execute",
-    description: "Eine Operation des Executors auf dem Arbeitsplatz ausführen, etwa ein Werkzeug, eine Dateiabfrage oder die Prozessanzeige; das Ergebnis ist ihr Wert, Fortschritt ihr JSON-Wert. stop gibt frei, was der Arbeitsplatz für den Run hält.",
+    description: "Run an operation of the executor on the workstation, such as a tool, a file query, or the process display; the result is its value, progress its JSON value. stop releases what the workstation holds for the run.",
     implementedBy: "client",
     input: Type.Object({
-      runId: Type.String({ minLength: 1, maxLength: 64, description: "Kennung des Runs" }),
-      operation: Type.String({ minLength: 1, maxLength: 64, description: "Name der Operation, etwa read, bash, roslyn_open, files.list oder stop" }),
-      toolCallId: Type.Optional(Type.String({ minLength: 1, maxLength: 200, description: "Nur bei einem Werkzeugaufruf des Modells" })),
+      runId: Type.String({ minLength: 1, maxLength: 64, description: "ID of the run" }),
+      operation: Type.String({ minLength: 1, maxLength: 64, description: "Name of the operation, such as read, bash, roslyn_open, files.list, or stop" }),
+      toolCallId: Type.Optional(Type.String({ minLength: 1, maxLength: 200, description: "Only for a tool call of the model" })),
       cwd: absolutePath,
-      env: Type.Record(Type.String(), Type.String(), { description: "Was der Server beiträgt: Run-Marker und Git-Regeln der Sandbox" }),
-      input: Type.Unknown({ description: "Die Eingabe der Operation" }),
+      env: Type.Record(Type.String(), Type.String(), { description: "What the server contributes: run marker and git rules of the sandbox" }),
+      input: Type.Unknown({ description: "The input of the operation" }),
     }, { additionalProperties: false }),
     result: Type.Object({ value: Type.Unknown() }, { additionalProperties: false }),
   }),
 } as const;
 
 const browseTarget = {
-  runId: Type.String({ minLength: 1, maxLength: 64, description: "Kennung des Runs" }),
+  runId: Type.String({ minLength: 1, maxLength: 64, description: "ID of the run" }),
   root: Type.Union([Type.Literal("workspace"), Type.Literal("files")]),
-  path: Type.String({ description: "Pfad unterhalb der Wurzel; leer ist die Wurzel selbst" }),
+  path: Type.String({ description: "Path below the root; empty is the root itself" }),
 };
 
-/** Die Anmeldung eines Arbeitsplatzes bindet die aufrufende Verbindung; über sie ruft der Server zurück. */
+/** The sign-in of a workstation binds the calling connection; the server calls back through it. */
 export const workspaceContracts = {
   browse: {
     list: defineOperation({
       id: "ragents.workspace.browse.list",
-      description: "Ein Verzeichnis im Arbeitsverzeichnis oder in der Dateiablage eines Runs auflisten.",
+      description: "List a directory in the workspace or in the file store of a run.",
       rights: ["runs.read", "runs.inspect"],
       input: Type.Object(browseTarget, { additionalProperties: false }),
       result: openJson<BrowseListing>("BrowseListing"),
     }),
     preview: defineOperation({
       id: "ragents.workspace.browse.preview",
-      description: "Eine Datei als Text vorschauen; zu große und binäre Dateien nennen stattdessen den Grund.",
+      description: "Preview a file as text; files that are too large or binary state the reason instead.",
       rights: ["runs.read", "runs.inspect"],
       input: Type.Object(browseTarget, { additionalProperties: false }),
       result: openJson<BrowsePreview>("BrowsePreview"),
@@ -182,7 +182,7 @@ export const workspaceContracts = {
   channels: {
     browse: defineChannel({
       id: "ragents.workspace.browse",
-      description: "Meldet jede Änderung unterhalb der beobachteten Wurzel eines Runs.",
+      description: "Reports every change below the observed root of a run.",
       rights: ["runs.read", "runs.inspect"],
       params: Type.Object({ runId: browseTarget.runId, root: browseTarget.root }, { additionalProperties: false }),
       message: Type.Object({ changed: Type.Literal(true) }, { additionalProperties: false }),
@@ -191,28 +191,28 @@ export const workspaceContracts = {
   clients: {
     list: defineOperation({
       id: "ragents.workspace.clients.list",
-      description: "Die angemeldeten Arbeitsplätze des Aufrufers; fremde erscheinen auch mit runs.read.all nicht.",
+      description: "The caller's signed-in workstations; other users' workstations do not appear even with runs.read.all.",
       rights: ["runs.read"],
       input: Type.Object({}, { additionalProperties: false }),
       result: Type.Array(clientInfoSchema),
     }),
     contributions: defineOperation({
       id: "ragents.workspace.clients.contributions",
-      description: "Die Beiträge der Plugins zum Executor, die ein Arbeitsplatz vor der Anmeldung lädt und mit ihr zurückmeldet. Ein Arbeitsplatz mit anderem Executor-Stand scheitert an seinem Stand; weitere Felder zählen nicht.",
+      description: "The plugins' contributions to the executor that a workstation loads before sign-in and reports back with it. A workstation with a different executor version fails on its version; other fields do not matter.",
       rights: ["runs.write"],
       input: Type.Object({ label: clientDescription.label, executor: executorVersion }),
       result: executorContributions,
     }),
     register: defineOperation({
       id: "ragents.workspace.clients.register",
-      description: "Einen Arbeitsplatz anmelden oder seine Ordner erneuern; die Verbindung dieser Anfrage wird sein Rückweg und braucht einen Ereignisstrom. Ein Arbeitsplatz mit anderem Executor-Stand scheitert an seinem Stand, bevor die übrige Form zählt.",
+      description: "Sign in a workstation or renew its folders; the connection of this request becomes its return path and needs an event stream. A workstation with a different executor version fails on its version before the rest of the shape matters.",
       rights: ["runs.write"],
       input: Type.Union([clientRegistrationSchema, otherExecutorRegistration]),
       result: clientInfoSchema,
     }),
     unregister: defineOperation({
       id: "ragents.workspace.clients.unregister",
-      description: "Einen eigenen Arbeitsplatz abmelden; offene Aufträge scheitern.",
+      description: "Sign out one of your own workstations; open tasks fail.",
       rights: ["runs.write"],
       input: Type.Object({ id: clientId }, { additionalProperties: false }),
       result: Type.Null(),
@@ -235,7 +235,7 @@ const isFolder = (value: unknown): value is WorkspaceFolder => {
   return hasExactly(value, ["path"]) || (hasExactly(value, ["path", "fresh"]) && value.fresh === true);
 };
 
-/** Einen neuen Ordner mit Pfad gibt es nur auf einem Arbeitsplatz; auf dem Server legt ihn der Host selbst an. */
+/** A new folder with a path exists only on a workstation; on the server the host creates it itself. */
 export const isWorkspaceBinding = (value: unknown): value is WorkspaceBinding =>
   isRecord(value) && hasExactly(value, ["machine", "folder"]) && isMachine(value.machine) && isFolder(value.folder)
   && !(value.machine === "server" && typeof value.folder === "object" && "fresh" in value.folder);
@@ -243,7 +243,7 @@ export const isWorkspaceBinding = (value: unknown): value is WorkspaceBinding =>
 export const isFreshFolder = (folder: WorkspaceFolder): folder is "fresh" | FreshWorkstationFolder =>
   folder === "fresh" || "fresh" in folder;
 
-/** Die Form vor der Trennung von Rechner und Ordner, `{ kind: "fresh" | "path" | "client" }`, eindeutig in der heutigen. */
+/** The shape before machine and folder were separated, `{ kind: "fresh" | "path" | "client" }`, mapped unambiguously to the current one. */
 const fromKind = (value: Record<string, unknown>): unknown => {
   switch (value.kind) {
     case "fresh": return hasExactly(value, ["kind"]) ? freshServerBinding() : undefined;
@@ -255,16 +255,16 @@ const fromKind = (value: Record<string, unknown>): unknown => {
   }
 };
 
-/** Die gespeicherte Bindung; ältere, unveränderliche Journale tragen die Form mit `kind`, und nur hier wird sie abgebildet. */
+/** The stored binding; older, immutable journals carry the shape with `kind`, and only here is it mapped. */
 export const storedWorkspaceBinding = (value: unknown): WorkspaceBinding | undefined => {
   if (isWorkspaceBinding(value)) return value;
   const mapped = isRecord(value) && Object.hasOwn(value, "kind") ? fromKind(value) : undefined;
   return isWorkspaceBinding(mapped) ? mapped : undefined;
 };
 
-export const FRESH_WORKSPACE_LABEL = "Leerer Ordner je Run";
+export const FRESH_WORKSPACE_LABEL = "Empty folder per run";
 
-/** Wie der neue Ordner je Run auf dem Rechner der Bindung heißt; ohne Beitrag dort der leere Ordner. */
+/** What the new folder per run is called on the binding's machine; without a contribution there, the empty folder. */
 const freshLabelOf = (binding: WorkspaceBinding, labels: FreshWorkspaceLabels): string =>
   (binding.machine === "server" ? labels.server : labels.client) ?? FRESH_WORKSPACE_LABEL;
 

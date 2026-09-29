@@ -15,11 +15,11 @@ const workspaceFolders = (root) => [
 const nameOf = (folder) => {
   const file = path.join(folder, "package.json");
   const name = JSON.parse(readFileSync(file, "utf8")).name;
-  if (typeof name !== "string" || !name) throw new Error(`${file} nennt keinen Paketnamen`);
+  if (typeof name !== "string" || !name) throw new Error(`${file} names no package name`);
   return name;
 };
 
-/** Legt im Paket @schlenkr/ragents die Verknüpfungen an, die im Checkout von pnpm kommen; im Checkout tut sie nichts. */
+/** Creates in the package @schlenkr/ragents the links that pnpm creates in the checkout; in the checkout it does nothing. */
 export const ensureHostLinks = (root) => {
   const manifest = path.join(root, "package.json");
   if (!isFile(manifest) || JSON.parse(readFileSync(manifest, "utf8")).ragents?.hostVersion === undefined) return [];
@@ -28,7 +28,7 @@ export const ensureHostLinks = (root) => {
     const link = path.join(root, "node_modules", nameOf(folder));
     const existing = lstatSync(link, { throwIfNoEntry: false });
     if (existing) {
-      if (realpathSync(link) !== realpathSync(folder)) throw new Error(`${link} zeigt nicht auf ${folder}; das Paket ist beschädigt`);
+      if (realpathSync(link) !== realpathSync(folder)) throw new Error(`${link} does not point to ${folder}; the package is damaged`);
       continue;
     }
     mkdirSync(path.dirname(link), { recursive: true });

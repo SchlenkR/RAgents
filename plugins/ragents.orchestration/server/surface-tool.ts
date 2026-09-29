@@ -36,7 +36,7 @@ export const surfaceToolMetadata = {
 
 export const canDesignSurface = defineToolAvailability({
   availability: "conditional",
-  availabilityDetail: "Nur für Agenten und TypeScript-Actors mit der Capability plugin.state.write.",
+  availabilityDetail: "Only for agents and TypeScript actors with the capability plugin.state.write.",
   requiredCapabilities: ["plugin.state.write"],
 }, (actor) => actor.kind !== "human" && holdsUsable(actor, "plugin.state.write"));
 
@@ -72,15 +72,15 @@ const isStopped = (actor: RunView["actors"][number]) => actor.kind !== "human" &
 
 const surfaceActorOf = (view: RunView, reference: string, where: string) => {
   const entity = surfaceEntityOf(reference);
-  if (entity.kind !== "actor") throw invalid(`${where}: ${reference} ist kein Actor`);
+  if (entity.kind !== "actor") throw invalid(`${where}: ${reference} is not an actor`);
   const handle = entity.handle;
   const found = actorByHandle(view.actors, handle);
   if (!found) {
     const known = view.actors.filter((actor) => actor.kind !== "human").map((actor) => `@${actor.handle}`);
-    throw invalid(`${where}: @${handle} ist kein Actor dieses Runs. Vorhanden: ${known.join(", ") || "keine"}`);
+    throw invalid(`${where}: @${handle} is not an actor of this run. Present: ${known.join(", ") || "none"}`);
   }
   if (found.kind === "human") {
-    throw invalid(`${where}: @${handle} ist der Mensch im Chat; der Chat liegt fest links neben der Fläche`);
+    throw invalid(`${where}: @${handle} is the human in the chat; the chat is fixed to the left of the surface`);
   }
   return found;
 };
@@ -102,7 +102,7 @@ const resolveAppReferences = (view: RunView, layout: SurfaceLayout): SurfaceLayo
     try {
       return `app:${resolveActorView(programs, entity.id).view.id}`;
     } catch (error) {
-      throw invalid(`${where}: ${reference}: ${error instanceof Error ? error.message : String(error)} Flächenentitäten erhalten das Präfix app:.`);
+      throw invalid(`${where}: ${reference}: ${error instanceof Error ? error.message : String(error)} Surface entities get the prefix app:.`);
     }
   };
   return parsedLayout({ root: layout.root ? mapSurfaceTileEntities(layout.root, (entity) => resolve(entity, "root")) : null });

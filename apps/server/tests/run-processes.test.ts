@@ -38,7 +38,7 @@ test("negative macOS system UIDs do not block process discovery", () => {
   const records = parseDarwinProcessTable(" 1158 1 1158 -2 Sun Sep 13 12:37:47 2026 /usr/libexec/dhcp6d");
   assert.equal(records[0]?.uid, -2);
   assert.equal(records[0]?.command, "/usr/libexec/dhcp6d");
-  assert.throws(() => parseDarwinProcessTable(" -1158 1 1158 -2 Sun Sep 13 12:37:47 2026 invalid"), /Unlesbare Prozesszeile/);
+  assert.throws(() => parseDarwinProcessTable(" -1158 1 1158 -2 Sun Sep 13 12:37:47 2026 invalid"), /Unreadable process line/);
 });
 
 const record = (values: Partial<ProcessRecord> & { pid: number }): ProcessRecord => ({
@@ -71,13 +71,13 @@ const fakeTable = (state: {
   return { table, markerRequests, portRequests };
 };
 
-test("die Sandbox-Umgebung trägt die Laufkennung als Marker", () => {
+test("the sandbox environment carries the run id as a marker", () => {
   const env = sandboxEnvironment({ PATH: "/bin" }, { home: { home: "/tmp/work" }, additions: sandboxRunEnvironment("run-7") });
   assert.equal(env[RUN_MARKER_ENV], "run-7");
   assert.equal(RUN_MARKER_ENV, "RAGENTS_RUN_ID");
 });
 
-test("Kinder eines laufenden Werkzeugaufrufs zählen nur mit offenem Port, Hintergrundprozesse immer", () => {
+test("children of a running tool call count only with an open port, background processes always", () => {
   const records = [
     record({ pid: 100, ppid: SERVER_PID, pgid: 100, command: "/bin/bash -c npm run dev" }),
     record({ pid: 101, ppid: 100, pgid: 100, command: "node /work/node_modules/.bin/vite --port 5173" }),
@@ -107,7 +107,7 @@ test("Kinder eines laufenden Werkzeugaufrufs zählen nur mit offenem Port, Hinte
   assert.deepEqual(processes[1].ports, [{ port: 5173, address: "*" }, { port: 5173, address: "::1" }]);
 });
 
-test("das Label nennt den Interpreter mit seinem Skript, sonst nur das Programm", () => {
+test("the label names the interpreter with its script, otherwise only the program", () => {
   assert.equal(labelOf("node /work/node_modules/.bin/vite --port 5173"), "node vite");
   assert.equal(labelOf("/usr/local/share/dotnet/dotnet run --project src/ApiService"), "dotnet run");
   assert.equal(labelOf("/usr/local/share/dotnet/dotnet /work/ApiService.dll"), "dotnet ApiService.dll");
@@ -121,7 +121,7 @@ test("das Label nennt den Interpreter mit seinem Skript, sonst nur das Programm"
   assert.equal(labelOf(`node ${"x".repeat(80)}`).length, 40);
 });
 
-test("die macOS-Prozesstabelle, die Marker und die lsof-Ausgabe werden gelesen", () => {
+test("the macOS process table, the markers and the lsof output are read", () => {
   const table = parseDarwinProcessTable([
     "    1     0     1     0 Thu Sep  3 12:38:07 2026     /sbin/launchd",
     "56197 56194 56194   501 Thu Sep  3 15:17:44 2026     node -e setTimeout(()=>{},5000)",
@@ -132,13 +132,13 @@ test("die macOS-Prozesstabelle, die Marker und die lsof-Ausgabe werden gelesen",
     pid: 56197, ppid: 56194, pgid: 56194, uid: 501, startKey: "Thu Sep  3 15:17:44 2026", command: "node -e setTimeout(()=>{},5000)",
   });
   assert.equal(table[2].command, "/usr/libexec/UserEventAgent (System)");
-  assert.throws(() => parseDarwinProcessTable("kaputt"), /Unlesbare Prozesszeile/);
+  assert.throws(() => parseDarwinProcessTable("broken"), /Unreadable process line/);
 
   const markers = parseDarwinMarkers([
     "56197 node -e x PATH=/bin RAGENTS_RUN_ID=run-1 HOME=/tmp",
     "56198 /bin/sleep 3",
     "56199 env RAGENTS_RUN_ID=run-2 node",
-    "56200 node RAGENTS_RUN_ID=nicht/gültig",
+    "56200 node RAGENTS_RUN_ID=not/valid",
   ].join("\n"));
   assert.deepEqual([...markers], [[56197, "run-1"], [56199, "run-2"]]);
 
@@ -163,9 +163,9 @@ test("macOS ignores an exited process between argument and environment reads wit
   ].join("\n"), commands);
   assert.deepEqual([...markers], [[12, "run-live"], [13, "run-other"]]);
   assert.throws(() => parseDarwinMarkers("10 node changed.js RAGENTS_RUN_ID=run-live", commands),
-    /Prozess 10 hat sich während der Umgebungsabfrage geändert/);
+    /Process 10 changed during the environment query/);
   assert.throws(() => parseDarwinMarkers("10 <defunct> RAGENTS_RUN_ID=run-live", commands),
-    /Prozess 10 hat sich während der Umgebungsabfrage geändert/);
+    /Process 10 changed during the environment query/);
 });
 
 test("macOS rechecks only changed PIDs and never reads an appended marker argument as environment", async () => {
@@ -184,7 +184,7 @@ test("macOS rechecks only changed PIDs and never reads an appended marker argume
     assert.equal(args.includes("-E"), calls % 3 === 1);
     pids.push(args.at(-1)!);
     const output = outputs[calls++];
-    assert.notEqual(output, undefined, "Unerwartete zusätzliche Prozessabfrage");
+    assert.notEqual(output, undefined, "unexpected additional process query");
     return output!;
   });
   assert.deepEqual([...await table.runMarkers([10, 11, 12])], [[10, "run-stable"], [11, "run-live"]]);
@@ -232,17 +232,17 @@ test("macOS marker retries do not catch command failures or malformed ps output"
   const malformed = darwinProcessTable(async () => ++calls === 1 ? "10 node stable.js" : "sensitive-unreadable-output");
   await assert.rejects(malformed.runMarkers([10]), (error: unknown) => {
     assert.ok(error instanceof Error && !(error instanceof ProcessChangedError));
-    assert.match(error.message, /Unlesbare Befehlszeile/);
+    assert.match(error.message, /Unreadable command line/);
     assert.doesNotMatch(error.message, /sensitive-unreadable-output/);
     return true;
   });
   assert.equal(calls, 2);
 });
 
-test("die Linux-Dateien aus /proc werden gelesen", () => {
+test("the Linux files from /proc are read", () => {
   const stat = parseLinuxStat("1234 (node (dev) srv) S 1000 1234 1234 0 -1 4194560 100 0 0 0 5 1 0 0 20 0 11 0 987654 1 2 3 4 5 6 7 8 9 10 11");
   assert.deepEqual(stat, { comm: "node (dev) srv", state: "S", ppid: 1000, pgid: 1234, startTime: "987654" });
-  assert.throws(() => parseLinuxStat("12 (x) S 1"), /Unlesbare stat-Zeile/);
+  assert.throws(() => parseLinuxStat("12 (x) S 1"), /Unreadable stat line/);
 
   const listeners = parseLinuxTcpTable([
     "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode",
@@ -258,10 +258,10 @@ test("die Linux-Dateien aus /proc werden gelesen", () => {
   assert.equal(addressFromHex("00000000000000000000000000000000"), "*");
   assert.equal(addressFromHex("00000000000000000000000001000000"), "::1");
   assert.equal(addressFromHex("0000000000000000FFFF00000100007F"), "::ffff:127.0.0.1".replace("127.0.0.1", "7f00:1"));
-  assert.throws(() => addressFromHex("abc"), /Unbekannte Adressform/);
+  assert.throws(() => addressFromHex("abc"), /Unknown address form/);
 });
 
-/** Ein Prozess in einem nachgebauten /proc; `sealed` sperrt Umgebung und Dateideskriptoren wie bei PR_SET_DUMPABLE 0. */
+/** A process in a replicated /proc; `sealed` locks environment and file descriptors as with PR_SET_DUMPABLE 0. */
 const fakeProcess = async (proc: string, pid: number, environment: string, sealed: boolean): Promise<void> => {
   const directory = path.join(proc, String(pid));
   await mkdir(path.join(directory, "fd"), { recursive: true });
@@ -274,7 +274,7 @@ const fakeProcess = async (proc: string, pid: number, environment: string, seale
   await chmod(path.join(directory, "fd"), 0o000);
 };
 
-test("ein eigener Prozess mit gesperrter Umgebung trägt keinen Marker, statt Anzeige und Stopp scheitern zu lassen", { skip: process.getuid?.() === 0 }, async () => {
+test("an own process with a locked environment carries no marker instead of making display and stop fail", { skip: process.getuid?.() === 0 }, async () => {
   const proc = await mkdtemp(path.join(tmpdir(), "ragents-fake-proc-"));
   try {
     await fakeProcess(proc, 41, `PATH=/usr/bin\0${RUN_MARKER_ENV}=run-1\0`, false);
@@ -283,14 +283,14 @@ test("ein eigener Prozess mit gesperrter Umgebung trägt keinen Marker, statt An
     assert.deepEqual((await table.list()).map((entry) => entry.pid).sort(), [41, 42]);
     assert.deepEqual([...await table.runMarkers([41, 42])], [[41, "run-1"]]);
     assert.deepEqual([...await table.listeningPorts([42])], []);
-    await assert.rejects(linuxProcessTable({ proc, asRoot: true }).runMarkers([42]), /Die Umgebung von Prozess 42 ist nicht lesbar \(EACCES\); als root braucht die Prozessüberwachung CAP_SYS_PTRACE/);
+    await assert.rejects(linuxProcessTable({ proc, asRoot: true }).runMarkers([42]), /The environment of process 42 is not readable \(EACCES\); as root the process monitor needs CAP_SYS_PTRACE/);
   } finally {
     await chmod(path.join(proc, "42", "fd"), 0o700).catch(() => undefined);
     await rm(proc, { recursive: true, force: true });
   }
 });
 
-test("der Scanner liest Marker nur für neue Prozesse und merkt sich die erste Sichtung", async () => {
+test("the scanner reads markers only for new processes and remembers the first sighting", async () => {
   const state = {
     records: [
       record({ pid: 10, ppid: SERVER_PID, pgid: 10, command: "/bin/bash -c node app.js" }),
@@ -321,21 +321,21 @@ test("der Scanner liest Marker nur für neue Prozesse und merkt sich die erste S
   ]);
   assert.equal(second.processes[0].seenSince, "2026-09-03T10:00:00.000Z");
 
-  state.records = [record({ pid: 11, ppid: 1, pgid: 11, startKey: "neu", command: "node app.js" })];
+  state.records = [record({ pid: 11, ppid: 1, pgid: 11, startKey: "new", command: "node app.js" })];
   const third = await scanner.snapshot("run-1");
   assert.deepEqual(fake.markerRequests, [[10, 11], [11]]);
   assert.deepEqual(third.processes.map((process) => [process.pid, process.origin]), [[11, "background"]]);
   assert.deepEqual((await scanner.snapshot("run-1")).processes, third.processes);
 });
 
-test("der Beobachter fragt je Takt den Executor jedes Runs und meldet nur Änderungen", async () => {
+test("the observer asks the executor of each run per tick and reports only changes", async () => {
   const snapshots = new Map<string, RunProcessSnapshot>([["run-1", { runId: "run-1", observedAt: "t0", processes: [] }]]);
   const asked: string[] = [];
   const observer = new RunProcessObserver({
     snapshot: async (runId) => {
       asked.push(runId);
       const snapshot = snapshots.get(runId);
-      if (!snapshot) throw new Error(`Kein Stand für ${runId}`);
+      if (!snapshot) throw new Error(`No state for ${runId}`);
       return snapshot;
     },
     pollIntervalMs: 60_000,
@@ -349,8 +349,8 @@ test("der Beobachter fragt je Takt den Executor jedes Runs und meldet nur Änder
   const late: RunProcessMessage[] = [];
   const stopLate = observer.watch("run-1", (message) => late.push(message));
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(received.length, 1, "unveränderter Stand geht nicht noch einmal an den ersten");
-  assert.equal(late.length, 1, "ein neuer Abonnent bekommt den Stand sofort");
+  assert.equal(received.length, 1, "an unchanged state does not go to the first subscriber again");
+  assert.equal(late.length, 1, "a new subscriber gets the state immediately");
 
   snapshots.set("run-1", { runId: "run-1", observedAt: "t1", processes: [{
     id: "11-x", pid: 11, label: "node app.js", command: "node app.js", origin: "background", ports: [], seenSince: "t1",
@@ -358,7 +358,7 @@ test("der Beobachter fragt je Takt den Executor jedes Runs und meldet nur Änder
   assert.deepEqual((await observer.observe("run-1")).processes.map((process) => process.pid), [11]);
   const stopThird = observer.watch("run-1", () => undefined);
   await new Promise((resolve) => setImmediate(resolve));
-  assert.equal(received.length, 2, "ein geänderter Stand geht an alle Abonnenten");
+  assert.equal(received.length, 2, "a changed state goes to all subscribers");
   assert.deepEqual(received[1]!.kind === "snapshot" ? received[1]!.snapshot.processes.map((process) => process.pid) : [], [11]);
   assert.deepEqual(observer.watchedRuns(), ["run-1"]);
   stop();
@@ -368,7 +368,7 @@ test("der Beobachter fragt je Takt den Executor jedes Runs und meldet nur Änder
   await observer.shutdown();
 });
 
-test("ein hängender Executor friert nur seinen Run ein: die anderen melden weiter, seiner scheitert nach der Zeitgrenze", async () => {
+test("a hanging executor freezes only its run: the others keep reporting, its own fails after the time limit", async () => {
   const aborted: string[] = [];
   let ticks = 0;
   let pending = 0;
@@ -379,7 +379,7 @@ test("ein hängender Executor friert nur seinen Run ein: die anderen melden weit
       return new Promise((_settle, fail) => signal.addEventListener("abort", () => {
         pending--;
         aborted.push(runId);
-        fail(new Error("abgebrochen"));
+        fail(new Error("cancelled"));
       }));
     },
     pollIntervalMs: 20,
@@ -393,27 +393,27 @@ test("ein hängender Executor friert nur seinen Run ein: die anderen melden weit
     const stopOk = observer.watch("run-ok", (message) => ok.push(message));
     const started = Date.now();
     while (ticks < 3 && Date.now() - started < 2000) await new Promise((resolve) => setTimeout(resolve, 10));
-    assert.ok(ticks >= 3, "der zweite Run wird weiter abgefragt, während der erste hängt");
-    assert.equal(ok.length, 1, "unveränderter Stand geht nur einmal hinaus");
+    assert.ok(ticks >= 3, "the second run keeps being queried while the first hangs");
+    assert.equal(ok.length, 1, "an unchanged state goes out only once");
     while (hanging.length === 0 && Date.now() - started < 2000) await new Promise((resolve) => setTimeout(resolve, 10));
-    assert.match(hanging[0]?.kind === "error" ? hanging[0].error : "", /nicht innerhalb von 0.1 s beantwortet/);
-    assert.deepEqual(aborted.slice(0, 1), ["run-hang"], "die Zeitgrenze bricht die Abfrage beim Executor ab");
+    assert.match(hanging[0]?.kind === "error" ? hanging[0].error : "", /did not answer the process query within 0\.1 s/);
+    assert.deepEqual(aborted.slice(0, 1), ["run-hang"], "the time limit cancels the query at the executor");
     stopOk();
     while (pending === 0 && Date.now() - started < 4000) await new Promise((resolve) => setTimeout(resolve, 5));
-    assert.ok(pending > 0, "eine neue Abfrage des hängenden Runs läuft");
+    assert.ok(pending > 0, "a new query of the hanging run is running");
     const before = aborted.length;
     stopHanging();
     await new Promise((resolve) => setTimeout(resolve, 30));
-    assert.ok(aborted.length > before, "wer den letzten Beobachter abmeldet, bricht die laufende Abfrage ab");
+    assert.ok(aborted.length > before, "whoever unsubscribes the last observer cancels the running query");
   } finally {
     console.error = silenced;
     await observer.shutdown();
   }
 });
 
-test("ein Fehler beim Executor erreicht die Beobachter des Runs als Fehlermeldung, einmal", async () => {
+test("an error at the executor reaches the run's observers as an error message, once", async () => {
   const observer = new RunProcessObserver({
-    snapshot: () => Promise.reject(new Error("lsof ist nicht installiert; die Prozessüberwachung braucht es")),
+    snapshot: () => Promise.reject(new Error("lsof is not installed; the process monitor needs it")),
     pollIntervalMs: 60_000,
   });
   const received: RunProcessMessage[] = [];
@@ -426,7 +426,7 @@ test("ein Fehler beim Executor erreicht die Beobachter des Runs als Fehlermeldun
   } finally {
     console.error = silenced;
   }
-  assert.deepEqual(received, [{ kind: "error", error: "lsof ist nicht installiert; die Prozessüberwachung braucht es" }]);
+  assert.deepEqual(received, [{ kind: "error", error: "lsof is not installed; the process monitor needs it" }]);
   await observer.shutdown();
 });
 
@@ -434,7 +434,7 @@ const connection: MethodConnection = {
   id: "connection-1",
   userId: null,
   streamless: false,
-  call: () => Promise.reject(new Error("Die Prozessüberwachung ruft niemanden zurück")),
+  call: () => Promise.reject(new Error("The process monitor calls nobody back")),
   onClose: () => () => undefined,
 };
 
@@ -446,7 +446,7 @@ const context = (rights: readonly string[]): MethodContext => ({
   local: true,
 });
 
-test("die Methoden liefern den Stand und der Ereigniskanal den Strom", async () => {
+test("the methods deliver the state and the event channel the stream", async () => {
   const snapshot: RunProcessSnapshot = { runId: "run-1", observedAt: "2026-09-03T10:00:00.000Z", processes: [] };
   let listener: ((message: RunProcessMessage) => void) | undefined;
   let stopped = 0;
@@ -460,7 +460,7 @@ test("die Methoden liefern den Stand und der Ereigniskanal den Strom", async () 
       },
     },
     ensureWorkspaceAccess: (_access: unknown, runId: string) => {
-      if (runId === "run-gone") throw new Error("Der Run wurde gelöscht");
+      if (runId === "run-gone") throw new Error("The run was deleted");
     },
   };
   const [snapshotMethod, stopMethod] = createProcessMethods(options);
@@ -473,7 +473,7 @@ test("die Methoden liefern den Stand und der Ereigniskanal den Strom", async () 
   assert.deepEqual(await snapshotMethod.execute({ runId: "run-1" }, context(["runs.read", "ragents.processes.read"])), snapshot);
   await assert.rejects(
     Promise.resolve().then(() => snapshotMethod.execute({ runId: "run-gone" }, context(["runs.read", "ragents.processes.read"]))),
-    /gelöscht/,
+    /deleted/,
   );
 
   assert.equal(channel.contract.id, "ragents.processes");
@@ -481,14 +481,14 @@ test("die Methoden liefern den Stand und der Ereigniskanal den Strom", async () 
   const emitted: unknown[] = [];
   const access = createAccessContext({ enabled: false, user: null });
   const stop = await channel.open({ runId: "run-1" }, (data) => emitted.push(data), { access, connection });
-  assert.ok(listener, "der Kanal hat keinen Beobachter registriert");
+  assert.ok(listener, "the channel registered no observer");
   listener({ kind: "snapshot", snapshot });
   assert.deepEqual(emitted, [{ kind: "snapshot", snapshot }]);
   stop();
   assert.equal(stopped, 1);
   await assert.rejects(
     Promise.resolve().then(() => channel.open({ runId: "run-gone" }, () => {}, { access, connection })),
-    /gelöscht/,
+    /deleted/,
   );
 });
 
@@ -510,10 +510,10 @@ const startListener = (runId: string): Promise<{ child: ChildProcess; port: numb
       if (Number.isInteger(port) && port > 0) resolve({ child, port });
     });
     child.once("error", reject);
-    child.once("exit", (code) => reject(new Error(`Der Testprozess endete vorzeitig mit ${code}`)));
+    child.once("exit", (code) => reject(new Error(`The test process ended early with ${code}`)));
   });
 
-test("auf dieser Plattform findet die echte Prozesstabelle einen markierten Prozess samt Port", async () => {
+test("on this platform the real process table finds a marked process with its port", async () => {
   const runId = `run-live-${process.pid}`;
   const { child, port } = await startListener(runId);
   child.removeAllListeners("exit");
@@ -535,7 +535,7 @@ test("auf dieser Plattform findet die echte Prozesstabelle einen markierten Proz
   }
 });
 
-test("unter Windows gibt es keine Prozesstabelle, der Aufruf nennt die Ursache", () => {
-  assert.throws(() => processTableForPlatform("win32"), /Unter Windows gibt es keine Prozesstabelle/);
-  assert.throws(() => processTableForPlatform("freebsd"), /kennt die Plattform freebsd nicht/);
+test("on Windows there is no process table, the call names the cause", () => {
+  assert.throws(() => processTableForPlatform("win32"), /There is no process table on Windows/);
+  assert.throws(() => processTableForPlatform("freebsd"), /does not know the platform freebsd/);
 });

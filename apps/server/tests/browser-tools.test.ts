@@ -10,26 +10,26 @@ import { RunBrowser } from "../../../plugins/ragents.browser/server/browser.ts";
 import { createBrowserFunctions, createBrowserImageContribution } from "../../../plugins/ragents.browser/server/tools.ts";
 import { stubBrowser, type StubDocument } from "./browser-stub.ts";
 
-const unusedSandbox = { execute: async () => { throw new Error("Dieser Test ruft keinen Executor"); } };
+const unusedSandbox = { execute: async () => { throw new Error("This test calls no executor"); } };
 
 const site: Readonly<Record<string, StubDocument>> = {
   "/": {
-    title: "Entwurf",
+    title: "Draft",
     elements: [
-      { role: "button", name: "Speichern", onClick: (page) => page.show({ role: "status", name: "Gespeichert" }) },
-      { role: "button", name: "Weiter", onClick: (page) => page.navigate("/zwei") },
+      { role: "button", name: "Save", onClick: (page) => page.show({ role: "status", name: "Saved" }) },
+      { role: "button", name: "Next", onClick: (page) => page.navigate("/two") },
     ],
   },
-  "/zwei": { title: "Zweite Seite", elements: [] },
+  "/two": { title: "Second page", elements: [] },
 };
 
-/** Der Server-Teil über dem Executor des Servers; der Browser selbst ist ein Modul dieses Executors. */
+/** The server part on top of the server's executor; the browser itself is a module of that executor. */
 const localBrowser = (options: BrowserModuleOptions, filesFor: (runId: string) => Promise<string> = async () => "/unused") => {
   const executor = new WorkspaceOperationExecutor({
     contextFor: async (runId) => workspaceProcessContext({
       runId, cwd: tmpdir(), root: tmpdir(), home: { home: tmpdir() }, logDirectory: tmpdir(), hostRoot: undefined,
     }),
-    modules: [browserModule(executorMachine("/unbenutzt"), { timeoutMs: 500, checkTimeoutMs: 50, ...options })],
+    modules: [browserModule(executorMachine("/unused"), { timeoutMs: 500, checkTimeoutMs: 50, ...options })],
   });
   return { browser: new RunBrowser({ sandbox: executor, filesFor }), executor };
 };
@@ -40,7 +40,7 @@ const documentsIn = async (t: TestContext): Promise<string> => {
   return directory;
 };
 
-test("Browserwerkzeuge deklarieren typisierte Ergebnisse und eine eigene native Bildanzeige", () => {
+test("browser tools declare typed results and their own native image display", () => {
   const browser = new RunBrowser({ sandbox: unusedSandbox, filesFor: async () => "/unused" });
   const functions = createBrowserFunctions(browser);
   assert.equal(functions.length, 11);
@@ -58,7 +58,7 @@ test("Browserwerkzeuge deklarieren typisierte Ergebnisse und eine eigene native 
   assert.equal(functions.find((entry) => entry.name === "browser_view_screenshot")?.nativeTool, true);
 });
 
-test("Native Bildanzeige löst den Run serverseitig auf und weist Modelle ohne Bilder ab", async () => {
+test("the native image display resolves the run on the server and rejects models without images", async () => {
   const requested: string[] = [];
   class ImageBrowser extends RunBrowser {
     override async image(runId: string): Promise<Buffer> {
@@ -74,37 +74,37 @@ test("Native Bildanzeige löst den Run serverseitig auf und weist Modelle ohne B
   const outcome = { toolName: "browser_view_screenshot", isError: false };
   const rejected = await handler(outcome, false);
   assert.equal(rejected?.isError, true);
-  assert.match(JSON.stringify(rejected?.content), /unterstützt keine Bilder/);
+  assert.match(JSON.stringify(rejected?.content), /does not support images/);
   assert.deepEqual(requested, []);
   const result = await handler(outcome, true);
   assert.deepEqual(requested, ["this-run"]);
   assert.deepEqual(result?.content, [
-    { type: "text", text: "Letzte Browseraufnahme dieses Runs." },
+    { type: "text", text: "Latest browser screenshot of this run." },
     { type: "image", data: Buffer.from("screenshot").toString("base64"), mimeType: "image/png" },
   ]);
   assert.equal(await handler({ ...outcome, toolName: "browser_snapshot" }, true), undefined);
   assert.equal(await handler({ ...outcome, isError: true }, true), undefined);
 });
 
-test("Fehlender Browser und Aufnahmen sind klare Fehler ohne künstlichen Erfolg", async () => {
-  const { browser } = localBrowser({ launch: async () => { throw new Error("Kein ausführbarer Browser: BROWSER_EXECUTABLE_PATH setzen"); } });
+test("a missing browser and missing screenshots are clear errors without artificial success", async () => {
+  const { browser } = localBrowser({ launch: async () => { throw new Error("No executable browser: set BROWSER_EXECUTABLE_PATH"); } });
   await assert.rejects(browser.open("one", "http://127.0.0.1"), /BROWSER_EXECUTABLE_PATH/);
   assert.equal(browser.evidence("one").url, undefined);
-  await assert.rejects(browser.image("one"), /noch keinen Browser-Screenshot/);
-  await assert.rejects(browser.snapshot("other"), /Zuerst browser_open/);
-  await assert.rejects(browser.open("other", "file:///etc/hosts"), /HTTP- oder HTTPS/);
+  await assert.rejects(browser.image("one"), /no browser screenshot for this run yet/);
+  await assert.rejects(browser.snapshot("other"), /Call browser_open first/);
+  await assert.rejects(browser.open("other", "file:///etc/hosts"), /HTTP or HTTPS/);
   await browser.shutdown();
-  await assert.rejects(browser.open("one", "http://127.0.0.1"), /Browserdienst ist beendet/);
+  await assert.rejects(browser.open("one", "http://127.0.0.1"), /browser service has ended/);
 });
 
-test("Run-Stopp schließt auch einen noch startenden Browser und startet keine Seite", async () => {
+test("a run stop also closes a browser that is still starting and opens no page", async () => {
   let finishLaunch: ((browser: Browser) => void) | undefined;
   let closed = 0;
   let contexts = 0;
   const { browser } = localBrowser({ launch: () => new Promise((resolve) => { finishLaunch = resolve; }) });
   await browser.restore("one");
   const opened = browser.open("one", "http://127.0.0.1");
-  const rejected = assert.rejects(opened, /Browser wurde beendet/);
+  const rejected = assert.rejects(opened, /browser was closed/);
   while (!finishLaunch) await new Promise((resolve) => setTimeout(resolve, 5));
   const stopped = browser.close("one");
   finishLaunch({
@@ -117,7 +117,7 @@ test("Run-Stopp schließt auch einen noch startenden Browser und startet keine S
   assert.deepEqual(browser.evidence("one"), { screenshots: [], currentScreenshots: [], errors: [] });
 });
 
-test("Bereits abgebrochene Browseröffnung startet keinen Prozess", async () => {
+test("an already aborted browser open starts no process", async () => {
   let launches = 0;
   const { browser } = localBrowser({ launch: async () => { launches += 1; throw new Error("unexpected launch"); } });
   const abort = new AbortController();
@@ -126,7 +126,7 @@ test("Bereits abgebrochene Browseröffnung startet keinen Prozess", async () => 
   assert.equal(launches, 0);
 });
 
-test("die Evidenz hält der Server: Prüfzeit mit seiner Uhr, Aufnahmen in seiner Ablage, Viewport über den Browserneustart", async (t) => {
+test("the server holds the evidence: check time by its clock, screenshots in its storage, viewport across the browser restart", async (t) => {
   const documents = await documentsIn(t);
   const stub = stubBrowser(site);
   const { browser } = localBrowser({ launch: stub.launch }, async (runId) => path.join(documents, runId));
@@ -134,13 +134,13 @@ test("die Evidenz hält der Server: Prüfzeit mit seiner Uhr, Aufnahmen in seine
 
   await browser.open("one", "http://localhost:4173/");
   assert.deepEqual(browser.evidence("one"), { url: "http://localhost:4173/", screenshots: [], currentScreenshots: [], errors: [] });
-  await browser.click("one", { role: "button", name: "Speichern" });
+  await browser.click("one", { role: "button", name: "Save" });
   const before = Date.now();
-  const checked = await browser.check("one", { target: { role: "status" }, text: "Gespeichert" });
+  const checked = await browser.check("one", { target: { role: "status" }, text: "Saved" });
   assert.ok(Date.parse(checked.checkedAt) >= before - 1 && Date.parse(checked.checkedAt) <= Date.now());
   assert.equal(browser.evidence("one").checkedAt, checked.checkedAt);
 
-  const shot = await browser.screenshot("one", { label: "Gespeichert" });
+  const shot = await browser.screenshot("one", { label: "Saved" });
   assert.match(shot.path, /^browser\/[a-f0-9-]{36}\.png$/);
   assert.equal(await readFile(path.join(documents, "one", shot.path), "utf8"), "PNG 1920x1080");
   assert.equal((await browser.image("one")).toString(), "PNG 1920x1080");
@@ -149,20 +149,20 @@ test("die Evidenz hält der Server: Prüfzeit mit seiner Uhr, Aufnahmen in seine
   assert.deepEqual(browser.evidence("one"), {
     checkedAt: checked.checkedAt,
     url: "http://localhost:4173/",
-    screenshots: [{ name: "Gespeichert", url: shot.url }],
-    currentScreenshots: [{ name: "Gespeichert", url: shot.url }],
+    screenshots: [{ name: "Saved", url: shot.url }],
+    currentScreenshots: [{ name: "Saved", url: shot.url }],
     errors: [],
   });
 
-  stub.page().consoleError("Später gemeldet");
-  await assert.rejects(browser.check("one", { noErrors: true }), /Später gemeldet/);
-  assert.equal(browser.evidence("one").checkedAt, undefined, "eine gescheiterte Prüfung verwirft die Zeit auch beim Server");
-  assert.deepEqual(browser.evidence("one").errors, ["Konsole: Später gemeldet"]);
-  await browser.check("one", { text: "Gespeichert", noErrors: false });
-  await browser.click("one", { role: "button", name: "Weiter" });
+  stub.page().consoleError("Reported later");
+  await assert.rejects(browser.check("one", { noErrors: true }), /Reported later/);
+  assert.equal(browser.evidence("one").checkedAt, undefined, "a failed check discards the time on the server as well");
+  assert.deepEqual(browser.evidence("one").errors, ["Console: Reported later"]);
+  await browser.check("one", { text: "Saved", noErrors: false });
+  await browser.click("one", { role: "button", name: "Next" });
   assert.deepEqual(browser.evidence("one"), {
-    url: "http://localhost:4173/zwei",
-    screenshots: [{ name: "Gespeichert", url: shot.url }],
+    url: "http://localhost:4173/two",
+    screenshots: [{ name: "Saved", url: shot.url }],
     currentScreenshots: [],
     errors: [],
   });
@@ -172,16 +172,16 @@ test("die Evidenz hält der Server: Prüfzeit mit seiner Uhr, Aufnahmen in seine
   assert.equal(stub.log.closes, 1);
   assert.equal(browser.evidence("one").url, undefined);
   await browser.open("one", "http://localhost:4173/");
-  const narrow = await browser.screenshot("one", { label: "Schmal" });
+  const narrow = await browser.screenshot("one", { label: "Narrow" });
   assert.equal(await readFile(path.join(documents, "one", narrow.path), "utf8"), "PNG 390x844");
 
   const restored = new RunBrowser({ sandbox: unusedSandbox, filesFor: async (runId) => path.join(documents, runId) });
   await restored.restore("one");
-  assert.deepEqual(restored.evidence("one").screenshots.map((entry) => entry.name), ["Gespeichert", "Schmal"]);
+  assert.deepEqual(restored.evidence("one").screenshots.map((entry) => entry.name), ["Saved", "Narrow"]);
   assert.equal((await restored.image("one")).toString(), "PNG 390x844");
 });
 
-test("gleichzeitige Aufnahmen eines Runs landen alle in der Aufnahmeliste", async (t) => {
+test("simultaneous screenshots of a run all end up in the screenshot list", async (t) => {
   const documents = await documentsIn(t);
   const { browser } = localBrowser({ launch: stubBrowser(site).launch }, async () => documents);
   t.after(() => browser.shutdown());

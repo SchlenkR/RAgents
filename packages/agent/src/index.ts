@@ -1,5 +1,5 @@
 // Everything the engine, the server and the workspace executor use; the rest is internal.
-export { aliasedModel, type ModelAlias, ModelRuntime } from "./core/model-runtime.ts";
+export { aliasedModel, type ModelAlias, ModelRuntime, thinkingLevelsProblem } from "./core/model-runtime.ts";
 export { type AgentSettings, type AgentSettingsInput, agentSettings } from "./core/agent-settings.ts";
 export {
 	activeContextEntries,

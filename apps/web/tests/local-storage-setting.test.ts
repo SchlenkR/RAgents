@@ -57,18 +57,18 @@ test("orchestration settings keep their formats, run scopes and same-tab change 
   assert.deepEqual(notifications, ["ragents-actor-header-change", "ragents-actor-header-change", "ragents-actor-visibility-change", "ragents-tile-presentation-change"]);
 
   const stored = new Map(values);
-  assert.throws(() => saveActorHeaderMode("first", "invalid" as "all"), /ungültig/);
-  assert.throws(() => saveSurfaceViewPreferences("first", { actorVisibility: { anna: "no" as unknown as boolean } }), /ungültig/);
-  assert.throws(() => saveSurfacePresentation("first", { root: { entity: "shape:thema" } }), /erwartet @handle oder app:/);
+  assert.throws(() => saveActorHeaderMode("first", "invalid" as "all"), /invalid/);
+  assert.throws(() => saveSurfaceViewPreferences("first", { actorVisibility: { anna: "no" as unknown as boolean } }), /invalid/);
+  assert.throws(() => saveSurfacePresentation("first", { root: { entity: "shape:thema" } }), /expected @handle or app:/);
   assert.deepEqual(values, stored);
   assert.equal(notifications.length, 4);
 
-  browser.localStorage.setItem = () => { throw new Error("Speicher voll"); };
+  browser.localStorage.setItem = () => { throw new Error("Storage full"); };
   for (const save of [
     () => saveActorHeaderMode("first", "all"),
     () => saveSurfaceViewPreferences("first", DEFAULT_SURFACE_VIEW_PREFERENCES),
     () => saveSurfacePresentation("first", { root: { entity: "@anna" } }),
-  ]) assert.throws(save, /Speicher voll/);
+  ]) assert.throws(save, /Storage full/);
   assert.deepEqual(values, stored);
   assert.equal(notifications.length, 4);
 });

@@ -23,7 +23,7 @@ const guarded = <T>(code: string, status: number, work: () => T): T => {
 
 const checkedInput = (input: unknown): unknown => {
   if (Buffer.byteLength(JSON.stringify(input ?? null), "utf8") > MAX_INPUT_BYTES)
-    throw new DomainError("input-too-large", `Die Aktionseingabe ist größer als ${MAX_INPUT_BYTES} Byte.`, 413);
+    throw new DomainError("input-too-large", `The action input is larger than ${MAX_INPUT_BYTES} bytes.`, 413);
   return input;
 };
 

@@ -1,4 +1,4 @@
-// Prüfprofil des Läufers scripts/remote-workspace: drei Benutzer mit persönlichem Token, Modelle aus seinem Skriptmodell.
+// Check profile of the runner scripts/remote-workspace: three users with personal tokens, models from its script model.
 import { env, type ProfileUser, type RAgentsConfig } from "../../apps/server/src/config-definition.js";
 
 const operatorRights = [
@@ -39,7 +39,7 @@ export const config = {
   host: {
     PRODUCT_PROFILE: "remote-check",
     PRODUCT_ID: "ragents-remote-check",
-    PRODUCT_TITLE: "RAgents Prüflauf",
+    PRODUCT_TITLE: "RAgents check run",
     PLUGINS: [
       "ragents.orchestration",
       "ragents.workspace",

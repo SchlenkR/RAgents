@@ -23,6 +23,6 @@ window.ScrollTrigger = ScrollTrigger;`,
     legalComments: "eof",
   });
   const javascript = result.outputFiles.find((file) => file.path.endsWith(".js"))?.text;
-  if (!javascript) throw new Error("Das Scroll-Bundle enthält keine JavaScript-Ausgabe.");
+  if (!javascript) throw new Error("The scroll bundle contains no JavaScript output.");
   return javascript;
 }

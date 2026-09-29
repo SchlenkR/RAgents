@@ -18,11 +18,11 @@ const escapeForwarder = `
 
 const themeReceiver = `
   const applyHostTheme = (theme) => {
-    if (theme !== "light" && theme !== "dark") throw new Error("Das Host-Theme muss light oder dark sein.");
+    if (theme !== "light" && theme !== "dark") throw new Error("The host theme must be light or dark.");
     document.documentElement.dataset.theme = theme;
   };`;
 
-// Die Vorfahren decken den Browser und die Webviews von VS Code ab (Desktop: vscode-file und vscode-cdn.net, ältere Fassungen: vscode-webview).
+// The ancestors cover the browser and the VS Code webviews (desktop: vscode-file and vscode-cdn.net, older versions: vscode-webview).
 export const frameContentSecurityPolicy = (nonce: string): string =>
   `sandbox allow-scripts allow-forms allow-downloads; default-src 'none'; script-src 'nonce-${nonce}'; style-src 'nonce-${nonce}'; img-src 'self' data: blob:; font-src data:; connect-src 'none'; media-src 'self' data: blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'self' https://*.vscode-cdn.net vscode-file: vscode-webview:`;
 
@@ -67,7 +67,7 @@ globalThis.__ragentsAppContext = (() => {
     if (!waiter || !terminal.has(message.invocation.status)) return;
     pending.delete(id);
     if (message.invocation.status === "succeeded") waiter.resolve(message.invocation.result);
-    else waiter.reject(new Error(message.invocation.error || "Die App-Aktion wurde nicht abgeschlossen."));
+    else waiter.reject(new Error(message.invocation.error || "The app action was not completed."));
   };
   port.onmessage = ({ data }) => {
     if (data?.version !== 1) return;
@@ -129,7 +129,7 @@ globalThis.__ragentsAppContext = (() => {
     );
   }
   return Object.freeze({
-    get actor() { if (!currentApp) throw new Error("Die Actor-Ansicht ist noch nicht bereit."); return Object.freeze({id:currentApp.actorId,handle:currentApp.actorHandle}); },
+    get actor() { if (!currentApp) throw new Error("The actor view is not ready yet."); return Object.freeze({id:currentApp.actorId,handle:currentApp.actorHandle}); },
     ready: ready.then(() => undefined),
     run: Object.freeze({ id: "current" }),
     principal: Object.freeze({ id: "operator", kind: "operator" }),
@@ -175,7 +175,7 @@ globalThis.__ragentsAppContext = (() => {
       call: async (actionId, input = {}) => {
         await ready;
         if (!(currentApp?.actions ?? []).some((action) => action.id === actionId)) {
-          throw new Error("Die angeforderte App-Aktion ist nicht installiert.");
+          throw new Error("The requested app action is not installed.");
         }
         return send({
           type: "ragents.app.invoke",
@@ -195,7 +195,7 @@ export const frameHtml = (
   nonce: string,
 ): string => {
   const head = /<head(?:\s[^>]*)?>/i;
-  if (!head.test(frame.html)) throw new Error("Die installierte App besitzt keinen gültigen head.");
+  if (!head.test(frame.html)) throw new Error("The installed app has no valid head.");
   const client = `<script nonce="${nonce}" type="module">await globalThis.__ragentsAppContext.ready;${escapedScript(frame.clientJavaScript)}</script>`;
   return frame.html.replace(head, (value) => `${value}${typedBridgeSdk(nonce, `${browserRuntimeStyles}\n${frame.styles}`)}${client}`);
 };
@@ -205,7 +205,7 @@ export interface MiniAppFrameOptions {
   runtime: ActorProgramRuntime;
 }
 
-/** Die einzige Auslieferungsroute des Plugins: das HTML des Mini-App-Frames; alles andere sind Methoden. */
+/** The plugin's only delivery route: the HTML of the mini-app frame; everything else is methods. */
 export const createMiniAppFrameRoutes = (options: MiniAppFrameOptions): HttpRouteContribution[] => [
   {
     id: "ragents.actor-programs.frame",
@@ -213,7 +213,7 @@ export const createMiniAppFrameRoutes = (options: MiniAppFrameOptions): HttpRout
     matches: (request, url) => request.method === "GET" && framePattern.test(url.pathname),
     handle: async ({ request, response, url }) => {
       const match = url.pathname.match(framePattern);
-      if (!match) throw new Error("Ungültige App-Route.");
+      if (!match) throw new Error("Invalid app route.");
       const [, runId, appId] = match;
       await guardedJsonRoute({
         request,

@@ -31,7 +31,7 @@ const visibleEntries = async (directory: string) => {
   const entries = await readdir(directory, { withFileTypes: true });
   return entries
     .filter((entry) => !entry.name.startsWith(".") && !entry.isSymbolicLink())
-    .sort((left, right) => left.name.localeCompare(right.name, "de"));
+    .sort((left, right) => left.name.localeCompare(right.name, "en-US"));
 };
 
 const collectFiles = async (
@@ -77,11 +77,11 @@ const listingOf = async (root: string): Promise<RunFilesListing> => {
 const resolveInside = async (root: string, relative: string): Promise<string> => {
   if (!relative || relative.includes("\0") || relative.includes("\\") || path.isAbsolute(relative)
     || relative.split("/").some((segment) => segment === "" || segment === "." || segment === "..")) {
-    throw new Error("Ungültiger Dateipfad");
+    throw new Error("Invalid file path");
   }
   const rootReal = await realpath(root);
   const real = await realpath(path.join(rootReal, relative));
-  if (real !== rootReal && !real.startsWith(rootReal + path.sep)) throw new Error("Ungültiger Dateipfad");
+  if (real !== rootReal && !real.startsWith(rootReal + path.sep)) throw new Error("Invalid file path");
   return real;
 };
 
@@ -104,14 +104,14 @@ export const createFilesMethod = (options: FilesRouteOptions): MethodContributio
     return listingOf(await options.filesFor(runId));
   });
 
-/** Der Inhalt bleibt Auslieferung: ein GET mit dem Medientyp der Datei. */
+/** Content stays plain delivery: a GET with the file's media type. */
 export const createFileContentRoute = (options: FilesRouteOptions): HttpRouteContribution => ({
   id: "ragents.documents.files-content",
   isApiPath: (pathname) => contentPattern.test(pathname),
   matches: (request, url) => request.method === "GET" && contentPattern.test(url.pathname),
   handle: async ({ response, request, url }) => {
     const match = url.pathname.match(contentPattern);
-    if (!match) throw new Error("Ungültige Dokumente-Route");
+    if (!match) throw new Error("Invalid documents route");
     const [, runId] = match;
     await guardedJsonRoute({
       response,
@@ -122,7 +122,7 @@ export const createFileContentRoute = (options: FilesRouteOptions): HttpRouteCon
         const relative = url.searchParams.get("path") ?? "";
         const file = await resolveInside(await options.filesFor(runId), relative);
         const info = await lstat(file);
-        if (!info.isFile()) throw new Error("Ungültiger Dateipfad");
+        if (!info.isFile()) throw new Error("Invalid file path");
         const content = await readFile(file);
         response.writeHead(200, {
           "Cache-Control": "no-store",

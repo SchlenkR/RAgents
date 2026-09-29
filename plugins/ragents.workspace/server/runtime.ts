@@ -38,7 +38,7 @@ import type { WorkspaceClientRegistry } from "./clients.js";
 export interface RunWorkspaceRuntimeOptions {
   globalDirectory: string;
   sessionDirectory: (runId: string, ...segments: string[]) => string;
-  /** Die Speichergrenze eines Runs; innerhalb davon gehören private Arbeitsdateien seinem Konto. */
+  /** The storage boundary of a run; within it, private work files belong to its account. */
   storageRootFor: (runId: string) => string;
   sessionsDirectoryPattern: string;
   sessionWorkspaceFor: (runId: string) => Promise<SessionWorkspace>;
@@ -47,21 +47,21 @@ export interface RunWorkspaceRuntimeOptions {
   runState: (runId: string) => RunState | null;
   storeBinding: (runId: string, binding: WorkspaceBinding) => void;
   clients: WorkspaceClientRegistry;
-  /** Was die Plugins des Profils zum Executor des Servers beitragen; die Arbeitsplätze laden dieselben Beiträge selbst. */
+  /** What the profile's plugins contribute to the server's executor; the workstations load the same contributions themselves. */
   contributions: readonly WorkspaceExecutorParts[];
-  /** Die Prozess-Sandbox des Servers; ohne sie laufen die Prozesse des Servers ohne. */
+  /** The server's process sandbox; without it, the server's processes run without one. */
   processSandbox?: RunProcessSandboxes;
-  /** Die Bash des Servers aus RAGENTS_BASH; unter Windows Pflicht für das Werkzeug bash. */
+  /** The server's bash from RAGENTS_BASH; required on Windows for the bash tool. */
   bash?: string;
-  /** Das rg des Servers aus RAGENTS_RG; ohne Angabe gilt eines im PATH. */
+  /** The server's rg from RAGENTS_RG; without a value, one in the PATH applies. */
   rg?: string;
-  /** Die Zeitgrenze von bash aus RAGENTS_BASH_TIMEOUT_SECONDS; ohne Angabe die des Werkzeugs. */
+  /** The bash timeout from RAGENTS_BASH_TIMEOUT_SECONDS; without a value, that of the tool. */
   bashTimeoutSeconds?: number;
 }
 
 const runNotStarted = (): DomainError => new DomainError(
   "run-not-started",
-  "Der Run ist noch nicht gestartet; das Arbeitsverzeichnis entsteht mit der ersten Nachricht.",
+  "The run has not started yet; the working directory is created with the first message.",
   409,
 );
 
@@ -109,7 +109,7 @@ const variableList = (roots: readonly ServerRootDescription[]): string => listed
 
 const hasVariables = (roots: readonly ServerRootDescription[]): boolean => roots.some((root) => root.environmentVariable !== undefined);
 
-/** Auf dem Server liegen Arbeitsbereich und Wurzeln auf einer Maschine; jede Bash sieht beide. */
+/** On the server, workspace and roots are on one machine; every bash sees both. */
 const serverRootsDescription = (roots: readonly ServerRootDescription[]): string => [
   "## Roots besides the working directory",
   "",
@@ -118,7 +118,7 @@ const serverRootsDescription = (roots: readonly ServerRootDescription[]): string
     + (hasVariables(roots) ? ` \`bash\` also has ${variableList(roots)}.` : ""),
 ].join("\n");
 
-/** Die Wurzeln liegen auf dem Server, der Arbeitsbereich auf dem Arbeitsplatz; eine Bash sieht immer nur eine der beiden Maschinen. */
+/** The roots are on the server, the workspace on the workstation; a bash always sees only one of the two machines. */
 const workstationRootsDescription = (roots: readonly ServerRootDescription[]): string => [
   "## Roots on the server",
   "",
@@ -135,7 +135,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
   readonly transfer: WorkspaceTransfer;
   readonly #options: RunWorkspaceRuntimeOptions;
   readonly #nugetCacheDirectory: string;
-  /** Die neuen Ordner auf Arbeitsplätzen, die in diesem Serverlauf schon angelegt oder in Arbeit sind. */
+  /** The new folders on workstations that have already been created or are in progress during this server run. */
   readonly #preparations = new Map<string, Promise<void>>();
 
   constructor(options: RunWorkspaceRuntimeOptions) {
@@ -163,7 +163,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     });
   }
 
-  /** Arbeit eines Runs, die auf dem Server läuft, während sein Arbeitsbereich auf einem Arbeitsplatz liegt. */
+  /** Work of a run that runs on the server while its workspace is on a workstation. */
   async #serverDirectoryFor(runId: string): Promise<string> {
     const directory = this.#options.sessionDirectory(runId, "server");
     await mkdir(directory, { recursive: true });
@@ -177,7 +177,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     return { home, nugetPackages: this.#nugetCacheDirectory };
   }
 
-  /** Auf einem Arbeitsplatz führt dessen Executor im Namen des Run-Eigentümers aus, sonst der des Servers. */
+  /** On a workstation, its executor runs on behalf of the run owner, otherwise the server's executor. */
   #executorFor(runId: string): WorkspaceExecutor | undefined {
     const state = this.#options.runState(runId);
     const binding = bindingOf(state);
@@ -187,7 +187,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     return "fresh" in folder ? this.#preparing(state, binding, executor) : executor;
   }
 
-  /** Vor dem ersten Auftrag eines Runs legt der Arbeitsplatz dessen neuen Ordner an; Aufräumen legt nie einen an. */
+  /** Before the first task of a run, the workstation creates its new folder; cleanup never creates one. */
   #preparing(state: RunState | null, binding: WorkstationBinding, executor: WorkspaceExecutor): WorkspaceExecutor {
     return {
       ...executor,
@@ -209,7 +209,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     return preparation;
   }
 
-  /** Nur ein eben angelegter Ordner bekommt die Schritte des Beitrags; scheitert einer, verschwindet er wieder, und der nächste Auftrag beginnt neu. */
+  /** Only a freshly created folder gets the contribution's steps; if one fails, the folder disappears again and the next task starts over. */
   async #prepare(runId: string, state: RunState | null, binding: WorkstationBinding, executor: WorkspaceExecutor): Promise<void> {
     const { created } = await executor.execute(runId, RUN_FOLDER_OPERATIONS.create, null) as RunFolderCreated;
     const steps = created ? this.#contribution()?.workstation?.prepare(this.#workstationContext(runId, state, binding)) ?? [] : [];
@@ -246,7 +246,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     return this.#withRoots(workspace, onWorkstation);
   }
 
-  /** Was der Prompt über Wurzeln sagt, hängt an der Maschine des Runs: nur eine Bash auf dem Server kennt ihre Variablen. */
+  /** What the prompt says about roots depends on the run's machine: only a bash on the server knows their variables. */
   async #withRoots(workspace: SessionWorkspace, onWorkstation: boolean): Promise<SessionWorkspace> {
     const roots = await this.sandbox.serverRoots();
     if (roots.length === 0) return workspace;
@@ -293,10 +293,10 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
       try {
         return await realpath(cwd);
       } catch {
-        throw new DomainError("workspace-path-missing", `Der gebundene Ordner ${cwd} existiert auf dem Server nicht mehr.`, 409);
+        throw new DomainError("workspace-path-missing", `The bound folder ${cwd} no longer exists on the server.`, 409);
       }
     };
-    emitSystem(`Arbeitsbereich: ${cwd} (Projektordner auf dem Server)`);
+    emitSystem(`Workspace: ${cwd} (project folder on the server)`);
     return {
       cwd,
       description: serverProjectDescription(cwd),
@@ -305,17 +305,17 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     };
   }
 
-  /** Der Arbeitsbereich liegt auf dem Arbeitsplatz; der Server kennt nur seinen Pfad, und jeder lokale Griff darauf scheitert laut. */
+  /** The workspace is on the workstation; the server knows only its path, and every local access to it fails loudly. */
   #workstation(runId: string, state: RunState, binding: WorkstationBinding, emitSystem: (text: string) => void): SessionWorkspace {
     const { machine: { label }, folder } = binding;
     const fresh = "fresh" in folder;
     const workstation = this.#contribution()?.workstation;
     emitSystem(fresh
-      ? `Arbeitsbereich: ${folder.path} (${workstation?.label ?? FRESH_WORKSPACE_LABEL} auf dem Arbeitsplatz ${label})`
-      : `Arbeitsbereich: ${folder.path} (Projektordner auf dem Arbeitsplatz ${label})`);
+      ? `Workspace: ${folder.path} (${workstation?.label ?? FRESH_WORKSPACE_LABEL} on the workstation ${label})`
+      : `Workspace: ${folder.path} (project folder on the workstation ${label})`);
     const remote = (): Promise<string> => Promise.reject(new Error(
-      `Der Arbeitsbereich ${folder.path} liegt auf dem Arbeitsplatz ${label}, nicht auf dem Server; `
-      + "er ist nur über den Executor des Runs (SandboxServices.execute) erreichbar.",
+      `The workspace ${folder.path} is on the workstation ${label}, not on the server; `
+      + "it is reachable only through the run's executor (SandboxServices.execute).",
     ));
     const description = !fresh
       ? clientProjectDescription(folder.path, label)
@@ -348,7 +348,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     if (resolver.optionId === undefined) return null;
     const choice = storedStartOption(state, resolver.optionId);
     if (choice === undefined) {
-      throw new Error(`Die Startoption ${resolver.optionId} des Workspace-Resolvers ist im Run nicht gespeichert`);
+      throw new Error(`The start option ${resolver.optionId} of the workspace resolver is not stored in the run`);
     }
     return choice;
   }
@@ -365,13 +365,13 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     return this.#options.resolver();
   }
 
-  /** Auf dem Server gehört ein neuer Ordner samt Stopp und Löschen dem Beitrag; auf einem Arbeitsplatz räumt ihn der Host weg. */
+  /** On the server, a new folder including stop and deletion belongs to the contribution; on a workstation, the host cleans it up. */
   #serverContributionFor(runId: string): WorkspaceResolver | undefined {
     const { machine, folder } = bindingOf(this.#options.runState(runId));
     return machine === "server" && isFreshFolder(folder) ? this.#contribution() : undefined;
   }
 
-  /** Ist der Arbeitsplatz nicht erreichbar, bleibt der Ordner dort mit Hinweis liegen; der Run ist trotzdem gelöscht. */
+  /** If the workstation is unreachable, the folder stays there with a notice; the run is deleted anyway. */
   async #removeWorkstationFolder(runId: string): Promise<void> {
     this.#preparations.delete(runId);
     const state = this.#options.runState(runId);
@@ -382,7 +382,7 @@ export class RunWorkspaceRuntime implements WorkspaceRuntime {
     const steps = this.#contribution()?.workstation?.release?.(this.#workstationContext(runId, state, binding)) ?? [];
     await this.#runSteps(runId, executor, steps, { whenReachable: true });
     if (await executor.execute(runId, RUN_FOLDER_OPERATIONS.remove, null, { whenReachable: true }) !== null) return;
-    console.warn(`Der Ordner ${folder.path} des Runs ${runId} bleibt auf dem Arbeitsplatz ${machine.label}, weil er nicht erreichbar war.`);
+    console.warn(`The folder ${folder.path} of run ${runId} stays on the workstation ${machine.label} because it was unreachable.`);
   }
 
   async deleteSession(runId: string): Promise<void> {

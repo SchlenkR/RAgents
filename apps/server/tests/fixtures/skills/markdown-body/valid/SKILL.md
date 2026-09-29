@@ -1,16 +1,16 @@
 ---
 name: valid
 start: true
-category: Beispiele
+category: Examples
 title: Test
-description: Beschreibung
+description: Description
 ---
-Ich hätte gern eine Zusammenfassung.
+I would like a summary.
 
-## Inhalt
+## Content
 
-Beschreibe das Ergebnis.
+Describe the result.
 
 ### Format
 
-Nutze eine kurze Liste.
+Use a short list.

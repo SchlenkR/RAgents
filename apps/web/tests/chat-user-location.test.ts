@@ -5,7 +5,7 @@ import { sendChatMessage } from "../src/chat/requests.ts";
 import { RpcClient } from "../src/rpc/client.ts";
 import type { ChatAttachmentInput } from "quassel/events";
 
-const tabs = [{ id: "orchestration", label: "Actors" }, { id: "files", label: "Dateien" }];
+const tabs = [{ id: "orchestration", label: "Actors" }, { id: "files", label: "Files" }];
 const selected = { type: "actor", id: "actor-a" };
 
 test("run location uses the current tab label and only the surface entity reference", () => {
@@ -13,7 +13,7 @@ test("run location uses the current tab label and only the surface entity refere
   const location = runUserLocation("run-a", "orchestration", tabs, true, source);
   assert.deepEqual(location, { runId: "run-a", tab: "Actors", selection: selected });
   assert.notEqual(location.selection, source);
-  assert.equal(runUserLocation("run-a", "files", tabs, true, undefined).tab, "Dateien");
+  assert.equal(runUserLocation("run-a", "files", tabs, true, undefined).tab, "Files");
   assert.deepEqual(runUserLocation("run-a", "removed-tab", tabs, true, undefined), { runId: "run-a", tab: null, selection: null });
 });
 
@@ -29,7 +29,7 @@ test("changing or deselecting the active run immediately removes stale details",
   assert.deepEqual(chatUserLocation(undefined, false, previous), { page: "home", runId: null, tab: null, selection: null });
   assert.deepEqual(chatUserLocation("run-b", false, undefined), { page: "run", runId: "run-b", tab: null, selection: null });
   const next = runUserLocation("run-b", "files", tabs, true, { type: "artifact", id: "artifact-b" });
-  assert.deepEqual(chatUserLocation("run-b", false, next), { page: "run", runId: "run-b", tab: "Dateien", selection: { type: "artifact", id: "artifact-b" } });
+  assert.deepEqual(chatUserLocation("run-b", false, next), { page: "run", runId: "run-b", tab: "Files", selection: { type: "artifact", id: "artifact-b" } });
 });
 
 test("overview snapshots identify the page without leaking the covered tab or selection", () => {
@@ -51,21 +51,21 @@ test("each send serializes its current location separately while normal chat and
   const client = new RpcClient({ fetch: sendCalls(calls) });
   const attachment: ChatAttachmentInput = { name: "note.txt", mediaType: "text/plain", data: "SGFsbG8=" };
   const run = runUserLocation("run-a", "orchestration", tabs, true, selected);
-  await sendChatMessage("global", "Was sehe ich?", [attachment], chatUserLocation("run-a", false, run), client);
-  await sendChatMessage("global", "Und jetzt?", undefined, chatUserLocation("run-b", false, run), client);
-  await sendChatMessage("global", "Startseite?", undefined, chatUserLocation(undefined, false, run), client);
-  await sendChatMessage("normal", "Normaler Auftrag", [attachment], undefined, client);
+  await sendChatMessage("global", "What do I see?", [attachment], chatUserLocation("run-a", false, run), client);
+  await sendChatMessage("global", "And now?", undefined, chatUserLocation("run-b", false, run), client);
+  await sendChatMessage("global", "Start page?", undefined, chatUserLocation(undefined, false, run), client);
+  await sendChatMessage("normal", "Normal task", [attachment], undefined, client);
   assert.deepEqual(calls.map((call) => call.method), Array(4).fill("ragents.chat.send"));
-  assert.deepEqual(calls[0]!.params, { runId: "global", text: "Was sehe ich?", attachments: [attachment], userLocation: { page: "run", runId: "run-a", tab: "Actors", selection: selected } });
-  assert.deepEqual(calls[1]!.params, { runId: "global", text: "Und jetzt?", userLocation: { page: "run", runId: "run-b", tab: null, selection: null } });
-  assert.deepEqual(calls[2]!.params, { runId: "global", text: "Startseite?", userLocation: { page: "home", runId: null, tab: null, selection: null } });
-  assert.deepEqual(calls[3]!.params, { runId: "normal", text: "Normaler Auftrag", attachments: [attachment] });
+  assert.deepEqual(calls[0]!.params, { runId: "global", text: "What do I see?", attachments: [attachment], userLocation: { page: "run", runId: "run-a", tab: "Actors", selection: selected } });
+  assert.deepEqual(calls[1]!.params, { runId: "global", text: "And now?", userLocation: { page: "run", runId: "run-b", tab: null, selection: null } });
+  assert.deepEqual(calls[2]!.params, { runId: "global", text: "Start page?", userLocation: { page: "home", runId: null, tab: null, selection: null } });
+  assert.deepEqual(calls[3]!.params, { runId: "normal", text: "Normal task", attachments: [attachment] });
 });
 
 test("location-aware sending continues to expose server rejection messages", async () => {
   const client = new RpcClient({ fetch: async (_url, init) => {
     const call = JSON.parse(String(init?.body)) as SendCall;
-    return Response.json({ jsonrpc: "2.0", id: call.id, error: { code: -32000, message: "Kein Zugriff auf diesen Run" } });
+    return Response.json({ jsonrpc: "2.0", id: call.id, error: { code: -32000, message: "No access to this run" } });
   } });
-  await assert.rejects(sendChatMessage("global", "Hallo", undefined, chatUserLocation(undefined, false, undefined), client), /Kein Zugriff auf diesen Run/);
+  await assert.rejects(sendChatMessage("global", "Hello", undefined, chatUserLocation(undefined, false, undefined), client), /No access to this run/);
 });

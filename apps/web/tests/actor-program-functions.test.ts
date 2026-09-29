@@ -43,7 +43,7 @@ test("invalid numeric and JSON input fails before a function can be invoked", ()
 
 interface RpcCall { method: string; params: unknown }
 
-/** Der Seiten-Client spricht JSON-RPC; der Test beantwortet die Anfragen statt einer Route. */
+/** The page client speaks JSON-RPC; the test answers the requests instead of a route. */
 const stubRpc = (calls: RpcCall[], respond: (method: string, params: unknown) => unknown): (() => void) => {
   const original = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
@@ -74,7 +74,7 @@ test("shared mini-app invocations poll their originating view without calling th
   const calls: RpcCall[] = [];
   const signal = new AbortController().signal;
   const restore = stubRpc(calls, (method) => {
-    if (method !== actorProgramContracts.invocation.id) throw new Error(`Unerwartete Methode: ${method}`);
+    if (method !== actorProgramContracts.invocation.id) throw new Error(`Unexpected method: ${method}`);
     return { ...running, status: "succeeded", finishedAt: "later", result: { count: 1 } };
   });
   try {

@@ -12,7 +12,7 @@ import { ARTIFACT_CONTENT_PATH, runContracts } from "./contracts.ts";
 
 export { ARTIFACT_CONTENT_PATH, artifactContentPath } from "./contracts.ts";
 
-/** `stop` verlangt die Rechte von `write`, bedient den Run aber nicht und bleibt deshalb auch bei einem Run erlaubt, den nur sein Eigentümer bedient. */
+/** `stop` requires the rights of `write` but does not operate the run, and is therefore also allowed for a run that only its owner operates. */
 export type RunRightsKind = "read" | "write" | "inspect" | "write-inspect" | "stop";
 
 export type RuntimeMethodOptions = {
@@ -23,13 +23,13 @@ export type RuntimeMethodOptions = {
   stopRun?: RunStopOperation;
   /** Ends the running turn of one actor and keeps the actor active; without a running turn it does nothing. */
   interruptTurn: (runId: string, actorId: string, interruption: TurnInterruption) => Promise<void>;
-  /** Prüft die Rechte des Zugriffs für einen Run oder wirft; der Host kennt Sonderfälle wie den globalen Chat. */
+  /** Checks the rights of the access for a run or throws; the host knows special cases such as the global chat. */
   assertRunRights: (access: AccessContext, runId: string, kind: RunRightsKind) => void;
   projectView: (view: RunView, access: AccessContext) => RunView;
   hasRun: (runId: string) => boolean;
 };
 
-/** Die Laufzeitmethoden der Engine: Run-Ansicht, Journal, Warteschlangen, Unterbrechen, Stopp und Rückfragen. */
+/** The runtime methods of the engine: run view, journal, queues, interrupt, stop and questions. */
 export function runtimeMethods(options: RuntimeMethodOptions): MethodContribution[] {
   const { runtime, assertRunRights, projectView } = options;
   const assertAvailable = options.assertAvailable ?? (() => undefined);
@@ -81,7 +81,7 @@ export function runtimeMethods(options: RuntimeMethodOptions): MethodContributio
       prepared(access, input.runId, "write-inspect");
       return mutate(input.runId, () => {
         const actorId = addressedActorOf(runtime.state(input.runId).actors.values(), input.actorId).id;
-        runtime.restartActor(contextOf(input.runId, input), input.runId, actorId, input.reason ?? "Vom Bediener neu gestartet");
+        runtime.restartActor(contextOf(input.runId, input), input.runId, actorId, input.reason ?? "Restarted by the operator");
         return projectView(runtime.view(input.runId), access);
       });
     }),
@@ -97,7 +97,7 @@ export function runtimeMethods(options: RuntimeMethodOptions): MethodContributio
       const actorId = addressedActorOf(runtime.state(input.runId).actors.values(), input.actorId).id;
       await options.interruptTurn(input.runId, actorId, {
         context: contextOf(input.runId, input),
-        reason: input.reason ?? "Turn durch den Bediener unterbrochen",
+        reason: input.reason ?? "Turn interrupted by the operator",
       });
       return projectView(runtime.view(input.runId), access);
     }),
@@ -116,7 +116,7 @@ export function runtimeMethods(options: RuntimeMethodOptions): MethodContributio
   ];
 }
 
-/** Artefaktinhalte sind Auslieferung, keine Nachricht: ein GET mit dem Medientyp des Artefakts. */
+/** Artifact contents are delivery, not a message: a GET with the media type of the artifact. */
 export function artifactContentRoute(options: Pick<RuntimeMethodOptions, "runtime" | "assertAvailable" | "assertRunUsable" | "assertRunRights">): HttpRouteContribution {
   return {
     id: "ragents.runs.artifact-content",

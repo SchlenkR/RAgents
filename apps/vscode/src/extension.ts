@@ -23,12 +23,12 @@ import { WorkspaceClient, workstationRunsDirectory } from "../../../plugins/rage
 
 const HOST_PATH_KEY = "ragents.lastHostPath";
 const DEACTIVATE_TIMEOUT_MS = 4_000;
-const OTHER_NAME = "Anderer Name ...";
+const OTHER_NAME = "Other name ...";
 
-/** Was deactivate abwartet: VS Code ruft es vor dem Entsorgen der subscriptions und nur beim geordneten Ende. */
+/** What deactivate waits for: VS Code calls it before disposing the subscriptions and only on an orderly shutdown. */
 let stopSessions: (() => Promise<void>) | undefined;
 
-/** Was activate zurückgibt: der Zugriff für Host-Tests und andere Erweiterungen. */
+/** What activate returns: the access for host tests and other extensions. */
 export interface RAgentsApi {
   sessions: () => readonly ConnectionSession[];
   session: (name: string) => ConnectionSession | undefined;
@@ -41,7 +41,7 @@ export interface RAgentsApi {
   newRun: (connection: string, entryId?: string) => Promise<void>;
   applyToken: (connection: string, token: string | undefined) => Promise<void>;
   loginWith: (connection: string, id: string, password: string) => Promise<void>;
-  /** Was die Panelseite zeigt und was sie schickt; der Host-Test nimmt denselben Weg wie das Webview. */
+  /** What the panel page shows and what it sends; the host test takes the same path as the webview. */
   panel: () => PanelState;
   panelAction: (action: PanelAction) => Promise<void>;
 }
@@ -73,10 +73,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
   const log = (line: string) => output.appendLine(line);
   const sessions = new Map<string, ConnectionSession>();
   let stopped: Promise<void> | undefined;
-  /** Trennt alle Sitzungen und stoppt damit jeden eigenen Host; ein zweiter Aufruf wartet auf dasselbe Trennen. */
+  /** Disconnects all sessions and thereby stops every own host; a second call waits for the same disconnect. */
   const stopAllSessions = (): Promise<void> => stopped ??= (async () => {
     await Promise.all([...sessions.values()].map((session) => session.disconnect()
-      .catch((cause) => log(`== Trennen fehlgeschlagen: ${message(cause)}`))));
+      .catch((cause) => log(`== Disconnect failed: ${message(cause)}`))));
   })();
   stopSessions = stopAllSessions;
   let selection: { connection: string; runId: string | undefined } | undefined;
@@ -136,13 +136,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
 
   const requireSession = (connection: string): ConnectionSession => {
     const session = sessions.get(connection);
-    if (!session) throw new Error(`Der Server ${connection} steht nicht in ragents.connections.`);
+    if (!session) throw new Error(`The server ${connection} is not in ragents.connections.`);
     return session;
   };
 
   const requireClient = (connection: string): ServerClient => {
     const client = requireSession(connection).client;
-    if (!client) throw new Error(`Der Server ${connection} ist nicht verbunden.`);
+    if (!client) throw new Error(`The server ${connection} is not connected.`);
     return client;
   };
 
@@ -151,7 +151,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     panels.render();
   };
 
-  /** Der Zustand eines Servers in einer Zeile; Panel und Statusleiste nennen ihn gleich. */
+  /** The state of a server in one line; panel and status bar name it the same way. */
   const stateOf = (snapshot: ConnectionSnapshot): string => {
     const view = connectionView(snapshot);
     return `${kindLabel(view)}, ${connectionStateWord(connectionState(view))}`;
@@ -162,15 +162,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     void vscode.commands.executeCommand("setContext", "ragents.hasConnections", current.length > 0);
     void vscode.commands.executeCommand("setContext", "ragents.canCreate", current.some((snapshot) => snapshot.status.kind === "connected" && snapshot.canCreate));
     const waiting = pendingActions(current);
-    panel.badge(waiting, waiting === 1 ? "1 wartende Eingabe" : `${waiting} wartende Eingaben`);
+    panel.badge(waiting, waiting === 1 ? "1 waiting input" : `${waiting} waiting inputs`);
     const connected = connectedCount(current);
     const notices = current.flatMap((snapshot) => snapshot.versionNotice ? [snapshot.versionNotice] : []);
     const blocking = notices.some((notice) => notice.level === "error");
-    statusBar.text = `${notices.length > 0 ? "$(warning)" : "$(plug)"} RAgents: ${connected} verbunden`;
+    statusBar.text = `${notices.length > 0 ? "$(warning)" : "$(plug)"} RAgents: ${connected} connected`;
     statusBar.backgroundColor = notices.length === 0 ? undefined : new vscode.ThemeColor(blocking ? "statusBarItem.errorBackground" : "statusBarItem.warningBackground");
     statusBar.tooltip = current.length === 0
-      ? "Kein Server eingerichtet. Klick: Start"
-      : `${current.map((snapshot) => `${snapshot.connection.name}: ${stateOf(snapshot)}${snapshot.versionNotice ? `\n${snapshot.versionNotice.text}` : ""}`).join("\n")}\nKlick: Start`;
+      ? "No server set up. Click: Start"
+      : `${current.map((snapshot) => `${snapshot.connection.name}: ${stateOf(snapshot)}${snapshot.versionNotice ? `\n${snapshot.versionNotice.text}` : ""}`).join("\n")}\nClick: Start`;
     statusBar.show();
   };
 
@@ -182,7 +182,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     selection = undefined;
   };
 
-  /** Zeigt den Run im Panel und sagt, was dabei entstanden ist; ein frisch gebautes iframe nimmt noch keine Nachricht an. */
+  /** Shows the run in the panel and says what resulted; a freshly built iframe does not accept messages yet. */
   const selectRun = (connection: string, runId: string | undefined, { focusPanel = false } = {}): PanelRendering => {
     const session = sessions.get(connection);
     if (!session?.store) return "page";
@@ -205,7 +205,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     return rendering;
   };
 
-  /** Zurück aus dem Run: kein Run gewählt, das Panel zeigt eine seiner drei Seiten; nur der Chip auf Start gibt Runs einen Server mit. */
+  /** Back from the run: no run selected, the panel shows one of its three pages; only the chip on Start passes a server to Runs. */
   const showPage = (next: Exclude<PanelPage, "run">, { focusPanel = true, connection }: { focusPanel?: boolean; connection?: string } = {}) => {
     page = next;
     runsConnection = next === "runs" ? connection : undefined;
@@ -217,23 +217,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
 
   const configuredHostEnvironment = (): string[] => parseHostEnvironment(vscode.workspace.getConfiguration("ragents").get("hostEnvironment"));
 
-  /** Welche Umgebungsvariablen ein gestarteter Host bekommt: das Geerbte, darüber die Sitzung eines verteilten Profils, darüber die Werte aus der SecretStorage. */
+  /** Which environment variables a started host gets: the inherited ones, above them the session of a distributed profile, above that the values from the SecretStorage. */
   const hostEnvironment = (relay?: { serverUrl: string; token: string }): Promise<NodeJS.ProcessEnv> =>
     withHostEnvironmentSecrets(
       relay ? withRelaySession(inheritedEnvironment(), relay.serverUrl, relay.token) : inheritedEnvironment(),
       configuredHostEnvironment(), context.secrets, log);
 
-  /** Dieselben Namen, aber ohne Wurf: eine fehlerhafte Einstellung steht im Protokoll und gilt der Anzeige als leere Liste. */
+  /** The same names, but without throwing: a faulty setting goes to the log and counts as an empty list for the display. */
   const declaredHostEnvironment = (): string[] => {
     try {
       return configuredHostEnvironment();
     } catch (cause) {
-      log(`== Einstellung ragents.hostEnvironment: ${message(cause)}`);
+      log(`== Setting ragents.hostEnvironment: ${message(cause)}`);
       return [];
     }
   };
 
-  /** Welche Namen aus ragents.hostEnvironment noch ohne Wert sind; die Seite Server zeigt sie, sobald sich Einstellung oder SecretStorage ändern. */
+  /** Which names from ragents.hostEnvironment still have no value; the server page shows them as soon as the setting or the SecretStorage changes. */
   const refreshMissingSecrets = async (): Promise<void> => {
     const names = await missingHostEnvironmentSecrets(declaredHostEnvironment(), context.secrets);
     if (names.length === missingSecrets.length && names.every((name, index) => missingSecrets[index] === name)) return;
@@ -247,34 +247,34 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     return configuration.update("hostEnvironment", names, workspace ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global);
   };
 
-  /** Um welche Umgebungsvariable es geht: eine aus ragents.hostEnvironment oder ein eingegebener Name; nie ein Wert. */
+  /** Which environment variable this is about: one from ragents.hostEnvironment or a typed name; never a value. */
   const chooseSecretName = async (title: string): Promise<string | undefined> => {
     const configured = await Promise.all(configuredHostEnvironment().map(async (name) => ({
       label: name,
-      description: (await context.secrets.get(hostEnvironmentSecretKey(name))) === undefined ? "kein Wert gespeichert" : "Wert gespeichert",
+      description: (await context.secrets.get(hostEnvironmentSecretKey(name))) === undefined ? "no value stored" : "value stored",
     })));
-    const picked = await vscode.window.showQuickPick([...configured, { label: OTHER_NAME, description: "Namen eingeben" }],
-      { title, placeHolder: "Umgebungsvariable" });
+    const picked = await vscode.window.showQuickPick([...configured, { label: OTHER_NAME, description: "Enter a name" }],
+      { title, placeHolder: "Environment variable" });
     if (picked === undefined) return undefined;
     if (picked.label !== OTHER_NAME) return picked.label;
     const typed = await vscode.window.showInputBox({
       title,
-      prompt: "Name der Umgebungsvariablen",
+      prompt: "Name of the environment variable",
       ignoreFocusOut: true,
-      validateInput: (value) => isEnvironmentName(value.trim()) ? undefined : "Erlaubt sind Buchstaben, Ziffern und _, nicht mit einer Ziffer am Anfang.",
+      validateInput: (value) => isEnvironmentName(value.trim()) ? undefined : "Letters, digits, and _ are allowed, not starting with a digit.",
     });
     return typed?.trim() || undefined;
   };
 
-  /** Legt den Wert einer Umgebungsvariablen in die SecretStorage; er steht danach nur dort und in keiner Einstellung.
-   * Mit einem Server ist es der geführte Weg aus seinem Fehler: Name in die Einstellung, Wert, neuer Versuch. */
+  /** Stores the value of an environment variable in the SecretStorage; afterwards it is only there and in no setting.
+   * With a server, it is the guided way out of its error: name into the setting, value, new attempt. */
   const setSecret = async (given?: string, connection?: string): Promise<void> => {
-    const name = given ?? await chooseSecretName("Secret setzen");
+    const name = given ?? await chooseSecretName("Set secret");
     if (name === undefined) return;
-    const askValue = () => Promise.resolve(vscode.window.showInputBox({ title: "Secret setzen", prompt: `Wert für ${name}`, password: true, ignoreFocusOut: true }));
+    const askValue = () => Promise.resolve(vscode.window.showInputBox({ title: "Set secret", prompt: `Value for ${name}`, password: true, ignoreFocusOut: true }));
     const store = async (value: string): Promise<void> => {
       await context.secrets.store(hostEnvironmentSecretKey(name), value);
-      log(`== Wert für ${name} in der SecretStorage gespeichert`);
+      log(`== Value for ${name} stored in the SecretStorage`);
       await refreshMissingSecrets();
     };
     if (connection !== undefined) {
@@ -282,12 +282,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
         names: configuredHostEnvironment,
         writeNames: async (names) => {
           await writeHostEnvironment(names);
-          log(`== ${name} in ragents.hostEnvironment eingetragen`);
+          log(`== ${name} added to ragents.hostEnvironment`);
         },
         askValue,
         store,
         retry: async () => {
-          log(`== ${connection} startet nach dem Wert für ${name} erneut`);
+          log(`== ${connection} restarts after the value for ${name}`);
           await sessions.get(connection)?.retry();
         },
       });
@@ -297,62 +297,62 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     if (value === undefined) return;
     await store(value);
     if (configuredHostEnvironment().includes(name)) {
-      void vscode.window.showInformationMessage(`Der Wert für ${name} steht bereit; er gilt ab dem nächsten Start eines Servers.`);
+      void vscode.window.showInformationMessage(`The value for ${name} is ready; it applies from the next start of a server.`);
       return;
     }
     const choice = await vscode.window.showInformationMessage(
-      `${name} steht nicht in ragents.hostEnvironment; ohne den Eintrag bekommt der Host den Wert nicht.`, "Eintragen");
+      `${name} is not in ragents.hostEnvironment; without the entry, the host does not get the value.`, "Add");
     if (choice) await writeHostEnvironment([...configuredHostEnvironment(), name]);
   };
 
-  /** Nimmt den Wert einer Umgebungsvariablen aus der SecretStorage; ihr Name bleibt in der Einstellung stehen. */
+  /** Removes the value of an environment variable from the SecretStorage; its name stays in the setting. */
   const deleteSecret = async (): Promise<void> => {
-    const name = await chooseSecretName("Secret löschen");
+    const name = await chooseSecretName("Delete secret");
     if (name === undefined) return;
     await context.secrets.delete(hostEnvironmentSecretKey(name));
-    log(`== Wert für ${name} aus der SecretStorage entfernt`);
+    log(`== Value for ${name} removed from the SecretStorage`);
     await refreshMissingSecrets();
-    void vscode.window.showInformationMessage(`Für ${name} ist kein Wert mehr gespeichert.`);
+    void vscode.window.showInformationMessage(`No value is stored for ${name} anymore.`);
   };
 
   const configuredHost = (): string | undefined => resolveHostPath(vscode.workspace.getConfiguration("ragents").get("hostPath"), context.extensionPath);
 
-  /** Der Host, den dieser Arbeitsplatz kennt: die Einstellung oder der zuletzt gestartete; ohne beides gibt es keinen. */
+  /** The host this workspace knows: the setting or the last one started; without either, there is none. */
   const knownHost = (): string | undefined => {
     try {
       return configuredHost() ?? context.globalState.get<string>(HOST_PATH_KEY);
     } catch (cause) {
-      log(`== Einstellung ragents.hostPath: ${message(cause)}`);
+      log(`== Setting ragents.hostPath: ${message(cause)}`);
       return context.globalState.get<string>(HOST_PATH_KEY);
     }
   };
 
-  /** Der Host: die Einstellung, das Repo der Erweiterung oder das Paket, das die Erweiterung selbst holt. Ein Server nennt
-   * die Fassung, die er verlangt; ein lokales Profil bekommt die, die zu dieser Erweiterung gehört. */
+  /** The host: the setting, the repo of the extension, or the package the extension fetches itself. A server names
+   * the version it requires; a local profile gets the one that belongs to this extension. */
   const ensureHost = async (version: string, report: (detail: string) => void): Promise<string> => {
     const configured = configuredHost();
     if (configured) return configured;
-    report(`Host-Paket ${version} holen ...`);
+    report(`Fetching host package ${version} ...`);
     return ensureHostPackage(context.globalStorageUri.fsPath, version, await hostEnvironment(), log);
   };
 
-  /** Startet den lokalen Host aus einer Profildatei; für lokale Profile und für Profile, die ein Server verteilt. */
+  /** Starts the local host from a profile file; for local profiles and for profiles a server distributes. */
   const startLocalHost = async (hostPath: string, profileFile: string, dataDirectory: string, environment: NodeJS.ProcessEnv, report: (detail: string) => void): Promise<RunningHost> => {
     ensureHostLinks(hostPath);
-    report("Werkzeuge provisionieren ...");
+    report("Provisioning tools ...");
     await provisionTools(hostPath, profileFile, { ...environment, PRODUCT_PROFILE: profileNameOf(profileFile), PRODUCT_PROFILE_FILE: profileFile, DATA_DIR: dataDirectory }, log);
-    report("Host starten ...");
+    report("Starting host ...");
     const host = await startHost({
       profile: profileNameOf(profileFile), profileFile, dataDirectory, environment, log, command: hostCommand(hostPath, environment),
       bash: bundledBash(context.extensionPath),
       rg: bundledRipgrep(context.extensionPath),
     });
-    log(`== Host läuft unter ${host.url} (PID ${host.pid}, Profil ${profileFile}, Daten ${dataDirectory})`);
+    log(`== Host running at ${host.url} (PID ${host.pid}, profile ${profileFile}, data ${dataDirectory})`);
     await context.globalState.update(HOST_PATH_KEY, hostPath);
     return host;
   };
 
-  /** Ein Server bekommt seine Adresse: per Adresse die eigene, als lokales Profil die seines frisch gestarteten Hosts. */
+  /** A server gets its address: by address its own, as a local profile the one of its freshly started host. */
   const launchConnection = async (connection: Connection, report: (detail: string) => void): Promise<LaunchedConnection> => {
     if (connection.kind === "server") {
       const key = connectionSecretKey(connection)!;
@@ -366,7 +366,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     });
   };
 
-  /** Verteilt der Server ein Client-Profil, holt die Erweiterung es und arbeitet für diesen Server gegen einen lokalen Host damit. */
+  /** If the server distributes a client profile, the extension fetches it and works for this server against a local host with it. */
   const adoptDistributedProfile = async (session: ConnectionSession) => {
     const client = session.client;
     const token = client?.accessToken;
@@ -376,17 +376,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     try {
       described = await client.rpc.call(profileDistributionContracts.describe, {});
     } catch (cause) {
-      log(`== ${serverUrl} verteilt kein Client-Profil (${message(cause)}); direkt verbunden`);
+      log(`== ${serverUrl} distributes no client profile (${message(cause)}); connected directly`);
       return;
     }
     await vscode.window.withProgress({ location: vscode.ProgressLocation.Notification, title: `RAgents: ${session.name}` }, async (progress) => {
       const detail = (text: string) => progress.report({ message: text });
       const environment = { ...await hostEnvironment({ serverUrl, token }), RAGENTS_TOKEN: token };
       const hostPath = await ensureHost(described.packageVersion, detail);
-      detail("Profil vom Server holen ...");
+      detail("Fetching profile from server ...");
       const prepared = await prepareProfile({ serverUrl, token, hostPath });
-      log(`== Profil ${prepared.description.profile} vom Server ${serverUrl}, Stand ${prepared.description.version.slice(0, 12)} (${prepared.downloaded ? "geholt" : "im Cache"})`);
-      detail("Lokalen Host starten ...");
+      log(`== Profile ${prepared.description.profile} from server ${serverUrl}, version ${prepared.description.version.slice(0, 12)} (${prepared.downloaded ? "fetched" : "cached"})`);
+      detail("Starting local host ...");
       const host = await startLocalHost(hostPath, prepared.profileFile, prepared.dataDirectory, environment, detail);
       if (sessions.get(session.name) !== session) { await host.stop(); return; }
       await session.attach({ url: host.url, token: host.token, host });
@@ -405,17 +405,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     launch: launchConnection,
     log,
     probe: (session) => void adoptDistributedProfile(session).catch((cause: unknown) => {
-      log(`== Profil von ${session.name} übernehmen fehlgeschlagen: ${message(cause)}`);
+      log(`== Applying profile from ${session.name} failed: ${message(cause)}`);
       session.reportProblem(cause);
-      void vscode.window.showErrorMessage(`RAgents: ${message(cause)}`, "Ausgabe zeigen").then((choice) => { if (choice) output.show(); });
+      void vscode.window.showErrorMessage(`RAgents: ${message(cause)}`, "Show output").then((choice) => { if (choice) output.show(); });
     }),
     onHostExit: (session, code) => {
-      void vscode.window.showErrorMessage(`Der lokale RAgents-Host für ${session.name} ist beendet (Code ${code}). Ausgabe im Kanal RAgents.`);
+      void vscode.window.showErrorMessage(`The local RAgents host for ${session.name} has ended (code ${code}). Output in the RAgents channel.`);
       void closeConnection(session.name);
     },
   };
 
-  /** Eine abweichende Fassung meldet sich einmal je Server und Text als Benachrichtigung; die Seiten und die Statusleiste zeigen sie, solange sie besteht. */
+  /** A different version is announced once per server and text as a notification; the pages and the status bar show it as long as it persists. */
   const shownNotices = new Map<string, string>();
   const announceVersionNotices = () => {
     const current = snapshots();
@@ -427,11 +427,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       if (!notice || shownNotices.get(snapshot.connection.name) === notice.text) continue;
       shownNotices.set(snapshot.connection.name, notice.text);
       const text = `RAgents (${snapshot.connection.name}): ${notice.text}`;
-      const actions = notice.update === "extension" ? ["Erweiterung zeigen", "Server zeigen"] : ["Server zeigen"];
+      const actions = notice.update === "extension" ? ["Show extension", "Show servers"] : ["Show servers"];
       const shown = notice.level === "error" ? vscode.window.showErrorMessage(text, ...actions) : vscode.window.showWarningMessage(text, ...actions);
       void shown.then((choice) => {
-        if (choice === "Erweiterung zeigen") void vscode.commands.executeCommand("extension.open", context.extension.id);
-        if (choice === "Server zeigen") showPage("connections");
+        if (choice === "Show extension") void vscode.commands.executeCommand("extension.open", context.extension.id);
+        if (choice === "Show servers") showPage("connections");
       });
     }
   };
@@ -451,7 +451,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     sessionChanged();
   };
 
-  /** Die Server folgen der Einstellung: neue kommen dazu, geänderte werden neu aufgebaut, entfernte verschwinden. */
+  /** The servers follow the setting: new ones are added, changed ones are rebuilt, removed ones disappear. */
   const syncConnections = async () => {
     let connections: Connection[] = [];
     try {
@@ -459,7 +459,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       configProblem = undefined;
     } catch (cause) {
       configProblem = message(cause);
-      log(`Einstellung ragents.connections: ${configProblem}`);
+      log(`Setting ragents.connections: ${configProblem}`);
     }
     const kept = new Map<string, ConnectionSession>();
     const closing: Array<Promise<void>> = [];
@@ -480,7 +480,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     if (selection && !sessions.has(selection.connection)) showPage("start", { focusPanel: false });
     sessionChanged();
     await Promise.all(closing);
-    // Alles startet beim Aktivieren: ein Server verbindet sich, ein lokales Profil fährt still hoch, damit seine Vorlagen gleich dastehen.
+    // Everything starts on activation: a server connects, a local profile starts up silently so its templates are there right away.
     for (const session of started) void session.connect();
   };
 
@@ -524,16 +524,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     const host = knownHost();
     const picked = await vscode.window.showOpenDialog({
       canSelectMany: false,
-      title: "Profildatei wählen",
-      filters: { "RAgents-Profil": ["ts"] },
-      openLabel: "Übernehmen",
+      title: "Choose profile file",
+      filters: { "RAgents profile": ["ts"] },
+      openLabel: "Apply",
       ...(host === undefined ? {} : { defaultUri: vscode.Uri.file(host) }),
     });
     pickedProfileFile = picked?.[0]?.fsPath;
     panel.render();
   };
 
-  /** Die Server stehen dort, wo die Liste schon steht; ein Schreiben in den falschen Bereich bliebe wirkungslos, weil der engere gewinnt. */
+  /** The servers are written where the list already is; writing to the wrong scope would have no effect, because the narrower one wins. */
   const connectionsHome = (): ConnectionsLocation =>
     connectionsLocation(vscode.workspace.getConfiguration("ragents").inspect<unknown[]>("connections"));
 
@@ -546,7 +546,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     panel.render();
   };
 
-  /** Legt einen Server in ragents.connections an; ein fehlerhafter Eintrag bleibt als Meldung in der Seite. */
+  /** Adds a server to ragents.connections; a faulty entry stays as a message on the page. */
   const addConnection = async (raw: Record<string, string>) => {
     const home = connectionsHome();
     let parsed: Connection[];
@@ -558,7 +558,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     }
     const added = parsed[parsed.length - 1]!;
     if (added.kind === "profile" && !isProfileFile(added.profileFile)) {
-      reportConfigProblem(`Die Profildatei ${added.profileFile} gibt es nicht.`);
+      reportConfigProblem(`The profile file ${added.profileFile} does not exist.`);
       return;
     }
     configProblem = undefined;
@@ -566,12 +566,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     await writeConnections(home, [...home.entries, raw]);
   };
 
-  /** Ändert einen Server an seiner Stelle in ragents.connections; ein Umbenennen behält die Anmeldedaten, weil sie an der Adresse hängen. */
+  /** Changes a server in place in ragents.connections; a rename keeps the credentials, because they are tied to the address. */
   const updateConnection = async (name: string, raw: Record<string, string>) => {
     const home = connectionsHome();
     const index = home.entries.findIndex((entry) => typeof entry === "object" && entry !== null && String((entry as { name?: unknown }).name ?? "").trim() === name);
     if (index < 0) {
-      reportConfigProblem(`Der Server ${name} steht nicht in ragents.connections.`);
+      reportConfigProblem(`The server ${name} is not in ragents.connections.`);
       return;
     }
     const others = configuredConnections().filter((connection) => connection.name !== name).map(connectionSetting);
@@ -584,7 +584,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     }
     const changed = parsed[parsed.length - 1]!;
     if (changed.kind === "profile" && !isProfileFile(changed.profileFile)) {
-      reportConfigProblem(`Die Profildatei ${changed.profileFile} gibt es nicht.`);
+      reportConfigProblem(`The profile file ${changed.profileFile} does not exist.`);
       return;
     }
     configProblem = undefined;
@@ -592,7 +592,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     await writeConnections(home, home.entries.map((entry, position) => position === index ? raw : entry));
   };
 
-  /** Nimmt einen Server aus ragents.connections und vergisst seine Anmeldedaten; seine Sitzung endet. */
+  /** Removes a server from ragents.connections and forgets its credentials; its session ends. */
   const removeConnection = async (name: string) => {
     const session = sessions.get(name);
     if (session) {
@@ -604,7 +604,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     await writeConnections(home, kept);
   };
 
-  /** Löschen bleibt Sache des Hosts; die Seite Runs zeigt danach nur, was die aufgefrischte Liste noch hergibt. */
+  /** Deleting stays the host's job; the Runs page then shows only what the refreshed list still contains. */
   const deleteRuns = async (connection: string, runIds: readonly string[]) => {
     const session = requireSession(connection);
     const client = requireClient(connection);
@@ -614,7 +614,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     sessionChanged();
   };
 
-  /** "Neuer Run" belegt den Arbeitsbereich mit einem angebotenen Ordner vor, außer die Vorlage legt ihn fest; bei mehreren Ordnern fragt die Auswahl. */
+  /** "New run" presets the workspace with an offered folder unless the template fixes it; with several folders, a picker asks. */
   const newRun = async (connection: string, entryId?: string) => {
     const session = requireSession(connection);
     if (session.status.kind !== "connected") await session.connect();
@@ -622,7 +622,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     const workspaceClient = session.workspaceClient;
     const folders = workspaceClient?.status.kind === "registered" && preselectable(entry, WORKSPACE_BINDING_OPTION_ID) ? workspaceClient.folders : [];
     const folder = folders.length > 1
-      ? await vscode.window.showQuickPick([...folders], { title: "Ordner für den neuen Run", ignoreFocusOut: true })
+      ? await vscode.window.showQuickPick([...folders], { title: "Folder for the new run", ignoreFocusOut: true })
       : folders[0];
     if (folders.length > 1 && folder === undefined) return;
     const request: Extract<HostRunPanelMessage, { type: "newRun" }> = {
@@ -634,13 +634,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     else pendingNewRun.set(connection, request);
   };
 
-  /** Ein Server und, wenn er welche hat, eine seiner Vorlagen; ohne Auswahl bleibt der freie Auftrag. */
+  /** A server and, if it has any, one of its templates; without a choice, the free task remains. */
   const chooseNewRun = async () => {
     const groups = newRunChoices(snapshots());
     const flat = groups.flatMap((group) => group.choices);
     if (flat.length === 0) {
       showPage("start");
-      void vscode.window.showInformationMessage("RAgents: Kein verbundener Server, der neue Runs erlaubt.");
+      void vscode.window.showInformationMessage("RAgents: No connected server that allows new runs.");
       return;
     }
     if (flat.length === 1) { await newRun(flat[0]!.connection, flat[0]!.entryId); return; }
@@ -648,12 +648,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       { label: group.group, kind: vscode.QuickPickItemKind.Separator },
       ...group.choices.map((choice) => ({ label: choice.title, description: choice.description, detail: choice.detail, choice })),
     ]);
-    const picked = await vscode.window.showQuickPick(items, { title: "Neuer Run", matchOnDetail: true, ignoreFocusOut: true });
+    const picked = await vscode.window.showQuickPick(items, { title: "New run", matchOnDetail: true, ignoreFocusOut: true });
     if (!picked?.choice) return;
     await newRun(picked.choice.connection, picked.choice.entryId);
   };
 
-  /** Der Server eines Befehls: der Knoten, aus dem er kommt, sonst der gewählte Run, sonst die Frage. */
+  /** The server of a command: the node it comes from, otherwise the selected run, otherwise the question. */
   const chooseConnection = async (given: string | undefined, title: string, matches: (snapshot: ConnectionSnapshot) => boolean): Promise<string | undefined> => {
     if (given !== undefined) return given;
     const resolved = resolveConnection(snapshots(), selection?.connection, matches);
@@ -716,11 +716,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     { dispose: () => panels.dispose() },
     vscode.window.registerWebviewViewProvider("ragents.runPanel", panel, { webviewOptions: { retainContextWhenHidden: true } }),
     vscode.workspace.registerTextDocumentContentProvider(DOCUMENT_SCHEME, documents),
-    // vscode://purestate.ragents-vscode/reload aus dem Task "vscode: install": das Fenster neu laden, damit Erweiterung und Hosts frisch starten.
+    // vscode://purestate.ragents-vscode/reload from the task "vscode: install": reload the window so the extension and hosts start fresh.
     vscode.window.registerUriHandler({
       handleUri: (uri) => {
         if (uri.path !== "/reload") return;
-        log("== Fenster auf Anforderung neu laden");
+        log("== Reloading window on request");
         void vscode.commands.executeCommand("workbench.action.reloadWindow");
       },
     }),
@@ -738,12 +738,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
       if (event.affectsConfiguration("ragents.theme")) rerender();
       if (event.affectsConfiguration("ragents.connections")) void syncConnections();
       if (event.affectsConfiguration("ragents.hostPath") && [...sessions.values()].some((session) => session.host)) {
-        void vscode.window.showInformationMessage("Der Host hat sich geändert; er gilt ab dem nächsten Start eines Servers.");
+        void vscode.window.showInformationMessage("The host has changed; it applies from the next start of a server.");
       }
       if (event.affectsConfiguration("ragents.hostEnvironment")) {
         void refreshMissingSecrets();
         if ([...sessions.values()].some((session) => session.host)) {
-          void vscode.window.showInformationMessage("Die Umgebungsvariablen des Hosts haben sich geändert; sie gelten ab dem nächsten Start eines Servers.");
+          void vscode.window.showInformationMessage("The host's environment variables have changed; they apply from the next start of a server.");
         }
       }
     }),
@@ -759,12 +759,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     vscode.commands.registerCommand("ragents.deleteSecret", () => deleteSecret()),
     vscode.commands.registerCommand("ragents.connect", async (node?: string | { connection: string }) => {
       const given = typeof node === "string" ? node : node?.connection;
-      const connection = await chooseConnection(given, "Server verbinden", (entry) => entry.status.kind !== "connected");
+      const connection = await chooseConnection(given, "Connect server", (entry) => entry.status.kind !== "connected");
       if (connection !== undefined) await requireSession(connection).connect();
     }),
     vscode.commands.registerCommand("ragents.disconnect", async (node?: string | { connection: string }) => {
       const given = typeof node === "string" ? node : node?.connection;
-      const connection = await chooseConnection(given, "Server trennen", (entry) => entry.status.kind !== "stopped");
+      const connection = await chooseConnection(given, "Disconnect server", (entry) => entry.status.kind !== "stopped");
       if (connection !== undefined) await closeConnection(connection);
     }),
     vscode.commands.registerCommand("ragents.refresh", () => void (async () => {
@@ -776,7 +776,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
     vscode.commands.registerCommand("ragents.login", () => showPage("connections")),
     vscode.commands.registerCommand("ragents.logout", async (node?: string | { connection: string }) => {
       const given = typeof node === "string" ? node : node?.connection;
-      const connection = await chooseConnection(given, "Von welchem Server abmelden?", (entry) => entry.user !== undefined);
+      const connection = await chooseConnection(given, "Sign out of which server?", (entry) => entry.user !== undefined);
       if (connection !== undefined) await requireSession(connection).logout();
     }),
     vscode.commands.registerCommand("ragents.newRun", () => void chooseNewRun()),
@@ -791,18 +791,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
   );
 
   syncContext();
-  // Der Arbeitsplatz führt Sprachserver und Browser selbst aus; ihre Werkzeuge kommen beim Start auf diesen Rechner.
+  // The workspace runs language servers and the browser itself; their tools come to this machine on startup.
   void (async () => {
     try {
       const hostPath = knownHost();
       if (!hostPath) {
-        log("== Werkzeuge des Arbeitsplatzes: noch kein Host; sie kommen nach der ersten Verbindung mit einem verteilenden Server");
+        log("== Workspace tools: no host yet; they come after the first connection with a distributing server");
         return;
       }
       ensureHostLinks(hostPath);
       await provisionTools(hostPath, "--workspace", await hostEnvironment(), log);
     } catch (cause) {
-      log(`== Werkzeuge des Arbeitsplatzes: ${message(cause)}`);
+      log(`== Workspace tools: ${message(cause)}`);
     }
   })();
   await syncConnections();
@@ -824,7 +824,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<RAgent
   };
 }
 
-/** Wartet begrenzt auf das Stoppen der eigenen Hosts; was danach noch läuft, beendet der Wächter im Host selbst. */
+/** Waits a limited time for the own hosts to stop; whatever still runs afterwards is ended by the watchdog in the host itself. */
 export async function deactivate(): Promise<void> {
   const stop = stopSessions?.();
   if (!stop) return;

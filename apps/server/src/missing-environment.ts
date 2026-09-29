@@ -1,11 +1,11 @@
-/** Eine Konfiguration nennt env("NAME") für eine Umgebungsvariable, die der Prozess nicht hat; dazu, wofür sie gebraucht wird. */
+/** A configuration names env("NAME") for an environment variable the process does not have; plus what it is needed for. */
 export interface MissingEnvironment {
   readonly variable: string;
   readonly section: string;
   readonly key: string;
 }
 
-/** Derselbe Fehler wie bisher, nur trägt er den Namen mit, statt ihn im Satz zu verstecken. */
+/** The same error as before, except that it carries the name instead of hiding it in the sentence. */
 export class MissingEnvironmentError extends Error {
   constructor(readonly missing: MissingEnvironment, message: string) {
     super(message);
@@ -23,14 +23,14 @@ const asMissingEnvironment = (value: unknown): MissingEnvironment | undefined =>
   return { variable: missing.variable, section: missing.section, key: missing.key };
 };
 
-/** Der Befund an einem Fehler; geprüft wird sein Inhalt, nicht seine Klasse, denn er kommt auch aus einem anderen Modul. */
+/** The finding on an error; its content is checked, not its class, because it also comes from another module. */
 export const missingEnvironmentOf = (error: unknown): MissingEnvironment | undefined =>
   asMissingEnvironment((error as { missing?: unknown } | null | undefined)?.missing);
 
-/** Die Zeile, mit der ein Kindprozess den Befund an den weitergibt, der ihn gestartet hat; sein Text bleibt daneben stehen. */
+/** The line with which a child process passes the finding on to whoever started it; its text stays alongside. */
 export const missingEnvironmentNotice = (missing: MissingEnvironment): string => NOTICE + JSON.stringify(missing);
 
-/** Der Befund aus einer Ausgabezeile; alles andere ist keiner. */
+/** The finding from an output line; anything else is none. */
 export const parseMissingEnvironmentNotice = (line: string): MissingEnvironment | undefined => {
   if (!line.startsWith(NOTICE)) return undefined;
   try {
@@ -40,7 +40,7 @@ export const parseMissingEnvironmentNotice = (line: string): MissingEnvironment 
   }
 };
 
-/** Was ein Prozess zusätzlich ausgibt, wenn er an einer fehlenden Umgebungsvariablen scheitert. */
+/** What a process additionally prints when it fails because of a missing environment variable. */
 export const reportMissingEnvironment = (error: unknown, write: (line: string) => void): void => {
   const missing = missingEnvironmentOf(error);
   if (missing) write(missingEnvironmentNotice(missing));

@@ -12,10 +12,10 @@ import { RunDirectory } from "../../../plugins/ragents.overseer/server/run-direc
 import type { ManagedRunStart, RunManagement } from "../src/ragents/global-chat.ts";
 import { startRpcServer } from "./rpc-fixture.ts";
 
-const viewOf = (id: string): RunView => ({ id, revision: 3, title: "Analyse", ownerId: "owner", primaryActorId: "worker", createdAt: "2026-09-07T00:00:00Z", forkedFrom: null, actors: [], inputs: [], turns: [], subscriptions: [], pluginStates: [], actions: [], artifacts: [] });
+const viewOf = (id: string): RunView => ({ id, revision: 3, title: "Analysis", ownerId: "owner", primaryActorId: "worker", createdAt: "2026-09-07T00:00:00Z", forkedFrom: null, actors: [], inputs: [], turns: [], subscriptions: [], pluginStates: [], actions: [], artifacts: [] });
 const eventOf = (sequence: number): JournalEvent => ({
   eventId: `event-${sequence}`, runId: "first", sequence, schemaVersion: 3, occurredAt: "2026-09-07T00:00:00Z", actorId: "worker", commandId: `command-${sequence}`, correlationId: null, causationId: null,
-  type: "model.output.completed", payload: { turnId: `turn-${sequence}`, text: `Vollständiger Text ${sequence}` },
+  type: "model.output.completed", payload: { turnId: `turn-${sequence}`, text: `Complete text ${sequence}` },
 });
 const inspector = createAccessContext({ enabled: true, user: { id: "inspector", label: "Inspector", rights: ["runs.read", "runs.inspect", "runs.write", "runs.create"] } });
 const operator = createAccessContext({ enabled: true, user: { id: "operator", label: "Operator", rights: ["runs.read", "runs.write"] } });
@@ -26,7 +26,7 @@ const hostWith = async (t: TestContext) => {
   const host = new PluginHost({ product: { id: "test", title: "Test" }, dataDirectory: directory });
   host.register({ manifest: { id: "test" }, register: (registration) => {
     registration.startOptions({ id: "test.language", schema: Type.Union([Type.Literal("de"), Type.Literal("en")]), selectable: () => true, defaultValue: () => "de", accept: (value) => value, describe: (value) => ({ label: value }) });
-    registration.startEntries({ id: "test.script", title: "Vorbereitung", description: "Test", action: "script", script: { handle: "setup", coordinator: true, files: [{ path: "package.json", content: "{}" }], programs: [] } });
+    registration.startEntries({ id: "test.script", title: "Preparation", description: "Test", action: "script", script: { handle: "setup", coordinator: true, files: [{ path: "package.json", content: "{}" }], programs: [] } });
   } });
   return { host, directory };
 };
@@ -34,16 +34,16 @@ const hostWith = async (t: TestContext) => {
 test("reference and OpenRPC follow the registered contracts of methods and channels", async (t) => {
   const { host, directory } = await hostWith(t);
   const methods = managementMethods({
-    root: host, management: () => { throw new Error("Die Referenz fragt keine Runs ab"); },
+    root: host, management: () => { throw new Error("The reference does not query runs"); },
     directory: new RunDirectory(path.join(directory, "references.json")), authentication: { kind: "open" },
   });
   host.methods.register("ragents.overseer", methods);
   const markdown = methodReference(host);
   const document = openRpcDocument(host);
   assert.equal(document.openrpc, "1.3.0");
-  assert.match(markdown, /Methodenübersicht/);
+  assert.match(markdown, /Method overview/);
   assert.match(markdown, /POST \/rpc/);
-  assert.match(markdown, /keine Anmeldung/);
+  assert.match(markdown, /requires no sign-in/);
   const described = host.methods.describe();
   assert.equal(described.length, methods.length);
   for (const method of described) {
@@ -56,12 +56,12 @@ test("reference and OpenRPC follow the registered contracts of methods and chann
     assert.deepEqual(entry["x-rights"], [...method.rights]);
   }
   assert.match(methodReference(host, { kind: "token" }), /ACCESS_TOKEN/);
-  assert.match(String((openRpcDocument(host, { kind: "users", cookieName: "test-core-user" }).info as { description: string }).description), /Benutzeranmeldung/);
+  assert.match(String((openRpcDocument(host, { kind: "users", cookieName: "test-core-user" }).info as { description: string }).description), /User sign-in/);
 });
 
 test("the management methods validate input, resolve references, page events and await accepted work", async (t) => {
   const { host, directory } = await hostWith(t);
-  const runs: Awaited<ReturnType<RunManagement["list"]>> = [{ id: "first", title: "Analyse", createdAt: 0, updatedAt: 1 }, { id: "second", title: "Analyse", updatedAt: 2 }];
+  const runs: Awaited<ReturnType<RunManagement["list"]>> = [{ id: "first", title: "Analysis", createdAt: 0, updatedAt: 1 }, { id: "second", title: "Analysis", updatedAt: 2 }];
   const starts: ManagedRunStart[] = [];
   const sends: Array<[string, string]> = [];
   const stops: string[] = [];
@@ -90,13 +90,13 @@ test("the management methods validate input, resolve references, page events and
   const call = (method: string, params: unknown) => server.call(method, params);
   const failure = async (method: string, params: unknown) => {
     const reply = await server.call(method, params);
-    assert.ok(reply.error, `${method} sollte scheitern`);
+    assert.ok(reply.error, `${method} should fail`);
     return { code: reply.error.code, data: reply.error.data as { code?: string; status?: number } | undefined };
   };
 
   const list = await call(overseerContracts.listRuns.id, {});
   assert.deepEqual((list.result as Array<{ reference: string }>).map((entry) => entry.reference), ["Run 1", "Run 2"]);
-  assert.equal((await failure(overseerContracts.readRun.id, { run: "Analyse" })).data?.status, 409);
+  assert.equal((await failure(overseerContracts.readRun.id, { run: "Analysis" })).data?.status, 409);
   assert.equal((await failure(overseerContracts.readRun.id, { run: "missing" })).data?.status, 404);
   assert.equal(((await call(overseerContracts.readRun.id, { run: "first" })).result as RunView).id, "first");
   assert.equal(((await call(overseerContracts.readRun.id, { run: "Run 2" })).result as RunView).id, "second");
@@ -119,20 +119,20 @@ test("the management methods validate input, resolve references, page events and
   pauseCreate = true;
   const entered = new Promise<void>((resolve) => { signalCreate = resolve; });
   let settled = false;
-  const creating = call(overseerContracts.createRun.id, { title: "Neuer Auftrag", message: "  Hallo  ", options: { "test.language": "en" } }).then((value) => { settled = true; return value; });
+  const creating = call(overseerContracts.createRun.id, { title: "New task", message: "  Hello  ", options: { "test.language": "en" } }).then((value) => { settled = true; return value; });
   await entered;
-  assert.equal(settled, false, "Das Ergebnis wartet auf management.create");
+  assert.equal(settled, false, "The result waits for management.create");
   releaseCreate!();
   const created = (await creating).result as { runId: string; accepted: true };
   assert.equal(created.accepted, true);
-  assert.deepEqual(starts[0], { kind: "message", title: "Neuer Auftrag", user: { id: "inspector", label: "Inspector" }, message: "Hallo", options: { "test.language": "en" } });
+  assert.deepEqual(starts[0], { kind: "message", title: "New task", user: { id: "inspector", label: "Inspector" }, message: "Hello", options: { "test.language": "en" } });
   pauseCreate = false;
-  assert.ok((await call(overseerContracts.createRun.id, { title: "Script", script: "Vorbereitung", input: { topic: "Test" } })).result);
+  assert.ok((await call(overseerContracts.createRun.id, { title: "Script", script: "Preparation", input: { topic: "Test" } })).result);
   assert.deepEqual(starts[1], { kind: "script", title: "Script", user: { id: "inspector", label: "Inspector" }, entryId: "test.script", input: { topic: "Test" } });
-  assert.ok((await call(overseerContracts.createRun.id, { title: "Paket", packageDirectory: directory, input: { size: 2 } })).result);
-  assert.deepEqual(starts[2], { kind: "package", title: "Paket", user: { id: "inspector", label: "Inspector" }, directory, input: { size: 2 }, owner: "ragents.overseer" });
-  assert.ok((await call(overseerContracts.sendMessage.id, { run: created.runId, message: " Prüfen " })).result);
-  assert.deepEqual(sends, [[created.runId, "Prüfen"]]);
+  assert.ok((await call(overseerContracts.createRun.id, { title: "Package", packageDirectory: directory, input: { size: 2 } })).result);
+  assert.deepEqual(starts[2], { kind: "package", title: "Package", user: { id: "inspector", label: "Inspector" }, directory, input: { size: 2 }, owner: "ragents.overseer" });
+  assert.ok((await call(overseerContracts.sendMessage.id, { run: created.runId, message: " Check " })).result);
+  assert.deepEqual(sends, [[created.runId, "Check"]]);
   assert.ok((await call(overseerContracts.stopRun.id, { run: created.runId })).result);
   assert.deepEqual(stops, [created.runId]);
 
@@ -156,7 +156,7 @@ test("the management methods validate input, resolve references, page events and
 test("createRun chooses a start option only with its own rights", async (t) => {
   const { host, directory } = await hostWith(t);
   host.register({ manifest: { id: "test.technical" }, register: (registration) => {
-    registration.startOptions({ id: "test.model", rights: ["runs.inspect"], schema: Type.String(), selectable: () => true, defaultValue: () => "fast", accept: (value) => value, describe: () => ({ label: "Modell" }) });
+    registration.startOptions({ id: "test.model", rights: ["runs.inspect"], schema: Type.String(), selectable: () => true, defaultValue: () => "fast", accept: (value) => value, describe: () => ({ label: "Model" }) });
   } });
   const starts: ManagedRunStart[] = [];
   const management = {

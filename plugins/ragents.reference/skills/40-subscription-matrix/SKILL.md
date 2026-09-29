@@ -2,11 +2,11 @@
 name: 40-subscription-matrix
 start: true
 disable-model-invocation: true
-title: "Gezielt bei anderen Helfern mithören"
-description: "Zeigt, wie Abonnements nach Absender und Ereignisart filtern. Eine belegte Empfangstabelle macht passende und ausgeschlossene Ereignisse sichtbar."
-category: "Ereignisse und Abläufe"
+title: "Listen in on other helpers selectively"
+description: "Shows how subscriptions filter by sender and event type. A receipt table with evidence makes matching and excluded events visible."
+category: "Events and flows"
 order: 40
-tags: "Journalprüfung, Konzeptdemo, Subscriptions"
+tags: "Journal inspection, Concept demo, Subscriptions"
 ---
 
-Ich hätte gern drei KIs a, b und c und dazu zwei Zuhörer: der eine soll nur mitbekommen, was a und b sagen, der andere nur, wenn eine der drei tatsächlich etwas ausgeführt hat. Lass danach alle drei etwas sagen und mindestens eine wirklich etwas tun. Gib mir am Ende eine Tabelle, bei welchem Zuhörer was angekommen ist und was nicht, und belege sie.
+I would like three AIs a, b, and c plus two listeners: one should only hear what a and b say, the other only when one of the three has actually executed something. Then have all three say something and at least one actually do something. At the end, give me a table of what arrived at which listener and what did not, and back it up with evidence.

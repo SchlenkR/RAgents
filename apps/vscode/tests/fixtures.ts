@@ -24,36 +24,36 @@ import type { RunView } from "../../web/src/run-view";
 
 export const SESSION_TOKEN = "a".repeat(43);
 
-/** Die RAgents-Fassung, die der Stub ohne eigene Angabe nennt; die Erweiterung der Tests trägt dieselbe. */
+/** The RAgents version the stub names without its own value; the extension of the tests carries the same. */
 export const STUB_VERSION = "0.1.8";
 
-/** Die Run-Ansicht der Oberfläche trägt dieselben Daten wie die der Engine, nur mit eigenen Typen. */
+/** The run view of the UI carries the same data as that of the engine, only with its own types. */
 const servedView = (value: RunView): JournalRunView => value as unknown as JournalRunView;
 
 const at = "2026-09-17T10:00:00.000Z";
 
 const JOURNAL: unknown[] = [{ sequence: 1, type: "run.created", payload: { runId: "run-a" } }];
 
-const ARTIFACT_TEXT = "# Protokoll\n";
+const ARTIFACT_TEXT = "# Minutes\n";
 
 export const runView = (overrides: Partial<RunView> = {}): RunView => ({
   id: "run-a",
   revision: 12,
-  title: "Nachtbus-Runde",
+  title: "Night bus round",
   ownerId: "owner",
   primaryActorId: "coordinator",
   createdAt: at,
   forkedFrom: null,
   actors: [
-    { id: "owner", kind: "human", handle: "user", displayName: "Du", grants: [], createdAt: at },
-    { id: "coordinator", kind: "agent", handle: "coordinator", displayName: "Koordinator", grants: [], createdAt: at, lifecycle: { kind: "idle", since: at } },
+    { id: "owner", kind: "human", handle: "user", displayName: "You", grants: [], createdAt: at },
+    { id: "coordinator", kind: "agent", handle: "coordinator", displayName: "Coordinator", grants: [], createdAt: at, lifecycle: { kind: "idle", since: at } },
     { id: "mira", kind: "agent", handle: "mira", displayName: "Mira", grants: [], createdAt: at, lifecycle: { kind: "running", turnId: "turn-5", inputId: "input-5", startedAt: at } },
     { id: "jon", kind: "agent", handle: "jon", displayName: "Jon", grants: [], createdAt: at, lifecycle: { kind: "idle", since: at } },
-    { id: "circle", kind: "script", handle: "conversation-circle", displayName: "Gesprächsrunde", grants: [], createdAt: at, lifecycle: { kind: "stopped", stoppedAt: at, reason: "fertig" } },
+    { id: "circle", kind: "script", handle: "conversation-circle", displayName: "Conversation circle", grants: [], createdAt: at, lifecycle: { kind: "stopped", stoppedAt: at, reason: "done" } },
   ],
   inputs: [
-    { id: "input-6", actorId: "jon", content: "Deine Stimme", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: "circle", enqueuedAt: at, sequence: 6, lifecycle: { kind: "pending" } },
-    { id: "input-7", actorId: "jon", content: "Nachtrag", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: "circle", enqueuedAt: at, sequence: 7, lifecycle: { kind: "pending" } },
+    { id: "input-6", actorId: "jon", content: "Your vote", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: "circle", enqueuedAt: at, sequence: 6, lifecycle: { kind: "pending" } },
+    { id: "input-7", actorId: "jon", content: "Addendum", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: "circle", enqueuedAt: at, sequence: 7, lifecycle: { kind: "pending" } },
   ],
   turns: [],
   subscriptions: [],
@@ -62,34 +62,34 @@ export const runView = (overrides: Partial<RunView> = {}): RunView => ({
     scope: { kind: "actor", actorId: "circle" },
     updatedAt: at,
     state: { version: 1, program: { name: "board", actorId: "circle", actorHandle: "conversation-circle", revision: "r1", views: [
-      { id: "board--main", title: "Sammelboard", visible: true },
-      { id: "board--hidden", title: "Intern", visible: false },
+      { id: "board--main", title: "Collection board", visible: true },
+      { id: "board--hidden", title: "Internal", visible: false },
     ] } },
   }, {
     pluginId: "ragents.actor-programs",
     scope: { kind: "actor", actorId: "jon" },
     updatedAt: at,
-    state: { version: 1, program: { name: "decision", actorId: "jon", actorHandle: "jon", revision: "r2", views: [{ id: "decision--main", title: "Entscheidung", visible: true }] } },
+    state: { version: 1, program: { name: "decision", actorId: "jon", actorHandle: "jon", revision: "r2", views: [{ id: "decision--main", title: "Decision", visible: true }] } },
   }],
   actions: [{
-    id: "question-1", askedBy: "jon", owner: "ragents.ask", payload: { question: "Nachtbus einführen?", options: ["Ja", "Nein"], multi: false }, title: "Nachtbus einführen?",
+    id: "question-1", askedBy: "jon", owner: "ragents.ask", payload: { question: "Introduce a night bus?", options: ["Yes", "No"], multi: false }, title: "Introduce a night bus?",
     description: null, parameters: {}, input: null, status: "pending", proposedAt: at, resolvedAt: null, resolvedBy: null, result: null,
   }],
-  artifacts: [{ id: "artifact-1", title: "protokoll.md", mediaType: "text/markdown", hash: "h", size: 120, previousVersionId: null, createdBy: "coordinator", createdAt: at }],
+  artifacts: [{ id: "artifact-1", title: "minutes.md", mediaType: "text/markdown", hash: "h", size: 120, previousVersionId: null, createdBy: "coordinator", createdAt: at }],
   ...overrides,
 });
 
 export const session = (overrides: Partial<SessionInfo> = {}): SessionInfo => ({
-  id: "run-a", title: "Nachtbus-Runde", createdAt: 1, updatedAt: 2, revision: 12, running: true, ...overrides,
+  id: "run-a", title: "Night bus round", createdAt: 1, updatedAt: 2, revision: 12, running: true, ...overrides,
 });
 
-/** Das Client-Profil, das der Stub ausliefert: Produkt und zwei freigegebene Startvorlagen. */
+/** The client profile the stub delivers: product and two permitted start templates. */
 export const stubProfile = (overrides: Partial<PublicPluginProfile> = {}): PublicPluginProfile => ({
   product: { id: "stub", title: "Stub" },
   plugins: [],
   startEntries: [
-    { id: "ragents.reference.board", owner: "ragents.reference", title: "Sammelboard", description: "Ein Board für Ideen", action: "skill", skill: "board", category: "Mini-Apps", prompt: "Bau ein Board." },
-    { id: "ragents.reference.circle", owner: "ragents.reference", title: "Gesprächsrunde", description: "Vier Agenten im Kreis", action: "script", coordinator: true },
+    { id: "ragents.reference.board", owner: "ragents.reference", title: "Collection board", description: "A board for ideas", action: "skill", skill: "board", category: "Mini-apps", prompt: "Build a board." },
+    { id: "ragents.reference.circle", owner: "ragents.reference", title: "Conversation circle", description: "Four agents in a circle", action: "script", coordinator: true },
   ],
   ...overrides,
 });
@@ -117,17 +117,17 @@ const readBody = (request: IncomingMessage): Promise<string> => new Promise((res
   request.on("end", () => resolve(body));
 });
 
-/** Ein Stub aus den echten Bausteinen: Anmeldung und Artefakte per HTTP, alles Weitere über Dispatcher und Transport. */
+/** A stub made of the real building blocks: sign-in and artifacts over HTTP, everything else via dispatcher and transport. */
 export const startStubServer = async (options: {
   loginRequired?: boolean;
   tokenGate?: boolean;
   logoutFails?: boolean;
   profile?: PublicPluginProfile;
-  /** Was die Plugins des Stubs zum Executor beitragen; ein Arbeitsplatz muss genau das mitbringen. */
+  /** What the stub's plugins contribute to the executor; a workspace must bring exactly that. */
   contributions?: readonly ExecutorContributionStand[];
-  /** Die RAgents-Fassung im Bootstrap; null lässt sie weg wie ein Server, der älter ist als diese Angabe. */
+  /** The RAgents version in the bootstrap; null omits it like a server that is older than this field. */
   version?: string | null;
-  /** So lehnt der Server jede Anmeldung eines Arbeitsplatzes ab, etwa mit einem anderen Executor-Stand. */
+  /** This is how the server rejects every registration of a workspace, e.g. with a different executor revision. */
   refuseRegistration?: { code: string; message: string };
 } = {}): Promise<StubServer> => {
   const requests: StubServer["requests"] = [];
@@ -143,11 +143,11 @@ export const startStubServer = async (options: {
     implement(coreContracts.runs.list, () => sessions),
     implement(coreContracts.plugins.bootstrap, () => options.version === null ? profile as HostBootstrap : { ...profile, version: options.version ?? STUB_VERSION }),
     implement(runContracts.view, ({ runId }) => {
-      if (sessions.some((entry) => entry.id === runId && entry.locked !== undefined)) throw new DomainError("journal-unavailable", `Journal für Run ${runId} ist nicht verfügbar`, 409);
+      if (sessions.some((entry) => entry.id === runId && entry.locked !== undefined)) throw new DomainError("journal-unavailable", `Journal for run ${runId} is not available`, 409);
       return runId === view.id ? servedView(view) : null;
     }),
     implement(runContracts.events, () => JOURNAL as JournalEvent[]),
-    // Wie im Server geht der Stopp erst an den Arbeitsplatz und wird erst danach beantwortet.
+    // As in the server, the stop goes to the workspace first and is only answered afterwards.
     implement(runContracts.stopAll, async ({ runId }) => {
       for (const [id, connection] of workspaceConnections) {
         const cwd = workspaceClients.get(id)?.folders[0];
@@ -158,8 +158,8 @@ export const startStubServer = async (options: {
     implement(workspaceContracts.clients.contributions, () => (options.contributions ?? []).map((entry) => ({ ...entry }))),
     implement(workspaceContracts.clients.register, (input, { connection }) => {
       if (options.refuseRegistration) throw new DomainError(options.refuseRegistration.code, options.refuseRegistration.message, 409);
-      if (!("id" in input) || input.executor !== WORKSPACE_EXECUTOR_VERSION) throw new Error(`Der Arbeitsplatz bringt den Executor ${input.executor} mit`);
-      if (JSON.stringify(input.contributions) !== JSON.stringify(options.contributions ?? [])) throw new Error("Der Arbeitsplatz bringt andere Executor-Beiträge mit");
+      if (!("id" in input) || input.executor !== WORKSPACE_EXECUTOR_VERSION) throw new Error(`The workspace brings executor ${input.executor}`);
+      if (JSON.stringify(input.contributions) !== JSON.stringify(options.contributions ?? [])) throw new Error("The workspace brings different executor contributions");
       const { id, executor: _executor, contributions: _contributions, ...description } = input;
       workspaceClients.set(id, description);
       workspaceConnections.set(id, connection);
@@ -190,20 +190,20 @@ export const startStubServer = async (options: {
   const user = { id: "alice", label: "Alice", rights: ["runs.read", "runs.write", "runs.inspect"] };
   const authorized = (request: IncomingMessage) => request.headers.authorization === `Bearer ${SESSION_TOKEN}`;
   const route = async (request: IncomingMessage, response: ServerResponse, url: URL): Promise<void> => {
-    if (options.tokenGate && !authorized(request)) return json(response, 401, { error: "Zugangstoken fehlt" });
+    if (options.tokenGate && !authorized(request)) return json(response, 401, { error: "Access token missing" });
     if (options.loginRequired && !authorized(request)) {
       if (url.pathname === "/api/access") return json(response, 200, { enabled: true, user: null });
       if (url.pathname === "/api/access/login") {
         const body = JSON.parse(await readBody(request)) as { id: string; password: string };
-        if (body.id !== "alice" || body.password !== "geheim") return json(response, 401, { error: "Benutzerkennung oder Passwort stimmen nicht" });
+        if (body.id !== "alice" || body.password !== "secret") return json(response, 401, { error: "User id or password is incorrect" });
         response.setHeader("set-cookie", `ragents-test-user=${SESSION_TOKEN}; Path=/; HttpOnly; SameSite=Lax; Max-Age=43200`);
         return json(response, 200, { enabled: true, user });
       }
-      return json(response, 401, { error: "Bitte melde dich an.", code: "login-required" });
+      return json(response, 401, { error: "Please sign in.", code: "login-required" });
     }
     if (url.pathname === "/api/access") return json(response, 200, options.loginRequired ? { enabled: true, user } : { enabled: false, user: null });
     if (url.pathname === "/api/access/logout") {
-      return options.logoutFails ? json(response, 500, { error: "Abmelden ist hier nicht vorgesehen" }) : json(response, 200, { enabled: true, user: null });
+      return options.logoutFails ? json(response, 500, { error: "Signing out is not supported here" }) : json(response, 200, { enabled: true, user: null });
     }
     if (ARTIFACT_CONTENT_PATH.test(url.pathname)) {
       response.writeHead(200, { "content-type": "text/markdown" });
@@ -212,7 +212,7 @@ export const startStubServer = async (options: {
     }
     const access = createAccessContext(options.loginRequired ? { enabled: true, user } : { enabled: false, user: null });
     if (await transport.handle(request, response, url, access, true)) return;
-    json(response, 404, { error: "Unbekannte Route" });
+    json(response, 404, { error: "Unknown route" });
   };
 
   const server: Server = createServer((request, response) => {
@@ -244,7 +244,7 @@ export const startStubServer = async (options: {
 export const waitFor = async (condition: () => boolean, timeoutMs = 3000): Promise<void> => {
   const started = Date.now();
   while (!condition()) {
-    if (Date.now() - started > timeoutMs) throw new Error("Bedingung wurde nicht erfüllt.");
+    if (Date.now() - started > timeoutMs) throw new Error("Condition was not met.");
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
 };

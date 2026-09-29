@@ -10,14 +10,14 @@ import { cachedArchive, megabytes } from "./bundle-bash.ts";
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const extensionRoot = path.join(repositoryRoot, "apps", "vscode");
 
-/** Die feste ripgrep-Fassung; eine neue Fassung heißt neue Hashes. */
+/** The pinned ripgrep version; a new version means new hashes. */
 export const RIPGREP_VERSION = "15.2.0";
 const RELEASE_URL = `https://github.com/BurntSushi/ripgrep/releases/download/${RIPGREP_VERSION}`;
 
 export type RipgrepTarget = "win32-x64" | "win32-arm64" | "darwin-arm64" | "darwin-x64" | "linux-x64" | "linux-arm64";
 
 interface TargetSource {
-  /** Das Ziel im Namen des Release-Archivs; unter Linux die statisch gelinkte musl-Fassung, die ohne glibc läuft. */
+  /** The target in the release archive's name; on Linux the statically linked musl build that runs without glibc. */
   readonly triple: string;
   readonly sha256: string;
 }
@@ -33,16 +33,16 @@ export const RIPGREP_TARGETS: Readonly<Record<RipgrepTarget, TargetSource>> = {
 
 const onWindows = (target: RipgrepTarget): boolean => target.startsWith("win32-");
 
-/** Das Release-Archiv einer Plattform: für Windows ZIP, sonst tar.gz. */
+/** The release archive of a platform: ZIP for Windows, otherwise tar.gz. */
 export const ripgrepAsset = (target: RipgrepTarget): string =>
   `ripgrep-${RIPGREP_VERSION}-${RIPGREP_TARGETS[target].triple}.${onWindows(target) ? "zip" : "tar.gz"}`;
 
 export const ripgrepExecutable = (target: RipgrepTarget): string => onWindows(target) ? "rg.exe" : "rg";
 
-/** ripgrep steht wahlweise unter MIT oder Unlicense; COPYING nennt die Wahl. */
+/** ripgrep is licensed under MIT or the Unlicense, at your choice; COPYING names the choice. */
 export const RIPGREP_LICENSE_FILES = ["COPYING", "LICENSE-MIT", "UNLICENSE"] as const;
 
-/** Der Ordner, in dem die Erweiterung rg für eine Plattform erwartet; die Bash des Werkzeugs hat ihn vorn im PATH. */
+/** The folder where the extension expects rg for a platform; the tool's Bash has it at the front of the PATH. */
 export const ripgrepBundleFolder = (target: RipgrepTarget, root: string = extensionRoot): string => path.join(root, "dist", "rg", target);
 
 const notice = (target: RipgrepTarget): string => `RAgents bundled ripgrep (${target})
@@ -56,7 +56,7 @@ ripgrep is dual-licensed under the MIT license or the Unlicense, at your choice;
 licenses/. Source code: https://github.com/BurntSushi/ripgrep/tree/${RIPGREP_VERSION}
 `;
 
-/** Die Dateien eines tar.gz-Archivs, die `keep` nennt, mit ihrem Inhalt. */
+/** The files of a tar.gz archive that `keep` names, with their content. */
 const tarEntries = (archive: string, keep: (name: string) => boolean): ReadonlyMap<string, Buffer> => {
   const found = new Map<string, Buffer>();
   listTar({
@@ -83,7 +83,7 @@ export interface RipgrepBundle {
   readonly directory: string;
   readonly executable: string;
   readonly bytes: number;
-  /** Die Größe nach Deflate, wie sie ungefähr in der .vsix landet. */
+  /** The size after deflate, roughly as it ends up in the .vsix. */
   readonly deflatedBytes: number;
 }
 
@@ -93,7 +93,7 @@ export interface RipgrepBundleOptions {
   readonly log?: (line: string) => void;
 }
 
-/** Legt rg einer Plattform samt Lizenztexten aus dem festen Release-Archiv ab. */
+/** Places rg of a platform together with license texts from the pinned release archive. */
 export const bundleRipgrep = async (target: RipgrepTarget, options: RipgrepBundleOptions = {}): Promise<RipgrepBundle> => {
   const log = options.log ?? (() => undefined);
   const cache = options.cache ?? path.join(tmpdir(), "ragents-rg-cache");
@@ -103,7 +103,7 @@ export const bundleRipgrep = async (target: RipgrepTarget, options: RipgrepBundl
   const wanted = [executable, ...RIPGREP_LICENSE_FILES];
   const entries = archiveEntries(archive, target, (name) => wanted.some((file) => name === `${prefix}${file}`));
   const missing = wanted.filter((file) => !entries.has(`${prefix}${file}`));
-  if (missing.length > 0) throw new Error(`${ripgrepAsset(target)} enthält unter ${prefix} nicht: ${missing.join(", ")}`);
+  if (missing.length > 0) throw new Error(`${ripgrepAsset(target)} does not contain under ${prefix}: ${missing.join(", ")}`);
   const contentOf = (file: string): Buffer => entries.get(`${prefix}${file}`)!;
 
   const output = options.output ?? ripgrepBundleFolder(target);
@@ -122,19 +122,19 @@ export const bundleRipgrep = async (target: RipgrepTarget, options: RipgrepBundl
     bytes: contentOf(executable).length,
     deflatedBytes: deflateRawSync(contentOf(executable), { level: 9 }).length,
   };
-  log(`== ${target}: ${executable} ${megabytes(bundle.bytes)} ausgepackt, ${megabytes(bundle.deflatedBytes)} gepackt, nach ${path.relative(repositoryRoot, output)}`);
+  log(`== ${target}: ${executable} ${megabytes(bundle.bytes)} unpacked, ${megabytes(bundle.deflatedBytes)} packed, to ${path.relative(repositoryRoot, output)}`);
   return bundle;
 };
 
-const usage = `Verwendung: pnpm bundle:rg [${Object.keys(RIPGREP_TARGETS).join("] [")}]
-Legt ripgrep ${RIPGREP_VERSION}, das die plattformgebundenen Fassungen der VS-Code-Erweiterung mitbringen,
-aus den festen Release-Archiven nach apps/vscode/dist/rg/<plattform>. Ohne Angabe alle Plattformen;
-die Archive bleiben im Temp-Ordner liegen.`;
+const usage = `Usage: pnpm bundle:rg [${Object.keys(RIPGREP_TARGETS).join("] [")}]
+Places ripgrep ${RIPGREP_VERSION}, which the platform-specific versions of the VS Code extension bring along,
+from the pinned release archives into apps/vscode/dist/rg/<platform>. Without an argument all platforms;
+the archives stay in the temp folder.`;
 
 const main = async (): Promise<void> => {
   const requested = process.argv.slice(2);
   const unknown = requested.filter((argument) => !(argument in RIPGREP_TARGETS));
-  if (unknown.length > 0) throw new Error(`Unbekannte Plattform: ${unknown.join(" ")}\n${usage}`);
+  if (unknown.length > 0) throw new Error(`Unknown platform: ${unknown.join(" ")}\n${usage}`);
   const targets = (requested.length > 0 ? requested : Object.keys(RIPGREP_TARGETS)) as RipgrepTarget[];
   for (const target of targets) await bundleRipgrep(target, { log: (line) => console.log(line) });
 };

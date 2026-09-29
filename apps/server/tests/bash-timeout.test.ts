@@ -68,7 +68,7 @@ test("bash tells the model its default and maximum timeout, and the server sends
 test("RAGENTS_BASH_TIMEOUT_SECONDS sets the default for every run of the server and may not exceed the maximum", async () => {
   assert.equal(withBashTimeoutVariable(undefined, bashTimeoutSetting), undefined);
   assert.equal(withBashTimeoutVariable("", bashTimeoutSetting), undefined);
-  assert.throws(() => withBashTimeoutVariable("zwei Minuten", bashTimeoutSetting), /RAGENTS_BASH_TIMEOUT_SECONDS muss eine positive Zahl sein/);
+  assert.throws(() => withBashTimeoutVariable("two minutes", bashTimeoutSetting), /RAGENTS_BASH_TIMEOUT_SECONDS must be a positive number/);
   const configured = withBashTimeoutVariable("300", bashTimeoutSetting);
   assert.equal(configured, 300);
   const { calls, executor } = recordingWorkstation();

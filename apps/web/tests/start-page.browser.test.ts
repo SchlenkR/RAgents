@@ -7,7 +7,7 @@ import { chromium, type Page } from "playwright-core";
 import { tailwindPlugin } from "./tailwind-plugin";
 import type {} from "./start-page-fixture";
 
-/** Baut die Fixture einmal: die Web-App, das Run-Panel und Start der Erweiterung mit denselben Vorlagen und einem verbundenen Arbeitsplatz. */
+/** Builds the fixture once: the web app, the run panel and the extension's Start with the same templates and a connected workstation. */
 const buildFixture = async (): Promise<string> => {
   await mkdir("/private/tmp/ragents-start-page", { recursive: true });
   const directory = await mkdtemp("/private/tmp/ragents-start-page/browser-");
@@ -47,75 +47,75 @@ const withPage = async (query: string, width: number, run: (page: Page) => Promi
 };
 
 const openStartSelection = async (page: Page) => {
-  await page.getByRole("button", { name: "Übersicht öffnen" }).click();
-  await page.getByRole("button", { name: "Neuer Run" }).first().click();
-  const dialog = page.getByRole("dialog", { name: "Neuer Run" });
-  await dialog.getByRole("list", { name: "Vorlagen" }).waitFor();
-  await page.waitForFunction(() => !document.querySelector('[role=dialog] ul[aria-label="Vorlagen"] button:disabled'));
+  await page.getByRole("button", { name: "Open overview" }).click();
+  await page.getByRole("button", { name: "New run" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "New run" });
+  await dialog.getByRole("list", { name: "Templates" }).waitFor();
+  await page.waitForFunction(() => !document.querySelector('[role=dialog] ul[aria-label="Templates"] button:disabled'));
   return dialog;
 };
 
-/** Leitfaden der Skill-Vorlage durchlaufen und im Vorbereitungschat die angebotenen Rechner lesen. */
+/** Goes through the guide of the skill template and reads the offered machines in the preparation chat. */
 const offeredMachines = async (page: Page) => {
-  await page.getByRole("button", { name: "Thema übernehmen" }).click();
-  await page.getByRole("combobox", { name: "Rechner des Arbeitsbereichs" }).click();
+  await page.getByRole("button", { name: "Use topic" }).click();
+  await page.getByRole("combobox", { name: "Workspace machine" }).click();
   await page.getByRole("option", { name: "Server" }).waitFor();
   return page.getByRole("option").allTextContents();
 };
 
 const calls = (page: Page, id: string) => page.evaluate((method) => window.startPageFixture.calls.filter((call) => call.id === method).map((call) => call.params), id);
 
-test("der Browser bietet für neue Runs nur den Server an, das Run-Panel in VS Code auch den Arbeitsplatz", browserOnly, async () => {
+test("the browser offers only the server for new runs, the run panel in VS Code also the workstation", browserOnly, async () => {
   await withPage("view=web", 1280, async (page) => {
     const dialog = await openStartSelection(page);
-    assert.equal(await dialog.locator("textarea").count(), 0, "die Startauswahl hat keine Auftragseingabe");
-    assert.equal(await dialog.getByRole("combobox").count(), 0, "und keine Startoptionen");
-    await dialog.getByRole("button", { name: /Entscheidung klären/ }).click();
+    assert.equal(await dialog.locator("textarea").count(), 0, "the start selection has no task input");
+    assert.equal(await dialog.getByRole("combobox").count(), 0, "and no start options");
+    await dialog.getByRole("button", { name: /Clarify decision/ }).click();
     assert.deepEqual(await offeredMachines(page), ["Server"]);
   });
   await withPage("view=panel&host=browser", 520, async (page) => {
-    await page.getByRole("button", { name: "Neuer Run" }).first().click();
-    await page.getByRole("button", { name: /Entscheidung klären/ }).click();
-    assert.deepEqual(await offeredMachines(page), ["Server"], "auch das Run-Panel im Browser startet nur auf dem Server");
+    await page.getByRole("button", { name: "New run" }).first().click();
+    await page.getByRole("button", { name: /Clarify decision/ }).click();
+    assert.deepEqual(await offeredMachines(page), ["Server"], "the run panel in the browser also starts only on the server");
   });
   await withPage("view=panel&host=vscode", 520, async (page) => {
     await page.waitForTimeout(200);
     await page.evaluate(() => window.startPageFixture.command({ type: "newRun", entryId: "demo.decision" }));
-    assert.deepEqual(await offeredMachines(page), ["Server", "Arbeitsplatz Notebook"]);
+    assert.deepEqual(await offeredMachines(page), ["Server", "Workstation Notebook"]);
   });
 });
 
-test("die Startauswahl im Browser zeigt die Kacheln von Start in VS Code und startet wie dort", browserOnly, async () => {
+test("the start selection in the browser shows the tiles of Start in VS Code and starts like there", browserOnly, async () => {
   await withPage("view=web", 1280, async (page) => {
     let dialog = await openStartSelection(page);
-    const tiles = await dialog.getByRole("list", { name: "Vorlagen" }).getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("title")));
-    assert.deepEqual(tiles, ["Neuer Chat", "Sammelboard", "Entscheidung klären", "Gesprächsrunde", "Wortspiel"]);
-    await dialog.getByRole("button", { name: /Neuer Chat/ }).click();
+    const tiles = await dialog.getByRole("list", { name: "Templates" }).getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("title")));
+    assert.deepEqual(tiles, ["New chat", "Collection board", "Clarify decision", "Discussion circle", "Word game"]);
+    await dialog.getByRole("button", { name: /New chat/ }).click();
     await dialog.waitFor({ state: "detached" });
     await page.locator("textarea").waitFor();
-    assert.deepEqual(await calls(page, "ragents.chat.send"), [], "Neuer Chat öffnet den leeren Run, sein Auftrag entsteht im Chat");
-    assert.deepEqual(await calls(page, "ragents.startOptions.select"), [], "nichts belegt vor, der Run startet auf dem Server");
+    assert.deepEqual(await calls(page, "ragents.chat.send"), [], "New chat opens the empty run, its task takes shape in the chat");
+    assert.deepEqual(await calls(page, "ragents.startOptions.select"), [], "nothing is preset, the run starts on the server");
 
     dialog = await openStartSelection(page);
-    await dialog.getByRole("button", { name: /Gesprächsrunde/ }).click();
+    await dialog.getByRole("button", { name: /Discussion circle/ }).click();
     await dialog.waitFor({ state: "detached" });
     const [script] = await calls(page, "ragents.chat.start");
     assert.deepEqual({ entry: script?.entry, input: script?.input }, { entry: "demo.circle", input: null });
 
     dialog = await openStartSelection(page);
-    await dialog.getByRole("button", { name: /Sammelboard/ }).click();
+    await dialog.getByRole("button", { name: /Collection board/ }).click();
     await dialog.waitFor({ state: "detached" });
     const [skill] = await calls(page, "ragents.chat.send");
     assert.equal(skill?.entry, "demo.board");
-    assert.match(String(skill?.text), /Nutze den Skill board[\s\S]*Baue ein Board für Einkäufe\./, "ein Skill startet wie in VS Code mit seinem Auftrag");
+    assert.match(String(skill?.text), /Use the skill board[\s\S]*Build a board for groceries\./, "a skill starts as in VS Code with its task");
   });
 });
 
-/** Im leeren Run nach Neuer Chat: die Chat-Eingabe, in der Modell und Denktiefe stehen, wenn das Recht es erlaubt. */
+/** In the empty run after New chat: the chat input that shows model and thinking level when the right allows it. */
 const openNewChat = async (page: Page, view: "web" | "panel") => {
   if (view === "web") {
     const dialog = await openStartSelection(page);
-    await dialog.getByRole("button", { name: /Neuer Chat/ }).click();
+    await dialog.getByRole("button", { name: /New chat/ }).click();
     await dialog.waitFor({ state: "detached" });
   } else {
     await page.waitForTimeout(200);
@@ -126,37 +126,37 @@ const openNewChat = async (page: Page, view: "web" | "panel") => {
 };
 
 for (const [view, query, width] of [["web", "view=web", 1280], ["panel", "view=panel&host=vscode", 520]] as const) {
-  test(`Modell und Denktiefe stehen im Chat des leeren Runs und gelten ab der ersten Nachricht (${view})`, browserOnly, async () => {
+  test(`model and thinking level are in the chat of the empty run and apply from the first message (${view})`, browserOnly, async () => {
     await withPage(query, width, async (page) => {
       await openNewChat(page, view);
-      const model = page.getByRole("combobox", { name: "Modell" });
+      const model = page.getByRole("combobox", { name: "Model" });
       await model.click();
       await page.getByRole("option").first().waitFor();
-      assert.deepEqual(await page.getByRole("option").allTextContents(), ["openrouter/z-ai/glm-5.3-flash", "openrouter/qwen/qwen3.8-max"], "nur die Modelle des Profils");
+      assert.deepEqual(await page.getByRole("option").allTextContents(), ["openrouter/z-ai/glm-5.3-flash", "openrouter/qwen/qwen3.8-max"], "only the models of the profile");
       await page.getByRole("option", { name: "openrouter/qwen/qwen3.8-max" }).click();
       await page.getByRole("combobox", { name: "Reasoning" }).click();
-      await page.getByRole("option", { name: "niedrig" }).waitFor();
-      assert.deepEqual(await page.getByRole("option").allTextContents(), ["aus", "niedrig", "hoch"], "nur die Stufen des Modells");
-      await page.getByRole("option", { name: "niedrig" }).click();
+      await page.getByRole("option", { name: "low" }).waitFor();
+      assert.deepEqual(await page.getByRole("option").allTextContents(), ["off", "low", "high"], "only the levels of the model");
+      await page.getByRole("option", { name: "low" }).click();
       await page.waitForFunction(() => window.startPageFixture.calls.filter((call) => call.id === "ragents.startOptions.select").length === 2);
-      await page.locator("textarea").fill("Erste Nachricht");
+      await page.locator("textarea").fill("First message");
       await page.locator("textarea").press("Enter");
       await page.waitForFunction(() => window.startPageFixture.calls.some((call) => call.id === "ragents.chat.send"));
       const order = await page.evaluate(() => window.startPageFixture.calls.filter((call) => call.id === "ragents.startOptions.select" || call.id === "ragents.chat.send")
         .map((call) => call.id === "ragents.chat.send" ? "send" : JSON.stringify(call.params.value)));
-      assert.deepEqual(order, [JSON.stringify({ model: "qwen/qwen3.8-max" }), JSON.stringify({ model: "qwen/qwen3.8-max", thinking: "low" }), "send"], "die Wahl steht vor der ersten Nachricht fest");
+      assert.deepEqual(order, [JSON.stringify({ model: "qwen/qwen3.8-max" }), JSON.stringify({ model: "qwen/qwen3.8-max", thinking: "low" }), "send"], "the choice is fixed before the first message");
       await page.waitForFunction(() => window.startPageFixture.calls.filter((call) => call.id === "ragents.startOptions.list").length >= 2);
       await model.waitFor();
-      assert.equal(await model.isEnabled(), true, "nach dem Start bleibt die Modellwahl im Chat");
+      assert.equal(await model.isEnabled(), true, "after the start the model choice stays in the chat");
     });
   });
 }
 
-test("ohne runs.inspect zeigt der Chat keine Modellwahl, weder im Browser noch in VS Code", browserOnly, async () => {
+test("without runs.inspect the chat shows no model choice, neither in the browser nor in VS Code", browserOnly, async () => {
   for (const [view, query, width] of [["web", "view=web&rights=plain", 1280], ["panel", "view=panel&host=vscode&rights=plain", 520]] as const) {
     await withPage(query, width, async (page) => {
       await openNewChat(page, view);
-      assert.equal(await page.getByRole("combobox", { name: "Modell" }).count(), 0, view);
+      assert.equal(await page.getByRole("combobox", { name: "Model" }).count(), 0, view);
       assert.equal(await page.getByRole("combobox", { name: "Reasoning" }).count(), 0, view);
     });
   }

@@ -1,7 +1,7 @@
 import type { Api, Model } from "@ragents/ai";
 import { serviceToken, type ServiceToken } from "@ragents/engine";
 
-/** Ein Modellanbieter, den dieser Server mit eigenem Schlüssel erreicht; das Relay reicht Aufrufe dorthin durch. */
+/** A model provider this server reaches with its own key; the relay passes calls through to it. */
 export interface ModelUpstream {
   readonly id: string;
   readonly baseUrl: string;

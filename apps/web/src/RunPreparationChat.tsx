@@ -17,7 +17,7 @@ type PreparationEntry = { message: RunPreparationMessage; at: string };
 
 const entryNow = (message: RunPreparationMessage): PreparationEntry => ({ message, at: new Date().toISOString() });
 
-/** Der Auftrag einer Skill-Vorlage entsteht hier; der Run startet über die Vorlage und mit dem, was sie festlegt. */
+/** The task of a skill template is shaped here; the run starts through the template and with what it fixes. */
 export function RunPreparationChat({ initialPrompt, entry, registry, sessionRef }: {
   initialPrompt: string;
   entry: SkillStartEntry;
@@ -46,7 +46,7 @@ export function RunPreparationChat({ initialPrompt, entry, registry, sessionRef 
   }, []);
 
   const discuss = async (text: string, files?: ChatAttachmentInput[]) => {
-    if (submitting.current) throw new Error("Die vorherige Anfrage läuft noch.");
+    if (submitting.current) throw new Error("The previous request is still running.");
     submitting.current = true;
     const controller = new AbortController();
     active.current = controller;
@@ -64,7 +64,7 @@ export function RunPreparationChat({ initialPrompt, entry, registry, sessionRef 
         setHistory([...next, entryNow({ role: "assistant", text: answer.text })]);
       }
     } catch (cause) {
-      if (controller.signal.aborted) throw new Error("Besprechung gestoppt. Deine Eingabe bleibt erhalten.");
+      if (controller.signal.aborted) throw new Error("Discussion stopped. Your input is kept.");
       throw cause;
     } finally {
       active.current = null;
@@ -73,7 +73,7 @@ export function RunPreparationChat({ initialPrompt, entry, registry, sessionRef 
     }
   };
   const createRun = async (text: string, files?: ChatAttachmentInput[]) => {
-    if (submitting.current) throw new Error("Die vorherige Anfrage läuft noch.");
+    if (submitting.current) throw new Error("The previous request is still running.");
     submitting.current = true;
     setOperation("starting");
     try {
@@ -96,26 +96,26 @@ export function RunPreparationChat({ initialPrompt, entry, registry, sessionRef 
     for (const option of conflicts) await options.set(option.id, fixed?.[option.id]);
   };
 
-  return <section aria-label="Auftrag besprechen" className={cn(composerPlacement, messages.length === 0 && emptyComposerPlacement)} data-preparation={messages.length === 0 ? "empty" : "active"}>
+  return <section aria-label="Discuss task" className={cn(composerPlacement, messages.length === 0 && emptyComposerPlacement)} data-preparation={messages.length === 0 ? "empty" : "active"}>
     <ChatPanel composer={<div>
       <ChatInputToolbar {...attachments} disabled={operation === "starting"} sendDisabled={busy}
         initialValue={initialPrompt} onDraftChange={setDraft} onAttachmentsChange={setHasAttachments} handleRef={composer}
         rows={3} maxRows={8} running={operation === "preparing"} onStop={() => active.current?.abort()} onSend={discuss}
-        texts={{ placeholder: "Ergänzungen oder Fragen zum Auftrag ...", send: "Auftrag besprechen", stop: "Besprechung stoppen" }}
+        texts={{ placeholder: "Additions or questions about the task ...", send: "Discuss task", stop: "Stop discussion" }}
         toolbarLeft={<ChatViewSwitches settings={chatView} />}
         toolbarRight={<StartOptionControls disabled={busy} fixed={fixed} placement="composer" registry={registry} />} />
       {conflicts.length > 0 && <div className="mt-3 flex flex-wrap items-center justify-between gap-2.5" data-start-option-conflicts="" role="alert">
-        <span className="text-[0.75rem] text-destructive">Vor dem Öffnen der Vorlage war bei {conflicts.length === 1 ? "einer Startoption" : `${conflicts.length} Startoptionen`} etwas anderes gewählt, als sie festlegt. So lässt sich der Run nicht erstellen.</span>
-        <Button disabled={busy} size="sm" variant="outline" onClick={() => { void adoptTemplate(); }}>Werte der Vorlage übernehmen</Button>
+        <span className="text-[0.75rem] text-destructive">Before the template was opened, {conflicts.length === 1 ? "one start option was" : `${conflicts.length} start options were`} set differently than the template requires. The run cannot be created like this.</span>
+        <Button disabled={busy} size="sm" variant="outline" onClick={() => { void adoptTemplate(); }}>Apply template values</Button>
       </div>}
       <div className="my-3 flex flex-wrap items-center justify-between gap-2.5">
-        <span className="text-[0.75rem] text-muted-foreground">Gib im Chat Dein Go zum Starten oder wähle "Run erstellen".</span>
+        <span className="text-[0.75rem] text-muted-foreground">Give your go in the chat to start, or choose "Create run".</span>
         <Button disabled={busy || conflicts.length > 0 || (!history.length && !draft.trim() && !hasAttachments)}
           onClick={() => { void composer.current?.submit(createRun, { allowEmpty: history.length > 0 }); }}>
-          {operation === "starting" ? "Run wird erstellt ..." : "Run erstellen"}
+          {operation === "starting" ? "Creating run ..." : "Create run"}
         </Button>
       </div>
-      <div aria-label="Startoptionen" className="flex flex-wrap items-center gap-x-3 gap-y-2 empty:hidden"><StartOptionControls disabled={busy} fixed={fixed} registry={registry} /></div>
+      <div aria-label="Start options" className="flex flex-wrap items-center gap-x-3 gap-y-2 empty:hidden"><StartOptionControls disabled={busy} fixed={fixed} registry={registry} /></div>
     </div>}>
       {messages.length > 0 && <ChatMessages detailMode={chatView.detailMode} messages={messages} running={operation === "preparing"} showTimestamps={chatView.showTimestamps} stepsExpandable={chatView.stepsExpandable} />}
     </ChatPanel>

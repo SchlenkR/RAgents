@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Ende-zu-Ende-Probe des Arbeitsplatz-Executors: Server mit dem Profil developer,
-# kopfloser Arbeitsplatz auf selftest/workspace-project, Runs mit Bindung client.
+# End-to-end probe of the workspace executor: server with the developer profile,
+# headless workspace on selftest/workspace-project, runs with binding client.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -9,21 +9,21 @@ profile="developer"
 port="${PORT:-4715}"
 base="http://localhost:$port"
 logs="${LOG_DIR:-${TMPDIR:-/tmp}/ragents-selftest}"
-label="selftest-arbeitsplatz"
+label="selftest-workspace"
 
 usage() {
     cat <<'EOF'
-Verwendung: selftest/workspace-client.sh <befehl>
-  up             Server (Profil developer) und Arbeitsplatz starten
-  down           beide beenden
-  status         Zugang, angemeldete Arbeitsplätze und Prozesse zeigen
-  run <text>     Run mit Bindung client anlegen und die Nachricht schicken; gibt die Run-Id aus
-  journal <id>   Werkzeugaufrufe und Modellantworten des Runs lesen
-  stop <id>      den laufenden Turn des Runs abbrechen
+Usage: selftest/workspace-client.sh <command>
+  up             start server (profile developer) and workspace
+  down           stop both
+  status         show access, registered workspaces and processes
+  run <text>     create a run with binding client and send the message; prints the run id
+  journal <id>   read the run's tool calls and model responses
+  stop <id>      cancel the run's current turn
 
-Umgebung: OPENROUTER_API_KEY (Pflicht), DATA_DIR, LOG_DIR, PORT, WORKSPACE_PROJECT.
-Die Sprachserver des Arbeitsplatzes holt sein Start selbst (pnpm provision --workspace);
-ROSLYN_LANGUAGE_SERVER und FSHARP_LANGUAGE_SERVER übersteuern den Werkzeugordner.
+Environment: OPENROUTER_API_KEY (required), DATA_DIR, LOG_DIR, PORT, WORKSPACE_PROJECT.
+The workspace's startup fetches its language servers itself (pnpm provision --workspace);
+ROSLYN_LANGUAGE_SERVER and FSHARP_LANGUAGE_SERVER override the tool folder.
 EOF
 }
 
@@ -44,36 +44,36 @@ data_directory() {
 up() {
     mkdir -p "$logs"
     if ! curl -s -m 2 -o /dev/null "$base/api/access"; then
-        echo "== Server startet (Log $logs/server.log)"
+        echo "== Server starting (log $logs/server.log)"
         (cd "$root" && nohup ./start.sh "$profile" > "$logs/server.log" 2>&1 &)
         until curl -s -m 2 -o /dev/null "$base/api/access"; do sleep 2; done
     fi
-    echo "== Server auf $base"
+    echo "== Server on $base"
     if [ -z "$(client_id)" ]; then
-        echo "== Arbeitsplatz startet (Log $logs/client.log)"
+        echo "== Workspace starting (log $logs/client.log)"
         (cd "$root" && nohup pnpm workspace-client "$base" "$project" --label "$label" > "$logs/client.log" 2>&1 &)
         until [ -n "$(client_id)" ]; do sleep 2; done
     fi
-    echo "== Arbeitsplatz $(client_id) auf $project"
+    echo "== Workspace $(client_id) on $project"
 }
 
 down() {
     pkill -f "run-workspace-client.ts $base" || true
     pkill -f "pnpm workspace-client $base" || true
     lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null | xargs -r kill || true
-    echo "== beendet"
+    echo "== stopped"
 }
 
 status() {
     curl -s -m 5 "$base/api/access"; echo
     rpc ragents.workspace.clients.list '{}'; echo
-    pgrep -fl "run-workspace-client.ts" || echo "kein Arbeitsplatz"
+    pgrep -fl "run-workspace-client.ts" || echo "no workspace"
 }
 
 new_run() {
     local text="$1" id client
     client="$(client_id)"
-    [ -n "$client" ] || { echo "Kein Arbeitsplatz angemeldet; erst 'up'." >&2; exit 1; }
+    [ -n "$client" ] || { echo "No workspace registered; run 'up' first." >&2; exit 1; }
     id="$(python3 -c 'import uuid; print(uuid.uuid4())')"
     rpc ragents.startOptions.select \
         "{\"runId\":\"$id\",\"optionId\":\"ragents.workspace.binding\",\"value\":{\"kind\":\"client\",\"client\":\"$client\",\"label\":\"$label\",\"path\":\"$project\"}}" > /dev/null
@@ -90,14 +90,14 @@ journal() {
     python3 -c '
 import json,os,sys
 path=os.path.join(sys.argv[1],"runs",sys.argv[2],"journal.jsonl")
-if not os.path.exists(path): sys.exit(f"Journal fehlt: {path}")
+if not os.path.exists(path): sys.exit(f"Journal is missing: {path}")
 for line in open(path):
     for event in json.loads(line)["events"]:
         kind=event["type"]; payload=event.get("payload") or {}
         if kind=="tool.call.started": print(event["sequence"],"start",payload.get("name"),json.dumps(payload.get("input"))[:300])
-        elif kind=="tool.call.completed": print(event["sequence"],"fertig",payload.get("name"),"\n",str(payload.get("output"))[:2000])
-        elif kind=="tool.call.failed": print(event["sequence"],"gescheitert",payload.get("name"),str(payload.get("error"))[:600])
-        elif kind=="model.output.completed": print(event["sequence"],"modell:",str(payload.get("text"))[:2000])
+        elif kind=="tool.call.completed": print(event["sequence"],"done",payload.get("name"),"\n",str(payload.get("output"))[:2000])
+        elif kind=="tool.call.failed": print(event["sequence"],"failed",payload.get("name"),str(payload.get("error"))[:600])
+        elif kind=="model.output.completed": print(event["sequence"],"model:",str(payload.get("text"))[:2000])
         elif kind in ("turn.interrupted","turn.failed"): print(event["sequence"],kind,json.dumps(payload)[:300])
 ' "$(data_directory)" "$2"
 }

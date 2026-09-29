@@ -1,12 +1,12 @@
-# RAgents: Bausteinreferenz
+# RAgents: building block reference
 
-> Öffentliche Werkzeuge, Operationen, Actor-Programm-Vorlagen und Vorlagen der Startseite des Profils showcase, aus den tatsächlichen Verträgen erzeugt.
+> Public tools, operations, actor program templates, and Start page templates of the showcase profile, generated from the actual contracts.
 
-[Run-Setup-Anleitung und vollständige Pakete](run-setup.md) | [Entwicklerreferenz](developer.md) | [JSON-RPC-API](rpc-api.md) | [LLM-Index](llms.txt)
+[Run setup guide and complete packages](run-setup.md) | [Developer reference](developer.md) | [JSON-RPC-API](rpc-api.md) | [LLM index](llms.txt)
 
-## Funktionen und native Werkzeuge
+## Functions and native tools
 
-Fachfunktionen werden in Snippets und Actor-Programmen über context.functions aufgerufen. Ausgerüstete LLM-Actors erhalten automatisch die für sie verfügbaren Funktionsnamen mit Kurzbeschreibungen. typescript_api liefert auf Namensanfrage ihre Typen und optionalen Langbeschreibungen, typescript_eval führt Snippets aus. Dies ist der statische Bestand. Verfügbarkeit und Auswahl hängen von Actor, Grants und Run ab. Eigene Actor-Funktionen ergänzen diesen Bestand während eines Runs.
+Domain functions are called in snippets and actor programs through context.functions. Equipped LLM actors automatically receive the function names available to them with short descriptions. typescript_api returns their types and optional long descriptions on request by name, typescript_eval executes snippets. This is the static inventory. Availability and selection depend on actor, grants, and run. Custom actor functions extend this inventory during a run.
 
 ### action_propose
 
@@ -14,11 +14,11 @@ Propose Action
 
 Propose an action for explicit human approval. This never executes the action directly.
 
-Eigentümer: engine. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Nur mit der Capability action.propose.
+Only with the capability action.propose.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -78,7 +78,7 @@ Nur mit der Capability action.propose.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -102,7 +102,7 @@ Nur mit der Capability action.propose.
         "properties": {
           "actionId": {
             "type": "string",
-            "description": "ID der vorgeschlagenen Aktion"
+            "description": "ID of the proposed action"
           }
         },
         "additionalProperties": false
@@ -110,7 +110,7 @@ Nur mit der Capability action.propose.
     },
     "additionalProperties": false
   },
-  "description": "Die Journal-Events dieses Aufrufs. Die payload nennt die Kennungen des Ergebnisses; Eingaben und Hashes wiederholt sie nicht."
+  "description": "The journal events of this call. The payload names the ids of the result; it does not repeat inputs and hashes."
 }
 ```
 
@@ -122,11 +122,11 @@ Enqueue plain text and optional artifacts for one actor. The actor receives no r
 
 This only confirms enqueueing, not processing, an answer or completion. An agent in the middle of a turn receives the text in that turn before its next model request; otherwise it starts the agent's next turn. Agents interpret natural language. TypeScript actors only process their programmed input protocol: use their documented functions, or send an exact supported program input after inspecting the program. Never address an unknown script with a natural-language task or assume an idle or completed turn means the requested work happened.
 
-Eigentümer: engine. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Nur mit der Capability actor.input.
+Only with the capability actor.input.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -139,7 +139,7 @@ Nur mit der Capability actor.input.
     "actor": {
       "type": "string",
       "minLength": 1,
-      "description": "Actor ID oder Handle"
+      "description": "Actor ID or handle"
     },
     "content": {
       "type": "string",
@@ -158,7 +158,7 @@ Nur mit der Capability actor.input.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -183,11 +183,11 @@ Nur mit der Capability actor.input.
         "properties": {
           "inputId": {
             "type": "string",
-            "description": "ID des eingereihten Inputs"
+            "description": "ID of the enqueued input"
           },
           "actorId": {
             "type": "string",
-            "description": "ID des empfangenden Actors"
+            "description": "ID of the receiving actor"
           }
         },
         "additionalProperties": false
@@ -195,7 +195,7 @@ Nur mit der Capability actor.input.
     },
     "additionalProperties": false
   },
-  "description": "Die Journal-Events dieses Aufrufs. Die payload nennt die Kennungen des Ergebnisses; Eingaben und Hashes wiederholt sie nicht."
+  "description": "The journal events of this call. The payload names the ids of the result; it does not repeat inputs and hashes."
 }
 ```
 
@@ -207,11 +207,11 @@ List existing actors with their identity, lifecycle and the size of their functi
 
 Check before spawning: reuse suitable participants, including actors created by a setup or another actor. Only kind agent is a conversational partner. A script executes its programmed input protocol; it does not interpret arbitrary natural-language requests. Inspect its documented functions or program before using it. toolNames: true also lists the names of each fixed selection.
 
-Eigentümer: engine. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Nur mit der Capability actor.input.
+Only with the capability actor.input.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -226,7 +226,7 @@ Nur mit der Capability actor.input.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -325,11 +325,11 @@ Typecheck, build and test a package, then activate its functions and optional vi
 
 actor self or @handle attaches to an existing actor; omitted creates a TypeScript actor for a backend, or attaches static views to self.
 
-Eigentümer: ragents.actor-programs. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Für ausführbare Actors mit agent.spawn und plugin.state.write.
+For executable actors with agent.spawn and plugin.state.write.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -350,7 +350,7 @@ Für ausführbare Actors mit agent.spawn und plugin.state.write.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -382,17 +382,17 @@ Für ausführbare Actors mit agent.spawn und plugin.state.write.
 
 ### actor_program_controls
 
-Actor-Programm-Anleitung und Controls nachschlagen
+Look up actor program guide and controls
 
 Read Mini-App control contracts or the actor-program authoring guide.
 
 With topic: guide, explain the TypeScript package workflow through actor_program_activate. Otherwise list control names, or select one component (for example Form) for only its TypeScript props and supporting types. Import controls from @ragents/client/ui and use these exact props.
 
-Eigentümer: ragents.actor-programs. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: always.
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: always.
 
-Typisierte UI-Referenz des installierten Actor-Programm-Plugins.
+Typed UI reference of the installed actor program plugin.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -421,7 +421,7 @@ Typisierte UI-Referenz des installierten Actor-Programm-Plugins.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -482,11 +482,11 @@ Create a private TypeScript package with fixed libraries.
 
 Edit files under @actors/name using workspace tools.
 
-Eigentümer: ragents.actor-programs. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Für ausführbare Actors mit agent.spawn und plugin.state.write.
+For executable actors with agent.spawn and plugin.state.write.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -505,32 +505,32 @@ Für ausführbare Actors mit agent.spawn und plugin.state.write.
         {
           "type": "string",
           "const": "blank",
-          "description": "Eine reine React-View am vorhandenen Actor ohne zusätzliche Serverfunktion."
+          "description": "A pure React view on the existing actor without an additional server function."
         },
         {
           "type": "string",
           "const": "chat",
-          "description": "Wiederverwendbarer Chat mit Verlauf und optionaler Eingabe an den Actor dieser View."
+          "description": "Reusable chat with history and optional input to the actor of this view."
         },
         {
           "type": "string",
           "const": "controls",
-          "description": "Lokale Demo mit Formular, Tabelle, Dateien, Aufgaben, Ablaufdiagramm, SVG-Verbindungen, Nachrichten, Dokument und Diff ohne Funktionsaufrufe."
+          "description": "Local demo with form, table, files, tasks, flow diagram, SVG connections, messages, document, and diff without function calls."
         },
         {
           "type": "string",
           "const": "text-analysis",
-          "description": "Ein TypeScript-Actor analysiert Texte mit eigener Funktion, Zustand und React-View."
+          "description": "A TypeScript actor analyzes texts with its own function, state, and React view."
         },
         {
           "type": "string",
           "const": "headless-counter",
-          "description": "Ein TypeScript-Actor zählt Eingaben in seinem Zustand und bietet dieselbe Arbeit als Funktion an."
+          "description": "A TypeScript actor counts inputs in its state and offers the same work as a function."
         },
         {
           "type": "string",
           "const": "shared-list",
-          "description": "Ein Actor besitzt eine Funktion und eine React-View für denselben Listenstand."
+          "description": "An actor owns a function and a React view for the same list state."
         }
       ]
     }
@@ -539,7 +539,7 @@ Für ausführbare Actors mit agent.spawn und plugin.state.write.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -575,11 +575,11 @@ Read the last project diagnostics.
 
 Changed errors are automatically supplied before the next model request.
 
-Eigentümer: ragents.actor-programs. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Für ausführbare Actors mit agent.spawn und plugin.state.write.
+For executable actors with agent.spawn and plugin.state.write.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -594,7 +594,7 @@ Für ausführbare Actors mit agent.spawn und plugin.state.write.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -608,11 +608,11 @@ List Actor Programs
 
 List active actor packages, functions and views.
 
-Eigentümer: ragents.actor-programs. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Für ausführbare Actors mit agent.spawn und plugin.state.write.
+For executable actors with agent.spawn and plugin.state.write.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -622,7 +622,7 @@ Für ausführbare Actors mit agent.spawn und plugin.state.write.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -683,11 +683,11 @@ Detach functions and views and stop the backend.
 
 A TypeScript actor is stopped; an LLM actor retains its agent behavior.
 
-Eigentümer: ragents.actor-programs. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Für ausführbare Actors mit agent.spawn und plugin.state.write.
+For executable actors with agent.spawn and plugin.state.write.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -705,7 +705,7 @@ Für ausführbare Actors mit agent.spawn und plugin.state.write.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -728,11 +728,11 @@ Restart Actor
 
 Restart a stopped actor in this actor's branch. It resumes with its full history; the LLM is stateless.
 
-Eigentümer: engine. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Nur mit der Capability execution.stopOwned.
+Only with the capability execution.stopOwned.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -745,7 +745,7 @@ Nur mit der Capability execution.stopOwned.
     "actorId": {
       "type": "string",
       "minLength": 1,
-      "description": "Handle oder ID"
+      "description": "Handle or ID"
     },
     "reason": {
       "type": "string",
@@ -756,7 +756,7 @@ Nur mit der Capability execution.stopOwned.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -782,7 +782,7 @@ Nur mit der Capability execution.stopOwned.
             "properties": {
               "actorId": {
                 "type": "string",
-                "description": "ID des neu gestarteten Actors"
+                "description": "ID of the restarted actor"
               }
             },
             "additionalProperties": false
@@ -809,7 +809,7 @@ Nur mit der Capability execution.stopOwned.
             "properties": {
               "actorId": {
                 "type": "string",
-                "description": "ID des primären Actors"
+                "description": "ID of the primary actor"
               }
             },
             "additionalProperties": false
@@ -819,7 +819,7 @@ Nur mit der Capability execution.stopOwned.
       }
     ]
   },
-  "description": "Die Journal-Events dieses Aufrufs. Die payload nennt die Kennungen des Ergebnisses; Eingaben und Hashes wiederholt sie nicht."
+  "description": "The journal events of this call. The payload names the ids of the result; it does not repeat inputs and hashes."
 }
 ```
 
@@ -829,11 +829,11 @@ Stop Actor
 
 Stop an actor in this actor's branch together with its active descendants.
 
-Eigentümer: engine. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Nur mit der Capability execution.stopOwned.
+Only with the capability execution.stopOwned.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -846,7 +846,7 @@ Nur mit der Capability execution.stopOwned.
     "actorId": {
       "type": "string",
       "minLength": 1,
-      "description": "Handle oder ID"
+      "description": "Handle or ID"
     },
     "reason": {
       "type": "string",
@@ -857,7 +857,7 @@ Nur mit der Capability execution.stopOwned.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -883,7 +883,7 @@ Nur mit der Capability execution.stopOwned.
             "properties": {
               "turnId": {
                 "type": "string",
-                "description": "ID des unterbrochenen Turns"
+                "description": "ID of the interrupted turn"
               }
             },
             "additionalProperties": false
@@ -910,7 +910,7 @@ Nur mit der Capability execution.stopOwned.
             "properties": {
               "actorId": {
                 "type": "string",
-                "description": "ID des gestoppten Actors"
+                "description": "ID of the stopped actor"
               }
             },
             "additionalProperties": false
@@ -937,7 +937,7 @@ Nur mit der Capability execution.stopOwned.
             "properties": {
               "subscriptionId": {
                 "type": "string",
-                "description": "ID der entfernten Subscription"
+                "description": "ID of the removed subscription"
               }
             },
             "additionalProperties": false
@@ -947,21 +947,21 @@ Nur mit der Capability execution.stopOwned.
       }
     ]
   },
-  "description": "Die Journal-Events dieses Aufrufs. Die payload nennt die Kennungen des Ergebnisses; Eingaben und Hashes wiederholt sie nicht."
+  "description": "The journal events of this call. The payload names the ids of the result; it does not repeat inputs and hashes."
 }
 ```
 
 ### actor_transcript
 
-Verlauf verdichten
+Compact history
 
-Liefert den Verlauf eines Actors dieses Runs als kompaktes Transkript: Eingaben, Antworttexte und Werkzeugaufrufe je eine Zeile, Ergebnisse gekürzt, ohne Reasoning. Für Übergaben, Statusberichte und Zusammenfassungen.
+Returns the history of an actor of this run as a compact transcript: inputs, answer texts and tool calls one line each, results shortened, without reasoning. For handovers, status reports and summaries.
 
-Eigentümer: ragents.transcript. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: ragents.transcript. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Für Agenten und Skript-Actors mit der Capability event.subscribe.
+For agents and script actors with the capability event.subscribe.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -973,20 +973,20 @@ Für Agenten und Skript-Actors mit der Capability event.subscribe.
     "actor": {
       "type": "string",
       "minLength": 1,
-      "description": "Handle mit oder ohne @ oder ID eines Actors dieses Runs"
+      "description": "Handle with or without @, or ID of an actor of this run"
     },
     "maxChars": {
       "type": "integer",
       "minimum": 200,
       "maximum": 200000,
-      "description": "Obergrenze in Zeichen, Standard 20000; die ältesten Zeilen entfallen zuerst"
+      "description": "Upper limit in characters, default 20000; the oldest lines are dropped first"
     }
   },
   "additionalProperties": false
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -1028,11 +1028,11 @@ Set surface visibility by package-name/view-key or @handle/view-key.
 
 Use names you chose; the server resolves the view ID. A unique view title also works.
 
-Eigentümer: ragents.actor-programs. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Für ausführbare Actors mit agent.spawn und plugin.state.write.
+For executable actors with agent.spawn and plugin.state.write.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -1055,7 +1055,7 @@ Für ausführbare Actors mit agent.spawn und plugin.state.write.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -1084,11 +1084,11 @@ Create an idle LLM agent with an explicit model or profile and function selectio
 
 Create a new idle agent only when no existing actor fits the required role. Check actor_list first when available; actor_input reuses an existing actor. Read model_list before the first spawn and pass a model-bearing profile, or an explicit model selection from that catalog. handle and prompt alone cannot create an LLM agent; the caller's model is not inherited. It inherits delegable capabilities, but tools is required and never inherited: select exact names, [] for text-only work, or explicit null for an open, dynamically resolved toolset. An empty tools array creates a plain LLM with no runtime, workspace or host tools; drivers without plain-LLM isolation are rejected. forkOf gives the new agent an unchanged copy of the model context of an existing LLM agent of this run, up to the end of that agent's last finished turn; nothing of its running turn is copied, and a source without a finished turn is rejected. The new agent still gets its own prompt, tools and model, and its first input follows the copy.
 
-Eigentümer: engine. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Nur mit der Capability agent.spawn.
+Only with the capability agent.spawn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -1106,13 +1106,13 @@ Nur mit der Capability agent.spawn.
     "displayName": {
       "type": "string",
       "minLength": 1,
-      "description": "Anzeigename; ohne Angabe der Handle"
+      "description": "Display name; defaults to the handle"
     },
     "description": {
       "type": "string",
       "minLength": 1,
       "maxLength": 160,
-      "description": "Sehr kurze Beschreibung der Aufgabe für die Übersicht der Beteiligten, wenige Wörter wie \"prüft die Regel zu Kommentaren\""
+      "description": "Very short description of the task for the participants overview, a few words like \"checks the rule on comments\""
     },
     "prompt": {
       "type": "string"
@@ -1257,7 +1257,7 @@ Nur mit der Capability agent.spawn.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -1286,11 +1286,11 @@ Publish Artifact
 
 Publish immutable text content to the run artifact store.
 
-Eigentümer: engine. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Nur mit der Capability artifact.publish.
+Only with the capability artifact.publish.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -1321,7 +1321,7 @@ Nur mit der Capability artifact.publish.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -1351,7 +1351,7 @@ Nur mit der Capability artifact.publish.
             "properties": {
               "id": {
                 "type": "string",
-                "description": "ID des Artefakts; artifact_read liest es damit"
+                "description": "ID of the artifact; artifact_read reads it with this"
               }
             },
             "additionalProperties": false
@@ -1362,7 +1362,7 @@ Nur mit der Capability artifact.publish.
     },
     "additionalProperties": false
   },
-  "description": "Die Journal-Events dieses Aufrufs. Die payload nennt die Kennungen des Ergebnisses; Eingaben und Hashes wiederholt sie nicht."
+  "description": "The journal events of this call. The payload names the ids of the result; it does not repeat inputs and hashes."
 }
 ```
 
@@ -1372,11 +1372,11 @@ Read Artifact
 
 Read an artifact created by this actor or attached to one of its inputs. The run owner may read every artifact.
 
-Eigentümer: engine. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: always.
+Owner: engine. Scope: per-turn. Native model tool: no. Availability: always.
 
-In jedem Turn verfügbar.
+Available in every turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -1394,7 +1394,7 @@ In jedem Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -1471,17 +1471,17 @@ In jedem Turn verfügbar.
 
 ### ask_user
 
-Rückfrage
+Question
 
-Holt eine nötige Benutzerentscheidung mit Antwortoptionen ein und wartet auf die Antwort.
+Asks the user for a required decision with answer options and waits for the answer.
 
-Nutze dieses Werkzeug immer, wenn du eine Entscheidung des Benutzers brauchst (z.B. Auswahl eines Branches oder eines Zeitraums), statt die Frage nur als Text zu stellen. Mit multi=true darf der Benutzer mehrere Optionen wählen; die Antwort ist dann mit '; ' verbunden. Der Benutzer kann statt einer Option auch immer frei antworten - rechne also damit, dass die Antwort beliebiger Text sein kann.
+Always use this tool when you need a decision from the user (e.g. choosing a branch or a time range), instead of only asking the question as text. With multi=true the user may choose several options; the answer is then joined with '; '. Instead of choosing an option, the user can always answer freely - so expect the answer to be arbitrary text.
 
-Eigentümer: ragents.ask. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: always.
+Owner: ragents.ask. Scope: per-turn. Native model tool: no. Availability: always.
 
-In jedem Turn verfügbar; die Frage geht immer an den Benutzer des Runs.
+Available in every turn; the question always goes to the user of the run.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -1493,24 +1493,24 @@ In jedem Turn verfügbar; die Frage geht immer an den Benutzer des Runs.
   "properties": {
     "question": {
       "type": "string",
-      "description": "Die Frage an den Benutzer, kurz und konkret"
+      "description": "The question to the user, short and concrete"
     },
     "options": {
       "type": "array",
       "items": {
         "type": "string"
       },
-      "description": "Antwortoptionen (2 bis 6 Stück)"
+      "description": "Answer options (2 to 6)"
     },
     "multi": {
       "type": "boolean",
-      "description": "true = Mehrfachauswahl erlaubt"
+      "description": "true = multiple choice allowed"
     }
   }
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -1526,11 +1526,11 @@ Execute shell commands in the run's workspace, or with cwd in one of its roots, 
 
 Execute a bash command in the working directory, or in the folder given as cwd. Returns stdout and stderr; a nonzero exit code is reported at the end of the result (for example grep without a match), not as a tool error. Output is truncated to last 2000 lines or 20KB (whichever is hit first), and lines longer than 1000 characters are shortened. If anything was cut, the full output is saved to a temp file. A command is stopped after 120 seconds unless you pass a larger timeout (at most 3600 seconds); builds, test runs, installs and other long commands need one.
 
-Eigentümer: ragents.workspace. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.workspace. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -1558,7 +1558,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -1568,15 +1568,15 @@ In jedem Modell-Turn verfügbar.
 
 ### browser_check
 
-Browserergebnis prüfen
+Check browser result
 
 Assert visible target/text, resulting URL and absence of browser errors. Fails on mismatch; records successful evidence for this page until the next action/navigation/error. Supply at least one assertion. Browser errors are checked by default. Visibility assertions wait at most 5 seconds, shorter than actions.
 
-Eigentümer: ragents.browser. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -1654,7 +1654,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -1684,15 +1684,15 @@ In jedem Modell-Turn verfügbar.
 
 ### browser_click
 
-Im Browser klicken
+Click in browser
 
 Click a uniquely identified visible element with Playwright auto-waiting. Returns the actual resulting page. Ambiguous or absent targets are errors.
 
-Eigentümer: ragents.browser. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -1756,7 +1756,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -1794,15 +1794,15 @@ In jedem Modell-Turn verfügbar.
 
 ### browser_close
 
-Browser schließen
+Close browser
 
 Close this run's browser and discard its cookies. Saved screenshots remain in the document library.
 
-Eigentümer: ragents.browser. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -1812,7 +1812,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -1831,15 +1831,15 @@ In jedem Modell-Turn verfügbar.
 
 ### browser_fill
 
-Browserfeld ausfüllen
+Fill browser field
 
 Fill an input or textarea by accessible label or another semantic target, firing the normal input events. Returns the resulting page.
 
-Eigentümer: ragents.browser. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -1907,7 +1907,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -1945,15 +1945,15 @@ In jedem Modell-Turn verfügbar.
 
 ### browser_open
 
-Browser öffnen
+Open browser
 
 Open an HTTP(S) page in this run's isolated headless browser. Returns its accessible structure and browser errors. Reuses the current run browser; other runs have separate cookies and processes.
 
-Eigentümer: ragents.browser. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -1971,7 +1971,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -2009,15 +2009,15 @@ In jedem Modell-Turn verfügbar.
 
 ### browser_press
 
-Browsertaste drücken
+Press browser key
 
 Focus a target and press a Playwright key or chord such as Enter, Escape, Tab or ControlOrMeta+A. Returns the resulting page.
 
-Eigentümer: ragents.browser. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -2086,7 +2086,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -2124,15 +2124,15 @@ In jedem Modell-Turn verfügbar.
 
 ### browser_screenshot
 
-Browser aufnehmen
+Capture browser
 
 Capture the real browser page into this run's document library. The returned URL and Markdown display it to the user. Call browser_view_screenshot to inspect the latest capture as an image without copying a path.
 
-Eigentümer: ragents.browser. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -2150,7 +2150,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -2185,15 +2185,15 @@ In jedem Modell-Turn verfügbar.
 
 ### browser_select
 
-Im Browser auswählen
+Select in browser
 
 Choose an option by its visible label in a native select element. For custom dropdowns use browser_click on the trigger and the visible option.
 
-Eigentümer: ragents.browser. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -2262,7 +2262,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -2300,15 +2300,15 @@ In jedem Modell-Turn verfügbar.
 
 ### browser_snapshot
 
-Browser lesen
+Read browser
 
 Read the current real page's accessible structure, title, URL and errors. Use role/name or labels for subsequent actions; snapshot reference IDs never need to be copied.
 
-Eigentümer: ragents.browser. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -2318,7 +2318,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -2356,15 +2356,15 @@ In jedem Modell-Turn verfügbar.
 
 ### browser_view_screenshot
 
-Browseraufnahme ansehen
+View browser screenshot
 
 View this run's latest screenshot as native image input without a path. Invoke this native tool directly to receive pixels; calling it through TypeScript only verifies image availability. Requires an image-capable model for native image input.
 
-Eigentümer: ragents.browser. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.browser. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -2374,7 +2374,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -2384,15 +2384,15 @@ In jedem Modell-Turn verfügbar.
 
 ### browser_viewport
 
-Browsergröße setzen
+Set browser size
 
 Resize the page viewport in CSS pixels, for example to check a narrow layout. The default is 1920 x 1080 (16:9) and screenshots use the viewport size at scale 1; the chosen size stays for the run until changed again. Returns the resulting page.
 
-Eigentümer: ragents.browser. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: always.
+Owner: ragents.browser. Scope: per-turn. Native model tool: no. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -2417,7 +2417,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -2461,11 +2461,11 @@ Arrange actors and mini-apps as tiles on the viewport-filling work surface, usin
 
 root is the whole arrangement and replaces the stored one. A tile is {entity:'@helper'} or {entity:'app:@workspace/main'}; a split is {direction:'horizontal',weights:[1,1],children:[tile,tile]}. horizontal means left/right, vertical means top/bottom, and weights give the ratio of the two children. App left, chat right at 50:50: {root:{direction:'horizontal',weights:[1,1],children:[{entity:'app:@workspace/main'},{entity:'@helper'}]}}. One tile above two tiles at 2:1: {root:{direction:'vertical',weights:[2,1],children:[{entity:'@lead'},{direction:'horizontal',weights:[1,1],children:[{entity:'@first'},{entity:'@second'}]}]}}. root:null clears the surface. Dividers are draggable, so do not resend a layout to fight a personal arrangement. Participants you do not place stay reachable through the run header.
 
-Eigentümer: ragents.orchestration. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Nur für Agenten und TypeScript-Actors mit der Capability plugin.state.write.
+Only for agents and TypeScript actors with the capability plugin.state.write.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -2565,7 +2565,7 @@ Nur für Agenten und TypeScript-Actors mit der Capability plugin.state.write.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -2575,17 +2575,17 @@ Nur für Agenten und TypeScript-Actors mit der Capability plugin.state.write.
 
 ### document_write
 
-Dokument ablegen
+Store document
 
-Legt eine Datei mit dem übergebenen Inhalt in der Dateiablage dieses Runs ab.
+Stores a file with the given content in this run's file store.
 
-Dokumente, Berichte und Zwischenprodukte gehören in die Dateiablage, nicht ins Arbeitsverzeichnis - dort steht nur, was zum Auftrag selbst gehört. Der Benutzer sieht die Ablage im Bereich "Dokumente", nach Unterordnern gruppiert. Soll eine Datei aus dem Arbeitsbereich in die Ablage, lies sie zuerst mit read und übergib den Inhalt hier als content. Die Ablage ist kein Bash-Pfad: sie liegt nicht im Arbeitsbereich und ist nur über dieses Werkzeug beschreibbar.
+Documents, reports and intermediate products belong in the file store, not in the working directory - that only holds what belongs to the task itself. The user sees the store in the "Documents" area, grouped by subdirectory. To put a file from the workspace into the store, read it first with read and pass the content here as content. The store is not a bash path: it does not live in the workspace and can only be written through this tool.
 
-Eigentümer: ragents.documents. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.documents. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -2598,18 +2598,18 @@ In jedem Modell-Turn verfügbar.
     "path": {
       "type": "string",
       "minLength": 1,
-      "description": "Pfad in der Dateiablage, etwa thema/bericht.md"
+      "description": "Path in the file store, e.g. topic/report.md"
     },
     "content": {
       "type": "string",
-      "description": "Der vollständige Inhalt der Datei"
+      "description": "The complete content of the file"
     }
   },
   "additionalProperties": false
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -2625,11 +2625,11 @@ Apply exact text replacements to existing files within the run's writable worksp
 
 Edit a single file using exact text replacement. Read the file first; the edit is rejected if the file changed since that read. Every edits[].oldText must match a unique, non-overlapping region of the original file, or be anchored with occurrence, nearLine or replaceAll. If two changes affect the same block or nearby lines, merge them into one edit instead of emitting overlapping edits. Do not include large unchanged regions just to connect distant changes.
 
-Eigentümer: ragents.workspace. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.workspace. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -2680,7 +2680,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -2694,11 +2694,11 @@ Query Events
 
 Read journal events in this run, optionally filtered by event ID, actor or event type.
 
-Eigentümer: engine. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Nur mit der Capability event.subscribe.
+Only with the capability event.subscribe.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -2727,7 +2727,7 @@ Nur mit der Capability event.subscribe.
         "minLength": 1
       },
       "uniqueItems": true,
-      "description": "Jeder Journal-Eventtyp ist abfragbar. Abonnierbar sind nur die observable Typen; event_subscribe zeigt sie."
+      "description": "Every journal event type can be queried. Only the observable types can be subscribed to; event_subscribe shows them."
     },
     "limit": {
       "type": "integer",
@@ -2739,7 +2739,7 @@ Nur mit der Capability event.subscribe.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -2820,11 +2820,11 @@ Subscribe this actor to run events delivered as later ActorInputs.
 
 Source actors may be named by id or handle. Matching observable events arrive as new ActorInputs for this actor.
 
-Eigentümer: engine. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Nur mit der Capability event.subscribe.
+Only with the capability event.subscribe.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -2930,7 +2930,7 @@ Nur mit der Capability event.subscribe.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -2942,7 +2942,7 @@ Nur mit der Capability event.subscribe.
   "properties": {
     "subscriptionId": {
       "type": "string",
-      "description": "ID der Subscription; event_unsubscribe nimmt sie als subscriptionId"
+      "description": "ID of the subscription; event_unsubscribe takes it as subscriptionId"
     },
     "sources": {
       "anyOf": [
@@ -2956,7 +2956,7 @@ Nur mit der Capability event.subscribe.
           "type": "null"
         }
       ],
-      "description": "Die aufgelösten Quell-Actors als @handle, soweit auflösbar, sonst als ID; null = alle."
+      "description": "The resolved source actors as @handle where resolvable, otherwise as ID; null = all."
     }
   },
   "additionalProperties": false
@@ -2969,11 +2969,11 @@ List Event Subscriptions
 
 List this actor's event subscriptions, including inactive and failed ones.
 
-Eigentümer: engine. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Nur mit der Capability event.subscribe.
+Only with the capability event.subscribe.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -2983,7 +2983,7 @@ Nur mit der Capability event.subscribe.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -3008,7 +3008,7 @@ Nur mit der Capability event.subscribe.
         "properties": {
           "subscriptionId": {
             "type": "string",
-            "description": "ID der Subscription; event_unsubscribe nimmt sie als subscriptionId"
+            "description": "ID of the subscription; event_unsubscribe takes it as subscriptionId"
           },
           "subscriberId": {
             "type": "string"
@@ -3025,7 +3025,7 @@ Nur mit der Capability event.subscribe.
                 "type": "null"
               }
             ],
-            "description": "Quell-Actors als ID; null = alle. ID und @handle sind als Eingabe gleichwertig."
+            "description": "Source actors as ID; null = all. ID and @handle are equivalent as input."
           },
           "sources": {
             "anyOf": [
@@ -3039,7 +3039,7 @@ Nur mit der Capability event.subscribe.
                 "type": "null"
               }
             ],
-            "description": "Dieselben Quellen als @handle, soweit auflösbar; sonst die ID."
+            "description": "The same sources as @handle where resolvable; otherwise the ID."
           },
           "sourceActorKinds": {
             "anyOf": [
@@ -3112,7 +3112,7 @@ Nur mit der Capability event.subscribe.
         "properties": {
           "subscriptionId": {
             "type": "string",
-            "description": "ID der Subscription; event_unsubscribe nimmt sie als subscriptionId"
+            "description": "ID of the subscription; event_unsubscribe takes it as subscriptionId"
           },
           "subscriberId": {
             "type": "string"
@@ -3129,7 +3129,7 @@ Nur mit der Capability event.subscribe.
                 "type": "null"
               }
             ],
-            "description": "Quell-Actors als ID; null = alle. ID und @handle sind als Eingabe gleichwertig."
+            "description": "Source actors as ID; null = all. ID and @handle are equivalent as input."
           },
           "sources": {
             "anyOf": [
@@ -3143,7 +3143,7 @@ Nur mit der Capability event.subscribe.
                 "type": "null"
               }
             ],
-            "description": "Dieselben Quellen als @handle, soweit auflösbar; sonst die ID."
+            "description": "The same sources as @handle where resolvable; otherwise the ID."
           },
           "sourceActorKinds": {
             "anyOf": [
@@ -3223,7 +3223,7 @@ Nur mit der Capability event.subscribe.
         "properties": {
           "subscriptionId": {
             "type": "string",
-            "description": "ID der Subscription; event_unsubscribe nimmt sie als subscriptionId"
+            "description": "ID of the subscription; event_unsubscribe takes it as subscriptionId"
           },
           "subscriberId": {
             "type": "string"
@@ -3240,7 +3240,7 @@ Nur mit der Capability event.subscribe.
                 "type": "null"
               }
             ],
-            "description": "Quell-Actors als ID; null = alle. ID und @handle sind als Eingabe gleichwertig."
+            "description": "Source actors as ID; null = all. ID and @handle are equivalent as input."
           },
           "sources": {
             "anyOf": [
@@ -3254,7 +3254,7 @@ Nur mit der Capability event.subscribe.
                 "type": "null"
               }
             ],
-            "description": "Dieselben Quellen als @handle, soweit auflösbar; sonst die ID."
+            "description": "The same sources as @handle where resolvable; otherwise the ID."
           },
           "sourceActorKinds": {
             "anyOf": [
@@ -3327,11 +3327,11 @@ Remove Event Subscription
 
 Remove one event subscription owned by this actor.
 
-Eigentümer: engine. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Nur mit der Capability event.subscribe.
+Only with the capability event.subscribe.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -3344,7 +3344,7 @@ Nur mit der Capability event.subscribe.
     "subscriptionId": {
       "type": "string",
       "minLength": 1,
-      "description": "subscriptionId aus event_subscribe oder event_subscription_list"
+      "description": "subscriptionId from event_subscribe or event_subscription_list"
     },
     "reason": {
       "type": "string",
@@ -3355,26 +3355,26 @@ Nur mit der Capability event.subscribe.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
   "type": "null",
-  "description": "Erledigt; ein Fehler wirft."
+  "description": "Done; an error throws."
 }
 ```
 
 ### fsharp_close
 
-FSAC schließen
+Close FSAC
 
 Stop the FSAC language server instance of one root; without root every FSAC instance of this conversation. Other languages and other conversations stay untouched.
 
-Eigentümer: ragents.lsp-fsharp. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.lsp-fsharp. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -3388,7 +3388,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -3398,15 +3398,15 @@ In jedem Modell-Turn verfügbar.
 
 ### fsharp_diagnostics
 
-FSAC Diagnostik
+FSAC diagnostics
 
 Current FSAC diagnostics (errors, warnings on request) for .fs, .fsi, .fsx files from the running language server, without building. Without paths: all changed files of every open root according to git. With paths every file is answered by the instance whose root contains it; root asks one instance.
 
-Eigentümer: ragents.lsp-fsharp. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.lsp-fsharp. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -3431,7 +3431,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -3441,15 +3441,15 @@ In jedem Modell-Turn verfügbar.
 
 ### fsharp_open
 
-FSAC öffnen
+Open FSAC
 
 Start a FSAC language server instance for this run's workspace and load the .sln file (or a single .fsproj). Afterwards every edit or write of a .fs, .fsi, .fsx file gets its diagnostics appended automatically, and fsharp_diagnostics is available. Idempotent for the same root; other roots stay open.
 
-Eigentümer: ragents.lsp-fsharp. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.lsp-fsharp. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -3466,7 +3466,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -3480,11 +3480,11 @@ List Models and Profiles
 
 List the execution profiles and provider models available for agent_spawn.
 
-Eigentümer: engine. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Nur mit der Capability agent.spawn.
+Only with the capability agent.spawn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -3511,7 +3511,7 @@ Nur mit der Capability agent.spawn.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -3648,7 +3648,7 @@ Nur mit der Capability agent.spawn.
             "items": {
               "type": "string"
             },
-            "description": "Denkstufen, die agent_spawn für dieses Modell annimmt."
+            "description": "Thinking levels that agent_spawn accepts for this model."
           }
         },
         "additionalProperties": false
@@ -3661,17 +3661,17 @@ Nur mit der Capability agent.spawn.
 
 ### quick_answer
 
-Kurze Antwort
+Quick answer
 
-Ergänzt nach der normalen Chatantwort eine kurze Zusammenfassung von Nutzerfrage und Ergebnis.
+Adds a short summary of user question and result after the normal chat answer.
 
-Nach deiner normalen Chatantwort: Wiederhole die aktuelle Nutzerfrage kurz in question und fasse dein Ergebnis in text als kurzen deutschen Satz zusammen. Beide Texte dürfen jeweils höchstens 240 Zeichen lang sein und ersetzen die Chatantwort nicht.
+After your normal chat answer: repeat the current user question briefly in question and summarize your result in text as a short sentence. Both texts may each be at most 240 characters long and do not replace the chat answer.
 
-Eigentümer: ragents.overseer. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: ragents.overseer. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Nur für den globalen Primary-Koordinator mit plugin.state.write.
+Only for the global primary coordinator with plugin.state.write.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -3685,19 +3685,19 @@ Nur für den globalen Primary-Koordinator mit plugin.state.write.
       "type": "string",
       "minLength": 1,
       "maxLength": 240,
-      "description": "Die aktuelle Nutzerfrage kurz in eigenen Worten wiederholen."
+      "description": "Repeat the current user question briefly in your own words."
     },
     "text": {
       "type": "string",
       "minLength": 1,
       "maxLength": 240,
-      "description": "Ein kurzer Satz mit dem Ergebnis deiner normalen Chatantwort."
+      "description": "A short sentence with the result of your normal chat answer."
     }
   }
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -3722,11 +3722,11 @@ Read file contents or images within the run's allowed workspace roots.
 
 Read the contents of a file. Supports text files and images (jpg, png, gif, webp, bmp). Images are sent as attachments. For text files, output is truncated to 2000 lines or 50KB (whichever is hit first). Use offset/limit for large files. When you need the full file, continue with offset until complete.
 
-Eigentümer: ragents.workspace. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.workspace. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -3751,7 +3751,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -3761,15 +3761,15 @@ In jedem Modell-Turn verfügbar.
 
 ### roslyn_close
 
-Roslyn schließen
+Close Roslyn
 
 Stop the Roslyn language server instance of one root; without root every Roslyn instance of this conversation. Other languages and other conversations stay untouched.
 
-Eigentümer: ragents.lsp-roslyn. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.lsp-roslyn. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -3783,7 +3783,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -3793,15 +3793,15 @@ In jedem Modell-Turn verfügbar.
 
 ### roslyn_diagnostics
 
-Roslyn Diagnostik
+Roslyn diagnostics
 
 Current Roslyn diagnostics (errors, warnings on request) for .cs files from the running language server, without building. Without paths: all changed files of every open root according to git. With paths every file is answered by the instance whose root contains it; root asks one instance.
 
-Eigentümer: ragents.lsp-roslyn. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.lsp-roslyn. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -3826,7 +3826,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -3836,15 +3836,15 @@ In jedem Modell-Turn verfügbar.
 
 ### roslyn_open
 
-Roslyn öffnen
+Open Roslyn
 
 Start a Roslyn language server instance for this run's workspace and load the .sln file (or a single .csproj). Afterwards every edit or write of a .cs file gets its diagnostics appended automatically, and roslyn_diagnostics is available. Idempotent for the same root; other roots stay open.
 
-Eigentümer: ragents.lsp-roslyn. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.lsp-roslyn. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -3861,7 +3861,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -3875,11 +3875,11 @@ Roslyn Solutions
 
 List the solution files (.sln, .slnx) of this run's workspace and mark which ones the Roslyn language server has open. roslyn_open loads another one in addition; the open ones stay open.
 
-Eigentümer: ragents.lsp-roslyn. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.lsp-roslyn. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -3888,7 +3888,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -3902,11 +3902,11 @@ Configure Run
 
 Set the run title and/or choose the primary actor the chat talks to. Give title, primaryActor or both; the primary actor must be an active agent or TypeScript actor of this run.
 
-Eigentümer: engine. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: engine. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Nur mit der Capability run.configure.
+Only with the capability run.configure.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -3916,38 +3916,38 @@ Nur mit der Capability run.configure.
       "type": "string",
       "minLength": 1,
       "maxLength": 200,
-      "description": "Neuer Titel des Runs"
+      "description": "New title of the run"
     },
     "primaryActor": {
       "type": "string",
       "minLength": 1,
-      "description": "Handle oder ID des Actors, mit dem der Chat des Benutzers spricht"
+      "description": "Handle or ID of the actor the user's chat talks to"
     }
   },
   "additionalProperties": false
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
   "type": "null",
-  "description": "Erledigt; ein Fehler wirft."
+  "description": "Done; an error throws."
 }
 ```
 
 ### run_stop
 
-Run stoppen
+Stop run
 
-Leitet den vollständigen Stopp des eigenen Runs ein: laufende Turns, Werkzeuge, Unteragenten und Plugin-Dienste. Gespräch und Dateien bleiben erhalten. Bricht auch den eigenen Turn ab; die Annahme ist keine Bestätigung abgeschlossener Bereinigung. Bei Benutzerwunsch nach vollständigem Abbruch sofort verwenden, keine Abbruchnachricht an beschäftigte Agenten senden.
+Initiates the complete stop of your own run: running turns, tools, subagents and plugin services. Conversation and files are kept. Also cancels your own turn; acceptance is not a confirmation of completed cleanup. Use immediately when the user wants a complete cancellation; do not send a cancel message to busy agents.
 
-Eigentümer: ragents.orchestration. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Für den Primary-Actor mit execution.stopOwned im eigenen Run.
+For the primary actor with execution.stopOwned in its own run.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -3957,7 +3957,7 @@ Für den Primary-Actor mit execution.stopOwned im eigenen Run.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -3977,17 +3977,17 @@ Für den Primary-Actor mit execution.stopOwned im eigenen Run.
 
 ### show_document
 
-Dokument anzeigen
+Show document
 
-Zeigt Dokumente vollständig in der Oberfläche; Dateipfade gelten nur für die Dateiablage dieses Runs.
+Shows documents completely in the interface; file paths only apply to this run's file store.
 
-Nutze dieses Werkzeug IMMER, wenn der Benutzer den Inhalt einer Datei oder ein längeres Dokument sehen möchte - statt den Inhalt in die Chat-Antwort zu kopieren oder zu paraphrasieren. path zeigt ausschließlich eine Datei aus der Dateiablage dieses Runs an, NICHT aus deinem Arbeitsverzeichnis. Alles andere - Dateien des Arbeitsverzeichnisses und selbst erzeugte Inhalte - geht über content; stammt der Inhalt aus einer Datei, übernimm ihn dort WÖRTLICH aus dem letzten read- oder write-Ergebnis, niemals aus dem Gedächtnis neu getippt.
+ALWAYS use this tool when the user wants to see the content of a file or a longer document - instead of copying or paraphrasing the content in the chat answer. path only shows a file from this run's file store, NOT from your working directory. Everything else - files of the working directory and content you produced yourself - goes through content; if the content comes from a file, take it VERBATIM from the last read or write result, never retyped from memory.
 
-Eigentümer: ragents.documents. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.documents. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Turn verfügbar; die Frage geht immer an den Benutzer des Runs.
+Available in every turn; the question always goes to the user of the run.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -3998,15 +3998,15 @@ In jedem Turn verfügbar; die Frage geht immer an den Benutzer des Runs.
   "properties": {
     "title": {
       "type": "string",
-      "description": "Titel der Anzeige, z.B. der Dateiname"
+      "description": "Title of the display, e.g. the file name"
     },
     "content": {
       "type": "string",
-      "description": "Der vollständige Inhalt - für Dateien aus dem Arbeitsverzeichnis und für selbst erzeugte Inhalte, also alles, was nicht in der Dateiablage liegt. content und path schließen einander aus: gültig sind { title, content, format } für selbst erzeugte Inhalte und Dateien des Arbeitsverzeichnisses und { title, path, format } für Dateien der Dateiablage - genau eines von beiden muss gesetzt sein."
+      "description": "The complete content - for files from the working directory and for self-produced content, i.e. everything that is not in the file store. content and path exclude each other: valid are { title, content, format } for self-produced content and files of the working directory, and { title, path, format } for files of the file store - exactly one of the two must be set."
     },
     "path": {
       "type": "string",
-      "description": "Datei aus der Dateiablage dieses Runs, relativ zur Ablage (z.B. thema/datei.md). Nur dort abgelegte Dateien sind so anzeigbar - für Pfade des Arbeitsverzeichnisses content nutzen. Der Inhalt wird direkt aus der Datei angezeigt und muss nie abgetippt werden. content und path schließen einander aus: gültig sind { title, content, format } für selbst erzeugte Inhalte und Dateien des Arbeitsverzeichnisses und { title, path, format } für Dateien der Dateiablage - genau eines von beiden muss gesetzt sein."
+      "description": "File from this run's file store, relative to the store (e.g. topic/file.md). Only files stored there can be shown this way - for paths of the working directory use content. The content is shown directly from the file and never has to be retyped. content and path exclude each other: valid are { title, content, format } for self-produced content and files of the working directory, and { title, path, format } for files of the file store - exactly one of the two must be set."
     },
     "format": {
       "anyOf": [
@@ -4023,14 +4023,14 @@ In jedem Turn verfügbar; die Frage geht immer an den Benutzer des Runs.
           "const": "html"
         }
       ],
-      "description": "Darstellung, Default markdown"
+      "description": "Rendering, default markdown"
     }
   },
   "additionalProperties": false
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -4046,11 +4046,11 @@ Replace this agent's complete to-do snapshot with its current progress.
 
 Mark an item completed only AFTER the work actually happened, never in advance; update the list as you go so at most one item is active.
 
-Eigentümer: ragents.todo. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: conditional.
+Owner: ragents.todo. Scope: per-turn. Native model tool: no. Availability: conditional.
 
-Nur für Agenten mit der Capability plugin.state.write.
+Only for agents with the capability plugin.state.write.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -4104,7 +4104,7 @@ Nur für Agenten mit der Capability plugin.state.write.
                 "const": "done"
               }
             ],
-            "description": "open = offen, active = in Arbeit, completed = erledigt; pending, in_progress und done werden ebenfalls angenommen"
+            "description": "open = not started, active = in progress, completed = done; pending, in_progress and done are accepted as well"
           }
         }
       }
@@ -4113,7 +4113,7 @@ Nur für Agenten mit der Capability plugin.state.write.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -4127,11 +4127,11 @@ TypeScript API
 
 Discover the typed functions available to this actor. Omit names for a compact searchable list; pass exact names for their entries in RAgentsCapabilityMap with field documentation and the matching guidance. JSON schemas with validation constraints are added only on request. Functions are called as await context.functions.name(input) from snippets and actor programs; context: true returns the declarations of context itself once.
 
-Eigentümer: ragents.runtime. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: conditional.
+Owner: ragents.runtime. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
-Für aktive ausführbare Actors mit einer Funktionsauswahl.
+For active executable actors with a function selection.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -4165,7 +4165,7 @@ Für aktive ausführbare Actors mit einer Funktionsauswahl.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -4212,15 +4212,15 @@ Für aktive ausführbare Actors mit einer Funktionsauswahl.
 
 ### typescript_close
 
-TypeScript schließen
+Close TypeScript
 
 Stop the TypeScript language server instance of one root; without root every TypeScript instance of this conversation. Other languages and other conversations stay untouched.
 
-Eigentümer: ragents.lsp-typescript. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.lsp-typescript. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -4234,7 +4234,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -4244,15 +4244,15 @@ In jedem Modell-Turn verfügbar.
 
 ### typescript_diagnostics
 
-TypeScript Diagnostik
+TypeScript diagnostics
 
 Current TypeScript diagnostics (errors, warnings on request) for .ts, .tsx, .mts, .cts, .js, .jsx files from the running language server, without building. Without paths: all changed files of every open root according to git. With paths every file is answered by the instance whose root contains it; root asks one instance.
 
-Eigentümer: ragents.lsp-typescript. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.lsp-typescript. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -4277,7 +4277,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -4291,11 +4291,11 @@ Evaluate TypeScript
 
 Typecheck and execute a one-off TypeScript snippet as the calling actor, with the same context.functions API as actor programs. Supply code or a workspace path containing an async function body: await and return are supported; use await import() for Node modules. Return a JSON value; no return yields null. context.log captures output. Locals and context.state last for this execution only. Function calls can change the run and are not rolled back on later failure. Use an actor program for persistent state and future messages or events.
 
-Eigentümer: ragents.runtime. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: conditional.
+Owner: ragents.runtime. Scope: per-turn. Native model tool: yes. Availability: conditional.
 
-Für aktive ausführbare Actors mit einer Funktionsauswahl.
+For active executable actors with a function selection.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -4316,7 +4316,7 @@ Für aktive ausführbare Actors mit einer Funktionsauswahl.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -4340,15 +4340,15 @@ Für aktive ausführbare Actors mit einer Funktionsauswahl.
 
 ### typescript_open
 
-TypeScript öffnen
+Open TypeScript
 
 Start a TypeScript language server instance for this run's workspace and load the directory whose tsconfig.json projects should be served (e.g. src). Afterwards every edit or write of a .ts, .tsx, .mts, .cts, .js, .jsx file gets its diagnostics appended automatically, and typescript_diagnostics is available. Idempotent for the same root; other roots stay open.
 
-Eigentümer: ragents.lsp-typescript. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.lsp-typescript. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -4365,7 +4365,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -4375,15 +4375,15 @@ In jedem Modell-Turn verfügbar.
 
 ### watch_create
 
-Wächter anlegen
+Create watch
 
-Beobachtet einen Actor dieses Runs und weckt einen anderen mit einer Hintergrundnachricht, sobald die als TypeScript-Funktionsrumpf formulierte Bedingung im geänderten Stand einen Grund liefert. Kein Modell: Die Bedingung wird beim Anlegen typgeprüft und danach deterministisch bei jeder Änderung des beobachteten Stands ausgeführt, sobald der beobachtete Actor zur Ruhe gekommen ist; stalledForSeconds erscheint nach stallAfterSeconds ohne Aktivität und danach je weitere Periode erneut. Ein gleicher Wächter wird nicht doppelt angelegt.
+Observes an actor of this run and wakes another with a background message as soon as the condition, written as a TypeScript function body, returns a reason for the changed state. No model: the condition is type-checked on creation and afterwards run deterministically on every change of the observed state, once the observed actor has come to rest; stalledForSeconds appears after stallAfterSeconds without activity and again after each further period. An identical watch is not created twice.
 
-Eigentümer: ragents.watch. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: always.
+Owner: ragents.watch. Scope: per-turn. Native model tool: no. Availability: always.
 
-In jedem Run verfügbar.
+Available in every run.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -4396,41 +4396,41 @@ In jedem Run verfügbar.
     "source": {
       "type": "string",
       "minLength": 1,
-      "description": "Beobachteter Actor als @handle oder Kennung"
+      "description": "Observed actor as @handle or id"
     },
     "condition": {
       "type": "string",
       "minLength": 1,
       "maxLength": 4000,
-      "description": "Weckbedingung als TypeScript-Funktionsrumpf von (now: WatchState, before: WatchState) => string | undefined; liefert den Weckgrund als Text oder undefined. WatchState: source { lifecycle idle|running|stopped, completedTurns, lastTurn { status, reason? }, pendingInputs, pendingActions, lastOutput? }, observed (Ergebnis der observe-Operation als Record<string, unknown>), stalledForSeconds (nur bei Stillstand). before ist der Stand bei der letzten Weckung. Beispiel: return now.source.completedTurns > before.source.completedTurns && now.observed?.phase !== \"ready\" ? \"Turn beendet, Auftrag nicht fertig\" : undefined;"
+      "description": "Wake condition as a TypeScript function body of (now: WatchState, before: WatchState) => string | undefined; returns the wake reason as text or undefined. WatchState: source { lifecycle idle|running|stopped, completedTurns, lastTurn { status, reason? }, pendingInputs, pendingActions, lastOutput? }, observed (result of the observe operation as Record<string, unknown>), stalledForSeconds (only when stalled). before is the state at the last wake. Example: return now.source.completedTurns > before.source.completedTurns && now.observed?.phase !== \"ready\" ? \"Turn ended, task not finished\" : undefined;"
     },
     "target": {
       "type": "string",
       "minLength": 1,
-      "description": "Zu weckender Actor als @handle oder Kennung; ohne Angabe der Aufrufer"
+      "description": "Actor to wake as @handle or id; if omitted, the caller"
     },
     "observe": {
       "type": "string",
       "minLength": 1,
-      "description": "Benannte Operation ohne Eingabe, deren Ergebnis den beobachteten Stand ergänzt und per Differenz verglichen wird"
+      "description": "Named operation without input whose result extends the observed state and is compared by difference"
     },
     "instruction": {
       "type": "string",
       "minLength": 1,
       "maxLength": 2000,
-      "description": "Text, der jeder Weckung angehängt wird, etwa wie der Geweckte reagieren soll"
+      "description": "Text appended to every wake, e.g. how the woken actor should react"
     },
     "stallAfterSeconds": {
       "type": "integer",
       "minimum": 1,
-      "description": "Sekunden ohne Ereignis des beobachteten Actors, ab denen der Stand stalledForSeconds nennt"
+      "description": "Seconds without an event of the observed actor after which the state reports stalledForSeconds"
     }
   },
   "additionalProperties": false
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -4445,35 +4445,35 @@ In jedem Run verfügbar.
   "properties": {
     "id": {
       "type": "string",
-      "description": "Kennung des Wächters für watch_remove"
+      "description": "Id of the watch for watch_remove"
     },
     "source": {
       "type": "string",
-      "description": "Beobachteter Actor als @handle"
+      "description": "Observed actor as @handle"
     },
     "target": {
       "type": "string",
-      "description": "Geweckter Actor als @handle"
+      "description": "Woken actor as @handle"
     },
     "condition": {
       "type": "string",
-      "description": "Weckbedingung als TypeScript-Funktionsrumpf"
+      "description": "Wake condition as a TypeScript function body"
     },
     "observe": {
       "type": "string",
-      "description": "Benannte Operation, deren Ergebnis zum beobachteten Stand gehört"
+      "description": "Named operation whose result belongs to the observed state"
     },
     "stallAfterSeconds": {
       "type": "integer",
-      "description": "Sekunden ohne Ereignis des beobachteten Actors, ab denen der Stand einen Stillstand nennt"
+      "description": "Seconds without an event of the observed actor after which the state reports a stall"
     },
     "wakes": {
       "type": "integer",
-      "description": "Anzahl der bisherigen Weckungen"
+      "description": "Number of wakes so far"
     },
     "lastEvaluatedAt": {
       "type": "string",
-      "description": "Zeitpunkt der letzten Bewertung"
+      "description": "Time of the last evaluation"
     },
     "lastVerdict": {
       "type": "object",
@@ -4486,22 +4486,22 @@ In jedem Run verfügbar.
       "properties": {
         "at": {
           "type": "string",
-          "description": "Zeitpunkt der Bewertung"
+          "description": "Time of the evaluation"
         },
         "wake": {
           "type": "boolean",
-          "description": "Ob der Wächter geweckt hat"
+          "description": "Whether the watch woke"
         },
         "reason": {
           "type": "string",
-          "description": "Grund, den die Bedingung geliefert hat, oder 'Bedingung nicht erfüllt'"
+          "description": "Reason the condition returned, or 'Condition not met'"
         },
         "changes": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Änderungen seit der letzten Weckung, die der Bewertung vorlagen"
+          "description": "Changes since the last wake that the evaluation saw"
         }
       },
       "additionalProperties": false
@@ -4513,15 +4513,15 @@ In jedem Run verfügbar.
 
 ### watch_list
 
-Wächter auflisten
+List watches
 
-Listet die Wächter dieses Runs mit Bedingung, Anzahl der Weckungen und letztem Urteil.
+Lists the watches of this run with condition, number of wakes and last verdict.
 
-Eigentümer: ragents.watch. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: always.
+Owner: ragents.watch. Scope: per-turn. Native model tool: no. Availability: always.
 
-In jedem Run verfügbar.
+Available in every run.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -4531,7 +4531,7 @@ In jedem Run verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -4548,35 +4548,35 @@ In jedem Run verfügbar.
     "properties": {
       "id": {
         "type": "string",
-        "description": "Kennung des Wächters für watch_remove"
+        "description": "Id of the watch for watch_remove"
       },
       "source": {
         "type": "string",
-        "description": "Beobachteter Actor als @handle"
+        "description": "Observed actor as @handle"
       },
       "target": {
         "type": "string",
-        "description": "Geweckter Actor als @handle"
+        "description": "Woken actor as @handle"
       },
       "condition": {
         "type": "string",
-        "description": "Weckbedingung als TypeScript-Funktionsrumpf"
+        "description": "Wake condition as a TypeScript function body"
       },
       "observe": {
         "type": "string",
-        "description": "Benannte Operation, deren Ergebnis zum beobachteten Stand gehört"
+        "description": "Named operation whose result belongs to the observed state"
       },
       "stallAfterSeconds": {
         "type": "integer",
-        "description": "Sekunden ohne Ereignis des beobachteten Actors, ab denen der Stand einen Stillstand nennt"
+        "description": "Seconds without an event of the observed actor after which the state reports a stall"
       },
       "wakes": {
         "type": "integer",
-        "description": "Anzahl der bisherigen Weckungen"
+        "description": "Number of wakes so far"
       },
       "lastEvaluatedAt": {
         "type": "string",
-        "description": "Zeitpunkt der letzten Bewertung"
+        "description": "Time of the last evaluation"
       },
       "lastVerdict": {
         "type": "object",
@@ -4589,22 +4589,22 @@ In jedem Run verfügbar.
         "properties": {
           "at": {
             "type": "string",
-            "description": "Zeitpunkt der Bewertung"
+            "description": "Time of the evaluation"
           },
           "wake": {
             "type": "boolean",
-            "description": "Ob der Wächter geweckt hat"
+            "description": "Whether the watch woke"
           },
           "reason": {
             "type": "string",
-            "description": "Grund, den die Bedingung geliefert hat, oder 'Bedingung nicht erfüllt'"
+            "description": "Reason the condition returned, or 'Condition not met'"
           },
           "changes": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "Änderungen seit der letzten Weckung, die der Bewertung vorlagen"
+            "description": "Changes since the last wake that the evaluation saw"
           }
         },
         "additionalProperties": false
@@ -4617,15 +4617,15 @@ In jedem Run verfügbar.
 
 ### watch_remove
 
-Wächter entfernen
+Remove watch
 
-Entfernt einen Wächter dieses Runs; danach weckt er nicht mehr.
+Removes a watch of this run; afterwards it no longer wakes.
 
-Eigentümer: ragents.watch. Scope: per-turn. Natives Modellwerkzeug: nein. Verfügbarkeit: always.
+Owner: ragents.watch. Scope: per-turn. Native model tool: no. Availability: always.
 
-In jedem Run verfügbar.
+Available in every run.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -4638,19 +4638,19 @@ In jedem Run verfügbar.
     "id": {
       "type": "string",
       "minLength": 1,
-      "description": "Kennung aus watch_create oder watch_list"
+      "description": "Id from watch_create or watch_list"
     },
     "reason": {
       "type": "string",
       "minLength": 1,
-      "description": "Grund der Entfernung"
+      "description": "Reason for the removal"
     }
   },
   "additionalProperties": false
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -4676,11 +4676,11 @@ Create or overwrite files within the run's writable workspace roots.
 
 Write content to a file. Creates the file if it doesn't exist, overwrites if it does. Automatically creates parent directories.
 
-Eigentümer: ragents.workspace. Scope: per-turn. Natives Modellwerkzeug: ja. Verfügbarkeit: always.
+Owner: ragents.workspace. Scope: per-turn. Native model tool: yes. Availability: always.
 
-In jedem Modell-Turn verfügbar.
+Available in every model turn.
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -4702,7 +4702,7 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -4710,21 +4710,21 @@ In jedem Modell-Turn verfügbar.
 }
 ```
 
-## Operationen
+## Operations
 
 ### actor_input
 
-Reiht für einen Actor einen normalen Texteingang unter der gebundenen Identität ein - als Agent oder, aus einer App-Aktion, als Besitzer des Runs. Bestätigt nur das Einreihen. TypeScript-Actors verstehen ausschließlich ihr programmiertes Eingabeprotokoll, keine freien Aufträge.
+Enqueues a normal text input for an actor under the bound identity - as an agent or, from an app action, as the owner of the run. Only confirms the enqueueing. TypeScript actors understand only their programmed input protocol, no free-form tasks.
 
-Eigentümer: ragents.orchestration.
+Owner: ragents.orchestration.
 
-#### Bediener-Policy
+#### Operator policy
 
 ```json
 "direct"
 ```
 
-#### Eingabe
+#### Input
 
 ```json
 {
@@ -4737,7 +4737,7 @@ Eigentümer: ragents.orchestration.
     "actor": {
       "type": "string",
       "minLength": 1,
-      "description": "Actor ID oder Handle"
+      "description": "Actor ID or handle"
     },
     "content": {
       "type": "string",
@@ -4756,7 +4756,7 @@ Eigentümer: ragents.orchestration.
 }
 ```
 
-#### Ergebnis
+#### Result
 
 ```json
 {
@@ -4781,11 +4781,11 @@ Eigentümer: ragents.orchestration.
         "properties": {
           "inputId": {
             "type": "string",
-            "description": "ID des eingereihten Inputs"
+            "description": "ID of the enqueued input"
           },
           "actorId": {
             "type": "string",
-            "description": "ID des empfangenden Actors"
+            "description": "ID of the receiving actor"
           }
         },
         "additionalProperties": false
@@ -4793,15 +4793,15 @@ Eigentümer: ragents.orchestration.
     },
     "additionalProperties": false
   },
-  "description": "Die Journal-Events dieses Aufrufs. Die payload nennt die Kennungen des Ergebnisses; Eingaben und Hashes wiederholt sie nicht."
+  "description": "The journal events of this call. The payload names the ids of the result; it does not repeat inputs and hashes."
 }
 ```
 
-## Actor-Programm-Vorlagen
+## Actor program templates
 
-### blank: Leere Mini-App
+### blank: Blank mini-app
 
-Eine reine React-View am vorhandenen Actor ohne zusätzliche Serverfunktion.
+A pure React view on the existing actor without an additional server function.
 
 #### package.json
 
@@ -4811,8 +4811,8 @@ Eine reine React-View am vorhandenen Actor ohne zusätzliche Serverfunktion.
   "private": true,
   "type": "module",
   "ragents": {
-    "title": "Meine View",
-    "description": "Eine kleine Bedienoberfläche des vorhandenen Actors.",
+    "title": "My view",
+    "description": "A small interface of the existing actor.",
     "views": [
       {
         "id": "main",
@@ -4830,19 +4830,19 @@ import { createRoot } from "react-dom/client";
 import * as UI from "@ragents/client/ui";
 
 const App = () => (
-  <UI.AppLayout title="Meine View">
-    <UI.Stack><p>Bereit für deine Inhalte.</p></UI.Stack>
+  <UI.AppLayout title="My view">
+    <UI.Stack><p>Ready for your content.</p></UI.Stack>
   </UI.AppLayout>
 );
 
 const root = document.getElementById("root");
-if (!root) throw new Error("Das Wurzelelement #root fehlt.");
+if (!root) throw new Error("The #root element is missing.");
 createRoot(root).render(<App />);
 ```
 
-### chat: Actor-Chat
+### chat: Actor chat
 
-Wiederverwendbarer Chat mit Verlauf und optionaler Eingabe an den Actor dieser View.
+Reusable chat with history and optional input to the actor of this view.
 
 #### package.json
 
@@ -4852,8 +4852,8 @@ Wiederverwendbarer Chat mit Verlauf und optionaler Eingabe an den Actor dieser V
   "private": true,
   "type": "module",
   "ragents": {
-    "title": "Actor-Chat",
-    "description": "Zeigt das Gespräch mit einem Actor und sendet ihm Benutzereingaben.",
+    "title": "Actor chat",
+    "description": "Shows the conversation with an actor and sends it user input.",
     "views": [
       {
         "id": "main",
@@ -4872,17 +4872,17 @@ import * as UI from "@ragents/client/ui";
 import { context } from "@ragents/client";
 
 const App = () => (
-  <UI.Chat actor={"@" + context.actor.handle} className="h-full" showInput placeholder="Nachricht an den Actor" />
+  <UI.Chat actor={"@" + context.actor.handle} className="h-full" showInput placeholder="Message to the actor" />
 );
 
 const root = document.getElementById("root");
-if (!root) throw new Error("Das Wurzelelement #root fehlt.");
+if (!root) throw new Error("The #root element is missing.");
 createRoot(root).render(<App />);
 ```
 
-### controls: UI-Controls ausprobieren
+### controls: Try UI controls
 
-Lokale Demo mit Formular, Tabelle, Dateien, Aufgaben, Ablaufdiagramm, SVG-Verbindungen, Nachrichten, Dokument und Diff ohne Funktionsaufrufe.
+Local demo with form, table, files, tasks, flow diagram, SVG connections, messages, document, and diff without function calls.
 
 #### package.json
 
@@ -4892,8 +4892,8 @@ Lokale Demo mit Formular, Tabelle, Dateien, Aufgaben, Ablaufdiagramm, SVG-Verbin
   "private": true,
   "type": "module",
   "ragents": {
-    "title": "UI-Controls ausprobieren",
-    "description": "Eine lokale Demo der vorhandenen Mini-App-Controls. Werte und Dateien bleiben in dieser Ansicht.",
+    "title": "Try UI controls",
+    "description": "A local demo of the available mini-app controls. Values and files stay in this view.",
     "views": [
       {
         "id": "main",
@@ -4914,67 +4914,67 @@ import * as UI from "@ragents/client/ui";
 type FormValues = Parameters<typeof UI.Form>[0]["values"];
 type Row = { id: string; name: string; count: number };
 const rows: Row[] = [
-  { id: "analysis", name: "Analyse", count: 12 },
+  { id: "analysis", name: "Analysis", count: 12 },
   { id: "review", name: "Review", count: 4 },
-  { id: "notes", name: "Dokumentation", count: 8 },
+  { id: "notes", name: "Documentation", count: 8 },
 ];
 
 const App = () => {
-  const [values, setValues] = React.useState<FormValues>({ title: "Ergebnisse prüfen", notes: "", count: 3, mode: "review", approved: false });
+  const [values, setValues] = React.useState<FormValues>({ title: "Review results", notes: "", count: 3, mode: "review", approved: false });
   const [selected, setSelected] = React.useState<string[]>([]);
   const [files, setFiles] = React.useState<File[]>([]);
-  const [result, setResult] = React.useState("Noch keine Formularwerte übernommen.");
+  const [result, setResult] = React.useState("No form values applied yet.");
   const [messages, setMessages] = React.useState<Parameters<typeof UI.MessageList>[0]["messages"]>([
-    { key: "editorial", sender: "Redaktion", text: "Der Hinweis soll **kurz und verständlich** bleiben." },
-    { key: "review", sender: "Textprüfung", text: "Öffnungszeiten und Reparaturhinweis bleiben erhalten." },
+    { key: "editorial", sender: "Editorial", text: "The notice should stay **short and clear**." },
+    { key: "review", sender: "Text review", text: "Opening hours and the repair notice are kept." },
   ]);
   const [done, setDone] = React.useState(false);
-  return <UI.AppLayout title="UI-Controls ausprobieren" description="Lokale Demo: keine Agenten, Uploads oder Serveraktionen. Werte und Dateiauswahl bleiben nur in dieser Ansicht und werden beim Neuladen zurückgesetzt.">
+  return <UI.AppLayout title="Try UI controls" description="Local demo: no agents, uploads, or server actions. Values and file selection stay only in this view and are reset on reload.">
     <UI.Stack gap="large">
-      <UI.Form title="Formular" fields={[
-        { id: "title", label: "Auftrag", type: "text", placeholder: "Was soll bearbeitet werden?", required: true },
-        { id: "notes", label: "Hinweise", type: "textarea", rows: 3, placeholder: "Was soll bei der Bearbeitung berücksichtigt werden?", hint: "Mehrzeiliger Text bleibt im Formular ausgerichtet." },
-        { id: "count", label: "Anzahl", type: "number", placeholder: "Anzahl der Ergebnisse", hint: "1 bis 10 Ergebnisse.", required: true, min: 1, max: 10 },
-        { id: "mode", label: "Modus", type: "select", options: [{ value: "review", label: "Prüfen" }, { value: "draft", label: "Entwerfen" }] },
-        { id: "approved", label: "Auswahl bestätigt", type: "checkbox", required: true },
-      ]} values={values} onChange={setValues} onSubmit={async (next) => { setResult(JSON.stringify(next, null, 2)); }} submitLabel="Werte lokal anzeigen" />
+      <UI.Form title="Form" fields={[
+        { id: "title", label: "Task", type: "text", placeholder: "What should be worked on?", required: true },
+        { id: "notes", label: "Notes", type: "textarea", rows: 3, placeholder: "What should be taken into account while working on it?", hint: "Multi-line text stays aligned in the form." },
+        { id: "count", label: "Count", type: "number", placeholder: "Number of results", hint: "1 to 10 results.", required: true, min: 1, max: 10 },
+        { id: "mode", label: "Mode", type: "select", options: [{ value: "review", label: "Review" }, { value: "draft", label: "Draft" }] },
+        { id: "approved", label: "Selection confirmed", type: "checkbox", required: true },
+      ]} values={values} onChange={setValues} onSubmit={async (next) => { setResult(JSON.stringify(next, null, 2)); }} submitLabel="Show values locally" />
       <UI.Stack gap="small">
-        <UI.DataTable<Row> title="Datentabelle" rows={rows} rowKey={(row) => row.id} filterable
+        <UI.DataTable<Row> title="Data table" rows={rows} rowKey={(row) => row.id} filterable
           selectedKeys={selected} onSelectionChange={setSelected}
-          columns={[{ id: "name", label: "Arbeit", value: (row) => row.name, sortable: true }, { id: "count", label: "Ergebnisse", value: (row) => row.count, sortable: true }]}
-          actions={[{ id: "select", label: "Auswählen", onClick: (row) => { setSelected([row.id]); } }]} />
-        <p aria-live="polite">{selected.length} Zeilen ausgewählt</p>
+          columns={[{ id: "name", label: "Work", value: (row) => row.name, sortable: true }, { id: "count", label: "Results", value: (row) => row.count, sortable: true }]}
+          actions={[{ id: "select", label: "Select", onClick: (row) => { setSelected([row.id]); } }]} />
+        <p aria-live="polite">{selected.length} rows selected</p>
       </UI.Stack>
-      <UI.FilePicker label="Lokale Dateiauswahl" files={files} onChange={setFiles} maxFiles={5} maxBytes={10 * 1024 * 1024} />
+      <UI.FilePicker label="Local file selection" files={files} onChange={setFiles} maxFiles={5} maxBytes={10 * 1024 * 1024} />
       <UI.Stack gap="small">
-        <UI.TaskProgress title="Beispielaufgaben" tasks={[
-          { id: "read", label: "Unterlagen lesen", status: "done" },
-          { id: "review", label: "Ergebnisse prüfen", status: done ? "done" : "pending", description: "Lokaler Beispielstatus, kein laufender Actor." },
+        <UI.TaskProgress title="Example tasks" tasks={[
+          { id: "read", label: "Read documents", status: "done" },
+          { id: "review", label: "Review results", status: done ? "done" : "pending", description: "Local example status, no running actor." },
         ]} />
-        <UI.Stack direction="row"><UI.Button onClick={() => setDone((current) => !current)}>Beispielstatus umschalten</UI.Button></UI.Stack>
+        <UI.Stack direction="row"><UI.Button onClick={() => setDone((current) => !current)}>Toggle example status</UI.Button></UI.Stack>
       </UI.Stack>
       <UI.Stack gap="small">
-        <h2>Ablaufdiagramm</h2>
-        <p>Das Diagramm erhält seinen Zustand aus denselben Daten wie die Aufgabenliste.</p>
-        <UI.FlowDiagram label={done ? "Eingang, Prüfung fertig, Ergebnis bereit" : "Eingang, Prüfung läuft, Ergebnis ausstehend"}
+        <h2>Flow diagram</h2>
+        <p>The diagram gets its state from the same data as the task list.</p>
+        <UI.FlowDiagram label={done ? "Intake, review done, result ready" : "Intake, review running, result pending"}
           nodes={[
-            { id: "input", label: "Eingang", detail: "Unterlagen liegen vor", status: "done", kind: "service" },
-            { id: "check", label: "Prüfung", detail: done ? "Prüfung abgeschlossen" : "Unterlagen werden geprüft", status: done ? "done" : "active", kind: "agent" },
-            { id: "result", label: "Ergebnis", detail: done ? "Ergebnis bereit" : "Wartet auf die Prüfung", status: done ? "done" : "pending", kind: "actor" },
+            { id: "input", label: "Intake", detail: "Documents are available", status: "done", kind: "service" },
+            { id: "check", label: "Review", detail: done ? "Review completed" : "Documents are being reviewed", status: done ? "done" : "active", kind: "agent" },
+            { id: "result", label: "Result", detail: done ? "Result ready" : "Waiting for the review", status: done ? "done" : "pending", kind: "actor" },
           ]}
           edges={[{ source: "input", target: "check" }, { source: "check", target: "result" }]} />
       </UI.Stack>
       <UI.Stack gap="small">
-        <h2>SVG-Verbindungen</h2>
-        <p>SvgEdge zeichnet die Kanten. Knoten, Beschriftungen und Positionen stehen im Code dieser Ansicht.</p>
-        <svg viewBox="0 0 360 160" role="img" aria-label={done ? "Eingang fertig, Prüfung abgeschlossen, Ergebnis bereit" : "Eingang fertig, Prüfung läuft, Ergebnis offen"}
+        <h2>SVG connections</h2>
+        <p>SvgEdge draws the edges. Nodes, labels, and positions are in the code of this view.</p>
+        <svg viewBox="0 0 360 160" role="img" aria-label={done ? "Intake done, review completed, result ready" : "Intake done, review running, result open"}
           className="block h-auto w-full text-[13px]">
           <UI.SvgEdge d="M112 42 L144 42" tone={done ? "success" : "warning"} active={!done} />
           <UI.SvgEdge d="M252 42 C320 42 320 118 252 118" arrow={done ? "end" : "none"} tone={done ? "success" : "neutral"} lineStyle={done ? "solid" : "dashed"} />
           <UI.SvgEdge d="M144 118 C64 118 64 96 64 72" arrow="both" tone="accent" />
-          {[{ x: 8, y: 12, label: "Eingang", status: "Fertig" },
-            { x: 148, y: 12, label: "Prüfung", status: done ? "Fertig" : "Läuft" },
-            { x: 148, y: 88, label: "Ergebnis", status: done ? "Bereit" : "Offen" }].map((node) => <g key={node.label}>
+          {[{ x: 8, y: 12, label: "Intake", status: "Done" },
+            { x: 148, y: 12, label: "Review", status: done ? "Done" : "Running" },
+            { x: 148, y: 88, label: "Result", status: done ? "Ready" : "Open" }].map((node) => <g key={node.label}>
               <rect x={node.x} y={node.y} width="104" height="56" rx="8" className="fill-background stroke-border-strong" />
               <text x={node.x + 52} y={node.y + 23} textAnchor="middle" className="fill-foreground font-semibold">{node.label}</text>
               <text x={node.x + 52} y={node.y + 42} textAnchor="middle" className="fill-muted-foreground text-[11px]">{node.status}</text>
@@ -4982,26 +4982,26 @@ const App = () => {
         </svg>
       </UI.Stack>
       <UI.Stack gap="small">
-        <UI.MessageList messages={messages} label="Lokale Redaktionsnotizen" />
+        <UI.MessageList messages={messages} label="Local editorial notes" />
         <UI.Stack direction="row"><UI.Button onClick={() => setMessages((current) => [...current, {
-          key: "note-" + current.length, sender: current.length % 2 ? "Textprüfung" : "Redaktion",
-          text: "Lokale Beispielnotiz " + (current.length - 1) + ": Diese Nachricht wurde gerade ergänzt.",
-        }])}>Lokale Nachricht ergänzen</UI.Button></UI.Stack>
+          key: "note-" + current.length, sender: current.length % 2 ? "Text review" : "Editorial",
+          text: "Local example note " + (current.length - 1) + ": This message was just added.",
+        }])}>Add local message</UI.Button></UI.Stack>
       </UI.Stack>
-      <UI.DocumentViewer title="Lokales Formularergebnis" format="text" content={result} />
-      <UI.DiffViewer title="Beispieländerung" patch={"--- a/result.txt\n+++ b/result.txt\n@@ -1 +1 @@\n-Status: offen\n+Status: geprüft"} />
+      <UI.DocumentViewer title="Local form result" format="text" content={result} />
+      <UI.DiffViewer title="Example change" patch={"--- a/result.txt\n+++ b/result.txt\n@@ -1 +1 @@\n-Status: open\n+Status: reviewed"} />
     </UI.Stack>
   </UI.AppLayout>;
 };
 
 const root = document.getElementById("root");
-if (!root) throw new Error("Das Wurzelelement #root fehlt.");
+if (!root) throw new Error("The #root element is missing.");
 createRoot(root).render(<App />);
 ```
 
-### text-analysis: Textanalyse
+### text-analysis: Text analysis
 
-Ein TypeScript-Actor analysiert Texte mit eigener Funktion, Zustand und React-View.
+A TypeScript actor analyzes texts with its own function, state, and React view.
 
 #### package.json
 
@@ -5011,8 +5011,8 @@ Ein TypeScript-Actor analysiert Texte mit eigener Funktion, Zustand und React-Vi
   "private": true,
   "type": "module",
   "ragents": {
-    "title": "Textanalyse",
-    "description": "Zählt Zeichen, Wörter und Zeilen und merkt sich die Zahl der Analysen.",
+    "title": "Text analysis",
+    "description": "Counts characters, words, and lines and remembers the number of analyses.",
     "backend": "src/server.ts",
     "views": [
       {
@@ -5037,23 +5037,23 @@ type FormValues = Parameters<typeof UI.Form>[0]["values"];
 const App = () => {
   const state = useAppState();
   const [values, setValues] = React.useState<FormValues>({ text: "" });
-  const [result, setResult] = React.useState("Bereit");
+  const [result, setResult] = React.useState("Ready");
 
   const analyse = async (next: FormValues): Promise<void> => {
     const answer = await context.capabilities.call("analyse", { text: String(next.text ?? "") });
     setResult([
-      `Zeichen: ${answer.characters}`,
-      `Wörter: ${answer.words}`,
-      `Zeilen: ${answer.lines}`,
+      `Characters: ${answer.characters}`,
+      `Words: ${answer.words}`,
+      `Lines: ${answer.lines}`,
     ].join("\n"));
   };
 
   return (
-    <UI.AppLayout title="Textanalyse" description={<>Analysen: {state.analyses ?? 0}</>}>
+    <UI.AppLayout title="Text analysis" description={<>Analyses: {state.analyses ?? 0}</>}>
       <UI.Grid>
         <UI.Form fields={[
-          { id: "text", label: "Text", type: "textarea", rows: 6, placeholder: "Text eingeben" },
-        ]} values={values} onChange={setValues} onSubmit={analyse} submitLabel="Analysieren" />
+          { id: "text", label: "Text", type: "textarea", rows: 6, placeholder: "Enter text" },
+        ]} values={values} onChange={setValues} onSubmit={analyse} submitLabel="Analyze" />
         <UI.Stack><pre aria-live="polite" className="min-h-[90px] overflow-auto rounded-md border border-border bg-muted p-2.5 font-mono whitespace-pre-wrap">{result}</pre></UI.Stack>
       </UI.Grid>
     </UI.AppLayout>
@@ -5061,7 +5061,7 @@ const App = () => {
 };
 
 const root = document.getElementById("root");
-if (!root) throw new Error("Das Wurzelelement #root fehlt.");
+if (!root) throw new Error("The #root element is missing.");
 createRoot(root).render(<App />);
 ```
 
@@ -5074,10 +5074,10 @@ export const contract = {
   state: Type.Object({ analyses: Type.Optional(Type.Integer({"minimum": 0})) }, {"additionalProperties": false}),
   functions: {
     analyse: {
-      label: "Text analysieren",
-      description: "Zählt Wörter, Zeichen und Zeilen ohne externe Wirkung.",
+      label: "Analyze text",
+      description: "Counts words, characters, and lines without external effects.",
       tool: { name: "analyse_text" },
-      input: Type.Object({ text: Type.String({"description": "Der zu analysierende Text."}) }, {"additionalProperties": false}),
+      input: Type.Object({ text: Type.String({"description": "The text to analyze."}) }, {"additionalProperties": false}),
       output: Type.Object({ text: Type.String(), characters: Type.Integer({"minimum": 0}), words: Type.Integer({"minimum": 0}), lines: Type.Integer({"minimum": 0}), analyses: Type.Integer({"minimum": 1}) }, {"additionalProperties": false}),
       capabilities: [],
     },
@@ -5121,17 +5121,17 @@ import { createTestContext } from "@ragents/server/testing";
 import { contract } from "../src/contract.ts";
 import program from "../src/server.ts";
 
-test("zählt Wörter, Zeilen und weitere Analysen", async () => {
+test("counts words, lines, and further analyses", async () => {
   const context = createTestContext<Static<typeof contract.state>>({ state: {} });
-  assert.deepEqual(await program.functions.analyse({"text": "  Hallo Welt\nNeue Zeile  "}, context), {"text": "Hallo Welt\nNeue Zeile", "characters": 21, "words": 4, "lines": 2, "analyses": 1});
+  assert.deepEqual(await program.functions.analyse({"text": "  Hello world\nNew line  "}, context), {"text": "Hello world\nNew line", "characters": 20, "words": 4, "lines": 2, "analyses": 1});
   assert.deepEqual(await program.functions.analyse({"text": ""}, context), {"text": "", "characters": 0, "words": 0, "lines": 0, "analyses": 2});
   assert.deepEqual(context.state.read(), {"analyses": 2});
 });
 ```
 
-### headless-counter: Zähler ohne Oberfläche
+### headless-counter: Counter without interface
 
-Ein TypeScript-Actor zählt Eingaben in seinem Zustand und bietet dieselbe Arbeit als Funktion an.
+A TypeScript actor counts inputs in its state and offers the same work as a function.
 
 #### package.json
 
@@ -5141,8 +5141,8 @@ Ein TypeScript-Actor zählt Eingaben in seinem Zustand und bietet dieselbe Arbei
   "private": true,
   "type": "module",
   "ragents": {
-    "title": "Zähler",
-    "description": "Sammelt eingehende Texte ohne Modellaufrufe oder Oberfläche.",
+    "title": "Counter",
+    "description": "Collects incoming texts without model calls or interface.",
     "backend": "src/server.ts"
   }
 }
@@ -5162,13 +5162,13 @@ export const contract = {
   state,
   functions: {
     record: {
-      label: "Text zählen",
+      label: "Count text",
       input: Type.Object({ text: Type.String() }, { additionalProperties: false }),
       output: Type.Object({ count: Type.Integer(), texts: Type.Array(Type.String()) }, { additionalProperties: false }),
       tool: { name: "record_text" },
     },
     inspect: {
-      label: "Zähler lesen",
+      label: "Read counter",
       input: Type.Object({}, { additionalProperties: false }),
       output: state,
       tool: { name: "read_counter" },
@@ -5215,20 +5215,20 @@ import { createTestContext } from "@ragents/server/testing";
 import { contract } from "../src/contract.ts";
 import program from "../src/server.ts";
 
-test("Eingaben und Funktionen teilen denselben Zähler", async () => {
+test("inputs and functions share the same counter", async () => {
   const context = createTestContext<Static<typeof contract.state>>({ state: {} });
-  for (const content of ["eins", "zwei", "drei"]) {
+  for (const content of ["one", "two", "three"]) {
     await program.onInput!({ id: content, content, artifactIds: [], sourceEventIds: [], subscriptionId: null, event: null }, context);
   }
-  assert.deepEqual(await program.functions.inspect({}, context), { texts: ["eins", "zwei", "drei"], count: 3 });
-  assert.deepEqual(await program.functions.record({ text: "vier" }, context), { texts: ["eins", "zwei", "drei", "vier"], count: 4 });
-  assert.deepEqual(context.state.read(), { texts: ["eins", "zwei", "drei", "vier"], count: 4 });
+  assert.deepEqual(await program.functions.inspect({}, context), { texts: ["one", "two", "three"], count: 3 });
+  assert.deepEqual(await program.functions.record({ text: "four" }, context), { texts: ["one", "two", "three", "four"], count: 4 });
+  assert.deepEqual(context.state.read(), { texts: ["one", "two", "three", "four"], count: 4 });
 });
 ```
 
-### shared-list: Gemeinsame Liste eines Actors
+### shared-list: Shared list of an actor
 
-Ein Actor besitzt eine Funktion und eine React-View für denselben Listenstand.
+An actor owns a function and a React view for the same list state.
 
 #### package.json
 
@@ -5238,8 +5238,8 @@ Ein Actor besitzt eine Funktion und eine React-View für denselben Listenstand.
   "private": true,
   "type": "module",
   "ragents": {
-    "title": "Gemeinsame Liste",
-    "description": "Sammelt Texte aus der App und aus einem Agenten-Werkzeug in einer gemeinsamen Liste.",
+    "title": "Shared list",
+    "description": "Collects texts from the app and from an agent tool in a shared list.",
     "backend": "src/server.ts",
     "views": [
       {
@@ -5264,21 +5264,21 @@ type FormValues = Parameters<typeof UI.Form>[0]["values"];
 const App = () => {
   const state = useAppState();
   const [values, setValues] = React.useState<FormValues>({ text: "" });
-  const [status, setStatus] = React.useState("Bereit");
+  const [status, setStatus] = React.useState("Ready");
   const entries = state.entries ?? [];
 
   const append = async (next: FormValues): Promise<void> => {
     const answer = await context.capabilities.call("append", { text: String(next.text ?? "") });
     setValues({ text: "" });
-    setStatus(`Hinzugefügt: ${answer.text}`);
+    setStatus(`Added: ${answer.text}`);
   };
 
   return (
-    <UI.AppLayout title="Gemeinsame Liste" description={<>{entries.length} {entries.length === 1 ? "Eintrag" : "Einträge"}</>}>
+    <UI.AppLayout title="Shared list" description={<>{entries.length} {entries.length === 1 ? "item" : "items"}</>}>
       <UI.Grid>
         <UI.Form fields={[
-          { id: "text", label: "Neuer Eintrag", type: "textarea", placeholder: "Text eingeben" },
-        ]} values={values} onChange={setValues} onSubmit={append} submitLabel="Hinzufügen" />
+          { id: "text", label: "New item", type: "textarea", placeholder: "Enter text" },
+        ]} values={values} onChange={setValues} onSubmit={append} submitLabel="Add" />
         <UI.Stack>
           <p className="text-muted-foreground" role="status">{status}</p>
           <ul className="border-t border-border">
@@ -5291,7 +5291,7 @@ const App = () => {
 };
 
 const root = document.getElementById("root");
-if (!root) throw new Error("Das Wurzelelement #root fehlt.");
+if (!root) throw new Error("The #root element is missing.");
 createRoot(root).render(<App />);
 ```
 
@@ -5304,9 +5304,9 @@ export const contract = {
   state: Type.Object({ entries: Type.Optional(Type.Array(Type.String())) }, {"additionalProperties": false}),
   functions: {
     append: {
-      label: "Eintrag hinzufügen",
-      description: "Hängt den eingegebenen Text an die gemeinsame Liste an.",
-      input: Type.Object({ text: Type.String({"description": "Der Text für den neuen Listeneintrag."}) }, {"additionalProperties": false}),
+      label: "Add entry",
+      description: "Appends the entered text to the shared list.",
+      input: Type.Object({ text: Type.String({"description": "The text for the new list entry."}) }, {"additionalProperties": false}),
       output: Type.Object({ text: Type.String(), entries: Type.Array(Type.String()) }, {"additionalProperties": false}),
       capabilities: [],
       tool: { name: "append_to_list", card: true },
@@ -5344,17 +5344,17 @@ import { createTestContext } from "@ragents/server/testing";
 import { contract } from "../src/contract.ts";
 import program from "../src/server.ts";
 
-test("ergänzt Einträge ohne vorhandene Einträge zu verlieren", async () => {
+test("adds entries without losing existing entries", async () => {
   const context = createTestContext<Static<typeof contract.state>>({ state: {} });
-  assert.deepEqual(await program.functions.append({"text": "  Erster Eintrag  "}, context), {"text": "Erster Eintrag", "entries": ["Erster Eintrag"]});
-  assert.deepEqual(await program.functions.append({"text": "Zweiter Eintrag"}, context), {"text": "Zweiter Eintrag", "entries": ["Erster Eintrag", "Zweiter Eintrag"]});
-  assert.deepEqual(context.state.read(), {"entries": ["Erster Eintrag", "Zweiter Eintrag"]});
+  assert.deepEqual(await program.functions.append({"text": "  First entry  "}, context), {"text": "First entry", "entries": ["First entry"]});
+  assert.deepEqual(await program.functions.append({"text": "Second entry"}, context), {"text": "Second entry", "entries": ["First entry", "Second entry"]});
+  assert.deepEqual(context.state.read(), {"entries": ["First entry", "Second entry"]});
 });
 ```
 
-## Actor-Programm
+## Actor program
 
-actor_program_create erzeugt ein Paket unter @actors/<name>/ mit festen lokalen Abhängigkeiten. Dateiwerkzeuge und Language Server verwenden diesen Alias, Bash denselben Alias als cwd. Vor Modellanfragen erscheinen kurze Diagnostik-Deltas geänderter Projekte. actor_program_diagnostics liefert den letzten vollständigen Stand, actor_program_activate prüft, baut, testet und aktiviert das Paket.
+actor_program_create creates a package under @actors/<name>/ with fixed local dependencies. File tools and language servers use this alias, Bash uses the same alias as cwd. Before model requests, short diagnostic deltas of changed projects appear. actor_program_diagnostics returns the last complete state, actor_program_activate checks, builds, tests, and activates the package.
 
 ```json
 {
@@ -5407,7 +5407,7 @@ actor_program_create erzeugt ein Paket unter @actors/<name>/ mit festen lokalen 
 }
 ```
 
-## Actor-Backendvertrag
+## Actor backend contract
 
 ```json
 {
@@ -5508,9 +5508,9 @@ actor_program_create erzeugt ein Paket unter @actors/<name>/ mit festen lokalen 
 }
 ```
 
-## Mini-App-Client
+## Mini-app client
 
-Die Client-API wird aus dem Actor-Vertrag in @ragents/client erzeugt. Die allgemeine Referenz zeigt die Struktur ohne konkrete Funktionen. Im Paket liegen die spezialisierten Typdateien für den TypeScript-Compiler und den Language Server.
+The client API is generated from the actor contract in @ragents/client. The general reference shows the structure without concrete functions. The package contains the specialized type files for the TypeScript compiler and the language server.
 
 ### Client
 
@@ -5542,9 +5542,9 @@ export declare const context: AppContext<AppState, AppActions>;
 export declare function useAppState(): Readonly<AppState>;
 ```
 
-## Typvertrag der Mini-App-UI
+## Type contract of the mini-app UI
 
-Einstieg: apps/web/src/actor-programs/client-ui/contracts.d.ts. Alle lokal referenzierten Typdateien folgen automatisch; Deklarationen aus Implementierungsdateien erzeugt TypeScript. Externe Standardtypen wie React und DOM gehören zu ihren Bibliotheken. Im App-Paket stehen diese Bausteine als @ragents/client/ui zum regulären Import bereit; context und useAppState werden aus @ragents/client importiert.
+Entry point: apps/web/src/actor-programs/client-ui/contracts.d.ts. All locally referenced type files follow automatically; TypeScript generates declarations from implementation files. External standard types such as React and DOM belong to their libraries. In the app package, these building blocks are available for regular import as @ragents/client/ui; context and useAppState are imported from @ragents/client.
 
 #### apps/server/src/plugin-support/actor-programs/workflow/index.d.ts
 
@@ -5796,14 +5796,14 @@ import type { ReactElement } from "react";
 export interface FilePickerProps {
   label: string;
   files: readonly File[];
-  /** Auswahl bleibt lokal; die Ansicht entscheidet über Lesen und Übertragen. */
+  /** The selection stays local; the view decides about reading and transferring. */
   onChange: (files: File[]) => void | Promise<void>;
-  /** Dateiendungen oder MIME-Typen, z. B. .csv,image/*; wird auch für Drop und Paste geprüft. */
+  /** File extensions or MIME types, e.g. .csv,image/*; also checked for drop and paste. */
   accept?: string;
   multiple?: boolean;
-  /** Höchstzahl der gesamten Auswahl; Standard 10, bei multiple=false genau eine Datei. */
+  /** Maximum number of files in the whole selection; default 10, exactly one file with multiple=false. */
   maxFiles?: number;
-  /** Maximale Gesamtgröße in Bytes; Standard 20 MiB. */
+  /** Maximum total size in bytes; default 20 MiB. */
   maxBytes?: number;
   disabled?: boolean;
   showPreview?: boolean;
@@ -6025,17 +6025,17 @@ export interface DocumentViewerProps {
   title?: string;
   content: string;
   format?: "text" | "markdown" | "code";
-  /** Sprache für Code-Hervorhebung; alternativ bestimmt filename die Sprache. */
+  /** Language for code highlighting; alternatively filename determines the language. */
   language?: string;
   filename?: string;
 }
 
 export interface DiffViewerProps {
   title?: string;
-  /** Bereits vorliegender Unified-Diff; das Control vergleicht keine Dateien und schreibt nichts. */
+  /** An existing unified diff; the control compares no files and writes nothing. */
   patch: string;
   emptyText?: string;
-  /** Sprache für Code-Hervorhebung; alternativ bestimmt filename oder der Pfad im Diff die Sprache. */
+  /** Language for code highlighting; alternatively filename or the path in the diff determines the language. */
   language?: string;
   filename?: string;
 }
@@ -6335,7 +6335,7 @@ import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 declare function Popover({ ...props }: PopoverPrimitive.Root.Props): React.JSX.Element;
 declare function PopoverTrigger({ ...props }: PopoverPrimitive.Trigger.Props): React.JSX.Element;
 declare function PopoverContent({ className, align, alignOffset, side, sideOffset, anchor, collisionPadding, keepMounted, dim, ...props }: PopoverPrimitive.Popup.Props & Pick<PopoverPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset" | "anchor" | "collisionPadding"> & Pick<PopoverPrimitive.Portal.Props, "keepMounted"> & {
-    /** Dunkelt den Rest der Seite ab, damit sich das Pop-out absetzt; Klick daneben schließt es. */
+    /** Dims the rest of the page so the pop-out stands out; a click outside closes it. */
     dim?: boolean;
 }): React.JSX.Element;
 declare function PopoverHeader({ className, ...props }: React.ComponentProps<"div">): React.JSX.Element;
@@ -6369,9 +6369,9 @@ export { RadioGroup, RadioGroupItem };
 #### apps/web/src/ui/relative-time.d.ts
 
 ```typescript
-/** Die Zeit in der Liste: jetzt, 5 min, 3 h, 2 d, ab sieben Tagen das Datum. Ohne "vor", ohne Sonderfall für gestern. */
+/** The time in the list: now, 5 min, 3 h, 2 d, from seven days on the date. Without "ago", without a special case for yesterday. */
 export declare const shortTime: (at: number, now?: number) => string;
-/** Dieselbe Zeit ausgeschrieben; sie steht nur im title der kompakten Zeit. */
+/** The same time written out; it appears only in the title of the compact time. */
 export declare const longTime: (at: number, now?: number) => string;
 ```
 
@@ -6429,13 +6429,13 @@ export { Spinner };
 
 ```typescript
 import type { ReactNode } from "react";
-/** Was eine Fläche zeigt, solange sie noch keinen Inhalt hat: laufende Arbeit, einen Fehler oder einen ruhigen Hinweis. */
+/** What a surface shows while it has no content yet: ongoing work, an error or a calm notice. */
 export interface StartupNoticeState {
     kind: "working" | "error" | "waiting" | "stopped";
     title: string;
     detail: string;
 }
-/** Der eine Ladezustand für Fläche, Run-Panel und dessen Start: Titel, bei laufender Arbeit ein Fortschrittsbalken, darunter was gerade geschieht. */
+/** The one loading state for surface, run panel and its start: title, a progress bar while work is running, below it what is happening right now. */
 export declare function StartupNotice({ children, className, state }: {
     children?: ReactNode;
     className?: string;
@@ -6463,10 +6463,10 @@ export declare function ConnectionStateIcon({ state, className }: {
 #### apps/web/src/ui/state-vocabulary.d.ts
 
 ```typescript
-/** Das Vokabular aller Seiten: je Zustand genau ein Wort, das im Panel nur als title erscheint. */
+/** The vocabulary of all pages: exactly one word per state, which appears in the panel only as a title. */
 export type RunStateName = "running" | "waiting" | "idle" | "ended" | "failed" | "cancelled";
 export type ConnectionStateName = "connected" | "ready" | "starting" | "login-required" | "unreachable" | "stopped" | "failed" | "forbidden";
-/** Wartet ein Run, nennt das Wort die Zahl offener Eingaben; ein Werkzeugname steht nie im Zustand. */
+/** When a run is waiting, the word names the number of open inputs; a tool name never appears in the state. */
 export declare const runStateWord: (state: RunStateName, open?: number) => string;
 export declare const connectionStateWord: (state: ConnectionStateName) => string;
 ```
@@ -6477,9 +6477,9 @@ export declare const connectionStateWord: (state: ConnectionStateName) => string
 import { SquareIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 import { Button } from "./button";
-/** Die eine Stopp-Glyphe: ein gefülltes rotes Quadrat; ein Zustandssymbol trägt sie nie. */
+/** The one stop glyph: a filled red square; a state icon never carries it. */
 export declare function StopGlyph({ className, ...props }: Omit<ComponentProps<typeof SquareIcon>, "fill">): import("react").JSX.Element;
-/** Jeder Stopp-Knopf sieht gleich aus: die Glyphe als Symbol, das Wort im Tooltip, rot in Ruhe und beim Hover. */
+/** Every stop button looks the same: the glyph as the icon, the word in the tooltip, red at rest and on hover. */
 export declare function StopButton({ label, busy, className, title, ...props }: Omit<ComponentProps<typeof Button>, "children" | "variant"> & {
     label: string;
     busy?: boolean;
@@ -6622,44 +6622,44 @@ The bundled examples demonstrate how RAgents concepts work together and provide 
 
 ### Use case
 
-[Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Eine Liste durch vier KI-Helfer reichen](#start-ragents.reference.20-circle-of-four), [Entscheidung klären](#start-ragents.reference.decision-brief), [Lernziel in Etappen](#start-ragents.reference.learning-sprint), [Nachrichten ohne KI mitzählen](#start-ragents.reference.70-headless-counter), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes), [Eine Liste im Chat und im Fenster pflegen](#start-ragents.reference.100-shared-actor-list), [Sammelboard einrichten](#start-ragents.reference.shared-actor-list), [Gesprächsrunde einrichten](#start-ragents.reference.conversation-circle), [Moderierte Runde ohne Koordinator](#start-ragents.reference.moderated-round), [Balkon-Wizard einrichten](#start-ragents.reference.balcony-wizard), [Redaktionswerkstatt](#start-ragents.reference.150-editorial-workbench), [Lernnachmittag](#start-ragents.reference.learning-afternoon), [Wortspiel starten](#start-ragents.reference.word-game), [Lernbegleitung mit Unterlagen](#start-ragents.reference.160-learning-companion), [Bildsammlung mit Beschriftungen](#start-ragents.reference.170-photo-collection), [Entscheidungswerkstatt](#start-ragents.reference.180-decision-workbench), [Texte prüfen und Ergebnisse gezielt teilen](#start-ragents.reference.190-review-queue), [Fehler in einer Terminliste finden](#start-ragents.reference.200-typescript-diagnostics), [Gespräch an einen Moderator übergeben](#start-ragents.reference.210-moderator-handover), [Vorschläge gemeinsam freigeben](#start-ragents.reference.220-actor-approval-list), [Eine Liste in zwei Ansichten](#start-ragents.reference.230-shared-state-views), [Antworten automatisch sammeln](#start-ragents.reference.240-live-result-list), [Balkon-Wizard](#start-ragents.reference.250-balcony-wizard), [Den Helfer hinter einer Mini-App öffnen](#example-mini-app-owner-inspector), [Eine Gesprächsrunde anders aufteilen](#example-personal-tile-arrangement), [Zwei Runs im Blick behalten](#example-global-run-overview), [Eine vorbereitete Runde global starten](#example-global-prepared-run), [Nach einer Planung neu beginnen](#example-reset-completed-global-chat), [Einen Reset zunächst abbrechen](#example-reset-without-losing-draft), [Den Koordinator für kurze Antworten einstellen](#example-coordinator-model-settings), [Das Modell für kurze Überschriften wählen](#example-title-model-selection), [Automatische Überschriften ausschalten](#example-disable-generated-titles), [Eine Fähigkeit ihrem Plugin zuordnen](#example-extension-capability-settings), [Den Sprachserver als Run-Prozess sehen](#example-language-server-process), [Eine kurzlebige lokale Vorschau öffnen](#example-local-preview-process), [Einen Entwurf im Dateibaum lesen](#example-workspace-draft-preview), [Gleichnamige Dateien in zwei Runs vergleichen](#example-separate-run-files), [Eine gemeinsame Liste nach Neustart wiederfinden](#example-restore-shared-list), [Zwei Gesprächsverläufe nach Neustart fortsetzen](#example-restore-conversation-context), [Eine eigene Skizze im Chat besprechen](#example-image-paste-conversation), [Einen kurzen Clip mit seinem Ablaufplan vergleichen](#example-video-and-document-drop)
+[Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Pass a list through four AI helpers](#start-ragents.reference.20-circle-of-four), [Clarify a decision](#start-ragents.reference.decision-brief), [Learning goal in stages](#start-ragents.reference.learning-sprint), [Count messages without AI](#start-ragents.reference.70-headless-counter), [Hide notes and find them again](#start-ragents.reference.90-actor-notes), [Maintain a list in the chat and in a window](#start-ragents.reference.100-shared-actor-list), [Set up collection board](#start-ragents.reference.shared-actor-list), [Set up conversation circle](#start-ragents.reference.conversation-circle), [Moderated round without coordinator](#start-ragents.reference.moderated-round), [Set up balcony wizard](#start-ragents.reference.balcony-wizard), [Editorial workbench](#start-ragents.reference.150-editorial-workbench), [Learning afternoon](#start-ragents.reference.learning-afternoon), [Start word game](#start-ragents.reference.word-game), [Learning companion with materials](#start-ragents.reference.160-learning-companion), [Image collection with captions](#start-ragents.reference.170-photo-collection), [Decision workbench](#start-ragents.reference.180-decision-workbench), [Review texts and share results selectively](#start-ragents.reference.190-review-queue), [Find errors in an appointment list](#start-ragents.reference.200-typescript-diagnostics), [Hand a conversation over to a moderator](#start-ragents.reference.210-moderator-handover), [Approve proposals together](#start-ragents.reference.220-actor-approval-list), [One list in two views](#start-ragents.reference.230-shared-state-views), [Collect answers automatically](#start-ragents.reference.240-live-result-list), [Balcony wizard](#start-ragents.reference.250-balcony-wizard), [Open the helper behind a mini-app](#example-mini-app-owner-inspector), [Split a conversation circle differently](#example-personal-tile-arrangement), [Keep an eye on two runs](#example-global-run-overview), [Start a prepared circle globally](#example-global-prepared-run), [Start over after planning](#example-reset-completed-global-chat), [Cancel a reset at first](#example-reset-without-losing-draft), [Set up the coordinator for short answers](#example-coordinator-model-settings), [Choose the model for short titles](#example-title-model-selection), [Turn off automatic titles](#example-disable-generated-titles), [Map a capability to its plugin](#example-extension-capability-settings), [See the language server as a run process](#example-language-server-process), [Open a short-lived local preview](#example-local-preview-process), [Read a draft in the file tree](#example-workspace-draft-preview), [Compare files with the same name in two runs](#example-separate-run-files), [Find a shared list again after a restart](#example-restore-shared-list), [Continue two conversation histories after a restart](#example-restore-conversation-context), [Discuss your own sketch in the chat](#example-image-paste-conversation), [Compare a short clip with its schedule](#example-video-and-document-drop)
 
 ### Concept demo
 
-[Hallo Welt auf der Fläche](#start-ragents.reference.95-hello-world), [Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Eine Liste durch vier KI-Helfer reichen](#start-ragents.reference.20-circle-of-four), [Entscheidung klären](#start-ragents.reference.decision-brief), [Eine Nachricht überbringen lassen](#start-ragents.reference.30-llm-without-runtime-knowledge), [Lernziel in Etappen](#start-ragents.reference.learning-sprint), [Drei Aufträge der Reihe nach erledigen](#start-ragents.reference.35-actor-input-fifo), [Gezielt bei anderen Helfern mithören](#start-ragents.reference.40-subscription-matrix), [Eine Weiterleitung wieder abschalten](#start-ragents.reference.50-subscription-removal), [Einen Helfer in der Gesprächsrunde stoppen](#start-ragents.reference.60-stop-in-the-circle), [Eine Notiz gezielt weitergeben](#start-ragents.reference.65-artifact-least-privilege), [Nachrichten ohne KI mitzählen](#start-ragents.reference.70-headless-counter), [Fehler in C# und TypeScript finden](#start-ragents.reference.75-lsp-demo), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes), [Eine Liste im Chat und im Fenster pflegen](#start-ragents.reference.100-shared-actor-list), [Sammelboard einrichten](#start-ragents.reference.shared-actor-list), [Rückfrage, Aufgaben und Dokument zusammen sehen](#start-ragents.reference.110-all-card-slots), [Gesprächsrunde einrichten](#start-ragents.reference.conversation-circle), [Moderierte Runde ohne Koordinator](#start-ragents.reference.moderated-round), [Balkon-Wizard einrichten](#start-ragents.reference.balcony-wizard), [Redaktionswerkstatt](#start-ragents.reference.150-editorial-workbench), [Lernnachmittag](#start-ragents.reference.learning-afternoon), [Wortspiel starten](#start-ragents.reference.word-game), [Lernbegleitung mit Unterlagen](#start-ragents.reference.160-learning-companion), [Bildsammlung mit Beschriftungen](#start-ragents.reference.170-photo-collection), [Entscheidungswerkstatt](#start-ragents.reference.180-decision-workbench), [Texte prüfen und Ergebnisse gezielt teilen](#start-ragents.reference.190-review-queue), [Fehler in einer Terminliste finden](#start-ragents.reference.200-typescript-diagnostics), [Gespräch an einen Moderator übergeben](#start-ragents.reference.210-moderator-handover), [Vorschläge gemeinsam freigeben](#start-ragents.reference.220-actor-approval-list), [Eine Liste in zwei Ansichten](#start-ragents.reference.230-shared-state-views), [Antworten automatisch sammeln](#start-ragents.reference.240-live-result-list), [Balkon-Wizard](#start-ragents.reference.250-balcony-wizard), [Den Helfer hinter einer Mini-App öffnen](#example-mini-app-owner-inspector), [Eine Gesprächsrunde anders aufteilen](#example-personal-tile-arrangement), [Zwei Runs im Blick behalten](#example-global-run-overview), [Eine vorbereitete Runde global starten](#example-global-prepared-run), [Nach einer Planung neu beginnen](#example-reset-completed-global-chat), [Einen Reset zunächst abbrechen](#example-reset-without-losing-draft), [Den Koordinator für kurze Antworten einstellen](#example-coordinator-model-settings), [Das Modell für kurze Überschriften wählen](#example-title-model-selection), [Automatische Überschriften ausschalten](#example-disable-generated-titles), [Eine Fähigkeit ihrem Plugin zuordnen](#example-extension-capability-settings), [Den Sprachserver als Run-Prozess sehen](#example-language-server-process), [Eine kurzlebige lokale Vorschau öffnen](#example-local-preview-process), [Einen Entwurf im Dateibaum lesen](#example-workspace-draft-preview), [Gleichnamige Dateien in zwei Runs vergleichen](#example-separate-run-files), [Eine gemeinsame Liste nach Neustart wiederfinden](#example-restore-shared-list), [Zwei Gesprächsverläufe nach Neustart fortsetzen](#example-restore-conversation-context), [Eine eigene Skizze im Chat besprechen](#example-image-paste-conversation), [Einen kurzen Clip mit seinem Ablaufplan vergleichen](#example-video-and-document-drop)
+[Hello world on the surface](#start-ragents.reference.95-hello-world), [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Pass a list through four AI helpers](#start-ragents.reference.20-circle-of-four), [Clarify a decision](#start-ragents.reference.decision-brief), [Have a message delivered](#start-ragents.reference.30-llm-without-runtime-knowledge), [Learning goal in stages](#start-ragents.reference.learning-sprint), [Complete three tasks in order](#start-ragents.reference.35-actor-input-fifo), [Listen in on other helpers selectively](#start-ragents.reference.40-subscription-matrix), [Turn a forwarding off again](#start-ragents.reference.50-subscription-removal), [Stop a helper in the conversation circle](#start-ragents.reference.60-stop-in-the-circle), [Pass on a note selectively](#start-ragents.reference.65-artifact-least-privilege), [Count messages without AI](#start-ragents.reference.70-headless-counter), [Find errors in C# and TypeScript](#start-ragents.reference.75-lsp-demo), [Hide notes and find them again](#start-ragents.reference.90-actor-notes), [Maintain a list in the chat and in a window](#start-ragents.reference.100-shared-actor-list), [Set up collection board](#start-ragents.reference.shared-actor-list), [See question, tasks, and document together](#start-ragents.reference.110-all-card-slots), [Set up conversation circle](#start-ragents.reference.conversation-circle), [Moderated round without coordinator](#start-ragents.reference.moderated-round), [Set up balcony wizard](#start-ragents.reference.balcony-wizard), [Editorial workbench](#start-ragents.reference.150-editorial-workbench), [Learning afternoon](#start-ragents.reference.learning-afternoon), [Start word game](#start-ragents.reference.word-game), [Learning companion with materials](#start-ragents.reference.160-learning-companion), [Image collection with captions](#start-ragents.reference.170-photo-collection), [Decision workbench](#start-ragents.reference.180-decision-workbench), [Review texts and share results selectively](#start-ragents.reference.190-review-queue), [Find errors in an appointment list](#start-ragents.reference.200-typescript-diagnostics), [Hand a conversation over to a moderator](#start-ragents.reference.210-moderator-handover), [Approve proposals together](#start-ragents.reference.220-actor-approval-list), [One list in two views](#start-ragents.reference.230-shared-state-views), [Collect answers automatically](#start-ragents.reference.240-live-result-list), [Balcony wizard](#start-ragents.reference.250-balcony-wizard), [Open the helper behind a mini-app](#example-mini-app-owner-inspector), [Split a conversation circle differently](#example-personal-tile-arrangement), [Keep an eye on two runs](#example-global-run-overview), [Start a prepared circle globally](#example-global-prepared-run), [Start over after planning](#example-reset-completed-global-chat), [Cancel a reset at first](#example-reset-without-losing-draft), [Set up the coordinator for short answers](#example-coordinator-model-settings), [Choose the model for short titles](#example-title-model-selection), [Turn off automatic titles](#example-disable-generated-titles), [Map a capability to its plugin](#example-extension-capability-settings), [See the language server as a run process](#example-language-server-process), [Open a short-lived local preview](#example-local-preview-process), [Read a draft in the file tree](#example-workspace-draft-preview), [Compare files with the same name in two runs](#example-separate-run-files), [Find a shared list again after a restart](#example-restore-shared-list), [Continue two conversation histories after a restart](#example-restore-conversation-context), [Discuss your own sketch in the chat](#example-image-paste-conversation), [Compare a short clip with its schedule](#example-video-and-document-drop)
 
 | Concept | Examples |
 | --- | --- |
-| Agent teams | [Eine Liste durch vier KI-Helfer reichen](#start-ragents.reference.20-circle-of-four), [Eine Nachricht überbringen lassen](#start-ragents.reference.30-llm-without-runtime-knowledge), [Lernbegleitung mit Unterlagen](#start-ragents.reference.160-learning-companion), [Bildsammlung mit Beschriftungen](#start-ragents.reference.170-photo-collection), [Texte prüfen und Ergebnisse gezielt teilen](#start-ragents.reference.190-review-queue), [Gespräch an einen Moderator übergeben](#start-ragents.reference.210-moderator-handover), [Vorschläge gemeinsam freigeben](#start-ragents.reference.220-actor-approval-list) |
-| TypeScript actors | [Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Eine Liste durch vier KI-Helfer reichen](#start-ragents.reference.20-circle-of-four), [Nachrichten ohne KI mitzählen](#start-ragents.reference.70-headless-counter), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes), [Eine Liste im Chat und im Fenster pflegen](#start-ragents.reference.100-shared-actor-list), [Entscheidungswerkstatt](#start-ragents.reference.180-decision-workbench), [Antworten automatisch sammeln](#start-ragents.reference.240-live-result-list) |
-| Subscriptions | [Eine Liste durch vier KI-Helfer reichen](#start-ragents.reference.20-circle-of-four), [Eine Nachricht überbringen lassen](#start-ragents.reference.30-llm-without-runtime-knowledge), [Gezielt bei anderen Helfern mithören](#start-ragents.reference.40-subscription-matrix), [Eine Weiterleitung wieder abschalten](#start-ragents.reference.50-subscription-removal), [Antworten automatisch sammeln](#start-ragents.reference.240-live-result-list) |
-| Input queue | [Drei Aufträge der Reihe nach erledigen](#start-ragents.reference.35-actor-input-fifo), [Texte prüfen und Ergebnisse gezielt teilen](#start-ragents.reference.190-review-queue) |
-| Stopping actors | [Eine Nachricht überbringen lassen](#start-ragents.reference.30-llm-without-runtime-knowledge), [Einen Helfer in der Gesprächsrunde stoppen](#start-ragents.reference.60-stop-in-the-circle), [Texte prüfen und Ergebnisse gezielt teilen](#start-ragents.reference.190-review-queue) |
-| Artifacts and access | [Eine Notiz gezielt weitergeben](#start-ragents.reference.65-artifact-least-privilege), [Texte prüfen und Ergebnisse gezielt teilen](#start-ragents.reference.190-review-queue) |
-| Workspace layout | [Den Helfer hinter einer Mini-App öffnen](#example-mini-app-owner-inspector), [Eine Gesprächsrunde anders aufteilen](#example-personal-tile-arrangement) |
-| Mini-apps | [Hallo Welt auf der Fläche](#start-ragents.reference.95-hello-world), [Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes), [Eine Liste im Chat und im Fenster pflegen](#start-ragents.reference.100-shared-actor-list), [Redaktionswerkstatt](#start-ragents.reference.150-editorial-workbench), [Lernbegleitung mit Unterlagen](#start-ragents.reference.160-learning-companion), [Bildsammlung mit Beschriftungen](#start-ragents.reference.170-photo-collection), [Entscheidungswerkstatt](#start-ragents.reference.180-decision-workbench), [Texte prüfen und Ergebnisse gezielt teilen](#start-ragents.reference.190-review-queue), [Vorschläge gemeinsam freigeben](#start-ragents.reference.220-actor-approval-list), [Eine Liste in zwei Ansichten](#start-ragents.reference.230-shared-state-views), [Antworten automatisch sammeln](#start-ragents.reference.240-live-result-list), [Balkon-Wizard](#start-ragents.reference.250-balcony-wizard) |
-| Actor state | [Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Nachrichten ohne KI mitzählen](#start-ragents.reference.70-headless-counter), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes), [Eine Liste im Chat und im Fenster pflegen](#start-ragents.reference.100-shared-actor-list), [Entscheidungswerkstatt](#start-ragents.reference.180-decision-workbench), [Vorschläge gemeinsam freigeben](#start-ragents.reference.220-actor-approval-list), [Eine Liste in zwei Ansichten](#start-ragents.reference.230-shared-state-views), [Antworten automatisch sammeln](#start-ragents.reference.240-live-result-list), [Balkon-Wizard](#start-ragents.reference.250-balcony-wizard) |
-| LLM actor with view | [Lernbegleitung mit Unterlagen](#start-ragents.reference.160-learning-companion), [Bildsammlung mit Beschriftungen](#start-ragents.reference.170-photo-collection), [Vorschläge gemeinsam freigeben](#start-ragents.reference.220-actor-approval-list) |
-| Actor chat | [Lernbegleitung mit Unterlagen](#start-ragents.reference.160-learning-companion), [Bildsammlung mit Beschriftungen](#start-ragents.reference.170-photo-collection) |
-| Controlled chat | [Entscheidungswerkstatt](#start-ragents.reference.180-decision-workbench), [Vorschläge gemeinsam freigeben](#start-ragents.reference.220-actor-approval-list) |
-| Language diagnostics | [Fehler in C# und TypeScript finden](#start-ragents.reference.75-lsp-demo), [Fehler in einer Terminliste finden](#start-ragents.reference.200-typescript-diagnostics) |
-| Primary actor | [Moderierte Runde ohne Koordinator](#start-ragents.reference.moderated-round), [Balkon-Wizard einrichten](#start-ragents.reference.balcony-wizard), [Lernnachmittag](#start-ragents.reference.learning-afternoon), [Gespräch an einen Moderator übergeben](#start-ragents.reference.210-moderator-handover) |
-| Start guide | [Sammelboard einrichten](#start-ragents.reference.shared-actor-list), [Gesprächsrunde einrichten](#start-ragents.reference.conversation-circle) |
-| Questions | [Rückfrage, Aufgaben und Dokument zusammen sehen](#start-ragents.reference.110-all-card-slots), [Gespräch an einen Moderator übergeben](#start-ragents.reference.210-moderator-handover) |
-| To-dos | [Rückfrage, Aufgaben und Dokument zusammen sehen](#start-ragents.reference.110-all-card-slots), [Gespräch an einen Moderator übergeben](#start-ragents.reference.210-moderator-handover) |
-| Journal inspection | [Drei Aufträge der Reihe nach erledigen](#start-ragents.reference.35-actor-input-fifo), [Gezielt bei anderen Helfern mithören](#start-ragents.reference.40-subscription-matrix), [Einen Helfer in der Gesprächsrunde stoppen](#start-ragents.reference.60-stop-in-the-circle), [Nachrichten ohne KI mitzählen](#start-ragents.reference.70-headless-counter), [Texte prüfen und Ergebnisse gezielt teilen](#start-ragents.reference.190-review-queue) |
-| Run scripts | [Sammelboard einrichten](#start-ragents.reference.shared-actor-list), [Gesprächsrunde einrichten](#start-ragents.reference.conversation-circle), [Moderierte Runde ohne Koordinator](#start-ragents.reference.moderated-round), [Balkon-Wizard einrichten](#start-ragents.reference.balcony-wizard), [Lernnachmittag](#start-ragents.reference.learning-afternoon), [Wortspiel starten](#start-ragents.reference.word-game) |
-| Skills | [Entscheidung klären](#start-ragents.reference.decision-brief), [Lernziel in Etappen](#start-ragents.reference.learning-sprint) |
-| Actor functions | [Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Nachrichten ohne KI mitzählen](#start-ragents.reference.70-headless-counter), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes), [Eine Liste im Chat und im Fenster pflegen](#start-ragents.reference.100-shared-actor-list), [Redaktionswerkstatt](#start-ragents.reference.150-editorial-workbench), [Vorschläge gemeinsam freigeben](#start-ragents.reference.220-actor-approval-list), [Eine Liste in zwei Ansichten](#start-ragents.reference.230-shared-state-views), [Balkon-Wizard](#start-ragents.reference.250-balcony-wizard) |
-| Automatic view placement | [Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes) |
-| View visibility | [Zeichen, Wörter und Zeilen zählen](#start-ragents.reference.80-actor-text-analysis), [Notizen ausblenden und wiederfinden](#start-ragents.reference.90-actor-notes) |
-| Global coordinator | [Zwei Runs im Blick behalten](#example-global-run-overview), [Eine vorbereitete Runde global starten](#example-global-prepared-run) |
-| Conversation reset | [Nach einer Planung neu beginnen](#example-reset-completed-global-chat), [Einen Reset zunächst abbrechen](#example-reset-without-losing-draft) |
-| Settings and model selection | [Den Koordinator für kurze Antworten einstellen](#example-coordinator-model-settings), [Das Modell für kurze Überschriften wählen](#example-title-model-selection), [Automatische Überschriften ausschalten](#example-disable-generated-titles), [Eine Fähigkeit ihrem Plugin zuordnen](#example-extension-capability-settings) |
-| Process display | [Den Sprachserver als Run-Prozess sehen](#example-language-server-process), [Eine kurzlebige lokale Vorschau öffnen](#example-local-preview-process) |
-| Files and workspace | [Einen Entwurf im Dateibaum lesen](#example-workspace-draft-preview), [Gleichnamige Dateien in zwei Runs vergleichen](#example-separate-run-files) |
-| Recovery after restart | [Eine gemeinsame Liste nach Neustart wiederfinden](#example-restore-shared-list), [Zwei Gesprächsverläufe nach Neustart fortsetzen](#example-restore-conversation-context) |
-| Multimodal input | [Eine eigene Skizze im Chat besprechen](#example-image-paste-conversation), [Einen kurzen Clip mit seinem Ablaufplan vergleichen](#example-video-and-document-drop) |
+| Agent teams | [Pass a list through four AI helpers](#start-ragents.reference.20-circle-of-four), [Have a message delivered](#start-ragents.reference.30-llm-without-runtime-knowledge), [Learning companion with materials](#start-ragents.reference.160-learning-companion), [Image collection with captions](#start-ragents.reference.170-photo-collection), [Review texts and share results selectively](#start-ragents.reference.190-review-queue), [Hand a conversation over to a moderator](#start-ragents.reference.210-moderator-handover), [Approve proposals together](#start-ragents.reference.220-actor-approval-list) |
+| TypeScript actors | [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Pass a list through four AI helpers](#start-ragents.reference.20-circle-of-four), [Count messages without AI](#start-ragents.reference.70-headless-counter), [Hide notes and find them again](#start-ragents.reference.90-actor-notes), [Maintain a list in the chat and in a window](#start-ragents.reference.100-shared-actor-list), [Decision workbench](#start-ragents.reference.180-decision-workbench), [Collect answers automatically](#start-ragents.reference.240-live-result-list) |
+| Subscriptions | [Pass a list through four AI helpers](#start-ragents.reference.20-circle-of-four), [Have a message delivered](#start-ragents.reference.30-llm-without-runtime-knowledge), [Listen in on other helpers selectively](#start-ragents.reference.40-subscription-matrix), [Turn a forwarding off again](#start-ragents.reference.50-subscription-removal), [Collect answers automatically](#start-ragents.reference.240-live-result-list) |
+| Input queue | [Complete three tasks in order](#start-ragents.reference.35-actor-input-fifo), [Review texts and share results selectively](#start-ragents.reference.190-review-queue) |
+| Stopping actors | [Have a message delivered](#start-ragents.reference.30-llm-without-runtime-knowledge), [Stop a helper in the conversation circle](#start-ragents.reference.60-stop-in-the-circle), [Review texts and share results selectively](#start-ragents.reference.190-review-queue) |
+| Artifacts and access | [Pass on a note selectively](#start-ragents.reference.65-artifact-least-privilege), [Review texts and share results selectively](#start-ragents.reference.190-review-queue) |
+| Workspace layout | [Open the helper behind a mini-app](#example-mini-app-owner-inspector), [Split a conversation circle differently](#example-personal-tile-arrangement) |
+| Mini-apps | [Hello world on the surface](#start-ragents.reference.95-hello-world), [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Hide notes and find them again](#start-ragents.reference.90-actor-notes), [Maintain a list in the chat and in a window](#start-ragents.reference.100-shared-actor-list), [Editorial workbench](#start-ragents.reference.150-editorial-workbench), [Learning companion with materials](#start-ragents.reference.160-learning-companion), [Image collection with captions](#start-ragents.reference.170-photo-collection), [Decision workbench](#start-ragents.reference.180-decision-workbench), [Review texts and share results selectively](#start-ragents.reference.190-review-queue), [Approve proposals together](#start-ragents.reference.220-actor-approval-list), [One list in two views](#start-ragents.reference.230-shared-state-views), [Collect answers automatically](#start-ragents.reference.240-live-result-list), [Balcony wizard](#start-ragents.reference.250-balcony-wizard) |
+| Actor state | [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Count messages without AI](#start-ragents.reference.70-headless-counter), [Hide notes and find them again](#start-ragents.reference.90-actor-notes), [Maintain a list in the chat and in a window](#start-ragents.reference.100-shared-actor-list), [Decision workbench](#start-ragents.reference.180-decision-workbench), [Approve proposals together](#start-ragents.reference.220-actor-approval-list), [One list in two views](#start-ragents.reference.230-shared-state-views), [Collect answers automatically](#start-ragents.reference.240-live-result-list), [Balcony wizard](#start-ragents.reference.250-balcony-wizard) |
+| LLM actor with view | [Learning companion with materials](#start-ragents.reference.160-learning-companion), [Image collection with captions](#start-ragents.reference.170-photo-collection), [Approve proposals together](#start-ragents.reference.220-actor-approval-list) |
+| Actor chat | [Learning companion with materials](#start-ragents.reference.160-learning-companion), [Image collection with captions](#start-ragents.reference.170-photo-collection) |
+| Controlled chat | [Decision workbench](#start-ragents.reference.180-decision-workbench), [Approve proposals together](#start-ragents.reference.220-actor-approval-list) |
+| Language diagnostics | [Find errors in C# and TypeScript](#start-ragents.reference.75-lsp-demo), [Find errors in an appointment list](#start-ragents.reference.200-typescript-diagnostics) |
+| Primary actor | [Moderated round without coordinator](#start-ragents.reference.moderated-round), [Set up balcony wizard](#start-ragents.reference.balcony-wizard), [Learning afternoon](#start-ragents.reference.learning-afternoon), [Hand a conversation over to a moderator](#start-ragents.reference.210-moderator-handover) |
+| Start guide | [Set up collection board](#start-ragents.reference.shared-actor-list), [Set up conversation circle](#start-ragents.reference.conversation-circle) |
+| Questions | [See question, tasks, and document together](#start-ragents.reference.110-all-card-slots), [Hand a conversation over to a moderator](#start-ragents.reference.210-moderator-handover) |
+| To-dos | [See question, tasks, and document together](#start-ragents.reference.110-all-card-slots), [Hand a conversation over to a moderator](#start-ragents.reference.210-moderator-handover) |
+| Journal inspection | [Complete three tasks in order](#start-ragents.reference.35-actor-input-fifo), [Listen in on other helpers selectively](#start-ragents.reference.40-subscription-matrix), [Stop a helper in the conversation circle](#start-ragents.reference.60-stop-in-the-circle), [Count messages without AI](#start-ragents.reference.70-headless-counter), [Review texts and share results selectively](#start-ragents.reference.190-review-queue) |
+| Run scripts | [Set up collection board](#start-ragents.reference.shared-actor-list), [Set up conversation circle](#start-ragents.reference.conversation-circle), [Moderated round without coordinator](#start-ragents.reference.moderated-round), [Set up balcony wizard](#start-ragents.reference.balcony-wizard), [Learning afternoon](#start-ragents.reference.learning-afternoon), [Start word game](#start-ragents.reference.word-game) |
+| Skills | [Clarify a decision](#start-ragents.reference.decision-brief), [Learning goal in stages](#start-ragents.reference.learning-sprint) |
+| Actor functions | [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Count messages without AI](#start-ragents.reference.70-headless-counter), [Hide notes and find them again](#start-ragents.reference.90-actor-notes), [Maintain a list in the chat and in a window](#start-ragents.reference.100-shared-actor-list), [Editorial workbench](#start-ragents.reference.150-editorial-workbench), [Approve proposals together](#start-ragents.reference.220-actor-approval-list), [One list in two views](#start-ragents.reference.230-shared-state-views), [Balcony wizard](#start-ragents.reference.250-balcony-wizard) |
+| Automatic view placement | [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Hide notes and find them again](#start-ragents.reference.90-actor-notes) |
+| View visibility | [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Hide notes and find them again](#start-ragents.reference.90-actor-notes) |
+| Global coordinator | [Keep an eye on two runs](#example-global-run-overview), [Start a prepared circle globally](#example-global-prepared-run) |
+| Conversation reset | [Start over after planning](#example-reset-completed-global-chat), [Cancel a reset at first](#example-reset-without-losing-draft) |
+| Settings and model selection | [Set up the coordinator for short answers](#example-coordinator-model-settings), [Choose the model for short titles](#example-title-model-selection), [Turn off automatic titles](#example-disable-generated-titles), [Map a capability to its plugin](#example-extension-capability-settings) |
+| Process display | [See the language server as a run process](#example-language-server-process), [Open a short-lived local preview](#example-local-preview-process) |
+| Files and workspace | [Read a draft in the file tree](#example-workspace-draft-preview), [Compare files with the same name in two runs](#example-separate-run-files) |
+| Recovery after restart | [Find a shared list again after a restart](#example-restore-shared-list), [Continue two conversation histories after a restart](#example-restore-conversation-context) |
+| Multimodal input | [Discuss your own sketch in the chat](#example-image-paste-conversation), [Compare a short clip with its schedule](#example-video-and-document-drop) |
 
 ## Walkthroughs
 
@@ -6667,1503 +6667,1503 @@ Walkthroughs explain step by step how to use existing functions in the interface
 
 <a id="example-mini-app-owner-inspector"></a>
 
-### Den Helfer hinter einer Mini-App öffnen
+### Open the helper behind a mini-app
 
-Die Mini-App bleibt als Kachel sichtbar; ihr Besitzer ist auch ohne eigene Kachel erreichbar.
+The mini-app stays visible as a tile; its owner is reachable even without a tile of its own.
 
 User workflow. Tags: Use case, Concept demo, Workspace layout.
 
-1. Im Profil showcase Sammelboard einrichten öffnen und den Leitfaden abschließen. Erwartung: Die Liste steht als Kachel auf der Fläche; ihr Besitzer hat keine eigene Kachel.
-2. In der Kopfzeile Actors öffnen und den Namen des Listenbesitzers wählen. Erwartung: Rechts öffnen sich dessen Chat und Details, ohne die Kachelaufteilung zu ändern.
-3. Den Besitzer aus der Kopfzeile auf die Kachel der Liste ziehen und rechts andocken. Erwartung: Seine Kachel erscheint neben der Liste; die Mini-App bleibt bedienbar und behält ihre Einträge.
-4. Die neue Kachel über das Kreuz in ihrer Kopfzeile wieder entfernen und die App erneut bedienen. Erwartung: Actor und Funktionen arbeiten weiter; sein Name bleibt in der Kopfzeile erreichbar.
+1. In the showcase profile, open Set up collection board and complete the guide. Expected: The list is a tile on the surface; its owner has no tile of its own.
+2. Open Actors in the header and choose the name of the list owner. Expected: Its chat and details open on the right without changing the tile layout.
+3. Drag the owner from the header onto the list tile and dock it on the right. Expected: Its tile appears next to the list; the mini-app stays usable and keeps its entries.
+4. Remove the new tile again with the cross in its title bar and use the app again. Expected: The actor and its functions keep working; its name stays reachable in the header.
 
 <a id="example-personal-tile-arrangement"></a>
 
-### Eine Gesprächsrunde anders aufteilen
+### Split a conversation circle differently
 
-Kacheln lassen sich persönlich umstellen und wieder auf die Programmvorgabe zurücksetzen.
+Tiles can be rearranged personally and reset to the program default.
 
 User workflow. Tags: Use case, Concept demo, Workspace layout.
 
-1. Im Profil showcase die Vorlage Gesprächsrunde einrichten ausführen und den Aufbau abwarten. Die vom Run gesetzte Aufteilung ansehen.
-2. Eine Kachel an ihrer Kopfzeile fassen und am oberen Rand einer anderen Kachel andocken. Erwartung: Die Aufteilung ändert sich sofort; alle Gesprächspartner arbeiten weiter.
-3. Die Trennlinie zwischen zwei Kacheln verschieben und denselben Run im selben Browser neu laden. Erwartung: Die persönliche Aufteilung bleibt erhalten; die Actors und die Programmanordnung sind unverändert.
-4. In der Statusleiste Programmvorgabe übernehmen wählen. Erwartung: Die Fläche zeigt wieder die Aufteilung des Runs; der Knopf verschwindet, bis wieder eine eigene Änderung vorliegt.
+1. In the showcase profile, run the template Set up conversation circle and wait for the setup. Look at the layout set by the run.
+2. Grab a tile by its title bar and dock it at the top edge of another tile. Expected: The layout changes immediately; all conversation partners keep working.
+3. Move the divider between two tiles and reload the same run in the same browser. Expected: The personal layout is kept; the actors and the program arrangement are unchanged.
+4. Choose Apply program default in the status bar. Expected: The surface shows the run's layout again; the button disappears until there is another change of your own.
 
 <a id="example-global-run-overview"></a>
 
-### Zwei Runs im Blick behalten
+### Keep an eye on two runs
 
-Der globale Koordinator liest vorhandene Runs, während die aktuelle Fläche geöffnet bleibt.
+The global coordinator reads existing runs while the current surface stays open.
 
 User workflow. Tags: Use case, Concept demo, Global coordinator.
 
-1. Im Profil showcase zwei kurze Runs zu einer Leseliste und einem Wochenplan anlegen und ihre Antworten abwarten.
-2. In die Eingabe Globaler Koordinator in der Kopfzeile klicken und damit seinen Verlauf öffnen. Um eine knappe Übersicht der beiden Runs mit ihrem jeweiligen Arbeitsstand bitten.
-3. Die Run-Liste über die Übersichtsecke oder Cmd+I auf macOS beziehungsweise Ctrl+I öffnen, beide Runs auswählen und die Antwort mit ihren tatsächlichen Gesprächen vergleichen. Erwartung: Der globale Chat kann beide Journale berücksichtigen; ein Run-Wechsel erhält seinen eigenen Verlauf.
-4. Einen ungesendeten Entwurf oben eingeben, Escape drücken und den Verlauf wieder öffnen. Erwartung: Das Dropdown schließt ohne Stopp; Entwurf, aktueller Run und globales Gespräch bleiben erhalten.
+1. In the showcase profile, create two short runs about a reading list and a weekly plan and wait for their answers.
+2. Click the Global coordinator input in the header to open its history. Ask for a brief overview of both runs with their current progress.
+3. Open the run list via the overview corner or Cmd+I on macOS or Ctrl+I, select both runs, and compare the answer with their actual conversations. Expected: The global chat can take both journals into account; switching runs keeps its own history.
+4. Type an unsent draft at the top, press Escape, and open the history again. Expected: The dropdown closes without stopping anything; the draft, the current run, and the global conversation are kept.
 
 <a id="example-global-prepared-run"></a>
 
-### Eine vorbereitete Runde global starten
+### Start a prepared circle globally
 
-Der globale Koordinator wählt aus dem vorhandenen Katalog ein Run-Script und erstellt damit einen neuen Run.
+The global coordinator picks a run script from the existing catalog and creates a new run with it.
 
 User workflow. Tags: Use case, Concept demo, Global coordinator.
 
-1. In die Eingabe Globaler Koordinator in der Kopfzeile klicken und bitten: Zeige die verfügbaren vorbereiteten Run-Scripts und starte Gesprächsrunde einrichten zum Thema gemeinsames Lernen mit zwei Runden.
-2. Nach dem Senden die Kurzantwort direkt unter der Kopfzeile abwarten. Den Hinweis anklicken und die vollständige Antwort im Verlauf lesen. Falls der Startwert unklar ist, die Rückfrage anhand des angezeigten Katalogs beantworten; keine Modellkennung oder Run-ID abschreiben.
-3. Den neuen Run über die Run-Liste öffnen. Erwartung: Ein eigener Run mit dem angeforderten Thema und dem vorbereiteten Aufbau entsteht. Die Annahme des Starts allein beweist noch keinen abgeschlossenen Gesprächsbeitrag.
-4. Nach dem ersten tatsächlichen Beitrag unten Actors öffnen und einen Gesprächspartner im Inspector auswählen. Oben im globalen Chat fragen: Was macht dieser Actor? Erwartung: Die Frage erhält den Run und den ausgewählten Actor als getrennte Orientierung; der sichtbare Fragetext bleibt unverändert.
-5. Nach dem Absenden einen anderen Run öffnen. Erwartung: Die bereits gesendete Frage bleibt an ihre ursprüngliche Auswahl gebunden, auch wenn sie erst später bearbeitet wird. Der globale Verlauf und beide Runs bleiben getrennt erreichbar.
+1. Click the Global coordinator input in the header and ask: Show the available prepared run scripts and start Set up conversation circle on the topic of learning together with two rounds.
+2. After sending, wait for the short answer directly below the header. Click the notice and read the full answer in the history. If the start value is unclear, answer the question based on the catalog shown; do not copy a model id or run id.
+3. Open the new run from the run list. Expected: A separate run with the requested topic and the prepared setup is created. Acceptance of the start alone does not prove a completed conversation contribution.
+4. After the first actual contribution, open Actors at the bottom and select a conversation partner in the inspector. At the top of the global chat, ask: What does this actor do? Expected: The question receives the run and the selected actor as separate orientation; the visible question text stays unchanged.
+5. After sending, open another run. Expected: The question already sent stays bound to its original selection, even if it is processed only later. The global history and both runs stay reachable separately.
 
 <a id="example-reset-completed-global-chat"></a>
 
-### Nach einer Planung neu beginnen
+### Start over after planning
 
-Ein bestätigter Reset leert das globale Gespräch und lässt bestehende Runs und die Modellauswahl erhalten.
+A confirmed reset clears the global conversation and keeps existing runs and the model selection.
 
 User workflow. Tags: Use case, Concept demo, Conversation reset.
 
-1. Im globalen Chat eine kurze Planung abschließen. Einen normalen Run geöffnet lassen und die aktuelle globale Modell- und Reasoningwahl merken.
-2. Gespräch zurücksetzen wählen und die angezeigte Bestätigung ausdrücklich bestätigen. Die erfolgreiche Rückmeldung abwarten.
-3. Erwartung: Verlauf, Eingabeentwurf und Anhänge des globalen Chats sind leer; der geöffnete normale Run sowie die Modell- und Reasoningwahl bestehen weiter.
-4. Eine neue kurze Nachricht senden. Erwartung: Sie beginnt ein frisches globales Gespräch. Der Reset selbst hat keinen neuen Modellauftrag gestartet.
+1. Complete a short planning session in the global chat. Keep a normal run open and note the current global model and reasoning selection.
+2. Choose Reset conversation and explicitly confirm the confirmation shown. Wait for the success message.
+3. Expected: The history, input draft, and attachments of the global chat are empty; the open normal run and the model and reasoning selection remain.
+4. Send a new short message. Expected: It starts a fresh global conversation. The reset itself did not start a new model task.
 
 <a id="example-reset-without-losing-draft"></a>
 
-### Einen Reset zunächst abbrechen
+### Cancel a reset at first
 
-Die Bestätigung schützt einen noch benötigten Gesprächsentwurf; erst der bestätigte zweite Versuch leert ihn.
+The confirmation protects a conversation draft you still need; only the confirmed second attempt clears it.
 
 User workflow. Tags: Use case, Concept demo, Conversation reset.
 
-1. Im globalen Chat einen kurzen Entwurf eingeben, ohne ihn zu senden. Gespräch zurücksetzen öffnen und die Bestätigung abbrechen.
-2. Erwartung: Entwurf und bestehender Verlauf bleiben erhalten. Die bloße Anzeige der Bestätigung setzt nichts zurück.
-3. Gespräch zurücksetzen erneut öffnen und diesmal bestätigen. Während des Resets keine weitere Nachricht senden.
-4. Erwartung: Nach Erfolg sind Entwurf und Verlauf leer. Bei einem Fehler bleibt dessen Meldung sichtbar und erlaubt einen erneuten Versuch; ein Fehler darf nicht als erfolgreicher Reset gelten.
+1. Type a short draft in the global chat without sending it. Open Reset conversation and cancel the confirmation.
+2. Expected: The draft and the existing history are kept. Merely showing the confirmation resets nothing.
+3. Open Reset conversation again and confirm this time. Do not send another message during the reset.
+4. Expected: After success, the draft and history are empty. On an error, its message stays visible and allows a retry; an error must not count as a successful reset.
 
 <a id="example-coordinator-model-settings"></a>
 
-### Den Koordinator für kurze Antworten einstellen
+### Set up the coordinator for short answers
 
-Modell und Reasoning werden direkt im globalen Chat gewählt und in den Einstellungen wiedergefunden.
+Model and reasoning are chosen directly in the global chat and can be found again in the settings.
 
 User workflow. Tags: Use case, Concept demo, Settings and model selection.
 
-1. Den globalen Verlauf über die Toolbar-Eingabe öffnen und im Dropdown oberhalb des Verlaufs ein angebotenes Modell und eine dort verfügbare Reasoning-Stufe wählen. Keine nicht angebotene Stufe voraussetzen.
-2. Die bestätigte Speicherung abwarten und danach eine kurze Frage stellen. Erwartung: Neue Arbeit verwendet die gespeicherte Auswahl; ein schon laufender Turn wird dadurch nicht rückwirkend verändert.
-3. Das Zahnrad öffnen und unter Modelle die Einstellung Globaler Koordinator ansehen. Erwartung: Beide Ansichten zeigen dieselbe bestätigte Auswahl.
-4. Falls ein Modellwechsel wegen bereits vorhandener Medien abgelehnt wird, die sichtbare Fehlermeldung beachten. Erwartung: Die bisherige gültige Auswahl bleibt erhalten.
+1. Open the global history via the toolbar input and, in the dropdown above the history, choose an offered model and a reasoning level available there. Do not assume a level that is not offered.
+2. Wait for the confirmed save and then ask a short question. Expected: New work uses the saved selection; a turn that is already running is not changed retroactively.
+3. Open the gear and look at the Global coordinator setting under Models. Expected: Both views show the same confirmed selection.
+4. If a model change is rejected because of media that already exists, note the visible error message. Expected: The previous valid selection is kept.
 
 <a id="example-title-model-selection"></a>
 
-### Das Modell für kurze Überschriften wählen
+### Choose the model for short titles
 
-Ein eigenes Modell verdichtet den Auftrag in der Run-Liste, ohne die Modelle der Agenten zu ändern.
+A separate model condenses the task in the run list without changing the agents' models.
 
 User workflow. Tags: Use case, Concept demo, Settings and model selection.
 
-1. Über das Zahnrad Einstellungen, Modelle und Überschriften öffnen. Bei einer großen Liste mit der Suche ein angebotenes Modell finden, auswählen und Speichern wählen.
-2. Die bestätigte Speicherung abwarten. Erwartung: Die Auswahl bleibt im Formular erhalten; Globaler Koordinator sowie Neue Runs und Agenten behalten ihre eigenen Einstellungen.
-3. Einen neuen Run mit einem ausführlicheren Auftrag beginnen und die Run-Liste öffnen. Erwartung: Der ursprüngliche Auftrag ist bereits sichtbar. Sobald ein automatischer Titel erfolgreich erzeugt und gespeichert ist, erscheint die kurze Überschrift ohne zusätzlichen manuellen Listenabruf. Eine feste Antwortzeit wird nicht vorausgesetzt.
-4. Eine andere Modellwahl als Entwurf einstellen und Änderungen verwerfen wählen. Erwartung: Die bestätigte Auswahl kehrt zurück; ein schon erzeugter Titel wird nicht ersetzt.
+1. Open Settings, Models, and Titles via the gear. With a large list, use the search to find an offered model, select it, and choose Save.
+2. Wait for the confirmed save. Expected: The selection stays in the form; Global coordinator as well as New runs and agents keep their own settings.
+3. Start a new run with a more detailed task and open the run list. Expected: The original task is already visible. As soon as an automatic title has been generated and saved successfully, the short title appears without an additional manual list refresh. No fixed response time is assumed.
+4. Set a different model selection as a draft and choose Discard changes. Expected: The confirmed selection returns; a title that was already generated is not replaced.
 
 <a id="example-disable-generated-titles"></a>
 
-### Automatische Überschriften ausschalten
+### Turn off automatic titles
 
-Neue Erzeugungen lassen sich deaktivieren; vorhandene und ausdrücklich gesetzte Titel bleiben erhalten.
+New generation can be disabled; existing and explicitly set titles are kept.
 
 User workflow. Tags: Use case, Concept demo, Settings and model selection.
 
-1. Einen Run mit bereits erzeugtem Kurztitel in der Run-Liste ansehen. Unter Einstellungen, Modelle, Überschriften Keine automatischen Überschriften auswählen und speichern.
-2. Die Anwendung neu laden und die Einstellung erneut ansehen. Erwartung: Die Deaktivierung ist gespeichert; der bestehende Kurztitel bleibt unverändert.
-3. Einen weiteren Run mit einem normalen Auftrag beginnen. Erwartung: Die Run-Liste zeigt den Auftrag, ohne dafür einen automatischen Kurztitel anzufordern.
-4. Optional Sammelboard einrichten starten und im Leitfaden einen Namen vorgeben. Erwartung: Der vorbereitete Ablauf setzt weiterhin seinen eigenen Run-Titel. Ein später wieder aktiviertes Titelmodell überschreibt diesen Namen nicht.
+1. Look at a run with an already generated short title in the run list. Under Settings, Models, Titles, select No automatic titles and save.
+2. Reload the application and look at the setting again. Expected: The deactivation is saved; the existing short title stays unchanged.
+3. Start another run with a normal task. Expected: The run list shows the task without requesting an automatic short title for it.
+4. Optionally start Set up collection board and enter a name in the guide. Expected: The prepared flow still sets its own run title. A title model that is enabled again later does not overwrite this name.
 
 <a id="example-extension-capability-settings"></a>
 
-### Eine Fähigkeit ihrem Plugin zuordnen
+### Map a capability to its plugin
 
-Die beiden Ansichten der Einstellungen erschließen denselben Bestand aus unterschiedlichen Richtungen.
+The two views of the settings open up the same inventory from different directions.
 
 User workflow. Tags: Use case, Concept demo, Settings and model selection.
 
-1. Über das Zahnrad die Einstellungen öffnen und zu Plugins wechseln. In Nach Plugin das Actor-Programm-Plugin auswählen und ihre Werkzeuge und Web-Beiträge ansehen.
-2. Zu Nach Fähigkeit wechseln, Werkzeuge auswählen und nach actor_program suchen. Erwartung: Die passenden Beiträge erscheinen mit ihrem jeweiligen Plugin als Eigentümer.
-3. Den Link zum Actor-Programm-Plugin öffnen. Erwartung: Sein vollständiges Inventar ist wieder sichtbar; ein vorheriger Suchfilter verdeckt die Detailseite nicht.
-4. Zu Modelle wechseln und die Koordinator-Modellwahl öffnen. Nur tatsächlich angebotene Werte sind wählbar; eine ungültige Kombination wird nicht still ersetzt.
+1. Open the settings via the gear and switch to Plugins. In By plugin, select the actor program plugin and look at its tools and web contributions.
+2. Switch to By capability, select Tools, and search for actor_program. Expected: The matching contributions appear with their respective plugin as owner.
+3. Open the link to the actor program plugin. Expected: Its complete inventory is visible again; a previous search filter does not hide the detail page.
+4. Switch to Models and open the coordinator model selection. Only values that are actually offered can be selected; an invalid combination is not silently replaced.
 
 <a id="example-language-server-process"></a>
 
-### Den Sprachserver als Run-Prozess sehen
+### See the language server as a run process
 
-Eine TypeScript-Prüfung macht den zugehörigen Sprachserver in der Prozessanzeige sichtbar.
+A TypeScript check makes the associated language server visible in the process display.
 
 User workflow. Tags: Use case, Concept demo, Process display.
 
-1. Im Profil showcase die Skill-Vorlage Fehler in einer Terminliste finden ausführen. Voraussetzung ist ein verfügbarer TypeScript-Sprachserver; eine fehlende Voraussetzung muss als Fehler gemeldet werden.
-2. Nach dem Öffnen des Sprachservers die gemeinsame Kopfzeile des Runs ansehen. Erwartung: Der verwaltete Sprachserver erscheint als zu diesem Run gehörender Prozess.
-3. Einen anderen Run öffnen und zurückwechseln. Erwartung: Die Prozessanzeige folgt dem ausgewählten Run und ist kein gemeinsames Verzeichnis aller Rechnerprozesse.
-4. Die Prozessanzeige dient der Beobachtung. Sie bietet keinen Beenden-Knopf; fehlende Betriebssystemrechte oder Werkzeuge werden als sichtbarer Fehler gemeldet.
+1. In the showcase profile, run the skill template Find errors in an appointment list. It requires an available TypeScript language server; a missing prerequisite must be reported as an error.
+2. After the language server has been opened, look at the run's shared header. Expected: The managed language server appears as a process belonging to this run.
+3. Open another run and switch back. Expected: The process display follows the selected run and is not a shared list of all processes on the machine.
+4. The process display is for observation. It offers no stop button; missing operating system permissions or tools are reported as a visible error.
 
 <a id="example-local-preview-process"></a>
 
-### Eine kurzlebige lokale Vorschau öffnen
+### Open a short-lived local preview
 
-Ein zeitlich begrenzter Demo-Webprozess erscheint mit seinem erkannten Port in der Kopfzeile.
+A time-limited demo web process appears in the header with its detected port.
 
 User workflow. Tags: Use case, Concept demo, Process display.
 
-1. In einem eigenen showcase-Run den Koordinator bitten, einen kleinen Node-Demoprozess im Run-Arbeitsverzeichnis vorzubereiten: Er liefert nur einen neutralen Begrüßungstext, bindet ausschließlich 127.0.0.1 auf einem freien Port und beendet sich nach zwei Minuten selbst. Keine zusätzlichen Pakete installieren und keinen Produktserver ersetzen.
-2. Den vorbereiteten Demoprozess starten lassen und bei laufender Ausführung die Kopfzeile ansehen. Erwartung: Der Prozess erscheint mit einem Link auf seinen erkannten offenen Port.
-3. Den Port-Link nur auf demselben Rechner öffnen. Erwartung: Die lokale Demoantwort erscheint; bei einem entfernten Server ist dessen Loopback-Adresse nicht die Adresse des Browsers.
-4. Das vorgesehene automatische Ende abwarten. Erwartung: Der Eintrag verschwindet nach der nächsten Prozessaktualisierung. Run-Stopp oder das Schließen eines Tabs werden hier nicht als Beenden eines abgesetzten Dienstes versprochen.
+1. In a separate showcase run, ask the coordinator to prepare a small Node demo process in the run workspace: It only serves a neutral greeting text, binds exclusively to 127.0.0.1 on a free port, and exits by itself after two minutes. Do not install additional packages and do not replace a product server.
+2. Have the prepared demo process started and look at the header while it runs. Expected: The process appears with a link to its detected open port.
+3. Open the port link only on the same machine. Expected: The local demo response appears; with a remote server, its loopback address is not the browser's address.
+4. Wait for the intended automatic end. Expected: The entry disappears after the next process refresh. Stopping the run or closing a tab is not promised here to end a detached service.
 
 <a id="example-workspace-draft-preview"></a>
 
-### Einen Entwurf im Dateibaum lesen
+### Read a draft in the file tree
 
-Ein Run schreibt einen kleinen Text; der Dateireiter zeigt Inhalt und spätere Änderung ohne eigenen Editor.
+A run writes a small text; the files tab shows its content and a later change without an editor of its own.
 
 User workflow. Tags: Use case, Concept demo, Files and workspace.
 
-1. In einem neuen showcase-Run den Koordinator bitten, im Run-Arbeitsverzeichnis die Datei reading-list.md mit drei neutralen Lesethemen anzulegen.
-2. Den Reiter Dateien öffnen, das Arbeitsverzeichnis aufklappen und reading-list.md auswählen. Erwartung: Der geschriebene Text erscheint als Vorschau.
-3. Im Chat ein viertes Thema ergänzen lassen und zur weiterhin geöffneten Vorschau zurückkehren. Erwartung: Die Dateiänderung wird im Dateibrowser sichtbar.
-4. Erwartung: Der Dateireiter bleibt eine Leseansicht. Änderungen erfolgen durch den beauftragten Actor und dessen Dateiwerkzeuge, nicht durch einen eingebauten Editor oder Löschknopf.
+1. In a new showcase run, ask the coordinator to create the file reading-list.md with three neutral reading topics in the run workspace.
+2. Open the Files tab, expand the workspace, and select reading-list.md. Expected: The written text appears as a preview.
+3. Have a fourth topic added in the chat and return to the preview that is still open. Expected: The file change becomes visible in the file browser.
+4. Expected: The files tab stays a read-only view. Changes are made by the assigned actor and its file tools, not by a built-in editor or delete button.
 
 <a id="example-separate-run-files"></a>
 
-### Gleichnamige Dateien in zwei Runs vergleichen
+### Compare files with the same name in two runs
 
-Zwei unabhängige Arbeitsverzeichnisse enthalten eigene Dateien mit demselben Namen.
+Two independent workspaces contain their own files with the same name.
 
 User workflow. Tags: Use case, Concept demo, Files and workspace.
 
-1. Einen showcase-Run Leseliste anlegen und darin notes.md mit dem Inhalt Lesen vorbereiten schreiben lassen.
-2. Einen zweiten showcase-Run Wochenplan anlegen und dort ebenfalls notes.md schreiben lassen, diesmal mit dem Inhalt Woche planen. Keine Datei zwischen Runs kopieren.
-3. In beiden Runs nacheinander den Reiter Dateien öffnen und notes.md lesen. Erwartung: Der gleiche Dateiname zeigt den jeweils eigenen Inhalt des Run-Arbeitsverzeichnisses.
-4. Nur im Wochenplan eine Zeile ergänzen lassen und beide Vorschauen erneut prüfen. Erwartung: Die Datei des Leselisten-Runs ist unverändert.
+1. Create a showcase run Reading list and have it write notes.md with the content Prepare reading.
+2. Create a second showcase run Weekly plan and have it also write notes.md, this time with the content Plan the week. Do not copy any file between runs.
+3. Open the Files tab in both runs one after the other and read notes.md. Expected: The same file name shows the respective content of each run workspace.
+4. Have a line added only in the weekly plan and check both previews again. Expected: The file of the reading list run is unchanged.
 
 <a id="example-restore-shared-list"></a>
 
-### Eine gemeinsame Liste nach Neustart wiederfinden
+### Find a shared list again after a restart
 
-Eine abgeschlossene Actor-Funktion bleibt beim regulären Neustart desselben Profils erhalten.
+A completed actor function is kept when the same profile is restarted normally.
 
 User workflow. Tags: Use case, Concept demo, Recovery after restart.
 
-1. Im Profil showcase Sammelboard einrichten öffnen und den Leitfaden abschließen. Einen eindeutig erkennbaren Eintrag hinzufügen und die bestätigte Aktualisierung der Liste abwarten.
-2. Alle laufenden Arbeiten abschließen lassen. Den lokalen Server selbst über den für diese Installation verwendeten Startweg beenden und mit demselben Profil und Datenverzeichnis neu starten. Keine Daten löschen und keine zweite Serverinstanz parallel starten.
-3. Die Anwendung erneut öffnen und denselben Run auswählen. Erwartung: Gespräch, Mini-App und bestätigter Listeneintrag sind wieder vorhanden.
-4. Die Liste auf doppelte Einträge prüfen. Erwartung: Der Neustart stellt gespeicherten Zustand wieder her, führt die bereits abgeschlossene Hinzufügeaktion aber nicht erneut aus. Das Journal allein ersetzt keine vollständige Sicherung der übrigen Run-Dateien.
+1. In the showcase profile, open Set up collection board and complete the guide. Add a clearly recognizable entry and wait for the confirmed update of the list.
+2. Let all running work finish. Stop the local server yourself using the start method used for this installation and restart it with the same profile and data directory. Do not delete any data and do not start a second server instance in parallel.
+3. Open the application again and select the same run. Expected: The conversation, the mini-app, and the confirmed list entry are present again.
+4. Check the list for duplicate entries. Expected: The restart restores the saved state but does not run the already completed add action again. The journal alone does not replace a complete backup of the other run files.
 
 <a id="example-restore-conversation-context"></a>
 
-### Zwei Gesprächsverläufe nach Neustart fortsetzen
+### Continue two conversation histories after a restart
 
-Normaler Run und globaler Koordinator behalten ihre jeweils eigene Geschichte.
+A normal run and the global coordinator each keep their own history.
 
 User workflow. Tags: Use case, Concept demo, Recovery after restart.
 
-1. In einem normalen showcase-Run drei Lernziele besprechen und im globalen Chat eine knappe Übersicht dieses Runs anfordern. Beide Antworten vollständig abwarten und die globale Modellwahl merken.
-2. Den lokalen Server selbst über den vorhandenen Startweg neu starten, mit demselben Profil und Datenverzeichnis. Keine Dateien entfernen oder zwischen Installationen übertragen.
-3. Den normalen Run und anschließend den globalen Chat öffnen. Erwartung: Beide bisherigen Verläufe und die globale Modellwahl sind erhalten.
-4. Im normalen Run um den nächsten Schritt zu den Lernzielen bitten. Die neue Antwort als neue Arbeit behandeln; der Neustart hat alte Modellaufrufe nicht wiederholt. Ein beim Neustart noch offener Turn wäre unterbrochen abgeschlossen worden und wird nicht automatisch erneut ausgeführt.
+1. In a normal showcase run, discuss three learning goals and request a brief overview of this run in the global chat. Wait for both answers to complete and note the global model selection.
+2. Restart the local server yourself using the existing start method, with the same profile and data directory. Do not remove any files or transfer them between installations.
+3. Open the normal run and then the global chat. Expected: Both previous histories and the global model selection are kept.
+4. In the normal run, ask for the next step on the learning goals. Treat the new answer as new work; the restart did not repeat old model calls. A turn that was still open during the restart would have been completed as interrupted and is not run again automatically.
 
 <a id="example-image-paste-conversation"></a>
 
-### Eine eigene Skizze im Chat besprechen
+### Discuss your own sketch in the chat
 
-Ein Bild aus der Zwischenablage wird vor dem Senden geprüft und danach als Anhang im Verlauf gezeigt.
+An image from the clipboard is checked before sending and then shown as an attachment in the history.
 
 User workflow. Tags: Use case, Concept demo, Multimodal input.
 
-1. Eine eigene unkritische Skizze in die Zwischenablage kopieren. Einen neuen Run öffnen und ein angebotenes Modell wählen, das Bildeingaben unterstützt.
-2. Das Bild mit Cmd+V oder Ctrl+V in die Chat-Eingabe einfügen. Erwartung: Eine Bildvorschau erscheint, lässt sich vor dem Senden wieder entfernen und wurde noch nicht allein durch das Einfügen gesendet.
-3. Mit der Frage Welche drei Formen erkennst du? senden. Erwartung: Nach erfolgreicher Annahme stehen Nachricht und dauerhafter Bildanhang im Verlauf; die Antwort wird gegen die tatsächliche Skizze geprüft.
-4. Falls das Zielmodell keine Bildeingaben unterstützt, muss der Composer das Senden mit einer verständlichen Meldung blockieren. Kein passendes Modell im Katalog ist eine fehlende Voraussetzung, kein Anlass für einen behaupteten Bildbefund.
+1. Copy a harmless sketch of your own to the clipboard. Open a new run and choose an offered model that supports image input.
+2. Paste the image into the chat input with Cmd+V or Ctrl+V. Expected: An image preview appears, can be removed again before sending, and has not been sent merely by pasting.
+3. Send with the question Which three shapes do you recognize? Expected: After successful acceptance, the message and a persistent image attachment are in the history; the answer is checked against the actual sketch.
+4. If the target model does not support image input, the composer must block sending with an understandable message. No matching model in the catalog is a missing prerequisite, not a reason for a claimed image finding.
 
 <a id="example-video-and-document-drop"></a>
 
-### Einen kurzen Clip mit seinem Ablaufplan vergleichen
+### Compare a short clip with its schedule
 
-Video und PDF werden per Drag-and-drop ausdrücklich an ein geeignetes Modell gesendet.
+Video and PDF are explicitly sent to a suitable model via drag and drop.
 
 User workflow. Tags: Use case, Concept demo, Multimodal input.
 
-1. Einen eigenen kurzen, unkritischen Videoclip und einen kleinen PDF-Ablaufplan bereitlegen. Einen Chat mit einem angebotenen Modell öffnen, dessen veröffentlichte Eingabefähigkeiten sowohl Video als auch native PDFs erlauben. Gibt es kein solches Modell, ist dieser Ablauf nicht ausführbar.
-2. Beide Dateien in die Chat-Eingabe ziehen. Erwartung: Der Clip erhält eine Vorschau und das PDF eine Dateiangabe; Anhänge lassen sich einzeln entfernen. Sichtbare Größen- oder Fähigkeitsfehler vor dem Senden beheben.
-3. Mit der Frage Welche geplanten Schritte sind im Clip sichtbar? senden und die tatsächliche Antwort mit Clip und Ablaufplan vergleichen. Erwartung: Die Anhänge bleiben im Verlauf erneut erreichbar.
-4. Bei fehlender Video- oder PDF-Unterstützung bleibt das Senden blockiert. Es gibt hier keine stille OCR-Ausweichverarbeitung und keine Zusage, dass jedes angebotene Modell die Dateien versteht.
+1. Prepare a short, harmless video clip of your own and a small PDF schedule. Open a chat with an offered model whose published input capabilities allow both video and native PDFs. If there is no such model, this flow cannot be run.
+2. Drag both files into the chat input. Expected: The clip gets a preview and the PDF a file label; attachments can be removed individually. Fix visible size or capability errors before sending.
+3. Send with the question Which planned steps are visible in the clip? and compare the actual answer with the clip and the schedule. Expected: The attachments stay reachable again in the history.
+4. Without video or PDF support, sending stays blocked. There is no silent OCR fallback here and no promise that every offered model understands the files.
 
-## Vorlagen der Startseite
+## Start page templates
 
-### Kategorie: Mini-Apps
+### Category: Mini-apps
 
 <a id="start-ragents.reference.95-hello-world"></a>
 
-### ragents.reference.95-hello-world: Hallo Welt auf der Fläche
+### ragents.reference.95-hello-world: Hello world on the surface
 
-Zeigt den kleinsten Aufbau einer Mini-App am vorhandenen Actor: eine reine Anzeige ohne neuen Actor oder Serverfunktion.
+Shows the smallest setup of a mini-app on the existing actor: a pure display without a new actor or server function.
 
-Tags: Konzeptdemo, Mini-Apps.
+Tags: Concept demo, Mini-apps.
 
 ```json
 {
   "id": "ragents.reference.95-hello-world",
   "owner": "ragents.reference",
-  "title": "Hallo Welt auf der Fläche",
-  "description": "Zeigt den kleinsten Aufbau einer Mini-App am vorhandenen Actor: eine reine Anzeige ohne neuen Actor oder Serverfunktion.",
+  "title": "Hello world on the surface",
+  "description": "Shows the smallest setup of a mini-app on the existing actor: a pure display without a new actor or server function.",
   "order": 5,
   "tags": [
-    "Konzeptdemo",
-    "Mini-Apps"
+    "Concept demo",
+    "Mini-apps"
   ],
   "action": "skill",
   "skill": "95-hello-world",
-  "category": "Mini-Apps",
-  "prompt": "Ich hätte gern an Deinem vorhandenen Actor eine kleine Oberfläche auf der Fläche, die einfach nur Hallo Welt sagt. Sie soll sonst nichts tun. Lege dafür keinen neuen Actor und keine Serverfunktion an."
+  "category": "Mini-apps",
+  "prompt": "I would like a small interface on the surface for your existing actor that simply says Hello world. It should do nothing else. Do not create a new actor or a server function for it."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/95-hello-world/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/95-hello-world/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Hallo Welt auf der Fläche",
-  "message": "Nutze den Skill 95-hello-world für diesen Auftrag.\n\nIch hätte gern an Deinem vorhandenen Actor eine kleine Oberfläche auf der Fläche, die einfach nur Hallo Welt sagt. Sie soll sonst nichts tun. Lege dafür keinen neuen Actor und keine Serverfunktion an."
+  "title": "Hello world on the surface",
+  "message": "Use the skill 95-hello-world for this task.\n\nI would like a small interface on the surface for your existing actor that simply says Hello world. It should do nothing else. Do not create a new actor or a server function for it."
 }
 ```
 
 <a id="start-ragents.reference.80-actor-text-analysis"></a>
 
-### ragents.reference.80-actor-text-analysis: Zeichen, Wörter und Zeilen zählen
+### ragents.reference.80-actor-text-analysis: Count characters, words, and lines
 
-Zeigt, wie Chat und Mini-App dieselbe TypeScript-Funktion und denselben Aufrufzähler nutzen. Ausblenden erhält den Actor-Zustand.
+Shows how the chat and a mini-app use the same TypeScript function and the same call counter. Hiding keeps the actor state.
 
-Tags: Anwendungsfall, Konzeptdemo, TypeScript-Actors, Actor-Funktionen, Actor-Zustand, Mini-Apps, Automatische View-Platzierung, View-Sichtbarkeit.
+Tags: Use case, Concept demo, TypeScript actors, Actor functions, Actor state, Mini-apps, Automatic view placement, View visibility.
 
 ```json
 {
   "id": "ragents.reference.80-actor-text-analysis",
   "owner": "ragents.reference",
-  "title": "Zeichen, Wörter und Zeilen zählen",
-  "description": "Zeigt, wie Chat und Mini-App dieselbe TypeScript-Funktion und denselben Aufrufzähler nutzen. Ausblenden erhält den Actor-Zustand.",
+  "title": "Count characters, words, and lines",
+  "description": "Shows how the chat and a mini-app use the same TypeScript function and the same call counter. Hiding keeps the actor state.",
   "order": 10,
   "tags": [
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "TypeScript-Actors",
-    "Actor-Funktionen",
-    "Actor-Zustand",
-    "Mini-Apps",
-    "Automatische View-Platzierung",
-    "View-Sichtbarkeit"
+    "Use case",
+    "Concept demo",
+    "TypeScript actors",
+    "Actor functions",
+    "Actor state",
+    "Mini-apps",
+    "Automatic view placement",
+    "View visibility"
   ],
   "action": "skill",
   "skill": "80-actor-text-analysis",
-  "category": "Mini-Apps",
-  "prompt": "Ich hätte gern eine Textanalyse mit Textfeld, Zählknopf und verständlichen Fehlern. Ein TypeScript-Actor zählt Zeichen, Wörter, Zeilen und seine Aufrufe ohne KI. Prüfe \"Die Welt ist groß.\" und \"Und schön.\" als zwei Zeilen: 6 Wörter. Die Oberfläche zeigt denselben Aufrufzähler. Blende sie aus und wieder ein; der Zustand bleibt. Nutze gemeinsame Layout- und Formularbausteine: Eingabe und Ergebnis nebeneinander, bei wenig Platz untereinander."
+  "category": "Mini-apps",
+  "prompt": "I would like a text analysis with a text field, a count button, and understandable errors. A TypeScript actor counts characters, words, lines, and its calls without AI. Check \"The world is big.\" and \"And beautiful.\" as two lines: 6 words. The interface shows the same call counter. Hide it and show it again; the state is kept. Use shared layout and form building blocks: input and result side by side, stacked when space is tight."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/80-actor-text-analysis/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/80-actor-text-analysis/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Zeichen, Wörter und Zeilen zählen",
-  "message": "Nutze den Skill 80-actor-text-analysis für diesen Auftrag.\n\nIch hätte gern eine Textanalyse mit Textfeld, Zählknopf und verständlichen Fehlern. Ein TypeScript-Actor zählt Zeichen, Wörter, Zeilen und seine Aufrufe ohne KI. Prüfe \"Die Welt ist groß.\" und \"Und schön.\" als zwei Zeilen: 6 Wörter. Die Oberfläche zeigt denselben Aufrufzähler. Blende sie aus und wieder ein; der Zustand bleibt. Nutze gemeinsame Layout- und Formularbausteine: Eingabe und Ergebnis nebeneinander, bei wenig Platz untereinander."
+  "title": "Count characters, words, and lines",
+  "message": "Use the skill 80-actor-text-analysis for this task.\n\nI would like a text analysis with a text field, a count button, and understandable errors. A TypeScript actor counts characters, words, lines, and its calls without AI. Check \"The world is big.\" and \"And beautiful.\" as two lines: 6 words. The interface shows the same call counter. Hide it and show it again; the state is kept. Use shared layout and form building blocks: input and result side by side, stacked when space is tight."
 }
 ```
 
 <a id="start-ragents.reference.90-actor-notes"></a>
 
-### ragents.reference.90-actor-notes: Notizen ausblenden und wiederfinden
+### ragents.reference.90-actor-notes: Hide notes and find them again
 
-Zeigt eine automatisch platzierte Mini-App mit Notizauswahl. Beim Ausblenden und Wiederanzeigen bleiben Actor und Notizen erhalten.
+Shows an automatically placed mini-app with note selection. When hiding and showing it again, the actor and notes are kept.
 
-Tags: Anwendungsfall, Konzeptdemo, TypeScript-Actors, Actor-Funktionen, Actor-Zustand, Mini-Apps, Automatische View-Platzierung, View-Sichtbarkeit.
+Tags: Use case, Concept demo, TypeScript actors, Actor functions, Actor state, Mini-apps, Automatic view placement, View visibility.
 
 ```json
 {
   "id": "ragents.reference.90-actor-notes",
   "owner": "ragents.reference",
-  "title": "Notizen ausblenden und wiederfinden",
-  "description": "Zeigt eine automatisch platzierte Mini-App mit Notizauswahl. Beim Ausblenden und Wiederanzeigen bleiben Actor und Notizen erhalten.",
+  "title": "Hide notes and find them again",
+  "description": "Shows an automatically placed mini-app with note selection. When hiding and showing it again, the actor and notes are kept.",
   "order": 90,
   "tags": [
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "TypeScript-Actors",
-    "Actor-Funktionen",
-    "Actor-Zustand",
-    "Mini-Apps",
-    "Automatische View-Platzierung",
-    "View-Sichtbarkeit"
+    "Use case",
+    "Concept demo",
+    "TypeScript actors",
+    "Actor functions",
+    "Actor state",
+    "Mini-apps",
+    "Automatic view placement",
+    "View visibility"
   ],
   "action": "skill",
   "skill": "90-actor-notes",
-  "category": "Mini-Apps",
-  "prompt": "Ich hätte gern einen TypeScript-Actor für meine Notizen. Seine Oberfläche mit Eingabe und Zähler soll von selbst auf der Fläche erscheinen: links eine durchsuchbare Titelliste, rechts die ausgewählte Notiz. Ergänze eine erste Notiz über seine Funktion. Blende die Oberfläche kurz aus und wieder ein, ohne den Actor zu löschen oder Notizen zurückzusetzen. Lass sie zum Eintragen meiner nächsten Idee offen."
+  "category": "Mini-apps",
+  "prompt": "I would like a TypeScript actor for my notes. Its interface with input and counter should appear on the surface by itself: a searchable list of titles on the left, the selected note on the right. Add a first note through its function. Hide the interface briefly and show it again without deleting the actor or resetting notes. Leave it open for entering my next idea."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/90-actor-notes/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/90-actor-notes/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Notizen ausblenden und wiederfinden",
-  "message": "Nutze den Skill 90-actor-notes für diesen Auftrag.\n\nIch hätte gern einen TypeScript-Actor für meine Notizen. Seine Oberfläche mit Eingabe und Zähler soll von selbst auf der Fläche erscheinen: links eine durchsuchbare Titelliste, rechts die ausgewählte Notiz. Ergänze eine erste Notiz über seine Funktion. Blende die Oberfläche kurz aus und wieder ein, ohne den Actor zu löschen oder Notizen zurückzusetzen. Lass sie zum Eintragen meiner nächsten Idee offen."
+  "title": "Hide notes and find them again",
+  "message": "Use the skill 90-actor-notes for this task.\n\nI would like a TypeScript actor for my notes. Its interface with input and counter should appear on the surface by itself: a searchable list of titles on the left, the selected note on the right. Add a first note through its function. Hide the interface briefly and show it again without deleting the actor or resetting notes. Leave it open for entering my next idea."
 }
 ```
 
 <a id="start-ragents.reference.100-shared-actor-list"></a>
 
-### ragents.reference.100-shared-actor-list: Eine Liste im Chat und im Fenster pflegen
+### ragents.reference.100-shared-actor-list: Maintain a list in the chat and in a window
 
-Zeigt beim Aufbau einer Mini-App, wie Oberfläche und Koordinator dieselbe Funktion eines TypeScript-Actors benutzen und dieselbe Liste ändern.
+Shows, while building a mini-app, how the interface and the coordinator use the same function of a TypeScript actor and change the same list.
 
-Tags: Anwendungsfall, Konzeptdemo, TypeScript-Actors, Actor-Funktionen, Actor-Zustand, Mini-Apps.
+Tags: Use case, Concept demo, TypeScript actors, Actor functions, Actor state, Mini-apps.
 
 ```json
 {
   "id": "ragents.reference.100-shared-actor-list",
   "owner": "ragents.reference",
-  "title": "Eine Liste im Chat und im Fenster pflegen",
-  "description": "Zeigt beim Aufbau einer Mini-App, wie Oberfläche und Koordinator dieselbe Funktion eines TypeScript-Actors benutzen und dieselbe Liste ändern.",
+  "title": "Maintain a list in the chat and in a window",
+  "description": "Shows, while building a mini-app, how the interface and the coordinator use the same function of a TypeScript actor and change the same list.",
   "order": 100,
   "tags": [
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "TypeScript-Actors",
-    "Actor-Funktionen",
-    "Actor-Zustand",
-    "Mini-Apps"
+    "Use case",
+    "Concept demo",
+    "TypeScript actors",
+    "Actor functions",
+    "Actor state",
+    "Mini-apps"
   ],
   "action": "skill",
   "skill": "100-shared-actor-list",
-  "category": "Mini-Apps",
-  "prompt": "Ich hätte gern eine gemeinsame Liste an einem TypeScript-Actor ohne KI-Listenhelfer. Ich ergänze Einträge über seine Oberfläche, Du über dieselbe Funktion als Werkzeug. Beide Wege zeigen sofort denselben Stand, auch bei ruhendem Chat. Füge wirklich einen Eintrag hinzu und lass die Oberfläche stehen. Nutze gemeinsame Layout- und Formularbausteine: mehrzeilige Eingabe und Liste nebeneinander, bei wenig Platz untereinander."
+  "category": "Mini-apps",
+  "prompt": "I would like a shared list on a TypeScript actor without an AI list helper. I add entries through its interface, you through the same function as a tool. Both ways immediately show the same state, even when the chat is idle. Actually add an entry and leave the interface in place. Use shared layout and form building blocks: multi-line input and list side by side, stacked when space is tight."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/100-shared-actor-list/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/100-shared-actor-list/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Eine Liste im Chat und im Fenster pflegen",
-  "message": "Nutze den Skill 100-shared-actor-list für diesen Auftrag.\n\nIch hätte gern eine gemeinsame Liste an einem TypeScript-Actor ohne KI-Listenhelfer. Ich ergänze Einträge über seine Oberfläche, Du über dieselbe Funktion als Werkzeug. Beide Wege zeigen sofort denselben Stand, auch bei ruhendem Chat. Füge wirklich einen Eintrag hinzu und lass die Oberfläche stehen. Nutze gemeinsame Layout- und Formularbausteine: mehrzeilige Eingabe und Liste nebeneinander, bei wenig Platz untereinander."
+  "title": "Maintain a list in the chat and in a window",
+  "message": "Use the skill 100-shared-actor-list for this task.\n\nI would like a shared list on a TypeScript actor without an AI list helper. I add entries through its interface, you through the same function as a tool. Both ways immediately show the same state, even when the chat is idle. Actually add an entry and leave the interface in place. Use shared layout and form building blocks: multi-line input and list side by side, stacked when space is tight."
 }
 ```
 
 <a id="start-ragents.reference.150-editorial-workbench"></a>
 
-### ragents.reference.150-editorial-workbench: Redaktionswerkstatt
+### ragents.reference.150-editorial-workbench: Editorial workbench
 
-Zeigt, wie eine Mini-App Textbearbeitung, einzeln übernehmbare Änderungen und ein Bearbeitungsprotokoll zu einer Redaktionswerkstatt verbindet.
+Shows how a mini-app combines text editing, individually acceptable changes, and an edit log into an editorial workbench.
 
-Tags: Actor-Funktionen, Anwendungsfall, Konzeptdemo, Mini-Apps.
+Tags: Actor functions, Use case, Concept demo, Mini-apps.
 
 ```json
 {
   "id": "ragents.reference.150-editorial-workbench",
   "owner": "ragents.reference",
-  "title": "Redaktionswerkstatt",
-  "description": "Zeigt, wie eine Mini-App Textbearbeitung, einzeln übernehmbare Änderungen und ein Bearbeitungsprotokoll zu einer Redaktionswerkstatt verbindet.",
+  "title": "Editorial workbench",
+  "description": "Shows how a mini-app combines text editing, individually acceptable changes, and an edit log into an editorial workbench.",
   "order": 150,
   "tags": [
-    "Actor-Funktionen",
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "Mini-Apps"
+    "Actor functions",
+    "Use case",
+    "Concept demo",
+    "Mini-apps"
   ],
   "action": "skill",
   "skill": "150-editorial-workbench",
-  "category": "Mini-Apps",
-  "prompt": "Ich hätte gern eine Redaktionswerkstatt: Reparaturtreff, Samstag 10 bis 14 Uhr, Nachbarschaftshaus, ehrenamtliche Hilfe, keine Garantie. Links wähle ich Original oder Kurzfassung, rechts ändere ich Text und Zielgruppe und übernehme Kürzungen einzeln. Zeige Änderungen und Aufgabenstand, vergleiche Wortzahl und Freigabe tabellarisch. Ein Helfer zählt die Wörter; ein Protokoll zeigt Absender, Übernahmen und Rücknahmen. Veröffentliche nichts."
+  "category": "Mini-apps",
+  "prompt": "I would like an editorial workbench: repair cafe, Saturday 10 am to 2 pm, community center, volunteer help, no guarantee. On the left I choose original or short version, on the right I change text and target audience and accept cuts one by one. Show changes and task progress, compare word count and approval in a table. A helper counts the words; a log shows sender, acceptances, and reversals. Publish nothing."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/150-editorial-workbench/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/150-editorial-workbench/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Redaktionswerkstatt",
-  "message": "Nutze den Skill 150-editorial-workbench für diesen Auftrag.\n\nIch hätte gern eine Redaktionswerkstatt: Reparaturtreff, Samstag 10 bis 14 Uhr, Nachbarschaftshaus, ehrenamtliche Hilfe, keine Garantie. Links wähle ich Original oder Kurzfassung, rechts ändere ich Text und Zielgruppe und übernehme Kürzungen einzeln. Zeige Änderungen und Aufgabenstand, vergleiche Wortzahl und Freigabe tabellarisch. Ein Helfer zählt die Wörter; ein Protokoll zeigt Absender, Übernahmen und Rücknahmen. Veröffentliche nichts."
+  "title": "Editorial workbench",
+  "message": "Use the skill 150-editorial-workbench for this task.\n\nI would like an editorial workbench: repair cafe, Saturday 10 am to 2 pm, community center, volunteer help, no guarantee. On the left I choose original or short version, on the right I change text and target audience and accept cuts one by one. Show changes and task progress, compare word count and approval in a table. A helper counts the words; a log shows sender, acceptances, and reversals. Publish nothing."
 }
 ```
 
 <a id="start-ragents.reference.160-learning-companion"></a>
 
-### ragents.reference.160-learning-companion: Lernbegleitung mit Unterlagen
+### ragents.reference.160-learning-companion: Learning companion with materials
 
-Zeigt eine eigene Mini-App eines KI-Tutors mit eingebettetem Actor-Chat. Lokal gewählte Unterlagen gelangen erst nach einer ausdrücklichen Aktion ins Gespräch.
+Shows a mini-app of an AI tutor with an embedded actor chat. Locally chosen materials enter the conversation only after an explicit action.
 
-Tags: Anwendungsfall, Konzeptdemo, Agententeams, Mini-Apps, LLM-Actor mit View, Actor-Chat.
+Tags: Use case, Concept demo, Agent teams, Mini-apps, LLM actor with view, Actor chat.
 
 ```json
 {
   "id": "ragents.reference.160-learning-companion",
   "owner": "ragents.reference",
-  "title": "Lernbegleitung mit Unterlagen",
-  "description": "Zeigt eine eigene Mini-App eines KI-Tutors mit eingebettetem Actor-Chat. Lokal gewählte Unterlagen gelangen erst nach einer ausdrücklichen Aktion ins Gespräch.",
+  "title": "Learning companion with materials",
+  "description": "Shows a mini-app of an AI tutor with an embedded actor chat. Locally chosen materials enter the conversation only after an explicit action.",
   "order": 160,
   "tags": [
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "Agententeams",
-    "Mini-Apps",
-    "LLM-Actor mit View",
-    "Actor-Chat"
+    "Use case",
+    "Concept demo",
+    "Agent teams",
+    "Mini-apps",
+    "LLM actor with view",
+    "Actor chat"
   ],
   "action": "skill",
   "skill": "160-learning-companion",
-  "category": "Mini-Apps",
-  "prompt": "Ich hätte gern einen KI-Tutor mit eigener Oberfläche auf der Fläche: Textunterlagen öffnen und lesen, daneben mit genau diesem Tutor sprechen. Ich möchte zwischen Erklären, Beispiel und Verständnisprüfung wählen. Die ausgewählte Datei soll erst nach meinem Klick im Gespräch verwendet werden. Fragen ohne Datei sollen auch gehen. Nutze die vorhandenen Chat-, Datei- und Auswahlbausteine."
+  "category": "Mini-apps",
+  "prompt": "I would like an AI tutor with its own interface on the surface: open and read text materials, and talk to exactly this tutor next to them. I want to choose between explanation, example, and comprehension check. The selected file should be used in the conversation only after my click. Questions without a file should work too. Use the existing chat, file, and selection building blocks."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/160-learning-companion/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/160-learning-companion/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Lernbegleitung mit Unterlagen",
-  "message": "Nutze den Skill 160-learning-companion für diesen Auftrag.\n\nIch hätte gern einen KI-Tutor mit eigener Oberfläche auf der Fläche: Textunterlagen öffnen und lesen, daneben mit genau diesem Tutor sprechen. Ich möchte zwischen Erklären, Beispiel und Verständnisprüfung wählen. Die ausgewählte Datei soll erst nach meinem Klick im Gespräch verwendet werden. Fragen ohne Datei sollen auch gehen. Nutze die vorhandenen Chat-, Datei- und Auswahlbausteine."
+  "title": "Learning companion with materials",
+  "message": "Use the skill 160-learning-companion for this task.\n\nI would like an AI tutor with its own interface on the surface: open and read text materials, and talk to exactly this tutor next to them. I want to choose between explanation, example, and comprehension check. The selected file should be used in the conversation only after my click. Questions without a file should work too. Use the existing chat, file, and selection building blocks."
 }
 ```
 
 <a id="start-ragents.reference.170-photo-collection"></a>
 
-### ragents.reference.170-photo-collection: Bildsammlung mit Beschriftungen
+### ragents.reference.170-photo-collection: Image collection with captions
 
-Zeigt eine eigene Mini-App eines KI-Schreibhelfers mit Bildvorschauen, bearbeitbaren Beschriftungen und direktem Chat. Die Auswahl lokaler Bilder sendet sie noch nicht an die KI.
+Shows a mini-app of an AI writing helper with image previews, editable captions, and a direct chat. Selecting local images does not send them to the AI yet.
 
-Tags: Anwendungsfall, Konzeptdemo, Agententeams, Mini-Apps, LLM-Actor mit View, Actor-Chat.
+Tags: Use case, Concept demo, Agent teams, Mini-apps, LLM actor with view, Actor chat.
 
 ```json
 {
   "id": "ragents.reference.170-photo-collection",
   "owner": "ragents.reference",
-  "title": "Bildsammlung mit Beschriftungen",
-  "description": "Zeigt eine eigene Mini-App eines KI-Schreibhelfers mit Bildvorschauen, bearbeitbaren Beschriftungen und direktem Chat. Die Auswahl lokaler Bilder sendet sie noch nicht an die KI.",
+  "title": "Image collection with captions",
+  "description": "Shows a mini-app of an AI writing helper with image previews, editable captions, and a direct chat. Selecting local images does not send them to the AI yet.",
   "order": 170,
   "tags": [
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "Agententeams",
-    "Mini-Apps",
-    "LLM-Actor mit View",
-    "Actor-Chat"
+    "Use case",
+    "Concept demo",
+    "Agent teams",
+    "Mini-apps",
+    "LLM actor with view",
+    "Actor chat"
   ],
   "action": "skill",
   "skill": "170-photo-collection",
-  "category": "Mini-Apps",
-  "prompt": "Ich hätte gern einen KI-Schreibhelfer mit eigener Oberfläche für eine kleine Bildsammlung: Bilder hineinziehen, Vorschauen sehen, die Liste durchsuchen und pro Bild Titel, Bildunterschrift und Alternativtext bearbeiten. Daneben möchte ich einen Chat mit genau diesem Schreibhelfer und eine lesbare Übersicht aller Beschriftungen. Meine Bilder bleiben lokal, bis ich selbst etwas im Chat sende. Nutze die vorhandenen Bausteine."
+  "category": "Mini-apps",
+  "prompt": "I would like an AI writing helper with its own interface for a small image collection: drag images in, see previews, search the list, and edit title, caption, and alt text for each image. Next to it I want a chat with exactly this writing helper and a readable overview of all captions. My images stay local until I send something in the chat myself. Use the existing building blocks."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/170-photo-collection/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/170-photo-collection/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Bildsammlung mit Beschriftungen",
-  "message": "Nutze den Skill 170-photo-collection für diesen Auftrag.\n\nIch hätte gern einen KI-Schreibhelfer mit eigener Oberfläche für eine kleine Bildsammlung: Bilder hineinziehen, Vorschauen sehen, die Liste durchsuchen und pro Bild Titel, Bildunterschrift und Alternativtext bearbeiten. Daneben möchte ich einen Chat mit genau diesem Schreibhelfer und eine lesbare Übersicht aller Beschriftungen. Meine Bilder bleiben lokal, bis ich selbst etwas im Chat sende. Nutze die vorhandenen Bausteine."
+  "title": "Image collection with captions",
+  "message": "Use the skill 170-photo-collection for this task.\n\nI would like an AI writing helper with its own interface for a small image collection: drag images in, see previews, search the list, and edit title, caption, and alt text for each image. Next to it I want a chat with exactly this writing helper and a readable overview of all captions. My images stay local until I send something in the chat myself. Use the existing building blocks."
 }
 ```
 
 <a id="start-ragents.reference.180-decision-workbench"></a>
 
-### ragents.reference.180-decision-workbench: Entscheidungswerkstatt
+### ragents.reference.180-decision-workbench: Decision workbench
 
-Zeigt ein fest geführtes Gespräch ohne KI-Aufrufe. Ein TypeScript-Actor hält Antworten und Fortschritt; Änderungen am Entscheidungsentwurf werden sichtbar.
+Shows a strictly guided conversation without AI calls. A TypeScript actor keeps answers and progress; changes to the decision draft become visible.
 
-Tags: Anwendungsfall, Konzeptdemo, TypeScript-Actors, Actor-Zustand, Mini-Apps, Frei gesteuerter Chat.
+Tags: Use case, Concept demo, TypeScript actors, Actor state, Mini-apps, Controlled chat.
 
 ```json
 {
   "id": "ragents.reference.180-decision-workbench",
   "owner": "ragents.reference",
-  "title": "Entscheidungswerkstatt",
-  "description": "Zeigt ein fest geführtes Gespräch ohne KI-Aufrufe. Ein TypeScript-Actor hält Antworten und Fortschritt; Änderungen am Entscheidungsentwurf werden sichtbar.",
+  "title": "Decision workbench",
+  "description": "Shows a strictly guided conversation without AI calls. A TypeScript actor keeps answers and progress; changes to the decision draft become visible.",
   "order": 180,
   "tags": [
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "TypeScript-Actors",
-    "Actor-Zustand",
-    "Mini-Apps",
-    "Frei gesteuerter Chat"
+    "Use case",
+    "Concept demo",
+    "TypeScript actors",
+    "Actor state",
+    "Mini-apps",
+    "Controlled chat"
   ],
   "action": "skill",
   "skill": "180-decision-workbench",
-  "category": "Mini-Apps",
-  "prompt": "Ich hätte gern eine lokale Entscheidungshilfe: Bibliothek oder Café als Lernort? Feste Fragen führen durch Ziel, Optionen und Kriterien, protokollieren meine Entscheidung und zeigen den Fortschritt. Bei einer Meinungsänderung will ich den Unterschied zum vorherigen Entwurf sehen. Ein TypeScript-Actor führt den gemeinsamen Fortschritt und die Antworten. Das soll eine klar erkennbare Anleitung ohne KI-Aufrufe sein, mit den vorhandenen Chatbausteinen."
+  "category": "Mini-apps",
+  "prompt": "I would like a local decision aid: library or cafe as a place to study? Fixed questions guide me through goal, options, and criteria, record my decision, and show the progress. If I change my mind, I want to see the difference from the previous draft. A TypeScript actor keeps the shared progress and the answers. This should be a clearly recognizable guide without AI calls, using the existing chat building blocks."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/180-decision-workbench/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/180-decision-workbench/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Entscheidungswerkstatt",
-  "message": "Nutze den Skill 180-decision-workbench für diesen Auftrag.\n\nIch hätte gern eine lokale Entscheidungshilfe: Bibliothek oder Café als Lernort? Feste Fragen führen durch Ziel, Optionen und Kriterien, protokollieren meine Entscheidung und zeigen den Fortschritt. Bei einer Meinungsänderung will ich den Unterschied zum vorherigen Entwurf sehen. Ein TypeScript-Actor führt den gemeinsamen Fortschritt und die Antworten. Das soll eine klar erkennbare Anleitung ohne KI-Aufrufe sein, mit den vorhandenen Chatbausteinen."
+  "title": "Decision workbench",
+  "message": "Use the skill 180-decision-workbench for this task.\n\nI would like a local decision aid: library or cafe as a place to study? Fixed questions guide me through goal, options, and criteria, record my decision, and show the progress. If I change my mind, I want to see the difference from the previous draft. A TypeScript actor keeps the shared progress and the answers. This should be a clearly recognizable guide without AI calls, using the existing chat building blocks."
 }
 ```
 
 <a id="start-ragents.reference.190-review-queue"></a>
 
-### ragents.reference.190-review-queue: Texte prüfen und Ergebnisse gezielt teilen
+### ragents.reference.190-review-queue: Review texts and share results selectively
 
-Zeigt an drei Textprüfungen die Input-Warteschlange, gezielte Ergebnisfreigaben und den Actor-Stopp. Die Mini-App sammelt ungeschützte Statusmeldungen.
+Shows the input queue, selective result sharing, and stopping an actor using three text reviews. The mini-app collects unprotected status messages.
 
-Tags: Journalprüfung, Anwendungsfall, Konzeptdemo, Agententeams, Input-Warteschlange, Actor-Stopp, Artefakte und Zugriff, Mini-Apps.
+Tags: Journal inspection, Use case, Concept demo, Agent teams, Input queue, Stopping actors, Artifacts and access, Mini-apps.
 
 ```json
 {
   "id": "ragents.reference.190-review-queue",
   "owner": "ragents.reference",
-  "title": "Texte prüfen und Ergebnisse gezielt teilen",
-  "description": "Zeigt an drei Textprüfungen die Input-Warteschlange, gezielte Ergebnisfreigaben und den Actor-Stopp. Die Mini-App sammelt ungeschützte Statusmeldungen.",
+  "title": "Review texts and share results selectively",
+  "description": "Shows the input queue, selective result sharing, and stopping an actor using three text reviews. The mini-app collects unprotected status messages.",
   "order": 190,
   "tags": [
-    "Journalprüfung",
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "Agententeams",
-    "Input-Warteschlange",
-    "Actor-Stopp",
-    "Artefakte und Zugriff",
-    "Mini-Apps"
+    "Journal inspection",
+    "Use case",
+    "Concept demo",
+    "Agent teams",
+    "Input queue",
+    "Stopping actors",
+    "Artifacts and access",
+    "Mini-apps"
   ],
   "action": "skill",
   "skill": "190-review-queue",
-  "category": "Mini-Apps",
-  "prompt": "Ich hätte gern drei getrennte Textprüfungen zum Nachbarschaftsfest, die ich während der ersten Prüfung einreihe. Nur der bestimmte Empfänger darf das erste Ergebnis lesen; prüfe auch einen Zugriff ohne Freigabe. Danach meldest du den Prüfer ab. Belege Reihenfolge, Zugriff und Stopp. Eine Oberfläche des vorhandenen Koordinators zeigt auf der Fläche nur ungeschützte Statusmeldungen verschiedener Absender. Eine eigene Notiz möchte ich ergänzen können."
+  "category": "Mini-apps",
+  "prompt": "I would like three separate text reviews for the neighborhood party, which I queue during the first review. Only the designated recipient may read the first result; also test an access without sharing. After that, you sign the reviewer off. Prove order, access, and stop. An interface of the existing coordinator shows only unprotected status messages from various senders on the surface. I want to be able to add a note of my own."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/190-review-queue/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/190-review-queue/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Texte prüfen und Ergebnisse gezielt teilen",
-  "message": "Nutze den Skill 190-review-queue für diesen Auftrag.\n\nIch hätte gern drei getrennte Textprüfungen zum Nachbarschaftsfest, die ich während der ersten Prüfung einreihe. Nur der bestimmte Empfänger darf das erste Ergebnis lesen; prüfe auch einen Zugriff ohne Freigabe. Danach meldest du den Prüfer ab. Belege Reihenfolge, Zugriff und Stopp. Eine Oberfläche des vorhandenen Koordinators zeigt auf der Fläche nur ungeschützte Statusmeldungen verschiedener Absender. Eine eigene Notiz möchte ich ergänzen können."
+  "title": "Review texts and share results selectively",
+  "message": "Use the skill 190-review-queue for this task.\n\nI would like three separate text reviews for the neighborhood party, which I queue during the first review. Only the designated recipient may read the first result; also test an access without sharing. After that, you sign the reviewer off. Prove order, access, and stop. An interface of the existing coordinator shows only unprotected status messages from various senders on the surface. I want to be able to add a note of my own."
 }
 ```
 
 <a id="start-ragents.reference.220-actor-approval-list"></a>
 
-### ragents.reference.220-actor-approval-list: Vorschläge gemeinsam freigeben
+### ragents.reference.220-actor-approval-list: Approve proposals together
 
-Zeigt einen KI-Listenhelfer mit eigener Mini-App und gemeinsamem Zustand. Seine Vorschläge lassen sich per Funktion bestätigen, ohne eine weitere KI-Antwort abzuwarten.
+Shows an AI list helper with its own mini-app and shared state. Its proposals can be confirmed through a function without waiting for another AI answer.
 
-Tags: Anwendungsfall, Konzeptdemo, Agententeams, Actor-Funktionen, Actor-Zustand, Mini-Apps, LLM-Actor mit View, Frei gesteuerter Chat.
+Tags: Use case, Concept demo, Agent teams, Actor functions, Actor state, Mini-apps, LLM actor with view, Controlled chat.
 
 ```json
 {
   "id": "ragents.reference.220-actor-approval-list",
   "owner": "ragents.reference",
-  "title": "Vorschläge gemeinsam freigeben",
-  "description": "Zeigt einen KI-Listenhelfer mit eigener Mini-App und gemeinsamem Zustand. Seine Vorschläge lassen sich per Funktion bestätigen, ohne eine weitere KI-Antwort abzuwarten.",
+  "title": "Approve proposals together",
+  "description": "Shows an AI list helper with its own mini-app and shared state. Its proposals can be confirmed through a function without waiting for another AI answer.",
   "order": 220,
   "tags": [
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "Agententeams",
-    "Actor-Funktionen",
-    "Actor-Zustand",
-    "Mini-Apps",
-    "LLM-Actor mit View",
-    "Frei gesteuerter Chat"
+    "Use case",
+    "Concept demo",
+    "Agent teams",
+    "Actor functions",
+    "Actor state",
+    "Mini-apps",
+    "LLM actor with view",
+    "Controlled chat"
   ],
   "action": "skill",
   "skill": "220-actor-approval-list",
-  "category": "Mini-Apps",
-  "prompt": "Ich hätte gern einen KI-Listenhelfer mit eigener Oberfläche. Dort prüfe und bestätige ich seine Vorschläge; bestätigte Einträge stehen daneben. Der Helfer benutzt dieselben Funktionen und dieselbe Liste, wenn ich ihn im Chat um einen Eintrag bitte. Lass ihn einen echten Vorschlag machen. Die Freigabe per Knopf soll ohne weitere KI-Antwort seinen gespeicherten Vorschlag bestätigen. Danach möchte ich selbst einen eingeben."
+  "category": "Mini-apps",
+  "prompt": "I would like an AI list helper with its own interface. There I review and confirm its proposals; confirmed entries are shown next to them. The helper uses the same functions and the same list when I ask it for an entry in the chat. Have it make a real proposal. Approval by button should confirm its saved proposal without another AI answer. After that I want to enter one myself."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/220-actor-approval-list/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/220-actor-approval-list/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Vorschläge gemeinsam freigeben",
-  "message": "Nutze den Skill 220-actor-approval-list für diesen Auftrag.\n\nIch hätte gern einen KI-Listenhelfer mit eigener Oberfläche. Dort prüfe und bestätige ich seine Vorschläge; bestätigte Einträge stehen daneben. Der Helfer benutzt dieselben Funktionen und dieselbe Liste, wenn ich ihn im Chat um einen Eintrag bitte. Lass ihn einen echten Vorschlag machen. Die Freigabe per Knopf soll ohne weitere KI-Antwort seinen gespeicherten Vorschlag bestätigen. Danach möchte ich selbst einen eingeben."
+  "title": "Approve proposals together",
+  "message": "Use the skill 220-actor-approval-list for this task.\n\nI would like an AI list helper with its own interface. There I review and confirm its proposals; confirmed entries are shown next to them. The helper uses the same functions and the same list when I ask it for an entry in the chat. Have it make a real proposal. Approval by button should confirm its saved proposal without another AI answer. After that I want to enter one myself."
 }
 ```
 
 <a id="start-ragents.reference.230-shared-state-views"></a>
 
-### ragents.reference.230-shared-state-views: Eine Liste in zwei Ansichten
+### ragents.reference.230-shared-state-views: One list in two views
 
-Zeigt zwei Mini-App-Ansichten desselben Actor-Zustands. Änderungen erscheinen in beiden; eine Ansicht lässt sich unabhängig ausblenden.
+Shows two mini-app views of the same actor state. Changes appear in both; one view can be hidden independently.
 
-Tags: Anwendungsfall, Konzeptdemo, Actor-Funktionen, Actor-Zustand, Mini-Apps.
+Tags: Use case, Concept demo, Actor functions, Actor state, Mini-apps.
 
 ```json
 {
   "id": "ragents.reference.230-shared-state-views",
   "owner": "ragents.reference",
-  "title": "Eine Liste in zwei Ansichten",
-  "description": "Zeigt zwei Mini-App-Ansichten desselben Actor-Zustands. Änderungen erscheinen in beiden; eine Ansicht lässt sich unabhängig ausblenden.",
+  "title": "One list in two views",
+  "description": "Shows two mini-app views of the same actor state. Changes appear in both; one view can be hidden independently.",
   "order": 230,
   "tags": [
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "Actor-Funktionen",
-    "Actor-Zustand",
-    "Mini-Apps"
+    "Use case",
+    "Concept demo",
+    "Actor functions",
+    "Actor state",
+    "Mini-apps"
   ],
   "action": "skill",
   "skill": "230-shared-state-views",
-  "category": "Mini-Apps",
-  "prompt": "Ich hätte gern eine Aufgabenliste mit zwei kleinen Fenstern: In einem ergänze und erledige ich Aufgaben, im anderen sehe ich nur offene und erledigte Anzahlen. Beide gehören zum selben Helfer und benutzen dieselben Daten. Ergänze wirklich eine Aufgabe und erledige sie. Beide Fenster sollen sofort mitziehen. Danach blende nur die Zusammenfassung aus und wieder ein; meine Liste bleibt erhalten."
+  "category": "Mini-apps",
+  "prompt": "I would like a task list with two small windows: in one I add and complete tasks, in the other I only see the open and completed counts. Both belong to the same helper and use the same data. Actually add a task and complete it. Both windows should update immediately. Then hide only the summary and show it again; my list is kept."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/230-shared-state-views/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/230-shared-state-views/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Eine Liste in zwei Ansichten",
-  "message": "Nutze den Skill 230-shared-state-views für diesen Auftrag.\n\nIch hätte gern eine Aufgabenliste mit zwei kleinen Fenstern: In einem ergänze und erledige ich Aufgaben, im anderen sehe ich nur offene und erledigte Anzahlen. Beide gehören zum selben Helfer und benutzen dieselben Daten. Ergänze wirklich eine Aufgabe und erledige sie. Beide Fenster sollen sofort mitziehen. Danach blende nur die Zusammenfassung aus und wieder ein; meine Liste bleibt erhalten."
+  "title": "One list in two views",
+  "message": "Use the skill 230-shared-state-views for this task.\n\nI would like a task list with two small windows: in one I add and complete tasks, in the other I only see the open and completed counts. Both belong to the same helper and use the same data. Actually add a task and complete it. Both windows should update immediately. Then hide only the summary and show it again; my list is kept."
 }
 ```
 
 <a id="start-ragents.reference.240-live-result-list"></a>
 
-### ragents.reference.240-live-result-list: Antworten automatisch sammeln
+### ragents.reference.240-live-result-list: Collect answers automatically
 
-Zeigt, wie ein TypeScript-Actor fertige Agentenantworten per Abonnement automatisch sammelt. Auch weitere Beiträge desselben Helfers lassen die Liste wachsen.
+Shows how a TypeScript actor automatically collects finished agent answers through a subscription. Further contributions from the same helper also make the list grow.
 
-Tags: Anwendungsfall, Konzeptdemo, TypeScript-Actors, Subscriptions, Actor-Zustand, Mini-Apps.
+Tags: Use case, Concept demo, TypeScript actors, Subscriptions, Actor state, Mini-apps.
 
 ```json
 {
   "id": "ragents.reference.240-live-result-list",
   "owner": "ragents.reference",
-  "title": "Antworten automatisch sammeln",
-  "description": "Zeigt, wie ein TypeScript-Actor fertige Agentenantworten per Abonnement automatisch sammelt. Auch weitere Beiträge desselben Helfers lassen die Liste wachsen.",
+  "title": "Collect answers automatically",
+  "description": "Shows how a TypeScript actor automatically collects finished agent answers through a subscription. Further contributions from the same helper also make the list grow.",
   "order": 240,
   "tags": [
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "TypeScript-Actors",
+    "Use case",
+    "Concept demo",
+    "TypeScript actors",
     "Subscriptions",
-    "Actor-Zustand",
-    "Mini-Apps"
+    "Actor state",
+    "Mini-apps"
   ],
   "action": "skill",
   "skill": "240-live-result-list",
-  "category": "Mini-Apps",
-  "prompt": "Ich hätte gern zwei KI-Helfer, die je eine kurze Idee für einen gemeinsamen Lernnachmittag vorschlagen. Ihre fertigen Antworten sollen automatisch in einer kleinen Ergebnisliste auf der Fläche erscheinen. Ein programmierter Sammler merkt sich die Beiträge; dafür soll keine weitere KI die Texte kopieren. Lass danach einen Helfer eine zweite Idee ergänzen. Die Liste soll von selbst wachsen, auch wenn Du im Chat gerade nichts schreibst."
+  "category": "Mini-apps",
+  "prompt": "I would like two AI helpers that each suggest a short idea for a shared learning afternoon. Their finished answers should automatically appear in a small result list on the surface. A programmed collector remembers the contributions; no further AI should copy the texts for this. Then have one helper add a second idea. The list should grow by itself, even while you are not writing anything in the chat."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/240-live-result-list/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/240-live-result-list/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Antworten automatisch sammeln",
-  "message": "Nutze den Skill 240-live-result-list für diesen Auftrag.\n\nIch hätte gern zwei KI-Helfer, die je eine kurze Idee für einen gemeinsamen Lernnachmittag vorschlagen. Ihre fertigen Antworten sollen automatisch in einer kleinen Ergebnisliste auf der Fläche erscheinen. Ein programmierter Sammler merkt sich die Beiträge; dafür soll keine weitere KI die Texte kopieren. Lass danach einen Helfer eine zweite Idee ergänzen. Die Liste soll von selbst wachsen, auch wenn Du im Chat gerade nichts schreibst."
+  "title": "Collect answers automatically",
+  "message": "Use the skill 240-live-result-list for this task.\n\nI would like two AI helpers that each suggest a short idea for a shared learning afternoon. Their finished answers should automatically appear in a small result list on the surface. A programmed collector remembers the contributions; no further AI should copy the texts for this. Then have one helper add a second idea. The list should grow by itself, even while you are not writing anything in the chat."
 }
 ```
 
 <a id="start-ragents.reference.250-balcony-wizard"></a>
 
-### ragents.reference.250-balcony-wizard: Balkon-Wizard
+### ragents.reference.250-balcony-wizard: Balcony wizard
 
-Zeigt den Aufbau einer eigenständigen Mini-App für ein adaptives KI-Interview. Das LLM wählt die Fragen, das Formular begrenzt das Gespräch auf fünf Antworten.
+Shows how to build a standalone mini-app for an adaptive AI interview. The LLM chooses the questions, the form limits the conversation to five answers.
 
-Tags: Anwendungsfall, Konzeptdemo, Mini-Apps, Actor-Funktionen, Actor-Zustand.
+Tags: Use case, Concept demo, Mini-apps, Actor functions, Actor state.
 
 ```json
 {
   "id": "ragents.reference.250-balcony-wizard",
   "owner": "ragents.reference",
-  "title": "Balkon-Wizard",
-  "description": "Zeigt den Aufbau einer eigenständigen Mini-App für ein adaptives KI-Interview. Das LLM wählt die Fragen, das Formular begrenzt das Gespräch auf fünf Antworten.",
+  "title": "Balcony wizard",
+  "description": "Shows how to build a standalone mini-app for an adaptive AI interview. The LLM chooses the questions, the form limits the conversation to five answers.",
   "order": 250,
   "tags": [
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "Mini-Apps",
-    "Actor-Funktionen",
-    "Actor-Zustand"
+    "Use case",
+    "Concept demo",
+    "Mini-apps",
+    "Actor functions",
+    "Actor state"
   ],
   "action": "skill",
   "skill": "250-balcony-wizard",
-  "category": "Mini-Apps",
-  "prompt": "Ich hätte gern einen Balkon-Wizard als eigenständige App auf der Fläche. Sie vermittelt ein begrenztes Gespräch mit einem KI-Berater im Hintergrund. Nach jeder Antwort wählt das LLM die nächste passende Frage, keine feste Fragenliste. Nach fünf Antworten gibt es Gestaltungstipps. Ich antworte nur in der App; sie zeigt Frage, Fortschritt, Lade- und Fehlerzustände. Nutze gemeinsame Layouts und Formulare. Keine App in einer LLM-Chatkarte."
+  "category": "Mini-apps",
+  "prompt": "I would like a balcony wizard as a standalone app on the surface. It mediates a limited conversation with an AI advisor in the background. After each answer, the LLM chooses the next fitting question, no fixed list of questions. After five answers there are design tips. I answer only in the app; it shows question, progress, loading, and error states. Use shared layouts and forms. No app in an LLM chat card."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/250-balcony-wizard/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/250-balcony-wizard/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Balkon-Wizard",
-  "message": "Nutze den Skill 250-balcony-wizard für diesen Auftrag.\n\nIch hätte gern einen Balkon-Wizard als eigenständige App auf der Fläche. Sie vermittelt ein begrenztes Gespräch mit einem KI-Berater im Hintergrund. Nach jeder Antwort wählt das LLM die nächste passende Frage, keine feste Fragenliste. Nach fünf Antworten gibt es Gestaltungstipps. Ich antworte nur in der App; sie zeigt Frage, Fortschritt, Lade- und Fehlerzustände. Nutze gemeinsame Layouts und Formulare. Keine App in einer LLM-Chatkarte."
+  "title": "Balcony wizard",
+  "message": "Use the skill 250-balcony-wizard for this task.\n\nI would like a balcony wizard as a standalone app on the surface. It mediates a limited conversation with an AI advisor in the background. After each answer, the LLM chooses the next fitting question, no fixed list of questions. After five answers there are design tips. I answer only in the app; it shows question, progress, loading, and error states. Use shared layouts and forms. No app in an LLM chat card."
 }
 ```
 
-### Kategorie: Zusammenarbeit
-
-<a id="start-ragents.reference.20-circle-of-four"></a>
-
-### ragents.reference.20-circle-of-four: Eine Liste durch vier KI-Helfer reichen
-
-Zeigt beim Aufbau eines Wortspiels, wie vier KI-Helfer nacheinander beitragen und ein TypeScript-Actor die Weitergabe nach zwölf Wörtern beendet.
-
-Tags: Anwendungsfall, Konzeptdemo, Agententeams, TypeScript-Actors, Subscriptions.
-
-```json
-{
-  "id": "ragents.reference.20-circle-of-four",
-  "owner": "ragents.reference",
-  "title": "Eine Liste durch vier KI-Helfer reichen",
-  "description": "Zeigt beim Aufbau eines Wortspiels, wie vier KI-Helfer nacheinander beitragen und ein TypeScript-Actor die Weitergabe nach zwölf Wörtern beendet.",
-  "order": 20,
-  "tags": [
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "Agententeams",
-    "TypeScript-Actors",
-    "Subscriptions"
-  ],
-  "action": "skill",
-  "skill": "20-circle-of-four",
-  "category": "Zusammenarbeit",
-  "prompt": "Ich hätte gern vier KIs mit den Namen rot, gelb, blau und grün, die reihum ein Wortspiel spielen: jede hängt ein Wort an, das ihr zum zuletzt genannten einfällt. Nach zwölf Beiträgen ist Schluss, und ich will die fertige Liste als Dokument sehen."
-}
-```
-
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/20-circle-of-four/SKILL.md)
-
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
-
-```json
-{
-  "title": "Eine Liste durch vier KI-Helfer reichen",
-  "message": "Nutze den Skill 20-circle-of-four für diesen Auftrag.\n\nIch hätte gern vier KIs mit den Namen rot, gelb, blau und grün, die reihum ein Wortspiel spielen: jede hängt ein Wort an, das ihr zum zuletzt genannten einfällt. Nach zwölf Beiträgen ist Schluss, und ich will die fertige Liste als Dokument sehen."
-}
-```
+### Category: Collaboration
 
 <a id="start-ragents.reference.decision-brief"></a>
 
-### ragents.reference.decision-brief: Entscheidung klären
+### ragents.reference.decision-brief: Clarify a decision
 
-Zeigt, wie eine wiederverwendbare Skill-Anleitung eine Entscheidung im Chat von Kriterien zur Auswahl führt, ohne zusätzliche Actors oder Scripts anzulegen.
+Shows how a reusable skill guide leads a decision in the chat from criteria to a choice without creating additional actors or scripts.
 
-Tags: Anwendungsfall, Konzeptdemo, Skills.
+Tags: Use case, Concept demo, Skills.
 
 ```json
 {
   "id": "ragents.reference.decision-brief",
   "owner": "ragents.reference",
-  "title": "Entscheidung klären",
-  "description": "Zeigt, wie eine wiederverwendbare Skill-Anleitung eine Entscheidung im Chat von Kriterien zur Auswahl führt, ohne zusätzliche Actors oder Scripts anzulegen.",
+  "title": "Clarify a decision",
+  "description": "Shows how a reusable skill guide leads a decision in the chat from criteria to a choice without creating additional actors or scripts.",
   "order": 20,
   "tags": [
-    "Anwendungsfall",
-    "Konzeptdemo",
+    "Use case",
+    "Concept demo",
     "Skills"
   ],
   "action": "skill",
   "skill": "decision-brief",
-  "category": "Zusammenarbeit",
-  "prompt": "Ich hätte gern Hilfe dabei, eine offene Entscheidung zu klären und den nächsten Schritt festzuhalten."
+  "category": "Collaboration",
+  "prompt": "I would like help clarifying an open decision and recording the next step."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/decision-brief/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/decision-brief/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Entscheidung klären",
-  "message": "Nutze den Skill decision-brief für diesen Auftrag.\n\nIch hätte gern Hilfe dabei, eine offene Entscheidung zu klären und den nächsten Schritt festzuhalten."
+  "title": "Clarify a decision",
+  "message": "Use the skill decision-brief for this task.\n\nI would like help clarifying an open decision and recording the next step."
+}
+```
+
+<a id="start-ragents.reference.20-circle-of-four"></a>
+
+### ragents.reference.20-circle-of-four: Pass a list through four AI helpers
+
+Shows, while building a word game, how four AI helpers contribute one after another and a TypeScript actor ends the handover after twelve words.
+
+Tags: Use case, Concept demo, Agent teams, TypeScript actors, Subscriptions.
+
+```json
+{
+  "id": "ragents.reference.20-circle-of-four",
+  "owner": "ragents.reference",
+  "title": "Pass a list through four AI helpers",
+  "description": "Shows, while building a word game, how four AI helpers contribute one after another and a TypeScript actor ends the handover after twelve words.",
+  "order": 20,
+  "tags": [
+    "Use case",
+    "Concept demo",
+    "Agent teams",
+    "TypeScript actors",
+    "Subscriptions"
+  ],
+  "action": "skill",
+  "skill": "20-circle-of-four",
+  "category": "Collaboration",
+  "prompt": "I would like four AIs named red, yellow, blue, and green that play a word game in rotation: each one appends a word that comes to mind for the last one named. After twelve contributions it is over, and I want to see the finished list as a document."
+}
+```
+
+[Working instructions of the skill](../../plugins/ragents.reference/skills/20-circle-of-four/SKILL.md)
+
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
+
+```json
+{
+  "title": "Pass a list through four AI helpers",
+  "message": "Use the skill 20-circle-of-four for this task.\n\nI would like four AIs named red, yellow, blue, and green that play a word game in rotation: each one appends a word that comes to mind for the last one named. After twelve contributions it is over, and I want to see the finished list as a document."
 }
 ```
 
 <a id="start-ragents.reference.30-llm-without-runtime-knowledge"></a>
 
-### ragents.reference.30-llm-without-runtime-knowledge: Eine Nachricht überbringen lassen
+### ragents.reference.30-llm-without-runtime-knowledge: Have a message delivered
 
-Zeigt eine einseitige Weiterleitung zwischen zwei KI-Helfern, die den Ablauf und den anderen Teilnehmer nicht kennen.
+Shows a one-way forwarding between two AI helpers that know neither the flow nor the other participant.
 
-Tags: Konzeptdemo, Agententeams, Subscriptions, Actor-Stopp.
+Tags: Concept demo, Agent teams, Subscriptions, Stopping actors.
 
 ```json
 {
   "id": "ragents.reference.30-llm-without-runtime-knowledge",
   "owner": "ragents.reference",
-  "title": "Eine Nachricht überbringen lassen",
-  "description": "Zeigt eine einseitige Weiterleitung zwischen zwei KI-Helfern, die den Ablauf und den anderen Teilnehmer nicht kennen.",
+  "title": "Have a message delivered",
+  "description": "Shows a one-way forwarding between two AI helpers that know neither the flow nor the other participant.",
   "order": 30,
   "tags": [
-    "Konzeptdemo",
-    "Agententeams",
+    "Concept demo",
+    "Agent teams",
     "Subscriptions",
-    "Actor-Stopp"
+    "Stopping actors"
   ],
   "action": "skill",
   "skill": "30-llm-without-runtime-knowledge",
-  "category": "Zusammenarbeit",
-  "prompt": "Ich hätte gern zwei KIs, anna und ben, die sich genau einmal freundlich begrüßen, ohne voneinander oder von der Technik dahinter zu wissen: anna sagt einen herzlichen Satz, ben antwortet einmal darauf, danach ist Schluss. Sag mir hinterher kurz, dass wirklich nur in diese eine Richtung weitergereicht wurde und danach alles wieder aufgeräumt ist."
+  "category": "Collaboration",
+  "prompt": "I would like two AIs, anna and ben, that greet each other kindly exactly once without knowing about each other or the technology behind it: anna says a warm sentence, ben replies once, then it is over. Afterwards, briefly tell me that it really was passed on in only this one direction and that everything has been cleaned up again."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/30-llm-without-runtime-knowledge/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/30-llm-without-runtime-knowledge/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Eine Nachricht überbringen lassen",
-  "message": "Nutze den Skill 30-llm-without-runtime-knowledge für diesen Auftrag.\n\nIch hätte gern zwei KIs, anna und ben, die sich genau einmal freundlich begrüßen, ohne voneinander oder von der Technik dahinter zu wissen: anna sagt einen herzlichen Satz, ben antwortet einmal darauf, danach ist Schluss. Sag mir hinterher kurz, dass wirklich nur in diese eine Richtung weitergereicht wurde und danach alles wieder aufgeräumt ist."
+  "title": "Have a message delivered",
+  "message": "Use the skill 30-llm-without-runtime-knowledge for this task.\n\nI would like two AIs, anna and ben, that greet each other kindly exactly once without knowing about each other or the technology behind it: anna says a warm sentence, ben replies once, then it is over. Afterwards, briefly tell me that it really was passed on in only this one direction and that everything has been cleaned up again."
 }
 ```
 
 <a id="start-ragents.reference.learning-sprint"></a>
 
-### ragents.reference.learning-sprint: Lernziel in Etappen
+### ragents.reference.learning-sprint: Learning goal in stages
 
-Zeigt, wie eine wiederverwendbare Skill-Anleitung eine Lerneinheit im Chat an tatsächliche Antworten anpasst, ohne zusätzliche Actors oder Scripts anzulegen.
+Shows how a reusable skill guide adapts a learning unit in the chat to actual answers without creating additional actors or scripts.
 
-Tags: Anwendungsfall, Konzeptdemo, Skills.
+Tags: Use case, Concept demo, Skills.
 
 ```json
 {
   "id": "ragents.reference.learning-sprint",
   "owner": "ragents.reference",
-  "title": "Lernziel in Etappen",
-  "description": "Zeigt, wie eine wiederverwendbare Skill-Anleitung eine Lerneinheit im Chat an tatsächliche Antworten anpasst, ohne zusätzliche Actors oder Scripts anzulegen.",
+  "title": "Learning goal in stages",
+  "description": "Shows how a reusable skill guide adapts a learning unit in the chat to actual answers without creating additional actors or scripts.",
   "order": 30,
   "tags": [
-    "Anwendungsfall",
-    "Konzeptdemo",
+    "Use case",
+    "Concept demo",
     "Skills"
   ],
   "action": "skill",
   "skill": "learning-sprint",
-  "category": "Zusammenarbeit",
-  "prompt": "Ich hätte gern eine kurze Lerneinheit mit einer passenden Übung und einem nächsten Lernschritt."
+  "category": "Collaboration",
+  "prompt": "I would like a short learning unit with a fitting exercise and a next learning step."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/learning-sprint/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/learning-sprint/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Lernziel in Etappen",
-  "message": "Nutze den Skill learning-sprint für diesen Auftrag.\n\nIch hätte gern eine kurze Lerneinheit mit einer passenden Übung und einem nächsten Lernschritt."
+  "title": "Learning goal in stages",
+  "message": "Use the skill learning-sprint for this task.\n\nI would like a short learning unit with a fitting exercise and a next learning step."
 }
 ```
 
 <a id="start-ragents.reference.110-all-card-slots"></a>
 
-### ragents.reference.110-all-card-slots: Rückfrage, Aufgaben und Dokument zusammen sehen
+### ragents.reference.110-all-card-slots: See question, tasks, and document together
 
-Zeigt, wie Aufgabenstand, Dokument und eine offene Rückfrage gleichzeitig an einer Agentenkarte sichtbar bleiben.
+Shows how task progress, a document, and an open question stay visible on an agent card at the same time.
 
-Tags: Rückfragen, To-dos, Konzeptdemo.
+Tags: Questions, To-dos, Concept demo.
 
 ```json
 {
   "id": "ragents.reference.110-all-card-slots",
   "owner": "ragents.reference",
-  "title": "Rückfrage, Aufgaben und Dokument zusammen sehen",
-  "description": "Zeigt, wie Aufgabenstand, Dokument und eine offene Rückfrage gleichzeitig an einer Agentenkarte sichtbar bleiben.",
+  "title": "See question, tasks, and document together",
+  "description": "Shows how task progress, a document, and an open question stay visible on an agent card at the same time.",
   "order": 110,
   "tags": [
-    "Rückfragen",
+    "Questions",
     "To-dos",
-    "Konzeptdemo"
+    "Concept demo"
   ],
   "action": "skill",
   "skill": "110-all-card-slots",
-  "category": "Zusammenarbeit",
-  "prompt": "Ich hätte gern eine KI, die mir drei Aufgaben notiert - eine erledigte, eine in Arbeit und eine offene -, dazu ein kurzes Dokument schreibt und mich zum Schluss fragt, ob sie den offenen Punkt als Nächstes angehen soll. Antworte diese Frage nicht für mich, sondern halt dort an, damit ich Aufgabenliste, Dokument und Frage zusammen sehe und selbst antworten kann."
+  "category": "Collaboration",
+  "prompt": "I would like an AI that notes three tasks for me - one done, one in progress, and one open -, also writes a short document, and finally asks me whether it should tackle the open item next. Do not answer this question for me; stop there so that I can see the task list, document, and question together and answer myself."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/110-all-card-slots/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/110-all-card-slots/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Rückfrage, Aufgaben und Dokument zusammen sehen",
-  "message": "Nutze den Skill 110-all-card-slots für diesen Auftrag.\n\nIch hätte gern eine KI, die mir drei Aufgaben notiert - eine erledigte, eine in Arbeit und eine offene -, dazu ein kurzes Dokument schreibt und mich zum Schluss fragt, ob sie den offenen Punkt als Nächstes angehen soll. Antworte diese Frage nicht für mich, sondern halt dort an, damit ich Aufgabenliste, Dokument und Frage zusammen sehe und selbst antworten kann."
+  "title": "See question, tasks, and document together",
+  "message": "Use the skill 110-all-card-slots for this task.\n\nI would like an AI that notes three tasks for me - one done, one in progress, and one open -, also writes a short document, and finally asks me whether it should tackle the open item next. Do not answer this question for me; stop there so that I can see the task list, document, and question together and answer myself."
 }
 ```
 
 <a id="start-ragents.reference.210-moderator-handover"></a>
 
-### ragents.reference.210-moderator-handover: Gespräch an einen Moderator übergeben
+### ragents.reference.210-moderator-handover: Hand a conversation over to a moderator
 
-Zeigt die Übergabe eines laufenden Chats an einen anderen Primary-Actor. Der Moderator übernimmt als direkter Ansprechpartner und hält den Aufgabenfortschritt fest.
+Shows the handover of a running chat to another primary actor. The moderator takes over as the direct contact and records the task progress.
 
-Tags: Rückfragen, To-dos, Anwendungsfall, Konzeptdemo, Agententeams, Primary-Actor.
+Tags: Questions, To-dos, Use case, Concept demo, Agent teams, Primary actor.
 
 ```json
 {
   "id": "ragents.reference.210-moderator-handover",
   "owner": "ragents.reference",
-  "title": "Gespräch an einen Moderator übergeben",
-  "description": "Zeigt die Übergabe eines laufenden Chats an einen anderen Primary-Actor. Der Moderator übernimmt als direkter Ansprechpartner und hält den Aufgabenfortschritt fest.",
+  "title": "Hand a conversation over to a moderator",
+  "description": "Shows the handover of a running chat to another primary actor. The moderator takes over as the direct contact and records the task progress.",
   "order": 210,
   "tags": [
-    "Rückfragen",
+    "Questions",
     "To-dos",
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "Agententeams",
-    "Primary-Actor"
+    "Use case",
+    "Concept demo",
+    "Agent teams",
+    "Primary actor"
   ],
   "action": "skill",
   "skill": "210-moderator-handover",
-  "category": "Zusammenarbeit",
-  "prompt": "Ich hätte gern einen Workshop für einen ruhigeren Arbeitstag: Ein Planer bringt zwei Ideen mit, ein skeptischer Gast prüft die Nachteile. Ein Moderator übernimmt die Runde und spricht danach direkt mit mir im Chat, damit ich einen Vorschlag auswählen kann. Zeig die drei auf der Fläche und übergib das Gespräch wirklich an den Moderator. Seine Aufgabenliste zeigt den Fortschritt."
+  "category": "Collaboration",
+  "prompt": "I would like a workshop for a calmer workday: a planner brings two ideas, a skeptical guest examines the downsides. A moderator takes over the round and then talks directly with me in the chat so that I can pick a proposal. Show the three on the surface and actually hand the conversation over to the moderator. Its task list shows the progress."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/210-moderator-handover/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/210-moderator-handover/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Gespräch an einen Moderator übergeben",
-  "message": "Nutze den Skill 210-moderator-handover für diesen Auftrag.\n\nIch hätte gern einen Workshop für einen ruhigeren Arbeitstag: Ein Planer bringt zwei Ideen mit, ein skeptischer Gast prüft die Nachteile. Ein Moderator übernimmt die Runde und spricht danach direkt mit mir im Chat, damit ich einen Vorschlag auswählen kann. Zeig die drei auf der Fläche und übergib das Gespräch wirklich an den Moderator. Seine Aufgabenliste zeigt den Fortschritt."
+  "title": "Hand a conversation over to a moderator",
+  "message": "Use the skill 210-moderator-handover for this task.\n\nI would like a workshop for a calmer workday: a planner brings two ideas, a skeptical guest examines the downsides. A moderator takes over the round and then talks directly with me in the chat so that I can pick a proposal. Show the three on the surface and actually hand the conversation over to the moderator. Its task list shows the progress."
 }
 ```
 
-### Kategorie: Ereignisse und Abläufe
+### Category: Events and flows
 
 <a id="start-ragents.reference.35-actor-input-fifo"></a>
 
-### ragents.reference.35-actor-input-fifo: Drei Aufträge der Reihe nach erledigen
+### ragents.reference.35-actor-input-fifo: Complete three tasks in order
 
-Zeigt, ob während eines laufenden Turns eingereihte Aufträge getrennt und in Eingangsreihenfolge verarbeitet werden. Das Journal liefert die Belege.
+Shows whether tasks queued during a running turn are processed separately and in order of arrival. The journal provides the evidence.
 
-Tags: Journalprüfung, Konzeptdemo, Input-Warteschlange.
+Tags: Journal inspection, Concept demo, Input queue.
 
 ```json
 {
   "id": "ragents.reference.35-actor-input-fifo",
   "owner": "ragents.reference",
-  "title": "Drei Aufträge der Reihe nach erledigen",
-  "description": "Zeigt, ob während eines laufenden Turns eingereihte Aufträge getrennt und in Eingangsreihenfolge verarbeitet werden. Das Journal liefert die Belege.",
+  "title": "Complete three tasks in order",
+  "description": "Shows whether tasks queued during a running turn are processed separately and in order of arrival. The journal provides the evidence.",
   "order": 35,
   "tags": [
-    "Journalprüfung",
-    "Konzeptdemo",
-    "Input-Warteschlange"
+    "Journal inspection",
+    "Concept demo",
+    "Input queue"
   ],
   "action": "skill",
   "skill": "35-actor-input-fifo",
-  "category": "Ereignisse und Abläufe",
-  "prompt": "Ich hätte gern einen Helfer, der jeden Text, den ich ihm gebe, mit \"ERLEDIGT: \" und dem unveränderten Text beantwortet und beim Wort \"eins\" vorher ausgiebig nachdenkt. Während er noch an \"eins\" sitzt, schiebe ich ihm \"zwei\" und \"drei\" hinterher. Zeig mir danach mit Belegen, dass er alle drei sauber getrennt und genau in dieser Reihenfolge abgearbeitet hat und nichts vermischt wurde."
+  "category": "Events and flows",
+  "prompt": "I would like a helper that answers every text I give it with \"DONE: \" and the unchanged text, and thinks extensively beforehand on the word \"one\". While it is still working on \"one\", I send it \"two\" and \"three\" right after. Afterwards, show me with evidence that it handled all three cleanly separated and in exactly this order and that nothing got mixed up."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/35-actor-input-fifo/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/35-actor-input-fifo/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Drei Aufträge der Reihe nach erledigen",
-  "message": "Nutze den Skill 35-actor-input-fifo für diesen Auftrag.\n\nIch hätte gern einen Helfer, der jeden Text, den ich ihm gebe, mit \"ERLEDIGT: \" und dem unveränderten Text beantwortet und beim Wort \"eins\" vorher ausgiebig nachdenkt. Während er noch an \"eins\" sitzt, schiebe ich ihm \"zwei\" und \"drei\" hinterher. Zeig mir danach mit Belegen, dass er alle drei sauber getrennt und genau in dieser Reihenfolge abgearbeitet hat und nichts vermischt wurde."
+  "title": "Complete three tasks in order",
+  "message": "Use the skill 35-actor-input-fifo for this task.\n\nI would like a helper that answers every text I give it with \"DONE: \" and the unchanged text, and thinks extensively beforehand on the word \"one\". While it is still working on \"one\", I send it \"two\" and \"three\" right after. Afterwards, show me with evidence that it handled all three cleanly separated and in exactly this order and that nothing got mixed up."
 }
 ```
 
 <a id="start-ragents.reference.40-subscription-matrix"></a>
 
-### ragents.reference.40-subscription-matrix: Gezielt bei anderen Helfern mithören
+### ragents.reference.40-subscription-matrix: Listen in on other helpers selectively
 
-Zeigt, wie Abonnements nach Absender und Ereignisart filtern. Eine belegte Empfangstabelle macht passende und ausgeschlossene Ereignisse sichtbar.
+Shows how subscriptions filter by sender and event type. A receipt table with evidence makes matching and excluded events visible.
 
-Tags: Journalprüfung, Konzeptdemo, Subscriptions.
+Tags: Journal inspection, Concept demo, Subscriptions.
 
 ```json
 {
   "id": "ragents.reference.40-subscription-matrix",
   "owner": "ragents.reference",
-  "title": "Gezielt bei anderen Helfern mithören",
-  "description": "Zeigt, wie Abonnements nach Absender und Ereignisart filtern. Eine belegte Empfangstabelle macht passende und ausgeschlossene Ereignisse sichtbar.",
+  "title": "Listen in on other helpers selectively",
+  "description": "Shows how subscriptions filter by sender and event type. A receipt table with evidence makes matching and excluded events visible.",
   "order": 40,
   "tags": [
-    "Journalprüfung",
-    "Konzeptdemo",
+    "Journal inspection",
+    "Concept demo",
     "Subscriptions"
   ],
   "action": "skill",
   "skill": "40-subscription-matrix",
-  "category": "Ereignisse und Abläufe",
-  "prompt": "Ich hätte gern drei KIs a, b und c und dazu zwei Zuhörer: der eine soll nur mitbekommen, was a und b sagen, der andere nur, wenn eine der drei tatsächlich etwas ausgeführt hat. Lass danach alle drei etwas sagen und mindestens eine wirklich etwas tun. Gib mir am Ende eine Tabelle, bei welchem Zuhörer was angekommen ist und was nicht, und belege sie."
+  "category": "Events and flows",
+  "prompt": "I would like three AIs a, b, and c plus two listeners: one should only hear what a and b say, the other only when one of the three has actually executed something. Then have all three say something and at least one actually do something. At the end, give me a table of what arrived at which listener and what did not, and back it up with evidence."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/40-subscription-matrix/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/40-subscription-matrix/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Gezielt bei anderen Helfern mithören",
-  "message": "Nutze den Skill 40-subscription-matrix für diesen Auftrag.\n\nIch hätte gern drei KIs a, b und c und dazu zwei Zuhörer: der eine soll nur mitbekommen, was a und b sagen, der andere nur, wenn eine der drei tatsächlich etwas ausgeführt hat. Lass danach alle drei etwas sagen und mindestens eine wirklich etwas tun. Gib mir am Ende eine Tabelle, bei welchem Zuhörer was angekommen ist und was nicht, und belege sie."
+  "title": "Listen in on other helpers selectively",
+  "message": "Use the skill 40-subscription-matrix for this task.\n\nI would like three AIs a, b, and c plus two listeners: one should only hear what a and b say, the other only when one of the three has actually executed something. Then have all three say something and at least one actually do something. At the end, give me a table of what arrived at which listener and what did not, and back it up with evidence."
 }
 ```
 
 <a id="start-ragents.reference.50-subscription-removal"></a>
 
-### ragents.reference.50-subscription-removal: Eine Weiterleitung wieder abschalten
+### ragents.reference.50-subscription-removal: Turn a forwarding off again
 
-Zeigt die Wirkung eines entfernten Abonnements: Die erste Nachricht kommt an, nach dem Abschalten endet die Weiterleitung.
+Shows the effect of a removed subscription: The first message arrives, after turning it off the forwarding ends.
 
-Tags: Konzeptdemo, Subscriptions.
+Tags: Concept demo, Subscriptions.
 
 ```json
 {
   "id": "ragents.reference.50-subscription-removal",
   "owner": "ragents.reference",
-  "title": "Eine Weiterleitung wieder abschalten",
-  "description": "Zeigt die Wirkung eines entfernten Abonnements: Die erste Nachricht kommt an, nach dem Abschalten endet die Weiterleitung.",
+  "title": "Turn a forwarding off again",
+  "description": "Shows the effect of a removed subscription: The first message arrives, after turning it off the forwarding ends.",
   "order": 50,
   "tags": [
-    "Konzeptdemo",
+    "Concept demo",
     "Subscriptions"
   ],
   "action": "skill",
   "skill": "50-subscription-removal",
-  "category": "Ereignisse und Abläufe",
-  "prompt": "Ich hätte gern drei KIs: eine Quelle, eine Senke und eine dazwischen, die jedes Wort der Quelle wortgleich an die Senke durchreicht. Lass die Quelle zuerst \"eins\" sagen, nimm der mittleren danach das Mithören wieder weg und lass die Quelle \"zwei\" sagen. Erklär mir mit Belegen, was beim zweiten Mal passiert und ob bei der Senke noch etwas ankommt."
+  "category": "Events and flows",
+  "prompt": "I would like three AIs: a source, a sink, and one in between that passes every word of the source on to the sink verbatim. Have the source say \"one\" first, then take away the listening from the middle one and have the source say \"two\". Explain to me with evidence what happens the second time and whether anything still arrives at the sink."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/50-subscription-removal/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/50-subscription-removal/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Eine Weiterleitung wieder abschalten",
-  "message": "Nutze den Skill 50-subscription-removal für diesen Auftrag.\n\nIch hätte gern drei KIs: eine Quelle, eine Senke und eine dazwischen, die jedes Wort der Quelle wortgleich an die Senke durchreicht. Lass die Quelle zuerst \"eins\" sagen, nimm der mittleren danach das Mithören wieder weg und lass die Quelle \"zwei\" sagen. Erklär mir mit Belegen, was beim zweiten Mal passiert und ob bei der Senke noch etwas ankommt."
+  "title": "Turn a forwarding off again",
+  "message": "Use the skill 50-subscription-removal for this task.\n\nI would like three AIs: a source, a sink, and one in between that passes every word of the source on to the sink verbatim. Have the source say \"one\" first, then take away the listening from the middle one and have the source say \"two\". Explain to me with evidence what happens the second time and whether anything still arrives at the sink."
 }
 ```
 
 <a id="start-ragents.reference.60-stop-in-the-circle"></a>
 
-### ragents.reference.60-stop-in-the-circle: Einen Helfer in der Gesprächsrunde stoppen
+### ragents.reference.60-stop-in-the-circle: Stop a helper in the conversation circle
 
-Zeigt, wie der Stopp eines Actors eine Übergabekette unterbricht und was nachfolgende Actors noch erhalten.
+Shows how stopping an actor interrupts a handover chain and what subsequent actors still receive.
 
-Tags: Journalprüfung, Konzeptdemo, Actor-Stopp.
+Tags: Journal inspection, Concept demo, Stopping actors.
 
 ```json
 {
   "id": "ragents.reference.60-stop-in-the-circle",
   "owner": "ragents.reference",
-  "title": "Einen Helfer in der Gesprächsrunde stoppen",
-  "description": "Zeigt, wie der Stopp eines Actors eine Übergabekette unterbricht und was nachfolgende Actors noch erhalten.",
+  "title": "Stop a helper in the conversation circle",
+  "description": "Shows how stopping an actor interrupts a handover chain and what subsequent actors still receive.",
   "order": 60,
   "tags": [
-    "Journalprüfung",
-    "Konzeptdemo",
-    "Actor-Stopp"
+    "Journal inspection",
+    "Concept demo",
+    "Stopping actors"
   ],
   "action": "skill",
   "skill": "60-stop-in-the-circle",
-  "category": "Ereignisse und Abläufe",
-  "prompt": "Ich hätte gern vier KIs rot, gelb, blau und grün, die im Kreis eine Liste weiterreichen und jede eine eigene Zeile anhängt. Sobald die Liste einmal ganz herum war, schalte blau ab. Erzähl mir mit Belegen, woran die nächste Runde scheitert und ob grün danach überhaupt noch etwas bekommt."
+  "category": "Events and flows",
+  "prompt": "I would like four AIs red, yellow, blue, and green that pass a list around in a circle, each appending a line of its own. As soon as the list has gone all the way around once, switch blue off. Tell me with evidence why the next round fails and whether green still gets anything at all afterwards."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/60-stop-in-the-circle/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/60-stop-in-the-circle/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Einen Helfer in der Gesprächsrunde stoppen",
-  "message": "Nutze den Skill 60-stop-in-the-circle für diesen Auftrag.\n\nIch hätte gern vier KIs rot, gelb, blau und grün, die im Kreis eine Liste weiterreichen und jede eine eigene Zeile anhängt. Sobald die Liste einmal ganz herum war, schalte blau ab. Erzähl mir mit Belegen, woran die nächste Runde scheitert und ob grün danach überhaupt noch etwas bekommt."
+  "title": "Stop a helper in the conversation circle",
+  "message": "Use the skill 60-stop-in-the-circle for this task.\n\nI would like four AIs red, yellow, blue, and green that pass a list around in a circle, each appending a line of its own. As soon as the list has gone all the way around once, switch blue off. Tell me with evidence why the next round fails and whether green still gets anything at all afterwards."
 }
 ```
 
-### Kategorie: Dateien und Ergebnisse
+### Category: Files and results
 
 <a id="start-ragents.reference.65-artifact-least-privilege"></a>
 
-### ragents.reference.65-artifact-least-privilege: Eine Notiz gezielt weitergeben
+### ragents.reference.65-artifact-least-privilege: Pass on a note selectively
 
-Zeigt, wie die ausdrückliche Weitergabe einer Notiz den Lesezugriff steuert und ein abgelehnter Zugriff die Freigabe unverändert lässt.
+Shows how explicitly passing on a note controls read access and how a rejected access leaves the sharing unchanged.
 
-Tags: Konzeptdemo, Artefakte und Zugriff.
+Tags: Concept demo, Artifacts and access.
 
 ```json
 {
   "id": "ragents.reference.65-artifact-least-privilege",
   "owner": "ragents.reference",
-  "title": "Eine Notiz gezielt weitergeben",
-  "description": "Zeigt, wie die ausdrückliche Weitergabe einer Notiz den Lesezugriff steuert und ein abgelehnter Zugriff die Freigabe unverändert lässt.",
+  "title": "Pass on a note selectively",
+  "description": "Shows how explicitly passing on a note controls read access and how a rejected access leaves the sharing unchanged.",
   "order": 65,
   "tags": [
-    "Konzeptdemo",
-    "Artefakte und Zugriff"
+    "Concept demo",
+    "Artifacts and access"
   ],
   "action": "skill",
   "skill": "65-artifact-least-privilege",
-  "category": "Dateien und Ergebnisse",
-  "prompt": "Ich hätte gern drei KIs: die erste schreibt eine kurze geheime Notiz und gibt sie ausdrücklich an die zweite weiter, die dritte erfährt nur, dass es die Notiz gibt. Prüf für mich, wer sie wirklich lesen kann und wer nicht, und ob der abgelehnte Versuch daran etwas ändert. Den Inhalt der Notiz schreibst Du mir dabei nicht noch einmal hin."
+  "category": "Files and results",
+  "prompt": "I would like three AIs: the first writes a short secret note and explicitly passes it on to the second, the third only learns that the note exists. Check for me who can really read it and who cannot, and whether the rejected attempt changes anything. Do not write the content of the note out for me again."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/65-artifact-least-privilege/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/65-artifact-least-privilege/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Eine Notiz gezielt weitergeben",
-  "message": "Nutze den Skill 65-artifact-least-privilege für diesen Auftrag.\n\nIch hätte gern drei KIs: die erste schreibt eine kurze geheime Notiz und gibt sie ausdrücklich an die zweite weiter, die dritte erfährt nur, dass es die Notiz gibt. Prüf für mich, wer sie wirklich lesen kann und wer nicht, und ob der abgelehnte Versuch daran etwas ändert. Den Inhalt der Notiz schreibst Du mir dabei nicht noch einmal hin."
+  "title": "Pass on a note selectively",
+  "message": "Use the skill 65-artifact-least-privilege for this task.\n\nI would like three AIs: the first writes a short secret note and explicitly passes it on to the second, the third only learns that the note exists. Check for me who can really read it and who cannot, and whether the rejected attempt changes anything. Do not write the content of the note out for me again."
 }
 ```
 
-### Kategorie: TypeScript ohne Oberfläche
+### Category: TypeScript without UI
 
 <a id="start-ragents.reference.70-headless-counter"></a>
 
-### ragents.reference.70-headless-counter: Nachrichten ohne KI mitzählen
+### ragents.reference.70-headless-counter: Count messages without AI
 
-Zeigt einen dauerhaften TypeScript-Actor ohne Oberfläche: Er verarbeitet Nachrichten getrennt und behält Liste und Zähler zwischen Aufträgen.
+Shows a persistent TypeScript actor without an interface: It processes messages separately and keeps its list and counter between tasks.
 
-Tags: Anwendungsfall, Konzeptdemo, TypeScript-Actors, Actor-Funktionen, Actor-Zustand, Journalprüfung.
+Tags: Use case, Concept demo, TypeScript actors, Actor functions, Actor state, Journal inspection.
 
 ```json
 {
   "id": "ragents.reference.70-headless-counter",
   "owner": "ragents.reference",
-  "title": "Nachrichten ohne KI mitzählen",
-  "description": "Zeigt einen dauerhaften TypeScript-Actor ohne Oberfläche: Er verarbeitet Nachrichten getrennt und behält Liste und Zähler zwischen Aufträgen.",
+  "title": "Count messages without AI",
+  "description": "Shows a persistent TypeScript actor without an interface: It processes messages separately and keeps its list and counter between tasks.",
   "order": 70,
   "tags": [
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "TypeScript-Actors",
-    "Actor-Funktionen",
-    "Actor-Zustand",
-    "Journalprüfung"
+    "Use case",
+    "Concept demo",
+    "TypeScript actors",
+    "Actor functions",
+    "Actor state",
+    "Journal inspection"
   ],
   "action": "skill",
   "skill": "70-headless-counter",
-  "category": "TypeScript ohne Oberfläche",
-  "prompt": "Ich hätte gern einen kleinen TypeScript-Zähler ohne Oberfläche und ohne KI-Aufrufe. Schicke ihm nacheinander die Texte \"eins\", \"zwei\" und \"drei\". Er soll jeden Text in seiner eigenen Liste behalten und mitzählen. Danach lies seinen Stand aus und belege, dass drei getrennte Eingaben verarbeitet wurden. Der Zähler soll für weitere Texte bereitbleiben."
+  "category": "TypeScript without UI",
+  "prompt": "I would like a small TypeScript counter without an interface and without AI calls. Send it the texts \"one\", \"two\", and \"three\" one after another. It should keep each text in its own list and count along. Then read out its state and prove that three separate inputs were processed. The counter should stay ready for further texts."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/70-headless-counter/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/70-headless-counter/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Nachrichten ohne KI mitzählen",
-  "message": "Nutze den Skill 70-headless-counter für diesen Auftrag.\n\nIch hätte gern einen kleinen TypeScript-Zähler ohne Oberfläche und ohne KI-Aufrufe. Schicke ihm nacheinander die Texte \"eins\", \"zwei\" und \"drei\". Er soll jeden Text in seiner eigenen Liste behalten und mitzählen. Danach lies seinen Stand aus und belege, dass drei getrennte Eingaben verarbeitet wurden. Der Zähler soll für weitere Texte bereitbleiben."
+  "title": "Count messages without AI",
+  "message": "Use the skill 70-headless-counter for this task.\n\nI would like a small TypeScript counter without an interface and without AI calls. Send it the texts \"one\", \"two\", and \"three\" one after another. It should keep each text in its own list and count along. Then read out its state and prove that three separate inputs were processed. The counter should stay ready for further texts."
 }
 ```
 
-### Kategorie: Code und Diagnose
+### Category: Code and diagnostics
 
 <a id="start-ragents.reference.75-lsp-demo"></a>
 
-### ragents.reference.75-lsp-demo: Fehler in C# und TypeScript finden
+### ragents.reference.75-lsp-demo: Find errors in C# and TypeScript
 
-Zeigt echte Sprachdiagnosen in C# und TypeScript und wie die gemeldeten Fehler nach ihrer Korrektur verschwinden.
+Shows real language diagnostics in C# and TypeScript and how the reported errors disappear after they are corrected.
 
-Tags: Konzeptdemo, Sprachprüfung.
+Tags: Concept demo, Language diagnostics.
 
 ```json
 {
   "id": "ragents.reference.75-lsp-demo",
   "owner": "ragents.reference",
-  "title": "Fehler in C# und TypeScript finden",
-  "description": "Zeigt echte Sprachdiagnosen in C# und TypeScript und wie die gemeldeten Fehler nach ihrer Korrektur verschwinden.",
+  "title": "Find errors in C# and TypeScript",
+  "description": "Shows real language diagnostics in C# and TypeScript and how the reported errors disappear after they are corrected.",
   "order": 75,
   "tags": [
-    "Konzeptdemo",
-    "Sprachprüfung"
+    "Concept demo",
+    "Language diagnostics"
   ],
   "action": "skill",
   "skill": "75-lsp-demo",
-  "category": "Code und Diagnose",
-  "prompt": "Ich hätte gern eine kleine Vorführung der eingebauten Sprachprüfung: Lege zwei winzige Wegwerf-Projekte an, eines in C# und eines in TypeScript, und baue in beide einen absichtlichen Fehler ein. Zeig mir, wie die Sprachprüfung die Fehler findet und was sie genau meldet. Danach behebst Du beide Fehler, zeigst, dass nichts mehr angemeckert wird, und räumst die Projekte wieder weg."
+  "category": "Code and diagnostics",
+  "prompt": "I would like a small demonstration of the built-in language check: Create two tiny throwaway projects, one in C# and one in TypeScript, and put a deliberate error into each. Show me how the language check finds the errors and what exactly it reports. Then fix both errors, show that nothing is flagged anymore, and clean up the projects again."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/75-lsp-demo/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/75-lsp-demo/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Fehler in C# und TypeScript finden",
-  "message": "Nutze den Skill 75-lsp-demo für diesen Auftrag.\n\nIch hätte gern eine kleine Vorführung der eingebauten Sprachprüfung: Lege zwei winzige Wegwerf-Projekte an, eines in C# und eines in TypeScript, und baue in beide einen absichtlichen Fehler ein. Zeig mir, wie die Sprachprüfung die Fehler findet und was sie genau meldet. Danach behebst Du beide Fehler, zeigst, dass nichts mehr angemeckert wird, und räumst die Projekte wieder weg."
+  "title": "Find errors in C# and TypeScript",
+  "message": "Use the skill 75-lsp-demo for this task.\n\nI would like a small demonstration of the built-in language check: Create two tiny throwaway projects, one in C# and one in TypeScript, and put a deliberate error into each. Show me how the language check finds the errors and what exactly it reports. Then fix both errors, show that nothing is flagged anymore, and clean up the projects again."
 }
 ```
 
 <a id="start-ragents.reference.200-typescript-diagnostics"></a>
 
-### ragents.reference.200-typescript-diagnostics: Fehler in einer Terminliste finden
+### ragents.reference.200-typescript-diagnostics: Find errors in an appointment list
 
-Zeigt an einer TypeScript-Terminliste, wie sich echte Sprachdiagnosen nach jeder einzelnen Korrektur ändern. Das korrigierte Beispiel bleibt zum Nachlesen erhalten.
+Shows on a TypeScript appointment list how real language diagnostics change after each individual correction. The corrected example is kept for reference.
 
-Tags: Anwendungsfall, Konzeptdemo, Sprachprüfung.
+Tags: Use case, Concept demo, Language diagnostics.
 
 ```json
 {
   "id": "ragents.reference.200-typescript-diagnostics",
   "owner": "ragents.reference",
-  "title": "Fehler in einer Terminliste finden",
-  "description": "Zeigt an einer TypeScript-Terminliste, wie sich echte Sprachdiagnosen nach jeder einzelnen Korrektur ändern. Das korrigierte Beispiel bleibt zum Nachlesen erhalten.",
+  "title": "Find errors in an appointment list",
+  "description": "Shows on a TypeScript appointment list how real language diagnostics change after each individual correction. The corrected example is kept for reference.",
   "order": 200,
   "tags": [
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "Sprachprüfung"
+    "Use case",
+    "Concept demo",
+    "Language diagnostics"
   ],
   "action": "skill",
   "skill": "200-typescript-diagnostics",
-  "category": "Code und Diagnose",
-  "prompt": "Ich hätte gern eine kleine TypeScript-Terminliste mit zwei absichtlichen Typfehlern. Lass die Sprachprüfung beide finden und korrigiere sie einzeln. Nach jeder Korrektur möchte ich den echten Befund sehen. Am Ende bleiben das korrigierte Beispiel und ein kurzer Vergleich zum Nachlesen. Falls die Sprachprüfung fehlt, sag das klar."
+  "category": "Code and diagnostics",
+  "prompt": "I would like a small TypeScript appointment list with two deliberate type errors. Let the language check find both and correct them one at a time. After each correction I want to see the real finding. At the end, the corrected example and a short comparison remain for reference. If the language check is missing, say so clearly."
 }
 ```
 
-[Arbeitsanleitung des Skills](../../plugins/ragents.reference/skills/200-typescript-diagnostics/SKILL.md)
+[Working instructions of the skill](../../plugins/ragents.reference/skills/200-typescript-diagnostics/SKILL.md)
 
-Start über POST /runs: Den Auftrag in message nach Bedarf bearbeiten und den Skillnamen erhalten. Der aktuelle Auftrag hat Vorrang vor Beispieltext im Skill.
+Start through POST /runs: Edit the task in message as needed and keep the skill name. The current task takes precedence over example text in the skill.
 
 ```json
 {
-  "title": "Fehler in einer Terminliste finden",
-  "message": "Nutze den Skill 200-typescript-diagnostics für diesen Auftrag.\n\nIch hätte gern eine kleine TypeScript-Terminliste mit zwei absichtlichen Typfehlern. Lass die Sprachprüfung beide finden und korrigiere sie einzeln. Nach jeder Korrektur möchte ich den echten Befund sehen. Am Ende bleiben das korrigierte Beispiel und ein kurzer Vergleich zum Nachlesen. Falls die Sprachprüfung fehlt, sag das klar."
+  "title": "Find errors in an appointment list",
+  "message": "Use the skill 200-typescript-diagnostics for this task.\n\nI would like a small TypeScript appointment list with two deliberate type errors. Let the language check find both and correct them one at a time. After each correction I want to see the real finding. At the end, the corrected example and a short comparison remain for reference. If the language check is missing, say so clearly."
 }
 ```
 
-### Kategorie: Prepared workflows
+### Category: Prepared workflows
 
 <a id="start-ragents.reference.shared-actor-list"></a>
 
-### ragents.reference.shared-actor-list: Sammelboard einrichten
+### ragents.reference.shared-actor-list: Set up collection board
 
-Ein vorbereitetes Setup zeigt einen LLM-Listenhelfer mit eigener Funktion, Mini-App und gemeinsamem Zustand. Ein Startleitfaden legt Titel und ersten Eintrag fest.
+A prepared setup shows an LLM list helper with its own function, mini-app, and shared state. A start guide sets the title and the first entry.
 
-Tags: Run-Scripts, Anwendungsfall, Konzeptdemo, Startleitfaden, Actor-Funktionen, Actor-Zustand, Mini-Apps, LLM-Actor mit View.
+Tags: Run scripts, Use case, Concept demo, Start guide, Actor functions, Actor state, Mini-apps, LLM actor with view.
 
 ```json
 {
   "id": "ragents.reference.shared-actor-list",
   "owner": "ragents.reference",
-  "title": "Sammelboard einrichten",
-  "description": "Ein vorbereitetes Setup zeigt einen LLM-Listenhelfer mit eigener Funktion, Mini-App und gemeinsamem Zustand. Ein Startleitfaden legt Titel und ersten Eintrag fest.",
+  "title": "Set up collection board",
+  "description": "A prepared setup shows an LLM list helper with its own function, mini-app, and shared state. A start guide sets the title and the first entry.",
   "order": 100,
   "guide": "ragents.reference.shared-actor-list",
   "tags": [
-    "Run-Scripts",
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "Startleitfaden",
-    "Actor-Funktionen",
-    "Actor-Zustand",
-    "Mini-Apps",
-    "LLM-Actor mit View"
+    "Run scripts",
+    "Use case",
+    "Concept demo",
+    "Start guide",
+    "Actor functions",
+    "Actor state",
+    "Mini-apps",
+    "LLM actor with view"
   ],
   "action": "script",
   "coordinator": true
 }
 ```
 
-Vollständige Paketquellen stehen in [run-setup.md](run-setup.md).
+Complete package sources are in [run-setup.md](run-setup.md).
 
 <a id="start-ragents.reference.conversation-circle"></a>
 
-### ragents.reference.conversation-circle: Gesprächsrunde einrichten
+### ragents.reference.conversation-circle: Set up conversation circle
 
-Ein vorbereitetes Setup zeigt die Parametrisierung durch einen Startleitfaden und die Anordnung einer Gesprächsrunde. Der Koordinator führt anschließend die Runden.
+A prepared setup shows parameterization through a start guide and the arrangement of a conversation circle. The coordinator then leads the rounds.
 
-Tags: Run-Scripts, Anwendungsfall, Konzeptdemo, Startleitfaden, Agententeams.
+Tags: Run scripts, Use case, Concept demo, Start guide, Agent teams.
 
 ```json
 {
   "id": "ragents.reference.conversation-circle",
   "owner": "ragents.reference",
-  "title": "Gesprächsrunde einrichten",
-  "description": "Ein vorbereitetes Setup zeigt die Parametrisierung durch einen Startleitfaden und die Anordnung einer Gesprächsrunde. Der Koordinator führt anschließend die Runden.",
+  "title": "Set up conversation circle",
+  "description": "A prepared setup shows parameterization through a start guide and the arrangement of a conversation circle. The coordinator then leads the rounds.",
   "order": 120,
   "guide": "ragents.reference.conversation-circle",
   "tags": [
-    "Run-Scripts",
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "Startleitfaden",
-    "Agententeams"
+    "Run scripts",
+    "Use case",
+    "Concept demo",
+    "Start guide",
+    "Agent teams"
   ],
   "action": "script",
   "coordinator": true
 }
 ```
 
-Vollständige Paketquellen stehen in [run-setup.md](run-setup.md).
+Complete package sources are in [run-setup.md](run-setup.md).
 
 <a id="start-ragents.reference.moderated-round"></a>
 
-### ragents.reference.moderated-round: Moderierte Runde ohne Koordinator
+### ragents.reference.moderated-round: Moderated round without coordinator
 
-Ein vorbereiteter Aufbau zeigt einen Run, der von Anfang an ohne Koordinator arbeitet. Der Moderator wird Primary-Actor und direkter Ansprechpartner im Chat.
+A prepared setup shows a run that works without a coordinator from the start. The moderator becomes the primary actor and your direct contact in the chat.
 
-Tags: Run-Scripts, Anwendungsfall, Konzeptdemo, Primary-Actor, Agententeams.
+Tags: Run scripts, Use case, Concept demo, Primary actor, Agent teams.
 
 ```json
 {
   "id": "ragents.reference.moderated-round",
   "owner": "ragents.reference",
-  "title": "Moderierte Runde ohne Koordinator",
-  "description": "Ein vorbereiteter Aufbau zeigt einen Run, der von Anfang an ohne Koordinator arbeitet. Der Moderator wird Primary-Actor und direkter Ansprechpartner im Chat.",
+  "title": "Moderated round without coordinator",
+  "description": "A prepared setup shows a run that works without a coordinator from the start. The moderator becomes the primary actor and your direct contact in the chat.",
   "order": 130,
   "tags": [
-    "Run-Scripts",
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "Primary-Actor",
-    "Agententeams"
+    "Run scripts",
+    "Use case",
+    "Concept demo",
+    "Primary actor",
+    "Agent teams"
   ],
   "action": "script",
   "coordinator": false
 }
 ```
 
-Vollständige Paketquellen stehen in [run-setup.md](run-setup.md).
+Complete package sources are in [run-setup.md](run-setup.md).
 
 <a id="start-ragents.reference.balcony-wizard"></a>
 
-### ragents.reference.balcony-wizard: Balkon-Wizard einrichten
+### ragents.reference.balcony-wizard: Set up balcony wizard
 
-Ein vorbereitetes KI-Interview zeigt adaptive Fragen in einer eigenen Mini-App. Der Berater ist von Anfang an Primary-Actor; das Formular zählt fünf Antworten.
+A prepared AI interview shows adaptive questions in a mini-app of its own. The advisor is the primary actor from the start; the form counts five answers.
 
-Tags: Run-Scripts, Anwendungsfall, Konzeptdemo, Mini-Apps, LLM-Actor mit View, Frei gesteuerter Chat, Primary-Actor.
+Tags: Run scripts, Use case, Concept demo, Mini-apps, LLM actor with view, Controlled chat, Primary actor.
 
 ```json
 {
   "id": "ragents.reference.balcony-wizard",
   "owner": "ragents.reference",
-  "title": "Balkon-Wizard einrichten",
-  "description": "Ein vorbereitetes KI-Interview zeigt adaptive Fragen in einer eigenen Mini-App. Der Berater ist von Anfang an Primary-Actor; das Formular zählt fünf Antworten.",
+  "title": "Set up balcony wizard",
+  "description": "A prepared AI interview shows adaptive questions in a mini-app of its own. The advisor is the primary actor from the start; the form counts five answers.",
   "order": 140,
   "tags": [
-    "Run-Scripts",
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "Mini-Apps",
-    "LLM-Actor mit View",
-    "Frei gesteuerter Chat",
-    "Primary-Actor"
+    "Run scripts",
+    "Use case",
+    "Concept demo",
+    "Mini-apps",
+    "LLM actor with view",
+    "Controlled chat",
+    "Primary actor"
   ],
   "action": "script",
   "coordinator": false
 }
 ```
 
-Vollständige Paketquellen stehen in [run-setup.md](run-setup.md).
+Complete package sources are in [run-setup.md](run-setup.md).
 
 <a id="start-ragents.reference.learning-afternoon"></a>
 
-### ragents.reference.learning-afternoon: Lernnachmittag
+### ragents.reference.learning-afternoon: Learning afternoon
 
-Eine vorbereitete Parallelrunde zeigt zwei unabhängig arbeitende KI-Helfer und einen TypeScript-Sammler. Die Mini-App übernimmt einmalig je eine Antwort.
+A prepared parallel round shows two independently working AI helpers and a TypeScript collector. The mini-app takes over one answer from each exactly once.
 
-Tags: Run-Scripts, Anwendungsfall, Konzeptdemo, Mini-Apps, TypeScript-Actors, Agententeams, Subscriptions, Primary-Actor.
+Tags: Run scripts, Use case, Concept demo, Mini-apps, TypeScript actors, Agent teams, Subscriptions, Primary actor.
 
 ```json
 {
   "id": "ragents.reference.learning-afternoon",
   "owner": "ragents.reference",
-  "title": "Lernnachmittag",
-  "description": "Eine vorbereitete Parallelrunde zeigt zwei unabhängig arbeitende KI-Helfer und einen TypeScript-Sammler. Die Mini-App übernimmt einmalig je eine Antwort.",
+  "title": "Learning afternoon",
+  "description": "A prepared parallel round shows two independently working AI helpers and a TypeScript collector. The mini-app takes over one answer from each exactly once.",
   "order": 150,
   "tags": [
-    "Run-Scripts",
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "Mini-Apps",
-    "TypeScript-Actors",
-    "Agententeams",
+    "Run scripts",
+    "Use case",
+    "Concept demo",
+    "Mini-apps",
+    "TypeScript actors",
+    "Agent teams",
     "Subscriptions",
-    "Primary-Actor"
+    "Primary actor"
   ],
   "action": "script",
   "coordinator": false
 }
 ```
 
-Vollständige Paketquellen stehen in [run-setup.md](run-setup.md).
+Complete package sources are in [run-setup.md](run-setup.md).
 
 <a id="start-ragents.reference.word-game"></a>
 
-### ragents.reference.word-game: Wortspiel starten
+### ragents.reference.word-game: Start word game
 
-Ein vorbereitetes Wortspiel zeigt, wie ein TypeScript-Actor Reihenfolge und Ende festlegt, während vier LLMs die Wörter liefern. Die Mini-App macht den Fortschritt sichtbar.
+A prepared word game shows how a TypeScript actor determines order and end while four LLMs supply the words. The mini-app makes the progress visible.
 
-Tags: Run-Scripts, Anwendungsfall, Konzeptdemo, Mini-Apps, TypeScript-Actors, Agententeams, Subscriptions.
+Tags: Run scripts, Use case, Concept demo, Mini-apps, TypeScript actors, Agent teams, Subscriptions.
 
 ```json
 {
   "id": "ragents.reference.word-game",
   "owner": "ragents.reference",
-  "title": "Wortspiel starten",
-  "description": "Ein vorbereitetes Wortspiel zeigt, wie ein TypeScript-Actor Reihenfolge und Ende festlegt, während vier LLMs die Wörter liefern. Die Mini-App macht den Fortschritt sichtbar.",
+  "title": "Start word game",
+  "description": "A prepared word game shows how a TypeScript actor determines order and end while four LLMs supply the words. The mini-app makes the progress visible.",
   "order": 150,
   "tags": [
-    "Run-Scripts",
-    "Anwendungsfall",
-    "Konzeptdemo",
-    "Mini-Apps",
-    "TypeScript-Actors",
-    "Agententeams",
+    "Run scripts",
+    "Use case",
+    "Concept demo",
+    "Mini-apps",
+    "TypeScript actors",
+    "Agent teams",
     "Subscriptions"
   ],
   "action": "script",
@@ -8171,7 +8171,7 @@ Tags: Run-Scripts, Anwendungsfall, Konzeptdemo, Mini-Apps, TypeScript-Actors, Ag
 }
 ```
 
-Vollständige Paketquellen stehen in [run-setup.md](run-setup.md).
+Complete package sources are in [run-setup.md](run-setup.md).
 
 ## Plugins
 
@@ -8275,7 +8275,7 @@ Vollständige Paketquellen stehen in [run-setup.md](run-setup.md).
 ]
 ```
 
-## Dynamische Werkzeugbeiträge
+## Dynamic tool contributions
 
 ```json
 [

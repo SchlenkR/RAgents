@@ -47,9 +47,9 @@ export function TitleModelSettings() {
   if (!readable) return null;
   if (state.status === "failed") return <Alert className="grid justify-items-start gap-2" variant="destructive">
     <AlertDescription>{state.error}</AlertDescription>
-    <Button variant="outline" onClick={() => { setState({ status: "loading" }); setRetry((value) => value + 1); }}>Erneut laden</Button>
+    <Button variant="outline" onClick={() => { setState({ status: "loading" }); setRetry((value) => value + 1); }}>Reload</Button>
   </Alert>;
-  if (state.status !== "ready" || draft === undefined) return <p className={noteClasses} role="status">Einstellungen für Überschriften werden geladen ...</p>;
+  if (state.status !== "ready" || draft === undefined) return <p className={noteClasses} role="status">Loading title settings ...</p>;
   const { settings } = state;
   const save = async () => {
     if (!writable || saving.current || !dirty) return;
@@ -61,39 +61,39 @@ export function TitleModelSettings() {
       const saved = await requestTitleModelSettings({ selection: draft });
       setState({ status: "ready", settings: saved });
       setDraft(saved.selection);
-      setNotice(saved.selection === null ? "Automatische Überschriften sind deaktiviert." : "Modell für die nächsten automatischen Überschriften gespeichert.");
+      setNotice(saved.selection === null ? "Automatic titles are turned off." : "Model saved for the next automatic titles.");
       window.dispatchEvent(new Event(titleModelSettingsChangedEvent));
     } catch (cause) { setError(messageOf(cause)); }
     finally { saving.current = false; setPending(false); }
   };
 
   const options = titleModelOptions(settings.models, draft, settings.models.length > 20 ? query : "");
-  return <form aria-label="Modell für automatische Überschriften" className="flex min-w-0 flex-col items-start gap-3" onSubmit={(event) => {
+  return <form aria-label="Model for automatic titles" className="flex min-w-0 flex-col items-start gap-3" onSubmit={(event) => {
     event.preventDefault();
     void save();
   }}>
-    <p className={noteClasses}>Verdichtet den ersten Auftrag zu einer kurzen Titelzeile. Gilt für die nächsten automatisch erzeugten Titel.</p>
-    {settings.models.length === 0 && <p className={noteClasses}>Der Anbieter bietet kein Modell für Überschriften an; automatische Überschriften bleiben aus.</p>}
-    {!writable && <p className={noteClasses}>Du hast Lesezugriff auf diese Einstellungen.</p>}
-    {settings.models.length > 20 && <Input aria-label="Modelle für Überschriften durchsuchen" className={controlClasses} disabled={!writable || pending}
-      onChange={(event) => setQuery(event.target.value)} placeholder="Modell suchen ..." type="search" value={query} />}
+    <p className={noteClasses}>Condenses the first task into a short title line. Applies to the next automatically generated titles.</p>
+    {settings.models.length === 0 && <p className={noteClasses}>The provider offers no model for titles; automatic titles stay off.</p>}
+    {!writable && <p className={noteClasses}>You have read access to these settings.</p>}
+    {settings.models.length > 20 && <Input aria-label="Search title models" className={controlClasses} disabled={!writable || pending}
+      onChange={(event) => setQuery(event.target.value)} placeholder="Search models ..." type="search" value={query} />}
     <Select disabled={!writable || pending} items={options} value={titleSelectionKey(draft)} onValueChange={(key) => {
       if (key === null) return;
       setDraft(titleSelectionFromKey(key, settings.models));
       setError(undefined);
       setNotice(undefined);
     }}>
-      <SelectTrigger aria-label="Modell" className={controlClasses}><SelectValue /></SelectTrigger>
+      <SelectTrigger aria-label="Model" className={controlClasses}><SelectValue /></SelectTrigger>
       <SelectContent>
         {options.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
       </SelectContent>
     </Select>
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <Button disabled={!writable || pending || !dirty} type="submit">{pending ? "Wird gespeichert ..." : "Speichern"}</Button>
+      <Button disabled={!writable || pending || !dirty} type="submit">{pending ? "Saving ..." : "Save"}</Button>
       {dirty && <Button variant="outline" disabled={pending} onClick={() => {
         setDraft(settings.selection); setError(undefined); setNotice(undefined);
-      }}>Änderungen verwerfen</Button>}
-      <span className={`${noteClasses} empty:hidden`} role="status">{notice ?? (dirty ? "Ungespeicherte Änderungen" : "")}</span>
+      }}>Discard changes</Button>}
+      <span className={`${noteClasses} empty:hidden`} role="status">{notice ?? (dirty ? "Unsaved changes" : "")}</span>
     </div>
     {error && <p className="text-[0.76rem] text-destructive" role="alert">{error}</p>}
   </form>;

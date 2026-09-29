@@ -37,7 +37,7 @@ const G = coordinatorRunId(null);
 const until = async (condition: () => boolean) => {
   const timeout = Date.now() + 10000;
   while (!condition()) {
-    assert.ok(Date.now() < timeout, "Die erwartete Zustandsänderung blieb aus");
+    assert.ok(Date.now() < timeout, "The expected state change did not happen");
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
 };
@@ -96,51 +96,51 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
       return fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.write(${JSON.stringify({ path: "request.json", content: '{"title":"Test"}' })});` }, { id: "global-write" })]);
     },
     () => fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.read(${JSON.stringify({ path: `$RAGENTS_JOURNAL_DIR/${G}/journal.jsonl` })});` }, { id: "global-read" })]),
-    () => fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.bash(${JSON.stringify({ command: 'test -n "$RAGENTS_API_TOKEN" && test "$RAGENTS_API_BASE_URL" = http://127.0.0.1:51234 && rg -l "Altes Gespräch" "$RAGENTS_JOURNAL_DIR"', timeout: 5 })});` }, { id: "global-bash" })]),
+    () => fauxAssistantMessage([fauxToolCall("typescript_eval", { code: `return await context.functions.bash(${JSON.stringify({ command: 'test -n "$RAGENTS_API_TOKEN" && test "$RAGENTS_API_BASE_URL" = http://127.0.0.1:51234 && rg -l "Old conversation" "$RAGENTS_JOURNAL_DIR"', timeout: 5 })});` }, { id: "global-bash" })]),
     (context) => {
       const results = context.messages.filter((message) => message.role === "toolResult");
       assert.equal(results.length, 3);
       assert.ok(results.every((result) => !result.isError));
-      assert.match(JSON.stringify(results), /Altes Gespräch/);
+      assert.match(JSON.stringify(results), /Old conversation/);
       assert.doesNotMatch(JSON.stringify(results), /reset-test-only-token/);
-      return fauxAssistantMessage("Alte Antwort");
+      return fauxAssistantMessage("Old answer");
     },
-    async () => { normalStarted.resolve(); await releaseNormal.promise; return fauxAssistantMessage("Normal abgeschlossen"); },
-    async (_context, options) => { globalStarted.resolve(); options?.signal?.addEventListener("abort", globalAborted.resolve, { once: true }); await releaseGlobal.promise; return fauxAssistantMessage("Veraltete späte Antwort"); },
-    (context) => { freshContexts.push(JSON.stringify(context.messages)); return fauxAssistantMessage("Frischer Anfang"); },
-    (context) => { freshContexts.push(JSON.stringify(context.messages)); return fauxAssistantMessage("Frischer Neustart"); },
+    async () => { normalStarted.resolve(); await releaseNormal.promise; return fauxAssistantMessage("Normal completed"); },
+    async (_context, options) => { globalStarted.resolve(); options?.signal?.addEventListener("abort", globalAborted.resolve, { once: true }); await releaseGlobal.promise; return fauxAssistantMessage("Stale late answer"); },
+    (context) => { freshContexts.push(JSON.stringify(context.messages)); return fauxAssistantMessage("Fresh start"); },
+    (context) => { freshContexts.push(JSON.stringify(context.messages)); return fauxAssistantMessage("Fresh restart"); },
   ]);
   try {
     await provider.init();
     const global = await provider.get(G);
     const observed: ChatEvent[] = [];
     const unsubscribe = global.subscribe((event) => observed.push(event));
-    await global.send("Altes Gespräch");
+    await global.send("Old conversation");
     await until(() => management!.view(G).turns[0]?.status === "completed");
     const toolPolicy = provider.plugins.service(globalChatToken);
     const currentTools = toolPolicy.toolNames;
     toolPolicy.toolNames = ["legacy-management-tool"];
     assert.equal(await provider.get(G), global);
-    await assert.rejects(async () => global.send("Veraltete Werkzeugauswahl"), /Werkzeuge.*zurück/);
+    await assert.rejects(async () => global.send("Stale tool selection"), /tools.*Reset/);
     toolPolicy.toolNames = currentTools;
-    await assert.rejects(overseerCall(overseerContracts.reset, { confirm: false }), /Ungültige Eingabe/);
-    await assert.rejects(overseerCall(overseerContracts.reset, {}), /Ungültige Eingabe/);
+    await assert.rejects(overseerCall(overseerContracts.reset, { confirm: false }), /Invalid input/);
+    await assert.rejects(overseerCall(overseerContracts.reset, {}), /Invalid input/);
     assert.equal(provider.hasRun(G), true);
     const selection = { provider: model.provider, model: model.id, thinking: "high" };
     const settingsBefore = await overseerCall(overseerContracts.settings.save, selection);
-    const normalId = await management!.create({ title: "Normal bleibt", userId: null, kind: "message", message: "Normaler laufender Auftrag" });
+    const normalId = await management!.create({ title: "Normal stays", userId: null, kind: "message", message: "Normal running task" });
     await normalStarted.promise;
     const normalBefore = management!.view(normalId);
-    await global.send("Globaler laufender Auftrag " + "mit vielen Einzelheiten. ".repeat(300));
+    await global.send("Global running task " + "with many details. ".repeat(300));
     await globalStarted.promise;
     assert.ok((await readdir(path.join(directory, "runs", G, "payloads"))).length > 0);
     const oldActor = management!.view(G).primaryActorId;
     assert.ok(oldActor);
-    assert.match(await readFile(path.join(directory, "runs", G, "journal.jsonl"), "utf8"), /"model\.input\.presented"/, "der Modellkontext steht im Journal");
+    assert.match(await readFile(path.join(directory, "runs", G, "journal.jsonl"), "utf8"), /"model\.input\.presented"/, "the model context is in the journal");
     const reset = management!.resetGlobal(G);
     assert.equal(management!.resetGlobal(G), reset);
-    await assert.rejects(provider.get(G), /zurückgesetzt/);
-    await assert.rejects(async () => global.send("Gleichzeitige Nachricht"), /zurückgesetzt/);
+    await assert.rejects(provider.get(G), /is being reset/);
+    await assert.rejects(async () => global.send("Concurrent message"), /is being reset/);
     await globalAborted.promise;
     let finished = false;
     void reset.then(() => { finished = true; });
@@ -163,14 +163,14 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     assert.deepEqual(replay, [{ kind: "reset", conversationId: null }, { kind: "status", running: false }, { kind: "replay-end", conversationId: null }]);
     const workspace = provider.plugins.service(globalChatToken).workspaceDirectory(G);
     assert.equal(existsSync(path.join(workspace, "rpc-reference.md")), false);
-    await global.send("Neue Frage");
+    await global.send("New question");
     await until(() => management!.view(G).turns[0]?.status === "completed");
     assert.notEqual(management!.view(G).primaryActorId, oldActor);
     assert.match(await readFile(path.join(workspace, "rpc-reference.md"), "utf8"), new RegExp(overseerContracts.listRuns.id));
     assert.ok(JSON.parse(await readFile(path.join(workspace, "openrpc.json"), "utf8")).methods.length > 0);
-    assert.ok(observed.some((event) => event.kind === "text" && event.delta.includes("Frischer")));
-    assert.ok(freshContexts[0].includes("Neue Frage"));
-    assert.doesNotMatch(freshContexts[0], /Altes Gespräch|Alte Antwort|Globaler laufender Auftrag|Veraltete späte Antwort/);
+    assert.ok(observed.some((event) => event.kind === "text" && event.delta.includes("Fresh")));
+    assert.ok(freshContexts[0].includes("New question"));
+    assert.doesNotMatch(freshContexts[0], /Old conversation|Old answer|Global running task|Stale late answer/);
     releaseNormal.resolve();
     await until(() => management!.view(normalId).turns[0]?.status === "completed");
     unsubscribe();
@@ -184,9 +184,9 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     assert.equal(existsSync(intent), false);
     assert.ok(provider.hasRun(normalId));
     assert.deepEqual(await overseerCall(overseerContracts.settings.read, {}), settingsBefore);
-    await (await provider.get(G)).send("Nach dem Neustart");
+    await (await provider.get(G)).send("After the restart");
     await until(() => management!.view(G).turns[0]?.status === "completed");
-    assert.doesNotMatch(freshContexts[1], /Neue Frage|Frischer Anfang|Altes Gespräch/);
+    assert.doesNotMatch(freshContexts[1], /New question|Fresh start|Old conversation/);
     const current = await provider.get(G);
     const policy = provider.plugins.service(globalChatToken);
     const blocker = path.join(directory, "blocked-marker-parent");
@@ -198,17 +198,17 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     policy.resetIntentDirectory = intents;
     const engine = (provider as unknown as { engine: Engine }).engine;
     const halt = engine.scheduler.haltRun.bind(engine.scheduler);
-    engine.scheduler.haltRun = async () => { throw new Error("Test: Laufzeit lässt sich noch nicht stoppen"); };
-    await assert.rejects(overseerCall(overseerContracts.reset, { confirm: true }), /noch nicht stoppen/);
+    engine.scheduler.haltRun = async () => { throw new Error("Test: the runtime cannot be stopped yet"); };
+    await assert.rejects(overseerCall(overseerContracts.reset, { confirm: true }), /cannot be stopped yet/);
     assert.equal(provider.hasRun(G), true);
     assert.ok(existsSync(intent));
     assert.ok(provider.hasRun(normalId));
-    await assert.rejects(provider.get(G), /wiederhole den Reset/);
-    await assert.rejects(async () => current.send("Nach gescheitertem Reset"), /zurückgesetzt/);
+    await assert.rejects(provider.get(G), /repeat the reset/);
+    await assert.rejects(async () => current.send("After a failed reset"), /is being reset/);
     engine.scheduler.haltRun = halt;
     assert.equal(await overseerCall(overseerContracts.reset, { confirm: true }), null);
     assert.equal(provider.hasRun(G), false);
-    assert.ok((await readFile(path.join(directory, "runs", normalId, "journal.jsonl"), "utf8")).includes("Normaler laufender Auftrag"));
+    assert.ok((await readFile(path.join(directory, "runs", normalId, "journal.jsonl"), "utf8")).includes("Normal running task"));
     await provider.shutdown();
     const firstRecord = JSON.parse((await readFile(path.join(directory, "runs", normalId, "journal.jsonl"), "utf8")).split("\n")[0]);
     const legacyId = randomUUID();
@@ -248,8 +248,8 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
       const listed = await provider.list() as (SessionInfo & { workspaceAccessible?: boolean })[];
       for (const id of unavailable.keys()) {
         const entry = listed.find((run) => run.id === id);
-        if (id === G) { assert.equal(entry, undefined, "der globale Koordinator bleibt auch gesperrt aus der Run-Liste"); continue; }
-        assert.equal(entry?.locked, journal.failureOf(id)?.message, "ein gesperrter Run bleibt mit seiner Ursache in der Liste");
+        if (id === G) { assert.equal(entry, undefined, "the global coordinator stays out of the run list even when locked"); continue; }
+        assert.equal(entry?.locked, journal.failureOf(id)?.message, "a locked run stays in the list with its cause");
         assert.equal(entry?.workspaceAccessible, false);
       }
       assert.match(listed.find((run) => run.id === legacyId)?.locked ?? "", /format/i);
@@ -257,23 +257,23 @@ test("confirmed reset recovers durably and isolates unavailable journals across 
     }
     await provider.delete(corruptId);
     await provider.deletion(corruptId);
-    assert.equal((await provider.list()).some((run) => run.id === corruptId), false, "der gelöschte gesperrte Run verschwindet aus der Liste");
+    assert.equal((await provider.list()).some((run) => run.id === corruptId), false, "the deleted locked run disappears from the list");
     assert.equal((provider as unknown as { engine: Engine }).engine.journal.failureOf(corruptId), null);
     assert.equal(existsSync(path.join(directory, "runs", corruptId)), false);
     assert.equal(await readFile(path.join(directory, "archive", corruptId, "run", "journal.jsonl"), "utf8"), unavailable.get(corruptId));
-    assert.equal(await readFile(path.join(directory, "archive", corruptId, "chat", "agent", "ragents-old.jsonl"), "utf8"), "{\"type\":\"session\"}\n", "die Sitzung des alten Formats bleibt im Archiv");
+    assert.equal(await readFile(path.join(directory, "archive", corruptId, "chat", "agent", "ragents-old.jsonl"), "utf8"), "{\"type\":\"session\"}\n", "the session of the old format stays in the archive");
     unavailable.delete(corruptId);
     faux.setResponses([
-      () => fauxAssistantMessage("Gesunder Run nach beschädigten Journalen"),
-      () => fauxAssistantMessage("Neuer Run nach beschädigten Journalen"),
-      () => fauxAssistantMessage("Global nach ausdrücklichem Reset"),
+      () => fauxAssistantMessage("Healthy run after damaged journals"),
+      () => fauxAssistantMessage("New run after damaged journals"),
+      () => fauxAssistantMessage("Global after explicit reset"),
     ]);
-    await (await provider.get(normalId)).send("Bestehenden Run fortsetzen");
+    await (await provider.get(normalId)).send("Continue existing run");
     await until(() => management!.view(normalId).turns.length === 2 && management!.view(normalId).turns.every((turn) => turn.status === "completed"));
-    const freshId = await management!.create({ title: "Neuer gesunder Run", userId: null, kind: "message", message: "Trotz alter Journale starten" });
+    const freshId = await management!.create({ title: "New healthy run", userId: null, kind: "message", message: "Start despite old journals" });
     await until(() => management!.view(freshId).turns[0]?.status === "completed");
     assert.equal(await overseerCall(overseerContracts.reset, { confirm: true }), null);
-    await (await provider.get(G)).send("Nach Reset des alten Journals");
+    await (await provider.get(G)).send("After reset of the old journal");
     await until(() => management!.view(G).turns[0]?.status === "completed");
     assert.equal(provider.hasRun(normalId), true);
     assert.equal(provider.hasRun(freshId), true);

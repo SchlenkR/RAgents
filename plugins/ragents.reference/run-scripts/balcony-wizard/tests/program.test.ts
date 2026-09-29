@@ -11,12 +11,12 @@ function setup(options: { missingProfile?: boolean; failActivation?: boolean } =
     "model_list", "agent_spawn", "actor_program_activate", "canvas_layout_replace", "run_configure",
   ].map((name) => [name, (value: unknown) => {
     calls.push({ name, input: value });
-    if (name === "model_list") return { profiles: options.missingProfile ? [] : [{ name: "standard", driver: "agent", description: "Testprofil", turnTimeoutMs: null, isolateWorkspace: false, provider: "test", model: "test" }], models: [] };
+    if (name === "model_list") return { profiles: options.missingProfile ? [] : [{ name: "standard", driver: "agent", description: "Test profile", turnTimeoutMs: null, isolateWorkspace: false, provider: "test", model: "test" }], models: [] };
     if (name === "agent_spawn") {
       const handle = (value as { handle: string }).handle;
       return { id: `actor-${handle}`, handle };
     }
-    if (name === "actor_program_activate" && options.failActivation) throw new Error("View kann nicht aktiviert werden.");
+    if (name === "actor_program_activate" && options.failActivation) throw new Error("View cannot be activated.");
     if (name === "actor_program_activate") {
       const activation = value as { name: string; actor: string };
       return { name: activation.name, actor: activation.actor, views: 1, active: true };
@@ -27,33 +27,33 @@ function setup(options: { missingProfile?: boolean; failActivation?: boolean } =
   return { calls, context };
 }
 
-test("richtet einen Berater ohne Werkzeuge und seine eigene Mini-App als einzige Kachel ein", async () => {
+test("sets up an advisor without tools and its own mini-app as the only tile", async () => {
   const { calls, context } = setup();
   await program.onInput!(input, context);
   assert.deepEqual(calls.map((call) => call.name), ["model_list", "agent_spawn", "actor_program_activate", "canvas_layout_replace", "run_configure"]);
   assert.deepEqual(calls.find((call) => call.name === "agent_spawn")?.input, {
-    handle: "balcony-advisor", displayName: "Balkon-Berater", profile: "standard", tools: [],
+    handle: "balcony-advisor", displayName: "Balcony advisor", profile: "standard", tools: [],
     prompt: (calls[1]!.input as { prompt: string }).prompt,
   });
   assert.deepEqual(calls[2]!.input, { name: "balcony-app", actor: "@balcony-advisor" });
   assert.deepEqual(calls[3]!.input, { root: { entity: "app:@balcony-advisor/main" } });
-  assert.deepEqual(calls[4]!.input, { title: "Dein Balkon", primaryActor: "@balcony-advisor" });
+  assert.deepEqual(calls[4]!.input, { title: "Your balcony", primaryActor: "@balcony-advisor" });
   assert.deepEqual(context.state.read(), { built: true });
   await program.onInput!(input, context);
   assert.equal(calls.length, 5);
 });
 
-test("fehlende Rolle baut keinen unbrauchbaren Berater", async () => {
+test("a missing role builds no unusable advisor", async () => {
   const { calls, context } = setup({ missingProfile: true });
-  await assert.rejects(async () => program.onInput!(input, context), /Rolle standard fehlt/);
+  await assert.rejects(async () => program.onInput!(input, context), /role standard is missing/);
   assert.deepEqual(calls.map((call) => call.name), ["model_list"]);
   assert.deepEqual(context.state.read(), {});
 });
 
-test("eine fehlgeschlagene View-Aktivierung setzt weder Fläche noch Erfolgszustand", async () => {
+test("a failed view activation sets neither surface nor success state", async () => {
   const options = { failActivation: true };
   const { calls, context } = setup(options);
-  await assert.rejects(async () => program.onInput!(input, context), /View kann nicht aktiviert/);
+  await assert.rejects(async () => program.onInput!(input, context), /View cannot be activated/);
   assert.deepEqual(calls.map((call) => call.name), ["model_list", "agent_spawn", "actor_program_activate"]);
   assert.deepEqual(context.state.read(), {});
 });

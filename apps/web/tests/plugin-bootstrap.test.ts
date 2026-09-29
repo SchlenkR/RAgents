@@ -7,19 +7,19 @@ const bootstrap = {
   product: { id: "core", title: "Core" },
   plugins: [
     { id: "ragents.todo", web: { entry: "/plugins/ragents.todo/web/index.js" } },
-    { id: "ragents.orchestration", web: { entry: "/plugins/ragents.orchestration/web/index.js", css: "/plugins/ragents.orchestration/web/index.css" }, config: { greeting: "hallo" } },
+    { id: "ragents.orchestration", web: { entry: "/plugins/ragents.orchestration/web/index.js", css: "/plugins/ragents.orchestration/web/index.css" }, config: { greeting: "hello" } },
   ],
   startEntries: [
     {
       id: "ragents.reference.demo",
       owner: "ragents.reference",
-      action: "skill", skill: "demo", category: "Beispiele",
+      action: "skill", skill: "demo", category: "Examples",
       title: "Demo",
-      description: "Eine Karte",
-      prompt: "Frei",
+      description: "A card",
+      prompt: "Free",
     },
-    { id: "test.feature", owner: "test.product", action: "skill", category: "Entwicklung", prompt: "Feature umsetzen", title: "Feature", description: "Ein Run", skill: "test-feature-run" },
-    { id: "ragents.reference.setup", owner: "ragents.reference", action: "script", title: "Vorgebaut", description: "Ein Script", coordinator: true },
+    { id: "test.feature", owner: "test.product", action: "skill", category: "Development", prompt: "Implement feature", title: "Feature", description: "A run", skill: "test-feature-run" },
+    { id: "ragents.reference.setup", owner: "ragents.reference", action: "script", title: "Prebuilt", description: "A script", coordinator: true },
   ],
 };
 
@@ -38,28 +38,28 @@ const loaderOf = (modules: Readonly<Record<string, unknown>>) => {
   return { loader, stylesheets };
 };
 
-test("die Bootstrap-Antwort wird geprüft und in Descriptoren übersetzt", () => {
+test("the bootstrap response is checked and translated into descriptors", () => {
   const parsed = pluginBootstrapFrom(bootstrap);
   assert.deepEqual(parsed.plugins, [
     { id: "ragents.todo", web: { entry: "/plugins/ragents.todo/web/index.js" }, config: undefined },
-    { id: "ragents.orchestration", web: { entry: "/plugins/ragents.orchestration/web/index.js", css: "/plugins/ragents.orchestration/web/index.css" }, config: { greeting: "hallo" } },
+    { id: "ragents.orchestration", web: { entry: "/plugins/ragents.orchestration/web/index.js", css: "/plugins/ragents.orchestration/web/index.css" }, config: { greeting: "hello" } },
   ]);
   assert.deepEqual(pluginBootstrapFrom({ ...bootstrap, plugins: [{ id: "ragents.reference" }] }).plugins, [{ id: "ragents.reference", config: undefined }]);
   assert.deepEqual(parsed.startEntries.map((entry) => entry.action), ["skill", "skill", "script"]);
-  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, product: { id: "", title: "x" } }), /erwarteten Format/);
-  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, plugins: [{ id: 1 }] }), /Plugin-Descriptor/);
-  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, plugins: [{ id: "x", web: true }] }), /Plugin-Descriptor/);
-  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, plugins: [{ id: "x", web: { entry: "" } }] }), /Plugin-Descriptor/);
-  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, plugins: [{ id: "x", web: { entry: "/a.js", style: "/a.css" } }] }), /Plugin-Descriptor/);
-  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, plugins: [{ id: "x", config: "nein" }] }), /Plugin-Descriptor/);
-  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, startEntries: [{ id: "x" }] }), /ungültige Vorlage/);
-  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, startEntries: [{ ...bootstrap.startEntries[2], source: "x" }] }), /unbekannte Felder source/);
+  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, product: { id: "", title: "x" } }), /expected format/);
+  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, plugins: [{ id: 1 }] }), /invalid plugin descriptor/);
+  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, plugins: [{ id: "x", web: true }] }), /invalid plugin descriptor/);
+  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, plugins: [{ id: "x", web: { entry: "" } }] }), /invalid plugin descriptor/);
+  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, plugins: [{ id: "x", web: { entry: "/a.js", style: "/a.css" } }] }), /invalid plugin descriptor/);
+  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, plugins: [{ id: "x", config: "no" }] }), /invalid plugin descriptor/);
+  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, startEntries: [{ id: "x" }] }), /invalid template/);
+  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, startEntries: [{ ...bootstrap.startEntries[2], source: "x" }] }), /unknown fields source/);
   assert.equal(parsed.defaultStartEntry, undefined);
   assert.equal(pluginBootstrapFrom({ ...bootstrap, defaultStartEntry: "test.feature" }).defaultStartEntry, "test.feature");
-  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, defaultStartEntry: 3 }), /erwarteten Format/);
+  assert.throws(() => pluginBootstrapFrom({ ...bootstrap, defaultStartEntry: 3 }), /expected format/);
 });
 
-test("die Aktivierung lädt Web-Hälften per Adresse samt Stylesheet und lässt Plugins ohne Web-Hälfte als nackte Kennung stehen", async () => {
+test("activation loads web halves by address with their stylesheet and leaves plugins without a web half as a bare id", async () => {
   const { loader, stylesheets } = loaderOf({
     "/plugins/ragents.product/web/index.js": { webPlugin: { id: "ragents.product", brand: { title: "Core" } } },
     "/plugins/ragents.todo/web/index.js": {
@@ -80,21 +80,21 @@ test("die Aktivierung lädt Web-Hälften per Adresse samt Stylesheet und lässt 
   assert.deepEqual(registry.cardSections.map((section) => section.id), ["ragents.todo.items"]);
   assert.equal(registry.brand.title, "Core");
   assert.deepEqual(stylesheets, ["/plugins/ragents.product/web/index.css"]);
-  assert.deepEqual(registry.startEntries, [], "Vorlagen von Plugins außerhalb der Liste fallen weg");
+  assert.deepEqual(registry.startEntries, [], "templates of plugins outside the list are dropped");
   const withReference = { ...withProduct, plugins: [...withProduct.plugins, { id: "ragents.reference" }] };
   const active = (await activatePlugins(pluginBootstrapFrom(withReference), loader)).registry;
   assert.deepEqual(active.skillEntries.map((entry) => entry.id), ["ragents.reference.demo"]);
   assert.deepEqual(active.scriptEntries.map((entry) => entry.id), ["ragents.reference.setup"]);
   const withDefault = (await activatePlugins(pluginBootstrapFrom({ ...withReference, defaultStartEntry: "ragents.reference.setup" }), loader)).registry;
-  assert.equal(withDefault.defaultStartEntry, "ragents.reference.setup", "die Startauswahl zeigt die Standard-Vorlage des Servers zuerst");
-  await assert.rejects(activatePlugins(pluginBootstrapFrom({ ...withProduct, defaultStartEntry: "ragents.reference.setup" }), loader), /Default-Vorlage ragents.reference.setup/);
+  assert.equal(withDefault.defaultStartEntry, "ragents.reference.setup", "the start selection shows the server's default template first");
+  await assert.rejects(activatePlugins(pluginBootstrapFrom({ ...withProduct, defaultStartEntry: "ragents.reference.setup" }), loader), /default template ragents.reference.setup/);
 });
 
-test("eine Web-Hälfte, die nicht lädt, zeigt sich als Plugin-Fehler mit Kennung und Adresse; die übrigen Plugins bleiben aktiv", async () => {
+test("a web half that does not load shows as a plugin failure with id and address; the other plugins stay active", async () => {
   const product = { id: "ragents.product", web: webOf("ragents.product") };
   const modules = {
     "/plugins/ragents.product/web/index.js": { webPlugin: { id: "ragents.product", brand: { title: "Core" } } },
-    "/plugins/ragents.ask/web/index.js": { webPlugin: { id: "anders" } },
+    "/plugins/ragents.ask/web/index.js": { webPlugin: { id: "other" } },
     "/plugins/ragents.activity/web/index.js": { default: {} },
   };
   const { registry, failures } = await activatePlugins(pluginBootstrapFrom({ ...bootstrap, plugins: [
@@ -104,12 +104,12 @@ test("eine Web-Hälfte, die nicht lädt, zeigt sich als Plugin-Fehler mit Kennun
     { id: "ragents.activity", web: webOf("ragents.activity") },
   ] }), loaderOf(modules).loader);
   assert.deepEqual(failures.map((failure) => failure.id), ["ragents.todo", "ragents.ask", "ragents.activity"]);
-  assert.match(failures[0]!.message, /Die Web-Hälfte des Plugins ragents\.todo lädt nicht von \/plugins\/ragents\.todo\/web\/index\.js: 404/);
-  assert.match(failures[1]!.message, /Das Bundle ragents\.ask meldet die abweichende Kennung anders/);
-  assert.match(failures[2]!.message, /keine Konstante webPlugin/);
-  assert.equal(registry.brand.title, "Core", "die Oberfläche steht trotzdem");
-  assert.deepEqual(registry.plugins.map((plugin) => plugin.id), ["ragents.product", "ragents.todo", "ragents.ask", "ragents.activity"], "ein Plugin ohne Web-Hälfte behält seinen Platz für die Server-Seite");
+  assert.match(failures[0]!.message, /The web half of plugin ragents\.todo does not load from \/plugins\/ragents\.todo\/web\/index\.js: 404/);
+  assert.match(failures[1]!.message, /The bundle ragents\.ask reports the different id other/);
+  assert.match(failures[2]!.message, /does not export a webPlugin constant/);
+  assert.equal(registry.brand.title, "Core", "the interface stands anyway");
+  assert.deepEqual(registry.plugins.map((plugin) => plugin.id), ["ragents.product", "ragents.todo", "ragents.ask", "ragents.activity"], "a plugin without a web half keeps its place for the server side");
 
   await assert.rejects(activatePlugins(pluginBootstrapFrom({ ...bootstrap, plugins: [product] }), loaderOf({}).loader),
-    /Kein aktives Plugin liefert ein Branding[\s\S]*Die Web-Hälfte des Plugins ragents\.product lädt nicht/, "ohne Produkt-Plugin gibt es keine Oberfläche, die Ursache steht dabei");
+    /No active plugin provides branding[\s\S]*The web half of plugin ragents\.product does not load/, "without a product plugin there is no interface, and the cause is shown with it");
 });

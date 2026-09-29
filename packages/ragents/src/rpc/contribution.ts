@@ -4,11 +4,11 @@ import type { JsonValue } from "../domain/json.ts";
 import type { ChannelContract, OperationContract, OperationInput, OperationResult } from "./contract.ts";
 import type { RpcCallOptions } from "./peer.ts";
 
-/** Die Verbindung, über die eine Anfrage kam; der Server ruft darüber auch den Client. */
+/** The connection a request came through; the server also calls the client through it. */
 export interface MethodConnection {
   readonly id: string;
   readonly userId: string | null;
-  /** Ohne Ereignisstrom kann der Server diese Verbindung nicht zurückrufen. */
+  /** Without an event stream the server cannot call back over this connection. */
   readonly streamless: boolean;
   call: <C extends OperationContract>(contract: C, input: OperationInput<C>, options?: RpcCallOptions) => Promise<OperationResult<C>>;
   onClose: (listener: () => void) => () => void;

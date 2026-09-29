@@ -63,7 +63,7 @@ test("async listener and error handler rejections stay isolated", async () => {
         delivered = true;
     });
 
-    assert.doesNotThrow(() => bus.publish("run-1", "agent-1", { kind: "text", delta: "Hallo" }));
+    assert.doesNotThrow(() => bus.publish("run-1", "agent-1", { kind: "text", delta: "Hello" }));
     await new Promise<void>((resolve) => setImmediate(resolve));
     assert.equal(delivered, true);
     assert.deepEqual(reports, [listenerFailure]);

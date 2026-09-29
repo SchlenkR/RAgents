@@ -29,21 +29,21 @@ const productProfiles = (): AgentProfile[] => {
     {
       ...base,
       name: "coordinator",
-      description: "Nur für den Koordinator selbst, nicht für Agenten.",
+      description: "Only for the coordinator itself, not for agents.",
       model: coordinatorModel,
       thinking: ragentsProductConfig.coordinatorThinking(),
     },
     {
       ...base,
       name: "relay",
-      description: "Für Vermittlung mit wenigen Werkzeugen.",
+      description: "For relaying with few tools.",
       model: coordinatorModel,
       thinking: ragentsProductConfig.coordinatorThinking(),
     },
     {
       ...base,
       name: "standard",
-      description: "Für alle Agenten.",
+      description: "For all agents.",
       model,
       thinking: ragentsProductConfig.thinking(),
     },
@@ -67,7 +67,7 @@ const ragentsProductPlugin: RAgentsPlugin = {
     host.provide(modelUpstreamsToken, ragentsProductConfig.upstreams);
     host.config(...ragentsProductConfigDescriptors);
     void ragentsProductConfig.modelChoice.options;
-    // Die Modellvorgaben prüfen gegen den Katalog; mit Relay liegt der erst nach dem Abruf beim Start vor.
+    // The model defaults are checked against the catalog; with a relay it is only available after the fetch on start.
     let store: ProductModelSettingsStore | undefined;
     const settings = (): ProductModelSettingsStore =>
       store ??= new ProductModelSettingsStore(host.storage.root("model-settings.json"), ragentsProductConfig.modelChoice, productProfiles());

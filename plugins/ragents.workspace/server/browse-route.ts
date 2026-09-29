@@ -24,13 +24,13 @@ import {
 
 export interface BrowseOptions {
   ensureSession: (runId: string) => void;
-  /** Der Arbeitsbereich eines Runs, den nur sein Eigentümer bedient, liegt bei ihm; die Dateiablage des Servers nicht. */
+  /** The workspace of a run that only its owner operates is with the owner; the server's file store is not. */
   ensureWorkspaceAccess: (access: AccessContext, runId: string) => void;
-  /** Der Arbeitsbereich ist nur über den Executor des Runs erreichbar, wo immer er liegt. */
+  /** The workspace is reachable only through the run's executor, wherever it is. */
   execute: SandboxServices["execute"];
-  /** Die Dateiablage liegt auf dem Server und gehört nicht zum Arbeitsbereich. */
+  /** The file store is on the server and does not belong to the workspace. */
   documentsFor: (runId: string) => Promise<string>;
-  /** Wie die Wurzel eines Runs heißt, etwa mit dem Label seines Arbeitsplatzes. */
+  /** What the root of a run is called, for example with the label of its workstation. */
   locationOf: (runId: string, location: string) => string;
 }
 
@@ -74,10 +74,10 @@ export const createBrowseMethods = (options: BrowseOptions): MethodContribution[
   }),
 ];
 
-/** Nach dem Ende einer laufenden Beobachtung, etwa weil der Arbeitsplatz weg war, versucht der Kanal es in diesem Abstand erneut. */
+/** After a running watch ends, for example because the workstation was gone, the channel retries at this interval. */
 const WATCH_RETRY_MS = 5_000;
 
-/** Beobachtet den Arbeitsbereich beim Executor des Runs bis zum Abbruch; steht die Beobachtung, ist der Kanal offen, und endet sie, beginnt er eine neue. */
+/** Watches the workspace at the run's executor until aborted; once the watch is established the channel is open, and when it ends, it starts a new one. */
 const watchWorkspace = (options: BrowseOptions, runId: string, changed: () => void): Promise<() => void> =>
   new Promise((ready, failed) => {
     const controller = new AbortController();
@@ -92,10 +92,10 @@ const watchWorkspace = (options: BrowseOptions, runId: string, changed: () => vo
       const ended = (error?: unknown): void => {
         if (controller.signal.aborted) return;
         if (!opened) {
-          failed(error ?? new Error("Die Beobachtung des Arbeitsbereichs endete, bevor sie stand"));
+          failed(error ?? new Error("The workspace watch ended before it was established"));
           return;
         }
-        // Endet eine laufende Beobachtung, lädt die Ansicht neu und zeigt die Ursache; steht die nächste, lädt sie noch einmal.
+        // When a running watch ends, the view reloads and shows the cause; once the next one is established, it reloads again.
         if (watching) changed();
         retry = setTimeout(start, WATCH_RETRY_MS);
       };

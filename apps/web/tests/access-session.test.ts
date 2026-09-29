@@ -6,7 +6,7 @@ import { RpcClient } from "../src/rpc/client";
 
 test("access snapshot accepts optional login and rejects incomplete user rights", () => {
   assert.deepEqual(accessSnapshotFrom({ enabled: false, user: null }), { enabled: false, user: null });
-  assert.deepEqual(accessSnapshotFrom({ enabled: true, user: { id: "reader", label: "Lesen", rights: ["runs.read"] } }).user?.rights, ["runs.read"]);
+  assert.deepEqual(accessSnapshotFrom({ enabled: true, user: { id: "reader", label: "Read", rights: ["runs.read"] } }).user?.rights, ["runs.read"]);
   for (const value of [null, {}, { enabled: true }, { enabled: true, user: {} }, { enabled: true, user: { id: "x", label: "X", rights: [1] } }]) {
     assert.throws(() => accessSnapshotFrom(value));
   }
@@ -21,7 +21,7 @@ test("access snapshot preserves the allowed setup list and rejects malformed ent
 });
 
 test("protected API expiry is observed without consuming its response or changing the request", async () => {
-  const response = Response.json({ error: "Bitte einloggen" }, { status: 401 });
+  const response = Response.json({ error: "Please log in" }, { status: 401 });
   const init: RequestInit = { method: "POST", body: "payload", credentials: "same-origin" };
   let expired = 0;
   const request = observeAccessExpiry(async (input, options) => {
@@ -31,7 +31,7 @@ test("protected API expiry is observed without consuming its response or changin
   }, "https://ragents.test", () => { expired++; });
   assert.equal(await request("/rpc", init), response);
   assert.equal(expired, 1);
-  assert.deepEqual(await response.json(), { error: "Bitte einloggen" });
+  assert.deepEqual(await response.json(), { error: "Please log in" });
 });
 
 test("login failure, forbidden rights and external authentication do not expire the app session", async () => {
@@ -51,10 +51,10 @@ test("login failure, forbidden rights and external authentication do not expire 
 
 test("an expired login is noticed on the message layer, for a call as for the event stream", async () => {
   let expired = 0;
-  const client = new RpcClient({ fetch: observeAccessExpiry(async () => Response.json({ error: "Bitte melde dich an.", code: "login-required" }, { status: 401 }),
+  const client = new RpcClient({ fetch: observeAccessExpiry(async () => Response.json({ error: "Please sign in.", code: "login-required" }, { status: 401 }),
     "https://ragents.test", () => { expired++; }) });
   try {
-    await assert.rejects(client.call(coreContracts.runs.list, {}), /Bitte melde dich an/);
+    await assert.rejects(client.call(coreContracts.runs.list, {}), /Please sign in/);
     assert.equal(expired, 1);
     const unauthorized = new Promise<void>((resolve) => client.onStatus((status) => { if (status.kind === "unauthorized") resolve(); }));
     client.subscribe(coreContracts.channels.runs, {}, () => undefined);

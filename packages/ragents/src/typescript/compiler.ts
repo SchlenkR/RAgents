@@ -107,19 +107,19 @@ const libraryContent = (source: string): { readonly text: string; readonly hash:
 
 const normalizeFileName = (fileName: string, kind: VirtualFileKind): string => {
     if (!fileName.trim() || fileName.includes("\0") || fileName.includes("\\")) {
-        throw new TypeError(`Ungültiger virtueller TypeScript-Pfad: ${fileName}`);
+        throw new TypeError(`Invalid virtual TypeScript path: ${fileName}`);
     }
 
     const normalized = path.posix.normalize(`/${fileName}`).replace(/^\/+(?=.)/, "/");
     if (normalized === VIRTUAL_ROOT || normalized.startsWith("/__ragents__/")) {
-        throw new TypeError(`Reservierter virtueller TypeScript-Pfad: ${fileName}`);
+        throw new TypeError(`Reserved virtual TypeScript path: ${fileName}`);
     }
 
     if (kind === "source" && ((!normalized.endsWith(".ts") && !normalized.endsWith(".tsx")) || normalized.endsWith(".d.ts"))) {
-        throw new TypeError(`Virtuelle TypeScript-Quelle muss auf .ts oder .tsx enden: ${fileName}`);
+        throw new TypeError(`Virtual TypeScript source must end in .ts or .tsx: ${fileName}`);
     }
     if (kind === "declaration" && !normalized.endsWith(".d.ts")) {
-        throw new TypeError(`Virtuelle TypeScript-Deklaration muss auf .d.ts enden: ${fileName}`);
+        throw new TypeError(`Virtual TypeScript declaration must end in .d.ts: ${fileName}`);
     }
 
     return normalized;
@@ -137,7 +137,7 @@ const normalizedFiles = (
 const assertUniqueFiles = (files: readonly NormalizedFile[]): void => {
     const names = new Set<string>();
     for (const file of files) {
-        if (names.has(file.fileName)) throw new TypeError(`Virtuelle Datei doppelt deklariert: ${file.fileName}`);
+        if (names.has(file.fileName)) throw new TypeError(`Virtual file declared twice: ${file.fileName}`);
         names.add(file.fileName);
     }
 };
@@ -239,9 +239,9 @@ const diagnosticsOf = (diagnostics: readonly ts.Diagnostic[]): VirtualTypeScript
 export const compileVirtualTypeScript = (
     request: CompileVirtualTypeScriptRequest,
 ): VirtualTypeScriptCompilation => {
-    if (request.sources.length === 0) throw new TypeError("Mindestens eine TypeScript-Quelle ist erforderlich.");
+    if (request.sources.length === 0) throw new TypeError("At least one TypeScript source is required.");
     const emit = request.emit ?? "none";
-    if (!["none", "browser", "node"].includes(emit)) throw new TypeError(`Unbekannter TypeScript-Emitmodus: ${String(emit)}`);
+    if (!["none", "browser", "node"].includes(emit)) throw new TypeError(`Unknown TypeScript emit mode: ${String(emit)}`);
     const sources = normalizedFiles(request.sources, "source");
     const declarations = normalizedFiles(request.declarations ?? [], "declaration");
     const libraries: LoadedLibrary[] = (request.libraries ?? []).map((library) => ({

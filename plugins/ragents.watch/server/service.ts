@@ -61,14 +61,14 @@ const invalid = (message: string) => new DomainError("watch-invalid", message, 4
 const cleanText = (value: string | undefined, field: string, limit: number): string | undefined => {
   if (value === undefined) return undefined;
   const text = value.trim();
-  if (!text) throw invalid(`${field} darf nicht leer sein.`);
-  if (text.length > limit) throw invalid(`${field} darf höchstens ${limit} Zeichen enthalten.`);
+  if (!text) throw invalid(`${field} must not be empty.`);
+  if (text.length > limit) throw invalid(`${field} may contain at most ${limit} characters.`);
   return text;
 };
 
 export const wakeMessage = (definition: WatchDefinition, reason: string, changes: readonly string[]): string => [
-  `Der Wächter weckt Dich: ${reason}`,
-  `Änderungen bei @${definition.sourceHandle} seit der letzten Weckung:\n${changes.length ? changes.map((line) => `- ${line}`).join("\n") : "- keine"}`,
+  `The watch wakes you: ${reason}`,
+  `Changes at @${definition.sourceHandle} since the last wake:\n${changes.length ? changes.map((line) => `- ${line}`).join("\n") : "- none"}`,
   ...(definition.instruction ? [definition.instruction] : []),
 ].join("\n");
 
@@ -89,18 +89,18 @@ export class WatchService implements WatchServiceApi {
     const runtime = this.#options.runtime();
     const view = runtime.view(runId);
     const source = watchableActorOf(view, request.source);
-    if (!source) throw invalid(`Der beobachtete Actor ${request.source} existiert in diesem Run nicht.`);
+    if (!source) throw invalid(`The observed actor ${request.source} does not exist in this run.`);
     const target = request.target ? watchableActorOf(view, request.target) : watchableActorOf(view, callerActorId);
-    if (!target) throw invalid(`Der zu weckende Actor ${request.target ?? callerActorId} existiert in diesem Run nicht oder ist kein Agent.`);
+    if (!target) throw invalid(`The actor to wake ${request.target ?? callerActorId} does not exist in this run or is not an agent.`);
     const condition = cleanText(request.condition, "condition", CONDITION_CHARS)!;
     const instruction = cleanText(request.instruction, "instruction", INSTRUCTION_CHARS);
-    if (request.observe !== undefined && !this.#options.operationExists(request.observe)) throw invalid(`Die Operation ${request.observe} ist nicht registriert.`);
-    if (request.stallAfterSeconds !== undefined && (!Number.isInteger(request.stallAfterSeconds) || request.stallAfterSeconds < 1)) throw invalid("stallAfterSeconds muss eine positive ganze Zahl sein.");
+    if (request.observe !== undefined && !this.#options.operationExists(request.observe)) throw invalid(`The operation ${request.observe} is not registered.`);
+    if (request.stallAfterSeconds !== undefined && (!Number.isInteger(request.stallAfterSeconds) || request.stallAfterSeconds < 1)) throw invalid("stallAfterSeconds must be a positive integer.");
     const run = this.#ensure(runId);
     const existing = [...run.watches.values()].find((watch) => watch.definition.sourceActorId === source.id && watch.definition.targetActorId === target.id && watch.definition.condition === condition);
     if (existing) return summaryOf(existing);
     const predicate = await this.#options.compile(condition, run.abort.signal);
-    if (this.#runs.get(runId) !== run) throw invalid("Der Run wurde während des Anlegens beendet.");
+    if (this.#runs.get(runId) !== run) throw invalid("The run ended while the watch was being created.");
     const definition: WatchDefinition = {
       id: `watch_${randomUUID()}`,
       sourceActorId: source.id,
@@ -128,8 +128,8 @@ export class WatchService implements WatchServiceApi {
   remove(runId: string, watchId: string, reason: string): void {
     const run = this.#runs.get(runId);
     const watch = run?.watches.get(watchId);
-    if (!run || !watch) throw new DomainError("watch-unknown", `Der Wächter ${watchId} existiert in diesem Run nicht.`, 404);
-    if (!reason.trim()) throw invalid("reason darf nicht leer sein.");
+    if (!run || !watch) throw new DomainError("watch-unknown", `The watch ${watchId} does not exist in this run.`, 404);
+    if (!reason.trim()) throw invalid("reason must not be empty.");
     run.watches.delete(watchId);
     this.#persist(run);
     this.#updateStallTimer(run);
@@ -173,7 +173,7 @@ export class WatchService implements WatchServiceApi {
   }
 
   #ensure(runId: string): RunWatches {
-    if (this.#closed) throw new Error("Der Wächterdienst ist beendet.");
+    if (this.#closed) throw new Error("The watch service has ended.");
     const existing = this.#runs.get(runId);
     if (existing) return existing;
     const runtime = this.#options.runtime();
@@ -230,7 +230,7 @@ export class WatchService implements WatchServiceApi {
       try { await this.#evaluate(run, watch); }
       catch (error) {
         if (run.abort.signal.aborted) return;
-        (this.#options.log ?? ((message, cause) => console.error(message, cause)))(`Wächter ${watch.definition.id} in Run ${run.runId} konnte nicht bewerten:`, error);
+        (this.#options.log ?? ((message, cause) => console.error(message, cause)))(`Watch ${watch.definition.id} in run ${run.runId} could not evaluate:`, error);
       }
     }
   }
@@ -266,7 +266,7 @@ export class WatchService implements WatchServiceApi {
     watch.lastEvaluated = key;
     watch.lastEvaluatedAt = at;
     watch.lastJudgedChanges = judged;
-    watch.history = [...watch.history, { at, wake: reason !== undefined, reason: reason ?? "Bedingung nicht erfüllt", changes }].slice(-HISTORY_LENGTH);
+    watch.history = [...watch.history, { at, wake: reason !== undefined, reason: reason ?? "Condition not met", changes }].slice(-HISTORY_LENGTH);
     if (reason === undefined) {
       if (changes.some((line) => !line.startsWith("stalledForSeconds:"))) this.#persist(run);
       return;

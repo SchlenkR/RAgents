@@ -1,4 +1,4 @@
-# Actor-Programme: Funktionen, Zustand und Views
+# Actor programs: functions, state, and views
 
 <!-- guide:programs -->
 ## Programs and mini-apps
@@ -61,14 +61,14 @@ instead. Reactivating that package applies its changed state, including removed 
 views.
 <!-- /guide:programs -->
 
-### Dateirechte der Actor-Programme
+### File permissions of actor programs
 
-Bei Runs mit eigener UID gleicht der Host Eigentümer und Schreibrechte der privaten
-Quell-, SDK- und Build-Dateien innerhalb der Run-Speichergrenze ab. Bibliotheks-Symlinks bleiben
-unverändert. Das Modell muss keine ausgegebenen Speicherpfade übernehmen. Der Abgleich umfasst den
-ganzen Arbeitsbereich der Actor-Programme samt Staging neuer Pakete (unten, "Vorlagen und
-Anlegen"); das Umbenennen erhält Eigentümer und Rechte. Einträge, die während des Abgleichs
-verschwinden, etwa ein gerade umbenanntes Paket, überspringt er.
+For runs with their own UID, the host reconciles the owner and write permissions of the private
+source, SDK, and build files within the run's storage boundary. Library symlinks stay unchanged.
+The model does not have to copy any printed storage paths. The reconciliation covers the whole
+workspace of the actor programs including the staging of new packages (below, "Templates and
+creation"); renaming preserves owner and permissions. Entries that disappear during the
+reconciliation, such as a package that was just renamed, are skipped.
 
 <!-- guide:programs -->
 ## Backend and client
@@ -110,11 +110,11 @@ the button share one handler. Test this interaction in the host frame, not only 
 React render.
 <!-- /guide:programs -->
 
-### Vertragsabfrage des Backend-Adapters
+### Contract query of the backend adapter
 
-Der erzeugte Backend-Adapter gibt zur Vertragsabfrage ausdrücklich JSON-Daten ohne
-TypeBox-Metadaten zurück. Diese Beschreibung ist getrennt von der strengen JSON-Prüfung fachlicher
-Ergebnisse und Zustandswerte vor der Übertragung aus dem nativen Prozess.
+For the contract query, the generated backend adapter explicitly returns JSON data without TypeBox
+metadata. This description is separate from the strict JSON check of domain results and state
+values before the transfer from the native process.
 
 <!-- guide:programs -->
 ## Create, edit, and activate
@@ -148,197 +148,178 @@ editable in the private workspace. `actor_view_set_visibility` addresses a view 
 The host manages hashes and technical bindings.
 <!-- /guide:programs -->
 
-### Vorlagen und Anlegen
+### Templates and creation
 
-Die `ragents`-Metadaten jeder Vorlage sind ein Wert vom Typ `AppPackage` (`Static` von
-`appPackageSchema`), den der Compiler gegen das maßgebliche Schema prüft; eine Vorlage kann
-`package.json` nicht als Text mitbringen. `templateFiles` erzeugt daraus beim Anlegen die
-`package.json` mit dem gewählten Namen und liefert dieselben Dateien für die erzeugte Referenz.
-`apps/server/tests/actor-program-create.test.ts` legt jede Vorlage an und aktiviert sie mit
-Typprüfung, Build und ihren Tests, damit auch ihr Quellcode nicht unbemerkt gegen die Plattform
-veraltet.
+The `ragents` metadata of each template is a value of type `AppPackage` (`Static` of
+`appPackageSchema`), which the compiler checks against the authoritative schema; a template cannot
+bring `package.json` as text. On creation, `templateFiles` generates the `package.json` with the
+chosen name from it and supplies the same files for the generated reference.
+`apps/server/tests/actor-program-create.test.ts` creates every template and activates it with type
+check, build, and its tests, so that its source code does not silently become outdated against the
+platform either.
 
-Anlegen ist ganz oder gar nicht, für `actor_program_create` wie für das Paket eines Run-Scripts
-(`importPackage`). Der Host baut das Paket in `actor-workspace/.staging/<name>-<uuid>`, auf
-demselben Dateisystem wie `actors/`, aber außerhalb des pnpm-Workspace und des Alias
-`@actors`. Dort laufen alle Schritte (Dateien, SDK, Paketprüfung, Backend-Vertrag, Client-SDK),
-erst danach benennt er den Ordner nach `actors/<name>` um. Prüfung und Umbenennen folgen ohne
-Unterbrechung aufeinander, weil `rename` einen leeren Zielordner still ersetzen würde: ein
-vorhandener Ordner, auch ein leerer, lässt das Anlegen mit "existiert bereits" scheitern und bleibt
-unberührt. Zwei gleichzeitige Anlagen desselben Namens schließen sich aus; die zweite scheitert mit
-"wird gerade angelegt". Bei jedem Fehler entfernt der Host den Staging-Ordner. Reste eines
-abgestürzten Serverlaufs räumt die nächste Anlage im Run weg und lässt dabei die laufenden Anlagen
-dieses Prozesses stehen; ein Run wird nur von dem Prozess bedient, der das Journal hält. Das Paket
-eines Run-Scripts aktiviert der Host nach dem Umbenennen; scheitert die Aktivierung, entfernt er es
-wieder.
+Creation is all or nothing, for `actor_program_create` as for the package of a run script
+(`importPackage`). The host builds the package in `actor-workspace/.staging/<name>-<uuid>`, on the
+same file system as `actors/`, but outside the pnpm workspace and the `@actors` alias. All steps
+run there (files, SDK, package check, backend contract, client SDK), and only then does it rename
+the folder to `actors/<name>`. Check and rename follow each other without interruption because
+`rename` would silently replace an empty target folder: an existing folder, even an empty one,
+makes creation fail with "already exists" and stays untouched. Two simultaneous creations of the
+same name exclude each other; the second fails with "is being created". On any error, the host
+removes the staging folder. Leftovers of a crashed server process are cleaned up by the next
+creation in the run, which leaves the running creations of this process alone; a run is served
+only by the process that holds the journal. The host activates the package of a run script after
+renaming; if activation fails, it removes it again.
 
-Kein erzeugtes Paket kennt seinen eigenen Ordner. `@ragents/workflow/prompts` findet sein Paket
-über die eigene Moduladresse (`import.meta.url`, drei Ebenen über `node_modules/@ragents/workflow`),
-alle übrigen absoluten Verweise zeigen auf Bibliotheken des Hosts. Ein Paket bleibt so nach dem
-Umbenennen und als Kopie im Build-Ordner der Aktivierung gültig.
+No generated package knows its own folder. `@ragents/workflow/prompts` finds its package through
+its own module address (`import.meta.url`, three levels above `node_modules/@ragents/workflow`),
+all other absolute references point to libraries of the host. A package thus stays valid after
+renaming and as a copy in the build folder of the activation.
 
-### Diagnose, Typprüfung und Fachtests
+### Diagnostics, type check, and domain tests
 
-Vor jeder Modellanfrage prüft ein Laufzeitbeitrag geänderte Actor-Programme einschließlich
-Typen und Build. Der Kontext erhält nur einen kurzen Unterschied zum letzten Fehlerstand;
-unveränderte Projekte und Fehlerlisten werden nicht wiederholt. `actor_program_diagnostics`
-liefert den letzten vollständigen Stand, optional für einen Programmnamen. Die normalen
-Language-Server-Werkzeuge können dieselben Projekte direkt prüfen.
+Before every model request, a runtime contribution checks changed actor programs including types
+and build. The context receives only a short difference from the last error state; unchanged
+projects and error lists are not repeated. `actor_program_diagnostics` returns the last complete
+state, optionally for one program name. The normal language server tools can check the same
+projects directly.
 
-Die Typprüfung umfasst immer den Backend-Einsprungpunkt aus `package.json.ragents.backend`, auch
-bei einer engeren Dateiauswahl in der erhaltenen Autoren-tsconfig. Scheitern Typprüfung oder
-Client-Build bei der Aktivierung, nennt die Meldung die Zahl der Fehler und die ersten zehn als je
-eine Zeile `Datei:Zeile:Spalte Meldung`, höchstens 240 Zeichen, dazu "und N weitere";
-`actor_program_diagnostics` kennt die vollständige Liste (`checkFailure` in
-`plugins/ragents.actor-programs/server/runtime.ts`).
-Es gibt keinen getrennten Check-, Test- oder Installationsvertrag für Actor-Programme und
-keine vom Modell weitergereichte Build-Referenz. Bearbeitete Quellen ändern eine laufende
-Installation erst nach erneuter erfolgreicher Aktivierung.
+The type check always covers the backend entry point from `package.json.ragents.backend`, even with
+a narrower file selection in the preserved author tsconfig. If the type check or client build fails
+during activation, the message names the number of errors and the first ten as one line each
+`file:line:column message`, at most 240 characters, plus "and N more"; `actor_program_diagnostics`
+knows the complete list (`checkFailure` in `plugins/ragents.actor-programs/server/runtime.ts`).
+There is no separate check, test, or installation contract for actor programs and no build
+reference passed on by the model. Edited sources change a running installation only after another
+successful activation.
 
-Fachtests liegen als normale `node:test`-Dateien unter `tests/**/*.test.ts` und laufen mit
-`node --import tsx --test`. Sie importieren das Programm und rufen `program.functions` oder
-`program.onInput` mit konkreten Eingaben auf. `@ragents/server/testing` liefert
-`createTestContext` mit Zustand und expliziten Funktions-Mocks unter `functions`. Ergebnis und gespeicherter
-Zustand werden getrennt geprüft. Eine reine View braucht keine erfundene Serveraktion.
-Die Aktivierung lässt die Tests mit einem eigenen Reporter laufen (`server/test-report.ts`) und
-meldet einen Fehlschlag knapp: Zahl bestandener und fehlgeschlagener Tests, je fehlgeschlagenem
-Test Name, Meldung, bei Assertions erwartet und tatsächlich, und die Stelle in der Testdatei
-relativ zum Programm; eine Testdatei, die nicht lädt, nennt die Fehlerzeile ihrer Ausgabe.
-Laufzeiten, Node-interne Stack-Zeilen und absolute Pfade fehlen.
+Domain tests are normal `node:test` files under `tests/**/*.test.ts` and run with
+`node --import tsx --test`. They import the program and call `program.functions` or
+`program.onInput` with concrete inputs. `@ragents/server/testing` provides `createTestContext` with
+state and explicit function mocks under `functions`. Result and stored state are checked
+separately. A pure view needs no invented server action. Activation runs the tests with its own
+reporter (`server/test-report.ts`) and reports a failure concisely: number of passed and failed
+tests, for each failed test its name, message, for assertions expected and actual, and the
+location in the test file relative to the program; a test file that does not load names the error
+line of its output. Durations, Node-internal stack lines, and absolute paths are left out.
 
-## Werkzeugkarten und Kacheln
+## Tool cards and tiles
 
-Einfache Eingaben an einen Agenten gehören zum Werkzeug. `card: true` erzeugt aus den
-typisierten Parametern ein kompaktes Formular direkt in der Kachel des Agenten. Es hat keine eigene
-Fensterhülle. Feldbeschriftungen, Pflichtmarkierungen und Sendeaktion bleiben sichtbar;
-Parameterbeschreibungen dienen als Platzhalter. Checkbox und Feldname teilen sich eine Zeile.
-Mehrzeilige Eingaben beginnen mit zwei Zeilen und lassen sich vergrößern.
-Die Karte ruft die zugehörige Actor-Funktion direkt auf. `targets` verwendet `self` oder
-`@handle`; der Host löst die Bindung bei der Aktivierung auf. Kein Modell-Turn ist nötig.
+Simple inputs to an agent belong to the tool. `card: true` generates a compact form from the typed
+parameters directly in the agent's tile. It has no window frame of its own. Field labels, required
+markers, and the send action stay visible; parameter descriptions serve as placeholders. Checkbox
+and field name share one line. Multi-line inputs start with two lines and can be enlarged. The
+card calls the associated actor function directly. `targets` uses `self` or `@handle`; the host
+resolves the binding at activation. No model turn is needed.
 
-Jede Mini-App ist nach der Aktivierung sichtbar. Der zugehörige Actor ist ihr Anker; Größe
-und Platz bestimmt die Kachel, in der sie steht. Der Benutzer kann sie zusätzlich in der
-lokalen Vollansicht öffnen.
+Every mini-app is visible after activation. The associated actor is its anchor; size and place are
+determined by the tile it sits in. The user can additionally open it in the local full view.
 
-Der zugehörige Actor steht in der persönlichen Standardansicht nicht auf der Fläche, auch bei
-einem LLM-Actor. Die Mini-App bleibt sichtbar und bedienbar. `Actors` in der Leiste über der Fläche
-führt den Besitzer auf, ohne eine Kachel anzulegen; die Checkbox `Fläche`
-je Actor gibt ihm auf Wunsch eine eigene.
-Auch eine ausgeblendete installierte View zählt weiterhin als eigene Mini-App.
+The associated actor is not on the surface in the personal default view, even for an LLM actor.
+The mini-app stays visible and usable. `Actors` in the bar above the surface lists the owner
+without creating a tile; the `Surface` checkbox per actor gives it its own tile on request. A
+hidden installed view also still counts as a mini-app of its own.
 
-In der Kachel und in der Vollansicht zeigt der Host den ganzen
-App-Inhalt bei 100 Prozent. Der Frame verwendet seine tatsächliche Breite und Höhe; Schrift,
-Controls und Abstände erhalten keine zusätzliche Verkleinerung. Die Kachel besitzt eine matte
-blaugraue Fläche mit Kontur und 17 Pixeln Eckradius, ohne Tiefe und ohne zweite innere
-Zierkontur. Ihren Titel trägt der Kachelkopf; die App bringt keine eigene Titelzeile mit.
+In the tile and in the full view, the host shows the whole app content at 100 percent. The frame
+uses its actual width and height; type, controls, and spacing receive no additional reduction. The
+tile has a matte blue-gray surface with an outline and a 17-pixel corner radius, without depth and
+without a second inner decorative outline. Its title is carried by the tile header; the app brings
+no title bar of its own.
 
-Der Vergrößern-Knopf öffnet eine lokale Vollansicht im Host-Bereich `surface`. Sie liegt mit
-16 bis 24 Pixeln Abstand ausschließlich über der Fläche; die Reiterleiste, die Titelleiste,
-die Leiste für Apps und Actors sowie die Statusleiste bleiben sichtbar und bedienbar. Der Hintergrund wird wie bei einem Dialog
-abgetönt und mit 4 Pixeln Unschärfe weichgezeichnet. Rahmen, Ecken und Schatten folgen der
-gemeinsamen Dialoggestaltung. Nur die darunterliegende Fläche ist währenddessen inaktiv.
-Der App-Titel in der Leiste über der Fläche behält beim Umschalten
-das Schriftgewicht 700; die aktive Fläche und Unterkante zeigen den Zustand, ohne die
-Nachbareinträge zu verschieben. Der Provider hält genau eine Vollansicht; die Auswahl
-einer anderen App ersetzt sie. Die Vollansicht hat eine eigene Titelzeile mit dem App-Namen
-und einem runden Schließen-Knopf mit X. Die Inhalte erscheinen in Originalgröße.
-Schließen, Escape und Hintergrundklick führen zur Fläche zurück. Ein intern behandeltes
-Escape, etwa in einer Auswahlliste, schließt die Vollansicht nicht.
+The enlarge button opens a local full view in the host area `surface`. It lies exclusively over
+the surface, with a 16 to 24 pixel margin; the tab bar, the title bar, the bar for apps and actors,
+and the status bar stay visible and usable. The background is dimmed as for a dialog and softened
+with a 4-pixel blur. Frame, corners, and shadow follow the shared dialog design. Only the surface
+underneath is inactive meanwhile. The app title in the bar above the surface keeps font weight 700
+when toggling; the active background and bottom edge show the state without shifting the
+neighboring entries. The provider holds exactly one full view; selecting another app replaces it.
+The full view has its own title bar with the app name and a round close button with an X. The
+content appears at original size. Close, Escape, and a background click return to the surface. An
+Escape handled internally, for example in a select list, does not close the full view.
 
-Der Kachel-Client bleibt beim Vergrößern gemountet. Die Vollansicht lädt einen
-zweiten Client mit demselben journalisierten Zustand; ungesendete Eingaben bleiben je Ansicht
-lokal. Die Vollansicht wird nicht journalisiert und allein vom
-Benutzer im Host bedient; Mini-Apps besitzen keine Dialogfähigkeit oder Fenstersteuerungs-API.
+The tile client stays mounted when enlarging. The full view loads a second client with the same
+journaled state; unsent inputs stay local per view. The full view is not journaled and is operated
+solely by the user in the host; mini-apps have no dialog capability or window control API.
 
-Die Sichtbarkeit der View ist journalisiert. Ausblenden erhält Installation, Werkzeuge,
-Aktionen und Zustand. Wiederanzeigen, Neustart und erneute Aktivierung erhalten diese Auswahl.
-Die persönliche Sichtbarkeit ihres Actors wird davon getrennt im
-Browser je Serveradresse und Run gespeichert; sie verändert kein Journal. Es gibt keinen
-zusätzlichen Mini-App-Reiter in der Leiste.
+The visibility of the view is journaled. Hiding preserves installation, tools, actions, and state.
+Showing again, restart, and reactivation preserve this choice. The personal visibility of its actor
+is stored separately in the browser per server address and run; it changes no journal. There is no
+additional mini-app tab in the tab bar.
 
-## Capabilities und Identität
+## Capabilities and identity
 
-Actor-Funktionen rufen Run-Funktionen über `context.functions.<name>(input)` auf.
-Snippets verwenden dieselben registrierten Funktionen. Ein Snippet handelt als Aufrufer,
-`onInput` als sein Actor; eine veröffentlichte Funktion verwendet Besitzerzustand und
-Aufruferidentität. Ein `event_subscribe` gilt für die handelnde Identität.
-Die deklarierte Capability-Liste und die gebundene Identität bestimmen den verfügbaren Vorrat.
-Client-Aufrufe verwenden dagegen nur die im Actor-Vertrag deklarierten Funktionsnamen. Der
-Browser kann keinen anderen Run, keine Identität und keine freie Host-Capability wählen.
-Die Methoden für Mini-Apps und direkte Actor-Funktionen akzeptieren dieselben
-Funktionsnamen einschließlich Großbuchstaben, etwa `addEntry`.
-Der Browser fragt laufende Mini-App-Aufrufe über deren App-Route ab; dafür genügt `runs.read`.
-Die technische Abfrage direkter Actor-Funktionen bleibt durch `runs.inspect` geschützt.
-Aufrufanzeigen verwenden Aktionslabels. Ohne Label zeigt der eingeschränkte Zugang nur den
-Aufrufstatus; technische Aktionskennungen bleiben dem Vollzugang vorbehalten.
+Actor functions call run functions through `context.functions.<name>(input)`. Snippets use the same
+registered functions. A snippet acts as the caller, `onInput` as its actor; a published function
+uses owner state and caller identity. An `event_subscribe` applies to the acting identity. The
+declared capability list and the bound identity determine the available set. Client calls, in
+contrast, use only the function names declared in the actor contract. The browser cannot choose
+another run, an identity, or a free host capability. The methods for mini-apps and direct actor
+functions accept the same function names including capital letters, such as `addEntry`. The
+browser queries running mini-app calls through their app route; `runs.read` is enough for that.
+The technical query of direct actor functions stays protected by `runs.inspect`. Call displays use
+action labels. Without a label, restricted access shows only the call status; technical action
+identifiers are reserved for full access.
 
-Der Plugin-Host registriert Fachoperationen mit Eingabe- und Ergebnisschema sowie
-Operator-Policy. `direct` erlaubt die Bedieneraktion, `confirm` verlangt eine bestätigte
-Journal-Frage und `unavailable` schließt die Verwendung als View-Funktionsaufruf aus. Die typisierten
-Adapter prüfen Identität, Vertrag und Abbruch an der tatsächlichen Aufrufgrenze.
-Die native Node-Ausführung ist keine zusätzliche Sandbox gegen beliebigen Backend-Code;
-die Dateirechte und Ausführungsumgebung gehören zum Run-Workspace.
+The plugin host registers domain operations with input and result schema and operator policy.
+`direct` allows the operator action, `confirm` requires a confirmed journal question, and
+`unavailable` excludes use as a view function call. The typed adapters check identity, contract,
+and cancellation at the actual call boundary. Native Node execution is not an additional sandbox
+against arbitrary backend code; file permissions and execution environment belong to the run
+workspace.
 
-## Kachel-Host und Funktionen-Reiter
+## Tile host and functions tab
 
-Die Leiste über der Fläche zeigt sichtbar geschaltete Apps neben direkten Zugängen zu allen
-nichtmenschlichen, nicht gestoppten Actors. Der Actors-Listenknopf bleibt links stehen;
-App- und Actor-Knöpfe scrollen bei Platzmangel gemeinsam horizontal. Die Leiste liegt
-außerhalb des Dialogbereichs `surface` und erlaubt Appwechsel während der Vollansicht. Eine feine
-untere Trennlinie grenzt sie von der Fläche ab; sie besitzt keinen eigenen Schatten.
-Der App-Name wählt ihre Kachel;
-der Vergrößern-Knopf schaltet die lokale Vollansicht. Die aktive Vollansicht ist hervorgehoben.
-Der Funktionen-Reiter zeigt Programme, Besitzer-Actors, Funktionen und installierte Quellen.
-Die Detailansicht einer Funktion enthält ein generisches Parameterformular aus ihrem Vertrag.
-Sie verwendet denselben Formularbaustein wie die Werkzeugkarten: Texte, Zahlen, Ganzzahlen,
-Checkboxen und Listen sowie JSON für strukturierte Werte. Pflichtfelder und ungültige Eingaben
-werden vor dem Aufruf geprüft. Auch Funktionen ohne Parameter lassen sich direkt ausführen.
-Der Aufruf erfolgt ohne Modell-Turn über denselben Host wie bei Mini-Apps und Werkzeugkarten;
-deklarierte Bestätigungen bleiben erforderlich. Laufender Aufruf, Rückgabewert und Fehler
-erscheinen direkt im Detailpanel. Beschreibung, Parametervertrag und Quellcode bleiben erreichbar.
-Die Actor-Detailansicht bietet für installierte Programme einen eigenen Quelltext-Reiter,
-einschließlich Headless-Actors. Erst sein Öffnen lädt die Dateien des aktivierten Builds über
-den bestehenden Quellcode-Endpunkt. `src/server.ts`, sonst eine TypeScript-Datei, ist
-vorausgewählt. Die Dateiauswahl und Syntaxhervorhebung stammen vom gemeinsamen Quellcode-Viewer.
-Eine neue Programmrevision lädt die aktuellen Quellen; abgebrochene frühere Antworten
-überschreiben sie nicht. Der Quellcode bleibt lesend und setzt `runs.inspect` voraus.
-Laufende Werkzeugaufrufe erscheinen in der allgemeinen Aktivitätsanzeige.
+The bar above the surface shows apps switched to visible next to direct access to all non-human
+actors that are not stopped. The actors list button stays on the left; app and actor buttons
+scroll horizontally together when space is short. The bar lies outside the dialog area `surface`
+and allows switching apps during the full view. A fine bottom divider separates it from the
+surface; it has no shadow of its own. The app name selects its tile; the enlarge button toggles
+the local full view. The active full view is highlighted. The functions tab shows programs, owner
+actors, functions, and installed sources. The detail view of a function contains a generic
+parameter form derived from its contract. It uses the same form building block as the tool cards:
+texts, numbers, integers, checkboxes, and lists, plus JSON for structured values. Required fields
+and invalid inputs are checked before the call. Functions without parameters can also be executed
+directly. The call runs without a model turn through the same host as for mini-apps and tool
+cards; declared confirmations remain required. Running call, return value, and errors appear
+directly in the detail panel. Description, parameter contract, and source code stay reachable. The
+actor detail view offers its own source tab for installed programs, including headless actors.
+Only opening it loads the files of the activated build through the existing source code endpoint.
+`src/server.ts`, otherwise a TypeScript file, is preselected. File selection and syntax
+highlighting come from the shared source code viewer. A new program revision loads the current
+sources; cancelled earlier responses do not overwrite them. The source code stays read-only and
+requires `runs.inspect`. Running tool calls appear in the general activity display.
 
-Kachel und Vollansicht verwenden denselben Frame-Endpunkt und Build. Jede Ansicht besitzt
-einen Iframe mit `sandbox="allow-scripts allow-forms allow-downloads"` und einer
-Content-Security-Policy; `form-action 'none'` verhindert jede echte Formularübermittlung. Der
-Browserclient wird einschließlich seiner Imports gebündelt; React und UI-Bausteine stammen aus
-den vorbereiteten lokalen Abhängigkeiten. Der Host erhält keinen nachgeladenen App-Code als Plugin.
+Tile and full view use the same frame endpoint and build. Each view has an iframe with
+`sandbox="allow-scripts allow-forms allow-downloads"` and a content security policy;
+`form-action 'none'` prevents any real form submission. The browser client is bundled including
+its imports; React and UI building blocks come from the prepared local dependencies. The host
+receives no later-loaded app code as a plugin.
 
-## Wiederverwendbare UI-Bausteine
+## Reusable UI building blocks
 
-Der Host exportiert unter `@ragents/client/ui` wiederverwendbare Controls (Quellen unter
-`apps/web/src/actor-programs/client-ui/`).
-Standardaktionen verwenden diese Controls; Textfelder und Textareas sind `Input` und
-`Textarea` derselben Bibliothek.
-Die Autorenanleitung verlangt, Controlfarben, Rahmen, Schrift
-und Zustände nicht im App-CSS nachzubauen. Die Utility-Klassen eines Programms werden bei der
-Aktivierung einmal je Programm über die Host-Quellen, die Bausteine und alle View-Quellen
-kompiliert und als `frame.css` im Build-Ordner des Programms abgelegt (`stylesFile` der
-Programmdefinition); die Stylesheets für fremd erzeugtes Markup
-(Codehervorhebung, Diff, Flussdiagramm) lädt der Host bei jedem Frame-Aufruf. Eine zentrale
-Änderung an Tokens oder Bausteinen erreicht installierte Programme erst mit erneuter
-Aktivierung.
-Chat, Markdown, Codehervorhebung, Auswahl und `ListDetail` verwenden vorhandene Oberflächenbausteine; weitere
-Controls gehören mit Implementierung, Styling und Typverträgen direkt in diese Bausteinsammlung.
-Der Client importiert benötigte Controls aus diesem Paket; der reguläre Build bündelt sie mit der App.
-Die Props werden bei der TypeScript-Prüfung der Mini-App typgeprüft. Die Bausteine funktionieren in der
-Kachel und in der lokalen Vollansicht.
+The host exports reusable controls under `@ragents/client/ui` (sources under
+`apps/web/src/actor-programs/client-ui/`). Standard actions use these controls; text fields and
+textareas are `Input` and `Textarea` of the same library. The author guide requires not rebuilding
+control colors, borders, type, and states in app CSS. A program's utility classes are compiled once
+per program at activation across the host sources, the building blocks, and all view sources and
+stored as `frame.css` in the program's build folder (`stylesFile` of the program definition); the
+stylesheets for externally generated markup (code highlighting, diff, flow diagram) are loaded by
+the host on every frame call. A central change to tokens or building blocks reaches installed
+programs only with another activation. Chat, Markdown, code highlighting, selection, and
+`ListDetail` use existing interface building blocks; further controls belong directly in this
+building block collection with implementation, styling, and type contracts. The client imports the
+controls it needs from this package; the regular build bundles them with the app. The props are
+type-checked during the TypeScript check of the mini-app. The building blocks work in the tile and
+in the local full view.
 
-`SvgEdge` stellt SVG-Verbindungen mit einheitlichen Pfeilen, Linien und semantischen Farben
-bereit. Offene Pfeilspitzen mit abgerundeten Enden folgen der Pfadtangente und enden genau
-am Anschlusspunkt. Der Baustein verwaltet eindeutige Pfeilmarker und berücksichtigt reduzierte Bewegung.
-Mini-Apps importieren ihn über `@ragents/client/ui`; der Host verwendet dieselbe
-Implementierung. Pfadgeometrie, Knoten und fachlicher Zustand gehören weiterhin zur jeweiligen
-Darstellung. Die Autorenanleitung zeigt eine kompakte SVG-Vorlage mit beschrifteten Knoten,
-responsivem Zeichenbereich und gemeinsamen Farbtokens. Controls-Vorlage und erzeugte
-Bausteinreferenz enthalten ein bedienbares Beispiel. Eine automatische Graphanordnung
-oder ein allgemeines Knotenmodell ist damit nicht verbunden.
+`SvgEdge` provides SVG connections with uniform arrows, lines, and semantic colors. Open arrowheads
+with rounded ends follow the path tangent and end exactly at the connection point. The building
+block manages unique arrow markers and respects reduced motion. Mini-apps import it through
+`@ragents/client/ui`; the host uses the same implementation. Path geometry, nodes, and domain state
+still belong to the respective display. The author guide shows a compact SVG template with labeled
+nodes, a responsive drawing area, and shared color tokens. The controls template and the generated
+building block reference contain a usable example. No automatic graph layout or general node model
+comes with it.
 
 <!-- guide:programs -->
 ## Connect workflow definition, instructions, and presentation
@@ -458,229 +439,211 @@ beside the diagram. The controls template and the building-block reference inclu
 switchable status example.
 <!-- /guide:programs -->
 
-## Frame, Layout, Formulare und Chat-Bausteine
+## Frame, layout, forms, and chat building blocks
 
-Der Host liefert für Mini-App-Frames die gemeinsame Basisschrift, Schriftfarbe, Zeilenhöhe,
-Box-Sizing und einen Body ohne Standardrand. In echten Frames begrenzt er die Seite auf die
-Frame-Höhe. Der bereitgestellte Mountpunkt `#root` scrollt und hält auf allen Seiten den
-gemeinsamen Workspace-Innenabstand von 18 Pixeln, auch ohne `AppLayout`. Sein Scrollbalken
-liegt am rechten Frame-Rand; der Body erzeugt keinen zusätzlichen Scrollbereich. Ein direkt
-darin liegendes `AppLayout` ergänzt keinen zweiten äußeren Abstand. Die Autorenanleitung
-verlangt, in `#root` zu rendern und Seitenmaße, Scrollverhalten und äußere Abstände dem Host
-zu überlassen. Utility-Klassen gestalten die Abstände innerhalb des Inhalts. Standalone-Vorschauen
-ohne Frame-Markierung behalten ihren Dokumentfluss. Bereits installierte Views erhalten
-die gemeinsamen Regeln beim erneuten Laden; ihre eigenen Quellen und dort zusätzlich
-gesetzte Inhaltsabstände bleiben erhalten.
+For mini-app frames, the host supplies the shared base font, text color, line height, box sizing,
+and a body without default margin. In real frames, it limits the page to the frame height. The
+provided mount point `#root` scrolls and keeps the shared workspace padding of 18 pixels on all
+sides, even without `AppLayout`. Its scrollbar sits at the right frame edge; the body creates no
+additional scroll area. An `AppLayout` placed directly inside adds no second outer spacing. The
+author guide requires rendering into `#root` and leaving page dimensions, scroll behavior, and
+outer spacing to the host. Utility classes style the spacing within the content. Standalone
+previews without the frame marker keep their document flow. Views that are already installed
+receive the shared rules when reloaded; their own sources and content spacing additionally set
+there are preserved.
 
-`AppLayout` ordnet Titel, Beschreibung, Inhalt und optionale Aktionen mit gemeinsamen Abständen
-an. Standardmäßig wächst es im Dokumentfluss. Mit `fill` füllt es einen höhenbegrenzten Elternbereich;
-nur sein Inhalt scrollt, Kopf und Aktionen bleiben sichtbar. Der Inhaltsbereich reserviert
-vier Pixel für äußere Fokusrahmen, ohne die Ausrichtung zu Kopf und Aktionen zu verändern.
-`Stack` hält vertikale Abstände
-oder bildet eine umbrechende Zeile. `Grid` ordnet gleich breite Spalten nach der Breite seines
-Containers an und reduziert sie auf schmalen Flächen bis auf eine Spalte. Dafür ist die Breite
-der Mini-App maßgeblich, nicht die des gesamten Browserfensters. Die Typverträge begrenzen
-Abstände, Richtung und Spaltenauswahl; beliebige CSS-Parameter sind nicht Teil dieser Bausteine.
-Die Vorlagen Textanalyse und gemeinsame Liste verwenden das Raster für Eingabe und Ergebnis;
-die leere View und die Controls-Demo verwenden ebenfalls die gemeinsame Layoutbasis.
+`AppLayout` arranges title, description, content, and optional actions with shared spacing. By
+default, it grows in the document flow. With `fill`, it fills a height-limited parent area; only
+its content scrolls, header and actions stay visible. The content area reserves four pixels for
+outer focus rings without changing the alignment with header and actions. `Stack` keeps vertical
+spacing or forms a wrapping row. `Grid` arranges equal-width columns by the width of its container
+and reduces them on narrow surfaces down to one column. The width of the mini-app is what counts,
+not that of the whole browser window. The type contracts limit spacing, direction, and column
+selection; arbitrary CSS parameters are not part of these building blocks. The text analysis and
+shared list templates use the grid for input and result; the blank view and the controls demo also
+use the shared layout basis.
 
-`Dialog` ist derselbe modale Baustein wie im Host: `Dialog` mit `open`/`onOpenChange`,
-`DialogContent`, `DialogHeader`, `DialogTitle`, `DialogDescription`, `DialogBody` und
-`DialogFooter`, mit Fokusführung und Escape. Der Dialog liegt über dem Inhalt des Frames und
-verändert dessen Maße nicht; das SDK liefert die erforderlichen Styles mit.
+`Dialog` is the same modal building block as in the host: `Dialog` with `open`/`onOpenChange`,
+`DialogContent`, `DialogHeader`, `DialogTitle`, `DialogDescription`, `DialogBody`, and
+`DialogFooter`, with focus management and Escape. The dialog lies above the content of the frame
+and does not change its dimensions; the SDK ships the required styles.
 
-`ListDetail` verbindet eine kontrollierte, optional gruppierte Auswahl mit einer Detailfläche.
-Such- und Filterleiste, Detailkopf, Inhalt und Aktionen sind Slots. In einer höhenbegrenzten
-Fläche bleiben Detailkopf und Aktionen stehen; die Aktionen liegen am unteren Rand. Nur der
-mittlere Detailinhalt scrollt, getrennt von der Liste, auch in der schmalen Detailansicht. Icons, Artbezeichnungen und
-semantische Farben sind Daten des Aufrufers; der Baustein verwendet die gemeinsamen Tokens.
-Unter 900 Pixeln füllt die Liste die Fläche allein; eine Auswahl öffnet die Details als eigene
-Seite mit rundem Zurück-Knopf, Fokusführung und ohne Such- und Filterleiste. Maßgeblich ist die
-eigene Breite des Bausteins, nicht die des Browserfensters; dieselbe Schwelle steuert Darstellung
-und Umschaltung. Wird die Fläche wieder breit, stehen Liste und Details nebeneinander.
-Mini-Apps verwenden dieselbe Implementierung aus `apps/web/src/ui` wie der Host;
-der erzeugte Control-Katalog und seine Demo enthalten denselben Typvertrag.
+`ListDetail` connects a controlled, optionally grouped selection with a detail area. Search and
+filter bar, detail header, content, and actions are slots. In a height-limited area, the detail
+header and actions stay in place; the actions sit at the bottom edge. Only the middle detail
+content scrolls, separately from the list, also in the narrow detail view. Icons, kind labels, and
+semantic colors are the caller's data; the building block uses the shared tokens. Below 900
+pixels, the list fills the area alone; a selection opens the details as a separate page with a
+round back button, focus management, and without the search and filter bar. What counts is the
+building block's own width, not that of the browser window; the same threshold controls display
+and switching. When the area becomes wide again, list and details sit side by side. Mini-apps use
+the same implementation from `apps/web/src/ui` as the host; the generated control catalog and its
+demo contain the same type contract.
 
-Mini-Apps verwenden die shadcn/ui-Komponenten der gemeinsamen Bibliothek (siehe plugins) und
-Tailwind. Der Mini-App-Compiler kompiliert je Ansicht `apps/web/src/ui/frame.css` mit
-`@tailwindcss/node` über die Host-Quellen, die Mini-App-Bausteine und die Quellen der Mini-App
-und liefert das Ergebnis im Frame aus; die Gestaltung steht als Utility-Klassen im App-Code,
-die mitgelieferten Mini-Apps haben kein eigenes Stylesheet mehr. Die Laufzeit setzt `data-ui-surface="mini-app"` am
-Wurzelelement des Frames für Schrift und Grundmaße; die Bausteindemo der Referenz setzt
-denselben Marker. `Form`, `DataTable`, `FilePicker`, `TaskProgress`, `DocumentViewer`,
-`DiffViewer`, `AppLayout`, `Stack` und `Grid` sind aus `Field`, `Input`, `Checkbox`, `Select`,
-`Table`, `Progress` und Tailwind-Klassen gebaut und behalten ihre eigenen Props. Die
-Kartenhülle bleibt bestehen; der App-Inhalt erscheint in allen Modi bei 100 Prozent.
+Mini-apps use the shadcn/ui components of the shared library (see plugins) and Tailwind. The
+mini-app compiler compiles `apps/web/src/ui/frame.css` per view with `@tailwindcss/node` across
+the host sources, the mini-app building blocks, and the sources of the mini-app and delivers the
+result in the frame; the styling lives as utility classes in the app code, and the bundled
+mini-apps no longer have a stylesheet of their own. The runtime sets
+`data-ui-surface="mini-app"` on the root element of the frame for type and base dimensions; the
+building block demo of the reference sets the same marker. `Form`, `DataTable`, `FilePicker`,
+`TaskProgress`, `DocumentViewer`, `DiffViewer`, `AppLayout`, `Stack`, and `Grid` are built from
+`Field`, `Input`, `Checkbox`, `Select`, `Table`, `Progress`, and Tailwind classes and keep their
+own props. The card frame remains; the app content appears at 100 percent in all modes.
 
-Die Vorlagen für Textanalyse und gemeinsame Liste sowie das Sammelboard verwenden die
-gemeinsamen Bausteine. Ihre Schrift, Flächen und Listen folgen den Theme-Tokens; ein eigener
-fest auf Hell gesetzter Stil entfällt. Bereits angelegte Actor-Programme behalten ihre eigenen
-Quellen bis zur ausdrücklichen Bearbeitung und Aktivierung.
+The text analysis and shared list templates as well as the collection board use the shared
+building blocks. Their type, surfaces, and lists follow the theme tokens; a separate style fixed to
+light is no longer used. Actor programs that were already created keep their own sources until
+explicitly edited and activated.
 
-Statusfarben und Diff-Markierungen verwenden weiter die semantischen Tokens des Hosts.
-Die Host-Bridge setzt bei der ersten
-Verbindung und bei späteren Theme-Wechseln die aufgelöste Darstellung am Wurzelelement des
-Frame-Dokuments. Dafür werden weder Frame noch Actor-Zustand neu geladen; lokale Eingaben
-bleiben erhalten. Ein optionales eigenes Stylesheet einer Mini-App bleibt nach dem gemeinsamen
-CSS geladen. Fest vorgegebene App-Farben werden nicht automatisch umgefärbt.
+Status colors and diff markers keep using the host's semantic tokens. On the first connection and
+on later theme changes, the host bridge sets the resolved appearance on the root element of the
+frame document. Neither the frame nor the actor state is reloaded for this; local inputs are
+preserved. An optional stylesheet of a mini-app's own stays loaded after the shared CSS. Hard-coded
+app colors are not recolored automatically.
 
-Formulare verwenden deklarierte Felder und kontrollierte Werte, prüfen Eingaben und warten auf
-asynchrone Sendeaktionen. Die Autorenanleitung bevorzugt `Form` auch für einzelne Interviewfragen
-und Wizard-Schritte. Fragen und Fortschritt bleiben im Zustand der App; Beschriftungen,
-Feldhöhe, Fehlermeldungen und asynchrones Absenden übernimmt das Formular. Innerhalb von
-`AppLayout` entfällt sein eigener Außenabstand. Textanalyse und gemeinsame Liste nutzen
-Formulare mit mehrzeiligen Eingaben; die Controls-Demos zeigen ebenfalls Textareas. Die
-Layoutdemo der Referenz übernimmt ausdrücklich lokal eine eingegebene Antwort und erzeugt
-keine Agentenantwort. Kurze Eingabehilfen gehören als `placeholder` in leere Text-, Zahl- und
-Mehrzeilenfelder; ausdrücklich gesetzte `hint` bleiben als dauerhafte Hinweise unter dem Feld.
-Feldnamen und Pflichtmarkierungen bleiben sichtbar. Checkboxen stehen mit ihrer Beschriftung
-in einer Zeile. Bearbeitbare Auswahlfelder zeigen Feldname und Pflichtmarkierung direkt im
-Auswahlknopf; bei schreibgeschützter Darstellung steht der Feldname über dem Wert.
-Mehrzeilenfelder beginnen ohne
-eigene `rows`-Angabe mit zwei Zeilen und lassen sich vergrößern. Formulare, Datei- und Aufgabenlisten
-sowie Tabellen verwenden kompakte Innen- und Zeilenabstände bei unveränderter Schriftgröße.
-Datentabellen haben typisierte Spalten, Suche, Sortierung, kontrollierte
-Zeilenauswahl und asynchrone Zeilenaktionen. Fehler bleiben sichtbar und Eingaben erhalten.
-Die Tabellensuche steht mit dem Platzhalter "Tabelle durchsuchen" in einer Zeile; dieselbe
-zugängliche Beschriftung bleibt unabhängig vom eingegebenen Suchtext erhalten.
-Host-Chat und Mini-App-Dateiauswahl teilen die Aufnahme von Dateien per Input, Drop und Paste.
-Texteinfügen an der Auswahl bleibt beim Chat; Dateifilter, Auswahlregeln und Vorschau beim
-jeweiligen Control. Die gemeinsame Drag-Erkennung reagiert nur auf Dateien.
-Dateiauswahl unterstützt Auswahl, Drop und Paste mit gemeinsamen Typ-, Mengen- und Größengrenzen;
-Dateien bleiben lokal, bis die App ihre Sendeaktion ausführt. Medienvorschauen verwenden temporäre
-Objekt-URLs, Textvorschauen sind begrenzt. Aufgabenfortschritt zeigt vorgegebene Statuswerte;
-Dokumente lassen sich als Text, Markdown oder Code lesen. Die Diff-Ansicht stellt einen gelieferten
-Unified-Diff dar, berechnet und schreibt selbst keine Änderungen.
+Forms use declared fields and controlled values, validate inputs, and wait for asynchronous send
+actions. The author guide prefers `Form` also for single interview questions and wizard steps.
+Questions and progress stay in the app's state; labels, field height, error messages, and
+asynchronous submission are handled by the form. Inside `AppLayout`, its own outer spacing is
+dropped. Text analysis and shared list use forms with multi-line inputs; the controls demos also
+show textareas. The layout demo of the reference explicitly applies an entered answer locally and
+creates no agent response. Short input hints belong as `placeholder` in empty text, number, and
+multi-line fields; explicitly set `hint` values stay as permanent hints below the field. Field
+names and required markers stay visible. Checkboxes sit on one line with their label. Editable
+select fields show field name and required marker directly in the select button; in read-only
+display, the field name sits above the value. Multi-line fields without their own `rows` value
+start with two lines and can be enlarged. Forms, file and task lists, and tables use compact
+padding and row spacing with unchanged font size. Data tables have typed columns, search, sorting,
+controlled row selection, and asynchronous row actions. Errors stay visible and inputs are
+preserved. The table search sits on one line with the placeholder "Search table"; the same
+accessible label is kept regardless of the entered search text. Host chat and mini-app file picker
+share the intake of files through input, drop, and paste. Text insertion at the selection stays
+with the chat; file filters, selection rules, and preview stay with the respective control. The
+shared drag detection reacts only to files. The file picker supports selection, drop, and paste
+with shared type, count, and size limits; files stay local until the app runs its send action.
+Media previews use temporary object URLs, text previews are limited. Task progress shows predefined
+status values; documents can be read as text, Markdown, or code. The diff view displays a supplied
+unified diff and neither computes nor writes changes itself.
 
-`actor_program_controls` liest mit `topic: "controls"` den Control-Katalog aus den exportierten
-Typverträgen der Bausteinsammlung; ohne `topic` gilt dieselbe Auswahl. Ohne `component` liefert es
-nur die Namen. Mit einem Control enthält die Antwort nur `files`, ohne die Namensliste, und folgt dessen
-TypeScript-Symbolen und enthält ausschließlich die gewählte Deklaration sowie ihre transitiv
-benötigten Typen und Imports; andere Controls und unbenutzte Typen fehlen. Umbenannte Exporte
-und lokale Verweise bleiben auflösbar. Mit `topic: "guide"` liefert es stattdessen die
-vollständige gerenderte Actor-Programm-Anleitung im Feld `guide`. `component` ist nur für das Thema
-`controls` zulässig; zusammen mit `guide` wird die Anfrage ausdrücklich abgewiesen.
-Der vollständige automatische Dateisammler versorgt
-weiterhin den Client-Compiler und die
-erzeugte HTML-/LLM-Referenz. Die Referenz gewinnt Props, Varianten und Beschreibungen aus dem
-TypeScript-Vertrag und prüft dessen Übereinstimmung mit den Runtime-Exports. Es gibt keine
-zweite manuell gepflegte Komponenten- oder Props-Liste. Die Vorlage `controls` zeigt die
-Bausteine als lokale, interaktive Mini-App ohne fachliche Aktionen.
+`actor_program_controls` with `topic: "controls"` reads the control catalog from the exported type
+contracts of the building block collection; without `topic`, the same selection applies. Without
+`component`, it returns only the names. With a control, the response contains only `files`,
+without the name list, follows that control's TypeScript symbols, and contains exclusively the
+chosen declaration and its transitively required types and imports; other controls and unused
+types are left out. Renamed exports and local references stay resolvable. With `topic: "guide"`,
+it instead returns the complete rendered actor program guide in the `guide` field. `component` is
+allowed only for the `controls` topic; together with `guide`, the request is explicitly rejected.
+The complete automatic file collector still supplies the client compiler and the generated HTML/LLM
+reference. The reference derives props, variants, and descriptions from the TypeScript contract and
+checks that it matches the runtime exports. There is no second manually maintained component or
+props list. The `controls` template shows the building blocks as a local, interactive mini-app
+without domain actions.
 
-`UI.Chat` hat zwei ausdrücklich getrennte Formen:
+`UI.Chat` has two explicitly separate forms:
 
-- `actor="primary"` bindet den Chat an den aktuell gewählten primären Actor des Runs.
-  Er teilt den Live-Verlauf des Hauptchats. `actor="@handle"` bindet ihn an einen benannten Actor
-  desselben Runs. Dessen Verlauf zeigt Eingaben, veröffentlichte Antworten, Denkschritte und
-  Werkzeugaufrufe mit Argumenten und Ergebnissen in Journalreihenfolge. Diese Schritte bleiben
-  auch nach einem Wechsel des primären Actors beim ursprünglichen Gespräch erhalten.
-  Die Ansicht aktualisiert sich auf Nachrichtenebene; für diese Actor-Ansicht werden keine Token-Deltas
-  übertragen. Eingaben laufen über die Chat-Route des Hosts als Benutzernachricht an den Actor.
-  Die App benötigt dafür keine eigene Aktion,
-  keinen Handler und keine Capability im Actor-Vertrag. Unbekannte oder gestoppte Actors werden
-  ausdrücklich gemeldet. Freie Run-IDs, fremde Journale und eigene Fetch-Verbindungen sind nicht
-  Teil dieser Anbindung.
-- `messages={messages}` und ein optionales `onSend` ergeben einen vom App-Code gesteuerten Chat.
-  Die App liefert ihre Nachrichten und verarbeitet Eingaben selbst, zum Beispiel über eine
-  deklarierte Aktion und den gemeinsamen Actor-Zustand. Der Baustein ergänzt weder Nachrichten
-  noch Antworten automatisch. Er ist auch für einen Verlauf ohne Actor geeignet. Diese Form
-  kann nicht mit `actor` kombiniert werden.
+- `actor="primary"` binds the chat to the currently chosen primary actor of the run. It shares the
+  live history of the main chat. `actor="@handle"` binds it to a named actor of the same run. Its
+  history shows inputs, published responses, reasoning steps, and tool calls with arguments and
+  results in journal order. These steps stay with the original conversation even after the primary
+  actor changes. The view updates at message level; no token deltas are transferred for this actor
+  view. Inputs go through the host's chat route as a user message to the actor. The app needs no
+  action of its own, no handler, and no capability in the actor contract for this. Unknown or
+  stopped actors are reported explicitly. Free run IDs, foreign journals, and custom fetch
+  connections are not part of this binding.
+- `messages={messages}` and an optional `onSend` result in a chat controlled by the app code. The
+  app supplies its messages and processes inputs itself, for example through a declared action and
+  the shared actor state. The building block adds neither messages nor responses automatically. It
+  is also suitable for a history without an actor. This form cannot be combined with `actor`.
 
-Ein an TypeScript gebundenes `UI.Chat` erhält den vorhandenen Verlauf schreibgeschützt,
-einen erklärenden Hinweis und keine Eingabe. Die Host-Bridge erhält diese Einschränkung
-auch bei Schreibrechten am Run; direkte Sendeversuche werden abgewiesen. Ein kontrollierter
-Chat mit eigenem `onSend` bleibt eine vom Programm definierte Oberfläche.
+A `UI.Chat` bound to TypeScript receives the existing history read-only, an explanatory notice,
+and no input. The host bridge keeps this restriction even with write permission on the run; direct
+send attempts are rejected. A controlled chat with its own `onSend` remains an interface defined by
+the program.
 
-`showInput={false}` zeigt in beiden Formen nur den Verlauf. Titel, Eingabeplatzhalter,
-Zeitstempel und Detaildarstellung lassen sich über Props einstellen. `UI.ChatMessages` und
-`UI.ChatInput` bieten Verlauf und Eingabe getrennt an. `UI.Markdown` rendert seinen `text`,
-`UI.Select`, `UI.Button`, `UI.Toggle`, `UI.ToggleGroup`, `UI.Tabs`, `UI.Dialog` und die
-übrigen shadcn-Komponenten sind dieselben Steuerelemente wie in der Hauptoberfläche (siehe
-plugins); eine Mini-App baut keine eigenen Schaltflächen oder Reiter, Icons kommen aus
-`lucide-react`. Die verbindlichen Props und Nachrichtentypen stehen in den UI-Verträgen im
-Code; für die shadcn-Komponenten sind es die von shadcn und Base UI dokumentierten.
+`showInput={false}` shows only the history in both forms. Title, input placeholder, timestamps, and
+detail display can be set through props. `UI.ChatMessages` and `UI.ChatInput` offer history and
+input separately. `UI.Markdown` renders its `text`; `UI.Select`, `UI.Button`, `UI.Toggle`,
+`UI.ToggleGroup`, `UI.Tabs`, `UI.Dialog`, and the other shadcn components are the same controls as
+in the main interface (see plugins); a mini-app builds no buttons or tabs of its own, and icons
+come from `lucide-react`. The binding props and message types are in the UI contracts in the code;
+for the shadcn components, they are the ones documented by shadcn and Base UI.
 
-`UI.Chat` und `UI.ChatMessages` können mit `owner` einen Absender bestimmen, dessen
-Nachrichten ohne Sprechblase erscheinen. Der Wert wird mit `sender` verglichen; Rollen und
-Sprechblasen der anderen Absender bleiben erhalten. Ein Actor-Chat übernimmt ohne eigene
-Angabe automatisch den aufgelösten Actor als Owner. `owner={null}` schaltet diese Vorgabe ab.
-Bei frei gelieferten Nachrichten bleiben ohne Owner die jeweiligen Nachrichtenvorgaben
-wirksam. Der Owner betrifft ausschließlich die Darstellung, keine Identität oder Rechte des Runs.
+`UI.Chat` and `UI.ChatMessages` can use `owner` to name a sender whose messages appear without a
+bubble. The value is compared with `sender`; roles and bubbles of the other senders are preserved.
+Without its own value, an actor chat automatically takes the resolved actor as owner.
+`owner={null}` turns this default off. For freely supplied messages without an owner, the
+respective message defaults stay in effect. The owner affects only the display, not any identity
+or permissions of the run.
 
-`UI.MessageList` stellt eine schlichte, nur lesbare Folge mit frei benannten Absendern dar.
-Die Mini-App übergibt die Nachrichten als Props; ein neuer Arraywert aktualisiert die Anzeige.
-Die Reihenfolge bleibt die des Arrays, Nachrichtenschlüssel bleiben stabil. Der Baustein
-verwendet dieselbe Nachrichtendarstellung wie der Seitenchat, mit Markdown, Anhängen und
-optional sichtbaren Zeitstempeln. Absender erhalten ohne eigene Farbangabe eine stabile Farbe;
-die Seite kann je Nachricht ausdrücklich gewählt werden. Auch hier zeigt `owner` die
-Nachrichten des passenden Absendernamens ohne Sprechblase; ohne Owner oder mit `null` bleiben
-alle Absender in Sprechblasen. Die vollständigen Felder und Props
-stehen im automatisch erfassten Control-Vertrag.
+`UI.MessageList` displays a plain, read-only sequence with freely named senders. The mini-app
+passes the messages as props; a new array value updates the display. The order stays that of the
+array, message keys stay stable. The building block uses the same message display as the side
+chat, with Markdown, attachments, and optionally visible timestamps. Senders without their own
+color receive a stable color; the side can be chosen explicitly per message. Here too, `owner`
+shows the messages of the matching sender name without a bubble; without an owner or with `null`,
+all senders stay in bubbles. The complete fields and props are in the automatically captured
+control contract.
 
-Die Liste besitzt keine eigene Eingabe, Titelleiste, Actor-Verbindung oder Netzwerkanfrage.
-Sie ergänzt keine Nachrichten selbst und modelliert keine Werkzeug- oder Denkschritte.
-Die App kann ihre Daten aus lokalem React-Zustand oder dem bereits verfügbaren Actor-Zustand
-ableiten. Gemeinsame Zustandsänderungen erreichen die Anzeige über die Host-Bridge.
-Die lokale Controls-Vorlage und die UI-Demo der Referenz zeigen zwei Absender und eine
-Schaltfläche, die sichtbar eine weitere lokale Nachricht anfügt.
-Die Demo lässt zusätzlich auswählen, welcher Absender ohne Sprechblase erscheint.
+The list has no input, title bar, actor connection, or network request of its own. It adds no
+messages itself and does not model tool or reasoning steps. The app can derive its data from local
+React state or from the actor state already available. Shared state changes reach the display
+through the host bridge. The local controls template and the UI demo of the reference show two
+senders and a button that visibly appends another local message. The demo additionally lets you
+choose which sender appears without a bubble.
 
-Die gemeinsame Chat-Eingabe leert Text und Anhänge beim Beginn einer gültigen Sendeaktion.
-Ein zwischenzeitlich neu geschriebener Entwurf bleibt bei Erfolg und Fehler erhalten. Ohne
-Textänderung stellt ein Fehler die ursprüngliche Eingabe samt Anhängen automatisch wieder her;
-sonst bleibt sie separat abrufbar. "Nicht gesendete Eingabe einfügen" hängt sie ausdrücklich an
-den aktuellen Entwurf an und prüft dabei die Anhangsgrenzen. Weitere Sendeaktionen und neue
-Anhänge bleiben bis zum Ende der Anfrage gesperrt. Die vollständigen Regeln einschließlich
-Zurücksetzen stehen im Kapitel plugins.
+The shared chat input clears text and attachments at the start of a valid send action. A draft
+newly written in the meantime is preserved on success and on error. Without a text change, an
+error automatically restores the original input including attachments; otherwise it stays
+retrievable separately. "Insert unsent input" explicitly appends it to the current draft and checks
+the attachment limits. Further send actions and new attachments stay locked until the request
+ends. The complete rules including reset are in the plugins chapter.
 
-Auch diese Eingaben unterstützen Dateiauswahl, Drag-and-drop und Einfügen aus der Zwischenablage.
-Bei gesteuerten Chats erhält `onSend(text, attachments)` die Dateinamen, MIME-Typen und
-Base64-Inhalte als zweites Argument; die App übernimmt die Zustellung. Sie kann über
-`attachmentCapabilities` die Fähigkeiten ihres Zielmodells angeben. Ein Actor-Chat erhält diese
-Informationen vom Host. Anhangsfehler erhalten den gesamten Entwurf. Der Verlauf verwendet
-dieselben Medienvorschauen und Downloadverweise wie der Hauptchat.
+These inputs also support file selection, drag-and-drop, and pasting from the clipboard. For
+controlled chats, `onSend(text, attachments)` receives the file names, MIME types, and Base64
+contents as the second argument; the app takes care of delivery. It can state the capabilities of
+its target model through `attachmentCapabilities`. An actor chat receives this information from
+the host. Attachment errors preserve the whole draft. The history uses the same media previews and
+download links as the main chat.
 
-Die Vorlage `chat` verbindet diese Bausteine mit dem normalen Aktivierungspfad. Weil
-sie keine eigenen aufrufbaren Oberflächen hat, benötigt sie keine simulierte Chat-Antwort und
-keinen Aktionstest. Fügt eine App eigene Aktionen oder Werkzeuge hinzu, gilt für diese die
-gewöhnliche Testpflicht.
+The `chat` template connects these building blocks with the normal activation path. Because it
+has no callable interfaces of its own, it needs no simulated chat response and no action test. If
+an app adds its own actions or tools, the usual testing requirement applies to them.
 
-Die Bausteine werden mit `import * as UI from "@ragents/client/ui"` eingebunden. `ui-field` gehört
-direkt auf ein Eingabeelement, nie auf dessen Wrapper. `FlowDiagram` stellt mit `layout="star"`
-den ersten Knoten in die Mitte.
+The building blocks are included with `import * as UI from "@ragents/client/ui"`. `ui-field`
+belongs directly on an input element, never on its wrapper. `FlowDiagram` with `layout="star"`
+places the first node in the center.
 
-## Host-Bridge
+## Host bridge
 
-Die Host-Bridge läuft als erstes Script im Dokument, erzeugt einen `MessageChannel` und meldet
-sich mit dessen übertragenem Port und einem zufälligen Fragment-Token beim Host. Der Host hört
-bereits vor dem Laden des Frames, prüft Token, opaque Origin und das aktuelle `contentWindow` und
-nimmt genau den zuerst übertragenen, an dieses Dokument gebundenen Port an. Öffentlich sieht der
-Client den importierten, typisierten `context`:
+The host bridge runs as the first script in the document, creates a `MessageChannel`, and
+registers with the host using its transferred port and a random fragment token. The host already
+listens before the frame loads, checks the token, the opaque origin, and the current
+`contentWindow`, and accepts exactly the first transferred port bound to this document. Publicly,
+the client sees the imported, typed `context`:
 
-- `context.ready` wartet auf die Bridge.
-- `context.capabilities.call(actionId, input)` ruft eine fest installierte Aktion auf.
-- `context.state.read()` liest den zuletzt empfangenen intrinsischen Actor-Zustand.
-- `context.state.subscribe(listener)` meldet spätere Zustandsänderungen.
-- `context.chat.read(actor)` liefert den aktuellen Snapshot mit `messages`, `running`,
-  Modellfähigkeiten für Anhänge, optionalem `owner` als aufgelöstem Actor und optionalen Fehlern,
-  vor der ersten Lieferung `undefined`.
-- `context.chat.subscribe(actor, listener)` abonniert Änderungen dieser Actor-Ansicht und liefert
-  eine Abmeldefunktion; `actor` ist `primary` oder `@handle` im Run der App.
-- `context.chat.send(actor, text, attachments?)` sendet eine Benutzernachricht mit optionalen
-  Anhängen über den Host und liefert ein
-  Promise. Diese feste UI-Verbindung ist keine beliebige Modul-Capability und erlaubt keinen
-  Wechsel in einen anderen Run. Eine App sendet erst nach einer ausdrücklichen Bedieneraktion.
+- `context.ready` waits for the bridge.
+- `context.capabilities.call(actionId, input)` calls a permanently installed action.
+- `context.state.read()` reads the last received intrinsic actor state.
+- `context.state.subscribe(listener)` reports later state changes.
+- `context.chat.read(actor)` returns the current snapshot with `messages`, `running`, model
+  capabilities for attachments, optional `owner` as the resolved actor, and optional errors;
+  `undefined` before the first delivery.
+- `context.chat.subscribe(actor, listener)` subscribes to changes of this actor view and returns an
+  unsubscribe function; `actor` is `primary` or `@handle` in the app's run.
+- `context.chat.send(actor, text, attachments?)` sends a user message with optional attachments
+  through the host and returns a promise. This fixed UI connection is not an arbitrary module
+  capability and does not allow switching to another run. An app sends only after an explicit
+  operator action.
 
-Der Host prüft Nachrichtentyp, Request-ID, JSON-Tiefe und Größe. Clients erzeugen eindeutige
-Request-IDs. Der Host merkt sich die letzten 512 IDs eines Frames und weist deren Wiederholung
-ab; die Anzahl aufeinanderfolgender gültiger Aufrufe ist unbegrenzt. Der Server prüft die
-Wiederverwendung von Aktions-IDs zusätzlich. Regelmäßig aktualisierte Mini-Apps können dadurch
-auch in langen Runs weiter ihren Status lesen.
-Aktionsaufrufe tragen den installierten `compilationHash`. Eine spätere Navigation trennt den
-Port sichtbar; das Zieldokument erhält keine neue Bridge. App-Code ist trotzdem
-vertrauenswürdiger Inhalt des Runs und keine Vertraulichkeitsgrenze gegen einen bösartigen
-App-Autor: ein sandboxed Iframe darf sein eigenes Dokument navigieren, und der Navigationsrequest
-kann gesendet sein, bevor der Host trennt.
+The host checks message type, request ID, JSON depth, and size. Clients generate unique request
+IDs. The host remembers the last 512 IDs of a frame and rejects their repetition; the number of
+consecutive valid calls is unlimited. The server additionally checks the reuse of action IDs.
+Regularly updated mini-apps can therefore keep reading their status even in long runs. Action
+calls carry the installed `compilationHash`. A later navigation visibly disconnects the port; the
+target document receives no new bridge. App code is nevertheless trusted content of the run and
+not a confidentiality boundary against a malicious app author: a sandboxed iframe may navigate its
+own document, and the navigation request may have been sent before the host disconnects.
 
 <!-- guide:programs -->
 ## State and lifecycle
@@ -712,15 +675,14 @@ an actor that is still executable. A mini-app click and a message to an actor us
 execution paths. Deleting the run also removes its private app workspace.
 <!-- /guide:programs -->
 
-## Offene Grenzen
+## Open limits
 
-- Ein erfolgreicher Typecheck und Fachtest ist kein Nachweis der tatsächlichen Browserbedienung.
-  Oberflächen müssen zusätzlich im Browser geprüft werden.
-- Fortschritt innerhalb einer noch laufenden Backend-Funktion wird nicht automatisch als
-  gemeinsamer Zustand veröffentlicht; die Zustandsübernahme erfolgt am erfolgreichen Ende.
-- Eine View besitzt keinen eigenen Scheduler; Subscription-Ereignisse liefern normale
-  ActorInputs an den Actor.
-- Browser-CSP und Run-Dateirechte ersetzen keine separate Vertrauensgrenze für fremden Code.
-- Zwischen der letzten Prüfung und dem Umbenennen eines neuen Pakets kann nur noch ein fremder
-  Prozess, etwa eine Shell des Runs, einen leeren Ordner desselben Namens anlegen; `rename` ersetzt
-  ihn dann. Node bietet kein Umbenennen ohne Ersetzen (`RENAME_NOREPLACE`).
+- A successful type check and domain test is no proof of actual operation in the browser.
+  Interfaces must additionally be checked in the browser.
+- Progress within a backend function that is still running is not automatically published as
+  shared state; the state is committed at successful completion.
+- A view has no scheduler of its own; subscription events deliver normal ActorInputs to the actor.
+- Browser CSP and run file permissions do not replace a separate trust boundary for foreign code.
+- Between the last check and the renaming of a new package, only a foreign process, such as a shell
+  of the run, can still create an empty folder of the same name; `rename` then replaces it. Node
+  offers no rename without replacement (`RENAME_NOREPLACE`).

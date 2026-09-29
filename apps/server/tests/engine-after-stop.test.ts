@@ -54,7 +54,7 @@ const fixture = async (runId: string, hooks: {
     host.lifecycle({ id: "test.cleanup", stopSession: hooks.early, afterStopSession: ({ signal }) => hooks.final(signal) });
   } });
   const workspaces = new SessionWorkspaces(() => ({
-    execute: () => Promise.reject(new Error("Der Test legt keine Anhänge ab")),
+    execute: () => Promise.reject(new Error("The test stores no attachments")),
     serverProcessContextFor: async (runId: string) => ({ runId, cwd: directory }) as never,
   }));
   workspaces.remember(runId, directory);
@@ -188,7 +188,7 @@ test("the engine bounds the stop response while an unsettled driver keeps the ru
   });
   try {
     t.mock.timers.enable({ apis: ["setTimeout"] });
-    const stopped = assert.rejects(f.stop(), /15000 ms.*gesperrt/);
+    const stopped = assert.rejects(f.stop(), /15000 ms.*locked/);
     await tick(); await tick();
     t.mock.timers.tick(15_000);
     await stopped;

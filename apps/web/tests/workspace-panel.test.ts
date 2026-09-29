@@ -11,22 +11,22 @@ const tab = (id: string, keepMounted?: boolean): WorkspaceTabContribution =>
 
 const idsOf = (tabs: readonly WorkspaceTabContribution[]) => tabs.map((entry) => entry.id);
 
-test("ohne keepMounted wird nur der aktive Reiter gerendert", () => {
+test("without keepMounted only the active tab is rendered", () => {
   const tabs = [tab("a"), tab("b"), tab("c")];
   assert.deepEqual(idsOf(mountedTabs(tabs, "b", ["a", "b", "c"])), ["b"]);
 });
 
-test("besuchte Reiter mit keepMounted bleiben neben dem aktiven montiert", () => {
+test("visited tabs with keepMounted stay mounted next to the active one", () => {
   const tabs = [tab("a", true), tab("b"), tab("c", true)];
   assert.deepEqual(idsOf(mountedTabs(tabs, "b", ["a", "b"])), ["a", "b"]);
 });
 
-test("ein keepMounted-Reiter wird erst nach seinem ersten Besuch montiert", () => {
+test("a keepMounted tab is mounted only after its first visit", () => {
   const tabs = [tab("a", true), tab("b")];
   assert.deepEqual(idsOf(mountedTabs(tabs, "b", ["b"])), ["b"]);
 });
 
-test("der aktive Reiter wird auch ohne Besuchsvermerk gerendert", () => {
+test("the active tab is rendered even without a visit record", () => {
   const tabs = [tab("a", true), tab("b")];
   assert.deepEqual(idsOf(mountedTabs(tabs, "a", [])), ["a"]);
 });

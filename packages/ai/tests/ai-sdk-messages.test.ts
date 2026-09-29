@@ -35,22 +35,22 @@ async function payloadOf(context: Context, cacheControl?: { type: "ephemeral"; t
 
 test("SDK provider preserves ordinary reasoning on the wire", async () => {
   const context: Context = { messages: [assistant([
-    { type: "thinking", thinking: "Überlege kurz.", thinkingSignature: "reasoning" },
-    { type: "text", text: "Antwort" },
-  ]), { role: "user", content: "Weiter", timestamp: 2 }] };
+    { type: "thinking", thinking: "Thinking briefly.", thinkingSignature: "reasoning" },
+    { type: "text", text: "Answer" },
+  ]), { role: "user", content: "Continue", timestamp: 2 }] };
   const payload = await payloadOf(context);
   assert.deepEqual((payload.messages as Record<string, unknown>[])[0], {
-    role: "assistant", content: "Antwort", reasoning: "Überlege kurz.",
-    reasoning_details: [{ type: "reasoning.text", text: "Überlege kurz.", format: "unknown" }],
+    role: "assistant", content: "Answer", reasoning: "Thinking briefly.",
+    reasoning_details: [{ type: "reasoning.text", text: "Thinking briefly.", format: "unknown" }],
   });
 });
 
 test("reasoning details from message and tool signatures survive deduplicated without changing history", () => {
   const encrypted = { type: "reasoning.encrypted", id: "call", data: "opaque", format: "google-gemini-v1" };
-  const summary = { type: "reasoning.summary", summary: "Überlegt" };
+  const summary = { type: "reasoning.summary", summary: "Thought" };
   const context: Context = { messages: [assistant([
     { type: "thinking", thinking: "", redacted: true, thinkingSignature: JSON.stringify([encrypted, summary]) },
-    { type: "toolCall", id: "call", name: "echo", arguments: { text: "Hallo" }, thoughtSignature: JSON.stringify(encrypted) },
+    { type: "toolCall", id: "call", name: "echo", arguments: { text: "Hello" }, thoughtSignature: JSON.stringify(encrypted) },
   ])] };
   const original = structuredClone(context);
   const messages = convertMessages(context, model);
@@ -61,12 +61,12 @@ test("reasoning details from message and tool signatures survive deduplicated wi
 
 test("SDK provider replays encrypted tool reasoning and summary from an empty thinking block", async () => {
   const encrypted = { type: "reasoning.encrypted", id: "call", data: "opaque", format: "google-gemini-v1" };
-  const summary = { type: "reasoning.summary", summary: "Überlegt" };
+  const summary = { type: "reasoning.summary", summary: "Thought" };
   const payload = await payloadOf({ messages: [assistant([
     { type: "thinking", thinking: "", redacted: true, thinkingSignature: JSON.stringify([encrypted, summary]) },
-    { type: "toolCall", id: "call", name: "echo", arguments: { text: "Hallo" }, thoughtSignature: JSON.stringify(encrypted) },
+    { type: "toolCall", id: "call", name: "echo", arguments: { text: "Hello" }, thoughtSignature: JSON.stringify(encrypted) },
   ]), { role: "toolResult", toolCallId: "call", toolName: "echo", timestamp: 2, isError: false,
-    content: [{ type: "text", text: "Hallo" }] }] });
+    content: [{ type: "text", text: "Hello" }] }] });
   assert.deepEqual((payload.messages as Record<string, unknown>[])[0]?.reasoning_details, [encrypted, summary]);
 });
 
@@ -74,11 +74,11 @@ test("model changes remove opaque reasoning while retaining ordinary thinking as
   const encrypted = { type: "reasoning.encrypted", id: "call", data: "opaque" };
   const messages = convertMessages({ messages: [assistant([
     { type: "thinking", thinking: "", redacted: true, thinkingSignature: JSON.stringify([encrypted]) },
-    { type: "thinking", thinking: "Gedanke", thinkingSignature: "reasoning" },
-    { type: "text", text: "Antwort" },
+    { type: "thinking", thinking: "Thought", thinkingSignature: "reasoning" },
+    { type: "text", text: "Answer" },
   ])] }, { ...model, id: "another/model" });
   assert.equal(messages[0]?.providerOptions, undefined);
-  assert.deepEqual(messages[0]?.content, [{ type: "text", text: "Gedanke" }, { type: "text", text: "Antwort" }]);
+  assert.deepEqual(messages[0]?.content, [{ type: "text", text: "Thought" }, { type: "text", text: "Answer" }]);
 });
 
 test("SDK provider carries native user media and filenames without empty text", async () => {
@@ -86,19 +86,19 @@ test("SDK provider carries native user media and filenames without empty text", 
     { type: "text", text: "" },
     { type: "image", data: "aW1hZ2U=", mimeType: "image/png" },
     { type: "video", data: "dmlkZW8=", mimeType: "video/mp4" },
-    { type: "file", data: "cGRm", mimeType: "application/pdf", filename: "Entwurf.pdf" },
+    { type: "file", data: "cGRm", mimeType: "application/pdf", filename: "Draft.pdf" },
   ] }] });
   assert.deepEqual(payload.messages, [{ role: "user", content: [
     { type: "image_url", image_url: { url: "data:image/png;base64,aW1hZ2U=" } },
     { type: "video_url", video_url: { url: "data:video/mp4;base64,dmlkZW8=" } },
-    { type: "file", file: { filename: "Entwurf.pdf", file_data: "data:application/pdf;base64,cGRm" } },
+    { type: "file", file: { filename: "Draft.pdf", file_data: "data:application/pdf;base64,cGRm" } },
   ] }]);
 });
 
 test("the cache mark sits on the last block of the request, also on a media-only message, and keeps reasoning details", () => {
   const cacheControl = { type: "ephemeral", ttl: "1h" } as const;
   const messages = convertMessages({ messages: [assistant([
-    { type: "thinking", thinking: "Gedanke" }, { type: "text", text: "Antwort" },
+    { type: "thinking", thinking: "Thought" }, { type: "text", text: "Answer" },
   ]), { role: "user", timestamp: 2, content: [{ type: "video", data: "dmlkZW8=", mimeType: "video/mp4" }] }] }, model, cacheControl);
   assert.equal(messages[0]?.providerOptions?.openrouter?.cacheControl, undefined);
   assert.ok(messages[0]?.providerOptions?.openrouter?.reasoning_details);
@@ -109,12 +109,12 @@ test("the cache mark sits on the last block of the request, also on a media-only
 
 test("in a tool loop the cache mark follows the newest tool result instead of staying on the last text", async () => {
   const cacheControl = { type: "ephemeral" } as const;
-  const context: Context = { systemPrompt: "Regeln", messages: [
-    { role: "user", content: "Schlage k1 und k2 nach.", timestamp: 1 },
+  const context: Context = { systemPrompt: "Rules", messages: [
+    { role: "user", content: "Look up k1 and k2.", timestamp: 1 },
     assistant([{ type: "toolCall", id: "one", name: "lookup", arguments: { key: "k1" } }]),
-    { role: "toolResult", toolCallId: "one", toolName: "lookup", timestamp: 2, isError: false, content: [{ type: "text", text: "eins" }] },
+    { role: "toolResult", toolCallId: "one", toolName: "lookup", timestamp: 2, isError: false, content: [{ type: "text", text: "one" }] },
     assistant([{ type: "toolCall", id: "two", name: "lookup", arguments: { key: "k2" } }]),
-    { role: "toolResult", toolCallId: "two", toolName: "lookup", timestamp: 3, isError: false, content: [{ type: "text", text: "zwei" }] },
+    { role: "toolResult", toolCallId: "two", toolName: "lookup", timestamp: 3, isError: false, content: [{ type: "text", text: "two" }] },
   ] };
   const payload = await payloadOf(context, cacheControl);
   const marked = (payload.messages as Array<Record<string, unknown>>).flatMap((message, index) => [
@@ -124,7 +124,7 @@ test("in a tool loop the cache mark follows the newest tool result instead of st
   assert.deepEqual(marked, ["0:system:part", "5:tool"]);
 
   const withImage = await payloadOf({ ...context, messages: [...context.messages.slice(0, -1), {
-    ...context.messages.at(-1)!, content: [{ type: "text", text: "zwei" }, { type: "image", data: "aW1hZ2U=", mimeType: "image/png" }],
+    ...context.messages.at(-1)!, content: [{ type: "text", text: "two" }, { type: "image", data: "aW1hZ2U=", mimeType: "image/png" }],
   } as Context["messages"][number]] }, cacheControl);
   const last = (withImage.messages as Array<{ role: string; content: Array<{ type: string; cache_control?: unknown }> }>).at(-1)!;
   assert.equal(last.role, "user");
@@ -132,11 +132,11 @@ test("in a tool loop the cache mark follows the newest tool result instead of st
 });
 
 test("a note for one request stays behind the cache boundary, which marks the last lasting message", async () => {
-	const context: Context = { systemPrompt: "Regeln", messages: [
-		{ role: "user", content: "Schlage k1 nach.", timestamp: 1 },
+	const context: Context = { systemPrompt: "Rules", messages: [
+		{ role: "user", content: "Look up k1.", timestamp: 1 },
 		assistant([{ type: "toolCall", id: "one", name: "lookup", arguments: { key: "k1" } }]),
-		{ role: "toolResult", toolCallId: "one", toolName: "lookup", timestamp: 2, isError: false, content: [{ type: "text", text: "eins" }] },
-		{ role: "user", content: [{ type: "text", text: "Hinweis nur für diese Anfrage." }], timestamp: 3, transient: true },
+		{ role: "toolResult", toolCallId: "one", toolName: "lookup", timestamp: 2, isError: false, content: [{ type: "text", text: "one" }] },
+		{ role: "user", content: [{ type: "text", text: "Note only for this request." }], timestamp: 3, transient: true },
 	] };
 	const payload = await payloadOf(context, { type: "ephemeral" });
 	const marked = (payload.messages as Array<Record<string, unknown>>).flatMap((message, index) => [
@@ -152,7 +152,7 @@ test("tool images follow all consecutive tool results and unsupported media fail
     { role: "toolResult", toolCallId: "one", toolName: "image", timestamp: 2, isError: false,
       content: [{ type: "image", data: "aW1hZ2U=", mimeType: "image/png" }] },
     { role: "toolResult", toolCallId: "two", toolName: "image", timestamp: 2, isError: true,
-      content: [{ type: "text", text: "Fehlgeschlagen" }] },
+      content: [{ type: "text", text: "Failed" }] },
   ] };
   const messages = convertMessages(context, model);
   assert.deepEqual(messages.map((message) => message.role), ["assistant", "tool", "tool", "user"]);

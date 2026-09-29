@@ -11,7 +11,7 @@ const registryWith = (plugins: WebPlugin[]) => new PluginRegistry({
   startEntries: [],
 });
 
-test("Übersichtsbeiträge sind nach Reihenfolge und Kennung sortiert", () => {
+test("overview contributions are sorted by order and id", () => {
   const registry = registryWith([
     { id: "test.first", overviewPanels: [panel("later", 200), panel("second", 100)] },
     { id: "test.second", overviewPanels: [panel("first", 100)] },
@@ -19,7 +19,7 @@ test("Übersichtsbeiträge sind nach Reihenfolge und Kennung sortiert", () => {
   assert.deepEqual(registry.overviewPanels.map((entry) => entry.id), ["first", "second", "later"]);
 });
 
-test("Entfernen und Deaktivieren eines Plugins entfernt seinen Übersichtsbeitrag", () => {
+test("removing or disabling a plugin removes its overview contribution", () => {
   const retained = { id: "test.retained", overviewPanels: [panel("retained", 200)] };
   const disabled = { id: "test.disabled", enabled: () => false, overviewPanels: [panel("disabled", 100)] };
   assert.deepEqual(registryWith([retained, disabled]).overviewPanels.map((entry) => entry.id), ["retained"]);
@@ -27,15 +27,15 @@ test("Entfernen und Deaktivieren eines Plugins entfernt seinen Übersichtsbeitra
   assert.deepEqual(registryWith([]).overviewPanels, []);
 });
 
-test("doppelte oder leere Übersichtskennungen werden abgelehnt", () => {
+test("duplicate or empty overview ids are rejected", () => {
   assert.throws(() => registryWith([
     { id: "test.first", overviewPanels: [panel("coordinator", 100)] },
     { id: "test.second", overviewPanels: [panel("coordinator", 200)] },
-  ]), /Übersichtsbeitrag doppelt registriert: coordinator/);
-  assert.throws(() => registryWith([{ id: "test.empty", overviewPanels: [panel("", 100)] }]), /Übersichtsbeitrag ohne ID/);
+  ]), /Overview contribution registered twice: coordinator/);
+  assert.throws(() => registryWith([{ id: "test.empty", overviewPanels: [panel("", 100)] }]), /Overview contribution without ID/);
 });
 
-test("Übersichtsbeiträge deaktivierter Plugins verursachen keine Kollision mit aktiven", () => {
+test("overview contributions of disabled plugins do not collide with active ones", () => {
   const registry = registryWith([
     { id: "test.enabled", overviewPanels: [panel("coordinator", 100)] },
     { id: "test.disabled", enabled: () => false, overviewPanels: [panel("coordinator", 100)] },
@@ -43,7 +43,7 @@ test("Übersichtsbeiträge deaktivierter Plugins verursachen keine Kollision mit
   assert.equal(registry.overviewPanels.length, 1);
 });
 
-test("ein Übersichtsbeitrag darf ein Leserecht verlangen", () => {
+test("an overview contribution may require a read right", () => {
   const registry = registryWith([{ id: "test.guarded", overviewPanels: [{ ...panel("guarded", 100), readRight: "test.read" }] }]);
   assert.equal(registry.overviewPanels[0]?.readRight, "test.read");
 });

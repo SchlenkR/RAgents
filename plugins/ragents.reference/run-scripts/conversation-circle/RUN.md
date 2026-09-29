@@ -1,13 +1,13 @@
 ---
-title: Gesprächsrunde einrichten
-description: "Ein vorbereitetes Setup zeigt die Parametrisierung durch einen Startleitfaden und die Anordnung einer Gesprächsrunde. Der Koordinator führt anschließend die Runden."
+title: Set up conversation circle
+description: "A prepared setup shows parameterization through a start guide and the arrangement of a conversation circle. The coordinator then leads the rounds."
 order: 120
 guide: ragents.reference.conversation-circle
-tags: Run-Scripts, Anwendungsfall, Konzeptdemo, Startleitfaden, Agententeams
+tags: Run scripts, Use case, Concept demo, Start guide, Agent teams
 ---
 
-Ein deterministisches Setup: das Script stellt mira, jon und ada als gewöhnliche LLMs auf, teilt
-die Fläche unter ihnen auf und übergibt dem Koordinator das Briefing.
-Die Karte prüft das Modell, dieses Script prüft die Plattform.
+A deterministic setup: the script sets up mira, jon, and ada as ordinary LLMs, splits
+the surface among them, and hands the briefing to the coordinator.
+The card tests the model, this script tests the platform.
 
-Der Leitfaden übergibt `{ "topic": "...", "rounds": 2 }`. `topic` enthält 1 bis 160 Zeichen, `rounds` ist eine ganze Zahl von 1 bis 5. Der Startwert `null` wählt ausdrücklich das Thema "Sollten Innenstädte autofrei werden?" und zwei Runden. Andere unvollständige oder ungültige Werte werden vor dem Aufbau abgelehnt. Thema und Rundenzahl steuern die Darstellung und den Auftrag, das Thema auch den Run-Titel.
+The guide passes `{ "topic": "...", "rounds": 2 }`. `topic` contains 1 to 160 characters, `rounds` is an integer from 1 to 5. The start value `null` explicitly chooses the topic "Should city centers become car-free?" and two rounds. Other incomplete or invalid values are rejected before the setup. Topic and number of rounds control the display and the task, and the topic also controls the run title.

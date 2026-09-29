@@ -29,7 +29,7 @@ export const boundToTools = (
   ...toolNames: readonly string[]
 ): PromptContribution => {
   if (toolNames.length === 0) {
-    throw new Error(`Der Prompt-Beitrag ${contribution.id} nennt kein Werkzeug, an das er gebunden ist`);
+    throw new Error(`The prompt contribution ${contribution.id} names no tool it is bound to`);
   }
   return { ...contribution, delivery: contribution.delivery ?? "on-demand", requiresTools: toolNames };
 };

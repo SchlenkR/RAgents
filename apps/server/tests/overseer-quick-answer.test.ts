@@ -17,12 +17,12 @@ const fixture = (runId = coordinatorRunId("alice")) => {
   const runtime = new Orchestration(journal, services);
   let view = runtime.createRun({ commandId: "create" }, { runId, title: "Coordinator", ownerHandle: "owner", ownerDisplayName: "Owner" });
   view = runtime.spawnAgent({ actorId: view.ownerId, commandId: "spawn" }, runId, {
-    handle: "coordinator", displayName: "Koordinator", prompt: "", execution: manualExecution(),
+    handle: "coordinator", displayName: "Coordinator", prompt: "", execution: manualExecution(),
     grants: [{ capability: "plugin.state.write", scope: { kind: "run" }, delegable: false }], toolNames: ["quick_answer"],
   });
   let actor = view.actors.find((entry) => entry.kind === "agent")!;
   view = runtime.selectPrimaryActor({ actorId: view.ownerId, commandId: "select" }, runId, actor.id);
-  view = runtime.enqueueInput({ actorId: view.ownerId, commandId: "input" }, runId, { actorId: actor.id, content: "Prüfen" });
+  view = runtime.enqueueInput({ actorId: view.ownerId, commandId: "input" }, runId, { actorId: actor.id, content: "Check" });
   view = runtime.startTurn({ actorId: actor.id, commandId: "turn" }, runId, actor.id, view.inputs.at(-1)!.id);
   actor = view.actors.find((entry) => entry.id === actor.id)!;
   assert.ok(actor.kind === "agent" && actor.lifecycle.kind === "running");
@@ -35,7 +35,7 @@ const fixture = (runId = coordinatorRunId("alice")) => {
   const createSession = () => {
     const session = new RunChatSession({
     engine: { runtime, journal, live: new LiveBus(), scheduler: { isRunning: () => false } } as unknown as Engine,
-    id: runId, coordinator: { handle: "coordinator", displayName: "Koordinator", profile: "coordinator", runTitle: "Coordinator", ownerHandle: "owner", ownerDisplayName: "Owner" },
+    id: runId, coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "coordinator", runTitle: "Coordinator", ownerHandle: "owner", ownerDisplayName: "Owner" },
     prompt: () => "", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {}, started: async () => {},
     scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: unavailableActorPrograms,
     });
@@ -56,7 +56,7 @@ test("quick_answer is restricted to the global primary agent, including direct e
     assert.equal(tool.available(ordinary.actor, ordinary.view), false);
     assert.equal(tool.available({ ...global.actor, id: "secondary" }, global.view), false);
     assert.equal(tool.available({ ...global.actor, grants: [] }, global.view), false);
-    assert.throws(() => tool.run(ordinary.scope, "forbidden", { question: "Ist die Prüfung abgeschlossen?", text: "Erledigt." } as never), /nur dem globalen Koordinator/);
+    assert.throws(() => tool.run(ordinary.scope, "forbidden", { question: "Is the review complete?", text: "Done." } as never), /only available to the global coordinator/);
     assert.equal(ordinary.runtime.events(ordinary.view.id).some((event) => event.type === "plugin.state-replaced"), false);
   } finally { global.close(); ordinary.close(); }
 });
@@ -64,17 +64,17 @@ test("quick_answer is restricted to the global primary agent, including direct e
 test("quick_answer requires and trims both bounded single-line question and answer before writing the journal", () => {
   const data = fixture();
   const tool = createQuickAnswerTool();
-  const valid = { question: "Ist die Prüfung abgeschlossen?", text: "Die Prüfung ist abgeschlossen." };
+  const valid = { question: "Is the review complete?", text: "The review is complete." };
   try {
     assert.equal(Value.Check(tool.schema, valid), true);
     for (const input of [{}, { text: valid.text }, { question: valid.question }]) {
       assert.equal(Value.Check(tool.schema, input), false);
-      assert.throws(() => tool.run(data.scope, "missing", input as never), /1 bis 240 Zeichen/);
+      assert.throws(() => tool.run(data.scope, "missing", input as never), /1 to 240 characters/);
     }
     for (const field of ["question", "text"] as const) {
       assert.equal(Value.Check(tool.schema, { ...valid, [field]: "x".repeat(QUICK_ANSWER_MAX_LENGTH + 1) }), false);
-      for (const value of [null, 42, "", " \t ", "x".repeat(QUICK_ANSWER_MAX_LENGTH + 1), "Erste Zeile\nZweite Zeile", "Erste Zeile\rZweite Zeile"]) {
-        assert.throws(() => tool.run(data.scope, "invalid", { ...valid, [field]: value } as never), new RegExp(`${field} muss.*1 bis 240 Zeichen`));
+      for (const value of [null, 42, "", " \t ", "x".repeat(QUICK_ANSWER_MAX_LENGTH + 1), "First line\nSecond line", "First line\rSecond line"]) {
+        assert.throws(() => tool.run(data.scope, "invalid", { ...valid, [field]: value } as never), new RegExp(`${field} must.*1 to 240 characters`));
       }
     }
     assert.equal(data.runtime.events(data.view.id).some((event) => event.type === "plugin.state-replaced"), false);
@@ -96,12 +96,12 @@ test("quick answers stream as persisted plugin events with stable event identiti
     const live: ChatEvent[] = [];
     data.session.subscribe((event) => live.push(event));
     assert.equal(live.at(-1)?.kind, "replay-end");
-    tool.run(data.scope, "first-answer", { question: "Ist die Prüfung abgeschlossen?", text: "Die Prüfung ist abgeschlossen." } as never);
-    tool.run(data.scope, "first-answer", { question: "Ist die Prüfung abgeschlossen?", text: "Die Prüfung ist abgeschlossen." } as never);
-    tool.run(data.scope, "second-answer", { question: "Ist die Prüfung abgeschlossen?", text: "Auch der Build ist erfolgreich." } as never);
+    tool.run(data.scope, "first-answer", { question: "Is the review complete?", text: "The review is complete." } as never);
+    tool.run(data.scope, "first-answer", { question: "Is the review complete?", text: "The review is complete." } as never);
+    tool.run(data.scope, "second-answer", { question: "Is the review complete?", text: "The build succeeded too." } as never);
     const answers = live.filter((event) => event.kind === "plugin");
     assert.equal(answers.length, 2);
-    assert.deepEqual(answers[0].payload, { scope: { kind: "run" }, state: { kind: "quick-answer", question: "Ist die Prüfung abgeschlossen?", text: "Die Prüfung ist abgeschlossen." } });
+    assert.deepEqual(answers[0].payload, { scope: { kind: "run" }, state: { kind: "quick-answer", question: "Is the review complete?", text: "The review is complete." } });
     assert.equal(answers[0].pluginId, OVERSEER_PLUGIN_ID);
     assert.equal(answers[0].type, "state-replaced");
     const journal = data.runtime.events(data.view.id);

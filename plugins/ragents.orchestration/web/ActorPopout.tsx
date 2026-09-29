@@ -9,7 +9,7 @@ export function ActorPopout({ open, id, label, closeLabel, buttonRef, onClose, w
   closeLabel: string;
   buttonRef: RefObject<HTMLButtonElement | null>;
   onClose: (restoreFocus?: boolean) => void;
-  /** Pixel oder die ganze verfügbare Breite neben dem Anker. */
+  /** Pixels or the whole available width next to the anchor. */
   width: number | "available";
   height: number;
   placement?: "bottom" | "top";

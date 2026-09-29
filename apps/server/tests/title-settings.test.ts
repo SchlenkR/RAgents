@@ -57,7 +57,7 @@ test("invalid title settings reject unknown models, mandatory thinking, other pr
     { selection: { ...initial, model: "missing-model" } },
     { selection: { ...initial, model: "z-ai/glm-5.3-flash" } },
     { selection: { ...initial, provider: "google" } },
-    { selection: { ...initial, thinking: "off" } }, { selection: { ...initial, label: "Titel" } },
+    { selection: { ...initial, thinking: "off" } }, { selection: { ...initial, label: "Title" } },
   ];
   for (const value of invalid) {
     await assert.rejects(store.save(value), (error) => error instanceof DomainError && error.code === "title-model-invalid");
@@ -72,11 +72,11 @@ test("corrupt persisted title settings and unavailable provider catalogs fail im
   await assert.rejects(TitleSettingsStore.create(file, runtime, initial, "openrouter"), SyntaxError);
   for (const value of [{}, { selection: { ...initial, model: "missing-model" } }, { selection: initial, extra: true }]) {
     await writeFile(file, JSON.stringify(value));
-    await assert.rejects(TitleSettingsStore.create(file, runtime, initial, "openrouter"), /selection|steht nicht zur Wahl/);
+    await assert.rejects(TitleSettingsStore.create(file, runtime, initial, "openrouter"), /selection|not available for selection/);
   }
   await assert.rejects(TitleSettingsStore.create(directory, runtime, initial, "openrouter"), /EISDIR/);
-  await assert.rejects(TitleSettingsStore.create(path.join(directory, "new.json"), runtime, initial, "unknown-provider"), /steht nicht zur Wahl/);
-  await assert.rejects(TitleSettingsStore.create(path.join(directory, "new.json"), runtime, { ...initial, model: "z-ai/glm-5.3-flash" }, "openrouter"), /steht nicht zur Wahl/);
+  await assert.rejects(TitleSettingsStore.create(path.join(directory, "new.json"), runtime, initial, "unknown-provider"), /not available for selection/);
+  await assert.rejects(TitleSettingsStore.create(path.join(directory, "new.json"), runtime, { ...initial, model: "z-ai/glm-5.3-flash" }, "openrouter"), /not available for selection/);
 });
 
 test("an empty catalog only fails the start with a configured title model, otherwise titles stay switched off", async (t) => {

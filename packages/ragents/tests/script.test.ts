@@ -200,11 +200,11 @@ test("a missing actor program executor is a hard prerequisite failure", async ()
     const actor = scriptActor(setup);
     const scheduler = new TurnScheduler(setup.runtime, setup.journal, {drivers: {script: new ScriptDriver({runtime: setup.runtime})}, catalog});
     try {
-        assert.throws(() => setup.runtime.actorPrograms, /Actor-Program-Executor/);
+        assert.throws(() => setup.runtime.actorPrograms, /actor program executor/);
         postTo(setup.runtime, setup.view, actor.id, "input", "Missing executor");
         scheduler.start();
         await scheduler.waitForIdle();
-        assert.match(setup.runtime.view(setup.view.id).turns[0]?.reason ?? "", /Actor-Program-Executor/);
+        assert.match(setup.runtime.view(setup.view.id).turns[0]?.reason ?? "", /actor program executor/);
         setup.services.actorPrograms = {async runInput() { return {failure: null, usage: emptyUsage()}; }};
     } finally { await scheduler.stop(); setup.journal.close(); }
 });

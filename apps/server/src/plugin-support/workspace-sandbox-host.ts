@@ -48,23 +48,23 @@ export interface RegisteredWorkspaceRoot {
   ownershipDirectoryFor?: (runId: string) => string | Promise<string>;
 }
 
-/** Eine Wurzel des Servers, wie ein Prompt sie nennt: ihr Alias, ob Werkzeuge darin schreiben dürfen, und die Variable, die sie in einer Bash auf dem Server nennt. */
+/** A root of the server as a prompt names it: its alias, whether tools may write in it, and the variable that names it in a bash on the server. */
 export interface ServerRootDescription {
   readonly alias: string;
   readonly writable: boolean;
   readonly environmentVariable?: string;
 }
 
-/** Der einzige Zugang der Plugins zum Arbeitsbereich eines Runs: eine Operation läuft beim Executor der Maschine, der die angesprochene Wurzel gehört. */
+/** The plugins' only access to a run's workspace: an operation runs at the executor of the machine that owns the addressed root. */
 export interface SandboxServices {
   execute: (runId: string, operation: string, input: unknown, options?: WorkspaceExecuteOptions) => Promise<unknown>;
-  /** Der Kontext für Arbeit, die auf dem Server läuft (TypeScript-Plattform, Actor-Programme); nie der Ordner eines Arbeitsplatzes. */
+  /** The context for work that runs on the server (TypeScript platform, actor programs); never the folder of a workstation. */
   serverProcessContextFor: (runId: string) => Promise<WorkspaceProcessContext>;
   registerWorkspaceRoot: (root: RegisteredWorkspaceRoot) => void;
   shutdown: (runId: string) => Promise<void>;
 }
 
-/** Ein fachlicher Fehler des Executors sieht beim Aufrufer aus wie jeder andere Fehler des Servers. */
+/** A domain error of the executor looks to the caller like any other error of the server. */
 export const withDomainCause = (error: unknown): unknown =>
   error instanceof WorkspaceOperationError ? new DomainError(error.code, error.message, error.status) : error;
 
@@ -72,24 +72,24 @@ export const sandboxServicesToken = serviceToken<SandboxServices>("ragents.works
 
 export interface WorkspaceSandboxHostOptions {
   contributorName: string;
-  /** Was die Plugins des Profils zum Executor dieses Servers beitragen; jeder Arbeitsplatz der Runs trägt dieselben Beiträge. */
+  /** What the profile's plugins contribute to this server's executor; every workstation of the runs carries the same contributions. */
   contributions: readonly WorkspaceExecutorParts[];
   workspaceFor: (runId: string) => Promise<SessionWorkspace>;
   identFor: (runId: string) => Promise<SessionIdent | undefined>;
   skillPaths: () => Promise<readonly string[]>;
   homeFor: (runId: string) => Promise<SandboxHomeEnvironment>;
   storageRootFor?: (runId: string) => string;
-  /** Der Executor eines Runs, der nicht auf dem Server arbeitet; ohne Antwort führt der Executor des Servers aus. */
+  /** The executor of a run that does not work on the server; without an answer the server's executor executes. */
   executorFor?: (runId: string) => Promise<WorkspaceExecutor | undefined>;
-  /** Der eigene Ordner eines solchen Runs auf dem Server, für Arbeit, die dort läuft. */
+  /** The own folder of such a run on the server, for work that runs there. */
   serverDirectoryFor?: (runId: string) => Promise<string>;
-  /** Die Prozess-Sandbox, in der jeder Prozess des Executors dieses Servers startet; ohne sie laufen Prozesse ohne. */
+  /** The process sandbox in which every process of this server's executor starts; without it processes run without one. */
   processSandbox?: RunProcessSandboxes;
-  /** Die Bash des Executors dieses Servers; unter Windows Pflicht, sonst ohne Angabe die des Systems. */
+  /** The bash of this server's executor; required on Windows, otherwise the system's when not set. */
   bash?: string;
-  /** Das rg des Executors dieses Servers; ohne Angabe gilt eines im PATH. */
+  /** The rg of this server's executor; when not set, one on the PATH applies. */
   rg?: string;
-  /** Die Zeitgrenze von bash in Sekunden für Aufrufe ohne eigene, auf jeder Maschine der Runs; ohne Angabe die des Werkzeugs. */
+  /** The bash time limit in seconds for calls without their own, on every machine of the runs; when not set, the tool's. */
   bashTimeoutSeconds?: number;
 }
 
@@ -102,7 +102,7 @@ const sandboxDescriptions: Readonly<Record<string, string>> = {
 
 const describeSandboxTool = (definition: AgentToolDefinition): AgentToolDefinition => {
   const description = sandboxDescriptions[definition.name];
-  if (!description) throw new Error(`Das Sandbox-Werkzeug ${definition.name} hat keine Kurzbeschreibung`);
+  if (!description) throw new Error(`The sandbox tool ${definition.name} has no short description`);
   return { ...definition, description, longDescription: definition.description, nativeTool: true };
 };
 
@@ -119,39 +119,39 @@ interface StableRunParts {
   ident?: SessionIdent;
   home: SandboxHomeEnvironment;
   readOnlyRoots: readonly ResolvedWorkspaceRoot[];
-  /** Der eigene Temp-Ordner des Runs in der Sandbox. */
+  /** The run's own temp folder in the sandbox. */
   temporary?: string;
 }
 
 const mixedRoots = (aliases: readonly string[]): DomainError => new DomainError(
   "workspace-roots-mixed",
-  `Der Aufruf nennt ${aliases.join(", ")} auf dem Server und zugleich einen Pfad im Arbeitsbereich auf dem Arbeitsplatz; `
-    + "ein Aufruf erreicht nur einen Rechner. Teile ihn in einen Aufruf je Rechner.",
+  `The call names ${aliases.join(", ")} on the server and at the same time a path in the workspace on the workstation; `
+    + "a call reaches only one machine. Split it into one call per machine.",
   400,
 );
 
-/** Die Ordner, die ein Arbeitsbereich der Prozess-Sandbox zusätzlich öffnet, getrennt nach Zugriff; ein relativer Pfad hätte auf dem Server keinen Ort. */
+/** The folders a workspace additionally opens to the process sandbox, separated by access; a relative path would have no location on the server. */
 const sandboxFoldersWith = (folders: readonly SandboxFolder[], access: SandboxFolder["access"]): string[] =>
   folders.filter((folder) => folder.access === access).map((folder) => {
-    if (!path.isAbsolute(folder.directory)) throw new Error(`Der Ordner ${folder.directory} für die Prozess-Sandbox muss absolut sein`);
+    if (!path.isAbsolute(folder.directory)) throw new Error(`The folder ${folder.directory} for the process sandbox must be absolute`);
     return folder.directory;
   });
 
-/** Ein nur lesbarer Pfad, den es nicht gibt, ist keine Wurzel; ein fehlender Skill-Ordner darf keinen Run verhindern. */
+/** A read-only path that does not exist is not a root; a missing skill folder must not prevent a run. */
 const existingRoots = async (roots: readonly ResolvedWorkspaceRoot[]): Promise<ResolvedWorkspaceRoot[]> => {
   const resolved = await Promise.all(roots.map((root) =>
     realpath(root.directory).then((directory) => ({ ...root, directory }), () => undefined)));
   return resolved.filter((root) => root !== undefined);
 };
 
-/** Der Executor des Servers mit den Wurzeln des Servers; eine Operation mit Alias läuft dort, jede andere beim Executor der Bindung des Runs. */
+/** The server's executor with the server's roots; an operation with an alias runs there, every other one at the executor of the run's binding. */
 export class WorkspaceSandboxHost implements SandboxServices {
   readonly #options: WorkspaceSandboxHostOptions;
   readonly #definitions: readonly AgentToolDefinition[];
   readonly #workspaceRoots: RegisteredWorkspaceRoot[] = [];
   readonly #local: WorkspaceOperationExecutor;
   readonly #stable = new Map<string, Promise<StableRunParts>>();
-  /** Je Run der Dateistand, den ein Modell zuletzt gesehen hat, nach Actor, Modellkontext und Pfad; nur im Speicher, ein Verlust verlangt höchstens ein neues read. */
+  /** Per run the file state a model saw last, by actor, model context and path; only in memory, a loss requires at most a new read. */
   readonly #seen = new Map<string, Map<string, SeenFile>>();
 
   constructor(options: WorkspaceSandboxHostOptions) {
@@ -165,14 +165,14 @@ export class WorkspaceSandboxHost implements SandboxServices {
 
   registerWorkspaceRoot(root: RegisteredWorkspaceRoot): void {
     if (!root.id.trim() || this.#workspaceRoots.some((entry) => entry.id === root.id)) {
-      throw new Error(`Arbeitsverzeichnis ${root.id} ist leer oder bereits registriert`);
+      throw new Error(`Working directory ${root.id} is empty or already registered`);
     }
     if (root.alias && (!/^@[a-z][a-z0-9-]*$/.test(root.alias) || root.alias === SKILLS_ALIAS
       || this.#workspaceRoots.some((entry) => entry.alias === root.alias))) {
-      throw new Error(`Arbeitsverzeichnis-Alias ${root.alias} ist ungültig, dem Host vorbehalten oder bereits registriert`);
+      throw new Error(`Working directory alias ${root.alias} is invalid, reserved for the host or already registered`);
     }
     if (root.environmentVariable && (!/^RAGENTS_[A-Z_]+_DIR$/.test(root.environmentVariable) || this.#workspaceRoots.some((entry) => entry.environmentVariable === root.environmentVariable))) {
-      throw new Error(`Arbeitsverzeichnis-Variable ${root.environmentVariable} ist ungültig oder bereits registriert`);
+      throw new Error(`Working directory variable ${root.environmentVariable} is invalid or already registered`);
     }
     this.#workspaceRoots.push(root);
   }
@@ -181,7 +181,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
     const roots = await Promise.all(this.#workspaceRoots.map(async (entry) => {
       const directory = await entry.directoryFor(runId);
       if (directory === undefined) return undefined;
-      if (!path.isAbsolute(directory)) throw new Error(`Arbeitsverzeichnis ${entry.id} muss absolut sein`);
+      if (!path.isAbsolute(directory)) throw new Error(`Working directory ${entry.id} must be absolute`);
       if (ident) await syncWorkspaceOwnership(await entry.ownershipDirectoryFor?.(runId) ?? directory, {
         ...ident, storageRoot: this.#options.storageRootFor?.(runId),
       });
@@ -190,7 +190,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
     return roots.filter((root) => root !== undefined);
   }
 
-  /** Die Wurzeln des Servers mit Alias, die ein Run neben seinem Arbeitsbereich erreicht: die registrierten und die Skill-Ordner. */
+  /** The server's roots with an alias that a run reaches besides its workspace: the registered ones and the skill folders. */
   async serverRoots(): Promise<readonly ServerRootDescription[]> {
     const registered = this.#workspaceRoots.flatMap(({ alias, environmentVariable }) => alias === undefined ? [] : [{
       alias, writable: true, ...(environmentVariable === undefined ? {} : { environmentVariable }),
@@ -199,15 +199,15 @@ export class WorkspaceSandboxHost implements SandboxServices {
     return [...registered, ...skills];
   }
 
-  /** Bei einem Run mit eigenem Executor ein Ordner des Runs auf dem Server, sonst derselbe Kontext wie für seine Werkzeuge. */
+  /** For a run with its own executor a folder of the run on the server, otherwise the same context as for its tools. */
   async serverProcessContextFor(runId: string): Promise<WorkspaceProcessContext> {
     if (!await this.#options.executorFor?.(runId)) return this.#contextFor(runId);
     const serverDirectoryFor = this.#options.serverDirectoryFor;
-    if (!serverDirectoryFor) throw new Error(`Der Run ${runId} arbeitet nicht auf dem Server, und der Sandbox-Host kennt keinen Serverordner für ihn`);
+    if (!serverDirectoryFor) throw new Error(`The run ${runId} does not work on the server, and the sandbox host knows no server folder for it`);
     return this.#contextFor(runId, await serverDirectoryFor(runId));
   }
 
-  /** Der Kontext des Executors dieses Servers; ohne eigenen Ordner der Arbeitsbereich selbst, der dafür auf dem Server liegen muss. */
+  /** The context of this server's executor; without its own folder the workspace itself, which must then lie on the server. */
   async #contextFor(runId: string, serverDirectory?: string): Promise<WorkspaceProcessContext> {
     const workspace = await this.#options.workspaceFor(runId);
     const { ident, home, readOnlyRoots, temporary } = await this.#stableParts(runId, workspace);
@@ -245,18 +245,18 @@ export class WorkspaceSandboxHost implements SandboxServices {
     });
   }
 
-  /** Der Temp-Ordner eines Runs liegt in seiner Ablage, damit er mit dem Run verschwindet und kein anderer Run ihn sieht. */
+  /** A run's temp folder lies in its storage so that it vanishes with the run and no other run sees it. */
   async #temporaryFor(runId: string, ident: SessionIdent | undefined): Promise<string | undefined> {
     if (!this.#options.processSandbox) return undefined;
     const storageRoot = this.#options.storageRootFor?.(runId);
-    if (!storageRoot) throw new Error(`Die Prozess-Sandbox braucht die Ablage des Runs ${runId} für seinen Temp-Ordner`);
+    if (!storageRoot) throw new Error(`The process sandbox needs the storage of the run ${runId} for its temp folder`);
     const directory = path.join(storageRoot, "tmp");
     await mkdir(directory, { recursive: true });
     if (ident) await syncWorkspaceOwnership(directory, { ...ident, storageRoot });
     return realpath(directory);
   }
 
-  /** Kennung, Heimatordner und nur lesbare Wurzeln stehen je Run fest; nur sie werden gemerkt. */
+  /** Identity, home folder and read-only roots are fixed per run; only they are remembered. */
   #stableParts(runId: string, workspace: SessionWorkspace): Promise<StableRunParts> {
     const known = this.#stable.get(runId);
     if (known) return known;
@@ -301,7 +301,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
     };
   }
 
-  /** Die Laufzeit, die eine Eingabe selbst verlangt, gilt, wenn der Aufrufer keine nennt; sie verlängert nur das Warten auf einen entfernten Executor. */
+  /** The duration an input asks for itself applies when the caller names none; it only extends the wait for a remote executor. */
   async execute(runId: string, operation: string, input: unknown, options: WorkspaceExecuteOptions = {}): Promise<unknown> {
     try {
       const { roots, durationMs } = this.#local.footprintOf(operation, input);
@@ -313,7 +313,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
     }
   }
 
-  /** Auch ein Run mit eigenem Executor hat auf dem Server markierte Prozesse der TypeScript-Plattform; beide Executoren räumen ab. */
+  /** A run with its own executor also has marked TypeScript platform processes on the server; both executors clean up. */
   async shutdown(runId: string): Promise<void> {
     this.#stable.delete(runId);
     this.#seen.delete(runId);
@@ -329,7 +329,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
     return this.#local.shutdown();
   }
 
-  /** Aliasse nennen Wurzeln des Servers, jeder andere Pfad die Wurzel des Runs auf der Maschine seiner Bindung; ohne Alias entscheidet die Bindung. */
+  /** Aliases name roots of the server, every other path the run's root on the machine of its binding; without an alias the binding decides. */
   async #executorFor(runId: string, { aliases, runRoot }: AddressedRoots): Promise<WorkspaceExecutor> {
     const bound = await this.#options.executorFor?.(runId);
     if (!bound || aliases.length === 0) return bound ?? this.#local;
@@ -342,7 +342,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
       const described = describeSandboxTool(definition);
       const proxy = {
         ...described,
-        // Die Vorgaben des Schemas, etwa die Zeitgrenze von bash, setzt der Server ein; so gilt auf jeder Maschine, was das Modell im Schema sieht.
+        // The server fills in the schema defaults, such as the bash time limit; so what the model sees in the schema applies on every machine.
         execute: (toolCallId: string, params: unknown, signal: AbortSignal | undefined) =>
           this.execute(context.runId, described.name, Value.Default(described.parameters, structuredClone(params)), {
             toolCallId,
@@ -356,7 +356,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
     }));
   }
 
-  /** Ein direkter Aufruf des Modells gibt den Stand mit, den es von der Datei gesehen hat, und merkt sich den neuen; ein Aufruf aus TypeScript arbeitet ohne. */
+  /** A direct call of the model passes the state it has seen of the file and remembers the new one; a call from TypeScript works without it. */
   async #fileToolCall(runId: string, name: string, scope: ToolScope, toolCallId: string, input: { path: string }): Promise<string> {
     const options = { toolCallId, ...(scope.signal ? { signal: scope.signal } : {}) };
     if (scope.modelContext === undefined) return textOf(await this.execute(runId, name, input, options) as ToolOutput);
@@ -364,7 +364,7 @@ export class WorkspaceSandboxHost implements SandboxServices {
     const key = [scope.caller.actorId, scope.modelContext, path.posix.normalize(input.path)].join("\0");
     const result = await this.execute(runId, name, { ...input, seen: known.get(key) ?? null }, options) as ToolOutput & { details?: { seen?: SeenFile } };
     const seen = result.details?.seen;
-    if (!seen) throw new Error(`Der Executor meldet nach ${name} keinen Dateistand; Server und Arbeitsplatz brauchen denselben Executor-Stand`);
+    if (!seen) throw new Error(`The executor reports no file state after ${name}; server and workstation need the same executor version`);
     this.#seen.set(runId, known.set(key, seen));
     return textOf(result);
   }

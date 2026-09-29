@@ -5,7 +5,7 @@ import { Button, StopGlyph } from "@ragents/web/ui";
 import { ToolbarItem } from "@ragents/web/Toolbar";
 import { stopRun } from "./api";
 
-const STOP_RUN_REASON = "Not-Aus durch den Bediener";
+const STOP_RUN_REASON = "Emergency stop by the operator";
 
 export function StopRunHeader({ session }: SessionHeaderContext) {
   return <ToolbarItem className="max-w-none"><StopRunButton key={session.session.id} runId={session.session.id} /></ToolbarItem>;
@@ -33,18 +33,18 @@ function StopRunButton({ runId }: { runId: string }) {
   if (!writable) return null;
   if (!armed) {
     return (
-      <Button onClick={() => setArmed(true)} size="sm" title="Beendet den ganzen Run: Turns, Agenten und Abläufe" variant="destructive">
-        <StopGlyph data-icon="inline-start" />Run stoppen
+      <Button onClick={() => setArmed(true)} size="sm" title="Ends the whole run: turns, agents and flows" variant="destructive">
+        <StopGlyph data-icon="inline-start" />Stop run
       </Button>
     );
   }
 
   return (
     <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-      <span className="text-[0.72rem] font-semibold text-destructive">Wirklich alles stoppen?</span>
-      <Button disabled={busy} onClick={() => void stop()} size="sm" variant="destructive">Ja</Button>
+      <span className="text-[0.72rem] font-semibold text-destructive">Really stop everything?</span>
+      <Button disabled={busy} onClick={() => void stop()} size="sm" variant="destructive">Yes</Button>
       <Button disabled={busy} onClick={() => setArmed(false)} size="sm" variant="outline">
-        Abbrechen
+        Cancel
       </Button>
       {error && <span className="max-w-[260px] truncate text-[0.7rem] text-destructive" title={error}>{error}</span>}
     </span>

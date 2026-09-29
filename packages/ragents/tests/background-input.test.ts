@@ -24,7 +24,7 @@ test("background inputs survive journal reload and reach the actor once with the
         grants: [], toolNames: [],
     });
     const actor = spawned.actors.find((entry) => entry.kind === "agent")!;
-    const content = "Prüfe den aktuellen Fortschritt und berichte nur Änderungen.";
+    const content = "Check the current progress and report only changes.";
     runtime.enqueueInput({ ...owner, commandId: "monitor" }, run.id, {
         actorId: actor.id, content, presentation: "background",
     });
@@ -34,7 +34,7 @@ test("background inputs survive journal reload and reach the actor once with the
     const restored = new Journal(directory, services);
     const resumed = new Orchestration(restored, services);
     const driver = new FakeDriver(async (request) => {
-        request.recordContext({ kind: "step", step: textStep("Die Implementierung läuft.") });
+        request.recordContext({ kind: "step", step: textStep("The implementation is running.") });
 
         return { failure: null, usage: noUsage() };
     });
@@ -52,7 +52,7 @@ test("background inputs survive journal reload and reach the actor once with the
         assert.equal(driver.requests[0]!.input.content, content);
         assert.equal(driver.requests[0]!.input.id, input.id);
         assert.equal(resumed.view(run.id).turns[0]!.status, "completed");
-        assert.equal(resumed.view(run.id).turns[0]!.outputs[0]!.text, "Die Implementierung läuft.");
+        assert.equal(resumed.view(run.id).turns[0]!.outputs[0]!.text, "The implementation is running.");
     } finally {
         await scheduler.stop();
         restored.close();
@@ -61,7 +61,7 @@ test("background inputs survive journal reload and reach the actor once with the
 
 test("input event validation accepts an omitted presentation and rejects unknown presentation values", () => {
     const payload = {
-        inputId: "input-1", actorId: "coordinator", content: "Nachricht",
+        inputId: "input-1", actorId: "coordinator", content: "Message",
         artifactIds: [], sourceEventIds: [], subscriptionId: null,
     };
     assert.doesNotThrow(() => validatedEventPayloadOf("actor.input.enqueued", payload, "input"));

@@ -26,7 +26,7 @@ const configOptions = (file: string): ts.CompilerOptions => {
       throw new Error(ts.flattenDiagnosticMessageText(diagnostic.messageText, " "));
     },
   });
-  if (!parsed) throw new Error(`${file} ist keine gültige tsconfig`);
+  if (!parsed) throw new Error(`${file} is not a valid tsconfig`);
   return parsed.options;
 };
 

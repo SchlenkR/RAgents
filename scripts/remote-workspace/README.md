@@ -1,110 +1,110 @@
-# Prüfläufer: Arbeitsbereich auf einem anderen Rechner
+# Check runner: workspace on another machine
 
-Prüft Runs, deren Arbeitsbereich auf einem Arbeitsplatz liegt, also auf einem fremden Rechner. Der fremde
-Rechner ist ein Linux-Container mit eigenem Dateisystem, eigener Prozesstabelle, eigenem `localhost`
-und anderer Plattform; jeder Zugriff des Servers auf seine eigene Maschine fällt damit auf.
+Checks runs whose workspace is on a workspace client, that is, on a foreign machine. The foreign
+machine is a Linux container with its own file system, its own process table, its own `localhost`
+and a different platform; any access by the server to its own machine thus stands out.
 
 ```sh
-pnpm check:remote-workspace                 # Ordner /work/project, den es nur im Container gibt
-pnpm check:remote-workspace --shared-path   # derselbe Pfad auch auf diesem Rechner, mit anderem Inhalt
-pnpm check:remote-workspace --vscode        # zusätzlich der VS-Code-Host-Test gegen denselben Server
-pnpm check:remote-workspace --browser       # zusätzlich browser_open auf eine Seite im Container
+pnpm check:remote-workspace                 # folder /work/project, which exists only in the container
+pnpm check:remote-workspace --shared-path   # the same path also on this machine, with different content
+pnpm check:remote-workspace --vscode        # additionally the VS Code host test against the same server
+pnpm check:remote-workspace --browser       # additionally browser_open on a page in the container
 ```
 
-Voraussetzungen: macOS mit OrbStack oder Docker Desktop (`host.docker.internal` erreicht dort einen
-Server auf `127.0.0.1`), Node 22, ein Checkout mit `pnpm install`. Der erste Image-Bau braucht Netz
-(Node-Image, npm, mit `--browser` Chromium aus Debian); danach kommen diese Schichten aus dem Cache.
-Mit `--vscode` öffnet sich ein eigenes VS-Code-Fenster.
+Prerequisites: macOS with OrbStack or Docker Desktop (`host.docker.internal` reaches a server on
+`127.0.0.1` there), Node 22, a checkout with `pnpm install`. The first image build needs network
+(Node image, npm, with `--browser` Chromium from Debian); after that these layers come from the cache.
+With `--vscode` a separate VS Code window opens.
 
-## Ablauf
+## Procedure
 
-1. `scripts/package/build-package.ts` baut das Host-Paket aus dem Arbeitsstand in einen Temp-Ordner.
-   Das `Dockerfile` installiert erst die Abhängigkeiten aus dem Paketmanifest mit npm unter Linux
-   (gecachte Schicht), dann die Paketdateien; `node_modules` dieses Rechners gehen nie in den Container.
-2. `script-model.ts` startet ein Modell-Relay auf `127.0.0.1`, das statt eines Sprachmodells Programme
-   ausführt: ein Auftrag trägt `SKRIPT:<base64url>` mit Werkzeugaufrufen, das Modell gibt je Anfrage
-   einen davon aus und danach einen Schlusssatz. Kein Cloud-Zugriff, kein Zufall.
-3. Ein eigener Server mit `--port 0`, eigenem `DATA_DIR` unter `/tmp` und dem Profil
-   `ragents.config.remote-check.ts`: `alice` und `bob` als Bediener, `admin` mit `*`, jeweils mit
-   Passwort und persönlichem Token aus der Umgebung, und ohne `AGENT_MODELS`, sodass Agent und
-   Koordinator dasselbe Modell `script` nennen. Das Profil trägt die Actor-Programme, und
-   `SKILLS_DIR` zeigt auf einen Ordner im Temp-Ordner mit dem Skill `pruefnotizen` und einer
-   Vorlage daneben. Der Server erbt nur `PATH`, `HOME`, Sprache und
-   `TMPDIR` des Aufrufers, damit kein Profilschlüssel aus der Shell das Prüfprofil überstimmt.
-4. Im Container läuft `ragents workspace-client` als Arbeitsplatz von `alice`.
-5. Die Prüfungen gehen über die Nachrichtenschicht (Verträge aus den `contract.ts` der Plugins) und
-   `docker exec`; jede schreibt eine Zeile `ok`, `FEHLER` mit Ursache oder `--` (übersprungen).
+1. `scripts/package/build-package.ts` builds the host package from the working tree into a temp folder.
+   The `Dockerfile` first installs the dependencies from the package manifest with npm on Linux
+   (cached layer), then the package files; `node_modules` of this machine never go into the container.
+2. `script-model.ts` starts a model relay on `127.0.0.1` that executes programs instead of a language
+   model: a task carries `SCRIPT:<base64url>` with tool calls, the model emits one of them per request
+   and then a closing sentence. No cloud access, no randomness.
+3. A dedicated server with `--port 0`, its own `DATA_DIR` under `/tmp` and the profile
+   `ragents.config.remote-check.ts`: `alice` and `bob` as operators, `admin` with `*`, each with
+   password and personal token from the environment, and without `AGENT_MODELS`, so that agent and
+   coordinator both name the same model `script`. The profile carries the actor programs, and
+   `SKILLS_DIR` points to a folder in the temp folder with the skill `check-notes` and a
+   template next to it. The server inherits only `PATH`, `HOME`, language and
+   `TMPDIR` of the caller, so no profile key from the shell overrides the check profile.
+4. In the container `ragents workspace-client` runs as the workspace of `alice`.
+5. The checks go through the message layer (contracts from the plugins' `contract.ts`) and
+   `docker exec`; each writes one line `ok`, `FAILED` with cause, or `--` (skipped).
 
-## Prüfungen
+## Checks
 
-- Arbeitsplatz: meldet sich mit Plattform `linux`, eigenem Rechnernamen und seinem Ordner an; `bob` und
-  `admin` sehen ihn nicht; `bob` kann keinen Run daran binden (`workspace-client-disconnected`).
-- Run: `alice` bindet einen Run an den Ordner im Container.
-- Werkzeuge: `bash` meldet Linux, den Container und den Ordner; `read` liest die Datei aus dem Container;
-  `write` schreibt dort und nirgends auf dem Server; `typescript_eval` arbeitet in einem Ordner im
-  Datenordner des Servers; der Systemprompt nennt Linux und den Ordner des Arbeitsplatzes, aber keine
-  rohe Zeile `Current working directory` und nicht den Ordner, in dem die Agentenlaufzeit auf dem
-  Server arbeitet; der Arbeitsplatz protokolliert die Aufrufe; ein binärer Chat-Anhang liegt unter
-  `attachments/` im Container, wo `bash` ihn liest, und weder im Datenordner noch in der Kopie des
-  Servers.
-- Wurzeln des Servers: ein weiterer Run von `alice` auf dem Ordner im Container legt ein
-  Actor-Programm mit `actor_program_create` an, schreibt und bearbeitet es unter `@actors/...` und
-  aktiviert es; sein Fachtest besteht erst nach dem Bearbeiten, und die aktivierte Funktion liefert
-  die Kennung des Prüflaufs. Das Paket liegt im Datenordner des Servers und nirgends im Container,
-  der Arbeitsplatz protokolliert für diesen Run nur die eine `bash` ohne Alias. `bash` mit
-  `cwd: "@actors/..."` meldet Plattform und Rechner des Servers und `RAGENTS_ACTORS_DIR`, ohne `cwd`
-  Linux im Container ohne die Variable. Ein Auftrag nach dem Skill liest SKILL.md und Vorlage über
-  `@skills/pruefnotizen/` und führt dort `bash` auf dem Server aus; der Systemprompt nennt den Skill
-  in Katalog und Vorladen unter `@skills`, keinen Pfad des Servers, beschreibt die Wurzeln des
-  Servers und nennt `RAGENTS_ACTORS_DIR` nur für die Bash dort.
-- Neuer Ordner: ein weiterer Run von `alice` mit neuem Ordner je Run auf dem Arbeitsplatz bekommt einen
-  Ordner unter dem Ordner für Runs im Container; `write` und `bash` arbeiten darin, auf dem Server
-  entsteht er nicht, und das Löschen des Runs nimmt ihn im Container mit.
-- Dateien: Liste und Vorschau zeigen den Container; eine Änderung per `docker exec` meldet der Kanal.
-- Prozesse: ein markierter Prozess im Container erscheint, ein markierter Vergleichsprozess auf diesem
-  Rechner nicht; Beenden wirkt im Container.
-- Rechte: `bob` sieht den Run nicht (`run-not-found`); `admin` sieht ihn und sein Journal, liest aber weder
-  Dateien noch Prozesse des Arbeitsbereichs (`run-workspace-owner-only`), schreibt nicht hinein und beendet
-  keinen Prozess (`run-owner-only`).
-- Stopp: der Not-Aus von `admin` räumt die markierten Prozesse im Container und auf dem Server ab;
-  `ragents.runs.stopAll` ist ihm erlaubt.
-- Trennen: `docker stop` nimmt den Arbeitsplatz aus der Registry, Dateien-Reiter und Werkzeugaufruf
-  scheitern daran; nach `docker start` meldet er sich wieder an und die Werkzeuge laufen wieder.
-- Strom weg: `docker network disconnect` nimmt dem Container das Netz, der Arbeitsplatz darin lebt weiter;
-  `alice` stoppt den Run in dieser Zeit, der Stopp gelingt, der markierte Prozess im Container läuft noch.
-  Nach `docker network connect` meldet sich der Arbeitsplatz wieder an, der Server holt den Stopp nach, und
-  der Prozess endet.
-- Optional: `--browser` öffnet eine Seite, die nur auf `localhost` im Container läuft; `--vscode` führt
-  `apps/vscode/tests/host/launch.mjs` mit `RAGENTS_HOST_TEST_WORKSPACE` als `bob` aus. Die Aufträge
-  jenes Tests erkennt das Skriptmodell an ihrem Wortlaut (`vscode-step.ts`).
+- Workspace: registers with platform `linux`, its own machine name and its folder; `bob` and
+  `admin` do not see it; `bob` cannot bind a run to it (`workspace-client-disconnected`).
+- Run: `alice` binds a run to the folder in the container.
+- Tools: `bash` reports Linux, the container and the folder; `read` reads the file from the container;
+  `write` writes there and nowhere on the server; `typescript_eval` works in a folder in the
+  server's data folder; the system prompt names Linux and the workspace's folder, but no
+  raw line `Current working directory` and not the folder in which the agent runtime works on the
+  server; the workspace logs the calls; a binary chat attachment is under
+  `attachments/` in the container, where `bash` reads it, and neither in the data folder nor in the
+  server's copy.
+- Server roots: another run of `alice` on the folder in the container creates an
+  actor program with `actor_program_create`, writes and edits it under `@actors/...` and
+  activates it; its domain test passes only after editing, and the activated function returns
+  the check run's nonce. The package is in the server's data folder and nowhere in the container,
+  the workspace logs only the one `bash` without alias for this run. `bash` with
+  `cwd: "@actors/..."` reports the server's platform and machine and `RAGENTS_ACTORS_DIR`, without `cwd`
+  Linux in the container without the variable. A task following the skill reads SKILL.md and template through
+  `@skills/check-notes/` and runs `bash` there on the server; the system prompt names the skill
+  in catalog and preload under `@skills`, no server path, describes the server's
+  roots and names `RAGENTS_ACTORS_DIR` only for the bash there.
+- New folder: another run of `alice` with a new folder per run on the workspace gets a
+  folder under the runs folder in the container; `write` and `bash` work in it, it is not created
+  on the server, and deleting the run removes it in the container.
+- Files: list and preview show the container; the channel reports a change made via `docker exec`.
+- Processes: a marked process in the container appears, a marked decoy process on this
+  machine does not; ending takes effect in the container.
+- Rights: `bob` does not see the run (`run-not-found`); `admin` sees it and its journal, but reads neither
+  files nor processes of the workspace (`run-workspace-owner-only`), does not write into it and ends
+  no process (`run-owner-only`).
+- Stop: the emergency stop by `admin` cleans up the marked processes in the container and on the server;
+  `ragents.runs.stopAll` is allowed for them.
+- Disconnect: `docker stop` removes the workspace from the registry, the files tab and a tool call
+  fail because of it; after `docker start` it registers again and the tools run again.
+- Stream loss: `docker network disconnect` takes the network away from the container, the workspace inside lives on;
+  `alice` stops the run during this time, the stop succeeds, the marked process in the container keeps running.
+  After `docker network connect` the workspace registers again, the server catches up on the stop, and
+  the process ends.
+- Optional: `--browser` opens a page that runs only on `localhost` in the container; `--vscode` runs
+  `apps/vscode/tests/host/launch.mjs` with `RAGENTS_HOST_TEST_WORKSPACE` as `bob`. The script model
+  recognizes that test's tasks by their wording (`vscode-step.ts`).
 
-## Aufräumen
+## Cleanup
 
-Der Läufer beendet nur, was er selbst gestartet hat: den Server und den VS-Code-Launcher über ihre
-eigene PID beziehungsweise ihre eigene Prozessgruppe (nur solange deren Anführer lebt), Container nur
-über das Label `ragents.remote-workspace-check.session`, Images nur mit seinem Label, Prozesse auf
-diesem Rechner nur, wenn ihre Umgebung einen Run-Marker dieses Servers oder die Markierung
-`RAGENTS_REMOTE_CHECK_SESSION=<Läufer-PID>-<Sitzung>` trägt. Das gilt auch bei Strg-C und Fehlern.
-Nach einem harten Abbruch beendet sich der Server über `RAGENTS_PARENT_PID` selbst; Container,
-Temp-Ordner und Prozesse eines toten Läufers räumt der nächste Prüflauf zu Beginn ab. Schlägt eine
-Prüfung fehl, bleiben die Protokolle (Server, Arbeitsplatz, Skriptmodell, Image, VS Code) unter
-`/tmp/ragents-rwc-protokoll-<sitzung>`.
+The runner ends only what it started itself: the server and the VS Code launcher through their
+own PID or their own process group (only while its leader lives), containers only
+through the label `ragents.remote-workspace-check.session`, images only with its label, processes on
+this machine only if their environment carries a run marker of this server or the marker
+`RAGENTS_REMOTE_CHECK_SESSION=<runner PID>-<session>`. This also applies on Ctrl-C and errors.
+After a hard abort the server ends itself through `RAGENTS_PARENT_PID`; the next check run cleans up
+containers, temp folders and processes of a dead runner at its start. If a
+check fails, the logs (server, workspace, script model, image, VS Code) remain under
+`/tmp/ragents-rwc-logs-<session>`.
 
-Die VS-Code-Testinstanz läuft mit eigenem `--user-data-dir` und `--extensions-dir` und erbt keine
-`VSCODE_*`- oder `ELECTRON_*`-Variablen; sie kann sich damit an keine laufende Instanz hängen. Bricht
-ihr Launcher ab, beendet er sie über ihre eigene PID.
+The VS Code test instance runs with its own `--user-data-dir` and `--extensions-dir` and inherits no
+`VSCODE_*` or `ELECTRON_*` variables; it therefore cannot attach to any running instance. If
+its launcher aborts, it ends the instance through its own PID.
 
-## Dateien
+## Files
 
-| Datei | Inhalt |
+| File | Content |
 | --- | --- |
-| `run-remote-workspace-check.ts` | Einstieg, Ablauf, Aufräumen |
-| `checks.ts` | die Prüfungen |
-| `script-model.ts` | das Skriptmodell als Modell-Relay |
-| `container.ts`, `Dockerfile` | Paket, Image und Container |
-| `processes.ts` | eigene Prozesse starten, beenden und wiederfinden |
-| `vscode-step.ts` | der optionale VS-Code-Schritt |
-| `report.ts` | Zeilen und Zusammenfassung |
-| `ragents.config.remote-check.ts` | das Prüfprofil |
+| `run-remote-workspace-check.ts` | entry point, procedure, cleanup |
+| `checks.ts` | the checks |
+| `script-model.ts` | the script model as a model relay |
+| `container.ts`, `Dockerfile` | package, image and container |
+| `processes.ts` | start, end and find own processes |
+| `vscode-step.ts` | the optional VS Code step |
+| `report.ts` | lines and summary |
+| `ragents.config.remote-check.ts` | the check profile |
 
-Typprüfung: `pnpm exec tsc -p scripts/remote-workspace/tsconfig.json`.
+Type check: `pnpm exec tsc -p scripts/remote-workspace/tsconfig.json`.

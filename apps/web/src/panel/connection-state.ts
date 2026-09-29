@@ -1,7 +1,7 @@
 import type { ConnectionStateName } from "../ui/state-vocabulary";
 import type { ConnectionView, MissingEnvironment } from "./contract";
 
-/** Der Zustand eines Servers im Vokabular der Seiten; ein lokales Profil ist verbunden nicht "verbunden", sondern bereit. */
+/** The state of a server in the vocabulary of the pages; a connected local profile is not "connected" but ready. */
 export const connectionState = (connection: ConnectionView): ConnectionStateName => {
   switch (connection.state.kind) {
     case "stopped": return "stopped";
@@ -15,12 +15,12 @@ export const connectionState = (connection: ConnectionView): ConnectionStateName
   }
 };
 
-/** Warum eine fehlende Umgebungsvariable den Start aufhält: welche, wofür sie das Profil braucht und wohin ihr Wert gehört. */
+/** Why a missing environment variable holds up the start: which one, what the profile needs it for, and where its value belongs. */
 const missingEnvironmentDetail = (missing: MissingEnvironment): string =>
-  `Die Umgebungsvariable ${missing.variable} ist nicht gesetzt; die Konfiguration verlangt sie für ${missing.section}.${missing.key}. `
-  + "Hinterlege ihren Wert als Secret in VS Code; er bleibt in der SecretStorage und kommt beim nächsten Start in die Umgebung des Hosts.";
+  `The environment variable ${missing.variable} is not set; the configuration requires it for ${missing.section}.${missing.key}. `
+  + "Store its value as a secret in VS Code; it stays in the SecretStorage and goes into the host's environment on the next start.";
 
-/** Der Grund, der zum Zustand gehört; er steht unter der Zeile des Servers. */
+/** The reason that belongs to the state; it appears below the server's row. */
 export const stateDetail = (connection: ConnectionView): string | undefined => {
   if (connection.missingEnvironment) return missingEnvironmentDetail(connection.missingEnvironment);
   const state = connection.state;
@@ -28,13 +28,13 @@ export const stateDetail = (connection: ConnectionView): string | undefined => {
   return undefined;
 };
 
-export const kindLabel = (connection: ConnectionView): string => connection.kind === "profile" ? "lokales Profil" : "Server";
+export const kindLabel = (connection: ConnectionView): string => connection.kind === "profile" ? "local profile" : "server";
 
-/** Die Zielzeile unter dem Namen: das lokale Profil, der Host des Servers oder der Server, dessen Profil lokal läuft. */
+/** The route line below the name: the local profile, the server's host, or the server whose profile runs locally. */
 export const routeLabel = (connection: ConnectionView): string => {
   const route = connection.route;
-  if (route.kind === "profile") return `lokal \u00b7 ${route.profile}`;
-  return route.localHost ? `${route.host} \u00b7 lokal` : route.host;
+  if (route.kind === "profile") return `local \u00b7 ${route.profile}`;
+  return route.localHost ? `${route.host} \u00b7 local` : route.host;
 };
 
 export const busyState = (connection: ConnectionView): boolean => connection.state.kind === "starting" || connection.state.kind === "connecting";

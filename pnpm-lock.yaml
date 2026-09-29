@@ -60,8 +60,8 @@ importers:
         specifier: 1.61.1
         version: 1.61.1
       quassel:
-        specifier: ^0.3.0
-        version: 0.3.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: ^0.4.0
+        version: 0.4.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react:
         specifier: ^19.2.0
         version: 19.2.8
@@ -124,8 +124,8 @@ importers:
         specifier: ^4.7.9
         version: 4.7.9
       quassel:
-        specifier: ^0.3.0
-        version: 0.3.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: ^0.4.0
+        version: 0.4.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       tsx:
         specifier: ^4.20.0
         version: 4.23.12
@@ -185,8 +185,8 @@ importers:
         specifier: ^1.46.0
         version: 1.46.0(react@19.2.8)
       quassel:
-        specifier: ^0.3.0
-        version: 0.3.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: ^0.4.0
+        version: 0.4.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react:
         specifier: ^19.2.0
         version: 19.2.8
@@ -2088,8 +2088,8 @@ packages:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
 
-  quassel@0.3.0:
-    resolution: {integrity: sha512-/XNzqwiR1jVk6UMVPqyYEk/AH32Lfa1TOV369NlZMCcAVjin6PL65DhaFXFlNJ7Di3Dw25tqdacDp088ig2J0g==}
+  quassel@0.4.0:
+    resolution: {integrity: sha512-Z60dCd9cBT0cb/iuqwKl6gGyFDzUXXcm9EigD3bKiZrOhiApp1N0bFeTaJuMLaQTzPYChlLvvKy6xNQdy7iqKA==}
     peerDependencies:
       react: ^18 || ^19
       react-dom: ^18 || ^19
@@ -4255,7 +4255,7 @@ snapshots:
 
   punycode@2.3.1: {}
 
-  quassel@0.3.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
+  quassel@0.4.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8):
     dependencies:
       '@base-ui/react': 1.8.0(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       class-variance-authority: 0.7.1

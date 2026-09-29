@@ -1,11 +1,12 @@
-# Kern: Runs, Actors, Inputs, Turns und Events
+# Core: runs, actors, inputs, turns, and events
 
-Der Kern ist das Paket `@ragents/engine`: produktneutral, kennt keine Fachdomäne. `domain/` und `runtime/` sind das Journal-Modell, `agents/` führt Agenten aus und plant
-ihre Turns, `drivers/` bindet die Agentenlaufzeit an, `script/` die TypeScript-Actors,
-`typescript/` ist Compiler und Laufzeitkontext der Plattform, `rpc/` die Nachrichtenschicht und
-`http/` deren Laufzeitverträge und -methoden. `plugin-host.ts` und `plugin-types.ts` definieren
-Registrierung und Beitragsarten der Plugins; wogegen ein Plugin gebaut werden darf, legt die
-Host-API-Liste `apps/server/src/host-api.json` fest (`plugins.md`).
+The core is the package `@ragents/engine`: product-neutral, it knows no domain. `domain/` and
+`runtime/` are the journal model, `agents/` runs agents and schedules their turns, `drivers/`
+connects the agent runtime, `script/` the TypeScript actors, `typescript/` is the platform's
+compiler and runtime context, `rpc/` the message layer, and `http/` its runtime contracts and
+methods. `plugin-host.ts` and `plugin-types.ts` define the registration and contribution kinds of
+plugins; what a plugin may be built against is set by the host API list
+`apps/server/src/host-api.json` (`plugins.md`).
 
 <!-- guide:runtime -->
 ## Runs and participants
@@ -27,23 +28,22 @@ the history is restored. Without this marker, presentation remains unchanged. Fo
 without inspection permission, the run view contains none of the task text.
 <!-- /guide:runtime -->
 
-## Laufzeitgrenze
+## Runtime boundary
 
 ```text
 Commands -> Orchestration -> Journal v4 -> Projection -> LiveBus
                 |                 |
-                |                 +-> JSON-RPC (HTTP oder stdio) und Web-Projektion
+                |                 +-> JSON-RPC (HTTP or stdio) and web projection
                 |
-                +-> TurnScheduler -> AgentLoopDriver -> AgentTurn -> Agentenschleife
+                +-> TurnScheduler -> AgentLoopDriver -> AgentTurn -> agent loop
                                   |        ^
-                                  |        +-- Modellkontext = Projektion des Journals
-                                  \-> ScriptDriver -> TypeScript-Plattform -> Node-Prozess
+                                  |        +-- model context = projection of the journal
+                                  \-> ScriptDriver -> TypeScript platform -> Node process
 ```
 
-`Orchestration` ist deterministischer Anwendungscode und kein Modell. Jeder akzeptierte Command
-erzeugt eine zusammenhängende Gruppe von Events. Das Journal persistiert sie, aktualisiert die
-Projektion und veröffentlicht erst danach Live-Hinweise. Kein Driver, Plugin oder
-Protokolladapter schreibt am Journal vorbei.
+`Orchestration` is deterministic application code and not a model. Every accepted command produces
+a coherent group of events. The journal persists them, updates the projection, and only then
+publishes live notifications. No driver, plugin, or protocol adapter writes past the journal.
 
 <!-- guide:runtime -->
 ## Scheduler and turns
@@ -90,53 +90,51 @@ earliest after the snippet, as steering or in a later turn. The programming lang
 additional decision point for this.
 <!-- /guide:runtime -->
 
-### Leere Antworten, Werkzeugaufrufe und Toolset
+### Empty responses, tool calls, and toolset
 
-Eine Modellantwort ohne Text und ohne Werkzeugaufruf (nur Reasoning, Stopgrund `stop`) beendet
-den Turn nicht: die Agentenschleife stößt genau einmal mit der Nutzer-Nachricht "Deine Antwort
-enthielt weder Text noch Werkzeugaufruf. Antworte jetzt mit dem nächsten Werkzeugaufruf oder
-Deiner Antwort." nach. Bleibt auch die folgende Antwort leer, endet der Turn als `failed` mit
-der Ursache "Modell lieferte zweimal eine leere Antwort." als Runtime-Ausgabe und Grund in
-`turn.finished`, nicht als `completed`. Eine Antwort mit Text oder Werkzeugaufruf setzt die
-Zählung zurück; Zeitgrenzen sind davon unberührt.
+A model response without text and without a tool call (only reasoning, stop reason `stop`) does not
+end the turn: the agent loop nudges exactly once with the user message "Your response contained
+neither text nor a tool call. Respond now with the next tool call or your answer." If the following
+response is empty as well, the turn ends as `failed` with the cause "The model returned an empty
+response twice." as runtime output and reason in `turn.finished`, not as `completed`. A response
+with text or a tool call resets the count; time limits are unaffected by this.
 
-Die Run-Ansicht projiziert Werkzeugaufrufe je Turn als kompakte `toolCalls`: Kennung, Name,
-Status und Start-/Endzeit. Die bestehenden Start-, Ergebnis- und Fehlerereignisse aktualisieren
-sie. Endet ein Turn mit noch offenen Aufrufen, beendet sein Ende sie als `interrupted`, gleich ob
-`turn.interrupted` (Stopp, Abbruch, Neustart) oder ein gescheitertes `turn.finished`; ein eigenes
-Fehlerereignis schreibt dafür niemand, und ein erfolgreiches `turn.finished` mit offenen Aufrufen
-ist ungültig. Den Grund trägt das Turn-Ende. Diese Projektion ist die einzige Quelle für den
-Zustand eines Aufrufs: Scheduler, Journalprüfung, Chat und Actor-Verlauf lesen sie. Call-IDs gehören
-immer zu ihrem Turn und dürfen in einem späteren Turn erneut vorkommen. Eingaben, Ergebnisse
-und Fehlertexte werden dabei nicht zusätzlich kopiert. Journal-Replay baut dieselbe Projektion
-für alle Actors wieder auf, unabhängig vom primären Chat.
+The run view projects tool calls per turn as compact `toolCalls`: identifier, name, status, and
+start/end time. The existing start, result, and error events update them. If a turn ends with calls
+still open, its end finishes them as `interrupted`, whether through `turn.interrupted` (stop,
+cancellation, restart) or a failed `turn.finished`; nobody writes a separate error event for this,
+and a successful `turn.finished` with open calls is invalid. The turn end carries the reason. This
+projection is the only source for the state of a call: scheduler, journal check, chat, and actor
+history read it. Call IDs always belong to their turn and may occur again in a later turn. Inputs,
+results, and error texts are not copied additionally. Journal replay rebuilds the same projection
+for all actors, independent of the primary chat.
 
-Zwischen Aufrufstart und Abschluss kann `tool.call.source` den tatsächlich gelesenen
-TypeScript-Quelltext samt optionalem ursprünglichem Dateipfad festhalten. Die Zuordnung folgt
-Turn und Aufrufkennung. Das Quellevent löst weder eine erneute Ausführung noch einen neuen
-Turn aus; es ergänzt den historischen Nachweis. Auch wenn die folgende Typprüfung scheitert,
-bleiben Start, Quelle und Fehler im Journal zusammen lesbar. Die kompakte `toolCalls`-Projektion
-kopiert den Quelltext nicht zusätzlich; Detailansichten lesen das gespeicherte Ereignis.
+Between call start and completion, `tool.call.source` can record the TypeScript source actually
+read, together with an optional original file path. The assignment follows turn and call
+identifier. The source event triggers neither a new execution nor a new turn; it adds to the
+historical record. Even if the following type check fails, start, source, and error stay readable
+together in the journal. The compact `toolCalls` projection does not copy the source additionally;
+detail views read the stored event.
 
-Der `TurnToolset` bindet Aufrufe an genau einen Turn. Nach dessen Ende ist die Bindung ungültig.
-Vor Aufrufen löst er den aktuellen Werkzeugbestand erneut über die Registry auf. Die
-Agentenlaufzeit erneuert zwischen Modellanfragen native Schemata und die erzeugte Systemübersicht aus demselben Bestand, ohne den laufenden Turn zu beenden.
-Hooks leben dagegen mit der Laufzeit des Agenten über seine Turns hinweg und dürfen keinen alten Turnzustand capturen.
+The `TurnToolset` binds calls to exactly one turn. After that turn ends, the binding is invalid.
+Before calls, it resolves the current tool set again through the registry. Between model requests,
+the agent runtime renews native schemas and the generated system overview from the same set without
+ending the running turn. Hooks, in contrast, live with the agent's runtime across its turns and must
+not capture old turn state.
 
-## Actor-Zustand und Funktionen
+## Actor state and functions
 
-Jeder ausführbare Actor besitzt intrinsischen Zustand. TypeScript-Funktionen, Input-Verarbeitung
-und zugehörige Views verwenden dieselben journalisierten Daten. Der Zustand gehört zum Actor,
-nicht zu einem zweiten App- oder Werkzeug-Namensraum. Der Backend-Kontext liest einen Snapshot
-und merkt Änderungen ausdrücklich über `context.state.replace` vor. Erst der erfolgreiche
-Abschluss übernimmt sie; Fehler und Abbruch verwerfen die vorgemerkten Zustandsänderungen.
+Every executable actor has intrinsic state. TypeScript functions, input processing, and associated
+views use the same journaled data. The state belongs to the actor, not to a second app or tool
+namespace. The backend context reads a snapshot and stages changes explicitly through
+`context.state.replace`. Only successful completion commits them; errors and cancellation discard
+the staged state changes.
 
-Ein Funktionsresultat ist kein Zustand. Ein direkter View- oder Werkzeugaufruf einer Funktion
-benötigt keinen Modell-Turn. ActorInputs bleiben dagegen in der normalen Actor-Warteschlange:
-Ein LLM-Actor verarbeitet sie mit seinem Modell, ein TypeScript-Actor mit dem Input-Handler
-seines Programms. Beide können dieselben Arten von Funktionen und React-Views besitzen.
-Der Paket- und Aktivierungslebenszyklus gehört zum Plugin `ragents.actor-programs` und ist in
-`actor-programs.md` beschrieben.
+A function result is not state. A direct view or tool call of a function needs no model turn.
+ActorInputs, in contrast, stay in the normal actor queue: an LLM actor processes them with its
+model, a TypeScript actor with the input handler of its program. Both can own the same kinds of
+functions and React views. The package and activation lifecycle belongs to the plugin
+`ragents.actor-programs` and is described in `actor-programs.md`.
 
 <!-- guide:runtime -->
 ## Model context across turns
@@ -164,296 +162,278 @@ and the chat shows a short system note. When it starts, how much recent context 
 and how long the summary may be are values of the model; a profile sets them for each model alias.
 <!-- /guide:runtime -->
 
-## Modellkontext und Agentenlaufzeit
+## Model context and agent runtime
 
-Den Modellkontext eines LLM-Actors hält allein das Journal. Es ist verlustfrei für alles, was das
-Modell sieht; der Kontext ist eine reine, deterministische Projektion daraus
-(`modelContextOf` in `packages/ragents/src/agents/model-context.ts`). Die Projektion rendert nie
-neu, sie liest gespeicherte Formen. Deshalb bleibt der Präfix jeder Anfrage über Turns und
-Neustarts hinweg bytegleich, was der Prompt-Cache der Anbieter braucht, und ein Actor arbeitet
-nach einem Serverneustart mit genau demselben Kontext weiter. Eine private Sitzungsdatei der
-Laufzeit gibt es nicht.
+The journal alone holds the model context of an LLM actor. It is lossless for everything the model
+sees; the context is a pure, deterministic projection of it (`modelContextOf` in
+`packages/ragents/src/agents/model-context.ts`). The projection never re-renders; it reads stored
+forms. This keeps the prefix of every request byte-identical across turns and restarts, which the
+providers' prompt cache needs, and an actor continues with exactly the same context after a server
+restart. There is no private session file of the runtime.
 
-### Was ins Journal geht
+### What goes into the journal
 
-Vier Events tragen den Kontext, alle im Namen des Actors und seines laufenden Turns (die
-verbindlichen Payloads stehen in `domain/events.ts`):
+Four events carry the context, all in the name of the actor and its running turn (the binding
+payloads are in `domain/events.ts`):
 
-- `model.input.presented`: eine Nutzer-Nachricht genau so, wie sie ans Modell ging, an ihrer Stelle
-  zwischen den Modellschritten: der Input, der den Turn beginnt, jeder per Steering übernommene
-  Input (`inputId`) und der Nachstoß der Schleife nach einer leeren Antwort (`inputId` `null`). Der
-  Text ist gerendert, mit der Kopfzeile zugestellter Events und eingebetteten Textanhängen. Bilder,
-  Videos und PDFs stehen als SHA-256 ihrer Bytes unter `artifacts/` (`{ type, mimeType, hash }`,
-  Dateien mit `filename`), nie als Base64.
-- `model.step.completed`: die vollständige Assistant-Nachricht eines Modellschritts, ungekürzt, mit
-  Text-, Thinking- (Signaturen, `redacted`) und Werkzeugaufruf-Blöcken (`thoughtSignature`), dazu
-  `api`, `provider`, `model`, `usage`, `stopReason`, `errorMessage` und der Zeitpunkt des Anbieters.
-  Er steht mit den Beobachtungs-Events in einem Command: davor je nichtleerem Thinking-Block ein
-  `model.reasoning.completed` und je nichtleerem Textblock ein `model.output.completed`, in
-  Blockreihenfolge und ungekürzt; der Schritt selbst wiederholt diesen Text nicht, ein Block ohne
-  eigenes Textfeld nimmt den nächsten Text seiner Art aus seinem Command. Ein Schritt, den der
-  Anbieter mit einem Fehler beendet, wird geschrieben, ein abgebrochener nie.
-- `model.tool-result.presented`: was das Modell von einem Werkzeugaufruf sah, nach dem Ersatz durch
-  `afterToolCall`, mit `isError`, Bilder als Hash. Ist es genau der Text des `tool.call.completed`
-  (Ausgabe als Text oder JSON) beziehungsweise `tool.call.failed` desselben Aufrufs, fehlt `content`
-  (`domain/tool-result-text.ts`); nötig wird es durch einen Hinweis auf ignorierte Felder, durch
-  `recordOutput` oder durch einen Hook.
-- `context.compacted`: eine Kompaktierung mit Zusammenfassung, dem ersten behaltenen Kontext-Event
-  (`firstKeptEventId`), `tokensBefore`, dem verwendeten Modell und den gelesenen und geänderten
-  Dateien, ab Dateiformat 9 dazu die Schwelle des Modells und ihre Herkunft (`threshold` mit
-  `tokens` und `source`: `model` für eigene Werte, `catalog` für den Katalog-Standard).
+- `model.input.presented`: a user message exactly as it went to the model, at its position between
+  the model steps: the input that starts the turn, every input taken over through steering
+  (`inputId`), and the loop's nudge after an empty response (`inputId` `null`). The text is
+  rendered, with the header line of delivered events and embedded text attachments. Images, videos,
+  and PDFs are stored as the SHA-256 of their bytes under `artifacts/` (`{ type, mimeType, hash }`,
+  files with `filename`), never as Base64.
+- `model.step.completed`: the complete assistant message of a model step, unabridged, with text,
+  thinking (signatures, `redacted`), and tool call blocks (`thoughtSignature`), plus `api`,
+  `provider`, `model`, `usage`, `stopReason`, `errorMessage`, and the provider's timestamp. It is in
+  one command with the observation events: before it, one `model.reasoning.completed` per non-empty
+  thinking block and one `model.output.completed` per non-empty text block, in block order and
+  unabridged; the step itself does not repeat this text, and a block without its own text field
+  takes the next text of its kind from its command. A step that the provider ends with an error is
+  written, an aborted one never.
+- `model.tool-result.presented`: what the model saw of a tool call, after replacement by
+  `afterToolCall`, with `isError`, images as a hash. If it is exactly the text of the
+  `tool.call.completed` (output as text or JSON) or `tool.call.failed` of the same call, `content`
+  is omitted (`domain/tool-result-text.ts`); it becomes necessary through a notice about ignored
+  fields, through `recordOutput`, or through a hook.
+- `context.compacted`: a compaction with summary, the first kept context event
+  (`firstKeptEventId`), `tokensBefore`, the model used, and the files read and changed, from file
+  format 9 also the model's threshold and its origin (`threshold` with `tokens` and `source`:
+  `model` for own values, `catalog` for the catalog default).
 
-Ein Modellschritt ist erst Kontext, wenn sein Command geschrieben ist. Die Agentenschleife bekommt
-den Kontext vor jeder Modellanfrage neu aus der Projektion (`transformContext`), nicht aus ihrem
-eigenen Speicher; scheitert das Schreiben, weil der Turn inzwischen beendet ist, endet die Schleife.
-Ein Absturz hinterlässt deshalb keinen halben Schritt: der Turn endet beim nächsten Start als
-unterbrochen, und der nächste Turn beginnt nach der zuletzt vorgelegten Eingabe.
+A model step is context only once its command is written. The agent loop gets the context anew from
+the projection before every model request (`transformContext`), not from its own memory; if writing
+fails because the turn has ended in the meantime, the loop ends. A crash therefore leaves no half
+step behind: the turn ends as interrupted at the next start, and the next turn begins after the
+last presented input.
 
-### Projektion
+### Projection
 
-Die Projektion liest die Events des Actors in Journalreihenfolge. Ein Fork (`forkOf`) beginnt mit
-einer Kopie des Kontexts seiner Quelle bis zum Ende ihres letzten beendeten Turns vor seinem
-`agent.spawned`. Aus dem Turn, den die Quelle beim Spawn gerade ausführt, übernimmt er nichts, auch
-nicht dessen Eingabe; die Kopie ist unverändert, mit Reasoning-Blöcken und ohne eingefügten Text.
-Ob Reasoning beim Modell des Forks wiedergegeben wird, entscheidet wie bei jedem Schritt
-`transform-messages`. Die Entscheidung prüft dieselbe Bedingung wie die Projektion: Hat die Quelle
-vor dem Spawn keinen beendeten Turn, der dem Modell eine Eingabe vorgelegt hat (`RunState.contextTurns`),
-und ist sie nicht selbst ein Fork, lehnt `agent_spawn` den Fork mit `fork-without-turn` (409) ab; ein
-Turn, der vor der ersten Modellanfrage scheiterte oder abbrach, zählt nicht. Spätere Turns der Quelle
-gehören dem Fork nicht. Danach gilt die letzte Kompaktierung: ihre Zusammenfassung, die Einträge ab dem ersten behaltenen
-und alles danach (`packages/agent/src/core/context-log.ts`). Die Regeln für Schritte mit Fehler oder
-Abbruch, für Werkzeugaufrufe ohne Ergebnis (ein synthetisches Fehlerergebnis) und für das Replay von
-Reasoning beim selben Modell bleiben in `packages/ai/src/api/transform-messages.ts`. Modellwahl und
-Denktiefe sind kein Kontext: jeder Schritt nennt sein Modell selbst. Was die Projektion liefert,
-ergänzt die Laufzeit je Anfrage nur um die Notizen der Hooks (`AgentTurn` in
-`drivers/agent-turn.ts`).
+The projection reads the actor's events in journal order. A fork (`forkOf`) begins with a copy of
+the context of its source up to the end of the source's last finished turn before its
+`agent.spawned`. It takes over nothing from the turn the source is running at the spawn, not even
+its input; the copy is unchanged, with reasoning blocks and without inserted text. Whether reasoning
+is replayed for the fork's model is decided, as for every step, by `transform-messages`. The
+decision checks the same condition as the projection: if the source has no finished turn before the
+spawn that presented an input to the model (`RunState.contextTurns`), and is not itself a fork,
+`agent_spawn` rejects the fork with `fork-without-turn` (409); a turn that failed or was aborted
+before the first model request does not count. Later turns of the source do not belong to the
+fork. After that, the last compaction applies: its summary, the entries from the first kept one,
+and everything after (`packages/agent/src/core/context-log.ts`). The rules for steps with an error
+or abort, for tool calls without a result (a synthetic error result), and for replaying reasoning
+with the same model stay in `packages/ai/src/api/transform-messages.ts`. Model choice and thinking
+level are not context: every step names its model itself. The runtime adds to what the projection
+delivers per request only the notes of the hooks (`AgentTurn` in `drivers/agent-turn.ts`).
 
-Die Kennung eines Modellkontexts (`ToolScope.modelContext`, Grundlage des gesehenen Dateistands in
-`plugins.md`) ist das `run.created` des Runs plus die letzte Kompaktierung des Actors; sie wechselt
-mit jeder Kompaktierung. Ein Run-Fork (`forkRun`) übernimmt mit dem Journal auch die Modellkontexte
-seiner Agenten.
+The identifier of a model context (`ToolScope.modelContext`, basis of the seen file state in
+`plugins.md`) is the run's `run.created` plus the actor's last compaction; it changes with every
+compaction. A run fork (`forkRun`) takes over the model contexts of its agents together with the
+journal.
 
-### Gehaltener Kontext
+### Held context
 
-Die Laufzeit liest den Kontext nicht vor jeder Anfrage aus dem ganzen Journal. `ModelContexts`
-(`model-context.ts`, erreichbar über `Orchestration.modelContext`) hält ihn je Run und Actor im
-Speicher und hängt nur die Events seit dem letzten Stand an (`Journal.eventsSince`); eine Lücke in
-den Sequenzen ist ein harter Fehler. Das Ergebnis ist dasselbe wie `modelContextOf` über das ganze
-Journal, die Golden-Fälle prüfen beides bytegleich. Den geerbten Teil eines Forks bestimmt der Stand
-einmal, weil er vor dem Spawn endet. Eine Kompaktierung ist ein Event wie jedes andere. Gehalten wird
-der Stand nur während eines Turns: endet der Turn des Actors (`turn.finished` oder
-`turn.interrupted`), gibt die Laufzeit ihn frei, und der nächste Turn baut ihn beim ersten Zugriff
-einmal aus dem Journal. So belegen ruhende Runs keinen Speicher, auch nicht mit den Medien ihrer
-Kontexte, die als Bytes im gehaltenen Stand liegen. Ebenso neu gebaut wird nach einem Serverstart und
-wenn der Run unter einem anderen ersten Event steht als beim letzten Zugriff. Löschen und
-Gesprächsreset verwerfen ihn mit dem Journal (`forgetRun`); ein gesperrter Run liefert keinen
-Kontext, sondern `journal-unavailable`. Der gelieferte Kontext ist eingefroren.
-`Orchestration.heldModelContexts` nennt die Zahl der gehaltenen Stände.
+The runtime does not read the context from the whole journal before every request. `ModelContexts`
+(`model-context.ts`, reachable through `Orchestration.modelContext`) holds it in memory per run and
+actor and appends only the events since the last state (`Journal.eventsSince`); a gap in the
+sequences is a hard error. The result is the same as `modelContextOf` over the whole journal; the
+golden cases check both byte for byte. The inherited part of a fork is determined by the state
+once, because it ends before the spawn. A compaction is an event like any other. The state is held
+only during a turn: when the actor's turn ends (`turn.finished` or `turn.interrupted`), the runtime
+releases it, and the next turn builds it once from the journal on first access. This way idle runs
+occupy no memory, not even with the media of their contexts, which are stored as bytes in the held
+state. It is also rebuilt after a server start and when the run has a different first event than at
+the last access. Deletion and conversation reset discard it together with the journal
+(`forgetRun`); a locked run delivers no context but `journal-unavailable`. The delivered context is
+frozen. `Orchestration.heldModelContexts` names the number of held states.
 
-### Turns eines Agenten
+### Turns of an agent
 
-`AgentLoopDriver` (`drivers/agent.ts`) hält je `runId + agentId` eine `ManagedAgentRuntime` mit den
-aufgelösten Skills, den Hooks der Plugins und dem Skill-Vorladen; ein Gespräch hält sie nicht. Je
-Turn setzt eine `AgentTurn` direkt auf die Agentenschleife (`Agent` aus `@ragents/agent`): sie
-bindet die Werkzeuge des Turns, liest den Kontext, legt die Nachrichten der Schleife als Events ab
-(`TurnRequest.recordContext`) und löst sich am Turn-Ende, sodass nichts eine Closure auf einen alten
-Turn hält. Sichtbare Antworten und Reasoning entstehen nur aus einem Modellschritt
-(`recordContext` mit `step`); `TurnRequest.emit` kennt nur noch den abgebrochenen Text und
-Laufzeitausgaben.
+`AgentLoopDriver` (`drivers/agent.ts`) holds a `ManagedAgentRuntime` per `runId + agentId` with the
+resolved skills, the plugins' hooks, and skill preloading; it holds no conversation. Per turn, an
+`AgentTurn` sits directly on the agent loop (`Agent` from `@ragents/agent`): it binds the turn's
+tools, reads the context, stores the loop's messages as events (`TurnRequest.recordContext`), and
+detaches at the end of the turn, so that nothing holds a closure over an old turn. Visible
+responses and reasoning arise only from a model step (`recordContext` with `step`);
+`TurnRequest.emit` only knows the aborted text and runtime outputs.
 
-Jeder Werkzeugaufruf des Modells steht im Journal, auch einer, der vor seinem Start scheitert: fehlt
-das Werkzeug beim Aufruf, scheitert die Auffrischung der Werkzeuge oder passt die Eingabe nicht, schreibt
-`TurnToolset.invoke` Start und Fehler nach, und das Modell bekommt das Fehlerergebnis. Der Turn läuft
-weiter. Die Kennung eines Aufrufs ist im Modellkontext eindeutig: nennt ein Modell eine schon
-benutzte Kennung, bekommt der Aufruf vor seiner Ausführung und vor dem Journal die Endung `-2`,
-`-3` und so weiter. Scheitert die Agentenschleife selbst, etwa beim Auffrischen der Werkzeuge
-zwischen zwei Schritten, endet der Turn mit diesem Fehler; die Ersatznachricht der Schleife
-(`isRunFailure`) ist kein Modellschritt und geht nicht ins Journal. Nach einem Abbruch während der
-Wartezeit einer Wiederholung oder während einer Kompaktierung meldet die Laufzeit keine gescheiterte
-Verdichtung.
+Every tool call of the model is in the journal, including one that fails before it starts: if the
+tool is missing at the call, the refresh of the tools fails, or the input does not match,
+`TurnToolset.invoke` writes start and error after the fact, and the model gets the error result.
+The turn continues. The identifier of a call is unique in the model context: if a model names an
+identifier already used, the call gets the suffix `-2`, `-3`, and so on before its execution and
+before the journal. If the agent loop itself fails, for example when refreshing the tools between
+two steps, the turn ends with that error; the loop's replacement message (`isRunFailure`) is not a
+model step and does not go into the journal. After a cancellation during the wait for a retry or
+during a compaction, the runtime reports no failed compaction.
 
-Ein ActorInput beginnt höchstens einen Turn. Weitere Inputs an einen Agenten mit laufendem Turn
-kommen als Steering in diesen Turn: Die Agentenschleife fragt vor der ersten Modellanfrage und
-nach jeder Antwort samt ihren Werkzeugergebnissen ihre Steering-Quelle ab
-(`Agent.steeringSource`), die Laufzeit reicht das an `TurnRequest.claimSteering` weiter. Der
-Scheduler nimmt dann die ältesten wartenden Inputs des Actors in Journal-Reihenfolge, bis vor den
-ersten mit mehr als 30000 Zeichen Inhalt (`STEERING_MAX_CHARS`), und schreibt für jeden ein
-`turn.input-steered` mit Turn und Input, alle in einem Command. Erst danach gehen die Texte als
-Nutzer-Nachrichten in den Modellkontext, aufbereitet wie beim Turn-Start: dieselbe Kopfzeile für
-zugestellte Events, Anhänge als Medien, Text oder abgelegte Datei. Die Entscheidung prüft, dass
-der Turn läuft, sein Actor den Agententreiber hat und kein älterer wartender Input übersprungen
-wird; die Journalprüfung verlangt beim Laden dasselbe außer dem Treiber. Ein so übernommener
-Input ist von diesem Turn beansprucht (`lifecycle` `claimed` mit `steered: true`) und beginnt
-keinen eigenen; wer Inputs ihrem Turn zuordnet, liest deshalb `turn.started` und
-`turn.input-steered`. Nach dem Abbruchsignal, außerhalb des laufenden Turns und während eines
-Run-Stopps übernimmt `claimSteering` nichts. Scheitert die Aufbereitung, etwa weil das Modell ein
-angehängtes Bild nicht annimmt, endet die Schleife mit diesem Fehler, der Turn scheitert daran, und
-der Input bleibt ihm zugeordnet. Ein Input, der nach der letzten Abfrage eintrifft, bleibt wartend
-und beginnt nach dem Turn-Ende einen neuen. Es gibt keine Follow-up-Warteschlange, keine
-Hintergrundzustellung in laufende Werkzeuge und kein Wake-State-Modell: ein Werkzeugaufruf läuft
-bis zu seinem Ergebnis oder Abbruch, und Steering wartet darauf.
+An ActorInput starts at most one turn. Further inputs to an agent with a running turn come into
+that turn as steering: the agent loop queries its steering source (`Agent.steeringSource`) before
+the first model request and after every response together with its tool results, and the runtime
+passes this on to `TurnRequest.claimSteering`. The scheduler then takes the oldest waiting inputs
+of the actor in journal order, up to the first one with more than 30000 characters of content
+(`STEERING_MAX_CHARS`), and writes a `turn.input-steered` with turn and input for each, all in one
+command. Only then do the texts go into the model context as user messages, prepared as at turn
+start: the same header line for delivered events, attachments as media, text, or a stored file. The
+decision checks that the turn is running, its actor has the agent driver, and no older waiting
+input is skipped; the journal check requires the same when loading, except for the driver. An input
+taken over this way is claimed by this turn (`lifecycle` `claimed` with `steered: true`) and starts
+none of its own; whoever maps inputs to their turn therefore reads `turn.started` and
+`turn.input-steered`. After the abort signal, outside the running turn, and during a run stop,
+`claimSteering` takes over nothing. If the preparation fails, for example because the model does
+not accept an attached image, the loop ends with this error, the turn fails because of it, and the
+input stays assigned to it. An input that arrives after the last query stays waiting and starts a
+new turn after the turn ends. There is no follow-up queue, no background delivery into running
+tools, and no wake-state model: a tool call runs until its result or cancellation, and steering
+waits for that.
 
-Streaming bleibt flüchtig: Text-, Thinking- und Werkzeug-Deltas gehen über den Live-Bus
-(`TurnRequest.publish`) unverzögert an Web, VS Code und CLI; das Journal bekommt keine Deltas, je
-Modellschritt genau einen Command an dessen Ende. Wer mitten im Schritt verbindet, bekommt den
-bisherigen Stand aus dem Puffer der Chat-Sitzung des Servers. Ein Abbruch schreibt den bis dahin
-sichtbaren Text einmal als `model.output.interrupted` (Abschnitt Stoppablauf); der abgebrochene
-Schritt ist kein Kontext.
+Streaming stays transient: text, thinking, and tool deltas go without delay through the live bus
+(`TurnRequest.publish`) to web, VS Code, and CLI; the journal gets no deltas, exactly one command
+per model step at its end. Whoever connects in the middle of a step gets the state so far from the
+buffer of the server's chat session. A cancellation writes the text visible up to then once as
+`model.output.interrupted` (section Stop procedure, cleanup, and deletion); the aborted step is not
+context.
 
-### Wiederholung und Kompaktierung
+### Retries and compaction
 
-Ob ein Turn am Modell scheitert, entscheidet dessen letzte Antwort: einen Anbieterfehler, den die
-Laufzeit danach erfolgreich wiederholt oder nach einer Kompaktierung fortsetzt, übersteht der Turn;
-nur wenn die letzte Antwort ein Fehler ist, endet er als `failed` mit dessen Meldung. Abbruch und
-Fehler eines Hooks bleiben, einmal eingetreten, das Ergebnis des Turns. Ein wiederholbarer
-Anbieterfehler (Überlast, Ratenbegrenzung, Serverfehler; nicht der Überlauf und keine abgewiesene
-Anfrage mit 4xx außer 408, 409 und 429) wird bis zu dreimal mit
-exponentiellem Abstand ab zwei Sekunden wiederholt; der Fehlerschritt bleibt im Journal, das Modell
-sieht ihn nicht.
+Whether a turn fails at the model is decided by the model's last response: the turn survives a
+provider error that the runtime then successfully retries or continues after a compaction; only if
+the last response is an error does it end as `failed` with that error's message. Cancellation and
+a hook's error, once they occur, remain the result of the turn. A retryable provider error
+(overload, rate limit, server error; not the overflow and no rejected request with 4xx except 408,
+409, and 429) is retried up to three times with exponential backoff starting at two seconds; the
+error step stays in the journal, and the model does not see it.
 
-Kompaktiert wird auf der Projektion, mit den Werten des Modells, das den Turn ausführt
-(`Model.compaction`, Typ `ModelCompaction` in `packages/ai/src/types.ts`, ausgewertet von
-`compactionOf` in `packages/agent/src/core/compaction/compaction.ts`): nach einer Antwort, deren
-Kontext über `threshold` liegt, einer absoluten Tokenzahl dieses Modells, ohne Wiederholung; nach
-einem Überlauffehler desselben Modells einmal je Nutzer-Nachricht mit anschließender Wiederholung;
-und vor einem neuen Turn, wenn die letzte Antwort dafür spricht. Behalten werden rund
-`keepRecentTokens` der jüngsten Einträge, nie ab einem Werkzeugergebnis; schneidet das mitten in
-einen Turn, fasst ein zweiter Aufruf dessen Anfang eigens zusammen. Die Zusammenfassung darf
-`summaryTokens` lang werden, die des Turn-Anfangs fünf Achtel davon, das Verhältnis der beiden
-Budgets in der gegabelten Laufzeit; beide begrenzt die Ausgabegrenze des Modells. Eine vorhandene
-Zusammenfassung wird fortgeschrieben, nicht neu erstellt. Ob eine Antwort vor der letzten
-Kompaktierung liegt, entscheidet ihre Stelle im Journal. Eine Wiederholung und die Fortsetzung nach
-einer Kompaktierung setzen hinter allen Fehlerschritten am Ende des Kontexts an, weil das Journal
-jeden davon behält. Eine gescheiterte Kompaktierung steht im Serverprotokoll; der Turn läuft ohne
-sie weiter.
+Compaction happens on the projection, with the values of the model that runs the turn
+(`Model.compaction`, type `ModelCompaction` in `packages/ai/src/types.ts`, evaluated by
+`compactionOf` in `packages/agent/src/core/compaction/compaction.ts`): after a response whose
+context is above `threshold`, an absolute token count of this model, without a retry; after an
+overflow error of the same model once per user message with a subsequent retry; and before a new
+turn if the last response calls for it. Roughly `keepRecentTokens` of the most recent entries are
+kept, never starting from a tool result; if that cuts into the middle of a turn, a second call
+summarizes that turn's beginning separately. The summary may be `summaryTokens` long, the one of the
+turn beginning five eighths of that, the ratio of the two budgets in the forked runtime; both are
+limited by the model's output limit. An existing summary is continued, not created anew. Whether a
+response lies before the last compaction is decided by its position in the journal. A retry and
+the continuation after a compaction start behind all error steps at the end of the context, because
+the journal keeps every one of them. A failed compaction is in the server log; the turn continues
+without it.
 
-Eigene Werte bekommt ein Modell über einen Alias des Profils (`MODEL_ALIASES`,
-[profiles.md](profiles.md)), auf einem Client über das Relay, das die Werte der Aliasse seines
-Servers weitergibt, oder über die Modelldefinition eines zur Laufzeit registrierten Anbieters
-(`ProviderConfigInput`). Die Modelllaufzeit prüft sie bei der Registrierung (`compactionProblem`):
-drei positive ganze Zahlen, `keepRecentTokens + summaryTokens` unter `threshold`,
-`threshold + summaryTokens` unter dem Kontextfenster und `summaryTokens` höchstens die
-Ausgabegrenze; sonst scheitert die Registrierung und damit der Start. Ein Modell ohne eigene Werte,
-etwa ein Katalogmodell ohne Alias, hat den Katalog-Standard (`catalogCompaction`): `threshold`
-gleich `contextWindow - 16384`, `keepRecentTokens` 20000 und `summaryTokens` 13107, 80 Prozent von
-16384, für den Turn-Anfang also 8192. Der Katalog nennt als Kontextfenster das größte über alle
-Anbieter eines Modells; die Schwelle des Standards liegt deshalb oft über dem Fenster der meisten
-Anbieter, und wer das nicht will, gibt dem Modell über einen Alias eigene Werte. Welche Werte
-galten, steht in `context.compacted` (`threshold` mit `source` `model` oder `catalog`). Maßgeblich
-ist das Modell des Turns: ein Modellwechsel gilt ab dem nächsten Turn, und schon dessen Prüfung vor
-dem ersten Schritt misst den bisherigen Kontext an der Schwelle des neuen Modells.
+A model gets its own values through an alias of the profile (`MODEL_ALIASES`,
+[profiles.md](profiles.md)), on a client through the relay, which passes on the values of its
+server's aliases, or through the model definition of a provider registered at runtime
+(`ProviderConfigInput`). The model runtime checks them at registration (`compactionProblem`): three
+positive integers, `keepRecentTokens + summaryTokens` below `threshold`,
+`threshold + summaryTokens` below the context window, and `summaryTokens` at most the output
+limit; otherwise the registration fails and with it the start. A model without its own values, for
+example a catalog model without an alias, has the catalog default (`catalogCompaction`):
+`threshold` equal to `contextWindow - 16384`, `keepRecentTokens` 20000, and `summaryTokens` 13107,
+80 percent of 16384, so 8192 for the turn beginning. The catalog names as context window the
+largest across all providers of a model; the default threshold is therefore often above the window
+of most providers, and whoever does not want that gives the model its own values through an alias.
+Which values applied is in `context.compacted` (`threshold` with `source` `model` or `catalog`).
+The model of the turn is authoritative: a model change applies from the next turn, and already its
+check before the first step measures the existing context against the new model's threshold.
 
-### Hooks und Skills
+### Hooks and skills
 
-Die Hooks der Plugins (`beforeModelCall`, `afterToolCall`, `plugins.md`) ruft die Laufzeit direkt
-auf (`AgentHook`, `drivers/agent-hooks.ts`). Die Notizen von `beforeModelCall` hängt sie nur an die
-eine Anfrage; sie sind kein Kontext. Was ein Hook mit `call.keep` behält, steht als
-`plugin.state-replaced` mit Actor-Scope unter der Kennung des Beitrags im Journal und kommt als
-`call.kept` zurück, auch nach einem Neustart. Beliebiger TypeScript-Code aus dem Arbeitsrepository
-wird nicht ausgeführt.
+The runtime calls the plugins' hooks (`beforeModelCall`, `afterToolCall`, `plugins.md`) directly
+(`AgentHook`, `drivers/agent-hooks.ts`). It attaches the notes of `beforeModelCall` only to the one
+request; they are not context. What a hook keeps with `call.keep` is stored in the journal as
+`plugin.state-replaced` with actor scope under the identifier of the contribution and comes back as
+`call.kept`, also after a restart. Arbitrary TypeScript code from the working repository is not
+executed.
 
-Die Agentenlaufzeit liegt in zwei eigenen Paketen unter `packages/`:
-`@ragents/ai` bindet OpenRouter über Vercel AI SDK Core (`ai`) und
-`@openrouter/ai-sdk-provider` an. Ein Adapter übersetzt Nachrichten, Reasoning-Metadaten und
-SDK-Streams in den bestehenden Laufzeitvertrag. Das SDK übernimmt HTTP, Providerformat und
-SSE-Verarbeitung; pro Anfrage erfolgt genau ein Modellschritt ohne
-Werkzeugausführung durch das SDK. Werkzeugvalidierung, Werkzeugausführung und weitere
-Modellschritte gehören der Agentenlaufzeit. Anfrage- und Antwort-Hooks arbeiten am tatsächlichen
-HTTP-Vertrag, Abbruch und Zeitlimit gelten für den SDK-Aufruf; Transportwiederholungen sind
-standardmäßig deaktiviert. Modellkatalog, Kontextbegrenzung, Cachemarkierungen und lokale
-Kostenberechnung bleiben erhalten. Für Modelle mit Anthropic-Cache (`cacheControlFormat` oder
-`anthropic/...`) setzt der Adapter drei Cachemarken, solange `AGENT_CACHE_RETENTION` nicht `none`
-ist: am Systemprompt, am letzten Werkzeug und an der letzten Nachricht der Anfrage
-(`markCacheBoundary` in `packages/ai/src/api/ai-sdk-messages.ts`), und zwar an deren letztem Teil:
-am letzten Werkzeugergebnis oder am letzten Teil einer Nutzer-Nachricht, nie an der Tool-Nachricht,
-weil der Provider eine Nachrichten-Marke auf jedes zusammengefasste Werkzeugergebnis überträgt. In
-einer Werkzeugschleife wandert die letzte Marke so mit jedem Ergebnis nach hinten, und jede Anfrage
-liest den Präfix der vorigen aus dem Cache. Die verborgenen Notizen der Hooks gelten nur für eine
-Anfrage (`UserMessage.transient`); die letzte Marke steht vor ihnen an der letzten bleibenden
-Nachricht, damit eine wechselnde Notiz den Präfix nicht bricht. Mehr als vier Marken im fertigen Anfragekörper sind ein
-harter Fehler vor dem Senden, weil Anthropic die Anfrage sonst mit 400 abweist. Abgewiesene
-Anfragen (4xx außer 408, 409 und 429) wiederholt die Laufzeit nicht. Die Protokollkennung `openai-completions` gilt weiterhin
-für Modellbeschreibungen und gespeicherte Modellschritte.
-`@ragents/agent` enthält Agentenschleife, Kompaktierung, Modelllaufzeit und Werkzeuge. Beide Pakete
-bleiben gegabelter Fremdcode; ein Rebase auf das Upstream-Projekt ist aufgegeben. Skills liest
-allein der Host, und die Laufzeit liest weder Einstellungs- noch Zugangsdateien noch sucht oder
-installiert sie Pakete.
-Das eigene Verhalten ist Teil dieses Kapitels:
-Der Systemprompt ist der des Turns, bei neuen Werkzeugen mitten im Turn der erneuerte, dazu der
-Skillkatalog, wenn der Agent `read` hat, und die für diesen Turn vorgeladenen Skills; ein leerer
-Systemprompt bleibt leer. Aktualisierte Rollenregeln und kurze Initialhinweise werden so pro Turn
-wirksam; ausdrücklich abgerufene Detailkapitel bleiben Gesprächsinhalte und werden nicht zusätzlich
-in den Systemprompt übernommen. Denktiefe `off` sendet an OpenRouter die explizite Abschaltung
-aus dem Modellkatalog, etwa `reasoning: { effort: "none" }`, oder ohne solches Mapping
-`reasoning: { enabled: false }`. Vor jedem Turn prüft RAgents die gewählte Denktiefe gegen das
-tatsächliche Modell des Turns. Eine nicht verfügbare Auswahl beendet den Turn mit
-einer Fehlermeldung samt gültigen Stufen, bevor eine Modellanfrage gesendet wird; sie wird
-nicht durch eine andere Denktiefe ersetzt. Modellkatalog und Werkzeugverträge erhalten auch die
-erweiterten Stufen der Modelllaufzeit. Beim Erzeugen eines Agenten wird die endgültige Auswahl
-gegen den Modellkatalog geprüft, einschließlich einer aus der Rolle geerbten Denktiefe nach
-einem Modellwechsel. Ohne ausdrückliche Denktiefe oder Rollenvorgabe gilt `medium`, auf die Stufen
-des Modells begrenzt; der Host setzt darüber keine globale Agenten-Denktiefe.
-Die Werkzeug-Validierungsmeldung wiederholt die empfangenen
-Argumente nicht, nennt nur die Feldfehler (bei Enum-Fehlern samt empfangenem Wert und erlaubten
-Werten, ein Pfad nur einmal) und fordert zur Korrektur auf. Bereits gültige Werkzeugargumente
-bleiben unverändert. Auch die zusätzliche JSON-Schema-Konvertierung prüft jeden Teilwert vor
-einer Umwandlung: bereits zum jeweiligen Teilschema passende Unionwerte wie `null`, Zahlen
-und Wahrheitswerte behalten ihren Typ,
-während ungültige Nachbarfelder weiterhin konvertiert werden können. Die Prüfung arbeitet auf
-einer Kopie der Argumente und verändert den ursprünglichen Werkzeugaufruf nicht.
-Unbekannte Felder auf der obersten Ebene eines geschlossenen Eingabeobjekts sind seit dem
-18.09.2026 kein Ablehnungsgrund: die Agentenschleife lässt sie durch, die Engine entfernt sie vor
-der Ausführung (`TurnToolset.invoke` in `packages/ragents/src/agents/toolset.ts`), schreibt die
-bereinigte Eingabe mit `ignoredFields` in `tool.call.started` und stellt dem Werkzeugergebnis für
-das Modell eine Hinweiszeile voran, etwa "Hinweis: implementation_review_context nimmt keine
-Eingabe; die Felder previous, __unused sind unbekannt und wurden ignoriert." Verschachtelte
-Objekte bleiben streng; fehlende Pflichtfelder, falsche Typen und unbekannte Felder in
-verschachtelten Objekten sind weiterhin harte Fehler, deren Meldung die unbekannten Feldnamen
-nennt. Der Snippet-Weg über `context.functions` bleibt unverändert: dort prüft der
-TypeScript-Compiler, ein überzähliges Feld ist eine Diagnose, und `invokeFunction` entfernt nichts.
-Die drei `package.json` laden zur
-Laufzeit die TS-Quellen, der Typecheck sieht die generierten `dist/*.d.ts`, die `pnpm build:agent`
-erzeugt.
+The agent runtime lives in two packages of its own under `packages/`: `@ragents/ai` connects
+OpenRouter through Vercel AI SDK Core (`ai`) and `@openrouter/ai-sdk-provider`. An adapter
+translates messages, reasoning metadata, and SDK streams into the existing runtime contract. The
+SDK handles HTTP, provider format, and SSE processing; per request there is exactly one model step
+without tool execution by the SDK. Tool validation, tool execution, and further model steps belong
+to the agent runtime. Request and response hooks work on the actual HTTP contract, cancellation and
+timeout apply to the SDK call; transport retries are disabled by default. Model catalog, context
+limits, cache markers, and local cost calculation are preserved. For models with Anthropic cache
+(`cacheControlFormat` or `anthropic/...`), the adapter sets three cache markers as long as
+`AGENT_CACHE_RETENTION` is not `none`: on the system prompt, on the last tool, and on the last
+message of the request (`markCacheBoundary` in `packages/ai/src/api/ai-sdk-messages.ts`), namely on
+its last part: on the last tool result or on the last part of a user message, never on the tool
+message, because the provider transfers a message marker to every combined tool result. In a tool
+loop, the last marker thus moves backward with every result, and every request reads the prefix of
+the previous one from the cache. The hidden notes of the hooks apply to only one request
+(`UserMessage.transient`); the last marker sits before them on the last persistent message, so that
+a changing note does not break the prefix. More than four markers in the finished request body are
+a hard error before sending, because Anthropic would otherwise reject the request with 400. The
+runtime does not retry rejected requests (4xx except 408, 409, and 429). The protocol identifier
+`openai-completions` still applies to model descriptions and stored model steps. `@ragents/agent`
+contains the agent loop, compaction, model runtime, and tools. Both packages remain forked
+third-party code; a rebase onto the upstream project has been given up. Only the host reads skills,
+and the runtime reads neither settings nor credential files, nor does it search for or install
+packages. Its own behavior is part of this chapter: the system prompt is that of the turn, with new
+tools in the middle of the turn the renewed one, plus the skill catalog if the agent has `read`,
+and the skills preloaded for this turn; an empty system prompt stays empty. Updated role rules and
+short initial hints thus take effect per turn; explicitly retrieved detail chapters remain
+conversation content and are not additionally taken into the system prompt. Thinking level `off`
+sends OpenRouter the explicit deactivation from the model catalog, such as
+`reasoning: { effort: "none" }`, or without such a mapping `reasoning: { enabled: false }`. Before
+every turn, RAgents checks the chosen thinking level against the actual model of the turn. An
+unavailable selection ends the turn with an error message including the valid levels before a
+model request is sent; it is not replaced by another thinking level. The model catalog and tool
+contracts also receive the extended levels of the model runtime. When an agent is created, the
+final selection is checked against the model catalog, including a thinking level inherited from
+the role after a model change. Without an explicit thinking level or role default, `medium`
+applies, limited to the levels of the model; the host sets no global agent thinking level beyond
+that. The tool validation message does not repeat the received arguments, names only the field
+errors (for enum errors including the received value and the allowed values, each path only once),
+and asks for a correction. Tool arguments that are already valid stay unchanged. The additional
+JSON schema conversion also checks every partial value before converting it: union values that
+already match the respective partial schema, such as `null`, numbers, and booleans, keep their
+type, while invalid neighboring fields can still be converted. The check works on a copy of the
+arguments and does not change the original tool call. Since 2026-09-18, unknown fields at the top
+level of a closed input object are not a reason for rejection: the agent loop lets them through,
+the engine removes them before execution (`TurnToolset.invoke` in
+`packages/ragents/src/agents/toolset.ts`), writes the cleaned input with `ignoredFields` into
+`tool.call.started`, and puts a notice line in front of the tool result for the model, such as
+"Note: implementation_review_context takes no input; the fields previous, __unused are unknown and
+were ignored." Nested objects stay strict; missing required fields, wrong types, and unknown fields
+in nested objects are still hard errors whose message names the unknown field names. The snippet
+path through `context.functions` stays unchanged: there the TypeScript compiler checks, a
+superfluous field is a diagnostic, and `invokeFunction` removes nothing. The three `package.json`
+files load the TS sources at runtime; the type check sees the generated `dist/*.d.ts` that
+`pnpm build:agent` produces.
 
-Die Dateibearbeitung nennt bei mehrdeutigen Treffern deren Zeilennummern und unterstützt
-gezielte Vorkommen, eine nahe Zeile oder alle Vorkommen. Widersprüchliche Anker und gleich
-nahe Treffer werden abgelehnt. Die Prüfung des zuletzt gelesenen Dateistands erfolgt innerhalb
-derselben Mutationssperre wie das Schreiben, auch bei symbolischen Dateialiasen. Ein Abbruch
-gibt diese Sperre erst frei, wenn eine bereits laufende Dateioperation beendet ist.
+For ambiguous matches, file editing names their line numbers and supports targeted occurrences, a
+nearby line, or all occurrences. Contradictory anchors and equally near matches are rejected. The
+check of the last read file state happens within the same mutation lock as the writing, also for
+symbolic file aliases. A cancellation releases this lock only when a file operation already running
+has finished.
 
-Das Skill-Vorladen (`ragents-skill-preload`, `drivers/skill-preload.ts`) hängt ausgewählte
-Skill-Bodies nur an den Systemprompt des aktuellen Turns. Explizite Skillnamen werden
-deterministisch aufgelöst. Sonst klassifiziert ein kurzer Aufruf desselben ausgewählten
-Agent-Modells nur Aufgabe, Zielgruppe, Skillnamen und Beschreibungen. Er sieht keine Skill-Bodies
-und darf `ABSTAIN` liefern. Fehler blockieren den Hauptturn nicht, sondern lassen den normalen
-Skill-Katalog unverändert.
+Skill preloading (`ragents-skill-preload`, `drivers/skill-preload.ts`) attaches selected skill
+bodies only to the system prompt of the current turn. Explicit skill names are resolved
+deterministically. Otherwise, a short call to the same selected agent model classifies only the
+task, audience, skill names, and descriptions. It sees no skill bodies and may return `ABSTAIN`.
+Errors do not block the main turn but leave the normal skill catalog unchanged.
 
-Ein Skillname gilt im ganzen Profil genau einmal, auch über Zielgruppen hinweg, weil er den Ordner
-bestimmt, unter dem das Modell den Skill erreicht. Liefern zwei Plugins einen Skill gleichen
-Namens, bricht der Start mit beiden Ordnern ab (`SkillContributionRegistry.assertUniqueNames`);
-bekommt eine Laufzeit trotzdem zwei, scheitert ihr Anlegen und damit der Turn mit beiden
-SKILL.md-Pfaden, statt dass Katalog und Vorladen still den ersten nehmen. Katalog und Vorladen
-nennen einen Skill unter `Skill.location`, `@skills/<name>/SKILL.md`: dem Ort, an dem die
-Werkzeuge des Modells ihn in jeder Bindung nur lesend erreichen (`plugins.md`, Abschnitt
-Arbeitsbereich, Sandbox-Werkzeuge und Prozesse), nie unter dem Pfad auf dem Server, aus dem der Host
-den Body liest (`Skill.filePath`). Relative Pfade in einem Skill gelten in seinem Ordner.
+A skill name exists exactly once in the whole profile, also across audiences, because it determines
+the folder under which the model reaches the skill. If two plugins deliver a skill of the same
+name, the start aborts with both folders (`SkillContributionRegistry.assertUniqueNames`); if a
+runtime still gets two, its creation and thus the turn fails with both SKILL.md paths, instead of
+catalog and preloading silently taking the first. Catalog and preloading name a skill under
+`Skill.location`, `@skills/<name>/SKILL.md`: the location where the model's tools reach it
+read-only in every binding (`plugins.md`, section Workspace, sandbox tools, and processes), never
+under the path on the server from which the host reads the body (`Skill.filePath`). Relative paths
+in a skill apply within its folder.
 
-Die Produktrolle stammt aus genau einer Policy des aktiven `ProductRuntime`: Der in
-`primaryActorId` gewählte Actor ist `primary`, alle anderen ausführbaren Actors sind `worker`.
-Dieselbe Entscheidung steuert Rollenvertrag und Skill-Auswahl. Das Vorladen erzeugt keinen
-eigenen Agentenloop. Für `tools: []` lädt die Agentenlaufzeit weder Host-Werkzeuge noch
-Skills, Hooks oder Preloads.
+The product role comes from exactly one policy of the active `ProductRuntime`: the actor chosen in
+`primaryActorId` is `primary`, all other executable actors are `worker`. The same decision controls
+the role contract and skill selection. Preloading creates no agent loop of its own. For
+`tools: []`, the agent runtime loads neither host tools nor skills, hooks, or preloads.
 
-### Sicherheits-Lockdown der Agentenlaufzeit
+### Security lockdown of the agent runtime
 
-Alle Einschränkungen stecken in der Engine-Konfiguration beim Serverstart (weder Modell noch
-Client können sie ändern): Der Systemprompt wird geordnet aus den Beiträgen der aktiven Plugins
-zusammengesetzt. Skills kommen ausschließlich aus deren registrierten Pfaden. Die Werkzeuge stammen
-aus dem RAgents-Core und der Plugin-Registry statt aus einer frei wählbaren Liste. Die
-Agentenlaufzeit liest weder Einstellungs- noch Zugangsdateien; feste Rollen binden die Modelle.
-Capabilities begrenzen die Orchestrierung und ihre Delegation.
-Workspace-Werkzeuge bleiben sichtbar; Rollen werden im Prompt beschrieben und die technische
-Grenze ist die Sandbox je Run. Bash ist darin erlaubt.
+All restrictions are in the engine configuration at server start (neither model nor client can
+change them): the system prompt is assembled in order from the contributions of the active plugins.
+Skills come exclusively from their registered paths. The tools come from the RAgents core and the
+plugin registry instead of a freely choosable list. The agent runtime reads neither settings nor
+credential files; fixed roles bind the models. Capabilities limit orchestration and its
+delegation. Workspace tools stay visible; roles are described in the prompt, and the technical
+boundary is the sandbox per run. Bash is allowed within it.
 
 <!-- guide:runtime -->
 ## Interrupting a turn, stopping an actor, stopping a run, and shutting down the server
@@ -461,15 +441,15 @@ Grenze ist die Sandbox je Run. Bash ist darin erlaubt.
 All stop paths follow the same principle: block new work first, then cancel, wait for running
 work, and only then release resources. The exact boundary differs:
 
-Interrupting a turn is not a stop. The stop button in a chat input ("Arbeit stoppen") ends only the
+Interrupting a turn is not a stop. The stop button in a chat input ("Stop work") ends only the
 running turn of that chat's actor as `interrupted`: its running function calls are aborted, the
 visible text of its unfinished answer stays, and the actor remains active and takes the next
 message as a new turn. Its children and all other actors keep working, and without a running
 turn of this actor the input offers no stop. Stopping an actor for good and stopping the whole
 run are separate, explicitly labeled actions.
 
-In the run title bar, a user with write permission can request a complete stop through "Run
-stoppen" (stop run) and a confirmation. The primary actor can also trigger it with `run_stop`. Both use the
+In the run title bar, a user with write permission can request a complete stop through "Stop
+run" and a confirmation. The primary actor can also trigger it with `run_stop`. Both use the
 same host stop boundary; the chat and files remain intact. The function call initiates
 the stop but does not wait for cleanup of its own turn. Acceptance is not proof of completion.
 Cleanup errors are reported in the server log while the stop path's normal quarantine remains
@@ -503,91 +483,87 @@ after a successful release. The scheduler checks the remaining open inputs again
 were already claimed or discarded are not repeated.
 <!-- /guide:runtime -->
 
-### Unterbrechen eines Turns
+### Interrupting a turn
 
-`ragents.runs.interruptTurn` (`runId`, `actorId`, optional `reason`) beendet nur den laufenden
-Turn dieses Actors. Die Nachrichtenschicht prüft die Rechte wie beim Stoppen (Art `stop`, also
-auch bei einem Run erlaubt, den nur sein Eigentümer bedient) und reicht die Unterbrechung an den
-`TurnScheduler` weiter (`interruptTurn`). Der bricht das Abbruchsignal des Turns ab, das auch
-laufende Funktionsaufrufe erhalten, und wartet begrenzt (`interruptWaitMs`, 15 Sekunden) auf den
-Treiber: Die Agentenlaufzeit schreibt die sichtbare Teilantwort als `model.output.interrupted`,
-dann folgt `turn.interrupted` im Namen des Owners mit dem Grund der Anfrage. Hält ein Treiber
-die Frist nicht ein, endet der Turn im Journal trotzdem; die nächste Eingabe des Actors beginnt
-erst, wenn der alte Treiber zurückgekehrt ist. Einen Turn, den kein Treiber dieses Schedulers
-ausführt, beendet die Unterbrechung nur im Journal. Ohne laufenden Turn geschieht nichts, auch
-kein Fehler. Kein `actor.stopped`, kein Eingriff in Kinder, Abonnements oder den Modellkontext:
-der Actor nimmt die nächste Eingabe als neuen Turn im selben Gespräch an. Der Kern kennt dabei nur
-Turn und Actor. Was der Turn bis zur Unterbrechung per Steering übernommen hat, bleibt ihm
-zugeordnet und wird nicht erneut zugestellt; was danach eintrifft oder noch wartet, beginnt den
-nächsten Turn.
+`ragents.runs.interruptTurn` (`runId`, `actorId`, optional `reason`) ends only the running turn of
+this actor. The message layer checks permissions as for stopping (kind `stop`, so it is also
+allowed on a run that only its owner operates) and passes the interruption on to the
+`TurnScheduler` (`interruptTurn`). It aborts the turn's abort signal, which running function calls
+also receive, and waits for a limited time (`interruptWaitMs`, 15 seconds) for the driver: the
+agent runtime writes the visible partial response as `model.output.interrupted`, then
+`turn.interrupted` follows in the name of the owner with the reason of the request. If a driver
+does not meet the deadline, the turn still ends in the journal; the actor's next input starts only
+once the old driver has returned. A turn that no driver of this scheduler runs is ended by the
+interruption only in the journal. Without a running turn, nothing happens, not even an error. No
+`actor.stopped`, no intervention in children, subscriptions, or the model context: the actor takes
+the next input as a new turn in the same conversation. The core knows only turn and actor here.
+What the turn took over through steering up to the interruption stays assigned to it and is not
+delivered again; what arrives afterwards or is still waiting starts the next turn.
 
-Die Agentenschleife prüft das Abbruchsignal unmittelbar vor jeder Modellanfrage, also nach
-Kontext-Hooks, Kontextumbau und Schlüsselauflösung. Ein Abbruch während eines Werkzeugaufrufs oder
-während ein Hook noch läuft, erreicht das Modell deshalb nicht mehr: die Schleife endet mit einer
-abgebrochenen Assistant-Nachricht ohne Inhalt und ohne Verbrauch, statt das Modell noch einmal mit
-dem Werkzeugfehler anzufragen.
+The agent loop checks the abort signal immediately before every model request, that is, after
+context hooks, context rebuild, and key resolution. A cancellation during a tool call or while a
+hook is still running therefore no longer reaches the model: the loop ends with an aborted
+assistant message without content and without usage, instead of querying the model once more with
+the tool error.
 
-Wird der Primary-Actor gestoppt, verliert der Run seinen Primary-Actor (`primaryActorId` wird
-`null`) und merkt sich den gestoppten als `stoppedPrimaryActorId`, bis ein Primary-Actor gewählt
-wird. Startet der Owner oder ein Actor mit `run.configure` ihn neu, schreibt `restartActor` im
-selben Command `actor.restarted` und `run.primary-actor-selected`; der Chat ist wieder an ihn
-gebunden. Ein anderer Neustart lässt ihn einfachen Actor bleiben.
+If the primary actor is stopped, the run loses its primary actor (`primaryActorId` becomes `null`)
+and remembers the stopped one as `stoppedPrimaryActorId` until a primary actor is chosen. If the
+owner or an actor with `run.configure` restarts it, `restartActor` writes `actor.restarted` and
+`run.primary-actor-selected` in the same command; the chat is bound to it again. Any other restart
+leaves it a plain actor.
 
-### Stoppablauf, Nachlauf und Löschung
+### Stop procedure, cleanup, and deletion
 
-Ein Stopp ist immer eine Entscheidung über den ganzen Zweig: `stopActor` erzeugt für den Actor und
-alle seine aktiven Nachkommen `turn.interrupted` (falls ein Turn läuft), `actor.stopped` und das
-Entfernen ihrer Abonnements in einem einzigen Command, im Namen dessen, der stoppt (`actor_stop`
-im Turn des Aufrufers, `ragents.runs.stopActor` im Namen des Owners). Scheitert die Prüfung für
-einen von ihnen, bleibt der ganze Zweig unberührt. Innerhalb der Scheduler-Sperre stoppt der
-`RunStopper` alle aktiven Nachkommen des Owners außer dem Primary-Actor mit einem Command
-(`stopActors`). Nach dem Abschluss des externen Scheduler-, Agent- und Plugin-Cleanups folgt ein
-zweiter Command dieser Art. Er erfasst auch Kinder, die ein beim Stop bereits laufender Turn noch
-spät erzeugt hat. Die Kennung eines solchen Commands setzt sich aus der Kennung des Stopps, dem
-Schritt und einem Hash der gestoppten Actors zusammen: ein wiederholter Stopp mit derselben
-Kennung erreicht so auch Actors, die inzwischen entstanden sind, und schreibt nichts doppelt. Chat und Fläche verwenden dieselbe Stop-Operation.
+A stop is always a decision about the whole branch: `stopActor` produces `turn.interrupted` (if a
+turn is running), `actor.stopped`, and the removal of their subscriptions for the actor and all its
+active descendants in a single command, in the name of whoever stops (`actor_stop` in the caller's
+turn, `ragents.runs.stopActor` in the name of the owner). If the check fails for one of them, the
+whole branch stays untouched. Within the scheduler lock, the `RunStopper` stops all active
+descendants of the owner except the primary actor with one command (`stopActors`). After the
+external scheduler, agent, and plugin cleanup completes, a second command of this kind follows. It
+also covers children that a turn already running at the stop still created late. The identifier of
+such a command is composed of the identifier of the stop, the step, and a hash of the stopped
+actors: a repeated stop with the same identifier thus also reaches actors that have appeared in the
+meantime and writes nothing twice. Chat and surface use the same stop operation.
 
-Wird ein Chat oder Run gestoppt, bleibt der bereits sichtbare Text der offenen Modellnachricht
-des Primary-Actors stehen. Die Agentenlaufzeit sammelt die Live-Deltas und schreibt sie einmal als
-`model.output.interrupted` vor `turn.interrupted` ins Journal, auch wenn der Abbruch kein
-abschließendes `message_end` mehr liefert. Ein später eintreffender Abschluss des Anbieters
-verdoppelt den Text nicht, abgeschlossene Modellnachrichten werden nicht erneut geschrieben.
-Hauptchat und Actor-Verlauf zeigen den Text nach Wiedergabe und Neustart an derselben Stelle.
-Diese Teilausgabe ist kein abgeschlossenes Ergebnis: Sie gehört weder zu `Turn.outputs` noch zu
-den abonnierbaren Events und löst keine Zustellung aus. Ein bereits geschlossener Turn, etwa nach
-`actor_stop`, nimmt keinen späteren Textnachweis mehr an.
+If a chat or run is stopped, the already visible text of the primary actor's open model message
+stays. The agent runtime collects the live deltas and writes them once as
+`model.output.interrupted` before `turn.interrupted` into the journal, even if the cancellation no
+longer delivers a final `message_end`. A completion from the provider that arrives later does not
+duplicate the text; completed model messages are not written again. Main chat and actor history
+show the text at the same place after replay and restart. This partial output is not a completed
+result: it belongs neither to `Turn.outputs` nor to the subscribable events and triggers no
+delivery. A turn that is already closed, for example after `actor_stop`, no longer accepts a later
+text record.
 
-Jeder Stoppbeitrag eines Plugins erhält ein kooperatives `AbortSignal` und standardmäßig 15
-Sekunden Zeit. Nach Ablauf wird das Signal abgebrochen und der Beitrag als Fehler gesammelt; ein
-Promise oder externer Prozess, der das Signal ignoriert, wird nicht zwangsweise beendet. Die
-übrigen Stoppbeiträge und Aufräumzweige laufen unabhängig davon weiter. Run-Stopp,
-Plugin-Nachlauf und Server-Shutdown sammeln Fehler gleich: verschachtelte AggregateErrors werden
-flachgezogen, gleiche Ursachen nur einmal gemeldet. Eine einzelne Ursache wird direkt geworfen,
-mehrere in einem AggregateError zusammengefasst.
+Every stop contribution of a plugin receives a cooperative `AbortSignal` and 15 seconds by default.
+After that time, the signal is aborted and the contribution is collected as an error; a promise or
+external process that ignores the signal is not forcibly terminated. The other stop contributions
+and cleanup branches continue independently. Run stop, plugin cleanup, and server shutdown collect
+errors the same way: nested AggregateErrors are flattened, and identical causes are reported only
+once. A single cause is thrown directly, several are combined in an AggregateError.
 
-Die Nachlaufbeiträge unter `afterStopSession` erhalten ein Abbruchsignal mit Zeitgrenze.
-Die getrennte Nachlaufphase erlaubt beispielsweise, erst spät
-erzeugte Prozesse aufzuräumen. Eine Löschung wartet auch noch ausstehende Nachlaufbeiträge ab.
-Die Stop-Antwort wartet auf die abschließende Bereinigung und meldet auch deren Fehler oder
-Plugin-Zeitüberschreitung. Für den gesamten Nachlauf gilt nach dem frühen Stopp eine zusätzliche
-Antwortfrist von 15 Sekunden. Überschreitet etwa ein Treiber diese Frist, endet die Anfrage mit
-einem Fehler; die Bereinigung und Sperre bleiben bis zum tatsächlichen Abschluss bestehen.
-Ein erneuter Stopp wartet auch nach einer fehlgeschlagenen Bereinigung alle aktuellen
-Treibernachläufe ab, bevor er die abschließenden Plugin-Beiträge wiederholt.
+The cleanup contributions under `afterStopSession` receive an abort signal with a time limit. The
+separate cleanup phase allows, for example, cleaning up processes created late. A deletion also
+waits for cleanup contributions that are still pending. The stop response waits for the final
+cleanup and also reports its errors or plugin timeouts. For the entire cleanup, an additional
+response deadline of 15 seconds applies after the early stop. If, for example, a driver exceeds
+this deadline, the request ends with an error; the cleanup and lock remain until actual
+completion. A repeated stop waits for all current driver cleanups even after a failed cleanup
+before it repeats the final plugin contributions.
 
-Eine Run-Löschung wird vor dem ersten irreversiblen Schritt dauerhaft markiert. Mit dieser
-Markierung ist die Löschanfrage beantwortet (`ragents.runs.delete` liefert `null`) und der
-Run aus der Liste verschwunden; das
-Stoppen, Entfernen und Archivieren läuft als Löschjob im Hintergrund weiter, Fehler landen im
-Serverlog. Scheitert er oder stürzt der Host ab, beendet der nächste Serverstart diese
-Löschung, bevor der Scheduler gestartet wird. Das fertige Archiv bleibt selbst der dauerhafte
-Tombstone seiner Run-ID. Eine gelöschte ID wird auch nach einem Neustart nicht erneut
-angelegt und ein Archiv nie überschrieben.
+A run deletion is marked durably before the first irreversible step. With this marker, the delete
+request is answered (`ragents.runs.delete` returns `null`) and the run has disappeared from the
+list; stopping, removing, and archiving continue as a deletion job in the background, and errors
+end up in the server log. If it fails or the host crashes, the next server start finishes this
+deletion before the scheduler is started. The finished archive itself stays the durable tombstone
+of its run ID. A deleted ID is not created again even after a restart, and an archive is never
+overwritten.
 
-Dispose-Fehler dürfen die zugehörige Ressource nicht aus der Verwaltung verlieren; der Cleanup
-bleibt wiederholbar. Die Run-Löschung selbst gehört dem Produkthost, weil sie zusätzlich
-Plugin-Daten, Arbeitsverzeichnis, Chat und Archiv verwaltet; der Kern stellt dafür die geordneten
-Stop- und Journalgrenzen bereit.
+Dispose errors must not make the associated resource drop out of management; the cleanup stays
+repeatable. The run deletion itself belongs to the product host, because it additionally manages
+plugin data, working directory, chat, and archive; the core provides the ordered stop and journal
+boundaries for it.
 
 <!-- guide:runtime -->
 ## Actors, inputs, events, and subscriptions
@@ -630,161 +606,152 @@ turn" only where such an observer exists. Synchronous functions return their res
 caller continues in the same turn.
 <!-- /guide:runtime -->
 
-### Automatische Meldungen und abgewiesene Aufrufe
+### Automatic notices and rejected calls
 
-Ohne jedes Abonnement erfährt der Ersteller eines Actors, wenn dessen Turn scheitert oder
-unterbrochen wird: die Engine legt ihm eine automatische Meldung als ActorInput in die
-Warteschlange ("[Automatische Meldung] Der Turn deines Actors @... ist GESCHEITERT" bzw. "wurde
-unterbrochen"). Gemeint ist immer der Actor, dem der Turn gehört (`turnId` des Events), nicht der
-Schreiber des Events: stoppt der Owner einen Unter-Worker, erfährt es dessen Ersteller. Keine
-Meldung bekommt ein Ersteller, der die Unterbrechung selbst ausgelöst hat, ein menschlicher oder
-gestoppter Ersteller und einer, dessen passendes Abonnement dasselbe Event schon zustellt.
+Without any subscription, the creator of an actor learns when its turn fails or is interrupted: the
+engine puts an automatic notice into its queue as an ActorInput ("[Automatic notice] The turn of
+your actor @... FAILED" or "was interrupted"). What is meant is always the actor that owns the turn
+(`turnId` of the event), not the writer of the event: if the owner stops a sub-worker, its creator
+learns about it. No notice goes to a creator that triggered the interruption itself, a human or
+stopped creator, or one whose matching subscription already delivers the same event.
 
-Weist die Agentenschleife einen Werkzeugaufruf ab, bevor er läuft (Schemaverstoß, unbekannter
-Name, blockiert), steht der Fehlversuch trotzdem im Journal: der Turn-Dispatcher merkt sich bei
-`tool_execution_start` jeden verwalteten Aufruf mit Name und Eingabe, streicht ihn, sobald das
-Werkzeug wirklich ausgeführt wird, und schreibt bei einem Fehlerabschluss ohne Ausführung das Paar
-`tool.call.started` und `tool.call.failed` mit dem vollen Fehlertext. Der Vermerk gilt nur
-innerhalb eines Turns; im Chat erscheint der Fehlversuch wie jeder andere gescheiterte Aufruf.
-`tool.call.failed` trägt immer einen nicht leeren `error`: die Meldung des Fehlers, sonst den
-Text seiner Ursache (`cause`), sonst "Fehler ohne Ursache". Ein gescheiterter Aufruf steht nie
-ohne Ursache im Journal, auch wenn das Werkzeug oder das Modell keinen Text geliefert hat.
+If the agent loop rejects a tool call before it runs (schema violation, unknown name, blocked), the
+failed attempt is still in the journal: the turn dispatcher records every managed call with name and
+input at `tool_execution_start`, removes it as soon as the tool is actually executed, and, on an
+error completion without execution, writes the pair `tool.call.started` and `tool.call.failed` with
+the full error text. The record applies only within a turn; in the chat, the failed attempt appears
+like any other failed call. `tool.call.failed` always carries a non-empty `error`: the error's
+message, otherwise the text of its cause (`cause`), otherwise "Error without a cause". A failed
+call is never in the journal without a cause, even if the tool or the model delivered no text.
 
-Ein Werkzeugergebnis wiederholt nie, was das Modell selbst geschrieben hat. Die eine
-Redaktionsstelle ist `toolResultEventOf` in `packages/ragents/src/agents/actor-input.ts`: sie
-übernimmt aus jeder Event-Payload auf dem Weg zum Modell nur die Felder ihres Ergebnisschemas,
-also Kennungen, keine Hashes und keine Eingabe-Echos (`reason`, `title`, `prompt`, `content`,
-`state`). Eine Funktion, die Events liefert, nennt mit `eventResultSchemaOf(...)` genau die Typen,
-die sie erzeugt (`actor_input`: `actor.input.enqueued`), sodass auch ihr TypeScript-Ergebnistyp
-nur diese kennt. Ein Aufruf, der nur bestätigt (`event_unsubscribe`, `run_configure`,
-`canvas_layout_replace`, `todo_replace`), liefert `null`; `event_subscribe` liefert nur
-`subscriptionId` und die aufgelösten `sources`. Journal, `event_query` und die RunView fürs Web
-bleiben vollständig.
+A tool result never repeats what the model wrote itself. The one redaction point is
+`toolResultEventOf` in `packages/ragents/src/agents/actor-input.ts`: from every event payload on
+the way to the model, it takes over only the fields of its result schema, that is, identifiers, no
+hashes, and no input echoes (`reason`, `title`, `prompt`, `content`, `state`). A function that
+delivers events names exactly the types it produces with `eventResultSchemaOf(...)` (`actor_input`:
+`actor.input.enqueued`), so that its TypeScript result type also knows only these. A call that only
+confirms (`event_unsubscribe`, `run_configure`, `canvas_layout_replace`, `todo_replace`) returns
+`null`; `event_subscribe` returns only `subscriptionId` and the resolved `sources`. Journal,
+`event_query`, and the RunView for the web stay complete.
 
-### Herkunft eines Inputs
+### Origin of an input
 
-`enqueuedBy` nennt, wer einen Input eingereiht hat, nicht, wer ihn geschrieben hat. Unter dem
-Owner laufen außer den Nachrichten eines Menschen auch die automatischen Meldungen an Ersteller,
-Inputs von Plugins (die Antwort auf eine Rückfrage aus `ragents.ask`, die Solution-Antwort aus
-`ragents.lsp-roslyn`, die Weckung eines Wächters aus `ragents.watch`), der Start-Input eines
-Run-Scripts und jeder Input über `ragents.runs.enqueueInput`. Die Chatnachricht eines Menschen
-trägt deshalb zusätzlich `origin: "human"`, im Payload von `actor.input.enqueued` und im
-ActorInput der Projektion. Gesetzt wird das Feld nur vom Chatweg des Hosts: `ragents.chat.send`
-und `ragents.chat.sendToActor`, über den auch `ragents.overseer.sendMessage` und die erste
-Nachricht von `ragents.overseer.createRun` einreihen. Wer über diese Methoden mit dem Zugang
-eines Benutzers schreibt, etwa der globale Koordinator oder eine Mini-App, gilt dabei als dieser
-Mensch. Entscheidung und Journalprüfung lassen das Feld nur bei einem menschlichen handelnden
-Actor zu (die Entscheidung weist sonst mit `input-origin-invalid`, Status 403, ab) und nie an
-einem Subscription-Input. Der Kern wertet es nicht aus; Plugins lesen es, so erledigt
-`ragents.ask` damit eine Rückfrage, die den Turn des Fragenden blockiert (`plugins.md`).
+`enqueuedBy` names who queued an input, not who wrote it. Besides the messages of a human, the
+automatic notices to creators, inputs from plugins (the answer to a question from `ragents.ask`,
+the solution answer from `ragents.lsp-roslyn`, the wake-up of a watcher from `ragents.watch`), the
+start input of a run script, and every input through `ragents.runs.enqueueInput` also run under the
+owner. The chat message of a human therefore additionally carries `origin: "human"`, in the payload
+of `actor.input.enqueued` and in the ActorInput of the projection. The field is set only by the
+host's chat path: `ragents.chat.send` and `ragents.chat.sendToActor`, through which
+`ragents.overseer.sendMessage` and the first message of `ragents.overseer.createRun` also queue.
+Whoever writes through these methods with a user's access, such as the global coordinator or a
+mini-app, counts as that human. Decision and journal check allow the field only for a human acting
+actor (the decision otherwise rejects with `input-origin-invalid`, status 403) and never on a
+subscription input. The core does not evaluate it; plugins read it, for example `ragents.ask` uses
+it to settle a question that blocks the asker's turn (`plugins.md`).
 
-### Zustellung von Abonnements
+### Delivery of subscriptions
 
-Ein Subscription-Input speichert genau die Referenz auf sein unveränderliches Quellevent,
-keine zweite Kopie seines Inhalts. Die Projektion löst die Referenz aus der bereits gelesenen
-Historie auf und erzeugt für die RunView weiterhin den vollständigen JSON-Inhalt. Fehlende
-Quellen und zusätzliche Quellevent-Referenzen werden abgewiesen. Beim Fork werden die Referenzen
-auf die geerbten Events des neuen Runs umgeschrieben; der Eingabeinhalt entsteht daraus neu.
-Die ZUSTELLUNG an den Actor ist typisiert: `packages/ragents/src/agents/delivery.ts` parst das
-projizierte Event einmal und übergibt es als `input.event` (Typ, Absender-ID und -Handle,
-Sequenz, EventId, Zeitpunkt, payload). `input.content` trägt dabei den reinen Text der Textevents
-(`model.output.completed`, `model.reasoning.completed`, `runtime.output.recorded`) und sonst
-den kanonischen JSON der payload. Ein LLM-Actor bekommt denselben Sachverhalt als lesbare
-Kopfzeile mit Eventtyp, Absender-Handle und Sequenz, dazu eine kompakte Zeile seiner aktiven
-Subscriptions. Ein direkter `actor_input` bleibt unverändert: Text in `content`, `event` ist `null`.
+A subscription input stores exactly the reference to its immutable source event, not a second copy
+of its content. The projection resolves the reference from the history already read and still
+produces the complete JSON content for the RunView. Missing sources and additional source event
+references are rejected. On a fork, the references are rewritten to the inherited events of the new
+run; the input content is derived from them anew. DELIVERY to the actor is typed:
+`packages/ragents/src/agents/delivery.ts` parses the projected event once and passes it as
+`input.event` (type, sender ID and handle, sequence, EventId, timestamp, payload). `input.content`
+carries the plain text of the text events (`model.output.completed`, `model.reasoning.completed`,
+`runtime.output.recorded`) and otherwise the canonical JSON of the payload. An LLM actor gets the
+same facts as a readable header line with event type, sender handle, and sequence, plus a compact
+line of its active subscriptions. A direct `actor_input` stays unchanged: text in `content`,
+`event` is `null`.
 
-### Actorbestand und Arbeitsbereich im Systemprompt
+### Actor roster and workspace in the system prompt
 
-Hat ein LLM-Actor tatsächlich Zugriff auf `actor_list`, ergänzt der Scheduler seinen Systemprompt
-zu jedem Turn um den aktuellen Actorbestand: Handles, Anzeigenamen, Art und Lifecycle sowie die
-Markierungen für ihn selbst und den primären Actor. Das schließt Beteiligte aus Run-Setups und
-von anderen Erzeugern ein; fremde Systemprompts werden nicht eingeblendet. Während eines Turns
-aktualisiert `actor_list` den Bestand. Ohne dieses Werkzeug, insbesondere bei `tools: []`,
-entfällt die Übersicht.
+If an LLM actor actually has access to `actor_list`, the scheduler adds the current actor roster to
+its system prompt for every turn: handles, display names, kind, and lifecycle, plus the markers for
+the actor itself and the primary actor. This includes participants from run setups and from other
+creators; other actors' system prompts are not shown. During a turn, `actor_list` updates the
+roster. Without this tool, in particular with `tools: []`, the overview is omitted.
 
-Hat ein Actor Arbeitsbereichswerkzeuge, hängt der Scheduler zu jedem Turn ein letztes Kapitel an
-seinen Systemprompt: die Beschreibung des aufgelösten Arbeitsbereichs, die der Arbeitsbereich
-selbst liefert (`SessionWorkspace.description`, im Kern nur ein Text ohne Werkzeugbezug). Sie
-nennt, was der Ordner ist, wo er liegt und auf wessen Rechner, und fordert dazu auf, sich vor
-Aussagen über das Projekt darin umzusehen; dazu die Wurzeln des Servers mit ihrem Alias, wie die
-Werkzeuge sie in dieser Bindung erreichen und welche Variablen es nur in der Bash auf dem Server
-gibt. Das gilt für jeden Actor, nicht nur den Koordinator,
-und auch nach einem `refreshTools` im laufenden Turn, gleich ob der Host die Werkzeuge als
-Funktionen stellt oder die Agentenlaufzeit sie mitbringt. Dieses Kapitel ist die einzige Stelle,
-die einem Modell ein Arbeitsverzeichnis nennt: die Agentenlaufzeit hängt an den Systemprompt des
-Schedulers nichts über Ordner an, auch keine Zeile `Current working directory`. Ein Actor ohne
-Arbeitsbereichswerkzeuge bekommt weder das Kapitel noch einen Pfad. Sein einziger Dateizugang wäre
-`typescript_eval`, und das arbeitet über `context.functions` und relative Pfade; der Ordner, in dem
-es auf dem Server läuft, ist ein Detail des Hosts und bei einem Run auf einem Arbeitsplatz nicht
-einmal der Ordner des Projekts.
+If an actor has workspace tools, the scheduler appends a last chapter to its system prompt for
+every turn: the description of the resolved workspace, which the workspace itself provides
+(`SessionWorkspace.description`, in the core just a text without reference to tools). It names what
+the folder is, where it is, and on whose machine, and asks the model to look around in it before
+making statements about the project; plus the server's roots with their alias, how the tools reach
+them in this binding, and which variables exist only in bash on the server. This applies to every
+actor, not only the coordinator, and also after a `refreshTools` in the running turn, whether the
+host provides the tools as functions or the agent runtime brings them along. This chapter is the
+only place that names a working directory to a model: the agent runtime appends nothing about
+folders to the scheduler's system prompt, not even a `Current working directory` line. An actor
+without workspace tools gets neither the chapter nor a path. Its only file access would be
+`typescript_eval`, and that works through `context.functions` and relative paths; the folder in
+which it runs on the server is a detail of the host and, for a run on a workstation, not even the
+project's folder.
 
-`TurnRequest.workspace` ist das Arbeitsverzeichnis der Werkzeuge; es kann auf einem anderen
-Rechner liegen, und die Agentenlaufzeit bleibt nur an diesen Namen gebunden. Einen eigenen Ordner
-braucht sie nicht, weil ihr Modellkontext im Journal steht.
+`TurnRequest.workspace` is the working directory of the tools; it can be on another machine, and
+the agent runtime stays bound only to this name. It needs no folder of its own, because its model
+context is in the journal.
 
-### Artefakte, Anhänge und Besitz
+### Artifacts, attachments, and ownership
 
-Ein `artifact.published`-Event gewährt allein keinen Inhaltszugriff. Den Inhalt lesen dürfen der
-Run-Owner, der Erzeuger und ein Actor, dem das Artefakt ausdrücklich mit einem ActorInput
-zugewiesen wurde.
+An `artifact.published` event alone grants no access to the content. The run owner, the creator,
+and an actor to which the artifact was explicitly assigned with an ActorInput may read the content.
 
-Chat-Anhänge werden als binäre Artefakte gespeichert und dem ActorInput über `artifactIds`
-zugewiesen. Das Run-Journal enthält Metadaten und Referenzen, keine Base64-Dateiinhalte. Der
-Agent-Treiber liest die zugewiesenen Bytes und übergibt Bilder, Videos und native PDFs als
-Medieninhalte an die Modelllaufzeit. UTF-8-Textdateien ergänzen den Eingabetext, andere Dateien
-legt der Host über `Workspaces.storeAttachment` unter `attachments/` im Arbeitsbereich ab, auf dem
-Rechner, auf dem die Dateiwerkzeuge arbeiten (bei einem Arbeitsplatz dort, nicht auf dem Server);
-der Treiber schreibt nichts selbst in das Arbeitsverzeichnis. Der Treiber
-prüft die nötigen Modell- und Werkzeugfähigkeiten auch bei Zustellung außerhalb der Chat-API.
-Der Modellkontext hält die Medien als SHA-256 ihrer Bytes unter `artifacts/`
-(`model.input.presented`) und liest sie für jede Modellanfrage neu; die Run-Projektion liefert
-stattdessen Downloadmetadaten für den Chat-Verlauf.
+Chat attachments are stored as binary artifacts and assigned to the ActorInput through
+`artifactIds`. The run journal contains metadata and references, no Base64 file contents. The agent
+driver reads the assigned bytes and passes images, videos, and native PDFs to the model runtime as
+media content. UTF-8 text files extend the input text; the host stores other files through
+`Workspaces.storeAttachment` under `attachments/` in the workspace, on the machine where the file
+tools work (for a workstation there, not on the server); the driver writes nothing into the working
+directory itself. The driver checks the required model and tool capabilities also for delivery
+outside the chat API. The model context holds the media as the SHA-256 of their bytes under
+`artifacts/` (`model.input.presented`) and reads them anew for every model request; the run
+projection instead delivers download metadata for the chat history.
 
-Besitz folgt ausschließlich `createdBy` und wird nur für Stopprechte und rekursive Stopps benutzt.
-`createdBy` ist der Actor des Commands, der `agent.spawned` oder `script.created` geschrieben hat;
-die Journal-Semantik prüft beim Schreiben und Laden, dass es ihn gibt und dass er `agent.spawn`
-hält. `primaryActorId` ist eine getrennte explizite Auswahl. Der Core leitet aus dem Besitz weder
-Routing noch Sichtbarkeit ab; die Oberfläche nutzt ihn nur zur Darstellung, etwa im Adressatenbaum
-des Run-Panels (`plugins.md`).
+Ownership follows exclusively `createdBy` and is used only for stop permissions and recursive
+stops. `createdBy` is the actor of the command that wrote `agent.spawned` or `script.created`; the
+journal semantics check, when writing and loading, that it exists and holds `agent.spawn`.
+`primaryActorId` is a separate explicit selection. The core derives neither routing nor visibility
+from ownership; the interface uses it only for display, for example in the addressee tree of the
+run panel (`plugins.md`).
 
-Ein ausführbarer Actor trägt optional eine Kurzbeschreibung `description` für Übersichten:
-höchstens 160 Zeichen (`actorDescriptionMaxLength`), Leerraum zu einem Leerzeichen
-zusammengezogen, eine leere ist ein Fehler. `agent.spawned` und `script.created` halten sie im
-Payload fest, die Projektion setzt sonst `null`; Journale ohne das Feld laden deshalb unverändert.
-`agent_spawn` nimmt sie als Feld `description`, ein Actor-Programm gibt beim Anlegen seines
-TypeScript-Actors die Beschreibung seines Pakets mit, auf die Grenze gekürzt. `actor_list` liefert
-sie neben `createdBy`, dazu je Actor die Größe seiner Werkzeugauswahl (`toolCount`, `null` für eine
-offene) und die Namen nur mit `toolNames: true`. Der Kern liest sie nie; sie ist kein Rollenvertrag und ändert keine Rechte.
-Der Host erkennt seinen Run-Koordinator am bestehenden journalisierten Erzeugungsbefehl, auch
-nach Forks. Produkt- und Aufbauprompt sowie Koordinator-Skills bleiben bei diesem Actor.
-Ein zum Primary gewählter Fachagent behält seinen Fachprompt und seine Agenten-Beiträge;
-die Primary-Auswahl bestimmt weiterhin Chatprojektion und Ausgabevertrag.
+An executable actor optionally carries a short description `description` for overviews: at most
+160 characters (`actorDescriptionMaxLength`), whitespace collapsed to one space, an empty one is an
+error. `agent.spawned` and `script.created` record it in the payload, otherwise the projection sets
+`null`; journals without the field therefore load unchanged. `agent_spawn` takes it as the field
+`description`; an actor program passes the description of its package when creating its TypeScript
+actor, truncated to the limit. `actor_list` returns it next to `createdBy`, plus the size of each
+actor's tool selection (`toolCount`, `null` for an open one), and the names only with
+`toolNames: true`. The core never reads it; it is not a role contract and changes no permissions.
+The host recognizes its run coordinator by the existing journaled creation command, also after
+forks. Product and setup prompt as well as coordinator skills stay with this actor. A domain agent
+chosen as primary keeps its domain prompt and its agent contributions; the primary selection still
+determines chat projection and output contract.
 
-## Wartende Aktionen
+## Pending actions
 
-Der Kern kennt genau eine Art von wartender Eingabe: die Aktion. Sie hält `title`, einen
-Eigentümer `owner` (die Kennung des Plugins, das sie erzeugt hat, oder `null`), die
-beschreibenden Felder `description`, `parameters` und `input` sowie einen für den Kern
-undurchsichtigen `payload`. Der Kern prüft am Payload nur, dass er ein JSON-Objekt oder `null`
-ist; er liest ihn nie. Ihr Lebenszyklus ist `action.proposed` und genau ein `action.resolved`
-mit `approved` oder `dismissed` und einem ebenso undurchsichtigen `result`. Verlangt `input`
-eine Angabe, muss ein `approved` ein nichtleeres Ergebnis tragen.
+The core knows exactly one kind of pending input: the action. It holds `title`, an owner `owner`
+(the identifier of the plugin that created it, or `null`), the descriptive fields `description`,
+`parameters`, and `input`, and a `payload` that is opaque to the core. The core checks only that
+the payload is a JSON object or `null`; it never reads it. Its lifecycle is `action.proposed` and
+exactly one `action.resolved` with `approved` or `dismissed` and an equally opaque `result`. If
+`input` requires a value, an `approved` must carry a non-empty result.
 
-Der Kern kennt damit keine Werkzeugform. Ob eine Aktion eine Frage mit Optionen, eine
-Mehrfachauswahl, ein Formular oder eine Bestätigung ist, steht allein im Payload ihres
-Eigentümers; nur dessen Web-Beitrag stellt sie dar (`docs/spec/plugins.md`, Web als
-Plugin-Host). Eine Aktion ohne Eigentümer ist der generische Genehmigungsfall des Kerns
-(`action_propose`) und verlangt die Fähigkeit `action.propose`; eine Aktion mit Eigentümer
-gehört dem Plugin, das sie erzeugt, und verlangt sie nicht.
+The core thus knows no tool shape. Whether an action is a question with options, a multiple
+choice, a form, or a confirmation is determined solely by its owner's payload; only the owner's web
+contribution displays it (`docs/spec/plugins.md`, Web as plugin host). An action without an owner
+is the core's generic approval case (`action_propose`) and requires the capability
+`action.propose`; an action with an owner belongs to the plugin that creates it and does not
+require it.
 
-Offene Eingaben werden generisch gezählt: je Actor, je Mini-App und je Run zählt die Zahl der
-Aktionen mit Status `pending`. Beschriftungen sagen "wartet auf Eingabe".
+Open inputs are counted generically: per actor, per mini-app, and per run, the number of actions
+with status `pending` counts. Labels say "waiting for input".
 
-Journale, die vor dieser Trennung geschrieben wurden, enthalten Aktionen mit `kind` und
-`question`. Sie werden nicht migriert: die Prüfung lehnt ein solches Ereignis mit der Ursache
-ab, und der betroffene Run wird wie jeder Run mit einem ungültigen Ereignis isoliert, während
-Server und übrige Runs weiterlaufen. Eine Migration hätte den Kern gezwungen, die Form des
-Plugins `ragents.ask` dauerhaft weiter zu kennen - genau die Kopplung, die hier entfällt.
+Journals written before this separation contain actions with `kind` and `question`. They are not
+migrated: the check rejects such an event with the cause, and the affected run is isolated like any
+run with an invalid event, while the server and the other runs keep running. A migration would have
+forced the core to keep knowing the shape of the plugin `ragents.ask` permanently - exactly the
+coupling that is removed here.
 
 <!-- guide:runtime -->
 ## IDs, handles, and creating actors again
@@ -843,238 +810,222 @@ the error lists the available roles for the selected driver. A manual role is no
 suggested as an agent's model choice.
 <!-- /guide:runtime -->
 
-### Modellwahl, Bestandsprüfung und Run-Konfiguration
+### Model choice, roster check, and run configuration
 
-Werkzeugbeschreibung, Feldbeschreibungen und Orchestrierungsprompt verlangen die ausdrückliche
-Rollen- oder Modellwahl für jeden LLM-Spawn und erklären, dass das Modell des Aufrufers nicht
-vererbt wird. Die Felder bleiben einzeln optional, weil eine Rolle das Modell liefern kann und
-manuelle beziehungsweise Script-Treiber kein Modell benötigen. Fehlende Auswahl bleibt ein
-harter Fehler; es gibt keine automatische Wahl einer Standardrolle.
+The tool description, field descriptions, and orchestration prompt require the explicit choice of a
+role or model for every LLM spawn and explain that the caller's model is not inherited. The fields
+stay individually optional, because a role can supply the model and manual or script drivers need
+no model. A missing selection stays a hard error; there is no automatic choice of a default role.
 
-Der Orchestrierungsprompt verlangt vor einer Neuanlage die Bestandsprüfung mit `actor_list`.
-Passende vorhandene Beteiligte erhalten neue Aufgaben über `actor_input`; nur fehlende Rollen
-oder bewusst getrennte Kontexte brauchen einen neuen Actor. Das ist eine Arbeitsanweisung,
-keine Namens-Deduplizierung: `agent_spawn` erzeugt weiterhin einen neuen Actor und vergibt bei
-belegtem Handle einen freien Suffix. Die Laufzeit leitet aus gleichen Namen keine gleiche Rolle ab.
+Before creating a new actor, the orchestration prompt requires the roster check with `actor_list`.
+Suitable existing participants receive new tasks through `actor_input`; only missing roles or
+deliberately separate contexts need a new actor. This is a working instruction, not name
+deduplication: `agent_spawn` still creates a new actor and assigns a free suffix if the handle is
+taken. The runtime does not derive the same role from the same name.
 
-Den Run selbst konfiguriert `run_configure` unter der Capability `run.configure`: `title`
-schreibt das Ereignis `run.title-changed`, `primaryActor` wählt einen aktiven Agenten oder
-TypeScript-Actor als Primary-Actor (`run.primary-actor-selected`); beides zusammen ist erlaubt, keins
-von beiden ein benannter Fehler; der Aufruf bestätigt mit `null`. Der Besitzer des Runs konfiguriert von Rechts wegen, jeder andere
-Actor braucht den Grant; die Journal-Semantik prüft dasselbe beim Laden. Besitzer und Koordinator
-halten alle neun Capability-Namen aus `domain/vocabulary.ts`. Wechselt der Primary-Actor, bindet
-sich der Chat neu an ihn. Ein Run-Script (`typescript-platform.md`) nutzt genau das, wenn es
-ohne Koordinator startet.
+The run itself is configured by `run_configure` under the capability `run.configure`: `title`
+writes the event `run.title-changed`, `primaryActor` chooses an active agent or TypeScript actor as
+primary actor (`run.primary-actor-selected`); both together are allowed, neither is a named error;
+the call confirms with `null`. The owner of the run configures by right, every other actor needs
+the grant; the journal semantics check the same when loading. Owner and coordinator hold all nine
+capability names from `domain/vocabulary.ts`. If the primary actor changes, the chat rebinds to it.
+A run script (`typescript-platform.md`) uses exactly this when it starts without a coordinator.
 
-Automatisch verdichtete Listentitel sind dagegen Metadaten des Hosts außerhalb des Journals.
-Sie ändern `RunState.title` nicht. Ein ausdrücklich über `run_configure` oder ein Setup
-gewählter Titel hat in der Oberfläche Vorrang. Modellwahl und Erzeugung beschreibt
-`profiles.md`, die Aktualisierung der Run-Liste `plugins.md`.
+Automatically condensed list titles, in contrast, are host metadata outside the journal. They do
+not change `RunState.title`. A title chosen explicitly through `run_configure` or a setup takes
+precedence in the interface. Model choice and generation are described in `profiles.md`, the
+updating of the run list in `plugins.md`.
 
-## Globaler Koordinator
+## Global coordinator
 
-Seine Modellauswahl liegt dauerhaft in der profilbezogenen Plugin-Ablage. Die Settings-API
-prüft Modell und Reasoning gegen den konfigurierten Katalog und die Modelllaufzeit. Ein
-Modellwechsel darf die bereits zugestellten Medien nicht unlesbar machen; ein inkompatibles
-Modell wird vor dem Speichern abgewiesen. Das Gespräch bleibt erhalten, es steht im Journal.
-Nach dem Claim eines Turns übernimmt der Scheduler synchron die aktuelle Modellauswahl;
-die Plugin-Policy hält sie mit Turn-Bezug als `plugin.state-replaced` fest. Ein schon
-gestarteter Turn behält seine Auswahl. `Actor.execution` beschreibt weiterhin die
-Startkonfiguration; die tatsächliche Auswahl des globalen Koordinators steht pro Turn
-in dessen Plugin-Ereignis. Gewöhnliche Actors verwenden ihre konfigurierte Ausführung.
+Its model selection is stored permanently in the profile-specific plugin storage. The settings API
+checks model and reasoning against the configured catalog and the model runtime. A model change
+must not make media already delivered unreadable; an incompatible model is rejected before saving.
+The conversation is preserved; it is in the journal. After a turn is claimed, the scheduler
+synchronously takes over the current model selection; the plugin policy records it with a
+reference to the turn as `plugin.state-replaced`. A turn that has already started keeps its
+selection. `Actor.execution` still describes the start configuration; the actual selection of the
+global coordinator is in its plugin event per turn. Ordinary actors use their configured execution.
 
-Das Plugin `ragents.overseer` gibt jedem angemeldeten Benutzer einen eigenen, dauerhaften
-Run mit dem globalen Koordinator; ohne Anmeldung (offen, `ACCESS_TOKEN`,
-`anonymousUser`) gibt es genau einen. Ihre Run-ID bildet der Server aus dem Benutzer
-(`overseer-` und die ersten 24 Hexzeichen von SHA-256 der Benutzerkennung, ohne Anmeldung
-`overseer-single`); Web und andere Clients fragen sie mit `ragents.overseer.coordinator` ab.
-Eigentümer ist der Benutzer. Die Kennung erreicht nur er: kein anderer Benutzer, auch nicht mit
-`runs.read.all`, und eine noch freie Koordinatorkennung gehört nicht dem, der sie zuerst nennt,
-sondern antwortet jedem anderen mit `run-not-found`. Rechte bleiben die des Plugins
-(`ragents.overseer.read` und `.write`); freie Runs (`runs.create`) braucht die erste Nachricht nicht.
-Der Run verwendet dieselben Chat-Routen, Agentenlaufzeit, Journal- und Stop-Grenzen wie
-andere Runs. Erst die erste Nachricht legt den Run an; nach einem Neustart bleiben Chat
-und Modellkontext erhalten. Die normale Run-Liste blendet alle Koordinatoren aus, eine
-Löschung oder ein Umzug wird mit `global-chat-protected` (Status 409) abgewiesen, ein Import unter
-einer Koordinatorkennung mit `run-transfer-exists`. Die Ablage gehört wie alle Runs zum
-Datenverzeichnis des gestarteten Profils.
+The plugin `ragents.overseer` gives every signed-in user their own permanent run with the global
+coordinator; without sign-in (open, `ACCESS_TOKEN`, `anonymousUser`) there is exactly one. The
+server forms its run ID from the user (`overseer-` and the first 24 hex characters of the SHA-256
+of the user identifier, without sign-in `overseer-single`); web and other clients query it with
+`ragents.overseer.coordinator`. The owner is the user. Only that user reaches the identifier: no
+other user, not even with `runs.read.all`, and a coordinator identifier that is still free does not
+belong to whoever names it first but answers everyone else with `run-not-found`. The permissions
+stay those of the plugin (`ragents.overseer.read` and `.write`); the first message does not need
+free runs (`runs.create`). The run uses the same chat routes, agent runtime, journal, and stop
+boundaries as other runs. Only the first message creates the run; after a restart, chat and model
+context are preserved. The normal run list hides all coordinators; a deletion or move is rejected
+with `global-chat-protected` (status 409), an import under a coordinator identifier with
+`run-transfer-exists`. Like all runs, the storage belongs to the data directory of the started
+profile.
 
-Die Kennung `overseer` des früheren gemeinsamen Koordinators bleibt reserviert, gehört aber keinem
-Zugang: Der Server öffnet ihn nicht, niemand erreicht ihn, und sein Journal bleibt unverändert
-liegen. Dasselbe gilt für den Koordinator eines Benutzers, der aus dem Profil entfernt wurde. Ein
-Turn eines solchen Koordinators scheitert an `coordinator-without-access`, weil sein Arbeitsbereich
-keinen Zugang hätte, mit dem er handeln könnte.
+The identifier `overseer` of the former shared coordinator stays reserved but belongs to no access:
+the server does not open it, nobody reaches it, and its journal stays unchanged. The same applies to
+the coordinator of a user who was removed from the profile. A turn of such a coordinator fails with
+`coordinator-without-access`, because its workspace would have no access with which it could act.
 
-Jede aus der Oberfläche gesendete globale Nachricht führt einen kompakten Standort zum
-Absendezeitpunkt mit: Startansicht, Run-Übersicht oder geöffneter Run, aktiver Bereich
-und Reiter sowie ein ausgewähltes Element. Der Browser sendet nur kleine Kennungen. Der Server
-löst den Run-Titel, die vorhandene kurze Run-Referenz und gegebenenfalls den Actor-Namen auf.
-Der Standort dient der Orientierung; er ist weder Auftrag noch Berechtigung für eine Aktion.
+Every global message sent from the interface carries a compact location at the time of sending:
+start view, run overview, or opened run, active area and tab, and a selected element. The browser
+sends only small identifiers. The server resolves the run title, the existing short run reference,
+and, if applicable, the actor name. The location serves orientation; it is neither a task nor
+authorization for an action.
 
-Der sichtbare Nutzertext bleibt unverändert. Die aufgelöste Orientierung liegt getrennt im
-journalisierten Plugin-Zustand des Owner-Actors; die `sourceEventIds` des Inputs binden genau
-dessen Stand. Der dynamische Systemprompt liest diese Bindung für den bearbeiteten Input. Eine Warteschlange,
-spätere Eingaben oder ein anschließender Run-Wechsel ändern den schon übermittelten Standort
-nicht. Fehlt die UI-Angabe, wird ausdrücklich kein aktueller Standort angegeben; ein früherer
-Schnappschuss wird nicht weiterverwendet.
+The visible user text stays unchanged. The resolved orientation is stored separately in the
+journaled plugin state of the owner actor; the input's `sourceEventIds` bind exactly its state. The
+dynamic system prompt reads this binding for the input being processed. A queue, later inputs, or a
+subsequent run switch do not change the location already transmitted. If the UI information is
+missing, explicitly no current location is given; an earlier snapshot is not reused.
 
-Die Orientierung enthält weder Screenshot noch DOM, Formularinhalte oder vollständige
-Run-Inhalte. Das Öffnen einer Ansicht erzeugt keine zusätzliche Modellarbeit. Für den
-Schnappschuss gibt es weder einen weiteren Modell-Turn noch Context-Polling oder eine
-zusätzliche Modellausführung.
+The orientation contains neither a screenshot nor DOM, form contents, or complete run contents.
+Opening a view creates no additional model work. For the snapshot, there is neither another model
+turn nor context polling or an additional model execution.
 
-Primär-Chat und Actor-Verläufe verwenden dieselbe Abbildung von Journal-Ereignissen auf
-Chat-Ereignisse für Text, Reasoning, Werkzeuge, Laufzeitmeldungen und Turn-Abschluss sowie
-Fragen und Antworten. Routing, Absenderdarstellung, Plugin-Zustand und Input-Auswahl bleiben
-getrennte Aufgaben. Actor-Verläufe unterscheiden Werkzeugaufrufe zusätzlich nach Turn,
-schließen Reasoning-Blöcke direkt und ergänzen Fehlerergebnisse offener Werkzeuge bei Abbruch.
-Den Grund eines Stopps nennen beide Ansichten einmal: Unterbricht derselbe Command einen Turn des
-Actors, steht er an der Unterbrechung, und das `actor.stopped` dieses Commands wiederholt ihn
-nicht; ein Stopp ohne laufenden Turn nennt ihn am `actor.stopped`.
-Tool-Argumente entsprechen in beiden Ansichten dem journalisierten JSON, auch bei `null`.
-Jede eingehende Nachricht trägt die Kennung ihres Inputs. Ein `turn.input-steered` markiert sie an
-ihrer ursprünglichen Stelle als in den laufenden Turn eingespeist; die Oberfläche zeigt darunter
-"In den laufenden Turn eingespeist", im Primär-Chat wie im Actor-Verlauf und nach Wiedergabe gleich.
-Eingehende Nachrichten schließen einen laufenden Text- oder Reasoningblock nicht. Weitere
-Textstücke ergänzen denselben Block an seiner ursprünglichen Position, auch wenn danach bereits
-eine neue Eingabe steht. Das gilt ebenso für zugestellte Actor- und Hintergrundinputs.
-Ausgabewechsel und Turn-Abschluss schließen den offenen Block unabhängig von seiner Position;
-Text aus verschiedenen Gesprächen oder Turns wird anhand des Cursors getrennt.
+Primary chat and actor histories use the same mapping of journal events to chat events for text,
+reasoning, tools, runtime messages, and turn completion as well as questions and answers. Routing,
+sender display, plugin state, and input selection stay separate tasks. Actor histories additionally
+distinguish tool calls by turn, close reasoning blocks directly, and add error results of open tools
+on cancellation. Both views name the reason for a stop once: if the same command interrupts a turn
+of the actor, it is at the interruption, and the `actor.stopped` of this command does not repeat
+it; a stop without a running turn names it at the `actor.stopped`. Tool arguments match the
+journaled JSON in both views, also for `null`. Every incoming message carries the identifier of its
+input. A `turn.input-steered` marks it at its original position as fed into the running turn; the
+interface shows "Fed into the running turn" below it, in the primary chat as in the actor history
+and after replay alike. Incoming messages do not close a running text or reasoning block. Further
+text chunks extend the same block at its original position, even if a new input already follows.
+This applies equally to delivered actor and background inputs. A change of output kind and turn
+completion close the open block regardless of its position; text from different conversations or
+turns is separated by the cursor.
 
-Die Chatprojektion liefert jeden sichtbaren Assistant-Text mit einem verpflichtenden stabilen Cursor. Die
-Gesprächsidentität ist die Event-ID von `run.created`; die Position innerhalb des Gesprächs
-verwendet die Journal-Sequenz von `turn.started` und einen Offset im akkumulierten Turn-Text.
-Der Offset zählt UTF-16-Einheiten ohne Leerraum, damit Live-Chunks und erneut geladene
-Journalblöcke dieselbe Position ergeben, auch wenn ein Block an seinen Rändern Leerraum trägt. Werkzeug- und Reasoningereignisse erhöhen
-ihn nicht. `Message.textCursor` enthält die zuletzt projizierte Textposition. Der ausführbare
-Vertrag für `ChatTextCursor` und die Stream-Ereignisse bleibt im Code.
-Die Cursorabdeckung verhindert doppelte Textausgabe nach Streaming, ohne spätere nur im Journal
-vorliegende Textblöcke desselben Turns zu unterdrücken.
+The chat projection delivers every visible assistant text with a mandatory stable cursor. The
+conversation identity is the event ID of `run.created`; the position within the conversation uses
+the journal sequence of `turn.started` and an offset in the accumulated turn text. The offset
+counts UTF-16 units without whitespace, so that live chunks and reloaded journal blocks yield the
+same position even if a block carries whitespace at its edges. Tool and reasoning events do not
+increase it. `Message.textCursor` contains the last projected text position. The executable
+contract for `ChatTextCursor` and the stream events stays in the code. The cursor coverage prevents
+duplicate text output after streaming without suppressing later text blocks of the same turn that
+exist only in the journal.
 
-Der Chat liest den Ereignisstrom über den JSON-RPC-Client nach UTF-8-Decodierung im Stream. Beliebige
-Byte-Grenzen und mehrzeilige Datenfelder werden vom Parser verarbeitet. Nur
-vollständig abgeschlossene Ereignisse gelangen in die Nachrichtenprojektion; unvollständige
-Reste enden mit ihrer Verbindung. Bei Abbruch wird der Reader freigegeben. Nach einer
-unterbrochenen Verbindung beginnt nach drei Sekunden ein neuer Stream mit eigener Wiedergabe.
+The chat reads the event stream through the JSON-RPC client after UTF-8 decoding in the stream. The
+parser handles arbitrary byte boundaries and multi-line data fields. Only completely finished events
+reach the message projection; incomplete remainders end with their connection. On cancellation, the
+reader is released. After an interrupted connection, a new stream with its own replay starts after
+three seconds.
 
-Jede anfängliche oder neu gebundene Wiedergabe endet ausdrücklich mit `replay-end` und der
-Gesprächsidentität. Ohne angelegtes Journal ist die Identität `null`. Der Browser betrachtet
-die Verbindung erst nach dieser Grenze als verbunden; die optionale Aktivierung von `useChat`
-erlaubt einen erst bei Nutzung geöffneten Stream. Reset-Ereignisse nennen verpflichtend dieselbe Identität,
-ein ausdrücklicher Gesprächsreset zusätzlich `reason: "conversation-reset"`. Eine geänderte
-zuvor nichtleere Identität erkennt auch einen Reset während einer Verbindungsunterbrechung;
-der erste Wechsel von `null` zum angelegten Gespräch ist kein Reset. Ein gewöhnliches Replay
-leert den Eingabeentwurf nicht. Diese Angaben ermöglichen eine stabile Textprojektion im
-Browser, ohne Ereignisse erneut auszuführen oder Zeitstempel und Textvergleiche als Identität
-zu verwenden.
+Every initial or newly bound replay ends explicitly with `replay-end` and the conversation identity.
+Without a created journal, the identity is `null`. The browser considers the connection connected
+only after this boundary; the optional activation of `useChat` allows a stream that is opened only
+on use. Reset events must name the same identity, an explicit conversation reset additionally
+`reason: "conversation-reset"`. A changed, previously non-empty identity also detects a reset during
+a connection interruption; the first change from `null` to the created conversation is not a reset.
+An ordinary replay does not clear the input draft. This information enables a stable text
+projection in the browser without executing events again or using timestamps and text comparisons
+as identity.
 
-Das Plugin `ragents.overseer` bietet einen ausdrücklich bestätigten Gesprächsreset. Der Host sperrt
-währenddessen neue globale Eingaben, beendet den globalen Run und wartet dessen tatsächliche
-Laufzeitbereinigung ab, einschließlich einer bereits begonnenen Stopp-Bereinigung. Danach entfernt
-er nur dessen Journal samt Modellkontext und Arbeitsablage. Das bestehende Chat-Sessionobjekt
-meldet den Reset an seine Streams; die nächste Nachricht beginnt einen frischen Run unter
-derselben Kennung. Der Reset trifft nur den Koordinator des Aufrufers; Modellwahl, Run-Referenzen,
-die Koordinatoren anderer Benutzer und alle übrigen Runs bleiben erhalten. Ein vor der
-Löschung dauerhaft gespeicherter Reset-Marker (je Koordinator `reset-intents/<runId>.json` in der
-Plugin-Ablage) lässt einen begonnenen Reset nach Prozessabbruch
-beim nächsten Start fertig werden. Bis zum Abschluss oder einem erfolgreichen Wiederholungsversuch
-bleiben neue globale Eingaben gesperrt. Einen automatischen kontextabhängigen Reset gibt es nicht.
-Ein nachlaufender Scheduler-Scan überspringt ein inzwischen entferntes Journal. Wird der Run
-unter derselben Kennung neu angelegt, wird seine neue Arbeit wieder regulär geplant.
+The plugin `ragents.overseer` offers an explicitly confirmed conversation reset. Meanwhile, the host
+blocks new global inputs, ends the global run, and waits for its actual runtime cleanup, including
+a stop cleanup already begun. Then it removes only its journal together with the model context and
+working storage. The existing chat session object reports the reset to its streams; the next
+message starts a fresh run under the same identifier. The reset affects only the caller's
+coordinator; model selection, run references, the coordinators of other users, and all other runs
+are preserved. A reset marker stored durably before the deletion (per coordinator
+`reset-intents/<runId>.json` in the plugin storage) lets a reset that was begun complete at the next
+start after a process abort. Until completion or a successful retry, new global inputs stay
+blocked. There is no automatic context-dependent reset. A trailing scheduler scan skips a journal
+removed in the meantime. If the run is created anew under the same identifier, its new work is
+scheduled regularly again.
 
-Der Produkthost bindet den vom Plugin gelieferten globalen Chat-Vertrag: eigener Prompt,
-Werkzeugauswahl und ein kleines Arbeitsverzeichnis in der Plugin-Ablage. Der globale
-Koordinator verwendet zunächst das Standardmodell des Profils, aber keine Produktprompts,
-Produkt-Skills, Hooks oder Vorbereitung eines Produktarbeitsverzeichnisses.
-Seine native Oberfläche enthält `typescript_api`, `typescript_eval` und die freigegebenen
-Dateiwerkzeuge `read`, `write` und `edit`; ohne Anmeldung kommt die Host-Shell `bash` dazu. Mit
-Benutzern hat er keine, weil sie als Serverprozess die Dateien aller Benutzer lesen könnte; seine
-JSON-RPC-Aufrufe schickt er dann aus Snippets mit `fetch`. Einzelne Arbeitsaktionen laufen direkt;
-`quick_answer` für eine ergänzende Kurzantwort und zusammengesetzte Aufrufe verwenden
-dieselbe `context.functions`-API wie normale Runs. Die beiden
-TypeScript-Werkzeuge gehören zur Server-Grundausstattung und benötigen kein Actor-Programm-Plugin.
-Ohne Anmeldung erhält nur sein Arbeitsbereich zusätzlich lesenden Dateizugriff auf den
-Journalordner des Profils; `write` und `edit` dürfen dort nicht schreiben. Mit Benutzern entfällt
-diese Lesewurzel, weil der Ordner die Journale aller Benutzer enthält; der Koordinator liest
-Journale dann über `ragents.overseer.readEvents`, die nur die Runs seines Benutzers kennt. Die Host-Shell ist keine zusätzliche
-Dateisystem-Sandbox; ihre Arbeitsanweisung verlangt, Laufzeitdaten ausschließlich über die
-Nachrichtenschicht zu ändern. Normale Runs erhalten weder diese zusätzlichen Lesewurzeln noch den API-Zugang.
+The product host binds the global chat contract delivered by the plugin: its own prompt, tool
+selection, and a small working directory in the plugin storage. The global coordinator initially
+uses the profile's default model, but no product prompts, product skills, hooks, or preparation of
+a product working directory. Its native interface contains `typescript_api`, `typescript_eval`, and
+the allowed file tools `read`, `write`, and `edit`; without sign-in, the host shell `bash` is
+added. With users, it has none, because as a server process it could read the files of all users;
+it then sends its JSON-RPC calls from snippets with `fetch`. Individual work actions run directly;
+`quick_answer` for a supplementary short answer and compound calls use the same
+`context.functions` API as normal runs. The two TypeScript tools are part of the server's basic
+equipment and need no actor program plugin. Without sign-in, only its workspace additionally
+receives read file access to the profile's journal folder; `write` and `edit` must not write there.
+With users, this read root is omitted, because the folder contains the journals of all users; the
+coordinator then reads journals through `ragents.overseer.readEvents`, which knows only the runs of
+its user. The host shell is not an additional file system sandbox; its working instruction requires
+changing runtime data exclusively through the message layer. Normal runs receive neither these
+additional read roots nor the API access.
 
-`quick_answer` steht ausschließlich dem globalen Koordinator mit `plugin.state.write`
-zur Verfügung. Es übernimmt die kurze Wiederholung der aktuellen Nutzerfrage als `question`
-und die kurze Antwort als `text`. Beide Felder werden außen getrimmt und müssen jeweils
-nichtleer, ohne Zeilenumbrüche und höchstens 240 UTF-16-Zeichen lang sein. Die Promptanweisung
-verlangt zuerst die vollständige normale Chatantwort und danach Frage und Ergebniszusammenfassung;
-nach erfolgreichem Aufruf wird keine weitere inhaltliche Antwort oder Bestätigung angehängt.
-Das Werkzeug ersetzt den Run-Zustand des Plugins `ragents.overseer` durch eine Kurzantwort mit beiden Feldern. Die
-journalisierte Änderung erscheint im vorhandenen Plugin-Stream als `state-replaced` mit
-Gesprächsidentität, Event-ID und Journal-Sequenz. Der Zustand und der Ereignisvertrag stehen
-im Code; für die Kurzantwort entsteht kein eigener Zustellkanal.
+`quick_answer` is available exclusively to the global coordinator with `plugin.state.write`. It
+takes the short repetition of the current user question as `question` and the short answer as
+`text`. Both fields are trimmed at the outer edges and must each be non-empty, without line breaks,
+and at most 240 UTF-16 characters long. The prompt instruction requires the complete normal chat
+answer first and then question and result summary; after a successful call, no further content
+answer or confirmation is appended. The tool replaces the run state of the plugin
+`ragents.overseer` with a short answer with both fields. The journaled change appears in the
+existing plugin stream as `state-replaced` with conversation identity, event ID, and journal
+sequence. The state and the event contract are in the code; no separate delivery channel exists for
+the short answer.
 
-Der globale Koordinator teilt seinen Grundprompt mit der eigenständigen Vorbereitungsrolle
-für neue Skill-Aufträge. Sie läuft direkt auf der Agentenschleife mit einem eigenen Gespräch im Speicher und
-ausschließlich die Startfunktion für den besprochenen Auftrag. Sie übernimmt weder den
-globalen Verlauf noch dessen Verwaltungszugriffe. Ein sinngemäßes Go des Benutzers erlaubt
-die Übergabe an den normalen Run-Start; Vertrag und Lebenszyklus stehen in `plugins.md`.
+The global coordinator shares its base prompt with the separate preparation role for new skill
+tasks. It runs directly on the agent loop with its own conversation in memory and exclusively the
+start function for the discussed task. It takes over neither the global history nor its management
+access. A go from the user, in whatever words, allows the handoff to the normal run start; contract
+and lifecycle are in `plugins.md`.
 
-Das Plugin stellt dieselben Verwaltungsmethoden für externe Clients und den globalen Koordinator
-bereit. Sie kann vorhandene Runs auflisten, ihre Zustände und Journale seitenweise lesen,
-ihren primären Actor beauftragen, sie stoppen und neue Runs erstellen. Eindeutige Titel,
-Run-IDs und kurze Referenzen wie `Run 1` werden serverseitig aufgelöst. Ein eigener Index in
-der Plugin-Ablage erhält die Referenzen auch nach Sortierung, Löschung und Neustart.
-Mehrdeutige Titel werden mit den gültigen Referenzen abgewiesen. Neue Run-IDs erzeugt der
-Server. Archivierte und gelöschte Runs sind nicht Teil dieses Zugriffs.
+The plugin provides the same management methods for external clients and the global coordinator.
+They can list existing runs, read their states and journals page by page, give tasks to their
+primary actor, stop them, and create new runs. Unique titles, run IDs, and short references such as
+`Run 1` are resolved on the server. A separate index in the plugin storage keeps the references
+even after sorting, deletion, and restart. Ambiguous titles are rejected with the valid references.
+The server generates new run IDs. Archived and deleted runs are not part of this access.
 
-Neue Runs starten mit einer Nachricht, einem installierten Run-Script oder einem lokalen
-Run-Script-Paket über dessen absoluten Serverdateipfad. Lokale Pakete verwenden dasselbe
-Format und denselben Loader wie installierte Vorlagen; als Besitzer ihrer Vorlage nennt der Host
-das Plugin, das das Paket über `RunManagement.create` startet (`owner`), selbst kennt er keins. Startoptionen-Validierung,
-Workspace-Vorbereitung, Check, Test und Installation bleiben der normale Startpfad.
-Der globale Koordinator kann vorbereitete Pakete starten. Der Run-Koordinator verwendet im
-vorhandenen Run TypeScript-Snippets für einmalige Arbeit und Aufbau, oder Actor-Programme
-für dauerhaften Zustand, spätere Nachrichten und Views. Fachliche Aufträge bestimmen das
-Ergebnis; die technische Umsetzung wählt das Modell anhand der verfügbaren API.
-Aufbaureihenfolge und Wiederholungsgrenzen stehen in `typescript-platform.md`.
-Der Erstellungsaufruf wartet auf dessen Abschluss; erfolgreiche Annahme bedeutet noch nicht,
-dass der erste Turn ausgeführt wurde. Ein Katalog beschreibt die installierten Vorlagen
-und gültigen Startoptionen des tatsächlich gestarteten Profils.
+New runs start with a message, an installed run script, or a local run script package through its
+absolute server file path. Local packages use the same format and the same loader as installed
+templates; as the owner of their template, the host names the plugin that starts the package
+through `RunManagement.create` (`owner`), it knows none itself. Start option validation, workspace
+preparation, check, test, and installation remain the normal start path. The global coordinator can
+start prepared packages. In the existing run, the run coordinator uses TypeScript snippets for
+one-off work and setup, or actor programs for persistent state, later messages, and views. Domain
+tasks determine the result; the model chooses the technical implementation based on the available
+API. Setup order and retry limits are in `typescript-platform.md`. The creation call waits for its
+completion; successful acceptance does not yet mean that the first turn has run. A catalog
+describes the installed templates and valid start options of the profile actually started.
 
-Anfrageprüfung, Dispatch, OpenRPC und Markdownreferenz verwenden dieselben ausführbaren
-Verträge der Nachrichtenschicht. Die Referenz wird beim Vorbereiten des globalen
-Arbeitsbereichs aus dem Code erzeugt und nach einem Gesprächsreset erneut bereitgestellt.
-Der Systemprompt enthält einen kompakten, ebenfalls generierten Überblick über diese
-Methoden einschließlich ihrer Benutzerrechte. Dazu kommen Namen und Kurzbeschreibungen
-regulärer Run-Bausteine aus den Engine-Deskriptoren und den öffentlichen Werkzeugdeskriptoren
-der tatsächlich registrierten Plugins und Hooks. Dadurch sind etwa die installierten
-Kachel- und Actor-Programm-Fähigkeiten bereits vor dem ersten Referenzzugriff bekannt. Der Prompt
-wird erst beim Lesen aus dem vollständigen Registrierungsstand zusammengesetzt; die Erzeugung
-löst keine Werkzeugfabriken aus und liest weder Konfigurationswerte noch interne Serviceoperationen.
-Dieser Katalog erweitert nicht die feste Werkzeugauswahl des globalen Chats und erteilt keine Rechte:
-Run-Aufrufe bleiben an Actor, Grants, deklarierte Script-Teilmenge und Run-Kontext gebunden.
-Genaue Schemas und Codebeispiele lädt der Koordinator bei Bedarf aus der Referenz. Die öffentliche
-Hilfe beschreibt showcase; der Prompt kennzeichnet den Unterschied zum aktiven Profilbestand.
-Shell und Snippets erhalten Host-Ursprung, ohne Anmeldung den Journalordner und bei aktiviertem
-Zugangsschutz den Bearer-Token als Umgebungsvariablen; der Tokenwert erscheint weder im Prompt noch in
-der Referenz.
-`RAGENTS_API_BASE_URL` nennt den lokalen Host mit dem Port, auf dem er tatsächlich lauscht, auch
-nach einem Start mit `--port 0`; ein Server nur über stdio hat keine HTTP-API und setzt die Variable
-nicht. `RAGENTS_JOURNAL_DIR` zeigt ohne Anmeldung auf die echten Journale des Profils, die die
-Shell etwa mit `rg` durchsuchen kann; große Payload-Felder liegen im benachbarten `payloads/`-Ordner,
-`payloadRefs` nennt Hash und Bytezahl, und `ragents.overseer.readEvents` löst diese Referenzen
-vollständig auf. `RAGENTS_API_TOKEN` steht für den Zugang des Benutzers, dem der Koordinator
-gehört: mit Benutzern ein Token je Benutzer, der nur über Loopback und nur für `/rpc`,
-`/rpc/stream` und `/help/` gilt und bei jedem Aufruf den aktuellen Stand dieses Benutzers liefert
-(ein entfernter Benutzer ist nicht angemeldet); mit `anonymousUser` ebenso ein Token für den
-anonymen Zugang; mit `ACCESS_TOKEN` dieser Token; offen keiner. Die Werkzeuge des Koordinators
-sehen und bedienen damit genau, was sein Benutzer darf, und Runs, die sie anlegen, gehören ihm.
-Eine eigene Dienstidentität mit weiteren Rechten gibt es nicht. Die erzeugte Referenz liegt als `rpc-reference.md` und `openrpc.json` im eigenen
-Arbeitsverzeichnis; dieselbe API steht externen Clients mit dem normalen Hostzugang zur Verfügung.
+Request validation, dispatch, OpenRPC, and the Markdown reference use the same executable contracts
+of the message layer. The reference is generated from the code when the global workspace is
+prepared and provided again after a conversation reset. The system prompt contains a compact, also
+generated overview of these methods including their user permissions. In addition, there are names
+and short descriptions of regular run building blocks from the engine descriptors and the public
+tool descriptors of the plugins and hooks actually registered. This makes, for example, the
+installed tile and actor program capabilities known before the first access to the reference. The
+prompt is assembled only when read, from the complete registration state; generation triggers no
+tool factories and reads neither configuration values nor internal service operations. This
+catalog does not extend the fixed tool selection of the global chat and grants no permissions: run
+calls stay bound to actor, grants, declared script subset, and run context. The coordinator loads
+exact schemas and code examples from the reference when needed. The public help describes
+showcase; the prompt marks the difference to the active profile's set. Shell and snippets receive
+the host origin, without sign-in the journal folder, and with access protection enabled the bearer
+token as environment variables; the token value appears neither in the prompt nor in the
+reference. `RAGENTS_API_BASE_URL` names the local host with the port it actually listens on, also
+after a start with `--port 0`; a server only over stdio has no HTTP API and does not set the
+variable. Without sign-in, `RAGENTS_JOURNAL_DIR` points to the real journals of the profile, which
+the shell can search, for example with `rg`; large payload fields are in the neighboring
+`payloads/` folder, `payloadRefs` names hash and byte count, and `ragents.overseer.readEvents`
+resolves these references completely. `RAGENTS_API_TOKEN` stands for the access of the user the
+coordinator belongs to: with users, a token per user that applies only over loopback and only for
+`/rpc`, `/rpc/stream`, and `/help/` and delivers that user's current state on every call (a removed
+user is not signed in); with `anonymousUser`, likewise a token for the anonymous access; with
+`ACCESS_TOKEN`, that token; when open, none. The coordinator's tools thus see and operate exactly
+what its user may, and runs they create belong to that user. There is no separate service identity
+with further permissions. The generated reference is stored as `rpc-reference.md` and
+`openrpc.json` in its own working directory; the same API is available to external clients with the
+normal host access.
 
-Die Werkzeugauswahl gehört zur journalisierten Actor-Identität. Ein vorhandener globaler Run
-mit einer vom aktuellen Plugin abweichenden Werkzeugauswahl wird beim Senden mit
-`global-tools-changed` abgewiesen. Ein ausdrücklicher Gesprächsreset übernimmt mit dem nächsten
-Gespräch die aktuelle Auswahl und Promptanweisung. Öffnen und Zurücksetzen bleiben möglich;
-eine automatische Journalmigration findet nicht statt.
+The tool selection belongs to the journaled actor identity. An existing global run with a tool
+selection that differs from the current plugin is rejected on sending with `global-tools-changed`.
+An explicit conversation reset takes over the current selection and prompt instruction with the
+next conversation. Opening and resetting stay possible; an automatic journal migration does not
+take place.
 
 <!-- guide:runtime -->
 ## Journal and projection
@@ -1085,193 +1036,176 @@ state changes, and interruptions therefore remain traceable after a restart. The
 every LLM agent is part of the journal as well; working files are stored separately.
 <!-- /guide:runtime -->
 
-### Dateiformat, Schreibgrenzen und Wiedergabe
+### File format, write boundaries, and replay
 
-Jeder Run besitzt eine lesbare `journal.jsonl` im Dateiformat v8 und bei großen Inhalten einen
-benachbarten Ordner `payloads/`. Eine Zeile enthält einen Command mit allen daraus entstandenen
-Events. Formatversion, Run-ID, Command und Zeitpunkt stehen einmal im gemeinsamen Umschlag;
-Actor und Command-ID sowie die interne Event-Schemaversion werden beim Lesen ergänzt.
-Der Command hält Kennung, Typ, handelnden Actor und kanonischen Request-Hash. Der interne
-CommandRecord und die Methode `ragents.runs.events` verwenden weiterhin das vollständige Eventschema 3.
-Die verbindlichen Typen und die Dateikodierung stehen in `runtime/journal.ts`,
-`runtime/journal-storage.ts` und `domain/events.ts`.
+Every run has a readable `journal.jsonl` in file format v8 and, for large contents, a neighboring
+folder `payloads/`. A line contains one command with all the events that resulted from it. Format
+version, run ID, command, and timestamp are stored once in the shared envelope; actor and command
+ID as well as the internal event schema version are added when reading. The command holds
+identifier, type, acting actor, and canonical request hash. The internal CommandRecord and the
+method `ragents.runs.events` still use the complete event schema 3. The binding types and the file
+encoding are in `runtime/journal.ts`, `runtime/journal-storage.ts`, and `domain/events.ts`.
 
-Ein einzelnes oberstes Payload-Feld ab 4096 UTF-8-Bytes seiner JSON-Darstellung liegt einmalig
-unter `payloads/<sha256>.json`. Die Eventzeile hält stattdessen Feldname, SHA-256 und Bytezahl
-in `payloadRefs`. Identische gespeicherte Bytes innerhalb eines Runs teilen dieselbe Datei.
-Kleine Felder bleiben direkt lesbar. Die Kodierung verwechselt Referenzen nicht mit
-Nutzdaten; zusätzliche oder doppelt belegte Felder sind ungültig. Inhaltsdateien werden vor
-der referenzierenden Journalzeile über eine temporäre Datei geschrieben, synchronisiert und
-atomar veröffentlicht. Lesen und Wiederverwenden prüfen Hash und Länge; fehlende oder veränderte
-Dateien sind harte Fehler. Inhaltsdateien werden nie überschrieben. Ein abgebrochener Schreibvorgang
-kann eine unreferenzierte Inhaltsdatei hinterlassen; automatische Einzeldatei-Bereinigung gibt es nicht.
+A single top-level payload field of 4096 UTF-8 bytes or more in its JSON representation is stored
+once under `payloads/<sha256>.json`. The event line instead holds field name, SHA-256, and byte
+count in `payloadRefs`. Identical stored bytes within a run share the same file. Small fields stay
+directly readable. The encoding does not confuse references with payload data; additional or doubly
+assigned fields are invalid. Content files are written through a temporary file, synced, and
+published atomically before the referencing journal line. Reading and reuse check hash and length;
+missing or changed files are hard errors. Content files are never overwritten. An aborted write can
+leave an unreferenced content file behind; there is no automatic cleanup of individual files.
 
-Die Journal-API, Event-Abfragen und Streams liefern aufgelöste Inhalte. Der Ladevorgang liest
-weiterhin die gesamte Historie einschließlich referenzierter Inhalte in den Speicher.
-Forks schreiben eigene Inhaltsdateien im Ziel-Run und bleiben unabhängig von der Quellablage.
-Archivierung und Löschung erfassen den ganzen Run-Ordner einschließlich `payloads/`.
+The journal API, event queries, and streams deliver resolved contents. Loading still reads the
+entire history including referenced contents into memory. Forks write their own content files in
+the target run and stay independent of the source storage. Archiving and deletion cover the whole
+run folder including `payloads/`.
 
-Actor- und Plugin-Zustände werden bei der ersten Speicherung vollständig journalisiert.
-Weitere Ersetzungen verwenden ein Änderungsereignis mit typisierten Setz- und Löschoperationen,
-wenn dieses kleiner ist als der vollständige Zustand. Objektfelder und Arrayeinträge werden
-gezielt verändert; unveränderte Inhalte werden dabei nicht wiederholt. Die Projektion baut den
-vollständigen Zustand wieder auf. APIs, Mini-Apps und Zustandsstreams liefern weiterhin den
-vollständigen Stand, einschließlich historisch korrekt rekonstruierter Zustände.
+Actor and plugin states are journaled completely at the first save. Further replacements use a
+change event with typed set and delete operations if it is smaller than the complete state. Object
+fields and array entries are changed selectively; unchanged content is not repeated. The projection
+rebuilds the complete state. APIs, mini-apps, and state streams still deliver the complete state,
+including historically correctly reconstructed states.
 
-Die Event-Sequenz zählt je Run lückenlos ab 1. Zusammengehörige Events eines Commands stehen
-hintereinander und tragen dieselbe Command-ID und denselben Zeitpunkt. Die Sequenz bestimmt die
-Reihenfolge; Korrelations- und Kausalitätsangaben verbinden Vorgänge und Auslöser, wobei ein
-Auslöser auch ein Turn sein kann. Das Journal prüft eine Entscheidung vor dem Schreiben gegen
-den bisherigen Zustand und synchronisiert die Datei, bevor es den neuen Zustand übernimmt und
-Listener benachrichtigt.
+The event sequence counts per run without gaps from 1. Related events of a command follow each
+other and carry the same command ID and the same timestamp. The sequence determines the order;
+correlation and causation information connects operations and triggers, where a trigger can also
+be a turn. The journal checks a decision against the previous state before writing and syncs the
+file before it takes over the new state and notifies listeners.
 
-Eine vollständig geschriebene Zeile ist die Commit-Grenze einer Command-Entscheidung.
-Command-ID und kanonischer Request-Hash
-machen Wiederholungen derselben Mutation idempotent. Ein abweichender Request mit derselben ID
-scheitert hart. Listenerfehler verändern nicht den Ausgang eines bereits akzeptierten Commands.
-Scheitert Öffnen, Schreiben, Synchronisieren oder Schließen einer bestehenden Journaldatei,
-sperrt die Instanz weitere Mutationen dieses Runs bis zum erneuten Öffnen. Dadurch kann ein
-Wiederholungsversuch keine möglicherweise bereits geschriebene Zeile duplizieren. Der Neustart
-liest vollständige Zeilen und verwirft einen unvollständigen letzten Schreibvorgang. Andere Runs
-bleiben beschreibbar. Fehler beim Vorbereiten einer Inhaltsdatei vor dem Journal-Append lassen
-dagegen einen unmittelbaren Wiederholungsversuch zu.
+A completely written line is the commit boundary of a command decision. Command ID and canonical
+request hash make repetitions of the same mutation idempotent. A differing request with the same ID
+fails hard. Listener errors do not change the outcome of a command that has already been accepted.
+If opening, writing, syncing, or closing an existing journal file fails, the instance blocks further
+mutations of this run until it is reopened. This way a retry cannot duplicate a line that may
+already have been written. The restart reads complete lines and discards an incomplete last write.
+Other runs stay writable. Errors when preparing a content file before the journal append, in
+contrast, allow an immediate retry.
 
-Das Journal schreibt Dateiformat 9 und liest die Formate 7 bis 9, alle mit internem Eventschema 3.
-Format 7 bringt den Modellkontext (`model.input.presented`, `model.step.completed`,
-`model.tool-result.presented`, `context.compacted`); ältere Journale tragen keinen und werden mit
-dieser Ursache ohne Migration für den betroffenen Run abgewiesen. Format 8 bringt `origin` an
-`actor.input.enqueued` (Abschnitt Herkunft eines Inputs), Format 9 `threshold` an
-`context.compacted` (Abschnitt Wiederholung und Kompaktierung); eine Zeile eines älteren Formats
-trägt das jeweilige Feld nie und bleibt deshalb lesbar, ein Format nach 9 wird abgewiesen. Die
-Kodierung ist seit 4 unverändert; die Nummer steigt, sobald ein älterer Stand neu geschriebene
-Zeilen ablehnen würde, damit er an der ersten solchen Zeile mit der Formatversion scheitert statt an
-einem semantischen Widerspruch.
-Jeder Run wird zunächst vollständig geprüft und projiziert, bevor seine Events, Kennungen
-und Zustände in die gemeinsame Laufzeit übernommen werden. Ein altes Format, beschädigtes JSON,
-ein ungültiges Event, ein semantischer Widerspruch, ein unlesbares Journal oder eine fehlende
-Inhaltsdatei isoliert nur diesen Run. Die übrigen Runs und der Server starten weiter.
-Der Fehler enthält Run-ID, Dateipfad und Ursache und wird protokolliert. `loadFailures` und
-`failureOf` liefern die Diagnose; lesende und schreibende Run-Zugriffe melden
-`journal-unavailable` (Status 409). Isolierte Runs stehen in `ragents.runs.list` als gesperrt, mit der
-Ursache unter `locked`, ohne Titelerzeugung, Plugin-Metadaten und Arbeitsbereich
-(`workspaceAccessible: false`); Web und VS Code öffnen sie nicht, bieten aber das Löschen an. Ein
-Journal, das sich nicht laden ließ, nennt keinen Eigentümer; die Rechteprüfung behandelt den Run wie
-einen ohne Eigentümer, sichtbar und löschbar also mit `runs.read.all` oder ohne Anmeldung. Das
-Löschen archiviert die Dateien unverändert und gibt die Sperre frei. Isolierte Runs erhalten keine
-Arbeitsverzeichnisse oder Scheduler-Ausführung und können nicht unter derselben ID versehentlich neu
-angelegt werden. `Journal.unavailableRuns` nennt alle gesperrten Runs, auch die nach einem
-Schreibfehler. Das gilt auch für den globalen Koordinator.
-Sein ausdrücklicher Gesprächsreset kann die gesperrte ID nach Entfernen der alten Dateien freigeben.
+The journal writes file format 9 and reads formats 7 to 9, all with internal event schema 3. Format
+7 brings the model context (`model.input.presented`, `model.step.completed`,
+`model.tool-result.presented`, `context.compacted`); older journals carry none and are rejected with
+this cause, without migration, for the affected run. Format 8 brings `origin` on
+`actor.input.enqueued` (section Origin of an input), format 9 `threshold` on `context.compacted`
+(section Retries and compaction); a line of an older format never carries the respective field and
+therefore stays readable, and a format after 9 is rejected. The encoding has been unchanged since
+4; the number increases as soon as an older version would reject newly written lines, so that it
+fails at the first such line with the format version instead of at a semantic contradiction. Every
+run is first completely checked and projected before its events, identifiers, and states are taken
+over into the shared runtime. An old format, corrupted JSON, an invalid event, a semantic
+contradiction, an unreadable journal, or a missing content file isolates only this run. The other
+runs and the server keep starting. The error contains run ID, file path, and cause and is logged.
+`loadFailures` and `failureOf` deliver the diagnosis; reading and writing run accesses report
+`journal-unavailable` (status 409). Isolated runs appear in `ragents.runs.list` as locked, with the
+cause under `locked`, without title generation, plugin metadata, and workspace
+(`workspaceAccessible: false`); web and VS Code do not open them but offer deletion. A journal that
+could not be loaded names no owner; the permission check treats the run like one without an owner,
+so it is visible and deletable with `runs.read.all` or without sign-in. Deletion archives the files
+unchanged and releases the lock. Isolated runs receive no working directories or scheduler
+execution and cannot accidentally be created anew under the same ID. `Journal.unavailableRuns`
+names all locked runs, including those after a write error. This also applies to the global
+coordinator. Its explicit conversation reset can release the locked ID after removing the old files.
 
-Die Originaldateien eines abgewiesenen Runs bleiben bytegleich. Eine abgerissene letzte Zeile
-wird erst nach erfolgreicher Prüfung aller vollständigen v4-Records repariert. Ein leeres oder
-nicht erkennbares Journal wird nicht zu einem neuen Run umgedeutet. Fehler an der
-gemeinsamen Ablage oder ein aktiver fremder Writer bleiben echte Infrastrukturfehler.
-Beim Neustart werden offene Turns als unterbrochen abgeschlossen, aber nie erneut ausgeführt.
-Ein dabei auftretender Journal-Schreibfehler isoliert ebenfalls nur diesen Run und wird gemeldet. Bereits journalisierte Events werden
-nicht noch einmal durch Subscriptions zugestellt. Unbeanspruchte Inputs bleiben normale offene
-Arbeit in ihrer ursprünglichen Reihenfolge.
+The original files of a rejected run stay byte-identical. A torn last line is repaired only after
+all complete v4 records have been checked successfully. An empty or unrecognizable journal is not
+reinterpreted as a new run. Errors in the shared storage or an active foreign writer stay real
+infrastructure errors. On restart, open turns are completed as interrupted but never executed
+again. A journal write error that occurs in the process also isolates only this run and is
+reported. Events already journaled are not delivered again through subscriptions. Unclaimed inputs
+stay normal open work in their original order.
 
-Ein exklusives Writer-Lock (`.writer.lock/owner-<token>.json` mit Prozess-ID, Hostname, Start und
-Herzschlag) schützt den gesamten Journal-Ordner; der Besitzer erneuert den Herzschlag alle fünf
-Sekunden. Beim Öffnen wird ein vorhandenes Lock genau dann übernommen, wenn sein Prozess auf
-demselben Host nicht mehr lebt oder sein Herzschlag älter als 30 Sekunden ist; die Übernahme steht
-als Warnung im Serverprotokoll. Ein lebender Writer mit frischem Herzschlag wird hart abgewiesen,
-zwei Schreiber gibt es nie. Verschwindet die eigene Besitzerdatei, nimmt das Journal keine
-Schreibvorgänge mehr an und meldet das. Der Server gibt das Lock bei SIGINT, SIGTERM und SIGHUP
-über den geordneten Shutdown frei und bei jedem `process.exit`, also auch nach Absturz oder
-Shutdown-Zeitüberschreitung, über einen `exit`-Hook.
+An exclusive writer lock (`.writer.lock/owner-<token>.json` with process ID, host name, start, and
+heartbeat) protects the whole journal folder; the owner renews the heartbeat every five seconds.
+When opening, an existing lock is taken over exactly if its process on the same host is no longer
+alive or its heartbeat is older than 30 seconds; the takeover appears as a warning in the server
+log. A living writer with a fresh heartbeat is rejected hard; there are never two writers. If its
+own owner file disappears, the journal accepts no more writes and reports that. The server releases
+the lock on SIGINT, SIGTERM, and SIGHUP through the orderly shutdown and on every `process.exit`,
+so also after a crash or shutdown timeout, through an `exit` hook.
 
-Run- und Actor-IDs verwenden im Journal dieselbe portable Grammatik: 1 bis 64 kleingeschriebene
-ASCII-Zeichen, alphanumerischer Anfang und Abschluss, dazwischen zusätzlich `_` und `-`.
-Reservierte Windows-Gerätenamen sind ausgeschlossen. Dadurch können weder Pfadsegmente verlassen
-noch auf case-insensitiven Dateisystemen zwei logische Identitäten auf dieselbe Ablage zeigen.
+Run and actor IDs use the same portable grammar in the journal: 1 to 64 lowercase ASCII
+characters, alphanumeric start and end, and additionally `_` and `-` in between. Reserved Windows
+device names are excluded. This way, neither can path segments be escaped nor can two logical
+identities point to the same storage on case-insensitive file systems.
 
-Projektionen werden beim Start aus dem Journal rekonstruiert und danach inkrementell
-fortgeschrieben. Vor dem Schreiben prüft das Journal nur die neuen Events gegen eine isolierte
-Kopie des aktuellen Zustands und des semantischen Kontexts. Erst nach der Persistenz übernimmt
-es diese Projektion; ein Prüf- oder früher Schreibfehler verändert den bisherigen Stand nicht.
-Die bisherige Historie wird beim Append nicht erneut abgespielt. Globale Kennungsregister und
-die bisherigen Record- und Eventlisten werden dabei nicht vollständig kopiert. Die Projektion
-kopiert ihre Maps und darin erst die gelesenen, veränderbaren Einträge; unveränderte Nutzdaten
-und historische Texte werden geteilt. Der semantische Index wird weiterhin kopiert. Die Kosten
-eines Appends sind deshalb nicht konstant und wachsen mit dem gespeicherten Zustand und
-Ereignisbestand. Replay liest gespeicherte Ereignisse; es wiederholt weder Modellaufrufe noch
-Werkzeugwirkungen. Arbeitsdateien, Dokumentinhalte, Artefaktbytes samt den Medien der
-Modellkontexte und bestimmte Modulquellen liegen zusätzlich außerhalb des Journalordners. Das Journal allein ist
-deshalb keine vollständige Datensicherung und kann externe Änderungen nicht zurückrollen.
-Die Projektion enthält nur den aktuellen Run-Zustand. Zeitlich geordnete Modell-,
-Tool- und Runtime-Ausgaben bleiben als Events im Journal und werden über `event_query` oder die
-Event-API gelesen. Die RunView trägt je Turn `outputs` (Text, Sequenz, Zeitpunkt) aus
-`model.output.completed`, ungekürzt; die Detailansicht eines Actors zeigt damit zugestellte
-Eingaben und eigene Antworten als einen Strom in Journal-Reihenfolge, Reasoning gehört nicht dazu.
+Projections are reconstructed from the journal at start and then updated incrementally. Before
+writing, the journal checks only the new events against an isolated copy of the current state and
+the semantic context. Only after persistence does it take over this projection; a check error or
+early write error does not change the previous state. The previous history is not replayed again
+on append. Global identifier registries and the previous record and event lists are not copied
+completely in the process. The projection copies its maps and within them only the entries read
+and changeable; unchanged payload data and historical texts are shared. The semantic index is still
+copied. The cost of an append is therefore not constant and grows with the stored state and set of
+events. Replay reads stored events; it repeats neither model calls nor tool effects. Working files,
+document contents, artifact bytes including the media of the model contexts, and certain module
+sources are additionally stored outside the journal folder. The journal alone is therefore not a
+complete backup and cannot roll back external changes. The projection contains only the current run
+state. Chronologically ordered model, tool, and runtime outputs stay as events in the journal and
+are read through `event_query` or the event API. The RunView carries `outputs` (text, sequence,
+timestamp) per turn from `model.output.completed`, unabridged; the detail view of an actor thus
+shows delivered inputs and its own responses as one stream in journal order; reasoning is not part
+of it.
 
-## Run auf einen anderen Server umziehen
+## Moving a run to another server
 
-Ein Run kann von einem Server auf einen anderen wechseln und dort weiterlaufen. `ragents.runs.export`
-(Rechte `runs.read` und `runs.inspect`) liefert Manifest und ein `tar.gz` als Base64,
-`ragents.runs.import` (Rechte `runs.read`, `runs.write` und `runs.create`) nimmt beides an.
-`pnpm run-transfer <quelle-url> <ziel-url> <runId>` verbindet beide Seiten. Das Archiv enthält
-`transfer/manifest.json`, den Ordner `runs/<id>` mit Journal und Payloads, samt den
-Modellkontexten, den Ordner `sessions/<id>` mit Actor-Programmen und allen Plugin-Ablagen des
-Runs, darunter der Dateiablage und dem neuen Ordner je Run auf dem Server, und unter `artifacts/`
-die Inhalte, auf die der Run verweist: veröffentlichte Artefakte und Medien der Modellkontexte. Der
-Import prüft jeden Inhalt gegen seinen Hash-Namen und legt fehlende ab. Halbfertige Journal- und
-Payload-Schreibvorgänge bleiben draußen. Symbolische Verweise nimmt der Export nur mit, wenn sie
-relativ sind und in der Ablage des Runs bleiben (`runs/<id>`, `sessions/<id>`). Verweise unter
-`node_modules`, die hinausführen, etwa die absoluten eines Paketmanagers, lässt er weg; die nächste
-Installation im Arbeitsbereich legt sie neu an. Jeder andere Verweis nach außen bricht den Export
-mit `run-transfer-link` (409) und der Liste dieser Verweise ab, statt am Ziel ins Leere zu zeigen.
-Das Manifest nennt Format, Kennung, Host-Commit,
-Executor-Version, Profil, Titel, Revision, Ereigniszahl, einen gebundenen Projektordner und den
-Zeitpunkt.
+A run can move from one server to another and continue running there. `ragents.runs.export`
+(permissions `runs.read` and `runs.inspect`) delivers a manifest and a `tar.gz` as Base64,
+`ragents.runs.import` (permissions `runs.read`, `runs.write`, and `runs.create`) accepts both.
+`pnpm run-transfer <source-url> <target-url> <runId>` connects both sides. The archive contains
+`transfer/manifest.json`, the folder `runs/<id>` with journal and payloads, including the model
+contexts, the folder `sessions/<id>` with actor programs and all plugin storages of the run, among
+them the file storage and the new folder per run on the server, and under `artifacts/` the contents
+the run refers to: published artifacts and media of the model contexts. The import checks every
+content against its hash name and stores missing ones. Half-finished journal and payload writes stay
+out. The export takes symbolic links along only if they are relative and stay within the run's
+storage (`runs/<id>`, `sessions/<id>`). Links under `node_modules` that lead outside, such as the
+absolute ones of a package manager, are left out; the next installation in the workspace creates
+them anew. Every other link pointing outside aborts the export with `run-transfer-link` (409) and
+the list of these links, instead of pointing into nothing at the target. The manifest names format,
+identifier, host commit, executor version, profile, title, revision, event count, a bound project
+folder, and the timestamp.
 
-Der Export verlangt einen ruhenden Run: kein Actor in einem Turn, keine wartende Eingabe. Er
-kopiert; die Quelle bleibt unverändert und wird nicht gelöscht. Das Archiv ist auf 16 MiB
-begrenzt, weil es als Base64 durch die Nachrichtenschicht geht. Es läuft immer nur ein Umzug je
-Server; ein zweiter meldet `run-transfer-busy`.
+The export requires an idle run: no actor in a turn, no waiting input. It copies; the source stays
+unchanged and is not deleted. The archive is limited to 16 MiB, because it goes through the message
+layer as Base64. Only one move runs per server at a time; a second one reports `run-transfer-busy`.
 
-Der Import entpackt in einen Staging-Ordner unter `transfer/` im Datenordner und prüft, bevor er
-etwas anlegt: Manifestformat, gleicher Host-Commit, gleiche Executor-Version, Übereinstimmung von
-Manifest und Journal, freie Kennung (kein Journal, kein Ordner, kein Archiv, keine Löschabsicht)
-und die Bindung. Dann verschiebt er die Run-Ablage an ihren Platz, übernimmt die Records mit
-`Journal.adopt` - dabei entstehen die Payloads im Ziel neu aus den gelesenen Inhalten - und gibt
-den Run über denselben Weg wieder, den der Serverstart geht: Arbeitsbereich auflösen, Run
-öffnen. Der Run behält Kennung, Sequenzen und Ereignisse; er liegt gestoppt und läuft mit der
-nächsten Nachricht weiter. Scheitert die Übernahme, wird die verschobene Run-Ablage wieder
-entfernt.
+The import unpacks into a staging folder under `transfer/` in the data folder and checks before it
+creates anything: manifest format, same host commit, same executor version, agreement of manifest
+and journal, free identifier (no journal, no folder, no archive, no deletion intent), and the
+binding. Then it moves the run storage into place, takes over the records with `Journal.adopt` - in
+the process, the payloads are created anew in the target from the contents read - and brings the run
+back through the same path the server start takes: resolve the workspace, open the run. The run
+keeps identifier, sequences, and events; it is stopped and continues with the next message. If the
+takeover fails, the moved run storage is removed again.
 
-Der Import schreibt kein Ereignis um. Absolute Pfade in `tool.call.*` und im Modellkontext
-bleiben die der Quelle; sie sind Historie, denn die Wiedergabe ruft weder Modelle noch Werkzeuge
-erneut auf. Neu aufgelöst wird allein der Arbeitsbereich, und zwar aus der Run-Ablage des
-Ziels. Ein Run mit Bindung an einen Projektordner des Quellrechners wird abgelehnt, solange der
-Aufrufer keinen Ersatzordner auf dem Ziel nennt; mit Ersatzordner hängt der Import ein neues
-`plugin.state-replaced` mit der neuen Bindung ans Journal. Die Bindung an einen Arbeitsplatz
-bleibt bestehen und greift wieder, sobald sich der Arbeitsplatz am Ziel anmeldet, und zwar als der
-Benutzer, dem der Run gehört (ohne Eigentümer: ohne Anmeldung). Laufende
-Prozesse, Sprachserver-Sitzungen und Browser ziehen nicht mit; sie entstehen beim nächsten
-Werkzeugaufruf neu.
+The import rewrites no event. Absolute paths in `tool.call.*` and in the model context stay those of
+the source; they are history, because replay calls neither models nor tools again. Only the
+workspace is resolved anew, namely from the target's run storage. A run bound to a project folder
+of the source machine is rejected as long as the caller names no replacement folder on the target;
+with a replacement folder, the import appends a new `plugin.state-replaced` with the new binding to
+the journal. The binding to a workstation stays and takes effect again as soon as the workstation
+registers with the target, namely as the user who owns the run (without an owner: without sign-in).
+Running processes, language server sessions, and browsers do not move along; they are created anew
+at the next tool call.
 
-## Offene Grenzen
+## Open limits
 
-1. Externe Werkzeugeffekte und das RAgents-Journal bilden keine atomare Transaktion.
-   RAgents löst diese Grenze NICHT durch automatische Wiederholung: Ein beim Neustart offener Turn
-   wird `interrupted`, und sein beanspruchter ActorInput bleibt diesem Turn zugeordnet. Falls der
-   Auftrag erneut laufen soll, braucht es einen neuen ausdrücklichen ActorInput. Dasselbe gilt für
-   externe Effekte von TypeScript-Programmen und den Journal-Fortschritt.
-2. Quellevent und der daraus erzeugte Subscription-Input sind zwei Journal-Commands. Ein Absturz
-   genau zwischen beiden kann die Zustellung verlieren. Beim Neustart gibt es bewusst keinen
-   historischen Catch-up, weil dieser dieselbe externe Wirkung doppelt auslösen könnte.
-3. Sichtbarkeits- oder Topologieregeln, die verfügbare Actors und Werkzeuge einschränken, gibt es
-   nicht. Kämen sie, würden sie das Kernmodell nicht um Channels erweitern.
-4. Ein umgezogener Run liegt danach auf beiden Servern unter derselben Kennung. Wer beide weiter
-   bedient, bekommt zwei Journale, die auseinanderlaufen; zusammenführen kann das niemand. Das
-   Modell sieht in seinem Kontext weiterhin die absoluten Pfade der Quelle; greift es sie am Ziel
-   wieder auf, scheitert der Werkzeugaufruf an der Arbeitsbereichsgrenze. Beide Hosts müssen
-   ihren Commit kennen, aus dem Paket `@schlenkr/ragents` oder aus dem Git-Checkout; ein Host
-   ohne beides kann weder exportieren noch importieren. Eine Dateiablage außerhalb der Run-Ablage
-   (`DOCUMENTS_DIR`) zieht nicht mit und bleibt auf der Quelle.
-5. Steering erreicht ein Modell nur zwischen zwei Modellanfragen. Ein lange laufender
-   Werkzeugaufruf verzögert es bis zu seinem Ergebnis; wer sofort umlenken will, unterbricht den
-   Turn. Ein eingespeister Input ändert weder Modellwahl noch Systemprompt des Turns; beides
-   gilt, wie beim Turn-Start bestimmt, bis zu dessen Ende.
+1. External tool effects and the RAgents journal do not form an atomic transaction. RAgents does
+   NOT resolve this limit through automatic retries: a turn open at restart becomes `interrupted`,
+   and its claimed ActorInput stays assigned to this turn. If the task is to run again, a new
+   explicit ActorInput is needed. The same applies to external effects of TypeScript programs and
+   the journal progress.
+2. The source event and the subscription input created from it are two journal commands. A crash
+   exactly between the two can lose the delivery. On restart, there is deliberately no historical
+   catch-up, because it could trigger the same external effect twice.
+3. There are no visibility or topology rules that restrict available actors and tools. If they
+   came, they would not extend the core model with channels.
+4. A moved run then exists on both servers under the same identifier. Whoever keeps operating both
+   gets two journals that diverge; nobody can merge them. The model still sees the absolute paths
+   of the source in its context; if it picks them up again at the target, the tool call fails at
+   the workspace boundary. Both hosts must know their commit, from the package `@schlenkr/ragents`
+   or from the Git checkout; a host without either can neither export nor import. A file storage
+   outside the run storage (`DOCUMENTS_DIR`) does not move along and stays on the source.
+5. Steering reaches a model only between two model requests. A long-running tool call delays it
+   until its result; whoever wants to redirect immediately interrupts the turn. A fed-in input
+   changes neither the model choice nor the system prompt of the turn; both apply, as determined at
+   turn start, until its end.

@@ -54,11 +54,11 @@ const fixture = async (t: TestContext) => {
   };
 };
 
-test("der Titel-Kompaktierer fasst den ersten Prompt zusammen und persistiert das Ergebnis", async (t) => {
+test("the title compactor summarizes the first prompt and persists the result", async (t) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-title-compactor-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const sessionsDir = path.join(directory, "sessions");
-  const faux = await fauxModelRuntime(directory, "compactor", ['"Zwei Modelle unterhalten sich knapp."']);
+  const faux = await fauxModelRuntime(directory, "compactor", ['"Two models chat briefly."']);
   t.after(faux.unregister);
   const errors: unknown[] = [];
   const compactor = createTitleCompactor({
@@ -68,36 +68,36 @@ test("der Titel-Kompaktierer fasst den ersten Prompt zusammen und persistiert da
     onError: (error) => errors.push(error),
   });
 
-  const prompt = "Gucken wir, spawn mal zwei Modelle, die sollen sich unterhalten und zwar immer nur ganz knapp.";
+  const prompt = "Let's see, spawn two models, they should chat with each other, and always only very briefly.";
   assert.equal(await compactor.titleFor("run-1", prompt), undefined);
   const titleFile = path.join(sessionsDir, "run-1", "title.json");
   await eventually(
     () => readFile(titleFile, "utf8").then(() => true, () => false),
-    "Der kompaktierte Titel wurde nicht persistiert.",
+    "The compacted title was not persisted.",
   );
   assert.deepEqual(errors, []);
-  assert.equal(await compactor.titleFor("run-1", prompt), "Zwei Modelle unterhalten sich knapp");
+  assert.equal(await compactor.titleFor("run-1", prompt), "Two models chat briefly");
 
   const reloaded = createTitleCompactor({
     selection: () => ({ provider: faux.provider, model: faux.model }),
     sessionsDir,
     modelRuntime: () => Promise.resolve(faux.modelRuntime),
   });
-  assert.equal(await reloaded.titleFor("run-1", prompt), "Zwei Modelle unterhalten sich knapp");
+  assert.equal(await reloaded.titleFor("run-1", prompt), "Two models chat briefly");
 });
 
-test("ohne konfiguriertes Kompaktierungsmodell bleibt der Titel unangetastet", async (t) => {
+test("without a configured compaction model the title stays untouched", async (t) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-title-compactor-off-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const compactor = createTitleCompactor({
     selection: () => null,
     sessionsDir: path.join(directory, "sessions"),
-    modelRuntime: () => Promise.reject(new Error("Ohne Kompaktierungsmodell wird keine Modelllaufzeit gebraucht.")),
+    modelRuntime: () => Promise.reject(new Error("Without a compaction model no model runtime is needed.")),
   });
 
-  assert.equal(await compactor.titleFor("run-1", "Irgendein Auftrag."), undefined);
+  assert.equal(await compactor.titleFor("run-1", "Some task."), undefined);
   await new Promise((resolve) => setTimeout(resolve, 50));
-  assert.equal(await compactor.titleFor("run-1", "Irgendein Auftrag."), undefined);
+  assert.equal(await compactor.titleFor("run-1", "Some task."), undefined);
 });
 
 test("concurrent title requests share one bounded model call and publish only the persisted title", { timeout: 5_000 }, async (t) => {
@@ -121,7 +121,7 @@ test("concurrent title requests share one bounded model call and publish only th
     },
   });
   try {
-    const prompt = "Ein synthetischer deutscher Auftrag ".repeat(200);
+    const prompt = "A synthetic test task ".repeat(200);
     assert.deepEqual(await Promise.all(Array.from({ length: 12 }, () => compactor.titleFor("concurrent", prompt))), Array(12).fill(undefined));
     await started.promise;
     assert.equal(complete.mock.callCount(), 1);
@@ -130,7 +130,7 @@ test("concurrent title requests share one bounded model call and publish only th
     assert.equal(model.id, selection.model);
     assert.equal(model.compat?.openRouterRouting?.sort, "latency");
     assert.deepEqual(faux.modelRuntime.getModel(selection.provider, selection.model), originalModel);
-    assert.match(context.systemPrompt!, /drei bis acht Wörter/);
+    assert.match(context.systemPrompt!, /three to eight words/);
     assert.equal(context.messages.length, 1);
     assert.equal(context.messages[0]!.content, prompt.slice(0, 4_000));
     assert.equal(requestOptions?.reasoning, undefined);
@@ -141,34 +141,34 @@ test("concurrent title requests share one bounded model call and publish only th
     assert.ok(requestOptions?.signal instanceof AbortSignal);
     assert.equal(requestOptions.signal.aborted, false);
     assert.deepEqual(notifications, []);
-    response.resolve(fauxAssistantMessage('"Ein kurzer deutscher Titel."\nZusätzlicher Text'));
+    response.resolve(fauxAssistantMessage('"A short test title."\nAdditional text'));
     await published.promise;
     assert.deepEqual(errors, []);
-    assert.deepEqual(notifications, [{ runId: "concurrent", title: "Ein kurzer deutscher Titel", stored: { title: "Ein kurzer deutscher Titel" } }]);
-    assert.equal(await compactor.titleFor("concurrent", "Ein anderer Auftrag"), "Ein kurzer deutscher Titel");
+    assert.deepEqual(notifications, [{ runId: "concurrent", title: "A short test title", stored: { title: "A short test title" } }]);
+    assert.equal(await compactor.titleFor("concurrent", "Another task"), "A short test title");
     assert.equal(complete.mock.callCount(), 1);
-  } finally { response.resolve(fauxAssistantMessage("Beendet")); await compactor.shutdown(); }
+  } finally { response.resolve(fauxAssistantMessage("Finished")); await compactor.shutdown(); }
 });
 
 test("new runs resolve the latest title model while existing titles survive model changes and disabling", { timeout: 5_000 }, async (t) => {
   const { faux, options, selection: initial } = await fixture(t);
   let selection: TitleModelSelection | null = initial;
   const notices: string[] = [];
-  const complete = t.mock.method(faux.modelRuntime, "completeSimple", async (model: Parameters<ModelRuntime["completeSimple"]>[0]) => fauxAssistantMessage(`Titel von ${model.id}`));
+  const complete = t.mock.method(faux.modelRuntime, "completeSimple", async (model: Parameters<ModelRuntime["completeSimple"]>[0]) => fauxAssistantMessage(`Title from ${model.id}`));
   const compactor = createTitleCompactor({ ...options, selection: () => selection, onTitle: (runId) => notices.push(runId) });
   try {
-    assert.equal(await compactor.titleFor("old", "Erster Auftrag"), undefined);
+    assert.equal(await compactor.titleFor("old", "First task"), undefined);
     await eventually(async () => notices.includes("old"), "First title was not published");
     selection = { ...initial, model: "second" };
-    assert.equal(await compactor.titleFor("old", "Anderer Auftrag"), "Titel von first");
-    assert.equal(await compactor.titleFor("new", "Zweiter Auftrag"), undefined);
+    assert.equal(await compactor.titleFor("old", "Different task"), "Title from first");
+    assert.equal(await compactor.titleFor("new", "Second task"), undefined);
     await eventually(async () => notices.includes("new"), "Second title was not published");
     assert.deepEqual(complete.mock.calls.map((call) => call.arguments[0].id), ["first", "second"]);
     selection = null;
-    assert.equal(await compactor.titleFor("disabled", "Dritter Auftrag"), undefined);
-    assert.equal(await compactor.titleFor("old", "Erster Auftrag"), "Titel von first");
+    assert.equal(await compactor.titleFor("disabled", "Third task"), undefined);
+    assert.equal(await compactor.titleFor("old", "First task"), "Title from first");
     const reloaded = createTitleCompactor({ ...options, selection: () => null });
-    assert.equal(await reloaded.titleFor("new", undefined), "Titel von second");
+    assert.equal(await reloaded.titleFor("new", undefined), "Title from second");
     assert.equal(complete.mock.callCount(), 2);
     await reloaded.shutdown();
   } finally { await compactor.shutdown(); }
@@ -182,20 +182,20 @@ test("a failed title model is tried again only after a different model is select
   const errors: unknown[] = [];
   const complete = t.mock.method(faux.modelRuntime, "completeSimple", async (model: Parameters<ModelRuntime["completeSimple"]>[0]) => {
     if (model.id === "first") throw new Error("Synthetic model failure");
-    return fauxAssistantMessage("Titel nach dem Modellwechsel");
+    return fauxAssistantMessage("Title after the model change");
   });
   const compactor = createTitleCompactor({ ...options, selection: () => selection,
     onError: (error) => { errors.push(error); failed.resolve(); }, onTitle: () => published.resolve(),
   });
   try {
-    await compactor.titleFor("retry", "Auftrag");
+    await compactor.titleFor("retry", "Task");
     await failed.promise;
-    await compactor.titleFor("retry", "Auftrag");
+    await compactor.titleFor("retry", "Task");
     assert.equal(complete.mock.callCount(), 1);
     selection = { ...initial, model: "second" };
-    await compactor.titleFor("retry", "Auftrag");
+    await compactor.titleFor("retry", "Task");
     await published.promise;
-    assert.equal(await compactor.titleFor("retry", "Auftrag"), "Titel nach dem Modellwechsel");
+    assert.equal(await compactor.titleFor("retry", "Task"), "Title after the model change");
     assert.deepEqual(complete.mock.calls.map((call) => call.arguments[0].id), ["first", "second"]);
     assert.equal(errors.length, 1);
     assert.match(String(errors[0]), /Synthetic model failure/);
@@ -216,20 +216,20 @@ for (const operation of ["cancel", "shutdown"] as const) {
     try {
       const runDir = path.join(sessionsDir, "deleted");
       await mkdir(runDir, { recursive: true });
-      await compactor.titleFor("deleted", "Auftrag vor dem Löschen");
+      await compactor.titleFor("deleted", "Task before deletion");
       await started.promise;
       const closing = operation === "cancel" ? compactor.cancel("deleted") : compactor.shutdown();
       const requestOptions = complete.mock.calls[0]!.arguments[2];
       assert.equal(requestOptions?.signal?.aborted, true);
       await rm(runDir, { recursive: true });
-      response.resolve(fauxAssistantMessage("Verspäteter Titel nach dem Löschen"));
+      response.resolve(fauxAssistantMessage("Late title after deletion"));
       await closing;
       assert.deepEqual(notifications, []);
       assert.deepEqual(errors, []);
       await assert.rejects(readFile(path.join(runDir, "title.json"), "utf8"), /ENOENT/);
-      assert.equal(await compactor.titleFor("deleted", "Erneuter Aufruf"), undefined);
+      assert.equal(await compactor.titleFor("deleted", "Repeated call"), undefined);
       assert.equal(complete.mock.callCount(), 1);
-    } finally { response.resolve(fauxAssistantMessage("Beendet")); await compactor.shutdown(); }
+    } finally { response.resolve(fauxAssistantMessage("Finished")); await compactor.shutdown(); }
   });
 }
 
@@ -237,12 +237,12 @@ test("cancellation while the model runtime is loading prevents the later model c
   const { faux, options, sessionsDir, selection } = await fixture(t);
   const loading = Promise.withResolvers<ModelRuntime>();
   const notifications: unknown[] = [];
-  const complete = t.mock.method(faux.modelRuntime, "completeSimple", async () => fauxAssistantMessage("Zu spät gestarteter Titel"));
+  const complete = t.mock.method(faux.modelRuntime, "completeSimple", async () => fauxAssistantMessage("Title started too late"));
   const compactor = createTitleCompactor({ ...options, modelRuntime: loading.promise, selection: () => selection,
     onTitle: (...args) => notifications.push(args),
   });
   try {
-    await compactor.titleFor("loading", "Auftrag");
+    await compactor.titleFor("loading", "Task");
     const closing = compactor.cancel("loading");
     loading.resolve(faux.modelRuntime);
     await closing;
@@ -254,14 +254,14 @@ test("cancellation while the model runtime is loading prevents the later model c
 
 test("corrupt stored titles fail visibly without generating replacement titles", async (t) => {
   const { faux, options, sessionsDir, selection } = await fixture(t);
-  const complete = t.mock.method(faux.modelRuntime, "completeSimple", async () => fauxAssistantMessage("Ersatztitel"));
+  const complete = t.mock.method(faux.modelRuntime, "completeSimple", async () => fauxAssistantMessage("Replacement title"));
   const compactor = createTitleCompactor({ ...options, selection: () => selection });
   try {
     for (const [runId, content] of [["invalid-json", "broken"], ["empty-title", '{"title":" "}']]) {
       const runDir = path.join(sessionsDir, runId!);
       await mkdir(runDir, { recursive: true });
       await writeFile(path.join(runDir, "title.json"), content!);
-      await assert.rejects(compactor.titleFor(runId!, "Auftrag"));
+      await assert.rejects(compactor.titleFor(runId!, "Task"));
       assert.equal(await readFile(path.join(runDir, "title.json"), "utf8"), content);
     }
     assert.equal(complete.mock.callCount(), 0);

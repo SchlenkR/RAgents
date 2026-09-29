@@ -20,17 +20,17 @@ const fakeNpm = (answers: Record<string, NpmResult>) => {
   const npm: NpmRunner = (args, options) => {
     calls.push({ args, cwd: options.cwd, token: options.token });
     const answer = answers[args.slice(0, 2).join(" ")];
-    if (!answer) throw new Error(`Der Fake kennt npm ${args.join(" ")} nicht`);
+    if (!answer) throw new Error(`The fake does not know npm ${args.join(" ")}`);
     return answer;
   };
   return { npm, calls };
 };
 
-test("die Fassungen auf npm: Liste, einzelne Fassung, unbekanntes Paket, kaputter Aufruf", () => {
+test("the versions on npm: list, single version, unknown package, broken call", () => {
   const listed = fakeNpm({ "view @schlenkr/ragents": { status: 0, stdout: `["0.1.0","0.2.0"]\n`, stderr: "" } });
   assert.deepEqual(publishedVersions(PACKAGE_NAME, listed.npm), ["0.1.0", "0.2.0"]);
   assert.deepEqual(listed.calls[0]!.args, ["view", PACKAGE_NAME, "versions", "--json"]);
-  assert.equal(listed.calls[0]!.token, undefined, "Lesen braucht den Token nicht");
+  assert.equal(listed.calls[0]!.token, undefined, "reading does not need the token");
   const single = fakeNpm({ "view @schlenkr/ragents": { status: 0, stdout: `"0.1.0"\n`, stderr: "" } });
   assert.deepEqual(publishedVersions(PACKAGE_NAME, single.npm), ["0.1.0"]);
   const unknown = fakeNpm({ "view @schlenkr/ragents": { status: 1, stdout: "", stderr: `npm error code E404\nnpm error 404 Not found` } });
@@ -39,43 +39,43 @@ test("die Fassungen auf npm: Liste, einzelne Fassung, unbekanntes Paket, kaputte
   assert.throws(() => publishedVersions(PACKAGE_NAME, broken.npm), /ECONNREFUSED/);
 });
 
-test("die höchste veröffentlichte Fassung ist die, die ein Benutzer bekommt", () => {
+test("the highest published version is the one a user gets", () => {
   const listed = fakeNpm({ "view @schlenkr/ragents": { status: 0, stdout: `["0.1.0","0.2.0","0.1.9"]\n`, stderr: "" } });
   assert.equal(latestPublishedVersion(listed.npm), "0.2.0");
   const unknown = fakeNpm({ "view @schlenkr/ragents": { status: 1, stdout: "", stderr: "npm error code E404" } });
   assert.equal(latestPublishedVersion(unknown.npm), undefined);
 });
 
-test("die Fassung des Pakets wandert auch in die Erweiterung, damit sie ohne Checkout die passende holt", () => {
+test("the package version also goes into the extension so that it fetches the matching one without a checkout", () => {
   const file = path.join(mkdtempSync(path.join(tmpdir(), "publish-package-")), "package.json");
   const original = `{\n  "name": "ragents-vscode",\n  "version": "0.1.0",\n  "ragents": {\n    "packageVersion": "0.1.1"\n  }\n}\n`;
   writeFileSync(file, original);
   writeHostPackageVersion(file, "0.1.2");
   assert.equal(readFileSync(file, "utf8"), original.replace(`"packageVersion": "0.1.1"`, `"packageVersion": "0.1.2"`));
-  assert.equal(readVersion(file), "0.1.0", "die Fassung der Erweiterung bleibt ihre eigene");
+  assert.equal(readVersion(file), "0.1.0", "the extension's version stays its own");
   writeFileSync(file, `{\n  "name": "ragents-vscode"\n}\n`);
-  assert.throws(() => writeHostPackageVersion(file, "0.1.2"), /ragents\.packageVersion nicht zu finden/);
+  assert.throws(() => writeHostPackageVersion(file, "0.1.2"), /ragents\.packageVersion cannot be found/);
 });
 
-test("der Plan lehnt ab, was nicht veröffentlicht werden darf", () => {
+test("the plan rejects what must not be published", () => {
   assert.deepEqual(publishPlan(manifest(), ["0.0.9"], "0.1.0"), { name: PACKAGE_NAME, version: "0.1.0", hostVersion: "a".repeat(40) });
   assert.deepEqual(publishPlan(manifest(), [], "0.1.0"), { name: PACKAGE_NAME, version: "0.1.0", hostVersion: "a".repeat(40) });
-  assert.throws(() => publishPlan(manifest(), ["0.0.9", "0.1.0"], "0.1.0"), /liegt schon auf npm \(dort: 0\.0\.9, 0\.1\.0\).*erhöhe version/s);
-  assert.throws(() => publishPlan(manifest({ name: "ragents" }), [], "0.1.0"), /heißt ragents, veröffentlicht wird @schlenkr\/ragents/);
+  assert.throws(() => publishPlan(manifest(), ["0.0.9", "0.1.0"], "0.1.0"), /is already on npm \(there: 0\.0\.9, 0\.1\.0\).*raise version/s);
+  assert.throws(() => publishPlan(manifest({ name: "ragents" }), [], "0.1.0"), /is named ragents, but @schlenkr\/ragents is published/);
   assert.throws(() => publishPlan(manifest({ publishConfig: undefined }), [], "0.1.0"), /publishConfig\.access/);
-  assert.throws(() => publishPlan(manifest(), [], "neu"), /keine Fassung/);
+  assert.throws(() => publishPlan(manifest(), [], "new"), /is not a version/);
   assert.throws(() => publishPlan(manifest({ ragents: {} }), [], "0.1.0"), /ragents\.hostVersion/);
 });
 
-test("die nächste Fassung kommt aus der veröffentlichten Liste, eine höhere in der package.json gewinnt", () => {
+test("the next version comes from the published list, a higher one in package.json wins", () => {
   const listed = fakeNpm({ "view @schlenkr/ragents": { status: 0, stdout: `["0.1.0","0.1.1"]\n`, stderr: "" } });
   const published = publishedVersions(PACKAGE_NAME, listed.npm);
   assert.deepEqual(nextVersion("0.1.1", published), { version: "0.1.2", latest: "0.1.1" });
   assert.deepEqual(nextVersion("0.2.0", published), { version: "0.2.0", latest: "0.1.1" });
   const unknown = fakeNpm({ "view @schlenkr/ragents": { status: 1, stdout: "", stderr: "npm error code E404" } });
   assert.deepEqual(nextVersion("0.1.0", publishedVersions(PACKAGE_NAME, unknown.npm)), { version: "0.1.0" });
-  assert.equal(versionLine({ version: "0.1.2", latest: "0.1.1" }), "== Fassung 0.1.2, zuletzt veröffentlicht 0.1.1");
-  assert.equal(versionLine({ version: "0.1.0" }), "== Fassung 0.1.0, noch nichts veröffentlicht");
+  assert.equal(versionLine({ version: "0.1.2", latest: "0.1.1" }), "== Version 0.1.2, last published 0.1.1");
+  assert.equal(versionLine({ version: "0.1.0" }), "== Version 0.1.0, nothing published yet");
 });
 
 test("npm package and VS Code extension get one version above both local versions and the published ones", () => {
@@ -83,9 +83,9 @@ test("npm package and VS Code extension get one version above both local version
   assert.deepEqual(releaseVersion(["0.1.7", "0.1.9"], ["0.1.7"]), { version: "0.1.9", latest: "0.1.7" });
 });
 
-test("geschrieben wird nur die Zeile mit version, der Probelauf rechnet nur", () => {
+test("only the line with version is written, the dry run only computes", () => {
   const file = path.join(mkdtempSync(path.join(tmpdir(), "publish-package-")), "package.json");
-  const original = `{\n  "name": "ragents",\n  "version": "0.1.1",\n  "engines": { "version": "egal" },\n\t"license": "PolyForm-Shield-1.0.0"\n}\n`;
+  const original = `{\n  "name": "ragents",\n  "version": "0.1.1",\n  "engines": { "version": "whatever" },\n\t"license": "PolyForm-Shield-1.0.0"\n}\n`;
   writeFileSync(file, original);
   assert.equal(readVersion(file), "0.1.1");
   const { npm } = fakeNpm({ "view @schlenkr/ragents": { status: 0, stdout: `["0.1.1"]\n`, stderr: "" } });
@@ -96,49 +96,49 @@ test("geschrieben wird nur die Zeile mit version, der Probelauf rechnet nur", ()
   assert.equal(readFileSync(file, "utf8"), original.replace(`"version": "0.1.1"`, `"version": "0.1.2"`));
 });
 
-test("der Token geht als Registrierungsschlüssel in die Umgebung und nie in eine Ausgabe", () => {
-  const environment = publishEnvironment("npm_geheim", { PATH: "/usr/bin" });
-  assert.deepEqual(environment, { PATH: "/usr/bin", "npm_config_//registry.npmjs.org/:_authToken": "npm_geheim" });
-  assert.equal(redacting("npm_geheim")("npm error mit npm_geheim im Text"), "npm error mit <npm_key> im Text");
+test("the token goes into the environment as a registry key and never into any output", () => {
+  const environment = publishEnvironment("npm_secret", { PATH: "/usr/bin" });
+  assert.deepEqual(environment, { PATH: "/usr/bin", "npm_config_//registry.npmjs.org/:_authToken": "npm_secret" });
+  assert.equal(redacting("npm_secret")("npm error with npm_secret in the text"), "npm error with <npm_key> in the text");
 });
 
-test("der Probelauf reicht --dry-run durch und veröffentlicht nichts", () => {
+test("the dry run passes --dry-run through and publishes nothing", () => {
   const { npm, calls } = fakeNpm({ "publish --access": { status: 0, stdout: "", stderr: "npm notice filename: schlenkr-ragents-0.1.0.tgz\n" } });
   const lines: string[] = [];
-  publishDirectory({ directory: "/dist/ragents", version: "0.1.0", token: "npm_geheim", dryRun: true, npm, log: (line) => lines.push(line) });
+  publishDirectory({ directory: "/dist/ragents", version: "0.1.0", token: "npm_secret", dryRun: true, npm, log: (line) => lines.push(line) });
   assert.deepEqual(calls.map((call) => call.args), [["publish", "--access", "public", "--dry-run"]]);
   assert.equal(calls[0]!.cwd, "/dist/ragents");
-  assert.equal(calls[0]!.token, "npm_geheim");
-  assert.deepEqual(lines, ["npm notice filename: schlenkr-ragents-0.1.0.tgz", "== Probelauf: nichts veröffentlicht"]);
+  assert.equal(calls[0]!.token, "npm_secret");
+  assert.deepEqual(lines, ["npm notice filename: schlenkr-ragents-0.1.0.tgz", "== Dry run: nothing published"]);
 });
 
-test("der echte Publish meldet die veröffentlichte Fassung und einen Fehlschlag", () => {
+test("the real publish reports the published version and a failure", () => {
   const { npm, calls } = fakeNpm({
     "publish --access": { status: 0, stdout: "+ @schlenkr/ragents@0.1.0\n", stderr: "npm notice total files: 900\n" },
   });
   const lines: string[] = [];
-  publishDirectory({ directory: "/dist/ragents", version: "0.1.0", token: "npm_geheim", dryRun: false, npm, log: (line) => lines.push(line) });
+  publishDirectory({ directory: "/dist/ragents", version: "0.1.0", token: "npm_secret", dryRun: false, npm, log: (line) => lines.push(line) });
   assert.deepEqual(calls.map((call) => call.args[0]), ["publish"]);
   assert.ok(!calls[0]!.args.includes("--dry-run"));
-  assert.equal(lines.at(-1), `== Veröffentlicht: ${PACKAGE_NAME}@0.1.0`);
-  const failing = fakeNpm({ "publish --access": { status: 1, stdout: "", stderr: "npm error 403 Forbidden mit npm_geheim\n" } });
+  assert.equal(lines.at(-1), `== Published: ${PACKAGE_NAME}@0.1.0`);
+  const failing = fakeNpm({ "publish --access": { status: 1, stdout: "", stderr: "npm error 403 Forbidden with npm_secret\n" } });
   const shown: string[] = [];
-  assert.throws(() => publishDirectory({ directory: "/dist/ragents", version: "0.1.0", token: "npm_geheim", dryRun: false, npm: failing.npm, log: (line) => shown.push(line) }), /npm publish endete mit Code 1\./);
-  assert.deepEqual(shown, ["npm error 403 Forbidden mit <npm_key>"]);
+  assert.throws(() => publishDirectory({ directory: "/dist/ragents", version: "0.1.0", token: "npm_secret", dryRun: false, npm: failing.npm, log: (line) => shown.push(line) }), /npm publish ended with code 1\./);
+  assert.deepEqual(shown, ["npm error 403 Forbidden with <npm_key>"]);
 });
 
-test("jede Fehlermeldung ist eine Zeile, und ein fehlender Scope bekommt seinen Hinweis", () => {
+test("every error message is one line, and a missing scope gets its hint", () => {
   assert.equal(oneLine("npm error code E404\n\n  npm error 404 Scope not found\n"), "npm error code E404; npm error 404 Scope not found");
   const missingScope = fakeNpm({
     "publish --access": { status: 1, stdout: "", stderr: "npm error code E404\nnpm error 404 Scope not found\nnpm error 404 @schlenkr/ragents\n" },
   });
-  const advised = "npm publish endete mit Code 1. Die Organisation @schlenkr existiert auf npm nicht oder der Token darf sie nicht: "
-    + "auf npmjs.com anlegen bzw. den Token für den Scope freigeben.";
-  assert.throws(() => publishDirectory({ directory: "/dist/ragents", version: "0.1.0", token: "npm_geheim", dryRun: false, npm: missingScope.npm, log: () => undefined }),
+  const advised = "npm publish ended with code 1. The organization @schlenkr does not exist on npm or the token may not use it: "
+    + "create it on npmjs.com or grant the token access to the scope.";
+  assert.throws(() => publishDirectory({ directory: "/dist/ragents", version: "0.1.0", token: "npm_secret", dryRun: false, npm: missingScope.npm, log: () => undefined }),
     (error: Error) => error.message === advised && !error.message.includes("\n"));
   const forbidden = fakeNpm({ "publish --access": { status: 1, stdout: "", stderr: "npm error 403 Forbidden\n" } });
-  assert.throws(() => publishDirectory({ directory: "/dist/ragents", version: "0.1.0", token: "npm_geheim", dryRun: false, npm: forbidden.npm, log: () => undefined }),
-    (error: Error) => error.message === "npm publish endete mit Code 1.");
+  assert.throws(() => publishDirectory({ directory: "/dist/ragents", version: "0.1.0", token: "npm_secret", dryRun: false, npm: forbidden.npm, log: () => undefined }),
+    (error: Error) => error.message === "npm publish ended with code 1.");
   const brokenView = fakeNpm({ "view @schlenkr/ragents": { status: 1, stdout: "", stderr: "npm error network\nnpm error ECONNREFUSED\n" } });
-  assert.throws(() => publishedVersions(PACKAGE_NAME, brokenView.npm), /Code 1: npm error network; npm error ECONNREFUSED$/);
+  assert.throws(() => publishedVersions(PACKAGE_NAME, brokenView.npm), /code 1: npm error network; npm error ECONNREFUSED$/);
 });

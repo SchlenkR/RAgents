@@ -16,7 +16,7 @@ const configRoot = (body: string): string => {
   return root;
 };
 
-test("main.ts lädt vor der Konfiguration nichts außer dem Lader selbst", () => {
+test("main.ts loads nothing before the configuration except the loader itself", () => {
   const main = readFileSync(path.join(source, "main.ts"), "utf8");
   const valueImports = [...main.matchAll(/^import(?!\s+type\b)[^;]*?from\s+"([^"]+)"/gm)].map((match) => match[1]);
 
@@ -24,7 +24,7 @@ test("main.ts lädt vor der Konfiguration nichts außer dem Lader selbst", () =>
   assert.ok(main.indexOf("await loadConfigFile()") < main.indexOf('await import("./server.js")'));
 });
 
-test("die Prüfung vor dem Laden ist ein harter Fehler", () => {
+test("the check before loading is a hard error", () => {
   assert.throws(
     () => validateConfigFileSections({
       hostKeys: [],
@@ -33,22 +33,22 @@ test("die Prüfung vor dem Laden ist ein harter Fehler", () => {
       declaredKeysFor: () => [],
       secretKeys: [],
     }),
-    /muss vor ihrer Prüfung geladen werden/,
+    /must be loaded before it is checked/,
   );
 });
 
-test("ein Secret im Klartext bricht schon das Laden ab", async () => {
+test("a secret in plain text already aborts the load", async () => {
   const root = mkdtempSync(path.join(tmpdir(), "ragents-config-"));
   writeFileSync(path.join(root, "ragents.config.test-secret.ts"), `export const config = {
-  "ragents.todo": { RAGENTS_TEST_ACCESS_TOKEN: "im-klartext" },
+  "ragents.todo": { RAGENTS_TEST_ACCESS_TOKEN: "in-plain-text" },
 };
 `);
   process.env.PRODUCT_PROFILE = "test-secret";
 
-  await assert.rejects(() => loadConfigFile(root), /ist ein Secret und darf nicht im Klartext/);
+  await assert.rejects(() => loadConfigFile(root), /is a secret and must not appear in plain text/);
 });
 
-test("eine env-Referenz auf eine ungesetzte Variable nennt Variable und Abhilfe", async () => {
+test("an env reference to an unset variable names the variable and the remedy", async () => {
   const root = configRoot(`const env = (name) => ({ kind: "environment", name });
 export const config = { host: { ACCESS_TOKEN: env("RAGENTS_TEST_UNSET_VARIABLE") } };
 `);
@@ -57,30 +57,30 @@ export const config = { host: { ACCESS_TOKEN: env("RAGENTS_TEST_UNSET_VARIABLE")
 
   await assert.rejects(
     () => loadConfigFile(root),
-    /host\.ACCESS_TOKEN verweist mit env\("RAGENTS_TEST_UNSET_VARIABLE"\) .* nicht gesetzt ist\. Setze sie vor dem Start \(export RAGENTS_TEST_UNSET_VARIABLE=\.\.\.\)/,
+    /host\.ACCESS_TOKEN refers with env\("RAGENTS_TEST_UNSET_VARIABLE"\) .* not set in this shell\. Set it before starting \(export RAGENTS_TEST_UNSET_VARIABLE=\.\.\.\)/,
   );
 });
 
-test("die Konfiguration steht nach dem Laden in der Umgebung, gesetzte Werte gewinnen", async () => {
+test("after loading, the configuration is in the environment and values already set win", async () => {
   const root = configRoot(`export const config = {
-  host: { RAGENTS_TEST_HOST_VALUE: "aus-der-datei" },
+  host: { RAGENTS_TEST_HOST_VALUE: "from-the-file" },
   "ragents.todo": { RAGENTS_TEST_PLUGIN_VALUE: 7, RAGENTS_TEST_LIST: ["a", "b"] },
 };
 `);
   process.env.PRODUCT_PROFILE = "test-order";
-  process.env.RAGENTS_TEST_HOST_VALUE = "aus-der-umgebung";
+  process.env.RAGENTS_TEST_HOST_VALUE = "from-the-environment";
   assert.equal(process.env.RAGENTS_TEST_PLUGIN_VALUE, undefined);
 
   await loadConfigFile(root);
 
-  assert.equal(process.env.RAGENTS_TEST_HOST_VALUE, "aus-der-umgebung");
+  assert.equal(process.env.RAGENTS_TEST_HOST_VALUE, "from-the-environment");
   assert.equal(process.env.RAGENTS_TEST_PLUGIN_VALUE, "7");
   assert.equal(process.env.RAGENTS_TEST_LIST, '["a","b"]');
   assert.equal(configFilePath(), path.join(root, "ragents.config.test-order.ts"));
-  await assert.rejects(() => loadConfigFile(root), /bereits geladen/);
+  await assert.rejects(() => loadConfigFile(root), /already been loaded/);
 });
 
-test("eine unbekannte Sektion bricht den Start ab", () => {
+test("an unknown section aborts the start", () => {
   assert.throws(
     () => validateConfigFileSections({
       hostKeys: ["RAGENTS_TEST_HOST_VALUE"],
@@ -89,11 +89,11 @@ test("eine unbekannte Sektion bricht den Start ab", () => {
       declaredKeysFor: () => [],
       secretKeys: [],
     }),
-    /unbekannte Sektion ragents\.todo/,
+    /unknown section ragents\.todo/,
   );
 });
 
-test("ein für das Plugin nicht deklarierter Schlüssel bricht den Start ab", () => {
+test("a key not declared for the plugin aborts the start", () => {
   assert.throws(
     () => validateConfigFileSections({
       hostKeys: ["RAGENTS_TEST_HOST_VALUE"],
@@ -102,11 +102,11 @@ test("ein für das Plugin nicht deklarierter Schlüssel bricht den Start ab", ()
       declaredKeysFor: () => ["RAGENTS_TEST_PLUGIN_VALUE"],
       secretKeys: [],
     }),
-    /RAGENTS_TEST_LIST ist für dieses Plugin nicht deklariert/,
+    /RAGENTS_TEST_LIST is not declared for this plugin/,
   );
 });
 
-test("ein als Secret deklarierter Schlüssel ohne env-Referenz bricht den Start ab", () => {
+test("a key declared as a secret without an env reference aborts the start", () => {
   assert.throws(
     () => validateConfigFileSections({
       hostKeys: ["RAGENTS_TEST_HOST_VALUE"],
@@ -115,11 +115,11 @@ test("ein als Secret deklarierter Schlüssel ohne env-Referenz bricht den Start 
       declaredKeysFor: () => ["RAGENTS_TEST_PLUGIN_VALUE", "RAGENTS_TEST_LIST"],
       secretKeys: ["RAGENTS_TEST_PLUGIN_VALUE"],
     }),
-    /ist als Secret deklariert und darf nicht im Klartext/,
+    /is declared as a secret and must not appear in plain text/,
   );
 });
 
-test("main.ts meldet einen Startfehler als letzte Zeile ohne Stack", () => {
+test("main.ts reports a startup failure as the last line without a stack", () => {
   const result = spawnSync(process.execPath, ["--import", "tsx", path.join(source, "main.ts")], {
     cwd: path.dirname(source),
     env: { ...process.env, PRODUCT_PROFILE: "" },
@@ -128,6 +128,6 @@ test("main.ts meldet einen Startfehler als letzte Zeile ohne Stack", () => {
 
   assert.equal(result.status, 1);
   const lines = result.stderr.trim().split("\n");
-  assert.match(lines.at(-1) ?? "", /^RAgents startet nicht: PRODUCT_PROFILE ist nicht gesetzt\. scripts\/start\.sh <profil>/);
+  assert.match(lines.at(-1) ?? "", /^RAgents does not start: PRODUCT_PROFILE is not set\. scripts\/start\.sh <profile>/);
   assert.equal(lines.some((line) => line.includes("    at ")), false);
 });

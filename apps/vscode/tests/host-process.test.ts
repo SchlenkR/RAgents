@@ -15,14 +15,14 @@ const fakeHost = (body: string): { file: string; args: string[]; cwd: string } =
 };
 
 const announcing = `
-process.stderr.write("Konfiguration geladen\\n");
-console.log("Profil " + process.env.PRODUCT_PROFILE + " aus " + process.env.PRODUCT_PROFILE_FILE + " mit Daten " + process.env.DATA_DIR);
+process.stderr.write("Configuration loaded\\n");
+console.log("Profile " + process.env.PRODUCT_PROFILE + " from " + process.env.PRODUCT_PROFILE_FILE + " with data " + process.env.DATA_DIR);
 console.log(JSON.stringify({ ragents: { url: "http://127.0.0.1:43210", token: "t0ken", pid: process.pid } }));
-process.on("SIGTERM", () => { console.log("beendet"); process.exit(0); });
+process.on("SIGTERM", () => { console.log("ended"); process.exit(0); });
 setInterval(() => {}, 1000);
 `;
 
-test("der Host wird mit Profil und Datenordner gestartet, die Ansage gelesen und der Prozess beim Trennen beendet", async () => {
+test("the host is started with profile and data folder, the announcement is read, and the process is ended on disconnect", async () => {
   const lines: string[] = [];
   const host = await startHost({
     profile: "test", profileFile: "/x/ragents.config.test.ts", dataDirectory: "/tmp/data", environment: { ...process.env },
@@ -30,15 +30,15 @@ test("der Host wird mit Profil und Datenordner gestartet, die Ansage gelesen und
   });
   assert.equal(host.url, "http://127.0.0.1:43210");
   assert.equal(host.token, "t0ken");
-  assert.ok(lines.includes("Konfiguration geladen"));
-  assert.ok(lines.includes("Profil test aus /x/ragents.config.test.ts mit Daten /tmp/data"));
+  assert.ok(lines.includes("Configuration loaded"));
+  assert.ok(lines.includes("Profile test from /x/ragents.config.test.ts with data /tmp/data"));
   await host.stop();
   assert.equal(await host.exited, 0);
   await host.stop();
 });
 
 const announcingParent = `
-console.log("Elternprozess " + process.env.RAGENTS_PARENT_PID);
+console.log("Parent process " + process.env.RAGENTS_PARENT_PID);
 console.log("Bash " + process.env.RAGENTS_BASH);
 console.log("rg " + process.env.RAGENTS_RG);
 console.log(JSON.stringify({ ragents: { url: "http://127.0.0.1:43211", token: null, pid: process.pid } }));
@@ -46,60 +46,60 @@ process.on("SIGTERM", () => process.exit(0));
 setInterval(() => {}, 1000);
 `;
 
-test("der Host kennt die Prozesskennung der Erweiterung und überlebt sie damit nicht", async () => {
+test("the host knows the process id of the extension and therefore does not outlive it", async () => {
   const lines: string[] = [];
   const host = await startHost({
     profile: "test", profileFile: "/x/ragents.config.test.ts", dataDirectory: "/tmp/data", environment: { ...process.env },
     log: (line) => lines.push(line), command: fakeHost(announcingParent), bash: "C:/tools/ragents/usr/bin/bash.exe",
     rg: "C:/tools/ragents/rg/rg.exe",
   });
-  assert.ok(lines.includes(`Elternprozess ${process.pid}`), lines.join("\n"));
+  assert.ok(lines.includes(`Parent process ${process.pid}`), lines.join("\n"));
   assert.ok(lines.includes("Bash C:/tools/ragents/usr/bin/bash.exe"), lines.join("\n"));
   assert.ok(lines.includes("rg C:/tools/ragents/rg/rg.exe"), lines.join("\n"));
   await host.stop();
   assert.equal(await host.exited, 0);
 });
 
-test("ein Host, der vor der Ansage endet oder schweigt, ist ein benannter Fehler mit seinen letzten Zeilen", async () => {
+test("a host that ends before the announcement or stays silent is a named error with its last lines", async () => {
   await assert.rejects(startHost({
     profile: "test", profileFile: "/x", dataDirectory: "/tmp", environment: { ...process.env }, log: () => undefined,
-    command: fakeHost(`console.error("RAgents startet nicht: Port belegt"); process.exit(1);`), bash: undefined, rg: undefined,
-  }), /endete vor seiner Ansage mit Code 1[\s\S]*Port belegt/);
+    command: fakeHost(`console.error("RAgents does not start: port in use"); process.exit(1);`), bash: undefined, rg: undefined,
+  }), /ended before its announcement with code 1[\s\S]*port in use/);
   await assert.rejects(startHost({
     profile: "test", profileFile: "/x", dataDirectory: "/tmp", environment: { ...process.env }, log: () => undefined,
     command: fakeHost(`setInterval(() => {}, 1000);`), startTimeoutMs: 300, bash: undefined, rg: undefined,
-  }), /nicht gemeldet/);
+  }), /did not announce itself/);
   await assert.rejects(startHost({
     profile: "test", profileFile: "/x", dataDirectory: "/tmp", environment: { ...process.env }, log: () => undefined,
-    command: { file: "/nirgendwo/node", args: [], cwd: tmpdir() }, bash: undefined, rg: undefined,
-  }), /konnte nicht gestartet werden/);
+    command: { file: "/nowhere/node", args: [], cwd: tmpdir() }, bash: undefined, rg: undefined,
+  }), /could not be started/);
 });
 
-test("scheitert der Host an einer Umgebungsvariablen, trägt sein Fehler deren Namen, nicht nur den deutschen Satz", async () => {
+test("if the host fails on an environment variable, its error carries its name, not just the sentence", async () => {
   const lines: string[] = [];
   const missing = { variable: "SERVICE_TOKEN", section: "ragents.example", key: "SERVICE_KEY" };
-  const satz = `RAgents startet nicht: ragents.config.test.ts: ${missing.section}.${missing.key} verweist mit env("${missing.variable}") auf eine nicht gesetzte Umgebungsvariable.`;
+  const sentence = `RAgents does not start: ragents.config.test.ts: ${missing.section}.${missing.key} refers with env("${missing.variable}") to an unset environment variable.`;
   const command = fakeHost(`
-console.error(${JSON.stringify(satz)});
+console.error(${JSON.stringify(sentence)});
 console.error(${JSON.stringify(missingEnvironmentNotice(missing))});
 process.exit(1);
 `);
   const cause = await startHost({
     profile: "test", profileFile: "/x", dataDirectory: "/tmp", environment: { ...process.env }, log: (line) => lines.push(line), command, bash: undefined, rg: undefined,
   }).then(() => undefined, (error: unknown) => error);
-  assert.deepEqual(missingEnvironmentOf(cause), missing, `kein benannter Fehler: ${String(cause)}`);
-  assert.match((cause as Error).message, /endete vor seiner Ansage mit Code 1[\s\S]*SERVICE_TOKEN/);
-  assert.ok(!lines.some((line) => line.startsWith("ragents:missing-environment")), "die Protokollzeile steht nicht im Ausgabekanal");
+  assert.deepEqual(missingEnvironmentOf(cause), missing, `not a named error: ${String(cause)}`);
+  assert.match((cause as Error).message, /ended before its announcement with code 1[\s\S]*SERVICE_TOKEN/);
+  assert.ok(!lines.some((line) => line.startsWith("ragents:missing-environment")), "the log line does not appear in the output channel");
 });
 
-test("die Windows-Fassung bringt ihre Bash unter dist/bash/<plattform> mit, andere Plattformen nehmen die des Systems", () => {
+test("the Windows build brings its bash under dist/bash/<platform>, other platforms use the system one", () => {
   assert.equal(bundledBash("/ext", "win32", "x64"), path.join("/ext", "dist", "bash", "win32-x64", "usr", "bin", "bash.exe"));
   assert.equal(bundledBash("/ext", "win32", "arm64"), path.join("/ext", "dist", "bash", "win32-arm64", "usr", "bin", "bash.exe"));
   assert.equal(bundledBash("/ext", "darwin", "arm64"), undefined);
   assert.equal(bundledBash("/ext", "linux", "x64"), undefined);
 });
 
-test("die Fassung einer Plattform bringt ihr rg unter dist/rg/<plattform> mit, die universelle keines", () => {
+test("the build of a platform brings its rg under dist/rg/<platform>, the universal one none", () => {
   const extension = mkdtempSync(path.join(tmpdir(), "ragents-extension-"));
   for (const [target, file] of [["darwin-arm64", "rg"], ["win32-x64", "rg.exe"]] as const) {
     mkdirSync(path.join(extension, "dist", "rg", target), { recursive: true });
@@ -107,11 +107,11 @@ test("die Fassung einer Plattform bringt ihr rg unter dist/rg/<plattform> mit, d
   }
   assert.equal(bundledRipgrep(extension, "darwin", "arm64"), path.join(extension, "dist", "rg", "darwin-arm64", "rg"));
   assert.equal(bundledRipgrep(extension, "win32", "x64"), path.join(extension, "dist", "rg", "win32-x64", "rg.exe"));
-  assert.equal(bundledRipgrep(extension, "linux", "x64"), undefined, "die universelle Fassung trägt kein rg");
+  assert.equal(bundledRipgrep(extension, "linux", "x64"), undefined, "the universal build carries no rg");
   assert.equal(bundledRipgrep(extension, "win32", "arm64"), undefined);
 });
 
-test("die geerbte Umgebung lässt nur die Variablen des umgebenden VS Code weg", () => {
+test("the inherited environment omits only the variables of the surrounding VS Code", () => {
   const saved = { ...process.env };
   process.env.VSCODE_PID = "1";
   process.env.ELECTRON_RUN_AS_NODE = "1";
@@ -130,12 +130,12 @@ test("die geerbte Umgebung lässt nur die Variablen des umgebenden VS Code weg",
   }
 });
 
-test("findExecutable sucht im PATH", () => {
+test("findExecutable searches the PATH", () => {
   assert.equal(findExecutable("node", { PATH: path.dirname(process.execPath) }), process.execPath);
-  assert.equal(findExecutable("gibt-es-nicht", { PATH: path.dirname(process.execPath) }), undefined);
+  assert.equal(findExecutable("does-not-exist", { PATH: path.dirname(process.execPath) }), undefined);
 });
 
-/** Ein npm, das die Aufrufe mitschreibt und den Host so hinterlässt, wie eine echte Installation es täte. */
+/** An npm that records the calls and leaves the host behind the way a real installation would. */
 const fakeNpm = (body: string): { directory: string; environment: NodeJS.ProcessEnv; calls: () => string[] } => {
   const directory = mkdtempSync(path.join(tmpdir(), "ragents-fake-npm-"));
   const calls = path.join(directory, "calls.txt");
@@ -159,7 +159,7 @@ writeFileSync(path.join(root, "apps", "server", "src", "main.ts"), "");
 console.log("added 1 package");
 `;
 
-test("den Host holt die Erweiterung als npm-Paket je Fassung genau einmal in ihren Speicher", async () => {
+test("the extension fetches the host as an npm package exactly once per version into its storage", async () => {
   const npm = fakeNpm(installing);
   const storage = mkdtempSync(path.join(tmpdir(), "ragents-storage-"));
   const lines: string[] = [];
@@ -167,22 +167,22 @@ test("den Host holt die Erweiterung als npm-Paket je Fassung genau einmal in ihr
   assert.equal(root, path.join(hostPackageFolder(storage, "0.1.0"), "node_modules", "@schlenkr", "ragents"));
   assert.deepEqual(npm.calls(), [`install --prefix ${hostPackageFolder(storage, "0.1.0")} ${HOST_PACKAGE_NAME}@0.1.0`]);
   assert.ok(lines.some((line) => line.includes(`${HOST_PACKAGE_NAME}@0.1.0`)));
-  assert.ok(lines.includes("added 1 package"), "die Ausgabe von npm steht im Kanal");
+  assert.ok(lines.includes("added 1 package"), "the npm output appears in the channel");
   assert.equal(await ensureHostPackage(storage, "0.1.0", npm.environment, () => undefined), root);
-  assert.equal(npm.calls().length, 1, "eine geholte Fassung bleibt liegen");
+  assert.equal(npm.calls().length, 1, "a fetched version stays");
   await ensureHostPackage(storage, "0.2.0", npm.environment, () => undefined);
-  assert.equal(npm.calls().length, 2, "jede Fassung bekommt ihren eigenen Ordner");
+  assert.equal(npm.calls().length, 2, "each version gets its own folder");
 });
 
-test("ein lokales Profil holt die Fassung, die in der package.json der Erweiterung steht", () => {
+test("a local profile fetches the version that is in the package.json of the extension", () => {
   assert.equal(packagedHostVersion(path.resolve(import.meta.dirname, "..")), readPackageVersion(path.resolve(import.meta.dirname, "../../..")),
-    "Erweiterung und Host-Paket gehören zusammen");
+    "extension and host package belong together");
   const empty = mkdtempSync(path.join(tmpdir(), "ragents-manifest-"));
   writeFileSync(path.join(empty, "package.json"), JSON.stringify({ name: "ragents-vscode" }));
-  assert.throws(() => packagedHostVersion(empty), /ragents\.packageVersion nennt die Fassung von @schlenkr\/ragents/);
+  assert.throws(() => packagedHostVersion(empty), /ragents\.packageVersion names the version of @schlenkr\/ragents/);
 });
 
-test("für einen Test steht eine lokale .tgz an der Stelle des veröffentlichten Pakets", async () => {
+test("for a test, a local .tgz takes the place of the published package", async () => {
   assert.equal(hostPackageSpecifier("0.1.2", {}), `${HOST_PACKAGE_NAME}@0.1.2`);
   assert.equal(hostPackageSpecifier("0.1.2", { RAGENTS_HOST_PACKAGE_SPEC: "  /tmp/ragents.tgz  " }), "/tmp/ragents.tgz");
   const npm = fakeNpm(installing);
@@ -193,11 +193,11 @@ test("für einen Test steht eine lokale .tgz an der Stelle des veröffentlichten
   assert.ok(lines.some((line) => line.includes("/tmp/ragents.tgz")));
 });
 
-test("ohne npm und ohne Host im Ergebnis ist das Holen ein benannter Fehler", async () => {
+test("without npm and without a host in the result, fetching is a named error", async () => {
   const storage = mkdtempSync(path.join(tmpdir(), "ragents-storage-"));
-  await assert.rejects(() => ensureHostPackage(storage, "0.1.0", { PATH: "" }, () => undefined), /npm wurde im PATH nicht gefunden.*ragents\.hostPath/s);
+  await assert.rejects(() => ensureHostPackage(storage, "0.1.0", { PATH: "" }, () => undefined), /npm was not found in the PATH.*ragents\.hostPath/s);
   const empty = fakeNpm(`
-require("node:fs").appendFileSync(process.env.RAGENTS_FAKE_NPM_CALLS, "leer\\n");
+require("node:fs").appendFileSync(process.env.RAGENTS_FAKE_NPM_CALLS, "empty\\n");
 `);
-  await assert.rejects(() => installHostPackage(path.join(storage, "leer"), "irgendwas.tgz", empty.environment, () => undefined), /irgendwas\.tgz hat keinen RAgents-Host/);
+  await assert.rejects(() => installHostPackage(path.join(storage, "empty"), "anything.tgz", empty.environment, () => undefined), /anything\.tgz did not leave a RAgents host/);
 });

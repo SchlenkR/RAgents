@@ -59,7 +59,7 @@ document.querySelector('textarea').addEventListener('input', event => {
     await context.route("http://127.0.0.1:*/**", async (route) => {
       const url = new URL(route.request().url());
       const body = url.origin === hullOrigin ? html : url.pathname === "/child.js" ? bundle.outputFiles[0].text
-        : '<!doctype html><html><body><textarea aria-label="Chat"></textarea><input type="password" aria-label="Passwort"><script src="/child.js"></script></body></html>';
+        : '<!doctype html><html><body><textarea aria-label="Chat"></textarea><input type="password" aria-label="Password"><script src="/child.js"></script></body></html>';
       await route.fulfill({ contentType: url.pathname === "/child.js" ? "text/javascript" : "text/html", body });
     });
     await context.addInitScript({ content: `(() => {
@@ -78,7 +78,7 @@ document.querySelector('textarea').addEventListener('input', event => {
       document.execCommand = (command, showUI, value) => {
         if (command !== "paste") return execCommand(command, showUI, value);
         state.pasteCalls += 1;
-        document.activeElement.value = "Diktierter Satz.";
+        document.activeElement.value = "Dictated sentence.";
         return true;
       };
     })();` });
@@ -89,8 +89,8 @@ document.querySelector('textarea').addEventListener('input', event => {
     const child = page.frameLocator("#frame");
     const input = child.getByRole("textbox", { name: "Chat", exact: true });
     await input.fill("");
-    await input.pressSequentially("Normaler Text");
-    assert.equal(await input.inputValue(), "Normaler Text");
+    await input.pressSequentially("Normal text");
+    assert.equal(await input.inputValue(), "Normal text");
     await page.waitForFunction(() => window.keyboardHarness.keys.some((event) => event.type === "keydown" && event.key === "t"));
 
     await input.focus();
@@ -109,7 +109,7 @@ document.querySelector('textarea').addEventListener('input', event => {
     assert.deepEqual(await page.evaluate(() => window.keyboardHarness.extensionMessages), []);
 
     const beforeLocal = relayed.length;
-    await input.fill("Bearbeiten");
+    await input.fill("Editing");
     await input.press("Meta+A");
     await input.evaluate((element) => {
       element.dispatchEvent(new KeyboardEvent("keydown", { key: "Process", code: "KeyP", metaKey: true, isComposing: true, bubbles: true }));
@@ -125,9 +125,9 @@ document.querySelector('textarea').addEventListener('input', event => {
       element.dispatchEvent(new KeyboardEvent("keyup", { key: "v", code: "KeyV", keyCode: 86, metaKey: true, bubbles: true, cancelable: true }));
     });
     const frame = page.frames().find((candidate) => candidate.url().startsWith(childOrigin))!;
-    await frame.waitForFunction(() => document.querySelector("textarea")?.value === "Diktierter Satz.");
-    assert.equal(await input.inputValue(), "Diktierter Satz.");
-    assert.deepEqual(await frame.evaluate(() => window.keyboardInput.at(-1)), { value: "Diktierter Satz.", inputType: "insertText" });
+    await frame.waitForFunction(() => document.querySelector("textarea")?.value === "Dictated sentence.");
+    assert.equal(await input.inputValue(), "Dictated sentence.");
+    assert.deepEqual(await frame.evaluate(() => window.keyboardInput.at(-1)), { value: "Dictated sentence.", inputType: "insertText" });
     assert.equal(await page.evaluate(() => window.keyboardHarness.pasteCalls), 1);
     assert.equal(await page.evaluate(() => window.keyboardHarness.keys.length), beforePaste);
     assert.deepEqual(await page.evaluate(() => window.keyboardHarness.extensionMessages), []);

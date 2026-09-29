@@ -6,8 +6,8 @@ const ACTOR_HUES = [212, 158, 28, 283, 350, 190, 95, 320, 55, 245];
 const shortId = (id: string) => id.length > 12 ? `${id.slice(0, 12)}...` : id;
 
 export const actorInputLabel = (view: RunView, input: RunActorInput): string => input.subscriptionId
-  ? "Über Subscription zugestellt"
-  : `Zugestellt von @${view.actors.find((actor) => actor.id === input.enqueuedBy)?.handle ?? shortId(input.enqueuedBy)}`;
+  ? "Delivered via subscription"
+  : `Delivered by @${view.actors.find((actor) => actor.id === input.enqueuedBy)?.handle ?? shortId(input.enqueuedBy)}`;
 
 export const actorConversation = (view: RunView, actor: RunActor): Message[] => {
   const colorOf = (actorId: string) => {
@@ -20,7 +20,7 @@ export const actorConversation = (view: RunView, actor: RunActor): Message[] => 
       const fromOwner = input.enqueuedBy === view.ownerId;
       const attachments = input.artifactIds.map((id) => {
         const artifact = view.artifacts.find((entry) => entry.id === id);
-        if (!artifact) throw new Error(`Anhang ${id} fehlt in der Run-Ansicht`);
+        if (!artifact) throw new Error(`Attachment ${id} is missing from the run view`);
         return {
           name: artifact.title, mediaType: artifact.mediaType, size: artifact.size,
           url: `/chat/${encodeURIComponent(view.id)}/attachments/${encodeURIComponent(id)}`,

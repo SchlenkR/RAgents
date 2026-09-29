@@ -22,13 +22,13 @@ const previewSourceClass = "min-w-0 px-2.5 pt-0 pb-2.5 text-xs leading-[1.45] wh
 const indent = (depth: number) => ({ "--row-indent": `${8 + depth * 12}px` }) as CSSProperties;
 
 const rootLabels: Readonly<Record<BrowseRoot, string>> = {
-  workspace: "Arbeitsverzeichnis",
-  files: "Dateiablage",
+  workspace: "Working directory",
+  files: "File storage",
 };
 
 const emptyHints: Readonly<Record<BrowseRoot, string>> = {
-  workspace: "Im Arbeitsverzeichnis des Runs liegt noch nichts.",
-  files: "In der Dateiablage des Runs liegt noch nichts.",
+  workspace: "There is nothing in the run's working directory yet.",
+  files: "There is nothing in the run's file storage yet.",
 };
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
@@ -41,7 +41,7 @@ const sizeLabel = (bytes: number): string => {
 
 const timeLabel = (value: string): string => {
   const at = new Date(value);
-  return Number.isNaN(at.getTime()) ? value : at.toLocaleString("de-DE");
+  return Number.isNaN(at.getTime()) ? value : at.toLocaleString("en-US");
 };
 
 interface BrowserMemory {
@@ -208,7 +208,7 @@ export function FileBrowserPanel({ active, session }: WorkspaceTabContext) {
         })}
         {listing.truncated && (
           <div className="py-1 pr-2.5 pl-(--row-indent) text-[0.64rem] text-muted-foreground" style={indent(depth)}>
-            Weitere Einträge sind nicht gelistet.
+            Further entries are not listed.
           </div>
         )}
       </>
@@ -229,15 +229,15 @@ export function FileBrowserPanel({ active, session }: WorkspaceTabContext) {
         </div>
         <div className="flex items-center gap-1">
           <Toggle
-            aria-label={showHidden ? "Versteckte Einträge ausblenden" : "Versteckte Einträge anzeigen"}
+            aria-label={showHidden ? "Hide hidden entries" : "Show hidden entries"}
             onPressedChange={setShowHidden}
             pressed={showHidden}
             size="sm"
-            title={showHidden ? "Versteckte Einträge ausblenden" : "Versteckte Einträge anzeigen"}
+            title={showHidden ? "Hide hidden entries" : "Show hidden entries"}
           >
             {showHidden ? <Eye size={15} strokeWidth={1.8} /> : <EyeOff size={15} strokeWidth={1.8} />}
           </Toggle>
-          <Button aria-label="Dateien aktualisieren" onClick={() => setReload((value) => value + 1)} size="icon" title="Aktualisieren" variant="ghost">
+          <Button aria-label="Refresh files" onClick={() => setReload((value) => value + 1)} size="icon" title="Refresh" variant="ghost">
             <RefreshCw className={pending ? "animate-spin" : undefined} size={15} strokeWidth={1.8} />
           </Button>
         </div>
@@ -252,7 +252,7 @@ export function FileBrowserPanel({ active, session }: WorkspaceTabContext) {
         <Empty className="min-h-30 flex-none gap-2 p-7">
           <EmptyHeader>
             <EmptyMedia><FolderOpen size={15} strokeWidth={1.7} /></EmptyMedia>
-            <EmptyTitle>Keine Dateien</EmptyTitle>
+            <EmptyTitle>No files</EmptyTitle>
             <EmptyDescription>{emptyHints[root]}</EmptyDescription>
           </EmptyHeader>
         </Empty>

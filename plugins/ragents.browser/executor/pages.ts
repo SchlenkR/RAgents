@@ -17,7 +17,7 @@ interface BrowserSession {
   closed: boolean;
   checked: boolean;
   errors: string[];
-  /** Adressen, deren fehlgeschlagene Anfrage schon gemeldet ist; HTTP-Status, Konsole und Netzwerk melden dieselbe Ursache nur einmal. */
+  /** Addresses whose failed request is already reported; HTTP status, console and network report the same cause only once. */
   failedRequests: Set<string>;
   screenshots: string[];
 }
@@ -29,9 +29,9 @@ export interface BrowserPagesOptions {
 }
 
 const errorText = (error: unknown): string => error instanceof Error ? error.message : String(error);
-const endedError = (): Error => new Error("Der Browserdienst dieses Executors ist beendet.");
+const endedError = (): Error => new Error("The browser service of this executor has ended.");
 const maxSnapshotLength = 40_000;
-const ambiguityHint = "Wähle mit nth (0-basiert) oder first: true im Ziel einen Treffer, oder prüfe die Anzahl mit count in browser_check.";
+const ambiguityHint = "Pick one match with nth (0-based) or first: true in the target, or check the number with count in browser_check.";
 
 const withAmbiguityHint = (error: unknown): never => {
   if (error instanceof Error && error.message.includes("strict mode violation")) throw new Error(`${error.message}\n${ambiguityHint}`, { cause: error });
@@ -41,9 +41,9 @@ const withAmbiguityHint = (error: unknown): never => {
 export const browserLocator = (page: Page, target: BrowserTarget): Locator => {
   const selectors = [target.role, target.label, target.text, target.testId, target.css].filter((value) => value !== undefined);
   if (selectors.length !== 1 || (target.name !== undefined && target.role === undefined)) {
-    throw new Error("Ein Browserziel braucht genau role (optional name), label, text, testId oder css.");
+    throw new Error("A browser target needs exactly one of role (optional name), label, text, testId or css.");
   }
-  if (target.nth !== undefined && target.first) throw new Error("Ein Browserziel verwendet entweder nth oder first, nicht beides.");
+  if (target.nth !== undefined && target.first) throw new Error("A browser target uses either nth or first, not both.");
   const root = target.frame ? page.frameLocator(target.frame) : page;
   const base = target.role ? root.getByRole(target.role as Parameters<Page["getByRole"]>[0], { name: target.name, exact: true })
     : target.label ? root.getByLabel(target.label, { exact: true })
@@ -53,7 +53,7 @@ export const browserLocator = (page: Page, target: BrowserTarget): Locator => {
   return target.first ? base.first() : target.nth !== undefined ? base.nth(target.nth) : base;
 };
 
-/** Je Run ein Browser mit einer Seite auf dieser Maschine; die Aktionen eines Runs laufen der Reihe nach. */
+/** One browser with one page per run on this machine; a run's actions run one after another. */
 export class BrowserPages {
   readonly #options: BrowserPagesOptions;
   readonly #sessions = new Map<string, BrowserSession>();
@@ -66,13 +66,13 @@ export class BrowserPages {
   async open(runId: string, url: string, viewport: BrowserViewport, signal?: AbortSignal): Promise<BrowserStep<BrowserSnapshot>> {
     if (this.#shutDown) throw endedError();
     const parsed = new URL(url);
-    if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("browser_open braucht eine HTTP- oder HTTPS-Adresse.");
+    if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("browser_open needs an HTTP or HTTPS address.");
     signal?.throwIfAborted();
     if (!this.#sessions.has(runId)) this.#start(runId, viewport);
     return this.#perform(runId, signal, async (session, page) => {
       this.#resetEvidence(session);
       const response = await page.goto(parsed.href, { waitUntil: "domcontentloaded" });
-      if (response && !response.ok()) throw new Error(`Browsernavigation fehlgeschlagen: HTTP ${response.status()} (${page.url()}).`);
+      if (response && !response.ok()) throw new Error(`Browser navigation failed: HTTP ${response.status()} (${page.url()}).`);
       return this.#snapshot(session, page);
     });
   }
@@ -108,45 +108,45 @@ export class BrowserPages {
     return this.#perform(runId, signal, async (session, page) => {
       session.checked = false;
       if (!input.target && input.text === undefined && input.url === undefined && input.noErrors !== true) {
-        throw new Error("browser_check braucht mindestens target, text, url oder noErrors: true.");
+        throw new Error("browser_check needs at least target, text, url or noErrors: true.");
       }
       if (input.count !== undefined && (!input.target || input.target.nth !== undefined || input.target.first)) {
-        throw new Error("count in browser_check braucht ein target ohne nth oder first und zählt dessen sichtbare Treffer.");
+        throw new Error("count in browser_check needs a target without nth or first and counts its visible matches.");
       }
       const timeout = this.#options.checkTimeoutMs;
       const assertions: string[] = [];
       if (input.target && input.count !== undefined) {
         const visible = browserLocator(page, input.target).filter({ visible: true });
         const found = await this.#waitForCount(visible, input.count, timeout);
-        if (found !== input.count) throw new Error(`Erwartet ${input.count} sichtbare Treffer, gefunden ${found}.`);
-        assertions.push(`${input.count} sichtbare Treffer`);
+        if (found !== input.count) throw new Error(`Expected ${input.count} visible matches, found ${found}.`);
+        assertions.push(`${input.count} visible matches`);
       } else if (input.target) {
         const locator = browserLocator(page, input.target);
         await locator.waitFor({ state: "visible", timeout }).catch(withAmbiguityHint);
-        assertions.push("Ziel ist sichtbar");
+        assertions.push("Target is visible");
         if (input.text !== undefined) {
           try { await locator.filter({ hasText: input.text }).waitFor({ state: "visible", timeout }); }
-          catch (error) { throw new Error(`Erwarteter Text fehlt im Ziel: ${input.text}`, { cause: error }); }
-          assertions.push(`Text im Ziel: ${input.text}`);
+          catch (error) { throw new Error(`Expected text is missing in the target: ${input.text}`, { cause: error }); }
+          assertions.push(`Text in target: ${input.text}`);
         }
       } else if (input.text !== undefined) {
         await page.getByText(input.text, { exact: false }).first().waitFor({ state: "visible", timeout });
-        assertions.push(`Sichtbarer Text: ${input.text}`);
+        assertions.push(`Visible text: ${input.text}`);
       }
       if (input.url !== undefined) {
         await page.waitForURL(input.url, { timeout });
-        assertions.push(`Adresse: ${input.url}`);
+        assertions.push(`Address: ${input.url}`);
       }
       if (input.noErrors !== false) {
-        if (session.errors.length > 0) throw new Error(`Browserfehler: ${session.errors.join("\n")}`);
-        assertions.push("Keine erfassten Browser- oder Netzwerkfehler seit der Navigation");
+        if (session.errors.length > 0) throw new Error(`Browser errors: ${session.errors.join("\n")}`);
+        assertions.push("No captured browser or network errors since the navigation");
       }
       session.checked = true;
       return { url: page.url(), assertions };
     });
   }
 
-  /** Nimmt die Seite als PNG auf und liefert es Base64-kodiert; `id` merkt sich die Seite als aktuelle Aufnahme. */
+  /** Captures the page as PNG and returns it Base64-encoded; the page remembers `id` as the current screenshot. */
   screenshot(runId: string, id: string, fullPage: boolean, signal?: AbortSignal): Promise<BrowserStep<string>> {
     return this.#perform(runId, signal, async (session, page) => {
       const image = await page.screenshot({ fullPage, type: "png", timeout: this.#options.timeoutMs });
@@ -155,7 +155,7 @@ export class BrowserPages {
     });
   }
 
-  /** Der Stand der Seite, ohne auf laufende Aktionen zu warten; ohne offene Seite `null`. */
+  /** The page state without waiting for running actions; `null` without an open page. */
   state(runId: string): BrowserPageState | null {
     const session = this.#sessions.get(runId);
     return session && !session.closed && session.page ? this.#stateOf(session, session.page) : null;
@@ -171,7 +171,7 @@ export class BrowserPages {
     await session.queue;
   }
 
-  /** Schließt jeden Browser; danach startet keiner mehr, weil niemand ihn schließen würde. */
+  /** Closes every browser; afterwards none starts anymore because nobody would close it. */
   async shutdown(): Promise<void> {
     this.#shutDown = true;
     const results = await Promise.allSettled([...this.#sessions.keys()].map((runId) => this.close(runId)));
@@ -219,10 +219,10 @@ export class BrowserPages {
   }
 
   async #page(session: BrowserSession): Promise<Page> {
-    if (session.closed) throw new Error("Der Browser wurde beendet.");
+    if (session.closed) throw new Error("The browser was closed.");
     if (session.page) return session.page;
     const browser = await session.browser;
-    if (session.closed) throw new Error("Der Browser wurde beendet.");
+    if (session.closed) throw new Error("The browser was closed.");
     const context = await browser.newContext({ viewport: session.viewport });
     context.setDefaultTimeout(this.#options.timeoutMs);
     context.setDefaultNavigationTimeout(this.#options.timeoutMs);
@@ -239,16 +239,16 @@ export class BrowserPages {
     page.on("console", (message) => {
       if (message.type() !== "error") return;
       const source = message.text().startsWith("Failed to load resource") ? message.location().url : "";
-      if (source) addRequestError(source, `Konsole: ${message.text()} (${source})`);
-      else addError(`Konsole: ${message.text()}`);
+      if (source) addRequestError(source, `Console: ${message.text()} (${source})`);
+      else addError(`Console: ${message.text()}`);
     });
     page.on("pageerror", (error) => addError(`JavaScript: ${error.message}`));
-    page.on("requestfailed", (request) => addRequestError(request.url(), `Netzwerk: ${request.method()} ${request.url()} ${request.failure()?.errorText}`));
+    page.on("requestfailed", (request) => addRequestError(request.url(), `Network: ${request.method()} ${request.url()} ${request.failure()?.errorText}`));
     page.on("response", (response) => { if (response.status() >= 400) addRequestError(response.url(), `HTTP ${response.status()}: ${response.url()}`); });
     page.on("framenavigated", (frame) => { if (frame === page.mainFrame()) this.#resetEvidence(session); });
     page.on("popup", (popup) => {
-      addError(`Die Anwendung hat ein neues Fenster geöffnet: ${popup.url()}. Popups werden nicht bedient.`);
-      void popup.close().catch((error) => addError(`Fenster schließen: ${errorText(error)}`));
+      addError(`The application opened a new window: ${popup.url()}. Popups are not operated.`);
+      void popup.close().catch((error) => addError(`Closing window: ${errorText(error)}`));
     });
     session.page = page;
     return page;
@@ -257,17 +257,17 @@ export class BrowserPages {
   #perform<T>(runId: string, signal: AbortSignal | undefined, action: (session: BrowserSession, page: Page) => Promise<T>): Promise<BrowserStep<T>> {
     if (this.#shutDown) return Promise.reject(endedError());
     const session = this.#sessions.get(runId);
-    if (!session || session.closed) return Promise.reject(new Error("Für diesen Run ist kein Browser offen. Zuerst browser_open aufrufen."));
+    if (!session || session.closed) return Promise.reject(new Error("No browser is open for this run. Call browser_open first."));
     const pending = session.queue.then(async () => {
       signal?.throwIfAborted();
-      const abort = () => { void this.close(runId).catch((error) => console.error("Browserstopp fehlgeschlagen:", errorText(error))); };
+      const abort = () => { void this.close(runId).catch((error) => console.error("Browser stop failed:", errorText(error))); };
       signal?.addEventListener("abort", abort, { once: true });
       try {
         const page = await this.#page(session);
         signal?.throwIfAborted();
         const result = await action(session, page);
         signal?.throwIfAborted();
-        if (session.closed) throw new Error("Der Browser wurde beendet.");
+        if (session.closed) throw new Error("The browser was closed.");
         return { result, page: this.#stateOf(session, page) };
       } finally {
         signal?.removeEventListener("abort", abort);

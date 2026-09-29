@@ -9,14 +9,14 @@ const searchTexts = {
   grep: "`rg` (ripgrep) is not available here. `grep -r` also walks dependency and build folders, so exclude them: `grep -r --exclude-dir=node_modules --exclude-dir=.git --exclude-dir=bin --exclude-dir=obj ...`.",
 };
 
-/** Was der Executor dem Werkzeug bash über die Plattform hinaus bietet. */
+/** What the executor offers the bash tool beyond the platform. */
 export interface ShellTools {
   readonly ripgrep: boolean;
 }
 
 export const shellPlatformText = (platform: NodeJS.Platform, tools: ShellTools): string => {
   const text = platformTexts[platform];
-  if (!text) throw new Error(`Für die Plattform ${platform} gibt es keine Shell-Beschreibung.`);
+  if (!text) throw new Error(`There is no shell description for the platform ${platform}.`);
   const search = tools.ripgrep ? searchTexts.ripgrep : searchTexts.grep;
   return `${text} ${search} A nonzero exit code, for example \`grep\` without a match, comes back as an ordinary result with the code at the end, not as a tool error; only start, timeout and abort problems are tool errors.`;
 };

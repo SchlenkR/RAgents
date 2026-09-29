@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
-/** Die Panelseite der VS-Code-Erweiterung: ein Einstieg ohne Server und ohne Plugins, mit festen Dateinamen für das Webview. */
+/** The panel page of the VS Code extension: an entry point without a server and without plugins, with fixed file names for the webview. */
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   build: {

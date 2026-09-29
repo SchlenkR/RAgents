@@ -1,8 +1,8 @@
-# Einstieg für KI-Assistenten
+# Entry point for AI assistants
 
-Der Einstieg ist `docs/development.md`. Lies es zuerst, insbesondere den Abschnitt "Für
-KI-Assistenten" mit Pflichtlektüre, Dokumentationsregel und Arbeitsregeln. Die `README.md` an der
-Wurzel ist der kurze englische GitHub-Einstieg und enthält keine Regeln.
+The entry point is `docs/development.md`. Read it first, especially the section "For AI
+assistants" with required reading, the documentation rule, and working rules. The `README.md` at
+the root is the short English GitHub entry point and contains no rules.
 
-Sollst Du RAgents benutzen statt daran zu arbeiten, ist der Zeiger
+If you are supposed to use RAgents rather than work on it, the pointer is
 `skills-for-agents/ragents/SKILL.md`.

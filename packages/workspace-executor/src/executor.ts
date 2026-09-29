@@ -3,29 +3,29 @@ import { WorkspaceOperationError } from "./errors.js";
 import type { WorkspaceExecutorModule, WorkspaceModuleFactory, WorkspaceOperation } from "./module.js";
 import { NO_ROOTS, type OperationFootprint } from "./paths.js";
 
-/** Der Stand des Executors; Server und Arbeitsplatz müssen denselben tragen. */
+/** The version of the executor; server and workspace must carry the same one. */
 export const WORKSPACE_EXECUTOR_VERSION = "7";
 
 export interface WorkspaceExecuteOptions {
   toolCallId?: string;
   signal?: AbortSignal;
-  /** Nimmt den Fortschritt der Operation als JSON-Wert entgegen. */
+  /** Receives the progress of the operation as a JSON value. */
   onProgress?: (value: unknown) => void;
-  /** Wie lange die Operation selbst laufen darf; ein entfernter Executor wartet so lange zusätzlich zu seiner Sicherheitsgrenze. */
+  /** How long the operation itself may run; a remote executor waits this long in addition to its safety margin. */
   durationMs?: number;
-  /** Die Operation läuft bis zum Abbruch über `signal`, etwa eine Beobachtung; keine Zeitgrenze greift. */
+  /** The operation runs until it is aborted through `signal`, such as a watch; no timeout applies. */
   untilAborted?: boolean;
-  /** Nur ausführen, wenn der Executor erreichbar ist und rechtzeitig antwortet; sonst ist das Ergebnis `null`. Für Aufräumen, das `stopRun` nachholt. */
+  /** Execute only if the executor is reachable and answers in time; otherwise the result is `null`. For cleanup that `stopRun` catches up on. */
   whenReachable?: boolean;
 }
 
-/** Führt die Operationen eines Runs auf einer Maschine aus; kennt weder Engine noch Run-Vertrag noch Plugins. */
+/** Executes the operations of a run on a machine; knows neither engine nor run contract nor plugins. */
 export interface WorkspaceExecutor {
   readonly version: string;
   execute: (runId: string, operation: string, input: unknown, options?: WorkspaceExecuteOptions) => Promise<unknown>;
-  /** Gibt frei, was der Executor für den Run hält; ein entfernter Executor holt das nach, wenn er gerade nicht erreichbar ist. */
+  /** Releases what the executor holds for the run; a remote executor catches up on this if it is currently unreachable. */
   stopRun: (runId: string) => Promise<void>;
-  /** Beendet den Executor endgültig; wer danach wieder einen braucht, baut einen neuen. */
+  /** Ends the executor for good; whoever needs one again afterwards builds a new one. */
   shutdown: () => Promise<void>;
 }
 
@@ -42,7 +42,7 @@ const settledAll = async (operations: readonly Promise<void>[]): Promise<void> =
   if (failed) throw failed.reason;
 };
 
-/** Ein Executor aus Modulen: jede Operation gehört genau einem Modul, der Executor selbst kennt keine. */
+/** An executor made of modules: every operation belongs to exactly one module, the executor itself knows none. */
 export class WorkspaceOperationExecutor implements WorkspaceExecutor {
   readonly version = WORKSPACE_EXECUTOR_VERSION;
   readonly #modules: readonly WorkspaceExecutorModule[];
@@ -58,26 +58,26 @@ export class WorkspaceOperationExecutor implements WorkspaceExecutor {
     const operations = new Map<string, WorkspaceOperation>();
     for (const module of this.#modules) {
       for (const [name, operation] of Object.entries(module.operations)) {
-        if (operations.has(name)) throw new Error(`Die Operation ${name} ist im Executor doppelt registriert`);
+        if (operations.has(name)) throw new Error(`The operation ${name} is registered twice in the executor`);
         operations.set(name, operation);
       }
     }
     this.#operations = operations;
     this.#footprints = new Map(this.#modules.flatMap((module) => Object.entries(module.footprints ?? {}).map(([name, footprint]) => {
-      if (!Object.hasOwn(module.operations, name)) throw new Error(`Ein Modul erklärt einen Fußabdruck für ${name}, eine Operation, die es nicht hat`);
+      if (!Object.hasOwn(module.operations, name)) throw new Error(`A module declares a footprint for ${name}, an operation it does not have`);
       return [name, footprint] as const;
     })));
   }
 
-  /** Der Fußabdruck einer Eingabe nach der Erklärung des Moduls, dem die Operation gehört; so weiß ein Aufrufer, auf welche Maschine sie gehört. */
+  /** The footprint of an input according to the declaration of the module the operation belongs to; this tells a caller which machine it belongs on. */
   footprintOf(operation: string, input: unknown): OperationFootprint {
     return this.#footprints.get(operation)?.(input) ?? { roots: NO_ROOTS };
   }
 
   async execute(runId: string, operation: string, input: unknown, options: WorkspaceExecuteOptions = {}): Promise<unknown> {
     const run = this.#operations.get(operation);
-    if (!run) throw new WorkspaceOperationError("workspace-operation-unknown", `Der Executor kennt die Operation ${operation} nicht`, 400);
-    if (options.untilAborted && !options.signal) throw new Error(`Die Operation ${operation} läuft bis zum Abbruch und braucht dafür ein Abbruchsignal`);
+    if (!run) throw new WorkspaceOperationError("workspace-operation-unknown", `The executor does not know the operation ${operation}`, 400);
+    if (options.untilAborted && !options.signal) throw new Error(`The operation ${operation} runs until it is aborted and needs an abort signal for that`);
     return run({ runId, input, toolCallId: options.toolCallId, signal: options.signal, progress: options.onProgress });
   }
 
@@ -91,7 +91,7 @@ export class WorkspaceOperationExecutor implements WorkspaceExecutor {
 
   async #annotate(runId: string, absolutePath: string): Promise<string | undefined> {
     const notes = await Promise.all(this.#modules.flatMap((module) => module.annotate
-      ? [module.annotate(runId, absolutePath).catch((error: unknown) => `Anmerkung fehlgeschlagen: ${messageOf(error)}`)]
+      ? [module.annotate(runId, absolutePath).catch((error: unknown) => `Annotation failed: ${messageOf(error)}`)]
       : []));
     const text = notes.filter((note): note is string => Boolean(note)).join("\n");
     return text || undefined;

@@ -1,1 +1,1 @@
-Diesem Skill fehlt die SKILL.md.
+This skill is missing its SKILL.md.

@@ -37,12 +37,12 @@ const serializedError = (error: unknown): SerializedWorkerError => {
 };
 
 if (parentPort === null) {
-    throw new Error("Der TypeScript-Compiler-Worker benötigt einen übergeordneten Thread.");
+    throw new Error("The TypeScript compiler worker needs a parent thread.");
 }
 
 const port = parentPort;
 port.on("message", (message: CompilerWorkerRequest) => {
-    if (message?.kind !== "compile") throw new Error("Der TypeScript-Compiler-Worker hat eine unbekannte Anfrage erhalten.");
+    if (message?.kind !== "compile") throw new Error("The TypeScript compiler worker received an unknown request.");
     try {
         const compilation = compileVirtualTypeScript(message.request);
         port.postMessage({ kind: "result", requestId: message.requestId, compilation } satisfies CompilerWorkerMessage);

@@ -42,7 +42,7 @@ export function createModelSettingsStore(api: ModelSettingsApi = rpcApi) {
     return loading;
   };
   const save = async (selection: OverseerModelSelection): Promise<void> => {
-    if (!state.settings || state.status === "saving") throw new Error("Warte, bis die Einstellungen bereit sind");
+    if (!state.settings || state.status === "saving") throw new Error("Wait until the settings are ready");
     revision += 1;
     publish({ status: "saving", settings: state.settings });
     try {

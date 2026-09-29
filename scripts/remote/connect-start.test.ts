@@ -10,26 +10,26 @@ import { announcement, assertGreetingServed, GREETING_PLUGIN, isolatedDirectory,
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 
-test("ein Server verteilt ein Profil mit einem fremden Bundle; connect holt es in einen leeren Ordner und startet es mit dem Web seines Hosts", { timeout: 180_000 }, async () => {
+test("a server distributes a profile with a foreign bundle; connect fetches it into an empty folder and starts it with its host's web app", { timeout: 180_000 }, async () => {
   const problem = hostWebProblem(hostWebDirectory(root), root, true);
-  assert.equal(problem, undefined, `${problem}; vorher pnpm build:web`);
+  assert.equal(problem, undefined, `${problem}; run pnpm build:web first`);
   const directory = isolatedDirectory("ragents-connect-start-");
   const children: ChildProcess[] = [];
   try {
     const source = writeFiles(path.join(directory, "sources", "acme.greeting"), GREETING_PLUGIN);
-    const profiles = path.join(directory, "werkstatt");
+    const profiles = path.join(directory, "workshop");
     const [outcome] = await buildPlugins([source], { out: path.join(profiles, "dist", "plugins"), typecheck: false });
     assert.equal(outcome?.kind, "built", outcome?.kind === "failed" ? outcome.problems.join("\n") : "");
     const builtIns = ["ragents.orchestration", "ragents.workspace", "ragents.product"];
-    writeFileSync(path.join(profiles, "ragents.config.werkstatt-client.ts"), profileSource("werkstatt-client", [...builtIns, "./dist/plugins/acme.greeting"]));
-    const serverProfile = path.join(profiles, "ragents.config.werkstatt.ts");
-    writeFileSync(serverProfile, profileSource("werkstatt", [...builtIns, "ragents.profile-distribution"],
-      `"ragents.profile-distribution": { CLIENT_PROFILE_FILE: "./ragents.config.werkstatt-client.ts" },`));
+    writeFileSync(path.join(profiles, "ragents.config.workshop-client.ts"), profileSource("workshop-client", [...builtIns, "./dist/plugins/acme.greeting"]));
+    const serverProfile = path.join(profiles, "ragents.config.workshop.ts");
+    writeFileSync(serverProfile, profileSource("workshop", [...builtIns, "ragents.profile-distribution"],
+      `"ragents.profile-distribution": { CLIENT_PROFILE_FILE: "./ragents.config.workshop-client.ts" },`));
 
-    const environment = { ...process.env, ACME_MODEL_KEY: "kein-echter-schluessel", RAGENTS_DEV: "" };
+    const environment = { ...process.env, ACME_MODEL_KEY: "not-a-real-key", RAGENTS_DEV: "" };
     const server = spawn(process.execPath, ["--import", "tsx", "src/main.ts", "--port", "0"], {
       cwd: path.join(root, "apps/server"),
-      env: { ...environment, PRODUCT_PROFILE: "werkstatt", PRODUCT_PROFILE_FILE: serverProfile, DATA_DIR: path.join(directory, "server-data") },
+      env: { ...environment, PRODUCT_PROFILE: "workshop", PRODUCT_PROFILE_FILE: serverProfile, DATA_DIR: path.join(directory, "server-data") },
       stdio: ["ignore", "pipe", "pipe"],
     });
     children.push(server);
@@ -45,14 +45,14 @@ test("ein Server verteilt ein Profil mit einem fremden Bundle; connect holt es i
     });
     children.push(connect);
     const client = await announcement(connect, connectOutput);
-    assert.ok(connectOutput.some((line) => line.includes("== Profil werkstatt-client vom Server") && line.includes("(geholt)")), connectOutput.join("\n"));
+    assert.ok(connectOutput.some((line) => line.includes("== Profile workshop-client from server") && line.includes("(fetched)")), connectOutput.join("\n"));
 
-    const cache = path.join(home, ".local/share/ragents/remote", `127.0.0.1-${new URL(distributing.url).port}`, "werkstatt-client", "profiles");
+    const cache = path.join(home, ".local/share/ragents/remote", `127.0.0.1-${new URL(distributing.url).port}`, "workshop-client", "profiles");
     const [stand] = readdirSync(cache);
-    assert.ok(stand, "connect legt den Stand im leeren Datenordner ab");
-    assert.equal(existsSync(path.join(cache, stand, "ragents.config.werkstatt-client.ts")), true);
-    assert.equal(existsSync(path.join(cache, stand, "dist/plugins/acme.greeting/ragents-bundle.json")), true, "das fremde Bundle kommt fertig im Archiv");
-    assert.equal(existsSync(path.join(cache, stand, "web")), false, "das Archiv trägt kein Web");
+    assert.ok(stand, "connect stores the version in the empty data folder");
+    assert.equal(existsSync(path.join(cache, stand, "ragents.config.workshop-client.ts")), true);
+    assert.equal(existsSync(path.join(cache, stand, "dist/plugins/acme.greeting/ragents-bundle.json")), true, "the foreign bundle comes ready-made in the archive");
+    assert.equal(existsSync(path.join(cache, stand, "web")), false, "the archive carries no web app");
     await assertGreetingServed(client, hostWebDirectory(root));
   } finally {
     for (const child of children.reverse()) await stopChild(child);

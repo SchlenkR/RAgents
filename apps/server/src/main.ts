@@ -4,12 +4,12 @@ import { configuredAnonymousUser, configuredUsers, loadConfigFile, missingEnviro
 const startupFailure = (error: unknown): never => {
   const message = error instanceof Error ? error.message : String(error);
   if (error instanceof Error && error.constructor !== Error && missingEnvironmentOf(error) === undefined) console.error(error.stack ?? message);
-  console.error(`\nRAgents startet nicht: ${message}`);
+  console.error(`\nRAgents does not start: ${message}`);
   reportMissingEnvironment(error, (line) => console.error(line));
   process.exit(1);
 };
 
-/** Startmodi: --stdio (JSON-RPC über stdin und stdout, ohne --port kein HTTP), --port 0 (privater Port mit Ansage auf stdout), --port N. */
+/** Start modes: --stdio (JSON-RPC over stdin and stdout, no HTTP without --port), --port 0 (private port announced on stdout), --port N. */
 const parseArguments = (argv: readonly string[]): { stdio: boolean; port: number | undefined } => {
   let stdio = false;
   let port: number | undefined;
@@ -18,12 +18,12 @@ const parseArguments = (argv: readonly string[]): { stdio: boolean; port: number
     if (argument === "--stdio") { stdio = true; continue; }
     if (argument === "--port") {
       const value = Number(argv[index + 1]);
-      if (!Number.isInteger(value) || value < 0 || value > 65535) throw new Error(`--port braucht eine ganze Zahl von 0 bis 65535, nicht ${argv[index + 1]}`);
+      if (!Number.isInteger(value) || value < 0 || value > 65535) throw new Error(`--port needs an integer from 0 to 65535, not ${argv[index + 1]}`);
       port = value;
       index += 1;
       continue;
     }
-    throw new Error(`Unbekanntes Argument: ${argument} (erlaubt: --stdio, --port <n>)`);
+    throw new Error(`Unknown argument: ${argument} (allowed: --stdio, --port <n>)`);
   }
   return { stdio, port };
 };
@@ -31,8 +31,8 @@ const parseArguments = (argv: readonly string[]): { stdio: boolean; port: number
 try {
   if (!process.env.PRODUCT_PROFILE) {
     throw new Error(
-      "PRODUCT_PROFILE ist nicht gesetzt. scripts/start.sh <profil> setzt das Profil; "
-      + "für pnpm start vorher export PRODUCT_PROFILE=<profil>.",
+      "PRODUCT_PROFILE is not set. scripts/start.sh <profile> sets the profile; "
+      + "for pnpm start, run export PRODUCT_PROFILE=<profile> first.",
     );
   }
   const arguments_ = parseArguments(process.argv.slice(2));

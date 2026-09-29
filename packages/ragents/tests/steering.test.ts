@@ -45,7 +45,7 @@ test("a message to an actor with a running turn joins that turn in order, and th
     const runtime = new Orchestration(journal, services);
     const run = runtime.createRun({ commandId: "create" }, { title: "Steering", ownerHandle: "owner", ownerDisplayName: "Owner" });
     const worker = runtime.spawnAgent({ actorId: run.ownerId, commandId: "spawn" }, run.id, {
-        handle: "worker", displayName: "Worker", prompt: "Arbeite.",
+        handle: "worker", displayName: "Worker", prompt: "Work.",
         execution: executionFor("worker", { profile: "agent", isolateWorkspace: false }), grants: [], toolNames: [],
     }).actors.find((actor) => actor.kind === "agent")!;
     const posted = deferred();
@@ -53,23 +53,23 @@ test("a message to an actor with a running turn joins that turn in order, and th
     const driver = new FakeDriver(async (request) => {
         await posted.promise;
         claims.push(request.claimSteering(), request.claimSteering());
-        request.recordContext({ kind: "step", step: textStep("Beides berücksichtigt.") });
+        request.recordContext({ kind: "step", step: textStep("Took both into account.") });
         return { failure: null, usage: noUsage() };
     });
     const scheduler = new TurnScheduler(runtime, journal, { drivers: registryOf(driver), catalog });
 
     try {
-        postTo(runtime, run, worker.id, "first", "Baue die Seite.");
+        postTo(runtime, run, worker.id, "first", "Build the page.");
         scheduler.start();
-        postTo(runtime, run, worker.id, "second", "Nimm Blau statt Rot.");
-        postTo(runtime, run, worker.id, "third", "Und ohne Rahmen.");
+        postTo(runtime, run, worker.id, "second", "Use blue instead of red.");
+        postTo(runtime, run, worker.id, "third", "And without a border.");
         posted.resolve();
         await scheduler.waitForIdle();
 
-        assert.equal(driver.requests.length, 1, "kein eigener Turn für die eingespeisten Nachrichten");
-        assert.deepEqual(claims[0]!.map((entry) => entry.input.content), ["Nimm Blau statt Rot.", "Und ohne Rahmen."]);
-        assert.deepEqual(claims[0]!.map((entry) => entry.prompt), ["Nimm Blau statt Rot.", "Und ohne Rahmen."]);
-        assert.deepEqual(claims[1], [], "ein zweiter Abruf findet nichts mehr");
+        assert.equal(driver.requests.length, 1, "no separate turn for the fed-in messages");
+        assert.deepEqual(claims[0]!.map((entry) => entry.input.content), ["Use blue instead of red.", "And without a border."]);
+        assert.deepEqual(claims[0]!.map((entry) => entry.prompt), ["Use blue instead of red.", "And without a border."]);
+        assert.deepEqual(claims[1], [], "a second fetch finds nothing more");
 
         const view = runtime.view(run.id);
         const turn = view.turns[0]!;
@@ -82,7 +82,7 @@ test("a message to an actor with a running turn joins that turn in order, and th
         const events = runtime.events(run.id);
         const steered = steeredEventsOf(events);
         assert.deepEqual(steered.map((event) => event.payload.inputId), view.inputs.slice(1).map((input) => input.id));
-        assert.equal(new Set(steered.map((event) => event.commandId)).size, 1, "ein Command speist beide ein");
+        assert.equal(new Set(steered.map((event) => event.commandId)).size, 1, "one command feeds in both");
         assert.ok(steered.every((event) => event.actorId === worker.id && event.payload.turnId === turn.id));
         const output = events.find((event) => event.type === "model.output.completed")!;
         assert.ok(steered.every((event) => event.sequence < output.sequence));
@@ -115,16 +115,16 @@ test("steering takes pending inputs in journal order and stops at the first one 
     const scheduler = new TurnScheduler(setup.runtime, setup.journal, { drivers: registryOf(driver), catalog });
 
     try {
-        postTo(setup.runtime, setup.view, setup.agent.id, "start", "Los.");
+        postTo(setup.runtime, setup.view, setup.agent.id, "start", "Go.");
         scheduler.start();
-        postTo(setup.runtime, setup.view, setup.agent.id, "short", "Kurz.");
+        postTo(setup.runtime, setup.view, setup.agent.id, "short", "Short.");
         postTo(setup.runtime, setup.view, setup.agent.id, "long", long);
-        postTo(setup.runtime, setup.view, setup.agent.id, "after", "Danach.");
+        postTo(setup.runtime, setup.view, setup.agent.id, "after", "Afterwards.");
         posted.resolve();
         await scheduler.waitForIdle();
 
-        assert.deepEqual(claimed, [["Kurz."], ["Danach."]]);
-        assert.deepEqual(driver.requests.map((request) => request.input.content), ["Los.", long]);
+        assert.deepEqual(claimed, [["Short."], ["Afterwards."]]);
+        assert.deepEqual(driver.requests.map((request) => request.input.content), ["Go.", long]);
         assert.equal(setup.runtime.view(setup.view.id).turns.length, 2);
     } finally {
         await scheduler.stop();
@@ -149,19 +149,19 @@ test("an interrupted turn keeps what it took by steering, and a later message be
     const scheduler = new TurnScheduler(setup.runtime, setup.journal, { drivers: registryOf(driver), catalog });
 
     try {
-        postTo(setup.runtime, setup.view, setup.agent.id, "start", "Los.");
+        postTo(setup.runtime, setup.view, setup.agent.id, "start", "Go.");
         scheduler.start();
-        postTo(setup.runtime, setup.view, setup.agent.id, "steer", "Eingespeist.");
+        postTo(setup.runtime, setup.view, setup.agent.id, "steer", "Fed in.");
         posted.resolve();
         await steered.promise;
-        postTo(setup.runtime, setup.view, setup.agent.id, "later", "Nach der Unterbrechung.");
+        postTo(setup.runtime, setup.view, setup.agent.id, "later", "After the interruption.");
         await scheduler.interruptTurn(setup.view.id, setup.agent.id, {
             context: { actorId: setup.view.ownerId, commandId: "interrupt" },
-            reason: "Bediener unterbricht",
+            reason: "Operator interrupts",
         });
         await scheduler.waitForIdle();
 
-        assert.deepEqual(late, [[]], "nach dem Abbruch speist der Turn nichts mehr ein");
+        assert.deepEqual(late, [[]], "after the cancellation the turn feeds in nothing more");
         const view = setup.runtime.view(setup.view.id);
         assert.deepEqual(view.turns.map((turn) => turn.status), ["interrupted", "completed"]);
         const [first, second] = view.turns;
@@ -170,7 +170,7 @@ test("an interrupted turn keeps what it took by steering, and a later message be
             { kind: "claimed", turnId: first!.id, steered: true },
             { kind: "claimed", turnId: second!.id, steered: false },
         ]);
-        assert.deepEqual(driver.requests.map((request) => request.input.content), ["Los.", "Nach der Unterbrechung."]);
+        assert.deepEqual(driver.requests.map((request) => request.input.content), ["Go.", "After the interruption."]);
     } finally {
         await scheduler.stop();
         setup.journal.close();
@@ -181,11 +181,11 @@ test("steering is refused for actors without a model, out of order, and in a rep
     const setup = setupRun({ grants: allGrants() });
     const runId = setup.view.id;
     const script = setup.runtime.createScriptActor({ actorId: setup.view.ownerId, commandId: "script" }, runId, {
-        handle: "program", displayName: "Programm", grants: [], toolNames: [],
+        handle: "program", displayName: "Program", grants: [], toolNames: [],
     }).actors.find((actor) => actor.kind === "script")!;
-    const scriptInput = postTo(setup.runtime, setup.view, script.id, "script-first", "eins").inputs.at(-1)!;
+    const scriptInput = postTo(setup.runtime, setup.view, script.id, "script-first", "one").inputs.at(-1)!;
     const scriptTurn = setup.runtime.startTurn({ actorId: script.id, commandId: "script-turn" }, runId, script.id, scriptInput.id).turns.at(-1)!;
-    const scriptWaiting = postTo(setup.runtime, setup.view, script.id, "script-second", "zwei").inputs.at(-1)!;
+    const scriptWaiting = postTo(setup.runtime, setup.view, script.id, "script-second", "two").inputs.at(-1)!;
     assert.throws(
         () => setup.runtime.steerInputs({ actorId: script.id, commandId: "script-steer", turnId: scriptTurn.id }, runId, script.id, {
             turnId: scriptTurn.id, inputIds: [scriptWaiting.id],
@@ -193,10 +193,10 @@ test("steering is refused for actors without a model, out of order, and in a rep
         (error: Error & { code?: string }) => error.code === "steering-unsupported",
     );
 
-    const first = postTo(setup.runtime, setup.view, setup.agent.id, "agent-first", "eins").inputs.at(-1)!;
+    const first = postTo(setup.runtime, setup.view, setup.agent.id, "agent-first", "one").inputs.at(-1)!;
     const turn = setup.runtime.startTurn({ actorId: setup.agent.id, commandId: "agent-turn" }, runId, setup.agent.id, first.id).turns.at(-1)!;
-    const second = postTo(setup.runtime, setup.view, setup.agent.id, "agent-second", "zwei").inputs.at(-1)!;
-    const third = postTo(setup.runtime, setup.view, setup.agent.id, "agent-third", "drei").inputs.at(-1)!;
+    const second = postTo(setup.runtime, setup.view, setup.agent.id, "agent-second", "two").inputs.at(-1)!;
+    const third = postTo(setup.runtime, setup.view, setup.agent.id, "agent-third", "three").inputs.at(-1)!;
     const context = { actorId: setup.agent.id, commandId: "agent-steer", turnId: turn.id };
     assert.throws(
         () => setup.runtime.steerInputs(context, runId, setup.agent.id, { turnId: turn.id, inputIds: [third.id] }),
@@ -256,14 +256,14 @@ test("with the agent runtime a message sent during a tool call reaches the model
     const release = deferred();
     let toolSignal: AbortSignal | undefined;
     const waitTool = defineRunFunction({
-        name: "wait_tool", label: "wait_tool", description: "Wartet auf den Test.",
+        name: "wait_tool", label: "wait_tool", description: "Waits for the test.",
         schema: Type.Object({}, { additionalProperties: false }), resultSchema: Type.String(),
         available: () => true, nativeTool: true,
         run: async (scope) => {
             toolSignal = scope.signal;
             toolStarted.resolve();
             await release.promise;
-            return "Werkzeug fertig";
+            return "Tool done";
         },
     });
     const registry = new ToolRegistry().register({ name: "wait", dynamic: true, descriptors: [], tools: () => [waitTool] });
@@ -272,7 +272,7 @@ test("with the agent runtime a message sent during a tool call reaches the model
         () => fauxAssistantMessage([fauxToolCall("wait_tool", {}, { id: "call-wait" })]),
         (context) => {
             contexts.push({ messages: structuredClone(context.messages) });
-            return fauxAssistantMessage("Umgestellt auf Blau.");
+            return fauxAssistantMessage("Switched to blue.");
         },
     ]);
     const scheduler = new TurnScheduler(setup.runtime, setup.journal, {
@@ -280,18 +280,18 @@ test("with the agent runtime a message sent during a tool call reaches the model
     });
 
     try {
-        postTo(setup.runtime, setup.view, setup.agent.id, "start", "Baue die Seite.");
+        postTo(setup.runtime, setup.view, setup.agent.id, "start", "Build the page.");
         scheduler.start();
         await toolStarted.promise;
-        postTo(setup.runtime, setup.view, setup.agent.id, "steer", "Nimm Blau statt Rot.");
+        postTo(setup.runtime, setup.view, setup.agent.id, "steer", "Use blue instead of red.");
         release.resolve();
         await scheduler.waitForIdle();
 
-        assert.equal(toolSignal?.aborted, false, "das Werkzeug läuft zu Ende");
+        assert.equal(toolSignal?.aborted, false, "the tool runs to completion");
         const users = contexts[0]!.messages.flatMap((message) => message.role === "user"
             ? [typeof message.content === "string" ? message.content : message.content.map((part) => part.type === "text" ? part.text : "").join("")]
             : []);
-        assert.equal(users.at(-1), "Nimm Blau statt Rot.");
+        assert.equal(users.at(-1), "Use blue instead of red.");
         assert.equal(contexts[0]!.messages.at(-1)?.role, "user");
         assert.equal(contexts[0]!.messages.at(-2)?.role, "toolResult");
 
@@ -303,7 +303,7 @@ test("with the agent runtime a message sent during a tool call reaches the model
         const completed = sequenceOf((event) => event.type === "tool.call.completed");
         const joined = sequenceOf((event) => event.type === "turn.input-steered");
         const answer = sequenceOf((event) => event.type === "model.output.completed");
-        assert.ok(completed < joined && joined < answer, "Werkzeugergebnis, dann Steering, dann Antwort");
+        assert.ok(completed < joined && joined < answer, "tool result, then steering, then answer");
     } finally {
         await scheduler.stop();
         await driver.shutdown().catch(() => undefined);

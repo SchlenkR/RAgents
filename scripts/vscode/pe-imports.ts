@@ -1,4 +1,4 @@
-/** Die DLLs, die eine PE-Datei (exe oder dll) beim Laden und verzögert beim ersten Aufruf braucht. */
+/** The DLLs a PE file (exe or dll) needs when loading and, delayed, on the first call. */
 export interface PeImports {
   readonly imports: readonly string[];
   readonly delayImports: readonly string[];
@@ -18,31 +18,31 @@ const DELAY_DESCRIPTOR_SIZE = 32;
 const SECTION_HEADER_SIZE = 40;
 
 const fail = (name: string, reason: string): never => {
-  throw new Error(`${name} ist keine lesbare PE-Datei: ${reason}`);
+  throw new Error(`${name} is not a readable PE file: ${reason}`);
 };
 
 const offsetOf = (sections: readonly Section[], rva: number, name: string): number => {
   const section = sections.find((entry) => rva >= entry.virtualAddress && rva < entry.virtualAddress + Math.max(entry.virtualSize, entry.rawSize));
-  return section ? rva - section.virtualAddress + section.rawOffset : fail(name, `die Adresse 0x${rva.toString(16)} liegt in keinem Abschnitt`);
+  return section ? rva - section.virtualAddress + section.rawOffset : fail(name, `the address 0x${rva.toString(16)} is in no section`);
 };
 
 const zeroTerminated = (buffer: Buffer, offset: number, name: string): string => {
   const end = buffer.indexOf(0, offset);
-  if (end < 0) fail(name, "ein DLL-Name endet nicht");
+  if (end < 0) fail(name, "a DLL name does not end");
   return buffer.toString("latin1", offset, end);
 };
 
-/** Liest Import- und Delay-Import-Verzeichnis einer PE32- oder PE32+-Datei; die Namen stehen, wie die Datei sie schreibt. */
+/** Reads the import and delay import directories of a PE32 or PE32+ file; the names are as the file writes them. */
 export const peImports = (buffer: Buffer, name: string): PeImports => {
-  if (buffer.length < 0x40 || buffer.toString("latin1", 0, 2) !== "MZ") fail(name, "die MZ-Kennung fehlt");
+  if (buffer.length < 0x40 || buffer.toString("latin1", 0, 2) !== "MZ") fail(name, "the MZ signature is missing");
   const pe = buffer.readUInt32LE(0x3c);
-  if (pe + 24 > buffer.length || buffer.toString("latin1", pe, pe + 4) !== "PE\0\0") fail(name, "die PE-Kennung fehlt");
+  if (pe + 24 > buffer.length || buffer.toString("latin1", pe, pe + 4) !== "PE\0\0") fail(name, "the PE signature is missing");
   const sectionCount = buffer.readUInt16LE(pe + 6);
   const optionalSize = buffer.readUInt16LE(pe + 20);
   const optional = pe + 24;
   const magic = buffer.readUInt16LE(optional);
   const wide = magic === 0x20b;
-  if (!wide && magic !== 0x10b) fail(name, `unbekannter Optional-Header 0x${magic.toString(16)}`);
+  if (!wide && magic !== 0x10b) fail(name, `unknown optional header 0x${magic.toString(16)}`);
   const imageBase = wide ? Number(buffer.readBigUInt64LE(optional + 24)) : buffer.readUInt32LE(optional + 28);
   const directoryCount = buffer.readUInt32LE(optional + (wide ? 108 : 92));
   const directories = optional + (wide ? 112 : 96);
@@ -66,7 +66,7 @@ export const peImports = (buffer: Buffer, name: string): PeImports => {
       if (buffer.subarray(offset, offset + size).every((byte) => byte === 0)) return names;
       names.push(zeroTerminated(buffer, offsetOf(sections, nameAt(offset), name), name));
     }
-    return fail(name, "ein Importverzeichnis endet nicht");
+    return fail(name, "an import directory does not end");
   };
 
   const imports = descriptorNames(directoryRva(IMPORT_DIRECTORY), IMPORT_DESCRIPTOR_SIZE, (offset) => buffer.readUInt32LE(offset + 12));

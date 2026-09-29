@@ -2,11 +2,11 @@
 name: 70-headless-counter
 start: true
 disable-model-invocation: true
-title: "Nachrichten ohne KI mitzählen"
-description: "Zeigt einen dauerhaften TypeScript-Actor ohne Oberfläche: Er verarbeitet Nachrichten getrennt und behält Liste und Zähler zwischen Aufträgen."
-category: "TypeScript ohne Oberfläche"
+title: "Count messages without AI"
+description: "Shows a persistent TypeScript actor without an interface: It processes messages separately and keeps its list and counter between tasks."
+category: "TypeScript without UI"
 order: 70
-tags: "Anwendungsfall, Konzeptdemo, TypeScript-Actors, Actor-Funktionen, Actor-Zustand, Journalprüfung"
+tags: "Use case, Concept demo, TypeScript actors, Actor functions, Actor state, Journal inspection"
 ---
 
-Ich hätte gern einen kleinen TypeScript-Zähler ohne Oberfläche und ohne KI-Aufrufe. Schicke ihm nacheinander die Texte "eins", "zwei" und "drei". Er soll jeden Text in seiner eigenen Liste behalten und mitzählen. Danach lies seinen Stand aus und belege, dass drei getrennte Eingaben verarbeitet wurden. Der Zähler soll für weitere Texte bereitbleiben.
+I would like a small TypeScript counter without an interface and without AI calls. Send it the texts "one", "two", and "three" one after another. It should keep each text in its own list and count along. Then read out its state and prove that three separate inputs were processed. The counter should stay ready for further texts.

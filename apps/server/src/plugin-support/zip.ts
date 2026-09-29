@@ -15,16 +15,16 @@ const endOffset = (archive: Buffer): number => {
   for (let offset = archive.byteLength - 22; offset >= first; offset -= 1) {
     if (archive.readUInt32LE(offset) === END_OF_CENTRAL_DIRECTORY) return offset;
   }
-  throw new Error("Das Archiv hat kein Ende des Zentralverzeichnisses; es ist keine ZIP-Datei");
+  throw new Error("The archive has no end of central directory; it is not a ZIP file");
 };
 
 const contentOf = (archive: Buffer, localOffset: number, compression: number, compressedSize: number): Buffer => {
-  if (archive.readUInt32LE(localOffset) !== LOCAL_FILE_HEADER) throw new Error(`Der lokale Eintrag bei ${localOffset} fehlt im Archiv`);
+  if (archive.readUInt32LE(localOffset) !== LOCAL_FILE_HEADER) throw new Error(`The local entry at ${localOffset} is missing from the archive`);
   const start = localOffset + 30 + archive.readUInt16LE(localOffset + 26) + archive.readUInt16LE(localOffset + 28);
   const raw = archive.subarray(start, start + compressedSize);
   if (compression === 0) return Buffer.from(raw);
   if (compression === 8) return inflateRawSync(raw);
-  throw new Error(`Das Archiv verwendet die unbekannte Kompression ${compression}`);
+  throw new Error(`The archive uses the unknown compression ${compression}`);
 };
 
 interface DirectoryEntry {
@@ -34,20 +34,20 @@ interface DirectoryEntry {
   readonly localOffset: number;
 }
 
-/** Liest das Zentralverzeichnis; Zip64 und Verschlüsselung sind harte Fehler. */
+/** Reads the central directory; Zip64 and encryption are hard errors. */
 const readDirectory = (archive: Buffer): readonly DirectoryEntry[] => {
   const end = endOffset(archive);
   const count = archive.readUInt16LE(end + 10);
   const directory = archive.readUInt32LE(end + 16);
-  if (count === 0xffff || directory === 0xffffffff) throw new Error("Das Archiv ist Zip64; diese Form wird nicht gelesen");
+  if (count === 0xffff || directory === 0xffffffff) throw new Error("The archive is Zip64; this form is not read");
   const entries: DirectoryEntry[] = [];
   let offset = directory;
   for (let index = 0; index < count; index += 1) {
-    if (archive.readUInt32LE(offset) !== CENTRAL_FILE_HEADER) throw new Error(`Der Verzeichniseintrag ${index} fehlt im Archiv`);
+    if (archive.readUInt32LE(offset) !== CENTRAL_FILE_HEADER) throw new Error(`The directory entry ${index} is missing from the archive`);
     const flags = archive.readUInt16LE(offset + 8);
     const nameLength = archive.readUInt16LE(offset + 28);
     const name = archive.subarray(offset + 46, offset + 46 + nameLength).toString("utf8");
-    if ((flags & 0x1) !== 0) throw new Error(`Der Archiveintrag ${name} ist verschlüsselt`);
+    if ((flags & 0x1) !== 0) throw new Error(`The archive entry ${name} is encrypted`);
     if (!name.endsWith("/")) {
       entries.push({
         name,

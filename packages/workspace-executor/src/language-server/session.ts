@@ -55,7 +55,7 @@ const NEW_FILE_AGE_MS = 10_000;
 const uriOf = (absolutePath: string): string => pathToFileURL(absolutePath).href;
 
 const timeoutError = (label: string, what: string, timeoutMs: number): Error =>
-  new Error(`${label}: ${what} nicht innerhalb von ${Math.round(timeoutMs / 1000)} s`);
+  new Error(`${label}: ${what} not within ${Math.round(timeoutMs / 1000)} s`);
 
 export const withTimeout = <T>(promise: Promise<T>, timeoutMs: number, error: () => Error): Promise<T> =>
   new Promise((resolve, reject) => {
@@ -108,14 +108,14 @@ export class LanguageServerSession {
       onStderr: (chunk) => {
         this.#stderr = (this.#stderr + chunk.toString("utf8")).slice(-STDERR_TAIL);
       },
-      onExit: (code) => this.#ended(`Code ${code ?? "Signal"}`),
+      onExit: (code) => this.#ended(`code ${code ?? "signal"}`),
       onError: (error) => {
         this.#service.kill("SIGKILL");
-        this.#ended(`Fehler: ${error.message}`);
+        this.#ended(`error: ${error.message}`);
       },
     });
     const output = this.#service.stdin;
-    if (!output) throw new Error(`${launch.label}: Standardeingabe fehlt`);
+    if (!output) throw new Error(`${launch.label}: standard input is missing`);
     this.#connection = new JsonRpcConnection({
       label: launch.label,
       input: this.#input,
@@ -161,7 +161,7 @@ export class LanguageServerSession {
           },
         }),
         timeoutMs,
-        () => timeoutError(launch.label, "initialisiert", timeoutMs),
+        () => timeoutError(launch.label, "initialized", timeoutMs),
       ) as { capabilities?: Record<string, unknown> };
       session.#serverCapabilities = result.capabilities ?? {};
       session.#connection.notify("initialized", {});
@@ -201,7 +201,7 @@ export class LanguageServerSession {
     return withTimeout(
       new Promise<unknown>((resolve, reject) => {
         if (this.#exitReason !== undefined) {
-          reject(new Error(`${this.label} läuft nicht mehr (${this.#exitReason})${this.#stderrHint()}`));
+          reject(new Error(`${this.label} is no longer running (${this.#exitReason})${this.#stderrHint()}`));
           return;
         }
         const onExit = (error: Error) => {
@@ -226,7 +226,7 @@ export class LanguageServerSession {
       this.#assertRunning();
       const extension = path.extname(absolutePath).toLowerCase();
       const languageId = this.#launch.languages[extension];
-      if (!languageId) throw new Error(`${this.label} kennt die Endung ${extension || "(keine)"} nicht`);
+      if (!languageId) throw new Error(`${this.label} does not know the extension ${extension || "(none)"}`);
       const uri = uriOf(absolutePath);
       const text = await readFile(absolutePath, "utf8");
       const settleMs = this.#launch.newFileSettleMs;
@@ -257,16 +257,16 @@ export class LanguageServerSession {
       await withTimeout(
         this.#connection.request("shutdown", null),
         SHUTDOWN_TIMEOUT_MS,
-        () => timeoutError(this.label, "shutdown beantwortet", SHUTDOWN_TIMEOUT_MS),
+        () => timeoutError(this.label, "shutdown answered", SHUTDOWN_TIMEOUT_MS),
       );
       this.#connection.notify("exit", null);
     } catch {
     }
-    await withTimeout(this.#service.finished, SHUTDOWN_TIMEOUT_MS, () => new Error("weiter")).catch(() => {
+    await withTimeout(this.#service.finished, SHUTDOWN_TIMEOUT_MS, () => new Error("continue")).catch(() => {
       this.#service.kill("SIGKILL");
     });
     await this.#service.finished.catch(() => undefined);
-    this.#connection.close(new Error(`${this.label} wurde beendet`));
+    this.#connection.close(new Error(`${this.label} was ended`));
   }
 
   async #isYoung(absolutePath: string): Promise<boolean> {
@@ -277,7 +277,7 @@ export class LanguageServerSession {
   #ended(reason: string): void {
     if (this.#exitReason !== undefined) return;
     this.#exitReason = reason;
-    const error = new Error(`${this.label} wurde beendet (${reason})${this.#stderrHint()}`);
+    const error = new Error(`${this.label} was ended (${reason})${this.#stderrHint()}`);
     this.#connection.close(error);
     this.#input.destroy();
     for (const listener of [...this.#exitListeners]) listener(error);
@@ -296,7 +296,7 @@ export class LanguageServerSession {
 
   #assertRunning(): void {
     if (this.#exitReason !== undefined) {
-      throw new Error(`${this.label} läuft nicht mehr (${this.#exitReason})${this.#stderrHint()}`);
+      throw new Error(`${this.label} is no longer running (${this.#exitReason})${this.#stderrHint()}`);
     }
   }
 
@@ -345,7 +345,7 @@ export class LanguageServerSession {
             ...(identifier === undefined ? {} : { identifier }),
           }),
           Math.max(1, deadline - Date.now()),
-          () => timeoutError(this.label, "Diagnostik geliefert", timeoutMs),
+          () => timeoutError(this.label, "diagnostics delivered", timeoutMs),
         ) as { kind?: string; items?: Diagnostic[] } | null;
         return result?.items ?? [];
       } catch (error) {
@@ -370,7 +370,7 @@ export class LanguageServerSession {
       entry !== undefined && entry.receivedAt >= closedAt;
     if (!confirmed(this.#published.get(uri)) && !await this.#waitForPublish(uri, confirmed, CLOSE_PUBLISH_TIMEOUT_MS)) {
       this.#assertRunning();
-      throw timeoutError(this.label, "didClose bestätigt", CLOSE_PUBLISH_TIMEOUT_MS);
+      throw timeoutError(this.label, "didClose confirmed", CLOSE_PUBLISH_TIMEOUT_MS);
     }
   }
 
@@ -401,7 +401,7 @@ export class LanguageServerSession {
       entry !== undefined && entry.receivedAt >= sentAt && (entry.version === undefined || entry.version >= version);
     if (!matches(this.#published.get(uri)) && !await this.#waitForPublish(uri, matches, timeoutMs)) {
       this.#assertRunning();
-      throw timeoutError(this.label, "Diagnostik geliefert", timeoutMs);
+      throw timeoutError(this.label, "diagnostics delivered", timeoutMs);
     }
     const settleDeadline = Date.now() + SETTLE_LIMIT_MS;
     while (Date.now() < settleDeadline && await this.#waitForPublish(uri, matches, SETTLE_MS)) continue;

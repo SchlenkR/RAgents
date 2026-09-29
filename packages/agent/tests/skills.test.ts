@@ -5,7 +5,7 @@ import { formatSkillsForPrompt } from "../src/core/skills.ts";
 test("the skill catalog names the location the tools reach and resolves relative paths against its folder", () => {
   const catalog = formatSkillsForPrompt([{
     name: "review",
-    description: "Prüft Änderungen.",
+    description: "Reviews changes.",
     filePath: "/srv/host/skills/review/SKILL.md",
     baseDir: "/srv/host/skills/review",
     location: "@skills/review/SKILL.md",
@@ -18,6 +18,6 @@ test("the skill catalog names the location the tools reach and resolves relative
 
 test("a skill the model may not invoke stays out of the catalog", () => {
   assert.equal(formatSkillsForPrompt([{
-    name: "hidden", description: "Nur explizit.", filePath: "/x/SKILL.md", baseDir: "/x", location: "@skills/hidden/SKILL.md", disableModelInvocation: true,
+    name: "hidden", description: "Explicit only.", filePath: "/x/SKILL.md", baseDir: "/x", location: "@skills/hidden/SKILL.md", disableModelInvocation: true,
   }]), "");
 });

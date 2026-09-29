@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "ragents": {
-    "title": "Lernnachmittag",
+    "title": "Learning afternoon",
     "backend": "src/server.ts",
     "views": [{ "id": "main", "client": "src/client.tsx" }]
   }

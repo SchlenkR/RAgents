@@ -23,16 +23,16 @@ const files = [
   { path: "src/server.ts", content: "export default defineActor({ functions: {} });" },
 ];
 
-test("die Quellenliste behält die Reihenfolge des installierten Builds", () => {
+test("the source list keeps the order of the installed build", () => {
   assert.deepEqual(actorProgramSourceFrom({ files }), files);
   assert.deepEqual(actorProgramSourceFrom({ files: [] }), []);
 });
 
-test("eine unvollständige Quellenliste ist ein Fehler", () => {
-  assert.throws(() => actorProgramSourceFrom({}), /Vertrag/);
+test("an incomplete source list is an error", () => {
+  assert.throws(() => actorProgramSourceFrom({}), /contract/);
   assert.throws(() => actorProgramSourceFrom({ files: [{ path: "a.ts" }] }), /content/);
   assert.throws(() => actorProgramSourceFrom({ files: [{ content: "x" }] }), /path/);
-  assert.throws(() => actorProgramSourceFrom({ files: [files[0], files[0]] }), /doppelte/);
+  assert.throws(() => actorProgramSourceFrom({ files: [files[0], files[0]] }), /duplicate/);
 });
 
 const actor: RunActor = {
@@ -53,9 +53,9 @@ const withProgram = (children: ReactNode) => createElement(ProgramSlotContext.Pr
 
 test("headless TypeScript actors expose their installed source without views, tools or actor.source", () => {
   const html = renderToStaticMarkup(withProgram(createElement(FlowInspector, props)));
-  assert.match(html, /aria-label="Quelltext"/);
-  assert.doesNotMatch(html, /Quelle des installierten Builds|Quellcode wird geladen|export default/);
-  const chat = html.match(/<button[^>]*aria-label="Chat anzeigen"[^>]*>(.*?)<\/button>/)?.[1];
+  assert.match(html, /aria-label="Source code"/);
+  assert.doesNotMatch(html, /Source of the installed build|Loading source code|export default/);
+  const chat = html.match(/<button[^>]*aria-label="Show chat"[^>]*>(.*?)<\/button>/)?.[1];
   assert.ok(chat);
   assert.match(chat, /<svg/);
   assert.match(chat, /M21 11a8 8/);
@@ -68,7 +68,7 @@ test("the installed-source tab requires a provider, a program and inspection rig
   const restricted = createAccessContext({ enabled: true, user: { id: "reader", label: "Reader", rights: ["runs.read"], startEntries: [] } });
   const noInspection = renderToStaticMarkup(createElement(AccessContext.Provider, { value: { ...restricted, logout: async () => {} } },
     withProgram(createElement(FlowInspector, props))));
-  for (const html of [noProvider, noProgram, noInspection]) assert.doesNotMatch(html, /aria-label="Quelltext"|Quelle des installierten Builds/);
+  for (const html of [noProvider, noProgram, noInspection]) assert.doesNotMatch(html, /aria-label="Source code"|Source of the installed build/);
 });
 
 test("opening an actor source loads the installed files and replaces stale responses after a program revision", {
@@ -120,7 +120,7 @@ createRoot(document.getElementById("root")).render(createElement(Harness));`, re
     }
     if (request.url !== "/") { response.writeHead(404); response.end(); return; }
     response.setHeader("Content-Type", "text/html");
-    response.end('<!doctype html><html lang="de"><head><meta charset="utf-8"><link rel="icon" href="data:,"><link rel="stylesheet" href="/fixture.css"></head><body style="margin:24px"><div id="root" style="width:800px;max-width:100%;height:650px"></div><script src="/fixture.js"></script></body></html>');
+    response.end('<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="icon" href="data:,"><link rel="stylesheet" href="/fixture.css"></head><body style="margin:24px"><div id="root" style="width:800px;max-width:100%;height:650px"></div><script src="/fixture.js"></script></body></html>');
   });
   await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
   const address = server.address();
@@ -133,16 +133,16 @@ createRoot(document.getElementById("root")).render(createElement(Harness));`, re
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto(`http://127.0.0.1:${address.port}`);
-  await page.getByRole("tab", { name: "Quelltext", exact: true }).waitFor();
+  await page.getByRole("tab", { name: "Source code", exact: true }).waitFor();
   assert.equal(await page.evaluate("window.sourceFixture.calls.length"), 0);
-  const chat = page.getByRole("tab", { name: "Chat anzeigen", exact: true });
+  const chat = page.getByRole("tab", { name: "Show chat", exact: true });
   assert.match(await chat.innerHTML(), /M21 11a8 8/);
-  await page.getByRole("tab", { name: "Quelltext", exact: true }).click();
+  await page.getByRole("tab", { name: "Source code", exact: true }).click();
   await page.waitForFunction("window.sourceFixture.calls.length === 1");
   assert.deepEqual(await page.evaluate("window.sourceFixture.calls.map(({ runId, moduleId }) => ({ runId, moduleId }))"), [{ runId: view.id, moduleId: program.name }]);
   await page.evaluate("window.sourceFixture.calls[0].resolve()");
   await page.waitForFunction("document.querySelector('[data-slot=source-code]')?.textContent.includes('source-build-a')");
-  assert.equal(await page.getByRole("button", { name: "Quellcode anzeigen", exact: true }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: "Show source code", exact: true }).count(), 0);
   await page.getByRole("button", { name: "src/helper.ts", exact: true }).click();
   assert.match(await page.locator("[data-slot=source-code]").innerText(), /helper-build-a/);
   await page.evaluate("window.sourceFixture.update({ revision: 'build-b' })");
@@ -172,12 +172,12 @@ createRoot(document.getElementById("root")).render(createElement(Harness));`, re
   }
   await chat.click();
   assert.equal(await chat.getAttribute("aria-selected"), "true");
-  assert.equal(await page.getByRole("heading", { name: "Quellcode", exact: true }).count(), 0);
+  assert.equal(await page.getByRole("heading", { name: "Source code", exact: true }).count(), 0);
   for (const changes of [{ provider: false }, { provider: true, program: false }, { program: true, inspect: false }]) {
     await page.evaluate((changes) => (window as any).sourceFixture.update(changes), changes);
-    await page.waitForFunction("!document.querySelector('[role=tab][aria-label=Quelltext]')");
+    await page.waitForFunction("!document.querySelector('[role=tab][aria-label=\"Source code\"]')");
     assert.equal(await page.evaluate("window.sourceFixture.calls.length"), 4);
   }
   assert.deepEqual(errors, []);
-  context.diagnostic(`Screenshot und Browserfixture: ${directory}`);
+  context.diagnostic(`Screenshot and browser fixture: ${directory}`);
 });

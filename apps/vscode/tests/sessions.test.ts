@@ -33,7 +33,7 @@ const harness = (urls: Record<string, string>, stored: Record<string, string> = 
     launch: (connection: Connection): Promise<LaunchedConnection> => {
       launches.push(connection.name);
       const url = urls[connection.name];
-      if (!url) throw new Error(`Für ${connection.name} gibt es keinen Stub`);
+      if (!url) throw new Error(`There is no stub for ${connection.name}`);
       return Promise.resolve({ url, token: undefined, host: undefined });
     },
     log: () => undefined,
@@ -52,7 +52,7 @@ const closeAll = async (sessions: readonly ConnectionSession[], servers: readonl
   for (const server of servers) await server.close();
 };
 
-test("zwei Server arbeiten gleichzeitig; Trennen des einen lässt den anderen unberührt", async () => {
+test("two servers work at the same time; disconnecting one leaves the other untouched", async () => {
   const first = await startStubServer();
   const second = await startStubServer();
   const { services } = harness({ A: first.url, B: second.url });
@@ -81,7 +81,7 @@ test("zwei Server arbeiten gleichzeitig; Trennen des einen lässt den anderen un
   }
 });
 
-test("ein lokales Profil bleibt nicht gestartet, bis jemand es startet", async () => {
+test("a local profile stays not started until someone starts it", async () => {
   const server = await startStubServer();
   const { services, launches } = harness({ core: server.url });
   const session = new ConnectionSession(profileConnection("core"), services);
@@ -94,17 +94,17 @@ test("ein lokales Profil bleibt nicht gestartet, bis jemand es startet", async (
     assert.deepEqual(launches, ["core"]);
     await waitFor(() => session.snapshot().entries.length === 2);
     await session.connect();
-    assert.deepEqual(launches, ["core"], "ein laufender Server wird nicht ein zweites Mal gestartet");
+    assert.deepEqual(launches, ["core"], "a running server is not started a second time");
     await session.disconnect();
     assert.deepEqual(session.snapshot().status, { kind: "stopped" });
     await session.connect();
-    assert.deepEqual(launches, ["core", "core"], "nach dem Stoppen startet es wieder");
+    assert.deepEqual(launches, ["core", "core"], "after stopping, it starts again");
   } finally {
     await closeAll([session], [server]);
   }
 });
 
-test("ein Server, der eine Anmeldung verlangt, blockiert die anderen nicht und meldet sich still an", async () => {
+test("a server that requires sign-in does not block the others and signs in silently", async () => {
   const open = await startStubServer();
   const guarded = await startStubServer({ loginRequired: true });
   const { services, secrets: store } = harness({ A: open.url, B: guarded.url });
@@ -116,16 +116,16 @@ test("ein Server, der eine Anmeldung verlangt, blockiert die anderen nicht und m
     assert.deepEqual(b.snapshot().status, { kind: "login-required", tokenGate: false });
     assert.equal(b.snapshot().savedLogin, false);
 
-    await b.loginWith("alice", "falsch");
-    assert.match(b.snapshot().problem ?? "", /stimmen nicht/);
+    await b.loginWith("alice", "wrong");
+    assert.match(b.snapshot().problem ?? "", /is incorrect/);
     assert.equal(b.snapshot().status.kind, "login-required");
-    assert.equal(a.snapshot().status.kind, "connected", "die fehlgeschlagene Anmeldung betrifft nur ihren Server");
+    assert.equal(a.snapshot().status.kind, "connected", "the failed sign-in affects only its server");
 
-    await b.loginWith("alice", "geheim");
+    await b.loginWith("alice", "secret");
     assert.equal(b.snapshot().status.kind, "connected");
     assert.equal(b.snapshot().user, "Alice");
     assert.equal(b.snapshot().savedLogin, true);
-    assert.equal(store.values.get(`ragents.login:${guarded.url}`), JSON.stringify({ user: "alice", password: "geheim" }));
+    assert.equal(store.values.get(`ragents.login:${guarded.url}`), JSON.stringify({ user: "alice", password: "secret" }));
     assert.equal(store.values.get(`ragents.token:${guarded.url}`), "a".repeat(43));
 
     await b.logout();
@@ -137,28 +137,28 @@ test("ein Server, der eine Anmeldung verlangt, blockiert die anderen nicht und m
   }
 });
 
-test("ein Server, der das Abmelden ablehnt, behält die gespeicherten Anmeldedaten trotzdem nicht", async () => {
+test("a server that rejects the sign-out still does not keep the stored credentials", async () => {
   const guarded = await startStubServer({ loginRequired: true, logoutFails: true });
   const { services, secrets: store } = harness({ B: guarded.url });
   const session = new ConnectionSession(serverConnection("B", guarded.url), services);
   try {
     await session.connect();
     await waitFor(() => session.snapshot().status.kind === "login-required");
-    await session.loginWith("alice", "geheim");
+    await session.loginWith("alice", "secret");
     assert.equal(session.snapshot().savedLogin, true);
 
     await session.logout();
     assert.equal(store.values.has(`ragents.login:${guarded.url}`), false);
     assert.equal(session.snapshot().savedLogin, false);
-    assert.match(session.snapshot().problem ?? "", /Abmelden/);
+    assert.match(session.snapshot().problem ?? "", /Signing out/);
   } finally {
     await closeAll([session], [guarded]);
   }
 });
 
-test("gespeicherte Anmeldedaten melden den Server ohne Formular an", async () => {
+test("stored credentials sign in to the server without a form", async () => {
   const guarded = await startStubServer({ loginRequired: true });
-  const { services } = harness({ B: guarded.url }, { [`ragents.login:${guarded.url}`]: JSON.stringify({ user: "alice", password: "geheim" }) });
+  const { services } = harness({ B: guarded.url }, { [`ragents.login:${guarded.url}`]: JSON.stringify({ user: "alice", password: "secret" }) });
   const session = new ConnectionSession(serverConnection("B", guarded.url), services);
   try {
     await session.connect();
@@ -170,21 +170,21 @@ test("gespeicherte Anmeldedaten melden den Server ohne Formular an", async () =>
   }
 });
 
-test("ohne Benutzerverwaltung erlaubt ein Server neue Runs auch ohne Vorlagen", async () => {
+test("without user management, a server allows new runs even without templates", async () => {
   const server = await startStubServer({ profile: stubProfile({ startEntries: [] }) });
   const { services } = harness({ A: server.url });
   const session = new ConnectionSession(serverConnection("A", server.url), services);
   try {
     await session.connect();
     await waitFor(() => session.snapshot().entries.length === 0 && session.snapshot().status.kind === "connected");
-    assert.equal(session.snapshot().canCreate, true, "ohne Benutzerverwaltung darf der anonyme Zugang alles");
+    assert.equal(session.snapshot().canCreate, true, "without user management, anonymous access may do everything");
     assert.equal(session.snapshot().defaultEntry, undefined);
   } finally {
     await closeAll([session], [server]);
   }
 });
 
-test("an einem Server ohne Benutzer über das Netz meldet sich der Arbeitsplatz nicht an und der Server nennt den Grund", async () => {
+test("at a server without users over the network, the workspace does not register and the server names the reason", async () => {
   const server = await startStubServer();
   const remote = server.url.replace("127.0.0.1", "[::ffff:127.0.0.1]");
   const { services } = harness({ A: remote });
@@ -195,13 +195,13 @@ test("an einem Server ohne Benutzer über das Netz meldet sich der Arbeitsplatz 
     await session.registerWorkspaceClient();
     assert.equal(server.workspaceClients().size, 0);
     assert.equal(session.workspaceClient?.status.kind, "idle");
-    assert.match(session.snapshot().problem ?? "", /Arbeitsplatz nicht angemeldet: .*Loopback/);
+    assert.match(session.snapshot().problem ?? "", /Workspace not registered: .*loopback/);
   } finally {
     await closeAll([session], [server]);
   }
 });
 
-test("die Default-Vorlage des Servers steht in seinem Schnappschuss", async () => {
+test("the default template of the server is in its snapshot", async () => {
   const server = await startStubServer({ profile: stubProfile({ defaultStartEntry: "ragents.reference.board" }) });
   const { services } = harness({ A: server.url });
   const session = new ConnectionSession(serverConnection("A", server.url), services);
@@ -214,7 +214,7 @@ test("die Default-Vorlage des Servers steht in seinem Schnappschuss", async () =
   }
 });
 
-test("ein toter Server meldet sich als nicht erreichbar, ohne die Sitzung zu verlieren", async () => {
+test("a dead server reports as unreachable without losing the session", async () => {
   const { services } = harness({ A: "http://127.0.0.1:1" });
   const session = new ConnectionSession(serverConnection("A", "http://127.0.0.1:1"), services);
   try {
@@ -226,50 +226,50 @@ test("ein toter Server meldet sich als nicht erreichbar, ohne die Sitzung zu ver
   }
 });
 
-test("fehlen einem Profil Umgebungsvariablen, führt jeder Wert zum nächsten Versuch, bis der Start durchläuft", async () => {
+test("if a profile is missing environment variables, each value leads to the next attempt until the start succeeds", async () => {
   const server = await startStubServer();
   const { services: base, secrets: store } = harness({});
-  const verlangt = [
+  const required = [
     { variable: "SERVICE_URL", section: "ragents.example", key: "SERVICE_ENDPOINT" },
     { variable: "SERVICE_TOKEN", section: "ragents.example", key: "SERVICE_KEY" },
   ];
   const services: SessionServices = {
     ...base,
     launch: () => {
-      const offen = verlangt.find((missing) => !store.values.has(hostEnvironmentSecretKey(missing.variable)));
-      if (offen) throw new MissingEnvironmentError(offen, `ragents.config.core.ts: ${offen.section}.${offen.key} verweist mit env("${offen.variable}") auf eine Umgebungsvariable, die in dieser Shell nicht gesetzt ist.`);
+      const open = required.find((missing) => !store.values.has(hostEnvironmentSecretKey(missing.variable)));
+      if (open) throw new MissingEnvironmentError(open, `ragents.config.core.ts: ${open.section}.${open.key} refers with env("${open.variable}") to an environment variable that is not set in this shell.`);
       return Promise.resolve({ url: server.url, token: undefined, host: undefined });
     },
   };
   const session = new ConnectionSession(profileConnection("core"), services);
   const names: string[] = [];
-  const gefuehrt = (name: string) => provideMissingSecret(name, {
+  const guided = (name: string) => provideMissingSecret(name, {
     names: () => names,
     writeNames: (next) => { names.splice(0, names.length, ...next); return Promise.resolve(); },
-    askValue: () => Promise.resolve(`wert-${name}`),
+    askValue: () => Promise.resolve(`value-${name}`),
     store: (value) => Promise.resolve(store.store(hostEnvironmentSecretKey(name), value)),
     retry: () => session.retry(),
   });
   try {
     await session.connect();
     assert.equal(session.snapshot().status.kind, "failed");
-    assert.deepEqual(session.snapshot().missingEnvironment, verlangt[0], "der Server nennt die erste fehlende Variable");
+    assert.deepEqual(session.snapshot().missingEnvironment, required[0], "the server names the first missing variable");
 
-    await gefuehrt(session.snapshot().missingEnvironment!.variable);
-    assert.deepEqual(names, ["SERVICE_URL"], "der Name steht danach in ragents.hostEnvironment");
+    await guided(session.snapshot().missingEnvironment!.variable);
+    assert.deepEqual(names, ["SERVICE_URL"], "the name is then in ragents.hostEnvironment");
     assert.equal(session.snapshot().status.kind, "failed");
-    assert.deepEqual(session.snapshot().missingEnvironment, verlangt[1], "der zweite Versuch führt zur nächsten fehlenden Variablen");
+    assert.deepEqual(session.snapshot().missingEnvironment, required[1], "the second attempt leads to the next missing variable");
 
-    await gefuehrt(session.snapshot().missingEnvironment!.variable);
+    await guided(session.snapshot().missingEnvironment!.variable);
     assert.deepEqual(names, ["SERVICE_URL", "SERVICE_TOKEN"]);
     await waitFor(() => session.snapshot().status.kind === "connected");
-    assert.equal(session.snapshot().missingEnvironment, undefined, "mit allen Werten bleibt kein Befund stehen");
+    assert.equal(session.snapshot().missingEnvironment, undefined, "with all values, no finding remains");
   } finally {
     await closeAll([session], [server]);
   }
 });
 
-test("scheitert die Übernahme eines verteilten Profils an einer Umgebungsvariablen, steht der Befund am Server", async () => {
+test("if applying a distributed profile fails on an environment variable, the finding shows at the server", async () => {
   const server = await startStubServer();
   const { services } = harness({ A: server.url });
   const session = new ConnectionSession(serverConnection("A", server.url), services);
@@ -277,18 +277,18 @@ test("scheitert die Übernahme eines verteilten Profils an einer Umgebungsvariab
   try {
     await session.connect();
     await waitFor(() => session.snapshot().status.kind === "connected");
-    session.reportProblem(new MissingEnvironmentError(missing, "ragents.config.core.ts: SERVICE_KEY verweist auf SERVICE_TOKEN"));
+    session.reportProblem(new MissingEnvironmentError(missing, "ragents.config.core.ts: SERVICE_KEY refers to SERVICE_TOKEN"));
     assert.deepEqual(session.snapshot().missingEnvironment, missing);
     assert.match(session.snapshot().problem ?? "", /SERVICE_TOKEN/);
     await session.retry();
     await waitFor(() => session.snapshot().status.kind === "connected");
-    assert.equal(session.snapshot().missingEnvironment, undefined, "der neue Versuch beginnt ohne den alten Befund");
+    assert.equal(session.snapshot().missingEnvironment, undefined, "the new attempt starts without the old finding");
   } finally {
     await closeAll([session], [server]);
   }
 });
 
-test("gleiche Fassung und angenommener Arbeitsplatz: kein Hinweis", async () => {
+test("same version and accepted workspace: no notice", async () => {
   const server = await startStubServer();
   const { services } = harness({ A: server.url });
   const session = new ConnectionSession(serverConnection("A", server.url), services);
@@ -301,7 +301,7 @@ test("gleiche Fassung und angenommener Arbeitsplatz: kein Hinweis", async () => 
   }
 });
 
-test("eine andere Fassung des Servers ist eine Warnung mit dem, was zu aktualisieren ist; der Arbeitsplatz bleibt angemeldet", async () => {
+test("a different server version is a warning with what needs updating; the workspace stays registered", async () => {
   const server = await startStubServer({ version: "0.1.7" });
   const { services } = harness({ A: server.url });
   const session = new ConnectionSession(serverConnection("A", server.url), services);
@@ -310,7 +310,7 @@ test("eine andere Fassung des Servers ist eine Warnung mit dem, was zu aktualisi
     await waitFor(() => session.workspaceClient?.status.kind === "registered" && session.snapshot().versionNotice !== undefined);
     assert.deepEqual(session.snapshot().versionNotice, {
       level: "warning",
-      text: "RAgents-Fassung passt nicht: Erweiterung 0.1.8, Server 0.1.7 - den Server auf 0.1.8 aktualisieren.",
+      text: "RAgents version does not match: extension 0.1.8, server 0.1.7 - update the server to 0.1.8.",
       update: "server",
     });
     assert.equal(session.snapshot().problem, undefined);
@@ -320,8 +320,8 @@ test("eine andere Fassung des Servers ist eine Warnung mit dem, was zu aktualisi
   }
 });
 
-test("lehnt der Server den Arbeitsplatz wegen seines Stands ab, ist die andere Fassung ein Fehler und kein zweites Problem", async () => {
-  const refusal = "Der Arbeitsplatz Notebook bringt den Executor 7 mit, der Server verlangt 8. Die RAgents-Erweiterung in VS Code beziehungsweise das Paket @schlenkr/ragents auf dem Arbeitsplatz aktualisieren.";
+test("if the server rejects the workspace because of its revision, the different version is an error and not a second problem", async () => {
+  const refusal = "The workspace Notebook brings executor 7, the server requires 8. Update the RAgents extension in VS Code or the package @schlenkr/ragents on the workspace.";
   const server = await startStubServer({ version: "0.1.9", refuseRegistration: { code: "workspace-executor-version", message: refusal } });
   const { services } = harness({ A: server.url });
   const session = new ConnectionSession(serverConnection("A", server.url), services);
@@ -330,19 +330,19 @@ test("lehnt der Server den Arbeitsplatz wegen seines Stands ab, ist die andere F
     await waitFor(() => session.workspaceClient?.status.kind === "failed" && session.snapshot().versionNotice?.level === "error");
     assert.deepEqual(session.snapshot().versionNotice, {
       level: "error",
-      text: `RAgents-Fassung passt nicht: Erweiterung 0.1.8, Server 0.1.9 - die RAgents-Erweiterung auf 0.1.9 aktualisieren. Der Arbeitsplatz ist deshalb nicht angemeldet: ${refusal}`,
+      text: `RAgents version does not match: extension 0.1.8, server 0.1.9 - update the RAgents extension to 0.1.9. The workspace is therefore not registered: ${refusal}`,
       update: "extension",
     });
-    assert.equal(session.snapshot().problem, undefined, "die Ablehnung steht nur im Hinweis zur Fassung");
+    assert.equal(session.snapshot().problem, undefined, "the refusal appears only in the version notice");
     assert.equal(server.workspaceClients().size, 0);
   } finally {
     await closeAll([session], [server]);
   }
 });
 
-test("bei gleicher Fassung ist ein abgelehnter Stand ein Fehler; eine andere Ablehnung bleibt ein Problem des Arbeitsplatzes", async () => {
-  const stand = await startStubServer({ refuseRegistration: { code: "workspace-executor-contributions", message: "Der Arbeitsplatz Notebook bringt die Executor-Beiträge keine mit." } });
-  const other = await startStubServer({ refuseRegistration: { code: "workspace-client-busy", message: "Gerade nicht." } });
+test("with the same version, a rejected revision is an error; another refusal stays a problem of the workspace", async () => {
+  const stand = await startStubServer({ refuseRegistration: { code: "workspace-executor-contributions", message: "The workspace Notebook brings none of the executor contributions." } });
+  const other = await startStubServer({ refuseRegistration: { code: "workspace-client-busy", message: "Not right now." } });
   const { services } = harness({ A: stand.url, B: other.url });
   const a = new ConnectionSession(serverConnection("A", stand.url), services);
   const b = new ConnectionSession(serverConnection("B", other.url), services);
@@ -351,18 +351,18 @@ test("bei gleicher Fassung ist ein abgelehnter Stand ein Fehler; eine andere Abl
     await waitFor(() => a.workspaceClient?.status.kind === "failed" && b.workspaceClient?.status.kind === "failed");
     assert.deepEqual(a.snapshot().versionNotice, {
       level: "error",
-      text: "RAgents-Stand passt nicht zum Server, der Arbeitsplatz ist nicht angemeldet: Der Arbeitsplatz Notebook bringt die Executor-Beiträge keine mit.",
+      text: "RAgents revision does not match the server, the workspace is not registered: The workspace Notebook brings none of the executor contributions.",
       update: undefined,
     });
     assert.equal(a.snapshot().problem, undefined);
     assert.equal(b.snapshot().versionNotice, undefined);
-    assert.equal(b.snapshot().problem, "Arbeitsplatz nicht angemeldet: Gerade nicht.");
+    assert.equal(b.snapshot().problem, "Workspace not registered: Not right now.");
   } finally {
     await closeAll([a, b], [stand, other]);
   }
 });
 
-test("ein Server ohne Fassungsangabe ist älter als diese Erweiterung", async () => {
+test("a server without a version is older than this extension", async () => {
   const server = await startStubServer({ version: null });
   const { services } = harness({ A: server.url });
   const session = new ConnectionSession(serverConnection("A", server.url), services);
@@ -371,7 +371,7 @@ test("ein Server ohne Fassungsangabe ist älter als diese Erweiterung", async ()
     await waitFor(() => session.snapshot().versionNotice !== undefined);
     assert.deepEqual(session.snapshot().versionNotice, {
       level: "warning",
-      text: "RAgents-Fassung passt nicht: Erweiterung 0.1.8, Server ohne Fassungsangabe - den Server auf 0.1.8 aktualisieren.",
+      text: "RAgents version does not match: extension 0.1.8, server without version - update the server to 0.1.8.",
       update: "server",
     });
   } finally {
@@ -379,15 +379,15 @@ test("ein Server ohne Fassungsangabe ist älter als diese Erweiterung", async ()
   }
 });
 
-test("die Reihenfolge der Fassungen zählt je Stelle; ein lokales Profil bringt den Host unter ragents.hostPath auf die Fassung der Erweiterung", () => {
+test("the order of versions counts per position; a local profile brings the host at ragents.hostPath to the extension version", () => {
   const registered = { kind: "registered" } as const;
   assert.equal(versionNotice({ extension: "0.1.10", server: "0.1.9", connection: "server", workspace: registered })?.update, "server");
   assert.equal(versionNotice({ extension: "0.1.9", server: "0.1.10", connection: "server", workspace: registered })?.update, "extension");
   assert.equal(versionNotice({ extension: "0.1.9", server: "0.1.9", connection: "server", workspace: registered }), undefined);
-  assert.equal(versionNotice({ extension: "0.1.9", server: undefined, connection: "server", workspace: registered }), undefined, "ohne Antwort des Servers gibt es nichts zu vergleichen");
+  assert.equal(versionNotice({ extension: "0.1.9", server: undefined, connection: "server", workspace: registered }), undefined, "without an answer from the server, there is nothing to compare");
   assert.equal(versionNotice({ extension: "0.2.0", server: "0.1.9", connection: "profile", workspace: undefined })?.text,
-    "RAgents-Fassung passt nicht: Erweiterung 0.2.0, Server 0.1.9 - den Host unter ragents.hostPath auf 0.2.0 bringen.");
+    "RAgents version does not match: extension 0.2.0, server 0.1.9 - bring the host at ragents.hostPath to 0.2.0.");
   assert.deepEqual(versionNotice({ extension: "dev", server: "0.1.9", connection: "server", workspace: registered }), {
-    level: "warning", text: "RAgents-Fassung passt nicht: Erweiterung dev, Server 0.1.9 - Erweiterung und Server auf dieselbe Fassung bringen.", update: undefined,
+    level: "warning", text: "RAgents version does not match: extension dev, server 0.1.9 - bring extension and server to the same version.", update: undefined,
   });
 });

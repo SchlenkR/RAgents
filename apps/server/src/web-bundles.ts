@@ -45,7 +45,7 @@ export interface WebFileResponse {
 /** A content hash as ETag; the browser revalidates every file, because entry and exports keep their names across builds. */
 export const etagOf = (content: Buffer | string): string => `"${createHash("sha256").update(content).digest("base64url").slice(0, 22)}"`;
 
-const notFound: WebFileResponse = { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" }, body: Buffer.from("Nicht gefunden") };
+const notFound: WebFileResponse = { status: 404, headers: { "Content-Type": "text/plain; charset=utf-8" }, body: Buffer.from("Not found") };
 
 const relativeFile = (encoded: string): string | undefined => {
   try {
@@ -71,7 +71,7 @@ export const webBundleFile = async (
   const content = await readFile(file).catch(() => undefined);
   if (!content) return notFound;
   const etag = etagOf(content);
-  // Chunks und Assets tragen ihren Hash im Namen und ändern sich nie; Einstieg und Exporte behalten ihren Namen über jeden Bau.
+  // Chunks and assets carry their hash in the name and never change; entry and exports keep their name across every build.
   const hashed = /^(chunks|assets)\//.test(path.relative(webFolder, file).split(path.sep).join("/"));
   const caching = { "Cache-Control": hashed ? "public, max-age=31536000, immutable" : "no-cache", ETag: etag };
   if (ifNoneMatch === etag) return { status: 304, headers: caching };

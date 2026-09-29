@@ -1,7 +1,7 @@
 import type { RunProcessMessage, RunProcessSnapshot } from "../contract.js";
 
 export interface RunProcessObserverOptions {
-  /** Der Stand eines Runs beim Executor, der ihn ausführt; `signal` bricht die Abfrage dort ab. */
+  /** A run's state at the executor running it; `signal` cancels the query there. */
   snapshot: (runId: string, signal: AbortSignal) => Promise<RunProcessSnapshot>;
   pollIntervalMs: number;
 }
@@ -12,17 +12,17 @@ interface RunWatch {
   listeners: Set<RunProcessListener>;
   fresh: Set<RunProcessListener>;
   last: string | undefined;
-  /** Die laufende Abfrage dieses Runs; ein hängender Executor hält nur sie auf. */
+  /** The running query of this run; a hanging executor holds up only this one. */
   polling: Promise<void> | undefined;
   controller: AbortController | undefined;
 }
 
-/** So viele Takte darf eine Abfrage dauern, bevor sie als gescheitert gilt. */
+/** How many ticks a query may take before it counts as failed. */
 const SNAPSHOT_TIMEOUT_TICKS = 5;
 
 const messageOf = (error: unknown): string => error instanceof Error ? error.message : String(error);
 
-/** Fragt je Takt den Stand jedes beobachteten Runs bei seinem Executor ab, jeden für sich und mit Zeitgrenze, und meldet nur Änderungen. */
+/** Queries the state of every observed run from its executor on each tick, each on its own and with a time limit, and reports only changes. */
 export class RunProcessObserver {
   readonly #options: RunProcessObserverOptions;
   readonly #watches = new Map<string, RunWatch>();
@@ -38,7 +38,7 @@ export class RunProcessObserver {
   }
 
   watch(runId: string, listener: RunProcessListener): () => void {
-    if (this.#stopped) throw new Error("Die Prozessüberwachung ist beendet");
+    if (this.#stopped) throw new Error("The process monitoring has ended");
     let watch = this.#watches.get(runId);
     if (!watch) {
       watch = { listeners: new Set(), fresh: new Set(), last: undefined, polling: undefined, controller: undefined };
@@ -104,7 +104,7 @@ export class RunProcessObserver {
     return watch.polling;
   }
 
-  /** Eine Abfrage endet spätestens nach ihrer Zeitgrenze; der Abbruch erreicht dabei auch den Executor. */
+  /** A query ends at the latest after its time limit; the cancellation also reaches the executor. */
   #bounded(runId: string, signal: AbortSignal | undefined): Promise<RunProcessSnapshot> {
     const timeoutMs = this.#options.pollIntervalMs * SNAPSHOT_TIMEOUT_TICKS;
     const controller = new AbortController();
@@ -113,7 +113,7 @@ export class RunProcessObserver {
     let timer: NodeJS.Timeout | undefined;
     const deadline = new Promise<never>((_settle, fail) => {
       timer = setTimeout(() => {
-        const error = new Error(`Der Executor des Runs ${runId} hat die Prozessabfrage nicht innerhalb von ${timeoutMs / 1000} s beantwortet`);
+        const error = new Error(`The executor of run ${runId} did not answer the process query within ${timeoutMs / 1000} s`);
         fail(error);
         controller.abort(error);
       }, timeoutMs);
@@ -130,7 +130,7 @@ export class RunProcessObserver {
       : message);
     const changed = serialized !== watch.last;
     watch.last = serialized;
-    if (changed && message.kind === "error") console.error(`Prozessüberwachung für ${runId}: ${message.error}`);
+    if (changed && message.kind === "error") console.error(`Process monitoring for ${runId}: ${message.error}`);
     for (const listener of watch.listeners) {
       if (changed || watch.fresh.has(listener)) listener(message);
     }

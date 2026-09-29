@@ -69,7 +69,7 @@ test("a breaking contract change fails the call with the build error and keeps t
   const result = await call(f, "broken");
   assert.equal(result.status, "failed");
   if (result.status !== "failed") return;
-  assert.match(result.error, /Capability-Vertrag von rpc hat sich geändert und die Neuaktivierung scheiterte/);
+  assert.match(result.error, /capability contract of rpc has changed and the reactivation failed/);
   assert.match(result.error, /src\/server\.ts:\d+:\d+ TS\d+/);
   assert.deepEqual(ping.calls, []);
   assert.deepEqual(program(f), before);

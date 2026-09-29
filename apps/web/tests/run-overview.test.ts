@@ -17,7 +17,7 @@ test("activity groups use local calendar days and stable newest-first ordering w
   const before = JSON.stringify(input);
   const groups = groupRunsByActivity(input,now);
   assert.deepEqual(groups.map(group=>group.date),["2026-01-01","2025-12-31","2024-07-20"]);
-  assert.deepEqual(groups.slice(0,2).map(group=>group.label),["Heute","Gestern"]);
+  assert.deepEqual(groups.slice(0,2).map(group=>group.label),["Today","Yesterday"]);
   assert.match(groups[2]!.label,/2024/);
   assert.deepEqual(groups[0]!.sessions.map(session=>session.id),["a","z"]);
   assert.equal(JSON.stringify(input),before);
@@ -26,7 +26,7 @@ test("activity groups use local calendar days and stable newest-first ordering w
 
 test("same-year older dates omit the year and leap-day yesterday is a calendar subtraction",()=>{
   const groups=groupRunsByActivity([run("leap",new Date(2024,1,29,23).getTime()),run("older",new Date(2024,0,2).getTime())],new Date(2024,2,1,1));
-  assert.equal(groups[0]!.label,"Gestern");
+  assert.equal(groups[0]!.label,"Yesterday");
   assert.doesNotMatch(groups[1]!.label,/2024/);
 });
 

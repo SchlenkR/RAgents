@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 
-/** Ein Host, der Webseiten außerhalb der Oberfläche zeigen kann, etwa VS Code im Simple Browser; ohne Host bleibt es beim eigenen Dialog mit iframe. */
+/** A host that can show web pages outside the UI, for example VS Code in the Simple Browser; without a host it stays with the built-in dialog with an iframe. */
 export interface PageOpener {
   open(url: string, title: string): void;
 }

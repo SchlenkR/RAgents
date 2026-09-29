@@ -7,9 +7,12 @@ import {
 	type AuthResult,
 	type Context,
 	createModels,
+	EXTENDED_THINKING_LEVELS,
+	getSupportedThinkingLevels,
 	lazyStream,
 	type Model,
 	type ModelCompaction,
+	type ModelThinkingLevel,
 	type MutableModels,
 	type Provider,
 	type SimpleStreamOptions,
@@ -24,6 +27,8 @@ export interface ModelAlias {
 	readonly upstream: string;
 	readonly model: string;
 	readonly compaction: ModelCompaction;
+	/** The levels the alias offers, each mapped to a level of the target; without it the alias offers the target's levels. */
+	readonly thinkingLevels?: Readonly<Partial<Record<ModelThinkingLevel, ModelThinkingLevel>>>;
 }
 
 interface AliasRegistration {
@@ -31,9 +36,42 @@ interface AliasRegistration {
 	readonly aliases: ReadonlyMap<string, ModelAlias>;
 }
 
-/** The metadata of the target under the alias as id and name, with the alias provider as provider and the alias's compaction values. */
+/** Why an alias cannot offer these thinking levels, checked against the target if given; without levels it offers the target's. */
+export function thinkingLevelsProblem(value: unknown, target?: Model<Api>): string | undefined {
+	if (value === undefined) return undefined;
+	if (!value || typeof value !== "object" || Array.isArray(value)) return "thinkingLevels needs an object from offered to target level";
+	const levels = Object.entries(value);
+	if (levels.length === 0) return "thinkingLevels needs at least one level";
+	const unknown = levels.find(([offered]) => !EXTENDED_THINKING_LEVELS.includes(offered as ModelThinkingLevel));
+	if (unknown) return `thinkingLevels.${unknown[0]} is not a thinking level`;
+	const invalid = levels.find(([, mapped]) => !EXTENDED_THINKING_LEVELS.includes(mapped as ModelThinkingLevel));
+	if (invalid) return `thinkingLevels.${invalid[0]} names the unknown thinking level "${String(invalid[1])}"`;
+	const off = levels.find(([offered, mapped]) => offered !== "off" && mapped === "off");
+	if (off) return `thinkingLevels.${off[0]} maps to off, which only off may do`;
+	if (!target) return undefined;
+	const supported = getSupportedThinkingLevels(target);
+	const unsupported = levels.find(([, mapped]) => !supported.includes(mapped as ModelThinkingLevel));
+	return unsupported && `thinkingLevels.${unsupported[0]} maps to ${String(unsupported[1])}, which the target does not offer (valid: ${supported.join(", ")})`;
+}
+
+/** The target with only the levels the alias offers, each carrying what the target sends for the level it maps to. */
+function withOfferedThinking(entry: ModelAlias, target: Model<Api>): Model<Api> {
+	const levels = entry.thinkingLevels;
+	if (!levels) return target;
+	return {
+		...target,
+		thinkingLevelMap: Object.fromEntries(EXTENDED_THINKING_LEVELS.flatMap((level): [ModelThinkingLevel, string | null][] => {
+			const mapped = levels[level];
+			if (mapped === undefined) return [[level, null]];
+			const sent = mapped === "off" ? target.thinkingLevelMap?.off : (target.thinkingLevelMap?.[mapped] ?? mapped);
+			return sent === undefined ? [] : [[level, sent]];
+		})),
+	};
+}
+
+/** The metadata of the target under the alias as id and name, with the alias provider as provider, the alias's compaction values and the levels it offers. */
 export function aliasedModel(providerId: string, entry: ModelAlias, target: Model<Api>): Model<Api> {
-	return { ...target, id: entry.alias, name: entry.alias, provider: providerId, compaction: entry.compaction };
+	return { ...withOfferedThinking(entry, target), id: entry.alias, name: entry.alias, provider: providerId, compaction: entry.compaction };
 }
 
 /** The built-in providers plus the ones registered at runtime; a key comes from the registration or the environment. */
@@ -106,7 +144,8 @@ export class ModelRuntime {
 		const missing = aliases.find((entry) => !this.models.getModel(entry.upstream, entry.model));
 		if (missing) throw new Error(`Alias ${missing.alias}: model ${missing.upstream}/${missing.model} is not configured.`);
 		for (const entry of aliases) {
-			const problem = compactionProblem(entry.compaction, this.models.getModel(entry.upstream, entry.model));
+			const target = this.models.getModel(entry.upstream, entry.model);
+			const problem = compactionProblem(entry.compaction, target) ?? thinkingLevelsProblem(entry.thinkingLevels, target);
 			if (problem) throw new Error(`Alias ${entry.alias}: ${problem}.`);
 		}
 		this.aliasRegistration = { provider: providerId, aliases: new Map(aliases.map((entry) => [entry.alias, entry])) };
@@ -121,13 +160,14 @@ export class ModelRuntime {
 		});
 	}
 
+	/** The target of an alias with the levels the alias offers, so a request clamps to them and sends the mapped level. */
 	private targetOf(model: Model<Api>): Model<Api> | undefined {
 		const registration = this.aliasRegistration;
 		if (model.provider !== registration?.provider) return undefined;
 		const entry = registration.aliases.get(model.id);
 		const target = entry && this.models.getModel(entry.upstream, entry.model);
-		if (!target) throw new Error(`Model ${model.provider}/${model.id} is not configured.`);
-		return target;
+		if (!entry || !target) throw new Error(`Model ${model.provider}/${model.id} is not configured.`);
+		return withOfferedThinking(entry, target);
 	}
 }
 

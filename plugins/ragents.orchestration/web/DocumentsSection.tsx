@@ -5,7 +5,7 @@ import { SectionLabel } from "@ragents/web/ui";
 
 const openDocument = (navigation: SessionNavigation, artifact: RunArtifact) => {
   if (navigation.revealEntity({ type: "artifact", id: artifact.id })) return;
-  throw new Error(`Kein Plugin kann das Dokument ${artifact.title} anzeigen`);
+  throw new Error(`No plugin can show the document ${artifact.title}`);
 };
 
 export function DocumentsSection({ actor, navigation, session }: CardSectionContext) {
@@ -18,7 +18,7 @@ export function DocumentsSection({ actor, navigation, session }: CardSectionCont
   return (
     <section className="grid gap-1.5">
       <SectionLabel>
-        <span>Dokumente</span>
+        <span>Documents</span>
         <small>{documents.length}</small>
       </SectionLabel>
       <ul className="grid list-none gap-1">

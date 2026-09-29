@@ -13,8 +13,8 @@ export function ThemeSettings() {
   const writable = access.can("settings.write");
   return <div className="mx-auto flex max-w-[1020px] flex-col gap-6 px-[clamp(20px,4vw,46px)] pt-7 pb-12 max-sm:px-3.5 max-sm:pt-5 max-sm:pb-9">
     <header>
-      <h2 className="text-[1.08rem] text-foreground">Darstellung</h2>
-      <p className="mt-2 max-w-[780px] text-xs leading-[1.55] text-muted-foreground">Farben für die gesamte Oberfläche, die Fläche und die Leiste.</p>
+      <h2 className="text-[1.08rem] text-foreground">Appearance</h2>
+      <p className="mt-2 max-w-[780px] text-xs leading-[1.55] text-muted-foreground">Colors for the whole interface, the surface and the sidebar.</p>
     </header>
     <section aria-labelledby="theme-settings-title">
       <Card className="flex-row flex-wrap items-center gap-5 p-6 max-sm:p-4">
@@ -25,9 +25,9 @@ export function ThemeSettings() {
         </div>
         <div className="flex-[1_1_220px]">
           <h3 className="mb-1.5 text-lg font-semibold" id="theme-settings-title">Schichtwerk</h3>
-          <p className={noteClasses}>Matte Flächen und gezeichnete Konturen.</p>
+          <p className={noteClasses}>Matte surfaces and drawn outlines.</p>
         </div>
-        <ToggleGroup aria-label="Schichtwerk-Farbschema" className="flex-none max-sm:w-full" disabled={!writable} size="sm" spacing={0}
+        <ToggleGroup aria-label="Schichtwerk color scheme" className="flex-none max-sm:w-full" disabled={!writable} size="sm" spacing={0}
           value={[preference]} variant="outline"
           onValueChange={([value]) => { if (value && writable) store.setPreference(parseThemePreference(value)); }}>
           {themeOptions.map((option) => <ToggleGroupItem key={option.value} value={option.value}>{option.label}</ToggleGroupItem>)}
@@ -36,11 +36,11 @@ export function ThemeSettings() {
     </section>
     <p className={noteClasses} role="status">
       {preference === "system"
-        ? `Folgt der Systemeinstellung. Aktuell ist Schichtwerk ${appearance === "dark" ? "Dunkel" : "Hell"} aktiv.`
-        : `Schichtwerk ${appearance === "dark" ? "Dunkel" : "Hell"} ist aktiv.`}
-      {" "}Änderungen gelten sofort und werden in diesem Browser gespeichert.
+        ? `Follows the system setting. Schichtwerk ${appearance === "dark" ? "Dark" : "Light"} is currently active.`
+        : `Schichtwerk ${appearance === "dark" ? "Dark" : "Light"} is active.`}
+      {" "}Changes apply immediately and are saved in this browser.
     </p>
-    {!writable && <p className={noteClasses}>Die Darstellung ist mit deinen Rechten nur lesbar.</p>}
+    {!writable && <p className={noteClasses}>With your permissions, the appearance is read-only.</p>}
     {error && <p className="text-sm leading-[1.6] text-destructive" role="alert">{error}</p>}
   </div>;
 }

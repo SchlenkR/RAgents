@@ -18,7 +18,7 @@ export const fsharpLanguageServer: LanguageServerDescription = {
 
 const PROJECT_LINE = /^Project\("\{[^}]+\}"\)\s*=\s*"[^"]*",\s*"([^"]+)"/gm;
 
-/** Die Projekte einer .sln, aufgelöst neben ihr; Ordnereinträge der Solution zählen nicht. */
+/** The projects of a .sln, resolved next to it; solution folder entries do not count. */
 export const solutionProjects = async (solutionFile: string): Promise<string[]> => {
   const text = await readFile(solutionFile, "utf8");
   const directory = path.dirname(solutionFile);
@@ -38,9 +38,9 @@ const serverPath = (toolsDirectory: string): string => {
   if (configured) return configured;
   const provisioned = path.join(toolsDirectory, ...FSHARP_SERVER_FILE.split("/"));
   if (existsSync(provisioned)) return provisioned;
-  throw new Error("fsautocomplete gibt es auf diesem Rechner nicht: weder "
-    + `${FSHARP_SERVER_VARIABLE} gesetzt noch ${provisioned} vorhanden. Ein Arbeitsplatz holt es mit `
-    + `pnpm provision --workspace, ein Server über pnpm provision <profil>; ${FSHARP_SERVER_VARIABLE} übersteuert beides`);
+  throw new Error("fsautocomplete does not exist on this machine: neither is "
+    + `${FSHARP_SERVER_VARIABLE} set nor does ${provisioned} exist. A workspace fetches it with `
+    + `pnpm provision --workspace, a server via pnpm provision <profile>; ${FSHARP_SERVER_VARIABLE} overrides both`);
 };
 
 const contentOf = (params: unknown): string => (params as { content?: string } | undefined)?.content ?? "";
@@ -65,8 +65,8 @@ export const executor: WorkspaceExecutorContribution = (machine) => ({
       const projects = root.toLowerCase().endsWith(".sln")
         ? (await solutionProjects(root)).filter((project) => project.toLowerCase().endsWith(".fsproj"))
         : [root];
-      if (projects.length === 0) throw new Error(`${path.basename(root)} enthält keine F#-Projekte`);
-      const finished = session.waitForNotification(timeoutMs, "Projekte geladen", (method, params) =>
+      if (projects.length === 0) throw new Error(`${path.basename(root)} contains no F# projects`);
+      const finished = session.waitForNotification(timeoutMs, "projects loaded", (method, params) =>
         method === "fsharp/notifyWorkspace"
         && contentOf(params).includes("\"workspaceLoad\"")
         && contentOf(params).includes("\"finished\""));
@@ -74,7 +74,7 @@ export const executor: WorkspaceExecutorContribution = (machine) => ({
         textDocuments: projects.map((project) => ({ uri: pathToFileURL(project).href })),
       });
       await finished;
-      return `${projects.length} F#-Projekt${projects.length === 1 ? "" : "e"} aus ${path.basename(root)} geladen`;
+      return `Loaded ${projects.length} F# project${projects.length === 1 ? "" : "s"} from ${path.basename(root)}`;
     },
   }],
 });

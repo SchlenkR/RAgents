@@ -15,7 +15,7 @@ test("coordinator settings notify both views and preserve selection after a reje
     read: async () => settings,
     save: async (selection) => {
       requests.push(selection);
-      if (fail) throw new Error("Reasoning nicht unterstützt");
+      if (fail) throw new Error("Reasoning not supported");
       return { ...settings, ...selection };
     },
   };
@@ -55,10 +55,10 @@ test("a stale refresh cannot overwrite a newer successful model selection", asyn
 
 test("a failed load without earlier settings becomes a visible failure", async () => {
   const store = createModelSettingsStore({
-    read: async () => { throw new Error("Der Server hat ungültige Koordinator-Einstellungen geliefert"); },
+    read: async () => { throw new Error("The server returned invalid coordinator settings"); },
     save: async () => settings,
   });
   await store.load();
   assert.equal(store.read().status, "failed");
-  assert.match(store.read().error ?? "", /ungültige/);
+  assert.match(store.read().error ?? "", /invalid/);
 });

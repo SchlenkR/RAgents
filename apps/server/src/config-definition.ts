@@ -11,7 +11,7 @@ const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 export const env = (name: string): EnvironmentReference => {
   if (!ENVIRONMENT_NAME.test(name)) {
-    throw new Error(`env("${name}") nennt keinen gültigen Namen einer Umgebungsvariablen`);
+    throw new Error(`env("${name}") does not name a valid environment variable`);
   }
   return { kind: "environment", name };
 };
@@ -27,13 +27,13 @@ export interface ProvisionedReference {
 
 const PLUGIN_ID = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
 
-/** Eine Datei im Werkzeugordner eines Plugins; beim Laden der Profildatei wird daraus ein absoluter Pfad. */
+/** A file in a plugin's tool folder; loading the profile file turns it into an absolute path. */
 export const provisioned = (plugin: string, file: string): ProvisionedReference => {
   if (!PLUGIN_ID.test(plugin)) {
-    throw new Error(`provisioned("${plugin}", ...) nennt keine gültige Plugin-Kennung`);
+    throw new Error(`provisioned("${plugin}", ...) does not name a valid plugin id`);
   }
   if (!file || file.split("/").some((segment) => segment === "" || segment === "." || segment === "..")) {
-    throw new Error(`provisioned("${plugin}", "${file}") braucht einen relativen Pfad im Werkzeugordner`);
+    throw new Error(`provisioned("${plugin}", "${file}") needs a relative path in the tool folder`);
   }
   return { kind: "provisioned", plugin, path: file };
 };
@@ -50,17 +50,42 @@ export interface ProfileAnonymousUser {
 
 export interface ProfileUser extends ProfileAnonymousUser {
   readonly password: string | EnvironmentReference;
-  /** Dauerhafter Bearer-Token für Clients ohne Anmeldedialog; nur als env(...), nie im Klartext. */
+  /** Permanent bearer token for clients without a sign-in dialog; only as env(...), never in plain text. */
   readonly token?: EnvironmentReference;
 }
 
-/** Ein Eintrag von MODEL_ALIASES: ein Modell unter eigenem Namen mit den Kompaktierungswerten, die für dieses Modell gelten. */
+/** An entry of MODEL_ALIASES: a model under its own name with the compaction values that apply to this model. */
 export interface ProfileModelAlias {
   readonly alias: string;
-  /** Das Ziel als anbieter/modell aus dem eingebauten Katalog des Anbieters. */
+  /** The target as provider/model from a provider of MODEL_PROVIDERS or a built-in catalog. */
   readonly model: string;
   readonly thinking?: ThinkingLevel;
+  /** The levels the alias offers, each mapped to a level of the target; without them it offers the target's levels. */
+  readonly thinkingLevels?: Readonly<Partial<Record<ThinkingLevel, ThinkingLevel>>>;
   readonly compaction: Readonly<ModelCompaction>;
+}
+
+/** An entry of MODEL_PROVIDERS: an OpenAI-compatible server, for instance a self-hosted one, whose models aliases can name as provider/model. */
+export interface ProfileModelProvider {
+  readonly id: string;
+  /** The address up to /v1, without a trailing slash; requests go to baseUrl/chat/completions. */
+  readonly baseUrl: string;
+  /** Only as env(...), never in plain text. */
+  readonly apiKey: EnvironmentReference;
+  readonly compat?: Readonly<{
+    /** "qwen-chat-template" switches thinking with chat_template_kwargs.enable_thinking and sends the effort as reasoning_effort. */
+    thinkingFormat?: "qwen-chat-template";
+    requiresReasoningContentOnAssistantMessages?: boolean;
+  }>;
+  readonly models: readonly Readonly<{
+    id: string;
+    contextWindow: number;
+    maxTokens: number;
+    reasoning: boolean;
+    input: readonly ("text" | "image" | "video" | "file" | "audio")[];
+    /** What the server gets per level; null removes a level, xhigh and max exist only when named here. */
+    thinkingLevelMap?: Readonly<Partial<Record<ThinkingLevel, string | null>>>;
+  }>[];
 }
 
 export type ConfigValue =
@@ -69,6 +94,7 @@ export type ConfigValue =
   | boolean
   | readonly string[]
   | readonly ProfileModelAlias[]
+  | readonly ProfileModelProvider[]
   | EnvironmentReference
   | ProvisionedReference;
 
@@ -82,12 +108,13 @@ type Section<T extends Descriptors> = {
   readonly [Key in T[number]["key"]]?: Key extends SecretKeyOf<T> ? EnvironmentReference : ConfigValue;
 };
 
-type HostSection = Omit<Section<typeof hostConfigDescriptors>, "MODEL_ALIASES"> & {
+type HostSection = Omit<Section<typeof hostConfigDescriptors>, "MODEL_ALIASES" | "MODEL_PROVIDERS"> & {
   readonly MODEL_ALIASES?: readonly ProfileModelAlias[];
+  readonly MODEL_PROVIDERS?: readonly ProfileModelProvider[];
 };
 
-// Der Kern kennt keine Plugin-IDs: welche Sektion und welcher Schlüssel gültig ist, entscheidet die
-// Laufzeitprüfung gegen die Deklarationen der geladenen Plugins.
+// The core knows no plugin ids: which section and which key is valid is decided by the
+// runtime check against the declarations of the loaded plugins.
 export type PluginSection = {
   readonly [key: `${string}_PAT`]: EnvironmentReference | undefined;
   readonly [key: `${string}_KEY`]: EnvironmentReference | undefined;

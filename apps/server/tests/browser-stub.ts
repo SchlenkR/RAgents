@@ -1,6 +1,6 @@
 import type { Browser } from "playwright-core";
 
-/** Was eine Testseite zeigt; ein Klick kann die Seite ändern, navigieren oder einen Konsolenfehler auslösen. */
+/** What a test page shows; a click can change the page, navigate, or raise a console error. */
 export interface StubElement {
   readonly role: string;
   readonly name: string;
@@ -13,7 +13,7 @@ export interface StubDocument {
   readonly elements: readonly StubElement[];
 }
 
-/** Greift von außen in die offene Seite ein, so wie es die Anwendung zwischen zwei Aufrufen täte. */
+/** Reaches into the open page from outside, the way the application would between two calls. */
 export interface StubPageControl {
   navigate: (target: string) => void;
   consoleError: (text: string) => void;
@@ -38,7 +38,7 @@ interface StubPageParts {
   readonly log: StubBrowserLog;
   readonly control: StubPageControl;
   readonly snapshot: () => string;
-  /** Scheitert, sobald der Browser geschlossen wird; so enden hängende Aktionen wie in Playwright. */
+  /** Fails as soon as the browser is closed; this is how hanging actions end, as in Playwright. */
   readonly closed: Promise<never>;
 }
 
@@ -65,12 +65,12 @@ const stubLocator = (description: string, match: () => StubElement[], parts: Stu
     first: () => derived("first", () => match().slice(0, 1)),
     nth: (index: number) => derived(`nth=${index}`, () => match().slice(index, index + 1)),
     filter: ({ hasText }: { hasText?: string }) =>
-      derived(hasText === undefined ? "sichtbar" : `mit ${hasText}`, () => match().filter((element) => hasText === undefined || element.name.includes(hasText))),
+      derived(hasText === undefined ? "visible" : `with ${hasText}`, () => match().filter((element) => hasText === undefined || element.name.includes(hasText))),
     ariaSnapshot: async () => snapshot(),
   };
 };
 
-/** Eine Seite ohne Chrome: Adressen aus `site`, jede unbekannte antwortet mit 404; ein Bildschirmfoto nennt den Viewport. */
+/** A page without Chrome: addresses from `site`, every unknown one answers with 404; a screenshot names the viewport. */
 const stubPage = (
   site: Readonly<Record<string, StubDocument>>,
   initial: Viewport,
@@ -89,7 +89,7 @@ const stubPage = (
   const navigate = (target: string): number => {
     url = target;
     const found = site[new URL(target).pathname];
-    document = found ?? { title: "Nicht gefunden", elements: [] };
+    document = found ?? { title: "Not found", elements: [] };
     emit("framenavigated", mainFrame);
     if (!found) emit("response", { status: () => 404, url: () => target });
     return found ? 200 : 404;
@@ -114,7 +114,7 @@ const stubPage = (
     title: async () => document.title,
     mainFrame: () => mainFrame,
     setViewportSize: async (size: Viewport) => { viewport = size; },
-    screenshot: async ({ fullPage }: { fullPage: boolean }) => Buffer.from(`PNG ${viewport.width}x${viewport.height}${fullPage ? " ganze Seite" : ""}`),
+    screenshot: async ({ fullPage }: { fullPage: boolean }) => Buffer.from(`PNG ${viewport.width}x${viewport.height}${fullPage ? " full page" : ""}`),
     waitForURL: async (expected: string) => {
       if (expected !== url) throw new Error(`Timeout exceeded waiting for URL ${expected}`);
     },
@@ -130,7 +130,7 @@ const stubPage = (
   return page;
 };
 
-/** Ein Browser für Tests ohne Chrome; `page()` greift in die zuletzt geöffnete Seite ein. */
+/** A browser for tests without Chrome; `page()` reaches into the most recently opened page. */
 export const stubBrowser = (site: Readonly<Record<string, StubDocument>>) => {
   const log: StubBrowserLog = { launches: 0, contexts: 0, closes: 0, actions: [] };
   let current: StubPageControl | undefined;
@@ -155,7 +155,7 @@ export const stubBrowser = (site: Readonly<Record<string, StubDocument>>) => {
     } as unknown as Browser;
   };
   const page = (): StubPageControl => {
-    if (!current) throw new Error("Im Test-Browser ist noch keine Seite offen");
+    if (!current) throw new Error("No page is open in the test browser yet");
     return current;
   };
   return { launch, log, page };

@@ -22,7 +22,7 @@ const archiveRoute = (state: () => DistributionState): HttpRouteContribution => 
     const current = state();
     const version = archivePattern.exec(url.pathname)?.[1];
     if (version !== current.description.version) {
-      writeJson(response, 404, { error: `Der Stand ${version} wird nicht mehr angeboten; aktuell ist ${current.description.version}` });
+      writeJson(response, 404, { error: `Version ${version} is no longer offered; the current one is ${current.description.version}` });
       return;
     }
     response.writeHead(200, {
@@ -42,13 +42,13 @@ const profileDistributionPlugin: RAgentsPlugin = {
     if (!file) {
       host.lifecycle({
         id: "ragents.profile-distribution",
-        initialize: () => console.log("Profilverteilung: CLIENT_PROFILE_FILE ist nicht gesetzt, dieser Server bietet kein Client-Profil an"),
+        initialize: () => console.log("Profile distribution: CLIENT_PROFILE_FILE is not set, this server offers no client profile"),
       });
       return;
     }
     let ready: DistributionState | undefined;
     const state = (): DistributionState => {
-      if (!ready) throw new DomainError("profile-not-ready", "Das Client-Profil ist noch nicht gepackt.", 503);
+      if (!ready) throw new DomainError("profile-not-ready", "The client profile is not packed yet.", 503);
       return ready;
     };
     host.lifecycle({
@@ -73,7 +73,7 @@ const profileDistributionPlugin: RAgentsPlugin = {
             plugins: inspected.plugins.map((plugin) => ({ id: plugin.id, source: plugin.source })),
           },
         };
-        console.log(`Profilverteilung: ${inspected.profile} Stand ${packed.version.slice(0, 12)} (${packed.entries.length} Dateien, ${packed.archive.byteLength} Byte, Host-API ${hostApi}, Host ${hostVersion.slice(0, 12)}, Paket ${packageVersion})`);
+        console.log(`Profile distribution: ${inspected.profile} version ${packed.version.slice(0, 12)} (${packed.entries.length} files, ${packed.archive.byteLength} bytes, host API ${hostApi}, host ${hostVersion.slice(0, 12)}, package ${packageVersion})`);
       },
     });
     host.methods(implement(profileDistributionContracts.describe, () => state().description));

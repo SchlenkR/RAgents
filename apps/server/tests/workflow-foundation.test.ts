@@ -10,13 +10,13 @@ import { prepareAppProject, typecheckServerProject } from "../../../apps/server/
 import { installClientSdk, compileClientProject } from "../../../apps/server/src/plugin-support/actor-programs/client-compiler.ts";
 
 const definition = (): WorkflowDefinition => ({
-  id: "delivery", title: "Auslieferung", roles: { worker: { title: "Umsetzer", prompt: "prompts/worker.md" }, reviewer: { title: "Prüfer", prompt: "prompts/reviewer.hbs" } },
+  id: "delivery", title: "Delivery", roles: { worker: { title: "Implementer", prompt: "prompts/worker.md" }, reviewer: { title: "Reviewer", prompt: "prompts/reviewer.hbs" } },
   steps: [
-    { id: "implement", title: "Umsetzen", role: "worker", goal: "Akzeptanzkriterien erfüllen", prompt: "prompts/implement.md", completion: { source: "agent", description: "Änderungen gemeldet" }, freedom: { mode: "extend", description: "Eigene Arbeitsschritte planen", maxItems: 3, allowSkip: true } },
-    { id: "review", title: "Prüfen", role: "reviewer", goal: "Jede Regel prüfen", prompt: "prompts/review.md", completion: { source: "service", description: "Alle Regeln bestanden" }, freedom: { mode: "fixed", description: "Regelkatalog vollständig" }, expansion: { source: "rules", role: "reviewer", mode: "parallel", maxConcurrent: 3 } },
-    { id: "accept", title: "Abnehmen", role: "worker", goal: "Abnahme ermöglichen", completion: { source: "operator", description: "Betreiber bestätigt" }, freedom: { mode: "fixed", description: "Abnahme abwarten" } },
+    { id: "implement", title: "Implement", role: "worker", goal: "Meet acceptance criteria", prompt: "prompts/implement.md", completion: { source: "agent", description: "Changes reported" }, freedom: { mode: "extend", description: "Plan own work steps", maxItems: 3, allowSkip: true } },
+    { id: "review", title: "Review", role: "reviewer", goal: "Check every rule", prompt: "prompts/review.md", completion: { source: "service", description: "All rules passed" }, freedom: { mode: "fixed", description: "Rule catalog complete" }, expansion: { source: "rules", role: "reviewer", mode: "parallel", maxConcurrent: 3 } },
+    { id: "accept", title: "Accept", role: "worker", goal: "Enable acceptance", completion: { source: "operator", description: "Operator confirmed" }, freedom: { mode: "fixed", description: "Wait for acceptance" } },
   ],
-  transitions: [{ from: "implement", to: "review" }, { from: "review", to: "accept", condition: "Alle Regeln bestanden" }, { from: "review", to: "implement", condition: "Korrektur erforderlich", kind: "return" }],
+  transitions: [{ from: "implement", to: "review" }, { from: "review", to: "accept", condition: "All rules passed" }, { from: "review", to: "implement", condition: "Correction required", kind: "return" }],
 });
 
 test("workflow validates roles, references, limits and forward DAG while retaining returns", () => {
@@ -34,10 +34,10 @@ test("workflow validates roles, references, limits and forward DAG while retaini
 
 test("role instructions combine owned prompts with goals, completion and bounded freedom", async () => {
   const loaded: string[] = [];
-  const result = await workflowInstructions(definition(), "worker", async reference => { loaded.push(reference); return `Inhalt ${reference}`; });
+  const result = await workflowInstructions(definition(), "worker", async reference => { loaded.push(reference); return `Content ${reference}`; });
   assert.deepEqual(loaded, ["prompts/worker.md", "prompts/implement.md"]);
-  for (const value of ["Akzeptanzkriterien erfüllen", "Änderungen gemeldet", "Eigene Arbeitsschritte planen", "At most 3", "required steps remain mandatory", "Abnahme abwarten", "Alle Regeln bestanden", "Korrektur erforderlich", "return path"]) assert.ok(result.includes(value), value);
-  assert.doesNotMatch(result, /Inhalt prompts\/review/);
+  for (const value of ["Meet acceptance criteria", "Changes reported", "Plan own work steps", "At most 3", "required steps remain mandatory", "Wait for acceptance", "All rules passed", "Correction required", "return path"]) assert.ok(result.includes(value), value);
+  assert.doesNotMatch(result, /Content prompts\/review/);
   await assert.rejects(workflowInstructions(definition(), "missing", async () => "text"), /Unknown role/);
   await assert.rejects(workflowInstructions(definition(), "worker", async () => "  "), /Prompt/);
   await assert.rejects(workflowInstructions(definition(), "worker", async () => { throw new Error("missing file"); }), /missing file/);
@@ -45,9 +45,9 @@ test("role instructions combine owned prompts with goals, completion and bounded
 
 test("graph expands live groups between owning step and next target and keeps returns on owning step", () => {
   const def = definition();
-  const group = { id: "types", title: "Typen", status: "active" as const, items: [{ label: "Nullwerte", status: "pending" as const }] };
-  const graph = workflowGraph(def, { steps: { implement: { status: "done", detail: "", items: [{ label: "Desktop prüfen", status: "skipped", detail: "" }] } }, expansions: { rules: [group] } });
-  const node = graph.nodes.find(node => node.label === "Typen")!;
+  const group = { id: "types", title: "Types", status: "active" as const, items: [{ label: "Null values", status: "pending" as const }] };
+  const graph = workflowGraph(def, { steps: { implement: { status: "done", detail: "", items: [{ label: "Check desktop", status: "skipped", detail: "" }] } }, expansions: { rules: [group] } });
+  const node = graph.nodes.find(node => node.label === "Types")!;
   assert.equal(node.status, "active"); assert.deepEqual(node.items, group.items);
   assert.equal(graph.nodes.find(node => node.id === "review")!.status, "pending");
   assert.ok(graph.edges.some(edge => edge.source === "review" && edge.target === node.id));
@@ -72,9 +72,9 @@ test("prompt reader rejects missing, empty, traversal and escaping symlinks", as
   const directory = await mkdtemp("/private/tmp/ragents-workflow-prompts-");
   context.after(() => rm(directory, { recursive: true, force: true }));
   const root = path.join(directory, "actor"); await mkdir(root);
-  await writeFile(path.join(root, "good.md"), "Verbindlicher Prompt"); await writeFile(path.join(root, "empty.hbs"), " \n");
-  await writeFile(path.join(directory, "outside.md"), "außerhalb"); await symlink(path.join(directory, "outside.md"), path.join(root, "escape.md"));
-  const read = createPromptReader(root); assert.equal(await read("good.md"), "Verbindlicher Prompt");
+  await writeFile(path.join(root, "good.md"), "Binding prompt"); await writeFile(path.join(root, "empty.hbs"), " \n");
+  await writeFile(path.join(directory, "outside.md"), "outside"); await symlink(path.join(directory, "outside.md"), path.join(root, "escape.md"));
+  const read = createPromptReader(root); assert.equal(await read("good.md"), "Binding prompt");
   for (const reference of ["missing.md", "empty.hbs", "../outside.md", "escape.md", "/absolute.md", "good.txt"]) await assert.rejects(read(reference));
 });
 
@@ -86,7 +86,7 @@ test("installed canonical SDK compiles server and browser consumers and binds pr
   const source = `import { defineWorkflow, workflowGraph, workflowInstructions, type WorkflowState } from "@ragents/workflow";\nexport const definition = defineWorkflow(${JSON.stringify(definition())});\nexport const state: WorkflowState = {steps:{},expansions:{rules:[]}};\nexport const graph = workflowGraph(definition,state);\n`;
   await writeFile(path.join(directory, "src/server.ts"), source + 'import {readPrompt} from "@ragents/workflow/prompts"; export const instructions = () => workflowInstructions(definition,"worker",readPrompt);');
   await writeFile(path.join(directory, "src/client.tsx"), source + 'export const render = () => graph.nodes.map(node => node.label).join(", ");');
-  await writeFile(path.join(directory, "prompts/worker.md"), "Rollenprompt"); await writeFile(path.join(directory, "prompts/implement.md"), "Schrittprompt");
+  await writeFile(path.join(directory, "prompts/worker.md"), "Role prompt"); await writeFile(path.join(directory, "prompts/implement.md"), "Step prompt");
   await prepareAppProject(directory);
   const contracts = { stateSchema: { type: "object" }, actions: [] };
   await installClientSdk(directory, contracts);
@@ -96,11 +96,11 @@ test("installed canonical SDK compiles server and browser consumers and binds pr
   const exported = await import(pathToFileURL(path.join(directory, "node_modules/@ragents/workflow/index.js")).href);
   assert.deepEqual(exported.workflowGraph(definition(), { steps: {}, expansions: { rules: [] } }), workflowGraph(definition(), { steps: {}, expansions: { rules: [] } }));
   const prompts = await import(pathToFileURL(path.join(directory, "node_modules/@ragents/workflow/prompts.js")).href);
-  assert.equal(await prompts.readPrompt("prompts/worker.md"), "Rollenprompt"); await assert.rejects(prompts.readPrompt("prompts/missing.md"));
+  assert.equal(await prompts.readPrompt("prompts/worker.md"), "Role prompt"); await assert.rejects(prompts.readPrompt("prompts/missing.md"));
   const result = await build({ entryPoints: [path.join(directory, "src/server.ts")], bundle: true, packages: "external", write: false, platform: "node", format: "esm" });
   await writeFile(path.join(directory, "server.mjs"), result.outputFiles[0]!.text);
   const server = await import(pathToFileURL(path.join(directory, "server.mjs")).href);
-  assert.match(await server.instructions(), /Rollenprompt/);
+  assert.match(await server.instructions(), /Role prompt/);
   assert.match(await readFile(path.join(directory, "node_modules/@ragents/workflow/index.d.ts"), "utf8"), /declare function defineWorkflow/);
   await writeFile(path.join(directory, "src/client.tsx"), source + 'workflowGraph(definition,{steps:{unknown:{status:"skipped"}}});');
   assert.equal((await compileClientProject({ directory, entryPoint: "src/client.tsx", ...contracts })).valid, false);

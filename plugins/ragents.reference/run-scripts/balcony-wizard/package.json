@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "ragents": {
-    "title": "Balkon-Wizard einrichten",
+    "title": "Set up balcony wizard",
     "backend": "src/server.ts"
   }
 }

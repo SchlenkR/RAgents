@@ -17,7 +17,7 @@ interface AccessValue extends UserAccess {
 export const AccessContext = createContext<AccessValue>({ ...unrestrictedAccess, logout: async () => {} });
 export const useAccess = () => useContext(AccessContext);
 
-/** Die ganzseitige Karte für Anmeldung und Startfehler, auch vom Einstieg in main.tsx verwendet. */
+/** The full-page card for sign-in and startup errors, also used by the entry point in main.tsx. */
 export function AccessScreen({ children }: PropsWithChildren) {
   return <main className={screenClasses}><Card className={cn(cardWidthClasses, cardClasses)}>{children}</Card></main>;
 }
@@ -26,7 +26,7 @@ export interface LoginProps {
   onLogin: (snapshot: AccessSnapshot) => void;
 }
 
-/** Login ersetzt das Anmeldeformular, wenn ein Host die Anmeldung selbst führt (VS-Code-Erweiterung). */
+/** Login replaces the sign-in form when a host handles sign-in itself (VS Code extension). */
 export function AccessGate({ children, Login: LoginComponent = Login }: PropsWithChildren<{ Login?: ComponentType<LoginProps> }>) {
   const [snapshot, setSnapshot] = useState<AccessSnapshot>();
   const [error, setError] = useState<string>();
@@ -39,7 +39,7 @@ export function AccessGate({ children, Login: LoginComponent = Login }: PropsWit
     });
     setError(undefined);
     void fetch("/api/access", { cache: "no-store", signal: controller.signal }).then(async (response) => {
-      if (!response.ok) throw await errorFrom(response, "Die Anmeldung konnte nicht geladen werden.");
+      if (!response.ok) throw await errorFrom(response, "Could not load the sign-in state.");
       const next = accessSnapshotFrom(await response.json());
       if (!controller.signal.aborted) setSnapshot(next);
     }).catch((cause: unknown) => {
@@ -63,14 +63,14 @@ export function AccessGate({ children, Login: LoginComponent = Login }: PropsWit
   }, [snapshot?.enabled]);
   const logout = useCallback(async () => {
     const response = await fetch("/api/access/logout", { method: "POST" });
-    if (!response.ok) throw await errorFrom(response, "Abmelden fehlgeschlagen.");
+    if (!response.ok) throw await errorFrom(response, "Sign-out failed.");
     setSnapshot({ enabled: true, user: null });
   }, []);
   const access = useMemo(() => ({ ...createAccessContext(snapshot ?? { enabled: true, user: null }), logout }), [snapshot, logout]);
   if (!snapshot) return <AccessScreen>
     <h1 className="my-3 text-[1.5rem]">RAgents</h1>
-    {error ? <><p className="mb-6 leading-normal" role="alert">{error}</p><Button variant="outline" onClick={() => setRetry((value) => value + 1)}>Erneut laden</Button></>
-      : <p className="mb-6 leading-normal" role="status">Anmeldung wird geprüft ...</p>}
+    {error ? <><p className="mb-6 leading-normal" role="alert">{error}</p><Button variant="outline" onClick={() => setRetry((value) => value + 1)}>Reload</Button></>
+      : <p className="mb-6 leading-normal" role="status">Checking sign-in ...</p>}
   </AccessScreen>;
   return <AccessContext.Provider value={access}>
     {snapshot.enabled && !snapshot.user ? <LoginComponent onLogin={setSnapshot} /> : children}
@@ -90,9 +90,9 @@ function Login({ onLogin }: LoginProps) {
     void fetch("/api/access/login", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: id.trim(), password }),
     }).then(async (response) => {
-      if (!response.ok) throw await errorFrom(response, "Anmeldung fehlgeschlagen.");
+      if (!response.ok) throw await errorFrom(response, "Sign-in failed.");
       const next = accessSnapshotFrom(await response.json());
-      if (next.enabled && !next.user) throw new Error("Der Server hat die Anmeldung nicht bestätigt.");
+      if (next.enabled && !next.user) throw new Error("The server did not confirm the sign-in.");
       setPassword("");
       onLogin(next);
     }).catch((cause: unknown) => {
@@ -101,12 +101,12 @@ function Login({ onLogin }: LoginProps) {
     }).finally(() => setPending(false));
   }}><Card className={cardClasses}>
     <span className="text-sm font-semibold text-muted-foreground">RAgents</span>
-    <h1 className="my-3 text-[1.5rem]">Einloggen</h1>
-    <p className="mb-6 leading-normal text-muted-foreground">Melde dich mit deinem Benutzerkonto für diese Werkstatt an.</p>
-    <label className={fieldClasses}>Benutzer<Input autoComplete="username" autoFocus disabled={pending} name="username" onChange={(event) => setId(event.target.value)} required value={id} /></label>
-    <label className={fieldClasses}>Passwort<Input autoComplete="current-password" disabled={pending} name="password" onChange={(event) => setPassword(event.target.value)} required type="password" value={password} /></label>
+    <h1 className="my-3 text-[1.5rem]">Sign in</h1>
+    <p className="mb-6 leading-normal text-muted-foreground">Sign in with your user account for this workshop.</p>
+    <label className={fieldClasses}>User<Input autoComplete="username" autoFocus disabled={pending} name="username" onChange={(event) => setId(event.target.value)} required value={id} /></label>
+    <label className={fieldClasses}>Password<Input autoComplete="current-password" disabled={pending} name="password" onChange={(event) => setPassword(event.target.value)} required type="password" value={password} /></label>
     {error && <p className="mb-6 text-destructive" role="alert">{error}</p>}
-    <Button className="w-full" disabled={pending || !id.trim() || !password} type="submit">{pending ? "Anmeldung läuft ..." : "Einloggen"}</Button>
+    <Button className="w-full" disabled={pending || !id.trim() || !password} type="submit">{pending ? "Signing in ..." : "Sign in"}</Button>
   </Card></form></main>;
 }
 
@@ -116,10 +116,10 @@ export function UserMenu() {
   const [error, setError] = useState<string>();
   if (!access.enabled || !access.user) return null;
   return <div className="flex flex-none items-stretch text-sm">
-    <ToolbarItem as="button" aria-label={`${access.user.label} abmelden`} className="max-w-[160px] max-sm:max-w-[100px]" disabled={pending} title={access.user.id} type="button" onClick={() => {
+    <ToolbarItem as="button" aria-label={`Sign out ${access.user.label}`} className="max-w-[160px] max-sm:max-w-[100px]" disabled={pending} title={access.user.id} type="button" onClick={() => {
       setPending(true); setError(undefined);
       void access.logout().catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause))).finally(() => setPending(false));
-    }}><ToolbarCopy><ToolbarLabel className="normal-case [overflow-wrap:anywhere]">{access.user.label}</ToolbarLabel><ToolbarText>Abmelden</ToolbarText></ToolbarCopy></ToolbarItem>
+    }}><ToolbarCopy><ToolbarLabel className="normal-case [overflow-wrap:anywhere]">{access.user.label}</ToolbarLabel><ToolbarText>Sign out</ToolbarText></ToolbarCopy></ToolbarItem>
     {error && <ToolbarItem className="text-destructive" role="alert">{error}</ToolbarItem>}
   </div>;
 }

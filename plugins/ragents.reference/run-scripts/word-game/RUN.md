@@ -1,25 +1,25 @@
 ---
-title: Wortspiel starten
-description: "Ein vorbereitetes Wortspiel zeigt, wie ein TypeScript-Actor Reihenfolge und Ende festlegt, während vier LLMs die Wörter liefern. Die Mini-App macht den Fortschritt sichtbar."
+title: Start word game
+description: "A prepared word game shows how a TypeScript actor determines order and end while four LLMs supply the words. The mini-app makes the progress visible."
 order: 150
 coordinator: false
-tags: Run-Scripts, Anwendungsfall, Konzeptdemo, Mini-Apps, TypeScript-Actors, Agententeams, Subscriptions
+tags: Run scripts, Use case, Concept demo, Mini-apps, TypeScript actors, Agent teams, Subscriptions
 ---
 
-Rot, Gelb, Blau und Grün sind vier LLM-Actors ohne Werkzeuge mit der Rolle `standard`.
-Der TypeScript-Actor besitzt die Mini-App, legt die Teilnehmer an und wird Primary-Actor.
-Erst "Wortspiel starten" in der App beauftragt das erste Modell. Das Ausgangswort ist "Sonne".
+Red, Yellow, Blue, and Green are four LLM actors without tools with the role `standard`.
+The TypeScript actor owns the mini-app, creates the participants, and becomes the primary actor.
+Only "Start word game" in the app assigns the first model. The starting word is "sun".
 
-Der Steueractor abonniert die Abschlüsse und Unterbrechungen der Teilnehmer. Jeder erfolgreiche
-Turn liefert genau ein Wort. Erst danach erhält der nächste Teilnehmer die bisherige Wortfolge.
-Die Reihenfolge Rot, Gelb, Blau, Grün wiederholt sich dreimal; nach zwölf Beiträgen endet die
-Weitergabe. Die App zeigt Fortschritt, Wortfolge und das fertige Dokument in `UI.DocumentViewer`.
-Wörter entstehen ausschließlich durch echte Modellantworten. Das Format wird geprüft,
-die Qualität der Assoziation bleibt Sache des Modells.
+The control actor subscribes to the participants' completions and interruptions. Each successful
+turn delivers exactly one word. Only then does the next participant receive the word sequence so far.
+The order Red, Yellow, Blue, Green repeats three times; after twelve contributions the
+handover ends. The app shows progress, the word sequence, and the finished document in `UI.DocumentViewer`.
+Words come exclusively from real model answers. The format is checked;
+the quality of the association is up to the model.
 
-Fehlgeschlagene oder unterbrochene Modell-Turns und ungültige Antworten stoppen das Spiel
-mit sichtbarer Ursache. Ein begonnenes Spiel lässt sich nicht erneut starten; für einen neuen
-Versuch wird ein neuer Run angelegt. Neuladen der App erhält den journalisierten Fortschritt.
-Ein Serverneustart kann laufende Turns unterbrechen; das Spiel setzt sie nicht automatisch neu auf.
-Unbekannte direkte Programmeingaben werden als Fehler abgewiesen und verändern den Spielstand nicht.
-Der Steueractor hat keine freie Chat-Eingabe; Chatnachrichten an ihn weist der Host ab.
+Failed or interrupted model turns and invalid answers stop the game
+with a visible cause. A game that has started cannot be started again; for a new
+attempt, create a new run. Reloading the app keeps the journaled progress.
+A server restart can interrupt running turns; the game does not set them up again automatically.
+Unknown direct program inputs are rejected as errors and do not change the game state.
+The control actor has no free chat input; the host rejects chat messages to it.

@@ -28,14 +28,14 @@ const flag = (env: ChatDisplayEnvironment, key: ChatDisplayKey, fallback: boolea
   if (value === undefined || value === "") return fallback;
   if (value === "1") return true;
   if (value === "0") return false;
-  throw new Error(`${key} muss "0" oder "1" sein, nicht "${value}"`);
+  throw new Error(`${key} must be "0" or "1", not "${value}"`);
 };
 
 const mode = (env: ChatDisplayEnvironment, key: ChatDisplayKey, fallback: ChatDetailMode): ChatDetailMode => {
   const value = env.optional(key);
   if (value === undefined || value === "") return fallback;
   if (!CHAT_DETAIL_MODES.includes(value as ChatDetailMode)) {
-    throw new Error(`${key} muss einer der Werte ${CHAT_DETAIL_MODES.join(", ")} sein, nicht "${value}"`);
+    throw new Error(`${key} must be one of ${CHAT_DETAIL_MODES.join(", ")}, not "${value}"`);
   }
   return value as ChatDetailMode;
 };

@@ -48,7 +48,7 @@ export function WorkspacePanel(props: WorkspacePanelProps) {
   const tabs = props.tabs;
   const activeTab = tabs.find((tab) => tab.id === props.navigation.activeTabId) ?? tabs[0];
   const activeTabId = activeTab?.id;
-  const stateAction = collapsed ? "Leiste aufklappen" : "Leiste einklappen";
+  const stateAction = collapsed ? "Expand sidebar" : "Collapse sidebar";
 
   useLayoutEffect(() => {
     const panel = panelRef.current;
@@ -147,7 +147,7 @@ export function WorkspacePanel(props: WorkspacePanelProps) {
         frame = undefined;
         applyWidth(currentWidth);
         target.setAttribute("aria-valuenow", String(Math.round(currentWidth)));
-        target.setAttribute("aria-valuetext", `${Math.round(currentWidth)} Pixel`);
+        target.setAttribute("aria-valuetext", `${Math.round(currentWidth)} pixels`);
       });
     }
 
@@ -165,7 +165,7 @@ export function WorkspacePanel(props: WorkspacePanelProps) {
       applyWidth(normalWidthRef.current);
       const effective = clampWidth(normalWidthRef.current);
       target.setAttribute("aria-valuenow", String(Math.round(effective)));
-      target.setAttribute("aria-valuetext", `${Math.round(effective)} Pixel`);
+      target.setAttribute("aria-valuetext", `${Math.round(effective)} pixels`);
     }
 
     window.addEventListener("pointermove", move);
@@ -196,7 +196,7 @@ export function WorkspacePanel(props: WorkspacePanelProps) {
 
   return (
     <aside
-      aria-label="Leiste"
+      aria-label="Sidebar"
       className={cn(
         "relative z-20 flex min-h-0 min-w-0 flex-col @max-[960px]/chat-content:absolute @max-[960px]/chat-content:inset-y-0 @max-[960px]/chat-content:right-0 @max-[960px]/chat-content:left-auto",
         collapsed
@@ -211,12 +211,12 @@ export function WorkspacePanel(props: WorkspacePanelProps) {
         <div
           aria-controls="workspace-panel"
           aria-disabled={!resizable}
-          aria-label="Breite der Leiste"
+          aria-label="Sidebar width"
           aria-orientation="vertical"
           aria-valuemax={Math.round(layoutBounds.max)}
           aria-valuemin={Math.round(layoutBounds.min)}
           aria-valuenow={Math.round(effectiveWidth)}
-          aria-valuetext={`${Math.round(effectiveWidth)} Pixel`}
+          aria-valuetext={`${Math.round(effectiveWidth)} pixels`}
           className={cn(
             "absolute inset-y-0 right-auto -left-1 z-30 w-2 touch-none",
             resizable
@@ -227,11 +227,11 @@ export function WorkspacePanel(props: WorkspacePanelProps) {
           onPointerDown={resizable ? startResize : undefined}
           role="separator"
           tabIndex={resizable ? 0 : -1}
-          title="Breite ziehen"
+          title="Drag to resize"
         />
       )}
       {props.headerContainer && createPortal(<TooltipProvider><div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden pr-[7px] pl-[9px]" data-workspace-state={props.state}>
-        <nav aria-label="Leiste" className="flex min-w-0 flex-1 flex-nowrap gap-[3px] overflow-x-auto no-scrollbar" hidden={collapsed} role="tablist">
+        <nav aria-label="Sidebar" className="flex min-w-0 flex-1 flex-nowrap gap-[3px] overflow-x-auto no-scrollbar" hidden={collapsed} role="tablist">
           {tabs.map((tab) => (
             <Tooltip key={tab.id}>
               <TooltipTrigger
@@ -253,7 +253,7 @@ export function WorkspacePanel(props: WorkspacePanelProps) {
                   />
                 )}
               </TooltipTrigger>
-              <TooltipContent side="bottom">{props.pendingTabIds.includes(tab.id) ? `${tab.label} - es gibt Neues` : tab.label}</TooltipContent>
+              <TooltipContent side="bottom">{props.pendingTabIds.includes(tab.id) ? `${tab.label} - new activity` : tab.label}</TooltipContent>
             </Tooltip>
           ))}
         </nav>

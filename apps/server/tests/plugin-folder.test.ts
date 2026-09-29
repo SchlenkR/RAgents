@@ -46,8 +46,8 @@ test("a plugin folder contributes its skill starters, skills and system prompts"
   const cards = folderSkills(folder, "test.plugin").startEntries;
 
   assert.deepEqual(cards.map((card) => card.id), ["test.plugin.10-example"]);
-  assert.equal(cards[0]?.title, "Beispielkarte");
-  assert.equal(cards[0]?.prompt, "Ich hätte gern einen Beleg, dass diese Karte aus dem Plugin-Ordner stammt.");
+  assert.equal(cards[0]?.title, "Example card");
+  assert.equal(cards[0]?.prompt, "I would like proof that this card comes from the plugin folder.");
   const scripts = folderRunScripts(folder, "test.plugin");
   assert.deepEqual(scripts.map((script) => [script.id, script.script.handle, script.script.coordinator]), [
     ["test.plugin.example-run", "example-run", false],
@@ -58,7 +58,7 @@ test("a plugin folder contributes its skill starters, skills and system prompts"
   assert.deepEqual(folderSkillPaths(folder), [path.join(folder, "skills", "10-example"), path.join(folder, "skills", "example-skill")]);
   assert.deepEqual(
     folderSystemPrompts(folder).map((option) => ({ id: option.id, label: option.label })),
-    [{ id: "example", label: "Beispielprompt" }],
+    [{ id: "example", label: "Example prompt" }],
   );
 });
 
@@ -73,22 +73,22 @@ test("the reference plugin owns its skill starters", () => {
 test("a broken skill starter in a plugin folder is a hard error", () => {
   assert.throws(
     () => folderSkills(fixture("broken-card"), "test.plugin").startEntries,
-    /es fehlt der ---Kopf mit name und description/,
+    /the --- header with name and description is missing/,
   );
 });
 
 test("a run script package rejects missing package metadata, stray files and legacy headers", () => {
-  assert.throws(() => folderRunScripts(fixture("broken-run-script"), "test.plugin"), /fehlt die Datei package\.json/);
-  assert.throws(() => folderRunScripts(fixture("stray-run-script"), "test.plugin"), /Dateien statt Run-Script-Ordner/);
-  assert.throws(() => folderRunScripts(fixture("legacy-run-script"), "test.plugin"), /unbekannte Kopfzeilen capabilities/);
+  assert.throws(() => folderRunScripts(fixture("broken-run-script"), "test.plugin"), /is missing the file package\.json/);
+  assert.throws(() => folderRunScripts(fixture("stray-run-script"), "test.plugin"), /files instead of run script folders/);
+  assert.throws(() => folderRunScripts(fixture("legacy-run-script"), "test.plugin"), /unknown header lines capabilities/);
 });
 
 test("a skill folder without SKILL.md is a hard error", () => {
-  assert.throws(() => folderSkillPaths(fixture("skill-without-manifest")), /fehlt die SKILL\.md/);
+  assert.throws(() => folderSkillPaths(fixture("skill-without-manifest")), /is missing its SKILL\.md/);
 });
 
 test("a plugin without its own folder is a hard error", () => {
-  assert.throws(() => pluginFolder("ragents.nowhere"), /hat keinen Ordner/);
+  assert.throws(() => pluginFolder("ragents.nowhere"), /has no folder/);
 });
 
 test("the convention does not register a card the plugin already declared itself", () => {
@@ -97,10 +97,10 @@ test("the convention does not register a card the plugin already declared itself
     manifest: { id: "ragents.reference" },
     register: (host) => host.startEntries({
       id: claimed,
-      action: "skill", skill: "test-skill", category: "Beispiele",
-      title: "Ausdrücklich angemeldet",
-      description: "Diese Karte meldet das Plugin selbst an.",
-      prompt: "Freie Fassung",
+      action: "skill", skill: "test-skill", category: "Examples",
+      title: "Explicitly registered",
+      description: "The plugin registers this card itself.",
+      prompt: "Free version",
       order: 10,
     }),
   };
@@ -110,7 +110,7 @@ test("the convention does not register a card the plugin already declared itself
 
   assert.equal(new Set(ids).size, ids.length);
   assert.equal(skillEntries.filter((card) => card.id === claimed).length, 1);
-  assert.equal(skillEntries.find((card) => card.id === claimed)?.title, "Ausdrücklich angemeldet");
+  assert.equal(skillEntries.find((card) => card.id === claimed)?.title, "Explicitly registered");
   assert.equal(
     skillEntries.length,
     folderSkills(pluginFolder("ragents.reference"), "ragents.reference").startEntries.length,

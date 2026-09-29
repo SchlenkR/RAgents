@@ -37,41 +37,41 @@ const textOf = (result: unknown): string =>
 const until = async (condition: () => boolean, timeoutMs = 5000) => {
   const started = Date.now();
   while (!condition()) {
-    if (Date.now() - started > timeoutMs) throw new Error("Bedingung wurde nicht erfüllt.");
+    if (Date.now() - started > timeoutMs) throw new Error("Condition was not met.");
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 };
 
-test("die Kommandozeile nennt Server, Ordner, Kennung und Label", () => {
-  assert.deepEqual(parseArguments(["http://127.0.0.1:3000", "/work/projekt"]), {
-    serverUrl: "http://127.0.0.1:3000", folders: ["/work/projekt"], id: undefined, label: undefined,
+test("the command line names server, folders, id and label", () => {
+  assert.deepEqual(parseArguments(["http://127.0.0.1:3000", "/work/project"]), {
+    serverUrl: "http://127.0.0.1:3000", folders: ["/work/project"], id: undefined, label: undefined,
   });
   assert.deepEqual(parseArguments(["http://x", "--id", "cli-12345678", "--label", "Notebook"]), {
     serverUrl: "http://x", folders: [], id: "cli-12345678", label: "Notebook",
   });
-  assert.throws(() => parseArguments([]), /Serveradresse fehlt/);
-  assert.throws(() => parseArguments(["http://x", "--unbekannt"]), /Unbekanntes Argument/);
-  assert.throws(() => parseArguments(["http://x", "--id"]), /braucht einen Wert/);
-  assert.throws(() => parseArguments(["http://x", "--id", "kurz"]), /8 bis 64 Zeichen/);
+  assert.throws(() => parseArguments([]), /server address is missing/);
+  assert.throws(() => parseArguments(["http://x", "--unknown"]), /Unknown argument/);
+  assert.throws(() => parseArguments(["http://x", "--id"]), /needs a value/);
+  assert.throws(() => parseArguments(["http://x", "--id", "short"]), /8 to 64 characters/);
   assert.equal(workspaceClientId("laptop", ["/work"]), workspaceClientId("laptop", ["/work"]));
-  assert.notEqual(workspaceClientId("laptop", ["/work"]), workspaceClientId("laptop", ["/anderswo"]));
+  assert.notEqual(workspaceClientId("laptop", ["/work"]), workspaceClientId("laptop", ["/elsewhere"]));
   assert.match(workspaceClientId("laptop", ["/work"]), /^[A-Za-z0-9_-]{8,64}$/);
 });
 
-test("ohne Ordner gilt das aktuelle Verzeichnis, ein fehlender Ordner ist ein Fehler", async () => {
+test("without folders the current directory applies, a missing folder is an error", async () => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-folders-")));
   try {
     assert.deepEqual(resolvedFolders([], directory), [directory]);
     assert.deepEqual(resolvedFolders(["."], directory), [directory]);
-    assert.throws(() => resolvedFolders(["fehlt"], directory), /Kein Verzeichnis/);
+    assert.throws(() => resolvedFolders(["missing"], directory), /Not a directory/);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
 });
 
-test("ohne ausdrücklichen Ordner gilt der Aufrufer aus RAGENTS_CWD, nicht das Arbeitsverzeichnis des Skripts", async (t) => {
+test("without an explicit folder the caller from RAGENTS_CWD applies, not the script's working directory", async (t) => {
   const caller = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-caller-")));
-  await mkdir(path.join(caller, "projekt"));
+  await mkdir(path.join(caller, "project"));
   const previous = process.env.RAGENTS_CWD;
   process.env.RAGENTS_CWD = caller;
   t.after(async () => {
@@ -81,10 +81,10 @@ test("ohne ausdrücklichen Ordner gilt der Aufrufer aus RAGENTS_CWD, nicht das A
   });
   assert.notEqual(process.cwd(), caller);
   assert.deepEqual(resolvedFolders([]), [caller]);
-  assert.deepEqual(resolvedFolders(["projekt"]), [path.join(caller, "projekt")]);
+  assert.deepEqual(resolvedFolders(["project"]), [path.join(caller, "project")]);
 });
 
-/** Der kopflose Arbeitsplatz gegen echte Server-Methoden: Anmeldung, Executor und Abmeldung ohne VS Code. */
+/** The headless workspace against real server methods: registration, executor and unregistration without VS Code. */
 const started = async (t: TestContext, contributions: readonly ExecutorContributionStand[] = []) => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-client-")));
   const runs = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-runs-")));
@@ -93,7 +93,7 @@ const started = async (t: TestContext, contributions: readonly ExecutorContribut
   const transport = workspaceClientTransport(url, undefined);
   const client = new WorkspaceClient(transport, {
     id: CLIENT,
-    label: "Kopflos",
+    label: "Headless",
     hostname: "cli-host",
     platform: process.platform,
     folders: [directory],
@@ -107,22 +107,22 @@ const started = async (t: TestContext, contributions: readonly ExecutorContribut
   return { directory, runs, registry, client, transport };
 };
 
-test("der kopflose Arbeitsplatz meldet sich an und führt die Werkzeuge des Servers aus", async (t) => {
+test("the headless workspace registers and executes the server's tools", async (t) => {
   const { directory, registry, client } = await started(t);
   await client.register();
   assert.deepEqual(client.status, { kind: "registered" });
   assert.deepEqual(registry.list(null).map((entry) => entry.id), [CLIENT]);
-  assert.deepEqual(client.binding(directory), { machine: { client: CLIENT, label: "Kopflos" }, folder: { path: directory } });
+  assert.deepEqual(client.binding(directory), { machine: { client: CLIENT, label: "Headless" }, folder: { path: directory } });
 
-  const executor = registry.executorFor(null, CLIENT, "Kopflos", directory);
+  const executor = registry.executorFor(null, CLIENT, "Headless", directory);
   assert.equal(executor.version, WORKSPACE_EXECUTOR_VERSION);
   await mkdir(path.join(directory, "src"), { recursive: true });
   await writeFile(path.join(directory, "src", "app.ts"), "const a = 1;\n", "utf8");
   assert.match(textOf(await executor.execute("run-1", "read", { path: "src/app.ts" })), /const a = 1/);
   await executor.execute("run-1", "edit", { path: "src/app.ts", edits: [{ oldText: "1", newText: "2" }] });
   assert.equal(await readFile(path.join(directory, "src", "app.ts"), "utf8"), "const a = 2;\n");
-  await executor.execute("run-1", "write", { path: "src/neu.ts", content: "export {};\n" });
-  assert.equal(await readFile(path.join(directory, "src", "neu.ts"), "utf8"), "export {};\n");
+  await executor.execute("run-1", "write", { path: "src/new.ts", content: "export {};\n" });
+  assert.equal(await readFile(path.join(directory, "src", "new.ts"), "utf8"), "export {};\n");
 
   const progress: string[] = [];
   const bash = await executor.execute("run-1", "bash", { command: "pwd; printf marker-$RAGENTS_RUN_ID" }, {
@@ -131,7 +131,7 @@ test("der kopflose Arbeitsplatz meldet sich an und führt die Werkzeuge des Serv
   assert.match(textOf(bash), /marker-run-1/);
   await until(() => progress.some((text) => text.includes("marker-run-1")));
 
-  await assert.rejects(executor.execute("run-1", "read", { path: "/etc/hosts" }), /außerhalb/);
+  await assert.rejects(executor.execute("run-1", "read", { path: "/etc/hosts" }), /outside/);
   await executor.stopRun("run-1");
 
   await client.unregister();
@@ -139,41 +139,41 @@ test("der kopflose Arbeitsplatz meldet sich an und führt die Werkzeuge des Serv
   assert.deepEqual(registry.list(null), []);
 });
 
-test("der kopflose Arbeitsplatz lädt die Beiträge, die der Server verlangt, aus den Bundles seines Hosts und bedient ihre Operationen", async (t) => {
+test("the headless workspace loads the contributions the server requires from its host's bundles and serves their operations", async (t) => {
   const typescript = await loadExecutorContribution("ragents.lsp-typescript", path.join(hostRoot(), "bundles", "ragents.lsp-typescript", EXECUTOR_CONTRIBUTION_FILE));
   const { directory, registry, client } = await started(t, [{ plugin: typescript.plugin, stand: typescript.stand }]);
   await client.register();
   assert.deepEqual(client.status, { kind: "registered" });
-  const executor = registry.executorFor(null, CLIENT, "Kopflos", directory);
+  const executor = registry.executorFor(null, CLIENT, "Headless", directory);
   assert.deepEqual(await executor.execute("run-1", "typescript_snapshot", null), { instances: [] });
-  await assert.rejects(executor.execute("run-1", "roslyn_snapshot", null), /Der Executor kennt die Operation roslyn_snapshot nicht/);
+  await assert.rejects(executor.execute("run-1", "roslyn_snapshot", null), /The executor does not know the operation roslyn_snapshot/);
   await client.unregister();
 });
 
-test("ein älterer Server ohne die Frage nach den Beiträgen nimmt den Arbeitsplatz nicht an, und die Meldung sagt, wer zu aktualisieren ist", async (t) => {
+test("an older server without the question about contributions does not accept the workspace, and the message says who needs updating", async (t) => {
   const registry = new WorkspaceClientRegistry([]);
   const older = clientMethods(registry).filter((method) => method.contract.id !== workspaceContracts.clients.contributions.id);
   const { url } = await startRpcServer(t, { methods: older });
   const transport = workspaceClientTransport(url, undefined);
   t.after(() => transport.rpc.close());
   const client = new WorkspaceClient(transport, {
-    id: CLIENT, label: "Kopflos", hostname: "cli-host", platform: process.platform, folders: [tmpdir()], runsDirectory: path.join(tmpdir(), "runs"),
+    id: CLIENT, label: "Headless", hostname: "cli-host", platform: process.platform, folders: [tmpdir()], runsDirectory: path.join(tmpdir(), "runs"),
   }, { hostRoot });
   await client.register();
   assert.equal(client.status.kind, "failed");
   assert.match((client.status as { message: string }).message,
-    new RegExp(`Der Server kennt ragents\\.workspace\\.clients\\.contributions nicht; er ist älter als dieser Arbeitsplatz mit dem Executor ${WORKSPACE_EXECUTOR_VERSION}\\. Den Server auf die Fassung des Arbeitsplatzes aktualisieren`));
+    new RegExp(`The server does not know ragents\\.workspace\\.clients\\.contributions; it is older than this workstation with executor ${WORKSPACE_EXECUTOR_VERSION}\\. Update the server to the workstation's version`));
   assert.deepEqual(registry.list(null), []);
 });
 
-test("ein Run mit neuem Ordner je Run arbeitet im Ordner für Runs des kopflosen Arbeitsplatzes, und das Löschen nimmt ihn mit", async (t) => {
+test("a run with a new folder per run works in the runs folder of the headless workspace, and deleting removes it", async (t) => {
   const { runs, registry, client } = await started(t);
   await client.register();
-  const runId = "neuer-ordner";
+  const runId = "new-folder";
   const binding = workspaceBindingOption(registry, () => undefined)
     .accept({ machine: { client: CLIENT, label: "" }, folder: "fresh" }, { runId, userId: null });
   const folder = path.join(runs, runId);
-  assert.deepEqual(binding, { machine: { client: CLIENT, label: "Kopflos" }, folder: { path: folder, fresh: true } });
+  assert.deepEqual(binding, { machine: { client: CLIENT, label: "Headless" }, folder: { path: folder, fresh: true } });
   const state = {
     ownerUserId: null,
     pluginStates: new Map([[pluginStateKey(WORKSPACE_BINDING_OPTION_ID, { kind: "run" }),
@@ -189,7 +189,7 @@ test("ein Run mit neuem Ordner je Run arbeitet im Ordner für Runs des kopflosen
     skillPaths: async () => [],
     resolver: () => undefined,
     runState: () => state,
-    storeBinding: () => { throw new Error("nicht gefragt"); },
+    storeBinding: () => { throw new Error("not asked"); },
     clients: registry,
     contributions: [],
   });
@@ -198,15 +198,15 @@ test("ein Run mit neuem Ordner je Run arbeitet im Ordner für Runs des kopflosen
     await rm(server, { recursive: true, force: true });
   });
   assert.equal((await runtime.resolve(runId, () => undefined)).cwd, folder);
-  await assert.rejects(readFile(path.join(folder, "notiz.md"), "utf8"), /ENOENT/, "das Auflösen legt nichts an");
-  await runtime.sandbox.execute(runId, "write", { path: "notiz.md", content: "auf dem Arbeitsplatz" });
-  assert.equal(await readFile(path.join(folder, "notiz.md"), "utf8"), "auf dem Arbeitsplatz");
+  await assert.rejects(readFile(path.join(folder, "note.md"), "utf8"), /ENOENT/, "resolving creates nothing");
+  await runtime.sandbox.execute(runId, "write", { path: "note.md", content: "on the workspace" });
+  assert.equal(await readFile(path.join(folder, "note.md"), "utf8"), "on the workspace");
   assert.match(textOf(await runtime.sandbox.execute(runId, "bash", { command: "pwd" })), new RegExp(runId));
   await runtime.deleteSession(runId);
-  await assert.rejects(readFile(path.join(folder, "notiz.md"), "utf8"), /ENOENT/);
+  await assert.rejects(readFile(path.join(folder, "note.md"), "utf8"), /ENOENT/);
 });
 
-test("die Abmeldung gelingt auch, wenn der Server den Eintrag schon entfernt hat", async (t) => {
+test("unregistering succeeds even if the server has already removed the entry", async (t) => {
   const { registry, client } = await started(t);
   await client.register();
   registry.shutdown();
@@ -232,25 +232,25 @@ const detachedServer = [
   "process.stdout.write(String(child.pid));",
 ].join("\n");
 
-test("der kopflose Arbeitsplatz liefert Dateien, Beobachtung und Prozesse seines Rechners", { timeout: 60_000 }, async (t) => {
+test("the headless workspace provides files, watching and processes of its machine", { timeout: 60_000 }, async (t) => {
   const { directory, registry, client } = await started(t);
   await client.register();
-  const executor = registry.executorFor(null, CLIENT, "Kopflos", directory);
+  const executor = registry.executorFor(null, CLIENT, "Headless", directory);
   const runId = `cli-files-${process.pid}`;
   t.after(() => executor.stopRun(runId));
   await mkdir(path.join(directory, "docs"), { recursive: true });
-  await writeFile(path.join(directory, "docs", "notiz.md"), "Hallo vom Arbeitsplatz\n", "utf8");
+  await writeFile(path.join(directory, "docs", "note.md"), "Hello from the workspace\n", "utf8");
 
   const listing = await executor.execute(runId, FILE_OPERATIONS.list, { path: "docs" }) as FileListing;
   assert.equal(listing.location, directory);
-  assert.deepEqual(listing.entries.map((entry) => entry.name), ["notiz.md"]);
-  assert.deepEqual(await executor.execute(runId, FILE_OPERATIONS.read, { path: "docs/notiz.md" }), {
-    path: "docs/notiz.md", size: Buffer.byteLength("Hallo vom Arbeitsplatz\n"), previewable: true, content: "Hallo vom Arbeitsplatz\n",
+  assert.deepEqual(listing.entries.map((entry) => entry.name), ["note.md"]);
+  assert.deepEqual(await executor.execute(runId, FILE_OPERATIONS.read, { path: "docs/note.md" }), {
+    path: "docs/note.md", size: Buffer.byteLength("Hello from the workspace\n"), previewable: true, content: "Hello from the workspace\n",
   });
-  await assert.rejects(executor.execute(runId, FILE_OPERATIONS.read, { path: "../geheim" }), (error: unknown) =>
+  await assert.rejects(executor.execute(runId, FILE_OPERATIONS.read, { path: "../secret" }), (error: unknown) =>
     error instanceof DomainError && error.code === "workspace-path-invalid" && error.status === 400);
   await assert.rejects(executor.execute(runId, FILE_OPERATIONS.read, { path: "setup.ts", alias: "@actors" }), (error: unknown) =>
-    error instanceof DomainError && error.code === "workspace-alias-unknown" && /bekannt: keine/.test(error.message));
+    error instanceof DomainError && error.code === "workspace-alias-unknown" && /known: none/.test(error.message));
 
   const controller = new AbortController();
   const progress: FileWatchProgress[] = [];
@@ -261,7 +261,7 @@ test("der kopflose Arbeitsplatz liefert Dateien, Beobachtung und Prozesse seines
   });
   await until(() => progress.length === 1);
   assert.deepEqual(progress, [{ kind: "ready" }]);
-  await writeFile(path.join(directory, "docs", "neu.md"), "neu\n", "utf8");
+  await writeFile(path.join(directory, "docs", "new.md"), "new\n", "utf8");
   await until(() => progress.some((entry) => entry.kind === "changed"));
   controller.abort();
   await watching.catch(() => undefined);
@@ -294,47 +294,47 @@ test("der kopflose Arbeitsplatz liefert Dateien, Beobachtung und Prozesse seines
   await client.unregister();
 });
 
-/** Eine Beobachtung auf dem Arbeitsplatz, die erst endet, wenn ihr Executor sie beendet. */
+/** A watch on the workspace that ends only when its executor ends it. */
 const watching = async (executor: ReturnType<WorkspaceClientRegistry["executorFor"]>, runId: string) => {
   const progress: FileWatchProgress[] = [];
   const ended = executor.execute(runId, FILE_OPERATIONS.watch, {}, {
     signal: new AbortController().signal,
     untilAborted: true,
     onProgress: (value) => progress.push(value as FileWatchProgress),
-  }).then(() => "beendet", (error: unknown) => `gescheitert: ${error instanceof Error ? error.message : String(error)}`);
+  }).then(() => "ended", (error: unknown) => `failed: ${error instanceof Error ? error.message : String(error)}`);
   await until(() => progress.length === 1);
   return { ended };
 };
 
-test("der Stopp eines Runs gelingt auch, wenn sein Ordner nicht mehr angeboten wird", async (t) => {
+test("stopping a run succeeds even if its folder is no longer offered", async (t) => {
   const { directory, registry, client } = await started(t);
   const other = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-other-")));
   t.after(() => rm(other, { recursive: true, force: true }));
   await client.update([directory, other]);
   await client.register();
-  const executor = registry.executorFor(null, CLIENT, "Kopflos", directory);
+  const executor = registry.executorFor(null, CLIENT, "Headless", directory);
   const { ended } = await watching(executor, "run-stop");
 
   await client.update([other]);
   assert.deepEqual(registry.info(null, CLIENT)?.folders, [other]);
   await executor.stopRun("run-stop");
-  assert.equal(await ended, "beendet");
+  assert.equal(await ended, "ended");
   assert.deepEqual(registry.pendingStops(null, CLIENT), []);
   await client.unregister();
 });
 
-test("ein Arbeitsplatz mit dem Ordner / führt Aufträge in jedem Ordner darunter aus", async (t) => {
+test("a workspace with the folder / executes tasks in every folder below it", async (t) => {
   const { directory, registry, client } = await started(t);
-  await writeFile(path.join(directory, "unten.txt"), "unter der Wurzel\n", "utf8");
+  await writeFile(path.join(directory, "below.txt"), "below the root\n", "utf8");
   await client.update([path.parse(directory).root]);
   await client.register();
-  const executor = registry.executorFor(null, CLIENT, "Kopflos", directory);
+  const executor = registry.executorFor(null, CLIENT, "Headless", directory);
   const listing = await executor.execute("run-root", FILE_OPERATIONS.list, { path: "" }) as FileListing;
-  assert.deepEqual(listing.entries.map((entry) => entry.name), ["unten.txt"]);
+  assert.deepEqual(listing.entries.map((entry) => entry.name), ["below.txt"]);
   await client.unregister();
 });
 
-test("die Abmeldung wartet nur begrenzt auf den Server und beendet den Executor trotzdem", { timeout: 30_000 }, async (t) => {
+test("unregistering waits only a limited time for the server and ends the executor anyway", { timeout: 30_000 }, async (t) => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-cli-hang-")));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const registry = new WorkspaceClientRegistry([]);
@@ -345,14 +345,14 @@ test("die Abmeldung wartet nur begrenzt auf den Server und beendet den Executor 
   const { url } = await startRpcServer(t, { methods });
   const transport = workspaceClientTransport(url, undefined);
   t.after(() => transport.rpc.close());
-  const client = new WorkspaceClient(transport, { id: CLIENT, label: "Kopflos", hostname: "cli-host", platform: process.platform, folders: [directory], runsDirectory: path.join(directory, "runs") }, { hostRoot });
+  const client = new WorkspaceClient(transport, { id: CLIENT, label: "Headless", hostname: "cli-host", platform: process.platform, folders: [directory], runsDirectory: path.join(directory, "runs") }, { hostRoot });
   await client.register();
-  const executor = registry.executorFor(null, CLIENT, "Kopflos", directory);
+  const executor = registry.executorFor(null, CLIENT, "Headless", directory);
   const { ended } = await watching(executor, "run-hang");
 
   const begun = Date.now();
   await client.unregister();
-  assert.ok(Date.now() - begun < 6_000, `die Abmeldung dauerte ${Date.now() - begun} ms`);
-  assert.equal(client.status.kind === "failed" && /Keine Antwort/.test(client.status.message), true, JSON.stringify(client.status));
-  assert.match(await ended, /beendet|gescheitert/);
+  assert.ok(Date.now() - begun < 6_000, `unregistering took ${Date.now() - begun} ms`);
+  assert.equal(client.status.kind === "failed" && /No response/.test(client.status.message), true, JSON.stringify(client.status));
+  assert.match(await ended, /ended|failed/);
 });

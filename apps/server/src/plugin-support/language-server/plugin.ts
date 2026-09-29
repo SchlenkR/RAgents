@@ -7,11 +7,11 @@ import { createLanguageServerToolContributor } from "./tools.js";
 
 export interface LanguageServerPluginOptions {
   id: string;
-  /** Beschreibt den Sprachserver für Werkzeuge und Reiter; gestartet wird er im Executor aus dem Beitrag des Plugins. */
+  /** Describes the language server for tools and tabs; the executor starts it from the plugin's contribution. */
   languageServer: LanguageServerDescription;
   tabLabel?: string;
   configDescriptors?: readonly PluginConfigDescriptor[];
-  /** Nach jedem erfolgreichen Öffnen über Werkzeug oder Umschalten, mit dem Run. */
+  /** After every successful open via tool or switch, with the run. */
   onOpened?: (runId: string) => void;
 }
 

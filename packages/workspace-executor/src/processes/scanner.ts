@@ -22,7 +22,7 @@ interface Scan {
 
 const keyOf = (record: ProcessRecord): string => `${record.pid}:${record.startKey}`;
 
-/** Liest die markierten Prozesse dieser Maschine; gleichzeitige Abfragen mehrerer Runs teilen sich einen Tabellenscan. */
+/** Reads the marked processes of this machine; concurrent queries of several runs share one table scan. */
 export class ProcessScanner {
   readonly #options: ProcessScannerOptions;
   readonly #now: () => Date;
@@ -52,7 +52,7 @@ export class ProcessScanner {
         ports,
         firstSeen: (record) => {
           const seen = scan.firstSeen.get(record.pid);
-          if (!seen) throw new Error(`Prozess ${record.pid} ohne Erstsichtung`);
+          if (!seen) throw new Error(`Process ${record.pid} without a first sighting`);
           return seen;
         },
       }),
@@ -71,7 +71,7 @@ export class ProcessScanner {
     return uid === undefined || uid === 0 || record.uid === uid;
   }
 
-  /** Die Umgebung eines Prozesses wird nur einmal gelesen; ein Fehler dabei merkt sich nichts. */
+  /** The environment of a process is read only once; an error while doing so is not remembered. */
   async #scan(): Promise<Scan> {
     const table = this.#options.table();
     const records = await table.list();

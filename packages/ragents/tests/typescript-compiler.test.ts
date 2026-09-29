@@ -123,9 +123,9 @@ test("the schema generator produces defensive TypeScript without any", () => {
     assert.equal(type, "{ \"count\"?: number; \"payload\": unknown; \"text\": string; }");
     assert.doesNotMatch(type, /\bany\b/);
     const documented = typeScriptTypeFromSchema(Type.Object({
-        items: Type.Optional(Type.Boolean({ description: "true liefert die Liste mit.\n  Sonst */ nicht." })),
+        items: Type.Optional(Type.Boolean({ description: "true includes the list.\n  Otherwise */ not." })),
     }, { additionalProperties: false }));
-    assert.equal(documented, "{ /** true liefert die Liste mit. Sonst * / nicht. */ \"items\"?: boolean; }");
+    assert.equal(documented, "{ /** true includes the list. Otherwise * / not. */ \"items\"?: boolean; }");
     assert.equal(typeScriptTypeFromSchema({ type: "mystery" }), "unknown");
     assert.equal(typeScriptTypeFromSchema(cyclic), "Array<unknown>");
 });
@@ -198,7 +198,7 @@ test("the asynchronous compiler rejects oversized input before starting a worker
         compileVirtualTypeScriptAsync({
             sources: [{ fileName: "main.ts", text: "x".repeat(2 * 1024 * 1024) }],
         }),
-        /höchstens 2097152 Byte/,
+        /at most 2097152 bytes/,
     );
 });
 
@@ -217,7 +217,7 @@ test("consecutive compilations reuse one warm worker and the warm run is much fa
     const warm = await timed("export const second: string = String(answer);");
     assert.deepEqual(typeScriptCompilerPool().threadIds, threadIds);
     assert.equal(typeScriptCompilerPool().busy, 0);
-    assert.ok(warm * 2 < cold, `Warm ${warm.toFixed(0)} ms gegenüber kalt ${cold.toFixed(0)} ms`);
+    assert.ok(warm * 2 < cold, `Warm ${warm.toFixed(0)} ms versus cold ${cold.toFixed(0)} ms`);
 });
 
 test("a worker that dies mid-compilation fails only its request and is replaced for the next one", async () => {
@@ -228,7 +228,7 @@ test("a worker that dies mid-compilation fails only its request and is replaced 
     await closeTypeScriptCompilers();
     await assert.rejects(pending, (error: unknown) => error instanceof VirtualTypeScriptWorkerError
         && error.code === "WORKER_FAILURE"
-        && /ohne Ergebnis beendet/.test(error.message));
+        && /exited without a result/.test(error.message));
     assert.deepEqual(typeScriptCompilerPool().threadIds, []);
     const result = await compileVirtualTypeScriptAsync({ sources: [{ fileName: "main.ts", text: "export const answer: number = 42;" }] });
     assert.equal(result.valid, true);

@@ -68,12 +68,12 @@ test("stopping a run interrupts a backend that is still waiting in module initia
   try {
     const request = requestFor(`import {writeFileSync} from 'node:fs'; writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); await new Promise(() => {}); export const handle = () => 1;`);
     const execution = native.executor.execute(request, { call: noCalls, log: () => undefined });
-    const rejected = assert.rejects(execution, /beendet/);
+    const rejected = assert.rejects(execution, /shutting down/);
     const pid = Number(await waitForFile(pidFile));
     const first = native.executor.stopRun(request.context.runId);
     const second = native.executor.stopRun(request.context.runId);
     assert.equal(first, second);
-    await assert.rejects(native.executor.execute(request, { call: noCalls, log: () => undefined }), /beendet/);
+    await assert.rejects(native.executor.execute(request, { call: noCalls, log: () => undefined }), /shutting down/);
     await Promise.all([first, second, rejected]);
     assert.throws(() => process.kill(pid, 0), (error: unknown) => (error as NodeJS.ErrnoException).code === "ESRCH");
   } finally { await native.close(); }
@@ -91,7 +91,7 @@ test("a stopped startup does not create a child after its workspace becomes read
   });
   try {
     const request = requestFor("export const handle = () => 'unexpected';");
-    const rejected = assert.rejects(executor.execute(request, { call: noCalls, log: () => undefined }), /beendet/);
+    const rejected = assert.rejects(executor.execute(request, { call: noCalls, log: () => undefined }), /shutting down/);
     const stopping = executor.stopRun(request.context.runId);
     await new Promise((resolve) => setImmediate(resolve));
     prepared.resolve();
@@ -110,10 +110,10 @@ test("overlapping stops wait for capability completion and reject queued or repl
     const request = { ...base, context: { ...base.context, capabilities: [{ id: "wait", label: "Wait", description: "Wait", schema: Type.Object({}), resultSchema: Type.Null() }] } };
     const binding = { call: async () => { entered.resolve(); return reply.promise; }, log: (value: unknown) => { childPid = Number(value); } };
     const firstExecution = native.executor.execute(request, binding);
-    const rejectedFirst = assert.rejects(firstExecution, /beendet/);
+    const rejectedFirst = assert.rejects(firstExecution, /shutting down/);
     await entered.promise;
     const queued = native.executor.execute(request, binding);
-    const rejectedQueued = assert.rejects(queued, /beendet/);
+    const rejectedQueued = assert.rejects(queued, /shutting down/);
     const stopping = native.executor.stopInstance(request.context.runId, request.instanceId!);
     assert.equal(stopping, native.executor.stopInstance(request.context.runId, request.instanceId!));
     const stoppingRun = native.executor.stopRun(request.context.runId);
@@ -122,7 +122,7 @@ test("overlapping stops wait for capability completion and reject queued or repl
     void stoppingRun.then(() => { finished = true; });
     await new Promise((resolve) => setTimeout(resolve, 40));
     assert.equal(finished, false);
-    await assert.rejects(native.executor.execute({ ...request, instanceId: "replacement" }, binding), /beendet/);
+    await assert.rejects(native.executor.execute({ ...request, instanceId: "replacement" }, binding), /shutting down/);
     reply.resolve(null);
     await Promise.all([stopping, stoppingRun, rejectedFirst, rejectedQueued]);
     assert.throws(() => process.kill(childPid, 0), (error: unknown) => (error as NodeJS.ErrnoException).code === "ESRCH");
@@ -150,7 +150,7 @@ test("startup process failures retain a bounded stderr tail", async () => {
       call: noCalls, log: () => undefined,
     }), (error: unknown) => {
       assert.ok(error instanceof Error);
-      assert.match(error.message, /Code 23/);
+      assert.match(error.message, /code 23/);
       assert.match(error.message, /startup failure detail/);
       assert.ok(error.message.length < 4_100);
       return true;

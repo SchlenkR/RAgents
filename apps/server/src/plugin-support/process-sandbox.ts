@@ -6,7 +6,7 @@ import { SandboxManager, type SandboxRuntimeConfig } from "@anthropic-ai/sandbox
 import { containsWorkspacePath, type ProcessLaunch, type ProcessSandbox } from "@ragents/workspace-executor";
 import { hostRoot } from "../host-version.js";
 
-/** Paketquellen und Git-Hosting, die Builds im Arbeitsbereich brauchen; der eigene Server kommt immer dazu. */
+/** Package sources and git hosting that builds in the workspace need; the own server is always added. */
 export const PROCESS_SANDBOX_DEFAULT_NETWORK: readonly string[] = [
   "registry.npmjs.org",
   "api.nuget.org",
@@ -16,26 +16,26 @@ export const PROCESS_SANDBOX_DEFAULT_NETWORK: readonly string[] = [
   "*.githubusercontent.com",
 ];
 
-/** Die Ordner eines Runs, aus denen seine Regeln entstehen; alles andere unter den geschützten Wurzeln bleibt ihm verborgen. */
+/** The folders of a run from which its rules are made; everything else under the protected roots stays hidden from it. */
 export interface RunSandboxFolders {
   readonly writable: readonly string[];
   readonly readable: readonly string[];
-  /** Der eigene Temp-Ordner des Runs; er ist beschreibbar und steht in TMPDIR. */
+  /** The run's own temp folder; it is writable and set in TMPDIR. */
   readonly temporary: string;
 }
 
-/** Was der Sandbox-Host je Run von der Prozess-Sandbox braucht. */
+/** What the sandbox host needs from the process sandbox per run. */
 export interface RunProcessSandboxes {
   readonly forRun: (folders: RunSandboxFolders) => ProcessSandbox;
 }
 
 export interface ServerProcessSandboxOptions {
-  /** Erlaubte Ziele im Netz, Domains wie in der Profildatei; alles andere scheitert am Proxy. */
+  /** Allowed network targets, domains as in the profile file; everything else fails at the proxy. */
   readonly network: readonly string[];
-  /** Die Adresse dieses Servers, etwa http://127.0.0.1:4710; ohne HTTP keine. */
+  /** The address of this server, such as http://127.0.0.1:4710; none without HTTP. */
   readonly serverAddress: string | undefined;
   readonly dataDirectory: string;
-  /** Wie der Betreiber die Sandbox abschaltet, so wie er es in die Profildatei schreibt; jede Meldung, die den Start verhindert, nennt es. */
+  /** How the operator turns the sandbox off, as written in the profile file; every message that prevents the start names it. */
   readonly disableSetting: string;
   readonly hostRoot?: string;
   readonly platform?: NodeJS.Platform;
@@ -48,7 +48,7 @@ const shellWord = (value: string): string => `'${value.replaceAll("'", "'\\''")}
 
 const shellCommand = (words: readonly string[]): string => words.map(shellWord).join(" ");
 
-/** Die Umgebung innerhalb der Sandbox: eigener Temp-Ordner, und jeder Netzaufruf geht über den Proxy, auch der zum eigenen Server. */
+/** The environment inside the sandbox: its own temp folder, and every network call goes through the proxy, including the one to the own server. */
 const insideEnvironment = (temporary: string, searchPath: string, platform: NodeJS.Platform): readonly string[] => [
   `PATH=${searchPath}`,
   `TMPDIR=${temporary}`,
@@ -57,13 +57,13 @@ const insideEnvironment = (temporary: string, searchPath: string, platform: Node
   "NO_PROXY=",
   "no_proxy=",
   "NODE_USE_ENV_PROXY=1",
-  // .NET verbindet sich sonst über IPv4-gemappte IPv6-Adressen mit dem Proxy, die die Sandbox von macOS nicht als localhost erkennt.
+  // Otherwise .NET connects to the proxy over IPv4-mapped IPv6 addresses, which the macOS sandbox does not recognize as localhost.
   "DOTNET_SYSTEM_NET_DISABLEIPV6=1",
-  // Build-Knoten und Compiler-Server von .NET überleben den Befehl und nähmen sonst Builds anderer Runs in ihrer eigenen Sandbox an.
+  // .NET build nodes and compiler servers outlive the command and would otherwise accept builds of other runs in their own sandbox.
   "MSBUILDDISABLENODEREUSE=1",
   "DOTNET_CLI_USE_MSBUILD_SERVER=0",
   "UseSharedCompilation=false",
-  // Die Werkzeug-Shims von macOS (git, clang) legen ihren Cache sonst im gesperrten Temp des Servers an.
+  // Otherwise the macOS tool shims (git, clang) create their cache in the server's blocked temp.
   ...platform === "darwin" ? [`xcrun_db=${path.join(temporary, "xcrun_db")}`] : [],
 ];
 
@@ -76,7 +76,7 @@ const serverTarget = (address: string | undefined): readonly string[] => {
 const homeRoots = (platform: NodeJS.Platform): readonly string[] =>
   platform === "darwin" ? ["/Users"] : ["/home", "/root"];
 
-/** Der echte Pfad, auch für einen Ordner, den es noch nicht gibt: sein nächster vorhandener Vorfahr wird aufgelöst. */
+/** The real path, even for a folder that does not exist yet: its nearest existing ancestor is resolved. */
 const realOrGiven = (entry: string): string => {
   try {
     return realpathSync(entry);
@@ -86,17 +86,17 @@ const realOrGiven = (entry: string): string => {
   }
 };
 
-/** Ein Eintrag ist oft ein Symlink (fnm, Homebrew, /tmp unter macOS); die Sandbox prüft das Ziel. */
+/** An entry is often a symlink (fnm, Homebrew, /tmp on macOS); the sandbox checks the target. */
 const resolvedTarget = (entry: string): readonly string[] => {
   const target = realOrGiven(entry);
   return target === entry ? [] : [target];
 };
 
-/** Unter Linux sind alle Unix-Sockets erlaubt; die Sockets, die aus der Sandbox hinausführen, bleiben deshalb unsichtbar. */
+/** On Linux all Unix sockets are allowed; the sockets that lead out of the sandbox therefore stay invisible. */
 const hostSockets = (platform: NodeJS.Platform): readonly string[] =>
   platform === "linux" ? ["/var/run/docker.sock", "/run/docker.sock"].filter((socket) => existsSync(socket)) : [];
 
-/** Wo Geheimnisse und fremde Runs liegen können: Home-Ordner, Temp und der Datenordner des Servers. */
+/** Where secrets and other runs can live: home folders, temp and the server's data folder. */
 const protectedRoots = (options: ServerProcessSandboxOptions, platform: NodeJS.Platform): readonly string[] => [
   os.homedir(),
   ...homeRoots(platform),
@@ -106,16 +106,16 @@ const protectedRoots = (options: ServerProcessSandboxOptions, platform: NodeJS.P
   ...hostSockets(platform),
 ].map(realOrGiven);
 
-/** Was sich alle Runs teilen müssen: unter macOS legen .NET seine benannten Mutexe und MSBuild die Sockets seiner Build-Knoten fest unter /tmp an; unter Linux ist /tmp je Befehl ein eigener leerer Ordner. */
+/** What all runs must share: on macOS .NET creates its named mutexes and MSBuild the sockets of its build nodes at fixed places under /tmp; on Linux /tmp is a separate empty folder per command. */
 const sharedWritable = (platform: NodeJS.Platform): readonly string[] => platform === "darwin"
   ? [".dotnet", `.dotnet-uid${os.userInfo().uid}`, "MSBuild*"].map((name) => path.join(realOrGiven("/tmp"), name))
   : [];
 
-/** Wo Prozesse der Sandbox Unix-Sockets anlegen und erreichen: im Datenordner (Temp der Runs) und unter macOS in /tmp für die Build-Knoten von MSBuild. */
+/** Where sandbox processes create and reach Unix sockets: in the data folder (temp of the runs) and on macOS in /tmp for the MSBuild build nodes. */
 const socketRoots = (dataDirectory: string, platform: NodeJS.Platform): readonly string[] =>
   [dataDirectory, ...platform === "darwin" ? ["/tmp"] : []].map(realOrGiven);
 
-/** Die Sandbox liest einen Symlink in einem gesperrten Ordner nicht (etwa fnm unter ~/.local/state); PATH nennt deshalb die Ziele. */
+/** The sandbox does not read a symlink in a blocked folder (such as fnm under ~/.local/state); PATH therefore names the targets. */
 const resolvedSearchPath = (environment: NodeJS.ProcessEnv): string =>
   [...new Set((environment.PATH ?? "").split(path.delimiter).filter((entry) => entry !== "").map(realOrGiven))].join(path.delimiter);
 
@@ -129,14 +129,14 @@ const entriesOf = (directory: string): readonly string[] => {
   }
 };
 
-/** Ein freigegebener Ordner, der einen gesperrten enthält, wird in seine übrigen Einträge zerlegt; sonst hebelte er die Sperre aus oder die Sperre die Freigaben darin. */
+/** An allowed folder that contains a blocked one is split into its remaining entries; otherwise it would override the block, or the block the allowances inside it. */
 const besideProtected = (entry: string, hidden: readonly string[]): readonly string[] => {
   if (hidden.some((root) => isInside(root, entry))) return [];
   if (!hidden.some((root) => isInside(entry, root))) return [entry];
   return entriesOf(entry).flatMap((child) => besideProtected(child, hidden));
 };
 
-/** Bubblewrap bindet lesbare Ordner nach den beschreibbaren ein; ein lesbarer Vorfahr überdeckte einen beschreibbaren Ordner darin schreibgeschützt und wird deshalb in seine übrigen Einträge zerlegt. */
+/** Bubblewrap binds readable folders after the writable ones; a readable ancestor would cover a writable folder inside it as read-only and is therefore split into its remaining entries. */
 const readableBeside = (entry: string, writable: readonly string[]): readonly string[] => {
   const inside = writable.filter((candidate) => isInside(entry, candidate));
   if (inside.length === 0) return [entry];
@@ -144,7 +144,7 @@ const readableBeside = (entry: string, writable: readonly string[]): readonly st
   return entriesOf(entry).flatMap((child) => readableBeside(child, inside));
 };
 
-/** Toolchains unter einem geschützten Ordner (etwa Node aus fnm oder dotnet-Werkzeuge im Home) bleiben lesbar, nie aber ein Vorfahr des Datenordners. */
+/** Toolchains under a protected folder (such as Node from fnm or dotnet tools in the home folder) stay readable, but never an ancestor of the data folder. */
 const toolchainDirectories = (options: ServerProcessSandboxOptions, protectedPaths: readonly string[]): readonly string[] => {
   const environment = options.environment ?? process.env;
   const entries = [
@@ -160,13 +160,13 @@ const toolchainDirectories = (options: ServerProcessSandboxOptions, protectedPat
   return [...new Set(safe)];
 };
 
-/** Was ein Server der Sandbox für alle seine Runs freigibt: Netzziele und die Ordner, in denen Unix-Sockets liegen dürfen. */
+/** What a server grants the sandbox for all its runs: network targets and the folders in which Unix sockets may live. */
 interface SandboxGrant {
   readonly network: readonly string[];
   readonly unixSockets: readonly string[];
 }
 
-/** Die Bibliothek hat genau einen Zustand je Prozess; mehrere Hosts in einem Prozess teilen ihn, ihre Netzfreigaben werden vereinigt. */
+/** The library has exactly one state per process; several hosts in one process share it, and their network grants are merged. */
 class SharedSandboxRuntime {
   readonly #holders = new Map<object, SandboxGrant>();
   #started: Promise<void> | undefined;
@@ -178,11 +178,11 @@ class SharedSandboxRuntime {
         allowedDomains: [...new Set(grants.flatMap((grant) => grant.network))],
         deniedDomains: [],
         allowUnixSockets: [...new Set(grants.flatMap((grant) => grant.unixSockets))],
-        // Linux kann Unix-Sockets nur ganz oder gar nicht sperren; die Build-Werkzeuge (MSBuild-Knoten) brauchen sie.
+        // Linux can block Unix sockets only all or nothing; the build tools (MSBuild nodes) need them.
         ...process.platform === "linux" ? { allowAllUnixSockets: true } : {},
       },
       filesystem: { denyRead: [], allowWrite: [], denyWrite: [], allowGitConfig: true },
-      // Unter macOS prüfen .NET und Go Zertifikate über trustd; ohne diesen Dienst scheitert jedes TLS.
+      // On macOS .NET and Go check certificates via trustd; without this service every TLS connection fails.
       ...process.platform === "darwin" ? { enableWeakerNetworkIsolation: true } : {},
     };
   }
@@ -216,27 +216,27 @@ class SharedSandboxRuntime {
 const sharedRuntime = new SharedSandboxRuntime();
 
 const unsupported = (platform: NodeJS.Platform, disableSetting: string): Error => new Error(platform === "win32"
-  ? "Die Prozess-Sandbox gibt es auf einem Windows-Server nicht: dort lassen sich die Ordnerregeln je Run nicht setzen. "
-    + `Wer den Server trotzdem unter Windows betreibt, schaltet sie in der Profildatei ausdrücklich ab: ${disableSetting}.`
-  : `Die Prozess-Sandbox kennt die Plattform ${platform} nicht; unterstützt sind macOS und Linux. `
-    + `${disableSetting} schaltet sie ausdrücklich ab.`);
+  ? "The process sandbox does not exist on a Windows server: the folder rules per run cannot be set there. "
+    + `Whoever runs the server on Windows anyway turns it off explicitly in the profile file: ${disableSetting}.`
+  : `The process sandbox does not know the platform ${platform}; macOS and Linux are supported. `
+    + `${disableSetting} turns it off explicitly.`);
 
 const missingDependencies = (errors: readonly string[], disableSetting: string): Error => new Error(
-  `Die Prozess-Sandbox kann nicht starten: ${errors.join("; ")}. `
-  + "Unter Linux braucht sie bubblewrap, socat und ripgrep (Debian/Ubuntu: apt-get install bubblewrap socat ripgrep). "
-  + `${disableSetting} schaltet sie ausdrücklich ab.`);
+  `The process sandbox cannot start: ${errors.join("; ")}. `
+  + "On Linux it needs bubblewrap, socat and ripgrep (Debian/Ubuntu: apt-get install bubblewrap socat ripgrep). "
+  + `${disableSetting} turns it off explicitly.`);
 
 const failedSelfTest = (detail: string, disableSetting: string): Error => new Error(
-  `Die Prozess-Sandbox lässt sich auf diesem Rechner nicht starten: ${detail.trim() || "ohne Ausgabe"}. `
-  + "Unter Linux braucht bubblewrap Benutzer-Namensräume; in einem Container muss das Profil des Containers sie erlauben. "
-  + `${disableSetting} schaltet sie ausdrücklich ab.`);
+  `The process sandbox cannot be started on this machine: ${detail.trim() || "no output"}. `
+  + "On Linux bubblewrap needs user namespaces; in a container the container's profile must allow them. "
+  + `${disableSetting} turns it off explicitly.`);
 
 const runSelfTest = (launch: ProcessLaunch, environment: NodeJS.ProcessEnv, disableSetting: string): Promise<void> => new Promise((resolve, reject) => {
   const child = spawn(launch.command, [...launch.args], { stdio: ["ignore", "ignore", "pipe"], env: environment });
   let stderr = "";
   const timer = setTimeout(() => {
     child.kill("SIGKILL");
-    reject(failedSelfTest(`keine Antwort nach ${SELF_TEST_TIMEOUT_MS / 1000} Sekunden`, disableSetting));
+    reject(failedSelfTest(`no response after ${SELF_TEST_TIMEOUT_MS / 1000} seconds`, disableSetting));
   }, SELF_TEST_TIMEOUT_MS);
   child.stderr.on("data", (chunk: Buffer) => { stderr = (stderr + chunk.toString("utf8")).slice(-2_000); });
   child.once("error", (error) => {
@@ -246,11 +246,11 @@ const runSelfTest = (launch: ProcessLaunch, environment: NodeJS.ProcessEnv, disa
   child.once("close", (code) => {
     clearTimeout(timer);
     if (code === 0) resolve();
-    else reject(failedSelfTest(`Code ${code ?? "Signal"}: ${stderr}`, disableSetting));
+    else reject(failedSelfTest(`code ${code ?? "signal"}: ${stderr}`, disableSetting));
   });
 });
 
-/** Die Prozess-Sandbox des Servers: jeder Prozess eines Runs, den der Executor des Servers startet, läuft mit den Ordnern und Netzzielen seines Runs. */
+/** The server's process sandbox: every process of a run that the server's executor starts runs with the folders and network targets of its run. */
 export class ServerProcessSandbox implements RunProcessSandboxes {
   readonly #options: ServerProcessSandboxOptions;
   readonly #platform: NodeJS.Platform;
@@ -267,7 +267,7 @@ export class ServerProcessSandbox implements RunProcessSandboxes {
     this.#searchPath = resolvedSearchPath(options.environment ?? process.env);
   }
 
-  /** Prüft die Voraussetzungen, startet den Netz-Proxy und startet einmal einen Prozess in der Sandbox; jedes Scheitern ist ein Startfehler. */
+  /** Checks the prerequisites, starts the network proxy and starts one process in the sandbox once; every failure is a start error. */
   async start(): Promise<void> {
     const { errors } = SandboxManager.checkDependencies();
     if (errors.length > 0) throw missingDependencies(errors, this.#options.disableSetting);

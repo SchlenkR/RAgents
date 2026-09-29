@@ -54,7 +54,7 @@ export type EventPayloads = {
             handle: string;
             displayName: string;
             grants: CapabilityGrant[];
-            /** Der angemeldete Benutzer, dem der Run gehört; ohne Anmeldung nicht gesetzt. */
+            /** The signed-in user who owns the run; not set without sign-in. */
             userId?: string;
         };
     };

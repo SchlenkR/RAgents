@@ -1,33 +1,33 @@
 ---
 start: true
-title: "Entscheidung klären"
-category: "Zusammenarbeit"
-prompt: "Ich hätte gern Hilfe dabei, eine offene Entscheidung zu klären und den nächsten Schritt festzuhalten."
+title: "Clarify a decision"
+category: "Collaboration"
+prompt: "I would like help clarifying an open decision and recording the next step."
 order: 20
-tags: "Anwendungsfall, Konzeptdemo, Skills"
+tags: "Use case, Concept demo, Skills"
 name: decision-brief
-description: "Zeigt, wie eine wiederverwendbare Skill-Anleitung eine Entscheidung im Chat von Kriterien zur Auswahl führt, ohne zusätzliche Actors oder Scripts anzulegen."
+description: "Shows how a reusable skill guide leads a decision in the chat from criteria to a choice without creating additional actors or scripts."
 ---
 
-# Entscheidung klären
+# Clarify a decision
 
-Nutze diesen Ablauf für eine konkrete Alltags- oder Projektentscheidung. Er ist eine
-Arbeitsanweisung für den Koordinator und erstellt keine zusätzlichen Agenten oder Scripts.
+Use this flow for a concrete everyday or project decision. It is a work instruction
+for the coordinator and does not create additional agents or scripts.
 
-1. Frage nach der Entscheidung, den bekannten Alternativen und der wichtigsten Einschränkung.
-   Fehlt noch der Gegenstand, beginne nur mit dieser Frage und beende den Turn bis zur Antwort.
-   Erfinde keine persönlichen Prioritäten. Als freiwilliges Beispiel eignet sich die Frage,
-   ob eine Nachbarschaftsveranstaltung drinnen oder draußen stattfinden soll.
-2. Formuliere die Entscheidung in einem Satz. Schlage höchstens drei überprüfbare Kriterien vor,
-   die zur Antwort passen. Lass den Benutzer fehlende Kriterien ergänzen oder Prioritäten ändern.
-3. Stelle die Alternativen in einer kurzen Tabelle gegenüber. Trenne bekannte Angaben und
-   Annahmen; bewerte unbekannte Kosten oder Eigenschaften nicht als Fakten. Externe Informationen
-   recherchierst du nur mit tatsächlich verfügbaren Werkzeugen und kennzeichnest ihre Quellen.
-4. Frage nach genau der offenen Information, die das Ergebnis am ehesten ändern würde.
-   Wenn der Benutzer ohne diese Information entscheiden will, halte die Unsicherheit fest.
-5. Schreibe nach seiner Auswahl einen kurzen Entscheidungsvermerk: Frage, Kriterien, gewählte
-   Option, verbleibende Unsicherheit und ein konkreter nächster Schritt. Die Entscheidung bleibt
-   beim Benutzer. Erkläre danach knapp, welche Schritte dieser wiederverwendbare Ablauf geführt hat.
+1. Ask about the decision, the known alternatives, and the most important constraint.
+   If the subject is still missing, begin only with this question and end the turn until the answer.
+   Do not invent personal priorities. A suitable optional example is the question
+   whether a neighborhood event should take place indoors or outdoors.
+2. State the decision in one sentence. Suggest at most three verifiable criteria
+   that fit the answer. Let the user add missing criteria or change priorities.
+3. Compare the alternatives in a short table. Separate known facts and
+   assumptions; do not treat unknown costs or properties as facts. You research external information
+   only with tools that are actually available and mark their sources.
+4. Ask for exactly the open piece of information that would most likely change the result.
+   If the user wants to decide without this information, record the uncertainty.
+5. After their choice, write a short decision note: question, criteria, chosen
+   option, remaining uncertainty, and a concrete next step. The decision stays
+   with the user. Then briefly explain which steps this reusable flow guided.
 
-Der Abschluss ist der Vermerk im Chat. Es wird nichts gebucht, verschickt oder außerhalb des
-Gesprächs verändert. Behaupte keinen Abschluss, solange die Auswahl noch offen ist.
+The conclusion is the note in the chat. Nothing is booked, sent, or changed outside the
+conversation. Do not claim a conclusion while the choice is still open.

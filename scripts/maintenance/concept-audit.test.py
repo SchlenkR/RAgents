@@ -49,7 +49,7 @@ class MockAudit:
 
     def role(self, request):
         instruction = " ".join(str(message["content"]) for message in request["messages"] if message["role"] in ("system", "developer"))
-        for fragment, role in [("führst drei unabhängige", "synthesis"), ("Host-Oberfläche", "ui-reader"), ("Server und Laufzeit", "runtime-reader"), ("Plugin-Grenzen", "plugin-reader"), ("neuer Benutzer", "guide-reader"), ("Architektur", "code-reader"), ("Übergänge und Fehlerfälle", "boundary-reader")]:
+        for fragment, role in [("merge three independent", "synthesis"), ("host UI", "ui-reader"), ("server and runtime", "runtime-reader"), ("plugin boundaries", "plugin-reader"), ("new user", "guide-reader"), ("architecture", "code-reader"), ("transitions and failure cases", "boundary-reader")]:
             if fragment in instruction:
                 return role
         raise AssertionError("Unknown role: " + instruction)
@@ -105,19 +105,19 @@ class MockAudit:
         assert isinstance(reading, dict) and reading["startLine"] == 1 and reading["endLine"] == (1 if split_reading else 2), reading
         assert reading["content"].startswith("1: "), reading
         if role != "synthesis":
-            return {"role": "assistant", "content": f"Prüfung {role}: Dateireferenz {reading['fileRef']}, Zeilen 1-2 belegen eine offene Konzeptfrage."}
+            return {"role": "assistant", "content": f"Review {role}: file reference {reading['fileRef']}, lines 1-2 show an open concept question."}
         self.synthesis_results += 1
         if self.mode == "schema-instead-of-report" and self.synthesis_results == 1:
             return {"role": "assistant", "content": json.dumps({"type": "array", "items": {"type": "object", "properties": {"topic": {"type": "string"}}}})}
         if self.mode == "missing-findings":
-            return {"role": "assistant", "content": json.dumps({"assessment": "Die Prüfung ist noch unvollständig.", "openQuestions": ["Die Erkenntnisse fehlen weiterhin."]})}
+            return {"role": "assistant", "content": json.dumps({"assessment": "The review is still incomplete.", "openQuestions": ["The findings are still missing."]})}
         line = 4 if self.mode == "invalid-citation" else 1
         if self.mode == "duplicates":
             second_ref = next(source["fileRef"] for source in self.catalogs["plugin-reader"]["files"] if source["path"] == TEST)
-            result = {"assessment": "Beide gelesenen Abschlusswege führen denselben Schritt aus; der Duplikathinweis bleibt bestehen.", "findings": [{"topic": "Doppelter Abschluss", "question": "Zwei Wege?", "answer": "Beide führen denselben Abschluss aus.", "impact": "Abweichende Korrekturen möglich.", "replacement": "Gemeinsamer Abschlusshelfer.", "priority": "medium", "evidence": [{"fileRef": reading["fileRef"], "startLine": 1, "endLine": 1}, {"fileRef": second_ref, "startLine": 1, "endLine": 1}]}], "openQuestions": ["Weitere Module nicht untersucht."]}
+            result = {"assessment": "Both read completion paths perform the same step; the duplicate hint stands.", "findings": [{"topic": "Duplicate completion", "question": "Two paths?", "answer": "Both perform the same completion.", "impact": "Diverging fixes possible.", "replacement": "Shared completion helper.", "priority": "medium", "evidence": [{"fileRef": reading["fileRef"], "startLine": 1, "endLine": 1}, {"fileRef": second_ref, "startLine": 1, "endLine": 1}]}], "openQuestions": ["Further modules not examined."]}
             return {"role": "assistant", "content": json.dumps(result, ensure_ascii=False)}
         code_ref = next(source["fileRef"] for source in self.catalogs["code-reader"]["files"] if source["path"] == CODE)
-        result = {"assessment": "Der Vergleich bestätigt die Frage zur Lebensdauer; die Erklärung zum Neustart bleibt offen.", "findings": [{"topic": "Lebensdauer", "question": "Wann endet der Ablauf?", "answer": "Ein Abschluss ist ausdrücklich beschrieben.", "guideGap": "Das Verhältnis zum Neustart fehlt.", "suggestedChapter": "Laufzeit", "priority": "medium", "evidence": [{"fileRef": reading["fileRef"], "startLine": line, "endLine": line}, {"fileRef": code_ref, "startLine": 1, "endLine": 1}]}], "openQuestions": ["Ist die Fortsetzung später vorgesehen?"]}
+        result = {"assessment": "The comparison confirms the question about lifetime; the explanation of the restart remains open.", "findings": [{"topic": "Lifetime", "question": "When does the flow end?", "answer": "A completion is described explicitly.", "guideGap": "The relation to the restart is missing.", "suggestedChapter": "Runtime", "priority": "medium", "evidence": [{"fileRef": reading["fileRef"], "startLine": line, "endLine": line}, {"fileRef": code_ref, "startLine": 1, "endLine": 1}]}], "openQuestions": ["Is resuming planned for later?"]}
         if split_reading:
             result["findings"][0]["evidence"][0]["endLine"] = 2 if self.mode == "adjacent-ranges" else 3
         return {"role": "assistant", "content": json.dumps(result, ensure_ascii=False)}
@@ -171,7 +171,7 @@ class ConceptAuditTests(unittest.TestCase):
         subprocess.run(["git", "init", "--quiet", str(self.repo)], check=True, capture_output=True)
         (self.repo / ".git/HEAD").write_text(REVISION + "\n")
         for filename, content in {
-            GUIDE: "# Öffentlicher Guide\nEin Actor verarbeitet Eingaben.\nEin Turn liefert ein Ergebnis.\nUngelesene vierte Zeile.\n",
+            GUIDE: "# Public guide\nAn actor processes inputs.\nA turn delivers a result.\nUnread fourth line.\n",
             CODE: "export const finish = () => 'done';\nexport const restart = () => finish();\n",
             TEST: "import assert from 'node:assert/strict';\nassert.equal('done', 'done');\n",
             PRIVATE: "private fixture content must remain excluded\n",
@@ -230,9 +230,9 @@ class ConceptAuditTests(unittest.TestCase):
             if reading["role"] == "guide-reader":
                 self.assertEqual(sources[reading["fileRef"]], GUIDE)
         report = (self.output / "report.md").read_text()
-        self.assertIn("## Lebensdauer", report)
+        self.assertIn("## Lifetime", report)
         self.assertIn(GUIDE + ":1-1", report)
-        self.assertIn("```\n# Öffentlicher Guide\n```", report)
+        self.assertIn("```\n# Public guide\n```", report)
         self.assertIn(CODE + ":1-1", report)
         self.assertIn("export const finish = () => 'done';", report)
         self.assertNotIn("private fixture content", report)
@@ -258,10 +258,10 @@ class ConceptAuditTests(unittest.TestCase):
             self.assertEqual(len(requests), 3)
             self.assertEqual(requests[-1]["tool_choice"], "none")
         report = (self.output / "report.md").read_text()
-        self.assertIn("# Doppelimplementierungs-Audit", report)
-        self.assertIn("Konkrete Folge: Abweichende Korrekturen möglich.", report)
-        self.assertIn("Gemeinsamer Ersatz: Gemeinsamer Abschlusshelfer.", report)
-        self.assertNotIn("Lücke im Guide", report)
+        self.assertIn("# Duplicate implementation audit", report)
+        self.assertIn("Concrete impact: Diverging fixes possible.", report)
+        self.assertIn("Shared replacement: Shared completion helper.", report)
+        self.assertNotIn("Gap in the guide", report)
 
     def test_unread_citation_fails_without_publishing_a_report(self):
         mock = MockAudit(self.output, "invalid-citation")
@@ -269,11 +269,11 @@ class ConceptAuditTests(unittest.TestCase):
             result = self.run_audit(endpoint)
         self.assertEqual(mock.errors, [], self.command_output)
         self.assert_failed(result)
-        self.assertIn("Unbelegter Quellenbereich", self.command_output)
+        self.assertIn("Unverified source range", self.command_output)
         self.assertTrue((self.output / "synthesis.txt").exists())
         self.assertTrue((self.output / "coverage.json").exists())
         self.assertEqual(mock.synthesis_results, 3)
-        self.assertRegex(self.command_output, r"[Kk]orrektur")
+        self.assertRegex(self.command_output, r"[Cc]orrection")
 
     def test_schema_response_is_corrected_without_repeating_the_reviewers(self):
         mock = MockAudit(self.output, "schema-instead-of-report")
@@ -282,9 +282,9 @@ class ConceptAuditTests(unittest.TestCase):
         self.assertEqual(mock.errors, [], self.command_output)
         self.assertEqual(result.returncode, 0, self.command_output)
         self.assertEqual(mock.synthesis_results, 2)
-        self.assertRegex(result.stdout, r"[Kk]orrektur")
+        self.assertRegex(result.stdout, r"[Cc]orrection")
         self.assertEqual(json.loads((self.output / "status.json").read_text())["status"], "completed")
-        self.assertIn("## Lebensdauer", (self.output / "report.md").read_text())
+        self.assertIn("## Lifetime", (self.output / "report.md").read_text())
         for role, count in [("guide-reader", 4), ("code-reader", 3), ("boundary-reader", 3)]:
             self.assertEqual(sum(actual == role for actual, _ in mock.requests), count, role)
         synthesis_requests = [request for role, request in mock.requests if role == "synthesis"]
@@ -299,7 +299,7 @@ class ConceptAuditTests(unittest.TestCase):
         self.assertTrue(any("findings" in json.dumps(request["messages"], ensure_ascii=False) for request in synthesis_requests[3:]))
 
     def test_adjacent_reads_cover_a_single_combined_citation(self):
-        (self.repo / RANGE_GUIDE).write_text("Erste belegte Zeile.\nZweite belegte Zeile.\nDritte Zeile.\n")
+        (self.repo / RANGE_GUIDE).write_text("First supported line.\nSecond supported line.\nThird line.\n")
         mock = MockAudit(self.output, "adjacent-ranges")
         with mock_endpoint(mock) as endpoint:
             result = self.run_audit(endpoint)
@@ -311,7 +311,7 @@ class ConceptAuditTests(unittest.TestCase):
         self.assertEqual([(reading["startLine"], reading["endLine"]) for reading in reads], [(2, 2), (1, 1)])
         report = (self.output / "report.md").read_text()
         self.assertIn(RANGE_GUIDE + ":1-2", report)
-        self.assertIn("```\nErste belegte Zeile.\nZweite belegte Zeile.\n```", report)
+        self.assertIn("```\nFirst supported line.\nSecond supported line.\n```", report)
 
     def test_empty_result_requires_an_assessment_and_source_reading_before_completion(self):
         mock = MockAudit(self.output, "empty-result")
@@ -320,24 +320,24 @@ class ConceptAuditTests(unittest.TestCase):
         self.assertEqual(mock.errors, [], self.command_output)
         self.assertEqual(result.returncode, 0, self.command_output)
         self.assertEqual(mock.synthesis_results, 2)
-        self.assertRegex(result.stdout, r"[Kk]orrektur")
+        self.assertRegex(result.stdout, r"[Cc]orrection")
         self.assertEqual(json.loads((self.output / "synthesis-attempt-1.txt").read_text()), {"findings": [], "openQuestions": []})
         self.assertEqual(json.loads((self.output / "status.json").read_text())["status"], "completed")
         report = (self.output / "report.md").read_text()
-        self.assertIn("Bewertung der Prüferberichte: Der Vergleich bestätigt", report)
-        self.assertIn("## Lebensdauer", report)
+        self.assertIn("Assessment of the reviewer reports: The comparison confirms", report)
+        self.assertIn("## Lifetime", report)
         coverage = json.loads((self.output / "coverage.json").read_text())
         self.assertTrue(any(reading["role"] == "synthesis" for reading in coverage))
 
     def test_combined_citation_rejects_a_gap_between_read_ranges(self):
-        (self.repo / RANGE_GUIDE).write_text("Erste belegte Zeile.\nUngelesene Lücke.\nDritte belegte Zeile.\n")
+        (self.repo / RANGE_GUIDE).write_text("First supported line.\nUnread gap.\nThird supported line.\n")
         mock = MockAudit(self.output, "gapped-ranges")
         with mock_endpoint(mock) as endpoint:
             result = self.run_audit(endpoint)
         self.assertEqual(mock.errors, [], self.command_output)
         self.assert_failed(result)
         self.assertEqual(mock.synthesis_results, 3)
-        self.assertIn("Unbelegter Quellenbereich", self.command_output)
+        self.assertIn("Unverified source range", self.command_output)
         coverage = json.loads((self.output / "coverage.json").read_text())
         reads = [reading for reading in coverage if reading["role"] == "synthesis"]
         self.assertEqual([(reading["startLine"], reading["endLine"]) for reading in reads], [(3, 3), (1, 1)])
@@ -352,7 +352,7 @@ class ConceptAuditTests(unittest.TestCase):
         error = json.loads((self.output / "status.json").read_text())["error"]
         self.assertIn("findings", error)
         self.assertNotRegex(error.lower(), r"dictionary|given key|keynotfound")
-        self.assertRegex(self.command_output, r"[Kk]orrektur")
+        self.assertRegex(self.command_output, r"[Cc]orrection")
 
     def test_resume_reuses_reviewers_and_read_evidence_for_a_new_synthesis(self):
         initial = MockAudit(self.output, "invalid-citation")
@@ -374,7 +374,7 @@ class ConceptAuditTests(unittest.TestCase):
         self.assertEqual({role for role, _ in resumed.requests}, {"synthesis"})
         self.assertEqual(resumed.synthesis_results, 1)
         self.assertEqual(json.loads((self.output / "status.json").read_text())["status"], "completed")
-        self.assertIn("## Lebensdauer", (self.output / "report.md").read_text())
+        self.assertIn("## Lifetime", (self.output / "report.md").read_text())
         for role in ("guide-reader", "code-reader", "boundary-reader"):
             self.assertEqual((self.output / (role + ".txt")).read_bytes(), previous_files[role + ".txt"])
         coverage = json.loads((self.output / "coverage.json").read_text())
@@ -396,7 +396,7 @@ class ConceptAuditTests(unittest.TestCase):
         self.assertEqual(resumed.errors, [])
         self.assertEqual(resumed.requests, [])
         self.assertNotEqual(result.returncode, 0, self.command_output)
-        self.assertIn("Quellenstand", self.command_output)
+        self.assertIn("source state", self.command_output)
         self.assertFalse((self.output / "report.md").exists())
         self.assertEqual(json.loads((previous / "status.json").read_text())["status"], "failed")
 
@@ -406,7 +406,7 @@ class ConceptAuditTests(unittest.TestCase):
             result = self.run_audit(endpoint, extra=("--max-calls", "1"))
         self.assertEqual(mock.errors, [], self.command_output)
         self.assert_failed(result)
-        self.assertIn("Aufruflimit", self.command_output)
+        self.assertIn("call limit", self.command_output)
         self.assertEqual(len(mock.requests), 3)
         self.assertNotIn("synthesis", {role for role, _ in mock.requests})
 
@@ -424,8 +424,8 @@ class ConceptAuditTests(unittest.TestCase):
             result = self.run_audit(endpoint, extra=("--timeout-seconds", "45"))
         self.assertEqual(mock.errors, [], self.command_output)
         self.assertEqual(result.returncode, 0, self.command_output)
-        self.assertIn("Guide-Prüfer: arbeitet noch", result.stdout)
-        self.assertIn("Audit: Fertig. Bericht:", result.stdout)
+        self.assertIn("Guide reviewer: still working", result.stdout)
+        self.assertIn("Audit: Done. Report:", result.stdout)
         self.assertEqual(json.loads((self.output / "status.json").read_text())["status"], "completed")
         self.assertTrue((self.output / "report.md").exists())
 
@@ -435,7 +435,7 @@ class ConceptAuditTests(unittest.TestCase):
         (self.output / "report.md").write_bytes(sentinel)
         result = self.run_audit(extra=("--dry-run",), with_key=False)
         self.assertNotEqual(result.returncode, 0, self.command_output)
-        self.assertIn("existiert bereits", self.command_output)
+        self.assertIn("already exists", self.command_output)
         self.assertEqual(list(self.output.iterdir()), [self.output / "report.md"])
         self.assertEqual((self.output / "report.md").read_bytes(), sentinel)
 

@@ -11,7 +11,7 @@ const at = "2026-09-17T10:00:00Z";
 const actor = (id: string, kind: RunActor["kind"], lifecycle?: RunActor["lifecycle"]): RunActor => ({ id, kind, handle: id, displayName: id, grants: [], createdAt: at, lifecycle });
 const view: RunView = {
   id: "run-a", revision: 3, title: "Run", ownerId: "owner", primaryActorId: "coordinator", createdAt: at, forkedFrom: null,
-  actors: [actor("owner", "human"), actor("circle", "script", { kind: "idle", since: at }), actor("coordinator", "agent", { kind: "idle", since: at }), actor("mira", "agent", { kind: "running", turnId: "t", inputId: "i", startedAt: at }), actor("old", "agent", { kind: "stopped", stoppedAt: at, reason: "fertig" })],
+  actors: [actor("owner", "human"), actor("circle", "script", { kind: "idle", since: at }), actor("coordinator", "agent", { kind: "idle", since: at }), actor("mira", "agent", { kind: "running", turnId: "t", inputId: "i", startedAt: at }), actor("old", "agent", { kind: "stopped", stoppedAt: at, reason: "done" })],
   inputs: [
     { id: "i1", actorId: "mira", content: "x", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: "owner", enqueuedAt: at, sequence: 1, lifecycle: { kind: "pending" } },
     { id: "i2", actorId: "mira", content: "y", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: "owner", enqueuedAt: at, sequence: 2, lifecycle: { kind: "claimed", turnId: "t", steered: false } },
@@ -54,9 +54,9 @@ test("the run panel state is parsed strictly, maps earlier layouts and keeps roo
   assert.equal(parseRunPanelState(JSON.stringify({ element: null, actor: null, chat: "docked" })).chat, "bottom");
   assert.equal(parseRunPanelState(JSON.stringify({ element: null, actor: null, chat: "auto" })).chat, "side");
   assert.equal(parseRunPanelState(JSON.stringify({ element: "board", actor: null, chat: "chat" })).chat, "chat");
-  assert.throws(() => parseRunPanelState(JSON.stringify({ element: "board", actor: null, chat: "sheet" })), /ungültig/);
-  assert.throws(() => parseRunPanelState(JSON.stringify({ element: "board", actor: null, chatWidth: 100 })), /ungültig/);
-  assert.throws(() => parseRunPanelState(JSON.stringify({ element: "board", actor: null, extra: 1 })), /ungültig/);
+  assert.throws(() => parseRunPanelState(JSON.stringify({ element: "board", actor: null, chat: "sheet" })), /invalid/);
+  assert.throws(() => parseRunPanelState(JSON.stringify({ element: "board", actor: null, chatWidth: 100 })), /invalid/);
+  assert.throws(() => parseRunPanelState(JSON.stringify({ element: "board", actor: null, extra: 1 })), /invalid/);
   assert.equal(clampChatWidth(100, 900), 280);
   assert.equal(clampChatWidth(800, 900), 600);
   assert.equal(clampChatWidth(300.6, Number.POSITIVE_INFINITY), 301);
@@ -69,7 +69,7 @@ test("sheet depth preserves the expanded height and ignores the former resting h
   assert.equal(parseRunPanelState(JSON.stringify({ ...state, sheetExpandedHeight: null })).sheetExpandedHeight, null);
   assert.equal(parseRunPanelState(JSON.stringify({ ...state, sheetExpandedHeight: 340.5 })).sheetExpandedHeight, 340.5);
   for (const sheetExpandedHeight of [-1, 0, "340", true]) {
-    assert.throws(() => parseRunPanelState(JSON.stringify({ ...state, sheetExpandedHeight })), /ungültig/);
+    assert.throws(() => parseRunPanelState(JSON.stringify({ ...state, sheetExpandedHeight })), /invalid/);
   }
 });
 
@@ -86,23 +86,23 @@ test("the chat fills the run panel without a mini-app and in the pinned chat vie
 test("the run panel settings are parsed strictly within their limits", () => {
   assert.deepEqual(parseRunPanelSettings(null), DEFAULT_RUN_PANEL_SETTINGS);
   assert.deepEqual(parseRunPanelSettings(JSON.stringify({ sideWidth: 1200, openDelay: 0, closeDelay: 800 })), { sideWidth: 1200, openDelay: 0, closeDelay: 800 });
-  assert.throws(() => parseRunPanelSettings(JSON.stringify({ sideWidth: 300, openDelay: 0, closeDelay: 800 })), /ungültig/);
-  assert.throws(() => parseRunPanelSettings(JSON.stringify({ sideWidth: 1200, openDelay: 1.5, closeDelay: 800 })), /ungültig/);
-  assert.throws(() => parseRunPanelSettings(JSON.stringify({ sideWidth: 1200, openDelay: 0 })), /ungültig/);
+  assert.throws(() => parseRunPanelSettings(JSON.stringify({ sideWidth: 300, openDelay: 0, closeDelay: 800 })), /invalid/);
+  assert.throws(() => parseRunPanelSettings(JSON.stringify({ sideWidth: 1200, openDelay: 1.5, closeDelay: 800 })), /invalid/);
+  assert.throws(() => parseRunPanelSettings(JSON.stringify({ sideWidth: 1200, openDelay: 0 })), /invalid/);
 });
 
 test("the sheet status line names a waiting action, the current work or the last spoken line", () => {
   const message = (role: Message["role"], text: string, extra: Partial<Message> = {}): Message => ({ key: `${role}-${text}`, role, text, ...extra });
-  assert.deepEqual(sheetStatus([], false, "coordinator"), { kind: "idle", text: "Noch keine Nachrichten." });
-  assert.deepEqual(sheetStatus([message("user", "Bitte\nAufgabe 1234 umsetzen")], false, "coordinator"), { kind: "idle", text: "Du: Bitte" });
-  assert.deepEqual(sheetStatus([message("user", "Hallo"), message("assistant", "Ich lese das Item.", { closed: true }), message("tool", "", { tool: { id: "t", name: "read", arguments: "", result: "ok" } })], false, "coordinator"), { kind: "idle", text: "@coordinator: Ich lese das Item." });
-  assert.deepEqual(sheetStatus([message("user", "Hallo"), message("thinking", "hm")], true, "coordinator"), { kind: "working", text: "@coordinator denkt ..." });
-  assert.deepEqual(sheetStatus([message("tool", "", { tool: { id: "t", name: "bash", arguments: "" } })], true, "coordinator"), { kind: "working", text: "@coordinator nutzt bash ..." });
-  assert.deepEqual(sheetStatus([message("assistant", "Ich melde mich", { sender: "@mira" })], true, "coordinator"), { kind: "working", text: "@mira antwortet: Ich melde mich" });
-  assert.deepEqual(sheetStatus([message("assistant", "Fertig", { closed: true }), message("action", "Welche App?", { action: { actionId: "q1", owner: "ragents.ask", payload: null } })], true, "coordinator"), { kind: "waiting", text: "Wartet auf Eingabe" });
+  assert.deepEqual(sheetStatus([], false, "coordinator"), { kind: "idle", text: "No messages yet." });
+  assert.deepEqual(sheetStatus([message("user", "Please\nimplement task 1234")], false, "coordinator"), { kind: "idle", text: "You: Please" });
+  assert.deepEqual(sheetStatus([message("user", "Hello"), message("assistant", "I am reading the item.", { closed: true }), message("tool", "", { tool: { id: "t", name: "read", arguments: "", result: "ok" } })], false, "coordinator"), { kind: "idle", text: "@coordinator: I am reading the item." });
+  assert.deepEqual(sheetStatus([message("user", "Hello"), message("thinking", "hm")], true, "coordinator"), { kind: "working", text: "@coordinator is thinking ..." });
+  assert.deepEqual(sheetStatus([message("tool", "", { tool: { id: "t", name: "bash", arguments: "" } })], true, "coordinator"), { kind: "working", text: "@coordinator is using bash ..." });
+  assert.deepEqual(sheetStatus([message("assistant", "I will report back", { sender: "@mira" })], true, "coordinator"), { kind: "working", text: "@mira is answering: I will report back" });
+  assert.deepEqual(sheetStatus([message("assistant", "Done", { closed: true }), message("action", "Which app?", { action: { actionId: "q1", owner: "ragents.ask", payload: null } })], true, "coordinator"), { kind: "waiting", text: "Waiting for input" });
   const open = (key: string) => message("action", key, { action: { actionId: key, owner: "ragents.ask", payload: null } });
-  const answered = message("action", "Erledigt?", { action: { actionId: "done", owner: "ragents.ask", payload: null, status: "approved", result: "ja" } });
-  assert.deepEqual(sheetStatus([open("q1"), answered, open("q2")], true, "coordinator"), { kind: "waiting", text: "Wartet auf 2 Eingaben" });
+  const answered = message("action", "Done?", { action: { actionId: "done", owner: "ragents.ask", payload: null, status: "approved", result: "yes" } });
+  assert.deepEqual(sheetStatus([open("q1"), answered, open("q2")], true, "coordinator"), { kind: "waiting", text: "Waiting for 2 inputs" });
   assert.equal(sheetStatus([answered], false, "coordinator").kind, "idle");
   assert.equal(sheetStatus([message("assistant", "x".repeat(200), { closed: true })], false, "coordinator").text.length, 160 + "@coordinator: ".length);
 });

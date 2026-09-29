@@ -26,11 +26,11 @@ const connection: MethodConnection = {
   id: "test-connection",
   userId: null,
   streamless: true,
-  call: () => Promise.reject(new Error("Der Test beantwortet keine Serveranfragen")),
+  call: () => Promise.reject(new Error("The test answers no server requests")),
   onClose: () => () => undefined,
 };
 
-/** Der Kontext, den der Dispatcher einer Methode übergibt; einzelne Felder überschreibt der Test per Spread. */
+/** The context the dispatcher passes to a method; the test overrides individual fields by spread. */
 export const methodContext = (access: AccessContext = unrestrictedAccess): MethodContext => ({
   access,
   signal: new AbortController().signal,
@@ -39,12 +39,12 @@ export const methodContext = (access: AccessContext = unrestrictedAccess): Metho
   local: true,
 });
 
-const missing = (name: string) => () => { throw new Error(`Der Test stellt ${name} nicht bereit`); };
+const missing = (name: string) => () => { throw new Error(`The test does not provide ${name}`); };
 
-/** Ein Server ohne Eigentümerwissen: jede Run-Kennung ist erreichbar, wie ohne Anmeldung. */
+/** A server without owner knowledge: every run id is reachable, as without sign-in. */
 export const openRunAccess: RunAccessPolicy = { global: undefined, ownerOf: () => undefined, ownerOnly: () => false };
 
-/** Die Quellen der Kernmethoden; der Test liefert nur, was seine Methode wirklich benutzt. */
+/** The sources of the core methods; the test provides only what its method really uses. */
 export const coreSources = (
   sessions: Partial<CoreMethodSources["sessions"]>,
   overrides: Partial<Omit<CoreMethodSources, "sessions">> = {},
@@ -91,7 +91,7 @@ export interface RpcTestServer {
   call: (method: string, params?: unknown, headers?: Record<string, string>) => Promise<Partial<RpcSuccess & RpcFailure>>;
 }
 
-/** Ein echter HTTP-Server mit den übergebenen Methoden, Kanälen und Zusatzrouten; er endet mit dem Test. */
+/** A real HTTP server with the given methods, channels and extra routes; it ends with the test. */
 export const startRpcServer = async (t: TestContext, options: RpcServerOptions): Promise<RpcTestServer> => {
   const methods = new MethodContributionRegistry();
   methods.register("test", [...options.methods ?? []]);
@@ -112,7 +112,7 @@ export const startRpcServer = async (t: TestContext, options: RpcServerOptions):
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
-  if (!address || typeof address === "string") throw new Error("Testserver ohne Port");
+  if (!address || typeof address === "string") throw new Error("test server without port");
   const url = `http://127.0.0.1:${address.port}`;
   let id = 0;
   return {
@@ -130,7 +130,7 @@ export const startRpcServer = async (t: TestContext, options: RpcServerOptions):
   };
 };
 
-/** Ruft eine registrierte Methode wie der Server: Rechte, Eingabe und Ergebnis werden gegen den Vertrag geprüft. */
+/** Calls a registered method like the server: rights, input and result are checked against the contract. */
 export const dispatchMethod = (
   methods: MethodContributionRegistry,
   method: string,

@@ -94,7 +94,7 @@ test("snippet type errors prevent all side effects and identify the original sou
 test("snippets reject unavailable functions and syntax errors before execution", async () => {
     const run = fixture();
     await assert.rejects(run.execute('return context.functions.unavailable({});'), /Property 'unavailable' does not exist/);
-    await assert.rejects(run.execute('const broken = ;'), /TypeScript-Snippet wurde nicht ausgeführt/);
+    await assert.rejects(run.execute('const broken = ;'), /TypeScript snippet was not executed/);
     assert.deepEqual(run.starts, []);
 });
 

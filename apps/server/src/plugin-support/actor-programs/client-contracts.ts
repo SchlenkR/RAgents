@@ -12,15 +12,15 @@ function readContracts(repoRoot: string): { names: string[]; files: Record<strin
   };
   const program = ts.createProgram([filename], options);
   const source = program.getSourceFile(filename);
-  if (!source) throw new Error("Der öffentliche UI-Vertrag fehlt.");
+  if (!source) throw new Error("The public UI contract is missing.");
   const checker = program.getTypeChecker();
   const module = checker.getSymbolAtLocation(source);
-  if (!module) throw new Error("Der öffentliche UI-Vertrag ist kein Modul.");
+  if (!module) throw new Error("The public UI contract is not a module.");
   const names = checker.getExportsOfModule(module).filter((entry) => {
     const symbol = entry.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(entry) : entry;
     return /^[A-Z]/.test(entry.name) && (symbol.flags & ts.SymbolFlags.Value) && checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration ?? source).getCallSignatures().length > 0;
   }).map((entry) => entry.name).sort((a, b) => a.localeCompare(b, "en"));
-  if (!names.length) throw new Error("Der öffentliche UI-Vertrag exportiert keine Komponenten.");
+  if (!names.length) throw new Error("The public UI contract exports no components.");
   const files: Record<string, string> = {};
   const visited = new Set<string>();
   const diagnostics: ts.Diagnostic[] = [...program.getOptionsDiagnostics()];
@@ -28,13 +28,13 @@ function readContracts(repoRoot: string): { names: string[]; files: Record<strin
     if (visited.has(file.fileName)) return;
     visited.add(file.fileName);
     const relative = path.relative(repoRoot, file.fileName).replaceAll(path.sep, "/");
-    if (relative.startsWith("../") || relative.includes("node_modules/")) throw new Error("Ein lokaler UI-Typverweis verlässt die öffentlichen Repository-Quellen.");
+    if (relative.startsWith("../") || relative.includes("node_modules/")) throw new Error("A local UI type reference leaves the public repository sources.");
     diagnostics.push(...program.getSyntacticDiagnostics(file), ...program.getSemanticDiagnostics(file));
     let text = file.isDeclarationFile ? file.text : "";
     if (!file.isDeclarationFile) {
       const emitted = program.emit(file, (filename, content) => { if (filename.endsWith(".d.ts")) text = content; }, undefined, true);
       diagnostics.push(...emitted.diagnostics);
-      if (!text) throw new Error(`UI-Typdeklarationen fehlen: ${relative}`);
+      if (!text) throw new Error(`UI type declarations are missing: ${relative}`);
     }
     files[relative.replace(/(?<!\.d)\.tsx?$/, ".d.ts")] = text;
     const declaration = ts.createSourceFile(file.fileName, text, ts.ScriptTarget.Latest, true);
@@ -43,17 +43,17 @@ function readContracts(repoRoot: string): { names: string[]; files: Record<strin
       if (!reference.fileName.startsWith(".")) continue;
       const resolved = ts.resolveModuleName(reference.fileName, file.fileName, options, ts.sys).resolvedModule;
       const dependency = resolved && program.getSourceFile(resolved.resolvedFileName);
-      if (!dependency) throw new Error(`Nicht auflösbarer lokaler UI-Typverweis: ${relative}: ${reference.fileName}`);
+      if (!dependency) throw new Error(`Unresolvable local UI type reference: ${relative}: ${reference.fileName}`);
       collect(dependency);
     }
     for (const reference of declaration.referencedFiles) {
       const dependency = program.getSourceFile(path.resolve(path.dirname(file.fileName), reference.fileName));
-      if (!dependency) throw new Error(`Nicht auflösbarer UI-Typdateiverweis: ${relative}: ${reference.fileName}`);
+      if (!dependency) throw new Error(`Unresolvable UI type file reference: ${relative}: ${reference.fileName}`);
       collect(dependency);
     }
   };
   collect(source);
-  if (diagnostics.length) throw new Error(`Der öffentliche UI-Vertrag kann nicht geprüft werden: ${diagnostics.map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, " ")).join("; ")}`);
+  if (diagnostics.length) throw new Error(`The public UI contract cannot be checked: ${diagnostics.map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, " ")).join("; ")}`);
   return { names, files: Object.fromEntries(Object.entries(files).sort(([a], [b]) => a.localeCompare(b, "en"))) };
 }
 
@@ -71,7 +71,7 @@ export function readClientUiComponentNames(repoRoot?: string): string[] {
 }
 
 export function readClientUiComponentContracts(component: string, repoRoot?: string): Record<string, string> {
-  if (!contracts(repoRoot).names.includes(component)) throw new Error(`Unbekanntes Control ${component}. Gültig: ${contracts(repoRoot).names.join(", ")}`);
+  if (!contracts(repoRoot).names.includes(component)) throw new Error(`Unknown control ${component}. Valid: ${contracts(repoRoot).names.join(", ")}`);
   return readClientUiExportContracts(component, repoRoot);
 }
 
@@ -109,7 +109,7 @@ export function readClientUiExportContracts(component: string, repoRoot?: string
     visitedExports.add(key);
     const module = checker.getSymbolAtLocation(file);
     const symbol = module && checker.getExportsOfModule(module).find((item) => item.name === name);
-    if (!symbol) throw new Error(`UI-Typverweis fehlt: ${file.fileName}: ${name}`);
+    if (!symbol) throw new Error(`UI type reference is missing: ${file.fileName}: ${name}`);
     const target = resolve(symbol);
     const declaration = target.declarations?.find((item) => local(item.getSourceFile()));
     if (!declaration) return;
@@ -153,7 +153,7 @@ export function readClientUiExportContracts(component: string, repoRoot?: string
     }
   };
   const source = program.getSourceFile(entry);
-  if (!source) throw new Error("Der öffentliche UI-Vertrag fehlt.");
+  if (!source) throw new Error("The public UI contract is missing.");
   exportFrom(source, component);
   const printer = ts.createPrinter();
   const result: Record<string, string> = {};

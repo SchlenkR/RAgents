@@ -17,25 +17,25 @@ const { TiledSurface } = bundled.exports;
 const render = (canArrange: boolean, available = true) => renderToStaticMarkup(createElement(TiledSurface, {
   canArrange,
   root: { entity: "@helper" },
-  items: available ? [{ entity: "@helper", title: "Helfer", content: "Chatverlauf" }] : [],
+  items: available ? [{ entity: "@helper", title: "Helper", content: "Chat history" }] : [],
   onChange: () => { throw new Error("Rendering must not change the arrangement"); },
 }));
 
 test("restricted tiles retain their content without removal or drag controls", () => {
   const html = render(false);
-  assert.match(html, /Chatverlauf/);
-  assert.doesNotMatch(html, /aria-label="Kachel Helfer entfernen"|draggable="true"|lucide-grip-vertical/);
+  assert.match(html, /Chat history/);
+  assert.doesNotMatch(html, /aria-label="Remove tile Helper"|draggable="true"|lucide-grip-vertical/);
 });
 
 test("arrange permission exposes removal and dragging", () => {
   const html = render(true);
-  assert.match(html, /aria-label="Kachel Helfer entfernen"/);
+  assert.match(html, /aria-label="Remove tile Helper"/);
   assert.match(html, /draggable="true"/);
   assert.match(html, /lucide-grip-vertical/);
 });
 
 test("unavailable tiles cannot be removed without arrange permission", () => {
   const html = render(false, false);
-  assert.match(html, /nicht mehr verfügbar/);
-  assert.doesNotMatch(html, /aria-label="Kachel @helper entfernen"|draggable="true"/);
+  assert.match(html, /no longer available/);
+  assert.doesNotMatch(html, /aria-label="Remove tile @helper"|draggable="true"/);
 });

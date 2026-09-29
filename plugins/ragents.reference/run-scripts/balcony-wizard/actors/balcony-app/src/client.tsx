@@ -41,34 +41,34 @@ function App() {
   const evaluating = conversation.answers === answerCount || sender.finalAnswer;
   const disabled = Boolean(snapshot?.readOnly || snapshot?.running || pending);
 
-  return <UI.AppLayout title="Dein Balkon" description="Fünf Fragen zu deinem Balkon. Daraus entsteht eine persönliche Gestaltungsempfehlung.">
+  return <UI.AppLayout title="Your balcony" description="Five questions about your balcony. They lead to a personal design recommendation.">
     <UI.Stack gap="large">
       <UI.Stack gap="small">
-        <label htmlFor="interview-progress">{conversation.answers} von {answerCount} Antworten</label>
+        <label htmlFor="interview-progress">{conversation.answers} of {answerCount} answers</label>
         <progress className="h-2.5 w-full [accent-color:var(--foreground)]" id="interview-progress" max={answerCount} value={conversation.answers} />
       </UI.Stack>
-      {snapshot?.readOnly && <p>Dieser Run ist schreibgeschützt.</p>}
+      {snapshot?.readOnly && <p>This run is read-only.</p>}
       {(sendError || conversation.error) && <p role="alert">{sendError || conversation.error}</p>}
       {conversation.phase === "start" && !pending && <UI.Stack>
-        <p>Du beantwortest immer nur eine Frage. Deine bisherigen Angaben bleiben beim erneuten Öffnen erhalten.</p>
-        <UI.Stack direction="row"><UI.Button disabled={disabled} onClick={() => void send(startMarker)}>Beratung starten</UI.Button></UI.Stack>
+        <p>You always answer only one question. Your previous answers are kept when you open this again.</p>
+        <UI.Stack direction="row"><UI.Button disabled={disabled} onClick={() => void send(startMarker)}>Start consultation</UI.Button></UI.Stack>
       </UI.Stack>}
-      {waiting && <p role="status">{evaluating ? "Deine Antworten werden ausgewertet. Die Empfehlung entsteht ..." : "Deine nächste Frage entsteht ..."}</p>}
+      {waiting && <p role="status">{evaluating ? "Your answers are being evaluated. The recommendation is being created ..." : "Your next question is being created ..."}</p>}
       {conversation.canRetry && <UI.Stack>
-        <p>Die nächste Modellantwort konnte nicht angezeigt werden. Deine bereits gesendeten Antworten bleiben erhalten.</p>
-        <UI.Stack direction="row"><UI.Button disabled={disabled} onClick={() => void send(retryMarker)} variant="outline">Modellantwort erneut anfordern</UI.Button></UI.Stack>
+        <p>The next model answer could not be shown. The answers you already sent are kept.</p>
+        <UI.Stack direction="row"><UI.Button disabled={disabled} onClick={() => void send(retryMarker)} variant="outline">Request model answer again</UI.Button></UI.Stack>
       </UI.Stack>}
       {conversation.phase === "question" && !pending && <UI.Stack>
-        <h2>Frage {conversation.answers + 1} von {answerCount}</h2>
+        <h2>Question {conversation.answers + 1} of {answerCount}</h2>
         <UI.Markdown text={conversation.text} />
-        <UI.Form title="Deine Antwort" fields={[
-          { id: "answer", label: "Antwort", type: "textarea", rows: 4, required: true, placeholder: "Beschreibe deinen Balkon und deine Wünsche ..." },
+        <UI.Form title="Your answer" fields={[
+          { id: "answer", label: "Answer", type: "textarea", rows: 4, required: true, placeholder: "Describe your balcony and your wishes ..." },
         ]} values={values} onChange={setValues} disabled={disabled} onSubmit={async (next) => {
           await send(answerInput(conversation.answers, String(next.answer ?? "")));
-        }} submitLabel={conversation.answers === 4 ? "Antwort senden und auswerten" : "Antwort senden"} />
+        }} submitLabel={conversation.answers === 4 ? "Send answer and evaluate" : "Send answer"} />
       </UI.Stack>}
       {conversation.phase === "complete" && !pending && <UI.Stack>
-        <h2>Deine Gestaltungsempfehlung</h2>
+        <h2>Your design recommendation</h2>
         <UI.Markdown text={conversation.text} />
       </UI.Stack>}
     </UI.Stack>
@@ -76,5 +76,5 @@ function App() {
 }
 
 const root = document.getElementById("root");
-if (!root) throw new Error("Das Wurzelelement #root fehlt.");
+if (!root) throw new Error("The #root element is missing.");
 createRoot(root).render(<App />);

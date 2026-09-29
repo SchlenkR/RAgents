@@ -1,40 +1,40 @@
-# RAgents: Handbuch für Entwicklung und KI-Assistenten
+# RAgents: handbook for development and AI assistants
 
-Der kurze englische Einstieg für GitHub ist die `README.md`. Dieses Handbuch ist der lange,
-deutsche Teil: Begriffe, Aufbau, Plugins, Profile, Konfiguration, Entwicklung und die Regeln, nach
-denen hier gearbeitet und dokumentiert wird. `AGENTS.md` und `CLAUDE.md` zeigen hierher.
+The short entry point for GitHub is `README.md`. This handbook is the long part: terms,
+architecture, plugins, profiles, configuration, development, and the rules by which work and
+documentation are done here. `AGENTS.md` and `CLAUDE.md` point here.
 
-RAgents ist eine Werkstatt für KI-Agenten: im Browser, in VS Code und in der Konsole. Du chattest
-mit einem Koordinator; der kann weitere Agenten starten und Actors mit TypeScript-Funktionen und
-Mini-Apps ausstatten. Alles, was passiert, steht in einem Journal; der Zustand entsteht immer
-durch Wiedergabe dieses Journals, nie durch Zwischenspeicher. Was ein Benutzer sieht und tun kann,
-steht in `docs/usage.md` und auf der [Homepage](https://schlenkr.github.io/RAgents/), wie man es
-installiert und betreibt in `docs/operations.md`; hier steht, wie das System gebaut ist.
+RAgents is a workshop for AI agents: in the browser, in VS Code, and in the console. You chat
+with a coordinator; it can start further agents and equip actors with TypeScript functions and
+mini-apps. Everything that happens is recorded in a journal; the state always comes from
+replaying this journal, never from caches. What a user sees and can do is in `docs/usage.md` and
+on the [homepage](https://schlenkr.github.io/RAgents/), how to install and operate it in
+`docs/operations.md`; this file describes how the system is built.
 
-## Die fünf Begriffe
+## The five terms
 
-Mehr braucht man nicht, um das System zu verstehen:
+That is all you need to understand the system:
 
-- **Run** - eine Arbeit. Genau ein Journal.
-- **Actor** - wer im Run handelt. Drei Arten: Du (der menschliche Owner), Modell-Actors (Agenten),
-  TypeScript-Actors (TypeScript).
-- **ActorInput** - eine Nachricht an einen Actor. Landet in seiner Warteschlange.
-- **Turn** - die Bearbeitung eines ActorInputs. Endet, sobald der Actor kein Werkzeug mehr
-  aufruft. Es gibt keine Warte-Werkzeuge. Was einen Agenten während seines Turns erreicht, speist
-  er vor der nächsten Modellanfrage in diesen Turn ein (Steering).
-- **Event** - jede Zustandsänderung im Journal. Actors können sie abonnieren; jedes passende Event
-  wird beim Abonnenten zu einem neuen ActorInput.
+- **Run** - a piece of work. Exactly one journal.
+- **Actor** - who acts in the run. Three kinds: you (the human owner), model actors (agents),
+  TypeScript actors (TypeScript).
+- **ActorInput** - a message to an actor. Lands in its queue.
+- **Turn** - the processing of an ActorInput. Ends as soon as the actor no longer calls a tool.
+  There are no waiting tools. Whatever reaches an agent during its turn is fed into that turn
+  before the next model request (steering).
+- **Event** - every state change in the journal. Actors can subscribe to them; every matching
+  event becomes a new ActorInput at the subscriber.
 
-Ausführlicher stehen die Begriffe in `docs/spec/overview.md`.
+The terms are described in more detail in `docs/spec/overview.md`.
 
-### So sieht ein Journal aus
+### What a journal looks like
 
-Eine Zeile JSON je Command-Entscheidung, append-only. Die Zeile enthält den Command, seinen
-Zeitpunkt und ein Array seiner Events. `sequence` zählt über alle Events des Runs lückenlos hoch.
-Das folgende Beispiel zeigt eine Zeile, wie sie in `journal.jsonl` auf der Platte steht
-(Dateiformat 9), zum Lesen eingerückt; Kennungen, Hash und Nutzungszahlen sind gekürzt. Es ist ein
-abgeschlossener Modellschritt: der Text als beobachtbares `model.output.completed`, danach der
-Schritt selbst, der den Text nicht wiederholt:
+One line of JSON per command decision, append-only. The line contains the command, its time,
+and an array of its events. `sequence` counts up over all events of the run without gaps.
+The following example shows a line as it is stored in `journal.jsonl` on disk (file format 9),
+indented for reading; IDs, hash, and usage numbers are shortened. It is a completed model step:
+the text as an observable `model.output.completed`, followed by the step itself, which does not
+repeat the text:
 
 ```json
 {
@@ -56,7 +56,7 @@ Schritt selbst, der den Text nicht wiederholt:
       "causationId": null,
       "payload": {
         "turnId": "review-turn",
-        "text": "Die Prüfung ist abgeschlossen."
+        "text": "The review is complete."
       }
     },
     {
@@ -80,85 +80,86 @@ Schritt selbst, der den Text nicht wiederholt:
 }
 ```
 
-Im Speicher sieht dieselbe Zeile anders aus: Beim Lesen wird daraus ein `CommandRecord` mit
-`formatVersion` 3, und jedes Event trägt zusätzlich `actorId`, `commandId`, `occurredAt` und
-`schemaVersion` 3. Große Payload-Felder liegen auf der Platte unter `payloads/` und werden beim
-Lesen aufgelöst. Die verbindlichen Typen stehen in `packages/ragents/src/runtime/journal.ts`,
-`packages/ragents/src/runtime/journal-storage.ts` (Dateiformat) und
-`packages/ragents/src/domain/events.ts`. Aus den Ereignissen wird der Run-Zustand wiederhergestellt,
-ohne Modelle oder Werkzeuge erneut auszuführen; auch der Modellkontext jedes Agenten ist eine
-Projektion daraus. Arbeitsdateien liegen zusätzlich außerhalb des Journals. Eine schrittweise Erklärung bietet die
-[Homepage](homepage/index.html#journal); die Grenzen stehen in `docs/spec/core.md`.
+In memory the same line looks different: on reading it becomes a `CommandRecord` with
+`formatVersion` 3, and every event additionally carries `actorId`, `commandId`, `occurredAt`, and
+`schemaVersion` 3. Large payload fields are stored on disk under `payloads/` and resolved on
+reading. The binding types are in `packages/ragents/src/runtime/journal.ts`,
+`packages/ragents/src/runtime/journal-storage.ts` (file format), and
+`packages/ragents/src/domain/events.ts`. The run state is restored from the events without
+running models or tools again; the model context of every agent is also a projection of them.
+Working files additionally live outside the journal. The
+[homepage](homepage/index.html#journal) offers a step-by-step explanation; the limits are in
+`docs/spec/core.md`.
 
-## Aufbau
+## Architecture
 
 ```
-Browser, VS Code, Konsole  --JSON-RPC über HTTP oder stdio-->  apps/server  -->  packages/ragents (Engine)
+Browser, VS Code, console  --JSON-RPC over HTTP or stdio-->  apps/server  -->  packages/ragents (engine)
                              |                   |
-                        PluginHost          Journal, Actors, Turns, Events
+                        PluginHost          journal, actors, turns, events
                              |
                         bundles/<plugin-id>/server/
                              ^
-                        bundles/<plugin-id>/web/  <--  apps/web (per URL unter /plugins/<id>/web/)
+                        bundles/<plugin-id>/web/  <--  apps/web (by URL under /plugins/<id>/web/)
 ```
 
-Der Server ist dünn. Er nimmt JSON-RPC über HTTP oder stdio entgegen, sucht beim Start die
-Plugins auf der Platte und setzt daraus ein Profil zusammen. Jede Fähigkeit nach außen ist ein
-typisierter Vertrag (Methode oder Kanal), aus dem Server, Web und Referenz dieselben Typen
-ziehen; HTTP-Routen gibt es nur noch für die Auslieferung von Dateien und Frames. Die Engine kennt keine Fachdomäne - alles Fachliche kommt
-aus Plugins.
+The server is thin. It accepts JSON-RPC over HTTP or stdio, looks for the plugins on disk at
+startup, and assembles a profile from them. Every external capability is a typed contract
+(method or channel) from which server, web, and reference draw the same types; HTTP routes only
+remain for serving files and frames. The engine knows no domain - everything domain-specific comes
+from plugins.
 
-## Welcher Ordner enthält was
+## Which folder contains what
 
-| Ordner                | Inhalt                                                                                               |
+| Folder                | Contents                                                                                             |
 | --------------------- | ---------------------------------------------------------------------------------------------------- |
-| `plugins`             | ein Ordner je Plugin, mit `server/`, `web/` und seinen Assets                                        |
-| `packages/ragents`    | die Engine: Journal, Actors, Turns, Events, Scheduler, TypeScript-Plattform                          |
-| `packages/agent`      | die Agentenlaufzeit: Agenten-Schleife, Kompaktierung, Werkzeuge (read, write, edit, bash)            |
-| `packages/workspace-executor` | der Arbeitsplatz-Executor aus Modulen: Sandbox-Werkzeuge, Language-Server-Client, Dateien, Prozesse, Befehle; Sprachserver und Browser bringen Plugins als Beitrag zum Executor mit; im Server wie im Arbeitsplatz mit denselben Beiträgen |
-| `packages/ai`         | die LLM-Anbindung (openrouter)                                                                       |
-| `apps/server`         | Node-Backend, Plugin-Suche, Profil-Komposition; `plugin-support/` sind Host-Bausteine, keine Plugins |
-| `apps/web`            | React-Frontend mit Plugin-Slots; Chat-Anbindung an quassel in `src/chat`, Run-Panel in `src/run-panel` |
-| `apps/vscode`         | VS-Code-Erweiterung: Seiten Start, Runs und Server, Run-Panel und Mini-Apps als Webviews, Arbeitsplatz für Runs |
-| `scripts`             | Einstiege `start.sh`, `start-vscode.sh`; Werkzeuge in Unterordnern, `remote/` für `pnpm connect`, `provision/` für `pnpm provision`, `workspace-client/` für `pnpm workspace-client`, `remote-workspace/` für `pnpm check:remote-workspace`, `run-transfer/` für `pnpm run-transfer` |
-| `selftest`            | Katalog und Protokoll der autonomen Testrunden                                                       |
-| `docs`                | Spec, Konzepte, Entscheidungen, Betrieb, Produkt-Homepage, Entwürfe                                  |
+| `plugins`             | one folder per plugin, with `server/`, `web/`, and its assets                                        |
+| `packages/ragents`    | the engine: journal, actors, turns, events, scheduler, TypeScript platform                           |
+| `packages/agent`      | the agent runtime: agent loop, compaction, tools (read, write, edit, bash)                           |
+| `packages/workspace-executor` | the workstation executor made of modules: sandbox tools, language server client, files, processes, commands; plugins bring language servers and the browser as a contribution to the executor; with the same contributions in the server as on the workstation |
+| `packages/ai`         | the LLM integration (openrouter)                                                                     |
+| `apps/server`         | Node backend, plugin discovery, profile composition; `plugin-support/` are host building blocks, not plugins |
+| `apps/web`            | React frontend with plugin slots; chat binding to quassel in `src/chat`, run panel in `src/run-panel` |
+| `apps/vscode`         | VS Code extension: Start, Runs, and Server pages, run panel and mini-apps as webviews, workstation for runs |
+| `scripts`             | entry points `start.sh`, `start-vscode.sh`; tools in subfolders, `remote/` for `pnpm connect`, `provision/` for `pnpm provision`, `workspace-client/` for `pnpm workspace-client`, `remote-workspace/` for `pnpm check:remote-workspace`, `run-transfer/` for `pnpm run-transfer` |
+| `selftest`            | catalog and log of the autonomous test rounds                                                        |
+| `docs`                | spec, concepts, decisions, operations, product homepage, drafts                                      |
 
-`apps/server`, `apps/web` und die Pakete unter `packages/` außer `workspace-executor` haben je
-eine kurze README. `packages/agent` und `ai` sind eine
-gegabelte Agentenlaufzeit; Herkunft und eigene Eingriffe stehen in `docs/decisions.md`. Ihr
-`dist/` ist gitignored und liefert die Typen, daher nach einem frischen Klon einmal
-`pnpm build:agent`.
+`apps/server`, `apps/web`, and the packages under `packages/` except `workspace-executor` each have
+a short README. `packages/agent` and `ai` are a
+forked agent runtime; origin and our own changes are in `docs/decisions.md`. Their
+`dist/` is gitignored and provides the types, so run `pnpm build:agent` once after a fresh
+clone.
 
-## Was eingebaut ist
+## What is built in
 
-Die Engine stellt typisierte Funktionen für Actors, Nachrichten, Ereignisse, Artefakte und
-Modellauswahl bereit. Der verbindliche Bestand steht im Code unter
-`packages/ragents/src/agents/tools.ts`. Plugins ergänzen weitere Funktionen, etwa für Dateien,
-Programme und die Fläche.
+The engine provides typed functions for actors, messages, events, artifacts, and
+model selection. The binding inventory is in the code under
+`packages/ragents/src/agents/tools.ts`. Plugins add further functions, for example for files,
+programs, and the surface.
 
-Ein Modell entdeckt den aktuellen Bestand und exakte Typen über `typescript_api`. Mit
-`typescript_eval` führt es kleine TypeScript-Snippets aus und ruft darin
-`context.functions.<name>(input)` auf. Derselbe Zugang steht dauerhaften Actor-Programmen zur
-Verfügung. Die Standardoberfläche braucht dafür nur diese beiden nativen Werkzeuge. Sie gehören zum
-Server und bleiben auch ohne das optionale Actor-Programm-Plugin verfügbar.
-Ein Plugin registriert mit `defineRunFunction` und `host.functions` eine gemeinsame
-Implementierung. `nativeTool: true` bietet sie bei Bedarf auch direkt als Modellwerkzeug an.
+A model discovers the current inventory and exact types through `typescript_api`. With
+`typescript_eval` it runs small TypeScript snippets and calls
+`context.functions.<name>(input)` in them. The same access is available to permanent actor
+programs. The default interface needs only these two native tools for this. They belong to the
+server and remain available even without the optional actor program plugin.
+A plugin registers a shared implementation with `defineRunFunction` and `host.functions`.
+`nativeTool: true` also offers it directly as a model tool when needed.
 
-Dazu kommen der gemeinsame TypeScript-Compiler, die native Node-Ausführung, geprüfte
-Programmbuilds, das Journal samt Wiedergabe und der Turn-Scheduler. Die Funktionsauswahl des
-Actors und seine Capabilities begrenzen den Zugriff. Promptbeiträge binden sich über
-`requiresTools` an die tatsächlich verfügbaren Funktionen; Detailanleitungen werden zusammen
-mit deren Verträgen nachgeladen.
+In addition there are the shared TypeScript compiler, native Node execution, verified
+program builds, the journal including replay, and the turn scheduler. The actor's function
+selection and its capabilities limit access. Prompt contributions bind to the actually
+available functions through `requiresTools`; detailed guides are loaded together
+with their contracts.
 
-## Actors mit Funktionen und Views
+## Actors with functions and views
 
-TypeScript- und LLM-Actors können programmierte Funktionen, eigenen Zustand und React-Views
-besitzen. Ein TypeScript-Actor verarbeitet auch seine normalen Nachrichten im Code. Ein
-LLM-Actor beantwortet sie weiterhin mit seinem Modell; der Aufruf einer seiner programmierten
-Funktionen benötigt keine zusätzliche Modellantwort.
+TypeScript and LLM actors can own programmed functions, their own state, and React views.
+A TypeScript actor also processes its normal messages in code. An
+LLM actor still answers them with its model; calling one of its programmed
+functions requires no additional model response.
 
-Ein einfaches Backend zählt Eingaben im Zustand seines Actors:
+A simple backend counts inputs in its actor's state:
 
 ```ts
 import { defineActor } from "@ragents/server";
@@ -177,853 +178,845 @@ export default defineActor({
 });
 ```
 
-Funktionen stehen im selben Vertrag unter `functions` mit typisierter Ein- und Ausgabe.
-Ihre Rückgabe ist ein Ergebnis; nur `context.state.replace` ändert den Actor-Zustand.
-Eine Funktion kann gleichzeitig in der React-View und als Agentenwerkzeug verfügbar sein.
-Beide arbeiten mit derselben Implementierung und denselben Daten. Lokale Eingabeentwürfe
-bleiben in der View; erfolgreicher gemeinsamer Zustand erscheint auch bei ruhendem Chat.
+Functions are in the same contract under `functions` with typed input and output.
+Their return value is a result; only `context.state.replace` changes the actor state.
+A function can be available in the React view and as an agent tool at the same time.
+Both work with the same implementation and the same data. Local input drafts
+stay in the view; successful shared state appears even while the chat is idle.
 
-`actor_program_create` legt ein privates TypeScript-Paket an. Die normalen Datei- und
-Language-Server-Werkzeuge bearbeiten es unter `@actors/<name>/`, Bash mit `cwd: "@actors/<name>"`,
-auch in einem Run auf einem Arbeitsplatz. Neue oder behobene Projektfehler erscheinen vor Modellanfragen als
-kurzer Hinweis; `actor_program_diagnostics` liefert bei Bedarf den vollständigen Stand.
-`actor_program_activate` prüft Typen, baut das Programm, führt die Fachtests aus und aktiviert es.
+`actor_program_create` creates a private TypeScript package. The normal file and
+language server tools edit it under `@actors/<name>/`, Bash with `cwd: "@actors/<name>"`,
+also in a run on a workstation. New or fixed project errors appear before model requests as a
+short hint; `actor_program_diagnostics` provides the complete state when needed.
+`actor_program_activate` checks types, builds the program, runs the domain tests, and activates it.
 
-Bei der Aktivierung bindet `actor: "self"` oder `actor: "@handle"` das Programm an einen
-vorhandenen Actor. Ohne Bindung erzeugt ein neues Backend einen TypeScript-Actor; eine reine
-View gehört zum aufrufenden Actor und braucht keinen zusätzlichen Teilnehmer.
-Programme verwenden feste lokale Bibliotheken, reguläre Imports und normale `node:test`-Dateien.
-Der Host führt sie in verwalteten Node-Prozessen aus und übernimmt erfolgreiche
-Zustandsänderungen ins Journal. Paketstruktur und Beispiele stehen in
-[Actor-Programme](spec/actor-programs.md) und [TypeScript-Plattform](spec/typescript-platform.md).
+On activation, `actor: "self"` or `actor: "@handle"` binds the program to an
+existing actor. Without a binding, a new backend creates a TypeScript actor; a pure
+view belongs to the calling actor and needs no additional participant.
+Programs use fixed local libraries, regular imports, and normal `node:test` files.
+The host runs them in managed Node processes and applies successful
+state changes to the journal. Package structure and examples are in
+[Actor programs](spec/actor-programs.md) and [TypeScript platform](spec/typescript-platform.md).
 
-## Was über Plugins geht
+## What plugins can do
 
-Ein Plugin ist EIN Quellordner - beide Hälften zusammen; die eingebauten liegen unter
-`plugins/`. Der Ordnername ist die Kennung:
+A plugin is ONE source folder - both halves together; the built-in ones are under
+`plugins/`. The folder name is the ID:
 
 ```
 plugins/<plugin-id>/
-  ragents-plugin.json  Kennung, deklarierte Exporte für andere Plugins, zusätzliche Assets
-  server/index.ts    exportiert plugin: PluginModule = { requires?, create(host) }
-  web/index.tsx      exportiert webPlugin: WebPlugin (nur wenn es einen Web-Anteil gibt)
-  contract.ts        was beide Hälften teilen, importfrei (nur wenn es das gibt)
-  executor.ts        exportiert executor: sein Beitrag zum Executor jeder Maschine (nur wenn es das gibt)
-  prompt.hbs, prompts/, run-scripts/, skills/, provision.ts   nach Bedarf
+  ragents-plugin.json  ID, declared exports for other plugins, additional assets
+  server/index.ts    exports plugin: PluginModule = { requires?, create(host) }
+  web/index.tsx      exports webPlugin: WebPlugin (only if there is a web part)
+  contract.ts        what both halves share, import-free (only if there is such a thing)
+  executor.ts        exports executor: its contribution to the executor of every machine (only if there is such a thing)
+  prompt.hbs, prompts/, run-scripts/, skills/, provision.ts   as needed
 ```
 
-Der Server lädt diesen Ordner nicht selbst: `pnpm build:plugins` baut jedes eingebaute Plugin mit
-`ragents plugin build` zu einem Bundle unter `bundles/<id>/` (gitignored), und geladen wird zur
-Laufzeit per `await import()` dessen `server/index.js`. Ein Plugin außerhalb des Repos baut sein
-Repo selbst, das Profil nennt das Bundle per Pfad. Das Web des Hosts ist für jedes Profil
-dasselbe; die Web-Hälften lädt der Browser zur Laufzeit per `import(url)` aus den Bundles des
-Profils, die der Server unter `/plugins/<id>/web/` ausliefert, und die Tailwind-Klassen aller
-Bundles gehen in das eine Stylesheet, das der Server beim Start und nach jeder geänderten
-Klassenliste übersetzt. Es gibt keinen
-kompilierten Katalog und kein Nachladen aus fremder Quelle: was als Bundle vorliegt und im Profil
-steht, kann komponiert werden, mehr nicht.
+The server does not load this folder itself: `pnpm build:plugins` builds every built-in plugin with
+`ragents plugin build` into a bundle under `bundles/<id>/` (gitignored), and at runtime its
+`server/index.js` is loaded with `await import()`. A plugin outside the repo is built by its own
+repo, and the profile names the bundle by path. The host's web is the same for every profile;
+the browser loads the web halves at runtime with `import(url)` from the profile's bundles,
+which the server serves under `/plugins/<id>/web/`, and the Tailwind classes of all
+bundles go into the one stylesheet that the server compiles at startup and after every changed
+class list. There is no
+compiled catalog and no loading from a foreign source: what exists as a bundle and is listed in
+the profile can be composed, nothing more.
 
-Plugins sind KEINE npm-Pakete. Derzeit sind es 19, davon 14 mit Web-Anteil. Die fünf Pakete unter
-`packages/` sind Bibliotheken, gegen die Plugins gebaut werden - keine Plugins.
+Plugins are NOT npm packages. Currently there are 19, 14 of them with a web part. The five packages under
+`packages/` are libraries that plugins are built against - not plugins.
 
-Auch scheinbar tief sitzende Dinge sind Plugins: die drei Language Server (`ragents.lsp-roslyn`,
-`ragents.lsp-fsharp`, `ragents.lsp-typescript`) sitzen je in einem eigenen Ordner, samt ihrem
-Adapter in `executor.ts`, den das Bauwerkzeug zu einer in sich geschlossenen Datei macht und den der
-Executor jeder Maschine lädt, im Server wie auf einem Arbeitsplatz; ebenso der Browser von
-`ragents.browser`. Der Kern kennt keine Sprache und keinen Sprachserver; eine weitere Sprache ist
-ein weiteres Plugin. `apps/server/tests/core-boundary.test.ts` hält das fest: nennen Engine,
-Server außerhalb von `plugin-support`, Executor, Erweiterung oder Web eine Plugin-Kennung oder einen
-Sprachserver, scheitert `pnpm check`; ältere Stellen stehen dort als eingefrorene Liste und in
-`TODO.md`. `lsp-roslyn` und `lsp-fsharp` bringen dazu je einen eigenen
-Konfigurationsschlüssel und eine eigene `provision.ts` mit; `lsp-typescript` braucht beides nicht,
-weil der typescript-language-server eine npm-Abhängigkeit der Repository-Wurzel ist. Nimmt man
-`ragents.lsp-roslyn` aus dem Profil, verschwindet die C#-Diagnostik samt Konfiguration, auch auf
-den Arbeitsplätzen.
+Even things that seem deeply embedded are plugins: the three language servers (`ragents.lsp-roslyn`,
+`ragents.lsp-fsharp`, `ragents.lsp-typescript`) each sit in their own folder, together with their
+adapter in `executor.ts`, which the build tool turns into a self-contained file and which the
+executor of every machine loads, in the server as on a workstation; likewise the browser of
+`ragents.browser`. The core knows no language and no language server; another language is
+another plugin. `apps/server/tests/core-boundary.test.ts` enforces this: if the engine, the
+server outside `plugin-support`, the executor, the extension, or the web name a plugin ID or a
+language server, `pnpm check` fails; older places are listed there as a frozen list and in
+`TODO.md`. `lsp-roslyn` and `lsp-fsharp` each also bring their own
+configuration key and their own `provision.ts`; `lsp-typescript` needs neither,
+because typescript-language-server is an npm dependency of the repository root. If you remove
+`ragents.lsp-roslyn` from the profile, the C# diagnostics disappear together with their configuration, also on
+the workstations.
 
-### Erweiterungspunkte im Server
+### Extension points in the server
 
-`create(host)` bekommt den ganzen `PluginHost` und liefert Manifest und `register`. Die
-Beiträge meldet das Plugin in `register(registration)` über die an das Plugin gebundene
-`PluginRegistration` an (`packages/ragents/src/plugin-types.ts`):
+`create(host)` gets the whole `PluginHost` and returns the manifest and `register`. The plugin
+registers its contributions in `register(registration)` through the `PluginRegistration` bound
+to the plugin (`packages/ragents/src/plugin-types.ts`):
 
-| Punkt               | wofür                                                |
+| Point               | For                                                  |
 | ------------------- | ---------------------------------------------------- |
-| `functions`         | typisierte Run-Funktionen, optional als Werkzeug     |
-| `prompts`           | Kapitel im Systemprompt                              |
-| `skills`            | feste Abläufe als Skill-Dateien                      |
-| `startEntries`      | Vorlagen der Startseite: Skills, Run-Scripts         |
-| `profiles`          | Rollen (`model_list`)                                |
-| `agentRuntime`      | Hooks vor Modell- und nach Werkzeugaufrufen          |
-| `script`            | Capabilities für TypeScript-Actors                   |
-| `operations`        | benannte Operationen, auch quer zwischen Plugins     |
-| `operation`         | Griff auf eine fremde benannte Operation             |
-| `invokeOperation`   | eine benannte Operation aufrufen                     |
-| `provide`           | einen Dienst unter einem Token bereitstellen         |
-| `service`           | einen fremden Dienst über sein Token beziehen        |
-| `optionalService`   | einen fremden Dienst beziehen, der fehlen darf       |
-| `startOptions`      | Startoptionen der Startseite, je Run eingefroren     |
-| `accessProjections` | was ein Zugang ohne `runs.inspect` vom Zustand sieht |
-| `methods`           | Methoden der Nachrichtenschicht mit Vertrag          |
-| `channels`          | Kanäle mit Benachrichtigungen je Abonnement          |
-| `http`              | Auslieferung: Dateien, Frames, Uploads               |
-| `config`            | Konfigurationsschlüssel, streng geprüft              |
-| `clientConfig`      | Werte, die das Web-Plugin sehen darf                 |
-| `storage`           | Ablage unter `plugins/<id>`, global und je Run       |
-| `lifecycle`         | Haken bei Anlage, Start und Löschung eines Runs      |
-| `sessionMetadata`   | zusätzliche Angaben zum Run                          |
+| `functions`         | typed run functions, optionally as a tool            |
+| `prompts`           | chapters in the system prompt                        |
+| `skills`            | fixed workflows as skill files                       |
+| `startEntries`      | start page templates: skills, run scripts            |
+| `profiles`          | roles (`model_list`)                                 |
+| `agentRuntime`      | hooks before model calls and after tool calls        |
+| `script`            | capabilities for TypeScript actors                   |
+| `operations`        | named operations, also across plugins                |
+| `operation`         | handle to another plugin's named operation           |
+| `invokeOperation`   | call a named operation                               |
+| `provide`           | provide a service under a token                      |
+| `service`           | obtain another plugin's service by its token         |
+| `optionalService`   | obtain another plugin's service that may be missing  |
+| `startOptions`      | start options of the start page, frozen per run      |
+| `accessProjections` | what an access without `runs.inspect` sees of state  |
+| `methods`           | messaging layer methods with a contract              |
+| `channels`          | channels with notifications per subscription         |
+| `http`              | serving: files, frames, uploads                      |
+| `config`            | configuration keys, strictly checked                 |
+| `clientConfig`      | values the web plugin may see                        |
+| `storage`           | storage under `plugins/<id>`, global and per run     |
+| `lifecycle`         | hooks on creation, start, and deletion of a run      |
+| `sessionMetadata`   | additional details about the run                     |
 
-### Erweiterungspunkte im Web
+### Extension points in the web
 
-Ein Web-Plugin füllt Slots im Frontend (`WebPlugin` in `apps/web/src/PluginRegistry.tsx`):
+A web plugin fills slots in the frontend (`WebPlugin` in `apps/web/src/PluginRegistry.tsx`):
 `brand`, `surface`, `surfaceElements`, `cardSections`, `chatDisplayPolicy`, `startOptions`,
 `needsRunView`, `SessionProvider`, `sessionHeaders`, `sessionStatus`, `overviewPanels`,
 `settings`, `workspaceTabs`, `workspaceTabsFor`, `toolPresenters`, `entityPresenters`, `guides`,
-`sessionMetadata`, `actionViews`, `attention`; dazu `activate` und `enabled`. `actionViews`
-stellen wartende Aktionen dar, deren Payload nur das besitzende Plugin kennt. `workspaceTabs` sind feste Reiter, `workspaceTabsFor` ist eine Fabrik, die je Run
-Reiter aus dem laufenden Zustand ableitet. Mini-Apps bekommen standardmäßig eine eigene
-Kachel; ihre Sichtbarkeit ist im Run schaltbar, der Benutzer kann eine lokale Vollansicht öffnen.
-`startOptions` liefert je serverseitiger Startoption eine eigene Bedienkomponente und ein Abzeichen
-für den Kopf des laufenden Runs; ohne Komponente zeichnet der Host ein Auswahlmenü aus der
-Darstellung der Option.
+`sessionMetadata`, `actionViews`, `attention`; plus `activate` and `enabled`. `actionViews`
+render waiting actions whose payload only the owning plugin knows. `workspaceTabs` are fixed tabs, `workspaceTabsFor` is a factory that derives
+tabs per run from the running state. Mini-apps get their own tile by default;
+their visibility can be toggled in the run, and the user can open a local full view.
+`startOptions` provides, per server-side start option, its own control component and a badge
+for the header of the running run; without a component, the host draws a selection menu from the
+option's presentation.
 
-Ein Fachplugin besitzt seine Promptteile, Skills, Server-API, Web-Komponenten, CSS, Konfiguration
-und Ablage selbst. Nimmt man es aus dem Profil, verschwinden Prompt,
-Werkzeuge, Projektion, API, Reiter, CSS, Konfiguration und Run-Daten gemeinsam.
+A domain plugin owns its prompt parts, skills, server API, web components, CSS, configuration,
+and storage itself. If you remove it from the profile, prompt,
+tools, projection, API, tabs, CSS, configuration, and run data disappear together.
 
-## Die Profile
+## The profiles
 
-Ein Profil ist genau EINE Datei: `ragents.config.<profil>.ts`. Sie nennt das Produkt
-(`PRODUCT_ID`, `PRODUCT_TITLE`), die Pluginliste (`PLUGINS`) und die Konfiguration aller
-beteiligten Plugins. `PRODUCT_PROFILE` wählt die Datei aus. Es gibt keinen Default; fehlt der
-Wert oder die Datei, startet der Server nicht.
+A profile is exactly ONE file: `ragents.config.<profile>.ts`. It names the product
+(`PRODUCT_ID`, `PRODUCT_TITLE`), the plugin list (`PLUGINS`), and the configuration of all
+participating plugins. `PRODUCT_PROFILE` selects the file. There is no default; if the
+value or the file is missing, the server does not start.
 
-Im Repo liegen drei neutrale Profile:
+The repo contains three neutral profiles:
 
-|                      | `core`                  | `showcase`                      | `developer`                          |
-| -------------------- | ----------------------- | ------------------------------- | ------------------------------------ |
-| Plugins              | neutrale `ragents.*`    | wie `core` und `ragents.reference` | Arbeitsbereich, Dokumente, Sprachserver |
-| Arbeitsverzeichnis   | wählbar je Run          | wählbar je Run                  | in der Regel ein Projektordner       |
-| Dateiablage          | je Run                  | je Run                          | je Run                               |
-| Anmeldung und Rechte | optional je Profildatei | wie `core`                      | aus, `anonymousUser` mit allen Rechten |
-| Start                | `./start.sh core` (4710) | `./start.sh showcase` (4713)   | `./start.sh developer` (4715) oder `ragents run` |
+|                         | `core`                  | `showcase`                         | `developer`                          |
+| ----------------------- | ----------------------- | ---------------------------------- | ------------------------------------ |
+| Plugins                 | neutral `ragents.*`     | like `core` plus `ragents.reference` | workspace, documents, language servers |
+| Working directory       | selectable per run      | selectable per run                 | usually a project folder             |
+| File storage            | per run                 | per run                            | per run                              |
+| Sign-in and permissions | optional per profile file | like `core`                      | off, `anonymousUser` with all permissions |
+| Start                   | `./start.sh core` (4710) | `./start.sh showcase` (4713)      | `./start.sh developer` (4715) or `ragents run` |
 
-`showcase` ist `core` samt den mitgelieferten Beispielen aus `ragents.reference`: 27 Skills und
-6 Run-Scripts vom Wortspiel bis zur Balkon-Planung. Sie sind Lehrmaterial, deshalb bleibt `core`
-als Vorlage für ein echtes Profil ohne sie. Die intern erzeugte Referenz und die eingebaute Hilfe
-entstehen aus `showcase`.
+`showcase` is `core` plus the bundled examples from `ragents.reference`: 27 skills and
+6 run scripts, from the word game to balcony planning. They are teaching material, which is why `core` remains
+the template for a real profile without them. The internally generated reference and the built-in help
+are created from `showcase`.
 
-`developer` ist das Programmierprofil: ein Server ohne Anmeldung auf dem eigenen Rechner, mit
-C#-, F#- und TypeScript-Diagnostik. Es ist zugleich die Vorlage für ein eigenes Ad-hoc-Profil.
+`developer` is the programming profile: a server without sign-in on your own machine, with
+C#, F#, and TypeScript diagnostics. It is also the template for your own ad hoc profile.
 
-Ein eigenes Profil ist eine eigene `ragents.config.<name>.ts`, die auch außerhalb des Repos
-liegen und ihre Plugins per Pfad nennen kann; der Start nimmt statt des Profilnamens auch den
-Pfad zu einer solchen Datei.
+Your own profile is your own `ragents.config.<name>.ts`, which can also live outside the repo
+and name its plugins by path; instead of the profile name, startup also accepts the
+path to such a file.
 
-`core` ist zugleich der gelebte Entfernungstest: läuft es ohne jedes produktspezifische Plugin,
-ist die Grenze zwischen Engine und Produkt intakt. Den Arbeitsbereich eines Runs wählt die
-Startoption "Arbeitsbereich" mit zwei getrennten Angaben: der Rechner (der Server oder ein
-verbundener Arbeitsplatz) und der Ordner (ein neuer je Run oder ein vorhandener). Die VS-Code-Erweiterung bietet
-ihre geöffneten Ordner jedem verbundenen Server als Arbeitsplatz an und belegt die Wahl bei "Neuer Run" vor; die
-Arbeitswerkzeuge laufen immer dort, wo der Ordner liegt, mit demselben Executor im Server wie im
-Arbeitsplatz. Ohne VS Code meldet `pnpm workspace-client <server-url> [ordner ...]` denselben
-Arbeitsplatz von der Kommandozeile an. Ein KI-Agent auf demselben Rechner nimmt statt dessen
-`ragents run <ordner> "<auftrag>"` mit einem vorhandenen Ordner auf dem Server; die Kurzanleitung dafür steht in
-`skills-for-agents/ragents/SKILL.md`, die Befehle in
-[usage.md](usage.md) unter "Control RAgents as an agent".
+`core` is also the living removal test: if it runs without any product-specific plugin,
+the boundary between engine and product is intact. The "Workspace" start option selects a run's
+workspace with two separate settings: the machine (the server or a
+connected workstation) and the folder (a new one per run or an existing one). The VS Code extension offers
+its open folders to every connected server as a workstation and presets the choice for "New run"; the
+work tools always run where the folder is located, with the same executor in the server as on the
+workstation. Without VS Code, `pnpm workspace-client <server-url> [folders ...]` registers the same
+workstation from the command line. An AI agent on the same machine instead uses
+`ragents run <folder> "<task>"` with an existing folder on the server; the short guide for this is in
+`skills-for-agents/ragents/SKILL.md`, the commands in
+[usage.md](usage.md) under "Control RAgents as an agent".
 
-Eine Profildatei kann zusätzlich Benutzer mit Passwörtern und Rechten definieren.
-Dann verlangt die Oberfläche eine Anmeldung und zeigt Funktionen je nach Recht verborgen,
-nur lesbar oder bearbeitbar; der Server prüft dieselben Rechte. Ohne Benutzerliste bleibt die
-Anmeldung aus; ein anonymer Zugang kann trotzdem eingeschränkt werden. Freie Runs und
-technische Ansichten besitzen eigene Rechte. Eine Vorlagenliste begrenzt neue Runs auf
-vorbereitete Setups. Ein Run gehört dem Benutzer, der ihn angelegt hat; `runs.read.all` zeigt
-die Runs aller Benutzer. Die [Profil-Spec](spec/profiles.md) beschreibt Einrichtung und Grenzen;
-geprüfte neutrale Beispiele stehen in der intern erzeugten
-[Entwicklerreferenz](homepage/developer.md#lesen-und-vorbereitete-setups-freigeben).
+A profile file can additionally define users with passwords and permissions.
+Then the interface requires sign-in and shows functions hidden,
+read-only, or editable depending on the permission; the server checks the same permissions. Without a user list,
+sign-in stays off; anonymous access can still be restricted. Free runs and
+technical views have their own permissions. A template list limits new runs to
+prepared setups. A run belongs to the user who created it; `runs.read.all` shows
+the runs of all users. The [profile spec](spec/profiles.md) describes setup and limits;
+verified neutral examples are in the internally generated
+[developer reference](homepage/developer.md#share-read-access-and-prepared-setups).
 
-## Konfiguration
+## Configuration
 
-Eine TypeScript-Datei je Profil (`ragents.config.<profil>.ts`), gruppiert nach Plugin-ID plus einer
-`host`-Sektion. Der Compiler prüft Sektionen und Schlüssel gegen die Deklarationen der Plugins;
-ein Dienst-Secret im Klartext ist ein Compilerfehler. Vorlagen: `ragents.config.core.ts` für ein
-echtes Profil, `ragents.config.developer.ts` für ein Ad-hoc-Profil.
+One TypeScript file per profile (`ragents.config.<profile>.ts`), grouped by plugin ID plus a
+`host` section. The compiler checks sections and keys against the plugins' declarations;
+a service secret in plain text is a compiler error. Templates: `ragents.config.core.ts` for a
+real profile, `ragents.config.developer.ts` for an ad hoc profile.
 
-Rollen, Benutzer und Passwörter stehen in derselben Datei; die Rolle bestimmt den Zugang zur
-Oberfläche und API, die Benutzer eines Profils teilen sich Modelle und Plugins; Runs gehören dem
-Benutzer, der sie angelegt hat.
-Gesetzte Umgebungsvariablen überschreiben die Dateivorgaben. Die Daten eines Profils liegen
-unter `~/.local/share/ragents/<profil>`; `DATA_DIR` überschreibt `host.DATA_DIR` und diesen
-Standard. Die Datenablage muss außerhalb eines Git- oder Paketprojekts liegen. Ein bewusster Umzug
-erfolgt bei gestopptem Server; der Start übernimmt oder löscht keine bisherigen Profilordner.
+Roles, users, and passwords are in the same file; the role determines access to the
+interface and API, the users of a profile share models and plugins; runs belong to the
+user who created them.
+Set environment variables override the file defaults. A profile's data is stored
+under `~/.local/share/ragents/<profile>`; `DATA_DIR` overrides `host.DATA_DIR` and this
+default. The data storage must be outside a Git or package project. A deliberate move
+happens while the server is stopped; startup neither takes over nor deletes previous profile folders.
 
-Es gibt KEINE `.env`. Secrets kommen aus der Umgebung des Prozesses, etwa der Startdatei der
-Shell, und werden mit `env("NAME")` referenziert.
+There is NO `.env`. Secrets come from the process environment, for example the shell's startup
+file, and are referenced with `env("NAME")`.
 
-## Entwickeln
+## Developing
 
 ```sh
 pnpm install
-pnpm build:agent          # einmalig nach frischem Klon: erzeugt die d.ts der Laufzeitpakete
-pnpm build:plugins        # die veralteten eingebauten Plugins als Bundles nach bundles/ (start.sh und die Server-Tests tun das selbst)
-pnpm build:web            # das Web des Hosts nach apps/web/dist, eins für alle Profile (start.sh tut das, wenn es veraltet ist)
-scripts/start.sh core     # Server auf Port 4710, Daten ~/.local/share/ragents/core
-scripts/start.sh showcase # dasselbe Profil samt Beispielen, Port 4713
-pnpm check                # Build, Typecheck, Tests, Web-Build
-pnpm provision core       # Werkzeuge der Plugins des Profils holen (Language Server, Browser)
-pnpm build:package        # den Host als npm-Paket @schlenkr/ragents bauen (dist/ragents), samt Bundles und fertigem Web
-pnpm check:package        # das gebaute Paket installieren und daraus ein fremdes Plugin bauen und starten (braucht npm)
-pnpm publish:package      # dasselbe Paket auf npm veröffentlichen (Token aus npm_key)
-RAGENTS_TOKEN=... pnpm connect https://<server>   # Profil und Modelle eines anderen RAgents-Servers
+pnpm build:agent          # once after a fresh clone: generates the d.ts of the runtime packages
+pnpm build:plugins        # the outdated built-in plugins as bundles into bundles/ (start.sh and the server tests do this themselves)
+pnpm build:web            # the host's web into apps/web/dist, one for all profiles (start.sh does this when it is outdated)
+scripts/start.sh core     # server on port 4710, data ~/.local/share/ragents/core
+scripts/start.sh showcase # the same profile plus examples, port 4713
+pnpm check                # build, typecheck, tests, web build
+pnpm provision core       # fetch the tools of the profile's plugins (language servers, browser)
+pnpm build:package        # build the host as the npm package @schlenkr/ragents (dist/ragents), including bundles and finished web
+pnpm check:package        # install the built package, build a foreign plugin from it, and start it (needs npm)
+pnpm publish:package      # publish the same package on npm (token from npm_key)
+RAGENTS_TOKEN=... pnpm connect https://<server>   # profile and models of another RAgents server
 ```
 
-`pnpm provision <profil>` holt die Werkzeuge, die die Plugins des Profils brauchen, nach
-`<Datenordner>/tools/<plugin-id>/` und berichtet je Plugin `bereit`, `installiert` oder
-`fehlt: <Grund>`; `pnpm provision --workspace` tut dasselbe für einen Arbeitsplatz ohne Profil,
-mit den eingebauten Plugins, die zum Executor beitragen.
-Was sich nicht holen lässt (dotnet, ein eigener Chrome), ist eine benannte Lücke mit Anweisung.
+`pnpm provision <profile>` fetches the tools the profile's plugins need into
+`<data-directory>/tools/<plugin-id>/` and reports `ready`, `installed`, or
+`missing: <reason>` per plugin; `pnpm provision --workspace` does the same for a workstation without a profile,
+with the built-in plugins that contribute to the executor.
+What cannot be fetched (dotnet, a separate Chrome) is a named gap with instructions.
 
-`pnpm connect` holt das Client-Profil eines zentralen Servers samt den Bundles, die es per Pfad
-nennt, in einen Cache unter `~/.local/share/ragents/remote/`, verlangt dieselbe Host-API wie dort
-und für jedes per Kennung genannte Plugin ein eingebautes Bundle, und startet den lokalen Server
-damit, mit dem Web dieses Hosts; gebaut und installiert wird nichts, die Modelle kommen über das
-Relay des Servers. Betrieb in `docs/operations.md` unter "Connect to a server".
+`pnpm connect` fetches a central server's client profile together with the bundles it names by path
+into a cache under `~/.local/share/ragents/remote/`, requires the same host API as there
+and a built-in bundle for every plugin named by ID, and starts the local server
+with it, with this host's web; nothing is built or installed, and the models come through the
+server's relay. Operations in `docs/operations.md` under "Connect to a server".
 
-Wer den Host nur benutzt, braucht dieses Repository nicht: `pnpm build:package` erzeugt daraus
-das npm-Paket `@schlenkr/ragents` mit Server, Engine, Plugins und Skripten, `pnpm publish:package`
-veröffentlicht es. Damit genügt Node 22 -
-`npm install -g @schlenkr/ragents`, dann `ragents connect <server-url>`, `ragents start
-<profil|pfad>`, `ragents provision`, `ragents workspace-client` und `ragents plugin build`.
-`ragents start` nimmt auch eine eigene `ragents.config.<profil>.ts` mit eigenen Plugins an
-beliebiger Stelle; ihre Bundles baut ihr Autor mit `ragents plugin build` aus dem Paket, samt
-Typprüfung gegen die Host-API. Das Paket bringt dafür alles mit, dazu das fertige Web und alle
-eingebauten Plugins als Bundles; beim Anwender wird nichts gebaut, Vite gehört nicht dazu. Die Fassung des Pakets ist die
-`version` dieser Wurzel-`package.json`. npm-Paket und VS-Code-Erweiterung tragen immer dieselbe
-Fassung: `pnpm publish:package` nimmt eine Stelle über der höheren der beiden lokalen Fassungen und
-der zuletzt auf npm veröffentlichten und schreibt sie in beide `package.json`; `pnpm publish:vscode`
-bricht ab, wenn seine Fassung nicht die des Pakets ist. Veröffentlicht wird deshalb immer beides
-zusammen, zuerst das Paket (`pnpm publish:all`, unten "Paket bauen und veröffentlichen"). Betrieb in `docs/operations.md` unter "Work without a checkout", die Anleitung
-für Plugin-Autoren im Abschnitt "Build and ship a plugin" in `docs/spec/plugins.md`.
+Anyone who only uses the host does not need this repository: `pnpm build:package` creates
+the npm package `@schlenkr/ragents` from it with server, engine, plugins, and scripts, and `pnpm publish:package`
+publishes it. Node 22 is then enough -
+`npm install -g @schlenkr/ragents`, then `ragents connect <server-url>`, `ragents start
+<profile|path>`, `ragents provision`, `ragents workspace-client`, and `ragents plugin build`.
+`ragents start` also accepts your own `ragents.config.<profile>.ts` with your own plugins in
+any location; their author builds their bundles with `ragents plugin build` from the package, including
+type checking against the host API. The package brings everything needed for this, plus the finished web and all
+built-in plugins as bundles; nothing is built on the user's machine, and Vite is not included. The package version is the
+`version` of this root `package.json`. The npm package and the VS Code extension always carry the same
+version: `pnpm publish:package` takes one place above the higher of the two local versions and
+the one last published on npm and writes it into both `package.json` files; `pnpm publish:vscode`
+aborts if its version is not the package's. That is why both are always published
+together, the package first (`pnpm publish:all`, below "Building and publishing the package"). Operations in `docs/operations.md` under "Work without a checkout", the guide
+for plugin authors in the section "Build and ship a plugin" in `docs/spec/plugins.md`.
 
-Die Adresse ist fest: `http://localhost:4710` für `core`. Der Port steht in `host.PORT` der
-Profildatei. Ein ausdrücklich gesetztes `PORT` überschreibt ihn; ein belegter oder ungültiger
-Port bricht den Start ab. Laufende Instanzen werden nicht beendet und der Start wechselt nicht
-auf eine andere Adresse.
+The address is fixed: `http://localhost:4710` for `core`. The port is in `host.PORT` of the
+profile file. An explicitly set `PORT` overrides it; an occupied or invalid
+port aborts startup. Running instances are not terminated and startup does not switch
+to another address.
 
-Mit `--dev` bleibt der Backendport gleich; Vite verwendet fest den Backendport plus 1000, für
-`core` also 5710, ein ausdrücklich gesetztes `PORT` verschiebt also beide. Beide Ports werden vor
-dem Start geprüft, `start.sh` richtet `API_TARGET` auf das Backend, und mit `strictPort` weicht
-Vite bei belegtem Port nicht aus. Ein eigenständiges `pnpm dev:web` verwendet Port 5710 und als
-Proxyziel `http://localhost:4710`. Auch das Stylesheet kommt im Entwicklungsbetrieb vom Server und
-wird je Anfrage neu kompiliert; neue Klassen im Host-Code erscheinen nach dem Neuladen.
+With `--dev` the backend port stays the same; Vite always uses the backend port plus 1000, for
+`core` that is 5710, so an explicitly set `PORT` moves both. Both ports are checked before
+startup, `start.sh` points `API_TARGET` at the backend, and with `strictPort` Vite does not
+switch when its port is occupied. A standalone `pnpm dev:web` uses port 5710 and
+`http://localhost:4710` as the proxy target. In development mode the stylesheet also comes from the server and
+is recompiled per request; new classes in host code appear after reloading.
 
-Browserprüfungen benötigen Chrome oder Chromium auf dem Rechner, auf dem der Arbeitsbereich des
-Runs liegt; die Bereitstellung steht in `docs/operations.md` unter "Browser für Browserprüfungen
-bereitstellen", die echte Browserprobe unten.
+Browser checks need Chrome or Chromium on the machine where the run's workspace
+is located; provisioning is described in `docs/operations.md` under "Provide a browser for browser
+checks", the real browser test below.
 
-Das Web wird statisch aus `apps/web/dist` serviert, eins für alle Profile; nach Änderungen dort
-`pnpm build:web`. Der Server läuft über `tsx` aus den Quellen, Code-Änderungen greifen erst nach
-Neustart. Plugins lädt er nur als Bundles: nach einer Änderung an `plugins/` gilt sie erst nach
-`pnpm build:plugins` und Neustart; `scripts/start.sh` baut vor jedem Start die veralteten Plugins neu und das
-Web, wenn es nicht mehr zu seinen Quellen passt (`apps/web/dist/host-web.json`), mit `--dev` die
-Plugins laufend (`pnpm build:plugins --watch`), während Vite das Web aus den Quellen liefert; `tsx
-watch` startet den Server nach jedem neuen Bundle neu, eine geänderte Plugin-Oberfläche greift
-nach Neuladen der Seite. In einem Checkout verweigert der Server den Start, solange ein
-eingebautes Bundle des Profils oder das Web nicht zu den Quellen passt, und nennt den Befehl; das
-trifft `ragents run`, `ragents start`, ein direktes `pnpm start` und die VS-Code-Erweiterung mit
-einem Checkout als Host, die selbst nichts bauen.
+The web is served statically from `apps/web/dist`, one for all profiles; after changes there run
+`pnpm build:web`. The server runs from the sources through `tsx`; code changes take effect only after a
+restart. It loads plugins only as bundles: a change to `plugins/` only takes effect after
+`pnpm build:plugins` and a restart; `scripts/start.sh` rebuilds the outdated plugins before every start and the
+web when it no longer matches its sources (`apps/web/dist/host-web.json`), with `--dev` the
+plugins continuously (`pnpm build:plugins --watch`), while Vite serves the web from the sources; `tsx
+watch` restarts the server after every new bundle, and a changed plugin interface takes effect
+after reloading the page. In a checkout, the server refuses to start as long as a
+built-in bundle of the profile or the web does not match the sources, and names the command; this
+applies to `ragents run`, `ragents start`, a direct `pnpm start`, and the VS Code extension with
+a checkout as host, none of which build anything themselves.
 
-Einzeln statt `pnpm check`: je Paket `pnpm exec tsc --noEmit` (der Typecheck von `apps/server`
-deckt die `server/`-Hälften der Plugins mit ab, der von `apps/web` die `web/`-Hälften); der
-Browsertest des Registers und der Web-Bundles (`RAGENTS_BROWSER_TESTS=1`,
-`apps/web/tests/host-modules.browser.test.ts`) läuft gegen das gebaute Web und einen echten Server;
-Engine-Tests `cd packages/ragents && pnpm test`; Server-Tests
-`cd apps/server && pnpm test` (baut vorher die Bundles, weil die komponierenden Tests sie laden); Lint `pnpm lint` im Root (`apps/web/src`
-und `plugins/*/web`). Die Language-Server-Live-Tests (echte Server gegen `tests/fixtures/lsp`)
-laufen nur auf Ansage: `pnpm provision --workspace` einmalig, dann
-`RAGENTS_LSP_TESTS=1 PRODUCT_PROFILE=core pnpm test`; die Adapter aus den Beiträgen der Plugins
-finden die Server im Werkzeugordner, `ROSLYN_LANGUAGE_SERVER` und `FSHARP_LANGUAGE_SERVER`
-übersteuern ihn.
+Individually instead of `pnpm check`: per package `pnpm exec tsc --noEmit` (the typecheck of `apps/server`
+also covers the `server/` halves of the plugins, the one of `apps/web` the `web/` halves); the
+browser test of the registry and the web bundles (`RAGENTS_BROWSER_TESTS=1`,
+`apps/web/tests/host-modules.browser.test.ts`) runs against the built web and a real server;
+engine tests `cd packages/ragents && pnpm test`; server tests
+`cd apps/server && pnpm test` (builds the bundles first, because the composing tests load them); lint `pnpm lint` in the root (`apps/web/src`
+and `plugins/*/web`). The language server live tests (real servers against `tests/fixtures/lsp`)
+run only on request: `pnpm provision --workspace` once, then
+`RAGENTS_LSP_TESTS=1 PRODUCT_PROFILE=core pnpm test`; the adapters from the plugins' contributions
+find the servers in the tools folder, `ROSLYN_LANGUAGE_SERVER` and `FSHARP_LANGUAGE_SERVER`
+override it.
 
-Verhalten live prüfen: eine Nachricht per `POST http://localhost:<port>/rpc` mit
+Checking behavior live: send a message by `POST http://localhost:<port>/rpc` with
 `{"jsonrpc":"2.0","id":1,"method":"ragents.chat.send","params":{"runId":"<uuid>","text":"..."}}`
-schicken und das Journal unter `${DATA_DIR}/runs/<uuid>/` lesen. Startmodi des Servers:
-`pnpm start -- --stdio` (JSON-RPC über stdin und stdout, kein Port) und `pnpm start -- --port 0`
-(freier Port mit Ansage auf stdout), Details in `docs/spec/profiles.md`. Ganze Runs
-von außen anlegen, steuern und auswerten: `pnpm driver` (`scripts/driver/run-driver.ts`), Bedienung in
-`docs/usage.md` unter "Drive runs from external clients".
+and read the journal under `${DATA_DIR}/runs/<uuid>/`. Server startup modes:
+`pnpm start -- --stdio` (JSON-RPC over stdin and stdout, no port) and `pnpm start -- --port 0`
+(free port announced on stdout), details in `docs/spec/profiles.md`. Creating, controlling, and
+analyzing whole runs from outside: `pnpm driver` (`scripts/driver/run-driver.ts`), usage in
+`docs/usage.md` under "Drive runs from external clients".
 
-Unter `scripts/` liegen nur die Einstiege `start.sh` und `start-vscode.sh` (VS-Code-Testinstanz
-mit der Erweiterung gegen einen laufenden Server); die
-übrigen Werkzeuge stehen thematisch in `scripts/homepage/` (Generator, Typprüfung und Tests der
-Homepage), `scripts/driver/` (`pnpm driver`), `scripts/remote/` (`pnpm connect`),
-`scripts/provision/` (`pnpm provision`), `scripts/package/` (`pnpm build:package`, `pnpm publish:package` und der
-Befehl `ragents` des Pakets),
-`scripts/run-transfer/` (`pnpm run-transfer`: einen Run auf einen anderen Server umziehen),
-`scripts/workspace-client/` (`pnpm workspace-client`: ein Arbeitsplatz ohne VS Code),
-`scripts/remote-workspace/` (`pnpm check:remote-workspace`: der Arbeitsbereich auf einem anderen
-Rechner, mit Docker) und `scripts/maintenance/` (Modellkatalog, Konzept-Audit).
+`scripts/` contains only the entry points `start.sh` and `start-vscode.sh` (VS Code test instance
+with the extension against a running server); the
+other tools are grouped by topic in `scripts/homepage/` (generator, type checking, and tests of the
+homepage), `scripts/driver/` (`pnpm driver`), `scripts/remote/` (`pnpm connect`),
+`scripts/provision/` (`pnpm provision`), `scripts/package/` (`pnpm build:package`, `pnpm publish:package`, and the
+package's `ragents` command),
+`scripts/run-transfer/` (`pnpm run-transfer`: move a run to another server),
+`scripts/workspace-client/` (`pnpm workspace-client`: a workstation without VS Code),
+`scripts/remote-workspace/` (`pnpm check:remote-workspace`: the workspace on another
+machine, with Docker), and `scripts/maintenance/` (model catalog, concept audit).
 
-### quassel und RAgents zusammen entwickeln
+### Developing quassel and RAgents together
 
-Die Chat-Bausteine sind die Bibliothek quassel (github.com/SchlenkR/quassel, npm `quassel`); RAgents
-bezieht sie als gewöhnliche Abhängigkeit (`^0.2.0` in der Wurzel, `apps/web` und `apps/server`,
-`minimumReleaseAgeExclude` in `pnpm-workspace.yaml` für frisch veröffentlichte Fassungen). Wer
-beide zugleich ändert, verlinkt quassel vorübergehend auf seine Quellen:
+The chat building blocks are the quassel library (github.com/SchlenkR/quassel, npm `quassel`); RAgents
+uses it as an ordinary dependency (`^0.2.0` in the root, `apps/web`, and `apps/server`,
+`minimumReleaseAgeExclude` in `pnpm-workspace.yaml` for freshly published versions). Anyone
+changing both at the same time temporarily links quassel to its sources:
 
 ```yaml
-# pnpm-workspace.yaml, nur lokal
+# pnpm-workspace.yaml, local only
 overrides:
   quassel: link:/path/to/quassel/packages/quassel
 ```
 
-Danach `pnpm install`; im quassel-Repo hält `pnpm --filter quassel dev` das Stylesheet
-`build/chat.css` aktuell. Gearbeitet wird mit `scripts/start.sh <profil> --dev`: Vite und `tsx`
-übersetzen die TypeScript-Quellen von quassel mit, das Stylesheet übersetzt der Server je Abruf,
-eine Änderung zeigt sich nach dem Neuladen. `pnpm build:web` und die Typprüfung gehen so nicht:
-die Mini-App-Demo der Homepage nimmt nur Quellen des Repos an, und die Quellen von quassel sehen
-eine zweite Kopie der React-Typen. Vor jedem Commit fallen `overrides` und die damit geänderte
-`pnpm-lock.yaml` wieder heraus (`pnpm install` danach); geprüft und eingecheckt wird immer gegen
-eine veröffentlichte Fassung. Eine neue Fassung von quassel übernimmt RAgents mit
-`pnpm up -r quassel`; ändert sie Namen, die Plugins benutzen, gehören `pnpm update:host-api` und
-eine neue `HOST_API_VERSION` dazu (`docs/spec/plugins.md`, Abschnitt Host-API).
+Then run `pnpm install`; in the quassel repo, `pnpm --filter quassel dev` keeps the stylesheet
+`build/chat.css` up to date. Work with `scripts/start.sh <profile> --dev`: Vite and `tsx`
+compile quassel's TypeScript sources along with it, the server compiles the stylesheet per request,
+and a change shows after reloading. `pnpm build:web` and type checking do not work this way:
+the homepage's mini-app demo accepts only sources from the repo, and quassel's sources see
+a second copy of the React types. Before every commit, `overrides` and the `pnpm-lock.yaml`
+changed by it are removed again (`pnpm install` afterwards); checks and commits are always made against
+a published version. RAgents takes over a new quassel version with
+`pnpm up -r quassel`; if it changes names that plugins use, `pnpm update:host-api` and
+a new `HOST_API_VERSION` are needed (`docs/spec/plugins.md`, section Host API).
 
-## Werkzeuge, Prüfläufe und Veröffentlichung
+## Tools, checks, and publishing
 
-### Build- und Prüftasks in VS Code
+### Build and check tasks in VS Code
 
-Über `Tasks: Run Task` stehen drei Einstiege bereit. `Tasks: Run Build Task`
-(Cmd+Shift+B auf macOS) startet standardmäßig `build`. Die Tasks enthalten ausschließlich
-Skriptaufrufe. Die drei Skripte unter `build/` lassen sich auch aus einem anderen
-Arbeitsverzeichnis starten; sie benötigen Bash und das installierte pnpm.
+`Tasks: Run Task` offers three entry points. `Tasks: Run Build Task`
+(Cmd+Shift+B on macOS) starts `build` by default. The tasks contain only
+script calls. The three scripts under `build/` can also be started from another
+working directory; they need Bash and the installed pnpm.
 
-| Task | Skript | Zweck |
+| Task | Script | Purpose |
 | --- | --- | --- |
-| `RAgents: build` | `build/build.sh` | Agentenlaufzeit, eingebaute Plugins, Web und Homepage bauen |
-| `RAgents: check` | `build/check.sh` | Vollständige Projektprüfung einschließlich Homepage |
-| `RAgents: homepage öffnen` | `build/homepage.sh --open` | Homepage bauen und im Standardbrowser öffnen (macOS) |
+| `RAgents: build` | `build/build.sh` | Build the agent runtime, built-in plugins, web, and homepage |
+| `RAgents: check` | `build/check.sh` | Complete project check including the homepage |
+| `RAgents: open homepage` | `build/homepage.sh --open` | Build the homepage and open it in the default browser (macOS) |
 
-`pnpm build`, `pnpm check` und `pnpm open:homepage` verwenden dieselben Abläufe.
-`pnpm generate:homepage` ruft `build/homepage.sh` ohne Option auf, `pnpm check:homepage`
-verwendet `--check`. Jeder Ablauf bricht beim ersten Fehler ab; ein fehlgeschlagener
-Homepage-Build öffnet keinen Browser. Geöffnet wird der statische Export unter
-`docs/homepage/dist/index.html`. Die Referenzprüfung meldet veraltete Dateien, ohne sie zu
-überschreiben; im Gesamtprüflauf steht sie deshalb vor dem Web-Build. Die Prüfungen des Pakets
-und der Durchlauf von Verteilen, `connect` und Start (`scripts/remote/connect-start.test.ts`)
-laufen danach, weil Paket und geholter Stand das gebaute Web des Hosts brauchen. Nicht im
-Gesamtprüflauf, weil es `npm install` gegen die Registry braucht: `pnpm check:package` installiert
-das gebaute Paket in ein eigenes Präfix, baut daraus in einem leeren Ordner ein fremdes Plugin samt
-Typprüfung und startet es mit einem eigenen Profil.
+`pnpm build`, `pnpm check`, and `pnpm open:homepage` use the same workflows.
+`pnpm generate:homepage` calls `build/homepage.sh` without an option, `pnpm check:homepage`
+uses `--check`. Every workflow aborts at the first error; a failed
+homepage build does not open a browser. What is opened is the static export under
+`docs/homepage/dist/index.html`. The reference check reports outdated files without
+overwriting them; that is why it comes before the web build in the complete check. The package checks
+and the run through distribution, `connect`, and startup (`scripts/remote/connect-start.test.ts`)
+run afterwards, because the package and the fetched version need the host's built web. Not in the
+complete check, because it needs `npm install` against the registry: `pnpm check:package` installs
+the built package into its own prefix, builds a foreign plugin from it in an empty folder including
+type checking, and starts it with its own profile.
 
-Für gezielte Arbeiten bleiben `pnpm build:agent`, `pnpm build:web`, `pnpm lint` und
-`pnpm test:engine` verfügbar. Sie rufen die jeweiligen Werkzeuge direkt auf. Weitere
-Einzelprüfungen laufen über die Workspace-Pakete, etwa `pnpm --filter @ragents/host test`
-oder `pnpm -r typecheck`. Einzelprüfungen setzen nach einem frischen Klon die installierten
-Abhängigkeiten und einmal `pnpm build:agent` voraus. Den Arbeitsbereich auf einem anderen Rechner
-prüft `pnpm check:remote-workspace` mit einem Linux-Container (unten, "Arbeitsbereich auf einem
-anderen Rechner prüfen"); er
-gehört nicht zu `pnpm check`, weil er Docker braucht.
+For targeted work, `pnpm build:agent`, `pnpm build:web`, `pnpm lint`, and
+`pnpm test:engine` remain available. They call the respective tools directly. Further
+individual checks run through the workspace packages, for example `pnpm --filter @ragents/host test`
+or `pnpm -r typecheck`. After a fresh clone, individual checks require the installed
+dependencies and one run of `pnpm build:agent`. `pnpm check:remote-workspace` checks the workspace on another machine
+with a Linux container (below, "Testing a workspace on another
+machine"); it
+is not part of `pnpm check`, because it needs Docker.
 
-### Homepage und erzeugte Referenzen
+### Homepage and generated references
 
-`docs/homepage/index.html` wird redaktionell gepflegt. Die Textfassungen `reference.md` (Bausteine
-und UI-Verträge) und `developer.md` (Erweiterungspunkte mit Codebeispielen) werden aus den
-neutralen Quellen erzeugt; sie sind interne Build-Ausgaben und gehören nicht zum öffentlichen
-Export. `guide.html` erschließt die
-erklärenden Kapitel zu Einstieg, Laufzeit, Funktionen, Programmen, Plugins und Zugriff.
-Diese Texte stehen in den Spec-Kapiteln sowie in `docs/usage.md` und `docs/operations.md`:
-`<!-- guide:<id> -->` und `<!-- /guide:<id> -->` markieren die öffentlichen Ausschnitte.
-Mehrere Blöcke werden in ihrer Quellreihenfolge zusammengefügt. Nur diese Ausschnitte gelangen
-in den Guide; seine erzeugten HTML- und Markdown-Dateien werden nicht von Hand bearbeitet.
-Kapitelreihenfolge, Quelldateien und Verweise stehen in `scripts/homepage/homepage-guide.ts`; ein
-Kapitel kann Blöcke aus mehreren Dateien desselben Ordners in der dort genannten Reihenfolge
-zusammenfügen.
-Nach einem frischen Klon sind
-dafür wie für die Anwendung `pnpm install` und einmal `pnpm build:agent` erforderlich.
-Die Kopfzeile in `index.html` ist zugleich die Vorlage für alle Unterseiten. Das gemeinsame
-Layout und Sticky-Verhalten liegen in `site.css` und `site.js`; beide Dateien werden mit
-exportiert. Die Funktionsstrecke der Hauptseite verwendet GSAP ScrollTrigger. Das lokale
-`scroll-vendor.js` entsteht aus der festgelegten GSAP-Paketversion über
-`scripts/homepage/homepage-motion.ts`; es wird wie die Referenzdateien erzeugt und auf Aktualität geprüft.
-Die bedienbare Mini-App im Hauptabschnitt stammt aus der Referenzvorlage `shared-actor-list`.
-`scripts/homepage/homepage-mini-app.ts` bündelt dessen Originalquellen mit dem lokalen Adapter aus
-`docs/homepage/mini-app-runtime.ts`. Die erzeugten Dateien `mini-app.html`, `mini-app.js` und
-`mini-app.css` nicht von Hand ändern; der Build übernimmt sie auch in die Hilfe.
-Änderungen an Menüeinträgen erfolgen nur in der Hauptseite, danach neu erzeugen; Generator,
-Typprüfung (`tsconfig.homepage.json`) und Tests liegen zusammen unter `scripts/homepage/`:
+`docs/homepage/index.html` is maintained editorially. The text versions `reference.md` (building blocks
+and UI contracts) and `developer.md` (extension points with code examples) are generated from the
+neutral sources; they are internal build outputs and not part of the public
+export. `guide.html` opens up the
+explanatory chapters on getting started, runtime, functions, programs, plugins, and access.
+These texts are in the spec chapters as well as in `docs/usage.md` and `docs/operations.md`:
+`<!-- guide:<id> -->` and `<!-- /guide:<id> -->` mark the public excerpts.
+Several blocks are joined in their source order. Only these excerpts go
+into the guide; its generated HTML and Markdown files are not edited by hand.
+Chapter order, source files, and links are in `scripts/homepage/homepage-guide.ts`; a
+chapter can join blocks from several files of the same folder in the order named there.
+After a fresh clone,
+this requires, as for the application, `pnpm install` and one run of `pnpm build:agent`.
+The header in `index.html` is also the template for all subpages. The shared
+layout and sticky behavior are in `site.css` and `site.js`; both files are
+exported too. The feature sequence of the main page uses GSAP ScrollTrigger. The local
+`scroll-vendor.js` is generated from the pinned GSAP package version through
+`scripts/homepage/homepage-motion.ts`; like the reference files, it is generated and checked for being up to date.
+The operable mini-app in the main section comes from the reference template `shared-actor-list`.
+`scripts/homepage/homepage-mini-app.ts` bundles its original sources with the local adapter from
+`docs/homepage/mini-app-runtime.ts`. Do not change the generated files `mini-app.html`, `mini-app.js`, and
+`mini-app.css` by hand; the build also copies them into the help.
+Menu entries are changed only in the main page and then regenerated; generator,
+type checking (`tsconfig.homepage.json`), and tests are together under `scripts/homepage/`:
 
 ```bash
 pnpm generate:homepage
 pnpm check:homepage
 ```
 
-Derselbe Build erzeugt unter `docs/homepage/` die LLM-Dokumentation: `llms.txt` als kleinen
-Index, `guide.md` und `guide-*.md` für die erklärenden Kapitel, `run-setup.md` mit vollständigen Paketbeispielen und Testvertrag, `run-api.d.ts` mit den
-generierten TypeScript-Verträgen sowie `reference.md` und `developer.md` mit den übrigen Verträgen
-und Erweiterungsbeispielen. `rpc-api.md` und `openrpc.json` beschreiben die gemeinsame
-JSON-RPC-API aus deren tatsächlichen Verträgen. Gib einem externen Modell die `llms.txt`; für ein Run-Setup reichen zunächst
-die Setup-Anleitung und die dort verlinkte API. Diese Dateien werden generiert, nicht von Hand
-bearbeitet. Neue Werkzeuge, Ergebnistypen und Paketdateien erscheinen beim nächsten Build.
-Die erzeugte Referenz beschreibt showcase, keine privaten Profile oder individuellen Run-Rechte.
+The same build generates the LLM documentation under `docs/homepage/`: `llms.txt` as a small
+index, `guide.md` and `guide-*.md` for the explanatory chapters, `run-setup.md` with complete package examples and the test contract, `run-api.d.ts` with the
+generated TypeScript contracts, and `reference.md` and `developer.md` with the remaining contracts
+and extension examples. `rpc-api.md` and `openrpc.json` describe the shared
+JSON-RPC API from its actual contracts. Give an external model the `llms.txt`; for a run setup, the
+setup guide and the API linked there are enough at first. These files are generated, not edited
+by hand. New tools, result types, and package files appear with the next build.
+The generated reference describes showcase, not private profiles or individual run permissions.
 
-Der Homepage-Build erzeugt außerdem `docs/homepage/dist/`. Zum statischen Hosting wird der
-Inhalt dieses Ordners hochgeladen, einschließlich JS, CSS und gegebenenfalls Screenshots. Genau
-das tut der GitHub-Workflow `.github/workflows/homepage.yml`: Bei jedem Push auf `main` (und von
-Hand über "Run workflow") installiert er die Abhängigkeiten, baut die Agentenlaufzeit, erzeugt die
-Homepage und veröffentlicht `docs/homepage/dist/` über GitHub Pages unter
-https://schlenkr.github.io/RAgents/. Voraussetzung ist einmalig in den Repository-Einstellungen
-unter Pages die Quelle "GitHub Actions". Die README verlinkt diese Adresse.
-Ein Backend ist dafür nicht erforderlich; auch Hosting unter einem Unterpfad ist möglich.
-Links innerhalb der Website bleiben relativ, Links auf Quellcode und Repository-Dokumente
-führen auf GitHub. Vorschauen, Generatorquellen und private Dateien gehören nicht zum Export.
+The homepage build also generates `docs/homepage/dist/`. For static hosting, the
+contents of this folder are uploaded, including JS, CSS, and screenshots if any. That is exactly
+what the GitHub workflow `.github/workflows/homepage.yml` does: on every push to `main` (and by
+hand through "Run workflow") it installs the dependencies, builds the agent runtime, generates the
+homepage, and publishes `docs/homepage/dist/` through GitHub Pages at
+https://schlenkr.github.io/RAgents/. A one-time prerequisite is the source "GitHub Actions" in the repository settings
+under Pages. The README links this address.
+No backend is required for this; hosting under a subpath is possible too.
+Links within the website stay relative, links to source code and repository documents
+lead to GitHub. Previews, generator sources, and private files are not part of the export.
 
-`pnpm build:web` erzeugt die Homepage automatisch neu und übernimmt denselben Export nach
-`apps/web/dist/help/`; `pnpm build` enthält diesen Schritt bereits. Das Fragezeichen neben
-Einstellungen öffnet `/help/index.html` in einem großen modalen Dialog. Schließen oder Escape
-führt zurück zur Anwendung; externe Quelllinks öffnen einen neuen Tab. Im Vite-Entwicklungsbetrieb wird
-`/help` wie die API an den konfigurierten Server weitergereicht und zeigt dessen letzten Build.
+`pnpm build:web` regenerates the homepage automatically and copies the same export to
+`apps/web/dist/help/`; `pnpm build` already includes this step. The question mark next to
+Settings opens `/help/index.html` in a large modal dialog. Close or Escape
+returns to the application; external source links open a new tab. In Vite development mode,
+`/help` is forwarded to the configured server like the API and shows its last build.
 
-Der zweite Befehl prüft Generator-Typen, Guide-Auszüge, die Ausschlussregeln, lokale Seiten-
-und Sprungziele sowie den unveränderten Neuaufbau;
-er ist auch Teil von `pnpm check`. Bei abweichenden Ausgaben die Referenz neu erzeugen. Neue
-Erweiterungspunkte benötigen ein Beispiel in `scripts/homepage/homepage-extensions.ts`; die Abdeckung
-wird gegen die tatsächlichen Verträge geprüft. UI-Demos werden in
-`docs/homepage/reference-ui.tsx` gepflegt, ihre Props kommen aus dem öffentlichen UI-Vertrag.
+The second command checks generator types, guide excerpts, the exclusion rules, local page
+and jump targets, and that a rebuild produces no changes;
+it is also part of `pnpm check`. If outputs differ, regenerate the reference. New
+extension points need an example in `scripts/homepage/homepage-extensions.ts`; coverage
+is checked against the actual contracts. UI demos are maintained in
+`docs/homepage/reference-ui.tsx`, their props come from the public UI contract.
 
-Die Werkzeugerfassung komponiert ausschließlich die neutralen Plugins aus der literalen
-core-Liste in einem separaten Prozess mit eigener temporärer Ablage und fest vorgegebener
-Testkonfiguration. Sie startet keine Lifecycles, Modelle, Werkzeuge oder Runs. Die reale
-Profilkonfiguration wird nicht ausgeführt. Private Produktnamen und lokale Pfade in den
-Ausgaben brechen die Generierung ab. Die fertigen Seiten brauchen nur ihre lokalen JS-/CSS-
-Dateien; die UI-Demos arbeiten im Browser ohne Backend.
+Tool discovery composes only the neutral plugins from the literal
+core list in a separate process with its own temporary storage and a fixed
+test configuration. It starts no lifecycles, models, tools, or runs. The real
+profile configuration is not executed. Private product names and local paths in the
+outputs abort the generation. The finished pages need only their local JS/CSS
+files; the UI demos work in the browser without a backend.
 
-### Konzept und Implementierung gegeneinander prüfen
+### Checking concept against implementation
 
-`scripts/maintenance/concept-audit.fsx` ist ein externes Entwicklerwerkzeug für einen lesenden Abgleich
-zwischen öffentlichem Guide und neutralem Code samt Tests. Es benötigt das .NET 10 SDK mit F#
-Interactive und lädt `Microsoft.Agents.AI.OpenAI` in Version `1.20.0` über NuGet. Die
-Modellanbindung geht über OpenRouter; der Schlüssel kommt aus `OPENROUTER_API_KEY` in der
-Umgebung. Das Skript liest keine Shell-Konfiguration ein.
+`scripts/maintenance/concept-audit.fsx` is an external developer tool for a read-only comparison
+between the public guide and the neutral code including tests. It needs the .NET 10 SDK with F#
+Interactive and loads `Microsoft.Agents.AI.OpenAI` version `1.20.0` through NuGet. The
+model connection goes through OpenRouter; the key comes from `OPENROUTER_API_KEY` in the
+environment. The script does not read any shell configuration.
 
-Der öffentliche Guide muss bereits erzeugt sein (`pnpm generate:homepage`). Ohne Modellaufruf
-lassen sich Parameter und Dateikorpus prüfen; dabei entstehen das Quellenmanifest und
-`status.json` mit dem Status `dry-run`:
+The public guide must already be generated (`pnpm generate:homepage`). Parameters and the file
+corpus can be checked without a model call; this creates the source manifest and
+`status.json` with the status `dry-run`:
 
 ```sh
 dotnet fsi scripts/maintenance/concept-audit.fsx -- --dry-run
 ```
 
-Der normale Aufruf verwendet `z-ai/glm-5.3`. Eine Frage und Grenzen lassen sich ausdrücklich setzen:
+The normal call uses `z-ai/glm-5.3`. A question and limits can be set explicitly:
 
 ```sh
-dotnet fsi scripts/maintenance/concept-audit.fsx -- --focus "Stimmen Funktionsauswahl und dokumentierte Rechte überein?" --max-calls 60 --timeout-seconds 900
+dotnet fsi scripts/maintenance/concept-audit.fsx -- --focus "Do the function selection and the documented permissions match?" --max-calls 60 --timeout-seconds 900
 ```
 
-Für Doppelimplementierungen verwendet dasselbe Skript drei Code-Prüfer für Oberfläche/CSS,
-Laufzeit und Plugin-Grenzen sowie eine Zusammenführung. Dieser Modus benötigt keinen Guide
-und umfasst auch produktspezifische Plugins; gelesene Ausschnitte gehen an den gewählten
-Modellanbieter. Der Bericht nennt beide Implementierungen, Folgen und einen gemeinsamen Ersatz.
+For duplicate implementations, the same script uses three code reviewers for interface/CSS,
+runtime, and plugin boundaries plus a synthesis. This mode needs no guide
+and also covers product-specific plugins; excerpts that are read go to the chosen
+model provider. The report names both implementations, consequences, and a shared replacement.
 
 ```sh
 dotnet fsi scripts/maintenance/concept-audit.fsx -- --duplicates --reasoning-high --model z-ai/glm-5.3 --max-calls 24 --timeout-seconds 900
 ```
 
-`--reasoning-high` setzt ausdrücklich `reasoning.effort` auf `high` im OpenRouter-Request.
-`--model` wählt ein anderes Modell, `--repo` ein anderes Repository. `--output` muss einen neuen
-Ordner außerhalb des Repositorys bezeichnen; ohne Angabe entsteht ein temporärer Ordner.
-Die Vorgaben sind 60 Modellaufrufe und 900 Sekunden je Agent. Diese Grenzen gelten insgesamt
-einschließlich möglicher Ergebniskorrekturen. Dieselbe Zeitfrist umfasst den Netzwerkaustausch.
-Modellanfragen erlauben bis zu 16000 Ausgabetokens. Die letzte erlaubte Modellrunde
-sperrt weitere Werkzeugaufrufe und fordert einen Bericht aus den bereits gelesenen Quellen.
-`--endpoint` ändert die API-Adresse, standardmäßig `https://openrouter.ai/api/v1`; `--help` zeigt alle Optionen.
+`--reasoning-high` explicitly sets `reasoning.effort` to `high` in the OpenRouter request.
+`--model` selects a different model, `--repo` a different repository. `--output` must name a new
+folder outside the repository; without it, a temporary folder is created.
+The defaults are 60 model calls and 900 seconds per agent. These limits apply in total,
+including possible result corrections. The same time limit covers the network exchange.
+Model requests allow up to 16000 output tokens. The last permitted model round
+blocks further tool calls and requests a report from the sources already read.
+`--endpoint` changes the API address, by default `https://openrouter.ai/api/v1`; `--help` shows all options.
 
-Die Konsole zeigt Zeitstempel und verständliche Rollennamen: Guide-Prüfer, Code-Prüfer,
-Grenzfall-Prüfer und Zusammenführung. Sie meldet Phasen, Suchbegriffe und Treffer, gelesene
-Dateien mit Zeilenbereichen sowie die Nummer jedes Modellaufrufs. Bei längerer Wartezeit
-folgt nach 20 Sekunden eine Wartemeldung. Der Abschluss nennt Dauer, Aufrufzahl und Ergebnisordner.
+The console shows timestamps and understandable role names: guide reviewer, code reviewer,
+boundary reviewer, and synthesis. It reports phases, search terms and matches, files read
+with line ranges, and the number of every model call. During a longer wait,
+a waiting message follows after 20 seconds. The conclusion names duration, number of calls, and result folder.
 
-Drei unabhängige Rollen lesen getrennt: `guide-reader` nur die erzeugten `guide*.md`,
-`code-reader` und `boundary-reader` neutralen Code und Tests. Die anschließende Synthese
-kann Belege mit denselben Lese- und Suchwerkzeugen nachprüfen. Als Ergebnis gilt die letzte
-Modellantwort; Zwischenkommentare werden nicht mit ihr verkettet. Die Synthese erhält ein
-JSON-Schema für `assessment`, `findings` und `openQuestions` im Konzeptmodus. Im
-Duplikatmodus fordert der Prompt diese JSON-Felder; während der Werkzeugnutzung bleibt
-das Antwortformat frei, damit GLM die Werkzeugaufrufe nicht als JSON-Text ausgibt. Die Bewertung erklärt auch bei
-leeren Befunden, welche Prüferhinweise verworfen wurden und warum. Die Synthese muss selbst
-eine Vergleichsquelle lesen, im Konzeptmodus aus dem Guide. Feldtypen, Pflichtangaben und Quellenbelege
-werden vor dem Bericht geprüft. Ungültige Abschlussantworten erhalten bis zu zwei
-Korrekturaufforderungen in derselben Agentensession; danach bleibt ein ungültiges Ergebnis
-ein Fehler. Vorhandene Lesezugriffe und die gemeinsamen Aufruf- und Zeitlimits bleiben erhalten.
-Zusammenhängende gelesene Ausschnitte dürfen gemeinsam einen Beleg abdecken; eine ungelesene
-Lücke wird weiterhin abgewiesen.
+Three independent roles read separately: `guide-reader` only the generated `guide*.md`,
+`code-reader` and `boundary-reader` neutral code and tests. The subsequent synthesis
+can verify evidence with the same read and search tools. The last
+model response counts as the result; intermediate comments are not concatenated with it. The synthesis gets a
+JSON schema for `assessment`, `findings`, and `openQuestions` in concept mode. In
+duplicate mode, the prompt requests these JSON fields; during tool use the
+response format stays free, so that GLM does not output the tool calls as JSON text. Even with
+empty findings, the assessment explains which reviewer hints were discarded and why. The synthesis must itself
+read a comparison source, in concept mode from the guide. Field types, required details, and source evidence
+are checked before the report. Invalid final responses get up to two
+correction requests in the same agent session; after that, an invalid result remains
+an error. Existing read accesses and the shared call and time limits are preserved.
+Contiguous excerpts that were read may together cover one piece of evidence; an unread
+gap is still rejected.
 
-Scheitert nur die Zusammenführung, übernimmt `--resume <bisheriger Ausgabeordner>` die drei
-gespeicherten Prüferberichte und Lesezugriffe. Nur die Synthese wird erneut ausgeführt; sie
-erhält ein neues Aufruf- und Zeitbudget. Quellenliste, Dateiinhalte, Fokus und Audit-Modus
-müssen unverändert sein, sonst ist ein neuer Audit nötig. Die Ergebnisse entstehen wieder in
-einem neuen Ordner; der ursprüngliche Prüflauf bleibt erhalten.
+If only the synthesis fails, `--resume <previous output folder>` takes over the three
+stored reviewer reports and read accesses. Only the synthesis runs again; it
+gets a new call and time budget. Source list, file contents, focus, and audit mode
+must be unchanged, otherwise a new audit is needed. The results are again created in
+a new folder; the original check run is preserved.
 
-Nach erfolgreichem Modelllauf stehen im Ausgabeordner `report.md`, Rohantworten je Rolle, Aufruf- und Verbrauchsdaten sowie
-`manifest.json`, `status.json` und `coverage.json` mit den tatsächlichen Lesezugriffen.
-`<role>-attempt-N.txt` und `<role>-attempt-N-usage.json` erhalten jeden Versuch. `<role>.txt`
-enthält die letzte Antwort; `<role>-usage.json` summiert Modellaufrufe und Verbrauch über
-alle Versuche dieser Rolle.
-Bei einer Fortsetzung verweist `manifest.json` unter `options.resume` auf den vorherigen Prüflauf;
-dessen Verbrauchsdaten bleiben dort und werden nicht als neue Modellaufrufe gezählt.
-Der Bericht ist eine begrenzte Prüfung, kein behaupteter Vollscan. Das Werkzeug ändert weder
-Spec noch Implementierung automatisch und startet keine RAgents-Runs.
+After a successful model run, the output folder contains `report.md`, raw responses per role, call and usage data, and
+`manifest.json`, `status.json`, and `coverage.json` with the actual read accesses.
+`<role>-attempt-N.txt` and `<role>-attempt-N-usage.json` keep every attempt. `<role>.txt`
+contains the last response; `<role>-usage.json` sums model calls and usage over
+all attempts of this role.
+On a resume, `manifest.json` refers to the previous check run under `options.resume`;
+its usage data stays there and is not counted as new model calls.
+The report is a limited check, not a claimed full scan. The tool changes neither
+the spec nor the implementation automatically and starts no RAgents runs.
 
-`python3 scripts/maintenance/concept-audit.test.py` prüft den Ablauf mit dem echten Agent Framework gegen
-einen lokalen Test-Endpunkt. Dafür werden keine API-Schlüssel oder externen Modellaufrufe benötigt.
+`python3 scripts/maintenance/concept-audit.test.py` checks the workflow with the real Agent Framework against
+a local test endpoint. No API keys or external model calls are needed for this.
 
-### VS-Code-Erweiterung veröffentlichen, entwickeln und prüfen
+### Publishing, developing, and testing the VS Code extension
 
-Veröffentlichen: `pnpm publish:vscode` (Task `vscode: publish`) ist ein Schritt. Es prüft den Token
-mit `vsce verify-pat purestate`, fragt mit `vsce show purestate.ragents-vscode --json` die
-veröffentlichten Fassungen ab, zählt die letzte Stelle der höchsten davon hoch, schreibt die neue
-Fassung in `apps/vscode/package.json`, baut, packt und veröffentlicht die gepackten Dateien. Die erste
-Zeile der Ausgabe nennt sie: `== Fassung 0.1.2, zuletzt veröffentlicht 0.1.1`. Liegt noch nichts im
-Marketplace, gilt die Fassung aus der `package.json`; steht dort schon eine höhere als die
-veröffentlichte - jemand hat von Hand auf `0.2.0` gestellt -, gewinnt die `package.json`. Geschrieben
-wird nur die Zeile mit `version`, der Rest der Datei bleibt Zeichen für Zeichen stehen. `--dry-run`
-macht alles davon außer dem Publish, zeigt die Fassung, die es würde, ohne die `package.json` zu
-ändern, und listet den Inhalt der `.vsix`. Der Token kommt aus der
-Umgebungsvariable `AZURE_DEVOPS_VSCE_RAGENTS_PAT` (ein Azure-DevOps-PAT mit Marketplace-Publish für
-den Herausgeber `purestate`) und geht nur als `VSCE_PAT` in die Umgebung von `vsce`, nie in eine
-Ausgabe. Den Herausgeber selbst gibt es einmalig auf
-https://marketplace.visualstudio.com/manage anzulegen, mit demselben Konto, dem der Token gehört;
-solange er fehlt, endet `vsce verify-pat` mit `Access Denied` auf `/purestate`, und das Skript sagt
-den Grund dazu. `vsce` selbst kommt über `pnpm dlx @vscode/vsce@4.0.0`, die Fassung steht in
-`scripts/vscode/publish-extension.ts`. Die Fassung der Erweiterung steht in
-`apps/vscode/package.json` und hängt nicht an der `version` der Wurzel, die dem npm-Paket gehört;
-von Hand ist sie nur für eine neue Minor- oder Major-Fassung zu ändern. `pnpm package:vscode` packt
-ohne Token und rührt die Fassung nicht an. `pnpm publish:all`
-veröffentlicht erst das Paket und danach die Erweiterung und bricht beim ersten Fehler ab. Was in die `.vsix` geht, steht in `apps/vscode/.vscodeignore`: `dist/`
-(ohne Sourcemaps und Testläufer), `media/`, `package.json`, `README.md`, `CHANGELOG.md` und die
+Publishing: `pnpm publish:vscode` (task `vscode: publish`) is one step. It checks the token
+with `vsce verify-pat purestate`, queries the
+published versions with `vsce show purestate.ragents-vscode --json`, increments the last place of the highest of them, writes the new
+version into `apps/vscode/package.json`, builds, packages, and publishes the packaged files. The first
+line of the output names it: `== Version 0.1.2, last published 0.1.1`. If nothing is in the
+Marketplace yet, the version from `package.json` applies; if a higher one than the
+published one is already there - someone set it to `0.2.0` by hand -, `package.json` wins. Only
+the line with `version` is written; the rest of the file stays character for character. `--dry-run`
+does all of that except the publish, shows the version it would use without changing
+`package.json`, and lists the contents of the `.vsix`. The token comes from the
+environment variable `AZURE_DEVOPS_VSCE_RAGENTS_PAT` (an Azure DevOps PAT with Marketplace publish for
+the publisher `purestate`) and goes only as `VSCE_PAT` into the environment of `vsce`, never into any
+output. The publisher itself has to be created once at
+https://marketplace.visualstudio.com/manage, with the same account that owns the token;
+as long as it is missing, `vsce verify-pat` ends with `Access Denied` on `/purestate`, and the script states
+the reason. `vsce` itself comes through `pnpm dlx @vscode/vsce@4.0.0`, the version is in
+`scripts/vscode/publish-extension.ts`. The extension's version is in
+`apps/vscode/package.json` and does not depend on the root `version`, which belongs to the npm package;
+it only needs to be changed by hand for a new minor or major version. `pnpm package:vscode` packages
+without a token and does not touch the version. `pnpm publish:all`
+publishes the package first and then the extension, and aborts at the first error. What goes into the `.vsix` is in `apps/vscode/.vscodeignore`: `dist/`
+(without source maps and test runners), `media/`, `package.json`, `README.md`, `CHANGELOG.md`, and the
 `LICENSE`.
 
-Gepackt werden sieben Dateien nach `dist/`: eine universelle `ragents-vscode-<fassung>.vsix` ohne
-Bash und rg und je eine für `win32-x64`, `win32-arm64`, `darwin-arm64`, `darwin-x64`, `linux-x64`
-und `linux-arm64` (`vsce package --target`), die zusätzlich ripgrep unter `dist/rg/<plattform>`
-trägt, die beiden Windows-Dateien dazu die mitgebrachte Bash unter `dist/bash/<plattform>`. Der
-Marketplace liefert jedem Rechner die Datei seiner Plattform, allen übrigen (etwa Alpine oder
-linux-armhf) die universelle; `vsce publish` bekommt alle sieben in einem Aufruf. Für die
-Plattformdateien schreibt das Skript je Lauf eine eigene Ignore-Datei in den Temp-Ordner: die
-Positivliste der `.vscodeignore` plus `!dist/rg/<plattform>/**` und unter Windows
-`!dist/bash/<plattform>/**`; die `.vscodeignore` im Repo bleibt die universelle. `--dry-run` listet
-den gemeinsamen Inhalt einmal, je Plattform die Zahl der Dateien unter ihren Ordnern, und bricht ab,
-wenn eine Plattformdatei ihren Ordner nicht oder den einer anderen Plattform trägt.
+Seven files are packaged into `dist/`: a universal `ragents-vscode-<version>.vsix` without
+Bash and rg, and one each for `win32-x64`, `win32-arm64`, `darwin-arm64`, `darwin-x64`, `linux-x64`,
+and `linux-arm64` (`vsce package --target`), which additionally carries ripgrep under `dist/rg/<platform>`,
+the two Windows files also the bundled Bash under `dist/bash/<platform>`. The
+Marketplace delivers each machine the file for its platform, all others (such as Alpine or
+linux-armhf) the universal one; `vsce publish` gets all seven in one call. For the
+platform files, the script writes its own ignore file per run into the temp folder: the
+allowlist of `.vscodeignore` plus `!dist/rg/<platform>/**` and on Windows
+`!dist/bash/<platform>/**`; the `.vscodeignore` in the repo stays the universal one. `--dry-run` lists
+the shared contents once, per platform the number of files under its folders, and aborts
+if a platform file does not carry its folder or carries another platform's.
 
-ripgrep baut `pnpm bundle:rg [<plattform> ...]` (`scripts/vscode/bundle-rg.ts`; das Packen ruft es
-selbst auf): es lädt je Plattform das Archiv der festgelegten ripgrep-Fassung von GitHub
-(Fassung, Ziel und SHA-256 als Konstanten im Skript; unter Linux die statisch gelinkte
-musl-Fassung), prüft den Hash, liest ZIP und tar.gz im Speicher und legt nach
-`apps/vscode/dist/rg/<plattform>/` unverändert `rg` beziehungsweise `rg.exe`, die Lizenztexte
-`COPYING`, `LICENSE-MIT` und `UNLICENSE` unter `licenses/` und ein `NOTICE.txt` mit Quellarchiv
-und Hash. Die Archive bleiben unter `<tmp>/ragents-rg-cache`; `scripts/vscode/bundle-rg.test.ts`
-baut aus diesem Cache ohne Netz und wird ohne ihn übersprungen. Eine neue ripgrep-Fassung heißt:
-`RIPGREP_VERSION` und alle sechs Hashes ändern (aus den `.sha256`-Dateien des Release und selbst
-nachgerechnet) und `pnpm bundle:rg` laufen lassen. Aus dem Checkout gestartet findet die
-Erweiterung rg nur, wenn es für ihre Plattform gebaut ist (`pnpm bundle:rg darwin-arm64`), sonst
-nimmt die Bash ein rg aus dem `PATH`, falls es eines gibt.
+`pnpm bundle:rg [<platform> ...]` builds ripgrep (`scripts/vscode/bundle-rg.ts`; packaging calls it
+itself): per platform it downloads the archive of the pinned ripgrep version from GitHub
+(version, target, and SHA-256 as constants in the script; on Linux the statically linked
+musl version), checks the hash, reads ZIP and tar.gz in memory, and places
+`rg` or `rg.exe` unchanged into `apps/vscode/dist/rg/<platform>/`, with the license texts
+`COPYING`, `LICENSE-MIT`, and `UNLICENSE` under `licenses/` and a `NOTICE.txt` with the source archive
+and hash. The archives stay under `<tmp>/ragents-rg-cache`; `scripts/vscode/bundle-rg.test.ts`
+builds from this cache without network and is skipped without it. A new ripgrep version means:
+change `RIPGREP_VERSION` and all six hashes (from the release's `.sha256` files and recomputed
+yourself) and run `pnpm bundle:rg`. Started from the checkout, the
+extension finds rg only if it is built for its platform (`pnpm bundle:rg darwin-arm64`); otherwise
+the Bash uses an rg from `PATH`, if there is one.
 
-Die Bash selbst baut `pnpm bundle:bash [win32-x64] [win32-arm64]`
-(`scripts/vscode/bundle-bash.ts`; das Packen ruft es selbst auf): es lädt das festgelegte
-PortableGit-Archiv von Git for Windows (Fassung, Dateinamen und SHA-256 als Konstanten im Skript),
-prüft den Hash, packt mit 7-Zip aus (`7zz` oder `7z` im `PATH`, sonst ein Fehler mit
-Installationshinweis) und kopiert eine feste Liste von Programmen samt der DLLs, die sie laden.
-Diese Hülle bestimmt das Skript selbst aus den Import- und Delay-Import-Tabellen der PE-Dateien
-(`scripts/vscode/pe-imports.ts`); eine DLL, die weder in `usr/bin` liegt noch eine
-Windows-Systembibliothek ist, bricht den Bau ab, ebenso Git, Perl, Editoren, SSH, GnuPG, OpenSSL
-oder ein Terminalprogramm in der Auswahl. Dazu kommen `etc/fstab`, ein eigenes
-`etc/nsswitch.conf`, die Lizenztexte unter `licenses/` und ein `NOTICE.txt` mit Quellarchiv,
-Paketfassungen und Quellverweisen. Das Archiv bleibt unter `<tmp>/ragents-bash-cache` liegen;
-`apps/vscode/dist/` ist nicht eingecheckt. Eine neue Git-for-Windows-Fassung heißt: Tag, Dateinamen
-und beide Hashes im Skript ändern und `pnpm bundle:bash` laufen lassen. Wer die Erweiterung unter
-Windows aus dem Checkout startet, baut die Bash vorher einmal mit `pnpm bundle:bash win32-x64`.
-`scripts/vscode/install-local.sh` installiert wie der Marketplace die Datei der eigenen Plattform
-und nur ohne sie die universelle. `scripts/vscode/publish-extension.ts` kopiert `README.md` und `LICENSE` für den Aufruf von `vsce` aus der Wurzel
-daneben und entfernt die Kopien danach wieder. Das Marketplace-README und das GitHub-README haben
-damit dieselbe Quelle.
+`pnpm bundle:bash [win32-x64] [win32-arm64]` builds the Bash itself
+(`scripts/vscode/bundle-bash.ts`; packaging calls it itself): it downloads the pinned
+PortableGit archive of Git for Windows (version, file names, and SHA-256 as constants in the script),
+checks the hash, unpacks it with 7-Zip (`7zz` or `7z` on `PATH`, otherwise an error with
+installation instructions), and copies a fixed list of programs together with the DLLs they load.
+The script determines this closure itself from the import and delay-import tables of the PE files
+(`scripts/vscode/pe-imports.ts`); a DLL that is neither in `usr/bin` nor a
+Windows system library aborts the build, as do Git, Perl, editors, SSH, GnuPG, OpenSSL,
+or a terminal program in the selection. Added to this are `etc/fstab`, a custom
+`etc/nsswitch.conf`, the license texts under `licenses/`, and a `NOTICE.txt` with the source archive,
+package versions, and source references. The archive stays under `<tmp>/ragents-bash-cache`;
+`apps/vscode/dist/` is not checked in. A new Git for Windows version means: change the tag, file names,
+and both hashes in the script and run `pnpm bundle:bash`. Anyone starting the extension on
+Windows from the checkout builds the Bash once beforehand with `pnpm bundle:bash win32-x64`.
+`scripts/vscode/install-local.sh`, like the Marketplace, installs the file for its own platform
+and the universal one only without it. `scripts/vscode/publish-extension.ts` copies `README.md` and `LICENSE` from the root
+next to it for the `vsce` call and removes the copies again afterwards. The Marketplace README and the GitHub README
+thus have the same source.
 
-Einrichtung zum Entwickeln:
+Setup for developing:
 
-1. `scripts/start-vscode.sh core` (auch ein anderes Profil oder eine Serveradresse)
-   startet bei Bedarf den Server, baut die Erweiterung und startet eine eigene VS-Code-Instanz mit
-   ihr und dem Repo als Ordner, mit einem Eintrag für diesen Server;
-   Layout und Anmeldung dieser Instanz bleiben unter `~/.local/share/ragents/vscode`. Alternativ F5
-   mit einer eigenen `.vscode/launch.json` (nicht eingecheckt), Typ `extensionHost` mit
-   `--extensionDevelopmentPath=${workspaceFolder}/apps/vscode`, `outFiles` auf
-   `${workspaceFolder}/apps/vscode/dist/**/*.js` und `preLaunchTask` `vscode: build`.
-2. `pnpm --filter ragents-vscode build` baut `dist/extension.js` (esbuild, CommonJS) und
-   `dist/webview`, `watch` dasselbe fortlaufend. Der Stub der Tests ist der echte Transport des
-   Servers; damit dessen Module geladen werden können, ist `apps/vscode/tests/` über eine eigene
-   `package.json` ein ESM-Ordner, während die gebündelte Erweiterung CommonJS bleibt.
+1. `scripts/start-vscode.sh core` (also another profile or a server address)
+   starts the server if needed, builds the extension, and starts a separate VS Code instance with
+   it and the repo as the folder, with an entry for this server;
+   layout and sign-in of this instance stay under `~/.local/share/ragents/vscode`. Alternatively F5
+   with your own `.vscode/launch.json` (not checked in), type `extensionHost` with
+   `--extensionDevelopmentPath=${workspaceFolder}/apps/vscode`, `outFiles` set to
+   `${workspaceFolder}/apps/vscode/dist/**/*.js`, and `preLaunchTask` `vscode: build`.
+2. `pnpm --filter ragents-vscode build` builds `dist/extension.js` (esbuild, CommonJS) and
+   `dist/webview`, `watch` does the same continuously. The tests' stub is the server's real
+   transport; so that its modules can be loaded, `apps/vscode/tests/` is an ESM folder through its own
+   `package.json`, while the bundled extension stays CommonJS.
 
-Prüfen: `pnpm --filter ragents-vscode test` läuft ohne VS Code gegen einen Stub-Server und
-gehört zu `pnpm check`; `RAGENTS_HOST_TEST_SERVER=http://localhost:4710 pnpm --filter
-ragents-vscode test:host` startet das installierte VS Code mit einem temporären Benutzerordner
-gegen den laufenden Server (mindestens ein Run mit Mini-App, etwa das Sammelboard aus einem
-Server mit dem Profil `showcase`) und prüft
-Verbindung, Run-Panel, Run-Wechsel und Mini-App in der Mitte; `RAGENTS_HOST_TEST_LOGIN=id:passwort`
-beziehungsweise `RAGENTS_HOST_TEST_TOKEN=<token>` prüfen die Anmeldung.
-`RAGENTS_HOST_TEST_WORKSPACE=<ordner>` prüft zusätzlich einen Run auf dem Arbeitsplatz,
-`RAGENTS_HOST_TEST_SECOND=<adresse>` daneben einen zweiten Server: beide gleichzeitig verbunden, die
-Start-Seite mit beiden, der Arbeitsplatz bei beiden Servern angemeldet, ein Klick auf eine Vorlage, der
-Zurück-Pfeil auf die Start-Seite, das Löschen eines Runs, das Plus eines Servers als leerer Run
-und ein Trennen, das nur eines trifft. `RAGENTS_HOST_TEST_VSIX=<pfad>` prüft statt des
-Checkouts die gepackte Erweiterung: der Läufer entpackt die Datei in seinen Benutzerordner und
-lädt `extension/` daraus, also genau das, was auch installiert wird - ohne `node_modules`
-daneben. Mit `RAGENTS_HOST_TEST_SETTINGS=1` prüft der Läufer die Einstellungsseite ohne
-Host-Pfad; kommt dabei `RAGENTS_HOST_PACKAGE_SPEC=<pfad zur .tgz>` dazu, holt die Erweiterung
-ihren Host aus dieser Datei statt von npm und startet damit das lokale Profil aus
-`RAGENTS_HOST_TEST_PROFILE`. Die Übersteuerung gibt es nur für diesen Test; im Alltag ist der
-Bezeichner immer `@schlenkr/ragents@<fassung>`. Ohne VS Code prüft `apps/vscode/tests/extension-bundle.test.ts` dasselbe in klein: das
-gebaute `dist/extension.js` liegt in einem leeren Temp-Ordner, ein Kindprozess ruft `activate`
-mit einem Stub-`vscode` auf.
+Testing: `pnpm --filter ragents-vscode test` runs without VS Code against a stub server and
+is part of `pnpm check`; `RAGENTS_HOST_TEST_SERVER=http://localhost:4710 pnpm --filter
+ragents-vscode test:host` starts the installed VS Code with a temporary user folder
+against the running server (at least one run with a mini-app, such as the collection board from a
+server with the `showcase` profile) and checks
+connection, run panel, run switching, and a mini-app in the center; `RAGENTS_HOST_TEST_LOGIN=id:password`
+or `RAGENTS_HOST_TEST_TOKEN=<token>` check sign-in.
+`RAGENTS_HOST_TEST_WORKSPACE=<folder>` additionally checks a run on the workstation,
+`RAGENTS_HOST_TEST_SECOND=<address>` a second server alongside: both connected at the same time, the
+Start page with both, the workstation registered with both servers, a click on a template, the
+back arrow to the Start page, deleting a run, a server's plus button as an empty run,
+and a disconnect that affects only one. `RAGENTS_HOST_TEST_VSIX=<path>` checks the packaged
+extension instead of the checkout: the runner unpacks the file into its user folder and
+loads `extension/` from it, that is, exactly what is also installed - without `node_modules`
+next to it. With `RAGENTS_HOST_TEST_SETTINGS=1` the runner checks the settings page without
+a host path; if `RAGENTS_HOST_PACKAGE_SPEC=<path to the .tgz>` is added, the extension fetches
+its host from this file instead of from npm and starts the local profile from
+`RAGENTS_HOST_TEST_PROFILE` with it. The override exists only for this test; in everyday use the
+specifier is always `@schlenkr/ragents@<version>`. Without VS Code, `apps/vscode/tests/extension-bundle.test.ts` checks the same on a small scale: the
+built `dist/extension.js` lies in an empty temp folder, and a child process calls `activate`
+with a stub `vscode`.
 
-### Paket bauen und veröffentlichen
+### Building and publishing the package
 
-Gebaut wird das Paket aus dem, was der Host wirklich lädt; die Abhängigkeiten bestimmt der Build
-aus den Importen der aufgenommenen Dateien, den Paketen, die ein Beitrag zum Executor mit
-`hostPackageFile` aus dem Host auflöst, und den Bibliotheken, die die Actor-Programme zur
-Laufzeit verlinken. Gibt es ein Paket im Checkout in zwei Fassungen, nennt das Paket eine davon
-und der Build sagt, welche.
+The package is built from what the host actually loads; the build determines the dependencies
+from the imports of the included files, the packages that an executor contribution resolves from
+the host with `hostPackageFile`, and the libraries that the actor programs link at
+runtime. If a package exists in the checkout in two versions, the package names one of them
+and the build says which.
 
-Die Fassung des Pakets ist das Feld `version` in der `package.json` der Repository-Wurzel.
-`pnpm publish:package` ist ein Schritt: es fragt mit `npm view @schlenkr/ragents versions --json`
-die veröffentlichten Fassungen ab, zählt die letzte Stelle der höchsten davon hoch, schreibt die
-neue Fassung in die `package.json` der Wurzel, baut das Paket und veröffentlicht es auf npm:
+The package version is the `version` field in the `package.json` of the repository root.
+`pnpm publish:package` is one step: it queries the published versions with
+`npm view @schlenkr/ragents versions --json`, increments the last place of the highest of them, writes the
+new version into the root `package.json`, builds the package, and publishes it on npm:
 
 ```sh
-pnpm publish:package --dry-run   # Probelauf: nennt die Fassung, baut, prüft und zeigt den Tarball
-pnpm publish:package             # erhöht die Fassung und veröffentlicht
+pnpm publish:package --dry-run   # trial run: names the version, builds, checks, and shows the tarball
+pnpm publish:package             # increments the version and publishes
 ```
 
-Die erste Zeile der Ausgabe nennt die Fassung: `== Fassung 0.1.2, zuletzt veröffentlicht 0.1.1`.
-Liegt noch nichts auf npm, gilt die Fassung aus der `package.json`; steht dort schon eine höhere
-als die veröffentlichte - jemand hat von Hand auf `0.2.0` gestellt -, gewinnt die `package.json`.
-Geschrieben wird nur die Zeile mit `version`, der Rest der Datei bleibt Zeichen für Zeichen
-stehen. Der Probelauf zeigt die Fassung, die es würde, und ändert die Datei nicht.
+The first line of the output names the version: `== Version 0.1.2, last published 0.1.1`.
+If nothing is on npm yet, the version from `package.json` applies; if a higher one than the
+published one is already there - someone set it to `0.2.0` by hand -, `package.json` wins.
+Only the line with `version` is written; the rest of the file stays character for character.
+The trial run shows the version it would use and does not change the file.
 
-Der Token kommt aus der Umgebungsvariable `npm_key` und geht als Registrierungsschlüssel in die
-Umgebung des `npm`-Kindprozesses; er steht in keiner Datei und in keiner Ausgabe. Fehlt er,
-bricht der Aufruf ab. Abgelehnt wird weiterhin eine Fassung, die auf npm schon liegt - nach dem
-Hochzählen kann das nicht mehr passieren, die Prüfung bleibt trotzdem stehen. Nach dem Publish
-nennt das Script die veröffentlichte Fassung; die Registrierung braucht danach noch ein paar
-Sekunden, bis sie sie ausliefert und anzeigt. `pnpm publish:all` veröffentlicht Paket und
-Erweiterung nacheinander und bricht beim ersten Fehler ab.
+The token comes from the environment variable `npm_key` and goes as the registry key into the
+environment of the `npm` child process; it is in no file and in no output. If it is missing,
+the call aborts. A version that is already on npm is still rejected - after
+incrementing this can no longer happen, but the check stays anyway. After the publish,
+the script names the published version; the registry then needs a few more
+seconds until it serves and shows it. `pnpm publish:all` publishes the package and the
+extension one after the other and aborts at the first error.
 
-### Echte Browserprobe
+### Real browser test
 
-Die gezielte echte Browserprobe startet nur eine kurzlebige lokale Fixture und schreibt nach
-Temp: `RAGENTS_BROWSER_TESTS=1 PRODUCT_PROFILE=core pnpm --filter @ragents/host exec node
---import tsx --test tests/browser-live.test.ts`. `BROWSER_EXECUTABLE_PATH` kann für diesen
-Aufruf als Umgebungsvariable gesetzt werden. Die regulären Serverprüfungen enthalten die
-Browser-Vertrags- und Lifecycle-Tests; die echte Browserprobe benötigt die ausdrückliche Flagge.
+The targeted real browser test starts only a short-lived local fixture and writes to
+temp: `RAGENTS_BROWSER_TESTS=1 PRODUCT_PROFILE=core pnpm --filter @ragents/host exec node
+--import tsx --test tests/browser-live.test.ts`. `BROWSER_EXECUTABLE_PATH` can be set as an
+environment variable for this call. The regular server checks contain the
+browser contract and lifecycle tests; the real browser test needs the explicit flag.
 
-### Arbeitsbereich auf einem anderen Rechner prüfen
+### Testing a workspace on another machine
 
-Ob ein Run wirklich auf einem anderen Rechner arbeitet, prüft `pnpm check:remote-workspace` auf
-einem Mac mit OrbStack oder Docker Desktop. Ein Linux-Container ist der fremde Rechner: eigenes
-Dateisystem, eigene Prozesstabelle, eigenes `localhost`, andere Plattform; darin läuft
-`ragents workspace-client` aus dem gebauten Paket als Arbeitsplatz von `alice`. Der Server läuft auf
-diesem Rechner mit `--port 0`, eigenem Datenordner unter `/tmp` und einem Prüfprofil mit `alice`,
-`bob` und `admin`; statt eines Sprachmodells steuert ein Skriptmodell die Werkzeuge, ohne Cloud und
-ohne Zufall. Der Läufer schreibt je Prüfung eine Zeile `ok`, `FEHLER` mit Ursache oder `--`:
-Anmeldung und Sichtbarkeit des Arbeitsplatzes, Bindung, `bash`, `read`, `write` und ein binärer
-Anhang im Container, `typescript_eval` im Ordner des Servers, Systemprompt mit Plattform und Ordner
-des Arbeitsplatzes, ein Actor-Programm und ein Skill über die Wurzeln des Servers (`@actors`,
-`@skills`) samt Bash mit Alias auf dem Server, Reiter Dateien, Prozessanzeige und Beenden, Rechte von `bob` und `admin`, der
-Not-Aus samt Aufräumen auf beiden Rechnern, Trennen und Wiederanmelden, ein Stopp, während der
-Container kein Netz hat, der nach der Rückkehr greift. Schalter:
-`--shared-path` legt denselben Pfad mit anderem Inhalt auch auf diesem Rechner an (statt
-`/work/project`, den es hier nicht geben darf), `--browser` öffnet mit `browser_open` eine Seite,
-die nur auf `localhost` im Container läuft, `--vscode` fährt zusätzlich den Host-Test der
-Erweiterung in einem eigenen VS-Code-Fenster gegen denselben Server. Der Läufer beendet nur, was er
-selbst gestartet hat: Server und VS-Code-Launcher über ihre eigene PID, Container und Images nur
-über seine Labels, Prozesse dieses Rechners nur mit einem Run-Marker seines Servers oder seiner
-Sitzungsmarkierung; Reste eines abgebrochenen Prüflaufs räumt der nächste zu Beginn ab. Der erste
-Image-Bau braucht Netz (Node-Image, npm, mit `--browser` Chromium aus Debian); danach kommen diese
-Schichten aus dem Cache, und nur das Paket wird neu gebaut. Nach einem Fehlschlag bleiben die
-Protokolle unter `/tmp/ragents-rwc-protokoll-<sitzung>`. Einzelheiten stehen in
+Whether a run really works on another machine is checked by `pnpm check:remote-workspace` on
+a Mac with OrbStack or Docker Desktop. A Linux container is the other machine: its own
+file system, its own process table, its own `localhost`, a different platform; inside it,
+`ragents workspace-client` from the built package runs as the workstation of `alice`. The server runs on
+this machine with `--port 0`, its own data folder under `/tmp`, and a test profile with `alice`,
+`bob`, and `admin`; instead of a language model, a scripted model drives the tools, without cloud and
+without randomness. The runner writes one line per check: `ok`, `FAILED` with the cause, or `--`:
+sign-in and visibility of the workstation, binding, `bash`, `read`, `write`, and a binary
+attachment in the container, `typescript_eval` in the server's folder, system prompt with the platform and folder
+of the workstation, an actor program and a skill through the server's roots (`@actors`,
+`@skills`) including Bash with an alias on the server, the Files tab, process display and termination, permissions of `bob` and `admin`, the
+emergency stop including cleanup on both machines, disconnecting and re-registering, and a stop while the
+container has no network that takes effect after it returns. Switches:
+`--shared-path` also creates the same path with different contents on this machine (instead of
+`/work/project`, which must not exist here), `--browser` opens a page with `browser_open`
+that runs only on `localhost` in the container, `--vscode` additionally runs the extension's host test
+in its own VS Code window against the same server. The runner ends only what it
+started itself: server and VS Code launcher by their own PID, containers and images only
+by their labels, processes of this machine only with a run marker of its server or its
+session marker; the next check run cleans up leftovers of an aborted one at its start. The first
+image build needs network (Node image, npm, with `--browser` Chromium from Debian); after that these
+layers come from the cache, and only the package is rebuilt. After a failure, the
+logs stay under `/tmp/ragents-rwc-logs-<session>`. Details are in
 `scripts/remote-workspace/README.md`.
 
-## Für KI-Assistenten
+## For AI assistants
 
-Besitzer ist SchlenkR. Er arbeitet auf mehreren Rechnern; verlass Dich nicht auf ein
-Sitzungsgedächtnis. Alles, was eine neue Session wissen muss, steht im Repo, und zwar hier und in
-den folgenden Dateien. `AGENTS.md` und `CLAUDE.md` sind nur Zeiger hierher, für Codex und
-Claude Code; sie bekommen keinen eigenen Inhalt. Die `README.md` an der Wurzel ist der englische
-GitHub-Einstieg und keine Quelle für Regeln.
+The owner is SchlenkR. He works on several machines; do not rely on a
+session memory. Everything a new session needs to know is in the repo, namely here and in
+the following files. `AGENTS.md` and `CLAUDE.md` are only pointers here, for Codex and
+Claude Code; they get no content of their own. The `README.md` at the root is the
+GitHub entry point and not a source of rules.
 
-### Pflichtlektüre in dieser Reihenfolge
+### Required reading in this order
 
-1. `docs/spec/overview.md` - Leitsatz, Begriffe, Schichten, Kurs (einschmelzen statt ausbauen;
-   Sicherheit nachrangig; keine Migrationen) und die verbindlichen Regeln.
-2. Das Spec-Kapitel zur Aufgabe: `docs/spec/core.md` (Run, Actor, Turn, Event, Journal),
-   `typescript-platform.md`, `actor-programs.md` (Actor-Programme, Mini-Apps), `plugins.md`
-   (Vertrag, Ordner, Web-Host, Language Server, Skill-Vorlagen), `profiles.md` (Profile,
-   Konfiguration).
-3. `docs/decisions.md`, die obersten Einträge - was sich zuletzt geändert hat und warum.
-4. `docs/usage.md` - Bedienung in Web, Run-Panel, VS Code und durch Agenten und externe Clients;
-   `docs/operations.md` - Betrieb (Installation, Start, Zugang, Paket, verteiltes Arbeiten,
-   Datenablage).
-5. `TODO.md` und `docs/concepts/` - offene Arbeit, Ideen und ausgearbeitete Konzepte.
-6. `selftest/LOG.md` - was die Selbstverbesserungs-Runden gefunden haben und welche
-   Fehlerklassen schon behoben sind.
+1. `docs/spec/overview.md` - guiding principle, terms, layers, course (consolidate instead of expanding;
+   security secondary; no migrations), and the binding rules.
+2. The spec chapter for the task: `docs/spec/core.md` (run, actor, turn, event, journal),
+   `typescript-platform.md`, `actor-programs.md` (actor programs, mini-apps), `plugins.md`
+   (contract, folders, web host, language servers, skill templates), `profiles.md` (profiles,
+   configuration).
+3. `docs/decisions.md`, the topmost entries - what changed most recently and why.
+4. `docs/usage.md` - usage in the web, run panel, VS Code, and by agents and external clients;
+   `docs/operations.md` - operations (installation, startup, access, package, distributed work,
+   data storage).
+5. `TODO.md` and `docs/concepts/` - open work, ideas, and worked-out concepts.
+6. `selftest/LOG.md` - what the self-improvement rounds have found and which
+   error classes are already fixed.
 
-### Dokumentation: drei Orte, eine Regel
+### Documentation: three places, one rule
 
-Die Spec sagt, was ist, gültig für den aktuellen Code. Ein Konzept sagt, was noch nicht ist.
-Nichts ist beides; ein Konzept überlebt seine Umsetzung nicht.
+The spec says what is, valid for the current code. A concept says what is not yet.
+Nothing is both; a concept does not survive its implementation.
 
-- `docs/spec/`: ein Kapitel je Thema, immer wahr für HEAD, jedes Kapitel endet mit "Offene
-  Grenzen". Verbindliche Listen (Events, Plugin-Vertrag, Schemata) stehen nur im Code.
-- `docs/concepts/<thema>.md`: was noch nicht ist, mit Status-Zeile Idee, In Arbeit oder
-  Verworfen. "Umgesetzt" ist kein Status.
-- `docs/decisions.md`: das Warum, datiert, jüngste zuerst; jeder Eintrag nennt das Kapitel, das
-  er geändert hat. Keine zweite Spec.
-- `TODO.md`: Eingang für alles, Abschnitte "Offen" und "Ideen", eine Zeile je Eintrag, neu oben.
-  Offene Arbeit steht nur dort; die "Offenen Grenzen" der Spec nennen dauerhafte Grenzen und
-  wiederholen keinen TODO-Eintrag.
-- Sprache: Spec, `docs/usage.md`, `docs/operations.md`, `docs/decisions.md`, `TODO.md`,
-  `docs/concepts/` und dieses Handbuch sind deutsch. Ausnahme sind die Abschnitte zwischen
-  `<!-- guide:<id> -->` und `<!-- /guide:<id> -->` in Spec, `docs/usage.md` und
-  `docs/operations.md`: Sie werden zum englischen Guide der
-  Homepage und sind englisch, alles außerhalb der Marker ist deutsch. Ein Guide-Block umfasst
-  ganze Abschnitte samt Überschrift; folgt auf ihn deutscher Text, bekommt dieser eine eigene
-  deutsche Überschrift, sodass jeder Block unter einer Überschrift in seiner Sprache steht. Eine
-  Überschrift mischt keine Sprachen, und dieselbe Sache steht nicht in beiden Sprachen im selben
-  Kapitel. Der Guide zitiert Oberflächentexte so, wie die deutsche Oberfläche sie zeigt, mit
-  englischer Umschreibung in Klammern nur dort, wo der Sinn sonst unklar bliebe. Deutscher Text
-  verweist auf einen Guide-Abschnitt mit dessen englischer Überschrift. `README.md` und die
-  Homepage sind englisch, Namen im Code immer (Regeln unten).
-- `docs/usage.md`: Bedienung, also was ein Benutzer oder ein Agent als Benutzer sieht und tut.
-  `docs/operations.md`: Betrieb, also Installation, Start, Zugang, Paket, verteiltes Arbeiten mit
-  Server, Arbeitsplatz und Run-Umzug, Windows und Datenablage. Vertrag und Mechanik stehen in der
-  Spec, Build, Prüfläufe und Veröffentlichung hier im Handbuch; `usage.md` und `operations.md`
-  verweisen darauf statt sie zu wiederholen. `README.md`: der kurze englische Einstieg für GitHub und
-  zugleich das README der Erweiterung im Marketplace, mit Installation, Loslegen und Links, ohne
-  Fachdetails. Er wird auf Deutsch entworfen und mit
-  `ragents run` (Modell GLM 5.3) ins Englische übersetzt; der deutsche Entwurf ist Arbeitsmaterial
-  und liegt nicht im Repo. `docs/development.md`: Handbuch für Entwicklung und KI-Assistenten, diese Datei.
-- `docs/homepage/index.html`: die Produkt-Homepage für Benutzer, eine handgeschriebene statische
-  Seite (Styles in `homepage.css`, Skripte in `homepage-*.js`). Texte sind kurze, direkte Sätze,
-  die sagen, was man tun kann; keine Slogans, keine gespiegelten Satzpaare, keine erfundenen
-  Features, Geplantes ist als "Planned" markiert. Diagramme erklären Prinzipien mit allgemeinen
-  Rollen (Agent, Script, Mini-App, Server, Laptop) statt konkreter Beispielabläufe; jede Szene hat
-  ihre eigene Bildsprache. Scroll-Animationen hängen direkt am Scrollfortschritt (ohne Glättung,
-  ohne Überschwingen). Bedienungsdetails (Knöpfe, Abstände, Pixelmaße, Speicherorte) gehören in
-  `docs/usage.md`, nie auf die Hauptseite. Screenshots unter `docs/homepage/screenshots/` zeigen
-  echte Runs mit neutralen Beispieldaten. Private Produktnamen und Integrationen erscheinen nicht
-  auf den öffentlichen Seiten. Keine externen Laufzeitressourcen. Der Generator prüft den Inhalt
-  der Hauptseite nicht; er übernimmt nur ihre Kopfzeile für die Guide-Seiten.
-- `docs/homepage/guide.html` und `guide-*.html`: generierter Guide für Einstieg, Arbeitsweise und
-  Entwicklung. Texte ausschließlich in markierten öffentlichen Abschnitten der Spec,
-  `docs/usage.md` und `docs/operations.md` pflegen (`<!-- guide:<id> -->` bis `<!-- /guide:<id> -->`), keine zweite
-  Textkopie. Kapitel und Darstellung in `scripts/homepage/homepage-guide.ts`; Build, Export und Hilfe
-  verwenden denselben Generator. Neue Inhalte müssen im Profil showcase gelten, aus dem die Hilfe
-  erzeugt wird.
-- Der öffentliche Export unter `docs/homepage/dist/` enthält nur Produktseite, Guide und die
-  konzeptionelle Mini-App. Generierte technische Dateien wie `reference.md`, `developer.md`,
-  `llms.txt`, `rpc-api.md` und `openrpc.json` bleiben interne Build-Ausgaben und werden nicht
-  veröffentlicht. Auch die ausführbaren Sample-Vorschauen gehören nicht zum öffentlichen Export.
-- `docs/ui-drafts/`: jeder UI-Entwurf ist eine HTML-Seite mit ein bis zwei PNG-Screenshots
-  daneben (headless Chrome) und einem Tab in `docs/ui-drafts/index.html`: dort von Hand einen
-  `<article>`-Block ergänzen, wie im Kommentar der Datei beschrieben. Das gilt für ALLE
-  bisherigen und neuen Entwurfsseiten. Pro HTML-Seite steht genau ein Tab in der Übersicht,
-  neueste Sammlungen zuerst. Varianten innerhalb derselben Seite bleiben in deren eigenem Menü
-  und bekommen keine doppelten Tabs oben (12.09.2026). Im Kartenraster bleibt jede
-  Variante mit eigener Vorschau direkt sichtbar. Nach dem ursprünglichen Entwurfsdatum
-  sortieren; Nachtragen macht alte Entwürfe nicht zu neuen. Bestehende Direktlinks erhalten und
-  fehlende ältere Seiten nachtragen. Keine getrennten Entwurfsübersichten. Kein Build.
-- Mehr Orte gibt es nicht.
+- `docs/spec/`: one chapter per topic, always true for HEAD, every chapter ends with "Open
+  limits". Binding lists (events, plugin contract, schemas) are only in the code.
+- `docs/concepts/<topic>.md`: what is not yet, with a status line Idea, In progress, or
+  Rejected. "Implemented" is not a status.
+- `docs/decisions.md`: the why, dated, newest first; every entry names the chapter it
+  changed. No second spec.
+- `TODO.md`: inbox for everything, sections "Open" and "Ideas", one line per entry, new at the top.
+  Open work is only there; the spec's "Open limits" name permanent limits and
+  do not repeat any TODO entry.
+- Language: everything in the repository is English - spec, `docs/usage.md`,
+  `docs/operations.md`, `docs/decisions.md`, `TODO.md`, `docs/concepts/`, this handbook,
+  `README.md`, the homepage, UI texts, CLI output, error and log messages, prompts, tool
+  descriptions, strings, code comments, tests, test data, and names. The sections between
+  `<!-- guide:<id> -->` and `<!-- /guide:<id> -->` in the spec, `docs/usage.md`, and
+  `docs/operations.md` become the homepage guide; a guide block covers whole sections including
+  their heading. The guide quotes interface texts exactly as the interface shows them.
+- `docs/usage.md`: usage, that is, what a user or an agent acting as a user sees and does.
+  `docs/operations.md`: operations, that is, installation, startup, access, package, distributed work with
+  server, workstation, and run transfer, Windows, and data storage. Contract and mechanics are in the
+  spec, build, checks, and publishing here in the handbook; `usage.md` and `operations.md`
+  refer to them instead of repeating them. `README.md`: the short entry point for GitHub and
+  at the same time the extension's README in the Marketplace, with installation, getting started, and links, without
+  domain details. `docs/development.md`: handbook for development and AI assistants, this file.
+- `docs/homepage/index.html`: the product homepage for users, a handwritten static
+  page (styles in `homepage.css`, scripts in `homepage-*.js`). Texts are short, direct sentences
+  that say what you can do; no slogans, no mirrored sentence pairs, no invented
+  features, planned things are marked as "Planned". Diagrams explain principles with general
+  roles (agent, script, mini-app, server, laptop) instead of concrete example workflows; every scene has
+  its own visual language. Scroll animations are tied directly to scroll progress (without smoothing,
+  without overshoot). Usage details (buttons, spacing, pixel sizes, storage locations) belong in
+  `docs/usage.md`, never on the main page. Screenshots under `docs/homepage/screenshots/` show
+  real runs with neutral example data. Private product names and integrations do not appear
+  on the public pages. No external runtime resources. The generator does not check the content
+  of the main page; it only takes over its header for the guide pages.
+- `docs/homepage/guide.html` and `guide-*.html`: generated guide for getting started, way of working, and
+  development. Maintain texts only in marked public sections of the spec,
+  `docs/usage.md`, and `docs/operations.md` (`<!-- guide:<id> -->` to `<!-- /guide:<id> -->`), no second
+  text copy. Chapters and presentation in `scripts/homepage/homepage-guide.ts`; build, export, and help
+  use the same generator. New content must hold in the showcase profile, from which the help
+  is generated.
+- The public export under `docs/homepage/dist/` contains only the product page, the guide, and the
+  conceptual mini-app. Generated technical files such as `reference.md`, `developer.md`,
+  `llms.txt`, `rpc-api.md`, and `openrpc.json` remain internal build outputs and are not
+  published. The executable sample previews are not part of the public export either.
+- `docs/ui-drafts/`: every UI draft is an HTML page with one or two PNG screenshots
+  next to it (headless Chrome) and a tab in `docs/ui-drafts/index.html`: add an
+  `<article>` block there by hand, as described in the file's comment. This applies to ALL
+  existing and new draft pages. There is exactly one tab per HTML page in the overview,
+  newest collections first. Variants within the same page stay in that page's own menu
+  and do not get duplicate tabs at the top (12.09.2026). In the card grid, every
+  variant stays directly visible with its own preview. Sort by the original draft date;
+  adding something later does not make old drafts new. Keep existing direct links and
+  add missing older pages. No separate draft overviews. No build.
+- There are no other places.
 
-So dokumentierst du deine Arbeit:
+How to document your work:
 
-1. Änderst du Verhalten, bringst du das betroffene Spec-Kapitel im selben Commit auf den neuen
-   Stand. Die Spec beschreibt den Ist-Zustand, keine Historie.
-2. Dazu ein datierter Eintrag oben in `docs/decisions.md`: was, warum, welches Kapitel.
-3. Was offen bleibt, wird eine Zeile in `TODO.md`. Erledigte Zeilen löschst du.
-4. Braucht eine Idee mehr als drei Sätze, bekommt sie `docs/concepts/<thema>.md` mit Status
-   Idee; die TODO-Zeile verschwindet. Ist das Konzept umgesetzt: Kapitel anpassen, Eintrag in
-   `decisions.md`, Konzeptdatei löschen.
-5. Keine neuen Dokumente daneben, keine Übergabe-Dateien. Was eine nächste Session braucht,
-   steht in `TODO.md` und `decisions.md`.
-6. Ändert sich, was ein Benutzer sieht oder tun kann (Reiter, Startbildschirm, Fläche, eine
-   Fähigkeit, eine Skill-Vorlage), bringst du den betroffenen Abschnitt der Homepage im selben
-   Commit mit; veraltete Screenshots nimmst du neu auf oder nimmst sie heraus. Die Homepage
-   verspricht nichts, was nicht in core läuft. Auf die Hauptseite kommt dabei höchstens ein
-   Satz; die Bedienung im Einzelnen gehört in `docs/usage.md`, von wo der Guide sie
-   übernimmt. Eine neue Kernfunktion bekommt einen Abschnitt auf der Hauptseite und ihr
-   Guide-Kapitel im selben Commit.
+1. If you change behavior, you bring the affected spec chapter up to date in the same commit.
+   The spec describes the current state, not history.
+2. Add a dated entry at the top of `docs/decisions.md`: what, why, which chapter.
+3. What remains open becomes a line in `TODO.md`. You delete completed lines.
+4. If an idea needs more than three sentences, it gets `docs/concepts/<topic>.md` with the status
+   Idea; the TODO line disappears. Once the concept is implemented: adjust the chapter, add an entry in
+   `decisions.md`, delete the concept file.
+5. No new documents alongside, no handover files. What a next session needs
+   is in `TODO.md` and `decisions.md`.
+6. If what a user sees or can do changes (tabs, start screen, surface, a
+   capability, a skill template), you update the affected section of the homepage in the same
+   commit; you retake outdated screenshots or remove them. The homepage
+   promises nothing that does not run in core. At most one sentence goes onto the main page;
+   the detailed usage belongs in `docs/usage.md`, from where the guide
+   takes it over. A new core feature gets a section on the main page and its
+   guide chapter in the same commit.
 
-### Arbeiten
+### Working
 
-- Lokaler Server: Der Owner startet ihn SELBST über `scripts/start.sh <profil>`. Keine Hintergrundinstanz starten, Laufzeitdaten nur auf Ansage anfassen. Belegte
-  Ports brechen den Start ab; keine Ersatzports suchen oder andere Instanzen beenden. Nach
-  Web-Änderungen `pnpm build:web` und "Neustart nötig" sagen; Serveränderungen greifen erst
-  nach Neustart. Ausnahme: Dateien, die der Server je Aufruf als `new Worker(...)` lädt (etwa
-  `packages/ragents/src/typescript/compiler-worker.ts`), greifen sofort - eine Änderung am
-  Worker-Protokoll bricht laufende Runs, also nur bei gestopptem Server ändern.
-- Das Secret `OPENROUTER_API_KEY` kommt aus der Shell-Umgebung: per grep aus der
-  Startdatei extrahieren, NIE die Startdatei der Shell einlesen.
-- Fleißarbeit (Generierungen, Seiten zusammenbauen, Prüfläufe) an Subagenten geben; das große
-  Modell schneidet und entscheidet. Subagenten bekommen Zielordner im Scratchpad.
+- Local server: the owner starts it HIMSELF with `scripts/start.sh <profile>`. Do not start a background instance, touch runtime data only on request. Occupied
+  ports abort startup; do not look for replacement ports or terminate other instances. After
+  web changes, run `pnpm build:web` and say "restart needed"; server changes take effect only
+  after a restart. Exception: files that the server loads per call as `new Worker(...)` (such as
+  `packages/ragents/src/typescript/compiler-worker.ts`) take effect immediately - a change to the
+  worker protocol breaks running runs, so change it only while the server is stopped.
+- The secret `OPENROUTER_API_KEY` comes from the shell environment: extract it from the
+  startup file with grep, NEVER source the shell's startup file.
+- Hand busywork (generation, assembling pages, check runs) to subagents; the large
+  model scopes and decides. Subagents get target folders in the scratchpad.
 
-### Regeln
+### Rules
 
-- NIEMALS committen, pushen oder deployen ohne ausdrückliche Erlaubnis des Owners.
-- Die Dateiablage bleibt je Run isoliert; die Übernahme eines fertigen Runs in ein
-  echtes Projekt ist Sache des Owners.
-- Keine Personennamen in Doku, Entscheidungen, Selbsttest und Tests: Wünsche als Vorgabe oder mit
-  "der Owner", Testbenutzer neutral (`alice`). Namen stehen nur in `LICENSE`, den `author`-Feldern
-  und im Lizenzabschnitt.
-- Alles englisch BENENNEN: Dateien, Ordner und Bezeichner im Code. Deutscher Fließtext bleibt
-  deutsch (Prosa, Strings, Prompts), aber nie in einem Namen.
-- Kommentare minimal (max. 1 Zeile), echte Umlaute in Prosa und Strings, nur Zeichen der
-  deutschen Tastatur (keine Pfeile/typografischen Zeichen).
-- Keine stillen Fallbacks: fehlende Voraussetzungen sind harte Fehler.
-- Alte oder beschädigte Journale sperren nur den betroffenen Run und melden die Ursache. Sie
-  dürfen weder den Serverstart noch andere Runs blockieren; Originaldateien erhalten.
-- Generalisierung erst ab zwei echten Nutzern; Rückbauten immer fertig ziehen.
-- Dokumentieren wie oben: Spec-Kapitel, Eintrag in `docs/decisions.md`, Rest nach `TODO.md`.
-  Mehr Ablageorte gibt es nicht.
-- Modelle tippen nichts ab: Werkzeugverträge dürfen nie verlangen, dass ein LLM Hashes, Tokens,
-  IDs, Pfade oder Dateiinhalte aus früheren Ausgaben reproduziert - immer serverseitig auflösen
-  oder per Referenz arbeiten.
-- Werkzeugergebnisse bleiben schlank: nur, was das Modell noch nicht hat. Kein Echo der Eingabe,
-  kein ganzer Zustand nach einer Änderung, keine unveränderlichen Kataloge, keine
-  Server-Buchhaltung (Event-Hüllen, Hashes, absolute Pfade, Laufzeiten), offene Ausgaben mit
-  kleiner Grenze auch je Zeile. Einzelheiten im Plugin-Leitfaden, Abschnitt 9 in `docs/spec/plugins.md`.
+- NEVER commit, push, or deploy without the owner's explicit permission.
+- The file storage stays isolated per run; taking a finished run over into a
+  real project is the owner's job.
+- No personal names in docs, decisions, self-test, and tests: requests as a requirement or with
+  "the owner", test users neutral (`alice`). Names appear only in `LICENSE`, the `author` fields,
+  and in the license section.
+- Everything is English: file, folder, and identifier names as well as prose, strings, prompts,
+  comments, and tests.
+- Minimal comments (at most 1 line), only characters of the German keyboard (no arrows or
+  typographic characters).
+- No silent fallbacks: missing prerequisites are hard errors.
+- Old or damaged journals lock only the affected run and report the cause. They
+  must block neither the server start nor other runs; keep the original files.
+- Generalize only once there are two real users; always finish removals completely.
+- Document as above: spec chapter, entry in `docs/decisions.md`, the rest in `TODO.md`.
+  There are no other storage places.
+- Models do not copy anything: tool contracts must never require an LLM to reproduce hashes, tokens,
+  IDs, paths, or file contents from earlier outputs - always resolve on the server side
+  or work by reference.
+- Tool results stay lean: only what the model does not have yet. No echo of the input,
+  no whole state after a change, no immutable catalogs, no
+  server bookkeeping (event envelopes, hashes, absolute paths, durations), open-ended output with
+  a small limit, also per line. Details in the plugin guide, section 9 in `docs/spec/plugins.md`.
 
-## Weiterlesen
+## Further reading
 
-- `docs/spec/` - die Spec: was ist, ein Kapitel je Thema, Einstieg `overview.md`
-- `docs/decisions.md` - das Warum: datierte Entscheidungen, jüngste zuerst
-- `docs/usage.md` - Bedienung: Web, Run-Panel, VS-Code-Erweiterung, globaler Koordinator,
-  Bedienung durch Agenten und externe Clients
-- `docs/operations.md` - Betrieb: Installation, Start, Zugang, Paket, Server und Arbeitsplatz,
-  Run-Umzug, Windows, Datenablage
-- `skills-for-agents/ragents/SKILL.md` - die Kurzanleitung, die ein fremder KI-Agent lädt, um
-  RAgents lokal zu starten und ein Projekt programmieren zu lassen
-- `docs/concepts/` - was noch nicht ist, je Konzept eine Datei mit Status-Zeile
-- `docs/homepage/index.html` - die Produkt-Homepage für Benutzer, veröffentlicht unter
-  https://schlenkr.github.io/RAgents/: was man tun kann, mit einer Scroll-Strecke für die
-  Kernfunktionen und statischen Abschnitten zu Teams, Plugins, Steuerung von außen und Zugängen;
-  wird mit der Spec gepflegt
-- [Guide](homepage/guide.html) - Einstieg, Aufbau, Zugänge (Web und VS Code), verteiltes
-  Arbeiten, Modellkontext, Programme, Plugins und Rechte; direkt aus öffentlichen
-  Abschnitten der Spec, der Bedienung und des Betriebs erzeugt
-- [Plugin-Leitfaden](homepage/guide-plugins.html#plugin-guide) -
-  Ausführungsform wählen, Fachverträge und Prompts verbinden, Lebenszyklus und Bedienung prüfen;
-  die Befundgrundlage steht in `docs/spec/plugins.md`
-- `docs/homepage/llms.txt`, `run-setup.md`, `reference.md`, `developer.md`, `rpc-api.md` und
-  `openrpc.json` - interne generierte Text- und API-Referenzen, nicht Teil der öffentlichen Website
+- `docs/spec/` - the spec: what is, one chapter per topic, entry point `overview.md`
+- `docs/decisions.md` - the why: dated decisions, newest first
+- `docs/usage.md` - usage: web, run panel, VS Code extension, global coordinator,
+  usage by agents and external clients
+- `docs/operations.md` - operations: installation, startup, access, package, server and workstation,
+  run transfer, Windows, data storage
+- `skills-for-agents/ragents/SKILL.md` - the short guide that a foreign AI agent loads to
+  start RAgents locally and have it program a project
+- `docs/concepts/` - what is not yet, one file per concept with a status line
+- `docs/homepage/index.html` - the product homepage for users, published at
+  https://schlenkr.github.io/RAgents/: what you can do, with a scroll sequence for the
+  core features and static sections on teams, plugins, external control, and access;
+  maintained with the spec
+- [Guide](homepage/guide.html) - getting started, architecture, access (web and VS Code), distributed
+  work, model context, programs, plugins, and permissions; generated directly from public
+  sections of the spec, usage, and operations
+- [Plugin guide](homepage/guide-plugins.html#plugin-guide) -
+  choosing the execution form, connecting domain contracts and prompts, checking lifecycle and usage;
+  the underlying findings are in `docs/spec/plugins.md`
+- `docs/homepage/llms.txt`, `run-setup.md`, `reference.md`, `developer.md`, `rpc-api.md`, and
+  `openrpc.json` - internal generated text and API references, not part of the public website
 
-## Lizenz
+## License
 
-RAgents steht unter der PolyForm Shield License 1.0.0: Verwenden und Betreiben ist erlaubt, auch
-kommerziell, Ändern und Weitergeben ebenso; nicht erlaubt ist, damit ein konkurrierendes Produkt
-oder einen konkurrierenden Dienst anzubieten. Der vollständige Text steht in `LICENSE`,
-Rechteinhaber ist Ronald Schlenker.
+RAgents is licensed under the PolyForm Shield License 1.0.0: using and operating it is allowed, also
+commercially, as are modifying and distributing it; it is not allowed to offer a competing product
+or a competing service with it. The complete text is in `LICENSE`,
+the copyright holder is Ronald Schlenker.

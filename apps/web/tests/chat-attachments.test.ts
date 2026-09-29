@@ -8,7 +8,7 @@ test("attachment budgets include existing selections and permit exact boundaries
   assert.doesNotThrow(() => validateAttachmentSelection([{ size: 1 }], [{ size: MAX_CHAT_ATTACHMENT_BYTES - 1 }]));
   assert.throws(() => validateAttachmentSelection([{ size: 1 }], [{ size: MAX_CHAT_ATTACHMENT_BYTES }]), /20 MiB/);
   assert.doesNotThrow(() => validateAttachmentSelection(Array.from({ length: 7 }, () => ({ size: 0 })), [{ size: 0 }]));
-  assert.throws(() => validateAttachmentSelection(Array.from({ length: 8 }, () => ({ size: 0 })), [{ size: 0 }]), /8 Anhänge/);
+  assert.throws(() => validateAttachmentSelection(Array.from({ length: 8 }, () => ({ size: 0 })), [{ size: 0 }]), /8 attachments/);
 });
 
 test("file encoding preserves binary bytes across chunks and infers missing media types", async () => {
@@ -23,8 +23,8 @@ test("file encoding preserves binary bytes across chunks and infers missing medi
 
 test("model compatibility checks images, videos and PDF while workspace files stay usable", () => {
   for (const [mediaType, modality] of [["image/png", "image"], ["video/mp4", "video"], ["application/pdf", "file"]]) {
-    const files = [{ name: "Anhang", mediaType }];
-    assert.match(attachmentCapabilityError(files, { model: "text-model", input: ["text"] })!, /text-model.*Anhang/);
+    const files = [{ name: "Attachment", mediaType }];
+    assert.match(attachmentCapabilityError(files, { model: "text-model", input: ["text"] })!, /text-model.*Attachment/);
     assert.equal(attachmentCapabilityError(files, { model: "media-model", input: [modality] }), undefined);
   }
   assert.equal(attachmentCapabilityError([{ name: "notes.txt", mediaType: "text/plain" }], { model: "text-model", input: ["text"] }), undefined);

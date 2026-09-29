@@ -13,7 +13,7 @@ test("native tool orientation points at the shared API without an opening protoc
     const orientation = toolOrientationText([evaluator]);
     assert.match(orientation, /typescript_api/);
     assert.match(orientation, /context.functions/);
-    assert.doesNotMatch(orientation, /tool_open|indexiert/);
+    assert.doesNotMatch(orientation, /tool_open|indexed/);
 });
 
 test("plain LLMs receive no TypeScript orientation", () => {
@@ -31,7 +31,7 @@ test("native workspace tools are identified as direct calls alongside TypeScript
         schema: Type.Object({}), resultSchema: Type.Null(), available: () => true, run: () => null,
     });
     const orientation = toolOrientationText([evaluator, native, workflow]);
-    assert.match(orientation, /read \(direktes Werkzeug\)/);
-    assert.match(orientation, /ohne zusätzliche TypeScript-Hülle/);
+    assert.match(orientation, /read \(direct tool\)/);
+    assert.match(orientation, /without an extra TypeScript wrapper/);
     assert.match(orientation, /- implementation_status: Read workflow state/);
 });

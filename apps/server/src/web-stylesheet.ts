@@ -25,13 +25,13 @@ const classListFile = (plugin: ResolvedPlugin): string | undefined =>
 
 const readClassList = async (plugin: ResolvedPlugin, file: string): Promise<string> =>
   readFile(file, "utf8").catch((cause: unknown) => {
-    throw new Error(`Das Bundle ${plugin.id} hat keine lesbare Klassenliste ${file}; ${rebuildHint(plugin.folder)}`, { cause });
+    throw new Error(`The bundle ${plugin.id} has no readable class list ${file}; ${rebuildHint(plugin.folder)}`, { cause });
   });
 
 const parsedClasses = (plugin: ResolvedPlugin, file: string, text: string): readonly string[] => {
   const classes = JSON.parse(text) as unknown;
   if (!Array.isArray(classes) || classes.some((entry) => typeof entry !== "string")) {
-    throw new Error(`Die Klassenliste ${file} des Bundles ${plugin.id} ist keine Liste von Texten; ${rebuildHint(plugin.folder)}`);
+    throw new Error(`The class list ${file} of the bundle ${plugin.id} is not a list of strings; ${rebuildHint(plugin.folder)}`);
   }
   return classes as readonly string[];
 };

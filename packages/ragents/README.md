@@ -1,12 +1,12 @@
 # @ragents/engine
 
-Die produktneutrale Engine. Alles Fachliche kommt aus Plugins.
+The product-neutral engine. Everything domain-specific comes from plugins.
 
-- `domain/` und `runtime/` sind das Journal-Modell: Run, Actor, ActorInput, Turn, Event,
-  Subscription. Jeder Run ist ein Journal, der Zustand entsteht durch Wiedergabe.
-- `agents/` führt Agenten aus und plant ihre Züge, `drivers/` bindet die Agentenlaufzeit
-  an, `script/` die TypeScript-Actors.
-- `typescript/` ist die Mini-App-Plattform: Compiler, Laufzeitkontext, Schema.
-- `plugin-host.ts` und `plugin-types.ts` sind der Vertrag, gegen den Plugins gebaut werden.
+- `domain/` and `runtime/` are the journal model: run, actor, ActorInput, turn, event,
+  subscription. Every run is a journal, the state results from replay.
+- `agents/` executes agents and schedules their turns, `drivers/` connects the agent runtime,
+  `script/` the TypeScript actors.
+- `typescript/` is the mini-app platform: compiler, run context, schema.
+- `plugin-host.ts` and `plugin-types.ts` are the contract plugins are built against.
 
-Begriffe stehen in `docs/spec/overview.md`, das Warum in `docs/decisions.md`. Tests: `pnpm test` (node --test).
+Terms are in `docs/spec/overview.md`, the why in `docs/decisions.md`. Tests: `pnpm test` (node --test).

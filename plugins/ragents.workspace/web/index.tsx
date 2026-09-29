@@ -19,7 +19,7 @@ export const webPlugin: WebPlugin = {
   workspaceTabs: [{
     readRight: "runs.inspect",
     id: WORKSPACE_FILES_TAB_ID,
-    label: "Dateien",
+    label: "Files",
     order: 260,
     Icon: IconFiles,
     Panel: FileBrowserPanel,

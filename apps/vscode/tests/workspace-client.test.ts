@@ -69,7 +69,7 @@ const started = async (server: StubServer, rg?: string) => {
   };
 };
 
-test("der Arbeitsplatz meldet sich an und führt die Werkzeuge in seinem Ordner aus", async () => {
+test("the workspace registers and runs the tools in its folder", async () => {
   const server = await startStubServer();
   const { client, directory, runs, workspace, call, execute } = await started(server);
   try {
@@ -77,19 +77,19 @@ test("der Arbeitsplatz meldet sich an und führt die Werkzeuge in seinem Ordner 
       label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [directory], runsDirectory: runs,
       ripgrep: ripgrepAvailable(undefined, process.env),
     });
-    await writeFile(join(directory, "notiz.md"), "Grüße\n", "utf8");
-    assert.match(textOf((await execute("read", { path: "notiz.md" })).value), /Grüße/);
-    await execute("write", { path: "neu/datei.txt", content: "inhalt" });
-    assert.equal(await readFile(join(directory, "neu/datei.txt"), "utf8"), "inhalt");
-    await execute("edit", { path: "neu/datei.txt", edits: [{ oldText: "inhalt", newText: "geändert" }] });
-    assert.equal(await readFile(join(directory, "neu/datei.txt"), "utf8"), "geändert");
-    await assert.rejects(execute("read", { path: "/etc/hosts" }), /außerhalb des Arbeitsverzeichnisses/);
-    await assert.rejects(call("read", { path: "hosts" }, "/etc"), /Pfad außerhalb des angebotenen Ordners: \/etc/);
-    const listing = (await execute("files.list", { path: "neu" })).value as { entries: Array<{ name: string }> };
-    assert.deepEqual(listing.entries.map((entry) => entry.name), ["datei.txt"]);
-    assert.deepEqual((await execute("files.read", { path: "neu/datei.txt" })).value, { path: "neu/datei.txt", size: Buffer.byteLength("geändert"), previewable: true, content: "geändert" });
-    await assert.rejects(execute("files.read", { path: "../geheim" }), /Ungültiger Pfad: \.\.\/geheim/);
-    await assert.rejects(execute("grep", {}), /Der Executor kennt die Operation grep nicht/);
+    await writeFile(join(directory, "note.md"), "Café\n", "utf8");
+    assert.match(textOf((await execute("read", { path: "note.md" })).value), /Café/);
+    await execute("write", { path: "new/file.txt", content: "content" });
+    assert.equal(await readFile(join(directory, "new/file.txt"), "utf8"), "content");
+    await execute("edit", { path: "new/file.txt", edits: [{ oldText: "content", newText: "changed café" }] });
+    assert.equal(await readFile(join(directory, "new/file.txt"), "utf8"), "changed café");
+    await assert.rejects(execute("read", { path: "/etc/hosts" }), /outside the working directory/);
+    await assert.rejects(call("read", { path: "hosts" }, "/etc"), /Path outside the offered folder: \/etc/);
+    const listing = (await execute("files.list", { path: "new" })).value as { entries: Array<{ name: string }> };
+    assert.deepEqual(listing.entries.map((entry) => entry.name), ["file.txt"]);
+    assert.deepEqual((await execute("files.read", { path: "new/file.txt" })).value, { path: "new/file.txt", size: Buffer.byteLength("changed café"), previewable: true, content: "changed café" });
+    await assert.rejects(execute("files.read", { path: "../secret" }), /Invalid path: \.\.\/secret/);
+    await assert.rejects(execute("grep", {}), /The executor does not know the operation grep/);
     assert.deepEqual(workspace.binding(directory), { machine: { client: CLIENT_ID, label: "Notebook" }, folder: { path: directory } });
     await execute("stop", null);
     await workspace.unregister();
@@ -103,22 +103,22 @@ test("der Arbeitsplatz meldet sich an und führt die Werkzeuge in seinem Ordner 
   }
 });
 
-test("die Bash des Arbeitsplatzes erbt die Umgebung dieses Rechners, ohne VS-Code-Variablen und ohne BASH_ENV", async () => {
+test("the workspace bash inherits the environment of this machine, without VS Code variables and without BASH_ENV", async () => {
   const server = await startStubServer();
   const { client, directory, runs, execute } = await started(server);
   const startup = join(directory, "startup.sh");
   const names = ["RAGENTS_TEST_OWN_TOOL", "VSCODE_RAGENTS_TEST", "ELECTRON_RAGENTS_TEST", "BASH_ENV"] as const;
   const saved = Object.fromEntries(names.map((name) => [name, process.env[name]]));
   try {
-    await writeFile(startup, "echo startdatei-gelesen\n", "utf8");
-    process.env.RAGENTS_TEST_OWN_TOOL = "vom-benutzer";
+    await writeFile(startup, "echo startup-file-read\n", "utf8");
+    process.env.RAGENTS_TEST_OWN_TOOL = "from-user";
     process.env.VSCODE_RAGENTS_TEST = "editor";
     process.env.ELECTRON_RAGENTS_TEST = "editor";
     process.env.BASH_ENV = startup;
     const output = textOf((await execute("bash", {
-      command: 'printf "%s|%s|%s|%s|%s" "$RAGENTS_TEST_OWN_TOOL" "${VSCODE_RAGENTS_TEST-leer}" "${ELECTRON_RAGENTS_TEST-leer}" "${BASH_ENV-leer}" "$CI"',
+      command: 'printf "%s|%s|%s|%s|%s" "$RAGENTS_TEST_OWN_TOOL" "${VSCODE_RAGENTS_TEST-empty}" "${ELECTRON_RAGENTS_TEST-empty}" "${BASH_ENV-empty}" "$CI"',
     })).value);
-    assert.equal(output.trim(), "vom-benutzer|leer|leer|leer|true");
+    assert.equal(output.trim(), "from-user|empty|empty|empty|true");
   } finally {
     for (const name of names) {
       if (saved[name] === undefined) delete process.env[name];
@@ -131,18 +131,18 @@ test("die Bash des Arbeitsplatzes erbt die Umgebung dieses Rechners, ohne VS-Cod
   }
 });
 
-test("mit mitgebrachtem rg meldet der Arbeitsplatz rg an und seine Bash findet genau dieses zuerst", async () => {
+test("with a bundled rg, the workspace registers rg and its bash finds exactly that one first", async () => {
   const tools = await folder();
   const rg = join(tools, "rg", process.platform === "win32" ? "rg.exe" : "rg");
   await mkdir(join(tools, "rg"), { recursive: true });
-  await writeFile(rg, "#!/bin/sh\necho rg-mitgebracht\n", "utf8");
+  await writeFile(rg, "#!/bin/sh\necho rg-bundled\n", "utf8");
   await chmod(rg, 0o755);
   const server = await startStubServer();
   const { client, directory, runs, execute } = await started(server, rg);
   try {
     assert.equal(server.workspaceClients().get(CLIENT_ID)?.ripgrep, true);
     const output = textOf((await execute("bash", { command: "command -v rg; rg --version" })).value);
-    assert.deepEqual(output.trim().split("\n"), [rg, "rg-mitgebracht"]);
+    assert.deepEqual(output.trim().split("\n"), [rg, "rg-bundled"]);
   } finally {
     client.rpc.close();
     await rm(directory, { recursive: true, force: true });
@@ -152,17 +152,17 @@ test("mit mitgebrachtem rg meldet der Arbeitsplatz rg an und seine Bash findet g
   }
 });
 
-test("ein genanntes rg, das fehlt, lässt die Anmeldung mit Ursache scheitern", async () => {
+test("a named rg that is missing makes the registration fail with a cause", async () => {
   const server = await startStubServer();
   const client = new ServerClient(server.url, undefined);
-  const missing = join(tmpdir(), "ragents-kein-rg", "rg");
+  const missing = join(tmpdir(), "ragents-no-rg", "rg");
   const workspace = new WorkspaceClient(client, {
     id: CLIENT_ID, label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: [tmpdir()], runsDirectory: join(tmpdir(), "ragents-runs"),
   }, { hostRoot: () => undefined, rg: missing });
   try {
     await workspace.register();
     assert.equal(workspace.status.kind, "failed");
-    assert.match(workspace.status.kind === "failed" ? workspace.status.message : "", /Das rg dieses Executors fehlt: .*ragents-kein-rg/);
+    assert.match(workspace.status.kind === "failed" ? workspace.status.message : "", /The rg of this executor is missing: .*ragents-no-rg/);
     assert.equal(server.workspaceClients().has(CLIENT_ID), false);
   } finally {
     await workspace.unregister();
@@ -171,20 +171,20 @@ test("ein genanntes rg, das fehlt, lässt die Anmeldung mit Ursache scheitern", 
   }
 });
 
-test("der neue Ordner eines Runs entsteht im Ordner für Runs des Arbeitsplatzes, und nur dieser eine ist neben den angebotenen erlaubt", async () => {
+test("the new folder of a run is created in the runs folder of the workspace, and only this one is allowed besides the offered ones", async () => {
   const server = await startStubServer();
   const { client, directory, runs, call } = await started(server);
   const own = join(runs, RUN);
   try {
     assert.deepEqual((await call("runFolder.create", null, own)).value, { created: true });
-    assert.deepEqual((await call("runFolder.create", null, own)).value, { created: false }, "ein vorhandener Ordner bleibt, wie er ist");
-    await call("write", { path: "notiz.md", content: "im Ordner des Runs" }, own);
-    assert.equal(await readFile(join(own, "notiz.md"), "utf8"), "im Ordner des Runs");
-    await assert.rejects(call("read", { path: "notiz.md" }, join(runs, "anderer-run")), /Pfad außerhalb des angebotenen Ordners/,
-      "der Ordner eines anderen Runs ist kein Ordner dieses Auftrags");
-    await assert.rejects(call("read", { path: "x" }, runs), /Pfad außerhalb des angebotenen Ordners/, "der Ordner für Runs selbst ist keiner");
+    assert.deepEqual((await call("runFolder.create", null, own)).value, { created: false }, "an existing folder stays as it is");
+    await call("write", { path: "note.md", content: "in the run's folder" }, own);
+    assert.equal(await readFile(join(own, "note.md"), "utf8"), "in the run's folder");
+    await assert.rejects(call("read", { path: "note.md" }, join(runs, "other-run")), /Path outside the offered folder/,
+      "the folder of another run is not a folder of this task");
+    await assert.rejects(call("read", { path: "x" }, runs), /Path outside the offered folder/, "the runs folder itself is not one");
     assert.deepEqual((await call("runFolder.remove", null, own)).value, { removed: true });
-    await assert.rejects(readFile(join(own, "notiz.md"), "utf8"), /ENOENT/);
+    await assert.rejects(readFile(join(own, "note.md"), "utf8"), /ENOENT/);
   } finally {
     client.rpc.close();
     await rm(directory, { recursive: true, force: true });
@@ -193,27 +193,27 @@ test("der neue Ordner eines Runs entsteht im Ordner für Runs des Arbeitsplatzes
   }
 });
 
-test("bash liefert Ausgabe als Fortschritt, Exit-Code, Teilergebnis bei Abbruch und Zeitüberschreitung", async () => {
+test("bash delivers output as progress, exit code, partial result on cancel and timeout", async () => {
   const server = await startStubServer();
   const { client, directory, execute } = await started(server);
   try {
     const greeting: string[] = [];
-    const finished = await execute("bash", { command: "printf hallo-$RAGENTS_RUN_ID; exit 3" }, {
+    const finished = await execute("bash", { command: "printf hello-$RAGENTS_RUN_ID; exit 3" }, {
       onProgress: (value) => greeting.push((value as { text: string }).text),
     });
-    assert.match(textOf(finished.value), /hallo-run-a/);
+    assert.match(textOf(finished.value), /hello-run-a/);
     assert.match(textOf(finished.value), /Command exited with code 3/);
-    await waitFor(() => greeting.some((text) => text.includes("hallo-run-a")));
+    await waitFor(() => greeting.some((text) => text.includes("hello-run-a")));
 
     const long: string[] = [];
     const controller = new AbortController();
-    const pending = execute("bash", { command: "printf gestartet; sleep 30" }, {
+    const pending = execute("bash", { command: "printf started; sleep 30" }, {
       onProgress: (value) => long.push((value as { text: string }).text),
       signal: controller.signal,
     });
-    await waitFor(() => long.some((text) => text.includes("gestartet")));
+    await waitFor(() => long.some((text) => text.includes("started")));
     controller.abort();
-    assert.match(textOf((await pending).value), /gestartet/);
+    assert.match(textOf((await pending).value), /started/);
 
     await assert.rejects(execute("bash", { command: "sleep 30", timeout: 1 }), /Command stopped after 1 seconds \(timeout\)/);
   } finally {
@@ -223,15 +223,15 @@ test("bash liefert Ausgabe als Fortschritt, Exit-Code, Teilergebnis bei Abbruch 
   }
 });
 
-test("ein Stopp über dieselbe Verbindung läuft durch, während ein Auftrag des Arbeitsplatzes offen ist", async () => {
+test("a stop over the same connection goes through while a workspace task is open", async () => {
   const server = await startStubServer();
   const { client, directory, execute } = await started(server);
   try {
     const output: string[] = [];
-    const running = execute("bash", { command: "printf gestartet; sleep 30" }, {
+    const running = execute("bash", { command: "printf started; sleep 30" }, {
       onProgress: (value) => output.push((value as { text: string }).text),
     });
-    await waitFor(() => output.some((text) => text.includes("gestartet")));
+    await waitFor(() => output.some((text) => text.includes("started")));
     await client.rpc.call(runContracts.stopAll, { runId: RUN, commandId: "stop-1", reason: "Test" }, { timeoutMs: 5000 });
     await running.catch(() => undefined);
   } finally {
@@ -243,13 +243,13 @@ test("ein Stopp über dieselbe Verbindung läuft durch, während ein Auftrag des
 
 const HOST_ROOT = resolve(import.meta.dirname, "../../..");
 
-/** Der TypeScript-Beitrag aus den gebauten Bundles dieses Checkouts, so wie ein Server ihn verlangt. */
+/** The TypeScript contribution from the built bundles of this checkout, as a server requires it. */
 const typescriptContribution = async (): Promise<ExecutorContributionStand> => {
   const { plugin, stand } = await loadExecutorContribution("ragents.lsp-typescript", join(HOST_ROOT, "bundles", "ragents.lsp-typescript", EXECUTOR_CONTRIBUTION_FILE));
   return { plugin, stand };
 };
 
-/** Ein Arbeitsplatz mit dem TypeScript-Sprachserver aus dem Host dieses Checkouts; der Sprachserver-Host hält Zustand über Aufrufe hinweg. */
+/** A workspace with the TypeScript language server from the host of this checkout; the language server host keeps state across calls. */
 const withLanguageServer = async (server: StubServer) => {
   const client = new ServerClient(server.url, undefined);
   const directory = await folder();
@@ -258,7 +258,7 @@ const withLanguageServer = async (server: StubServer) => {
   }, { hostRoot: () => HOST_ROOT });
   const execute = (operation: string, input: unknown) => {
     const connection = server.workspaceConnection(CLIENT_ID);
-    assert.ok(connection, "der Arbeitsplatz ist beim Server angemeldet");
+    assert.ok(connection, "the workspace is registered with the server");
     return connection.call(workspaceClientContracts.execute, { runId: RUN, operation, cwd: directory, env: { [RUN_MARKER_ENV]: RUN }, input });
   };
   return {
@@ -277,12 +277,12 @@ const withLanguageServer = async (server: StubServer) => {
   };
 };
 
-test("nach leeren Ordnern und erneutem Angebot öffnet der Arbeitsplatz wieder Sprachserver", { timeout: 120_000 }, async () => {
+test("after empty folders and a new offer, the workspace opens language servers again", { timeout: 120_000 }, async () => {
   const server = await startStubServer({ contributions: [await typescriptContribution()] });
   const { directory, workspace, open, states, close } = await withLanguageServer(server);
   try {
     await workspace.register();
-    assert.match(await open(), /1 offene Instanz von TypeScript/);
+    assert.match(await open(), /1 open instance of TypeScript/);
 
     await workspace.update([]);
     assert.deepEqual(workspace.status, { kind: "idle" });
@@ -292,20 +292,20 @@ test("nach leeren Ordnern und erneutem Angebot öffnet der Arbeitsplatz wieder S
     await workspace.register();
     assert.deepEqual(workspace.status, { kind: "registered" });
     assert.deepEqual(await states(), []);
-    assert.match(await open(), /1 offene Instanz von TypeScript/);
+    assert.match(await open(), /1 open instance of TypeScript/);
     assert.deepEqual(await states(), ["ready"]);
   } finally {
     await close();
   }
 });
 
-test("eine Abmeldung, die beim erneuten Angebot noch läuft, entfernt die neue Anmeldung beim Server nicht",{ timeout: 120_000 }, async () => {
+test("an unregistration still running during the new offer does not remove the new registration at the server",{ timeout: 120_000 }, async () => {
   const server = await startStubServer({ contributions: [await typescriptContribution()] });
   const { client, directory, workspace, open, close } = await withLanguageServer(server);
   const unsubscribe = client.rpc.subscribe(coreContracts.channels.runs, {}, () => undefined);
   try {
     await workspace.register();
-    assert.match(await open(), /1 offene Instanz von TypeScript/);
+    assert.match(await open(), /1 open instance of TypeScript/);
 
     const emptied = workspace.update([]);
     await workspace.update([directory]);
@@ -313,18 +313,18 @@ test("eine Abmeldung, die beim erneuten Angebot noch läuft, entfernt die neue A
     await emptied;
     assert.deepEqual(workspace.status, { kind: "registered" });
     assert.deepEqual(server.workspaceClients().get(CLIENT_ID)?.folders, [directory]);
-    assert.match(await open(), /1 offene Instanz von TypeScript/);
+    assert.match(await open(), /1 open instance of TypeScript/);
   } finally {
     unsubscribe();
     await close();
   }
 });
 
-test("ohne verlangte Beiträge kennt der Executor des Arbeitsplatzes keinen Sprachserver", async () => {
+test("without required contributions, the workspace executor knows no language server", async () => {
   const server = await startStubServer();
   const { client, execute, workspace, directory, runs } = await started(server);
   try {
-    await assert.rejects(execute(languageServerSnapshotOperation(typescriptLanguageServer.id), null), /Der Executor kennt die Operation typescript_snapshot nicht/);
+    await assert.rejects(execute(languageServerSnapshotOperation(typescriptLanguageServer.id), null), /The executor does not know the operation typescript_snapshot/);
     await workspace.unregister();
   } finally {
     client.rpc.close();
@@ -334,11 +334,11 @@ test("ohne verlangte Beiträge kennt der Executor des Arbeitsplatzes keinen Spra
   }
 });
 
-test("ein fehlendes Bundle, ein anderer Stand oder ein fehlender Host lassen die Anmeldung mit Ursache scheitern", async () => {
+test("a missing bundle, a different revision, or a missing host make the registration fail with a cause", async () => {
   const cases: Array<{ contributions: ExecutorContributionStand[]; hostRoot: string | undefined; expected: RegExp; mismatch: boolean }> = [
-    { contributions: [{ plugin: "acme.fehlt", stand: "0".repeat(64) }], hostRoot: HOST_ROOT, expected: /Der Executor-Beitrag von acme\.fehlt fehlt unter .*acme\.fehlt[/\\]executor[/\\]index\.mjs.*muss dieselben Bundles tragen wie der Server/, mismatch: true },
-    { contributions: [{ plugin: "ragents.lsp-typescript", stand: "0".repeat(64) }], hostRoot: HOST_ROOT, expected: /hat den Stand [0-9a-f]{12}, verlangt ist 000000000000\. Der Host dieses Arbeitsplatzes/, mismatch: true },
-    { contributions: [await typescriptContribution()], hostRoot: undefined, expected: /Der Server verlangt die Executor-Beiträge von ragents\.lsp-typescript; dieser Arbeitsplatz kennt keinen Host/, mismatch: false },
+    { contributions: [{ plugin: "acme.missing", stand: "0".repeat(64) }], hostRoot: HOST_ROOT, expected: /The executor contribution of acme\.missing is missing at .*acme\.missing[/\\]executor[/\\]index\.mjs.*must carry the same bundles as the server/, mismatch: true },
+    { contributions: [{ plugin: "ragents.lsp-typescript", stand: "0".repeat(64) }], hostRoot: HOST_ROOT, expected: /has the version [0-9a-f]{12}, required is 000000000000\. The host of this workstation/, mismatch: true },
+    { contributions: [await typescriptContribution()], hostRoot: undefined, expected: /The server requires the executor contributions of ragents\.lsp-typescript; this workstation knows no host/, mismatch: false },
   ];
   for (const { contributions, hostRoot, expected, mismatch } of cases) {
     const server = await startStubServer({ contributions });
@@ -351,8 +351,8 @@ test("ein fehlendes Bundle, ein anderer Stand oder ein fehlender Host lassen die
       await workspace.register();
       assert.equal(workspace.status.kind, "failed");
       assert.match((workspace.status as { message: string }).message, expected);
-      assert.equal((workspace.status as { mismatch: boolean }).mismatch, mismatch, "nur ein anderer Stand ist ein Unterschied der Fassung");
-      assert.equal(server.workspaceClients().has(CLIENT_ID), false, "der Server sieht keine Anmeldung");
+      assert.equal((workspace.status as { mismatch: boolean }).mismatch, mismatch, "only a different revision is a version difference");
+      assert.equal(server.workspaceClients().has(CLIENT_ID), false, "the server sees no registration");
       await workspace.unregister();
     } finally {
       client.rpc.close();
@@ -362,7 +362,7 @@ test("ein fehlendes Bundle, ein anderer Stand oder ein fehlender Host lassen die
   }
 });
 
-test("ein toter Server wird als Fehler gemeldet", async () => {
+test("a dead server is reported as an error", async () => {
   const offline = new ServerClient("http://127.0.0.1:1", undefined);
   const dead = new WorkspaceClient(offline, {
     id: "vscode-offline", label: "Notebook", hostname: "notebook.local", platform: process.platform, folders: ["/tmp"], runsDirectory: "/tmp/ragents-runs",

@@ -46,7 +46,7 @@ const strippedOf = (value: string) => value.trim().replace(/^@/, "");
 
 const referenceOf = (what: string, value: unknown): string => {
     if (typeof value !== "string" || !strippedOf(value))
-        throw new ScriptError(`${where}: ${what} muss eine Actor-ID oder ein Handle als nicht leerer Text sein.`);
+        throw new ScriptError(`${where}: ${what} must be an actor ID or a handle as non-empty text.`);
 
     return strippedOf(value);
 };
@@ -55,7 +55,7 @@ const keysOf = (references: readonly string[]): MediatorKeys => {
     const folded = new Map(references.map((reference) => [handleKey(reference), reference] as const));
 
     if (folded.size !== references.length)
-        throw new ScriptError(`${where}: table nennt denselben Beteiligten doppelt.`);
+        throw new ScriptError(`${where}: table names the same participant twice.`);
 
     return { all: references, exact: new Set(references), folded };
 };
@@ -70,9 +70,9 @@ const senderKeyOf = (keys: MediatorKeys, event: MediatorEvent): string | null =>
 
 const unknownTarget = (what: string, reference: string, keys: MediatorKeys): never => {
     throw new ScriptError(
-        `${where}: ${what} steht nicht als Schlüssel in der Tabelle. `
-        + `Die Tabelle kennt: ${keys.all.join(", ")}. `
-        + `Ein reiner Empfänger gehört als "${reference}": null in die Tabelle.`,
+        `${where}: ${what} is not a key in the table. `
+        + `The table knows: ${keys.all.join(", ")}. `
+        + `A pure recipient belongs in the table as "${reference}": null.`,
     );
 };
 
@@ -81,17 +81,17 @@ const targetsOf = (sender: string, value: unknown, keys: MediatorKeys): Mediator
 
     if (!Array.isArray(value))
         throw new ScriptError(
-            `${where}: die Ziele von ${sender} müssen eine Liste von Actor-IDs oder Handles, eine Funktion oder null sein.`,
+            `${where}: the targets of ${sender} must be a list of actor IDs or handles, a function or null.`,
         );
 
     const ids = value.map((entry) => {
-        const reference = referenceOf(`ein Ziel von ${sender}`, entry);
+        const reference = referenceOf(`a target of ${sender}`, entry);
 
-        return keyOf(keys, reference) ?? unknownTarget(`das Ziel ${reference} von ${sender}`, reference, keys);
+        return keyOf(keys, reference) ?? unknownTarget(`the target ${reference} of ${sender}`, reference, keys);
     });
 
     if (new Set(ids).size !== ids.length)
-        throw new ScriptError(`${where}: die Ziele von ${sender} nennen denselben Empfänger doppelt.`);
+        throw new ScriptError(`${where}: the targets of ${sender} name the same recipient twice.`);
 
     return { kind: "list", ids };
 };
@@ -100,10 +100,10 @@ const tableOf = (value: unknown): { readonly table: ReadonlyMap<string, Mediator
     const record = recordOf(value);
 
     if (!record)
-        throw new ScriptError(`${where}: table muss eine Routing-Tabelle von Absender auf Ziele sein.`);
+        throw new ScriptError(`${where}: table must be a routing table from sender to targets.`);
 
     const entries = Object.entries(record)
-        .map(([reference, targets]) => [referenceOf("jeder Schlüssel von table", reference), targets] as const);
+        .map(([reference, targets]) => [referenceOf("every key of table", reference), targets] as const);
     const keys = keysOf(entries.map(([key]) => key));
     const table = new Map<string, MediatorTargets>();
 
@@ -114,7 +114,7 @@ const tableOf = (value: unknown): { readonly table: ReadonlyMap<string, Mediator
     }
 
     if (table.size === 0)
-        throw new ScriptError(`${where}: table muss mindestens einen Absender enthalten.`);
+        throw new ScriptError(`${where}: table must contain at least one sender.`);
 
     return { table, keys };
 };
@@ -123,7 +123,7 @@ const startOf = (value: unknown, keys: MediatorKeys): MediatorStart => {
     const start = recordOf(value);
 
     if (!start || typeof start.text !== "string" || !start.text.trim())
-        throw new ScriptError(`${where}: start braucht text als erste Zeile des Protokolls und to als Empfänger.`);
+        throw new ScriptError(`${where}: start needs text as the first line of the protocol and to as the recipient.`);
 
     const to = referenceOf("start.to", start.to);
 
@@ -132,13 +132,13 @@ const startOf = (value: unknown, keys: MediatorKeys): MediatorStart => {
 
 const hookOf = (name: string, value: unknown, required: boolean): MediatorHook | null => {
     if (value === undefined || value === null) {
-        if (required) throw new ScriptError(`${where}: ${name} muss eine Funktion sein.`);
+        if (required) throw new ScriptError(`${where}: ${name} must be a function.`);
 
         return null;
     }
 
     if (typeof value !== "function")
-        throw new ScriptError(`${where}: ${name} muss eine Funktion sein.`);
+        throw new ScriptError(`${where}: ${name} must be a function.`);
 
     return value as MediatorHook;
 };
@@ -147,17 +147,17 @@ const configOf = (value: unknown): MediatorConfig => {
     const config = recordOf(value);
 
     if (!config)
-        throw new ScriptError(`${where} erwartet ein Konfigurationsobjekt.`);
+        throw new ScriptError(`${where} expects a configuration object.`);
 
     const label = config.label;
 
     if (label !== "handle" && label !== "none")
-        throw new ScriptError(`${where}: label muss "handle" oder "none" sein.`);
+        throw new ScriptError(`${where}: label must be "handle" or "none".`);
 
     const maxEntries = config.maxEntries;
 
     if (typeof maxEntries !== "number" || !Number.isSafeInteger(maxEntries) || maxEntries < 1)
-        throw new ScriptError(`${where}: maxEntries muss eine ganze Zahl ab 1 sein.`);
+        throw new ScriptError(`${where}: maxEntries must be an integer of at least 1.`);
 
     const { table, keys } = tableOf(config.table);
 
@@ -177,7 +177,7 @@ const entryOf = (value: unknown): MediatorEntry => {
     const entry = recordOf(value);
 
     if (!entry || (entry.from !== null && typeof entry.from !== "string") || typeof entry.text !== "string")
-        throw new ScriptError("Der Zustand des Vermittlers enthält einen Eintrag ohne from und text.");
+        throw new ScriptError("The state of the mediator contains an entry without from and text.");
 
     return { from: entry.from as string | null, text: entry.text };
 };
@@ -188,7 +188,7 @@ const stateOf = (value: unknown): MediatorState | null => {
     const state = recordOf(value);
 
     if (!state || !Array.isArray(state.entries) || typeof state.done !== "boolean")
-        throw new ScriptError("Der Zustand des Vermittlers gehört nicht zu dieser Bibliothek.");
+        throw new ScriptError("The state of the mediator does not belong to this library.");
 
     return { entries: state.entries.map(entryOf), done: state.done };
 };
@@ -200,7 +200,7 @@ const eventOf = (value: unknown): MediatorEvent | null => {
 
     if (!event || typeof event.type !== "string" || typeof event.sourceActorId !== "string"
         || typeof event.sourceActorHandle !== "string")
-        throw new ScriptError("Das zugestellte Event trägt keinen Typ und keinen Absender.");
+        throw new ScriptError("The delivered event carries no type and no sender.");
 
     return { type: event.type, sourceActorId: event.sourceActorId, sourceActorHandle: event.sourceActorHandle };
 };
@@ -209,7 +209,7 @@ const inputOf = (value: unknown): MediatorInput => {
     const input = recordOf(value);
 
     if (!input || typeof input.content !== "string")
-        throw new ScriptError("Der Vermittler hat keinen ActorInput mit Textfeld content bekommen.");
+        throw new ScriptError("The mediator did not receive an ActorInput with the text field content.");
 
     return { content: input.content, event: eventOf(input.event) };
 };
@@ -219,7 +219,7 @@ const lastLineOf = (content: string, from: string): string => {
     const last = lines[lines.length - 1];
 
     if (last === undefined)
-        throw new ScriptError(`Die Antwort von @${from} enthält keine nicht-leere Zeile.`);
+        throw new ScriptError(`The answer from @${from} contains no non-empty line.`);
 
     return last;
 };
@@ -237,7 +237,7 @@ const mediatorHandler = (binding: MediatorBinding, value: unknown) => {
         try {
             await run(...args);
         } catch (error) {
-            throw new ScriptError(`Der Hook ${name} des Vermittlers ist gescheitert: ${messageOf(error)}`);
+            throw new ScriptError(`The hook ${name} of the mediator failed: ${messageOf(error)}`);
         }
     };
 
@@ -248,7 +248,7 @@ const mediatorHandler = (binding: MediatorBinding, value: unknown) => {
 
         if (!Array.isArray(values))
             throw new ScriptError(
-                `Die Zielfunktion für ${sender} muss eine Actor-ID, ein Handle, eine Liste davon oder null liefern.`,
+                `The target function for ${sender} must return an actor ID, a handle, a list of them or null.`,
             );
 
         return values.map((id) => {
@@ -256,8 +256,8 @@ const mediatorHandler = (binding: MediatorBinding, value: unknown) => {
 
             if (key === null)
                 throw new ScriptError(
-                    `Die Zielfunktion für ${sender} nennt das unbekannte Ziel ${String(id)}. `
-                    + `Die Tabelle kennt: ${config.keys.all.join(", ")}.`,
+                    `The target function for ${sender} names the unknown target ${String(id)}. `
+                    + `The table knows: ${config.keys.all.join(", ")}.`,
                 );
 
             return key;
@@ -268,7 +268,7 @@ const mediatorHandler = (binding: MediatorBinding, value: unknown) => {
         try {
             return await run(entry);
         } catch (error) {
-            throw new ScriptError(`Die Zielfunktion für ${sender} ist gescheitert: ${messageOf(error)}`);
+            throw new ScriptError(`The target function for ${sender} failed: ${messageOf(error)}`);
         }
     };
 
@@ -305,7 +305,7 @@ const mediatorHandler = (binding: MediatorBinding, value: unknown) => {
 
         if (input.event === null) {
             if (current)
-                throw new ScriptError("Der Vermittler ist bereits eingerichtet; ein zweiter direkter ActorInput ist nicht vorgesehen.");
+                throw new ScriptError("The mediator is already set up; a second direct ActorInput is not intended.");
 
             await binding.capabilities.call("event_subscribe", {
                 sourceActorIds: [...config.table.keys()],
@@ -317,24 +317,24 @@ const mediatorHandler = (binding: MediatorBinding, value: unknown) => {
         }
 
         if (!current)
-            throw new ScriptError("Der Vermittler ist noch nicht eingerichtet; der erste ActorInput muss ohne Event kommen.");
+            throw new ScriptError("The mediator is not set up yet; the first ActorInput must come without an event.");
 
         if (current.done) return;
 
         const event = input.event;
 
         if (event.type !== mediatorEventType)
-            throw new ScriptError(`Der Vermittler nimmt nur ${mediatorEventType} an, hier kam ${event.type}.`);
+            throw new ScriptError(`The mediator only accepts ${mediatorEventType}, here ${event.type} arrived.`);
 
         const senderKey = senderKeyOf(config.keys, event);
         const targets = senderKey === null ? undefined : config.table.get(senderKey);
 
         if (senderKey === null || !targets)
             throw new ScriptError(
-                `Der Absender ${event.sourceActorId} mit dem Handle ${event.sourceActorHandle} `
-                + `kommt in der Tabelle nicht als Absender vor. `
-                + `Absender sind: ${[...config.table.keys()].join(", ")}. `
-                + `Ein Schlüssel darf die Actor-ID, der Handle oder @handle sein.`,
+                `The sender ${event.sourceActorId} with the handle ${event.sourceActorHandle} `
+                + `does not appear in the table as a sender. `
+                + `Senders are: ${[...config.table.keys()].join(", ")}. `
+                + `A key may be the actor ID, the handle or @handle.`,
             );
 
         const entry: MediatorEntry = {

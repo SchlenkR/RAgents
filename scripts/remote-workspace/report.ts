@@ -1,4 +1,4 @@
-export type Outcome = "ok" | "FEHLER" | "übersprungen";
+export type Outcome = "ok" | "FAILED" | "skipped";
 
 export interface CheckResult {
   readonly area: string;
@@ -7,7 +7,7 @@ export interface CheckResult {
   readonly detail: string;
 }
 
-/** Was eine Prüfung zurückgibt: einen Wert für die folgenden Prüfungen und eine Zeile für den Bericht. */
+/** What a check returns: a value for the following checks and a line for the report. */
 export interface Checked<T> {
   readonly value: T;
   readonly detail: string;
@@ -15,7 +15,7 @@ export interface Checked<T> {
 
 export const passed = (detail: string): Checked<true> => ({ value: true, detail });
 
-/** Eine Bedingung der Prüfung; die Meldung wird die Ursache in der Zeile FEHLER. */
+/** A condition of the check; the message becomes the cause in the FAILED line. */
 export function expect(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
@@ -24,7 +24,7 @@ const messageOf = (error: unknown): string => error instanceof Error ? error.mes
 
 const AREA_WIDTH = 14;
 
-/** Sammelt die Prüfungen in Reihenfolge und schreibt je Prüfung genau eine Zeile. */
+/** Collects the checks in order and writes exactly one line per check. */
 export class Report {
   readonly #results: CheckResult[] = [];
   readonly #write: (line: string) => void;
@@ -42,7 +42,7 @@ export class Report {
     return this.#results.some((result) => result.outcome !== "ok");
   }
 
-  /** Nach einem Abbruch startet keine Prüfung mehr, und eine laufende meldet nichts mehr; nur das Aufräumen läuft über final weiter. */
+  /** After an abort no check starts anymore, and a running one reports nothing more; only the cleanup continues through final. */
   abort(): void {
     this.#aborted = true;
   }
@@ -60,7 +60,7 @@ export class Report {
     const outcome = await run().then((checked) => ({ checked }), (error: unknown) => ({ error }));
     if (abortable && this.#aborted) return undefined;
     if ("error" in outcome) {
-      this.#add({ area, title, outcome: "FEHLER", detail: messageOf(outcome.error) });
+      this.#add({ area, title, outcome: "FAILED", detail: messageOf(outcome.error) });
       return undefined;
     }
     this.#add({ area, title, outcome: "ok", detail: `${outcome.checked.detail} (${((Date.now() - started) / 1000).toFixed(1)} s)` });
@@ -69,17 +69,17 @@ export class Report {
 
   skip(area: string, titles: readonly string[], reason: string): void {
     if (this.#aborted) return;
-    for (const title of titles) this.#add({ area, title, outcome: "übersprungen", detail: reason });
+    for (const title of titles) this.#add({ area, title, outcome: "skipped", detail: reason });
   }
 
   summary(): string {
     const count = (outcome: Outcome) => this.#results.filter((result) => result.outcome === outcome).length;
-    return `${count("ok")} ok, ${count("FEHLER")} FEHLER, ${count("übersprungen")} übersprungen`;
+    return `${count("ok")} ok, ${count("FAILED")} FAILED, ${count("skipped")} skipped`;
   }
 
   #add(result: CheckResult): void {
     this.#results.push(result);
-    const marker = result.outcome === "ok" ? "ok    " : result.outcome === "FEHLER" ? "FEHLER" : "--    ";
+    const marker = result.outcome === "ok" ? "ok    " : result.outcome === "FAILED" ? "FAILED" : "--    ";
     const [first, ...rest] = result.detail.split("\n");
     this.#write(`${marker}  ${result.area.padEnd(AREA_WIDTH)} ${result.title}: ${first}`);
     for (const line of rest) this.#write(`${" ".repeat(8 + AREA_WIDTH + 1)}${line}`);

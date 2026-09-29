@@ -1,30 +1,30 @@
-# RAgents JSON-RPC-API
+# RAgents JSON-RPC API
 
-Diese Referenz entsteht aus den registrierten Verträgen. Interne und externe Clients verwenden dieselben Methoden.
+This reference is generated from the registered contracts. Internal and external clients use the same methods.
 
-Die API ist JSON-RPC 2.0. Eine Anfrage ist ein Objekt mit jsonrpc, id, method und params; params ist immer das Eingabeobjekt der Methode. Die Antwort enthält result oder error; error.data nennt code und status des Fehlers.
+The API is JSON-RPC 2.0. A request is an object with jsonrpc, id, method and params; params is always the method's input object. The response contains result or error; error.data names the error's code and status.
 
-Transporte:
+Transports:
 
-- HTTP: `POST /rpc` mit genau einer Nachricht je Anfrage. `GET /rpc/stream` liefert als Server-Sent-Events die Benachrichtigungen und Anfragen des Servers; das erste Ereignis `hello` nennt die Verbindungskennung, die weitere Anfragen im Header `x-ragents-connection` mitsenden.
-- stdio: der Server startet mit `--stdio` und tauscht eine JSON-Nachricht je Zeile über stdin und stdout aus.
+- HTTP: `POST /rpc` with exactly one message per request. `GET /rpc/stream` delivers the server's notifications and requests as server-sent events; the first event `hello` names the connection id, which further requests send in the header `x-ragents-connection`.
+- stdio: the server starts with `--stdio` and exchanges one JSON message per line over stdin and stdout.
 
-Feste Methoden der Nachrichtenschicht: rpc.subscribe, rpc.unsubscribe, rpc.event, rpc.cancel und rpc.progress. Ein Abonnement nennt channel und params und erhält eine Abonnementkennung; jede Nachricht des Kanals kommt als rpc.event.
+Fixed methods of the message layer: rpc.subscribe, rpc.unsubscribe, rpc.event, rpc.cancel and rpc.progress. A subscription names channel and params and receives a subscription id; every message of the channel arrives as rpc.event.
 
-Dieses Profil verlangt keine Anmeldung. Profile mit users verwenden Sitzungscookies; ohne users kann ACCESS_TOKEN den bisherigen Zugang schützen.
+This profile requires no sign-in. Profiles with users use session cookies; without users, ACCESS_TOKEN can protect the existing access.
 
-Die Shellvariable RAGENTS_API_BASE_URL enthält die Serveradresse. Falls RAGENTS_API_TOKEN gesetzt ist, bei Anfragen den Header Authorization: Bearer <Token> senden. Der Token gehört nicht in Ausgaben oder Dokumente.
+The shell variable RAGENTS_API_BASE_URL contains the server address. If RAGENTS_API_TOKEN is set, send the header Authorization: Bearer <token> with requests. The token does not belong in output or documents.
 
 ```sh
 curl -s "$RAGENTS_API_BASE_URL/rpc" -H 'content-type: application/json' \
   -d '{"jsonrpc":"2.0","id":1,"method":"ragents.overseer.coordinator","params":{}}'
 ```
 
-Kennungen aus Ergebnissen werden programmgesteuert weiterverwendet, nicht abgeschrieben.
+Ids from results are reused programmatically, not copied by hand.
 
-## Methodenübersicht
+## Method overview
 
-| Methode | Eigentümer | Rechte |
+| Method | Owner | Rights |
 | --- | --- | --- |
 | ragents.actor-programs.action | ragents.actor-programs | runs.read, runs.write |
 | ragents.actor-programs.apps | ragents.actor-programs | runs.read |
@@ -33,12 +33,12 @@ Kennungen aus Ergebnissen werden programmgesteuert weiterverwendet, nicht abgesc
 | ragents.actor-programs.invocation | ragents.actor-programs | runs.read |
 | ragents.actor-programs.source | ragents.actor-programs | runs.read, runs.inspect |
 | ragents.ask.answer | ragents.ask | runs.read, runs.write |
-| ragents.chat.actorHistory | host | keine festen Rechte |
-| ragents.chat.capabilities | host | keine festen Rechte |
-| ragents.chat.send | host | keine festen Rechte |
-| ragents.chat.sendToActor | host | keine festen Rechte |
-| ragents.chat.start | host | keine festen Rechte |
-| ragents.chat.stop | host | keine festen Rechte |
+| ragents.chat.actorHistory | host | no fixed rights |
+| ragents.chat.capabilities | host | no fixed rights |
+| ragents.chat.send | host | no fixed rights |
+| ragents.chat.sendToActor | host | no fixed rights |
+| ragents.chat.start | host | no fixed rights |
+| ragents.chat.stop | host | no fixed rights |
 | ragents.documents.files | ragents.documents | runs.read |
 | ragents.external.set | host | settings.write |
 | ragents.lsp-fsharp.snapshot | ragents.lsp-fsharp | runs.read, ragents.lsp-fsharp.read |
@@ -59,24 +59,24 @@ Kennungen aus Ergebnissen werden programmgesteuert weiterverwendet, nicht abgesc
 | ragents.overseer.settings.read | ragents.overseer | ragents.overseer.read |
 | ragents.overseer.settings.save | ragents.overseer | ragents.overseer.read, ragents.overseer.write, settings.write |
 | ragents.overseer.stopRun | ragents.overseer | runs.read, runs.write |
-| ragents.plugins.bootstrap | host | keine festen Rechte |
+| ragents.plugins.bootstrap | host | no fixed rights |
 | ragents.processes.snapshot | ragents.processes | runs.read, ragents.processes.read |
 | ragents.processes.stop | ragents.processes | runs.read, runs.write, runs.inspect |
 | ragents.product.modelSettings.read | ragents.product | settings.read |
 | ragents.product.modelSettings.save | ragents.product | settings.read, settings.write |
 | ragents.runs.delete | host | runs.read, runs.delete |
-| ragents.runs.enqueueInput | host | keine festen Rechte |
-| ragents.runs.events | host | keine festen Rechte |
+| ragents.runs.enqueueInput | host | no fixed rights |
+| ragents.runs.events | host | no fixed rights |
 | ragents.runs.export | host | runs.read, runs.inspect |
 | ragents.runs.import | host | runs.read, runs.write, runs.create |
-| ragents.runs.interruptTurn | host | keine festen Rechte |
+| ragents.runs.interruptTurn | host | no fixed rights |
 | ragents.runs.list | host | runs.read |
 | ragents.runs.prepare | host | runs.read, runs.write, runs.create |
-| ragents.runs.resolveAction | host | keine festen Rechte |
-| ragents.runs.restartActor | host | keine festen Rechte |
-| ragents.runs.stopActor | host | keine festen Rechte |
-| ragents.runs.stopAll | host | keine festen Rechte |
-| ragents.runs.view | host | keine festen Rechte |
+| ragents.runs.resolveAction | host | no fixed rights |
+| ragents.runs.restartActor | host | no fixed rights |
+| ragents.runs.stopActor | host | no fixed rights |
+| ragents.runs.stopAll | host | no fixed rights |
+| ragents.runs.view | host | no fixed rights |
 | ragents.settings.read | host | settings.read |
 | ragents.settings.skill | host | settings.read |
 | ragents.settings.titles.read | host | settings.read |
@@ -90,23 +90,23 @@ Kennungen aus Ergebnissen werden programmgesteuert weiterverwendet, nicht abgesc
 | ragents.workspace.clients.register | ragents.workspace | runs.write |
 | ragents.workspace.clients.unregister | ragents.workspace | runs.write |
 
-## Kanalübersicht
+## Channel overview
 
-| Kanal | Eigentümer | Rechte |
+| Channel | Owner | Rights |
 | --- | --- | --- |
-| ragents.chat | host | keine festen Rechte |
+| ragents.chat | host | no fixed rights |
 | ragents.processes | ragents.processes | runs.read, ragents.processes.read |
-| ragents.run | host | keine festen Rechte |
+| ragents.run | host | no fixed rights |
 | ragents.runs | host | runs.read |
 | ragents.workspace.browse | ragents.workspace | runs.read, runs.inspect |
 
 ## ragents.actor-programs.action
 
-Eine Funktion einer Actor-Ansicht starten; die Antwort ist der eingereihte Aufruf.
+Start a function of an actor view; the response is the queued call.
 
-Eigentümer: ragents.actor-programs. Rechte: runs.read, runs.write. Ausführung: der Server.
+Owner: ragents.actor-programs. Rights: runs.read, runs.write. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -123,38 +123,38 @@ Eigentümer: ragents.actor-programs. Rechte: runs.read, runs.write. Ausführung:
     "runId": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_-]{1,64}$",
-      "description": "Kennung des Runs"
+      "description": "Identifier of the run"
     },
     "appId": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9_-]{0,129}$",
-      "description": "Kennung der Actor-Ansicht oder des Programms"
+      "description": "Identifier of the actor view or the program"
     },
     "revision": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$",
-      "description": "Revision des aktiven Actor-Pakets"
+      "description": "Revision of the active actor package"
     },
     "actionId": {
       "type": "string",
       "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$",
-      "description": "Kennung der Funktion"
+      "description": "Identifier of the function"
     },
     "requestId": {
       "type": "string",
       "minLength": 1,
       "maxLength": 200,
-      "description": "Eigene Kennung des Aufrufers; wiederholte Aufrufe liefern denselben Aufruf"
+      "description": "The caller's own identifier; repeated calls return the same call"
     },
     "input": {
-      "description": "Eingabe der Funktion nach ihrem eigenen Schema"
+      "description": "Input of the function according to its own schema"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -166,11 +166,11 @@ Eigentümer: ragents.actor-programs. Rechte: runs.read, runs.write. Ausführung:
 
 ## ragents.actor-programs.apps
 
-Die Actor-Ansichten eines Runs mit Zustand und Aufrufen; die Werkzeugliste bleibt ohne runs.inspect leer.
+The actor views of a run with state and calls; the tool list stays empty without runs.inspect.
 
-Eigentümer: ragents.actor-programs. Rechte: runs.read. Ausführung: der Server.
+Owner: ragents.actor-programs. Rights: runs.read. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -182,14 +182,14 @@ Eigentümer: ragents.actor-programs. Rechte: runs.read. Ausführung: der Server.
     "runId": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_-]{1,64}$",
-      "description": "Kennung des Runs"
+      "description": "Identifier of the run"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -222,11 +222,11 @@ Eigentümer: ragents.actor-programs. Rechte: runs.read. Ausführung: der Server.
 
 ## ragents.actor-programs.function
 
-Eine Funktion eines Actors unabhängig von seinen Ansichten starten.
+Start a function of an actor independently of its views.
 
-Eigentümer: ragents.actor-programs. Rechte: runs.read, runs.write, runs.inspect. Ausführung: der Server.
+Owner: ragents.actor-programs. Rights: runs.read, runs.write, runs.inspect. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -243,38 +243,38 @@ Eigentümer: ragents.actor-programs. Rechte: runs.read, runs.write, runs.inspect
     "runId": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_-]{1,64}$",
-      "description": "Kennung des Runs"
+      "description": "Identifier of the run"
     },
     "actorHandle": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]{0,63}$",
-      "description": "Handle des Actors ohne @"
+      "description": "Handle of the actor without @"
     },
     "revision": {
       "type": "string",
       "pattern": "^[a-f0-9]{64}$",
-      "description": "Revision des aktiven Actor-Pakets"
+      "description": "Revision of the active actor package"
     },
     "functionId": {
       "type": "string",
       "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$",
-      "description": "Kennung der Funktion"
+      "description": "Identifier of the function"
     },
     "requestId": {
       "type": "string",
       "minLength": 1,
       "maxLength": 200,
-      "description": "Eigene Kennung des Aufrufers; wiederholte Aufrufe liefern denselben Aufruf"
+      "description": "The caller's own identifier; repeated calls return the same call"
     },
     "input": {
-      "description": "Eingabe der Funktion nach ihrem eigenen Schema"
+      "description": "Input of the function according to its own schema"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -286,11 +286,11 @@ Eigentümer: ragents.actor-programs. Rechte: runs.read, runs.write, runs.inspect
 
 ## ragents.actor-programs.function-invocation
 
-Den Stand eines Aufrufs einer Actor-Funktion lesen.
+Read the state of a call of an actor function.
 
-Eigentümer: ragents.actor-programs. Rechte: runs.read, runs.inspect. Ausführung: der Server.
+Owner: ragents.actor-programs. Rights: runs.read, runs.inspect. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -304,24 +304,24 @@ Eigentümer: ragents.actor-programs. Rechte: runs.read, runs.inspect. Ausführun
     "runId": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_-]{1,64}$",
-      "description": "Kennung des Runs"
+      "description": "Identifier of the run"
     },
     "actorHandle": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]{0,63}$",
-      "description": "Handle des Actors ohne @"
+      "description": "Handle of the actor without @"
     },
     "invocationId": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_-]{1,100}$",
-      "description": "Kennung des Funktionsaufrufs"
+      "description": "Identifier of the function call"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -333,11 +333,11 @@ Eigentümer: ragents.actor-programs. Rechte: runs.read, runs.inspect. Ausführun
 
 ## ragents.actor-programs.invocation
 
-Den Stand eines Aufrufs einer Actor-Ansicht lesen.
+Read the state of a call of an actor view.
 
-Eigentümer: ragents.actor-programs. Rechte: runs.read. Ausführung: der Server.
+Owner: ragents.actor-programs. Rights: runs.read. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -351,24 +351,24 @@ Eigentümer: ragents.actor-programs. Rechte: runs.read. Ausführung: der Server.
     "runId": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_-]{1,64}$",
-      "description": "Kennung des Runs"
+      "description": "Identifier of the run"
     },
     "appId": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9_-]{0,129}$",
-      "description": "Kennung der Actor-Ansicht oder des Programms"
+      "description": "Identifier of the actor view or the program"
     },
     "invocationId": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_-]{1,100}$",
-      "description": "Kennung des Funktionsaufrufs"
+      "description": "Identifier of the function call"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -380,11 +380,11 @@ Eigentümer: ragents.actor-programs. Rechte: runs.read. Ausführung: der Server.
 
 ## ragents.actor-programs.source
 
-Den Quellcode eines Actor-Programms lesen.
+Read the source code of an actor program.
 
-Eigentümer: ragents.actor-programs. Rechte: runs.read, runs.inspect. Ausführung: der Server.
+Owner: ragents.actor-programs. Rights: runs.read, runs.inspect. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -397,19 +397,19 @@ Eigentümer: ragents.actor-programs. Rechte: runs.read, runs.inspect. Ausführun
     "runId": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_-]{1,64}$",
-      "description": "Kennung des Runs"
+      "description": "Identifier of the run"
     },
     "moduleId": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9_-]{0,129}$",
-      "description": "Kennung der Actor-Ansicht oder des Programms"
+      "description": "Identifier of the actor view or the program"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -445,11 +445,11 @@ Eigentümer: ragents.actor-programs. Rechte: runs.read, runs.inspect. Ausführun
 
 ## ragents.ask.answer
 
-Eine Rückfrage des Runs beantworten oder verwerfen. Rechte: runs.read und runs.write.
+Answer or dismiss a question of the run. Rights: runs.read and runs.write.
 
-Eigentümer: ragents.ask. Rechte: runs.read, runs.write. Ausführung: der Server.
+Owner: ragents.ask. Rights: runs.read, runs.write. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -463,28 +463,28 @@ Eigentümer: ragents.ask. Rechte: runs.read, runs.write. Ausführung: der Server
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Run id"
     },
     "actionId": {
       "type": "string",
       "minLength": 1,
       "maxLength": 80,
-      "description": "Kennung der Frage"
+      "description": "Question id"
     },
     "answer": {
       "type": "string",
-      "description": "Die Antwort des Benutzers"
+      "description": "The user's answer"
     },
     "dismiss": {
       "type": "boolean",
-      "description": "true verwirft die Frage ohne Antwort"
+      "description": "true dismisses the question without an answer"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -494,11 +494,11 @@ Eigentümer: ragents.ask. Rechte: runs.read, runs.write. Ausführung: der Server
 
 ## ragents.chat.actorHistory
 
-Die Gesprächsverläufe aller Actors des Runs, ohne runs.inspect ohne Werkzeugdetails. Recht: runs.read.
+The conversation histories of all actors of the run, without runs.inspect without tool details. Right: runs.read.
 
-Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
+Owner: host. Rights: no fixed rights. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -511,14 +511,14 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Id of the run"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -530,11 +530,11 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.chat.capabilities
 
-Welche Anhänge das Modell eines Actors annimmt; der Modellname erscheint nur mit runs.inspect. Recht: runs.read.
+Which attachments an actor's model accepts; the model name appears only with runs.inspect. Right: runs.read.
 
-Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
+Owner: host. Rights: no fixed rights. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -547,7 +547,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Id of the run"
     },
     "actor": {
       "type": "string",
@@ -558,7 +558,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -570,11 +570,11 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.chat.send
 
-Eine Nachricht an den Koordinator des Runs; startet einen neuen Run oder funkt in einen laufenden. Mit entry startet sie den Run über diese Skill-Vorlage und deren festgelegte Startoptionen. Rechte: runs.read und runs.write, für einen neuen Run runs.create; beim globalen Chat dessen Rechte.
+A message to the run's coordinator; starts a new run or cuts into a running one. With entry, it starts the run through this skill template and the start options it fixes. Rights: runs.read and runs.write, for a new run runs.create; for the global chat its rights.
 
-Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
+Owner: host. Rights: no fixed rights. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -587,7 +587,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Id of the run"
     },
     "text": {
       "type": "string"
@@ -612,7 +612,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
           },
           "data": {
             "type": "string",
-            "description": "Inhalt als Base64"
+            "description": "Content as Base64"
           }
         },
         "additionalProperties": false
@@ -626,14 +626,14 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
     "entry": {
       "type": "string",
       "minLength": 1,
-      "description": "Kennung der Skill-Vorlage, über die diese Nachricht den Run startet"
+      "description": "Id of the skill template through which this message starts the run"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -643,11 +643,11 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.chat.sendToActor
 
-Eine Nachricht an einen bestimmten LLM-Actor des Runs. Rechte wie ragents.chat.send.
+A message to a specific LLM actor of the run. Rights as for ragents.chat.send.
 
-Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
+Owner: host. Rights: no fixed rights. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -661,7 +661,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Id of the run"
     },
     "actorId": {
       "type": "string",
@@ -690,7 +690,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
           },
           "data": {
             "type": "string",
-            "description": "Inhalt als Base64"
+            "description": "Content as Base64"
           }
         },
         "additionalProperties": false
@@ -701,7 +701,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -711,11 +711,11 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.chat.start
 
-Einen Run über eine Script-Vorlage starten, ohne Nachricht; die Startoptionen, die die Vorlage festlegt, gelten. Rechte: runs.read, runs.write und die Freigabe der Vorlage.
+Start a run through a script template, without a message; the start options the template fixes apply. Rights: runs.read, runs.write and the template's release.
 
-Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
+Owner: host. Rights: no fixed rights. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -729,7 +729,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Id of the run"
     },
     "entry": {
       "type": "string",
@@ -741,7 +741,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -751,11 +751,11 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.chat.stop
 
-Not-Aus für den ganzen Run: bricht alle Turns und einen laufenden Start ab und stoppt alle Actors. Einen einzelnen Turn unterbricht ragents.runs.interruptTurn. Rechte: runs.read und runs.write.
+Emergency stop for the whole run: aborts all turns and a running start and stops all actors. ragents.runs.interruptTurn interrupts a single turn. Rights: runs.read and runs.write.
 
-Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
+Owner: host. Rights: no fixed rights. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -768,14 +768,14 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Id of the run"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -785,11 +785,11 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.documents.files
 
-Die Dateiablage eines Runs als Gruppen und lose Dateien. Recht: runs.read.
+A run's file store as groups and loose files. Right: runs.read.
 
-Eigentümer: ragents.documents. Rechte: runs.read. Ausführung: der Server.
+Owner: ragents.documents. Rights: runs.read. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -802,14 +802,14 @@ Eigentümer: ragents.documents. Rechte: runs.read. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Run id"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -899,11 +899,11 @@ Eigentümer: ragents.documents. Rechte: runs.read. Ausführung: der Server.
 
 ## ragents.external.set
 
-Den Zugang von außen ein- oder ausschalten; nur vom eigenen Rechner. Recht: settings.write.
+Turn external access on or off; only from the local machine. Right: settings.write.
 
-Eigentümer: host. Rechte: settings.write. Ausführung: der Server.
+Owner: host. Rights: settings.write. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -929,7 +929,7 @@ Eigentümer: host. Rechte: settings.write. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -947,11 +947,11 @@ Eigentümer: host. Rechte: settings.write. Ausführung: der Server.
 
 ## ragents.lsp-fsharp.snapshot
 
-Zustand und Diagnosen des Sprachservers ragents.lsp-fsharp in einem Run. Rechte: runs.read und ragents.lsp-fsharp.read.
+State and diagnostics of the language server ragents.lsp-fsharp in a run. Rights: runs.read and ragents.lsp-fsharp.read.
 
-Eigentümer: ragents.lsp-fsharp. Rechte: runs.read, ragents.lsp-fsharp.read. Ausführung: der Server.
+Owner: ragents.lsp-fsharp. Rights: runs.read, ragents.lsp-fsharp.read. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -964,14 +964,14 @@ Eigentümer: ragents.lsp-fsharp. Rechte: runs.read, ragents.lsp-fsharp.read. Aus
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Identifier of the run"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -983,11 +983,11 @@ Eigentümer: ragents.lsp-fsharp. Rechte: runs.read, ragents.lsp-fsharp.read. Aus
 
 ## ragents.lsp-roslyn.snapshot
 
-Zustand und Diagnosen des Sprachservers ragents.lsp-roslyn in einem Run. Rechte: runs.read und ragents.lsp-roslyn.read.
+State and diagnostics of the language server ragents.lsp-roslyn in a run. Rights: runs.read and ragents.lsp-roslyn.read.
 
-Eigentümer: ragents.lsp-roslyn. Rechte: runs.read, ragents.lsp-roslyn.read. Ausführung: der Server.
+Owner: ragents.lsp-roslyn. Rights: runs.read, ragents.lsp-roslyn.read. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -1000,14 +1000,14 @@ Eigentümer: ragents.lsp-roslyn. Rechte: runs.read, ragents.lsp-roslyn.read. Aus
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Identifier of the run"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -1019,11 +1019,11 @@ Eigentümer: ragents.lsp-roslyn. Rechte: runs.read, ragents.lsp-roslyn.read. Aus
 
 ## ragents.lsp-roslyn.solutions
 
-Die Solutions im Arbeitsbereich eines Runs und welche davon ragents.lsp-roslyn geöffnet hat. Rechte: runs.read und ragents.lsp-roslyn.read.
+The solutions in the workspace of a run and which of them ragents.lsp-roslyn has opened. Rights: runs.read and ragents.lsp-roslyn.read.
 
-Eigentümer: ragents.lsp-roslyn. Rechte: runs.read, ragents.lsp-roslyn.read. Ausführung: der Server.
+Owner: ragents.lsp-roslyn. Rights: runs.read, ragents.lsp-roslyn.read. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -1036,14 +1036,14 @@ Eigentümer: ragents.lsp-roslyn. Rechte: runs.read, ragents.lsp-roslyn.read. Aus
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Identifier of the run"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -1055,11 +1055,11 @@ Eigentümer: ragents.lsp-roslyn. Rechte: runs.read, ragents.lsp-roslyn.read. Aus
 
 ## ragents.lsp-roslyn.switch
 
-Lädt eine Solution in ragents.lsp-roslyn und beendet alle anderen Instanzen des Runs; null beendet alle. Wartet nicht auf das Laden. Rechte: runs.read, runs.write, ragents.lsp-roslyn.read und ragents.lsp-roslyn.write.
+Loads a solution in ragents.lsp-roslyn and ends all other instances of the run; null ends all of them. Does not wait for the load. Rights: runs.read, runs.write, ragents.lsp-roslyn.read and ragents.lsp-roslyn.write.
 
-Eigentümer: ragents.lsp-roslyn. Rechte: runs.read, runs.write, ragents.lsp-roslyn.read, ragents.lsp-roslyn.write. Ausführung: der Server.
+Owner: ragents.lsp-roslyn. Rights: runs.read, runs.write, ragents.lsp-roslyn.read, ragents.lsp-roslyn.write. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -1073,7 +1073,7 @@ Eigentümer: ragents.lsp-roslyn. Rechte: runs.read, runs.write, ragents.lsp-rosl
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Identifier of the run"
     },
     "root": {
       "anyOf": [
@@ -1081,20 +1081,20 @@ Eigentümer: ragents.lsp-roslyn. Rechte: runs.read, runs.write, ragents.lsp-rosl
           "type": "string",
           "minLength": 1,
           "maxLength": 1024,
-          "description": "Die Solution relativ zur Wurzel des Arbeitsbereichs"
+          "description": "The solution relative to the workspace root"
         },
         {
           "type": "null"
         }
       ],
-      "description": "null beendet alle Instanzen"
+      "description": "null ends all instances"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -1106,11 +1106,11 @@ Eigentümer: ragents.lsp-roslyn. Rechte: runs.read, runs.write, ragents.lsp-rosl
 
 ## ragents.lsp-typescript.snapshot
 
-Zustand und Diagnosen des Sprachservers ragents.lsp-typescript in einem Run. Rechte: runs.read und ragents.lsp-typescript.read.
+State and diagnostics of the language server ragents.lsp-typescript in a run. Rights: runs.read and ragents.lsp-typescript.read.
 
-Eigentümer: ragents.lsp-typescript. Rechte: runs.read, ragents.lsp-typescript.read. Ausführung: der Server.
+Owner: ragents.lsp-typescript. Rights: runs.read, ragents.lsp-typescript.read. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -1123,14 +1123,14 @@ Eigentümer: ragents.lsp-typescript. Rechte: runs.read, ragents.lsp-typescript.r
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Identifier of the run"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -1142,11 +1142,11 @@ Eigentümer: ragents.lsp-typescript. Rechte: runs.read, ragents.lsp-typescript.r
 
 ## ragents.overseer.coordinator
 
-Die Run-ID des eigenen globalen Koordinators lesen: je angemeldetem Benutzer einer, ohne Anmeldung genau einer.
+Read the run ID of your own global coordinator: one per signed-in user, exactly one without sign-in.
 
-Eigentümer: ragents.overseer. Rechte: ragents.overseer.read. Ausführung: der Server.
+Owner: ragents.overseer. Rights: ragents.overseer.read. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -1156,7 +1156,7 @@ Eigentümer: ragents.overseer. Rechte: ragents.overseer.read. Ausführung: der S
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -1175,11 +1175,11 @@ Eigentümer: ragents.overseer. Rechte: ragents.overseer.read. Ausführung: der S
 
 ## ragents.overseer.createRun
 
-Einen Run mit serverseitiger ID und Titel anlegen. Genau eine Startform: message, installiertes script (Kennung oder eindeutiger Titel), oder packageDirectory (vorhandenes lokales Run-Script-Paket). input ist nur bei script/packageDirectory erlaubt. options wählt Startoptionen wie ragents.startOptions.select, jede nur mit ihren eigenen Rechten. Das Ergebnis wartet auf Vorbereitung, Check, Test und Installation; accepted bestätigt noch kein fertiges Modellergebnis.
+Create a run with a server-side ID and title. Exactly one start form: message, installed script (id or unique title), or packageDirectory (existing local run script package). input is only allowed with script/packageDirectory. options selects start options such as ragents.startOptions.select, each only with its own rights. The result waits for preparation, check, test and installation; accepted does not yet confirm a finished model result.
 
-Eigentümer: ragents.overseer. Rechte: runs.read, runs.write, runs.create. Ausführung: der Server.
+Owner: ragents.overseer. Rights: runs.read, runs.write, runs.create. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -1258,7 +1258,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.write, runs.create. Ausf�
         "packageDirectory": {
           "type": "string",
           "minLength": 1,
-          "description": "Absoluter Pfad eines RUN.md/setup.ts/tests.json-Pakets auf dem Server. Ein lokaler Shellclient setzt seinen tatsächlich vorhandenen Paketpfad ein; dies ist kein Upload."
+          "description": "Absolute path of a RUN.md/setup.ts/tests.json package on the server. A local shell client inserts its actually existing package path; this is not an upload."
         },
         "input": {}
       },
@@ -1268,7 +1268,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.write, runs.create. Ausf�
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -1300,11 +1300,11 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.write, runs.create. Ausf�
 
 ## ragents.overseer.listRuns
 
-Die Runs, die der Aufrufer sieht, mit stabilen Referenzen auflisten; die globalen Koordinatoren gehören nicht zu dieser Liste.
+List the runs the caller sees, with stable references; the global coordinators are not part of this list.
 
-Eigentümer: ragents.overseer. Rechte: runs.read. Ausführung: der Server.
+Owner: ragents.overseer. Rights: runs.read. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -1314,7 +1314,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -1360,11 +1360,11 @@ Eigentümer: ragents.overseer. Rechte: runs.read. Ausführung: der Server.
 
 ## ragents.overseer.readCatalog
 
-Installierte Vorlagen und Startoptionen mit Eingabeschemata, Standardwerten und Wählbarkeit lesen. createRun startet Nachrichten, installierte Scripts oder lokale Pakete via packageDirectory. Skills liefern bearbeitbare Aufträge für message; dabei den Skillnamen als Arbeitsanleitung nennen.
+Read installed templates and start options with input schemas, default values and selectability. createRun starts messages, installed scripts or local packages via packageDirectory. Skills provide editable tasks for message; name the skill as the work instruction.
 
-Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der Server.
+Owner: ragents.overseer. Rights: runs.read, runs.inspect. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -1374,7 +1374,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -1458,11 +1458,11 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
 
 ## ragents.overseer.readEvents
 
-Das vollständige Journal seitenweise in Sequenzreihenfolge lesen. Solange hasMore wahr ist, nextAfter als after der nächsten Anfrage verwenden. type filtert einen exakten Ereignistyp.
+Read the complete journal page by page in sequence order. As long as hasMore is true, use nextAfter as after of the next request. type filters an exact event type.
 
-Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der Server.
+Owner: ragents.overseer. Rights: runs.read, runs.inspect. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -1475,7 +1475,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
       "type": "string",
       "minLength": 1,
       "maxLength": 512,
-      "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Run 1."
+      "description": "Run ID, unique title or stable reference such as Run 1."
     },
     "after": {
       "type": "integer",
@@ -1633,7 +1633,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -1863,7 +1863,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
             "additionalProperties": true,
             "x-typescript-type": "EventPayloads[EventType]",
             "x-source": "packages/ragents/src/domain/events.ts",
-            "description": "Ungekürzter Domänenwert EventPayloads[EventType]; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+            "description": "Unabridged domain value EventPayloads[EventType]; nested fields are deliberately an open JSON schema here."
           }
         },
         "additionalProperties": false
@@ -1883,11 +1883,11 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
 
 ## ragents.overseer.readOpenRpc
 
-OpenRPC 1.3 direkt aus denselben Verträgen lesen.
+Read OpenRPC 1.3 directly from the same contracts.
 
-Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der Server.
+Owner: ragents.overseer. Rights: runs.read, runs.inspect. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -1897,7 +1897,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -1910,11 +1910,11 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
 
 ## ragents.overseer.readReference
 
-Lesbare Referenz aller registrierten Methoden und Kanäle direkt aus ihren Verträgen lesen.
+Read a readable reference of all registered methods and channels directly from their contracts.
 
-Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der Server.
+Owner: ragents.overseer. Rights: runs.read, runs.inspect. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -1924,7 +1924,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -1934,11 +1934,11 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
 
 ## ragents.overseer.readRun
 
-Die aktuelle ungekürzte RunView lesen; verschachtelte Domänenwerte sind als offene JSON-Objekte dokumentiert.
+Read the current unabridged RunView; nested domain values are documented as open JSON objects.
 
-Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der Server.
+Owner: ragents.overseer. Rights: runs.read, runs.inspect. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -1951,14 +1951,14 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
       "type": "string",
       "minLength": 1,
       "maxLength": 512,
-      "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Run 1."
+      "description": "Run ID, unique title or stable reference such as Run 1."
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2036,7 +2036,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
         "additionalProperties": true,
         "x-typescript-type": "Actor",
         "x-source": "packages/ragents/src/domain/model.ts",
-        "description": "Ungekürzter Domänenwert Actor; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+        "description": "Unabridged domain value Actor; nested fields are deliberately an open JSON schema here."
       }
     },
     "inputs": {
@@ -2047,7 +2047,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
         "additionalProperties": true,
         "x-typescript-type": "ActorInput",
         "x-source": "packages/ragents/src/domain/model.ts",
-        "description": "Ungekürzter Domänenwert ActorInput; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+        "description": "Unabridged domain value ActorInput; nested fields are deliberately an open JSON schema here."
       }
     },
     "turns": {
@@ -2058,7 +2058,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
         "additionalProperties": true,
         "x-typescript-type": "Turn",
         "x-source": "packages/ragents/src/domain/model.ts",
-        "description": "Ungekürzter Domänenwert Turn; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+        "description": "Unabridged domain value Turn; nested fields are deliberately an open JSON schema here."
       }
     },
     "subscriptions": {
@@ -2069,7 +2069,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
         "additionalProperties": true,
         "x-typescript-type": "EventSubscription",
         "x-source": "packages/ragents/src/domain/model.ts",
-        "description": "Ungekürzter Domänenwert EventSubscription; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+        "description": "Unabridged domain value EventSubscription; nested fields are deliberately an open JSON schema here."
       }
     },
     "pluginStates": {
@@ -2080,7 +2080,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
         "additionalProperties": true,
         "x-typescript-type": "PluginState",
         "x-source": "packages/ragents/src/domain/model.ts",
-        "description": "Ungekürzter Domänenwert PluginState; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+        "description": "Unabridged domain value PluginState; nested fields are deliberately an open JSON schema here."
       }
     },
     "actions": {
@@ -2091,7 +2091,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
         "additionalProperties": true,
         "x-typescript-type": "Action",
         "x-source": "packages/ragents/src/domain/model.ts",
-        "description": "Ungekürzter Domänenwert Action; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+        "description": "Unabridged domain value Action; nested fields are deliberately an open JSON schema here."
       }
     },
     "artifacts": {
@@ -2102,7 +2102,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
         "additionalProperties": true,
         "x-typescript-type": "Artifact",
         "x-source": "packages/ragents/src/domain/model.ts",
-        "description": "Ungekürzter Domänenwert Artifact; verschachtelte Felder sind hier bewusst ein offenes JSON-Schema."
+        "description": "Unabridged domain value Artifact; nested fields are deliberately an open JSON schema here."
       }
     }
   },
@@ -2112,11 +2112,11 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.inspect. Ausführung: der
 
 ## ragents.overseer.reset
 
-Das Gespräch des eigenen globalen Koordinators samt Modellkontext zurücksetzen; die Modellauswahl, die Koordinatoren anderer Benutzer und alle Runs bleiben erhalten.
+Reset the conversation of your own global coordinator including its model context; the model selection, other users' coordinators and all runs are kept.
 
-Eigentümer: ragents.overseer. Rechte: ragents.overseer.read, ragents.overseer.write. Ausführung: der Server.
+Owner: ragents.overseer. Rights: ragents.overseer.read, ragents.overseer.write. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2128,14 +2128,14 @@ Eigentümer: ragents.overseer. Rechte: ragents.overseer.read, ragents.overseer.w
     "confirm": {
       "type": "boolean",
       "const": true,
-      "description": "Der Gesprächsreset muss ausdrücklich bestätigt werden."
+      "description": "The conversation reset must be confirmed explicitly."
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2145,11 +2145,11 @@ Eigentümer: ragents.overseer. Rechte: ragents.overseer.read, ragents.overseer.w
 
 ## ragents.overseer.sendMessage
 
-Eine Chatnachricht an den primären LLM-Actor einreihen; TypeScript als Primary wird mit actor-chat-unsupported abgewiesen. Das Ergebnis bestätigt nur das Einreihen, weder Verarbeitung noch Abschluss. Ein laufender Turn wird dadurch nicht ersetzt.
+Enqueue a chat message for the primary LLM actor; TypeScript as primary is rejected with actor-chat-unsupported. The result only confirms the enqueueing, neither processing nor completion. A running turn is not replaced by it.
 
-Eigentümer: ragents.overseer. Rechte: runs.read, runs.write. Ausführung: der Server.
+Owner: ragents.overseer. Rights: runs.read, runs.write. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2163,7 +2163,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.write. Ausführung: der S
       "type": "string",
       "minLength": 1,
       "maxLength": 512,
-      "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Run 1."
+      "description": "Run ID, unique title or stable reference such as Run 1."
     },
     "message": {
       "type": "string",
@@ -2175,7 +2175,7 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.write. Ausführung: der S
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2207,11 +2207,11 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.write. Ausführung: der S
 
 ## ragents.overseer.settings.read
 
-Die Modellauswahl des globalen Koordinators mit dem verfügbaren Modellkatalog lesen.
+Read the global coordinator's model selection with the available model catalog.
 
-Eigentümer: ragents.overseer. Rechte: ragents.overseer.read. Ausführung: der Server.
+Owner: ragents.overseer. Rights: ragents.overseer.read. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2221,7 +2221,7 @@ Eigentümer: ragents.overseer. Rechte: ragents.overseer.read. Ausführung: der S
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2279,11 +2279,11 @@ Eigentümer: ragents.overseer. Rechte: ragents.overseer.read. Ausführung: der S
 
 ## ragents.overseer.settings.save
 
-Die Modellauswahl des globalen Koordinators setzen; sie gilt ab der nächsten Antwort.
+Set the global coordinator's model selection; it applies from the next answer on.
 
-Eigentümer: ragents.overseer. Rechte: ragents.overseer.read, ragents.overseer.write, settings.write. Ausführung: der Server.
+Owner: ragents.overseer. Rights: ragents.overseer.read, ragents.overseer.write, settings.write. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2314,7 +2314,7 @@ Eigentümer: ragents.overseer. Rechte: ragents.overseer.read, ragents.overseer.w
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2372,11 +2372,11 @@ Eigentümer: ragents.overseer. Rechte: ragents.overseer.read, ragents.overseer.w
 
 ## ragents.overseer.stopRun
 
-Den Run über seine normale Stoppgrenze stoppen und die Bereinigung abwarten; das Gespräch bleibt erhalten.
+Stop the run through its normal stop boundary and wait for the cleanup; the conversation is kept.
 
-Eigentümer: ragents.overseer. Rechte: runs.read, runs.write. Ausführung: der Server.
+Owner: ragents.overseer. Rights: runs.read, runs.write. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2389,14 +2389,14 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.write. Ausführung: der S
       "type": "string",
       "minLength": 1,
       "maxLength": 512,
-      "description": "Run-ID, eindeutiger Titel oder stabile Referenz wie Run 1."
+      "description": "Run ID, unique title or stable reference such as Run 1."
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2428,11 +2428,11 @@ Eigentümer: ragents.overseer. Rechte: runs.read, runs.write. Ausführung: der S
 
 ## ragents.plugins.bootstrap
 
-Produkt, aktive Plugins mit Web-Konfiguration, freigegebene Vorlagen und die RAgents-Fassung des Servers für die Oberfläche.
+Product, active plugins with web configuration, released templates and the server's RAgents version for the UI.
 
-Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
+Owner: host. Rights: no fixed rights. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2442,7 +2442,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2454,11 +2454,11 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.processes.snapshot
 
-Die beobachteten Prozesse eines Runs mit ihren offenen Ports. Rechte: runs.read und ragents.processes.read.
+The observed processes of a run with their open ports. Rights: runs.read and ragents.processes.read.
 
-Eigentümer: ragents.processes. Rechte: runs.read, ragents.processes.read. Ausführung: der Server.
+Owner: ragents.processes. Rights: runs.read, ragents.processes.read. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2471,14 +2471,14 @@ Eigentümer: ragents.processes. Rechte: runs.read, ragents.processes.read. Ausf�
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Run id"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2490,11 +2490,11 @@ Eigentümer: ragents.processes. Rechte: runs.read, ragents.processes.read. Ausf�
 
 ## ragents.processes.stop
 
-Einen Prozess des Runs beenden. Rechte: runs.read, runs.write und runs.inspect.
+End a process of the run. Rights: runs.read, runs.write and runs.inspect.
 
-Eigentümer: ragents.processes. Rechte: runs.read, runs.write, runs.inspect. Ausführung: der Server.
+Owner: ragents.processes. Rights: runs.read, runs.write, runs.inspect. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2508,19 +2508,19 @@ Eigentümer: ragents.processes. Rechte: runs.read, runs.write, runs.inspect. Aus
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Run id"
     },
     "processId": {
       "type": "string",
       "pattern": "^[1-9][0-9]*-[a-f0-9]{64}$",
-      "description": "Kennung des Prozesses aus dem Stand"
+      "description": "Process id from the snapshot"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2530,11 +2530,11 @@ Eigentümer: ragents.processes. Rechte: runs.read, runs.write, runs.inspect. Aus
 
 ## ragents.product.modelSettings.read
 
-Die Modellvorgaben der Rollen mit dem verfügbaren Modellkatalog. Recht: settings.read.
+The model defaults of the roles with the available model catalog. Right: settings.read.
 
-Eigentümer: ragents.product. Rechte: settings.read. Ausführung: der Server.
+Owner: ragents.product. Rights: settings.read. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2544,7 +2544,7 @@ Eigentümer: ragents.product. Rechte: settings.read. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2556,11 +2556,11 @@ Eigentümer: ragents.product. Rechte: settings.read. Ausführung: der Server.
 
 ## ragents.product.modelSettings.save
 
-Die Modellvorgaben der Rollen speichern. Rechte: settings.read und settings.write.
+Save the model defaults of the roles. Rights: settings.read and settings.write.
 
-Eigentümer: ragents.product. Rechte: settings.read, settings.write. Ausführung: der Server.
+Owner: ragents.product. Rights: settings.read, settings.write. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2579,7 +2579,7 @@ Eigentümer: ragents.product. Rechte: settings.read, settings.write. Ausführung
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2591,11 +2591,11 @@ Eigentümer: ragents.product. Rechte: settings.read, settings.write. Ausführung
 
 ## ragents.runs.delete
 
-Einen Run mit seinen Daten löschen. Rechte: runs.read und runs.delete.
+Delete a run with its data. Rights: runs.read and runs.delete.
 
-Eigentümer: host. Rechte: runs.read, runs.delete. Ausführung: der Server.
+Owner: host. Rights: runs.read, runs.delete. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2608,14 +2608,14 @@ Eigentümer: host. Rechte: runs.read, runs.delete. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Id of the run"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2625,11 +2625,11 @@ Eigentümer: host. Rechte: runs.read, runs.delete. Ausführung: der Server.
 
 ## ragents.runs.enqueueInput
 
-Eine Nachricht in die Warteschlange eines Actors legen.
+Put a message into the queue of an actor.
 
-Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
+Owner: host. Rights: no fixed rights. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2645,7 +2645,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "ID of the run"
     },
     "commandId": {
       "type": "string",
@@ -2679,7 +2679,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2691,11 +2691,11 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.runs.events
 
-Alle Journalereignisse eines Runs in Sequenzreihenfolge lesen.
+Read all journal events of a run in sequence order.
 
-Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
+Owner: host. Rights: no fixed rights. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2708,14 +2708,14 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "ID of the run"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2730,11 +2730,11 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.runs.export
 
-Einen gestoppten Run als Archiv holen: Journal, Payloads, Modellkontexte und seine Plugin-Ablagen. Rechte: runs.read und runs.inspect.
+Fetch a stopped run as an archive: journal, payloads, model contexts and its plugin stores. Rights: runs.read and runs.inspect.
 
-Eigentümer: host. Rechte: runs.read, runs.inspect. Ausführung: der Server.
+Owner: host. Rights: runs.read, runs.inspect. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2747,14 +2747,14 @@ Eigentümer: host. Rechte: runs.read, runs.inspect. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Id of the run"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2766,11 +2766,11 @@ Eigentümer: host. Rechte: runs.read, runs.inspect. Ausführung: der Server.
 
 ## ragents.runs.import
 
-Ein Run-Archiv annehmen, sein Journal wiedergeben und den Run gestoppt öffnen. Rechte: runs.read, runs.write und runs.create.
+Accept a run archive, replay its journal and open the run stopped. Rights: runs.read, runs.write and runs.create.
 
-Eigentümer: host. Rechte: runs.read, runs.write, runs.create. Ausführung: der Server.
+Owner: host. Rights: runs.read, runs.write, runs.create. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2782,19 +2782,19 @@ Eigentümer: host. Rechte: runs.read, runs.write, runs.create. Ausführung: der 
     "archive": {
       "type": "string",
       "minLength": 1,
-      "description": "Das tar.gz des Exports als Base64"
+      "description": "The export's tar.gz as Base64"
     },
     "workspacePath": {
       "type": "string",
       "minLength": 1,
-      "description": "Ersatzordner auf diesem Server für einen Run mit Bindung path"
+      "description": "Replacement folder on this server for a run with binding path"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2806,11 +2806,11 @@ Eigentümer: host. Rechte: runs.read, runs.write, runs.create. Ausführung: der 
 
 ## ragents.runs.interruptTurn
 
-Den laufenden Turn eines Actors unterbrechen; der Actor bleibt aktiv und nimmt die nächste Eingabe an. Ohne laufenden Turn geschieht nichts.
+Interrupt the running turn of an actor; the actor stays active and accepts the next input. Without a running turn nothing happens.
 
-Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
+Owner: host. Rights: no fixed rights. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2825,7 +2825,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "ID of the run"
     },
     "commandId": {
       "type": "string",
@@ -2852,7 +2852,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2864,11 +2864,11 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.runs.list
 
-Alle Runs des Profils mit Titel, Zeiten und Metadaten. Recht: runs.read.
+All runs of the profile with title, times and metadata. Right: runs.read.
 
-Eigentümer: host. Rechte: runs.read. Ausführung: der Server.
+Owner: host. Rights: runs.read. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2878,7 +2878,7 @@ Eigentümer: host. Rechte: runs.read. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2893,11 +2893,11 @@ Eigentümer: host. Rechte: runs.read. Ausführung: der Server.
 
 ## ragents.runs.prepare
 
-Den Auftrag eines neuen Runs im Gespräch mit einer eigenen Koordinator-Instanz ausarbeiten. Rechte: runs.read, runs.write, runs.create.
+Work out the task of a new run in a conversation with a separate coordinator instance. Rights: runs.read, runs.write, runs.create.
 
-Eigentümer: host. Rechte: runs.read, runs.write, runs.create. Ausführung: der Server.
+Owner: host. Rights: runs.read, runs.write, runs.create. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2912,7 +2912,7 @@ Eigentümer: host. Rechte: runs.read, runs.write, runs.create. Ausführung: der 
           "type": "string",
           "minLength": 1,
           "maxLength": 64,
-          "description": "Kennung des Runs"
+          "description": "Id of the run"
         }
       }
     },
@@ -2925,7 +2925,7 @@ Eigentümer: host. Rechte: runs.read, runs.write, runs.create. Ausführung: der 
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -2937,11 +2937,11 @@ Eigentümer: host. Rechte: runs.read, runs.write, runs.create. Ausführung: der 
 
 ## ragents.runs.resolveAction
 
-Eine wartende Aktion beantworten oder verwerfen.
+Answer or dismiss a pending action.
 
-Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
+Owner: host. Rights: no fixed rights. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -2957,7 +2957,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "ID of the run"
     },
     "commandId": {
       "type": "string",
@@ -2995,7 +2995,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -3007,11 +3007,11 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.runs.restartActor
 
-Einen gestoppten Actor neu starten.
+Restart a stopped actor.
 
-Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
+Owner: host. Rights: no fixed rights. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -3026,7 +3026,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "ID of the run"
     },
     "commandId": {
       "type": "string",
@@ -3053,7 +3053,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -3065,11 +3065,11 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.runs.stopActor
 
-Einen Actor samt seinen beauftragten Kindern stoppen.
+Stop an actor together with its delegated children.
 
-Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
+Owner: host. Rights: no fixed rights. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -3085,7 +3085,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "ID of the run"
     },
     "commandId": {
       "type": "string",
@@ -3112,7 +3112,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -3124,11 +3124,11 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.runs.stopAll
 
-Den ganzen Run mit allen Agenten und Abläufen stoppen.
+Stop the whole run with all agents and flows.
 
-Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
+Owner: host. Rights: no fixed rights. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -3143,7 +3143,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "ID of the run"
     },
     "commandId": {
       "type": "string",
@@ -3166,7 +3166,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -3178,11 +3178,11 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.runs.view
 
-Die Run-Ansicht lesen, optional den Stand nach einer Journalsequenz; null für einen noch nicht gestarteten Run.
+Read the run view, optionally the state after a journal sequence; null for a run that has not started yet.
 
-Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
+Owner: host. Rights: no fixed rights. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -3195,7 +3195,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "ID of the run"
     },
     "at": {
       "type": "integer",
@@ -3206,7 +3206,7 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -3225,11 +3225,11 @@ Eigentümer: host. Rechte: keine festen Rechte. Ausführung: der Server.
 
 ## ragents.settings.read
 
-Modelle, Plugins, Werkzeuge, Skills und Laufzeitinformationen des Profils. Recht: settings.read; nur lokal oder mit Zugang.
+Models, plugins, tools, skills and runtime information of the profile. Right: settings.read; only locally or with access.
 
-Eigentümer: host. Rechte: settings.read. Ausführung: der Server.
+Owner: host. Rights: settings.read. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -3239,7 +3239,7 @@ Eigentümer: host. Rechte: settings.read. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -3251,11 +3251,11 @@ Eigentümer: host. Rechte: settings.read. Ausführung: der Server.
 
 ## ragents.settings.skill
 
-Die Dateien eines registrierten Skills lesen; null, wenn er nicht registriert ist. Recht: settings.read.
+Read the files of a registered skill; null if it is not registered. Right: settings.read.
 
-Eigentümer: host. Rechte: settings.read. Ausführung: der Server.
+Owner: host. Rights: settings.read. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -3273,7 +3273,7 @@ Eigentümer: host. Rechte: settings.read. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -3292,11 +3292,11 @@ Eigentümer: host. Rechte: settings.read. Ausführung: der Server.
 
 ## ragents.settings.titles.read
 
-Das Modell für automatische Überschriften und die Auswahl lesen. Recht: settings.read.
+Read the model for automatic titles and the choices. Right: settings.read.
 
-Eigentümer: host. Rechte: settings.read. Ausführung: der Server.
+Owner: host. Rights: settings.read. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -3306,7 +3306,7 @@ Eigentümer: host. Rechte: settings.read. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -3318,11 +3318,11 @@ Eigentümer: host. Rechte: settings.read. Ausführung: der Server.
 
 ## ragents.settings.titles.save
 
-Das Modell für automatische Überschriften setzen oder die Erzeugung ausschalten. Recht: settings.write.
+Set the model for automatic titles or turn their generation off. Right: settings.write.
 
-Eigentümer: host. Rechte: settings.write. Ausführung: der Server.
+Owner: host. Rights: settings.write. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -3337,7 +3337,7 @@ Eigentümer: host. Rechte: settings.write. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -3349,11 +3349,11 @@ Eigentümer: host. Rechte: settings.write. Ausführung: der Server.
 
 ## ragents.startOptions.list
 
-Die Startoptionen eines Runs mit Wert und Darstellung, nur die, deren eigene Rechte der Aufrufer hat; die Modellwahl etwa verlangt runs.inspect. Nach dem Start ist jede außer den änderbaren gesperrt. Rechte: runs.read, runs.create.
+The start options of a run with value and presentation, only those whose own rights the caller has; the model choice, for example, requires runs.inspect. After the start, all except the changeable ones are locked. Rights: runs.read, runs.create.
 
-Eigentümer: host. Rechte: runs.read, runs.create. Ausführung: der Server.
+Owner: host. Rights: runs.read, runs.create. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -3366,14 +3366,14 @@ Eigentümer: host. Rechte: runs.read, runs.create. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Id of the run"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -3388,11 +3388,11 @@ Eigentümer: host. Rechte: runs.read, runs.create. Ausführung: der Server.
 
 ## ragents.startOptions.select
 
-Eine Startoption vor dem Start wählen, eine änderbare wie die Modellwahl auch danach mit Wirkung ab dem nächsten Turn; fehlt ein Recht der Option selbst, scheitert die Wahl mit access-denied. Rechte: runs.read, runs.write, runs.create.
+Choose a start option before the start, a changeable one such as the model choice also afterwards, taking effect from the next turn; if a right of the option itself is missing, the choice fails with access-denied. Rights: runs.read, runs.write, runs.create.
 
-Eigentümer: host. Rechte: runs.read, runs.write, runs.create. Ausführung: der Server.
+Owner: host. Rights: runs.read, runs.write, runs.create. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -3407,7 +3407,7 @@ Eigentümer: host. Rechte: runs.read, runs.write, runs.create. Ausführung: der 
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Id of the run"
     },
     "optionId": {
       "type": "string",
@@ -3420,7 +3420,7 @@ Eigentümer: host. Rechte: runs.read, runs.write, runs.create. Ausführung: der 
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -3432,11 +3432,11 @@ Eigentümer: host. Rechte: runs.read, runs.write, runs.create. Ausführung: der 
 
 ## ragents.workspace.browse.list
 
-Ein Verzeichnis im Arbeitsverzeichnis oder in der Dateiablage eines Runs auflisten.
+List a directory in the workspace or in the file store of a run.
 
-Eigentümer: ragents.workspace. Rechte: runs.read, runs.inspect. Ausführung: der Server.
+Owner: ragents.workspace. Rights: runs.read, runs.inspect. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -3451,7 +3451,7 @@ Eigentümer: ragents.workspace. Rechte: runs.read, runs.inspect. Ausführung: de
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "ID of the run"
     },
     "root": {
       "anyOf": [
@@ -3467,14 +3467,14 @@ Eigentümer: ragents.workspace. Rechte: runs.read, runs.inspect. Ausführung: de
     },
     "path": {
       "type": "string",
-      "description": "Pfad unterhalb der Wurzel; leer ist die Wurzel selbst"
+      "description": "Path below the root; empty is the root itself"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -3486,11 +3486,11 @@ Eigentümer: ragents.workspace. Rechte: runs.read, runs.inspect. Ausführung: de
 
 ## ragents.workspace.browse.preview
 
-Eine Datei als Text vorschauen; zu große und binäre Dateien nennen stattdessen den Grund.
+Preview a file as text; files that are too large or binary state the reason instead.
 
-Eigentümer: ragents.workspace. Rechte: runs.read, runs.inspect. Ausführung: der Server.
+Owner: ragents.workspace. Rights: runs.read, runs.inspect. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -3505,7 +3505,7 @@ Eigentümer: ragents.workspace. Rechte: runs.read, runs.inspect. Ausführung: de
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "ID of the run"
     },
     "root": {
       "anyOf": [
@@ -3521,14 +3521,14 @@ Eigentümer: ragents.workspace. Rechte: runs.read, runs.inspect. Ausführung: de
     },
     "path": {
       "type": "string",
-      "description": "Pfad unterhalb der Wurzel; leer ist die Wurzel selbst"
+      "description": "Path below the root; empty is the root itself"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -3540,11 +3540,11 @@ Eigentümer: ragents.workspace. Rechte: runs.read, runs.inspect. Ausführung: de
 
 ## ragents.workspace.clients.contributions
 
-Die Beiträge der Plugins zum Executor, die ein Arbeitsplatz vor der Anmeldung lädt und mit ihr zurückmeldet. Ein Arbeitsplatz mit anderem Executor-Stand scheitert an seinem Stand; weitere Felder zählen nicht.
+The plugins' contributions to the executor that a workstation loads before sign-in and reports back with it. A workstation with a different executor version fails on its version; other fields do not matter.
 
-Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
+Owner: ragents.workspace. Rights: runs.write. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -3563,13 +3563,13 @@ Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Stand des Executors, den der Arbeitsplatz mitbringt"
+      "description": "Version of the executor that the workstation brings"
     }
   }
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -3585,28 +3585,28 @@ Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
         "type": "string",
         "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$",
         "maxLength": 128,
-        "description": "Kennung des Plugins"
+        "description": "ID of the plugin"
       },
       "stand": {
         "type": "string",
         "pattern": "^[0-9a-f]{64}$",
-        "description": "SHA-256 der Datei des Beitrags"
+        "description": "SHA-256 of the contribution file"
       }
     },
     "additionalProperties": false
   },
   "maxItems": 64,
-  "description": "Die Beiträge der Plugins zum Executor, in der Reihenfolge der Pluginliste des Servers"
+  "description": "The plugins' contributions to the executor, in the order of the server's plugin list"
 }
 ```
 
 ## ragents.workspace.clients.list
 
-Die angemeldeten Arbeitsplätze des Aufrufers; fremde erscheinen auch mit runs.read.all nicht.
+The caller's signed-in workstations; other users' workstations do not appear even with runs.read.all.
 
-Eigentümer: ragents.workspace. Rechte: runs.read. Ausführung: der Server.
+Owner: ragents.workspace. Rights: runs.read. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -3616,7 +3616,7 @@ Eigentümer: ragents.workspace. Rechte: runs.read. Ausführung: der Server.
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -3660,11 +3660,11 @@ Eigentümer: ragents.workspace. Rechte: runs.read. Ausführung: der Server.
       "runsDirectory": {
         "type": "string",
         "minLength": 1,
-        "description": "Absoluter Ordner, unter dem der Arbeitsplatz die neuen Ordner je Run anlegt"
+        "description": "Absolute folder under which the workstation creates the new folders per run"
       },
       "ripgrep": {
         "type": "boolean",
-        "description": "Ob die Bash des Arbeitsplatzes rg findet"
+        "description": "Whether the workstation's bash finds rg"
       }
     },
     "additionalProperties": false
@@ -3674,11 +3674,11 @@ Eigentümer: ragents.workspace. Rechte: runs.read. Ausführung: der Server.
 
 ## ragents.workspace.clients.register
 
-Einen Arbeitsplatz anmelden oder seine Ordner erneuern; die Verbindung dieser Anfrage wird sein Rückweg und braucht einen Ereignisstrom. Ein Arbeitsplatz mit anderem Executor-Stand scheitert an seinem Stand, bevor die übrige Form zählt.
+Sign in a workstation or renew its folders; the connection of this request becomes its return path and needs an event stream. A workstation with a different executor version fails on its version before the rest of the shape matters.
 
-Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
+Owner: ragents.workspace. Rights: runs.write. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -3700,7 +3700,7 @@ Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
         "id": {
           "type": "string",
           "pattern": "^[A-Za-z0-9_-]{8,64}$",
-          "description": "Stabile Kennung des Arbeitsplatzes"
+          "description": "Stable ID of the workstation"
         },
         "label": {
           "type": "string",
@@ -3726,17 +3726,17 @@ Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
         "runsDirectory": {
           "type": "string",
           "minLength": 1,
-          "description": "Absoluter Ordner, unter dem der Arbeitsplatz die neuen Ordner je Run anlegt"
+          "description": "Absolute folder under which the workstation creates the new folders per run"
         },
         "ripgrep": {
           "type": "boolean",
-          "description": "Ob die Bash des Arbeitsplatzes rg findet"
+          "description": "Whether the workstation's bash finds rg"
         },
         "executor": {
           "type": "string",
           "minLength": 1,
           "maxLength": 64,
-          "description": "Stand des Executors, den der Arbeitsplatz mitbringt"
+          "description": "Version of the executor that the workstation brings"
         },
         "contributions": {
           "type": "array",
@@ -3751,18 +3751,18 @@ Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
                 "type": "string",
                 "pattern": "^[a-z0-9]+(?:[.-][a-z0-9]+)*$",
                 "maxLength": 128,
-                "description": "Kennung des Plugins"
+                "description": "ID of the plugin"
               },
               "stand": {
                 "type": "string",
                 "pattern": "^[0-9a-f]{64}$",
-                "description": "SHA-256 der Datei des Beitrags"
+                "description": "SHA-256 of the contribution file"
               }
             },
             "additionalProperties": false
           },
           "maxItems": 64,
-          "description": "Die Beiträge der Plugins zum Executor, in der Reihenfolge der Pluginliste des Servers"
+          "description": "The plugins' contributions to the executor, in the order of the server's plugin list"
         }
       },
       "additionalProperties": false
@@ -3783,16 +3783,16 @@ Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
           "type": "string",
           "minLength": 1,
           "maxLength": 64,
-          "description": "Stand des Executors, den der Arbeitsplatz mitbringt"
+          "description": "Version of the executor that the workstation brings"
         }
       },
-      "description": "Anmeldung mit einem anderen Executor-Stand in beliebiger Form; der Server lehnt sie mit workspace-executor-version ab"
+      "description": "Sign-in with a different executor version in any shape; the server rejects it with workspace-executor-version"
     }
   ]
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -3834,11 +3834,11 @@ Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
     "runsDirectory": {
       "type": "string",
       "minLength": 1,
-      "description": "Absoluter Ordner, unter dem der Arbeitsplatz die neuen Ordner je Run anlegt"
+      "description": "Absolute folder under which the workstation creates the new folders per run"
     },
     "ripgrep": {
       "type": "boolean",
-      "description": "Ob die Bash des Arbeitsplatzes rg findet"
+      "description": "Whether the workstation's bash finds rg"
     }
   },
   "additionalProperties": false
@@ -3847,11 +3847,11 @@ Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
 
 ## ragents.workspace.clients.unregister
 
-Einen eigenen Arbeitsplatz abmelden; offene Aufträge scheitern.
+Sign out one of your own workstations; open tasks fail.
 
-Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
+Owner: ragents.workspace. Rights: runs.write. Execution: the server.
 
-### Eingabe
+### Input
 
 ```json
 {
@@ -3863,14 +3863,14 @@ Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
     "id": {
       "type": "string",
       "pattern": "^[A-Za-z0-9_-]{8,64}$",
-      "description": "Stabile Kennung des Arbeitsplatzes"
+      "description": "Stable ID of the workstation"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Ergebnis
+### Result
 
 ```json
 {
@@ -3878,11 +3878,11 @@ Eigentümer: ragents.workspace. Rechte: runs.write. Ausführung: der Server.
 }
 ```
 
-## Kanal ragents.chat
+## Channel ragents.chat
 
-Der Chatverlauf des Koordinators: erst der gespeicherte Verlauf, dann live. Rechte wie das Lesen des Runs.
+The coordinator's chat history: first the stored history, then live. Rights as for reading the run.
 
-Eigentümer: host. Rechte: keine festen Rechte.
+Owner: host. Rights: no fixed rights.
 
 ### Parameter
 
@@ -3897,14 +3897,14 @@ Eigentümer: host. Rechte: keine festen Rechte.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Id of the run"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Nachricht
+### Message
 
 ```json
 {
@@ -3914,11 +3914,11 @@ Eigentümer: host. Rechte: keine festen Rechte.
 }
 ```
 
-## Kanal ragents.processes
+## Channel ragents.processes
 
-Der laufende Stand der Prozessüberwachung eines Runs. Rechte: runs.read und ragents.processes.read.
+The live state of a run's process monitoring. Rights: runs.read and ragents.processes.read.
 
-Eigentümer: ragents.processes. Rechte: runs.read, ragents.processes.read.
+Owner: ragents.processes. Rights: runs.read, ragents.processes.read.
 
 ### Parameter
 
@@ -3933,14 +3933,14 @@ Eigentümer: ragents.processes. Rechte: runs.read, ragents.processes.read.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Run id"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Nachricht
+### Message
 
 ```json
 {
@@ -3950,11 +3950,11 @@ Eigentümer: ragents.processes. Rechte: runs.read, ragents.processes.read.
 }
 ```
 
-## Kanal ragents.run
+## Channel ragents.run
 
-Meldet jedes neue Journalereignis eines Runs; erst ready, dann run. Rechte wie das Lesen des Runs.
+Reports every new journal event of a run; first ready, then run. Rights as for reading the run.
 
-Eigentümer: host. Rechte: keine festen Rechte.
+Owner: host. Rights: no fixed rights.
 
 ### Parameter
 
@@ -3969,14 +3969,14 @@ Eigentümer: host. Rechte: keine festen Rechte.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "Id of the run"
     }
   },
   "additionalProperties": false
 }
 ```
 
-### Nachricht
+### Message
 
 ```json
 {
@@ -4001,11 +4001,11 @@ Eigentümer: host. Rechte: keine festen Rechte.
 }
 ```
 
-## Kanal ragents.runs
+## Channel ragents.runs
 
-Meldet jede Änderung der Run-Liste. Recht: runs.read.
+Reports every change of the run list. Right: runs.read.
 
-Eigentümer: host. Rechte: runs.read.
+Owner: host. Rights: runs.read.
 
 ### Parameter
 
@@ -4017,7 +4017,7 @@ Eigentümer: host. Rechte: runs.read.
 }
 ```
 
-### Nachricht
+### Message
 
 ```json
 {
@@ -4034,11 +4034,11 @@ Eigentümer: host. Rechte: runs.read.
 }
 ```
 
-## Kanal ragents.workspace.browse
+## Channel ragents.workspace.browse
 
-Meldet jede Änderung unterhalb der beobachteten Wurzel eines Runs.
+Reports every change below the observed root of a run.
 
-Eigentümer: ragents.workspace. Rechte: runs.read, runs.inspect.
+Owner: ragents.workspace. Rights: runs.read, runs.inspect.
 
 ### Parameter
 
@@ -4054,7 +4054,7 @@ Eigentümer: ragents.workspace. Rechte: runs.read, runs.inspect.
       "type": "string",
       "minLength": 1,
       "maxLength": 64,
-      "description": "Kennung des Runs"
+      "description": "ID of the run"
     },
     "root": {
       "anyOf": [
@@ -4073,7 +4073,7 @@ Eigentümer: ragents.workspace. Rechte: runs.read, runs.inspect.
 }
 ```
 
-### Nachricht
+### Message
 
 ```json
 {

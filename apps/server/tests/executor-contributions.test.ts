@@ -33,36 +33,36 @@ const textOf = (result: unknown): string =>
     .map((part) => part.text)
     .join("\n");
 
-/** Was ein Plugin einem Arbeitsplatz beiträgt, gebaut mit dessen Werkzeugordner. */
+/** What a plugin contributes to a workstation, built with the plugin's tool folder. */
 const partsOf = (plugin: string, contribution: WorkspaceExecutorContribution): WorkspaceExecutorParts =>
   contribution(executorMachine(pluginToolsDirectory(hostDataDirectory(), plugin)));
 
 const LANGUAGE_SERVER_PLUGINS = ["ragents.lsp-roslyn", "ragents.lsp-fsharp", "ragents.lsp-typescript"] as const;
 
-test("die Sprachserver kommen aus ihren Plugins: der Server lädt die Beiträge mit den Bundles, ein Arbeitsplatz dieselben Dateien im selben Stand", async () => {
+test("the language servers come from their plugins: the server loads the contributions with the bundles, a workstation the same files in the same state", async () => {
   const loaded = await loadPlugins(["ragents.orchestration", "ragents.ask", ...LANGUAGE_SERVER_PLUGINS]);
   assert.deepEqual(loaded.executor.map((entry) => entry.plugin), [...LANGUAGE_SERVER_PLUGINS]);
   for (const { plugin, stand } of loaded.executor) {
     const file = path.join(hostRoot(), "bundles", plugin, EXECUTOR_CONTRIBUTION_FILE);
     assert.equal(stand, createHash("sha256").update(await readFile(file)).digest("hex"), plugin);
-    assert.equal((await loadExecutorContribution(plugin, file, stand)).stand, stand, `${plugin}: der Arbeitsplatz lädt dieselbe Datei`);
+    assert.equal((await loadExecutorContribution(plugin, file, stand)).stand, stand, `${plugin}: the workstation loads the same file`);
   }
-  const servers = loaded.executor.map((entry) => prepareExecutorContribution(entry, pluginToolsDirectory("/daten", entry.plugin)).parts.languageServers!.map((server) => server.id));
+  const servers = loaded.executor.map((entry) => prepareExecutorContribution(entry, pluginToolsDirectory("/data", entry.plugin)).parts.languageServers!.map((server) => server.id));
   assert.deepEqual(servers, [["roslyn"], ["fsharp"], ["typescript"]]);
   const executor = new WorkspaceOperationExecutor({
-    contextFor: () => Promise.reject(new Error("nicht gefragt")),
-    modules: [languageServerModule(loaded.executor.flatMap((entry) => prepareExecutorContribution(entry, "/daten").parts.languageServers ?? []))],
+    contextFor: () => Promise.reject(new Error("not asked")),
+    modules: [languageServerModule(loaded.executor.flatMap((entry) => prepareExecutorContribution(entry, "/data").parts.languageServers ?? []))],
   });
   assert.deepEqual(await executor.execute("run-1", "fsharp_snapshot", null), { instances: [] });
   await executor.shutdown();
 });
 
-test("ein Arbeitsplatz provisioniert genau die eingebauten Plugins mit einem Beitrag zum Executor und die Bundles, die sie zum Laden brauchen", () => {
+test("a workstation provisions exactly the built-in plugins with an executor contribution and the bundles they need to load", () => {
   assert.deepEqual(workspaceProvisionPlugins().map((plugin) => plugin.id).sort(),
     ["ragents.ask", "ragents.browser", "ragents.documents", ...LANGUAGE_SERVER_PLUGINS].sort());
 });
 
-test("Roslyn und FSAC starten aus dem Werkzeugordner ihres Plugins, eine .dll über dotnet, eine Binary direkt, auch mit Windows-Pfaden", async (t) => {
+test("Roslyn and FSAC start from their plugin's tool folder, a .dll through dotnet, a binary directly, also with Windows paths", async (t) => {
   const tools = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-lsp-tools-")));
   t.after(() => rm(tools, { recursive: true, force: true }));
   const saved = { roslyn: process.env[ROSLYN_SERVER_VARIABLE], fsharp: process.env.FSHARP_LANGUAGE_SERVER };
@@ -75,7 +75,7 @@ test("Roslyn und FSAC starten aus dem Werkzeugordner ihres Plugins, eine .dll ü
   delete process.env[ROSLYN_SERVER_VARIABLE];
   const context = workspaceProcessContext({ runId: "run-1", cwd: tools, root: tools, home: { home: tools }, logDirectory: tools, hostRoot: undefined });
   const [roslyn] = roslynExecutor(executorMachine(tools)).languageServers!;
-  await assert.rejects(roslyn!.launch(context, path.join(tools, "Sample.sln")), /weder ROSLYN_LANGUAGE_SERVER gesetzt noch .*Microsoft\.CodeAnalysis\.LanguageServer\.dll vorhanden/);
+  await assert.rejects(roslyn!.launch(context, path.join(tools, "Sample.sln")), /neither is ROSLYN_LANGUAGE_SERVER set nor does .*Microsoft\.CodeAnalysis\.LanguageServer\.dll exist/);
   const provisioned = path.join(tools, ...ROSLYN_SERVER_FILE.split("/"));
   await mkdir(path.dirname(provisioned), { recursive: true });
   await writeFile(provisioned, "");
@@ -108,9 +108,9 @@ const tsFixture = async () => {
     await writeFile(path.join(root, "broken.ts"), content);
     return root;
   };
-  const first = await project("a", "export const count: number = \"eins\";\n");
+  const first = await project("a", "export const count: number = \"one\";\n");
   const second = await project("b", "export const label: string = 7;\n");
-  await writeFile(path.join(workspace, "lose.ts"), "export const outside: string = 1;\n");
+  await writeFile(path.join(workspace, "loose.ts"), "export const outside: string = 1;\n");
   const result = await runManagedProcess({ command: "git", args: ["init", "-q"], cwd: workspace, env: process.env, label: "git", timeoutMs: 30_000 });
   assert.equal(result.code, 0);
   const executor = new WorkspaceOperationExecutor({
@@ -142,12 +142,12 @@ const tsFixture = async () => {
   };
 };
 
-test("zwei TypeScript-Wurzeln bleiben im selben Run nebeneinander offen", { timeout: 300_000 }, async () => {
+test("two TypeScript roots stay open side by side in the same run", { timeout: 300_000 }, async () => {
   const f = await tsFixture();
   try {
-    assert.match(await f.executor.execute("run-ts", "typescript_open", { root: "a" }) as string, /1 offene Instanz von TypeScript/);
-    assert.match(await f.executor.execute("run-ts", "typescript_open", { root: "a" }) as string, /bereits geöffnet/);
-    assert.match(await f.executor.execute("run-ts", "typescript_open", { root: "b" }) as string, /2 offene Instanzen von TypeScript/);
+    assert.match(await f.executor.execute("run-ts", "typescript_open", { root: "a" }) as string, /1 open instance of TypeScript/);
+    assert.match(await f.executor.execute("run-ts", "typescript_open", { root: "a" }) as string, /already open/);
+    assert.match(await f.executor.execute("run-ts", "typescript_open", { root: "b" }) as string, /2 open instances of TypeScript/);
     assert.deepEqual(await f.roots("run-ts"), [`${f.first}:ready`, `${f.second}:ready`]);
 
     const both = await f.executor.execute("run-ts", "typescript_diagnostics", {}) as string;
@@ -162,8 +162,8 @@ test("zwei TypeScript-Wurzeln bleiben im selben Run nebeneinander offen", { time
     assert.doesNotMatch(onlySecond, /a\/broken\.ts/);
 
     await assert.rejects(
-      f.executor.execute("run-ts", "typescript_diagnostics", { paths: ["lose.ts"] }),
-      (error: Error) => error.message.includes("liegt in keiner geöffneten TypeScript-Wurzel")
+      f.executor.execute("run-ts", "typescript_diagnostics", { paths: ["loose.ts"] }),
+      (error: Error) => error.message.includes("is in no open TypeScript root")
         && error.message.includes(f.first)
         && error.message.includes(f.second),
     );
@@ -172,10 +172,10 @@ test("zwei TypeScript-Wurzeln bleiben im selben Run nebeneinander offen", { time
       path: "b/broken.ts",
       edits: [{ oldText: "7", newText: "false" }],
     });
-    assert.match(textOf(edited), /Diagnostik \(TypeScript\) b\/broken\.ts: 1 Fehler/);
+    assert.match(textOf(edited), /Diagnostics \(TypeScript\) b\/broken\.ts: 1 error/);
     assert.doesNotMatch(textOf(edited), /a\/broken\.ts/);
 
-    assert.match(await f.executor.execute("run-ts", "typescript_close", { root: "a" }) as string, /1 offene Instanz/);
+    assert.match(await f.executor.execute("run-ts", "typescript_close", { root: "a" }) as string, /1 open instance/);
     assert.deepEqual(await f.roots("run-ts"), [`${f.second}:ready`]);
     assert.match(await f.executor.execute("run-ts", "typescript_diagnostics", {}) as string, /b\/broken\.ts:1:14 error 2322/);
 

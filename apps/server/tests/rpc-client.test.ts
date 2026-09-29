@@ -19,12 +19,12 @@ import { RpcClient } from "../../web/src/rpc/client.ts";
 import { RpcDispatcher } from "../src/rpc/dispatcher.ts";
 import { RpcHttpTransport } from "../src/rpc/http-transport.ts";
 
-const greet = defineOperation({ id: "test.greet", description: "Grüßt", input: Type.Object({ name: Type.String() }), result: Type.Object({ text: Type.String() }) });
-const fail = defineOperation({ id: "test.fail", description: "Scheitert", input: Type.Object({}), result: Type.Null() });
-const slow = defineOperation({ id: "test.slow", description: "Wartet", input: Type.Object({}), result: Type.Object({ aborted: Type.Boolean() }) });
-const callback = defineOperation({ id: "test.callback", description: "Ruft den Client", input: Type.Object({ value: Type.String() }), result: Type.Object({ value: Type.String() }) });
-const clientEcho = defineOperation({ id: "test.client.echo", description: "Der Client antwortet", implementedBy: "client", input: Type.Object({ value: Type.String() }), result: Type.Object({ value: Type.String() }) });
-const ticks = defineChannel({ id: "test.ticks", description: "Zählt", params: Type.Object({ runId: Type.String() }), message: Type.Object({ tick: Type.Number() }) });
+const greet = defineOperation({ id: "test.greet", description: "Greets", input: Type.Object({ name: Type.String() }), result: Type.Object({ text: Type.String() }) });
+const fail = defineOperation({ id: "test.fail", description: "Fails", input: Type.Object({}), result: Type.Null() });
+const slow = defineOperation({ id: "test.slow", description: "Waits", input: Type.Object({}), result: Type.Object({ aborted: Type.Boolean() }) });
+const callback = defineOperation({ id: "test.callback", description: "Calls the client", input: Type.Object({ value: Type.String() }), result: Type.Object({ value: Type.String() }) });
+const clientEcho = defineOperation({ id: "test.client.echo", description: "The client answers", implementedBy: "client", input: Type.Object({ value: Type.String() }), result: Type.Object({ value: Type.String() }) });
+const ticks = defineChannel({ id: "test.ticks", description: "Counts", params: Type.Object({ runId: Type.String() }), message: Type.Object({ tick: Type.Number() }) });
 
 const fixture = async (t: TestContext) => {
   const methods = new MethodContributionRegistry();
@@ -32,8 +32,8 @@ const fixture = async (t: TestContext) => {
   const emitters = new Map<string, (message: { tick: number }) => void>();
   const stopped: string[] = [];
   methods.register("test", [
-    implement(greet, ({ name }) => ({ text: `Hallo ${name}` })),
-    implement(fail, () => { throw new DomainError("run-not-found", "Kein Run", 404); }),
+    implement(greet, ({ name }) => ({ text: `Hello ${name}` })),
+    implement(fail, () => { throw new DomainError("run-not-found", "No run", 404); }),
     implement(slow, (_input, context) => new Promise((resolve) => context.signal.addEventListener("abort", () => resolve({ aborted: true })))),
     implement(callback, ({ value }, context) => context.connection.call(clientEcho, { value })),
   ]);
@@ -45,7 +45,7 @@ const fixture = async (t: TestContext) => {
   let unauthorized = false;
   const transport = new RpcHttpTransport({ dispatcher: new RpcDispatcher({ methods, channels }) });
   const server = createServer((request, response) => {
-    if (unauthorized) { response.writeHead(401, { "content-type": "application/json" }); response.end(JSON.stringify({ error: "Bitte melde dich an.", code: "login-required" })); return; }
+    if (unauthorized) { response.writeHead(401, { "content-type": "application/json" }); response.end(JSON.stringify({ error: "Please sign in.", code: "login-required" })); return; }
     const url = new URL(request.url ?? "/", "http://host");
     void transport.handle(request, response, url, createAccessContext({ enabled: false, user: null }), true);
   });
@@ -53,7 +53,7 @@ const fixture = async (t: TestContext) => {
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
-  if (!address || typeof address === "string") throw new Error("Testserver ohne Port");
+  if (!address || typeof address === "string") throw new Error("test server without port");
   const client = new RpcClient({ baseUrl: `http://127.0.0.1:${address.port}`, retryDelayMs: 50 });
   t.after(() => client.close());
   return { client, emitters, stopped, transport, setUnauthorized: (value: boolean) => { unauthorized = value; } };
@@ -62,14 +62,14 @@ const fixture = async (t: TestContext) => {
 const until = async (condition: () => boolean, timeoutMs = 3000) => {
   const started = Date.now();
   while (!condition()) {
-    if (Date.now() - started > timeoutMs) throw new Error("Bedingung wurde nicht erfüllt.");
+    if (Date.now() - started > timeoutMs) throw new Error("Condition was not met.");
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 };
 
 test("calls, failures and cancellation work without a stream", async (t) => {
   const f = await fixture(t);
-  assert.deepEqual(await f.client.call(greet, { name: "Alice" }), { text: "Hallo Alice" });
+  assert.deepEqual(await f.client.call(greet, { name: "Alice" }), { text: "Hello Alice" });
   await assert.rejects(f.client.call(fail, {}), (error: unknown) => error instanceof RpcError && error.domainCode === "run-not-found" && error.status === 404);
   const controller = new AbortController();
   const pending = f.client.call(slow, {}, { signal: controller.signal });
@@ -127,7 +127,7 @@ test("a lost stream aborts the handlers still running for the server", async (t)
   const f = await fixture(t);
   const aborted: boolean[] = [];
   const release = f.client.handle(clientEcho, (_input, context) => new Promise((resolve) => {
-    context.signal.addEventListener("abort", () => { aborted.push(true); resolve({ value: "zu spät" }); });
+    context.signal.addEventListener("abort", () => { aborted.push(true); resolve({ value: "too late" }); });
   }));
   t.after(release);
   await until(() => f.client.status.kind === "connected");
@@ -144,7 +144,7 @@ test("a stream that stays silent counts as lost and is opened again", async (t) 
     if (request.url?.startsWith("/rpc/stream")) {
       opened.push(Date.now());
       response.writeHead(200, { "content-type": "text/event-stream" });
-      response.write(`event: hello\ndata: ${JSON.stringify({ connection: `stumm-${opened.length}` })}\n\n`);
+      response.write(`event: hello\ndata: ${JSON.stringify({ connection: `silent-${opened.length}` })}\n\n`);
       return;
     }
     response.writeHead(404).end();
@@ -153,12 +153,12 @@ test("a stream that stays silent counts as lost and is opened again", async (t) 
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
-  if (!address || typeof address === "string") throw new Error("Testserver ohne Port");
+  if (!address || typeof address === "string") throw new Error("test server without port");
   const client = new RpcClient({ baseUrl: `http://127.0.0.1:${address.port}`, retryDelayMs: 20, idleTimeoutMs: 150 });
   const statuses: string[] = [];
   client.onStatus((status) => statuses.push(status.kind === "retrying" ? `retrying: ${status.message}` : status.kind));
   t.after(client.handle(clientEcho, ({ value }) => ({ value })));
   t.after(() => client.close());
   await until(() => opened.length >= 2);
-  assert.ok(statuses.some((status) => /^retrying: Der Ereignisstrom schweigt seit/.test(status)), statuses.join(", "));
+  assert.ok(statuses.some((status) => /^retrying: The event stream has been silent for/.test(status)), statuses.join(", "));
 });

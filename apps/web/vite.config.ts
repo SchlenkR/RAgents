@@ -20,7 +20,7 @@ const isFile = (file: string): boolean => statSync(file, { throwIfNoEntry: false
 const hostWeb = (): Plugin => ({
   name: "ragents-host-web",
   apply: "build",
-  // Parallele Web-Bauten warten aufeinander; ein abgebrochener Bau gibt die Sperre mit seinem Prozess frei.
+  // Parallel web builds wait for each other; an aborted build releases the lock with its process.
   async config() {
     await acquireLock(buildLock);
     process.once("exit", () => rmSync(buildLock, { force: true }));
@@ -32,7 +32,7 @@ const hostWeb = (): Plugin => ({
     const record = hostWebRecordOf(repositoryRoot, [...sources, fileURLToPath(import.meta.url), path.join(repositoryRoot, "pnpm-lock.yaml")]);
     this.emitFile({ type: "asset", fileName: HOST_WEB_RECORD, source: `${JSON.stringify(record, null, 2)}\n` });
   },
-  // Vite schreibt neben das fertige Web, dann kommt jede Datei einzeln an ihren Platz; ein laufender Host verliert den Ordner nie.
+  // Vite writes next to the finished web, then each file is moved into place individually; a running host never loses the folder.
   async writeBundle() {
     await installFolder(stagingDirectory, outputDirectory, ["index.html", "run-panel.html", HOST_WEB_RECORD]);
   },

@@ -6,10 +6,10 @@ import type { RpcClient } from "./rpc/client";
 export async function discussRun(sessionId: string, messages: RunPreparationMessage[], signal: AbortSignal, skillName?: string, client: RpcClient = rpc): Promise<RunPreparationResponse> {
   const result = await client.call(coreContracts.prepare, { runId: sessionId, messages, ...(skillName ? { skillName } : {}) }, { signal });
   if (result.kind === "start") {
-    if (!result.input || typeof result.input.text !== "string" || !result.input.text.trim()) throw new Error("Der vorbereitete Startauftrag fehlt.");
+    if (!result.input || typeof result.input.text !== "string" || !result.input.text.trim()) throw new Error("The prepared start task is missing.");
     return result;
   }
-  if (result.kind !== "reply" || typeof result.text !== "string" || !result.text.trim()) throw new Error("Die Vorbereitung hat keine Antwort geliefert.");
+  if (result.kind !== "reply" || typeof result.text !== "string" || !result.text.trim()) throw new Error("The preparation did not return an answer.");
   return result;
 }
 

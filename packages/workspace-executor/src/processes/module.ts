@@ -11,17 +11,17 @@ export const PROCESS_OPERATIONS = {
 } as const;
 
 export interface ProcessModuleOptions {
-  /** Die Prozesstabelle dieser Maschine; ohne Angabe die der Plattform, aufgelöst erst im Aufruf. */
+  /** The process table of this machine; without a value the one of the platform, resolved only at the call. */
   table?: () => ProcessTable;
 }
 
 const processIdOf = (input: unknown): string => {
   const value = (input as { processId?: unknown } | null)?.processId;
-  if (typeof value !== "string") throw new WorkspaceOperationError("invalid-process", "Ungültige Prozessreferenz", 400);
+  if (typeof value !== "string") throw new WorkspaceOperationError("invalid-process", "Invalid process reference", 400);
   return value;
 };
 
-/** Die markierten Prozesse eines Runs auf dieser Maschine; ohne Prozesstabelle (Windows) räumt der Stopp nur die Bash-Bäume ab. */
+/** The marked processes of a run on this machine; without a process table (Windows) the stop only clears the bash trees. */
 export const processModule = (options: ProcessModuleOptions = {}): WorkspaceModuleFactory => () => {
   const table = options.table ?? (() => processTableForPlatform());
   const cleansUp = options.table !== undefined || hasProcessTable();

@@ -11,7 +11,7 @@ import {
 } from "../src/index.ts";
 
 const executorWith = (runFolder?: (runId: string) => string): WorkspaceOperationExecutor => new WorkspaceOperationExecutor({
-  contextFor: () => Promise.reject(new Error("Der Ordner je Run braucht keinen Kontext")),
+  contextFor: () => Promise.reject(new Error("The folder per run needs no context")),
   modules: workspaceExecutorModules(runFolder ? { runFolder, contributions: [] } : { contributions: [] }),
 });
 
@@ -20,13 +20,13 @@ test("a workstation creates the new folder of a run once, keeps what is in it an
   const executor = executorWith((runId) => path.join(runs, runId));
   try {
     assert.deepEqual(await executor.execute("run-1", RUN_FOLDER_OPERATIONS.create, null), { created: true });
-    await writeFile(path.join(runs, "run-1", "notiz.md"), "bleibt");
+    await writeFile(path.join(runs, "run-1", "note.md"), "stays");
     assert.deepEqual(await executor.execute("run-1", RUN_FOLDER_OPERATIONS.create, null), { created: false });
-    assert.deepEqual(await readdir(path.join(runs, "run-1")), ["notiz.md"]);
+    assert.deepEqual(await readdir(path.join(runs, "run-1")), ["note.md"]);
     await executor.execute("run-2", RUN_FOLDER_OPERATIONS.create, null);
     assert.deepEqual(await executor.execute("run-1", RUN_FOLDER_OPERATIONS.remove, null), { removed: true });
     assert.deepEqual(await readdir(runs), ["run-2"]);
-    assert.deepEqual(await executor.execute("run-1", RUN_FOLDER_OPERATIONS.remove, null), { removed: true }, "ein fehlender Ordner ist schon weg");
+    assert.deepEqual(await executor.execute("run-1", RUN_FOLDER_OPERATIONS.remove, null), { removed: true }, "a missing folder is already gone");
   } finally {
     await executor.shutdown();
     await rm(runs, { recursive: true, force: true });

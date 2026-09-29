@@ -7,7 +7,7 @@ import { participants, type WordGameState } from "../src/state.ts";
 
 const message = (content: string): ActorInput => ({ id: "input", content, artifactIds: [], sourceEventIds: [], subscriptionId: null, event: null });
 const firstInput = message(JSON.stringify({ input: null, options: {} }));
-const words = ["Strand", "Sand", "Wüste", "Kamel", "Oase", "Wasser", "Fluss", "Brücke", "Stadt", "Haus", "Garten", "Blume"];
+const words = ["Beach", "Sand", "Desert", "Camel", "Oasis", "Water", "River", "Bridge", "City", "House", "Garden", "Flower"];
 type History = CapabilityContracts["event_query"]["output"];
 
 function fixture(initialState: WordGameState = {}) {
@@ -33,7 +33,7 @@ function fixture(initialState: WordGameState = {}) {
       },
       actor_input: async (input) => {
         calls.push({ name: "actor_input", input });
-        if (settings.failDispatch) throw new Error("Übergabe fehlgeschlagen");
+        if (settings.failDispatch) throw new Error("Handover failed");
         return [{ type: "actor.input.enqueued", payload: { actorId: input.actor, inputId: `request-${calls.length}` } }];
       },
       event_query: async (input) => { calls.push({ name: "event_query", input }); return history.filter((event) => input.actorIds?.includes(event.actorId)); },
@@ -48,9 +48,9 @@ function fixture(initialState: WordGameState = {}) {
     const envelope = { actorId, causationId: null, commandId: "test", correlationId: null, occurredAt: "2026-09-13T12:00:00Z", runId: "test", schemaVersion: 3 as const };
     history.push({ ...envelope, eventId: `${turnId}-start`, sequence: history.length + 1, type: "turn.started", payload: { turnId, inputId: options.inputId ?? state.pendingInputId } });
     history.push({ ...envelope, eventId: `${turnId}-output`, sequence: history.length + 1, type: "model.output.completed", payload: { turnId, text: word } });
-    return { ...message("Ereignis"), subscriptionId: options.subscriptionId ?? "subscription", sourceEventIds: [`${turnId}-finished`],
+    return { ...message("Event"), subscriptionId: options.subscriptionId ?? "subscription", sourceEventIds: [`${turnId}-finished`],
       event: { type: options.type ?? "turn.finished", eventId: `${turnId}-finished`, sequence: history.length + 1, occurredAt: envelope.occurredAt,
-        sourceActorId: actorId, sourceActorHandle: null, payload: { turnId, outcome: options.outcome ?? "completed", reason: "Testunterbrechung" } } };
+        sourceActorId: actorId, sourceActorHandle: null, payload: { turnId, outcome: options.outcome ?? "completed", reason: "Test interruption" } } };
   };
   const start = async () => {
     await program.onInput(firstInput, context);
@@ -60,7 +60,7 @@ function fixture(initialState: WordGameState = {}) {
   return { context, calls, history, settings, response, start };
 }
 
-test("richtet vier reine LLMs und die eigene View ohne Modellauftrag ein", async () => {
+test("sets up four plain LLMs and its own view without a model task", async () => {
   const { context, calls } = fixture();
   await program.onInput(firstInput, context);
   assert.equal(context.state.read().status, "ready");
@@ -69,15 +69,15 @@ test("richtet vier reine LLMs und die eigene View ohne Modellauftrag ein", async
     return { handle: input.handle, name: input.displayName, tools: input.tools, profile: input.profile };
   }), participants.map((participant) => ({ ...participant, tools: [], profile: "standard" })));
   assert.equal(calls.some((call) => call.name === "actor_input"), false);
-  assert.deepEqual(calls.find((call) => call.name === "run_configure")!.input, { title: "Wortspiel", primaryActor: "test-actor" });
+  assert.deepEqual(calls.find((call) => call.name === "run_configure")!.input, { title: "Word game", primaryActor: "test-actor" });
   const before = structuredClone(context.state.read());
   const callCount = calls.length;
-  await assert.rejects(async () => program.onInput(firstInput, context), /keine freien Chatnachrichten/);
+  await assert.rejects(async () => program.onInput(firstInput, context), /does not understand free chat messages/);
   assert.deepEqual(context.state.read(), before);
   assert.equal(calls.length, callCount);
 });
 
-test("der App-Aufruf schickt nur einen Auftrag an den eigenen Steueractor", async () => {
+test("the app call sends only one task to its own control actor", async () => {
   const { context, calls } = fixture();
   await program.onInput(firstInput, context);
   assert.deepEqual(await program.functions.start({}, context), { accepted: true });
@@ -86,7 +86,7 @@ test("der App-Aufruf schickt nur einen Auftrag an den eigenen Steueractor", asyn
   assert.equal(context.state.read().status, "ready");
 });
 
-test("wartet auf spätere Ereignisse, zählt zwölf Beiträge und beendet die Weitergabe", async () => {
+test("waits for later events, counts twelve contributions, and ends the handover", async () => {
   const { context, calls, response, start } = fixture();
   await start();
   assert.deepEqual(calls.slice(-2).map((call) => call.name), ["event_subscribe", "actor_input"]);
@@ -96,17 +96,17 @@ test("wartet auf spätere Ereignisse, zählt zwölf Beiträge und beendet die We
   assert.deepEqual(inputs.map((call) => (call.input as { actor: string }).actor), words.map((_word, index) => `actor-${participants[index % 4]!.handle}`));
   assert.equal(context.state.read().status, "completed");
   assert.equal(context.state.read().entries?.length, 12);
-  assert.match(context.state.read().document!, /12\. Green: Blume/);
+  assert.match(context.state.read().document!, /12\. Green: Flower/);
   assert.equal(context.state.read().pendingInputId, undefined);
   assert.deepEqual(await program.functions.start({}, context), { accepted: false });
 });
 
-test("ignoriert falsche Quellen, fremde Aufträge, falsche Abos und doppelte Ereignisse", async () => {
+test("ignores wrong sources, foreign tasks, wrong subscriptions, and duplicate events", async () => {
   const { context, calls, response, start } = fixture();
   await start();
-  await program.onInput(response("Fremd", { actorId: "actor-blue" }), context);
-  await program.onInput(response("Fremd", { inputId: "foreign-input" }), context);
-  await program.onInput(response("Fremd", { subscriptionId: "foreign-subscription" }), context);
+  await program.onInput(response("Foreign", { actorId: "actor-blue" }), context);
+  await program.onInput(response("Foreign", { inputId: "foreign-input" }), context);
+  await program.onInput(response("Foreign", { subscriptionId: "foreign-subscription" }), context);
   assert.equal(context.state.read().entries?.length, 0);
   const first = response(words[0]!);
   await program.onInput(first, context);
@@ -119,12 +119,12 @@ test("ignoriert falsche Quellen, fremde Aufträge, falsche Abos und doppelte Ere
 });
 
 for (const scenario of [
-  { name: "Modellfehler", word: "Strand", options: { outcome: "failed" } },
-  { name: "Unterbrechung", word: "Strand", options: { type: "turn.interrupted" } },
-  { name: "Mehrwortantwort", word: "Schöner Strand", options: {} },
-  { name: "wiederholtes Ausgangswort", word: "sun", options: {} },
+  { name: "model error", word: "Beach", options: { outcome: "failed" } },
+  { name: "interruption", word: "Beach", options: { type: "turn.interrupted" } },
+  { name: "multi-word answer", word: "Beautiful beach", options: {} },
+  { name: "repeated starting word", word: "sun", options: {} },
 ]) {
-  test(`${scenario.name} bleibt als Fehler sichtbar und startet nicht erneut`, async () => {
+  test(`${scenario.name} stays visible as an error and does not start again`, async () => {
     const { context, calls, response, start } = fixture();
     await start();
     await program.onInput(response(scenario.word, scenario.options), context);
@@ -138,7 +138,7 @@ for (const scenario of [
   });
 }
 
-test("ein weiterer Start während des Spiels verändert keinen Auftrag oder Fortschritt", async () => {
+test("another start during the game changes no task or progress", async () => {
   const { context, calls, start } = fixture();
   await start();
   const before = calls.length;
@@ -148,7 +148,7 @@ test("ein weiterer Start während des Spiels verändert keinen Auftrag oder Fort
 });
 
 for (const status of ["ready", "running", "completed"]) {
-  test(`freie Chatnachrichten werden bei ${status} abgelehnt und erhalten den Spielstand`, async () => {
+  test(`free chat messages are rejected when ${status} and keep the game state`, async () => {
     const { context, calls, response } = fixture();
     await program.onInput(firstInput, context);
     if (status !== "ready") {
@@ -159,8 +159,8 @@ for (const status of ["ready", "running", "completed"]) {
     assert.equal(context.state.read().status, status);
     const before = structuredClone(context.state.read());
     const callCount = calls.length;
-    const content = "Starte das Wortspiel bitte noch einmal von vorn.";
-    await assert.rejects(async () => program.onInput(message(content), context), /keine freien Chatnachrichten.*Startknopf.*neuer Run/);
+    const content = "Please start the word game again from the beginning.";
+    await assert.rejects(async () => program.onInput(message(content), context), /does not understand free chat messages.*start button.*new run/);
     assert.deepEqual(context.state.read(), before);
     assert.equal(calls.length, callCount);
     if (status === "ready") {
@@ -174,32 +174,32 @@ for (const status of ["ready", "running", "completed"]) {
   });
 }
 
-test("eine fehlgeschlagene Übergabe erhält das bereits angenommene Wort", async () => {
+test("a failed handover keeps the word already accepted", async () => {
   const { context, settings, response, start } = fixture();
   await start();
   settings.failDispatch = true;
-  await program.onInput(response("Strand"), context);
+  await program.onInput(response("Beach"), context);
   assert.equal(context.state.read().status, "error");
-  assert.deepEqual(context.state.read().entries, [{ participant: 0, word: "Strand" }]);
-  assert.match(context.state.read().error!, /Übergabe/);
+  assert.deepEqual(context.state.read().entries, [{ participant: 0, word: "Beach" }]);
+  assert.match(context.state.read().error!, /Handover/);
 });
 
-test("fehlendes Standardprofil zeigt einen Fehler ohne Teilnehmer anzulegen", async () => {
+test("a missing standard profile shows an error without creating participants", async () => {
   const { context, settings, calls } = fixture();
   settings.missingProfile = true;
   await program.onInput(firstInput, context);
   assert.equal(context.state.read().status, "error");
-  assert.match(context.state.read().error!, /Rolle standard fehlt/);
+  assert.match(context.state.read().error!, /role standard is missing/);
   assert.deepEqual(calls.map((call) => call.name), ["run_configure", "canvas_layout_replace", "model_list"]);
 });
 
-test("ein wiederhergestellter Zustand zählt den wartenden Auftrag weiter und baut nichts neu", async () => {
+test("a restored state keeps counting the pending task and rebuilds nothing", async () => {
   const previous = fixture();
   await previous.start();
   await program.onInput(previous.response(words[0]!), previous.context);
   const restored = fixture(previous.context.state.read());
   const before = structuredClone(restored.context.state.read());
-  await assert.rejects(async () => program.onInput(firstInput, restored.context), /keine freien Chatnachrichten/);
+  await assert.rejects(async () => program.onInput(firstInput, restored.context), /does not understand free chat messages/);
   assert.deepEqual(restored.context.state.read(), before);
   assert.equal(restored.calls.length, 0);
   await program.onInput(restored.response(words[1]!), restored.context);
@@ -208,11 +208,11 @@ test("ein wiederhergestellter Zustand zählt den wartenden Auftrag weiter und ba
   assert.equal(restored.calls.some((call) => call.name === "agent_spawn"), false);
 });
 
-test("fehlende oder mehrfache Modellausgaben werden nicht als Wort übernommen", async () => {
+test("missing or multiple model outputs are not taken as a word", async () => {
   for (const count of [0, 2]) {
     const { context, history, response, start } = fixture();
     await start();
-    const input = response("Strand");
+    const input = response("Beach");
     const output = history.pop()!;
     for (let index = 0; index < count; index++) history.push({ ...output, eventId: `output-${index}` });
     await program.onInput(input, context);
@@ -221,8 +221,8 @@ test("fehlende oder mehrfache Modellausgaben werden nicht als Wort übernommen",
   }
 });
 
-test("ungültige Startdaten bleiben als Fehler sichtbar und starten kein Modell", async () => {
-  for (const content of ["kein JSON", JSON.stringify({ input: "Strand", options: {} }), JSON.stringify({ input: null, options: [] })]) {
+test("invalid start data stays visible as an error and starts no model", async () => {
+  for (const content of ["no JSON", JSON.stringify({ input: "Beach", options: {} }), JSON.stringify({ input: null, options: [] })]) {
     const { context, calls } = fixture();
     await program.onInput(message(content), context);
     assert.equal(context.state.read().status, "error");
@@ -230,7 +230,7 @@ test("ungültige Startdaten bleiben als Fehler sichtbar und starten kein Modell"
   }
 });
 
-test("akzeptiert die Startoptionen des Profils ohne eigene Modellvorgaben daraus abzuleiten", async () => {
+test("accepts the profile start options without deriving its own model settings from them", async () => {
   const { context, calls } = fixture();
   await program.onInput(message(JSON.stringify({ input: null, options: {
     "ragents.model": { model: "test-model", thinking: "off" },
@@ -242,11 +242,11 @@ test("akzeptiert die Startoptionen des Profils ohne eigene Modellvorgaben daraus
   assert.equal(calls.some((call) => call.name === "actor_input"), false);
 });
 
-test("ein gestoppter aktueller Teilnehmer hält das Spiel an", async () => {
+test("a stopped current participant halts the game", async () => {
   const { context, response, start } = fixture();
   await start();
-  await program.onInput(response("Strand", { type: "actor.stopped" }), context);
+  await program.onInput(response("Beach", { type: "actor.stopped" }), context);
   assert.equal(context.state.read().status, "error");
-  assert.match(context.state.read().error!, /Red wurde gestoppt/);
+  assert.match(context.state.read().error!, /Red was stopped/);
   assert.equal(context.state.read().entries?.length, 0);
 });

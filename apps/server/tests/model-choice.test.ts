@@ -55,8 +55,8 @@ test("the coordinator default is independent from the displayed model order", ()
 test("a coordinator default outside AGENT_MODELS fails explicitly", () => {
   const configured = choice({ AGENT_MODELS: ["other-first"] }, "coordinator-default");
 
-  assert.throws(() => configured.options, /Koordinator-Modell coordinator-default steht nicht in AGENT_MODELS/);
-  assert.throws(() => configured.defaultModel, /Koordinator-Modell coordinator-default steht nicht in AGENT_MODELS/);
+  assert.throws(() => configured.options, /coordinator model coordinator-default is not in AGENT_MODELS/);
+  assert.throws(() => configured.defaultModel, /coordinator model coordinator-default is not in AGENT_MODELS/);
 });
 
 test("the fallback model list also carries the explicit coordinator default", () => {
@@ -76,7 +76,7 @@ test("without AGENT_MODELS the agent and the coordinator may share one model", (
 
   assert.deepEqual(shared.options, ["shared-model"]);
   assert.equal(shared.selectable, false);
-  assert.throws(() => choice({ AGENT_MODELS: ["twice", "twice"] }, "twice").options, /AGENT_MODELS nennt twice mehrfach/);
+  assert.throws(() => choice({ AGENT_MODELS: ["twice", "twice"] }, "twice").options, /AGENT_MODELS names twice more than once/);
 });
 
 const coreChoice = (reasoning?: readonly string[]) => modelChoiceFromEnvironment(environment({
@@ -102,9 +102,9 @@ test("every shipped model exposes exactly its own runtime reasoning levels", () 
 
 test("reasoning overrides may restrict actual model levels but cannot invent them", () => {
   assert.deepEqual(coreChoice(["z-ai/glm-5.3-flash: low max"]).thinkingOptionsFor("z-ai/glm-5.3-flash"), ["low", "max"]);
-  assert.throws(() => coreChoice(["z-ai/glm-5.3-flash: medium"]).thinkingOptionsFor("z-ai/glm-5.3-flash"), /medium.*nicht verfügbar/);
-  assert.throws(() => coreChoice(["z-ai/glm-5.3-flash: low low"]).thinkingOptionsFor("z-ai/glm-5.3-flash"), /mehrfach/);
-  assert.throws(() => coreChoice().thinkingOptionsFor("missing-model"), /fehlt im Modellkatalog/);
+  assert.throws(() => coreChoice(["z-ai/glm-5.3-flash: medium"]).thinkingOptionsFor("z-ai/glm-5.3-flash"), /medium.*not available/);
+  assert.throws(() => coreChoice(["z-ai/glm-5.3-flash: low low"]).thinkingOptionsFor("z-ai/glm-5.3-flash"), /more than once/);
+  assert.throws(() => coreChoice().thinkingOptionsFor("missing-model"), /missing from the model catalog/);
 });
 
 test("GLM start options accept max and reject medium before creating a run", () => {
@@ -112,5 +112,5 @@ test("GLM start options accept max and reject medium before creating a run", () 
   assert.deepEqual(modelStartOption(coreChoice(), "medium").defaultValue(), { model: "z-ai/glm-5.3-flash", thinking: "low" });
   assert.deepEqual(option.describe({ model: "z-ai/glm-5.3-flash", thinking: "max" }).thinkingOptions, ["low", "high", "max"]);
   assert.deepEqual(option.accept({ model: "z-ai/glm-5.3-flash", thinking: "max" }), { model: "z-ai/glm-5.3-flash", thinking: "max" });
-  assert.throws(() => option.accept({ model: "z-ai/glm-5.3-flash", thinking: "medium" }), /medium.*gültig: low, high, max/);
+  assert.throws(() => option.accept({ model: "z-ai/glm-5.3-flash", thinking: "medium" }), /medium.*valid: low, high, max/);
 });

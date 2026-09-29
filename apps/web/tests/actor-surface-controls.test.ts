@@ -14,7 +14,7 @@ const actor = (id: string, kind: RunActor["kind"], lifecycle?: RunActor["lifecyc
 });
 const actors = [
   actor("owner", "human"),
-  { ...actor("coordinator", "agent", { kind: "idle", since: "now" }), displayName: "Planung" },
+  { ...actor("coordinator", "agent", { kind: "idle", since: "now" }), displayName: "Planning" },
   actor("counter", "script", { kind: "running", turnId: "turn", inputId: "input", startedAt: "now" }),
   actor("finished", "agent", { kind: "stopped", stoppedAt: "now", reason: "complete" }),
 ];
@@ -26,12 +26,12 @@ test("the actor list keeps humans and stopped actors and searches handles, names
   assert.deepEqual(ids("  "), actors.map(({ id }) => id));
   assert.deepEqual(ids("OWNER"), ["owner"]);
   assert.deepEqual(ids("@counter"), ["counter"]);
-  assert.deepEqual(ids("Benutzer"), ["owner"]);
-  assert.deepEqual(ids("planung"), ["coordinator"]);
-  assert.deepEqual(ids("LLM-Agent bereit"), ["coordinator"]);
-  assert.deepEqual(ids("TypeScript arbeitet"), ["counter"]);
+  assert.deepEqual(ids("User"), ["owner"]);
+  assert.deepEqual(ids("planning"), ["coordinator"]);
+  assert.deepEqual(ids("LLM agent ready"), ["coordinator"]);
+  assert.deepEqual(ids("TypeScript working"), ["counter"]);
   assert.deepEqual(ids("script running"), ["counter"]);
-  assert.deepEqual(ids("Mini-App gestoppt"), ["finished"]);
+  assert.deepEqual(ids("Mini-app stopped"), ["finished"]);
   assert.deepEqual(ids("stopped"), ["finished"]);
   assert.deepEqual(ids("absent"), []);
 });
@@ -44,15 +44,15 @@ test("checkboxes use effective surface visibility including individual app overr
 
 test("rendered rows name every actor as plain text and carry the effective surface checkboxes", () => {
   const html = renderToStaticMarkup(createElement(ActorSurfaceList, { actors, appActorIds, onPreferencesChange: noop, preferences: DEFAULT_SURFACE_VIEW_PREFERENCES }));
-  assert.match(html, /Benutzer/);
-  assert.match(html, /Gestoppt/);
+  assert.match(html, /User/);
+  assert.match(html, /Stopped/);
   assert.equal((html.match(/<button/g) ?? []).length, 0);
   assert.equal((html.match(/type="checkbox"/g) ?? []).length, 3);
   assert.equal((html.match(/checked=""/g) ?? []).length, 1);
-  assert.doesNotMatch(html, /aria-label="@owner auf der Fläche anzeigen"/);
-  assert.match(html, /aria-label="@finished auf der Fläche anzeigen"/);
+  assert.doesNotMatch(html, /aria-label="Show @owner on the surface"/);
+  assert.match(html, /aria-label="Show @finished on the surface"/);
   assert.match(html, /<span[^>]*>@counter<\/span>/);
-  assert.equal((html.match(/>Mini-App</g) ?? []).length, 2);
+  assert.equal((html.match(/>Mini-app</g) ?? []).length, 2);
 });
 
 test("the primary stays in the actor header while its surface checkbox defaults to off", () => {
@@ -61,22 +61,22 @@ test("the primary stays in the actor header while its surface checkbox defaults 
     subscriptions: [], actions: [], artifacts: [], pluginStates: [],
   } } as unknown as SessionContext;
   const header = renderToStaticMarkup(createElement(ActorShortcuts, { session, navigation: {} as never }));
-  assert.match(header, /title="LLM-Agent: Chat mit @coordinator öffnen\. Zum Andocken auf eine Kachel ziehen\."/);
-  assert.match(header, /title="TypeScript-Actor: Actor-Ansicht von @counter öffnen\./);
+  assert.match(header, /title="LLM agent: open Chat with @coordinator\. Drag onto a tile to dock\."/);
+  assert.match(header, /title="TypeScript actor: open Actor view of @counter\./);
   assert.equal((header.match(/aria-haspopup="dialog"/g) ?? []).length, 3);
   assert.equal((header.match(/aria-expanded="false"/g) ?? []).length, 3);
   assert.doesNotMatch(header, /@owner/);
-  assert.match(header, /hidden=""><button[^>]+title="LLM-Agent: Chat mit @finished öffnen\./);
+  assert.match(header, /hidden=""><button[^>]+title="LLM agent: open Chat with @finished\./);
   const render = (preferences: SurfaceViewPreferences) => renderToStaticMarkup(createElement(ActorSurfaceList, {
     actors: [actors[1]], appActorIds, primaryActorId: "coordinator", onPreferencesChange: noop, preferences,
   }));
   const initial = render(DEFAULT_SURFACE_VIEW_PREFERENCES);
-  assert.match(initial, /aria-label="@coordinator auf der Fläche anzeigen"/);
+  assert.match(initial, /aria-label="Show @coordinator on the surface"/);
   assert.doesNotMatch(initial, /checked=""/);
   assert.match(render({ ...DEFAULT_SURFACE_VIEW_PREFERENCES, actorVisibility: { coordinator: true } }), /checked=""/);
 });
 
-test("header chips carry the surface colour of their surface box and drop the fill while off the stage", () => {
+test("header chips carry the surface color of their surface box and drop the fill while off the stage", () => {
   const session = { session: { id: "stage-run" }, runView: {
     id: "stage-run", ownerId: "owner", primaryActorId: "coordinator", actors, inputs: [], turns: [],
     subscriptions: [], actions: [], artifacts: [], pluginStates: [],
@@ -107,7 +107,7 @@ test("header modes retain access independently of surface visibility and keep st
 test("header mode defaults to visible, rejects invalid preferences and uses separate run keys", () => {
   assert.equal(parseActorHeaderMode(null), "visible");
   for (const mode of ["all", "active", "visible", "agent", "script"]) assert.equal(parseActorHeaderMode(mode), mode);
-  for (const mode of ["", "coordinator", "everything", "{}", "null"]) assert.throws(() => parseActorHeaderMode(mode), /ungültig/);
+  for (const mode of ["", "coordinator", "everything", "{}", "null"]) assert.throws(() => parseActorHeaderMode(mode), /invalid/);
   assert.notEqual(actorHeaderStorageKey("first"), actorHeaderStorageKey("second"));
 });
 

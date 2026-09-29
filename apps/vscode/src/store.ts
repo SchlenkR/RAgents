@@ -22,7 +22,7 @@ export const RECONNECT_DELAY_MS = 5000;
 const revisionOf = (view: unknown): number | undefined =>
   typeof view === "object" && view !== null && "revision" in view && typeof view.revision === "number" ? view.revision : undefined;
 
-/** Ein abgelehnter Aufruf kommt je nach Weg als HTTP-Fehler der Anmeldung oder als Fachfehler der Nachrichtenschicht. */
+/** Depending on the path, a rejected call arrives as an HTTP error of the sign-in or as a domain error of the messaging layer. */
 const rejectionOf = (cause: unknown): { status: number | undefined; code: string | undefined } => {
   if (cause instanceof ServerError) return { status: cause.status, code: cause.code };
   if (cause instanceof RpcError) return { status: cause.status, code: cause.domainCode };
@@ -34,25 +34,25 @@ interface CachedView {
   view: unknown;
 }
 
-/** Eine Vorlage des Servers, so wie die Start-Seite sie zeigt. */
+/** A template of the server as the Start page shows it. */
 export interface StartEntrySummary {
   id: string;
   title: string;
   description: string;
   action: "skill" | "script";
-  /** Die Gruppe der Vorlagen; ein Run-Script ohne eigene Kategorie steht unter "Run-Scripts". */
+  /** The group of templates; a run script without its own category is listed under "Run scripts". */
   category: string;
-  /** Was die Vorlage an Startoptionen festlegt; "Neuer Run" belegt davon nichts vor. */
+  /** Which start options the template fixes; "New run" presets none of them. */
   fixedStartOptions?: Readonly<Record<string, unknown>>;
-  /** Der Leitfaden, der vor dem Start fragt; das Run-Panel öffnet ihn, die Vorlage sagt dann "Einrichten". */
+  /** The guide that asks before the start; the run panel opens it, the template then says "Set up". */
   guide?: string;
 }
 
-/** Runs, Run-Ansichten und Verbindungszustand der Erweiterung; Seiten, Abzeichen und Panel lesen nur hier. */
+/** Runs, run views, and connection state of the extension; pages, badge, and panel read only here. */
 export class RunStore {
   #status: ConnectionStatus = { kind: "connecting" };
   #access: AccessSnapshot = { enabled: false, user: null };
-  /** /api/access hat geantwortet: der Server führt Benutzer, eine Anmeldung ist Benutzer und Passwort. */
+  /** /api/access has answered: the server manages users, a sign-in is user and password. */
   #usersKnown = false;
   #entries: StartEntrySummary[] = [];
   #defaultEntry: string | undefined;
@@ -91,12 +91,12 @@ export class RunStore {
     return this.#access;
   }
 
-  /** Die freigegebenen Vorlagen des Servers; der Server filtert sie schon nach den Rechten. */
+  /** The server's permitted templates; the server already filters them by rights. */
   get startEntries(): readonly StartEntrySummary[] {
     return this.#entries;
   }
 
-  /** Die Default-Vorlage, die das Profil einem neuen Run vorgibt; sie ist immer eine der freigegebenen Vorlagen. */
+  /** The default template the profile sets for a new run; it is always one of the permitted templates. */
   get defaultEntry(): string | undefined {
     return this.#defaultEntry;
   }
@@ -105,12 +105,12 @@ export class RunStore {
     return this.#product;
   }
 
-  /** Die RAgents-Fassung des Servers aus dem Bootstrap; null, wenn er keine nennt, weil er älter ist als diese Angabe, undefined, solange er nicht geantwortet hat. */
+  /** The server's RAgents version from the bootstrap; null if it names none because it is older than this field, undefined as long as it has not answered. */
   get serverVersion(): string | null | undefined {
     return this.#serverVersion;
   }
 
-  /** Ein neuer Run ist möglich: entweder frei oder über mindestens eine freigegebene Vorlage. */
+  /** A new run is possible: either free or via at least one permitted template. */
   get canCreate(): boolean {
     return hasRight(this.#access, "runs.write")
       && (hasRight(this.#access, "runs.create") || this.#entries.some((entry) => canStartEntry(this.#access, entry.id)));
@@ -135,7 +135,7 @@ export class RunStore {
     return this.runs.reduce((sum, run) => sum + run.pendingActions, 0);
   }
 
-  /** Verbindet neu: Zugang prüfen, Liste laden, Kanäle anmelden. Läuft auch nach Anmeldung und Serverwechsel. */
+  /** Reconnects: check access, load the list, subscribe channels. Also runs after sign-in and server change. */
   async start(): Promise<void> {
     const generation = ++this.#generation;
     this.stop();
@@ -153,7 +153,7 @@ export class RunStore {
     } catch (cause) {
       if (generation !== this.#generation) return;
       this.#fail(cause);
-      // Ein fehlender Server wird sichtbar gemeldet und alle fünf Sekunden erneut versucht; die Seiten der Erweiterung zeigen beides.
+      // A missing server is reported visibly and retried every five seconds; the pages of the extension show both.
       if (this.#status.kind === "unreachable") this.#reconnect = setTimeout(() => { this.#reconnect = undefined; void this.start(); }, RECONNECT_DELAY_MS);
       return;
     }
@@ -164,14 +164,14 @@ export class RunStore {
     await Promise.all([this.#loadProfile(generation), this.refresh()]);
   }
 
-  /** Produkt und freigegebene Vorlagen des Servers; die Übersicht bietet sie je Server an. */
+  /** Product and permitted templates of the server; the overview offers them per server. */
   async #loadProfile(generation: number): Promise<void> {
     try {
       const profile = await this.client.rpc.call(coreContracts.plugins.bootstrap, {});
       if (generation !== this.#generation) return;
       const defaultEntry = profile.defaultStartEntry;
       if (defaultEntry !== undefined && !profile.startEntries.some((entry: PublicStartEntry) => entry.id === defaultEntry)) {
-        throw new Error(`Der Server nennt die Default-Vorlage ${defaultEntry}, liefert sie aber nicht als Vorlage`);
+        throw new Error(`The server names the default template ${defaultEntry} but does not deliver it as a template`);
       }
       this.#product = profile.product.title;
       this.#serverVersion = typeof profile.version === "string" && profile.version ? profile.version : null;
@@ -180,7 +180,7 @@ export class RunStore {
         title: entry.title,
         description: entry.description,
         action: entry.action,
-        category: entry.category ?? "Run-Scripts",
+        category: entry.category ?? "Run scripts",
         ...(entry.fixedStartOptions !== undefined ? { fixedStartOptions: entry.fixedStartOptions } : {}),
         ...(entry.guide !== undefined ? { guide: entry.guide } : {}),
       }));
@@ -216,7 +216,7 @@ export class RunStore {
   }
 
 
-  /** Solange ein Run beobachtet wird, folgt seine Run-Ansicht dem Run-Kanal statt nur der Liste. */
+  /** As long as a run is watched, its run view follows the run channel instead of only the list. */
   watch(runId: string): () => void {
     const existing = this.#watches.get(runId);
     if (existing) {

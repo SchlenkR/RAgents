@@ -16,30 +16,30 @@ const compile = (source: string) => compileClientSource({ source: imports + sour
 test("mini-app controls typecheck bound, controlled and read-only chats with shared messages and select props", async () => {
   const result = await compile(`
     const messages: Parameters<typeof UI.ChatMessages>[0]["messages"] = [
-      { key: "hello", role: "assistant", sender: "reviewer", text: "Hallo", at: "2026-09-06T12:00:00Z" },
+      { key: "hello", role: "assistant", sender: "reviewer", text: "Hello", at: "2026-09-06T12:00:00Z" },
     ];
     const App = () => <>
-      <UI.Chat actor="primary" title="Gespräch" showInput rows={2} maxRows={5} showTimestamps detailMode="chips" />
+      <UI.Chat actor="primary" title="Conversation" showInput rows={2} maxRows={5} showTimestamps detailMode="chips" />
       <UI.Chat actor="@reviewer" owner={null} showInput={false} />
       <UI.Chat actor="@reviewer" owner="reviewer" />
       <UI.Chat messages={messages} owner="reviewer" running onSend={async (text, attachments) => { await context.chat.send("primary", text, attachments); }} />
       <UI.Chat messages={[]} />
       <UI.ChatMessages messages={messages} owner="reviewer" showTimestamps detailMode="off" />
       <UI.ChatMessages messages={messages} owner={null} />
-      <UI.MessageList messages={[{key:"one",sender:"reviewer",text:"Hallo"}]} owner="reviewer" />
+      <UI.MessageList messages={[{key:"one",sender:"reviewer",text:"Hello"}]} owner="reviewer" />
       <UI.MessageList messages={[]} owner={null} />
-      <UI.ChatInput placeholder="Deine Nachricht" attachmentCapabilities={{model:"Vision",input:["text","image"]}} onSend={async (text, attachments) => { await context.chat.send("primary", text, attachments); }} />
-      <UI.Markdown text="**Hallo**" />
-      <UI.Select items={[{value:"primary",label:"Koordinator"}]} value="primary" onValueChange={(value) => { void value; }}>
+      <UI.ChatInput placeholder="Your message" attachmentCapabilities={{model:"Vision",input:["text","image"]}} onSend={async (text, attachments) => { await context.chat.send("primary", text, attachments); }} />
+      <UI.Markdown text="**Hello**" />
+      <UI.Select items={[{value:"primary",label:"Coordinator"}]} value="primary" onValueChange={(value) => { void value; }}>
         <UI.SelectTrigger aria-label="Actor"><UI.SelectValue /></UI.SelectTrigger>
-        <UI.SelectContent><UI.SelectItem value="primary">Koordinator</UI.SelectItem></UI.SelectContent>
+        <UI.SelectContent><UI.SelectItem value="primary">Coordinator</UI.SelectItem></UI.SelectContent>
       </UI.Select>
       <UI.Select multiple value={[]} onValueChange={(value) => { void value; }}>
-        <UI.SelectTrigger aria-label="Actors"><UI.SelectValue placeholder="Auswählen" /></UI.SelectTrigger>
+        <UI.SelectTrigger aria-label="Actors"><UI.SelectValue placeholder="Select" /></UI.SelectTrigger>
         <UI.SelectContent />
       </UI.Select>
-      <UI.Button size="sm" variant="outline">Klein</UI.Button>
-      <UI.Tabs defaultValue="a"><UI.TabsList><UI.TabsTrigger value="a">A</UI.TabsTrigger></UI.TabsList><UI.TabsContent value="a">Inhalt</UI.TabsContent></UI.Tabs>
+      <UI.Button size="sm" variant="outline">Small</UI.Button>
+      <UI.Tabs defaultValue="a"><UI.TabsList><UI.TabsTrigger value="a">A</UI.TabsTrigger></UI.TabsList><UI.TabsContent value="a">Content</UI.TabsContent></UI.Tabs>
     </>;
     const unsubscribe = context.chat.subscribe("primary", () => {
       const snapshot = context.chat.read("primary");
@@ -53,13 +53,13 @@ test("mini-app controls typecheck bound, controlled and read-only chats with sha
 
 test("mini-app layouts compile through the installed SDK with typed content and form fields", async () => {
   const result = await compile(`
-    const App = () => <UI.AppLayout title="Interview" description="Eine Frage" fill actions={<UI.Button>Schließen</UI.Button>}>
+    const App = () => <UI.AppLayout title="Interview" description="One question" fill actions={<UI.Button>Close</UI.Button>}>
       <UI.Grid columns={2} gap="large">
-        <UI.Stack gap="small"><h2>Frage</h2><p>Was brauchst du?</p></UI.Stack>
-        <UI.Form fields={[{id:"answer",label:"Deine Antwort",type:"textarea",required:true}]}
+        <UI.Stack gap="small"><h2>Question</h2><p>What do you need?</p></UI.Stack>
+        <UI.Form fields={[{id:"answer",label:"Your answer",type:"textarea",required:true}]}
           values={{answer:""}} onChange={() => {}} onSubmit={async () => {}} />
       </UI.Grid>
-      <UI.Stack direction="row"><UI.Button>Zurück</UI.Button><UI.Button>Weiter</UI.Button></UI.Stack>
+      <UI.Stack direction="row"><UI.Button>Back</UI.Button><UI.Button>Next</UI.Button></UI.Stack>
     </UI.AppLayout>;
     void App;
   `);
@@ -67,7 +67,7 @@ test("mini-app layouts compile through the installed SDK with typed content and 
 });
 
 test("SvgEdge compiles through the installed SDK with native SVG and rejects unsupported options", async () => {
-  const valid = await compile(`const diagram = <svg viewBox="0 0 360 160" role="img" aria-label="Ablauf">
+  const valid = await compile(`const diagram = <svg viewBox="0 0 360 160" role="img" aria-label="Flow">
     <UI.SvgEdge d="M20 20 L100 20" />
     <UI.SvgEdge d="M20 40 L100 40" arrow="none" lineStyle="dashed" tone="neutral" />
     <UI.SvgEdge d="M20 60 L100 60" arrow="both" tone="accent" />
@@ -90,27 +90,27 @@ test("FlowDiagram compiles typed graph updates and rejects unsupported graph pro
   const valid = await compile(`const App = () => {
     const [done, setDone] = React.useState(false);
     const nodes: Parameters<typeof UI.FlowDiagram>[0]["nodes"] = [
-      { id: "input", label: "Eingang", status: "done", kind: "service" },
-      { id: "check", label: "Prüfung", detail: done ? "Fertig" : "Läuft", status: done ? "done" : "active", kind: "agent", items: [{label:"Regel prüfen",status:done?"done":"active"},{label:"Optionaler Schritt",status:"skipped",detail:"Nicht erforderlich"}] },
-      { id: "result", label: "Ergebnis", status: done ? "done" : "blocked", kind: "actor" },
+      { id: "input", label: "Input", status: "done", kind: "service" },
+      { id: "check", label: "Review", detail: done ? "Done" : "Running", status: done ? "done" : "active", kind: "agent", items: [{label:"Check rule",status:done?"done":"active"},{label:"Optional step",status:"skipped",detail:"Not required"}] },
+      { id: "result", label: "Result", status: done ? "done" : "blocked", kind: "actor" },
     ];
-    return <><UI.FlowDiagram label="Prüfablauf" nodes={nodes}
-      edges={[{ id: "first", source: "input", target: "check", label: "Prüfen" }, { source: "check", target: "result" }, {source:"result",target:"input",kind:"return",label:"Nach Korrektur"}]}
+    return <><UI.FlowDiagram label="Review flow" nodes={nodes}
+      edges={[{ id: "first", source: "input", target: "check", label: "Review" }, { source: "check", target: "result" }, {source:"result",target:"input",kind:"return",label:"After correction"}]}
       direction="down" viewport="fit-width" className="example" />
-      <UI.FlowDiagram label="Wartend" nodes={[{id:"pending",label:"Wartend",status:"pending"}]} edges={[]} direction="right" />
-      <UI.Button onClick={() => setDone(true)}>Abschließen</UI.Button></>;
+      <UI.FlowDiagram label="Waiting" nodes={[{id:"pending",label:"Waiting",status:"pending"}]} edges={[]} direction="right" />
+      <UI.Button onClick={() => setDone(true)}>Finish</UI.Button></>;
   }; void App;`);
   assert.equal(valid.valid, true, JSON.stringify(valid.diagnostics));
   for (const source of [
     '<UI.FlowDiagram nodes={[]} edges={[]} />;',
-    '<UI.FlowDiagram label="Ablauf" nodes={[]} edges={[]} source="input --> output" />;',
-    '<UI.FlowDiagram label="Ablauf" nodes={[{id:"input",label:"Eingang",status:"running"}]} edges={[]} />;',
-    '<UI.FlowDiagram label="Ablauf" nodes={[{id:"input",label:"Eingang",kind:"worker"}]} edges={[]} />;',
-    '<UI.FlowDiagram label="Ablauf" nodes={[{id:"input",label:"Eingang",x:10,y:20}]} edges={[]} />;',
-    '<UI.FlowDiagram label="Ablauf" nodes={[]} edges={[{source:"input"}]} />;',
-    '<UI.FlowDiagram label="Ablauf" nodes={[]} edges={[]} direction="left" />;',
-    '<UI.FlowDiagram label="Ablauf" nodes={[]} edges={[]} viewport="scroll" />;',
-    '<UI.FlowDiagram label="Ablauf" nodes={[{id:"input",label:"Eingang",items:[{label:"Regel",status:"success"}]}]} edges={[]} />;',
+    '<UI.FlowDiagram label="Flow" nodes={[]} edges={[]} source="input --> output" />;',
+    '<UI.FlowDiagram label="Flow" nodes={[{id:"input",label:"Input",status:"running"}]} edges={[]} />;',
+    '<UI.FlowDiagram label="Flow" nodes={[{id:"input",label:"Input",kind:"worker"}]} edges={[]} />;',
+    '<UI.FlowDiagram label="Flow" nodes={[{id:"input",label:"Input",x:10,y:20}]} edges={[]} />;',
+    '<UI.FlowDiagram label="Flow" nodes={[]} edges={[{source:"input"}]} />;',
+    '<UI.FlowDiagram label="Flow" nodes={[]} edges={[]} direction="left" />;',
+    '<UI.FlowDiagram label="Flow" nodes={[]} edges={[]} viewport="scroll" />;',
+    '<UI.FlowDiagram label="Flow" nodes={[{id:"input",label:"Input",items:[{label:"Rule",status:"success"}]}]} edges={[]} />;',
   ]) {
     const result = await compile(source);
     assert.equal(result.valid, false, source);
@@ -120,23 +120,23 @@ test("FlowDiagram compiles typed graph updates and rejects unsupported graph pro
 
 test("WorkflowDiagram shares typed definitions and live state with the workflow SDK", async () => {
   const definition = `import { defineWorkflow, workflowGraph, type WorkflowState } from "@ragents/workflow";
-    const definition = defineWorkflow({id:"example",title:"Beispiel",roles:{helper:{title:"Helfer"}},steps:[
-      {id:"idea",title:"Idee",role:"helper",goal:"Eine Idee liefern",completion:{source:"agent",description:"Antwort liegt vor"},freedom:{mode:"fixed",description:"Eine Idee"}}
+    const definition = defineWorkflow({id:"example",title:"Example",roles:{helper:{title:"Helper"}},steps:[
+      {id:"idea",title:"Idea",role:"helper",goal:"Deliver an idea",completion:{source:"agent",description:"Answer is available"},freedom:{mode:"fixed",description:"One idea"}}
     ],transitions:[]});`;
   const valid = await compile(definition + `
     const App = () => {
       const [state, setState] = React.useState<WorkflowState>({steps:{idea:{status:"active"}}});
       const graph = workflowGraph(definition,state);
-      return <><UI.WorkflowDiagram definition={definition} state={state} label="Ideenablauf" direction="down" viewport="fit-width" />
-        <UI.Button onClick={()=>setState({steps:{idea:{status:"done",detail:"Idee liegt vor"}}})}>Fertig</UI.Button></>;
+      return <><UI.WorkflowDiagram definition={definition} state={state} label="Idea flow" direction="down" viewport="fit-width" />
+        <UI.Button onClick={()=>setState({steps:{idea:{status:"done",detail:"Idea is available"}}})}>Done</UI.Button></>;
     }; void App;`);
   assert.equal(valid.valid, true, JSON.stringify(valid.diagnostics));
   for (const source of [
-    '<UI.WorkflowDiagram definition={definition} state={{steps:{idea:{status:"running"}}}} label="Ideen" />;',
-    '<UI.WorkflowDiagram definition={{id:"incomplete"}} state={{steps:{}}} label="Ideen" />;',
+    '<UI.WorkflowDiagram definition={definition} state={{steps:{idea:{status:"running"}}}} label="Ideas" />;',
+    '<UI.WorkflowDiagram definition={{id:"incomplete"}} state={{steps:{}}} label="Ideas" />;',
     '<UI.WorkflowDiagram definition={definition} state={{steps:{}}} />;',
-    '<UI.WorkflowDiagram definition={definition} state={{steps:{}}} label="Ideen" nodes={[]} />;',
-    '<UI.WorkflowDiagram definition={definition} state={{steps:{}}} label="Ideen" viewport="scroll" />;',
+    '<UI.WorkflowDiagram definition={definition} state={{steps:{}}} label="Ideas" nodes={[]} />;',
+    '<UI.WorkflowDiagram definition={definition} state={{steps:{}}} label="Ideas" viewport="scroll" />;',
   ]) {
     const result = await compile(definition + source);
     assert.equal(result.valid, false, source);
@@ -163,8 +163,8 @@ test("mini-app controls reject mixed bindings and invalid control props", async 
     `<UI.ChatMessages messages={[{key:"one",role:"assistant",text:"Text",sender:123}]} />;`,
     `<UI.MessageList messages={[]} owner={false} />;`,
     `<UI.ChatInput />;`,
-    `<UI.Button variant="primary">Alt</UI.Button>;`,
-    `<UI.Button size="small">Alt</UI.Button>;`,
+    `<UI.Button variant="primary">Old</UI.Button>;`,
+    `<UI.Button size="small">Old</UI.Button>;`,
   ]) {
     const result = await compile(source);
     assert.equal(result.valid, false, source);
@@ -182,21 +182,21 @@ test("all six new controls compile with typed rows, controlled values, native fi
       const [selected, setSelected] = React.useState<string[]>([]);
       return <>
         <UI.Form values={values} onChange={setValues} onSubmit={async (next) => { const count = next.count; void count; }}
-          validate={(next) => next.name ? {} : {name:"Name fehlt"}} fields={[
+          validate={(next) => next.name ? {} : {name:"Name is missing"}} fields={[
             {id:"name",label:"Name",type:"text",required:true},
-            {id:"note",label:"Notiz",type:"textarea",rows:3},
-            {id:"count",label:"Anzahl",type:"number",min:1,max:5,step:1},
-            {id:"approved",label:"Freigabe",type:"checkbox"},
-            {id:"mode",label:"Modus",type:"select",options:[{value:"read",label:"Lesen"}]},
+            {id:"note",label:"Note",type:"textarea",rows:3},
+            {id:"count",label:"Count",type:"number",min:1,max:5,step:1},
+            {id:"approved",label:"Approval",type:"checkbox"},
+            {id:"mode",label:"Mode",type:"select",options:[{value:"read",label:"Read"}]},
           ]} />
         <UI.DataTable<Row> rows={[{id:"one",count:3,name:"Demo"}]} rowKey={(row) => row.id} filterable
           selectedKeys={selected} onSelectionChange={setSelected}
-          columns={[{id:"count",label:"Anzahl",value:(row) => row.count,render:(row) => <strong>{row.count}</strong>,sortable:true}]}
-          actions={[{id:"select",label:"Auswählen",onClick:async (row) => { setSelected([row.id]); },disabled:(row) => row.count === 0}]} />
-        <UI.FilePicker label="Dateien" files={files} onChange={setFiles} multiple accept=".txt,image/*" maxFiles={3} maxBytes={4096} showPreview />
-        <UI.TaskProgress title="Aufgaben" tasks={[{id:"one",label:"Lesen",status:"running",description:"Beispiel"}]} />
-        <UI.DocumentViewer title="Dokument" format="code" filename="sample.ts" language="typescript" content="const count = 1;" />
-        <UI.DiffViewer title="Änderungen" patch="" emptyText="Unverändert" />
+          columns={[{id:"count",label:"Count",value:(row) => row.count,render:(row) => <strong>{row.count}</strong>,sortable:true}]}
+          actions={[{id:"select",label:"Select",onClick:async (row) => { setSelected([row.id]); },disabled:(row) => row.count === 0}]} />
+        <UI.FilePicker label="Files" files={files} onChange={setFiles} multiple accept=".txt,image/*" maxFiles={3} maxBytes={4096} showPreview />
+        <UI.TaskProgress title="Tasks" tasks={[{id:"one",label:"Read",status:"running",description:"Example"}]} />
+        <UI.DocumentViewer title="Document" format="code" filename="sample.ts" language="typescript" content="const count = 1;" />
+        <UI.DiffViewer title="Changes" patch="" emptyText="Unchanged" />
       </>;
     };
     void App;
@@ -212,8 +212,8 @@ test("new control contracts reject mismatched field, table, file and viewer prop
     `<UI.DataTable<{id:string}> rows={[{id:"one"}]} rowKey={(row) => row.id} columns={[{id:"bad",label:"Bad",value:(row) => row.missing}]} />;`,
     `<UI.DataTable rows={[{id:"one"}]} rowKey={(row) => row.id} columns={[{id:"bad",label:"Bad",value:(row) => row}]} />;`,
     `<UI.DataTable rows={[{id:"one"}]} rowKey={(row) => row.id} columns={[]} selectedKeys={[]} />;`,
-    `<UI.FilePicker label="Datei" files={["file.txt"]} onChange={() => {}} />;`,
-    `<UI.FilePicker label="Datei" files={[]} onChange={(files:string[]) => {}} />;`,
+    `<UI.FilePicker label="File" files={["file.txt"]} onChange={() => {}} />;`,
+    `<UI.FilePicker label="File" files={[]} onChange={(files:string[]) => {}} />;`,
     `<UI.TaskProgress tasks={[{id:"one",label:"Demo",status:"finished"}]} />;`,
     `<UI.DocumentViewer format="html" content="<b>Demo</b>" />;`,
     `<UI.DiffViewer before="a" after="b" />;`,
@@ -245,8 +245,8 @@ test("normal control modules render with the shared React and preserve native ch
   const webRequire = createRequire(new URL("../../web/package.json", import.meta.url));
   const bridge = { state: { read: () => ({}), subscribe: () => () => {} },
     chat: { read: () => ({ owner: "reviewer", running: false, messages: [
-      { key: "human", role: "user", sender: "human", text: "Frage" },
-      { key: "reply", role: "assistant", sender: "reviewer", text: "Antwort", bubble: { label: "Prüfung", color: "#123456", side: "end" } },
+      { key: "human", role: "user", sender: "human", text: "Question" },
+      { key: "reply", role: "assistant", sender: "reviewer", text: "Answer", bubble: { label: "Review", color: "#123456", side: "end" } },
     ] }), subscribe: () => () => {}, send: async () => {} },
   };
   const bundle = buildSync({
@@ -264,12 +264,12 @@ test("normal control modules render with the shared React and preserve native ch
   const renderControl = (name: string, props: string) => ReactDOMServer.renderToString(
     React.createElement(UI[name], vm.runInNewContext(`(${props})`))) as string;
   const render = (props: string) => renderControl("Chat", props);
-  const readonly = render(`{ messages: [{ key: "one", role: "assistant", text: "**Antwort**" }] }`);
-  assert.match(readonly, /<strong[^>]*>Antwort<\/strong>/);
+  const readonly = render(`{ messages: [{ key: "one", role: "assistant", text: "**Answer**" }] }`);
+  assert.match(readonly, /<strong[^>]*>Answer<\/strong>/);
   assert.doesNotMatch(readonly, /textarea|<h2/);
-  const composed = render(`{ messages: [], title: "Helfer", placeholder: "Frage stellen", rows: 2, onSend: () => {} }`);
-  assert.match(composed, /<h2[^>]*>Helfer<\/h2>/);
-  assert.match(composed, /placeholder="Frage stellen"/);
+  const composed = render(`{ messages: [], title: "Helper", placeholder: "Ask a question", rows: 2, onSend: () => {} }`);
+  assert.match(composed, /<h2[^>]*>Helper<\/h2>/);
+  assert.match(composed, /placeholder="Ask a question"/);
   assert.match(composed, /rows="2"/);
   assert.doesNotMatch(render(`{ messages: [], onSend: () => {}, showInput: false }`), /textarea/);
   const bound = render(`{ actor: "@reviewer", showInput: false }`);
@@ -280,42 +280,42 @@ test("normal control modules render with the shared React and preserve native ch
   const customOwner = render(`{ actor: "@reviewer", owner: "human", showInput: false }`);
   assert.doesNotMatch(customOwner, /data-message="user"/);
   assert.match(customOwner, /background:#123456/);
-  const controlledOwner = render(`{ owner: "reviewer", messages: [{ key: "reply", role: "assistant", sender: "reviewer", text: "Antwort", bubble: { color: "#123456", side: "end" } }] }`);
+  const controlledOwner = render(`{ owner: "reviewer", messages: [{ key: "reply", role: "assistant", sender: "reviewer", text: "Answer", bubble: { color: "#123456", side: "end" } }] }`);
   assert.match(controlledOwner, /data-message="answer"/);
   assert.doesNotMatch(controlledOwner, /background:#123456/);
-  const waiting = render(`{ messages: [{ key: "action", role: "action", text: "Welche Farbe?",
-    action: { actionId: "action-1", owner: "ragents.ask", payload: { options: ["Blau", "Rot"] } } }] }`);
-  assert.match(waiting, /Welche Farbe\?/);
+  const waiting = render(`{ messages: [{ key: "action", role: "action", text: "Which color?",
+    action: { actionId: "action-1", owner: "ragents.ask", payload: { options: ["Blue", "Red"] } } }] }`);
+  assert.match(waiting, /Which color\?/);
   assert.match(waiting, /data-action="waiting"/);
-  assert.match(waiting, /wartet auf Eingabe/);
+  assert.match(waiting, /waiting for input/);
   assert.doesNotMatch(waiting, /<input|<button|<textarea/);
   const dismissable = renderControl("ChatMessages", `{
-    messages: [{ key: "action", role: "action", text: "Welche Farbe?",
+    messages: [{ key: "action", role: "action", text: "Which color?",
       action: { actionId: "action-1", owner: "ragents.ask", payload: null } }],
     onDismissAction: () => {},
   }`);
-  assert.match(dismissable, /<button[^>]*>Verwerfen<\/button>/);
+  assert.match(dismissable, /<button[^>]*>Dismiss<\/button>/);
   assert.match(browserRuntimeStyles, /\.hljs-keyword/);
   assert.match(browserRuntimeStyles, /diff-code/);
   assert.doesNotMatch(browserRuntimeStyles, /@import/);
-  const form = renderControl("Form", `{ fields:[{id:"name",label:"Name",type:"text",required:true},{id:"mode",label:"Modus",type:"select",options:[{value:"read",label:"Lesen"}]}],values:{name:"Demo",mode:"read"},onChange:()=>{},onSubmit:async()=>{} }`);
+  const form = renderControl("Form", `{ fields:[{id:"name",label:"Name",type:"text",required:true},{id:"mode",label:"Mode",type:"select",options:[{value:"read",label:"Read"}]}],values:{name:"Demo",mode:"read"},onChange:()=>{},onSubmit:async()=>{} }`);
   assert.match(form, /value="Demo"/);
   assert.match(form, /data-slot="select-trigger"/);
   assert.match(form, /type="submit"/);
-  const table = renderControl("DataTable", `{rows:[{id:"one",name:"Demo"}],rowKey:(row)=>row.id,columns:[{id:"name",label:"Name",value:(row)=>row.name,sortable:true}],selectedKeys:["one"],onSelectionChange:()=>{},actions:[{id:"open",label:"Öffnen",onClick:async()=>{}}]}`);
+  const table = renderControl("DataTable", `{rows:[{id:"one",name:"Demo"}],rowKey:(row)=>row.id,columns:[{id:"name",label:"Name",value:(row)=>row.name,sortable:true}],selectedKeys:["one"],onSelectionChange:()=>{},actions:[{id:"open",label:"Open",onClick:async()=>{}}]}`);
   assert.match(table, /<table[^>]*data-slot="table"/);
   assert.match(table, /aria-selected="true"/);
-  assert.match(table, /Öffnen/);
-  assert.match(renderControl("FilePicker", `{label:"Dateien wählen",files:[],onChange:()=>{}}`), /type="file"/);
-  const progress = renderControl("TaskProgress", `{tasks:[{id:"read",label:"Lesen",status:"done"},{id:"write",label:"Schreiben",status:"pending"}]}`);
+  assert.match(table, /Open/);
+  assert.match(renderControl("FilePicker", `{label:"Choose files",files:[],onChange:()=>{}}`), /type="file"/);
+  const progress = renderControl("TaskProgress", `{tasks:[{id:"read",label:"Read",status:"done"},{id:"write",label:"Write",status:"pending"}]}`);
   assert.match(progress, /role="progressbar"/);
   assert.match(progress, /aria-valuemax="2"/);
   assert.match(progress, /aria-valuenow="1"/);
-  assert.match(renderControl("DocumentViewer", `{format:"markdown",content:"**Dokument**"}`), /<strong[^>]*>Dokument<\/strong>/);
+  assert.match(renderControl("DocumentViewer", `{format:"markdown",content:"**Document**"}`), /<strong[^>]*>Document<\/strong>/);
   assert.match(renderControl("DocumentViewer", `{format:"code",filename:"example.ts",content:"const value = 1;"}`), /language-typescript/);
-  assert.match(renderControl("DocumentViewer", `{content:"<script>nicht ausführen</script>"}`), /&lt;script&gt;/);
-  const diff = renderControl("DiffViewer", `{patch:"--- a/demo.txt\\n+++ b/demo.txt\\n@@ -1 +1 @@\\n-alt\\n+neu"}`);
-  assert.match(diff, /diff-code-insert[^>]*>(<span[^>]*>)*neu/);
-  assert.match(diff, /diff-code-delete[^>]*>(<span[^>]*>)*alt/);
+  assert.match(renderControl("DocumentViewer", `{content:"<script>do not run</script>"}`), /&lt;script&gt;/);
+  const diff = renderControl("DiffViewer", `{patch:"--- a/demo.txt\\n+++ b/demo.txt\\n@@ -1 +1 @@\\n-old\\n+new"}`);
+  assert.match(diff, /diff-code-insert[^>]*>(<span[^>]*>)*new/);
+  assert.match(diff, /diff-code-delete[^>]*>(<span[^>]*>)*old/);
   assert.match(await buildTailwind([]), /\.text-destructive\s*\{/);
 });

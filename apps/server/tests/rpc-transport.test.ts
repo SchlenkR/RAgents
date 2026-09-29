@@ -23,34 +23,34 @@ import { startStdioTransport } from "../src/rpc/stdio-transport.ts";
 
 const greet = defineOperation({
   id: "test.greet",
-  description: "Grüßt",
+  description: "Greets",
   rights: ["runs.read"],
   input: Type.Object({ name: Type.String() }, { additionalProperties: false }),
   result: Type.Object({ text: Type.String() }),
 });
 const secret = defineOperation({
   id: "test.secret",
-  description: "Nur für Schreiber",
+  description: "Writers only",
   rights: ["runs.write"],
   input: Type.Object({}),
   result: Type.Null(),
 });
 const broken = defineOperation({
   id: "test.broken",
-  description: "Verletzt den eigenen Vertrag",
+  description: "Violates its own contract",
   input: Type.Object({}),
   result: Type.Object({ number: Type.Number() }),
 });
 const echoBack = defineOperation({
   id: "test.client.echo",
-  description: "Der Client antwortet",
+  description: "The client answers",
   implementedBy: "client",
   input: Type.Object({ value: Type.String() }),
   result: Type.Object({ value: Type.String() }),
 });
 const ticks = defineChannel({
   id: "test.ticks",
-  description: "Zählt",
+  description: "Counts",
   rights: ["runs.read"],
   params: Type.Object({ runId: Type.String() }),
   message: Type.Object({ tick: Type.Number() }),
@@ -63,16 +63,16 @@ const fixture = () => {
   const stopped: string[] = [];
   let echoed: unknown;
   methods.register("test", [
-    implement(greet, ({ name }) => ({ text: `Hallo ${name}` })),
+    implement(greet, ({ name }) => ({ text: `Hello ${name}` })),
     implement(secret, () => null),
-    implement(broken, () => ({ number: "keine Zahl" } as unknown as { number: number })),
-    implement(defineOperation({ id: "test.fail", description: "Scheitert", input: Type.Object({}), result: Type.Null() }), () => { throw new DomainError("run-not-found", "Kein Run", 404); }),
-    implement(defineOperation({ id: "test.callback", description: "Ruft den Client", input: Type.Object({}), result: Type.Object({ value: Type.String() }) }), async (_input, context) => {
+    implement(broken, () => ({ number: "not a number" } as unknown as { number: number })),
+    implement(defineOperation({ id: "test.fail", description: "Fails", input: Type.Object({}), result: Type.Null() }), () => { throw new DomainError("run-not-found", "No run", 404); }),
+    implement(defineOperation({ id: "test.callback", description: "Calls the client", input: Type.Object({}), result: Type.Object({ value: Type.String() }) }), async (_input, context) => {
       echoed = await context.connection.call(echoBack, { value: "ping" });
       return echoed as { value: string };
     }),
-    implement(defineOperation({ id: "test.slow", description: "Wartet auf Abbruch", input: Type.Object({}), result: Type.Object({ aborted: Type.Boolean() }) }), (_input, context) =>
-      new Promise((resolve) => { context.progress("läuft"); context.signal.addEventListener("abort", () => resolve({ aborted: true })); })),
+    implement(defineOperation({ id: "test.slow", description: "Waits for cancellation", input: Type.Object({}), result: Type.Object({ aborted: Type.Boolean() }) }), (_input, context) =>
+      new Promise((resolve) => { context.progress("running"); context.signal.addEventListener("abort", () => resolve({ aborted: true })); })),
   ]);
   channels.register("test", [implementChannel(ticks, ({ runId }, emit) => {
     emitters.set(runId, emit);
@@ -95,7 +95,7 @@ const httpFixture = async (t: TestContext) => {
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
-  if (!address || typeof address === "string") throw new Error("Testserver ohne Port");
+  if (!address || typeof address === "string") throw new Error("test server without port");
   const base = `http://127.0.0.1:${address.port}`;
   const post = async (message: unknown, connection?: string) => {
     const response = await fetch(`${base}/rpc`, {
@@ -122,7 +122,7 @@ const httpFixture = async (t: TestContext) => {
           return { event, data: data === undefined ? undefined : JSON.parse(data) };
         }
         const chunk = await lines.read();
-        if (chunk.done) throw new Error("Strom beendet");
+        if (chunk.done) throw new Error("stream ended");
         buffered += chunk.value;
       }
     };
@@ -135,13 +135,13 @@ const httpFixture = async (t: TestContext) => {
 
 test("http: requests are answered with JSON-RPC results, failures and rights checks", async (t) => {
   const f = await httpFixture(t);
-  assert.deepEqual((await f.post({ jsonrpc: "2.0", id: 1, method: "test.greet", params: { name: "Alice" } })).body, { jsonrpc: "2.0", id: 1, result: { text: "Hallo Alice" } });
+  assert.deepEqual((await f.post({ jsonrpc: "2.0", id: 1, method: "test.greet", params: { name: "Alice" } })).body, { jsonrpc: "2.0", id: 1, result: { text: "Hello Alice" } });
   const denied = (await f.post({ jsonrpc: "2.0", id: 2, method: "test.secret", params: {} })).body as { error: { code: number; data: { code: string; status: number } } };
   assert.equal(denied.error.code, RPC_ERROR_CODES.application);
   assert.deepEqual(denied.error.data, { code: "access-denied", status: 403 });
   const invalid = (await f.post({ jsonrpc: "2.0", id: 3, method: "test.greet", params: { name: 5 } })).body as { error: { code: number; message: string } };
   assert.equal(invalid.error.code, RPC_ERROR_CODES.invalidParams);
-  assert.equal(invalid.error.message, "Ungültige Eingabe für test.greet: name must be string, got 5");
+  assert.equal(invalid.error.message, "Invalid input for test.greet: name must be string, got 5");
   const unknown = (await f.post({ jsonrpc: "2.0", id: 4, method: "test.nothing", params: {} })).body as { error: { code: number } };
   assert.equal(unknown.error.code, RPC_ERROR_CODES.methodNotFound);
   const clientOnly = (await f.post({ jsonrpc: "2.0", id: 5, method: "test.client.echo", params: {} })).body as { error: { code: number } };
@@ -150,7 +150,7 @@ test("http: requests are answered with JSON-RPC results, failures and rights che
   assert.equal(failed.error.data.code, "run-not-found");
   const contract = (await f.post({ jsonrpc: "2.0", id: 7, method: "test.broken", params: {} })).body as { error: { code: number; message: string } };
   assert.equal(contract.error.code, RPC_ERROR_CODES.internal);
-  assert.equal(contract.error.message, 'Die Antwort von test.broken verletzt ihren Vertrag: number must be number, got "keine Zahl"');
+  assert.equal(contract.error.message, 'The response of test.broken violates its contract: number must be number, got "not a number"');
   assert.equal((await f.post("nonsense")).status, 400);
   const streamless = (await f.post({ jsonrpc: "2.0", id: 8, method: RPC_METHODS.subscribe, params: { channel: "test.ticks", params: { runId: "r" } } })).body as { error: { data: { code: string } } };
   assert.equal(streamless.error.data.code, "stream-required");
@@ -202,13 +202,13 @@ test("stdio: one JSON message per line in both directions, closing the input end
     return JSON.parse(lines.shift()!) as RpcMessage;
   };
   input.write(`${JSON.stringify({ jsonrpc: "2.0", id: 1, method: "test.greet", params: { name: "stdio" } })}\n`);
-  assert.deepEqual(await nextLine(), { jsonrpc: "2.0", id: 1, result: { text: "Hallo stdio" } });
+  assert.deepEqual(await nextLine(), { jsonrpc: "2.0", id: 1, result: { text: "Hello stdio" } });
   input.write(`${JSON.stringify({ jsonrpc: "2.0", id: 2, method: "test.secret", params: {} })}\n`);
   assert.deepEqual(await nextLine(), { jsonrpc: "2.0", id: 2, result: null });
   input.write(`${JSON.stringify({ jsonrpc: "2.0", id: 3, method: RPC_METHODS.subscribe, params: { channel: "test.ticks", params: { runId: "s" } } })}\n`);
   const subscribed = await nextLine() as { result: { subscription: string } };
   assert.deepEqual(await nextLine(), { jsonrpc: "2.0", method: RPC_METHODS.event, params: { subscription: subscribed.result.subscription, channel: "test.ticks", message: { tick: 0 } } });
-  input.write("kein json\n");
+  input.write("not json\n");
   assert.equal(((await nextLine()) as { error: { code: number } }).error.code, RPC_ERROR_CODES.parse);
   input.end();
   await transport.closed;

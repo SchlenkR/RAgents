@@ -28,7 +28,7 @@ const presentationFrom = (presentation: unknown, optionId: string): SystemPrompt
   const raw = presentation as Record<string, unknown> | null;
   if (typeof raw !== "object" || raw === null || raw.kind !== "system-prompt"
     || !Array.isArray(raw.options) || !raw.options.every(isPromptOption)) {
-    throw new Error(`Die Startoption ${optionId} liefert keine Systemprompt-Darstellung`);
+    throw new Error(`The start option ${optionId} does not provide a system prompt presentation`);
   }
   return { options: raw.options };
 };
@@ -38,7 +38,7 @@ const valueFrom = (value: unknown, optionId: string): SystemPromptValue => {
   if (typeof raw !== "object" || raw === null
     || !Array.isArray(raw.promptIds) || raw.promptIds.some((id) => typeof id !== "string")
     || typeof raw.shareWithAgents !== "boolean") {
-    throw new Error(`Der Wert der Startoption ${optionId} ist keine Systemprompt-Auswahl`);
+    throw new Error(`The value of start option ${optionId} is not a system prompt selection`);
   }
   return { promptIds: raw.promptIds as string[], shareWithAgents: raw.shareWithAgents };
 };
@@ -75,9 +75,9 @@ export function SystemPromptControl({ disabled, error, option, setValue }: Start
 
   return (
     <div className="flex flex-col items-start gap-2" onMouseLeave={() => setPreviewId(undefined)}>
-      <span className="text-[0.72rem] font-semibold text-muted-foreground">Systemprompts</span>
+      <span className="text-[0.72rem] font-semibold text-muted-foreground">System prompts</span>
       <div className="relative flex justify-center">
-        <div aria-label="Systemprompts" className="flex flex-wrap justify-center gap-2" role="group">
+        <div aria-label="System prompts" className="flex flex-wrap justify-center gap-2" role="group">
           {presentation.options.map((entry) => (
             <Toggle
               disabled={disabled}
@@ -104,11 +104,11 @@ export function SystemPromptControl({ disabled, error, option, setValue }: Start
           onCheckedChange={(checked) => share(checked)}
         />
         <span>
-          Auch an die Agenten weiterreichen
+          Also pass on to the agents
           <span className="block text-[0.72rem] text-muted-foreground">
             {value.shareWithAgents
-              ? "Erzeugte Agenten bekommen die Prompts zusätzlich. Plain-LLMs mit tools: [] bleiben ausgenommen."
-              : "Die Prompts gelten nur für den Koordinator."}
+              ? "Spawned agents get the prompts as well. Plain LLMs with tools: [] are excluded."
+              : "The prompts apply only to the coordinator."}
           </span>
         </span>
       </label>
@@ -120,17 +120,17 @@ export function SystemPromptControl({ disabled, error, option, setValue }: Start
 export function SystemPromptBadge({ option }: StartOptionBadgeContext) {
   if (!option.selectable || !option.locked) return null;
   const parsed = parse(option);
-  if ("message" in parsed) return <ToolbarItem title={parsed.message}><ToolbarText>Systemprompts unlesbar</ToolbarText></ToolbarItem>;
+  if ("message" in parsed) return <ToolbarItem title={parsed.message}><ToolbarText>System prompts unreadable</ToolbarText></ToolbarItem>;
   const { presentation, value } = parsed;
   const labels = presentation.options
     .filter((entry) => value.promptIds.includes(entry.id))
     .map((entry) => entry.label);
   if (labels.length === 0) return null;
-  const scopeLabel = value.shareWithAgents ? "Koordinator und Agenten" : "nur Koordinator";
+  const scopeLabel = value.shareWithAgents ? "coordinator and agents" : "coordinator only";
   const text = labels.join(" + ");
   return (
-    <ToolbarItem title={`Systemprompts: ${text} (${scopeLabel})`}>
-      <ToolbarCopy><ToolbarLabel>Systemprompts</ToolbarLabel><ToolbarText>{value.shareWithAgents ? `${text} + Agenten` : text}</ToolbarText></ToolbarCopy>
+    <ToolbarItem title={`System prompts: ${text} (${scopeLabel})`}>
+      <ToolbarCopy><ToolbarLabel>System prompts</ToolbarLabel><ToolbarText>{value.shareWithAgents ? `${text} + agents` : text}</ToolbarText></ToolbarCopy>
     </ToolbarItem>
   );
 }

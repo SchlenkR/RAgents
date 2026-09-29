@@ -7,12 +7,12 @@ import type { ConnectionRun, ConnectionView } from "./contract";
 const lineClass = "grid grid-cols-subgrid items-center rounded-md px-2 py-1.5 text-left hover:bg-accent"
   + " focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring/60";
 
-/** Die Spalten der Liste: Kontrollkästchen (nur im Auswahlmodus), Zustand, Titel, Zeit und Server (nur ab zwei Servern). */
+/** The list columns: checkbox (only in selection mode), state, title, time, and server (only with two or more servers). */
 const columnsOf = (showConnection: boolean, selecting: boolean): string => selecting
   ? (showConnection ? "grid-cols-[auto_auto_minmax(0,1fr)_auto_auto]" : "grid-cols-[auto_auto_minmax(0,1fr)_auto]")
   : (showConnection ? "grid-cols-[auto_minmax(0,1fr)_auto_auto]" : "grid-cols-[auto_minmax(0,1fr)_auto]");
 
-/** Die Liste der Run-Zeilen: ein Raster, dessen Spalten die Zeilen per Subgrid teilen, damit alles untereinander steht. */
+/** The list of run lines: a grid whose columns the rows share via subgrid so everything lines up. */
 export function RunList({ label, showConnection, selecting = false, children }: {
   label: string;
   showConnection: boolean;
@@ -22,7 +22,7 @@ export function RunList({ label, showConnection, selecting = false, children }: 
   return <ul aria-label={label} className={cn("-mx-2 grid gap-x-2 gap-y-0.5", columnsOf(showConnection, selecting))}>{children}</ul>;
 }
 
-/** Eine Zeile je Run, auf Start wie auf Runs dieselbe: Zustand und Titel links, rechts Zeit und Server in den Spalten der Liste. */
+/** One line per run, the same on Start and on Runs: state and title on the left, time and server on the right in the list columns. */
 export function RunLine({ connection, run, showConnection, selecting, selected, onOpen, onToggle }: {
   connection: ConnectionView;
   run: ConnectionRun;
@@ -35,7 +35,7 @@ export function RunLine({ connection, run, showConnection, selecting, selected, 
   const time = shortTime(run.updatedAt);
   const problem = run.locked !== undefined ? `Locked: ${run.locked}` : run.problem;
   return <li className="col-span-full grid grid-cols-subgrid items-center">
-    {selecting && <Checkbox aria-label={`${run.title} auswählen`} checked={selected === true} className="ml-1" onCheckedChange={() => onToggle?.()} />}
+    {selecting && <Checkbox aria-label={`Select ${run.title}`} checked={selected === true} className="ml-1" onCheckedChange={() => onToggle?.()} />}
     <button aria-disabled={run.locked !== undefined && !selecting} className={cn(lineClass, selecting ? "col-[2/-1]" : "col-span-full", "aria-disabled:cursor-default aria-disabled:hover:bg-transparent")}
       onClick={() => (selecting ? onToggle?.() : run.locked === undefined && onOpen())} title={showConnection ? `${run.title} (${connection.name})` : run.title} type="button">
       <RunStateIcon open={run.pendingActions} state={run.state} />

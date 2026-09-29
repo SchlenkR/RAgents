@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "ragents": {
-    "title": "Beispiel-Run",
+    "title": "Example run",
     "backend": "src/server.ts"
   }
 }

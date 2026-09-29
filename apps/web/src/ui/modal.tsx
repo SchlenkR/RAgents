@@ -18,7 +18,7 @@ export interface ModalProps extends PropsWithChildren {
   keepMounted?: boolean;
 }
 
-/** A dialog frame whose contents can push further steps; Zurück, Escape and the backdrop return to the previous step first. */
+/** A dialog frame whose contents can push further steps; Back, Escape and the backdrop return to the previous step first. */
 export function Modal({ children, className, initialFocus, keepMounted, nextBehavior = "push", onClose, open = true, overlayClassName, scope = "run", showCloseButton = false, size = "medium" }: ModalProps) {
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -45,7 +45,7 @@ export function Modal({ children, className, initialFocus, keepMounted, nextBeha
             <div className={cn("contents", entry.key !== current.key && "hidden")} hidden={entry.key !== current.key} inert={entry.key !== current.key} key={entry.key}>
               {entry.page ? <>
                 <DialogHeader className="flex-row items-start gap-3 px-4 pt-4 pb-3">
-                  <Button aria-label="Zurück" onClick={controller.back} size="icon-sm" variant="ghost"><ArrowLeftIcon /></Button>
+                  <Button aria-label="Back" onClick={controller.back} size="icon-sm" variant="ghost"><ArrowLeftIcon /></Button>
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     <DialogTitle>{entry.page.title}</DialogTitle>
                     {entry.page.subtitle && <DialogDescription>{entry.page.subtitle}</DialogDescription>}

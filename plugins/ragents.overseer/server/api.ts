@@ -18,7 +18,7 @@ type CreateInput = Static<typeof overseerContracts.createRun.input>;
 
 const identity = (found: { id: string; title: string; reference: string }) => ({ runId: found.id, title: found.title, reference: found.reference });
 
-/** Aufgelöst wird nur über die Runs des Aufrufers; ein fremder Run ist hier so unbekannt wie ein nicht vorhandener. */
+/** Resolution only covers the caller's runs; someone else's run is as unknown here as a nonexistent one. */
 const resolve = async (context: ManagementContext, access: AccessContext, reference: string) => {
   const runs = await context.management().list(access);
   const exact = runs.find((entry) => entry.id === reference);
@@ -35,21 +35,21 @@ const create = async (context: ManagementContext, body: CreateInput, access: Acc
   };
   const runId = await (async () => {
     if ("packageDirectory" in body) {
-      if (!path.isAbsolute(body.packageDirectory)) throw new DomainError("invalid-package-directory", "packageDirectory muss ein absoluter Serverpfad sein", 400);
+      if (!path.isAbsolute(body.packageDirectory)) throw new DomainError("invalid-package-directory", "packageDirectory must be an absolute server path", 400);
       return context.management().create({ ...common, kind: "package", directory: body.packageDirectory, input: (body.input ?? null) as JsonValue, owner: OVERSEER_PLUGIN_ID });
     }
     if ("script" in body) {
       const entries = context.root.startEntries.describe().filter((entry) => entry.action === "script");
-      const wanted = body.script.trim().toLocaleLowerCase("de");
+      const wanted = body.script.trim().toLocaleLowerCase("en-US");
       const direct = entries.find((entry) => entry.id === body.script.trim());
-      const matching = direct ? [direct] : entries.filter((entry) => entry.title.toLocaleLowerCase("de") === wanted);
-      if (matching.length !== 1) throw new DomainError("invalid-script", `Das Run-Script ist unbekannt oder mehrdeutig. Gültige Titel und Kennungen: ${entries.map((entry) => `${entry.title} (${entry.id})`).join(", ") || "keine"}`, 400);
+      const matching = direct ? [direct] : entries.filter((entry) => entry.title.toLocaleLowerCase("en-US") === wanted);
+      if (matching.length !== 1) throw new DomainError("invalid-script", `The run script is unknown or ambiguous. Valid titles and ids: ${entries.map((entry) => `${entry.title} (${entry.id})`).join(", ") || "none"}`, 400);
       return context.management().create({ ...common, kind: "script", entryId: matching[0].id, input: (body.input ?? null) as JsonValue });
     }
     return context.management().create({ ...common, kind: "message", message: body.message.trim() });
   })();
   const found = (await context.directory.describe(await context.management().list())).find((entry) => entry.id === runId);
-  if (!found) throw new DomainError("run-unavailable", "Der erstellte Run ist nicht mehr verfügbar", 409);
+  if (!found) throw new DomainError("run-unavailable", "The created run is no longer available", 409);
   return { ...identity(found), accepted: true as const };
 };
 

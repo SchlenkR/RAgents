@@ -2,6 +2,7 @@ import { PluginHost, type PluginWebAddresses } from "@ragents/engine";
 import { pluginToolsDirectory, prepareExecutorContribution, type LoadedExecutorContribution } from "@ragents/workspace-executor";
 import { config, HOST_SECRET_ENV_NAMES } from "../config.js";
 import { SESSION_MODE, SESSIONS_MODE } from "../layout.js";
+import { aliasCompletionModel, aliasCompletionModelToken } from "../plugin-support/model-completion.js";
 import { withFolderAssets } from "../plugin-support/plugin-folder.js";
 import type { PluginModule } from "../plugin-support/plugin-module.js";
 import { runManagementToken } from "../ragents/global-chat.js";
@@ -29,9 +30,9 @@ export interface ProfileComposition {
   readonly modules: ReadonlyMap<string, PluginModule>;
   /** The plugins with a web half and where the browser loads it; the web loads exactly these. */
   readonly web: ReadonlyMap<string, PluginWebAddresses>;
-  /** Die Beiträge der Bundles zum Executor; der Server baut sie mit den Werkzeugordnern seines Datenordners. */
+  /** The bundles' contributions to the executor; the server builds them with the tool folders of its data folder. */
   readonly executor: readonly LoadedExecutorContribution[];
-  /** Die Vorlage aus defaultStartEntry der Profildatei; der Host lehnt eine nicht registrierte beim Versiegeln ab. */
+  /** The template from defaultStartEntry of the profile file; the host rejects an unregistered one when sealing. */
   readonly defaultStartEntry?: string;
 }
 
@@ -50,23 +51,27 @@ export const composeProfile = (options: ProfileComposition, bridges: HostBridges
   host.provideHost(executorContributionsToken, options.executor.map((loaded) =>
     prepareExecutorContribution(loaded, pluginToolsDirectory(config.dataDir, loaded.plugin))));
   host.provideHost(runManagementToken, () => {
-    if (!bridges.sessions) throw new Error("Der Host stellt keine Sitzungsverwaltung bereit");
+    if (!bridges.sessions) throw new Error("The host provides no session management");
     return bridges.sessions();
   });
+  host.provideHost(aliasCompletionModelToken, (alias) => aliasCompletionModel(() => {
+    if (!bridges.modelRuntime) throw new Error("The host provides no model runtime");
+    return bridges.modelRuntime();
+  }, alias));
   host.provideHost(secretEnvNamesToken, () =>
     [...new Set([...HOST_SECRET_ENV_NAMES, ...host.config.secretKeys()])]);
   for (const id of options.pluginIds) {
     const module = options.modules.get(id);
-    if (!module) throw new Error(`Das Plugin ${id} wurde nicht geladen`);
+    if (!module) throw new Error(`The plugin ${id} was not loaded`);
     const plugin = module.create(host);
     if (plugin.manifest.id !== id) {
-      throw new Error(`Der Plugin-Ordner ${id} meldet die abweichende Kennung ${plugin.manifest.id}`);
+      throw new Error(`The plugin folder ${id} reports the different id ${plugin.manifest.id}`);
     }
     if (plugin.manifest.requires !== undefined) {
-      throw new Error(`Plugin ${id} deklariert requires im Manifest; es gehört in den Modulvertrag`);
+      throw new Error(`Plugin ${id} declares requires in the manifest; it belongs in the module contract`);
     }
     if (plugin.manifest.web !== undefined) {
-      throw new Error(`Plugin ${id} deklariert web im Manifest; das ergibt sich aus dem Bundle`);
+      throw new Error(`Plugin ${id} declares web in the manifest; that follows from the bundle`);
     }
     const web = options.web.get(id);
     host.register(withFolderAssets({

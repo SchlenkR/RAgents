@@ -54,13 +54,13 @@ export class AgentLoopDriver implements AgentDriver<"agent"> {
 
     async inputCapabilities(provider: string, modelId: string): Promise<readonly string[]> {
         const model = (await this.#modelRuntime).getModel(provider, modelId);
-        if (!model) throw new Error(`Das Modell ${provider}/${modelId} ist nicht konfiguriert.`);
+        if (!model) throw new Error(`The model ${provider}/${modelId} is not configured.`);
         return model.input;
     }
 
     async thinkingCapabilities(provider: string, modelId: string): Promise<readonly ThinkingLevel[]> {
         const model = (await this.#modelRuntime).getModel(provider, modelId);
-        if (!model) throw new Error(`Das Modell ${provider}/${modelId} ist nicht konfiguriert.`);
+        if (!model) throw new Error(`The model ${provider}/${modelId} is not configured.`);
         const supported = getSupportedThinkingLevels(model);
         return thinkingLevels.filter((level) => supported.includes(level));
     }

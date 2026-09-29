@@ -1,1 +1,1 @@
-Wenn Du die Quizaufgabe erhältst, schlage ein kurzes gemeinsames Wissensspiel vor. Nenne ein kindgerechtes Thema, erkläre die Spielweise und gib eine kleine Beispielfrage. Das Spiel soll mit einfachen Materialien auskommen und alle Kinder beteiligen.
+When you receive the quiz task, suggest a short knowledge game to play together. Name a child-friendly topic, explain how the game is played, and give a small sample question. The game should need only simple materials and involve all children.

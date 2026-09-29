@@ -30,13 +30,13 @@ const metadata = [
 
 const available = defineToolAvailability({
     availability: "conditional",
-    availabilityDetail: "Für aktive ausführbare Actors mit einer Funktionsauswahl.",
+    availabilityDetail: "For active executable actors with a function selection.",
 }, (actor) => actor.kind !== "human" && actor.lifecycle.kind !== "stopped");
 
 export interface TypeScriptToolOptions {
-    /** Das Snippet läuft auf dem Server, auch wenn der Arbeitsbereich auf einem Arbeitsplatz liegt. */
+    /** The snippet runs on the server, even if the workspace lies on a workstation. */
     readonly serverProcessContextFor: (runId: string) => Promise<WorkspaceProcessContext>;
-    /** Eine Quelldatei kommt über den Executor des Runs, wo immer der Arbeitsbereich liegt. */
+    /** A source file comes through the run's executor, wherever the workspace lies. */
     readonly execute: SandboxServices["execute"];
 }
 
@@ -69,7 +69,7 @@ const schemaJson = (schema: RunFunction["schema"]) => {
     return value;
 };
 
-/** Ein Alias wie `@actors` nennt eine zusätzliche Wurzel des Executors, sonst gilt der Pfad relativ zur Wurzel des Runs. */
+/** An alias like `@actors` names an additional root of the executor; otherwise the path is relative to the run's root. */
 const sourceRequest = (requested: string): { path: string; alias?: string } => {
     if (!requested.startsWith("@")) return { path: requested };
     const separator = requested.indexOf("/");
@@ -102,14 +102,14 @@ export const createTypeScriptToolContributor = (options: TypeScriptToolOptions):
                 guidance: Type.Optional(Type.String()),
             }, { additionalProperties: false }),
             run: async (scope, _id, input) => {
-                if (input.context && (input.names || input.query !== undefined || input.schemas)) throw new Error("typescript_api erwartet context allein, ohne names, query oder schemas.");
+                if (input.context && (input.names || input.query !== undefined || input.schemas)) throw new Error("typescript_api expects context alone, without names, query or schemas.");
                 if (input.context) return { declarations: typeScriptSnippetContextDeclarations, guidance: contextGuidance };
-                if (input.names && input.query !== undefined) throw new Error("typescript_api erwartet names oder query, nicht beides.");
-                if (input.schemas && !input.names) throw new Error("typescript_api liefert JSON-Schemas nur zu ausgewählten names.");
+                if (input.names && input.query !== undefined) throw new Error("typescript_api expects names or query, not both.");
+                if (input.schemas && !input.names) throw new Error("typescript_api returns JSON schemas only for selected names.");
                 const functions = functionsOf(scope);
                 if (input.names) {
                     const unknown = input.names.filter((name) => !functions.some((entry) => entry.name === name));
-                    if (unknown.length > 0) throw new Error(`Nicht verfügbare TypeScript-Funktionen: ${unknown.join(", ")}. Mit typescript_api ohne names verfügbare Funktionen nachschlagen.`);
+                    if (unknown.length > 0) throw new Error(`Unavailable TypeScript functions: ${unknown.join(", ")}. Look up available functions with typescript_api without names.`);
                 }
                 const query = input.query?.toLocaleLowerCase();
                 const selected = input.names ? functions.filter((entry) => input.names!.includes(entry.name))
@@ -137,13 +137,13 @@ export const createTypeScriptToolContributor = (options: TypeScriptToolOptions):
             }, { additionalProperties: false }),
             resultSchema: Type.Object({ result: Type.Unknown(), logs: Type.Array(Type.String()) }, { additionalProperties: false }),
             run: async (scope, id, input) => {
-                if ((input.code === undefined) === (input.path === undefined)) throw new Error("typescript_eval braucht genau eines von code oder path.");
+                if ((input.code === undefined) === (input.path === undefined)) throw new Error("typescript_eval needs exactly one of code or path.");
                 scope.signal?.throwIfAborted();
                 const actor = scope.runtime.view(scope.caller.runId).actors.find((candidate) => candidate.id === scope.caller.actorId);
-                if (!actor || actor.kind === "human" || actor.lifecycle.kind === "stopped") throw new Error("Das TypeScript-Snippet braucht einen aktiven ausführbaren Actor.");
+                if (!actor || actor.kind === "human" || actor.lifecycle.kind === "stopped") throw new Error("The TypeScript snippet needs an active executable actor.");
                 const code = await sourceOf(options, scope.caller.runId, id, input);
                 const processContext = await options.serverProcessContextFor(scope.caller.runId);
-                if (!scope.caller.turnId) throw new Error("Das TypeScript-Snippet braucht einen laufenden Turn.");
+                if (!scope.caller.turnId) throw new Error("The TypeScript snippet needs a running turn.");
                 scope.runtime.recordToolCallSource(scope.context(id, "source"), scope.caller.runId, actor.id, {
                     turnId: scope.caller.turnId, toolCallId: id, code, path: input.path ?? null,
                 });
@@ -175,7 +175,7 @@ export const createTypeScriptToolContributor = (options: TypeScriptToolOptions):
             nativeTool: true,
             scope: "per-turn",
             availability: "conditional",
-            availabilityDetail: "Für aktive ausführbare Actors mit einer Funktionsauswahl.",
+            availabilityDetail: "For active executable actors with a function selection.",
         })),
         tools: () => tools,
     };

@@ -32,7 +32,7 @@ const carriesTextEvent = (event: DeliveredEvent): event is Extract<DeliveredEven
 
 const recordOf = (value: unknown, what: string): Readonly<Record<string, unknown>> => {
     if (typeof value !== "object" || value === null || Array.isArray(value))
-        throw new Error(`${what} ist kein Objekt.`);
+        throw new Error(`${what} is not an object.`);
 
     return value as Record<string, unknown>;
 };
@@ -41,7 +41,7 @@ const stringOf = (source: Readonly<Record<string, unknown>>, field: string, what
     const value = source[field];
 
     if (typeof value !== "string")
-        throw new Error(`${what} hat kein Textfeld ${field}.`);
+        throw new Error(`${what} has no text field ${field}.`);
 
     return value;
 };
@@ -50,7 +50,7 @@ const numberOf = (source: Readonly<Record<string, unknown>>, field: string, what
     const value = source[field];
 
     if (typeof value !== "number" || !Number.isFinite(value))
-        throw new Error(`${what} hat kein Zahlenfeld ${field}.`);
+        throw new Error(`${what} has no number field ${field}.`);
 
     return value;
 };
@@ -70,7 +70,7 @@ export const deliveredEventOf = (
     sourceActorHandle: string,
 ): DeliveredEvent => {
     if (!isObservableEventType(source.type))
-        throw new Error(`Der Eventtyp ${source.type} ist nicht beobachtbar und wird nicht zugestellt.`);
+        throw new Error(`The event type ${source.type} is not observable and is not delivered.`);
 
     return {
         type: source.type,
@@ -85,23 +85,23 @@ export const deliveredEventOf = (
 
 const sourceEventOf = (inputId: string, content: string): Readonly<Record<string, unknown>> => {
     try {
-        return recordOf(JSON.parse(content), `Der zugestellte Inhalt von Input ${inputId}`);
+        return recordOf(JSON.parse(content), `The delivered content of input ${inputId}`);
     } catch (error) {
         throw new Error(
-            `Der Subscription-Input ${inputId} trägt kein Event-JSON: `
+            `The subscription input ${inputId} carries no event JSON: `
             + (error instanceof Error ? error.message : String(error)),
         );
     }
 };
 
 export const deliveredEventFromJson = (view: RunView, inputId: string, content: string): DeliveredEvent => {
-    const what = `Das zugestellte Event von Input ${inputId}`;
+    const what = `The delivered event of input ${inputId}`;
     const source = sourceEventOf(inputId, content);
     const actorId = stringOf(source, "actorId", what);
     const author = view.actors.find((entry) => entry.id === actorId);
 
     if (!author)
-        throw new Error(`${what} stammt von Actor ${actorId}, den dieser Run nicht kennt.`);
+        throw new Error(`${what} comes from actor ${actorId}, which this run does not know.`);
 
     return deliveredEventOf({
         eventId: stringOf(source, "eventId", what),
@@ -153,20 +153,20 @@ export const subscriptionSummaryFor = (view: RunView, actorId: string): readonly
             const sources = subscription.sourceActorIds
                 ? subscription.sourceActorIds.map(handleOf).join(", ")
                 : subscription.sourceActorKinds
-                    ? `alle Actors der Art ${subscription.sourceActorKinds.join(", ")}`
-                    : "alle Actors";
+                    ? `all actors of kind ${subscription.sourceActorKinds.join(", ")}`
+                    : "all actors";
 
-            return `${subscription.id}: Quellen ${sources}; Events ${subscription.eventTypes.join(", ")}`;
+            return `${subscription.id}: sources ${sources}; events ${subscription.eventTypes.join(", ")}`;
         });
 };
 
 export const actorRosterText = (view: RunView, actorId: string): string => [
-    "[Actors im Run, Stand bei Turn-Beginn]",
-    "Diese Actors sind bereits angelegt. Verwende passende Beteiligte weiter; actor_list aktualisiert den Bestand.",
-    "agent: Gespräch mit einem Modell. script: Programm mit festem Eingabeprotokoll, kein Chatpartner; dokumentierte Funktionen oder Programmeingaben verwenden. primär bezeichnet das Standardziel, keine Dialogfähigkeit.",
+    "[Actors in the run, as of turn start]",
+    "These actors already exist. Keep using suitable participants; actor_list refreshes the roster.",
+    "agent: conversation with a model. script: program with a fixed input protocol, not a chat partner; use documented functions or program inputs. primary denotes the default target, not a dialog capability.",
     ...view.actors.map((actor) => {
         const status = actor.kind === "human" ? "human" : actor.lifecycle.kind;
-        const markers = [actor.id === actorId ? "du" : "", actor.id === view.primaryActorId ? "primär" : ""]
+        const markers = [actor.id === actorId ? "you" : "", actor.id === view.primaryActorId ? "primary" : ""]
             .filter(Boolean);
 
         return `- @${actor.handle}: ${JSON.stringify(actor.displayName)}, ${actor.kind}, ${status}`
@@ -178,9 +178,9 @@ export const renderedPromptFor = (view: RunView, actorId: string, input: Deliver
     const subscriptions = subscriptionSummaryFor(view, actorId);
     const header = [
         ...(input.event
-            ? [`[Event ${input.event.type} von @${input.event.sourceActorHandle}, Sequenz ${input.event.sequence}]`]
+            ? [`[Event ${input.event.type} from @${input.event.sourceActorHandle}, sequence ${input.event.sequence}]`]
             : []),
-        ...(subscriptions.length > 0 ? [`[Aktive Subscriptions] ${subscriptions.join(" | ")}`] : []),
+        ...(subscriptions.length > 0 ? [`[Active subscriptions] ${subscriptions.join(" | ")}`] : []),
     ];
 
     return header.length > 0 ? `${header.join("\n")}\n\n${input.content}` : input.content;

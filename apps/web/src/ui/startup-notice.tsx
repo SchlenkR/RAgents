@@ -1,14 +1,14 @@
 import type { ReactNode } from "react";
 import { cn } from "cn";
 
-/** Was eine Fläche zeigt, solange sie noch keinen Inhalt hat: laufende Arbeit, einen Fehler oder einen ruhigen Hinweis. */
+/** What a surface shows while it has no content yet: ongoing work, an error or a calm notice. */
 export interface StartupNoticeState {
   kind: "working" | "error" | "waiting" | "stopped";
   title: string;
   detail: string;
 }
 
-/** Der eine Ladezustand für Fläche, Run-Panel und dessen Start: Titel, bei laufender Arbeit ein Fortschrittsbalken, darunter was gerade geschieht. */
+/** The one loading state for surface, run panel and its start: title, a progress bar while work is running, below it what is happening right now. */
 export function StartupNotice({ children, className, state }: { children?: ReactNode; className?: string; state: StartupNoticeState }) {
   return <div aria-live="polite" className={cn("w-[min(360px,100%)] text-center text-foreground", className)} data-startup={state.kind}
     role={state.kind === "error" ? "alert" : "status"}>

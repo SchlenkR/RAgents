@@ -11,7 +11,7 @@ export interface BrowserEvidence {
   errors: string[];
 }
 
-/** Wer eine Operation an der Seite auslöst: bei einem Werkzeugaufruf dessen Kennung, dazu der Abbruch. */
+/** Who triggers an operation on the page: for a tool call its id, plus the abort signal. */
 export interface BrowserCallOptions {
   signal?: AbortSignal;
   toolCallId?: string;

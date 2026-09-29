@@ -17,17 +17,17 @@ export interface DocumentViewerProps {
   title?: string;
   content: string;
   format?: "text" | "markdown" | "code";
-  /** Sprache für Code-Hervorhebung; alternativ bestimmt filename die Sprache. */
+  /** Language for code highlighting; alternatively filename determines the language. */
   language?: string;
   filename?: string;
 }
 
 export interface DiffViewerProps {
   title?: string;
-  /** Bereits vorliegender Unified-Diff; das Control vergleicht keine Dateien und schreibt nichts. */
+  /** An existing unified diff; the control compares no files and writes nothing. */
   patch: string;
   emptyText?: string;
-  /** Sprache für Code-Hervorhebung; alternativ bestimmt filename oder der Pfad im Diff die Sprache. */
+  /** Language for code highlighting; alternatively filename or the path in the diff determines the language. */
   language?: string;
   filename?: string;
 }

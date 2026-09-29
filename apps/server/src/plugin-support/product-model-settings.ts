@@ -11,8 +11,8 @@ type AgentModelProfile = Extract<AgentProfile, { driver: "agent" }>;
 const invalid = (message: string): DomainError => new DomainError("product-model-invalid", message, 400);
 
 const objectOf = (value: unknown, fields: readonly string[]): Record<string, unknown> => {
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw invalid(`${fields.join(", ")} sind erforderlich.`);
-  if (Object.keys(value).some((key) => !fields.includes(key))) throw invalid(`Erlaubt sind nur ${fields.join(", ")}.`);
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw invalid(`${fields.join(", ")} are required.`);
+  if (Object.keys(value).some((key) => !fields.includes(key))) throw invalid(`Only ${fields.join(", ")} are allowed.`);
   return value as Record<string, unknown>;
 };
 
@@ -53,7 +53,7 @@ export class ProductModelSettingsStore {
     const selected = this.#selection(profile.name);
     return {
       ...profile, ...selected,
-      description: `${selected.model} mit Denktiefe ${selected.thinking}. ${profile.description}`,
+      description: `${selected.model} with thinking level ${selected.thinking}. ${profile.description}`,
     };
   });
 
@@ -87,25 +87,25 @@ export class ProductModelSettingsStore {
 
   #selection(name: string): ProductModelDraft["profiles"][number] {
     const selected = this.#current.profiles.find((profile) => profile.name === name);
-    if (!selected) throw invalid(`Die Rolle ${name} hat keine Modellvorgabe.`);
+    if (!selected) throw invalid(`The role ${name} has no model default.`);
     return selected;
   }
 
   #validate(value: unknown): ProductModelDraft {
     const { profiles } = objectOf(value, ["profiles"]);
     const expected = this.#agentProfiles();
-    if (!Array.isArray(profiles) || profiles.length !== expected.length) throw invalid(`Vollständig erforderlich sind die Rollen: ${expected.map((profile) => profile.name).join(", ")}.`);
+    if (!Array.isArray(profiles) || profiles.length !== expected.length) throw invalid(`All of these roles are required: ${expected.map((profile) => profile.name).join(", ")}.`);
     const seen = new Set<string>();
     const validated = profiles.map((item: unknown) => {
       const entry = objectOf(item, ["name", "model", "thinking"]);
       const profile = expected.find((candidate) => candidate.name === entry.name);
-      if (!profile) throw invalid(`Unbekannte Rolle ${String(entry.name)}.`);
-      if (seen.has(profile.name)) throw invalid(`Die Rolle ${profile.name} steht doppelt.`);
+      if (!profile) throw invalid(`Unknown role ${String(entry.name)}.`);
+      if (seen.has(profile.name)) throw invalid(`The role ${profile.name} is listed twice.`);
       seen.add(profile.name);
-      if (profile.provider !== this.#choice.provider) throw invalid(`Die Rolle ${profile.name} verwendet einen anderen Provider.`);
-      if (typeof entry.model !== "string" || !this.#choice.options.includes(entry.model)) throw invalid(`Das Modell ${String(entry.model)} steht nicht zur Wahl.`);
+      if (profile.provider !== this.#choice.provider) throw invalid(`The role ${profile.name} uses a different provider.`);
+      if (typeof entry.model !== "string" || !this.#choice.options.includes(entry.model)) throw invalid(`The model ${String(entry.model)} is not available for selection.`);
       const allowed = this.#choice.thinkingOptionsFor(entry.model);
-      if (!isThinkingLevel(entry.thinking) || !allowed.includes(entry.thinking)) throw invalid(`Die Denktiefe ${String(entry.thinking)} ist für ${entry.model} nicht verfügbar (gültig: ${allowed.join(", ")}).`);
+      if (!isThinkingLevel(entry.thinking) || !allowed.includes(entry.thinking)) throw invalid(`The thinking level ${String(entry.thinking)} is not available for ${entry.model} (valid: ${allowed.join(", ")}).`);
       return { name: profile.name, model: entry.model, thinking: entry.thinking };
     });
     return { profiles: expected.map((profile) => validated.find((entry) => entry.name === profile.name)!) };

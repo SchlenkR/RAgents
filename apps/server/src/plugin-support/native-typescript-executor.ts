@@ -10,7 +10,7 @@ import { syncWorkspaceOwnership } from "./workspace-ownership.js";
 
 interface ExecutorOptions {
   directoryFor(runId: string): string;
-  /** Die Node-Ausführung läuft immer auf dem Server, auch bei einem Arbeitsbereich auf einem Arbeitsplatz. */
+  /** Node execution always runs on the server, even for a workspace on a workstation. */
   serverProcessContextFor(runId: string): Promise<WorkspaceProcessContext>;
 }
 interface Backend {
@@ -51,7 +51,7 @@ export class NodeTypeScriptExecutor implements NativeTypeScriptExecutor {
 
   async execute(request: NativeTypeScriptRequest, binding: NativeTypeScriptBinding): Promise<NativeTypeScriptResult> {
     binding.signal?.throwIfAborted();
-    if (this.#closed || this.#stopping.has(request.context.runId)) throw new Error("Die Node-Ausführung wird beendet.");
+    if (this.#closed || this.#stopping.has(request.context.runId)) throw new Error("Node execution is shutting down.");
     const instanceId = request.instanceId ?? `invocation-${randomUUID()}`;
     const key = `${request.context.runId}\0${instanceId}`;
     const fingerprint = createHash("sha256").update(JSON.stringify({ entry: request.program.entry, files: request.program.files })).digest("hex");
@@ -65,7 +65,7 @@ export class NodeTypeScriptExecutor implements NativeTypeScriptExecutor {
     }
     slot.controller.signal.throwIfAborted();
     const backend = await slot.pending;
-    if (backend.fingerprint !== fingerprint) throw new Error("Die Backend-Revision muss vor dem Codewechsel beendet werden.");
+    if (backend.fingerprint !== fingerprint) throw new Error("The backend revision must be stopped before the code changes.");
     const operation = backend.queue.then(() => this.#invoke(backend, request, binding));
     backend.queue = operation.then(() => undefined, () => undefined);
     try { return await operation; }
@@ -82,13 +82,13 @@ export class NodeTypeScriptExecutor implements NativeTypeScriptExecutor {
     await mkdir(directory, { recursive: true });
     for (const file of request.program.files) {
       const target = path.resolve(directory, file.fileName);
-      if (!target.startsWith(`${directory}${path.sep}`)) throw new Error("Backend-Datei liegt außerhalb des Builds.");
+      if (!target.startsWith(`${directory}${path.sep}`)) throw new Error("Backend file lies outside the build.");
       await mkdir(path.dirname(target), { recursive: true });
       await writeFile(target, file.text);
     }
     const entry = path.resolve(directory, request.program.entry);
     if (!entry.startsWith(`${directory}${path.sep}`) || !request.program.files.some((file) => path.resolve(directory, file.fileName) === entry))
-      throw new Error("Der gebaute Backend-Einstieg fehlt.");
+      throw new Error("The built backend entry is missing.");
     await writeFile(path.join(directory, "package.json"), JSON.stringify({ type: "module" }));
     await writeFile(path.join(directory, "__runner.mjs"), await runner());
     const toolkit = fileURLToPath(new URL("../../../../node_modules", import.meta.url));
@@ -143,7 +143,7 @@ export class NodeTypeScriptExecutor implements NativeTypeScriptExecutor {
       },
       onError: fail,
       onExit: (code) => {
-        const error = new Error(`Backendprozess beendet (Code ${code}).${stderr.trim() ? `\n${stderr.trim()}` : ""}`);
+        const error = new Error(`Backend process exited (code ${code}).${stderr.trim() ? `\n${stderr.trim()}` : ""}`);
         controller.abort(error);
         backend.reject(error);
         void backend.service.finished.then(() => backend.queue).finally(() => {
@@ -153,15 +153,15 @@ export class NodeTypeScriptExecutor implements NativeTypeScriptExecutor {
         }).catch(() => undefined);
       },
     });
-    const timeout = setTimeout(() => rejectReady(new Error("Das Backend wurde nicht innerhalb von 15 Sekunden bereit.")), 15_000);
-    const abort = () => rejectReady(errorOf(signal?.reason ?? "Der Backendstart wurde abgebrochen."));
+    const timeout = setTimeout(() => rejectReady(new Error("The backend did not become ready within 15 seconds.")), 15_000);
+    const abort = () => rejectReady(errorOf(signal?.reason ?? "The backend start was cancelled."));
     signal?.addEventListener("abort", abort, { once: true });
     try {
       signal?.throwIfAborted();
       await backend.service.send({ kind: "load", entry });
       await ready;
       signal.throwIfAborted();
-      if (this.#closed || this.#stopping.has(backend.runId)) throw new Error("Der Run wurde beim Backendstart gestoppt.");
+      if (this.#closed || this.#stopping.has(backend.runId)) throw new Error("The run was stopped during the backend start.");
       return backend;
     } catch (error) {
       backend.service.kill("SIGKILL");
@@ -180,7 +180,7 @@ export class NodeTypeScriptExecutor implements NativeTypeScriptExecutor {
     const abort = (): void => {
       void backend.service.send({ kind: "cancel" }).catch(() => undefined);
       force = setTimeout(() => backend.service.kill("SIGKILL"), 200);
-      rejectInvocation(errorOf(signal.reason ?? "Der Aufruf wurde abgebrochen."));
+      rejectInvocation(errorOf(signal.reason ?? "The call was cancelled."));
     };
     const operation = new Promise<NativeTypeScriptResult>((resolve, reject) => {
       rejectInvocation = reject;
@@ -195,7 +195,7 @@ export class NodeTypeScriptExecutor implements NativeTypeScriptExecutor {
           const operation = (async () => {
             try {
               signal.throwIfAborted();
-              if (!capabilities.has(message.name!)) throw new Error(`Capability ${message.name} ist nicht freigegeben.`);
+              if (!capabilities.has(message.name!)) throw new Error(`Capability ${message.name} is not granted.`);
               const value = await binding.call(message.name!, message.input!);
               await backend.service.send({ kind: "reply", callId: message.callId, value });
             } catch (error) {
@@ -234,7 +234,7 @@ export class NodeTypeScriptExecutor implements NativeTypeScriptExecutor {
     const slot = this.#backends.get(key);
     if (!slot) return Promise.resolve();
     if (slot.stopping) return slot.stopping;
-    slot.controller.abort(new Error("Die Node-Instanz wird beendet."));
+    slot.controller.abort(new Error("The Node instance is shutting down."));
     slot.stopping = (async () => {
       const backend = await slot.pending.catch(() => undefined);
       if (!backend) return;

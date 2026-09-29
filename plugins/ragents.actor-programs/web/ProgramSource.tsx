@@ -45,17 +45,17 @@ export function ProgramSource({ api, moduleId, runId, revision, expandedByDefaul
 
   return (
     <section className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)] justify-items-start gap-2">
-      <h3 className="text-xs font-semibold text-muted-foreground">Quellcode</h3>
+      <h3 className="text-xs font-semibold text-muted-foreground">Source code</h3>
       {!expanded && (
-        <Button onClick={() => setExpanded(true)} size="sm" variant="outline">Quellcode anzeigen</Button>
+        <Button onClick={() => setExpanded(true)} size="sm" variant="outline">Show source code</Button>
       )}
       {expanded && (
         <>
-          <p className="text-[0.67rem] text-muted-foreground">Quelle des installierten Builds</p>
+          <p className="text-[0.67rem] text-muted-foreground">Source of the installed build</p>
           {state.kind === "loading" && (
             <p className="flex items-center gap-2 text-[0.72rem] text-muted-foreground">
               <Spinner aria-hidden aria-label={undefined} role={undefined} />
-              <span>Quellcode wird geladen</span>
+              <span>Loading source code</span>
             </p>
           )}
           {state.kind === "error" && <Alert className="w-full" variant="destructive">{state.message}</Alert>}
@@ -75,7 +75,7 @@ export function ProgramSource({ api, moduleId, runId, revision, expandedByDefaul
             </div>
           )}
           {active && <SourceCode className="h-full max-h-[340px] w-full min-h-0 min-w-0 overflow-auto rounded-lg border border-border-soft bg-background/70" content={active.content} path={active.path} />}
-          {!expandedByDefault && <Button onClick={() => setExpanded(false)} size="sm" variant="outline">Quellcode ausblenden</Button>}
+          {!expandedByDefault && <Button onClick={() => setExpanded(false)} size="sm" variant="outline">Hide source code</Button>}
         </>
       )}
     </section>

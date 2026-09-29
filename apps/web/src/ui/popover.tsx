@@ -26,7 +26,7 @@ function PopoverContent({
     PopoverPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset" | "anchor" | "collisionPadding"
   > & Pick<PopoverPrimitive.Portal.Props, "keepMounted"> & {
-    /** Dunkelt den Rest der Seite ab, damit sich das Pop-out absetzt; Klick daneben schließt es. */
+    /** Dims the rest of the page so the pop-out stands out; a click outside closes it. */
     dim?: boolean
   }) {
   return (

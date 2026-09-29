@@ -371,7 +371,7 @@ export class TurnScheduler {
                 throw failures[0];
 
             if (failures.length > 1)
-                throw new AggregateError(failures, `Run ${runId} konnte nicht vollständig angehalten werden.`);
+                throw new AggregateError(failures, `Run ${runId} could not be halted completely.`);
         } finally {
             const state = this.#runState(runId);
 
@@ -385,7 +385,7 @@ export class TurnScheduler {
 
     quarantineRun(runId: string, until: Promise<void>): void {
         if (this.#runState(runId).haltBoundaries === 0)
-            throw new Error(`Run ${runId} kann nur innerhalb einer aktiven Stopp-Grenze quarantiniert werden.`);
+            throw new Error(`Run ${runId} can only be quarantined within an active stop boundary.`);
 
         const quarantine = { promise: until };
         if (!this.#runState(runId).retired)
@@ -720,8 +720,8 @@ export class TurnScheduler {
                 if (unknown.length === 0 || !current || current.lifecycle.kind === "stopped")
                     return;
 
-                const reason = `Keine Host-Funktion löst die Werkzeuge ${unknown.join(", ")} auf; `
-                    + `@${current.handle} wurde deshalb gestoppt. Die Namen in toolNames prüfen oder das Plugin laden, das sie bereitstellt.`;
+                const reason = `No host function resolves the tools ${unknown.join(", ")}; `
+                    + `@${current.handle} was therefore stopped. Check the names in toolNames or load the plugin that provides them.`;
                 const state = this.#runtime.state(runId);
                 this.#runtime.stopActor(
                     { actorId: state.ownerId, commandId: `scheduler:unknown-tools:${actorId}:${state.revision}` },
@@ -950,7 +950,7 @@ export class TurnScheduler {
                 return;
 
             if (controller.signal.aborted || !this.#acceptsTurns(runId)) {
-                this.#interrupt(turn, "Der Turn wurde abgebrochen.");
+                this.#interrupt(turn, "The turn was cancelled.");
 
                 return;
             }
@@ -965,8 +965,8 @@ export class TurnScheduler {
         } catch (error) {
             const usage = (error as { usage?: TurnUsage }).usage;
             const message = controller.signal.aborted
-                ? "Der Turn wurde abgebrochen."
-                : `Der Turn ist gescheitert: ${errorMessage(error)}`;
+                ? "The turn was cancelled."
+                : `The turn failed: ${errorMessage(error)}`;
 
             if (this.#isRunning(turn)) {
                 if (controller.signal.aborted || !this.#acceptsTurns(runId))

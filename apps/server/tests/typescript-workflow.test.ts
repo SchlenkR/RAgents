@@ -110,12 +110,12 @@ return context.functions.actor_program_activate({ name: "formatter" });
 return context.functions.actor_program_activate({ name: "formatter" });` });
     const revised = await run.call("revised-api", "typescript_api", { names: ["dynamic_transform"] });
     assert.match(JSON.stringify(revised), /value.*number/s);
-    await assert.rejects(run.call("old-schema", "typescript_eval", { code: 'return context.functions.dynamic_transform({ value: "hello" });' }), /TypeScript-Snippet wurde nicht ausgeführt/);
+    await assert.rejects(run.call("old-schema", "typescript_eval", { code: 'return context.functions.dynamic_transform({ value: "hello" });' }), /TypeScript snippet was not executed/);
     assert.deepEqual(await run.call("revised-call", "typescript_eval", { code: 'return context.functions.dynamic_transform({ value: 4 });' }), { result: 8, logs: [] });
 
     await run.call("remove", "typescript_eval", { code: 'return context.functions.actor_program_remove({ name: "formatter" });' });
     assert.deepEqual(await run.call("removed-api", "typescript_api", { query: "dynamic_transform" }), { functions: [] });
-    await assert.rejects(run.call("removed-detail", "typescript_api", { names: ["dynamic_transform"] }), /Nicht verfügbare TypeScript-Funktionen/);
+    await assert.rejects(run.call("removed-detail", "typescript_api", { names: ["dynamic_transform"] }), /Unavailable TypeScript functions/);
     await assert.rejects(run.call("removed-call", "typescript_eval", { code: 'return context.functions.dynamic_transform({ value: 4 });' }), /does not exist/);
     assert.deepEqual(run.toolset.tools.map((entry) => entry.name), ["read", "edit", "write", "bash", "typescript_api", "typescript_eval"]);
     assert.equal(run.setup.runtime.view(run.setup.view.id).turns.length, 1);
@@ -197,7 +197,7 @@ test("workspace tools are directly callable with the same scoped file operations
     await f.call("direct-edit", "edit", { path: "direct.txt", edits: [{ oldText: "before", newText: "after" }] });
     assert.match(String(await f.call("direct-read", "read", { path: "direct.txt" })), /after/);
     assert.match(String(await f.call("direct-bash", "bash", { command: "cat direct.txt" })), /after/);
-    await assert.rejects(f.call("direct-outside", "write", { path: "../forbidden.txt", content: "denied" }), /außerhalb/);
+    await assert.rejects(f.call("direct-outside", "write", { path: "../forbidden.txt", content: "denied" }), /outside/);
     const calls = f.setup.runtime.events(f.setup.view.id).filter((event) => event.type === "tool.call.started");
     assert.deepEqual(calls.map((event) => event.payload.name), ["write", "edit", "read", "bash", "write"]);
     assert.ok(calls.every((event) => event.actorId === f.setup.agent.id));

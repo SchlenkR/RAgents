@@ -27,7 +27,7 @@ import { bashSetting, bashTimeoutSetting, PROCESS_SANDBOX_OFF, processSandboxSet
 import { RunWorkspaceRuntime } from "./runtime.js";
 
 const warnWithoutSandbox = (): void => {
-  console.warn(`Prozess-Sandbox ausgeschaltet (${PROCESS_SANDBOX_OFF}): Prozesse der Runs laufen auf dem Server ohne Sandbox.`);
+  console.warn(`Process sandbox turned off (${PROCESS_SANDBOX_OFF}): run processes run on the server without a sandbox.`);
 };
 
 const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): RAgentsPlugin => ({
@@ -47,7 +47,7 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
       host.optionalService(documentStoreToken)?.directoryFor(runId) ?? Promise.resolve(undefined);
     const documentsRoot = async (runId: string): Promise<string> => {
       const directory = await documentsFor(runId);
-      if (!directory) throw new Error("In diesem Profil gibt es keine Dateiablage; das Plugin ragents.documents fehlt");
+      if (!directory) throw new Error("This profile has no file store; the plugin ragents.documents is missing");
       return directory;
     };
     const contributions = host.service(executorContributionsToken);
@@ -99,7 +99,7 @@ const ragentsWorkspacePlugin = (skillPaths: () => Promise<readonly string[]>): R
       boundToTools({
         ...rules,
         delivery: "initial",
-        // Die Regeln gelten für die Arbeitsbereiche des Hosts; eine beigesteuerte Art beschreibt ihre eigenen.
+        // The rules apply to the host's workspaces; a contributed kind describes its own.
         render: (context) => contribution()?.kind ? "" : rules.render(context),
       }, ...agentWorkspaceToolNames),
       shellPlatformPrompt("ragents.workspace.shell.prompt", 102, serverTools, (runId) => {

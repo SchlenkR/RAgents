@@ -19,24 +19,24 @@ export const commands = {
   stop: AGENT_CLI,
 };
 
-const usage = `Verwendung: ragents <befehl> [argumente]
+const usage = `Usage: ragents <command> [arguments]
 
-  run <ordner> "<auftrag>"         Host ohne Oberfläche starten, Run anlegen und auf das Ende warten
-  send <run> "<text>"              Folgeauftrag im selben Run
-  journal <run> [--tools]          Verlauf eines Runs lesen
-  stop <run> | stop --host         laufenden Turn abbrechen oder den gemerkten Host beenden
-  connect <server-url>             Client-Profil samt Bundles holen und den lokalen Server damit starten
-  start <profil|pfad>              ein Profil des Pakets, eine eigene Profildatei oder einen
-                                   geholten Stand starten; die Oberfläche kommt fertig mit
-  provision [<profil>|--workspace] Werkzeuge der Plugins holen
-  workspace-client <server-url>    diesen Rechner als Arbeitsplatz anmelden
-  plugin build <ordner...>         Plugin-Quellordner zu Bundles bauen (--out, --watch)
-  --help, help                     diese Verwendung
+  run <folder> "<task>"            start the host without UI, create a run and wait for the end
+  send <run> "<text>"              follow-up task in the same run
+  journal <run> [--tools]          read the history of a run
+  stop <run> | stop --host         cancel the running turn or stop the remembered host
+  connect <server-url>             fetch the client profile with its bundles and start the local server with it
+  start <profile|path>             start a profile of the package, an own profile file or a
+                                   fetched stand; the UI comes prebuilt
+  provision [<profile>|--workspace] fetch the plugins' tools
+  workspace-client <server-url>    register this machine as a workspace
+  plugin build <folder...>         build plugin source folders into bundles (--out, --watch)
+  --help, help                     this usage
 
-run, send, journal und stop nehmen mit --profile <profil|pfad> ein anderes Profil: einen Namen
-neben dem Host oder den Pfad zu einer eigenen ragents.config.<profil>.ts. RAGENTS_PROFILE setzt
-dasselbe für alle Befehle einer Shell; verlangt das Profil eine Anmeldung, gehört der
-persönliche Token des Benutzers in RAGENTS_TOKEN.
+run, send, journal and stop take another profile with --profile <profile|path>: a name
+next to the host or the path to an own ragents.config.<profile>.ts. RAGENTS_PROFILE sets
+the same for all commands of a shell; if the profile requires sign-in, the user's
+personal token goes into RAGENTS_TOKEN.
 `;
 
 const main = () => {
@@ -48,7 +48,7 @@ const main = () => {
   }
   const script = command ? commands[command] : undefined;
   if (!script) {
-    console.error(command ? `Unbekannter Befehl: ${command}\n\n${usage}` : usage);
+    console.error(command ? `Unknown command: ${command}\n\n${usage}` : usage);
     process.exit(1);
   }
   ensureHostLinks(root);
@@ -62,11 +62,11 @@ const main = () => {
   process.on("SIGINT", forward("SIGINT"));
   process.on("SIGTERM", forward("SIGTERM"));
   child.once("error", (error) => {
-    console.error(`ragents ${command} konnte nicht gestartet werden: ${error.message}`);
+    console.error(`ragents ${command} could not be started: ${error.message}`);
     process.exit(1);
   });
   child.once("exit", (code, signal) => process.exit(code ?? (signal ? 1 : 0)));
 };
 
-// npm legt den Befehl als Verknüpfung ab; der Vergleich braucht deshalb den echten Pfad.
+// npm installs the command as a link; the comparison therefore needs the real path.
 if (process.argv[1] && realpathSync(process.argv[1]) === fileURLToPath(import.meta.url)) main();

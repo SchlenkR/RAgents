@@ -9,15 +9,15 @@ import type { DiffViewerProps, DocumentViewerProps, TaskProgressProps } from "./
 const taskLabels = { pending: "Pending", running: "In progress", done: "Done", error: "Failed", skipped: "Skipped" };
 const taskTones = { pending: "text-muted-foreground", running: "text-primary", done: "text-muted-foreground", error: "text-destructive", skipped: "text-muted-foreground" };
 
-export function TaskProgress({ title = "Aufgaben", tasks, showProgress = true }: TaskProgressProps) {
+export function TaskProgress({ title = "Tasks", tasks, showProgress = true }: TaskProgressProps) {
   const completed = tasks.filter((task) => task.status === "done" || task.status === "skipped").length;
   return <section aria-label={title} className="min-w-0 text-sm">
     <h3 className="mb-2 text-[15px] font-semibold">{title}</h3>
     {showProgress && tasks.length > 0 && <div className="mb-2 flex flex-wrap items-center gap-2 text-muted-foreground">
       <Progress aria-label={title} className="min-w-20 flex-1" max={tasks.length} value={completed} />
-      <span>{completed} von {tasks.length} abgeschlossen</span>
+      <span>{completed} of {tasks.length} completed</span>
     </div>}
-    {!tasks.length && <p>Noch keine Aufgaben.</p>}
+    {!tasks.length && <p>No tasks yet.</p>}
     <ol className="divide-y">{tasks.map((task) => <li className="py-1.5" data-status={task.status} key={task.id}>
       <div className="flex justify-between gap-3"><strong>{task.label}</strong><span className={cn("whitespace-nowrap", taskTones[task.status])}>{taskLabels[task.status]}</span></div>
       {task.description && <p className="mt-1 text-muted-foreground">{task.description}</p>}
@@ -26,7 +26,7 @@ export function TaskProgress({ title = "Aufgaben", tasks, showProgress = true }:
 }
 
 export function DocumentViewer({ title, content, format = "text", language, filename }: DocumentViewerProps) {
-  return <section aria-label={title ?? filename ?? "Dokument"} className="min-w-0 text-sm">
+  return <section aria-label={title ?? filename ?? "Document"} className="min-w-0 text-sm">
     {(title || filename) && <h3 className="mb-2 text-[15px] font-semibold">{title ?? filename}</h3>}
     {format === "markdown" ? <QuasselHost><Markdown text={content} /></QuasselHost>
       : format === "code" ? <SourceCode content={content} language={language} path={filename ?? ""} />

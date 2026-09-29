@@ -1,4 +1,4 @@
-// Der Hook löst @ragents/* auch für eine Profildatei außerhalb des Hosts auf; im Paket gibt es dort kein node_modules.
+// The hook resolves @ragents/* also for a profile file outside the host; in the package there is no node_modules there.
 import "../../apps/server/src/host-resolution.ts";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
@@ -7,10 +7,10 @@ import { ragentsDataRoot } from "../../apps/server/src/data-directory.ts";
 import { localProfile } from "../../apps/server/src/profile-target.ts";
 import { startCached, startProfile, type CachedProfile } from "./connect.ts";
 
-const usage = (): string => `Verwendung: ragents start <profil|pfad> [--port <n>]
-Startet ein Profil dieses Hosts (core, developer, showcase), eine eigene ragents.config.<profil>.ts an
-beliebiger Stelle oder einen Stand, den ragents connect schon geholt hat, ohne den Server zu
-fragen. Das Web kommt fertig mit dem Host, für jedes Profil dasselbe.`;
+const usage = (): string => `Usage: ragents start <profile|path> [--port <n>]
+Starts a profile of this host (core, developer, showcase), your own ragents.config.<profile>.ts at
+any location or a version that ragents connect has already fetched, without asking the server.
+The web app comes ready-made with the host, the same for every profile.`;
 
 export const parseArguments = (argv: readonly string[]): { selection: string; port: number | undefined } => {
   let profile: string | undefined;
@@ -19,22 +19,22 @@ export const parseArguments = (argv: readonly string[]): { selection: string; po
     const argument = argv[index]!;
     if (argument === "--port") {
       const value = Number(argv[index + 1]);
-      if (!Number.isInteger(value) || value < 0 || value > 65535) throw new Error(`--port braucht eine ganze Zahl von 0 bis 65535, nicht ${argv[index + 1]}`);
+      if (!Number.isInteger(value) || value < 0 || value > 65535) throw new Error(`--port needs an integer from 0 to 65535, not ${argv[index + 1]}`);
       port = value;
       index += 1;
       continue;
     }
-    if (argument.startsWith("-") || profile) throw new Error(`Unbekanntes Argument: ${argument}\n${usage()}`);
+    if (argument.startsWith("-") || profile) throw new Error(`Unknown argument: ${argument}\n${usage()}`);
     profile = argument;
   }
-  if (!profile) throw new Error(`Der Profilname fehlt.\n${usage()}`);
+  if (!profile) throw new Error(`The profile name is missing.\n${usage()}`);
   return { selection: profile, port };
 };
 
 const directories = async (folder: string): Promise<readonly string[]> =>
   (await readdir(folder, { withFileTypes: true }).catch(() => [])).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
 
-/** Alle Stände, die connect in diesem Datenordner hinterlassen hat. */
+/** All versions that connect has left in this data folder. */
 export const cachedProfiles = async (dataRoot: string): Promise<readonly CachedProfile[]> => {
   const remote = path.join(dataRoot, "remote");
   const found: CachedProfile[] = [];
@@ -53,26 +53,26 @@ export const selectCachedProfile = (cached: readonly CachedProfile[], profile: s
   if (matching.length === 1) return matching[0]!;
   if (matching.length === 0) {
     const known = cached.map((entry) => `${entry.profile} (${entry.serverUrl})`);
-    throw new Error(`Das Profil ${profile} liegt nicht im Cache. `
-      + (known.length ? `Geholt sind: ${known.join(", ")}.` : "Es ist noch kein Profil geholt; hol es mit ragents connect <server-url>."));
+    throw new Error(`The profile ${profile} is not in the cache. `
+      + (known.length ? `Fetched are: ${known.join(", ")}.` : "No profile has been fetched yet; fetch it with ragents connect <server-url>."));
   }
-  throw new Error(`Das Profil ${profile} kommt von mehreren Servern (${matching.map((entry) => entry.serverUrl).join(", ")}); `
-    + "nimm ragents connect <server-url>.");
+  throw new Error(`The profile ${profile} comes from several servers (${matching.map((entry) => entry.serverUrl).join(", ")}); `
+    + "use ragents connect <server-url>.");
 };
 
 const main = async (): Promise<void> => {
   const arguments_ = parseArguments(process.argv.slice(2));
   const own = localProfile(arguments_.selection);
   if (own) {
-    console.log(`== Profil ${own.profile}`);
-    console.log(`== Profildatei ${own.profileFile}`);
+    console.log(`== Profile ${own.profile}`);
+    console.log(`== Profile file ${own.profileFile}`);
     process.exitCode = await startProfile({ profile: own.profile, profileFile: own.profileFile, port: arguments_.port });
     return;
   }
   const cached = selectCachedProfile(await cachedProfiles(ragentsDataRoot()), arguments_.selection);
-  console.log(`== Profil ${cached.profile} vom Server ${cached.serverUrl}, Stand ${cached.version.slice(0, 12)} (aus dem Cache)`);
-  console.log(`== Profildatei ${cached.profileFile}`);
-  console.log(`== Daten ${cached.dataDirectory}`);
+  console.log(`== Profile ${cached.profile} from server ${cached.serverUrl}, version ${cached.version.slice(0, 12)} (from cache)`);
+  console.log(`== Profile file ${cached.profileFile}`);
+  console.log(`== Data ${cached.dataDirectory}`);
   process.exitCode = await startCached(cached, arguments_.port);
 };
 

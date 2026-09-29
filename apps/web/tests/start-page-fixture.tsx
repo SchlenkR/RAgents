@@ -21,27 +21,27 @@ const query = new URLSearchParams(location.search);
 
 function TopicGuide({ onCancel, onComplete }: EntryGuideContext) {
   return <div className="grid gap-3 p-6">
-    <p>Worum geht es?</p>
+    <p>What is it about?</p>
     <div className="flex gap-2">
-      <button onClick={() => onComplete("Kläre die Wahl des Hostings.")} type="button">Thema übernehmen</button>
-      <button onClick={onCancel} type="button">Leitfaden abbrechen</button>
+      <button onClick={() => onComplete("Clarify the hosting choice.")} type="button">Use topic</button>
+      <button onClick={onCancel} type="button">Cancel guide</button>
     </div>
   </div>;
 }
 
 const startEntries = [
-  { id: "demo.board", owner: "demo", action: "skill" as const, skill: "board", category: "Mini-Apps", title: "Sammelboard",
-    description: "Ein Listenhelfer mit eigener Funktion, Mini-App und gemeinsamem Zustand.", prompt: "Baue ein Board für Einkäufe." },
-  { id: "demo.decision", owner: "demo", action: "skill" as const, skill: "decision", category: "Besprechen", title: "Entscheidung klären",
-    description: "Der Leitfaden fragt zuerst das Thema, danach wird der Auftrag besprochen.", prompt: "Kläre eine Entscheidung.", guide: "demo.topic" },
-  { id: "demo.circle", owner: "demo", action: "script" as const, category: "Moderation", title: "Gesprächsrunde",
-    description: "Vier Helfer sprechen reihum, der Koordinator führt die Runden.", coordinator: true },
-  { id: "demo.word", owner: "demo", action: "script" as const, title: "Wortspiel",
-    description: "Vier Modelle reichen Wörter weiter, ein Actor beendet nach zwölf.", coordinator: false },
+  { id: "demo.board", owner: "demo", action: "skill" as const, skill: "board", category: "Mini-apps", title: "Collection board",
+    description: "A list helper with its own function, mini-app and shared state.", prompt: "Build a board for groceries." },
+  { id: "demo.decision", owner: "demo", action: "skill" as const, skill: "decision", category: "Discuss", title: "Clarify decision",
+    description: "The guide asks for the topic first, then the task is discussed.", prompt: "Clarify a decision.", guide: "demo.topic" },
+  { id: "demo.circle", owner: "demo", action: "script" as const, category: "Moderation", title: "Discussion circle",
+    description: "Four helpers speak in turn, the coordinator leads the rounds.", coordinator: true },
+  { id: "demo.word", owner: "demo", action: "script" as const, title: "Word game",
+    description: "Four models pass words along, an actor ends after twelve.", coordinator: false },
 ];
 
 const registry = new PluginRegistry({
-  brand: { title: "Startprüfung" }, product: { id: "demo", title: "Startprüfung" },
+  brand: { title: "Start check" }, product: { id: "demo", title: "Start check" },
   plugins: [
     { id: "demo", startOptions: productStartOptions, guides: [{ id: "demo.topic", Guide: TopicGuide }] },
     { id: "ragents.workspace", startOptions: [{ id: WORKSPACE_BINDING_OPTION_ID, Control: WorkspaceBindingControl }] },
@@ -55,12 +55,12 @@ const presentations: Record<string, { owner: string; initial: unknown; presentat
   "ragents.model": { owner: "demo", initial: { model: "z-ai/glm-5.3-flash", thinking: "high" },
     presentation: { kind: "model", provider: "openrouter", options: ["z-ai/glm-5.3-flash", "qwen/qwen3.8-max"], thinkingOptions: ["off", "low", "high"] } },
   "ragents.system-prompt": { owner: "demo", initial: { promptIds: [], shareWithAgents: false },
-    presentation: { kind: "system-prompt", options: [{ id: "brief", label: "Kurz und knapp", text: "Antworte kurz." }, { id: "careful", label: "Gründlich", text: "Prüfe jeden Schritt." }] } },
+    presentation: { kind: "system-prompt", options: [{ id: "brief", label: "Short and concise", text: "Answer briefly." }, { id: "careful", label: "Thorough", text: "Check every step." }] } },
   [WORKSPACE_BINDING_OPTION_ID]: { owner: "ragents.workspace", initial: { machine: "server", folder: "fresh" },
-    presentation: { kind: "workspace-binding", clients: [workstation], fresh: { server: "Leerer Ordner je Run", client: "Leerer Ordner je Run" }, serverFolders: true } },
+    presentation: { kind: "workspace-binding", clients: [workstation], fresh: { server: "Empty folder per run", client: "Empty folder per run" }, serverFolders: true } },
 };
 const chosen = new Map<string, unknown>();
-/** Wie der Server: Modell- und Promptwahl nur mit runs.inspect, die Modellwahl bleibt nach dem Start offen. */
+/** Like the server: model and prompt choice only with runs.inspect, the model choice stays open after the start. */
 const inspecting = query.get("rights") !== "plain";
 const technical = new Set(["ragents.model", "ragents.system-prompt"]);
 const optionsOf = (runId: string) => Object.entries(presentations).filter(([id]) => inspecting || !technical.has(id)).map(([id, { owner, initial, presentation }]) => ({
@@ -70,10 +70,10 @@ const optionsOf = (runId: string) => Object.entries(presentations).filter(([id])
 const emptyView = (runId: string) => ({ id: runId, revision: 1, title: "Run", ownerId: "tester", primaryActorId: null, createdAt: "2026-09-24T10:00:00.000Z", forkedFrom: null,
   actors: [], inputs: [], turns: [], subscriptions: [], pluginStates: [], actions: [], artifacts: [] });
 const connection: ConnectionView = {
-  name: "lokal", kind: "profile", address: "/home/user/ragents.config.core.ts", route: { kind: "profile", profile: "core" }, state: { kind: "connected" },
-  runs: [{ id: "existing", title: "Vorhandener Run", state: "idle", pendingActions: 0, updatedAt: Date.now() - 180_000 }],
+  name: "local", kind: "profile", address: "/home/user/ragents.config.core.ts", route: { kind: "profile", profile: "core" }, state: { kind: "connected" },
+  runs: [{ id: "existing", title: "Existing run", state: "idle", pendingActions: 0, updatedAt: Date.now() - 180_000 }],
   entries: startEntries.map((entry) => ({ id: entry.id, title: entry.title, description: entry.description, kind: entry.action,
-    category: entry.category ?? "Run-Scripts", ...(entry.action === "skill" && entry.guide !== undefined ? { guided: true } : {}) })),
+    category: entry.category ?? "Run scripts", ...(entry.action === "skill" && entry.guide !== undefined ? { guided: true } : {}) })),
   canCreate: true,
 };
 
@@ -85,10 +85,10 @@ const fixture = {
     fixture.calls.push({ id: contract.id, params });
     const runId = typeof params.runId === "string" ? params.runId : "";
     switch (contract.id) {
-      case "ragents.runs.list": return [{ id: "existing", title: "Vorhandener Run", updatedAt: Date.now() - 180_000 }];
+      case "ragents.runs.list": return [{ id: "existing", title: "Existing run", updatedAt: Date.now() - 180_000 }];
       case "ragents.startOptions.list": return optionsOf(runId);
       case "ragents.startOptions.select": {
-        if (!inspecting && technical.has(String(params.optionId))) throw new Error(`Das Recht runs.inspect fehlt für die Startoption ${String(params.optionId)}.`);
+        if (!inspecting && technical.has(String(params.optionId))) throw new Error(`The right runs.inspect is missing for the start option ${String(params.optionId)}.`);
         chosen.set(`${runId}:${String(params.optionId)}`, params.value);
         return optionsOf(runId).find((option) => option.id === params.optionId);
       }
@@ -132,7 +132,7 @@ const page = view === "start"
     state={{ theme: "dark", page: "start", profileSuggestions: [], connections: [connection] }} /></div>
   : view === "panel"
     ? <RunPanelHostProvider value={query.get("host") === "vscode" ? vsCodeHost : createBrowserHost(window)}>
-      <RunPanelApp location={{ layout: "panel", runId: undefined, host: query.get("host") === "vscode" ? "vscode" : "browser", connection: "lokal", theme: undefined, access: undefined }} />
+      <RunPanelApp location={{ layout: "panel", runId: undefined, host: query.get("host") === "vscode" ? "vscode" : "browser", connection: "local", theme: undefined, access: undefined }} />
     </RunPanelHostProvider>
     : <App />;
 createRoot(document.getElementById("root")!).render(<AccessContext.Provider value={{ ...access, logout: async () => {} }}>{page}</AccessContext.Provider>);

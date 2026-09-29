@@ -37,7 +37,7 @@ const selected = <T>(
   const byId = new Map(available.map((value) => [idOf(value), value]));
   return capabilityIds.map((id) => {
     const value = byId.get(id);
-    if (!value) throw unavailable(id, [...byId.keys()].sort().join(", ") || "keine");
+    if (!value) throw unavailable(id, [...byId.keys()].sort().join(", ") || "none");
     return value;
   });
 };
@@ -51,7 +51,7 @@ export const operatorCapabilityBinding = (
     operations.filter((operation) => operation.operator !== "unavailable"),
     capabilityIds,
     (operation) => operation.id,
-    (id, names) => new Error(`Capability ${id} ist für den Bediener nicht verfügbar. Verfügbar sind: ${names}.`),
+    (id, names) => new Error(`Capability ${id} is not available to the operator. Available: ${names}.`),
   );
   const descriptors = resolved.map(descriptorOf);
   return {
@@ -76,7 +76,7 @@ export const agentCapabilityBinding = (
     capabilityIds,
     (tool) => tool.name,
     (id, names) => new Error(
-      `Capability ${id} ist für @${actor.handle} nicht verfügbar. Verfügbar sind: ${names}.`,
+      `Capability ${id} is not available to @${actor.handle}. Available: ${names}.`,
     ),
   );
   const descriptors = resolved.map((tool) => descriptorOf({ ...tool, id: tool.name }));

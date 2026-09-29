@@ -4,7 +4,7 @@ import { pipeline } from "node:stream/promises";
 import type { ReadableStream } from "node:stream/web";
 import type { HttpRouteContribution } from "@ragents/engine";
 import { PayloadTooLargeError, readBody, writeJson } from "@ragents/host/plugin-support/http.js";
-import type { ModelAlias } from "@ragents/host/plugin-support/model-aliases.js";
+import { validatedAliasModel, type ModelAlias } from "@ragents/host/plugin-support/model-aliases.js";
 import type { ModelUpstream } from "@ragents/host/plugin-support/model-upstreams.js";
 
 export const RELAY_PATH_PREFIX = "/relay/v1";
@@ -18,35 +18,36 @@ export interface ResolvedAlias {
   readonly alias: string;
   readonly upstream: ModelUpstream;
   readonly model: ModelUpstream["models"][number];
-  readonly compaction: ModelAlias["compaction"];
+  /** The model as the alias offers it: with its thinking levels and compaction values. */
+  readonly offered: ModelUpstream["models"][number];
 }
 
-/** Jeder Alias muss auf einen konfigurierten Anbieter und ein Modell aus dessen Katalog zeigen. */
+/** Every alias must point to a configured provider and a model from its catalog that its thinking levels and compaction values fit. */
 export const resolveAliases = (aliases: readonly ModelAlias[], upstreams: readonly ModelUpstream[]): readonly ResolvedAlias[] =>
   aliases.map((entry) => {
     const upstream = upstreams.find((candidate) => candidate.id === entry.upstream);
     if (!upstream) {
-      const available = upstreams.map((candidate) => candidate.id).join(", ") || "keiner";
-      throw new Error(`MODEL_ALIASES: der Anbieter ${entry.upstream} hinter ${entry.alias} ist auf diesem Server nicht konfiguriert (verfügbar: ${available})`);
+      const available = upstreams.map((candidate) => candidate.id).join(", ") || "none";
+      throw new Error(`MODEL_ALIASES: the provider ${entry.upstream} behind ${entry.alias} is not configured on this server (available: ${available})`);
     }
     const model = upstream.models.find((candidate) => candidate.id === entry.model);
-    if (!model) throw new Error(`MODEL_ALIASES: das Modell ${entry.model} hinter ${entry.alias} fehlt im Katalog von ${entry.upstream}`);
-    return { alias: entry.alias, upstream, model, compaction: entry.compaction };
+    if (!model) throw new Error(`MODEL_ALIASES: the model ${entry.model} behind ${entry.alias} is missing from the catalog of ${entry.upstream}`);
+    return { alias: entry.alias, upstream, model, offered: validatedAliasModel(entry, model) };
   });
 
-/** Der Katalogeintrag nennt nur, was der Verbraucher für Draht und Kompaktierung braucht; Name, Anbieter und Kosten bleiben beim Server. */
+/** The catalog entry names only what the consumer needs for the wire and compaction; name, provider and costs stay with the server. */
 export const catalogEntryOf = (resolved: ResolvedAlias) => ({
   id: resolved.alias,
   object: "model" as const,
   owned_by: "relay",
   catalog: {
-    reasoning: resolved.model.reasoning,
-    ...(resolved.model.thinkingLevelMap ? { thinkingLevelMap: resolved.model.thinkingLevelMap } : {}),
-    input: [...resolved.model.input],
-    contextWindow: resolved.model.contextWindow,
-    maxTokens: resolved.model.maxTokens,
-    compaction: resolved.compaction,
-    ...(resolved.model.compat ? { compat: resolved.model.compat } : {}),
+    reasoning: resolved.offered.reasoning,
+    ...(resolved.offered.thinkingLevelMap ? { thinkingLevelMap: resolved.offered.thinkingLevelMap } : {}),
+    input: [...resolved.offered.input],
+    contextWindow: resolved.offered.contextWindow,
+    maxTokens: resolved.offered.maxTokens,
+    compaction: resolved.offered.compaction,
+    ...(resolved.offered.compat ? { compat: resolved.offered.compat } : {}),
   },
 });
 
@@ -55,7 +56,7 @@ interface Usage {
   readonly completion: number | undefined;
 }
 
-/** Ersetzt im durchgereichten Strom den echten Modellnamen durch den Alias, entfernt den Anbieter und merkt sich den letzten usage-Block. */
+/** Replaces the real model name with the alias in the forwarded stream, removes the provider and remembers the last usage block. */
 const responseRewriter = (alias: string) => {
   const decoder = new TextDecoder();
   let pending = "";
@@ -139,7 +140,7 @@ export const createRelayRoutes = (options: RelayRouteOptions): HttpRouteContribu
       matches: (request, url) => request.method === "POST" && url.pathname === completionsPath,
       requiredRights: [RELAY_RIGHT],
       handle: async ({ request, response, access }) => {
-        const user = access.user?.id ?? "anonym";
+        const user = access.user?.id ?? "anonymous";
         let text: string;
         try {
           text = await readBody(request, MAX_REQUEST_BYTES);
@@ -152,17 +153,17 @@ export const createRelayRoutes = (options: RelayRouteOptions): HttpRouteContribu
         try { parsed = JSON.parse(text); }
         catch { parsed = undefined; }
         if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-          writeJson(response, 400, openAiError("Der Anfragekörper ist kein JSON-Objekt", "invalid_request_error"));
+          writeJson(response, 400, openAiError("The request body is not a JSON object", "invalid_request_error"));
           return;
         }
         const alias = (parsed as { model?: unknown }).model;
         if (typeof alias !== "string" || !alias) {
-          writeJson(response, 400, openAiError("Die Anfrage nennt kein Modell", "invalid_request_error"));
+          writeJson(response, 400, openAiError("The request names no model", "invalid_request_error"));
           return;
         }
         const resolved = options.aliases().find((candidate) => candidate.alias === alias);
         if (!resolved) {
-          writeJson(response, 404, openAiError(`Das Modell ${alias} ist auf diesem Relay unbekannt`, "invalid_request_error"));
+          writeJson(response, 404, openAiError(`The model ${alias} is unknown on this relay`, "invalid_request_error"));
           return;
         }
         const controller = new AbortController();
@@ -179,8 +180,8 @@ export const createRelayRoutes = (options: RelayRouteOptions): HttpRouteContribu
         } catch (error) {
           if (controller.signal.aborted) return;
           const reason = error instanceof Error ? error.message : String(error);
-          options.log(`${user} ${alias} -> ${resolved.upstream.id}/${resolved.model.id}: nicht erreichbar (${reason})`);
-          writeJson(response, 502, openAiError(`Der Anbieter hinter ${alias} ist nicht erreichbar`, "server_error"));
+          options.log(`${user} ${alias} -> ${resolved.upstream.id}/${resolved.model.id}: unreachable (${reason})`);
+          writeJson(response, 502, openAiError(`The provider behind ${alias} is unreachable`, "server_error"));
           return;
         }
         response.writeHead(upstream.status, {

@@ -12,7 +12,7 @@ const metadata = [
     { name: "actor_program_diagnostics", label: "Actor Program Diagnostics", description: "Read the last project diagnostics.", longDescription: "Changed errors are automatically supplied before the next model request." },
 ] as const;
 export const actorProgramManagementToolNames = metadata.map((entry) => entry.name);
-export const actorProgramToolsAvailable = defineToolAvailability({ availability: "conditional", availabilityDetail: "Für ausführbare Actors mit agent.spawn und plugin.state.write." }, actor => actor.kind !== "human" && holdsUsable(actor, "agent.spawn") && holdsUsable(actor, "plugin.state.write"));
+export const actorProgramToolsAvailable = defineToolAvailability({ availability: "conditional", availabilityDetail: "For executable actors with agent.spawn and plugin.state.write." }, actor => actor.kind !== "human" && holdsUsable(actor, "agent.spawn") && holdsUsable(actor, "plugin.state.write"));
 const name = Type.String({ pattern: "^[a-z][a-z0-9-]{0,63}$" });
 type Diagnostics = Pick<ReturnType<typeof createProjectDiagnostics>, "latest">;
 const managementTools = (runtime: ActorProgramRuntime, diagnostics: Diagnostics): RunFunction[] => [

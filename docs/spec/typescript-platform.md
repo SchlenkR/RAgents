@@ -1,98 +1,95 @@
-# TypeScript-Snippets, Actor-Programme und Run-Scripts
+# TypeScript snippets, actor programs, and run scripts
 
-Snippets und Actor-Programme verwenden eine gemeinsame native Node-Ausführung und dieselbe
-typisierte API der registrierten Run-Funktionen. Actor-Programme verwenden normale TypeScript-Module.
-Ein Programm kann Funktionen, einen Input-Handler und React-Views bereitstellen. Ob ein Actor
-seine normalen Inputs mit einem Modell oder mit TypeScript verarbeitet, bestimmt sein Treiber.
-Aufrufbare Funktionen und der intrinsische Actor-Zustand sind davon unabhängig. Der Paket-
-und Autorenvertrag steht in `actor-programs.md`, das Actor-Modell in `core.md`.
+Snippets and actor programs use one shared native Node execution and the same typed API of the
+registered run functions. Actor programs use normal TypeScript modules. A program can provide
+functions, an input handler, and React views. Whether an actor processes its normal inputs with a
+model or with TypeScript is determined by its driver. Callable functions and the intrinsic actor
+state are independent of that. The package and author contract is in `actor-programs.md`, the
+actor model in `core.md`.
 
-## Ausführung und Kontext
+## Execution and context
 
-Der Server bindet `NativeTypeScriptExecutor` an die produktneutrale Engine. Der Compiler prüft
-TypeScript und baut die benötigten Module; der Executor lädt sie in einen verwalteten
-Node-Prozess. Ein nativer IPC-Kanal transportiert Aufrufe, Ergebnisse, Zustandsänderungen und
-Funktionsanfragen zwischen Prozess und Host. Normale relative Imports und Node-Bibliotheken
-benötigen keine zusätzliche Sprachuntermenge oder Interpreterregeln.
+The server binds `NativeTypeScriptExecutor` to the product-neutral engine. The compiler checks
+TypeScript and builds the required modules; the executor loads them into a managed Node process. A
+native IPC channel transports calls, results, state changes, and function requests between the
+process and the host. Normal relative imports and Node libraries need no additional language
+subset or interpreter rules.
 
-Der Kontext eines Aufrufs liefert Run, Actor, Aufrufidentität, Zustand, deklarierte Capabilities,
-Protokollierung und Abbruchsignal. `context.actor` ist immer vorhanden: Bei Programmen
-identifiziert es den Besitzer, bei Snippets den handelnden Aufrufer. `context.state.read()`
-liest den Kontextzustand, `context.state.replace(value)` merkt den nächsten Wert vor. Programme
-verwenden ihren Actor-Zustand; Snippets beginnen mit `{}` und verwerfen diesen Zustand am Ende.
-Die Funktion gibt ihr fachliches Ergebnis zurück; der Host interpretiert diese Rückgabe nicht
-als Zustand. Der native Kindprozess prüft Ergebnisse und Zustandswerte vor der
-IPC-Übertragung als strenges JSON. Nicht endliche Zahlen wie `Infinity` werden als Fehler
-abgewiesen und nicht während der Serialisierung still in `null` umgewandelt. Bei Actor-Programmen
-übernimmt erst der erfolgreiche Abschluss Zustandsänderungen ins Journal. Fehler oder Abbruch
-verwerfen die vorgemerkten Änderungen.
+The context of a call provides run, actor, call identity, state, declared capabilities, logging,
+and an abort signal. `context.actor` is always present: for programs it identifies the owner, for
+snippets the acting caller. `context.state.read()` reads the context state,
+`context.state.replace(value)` stages the next value. Programs use their actor state; snippets
+start with `{}` and discard that state at the end. The function returns its domain result; the
+host does not interpret this return value as state. The native child process checks results and
+state values as strict JSON before the IPC transfer. Non-finite numbers such as `Infinity` are
+rejected as errors and not silently turned into `null` during serialization. For actor programs,
+only successful completion commits state changes to the journal. Errors or cancellation discard
+the staged changes.
 
-`context.functions.<name>(input)` verwendet die registrierten Ein- und Ergebnisverträge.
-Snippets erhalten die für ihren Aufrufer verfügbaren Funktionen; Programme deklarieren ihre
-benötigten Funktionen unter `capabilities`. Die deklarierte Auswahl und die gebundene
-Identität begrenzen den Aufruf. Aufrufnamen verwenden Unterstriche, etwa `actor_input`;
-Grants stehen mit Punkt im Journal, etwa `actor.input`. Ein generierter Typvertrag erteilt
-keine zusätzlichen Rechte.
+`context.functions.<name>(input)` uses the registered input and result contracts. Snippets receive
+the functions available to their caller; programs declare the functions they need under
+`capabilities`. The declared selection and the bound identity limit the call. Call names use
+underscores, such as `actor_input`; grants appear in the journal with a dot, such as
+`actor.input`. A generated type contract grants no additional permissions.
 
-`context.std` steht Snippets und Actor-Programmen gleichermaßen zur Verfügung. Uhr und
-Kennungen sind an die jeweilige Ausführung gebunden: beim Snippet an dessen Aufruf,
-bei der Input-Verarbeitung an den Actor-Turn. `context.std.mediators` stellt die vorhandenen
-Vermittler bereit. Kontext und Standardbibliothek werden als Parameter übergeben, nicht als unsichtbare Code-Globals.
+`context.std` is available to snippets and actor programs alike. Clock and identifiers are bound to
+the respective execution: for a snippet to its call, for input processing to the actor turn.
+`context.std.mediators` provides the available mediators. Context and standard library are passed
+as parameters, not as invisible code globals.
 
-## Build und Prozesslebenszyklus
+## Build and process lifecycle
 
-Programme sind private TypeScript-Pakete mit normalen Projektdateien, lokal aufgelösten
-Abhängigkeiten und importierbaren SDK-Typen. Der TypeScript-Language-Server prüft dieselben
-Dateien, die der Build verwendet. Vor Modellanfragen prüft ein Laufzeitbeitrag geänderte Pakete
-und ergänzt einen kurzen Unterschied zum letzten Diagnostikstand. Die Typprüfung schließt
-den unter `package.json.ragents.backend` deklarierten Einsprungpunkt immer ein, auch wenn die
-Autorenkonfiguration ihn nicht in `tsconfig.include` erfasst. Vorhandene tsconfig-Dateien
-bleiben erhalten; der Host ergänzt den Einsprungpunkt für die Prüfung ausdrücklich.
+Programs are private TypeScript packages with normal project files, locally resolved dependencies,
+and importable SDK types. The TypeScript language server checks the same files that the build
+uses. Before model requests, a runtime contribution checks changed packages and adds a short
+difference from the last diagnostics state. The type check always includes the entry point
+declared under `package.json.ragents.backend`, even if the author configuration does not cover it
+in `tsconfig.include`. Existing tsconfig files are kept; the host explicitly adds the entry point
+for the check.
 
-Ein aktivierter Build bindet Quellen, zusätzliche Module, generierte Typen, Capability-Verträge
-und Compilerumgebung. Änderungen an Arbeitsdateien aktivieren sich nicht selbst; der Host
-verwendet den geprüften Snapshot bis zur nächsten erfolgreichen Aktivierung. Hashes und
-technische Bindungen bleiben Serverbuchhaltung.
+An activated build binds sources, additional modules, generated types, capability contracts, and
+the compiler environment. Changes to working files do not activate themselves; the host uses the
+checked snapshot until the next successful activation. Hashes and technical bindings remain
+server bookkeeping.
 
-Die eine Ausnahme ist Vertragsdrift. Liefert der Server, etwa nach einem Neubau, für eine
-deklarierte Capability ein anderes Eingabe- oder Ergebnisschema als beim Aktivieren gebunden,
-aktiviert der Host das Paket beim nächsten Aufruf einer Funktion oder des Eingabehandlers
-selbst neu und führt den Aufruf erst danach aus; der Aufruf wartet solange in der Reihe des
-Actors. Ein Paket aus einem Run-Script erhält dabei zuerst die aktuellen Quellen des Plugins,
-ein eigenes Paket wird aus seinen Arbeitsdateien gebaut. Über die Verträglichkeit entscheidet
-allein die Typprüfung gegen die neuen Verträge, nicht ein Schemavergleich. Scheitern
-Typprüfung, Build, Fachtests oder die Zustandsprüfung, schlägt der Aufruf mit dieser Ursache
-fehl und das alte Paket bleibt aktiv. Ändern sich dabei die Quellen, entsteht eine neue
-Revision und offene Ansichten laden neu; gleiche Quellen behalten ihre Revision.
+The one exception is contract drift. If the server, for example after a rebuild, delivers a
+different input or result schema for a declared capability than the one bound at activation, the
+host reactivates the package itself on the next call of a function or of the input handler and
+only then executes the call; the call waits in the actor's queue until then. A package from a run
+script first receives the current sources of the plugin, an own package is built from its working
+files. Compatibility is decided solely by the type check against the new contracts, not by a
+schema comparison. If the type check, build, domain tests, or state check fail, the call fails
+with that cause and the old package stays active. If the sources change in the process, a new
+revision is created and open views reload; identical sources keep their revision.
 
-`actor_program_activate` führt Typprüfung, Build und die vorhandenen `node:test`-Dateien aus.
-Das gilt für reine Funktionen, Programme mit Input-Handler und Programme mit Views. Getrennte
-Actor- oder Script-Werkzeugverträge für Check, Test, Installation und Mock-JSON gibt es nicht.
-Die normale SDK-Testhilfe `createTestContext` liefert Zustand und explizite typisierte Funktions-Mocks unter `functions`;
-Tests prüfen Resultate, Zustandsänderungen und tatsächlich ausgeführte Aufrufe.
+`actor_program_activate` runs the type check, the build, and the existing `node:test` files. This
+applies to pure functions, programs with an input handler, and programs with views. There are no
+separate actor or script tool contracts for check, test, installation, and mock JSON. The normal
+SDK test helper `createTestContext` provides state and explicit typed function mocks under
+`functions`; tests check results, state changes, and the calls actually made.
 
-Der Executor ordnet Prozesse Run und Instanz zu und besitzt Stopps sowie Shutdown. Abbruch
-beendet auch laufende und wartende Ausführung; eine späte Prozessantwort darf keinen Zustand
-mehr übernehmen. Entfernen oder Ersetzen eines Programms löst dessen Ausführungsressourcen.
-Dateirechte, UID je Run und Prozessumgebung kommen aus dem Serverkontext des Runs
-(`SandboxServices.serverProcessContextFor`): bei einem Arbeitsbereich auf dem Server aus dessen
-Workspace, bei einem Arbeitsplatz aus einem eigenen Ordner des Runs auf dem Server, nie aus dem
-Ordner des Arbeitsplatzes. Native Ausführung ist keine zusätzliche Sprachsandbox gegen beliebigen
-Backend-Code.
+The executor assigns processes to run and instance and owns stops and shutdown. Cancellation also
+ends running and waiting execution; a late process response may no longer commit any state.
+Removing or replacing a program releases its execution resources. File permissions, UID per run,
+and process environment come from the server context of the run
+(`SandboxServices.serverProcessContextFor`): for a workspace on the server from its workspace, for
+a workstation from a dedicated folder of the run on the server, never from the workstation's
+folder. Native execution is not an additional language sandbox against arbitrary backend code.
 
-## TypeScript-Actors
+## TypeScript actors
 
-Actor-Pakete können `@ragents/workflow` für eine gemeinsame Ablaufdefinition verwenden.
-Sie liefert dieselben Schritte für LLM-Anleitungen und Mini-App-Diagramme. Das serverseitige
-Untermodul `@ragents/workflow/prompts` liest referenzierte Promptdateien relativ zu dem Paket, in
-dessen `node_modules` es liegt, ohne eingebrannten Pfad. Das setzt voraus, dass ein Backend das
-Modul nicht mitbündelt; `compileAppBackend` lässt alle Pakete extern. Definition, Zustand und
-Auflösung beschreibt
-[Actor-Programme](actor-programs.md#connect-workflow-definition-instructions-and-presentation).
-Die Ausführung bleibt beim Actor; der Workflow-Vertrag ersetzt weder Scheduler noch Rechteprüfung.
+Actor packages can use `@ragents/workflow` for a shared workflow definition. It provides the same
+steps for LLM instructions and mini-app diagrams. The server-side submodule
+`@ragents/workflow/prompts` reads referenced prompt files relative to the package in whose
+`node_modules` it lives, without a baked-in path. This requires that a backend does not bundle the
+module; `compileAppBackend` keeps all packages external. Definition, state, and resolution are
+described in
+[Actor programs](actor-programs.md#connect-workflow-definition-instructions-and-presentation).
+Execution stays with the actor; the workflow contract replaces neither the scheduler nor the
+permission check.
 
-Ein TypeScript-Actor verarbeitet einen ActorInput pro Turn. Sein Programm deklariert dafür
-`input` und implementiert `onInput`. Der folgende einfache Zähler benötigt keine View:
+A TypeScript actor processes one ActorInput per turn. Its program declares `input` for this and
+implements `onInput`. The following simple counter needs no view:
 
 ```ts
 import { defineActor } from "@ragents/server";
@@ -112,17 +109,16 @@ export default defineActor({
 });
 ```
 
-Ein direkter Auftrag liefert normalen Text in `input.content`. Bei einer Subscription
-enthält `input.event` zusätzlich das strukturierte Quellevent; andernfalls ist es `null`.
-Die Quelle trägt Identität, Typ, Zeitpunkt und Nutzdaten. Ein Vermittler entscheidet nach
-Quelle und Eventtyp, statt technische Informationen aus dem Text zu erraten.
+A direct task delivers normal text in `input.content`. For a subscription, `input.event`
+additionally contains the structured source event; otherwise it is `null`. The source carries
+identity, type, timestamp, and payload. A mediator decides by source and event type instead of
+guessing technical information from the text.
 
-Der Actor erledigt seinen Auftrag und beendet den Turn. Weitere Inputs oder Subscriptions
-starten spätere Turns; ein Turn wartet nicht auf zukünftige Modellantworten. Funktionen und
-Input-Verarbeitung greifen auf denselben journalisierten Actor-Zustand zu. Auf der
-Fläche bleibt der TypeScript-Actor ein Teilnehmer mit seiner Kennung und seinem Zustand.
-Ein LLM-Actor verwendet für ActorInputs weiterhin sein Modell; ein zusätzliches Programm mit
-`onInput` wird an ihm abgewiesen.
+The actor completes its task and ends the turn. Further inputs or subscriptions start later turns;
+a turn does not wait for future model responses. Functions and input processing access the same
+journaled actor state. On the surface, the TypeScript actor remains a participant with its
+identifier and its state. An LLM actor keeps using its model for ActorInputs; an additional
+program with `onInput` is rejected on it.
 
 <!-- guide:functions -->
 ## TypeScript as the AI's way of working
@@ -232,19 +228,18 @@ return { actors, models };
 ```
 <!-- /guide:functions -->
 
-### Quelltextnachweis und Ausführungshistorie
+### Source record and execution history
 
-Vor der Typprüfung hält `typescript_eval` den tatsächlich gelesenen Quelltext als
-`tool.call.source` im Journal fest. Das Ereignis gehört über Turn und Werkzeugaufruf zum
-normalen Aufrufablauf und enthält bei Dateiausführung auch den angeforderten Pfad. Damit
-bleibt bei `path` der damals ausgeführte Stand erhalten, selbst nach späterer Dateiänderung;
-auch ein Compilefehler behält seine Quelle. Scheitert bereits das Lesen der Datei, gibt es
-keinen erfundenen Quelltext-Snapshot.
+Before the type check, `typescript_eval` records the source actually read as `tool.call.source` in
+the journal. Through turn and tool call, the event belongs to the normal call flow and, for file
+execution, also contains the requested path. For `path`, the state executed at the time is
+therefore preserved, even after a later file change; a compile error also keeps its source. If
+reading the file already fails, there is no invented source snapshot.
 
-Der Reiter `Executions` des Orchestrierungs-Plugins zeigt diese Historie zusammen mit
-Status, Dauer, Ergebnis, Logs und Fehler. Ältere Inline-Aufrufe können ihren Quelltext aus der
-journalisierten Eingabe anzeigen. Bei alten dateibasierten Aufrufen ohne Snapshot bleibt die
-fehlende historische Quelle sichtbar benannt; die aktuelle Datei ersetzt diesen Nachweis nicht.
+The `Executions` tab of the orchestration plugin shows this history together with status,
+duration, result, logs, and error. Older inline calls can show their source from the journaled
+input. For old file-based calls without a snapshot, the missing historical source stays visibly
+named; the current file does not replace this record.
 
 <!-- guide:functions -->
 ## State, continuation, and errors
@@ -266,110 +261,105 @@ across its calls. Retries inspect the existing setup and continue missing steps.
 not wait for future responses; subscriptions deliver them as later ActorInputs.
 <!-- /guide:functions -->
 
-## Run-Scripts als vorbereitete Actor-Programme
+## Run scripts as prepared actor programs
 
-Ein Run-Script bietet einen vorbereiteten, wiederverwendbaren Start eines Runs. Ein
-freier Benutzerauftrag benötigt kein solches Paket. Der globale Koordinator kann vorhandene
-oder selbst erstellte Pakete über die Verwaltungsmethoden starten. Innerhalb eines vorhandenen
-Runs richten Snippets oder Actor-Programme die Umgebung über dieselbe Funktionen-API ein.
+A run script offers a prepared, reusable start of a run. A free user task needs no such package.
+The global coordinator can start existing or self-created packages through the management methods.
+Within an existing run, snippets or actor programs set up the environment through the same
+functions API.
 
-Ein Run-Script ist ein vollständiges Actor-Programm für den Start eines Runs.
-Der Host installiert seinen Setup-Actor und stellt ihm den ersten ActorInput zu. Eine
-Vorlage entsteht durch einen Ordner im Quellordner des Plugins; `ragents plugin build`
-kopiert ihn ins Bundle (`bundles/<id>/run-scripts/<name>/`), und geladen wird diese Kopie:
+A run script is a complete actor program for starting a run. The host installs its setup actor and
+delivers the first ActorInput to it. A template is created by a folder in the plugin's source
+folder; `ragents plugin build` copies it into the bundle (`bundles/<id>/run-scripts/<name>/`), and
+this copy is what gets loaded:
 
 ```text
 plugins/<id>/run-scripts/<name>/
-  RUN.md                  Titel, Beschreibung, Reihenfolge, optional guide, coordinator, fixed-start-options
-  package.json            ragents.backend verweist auf den Setup-Einsprungpunkt
-  src/server.ts           defineActor mit input und onInput
-  tests/program.test.ts    normale node:test-Fachtests
-  actors/<program-name>/  optionale weitere Actor-Programme
+  RUN.md                  title, description, order, optional guide, coordinator, fixed-start-options
+  package.json            ragents.backend points to the setup entry point
+  src/server.ts           defineActor with input and onInput
+  tests/program.test.ts    normal node:test domain tests
+  actors/<program-name>/  optional further actor programs
 ```
 
-Der Ordnername ist der Handle des Setup-Actors, die Vorlagenkennung `<plugin>.<name>`.
-`RUN.md` enthält Metadaten und eine Beschreibung des Fachfalls. Die tatsächlich benötigten
-Capabilities stehen im TypeScript-Vertrag unter `input.capabilities` oder an einer Funktion.
-Es gibt keine zweite Capability-Liste in der Markdown-Datei.
+The folder name is the handle of the setup actor, the template identifier is `<plugin>.<name>`.
+`RUN.md` contains metadata and a description of the domain case. The capabilities actually needed
+are in the TypeScript contract under `input.capabilities` or on a function. There is no second
+capability list in the Markdown file.
 
-Der Loader liest Paketdateien und optionale Unterprogramme, ohne fremde Verzeichnisse zu
-verfolgen. Fehlende oder ungültige Paketbestandteile sind harte Fehler. Registrierte
-Run-Script-Verträge transportieren Dateien; sie verlangen keine bereits erzeugten Build-IDs.
-Weitere TypeScript-Dateien werden über normale relative Imports eingebunden.
+The loader reads package files and optional subprograms without following foreign directories.
+Missing or invalid package parts are hard errors. Registered run script contracts transport files;
+they do not require already generated build IDs. Further TypeScript files are included through
+normal relative imports.
 
-`ragents.chat.start { runId, entry, input }` legt den Run mit dem Titel und den Startoptionen an.
-Der Host bereitet den Arbeitsbereich vor, übernimmt die mitgelieferten Programme aus `actors/`
-in die private Sammlung und importiert das Setup-Paket über denselben Aktivierungspfad wie
-ein während des Runs geschriebenes Programm. Typprüfung, Build und Fachtests laufen vor der
-Aktivierung. Der Start braucht dafür keinen Modellaufruf und keinen gesonderten Testnachweis.
-Der Run merkt sich die Vorlagenkennung (`ragents.actor-programs.script`); bei Vertragsdrift
-holt der Host Setup-Paket und mitgelieferte Programme aus den aktuellen Quellen des Plugins
-nach, statt die beim Start kopierten Dateien neu zu bauen.
+`ragents.chat.start { runId, entry, input }` creates the run with the title and the start options.
+The host prepares the workspace, takes the bundled programs from `actors/` into the private
+collection, and imports the setup package through the same activation path as a program written
+during the run. Type check, build, and domain tests run before activation. The start needs no
+model call and no separate test evidence for this. The run remembers the template identifier
+(`ragents.actor-programs.script`); on contract drift, the host fetches the setup package and the
+bundled programs from the current sources of the plugin instead of rebuilding the files copied at
+start.
 
-Während der Vorbereitung meldet der Chat des Runs einen flüchtigen Startstatus im bestehenden
-Status-Stream: Vorbereitung des Runs, des Arbeitsverzeichnisses und der Oberfläche. Neue
-Stream-Verbindungen erhalten den aktuellen Stand. Nach dem Einreihen des ersten Inputs endet
-dieser Status; danach liefern die journalisierten Inputs und Turns den Arbeitszustand.
-Ein Startfehler beendet die Ladeanzeige mit einer Fehlermeldung. Parallele Startanfragen
-überschreiben keine laufende Vorbereitung. Ein Serverneustart stellt keinen flüchtigen
-Startvorgang wieder her.
-Ein Stopp meldet den abgebrochenen Start sofort und verhindert weitere Aufbauschritte.
-Bereits laufende, nicht abbrechbare Vorbereitung bleibt bis zu ihrem Abschluss erfasst;
-in dieser Zeit bleibt auch der Start gesperrt. Die Paketaktivierung erhält das Abbruchsignal.
+During preparation, the run's chat reports a transient start status in the existing status
+stream: preparing the run, the working directory, and the interface. New stream connections
+receive the current state. After the first input is queued, this status ends; from then on, the
+journaled inputs and turns provide the working state. A start error ends the loading indicator
+with an error message. Parallel start requests do not overwrite a running preparation. A server
+restart does not restore a transient start process.
+A stop reports the cancelled start immediately and prevents further setup steps. Preparation that
+is already running and cannot be cancelled stays tracked until it completes; during that time, the
+start also stays locked. The package activation receives the abort signal.
 
-Anschließend erhält der Setup-Actor den Startwert als JSON in `input.content`:
-`{ "input": <Leitfaden-Ergebnis oder null>, "options": { "<option-id>": <Wert> } }`.
-Die Form des Leitfaden-Ergebnisses gehört zum Paket; der Handler prüft sie vor dem Aufbau.
-Mit `coordinator: true` legt der Host den normalen Koordinator an. Bei `coordinator: false`
-entfällt er, und das Setup muss über `run_configure` einen Primary-Actor wählen. Dessen
-Auftrag kommt über einen ActorInput. Ist der Primary-Actor ein LLM, spricht der Benutzer
-direkt mit ihm. Ein TypeScript-Primary wird über seine Mini-App oder dokumentierten
-Programmfunktionen bedient; sein Verlauf ist kein freier Chat.
+The setup actor then receives the start value as JSON in `input.content`:
+`{ "input": <guide result or null>, "options": { "<option-id>": <value> } }`. The shape of the
+guide result belongs to the package; the handler checks it before setting up. With
+`coordinator: true`, the host creates the normal coordinator. With `coordinator: false`, there is
+none, and the setup must choose a primary actor through `run_configure`. Its task arrives through
+an ActorInput. If the primary actor is an LLM, the user talks to it directly. A TypeScript primary
+is operated through its mini-app or documented program functions; its history is not a free chat.
 
-Unterprogramme werden mit `actor_program_activate` anhand ihres eigenen Namens aktiviert.
-Die optionale Actor-Referenz bindet etwa eine Liste samt View an einen gerade angelegten
-LLM-Helfer. Ein vorbereitetes Paket braucht keinen erneuten Create-Aufruf. Der Setup-Actor
-merkt abgeschlossene Einrichtung in seinem Zustand, damit spätere Inputs nichts doppelt
-anlegen. Er bleibt danach ein normaler Actor des Runs.
+Subprograms are activated with `actor_program_activate` by their own name. The optional actor
+reference binds, for example, a list together with its view to an LLM helper that was just
+created. A prepared package needs no further create call. The setup actor records completed setup
+in its state so that later inputs do not create anything twice. Afterwards it remains a normal
+actor of the run.
 
-Die neutralen Referenzen zeigen eine Gesprächsrunde, einen Moderator als direkten
-Chatpartner, ein Sammelboard am echten LLM-Listenhelfer und einen Balkon-Berater.
-`word-game` steuert zwölf Beiträge von vier LLMs; `learning-afternoon` sammelt zwei parallel
-erzeugte Ideen. Beide bringen die Mini-App ihres TypeScript-Actors mit und beginnen die
-Modellarbeit erst nach dem Startknopf in der App. Die Homepage importiert dieselben
-View-Komponenten für ihre ausdrücklich gekennzeichneten lokalen Vorschauen.
-Nach der Einrichtung weisen beide Programme unbekannte direkte Nachrichten als Fehler ab,
-ohne den bisherigen Programmzustand zu verändern. Ihre Startkommandos und abonnierten
-Ereignisse bleiben die vorgesehenen Eingaben; ein weiterer Durchlauf benötigt einen neuen Run.
-Ihre Pakettests prüfen konfigurierte
-Starts, ausdrückliche Standardstarts, ungültige Eingaben und die Reihenfolge des Aufbaus.
-Der Server-Test `reference-run-scripts.test.ts` aktiviert die mitgelieferten Pakete gegen die
-Werkzeuge des Profils `core`, damit veraltete Beispiele auffallen.
+The neutral references show a discussion round, a moderator as direct chat partner, a collection
+board on the real LLM list helper, and a balcony advisor. `word-game` controls twelve
+contributions from four LLMs; `learning-afternoon` collects two ideas generated in parallel. Both
+bring the mini-app of their TypeScript actor and start the model work only after the start button
+in the app. The homepage imports the same view components for its explicitly labeled local
+previews. After setup, both programs reject unknown direct messages as errors without changing the
+existing program state. Their start commands and subscribed events remain the intended inputs;
+another pass needs a new run. Their package tests check configured starts, explicit default
+starts, invalid inputs, and the order of setup. The server test `reference-run-scripts.test.ts`
+activates the bundled packages against the tools of the `core` profile so that outdated examples
+are noticed.
 
-Lokale Pakete außerhalb des Repos können über die gemeinsamen Verwaltungsmethoden mit einem
-Serverdateipfad gestartet werden. Sie verwenden denselben Loader und Aktivierungspfad,
-werden aber nicht dauerhaft als Vorlagen registriert. Ein `RUN_SCRIPTS_DIR` existiert nicht.
+Local packages outside the repo can be started through the shared management methods with a server
+file path. They use the same loader and activation path but are not permanently registered as
+templates. A `RUN_SCRIPTS_DIR` does not exist.
 
-## Erzeugte Entwicklerreferenz
+## Generated developer reference
 
-`docs/homepage/llms.txt` erschließt die erzeugten Referenzen; sie sind interne Build-Ausgaben
-und gehören nicht zum öffentlichen Export der Homepage. `run-setup.md`
-enthält die vollständigen Quellen der showcase-Vorlagen einschließlich normaler Tests und
-mitgelieferter Actor-Programme. `run-api.d.ts` ist das tatsächliche `@ragents/server`-SDK mit
-den statischen Funktionsverträgen von showcase. Die installierten Pakete erhalten denselben
-Deklarationsgenerator mit ihrem aktuellen Vertragsbestand.
+`docs/homepage/llms.txt` indexes the generated references; they are internal build outputs and
+not part of the public homepage export. `run-setup.md` contains the complete sources of the
+showcase templates including normal tests and bundled actor programs. `run-api.d.ts` is the actual
+`@ragents/server` SDK with the static function contracts of showcase. The installed packages
+receive the same declaration generator with their current set of contracts.
 
-Die SDK-Datei ist ein normales TypeScript-Modul mit Exports. Sie ergänzt keine Globals
-oder Laufzeitrechte. Die Homepage-Prüfung kompiliert die dort enthaltenen Pakete und prüft
-positive sowie fehlerhafte Funktionsaufrufe gegen diese Deklarationen.
-`rpc-api.md` und `openrpc.json` entstehen getrennt aus den registrierten Methoden- und
-Kanalverträgen und beschreiben den Zugang außerhalb der Actor-Laufzeit.
+The SDK file is a normal TypeScript module with exports. It adds no globals or runtime
+permissions. The homepage check compiles the packages it contains and checks both valid and
+faulty function calls against these declarations. `rpc-api.md` and `openrpc.json` are generated
+separately from the registered method and channel contracts and describe access outside the actor
+runtime.
 
-## Offene Grenzen
+## Open limits
 
-- Fachtests und Typechecks ersetzen keine tatsächliche Prüfung einer View im Browser.
-- Zwischenstände einer noch laufenden Funktion werden nicht automatisch journalisiert.
-- Eine gescheiterte Neuaktivierung nach Vertragsdrift wird bei jedem weiteren Aufruf erneut
-  versucht; der Host merkt sich das Scheitern nicht.
-- Native Node-Ausführung verwendet die Rechte und Umgebung des Serverkontexts des Runs und garantiert
-  keine zusätzliche Isolation gegenüber absichtlich bösartigem Backend-Code.
+- Domain tests and type checks do not replace an actual check of a view in the browser.
+- Intermediate states of a function that is still running are not journaled automatically.
+- A failed reactivation after contract drift is retried on every further call; the host does not
+  remember the failure.
+- Native Node execution uses the permissions and environment of the run's server context and
+  guarantees no additional isolation against intentionally malicious backend code.

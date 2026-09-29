@@ -28,14 +28,14 @@ const systemPromptSchema = Type.Object({
 export const modelStartOption = (choice: ModelChoice, preferredThinking: ThinkingLevel | (() => ThinkingLevel)): StartOptionContribution => {
   const resolved = (model: string, wanted: string | undefined): ModelStartOptionValue => {
     if (!choice.options.includes(model)) {
-      throw new DomainError("model-unknown", `Das Modell ${model} steht nicht zur Wahl.`, 404);
+      throw new DomainError("model-unknown", `The model ${model} is not available for selection.`, 404);
     }
     const allowed = choice.thinkingOptionsFor(model);
     if (wanted !== undefined) {
       if (!isThinkingLevel(wanted) || !allowed.includes(wanted)) {
         throw new DomainError(
           "thinking-unknown",
-          `Das Reasoning ${wanted} steht für dieses Modell nicht zur Wahl (gültig: ${allowed.join(", ")}).`,
+          `The reasoning ${wanted} is not available for this model (valid: ${allowed.join(", ")}).`,
           400,
         );
       }
@@ -80,11 +80,11 @@ export const systemPromptStartOption = (catalog: () => SystemPromptCatalog): Sta
     const current = catalog();
     for (const promptId of promptIds) {
       if (!current.options.some((option) => option.id === promptId)) {
-        throw new DomainError("prompt-unknown", `Der Systemprompt ${promptId} ist nicht konfiguriert.`, 404);
+        throw new DomainError("prompt-unknown", `The system prompt ${promptId} is not configured.`, 404);
       }
     }
     const duplicate = promptIds.find((id, index) => promptIds.indexOf(id) !== index);
-    if (duplicate) throw new DomainError("prompt-duplicate", `Der Systemprompt ${duplicate} steht doppelt.`, 400);
+    if (duplicate) throw new DomainError("prompt-duplicate", `The system prompt ${duplicate} is listed twice.`, 400);
     return { promptIds: [...promptIds], shareWithAgents };
   },
   describe: () => {

@@ -77,7 +77,7 @@ test("unknown root fields pass validation untouched so the engine can strip and 
   const parameters = Type.Object({}, { additionalProperties: false });
   const args = { previous: "[]", __unused: "{}" };
   assert.deepEqual(validate(parameters, args), args);
-  assert.deepEqual(validate(Type.Object({ target: Type.String() }, { additionalProperties: false }), { target: "Ziel", extra: 1 }), { target: "Ziel", extra: 1 });
+  assert.deepEqual(validate(Type.Object({ target: Type.String() }, { additionalProperties: false }), { target: "Target", extra: 1 }), { target: "Target", extra: 1 });
 });
 
 test("nested unknown fields and missing required fields still fail and name the fields", () => {
@@ -86,7 +86,7 @@ test("nested unknown fields and missing required fields still fail and name the 
     options: Type.Object({ depth: Type.Integer() }, { additionalProperties: false }),
   }, { additionalProperties: false });
   assert.throws(
-    () => validate(parameters, { target: "Ziel", options: { depth: 1, colour: "red", size: 2 } }),
+    () => validate(parameters, { target: "Target", options: { depth: 1, colour: "red", size: 2 } }),
     /Validation failed for tool "mini_app_test":\n\s+- options: unknown fields colour, size/,
   );
   assert.throws(

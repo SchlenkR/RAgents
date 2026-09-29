@@ -11,25 +11,25 @@ const store = (): IdentityStore & { values: Map<string, unknown> } => {
   };
 };
 
-test("jedes Fenster hat seine eigene Kennung, die über einen Neustart desselben Fensters gleich bleibt", () => {
+test("every window has its own identifier that stays the same across a restart of the same window", () => {
   let counter = 0;
-  const create = () => `fenster-${++counter}-0000`;
+  const create = () => `window-${++counter}-0000`;
   const first = store();
   const second = store();
   const firstId = windowClientId(first, create);
   const secondId = windowClientId(second, create);
-  assert.notEqual(firstId, secondId, "zwei Fenster verdrängen sich beim Server nicht");
+  assert.notEqual(firstId, secondId, "two windows do not displace each other at the server");
   assert.equal(windowClientId(first, create), firstId);
   assert.match(firstId, /^[A-Za-z0-9_-]{8,64}$/);
   assert.match(windowClientId(store()), /^[A-Za-z0-9_-]{8,64}$/);
 });
 
-test("ohne Benutzeranmeldung meldet sich der Arbeitsplatz nur über Loopback an und nennt sonst den Grund", () => {
+test("without user sign-in, the workspace registers only over loopback and otherwise names the reason", () => {
   const anonymous = { enabled: false, user: null };
   const signedIn = { enabled: true, user: { id: "alice", label: "Alice", rights: ["*"] } };
   for (const url of ["http://127.0.0.1:4710", "http://localhost:4710", "http://[::1]:4710"]) {
     assert.equal(workspaceRegistrationRefusal(anonymous, url), undefined, url);
   }
-  assert.match(workspaceRegistrationRefusal(anonymous, "https://ragents.example.com") ?? "", /nur über eine Loopback-Verbindung/);
+  assert.match(workspaceRegistrationRefusal(anonymous, "https://ragents.example.com") ?? "", /only over a loopback connection/);
   assert.equal(workspaceRegistrationRefusal(signedIn, "https://ragents.example.com"), undefined);
 });

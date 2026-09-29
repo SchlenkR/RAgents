@@ -73,14 +73,14 @@ test("busy programs reject replacement while turn tools refresh and raw stale ha
       if (Date.now() > deadline) throw new Error("Function did not enter its native process");
       await new Promise((resolve) => setTimeout(resolve, 10));
     }
-    await assert.rejects(f.runtime.remove({...f.context, commandId: "remove-busy"}, f.runId, "counter"), /laufende Funktionen/);
-    await assert.rejects(f.runtime.activate({...f.context, commandId: "replace-busy"}, f.runId, "counter"), /laufende Funktionen/);
+    await assert.rejects(f.runtime.remove({...f.context, commandId: "remove-busy"}, f.runId, "counter"), /running functions/);
+    await assert.rejects(f.runtime.activate({...f.context, commandId: "replace-busy"}, f.runId, "counter"), /running functions/);
   } finally {await writeFile(release, "released");}
   const completed = await running;
   assert.equal(completed.status, "succeeded", JSON.stringify(completed));
   await writeAppFiles(f.directory, "counter", counterFiles());
   await f.runtime.activate({...f.context, commandId: "replace"}, f.runId, "counter");
-  await assert.rejects(async () => staleHandler.run(rawScope, "stale", {amount: 1} as never), /ersetzt/);
+  await assert.rejects(async () => staleHandler.run(rawScope, "stale", {amount: 1} as never), /replaced/);
   const refreshed = await oldTools.invokeFunction("refreshed", "counter_add", {amount: 1}) as {count: number; calls: number; pid: number};
   assert.equal(refreshed.count, 100);
   assert.equal(refreshed.calls, 1);
@@ -120,13 +120,13 @@ test("stopping a run rejects queued actor tools before they can restart a backen
   }
   const first = await toolsFor(f, callers[0]!, "first");
   const second = await toolsFor(f, callers[1]!, "second");
-  const interrupted = assert.rejects(first.invokeFunction("first:add", "counter_add", {amount: 99}), /beendet|abgebrochen|gestoppt/);
+  const interrupted = assert.rejects(first.invokeFunction("first:add", "counter_add", {amount: 99}), /shutting down|aborted|cancelled|stopped/);
   const deadline = Date.now() + 10_000;
   while (!await access(marker).then(() => true, () => false)) {
     if (Date.now() > deadline) throw new Error("Function did not enter its native process");
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  const queued = assert.rejects(second.invokeFunction("second:add", "counter_add", {amount: 1}), /gestoppt/);
+  const queued = assert.rejects(second.invokeFunction("second:add", "counter_add", {amount: 1}), /stopped/);
   await new Promise<void>((resolve) => setImmediate(resolve));
   await f.runtime.stopRun(f.runId);
   await Promise.all([interrupted, queued]);

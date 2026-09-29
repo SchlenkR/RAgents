@@ -68,7 +68,7 @@ const configuredPlugin = (descriptor: WebPluginDescriptor, routePrefix: string):
       {
         readRight: "runs.inspect",
         id: RUN_TOOLS_TAB_ID,
-        label: "Funktionen",
+        label: "Functions",
         order: 251,
         Icon: IconTools,
         Panel: ToolsPanel,

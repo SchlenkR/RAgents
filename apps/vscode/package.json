@@ -79,67 +79,67 @@
       },
       {
         "command": "ragents.openConnectionsSetting",
-        "title": "Server in den Einstellungen",
+        "title": "Servers in settings",
         "category": "RAgents",
         "icon": "$(json)"
       },
       {
         "command": "ragents.setSecret",
-        "title": "Secret setzen",
+        "title": "Set secret",
         "category": "RAgents",
         "icon": "$(key)"
       },
       {
         "command": "ragents.deleteSecret",
-        "title": "Secret löschen",
+        "title": "Delete secret",
         "category": "RAgents",
         "icon": "$(trash)"
       },
       {
         "command": "ragents.connect",
-        "title": "Verbinden",
+        "title": "Connect",
         "category": "RAgents",
         "icon": "$(plug)"
       },
       {
         "command": "ragents.disconnect",
-        "title": "Trennen",
+        "title": "Disconnect",
         "category": "RAgents",
         "icon": "$(debug-disconnect)"
       },
       {
         "command": "ragents.newRun",
-        "title": "Neuer Run",
+        "title": "New run",
         "category": "RAgents",
         "icon": "$(add)"
       },
       {
         "command": "ragents.refresh",
-        "title": "Aktualisieren",
+        "title": "Refresh",
         "category": "RAgents",
         "icon": "$(refresh)"
       },
       {
         "command": "ragents.login",
-        "title": "Anmelden",
+        "title": "Sign in",
         "category": "RAgents",
         "icon": "$(sign-in)"
       },
       {
         "command": "ragents.logout",
-        "title": "Abmelden",
+        "title": "Sign out",
         "category": "RAgents",
         "icon": "$(sign-out)"
       },
       {
         "command": "ragents.openAppInCenter",
-        "title": "Mini-App in die Mitte",
+        "title": "Open mini-app in the center",
         "category": "RAgents",
         "icon": "$(open-preview)"
       },
       {
         "command": "ragents.openJournal",
-        "title": "Journal öffnen",
+        "title": "Open journal",
         "category": "RAgents"
       }
     ],
@@ -193,7 +193,7 @@
         "ragents.connections": {
           "type": "array",
           "default": [],
-          "markdownDescription": "Die RAgents-Server der Erweiterung; sie verbindet sich mit allen gleichzeitig. Je Eintrag `name` und `url` (ein Server per Adresse; die Anmeldung fragt das Panel ab; verteilt der Server ein Client-Profil, startet die Erweiterung den Host damit lokal) oder `name` und `profileFile` (eine `ragents.config.<profil>.ts`; die Erweiterung startet den Host daraus still beim Aktivieren).",
+          "markdownDescription": "The RAgents servers of the extension; it connects to all of them at the same time. Each entry has `name` and `url` (a server by address; the panel asks for sign-in; if the server distributes a client profile, the extension starts the host locally with it) or `name` and `profileFile` (a `ragents.config.<profile>.ts`; the extension starts the host from it silently on activation).",
           "items": {
             "type": "object",
             "required": [
@@ -202,15 +202,15 @@
             "properties": {
               "name": {
                 "type": "string",
-                "description": "Anzeigename, eindeutig."
+                "description": "Display name, unique."
               },
               "url": {
                 "type": "string",
-                "description": "Adresse des Servers ohne Pfad."
+                "description": "Address of the server without a path."
               },
               "profileFile": {
                 "type": "string",
-                "description": "Pfad zur Profildatei; die Erweiterung startet den Host daraus."
+                "description": "Path to the profile file; the extension starts the host from it."
               },
               "kind": {
                 "type": "string",
@@ -219,7 +219,7 @@
                   "running",
                   "profile"
                 ],
-                "deprecationMessage": "Nicht mehr nötig; die Art ergibt sich aus url oder profileFile."
+                "deprecationMessage": "No longer needed; the kind follows from url or profileFile."
               }
             },
             "additionalProperties": false
@@ -228,16 +228,16 @@
         "ragents.hostPath": {
           "type": "string",
           "default": "",
-          "markdownDescription": "RAgents-Host, aus dem die Erweiterung den lokalen Server startet: das npm-Paket `@schlenkr/ragents` (nur Node nötig) oder ein Checkout (zusätzlich Git, pnpm und pnpm install). Leer: das Repo, aus dem die Erweiterung läuft; läuft sie aus keinem, holt sie das Paket in der Fassung des Servers selbst."
+          "markdownDescription": "RAgents host from which the extension starts the local server: the npm package `@schlenkr/ragents` (only Node required) or a checkout (additionally Git, pnpm, and pnpm install). Empty: the repo the extension runs from; if it runs from none, it fetches the package in the server's version itself."
         },
         "ragents.hostEnvironment": {
           "type": "array",
           "default": [],
-          "markdownDescription": "Namen von Umgebungsvariablen, die ein lokal gestarteter Host zusätzlich zur geerbten Umgebung bekommt. Hier stehen nur Namen; die Werte legt der Befehl `RAgents: Secret setzen` in die SecretStorage von VS Code, nie in eine Einstellungsdatei.",
+          "markdownDescription": "Names of environment variables that a locally started host gets in addition to the inherited environment. Only names go here; the command `RAgents: Set secret` stores the values in the VS Code SecretStorage, never in a settings file.",
           "items": {
             "type": "string",
             "pattern": "^[A-Za-z_][A-Za-z0-9_]*$",
-            "patternErrorMessage": "Erlaubt sind Buchstaben, Ziffern und _, nicht mit einer Ziffer am Anfang."
+            "patternErrorMessage": "Letters, digits, and _ are allowed, not starting with a digit."
           }
         },
         "ragents.zoom": {
@@ -255,7 +255,7 @@
             "dark"
           ],
           "default": "auto",
-          "description": "Darstellung des RAgents-Panels: auto folgt dem Farbschema von VS Code."
+          "description": "Appearance of the RAgents panel: auto follows the VS Code color theme."
         }
       }
     }

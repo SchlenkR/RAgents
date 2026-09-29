@@ -22,11 +22,11 @@ const sessionTokenFrom = (setCookie: readonly string[]): string => {
     const token = pair.slice(pair.indexOf("=") + 1).trim();
     if (/^[A-Za-z0-9_-]{43}$/.test(token)) return token;
   }
-  throw new ServerError("Der Server hat keinen Sitzungstoken geliefert.", 500);
+  throw new ServerError("The server did not deliver a session token.", 500);
 };
 
 const errorFrom = async (response: Response): Promise<ServerError> => {
-  let message = `Der Server antwortete mit ${response.status}.`;
+  let message = `The server responded with ${response.status}.`;
   let code: string | undefined;
   try {
     const body = await response.json() as { error?: unknown; message?: unknown; code?: unknown };
@@ -37,7 +37,7 @@ const errorFrom = async (response: Response): Promise<ServerError> => {
   return new ServerError(message, response.status, code);
 };
 
-/** Der Zugang der Erweiterung: Anmeldung und Auslieferung über HTTP, alles Weitere als JSON-RPC; der Sitzungstoken geht als Bearer. */
+/** The extension's access: sign-in and delivery over HTTP, everything else as JSON-RPC; the session token goes as bearer. */
 export class ServerClient {
   readonly origin: string;
   readonly rpc: RpcClient;
@@ -58,7 +58,7 @@ export class ServerClient {
     return this.token;
   }
 
-  /** Der Client liest den Token bei jedem Abruf, deshalb bleibt die Nachrichtenschicht bestehen. */
+  /** The client reads the token on every request, so the messaging layer stays in place. */
   useToken(token: string | undefined): void {
     this.token = token;
   }
@@ -75,7 +75,7 @@ export class ServerClient {
     try {
       return await this.request(this.url(path), { ...init, headers: this.headers(init.headers as Record<string, string> | undefined ?? {}) });
     } catch (cause) {
-      throw new UnreachableError(`${this.origin} ist nicht erreichbar: ${cause instanceof Error ? cause.message : String(cause)}`);
+      throw new UnreachableError(`${this.origin} is unreachable: ${cause instanceof Error ? cause.message : String(cause)}`);
     }
   }
 
@@ -97,7 +97,7 @@ export class ServerClient {
     });
     if (!response.ok) throw await errorFrom(response);
     const snapshot = accessSnapshotFrom(await response.json());
-    if (!snapshot.user) throw new ServerError("Der Server hat die Anmeldung nicht bestätigt.", 500);
+    if (!snapshot.user) throw new ServerError("The server did not confirm the sign-in.", 500);
     return { snapshot, token: sessionTokenFrom(response.headers.getSetCookie()) };
   }
 

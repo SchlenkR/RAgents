@@ -35,7 +35,7 @@ const configuredModel = () => env.required("AGENT_MODEL");
 const configuredCoordinatorModel = () => env.value("AGENT_COORDINATOR_MODEL", "") || configuredModel();
 const provider = env.value("AGENT_PROVIDER", "openrouter");
 
-// Mit AGENT_PROVIDER "relay" kommen Katalog und Modellzugang von einem anderen RAgents-Server.
+// With AGENT_PROVIDER "relay", catalog and model access come from another RAgents server.
 const relay: RelayCatalog | undefined = provider === RELAY_PROVIDER
   ? createRelayCatalog({ url: env.required("RELAY_URL"), token: env.required("RELAY_TOKEN") })
   : undefined;

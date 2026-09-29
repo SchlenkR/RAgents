@@ -75,18 +75,18 @@ const inputWithinLimit = (value: JsonValue): boolean => {
 };
 
 export const validateRunAppBridgeRequest = (value: unknown): RunAppBridgeValidation => {
-  if (!isRecord(value)) return { ok: false, error: "Die App-Nachricht ist kein Objekt" };
+  if (!isRecord(value)) return { ok: false, error: "The app message is not an object" };
   const requestId = requestIdFrom(value.requestId);
-  if (!requestId) return { ok: false, error: "Die App-Nachricht enthält keine gültige requestId" };
+  if (!requestId) return { ok: false, error: "The app message contains no valid requestId" };
   if (value.version !== RUN_APP_BRIDGE_VERSION) {
-    return { ok: false, requestId, error: "Die App verwendet eine nicht unterstützte Bridge-Version" };
+    return { ok: false, requestId, error: "The app uses an unsupported bridge version" };
   }
   if (value.type === RUN_APP_GET_STATE) {
     return { ok: true, request: { type: RUN_APP_GET_STATE, version: RUN_APP_BRIDGE_VERSION, requestId } };
   }
   if (value.type === RUN_APP_CHAT_WATCH || value.type === RUN_APP_CHAT_UNWATCH || value.type === RUN_APP_CHAT_SEND) {
     if (typeof value.actor !== "string" || !/^@?[\p{L}\p{N}_-]{1,64}$/u.test(value.actor)) {
-      return { ok: false, requestId, error: "Das Chat-Ziel muss primary oder ein Actor-Handle wie @reviewer sein" };
+      return { ok: false, requestId, error: "The chat target must be primary or an actor handle such as @reviewer" };
     }
     const common = { version: RUN_APP_BRIDGE_VERSION, requestId, actor: value.actor } as const;
     if (value.type !== RUN_APP_CHAT_SEND) return { ok: true, request: { ...common, type: value.type } };
@@ -95,18 +95,18 @@ export const validateRunAppBridgeRequest = (value: unknown): RunAppBridgeValidat
       return { ok: false, requestId, error: cause instanceof Error ? cause.message : String(cause) };
     }
     if (typeof value.text !== "string" || (!value.text.trim() && !attachments.length) || !inputWithinLimit(value.text)) {
-      return { ok: false, requestId, error: "Die Chat-Nachricht ist leer oder zu groß" };
+      return { ok: false, requestId, error: "The chat message is empty or too large" };
     }
     return { ok: true, request: { ...common, type: RUN_APP_CHAT_SEND, text: value.text.trim(), ...(attachments.length ? { attachments } : {}) } };
   }
   if (value.type !== RUN_APP_INVOKE) {
-    return { ok: false, requestId, error: "Die App-Nachricht hat einen unbekannten Typ" };
+    return { ok: false, requestId, error: "The app message has an unknown type" };
   }
   if (typeof value.actionId !== "string" || !ID_PATTERN.test(value.actionId)) {
-    return { ok: false, requestId, error: "Die App-Nachricht enthält keine gültige actionId" };
+    return { ok: false, requestId, error: "The app message contains no valid actionId" };
   }
   if (!isJsonValue(value.input) || !inputWithinLimit(value.input)) {
-    return { ok: false, requestId, error: "Die Eingabe der App-Aktion ist kein gültiger JSON-Wert oder zu groß" };
+    return { ok: false, requestId, error: "The input of the app action is not a valid JSON value or too large" };
   }
   return {
     ok: true,

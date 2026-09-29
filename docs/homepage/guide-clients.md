@@ -6,7 +6,7 @@ Use the same runs in the browser and in the VS Code extension; automate them thr
 
 The run panel is also available in the browser. `http://localhost:4710/run-panel.html?run=<id>`
 shows a run in a narrow layout with mini-app chips, the selected app, actor chips, chat, and the
-tab bar on the right. Without `run`, it shows the run list with "Neuer Run" as the first
+tab bar on the right. Without `run`, it shows the run list with "New run" as the first
 card. `run-panel.html?layout=app&run=<id>&element=<app-id>` shows one mini-app without the tab bar.
 Run-panel state, including the selected app and actor, view mode, chat width, collapsed chat
 height, open tab, and tab-area height, is stored per run in the browser.
@@ -21,21 +21,21 @@ down arrow keys to change the area's height. At least 160 pixels remain for the 
 tab and height are stored per run in the browser, per VS Code window, and independently from the
 full web view.
 
-Once a mini-app is selected, three header buttons control the run-panel view: "Nur Chat" (chat
-only, speech bubble), "Chat unten" (chat below, a sheet over the app), and "Chat rechts" (chat
-right, beside the app). "Chat rechts" is the default. While the panel is narrower than the
-configured width, that option is disabled and the chat stays below. "Nur Chat" gives the chat the
+Once a mini-app is selected, three header buttons control the run-panel view: "Chat only"
+(speech bubble), "Chat below" (a sheet over the app), and "Chat right" (beside the app).
+"Chat right" is the default. While the panel is narrower than the
+configured width, that option is disabled and the chat stays below. "Chat only" gives the chat the
 entire panel: the mini-app
 recedes, nothing slides in or out, and an open sheet closes cleanly. Switching back rebuilds the
 mini-app, so unsaved input in it is lost. The choice is stored per run and survives a restart.
 The extension can also open a mini-app as an editor tab in the center, which works well with
-"Nur Chat" in the run panel.
+"Chat only" in the run panel.
 
-In "Chat unten", the handle controls the expanded chat height. Dragging up makes it taller;
+In "Chat below", the handle controls the expanded chat height. Dragging up makes it taller;
 dragging down makes it shorter. The chosen height is stored per run. The collapsed chat shows the
 handle, status, and complete input, including multiple input lines. An open question sits
 completely above the input there as well: the collapsed chat grows by its height, up to half of
-the panel, and the status line reads "Wartet auf Eingabe" (waiting for input). Hovering or
+the panel, and the status line reads "Waiting for input". Hovering or
 writing opens the chat to the chosen height (90 percent of the panel by default). Dragging leaves
 the chat open at its new height. Clicking the handle opens or closes it. With
 keyboard focus on the handle, up and down change the height, Home and End select its limits, and
@@ -48,16 +48,16 @@ The chip at the left of the chat input names the addressee, the actor your messa
 Clicking it opens the addressee list as a tree of who created whom, like the agent tree of a
 coding assistant: the coordinator at the top, below it the agents and TypeScript actors it
 started, below those their own subagents. Each entry shows the handle, a very short description
-of its job, and its state: "arbeitet" (working), "wartet auf Eingabe" (waiting for your answer),
-"wartet" (idle), or "gestoppt" (stopped). The description is the one given when the actor was
+of its job, and its state: "working", "waiting for input" (waiting for your answer),
+"idle", or "stopped". The description is the one given when the actor was
 created, otherwise the first line of its first assignment, otherwise its display name. Four or
 more similar siblings, such as 37 rule reviewers named `review-...`, collapse into one group row
 with their shared handle prefix, their number, and a count per state; click it to open or close
 it. A group that contains the current addressee opens by itself. With more than twelve actors a
 search field appears above the tree; it matches every word against handle, display name, and
 description and keeps the creators of each hit visible. Clicking an entry makes it the addressee
-and closes the list. Hidden actors, as chosen with "Anzeige" in the footer, sit in their own tree
-behind "ausgeblendete Actors"; picking one of them also shows it again. In runs recorded before
+and closes the list. Hidden actors, as chosen with "Show" in the footer, sit in their own tree
+behind "Hidden actors"; picking one of them also shows it again. In runs recorded before
 actors had descriptions, the description falls back to the first assignment or the display name.
 
 The extension lives under `apps/vscode`. It works with all configured **servers at the same
@@ -65,7 +65,7 @@ time**; there is no single active connection. A server in the `ragents.connectio
 either a server (`name` and `url`; it connects automatically when activated and its card asks
 for sign-in in the panel) or a local profile (`name` and `profileFile`, the path to a
 `ragents.config.<profile>.ts`). When activated, the extension starts a local profile silently in
-the background with `--port 0`. The page shows "startet" (starting) and then "bereit" (ready), so its card and
+the background with `--port 0`. The page shows "starting" and then "ready", so its card and
 templates are immediately available; a stopped local profile can be started again from its chip. The
 host runs until the VS Code session ends and terminates with it, even if the window reloads, VS
 Code crashes, or it is forcibly closed. Before starting, the extension provisions the profile's
@@ -75,7 +75,7 @@ command. If a server distributes a client profile, the extension
 fetches it after sign-in like `pnpm connect`, starts its host locally, and supplies the token as
 `RAGENTS_TOKEN`. If `ragents.hostPath` is empty and the extension is not running from a checkout,
 as with an installed `.vsix`, it downloads the host itself:
-`npm install --prefix <globalStorage>/hosts/<paketfassung> @schlenkr/ragents@<paketfassung>`,
+`npm install --prefix <globalStorage>/hosts/<package-version> @schlenkr/ragents@<package-version>`,
 using the `npm` available on `PATH`. For a distributing server, that server specifies the version
 through `ragents.profile.describe`; for a local profile, the extension supplies its own
 `ragents.packageVersion` from `package.json`, keeping extension and host compatible. npm progress
@@ -106,7 +106,7 @@ distributing server.
 
 The extension is an app with four pages: Start, Runs, the run panel, and "Server". All appear in
 the RAgents panel of VS Code's secondary sidebar. Navigation and commands live in the view title
-bar, following VS Code conventions: Start (home), Runs (list), Server (gear), "Neuer Run" (new run), and "Aktualisieren" (refresh). They remain available
+bar, following VS Code conventions: Start (home), Runs (list), Server (gear), "New run", and "Refresh". They remain available
 while the panel shows a run. Start has no separate page header; Runs and Server show their
 title next to a back arrow to Start, and the run panel's back
 arrow also returns there. There is no Explorer tree in the activity bar. The view badge counts
@@ -115,9 +115,9 @@ pending inputs across all servers.
 **Start** begins with **Server**. Equal-width chips appear two per row at 420 pixels and in
 a single row from 560 pixels. Each chip is a split button. Its left side shows a status icon,
 name, and when needed an action label: none for a connected or ready server (clicking opens
-Runs filtered to it), "Anmelden" (sign in) when authentication is required or access was denied,
-"Erneut versuchen" (try again) when unreachable or failed, "Starten" for a stopped local profile,
-and "Verbinden" (connect) for a stopped server. "startet ..." (starting) is not a button. A monospace line below identifies the server:
+Runs filtered to it), "Sign in" when authentication is required or access was denied,
+"Retry" when unreachable or failed, "Start" for a stopped local profile,
+and "Connect" for a stopped server. "starting ..." is not a button. A monospace line below identifies the server:
 `local / <profile>` for a local profile, the server host and non-default port, or `<host> / local`
 when a server distributes a client profile whose host runs here.
 
@@ -125,14 +125,14 @@ The right side contains a plus button for a new run. If the server's profile def
 `defaultStartEntry` (see [profiles.md](../spec/profiles.md)), it starts that template; otherwise it
 starts an empty chat. Without permission to start, an equally wide empty space remains. For a
 failed, unreachable, or rejected server, its status icon is also a button. It opens a
-popover with the status, full selectable message, "Ausgabe öffnen" (open output), and either
-"Erneut versuchen" or "Anmelden". A lock opens the same sign-in dialog.
+popover with the status, full selectable message, "Open output", and either
+"Retry" or "Sign in". A lock opens the same sign-in dialog.
 
-Below that, **Weiter** (continue) shows the five most recent runs from all servers in a fixed-column
-grid with status, title, right-aligned time, and, when more than one exists, server. "Alle N
-Runs" opens the Runs page. **Neu** (new) appears when at least one server is reachable and permits
+Below that, **Continue** shows the five most recent runs from all servers in a fixed-column
+grid with status, title, right-aligned time, and, when more than one exists, server. "All N
+runs" opens the Runs page. **New** appears when at least one server is reachable and permits
 new runs. Entries are grouped by server when needed. The first entry is its default template,
-marked "Standard" (default), or "Neuer Chat" (new chat) in the "Ohne Vorlage" (without template)
+marked "Default", or "New chat" in the "No template"
 category. Remaining templates follow,
 without duplicating the default. Clicking an entry creates and starts the run on its server
 and opens the run panel.
@@ -144,10 +144,10 @@ loading, preparing, or setting up. A startup or setup error appears in the same 
 chat input remains usable. The loading state disappears with the first mini-app or chat item; an
 empty chat without a template does not show it. VS Code never displays the run panel's run-list
 view. If a run cannot be started, for example because the user may not create runs, the panel
-explains why and offers "Zur Start-Seite" (back to Start). For a new run, the visible chat input receives focus as
+explains why and offers "Go to Start". For a new run, the visible chat input receives focus as
 soon as it becomes writable. Opening an existing run does not move focus there automatically.
 
-**Runs** shows the complete list in the same grid, with search, "Beendete ausblenden" (hide finished), a server
+**Runs** shows the complete list in the same grid, with search, "Hide ended", a server
 filter carried over from Start, and a selection mode that deletes several runs after a dialog
 confirmation. Checkboxes occupy an additional first column without shifting the others. A run the
 server has locked, for example because its journal uses an older format, shows a warning icon whose
@@ -156,11 +156,11 @@ tooltip names the cause; it does not open, but the selection mode deletes it.
 **Server** is the configuration page. You can add, edit, sign in, sign out, connect,
 disconnect, and remove servers with confirmation, then open `settings.json` from the link
 at the bottom. If a connected server does not accept this window's folders as a workstation, its
-entry says "Arbeitsplatz nicht angemeldet" (workstation not registered) with the cause.
+entry says "Workstation not registered" with the cause.
 
 The extension compares its own RAgents version with the version each server reports. If they
-differ, the server row, the top of Start, the status bar, and a notification show "RAgents-Fassung
-passt nicht: Erweiterung 0.1.9, Server 0.1.8 - ..." (RAgents version does not match), followed by
+differ, the server row, the top of Start, the status bar, and a notification show "RAgents
+version mismatch: extension 0.1.9, server 0.1.8 - ...", followed by
 what to update: the extension if it is older, the server if it is older, or the host in
 `ragents.hostPath` for a local profile. A server that reports no version counts as older. While the
 workstation stays registered, this is a warning and everything keeps working. When the server
@@ -168,37 +168,36 @@ rejects the workstation for the same reason, because the workspace executor vers
 host the extension uses lacks a plugin bundle the server's executor carries, or carries it in
 another version, it is an error that also names the server's cause; the same error appears when
 both report the same version but their builds differ. The notification appears once per server
-and message; "Erweiterung zeigen" (show extension) opens the extension page for the update, and
-"Server zeigen" (show server) opens the Server page.
+and message; "Show extension" opens the extension page for the update, and
+"Show servers" opens the Server page.
 
 Every status uses a colored icon and a tooltip with the same vocabulary everywhere. A run is
-"läuft" (running), "wartet auf Eingabe" (waiting for input, with the number of open inputs),
-"ruht" (idle), "beendet" (ended), "fehlgeschlagen" (failed), or "abgebrochen" (cancelled). A
-server is "verbunden" (connected), "bereit" (ready), "startet" (starting), "Anmeldung nötig"
-(sign-in required), "nicht erreichbar" (unreachable), "gestoppt" (stopped), "gescheitert"
-(failed), or "kein Zugriff" (no access). Time is compact and omits "vor" (ago): `jetzt`, `5 min`,
+"running", "waiting for input" (with the number of open inputs),
+"idle", "ended", "failed", or "cancelled". A
+server is "connected", "ready", "starting", "sign-in required",
+"unreachable", "stopped", "failed", or "no access". Time is compact and omits "ago": `now`, `5 min`,
 `3 h`, `2 d`, then a date after seven days. A function or mini-app name never appears as a status.
 Status icons never resemble a stop button: cancelled is a slashed circle, ended a check mark, and
-idle or stopped an empty circle. Actual stop buttons consistently use a filled red square: "Run
-stoppen" (stop run) in the run-panel header and run menu, "Arbeit stoppen" (stop work) beside the
+idle or stopped an empty circle. Actual stop buttons consistently use a filled red square: "Stop
+run" in the run-panel header and run menu, "Stop work" beside the
 chat input, and the stop controls for run processes.
 
-Stopping work in a chat and stopping the run are different things. "Arbeit stoppen" appears in a
+Stopping work in a chat and stopping the run are different things. "Stop work" appears in a
 chat input only while that chat's own actor has a turn running, and it interrupts just that turn:
 the text already written stays, running function calls are cancelled, and the actor stays active
 and answers the next message. Actors it has started keep working, and when only another actor is
-busy, the input pulses but offers no stop. To end everything, use "Run stoppen" (stop run) with its
+busy, the input pulses but offers no stop. To end everything, use "Stop run" with its
 confirmation; to stop a single actor for good, use "Stop" on its actor card. If a chat's actor has
-been stopped, the input is replaced by `@handle gestoppt: <reason>` and, with permission to operate
-and inspect the run, "Neu starten" (restart). Restarting the former primary actor makes it the
+been stopped, the input is replaced by `@handle stopped: <reason>` and, with permission to operate
+and inspect the run, "Restart". Restarting the former primary actor makes it the
 primary actor again, and the run chat continues.
 
-The arrow on a mini-app in the run-panel stage opens it as a central editor tab; "Zurück ins Panel"
-(back to the panel) closes the tab. Text artifacts and the journal open as read-only documents, while other artifacts
-open in the browser. `RAgents: Neuer Run` uses a Quick Pick grouped by server and template.
-The first entry for each server is its default, marked "Standard", or the free task without
-a template. The commands `RAgents: Trennen` (disconnect), `RAgents: Verbinden` (connect), and
-`RAgents: Abmelden` (sign out) apply to the selected run's server or ask when several match.
+The arrow on a mini-app in the run-panel stage opens it as a central editor tab; "Back to panel"
+closes the tab. Text artifacts and the journal open as read-only documents, while other artifacts
+open in the browser. `RAgents: New run` uses a Quick Pick grouped by server and template.
+The first entry for each server is its default, marked "Default", or the free task without
+a template. The commands `RAgents: Disconnect`, `RAgents: Connect`, and
+`RAgents: Sign out` apply to the selected run's server or ask when several match.
 
 When the run chat or a hosted mini-app input has focus, VS Code shortcuts such as Cmd/Ctrl+P
 and Cmd/Ctrl+Shift+P still work using your keybindings, including key chords. This also applies
@@ -221,7 +220,7 @@ and password are stored per server address in VS Code SecretStorage and reused s
 session. The session token is stored there as well and sent as a bearer token; iframes receive it
 in their URL (the server accepts a bearer token or the `access` query parameter for GET requests).
 After expiry or a server restart, that server asks for sign-in again without affecting others.
-`RAgents: Abmelden` revokes the session.
+`RAgents: Sign out` revokes the session.
 
 ## Control RAgents as an agent
 
@@ -297,8 +296,8 @@ not enough because the command has no sign-in dialog. If the token is missing, t
 that the profile requires authentication and asks you to set `RAGENTS_TOKEN` to the user's
 personal token.
 
-stdout contains function calls (`> <name>`, then `< <name> <duration>s ok`, `Fehler`, or
-`abgebrochen`) as far as the server shows them to the user (`runs.inspect`), the model response,
+stdout contains function calls (`> <name>`, then `< <name> <duration>s ok`, `error`, or
+`cancelled`) as far as the server shows them to the user (`runs.inspect`), the model response,
 and finally the fixed line `run: <id>`. Messages from the command itself go to stderr. With
 `--json`, the same steps are emitted as newline-delimited JSON instead (`tool`, `tool-end`,
 `output`, and finally `turn`, carrying the objects of the run view). Exit code 0 means the turn

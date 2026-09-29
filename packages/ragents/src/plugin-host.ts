@@ -79,7 +79,7 @@ class ContributionRegistry<T extends { id: string }> {
     for (const value of values) {
       const existing = this.#entries.find((entry) => entry.value.id === value.id);
       if (existing) {
-        throw new Error(`${this.#kind} ${value.id} wird bereits von ${existing.owner} bereitgestellt`);
+        throw new Error(`${this.#kind} ${value.id} is already provided by ${existing.owner}`);
       }
       this.#entries.push({ owner, value });
     }
@@ -90,12 +90,12 @@ class ContributionRegistry<T extends { id: string }> {
   }
 }
 
-/** Die Laufbedingung je Plugin; ein Plugin ohne gilt in jedem Run. */
+/** The run condition per plugin; a plugin without one applies in every run. */
 export class RunConditionRegistry {
   readonly #conditions = new Map<string, RunCondition>();
 
   register(owner: string, condition: RunCondition): void {
-    if (this.#conditions.has(owner)) throw new Error(`Plugin ${owner} hat bereits eine Laufbedingung`);
+    if (this.#conditions.has(owner)) throw new Error(`Plugin ${owner} already has a run condition`);
     this.#conditions.set(owner, condition);
   }
 
@@ -109,7 +109,7 @@ export class RunConditionRegistry {
 }
 
 export class MethodContributionRegistry {
-  readonly #methods = new ContributionRegistry<{ id: string; contribution: MethodContribution }>("Methode");
+  readonly #methods = new ContributionRegistry<{ id: string; contribution: MethodContribution }>("Method");
 
   register(owner: string, contributions: readonly MethodContribution[]): void {
     this.#methods.register(owner, contributions.map((contribution) => ({ id: contribution.contract.id, contribution })));
@@ -129,7 +129,7 @@ export class MethodContributionRegistry {
 }
 
 export class ChannelContributionRegistry {
-  readonly #channels = new ContributionRegistry<{ id: string; contribution: ChannelContribution }>("Kanal");
+  readonly #channels = new ContributionRegistry<{ id: string; contribution: ChannelContribution }>("Channel");
 
   register(owner: string, contributions: readonly ChannelContribution[]): void {
     this.#channels.register(owner, contributions.map((contribution) => ({ id: contribution.contract.id, contribution })));
@@ -167,7 +167,7 @@ export class HttpContributionRegistry {
     const missing = rights.find((right) => !access.can(right));
     if (missing) {
       response.writeHead(403, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-      response.end(JSON.stringify({ error: `Das Recht ${missing} fehlt.`, code: "access-denied", right: missing }));
+      response.end(JSON.stringify({ error: `The right ${missing} is missing.`, code: "access-denied", right: missing }));
       return true;
     }
     await route.value.handle({ request, response, url, access });
@@ -180,13 +180,13 @@ export class OperationContributionRegistry {
 
   register(owner: string, operations: readonly OperationContribution[]): void {
     for (const operation of operations) {
-      if (!OPERATION_ID.test(operation.id)) throw new Error(`Ungültige Operation-Id: ${operation.id}`);
-      if (!operation.label.trim()) throw new Error(`Operation ${operation.id} hat kein Label`);
-      if (!operation.description.trim()) throw new Error(`Operation ${operation.id} hat keine Beschreibung`);
+      if (!OPERATION_ID.test(operation.id)) throw new Error(`Invalid operation id: ${operation.id}`);
+      if (!operation.label.trim()) throw new Error(`Operation ${operation.id} has no label`);
+      if (!operation.description.trim()) throw new Error(`Operation ${operation.id} has no description`);
       if (operation.operator !== "direct" && operation.operator !== "confirm" && operation.operator !== "unavailable") {
-        throw new Error(`Operation ${operation.id} hat eine ungültige Operator-Policy`);
+        throw new Error(`Operation ${operation.id} has an invalid operator policy`);
       }
-      if (typeof operation.execute !== "function") throw new Error(`Operation ${operation.id} hat keine Ausführung`);
+      if (typeof operation.execute !== "function") throw new Error(`Operation ${operation.id} has no execute function`);
     }
     this.#operations.register(owner, operations);
   }
@@ -207,16 +207,16 @@ export class OperationContributionRegistry {
 
   async invoke(id: string, context: OperationContext, input: unknown): Promise<JsonValue> {
     const operation = this.#operations.entries().find(({ value }) => value.id === id)?.value;
-    if (!operation) throw new Error(`Operation ${id} ist nicht registriert`);
+    if (!operation) throw new Error(`Operation ${id} is not registered`);
     assertJsonValue(input, `Operation ${id} input`);
 
     if (!Value.Check(operation.schema, input)) {
-      throw new Error(`Ungültige Eingabe für Operation ${id}: ${schemaComplaints(operation.schema, input)}`);
+      throw new Error(`Invalid input for operation ${id}: ${schemaComplaints(operation.schema, input)}`);
     }
 
     if (context.principal.kind === "operator") {
       if (operation.operator === "unavailable") {
-        throw new Error(`Operation ${id} ist für den Bediener nicht verfügbar`);
+        throw new Error(`Operation ${id} is not available to the operator`);
       }
       if (operation.operator === "confirm") {
         const confirmation = "operatorConfirmation" in context ? context.operatorConfirmation : undefined;
@@ -224,7 +224,7 @@ export class OperationContributionRegistry {
           || confirmation.operationId !== id
           || confirmation.invocationId !== context.invocationId
           || confirmation.inputHash !== canonicalHash(input)) {
-          throw new Error(`Operation ${id} erfordert eine an diesen Aufruf gebundene Bestätigung`);
+          throw new Error(`Operation ${id} requires a confirmation bound to this call`);
         }
       }
     }
@@ -232,7 +232,7 @@ export class OperationContributionRegistry {
     context.signal.throwIfAborted();
     const result = await operation.execute(context, input);
     if (!Value.Check(operation.resultSchema, result)) {
-      throw new Error(`Ungültiges Ergebnis von Operation ${id}: ${schemaComplaints(operation.resultSchema, result, "result")}`);
+      throw new Error(`Invalid result of operation ${id}: ${schemaComplaints(operation.resultSchema, result, "result")}`);
     }
     assertJsonValue(result, `Operation ${id} output`);
     return result;
@@ -240,7 +240,7 @@ export class OperationContributionRegistry {
 }
 
 export class AgentContributionRegistry {
-  readonly #contributions = new ContributionRegistry<AgentContribution>("Agent-Beitrag");
+  readonly #contributions = new ContributionRegistry<AgentContribution>("Agent contribution");
   readonly #conditions: RunConditionRegistry;
 
   constructor(conditions = new RunConditionRegistry()) {
@@ -250,7 +250,7 @@ export class AgentContributionRegistry {
   register(owner: string, contributions: readonly AgentContribution[]): void {
     for (const contribution of contributions) {
       if (!contribution.beforeModelCall && !contribution.afterToolCall) {
-        throw new Error(`Agent-Beitrag ${contribution.id} hat keinen Hook`);
+        throw new Error(`Agent contribution ${contribution.id} has no hook`);
       }
     }
     this.#contributions.register(owner, contributions);
@@ -285,7 +285,7 @@ export class ToolContributionRegistry {
     for (const contributor of contributors) {
       const existing = this.#contributors.find((entry) => entry.value.name === contributor.name);
       if (existing) {
-        throw new Error(`Werkzeugbeitrag ${contributor.name} wird bereits von ${existing.owner} bereitgestellt`);
+        throw new Error(`Tool contribution ${contributor.name} is already provided by ${existing.owner}`);
       }
       this.#contributors.push({ owner, value: contributor });
     }
@@ -330,7 +330,7 @@ export class ToolContributionRegistry {
 }
 
 export class PromptContributionRegistry {
-  readonly #prompts = new ContributionRegistry<PromptContribution>("Prompt-Beitrag");
+  readonly #prompts = new ContributionRegistry<PromptContribution>("Prompt contribution");
   readonly #conditions: RunConditionRegistry;
 
   constructor(conditions = new RunConditionRegistry()) {
@@ -371,7 +371,7 @@ export class PromptContributionRegistry {
     })));
   }
 
-  /** Die Beiträge, die für diesen Run anders lauten als im Schnappschuss; ein leerer Text fehlt dort, alles andere bleibt der gerenderte Text. */
+  /** The contributions that read differently for this run than in the snapshot; an empty text is missing there, everything else stays the rendered text. */
   runOverrides(runId: string): ReadonlyMap<string, string> {
     return new Map([...this.#prompts.entries()].flatMap(({ owner, value }) => {
       if (!this.#conditions.applies(owner, runId)) return [[value.id, ""] as const];
@@ -386,7 +386,7 @@ export class PromptContributionRegistry {
 }
 
 export class SkillContributionRegistry {
-  readonly #skills = new ContributionRegistry<SkillContribution>("Skill-Beitrag");
+  readonly #skills = new ContributionRegistry<SkillContribution>("Skill contribution");
   readonly #conditions: RunConditionRegistry;
 
   constructor(conditions = new RunConditionRegistry()) {
@@ -397,10 +397,10 @@ export class SkillContributionRegistry {
     for (const skill of skills) {
       const audiences = skill.audiences ?? [];
       if (new Set(audiences).size !== audiences.length) {
-        throw new Error(`Skill-Beitrag ${skill.id} enthält eine Zielgruppe mehrfach`);
+        throw new Error(`Skill contribution ${skill.id} contains an audience more than once`);
       }
       if (audiences.some((audience) => audience !== "coordinator" && audience !== "agent")) {
-        throw new Error(`Skill-Beitrag ${skill.id} enthält eine ungültige Zielgruppe`);
+        throw new Error(`Skill contribution ${skill.id} contains an invalid audience`);
       }
     }
     this.#skills.register(owner, skills);
@@ -410,19 +410,19 @@ export class SkillContributionRegistry {
     return this.resolve(undefined);
   }
 
-  /** Ein Skillname bestimmt seinen Skill im ganzen Profil, auch über Zielgruppen hinweg; zwei Ordner gleichen Namens scheitern beim Start. */
+  /** A skill name determines its skill across the whole profile, across audiences too; two folders with the same name fail at startup. */
   async assertUniqueNames(): Promise<void> {
     const paths = await this.global();
     for (const name of new Set(paths.map(skillNameOf))) {
       const named = paths.filter((entry) => skillNameOf(entry) === name);
-      if (named.length > 1) throw new Error(`Der Skillname ${name} ist im Profil mehrfach vergeben: ${named.join(", ")}`);
+      if (named.length > 1) throw new Error(`The skill name ${name} is used more than once in the profile: ${named.join(", ")}`);
     }
   }
 
   async resolve(context: AgentContributionContext | undefined): Promise<readonly string[]> {
     const paths = (await this.describe(context)).flatMap((entry) => entry.paths);
     const unique = new Set(paths);
-    if (unique.size !== paths.length) throw new Error("Ein Agent-Skill-Pfad ist mehrfach registriert");
+    if (unique.size !== paths.length) throw new Error("An agent skill path is registered more than once");
     return [...unique];
   }
 
@@ -445,52 +445,52 @@ const SCRIPT_HANDLE = /^[a-z0-9][a-z0-9-]*$/;
 
 const requireText = (entry: { id: unknown }, value: unknown, field: string): void => {
   if (typeof value !== "string" || !value.trim()) {
-    throw new Error(`Vorlage ${String(entry.id)} hat kein gültiges ${field}`);
+    throw new Error(`Template ${String(entry.id)} has no valid ${field}`);
   }
 };
 
 const assertKnownFields = (entry: { id: unknown }, value: object, fields: readonly string[], label: string): void => {
   const unknown = Object.keys(value).filter((field) => !fields.includes(field));
   if (unknown.length > 0) {
-    throw new Error(`${label} ${String(entry.id)} enthält unbekannte Felder: ${unknown.join(", ")}`);
+    throw new Error(`${label} ${String(entry.id)} contains unknown fields: ${unknown.join(", ")}`);
   }
 };
 
 const validateProgramFiles = (entry: StartEntryContribution, files: unknown): void => {
   if (!Array.isArray(files) || files.length === 0)
-    throw new Error(`Run-Script ${entry.id}: files braucht Paketdateien`);
+    throw new Error(`Run script ${entry.id}: files needs package files`);
   const names = new Set<string>();
   for (const file of files) {
     if (typeof file !== "object" || file === null || typeof file.path !== "string" || typeof file.content !== "string")
-      throw new Error(`Run-Script ${entry.id}: jede Datei braucht path und content`);
-    assertKnownFields(entry, file, ["path", "content"], "Paketdatei");
+      throw new Error(`Run script ${entry.id}: every file needs path and content`);
+    assertKnownFields(entry, file, ["path", "content"], "Package file");
     if (!file.path || file.path.includes("\\") || file.path.includes("\0") || path.posix.isAbsolute(file.path)
       || file.path.split("/").some((part: string) => !part || part === "." || part === ".."))
-      throw new Error(`Run-Script ${entry.id}: ungültiger Paketpfad ${file.path}`);
-    if (names.has(file.path)) throw new Error(`Run-Script ${entry.id}: Datei ${file.path} ist doppelt`);
+      throw new Error(`Run script ${entry.id}: invalid package path ${file.path}`);
+    if (names.has(file.path)) throw new Error(`Run script ${entry.id}: file ${file.path} is duplicated`);
     names.add(file.path);
   }
-  if (!names.has("package.json")) throw new Error(`Run-Script ${entry.id}: package.json fehlt`);
+  if (!names.has("package.json")) throw new Error(`Run script ${entry.id}: package.json is missing`);
 };
 
 const validateScriptPackage = (entry: StartEntryContribution, script: unknown): void => {
   if (typeof script !== "object" || script === null)
-    throw new Error(`Vorlage ${entry.id} hat kein Run-Script-Paket`);
-  assertKnownFields(entry, script, ["handle", "coordinator", "files", "programs"], "Run-Script");
+    throw new Error(`Template ${entry.id} has no run script package`);
+  assertKnownFields(entry, script, ["handle", "coordinator", "files", "programs"], "Run script");
   const value = script as Record<string, unknown>;
   if (typeof value.handle !== "string" || !SCRIPT_HANDLE.test(value.handle))
-    throw new Error(`Run-Script ${entry.id}: handle muss ein Handle wie gespraechsrunde sein (Kleinbuchstaben, Ziffern, Bindestrich)`);
+    throw new Error(`Run script ${entry.id}: handle must be a handle like roundtable (lowercase letters, digits, hyphen)`);
   if (typeof value.coordinator !== "boolean")
-    throw new Error(`Run-Script ${entry.id}: coordinator muss true oder false sein`);
+    throw new Error(`Run script ${entry.id}: coordinator must be true or false`);
   validateProgramFiles(entry, value.files);
-  if (!Array.isArray(value.programs)) throw new Error(`Run-Script ${entry.id}: programs muss eine Liste sein`);
+  if (!Array.isArray(value.programs)) throw new Error(`Run script ${entry.id}: programs must be a list`);
   const names = new Set<string>();
   for (const program of value.programs) {
     if (typeof program !== "object" || program === null || typeof program.name !== "string" || !SCRIPT_HANDLE.test(program.name))
-      throw new Error(`Run-Script ${entry.id}: ungültiger Programmname`);
-    assertKnownFields(entry, program, ["name", "files"], "Actor-Programm");
+      throw new Error(`Run script ${entry.id}: invalid program name`);
+    assertKnownFields(entry, program, ["name", "files"], "Actor program");
     if (program.name === value.handle || names.has(program.name))
-      throw new Error(`Run-Script ${entry.id}: Programm ${program.name} ist doppelt`);
+      throw new Error(`Run script ${entry.id}: program ${program.name} is duplicated`);
     names.add(program.name);
     validateProgramFiles(entry, program.files);
   }
@@ -500,11 +500,11 @@ const validateFixedStartOptions = (entry: StartEntryContribution): void => {
   const fixed: unknown = entry.fixedStartOptions;
   if (fixed === undefined) return;
   if (typeof fixed !== "object" || fixed === null || Array.isArray(fixed) || Object.keys(fixed).length === 0) {
-    throw new Error(`Vorlage ${entry.id}: fixedStartOptions muss mindestens eine Startoption auf einen Wert festlegen`);
+    throw new Error(`Template ${entry.id}: fixedStartOptions must fix at least one start option to a value`);
   }
   for (const [optionId, value] of Object.entries(fixed)) {
-    if (!START_OPTION_ID.test(optionId)) throw new Error(`Vorlage ${entry.id} legt die ungültige Startoption-Id ${optionId} fest`);
-    assertJsonValue(value, `Vorlage ${entry.id}: fixedStartOptions.${optionId}`);
+    if (!START_OPTION_ID.test(optionId)) throw new Error(`Template ${entry.id} fixes the invalid start option id ${optionId}`);
+    assertJsonValue(value, `Template ${entry.id}: fixedStartOptions.${optionId}`);
   }
 };
 
@@ -512,44 +512,44 @@ const validateStartEntry = (entry: StartEntryContribution): void => {
   const base = ["id", "title", "description", "order", "guide", "tags", "fixedStartOptions", "action"];
   for (const field of ["id", "title", "description"] as const) requireText(entry, entry[field], field);
   if (entry.order !== undefined && (typeof entry.order !== "number" || !Number.isFinite(entry.order))) {
-    throw new Error(`Vorlage ${entry.id} hat keine gültige Ordnungszahl`);
+    throw new Error(`Template ${entry.id} has no valid order number`);
   }
   if (entry.guide !== undefined && (typeof entry.guide !== "string" || !GUIDE_ID.test(entry.guide))) {
-    throw new Error(`Vorlage ${entry.id} nennt keine gültige Leitfaden-Kennung: ${String(entry.guide)}`);
+    throw new Error(`Template ${entry.id} names no valid guide id: ${String(entry.guide)}`);
   }
   if (entry.tags !== undefined && (!Array.isArray(entry.tags)
     || entry.tags.some((tag) => typeof tag !== "string" || !tag.trim() || tag !== tag.trim())
     || new Set(entry.tags).size !== entry.tags.length)) {
-    throw new Error(`Vorlage ${entry.id}: tags müssen eindeutige, nicht leere Schlagworte sein`);
+    throw new Error(`Template ${entry.id}: tags must be unique, non-empty keywords`);
   }
   validateFixedStartOptions(entry);
   switch (entry.action) {
     case "skill":
-      assertKnownFields(entry, entry, [...base, "skill", "prompt", "category"], "Vorlage");
+      assertKnownFields(entry, entry, [...base, "skill", "prompt", "category"], "Template");
       requireText(entry, entry.category, "category");
-      if (entry.category !== entry.category.trim()) throw new Error(`Vorlage ${entry.id}: category muss ein einzelner nicht leerer Text sein`);
+      if (entry.category !== entry.category.trim()) throw new Error(`Template ${entry.id}: category must be a single non-empty text`);
       requireText(entry, entry.prompt, "prompt");
       requireText(entry, entry.skill, "skill");
       if (!SKILL_NAME.test(entry.skill)) {
-        throw new Error(`Vorlage ${entry.id} nennt keinen gültigen Skill-Namen: ${entry.skill}`);
+        throw new Error(`Template ${entry.id} names no valid skill name: ${entry.skill}`);
       }
       return;
     case "script":
-      assertKnownFields(entry, entry, [...base, "script", "category"], "Vorlage");
+      assertKnownFields(entry, entry, [...base, "script", "category"], "Template");
       if (entry.category !== undefined && (typeof entry.category !== "string" || !entry.category.trim() || entry.category !== entry.category.trim())) {
-        throw new Error(`Vorlage ${entry.id}: category muss ein einzelner nicht leerer Text sein`);
+        throw new Error(`Template ${entry.id}: category must be a single non-empty text`);
       }
       validateScriptPackage(entry, entry.script);
       return;
     default:
       throw new Error(
-        `Vorlage ${String((entry as { id: unknown }).id)} hat die unbekannte Aktion ${String((entry as { action: unknown }).action)}; `
-        + "gültig sind skill und script",
+        `Template ${String((entry as { id: unknown }).id)} has the unknown action ${String((entry as { action: unknown }).action)}; `
+        + "valid are skill and script",
       );
   }
 };
 
-/** Der Name eines Skills ist der Name seines Ordners. */
+/** The name of a skill is the name of its folder. */
 const skillNameOf = (directory: string): string => directory.split(/[\\/]/).filter(Boolean).at(-1) ?? "";
 
 const byOrderThenId = (left: { order?: number; id: string }, right: { order?: number; id: string }): number =>
@@ -557,7 +557,7 @@ const byOrderThenId = (left: { order?: number; id: string }, right: { order?: nu
 
 /** Skills with a start prompt and executable run scripts share one registry. */
 export class StartEntryContributionRegistry {
-  readonly #entries = new ContributionRegistry<StartEntryContribution>("Vorlage");
+  readonly #entries = new ContributionRegistry<StartEntryContribution>("Template");
 
   register(owner: string, entries: readonly StartEntryContribution[]): void {
     for (const entry of entries) validateStartEntry(entry);
@@ -568,19 +568,19 @@ export class StartEntryContributionRegistry {
     const names = new Set(skills.flatMap((skill) => skill.paths.map(skillNameOf)));
     for (const { owner, value } of this.#entries.entries()) {
       if (value.action === "skill" && !names.has(value.skill)) {
-        throw new Error(`Vorlage ${value.id} von ${owner} verweist auf den unbekannten Skill ${value.skill}`);
+        throw new Error(`Template ${value.id} of ${owner} refers to the unknown skill ${value.skill}`);
       }
     }
   }
 
-  /** Jede festgelegte Startoption muss registriert sein und ihr Wert ihrem Schema genügen; ob er angenommen wird, entscheidet erst der Start. */
+  /** Every fixed start option must be registered and its value must satisfy its schema; whether it is accepted is decided only at start. */
   assertFixedStartOptionsKnown(startOptions: StartOptionContributionRegistry): void {
     for (const { owner, value } of this.#entries.entries()) {
       for (const [optionId, fixed] of Object.entries(value.fixedStartOptions ?? {})) {
         if (!startOptions.entry(optionId)) {
-          throw new Error(`Vorlage ${value.id} von ${owner} legt die nicht registrierte Startoption ${optionId} fest`);
+          throw new Error(`Template ${value.id} of ${owner} fixes the unregistered start option ${optionId}`);
         }
-        startOptions.assertValue(optionId, fixed, `festgelegter Wert der Vorlage ${value.id}`);
+        startOptions.assertValue(optionId, fixed, `fixed value of template ${value.id}`);
       }
     }
   }
@@ -609,7 +609,7 @@ export class StartEntryContributionRegistry {
       .sort(byOrderThenId);
   }
 
-  /** Eine Vorlage, wie das Web sie sieht; undefined für eine unbekannte Kennung. */
+  /** A template as the web sees it; undefined for an unknown id. */
   entry(entryId: string): PublicStartEntry | undefined {
     return this.describe().find((candidate) => candidate.id === entryId);
   }
@@ -625,7 +625,7 @@ export class StartEntryContributionRegistry {
 }
 
 export class ProfileContributionRegistry {
-  readonly #profiles = new ContributionRegistry<ProfileContribution>("Profil-Beitrag");
+  readonly #profiles = new ContributionRegistry<ProfileContribution>("Profile contribution");
 
   register(owner: string, contributions: readonly ProfileContribution[]): void {
     this.#profiles.register(owner, contributions);
@@ -634,27 +634,27 @@ export class ProfileContributionRegistry {
   models(): readonly CatalogModel[] {
     const models = this.#profiles.entries().flatMap(({ value }) => value.models());
     const keys = models.map((model) => `${model.driver}:${model.provider}:${model.model}`);
-    if (new Set(keys).size !== keys.length) throw new Error("Ein Modell ist mehrfach registriert");
+    if (new Set(keys).size !== keys.length) throw new Error("A model is registered more than once");
     return models;
   }
 
   profiles(): readonly AgentProfile[] {
     const profiles = this.#profiles.entries().flatMap(({ value }) => value.profiles());
     const names = profiles.map((profile) => profile.name);
-    if (new Set(names).size !== names.length) throw new Error("Ein Agentenprofil ist mehrfach registriert");
+    if (new Set(names).size !== names.length) throw new Error("An agent profile is registered more than once");
     return profiles;
   }
 
   async providers(): Promise<readonly ModelProviderRegistration[]> {
     const registrations = (await Promise.all(this.#profiles.entries().map(({ value }) => value.providers?.() ?? []))).flat();
     const ids = registrations.map((registration) => registration.id);
-    if (new Set(ids).size !== ids.length) throw new Error("Ein Modellanbieter ist mehrfach registriert");
+    if (new Set(ids).size !== ids.length) throw new Error("A model provider is registered more than once");
     return registrations;
   }
 }
 
 export class ScriptContributionRegistry {
-  readonly #script = new ContributionRegistry<ScriptContribution>("Logik-Beitrag");
+  readonly #script = new ContributionRegistry<ScriptContribution>("Logic contribution");
 
   register(owner: string, contributions: readonly ScriptContribution[]): void {
     this.#script.register(owner, contributions);
@@ -663,7 +663,7 @@ export class ScriptContributionRegistry {
   create(context: ScriptFactoryContext): ScriptRuntime | undefined {
     const entries = this.#script.entries();
     if (entries.length > 1) {
-      throw new Error(`Die Engine verträgt höchstens einen Logik-Beitrag, registriert sind ${entries.length}`);
+      throw new Error(`The engine supports at most one logic contribution, ${entries.length} are registered`);
     }
     return entries[0]?.value.create(context);
   }
@@ -690,14 +690,14 @@ export interface PluginStopOperation {
 }
 
 export class LifecycleContributionRegistry {
-  readonly #lifecycle = new ContributionRegistry<SessionLifecycleContribution>("Lifecycle-Beitrag");
+  readonly #lifecycle = new ContributionRegistry<SessionLifecycleContribution>("Lifecycle contribution");
   readonly #stopTimeoutMs: number;
   readonly #stopAttempts = new Map<string, SessionStopAttempt>();
 
   constructor(options: { stopTimeoutMs?: number } = {}) {
     const stopTimeoutMs = options.stopTimeoutMs ?? DEFAULT_PLUGIN_STOP_TIMEOUT_MS;
     if (!Number.isSafeInteger(stopTimeoutMs) || stopTimeoutMs < 1) {
-      throw new Error("Die Plugin-Stopp-Zeitgrenze muss eine positive ganze Zahl sein");
+      throw new Error("The plugin stop timeout must be a positive integer");
     }
     this.#stopTimeoutMs = stopTimeoutMs;
   }
@@ -729,15 +729,15 @@ export class LifecycleContributionRegistry {
   #beginStopPhase(runId: string, phase: "stopSession" | "afterStopSession"): PluginStopOperation {
     const contributions = [...this.#lifecycle.entries()].reverse()
       .flatMap(({ value }) => value[phase] ? [this.#beginStopContribution(value, runId, phase)] : []);
-    const bounded = this.#settleParallel("Plugin-Stopp", contributions.map(({ bounded: promise }) => promise));
-    const settled = this.#settleParallel("Plugin-Stopp-Nachlauf", contributions.map(({ settled: promise }) => promise));
+    const bounded = this.#settleParallel("Plugin stop", contributions.map(({ bounded: promise }) => promise));
+    const settled = this.#settleParallel("Plugin stop follow-up", contributions.map(({ settled: promise }) => promise));
 
     return {
       bounded,
       settled,
       release: () => {
         if (contributions.some((contribution) => !contribution.isSettled())) {
-          throw new Error(`Plugin-Stopp für ${runId} kann vor dem Ende aller Beiträge nicht freigegeben werden`);
+          throw new Error(`Plugin stop for ${runId} cannot be released before all contributions have ended`);
         }
         contributions.forEach((contribution) => contribution.release());
       },
@@ -758,14 +758,14 @@ export class LifecycleContributionRegistry {
       .filter(([key]) => key.startsWith(`${runId}\0`))
       .map(([, attempt]) => attempt.settled);
     await Promise.allSettled(pendingStops);
-    await this.#settle("Plugin-Löschung", [...this.#lifecycle.entries()].reverse()
+    await this.#settle("Plugin deletion", [...this.#lifecycle.entries()].reverse()
       .map(({ value }) => () => value.deleteSession?.({ runId })));
     this.#releaseStopAttempts(runId);
   }
 
   shutdown(): Promise<void> {
     const pendingStops = [...new Set([...this.#stopAttempts.values()].map((attempt) => attempt.settled))];
-    return this.#settle("Plugin-Shutdown", [
+    return this.#settle("Plugin shutdown", [
       ...[...this.#lifecycle.entries()].reverse().map(({ value }) => () => value.shutdown?.()),
       ...pendingStops.map((settled) => () => settled),
     ]);
@@ -776,7 +776,7 @@ export class LifecycleContributionRegistry {
     const failures = results
       .filter((result): result is PromiseRejectedResult => result.status === "rejected")
       .map((result) => result.reason);
-    if (failures.length > 0) throw new AggregateError(failures, `${name} ist in ${failures.length} Plugin(s) fehlgeschlagen`);
+    if (failures.length > 0) throw new AggregateError(failures, `${name} failed in ${failures.length} plugin(s)`);
   }
 
   #beginStopContribution(
@@ -785,7 +785,7 @@ export class LifecycleContributionRegistry {
     phase: "stopSession" | "afterStopSession",
   ): ContributionStopOperation {
     const stopSession = contribution[phase];
-    if (!stopSession) throw new Error(`Lifecycle-Beitrag ${contribution.id} hat keinen Stopp-Hook`);
+    if (!stopSession) throw new Error(`Lifecycle contribution ${contribution.id} has no stop hook`);
     const key = `${runId}\0${phase}\0${contribution.id}`;
     const existing = this.#stopAttempts.get(key);
     if (existing) {
@@ -812,7 +812,7 @@ export class LifecycleContributionRegistry {
     const deadline = new Promise<never>((_, reject) => {
       timeout = setTimeout(() => {
         const error = new Error(
-          `Plugin-Stopp ${contribution.id} (${phase}) hat die Zeitgrenze von ${this.#stopTimeoutMs} ms überschritten`,
+          `Plugin stop ${contribution.id} (${phase}) exceeded the timeout of ${this.#stopTimeoutMs} ms`,
         );
         attempt.timeoutError = error;
         controller.abort(error);
@@ -862,27 +862,27 @@ export class LifecycleContributionRegistry {
         failures.push(error);
       }
     }
-    if (failures.length > 0) throw new AggregateError(failures, `${name} ist in ${failures.length} Plugin(s) fehlgeschlagen`);
+    if (failures.length > 0) throw new AggregateError(failures, `${name} failed in ${failures.length} plugin(s)`);
   }
 }
 
-const WORKSPACE_NOT_ACCESSIBLE = "Der Arbeitsbereich dieses Runs ist für diesen Zugang nicht erreichbar.";
+const WORKSPACE_NOT_ACCESSIBLE = "The workspace of this run is not reachable for this access.";
 
 export class SessionMetadataContributionRegistry {
-  readonly #metadata = new ContributionRegistry<SessionMetadataContribution>("Run-Metadaten-Beitrag");
+  readonly #metadata = new ContributionRegistry<SessionMetadataContribution>("Run metadata contribution");
 
   register(owner: string, contributions: readonly SessionMetadataContribution[]): void {
     this.#metadata.register(owner, contributions);
   }
 
-  /** Alle Beiträge zugleich; wer nicht innerhalb von `timeoutMs` antwortet oder scheitert, verliert nur seinen Wert und nennt den Grund. */
+  /** All contributions at once; whoever does not answer within `timeoutMs` or fails loses only its value and states the reason. */
   async describe(runId: string, workspaceAccessible: boolean, timeoutMs: number): Promise<SessionMetadata> {
     type Outcome = { readonly id: string; readonly value: unknown } | { readonly id: string; readonly reason: string };
     const outcomes = await Promise.all(this.#metadata.entries().map(async ({ value }): Promise<Outcome> => {
       if (value.requiresWorkspace === true && !workspaceAccessible) return { id: value.id, reason: WORKSPACE_NOT_ACCESSIBLE };
       let timer: ReturnType<typeof setTimeout> | undefined;
       const silent = new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(() => reject(new Error(`keine Antwort nach ${timeoutMs} ms`)), timeoutMs);
+        timer = setTimeout(() => reject(new Error(`no answer after ${timeoutMs} ms`)), timeoutMs);
       });
       try {
         return { id: value.id, value: await Promise.race([Promise.resolve().then(() => value.describe({ runId })), silent]) };
@@ -900,25 +900,25 @@ export class SessionMetadataContributionRegistry {
 }
 
 export class StartOptionContributionRegistry {
-  readonly #options = new ContributionRegistry<StartOptionContribution>("Startoption");
+  readonly #options = new ContributionRegistry<StartOptionContribution>("Start option");
 
   register(owner: string, contributions: readonly StartOptionContribution[]): void {
     for (const contribution of contributions) {
-      if (!START_OPTION_ID.test(contribution.id)) throw new Error(`Ungültige Startoption-Id: ${contribution.id}`);
+      if (!START_OPTION_ID.test(contribution.id)) throw new Error(`Invalid start option id: ${contribution.id}`);
       if (typeof contribution.schema !== "object" || contribution.schema === null) {
-        throw new Error(`Startoption ${contribution.id} hat kein Schema`);
+        throw new Error(`Start option ${contribution.id} has no schema`);
       }
       for (const name of ["selectable", "defaultValue", "accept", "describe"] as const) {
-        if (typeof contribution[name] !== "function") throw new Error(`Startoption ${contribution.id} hat kein ${name}`);
+        if (typeof contribution[name] !== "function") throw new Error(`Start option ${contribution.id} has no ${name}`);
       }
       if (contribution.ownerOnly !== undefined && typeof contribution.ownerOnly !== "function") {
-        throw new Error(`Startoption ${contribution.id} hat ein ungültiges ownerOnly`);
+        throw new Error(`Start option ${contribution.id} has an invalid ownerOnly`);
       }
       if (contribution.rights !== undefined && (!Array.isArray(contribution.rights) || !contribution.rights.every(isAccessRight))) {
-        throw new Error(`Startoption ${contribution.id} hat ungültige rights`);
+        throw new Error(`Start option ${contribution.id} has invalid rights`);
       }
       if (contribution.changeable !== undefined && typeof contribution.changeable !== "boolean") {
-        throw new Error(`Startoption ${contribution.id} hat ein ungültiges changeable`);
+        throw new Error(`Start option ${contribution.id} has an invalid changeable`);
       }
     }
     this.#options.register(owner, contributions);
@@ -937,52 +937,52 @@ export class StartOptionContributionRegistry {
     return this.#options.entries().map(({ owner, value }) => ({ id: value.id, owner }));
   }
 
-  /** Das erste Recht der Option, das dem Zugang fehlt; eine unbekannte Option verlangt keins. */
+  /** The first right of the option that the access lacks; an unknown option requires none. */
   missingRight(id: string, access: Pick<AccessContext, "can">): string | undefined {
     return this.entry(id)?.option.rights?.find((right) => !access.can(right));
   }
 
   assertRights(id: string, access: Pick<AccessContext, "can">): void {
     const missing = this.missingRight(id, access);
-    if (missing) throw new DomainError("access-denied", `Das Recht ${missing} fehlt für die Startoption ${id}.`, 403);
+    if (missing) throw new DomainError("access-denied", `The right ${missing} is missing for the start option ${id}.`, 403);
   }
 
   defaultValue(id: string, context: StartOptionContext): JsonValue {
     const { option } = this.#require(id);
     const value = option.defaultValue(context);
-    this.#check(option, value, "Standardwert");
+    this.#check(option, value, "default value");
     return value;
   }
 
   accept(id: string, value: unknown, context: StartOptionContext): JsonValue {
     const { option } = this.#require(id);
-    assertJsonValue(value, `Startoption ${id} value`);
-    this.#check(option, value, "Wert");
+    assertJsonValue(value, `Start option ${id} value`);
+    this.#check(option, value, "value");
     const accepted = option.accept(value, context);
-    this.#check(option, accepted, "Ergebnis von accept");
+    this.#check(option, accepted, "result of accept");
     return accepted;
   }
 
-  /** Prüft einen Wert gegen das Schema der Option, ohne ihn anzunehmen. */
+  /** Checks a value against the schema of the option without accepting it. */
   assertValue(id: string, value: unknown, label: string): void {
     this.#check(this.#require(id).option, value, label);
   }
 
   #require(id: string): RegisteredStartOption {
     const entry = this.entry(id);
-    if (!entry) throw new Error(`Startoption ${id} ist nicht registriert`);
+    if (!entry) throw new Error(`Start option ${id} is not registered`);
     return entry;
   }
 
   #check(option: StartOptionContribution, value: unknown, label: string): void {
     if (Value.Check(option.schema, value)) return;
-    throw new Error(`Ungültiger ${label} für Startoption ${option.id}: ${schemaComplaints(option.schema, value, "value")}`);
+    throw new Error(`Invalid ${label} for start option ${option.id}: ${schemaComplaints(option.schema, value, "value")}`);
   }
 }
 
-/** Was ein Zugang ohne runs.inspect von Plugin-Zuständen sieht: eine Startoption nur mit ihren Rechten, sonst die Projektion ihres Plugins, ohne sie alles. */
+/** What an access without runs.inspect sees of plugin states: a start option only with its rights, otherwise the projection of its plugin, without one everything. */
 export class AccessProjectionRegistry {
-  readonly #projections = new ContributionRegistry<AccessProjectionContribution>("Zugriffsprojektion");
+  readonly #projections = new ContributionRegistry<AccessProjectionContribution>("Access projection");
   readonly #startOptions: StartOptionContributionRegistry;
 
   constructor(startOptions = new StartOptionContributionRegistry()) {
@@ -992,7 +992,7 @@ export class AccessProjectionRegistry {
   register(owner: string, contributions: readonly AccessProjectionContribution[]): void {
     for (const contribution of contributions) {
       for (const name of ["state", "chatEvent"] as const) {
-        if (typeof contribution[name] !== "function") throw new Error(`Zugriffsprojektion ${contribution.id} hat kein ${name}`);
+        if (typeof contribution[name] !== "function") throw new Error(`Access projection ${contribution.id} has no ${name}`);
       }
     }
     this.#projections.register(owner, contributions);
@@ -1032,10 +1032,10 @@ export class ConfigContributionRegistry {
         continue;
       }
       if (existing.value.source !== descriptor.source || Boolean(existing.value.secret) !== Boolean(descriptor.secret)) {
-        throw new Error(`Konfiguration ${descriptor.key} ist widersprüchlich deklariert`);
+        throw new Error(`Configuration ${descriptor.key} is declared inconsistently`);
       }
       if (existing.owners.includes(owner)) {
-        throw new Error(`Konfiguration ${descriptor.key} ist in ${owner} mehrfach deklariert`);
+        throw new Error(`Configuration ${descriptor.key} is declared more than once in ${owner}`);
       }
       existing.owners.push(owner);
     }
@@ -1066,7 +1066,7 @@ const joinSafe = (base: string, segments: readonly string[]): string => {
   for (const segment of segments) {
     if (!segment || segment === "." || segment === ".." || path.isAbsolute(segment)
       || segment.includes("/") || segment.includes("\\")) {
-      throw new Error(`Ungültiges Plugin-Speichersegment: ${segment}`);
+      throw new Error(`Invalid plugin storage segment: ${segment}`);
     }
   }
   return path.join(base, ...segments);
@@ -1083,14 +1083,14 @@ export class StorageRegistry {
   }
 
   register(manifest: PluginManifest): PluginStorage {
-    if (this.#scopes.has(manifest.id)) throw new Error(`Speicher für ${manifest.id} ist bereits registriert`);
+    if (this.#scopes.has(manifest.id)) throw new Error(`Storage for ${manifest.id} is already registered`);
     const pluginDirectory = path.join("plugins", manifest.id);
     const scope: PluginStorage = Object.freeze({
       sessionsRoot: path.join(this.#dataDirectory, "sessions"),
       modes: this.#modes,
       root: (...segments: string[]) => joinSafe(path.join(this.#dataDirectory, pluginDirectory), segments),
       session: (runId: string, ...segments: string[]) => {
-        if (!RUN_ID.test(runId)) throw new Error(`Ungültige Run-ID: ${runId}`);
+        if (!RUN_ID.test(runId)) throw new Error(`Invalid run id: ${runId}`);
         return joinSafe(path.join(this.#dataDirectory, "sessions", runId, pluginDirectory), segments);
       },
     });
@@ -1100,7 +1100,7 @@ export class StorageRegistry {
 
   of(pluginId: string): PluginStorage {
     const scope = this.#scopes.get(pluginId);
-    if (!scope) throw new Error(`Speicher für ${pluginId} ist nicht registriert`);
+    if (!scope) throw new Error(`Storage for ${pluginId} is not registered`);
     return scope;
   }
 }
@@ -1112,7 +1112,7 @@ class ClientConfigRegistry {
     const existing = this.#values.get(owner) ?? {};
     for (const key of Object.keys(values)) {
       if (Object.hasOwn(existing, key)) {
-        throw new Error(`Client-Konfiguration ${key} ist in ${owner} mehrfach gesetzt`);
+        throw new Error(`Client configuration ${key} is set more than once in ${owner}`);
       }
     }
     this.#values.set(owner, { ...existing, ...values });
@@ -1128,13 +1128,13 @@ class ServiceRegistry {
 
   provide<T>(owner: string, token: ServiceToken<T>, service: T): void {
     const existing = this.#services.get(token.id);
-    if (existing) throw new Error(`Service ${token.id} wird bereits von ${existing.owner} bereitgestellt`);
+    if (existing) throw new Error(`Service ${token.id} is already provided by ${existing.owner}`);
     this.#services.set(token.id, { owner, value: service });
   }
 
   require<T>(token: ServiceToken<T>): T {
     const entry = this.#services.get(token.id);
-    if (!entry) throw new Error(`Erforderlicher Plugin-Service ${token.id} ist nicht registriert`);
+    if (!entry) throw new Error(`Required plugin service ${token.id} is not registered`);
     return entry.value as T;
   }
 
@@ -1190,11 +1190,11 @@ export class PluginHost {
   }
 
   register(plugin: RAgentsPlugin): this {
-    if (this.#sealed) throw new Error("Nach dem Start können keine Plugins mehr registriert werden");
+    if (this.#sealed) throw new Error("No more plugins can be registered after startup");
     const { manifest } = plugin;
-    if (!PLUGIN_ID.test(manifest.id)) throw new Error(`Ungültige Plugin-Id: ${manifest.id}`);
+    if (!PLUGIN_ID.test(manifest.id)) throw new Error(`Invalid plugin id: ${manifest.id}`);
     if (this.#manifests.some((entry) => entry.id === manifest.id)) {
-      throw new Error(`Plugin ${manifest.id} ist bereits registriert`);
+      throw new Error(`Plugin ${manifest.id} is already registered`);
     }
     this.#manifests.push(manifest);
     const storage = this.storage.register(manifest);
@@ -1235,8 +1235,8 @@ export class PluginHost {
     for (const [index, manifest] of this.#manifests.entries()) {
       for (const dependency of manifest.requires ?? []) {
         const position = positions.get(dependency);
-        if (position === undefined) throw new Error(`Plugin ${manifest.id} benötigt das fehlende Plugin ${dependency}`);
-        if (position >= index) throw new Error(`Plugin ${dependency} muss vor ${manifest.id} registriert werden`);
+        if (position === undefined) throw new Error(`Plugin ${manifest.id} requires the missing plugin ${dependency}`);
+        if (position >= index) throw new Error(`Plugin ${dependency} must be registered before ${manifest.id}`);
       }
     }
     this.startEntries.assertFixedStartOptionsKnown(this.startOptions);
@@ -1244,8 +1244,8 @@ export class PluginHost {
     if (defaultStartEntry !== undefined) {
       const entries = this.startEntries.describe().map((entry) => entry.id);
       if (!entries.includes(defaultStartEntry)) {
-        throw new Error(`defaultStartEntry ${defaultStartEntry} ist keine registrierte Vorlage; `
-          + (entries.length > 0 ? `registriert sind ${entries.join(", ")}` : "kein Plugin dieses Profils registriert Vorlagen"));
+        throw new Error(`defaultStartEntry ${defaultStartEntry} is not a registered template; `
+          + (entries.length > 0 ? `registered are ${entries.join(", ")}` : "no plugin of this profile registers templates"));
       }
     }
     this.#sealed = true;

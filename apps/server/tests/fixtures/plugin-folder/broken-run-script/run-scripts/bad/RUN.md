@@ -1,4 +1,4 @@
 ---
-title: Kaputt
-description: Ohne setup.ts.
+title: Broken
+description: Without setup.ts.
 ---

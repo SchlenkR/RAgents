@@ -27,7 +27,7 @@ export interface LanguageServerSnapshot {
 }
 
 export interface LanguageServerSolution {
-  /** Relativ zur Wurzel des Arbeitsbereichs, mit Schrägstrichen. */
+  /** Relative to the root of the workspace, with forward slashes. */
   path: string;
   root: string;
   state: LanguageServerState | null;
@@ -36,6 +36,6 @@ export interface LanguageServerSolution {
 export interface LanguageServerSolutions {
   source: "git" | "directory";
   solutions: readonly LanguageServerSolution[];
-  /** Ob im Run schon eine Instanz dieser Sprache offen ist oder gerade geöffnet wird. */
+  /** Whether an instance of this language is already open or being opened in the run. */
   opened: boolean;
 }

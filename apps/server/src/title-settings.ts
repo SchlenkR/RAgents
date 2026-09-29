@@ -53,15 +53,15 @@ export class TitleSettingsStore {
 
   #validate(value: unknown): TitleModelSelection | null {
     if (!value || typeof value !== "object" || Array.isArray(value)
-      || Object.keys(value).length !== 1 || !("selection" in value)) throw invalid("Erforderlich ist ausschließlich selection mit Modellwahl oder null.");
+      || Object.keys(value).length !== 1 || !("selection" in value)) throw invalid("Only selection with a model choice or null is allowed.");
     const selected = value.selection;
     if (selected === null) return null;
     if (!selected || typeof selected !== "object" || Array.isArray(selected)
       || Object.keys(selected).some((key) => !["provider", "model"].includes(key))
       || !("provider" in selected) || typeof selected.provider !== "string"
-      || !("model" in selected) || typeof selected.model !== "string") throw invalid("Die Titelmodellwahl braucht provider und model.");
+      || !("model" in selected) || typeof selected.model !== "string") throw invalid("The title model choice needs provider and model.");
     if (!this.models.some((model) => model.provider === selected.provider && model.id === selected.model))
-      throw invalid(`Das Titelmodell ${selected.provider}/${selected.model} steht nicht zur Wahl; erforderlich ist ein Textmodell ohne Reasoning.`);
+      throw invalid(`The title model ${selected.provider}/${selected.model} is not available for selection; a text model without reasoning is required.`);
     return { provider: selected.provider, model: selected.model };
   }
 }

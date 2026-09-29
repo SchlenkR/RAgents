@@ -1,4 +1,4 @@
-/* react-diff-view erzeugt diese Klassennamen selbst; nur deshalb bleibt hier CSS statt Utilities. */
+/* react-diff-view generates these class names itself; that is the only reason this stays CSS instead of utilities. */
 
 @import "react-diff-view/style/index.css";
 

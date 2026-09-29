@@ -7,7 +7,7 @@ export const createAnswerMethod = (
   ensureSession: (runId: string) => void,
 ): MethodContribution => implement(askContracts.answer, ({ runId, actionId, answer, dismiss }) => {
   if (dismiss !== true && (typeof answer !== "string" || answer.trim() === "")) {
-    throw new DomainError("answer-missing", "answer ist erforderlich, wenn nicht verworfen wird", 400);
+    throw new DomainError("answer-missing", "answer is required unless the question is dismissed", 400);
   }
   ensureSession(runId);
   service.answer(runId, actionId, { ...(answer !== undefined ? { answer } : {}), ...(dismiss !== undefined ? { dismiss } : {}) });

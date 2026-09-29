@@ -7,7 +7,7 @@ export interface AskPayload {
   question: string;
   options: string[];
   multi: boolean;
-  /** Der Actor, für den die Frage steht, wenn der Eigentümer des Runs sie außerhalb eines Turns stellt. */
+  /** The actor the question stands for when the run owner asks it outside a turn. */
   recipient?: string;
 }
 

@@ -14,16 +14,16 @@ import {
   type RipgrepTarget,
 } from "./bundle-rg.ts";
 
-test("rg kommt für jede Plattform der Erweiterung aus einem festen, gehashten Release-Archiv", () => {
+test("rg comes for every platform of the extension from a pinned, hashed release archive", () => {
   assert.equal(RIPGREP_VERSION, "15.2.0");
   assert.deepEqual(Object.keys(RIPGREP_TARGETS).sort(), ["darwin-arm64", "darwin-x64", "linux-arm64", "linux-x64", "win32-arm64", "win32-x64"]);
   for (const source of Object.values(RIPGREP_TARGETS)) assert.match(source.sha256, /^[0-9a-f]{64}$/);
-  assert.equal(new Set(Object.values(RIPGREP_TARGETS).map((source) => source.sha256)).size, 6, "jedes Archiv hat seinen eigenen Hash");
+  assert.equal(new Set(Object.values(RIPGREP_TARGETS).map((source) => source.sha256)).size, 6, "every archive has its own hash");
   assert.equal(ripgrepAsset("win32-x64"), "ripgrep-15.2.0-x86_64-pc-windows-msvc.zip");
   assert.equal(ripgrepAsset("win32-arm64"), "ripgrep-15.2.0-aarch64-pc-windows-msvc.zip");
   assert.equal(ripgrepAsset("darwin-arm64"), "ripgrep-15.2.0-aarch64-apple-darwin.tar.gz");
   assert.equal(ripgrepAsset("darwin-x64"), "ripgrep-15.2.0-x86_64-apple-darwin.tar.gz");
-  assert.equal(ripgrepAsset("linux-x64"), "ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz", "statisch gelinkt, ohne glibc");
+  assert.equal(ripgrepAsset("linux-x64"), "ripgrep-15.2.0-x86_64-unknown-linux-musl.tar.gz", "statically linked, without glibc");
   assert.equal(ripgrepAsset("linux-arm64"), "ripgrep-15.2.0-aarch64-unknown-linux-musl.tar.gz");
   assert.equal(ripgrepExecutable("win32-arm64"), "rg.exe");
   assert.equal(ripgrepExecutable("linux-x64"), "rg");
@@ -31,11 +31,11 @@ test("rg kommt für jede Plattform der Erweiterung aus einem festen, gehashten R
   assert.equal(ripgrepBundleFolder("darwin-arm64", "/ext"), path.join("/ext", "dist", "rg", "darwin-arm64"));
 });
 
-/** Baut aus den Archiven im Cache, ohne Netz; ohne Cache (frischer Rechner) holt `pnpm bundle:rg` sie zuerst. */
+/** Builds from the archives in the cache, without network; without a cache (fresh machine) `pnpm bundle:rg` fetches them first. */
 const cache = path.join(tmpdir(), "ragents-rg-cache");
 const cached = (target: RipgrepTarget): boolean => existsSync(path.join(cache, ripgrepAsset(target)));
 
-test("das Bündel trägt das unveränderte rg, die Lizenztexte und einen Hinweis auf die Quelle", { skip: !cached("linux-x64") || !cached("win32-x64") }, async () => {
+test("the bundle carries the unchanged rg, the license texts and a notice of the source", { skip: !cached("linux-x64") || !cached("win32-x64") }, async () => {
   const output = mkdtempSync(path.join(tmpdir(), "ragents-rg-bundle-"));
   try {
     for (const target of ["linux-x64", "win32-x64"] as const) {

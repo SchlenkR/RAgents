@@ -1,6 +1,6 @@
 import type { RunPanelTheme } from "../run-panel/host-contract";
 
-/** Ein Server der Erweiterung: ein RAgents-Server per Adresse oder ein lokales Profil, das sie selbst startet. */
+/** A server of the extension: a RAgents server by address or a local profile that the extension starts itself. */
 export type ConnectionKind = "server" | "profile";
 
 export type ConnectionState =
@@ -13,10 +13,10 @@ export type ConnectionState =
   | { readonly kind: "forbidden"; readonly message: string }
   | { readonly kind: "failed"; readonly message: string };
 
-/** Eine Umgebungsvariable, die die Konfiguration eines Profils mit env("NAME") verlangt, ohne dass sie gesetzt ist. */
+/** An environment variable that a profile's configuration requires with env("NAME") without it being set. */
 export interface MissingEnvironment {
   readonly variable: string;
-  /** Die Sektion der Konfiguration, die sie braucht, etwa ein Plugin. */
+  /** The configuration section that needs it, for example a plugin. */
   readonly section: string;
   readonly key: string;
 }
@@ -27,9 +27,9 @@ export interface ConnectionRun {
   readonly state: "running" | "waiting" | "idle" | "ended";
   readonly pendingActions: number;
   readonly updatedAt: number;
-  /** Die Erweiterung konnte die Run-Ansicht nicht lesen; die Zeile nennt den Grund. */
+  /** The extension could not read the run view; the row names the reason. */
   readonly problem?: string;
-  /** Warum der Server den Run gesperrt hat; die Zeile öffnet ihn nicht, löschen bleibt möglich. */
+  /** Why the server locked the run; the row does not open it, deleting stays possible. */
   readonly locked?: string;
 }
 
@@ -38,13 +38,13 @@ export interface ConnectionEntry {
   readonly title: string;
   readonly description: string;
   readonly kind: "skill" | "script";
-  /** Die Gruppe der Vorlagen auf Start; ein Run-Script ohne eigene Kategorie steht unter "Run-Scripts". */
+  /** The template group on Start; a run script without its own category is listed under "Run scripts". */
   readonly category: string;
-  /** Ein Leitfaden fragt vor dem Start nach; die Vorlage heißt dann "Einrichten" statt "Starten". */
+  /** A guide asks questions before the start; the template is then labeled "Set up" instead of "Start". */
   readonly guided?: boolean;
 }
 
-/** Wohin der Server geht: ein lokales Profil, eine Adresse oder eine Adresse, deren verteiltes Profil auf einem lokalen Host läuft. */
+/** Where the server points: a local profile, an address, or an address whose distributed profile runs on a local host. */
 export type ConnectionRoute =
   | { readonly kind: "profile"; readonly profile: string }
   | { readonly kind: "server"; readonly host: string; readonly localHost: boolean };
@@ -52,27 +52,27 @@ export type ConnectionRoute =
 export interface ConnectionView {
   readonly name: string;
   readonly kind: ConnectionKind;
-  /** Adresse des Servers oder Pfad der Profildatei. */
+  /** Address of the server or path of the profile file. */
   readonly address: string;
   readonly route: ConnectionRoute;
   readonly state: ConnectionState;
   readonly runs: readonly ConnectionRun[];
   readonly entries: readonly ConnectionEntry[];
-  /** Die Vorlage aus entries, die das Plus am Chip nimmt und die auf Start zuerst steht; ohne sie ist ein neuer Run ein leerer Chat. */
+  /** The template from entries that the plus on the chip uses and that comes first on Start; without it a new run is an empty chat. */
   readonly defaultEntry?: string;
-  /** Neue Runs sind erlaubt; ohne das Recht bleibt nur die Liste. */
+  /** New runs are allowed; without the right only the list remains. */
   readonly canCreate: boolean;
-  /** Der angemeldete Benutzer, sofern der Server Benutzer führt. */
+  /** The signed-in user, if the server manages users. */
   readonly user?: string;
-  /** Die zuletzt versuchte Kennung; das Anmeldeformular übernimmt sie. */
+  /** The most recently tried user name; the sign-in form takes it over. */
   readonly loginUser?: string;
-  /** Anmeldedaten liegen in der SecretStorage, damit sich die Erweiterung still am Server anmeldet. */
+  /** Credentials are stored in the SecretStorage so the extension signs in to the server silently. */
   readonly savedLogin?: boolean;
-  /** Fehler der letzten Aktion an diesem Server, direkt in seiner Zeile. */
+  /** Error of the last action on this server, directly in its row. */
   readonly problem?: string;
-  /** Start oder Übernahme scheiterten an dieser Umgebungsvariablen; die Zeile führt von hier zum Wert und zum neuen Versuch. */
+  /** Start or takeover failed because of this environment variable; the row leads from here to the value and the retry. */
   readonly missingEnvironment?: MissingEnvironment;
-  /** Erweiterung und Server tragen eine andere RAgents-Fassung; ein Fehler, wenn der Arbeitsplatz deshalb nicht angemeldet ist. */
+  /** Extension and server carry a different RAgents version; an error if the workstation is not registered because of it. */
   readonly versionNotice?: ConnectionNotice;
 }
 
@@ -81,35 +81,35 @@ export interface ConnectionNotice {
   readonly text: string;
 }
 
-/** Die vier Seiten der Erweiterung; "run" zeigt das Run-Panel statt dieser Seite. */
+/** The four pages of the extension; "run" shows the run panel instead of this page. */
 export type PanelPage = "start" | "runs" | "run" | "connections";
 
-/** Die Seiten, auf die das Panel selbst umschalten darf; zum Run führt openRun. */
+/** The pages the panel may switch to itself; openRun leads to the run. */
 export const PANEL_PAGES = ["start", "runs", "connections"] as const;
 
 export interface PanelState {
   readonly theme: RunPanelTheme;
   readonly page: PanelPage;
   readonly connections: readonly ConnectionView[];
-  /** Die Profildateien im Host-Ordner; der Dialog bietet sie an, ohne Host bleibt die Liste leer. */
+  /** The profile files in the host folder; the dialog offers them, without a host the list stays empty. */
   readonly profileSuggestions: readonly string[];
-  /** Die Einstellung ragents.connections ist fehlerhaft; die Seite nennt den Grund. */
+  /** The ragents.connections setting is invalid; the page names the reason. */
   readonly problem?: string;
-  /** Der zuletzt über den Dateidialog gewählte Profilpfad; der Dialog übernimmt ihn. */
+  /** The profile path most recently chosen in the file dialog; the dialog takes it over. */
   readonly pickedProfileFile?: string;
-  /** Die Seite Runs beginnt mit den Runs dieses Servers; der Chip auf Start setzt ihn, die Titelzeile nicht. */
+  /** The Runs page starts with the runs of this server; the chip on Start sets it, the title bar does not. */
   readonly runsConnection?: string;
-  /** Namen aus ragents.hostEnvironment ohne Wert in der SecretStorage; die Einstellung gilt für alle Server, darum steht die Liste einmal. */
+  /** Names from ragents.hostEnvironment without a value in the SecretStorage; the setting applies to all servers, so the list appears once. */
   readonly missingSecrets?: readonly string[];
 }
 
-/** Der Zustand kommt von der Erweiterung, zuerst eingebettet in die Seite, danach als Nachricht. */
+/** The state comes from the extension, first embedded in the page, then as a message. */
 export interface PanelStateMessage {
   readonly type: "ragents.panel.state";
   readonly state: PanelState;
 }
 
-/** Was die Panelseite an die Erweiterung schickt. */
+/** What the panel page sends to the extension. */
 export type PanelAction =
   | { readonly action: "page"; readonly page: (typeof PANEL_PAGES)[number]; readonly connection?: string }
   | { readonly action: "settingsFile" }
@@ -120,8 +120,8 @@ export type PanelAction =
   | { readonly action: "updateServer"; readonly name: string; readonly newName: string; readonly url: string }
   | { readonly action: "updateProfile"; readonly name: string; readonly newName: string; readonly profileFile: string }
   | { readonly action: "remove" | "connect" | "disconnect" | "logout" | "startProfile" | "stopProfile" | "retry"; readonly name: string }
-  /** Der Name einer Umgebungsvariablen, nicht der eines Servers: die Erweiterung fragt den Wert ab und legt ihn in die SecretStorage.
-   * Mit connection kommt der Name zuerst in ragents.hostEnvironment, und dieser Server startet danach erneut. */
+  /** The name of an environment variable, not of a server: the extension asks for the value and puts it into the SecretStorage.
+   * With connection the name first goes into ragents.hostEnvironment, and this server then restarts. */
   | { readonly action: "setSecret"; readonly name: string; readonly connection?: string }
   | { readonly action: "login"; readonly name: string; readonly user: string; readonly password: string }
   | { readonly action: "login"; readonly name: string; readonly token: string }

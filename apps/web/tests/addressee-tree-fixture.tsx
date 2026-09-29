@@ -16,7 +16,7 @@ const subscriptions = new Set<Subscription>();
 const at = (minute: number) => `2026-09-25T09:${String(minute).padStart(2, "0")}:00.000Z`;
 const idle = { kind: "idle", since: at(30) } as const;
 const running = { kind: "running", turnId: "turn", inputId: "input", startedAt: at(31) } as const;
-const stopped = { kind: "stopped", stoppedAt: at(32), reason: "Auftrag erledigt" } as const;
+const stopped = { kind: "stopped", stoppedAt: at(32), reason: "Task done" } as const;
 const actor = (id: string, kind: RunActor["kind"], createdBy: string | undefined, extra: Partial<RunActor> = {}): RunActor =>
   ({ id, kind, handle: id, displayName: id, grants: [], createdAt: at(1), ...createdBy ? { createdBy } : {}, lifecycle: kind === "human" ? undefined : idle, ...extra });
 const assignment = (actorId: string, sequence: number, content: string): RunActorInput =>
@@ -30,34 +30,34 @@ const rules = [
 ];
 const reviewers = rules.map((rule, index) => actor(`review-${rule}`, "agent", "coordinator", {
   displayName: `Review ${rule}`,
-  description: `prüft die Regel ${rule} im Änderungssatz`,
+  description: `checks the rule ${rule} in the change set`,
   lifecycle: index > 32 ? stopped : index % 9 === 0 ? running : idle,
 }));
 const view: RunView = {
-  id: "demo", revision: 1, title: "Regel-Review", ownerId: "tester", primaryActorId: "coordinator", createdAt: at(0), forkedFrom: null,
+  id: "demo", revision: 1, title: "Rule review", ownerId: "tester", primaryActorId: "coordinator", createdAt: at(0), forkedFrom: null,
   actors: [
     actor("tester", "human", undefined, { displayName: "Tester" }),
-    actor("coordinator", "agent", "tester", { displayName: "Koordinator", lifecycle: running }),
-    actor("implementer", "agent", "coordinator", { displayName: "Implementierer", lifecycle: running }),
-    actor("test-writer", "agent", "implementer", { displayName: "Testschreiber" }),
-    actor("formatter", "script", "implementer", { displayName: "Formatierer", description: "formatiert geänderte Dateien nach jedem Schritt" }),
+    actor("coordinator", "agent", "tester", { displayName: "Coordinator", lifecycle: running }),
+    actor("implementer", "agent", "coordinator", { displayName: "Implementer", lifecycle: running }),
+    actor("test-writer", "agent", "implementer", { displayName: "Test writer" }),
+    actor("formatter", "script", "implementer", { displayName: "Formatter", description: "formats changed files after every step" }),
     ...reviewers,
-    actor("summary", "agent", "coordinator", { displayName: "Zusammenfassung" }),
+    actor("summary", "agent", "coordinator", { displayName: "Summary" }),
   ],
   inputs: [
-    assignment("implementer", 3, "Baue die Adressatenliste des Chats zu einem Baum um.\nDetails stehen im Auftrag."),
-    assignment("test-writer", 4, "Schreibe Tests für den Aufbau des Baums aus dem Journal."),
-    assignment("summary", 5, "Fasse die Befunde aller Reviewer zusammen, sobald sie fertig sind."),
+    assignment("implementer", 3, "Rebuild the chat's addressee list into a tree.\nDetails are in the task."),
+    assignment("test-writer", 4, "Write tests for building the tree from the journal."),
+    assignment("summary", 5, "Summarize the findings of all reviewers once they are done."),
   ],
   turns: [], subscriptions: [], pluginStates: [], actions: [], artifacts: [],
 };
 const conversation = (who: string): Message[] => [
-  { key: `${who}-question`, role: "user", sender: "tester", text: `Bitte prüfe den Stand, @${who}.`, closed: true, at: at(5) },
-  { key: `${who}-answer`, role: "assistant", sender: who, text: "Ich bin dran.", closed: true, at: at(6) },
+  { key: `${who}-question`, role: "user", sender: "tester", text: `Please check the status, @${who}.`, closed: true, at: at(5) },
+  { key: `${who}-answer`, role: "assistant", sender: who, text: "I am on it.", closed: true, at: at(6) },
 ];
 const conversations = Object.fromEntries(view.actors.map(({ id }) => [id, conversation(id)]));
 const registry = new PluginRegistry({
-  brand: { title: "Adressaten" }, product: { id: "addressees", title: "Adressaten" },
+  brand: { title: "Addressees" }, product: { id: "addressees", title: "Addressees" },
   plugins: [{ id: "addressees", needsRunView: true, surface: { Center: () => null, RunPanel: OrchestrationRunPanel } }],
   startEntries: [],
 });
@@ -69,7 +69,7 @@ const fixture = {
   async call(contract: { id: string }, params: { runId?: string }) {
     switch (contract.id) {
       case "ragents.runs.view": return params.runId === "demo" ? view : null;
-      case "ragents.runs.list": return [{ id: "demo", title: "Regel-Review", updatedAt: 0 }];
+      case "ragents.runs.list": return [{ id: "demo", title: "Rule review", updatedAt: 0 }];
       case "ragents.startOptions.list": return [];
       case "ragents.chat.actorHistory": return { actors: conversations };
       case "ragents.chat.capabilities": return { input: ["text"], model: "demo-model" };

@@ -21,8 +21,8 @@ const attentionFor = (session: SessionContext) => {
   return {
     active: true as const,
     label: rest.length === 0
-      ? `@${askerHandle(view, askPayloadOf(first.payload)?.recipient ?? first.askedBy)} fragt`
-      : `${rest.length + 1} Rückfragen offen`,
+      ? `@${askerHandle(view, askPayloadOf(first.payload)?.recipient ?? first.askedBy)} asks`
+      : `${rest.length + 1} open questions`,
   };
 };
 

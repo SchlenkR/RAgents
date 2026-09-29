@@ -21,7 +21,7 @@ const center = async (locator: Locator) => {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
 };
 
-/** Baut die Fixture einmal und liefert die Adresse ihrer Seite. */
+/** Builds the fixture once and returns the address of its page. */
 const buildFixture = async (): Promise<string> => {
   await mkdir("/private/tmp/ragents-run-panel-start", { recursive: true });
   const directory = await mkdtemp("/private/tmp/ragents-run-panel-start/browser-");
@@ -65,12 +65,12 @@ test("the run panel shows one loading state from the click to the first content 
 
     await page.goto(`${url}?profile=pending`);
     await notice.waitFor();
-    assert.equal(await titleOf(), "Profil wird geladen");
+    assert.equal(await titleOf(), "Loading profile");
     assert.equal(await notice.getAttribute("data-startup"), "working");
     assert.equal(await notice.locator("[role=progressbar]").count(), 1, "Loading the profile shows the same progress as the run.");
     await page.evaluate(() => window.runStartFixture.activate());
-    await waitForTitle("Run wird gestartet");
-    assert.equal(await detailOf(), "Der neue Run wird angelegt.");
+    await waitForTitle("Starting run");
+    assert.equal(await detailOf(), "Creating the new run.");
     assert.ok((await page.evaluate(() => window.runStartFixture.notifications)).some((message) => message.type === "ready"));
     const waiting = await center(notice);
 
@@ -80,41 +80,41 @@ test("the run panel shows one loading state from the click to the first content 
       window.runStartFixture.command({ type: "newRun", entryId: "start.script" });
     });
     await page.waitForFunction(() => window.runStartFixture.calls.includes("ragents.chat.start"));
-    assert.equal(await titleOf(), "Run wird gestartet");
-    assert.equal(await detailOf(), "Die Vorlage wird gestartet.");
-    assert.equal(await page.locator("header strong").textContent(), "Aufbau-Vorlage");
+    assert.equal(await titleOf(), "Starting run");
+    assert.equal(await detailOf(), "Starting the template.");
+    assert.equal(await page.locator("header strong").textContent(), "Setup template");
     const launching = await center(notice);
     assert.ok(Math.abs(launching.x - waiting.x) < 1 && Math.abs(launching.y - waiting.y) < 1, "Waiting for the host and launching share one place.");
 
     await page.evaluate(() => window.runStartFixture.releaseStart());
     await page.waitForFunction(() => window.runStartFixture.activeRun() !== undefined);
-    await waitForTitle("Run wird geladen");
+    await waitForTitle("Loading run");
     const loading = await center(notice);
     assert.ok(Math.abs(loading.x - launching.x) < 1 && Math.abs(loading.y - launching.y) < 1, "The run view continues the loading state at the same place.");
     assert.equal(await page.locator("textarea").count(), 1, "The chat input stays below the loading state.");
 
-    await chat({ kind: "status", running: false, startup: { status: "preparing", message: "Arbeitsverzeichnis wird vorbereitet." } });
+    await chat({ kind: "status", running: false, startup: { status: "preparing", message: "Preparing the working directory." } });
     await chat({ kind: "replay-end", conversationId: null });
-    await waitForTitle("Run wird vorbereitet");
-    assert.equal(await detailOf(), "Arbeitsverzeichnis wird vorbereitet.");
-    await chat({ kind: "system", text: "Arbeitsbereich: /home/user/project" });
+    await waitForTitle("Preparing run");
+    assert.equal(await detailOf(), "Preparing the working directory.");
+    await chat({ kind: "system", text: "Workspace: /home/user/project" });
     await settle();
-    assert.equal(await titleOf(), "Run wird vorbereitet", "A system line does not end the setup.");
-    await page.locator("textarea").fill("Schon mal notiert");
-    assert.equal(await page.locator("textarea").inputValue(), "Schon mal notiert", "The chat input stays usable while the run is set up.");
+    assert.equal(await titleOf(), "Preparing run", "A system line does not end the setup.");
+    await page.locator("textarea").fill("Noted in advance");
+    assert.equal(await page.locator("textarea").inputValue(), "Noted in advance", "The chat input stays usable while the run is set up.");
 
     await chat({ kind: "status", running: true });
-    await waitForTitle("Der Run wird eingerichtet");
+    await waitForTitle("Setting up the run");
     await chat({ kind: "status", running: false });
     await settle();
-    assert.equal(await titleOf(), "Der Run wird eingerichtet", "A gap before the run view catches up does not flicker.");
+    assert.equal(await titleOf(), "Setting up the run", "A gap before the run view catches up does not flicker.");
     await page.waitForFunction(() => document.querySelector("[data-startup]") === null, undefined, { timeout: STARTUP_SETTLE_MS + 1000 });
     await chat({ kind: "status", running: true });
-    await waitForTitle("Der Run wird eingerichtet");
+    await waitForTitle("Setting up the run");
 
-    await page.evaluate(() => { window.runStartFixture.elements = [{ id: "start.app--main", title: "Aufbau" }]; });
+    await page.evaluate(() => { window.runStartFixture.elements = [{ id: "start.app--main", title: "Setup" }]; });
     await chat({ kind: "plugin", pluginId: "start", type: "app-ready" });
-    await page.getByText("Mini-App bereit").waitFor();
+    await page.getByText("Mini-app ready").waitFor();
     assert.equal(await notice.count(), 0, "The first mini-app ends the loading state.");
     await page.evaluate(() => { window.runStartFixture.elements = []; });
     await chat({ kind: "status", running: true });
@@ -123,11 +123,11 @@ test("the run panel shows one loading state from the click to the first content 
     assert.equal(await listSeen(), false, "VS Code never renders the run list, not even for a moment.");
 
     await page.goto(url);
-    await waitForTitle("Run wird gestartet");
+    await waitForTitle("Starting run");
     await page.evaluate(() => window.runStartFixture.command({ type: "newRun" }));
     await page.waitForFunction(() => window.runStartFixture.activeRun() !== undefined);
-    await waitForTitle("Run wird geladen");
-    assert.equal(await page.locator("header strong").first().textContent(), "Neuer Run");
+    await waitForTitle("Loading run");
+    assert.equal(await page.locator("header strong").first().textContent(), "New run");
     await chat({ kind: "status", running: false });
     await chat({ kind: "replay-end", conversationId: null });
     await settle();
@@ -141,38 +141,38 @@ test("the run panel shows one loading state from the click to the first content 
       window.runStartFixture.command({ type: "selectRun", runId: null });
       window.runStartFixture.command({ type: "newRun", entryId: "start.script" });
     });
-    await waitForTitle("Run wird geladen");
-    await chat({ kind: "status", running: false, startup: { status: "failed", message: "Das Paket fehlt." } });
+    await waitForTitle("Loading run");
+    await chat({ kind: "status", running: false, startup: { status: "failed", message: "The package is missing." } });
     await chat({ kind: "replay-end", conversationId: null });
-    await waitForTitle("Der Run konnte nicht vorbereitet werden");
+    await waitForTitle("The run could not be prepared");
     assert.equal(await notice.getAttribute("role"), "alert");
-    assert.equal(await detailOf(), "Das Paket fehlt.", "A failed setup shows its reason at the same place.");
+    assert.equal(await detailOf(), "The package is missing.", "A failed setup shows its reason at the same place.");
 
     await page.evaluate(() => {
       window.runStartFixture.command({ type: "selectRun", runId: null });
       window.runStartFixture.command({ type: "newRun", entryId: "start.script" });
     });
-    await waitForTitle("Run wird geladen");
-    await chat({ kind: "status", running: false, startup: { status: "preparing", message: "Run wird vorbereitet." } });
+    await waitForTitle("Loading run");
+    await chat({ kind: "status", running: false, startup: { status: "preparing", message: "Preparing run." } });
     await chat({ kind: "replay-end", conversationId: null });
-    await waitForTitle("Run wird vorbereitet");
-    await chat({ kind: "user", text: "Bitte loslegen" });
+    await waitForTitle("Preparing run");
+    await chat({ kind: "user", text: "Please get started" });
     await page.waitForFunction(() => document.querySelector("[data-startup]") === null);
     assert.equal(await listSeen(), false);
 
     await page.goto(`${url}?rights=runs.read`);
-    await waitForTitle("Run wird gestartet");
+    await waitForTitle("Starting run");
     await page.evaluate(() => window.runStartFixture.command({ type: "newRun", entryId: "start.script" }));
-    await waitForTitle("Kein neuer Run möglich");
-    assert.equal(await detailOf(), "Neue Runs sind für dieses Benutzerkonto nicht freigegeben.");
-    await page.getByRole("button", { name: "Zur Start-Seite", exact: true }).last().click();
+    await waitForTitle("No new run possible");
+    assert.equal(await detailOf(), "New runs are not enabled for this user account.");
+    await page.getByRole("button", { name: "Back to Start", exact: true }).last().click();
     assert.ok((await page.evaluate(() => window.runStartFixture.notifications)).some((message) => message.type === "showStart"), "The refusal leads back to Start.");
 
     await page.goto(`${url}?rights=runs.read,runs.write`);
-    await waitForTitle("Run wird gestartet");
+    await waitForTitle("Starting run");
     await page.evaluate(() => window.runStartFixture.command({ type: "newRun" }));
-    await waitForTitle("Kein neuer Run möglich");
-    assert.equal(await detailOf(), "Freie Runs sind für dieses Benutzerkonto nicht freigegeben.");
+    await waitForTitle("No new run possible");
+    assert.equal(await detailOf(), "Free runs are not enabled for this user account.");
     await page.evaluate(() => window.runStartFixture.command({ type: "newRun", entryId: "start.script" }));
     await page.waitForFunction(() => window.runStartFixture.calls.includes("ragents.chat.start"));
     await page.waitForFunction(() => window.runStartFixture.activeRun() !== undefined);
@@ -180,22 +180,22 @@ test("the run panel shows one loading state from the click to the first content 
 
     await page.clock.install();
     await page.goto(url);
-    await waitForTitle("Run wird gestartet");
+    await waitForTitle("Starting run");
     await page.clock.fastForward(5100);
-    await waitForTitle("Kein Run gewählt");
+    await waitForTitle("No run selected");
     assert.equal(await notice.locator("[role=progressbar]").count(), 0, "Without a start request the panel does not spin forever.");
-    await page.getByRole("button", { name: "Zur Start-Seite", exact: true }).last().click();
+    await page.getByRole("button", { name: "Back to Start", exact: true }).last().click();
     assert.ok((await page.evaluate(() => window.runStartFixture.notifications)).some((message) => message.type === "showStart"));
     assert.equal(await listSeen(), false);
 
     await page.goto(`${url}?host=browser`);
-    await page.getByText("Vorhandener Run").waitFor();
+    await page.getByText("Existing run").waitFor();
     assert.equal(await notice.count(), 0, "The browser keeps its run list without a run.");
     assert.deepEqual(errors, []);
   } finally { await browser.close(); }
 });
 
-/** Eine Seite der Fixture in VS Code, bereit für Befehle der Erweiterung. */
+/** A fixture page in VS Code, ready for commands from the extension. */
 const withPanel = async (run: (page: Page) => Promise<void>) => {
   const url = await (fixtureUrl ??= buildFixture());
   const browser = await launchBrowser();
@@ -217,10 +217,10 @@ const browserOnly = { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 
 
 test("a template with a guide asks first in VS Code, like in the web app, and starts with its answer", browserOnly, () => withPanel(async (page) => {
   await page.evaluate(() => window.runStartFixture.command({ type: "newRun", entryId: "start.guided" }));
-  await page.getByRole("button", { name: "Thema übernehmen" }).click();
+  await page.getByRole("button", { name: "Apply topic" }).click();
   await page.waitForFunction(() => window.runStartFixture.starts.length === 1);
   const [guided] = await starts(page);
-  assert.deepEqual({ entry: guided!.entry, input: guided!.input }, { entry: "start.guided", input: "Nachtbus" }, "The guide supplies the start value.");
+  assert.deepEqual({ entry: guided!.entry, input: guided!.input }, { entry: "start.guided", input: "Night bus" }, "The guide supplies the start value.");
   await page.evaluate((runId) => { window.runStartFixture.views.add(runId); window.runStartFixture.runChanged(runId); }, guided!.runId);
   await page.waitForFunction((runId) => window.runStartFixture.activeRun() === runId, guided!.runId);
   const notifications = await page.evaluate(() => window.runStartFixture.notifications);
@@ -237,7 +237,7 @@ test("a second template chosen while the first still starts is started and shown
   await page.waitForFunction(() => window.runStartFixture.starts.length === 2);
   const [first, second] = await starts(page);
   assert.equal(second!.entry, "start.other");
-  assert.equal(await page.locator("header strong").textContent(), "Zweite Vorlage");
+  assert.equal(await page.locator("header strong").textContent(), "Second template");
   await page.evaluate((runId) => window.runStartFixture.releaseStart(runId), first!.runId);
   await pause(page);
   assert.equal(await activeRun(page), undefined, "The superseded launch does not open its run.");

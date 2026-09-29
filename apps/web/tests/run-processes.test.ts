@@ -28,37 +28,37 @@ const process = (values: Partial<RunProcess> & { pid: number }): RunProcess => (
   ...values,
 });
 
-test("eine Nachricht des Stroms wird geprüft und typisiert", () => {
+test("a stream message is validated and typed", () => {
   const snapshot = {
     runId: "run-1",
     observedAt: "2026-09-03T10:00:00.000Z",
     processes: [process({ pid: 7, ports: [{ port: 5173, address: "*" }] })],
   };
   assert.deepEqual(messageFrom({ kind: "snapshot", snapshot }), { kind: "snapshot", snapshot });
-  assert.deepEqual(messageFrom({ kind: "error", error: "kaputt" }), { kind: "error", error: "kaputt" });
-  assert.throws(() => messageFrom({ kind: "snapshot", snapshot: { runId: "run-1" } }), /unlesbar/);
-  assert.throws(() => messageFrom({ kind: "snapshot", snapshot: { ...snapshot, processes: [{ pid: 1 }] } }), /Prozess-Eintrag/);
-  assert.throws(() => messageFrom({ kind: "snapshot", snapshot: { ...snapshot, processes: [{ ...snapshot.processes[0], id: "" }] } }), /Prozess-Eintrag/);
-  assert.throws(() => messageFrom({ kind: "anders" }), /unbekannte Art/);
+  assert.deepEqual(messageFrom({ kind: "error", error: "broken" }), { kind: "error", error: "broken" });
+  assert.throws(() => messageFrom({ kind: "snapshot", snapshot: { runId: "run-1" } }), /unreadable/);
+  assert.throws(() => messageFrom({ kind: "snapshot", snapshot: { ...snapshot, processes: [{ pid: 1 }] } }), /process entry/);
+  assert.throws(() => messageFrom({ kind: "snapshot", snapshot: { ...snapshot, processes: [{ ...snapshot.processes[0], id: "" }] } }), /process entry/);
+  assert.throws(() => messageFrom({ kind: "other" }), /unknown kind/);
 });
 
-test("die Dienst-Adresse nutzt den Host der Oberfläche und den Port des Prozesses", () => {
+test("the service address uses the host of the interface and the port of the process", () => {
   assert.equal(serviceUrl("localhost", 5173), "http://localhost:5173/");
   assert.equal(serviceUrl("workstation", 10520), "http://workstation:10520/");
   assert.equal(serviceUrl("::1", 8080), "http://[::1]:8080/");
 });
 
-test("Beschriftung und Tooltip nennen Art, Befehl, Herkunft und Ports", () => {
+test("label and tooltip name kind, command, origin and ports", () => {
   const service = process({ pid: 7, ports: [{ port: 5173, address: "*" }, { port: 5173, address: "::1" }] });
-  assert.equal(kindLabel(service), "Dienst");
-  assert.equal(kindLabel(process({ pid: 8 })), "Prozess");
+  assert.equal(kindLabel(service), "Service");
+  assert.equal(kindLabel(process({ pid: 8 })), "Process");
   const title = titleOf(service);
-  assert.ok(title.startsWith("node /work/node_modules/.bin/vite\nPID 7, läuft im Hintergrund weiter, beobachtet seit "));
-  assert.ok(title.endsWith("\nLauscht auf *:5173, ::1:5173"));
-  assert.ok(titleOf(process({ pid: 8, origin: "tool-call" })).includes("läuft in einem Werkzeugaufruf"));
+  assert.ok(title.startsWith("node /work/node_modules/.bin/vite\nPID 7, keeps running in the background, observed since "));
+  assert.ok(title.endsWith("\nListening on *:5173, ::1:5173"));
+  assert.ok(titleOf(process({ pid: 8, origin: "tool-call" })).includes("runs in a tool call"));
 });
 
-test("die Kopfzeile zeigt höchstens die ersten Einträge und zählt den Rest", () => {
+test("the header shows at most the first entries and counts the rest", () => {
   const many = Array.from({ length: VISIBLE_PROCESSES + 2 }, (_, index) => process({ pid: index + 1 }));
   const visible = visibleProcesses(many);
   assert.equal(visible.shown.length, VISIBLE_PROCESSES);
@@ -101,7 +101,7 @@ window.fetch = async (url, options = {}) => {
         controller.enqueue(encoder.encode('event: hello\\ndata: {"connection":"c' + (++connections) + '"}\\n\\n'));
         options.signal?.addEventListener("abort", () => {
           entry.closed = true;
-          try { controller.close(); } catch { /* der Strom ist schon zu */ }
+          try { controller.close(); } catch { /* the stream is already closed */ }
         });
       },
     });
@@ -141,7 +141,7 @@ createRoot(document.getElementById("root")).render(createElement(Harness));`, re
     }
     if (request.url !== "/") { response.writeHead(404).end(); return; }
     response.setHeader("Content-Type", "text/html");
-    response.end('<!doctype html><html lang="de"><head><meta charset="utf-8"><link rel="icon" href="data:,"><link rel="stylesheet" href="/fixture.css"></head><body style="margin:0;padding:0"><header class="flex min-h-header items-stretch bg-shell"><div id="root" class="flex min-w-0 flex-1 items-stretch"></div></header><script src="/fixture.js"></script></body></html>');
+    response.end('<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="icon" href="data:,"><link rel="stylesheet" href="/fixture.css"></head><body style="margin:0;padding:0"><header class="flex min-h-header items-stretch bg-shell"><div id="root" class="flex min-w-0 flex-1 items-stretch"></div></header><script src="/fixture.js"></script></body></html>');
   });
   await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
   context.after(async () => { server.closeAllConnections(); await new Promise<void>((resolve) => server.close(() => resolve())); });
@@ -163,16 +163,16 @@ createRoot(document.getElementById("root")).render(createElement(Harness));`, re
     assert.equal(await link.getAttribute("href"), `http://127.0.0.1:${port}/`);
     assert.equal(await link.isVisible(), true);
   }
-  const stop = page.getByRole("button", { name: "dotnet ApiService.dll beenden", exact: true });
+  const stop = page.getByRole("button", { name: "Stop dotnet ApiService.dll", exact: true });
   assert.equal(await stop.isDisabled(), true);
   await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   await page.screenshot({ path: `${directory}/processes-reader.png` });
   await page.setViewportSize({ width: 320, height: 180 });
   await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
   assert.equal(await page.getByRole("link", { name: ":10520", exact: true }).isVisible(), true);
-  assert.equal(await page.getByText("Alle 2", { exact: true }).innerText(), "Alle 2");
+  assert.equal(await page.getByText("All 2", { exact: true }).innerText(), "All 2");
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-  await page.getByText("Alle 2", { exact: true }).scrollIntoViewIfNeeded();
+  await page.getByText("All 2", { exact: true }).scrollIntoViewIfNeeded();
   await page.screenshot({ path: `${directory}/processes-reader-narrow.png` });
   await page.setViewportSize({ width: 850, height: 180 });
   await page.evaluate("window.processFixture.update(['runs.read', 'runs.inspect', 'ragents.processes.read'])");
@@ -181,10 +181,10 @@ createRoot(document.getElementById("root")).render(createElement(Harness));`, re
   await stop.click();
   assert.deepEqual(await page.evaluate("window.processFixture.stops"), [{ method: "ragents.processes.stop", params: { runId: "preview-run", processId: "process-11" } }]);
   await page.evaluate("window.processFixture.update(['runs.read', 'runs.write', 'runs.inspect'])");
-  await page.waitForFunction(`document.querySelector('[aria-label="Prozesse und Ports des Runs"]') === null`);
+  await page.waitForFunction(`document.querySelector('[aria-label="Processes and ports of the run"]') === null`);
   assert.equal(await page.evaluate("window.processFixture.streams[0].closed"), true);
   await page.evaluate("window.processFixture.update(['ragents.processes.read'])");
-  assert.equal(await page.locator('[aria-label="Prozesse und Ports des Runs"]').count(), 0);
+  assert.equal(await page.locator('[aria-label="Processes and ports of the run"]').count(), 0);
   assert.equal(await page.evaluate("window.processFixture.streams.length"), 1);
   await page.evaluate("window.processFixture.update(['runs.read', 'ragents.processes.read'])");
   await page.getByText("dotnet DashboardServer.dll", { exact: true }).waitFor();

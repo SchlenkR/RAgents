@@ -43,14 +43,14 @@ const resolveFromBundle = async (bundle, specifier, context, next) => {
   if (cross) {
     const [, owner, name] = cross;
     const folder = bundles.get(owner);
-    if (!folder) throw new Error(`Das Bundle ${bundle} importiert ${specifier}, aber ${owner} steht nicht in der Pluginliste`);
+    if (!folder) throw new Error(`The bundle ${bundle} imports ${specifier}, but ${owner} is not in the plugin list`);
     const url = new URL(`server/exports/${name.replace(/\.js$/, "")}.js`, folder).href;
-    if (!existsSync(fileURLToPath(url))) throw new Error(`Das Bundle ${bundle} importiert ${specifier}, das Bundle ${owner} exportiert ${name} aber nicht für den Server; beide Bundles aus ihren Quellen neu bauen`);
+    if (!existsSync(fileURLToPath(url))) throw new Error(`The bundle ${bundle} imports ${specifier}, but the bundle ${owner} does not export ${name} for the server; rebuild both bundles from their sources`);
     return { url, shortCircuit: true };
   }
   const listed = specifier.replace(/\.(js|ts|tsx)$/, "");
   if (listed === "@ragents/workflow") return { url: workflowEntry, shortCircuit: true };
-  if (!serverModules.has(listed)) throw new Error(`Das Bundle ${bundle} importiert ${specifier}, das der Host nicht bereitstellt; das Bundle gegen diesen Host neu bauen`);
+  if (!serverModules.has(listed)) throw new Error(`The bundle ${bundle} imports ${specifier}, which the host does not provide; rebuild the bundle against this host`);
   return next(specifier, { ...context, parentURL: serverEntry });
 };
 
@@ -58,7 +58,7 @@ const resolveFromBundle = async (bundle, specifier, context, next) => {
 export const load = async (url, context, next) =>
   bundleOf(url) !== undefined && url.endsWith(".js") ? next(url, { ...context, format: "module" }) : next(url, context);
 
-// Reines JavaScript, weil Node diese Datei im Loader-Thread lädt und dort unter node_modules keine Typen entfernt.
+// Plain JavaScript, because Node loads this file in the loader thread and strips no types under node_modules there.
 /** Bundles resolve strictly; other code outside the repository resolves bare imports through the host, so it needs no own node_modules. */
 export const resolve = async (specifier, context, next) => {
   const bundle = bundleOf(context.parentURL);

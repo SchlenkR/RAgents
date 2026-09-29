@@ -10,7 +10,7 @@ export interface RelayConnection {
   readonly token: string;
 }
 
-/** Was das Relay je Alias über das dahinterliegende Modell verrät, samt den Kompaktierungswerten des Alias; der echte Name bleibt beim Server. */
+/** What the relay reveals per alias about the model behind it, including the alias's compaction values; the real name stays with the server. */
 export interface RelayCatalogEntry {
   readonly id: string;
   readonly object: "model";
@@ -46,8 +46,8 @@ const isEntry = (value: unknown): value is RelayCatalogEntry => {
 export const relayBaseUrl = (url: string): string => {
   let parsed: URL;
   try { parsed = new URL(url); }
-  catch { throw new Error(`RELAY_URL ist keine gültige Adresse: ${url}`); }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error(`RELAY_URL braucht http oder https: ${url}`);
+  catch { throw new Error(`RELAY_URL is not a valid address: ${url}`); }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") throw new Error(`RELAY_URL needs http or https: ${url}`);
   return `${parsed.origin}${parsed.pathname.replace(/\/+$/, "")}${RELAY_API_PATH}`;
 };
 
@@ -67,7 +67,7 @@ const modelOf = (entry: RelayCatalogEntry, baseUrl: string): Model<"openai-compl
   ...(entry.catalog.compat ? { compat: entry.catalog.compat as Model<"openai-completions">["compat"] } : {}),
 });
 
-/** Holt den Aliaskatalog des Relays genau einmal; ohne erreichbares Relay ist der Start ein Fehler mit Adresse und Ursache. */
+/** Fetches the relay's alias catalog exactly once; without a reachable relay the start is an error with address and cause. */
 export const createRelayCatalog = (connection: RelayConnection, fetchImpl: typeof fetch = fetch): RelayCatalog => {
   const baseUrl = relayBaseUrl(connection.url);
   let loading: Promise<readonly Model<Api>[]> | undefined;
@@ -78,14 +78,14 @@ export const createRelayCatalog = (connection: RelayConnection, fetchImpl: typeo
     try {
       response = await fetchImpl(address, { headers: { authorization: `Bearer ${connection.token}` }, signal: AbortSignal.timeout(15_000) });
     } catch (error) {
-      throw new Error(`Das Modell-Relay ${address} ist nicht erreichbar: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`The model relay ${address} is unreachable: ${error instanceof Error ? error.message : String(error)}`);
     }
     if (!response.ok) {
-      throw new Error(`Das Modell-Relay ${address} lehnt den Katalogabruf ab: ${response.status} ${(await response.text()).slice(0, 200)}`);
+      throw new Error(`The model relay ${address} rejects the catalog request: ${response.status} ${(await response.text()).slice(0, 200)}`);
     }
     const body = await response.json() as { data?: unknown };
-    if (!Array.isArray(body.data) || !body.data.every(isEntry)) throw new Error(`Das Modell-Relay ${address} liefert keinen gültigen Aliaskatalog`);
-    if (body.data.length === 0) throw new Error(`Das Modell-Relay ${address} bietet keine Modelle an`);
+    if (!Array.isArray(body.data) || !body.data.every(isEntry)) throw new Error(`The model relay ${address} does not return a valid alias catalog`);
+    if (body.data.length === 0) throw new Error(`The model relay ${address} offers no models`);
     for (const entry of body.data) {
       const problem = compactionProblem(entry.catalog.compaction, entry.catalog);
       if (problem) throw new Error(`The model relay ${address} offers ${entry.id} without valid compaction values: ${problem}`);
@@ -98,7 +98,7 @@ export const createRelayCatalog = (connection: RelayConnection, fetchImpl: typeo
     baseUrl,
     load,
     models: () => {
-      if (!loaded) throw new Error(`Der Modellkatalog des Relays ${baseUrl} ist noch nicht geladen`);
+      if (!loaded) throw new Error(`The model catalog of the relay ${baseUrl} is not loaded yet`);
       return loaded;
     },
     registration: async () => ({

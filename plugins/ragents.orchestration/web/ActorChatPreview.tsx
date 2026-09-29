@@ -19,7 +19,7 @@ export const ActorChatPreview = memo(function ActorChatPreview({ actor, view, pr
     if (!element) return;
     element.tabIndex = 0;
     element.setAttribute("role", "region");
-    element.setAttribute("aria-label", `Chatverlauf von @${actor.handle}`);
+    element.setAttribute("aria-label", `Chat history of @${actor.handle}`);
   }, [actor.handle]);
   return <div className="flex min-h-[106px] w-full min-w-0 flex-1 flex-col overflow-hidden rounded-b-[16px] text-left" data-surface-scroll="true">
     <ChatPanel className="flex-1" composer={<ActorChatControls actor={actor} view={view} composerVisible={chatInput} presentation="surface" running={running} />}>

@@ -13,7 +13,7 @@ const scriptsRoot = path.join(repoRoot, "plugins/ragents.reference/run-scripts")
 const declarations = () => readFile(path.join(repoRoot, "docs/homepage/run-api.d.ts"), "utf8");
 const entries = (await readdir(scriptsRoot, { withFileTypes: true })).filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
 
-assert.ok(entries.length > 0, "Es müssen veröffentlichte Run-Script-Beispiele vorhanden sein.");
+assert.ok(entries.length > 0, "Published run script examples must exist.");
 
 async function preparePublishedSdk(directory: string) {
   await prepareAppProject(directory);
@@ -76,7 +76,7 @@ test("published setup guide contains every complete RUN, setup, test and actor s
       if (line === fence) {
         if (packageName && fileName) {
           const key = `${packageName}/${fileName}`;
-          assert.equal(published.has(key), false, `Doppelte veröffentlichte Quelle: ${key}`);
+          assert.equal(published.has(key), false, `Duplicate published source: ${key}`);
           published.set(key, `${content.join("\n")}\n`);
         }
         fence = undefined;
@@ -92,7 +92,7 @@ test("published setup guide contains every complete RUN, setup, test and actor s
     if (fileHeading) fileName = fileHeading[1]!;
     else if (line.startsWith("## ")) { packageName = undefined; fileName = undefined; }
   }
-  assert.equal(fence, undefined, "Die veröffentlichte Anleitung enthält einen offenen Codeblock.");
+  assert.equal(fence, undefined, "The published guide contains an unclosed code block.");
   const expected = new Map<string, string>();
   const visit = async (relative: string): Promise<void> => {
     for (const entry of await readdir(path.join(scriptsRoot, relative), { withFileTypes: true })) {
@@ -106,5 +106,5 @@ test("published setup guide contains every complete RUN, setup, test and actor s
   };
   for (const entry of entries) await visit(entry);
   assert.deepEqual([...published.keys()].sort(), [...expected.keys()].sort());
-  for (const [name, source] of expected) assert.equal(published.get(name), source, `Unvollständige oder veraltete Paketquelle: ${name}`);
+  for (const [name, source] of expected) assert.equal(published.get(name), source, `Incomplete or outdated package source: ${name}`);
 });

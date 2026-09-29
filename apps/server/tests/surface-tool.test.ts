@@ -25,7 +25,7 @@ test("the surface tool declares and enforces the required state grant for both a
     const grants = allGrants();
     assert.equal(tool.available({...setup.agent, grants}, setup.view), true);
     const view = setup.runtime.createScriptActor({actorId: setup.view.ownerId, commandId: "script"}, setup.view.id, {
-      handle: "surface", displayName: "Fläche", grants: [], toolNames: [],
+      handle: "surface", displayName: "Surface", grants: [], toolNames: [],
     });
     const script = view.actors.find((entry) => entry.kind === "script")!;
     assert.equal(tool.available(script, view), false);
@@ -50,10 +50,10 @@ const view = {
   pluginStates: [],
   actors: [
     actor("human", "owner", { kind: "human" }),
-    actor("k", "koordinator"),
+    actor("k", "coordinator"),
     actor("a1", "anna", { createdBy: "k" }),
     actor("s1", "router", { kind: "script", createdBy: "a1" }),
-    actor("old", "bert", { createdBy: "k", lifecycle: { kind: "stopped", stoppedAt: "2026-09-03T10:01:00Z", reason: "fertig" } }),
+    actor("old", "bert", { createdBy: "k", lifecycle: { kind: "stopped", stoppedAt: "2026-09-03T10:01:00Z", reason: "done" } }),
     actor("b2", "bert", { createdBy: "k" }),
   ],
 } as unknown as RunView;
@@ -76,7 +76,7 @@ const replaced = (input: unknown, runView = view, onStore?: () => void): unknown
   return stored;
 };
 
-test("canvas_layout_replace nimmt eine geschachtelte Kachelaufteilung an und speichert sie im Run-Scope", () => {
+test("canvas_layout_replace accepts a nested tile layout and stores it in the run scope", () => {
   const input = {
     root: {
       direction: "vertical",
@@ -95,7 +95,7 @@ test("canvas_layout_replace nimmt eine geschachtelte Kachelaufteilung an und spe
   });
 });
 
-test("das Schema verlangt root und kennt keine Gruppen, Formen oder Linien mehr", () => {
+test("the schema requires root and no longer knows groups, shapes or lines", () => {
   const schema = createSurfaceTool().schema;
   assert.equal(Value.Check(schema, {}), false);
   assert.equal(Value.Check(schema, { root: null }), true);
@@ -105,93 +105,93 @@ test("das Schema verlangt root und kennt keine Gruppen, Formen oder Linien mehr"
   assert.equal(Value.Check(schema, { root: { direction: "ring", weights: [1, 1], children: [{ entity: "@a" }, { entity: "@b" }] } }), false);
 });
 
-test("ein Aufruf mit den Altschlüsseln der freien Fläche wird abgewiesen", () => {
-  const noStore = () => assert.fail("Eine Altanordnung darf nichts speichern");
+test("a call with the legacy keys of the free surface is rejected", () => {
+  const noStore = () => assert.fail("A legacy arrangement must not store anything");
   for (const input of [{ nodes: [{ entity: "@anna" }] }, { root: null, shapes: [] }, { root: null, lines: [] }, { root: null, mode: "tiled" }]) {
-    assert.throws(() => replaced(input, view, noStore), /entfernten freien Fläche/);
+    assert.throws(() => replaced(input, view, noStore), /removed free surface/);
   }
 });
 
-test("surfaceLayoutOf weist einen Altzustand mit einer klaren Meldung ab", () => {
+test("surfaceLayoutOf rejects a legacy state with a clear message", () => {
   assert.throws(() => surfaceLayoutOf({ nodes: [], shapes: [], lines: [], mode: "free" }),
-    /Die Programmanordnung stammt aus der entfernten freien Fläche \(nodes, shapes, lines, mode\); canvas_layout_replace mit root setzt sie als Kachelaufteilung neu/);
-  assert.throws(() => surfaceLayoutOf({}), /root fehlt/);
+    /The program arrangement comes from the removed free surface \(nodes, shapes, lines, mode\); canvas_layout_replace with root sets it anew as a tile layout/);
+  assert.throws(() => surfaceLayoutOf({}), /root is missing/);
   assert.deepEqual(surfaceLayoutOf({ root: null }), { root: null });
 });
 
-test("Actors müssen im Run existieren, der Mensch bleibt im Chat", () => {
-  assert.throws(() => replaced({ root: { entity: "@niemand" } }), /@niemand ist kein Actor dieses Runs. Vorhanden: @koordinator, @anna/);
-  assert.throws(() => replaced({ root: { entity: "@owner" } }), /Mensch im Chat/);
+test("actors must exist in the run, the human stays in the chat", () => {
+  assert.throws(() => replaced({ root: { entity: "@nobody" } }), /@nobody is not an actor of this run. Present: @coordinator, @anna/);
+  assert.throws(() => replaced({ root: { entity: "@owner" } }), /the human in the chat/);
 });
 
 const wizardView = (actorId = "a1", program: unknown = {
-  name: "balkon-wizard",
+  name: "balcony-wizard",
   actorHandle: "anna",
-  views: [{ id: "balkon-wizard--wizard", key: "wizard", title: "Balkon-Wizard", visible: true }],
+  views: [{ id: "balcony-wizard--wizard", key: "wizard", title: "Balcony-Wizard", visible: true }],
 }): RunView => ({
   ...view,
   pluginStates: [{ pluginId: ACTOR_PROGRAMS_STATE_ID, scope: { kind: "actor", actorId }, state: { version: 1, program } }],
 }) as RunView;
 
-test("Die Fläche löst gewählte Programm- und Actor-Namen für Ansichten serverseitig auf", () => {
-  for (const reference of ["app:balkon-wizard/wizard", "app:@anna/wizard", "app:balkon-wizard--wizard", "app:@ANNA/WIZARD", "app:Balkon-Wizard"]) {
+test("the surface resolves chosen program and actor names for views on the server", () => {
+  for (const reference of ["app:balcony-wizard/wizard", "app:@anna/wizard", "app:balcony-wizard--wizard", "app:@ANNA/WIZARD", "app:Balcony-Wizard"]) {
     const input = { root: { entity: reference } };
     assert.deepEqual(replaced(input, wizardView()), {
       pluginId: "ragents.orchestration",
       scope: { kind: "run" },
-      state: surfaceLayoutOf({ root: { entity: "app:balkon-wizard--wizard" } }),
+      state: surfaceLayoutOf({ root: { entity: "app:balcony-wizard--wizard" } }),
     });
     assert.equal(input.root.entity, reference);
   }
 });
 
-test("Die Fläche weist unbekannte oder nicht mehr aktive Ansichten vor jeder Speicherung zurück", () => {
-  const noStore = () => assert.fail("Ungültige Ansichten dürfen die gespeicherte Fläche nicht ersetzen");
-  const input = { root: { entity: "app:balkon-wizard/wizard" } };
-  assert.throws(() => replaced(input, view, noStore), /keine aktive Actor-Ansicht.*Zuerst das Programm aktivieren.*keine/);
-  assert.throws(() => replaced(input, wizardView("old"), noStore), /keine aktive Actor-Ansicht/);
-  assert.throws(() => replaced(input, wizardView("a1", null), noStore), /keine aktive Actor-Ansicht/);
-  assert.throws(() => replaced({ root: { entity: "app:balkon-wizard/missing" } }, wizardView(), noStore), /Vorhanden: balkon-wizard\/wizard \(@anna\/wizard\)/);
+test("the surface rejects unknown or no longer active views before any storing", () => {
+  const noStore = () => assert.fail("Invalid views must not replace the stored surface");
+  const input = { root: { entity: "app:balcony-wizard/wizard" } };
+  assert.throws(() => replaced(input, view, noStore), /not an active actor view.*Activate the program first.*none/);
+  assert.throws(() => replaced(input, wizardView("old"), noStore), /not an active actor view/);
+  assert.throws(() => replaced(input, wizardView("a1", null), noStore), /not an active actor view/);
+  assert.throws(() => replaced({ root: { entity: "app:balcony-wizard/missing" } }, wizardView(), noStore), /Available: balcony-wizard\/wizard \(@anna\/wizard\)/);
 });
 
-test("Die Fläche meldet mehrdeutige Titel mit gültigen Namen und priorisiert eindeutige Referenzen", () => {
+test("the surface reports ambiguous titles with valid names and prioritizes unique references", () => {
   const runView = wizardView("a1", {
-    name: "balkon-wizard", actorHandle: "anna",
+    name: "balcony-wizard", actorHandle: "anna",
     views: [
-      { id: "balkon-wizard--wizard", key: "wizard", title: "Wizard" },
-      { id: "balkon-wizard--summary", key: "summary", title: "Wizard" },
-      { id: "balkon-wizard--other", key: "other", title: "balkon-wizard/wizard" },
+      { id: "balcony-wizard--wizard", key: "wizard", title: "Wizard" },
+      { id: "balcony-wizard--summary", key: "summary", title: "Wizard" },
+      { id: "balcony-wizard--other", key: "other", title: "balcony-wizard/wizard" },
     ],
   });
-  assert.throws(() => replaced({ root: { entity: "app:Wizard" } }, runView, () => assert.fail("Eine mehrdeutige Fläche darf nicht gespeichert werden")),
-    /mehrdeutig.*balkon-wizard\/wizard \(@anna\/wizard\).*balkon-wizard\/summary \(@anna\/summary\)/);
-  const layout = checkLayoutAgainstRun(runView, surfaceLayoutOf({ root: { entity: "app:balkon-wizard/wizard" } }));
-  assert.deepEqual(layout.root, { entity: "app:balkon-wizard--wizard" });
+  assert.throws(() => replaced({ root: { entity: "app:Wizard" } }, runView, () => assert.fail("An ambiguous surface must not be stored")),
+    /ambiguous.*balcony-wizard\/wizard \(@anna\/wizard\).*balcony-wizard\/summary \(@anna\/summary\)/);
+  const layout = checkLayoutAgainstRun(runView, surfaceLayoutOf({ root: { entity: "app:balcony-wizard/wizard" } }));
+  assert.deepEqual(layout.root, { entity: "app:balcony-wizard--wizard" });
 });
 
-test("ein neuer Aufruf ersetzt den gespeicherten Zustand vollständig, auch einen Altzustand", () => {
+test("a new call replaces the stored state completely, including a legacy state", () => {
   const runView = wizardView();
   const withState = (state: unknown) => ({ ...runView, pluginStates: [...runView.pluginStates, {
     pluginId: "ragents.orchestration", scope: { kind: "run" }, state,
   }] }) as RunView;
   const root = { direction: "vertical", weights: [1, 1], children: [
-    { entity: "@koordinator" },
+    { entity: "@coordinator" },
     { direction: "horizontal", weights: [2, 1], children: [{ entity: "app:@anna/wizard" }, { entity: "@bert" }] },
   ] };
   const legacy = { nodes: [{ entity: "@anna" }], shapes: [], lines: [], mode: "free" };
   const expected = { root: { ...root, children: [root.children[0], {
-    ...root.children[1], children: [{ entity: "app:balkon-wizard--wizard" }, { entity: "@bert" }],
+    ...root.children[1], children: [{ entity: "app:balcony-wizard--wizard" }, { entity: "@bert" }],
   }] } };
   assert.deepEqual((replaced({ root }, withState(legacy)) as { state: unknown }).state, expected);
   assert.deepEqual((replaced({ root: null }, withState(legacy)) as { state: unknown }).state, { root: null });
 });
 
-test("Kachel-Eingaben werden vor dem Speichern vollständig geprüft", () => {
+test("tile inputs are checked completely before storing", () => {
   const split = (children: unknown[], weights: unknown[] = [2, 1]) => ({ direction: "horizontal", weights, children });
-  const noStore = () => assert.fail("Ungültige Kacheln dürfen nicht gespeichert werden");
+  const noStore = () => assert.fail("Invalid tiles must not be stored");
   for (const root of [
     split([{ entity: "@anna" }, { entity: "@ANNA" }]),
-    split([{ entity: "app:@anna/wizard" }, { entity: "app:balkon-wizard/wizard" }]),
+    split([{ entity: "app:@anna/wizard" }, { entity: "app:balcony-wizard/wizard" }]),
     { entity: "@missing" }, { entity: "@owner" }, { entity: "app:missing/view" }, { entity: "shape:x" },
     split([{ entity: "@anna" }, { entity: "@bert" }], [0, 1]),
     split([{ entity: "@anna" }, { entity: "@bert" }], [Infinity, 1]),
@@ -202,10 +202,10 @@ test("Kachel-Eingaben werden vor dem Speichern vollständig geprüft", () => {
     assert.throws(() => replaced({ root }, wizardView(), noStore));
   }
   const deep = Array.from({ length: 17 }).reduce<unknown>((root, _, index) => split([{ entity: `@helper-${index}` }, root]), { entity: "@anna" });
-  assert.throws(() => surfaceTileNodeOf(deep), /verschachtelte Teilungen/);
+  assert.throws(() => surfaceTileNodeOf(deep), /nested splits/);
 });
 
-test("die generierte TypeScript-API prüft beliebig geschachtelte Kacheln", () => {
+test("the generated TypeScript API checks arbitrarily nested tiles", () => {
   const tool = createSurfaceTool();
   const capabilities = [{ id: tool.name, label: tool.label, description: tool.description, schema: tool.schema, resultSchema: tool.resultSchema }];
   const declarations = createRunContextDeclarations({
@@ -228,7 +228,7 @@ test("die generierte TypeScript-API prüft beliebig geschachtelte Kacheln", () =
 });
 
 
-test("chatInput bleibt ein optionaler Wahrheitswert an Actor-Kacheln", () => {
+test("chatInput stays an optional boolean on actor tiles", () => {
   const input = { root: { entity: "@Anna", chatInput: false } };
   assert.equal(Value.Check(createSurfaceTool().schema, input), true);
   const layout = surfaceLayoutOf(input);

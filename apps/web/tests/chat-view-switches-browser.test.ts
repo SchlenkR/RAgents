@@ -28,10 +28,10 @@ const buildFixture = async (directory: string): Promise<string> => {
   return `file://${directory}/index.html`;
 };
 
-const hideLabel = "Zeitstempel ausblenden";
-const showLabel = "Zeitstempel anzeigen";
+const hideLabel = "Hide timestamps";
+const showLabel = "Show timestamps";
 
-/** Der Schalter steht in der Eingabe des Chats und wirkt nur auf dessen Nachrichtenliste. */
+/** The switch sits in the chat input and affects only that chat's message list. */
 const expectSwitch = async (chat: Locator, messages: Locator = chat) => {
   await chat.getByRole("button", { name: hideLabel, exact: true }).waitFor();
   await messages.locator("time").first().waitFor();
@@ -67,16 +67,16 @@ test("every chat shows the timestamp switch and it toggles only its own message 
   const chat = (event: unknown) => panel.evaluate((payload) => window.chatViewFixture.chat("demo", payload), event);
   await panel.locator("[data-chat=composer]").waitFor();
   await chat({ kind: "status", running: false });
-  await chat({ kind: "user", text: "Bitte prüfe den Stand.", at: "2026-09-25T09:05:00.000Z" });
-  await chat({ kind: "text", delta: "Der Stand ist geprüft.", at: "2026-09-25T09:06:00.000Z", cursor: { conversationId: "demo-conversation", sequence: 1, offset: 0 } });
+  await chat({ kind: "user", text: "Please check the status.", at: "2026-09-25T09:05:00.000Z" });
+  await chat({ kind: "text", delta: "The status is checked.", at: "2026-09-25T09:06:00.000Z", cursor: { conversationId: "demo-conversation", sequence: 1, offset: 0 } });
   await chat({ kind: "turn-done" });
   await chat({ kind: "replay-end", conversationId: null });
   const main = panel.locator("body");
   await expectSwitch(main);
   if (screenshots) await panel.screenshot({ path: `${screenshots}/main-chat.png` });
-  await panel.locator("button[title^=\"Adressat: @coordinator\"]").click();
-  await panel.getByRole("dialog", { name: "Adressat" }).getByText("@reviewer").click();
-  await panel.getByPlaceholder("Nachricht an @reviewer ...").waitFor();
+  await panel.locator("button[title^=\"Addressee: @coordinator\"]").click();
+  await panel.getByRole("dialog", { name: "Addressee" }).getByText("@reviewer").click();
+  await panel.getByPlaceholder("Message to @reviewer ...").waitFor();
   await expectSwitch(main);
   if (screenshots) await panel.screenshot({ path: `${screenshots}/actor-chat-run-panel.png` });
 
@@ -91,14 +91,14 @@ test("every chat shows the timestamp switch and it toggles only its own message 
   await region("tile").locator("time").first().waitFor();
 
   const preparation = region("preparation");
-  await preparation.getByRole("button", { name: "Auftrag besprechen", exact: true }).click();
-  await preparation.getByText("Gut, der Auftrag ist klar.").waitFor();
+  await preparation.getByRole("button", { name: "Discuss task", exact: true }).click();
+  await preparation.getByText("Good, the task is clear.").waitFor();
   await expectSwitch(preparation);
 
-  const overseer = parts.getByRole("region", { name: "Globaler Koordinator", exact: true });
+  const overseer = parts.getByRole("region", { name: "Global coordinator", exact: true });
   await overseer.waitFor();
   await parts.evaluate(() => {
-    window.chatViewFixture.chat("global", { kind: "user", text: "Welche Runs laufen?", at: "2026-09-25T09:10:00.000Z" });
+    window.chatViewFixture.chat("global", { kind: "user", text: "Which runs are running?", at: "2026-09-25T09:10:00.000Z" });
     window.chatViewFixture.chat("global", { kind: "replay-end", conversationId: null });
   });
   await expectSwitch(overseer);

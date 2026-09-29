@@ -2,11 +2,11 @@
 name: 50-subscription-removal
 start: true
 disable-model-invocation: true
-title: "Eine Weiterleitung wieder abschalten"
-description: "Zeigt die Wirkung eines entfernten Abonnements: Die erste Nachricht kommt an, nach dem Abschalten endet die Weiterleitung."
-category: "Ereignisse und Abläufe"
+title: "Turn a forwarding off again"
+description: "Shows the effect of a removed subscription: The first message arrives, after turning it off the forwarding ends."
+category: "Events and flows"
 order: 50
-tags: "Konzeptdemo, Subscriptions"
+tags: "Concept demo, Subscriptions"
 ---
 
-Ich hätte gern drei KIs: eine Quelle, eine Senke und eine dazwischen, die jedes Wort der Quelle wortgleich an die Senke durchreicht. Lass die Quelle zuerst "eins" sagen, nimm der mittleren danach das Mithören wieder weg und lass die Quelle "zwei" sagen. Erklär mir mit Belegen, was beim zweiten Mal passiert und ob bei der Senke noch etwas ankommt.
+I would like three AIs: a source, a sink, and one in between that passes every word of the source on to the sink verbatim. Have the source say "one" first, then take away the listening from the middle one and have the source say "two". Explain to me with evidence what happens the second time and whether anything still arrives at the sink.

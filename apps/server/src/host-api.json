@@ -141,7 +141,8 @@
     ],
     "@ragents/host/plugin-support/model-aliases": [
       "configuredModelAliases",
-      "modelLabel"
+      "modelLabel",
+      "validatedAliasModel"
     ],
     "@ragents/host/plugin-support/model-choice": [
       "builtinCatalog",
@@ -150,7 +151,11 @@
       "modelThinkingOptions"
     ],
     "@ragents/host/plugin-support/model-completion": [
+      "aliasCompletionModelToken",
       "openRouterCompletionModel"
+    ],
+    "@ragents/host/plugin-support/model-providers": [
+      "configuredModelProviders"
     ],
     "@ragents/host/plugin-support/model-upstreams": [
       "modelUpstreamsToken"

@@ -19,17 +19,17 @@ function assertCurrentChip(html: string, label: string, expandable = true) {
   }
 }
 
-test("aktueller Standard wechselt zwischen Schrittchips und Antwort ohne Schrittverlauf", () => {
-  const thinking = applyEvent(applyEvent([], { kind: "user", text: "Meine Frage" }), { kind: "thinking", delta: "Verborgener Denktext" });
+test("the current default switches between step chips and the answer without a step history", () => {
+  const thinking = applyEvent(applyEvent([], { kind: "user", text: "My question" }), { kind: "thinking", delta: "Hidden thinking text" });
   const thoughtHtml = render(thinking);
-  assertCurrentChip(thoughtHtml, "Denken");
-  assert.ok(!thoughtHtml.includes("Verborgener Denktext"));
+  assertCurrentChip(thoughtHtml, "Thinking");
+  assert.ok(!thoughtHtml.includes("Hidden thinking text"));
   assert.match(thoughtHtml, /data-chat="working"/);
 
   const tool = applyEvent(thinking, { kind: "tool", id: "first", name: "lookup", arguments: "{}" });
   const toolHtml = render(tool);
   assertCurrentChip(toolHtml, "lookup");
-  assert.doesNotMatch(toolHtml, /Denken|Verborgener Denktext/);
+  assert.doesNotMatch(toolHtml, /Thinking|Hidden thinking text/);
   assert.match(toolHtml, /data-chat="working"/);
 
   const nextTool = applyEvent(tool, { kind: "tool", id: "second", name: "calculate", arguments: "{}" });
@@ -41,134 +41,134 @@ test("aktueller Standard wechselt zwischen Schrittchips und Antwort ohne Schritt
   assert.doesNotMatch(render(completed), /data-step="chip"/);
   assert.match(render(completed), /data-chat="working"/);
 
-  const answer = applyEvent(completed, { kind: "text", delta: "Meine Antwort", cursor: { conversationId: "chat", sequence: 5, offset: 12 } });
+  const answer = applyEvent(completed, { kind: "text", delta: "My answer", cursor: { conversationId: "chat", sequence: 5, offset: 12 } });
   const answerHtml = render(answer);
-  assert.ok(answerHtml.includes("Meine Frage"));
-  assert.ok(answerHtml.includes("Meine Antwort"));
+  assert.ok(answerHtml.includes("My question"));
+  assert.ok(answerHtml.includes("My answer"));
   assert.ok(!answerHtml.includes("lookup"));
   assert.ok(!answerHtml.includes("calculate"));
-  assert.ok(!answerHtml.includes("Verborgener Denktext"));
+  assert.ok(!answerHtml.includes("Hidden thinking text"));
   assert.doesNotMatch(answerHtml, /data-step="chip"/);
 });
 
-test("Laufende, abgeschlossene Gedanken und wartende Aktionen hinterlassen keinen aktuellen Schritt", () => {
-  const thinking = applyEvent([], { kind: "thinking", delta: "Privater Gedanke" });
-  assert.doesNotMatch(render(thinking, false), /Denken|data-step="chip"|data-chat="working"/);
-  assert.doesNotMatch(render(applyEvent(thinking, { kind: "turn-done" })), /Denken|data-step="chip"/);
+test("running and finished thoughts and waiting actions leave no current step", () => {
+  const thinking = applyEvent([], { kind: "thinking", delta: "Private thought" });
+  assert.doesNotMatch(render(thinking, false), /Thinking|data-step="chip"|data-chat="working"/);
+  assert.doesNotMatch(render(applyEvent(thinking, { kind: "turn-done" })), /Thinking|data-step="chip"/);
   const tool = applyEvent(thinking, { kind: "tool", id: "ask", name: "ask_user", arguments: "{}" });
   assert.ok(!render(tool, false).includes("ask_user"));
-  const question = applyEvent(tool, { kind: "action", actionId: "ask", owner: "ragents.ask", text: "Welche Farbe?", payload: { question: "Welche Farbe?", options: ["Rot", "Blau"], multi: false } });
-  assert.ok(render(question).includes("Welche Farbe?"));
+  const question = applyEvent(tool, { kind: "action", actionId: "ask", owner: "ragents.ask", text: "Which color?", payload: { question: "Which color?", options: ["Red", "Blue"], multi: false } });
+  assert.ok(render(question).includes("Which color?"));
   assert.ok(!render(question).includes("ask_user"));
   assert.doesNotMatch(render(question), /data-step="chip"/);
-  const answer = applyEvent(tool, { kind: "text", delta: "Ich brauche deine Auswahl." });
-  assert.match(render(answer), /Ich brauche deine Auswahl/);
+  const answer = applyEvent(tool, { kind: "text", delta: "I need your choice." });
+  assert.match(render(answer), /I need your choice/);
   assert.doesNotMatch(render(answer), /ask_user|data-step="chip"/);
 });
 
-test("eine nachgeschobene Eingabe beendet den laufenden Schritt nicht, jede andere Nachricht schon", () => {
+test("a follow-up input does not end the running step, any other message does", () => {
   const tool = applyEvent([], { kind: "tool", id: "call", name: "lookup", arguments: "{}" });
-  const queued = applyEvent(tool, { kind: "user", text: "Bitte auch die Tests prüfen" });
+  const queued = applyEvent(tool, { kind: "user", text: "Please check the tests too" });
   const queuedHtml = render(queued);
   assertCurrentChip(queuedHtml, "lookup");
-  assert.match(queuedHtml, /Bitte auch die Tests prüfen/);
+  assert.match(queuedHtml, /Please check the tests too/);
   assert.doesNotMatch(render(applyEvent(queued, { kind: "tool-result", id: "call", result: "42" })), /data-step="chip"/);
-  const thinking = applyEvent(queued, { kind: "thinking", delta: "Weiter" });
-  assertCurrentChip(render(thinking), "Denken");
-  const twice = applyEvent(thinking, { kind: "user", text: "Und noch etwas" });
-  assertCurrentChip(render(twice), "Denken");
-  assert.doesNotMatch(render(applyEvent(twice, { kind: "system", text: "Hinweis" })), /data-step="chip"/);
-  assert.doesNotMatch(render(applyEvent(queued, { kind: "system", text: "Hinweis" })), /data-step="chip"/);
+  const thinking = applyEvent(queued, { kind: "thinking", delta: "Continue" });
+  assertCurrentChip(render(thinking), "Thinking");
+  const twice = applyEvent(thinking, { kind: "user", text: "And one more thing" });
+  assertCurrentChip(render(twice), "Thinking");
+  assert.doesNotMatch(render(applyEvent(twice, { kind: "system", text: "Notice" })), /data-step="chip"/);
+  assert.doesNotMatch(render(applyEvent(queued, { kind: "system", text: "Notice" })), /data-step="chip"/);
 });
 
-test("aktuell gehört zu den gemeinsamen wählbaren Detailgraden", () => {
+test("current belongs to the shared selectable detail levels", () => {
   assert.deepEqual(DETAIL_MODES, CHAT_DETAIL_MODES);
-  assert.equal(detailModeLabel("current"), "aktuell");
+  assert.equal(detailModeLabel("current"), "current");
 });
 
-test("nicht aufklappbarer current-Modus zeigt einen generischen Schrittchip ohne technische Inhalte", () => {
+test("non-expandable current mode shows a generic step chip without technical content", () => {
   const show = (messages: Message[], running = true) => renderToStaticMarkup(createElement(ChatMessages, { messages, running, detailMode: "current", stepsExpandable: false }));
-  const thinking = applyEvent([], { kind: "thinking", delta: "Verborgener Gedanke" });
-  assertCurrentChip(show(thinking), "Denken", false);
-  assert.doesNotMatch(show(thinking), /Verborgener Gedanke|<button/);
-  const tool = applyEvent(thinking, { kind: "tool", id: "browser", name: "browser_check", label: "Privater Quellpfad", arguments: "Verborgene Argumente" });
+  const thinking = applyEvent([], { kind: "thinking", delta: "Hidden thought" });
+  assertCurrentChip(show(thinking), "Thinking", false);
+  assert.doesNotMatch(show(thinking), /Hidden thought|<button/);
+  const tool = applyEvent(thinking, { kind: "tool", id: "browser", name: "browser_check", label: "Private source path", arguments: "Hidden arguments" });
   const html = show(tool);
-  assertCurrentChip(html, "Werkzeug läuft", false);
-  assert.match(html, /title="Werkzeug läuft"/);
+  assertCurrentChip(html, "Tool running", false);
+  assert.match(html, /title="Tool running"/);
   assert.match(html, /data-chat="working"/);
-  assert.doesNotMatch(html, /browser_check|Privater Quellpfad|Verborgene Argumente|Verborgener Gedanke|Denken/);
-  assert.doesNotMatch(show(tool, false), /Werkzeug läuft|data-step="chip"|data-chat="working"/);
-  const completed = applyEvent(tool, { kind: "tool-result", id: "browser", result: "Verborgener Screenshot" });
-  assert.doesNotMatch(show(completed), /Werkzeug läuft|Verborgener Screenshot/);
-  const failed = applyEvent(tool, { kind: "tool-result", id: "browser", result: "Verborgener Fehler", isError: true });
-  assert.doesNotMatch(show(failed), /Werkzeug läuft|Verborgener Fehler/);
+  assert.doesNotMatch(html, /browser_check|Private source path|Hidden arguments|Hidden thought|Thinking/);
+  assert.doesNotMatch(show(tool, false), /Tool running|data-step="chip"|data-chat="working"/);
+  const completed = applyEvent(tool, { kind: "tool-result", id: "browser", result: "Hidden screenshot" });
+  assert.doesNotMatch(show(completed), /Tool running|Hidden screenshot/);
+  const failed = applyEvent(tool, { kind: "tool-result", id: "browser", result: "Hidden error", isError: true });
+  assert.doesNotMatch(show(failed), /Tool running|Hidden error/);
 });
 
-test("redigierte leere Phasenmarker bleiben sichtbar und geschlossene Gedanken enden", () => {
+test("redacted empty phase markers stay visible and closed thoughts end", () => {
   const show = (messages: Message[]) => renderToStaticMarkup(createElement(ChatMessages, { messages, running: true, stepsExpandable: false }));
   const thinking = applyEvent([], { kind: "thinking", delta: "" });
-  assertCurrentChip(show(thinking), "Denken", false);
+  assertCurrentChip(show(thinking), "Thinking", false);
   assert.match(show(thinking), /data-chat="working"/);
-  assert.doesNotMatch(show(applyEvent(thinking, { kind: "turn-done" })), /Denken|data-step="chip"/);
+  assert.doesNotMatch(show(applyEvent(thinking, { kind: "turn-done" })), /Thinking|data-step="chip"/);
   const tool = applyEvent(thinking, { kind: "tool", id: "redacted", name: "", arguments: "", label: "" });
-  assertCurrentChip(show(tool), "Werkzeug läuft", false);
+  assertCurrentChip(show(tool), "Tool running", false);
   assert.match(show(tool), /data-chat="working"/);
-  assert.doesNotMatch(show(applyEvent(tool, { kind: "tool-result", id: "redacted", result: "" })), /Werkzeug läuft/);
+  assert.doesNotMatch(show(applyEvent(tool, { kind: "tool-result", id: "redacted", result: "" })), /Tool running/);
 });
 
-test("aktuelle Werkzeugchips umgehen benutzerdefinierte Werkzeugdarstellungen und geschlossene Argumente", () => {
+test("current tool chips bypass custom tool renderers and closed arguments", () => {
   const messages = applyEvent([], { kind: "tool", id: "call", name: "private_tool", arguments: "private_source" });
   const html = renderToStaticMarkup(createElement(ChatMessages, {
     messages,
     running: true,
     stepsExpandable: false,
-    renderTool: () => assert.fail("Generischer Status darf keinen Werkzeugrenderer aufrufen"),
-    toolArgumentsText: () => assert.fail("Generischer Status darf keine Argumente darstellen"),
+    renderTool: () => assert.fail("A generic status must not call a tool renderer"),
+    toolArgumentsText: () => assert.fail("A generic status must not render arguments"),
   }));
-  assertCurrentChip(html, "Werkzeug läuft", false);
+  assertCurrentChip(html, "Tool running", false);
   assert.doesNotMatch(html, /private_tool|private_source/);
   const expanded = renderToStaticMarkup(createElement(ChatMessages, {
     messages,
     running: true,
     stepsExpandable: true,
-    renderTool: () => assert.fail("Aktueller Schritt muss als Chip erscheinen"),
-    toolArgumentsText: () => assert.fail("Geschlossener Chip darf keine Argumente darstellen"),
+    renderTool: () => assert.fail("The current step must appear as a chip"),
+    toolArgumentsText: () => assert.fail("A closed chip must not render arguments"),
   }));
   assertCurrentChip(expanded, "private_tool");
   assert.doesNotMatch(expanded, /private_source|role="dialog"/);
 });
 
-test("aktuelle Chips verwenden die gemeinsamen Denk- und generischen Werkzeugtexte", () => {
+test("current chips use the shared thinking and generic tool texts", () => {
   const show = (messages: Message[]) => renderToStaticMarkup(createElement(ChatMessages, {
     messages, running: true, stepsExpandable: false,
-    texts: { thinkingChip: "Überlegen", currentTool: "Aktion läuft" },
+    texts: { thinkingChip: "Pondering", currentTool: "Action running" },
   }));
-  assertCurrentChip(show(applyEvent([], { kind: "thinking", delta: "Privat" })), "Überlegen", false);
-  assertCurrentChip(show(applyEvent([], { kind: "tool", id: "tool", name: "private_tool", arguments: "Privat" })), "Aktion läuft", false);
+  assertCurrentChip(show(applyEvent([], { kind: "thinking", delta: "Private" })), "Pondering", false);
+  assertCurrentChip(show(applyEvent([], { kind: "tool", id: "tool", name: "private_tool", arguments: "Private" })), "Action running", false);
 });
 
-test("Arbeitsanzeige bleibt in jedem Detailmodus zusätzlich sichtbar solange der Run läuft", () => {
-  const thinking = applyEvent([], { kind: "thinking", delta: "Gedanke" });
+test("the working indicator stays visible in every detail mode while the run is running", () => {
+  const thinking = applyEvent([], { kind: "thinking", delta: "Thought" });
   const tool = applyEvent(thinking, { kind: "tool", id: "tool", name: "lookup", arguments: "{}" });
-  const completed = applyEvent(tool, { kind: "tool-result", id: "tool", result: "Erledigt" });
-  const answer = applyEvent(completed, { kind: "text", delta: "Antwort" });
+  const completed = applyEvent(tool, { kind: "tool-result", id: "tool", result: "Done" });
+  const answer = applyEvent(completed, { kind: "text", delta: "Answer" });
   for (const detailMode of DETAIL_MODES) {
     for (const messages of [[], thinking, tool, completed, answer]) {
       const show = (running: boolean) => renderToStaticMarkup(createElement(ChatMessages, { messages, detailMode, running }));
-      assert.match(show(true), /aria-label="Arbeitet \.\.\."[^>]*data-chat="working" role="status"/, detailMode);
+      assert.match(show(true), /aria-label="Working \.\.\."[^>]*data-chat="working" role="status"/, detailMode);
       assert.doesNotMatch(show(false), /data-chat="working"/, detailMode);
     }
   }
 });
 
-test("eigene Arbeitsanzeige bleibt neben dem aktuellen Chip bis zum Ende des Turns sichtbar", () => {
+test("a custom working indicator stays visible next to the current chip until the end of the turn", () => {
   const messages = applyEvent([], { kind: "tool", id: "tool", name: "lookup", arguments: "{}" });
   const show = (running: boolean) => renderToStaticMarkup(createElement(ChatMessages, {
-    messages, running, working: createElement("span", { role: "status" }, "Eigene Arbeitsanzeige"),
+    messages, running, working: createElement("span", { role: "status" }, "Custom working indicator"),
   }));
   const html = show(true);
   assertCurrentChip(html, "lookup");
-  assert.match(html, /role="status">Eigene Arbeitsanzeige/);
+  assert.match(html, /role="status">Custom working indicator/);
   assert.doesNotMatch(html, /data-chat="working"/);
-  assert.doesNotMatch(show(false), /Eigene Arbeitsanzeige|data-step="chip"/);
+  assert.doesNotMatch(show(false), /Custom working indicator|data-step="chip"/);
 });

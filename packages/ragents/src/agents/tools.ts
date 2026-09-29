@@ -73,7 +73,7 @@ export const defineToolAvailability = (
 export const describeToolAvailability = (available: ToolAvailability): ToolAvailabilitySummary =>
     (available as CataloguedToolAvailability).summary ?? {
         availability: "conditional",
-        availabilityDetail: "Die Verfügbarkeit wird für jeden Actor und Run aus dem aktuellen Kontext ermittelt.",
+        availabilityDetail: "Availability is determined for each actor and run from the current context.",
     };
 
 export type ToolExecutionMode = "sequential" | "parallel";
@@ -114,7 +114,7 @@ const tool = defineRunFunction;
 
 const always = defineToolAvailability({
     availability: "always",
-    availabilityDetail: "In jedem Turn verfügbar.",
+    availabilityDetail: "Available in every turn.",
 }, () => true);
 
 export const holdsUsable = (actor: Actor, capability: CapabilityName) =>
@@ -124,7 +124,7 @@ const needs =
     (capability: CapabilityName): ToolAvailability =>
         defineToolAvailability({
             availability: "conditional",
-            availabilityDetail: `Nur mit der Capability ${capability}.`,
+            availabilityDetail: `Only with the capability ${capability}.`,
             requiredCapabilities: [capability],
         }, (actor) => holdsUsable(actor, capability));
 
@@ -156,13 +156,13 @@ const actorReferenceSchema = Type.Object({
 }, { additionalProperties: false });
 
 const subscriptionBaseSchema = {
-    subscriptionId: Type.String({ description: "ID der Subscription; event_unsubscribe nimmt sie als subscriptionId" }),
+    subscriptionId: Type.String({ description: "ID of the subscription; event_unsubscribe takes it as subscriptionId" }),
     subscriberId: Type.String(),
     sourceActorIds: Type.Union([Type.Array(Type.String()), Type.Null()], {
-        description: "Quell-Actors als ID; null = alle. ID und @handle sind als Eingabe gleichwertig.",
+        description: "Source actors as ID; null = all. ID and @handle are equivalent as input.",
     }),
     sources: Type.Union([Type.Array(Type.String()), Type.Null()], {
-        description: "Dieselben Quellen als @handle, soweit auflösbar; sonst die ID.",
+        description: "The same sources as @handle where resolvable; otherwise the ID.",
     }),
     sourceActorKinds: Type.Union([Type.Array(actorKindSchema), Type.Null()]),
     eventTypes: Type.Array(Type.String()),
@@ -249,7 +249,7 @@ const modelListResultSchema = Type.Object({
         model: Type.String(),
         label: Type.String(),
         thinking: Type.Array(Type.String(), {
-            description: "Denkstufen, die agent_spawn für dieses Modell annimmt.",
+            description: "Thinking levels that agent_spawn accepts for this model.",
         }),
     }, { additionalProperties: false })),
 }, { additionalProperties: false });
@@ -295,13 +295,13 @@ const subscriptionView = (view: RunView, subscription: EventSubscription) => {
 };
 
 const subscriptionCreatedSchema = Type.Object({
-    subscriptionId: Type.String({ description: "ID der Subscription; event_unsubscribe nimmt sie als subscriptionId" }),
+    subscriptionId: Type.String({ description: "ID of the subscription; event_unsubscribe takes it as subscriptionId" }),
     sources: Type.Union([Type.Array(Type.String()), Type.Null()], {
-        description: "Die aufgelösten Quell-Actors als @handle, soweit auflösbar, sonst als ID; null = alle.",
+        description: "The resolved source actors as @handle where resolvable, otherwise as ID; null = all.",
     }),
 }, { additionalProperties: false });
 
-const acknowledgementSchema = Type.Null({ description: "Erledigt; ein Fehler wirft." });
+const acknowledgementSchema = Type.Null({ description: "Done; an error throws." });
 
 const subscriptionResult = (runtime: Orchestration, runId: string, commandId: string) => {
     const created = runtime.events(runId).findLast(
@@ -393,7 +393,7 @@ export const agentTools: RunFunction[] = [
         label: "Remove Event Subscription",
         description: "Remove one event subscription owned by this actor.",
         schema: Type.Object({
-            subscriptionId: Type.String({ minLength: 1, description: "subscriptionId aus event_subscribe oder event_subscription_list" }),
+            subscriptionId: Type.String({ minLength: 1, description: "subscriptionId from event_subscribe or event_subscription_list" }),
             reason: Type.String({ minLength: 1 }),
         }, { additionalProperties: false }),
         resultSchema: acknowledgementSchema,
@@ -429,8 +429,8 @@ export const agentTools: RunFunction[] = [
             eventTypes: Type.Optional(Type.Array(Type.String({ minLength: 1 }), {
                 uniqueItems: true,
                 description:
-                    "Jeder Journal-Eventtyp ist abfragbar. Abonnierbar sind nur die observable Typen; "
-                    + "event_subscribe zeigt sie.",
+                    "Every journal event type can be queried. Only the observable types can be subscribed to; "
+                    + "event_subscribe shows them.",
             })),
             limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 500 })),
         }, { additionalProperties: false }),
@@ -547,8 +547,8 @@ export const agentTools: RunFunction[] = [
             + "forkOf gives the new agent an unchanged copy of the model context of an existing LLM agent of this run, up to the end of that agent's last finished turn; nothing of its running turn is copied, and a source without a finished turn is rejected. The new agent still gets its own prompt, tools and model, and its first input follows the copy.",
         schema: Type.Object({
             handle: Type.String({ minLength: 1 }),
-            displayName: Type.Optional(Type.String({ minLength: 1, description: "Anzeigename; ohne Angabe der Handle" })),
-            description: Type.Optional(Type.String({ minLength: 1, maxLength: actorDescriptionMaxLength, description: "Sehr kurze Beschreibung der Aufgabe für die Übersicht der Beteiligten, wenige Wörter wie \"prüft die Regel zu Kommentaren\"" })),
+            displayName: Type.Optional(Type.String({ minLength: 1, description: "Display name; defaults to the handle" })),
+            description: Type.Optional(Type.String({ minLength: 1, maxLength: actorDescriptionMaxLength, description: "Very short description of the task for the participants overview, a few words like \"checks the rule on comments\"" })),
             prompt: Type.String(),
             forkOf: Type.Optional(Type.String({ minLength: 1, description: "Handle or ID of an LLM agent of this run whose model context up to the end of its last finished turn is copied into the new agent" })),
             tools: Type.Union([Type.Array(Type.String({ minLength: 1 }), { uniqueItems: true }), Type.Null()], { description: "Required explicit selection: [] for plain text-only work including app-mediated conversations; an array for exact existing tool names; null only when the task needs an open, dynamically resolved toolset. Never inherits the caller's tools. Names of future, not yet activated actor functions are invalid; choose null when those must become available later." }),
@@ -605,17 +605,17 @@ export const agentTools: RunFunction[] = [
             "Set the run title and/or choose the primary actor the chat talks to. Give title, primaryActor or both; "
             + "the primary actor must be an active agent or TypeScript actor of this run.",
         schema: Type.Object({
-            title: Type.Optional(Type.String({ minLength: 1, maxLength: 200, description: "Neuer Titel des Runs" })),
+            title: Type.Optional(Type.String({ minLength: 1, maxLength: 200, description: "New title of the run" })),
             primaryActor: Type.Optional(Type.String({
                 minLength: 1,
-                description: "Handle oder ID des Actors, mit dem der Chat des Benutzers spricht",
+                description: "Handle or ID of the actor the user's chat talks to",
             })),
         }, { additionalProperties: false }),
         resultSchema: acknowledgementSchema,
         available: needs("run.configure"),
         run: ({ runtime, caller, context }, toolCallId, input) => {
             if (input.title === undefined && input.primaryActor === undefined)
-                throw new Error("run_configure braucht title oder primaryActor; gültig sind { title }, { primaryActor } und beides zusammen.");
+                throw new Error("run_configure needs title or primaryActor; valid are { title }, { primaryActor } and both together.");
 
             if (input.title !== undefined)
                 runtime.retitleRun(context(toolCallId, "title"), caller.runId, input.title);
@@ -637,7 +637,7 @@ export const agentTools: RunFunction[] = [
         label: "Restart Actor",
         description: "Restart a stopped actor in this actor's branch. It resumes with its full history; the LLM is stateless.",
         schema: Type.Object({
-            actorId: Type.String({ minLength: 1, description: "Handle oder ID" }),
+            actorId: Type.String({ minLength: 1, description: "Handle or ID" }),
             reason: Type.String({ minLength: 1 }),
         }, { additionalProperties: false }),
         resultSchema: eventResultSchemaOf("actor.restarted", "run.primary-actor-selected"),
@@ -658,7 +658,7 @@ export const agentTools: RunFunction[] = [
         label: "Stop Actor",
         description: "Stop an actor in this actor's branch together with its active descendants.",
         schema: Type.Object({
-            actorId: Type.String({ minLength: 1, description: "Handle oder ID" }),
+            actorId: Type.String({ minLength: 1, description: "Handle or ID" }),
             reason: Type.String({ minLength: 1 }),
         }, { additionalProperties: false }),
         resultSchema: eventResultSchemaOf("turn.interrupted", "actor.stopped", "subscription.removed"),

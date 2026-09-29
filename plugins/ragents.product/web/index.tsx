@@ -14,7 +14,7 @@ const basePlugin = (descriptor: WebPluginDescriptor): WebPlugin => ({
     title: "RAgents",
   },
   startOptions: productStartOptions,
-  settings: [{ id: "ragents.product.model-settings", label: "Neue Runs und Agenten", category: "models",
+  settings: [{ id: "ragents.product.model-settings", label: "New runs and agents", category: "models",
     order: 20, readRight: "settings.read", Settings: ModelSettings }],
 });
 

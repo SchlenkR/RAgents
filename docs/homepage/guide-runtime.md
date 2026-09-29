@@ -92,15 +92,15 @@ and how long the summary may be are values of the model; a profile sets them for
 All stop paths follow the same principle: block new work first, then cancel, wait for running
 work, and only then release resources. The exact boundary differs:
 
-Interrupting a turn is not a stop. The stop button in a chat input ("Arbeit stoppen") ends only the
+Interrupting a turn is not a stop. The stop button in a chat input ("Stop work") ends only the
 running turn of that chat's actor as `interrupted`: its running function calls are aborted, the
 visible text of its unfinished answer stays, and the actor remains active and takes the next
 message as a new turn. Its children and all other actors keep working, and without a running
 turn of this actor the input offers no stop. Stopping an actor for good and stopping the whole
 run are separate, explicitly labeled actions.
 
-In the run title bar, a user with write permission can request a complete stop through "Run
-stoppen" (stop run) and a confirmation. The primary actor can also trigger it with `run_stop`. Both use the
+In the run title bar, a user with write permission can request a complete stop through "Stop
+run" and a confirmation. The primary actor can also trigger it with `run_stop`. Both use the
 same host stop boundary; the chat and files remain intact. The function call initiates
 the stop but does not wait for cleanup of its own turn. Acceptance is not proof of completion.
 Cleanup errors are reported in the server log while the stop path's normal quarantine remains

@@ -42,7 +42,7 @@ export interface ModelCatalog {
 const defaultProfiles: AgentProfile[] = [
     {
         name: "manual",
-        description: "Kein automatischer Treiber. Ein Mensch führt die Turns.",
+        description: "No automatic driver. A human drives the turns.",
         driver: "manual",
         turnTimeoutMs: null,
         isolateWorkspace: false,

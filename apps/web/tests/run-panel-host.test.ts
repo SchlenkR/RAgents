@@ -24,8 +24,8 @@ test("the browser host opens links itself and refuses host-only actions loudly",
   assert.deepEqual(opened, ["http://localhost:4710/"]);
   assert.equal(host.centerElements("run-a").size, 0);
   assert.equal(host.machines, "server", "the browser starts new runs only on the server");
-  assert.throws(() => host.openInCenter("run-a", "board", "Board"), /nur in VS Code/);
-  assert.throws(() => host.requestLogin(), /nur in VS Code/);
+  assert.throws(() => host.openInCenter("run-a", "board", "Board"), /only available in VS Code/);
+  assert.throws(() => host.requestLogin(), /only available in VS Code/);
 });
 
 test("the vscode host relays messages to the parent and only accepts valid commands from it", () => {
@@ -36,11 +36,11 @@ test("the vscode host relays messages to the parent and only accepts valid comma
   host.onCommand((message) => commands.push(message));
   let placementsChanged = 0;
   host.subscribe(() => { placementsChanged += 1; });
-  host.openInCenter("run-a", "board--main", "Sammelboard");
+  host.openInCenter("run-a", "board--main", "Collection board");
   host.notify({ type: "runChanged", runId: "run-a" });
   host.notify({ type: "showStart" });
   assert.deepEqual(posted.map((entry) => entry.message), [
-    { type: "openInCenter", runId: "run-a", elementId: "board--main", title: "Sammelboard" },
+    { type: "openInCenter", runId: "run-a", elementId: "board--main", title: "Collection board" },
     { type: "runChanged", runId: "run-a" },
     { type: "showStart" },
   ]);
@@ -63,12 +63,12 @@ test("the vscode host relays messages to the parent and only accepts valid comma
 test("a vscode host without an embedding page is an error", () => {
   const browser = { parent: undefined as unknown } as unknown as Window;
   (browser as unknown as { parent: unknown }).parent = browser;
-  assert.throws(() => createVsCodeHost(browser), /kein Webview/);
+  assert.throws(() => createVsCodeHost(browser), /not embedded in a webview/);
 });
 
-test("der Zurück-Pfeil meldet die Absicht, nicht nur ihre Folge", () => {
+test("the back arrow reports the intent, not only its consequence", () => {
   assert.equal(isRunPanelHostMessage({ type: "showStart" }), true);
-  assert.equal(isRunPanelHostMessage({ type: "showStart", runId: "run-a" }), true, "weitere Felder stören die Absicht nicht");
+  assert.equal(isRunPanelHostMessage({ type: "showStart", runId: "run-a" }), true, "additional fields do not disturb the intent");
   assert.equal(isRunPanelHostMessage({ type: "showstart" }), false);
   assert.equal(isRunPanelHostMessage({ type: "runChanged", runId: null }), true);
 });

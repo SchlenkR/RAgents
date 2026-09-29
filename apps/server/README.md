@@ -1,14 +1,14 @@
 # @ragents/host
 
-Das Node-Backend. Findet die Plugins zur Laufzeit und komponiert daraus das Profil.
+The Node backend. Finds the plugins at runtime and composes the profile from them.
 
-- Die Plugins selbst liegen auf Repo-Wurzelebene unter `plugins/<id>/server/`; ein Profil kann
-  zusätzlich Plugins per Pfad nennen. `profile/` sucht sie und setzt sie zusammen.
-- `plugin-support/` sind die Bausteine, die ein Plugin vom Host bekommt: Sandbox-Werkzeuge,
-  Language Server, Prompts, Modellauswahl.
-- `ragents/` verdrahtet die Engine mit dem Server: Runs, Journal-Projektion,
-  Host-Dienste.
-- Die Konfigurationsschlüssel deklarieren die Plugins selbst; `config-definition.ts` liefert
-  nur den Dateityp, die Werte stehen in `ragents.config.<profil>.ts` im Wurzelverzeichnis.
+- The plugins themselves live at the repo root under `plugins/<id>/server/`; a profile can
+  additionally name plugins by path. `profile/` finds them and puts them together.
+- `plugin-support/` holds the building blocks a plugin gets from the host: sandbox tools,
+  language server, prompts, model choice.
+- `ragents/` wires the engine to the server: runs, journal projection,
+  host services.
+- The plugins declare the configuration keys themselves; `config-definition.ts` only provides
+  the file type, the values live in `ragents.config.<profile>.ts` in the root directory.
 
-Lokal starten: `scripts/start.sh <profil>`. Tests: `PRODUCT_PROFILE=core pnpm test`.
+Start locally: `scripts/start.sh <profile>`. Tests: `PRODUCT_PROFILE=core pnpm test`.

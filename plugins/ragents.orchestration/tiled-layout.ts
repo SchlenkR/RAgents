@@ -8,28 +8,28 @@ export const MAX_SURFACE_TILES = 64;
 export const surfaceTileNodeOf = (input: unknown): SurfaceTileNode => {
   const entities = new Set<string>();
   const parse = (value: unknown, where: string, depth: number): SurfaceTileNode => {
-    if (depth > MAX_SURFACE_TILE_DEPTH) throw new Error(`${where}: höchstens ${MAX_SURFACE_TILE_DEPTH} verschachtelte Teilungen sind erlaubt`);
-    if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error(`${where} muss eine Kachel oder Teilung sein`);
+    if (depth > MAX_SURFACE_TILE_DEPTH) throw new Error(`${where}: at most ${MAX_SURFACE_TILE_DEPTH} nested splits are allowed`);
+    if (typeof value !== "object" || value === null || Array.isArray(value)) throw new Error(`${where} must be a tile or a split`);
     const node = value as Record<string, unknown>;
     if (Object.hasOwn(node, "entity")) {
-      if (Object.keys(node).some((key) => key !== "entity" && key !== "chatInput")) throw new Error(`${where}: eine Kachel trägt nur entity und chatInput; eine Teilung direction, weights und children`);
-      if (typeof node.entity !== "string") throw new Error(`${where}.entity muss @handle oder app:<name>/<view> sein`);
+      if (Object.keys(node).some((key) => key !== "entity" && key !== "chatInput")) throw new Error(`${where}: a tile carries only entity and chatInput; a split direction, weights and children`);
+      if (typeof node.entity !== "string") throw new Error(`${where}.entity must be @handle or app:<name>/<view>`);
       const entity = surfaceEntityOf(node.entity);
       const key = surfaceEntityKey(entity);
       if (node.chatInput !== undefined && (entity.kind !== "actor" || typeof node.chatInput !== "boolean")) {
-        throw new Error(`${where}.chatInput ist nur für Actors als Wahrheitswert erlaubt`);
+        throw new Error(`${where}.chatInput is only allowed for actors, as a boolean`);
       }
-      if (entities.has(key)) throw new Error(`${where}: ${key} ist mehr als einmal als Kachel platziert`);
+      if (entities.has(key)) throw new Error(`${where}: ${key} is placed as a tile more than once`);
       entities.add(key);
-      if (entities.size > MAX_SURFACE_TILES) throw new Error(`Höchstens ${MAX_SURFACE_TILES} Kacheln sind erlaubt`);
+      if (entities.size > MAX_SURFACE_TILES) throw new Error(`At most ${MAX_SURFACE_TILES} tiles are allowed`);
       return node.chatInput === undefined ? { entity: key } : { entity: key, chatInput: node.chatInput as boolean };
     }
-    if (Object.keys(node).some((key) => !["direction", "weights", "children"].includes(key))) throw new Error(`${where}: eine Teilung trägt nur direction, weights und children`);
-    if (node.direction !== "horizontal" && node.direction !== "vertical") throw new Error(`${where}.direction muss horizontal oder vertical sein`);
+    if (Object.keys(node).some((key) => !["direction", "weights", "children"].includes(key))) throw new Error(`${where}: a split carries only direction, weights and children`);
+    if (node.direction !== "horizontal" && node.direction !== "vertical") throw new Error(`${where}.direction must be horizontal or vertical`);
     if (!Array.isArray(node.weights) || node.weights.length !== 2 || node.weights.some((weight) => typeof weight !== "number" || !Number.isFinite(weight) || weight <= 0)) {
-      throw new Error(`${where}.weights muss genau zwei endliche positive Zahlen enthalten`);
+      throw new Error(`${where}.weights must contain exactly two finite positive numbers`);
     }
-    if (!Array.isArray(node.children) || node.children.length !== 2) throw new Error(`${where}.children muss genau zwei Kacheln oder Teilungen enthalten`);
+    if (!Array.isArray(node.children) || node.children.length !== 2) throw new Error(`${where}.children must contain exactly two tiles or splits`);
     return {
       direction: node.direction,
       weights: [node.weights[0], node.weights[1]],

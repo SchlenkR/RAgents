@@ -52,10 +52,10 @@ test("operations are globally unique and validate input", async () => {
 
     assert.equal(operations.operation("example.echo")?.owner, "first-plugin");
     assert.equal(operations.operation("missing"), undefined);
-    assert.equal(await operations.invoke("example.echo", operationContext("operator"), { value: "Hallo" }), "Hallo");
+    assert.equal(await operations.invoke("example.echo", operationContext("operator"), { value: "Hello" }), "Hello");
     await assert.rejects(
         operations.invoke("example.echo", operationContext("operator"), { value: 42 }),
-        /Ungültige Eingabe/,
+        /Invalid input/,
     );
     assert.throws(() => operations.register("second-plugin", [{
         id: "example.echo",
@@ -65,7 +65,7 @@ test("operations are globally unique and validate input", async () => {
         resultSchema: Type.Unknown(),
         operator: "direct",
         execute: () => null,
-    }]), /bereits von first-plugin bereitgestellt/);
+    }]), /already provided by first-plugin/);
 });
 
 test("operator policies distinguish agent calls from operator-mediated app calls", async () => {
@@ -93,7 +93,7 @@ test("operator policies distinguish agent calls from operator-mediated app calls
 
     await assert.rejects(
         operations.invoke("example.confirmed", operationContext("operator"), {}),
-        /gebundene Bestätigung/,
+        /requires a confirmation bound to this call/,
     );
     assert.equal(
         await operations.invoke(
@@ -109,7 +109,7 @@ test("operator policies distinguish agent calls from operator-mediated app calls
             operationContext("operator", { operationId: "example.confirmed", input: { other: true } }),
             {},
         ),
-        /gebundene Bestätigung/,
+        /requires a confirmation bound to this call/,
     );
     await assert.rejects(
         operations.invoke(
@@ -121,7 +121,7 @@ test("operator policies distinguish agent calls from operator-mediated app calls
             }),
             {},
         ),
-        /gebundene Bestätigung/,
+        /requires a confirmation bound to this call/,
     );
     await assert.rejects(
         operations.invoke(
@@ -129,7 +129,7 @@ test("operator policies distinguish agent calls from operator-mediated app calls
             operationContext("operator", { operationId: "example.internal", input: {} }),
             {},
         ),
-        /nicht verfügbar/,
+        /not available to the operator/,
     );
     assert.equal(await operations.invoke("example.confirmed", operationContext("agent"), {}), "agent");
     assert.equal(await operations.invoke("example.internal", operationContext("agent"), {}), "agent");
@@ -165,7 +165,7 @@ test("operation results are validated at the host boundary", async () => {
 
     await assert.rejects(
         operations.invoke("example.invalid-result", operationContext("agent"), {}),
-        /Ungültiges Ergebnis von Operation example\.invalid-result: ok must be boolean, got "not-a-boolean"/,
+        /Invalid result of operation example\.invalid-result: ok must be boolean, got "not-a-boolean"/,
     );
 });
 
@@ -186,7 +186,7 @@ test("session stop starts every plugin in reverse registration order and aggrega
         },
     }]);
 
-    await assert.rejects(lifecycle.stopSession("run-1"), /Plugin-Stopp ist in 1 Plugin/);
+    await assert.rejects(lifecycle.stopSession("run-1"), /Plugin stop failed in 1 plugin/);
     assert.deepEqual(calls, ["second:run-1", "first:run-1"]);
 });
 
@@ -228,11 +228,11 @@ test("final stop hooks have separate attempts and retain late cleanup until rele
     await first.bounded;
     assert.deepEqual(calls, ["stop"]);
     const final = lifecycle.beginAfterStopSession("run-1");
-    await assert.rejects(final.bounded, /Plugin-Stopp/);
+    await assert.rejects(final.bounded, /Plugin stop/);
     assert.equal(signal?.aborted, true);
-    assert.throws(final.release, /vor dem Ende/);
+    assert.throws(final.release, /before all contributions have ended/);
     const repeated = lifecycle.beginAfterStopSession("run-1");
-    await assert.rejects(repeated.bounded, /Plugin-Stopp/);
+    await assert.rejects(repeated.bounded, /Plugin stop/);
     const deletion = lifecycle.deleteSession("run-1");
     assert.deepEqual(calls, ["stop", "final-start"]);
     release();
@@ -267,7 +267,7 @@ test("session stop aborts and bounds a plugin that ignores its signal", async ()
         (error: unknown) => {
             assert.ok(error instanceof AggregateError);
             assert.equal(error.errors.length, 2);
-            assert.match(String(error.errors[0]), /hanging\.lifecycle.*20 ms überschritten/);
+            assert.match(String(error.errors[0]), /hanging\.lifecycle.*timeout of 20 ms/);
             assert.match(String(error.errors[1]), /Peer plugin failed/);
             return true;
         },
@@ -298,7 +298,7 @@ test("a timed-out session stopper exposes its late settlement and remains coales
     const isTimeout = (error: unknown): boolean => {
         assert.ok(error instanceof AggregateError);
         assert.equal(error.errors.length, 1);
-        assert.match(String(error.errors[0]), /late\.lifecycle.*20 ms überschritten/);
+        assert.match(String(error.errors[0]), /late\.lifecycle.*timeout of 20 ms/);
         return true;
     };
 
@@ -308,7 +308,7 @@ test("a timed-out session stopper exposes its late settlement and remains coales
     await assert.rejects(first.bounded, isTimeout);
     assert.equal(actuallySettled, false);
     assert.deepEqual(mutations, []);
-    assert.throws(first.release, /vor dem Ende aller Beiträge/);
+    assert.throws(first.release, /before all contributions have ended/);
 
     const coalesced = lifecycle.beginStopSession("run-1");
     await assert.rejects(coalesced.bounded, isTimeout);
@@ -347,7 +347,7 @@ test("a timed-out session stop is released after settlement and deletion waits f
     await assert.rejects(
         lifecycle.stopSession("run-1"),
         (error: unknown) => error instanceof AggregateError
-            && error.errors.some((entry) => /20 ms überschritten/.test(String(entry))),
+            && error.errors.some((entry) => /timeout of 20 ms/.test(String(entry))),
     );
     const deletion = lifecycle.deleteSession("run-1");
     await new Promise<void>((resolve) => setImmediate(resolve));
@@ -375,7 +375,7 @@ test("plugin shutdown waits for a timed-out session stop to settle", async () =>
     await assert.rejects(
         lifecycle.stopSession("run-1"),
         (error: unknown) => error instanceof AggregateError
-            && error.errors.some((entry) => /20 ms überschritten/.test(String(entry))),
+            && error.errors.some((entry) => /timeout of 20 ms/.test(String(entry))),
     );
     const shutdown = lifecycle.shutdown().then(() => {
         shutdownSettled = true;
@@ -405,7 +405,7 @@ test("session deletion settles every plugin after a failure", async () => {
         },
     }]);
 
-    await assert.rejects(lifecycle.deleteSession("run-1"), /Plugin-Löschung ist in 1 Plugin/);
+    await assert.rejects(lifecycle.deleteSession("run-1"), /Plugin deletion failed in 1 plugin/);
     assert.deepEqual(calls, ["second", "first"]);
 });
 
@@ -417,7 +417,7 @@ test("start options validate their contribution, defaults and accepted values ag
         selectable: () => true,
         defaultValue: () => "empty",
         accept: (value: unknown) => value === "clone" ? "clone" : "empty",
-        describe: () => ({ kind: "choice", label: "Quelle", options: [] }),
+        describe: () => ({ kind: "choice", label: "Source", options: [] }),
     };
     registry.register("first-plugin", [option]);
 
@@ -425,24 +425,24 @@ test("start options validate their contribution, defaults and accepted values ag
     assert.equal(registry.entry("example.source")?.owner, "first-plugin");
     assert.equal(registry.defaultValue("example.source", { runId: "run-1", userId: null }), "empty");
     assert.equal(registry.accept("example.source", "clone", { runId: "run-1", userId: null }), "clone");
-    assert.throws(() => registry.accept("example.source", "other", { runId: "run-1", userId: null }), /Ungültiger Wert für Startoption example\.source: value got "other", allowed values: empty, clone/);
-    assert.throws(() => registry.accept("missing", "clone", { runId: "run-1", userId: null }), /nicht registriert/);
-    assert.throws(() => registry.register("second-plugin", [option]), /bereits von first-plugin bereitgestellt/);
-    assert.throws(() => registry.register("second-plugin", [{ ...option, id: "Bad Id" }]), /Ungültige Startoption-Id/);
-    assert.throws(() => registry.register("second-plugin", [{ ...option, id: "example.owner", ownerOnly: true as never }]), /ungültiges ownerOnly/);
-    assert.throws(() => registry.register("second-plugin", [{ ...option, id: "example.rights", rights: ["Runs Inspect"] }]), /ungültige rights/);
-    assert.throws(() => registry.register("second-plugin", [{ ...option, id: "example.changeable", changeable: "yes" as never }]), /ungültiges changeable/);
+    assert.throws(() => registry.accept("example.source", "other", { runId: "run-1", userId: null }), /Invalid value for start option example\.source: value got "other", allowed values: empty, clone/);
+    assert.throws(() => registry.accept("missing", "clone", { runId: "run-1", userId: null }), /is not registered/);
+    assert.throws(() => registry.register("second-plugin", [option]), /already provided by first-plugin/);
+    assert.throws(() => registry.register("second-plugin", [{ ...option, id: "Bad Id" }]), /Invalid start option id/);
+    assert.throws(() => registry.register("second-plugin", [{ ...option, id: "example.owner", ownerOnly: true as never }]), /invalid ownerOnly/);
+    assert.throws(() => registry.register("second-plugin", [{ ...option, id: "example.rights", rights: ["Runs Inspect"] }]), /invalid rights/);
+    assert.throws(() => registry.register("second-plugin", [{ ...option, id: "example.changeable", changeable: "yes" as never }]), /invalid changeable/);
     registry.register("second-plugin", [{ ...option, id: "example.technical", rights: ["runs.inspect"] }]);
     const inspecting = { can: (right: string) => right === "runs.inspect" };
     const plain = { can: () => false };
     assert.equal(registry.missingRight("example.technical", plain), "runs.inspect");
     assert.equal(registry.missingRight("example.technical", inspecting), undefined);
-    assert.equal(registry.missingRight("example.source", plain), undefined, "ohne rights genügen die Rechte der Methode");
-    assert.throws(() => registry.assertRights("example.technical", plain), /Das Recht runs\.inspect fehlt für die Startoption example\.technical/);
+    assert.equal(registry.missingRight("example.source", plain), undefined, "without rights the rights of the method suffice");
+    assert.throws(() => registry.assertRights("example.technical", plain), /The right runs\.inspect is missing for the start option example\.technical/);
     registry.register("second-plugin", [{ ...option, id: "example.broken", defaultValue: () => "other" }]);
     assert.throws(
         () => registry.defaultValue("example.broken", { runId: "run-1", userId: null }),
-        /Ungültiger Standardwert für Startoption example\.broken/,
+        /Invalid default value for start option example\.broken/,
     );
 });
 
@@ -463,8 +463,8 @@ test("access projections apply per state id to viewers without runs.inspect; sta
         state: (entry) => ({ title: (entry.state as { title: string }).title, at: entry.updatedAt }),
         chatEvent: (event) => event.type === "state-replaced" ? { type: event.type, payload: { title: "Board" } } : undefined,
     }]);
-    assert.throws(() => registry.register("example.other", [{ id: "example.board", state: () => null, chatEvent: () => undefined }]), /Zugriffsprojektion example\.board wird bereits von example\.board bereitgestellt/);
-    assert.throws(() => registry.register("example.other", [{ id: "example.broken", state: () => null } as never]), /Zugriffsprojektion example\.broken hat kein chatEvent/);
+    assert.throws(() => registry.register("example.other", [{ id: "example.board", state: () => null, chatEvent: () => undefined }]), /Access projection example\.board is already provided by example\.board/);
+    assert.throws(() => registry.register("example.other", [{ id: "example.broken", state: () => null } as never]), /Access projection example\.broken has no chatEvent/);
 
     const plain = { can: (right: string) => right === "runs.read" };
     const inspecting = { can: () => true };
@@ -476,7 +476,7 @@ test("access projections apply per state id to viewers without runs.inspect; sta
     const visible = entry("example.open", { title: "open" });
     assert.equal(registry.state(visible, plain), visible);
     const unknown = entry("example.unknown", { title: "Unknown", secret: "kept" });
-    assert.equal(registry.state(unknown, plain), unknown, "ohne Projektion bleibt der Zustand");
+    assert.equal(registry.state(unknown, plain), unknown, "without a projection the state stays");
 
     const chat = { kind: "plugin" as const, pluginId: "example.board", type: "state-replaced", payload: { state: { secret: "hidden" } }, at: "now" };
     assert.deepEqual(registry.chatEvent("example.board", chat, plain), { ...chat, payload: { title: "Board" } });
@@ -489,14 +489,14 @@ test("access projections apply per state id to viewers without runs.inspect; sta
 
 test("agent hooks reach the driver bound to their agent: they keep data, add notes and replace tool results", async () => {
     const registry = new AgentContributionRegistry();
-    assert.throws(() => registry.register("test.plugin", [{ id: "test.empty" }]), /keinen Hook/);
+    assert.throws(() => registry.register("test.plugin", [{ id: "test.empty" }]), /has no hook/);
     const seen: unknown[] = [];
     registry.register("test.plugin", [{
         id: "test.hooks",
         beforeModelCall: (agent, call) => {
             seen.push({ agent: agent.agentId, kept: call.kept, images: call.modelReadsImages });
             call.keep({ count: typeof call.kept === "number" ? call.kept + 1 : 1 });
-            return agent.agentId === "quiet" ? undefined : "Hinweis";
+            return agent.agentId === "quiet" ? undefined : "Note";
         },
         afterToolCall: (_agent, outcome, call) => outcome.toolName === "shot" && call.modelReadsImages
             ? { content: [{ type: "image", data: "AA==", mimeType: "image/png" }], isError: false }
@@ -514,7 +514,7 @@ test("agent hooks reach the driver bound to their agent: they keep data, add not
     };
     const loud = hookOf("loud");
     const call = (modelReadsImages: boolean) => ({ signal: undefined, modelReadsImages, kept: 3, keep: (value: unknown) => { kept.push(value); } });
-    assert.equal(await loud.beforeModelCall!(call(true)), "Hinweis");
+    assert.equal(await loud.beforeModelCall!(call(true)), "Note");
     assert.deepEqual(kept, [{ count: 4 }]);
     assert.deepEqual(await loud.afterToolCall!({ toolName: "shot", isError: false }, { signal: undefined, modelReadsImages: true }), {
         content: [{ type: "image", data: "AA==", mimeType: "image/png" }], isError: false,
@@ -534,8 +534,8 @@ test("a run condition takes prompts, skills and agent hooks of its plugin out of
         manifest: { id },
         register: (registration) => {
             registration.prompts(
-                { id: `${id}.prompt`, order: 1, render: () => `Text von ${id}.` },
-                { id: `${id}.per-run`, order: 2, render: () => "Vorgabe.", renderForRun: (runId) => runId === "own-text" ? `Eigener Text von ${id}.` : undefined },
+                { id: `${id}.prompt`, order: 1, render: () => `Text of ${id}.` },
+                { id: `${id}.per-run`, order: 2, render: () => "Default.", renderForRun: (runId) => runId === "own-text" ? `Own text of ${id}.` : undefined },
             );
             registration.skills({ id: `${id}.skills`, paths: () => [`/skills/${id}`] });
             registration.agentRuntime({ id: `${id}.hook`, beforeModelCall: () => undefined });
@@ -544,7 +544,7 @@ test("a run condition takes prompts, skills and agent hooks of its plugin out of
     });
     contribute("test.open");
     contribute("test.gated", (runId) => {
-        if (runId === "broken") throw new Error("Die Bedingung ist für diesen Run nicht ermittelt.");
+        if (runId === "broken") throw new Error("The condition is not determined for this run.");
         return runId !== "foreign";
     });
     assert.throws(
@@ -552,13 +552,13 @@ test("a run condition takes prompts, skills and agent hooks of its plugin out of
             registration.runCondition(() => true);
             registration.runCondition(() => false);
         } }),
-        /Plugin test\.twice hat bereits eine Laufbedingung/,
+        /Plugin test\.twice already has a run condition/,
     );
     const agent = (runId: string) => ({ runId, agentId: "agent", audience: "agent" as const, workspace: "/unused" });
 
     assert.deepEqual(Object.fromEntries(host.prompts.runOverrides("own-text")), {
-        "test.open.per-run": "Eigener Text von test.open.",
-        "test.gated.per-run": "Eigener Text von test.gated.",
+        "test.open.per-run": "Own text of test.open.",
+        "test.gated.per-run": "Own text of test.gated.",
     });
     assert.deepEqual(Object.fromEntries(host.prompts.runOverrides("foreign")), {
         "test.gated.prompt": "",
@@ -569,5 +569,5 @@ test("a run condition takes prompts, skills and agent hooks of its plugin out of
     assert.deepEqual(await host.skills.global(), ["/skills/test.open", "/skills/test.gated"]);
     assert.deepEqual(host.agentRuntime.resolve(agent("own")).map((hook) => hook.id), ["test.open.hook", "test.gated.hook"]);
     assert.deepEqual(host.agentRuntime.resolve(agent("foreign")).map((hook) => hook.id), ["test.open.hook"]);
-    assert.throws(() => host.prompts.runOverrides("broken"), /nicht ermittelt/);
+    assert.throws(() => host.prompts.runOverrides("broken"), /not determined/);
 });

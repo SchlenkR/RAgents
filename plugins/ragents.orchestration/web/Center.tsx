@@ -29,7 +29,7 @@ function RunOrchestrationCenter({
 }: SurfaceCenterContext) {
   const inspect = useAccess().can("runs.inspect");
   const surface = useSurfaceController();
-  if (!surface) throw new Error("Die Fläche braucht den Flächen-Controller des Orchestrierungs-Plugins.");
+  if (!surface) throw new Error("The surface needs the surface controller of the orchestration plugin.");
   const lastRunView = useRef<ReturnType<typeof runViewFrom>>(undefined);
   const parsedRunView = runViewFrom(session.runView);
   if (parsedRunView !== undefined) lastRunView.current = parsedRunView;
@@ -103,14 +103,14 @@ function RunOrchestrationCenter({
 
   return (
     <div className="relative flex h-full min-h-0 min-w-0 flex-1 overflow-clip" data-view="tiled">
-      {personalLayout && <StatusGroup container={statusContainer} label="Fläche" order={20}>
+      {personalLayout && <StatusGroup container={statusContainer} label="Surface" order={20}>
         <button className={statusControlClass} onClick={() => saveSurfacePresentation(session.session.id, null)}
-          title="Eigene Anordnung zurücksetzen und der Programmanordnung folgen" type="button">Programmvorgabe übernehmen</button>
+          title="Reset your own arrangement and follow the program arrangement" type="button">Apply program default</button>
       </StatusGroup>}
       {runToolbarContainer && createPortal(<><ActorHeaderModeControl runId={session.session.id} />{inspect && <ActorSurfaceControls session={session}
         appActorIds={appActorIds} preferences={preferences}
         onPreferencesChange={(next) => saveSurfaceViewPreferences(session.session.id, next)} />}</>, runToolbarContainer)}
-      <div aria-label="Fläche" className="relative min-h-0 min-w-0 flex-[1_1_360px] overflow-clip bg-[image:var(--surface-backdrop)]" ref={stageRef}>
+      <div aria-label="Surface" className="relative min-h-0 min-w-0 flex-[1_1_360px] overflow-clip bg-[image:var(--surface-backdrop)]" ref={stageRef}>
         <SurfaceGrain />
         {(programLayout.error || presentationError) && <p className="absolute inset-x-2 top-2 z-10 bg-secondary p-3 text-destructive" role="alert">{programLayout.error || presentationError}</p>}
         {runView && !showStartup && <div className="absolute inset-y-0 left-0 w-[var(--surface-visible-width,100%)] overflow-hidden">
@@ -124,7 +124,7 @@ function RunOrchestrationCenter({
   );
 }
 
-/** Feines Rauschen über der Fläche, damit das Material nicht glatt wirkt. */
+/** Fine noise over the surface so the material does not look smooth. */
 function SurfaceGrain() {
   return <svg aria-hidden="true" className="pointer-events-none absolute inset-0 size-full opacity-10" preserveAspectRatio="none" viewBox="0 0 180 180">
     <filter id="surface-grain"><feTurbulence baseFrequency=".76" numOctaves="3" stitchTiles="stitch" type="fractalNoise" /></filter>

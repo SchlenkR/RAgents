@@ -10,7 +10,7 @@ import { peImports, type PeImports } from "./pe-imports.ts";
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const extensionRoot = path.join(repositoryRoot, "apps", "vscode");
 
-/** Die feste Git-for-Windows-Fassung, aus der die Bash stammt; eine neue Fassung heißt neue Hashes. */
+/** The pinned Git for Windows version the Bash comes from; a new version means new hashes. */
 export const PORTABLE_GIT_TAG = "v2.55.0.windows.5";
 const RELEASE_URL = `https://github.com/git-for-windows/git/releases/download/${PORTABLE_GIT_TAG}`;
 
@@ -19,7 +19,7 @@ export type BashTarget = "win32-x64" | "win32-arm64";
 interface TargetSource {
   readonly asset: string;
   readonly sha256: string;
-  /** Der Ordner der nativen Windows-Programme im Archiv; aus ihm kommen nur Lizenztexte. */
+  /** The folder of the native Windows programs in the archive; only license texts come from it. */
   readonly nativePrefix: string;
 }
 
@@ -47,7 +47,7 @@ const COREUTILS = [
   "whoami", "yes",
 ].map((name) => `${name}.exe`);
 
-/** Was aus usr/bin mitkommt, je Paket der Quelle; Skripte ohne .exe sind sh-Skripte über den Programmen daneben. */
+/** What comes along from usr/bin, per package of the source; scripts without .exe are sh scripts on top of the programs next to them. */
 export const BASH_PACKAGES: Readonly<Record<string, readonly string[]>> = {
   "bash": ["bash.exe", "sh.exe"],
   "coreutils": COREUTILS,
@@ -70,13 +70,13 @@ export const BASH_PACKAGES: Readonly<Record<string, readonly string[]>> = {
   "util-linux": ["column.exe", "getopt.exe"],
 };
 
-/** Daten, ohne die ein mitgebrachtes Programm nicht arbeitet: die Magic-Datenbank von file. */
+/** Data without which a bundled program does not work: the magic database of file. */
 const DATA_FILES = ["usr/share/misc/magic.mgc"];
 
-/** Was nie in die Bash gehört: Git kommt vom Benutzer, und Perl, Editoren, Krypto-Werkzeuge und Terminals braucht sie nicht. */
+/** What never belongs in the Bash: Git comes from the user, and it needs no Perl, editors, crypto tools or terminals. */
 const FORBIDDEN = /^(git|perl|vim?|view|gpg|ssh|scp|sftp|openssl|mintty|winpty|tig|r?nano)([-.0-9_].*)?$|^msys-perl/i;
 
-/** Windows-Systembibliotheken, die nie in usr/bin liegen; eine andere fehlende DLL bricht den Bau ab. */
+/** Windows system libraries that are never in usr/bin; any other missing DLL aborts the build. */
 const WINDOWS_SYSTEM_DLLS: ReadonlySet<string> = new Set([
   "advapi32.dll", "bcrypt.dll", "comctl32.dll", "comdlg32.dll", "crypt32.dll", "dbghelp.dll", "dnsapi.dll", "gdi32.dll",
   "imm32.dll", "iphlpapi.dll", "kernel32.dll", "mpr.dll", "msvcrt.dll", "ncrypt.dll", "netapi32.dll", "ntdll.dll",
@@ -88,7 +88,7 @@ const WINDOWS_SYSTEM_DLLS: ReadonlySet<string> = new Set([
 export const isWindowsSystemDll = (name: string): boolean =>
   /^(api|ext)-ms-win-/i.test(name) || WINDOWS_SYSTEM_DLLS.has(name.toLowerCase());
 
-/** Alle DLLs, die die Programme laden, transitiv; `available` bildet kleingeschriebene Namen auf die Dateien in usr/bin ab. */
+/** All DLLs the programs load, transitively; `available` maps lowercase names to the files in usr/bin. */
 export const dllClosure = (
   programs: readonly string[],
   importsOf: (file: string) => PeImports,
@@ -103,7 +103,7 @@ export const dllClosure = (
       const bundled = available.get(dll.toLowerCase());
       if (bundled === undefined) {
         if (isWindowsSystemDll(dll)) continue;
-        throw new Error(`${file} braucht ${dll}; die DLL liegt nicht in usr/bin und ist keine bekannte Windows-Systembibliothek`);
+        throw new Error(`${file} needs ${dll}; the DLL is not in usr/bin and is not a known Windows system library`);
       }
       if (found.has(bundled.toLowerCase())) continue;
       found.set(bundled.toLowerCase(), bundled);
@@ -113,7 +113,7 @@ export const dllClosure = (
   return [...found.values()].sort();
 };
 
-/** Wählt HOME aus der Umgebung und sonst das Windows-Profil; die übrigen Zeilen wie in Git for Windows. */
+/** Chooses HOME from the environment and otherwise the Windows profile; the other lines as in Git for Windows. */
 const NSSWITCH = `# Written by RAgents for its bundled bash: HOME comes from the environment, otherwise from Windows.
 passwd: files db
 group: files # db
@@ -123,7 +123,7 @@ db_shell: env windows
 db_gecos: env
 `;
 
-/** Die Lizenztexte der Bash: Name in licenses/ und Pfad im Archiv; <native> ist der Ordner der nativen Programme. */
+/** The Bash's license texts: name in licenses/ and path in the archive; <native> is the folder of the native programs. */
 const LICENSE_FILES: readonly (readonly [string, string])[] = [
   ["GPL-2.0.txt", "LICENSE.txt"],
   ["GPL-3.0.txt", "usr/share/licenses/mintty/LICENSE.GPL"],
@@ -142,7 +142,7 @@ const LICENSE_FILES: readonly (readonly [string, string])[] = [
   ["zstd/LICENSE", "<native>/share/licenses/zstd/LICENSE"],
 ];
 
-/** Die Quellen stehen bei Git for Windows und MSYS2; der Hinweis nennt sie samt Fassungen der mitgebrachten Pakete. */
+/** The sources are at Git for Windows and MSYS2; the notice names them together with the versions of the bundled packages. */
 const notice = (target: BashTarget, source: TargetSource, versions: readonly string[], dlls: readonly string[]): string => `RAgents bundled bash (${target})
 ================================
 
@@ -171,52 +171,52 @@ Git for Windows and MSYS2 projects:
 
 const sha256Of = (buffer: Buffer): string => createHash("sha256").update(buffer).digest("hex");
 
-/** Lädt ein Archiv einmal in den Cache und prüft es bei jedem Gebrauch gegen den festen Hash. */
+/** Downloads an archive into the cache once and checks it against the pinned hash on every use. */
 export const cachedArchive = async (url: string, sha256: string, cache: string, log: (line: string) => void): Promise<string> => {
   const asset = path.posix.basename(new URL(url).pathname);
   const file = path.join(cache, asset);
   if (!existsSync(file)) {
-    log(`== ${asset} laden`);
+    log(`== downloading ${asset}`);
     const response = await fetch(url);
-    if (!response.ok) throw new Error(`${url} antwortete mit ${response.status}`);
+    if (!response.ok) throw new Error(`${url} responded with ${response.status}`);
     const downloaded = Buffer.from(await response.arrayBuffer());
     const hash = sha256Of(downloaded);
-    if (hash !== sha256) throw new Error(`${asset} hat den SHA-256 ${hash}, erwartet ist ${sha256}`);
+    if (hash !== sha256) throw new Error(`${asset} has the SHA-256 ${hash}, expected is ${sha256}`);
     mkdirSync(cache, { recursive: true });
     writeFileSync(`${file}.part`, downloaded);
     renameSync(`${file}.part`, file);
     return file;
   }
   const hash = sha256Of(readFileSync(file));
-  if (hash !== sha256) throw new Error(`${file} hat den SHA-256 ${hash}, erwartet ist ${sha256}; die Datei löschen und neu laden lassen`);
+  if (hash !== sha256) throw new Error(`${file} has the SHA-256 ${hash}, expected is ${sha256}; delete the file and let it download again`);
   return file;
 };
 
-/** 7-Zip heißt je nach Paket 7zz oder 7z; ohne eines von beiden lässt sich das Archiv nicht öffnen. */
+/** 7-Zip is called 7zz or 7z depending on the package; without one of them the archive cannot be opened. */
 const sevenZip = (): string => {
   const usable = ["7zz", "7z"].find((name) => !spawnSync(name, ["i"], { stdio: "ignore" }).error);
   if (!usable) {
-    throw new Error("7-Zip fehlt: weder 7zz noch 7z ist im PATH. macOS: brew install sevenzip, Debian/Ubuntu: apt install 7zip, Windows: winget install 7zip.7zip");
+    throw new Error("7-Zip is missing: neither 7zz nor 7z is in the PATH. macOS: brew install sevenzip, Debian/Ubuntu: apt install 7zip, Windows: winget install 7zip.7zip");
   }
   return usable;
 };
 
-/** Packt nur die Teile aus, aus denen die Bash entsteht; ein vollständiger Stand trägt eine Marke. */
+/** Extracts only the parts the Bash is made from; a complete extraction carries a marker. */
 const extracted = (archive: string, source: TargetSource, cache: string, log: (line: string) => void): string => {
   const directory = path.join(cache, `${source.asset}.files`);
   const marker = path.join(directory, ".complete");
   if (existsSync(marker)) return directory;
   rmSync(directory, { recursive: true, force: true });
-  log(`== ${source.asset} auspacken`);
+  log(`== extracting ${source.asset}`);
   const patterns = ["usr/bin/*", "usr/share/misc/*", "usr/share/licenses/*", "etc/fstab", "etc/package-versions.txt", "LICENSE.txt", `${source.nativePrefix}/share/licenses/*`];
   const result = spawnSync(sevenZip(), ["x", "-y", `-o${directory}`, archive, ...patterns], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-  if (result.status !== 0) throw new Error(`7-Zip konnte ${archive} nicht auspacken: ${result.stderr || result.stdout}`);
+  if (result.status !== 0) throw new Error(`7-Zip could not extract ${archive}: ${result.stderr || result.stdout}`);
   writeFileSync(marker, "");
   return directory;
 };
 
 const copyInto = (from: string, to: string): void => {
-  if (!existsSync(from)) throw new Error(`${from} fehlt im Archiv`);
+  if (!existsSync(from)) throw new Error(`${from} is missing in the archive`);
   mkdirSync(path.dirname(to), { recursive: true });
   copyFileSync(from, to);
 };
@@ -234,7 +234,7 @@ export interface BashBundle {
   readonly dlls: readonly string[];
   readonly files: number;
   readonly bytes: number;
-  /** Die Größe nach Deflate, wie sie ungefähr in der .vsix landet. */
+  /** The size after deflate, roughly as it ends up in the .vsix. */
   readonly deflatedBytes: number;
 }
 
@@ -244,10 +244,10 @@ export interface BundleOptions {
   readonly log?: (line: string) => void;
 }
 
-/** Der Ordner, in dem die Erweiterung ihre Bash für eine Plattform erwartet. */
+/** The folder where the extension expects its Bash for a platform. */
 export const bashBundleFolder = (target: BashTarget, root: string = extensionRoot): string => path.join(root, "dist", "bash", target);
 
-/** Baut die Bash einer Windows-Plattform aus dem festen PortableGit-Archiv. */
+/** Builds the Bash of a Windows platform from the pinned PortableGit archive. */
 export const bundleBash = async (target: BashTarget, options: BundleOptions = {}): Promise<BashBundle> => {
   const log = options.log ?? (() => undefined);
   const source = BASH_TARGETS[target];
@@ -258,12 +258,12 @@ export const bundleBash = async (target: BashTarget, options: BundleOptions = {}
   const available = new Map(readdirSync(bin).map((name) => [name.toLowerCase(), name] as const));
   const programs = Object.values(BASH_PACKAGES).flat();
   const missing = programs.filter((program) => !available.has(program.toLowerCase()));
-  if (missing.length > 0) throw new Error(`${source.asset} enthält in usr/bin nicht: ${missing.join(", ")}`);
+  if (missing.length > 0) throw new Error(`${source.asset} does not contain in usr/bin: ${missing.join(", ")}`);
   const executables = programs.filter((program) => program.toLowerCase().endsWith(".exe"));
   const dlls = dllClosure(executables, (file) => peImports(readFileSync(path.join(bin, file)), file), available);
   const shipped = [...programs, ...dlls];
   const forbidden = shipped.filter((file) => FORBIDDEN.test(file));
-  if (forbidden.length > 0) throw new Error(`Die Bash würde enthalten, was nie hineingehört: ${forbidden.join(", ")}`);
+  if (forbidden.length > 0) throw new Error(`The Bash would contain what never belongs in it: ${forbidden.join(", ")}`);
 
   const output = options.output ?? bashBundleFolder(target);
   rmSync(output, { recursive: true, force: true });
@@ -275,7 +275,7 @@ export const bundleBash = async (target: BashTarget, options: BundleOptions = {}
   const packageVersions = readFileSync(path.join(files, "etc", "package-versions.txt"), "utf8").split("\n").map((line) => line.trim());
   const versions = Object.keys(BASH_PACKAGES).map((name) => {
     const line = packageVersions.find((entry) => entry.startsWith(`${name} `));
-    if (!line) throw new Error(`etc/package-versions.txt nennt das Paket ${name} nicht`);
+    if (!line) throw new Error(`etc/package-versions.txt does not name the package ${name}`);
     return line;
   });
   writeFileSync(path.join(output, "NOTICE.txt"), notice(target, source, versions, dlls));
@@ -290,19 +290,19 @@ export const bundleBash = async (target: BashTarget, options: BundleOptions = {}
     bytes: written.reduce((sum, file) => sum + statSync(file).size, 0),
     deflatedBytes: contents.reduce((sum, content) => sum + deflateRawSync(content, { level: 9 }).length, 0),
   };
-  log(`== ${target}: ${bundle.files} Dateien, ${megabytes(bundle.bytes)} ausgepackt, ${megabytes(bundle.deflatedBytes)} gepackt, nach ${path.relative(repositoryRoot, output)}`);
+  log(`== ${target}: ${bundle.files} files, ${megabytes(bundle.bytes)} unpacked, ${megabytes(bundle.deflatedBytes)} packed, to ${path.relative(repositoryRoot, output)}`);
   return bundle;
 };
 
-const usage = `Verwendung: pnpm bundle:bash [win32-x64] [win32-arm64]
-Baut die Bash, die die Windows-Fassungen der VS-Code-Erweiterung mitbringen, aus dem festen
-Git-for-Windows-Archiv ${PORTABLE_GIT_TAG} nach apps/vscode/dist/bash/<plattform>. Ohne Angabe
-beide Plattformen. Braucht 7-Zip (7zz oder 7z) im PATH; das Archiv bleibt im Temp-Ordner liegen.`;
+const usage = `Usage: pnpm bundle:bash [win32-x64] [win32-arm64]
+Builds the Bash that the Windows versions of the VS Code extension bring along from the pinned
+Git for Windows archive ${PORTABLE_GIT_TAG} into apps/vscode/dist/bash/<platform>. Without an
+argument both platforms. Needs 7-Zip (7zz or 7z) in the PATH; the archive stays in the temp folder.`;
 
 const main = async (): Promise<void> => {
   const requested = process.argv.slice(2);
   const unknown = requested.filter((argument) => !(argument in BASH_TARGETS));
-  if (unknown.length > 0) throw new Error(`Unbekannte Plattform: ${unknown.join(" ")}\n${usage}`);
+  if (unknown.length > 0) throw new Error(`Unknown platform: ${unknown.join(" ")}\n${usage}`);
   const targets = (requested.length > 0 ? requested : Object.keys(BASH_TARGETS)) as BashTarget[];
   for (const target of targets) {
     const bundle = await bundleBash(target, { log: (line) => console.log(line) });

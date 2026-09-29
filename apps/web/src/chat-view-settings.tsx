@@ -8,7 +8,7 @@ const timestampSetting = createLocalStorageSetting({
   parse: (raw: string | null) => {
     if (raw === null || raw === "true") return true;
     if (raw === "false") return false;
-    throw new Error("Die gespeicherte Zeitstempel-Einstellung ist ungültig.");
+    throw new Error("The saved timestamp setting is invalid.");
   },
   serialize: JSON.stringify,
 });
@@ -22,7 +22,7 @@ export interface ChatViewSettings {
   readonly setShowTimestamps: (showTimestamps: boolean) => void;
 }
 
-/** Detailgrad und Zeitstempel eines Chats; display trennt nur den Detailgrad nach Anzeigeort, die Zeitstempel gelten je Run und Actor. */
+/** Detail level and timestamps of a chat; display separates only the detail level by display location, the timestamps apply per run and actor. */
 export function useChatViewSettings(runId: string, actorId: string, scope: ChatStepScope, display?: string): ChatViewSettings {
   const steps = useChatSteps(runId, actorId, display);
   const timestampKey = `ragents.chat.timestamps:${JSON.stringify([runId, actorId])}`;
@@ -36,14 +36,13 @@ export function useChatViewSettings(runId: string, actorId: string, scope: ChatS
   };
 }
 
-/** Die Schalter jeder Chat-Eingabe; collapsible gilt für die Beschriftung des Detailgrads. */
-export function ChatViewSwitches({ settings, collapsible = true, className }: {
+/** The switches of every chat input. */
+export function ChatViewSwitches({ settings, className }: {
   settings: ChatViewSettings;
-  collapsible?: boolean;
   className?: string;
 }) {
   return <>
-    {settings.detailSelectable && <DetailModeSwitch className={className} collapsible={collapsible} mode={settings.detailMode} onChange={settings.setDetailMode} />}
+    {settings.detailSelectable && <DetailModeSwitch className={className} mode={settings.detailMode} onChange={settings.setDetailMode} />}
     <TimestampSwitch className={className} onChange={settings.setShowTimestamps} showTimestamps={settings.showTimestamps} />
   </>;
 }

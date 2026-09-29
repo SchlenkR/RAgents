@@ -1,9 +1,9 @@
-# Betrieb
+# Operations
 
-Installation, Start, Zugang, das npm-Paket, verteiltes Arbeiten mit Server, Arbeitsplatz und
-Run-Umzug, Windows und die Datenablage. Was ein Benutzer sieht und tut, steht in `docs/usage.md`,
-Build, Prüfläufe und Veröffentlichung in `docs/development.md`, der Aufbau des Systems in
-`docs/spec/` und das Warum in `docs/decisions.md`.
+Installation, startup, access, the npm package, distributed work with server, workspace, and run
+transfer, Windows, and data storage. What a user sees and does is in `docs/usage.md`, build,
+checks, and publishing in `docs/development.md`, the structure of the system in `docs/spec/`, and
+the why in `docs/decisions.md`.
 
 <!-- guide:getting-started -->
 ## Install locally
@@ -40,15 +40,25 @@ referenced variable as an error. Configured models and reasoning levels must be 
 available model catalog.
 
 A profile can also name its models by alias: `MODEL_ALIASES` in the `host` section lists objects
-with `alias`, `model` as `provider/model`, an optional default `thinking` level, and the model's
-`compaction` values: the context size in tokens at which an agent compacts (`threshold`), how much
-recent context stays verbatim (`keepRecentTokens`), and the summary budget (`summaryTokens`).
+with `alias`, `model` as `provider/model`, an optional default `thinking` level, optional
+`thinkingLevels` that map the levels the alias offers onto levels of its model (for example
+`{ off: "low", low: "low", medium: "high" }` for a model that always reasons and has no `medium`),
+and the model's `compaction` values: the context size in tokens at which an agent compacts
+(`threshold`), how much recent context stays verbatim (`keepRecentTokens`), and the summary budget
+(`summaryTokens`).
 `AGENT_PROVIDER: "alias"` makes the product use them. The interface, the chat, and the journal then
 show only the alias names.
 
+An alias can also point to a self-hosted OpenAI-compatible server. `MODEL_PROVIDERS` in the `host`
+section lists such servers with `id`, `baseUrl` (up to `/v1`), `apiKey: env("...")`, optional
+`compat`, and their `models` (`id`, `contextWindow`, `maxTokens`, `reasoning`, `input`, optional
+`thinkingLevelMap`); an alias then names `<id>/<model>`. For a Qwen chat template, as served by
+oMLX, set `compat: { thinkingFormat: "qwen-chat-template" }`, so the alias's thinking levels reach
+the server. Details and an example in `docs/spec/profiles.md`.
+
 Alternatively, a profile can obtain its models from another RAgents server running the
-`ragents.model-relay` plugin, which offers that server's `MODEL_ALIASES` with their compaction
-values: set `AGENT_PROVIDER: "relay"`, point `RELAY_URL` to that server, use
+`ragents.model-relay` plugin, which offers that server's `MODEL_ALIASES` with their thinking levels
+and compaction values: set `AGENT_PROVIDER: "relay"`, point `RELAY_URL` to that server, use
 `RELAY_TOKEN: env("...")` with a user's personal token there, and use relay aliases for every model
 key. Only the relay server can see which model is behind an alias. Its log at
 `plugins/ragents.model-relay/relay.log` records the user, alias, target, and token count for each
@@ -91,51 +101,51 @@ Settings opens the included help. For separate static hosting, `pnpm generate:ho
 the same website under `docs/homepage/dist`.
 <!-- /guide:getting-started -->
 
-## Anmeldung und Profilrechte
+## Sign-in and profile permissions
 
-Für einen optionalen Anmeldemodus ergänzt die eigene `ragents.config.<profil>.ts` neben
-`config` einen `users`-Export mit `readonly ProfileUser[]`. Benutzerkennung, optionaler
-Anzeigename und Rechte stehen dort; das Passwort steht als Klartext oder verweist mit
-`env(...)` auf eine lokal bereitgestellte Umgebungsvariable. Ein Beispiel steht in
-[profiles.md](spec/profiles.md) unter "Sign-in and permissions", vollständige Beispiele in der
-intern erzeugten [Entwicklerreferenz](homepage/developer.md#lesen-und-vorbereitete-setups-freigeben). Die gültigen eingebauten Rechtenamen und die Host-Routenzuordnung stehen in der
-[automatisch erzeugten Entwicklerreferenz](homepage/developer.md).
+For an optional sign-in mode, your own `ragents.config.<profile>.ts` adds a `users` export with
+`readonly ProfileUser[]` next to `config`. It holds the user ID, an optional display name, and
+the permissions; the password is plain text or refers with `env(...)` to a locally provided
+environment variable. An example is in [profiles.md](spec/profiles.md) under "Sign-in and
+permissions", complete examples in the internally generated
+[developer reference](homepage/developer.md#share-read-access-and-prepared-setups). The valid built-in permission names and the host route mapping are in the
+[automatically generated developer reference](homepage/developer.md).
 
-Nach einer Änderung neu starten. Ohne `users` gibt es keine Benutzeranmeldung; eine leere
-Liste oder fehlende Passwortvariable ist ein Startfehler. Bei aktiver Anmeldung Benutzerkennung
-und Passwort eingeben; der Benutzerknopf bietet Abmelden. Benutzer und Passwörter werden in der
-Profildatei beziehungsweise Umgebung gepflegt, nicht über eine Verwaltungsseite. `ACCESS_TOKEN`
-bleibt nur für Profile ohne `users` wirksam und ersetzt bei aktivierter Benutzeranmeldung kein
-Passwort. Sitzungsdauer, Abmelden und Token stehen in [profiles.md](spec/profiles.md) unter
-"Anmeldung und Token im Einzelnen", die Rechte unter "Rechte im Einzelnen", Eigentum an Runs und
-Arbeitsbereichen unter "Run ownership" und "Eigentum im Einzelnen".
+Restart after a change. Without `users` there is no user sign-in; an empty list or a missing
+password variable is a startup error. With sign-in active, enter user ID and password; the user
+button offers Sign out. Users and passwords are maintained in the profile file or the
+environment, not through an administration page. `ACCESS_TOKEN` stays effective only for
+profiles without `users` and does not replace a password when user sign-in is enabled. Session
+duration, sign-out, and tokens are in [profiles.md](spec/profiles.md) under "Sign-in and tokens
+in detail", the permissions under "Permissions in detail", ownership of runs and workspaces under
+"Run ownership" and "Ownership in detail".
 
-Ein Benutzer kann neben dem Passwort einen persönlichen Token haben (`token: env("...")`):
-ein dauerhafter Bearer ohne Ablauf für Clients ohne Anmeldedialog, etwa `pnpm connect` und den
-Modellzugang eines lokalen Servers über das Relay. Die dafür nötigen Rechte sind `models.use`
-(Relay) und `profile.fetch` (Client-Profil); Runs des Servers braucht ein solcher Benutzer
-nicht zu sehen. Entzug: Token aus dem Profil nehmen und neu starten.
+Besides the password, a user can have a personal token (`token: env("...")`): a permanent bearer
+without expiry for clients without a sign-in dialog, such as `pnpm connect` and the model access
+of a local server through the relay. The permissions needed for this are `models.use` (relay) and
+`profile.fetch` (client profile); such a user does not need to see the server's runs.
+Revocation: remove the token from the profile and restart.
 
-## Browser für Browserprüfungen bereitstellen
+## Provide a browser for browser checks
 
-`ragents.browser` verwendet `playwright-core` und einen ausführbaren Chrome oder Chromium auf dem
-Rechner, auf dem der Arbeitsbereich des Runs liegt: auf dem Server oder auf dem Arbeitsplatz, gleich
-ob im neuen Ordner je Run oder in einem vorhandenen. Dort
-erreicht der Browser die Anwendung, die der Agent gestartet hat, auch unter `localhost`.
+`ragents.browser` uses `playwright-core` and an executable Chrome or Chromium on the machine
+where the run's workspace is located: on the server or on the workstation, whether in the new
+folder per run or in an existing one. There
+the browser reaches the application the agent started, also under `localhost`.
 
-Auf dem Server trägst Du in der Sektion `ragents.browser` des Profils `BROWSER_EXECUTABLE_PATH`
-ein oder überlässt den Browser der Provisionierung. Für Google Chrome auf macOS lautet der Pfad
-`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`. `pnpm provision <profil>` holt
-über `plugins/ragents.browser/provision.ts` die zur gepinnten Playwright-Fassung passende
-Chromium-Version und unter Linux deren Systembibliotheken; sie landet im normalen Browsercache
-von Playwright, nicht im Werkzeugordner. Zeigt `BROWSER_EXECUTABLE_PATH` ins Leere, meldet die
-Provisionierung das als Lücke, die sie nicht schließen darf.
+On the server, you enter `BROWSER_EXECUTABLE_PATH` in the profile's `ragents.browser` section or
+leave the browser to provisioning. For Google Chrome on macOS the path is
+`/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`. `pnpm provision <profile>` fetches,
+through `plugins/ragents.browser/provision.ts`, the Chromium version matching the pinned
+Playwright version and, on Linux, its system libraries; it ends up in Playwright's normal browser
+cache, not in the tools folder. If `BROWSER_EXECUTABLE_PATH` points nowhere, provisioning reports
+this as a gap it must not close.
 
-Ein Arbeitsplatz bekommt nichts davon aus dem Profil des Servers: Er nimmt
-`BROWSER_EXECUTABLE_PATH` aus seiner eigenen Umgebung, sonst das Chromium, das
-`pnpm provision --workspace` beim Start von `pnpm workspace-client` und der VS-Code-Erweiterung
-holt. Was der Agent mit dem Browser tut, wo Aufnahmen liegen und wie lange eine Prüfung gilt,
-steht in [plugins.md](spec/plugins.md) unter "Browserprüfungen".
+A workstation gets none of this from the server's profile: it takes `BROWSER_EXECUTABLE_PATH`
+from its own environment, otherwise the Chromium that `pnpm provision --workspace` fetches when
+`pnpm workspace-client` and the VS Code extension start. What the agent does with the browser,
+where recordings are stored, and how long a check stays valid is in
+[plugins.md](spec/plugins.md) under "Browser checks".
 
 <!-- guide:distributed -->
 ## Work without a checkout
@@ -379,232 +389,227 @@ unit tests that simulate the platform. A first real run should verify `pnpm conn
 Credential Manager and over SSH.
 <!-- /guide:distributed -->
 
-## Prozess-Sandbox des Servers
+## Server process sandbox
 
-Was ein Run auf dem Server startet (Bash, Befehle, Sprachserver, TypeScript-Snippets,
-Actor-Programme), läuft in einer Prozess-Sandbox: es liest und schreibt nur die Ordner seines Runs,
-sieht weder andere Runs noch das Home des Serverkontos und erreicht im Netz nur die Allowlist.
-Regeln und Grenzen stehen in [plugins.md](spec/plugins.md) unter "Prozess-Sandbox des Servers". Auf
-einem Arbeitsplatz gilt sie nicht; dort arbeitet der Run mit der Bash und den Zugangsdaten des
-Entwicklers. Nur was ein solcher Run auf dem Server startet, etwa eine Bash in `@actors`, läuft in
-ihr.
+What a run starts on the server (Bash, commands, language servers, TypeScript snippets, actor
+programs) runs in a process sandbox: it reads and writes only the folders of its run, sees
+neither other runs nor the home of the server account, and reaches only the allowlist on the
+network. Rules and limits are in [plugins.md](spec/plugins.md) under "Server process sandbox". It
+does not apply on a workstation; there the run works with the developer's Bash and credentials.
+Only what such a run starts on the server, such as a Bash in `@actors`, runs inside it.
 
-Voraussetzungen, die der Start prüft:
+Prerequisites that startup checks:
 
-- **macOS**: nichts zusätzlich, `sandbox-exec` gehört zum System.
-- **Linux**: `bubblewrap`, `socat` und `ripgrep` (Debian und Ubuntu:
-  `apt-get install bubblewrap socat ripgrep`), dazu Benutzer-Namensräume. Unter Ubuntu ab 24.04
-  verlangt das `sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` oder ein AppArmor-Profil.
-  Läuft der Server als root, braucht er `CAP_SETFCAP`; besser läuft er unter einem eigenen Konto.
-- **Linux im Container**: das Standardprofil von Docker verbietet die Namensräume. Geprüft ist der
-  Start mit `--security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt
-  systempaths=unconfined` (in Compose `security_opt`) und einem Benutzer ohne root im Container;
-  `--privileged` geht auch, gibt aber mehr frei als nötig.
-- **Windows**: keine Sandbox. Der Start bricht ab, solange die Profildatei sie nicht ausdrücklich
-  abschaltet.
+- **macOS**: nothing extra, `sandbox-exec` is part of the system.
+- **Linux**: `bubblewrap`, `socat`, and `ripgrep` (Debian and Ubuntu:
+  `apt-get install bubblewrap socat ripgrep`), plus user namespaces. On Ubuntu 24.04 and later
+  this requires `sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` or an AppArmor profile.
+  If the server runs as root, it needs `CAP_SETFCAP`; it is better to run it under its own account.
+- **Linux in a container**: Docker's default profile forbids the namespaces. Startup has been
+  verified with `--security-opt seccomp=unconfined --security-opt apparmor=unconfined --security-opt
+  systempaths=unconfined` (in Compose `security_opt`) and a non-root user in the container;
+  `--privileged` works too, but grants more than necessary.
+- **Windows**: no sandbox. Startup aborts as long as the profile file does not explicitly switch
+  it off.
 
-Die Profildatei steuert sie in der Sektion `ragents.workspace`:
-
-```ts
-"ragents.workspace": {
-  PROCESS_SANDBOX: "off",                                   // bewusst ohne Sandbox, etwa unter Windows
-  PROCESS_SANDBOX_NETWORK: ["registry.npmjs.org", "*.example.com"], // ersetzt die Vorgabe
-},
-```
-
-Ohne `PROCESS_SANDBOX_NETWORK` gelten npm, NuGet und GitHub; die eigene Adresse des Servers ist
-immer erlaubt. Ein Werkzeug, das ins Netz will, bekommt außerhalb der Liste die Antwort 403 des
-Proxys. Unter macOS braucht pnpm über corepack ein `packageManager` in der `package.json` des
-Arbeitsbereichs, weil corepack sonst an einem gesperrten Ordner oberhalb abbricht.
-
-## Zeitgrenze von `bash`
-
-Ein Befehl des Werkzeugs `bash` endet nach 120 Sekunden, wenn der Aufruf keinen `timeout` nennt;
-ein Aufruf darf bis zu 3600 Sekunden verlangen. Beides steht in der Beschreibung des Werkzeugs, dazu
-der Satz, dass Builds, Testläufe und Installationen einen größeren `timeout` brauchen. Läuft die
-Zeit ab, bekommt das Modell die bisherige Ausgabe, die Sekunden und den Hinweis, den Befehl
-einzugrenzen, etwa mit `rg` statt `grep -r`, oder einen größeren `timeout` zu übergeben. Der Server
-setzt die Zeitgrenze in jeden Aufruf ein; sie gilt deshalb auch auf einem Arbeitsplatz.
-
-Die Vorgabe ändert `RAGENTS_BASH_TIMEOUT_SECONDS` in der Sektion `ragents.workspace` oder in der
-Umgebung des Servers:
+The profile file controls it in the `ragents.workspace` section:
 
 ```ts
 "ragents.workspace": {
-  RAGENTS_BASH_TIMEOUT_SECONDS: 300, // Vorgabe für Aufrufe ohne timeout, höchstens 3600
+  PROCESS_SANDBOX: "off",                                   // deliberately without a sandbox, e.g. on Windows
+  PROCESS_SANDBOX_NETWORK: ["registry.npmjs.org", "*.example.com"], // replaces the default
 },
 ```
 
-Die Obergrenze bleibt 3600 Sekunden: ein größerer, ein nicht positiver oder ein nicht numerischer
-Wert bricht den Start ab. Ein Arbeitsplatz (VS-Code-Erweiterung, `ragents workspace-client`) liest
-die Variable nicht; für seine Runs gilt die Vorgabe des Servers. Was länger als zehn Minuten
-braucht, geht nicht über `bash`, sondern über einen Ablauf eines Plugins mit eigener Zeitgrenze
-([plugins.md](spec/plugins.md), Offene Grenzen).
+Without `PROCESS_SANDBOX_NETWORK`, npm, NuGet, and GitHub apply; the server's own address is
+always allowed. A tool that wants to reach the network outside the list gets the proxy's 403
+response. On macOS, pnpm through corepack needs a `packageManager` in the workspace's
+`package.json`, because corepack otherwise aborts at a blocked folder above it.
 
-## Kompaktierung des Modellkontexts
+## Time limit of `bash`
 
-Der Modellkontext eines Agenten steht im Journal (`docs/spec/core.md`, Modellkontext und
-Agentenlaufzeit). Wird er zu groß, verdichtet ihn die Agentenlaufzeit: nach einer Antwort, deren
-Kontext über der Schwelle des Modells liegt, und nach einem Überlauffehler des Anbieters. Behalten
-werden rund `keepRecentTokens` der jüngsten Einträge; der Rest wird zu einer Zusammenfassung von
-höchstens `summaryTokens`. Jede Verdichtung steht als `context.compacted` im Journal, mit der
-Schwelle, die galt, und ihrer Herkunft (`model` oder `catalog`); der Chat zeigt eine Systemzeile,
-`pnpm driver journal <runId>` beides.
+A command of the `bash` tool ends after 120 seconds if the call names no `timeout`; a call may
+request up to 3600 seconds. Both are in the tool's description, together with the sentence that
+builds, test runs, and installations need a larger `timeout`. When the time runs out, the model
+gets the output so far, the seconds, and the hint to narrow the command, for example with `rg`
+instead of `grep -r`, or to pass a larger `timeout`. The server inserts the time limit into every
+call; it therefore also applies on a workstation.
 
-Die drei Werte gehören zum Modell, eine hostweite Einstellung gibt es nicht. Ein Profil setzt sie je
-Alias in `MODEL_ALIASES` im Abschnitt `host` (Regeln in `docs/spec/profiles.md`); ein Client des
-Relays übernimmt sie vom Server. Ein Katalogmodell ohne Alias verdichtet nach dem Katalog-Standard:
-ab `contextWindow - 16384` Token, mit `keepRecentTokens` 20000 und einer Zusammenfassung bis 13107
-Token. Weil der Katalog als Kontextfenster das größte über alle Anbieter eines Modells nennt, liegt
-diese Schwelle oft jenseits dessen, was die meisten Anbieter können; wer mit einem Modell lange
-Verläufe führt, gibt ihm deshalb einen Alias mit einer Schwelle unter dem Fenster der üblichen
-Anbieter.
+`RAGENTS_BASH_TIMEOUT_SECONDS` in the `ragents.workspace` section or in the server's environment
+changes the default:
 
-Um eine Verdichtung gezielt auszulösen, etwa für eine Vorführung, bekommt ein Alias kleine Werte;
-dann verdichtet schon ein Kontext über 4000 Token:
+```ts
+"ragents.workspace": {
+  RAGENTS_BASH_TIMEOUT_SECONDS: 300, // default for calls without timeout, at most 3600
+},
+```
+
+The upper limit stays 3600 seconds: a larger, a non-positive, or a non-numeric value aborts
+startup. A workstation (VS Code extension, `ragents workspace-client`) does not read the
+variable; the server's default applies to its runs. Anything that takes longer than ten minutes
+does not go through `bash`, but through a plugin workflow with its own time limit
+([plugins.md](spec/plugins.md), Open limits).
+
+## Compaction of the model context
+
+An agent's model context is stored in the journal (`docs/spec/core.md`, Model context and agent
+runtime). When it grows too large, the agent runtime compacts it: after a response whose context
+is above the model's threshold, and after an overflow error from the provider. Roughly
+`keepRecentTokens` of the most recent entries are kept; the rest becomes a summary of at most
+`summaryTokens`. Every compaction is recorded as `context.compacted` in the journal, with the
+threshold that applied and its origin (`model` or `catalog`); the chat shows a system line,
+`pnpm driver journal <runId>` shows both.
+
+The three values belong to the model; there is no host-wide setting. A profile sets them per
+alias in `MODEL_ALIASES` in the `host` section (rules in `docs/spec/profiles.md`); a relay client
+takes them over from the server. A catalog model without an alias compacts according to the
+catalog default: from `contextWindow - 16384` tokens, with `keepRecentTokens` 20000 and a summary
+of up to 13107 tokens. Because the catalog names the largest context window across all providers
+of a model, this threshold is often beyond what most providers can handle; anyone holding long
+conversations with a model therefore gives it an alias with a threshold below the window of the
+usual providers.
+
+To trigger a compaction deliberately, for example for a demo, an alias gets small values; then a
+context above 4000 tokens already compacts:
 
 ```typescript
 { alias: "demo-compact", model: "openrouter/z-ai/glm-5.3-flash",
   compaction: { threshold: 4_000, keepRecentTokens: 1_000, summaryTokens: 1_000 } },
 ```
 
-## Datenablage und Protokolle
+## Data storage and logs
 
-Standardmäßig liegt jedes Profil unter `~/.local/share/ragents/<profil>`, unter Windows unter
-`%LOCALAPPDATA%\ragents\<profil>`. Die Reihenfolge
-ist `DATA_DIR` aus der Umgebung, `host.DATA_DIR` aus der Profildatei, dann dieser Standard.
-Das gilt für `scripts/start.sh` und den direkten Serverstart. Vor dem Build beziehungsweise der
-Serverinitialisierung werden vorhandene Pfadvorfahren einschließlich Symlinkzielen geprüft:
-`.git`, `pnpm-workspace.yaml` und `package.json` sind dort nicht zulässig. So übernehmen
-Buildwerkzeuge keine Konfiguration des RAgents-Quellbaums. Ein ausdrücklicher externer Pfad
-bleibt eine gültige Einstellung. Unterhalb des Datenordners liegt neben den Laufzeitdaten
-`tools/<plugin-id>/`: die Werkzeuge, die `pnpm provision` für die Plugins dieses Profils holt.
+By default, each profile is stored under `~/.local/share/ragents/<profile>`, on Windows under
+`%LOCALAPPDATA%\ragents\<profile>`. The order
+is `DATA_DIR` from the environment, `host.DATA_DIR` from the profile file, then this default.
+This applies to `scripts/start.sh` and to starting the server directly. Before the build or the
+server initialization, existing path ancestors including symlink targets are checked:
+`.git`, `pnpm-workspace.yaml`, and `package.json` are not permitted there. That way build tools
+do not pick up configuration of the RAgents source tree. An explicit external path remains a
+valid setting. Below the data folder, next to the runtime data, lies `tools/<plugin-id>/`: the
+tools that `pnpm provision` fetches for the plugins of this profile.
 
-Für einen bewussten Umzug zuerst den Server und seine Run-Prozesse beenden. Den gesamten
-Profilordner einschließlich Journale, Payloads, Arbeitsverzeichnisse und Pluginzustände
-verschieben. Enthalten gespeicherte Runs absolute alte
-Pfade, kann ein ausdrücklich angelegter Symlink vom alten zum neuen Profilordner diese
-Referenzen erhalten. Der Start erstellt diesen Link nicht selbst und schreibt keine Journale
-um. Die physische neue Ablage muss außerhalb eines Git-/Paketprojekts liegen.
+For a deliberate move, first stop the server and its run processes. Move the entire profile
+folder including journals, payloads, working directories, and plugin states. If stored runs
+contain absolute old
+paths, an explicitly created symlink from the old to the new profile folder can preserve these
+references. Startup does not create this link itself and does not rewrite any journals. The
+physical new storage must be outside a Git/package project.
 
-Die Ablage eines Runs ist über wenige feste Verzeichnisse verteilt und im Journal vollständig
-zugeordnet. `apps/server/src/layout.ts` besitzt die produktneutralen Run-, `sessions/`-, Archiv- und
-Logpfade. Die Plugin-Ablage ist reine Konvention und nicht deklarierbar: `host.storage` liefert
-global `plugins/<pluginId>/` und je Run `sessions/<runId>/plugins/<pluginId>/`.
+A run's storage is spread over a few fixed directories and fully mapped in the journal.
+`apps/server/src/layout.ts` owns the product-neutral run, `sessions/`, archive, and log paths.
+Plugin storage is pure convention and cannot be declared: `host.storage` provides
+`plugins/<pluginId>/` globally and `sessions/<runId>/plugins/<pluginId>/` per run.
 
 ```
 ${DATA_DIR}/
-  runs/<runId>/journal.jsonl      kompaktes Engine-Journal v7 mit Commands und Events, samt
-                                  den Modellkontexten der Agenten
-  runs/<runId>/payloads/          unveränderliche große JSON-Inhalte, je SHA-256 eine Datei
-  artifacts/<sha256>              unveränderliche Artefaktinhalte, auch die Medien der Modellkontexte
-  sessions/                       0711 root: durchquerbar, aber nicht auflistbar
+  runs/<runId>/journal.jsonl      compact engine journal v7 with commands and events, including
+                                  the agents' model contexts
+  runs/<runId>/payloads/          immutable large JSON contents, one file per SHA-256
+  artifacts/<sha256>              immutable artifact contents, including the media of the model contexts
+  sessions/                       0711 root: traversable, but not listable
     <runId>/                      0711 root
-      plugins/                    0711 root - je Plugin genau ein Unterordner
+      plugins/                    0711 root - exactly one subfolder per plugin
         ragents.documents/
-          documents/              Dateiablage des Runs (document_write), ohne DOCUMENTS_DIR
+          documents/              the run's file storage (document_write), without DOCUMENTS_DIR
         ragents.workspace/
-          workspace/              leeres Arbeitsverzeichnis bei Bindung fresh, befüllt ein Resolver-Plugin;
-                                  bringt der Beitrag eine eigene Art mit, liegt sein Ordner in dessen Ablage
-          server/                 nur bei Bindung an einen Arbeitsplatz und erst bei Bedarf: Ordner für
-                                  typescript_eval, Actor-Programme und Aufrufe auf Wurzeln
-                                  des Servers, die auf dem Server laufen
-          home/                   HOME der Sandbox
-      tmp/                        Temp-Ordner des Runs in der Prozess-Sandbox (TMPDIR)
-  delete-intents/                 0700 root - vermerkte Löschabsichten
-    <runId>.json                  0600 root - ein beim Absturz unterbrochenes Löschen wird
-                                  beim nächsten Start daran erkannt und zu Ende geführt
-  recovery/                       0700 root - Wiederherstellungsdaten je Run; wandern beim
-                                  Löschen mit ins Archiv (heute legt noch nichts darin ab)
-  archive/<runId>/                Wiederherstellungsdaten und Journal gelöschter Runs, bei
-                                  Journalen vor Format 7 auch deren Sitzungen unter chat/
-  transfer/                       Arbeitsordner des Run-Umzugs: manifest.json während eines
-                                  Exports, import/ während eines Imports; beides wird danach
-                                  wieder entfernt
-  plugins/<pluginId>/             globale Ablage je Plugin, soweit benötigt
-  logs/server.log                 Serverlauf, HTTP-Zugriffe, Fehler, Abstürze (Rotation 32 MB x3)
+          workspace/              empty working directory with binding fresh, filled by a resolver plugin;
+                                  if the contribution brings its own kind, its folder lives in that plugin's storage
+          server/                 only with a binding to a workstation and only when needed: folder for
+                                  typescript_eval, actor programs, and calls on roots
+                                  of the server that run on the server
+          home/                   HOME of the sandbox
+      tmp/                        the run's temp folder in the process sandbox (TMPDIR)
+  delete-intents/                 0700 root - recorded deletion intents
+    <runId>.json                  0600 root - a deletion interrupted by a crash is
+                                  recognized by it on the next start and completed
+  recovery/                       0700 root - recovery data per run; moves into the
+                                  archive on deletion (nothing stores anything there yet)
+  archive/<runId>/                recovery data and journal of deleted runs, for
+                                  journals before format 7 also their sessions under chat/
+  transfer/                       working folder of the run transfer: manifest.json during an
+                                  export, import/ during an import; both are removed
+                                  afterwards
+  plugins/<pluginId>/             global storage per plugin, where needed
+  logs/server.log                 server run, HTTP access, errors, crashes (rotation 32 MB x3)
 ```
 
-Servergelieferte Profile (`pnpm connect`) liegen daneben unter
-`~/.local/share/ragents/remote/<host>/<profil>/`: `profiles/<stand>/` je geholtem Stand und
-`data/` als `DATA_DIR` des lokalen Servers mit derselben Struktur wie oben.
+Server-provided profiles (`pnpm connect`) are stored alongside under
+`~/.local/share/ragents/remote/<host>/<profile>/`: `profiles/<version>/` per fetched version and
+`data/` as the `DATA_DIR` of the local server with the same structure as above.
 
-Ein einzelner Run wechselt den Server nicht von Hand, sondern mit `pnpm run-transfer` (siehe
-"Transfer a run"). Ein Journal-Backup oder manueller Umzug umfasst immer den gesamten `runs/<runId>/`-Ordner,
-also auch `payloads/`. Die einzelne JSONL-Datei reicht bei ausgelagerten Inhalten nicht.
-Die Archivierung gelöschter Runs übernimmt diesen Ordner vollständig. Andere Run-Daten wie
-Arbeitsdateien und die Inhalte unter `artifacts/` bleiben zusätzlich erforderlich. Journale früherer Dateiformate
-werden für den betroffenen Run abgewiesen; der Server startet trotzdem. Auch beschädigte oder
-unvollständige Journale und fehlende Inhaltsdateien betreffen nur ihren Run. Das Serverprotokoll
-nennt Run-ID, Dateipfad und Ursache. Gesperrte Runs stehen in der Run-Liste als gesperrt mit
-dieser Ursache (`locked`); Web und VS Code öffnen sie nicht, bieten aber das Löschen an. Ein Journal,
-das sich nicht laden ließ, nennt keinen Eigentümer; mit Anmeldung sieht und löscht den Run deshalb
-nur, wer `runs.read.all` hat. Jeder andere Zugriff meldet den Fehler `journal-unavailable` (Status
-409). Die Dateien bleiben erhalten und werden nicht automatisch migriert, verschoben oder gelöscht;
-erst das ausdrückliche Löschen verschiebt sie unverändert ins Archiv. Auch ein
-altes Journal des globalen Koordinators verhindert den Serverstart nicht; sein ausdrücklich
-bestätigter Gesprächsreset beginnt danach wieder ein neues Gespräch. Für andere Runs kann eine
-bewusste Reparatur mit anschließendem Neustart die vorhandene Ablage wieder nutzbar machen.
-Ein frischer gesamter Datenbestand ist nicht erforderlich.
+A single run does not change servers by hand, but with `pnpm run-transfer` (see
+"Transfer a run"). A journal backup or manual move always covers the entire `runs/<runId>/` folder,
+that is, also `payloads/`. The single JSONL file is not enough when contents are stored externally.
+Archiving deleted runs takes over this folder completely. Other run data such as
+working files and the contents under `artifacts/` remain required in addition. Journals of earlier file formats
+are rejected for the affected run; the server starts anyway. Damaged or incomplete journals and
+missing content files also affect only their run. The server log names the run ID, file path,
+and cause. Blocked runs appear in the run list as locked with this cause (`locked`); Web and
+VS Code do not open them, but offer to delete them. A journal that could not be loaded names no
+owner; with sign-in, only someone with `runs.read.all` therefore sees and deletes the run. Every
+other access reports the error `journal-unavailable` (status 409). The files are kept and are not
+automatically migrated, moved, or deleted; only an explicit deletion moves them unchanged into
+the archive. An old journal of the global coordinator does not prevent the server start either;
+its explicitly confirmed conversation reset then starts a new conversation. For other runs, a
+deliberate repair followed by a restart can make the existing storage usable again.
+A completely fresh data set is not required.
 
-Es gibt keine automatischen Migrationen und keine Suche nach alten Datenpfaden. Bestehende
-Bestände werden nur auf ausdrücklichen Auftrag bei gestopptem Server umgezogen; der Server
-zieht nichts selbst um und löscht keinen alten Bestand.
+There are no automatic migrations and no search for old data paths. Existing data is only moved
+on explicit request while the server is stopped; the server moves nothing itself and deletes no
+old data.
 
-Lesen: `tail -200 ${DATA_DIR}/logs/server.log`, `pnpm driver journal <runId>` für das Journal eines Runs samt Modelleingaben und Verdichtungen.
+Reading: `tail -200 ${DATA_DIR}/logs/server.log`, `pnpm driver journal <runId>` for a run's journal including model inputs and compactions.
 
-Die Rechte sind so gesetzt, dass ein Run sein eigenes Arbeitsverzeichnis erreicht, aber weder
-die Nachbar-Runs auflisten noch deren Chat und Plugin-Protokolle lesen kann. Die
-Plugin-Protokolle überleben einen Stopp; ein Plugin-Log wird pro Start mit einer
-`=== Start: ... ===`-Zeile fortgeschrieben statt überschrieben. In den Log kommen nur
-Pfade, nie Query-Strings, damit kein Zugangstoken auf Platte landet.
+The permissions are set so that a run reaches its own working directory, but can neither list the
+neighboring runs nor read their chat and plugin logs. The plugin logs survive a stop; a plugin
+log is continued per start with a `=== Start: ... ===` line instead of being overwritten. Only
+paths go into the log, never query strings, so that no access token ends up on disk.
 
-Die Run-ID verbindet diese Verzeichnisse.
+The run ID connects these directories.
 
-## Isolation je Run
+## Isolation per run
 
-Jeder Run arbeitet in seinem eigenen Arbeitsverzeichnis und seiner eigenen Dateiablage.
-Welcher Ordner das ist, legt die Startoption "Arbeitsbereich" beim Start mit zwei Angaben fest:
-"Rechner" ist der Server oder ein verbundener Arbeitsplatz (etwa die VS-Code-Erweiterung), "Ordner"
-ein neuer je Run oder ein vorhandener, dessen absoluten Pfad Du eingibst oder aus den angebotenen
-Ordnern des Arbeitsplatzes übernimmst. Der neue Ordner liegt auf dem Server unter den Laufzeitdaten,
-auf einem Arbeitsplatz in dessen Datenordner unter `workspace/runs/<run-id>` (unter macOS und Linux
-`~/.local/share/ragents`); ein Profil kann ihn durch einen eigenen ersetzen, etwa einen Worktree je
-Run, und bietet ihn dann nur dort an, wo es ihn stellen kann. Ein vorhandener Ordner wird beim
-Löschen des Runs nie angefasst, ein neuer verschwindet mit ihm; ist der Arbeitsplatz beim Löschen
-nicht verbunden, bleibt sein Ordner liegen. Bei einem Arbeitsplatz läuft alles, was den Ordner anfasst, dort,
-wo er liegt: Werkzeuge, Sprachserver, der Reiter Dateien, die Prozessleiste und der Browser der
-Browserprüfung. Die Wurzeln des Servers, `@actors` der Actor-Programme und `@skills/<name>` der
-Skills, erreichen Dateiwerkzeuge und Sprachserver auch dann über ihren Alias, und eine Bash mit
-einem solchen Alias als `cwd` läuft auf dem Server in der Prozess-Sandbox des Runs.
-Pfadprüfung, Eigentum eines Arbeitsplatzes, Anmeldung über das Netz und die
-Fehler bei getrennter Verbindung stehen in [plugins.md](spec/plugins.md) unter "Arbeitsbereich,
-Sandbox-Werkzeuge und Prozesse".
+Every run works in its own working directory and its own file storage.
+Which folder that is, the "Workspace" start option determines at startup with two settings:
+"Machine" is the server or a connected workstation (such as the VS Code extension), "Folder" is a
+new one per run or an existing one whose absolute path you enter or take from the offered folders
+of the workstation. On the server, the new folder lives under the runtime data, on a workstation
+in its data folder under `workspace/runs/<run-id>` (on macOS and Linux
+`~/.local/share/ragents`); a profile can replace it with its own, such as a worktree per run,
+and then offers it only where it can provide it. An existing folder is never touched when the run
+is deleted, a new one disappears with it; if the workstation is not connected at deletion, its
+folder stays. With a workstation, everything that touches the folder runs where it is located:
+tools, language servers, the Files tab, the process rail, and the browser of the browser check.
+The server's roots, `@actors` of the actor programs and `@skills/<name>` of the skills, are still
+reached by file tools and language servers through their alias, and a Bash with such an alias as
+`cwd` runs on the server in the run's process sandbox.
+Path checks, ownership of a workstation, sign-in over the network, and the errors on a
+disconnected connection are in [plugins.md](spec/plugins.md) under "Workspace, sandbox tools, and
+processes".
 
-Ohne VS Code meldet `pnpm workspace-client <server-url> [ordner ...]` denselben Arbeitsplatz von
-der Kommandozeile an; `RAGENTS_TOKEN` setzt den persönlichen Token, wenn der Server eine Anmeldung
-verlangt. Arbeitsplatz und Server brauchen denselben Stand des Executors; bringt ein Arbeitsplatz
-einen anderen mit, lehnt der Server die Anmeldung mit beiden Ständen ab und nennt, was zu
-aktualisieren ist: bei einem älteren Arbeitsplatz die RAgents-Erweiterung beziehungsweise
-`@schlenkr/ragents` dort, bei einem neueren den Server. Ebenso brauchen beide dieselben Beiträge
-der Plugins zum Executor, etwa die Sprachserver und den Browser: der Server nennt sie vor der
-Anmeldung, der Arbeitsplatz lädt sie aus den Bundles seines eigenen Hosts. Kennt er keinen Host,
-fehlt dort ein Bundle oder hat es einen anderen Stand, scheitert die Anmeldung mit dieser Ursache;
-dann den Host des Arbeitsplatzes (`ragents.hostPath` oder das Paket) auf die Fassung des Servers
-bringen. Die VS-Code-Erweiterung zeigt eine solche Ablehnung als Fehler "RAgents-Fassung passt
-nicht" samt ihrer eigenen Fassung, der des Servers und der Seite, die zu aktualisieren ist, und
-eine abweichende Fassung bei angenommenem Arbeitsplatz als Warnung ([usage.md](usage.md), Run
-panel and VS Code extension); die Fassung nennt der Server im Bootstrap (`version` in
-`ragents.plugins.bootstrap`).
-Der Arbeitsplatz liest die Werkzeuge dieser Beiträge aus seiner eigenen
-Prozessumgebung, nicht aus dem Profil des Servers: der Start ruft `pnpm provision --workspace`,
-legt Roslyn und fsautocomplete unter `~/.local/share/ragents/workspace/tools/<plugin-id>/` ab und
-holt Chromium in den Browsercache von Playwright; TypeScript und `playwright-core` kommen aus dem
-Host-Ordner. `ROSLYN_LANGUAGE_SERVER`, `FSHARP_LANGUAGE_SERVER` und `BROWSER_EXECUTABLE_PATH`
-übersteuern das. Die VS-Code-Erweiterung provisioniert dasselbe beim Start und schreibt den Bericht
-in ihren Ausgabekanal `RAgents`. `HOME` bleibt das Home des Entwicklers, damit Git, SSH und NuGet mit seinen Zugangsdaten
-arbeiten; Sprachserver-Protokolle landen unter `os.tmpdir()`. Jeder Werkzeugaufruf des Modells
-erscheint als eine Zeile auf stdout (Run-Kennung, Werkzeug, Dauer, `ok` oder Fehlertext); die
-VS-Code-Erweiterung schreibt dieselbe Zeile in ihren Ausgabekanal `RAgents`. Abfragen der
-Oberfläche, etwa der Reiter Dateien oder die Prozessleiste im Zwei-Sekunden-Takt, erscheinen dort
-nicht.
+Without VS Code, `pnpm workspace-client <server-url> [folders ...]` registers the same workstation
+from the command line; `RAGENTS_TOKEN` sets the personal token when the server requires sign-in.
+Workstation and server need the same executor version; if a workstation brings a different one,
+the server rejects the registration with both versions and names what to update: for an older
+workstation the RAgents extension or `@schlenkr/ragents` there, for a newer one the server.
+Likewise, both need the same plugin contributions to the executor, such as the language servers
+and the browser: the server names them before registration, and the workstation loads them from
+the bundles of its own host. If it knows no host, a bundle is missing there, or it has a
+different version, registration fails with this cause; then bring the workstation's host
+(`ragents.hostPath` or the package) to the server's version. The VS Code extension shows such a
+rejection as the error "RAgents version mismatch" with its own version, the server's version, and
+the side to update, and a differing version with an accepted workstation as a warning
+([usage.md](usage.md), Run panel and VS Code extension); the server names the version in the
+bootstrap (`version` in `ragents.plugins.bootstrap`).
+The workstation reads the tools of these contributions from its own process environment, not from
+the server's profile: startup calls `pnpm provision --workspace`, stores Roslyn and fsautocomplete
+under `~/.local/share/ragents/workspace/tools/<plugin-id>/`, and fetches Chromium into
+Playwright's browser cache; TypeScript and `playwright-core` come from the host folder.
+`ROSLYN_LANGUAGE_SERVER`, `FSHARP_LANGUAGE_SERVER`, and `BROWSER_EXECUTABLE_PATH` override this.
+The VS Code extension provisions the same at startup and writes the report to its `RAgents`
+output channel. `HOME` stays the developer's home, so that Git, SSH, and NuGet work with their
+credentials; language server logs end up under `os.tmpdir()`. Every tool call of the model
+appears as one line on stdout (run ID, tool, duration, `ok` or error text); the VS Code extension
+writes the same line to its `RAgents` output channel. Queries from the interface, such as the
+Files tab or the process rail every two seconds, do not appear there.

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Button, Input, Label } from "../ui";
 import type { ConnectionView, PanelAction } from "./contract";
 
-/** Die Anmeldung an einem Server im Dialogkörper: Benutzer und Passwort oder ein Zugangstoken. */
+/** Signing in to a server in the dialog body: user and password or an access token. */
 export function LoginForm({ connection, mode, busy, send, submitLabel, onCancel }: {
   connection: ConnectionView;
   mode: "password" | "token";
@@ -22,15 +22,15 @@ export function LoginForm({ connection, mode, busy, send, submitLabel, onCancel 
   };
   return <form className="grid gap-2.5" onSubmit={submit}>
     {mode === "token"
-      ? <div className="grid gap-1.5"><Label htmlFor={`token-${field}`}>Zugangstoken</Label><Input autoComplete="off" disabled={busy} id={`token-${field}`} onChange={(event) => setToken(event.target.value)} type="password" value={token} /></div>
+      ? <div className="grid gap-1.5"><Label htmlFor={`token-${field}`}>Access token</Label><Input autoComplete="off" disabled={busy} id={`token-${field}`} onChange={(event) => setToken(event.target.value)} type="password" value={token} /></div>
       : <>
-        <div className="grid gap-1.5"><Label htmlFor={`user-${field}`}>Benutzer</Label><Input autoComplete="username" disabled={busy} id={`user-${field}`} onChange={(event) => setUser(event.target.value)} value={user} /></div>
-        <div className="grid gap-1.5"><Label htmlFor={`password-${field}`}>Passwort</Label><Input autoComplete="current-password" disabled={busy} id={`password-${field}`} onChange={(event) => setPassword(event.target.value)} type="password" value={password} /></div>
+        <div className="grid gap-1.5"><Label htmlFor={`user-${field}`}>User</Label><Input autoComplete="username" disabled={busy} id={`user-${field}`} onChange={(event) => setUser(event.target.value)} value={user} /></div>
+        <div className="grid gap-1.5"><Label htmlFor={`password-${field}`}>Password</Label><Input autoComplete="current-password" disabled={busy} id={`password-${field}`} onChange={(event) => setPassword(event.target.value)} type="password" value={password} /></div>
       </>}
     {connection.problem && <p className="text-[0.75rem] leading-normal text-destructive [overflow-wrap:anywhere]" role="alert">{connection.problem}</p>}
-    <p className="text-[0.72rem] leading-normal text-muted-foreground">Die Anmeldedaten liegen im Schlüsselspeicher von VS Code; die Erweiterung meldet sich danach still am Server an.</p>
+    <p className="text-[0.72rem] leading-normal text-muted-foreground">The credentials are stored in the VS Code secret storage; the extension then signs in to the server silently.</p>
     <div className="mt-1 flex flex-wrap justify-end gap-2">
-      {onCancel && <Button onClick={onCancel} size="sm" type="button" variant="ghost">Abbrechen</Button>}
+      {onCancel && <Button onClick={onCancel} size="sm" type="button" variant="ghost">Cancel</Button>}
       <Button disabled={busy || !complete} size="sm" type="submit">{submitLabel}</Button>
     </div>
   </form>;

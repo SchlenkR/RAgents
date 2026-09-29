@@ -2,11 +2,11 @@
 name: 250-balcony-wizard
 start: true
 disable-model-invocation: true
-title: "Balkon-Wizard"
-description: "Zeigt den Aufbau einer eigenständigen Mini-App für ein adaptives KI-Interview. Das LLM wählt die Fragen, das Formular begrenzt das Gespräch auf fünf Antworten."
-category: "Mini-Apps"
+title: "Balcony wizard"
+description: "Shows how to build a standalone mini-app for an adaptive AI interview. The LLM chooses the questions, the form limits the conversation to five answers."
+category: "Mini-apps"
 order: 250
-tags: "Anwendungsfall, Konzeptdemo, Mini-Apps, Actor-Funktionen, Actor-Zustand"
+tags: "Use case, Concept demo, Mini-apps, Actor functions, Actor state"
 ---
 
-Ich hätte gern einen Balkon-Wizard als eigenständige App auf der Fläche. Sie vermittelt ein begrenztes Gespräch mit einem KI-Berater im Hintergrund. Nach jeder Antwort wählt das LLM die nächste passende Frage, keine feste Fragenliste. Nach fünf Antworten gibt es Gestaltungstipps. Ich antworte nur in der App; sie zeigt Frage, Fortschritt, Lade- und Fehlerzustände. Nutze gemeinsame Layouts und Formulare. Keine App in einer LLM-Chatkarte.
+I would like a balcony wizard as a standalone app on the surface. It mediates a limited conversation with an AI advisor in the background. After each answer, the LLM chooses the next fitting question, no fixed list of questions. After five answers there are design tips. I answer only in the app; it shows question, progress, loading, and error states. Use shared layouts and forms. No app in an LLM chat card.

@@ -1,4 +1,4 @@
-/** Vertrag zwischen dem Run-Panel (run-panel.html) und einem Host, der es in einem iframe zeigt; importfrei, die VS-Code-Erweiterung bündelt ihn mit. */
+/** Contract between the run panel (run-panel.html) and a host that shows it in an iframe; import-free, the VS Code extension bundles it. */
 
 export const RUN_PANEL_PAGE = "run-panel.html";
 
@@ -10,7 +10,7 @@ export interface RunPanelPageQuery {
   run?: string;
   element?: string;
   host?: "vscode";
-  /** Der Name des Servers, auf dem dieser Run liegt; die Kopfzeile nennt ihn als Pille. */
+  /** The name of the server this run lives on; the header shows it as a pill. */
   connection?: string;
   theme?: RunPanelTheme;
   access?: string;
@@ -22,7 +22,7 @@ export const runPanelPageUrl = (serverUrl: string, query: RunPanelPageQuery): st
   return url.toString();
 };
 
-/** Nachrichten des Panels an seinen Host. */
+/** Messages from the panel to its host. */
 export type RunPanelHostMessage =
   | { type: "ready" }
   | { type: "runChanged"; runId: string | null }
@@ -34,7 +34,7 @@ export type RunPanelHostMessage =
   | { type: "openExternal"; url: string }
   | { type: "openPage"; url: string; title: string };
 
-/** Der Text der Zwischenablage: ein iframe fremder Herkunft darf sie im Webview nicht lesen, die Hülle darüber schon. */
+/** The clipboard text: a cross-origin iframe may not read it in the webview, the shell above it may. */
 export type RunPanelClipboardMessage = { type: "clipboardRead"; id: string };
 export type ClipboardRunPanelMessage = { type: "clipboardText"; id: string; text: string };
 
@@ -64,7 +64,7 @@ export function isRunPanelKeyboardMessage(value: unknown): value is RunPanelKeyb
     && ["ctrlKey", "metaKey", "shiftKey", "altKey", "repeat"].every((key) => typeof event[key] === "boolean");
 }
 
-/** Nachrichten des Hosts an das Panel. */
+/** Messages from the host to the panel. */
 export type HostRunPanelMessage =
   | { type: "selectRun"; runId: string | null }
   | { type: "newRun"; startOptions?: Record<string, unknown>; entryId?: string }

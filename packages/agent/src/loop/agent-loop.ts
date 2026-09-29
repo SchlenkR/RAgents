@@ -25,10 +25,10 @@ export type AgentEventSink = (event: AgentEvent) => Promise<void> | void;
 
 /** User message that follows a stop without text and without tool call, typically reasoning-only output. */
 export const EMPTY_RESPONSE_NUDGE =
-	"Deine Antwort enthielt weder Text noch Werkzeugaufruf. Antworte jetzt mit dem nächsten Werkzeugaufruf oder Deiner Antwort.";
+	"Your answer contained neither text nor a tool call. Answer now with the next tool call or your answer.";
 
 /** Error message of the assistant message that ends the loop after the nudge stayed unanswered. */
-export const EMPTY_RESPONSE_FAILURE = "Modell lieferte zweimal eine leere Antwort.";
+export const EMPTY_RESPONSE_FAILURE = "The model returned an empty response twice.";
 
 function isEmptyResponse(message: AssistantMessage): boolean {
 	return (

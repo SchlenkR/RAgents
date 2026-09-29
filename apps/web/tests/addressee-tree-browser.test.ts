@@ -52,11 +52,11 @@ test("the addressee pop-out shows who created whom, groups the reviewers and pic
   const chat = (event: unknown) => page.evaluate((payload) => window.addresseeFixture.chat("demo", payload), event);
   await page.locator("[data-chat=composer]").waitFor();
   await chat({ kind: "status", running: false });
-  await chat({ kind: "user", text: "Setze die Adressatenliste als Baum um und lass alle Regeln prüfen.", at: "2026-09-25T09:05:00.000Z" });
+  await chat({ kind: "user", text: "Rebuild the addressee list as a tree and have all rules checked.", at: "2026-09-25T09:05:00.000Z" });
   await chat({ kind: "replay-end", conversationId: null });
 
-  await page.locator("button[title^=\"Adressat: @coordinator\"]").click();
-  const dialog = page.getByRole("dialog", { name: "Adressat" });
+  await page.locator("button[title^=\"Addressee: @coordinator\"]").click();
+  const dialog = page.getByRole("dialog", { name: "Addressee" });
   const entry = (handle: string) => dialog.locator(`button[data-actor-handle="${handle}"]`);
   const group = dialog.locator("button[data-addressee-group=\"@review-*\"]");
   const shoot = async (name: string) => {
@@ -74,39 +74,39 @@ test("the addressee pop-out shows who created whom, groups the reviewers and pic
   assert.equal(await below("implementer", "test-writer"), 1, "the test writer sits below the implementer");
   assert.equal(await below("implementer", "formatter"), 1, "the TypeScript actor sits below its creator");
   assert.equal(await below("test-writer", "implementer"), 0);
-  await dialog.getByText("Baue die Adressatenliste des Chats zu einem Baum um.", { exact: true }).waitFor();
-  await dialog.getByText("formatiert geänderte Dateien nach jedem Schritt", { exact: true }).waitFor();
-  assert.equal(await entry("implementer").locator("[data-addressee-status]").textContent(), "arbeitet");
-  assert.equal(await entry("test-writer").locator("[data-addressee-status]").textContent(), "wartet");
+  await dialog.getByText("Rebuild the chat's addressee list into a tree.", { exact: true }).waitFor();
+  await dialog.getByText("formats changed files after every step", { exact: true }).waitFor();
+  assert.equal(await entry("implementer").locator("[data-addressee-status]").textContent(), "working");
+  assert.equal(await entry("test-writer").locator("[data-addressee-status]").textContent(), "waiting");
   assert.equal(await group.getAttribute("aria-expanded"), "false");
-  await group.getByText("37 Actors", { exact: true }).waitFor();
-  await group.getByText("4 arbeiten, 29 warten, 4 gestoppt", { exact: true }).waitFor();
+  await group.getByText("37 actors", { exact: true }).waitFor();
+  await group.getByText("4 working, 29 waiting, 4 stopped", { exact: true }).waitFor();
   assert.equal(await dialog.locator("button[data-actor-handle^=\"review-\"]").count(), 0, "the group starts closed");
-  await dialog.getByRole("searchbox", { name: "Actors durchsuchen" }).waitFor();
-  await shoot("adressatenbaum-gruppe-zu");
+  await dialog.getByRole("searchbox", { name: "Search actors" }).waitFor();
+  await shoot("addressee-tree-group-closed");
 
   await group.click();
   assert.equal(await group.getAttribute("aria-expanded"), "true");
   assert.equal(await dialog.locator("button[data-actor-handle^=\"review-\"]").count(), 37);
-  assert.equal(await entry("review-visibility").locator("[data-addressee-status]").textContent(), "gestoppt");
-  await shoot("adressatenbaum-gruppe-offen");
+  assert.equal(await entry("review-visibility").locator("[data-addressee-status]").textContent(), "stopped");
+  await shoot("addressee-tree-group-open");
   await group.click();
   assert.equal(await dialog.locator("button[data-actor-handle^=\"review-\"]").count(), 0);
 
-  await dialog.getByRole("searchbox", { name: "Actors durchsuchen" }).fill("regel comments");
+  await dialog.getByRole("searchbox", { name: "Search actors" }).fill("rule comments");
   await entry("review-comments").waitFor();
   assert.deepEqual(await dialog.locator("button[data-actor-handle]").evaluateAll((buttons) => buttons.map((button) => button.getAttribute("data-actor-handle"))), ["coordinator", "review-comments"]);
-  await shoot("adressatenbaum-suche");
+  await shoot("addressee-tree-search");
   await entry("review-comments").click();
-  await page.getByPlaceholder("Nachricht an @review-comments ...").waitFor();
+  await page.getByPlaceholder("Message to @review-comments ...").waitFor();
   assert.equal(await dialog.count(), 0, "picking closes the pop-out");
 
-  await page.locator("button[title^=\"Adressat: @review-comments\"]").click();
+  await page.locator("button[title^=\"Addressee: @review-comments\"]").click();
   await entry("review-comments").waitFor();
   assert.equal(await entry("review-comments").getAttribute("aria-current"), "true");
   assert.equal(await group.getAttribute("aria-expanded"), "true", "the group holding the addressee opens by itself");
-  await shoot("adressatenbaum-auswahl");
+  await shoot("addressee-tree-selection");
   await entry("implementer").click();
-  await page.locator("button[title^=\"Adressat: @implementer\"]").waitFor();
+  await page.locator("button[title^=\"Addressee: @implementer\"]").waitFor();
   assert.deepEqual(errors, []);
 });

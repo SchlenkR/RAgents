@@ -1,7 +1,7 @@
 import { serviceToken, type JsonValue, type WorkspaceToolNaming } from "@ragents/engine";
 import type { ResolvedWorkspaceRoot, SessionIdent } from "@ragents/workspace-executor";
 
-/** Ein Ordner außerhalb des Arbeitsbereichs, den die Prozess-Sandbox eines Runs zulässt; absolut, zum Lesen oder zum Lesen und Schreiben. */
+/** A folder outside the workspace that a run's process sandbox permits; absolute, for reading or for reading and writing. */
 export interface SandboxFolder {
   directory: string;
   access: "read" | "write";
@@ -9,11 +9,11 @@ export interface SandboxFolder {
 
 export interface SessionWorkspace {
   cwd: string;
-  /** Beschreibt den aufgelösten Arbeitsbereich in Worten; wird Kapitel im Systemprompt jedes Actors mit Arbeitsbereichswerkzeugen. */
+  /** Describes the resolved workspace in words; becomes a chapter in the system prompt of every actor with workspace tools. */
   description?: string;
-  /** Heimatordner, nur lesbare Wurzeln und Konto der Sandbox, wenn der Arbeitsbereich sie selbst bestimmt. */
+  /** Home folder, read-only roots and account of the sandbox, if the workspace determines them itself. */
   hostSandbox?: { home: string; readOnlyRoots: readonly ResolvedWorkspaceRoot[]; ident?: SessionIdent };
-  /** Was Prozesse des Runs auf dem Server außerhalb des Arbeitsbereichs brauchen, etwa das gemeinsame Repository eines Git-Worktrees. */
+  /** What the run's processes on the server need outside the workspace, e.g. the shared repository of a Git worktree. */
   sandboxFolders?: readonly SandboxFolder[];
   gitEnv?: NodeJS.ProcessEnv;
   gitConfig?: ReadonlyArray<readonly [string, string]>;
@@ -27,28 +27,28 @@ export interface WorkspaceRuntimeDescription {
   directoryPattern: string;
 }
 
-/** Umzug eines Runs auf einen anderen Server: was seine Bindung dort bedeutet und wie das Ziel sie ersetzt. */
+/** Moving a run to another server: what its binding means there and how the target replaces it. */
 export interface WorkspaceTransfer {
-  /** Der vorhandene Ordner auf diesem Serverrechner, an den der Run gebunden ist; null bei einem neuen Ordner je Run oder einem Arbeitsplatz. */
+  /** The existing folder on this server machine to which the run is bound; null for a new folder per run or a workstation. */
   boundDirectory: (runId: string) => string | null;
-  /** Prüft einen Ersatzordner, bevor der Import etwas anlegt. */
+  /** Checks a replacement folder before the import creates anything. */
   assertDirectory: (directory: string) => void;
-  /** Bindet den Run auf dem Ziel an einen vorhandenen Ersatzordner. */
+  /** Binds the run on the target to an existing replacement folder. */
   rebind: (runId: string, directory: string) => void;
 }
 
-/** Wo und in welchem Ordner ein Run arbeitet, getrennt beantwortet; ein Ablauf fragt beides, nie einen Mischwert. */
+/** Where and in which folder a run works, answered separately; a flow asks for both, never for a mixed value. */
 export interface WorkspacePlacement {
   machine: "server" | "client";
   folder: "fresh" | "existing";
-  /** Die Kennung der Art (`WorkspaceKind.id`), wenn ein Beitrag den neuen Ordner gestellt hat. */
+  /** The id of the kind (`WorkspaceKind.id`), if a contribution provided the new folder. */
   kind?: string;
 }
 
 export interface WorkspaceRuntime {
   resolve: (runId: string, emitSystem: (text: string) => void) => Promise<SessionWorkspace>;
   describe: () => WorkspaceRuntimeDescription;
-  /** Die eine Stelle, an der ein Ablauf zentral fragt, wo und in welchem Ordner ein Run arbeitet. */
+  /** The one central place where a flow asks where and in which folder a run works. */
   placementOf: (runId: string) => WorkspacePlacement;
   toolNaming?: WorkspaceToolNaming;
   transfer?: WorkspaceTransfer;
@@ -63,24 +63,24 @@ export interface WorkspaceResolverContext {
   emitSystem: (text: string) => void;
 }
 
-/** Was ein Beitrag zum Arbeitsbereich eines Runs liefert; was er weglässt, ergänzt das Arbeitsbereich-Plugin. */
+/** What a contribution delivers for a run's workspace; what it leaves out, the workspace plugin fills in. */
 export interface WorkspaceResolution extends Partial<Omit<SessionWorkspace, "cwd">> {
   cwd: string;
 }
 
-/** Die Art von Arbeitsbereich, die ein Plugin je Run auf dem Server an Stelle des leeren Ordners beisteuert. */
+/** The kind of workspace that a plugin contributes per run on the server in place of the empty folder. */
 export interface WorkspaceKind {
-  /** Kennung, an der ein Ablauf den Arbeitsbereich eines Runs erkennt. */
+  /** Id by which a flow recognizes a run's workspace. */
   id: string;
-  /** Kurzform für Startoption und Sitzungsdaten, etwa "Worktree je Run". */
+  /** Short form for the start option and session data, e.g. "Worktree per run". */
   label: string;
-  /** Ob daneben ein Ordner des Serverrechners gebunden werden darf; ein Arbeitsbereich mit eigenen Rechten schließt ihn aus. */
+  /** Whether a folder of the server machine may be bound alongside it; a workspace with its own rights excludes it. */
   serverFolders: boolean;
-  /** Wo die Ordner je Run liegen, wenn nicht in der Ablage des Arbeitsbereich-Plugins; nur zur Anzeige. */
+  /** Where the folders per run lie, if not in the workspace plugin's storage; for display only. */
   directoryPattern?: string;
 }
 
-/** Ein Schritt beim Anlegen oder Wegräumen des neuen Ordners auf einem Arbeitsplatz: eine Operation des Executors dort, im Ordner des Runs. */
+/** A step when creating or removing the new folder on a workstation: an operation of the executor there, in the run's folder. */
 export interface WorkspaceFolderStep {
   operation: string;
   input: JsonValue;
@@ -88,33 +88,33 @@ export interface WorkspaceFolderStep {
 
 export interface WorkstationFolderContext {
   runId: string;
-  /** Der Ordner des Runs auf dem Arbeitsplatz. */
+  /** The run's folder on the workstation. */
   path: string;
   label: string;
   choice: JsonValue | null;
 }
 
-/** Wie ein Beitrag den neuen Ordner je Run auf einem Arbeitsplatz stellt; der Executor dort legt ihn leer an, die Schritte füllen ihn. */
+/** How a contribution provides the new folder per run on a workstation; the executor there creates it empty, the steps fill it. */
 export interface WorkstationFolder {
-  /** Kurzform für Startoption und Sitzungsdaten, etwa "Git-Worktree je Run". */
+  /** Short form for the start option and session data, e.g. "Git worktree per run". */
   label: string;
-  /** Laufen der Reihe nach, einmal nach dem Anlegen; scheitert einer, räumt der Host den Ordner wieder weg. */
+  /** Run in order, once after creation; if one fails, the host removes the folder again. */
   prepare: (context: WorkstationFolderContext) => readonly WorkspaceFolderStep[];
-  /** Laufen vor dem Wegräumen des Ordners, etwa um einen Worktree aus seinem Repository auszutragen. */
+  /** Run before the folder is removed, e.g. to unregister a worktree from its repository. */
   release?: (context: WorkstationFolderContext) => readonly WorkspaceFolderStep[];
-  /** Beschreibt den Ordner im Systemprompt; ohne Angabe der neue, zunächst leere Ordner. */
+  /** Describes the folder in the system prompt; if omitted, the new, initially empty folder. */
   description?: (context: WorkstationFolderContext) => string;
 }
 
 export interface WorkspaceResolver {
   optionId?: string;
   kind?: WorkspaceKind;
-  /** Den neuen Ordner je Run gibt es mit einem Beitrag auf einem Arbeitsplatz nur, wenn er ihn dort stellt. */
+  /** With a contribution, the new folder per run exists on a workstation only if the contribution provides it there. */
   workstation?: WorkstationFolder;
   resolve: (context: WorkspaceResolverContext) => Promise<WorkspaceResolution>;
-  /** Beenden eines Runs im beigesteuerten Arbeitsbereich auf dem Server; `sandbox` beendet dabei die Werkzeuge des Hosts. */
+  /** Stopping a run in the contributed workspace on the server; `sandbox` stops the host's tools in the process. */
   stopSession?: (runId: string, sandbox: () => Promise<void>) => Promise<void>;
-  /** Löschen eines Runs im beigesteuerten Arbeitsbereich auf dem Server, nach dem Beenden. */
+  /** Deleting a run in the contributed workspace on the server, after stopping. */
   deleteSession?: (runId: string) => Promise<void>;
 }
 
@@ -123,7 +123,7 @@ export const workspaceResolverToken = serviceToken<WorkspaceResolver>("ragents.w
 export interface GitWorkspaceView {
   branch: (runId: string) => Promise<string | undefined>;
   changes: (runId: string) => Promise<unknown>;
-  /** previousPath nennt die Quelle einer Umbenennung aus der Änderungsliste; nur so paart Git sie ohne die ganze Liste. */
+  /** previousPath names the source of a rename from the change list; only this way does Git pair them without the whole list. */
   file: (runId: string, filePath: string, view: "diff" | "current", previousPath?: string) => Promise<unknown>;
 }
 

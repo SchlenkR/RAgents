@@ -18,7 +18,7 @@ export function groupRunsByActivity(sessions: readonly SessionInfo[], now = new 
     const key = dayKey(date);
     const group = groups.get(key) ?? {
       date: key,
-      label: key === today ? "Heute" : key === dayKey(yesterday) ? "Gestern" : date.toLocaleDateString("de-DE", { weekday: "long", day: "numeric", month: "long", ...(date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }) }),
+      label: key === today ? "Today" : key === dayKey(yesterday) ? "Yesterday" : date.toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", ...(date.getFullYear() === now.getFullYear() ? {} : { year: "numeric" }) }),
       sessions: [],
     };
     group.sessions.push(session);

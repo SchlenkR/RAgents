@@ -11,16 +11,16 @@ const text = (value: string | null): string | undefined => value?.trim() ? value
 
 const hostKind = (value: string): RunPanelHostKind => {
   if (value === "browser" || value === "vscode") return value;
-  throw new Error(`Unbekannter Host ${JSON.stringify(value)}. Erlaubt sind browser und vscode.`);
+  throw new Error(`Unknown host ${JSON.stringify(value)}. Allowed are browser and vscode.`);
 };
 
-/** Liest die Adresse des Panels; unbekannte Werte sind ein harter Fehler statt einer stillen Standardansicht. */
+/** Reads the panel's address; unknown values are a hard error instead of a silent default view. */
 export function parseRunPanelLocation(search: string): RunPanelLocation {
   const query = new URLSearchParams(search);
   const layout = text(query.get("layout")) ?? "panel";
-  if (layout !== "panel" && layout !== "app") throw new Error(`Unbekanntes Layout ${JSON.stringify(layout)}. Erlaubt sind panel und app.`);
+  if (layout !== "panel" && layout !== "app") throw new Error(`Unknown layout ${JSON.stringify(layout)}. Allowed are panel and app.`);
   const themeValue = text(query.get("theme"));
-  if (themeValue !== undefined && !isRunPanelTheme(themeValue)) throw new Error(`Unbekannte Darstellung ${JSON.stringify(themeValue)}. Erlaubt sind light und dark.`);
+  if (themeValue !== undefined && !isRunPanelTheme(themeValue)) throw new Error(`Unknown theme ${JSON.stringify(themeValue)}. Allowed are light and dark.`);
   const common = {
     host: hostKind(text(query.get("host")) ?? "browser"),
     connection: text(query.get("connection")),
@@ -30,6 +30,6 @@ export function parseRunPanelLocation(search: string): RunPanelLocation {
   const runId = text(query.get("run"));
   if (layout === "panel") return { layout, runId, ...common };
   const elementId = text(query.get("element"));
-  if (!runId || !elementId) throw new Error("Das Layout app braucht run und element.");
+  if (!runId || !elementId) throw new Error("The app layout needs run and element.");
   return { layout, runId, elementId, ...common };
 }

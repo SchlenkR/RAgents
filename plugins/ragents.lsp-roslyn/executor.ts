@@ -26,9 +26,9 @@ const serverPath = (toolsDirectory: string): string => {
   if (configured) return configured;
   const provisioned = path.join(toolsDirectory, ...ROSLYN_SERVER_FILE.split("/"));
   if (existsSync(provisioned)) return provisioned;
-  throw new Error("Microsoft.CodeAnalysis.LanguageServer gibt es auf diesem Rechner nicht: weder "
-    + `${ROSLYN_SERVER_VARIABLE} gesetzt noch ${provisioned} vorhanden. Ein Arbeitsplatz holt ihn mit `
-    + `pnpm provision --workspace, ein Server über pnpm provision <profil>; ${ROSLYN_SERVER_VARIABLE} übersteuert beides`);
+  throw new Error("Microsoft.CodeAnalysis.LanguageServer does not exist on this machine: neither is "
+    + `${ROSLYN_SERVER_VARIABLE} set nor does ${provisioned} exist. A workspace fetches it with `
+    + `pnpm provision --workspace, a server via pnpm provision <profile>; ${ROSLYN_SERVER_VARIABLE} overrides both`);
 };
 
 export const executor: WorkspaceExecutorContribution = (machine) => ({
@@ -53,12 +53,12 @@ export const executor: WorkspaceExecutorContribution = (machine) => ({
     }),
     open: async (session, root, timeoutMs) => {
       const uri = pathToFileURL(root).href;
-      const loaded = session.waitForNotification(timeoutMs, "Projekte geladen",
+      const loaded = session.waitForNotification(timeoutMs, "projects loaded",
         (method) => method === "workspace/projectInitializationComplete");
       if (root.toLowerCase().endsWith(".csproj")) session.notify("project/open", { projects: [uri] });
       else session.notify("solution/open", { solution: uri });
       await loaded;
-      return `${path.basename(root)} geladen`;
+      return `Loaded ${path.basename(root)}`;
     },
   }],
 });

@@ -33,7 +33,7 @@ const mediatorSession = (source: string) => {
     const deliver = async (input: unknown) => {
         const outcome = await nativeTestExecutor.execute({
             program: scriptProgram(source), input, state: carried,
-            context: { runId: "run-test", invocationId: "turn-test", invocationKind: "input", principal: { id: "staffel", kind: "script" }, capabilities: agentTools.map(tool=>({id:tool.name,label:tool.label,description:tool.description,schema:tool.schema,resultSchema:tool.resultSchema})) },
+            context: { runId: "run-test", invocationId: "turn-test", invocationKind: "input", principal: { id: "relay", kind: "script" }, capabilities: agentTools.map(tool=>({id:tool.name,label:tool.label,description:tool.description,schema:tool.schema,resultSchema:tool.resultSchema})) },
             std: { now: scriptTestClock, idPrefix: "test:std" },
         }, {
             signal,
@@ -82,13 +82,13 @@ const mediatorSource = (table: readonly string[], body: readonly string[]) => [
 ].join("\n");
 
 const ringTable = [
-    "    'actor-rot': ['actor-gelb'],",
-    "    'actor-gelb': ['actor-blau'],",
-    "    'actor-blau': ['actor-rot'],",
+    "    'actor-red': ['actor-yellow'],",
+    "    'actor-yellow': ['actor-blue'],",
+    "    'actor-blue': ['actor-red'],",
 ];
 
 const ringSource = (body: readonly string[]) => mediatorSource(ringTable, [
-    "  start: { to: 'actor-rot', text: 'Anfang' },",
+    "  start: { to: 'actor-red', text: 'Begin' },",
     ...body,
 ]);
 
@@ -105,34 +105,34 @@ const routedContents = (calls: readonly Call[]) => calls
 test("std.mediators.route subscribes to the senders of the table and delivers the start line", async () => {
     const session = mediatorSession(plainRing);
 
-    await session.deliver(directInput("Leg los."));
+    await session.deliver(directInput("Get going."));
 
     assert.deepEqual(session.calls, [
         {
             name: "event_subscribe",
             input: {
-                sourceActorIds: ["actor-rot", "actor-gelb", "actor-blau"],
+                sourceActorIds: ["actor-red", "actor-yellow", "actor-blue"],
                 eventTypes: ["model.output.completed"],
             },
         },
-        { name: "actor_input", input: { actor: "actor-rot", content: "Anfang" } },
+        { name: "actor_input", input: { actor: "actor-red", content: "Begin" } },
     ]);
-    assert.deepEqual(session.state(), { entries: [{ from: null, text: "Anfang" }], done: false });
+    assert.deepEqual(session.state(), { entries: [{ from: null, text: "Begin" }], done: false });
 });
 
 test("a ring topology falls out of a table where every sender points at the next one", async () => {
     const session = mediatorSession(plainRing);
 
-    await session.deliver(directInput("Leg los."));
-    await session.deliver(memberInput("actor-rot", "rot", "Blume"));
-    await session.deliver(memberInput("actor-gelb", "gelb", "Wiese"));
-    await session.deliver(memberInput("actor-blau", "blau", "Himmel"));
+    await session.deliver(directInput("Get going."));
+    await session.deliver(memberInput("actor-red", "red", "Flower"));
+    await session.deliver(memberInput("actor-yellow", "yellow", "Meadow"));
+    await session.deliver(memberInput("actor-blue", "blue", "Sky"));
 
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "actor-rot", content: "Anfang" },
-        { actor: "actor-gelb", content: "Anfang\nrot: Blume" },
-        { actor: "actor-blau", content: "Anfang\nrot: Blume\ngelb: Wiese" },
-        { actor: "actor-rot", content: "Anfang\nrot: Blume\ngelb: Wiese\nblau: Himmel" },
+        { actor: "actor-red", content: "Begin" },
+        { actor: "actor-yellow", content: "Begin\nred: Flower" },
+        { actor: "actor-blue", content: "Begin\nred: Flower\nyellow: Meadow" },
+        { actor: "actor-red", content: "Begin\nred: Flower\nyellow: Meadow\nblue: Sky" },
     ]);
 });
 
@@ -142,126 +142,126 @@ test("a star topology falls out of a table where every sender points at all othe
         "    'actor-ben': ['actor-anna', 'actor-cara'],",
         "    'actor-cara': ['actor-anna', 'actor-ben'],",
     ], [
-        "  start: { to: 'actor-anna', text: 'Stellt euch vor.' },",
+        "  start: { to: 'actor-anna', text: 'Introduce yourselves.' },",
         "  label: 'none',",
         "  maxEntries: 12,",
         "  onDone: async () => undefined,",
     ]));
 
-    await session.deliver(directInput("Leg los."));
-    await session.deliver(memberInput("actor-ben", "ben", "Ich bin Ben."));
+    await session.deliver(directInput("Get going."));
+    await session.deliver(memberInput("actor-ben", "ben", "I am Ben."));
 
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "actor-anna", content: "Stellt euch vor." },
-        { actor: "actor-anna", content: "Stellt euch vor.\nIch bin Ben." },
-        { actor: "actor-cara", content: "Stellt euch vor.\nIch bin Ben." },
+        { actor: "actor-anna", content: "Introduce yourselves." },
+        { actor: "actor-anna", content: "Introduce yourselves.\nI am Ben." },
+        { actor: "actor-cara", content: "Introduce yourselves.\nI am Ben." },
     ]);
 });
 
 test("a row with null is a silent listener and never gets subscribed", async () => {
     const session = mediatorSession(mediatorSource([
-        "    'actor-rot': ['actor-gelb'],",
-        "    'actor-gelb': ['actor-mithoerer'],",
-        "    'actor-mithoerer': null,",
+        "    'actor-red': ['actor-yellow'],",
+        "    'actor-yellow': ['actor-listener'],",
+        "    'actor-listener': null,",
     ], [
-        "  start: { to: 'actor-rot', text: 'Anfang' },",
+        "  start: { to: 'actor-red', text: 'Begin' },",
         "  label: 'handle',",
         "  maxEntries: 12,",
         "  onDone: async () => undefined,",
     ]));
 
-    await session.deliver(directInput("Leg los."));
-    await session.deliver(memberInput("actor-rot", "rot", "Blume"));
-    await session.deliver(memberInput("actor-gelb", "gelb", "Wiese"));
+    await session.deliver(directInput("Get going."));
+    await session.deliver(memberInput("actor-red", "red", "Flower"));
+    await session.deliver(memberInput("actor-yellow", "yellow", "Meadow"));
 
     assert.deepEqual(session.calls[0], {
         name: "event_subscribe",
-        input: { sourceActorIds: ["actor-rot", "actor-gelb"], eventTypes: ["model.output.completed"] },
+        input: { sourceActorIds: ["actor-red", "actor-yellow"], eventTypes: ["model.output.completed"] },
     });
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "actor-rot", content: "Anfang" },
-        { actor: "actor-gelb", content: "Anfang\nrot: Blume" },
-        { actor: "actor-mithoerer", content: "Anfang\nrot: Blume\ngelb: Wiese" },
+        { actor: "actor-red", content: "Begin" },
+        { actor: "actor-yellow", content: "Begin\nred: Flower" },
+        { actor: "actor-listener", content: "Begin\nred: Flower\nyellow: Meadow" },
     ]);
 });
 
 test("a target function that returns an empty list accepts the entry without routing it", async () => {
     const session = mediatorSession(mediatorSource([
-        "    'actor-rot': (entry) => entry.text.includes('stopp') ? [] : ['actor-gelb'],",
-        "    'actor-gelb': ['actor-rot'],",
+        "    'actor-red': (entry) => entry.text.includes('stop') ? [] : ['actor-yellow'],",
+        "    'actor-yellow': ['actor-red'],",
     ], [
-        "  start: { to: 'actor-rot', text: 'Anfang' },",
+        "  start: { to: 'actor-red', text: 'Begin' },",
         "  label: 'handle',",
         "  maxEntries: 12,",
         "  onEntry: (entry) => context.log('entry ' + entry.text),",
         "  onDone: async () => undefined,",
     ]));
 
-    await session.deliver(directInput("Leg los."));
-    await session.deliver(memberInput("actor-rot", "rot", "bitte stopp"));
+    await session.deliver(directInput("Get going."));
+    await session.deliver(memberInput("actor-red", "red", "please stop"));
 
-    assert.deepEqual(routedContents(session.calls), [{ actor: "actor-rot", content: "Anfang" }]);
-    assert.deepEqual(session.logs, ["entry bitte stopp"]);
+    assert.deepEqual(routedContents(session.calls), [{ actor: "actor-red", content: "Begin" }]);
+    assert.deepEqual(session.logs, ["entry please stop"]);
     assert.deepEqual(session.state(), {
-        entries: [{ from: null, text: "Anfang" }, { from: "rot", text: "bitte stopp" }],
+        entries: [{ from: null, text: "Begin" }, { from: "red", text: "please stop" }],
         done: false,
     });
 });
 
 test("a target function routes by content", async () => {
     const session = mediatorSession(mediatorSource([
-        "    'actor-rot': (entry) => entry.text.includes('Frage') ? ['actor-blau'] : ['actor-gelb'],",
-        "    'actor-gelb': ['actor-rot'],",
-        "    'actor-blau': ['actor-rot'],",
+        "    'actor-red': (entry) => entry.text.includes('question') ? ['actor-blue'] : ['actor-yellow'],",
+        "    'actor-yellow': ['actor-red'],",
+        "    'actor-blue': ['actor-red'],",
     ], [
-        "  start: { to: 'actor-rot', text: 'Anfang' },",
+        "  start: { to: 'actor-red', text: 'Begin' },",
         "  label: 'handle',",
         "  maxEntries: 12,",
         "  onDone: async () => undefined,",
     ]));
 
-    await session.deliver(directInput("Leg los."));
-    await session.deliver(memberInput("actor-rot", "rot", "eine Frage"));
+    await session.deliver(directInput("Get going."));
+    await session.deliver(memberInput("actor-red", "red", "a question"));
 
     assert.deepEqual(routedContents(session.calls).at(-1), {
-        actor: "actor-blau",
-        content: "Anfang\nrot: eine Frage",
+        actor: "actor-blue",
+        content: "Begin\nred: a question",
     });
 });
 
 test("a target function that names an unknown actor aborts with the known ids", async () => {
     const session = mediatorSession(mediatorSource([
-        "    'actor-rot': () => ['actor-fremd'],",
-        "    'actor-gelb': ['actor-rot'],",
+        "    'actor-red': () => ['actor-stranger'],",
+        "    'actor-yellow': ['actor-red'],",
     ], [
-        "  start: { to: 'actor-rot', text: 'Anfang' },",
+        "  start: { to: 'actor-red', text: 'Begin' },",
         "  label: 'handle',",
         "  maxEntries: 12,",
         "  onDone: async () => undefined,",
     ]));
 
-    await session.deliver(directInput("Leg los."));
+    await session.deliver(directInput("Get going."));
     await assert.rejects(
-        session.deliver(memberInput("actor-rot", "rot", "Blume")),
-        /Die Zielfunktion für actor-rot nennt das unbekannte Ziel actor-fremd\. Die Tabelle kennt: actor-rot, actor-gelb\./,
+        session.deliver(memberInput("actor-red", "red", "Flower")),
+        /The target function for actor-red names the unknown target actor-stranger\. The table knows: actor-red, actor-yellow\./,
     );
 });
 
 test("a throwing target function aborts the turn with a named error", async () => {
     const session = mediatorSession(mediatorSource([
-        "    'actor-rot': () => { throw new Error('Kein Ziel gefunden.') },",
-        "    'actor-gelb': ['actor-rot'],",
+        "    'actor-red': () => { throw new Error('No target found.') },",
+        "    'actor-yellow': ['actor-red'],",
     ], [
-        "  start: { to: 'actor-rot', text: 'Anfang' },",
+        "  start: { to: 'actor-red', text: 'Begin' },",
         "  label: 'handle',",
         "  maxEntries: 12,",
         "  onDone: async () => undefined,",
     ]));
 
-    await session.deliver(directInput("Leg los."));
+    await session.deliver(directInput("Get going."));
     await assert.rejects(
-        session.deliver(memberInput("actor-rot", "rot", "Blume")),
-        /Die Zielfunktion für actor-rot ist gescheitert: Kein Ziel gefunden\./,
+        session.deliver(memberInput("actor-red", "red", "Flower")),
+        /The target function for actor-red failed: No target found\./,
     );
 });
 
@@ -272,15 +272,15 @@ test("std.mediators.route takes only the last non-empty line of a multi-line ans
         "  onDone: async () => undefined,",
     ]));
 
-    await session.deliver(directInput("Leg los."));
-    await session.deliver(memberInput("actor-rot", "rot", "Gerne doch!\n\n   Blume   \n\n"));
+    await session.deliver(directInput("Get going."));
+    await session.deliver(memberInput("actor-red", "red", "Sure thing!\n\n   Flower   \n\n"));
 
     assert.deepEqual(routedContents(session.calls).at(-1), {
-        actor: "actor-gelb",
-        content: "Anfang\nBlume",
+        actor: "actor-yellow",
+        content: "Begin\nFlower",
     });
     assert.deepEqual(session.state(), {
-        entries: [{ from: null, text: "Anfang" }, { from: "rot", text: "Blume" }],
+        entries: [{ from: null, text: "Begin" }, { from: "red", text: "Flower" }],
         done: false,
     });
 });
@@ -298,22 +298,22 @@ test("std.mediators.route stops at maxEntries and runs onDone exactly once", asy
         "  },",
     ]));
 
-    await session.deliver(directInput("Leg los."));
-    await session.deliver(memberInput("actor-rot", "rot", "Blume"));
-    await session.deliver(memberInput("actor-gelb", "gelb", "Wiese"));
-    await session.deliver(memberInput("actor-blau", "blau", "Himmel"));
-    await session.deliver(memberInput("actor-rot", "rot", "Wolke"));
+    await session.deliver(directInput("Get going."));
+    await session.deliver(memberInput("actor-red", "red", "Flower"));
+    await session.deliver(memberInput("actor-yellow", "yellow", "Meadow"));
+    await session.deliver(memberInput("actor-blue", "blue", "Sky"));
+    await session.deliver(memberInput("actor-red", "red", "Cloud"));
 
     const published = session.calls.filter((entry) => entry.name === "artifact_publish");
     assert.equal(published.length, 1);
     assert.deepEqual(published[0]?.input, {
         title: "Kreis",
         mediaType: "text/markdown",
-        content: "Anfang\nrot: Blume\ngelb: Wiese",
+        content: "Begin\nred: Flower\nyellow: Meadow",
     });
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "actor-rot", content: "Anfang" },
-        { actor: "actor-gelb", content: "Anfang\nrot: Blume" },
+        { actor: "actor-red", content: "Begin" },
+        { actor: "actor-yellow", content: "Begin\nred: Flower" },
     ]);
     assert.equal((session.state() as { done: boolean }).done, true);
 });
@@ -327,13 +327,13 @@ test("std.mediators.route calls onEntry and onRoute with the accepted entry and 
         "  onDone: async () => undefined,",
     ]));
 
-    await session.deliver(directInput("Leg los."));
-    await session.deliver(memberInput("actor-rot", "rot", "Blume"));
+    await session.deliver(directInput("Get going."));
+    await session.deliver(memberInput("actor-red", "red", "Flower"));
 
     assert.deepEqual(session.logs, [
-        "route Anfang -> actor-rot",
-        "entry rot Blume",
-        "route Blume -> actor-gelb",
+        "route Begin -> actor-red",
+        "entry red Flower",
+        "route Flower -> actor-yellow",
     ]);
 });
 
@@ -341,51 +341,51 @@ test("a throwing hook aborts the turn with the hook name", async () => {
     const session = mediatorSession(ringSource([
         "  label: 'handle',",
         "  maxEntries: 12,",
-        "  onEntry: () => { throw new Error('Der Beitrag passt nicht.') },",
+        "  onEntry: () => { throw new Error('The entry does not fit.') },",
         "  onDone: async () => undefined,",
     ]));
 
-    await session.deliver(directInput("Leg los."));
+    await session.deliver(directInput("Get going."));
     await assert.rejects(
-        session.deliver(memberInput("actor-rot", "rot", "Blume")),
-        /Der Hook onEntry des Vermittlers ist gescheitert: Der Beitrag passt nicht\./,
+        session.deliver(memberInput("actor-red", "red", "Flower")),
+        /The hook onEntry of the mediator failed: The entry does not fit\./,
     );
 });
 
 test("std.mediators.route refuses a sender outside the table and a second setup", async () => {
     const session = mediatorSession(plainRing);
 
-    await session.deliver(directInput("Leg los."));
+    await session.deliver(directInput("Get going."));
     await assert.rejects(
-        session.deliver(memberInput("actor-fremd", "fremd", "Blume")),
-        /Der Absender actor-fremd mit dem Handle fremd kommt in der Tabelle nicht als Absender vor\. Absender sind: actor-rot, actor-gelb, actor-blau\. Ein Schlüssel darf die Actor-ID, der Handle oder @handle sein\./,
+        session.deliver(memberInput("actor-stranger", "stranger", "Flower")),
+        /The sender actor-stranger with the handle stranger does not appear in the table as a sender\. Senders are: actor-red, actor-yellow, actor-blue\. A key may be the actor ID, the handle or @handle\./,
     );
-    await assert.rejects(session.deliver(directInput("Nochmal.")), /bereits eingerichtet/);
+    await assert.rejects(session.deliver(directInput("Once more.")), /already set up/);
 });
 
 test("a table keyed by handles routes the events of the matching actors", async () => {
     const session = mediatorSession(mediatorSource([
-        "    'rot': ['gelb'],",
-        "    'gelb': ['rot'],",
+        "    'red': ['yellow'],",
+        "    'yellow': ['red'],",
     ], [
-        "  start: { to: 'rot', text: 'Anfang' },",
+        "  start: { to: 'red', text: 'Begin' },",
         "  label: 'handle',",
         "  maxEntries: 12,",
         "  onDone: async () => undefined,",
     ]));
 
-    await session.deliver(directInput("Leg los."));
-    await session.deliver(memberInput("actor-rot", "rot", "Blume"));
-    await session.deliver(memberInput("actor-gelb", "gelb", "Wiese"));
+    await session.deliver(directInput("Get going."));
+    await session.deliver(memberInput("actor-red", "red", "Flower"));
+    await session.deliver(memberInput("actor-yellow", "yellow", "Meadow"));
 
     assert.deepEqual(session.calls[0], {
         name: "event_subscribe",
-        input: { sourceActorIds: ["rot", "gelb"], eventTypes: ["model.output.completed"] },
+        input: { sourceActorIds: ["red", "yellow"], eventTypes: ["model.output.completed"] },
     });
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "rot", content: "Anfang" },
-        { actor: "gelb", content: "Anfang\nrot: Blume" },
-        { actor: "rot", content: "Anfang\nrot: Blume\ngelb: Wiese" },
+        { actor: "red", content: "Begin" },
+        { actor: "yellow", content: "Begin\nred: Flower" },
+        { actor: "red", content: "Begin\nred: Flower\nyellow: Meadow" },
     ]);
 });
 
@@ -394,130 +394,130 @@ test("a table keyed by @handle matches the sender without regard to case", async
         "    '@Mira': ['@jon'],",
         "    '@jon': ['@Mira'],",
     ], [
-        "  start: { to: '@mira', text: 'Thema' },",
+        "  start: { to: '@mira', text: 'Topic' },",
         "  label: 'handle',",
         "  maxEntries: 12,",
         "  onDone: async () => undefined,",
     ]));
 
-    await session.deliver(directInput("Leg los."));
-    await session.deliver(memberInput("actor-mira", "mira", "Hallo"));
+    await session.deliver(directInput("Get going."));
+    await session.deliver(memberInput("actor-mira", "mira", "Hello"));
 
     assert.deepEqual(session.calls[0], {
         name: "event_subscribe",
         input: { sourceActorIds: ["Mira", "jon"], eventTypes: ["model.output.completed"] },
     });
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "Mira", content: "Thema" },
-        { actor: "jon", content: "Thema\nmira: Hallo" },
+        { actor: "Mira", content: "Topic" },
+        { actor: "jon", content: "Topic\nmira: Hello" },
     ]);
 });
 
 test("a table mixes actor ids and handles as keys", async () => {
     const session = mediatorSession(mediatorSource([
-        "    'actor-rot': ['ada'],",
-        "    'ada': ['actor-rot'],",
+        "    'actor-red': ['ada'],",
+        "    'ada': ['actor-red'],",
     ], [
-        "  start: { to: 'actor-rot', text: 'Anfang' },",
+        "  start: { to: 'actor-red', text: 'Begin' },",
         "  label: 'handle',",
         "  maxEntries: 12,",
         "  onDone: async () => undefined,",
     ]));
 
-    await session.deliver(directInput("Leg los."));
-    await session.deliver(memberInput("actor-rot", "rot", "Blume"));
-    await session.deliver(memberInput("actor-ada", "ada", "Wiese"));
+    await session.deliver(directInput("Get going."));
+    await session.deliver(memberInput("actor-red", "red", "Flower"));
+    await session.deliver(memberInput("actor-ada", "ada", "Meadow"));
 
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "actor-rot", content: "Anfang" },
-        { actor: "ada", content: "Anfang\nrot: Blume" },
-        { actor: "actor-rot", content: "Anfang\nrot: Blume\nada: Wiese" },
+        { actor: "actor-red", content: "Begin" },
+        { actor: "ada", content: "Begin\nred: Flower" },
+        { actor: "actor-red", content: "Begin\nred: Flower\nada: Meadow" },
     ]);
 });
 
 test("a target function of a handle table may name an actor id and the other way round", async () => {
     const session = mediatorSession(mediatorSource([
-        "    'rot': () => 'actor-gelb',",
-        "    'actor-gelb': ['@rot'],",
+        "    'red': () => 'actor-yellow',",
+        "    'actor-yellow': ['@red'],",
     ], [
-        "  start: { to: 'rot', text: 'Anfang' },",
+        "  start: { to: 'red', text: 'Begin' },",
         "  label: 'handle',",
         "  maxEntries: 12,",
         "  onDone: async () => undefined,",
     ]));
 
-    await session.deliver(directInput("Leg los."));
-    await session.deliver(memberInput("actor-rot", "rot", "Blume"));
-    await session.deliver(memberInput("actor-gelb", "gelb", "Wiese"));
+    await session.deliver(directInput("Get going."));
+    await session.deliver(memberInput("actor-red", "red", "Flower"));
+    await session.deliver(memberInput("actor-yellow", "yellow", "Meadow"));
 
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "rot", content: "Anfang" },
-        { actor: "actor-gelb", content: "Anfang\nrot: Blume" },
-        { actor: "rot", content: "Anfang\nrot: Blume\ngelb: Wiese" },
+        { actor: "red", content: "Begin" },
+        { actor: "actor-yellow", content: "Begin\nred: Flower" },
+        { actor: "red", content: "Begin\nred: Flower\nyellow: Meadow" },
     ]);
 });
 
 test("an unknown sender is reported with its id, its handle and the keys of the table", async () => {
     const session = mediatorSession(mediatorSource([
-        "    'rot': ['gelb'],",
-        "    'gelb': ['rot'],",
+        "    'red': ['yellow'],",
+        "    'yellow': ['red'],",
     ], [
-        "  start: { to: 'rot', text: 'Anfang' },",
+        "  start: { to: 'red', text: 'Begin' },",
         "  label: 'handle',",
         "  maxEntries: 12,",
         "  onDone: async () => undefined,",
     ]));
 
-    await session.deliver(directInput("Leg los."));
+    await session.deliver(directInput("Get going."));
     await assert.rejects(
-        session.deliver(memberInput("actor-fremd", "fremd", "Blume")),
-        /Der Absender actor-fremd mit dem Handle fremd kommt in der Tabelle nicht als Absender vor\. Absender sind: rot, gelb\. Ein Schlüssel darf die Actor-ID, der Handle oder @handle sein\./,
+        session.deliver(memberInput("actor-stranger", "stranger", "Flower")),
+        /The sender actor-stranger with the handle stranger does not appear in the table as a sender\. Senders are: red, yellow\. A key may be the actor ID, the handle or @handle\./,
     );
 });
 
 test("native mediator configuration fails before producing effects", async () => {
     await assert.rejects(
         () => mediatorSession(mediatorSource([], [
-            "  start: { to: 'actor-rot', text: 'Anfang' },",
+            "  start: { to: 'actor-red', text: 'Begin' },",
             "  label: 'handle',",
             "  maxEntries: 12,",
             "  onDone: async () => undefined,",
         ])).deliver(directInput("Start")),
-        /table muss mindestens einen Absender enthalten/,
+        /table must contain at least one sender/,
     );
     await assert.rejects(
         () => mediatorSession(mediatorSource([
-            "    'actor-rot': ['actor-gelb'],",
-            "    'actor-gelb': null,",
+            "    'actor-red': ['actor-yellow'],",
+            "    'actor-yellow': null,",
         ], [
-            "  start: { to: 'actor-blau', text: 'Anfang' },",
+            "  start: { to: 'actor-blue', text: 'Begin' },",
             "  label: 'handle',",
             "  maxEntries: 12,",
             "  onDone: async () => undefined,",
         ])).deliver(directInput("Start")),
-        /start\.to actor-blau steht nicht als Schlüssel in der Tabelle\. Die Tabelle kennt: actor-rot, actor-gelb\. Ein reiner Empfänger gehört als "actor-blau": null in die Tabelle\./,
+        /start\.to actor-blue is not a key in the table\. The table knows: actor-red, actor-yellow\. A pure recipient belongs in the table as "actor-blue": null\./,
     );
     await assert.rejects(
         () => mediatorSession(mediatorSource([
-            "    'actor-rot': ['actor-gelb'],",
+            "    'actor-red': ['actor-yellow'],",
         ], [
-            "  start: { to: 'actor-rot', text: 'Anfang' },",
+            "  start: { to: 'actor-red', text: 'Begin' },",
             "  label: 'handle',",
             "  maxEntries: 12,",
             "  onDone: async () => undefined,",
         ])).deliver(directInput("Start")),
-        /das Ziel actor-gelb von actor-rot steht nicht als Schlüssel in der Tabelle\. Die Tabelle kennt: actor-rot\. Ein reiner Empfänger gehört als "actor-gelb": null in die Tabelle\./,
+        /the target actor-yellow of actor-red is not a key in the table\. The table knows: actor-red\. A pure recipient belongs in the table as "actor-yellow": null\./,
     );
     await assert.rejects(
         () => mediatorSession(mediatorSource([
-            "    'actor-rot': [''],",
+            "    'actor-red': [''],",
         ], [
-            "  start: { to: 'actor-rot', text: 'Anfang' },",
+            "  start: { to: 'actor-red', text: 'Begin' },",
             "  label: 'handle',",
             "  maxEntries: 12,",
             "  onDone: async () => undefined,",
         ])).deliver(directInput("Start")),
-        /ein Ziel von actor-rot muss eine Actor-ID oder ein Handle als nicht leerer Text sein/,
+        /a target of actor-red must be an actor ID or a handle as non-empty text/,
     );
     await assert.rejects(
         () => mediatorSession(mediatorSource([
@@ -525,12 +525,12 @@ test("native mediator configuration fails before producing effects", async () =>
             "    '@Mira': null,",
             "    'jon': ['mira'],",
         ], [
-            "  start: { to: 'mira', text: 'Anfang' },",
+            "  start: { to: 'mira', text: 'Begin' },",
             "  label: 'handle',",
             "  maxEntries: 12,",
             "  onDone: async () => undefined,",
         ])).deliver(directInput("Start")),
-        /table nennt denselben Beteiligten doppelt/,
+        /table names the same participant twice/,
     );
     await assert.rejects(
         () => mediatorSession(ringSource([
@@ -538,36 +538,36 @@ test("native mediator configuration fails before producing effects", async () =>
             "  maxEntries: 0,",
             "  onDone: async () => undefined,",
         ])).deliver(directInput("Start")),
-        /maxEntries muss eine ganze Zahl ab 1 sein/,
+        /maxEntries must be an integer of at least 1/,
     );
 });
 
 test("a route table takes its keys from constants", async () => {
     const session = mediatorSession([
-        "const rot = 'actor-rot'",
-        "const gelb = 'actor-gelb'",
+        "const red = 'actor-red'",
+        "const yellow = 'actor-yellow'",
             "export const handle = (input, context) => context.std.mediators.route({",
         "  table: {",
-        "    [rot]: [gelb],",
-        "    [gelb]: [rot],",
+        "    [red]: [yellow],",
+        "    [yellow]: [red],",
         "  },",
-        "  start: { to: rot, text: 'Anfang' },",
+        "  start: { to: red, text: 'Begin' },",
         "  label: 'handle',",
         "  maxEntries: 12,",
         "  onDone: async () => undefined,",
         "})(input, context)",
     ].join("\n"));
 
-    await session.deliver(directInput("Leg los."));
-    await session.deliver(memberInput("actor-rot", "rot", "Blume"));
+    await session.deliver(directInput("Get going."));
+    await session.deliver(memberInput("actor-red", "red", "Flower"));
 
     assert.deepEqual(session.calls[0], {
         name: "event_subscribe",
-        input: { sourceActorIds: ["actor-rot", "actor-gelb"], eventTypes: ["model.output.completed"] },
+        input: { sourceActorIds: ["actor-red", "actor-yellow"], eventTypes: ["model.output.completed"] },
     });
     assert.deepEqual(routedContents(session.calls), [
-        { actor: "actor-rot", content: "Anfang" },
-        { actor: "actor-gelb", content: "Anfang\nrot: Blume" },
+        { actor: "actor-red", content: "Begin" },
+        { actor: "actor-yellow", content: "Begin\nred: Flower" },
     ]);
 });
 
@@ -578,10 +578,10 @@ test("two identical runs of a mediator produce the identical state and the ident
         "  onDone: async () => undefined,",
     ]);
     const inputs = [
-        directInput("Leg los."),
-        memberInput("actor-rot", "rot", "Blume"),
-        memberInput("actor-gelb", "gelb", "Wiese"),
-        memberInput("actor-blau", "blau", "Himmel"),
+        directInput("Get going."),
+        memberInput("actor-red", "red", "Flower"),
+        memberInput("actor-yellow", "yellow", "Meadow"),
+        memberInput("actor-blue", "blue", "Sky"),
     ];
     const played = async () => {
         const session = mediatorSession(source);
@@ -603,18 +603,18 @@ test("an installed mediator carries a real circle of agents to its artifact", as
         { title: "Kreis", ownerHandle: "owner", ownerDisplayName: "Owner" },
     );
 
-    for (const handle of ["rot", "gelb", "blau"]) {
+    for (const handle of ["red", "yellow", "blue"]) {
         view = runtime.spawnAgent({ actorId: view.ownerId, commandId: `spawn-${handle}` }, view.id, {
             handle,
             displayName: handle,
-            prompt: "Antworte mit einem Wort.",
+            prompt: "Answer with one word.",
             execution: executionFor(handle, { profile: "agent", isolateWorkspace: false }),
             grants: [],
             toolNames: [],
         });
     }
 
-    const members = ["rot", "gelb", "blau"].map((handle) => {
+    const members = ["red", "yellow", "blue"].map((handle) => {
         const actor = view.actors.find((entry) => entry.handle === handle);
 
         assert.ok(actor);
@@ -631,7 +631,7 @@ test("an installed mediator carries a real circle of agents to its artifact", as
         `    ${ids[1]}: [${ids[2]}],`,
         `    ${ids[2]}: [${ids[0]}],`,
         "  },",
-        `  start: { to: ${ids[0]}, text: 'Anfang' },`,
+        `  start: { to: ${ids[0]}, text: 'Begin' },`,
         "  label: 'handle',",
         "  maxEntries: 5,",
         "  onDone: async (entries) => {",
@@ -644,21 +644,21 @@ test("an installed mediator carries a real circle of agents to its artifact", as
         "})(input, context)",
     ].join("\n");
 
-    view = runtime.createScriptActor({ actorId: view.ownerId, commandId: "install-staffel" }, view.id, {
-        handle: "staffel",
-        displayName: "Staffel",
+    view = runtime.createScriptActor({ actorId: view.ownerId, commandId: "install-relay" }, view.id, {
+        handle: "relay",
+        displayName: "Relay",
         grants,
         toolNames: null,
     });
 
-    const staffel = view.actors.find((entry) => entry.handle === "staffel");
+    const relay = view.actors.find((entry) => entry.handle === "relay");
 
-    assert.ok(staffel);
-    services.actorPrograms = nativeActorPrograms(runtime, new Map([[staffel.id, scriptProgram(source)]]));
+    assert.ok(relay);
+    services.actorPrograms = nativeActorPrograms(runtime, new Map([[relay.id, scriptProgram(source)]]));
 
-    const answers = new Map(members.map((actor, index) => [actor.id, ["Blume", "Wiese", "Himmel"][index] as string]));
+    const answers = new Map(members.map((actor, index) => [actor.id, ["Flower", "Meadow", "Sky"][index] as string]));
     const driver = new FakeDriver(async (request) => {
-        request.recordContext({ kind: "step", step: textStep(`Gerne!\n\n${answers.get(request.agentId) ?? "nichts"}`) });
+        request.recordContext({ kind: "step", step: textStep(`Sure!\n\n${answers.get(request.agentId) ?? "nothing"}`) });
 
         return { failure: null, usage: noUsage() };
     });
@@ -668,7 +668,7 @@ test("an installed mediator carries a real circle of agents to its artifact", as
     });
 
     try {
-        postTo(runtime, view, staffel.id, "start-staffel", "Los.");
+        postTo(runtime, view, relay.id, "start-relay", "Go.");
         scheduler.start();
         await scheduler.waitForIdle();
 
@@ -680,27 +680,27 @@ test("an installed mediator carries a real circle of agents to its artifact", as
 
         assert.ok(artifact);
         assert.equal(
-            new TextDecoder().decode(runtime.artifactContent(view.id, artifact.id, staffel.id).content),
-            "Anfang\nrot: Blume\ngelb: Wiese\nblau: Himmel\nrot: Blume",
+            new TextDecoder().decode(runtime.artifactContent(view.id, artifact.id, relay.id).content),
+            "Begin\nred: Flower\nyellow: Meadow\nblue: Sky\nred: Flower",
         );
 
         const state = finished.pluginStates.find(
             (entry) => entry.pluginId === actorStatePluginId
                 && entry.scope.kind === "actor"
-                && entry.scope.actorId === staffel.id,
+                && entry.scope.actorId === relay.id,
         );
 
         assert.deepEqual(state?.state, {
             entries: [
-                { from: null, text: "Anfang" },
-                { from: "rot", text: "Blume" },
-                { from: "gelb", text: "Wiese" },
-                { from: "blau", text: "Himmel" },
-                { from: "rot", text: "Blume" },
+                { from: null, text: "Begin" },
+                { from: "red", text: "Flower" },
+                { from: "yellow", text: "Meadow" },
+                { from: "blue", text: "Sky" },
+                { from: "red", text: "Flower" },
             ],
             done: true,
         });
-        assert.equal(finished.subscriptions.filter((entry) => entry.subscriberId === staffel.id).length, 1);
+        assert.equal(finished.subscriptions.filter((entry) => entry.subscriberId === relay.id).length, 1);
     } finally {
         await scheduler.stop();
         journal.close();

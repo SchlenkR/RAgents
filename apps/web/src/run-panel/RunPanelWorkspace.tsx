@@ -6,7 +6,7 @@ import { Button } from "../ui";
 import { mountedTabs } from "../WorkspacePanel";
 import { RUN_PANEL_WORKSPACE_ID } from "./workspace-state";
 
-/** Die Leiste als Pop-out über Chat und Bühne des Run-Panels, bei zwei Bereichen nur über dem rechten; abgedunkelter Rest, Klick daneben, Escape und X schließen, besuchte keepMounted-Reiter bleiben montiert. */
+/** The sidebar as a pop-out over the run panel's chat and stage, with two areas only over the right one; the rest is dimmed, a click outside, Escape, and X close it, visited keepMounted tabs stay mounted. */
 export function RunPanelWorkspace({ navigation, onClose, open, session, tabs }: {
   navigation: SessionNavigation;
   onClose: () => void;
@@ -28,7 +28,7 @@ export function RunPanelWorkspace({ navigation, onClose, open, session, tabs }: 
   return <>
     {open && <div aria-hidden className="absolute inset-0 z-[60] bg-backdrop duration-200 animate-in fade-in-0" onClick={onClose} />}
     <section
-      aria-label="Leiste"
+      aria-label="Sidebar"
       className="absolute inset-2 z-[70] flex flex-col overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-md ring-1 ring-foreground/10 outline-hidden duration-100 animate-in fade-in-0 zoom-in-95 @min-[960px]/chat-content:left-[40%]"
       hidden={!open}
       id={RUN_PANEL_WORKSPACE_ID}
@@ -43,7 +43,7 @@ export function RunPanelWorkspace({ navigation, onClose, open, session, tabs }: 
     >
       <header className="flex h-8 flex-none items-center gap-2 border-b border-border px-2.5">
         <h2 className="min-w-0 flex-1 truncate text-[0.76rem] font-semibold">{activeTab?.label}</h2>
-        <Button aria-label="Leiste schließen" onClick={onClose} size="icon-xs" title="Leiste schließen" variant="ghost"><XIcon /></Button>
+        <Button aria-label="Close sidebar" onClick={onClose} size="icon-xs" title="Close sidebar" variant="ghost"><XIcon /></Button>
       </header>
       <div className="relative min-h-0 flex-1 overflow-hidden">
         {mountedTabs(tabs, activeTabId, visited).map((tab) => <div className={cn("absolute inset-0 flex min-h-0 flex-col", tab.id !== activeTabId && "pointer-events-none invisible")} key={tab.id}>

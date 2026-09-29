@@ -32,20 +32,20 @@ const host: RunPanelHost = {
   notify(message) { fixture.notifications.push(message); },
 };
 function TopicGuide({ onComplete }: EntryGuideContext) {
-  return <button onClick={() => onComplete("Nachtbus")} type="button">Thema übernehmen</button>;
+  return <button onClick={() => onComplete("Night bus")} type="button">Apply topic</button>;
 }
 const registry = new PluginRegistry({
-  brand: { title: "Startprüfung" }, product: { id: "start", title: "Startprüfung" },
+  brand: { title: "Start check" }, product: { id: "start", title: "Start check" },
   plugins: [{
     id: "start", needsRunView: true,
     surface: { Center: () => null, RunPanel: OrchestrationRunPanel },
-    surfaceElements: [{ id: "start.app", order: 0, select: () => fixture.elements, Element: () => <p>Mini-App bereit</p> }],
+    surfaceElements: [{ id: "start.app", order: 0, select: () => fixture.elements, Element: () => <p>Mini-app ready</p> }],
     guides: [{ id: "start.topic", Guide: TopicGuide }],
   }],
   startEntries: [
-    { id: "start.script", owner: "start", title: "Aufbau-Vorlage", description: "Baut eine Mini-App auf", action: "script", coordinator: false },
-    { id: "start.other", owner: "start", title: "Zweite Vorlage", description: "Baut etwas anderes auf", action: "script", coordinator: false },
-    { id: "start.guided", owner: "start", title: "Runde mit Leitfaden", description: "Fragt zuerst das Thema", action: "script", coordinator: false, guide: "start.topic" },
+    { id: "start.script", owner: "start", title: "Setup template", description: "Builds a mini-app", action: "script", coordinator: false },
+    { id: "start.other", owner: "start", title: "Second template", description: "Builds something else", action: "script", coordinator: false },
+    { id: "start.guided", owner: "start", title: "Round with a guide", description: "Asks for the topic first", action: "script", coordinator: false, guide: "start.topic" },
   ],
 });
 const heldStarts = new Map<string, () => void>();
@@ -77,7 +77,7 @@ const fixture = {
   async call(contract: { id: string }, params: { runId?: string; entry?: string; input?: unknown }) {
     fixture.calls.push(contract.id);
     switch (contract.id) {
-      case "ragents.runs.list": return [{ id: "existing", title: "Vorhandener Run", updatedAt: 0 }];
+      case "ragents.runs.list": return [{ id: "existing", title: "Existing run", updatedAt: 0 }];
       case "ragents.startOptions.list": return [];
       case "ragents.runs.view": return params.runId !== undefined && fixture.views.has(params.runId) ? emptyView(params.runId) : null;
       case "ragents.chat.actorHistory": return { actors: {} };
@@ -98,13 +98,13 @@ const fixture = {
 
 declare global { interface Window { runStartFixture: typeof fixture; } }
 window.runStartFixture = fixture;
-new MutationObserver(() => { if (document.body.textContent?.includes("Vorhandener Run")) fixture.listSeen = true; })
+new MutationObserver(() => { if (document.body.textContent?.includes("Existing run")) fixture.listSeen = true; })
   .observe(document.body, { childList: true, subtree: true, characterData: true });
 
 const access = createAccessContext({ enabled: true, user: { id: "tester", label: "Tester", rights, startEntries: ["start.script", "start.other", "start.guided"] } });
 const initialRun = query.get("run") ?? undefined;
 createRoot(document.getElementById("root")!).render(<QuasselHost><AccessContext.Provider value={{ ...access, logout: async () => {} }}>
   <RunPanelHostProvider value={host}>
-    <RunPanelApp location={{ layout: "panel", runId: initialRun, host: host.kind, connection: "lokal", theme: undefined, access: undefined }} />
+    <RunPanelApp location={{ layout: "panel", runId: initialRun, host: host.kind, connection: "local", theme: undefined, access: undefined }} />
   </RunPanelHostProvider>
 </AccessContext.Provider></QuasselHost>);

@@ -26,7 +26,7 @@ const libraryDirectory = (name: string): string => {
       if (existsSync(file) && (JSON.parse(readFileSync(file, "utf8")) as { name?: string }).name === name) return directory;
       directory = path.dirname(directory);
     }
-    throw new Error(`Das installierte Paket ${name} besitzt keine Paketmetadaten.`);
+    throw new Error(`The installed package ${name} has no package metadata.`);
   }
 };
 const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
@@ -34,7 +34,7 @@ const link = async (source: string, target: string): Promise<void> => {
   await mkdir(path.dirname(target), { recursive: true });
   await symlink(source, target).catch(async (error: NodeJS.ErrnoException) => {
     if (error.code !== "EEXIST") throw error;
-    if (await realpath(target) !== await realpath(source)) throw new Error(`Die vorbereitete Bibliothek ${target} hat einen anderen Ursprung.`);
+    if (await realpath(target) !== await realpath(source)) throw new Error(`The prepared library ${target} has a different origin.`);
   });
 };
 export const prepareAppDependencies = async (directory: string): Promise<void> => {
@@ -96,15 +96,15 @@ export function createTestContextWithContracts(options, contracts) {
   const controller = new AbortController();
   const statePort = {read:()=>structuredClone(state),replace:value=>{state=structuredClone(value);}};
   const declared = new Map(contracts.map(contract=>[contract.id,contract]));
-  for (const name of Object.keys(options.functions ?? {})) if (!declared.has(name)) throw new Error("Unbekannte Testfunktion "+name);
+  for (const name of Object.keys(options.functions ?? {})) if (!declared.has(name)) throw new Error("Unknown test function "+name);
   const capabilities = {descriptors:()=>contracts,call:async(name,input)=>{
     const contract=declared.get(name);
     const call=options.functions?.[name];
-    if(!call)throw new Error("Im Test fehlt die Funktion "+name);
-    if(!Value.Check(contract.schema,input))throw new Error("Testeingabe verletzt den Vertrag von "+name+": "+schemaComplaints(contract.schema,input));
+    if(!call)throw new Error("The test is missing the function "+name);
+    if(!Value.Check(contract.schema,input))throw new Error("Test input violates the contract of "+name+": "+schemaComplaints(contract.schema,input));
     const result=await call(input);
-    assertJsonValue(result,"Testantwort von "+name);
-    if(!Value.Check(contract.resultSchema,result))throw new Error("Testantwort verletzt den Vertrag von "+name+": "+schemaComplaints(contract.resultSchema,result,"result"));
+    assertJsonValue(result,"Test response of "+name);
+    if(!Value.Check(contract.resultSchema,result))throw new Error("Test response violates the contract of "+name+": "+schemaComplaints(contract.resultSchema,result,"result"));
     return result;
   }};
   return {...createRunContext({runId:"test",invocationId:"test",invocationKind:"tool",principal:{id:"test",kind:"service"},state:statePort,capabilities,log:()=>{},signal:controller.signal}),
@@ -163,7 +163,7 @@ const workflowSdkFiles = () => workflowSdk ??= (async () => {
   const diagnostics = ts.getPreEmitDiagnostics(program);
   if (diagnostics.length) throw new Error(diagnostics.map(diagnostic => ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")).join("\n"));
   const emitted = program.emit(undefined, (name, content) => { if (name.endsWith("index.d.ts")) declarations = content; if (name.endsWith("prompt-reader.d.ts")) promptDeclarations = content; });
-  if (emitted.emitSkipped || !declarations) throw new Error("Workflow-SDK-Deklarationen konnten nicht erzeugt werden.");
+  if (emitted.emitSkipped || !declarations) throw new Error("Workflow SDK declarations could not be generated.");
   const runtime = await build({ entryPoints: [workflowSource], bundle: true, write: false, platform: "neutral", format: "esm", target: "es2022", logLevel: "silent" });
   const promptRuntime = await build({ entryPoints: [promptSource], bundle: true, write: false, platform: "node", format: "esm", target: "es2022", logLevel: "silent" });
   return { javaScript: runtime.outputFiles[0]!.text, declarations, promptReader: promptRuntime.outputFiles[0]!.text, promptDeclarations };
@@ -215,10 +215,10 @@ export const prepareAppProject = async (directory: string): Promise<void> => {
 
 export const readAppPackage = async (directory: string): Promise<AppPackage> => {
   const pkg = JSON.parse(await readFile(path.join(directory, "package.json"), "utf8")) as Record<string, unknown>;
-  if (!Value.Check(appPackageSchema, pkg.ragents)) throw new Error(`package.json.ragents ist ungültig: ${schemaComplaints(appPackageSchema, pkg.ragents, "ragents")}`);
-  if (!pkg.ragents.backend && !pkg.ragents.views?.length) throw new Error("Ein Actor-Paket braucht ein Backend oder mindestens eine Ansicht.");
+  if (!Value.Check(appPackageSchema, pkg.ragents)) throw new Error(`package.json.ragents is invalid: ${schemaComplaints(appPackageSchema, pkg.ragents, "ragents")}`);
+  if (!pkg.ragents.backend && !pkg.ragents.views?.length) throw new Error("An actor package needs a backend or at least one view.");
   const views = pkg.ragents.views ?? [];
-  if (new Set(views.map((view) => view.id)).size !== views.length) throw new Error("Ansichtsnamen müssen eindeutig sein.");
+  if (new Set(views.map((view) => view.id)).size !== views.length) throw new Error("View names must be unique.");
   return pkg.ragents;
 };
 
@@ -228,7 +228,7 @@ export const projectSourceFiles = async (directory: string): Promise<{ path: str
     for (const entry of await readdir(path.join(directory, relative), { withFileTypes: true })) {
       if (["node_modules", ".build", "dist", ".git"].includes(entry.name)) continue;
       const name = path.join(relative, entry.name);
-      if (entry.isSymbolicLink()) throw new Error(`App-Quelldateien dürfen keine Symlinks enthalten: ${name}`);
+      if (entry.isSymbolicLink()) throw new Error(`App source files must not contain symlinks: ${name}`);
       if (entry.isDirectory()) await walk(name);
       else if (entry.isFile()) files.push({ path: name, content: await readFile(path.join(directory, name), "utf8") });
     }
@@ -255,18 +255,18 @@ export const compileAppBackend = async (options: {
 }): Promise<{ contract: AppContract; javaScript: string; hash: string }> => {
   const signal = AbortSignal.any([...(options.signal ? [options.signal] : []), AbortSignal.timeout(15_000)]);
   const entry = path.resolve(options.directory, options.backend);
-  if (!entry.startsWith(`${options.directory}${path.sep}`)) throw new Error("Der Backend-Einstieg liegt außerhalb der App.");
+  if (!entry.startsWith(`${options.directory}${path.sep}`)) throw new Error("The backend entry lies outside the app.");
   const result = await build({
     stdin: { contents: `import actor from ${JSON.stringify(`./${options.backend}`)};
 export const describe = () => {
-  for (const name of Object.keys(actor.contract.functions ?? {})) if (typeof actor.functions?.[name] !== 'function') throw new Error('Fehlende Funktion ' + name);
-  if (Boolean(actor.contract.input) !== (typeof actor.onInput === 'function')) throw new Error('input und onInput müssen gemeinsam vorhanden sein.');
+  for (const name of Object.keys(actor.contract.functions ?? {})) if (typeof actor.functions?.[name] !== 'function') throw new Error('Missing function ' + name);
+  if (Boolean(actor.contract.input) !== (typeof actor.onInput === 'function')) throw new Error('input and onInput must be present together.');
   return JSON.parse(JSON.stringify(actor.contract));
 };
 export const handle = (request, context) => {
-  if (request.kind === 'input') { if (!actor.onInput) throw new Error('Dieser Actor verarbeitet keine Eingaben.'); return actor.onInput(request.input, context); }
+  if (request.kind === 'input') { if (!actor.onInput) throw new Error('This actor does not process input.'); return actor.onInput(request.input, context); }
   const handler = actor.functions[request.functionId];
-  if (typeof handler !== 'function') throw new Error('Unbekannte Actor-Funktion ' + request.functionId);
+  if (typeof handler !== 'function') throw new Error('Unknown actor function ' + request.functionId);
   return handler(request.input, context);
 };`, resolveDir: options.directory, sourcefile: "actor-entry.ts", loader: "ts" },
     absWorkingDir: options.directory, platform: "node", format: "esm", target: "node22", bundle: true, packages: "external", write: false,
@@ -277,7 +277,7 @@ export const handle = (request, context) => {
     program: { entry: "server.mjs", files: [{ fileName: "server.mjs", text: javaScript }], exportName: "describe" },
     input: {}, state: {}, cwd: options.directory,
     context: { runId: options.runId, invocationId: "app-contract", invocationKind: "tool", principal: { id: "app-build", kind: "service" }, capabilities: [] },
-  }, { signal, call: async () => { throw new Error("Beim Laden des App-Vertrags sind Run-Aufrufe nicht verfügbar."); }, log: () => undefined });
-  if (!Value.Check(appContractSchema, described.result)) throw new Error(`Der Backend-Export braucht defineActor({state, functions, input?}, {functions, onInput?}) mit gültigen Aktionsverträgen: ${schemaComplaints(appContractSchema, described.result, "contract")}`);
+  }, { signal, call: async () => { throw new Error("Run calls are not available while loading the app contract."); }, log: () => undefined });
+  if (!Value.Check(appContractSchema, described.result)) throw new Error(`The backend export needs defineActor({state, functions, input?}, {functions, onInput?}) with valid action contracts: ${schemaComplaints(appContractSchema, described.result, "contract")}`);
   return { contract: described.result, javaScript, hash: canonicalHash({ javaScript }) };
 };

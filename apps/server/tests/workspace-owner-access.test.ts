@@ -9,7 +9,7 @@ import type { RunAccessPolicy } from "../src/api/rights.ts";
 import { RpcConnection, RpcDispatcher } from "../src/rpc/dispatcher.ts";
 import { compositionEnvironment, showcaseFixture } from "./fixtures/profile-composition/profiles.ts";
 
-// Ein Run, den nur sein Eigentümer bedient, zeigt seinen Arbeitsbereich auch lesend nur ihm; jeder Weg zum Executor prüft das vorher.
+// A run that only its owner operates shows its workspace, even read-only, only to that owner; every path to the executor checks this first.
 
 const BOUND = "run-bound";
 const OPEN = "run-open";
@@ -45,12 +45,12 @@ const runtime = new Orchestration(journal, services);
 const hosts: PluginHost[] = [];
 const reached: string[] = [];
 const execute = Object.getOwnPropertyDescriptor(WorkspaceSandboxHost.prototype, "execute")!;
-// Jeder Weg eines Plugins zum Arbeitsbereich läuft über SandboxServices.execute; hier endet er mit einer Kennung statt beim Executor.
+// Every path of a plugin to the workspace goes through SandboxServices.execute; here it ends with an identifier instead of at the executor.
 Object.defineProperty(WorkspaceSandboxHost.prototype, "execute", {
   ...execute,
   value: async (runId: string, operation: string) => {
     reached.push(`${operation}:${runId}`);
-    throw new DomainError("executor-reached", `${operation} hat den Executor erreicht`, 418);
+    throw new DomainError("executor-reached", `${operation} reached the executor`, 418);
   },
 });
 after(async () => {
@@ -88,12 +88,12 @@ const composed = async (): Promise<PluginHost> => {
   return host;
 };
 
-test("Dateien-Reiter, Prozessanzeige und Sprachserver prüfen den Zugang zum Arbeitsbereich, bevor sie den Executor fragen", async () => {
+test("files tab, process view and language servers check workspace access before they ask the executor", async () => {
   const host = await composed();
   const dispatcher = new RpcDispatcher({ methods: host.methods, channels: host.channels });
   const context = { id: 1, signal: new AbortController().signal, progress: () => undefined };
   const connectionOf = (access: AccessContext) =>
-    new RpcConnection({ id: `test-${access.user?.id ?? "anonym"}`, access, local: true, peer: new RpcPeer({ send: () => undefined }) }, dispatcher);
+    new RpcConnection({ id: `test-${access.user?.id ?? "anonymous"}`, access, local: true, peer: new RpcPeer({ send: () => undefined }) }, dispatcher);
   const snapshotMethods = host.methods.describe().map((method) => method.id).filter((id) => /^ragents\.lsp-[a-z]+\.snapshot$/.test(id));
   assert.deepEqual(snapshotMethods.sort(), ["ragents.lsp-fsharp.snapshot", "ragents.lsp-roslyn.snapshot", "ragents.lsp-typescript.snapshot"]);
   const calls = (runId: string): ReadonlyArray<readonly [string, unknown]> => [
@@ -126,32 +126,32 @@ test("Dateien-Reiter, Prozessanzeige und Sprachserver prüfen den Zugang zum Arb
 
   reached.length = 0;
   assert.deepEqual(await attempt(admin, BOUND), Array(count).fill("run-workspace-owner-only"));
-  assert.deepEqual(reached, [], "admin erreicht den Executor nicht");
+  assert.deepEqual(reached, [], "admin does not reach the executor");
   const service = await attempt(hostService, BOUND);
-  assert.deepEqual(service.slice(0, 2), ["run-workspace-owner-only", "run-workspace-owner-only"], "die Dienstidentität liest keine Dateien");
+  assert.deepEqual(service.slice(0, 2), ["run-workspace-owner-only", "run-workspace-owner-only"], "the service identity reads no files");
   assert.ok(service.every((outcome) => outcome === "run-workspace-owner-only" || outcome === "access-denied"), service.join(", "));
-  assert.deepEqual(reached, [], "die Dienstidentität erreicht den Executor nicht");
+  assert.deepEqual(reached, [], "the service identity does not reach the executor");
 
   reached.length = 0;
   await attempt(alice, BOUND);
-  assert.ok(reached.length >= calls(BOUND).length, `der Eigentümer erreicht den Executor: ${reached.join(", ")}`);
+  assert.ok(reached.length >= calls(BOUND).length, `the owner reaches the executor: ${reached.join(", ")}`);
 
   reached.length = 0;
   const open = await attempt(admin, OPEN);
   assert.ok(!open.includes("run-workspace-owner-only"), open.join(", "));
-  assert.ok(reached.length > 0, "einen gewöhnlichen Run liest auch runs.read.all");
+  assert.ok(reached.length > 0, "runs.read.all also reads an ordinary run");
 
   const files = await dispatcher.dispatch(connectionOf(admin), "ragents.workspace.browse.list", { runId: BOUND, root: "files", path: "" }, context)
     .then(() => "ok", (error: unknown) => error instanceof DomainError ? error.code : String(error));
-  assert.notEqual(files, "run-workspace-owner-only", "die Dateiablage des Servers gehört nicht zum Arbeitsbereich");
+  assert.notEqual(files, "run-workspace-owner-only", "the server file store is not part of the workspace");
 });
 
-test("den Arbeitsbereich eines Runs, den nur sein Eigentümer bedient, erreicht auch lesend nur er", () => {
+test("the workspace of a run that only its owner operates is reachable, even read-only, only by that owner", () => {
   assert.doesNotThrow(() => assertRunWorkspaceAccess(alice, BOUND, policy));
-  assert.doesNotThrow(() => assertRunWorkspaceAccess(anonymous, BOUND, policy), "ohne Anmeldung gibt es genau einen Zugang");
+  assert.doesNotThrow(() => assertRunWorkspaceAccess(anonymous, BOUND, policy), "without sign-in there is exactly one access");
   for (const other of [admin, hostService]) {
     assert.throws(() => assertRunWorkspaceAccess(other, BOUND, policy), (error: unknown) =>
       error instanceof DomainError && error.code === "run-workspace-owner-only" && error.status === 403);
-    assert.doesNotThrow(() => assertRunWorkspaceAccess(other, OPEN, policy), "ein gewöhnlicher Run bleibt für runs.read.all lesbar");
+    assert.doesNotThrow(() => assertRunWorkspaceAccess(other, OPEN, policy), "an ordinary run stays readable for runs.read.all");
   }
 });

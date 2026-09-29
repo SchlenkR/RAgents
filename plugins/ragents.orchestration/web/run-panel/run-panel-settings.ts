@@ -1,6 +1,6 @@
 import { createLocalStorageSetting } from "@ragents/web/lib/local-storage-setting";
 
-/** Verhalten des Run-Panels: ab welcher Breite der Chat neben der Mini-App liegt und wie das Sheet auf die Maus reagiert. */
+/** Behavior of the run panel: from which width the chat sits next to the mini-app and how the sheet reacts to the mouse. */
 export interface RunPanelSettings {
   sideWidth: number;
   openDelay: number;
@@ -26,7 +26,7 @@ export function parseRunPanelSettings(raw: string | null): RunPanelSettings {
     || !("sideWidth" in value) || !inRange(value.sideWidth, RUN_PANEL_SETTINGS_LIMITS.sideWidth)
     || !("openDelay" in value) || !inRange(value.openDelay, RUN_PANEL_SETTINGS_LIMITS.openDelay)
     || !("closeDelay" in value) || !inRange(value.closeDelay, RUN_PANEL_SETTINGS_LIMITS.closeDelay)) {
-    throw new Error("Die Einstellungen des Run-Panels sind ungültig: Breite 400 bis 4000 Pixel, Verzögerungen 0 bis 5000 beziehungsweise 10000 Millisekunden, ganze Zahlen.");
+    throw new Error("The run panel settings are invalid: width 400 to 4000 pixels, delays 0 to 5000 and 10000 milliseconds respectively, integers.");
   }
   return value as RunPanelSettings;
 }

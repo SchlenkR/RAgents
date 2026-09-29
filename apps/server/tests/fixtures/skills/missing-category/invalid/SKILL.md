@@ -2,7 +2,7 @@
 name: invalid
 start: true
 title: Test
-description: Beschreibung
+description: Description
 ---
 
-Ich hätte gern Hilfe.
+I would like help.

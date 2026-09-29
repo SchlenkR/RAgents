@@ -15,7 +15,7 @@ interface TiledSurfaceProps {
 }
 interface DockTarget { entity: string | null; side: TileDockSide }
 const sides: readonly TileDockSide[] = ["left", "right", "top", "bottom"];
-const sideNames = { left: "Links andocken", right: "Rechts andocken", top: "Oben andocken", bottom: "Unten andocken" };
+const sideNames = { left: "Dock left", right: "Dock right", top: "Dock top", bottom: "Dock bottom" };
 const sideIcons = { left: ArrowLeft, right: ArrowRight, top: ArrowUp, bottom: ArrowDown };
 const materialFaceRect = (slot: TileRect): TileRect => ({
   left: slot.left + 2,
@@ -164,11 +164,11 @@ export function TiledSurface({ root, onChange, items, canArrange, selectedEntity
 
   return <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden p-2 data-[dragging]:[&_iframe]:pointer-events-none data-[resizing]:[&_iframe]:pointer-events-none"
     data-dragging={canArrange && dragEntity !== null || undefined} data-resizing={resizing || undefined}>
-    {compact && entities.length > 1 && <label className="flex items-center gap-2 pb-2 text-[0.8rem]">Kachel
-      <select className="max-w-[60%] min-w-0" aria-label="Sichtbare Kachel" value={active} onChange={(event) => select(event.target.value)}>
+    {compact && entities.length > 1 && <label className="flex items-center gap-2 pb-2 text-[0.8rem]">Tile
+      <select className="max-w-[60%] min-w-0" aria-label="Visible tile" value={active} onChange={(event) => select(event.target.value)}>
         {entities.map((entity) => <option key={entity} value={entity}>{itemMap.get(entity)?.title ?? entity}</option>)}
       </select>
-      <span className="truncate text-muted-foreground">Mehr Platz für die geteilte Ansicht benötigt</span>
+      <span className="truncate text-muted-foreground">More space needed for the split view</span>
     </label>}
     <div ref={stageRef} className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
       onDragOver={(event) => {
@@ -202,8 +202,8 @@ export function TiledSurface({ root, onChange, items, canArrange, selectedEntity
           setTarget(null);
         }
       }}>
-      {error && <div className="absolute inset-x-2 bottom-2 z-7 flex items-center gap-2 rounded-lg border border-primary bg-surface p-3 text-foreground shadow-[0_2px_8px_#0002]" role="alert"><span className="flex-1">{error}</span><button className="grid cursor-pointer place-items-center bg-transparent p-1" type="button" aria-label="Meldung schließen" onClick={() => setError(null)}><X size={16} /></button></div>}
-      {!root && <div className="grid h-full place-items-center rounded-lg border border-dashed border-border-strong p-6 text-center text-muted-foreground">{canArrange ? "Ziehe einen Actor oder eine Mini-App aus der Kopfzeile hierher." : "Für diese Kachelansicht sind noch keine Inhalte angeordnet."}</div>}
+      {error && <div className="absolute inset-x-2 bottom-2 z-7 flex items-center gap-2 rounded-lg border border-primary bg-surface p-3 text-foreground shadow-[0_2px_8px_#0002]" role="alert"><span className="flex-1">{error}</span><button className="grid cursor-pointer place-items-center bg-transparent p-1" type="button" aria-label="Close message" onClick={() => setError(null)}><X size={16} /></button></div>}
+      {!root && <div className="grid h-full place-items-center rounded-lg border border-dashed border-border-strong p-6 text-center text-muted-foreground">{canArrange ? "Drag an actor or a mini-app from the header here." : "No content has been arranged for this tile view yet."}</div>}
       {mountedEntities.map((entity) => {
         const item = itemMap.get(entity);
         const bounds = materialFaceRect(compact ? rect : geometry.leaves.get(entity)!);
@@ -222,16 +222,16 @@ export function TiledSurface({ root, onChange, items, canArrange, selectedEntity
               <span className={materialIconClass}>{item?.tone === "app" || entity.startsWith("app:") ? <LayoutGrid size={20} aria-hidden="true" /> : item?.tone === "script" ? <CodeXml size={20} aria-hidden="true" /> : <Sparkles size={20} aria-hidden="true" />}</span>
               <span className={`${materialTitleClass} flex-1`} title={item?.title ?? entity}>{item?.title ?? entity}</span>
               {canArrange && <button className="grid size-[26px] cursor-pointer place-items-center rounded-[4px] bg-transparent p-0 text-muted-foreground hover:bg-glass-group hover:text-foreground"
-                type="button" draggable={false} aria-label={`Kachel ${item?.title ?? entity} entfernen`}
+                type="button" draggable={false} aria-label={`Remove tile ${item?.title ?? entity}`}
                 onClick={() => onChange(removeTile(root, entity))}><X size={16} /></button>}
             </header>
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto [&>*]:min-h-0 [&>*]:min-w-0 [&>*]:flex-1">{item?.content ?? <div className="p-4.5 text-muted-foreground">{canArrange ? "Dieser Inhalt ist nicht mehr verfügbar. Du kannst die Kachel entfernen oder einen anderen Inhalt hier andocken." : "Dieser Inhalt ist nicht mehr verfügbar."}</div>}</div>
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto [&>*]:min-h-0 [&>*]:min-w-0 [&>*]:flex-1">{item?.content ?? <div className="p-4.5 text-muted-foreground">{canArrange ? "This content is no longer available. You can remove the tile or dock other content here." : "This content is no longer available."}</div>}</div>
           </div>
           {canArrange && dragEntity !== null && dragEntity !== entity && <div className="absolute inset-0 z-4"><div className="pointer-events-none absolute top-1/2 left-1/2 size-[116px] -translate-x-1/2 -translate-y-1/2">{targets(entity)}</div></div>}
         </section>;
       })}
       {!compact && geometry.dividers.map((divider) => <div key={divider.path.join(".")} className={dividerClass}
-        role="separator" tabIndex={0} aria-label="Kachelgröße ändern"
+        role="separator" tabIndex={0} aria-label="Resize tile"
         aria-orientation={divider.direction === "horizontal" ? "vertical" : "horizontal"}
         aria-valuemin={Math.round(divider.minimum * 100)} aria-valuemax={Math.round(divider.maximum * 100)} aria-valuenow={Math.round(divider.ratio * 100)}
         data-direction={divider.direction} style={positioned(divider)}

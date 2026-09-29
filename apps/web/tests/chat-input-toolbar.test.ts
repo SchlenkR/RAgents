@@ -6,12 +6,12 @@ import { ChatInputToolbar } from "quassel";
 
 test("the default composer keeps its attachment actions and three-line input", () => {
   const html = renderToStaticMarkup(createElement(ChatInputToolbar, {
-    onSend: () => {}, toolbarLeft: "Modellauswahl", toolbarRight: "Zusatzaktion",
+    onSend: () => {}, toolbarLeft: "Model choice", toolbarRight: "Extra action",
   }));
   assert.match(html, /<textarea[^>]*rows="3"/);
-  assert.match(html, /<button[^>]*aria-label="Dateien anhängen"/);
-  assert.match(html, /Modellauswahl/);
-  assert.match(html, /Zusatzaktion/);
+  assert.match(html, /<button[^>]*aria-label="Attach files"/);
+  assert.match(html, /Model choice/);
+  assert.match(html, /Extra action/);
   assert.match(html, /data-input="controls"/);
   assert.match(html, /data-layout="card"/);
 });
@@ -20,13 +20,13 @@ test("the toolbar composer keeps its single-line input separate from dropdown de
   const html = renderToStaticMarkup(createElement(ChatInputToolbar, {
     layout: "toolbar", onSend: () => {}, rows: 5, maxRows: 8,
     inputAriaControls: "global-conversation",
-    toolbarLeft: "Modellauswahl", toolbarRight: "Zusatzaktion",
+    toolbarLeft: "Model choice", toolbarRight: "Extra action",
   }));
   assert.match(html, /data-layout="toolbar"/);
   assert.match(html, /<textarea[^>]*aria-controls="global-conversation"[^>]*rows="1"/);
-  assert.match(html, /aria-label="Senden"/);
-  assert.doesNotMatch(html, /<button[^>]*aria-label="Dateien anhängen"/);
-  assert.doesNotMatch(html, /Modellauswahl|Zusatzaktion|data-input="controls"/);
+  assert.match(html, /aria-label="Send"/);
+  assert.doesNotMatch(html, /<button[^>]*aria-label="Attach files"/);
+  assert.doesNotMatch(html, /Model choice|Extra action|data-input="controls"/);
   assert.equal((html.match(/<textarea/g) ?? []).length, 1);
 });
 
@@ -35,7 +35,7 @@ test("disconnected toolbar chats permit drafting while preserving the stop actio
     layout: "toolbar", onSend: () => {}, onStop: () => {}, running: true, sendDisabled: true,
   }));
   assert.doesNotMatch(html.match(/<textarea[^>]*>/)?.[0] ?? "", /disabled/);
-  assert.match(html, /aria-label="Arbeit stoppen"/);
+  assert.match(html, /aria-label="Stop work"/);
   const readOnly = renderToStaticMarkup(createElement(ChatInputToolbar, {
     layout: "toolbar", onSend: () => {}, disabled: true,
   }));
@@ -58,7 +58,7 @@ test("the run chat offers its stop only for its own actor's turn and shows a sto
   assert.deepEqual(primaryChatState(view(running, idle), "run", false), { kind: "active", actorId: "coordinator", turnRunning: true });
   assert.deepEqual(primaryChatState(view(idle, running), "run", false), { kind: "active", actorId: "coordinator", turnRunning: false });
   assert.deepEqual(primaryChatState(view(idle, running), "run", true), { kind: "active", actorId: "coordinator", turnRunning: true });
-  const stopped = { kind: "stopped", stoppedAt: "now", reason: "Versehentlich gestoppt" };
+  const stopped = { kind: "stopped", stoppedAt: "now", reason: "Stopped by mistake" };
   const state = primaryChatState(view(stopped, running, { primaryActorId: null, stoppedPrimaryActorId: "coordinator" }), "run", false);
   assert.equal(state.kind === "stopped" ? state.actor.lifecycle : undefined, stopped);
   assert.deepEqual(primaryChatState(view(idle, idle, { primaryActorId: null }), "run", false), { kind: "none" });

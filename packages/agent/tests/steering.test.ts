@@ -50,7 +50,7 @@ test("steering waits for the running tool and reaches the next model request in 
     toolSignal = signal;
     started.resolve();
     await release.promise;
-    return "Werkzeug fertig";
+    return "Tool done";
   }, async (agent, faux) => {
     const contexts: Context[] = [];
     const queued: AgentMessage[] = [];
@@ -61,62 +61,62 @@ test("steering waits for the running tool and reaches the next model request in 
     };
     faux.setResponses([
       () => fauxAssistantMessage([fauxToolCall("slow_tool", {}, { id: "slow-call" })]),
-      (context) => { contexts.push({ messages: structuredClone(context.messages) }); return fauxAssistantMessage("Neue Richtung verstanden."); },
+      (context) => { contexts.push({ messages: structuredClone(context.messages) }); return fauxAssistantMessage("New direction understood."); },
     ]);
-    const running = agent.prompt(userText("Los"));
+    const running = agent.prompt(userText("Go"));
     await started.promise;
-    queued.push(userText("Erste Korrektur"), userText("Zweite Korrektur"));
+    queued.push(userText("First correction"), userText("Second correction"));
     release.resolve();
     await running;
     assert.equal(toolSignal?.aborted, false);
     assert.equal(contexts.length, 1);
-    assert.deepEqual(textsOf(contexts[0]!), ["Los", "tool:Werkzeug fertig", "Erste Korrektur", "Zweite Korrektur"]);
-    assert.equal(polls, 3, "vor der ersten Anfrage, nach dem Werkzeug und nach der Antwort");
+    assert.deepEqual(textsOf(contexts[0]!), ["Go", "tool:Tool done", "First correction", "Second correction"]);
+    assert.equal(polls, 3, "before the first request, after the tool and after the answer");
   });
 });
 
 test("steering after a final answer continues the same run with another model request", { timeout: 10000 }, async () => {
-  await withAgent("steering-answer", async () => "unbenutzt", async (agent, faux) => {
+  await withAgent("steering-answer", async () => "unused", async (agent, faux) => {
     const contexts: Context[] = [];
     const queued: AgentMessage[] = [];
     agent.steeringSource = async () => queued.splice(0);
     faux.setResponses([
       () => {
-        queued.push(userText("Noch ein Nachtrag"));
-        return fauxAssistantMessage("Erste Antwort.");
+        queued.push(userText("One more addendum"));
+        return fauxAssistantMessage("First answer.");
       },
-      (context) => { contexts.push({ messages: structuredClone(context.messages) }); return fauxAssistantMessage("Nachtrag gelesen."); },
+      (context) => { contexts.push({ messages: structuredClone(context.messages) }); return fauxAssistantMessage("Addendum read."); },
     ]);
     let endings = 0;
     const unsubscribe = agent.subscribe((event) => {
       if (event.type === "agent_end") endings++;
     });
-    await agent.prompt(userText("Frage"));
+    await agent.prompt(userText("Question"));
     unsubscribe();
-    assert.equal(endings, 1, "ein einziger Lauf");
-    assert.deepEqual(textsOf(contexts[0]!), ["Frage", "Noch ein Nachtrag"]);
+    assert.equal(endings, 1, "a single run");
+    assert.deepEqual(textsOf(contexts[0]!), ["Question", "One more addendum"]);
     const last = agent.state.messages.at(-1) as AssistantMessage;
-    assert.equal(last.content[0]?.type === "text" ? last.content[0].text : "", "Nachtrag gelesen.");
+    assert.equal(last.content[0]?.type === "text" ? last.content[0].text : "", "Addendum read.");
   });
 });
 
 test("a failing steering source ends the run with its cause instead of another model request", { timeout: 10000 }, async () => {
-  await withAgent("steering-failure", async () => "Werkzeug fertig", async (agent, faux) => {
+  await withAgent("steering-failure", async () => "Tool done", async (agent, faux) => {
     let polls = 0;
     agent.steeringSource = async () => {
       polls++;
-      if (polls > 1) throw new Error("Eingabe nicht lesbar");
+      if (polls > 1) throw new Error("Input not readable");
       return [];
     };
     let requests = 0;
     faux.setResponses([
       () => { requests++; return fauxAssistantMessage([fauxToolCall("slow_tool", {}, { id: "call" })]); },
-      () => { requests++; return fauxAssistantMessage("Nie erreicht."); },
+      () => { requests++; return fauxAssistantMessage("Never reached."); },
     ]);
-    await agent.prompt(userText("Los"));
+    await agent.prompt(userText("Go"));
     assert.equal(requests, 1);
     const last = agent.state.messages.at(-1) as AssistantMessage;
     assert.equal(last.stopReason, "error");
-    assert.equal(last.errorMessage, "Eingabe nicht lesbar");
+    assert.equal(last.errorMessage, "Input not readable");
   });
 });

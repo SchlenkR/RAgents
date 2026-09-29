@@ -23,24 +23,24 @@ const PLUGIN_ID = "ragents.lsp-roslyn";
 
 const env = declaredEnvironment(roslynConfigDescriptors);
 
-/** Ohne Angabe lädt ein neuer Run nichts von selbst; einschalten geht nur ausdrücklich mit "on". */
+/** If unset, a new run loads nothing by itself; it can only be switched on explicitly with "on". */
 export const solutionOnStart = (): boolean => {
   const mode = env.optional(SOLUTION_ON_START_VARIABLE) ?? "off";
   if (mode !== "on" && mode !== "off") {
-    throw new Error(`${SOLUTION_ON_START_VARIABLE} in der Sektion ragents.lsp-roslyn ist "on" oder "off", nicht "${mode}"`);
+    throw new Error(`${SOLUTION_ON_START_VARIABLE} in the section ragents.lsp-roslyn is "on" or "off", not "${mode}"`);
   }
   return mode === "on";
 };
 
-/** Ein Pfad relativ zur Wurzel des Arbeitsbereichs, wie ihn `roslyn_solutions` nennt; ohne Laden beim Start hätte er keine Wirkung. */
+/** A path relative to the workspace root, as `roslyn_solutions` names it; without loading on start it would have no effect. */
 export const preferredSolution = (loadOnStart: boolean): string | undefined => {
   const preferred = env.optional(SOLUTION_PREFERRED_VARIABLE);
   if (preferred === undefined) return undefined;
   if (!loadOnStart) {
-    throw new Error(`${SOLUTION_PREFERRED_VARIABLE} in der Sektion ragents.lsp-roslyn verlangt ${SOLUTION_ON_START_VARIABLE}: "on"`);
+    throw new Error(`${SOLUTION_PREFERRED_VARIABLE} in the section ragents.lsp-roslyn requires ${SOLUTION_ON_START_VARIABLE}: "on"`);
   }
   if (preferred === "" || preferred.includes("\\") || path.win32.isAbsolute(preferred)) {
-    throw new Error(`${SOLUTION_PREFERRED_VARIABLE} in der Sektion ragents.lsp-roslyn ist ein Pfad relativ zum Arbeitsbereich mit Schrägstrichen, nicht "${preferred}"`);
+    throw new Error(`${SOLUTION_PREFERRED_VARIABLE} in the section ragents.lsp-roslyn is a path relative to the workspace with forward slashes, not "${preferred}"`);
   }
   return preferred;
 };

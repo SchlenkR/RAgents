@@ -1,11 +1,11 @@
 import { createContext, useContext } from "react";
 
-/** Wo eine Oberfläche neue Runs anbietet: der Browser nur auf dem Server, VS Code als Arbeitsplatz auch auf Arbeitsplätzen. */
+/** Where a UI offers new runs: the browser only on the server, VS Code, being a workstation itself, also on workstations. */
 export type OfferedMachines = "server" | "all";
 
 const OfferedMachinesContext = createContext<OfferedMachines>("server");
 
-/** Der Host legt es fest; ohne ihn, etwa in der Web-App, gilt nur der Server. */
+/** The host decides; without one, for example in the web app, only the server applies. */
 export const OfferedMachinesProvider = OfferedMachinesContext.Provider;
 
 export const useOfferedMachines = (): OfferedMachines => useContext(OfferedMachinesContext);

@@ -37,7 +37,7 @@ async function loadFixtures() {
 let loaded: ReturnType<typeof loadFixtures> | undefined;
 const fixtures = () => loaded ??= loadFixtures();
 
-test("Textreferenzen sind deterministisch und der kurze Index deckt alle erzeugten Detaildateien ab", async () => {
+test("text references are deterministic and the short index covers all generated detail files", async () => {
   const { catalog, extensions, guide } = await fixtures();
   const outputs = buildHomepageLlms(catalog, extensions, guide);
   assert.deepEqual(buildHomepageLlms(catalog, extensions, guide), outputs);
@@ -52,7 +52,7 @@ test("Textreferenzen sind deterministisch und der kurze Index deckt alle erzeugt
   }
 });
 
-test("Methodenreferenz und OpenRPC stammen unverändert aus den ausführbaren Verträgen des Profils showcase", async () => {
+test("method reference and OpenRPC come unchanged from the executable contracts of the showcase profile", async () => {
   const { catalog, extensions, guide } = await fixtures();
   const outputs = buildHomepageLlms(catalog, extensions, guide);
   assert.equal(outputs["rpc-api.md"], catalog.rpcReference);
@@ -60,7 +60,7 @@ test("Methodenreferenz und OpenRPC stammen unverändert aus den ausführbaren Ve
   const document = catalog.openRpc as { methods: Array<{ name: string }>; "x-channels": Array<{ name: string }> };
   assert.ok(document.methods.length > 0);
   for (const method of document.methods) assert.ok(outputs["rpc-api.md"].includes(`## ${method.name}`), method.name);
-  for (const channel of document["x-channels"]) assert.ok(outputs["rpc-api.md"].includes(`## Kanal ${channel.name}`), channel.name);
+  for (const channel of document["x-channels"]) assert.ok(outputs["rpc-api.md"].includes(`## Channel ${channel.name}`), channel.name);
   assert.ok(document.methods.some((method) => method.name === "ragents.chat.send"));
   assert.ok(document.methods.some((method) => method.name.startsWith("ragents.overseer.")));
   for (const name of ["reference.md", "developer.md", "llms.txt"]) {
@@ -69,13 +69,13 @@ test("Methodenreferenz und OpenRPC stammen unverändert aus den ausführbaren Ve
   assert.ok(outputs["llms.txt"].includes("[OpenRPC](openrpc.json)"));
 });
 
-test("alle öffentlichen Werkzeuge, Operationen, Schemata und Vorlagendateien bleiben vollständig erhalten", async () => {
+test("all public tools, operations, schemas, and template files remain complete", async () => {
   const { catalog, extensions, guide } = await fixtures();
   const output = buildHomepageLlms(catalog, extensions, guide)["reference.md"];
   assert.ok(catalog.tools.length > 20);
-  assert.ok(catalog.tools.some((tool) => tool.longDescription), "Ausführliche Funktionsbeschreibungen fehlen im Katalog");
+  assert.ok(catalog.tools.some((tool) => tool.longDescription), "Detailed function descriptions are missing from the catalog");
   const opener = catalog.tools.find((tool) => tool.name === "typescript_api");
-  assert.ok(opener, "Der dynamische Nachschlagevertrag fehlt in der Referenz");
+  assert.ok(opener, "The dynamic lookup contract is missing from the reference");
   assert.ok(JSON.stringify(opener.schema).includes('"names"'));
   for (const tool of catalog.tools) {
     assert.ok(output.includes(`### ${tool.name}\n`), tool.name);
@@ -106,7 +106,7 @@ test("alle öffentlichen Werkzeuge, Operationen, Schemata und Vorlagendateien bl
   }
 });
 
-test("Run-Anleitung und Entwicklerreferenz enthalten echte Quellen und unveränderte Compilerverträge", async () => {
+test("run guide and developer reference contain real sources and unchanged compiler contracts", async () => {
   const { catalog, extensions, guide } = await fixtures();
   const outputs = buildHomepageLlms(catalog, extensions, guide);
   assert.equal(outputs["run-api.d.ts"], catalog.serverApiDeclarations);
@@ -130,7 +130,7 @@ test("Run-Anleitung und Entwicklerreferenz enthalten echte Quellen und unveränd
   }
 });
 
-test("Beispielübersicht verlinkt beide Perspektiven und mindestens zwei Vorlagen pro Produktkonzept", async () => {
+test("example overview links both perspectives and at least two templates per product concept", async () => {
   const { catalog, extensions, guide } = await fixtures();
   const output = buildHomepageLlms(catalog, extensions, guide)["reference.md"];
   const coverage = exampleCoverage(catalog.starts);
@@ -153,7 +153,7 @@ test("Beispielübersicht verlinkt beide Perspektiven und mindestens zwei Vorlage
   }
 });
 
-test("Codezäune erhalten eingebettetes Markdown und Paketdateireihenfolge ändert die Ausgabe nicht", async () => {
+test("code fences preserve embedded Markdown and package file order does not change the output", async () => {
   const embedded = "# README\n\n```tsx\nconst value = `text`;\n```\n\n`````\n";
   const fenced = markdownCode(embedded, "markdown");
   assert.equal(fenced, `\`\`\`\`\`\`markdown\n${embedded}\`\`\`\`\`\``);

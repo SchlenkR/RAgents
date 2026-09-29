@@ -12,9 +12,9 @@ export interface FrameSettings {
 
 export interface WebviewBridge {
   zoom(): number;
-  /** Adresse, Darstellung und Token eines Servers; nur eine verbundene Sitzung liefert sie. */
+  /** Address, appearance, and token of a server; only a connected session provides them. */
   frame(connection: string): FrameSettings | undefined;
-  /** Was das Panel zeigt: der Run eines Servers, sonst die Panelseite. */
+  /** What the panel shows: the run of a server, otherwise the panel page. */
   selection(): { connection: string; runId: string | undefined } | undefined;
   panel(): PanelState;
   handle(connection: string, message: RunPanelHostMessage): void;
@@ -23,7 +23,7 @@ export interface WebviewBridge {
 
 const PANEL_TITLE = "RAgents";
 
-/** Was das Panel nach dem Zeichnen zeigt; ein behaltenes iframe braucht seine Befehle als Nachricht. */
+/** What the panel shows after rendering; a kept iframe needs its commands as a message. */
 export type PanelRendering = "page" | "frame-kept" | "frame-created" | "error";
 
 const nonce = () => randomBytes(16).toString("base64");
@@ -40,7 +40,7 @@ const relay = (webview: vscode.Webview, bridge: WebviewBridge, connection: () =>
     if (name !== undefined) bridge.handle(name, message);
   });
 
-/** Das RAgents-Panel in der zweiten Seitenleiste: die Übersicht aller Server oder das Run-Panel des gewählten Runs. */
+/** The RAgents panel in the secondary sidebar: the overview of all servers or the run panel of the selected run. */
 export class PanelView implements vscode.WebviewViewProvider {
   #view: vscode.WebviewView | undefined;
   #showsPage = false;
@@ -62,7 +62,7 @@ export class PanelView implements vscode.WebviewViewProvider {
     this.render();
   }
 
-  /** Zeichnet die Panelseite neu oder baut das iframe auf; ein gleich bleibendes iframe behält seinen Zustand. */
+  /** Redraws the panel page or builds the iframe; an unchanged iframe keeps its state. */
   render(): PanelRendering {
     const view = this.#view;
     if (!view) return "page";
@@ -118,12 +118,12 @@ export class PanelView implements vscode.WebviewViewProvider {
     void this.#view?.webview.postMessage(message);
   }
 
-  /** Das Abzeichen an der Ansicht zählt, worauf die Runs gerade warten; ohne offene Eingabe steht keins da. */
+  /** The badge on the view counts what the runs are currently waiting for; without an open input, there is none. */
   badge(value: number, tooltip: string): void {
     if (this.#view) this.#view.badge = value > 0 ? { value, tooltip } : undefined;
   }
 
-  /** Ohne aufgebaute Ansicht zeigt show nichts; dann holt der Befehl der Ansicht sie zuerst in die Seitenleiste. */
+  /** Without a built view, show displays nothing; then the view's command first brings it into the sidebar. */
   reveal(): void {
     if (this.#view) this.#view.show(true);
     else void vscode.commands.executeCommand("ragents.runPanel.focus");
@@ -139,7 +139,7 @@ interface OpenPanel {
   showsError: boolean;
 }
 
-/** Eine Mini-App als Editor-Reiter; ein Panel je (Server, Run, Element), erneutes Öffnen holt es nach vorn. */
+/** A mini-app as an editor tab; one panel per (server, run, element), opening it again brings it to the front. */
 export class AppPanels {
   readonly #panels = new Map<string, OpenPanel>();
 
@@ -177,7 +177,7 @@ export class AppPanels {
     this.#panels.get(`${connection}:${runId}:${elementId}`)?.panel.dispose();
   }
 
-  /** Schließt alle Reiter eines Servers; eine beendete Sitzung lässt keine Mini-App stehen. */
+  /** Closes all tabs of a server; an ended session leaves no mini-app open. */
   closeConnection(connection: string): void {
     for (const entry of [...this.#panels.values()]) if (entry.connection === connection) entry.panel.dispose();
   }

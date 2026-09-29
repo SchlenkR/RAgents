@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "ragents": {
-    "title": "Gemeinsame Liste",
-    "description": "Sammelt Texte aus der App und aus einem Agenten-Werkzeug in einer gemeinsamen Liste.",
+    "title": "Shared list",
+    "description": "Collects texts from the app and from an agent tool in a shared list.",
     "backend": "src/server.ts",
     "views": [
       {

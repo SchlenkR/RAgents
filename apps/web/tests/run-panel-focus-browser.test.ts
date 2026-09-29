@@ -24,7 +24,7 @@ test("new VS Code runs focus their enabled chat once without stealing focus on r
       tailwindPlugin([`${root}apps/web/src`]),
     ], logLevel: "silent",
   });
-  await writeFile(`${directory}/index.html`, '<!doctype html><html><head><link rel="stylesheet" href="fixture.css"><style>html,body{height:100%;margin:0}#root{height:calc(100% - 40px)}#outside{height:40px}</style></head><body><button id="outside">Außerhalb</button><div id="root"></div><script src="fixture.js"></script></body></html>');
+  await writeFile(`${directory}/index.html`, '<!doctype html><html><head><link rel="stylesheet" href="fixture.css"><style>html,body{height:100%;margin:0}#root{height:calc(100% - 40px)}#outside{height:40px}</style></head><body><button id="outside">Outside</button><div id="root"></div><script src="fixture.js"></script></body></html>');
   const browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
   try {
     const page = await browser.newPage({ viewport: { width: 900, height: 800 } });
@@ -49,8 +49,8 @@ test("new VS Code runs focus their enabled chat once without stealing focus on r
     assert.equal(await focused(), false, "A new run waits for replay before focusing.");
     await ready();
     await page.waitForFunction(() => document.activeElement?.tagName === "TEXTAREA");
-    await page.keyboard.type("Direkt losschreiben");
-    assert.equal(await input.inputValue(), "Direkt losschreiben");
+    await page.keyboard.type("Start typing right away");
+    assert.equal(await input.inputValue(), "Start typing right away");
 
     await page.locator("#outside").click();
     await page.evaluate(() => { window.runFocusFixture.stream(); window.runFocusFixture.disconnect(); });
@@ -112,7 +112,7 @@ test("new VS Code runs focus their enabled chat once without stealing focus on r
     await page.evaluate(() => {
       const dialog = document.createElement("div");
       dialog.setAttribute("role", "dialog");
-      dialog.textContent = "Anderer Dialog";
+      dialog.textContent = "Other dialog";
       document.body.appendChild(dialog);
       window.runFocusFixture.disabled = false;
       window.runFocusFixture.render();

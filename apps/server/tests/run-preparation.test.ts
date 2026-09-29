@@ -34,13 +34,13 @@ process.env.PRODUCT_TITLE = "Test";
 const { RunSessionProvider, SESSION_METADATA_TIMEOUT_MS } = await import("../src/provider.ts");
 after(() => rm(directory, { recursive: true, force: true }));
 
-const request = () => parseRunPreparationRequest({ messages: [{ role: "user", text: "Erstelle eine kleine Textanalyse." }] });
-const attachment = (name = "note.txt", mediaType = "text/plain", text = "Ergebnis: Wörter zählen.") => ({ name, mediaType, data: Buffer.from(text).toString("base64") });
+const request = () => parseRunPreparationRequest({ messages: [{ role: "user", text: "Create a small text analysis." }] });
+const attachment = (name = "note.txt", mediaType = "text/plain", text = "Result: count words.") => ({ name, mediaType, data: Buffer.from(text).toString("base64") });
 const isDomain = (status: number, code?: string) => (error: unknown) => error instanceof DomainError && error.status === status && (!code || error.code === code);
 const model = { id: "selected", provider: "test", api: "faux", name: "Selected model", baseUrl: "http://localhost:0", reasoning: true,
   input: ["text", "image", "video", "file"] as ("text" | "image" | "video" | "file")[], contextWindow: 100_000, maxTokens: 20_000,
   cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } };
-const runtimeFixture = (t: TestContext, complete: (...args: Parameters<ModelRuntime["completeSimple"]>) => Promise<AssistantMessage> = async () => fauxAssistantMessage("Welche Kennzahlen soll die Analyse zeigen?")) => {
+const runtimeFixture = (t: TestContext, complete: (...args: Parameters<ModelRuntime["completeSimple"]>) => Promise<AssistantMessage> = async () => fauxAssistantMessage("Which metrics should the analysis show?")) => {
   const faux = createFauxCore({ models: [model] });
   faux.setResponses(Array.from({ length: 8 }, () => (context, settings, _state, selected) => complete(selected, context, settings)));
   const streamSimple = t.mock.fn(faux.streamSimple);
@@ -65,8 +65,8 @@ const sessionFixture = () => {
   const engine = { journal, runtime, live: new LiveBus(), scheduler: { isRunning: () => false }, catalog: new StaticModelCatalog(models, profiles),
     startOptions } as unknown as Engine;
   const unused = async () => { throw new Error("Preparation must not create a workspace or run."); };
-  const session = new RunChatSession({ engine, id: "draft", coordinator: { handle: "coordinator", displayName: "Koordinator", profile: "coordinator",
-    runTitle: "Neuer Run", ownerHandle: "owner", ownerDisplayName: "Owner" }, prompt: () => "", assertUsable: () => {},
+  const session = new RunChatSession({ engine, id: "draft", coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "coordinator",
+    runTitle: "New run", ownerHandle: "owner", ownerDisplayName: "Owner" }, prompt: () => "", assertUsable: () => {},
     prepare: unused, prepareWorkspace: unused, started: unused, scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: unavailableActorPrograms });
   return { engine, session, journal };
 };
@@ -78,7 +78,7 @@ test("preparation uses the same coordinator model selection before start and cre
   await session.selectStartOption("ragents.model", { model: "selected", thinking: "high" }, null);
   const { options, streamSimple } = runtimeFixture(t);
   const result = await prepareRunMessage({ ...options, selection: session.preparationSelection(null) });
-  assert.deepEqual(result, { kind: "reply", text: "Welche Kennzahlen soll die Analyse zeigen?" });
+  assert.deepEqual(result, { kind: "reply", text: "Which metrics should the analysis show?" });
   assert.equal(streamSimple.mock.calls[0]!.arguments[0].id, "selected");
   assert.equal(streamSimple.mock.calls[0]!.arguments[2]?.reasoning, "high");
   assert.deepEqual(journal.runIds(), []);
@@ -92,23 +92,23 @@ test("preparation uses the same coordinator model selection before start and cre
 test("preparation forwards the full conversation and native attachments with only the start tool and without reasoning fallback", async (t) => {
   const { options, streamSimple } = runtimeFixture(t);
   options.request = parseRunPreparationRequest({ messages: [
-    { role: "user", text: "Baue eine Textanalyse", attachments: [attachment()] },
-    { role: "assistant", text: "Welche Ausgabe soll sie zeigen?" },
-    { role: "user", text: "Wörter und dieses Bild.", attachments: [attachment("photo.png", "image/png", "image"),
+    { role: "user", text: "Build a text analysis", attachments: [attachment()] },
+    { role: "assistant", text: "Which output should it show?" },
+    { role: "user", text: "Words and this image.", attachments: [attachment("photo.png", "image/png", "image"),
       attachment("clip.mp4", "video/mp4", "video"), attachment("note.pdf", "application/pdf", "pdf")] },
   ] });
   await prepareRunMessage(options);
   const [selected, context, settings] = streamSimple.mock.calls[0]!.arguments;
   assert.equal(selected, model);
   assert.equal(context.messages.length, 3);
-  assert.match(context.messages[0]!.content as string, /Angehängte Textdatei.*note.txt/);
-  assert.match(context.messages[0]!.content as string, /Ergebnis: Wörter zählen/);
+  assert.match(context.messages[0]!.content as string, /Attached text file.*note.txt/);
+  assert.match(context.messages[0]!.content as string, /Result: count words/);
   assert.equal(context.messages[1]!.role, "assistant");
-  assert.deepEqual(context.messages[1]!.content, [{ type: "text", text: "Welche Ausgabe soll sie zeigen?" }]);
+  assert.deepEqual(context.messages[1]!.content, [{ type: "text", text: "Which output should it show?" }]);
   assert.deepEqual((context.messages[2]!.content as { type: string }[]).map((part) => part.type), ["text", "image", "video", "file"]);
   assert.deepEqual(context.tools?.map((tool) => tool.name), ["start_run"]);
   assert.deepEqual(context.tools?.[0]?.parameters.properties, {});
-  assert.match(context.systemPrompt!, /sinngemäßen Go/);
+  assert.match(context.systemPrompt!, /in words or in meaning/);
   assert.equal(settings?.maxRetries, 0);
   assert.equal(settings?.timeoutMs, 120_000);
   await prepareRunMessage({ ...options, selection: { ...options.selection, thinking: "off" } });
@@ -118,18 +118,18 @@ test("preparation forwards the full conversation and native attachments with onl
 test("start tool hands off original conversation, selected skill and attachments once after the completed turn", async (t) => {
   const responses = [
     fauxAssistantMessage([fauxToolCall("start_run", {}, { id: "start-one" }), fauxToolCall("start_run", {}, { id: "start-two" })]),
-    fauxAssistantMessage("Der Auftrag wird übergeben."),
+    fauxAssistantMessage("The task is being handed over."),
   ];
   const { options, streamSimple } = runtimeFixture(t, async () => responses.shift()!);
   options.request = parseRunPreparationRequest({ skillName: "agent-discussion", messages: [
-    { role: "user", text: "Diskutiere das Thema.", attachments: [attachment()] },
-    { role: "assistant", text: "Ich schlage zwei Runden vor." },
-    { role: "user", text: "Ja, leg damit los." },
+    { role: "user", text: "Discuss the topic.", attachments: [attachment()] },
+    { role: "assistant", text: "I suggest two rounds." },
+    { role: "user", text: "Yes, go ahead with that." },
   ] });
   const result = await prepareRunMessage(options);
   assert.equal(result.kind, "start");
   if (result.kind !== "start") throw new Error("Start expected");
-  assert.match(result.input.text, /^Nutze den Skill agent-discussion/);
+  assert.match(result.input.text, /^Use the skill agent-discussion/);
   for (const message of options.request.messages) assert.ok(result.input.text.includes(message.text));
   assert.deepEqual(result.input.attachments, [attachment()]);
   assert.equal(streamSimple.mock.callCount(), 2);
@@ -140,14 +140,14 @@ test("start tool hands off original conversation, selected skill and attachments
 });
 
 test("a textual start claim without a tool call stays a reply", async (t) => {
-  const { options } = runtimeFixture(t, async () => fauxAssistantMessage("Ich starte den Run jetzt."));
-  assert.deepEqual(await prepareRunMessage(options), { kind: "reply", text: "Ich starte den Run jetzt." });
+  const { options } = runtimeFixture(t, async () => fauxAssistantMessage("I am starting the run now."));
+  assert.deepEqual(await prepareRunMessage(options), { kind: "reply", text: "I am starting the run now." });
 });
 
 test("a failed turn discards an already requested start", async (t) => {
   for (const stopReason of ["error", "length"] as const) {
     const responses = [fauxAssistantMessage([fauxToolCall("start_run", {})]),
-      fauxAssistantMessage("Unvollständig", { stopReason, errorMessage: "Synthetic failure" })];
+      fauxAssistantMessage("Incomplete", { stopReason, errorMessage: "Synthetic failure" })];
     const { options, streamSimple } = runtimeFixture(t, async () => responses.shift()!);
     await assert.rejects(prepareRunMessage(options), isDomain(502, "preparation-model-failed"));
     assert.equal(streamSimple.mock.callCount(), 2);
@@ -166,24 +166,24 @@ test("abort after the start tool discards its pending handoff and a late final r
   const pending = prepareRunMessage({ ...options, signal: controller.signal });
   await started.promise;
   controller.abort();
-  finalReply.resolve(fauxAssistantMessage("Jetzt geht es los."));
+  finalReply.resolve(fauxAssistantMessage("Here we go."));
   await assert.rejects(pending, isDomain(499, "preparation-aborted"));
   assert.equal(streamSimple.mock.callCount(), 2);
 });
 
 test("invalid histories and a split attachment budget are rejected before model work", () => {
   for (const invalid of [null, {}, { messages: [] }, { messages: [{ role: "system", text: "System" }] },
-    { messages: [{ role: "assistant", text: "Antwort" }] }, { messages: [{ role: "user", text: " " }] },
+    { messages: [{ role: "assistant", text: "Answer" }] }, { messages: [{ role: "user", text: " " }] },
     { messages: [{ role: "user", text: "x".repeat(MAX_RUN_PREPARATION_TEXT_CHARS + 1) }] },
-    { messages: [{ role: "user", text: "Auftrag" }, { role: "user", text: "Nachtrag" }, { role: "user", text: "Weiter" }] },
-    { messages: [{ role: "user", text: "Auftrag" }, { role: "assistant", text: "Antwort", attachments: [] }, { role: "user", text: "Weiter" }] },
-    { messages: [{ role: "user", text: "Auftrag", attachments: Array.from({ length: 5 }, () => attachment()) },
-      { role: "assistant", text: "Antwort" }, { role: "user", text: "Weiter", attachments: Array.from({ length: 4 }, () => attachment()) }] },
+    { messages: [{ role: "user", text: "Task" }, { role: "user", text: "Addendum" }, { role: "user", text: "Continue" }] },
+    { messages: [{ role: "user", text: "Task" }, { role: "assistant", text: "Answer", attachments: [] }, { role: "user", text: "Continue" }] },
+    { messages: [{ role: "user", text: "Task", attachments: Array.from({ length: 5 }, () => attachment()) },
+      { role: "assistant", text: "Answer" }, { role: "user", text: "Continue", attachments: Array.from({ length: 4 }, () => attachment()) }] },
   ]) assert.throws(() => parseRunPreparationRequest(invalid), isDomain(400));
   const large = attachment("large.txt", "text/plain", "x".repeat(11 * 1024 * 1024));
   assert.throws(() => parseRunPreparationRequest({ messages: [
-    { role: "user", text: "Auftrag", attachments: [large] }, { role: "assistant", text: "Antwort" },
-    { role: "user", text: "Weiter", attachments: [large] },
+    { role: "user", text: "Task", attachments: [large] }, { role: "assistant", text: "Answer" },
+    { role: "user", text: "Continue", attachments: [large] },
   ] }), isDomain(400));
 });
 
@@ -205,7 +205,7 @@ test("unsupported attachments and invalid text encodings fail without calling th
   }
   const textRuntime = { ...options.runtime, getModel: () => ({ ...model, input: ["text"] }) } as unknown as ModelRuntime;
   await assert.rejects(prepareRunMessage({ ...options, runtime: textRuntime, request: parseRunPreparationRequest({ messages: [
-    { role: "user", text: "Bild beschreiben", attachments: [attachment("photo.png", "image/png")] },
+    { role: "user", text: "Describe the image", attachments: [attachment("photo.png", "image/png")] },
   ] }) }), isDomain(400, "preparation-attachment-unsupported"));
   assert.equal(streamSimple.mock.callCount(), 0);
   assert.deepEqual(await readdir(directory), []);
@@ -222,7 +222,7 @@ test("missing models and failed completions fail explicitly without a second cal
     assert.equal(failing.streamSimple.mock.callCount(), 1);
   }
   const empty = runtimeFixture(t, async () => fauxAssistantMessage(" "));
-  await assert.rejects(prepareRunMessage(empty.options), (error: unknown) => isDomain(502)(error) && /zweimal eine leere Antwort/.test((error as Error).message));
+  await assert.rejects(prepareRunMessage(empty.options), (error: unknown) => isDomain(502)(error) && /an empty response twice/.test((error as Error).message));
   assert.equal(empty.streamSimple.mock.callCount(), 2);
 });
 
@@ -243,7 +243,7 @@ test("abort reaches the model and discards a late response", async (t) => {
 });
 
 const prepareMethod = (prepare: (request: unknown, signal: AbortSignal) => Promise<RunPreparationResponse>) => {
-  const provider = { get: async () => { throw new Error("nicht gefragt"); }, list: async () => [], delete: async () => undefined };
+  const provider = { get: async () => { throw new Error("not asked"); }, list: async () => [], delete: async () => undefined };
   const sources = coreSources(provider);
   return coreMethods({ ...sources, sessions: { ...sources.sessions, prepareRunMessage: (_runId, request, signal) => prepare(request, signal) } });
 };
@@ -252,9 +252,9 @@ test("the preparation method hands the request body through, maps errors and rej
   const good = prepareMethod(async (body, signal) => {
     assert.equal(signal.aborted, false);
     assert.deepEqual(body, request());
-    return { kind: "reply", text: "Rückfrage" };
+    return { kind: "reply", text: "Question" };
   }).find((entry) => entry.contract.id === coreContracts.prepare.id)!;
-  assert.deepEqual(await good.execute({ runId: "run", ...request() } as never, methodContext()), { kind: "reply", text: "Rückfrage" });
+  assert.deepEqual(await good.execute({ runId: "run", ...request() } as never, methodContext()), { kind: "reply", text: "Question" });
 
   const methods = new MethodContributionRegistry();
   methods.register("test", prepareMethod(async (body) => { parseRunPreparationRequest(body); throw new Error("Must not be called"); }));
@@ -262,7 +262,7 @@ test("the preparation method hands the request body through, maps errors and rej
   const connection = new RpcConnection({ id: "test", access: unrestrictedAccess, local: true, peer: new RpcPeer({ send: () => undefined }), streamless: true }, dispatcher);
   const handlerContext = { id: 1, signal: new AbortController().signal, progress: () => undefined };
   await assert.rejects(dispatcher.dispatch(connection, coreContracts.prepare.id, "broken", handlerContext), (error: unknown) => error instanceof RpcError && error.code === RPC_ERROR_CODES.invalidParams);
-  await assert.rejects(dispatcher.dispatch(connection, coreContracts.prepare.id, { runId: "run", messages: "nicht" }, handlerContext), isDomain(400));
+  await assert.rejects(dispatcher.dispatch(connection, coreContracts.prepare.id, { runId: "run", messages: "not" }, handlerContext), isDomain(400));
 
   const failed = prepareMethod(async () => { throw new DomainError("preparation-busy", "Busy", 409); }).find((entry) => entry.contract.id === coreContracts.prepare.id)!;
   await assert.rejects(failed.execute({ runId: "run", ...request() } as never, methodContext()), isDomain(409));
@@ -346,7 +346,7 @@ test("provider describes only visible runs, in parallel, and a silent or failing
   const described: string[] = [];
   metadata.register("test.silent", [{ id: "test.silent", describe: ({ runId }) => { described.push(runId); return new Promise(() => {}); } }]);
   metadata.register("test.fast", [{ id: "test.fast", describe: ({ runId }) => ({ runId }) }]);
-  metadata.register("test.failing", [{ id: "test.failing", describe: () => { throw new Error("kaputt"); } }]);
+  metadata.register("test.failing", [{ id: "test.failing", describe: () => { throw new Error("broken"); } }]);
   const provider = Object.create(RunSessionProvider.prototype) as InstanceType<typeof RunSessionProvider>;
   Object.assign(provider, {
     engine,
@@ -365,8 +365,8 @@ test("provider describes only visible runs, in parallel, and a silent or failing
   const entry = listed.find((candidate) => candidate.id === "visible-a")!;
   assert.deepEqual(entry.metadata, { "test.fast": { runId: "visible-a" } });
   assert.deepEqual(entry.metadataUnavailable, {
-    "test.silent": `keine Antwort nach ${SESSION_METADATA_TIMEOUT_MS} ms`,
-    "test.failing": "kaputt",
+    "test.silent": `no answer after ${SESSION_METADATA_TIMEOUT_MS} ms`,
+    "test.failing": "broken",
   });
 });
 

@@ -19,7 +19,7 @@ export interface LanguageServerAdapter {
   label: string;
   languages: Readonly<Record<string, string>>;
   rootDescription: string;
-  /** Die Endungen der Solutions, die `<id>_solutions` im Arbeitsbereich sucht; ohne sie gibt es weder Suche noch Umschalten. */
+  /** The extensions of the solutions that `<id>_solutions` searches for in the workspace; without them there is neither search nor switching. */
   solutionExtensions?: readonly string[];
   resolveRoot: (workspaceRoot: string, root: string) => Promise<string>;
   rootDirectory: (root: string) => string;
@@ -27,7 +27,7 @@ export interface LanguageServerAdapter {
   open: (session: LanguageServerSession, root: string, timeoutMs: number) => Promise<string>;
 }
 
-/** Was der Server über einen Sprachserver wissen muss, um Werkzeuge und Reiter zu beschreiben; gestartet wird er nur im Executor. */
+/** What the server must know about a language server to describe tools and tabs; it is only started in the executor. */
 export type LanguageServerDescription = Pick<LanguageServerAdapter, "id" | "label" | "languages" | "rootDescription" | "solutionExtensions">;
 
 export interface LanguageServerHostOptions {
@@ -64,7 +64,7 @@ const keyOf = (runId: string, root: string): string => `${runId}\n${root}`;
 
 const runOf = (key: string): string => key.slice(0, key.indexOf("\n"));
 
-const instanceCount = (count: number): string => `${count} offene Instanz${count === 1 ? "" : "en"}`;
+const instanceCount = (count: number): string => `${count} open instance${count === 1 ? "" : "s"}`;
 
 const git = async (
   context: WorkspaceProcessContext,
@@ -73,13 +73,13 @@ const git = async (
   args: readonly string[],
 ): Promise<string> => {
   const result = await runGit(context, directory, args).catch((error: unknown) => {
-    throw new Error(`Ohne paths braucht ${tool} ein Git-Arbeitsverzeichnis: ${messageOf(error)}`);
+    throw new Error(`Without paths ${tool} needs a Git working directory: ${messageOf(error)}`);
   });
-  if (result.code !== 0) throw new Error(`Ohne paths braucht ${tool} ein Git-Arbeitsverzeichnis (git ${args[0]}: Code ${result.code})`);
+  if (result.code !== 0) throw new Error(`Without paths ${tool} needs a Git working directory (git ${args[0]}: code ${result.code})`);
   return result.output;
 };
 
-/** Git nennt seine Pfade relativ zur Repo-Wurzel; `-- .` grenzt sie auf die Wurzel der Instanz ein. */
+/** Git names its paths relative to the repo root; `-- .` narrows them to the root of the instance. */
 export const changedWorkspaceFiles = async (
   context: WorkspaceProcessContext,
   directory: string,
@@ -130,11 +130,11 @@ export class LanguageServerHost {
     return this.adapter.languages[path.extname(filePath).toLowerCase()] !== undefined;
   }
 
-  /** Mit `ifNoneOpen` prüft und belegt der Aufruf den Run ohne Unterbrechung: läuft schon ein Öffnen oder ist eine Instanz da, lädt er nichts. */
+  /** With `ifNoneOpen` the call checks and claims the run without interruption: if an open is already running or an instance exists, it loads nothing. */
   async open(runId: string, root: string, ifNoneOpen = false): Promise<string> {
     const lifetime = this.#lifetime(runId);
     if (ifNoneOpen && !this.#idle(runId)) {
-      return `${this.adapter.label} lädt ${root} nicht: in diesem Run ist schon eine Instanz offen oder im Aufbau`;
+      return `${this.adapter.label} does not load ${root}: an instance is already open or starting in this run`;
     }
     this.#requests.set(runId, (this.#requests.get(runId) ?? 0) + 1);
     try {
@@ -148,7 +148,7 @@ export class LanguageServerHost {
 
   async solutions(runId: string): Promise<LanguageServerSolutions> {
     const extensions = this.adapter.solutionExtensions;
-    if (!extensions) throw new Error(`${this.adapter.label} sucht keine Solutions`);
+    if (!extensions) throw new Error(`${this.adapter.label} does not search for solutions`);
     if (this.#closed) throw this.#stopped();
     const found = await workspaceSolutions(await this.#contextFor(runId), extensions);
     return {
@@ -158,7 +158,7 @@ export class LanguageServerHost {
     };
   }
 
-  /** Lädt die Wurzel und beendet jede andere Instanz des Runs; wartet nicht auf das Laden, `null` beendet alle. */
+  /** Loads the root and ends every other instance of the run; does not wait for the loading, `null` ends all. */
   async switchTo(runId: string, root: string | null): Promise<string> {
     if (root === null) return this.close(runId);
     const lifetime = this.#lifetime(runId);
@@ -168,10 +168,10 @@ export class LanguageServerHost {
     this.#assertLifetime(runId, lifetime);
     const current = this.#current(runId, absoluteRoot);
     const kept = current !== undefined && current.state !== "failed";
-    // Ein Fehlschlag steht mit seiner Ursache im Stand der Instanz.
+    // A failure is recorded with its cause in the state of the instance.
     if (!kept) void this.#start(runId, context, absoluteRoot).catch(() => undefined);
-    const closed = others.length === 0 ? "" : `; ${others.length === 1 ? "eine andere Instanz" : `${others.length} andere Instanzen`} beendet`;
-    return `${this.adapter.label} ${kept ? "behält" : "lädt"} ${absoluteRoot}${closed}`;
+    const closed = others.length === 0 ? "" : `; ${others.length === 1 ? "one other instance" : `${others.length} other instances`} ended`;
+    return `${this.adapter.label} ${kept ? "keeps" : "loads"} ${absoluteRoot}${closed}`;
   }
 
   async #open(runId: string, lifetime: object, root: string): Promise<string> {
@@ -184,26 +184,26 @@ export class LanguageServerHost {
       });
       this.#assertCurrent(current);
       this.#touch(runId, absoluteRoot);
-      return this.#openMessage(runId, `${this.adapter.label} ist für ${absoluteRoot} bereits geöffnet: ${server.summary}`);
+      return this.#openMessage(runId, `${this.adapter.label} is already open for ${absoluteRoot}: ${server.summary}`);
     }
     const server = await this.#start(runId, context, absoluteRoot);
     this.#assertLifetime(runId, lifetime);
     if (this.#servers.get(keyOf(runId, absoluteRoot))?.server !== server) throw this.#stopped();
-    return this.#openMessage(runId, `${server.summary} (Wurzel ${absoluteRoot})`);
+    return this.#openMessage(runId, `${server.summary} (root ${absoluteRoot})`);
   }
 
   async close(runId: string, root?: string): Promise<string> {
     if (root === undefined) {
       const roots = this.#openRoots(runId);
-      if (roots.length === 0) return `${this.adapter.label} ist in diesem Run nicht geöffnet`;
+      if (roots.length === 0) return `${this.adapter.label} is not open in this run`;
       await Promise.all(roots.map((entry) => this.#closeInstance(runId, entry)));
-      const closed = roots.length === 1 ? "eine Instanz" : `${roots.length} Instanzen`;
-      return `${this.adapter.label}: ${closed} beendet; keine offene Instanz mehr in diesem Run`;
+      const closed = roots.length === 1 ? "one instance" : `${roots.length} instances`;
+      return `${this.adapter.label}: ${closed} ended; no open instance left in this run`;
     }
     const context = await this.#contextFor(runId);
     const chosen = await this.#known(runId, context, root);
     await this.#closeInstance(runId, chosen);
-    return `${this.adapter.label} für ${chosen} beendet; ${instanceCount(this.#openRoots(runId).length)} in diesem Run`;
+    return `${this.adapter.label} for ${chosen} ended; ${instanceCount(this.#openRoots(runId).length)} in this run`;
   }
 
   async snapshot(runId: string): Promise<LanguageServerSnapshot> {
@@ -225,14 +225,14 @@ export class LanguageServerHost {
     const context = await this.#contextFor(runId);
     this.#assertLifetime(runId, lifetime);
     const roots = root === undefined ? this.#openRoots(runId) : [await this.#known(runId, context, root)];
-    if (roots.length === 0) throw new Error(`Kein ${this.adapter.label}-Server geöffnet; zuerst ${this.adapter.id}_open aufrufen`);
+    if (roots.length === 0) throw new Error(`No ${this.adapter.label} server open; call ${this.adapter.id}_open first`);
     if (paths !== undefined && paths.length > 0) return (await this.#requested(runId, context, roots, paths, includeWarnings)).join("\n\n");
     const failed = root === undefined ? roots.filter((entry) => this.#current(runId, entry)?.state === "failed") : [];
     const failures = failed.map((entry) =>
-      `${this.adapter.label} für ${entry} nicht geöffnet: ${this.#current(runId, entry)!.summary}; ${this.adapter.id}_open öffnet die Wurzel erneut`);
+      `${this.adapter.label} not open for ${entry}: ${this.#current(runId, entry)!.summary}; ${this.adapter.id}_open opens the root again`);
     if (failed.length === roots.length) throw new Error(failures.join("\n"));
     const results = await this.#changed(runId, context, roots.filter((entry) => !failed.includes(entry)), includeWarnings);
-    const text = results.length === 0 ? `Keine geänderten ${this.adapter.label}-Dateien in den geöffneten Wurzeln` : results.join("\n\n");
+    const text = results.length === 0 ? `No changed ${this.adapter.label} files in the open roots` : results.join("\n\n");
     return [text, ...failures].join("\n\n");
   }
 
@@ -248,7 +248,7 @@ export class LanguageServerHost {
       const server = await this.#ensure(runId, context, chosen);
       return await this.#format(context, server, file, false);
     } catch (error) {
-      return `Diagnostik (${this.adapter.label}) fehlgeschlagen: ${messageOf(error)}`;
+      return `Diagnostics (${this.adapter.label}) failed: ${messageOf(error)}`;
     }
   }
 
@@ -276,7 +276,7 @@ export class LanguageServerHost {
     const failures = results
       .filter((result): result is PromiseRejectedResult => result.status === "rejected")
       .map((result) => result.reason);
-    if (failures.length > 0) throw new AggregateError(failures, `${this.adapter.label}-Shutdown fehlgeschlagen`);
+    if (failures.length > 0) throw new AggregateError(failures, `${this.adapter.label} shutdown failed`);
   }
 
   async #prepare(
@@ -320,7 +320,7 @@ export class LanguageServerHost {
   }
 
   #openMessage(runId: string, text: string): string {
-    return `${text}; ${instanceCount(this.#openRoots(runId).length)} von ${this.adapter.label} in diesem Run`;
+    return `${text}; ${instanceCount(this.#openRoots(runId).length)} of ${this.adapter.label} in this run`;
   }
 
   async #instanceSnapshot(runId: string, root: string): Promise<LanguageServerInstanceSnapshot | undefined> {
@@ -385,11 +385,11 @@ export class LanguageServerHost {
     for (const requested of paths) {
       const file = await allowedWorkspacePath(path.resolve(context.root, expandWorkspaceAlias(requested, context.workspaceAliases ?? {})), [context.root, ...context.additionalRoots ?? []]);
       if (!this.handles(file)) {
-        throw new Error(`${path.relative(context.root, file)} hat keine ${this.adapter.label}-Endung (${Object.keys(this.adapter.languages).join(", ")})`);
+        throw new Error(`${path.relative(context.root, file)} has no ${this.adapter.label} extension (${Object.keys(this.adapter.languages).join(", ")})`);
       }
       const chosen = this.#match(roots, file);
       if (!chosen) {
-        throw new Error(`${path.relative(context.root, file)} liegt in keiner geöffneten ${this.adapter.label}-Wurzel; offen: ${roots.join(", ")}`);
+        throw new Error(`${path.relative(context.root, file)} is in no open ${this.adapter.label} root; open: ${roots.join(", ")}`);
       }
       results.push(await this.#format(context, await this.#ensure(runId, context, chosen), file, includeWarnings));
     }
@@ -404,11 +404,11 @@ export class LanguageServerHost {
 
   async #known(runId: string, context: WorkspaceProcessContext, root: string): Promise<string> {
     const roots = this.#openRoots(runId);
-    if (roots.length === 0) throw new Error(`Kein ${this.adapter.label}-Server geöffnet; zuerst ${this.adapter.id}_open aufrufen`);
+    if (roots.length === 0) throw new Error(`No ${this.adapter.label} server open; call ${this.adapter.id}_open first`);
     const lexical = path.resolve(context.root, expandWorkspaceAlias(root, context.workspaceAliases ?? {}));
     const requested = await resolvedWorkspacePath(lexical);
     const found = roots.find((open) => open === requested || open === lexical);
-    if (!found) throw new Error(`Für ${root} ist kein ${this.adapter.label}-Server geöffnet; offen: ${roots.join(", ")}`);
+    if (!found) throw new Error(`No ${this.adapter.label} server is open for ${root}; open: ${roots.join(", ")}`);
     return found;
   }
 
@@ -465,7 +465,7 @@ export class LanguageServerHost {
     const current = this.#servers.get(key);
     if (current?.server?.session.exited) {
       this.#servers.delete(key);
-      void this.#dispose(current).catch((error) => console.error(`${this.adapter.label}: Bereinigung fehlgeschlagen: ${messageOf(error)}`));
+      void this.#dispose(current).catch((error) => console.error(`${this.adapter.label}: cleanup failed: ${messageOf(error)}`));
       return undefined;
     }
     return current;
@@ -488,7 +488,7 @@ export class LanguageServerHost {
     const previous = this.#servers.get(key);
     const closing = previous ? this.#dispose(previous) : undefined;
     const entry: ServerEntry = {
-      runId, root, state: "opening", summary: `${this.adapter.label} lädt ${root}`, controller: new AbortController(),
+      runId, root, state: "opening", summary: `${this.adapter.label} loads ${root}`, controller: new AbortController(),
     };
     this.#servers.set(key, entry);
     this.#remember(runId, root);
@@ -513,13 +513,13 @@ export class LanguageServerHost {
           summary = await withTimeout(
             Promise.race([this.adapter.open(session, root, this.#openTimeoutMs), cancelled]),
             this.#openTimeoutMs,
-            () => new Error(`${this.adapter.label}: ${root} nicht innerhalb von ${Math.round(this.#openTimeoutMs / 1000)} s geladen`),
+            () => new Error(`${this.adapter.label}: ${root} not loaded within ${Math.round(this.#openTimeoutMs / 1000)} s`),
           );
         } finally {
           entry.controller.signal.removeEventListener("abort", aborted);
         }
         this.#assertCurrent(entry);
-        if (session.exited) throw new Error(`${this.adapter.label} wurde während des Ladens beendet`);
+        if (session.exited) throw new Error(`${this.adapter.label} ended while loading`);
         const server = { root, session, summary };
         entry.server = server;
         entry.state = "ready";
@@ -585,7 +585,7 @@ export class LanguageServerHost {
   }
 
   #stopped(): Error {
-    return new Error(`${this.adapter.label}-Start wurde beendet`);
+    return new Error(`${this.adapter.label} start was ended`);
   }
 
   #touch(runId: string, root: string): void {
@@ -597,7 +597,7 @@ export class LanguageServerHost {
     const timer = setTimeout(() => {
       this.#idleTimers.delete(key);
       if (this.#servers.get(key) !== entry) return;
-      void this.#close(key).catch((error) => console.error(`${this.adapter.label}: Beenden nach Leerlauf fehlgeschlagen: ${messageOf(error)}`));
+      void this.#close(key).catch((error) => console.error(`${this.adapter.label}: ending after idle time failed: ${messageOf(error)}`));
     }, this.#idleMs);
     timer.unref();
     this.#idleTimers.set(key, timer);

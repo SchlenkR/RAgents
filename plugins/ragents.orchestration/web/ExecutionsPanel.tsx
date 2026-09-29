@@ -20,7 +20,7 @@ function RunExecutionsPanel({ active, runId, view }: { active: boolean; runId: s
   const [journal, setJournal] = useState<{ events: readonly JournalEvent[]; loaded: boolean; loading: boolean; error: string | null }>({ events: [], loaded: false, loading: false, error: null });
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<ExecutionStatus | "all">("all");
-  const statusOptions = [{ value: "all", label: "Alle Status" }, ...(["running", "completed", "failed", "interrupted"] as const).map((value) => ({ value, label: executionStatusLabel(value) }))];
+  const statusOptions = [{ value: "all", label: "All statuses" }, ...(["running", "completed", "failed", "interrupted"] as const).map((value) => ({ value, label: executionStatusLabel(value) }))];
   const [now, setNow] = useState(Date.now);
   const [reload, setReload] = useState(0);
   const revision = view?.revision;
@@ -50,19 +50,19 @@ function RunExecutionsPanel({ active, runId, view }: { active: boolean; runId: s
     return () => window.clearInterval(timer);
   }, [active, running]);
 
-  return <section aria-label="TypeScript-Ausführungen" className="flex h-full min-h-0 min-w-0 flex-col bg-background text-[0.78rem] text-foreground">
-    <header className="px-3.5 pt-3.5 pb-2.5"><h2 className="mb-1.5 text-[0.92rem]">Executions</h2><p className="leading-[1.5] text-muted-foreground">TypeScript-Snippets aller Actors in diesem Run.</p></header>
+  return <section aria-label="TypeScript executions" className="flex h-full min-h-0 min-w-0 flex-col bg-background text-[0.78rem] text-foreground">
+    <header className="px-3.5 pt-3.5 pb-2.5"><h2 className="mb-1.5 text-[0.92rem]">Executions</h2><p className="leading-[1.5] text-muted-foreground">TypeScript snippets of all actors in this run.</p></header>
     <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 border-b border-border-soft px-3.5 pb-3">
-      <Input className="col-span-full" aria-label="Ausführungen durchsuchen" onChange={(event) => setQuery(event.target.value)} placeholder="Actor, Code oder Ergebnis suchen" type="search" value={query} />
+      <Input className="col-span-full" aria-label="Search executions" onChange={(event) => setQuery(event.target.value)} placeholder="Search actor, code or result" type="search" value={query} />
       <Select items={statusOptions} value={status} onValueChange={(value) => { if (value !== null) setStatus(value as ExecutionStatus | "all"); }}>
-        <SelectTrigger className="min-w-0" aria-label="Ausführungsstatus"><SelectValue /></SelectTrigger>
+        <SelectTrigger className="min-w-0" aria-label="Execution status"><SelectValue /></SelectTrigger>
         <SelectContent>{statusOptions.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
       </Select>
-      <span className="self-center text-right text-[0.68rem] text-muted-foreground" role="status">{journal.loading ? (journal.loaded ? "Aktualisiert ..." : "Lädt ...") : journal.loaded ? `${filtered.length} von ${executions.length} Ausführungen` : "Noch nicht geladen"}</span>
+      <span className="self-center text-right text-[0.68rem] text-muted-foreground" role="status">{journal.loading ? (journal.loaded ? "Refreshing ..." : "Loading ...") : journal.loaded ? `${filtered.length} of ${executions.length} executions` : "Not loaded yet"}</span>
     </div>
-    {journal.error && <Alert className="mx-3.5 my-2 w-auto" variant="destructive"><AlertDescription className="whitespace-pre-wrap text-destructive [overflow-wrap:anywhere]">{journal.error}{journal.loaded ? " Der zuletzt geladene Stand bleibt sichtbar." : ""}</AlertDescription><Button disabled={!active || journal.loading} onClick={() => setReload((value) => value + 1)} size="sm" variant="ghost">Erneut laden</Button></Alert>}
-    <div aria-label="Ausführungen, neueste zuerst" className="min-h-0 flex-1 overflow-auto overscroll-contain px-3 pb-3">
-      {journal.loaded && !journal.loading && filtered.length === 0 && <p className="mx-0.5 my-4.5 leading-[1.6] text-muted-foreground">{executions.length === 0 ? "In diesem Run wurde noch kein TypeScript-Snippet ausgeführt." : "Keine Ausführungen passen zu dieser Suche."}</p>}
+    {journal.error && <Alert className="mx-3.5 my-2 w-auto" variant="destructive"><AlertDescription className="whitespace-pre-wrap text-destructive [overflow-wrap:anywhere]">{journal.error}{journal.loaded ? " The last loaded state stays visible." : ""}</AlertDescription><Button disabled={!active || journal.loading} onClick={() => setReload((value) => value + 1)} size="sm" variant="ghost">Reload</Button></Alert>}
+    <div aria-label="Executions, newest first" className="min-h-0 flex-1 overflow-auto overscroll-contain px-3 pb-3">
+      {journal.loaded && !journal.loading && filtered.length === 0 && <p className="mx-0.5 my-4.5 leading-[1.6] text-muted-foreground">{executions.length === 0 ? "No TypeScript snippet has been executed in this run yet." : "No executions match this search."}</p>}
       {filtered.map((execution) => <ExecutionEntry execution={execution} key={execution.key} now={now} />)}
     </div>
   </section>;
@@ -85,21 +85,21 @@ const logClass = "m-0 max-h-[24rem] overflow-auto rounded-sm bg-background p-2 f
 
 function ExecutionEntry({ execution, now }: { execution: TypeScriptExecution; now: number }) {
   const [expanded, setExpanded] = useState(false);
-  const preview = execution.code?.trim().split("\n").find((line) => line.trim()) ?? execution.path ?? "TypeScript-Snippet";
+  const preview = execution.code?.trim().split("\n").find((line) => line.trim()) ?? execution.path ?? "TypeScript snippet";
   return <details className="mt-2.5 overflow-hidden rounded-sm border border-border-soft bg-card open:[&>summary]:before:rotate-45" onToggle={(event) => setExpanded(event.currentTarget.open)}>
     <summary className={summaryClass}>
       <span className="truncate font-[650]" title={`${execution.actorName} (${execution.actorId})`}>@{execution.actorHandle}</span>
       <Badge className={`h-auto rounded-[5px] px-[5px] py-0.5 text-[0.64rem] ${statusBadgeClass[execution.status] ?? "bg-secondary text-muted-foreground"}`}>{executionStatusLabel(execution.status)}</Badge>
       <span className="col-span-full truncate font-mono text-[0.68rem]" title={preview}>{preview}</span>
-      <span className="col-span-full flex flex-wrap justify-between gap-x-3 gap-y-1.5 text-[0.65rem] tabular-nums text-muted-foreground"><time dateTime={execution.startedAt} title={new Date(execution.startedAt).toLocaleString("de-DE")}>{new Date(execution.startedAt).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time><span>{executionDuration(execution, now)}</span></span>
+      <span className="col-span-full flex flex-wrap justify-between gap-x-3 gap-y-1.5 text-[0.65rem] tabular-nums text-muted-foreground"><time dateTime={execution.startedAt} title={new Date(execution.startedAt).toLocaleString("en-US")}>{new Date(execution.startedAt).toLocaleString("en-US", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time><span>{executionDuration(execution, now)}</span></span>
     </summary>
     {expanded && <div className={contentClass}>
-      {execution.path && <p className="mt-2.5 grid gap-1 text-[0.68rem] text-muted-foreground"><span>Pfad</span><code className="[overflow-wrap:anywhere]">{execution.path}</code></p>}
+      {execution.path && <p className="mt-2.5 grid gap-1 text-[0.68rem] text-muted-foreground"><span>Path</span><code className="[overflow-wrap:anywhere]">{execution.path}</code></p>}
       <h3>Code</h3>
-      {execution.code !== null ? <SourceCode className={sourceClass} content={execution.code} language="typescript" path={execution.path ?? "snippet.ts"} /> : <p className="text-[0.72rem] leading-[1.5] text-muted-foreground">{execution.path ? "Für diesen Pfadaufruf ist kein historischer Code gespeichert." : "Für diesen Aufruf ist kein historischer Code gespeichert."}</p>}
+      {execution.code !== null ? <SourceCode className={sourceClass} content={execution.code} language="typescript" path={execution.path ?? "snippet.ts"} /> : <p className="text-[0.72rem] leading-[1.5] text-muted-foreground">{execution.path ? "No historical code is stored for this path call." : "No historical code is stored for this call."}</p>}
       {execution.logs.length > 0 && <><h3>Logs</h3><pre className={logClass}>{execution.logs.join("\n")}</pre></>}
-      {execution.result !== undefined && <><h3>Ergebnis</h3><SourceCode className={sourceClass} content={JSON.stringify(execution.result, null, 2)} language="json" path="result.json" /></>}
-      {execution.error && <><h3>{execution.status === "interrupted" ? "Unterbrechung" : "Fehler"}</h3><pre className={`${logClass} text-destructive`}>{execution.error}</pre></>}
+      {execution.result !== undefined && <><h3>Result</h3><SourceCode className={sourceClass} content={JSON.stringify(execution.result, null, 2)} language="json" path="result.json" /></>}
+      {execution.error && <><h3>{execution.status === "interrupted" ? "Interruption" : "Error"}</h3><pre className={`${logClass} text-destructive`}>{execution.error}</pre></>}
     </div>}
   </details>;
 }

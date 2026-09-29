@@ -5,7 +5,7 @@ export const DEFAULT_MAX_BODY_BYTES = 1024 * 1024;
 
 export class PayloadTooLargeError extends DomainError {
   constructor(maxBytes: number) {
-    super("payload_too_large", `Der Request ist größer als ${maxBytes} Byte`, 413);
+    super("payload_too_large", `The request is larger than ${maxBytes} bytes`, 413);
   }
 }
 
@@ -32,7 +32,7 @@ export const readBody = async (
 export const readJsonBody = async <T>(
   request: IncomingMessage,
   validate: (body: unknown) => T,
-  invalidJsonMessage = "Der Request enthält kein gültiges JSON",
+  invalidJsonMessage = "The request does not contain valid JSON",
   maxBytes = DEFAULT_MAX_BODY_BYTES,
 ): Promise<T> => {
   const text = await readBody(request, maxBytes);

@@ -2,11 +2,11 @@
 name: 240-live-result-list
 start: true
 disable-model-invocation: true
-title: "Antworten automatisch sammeln"
-description: "Zeigt, wie ein TypeScript-Actor fertige Agentenantworten per Abonnement automatisch sammelt. Auch weitere Beiträge desselben Helfers lassen die Liste wachsen."
-category: "Mini-Apps"
+title: "Collect answers automatically"
+description: "Shows how a TypeScript actor automatically collects finished agent answers through a subscription. Further contributions from the same helper also make the list grow."
+category: "Mini-apps"
 order: 240
-tags: "Anwendungsfall, Konzeptdemo, TypeScript-Actors, Subscriptions, Actor-Zustand, Mini-Apps"
+tags: "Use case, Concept demo, TypeScript actors, Subscriptions, Actor state, Mini-apps"
 ---
 
-Ich hätte gern zwei KI-Helfer, die je eine kurze Idee für einen gemeinsamen Lernnachmittag vorschlagen. Ihre fertigen Antworten sollen automatisch in einer kleinen Ergebnisliste auf der Fläche erscheinen. Ein programmierter Sammler merkt sich die Beiträge; dafür soll keine weitere KI die Texte kopieren. Lass danach einen Helfer eine zweite Idee ergänzen. Die Liste soll von selbst wachsen, auch wenn Du im Chat gerade nichts schreibst.
+I would like two AI helpers that each suggest a short idea for a shared learning afternoon. Their finished answers should automatically appear in a small result list on the surface. A programmed collector remembers the contributions; no further AI should copy the texts for this. Then have one helper add a second idea. The list should grow by itself, even while you are not writing anything in the chat.

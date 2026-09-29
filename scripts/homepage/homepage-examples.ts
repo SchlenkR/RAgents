@@ -28,8 +28,8 @@ type CoveredExample = ExampleEntry | ExampleWalkthrough & { action: "walkthrough
 export const exampleAnchor = (example: Pick<CoveredExample, "id" | "action">) => `${example.action === "walkthrough" ? "example" : "start"}-${example.id}`;
 
 const axes = [
-  { source: "Anwendungsfall", label: "Use case" },
-  { source: "Konzeptdemo", label: "Concept demo" },
+  { source: "Use case", label: "Use case" },
+  { source: "Concept demo", label: "Concept demo" },
 ] as const;
 
 const conceptLabels = new Map([
@@ -119,7 +119,7 @@ export function exampleWalkthroughsMarkdown(walkthroughs: readonly ExampleWalkth
 
 export function groupStartEntries<T extends ExampleEntry & { category?: string; order?: number }>(entries: readonly T[]): { label: string; entries: T[] }[] {
   const sorted = [...entries].sort((left, right) => (left.order ?? Number.MAX_SAFE_INTEGER) - (right.order ?? Number.MAX_SAFE_INTEGER)
-    || left.title.localeCompare(right.title, "de-DE"));
+    || left.title.localeCompare(right.title, "en"));
   const groups = new Map<string, T[]>();
   for (const entry of sorted.filter((entry) => entry.action === "skill")) {
     if (!entry.category?.trim()) throw new Error(`Skill start entry ${entry.id} needs a category.`);

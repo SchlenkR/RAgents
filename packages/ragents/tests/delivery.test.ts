@@ -22,55 +22,55 @@ test("a subscription delivery reaches an agent as a readable header with its own
     const runtime = new Orchestration(journal, services);
     let view = runtime.createRun(
         { commandId: "create" },
-        { title: "Zustellung", ownerHandle: "owner", ownerDisplayName: "Owner" },
+        { title: "Delivery", ownerHandle: "owner", ownerDisplayName: "Owner" },
     );
-    view = runtime.spawnAgent({ actorId: view.ownerId, commandId: "spawn-rot" }, view.id, {
-        handle: "rot",
-        displayName: "Rot",
-        prompt: "Antworte.",
-        execution: executionFor("rot", { profile: "agent", isolateWorkspace: false }),
+    view = runtime.spawnAgent({ actorId: view.ownerId, commandId: "spawn-red" }, view.id, {
+        handle: "red",
+        displayName: "Red",
+        prompt: "Answer.",
+        execution: executionFor("red", { profile: "agent", isolateWorkspace: false }),
         grants: [],
         toolNames: [],
     });
-    view = runtime.spawnAgent({ actorId: view.ownerId, commandId: "spawn-gelb" }, view.id, {
-        handle: "gelb",
-        displayName: "Gelb",
-        prompt: "Antworte.",
-        execution: executionFor("gelb", { profile: "agent", isolateWorkspace: false }),
+    view = runtime.spawnAgent({ actorId: view.ownerId, commandId: "spawn-yellow" }, view.id, {
+        handle: "yellow",
+        displayName: "Yellow",
+        prompt: "Answer.",
+        execution: executionFor("yellow", { profile: "agent", isolateWorkspace: false }),
         grants: allGrants(),
         toolNames: [],
     });
-    const rot = view.actors.find((entry) => entry.handle === "rot");
-    const gelb = view.actors.find((entry) => entry.handle === "gelb");
-    assert.ok(rot && gelb);
-    runtime.createSubscription({ actorId: view.ownerId, commandId: "subscribe-rot" }, view.id, {
-        subscriberId: gelb.id,
-        sourceActorIds: [rot.id],
+    const red = view.actors.find((entry) => entry.handle === "red");
+    const yellow = view.actors.find((entry) => entry.handle === "yellow");
+    assert.ok(red && yellow);
+    runtime.createSubscription({ actorId: view.ownerId, commandId: "subscribe-red" }, view.id, {
+        subscriberId: yellow.id,
+        sourceActorIds: [red.id],
         sourceActorKinds: null,
         eventTypes: ["model.output.completed"],
         includeSelf: false,
     });
     const driver = new FakeDriver(async (request) => {
-        if (request.agentId === rot.id)
-            request.recordContext({ kind: "step", step: textStep("rot: Anfang") });
+        if (request.agentId === red.id)
+            request.recordContext({ kind: "step", step: textStep("red: Begin") });
 
         return { failure: null, usage: noUsage() };
     });
     const scheduler = new TurnScheduler(runtime, journal, { drivers: { agent: driver }, catalog });
 
     try {
-        postTo(runtime, view, rot.id, "start-rot", "Anfang");
+        postTo(runtime, view, red.id, "start-red", "Begin");
         scheduler.start();
         await scheduler.waitForIdle();
 
-        const delivered = driver.requests.find((request) => request.agentId === gelb.id);
+        const delivered = driver.requests.find((request) => request.agentId === yellow.id);
         assert.ok(delivered);
         assert.equal(delivered.input.event?.type, "model.output.completed");
-        assert.equal(delivered.input.event?.sourceActorHandle, "rot");
-        assert.equal(delivered.input.content, "rot: Anfang");
-        assert.match(delivered.prompt, /^\[Event model\.output\.completed von @rot, Sequenz \d+\]/);
-        assert.match(delivered.prompt, /\[Aktive Subscriptions\] subscription-\d+: Quellen @rot; Events model\.output\.completed/);
-        assert.match(delivered.prompt, /\n\nrot: Anfang$/);
+        assert.equal(delivered.input.event?.sourceActorHandle, "red");
+        assert.equal(delivered.input.content, "red: Begin");
+        assert.match(delivered.prompt, /^\[Event model\.output\.completed from @red, sequence \d+\]/);
+        assert.match(delivered.prompt, /\[Active subscriptions\] subscription-\d+: sources @red; events model\.output\.completed/);
+        assert.match(delivered.prompt, /\n\nred: Begin$/);
     } finally {
         await scheduler.stop();
         journal.close();
@@ -83,11 +83,11 @@ test("an agent without a subscription keeps its plain input text", async () => {
     const scheduler = new TurnScheduler(setup.runtime, setup.journal, { drivers: { agent: driver }, catalog });
 
     try {
-        postTo(setup.runtime, setup.view, setup.agent.id, "plain", "Bitte prüfen.");
+        postTo(setup.runtime, setup.view, setup.agent.id, "plain", "Please check.");
         scheduler.start();
         await scheduler.waitForIdle();
 
-        assert.equal(driver.requests[0]?.prompt, "Bitte prüfen.");
+        assert.equal(driver.requests[0]?.prompt, "Please check.");
         assert.equal(driver.requests[0]?.input.event, null);
     } finally {
         await scheduler.stop();
@@ -115,10 +115,10 @@ test("an orchestrator sees existing participants from another creator and refres
         scheduler.start();
         await scheduler.waitForIdle();
         const first = driver.requests[0]?.systemPrompt ?? "";
-        assert.match(first, /Actors im Run, Stand bei Turn-Beginn/);
+        assert.match(first, /Actors in the run, as of turn start/);
         assert.match(first, /@kai: "kai", agent, idle/);
         assert.match(first, /@lena: "lena", agent, idle/);
-        assert.match(first, /@worker: "Worker", agent, running \(du\)/);
+        assert.match(first, /@worker: "Worker", agent, running \(you\)/);
         assert.doesNotMatch(first, /Private role instructions/);
 
         setup.runtime.stopActor({ actorId: setup.view.ownerId, commandId: "stop-kai" }, setup.view.id, kai.id, "Done.");
@@ -150,7 +150,7 @@ test("the actor roster is absent without an allowed actor_list tool, including p
             scheduler.start();
             await scheduler.waitForIdle();
             assert.equal(driver.requests.length, 1);
-            assert.doesNotMatch(driver.requests[0]?.systemPrompt ?? "", /Actors im Run|@owner|@worker/);
+            assert.doesNotMatch(driver.requests[0]?.systemPrompt ?? "", /Actors in the run|@owner|@worker/);
             assert.equal(driver.requests[0]?.prompt, "Answer normally.");
         } finally {
             await scheduler.stop();

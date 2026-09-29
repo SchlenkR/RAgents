@@ -94,7 +94,7 @@ test("opening snapshots return immediately and concurrent same-root calls share 
   const snapshot = only(await prompt(run.host.snapshot("run")));
   assert.equal(snapshot.state, "opening");
   assert.equal(snapshot.root, run.root);
-  assert.match(snapshot.summary!, /Test LSP lädt/);
+  assert.match(snapshot.summary!, /Test LSP loads/);
   assert.deepEqual(snapshot.files, []);
   loaded.resolve("Solution and projects loaded");
   assert.ok((await Promise.all([first, second])).every((message) => message.includes("Solution and projects loaded")));
@@ -138,15 +138,15 @@ test("a failed root reports its cause in diagnostics without blocking the other 
   assert.match(await run.host.open("run", run.second), /Second root loaded/);
   const report = await run.host.diagnostics("run", undefined, false);
   assert.match(report, /changed\.ts/);
-  assert.match(report, /für .*first nicht geöffnet: Solution load failed: first root is broken; typescript_open öffnet die Wurzel erneut/);
+  assert.match(report, /not open for .*first: Solution load failed: first root is broken; typescript_open opens the root again/);
   await assert.rejects(run.host.diagnostics("run", undefined, false, run.root), /first root is broken/);
   await run.host.close("run", run.second);
   await assert.rejects(run.host.diagnostics("run", undefined, false), /first root is broken/);
 
-  await assert.rejects(run.host.open("run", "../outside"), /außerhalb des Arbeitsverzeichnisses/);
+  await assert.rejects(run.host.open("run", "../outside"), /outside the working directory/);
   assert.ok((await run.host.snapshot("run")).instances.some((instance) => instance.state === "failed" && instance.root === path.resolve(path.dirname(run.root), "../outside")));
-  assert.match(await run.host.close("run", "../outside"), /beendet; 1 offene Instanz/);
-  assert.match(await run.host.close("run", run.root), /beendet; 0 offene Instanzen/);
+  assert.match(await run.host.close("run", "../outside"), /ended; 1 open instance/);
+  assert.match(await run.host.close("run", run.root), /ended; 0 open instances/);
   assert.deepEqual(await run.host.snapshot("run"), { instances: [] });
 });
 
@@ -194,7 +194,7 @@ test("an adapter cannot report ready after its process already exited", { timeou
     await session.shutdown();
     return "Late ready message";
   });
-  await assert.rejects(run.host.open("run", run.root), /während des Ladens beendet/);
+  await assert.rejects(run.host.open("run", run.root), /ended while loading/);
   const snapshot = only(await run.host.snapshot("run"));
   assert.equal(snapshot.state, "failed");
   assert.doesNotMatch(snapshot.summary!, /Late ready message/);
@@ -208,7 +208,7 @@ test("stopping during solution load closes the process and rejects late success 
     if (++attempt === 1) { entered.resolve(); return loaded.promise; }
     return "New start loaded";
   });
-  const opening = assert.rejects(run.host.open("run", run.root), /Start wurde beendet/);
+  const opening = assert.rejects(run.host.open("run", run.root), /start was ended/);
   await entered.promise;
   await prompt(run.host.stopSession("run"));
   assert.equal(run.sessions[0].exited, true);
@@ -232,9 +232,9 @@ test("a second root starts beside a loading one and both are closed separately",
   });
   const first = run.host.open("run", run.root);
   await entered.promise;
-  assert.match(await run.host.open("run", run.second), /Second root loaded \(Wurzel .*second\); 2 offene Instanzen von Test LSP/);
+  assert.match(await run.host.open("run", run.second), /Second root loaded \(root .*second\); 2 open instances of Test LSP/);
   loaded.resolve("First root loaded");
-  assert.match(await first, /First root loaded \(Wurzel .*first\); 2 offene Instanzen von Test LSP/);
+  assert.match(await first, /First root loaded \(root .*first\); 2 open instances of Test LSP/);
   assert.equal(run.sessions[0].exited, false);
   assert.equal(run.sessions[1].exited, false);
   assert.deepEqual(await run.host.snapshot("run"), {
@@ -243,15 +243,15 @@ test("a second root starts beside a loading one and both are closed separately",
       { state: "ready", root: run.second, summary: "Second root loaded", files: [] },
     ],
   });
-  assert.match(await run.host.close("run", run.second), /beendet; 1 offene Instanz in diesem Run/);
+  assert.match(await run.host.close("run", run.second), /ended; 1 open instance in this run/);
   assert.equal(run.sessions[1].exited, true);
   assert.deepEqual(await run.host.snapshot("run"), {
     instances: [{ state: "ready", root: run.root, summary: "First root loaded", files: [] }],
   });
-  assert.match(await run.host.close("run"), /eine Instanz beendet; keine offene Instanz mehr/);
+  assert.match(await run.host.close("run"), /one instance ended; no open instance left/);
   assert.equal(run.sessions[0].exited, true);
   assert.deepEqual(await run.host.snapshot("run"), { instances: [] });
-  assert.match(await run.host.close("run"), /ist in diesem Run nicht geöffnet/);
+  assert.match(await run.host.close("run"), /is not open in this run/);
 });
 
 test("shutdown during launch prevents any later process or ready state", { timeout: 5_000 }, async (t) => {
@@ -264,7 +264,7 @@ test("shutdown during launch prevents any later process or ready state", { timeo
     await release.promise;
     return launch(...args);
   });
-  const opening = assert.rejects(run.host.open("run", run.root), /Start wurde beendet/);
+  const opening = assert.rejects(run.host.open("run", run.root), /start was ended/);
   await entered.promise;
   assert.equal(only(await prompt(run.host.snapshot("run"))).state, "opening");
   await prompt(run.host.shutdown());
@@ -272,7 +272,7 @@ test("shutdown during launch prevents any later process or ready state", { timeo
   await opening;
   assert.equal(run.sessions.length, 0);
   assert.deepEqual(await run.host.snapshot("run"), { instances: [] });
-  await assert.rejects(run.host.open("run", run.root), /Start wurde beendet/);
+  await assert.rejects(run.host.open("run", run.root), /start was ended/);
 });
 
 test("stop invalidates an open still resolving its workspace", { timeout: 5_000 }, async (t) => {
@@ -285,7 +285,7 @@ test("stop invalidates an open still resolving its workspace", { timeout: 5_000 
     await release.promise;
     return context(runId);
   });
-  const opening = assert.rejects(run.host.open("run", run.root), /Start wurde beendet/);
+  const opening = assert.rejects(run.host.open("run", run.root), /start was ended/);
   await entered.promise;
   await run.host.stopSession("run");
   release.resolve();
@@ -330,7 +330,7 @@ const solutionAdapter = {
 };
 
 test("solutions come from git without node_modules, bin and obj, name their open state and fall back to the folder without git", { timeout: 10_000 }, async (t) => {
-  const run = await fixture(t, async (_session, selectedRoot) => `${path.basename(selectedRoot)} geladen`, {}, solutionAdapter);
+  const run = await fixture(t, async (_session, selectedRoot) => `${path.basename(selectedRoot)} loaded`, {}, solutionAdapter);
   const files = ["src/Demo.sln", "tools/Acme.slnx", "node_modules/pkg/Package.sln", "src/bin/Debug/Copy.sln", "src/obj/Copy.sln", ".hidden/Hidden.sln", "src/Demo.csproj"];
   for (const file of files) {
     await mkdir(path.dirname(path.join(run.directory, file)), { recursive: true });
@@ -350,7 +350,7 @@ test("solutions come from git without node_modules, bin and obj, name their open
   await writeFile(path.join(run.directory, ".gitignore"), "ignored/\n");
   await mkdir(path.join(run.directory, "ignored"));
   await writeFile(path.join(run.directory, "ignored/Ignored.sln"), "");
-  assert.match(await run.host.open("run", "src/Demo.sln"), /Demo\.sln geladen/);
+  assert.match(await run.host.open("run", "src/Demo.sln"), /Demo\.sln loaded/);
   assert.deepEqual(await run.host.solutions("run"), {
     source: "git",
     solutions: [
@@ -364,7 +364,7 @@ test("solutions come from git without node_modules, bin and obj, name their open
 test("an open with ifNoneOpen loads nothing while another open resolves or an instance exists", { timeout: 5_000 }, async (t) => {
   const entered = deferred();
   const release = deferred();
-  const run = await fixture(t, async () => "geladen");
+  const run = await fixture(t, async () => "loaded");
   const context = run.sandbox.contextFor;
   const blocking = t.mock.method(run.sandbox, "contextFor", async (runId: string) => {
     entered.resolve();
@@ -373,28 +373,28 @@ test("an open with ifNoneOpen loads nothing while another open resolves or an in
   });
   const first = run.host.open("run", run.root);
   await entered.promise;
-  assert.match(await run.host.open("run", run.second, true), /lädt .*second nicht: in diesem Run ist schon eine Instanz offen oder im Aufbau/);
+  assert.match(await run.host.open("run", run.second, true), /does not load .*second: an instance is already open or starting in this run/);
   release.resolve();
   await first;
   blocking.mock.restore();
-  assert.match(await run.host.open("run", run.second, true), /nicht: in diesem Run ist schon eine Instanz offen/);
+  assert.match(await run.host.open("run", run.second, true), /second: an instance is already open/);
   assert.equal(run.launches(), 1);
   await run.host.close("run");
-  assert.match(await run.host.open("run", run.second, true), /geladen \(Wurzel .*second\)/);
+  assert.match(await run.host.open("run", run.second, true), /loaded \(root .*second\)/);
   assert.equal(run.launches(), 2);
 });
 
 test("switching loads the chosen root without waiting, closes every other instance, keeps a loaded one and null closes all", { timeout: 5_000 }, async (t) => {
   const loaded = deferred<string>();
-  const run = await fixture(t, async (_session, selectedRoot) => selectedRoot === run.second ? loaded.promise : "Erste geladen");
+  const run = await fixture(t, async (_session, selectedRoot) => selectedRoot === run.second ? loaded.promise : "First loaded");
   await run.host.open("run", run.root);
-  assert.match(await prompt(run.host.switchTo("run", run.second)), /lädt .*second; eine andere Instanz beendet/);
+  assert.match(await prompt(run.host.switchTo("run", run.second)), /loads .*second; one other instance ended/);
   assert.equal(run.sessions[0].exited, true);
   assert.deepEqual((await run.host.snapshot("run")).instances.map((instance) => [instance.root, instance.state]), [[run.second, "opening"]]);
-  loaded.resolve("Zweite geladen");
+  loaded.resolve("Second loaded");
   await until(async () => only(await run.host.snapshot("run")).state === "ready");
-  assert.match(await run.host.switchTo("run", run.second), /behält .*second$/);
+  assert.match(await run.host.switchTo("run", run.second), /keeps .*second$/);
   assert.equal(run.launches(), 2);
-  assert.match(await run.host.switchTo("run", null), /eine Instanz beendet/);
+  assert.match(await run.host.switchTo("run", null), /one instance ended/);
   assert.deepEqual(await run.host.snapshot("run"), { instances: [] });
 });

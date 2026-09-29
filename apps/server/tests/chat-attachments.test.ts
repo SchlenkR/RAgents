@@ -52,12 +52,12 @@ test("attachment validation accepts the 20 MiB boundary without a recursive base
   const largest = attachment("large.bin", "application/octet-stream", Buffer.alloc(MAX_CHAT_ATTACHMENT_BYTES));
   assert.equal(parseChatAttachments([largest])[0].data.length, largest.data.length);
   assert.throws(() => parseChatAttachments([largest, attachment()]), /20 MiB/);
-  assert.throws(() => parseChatAttachments(Array.from({ length: 9 }, () => attachment())), /höchstens 8/);
+  assert.throws(() => parseChatAttachments(Array.from({ length: 9 }, () => attachment())), /at most 8/);
   for (const data of ["AA=", "%%%A", "AB==", "AAB=", "data:image/png;base64,AAAA"]) {
     assert.throws(() => parseChatAttachments([{ ...attachment(), data }]), /Base64/);
   }
   for (const name of ["../secret", "a\\b", "bad\nname", "", "."]) {
-    assert.throws(() => parseChatAttachments([{ ...attachment(), name }]), /Dateinamen/);
+    assert.throws(() => parseChatAttachments([{ ...attachment(), name }]), /file name/);
   }
   assert.throws(() => parseChatAttachments([{ ...attachment(), mediaType: "not-a-mime" }]), /MIME/);
   assert.equal(parseChatAttachments([attachment("movie.MOV", "")])[0].mediaType, "video/mov");
@@ -69,10 +69,10 @@ test("unsupported media is rejected before creating a run; UTF-8 is validated be
   const events: ChatEvent[] = [];
   const unsubscribe = data.session.subscribe((event) => events.push(event));
   try {
-    await assert.rejects(data.session.send("", [attachment()]), /test\/example unterstützt image nicht/);
-    await assert.rejects(data.session.send("", [attachment("video.mp4", "video/mp4")]), /video nicht/);
-    await assert.rejects(data.session.send("", [attachment("report.pdf", "application/pdf")]), /file nicht/);
-    await assert.rejects(data.session.send("", [attachment("bad.txt", "text/plain", Buffer.from([255]))]), /Ungültiger Anhang/);
+    await assert.rejects(data.session.send("", [attachment()]), /test\/example does not support image/);
+    await assert.rejects(data.session.send("", [attachment("video.mp4", "video/mp4")]), /does not support video/);
+    await assert.rejects(data.session.send("", [attachment("report.pdf", "application/pdf")]), /does not support file/);
+    await assert.rejects(data.session.send("", [attachment("bad.txt", "text/plain", Buffer.from([255]))]), /Invalid attachment/);
     assert.equal(data.journal.stateOf("attachment-run"), null);
     assert.deepEqual(await data.session.capabilities("primary", null), { model: "test/example", input: ["text"] });
     assert.deepEqual(events.filter((event) => event.kind === "system" || event.kind === "user"), []);
@@ -83,7 +83,7 @@ test("unsupported media is rejected before creating a run; UTF-8 is validated be
     assert.deepEqual(await data.session.capabilities("primary", null), { model: "test/image-capable", input: ["text", "image"] });
     await assert.rejects(data.session.selectStartOption("ragents.model", { model: "example", thinking: "off" }, null), (error: unknown) =>
       error instanceof DomainError && error.code === "model-history-unsupported" && error.status === 400 && /image/.test(error.message));
-    assert.deepEqual(await data.session.capabilities("primary", null), { model: "test/image-capable", input: ["text", "image"] }, "die abgelehnte Wahl ändert nichts");
+    assert.deepEqual(await data.session.capabilities("primary", null), { model: "test/image-capable", input: ["text", "image"] }, "the rejected choice changes nothing");
   } finally { unsubscribe(); await data.close(); }
 });
 
@@ -110,7 +110,7 @@ test("attachment-only inputs preserve bytes and replay metadata while journals c
     const user = events.find((event) => event.kind === "user");
     assert.ok(user && user.kind === "user");
     assert.deepEqual(user.attachments, [loaded.attachment]);
-    await data.session.sendToActor(view.primaryActorId!, "Weiter", [attachment("report.pdf", "application/pdf")]);
+    await data.session.sendToActor(view.primaryActorId!, "Continue", [attachment("report.pdf", "application/pdf")]);
     assert.equal(data.runtime.view("attachment-run").inputs.length, 2);
     assert.equal(data.runtime.view("attachment-run").inputs[1].origin, "human");
     const other = data.runtime.createRun({ commandId: "other-run" }, { runId: "other-run", title: "Other", ownerHandle: "owner", ownerDisplayName: "Owner" });
@@ -146,7 +146,7 @@ test("TypeScript actors reject chat before publishing attachments or inputs whil
       ];
       for (const send of sends) {
         for (const files of [undefined, [attachment()]]) {
-          await assert.rejects(send(files ? "" : "Starte erneut", files), (error: unknown) => {
+          await assert.rejects(send(files ? "" : "Start again", files), (error: unknown) => {
             assert.ok(error instanceof DomainError);
             assert.equal(error.code, "actor-chat-unsupported");
             assert.equal(error.status, 400);
@@ -188,7 +188,7 @@ test("chat methods await enqueue, attachments are delivered as files and oversiz
   assert.match(download.headers.get("content-disposition") ?? "", /^attachment;/);
   await download.arrayBuffer();
   assert.deepEqual((await server.call(coreContracts.chat.capabilities.id, { runId, actor: "primary" })).result, { input: ["text", "image"], model: "test/example" });
-  assert.equal((await server.call(coreContracts.chat.sendToActor.id, { runId, actorId: view.primaryActorId, text: "Direkt", attachments: [sent] })).result, null);
+  assert.equal((await server.call(coreContracts.chat.sendToActor.id, { runId, actorId: view.primaryActorId, text: "Direct", attachments: [sent] })).result, null);
   assert.equal(data.runtime.view(runId).inputs.length, 2);
   const unsupported = await server.call(coreContracts.chat.send.id, { runId, attachments: [attachment("clip.mp4", "video/mp4")] });
   assert.equal((unsupported.error?.data as { status: number }).status, 400);
@@ -201,9 +201,9 @@ test("chat methods await enqueue, attachments are delivered as files and oversiz
   data.runtime.selectPrimaryActor({ actorId: view.ownerId, commandId: "primary-script" }, view.id, script.id);
   const before = structuredClone(data.runtime.events(view.id));
   const attempts = [
-    server.call(coreContracts.chat.send.id, { runId, text: "Starte erneut", attachments: [sent] }),
-    server.call(coreContracts.chat.sendToActor.id, { runId, actorId: script.id, text: "Starte erneut", attachments: [sent] }),
-    server.call(coreContracts.chat.sendToActor.id, { runId, actorId: `@${script.handle}`, text: "Starte erneut", attachments: [sent] }),
+    server.call(coreContracts.chat.send.id, { runId, text: "Start again", attachments: [sent] }),
+    server.call(coreContracts.chat.sendToActor.id, { runId, actorId: script.id, text: "Start again", attachments: [sent] }),
+    server.call(coreContracts.chat.sendToActor.id, { runId, actorId: `@${script.handle}`, text: "Start again", attachments: [sent] }),
   ];
   for (const rejected of await Promise.all(attempts)) {
     assert.equal((rejected.error?.data as { code: string; status: number }).code, "actor-chat-unsupported");

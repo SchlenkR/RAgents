@@ -14,32 +14,32 @@ import type { TitleModelSettings } from "../title-settings-contract.js";
 
 export { runContracts };
 
-const runId = Type.String({ minLength: 1, maxLength: 64, description: "Kennung des Runs" });
+const runId = Type.String({ minLength: 1, maxLength: 64, description: "Id of the run" });
 
 const attachment = Type.Object({
   name: Type.String({ minLength: 1 }),
   mediaType: Type.String({ minLength: 1 }),
-  data: Type.String({ description: "Inhalt als Base64" }),
+  data: Type.String({ description: "Content as Base64" }),
 }, { additionalProperties: false });
 
 const sessionInfo = openJson<SessionInfo>("SessionInfo");
 
-/** Rechte je Run prüft der Host dynamisch; Verträge ohne `rights` nennen ihre Regel in der Beschreibung. */
-/** Was eine Oberfläche beim Start vom Server bekommt: das Profil der Plugins und die RAgents-Fassung des Servers, gegen die sie ihre eigene prüft. */
+/** The host checks per-run rights dynamically; contracts without `rights` state their rule in the description. */
+/** What a UI gets from the server at startup: the plugins' profile and the server's RAgents version, against which it checks its own. */
 export type HostBootstrap = PublicPluginProfile & { readonly version: string };
 
 export const coreContracts = {
   runs: {
     list: defineOperation({
       id: "ragents.runs.list",
-      description: "Alle Runs des Profils mit Titel, Zeiten und Metadaten. Recht: runs.read.",
+      description: "All runs of the profile with title, times and metadata. Right: runs.read.",
       rights: ["runs.read"],
       input: Type.Object({}, { additionalProperties: false }),
       result: Type.Array(sessionInfo),
     }),
     delete: defineOperation({
       id: "ragents.runs.delete",
-      description: "Einen Run mit seinen Daten löschen. Rechte: runs.read und runs.delete.",
+      description: "Delete a run with its data. Rights: runs.read and runs.delete.",
       rights: ["runs.read", "runs.delete"],
       input: Type.Object({ runId }, { additionalProperties: false }),
       result: Type.Null(),
@@ -48,43 +48,43 @@ export const coreContracts = {
   chat: {
     send: defineOperation({
       id: "ragents.chat.send",
-      description: "Eine Nachricht an den Koordinator des Runs; startet einen neuen Run oder funkt in einen laufenden. Mit entry startet sie den Run über diese Skill-Vorlage und deren festgelegte Startoptionen. Rechte: runs.read und runs.write, für einen neuen Run runs.create; beim globalen Chat dessen Rechte.",
+      description: "A message to the run's coordinator; starts a new run or cuts into a running one. With entry, it starts the run through this skill template and the start options it fixes. Rights: runs.read and runs.write, for a new run runs.create; for the global chat its rights.",
       input: Type.Object({
         runId,
         text: Type.Optional(Type.String()),
         attachments: Type.Optional(Type.Array(attachment)),
         userLocation: Type.Optional(openJson<ChatUserLocation>("ChatUserLocation")),
-        entry: Type.Optional(Type.String({ minLength: 1, description: "Kennung der Skill-Vorlage, über die diese Nachricht den Run startet" })),
+        entry: Type.Optional(Type.String({ minLength: 1, description: "Id of the skill template through which this message starts the run" })),
       }, { additionalProperties: false }),
       result: Type.Null(),
     }),
     sendToActor: defineOperation({
       id: "ragents.chat.sendToActor",
-      description: "Eine Nachricht an einen bestimmten LLM-Actor des Runs. Rechte wie ragents.chat.send.",
+      description: "A message to a specific LLM actor of the run. Rights as for ragents.chat.send.",
       input: Type.Object({ runId, actorId: Type.String({ minLength: 1 }), text: Type.Optional(Type.String()), attachments: Type.Optional(Type.Array(attachment)) }, { additionalProperties: false }),
       result: Type.Null(),
     }),
     start: defineOperation({
       id: "ragents.chat.start",
-      description: "Einen Run über eine Script-Vorlage starten, ohne Nachricht; die Startoptionen, die die Vorlage festlegt, gelten. Rechte: runs.read, runs.write und die Freigabe der Vorlage.",
+      description: "Start a run through a script template, without a message; the start options the template fixes apply. Rights: runs.read, runs.write and the template's release.",
       input: Type.Object({ runId, entry: Type.String({ minLength: 1 }), input: Type.Optional(Type.Any()) }, { additionalProperties: false }),
       result: Type.Null(),
     }),
     stop: defineOperation({
       id: "ragents.chat.stop",
-      description: "Not-Aus für den ganzen Run: bricht alle Turns und einen laufenden Start ab und stoppt alle Actors. Einen einzelnen Turn unterbricht ragents.runs.interruptTurn. Rechte: runs.read und runs.write.",
+      description: "Emergency stop for the whole run: aborts all turns and a running start and stops all actors. ragents.runs.interruptTurn interrupts a single turn. Rights: runs.read and runs.write.",
       input: Type.Object({ runId }, { additionalProperties: false }),
       result: Type.Null(),
     }),
     capabilities: defineOperation({
       id: "ragents.chat.capabilities",
-      description: "Welche Anhänge das Modell eines Actors annimmt; der Modellname erscheint nur mit runs.inspect. Recht: runs.read.",
+      description: "Which attachments an actor's model accepts; the model name appears only with runs.inspect. Right: runs.read.",
       input: Type.Object({ runId, actor: Type.Optional(Type.String({ minLength: 1 })) }, { additionalProperties: false }),
       result: openJson<ChatAttachmentCapabilities>("ChatAttachmentCapabilities"),
     }),
     actorHistory: defineOperation({
       id: "ragents.chat.actorHistory",
-      description: "Die Gesprächsverläufe aller Actors des Runs, ohne runs.inspect ohne Werkzeugdetails. Recht: runs.read.",
+      description: "The conversation histories of all actors of the run, without runs.inspect without tool details. Right: runs.read.",
       input: Type.Object({ runId }, { additionalProperties: false }),
       result: openJson<ActorConversations>("ActorConversations"),
     }),
@@ -92,14 +92,14 @@ export const coreContracts = {
   startOptions: {
     list: defineOperation({
       id: "ragents.startOptions.list",
-      description: "Die Startoptionen eines Runs mit Wert und Darstellung, nur die, deren eigene Rechte der Aufrufer hat; die Modellwahl etwa verlangt runs.inspect. Nach dem Start ist jede außer den änderbaren gesperrt. Rechte: runs.read, runs.create.",
+      description: "The start options of a run with value and presentation, only those whose own rights the caller has; the model choice, for example, requires runs.inspect. After the start, all except the changeable ones are locked. Rights: runs.read, runs.create.",
       rights: ["runs.read", "runs.create"],
       input: Type.Object({ runId }, { additionalProperties: false }),
       result: Type.Array(openJson<StartOptionState>("StartOptionState")),
     }),
     select: defineOperation({
       id: "ragents.startOptions.select",
-      description: "Eine Startoption vor dem Start wählen, eine änderbare wie die Modellwahl auch danach mit Wirkung ab dem nächsten Turn; fehlt ein Recht der Option selbst, scheitert die Wahl mit access-denied. Rechte: runs.read, runs.write, runs.create.",
+      description: "Choose a start option before the start, a changeable one such as the model choice also afterwards, taking effect from the next turn; if a right of the option itself is missing, the choice fails with access-denied. Rights: runs.read, runs.write, runs.create.",
       rights: ["runs.read", "runs.write", "runs.create"],
       input: Type.Object({ runId, optionId: Type.String({ minLength: 1, maxLength: 128 }), value: Type.Any() }, { additionalProperties: false }),
       result: openJson<StartOptionState>("StartOptionState"),
@@ -108,25 +108,25 @@ export const coreContracts = {
   transfer: {
     export: defineOperation({
       id: "ragents.runs.export",
-      description: "Einen gestoppten Run als Archiv holen: Journal, Payloads, Modellkontexte und seine Plugin-Ablagen. Rechte: runs.read und runs.inspect.",
+      description: "Fetch a stopped run as an archive: journal, payloads, model contexts and its plugin stores. Rights: runs.read and runs.inspect.",
       rights: ["runs.read", "runs.inspect"],
       input: Type.Object({ runId }, { additionalProperties: false }),
       result: openJson<RunTransferExport>("RunTransferExport"),
     }),
     import: defineOperation({
       id: "ragents.runs.import",
-      description: "Ein Run-Archiv annehmen, sein Journal wiedergeben und den Run gestoppt öffnen. Rechte: runs.read, runs.write und runs.create.",
+      description: "Accept a run archive, replay its journal and open the run stopped. Rights: runs.read, runs.write and runs.create.",
       rights: ["runs.read", "runs.write", "runs.create"],
       input: Type.Object({
-        archive: Type.String({ minLength: 1, description: "Das tar.gz des Exports als Base64" }),
-        workspacePath: Type.Optional(Type.String({ minLength: 1, description: "Ersatzordner auf diesem Server für einen Run mit Bindung path" })),
+        archive: Type.String({ minLength: 1, description: "The export's tar.gz as Base64" }),
+        workspacePath: Type.Optional(Type.String({ minLength: 1, description: "Replacement folder on this server for a run with binding path" })),
       }, { additionalProperties: false }),
       result: openJson<RunTransferImport>("RunTransferImport"),
     }),
   },
   prepare: defineOperation({
     id: "ragents.runs.prepare",
-    description: "Den Auftrag eines neuen Runs im Gespräch mit einer eigenen Koordinator-Instanz ausarbeiten. Rechte: runs.read, runs.write, runs.create.",
+    description: "Work out the task of a new run in a conversation with a separate coordinator instance. Rights: runs.read, runs.write, runs.create.",
     rights: ["runs.read", "runs.write", "runs.create"],
     input: Type.Intersect([Type.Object({ runId }), openJson<RunPreparationRequest>("RunPreparationRequest")]),
     result: openJson<RunPreparationResponse>("RunPreparationResponse"),
@@ -134,28 +134,28 @@ export const coreContracts = {
   settings: {
     read: defineOperation({
       id: "ragents.settings.read",
-      description: "Modelle, Plugins, Werkzeuge, Skills und Laufzeitinformationen des Profils. Recht: settings.read; nur lokal oder mit Zugang.",
+      description: "Models, plugins, tools, skills and runtime information of the profile. Right: settings.read; only locally or with access.",
       rights: ["settings.read"],
       input: Type.Object({}, { additionalProperties: false }),
       result: openJson<SettingsResponse>("SettingsResponse"),
     }),
     skill: defineOperation({
       id: "ragents.settings.skill",
-      description: "Die Dateien eines registrierten Skills lesen; null, wenn er nicht registriert ist. Recht: settings.read.",
+      description: "Read the files of a registered skill; null if it is not registered. Right: settings.read.",
       rights: ["settings.read"],
       input: Type.Object({ id: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
       result: Type.Union([openJson<SettingsSkillDetail>("SettingsSkillDetail"), Type.Null()]),
     }),
     titlesRead: defineOperation({
       id: "ragents.settings.titles.read",
-      description: "Das Modell für automatische Überschriften und die Auswahl lesen. Recht: settings.read.",
+      description: "Read the model for automatic titles and the choices. Right: settings.read.",
       rights: ["settings.read"],
       input: Type.Object({}, { additionalProperties: false }),
       result: openJson<TitleModelSettings>("TitleModelSettings"),
     }),
     titlesSave: defineOperation({
       id: "ragents.settings.titles.save",
-      description: "Das Modell für automatische Überschriften setzen oder die Erzeugung ausschalten. Recht: settings.write.",
+      description: "Set the model for automatic titles or turn their generation off. Right: settings.write.",
       rights: ["settings.write"],
       input: Type.Object({ value: Type.Any() }, { additionalProperties: false }),
       result: openJson<TitleModelSettings>("TitleModelSettings"),
@@ -164,7 +164,7 @@ export const coreContracts = {
   plugins: {
     bootstrap: defineOperation({
       id: "ragents.plugins.bootstrap",
-      description: "Produkt, aktive Plugins mit Web-Konfiguration, freigegebene Vorlagen und die RAgents-Fassung des Servers für die Oberfläche.",
+      description: "Product, active plugins with web configuration, released templates and the server's RAgents version for the UI.",
       input: Type.Object({}, { additionalProperties: false }),
       result: openJson<HostBootstrap>("HostBootstrap"),
     }),
@@ -172,7 +172,7 @@ export const coreContracts = {
   external: {
     set: defineOperation({
       id: "ragents.external.set",
-      description: "Den Zugang von außen ein- oder ausschalten; nur vom eigenen Rechner. Recht: settings.write.",
+      description: "Turn external access on or off; only from the local machine. Right: settings.write.",
       rights: ["settings.write"],
       input: Type.Object({ state: Type.Union([Type.Literal("on"), Type.Literal("off")]) }, { additionalProperties: false }),
       result: Type.Object({ external: Type.Boolean() }),
@@ -181,20 +181,20 @@ export const coreContracts = {
   channels: {
     runs: defineChannel({
       id: "ragents.runs",
-      description: "Meldet jede Änderung der Run-Liste. Recht: runs.read.",
+      description: "Reports every change of the run list. Right: runs.read.",
       rights: ["runs.read"],
       params: Type.Object({}, { additionalProperties: false }),
       message: Type.Object({ type: Type.Literal("changed") }),
     }),
     run: defineChannel({
       id: "ragents.run",
-      description: "Meldet jedes neue Journalereignis eines Runs; erst ready, dann run. Rechte wie das Lesen des Runs.",
+      description: "Reports every new journal event of a run; first ready, then run. Rights as for reading the run.",
       params: Type.Object({ runId }, { additionalProperties: false }),
       message: Type.Object({ kind: Type.Union([Type.Literal("ready"), Type.Literal("run")]) }),
     }),
     chat: defineChannel({
       id: "ragents.chat",
-      description: "Der Chatverlauf des Koordinators: erst der gespeicherte Verlauf, dann live. Rechte wie das Lesen des Runs.",
+      description: "The coordinator's chat history: first the stored history, then live. Rights as for reading the run.",
       params: Type.Object({ runId }, { additionalProperties: false }),
       message: openJson<ChatEvent>("ChatEvent"),
     }),

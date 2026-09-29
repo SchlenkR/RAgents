@@ -32,7 +32,7 @@ import { processExists } from "../src/managed-process.ts";
 const until = async (condition: () => boolean, timeoutMs = 5000): Promise<void> => {
   const started = Date.now();
   while (!condition()) {
-    if (Date.now() - started > timeoutMs) throw new Error("Bedingung wurde nicht erfüllt.");
+    if (Date.now() - started > timeoutMs) throw new Error("Condition was not met.");
     await new Promise((resolve) => setTimeout(resolve, 20));
   }
 };
@@ -55,20 +55,20 @@ const demoAdapter = {
   id: "demo", label: "Demo LSP", languages: { ".demo": "demo" }, rootDescription: "directory",
   resolveRoot: async (_workspace: string, root: string) => root,
   rootDirectory: (root: string) => root,
-  launch: async () => { throw new Error("Der Test startet keinen Sprachserver"); },
-  open: async () => "unbenutzt",
+  launch: async () => { throw new Error("The test starts no language server"); },
+  open: async () => "unused",
 };
 
-test("die Sprachserver-Operationen prüfen ihre Eingabe, bevor sie eine Wurzel anlegen", async () => {
+test("the language server operations check their input before they create a root", async () => {
   const executor = new WorkspaceOperationExecutor({ contextFor: contextIn(tmpdir()), modules: [languageServerModule([demoAdapter])] });
-  await assert.rejects(executor.execute("run-1", "demo_open", {}), coded("language-server-input-invalid", /demo_open: root fehlt/));
-  await assert.rejects(executor.execute("run-1", "demo_open", null), coded("language-server-input-invalid", /root fehlt/));
-  await assert.rejects(executor.execute("run-1", "demo_open", { root: 3 }), coded("language-server-input-invalid", /root muss ein Text sein/));
-  await assert.rejects(executor.execute("run-1", "demo_close", "alles"), coded("language-server-input-invalid", /ein Objekt/));
-  await assert.rejects(executor.execute("run-1", "demo_diagnostics", { paths: "a.demo" }), coded("language-server-input-invalid", /paths muss eine Liste von Texten/));
-  await assert.rejects(executor.execute("run-1", "demo_diagnostics", { warnings: "ja" }), coded("language-server-input-invalid", /warnings muss true oder false/));
+  await assert.rejects(executor.execute("run-1", "demo_open", {}), coded("language-server-input-invalid", /demo_open: root is missing/));
+  await assert.rejects(executor.execute("run-1", "demo_open", null), coded("language-server-input-invalid", /root is missing/));
+  await assert.rejects(executor.execute("run-1", "demo_open", { root: 3 }), coded("language-server-input-invalid", /root must be a text/));
+  await assert.rejects(executor.execute("run-1", "demo_close", "everything"), coded("language-server-input-invalid", /an object/));
+  await assert.rejects(executor.execute("run-1", "demo_diagnostics", { paths: "a.demo" }), coded("language-server-input-invalid", /paths must be a list of texts/));
+  await assert.rejects(executor.execute("run-1", "demo_diagnostics", { warnings: "yes" }), coded("language-server-input-invalid", /warnings must be true or false/));
   assert.deepEqual(await executor.execute("run-1", "demo_snapshot", null), { instances: [] });
-  await assert.rejects(executor.execute("run-1", "demo_open", { root: "a", ifNoneOpen: "ja" }), coded("language-server-input-invalid", /ifNoneOpen muss true oder false sein/));
+  await assert.rejects(executor.execute("run-1", "demo_open", { root: "a", ifNoneOpen: "yes" }), coded("language-server-input-invalid", /ifNoneOpen must be true or false/));
   await assert.rejects(executor.execute("run-1", "demo_solutions", null), coded("workspace-operation-unknown"));
   await assert.rejects(executor.execute("run-1", "demo_switch", { root: null }), coded("workspace-operation-unknown"));
   await executor.shutdown();
@@ -76,24 +76,24 @@ test("die Sprachserver-Operationen prüfen ihre Eingabe, bevor sie eine Wurzel a
     contextFor: contextIn(tmpdir()),
     modules: [languageServerModule([{ ...demoAdapter, solutionExtensions: [".demo"] }])],
   });
-  await assert.rejects(withSolutions.execute("run-1", "demo_switch", {}), coded("language-server-input-invalid", /demo_switch: root muss ein Text oder null sein/));
-  await assert.rejects(withSolutions.execute("run-1", "demo_switch", { root: 3 }), coded("language-server-input-invalid", /root muss ein Text oder null sein/));
-  assert.match(await withSolutions.execute("run-1", "demo_switch", { root: null }) as string, /ist in diesem Run nicht geöffnet/);
+  await assert.rejects(withSolutions.execute("run-1", "demo_switch", {}), coded("language-server-input-invalid", /demo_switch: root must be a text or null/));
+  await assert.rejects(withSolutions.execute("run-1", "demo_switch", { root: 3 }), coded("language-server-input-invalid", /root must be a text or null/));
+  assert.match(await withSolutions.execute("run-1", "demo_switch", { root: null }) as string, /is not open in this run/);
   await withSolutions.shutdown();
 });
 
-test("jede Operation gehört genau einem Modul, eine unbekannte ist ein Fehler mit Kennung", async () => {
+test("every operation belongs to exactly one module, an unknown one is an error with a code", async () => {
   const echo = (): WorkspaceExecutorModule => ({ operations: { echo: async ({ input }) => input } });
   assert.throws(
     () => new WorkspaceOperationExecutor({ contextFor: contextIn(tmpdir()), modules: [echo, echo] }),
-    /Die Operation echo ist im Executor doppelt registriert/,
+    /The operation echo is registered twice in the executor/,
   );
   const executor = new WorkspaceOperationExecutor({ contextFor: contextIn(tmpdir()), modules: [echo] });
-  assert.equal(await executor.execute("run-1", "echo", "hallo"), "hallo");
-  await assert.rejects(executor.execute("run-1", "grep", null), coded("workspace-operation-unknown", /kennt die Operation grep nicht/));
+  assert.equal(await executor.execute("run-1", "echo", "hello"), "hello");
+  await assert.rejects(executor.execute("run-1", "grep", null), coded("workspace-operation-unknown", /does not know the operation grep/));
 });
 
-test("der Executor bringt keinen Sprachserver mit; jeden fügt ein Beitrag hinzu", async () => {
+test("the executor brings no language server along; each one is added by a contribution", async () => {
   const bare = new WorkspaceOperationExecutor({ contextFor: contextIn(tmpdir()), modules: workspaceExecutorModules({ contributions: [] }) });
   await assert.rejects(bare.execute("run-1", "demo_snapshot", null), coded("workspace-operation-unknown"));
   await bare.shutdown();
@@ -103,10 +103,10 @@ test("der Executor bringt keinen Sprachserver mit; jeden fügt ein Beitrag hinzu
   });
   assert.deepEqual(await contributed.execute("run-1", "demo_snapshot", null), { instances: [] });
   await contributed.shutdown();
-  assert.throws(() => workspaceExecutorModules({ contributions: [{ languageServers: [demoAdapter] }, { languageServers: [demoAdapter] }] }), /Der Sprachserver demo kommt im Executor zweimal vor/);
+  assert.throws(() => workspaceExecutorModules({ contributions: [{ languageServers: [demoAdapter] }, { languageServers: [demoAdapter] }] }), /The language server demo occurs twice in the executor/);
 });
 
-test("der Fußabdruck einer Eingabe nennt ihre Wurzeln und ihre Laufzeit, erklärt vom Modul der Operation", async () => {
+test("the footprint of an input names its roots and its running time, declared by the module of the operation", async () => {
   const executor = new WorkspaceOperationExecutor({
     contextFor: contextIn(tmpdir()),
     modules: workspaceExecutorModules({ contributions: [{ languageServers: [demoAdapter] }] }),
@@ -124,63 +124,63 @@ test("der Fußabdruck einer Eingabe nennt ihre Wurzeln und ihre Laufzeit, erklä
   assert.deepEqual(roots(FILE_OPERATIONS.list, { path: "@actors" }), { aliases: [], runRoot: true });
   assert.deepEqual(executor.footprintOf(COMMAND_OPERATIONS.run, { program: "git", timeoutMs: 5_000 }), { roots: { aliases: [], runRoot: true }, durationMs: 5_000 });
   assert.deepEqual(executor.footprintOf(PROCESS_OPERATIONS.snapshot, null), { roots: { aliases: [], runRoot: false } });
-  assert.deepEqual(roots("read", "kein Objekt"), { aliases: [], runRoot: false });
-  const stray: WorkspaceModuleFactory = () => ({ operations: {}, footprints: { fremd: () => ({ roots: { aliases: [], runRoot: false } }) } });
-  assert.throws(() => new WorkspaceOperationExecutor({ contextFor: contextIn(tmpdir()), modules: [stray] }), /Fußabdruck für fremd, eine Operation, die es nicht hat/);
+  assert.deepEqual(roots("read", "not an object"), { aliases: [], runRoot: false });
+  const stray: WorkspaceModuleFactory = () => ({ operations: {}, footprints: { stray: () => ({ roots: { aliases: [], runRoot: false } }) } });
+  assert.throws(() => new WorkspaceOperationExecutor({ contextFor: contextIn(tmpdir()), modules: [stray] }), /footprint for stray, an operation it does not have/);
   await executor.shutdown();
 });
 
-test("ein Alias nennt genau eine Wurzel, und unter einem gemeinsamen Alias wie @skills wählt der erste Ordner die Wurzel", async () => {
+test("an alias names exactly one root, and under a shared alias like @skills the first folder chooses the root", async () => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-shared-alias-")));
   const notes = path.join(directory, "skills", "notes");
   await mkdir(notes, { recursive: true });
-  await writeFile(path.join(notes, "SKILL.md"), "Notizen\n");
+  await writeFile(path.join(notes, "SKILL.md"), "Notes\n");
   const context = (roots: readonly { directory: string; alias: string }[]) => workspaceProcessContext({
     runId: "run-1", cwd: directory, root: directory, home: { home: directory }, logDirectory: directory, hostRoot: undefined, readOnlyRoots: roots,
   });
   try {
-    assert.throws(() => context([{ directory: notes, alias: "@skills/notes" }, { directory, alias: "@skills/notes" }]), /@skills\/notes nennt mehr als eine Wurzel/);
-    assert.throws(() => context([{ directory: notes, alias: "@skills" }, { directory: notes, alias: "@skills/notes" }]), /@skills nennt mehr als eine Wurzel/);
+    assert.throws(() => context([{ directory: notes, alias: "@skills/notes" }, { directory, alias: "@skills/notes" }]), /@skills\/notes names more than one root/);
+    assert.throws(() => context([{ directory: notes, alias: "@skills" }, { directory: notes, alias: "@skills/notes" }]), /@skills names more than one root/);
     const executor = new WorkspaceOperationExecutor({ contextFor: async () => context([{ directory: notes, alias: "@skills/notes" }]), modules: [fileModule] });
     for (const input of [{ alias: "@skills/notes", path: "SKILL.md" }, { alias: "@skills", path: "notes/SKILL.md" }]) {
       const text = await executor.execute("run-1", FILE_OPERATIONS.read, input) as FileText;
-      assert.equal(text.previewable ? text.content : undefined, "Notizen\n", JSON.stringify(input));
+      assert.equal(text.previewable ? text.content : undefined, "Notes\n", JSON.stringify(input));
     }
-    await assert.rejects(executor.execute("run-1", FILE_OPERATIONS.read, { alias: "@skills", path: "fehlt/SKILL.md" }),
-      coded("workspace-alias-unknown", /Unbekannter Arbeitsverzeichnis-Alias: @skills\/fehlt \(bekannt: @skills\/notes\)/));
+    await assert.rejects(executor.execute("run-1", FILE_OPERATIONS.read, { alias: "@skills", path: "missing/SKILL.md" }),
+      coded("workspace-alias-unknown", /Unknown working directory alias: @skills\/missing \(known: @skills\/notes\)/));
     await assert.rejects(executor.execute("run-1", FILE_OPERATIONS.list, { alias: "@skills", path: "" }), coded("workspace-alias-unknown"));
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
 });
 
-test("Fortschritt ist ein JSON-Wert, Anmerkungen kommen aus allen Modulen, stopRun und shutdown erreichen jedes Modul", async () => {
+test("progress is a JSON value, annotations come from all modules, stopRun and shutdown reach every module", async () => {
   const steps: string[] = [];
   const reporting: WorkspaceModuleFactory = (host) => ({
     operations: {
       report: async ({ runId, progress }) => {
         progress?.({ step: 1, runId });
-        return host.annotate(runId, "/datei.ts");
+        return host.annotate(runId, "/file.ts");
       },
     },
-    annotate: async () => "erste Anmerkung",
+    annotate: async () => "first annotation",
     stopRun: async (runId) => { steps.push(`stop ${runId}`); },
     shutdown: async () => { steps.push("shutdown"); },
   });
   const quiet: WorkspaceModuleFactory = () => ({
     operations: {},
-    annotate: async (_runId, file) => `zweite Anmerkung zu ${file}`,
+    annotate: async (_runId, file) => `second annotation for ${file}`,
     stopRun: async (runId) => { steps.push(`still ${runId}`); },
   });
   const executor = new WorkspaceOperationExecutor({ contextFor: contextIn(tmpdir()), modules: [reporting, quiet] });
   const progress: unknown[] = [];
   const note = await executor.execute("run-1", "report", null, { onProgress: (value) => progress.push(value) });
   assert.deepEqual(progress, [{ step: 1, runId: "run-1" }]);
-  assert.equal(note, "erste Anmerkung\nzweite Anmerkung zu /datei.ts");
+  assert.equal(note, "first annotation\nsecond annotation for /file.ts");
   await executor.stopRun("run-1");
   await executor.shutdown();
   assert.deepEqual(steps, ["stop run-1", "still run-1", "shutdown"]);
-  await assert.rejects(executor.execute("run-1", "report", null, { untilAborted: true }), /braucht dafür ein Abbruchsignal/);
+  await assert.rejects(executor.execute("run-1", "report", null, { untilAborted: true }), /needs an abort signal for that/);
 });
 
 const fileFixture = async () => {
@@ -189,13 +189,13 @@ const fileFixture = async () => {
   const actors = path.join(directory, "actors");
   const outside = path.join(directory, "outside");
   await Promise.all([path.join(workspace, "src"), path.join(workspace, ".git"), actors, outside].map((entry) => mkdir(entry, { recursive: true })));
-  await writeFile(path.join(workspace, "notes.md"), "Grüße aus dem Run\n");
+  await writeFile(path.join(workspace, "notes.md"), "Greetings from the run\n");
   await writeFile(path.join(workspace, ".env"), "TOKEN=1\n");
   await writeFile(path.join(workspace, "app.bin"), Buffer.from([0x50, 0x00, 0x4b]));
   await writeFile(path.join(workspace, "big.txt"), "x".repeat(FILE_READ_LIMIT + 1));
   await writeFile(path.join(workspace, "src", "index.ts"), "export const x = 1;\n");
   await writeFile(path.join(actors, "setup.ts"), "return 1;\n");
-  await writeFile(path.join(outside, "secret.txt"), "nicht für den Run\n");
+  await writeFile(path.join(outside, "secret.txt"), "not for the run\n");
   await symlink(outside, path.join(workspace, "link-out"));
   const executor = new WorkspaceOperationExecutor({ contextFor: contextIn(workspace, { "@actors": actors }), modules: [fileModule] });
   return {
@@ -209,7 +209,7 @@ const fileFixture = async () => {
   };
 };
 
-test("Dateien: die Liste nennt Ordner zuerst, dann alphabetisch, relativ zur Wurzel des Runs", async () => {
+test("files: the listing names folders first, then alphabetically, relative to the root of the run", async () => {
   const f = await fileFixture();
   try {
     const root = await f.list("");
@@ -226,45 +226,45 @@ test("Dateien: die Liste nennt Ordner zuerst, dann alphabetisch, relativ zur Wur
   }
 });
 
-test("Dateien: kein .., kein absoluter Pfad, kein Ausbruch über Symlinks, fehlende Pfade mit eigener Kennung", async () => {
+test("files: no .., no absolute path, no escape through symlinks, missing paths with their own code", async () => {
   const f = await fileFixture();
   try {
-    await assert.rejects(f.list("../outside"), coded("workspace-path-invalid", /Ungültiger Pfad: \.\.\/outside/));
+    await assert.rejects(f.list("../outside"), coded("workspace-path-invalid", /Invalid path: \.\.\/outside/));
     await assert.rejects(f.list("/etc"), coded("workspace-path-invalid"));
     await assert.rejects(f.read("src\\index.ts"), coded("workspace-path-invalid"));
-    await assert.rejects(f.read("link-out/secret.txt"), coded("workspace-path-invalid", /außerhalb des Arbeitsverzeichnisses/));
+    await assert.rejects(f.read("link-out/secret.txt"), coded("workspace-path-invalid", /outside the working directory/));
     await assert.rejects(f.list("link-out"), coded("workspace-path-invalid"));
-    await assert.rejects(f.list("nirgends"), coded("workspace-path-not-found", /Nicht gefunden: nirgends/));
-    await assert.rejects(f.list("notes.md"), coded("workspace-path-invalid", /Kein Verzeichnis: notes\.md/));
-    await assert.rejects(f.read("src"), coded("workspace-path-invalid", /Keine Datei: src/));
+    await assert.rejects(f.list("nowhere"), coded("workspace-path-not-found", /Not found: nowhere/));
+    await assert.rejects(f.list("notes.md"), coded("workspace-path-invalid", /Not a directory: notes\.md/));
+    await assert.rejects(f.read("src"), coded("workspace-path-invalid", /Not a file: src/));
     await assert.rejects(f.executor.execute("run-1", FILE_OPERATIONS.read, {}), coded("workspace-path-invalid"));
   } finally {
     await f.close();
   }
 });
 
-test("Dateien: Text kommt zurück, eine binäre oder zu große Datei nennt den Grund, ein Alias wählt seine Wurzel", async () => {
+test("files: text comes back, a binary or too large file names the reason, an alias chooses its root", async () => {
   const f = await fileFixture();
   try {
     assert.deepEqual(await f.read("notes.md"), {
       path: "notes.md",
-      size: Buffer.byteLength("Grüße aus dem Run\n"),
+      size: Buffer.byteLength("Greetings from the run\n"),
       previewable: true,
-      content: "Grüße aus dem Run\n",
+      content: "Greetings from the run\n",
     });
     const binary = await f.read("app.bin");
-    assert.equal(binary.previewable === false ? binary.reason : undefined, "Die Datei ist binär");
+    assert.equal(binary.previewable === false ? binary.reason : undefined, "The file is binary");
     const big = await f.read("big.txt");
-    assert.equal(big.previewable === false ? big.reason : undefined, "Die Datei ist größer als 256 KB und wird nicht gelesen");
+    assert.equal(big.previewable === false ? big.reason : undefined, "The file is larger than 256 KB and is not read");
     const aliased = await f.read("setup.ts", "@actors");
     assert.equal(aliased.previewable === true ? aliased.content : undefined, "return 1;\n");
-    await assert.rejects(f.read("setup.ts", "@apps"), coded("workspace-alias-unknown", /Unbekannter Arbeitsverzeichnis-Alias: @apps \(bekannt: @actors\)/));
+    await assert.rejects(f.read("setup.ts", "@apps"), coded("workspace-alias-unknown", /Unknown working directory alias: @apps \(known: @actors\)/));
   } finally {
     await f.close();
   }
 });
 
-test("Dateien: ein Anhang liegt unter einem freien Namen in attachments, nie über einer vorhandenen Datei oder hinter einem Symlink", async () => {
+test("files: an attachment is stored under a free name in attachments, never over an existing file or behind a symlink", async () => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-attach-")));
   const outside = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-attach-outside-")));
   const executor = new WorkspaceOperationExecutor({ contextFor: contextIn(directory), modules: [fileModule] });
@@ -274,12 +274,12 @@ test("Dateien: ein Anhang liegt unter einem freien Namen in attachments, nie üb
     const content = Buffer.from([0, 255, 13, 4]);
     assert.deepEqual(await attach("data.bin", content), { name: "data.bin" });
     assert.deepEqual(await attach("data.bin", content), { name: "2-data.bin" });
-    assert.deepEqual(await attach("../Bericht (final).zip", content), { name: "Bericht__final_.zip" });
+    assert.deepEqual(await attach("../Report (final).zip", content), { name: "Report__final_.zip" });
     assert.deepEqual(await readFile(path.join(directory, "attachments", "2-data.bin")), content);
-    await assert.rejects(executor.execute("run-1", FILE_OPERATIONS.attach, { name: "x.bin" }), coded("workspace-path-invalid", /name und content/));
+    await assert.rejects(executor.execute("run-1", FILE_OPERATIONS.attach, { name: "x.bin" }), coded("workspace-path-invalid", /name and content/));
     await rm(path.join(directory, "attachments"), { recursive: true });
     await symlink(outside, path.join(directory, "attachments"));
-    await assert.rejects(attach("data.bin", content), coded("workspace-path-invalid", /kein normales Verzeichnis/));
+    await assert.rejects(attach("data.bin", content), coded("workspace-path-invalid", /not a regular directory/));
     assert.deepEqual(await readdir(outside), []);
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -287,11 +287,11 @@ test("Dateien: ein Anhang liegt unter einem freien Namen in attachments, nie üb
   }
 });
 
-test("Dateien: die Beobachtung meldet erst ready, dann entprellte Änderungen, bis zum Abbruch", async () => {
+test("files: the watch reports ready first, then debounced changes, until aborted", async () => {
   const f = await fileFixture();
   try {
     await assert.rejects(f.executor.execute("run-1", FILE_OPERATIONS.watch, {}, { signal: new AbortController().signal }),
-      /braucht Abbruchsignal und Fortschritt/);
+      /needs an abort signal and progress/);
     const controller = new AbortController();
     const progress: unknown[] = [];
     const watching = f.executor.execute("run-1", FILE_OPERATIONS.watch, {}, {
@@ -301,8 +301,8 @@ test("Dateien: die Beobachtung meldet erst ready, dann entprellte Änderungen, b
     });
     await until(() => progress.length === 1);
     assert.deepEqual(progress, [{ kind: "ready" }]);
-    await writeFile(path.join(f.workspace, "src", "neu.ts"), "export const y = 2;\n");
-    await writeFile(path.join(f.workspace, "src", "zweite.ts"), "export const z = 3;\n");
+    await writeFile(path.join(f.workspace, "src", "new.ts"), "export const y = 2;\n");
+    await writeFile(path.join(f.workspace, "src", "second.ts"), "export const z = 3;\n");
     await until(() => progress.length >= 2);
     assert.deepEqual(progress[1], { kind: "changed" });
     controller.abort();
@@ -312,7 +312,7 @@ test("Dateien: die Beobachtung meldet erst ready, dann entprellte Änderungen, b
   }
 });
 
-test("Dateien: Stopp des Runs und Shutdown beenden offene Beobachtungen, auch ohne Abbruch des Aufrufers", async () => {
+test("files: stop of the run and shutdown end open watches, even without an abort by the caller", async () => {
   const f = await fileFixture();
   const watch = (runId: string) => {
     const progress: unknown[] = [];
@@ -333,39 +333,39 @@ test("Dateien: Stopp des Runs und Shutdown beenden offene Beobachtungen, auch oh
     await until(() => late.progress.length === 1);
     await f.executor.shutdown();
     assert.deepEqual(await Promise.all([other.ended, late.ended]), [null, null]);
-    await assert.rejects(watch("run-4").ended, /beendet und beobachtet nichts mehr/);
+    await assert.rejects(watch("run-4").ended, /has ended and watches nothing anymore/);
   } finally {
     await f.close();
   }
 });
 
-test("Pfade: eine Laufwerkswurzel enthält jeden Pfad darunter, ein Nachbar mit gleichem Anfang gehört nicht dazu", () => {
+test("paths: a drive root contains every path below it, a neighbor with the same prefix does not belong to it", () => {
   assert.equal(containsWorkspacePath("/", "/home/a/p"), true);
   assert.equal(containsWorkspacePath("/", "/"), true);
   assert.equal(containsWorkspacePath("/work", "/work"), true);
   assert.equal(containsWorkspacePath("/work", "/work/src/a.ts"), true);
-  assert.equal(containsWorkspacePath("/work", "/work/..datei"), true);
+  assert.equal(containsWorkspacePath("/work", "/work/..file"), true);
   assert.equal(containsWorkspacePath("/work", "/workshop/a.ts"), false);
   assert.equal(containsWorkspacePath("/work", "/"), false);
   assert.equal(containsWorkspacePath("/work/src", "/work"), false);
 });
 
-test("Dateien: ein Run mit der Wurzel / listet und liest darunter", async () => {
+test("files: a run with the root / lists and reads below it", async () => {
   const directory = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-root-")));
-  await writeFile(path.join(directory, "datei.txt"), "unter der Wurzel\n");
+  await writeFile(path.join(directory, "file.txt"), "below the root\n");
   const executor = new WorkspaceOperationExecutor({ contextFor: contextIn(path.parse(directory).root), modules: [fileModule] });
   const relative = path.relative(path.parse(directory).root, directory).split(path.sep).join("/");
   try {
     const listing = await executor.execute("run-1", FILE_OPERATIONS.list, { path: relative }) as FileListing;
-    assert.deepEqual(listing.entries.map((entry) => entry.name), ["datei.txt"]);
-    const text = await executor.execute("run-1", FILE_OPERATIONS.read, { path: `${relative}/datei.txt` }) as FileText;
-    assert.equal(text.previewable === true ? text.content : undefined, "unter der Wurzel\n");
+    assert.deepEqual(listing.entries.map((entry) => entry.name), ["file.txt"]);
+    const text = await executor.execute("run-1", FILE_OPERATIONS.read, { path: `${relative}/file.txt` }) as FileText;
+    assert.equal(text.previewable === true ? text.content : undefined, "below the root\n");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
 });
 
-test("Prozesse: gleichzeitige Abfragen zweier Runs teilen sich einen Scan der Tabelle", async () => {
+test("processes: concurrent queries of two runs share one scan of the table", async () => {
   let scans = 0;
   const records: ProcessRecord[] = [
     { pid: 10, ppid: 1, pgid: 10, uid: process.getuid?.() ?? 0, startKey: "a", command: "node a.js" },
@@ -407,7 +407,7 @@ const startMarked = (runId: string): Promise<{ child: ChildProcess; port: number
     child.once("error", reject);
   });
 
-test("Prozesse: der Stand nennt markierte Prozesse mit Port, beenden trifft einen, der Stopp des Runs alle", { skip: !hasProcessTable() }, async () => {
+test("processes: the snapshot names marked processes with their port, ending hits one, the stop of the run all", { skip: !hasProcessTable() }, async () => {
   const runId = `executor-processes-${process.pid}`;
   const executor = new WorkspaceOperationExecutor({ contextFor: contextIn(tmpdir()), modules: [processModule()] });
   const first = await startMarked(runId);
@@ -422,7 +422,7 @@ test("Prozesse: der Stand nennt markierte Prozesse mit Port, beenden trifft eine
     assert.equal(processExists(second.child.pid!), true);
     await executor.stopRun(runId);
     await exited(second.child);
-    assert.ok(second.child.signalCode !== null, "der Stopp des Runs beendet den zweiten Prozess mit einem Signal");
+    assert.ok(second.child.signalCode !== null, "the stop of the run ends the second process with a signal");
   } finally {
     for (const { child } of [first, second]) if (child.pid && processExists(child.pid)) child.kill("SIGKILL");
   }

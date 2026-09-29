@@ -8,58 +8,58 @@ import { QuasselHost } from "../src/chat/QuasselHost";
 const renderMarkdown = (text: string, streaming = false) =>
   renderToStaticMarkup(createElement(QuasselHost, null, createElement(Markdown, { text, streaming })));
 
-test("Markdown rendert Trennlinien, verschachtelte Listen und GFM-Tabellen", () => {
-  const html = renderMarkdown("Vorher\n\n---\n\n1. Außen\n   - Innen\n\n| Name | Wert |\n| --- | --- |\n| Test | 42 |");
+test("Markdown renders horizontal rules, nested lists and GFM tables", () => {
+  const html = renderMarkdown("Before\n\n---\n\n1. Outer\n   - Inner\n\n| Name | Value |\n| --- | --- |\n| Test | 42 |");
   assert.match(html, /<hr\b/);
-  assert.match(html, /<ol\b[^>]*>[\s\S]*<li\b[^>]*>Außen[\s\S]*<ul\b[^>]*>[\s\S]*Innen[\s\S]*<\/ul>[\s\S]*<\/ol>/);
+  assert.match(html, /<ol\b[^>]*>[\s\S]*<li\b[^>]*>Outer[\s\S]*<ul\b[^>]*>[\s\S]*Inner[\s\S]*<\/ul>[\s\S]*<\/ol>/);
   assert.match(html, /<table\b/);
   assert.match(html, /<td\b[^>]*>42<\/td>/);
 });
 
-test("offene Formatierungen werden während des Streams vervollständigt", () => {
-  const bold = renderMarkdown("**Hallo", true);
-  assert.ok(!bold.includes("**Hallo"));
-  assert.match(bold, /(?:<strong\b[^>]*>|data-streamdown="strong">)Hallo</);
+test("open formatting is completed while streaming", () => {
+  const bold = renderMarkdown("**Hello", true);
+  assert.ok(!bold.includes("**Hello"));
+  assert.match(bold, /(?:<strong\b[^>]*>|data-streamdown="strong">)Hello</);
   assert.match(renderMarkdown("`const value", true), /<code\b[^>]*>const value<\/code>/);
   assert.match(renderMarkdown("```ts\nconst value = 1", true), /<pre\b[^>]*><code\b[^>]*>const value = 1/);
-  assert.ok(renderMarkdown("**Hallo").includes("**Hallo"));
+  assert.ok(renderMarkdown("**Hello").includes("**Hello"));
 });
 
-test("unvollständige Links bleiben ohne klickbares Ziel, vollständige Links bleiben erhalten", () => {
-  const incomplete = renderMarkdown("[Ziel](https://exam", true);
-  assert.ok(incomplete.includes("Ziel"));
+test("incomplete links stay without a clickable target, complete links are kept", () => {
+  const incomplete = renderMarkdown("[Target](https://exam", true);
+  assert.ok(incomplete.includes("Target"));
   assert.ok(!incomplete.includes("href="));
-  const complete = renderMarkdown("[Ziel](https://example.org)");
+  const complete = renderMarkdown("[Target](https://example.org)");
   assert.match(complete, /href="https:\/\/example.org"/);
   assert.match(complete, /rel="noreferrer"/);
   assert.match(renderMarkdown("[Agent](ablauf:actor/test)"), /href="ablauf:actor\/test"/);
-  assert.match(renderMarkdown("[Datei](./report.md)"), /href="\.\/report.md"/);
+  assert.match(renderMarkdown("[File](./report.md)"), /href="\.\/report.md"/);
 });
 
-test("HTML und ausführbare Linkziele werden nicht ausgegeben", () => {
+test("HTML and executable link targets are not rendered", () => {
   const html = renderMarkdown('<script>alert(1)</script>\n\n<img src="x" onerror="alert(1)">\n\n[Bad](javascript:alert(1))');
   assert.ok(!html.includes("<script"));
   assert.ok(!html.includes("<img"));
   assert.ok(!html.includes('href="javascript:'));
 });
 
-test("Chat-Deltas verwenden Streaming bis turn-done, danach gilt unverändertes Markdown", () => {
+test("chat deltas use streaming until turn-done, after that the unchanged Markdown applies", () => {
   const messages = applyEvent([], {
     kind: "text",
-    delta: "**Hallo",
+    delta: "**Hello",
     cursor: { conversationId: "test", sequence: 1, offset: 7 },
   });
   const streaming = renderToStaticMarkup(createElement(ChatMessages, { messages }));
-  assert.ok(!streaming.includes("**Hallo"));
+  assert.ok(!streaming.includes("**Hello"));
   const closed = applyEvent(messages, { kind: "turn-done" });
   const completed = renderToStaticMarkup(createElement(ChatMessages, { messages: closed }));
-  assert.ok(completed.includes("**Hallo"));
+  assert.ok(completed.includes("**Hello"));
   const finished = applyEvent(messages, {
     kind: "text",
     delta: "**",
     cursor: { conversationId: "test", sequence: 1, offset: 9 },
   });
   const finishedHtml = renderToStaticMarkup(createElement(ChatMessages, { messages: applyEvent(finished, { kind: "turn-done" }) }));
-  assert.ok(!finishedHtml.includes("**Hallo"));
-  assert.ok(finishedHtml.includes("Hallo"));
+  assert.ok(!finishedHtml.includes("**Hello"));
+  assert.ok(finishedHtml.includes("Hello"));
 });

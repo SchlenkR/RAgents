@@ -3,13 +3,13 @@ import test from "node:test";
 
 import { TODO_STATUSES, todoStateOf } from "../../../plugins/ragents.todo/contract.ts";
 
-const stateWith = (status: unknown) => todoStateOf({ todos: [{ id: "1", text: "Aufgabe", status }] });
+const stateWith = (status: unknown) => todoStateOf({ todos: [{ id: "1", text: "Task", status }] });
 
-test("die Statuswerte des Vertrags sind offen, aktiv und erledigt", () => {
+test("the status values of the contract are open, active and completed", () => {
   assert.deepEqual([...TODO_STATUSES], ["open", "active", "completed"]);
 });
 
-test("Synonyme und Schreibweisen werden auf die drei Statuswerte abgebildet", () => {
+test("synonyms and spellings map to the three status values", () => {
   const expected: Readonly<Record<string, string>> = {
     open: "open",
     offen: "open",
@@ -29,38 +29,38 @@ test("Synonyme und Schreibweisen werden auf die drei Statuswerte abgebildet", ()
   };
 
   for (const [input, status] of Object.entries(expected)) {
-    assert.deepEqual(stateWith(input), { todos: [{ id: "1", text: "Aufgabe", status }] }, input);
+    assert.deepEqual(stateWith(input), { todos: [{ id: "1", text: "Task", status }] }, input);
   }
 });
 
-test("ein unbekannter Status verwirft den gesamten Zustand", () => {
-  assert.equal(stateWith("wartet"), undefined);
+test("an unknown status discards the whole state", () => {
+  assert.equal(stateWith("waiting"), undefined);
   assert.equal(stateWith(""), undefined);
   assert.equal(stateWith(3), undefined);
   assert.equal(stateWith(undefined), undefined);
 });
 
-test("ein einziger fehlerhafter Eintrag verwirft den gesamten Zustand", () => {
+test("a single faulty entry discards the whole state", () => {
   const state = todoStateOf({
     todos: [
-      { id: "1", text: "gut", status: "open" },
-      { id: 2, text: "Kennung ist keine Zeichenkette", status: "open" },
+      { id: "1", text: "good", status: "open" },
+      { id: 2, text: "ID is not a string", status: "open" },
     ],
   });
 
   assert.equal(state, undefined);
 });
 
-test("kein Zustand ohne Todo-Liste", () => {
+test("no state without a todo list", () => {
   assert.equal(todoStateOf(undefined), undefined);
   assert.equal(todoStateOf(null), undefined);
   assert.equal(todoStateOf({}), undefined);
-  assert.equal(todoStateOf({ todos: "keine Liste" }), undefined);
+  assert.equal(todoStateOf({ todos: "no list" }), undefined);
   assert.deepEqual(todoStateOf({ todos: [] }), { todos: [] });
 });
 
-test("nur die Vertragsfelder überleben die Prüfung", () => {
-  const state = todoStateOf({ todos: [{ id: "1", text: "Aufgabe", status: "done", extra: "weg" }] });
+test("only the contract fields survive the check", () => {
+  const state = todoStateOf({ todos: [{ id: "1", text: "Task", status: "done", extra: "gone" }] });
 
-  assert.deepEqual(state, { todos: [{ id: "1", text: "Aufgabe", status: "completed" }] });
+  assert.deepEqual(state, { todos: [{ id: "1", text: "Task", status: "completed" }] });
 });

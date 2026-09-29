@@ -50,7 +50,7 @@ const rpcFixture = (t: TestContext, onRequest: (method: string, params: unknown)
     onError: (error) => failures.push(error),
   });
   t.after(() => {
-    connection.close(new Error("Test beendet"));
+    connection.close(new Error("Test ended"));
     void received.return();
     reader.dispose();
     input.destroy();
@@ -96,7 +96,7 @@ test("JSON-RPC correlates out-of-order replies and preserves server error detail
   const rejected = assert.rejects(second, (error: unknown) => {
     assert.ok(error instanceof JsonRpcError);
     assert.equal(error.code, -32801);
-    assert.equal(error.message, "Test: textDocument/diagnostic fehlgeschlagen: busy");
+    assert.equal(error.message, "Test: textDocument/diagnostic failed: busy");
     assert.deepEqual(error.data, { retry: true });
     return true;
   });
@@ -108,7 +108,7 @@ test("JSON-RPC correlates out-of-order replies and preserves server error detail
 
 test("JSON-RPC answers server requests, reports handler errors and sends notifications", { timeout: 2_000 }, async (t) => {
   const { connection, send, next } = rpcFixture(t, async (method, params) => {
-    if (method === "fail") throw new Error("kaputt");
+    if (method === "fail") throw new Error("broken");
     if (method === "empty") return undefined;
     return (params as { items: unknown[] }).items.map(() => null);
   });
@@ -118,7 +118,7 @@ test("JSON-RPC answers server requests, reports handler errors and sends notific
   assert.deepEqual(await next(), { jsonrpc: "2.0", id: 7, result: null });
   send({ jsonrpc: "2.0", id: 8, method: "fail", params: {} });
   assert.deepEqual(await next(), {
-    jsonrpc: "2.0", id: 8, error: { code: -32603, message: "Request fail failed with message: kaputt" },
+    jsonrpc: "2.0", id: 8, error: { code: -32603, message: "Request fail failed with message: broken" },
   });
   connection.notify("initialized", {});
   assert.deepEqual(await next(), { jsonrpc: "2.0", method: "initialized", params: {} });
@@ -139,7 +139,7 @@ test("JSON-RPC omits parameters for shutdown and exit", { timeout: 2_000 }, asyn
 test("JSON-RPC aborts locally without a server reply and sends the matching cancellation", { timeout: 2_000 }, async (t) => {
   const { connection, send, next } = rpcFixture(t);
   const controller = new AbortController();
-  const reason = new Error("Benutzerabbruch");
+  const reason = new Error("User cancellation");
   const pending = connection.request("slow", {}, controller.signal);
   const request = await next();
   const rejected = assert.rejects(pending, (error) => error === reason);
@@ -155,7 +155,7 @@ test("JSON-RPC aborts locally without a server reply and sends the matching canc
 
 test("JSON-RPC does not send requests whose signal was already aborted", { timeout: 2_000 }, async (t) => {
   const { connection, send, next } = rpcFixture(t);
-  await assert.rejects(connection.request("cancelled", {}, AbortSignal.abort("stop")), /cancelled wurde abgebrochen/);
+  await assert.rejects(connection.request("cancelled", {}, AbortSignal.abort("stop")), /cancelled was (cancelled|aborted)/);
   const pending = connection.request("active", {});
   const request = await next();
   assert.equal(request.method, "active");
@@ -165,7 +165,7 @@ test("JSON-RPC does not send requests whose signal was already aborted", { timeo
 
 test("closing JSON-RPC rejects every outstanding request and later operations with the cause", async (t) => {
   const { connection } = rpcFixture(t);
-  const reason = new Error("Server wurde beendet");
+  const reason = new Error("Server was stopped");
   const first = assert.rejects(connection.request("first", {}), (error) => error === reason);
   const second = assert.rejects(connection.request("second", {}), (error) => error === reason);
   connection.close(reason);
@@ -178,7 +178,7 @@ test("closing JSON-RPC rejects every outstanding request and later operations wi
 for (const invalid of [Buffer.from("Other: 1\r\n\r\n"), Buffer.from("Content-Length: 1\r\n\r\n{")]) {
   test("JSON-RPC reports malformed input and rejects pending requests", { timeout: 2_000 }, async (t) => {
     const { connection, input, failures } = rpcFixture(t);
-    const pending = assert.rejects(connection.request("waiting", {}), /Test: JSON-RPC-Verbindung fehlgeschlagen:/);
+    const pending = assert.rejects(connection.request("waiting", {}), /Test: JSON-RPC connection failed:/);
     input.write(invalid);
     await pending;
     assert.equal(failures.length, 1);
@@ -187,7 +187,7 @@ for (const invalid of [Buffer.from("Other: 1\r\n\r\n"), Buffer.from("Content-Len
 
 test("JSON-RPC rejects pending requests when its transport closes", { timeout: 2_000 }, async (t) => {
   const { connection, input, failures } = rpcFixture(t);
-  const pending = assert.rejects(connection.request("waiting", {}), /Verbindung geschlossen/);
+  const pending = assert.rejects(connection.request("waiting", {}), /[Cc]onnection closed/);
   input.destroy();
   await pending;
   assert.equal(failures.length, 1);
@@ -213,7 +213,7 @@ test("JSON-RPC reports failed writes without unhandled rejections and handles er
     assert.doesNotThrow(() => output.emit("error", new Error("late EPIPE")));
     assert.equal(failures.length, 1);
   } finally {
-    connection.close(new Error("Test beendet"));
+    connection.close(new Error("Test ended"));
     input.destroy();
     output.destroy();
   }
@@ -251,7 +251,7 @@ test("language-server sessions terminate a process that sends malformed protocol
   await assert.rejects(startFakeSession(`
     process.stdout.write("Other: 1\\r\\n\\r\\n");
     setInterval(() => {}, 1000);
-  `), /Test LSP: JSON-RPC-Verbindung fehlgeschlagen:/);
+  `), /Test LSP: JSON-RPC connection failed:/);
 });
 
 test("language-server sessions report a missing executable", { timeout: 5_000 }, async () => {
@@ -266,13 +266,13 @@ test("diagnostics are listed errors first, warnings only counted unless requeste
     { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }, severity: 4, message: "hint" },
   ];
   assert.equal(formatDiagnostics("Roslyn", "src/Foo.cs", diagnostics, false), [
-    "Diagnostik (Roslyn) src/Foo.cs: 2 Fehler, 1 Warnung",
+    "Diagnostics (Roslyn) src/Foo.cs: 2 errors, 1 warning",
     "src/Foo.cs:2:9 error CS0103: The name 'x' does not exist",
     "src/Foo.cs:10:1 error CS1002: ; expected",
   ].join("\n"));
   assert.equal(formatDiagnostics("Roslyn", "src/Foo.cs", diagnostics, true).split("\n").at(-1),
     "src/Foo.cs:5:3 warning CS8602: Dereference");
-  assert.equal(formatDiagnostics("Roslyn", "src/Foo.cs", [], false), "Diagnostik (Roslyn) src/Foo.cs: keine Fehler");
+  assert.equal(formatDiagnostics("Roslyn", "src/Foo.cs", [], false), "Diagnostics (Roslyn) src/Foo.cs: no errors");
 });
 
 test("diagnostic entries carry one-based places, named severities and the first message line", () => {
@@ -291,7 +291,7 @@ const connection: MethodConnection = {
   id: "connection-1",
   userId: null,
   streamless: false,
-  call: () => Promise.reject(new Error("Der Sprachserver ruft niemanden zurück")),
+  call: () => Promise.reject(new Error("The language server calls no one back")),
   onClose: () => () => undefined,
 };
 
@@ -318,10 +318,10 @@ test("the snapshot method answers with every instance of the run and its diagnos
       {
         state: "ready",
         root: "/work/Sample.sln",
-        summary: "Sample.sln geladen",
-        files: [{ path: "src/Foo.cs", diagnostics: [{ line: 3, character: 1, severity: "error", message: "kaputt" }] }],
+        summary: "Sample.sln loaded",
+        files: [{ path: "src/Foo.cs", diagnostics: [{ line: 3, character: 1, severity: "error", message: "broken" }] }],
       },
-      { state: "suspended", root: "/work/Zweite.sln", summary: null, files: [] },
+      { state: "suspended", root: "/work/Second.sln", summary: null, files: [] },
     ],
   };
   const guarded: string[] = [];
@@ -343,13 +343,13 @@ test("the snapshot method answers with every instance of the run and its diagnos
 });
 
 test("the snapshot method reports an unknown session instead of asking the host", async () => {
-  const method = snapshotMethod(() => Promise.reject(new Error("nicht gefragt")), () => {
-    throw new Error("Run run-9 ist unbekannt");
+  const method = snapshotMethod(() => Promise.reject(new Error("not asked")), () => {
+    throw new Error("Run run-9 is unknown");
   });
 
   await assert.rejects(
     Promise.resolve().then(() => method.execute({ runId: "run-9" }, methodContext)),
-    /Run run-9 ist unbekannt/,
+    /Run run-9 is unknown/,
   );
 });
 
@@ -363,7 +363,7 @@ test("listing and switching solutions check the workspace first and switching an
     adapterId: "roslyn",
     sandbox: { execute: (_runId: string, operation: string, input: unknown) => {
       called.push([operation, input]);
-      return Promise.resolve(operation === "roslyn_solutions" ? listing : "Roslyn lädt /work/src/Demo.sln");
+      return Promise.resolve(operation === "roslyn_solutions" ? listing : "Roslyn is loading /work/src/Demo.sln");
     } } as SandboxServices,
     ensureWorkspaceAccess: (_access, runId) => { guarded.push(runId); },
     opened: (runId) => { notified.push(runId); },
@@ -387,7 +387,7 @@ test("solution projects are resolved next to the .sln with forward slashes", asy
     const solution = path.join(directory, "Sample.sln");
     await writeFile(solution, [
       "Project(\"{9A19103F-16F7-4668-BE54-9A1E7A4F7556}\") = \"CSharpLib\", \"CSharpLib\\CSharpLib.csproj\", \"{1}\"",
-      "Project(\"{2150E333-8FDC-42A3-9474-1A3956D46DE8}\") = \"Ordner\", \"Ordner\", \"{2}\"",
+      "Project(\"{2150E333-8FDC-42A3-9474-1A3956D46DE8}\") = \"Folder\", \"Folder\", \"{2}\"",
       "Project(\"{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}\") = \"FSharpLib\", \"FSharpLib/FSharpLib.fsproj\", \"{3}\"",
     ].join("\n"));
     assert.deepEqual(await solutionProjects(solution), [
@@ -399,12 +399,12 @@ test("solution projects are resolved next to the .sln with forward slashes", asy
   }
 });
 
-test("mitAnmerkung appends a text part and leaves results without content alone", () => {
-  assert.deepEqual(withAnnotation({ content: [{ type: "text", text: "ok" }], details: 1 }, "Hinweis"),
-    { content: [{ type: "text", text: "ok" }, { type: "text", text: "Hinweis" }], details: 1 });
+test("withAnnotation appends a text part and leaves results without content alone", () => {
+  assert.deepEqual(withAnnotation({ content: [{ type: "text", text: "ok" }], details: 1 }, "Note"),
+    { content: [{ type: "text", text: "ok" }, { type: "text", text: "Note" }], details: 1 });
   const untouched = { content: [{ type: "text", text: "ok" }] };
   assert.equal(withAnnotation(untouched, undefined), untouched);
-  assert.equal(withAnnotation("text", "Hinweis"), "text");
+  assert.equal(withAnnotation("text", "Note"), "text");
 });
 
 test("edit and write results carry the annotation of the written file", async () => {
@@ -416,7 +416,7 @@ test("edit and write results carry the annotation of the written file", async ()
     async () => workspaceProcessContext({ runId: "run-sandbox", cwd: directory, root: directory, home: { home }, logDirectory: home, hostRoot: undefined }),
     async (absolutePath) => {
       annotated.push(absolutePath);
-      return absolutePath.endsWith(".cs") ? "Diagnostik (Roslyn) Foo.cs: keine Fehler" : undefined;
+      return absolutePath.endsWith(".cs") ? "Diagnostics (Roslyn) Foo.cs: no errors" : undefined;
     },
   );
   try {
@@ -425,9 +425,9 @@ test("edit and write results carry the annotation of the written file", async ()
         sandbox.tools.get(name)!(input, { toolCallId }) as Promise<{ content: Array<{ text?: string }> }>,
     });
     const written = await byName("write").execute("1", { path: "Foo.cs", content: "class Foo {}" });
-    assert.equal(written.content.at(-1)?.text, "Diagnostik (Roslyn) Foo.cs: keine Fehler");
+    assert.equal(written.content.at(-1)?.text, "Diagnostics (Roslyn) Foo.cs: no errors");
     const edited = await byName("edit").execute("2", { path: "Foo.cs", edits: [{ oldText: "Foo", newText: "Bar" }] });
-    assert.equal(edited.content.at(-1)?.text, "Diagnostik (Roslyn) Foo.cs: keine Fehler");
+    assert.equal(edited.content.at(-1)?.text, "Diagnostics (Roslyn) Foo.cs: no errors");
     const plain = await byName("write").execute("3", { path: "notes.md", content: "x" });
     assert.equal(plain.content.length, 1);
     assert.deepEqual(annotated, [

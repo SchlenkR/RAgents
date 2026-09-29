@@ -9,11 +9,11 @@ const parseParameter = (parameter: RunToolParameter, form: FormData): JsonValue 
   }
   if (raw === "" && !parameter.required) return undefined;
   if (parameter.type === "string") return raw;
-  if (!raw.trim()) throw new Error(`${parameter.name}: Bitte einen Wert eingeben.`);
+  if (!raw.trim()) throw new Error(`${parameter.name}: Please enter a value.`);
   if (parameter.type === "number" || parameter.type === "integer") {
     const value = Number(raw);
     if (!Number.isFinite(value) || parameter.type === "integer" && !Number.isInteger(value)) {
-      throw new Error(`${parameter.name} ist keine gültige ${parameter.type === "integer" ? "Ganzzahl" : "Zahl"}.`);
+      throw new Error(`${parameter.name} is not a valid ${parameter.type === "integer" ? "integer" : "number"}.`);
     }
     return value;
   }
@@ -22,13 +22,13 @@ const parseParameter = (parameter: RunToolParameter, form: FormData): JsonValue 
   }
   let value: unknown;
   try { value = JSON.parse(raw); }
-  catch { throw new Error(`${parameter.name}: Bitte gültiges JSON eingeben.`); }
-  if (!isJsonValue(value)) throw new Error(`${parameter.name}: Kein gültiger JSON-Wert.`);
+  catch { throw new Error(`${parameter.name}: Please enter valid JSON.`); }
+  if (!isJsonValue(value)) throw new Error(`${parameter.name}: Not a valid JSON value.`);
   if (parameter.type === "string[]" && (!Array.isArray(value) || !value.every((entry) => typeof entry === "string"))) {
-    throw new Error(`${parameter.name}: Bitte eine Liste aus Texten eingeben.`);
+    throw new Error(`${parameter.name}: Please enter a list of texts.`);
   }
   if (parameter.type === "number[]" && (!Array.isArray(value) || !value.every((entry) => typeof entry === "number"))) {
-    throw new Error(`${parameter.name}: Bitte eine JSON-Liste aus Zahlen eingeben.`);
+    throw new Error(`${parameter.name}: Please enter a JSON list of numbers.`);
   }
   return value;
 };

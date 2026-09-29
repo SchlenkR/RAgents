@@ -17,7 +17,7 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
   const positions = new ChatTextPositions();
   const actorOf = (id: string) => {
     const actor = view.actors.find((entry) => entry.id === id);
-    if (!actor) throw new DomainError("actor-not-found", `Der Actor ${id} fehlt in der Run-Ansicht.`, 404);
+    if (!actor) throw new DomainError("actor-not-found", `The actor ${id} is missing from the run view.`, 404);
     return actor;
   };
   const colorOf = (id: string) => {
@@ -29,14 +29,14 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
     view.turns.find((entry) => entry.id === turnId)?.toolCalls.filter((call) => call.status === "interrupted").map((call) => call.id) ?? [];
   const turnActorOf = (id: string) => {
     const turn = view.turns.find((entry) => entry.id === id);
-    if (!turn) throw new Error(`Der Turn ${id} fehlt in der Run-Ansicht.`);
+    if (!turn) throw new Error(`The turn ${id} is missing from the run view.`);
     return turn.actorId;
   };
   const interruptingCommands = new Set(events.flatMap((event) =>
     event.type === "turn.interrupted" ? [JSON.stringify([event.commandId, turnActorOf(event.payload.turnId)])] : []));
   const append = (id: string, event: ChatEvent, source: JournalEvent) => {
     const actor = actorOf(id);
-    if (actor.kind === "human") throw new DomainError("actor-not-executable", "Ein menschlicher Actor besitzt keinen Actor-Chat.", 400);
+    if (actor.kind === "human") throw new DomainError("actor-not-executable", "A human actor has no actor chat.", 400);
     const previous = actors[id];
     const next = applyEvent(previous, event);
     if (next.length > previous.length) {
@@ -49,13 +49,13 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
   };
 
   for (const event of events) {
-    if (event.runId !== view.id) throw new Error("Das Actor-Journal gehört zu einem anderen Run.");
+    if (event.runId !== view.id) throw new Error("The actor journal belongs to a different run.");
     const cursor = positions.observe(event);
     const at = event.occurredAt;
     switch (event.type) {
       case "actor.input.enqueued": {
         const input = view.inputs.find((entry) => entry.id === event.payload.inputId);
-        if (!input) throw new Error(`Die Eingabe ${event.payload.inputId} fehlt in der Run-Ansicht.`);
+        if (!input) throw new Error(`The input ${event.payload.inputId} is missing from the run view.`);
         if (input.lifecycle.kind === "discarded") break;
         actorOf(input.actorId);
         if (input.presentation === "background") break;
@@ -63,14 +63,14 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
         const sender = actorOf(input.enqueuedBy);
         const attachments = input.artifactIds.map((id) => {
           const artifact = view.artifacts.find((entry) => entry.id === id);
-          if (!artifact) throw new Error(`Der Anhang ${id} fehlt in der Run-Ansicht.`);
+          if (!artifact) throw new Error(`The attachment ${id} is missing from the run view.`);
           return { name: artifact.title, mediaType: artifact.mediaType, size: artifact.size,
             url: attachmentContentPath(view.id, id) };
         });
         actors[input.actorId].push({ key: event.eventId, role: fromOwner ? "user" : "assistant", sender: input.enqueuedBy,
           text: input.content, closed: true, at, inputId: input.id, ...(attachments.length ? { attachments } : {}),
           ...(fromOwner ? {} : { bubble: { color: colorOf(input.enqueuedBy),
-            label: input.subscriptionId ? "Über Subscription zugestellt" : `Zugestellt von @${sender.handle}`, side: "start" } }),
+            label: input.subscriptionId ? "Delivered via subscription" : `Delivered by @${sender.handle}`, side: "start" } }),
         });
         break;
       }
@@ -103,7 +103,7 @@ export function actorChatHistoryOf(view: RunView, events: readonly JournalEvent[
         break;
       case "action.resolved": {
         const action = view.actions.find((entry) => entry.id === event.payload.actionId);
-        if (!action) throw new Error(`Die Aktion ${event.payload.actionId} fehlt in der Run-Ansicht.`);
+        if (!action) throw new Error(`The action ${event.payload.actionId} is missing from the run view.`);
         if (actorOf(action.askedBy).kind !== "human") append(action.askedBy, actionResolvedEventOf(event), event);
         break;
       }

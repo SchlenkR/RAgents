@@ -10,14 +10,14 @@ const modelRelayPlugin: RAgentsPlugin = {
   register: (host) => {
     const upstreams = host.service(modelUpstreamsToken);
     let resolved: readonly ResolvedAlias[] | undefined;
-    const aliases = (): readonly ResolvedAlias[] => resolved ??= resolveAliases(modelRelayConfig.aliases(), upstreams());
+    const aliases = (): readonly ResolvedAlias[] => resolved ??= resolveAliases(modelRelayConfig.aliases(), modelRelayConfig.upstreams(upstreams()));
     const log = new Protocol(host.storage.root("relay.log"));
     host.lifecycle({
       id: "ragents.model-relay",
       initialize: () => {
         const list = aliases();
         log.write(`=== Start: ${list.map((entry) => `${entry.alias}=${entry.upstream.id}/${entry.model.id}`).join(", ")} ===`);
-        console.log(`Modell-Relay: ${list.length} Aliasse unter /relay/v1 (${list.map((entry) => entry.alias).join(", ")})`);
+        console.log(`Model relay: ${list.length} aliases under /relay/v1 (${list.map((entry) => entry.alias).join(", ")})`);
       },
       shutdown: () => log.close(),
     });

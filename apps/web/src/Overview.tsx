@@ -51,7 +51,7 @@ export function Overview({ onBusy, onClose, onOpen, open, panels, registry, runs
 
   return (
     <Modal className="pointer-events-none flex h-[min(900px,100%)] w-[min(1440px,100%)] flex-col rounded-none bg-transparent p-0 ring-0" keepMounted onClose={onClose} open={open} scope="workspace" size="full">
-      <DialogTitle className="sr-only">Übersicht</DialogTitle>
+      <DialogTitle className="sr-only">Overview</DialogTitle>
       <div className="flex min-h-0 min-w-0 flex-1 gap-4 max-[900px]:flex-col" id="app-overview" ref={overviewRef}>
       {panels.map(({ id, Panel }) => (
         <OverviewPanelHost id={id} key={id} onBusy={onBusy} onClose={onClose} onOpen={onOpen} open={open} Panel={Panel} registry={registry} />
@@ -125,17 +125,17 @@ function RunsSection({ activeId, canCreate, canDelete, onCreate, onDelete, onOpe
           <h2 className="text-[0.95rem] font-semibold" id="overview-runs-title">
             Runs <span className="ml-1 text-[0.8rem] font-medium tabular-nums text-muted-foreground">{sessions.length}</span>
           </h2>
-          {unreachable && <span className="text-[0.72rem] font-medium text-destructive" role="alert">Server nicht erreichbar</span>}
+          {unreachable && <span className="text-[0.72rem] font-medium text-destructive" role="alert">Server unreachable</span>}
           {canDelete && sessions.length > 0 && (
             <div className="ml-auto flex flex-wrap items-center gap-1">
               {selectMode
                 ? (
                   <>
                     <Button onClick={() => setSelectedIds(new Set(sessions.map((session) => session.id)))} size="sm" variant="ghost">
-                      Alle
+                      All
                     </Button>
                     <Button onClick={() => setSelectedIds(new Set())} size="sm" variant="ghost">
-                      Keine
+                      None
                     </Button>
                     <Button
                       className="ml-auto"
@@ -144,23 +144,23 @@ function RunsSection({ activeId, canCreate, canDelete, onCreate, onDelete, onOpe
                       size="sm"
                       variant="destructive"
                     >
-                      Löschen ({selectedIds.size})
+                      Delete ({selectedIds.size})
                     </Button>
                     <Button onClick={exitSelectMode} size="sm" variant="ghost">
-                      Fertig
+                      Done
                     </Button>
                   </>
                 )
                 : (
                   <Button onClick={() => setSelectMode(true)} size="sm" variant="ghost">
-                    Auswählen
+                    Select
                   </Button>
                 )}
             </div>
           )}
         </header>
         {error && <p className="text-[0.72rem] font-medium text-destructive" role="alert">{error}</p>}
-        <p className="mb-5.5 text-[0.75rem] text-muted-foreground">Nach letzter Aktivität im Run. Neue Aktivität ist seit Deinem letzten Ansehen hinzugekommen.</p>
+        <p className="mb-5.5 text-[0.75rem] text-muted-foreground">By last activity in the run. New activity has come in since you last viewed it.</p>
         <SessionList
           seenRevisions={seenRevisions}
           activeId={activeId}
@@ -177,19 +177,19 @@ function RunsSection({ activeId, canCreate, canDelete, onCreate, onDelete, onOpe
           <Dialog open onOpenChange={(open) => { if (!open && !deleting) setConfirmBulkDelete(false); }}>
             <DialogContent scope="page" showCloseButton={false} size="small">
               <DialogHeader>
-                <DialogTitle>Runs löschen</DialogTitle>
+                <DialogTitle>Delete runs</DialogTitle>
                 <DialogDescription>
                   {selectedIds.size === 1
-                    ? "Ein Run wird endgültig gelöscht."
-                    : `${selectedIds.size} Runs werden endgültig gelöscht.`}
+                    ? "One run will be permanently deleted."
+                    : `${selectedIds.size} runs will be permanently deleted.`}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
                 <Button disabled={deleting} onClick={() => setConfirmBulkDelete(false)} variant="outline">
-                  Abbrechen
+                  Cancel
                 </Button>
                 <Button disabled={deleting} onClick={() => void removeSelected()}>
-                  {deleting ? "Löscht ..." : `Löschen (${selectedIds.size})`}
+                  {deleting ? "Deleting ..." : `Delete (${selectedIds.size})`}
                 </Button>
               </DialogFooter>
             </DialogContent>

@@ -31,7 +31,7 @@ export const catalogModels: CatalogModel[] = [
 export const catalog = new StaticModelCatalog(catalogModels, [
     {
         name: "agent",
-        description: "Testprofil mit festem Modell.",
+        description: "Test profile with a fixed model.",
         driver: "agent",
         provider: "ollama",
         model: "qwen3",
@@ -40,7 +40,7 @@ export const catalog = new StaticModelCatalog(catalogModels, [
     },
     {
         name: "manual",
-        description: "Kein automatischer Treiber.",
+        description: "No automatic driver.",
         driver: "manual",
         turnTimeoutMs: null,
         isolateWorkspace: false,

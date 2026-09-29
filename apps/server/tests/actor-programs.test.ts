@@ -32,7 +32,7 @@ const restrictedClient = async (t: TestContext, f: ProgramFixture) => {
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
   const address = server.address();
-  if (!address || typeof address === "string") throw new Error("Testserver ohne Port");
+  if (!address || typeof address === "string") throw new Error("Test server without port");
   const client = new RpcClient({baseUrl: `http://127.0.0.1:${address.port}`});
   t.after(() => client.close());
   return client;
@@ -48,7 +48,7 @@ const fakeContext = (rights: readonly string[]) => ({
   access: createAccessContext({enabled: false, user: {id: "operator", label: "Operator", rights: [...rights]}}),
   signal: new AbortController().signal,
   progress: () => undefined,
-  connection: {id: "t", userId: null, streamless: true, call: () => Promise.reject(new Error("kein Client")), onClose: () => () => undefined},
+  connection: {id: "t", userId: null, streamless: true, call: () => Promise.reject(new Error("no client")), onClose: () => () => undefined},
   local: true,
 });
 
@@ -152,7 +152,7 @@ test("an LLM actor keeps its behavior while several views and functions share it
   f.runtime.setVisibility({...f.context, commandId: "hide-by-title"}, f.runId, "Compact Counter", false);
   assert.deepEqual(f.runtime.apps(f.runId).map((view) => view.visible), [true, false]);
   assert.throws(() => f.runtime.setVisibility({...f.context, commandId: "unknown-view"}, f.runId, "@worker/missing", false),
-    /keine aktive Actor-Ansicht.*counter\/main \(@worker\/main\).*counter\/compact \(@worker\/compact\)/);
+    /not an active actor view.*counter\/main \(@worker\/main\).*counter\/compact \(@worker\/compact\)/);
   assert.deepEqual(f.runtime.apps(f.runId).map((view) => view.visible), [true, false]);
   const pid = result.status === "succeeded" ? (result.result as {pid: number}).pid : 0;
   await f.runtime.remove({...f.context, commandId: "remove"}, f.runId, "counter");
@@ -182,7 +182,7 @@ test("activating a removed package again restarts its stopped TypeScript actor; 
   assert.equal(result.status, "succeeded", JSON.stringify(result));
   f.setup.runtime.createScriptActor({...f.context, commandId: "occupy"}, f.runId, {handle: "occupied", displayName: "Occupied", grants: [], toolNames: null});
   await writeAppFiles(f.directory, "occupied", {...counterFiles(), "src/server.ts": counterFiles()["src/server.ts"].replace('name: "counter_add"', 'name: "occupied_add"')});
-  await assert.rejects(f.runtime.activate({...f.context, commandId: "occupied"}, f.runId, "occupied"), /@occupied gehört bereits dem aktiven Actor Occupied/);
+  await assert.rejects(f.runtime.activate({...f.context, commandId: "occupied"}, f.runId, "occupied"), /@occupied already belongs to the active actor Occupied/);
 });
 
 test("failed TypeScript builds and Node tests preserve the active program and its state", async (t) => {
@@ -197,7 +197,7 @@ test("failed TypeScript builds and Node tests preserve the active program and it
   assert.equal(f.runtime.programs(f.runId)[0]!.revision, before.revision);
   await writeAppFiles(f.directory, "counter", files);
   await writeFile(path.join(directory, "tests/counter.test.ts"), 'import test from "node:test"; test("rejected", () => {throw new Error("expected rejection");});');
-  await assert.rejects(f.runtime.activate({...f.context, commandId: "bad-test"}, f.runId, "counter"), /Tests.*fehlgeschlagen/);
+  await assert.rejects(f.runtime.activate({...f.context, commandId: "bad-test"}, f.runId, "counter"), /Tests.*failed/);
   assert.equal(f.runtime.programs(f.runId)[0]!.revision, before.revision);
   const next = await invokeActorFunction(f, "counter", {amount: 1}, "after");
   assert.equal(next.status, "succeeded", JSON.stringify(next));
@@ -207,11 +207,11 @@ test("failed TypeScript builds and Node tests preserve the active program and it
 test("input handlers cannot replace an LLM actor's behavior and packages cannot multiply an actor identity", async (t) => {
   const f = await actorProgramFixture(t);
   await writeAppFiles(f.directory, "input-handler", counterFiles({input: true}));
-  await assert.rejects(f.runtime.activate(f.context, f.runId, "input-handler", undefined, "@worker"), /onInput.*TypeScript|LLM-Actor/);
+  await assert.rejects(f.runtime.activate(f.context, f.runId, "input-handler", undefined, "@worker"), /onInput.*TypeScript|LLM actor/);
   await writeAppFiles(f.directory, "first", counterFiles());
   await f.runtime.activate({...f.context, commandId: "first"}, f.runId, "first", undefined, "@worker");
   await writeAppFiles(f.directory, "second", { ...counterFiles(), "src/server.ts": counterFiles()["src/server.ts"].replace('name: "counter_add"', 'name: "counter_other"') });
-  await assert.rejects(f.runtime.activate({...f.context, commandId: "second"}, f.runId, "second", undefined, "@worker"), /besitzt bereits das Paket/);
+  await assert.rejects(f.runtime.activate({...f.context, commandId: "second"}, f.runId, "second", undefined, "@worker"), /already owns the package/);
   assert.equal(f.runtime.programs(f.runId).length, 1);
 });
 
@@ -267,7 +267,7 @@ test("a function cannot overwrite actor state patched while its native invocatio
   } finally {await writeFile(release, "released");}
   const result = await work;
   assert.equal(result.status, "failed", JSON.stringify(result));
-  if (result.status === "failed") assert.match(result.error, /Zustand.*geändert|State.*changed/);
+  if (result.status === "failed") assert.match(result.error, /state.*changed/i);
   assert.deepEqual(f.runtime.data(f.runId, program.actorId).values, {count: 55, retained});
 });
 

@@ -2,11 +2,11 @@
 name: 95-hello-world
 start: true
 disable-model-invocation: true
-title: "Hallo Welt auf der Fläche"
-description: "Zeigt den kleinsten Aufbau einer Mini-App am vorhandenen Actor: eine reine Anzeige ohne neuen Actor oder Serverfunktion."
-category: "Mini-Apps"
+title: "Hello world on the surface"
+description: "Shows the smallest setup of a mini-app on the existing actor: a pure display without a new actor or server function."
+category: "Mini-apps"
 order: 5
-tags: "Konzeptdemo, Mini-Apps"
+tags: "Concept demo, Mini-apps"
 ---
 
-Ich hätte gern an Deinem vorhandenen Actor eine kleine Oberfläche auf der Fläche, die einfach nur Hallo Welt sagt. Sie soll sonst nichts tun. Lege dafür keinen neuen Actor und keine Serverfunktion an.
+I would like a small interface on the surface for your existing actor that simply says Hello world. It should do nothing else. Do not create a new actor or a server function for it.

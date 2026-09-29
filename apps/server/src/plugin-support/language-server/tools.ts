@@ -14,21 +14,21 @@ import { alwaysAvailable } from "../tool-availability.js";
 import type { SandboxServices } from "../workspace-sandbox-host.js";
 
 const stateLabels: Readonly<Record<LanguageServerState, string>> = {
-  opening: "wird geladen",
-  ready: "bereit",
-  failed: "fehlgeschlagen",
-  suspended: "nach Leerlauf beendet",
+  opening: "loading",
+  ready: "ready",
+  failed: "failed",
+  suspended: "ended after idle",
 };
 
 export const formatSolutions = (label: string, listing: LanguageServerSolutions): string => {
-  const source = listing.source === "git" ? "aus git ls-files" : "aus der Verzeichnissuche, kein Git-Arbeitsverzeichnis";
-  if (listing.solutions.length === 0) return `Keine Solution im Arbeitsbereich (${source})`;
+  const source = listing.source === "git" ? "from git ls-files" : "from the directory search, not a git working directory";
+  if (listing.solutions.length === 0) return `No solution in the workspace (${source})`;
   const lines = listing.solutions.map((solution) =>
     `- ${solution.path}${solution.state === null ? "" : ` (${label}: ${stateLabels[solution.state]})`}`);
-  return [`${listing.solutions.length} Solution${listing.solutions.length === 1 ? "" : "s"} im Arbeitsbereich (${source}):`, ...lines].join("\n");
+  return [`${listing.solutions.length} Solution${listing.solutions.length === 1 ? "" : "s"} in the workspace (${source}):`, ...lines].join("\n");
 };
 
-/** Beschreibung und Weiterreichung: der Sprachserver läuft im Executor des Runs, nicht in diesem Plugin. */
+/** Description and forwarding: the language server runs in the run's executor, not in this plugin. */
 export const createLanguageServerToolContributor = (
   pluginId: string,
   languageServer: LanguageServerDescription,
@@ -59,7 +59,7 @@ export const createLanguageServerToolContributor = (
   } as const;
   const openTool = defineRunFunction({
     ...openMetadata,
-    label: `${label} öffnen`,
+    label: `Open ${label}`,
     schema: Type.Object({
       root: Type.String({ description: `${rootDescription}, relative to the workspace root` }),
     }),
@@ -77,7 +77,7 @@ export const createLanguageServerToolContributor = (
   });
   const diagnosticsTool = defineRunFunction({
     ...diagnosticsMetadata,
-    label: `${label} Diagnostik`,
+    label: `${label} diagnostics`,
     schema: Type.Object({
       paths: Type.Optional(Type.Array(Type.String(), {
         description: "Files relative to the workspace root; omit for all changed files",
@@ -116,7 +116,7 @@ export const createLanguageServerToolContributor = (
   });
   const closeTool = defineRunFunction({
     ...closeMetadata,
-    label: `${label} schließen`,
+    label: `Close ${label}`,
     schema: Type.Object({
       root: Type.Optional(Type.String({ description: "The open root to stop; omit for every instance of this run" })),
     }),

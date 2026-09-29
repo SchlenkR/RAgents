@@ -5,10 +5,10 @@ import {
 
 export const alwaysAvailable = defineToolAvailability({
   availability: "always",
-  availabilityDetail: "In jedem Modell-Turn verfügbar.",
+  availabilityDetail: "Available in every model turn.",
 }, () => true);
 
 export const facesOperator: ToolAvailability = defineToolAvailability({
   availability: "always",
-  availabilityDetail: "In jedem Turn verfügbar; die Frage geht immer an den Benutzer des Runs.",
+  availabilityDetail: "Available in every turn; the question always goes to the user of the run.",
 }, () => true);

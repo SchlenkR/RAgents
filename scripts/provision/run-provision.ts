@@ -17,22 +17,21 @@ const PROFILE_FILE = /^ragents\.config\.([a-z0-9]+(?:-[a-z0-9]+)*)\.ts$/;
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
-const usage = (): string => `Verwendung: pnpm provision [<profil>|<pfad zu ragents.config.<profil>.ts>|--workspace]
-Provisioniert die Werkzeuge der Plugins eines Profils nach <Datenordner>/tools/<plugin-id>/ und
-berichtet je Plugin bereit, installiert oder fehlt. --workspace provisioniert stattdessen die
-eingebauten Plugins, die zum Executor eines Arbeitsplatzes beitragen. Ein relativer Pfad gilt ab dem
-aufrufenden Ordner; ohne Argument gilt das Profil aus der Umgebung (PRODUCT_PROFILE_FILE oder
-PRODUCT_PROFILE).`;
+const usage = (): string => `Usage: pnpm provision [<profile>|<path to ragents.config.<profile>.ts>|--workspace]
+Provisions the tools of a profile's plugins to <data folder>/tools/<plugin-id>/ and reports per
+plugin ready, installed or missing. --workspace instead provisions the built-in plugins that
+contribute to a workspace's executor. A relative path is resolved from the calling folder; without
+an argument the profile from the environment applies (PRODUCT_PROFILE_FILE or PRODUCT_PROFILE).`;
 
 const availableProfiles = (): readonly string[] => readdirSync(repositoryRoot)
   .map((name) => PROFILE_FILE.exec(name)?.[1])
   .filter((name): name is string => name !== undefined && name !== "example")
   .sort();
 
-/** Ein Name gilt neben dem Host, ein Pfad ab dem Aufrufer, wie bei ragents start. */
+/** A name applies next to the host, a path from the caller, as with ragents start. */
 export const selectedProfile = (selection: string, root = repositoryRoot, caller = callerDirectory()): { profile: string; file: string } => {
   const own = localProfile(selection, root, caller);
-  if (!own) throw new Error(`Konfiguration fehlt: ${path.join(root, profileFileName(selection))}`);
+  if (!own) throw new Error(`Configuration is missing: ${path.join(root, profileFileName(selection))}`);
   return { profile: own.profile, file: own.profileFile };
 };
 
@@ -42,26 +41,26 @@ const forProfile = async (selection: string): Promise<readonly PluginProvisionRe
   process.env.PRODUCT_PROFILE_FILE = file;
   await loadConfigFile();
   const { config } = await import("../../apps/server/src/config.ts");
-  console.log(`== Provisionierung Profil ${profile} (${file})`);
-  console.log(`== Werkzeuge unter ${path.join(config.dataDir, "tools")}`);
+  console.log(`== Provisioning profile ${profile} (${file})`);
+  console.log(`== Tools under ${path.join(config.dataDir, "tools")}`);
   return provisionPlugins(resolvePluginEntries(config.plugins), config.dataDir, (line) => console.log(line));
 };
 
 const forWorkspace = (): Promise<readonly PluginProvisionReport[]> => {
-  console.log("== Provisionierung Arbeitsplatz");
-  console.log(`== Werkzeuge unter ${path.join(hostDataDirectory(), "tools")}`);
+  console.log("== Provisioning workspace");
+  console.log(`== Tools under ${path.join(hostDataDirectory(), "tools")}`);
   return provisionWorkspace((line) => console.log(line));
 };
 
 const main = async (): Promise<void> => {
   const argv = process.argv.slice(2);
   if (argv.length > 1 || argv.some((argument) => argument.startsWith("-") && argument !== "--workspace")) {
-    throw new Error(`Unerwartete Argumente: ${argv.join(" ")}\n${usage()}`);
+    throw new Error(`Unexpected arguments: ${argv.join(" ")}\n${usage()}`);
   }
   const selection = argv[0] ?? process.env.PRODUCT_PROFILE_FILE ?? process.env.PRODUCT_PROFILE;
-  if (!selection) throw new Error(`Kein Profil genannt; im Repository liegen ${availableProfiles().join(", ")}.\n${usage()}`);
+  if (!selection) throw new Error(`No profile named; the repository contains ${availableProfiles().join(", ")}.\n${usage()}`);
   const reports = selection === "--workspace" ? await forWorkspace() : await forProfile(selection);
-  if (reports.length === 0) console.log("Kein Plugin bringt eine Provisionierung mit.");
+  if (reports.length === 0) console.log("No plugin brings a provisioning.");
   if (reports.some((report) => report.outcome === "missing")) process.exitCode = 1;
 };
 

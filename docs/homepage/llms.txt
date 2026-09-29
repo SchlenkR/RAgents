@@ -1,12 +1,12 @@
 # RAgents
 
-> Programmierbarer AI-Harness mit Chat, mehreren Agenten, TypeScript-Actors und kleinen Bedienoberflächen auf einer Fläche.
+> Programmable AI harness with chat, multiple agents, TypeScript actors, and small user interfaces on one surface.
 
-Diese Referenz beschreibt die vorhandenen öffentlichen Bausteine des Profils showcase (die Grundausstattung core und die mitgelieferten Beispiele). Verträge, API und Paketquellen werden aus dem Code erzeugt. Für ein neues Run-Setup zuerst die Anleitung und die typisierte API lesen, dann die benötigten Werkzeugverträge nachschlagen.
+This reference describes the existing public building blocks of the showcase profile (the core base set and the bundled examples). Contracts, API, and package sources are generated from the code. For a new run setup, read the guide and the typed API first, then look up the tool contracts you need.
 
-## Verstehen und einsteigen
+## Understand and get started
 
-- [Guide](guide.md): Einstieg, Laufzeit, Zugänge, verteiltes Arbeiten, TypeScript-Funktionen, Mini-Apps, Plugins und Rechte aus der aktuellen Dokumentation.
+- [Guide](guide.md): Getting started, runtime, access, distributed work, TypeScript functions, mini-apps, plugins, and permissions from the current documentation.
 
 - [Core ideas](guide-ideas.md)
 - [Actors and messages](guide-runtime.md)
@@ -18,17 +18,17 @@ Diese Referenz beschreibt die vorhandenen öffentlichen Bausteine des Profils sh
 - [Plugins and skills](guide-plugins.md)
 - [Assign permissions](guide-access.md)
 
-## Run-Setups
+## Run setups
 
-- [Run-Setup-Anleitung](run-setup.md): Paketstruktur, Startinput, Tests, vollständige Beispiele und generierte API.
-- [Run-API](run-api.d.ts): Originale TypeScript-Deklarationen des Compilers.
+- [Run setup guide](run-setup.md): Package structure, start input, tests, complete examples, and generated API.
+- [Run API](run-api.d.ts): Original TypeScript declarations of the compiler.
 
-## Referenzen
+## References
 
-- [Bausteine](reference.md): Alle statischen Werkzeuge und Operationen mit Ein- und Ergebnisschemata, Actor-Programm-Vorlagen und Vorlagen der Startseite.
-- [Entwickeln](developer.md): Erweiterungspunkte, Beispiele und aktuelle Vertragsflächen.
+- [Building blocks](reference.md): All static tools and operations with input and result schemas, actor program templates, and Start page templates.
+- [Develop](developer.md): Extension points, examples, and current contract surfaces.
 
-## Externe Clients
+## External clients
 
-- [JSON-RPC-API](rpc-api.md): Methoden und Kanäle mit Eingaben, Ergebnissen und Fehlern aus den ausführbaren Verträgen.
-- [OpenRPC](openrpc.json): Maschinenlesbarer Vertrag aus denselben Quellen.
+- [JSON-RPC-API](rpc-api.md): Methods and channels with inputs, results, and errors from the executable contracts.
+- [OpenRPC](openrpc.json): Machine-readable contract from the same sources.

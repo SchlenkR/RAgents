@@ -3,7 +3,7 @@
   "tasks": [
     {
       "label": "RAgents: build",
-      "detail": "Agentenlaufzeit, Web und Homepage bauen.",
+      "detail": "Build the agent runtime, web app, and homepage.",
       "type": "process",
       "command": "bash",
       "args": [
@@ -21,8 +21,8 @@
       }
     },
     {
-      "label": "RAgents: homepage öffnen",
-      "detail": "Homepage bauen und anschließend im Standardbrowser öffnen.",
+      "label": "RAgents: open homepage",
+      "detail": "Build the homepage and then open it in the default browser.",
       "type": "process",
       "command": "bash",
       "args": [
@@ -39,7 +39,7 @@
     },
     {
       "label": "RAgents: check",
-      "detail": "Projekt vollständig prüfen: Tests, Typen, Lint, Web und Homepage.",
+      "detail": "Check the whole project: tests, types, lint, web app, and homepage.",
       "type": "process",
       "command": "bash",
       "args": [

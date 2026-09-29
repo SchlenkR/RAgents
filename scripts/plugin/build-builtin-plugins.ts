@@ -20,25 +20,25 @@ const removeOrphans = async (folders: readonly string[]): Promise<void> => {
     .filter((entry) => entry.isDirectory() && !entry.name.startsWith(".") && !ids.has(entry.name));
   for (const orphan of orphans) {
     await rm(path.join(bundlesRoot, orphan.name), { recursive: true, force: true });
-    console.log(`entfernt: ${orphan.name} (kein Quellordner mehr)`);
+    console.log(`removed: ${orphan.name} (no source folder anymore)`);
   }
 };
 
-// Ohne Typprüfung, weil pnpm -r typecheck die Quellen schon prüft; nur Veraltetes, damit laufende Server und parallele Bauläufe ihre Bundles behalten.
+// Without type checking, because pnpm -r typecheck already checks the sources; only outdated ones, so running servers and parallel builds keep their bundles.
 const main = async (argv: readonly string[]): Promise<number> => {
   const unknown = argv.filter((argument) => argument !== "--watch");
-  if (unknown.length > 0) throw new Error(`Unbekanntes Argument: ${unknown.join(" ")} (erlaubt: --watch)`);
+  if (unknown.length > 0) throw new Error(`Unknown argument: ${unknown.join(" ")} (allowed: --watch)`);
   const folders = builtInPluginFolders();
   if (argv.includes("--watch")) {
     const watching = await watchPlugins(folders, { out: bundlesRoot }, printOutcome);
-    console.log(`beobachte ${folders.length} eingebaute Plugins; Strg+C beendet`);
+    console.log(`watching ${folders.length} built-in plugins; Ctrl+C stops`);
     await untilStopped();
     await watching.stop();
     return 0;
   }
   const outcomes = await buildPlugins(folders, { out: bundlesRoot, typecheck: false, onlyOutdated: true });
   for (const outcome of outcomes) printOutcome(outcome);
-  if (outcomes.length < folders.length) console.log(`aktuell: ${folders.length - outcomes.length} von ${folders.length} eingebauten Plugins, unverändert gelassen`);
+  if (outcomes.length < folders.length) console.log(`up to date: ${folders.length - outcomes.length} of ${folders.length} built-in plugins, left unchanged`);
   await removeOrphans(folders);
   return outcomes.every((outcome) => outcome.kind === "built") ? 0 : 1;
 };

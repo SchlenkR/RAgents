@@ -54,9 +54,9 @@ test("a created package reads its prompts from its final folder", async (t) => {
   await f.runtime.scaffold(f.runId, "prompted", "blank");
   const directory = path.join(f.actors, "prompted");
   await mkdir(path.join(directory, "prompts"));
-  await writeFile(path.join(directory, "prompts/role.md"), "Rollenprompt");
+  await writeFile(path.join(directory, "prompts/role.md"), "Role prompt");
   const prompts = await import(pathToFileURL(path.join(directory, "node_modules/@ragents/workflow/prompts.js")).href) as { readPrompt: (reference: string) => Promise<string> };
-  assert.equal(await prompts.readPrompt("prompts/role.md"), "Rollenprompt");
+  assert.equal(await prompts.readPrompt("prompts/role.md"), "Role prompt");
 });
 
 test("a failed creation leaves nothing below actors, the name stays free and the next attempt is complete", async (t) => {
@@ -64,9 +64,9 @@ test("a failed creation leaves nothing below actors, the name stays free and the
   f.setup.services.nativeTypeScriptExecutor = around(f.executor, async (request) => {
     assert.equal(path.dirname(request.cwd!), f.staging);
     await assert.rejects(lstat(path.join(f.actors, "counter")), { code: "ENOENT" });
-    throw new Error("Vertrag nicht lesbar");
+    throw new Error("Contract not readable");
   });
-  await assert.rejects(f.runtime.scaffold(f.runId, "counter", "headless-counter"), /Vertrag nicht lesbar/);
+  await assert.rejects(f.runtime.scaffold(f.runId, "counter", "headless-counter"), /Contract not readable/);
   assert.deepEqual(await readdir(f.actors), []);
   assert.deepEqual(await readdir(f.staging), []);
   f.setup.services.nativeTypeScriptExecutor = f.executor;
@@ -77,9 +77,9 @@ test("a failed creation leaves nothing below actors, the name stays free and the
 test("an existing folder of the same name blocks the creation, even an empty one that appears during the build", async (t) => {
   const f = await fixture(t);
   await mkdir(path.join(f.actors, "taken"), { recursive: true });
-  await assert.rejects(f.runtime.scaffold(f.runId, "taken", "blank"), /Das Paket taken existiert bereits/);
+  await assert.rejects(f.runtime.scaffold(f.runId, "taken", "blank"), /The package taken already exists/);
   f.setup.services.nativeTypeScriptExecutor = around(f.executor, () => mkdir(path.join(f.actors, "late")).then(() => undefined));
-  await assert.rejects(f.runtime.scaffold(f.runId, "late", "headless-counter"), /Das Paket late existiert bereits/);
+  await assert.rejects(f.runtime.scaffold(f.runId, "late", "headless-counter"), /The package late already exists/);
   assert.deepEqual((await readdir(f.actors)).sort(), ["late", "taken"]);
   assert.deepEqual(await readdir(path.join(f.actors, "late")), []);
   assert.deepEqual(await readdir(f.staging), []);
@@ -92,7 +92,7 @@ test("two simultaneous creations of one name leave exactly one complete package"
   const winners = candidates.filter((_template, index) => results[index]!.status === "fulfilled");
   assert.equal(winners.length, 1);
   const rejected = results.find((result): result is PromiseRejectedResult => result.status === "rejected")!;
-  assert.match(String(rejected.reason), /Das Paket twin (wird gerade angelegt|existiert bereits)/);
+  assert.match(String(rejected.reason), /The package twin (is being created|already exists)/);
   assert.deepEqual(await readAppPackage(path.join(f.actors, "twin")), winners[0]!.ragents);
   assert.deepEqual(await readdir(f.staging), []);
   assert.equal((await f.runtime.activate(f.context, f.runId, "twin")).active, true);
@@ -131,7 +131,7 @@ test("an imported package appears complete and leaves nothing behind when its ac
     { path: "src/server.ts", content: 'import {Type} from "typebox"; import {defineActor} from "@ragents/server"; export default defineActor({state:Type.Object({}),functions:{}},{functions:{}});' },
     { path: "tests/program.test.ts", content: `import assert from "node:assert/strict"; import test from "node:test"; test("import", () => { ${check} });` },
   ];
-  await assert.rejects(f.runtime.importPackage(f.context, f.runId, "imported", sources('assert.fail("Testfehler");')), /Tests für imported fehlgeschlagen/);
+  await assert.rejects(f.runtime.importPackage(f.context, f.runId, "imported", sources('assert.fail("Test failure");')), /Tests for imported failed/);
   assert.deepEqual(await readdir(f.actors), []);
   assert.deepEqual(await readdir(f.staging), []);
   assert.equal((await f.runtime.importPackage(f.context, f.runId, "imported", sources("assert.ok(true);"))).actorHandle, "imported");

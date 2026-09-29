@@ -1,22 +1,22 @@
-# Bedienung
+# Usage
 
-Was ein Benutzer in der Weboberfläche, im Run-Panel, in der VS-Code-Erweiterung und von der
-Kommandozeile aus sieht und tut. Installation, Start, Zugang, Paket, verteiltes Arbeiten und
-Datenablage stehen in `docs/operations.md`, Build, Prüfläufe und Veröffentlichung in
-`docs/development.md`. Wie Agenten TypeScript-Funktionen, Snippets, Actor-Programme und
-Run-Scripts verwenden, steht in `docs/spec/typescript-platform.md` und `docs/spec/actor-programs.md`;
-der Aufbau des Systems in `docs/spec/`, das Warum in `docs/decisions.md`.
+What a user sees and does in the web interface, in the run panel, in the VS Code extension, and
+from the command line. Installation, startup, access, package, distributed work, and data storage
+are in `docs/operations.md`, build, checks, and publishing in `docs/development.md`. How agents use
+TypeScript functions, snippets, actor programs, and run scripts is in
+`docs/spec/typescript-platform.md` and `docs/spec/actor-programs.md`; the structure of the system
+in `docs/spec/`, the why in `docs/decisions.md`.
 
 <!-- guide:getting-started -->
 ## Create your first run
 
-The top-left corner opens the run overview. Choose "Neuer Run" to open the start selection. It
-shows the same tiles as the start page in VS Code: "Neuer Chat" (new chat) or the server's default
+The top-left corner opens the run overview. Choose "New run" to open the start selection. It
+shows the same tiles as the start page in VS Code: "New chat" or the server's default
 template first, then skill templates with a prepared task and script templates with programmed
-setups. "Neuer Chat" opens an empty run whose task you write in its chat; a template starts with one
-click. Some templates collect values in a setup dialog first ("Einrichten"); a skill template then
+setups. "New chat" opens an empty run whose task you write in its chat; a template starts with one
+click. Some templates collect values in a setup dialog first ("Set up"); a skill template then
 continues in the preparation chat. There you can discuss the task, give a clear go-ahead such as
-"Start", or choose "Run erstellen" (create run). Merely confirming a detail does not start
+"Start", or choose "Create run". Merely confirming a detail does not start
 anything. In the browser a new run always works on the server; only VS Code and `ragents run`
 bind a run to a workstation.
 
@@ -41,195 +41,197 @@ X and drag handle are hidden. Dividers for adjusting size ratios remain availabl
 
 Drag a divider to the desired ratio; releasing it saves the value. Escape cancels the active
 resize. With keyboard focus on a divider, arrow keys change its size while Home and End set the
-allowed limits. When space is tight, the "Sichtbare Kachel" (visible tile) selector displays one item at a time
+allowed limits. When space is tight, the "Visible tile" selector displays one item at a time
 without discarding the layout. You can also ask the coordinator: "App on the left, chat on the
 right, 50:50" or "One tile on top, two below at a 2:1 ratio." Until a layout is specified, the
 surface arranges visible participants itself. Your changes remain saved until the program
 changes its layout. A new program layout is applied automatically so added tiles appear at
-once. "Programmvorgabe übernehmen" (apply program layout) in the status bar can reset your own layout earlier.
+once. "Apply program layout" in the status bar can reset your own layout earlier.
 <!-- /guide:getting-started -->
 
-## Runs wechseln
+## Switch runs
 
-Die quadratische Ecke links oben in der Kopfzeile (oder `Cmd+I` auf macOS beziehungsweise
-`Ctrl+I`) öffnet die Run-Übersicht als modalen Dialog unter der Kopfzeile einschließlich der
-unteren Statusleiste. Die Kopfzeile bleibt bedienbar. Die Run-Karten zeigen
-Titel, Bearbeitungsstatus, Erstellungsdatum mit Uhrzeit, letzte Aktualisierung und ergänzende Plugin-Angaben. Die Karten sind nach
-letzter Aktivität in Heute, Gestern und weitere Tage gruppiert; Blau kennzeichnet laufende
-Arbeit, ein violetter Hinweis neue Aktivität seit dem letzten Ansehen, und dieser persönliche
-Lesestand gilt je Benutzer in diesem Browser. Die Auswahl
-öffnet den Run und schließt die Übersicht. Ein erneuter Klick auf die Ecke, Escape oder ein
-Klick auf den abgedunkelten Hintergrund schließen sie mit Rückgabe des Fokus zur Ecke.
-"Neuer Run" in der Run-Leiste wechselt zum Startdialog. Erstellen sowie Einzel- und
-Mehrfachlöschen erscheinen abhängig von deinen Rechten; die Mehrfachauswahl bietet Alle, Keine
-und eine Löschbestätigung. Gelöschte Runs verschwinden sofort aus der Liste; das Aufräumen
-(Prozesse, Arbeitsverzeichnis, Archiv) erledigt der Server danach im Hintergrund. Fehler bleiben
-sichtbar. Lange Listen lassen sich scrollen. Einen Run, dessen Journal der Server nicht laden
-konnte (etwa ein älteres Dateiformat), zeigt die Übersicht rot als "Locked" mit der Ursache. Er
-lässt sich nicht öffnen, aber einzeln oder in der Mehrfachauswahl löschen; das Löschen legt seine
-Dateien unverändert ins Archiv. Mit Anmeldung sieht einen solchen Run nur, wer alle Runs sehen darf.
-Solange kein fertiger automatischer Titel vorliegt, zeigt die Run-Liste den ursprünglichen
-Auftrag. Nach erfolgreicher Erzeugung und Speicherung erscheint die kurze Überschrift, ohne
-auf den nächsten regelmäßigen Listenabruf zu warten. Bei deaktivierter oder fehlgeschlagener
-Erzeugung bleibt der Auftrag sichtbar. Bewusst im Run oder Setup gesetzte Titel haben Vorrang;
-eine andere Modellauswahl benennt vorhandene Titel nicht neu.
+The square corner at the top left of the header (or `Cmd+I` on macOS or `Ctrl+I`) opens the run
+overview as a modal dialog below the header, including the bottom status bar. The header stays
+usable. The run cards show
+title, processing status, creation date with time, last update, and additional plugin details. The cards are grouped by
+last activity into Today, Yesterday, and further days; blue marks running
+work, a violet hint new activity since you last looked, and this personal
+read state applies per user in this browser. Selecting a card
+opens the run and closes the overview. Clicking the corner again, Escape, or a
+click on the dimmed background closes it and returns focus to the corner.
+"New run" in the run bar switches to the start dialog. Creating as well as single and
+multiple deletion appear depending on your permissions; the multiple selection offers All, None,
+and a deletion confirmation. Deleted runs disappear from the list immediately; the server then
+handles the cleanup (processes, working directory, archive) in the background. Errors stay
+visible. Long lists can be scrolled. A run whose journal the server could not load (for example
+an older file format) appears in the overview in red as "Locked" with the cause. It
+cannot be opened, but it can be deleted individually or in the multiple selection; deleting moves
+its files unchanged into the archive. With sign-in, only someone who may see all runs sees such a run.
+As long as no finished automatic title exists, the run list shows the original
+task. After successful generation and storage, the short heading appears without
+waiting for the next regular list refresh. When generation is disabled or has failed, the task
+stays visible. Titles deliberately set in the run or setup take precedence;
+a different model selection does not rename existing titles.
 
-Der globale Koordinator steht unabhängig davon direkt in der Kopfzeile. Das Öffnen der
-Run-Übersicht schließt seinen Verlauf, erhält aber Gespräch, Entwurf und Anhänge.
+The global coordinator sits directly in the header, independent of this. Opening the
+run overview closes its history, but keeps the conversation, draft, and attachments.
 
-## Run-Chat und Fläche
+## Run chat and surface
 
-Die schmale Statusleiste am unteren Fensterrand reicht über die ganze Anwendungsbreite. Sie
-trägt `Journal` und, sobald Du selbst etwas umgeordnet hast, "Programmvorgabe übernehmen".
-Gespräche stehen in den Kacheln und in den
-Actor-Pop-outs. Der Run-Koordinator ist standardmäßig nur in der Actor-Leiste über der Fläche
-erreichbar. Ein Klick auf seinen Eintrag öffnet den Chat als Pop-out darunter. Diese
-Chatansichten sind bis zu 784 Pixel breit und passen sich bei schmalen Fenstern an. Andere
-LLM-Einträge öffnen ihren Chat, TypeScript-Einträge ihre Actor-Ansicht.
+The narrow status bar at the bottom edge of the window spans the entire application width. It
+holds `Journal` and, as soon as you have rearranged something yourself, "Apply program layout".
+Conversations live in the tiles and in the
+actor pop-outs. By default, the run coordinator is only reachable in the actor bar above the surface.
+Clicking its entry opens the chat as a pop-out below it. These
+chat views are up to 784 pixels wide and adapt to narrow windows. Other
+LLM entries open their chat, TypeScript entries their actor view.
 
-Pop-outs halten einen kleinen Abstand zum aufrufenden Control. Abdunkelnde Pop-outs, Dialoge
-und das Chat-Sheet verwenden denselben stärkeren Hintergrund. Im Adressat-Pop-out steht die
-Suche nach Handle oder Aufgabe direkt neben dem Titel und durchsucht auch ausgeblendete Actors.
+Pop-outs keep a small distance from the control that opened them. Dimming pop-outs, dialogs,
+and the chat sheet use the same stronger background. In the addressee pop-out, the
+search by handle or task sits directly next to the title and also searches hidden actors.
 
-Ein erneuter Klick, Escape, Außenklick oder das X im Pop-out-Kopf schließt das Pop-out; ungesendete Texte bleiben
-beim Schließen und Actor-Wechsel erhalten. Über die Actorliste kannst Du ihm zusätzlich eine
-eigene Kachel geben. In der Ansichtsleiste wählt die Sprechblase den Verlauf, die anderen
-Symbole jeweils eine Detailansicht. Der Code-Reiter zeigt bei Actors mit installiertem Programm
-die TypeScript-Quellen und übrigen Dateien dieses Stands, mit Dateiauswahl und Syntaxhervorhebung.
-Das gilt auch für TypeScript-Actors ohne Mini-App oder veröffentlichte Funktionen. Dafür
-werden die technischen Leserechte benötigt.
-Links in der Actor-Leiste über der Fläche schaltet `Anzeige` zwischen `Alle`, `Aktive`, `Sichtbare`,
-`LLM-Agenten` und `TypeScript`, ohne seine Breite zu ändern. Standard ist `Aktive`;
-`Alle` zeigt zusätzlich gestoppte Actors. Solange kein Actor gestoppt ist, sehen beide gleich aus.
-`Sichtbare` zeigt nur Actors, die gerade eine Kachel haben, und immer den
-primären Actor. Die beiden Typfilter zeigen auch gestoppte Actors
-des jeweiligen Typs. Actorliste und Chats öffnen mit demselben Abstand direkt unter dem Knopf.
-Das ändert nur die direkten Actor-Zugänge und verändert die Aufteilung nicht.
-Die Auswahl bleibt je Run im Browser gespeichert. Unter `Actors` findest Du immer die
-vollständige Liste. Knöpfe geöffneter Pop-outs bleiben sichtbar gedrückt.
-Der Nachrichtenentwurf bleibt beim Wechsel erhalten. Im Chat des primären Actors bleibt
-`Run stoppen` mit Bestätigung erreichbar.
+Clicking again, Escape, clicking outside, or the X in the pop-out header closes the pop-out; unsent text is kept
+when closing and switching actors. Through the actor list you can additionally give it its
+own tile. In the view bar, the speech bubble selects the history, the other
+icons each select a detail view. For actors with an installed program, the Code tab shows
+the TypeScript sources and other files of that version, with file selection and syntax highlighting.
+This also applies to TypeScript actors without a mini-app or published functions. This
+requires the technical read permissions.
+On the left of the actor bar above the surface, `Show` switches between `All`, `Active`, `Visible`,
+`LLM agents`, and `TypeScript` without changing its width. The default is `Active`;
+`All` additionally shows stopped actors. As long as no actor is stopped, both look the same.
+`Visible` shows only actors that currently have a tile, and always the
+primary actor. The two type filters also show stopped actors
+of the respective type. The actor list and chats open at the same distance directly below the button.
+This only changes the direct actor entries and does not change the layout.
+The selection is stored per run in the browser. Under `Actors` you always find the
+complete list. Buttons of open pop-outs stay visibly pressed.
+The message draft is kept when switching. In the primary actor's chat,
+`Stop run` with confirmation stays reachable.
 
-`Journal` in der Statusleiste öffnet darüber die tatsächlichen Ereignisse des Runs.
-Die neuesten stehen zuerst; die Suche findet Ereignisinhalte und Actor-Handles. Ein Eintrag
-lässt sich zum vollständigen JSON aufklappen. Zunächst sind 100 Treffer sichtbar, weitere
-lassen sich nachladen. Die offene Ansicht folgt Änderungen des Runs und bietet Aktualisieren.
-Außenklick oder Tab aus der Ansicht schließen sie; Escape und X geben den Fokus an Journal zurück.
+`Journal` in the status bar opens the actual events of the run above it.
+The newest come first; the search finds event contents and actor handles. An entry
+can be expanded to the complete JSON. Initially 100 matches are visible, more
+can be loaded. The open view follows changes of the run and offers Refresh.
+Clicking outside or tabbing out of the view closes it; Escape and X return focus to Journal.
 
-`Actors` in der Actor-Leiste über der Fläche listet alle Beteiligten auf, auch dich und gestoppte
-Actors. Klicke auf einen Namen eines KI- oder TypeScript-Actors, um rechts dessen Chat und
-Details zu öffnen; eine Kachel entsteht dadurch nicht.
+`Actors` in the actor bar above the surface lists all participants, including you and stopped
+actors. Click the name of an AI or TypeScript actor to open its chat and
+details on the right; this does not create a tile.
 
-Rechts an jedem Eintrag steht die Checkbox `Fläche`. Ohne eigene Wahl stehen der Hauptactor und
-Actors mit eigener Mini-App nicht auf der Fläche; so braucht die App keinen zusätzlichen Platz
-für ihren Besitzer. Alle übrigen Actors stehen darauf. Die Checkbox wirkt auf die anfängliche
-Aufteilung eines Runs ohne Vorgabe und auf die Actor-Auswahl des Run-Panels; eine bereits
-gespeicherte Aufteilung ändert sie nicht. Die Auswahl bleibt in diesem Browser je Serveradresse
-und Run erhalten; Leserechte genügen. Sie ändert weder den Run noch sein Journal.
+On the right of every entry is the `Surface` checkbox. Without your own choice, the main actor and
+actors with their own mini-app are not on the surface; that way the app needs no additional space
+for its owner. All other actors are on it. The checkbox affects the initial
+layout of a run without a preset and the actor selection of the run panel; it does not change an
+already saved layout. The selection is kept in this browser per server address
+and run; read permissions are enough. It changes neither the run nor its journal.
 
-Die Reitersymbole oben neben Einstellungen und Hilfe wählen die Ansicht der Leiste.
-Der Panelknopf in derselben Titelleiste klappt sie vollständig ein. Danach ist nur noch der Knopf
-zum Öffnen sichtbar; er stellt die zuletzt verwendete Breite wieder her. Eine Auswahl über
-einen Namen in der Actorliste öffnet die Leiste ebenfalls. Besuchte Ansichten behalten ihren Zustand.
-Die Symbolnamen erscheinen nach 50 Millisekunden Hover oder sofort bei Tastaturfokus direkt
-unter der Kopfzeile. Beim Wechsel zum nächsten Symbol bleibt der Hinweis sichtbar und wechselt
-sofort; kleine Lücken zwischen den Knöpfen unterbrechen ihn nicht.
-Der Panelknopf ist so groß wie Einstellungen und Hilfe; Escape entfernt einen sichtbaren
-Hinweis, ohne den Fokus zu verschieben.
+The tab icons at the top next to Settings and Help select the bar's view.
+The panel button in the same title bar collapses it completely. After that, only the button
+for opening it is visible; it restores the last used width. Selecting
+a name in the actor list opens the bar as well. Visited views keep their state.
+The icon names appear after 50 milliseconds of hover or immediately on keyboard focus directly
+below the header. When moving to the next icon, the hint stays visible and changes
+immediately; small gaps between the buttons do not interrupt it.
+The panel button is as large as Settings and Help; Escape removes a visible
+hint without moving focus.
 
-Die Eingabe direkt in einer Agenten-Kachel sendet an den
-jeweiligen Actor. Wie im Actor-Chat der Leiste stehen Dateien anhängen und die Darstellung der
-Schritte von ausgeblendet bis vollständig zur Verfügung, ohne Modell- oder Denktiefenauswahl.
-Der Modus "aktuell" zeigt den laufenden Schritt als Quassel-Chip. Bei Zugängen ohne technische
-Leserechte steht dort "Denken" oder "Werkzeug läuft", ohne Werkzeugnamen, Inhalte oder
-aufklappbare Details. Nach Ende des Schritts verschwindet der Chip; eine Nachricht, die Du
-währenddessen nachschiebst, lässt ihn stehen. Die animierten
-Arbeitsszenen bleiben sichtbar, solange der Agent arbeitet, auch bei längeren Denkpausen.
-Im Run-Chat laufen sie, solange irgendein Agent oder Programm des Runs arbeitet, also auch
-während der Koordinator auf beauftragte Actors wartet; Kacheln und Pop-outs zeigen nur den
-jeweiligen Actor.
-Senden braucht Schreibrechte am Run und einen nicht gestoppten Actor; fehlgeschlagene Eingaben
-bleiben über die gemeinsame Chat-Eingabe verfügbar. Jede Kachel scrollt ihren eigenen Inhalt;
-am Ende des Verlaufs folgt er neuen Nachrichten wieder automatisch. Den Chat mit allen Details
-öffnest Du über die Actorliste oder die direkten Zugänge in der Actor-Leiste über der Fläche.
+Input directly in an agent tile is sent to the
+respective actor. As in the actor chat of the bar, attaching files and the display of the
+steps from hidden to complete are available, without model or thinking level selection.
+The "current" mode shows the running step as a quassel chip. For access without technical
+read permissions it says "Thinking" or "Tool running", without tool names, contents, or
+expandable details. When the step ends, the chip disappears; a message you
+send in the meantime leaves it in place. The animated
+work scenes stay visible as long as the agent is working, also during longer thinking pauses.
+In the run chat they run as long as any agent or program of the run is working, that is, also
+while the coordinator is waiting for actors it has tasked; tiles and pop-outs show only the
+respective actor.
+Sending requires write permissions on the run and an actor that is not stopped; failed inputs
+remain available through the shared chat input. Every tile scrolls its own content;
+at the end of the history it automatically follows new messages again. You open the chat with all details
+through the actor list or the direct entries in the actor bar above the surface.
 
-Verlauf und Eingabe nutzen dieselbe verfügbare Breite. In jedem Chat, auch bei einem anderen
-Adressaten, in Kacheln, im Vorbereitungschat und beim globalen Koordinator, schaltet der Uhrknopf
-unten neben der Schrittdarstellung die Zeitstempel ein und aus. Die Wahl bleibt im Browser je Run
-und Actor gespeichert und gilt überall, wo dieser Chat erscheint. Der Pfeil zum Ende erscheint
-erst bei mehr als 120 Pixeln Abstand; kleines Zurückscrollen hält neue Antworten trotzdem an der
-gewählten Leseposition.
+History and input use the same available width. In every chat, also with a different
+addressee, in tiles, in the preparation chat, and with the global coordinator, the clock button
+at the bottom next to the step display switches the timestamps on and off. The choice is stored in the browser per run
+and actor and applies wherever this chat appears. The arrow to the end appears
+only at a distance of more than 120 pixels; scrolling back a little still keeps new responses at the
+chosen reading position.
 
-Kleinigkeiten der Chats und Kacheln: Antworten erscheinen schon während der Ausgabe als
-Markdown mit Überschriften, Listen, Tabellen und Codeblöcken; noch offene Formatierungen werden
-vorläufig dargestellt. An Deinen eigenen Nachrichten erscheint beim Darüberfahren oder per
-Tastaturfokus oben rechts ein Kopiersymbol; es kopiert den ursprünglichen Text mit seinen
-Zeilenumbrüchen und bestätigt mit einem Haken.
-Sendest Du während einer laufenden Antwort eine weitere Nachricht, wartet sie nicht auf das Ende
-des Turns: Ein Agent speist sie vor seiner nächsten Modellanfrage in den laufenden Turn ein
-(Steering). Der Senden-Knopf heißt in dieser Zeit "In den laufenden Turn einspeisen", und im
-Verlauf steht unter der Nachricht "In den laufenden Turn eingespeist". Ein TypeScript-Actor und
-ein Text über 30000 Zeichen bekommen dagegen einen eigenen Turn. Die Antwort bleibt
-zusammenhängend vor Deiner neuen Nachricht stehen. Eine offene Rückfrage steht in jedem Chat mit
-Eingabe direkt darüber, im Run-Chat wie in Kacheln und im Run-Panel, und dort beantwortest Du sie
-auch; mehrere stehen untereinander, und wird es mehr als die halbe Chathöhe, scrollt dieser Bereich
-für sich. Beantwortet oder verworfen rückt sie als Beleg an ihre Stelle im Verlauf. Mit Lesezugriff
-siehst Du Frage und Optionen ohne Bedienung. Wartet der Agent gerade darauf, dass Du seine
-Rückfrage beantwortest, gilt Deine Nachricht als Überspringen: Die Frage schließt sich als nicht
-beantwortet, und der Agent liest Deine Nachricht. Liegt Deine Nachricht noch ungelesen bei ihm,
-wenn er fragen will, erscheint die Frage gar nicht erst. Unter dem letzten Beitrag bleiben etwa zwei
-Zeilen freier Scrollraum. Hat der Actor des Chats gerade einen Turn und ist die Eingabe leer,
-unterbricht "Arbeit stoppen" nur diesen Turn; der Actor nimmt danach die nächste Nachricht an.
-Ist er gestoppt, steht an der Stelle der Eingabe der Grund samt "Neu starten". Die Darstellung der Werkzeugaufrufe
-(Symbole, kompakte Zeilen, vollständig) gilt je Chat; andere Chats und Runs behalten ihre
-Einstellung, ebenso Breite und Aufklappzustand der Leiste je Run. Bei vielen Einträgen
-in der Actor-Leiste über der Fläche erscheinen links und rechts Pfeilknöpfe zum Blättern; auch
-Mausrad und Trackpad bewegen die Einträge horizontal. Mini-Apps bekommen in der Kachel einen
-gemeinsamen Innenabstand; ihr Scrollbalken liegt am rechten Kachelrand, und der Platz für
-Statusmeldungen unter dem App-Inhalt bleibt reserviert, damit Start, Abschluss und Fehler einer
-Aktion die App nicht verschieben. Jede Teilfläche lässt sich erneut teilen, etwa in eine obere
-Kachel und zwei untere im Verhältnis zwei Drittel zu einem Drittel; Koordinatoren können solche
-Aufteilungen auf Wunsch ebenfalls setzen.
+Details of the chats and tiles: responses appear as Markdown already during output,
+with headings, lists, tables, and code blocks; formatting that is still open is
+rendered provisionally. On your own messages, a copy icon appears at the top right on hover or
+keyboard focus; it copies the original text with its
+line breaks and confirms with a check mark.
+If you send another message while a response is running, it does not wait for the end
+of the turn: an agent feeds it into the running turn before its next model request
+(steering). During this time the send button is labeled "Feed into running turn", and the
+history shows "Fed into running turn" below the message. A TypeScript actor and
+a text over 30000 characters, however, get their own turn. The response stays
+together before your new message. An open question appears in every chat with
+input directly above it, in the run chat as in tiles and in the run panel, and you answer it
+there too; several are stacked, and if they take more than half the chat height, this area scrolls
+on its own. Once answered or discarded, it moves as a record to its place in the history. With read access
+you see the question and options without controls. If the agent is currently waiting for you to answer its
+question, your message counts as skipping: the question closes as not
+answered, and the agent reads your message. If your message is still unread with it
+when it wants to ask, the question does not appear at all. Below the last entry, about two
+lines of free scroll space remain. If the chat's actor currently has a turn and the input is empty,
+"Stop work" interrupts only this turn; the actor then accepts the next message.
+If it is stopped, the reason together with "Restart" appears in place of the input. The display of tool calls
+(icons, compact lines, complete) applies per chat; other chats and runs keep their
+setting, as do the width and collapsed state of the bar per run. With many entries
+in the actor bar above the surface, arrow buttons for scrolling appear on the left and right; the
+mouse wheel and trackpad also move the entries horizontally. Mini-apps get a shared
+inner padding in the tile; their scrollbar sits at the right edge of the tile, and the space for
+status messages below the app content stays reserved, so that the start, completion, and errors of an
+action do not shift the app. Every sub-area can be split again, for example into one upper
+tile and two lower ones at a ratio of two thirds to one third; coordinators can also set such
+layouts on request.
 
-## Anhänge im Chat
+## Attachments in the chat
 
-Die Chat-Eingabe leert Text und Anhänge sofort beim Absenden. Bis zum Ende der Anfrage sind
-weitere Sendeaktionen und neue Anhänge gesperrt. Du kannst einen neuen Text beginnen, sofern
-die jeweilige Ansicht die Eingabe freigibt. Bei einem Fehler kehrt die ursprüngliche Eingabe
-automatisch zurück, wenn du inzwischen nichts geändert hast. Sonst bleibt dein neuer Text
-unverändert; der fehlgeschlagene Auftrag steht getrennt mit Vorschau bereit. Mit
-"Nicht gesendete Eingabe einfügen" hängst du ihn samt Anhängen an den aktuellen Entwurf an.
+The chat input clears text and attachments immediately on sending. Until the request ends,
+further send actions and new attachments are blocked. You can start a new text as long as
+the respective view allows input. On an error, the original input returns
+automatically if you have not changed anything in the meantime. Otherwise your new text stays
+unchanged; the failed task is available separately with a preview. With
+"Insert unsent input" you append it together with its attachments to the current draft.
 
-Bilder, Videos und Dateien lassen sich in die Chat-Eingabe ziehen oder über den Anhangknopf
-auswählen. Bilder und Dateien aus der Zwischenablage fügst du mit Cmd+V beziehungsweise Ctrl+V
-ein. Vor dem Senden erscheinen Vorschauen mit Dateinamen und einem Entfernen-Knopf. Auch ohne
-zusätzlichen Text kannst du senden. Das gilt für neue Runs, den globalen Koordinator,
-die Actor-Ansicht und Chat-Controls in Actor-Views.
+Images, videos, and files can be dragged into the chat input or selected through the attachment
+button. You paste images and files from the clipboard with Cmd+V or Ctrl+V.
+Before sending, previews with file names and a remove button appear. You can also send without
+additional text. This applies to new runs, the global coordinator,
+the actor view, and chat controls in actor views.
 
-Eine Nachricht nimmt bis zu acht Dateien mit zusammen 20 MiB auf. Bilder, Videos und native PDFs
-brauchen ein passendes Modell; die Eingabe meldet fehlende Fähigkeiten und erhält die Auswahl.
-Textdateien werden als UTF-8 gelesen. Andere Dateien stehen dem Agenten über seine Dateiwerkzeuge
-zur Verfügung: sie liegen unter `attachments/` im Arbeitsbereich des Runs, bei einem Arbeitsplatz
-also auf dessen Rechner; ihre weitere Verarbeitung hängt von diesen Werkzeugen ab. Bei Fehlern bleiben
-Nachricht und Dateien im Composer. Gesendete Anhänge kannst du im Verlauf wieder herunterladen.
+A message takes up to eight files with a total of 20 MiB. Images, videos, and native PDFs
+need a suitable model; the input reports missing capabilities and keeps the selection.
+Text files are read as UTF-8. Other files are available to the agent through its file tools:
+they are stored under `attachments/` in the run's workspace, so with a workstation
+on its machine; their further processing depends on these tools. On errors,
+the message and files stay in the composer. You can download sent attachments again from the history.
 
-## Wählbares Modell
+## Selectable model
 
-Gibt das Produkt es frei (`MODEL_SELECTABLE`, in `core` voreingestellt an) und erlauben
-die Benutzerrechte freie Starts (`runs.create`), Schreiben (`runs.write`) und technische Ansichten
-(`runs.inspect`), wählt man das Modell des Koordinators in der Chat-Eingabe des Runs, im Browser
-wie im Run-Panel von VS Code, über ein tastaturbedienbares Auswahlmenü rechts neben den
-Schaltern der Eingabe. Die Denktiefe steht als zweites Auswahlmenü kompakt daneben und bietet nur
-die Stufen des gewählten Modells an, einschließlich erweiterter Stufen wie `max`, sofern
-unterstützt. `AGENT_MODEL_REASONING` ist nur für eine bewusste Einschränkung dieser
-Modellfähigkeiten nötig; ungültige Stufen brechen die Konfiguration ab.
+If the product allows it (`MODEL_SELECTABLE`, preset to on in `core`) and the user's
+permissions allow free starts (`runs.create`), writing (`runs.write`), and technical views
+(`runs.inspect`), you choose the coordinator's model in the run's chat input, in the browser
+as in the VS Code run panel, through a keyboard-operable selection menu to the right of the
+input's switches. The thinking level sits compactly next to it as a second selection menu and offers only
+the levels of the selected model, including extended levels such as `max` where
+supported. `AGENT_MODEL_REASONING` is only needed to deliberately restrict these
+model capabilities; invalid levels abort the configuration.
 
-Arbeitet das Profil mit Aliassen (`MODEL_ALIASES` im Abschnitt `host`, `AGENT_PROVIDER: "alias"`
-im Produkt-Plugin), zeigt die Auswahl nur die Aliasnamen, ohne Anbieter und ohne den echten
-Modellnamen, und das Journal speichert dieselben Namen. Die Denktiefen sind die des Modells hinter
-dem Alias. Bringt ein Alias eine eigene Denktiefe mit (`thinking`), steht sie beim Wechsel auf
-diesen Alias vorgewählt. Jeder Alias nennt außerdem, ab wie vielen Token der Verlauf verdichtet
-wird (`compaction`, Regeln in [profiles.md](spec/profiles.md)):
+If the profile works with aliases (`MODEL_ALIASES` in the `host` section, `AGENT_PROVIDER: "alias"`
+in the product plugin), the selection shows only the alias names, without provider and without the real
+model name, and the journal stores the same names. The thinking levels are those of the model behind
+the alias, unless the alias offers its own with `thinkingLevels`; then exactly this
+selection appears in the menu, and a chosen level goes out as the model level it points to.
+If an alias brings its own thinking level (`thinking`), it is preselected when switching to this alias.
+Each alias also states from how many tokens on the history is compacted
+(`compaction`, rules in [profiles.md](spec/profiles.md)):
 
 ```typescript
 host: {
@@ -246,17 +248,17 @@ host: {
 },
 ```
 
-Die Wahl steht schon im leeren Run nach "Neuer Chat" bereit und gilt dann für den ersten Turn;
-ohne Wahl beginnt der Run mit der Vorgabe aus den Einstellungen. Danach bleibt sie in derselben
-Eingabe und gilt ab dem nächsten Turn des Koordinators; ein laufender Turn behält sein Modell, der
-Verlauf bleibt erhalten. Enthält das Gespräch schon Bilder, Videos oder Dateien, die das neue
-Modell nicht verarbeiten kann, lehnt der Server den Wechsel mit Begründung ab. Ohne eines der
-Rechte fehlt die Auswahl ganz, und der Server lehnt eine Wahl ab. Im Vorbereitungschat einer
-Skill-Vorlage mit Leitfaden steht dieselbe Auswahl in der Auftragseingabe; die Eingabe beginnt
-dort mit drei Zeilen und wächst bis acht Zeilen, weitere Startoptionen stehen darunter.
-Angeboten werden nur wählbare, nicht gesperrte Startoptionen.
-Zur Wahl steht `AGENT_MODELS` - eine ECHTE Liste in der Konfigurationsdatei, kein Wert
-mit Trennzeichen:
+The choice is already available in the empty run after "New chat" and then applies to the first turn;
+without a choice the run starts with the default from the settings. After that it stays in the same
+input and applies from the coordinator's next turn; a running turn keeps its model, the
+history is preserved. If the conversation already contains images, videos, or files that the new
+model cannot process, the server rejects the switch with a reason. Without one of the
+permissions, the selection is missing entirely, and the server rejects a choice. In the preparation chat of a
+skill template with a guide, the same selection is in the task input; the input starts
+there with three lines and grows up to eight lines, further start options are below it.
+Only selectable, unlocked start options are offered.
+The choice is `AGENT_MODELS` - a REAL list in the configuration file, not a value
+with separators:
 
 ```ts
 AGENT_COORDINATOR_MODEL: "deepseek/deepseek-v4-flash-0731",
@@ -264,115 +266,115 @@ AGENT_COORDINATOR_THINKING: "off",
 AGENT_MODELS: ["qwen/qwen3.8-max", "deepseek/deepseek-v4-flash-0731", "z-ai/glm-5.3"],
 ```
 
-Ohne `AGENT_MODELS` stehen die ohnehin konfigurierten Modelle des Produkts zur Wahl, jedes einmal,
-auch wenn Agent und Koordinator dasselbe Modell nennen; doppelt darf ein Modell nur in einem
-ausdrücklichen `AGENT_MODELS` nicht stehen. Modelle anderer Profile oder freie Namen nimmt der
-Server nicht an. Die Wahl gilt für den Koordinator; anders als der Systemprompt wird sie mit der
-ersten Nachricht nicht eingefroren.
-`AGENT_COORDINATOR_MODEL` ist dabei der explizite Standard und nicht einfach der erste Listeneintrag.
-Er muss in `AGENT_MODELS` stehen; eine widersprüchliche Konfiguration bricht den Start hart ab. Das
-Profil `relay` beginnt mit demselben Modell und derselben Koordinator-Denktiefe. Unter
-Einstellungen, Modelle kann es eine eigene Vorgabe für neue Vermittlungs-Actors erhalten.
+Without `AGENT_MODELS`, the models the product configures anyway are available, each once,
+even if agent and coordinator name the same model; a model must not appear twice only in an
+explicit `AGENT_MODELS`. The server does not accept models of other profiles or free names. The
+choice applies to the coordinator; unlike the system prompt, it is not frozen with the
+first message.
+`AGENT_COORDINATOR_MODEL` is the explicit default and not simply the first list entry.
+It must be in `AGENT_MODELS`; a contradictory configuration hard-aborts the startup. The
+`relay` profile starts with the same model and the same coordinator thinking level. Under
+Settings, Models, it can get its own default for new relay actors.
 
-## Auswählbare Systemprompts
+## Selectable system prompts
 
-Der Kern bringt selbst KEINEN inhaltlichen Systemprompt mehr mit. `ragents.product/preamble.hbs`
-sagt nur noch, dass man als Koordinator in RAgents läuft; die Mechanik steht bei dem Plugin, das
-sie erklärt (Profile und Neustart-Regel in `ragents.orchestration`, `ask_user` in `ragents.ask`),
-und Ton wie Verhalten kommen aus den Prompt-Dateien.
+The core itself no longer brings ANY content system prompt. `ragents.product/preamble.hbs`
+only says that you are running as a coordinator in RAgents; the mechanics are with the plugin that
+explains them (profiles and the restart rule in `ragents.orchestration`, `ask_user` in `ragents.ask`),
+and tone and behavior come from the prompt files.
 
-Jede `.md` oder `.hbs` im Ordner `prompts/` eines Plugins oder in `SYSTEM_PROMPTS_DIR` ist ein
-Eintrag der Liste: Kennung = Dateiname ohne
-Endung, Beschriftung = erste `# `-Überschrift. Im Vorbereitungschat schaltet man sie einzeln an und aus -
-MEHRERE gleichzeitig sind erlaubt, die Reihenfolge im Prompt folgt dem Katalog, nicht der
-Klickfolge. Der Text kommt ZUSÄTZLICH zur Präambel in den Prompt und wird mit der ersten Nachricht
-eingefroren. `SYSTEM_PROMPT_DEFAULT` nimmt entsprechend eine Liste von Kennungen.
+Every `.md` or `.hbs` in a plugin's `prompts/` folder or in `SYSTEM_PROMPTS_DIR` is an
+entry of the list: ID = file name without
+extension, label = first `# ` heading. In the preparation chat you switch them on and off individually -
+SEVERAL at the same time are allowed, the order in the prompt follows the catalog, not the
+click order. The text goes into the prompt IN ADDITION to the preamble and is frozen with the first message.
+`SYSTEM_PROMPT_DEFAULT` accordingly takes a list of IDs.
 
-Das Häkchen "Auch an die Agenten weiterreichen" im Vorbereitungschat entscheidet über die Reichweite:
-ohne Häkchen gilt der Prompt nur für den Koordinator, mit Häkchen steht er zusätzlich im
-Systemprompt jedes Agenten, den der Koordinator erzeugt. Plain-LLMs mit `tools: []` sind bewusst
-ausgenommen und erhalten ausschließlich ihren eigenen Prompt. `SYSTEM_PROMPT_SHARE_DEFAULT=1`
-belegt das Häkchen vor; die Reichweite wird zusammen mit der Auswahl in das Journal des Runs eingefroren.
+The "Also pass on to the agents" checkbox in the preparation chat decides the scope:
+without the check mark, the prompt applies only to the coordinator; with the check mark, it is also in the
+system prompt of every agent the coordinator creates. Plain LLMs with `tools: []` are deliberately
+excluded and receive only their own prompt. `SYSTEM_PROMPT_SHARE_DEFAULT=1`
+presets the checkbox; the scope is frozen into the run's journal together with the selection.
 
-Die Dateiablage bleibt je Run isoliert
-(`sessions/<id>/plugins/ragents.documents/documents`, Dienst `documentStoreToken` von
-`ragents.documents`); `DOCUMENTS_DIR` legt sie mit einem Unterordner je Run unter einen
-externen Pfad, bleibt aber bewusst ungesetzt, damit Test-Runs nie in eine fremde
-Ablage schreiben. Ein Systemprompt gleichen Namens im Plugin-Ordner und in
-`SYSTEM_PROMPTS_DIR` ist ein harter Fehler.
+The file storage stays isolated per run
+(`sessions/<id>/plugins/ragents.documents/documents`, service `documentStoreToken` of
+`ragents.documents`); `DOCUMENTS_DIR` places it with one subfolder per run under an
+external path, but deliberately stays unset so that test runs never write into someone else's
+storage. A system prompt of the same name in the plugin folder and in
+`SYSTEM_PROMPTS_DIR` is a hard error.
 
-## Skill-Vorlagen in der Startauswahl
+## Skill templates in the start selection
 
-Die Startauswahl zeigt jede Vorlage als Kachel mit Kategorie, Titel und Beschreibung, in derselben
-Form wie Start in VS Code; Kategorien sind frei wählbar und keine Liste aus dem Code. Jede
-Skill-Vorlage enthält einen kurzen, frei formulierten Startauftrag, der das gewünschte Ergebnis
-ohne Plattformwissen beschreibt; seine `description` erklärt, was die Demo zeigen soll. Die
-Einstellungen zeigen denselben Prompt mit einer Kopieraktion. Format und Regeln der Vorlagen stehen
-in [plugins.md](spec/plugins.md) unter "Skills and starting tasks" und "Referenzfälle aus
-ragents.reference", die Vorlagen und Bausteine der Actor-Programme in
+The start selection shows every template as a tile with category, title, and description, in the same
+form as Start in VS Code; categories are freely chosen and not a list from the code. Every
+skill template contains a short, freely worded start task that describes the desired result
+without platform knowledge; its `description` explains what the demo is meant to show. The
+settings show the same prompt with a copy action. Format and rules of the templates are
+in [plugins.md](spec/plugins.md) under "Skills and starting tasks" and "Reference cases from
+ragents.reference", the templates and building blocks of the actor programs in
 [actor-programs.md](spec/actor-programs.md).
 
-"Starten" startet den Run sofort mit dem Auftrag des Skills. "Einrichten" öffnet zuerst den
-Leitfaden; danach führt er in den Vorbereitungs-Chat im nächsten Dialogschritt. Dort lässt sich der
-Auftrag mit einer eigenen Koordinator-Instanz besprechen, dort stehen auch Modell, Denktiefe,
-Systemprompts und Arbeitsbereich zur Wahl. Nach Deinem ausdrücklichen, sinngemäßen Go startet sie
-den Run; es ist kein festgelegter Satz nötig. "Run erstellen" startet direkt. Beide Wege übernehmen
-Gespräch, Skill und Anhänge; der Knopf nimmt auch die letzte ungesendete Ergänzung mit. Zurück
-verwirft den lokalen Vorbereitungsverlauf und führt auf die Startauswahl. Beim Start wird der
-Skill mit dem Auftrag übernommen; der bearbeitete Auftrag hat Vorrang vor Beispieltext im Skill.
-Als Rechner bietet der Arbeitsbereich im Browser nur den Server an, im Run-Panel von VS Code auch
-die verbundenen Arbeitsplätze.
+"Start" starts the run immediately with the skill's task. "Set up" first opens the
+guide; after that it leads into the preparation chat in the next dialog step. There the
+task can be discussed with a separate coordinator instance, and model, thinking level,
+system prompts, and workspace are available for selection. After your explicit go-ahead in any wording, it starts
+the run; no fixed sentence is needed. "Create run" starts directly. Both paths take over
+conversation, skill, and attachments; the button also takes the last unsent addition. Back
+discards the local preparation history and leads to the start selection. At startup, the
+skill is taken over with the task; the edited task takes precedence over example text in the skill.
+As the machine, the workspace in the browser offers only the server, in the VS Code run panel also
+the connected workstations.
 
-## Run-Scripts starten
+## Start run scripts
 
-Die Homepage-Samples sind in der Startauswahl als Run-Scripts verfügbar: Sammelboard,
-Balkon-Wizard, Lernnachmittag und Wortspiel. In der eingebauten Hilfe wählt "Sample starten"
-die passende Vorlage direkt aus. Ein vorhandener Einrichtungsdialog bleibt vorgeschaltet.
-Wortspiel und Lernnachmittag bauen ihre Teilnehmer und Mini-App zunächst ohne Modellaufruf
-auf; die Arbeit beginnt mit dem Startknopf in der App. Ihre Homepage-Vorschauen verwenden
-dieselben Oberflächen mit gekennzeichneten Beispieldaten und rufen keine Modelle auf.
+The homepage samples are available in the start selection as run scripts: collection board,
+balcony wizard, study afternoon, and word game. In the built-in help, "Start sample" selects
+the matching template directly. An existing setup dialog still comes first.
+Word game and study afternoon first set up their participants and mini-app without a model call;
+the work begins with the start button in the app. Their homepage previews use
+the same interfaces with labeled example data and do not call any models.
 
-Wie ein Run-Script aufgebaut ist, welchen Startwert es bekommt und wie `fixed-start-options` eine
-Startoption festlegt, steht in [typescript-platform.md](spec/typescript-platform.md) unter
-"Run-Scripts als vorbereitete Actor-Programme" und in [plugins.md](spec/plugins.md) unter
-"Registrierungen des PluginHost"; die Einrichtungsdialoge der Referenzfälle unter
-"Referenzfälle aus ragents.reference".
+How a run script is structured, which start value it receives, and how `fixed-start-options` fixes a
+start option is in [typescript-platform.md](spec/typescript-platform.md) under
+"Run scripts as prepared actor programs" and in [plugins.md](spec/plugins.md) under
+"PluginHost registrations"; the setup dialogs of the reference cases under
+"Reference cases from ragents.reference".
 
-## Einstellungen
+## Settings
 
-Die Fläche im Stil Schichtwerk zeigt matte Kacheln mit gerundeten Kanten, ohne Tiefe.
-Lavendel kennzeichnet den Hauptactor, Tonfarbe weitere KI-Actors, Senfgelb
-TypeScript-Actors und Blaugrau die Mini-Apps. Die Fronten bleiben gerade und gleichmäßig.
-Runde Knöpfe mit X schließen Dialoge; ein runder Pfeil führt zur vorherigen Ansicht zurück.
-Die Hinweise am Knopf benennen die jeweilige Aktion.
-Auswahlmenüs öffnen je nach Platz über oder unter ihrem Knopf und bleiben auch in engen
-Eingabe- und Dialogflächen vollständig erreichbar. Escape schließt zunächst das offene Menü.
+The surface in the Schichtwerk style shows matte tiles with rounded edges, without depth.
+Lavender marks the main actor, clay color other AI actors, mustard yellow
+TypeScript actors, and blue-gray the mini-apps. The fronts stay straight and even.
+Round buttons with an X close dialogs; a round arrow leads back to the previous view.
+The hints on the button name the respective action.
+Selection menus open above or below their button depending on space and stay fully reachable even in narrow
+input and dialog areas. Escape first closes the open menu.
 
-Unter "Darstellung", "Schichtwerk" wählst du Hell, Dunkel oder System. Die Vorgabe ist Dunkel;
-System folgt der Farbschema-Einstellung des Betriebssystems auch bei späteren Änderungen.
-Die Auswahl wirkt sofort auf Oberfläche, Kacheln und gemeinsame Actor-View-Controls, ohne Chats
-oder Apps neu zu laden. Sie wird im Browser für dieselbe Serveradresse gespeichert und mit
-anderen geöffneten Tabs abgeglichen. Zum Ändern brauchst du Settings-Schreibrechte.
-Eigene feste Actor-View-Farben bleiben bestehen. Farben, Schriften, Radien, Schatten und
-Animationen werden für die Entwicklung zentral in `apps/web/src/ui/theme.css` gepflegt.
-Actor-Views verwenden dieselben shadcn/ui-Controls wie der Host, mit den Farben aus den Tokens.
-Sie folgen derselben Hell-/Dunkel-Wahl; eine gesonderte Auswahl dafür gibt es nicht.
+Under "Appearance", "Schichtwerk" you choose Light, Dark, or System. The default is Dark;
+System follows the operating system's color scheme setting, also on later changes.
+The choice immediately affects the interface, tiles, and shared actor view controls, without reloading chats
+or apps. It is stored in the browser for the same server address and synchronized with
+other open tabs. Changing it requires settings write permissions.
+Your own fixed actor view colors stay in place. Colors, fonts, radii, shadows, and
+animations are maintained centrally for development in `apps/web/src/ui/theme.css`.
+Actor views use the same shadcn/ui controls as the host, with the colors from the tokens.
+They follow the same light/dark choice; there is no separate selection for them.
 
-Das Zahnrad öffnet zuerst "Modelle". "Globaler Koordinator" ändert dessen eigene Auswahl
-ab dem nächsten Arbeitsschritt. Die erste globale Auswahl wird unabhängig gespeichert und
-bleibt auch nach einem Neustart von den Produktvorgaben getrennt. "Neue Runs und Agenten" bietet für jede Rolle des
-Produkts Modell und Denktiefe; in core sind das coordinator, relay und standard. Speichere den
-vollständigen Entwurf. Neue Actors und Vorgaben noch nicht gestarteter Runs verwenden ihn
-sofort; bestehende Actors sowie eine ausdrücklich getroffene Startauswahl bleiben erhalten.
+The gear first opens "Models". "Global coordinator" changes its own selection
+from the next work step. The first global selection is stored independently and
+stays separate from the product defaults even after a restart. "New runs and agents" offers model and thinking level for every role of the
+product; in core these are coordinator, relay, and standard. Save the
+complete draft. New actors and defaults of runs not yet started use it
+immediately; existing actors and an explicitly made start selection are kept.
 
-Die Auswahl enthält nur konfigurierte Modelle und deren unterstützte Denktiefen; ungültige
-Entwürfe werden vor dem Speichern abgewiesen. Die verfügbare Modellliste wird weiterhin in der
-Profildatei gepflegt. Ablage, Vorrang und Startfehler der gespeicherten Vorgaben stehen in
-[profiles.md](spec/profiles.md) unter "Bearbeitbare Modellvorgaben".
+The selection contains only configured models and their supported thinking levels; invalid
+drafts are rejected before saving. The available model list is still maintained in the
+profile file. Storage, precedence, and startup errors of the saved defaults are in
+[profiles.md](spec/profiles.md) under "Editable model defaults".
 
-Die Rolle des Koordinators heißt `coordinator`, die der Agenten `standard`. Unter
-"Neue Runs und Agenten" kannst Du ihre Denktiefen getrennt wählen. Die Vorgaben stehen in der
-Profildatei, in core unter `ragents.product`:
+The coordinator's role is called `coordinator`, that of the agents `standard`. Under
+"New runs and agents" you can choose their thinking levels separately. The defaults are in the
+profile file, in core under `ragents.product`:
 
 ```typescript
 AGENT_COORDINATOR_MODEL: "z-ai/glm-5.3-flash",
@@ -380,152 +382,152 @@ AGENT_COORDINATOR_THINKING: "high",
 AGENT_MODEL: "z-ai/glm-5.3-flash",
 ```
 
-Ein Produkt-Plugin kann weitere Rollen mit eigenen Schlüsseln anmelden; gespeicherte Rollen
-lassen sich separat bearbeiten. Der aktuelle Modellkatalog bietet für GLM 5.3 und GLM 5.3 Flash
-`low`, `high` und `max`.
-Gespeicherte Modelleinstellungen haben Vorrang vor der Profildatei. Änderungen
-in der Oberfläche gelten für neu angelegte Actors ohne Neustart; Config- und Run-Prompt-Änderungen
-benötigen einen Neustart und für den neuen Koordinatorprompt einen neuen Implementierungs-Run.
+A product plugin can register further roles with its own keys; saved roles
+can be edited separately. The current model catalog offers `low`, `high`, and `max` for
+GLM 5.3 and GLM 5.3 Flash.
+Saved model settings take precedence over the profile file. Changes
+in the interface apply to newly created actors without a restart; config and run prompt changes
+require a restart and, for the new coordinator prompt, a new implementation run.
 
-Unter "Überschriften" wählst du unabhängig davon das Modell für kurze automatische
-Listentitel. Bei einer großen Modellliste hilft die Suche. "Speichern" übernimmt die Auswahl,
-"Änderungen verwerfen" verwirft nur den Entwurf. "Keine automatischen Überschriften" mit
-anschließendem Speichern deaktiviert neue Erzeugungen; vorhandene Titel bleiben erhalten.
-Die Auswahl wirkt ab der nächsten Erzeugung und verändert keine Agentenmodelle.
+Under "Headings" you independently choose the model for short automatic
+list titles. With a large model list, the search helps. "Save" applies the selection,
+"Discard changes" discards only the draft. "No automatic headings" followed by
+saving disables new generations; existing titles are kept.
+The selection applies from the next generation and does not change any agent models.
 
-Angeboten werden Textmodelle des konfigurierten `COMPACTION_PROVIDER`, die ohne Reasoning
-arbeiten können; Vorgabe, Ablage und Fehlerfälle stehen in [profiles.md](spec/profiles.md) unter
-"Modell für automatische Überschriften".
+Offered are text models of the configured `COMPACTION_PROVIDER` that can work without
+reasoning; default, storage, and error cases are in [profiles.md](spec/profiles.md) under
+"Model for automatic headings".
 
-"Darstellung" enthält die Oberflächenwahl und die Einstellungen des Run-Panels. "Plugins" enthält
-"Nach Plugin" und "Nach Fähigkeit" als technische Kataloge mit Suche. Ein Klick auf den
-Eigentümer öffnet die vollständige Plugin-Seite. "Laufzeit" zeigt technische Fakten,
-Modelle, Profile und Systemprompt. Modelle und Darstellung funktionieren unabhängig vom
-Laden dieser Kataloge. Plugin-Formulare sind zusätzlich bei ihrem Plugin erreichbar.
+"Appearance" contains the interface choice and the run panel settings. "Plugins" contains
+"By plugin" and "By capability" as technical catalogs with search. Clicking the
+owner opens the complete plugin page. "Runtime" shows technical facts,
+models, profiles, and the system prompt. Models and Appearance work independently of
+loading these catalogs. Plugin forms are additionally reachable at their plugin.
 
-Unter "Run-Panel" bestimmst du, ab welcher Panelbreite der Chat rechts neben der Mini-App
-liegt (Vorgabe 900 Pixel) und wie träge das Sheet auf die Maus reagiert (Vorgabe 160
-Millisekunden bis zum Hochschieben, 150 Millisekunden bis zum Zurückgleiten). Zum Ändern
-brauchst du Settings-Schreibrechte. Die Einstellung bleibt lokal für dieselbe Serveradresse im
-Browser gespeichert und wird nicht als Profilwert auf dem Server abgelegt. Zurücksetzen stellt
-die Vorgaben wieder her.
+Under "Run panel" you determine from which panel width the chat sits to the right of the mini-app
+(default 900 pixels) and how sluggishly the sheet reacts to the mouse (default 160
+milliseconds until it slides up, 150 milliseconds until it slides back). Changing it
+requires settings write permissions. The setting stays stored locally in the browser for the same server address
+and is not saved as a profile value on the server. Reset restores
+the defaults.
 
-## Globaler Koordinator
+## Global coordinator
 
-Mit `ragents.overseer` in `host.PLUGINS` steht die Eingabe "Globaler Koordinator" rechts
-neben den Übersichtsknöpfen. Fokus in die Eingabe klappt den Verlauf
-unterhalb auf. Enter sendet, Shift+Enter fügt eine Zeile ein. Die Eingabe bleibt oben; Anhänge
-lassen sich wie in anderen Chats auswählen, hineinziehen oder einfügen. Im Dropdown stehen
-Verlauf, Modellwahl, Reasoning, Details und Reset. Senden und Stopp bleiben an der Eingabe.
+With `ragents.overseer` in `host.PLUGINS`, the "Global coordinator" input sits to the right
+of the overview buttons. Focusing the input expands the history
+below it. Enter sends, Shift+Enter inserts a line. The input stays at the top; attachments
+can be selected, dragged in, or pasted as in other chats. The dropdown holds
+history, model choice, reasoning, details, and reset. Send and stop stay at the input.
 
-`Gespräch zurücksetzen` steht neben Modell und Reasoning im Dropdown des globalen Chats und öffnet
-einen Dialog über dem gesamten globalen Chat. Sein Hintergrund wird unscharf und ist
-währenddessen nicht bedienbar; der Fokus beginnt auf Abbrechen. Die bestätigte Aktion löscht
-Verlauf, Eingabeentwurf, Anhänge und Modellkontext und stoppt vorher eine laufende Antwort. Normale Runs,
-ihre Journale sowie Modell- und Reasoningwahl bleiben erhalten. Nach Abschluss beginnt die
-nächste Nachricht ein frisches Gespräch. Bei einem Fehler bleibt eine Meldung sichtbar;
-ein begonnener Reset lässt sich wiederholen und wird nach einem Serverneustart fertiggestellt.
-Es gibt keinen automatischen Reset.
+`Reset conversation` sits next to model and reasoning in the global chat's dropdown and opens
+a dialog over the entire global chat. Its background becomes blurred and cannot be
+operated in the meantime; focus starts on Cancel. The confirmed action deletes
+history, input draft, attachments, and model context, and first stops a running response. Normal runs,
+their journals, and the model and reasoning choice are kept. After completion, the
+next message starts a fresh conversation. On an error, a message stays visible;
+a started reset can be repeated and is completed after a server restart.
+There is no automatic reset.
 
-Modell und Reasoning-Tiefe wählst du im Dropdown oberhalb des Verlaufs. Dieselbe Auswahl findest du
-in den Einstellungen unter Modelle und bei `ragents.overseer`. Sie wird pro Profil
-gespeichert und gilt ab dem nächsten Arbeitsschritt; eine laufende Antwort wird nicht
-umgestellt. Andere Runs behalten ihre Modelle. Ein inkompatibles Modell, etwa ohne
-Unterstützung für schon gesendete Bilder, wird abgewiesen und die bisherige Auswahl bleibt.
+You choose model and reasoning level in the dropdown above the history. You find the same selection
+in the settings under Models and at `ragents.overseer`. It is stored per profile
+and applies from the next work step; a running response is not
+switched. Other runs keep their models. An incompatible model, for example one without
+support for images already sent, is rejected and the previous selection stays.
 
-Beim Absenden erfährt der globale Koordinator, ob du auf der Startansicht, in der Run-Übersicht
-oder in einem Run bist, welchen Bereich du geöffnet und welches Element du ausgewählt hast.
-Öffne zum Beispiel den Reiter Dateien und frage oben "Was liegt in diesem Run?".
-Run-Titel, kurze Run-Referenz und Actor-Name werden auf dem Server ergänzt; du musst sie nicht
-abschreiben. Dein sichtbarer Fragetext bleibt dabei unverändert.
+When sending, the global coordinator learns whether you are on the start view, in the run overview,
+or in a run, which area you have opened, and which element you have selected.
+For example, open the Files tab and ask at the top "What is in this run?".
+Run title, short run reference, and actor name are added on the server; you do not need to
+copy them. Your visible question text stays unchanged.
 
-Diese Orientierung hält den Stand beim Absenden fest. Wechselst du danach den Run, bezieht
-sich die schon gesendete Frage weiterhin auf ihre ursprüngliche Auswahl, auch wenn sie noch
-in der Warteschlange steht. Ohne mitgesendete UI-Angabe gibt es keinen aktuellen Standort.
-Der Koordinator erhält durch diesen Kontext weder Bildschirmbilder noch Formulartexte oder
-vollständige Run-Inhalte. Die Angabe hilft beim Zuordnen deiner Frage und erteilt keinen
-zusätzlichen Auftrag; ein Ansichtswechsel allein löst keine Modellanfrage aus.
+This orientation captures the state at the time of sending. If you switch the run afterwards, the
+question already sent still refers to its original selection, even if it is still
+in the queue. Without a UI detail sent along, there is no current location.
+Through this context, the coordinator receives neither screenshots nor form texts nor
+complete run contents. The detail helps with assigning your question and grants no
+additional task; a view change alone triggers no model request.
 
-Escape schließt zuerst ein offenes Auswahlmenü und danach den Verlauf. Ein Klick außerhalb
-oder Tab aus dem gesamten Bereich schließt ihn ebenfalls. Das beendet keine Arbeit und
-verwirft keinen Entwurf. Übersicht, Einstellungen und Hilfe schließen den Verlauf; bei einem
-Run-Wechsel bleiben Gespräch und Eingabe erhalten. Die Übersichtsecke und `Cmd+I` beziehungsweise
-`Ctrl+I` öffnen ausschließlich die Run-Übersicht.
+Escape first closes an open selection menu and then the history. A click outside
+or tabbing out of the entire area closes it as well. This ends no work and
+discards no draft. Overview, Settings, and Help close the history; on a
+run switch, conversation and input are kept. The overview corner and `Cmd+I` or
+`Ctrl+I` open only the run overview.
 
-Erst das erste Öffnen verbindet den Stream. Schon während der Sendeanfrage und danach bei
-laufender Arbeit pulsiert der Rahmen um die Eingabe, wie bei arbeitenden Agenten in ihrer Kachel.
-Bei reduzierter Bewegung
-bleibt der Rahmen hervorgehoben. Ein Verbindungsabbruch sperrt Senden, erhält aber den Entwurf.
-Nach Wiederverbindung werden zwischenzeitliche Kurzantworten berücksichtigt, ohne alte Toasts
-beim ersten Verbinden oder erneuter Wiedergabe nochmals anzuzeigen.
+Only the first opening connects the stream. Already during the send request and afterwards while
+work is running, the frame around the input pulses, as with working agents in their tile.
+With reduced motion
+the frame stays highlighted. A lost connection blocks sending, but keeps the draft.
+After reconnecting, short answers from the meantime are taken into account, without showing old toasts
+again on the first connection or a replay.
 
-Jeder angemeldete Benutzer hat seinen eigenen globalen Koordinator, ohne Anmeldung gibt es genau
-einen. Er überblickt die Runs, die sein Benutzer sieht, liest ihre Journale und kann neue Runs
-mit einem Auftrag oder einem installierten Run-Script beginnen; er handelt dabei mit dem Zugang und
-den Rechten seines Benutzers, und neue Runs gehören diesem. Erstellte Runs lassen sich
-über die Run-Liste öffnen. Der Stopp-Knopf an seiner Eingabe erscheint nur, solange der globale
-Koordinator selbst einen Turn hat, und unterbricht nur diesen; einen anderen Run stoppt er auf
-Auftrag über die Verwaltungsmethoden. Ohne Schreibrecht
-bleibt die schreibgeschützte Eingabe fokussierbar und öffnet den lesbaren Verlauf; Senden ist
-gesperrt. Einen zusätzlichen Dropdown-Pfeil gibt es nicht.
+Every signed-in user has their own global coordinator; without sign-in there is exactly
+one. It oversees the runs its user sees, reads their journals, and can start new runs
+with a task or an installed run script; it acts with the access and
+permissions of its user, and new runs belong to that user. Created runs can be opened
+through the run list. The stop button at its input appears only while the global
+coordinator itself has a turn, and interrupts only that turn; it stops another run on
+request through the management methods. Without write permission,
+the read-only input stays focusable and opens the readable history; sending is
+blocked. There is no additional dropdown arrow.
 
-Für eine knappe Antwort kann der Koordinator `quick_answer` verwenden. Die aktuelle Nutzerfrage
-und ihre Antwort erscheinen kurz zusammengefasst, jeweils mit höchstens 240 Zeichen,
-automatisch direkt unter der Kopfzeile als Toast, auch bei
-offenem Verlauf. Er verwendet denselben Hintergrund und denselben Abstand wie die Hinweise der
-Kopfzeilenknöpfe.
-Der gesamte Toast öffnet beim Anklicken das Gespräch und fokussiert seine Eingabe, bei
-Lesezugriff den Verlauf. Das X schließt nur den Toast; die Antwort
-öffnet nichts von selbst und unterbricht nicht die aktuelle Eingabe.
+For a brief answer, the coordinator can use `quick_answer`. The current user question
+and its answer appear briefly summarized, each with at most 240 characters,
+automatically directly below the header as a toast, also with the
+history open. It uses the same background and the same distance as the hints of the
+header buttons.
+Clicking anywhere on the toast opens the conversation and focuses its input, with
+read access the history. The X closes only the toast; the answer
+opens nothing by itself and does not interrupt the current input.
 
-Der Chat verwendet je Benutzer eine eigene Run-ID (`overseer-...`, ohne Anmeldung
-`overseer-single`) und die normale Journal- und Run-Ablage. Das Gespräch des früheren
-gemeinsamen Koordinators (`overseer`) wird nicht übernommen und bleibt unverändert liegen.
-Die kurzen Run-Referenzen liegen dauerhaft unter `plugins/ragents.overseer/run-references.json`
-im Datenverzeichnis. Der Koordinator erscheint nicht in der normalen Run-Liste und kann
-nicht gelöscht werden. Die mitgelieferten Profile enthalten das Plugin; eine zusätzliche
-Profildatei muss es ebenfalls in ihrer Pluginliste aufführen.
+The chat uses its own run ID per user (`overseer-...`, without sign-in
+`overseer-single`) and the normal journal and run storage. The conversation of the former
+shared coordinator (`overseer`) is not taken over and stays unchanged.
+The short run references are stored permanently under `plugins/ragents.overseer/run-references.json`
+in the data directory. The coordinator does not appear in the normal run list and cannot
+be deleted. The bundled profiles contain the plugin; an additional
+profile file must also list it in its plugin list.
 
-Ändert sich die feste Werkzeugauswahl des globalen Koordinators, meldet ein vorhandenes Gespräch
-beim nächsten Sendeversuch `global-tools-changed`. Nach dem Serverneustart einmal `Gespräch
-zurücksetzen` ausdrücklich bestätigen, damit die nächste Nachricht mit den aktuellen Werkzeugen und
-der neuen Promptanweisung beginnt; ein bestehendes Gespräch wird nicht automatisch angepasst.
+If the fixed tool selection of the global coordinator changes, an existing conversation reports
+`global-tools-changed` on the next send attempt. After the server restart, explicitly confirm
+`Reset conversation` once, so that the next message starts with the current tools and
+the new prompt instruction; an existing conversation is not adjusted automatically.
 
-Werkzeuge, Verwaltungsmethoden, Journalzugriff und Zugang des globalen Koordinators
-stehen in [core.md](spec/core.md) unter "Globaler Koordinator".
+Tools, management methods, journal access, and access of the global coordinator
+are in [core.md](spec/core.md) under "Global coordinator".
 
-## Dienste und Hintergrundprozesse beenden
+## Stop services and background processes
 
-Die Prozessleiste zeigt Hintergrundprozesse des Runs und Dienste mit offenen Ports, und zwar auf
-dem Rechner, auf dem der Run arbeitet: bei einem Arbeitsplatz dessen Prozesse, sonst die des
-Servers. Mit Schreibrecht beendet das kleine Stopp-Symbol genau die ausgewählte Prozessinstanz.
-Während der Anfrage ist dessen Knopf gesperrt; Fehler bleiben am Eintrag sichtbar. Der nächste
-Prozessstand entfernt beendete Einträge. Beim Stoppen und vor dem Löschen eines Runs räumt der
-Executor des Runs auch markierte Prozesse ohne offenen Port auf, auf dem Arbeitsplatz wie auf dem
-Server. Ein offenes Browserfenster ist dafür nicht nötig. Ist der Arbeitsplatz gerade nicht
-verbunden oder antwortet er nicht innerhalb von zehn Sekunden, merkt sich der Server den Stopp und
-holt ihn nach, sobald sich der Arbeitsplatz wieder anmeldet, noch vor jedem neuen Auftrag dieses
-Runs; das Serverprotokoll nennt ihn bis dahin als ausstehend. Ein Serverneustart vergisst ihn.
+The process rail shows the run's background processes and services with open ports, on
+the machine where the run works: with a workstation its processes, otherwise those of the
+server. With write permission, the small stop icon ends exactly the selected process instance.
+During the request its button is blocked; errors stay visible at the entry. The next
+process state removes ended entries. When stopping and before deleting a run, the
+run's executor also cleans up marked processes without an open port, on the workstation as on the
+server. An open browser window is not needed for this. If the workstation is currently not
+connected or does not respond within ten seconds, the server remembers the stop and
+carries it out as soon as the workstation registers again, before any new task of this
+run; until then the server log lists it as pending. A server restart forgets it.
 
-Wie der Executor Prozesse beendet (SIGTERM, SIGKILL, Zeitgrenzen) und welche Prozesse er einem
-Run zuordnen kann, steht in [plugins.md](spec/plugins.md) unter "Arbeitsbereich,
-Sandbox-Werkzeuge und Prozesse".
+How the executor ends processes (SIGTERM, SIGKILL, time limits) and which processes it can assign
+to a run is in [plugins.md](spec/plugins.md) under "Workspace,
+sandbox tools, and processes".
 
-Ein bewusst abgesetzter Node-Dienst kann mit `child_process.spawn` und den Optionen
-`detached: true`, `stdio: "ignore"`, `env: process.env` sowie anschließendem `child.unref()`
-weiterlaufen. Das verwendet auf macOS und Linux die Node-Prozessschnittstelle und benötigt
-kein externes `setsid`-Programm. Der geerbte `RAGENTS_RUN_ID`-Marker muss erhalten bleiben,
-damit der Dienst beim Run-Stopp wiedergefunden wird. Derselbe Mechanismus gilt unabhängig
-vom verwendeten Interpreter; ohne Marker gibt es keine Zuordnung zum Run. Welche Prozesse die
-Prozesstabelle je Plattform trotz Marker nicht zuordnen kann, etwa Programme aus `/bin` unter
-macOS, nennt derselbe Abschnitt der Spec.
+A deliberately detached Node service can keep running with `child_process.spawn` and the options
+`detached: true`, `stdio: "ignore"`, `env: process.env`, followed by `child.unref()`.
+On macOS and Linux this uses the Node process interface and needs
+no external `setsid` program. The inherited `RAGENTS_RUN_ID` marker must be preserved
+so that the service is found again when the run stops. The same mechanism applies regardless
+of the interpreter used; without a marker there is no assignment to the run. Which processes the
+process table cannot assign per platform despite the marker, such as programs from `/bin` on
+macOS, is named in the same section of the spec.
 
 <!-- guide:clients -->
 ## Run panel and VS Code extension
 
 The run panel is also available in the browser. `http://localhost:4710/run-panel.html?run=<id>`
 shows a run in a narrow layout with mini-app chips, the selected app, actor chips, chat, and the
-tab bar on the right. Without `run`, it shows the run list with "Neuer Run" as the first
+tab bar on the right. Without `run`, it shows the run list with "New run" as the first
 card. `run-panel.html?layout=app&run=<id>&element=<app-id>` shows one mini-app without the tab bar.
 Run-panel state, including the selected app and actor, view mode, chat width, collapsed chat
 height, open tab, and tab-area height, is stored per run in the browser.
@@ -540,21 +542,21 @@ down arrow keys to change the area's height. At least 160 pixels remain for the 
 tab and height are stored per run in the browser, per VS Code window, and independently from the
 full web view.
 
-Once a mini-app is selected, three header buttons control the run-panel view: "Nur Chat" (chat
-only, speech bubble), "Chat unten" (chat below, a sheet over the app), and "Chat rechts" (chat
-right, beside the app). "Chat rechts" is the default. While the panel is narrower than the
-configured width, that option is disabled and the chat stays below. "Nur Chat" gives the chat the
+Once a mini-app is selected, three header buttons control the run-panel view: "Chat only"
+(speech bubble), "Chat below" (a sheet over the app), and "Chat right" (beside the app).
+"Chat right" is the default. While the panel is narrower than the
+configured width, that option is disabled and the chat stays below. "Chat only" gives the chat the
 entire panel: the mini-app
 recedes, nothing slides in or out, and an open sheet closes cleanly. Switching back rebuilds the
 mini-app, so unsaved input in it is lost. The choice is stored per run and survives a restart.
 The extension can also open a mini-app as an editor tab in the center, which works well with
-"Nur Chat" in the run panel.
+"Chat only" in the run panel.
 
-In "Chat unten", the handle controls the expanded chat height. Dragging up makes it taller;
+In "Chat below", the handle controls the expanded chat height. Dragging up makes it taller;
 dragging down makes it shorter. The chosen height is stored per run. The collapsed chat shows the
 handle, status, and complete input, including multiple input lines. An open question sits
 completely above the input there as well: the collapsed chat grows by its height, up to half of
-the panel, and the status line reads "Wartet auf Eingabe" (waiting for input). Hovering or
+the panel, and the status line reads "Waiting for input". Hovering or
 writing opens the chat to the chosen height (90 percent of the panel by default). Dragging leaves
 the chat open at its new height. Clicking the handle opens or closes it. With
 keyboard focus on the handle, up and down change the height, Home and End select its limits, and
@@ -567,16 +569,16 @@ The chip at the left of the chat input names the addressee, the actor your messa
 Clicking it opens the addressee list as a tree of who created whom, like the agent tree of a
 coding assistant: the coordinator at the top, below it the agents and TypeScript actors it
 started, below those their own subagents. Each entry shows the handle, a very short description
-of its job, and its state: "arbeitet" (working), "wartet auf Eingabe" (waiting for your answer),
-"wartet" (idle), or "gestoppt" (stopped). The description is the one given when the actor was
+of its job, and its state: "working", "waiting for input" (waiting for your answer),
+"idle", or "stopped". The description is the one given when the actor was
 created, otherwise the first line of its first assignment, otherwise its display name. Four or
 more similar siblings, such as 37 rule reviewers named `review-...`, collapse into one group row
 with their shared handle prefix, their number, and a count per state; click it to open or close
 it. A group that contains the current addressee opens by itself. With more than twelve actors a
 search field appears above the tree; it matches every word against handle, display name, and
 description and keeps the creators of each hit visible. Clicking an entry makes it the addressee
-and closes the list. Hidden actors, as chosen with "Anzeige" in the footer, sit in their own tree
-behind "ausgeblendete Actors"; picking one of them also shows it again. In runs recorded before
+and closes the list. Hidden actors, as chosen with "Show" in the footer, sit in their own tree
+behind "Hidden actors"; picking one of them also shows it again. In runs recorded before
 actors had descriptions, the description falls back to the first assignment or the display name.
 
 The extension lives under `apps/vscode`. It works with all configured **servers at the same
@@ -584,7 +586,7 @@ time**; there is no single active connection. A server in the `ragents.connectio
 either a server (`name` and `url`; it connects automatically when activated and its card asks
 for sign-in in the panel) or a local profile (`name` and `profileFile`, the path to a
 `ragents.config.<profile>.ts`). When activated, the extension starts a local profile silently in
-the background with `--port 0`. The page shows "startet" (starting) and then "bereit" (ready), so its card and
+the background with `--port 0`. The page shows "starting" and then "ready", so its card and
 templates are immediately available; a stopped local profile can be started again from its chip. The
 host runs until the VS Code session ends and terminates with it, even if the window reloads, VS
 Code crashes, or it is forcibly closed. Before starting, the extension provisions the profile's
@@ -594,7 +596,7 @@ command. If a server distributes a client profile, the extension
 fetches it after sign-in like `pnpm connect`, starts its host locally, and supplies the token as
 `RAGENTS_TOKEN`. If `ragents.hostPath` is empty and the extension is not running from a checkout,
 as with an installed `.vsix`, it downloads the host itself:
-`npm install --prefix <globalStorage>/hosts/<paketfassung> @schlenkr/ragents@<paketfassung>`,
+`npm install --prefix <globalStorage>/hosts/<package-version> @schlenkr/ragents@<package-version>`,
 using the `npm` available on `PATH`. For a distributing server, that server specifies the version
 through `ragents.profile.describe`; for a local profile, the extension supplies its own
 `ragents.packageVersion` from `package.json`, keeping extension and host compatible. npm progress
@@ -625,7 +627,7 @@ distributing server.
 
 The extension is an app with four pages: Start, Runs, the run panel, and "Server". All appear in
 the RAgents panel of VS Code's secondary sidebar. Navigation and commands live in the view title
-bar, following VS Code conventions: Start (home), Runs (list), Server (gear), "Neuer Run" (new run), and "Aktualisieren" (refresh). They remain available
+bar, following VS Code conventions: Start (home), Runs (list), Server (gear), "New run", and "Refresh". They remain available
 while the panel shows a run. Start has no separate page header; Runs and Server show their
 title next to a back arrow to Start, and the run panel's back
 arrow also returns there. There is no Explorer tree in the activity bar. The view badge counts
@@ -634,9 +636,9 @@ pending inputs across all servers.
 **Start** begins with **Server**. Equal-width chips appear two per row at 420 pixels and in
 a single row from 560 pixels. Each chip is a split button. Its left side shows a status icon,
 name, and when needed an action label: none for a connected or ready server (clicking opens
-Runs filtered to it), "Anmelden" (sign in) when authentication is required or access was denied,
-"Erneut versuchen" (try again) when unreachable or failed, "Starten" for a stopped local profile,
-and "Verbinden" (connect) for a stopped server. "startet ..." (starting) is not a button. A monospace line below identifies the server:
+Runs filtered to it), "Sign in" when authentication is required or access was denied,
+"Retry" when unreachable or failed, "Start" for a stopped local profile,
+and "Connect" for a stopped server. "starting ..." is not a button. A monospace line below identifies the server:
 `local / <profile>` for a local profile, the server host and non-default port, or `<host> / local`
 when a server distributes a client profile whose host runs here.
 
@@ -644,14 +646,14 @@ The right side contains a plus button for a new run. If the server's profile def
 `defaultStartEntry` (see [profiles.md](spec/profiles.md)), it starts that template; otherwise it
 starts an empty chat. Without permission to start, an equally wide empty space remains. For a
 failed, unreachable, or rejected server, its status icon is also a button. It opens a
-popover with the status, full selectable message, "Ausgabe öffnen" (open output), and either
-"Erneut versuchen" or "Anmelden". A lock opens the same sign-in dialog.
+popover with the status, full selectable message, "Open output", and either
+"Retry" or "Sign in". A lock opens the same sign-in dialog.
 
-Below that, **Weiter** (continue) shows the five most recent runs from all servers in a fixed-column
-grid with status, title, right-aligned time, and, when more than one exists, server. "Alle N
-Runs" opens the Runs page. **Neu** (new) appears when at least one server is reachable and permits
+Below that, **Continue** shows the five most recent runs from all servers in a fixed-column
+grid with status, title, right-aligned time, and, when more than one exists, server. "All N
+runs" opens the Runs page. **New** appears when at least one server is reachable and permits
 new runs. Entries are grouped by server when needed. The first entry is its default template,
-marked "Standard" (default), or "Neuer Chat" (new chat) in the "Ohne Vorlage" (without template)
+marked "Default", or "New chat" in the "No template"
 category. Remaining templates follow,
 without duplicating the default. Clicking an entry creates and starts the run on its server
 and opens the run panel.
@@ -663,10 +665,10 @@ loading, preparing, or setting up. A startup or setup error appears in the same 
 chat input remains usable. The loading state disappears with the first mini-app or chat item; an
 empty chat without a template does not show it. VS Code never displays the run panel's run-list
 view. If a run cannot be started, for example because the user may not create runs, the panel
-explains why and offers "Zur Start-Seite" (back to Start). For a new run, the visible chat input receives focus as
+explains why and offers "Go to Start". For a new run, the visible chat input receives focus as
 soon as it becomes writable. Opening an existing run does not move focus there automatically.
 
-**Runs** shows the complete list in the same grid, with search, "Beendete ausblenden" (hide finished), a server
+**Runs** shows the complete list in the same grid, with search, "Hide ended", a server
 filter carried over from Start, and a selection mode that deletes several runs after a dialog
 confirmation. Checkboxes occupy an additional first column without shifting the others. A run the
 server has locked, for example because its journal uses an older format, shows a warning icon whose
@@ -675,11 +677,11 @@ tooltip names the cause; it does not open, but the selection mode deletes it.
 **Server** is the configuration page. You can add, edit, sign in, sign out, connect,
 disconnect, and remove servers with confirmation, then open `settings.json` from the link
 at the bottom. If a connected server does not accept this window's folders as a workstation, its
-entry says "Arbeitsplatz nicht angemeldet" (workstation not registered) with the cause.
+entry says "Workstation not registered" with the cause.
 
 The extension compares its own RAgents version with the version each server reports. If they
-differ, the server row, the top of Start, the status bar, and a notification show "RAgents-Fassung
-passt nicht: Erweiterung 0.1.9, Server 0.1.8 - ..." (RAgents version does not match), followed by
+differ, the server row, the top of Start, the status bar, and a notification show "RAgents
+version mismatch: extension 0.1.9, server 0.1.8 - ...", followed by
 what to update: the extension if it is older, the server if it is older, or the host in
 `ragents.hostPath` for a local profile. A server that reports no version counts as older. While the
 workstation stays registered, this is a warning and everything keeps working. When the server
@@ -687,37 +689,36 @@ rejects the workstation for the same reason, because the workspace executor vers
 host the extension uses lacks a plugin bundle the server's executor carries, or carries it in
 another version, it is an error that also names the server's cause; the same error appears when
 both report the same version but their builds differ. The notification appears once per server
-and message; "Erweiterung zeigen" (show extension) opens the extension page for the update, and
-"Server zeigen" (show server) opens the Server page.
+and message; "Show extension" opens the extension page for the update, and
+"Show servers" opens the Server page.
 
 Every status uses a colored icon and a tooltip with the same vocabulary everywhere. A run is
-"läuft" (running), "wartet auf Eingabe" (waiting for input, with the number of open inputs),
-"ruht" (idle), "beendet" (ended), "fehlgeschlagen" (failed), or "abgebrochen" (cancelled). A
-server is "verbunden" (connected), "bereit" (ready), "startet" (starting), "Anmeldung nötig"
-(sign-in required), "nicht erreichbar" (unreachable), "gestoppt" (stopped), "gescheitert"
-(failed), or "kein Zugriff" (no access). Time is compact and omits "vor" (ago): `jetzt`, `5 min`,
+"running", "waiting for input" (with the number of open inputs),
+"idle", "ended", "failed", or "cancelled". A
+server is "connected", "ready", "starting", "sign-in required",
+"unreachable", "stopped", "failed", or "no access". Time is compact and omits "ago": `now`, `5 min`,
 `3 h`, `2 d`, then a date after seven days. A function or mini-app name never appears as a status.
 Status icons never resemble a stop button: cancelled is a slashed circle, ended a check mark, and
-idle or stopped an empty circle. Actual stop buttons consistently use a filled red square: "Run
-stoppen" (stop run) in the run-panel header and run menu, "Arbeit stoppen" (stop work) beside the
+idle or stopped an empty circle. Actual stop buttons consistently use a filled red square: "Stop
+run" in the run-panel header and run menu, "Stop work" beside the
 chat input, and the stop controls for run processes.
 
-Stopping work in a chat and stopping the run are different things. "Arbeit stoppen" appears in a
+Stopping work in a chat and stopping the run are different things. "Stop work" appears in a
 chat input only while that chat's own actor has a turn running, and it interrupts just that turn:
 the text already written stays, running function calls are cancelled, and the actor stays active
 and answers the next message. Actors it has started keep working, and when only another actor is
-busy, the input pulses but offers no stop. To end everything, use "Run stoppen" (stop run) with its
+busy, the input pulses but offers no stop. To end everything, use "Stop run" with its
 confirmation; to stop a single actor for good, use "Stop" on its actor card. If a chat's actor has
-been stopped, the input is replaced by `@handle gestoppt: <reason>` and, with permission to operate
-and inspect the run, "Neu starten" (restart). Restarting the former primary actor makes it the
+been stopped, the input is replaced by `@handle stopped: <reason>` and, with permission to operate
+and inspect the run, "Restart". Restarting the former primary actor makes it the
 primary actor again, and the run chat continues.
 
-The arrow on a mini-app in the run-panel stage opens it as a central editor tab; "Zurück ins Panel"
-(back to the panel) closes the tab. Text artifacts and the journal open as read-only documents, while other artifacts
-open in the browser. `RAgents: Neuer Run` uses a Quick Pick grouped by server and template.
-The first entry for each server is its default, marked "Standard", or the free task without
-a template. The commands `RAgents: Trennen` (disconnect), `RAgents: Verbinden` (connect), and
-`RAgents: Abmelden` (sign out) apply to the selected run's server or ask when several match.
+The arrow on a mini-app in the run-panel stage opens it as a central editor tab; "Back to panel"
+closes the tab. Text artifacts and the journal open as read-only documents, while other artifacts
+open in the browser. `RAgents: New run` uses a Quick Pick grouped by server and template.
+The first entry for each server is its default, marked "Default", or the free task without
+a template. The commands `RAgents: Disconnect`, `RAgents: Connect`, and
+`RAgents: Sign out` apply to the selected run's server or ask when several match.
 
 When the run chat or a hosted mini-app input has focus, VS Code shortcuts such as Cmd/Ctrl+P
 and Cmd/Ctrl+Shift+P still work using your keybindings, including key chords. This also applies
@@ -740,31 +741,31 @@ and password are stored per server address in VS Code SecretStorage and reused s
 session. The session token is stored there as well and sent as a bearer token; iframes receive it
 in their URL (the server accepts a bearer token or the `access` query parameter for GET requests).
 After expiry or a server restart, that server asks for sign-in again without affecting others.
-`RAgents: Abmelden` revokes the session.
+`RAgents: Sign out` revokes the session.
 <!-- /guide:clients -->
 
-## Einstellungen und Verhalten der VS-Code-Erweiterung
+## Settings and behavior of the VS Code extension
 
-- `ragents.theme` (`auto`, `light`, `dark`) wirkt sofort.
-- `ragents.zoom` (50 bis 200 Prozent, Standard 100) skaliert die gesamte Oberfläche einschließlich
-   Mini-Apps sofort, ohne Seiten neu zu laden. Der Fensterzoom von VS Code bleibt unverändert.
-- `ragents.hostEnvironment` führt die Namen der Umgebungsvariablen, die ein lokal gestarteter
-   Host zusätzlich zur geerbten Umgebung bekommt. In der Einstellung stehen nur Namen; die Werte
-   legt der Befehl "RAgents: Secret setzen" in die SecretStorage von VS Code, "RAgents: Secret
-   löschen" nimmt sie wieder heraus. Beim Start eines Hosts liegen die gespeicherten Werte über
-   der geerbten Umgebung; fehlt einer, nennt der Kanal `RAgents` nur seinen Namen, nie einen Wert.
-   Damit startet ein Profil, das Werte über `env("NAME")` auflöst, auch in einem VS Code, das
-   ohne die Variablen der Shell aus dem Dock kommt.
+- `ragents.theme` (`auto`, `light`, `dark`) takes effect immediately.
+- `ragents.zoom` (50 to 200 percent, default 100) scales the entire interface including
+   mini-apps immediately, without reloading pages. VS Code's window zoom stays unchanged.
+- `ragents.hostEnvironment` lists the names of the environment variables that a locally started
+   host receives in addition to the inherited environment. The setting holds only names; the
+   command "RAgents: Set secret" puts the values into VS Code's SecretStorage, "RAgents: Delete
+   secret" removes them again. When a host starts, the stored values take precedence over
+   the inherited environment; if one is missing, the `RAgents` channel names only its name, never a value.
+   That way a profile that resolves values through `env("NAME")` also starts in a VS Code that
+   comes from the Dock without the shell's variables.
 
-Ist ein Server nicht erreichbar, zeigt seine Zeile auf der Seite Server die Ursache und "Erneut versuchen", auf Start
-steht dieselbe Meldung hinter dem Zustandssymbol des Chips, und die
-Sitzung versucht es alle fünf Sekunden von selbst; die Liste wird verbunden ohnehin alle fünf
-Sekunden neu geladen, der Ereignisstrom verbindet nach fünf Sekunden neu und meldet die
-Unterbrechung als Zeile unter seinem Server. Die Erweiterung wird erst beim Öffnen einer ihrer
-Ansichten aktiv und verbindet sich nicht im Hintergrund.
+If a server is unreachable, its row on the Server page shows the cause and "Retry", on Start
+the same message sits behind the chip's status icon, and the
+session retries by itself every five seconds; when connected, the list is reloaded every five
+seconds anyway, the event stream reconnects after five seconds and reports the
+interruption as a line below its server. The extension only becomes active when one of its
+views is opened and does not connect in the background.
 
-Grenzen: keine Codeaktionen, keine Dateisynchronisation, kein Betrieb ohne Server. Ein lokales
-Profil zeigt seine Vorlagen erst nach dem Start.
+Limits: no code actions, no file synchronization, no operation without a server. A local
+profile shows its templates only after startup.
 
 <!-- guide:clients -->
 ## Control RAgents as an agent
@@ -841,8 +842,8 @@ not enough because the command has no sign-in dialog. If the token is missing, t
 that the profile requires authentication and asks you to set `RAGENTS_TOKEN` to the user's
 personal token.
 
-stdout contains function calls (`> <name>`, then `< <name> <duration>s ok`, `Fehler`, or
-`abgebrochen`) as far as the server shows them to the user (`runs.inspect`), the model response,
+stdout contains function calls (`> <name>`, then `< <name> <duration>s ok`, `error`, or
+`cancelled`) as far as the server shows them to the user (`runs.inspect`), the model response,
 and finally the fixed line `run: <id>`. Messages from the command itself go to stderr. With
 `--json`, the same steps are emitted as newline-delimited JSON instead (`tool`, `tool-end`,
 `output`, and finally `turn`, carrying the objects of the run view). Exit code 0 means the turn

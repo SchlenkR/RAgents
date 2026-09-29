@@ -39,10 +39,10 @@ const chatSession = (engine: Engine, runId: string) => {
 test("the chat's stop interrupts only the primary's turn: its text stays, the chat stays bound and the next message runs", async () => {
   const { journal, runtime, view, primary } = primaryRun();
   const started = deferred();
-  const partial = "Angefangene Antwort";
+  const partial = "Partial answer";
   const driver = new FakeDriver(async (request, signal) => {
     if (driver.requests.length > 1) {
-      request.recordContext({ kind: "step", step: textStep("Weiter geht es.") });
+      request.recordContext({ kind: "step", step: textStep("Moving on.") });
       return { failure: null, usage: noUsage() };
     }
     request.publish({ kind: "text", delta: partial });
@@ -70,7 +70,7 @@ test("the chat's stop interrupts only the primary's turn: its text stays, the ch
 
     await interrupt.execute({ runId: view.id, commandId: "interrupt", actorId: primary.id } as never, methodContext());
     assert.equal(session.running, false);
-    assert.equal(session.started, true, "der Chat bleibt an seinen Actor gebunden");
+    assert.equal(session.started, true, "the chat stays bound to its actor");
     assert.deepEqual(answers().map((message) => message.text), [partial]);
     assert.equal(answers()[0]?.closed, true);
     const current = runtime.view(view.id);
@@ -82,11 +82,11 @@ test("the chat's stop interrupts only the primary's turn: its text stays, the ch
     const unsubscribe = journal.subscribe((events) => {
       if (events.some((event) => event.type === "turn.finished")) answered.resolve();
     });
-    session.send("Weiter.");
+    session.send("Continue.");
     await answered.promise;
     unsubscribe();
     await scheduler.waitForIdle();
-    assert.deepEqual(answers().map((message) => message.text), [partial, "Weiter geht es."]);
+    assert.deepEqual(answers().map((message) => message.text), [partial, "Moving on."]);
   } finally {
     await scheduler.stop();
     session.dispose();
@@ -100,11 +100,11 @@ test("restarting a stopped primary actor makes it primary again and binds the ch
   const { session } = chatSession({ journal, runtime, live, scheduler: { isRunning: () => false } } as unknown as Engine, view.id);
   try {
     assert.equal(session.attach(), true);
-    runtime.stopActor({ actorId: view.ownerId, commandId: "stop" }, view.id, primary.id, "Versehentlich gestoppt");
+    runtime.stopActor({ actorId: view.ownerId, commandId: "stop" }, view.id, primary.id, "Stopped by accident");
     assert.equal(session.started, false);
     assert.equal(runtime.view(view.id).stoppedPrimaryActorId, primary.id);
 
-    runtime.restartActor({ actorId: view.ownerId, commandId: "restart" }, view.id, primary.id, "Vom Bediener neu gestartet");
+    runtime.restartActor({ actorId: view.ownerId, commandId: "restart" }, view.id, primary.id, "Restarted by the operator");
     assert.equal(runtime.view(view.id).primaryActorId, primary.id);
     assert.equal(session.started, true);
   } finally {

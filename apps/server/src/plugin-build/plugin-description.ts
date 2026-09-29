@@ -25,7 +25,7 @@ const HALVES = new Set(["server", "web"]);
 
 const stringList = (value: unknown, where: string): readonly string[] => {
   if (!Array.isArray(value) || value.some((entry) => typeof entry !== "string" || entry.length === 0)) {
-    throw new Error(`${where} muss eine Liste von Pfaden sein`);
+    throw new Error(`${where} must be a list of paths`);
   }
   return value as readonly string[];
 };
@@ -33,7 +33,7 @@ const stringList = (value: unknown, where: string): readonly string[] => {
 /** A relative path inside the plugin folder, written with forward slashes and without leaving the folder. */
 const insidePath = (value: string, where: string): string => {
   if (path.isAbsolute(value) || value.includes("\\") || value.split("/").some((part) => part === ".." || part === "." || part === "")) {
-    throw new Error(`${where}: ${value} ist kein relativer Pfad im Plugin-Ordner`);
+    throw new Error(`${where}: ${value} is not a relative path in the plugin folder`);
   }
   return value;
 };
@@ -46,42 +46,42 @@ export const sourceFileOf = (stem: string): string | undefined =>
 export const readPluginDescription = (folder: string): PluginDescription => {
   const file = path.join(folder, PLUGIN_DESCRIPTION_FILE);
   if (!existsSync(file)) {
-    throw new Error(`${folder} hat keine ${PLUGIN_DESCRIPTION_FILE}; ein Plugin beschreibt sich dort mit { "id": "${path.basename(folder)}" }`);
+    throw new Error(`${folder} has no ${PLUGIN_DESCRIPTION_FILE}; a plugin describes itself there with { "id": "${path.basename(folder)}" }`);
   }
   const raw = JSON.parse(readFileSync(file, "utf8")) as unknown;
-  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) throw new Error(`${file} muss ein Objekt enthalten`);
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) throw new Error(`${file} must contain an object`);
   const record = raw as Record<string, unknown>;
   const unknown = Object.keys(record).filter((key) => !DESCRIPTION_KEYS.has(key));
-  if (unknown.length > 0) throw new Error(`${file}: unbekannte Felder ${unknown.join(", ")}; erlaubt sind id, exports und assets`);
+  if (unknown.length > 0) throw new Error(`${file}: unknown fields ${unknown.join(", ")}; allowed are id, exports and assets`);
   const id = record.id;
-  if (typeof id !== "string" || !ID_PATTERN.test(id)) throw new Error(`${file}: id muss eine Kennung wie acme.tickets sein`);
-  if (id !== path.basename(folder)) throw new Error(`${file}: die Kennung ${id} weicht vom Ordnernamen ${path.basename(folder)} ab`);
+  if (typeof id !== "string" || !ID_PATTERN.test(id)) throw new Error(`${file}: id must be an id such as acme.tickets`);
+  if (id !== path.basename(folder)) throw new Error(`${file}: the id ${id} differs from the folder name ${path.basename(folder)}`);
   const exportsValue = record.exports ?? {};
   if (typeof exportsValue !== "object" || exportsValue === null || Array.isArray(exportsValue)) {
-    throw new Error(`${file}: exports muss ein Objekt mit server und web sein`);
+    throw new Error(`${file}: exports must be an object with server and web`);
   }
   const halves = Object.keys(exportsValue).filter((half) => !HALVES.has(half));
-  if (halves.length > 0) throw new Error(`${file}: exports kennt nur server und web, nicht ${halves.join(", ")}`);
+  if (halves.length > 0) throw new Error(`${file}: exports knows only server and web, not ${halves.join(", ")}`);
   const exportsOf = (half: HostApiHalf): readonly string[] => {
     const names = stringList((exportsValue as Record<string, unknown>)[half] ?? [], `${file}: exports.${half}`)
       .map((name) => insidePath(name, `${file}: exports.${half}`));
     for (const name of names) {
-      if (/\.(js|ts|tsx|mjs)$/.test(name)) throw new Error(`${file}: der Export ${name} wird ohne Endung genannt`);
-      if (!sourceFileOf(path.join(folder, name))) throw new Error(`${file}: der Export ${name} für ${half} hat keine Quelldatei`);
+      if (/\.(js|ts|tsx|mjs)$/.test(name)) throw new Error(`${file}: the export ${name} is named without an extension`);
+      if (!sourceFileOf(path.join(folder, name))) throw new Error(`${file}: the export ${name} for ${half} has no source file`);
     }
     return names;
   };
   const assets = stringList(record.assets ?? [], `${file}: assets`).map((name) => insidePath(name, `${file}: assets`));
   for (const name of assets) {
-    if (RESERVED_ASSET_ROOTS.has(name.split("/")[0]!)) throw new Error(`${file}: das Asset ${name} liegt unter ${name.split("/")[0]}, das schreibt das Bauwerkzeug selbst`);
-    if (!existsSync(path.join(folder, name))) throw new Error(`${file}: das Asset ${name} fehlt im Plugin-Ordner`);
+    if (RESERVED_ASSET_ROOTS.has(name.split("/")[0]!)) throw new Error(`${file}: the asset ${name} is under ${name.split("/")[0]}, which the build tool writes itself`);
+    if (!existsSync(path.join(folder, name))) throw new Error(`${file}: the asset ${name} is missing in the plugin folder`);
   }
   return { id, exports: { server: exportsOf("server"), web: exportsOf("web") }, assets };
 };
 
 export const readPluginSource = (folder: string): PluginSource => {
   const given = path.resolve(folder);
-  if (!statSync(given, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`${given} ist kein Ordner`);
+  if (!statSync(given, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`${given} is not a folder`);
   const real = realpathSync.native(given);
   return { folder: real, description: readPluginDescription(real) };
 };
@@ -110,7 +110,7 @@ export const pluginCatalog = (folders: readonly string[], builtIn = pluginsRoot)
     if (known.has(id)) return known.get(id);
     const found = roots.map((root) => path.join(root, id)).filter((folder) => existsSync(path.join(folder, PLUGIN_DESCRIPTION_FILE)));
     const distinct = [...new Set(found.map((folder) => realpathSync.native(folder)))];
-    if (distinct.length > 1) throw new Error(`Das Plugin ${id} gibt es mehrfach: ${distinct.join(", ")}`);
+    if (distinct.length > 1) throw new Error(`The plugin ${id} exists more than once: ${distinct.join(", ")}`);
     const source = distinct[0] ? readPluginSource(distinct[0]) : undefined;
     known.set(id, source);
     return source;

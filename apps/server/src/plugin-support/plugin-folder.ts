@@ -20,7 +20,7 @@ const assetFolder = (folder: string, name: string): string | undefined => {
   const directory = path.join(folder, name);
   const stats = statSync(directory, { throwIfNoEntry: false });
   if (!stats) return undefined;
-  if (!stats.isDirectory()) throw new Error(`${directory} muss ein Verzeichnis sein`);
+  if (!stats.isDirectory()) throw new Error(`${directory} must be a directory`);
   return directory;
 };
 
@@ -74,7 +74,7 @@ export const withFolderAssets = (plugin: RAgentsPlugin): RAgentsPlugin => ({
     if (skillPaths.length === 0) return;
     host.skills({
       id: `${plugin.manifest.id}.folder-skills`,
-      // Ein ausdrücklich angemeldeter Pfad gehört in jedem Run dem ausdrücklichen Beitrag, auch wo der ihn für diesen Run weglässt.
+      // An explicitly registered path belongs to the explicit contribution in every run, even where it omits the path for this run.
       paths: async (context) => {
         const explicit = await Promise.all(explicitSkills.flatMap((skill) => [skill.paths(undefined), skill.paths(context)]));
         const taken = new Set(explicit.flat());

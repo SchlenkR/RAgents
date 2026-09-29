@@ -7,7 +7,7 @@ export const agentToolsFrom = (host: PluginHost) =>
     const view = runtime.view(runId);
     const actor = provisional ?? view.actors.find((candidate) => candidate.id === actorId);
     if (!actor || actor.kind === "human" || actor.lifecycle.kind === "stopped") {
-      throw new Error(`${actorId} bezeichnet keinen aktiven Agenten in diesem Run.`);
+      throw new Error(`${actorId} does not denote an active agent in this run.`);
     }
     const registry = new ToolRegistry();
     host.tools.entries().forEach((contributor) => registry.register(contributor));
@@ -24,7 +24,7 @@ export const agentToolsFrom = (host: PluginHost) =>
     const availableNames = new Set(tools.map((tool) => tool.name));
     const unknown = actor.toolNames.filter((name) => !availableNames.has(name));
     if (unknown.length > 0) {
-      throw new Error(`Actor ${actorId} verlangt unbekannte Werkzeuge: ${unknown.join(", ")}.`);
+      throw new Error(`Actor ${actorId} requires unknown tools: ${unknown.join(", ")}.`);
     }
     const selected = new Set(actor.toolNames);
     return tools.filter((tool) => selected.has(tool.name));

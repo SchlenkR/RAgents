@@ -1,20 +1,19 @@
 # @ragents/agent
 
-Die Agentenlaufzeit: Schleife, Kompaktierung, Werkzeuge.
+The agent runtime: loop, compaction, tools.
 
-- `loop/` ist die Agenten-Schleife: aus einer Nachricht wird ein Zug aus Modellaufruf,
-  Werkzeugaufrufen und Ergebnis. `loop/types.ts` trägt `AgentMessage`, `AgentTool`,
-  `AgentEvent` und `ThinkingLevel`. Vor jedem Modellaufruf holt die Schleife ihren Kontext über
-  `transformContext`; die Engine liefert dort die Projektion des Journals.
-- `core/context-log.ts` ist der Modellkontext als geordnete Folge von Nachrichten und
-  Kompaktierungen, `core/compaction/` verdichtet ihn mit den Werten des Modells
-  (`Model.compaction`) oder dem Katalog-Standard (`compactionOf`). Beides kennt kein Journal; die
-  Engine schreibt das Ergebnis selbst.
-- `core/model-runtime.ts` kennt die Modelle der Anbieter, `core/skills.ts` den Skill-Katalog im
-  Systemprompt.
-- Werkzeuge unter `core/tools/`: read, write, edit, bash (`core/tool-definition.ts`). Der
-  Arbeitsplatz-Executor ruft sie mit eigenen Operationen auf; sie liefern Text und strukturierte
-  Details.
+- `loop/` is the agent loop: a message becomes a turn of model call, tool calls and result.
+  `loop/types.ts` carries `AgentMessage`, `AgentTool`, `AgentEvent` and `ThinkingLevel`. Before
+  every model call the loop fetches its context through `transformContext`; the engine supplies
+  the projection of the journal there.
+- `core/context-log.ts` is the model context as an ordered sequence of messages and
+  compactions, `core/compaction/` compacts it with the values of the model (`Model.compaction`)
+  or the catalog default (`compactionOf`). Neither knows a journal; the engine writes the result
+  itself.
+- `core/model-runtime.ts` knows the models of the providers, `core/skills.ts` the skill catalog in
+  the system prompt.
+- Tools under `core/tools/`: read, write, edit, bash (`core/tool-definition.ts`). The workspace
+  executor calls them with its own operations; they return text and structured details.
 
-Dateien, Pakete, Einstellungen und Zugangsdaten liest dieses Paket nicht. Gegabelter Fremdcode;
-Herkunft und eigene Eingriffe stehen in `docs/decisions.md`.
+This package does not read files, packages, settings or credentials. Forked third-party code;
+origin and our own changes are in `docs/decisions.md`.

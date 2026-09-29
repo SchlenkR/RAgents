@@ -1,11 +1,11 @@
 import { serviceToken, type ServiceToken } from "@ragents/engine";
 
-/** Die Antwort, die `ask` liefert, wenn der Benutzer die Frage verwirft. */
-export const DISMISSED_ANSWER = "Der Benutzer hat die Frage verworfen.";
+/** The answer `ask` returns when the user dismisses the question. */
+export const DISMISSED_ANSWER = "The user dismissed the question.";
 
 export interface AskCall {
   runId: string;
-  /** Wer fragt: ein Agent in seinem laufenden Turn, ohne Turn der Eigentümer des Runs. */
+  /** Who asks: an agent in its running turn, without a turn the run owner. */
   agentId: string;
   turnId: string | null;
   commandId: string;
@@ -17,13 +17,13 @@ export interface AskRequest {
   multi?: boolean;
   description?: string;
   parameters?: Record<string, string>;
-  /** Der Actor, dem eine Antwort zugeht, auf die niemand mehr wartet; ohne Angabe der Fragende. */
+  /** The actor that receives an answer nobody waits for anymore; if omitted, the asker. */
   recipient?: string;
 }
 
 export interface AskService {
   ask: (call: AskCall, request: AskRequest, signal: AbortSignal | undefined) => Promise<string>;
-  /** Verwirft eine offene Frage: ein wartender Aufruf bekommt DISMISSED_ANSWER, niemand bekommt einen Input. */
+  /** Dismisses an open question: a waiting call gets DISMISSED_ANSWER, nobody gets an input. */
   withdraw: (runId: string, actionId: string) => void;
 }
 

@@ -3,8 +3,8 @@
   "private": true,
   "type": "module",
   "ragents": {
-    "title": "Balkonberatung",
-    "description": "Fünf Fragen und eine persönliche Gestaltungsempfehlung in einer eigenen Mini-App.",
+    "title": "Balcony advice",
+    "description": "Five questions and a personal design recommendation in a mini-app of its own.",
     "views": [{ "id": "main", "client": "src/client.tsx" }]
   }
 }

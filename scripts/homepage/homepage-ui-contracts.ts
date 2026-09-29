@@ -32,7 +32,7 @@ function demoExports(repoRoot: string): Set<string> {
   const names = new Set<string>();
   const visit = (node: ts.Node) => {
     if (ts.isJsxAttribute(node) && node.name.getText(source) === "data-component") {
-      if (!node.initializer || !ts.isStringLiteral(node.initializer)) throw new Error("UI-Demos benötigen literale data-component-Namen.");
+      if (!node.initializer || !ts.isStringLiteral(node.initializer)) throw new Error("UI demos need literal data-component names.");
       node.initializer.text.split(/\s+/).filter(Boolean).forEach((name) => names.add(name));
     }
     ts.forEachChild(node, visit);
@@ -52,18 +52,18 @@ export function readHomepageUiContracts(repoRoot: string): { components: Homepag
   const program = ts.createProgram([contractEntry, runtimeEntry].map((file) => path.join(repoRoot, file)), options);
   const source = program.getSourceFile(path.join(repoRoot, contractEntry));
   const runtime = program.getSourceFile(path.join(repoRoot, runtimeEntry));
-  if (!source || !runtime) throw new Error("Der öffentliche UI-Vertrag oder seine Implementierung fehlt.");
+  if (!source || !runtime) throw new Error("The public UI contract or its implementation is missing.");
   const checker = program.getTypeChecker();
   const exportsOf = (file: ts.SourceFile) => {
     const symbol = checker.getSymbolAtLocation(file);
-    if (!symbol) throw new Error("Der öffentliche UI-Vertrag ist kein Modul.");
+    if (!symbol) throw new Error("The public UI contract is not a module.");
     return checker.getExportsOfModule(symbol).map((entry) => ({ name: entry.name,
       symbol: entry.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(entry) : entry }));
   };
   const exported = exportsOf(source).filter(({ symbol }) => symbol.flags & ts.SymbolFlags.Value);
   const implementations = new Map(exportsOf(runtime).filter(({ symbol }) => symbol.flags & ts.SymbolFlags.Value).map((entry) => [entry.name, entry.symbol]));
   for (const name of new Set([...exported.map((entry) => entry.name), ...implementations.keys()])) {
-    if (!exported.some((entry) => entry.name === name) || !implementations.has(name)) throw new Error(`UI.${name}: öffentlicher Vertrag und Runtime-Export stimmen nicht überein.`);
+    if (!exported.some((entry) => entry.name === name) || !implementations.has(name)) throw new Error(`UI.${name}: public contract and runtime export do not match.`);
   }
   const contracts = exported.filter(({ name, symbol }) => /^[A-Z]/.test(name)
     && !symbol.declarations?.some((declaration) => sharedLibrary.test(declaration.getSourceFile().fileName)));
@@ -76,13 +76,13 @@ export function readHomepageUiContracts(repoRoot: string): { components: Homepag
     const type = checker.getTypeOfSymbolAtLocation(symbol, symbol.valueDeclaration ?? source);
     const implementation = implementations.get(name)!;
     if (!checker.isTypeAssignableTo(checker.getTypeOfSymbolAtLocation(implementation, implementation.valueDeclaration ?? runtime), type)) {
-      throw new Error(`UI.${name}: Die Implementierung erfüllt den öffentlichen Typvertrag nicht.`);
+      throw new Error(`UI.${name}: The implementation does not satisfy the public type contract.`);
     }
     const signatures = type.getCallSignatures();
-    if (!signatures.length) throw new Error(`UI.${name} ist keine aufrufbare Komponente.`);
+    if (!signatures.length) throw new Error(`UI.${name} is not a callable component.`);
     const variants = signatures.flatMap((signature) => {
       const parameter = signature.getParameters()[0];
-      if (!parameter) throw new Error(`UI.${name} hat keinen Props-Vertrag.`);
+      if (!parameter) throw new Error(`UI.${name} has no props contract.`);
       const propsType = checker.getTypeOfSymbolAtLocation(parameter, parameter.valueDeclaration ?? source);
       return (propsType.isUnion() ? propsType.types : [propsType]).map((props) => ({
         name: props.aliasSymbol?.name ?? props.getSymbol()?.name ?? `${name}Props`,
@@ -91,15 +91,15 @@ export function readHomepageUiContracts(repoRoot: string): { components: Homepag
           const declaredNever = ts.isPropertySignature(location) && location.type?.kind === ts.SyntaxKind.NeverKeyword;
           const text = declaredNever ? "never" : checker.typeToString(checker.getTypeOfSymbolAtLocation(property, location), location,
             ts.TypeFormatFlags.NoTruncation | ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope);
-          if (text.includes("import(") || text.includes(repoRoot)) throw new Error(`UI.${name}.${property.name} enthält einen nicht öffentlichen Typverweis.`);
+          if (text.includes("import(") || text.includes(repoRoot)) throw new Error(`UI.${name}.${property.name} contains a non-public type reference.`);
           return { name: property.name, type: text, optional: Boolean(property.flags & ts.SymbolFlags.Optional), ...description(property) };
         }),
       }));
     });
     return { name, variants, hasDemo: demos.has(name), ...description(symbol) };
   });
-  if (!components.length) throw new Error("Der öffentliche UI-Vertrag exportiert keine Komponenten.");
-  for (const name of demos) if (!exported.some((entry) => entry.name === name)) throw new Error(`Die UI-Demo verwendet den fehlenden Export ${name}.`);
+  if (!components.length) throw new Error("The public UI contract exports no components.");
+  for (const name of demos) if (!exported.some((entry) => entry.name === name)) throw new Error(`The UI demo uses the missing export ${name}.`);
 
   return { components, files: readClientUiContractFiles(repoRoot) };
 }

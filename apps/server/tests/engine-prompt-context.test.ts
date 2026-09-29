@@ -89,7 +89,7 @@ test("coordinator prompts survive primary handover while dynamic guides remain e
   } });
   registerTypeScriptFunctions(plugins);
   const workspaces = new SessionWorkspaces(() => ({
-    execute: () => Promise.reject(new Error("Der Test legt keine Anhänge ab")),
+    execute: () => Promise.reject(new Error("The test stores no attachments")),
     serverProcessContextFor: async (runId: string) => ({ runId, cwd: directory }) as never,
   }));
   const runId = "prompt-context";
@@ -152,10 +152,10 @@ test("coordinator prompts survive primary handover while dynamic guides remain e
     const specialist = await send("worker", "next");
     assert.match(specialist.systemPrompt, /Own worker prompt/);
     assert.doesNotMatch(specialist.systemPrompt, /Coordinator setup preamble/);
-    assert.match(specialist.systemPrompt, /Dein Modelltext wird im Chat mit dem Benutzer angezeigt/);
+    assert.match(specialist.systemPrompt, /Your model text is shown in the chat with the user/);
     const builder = await send("primary", "next");
     assert.match(builder.systemPrompt, /Coordinator setup preamble/);
-    assert.doesNotMatch(builder.systemPrompt, /Dein Modelltext wird im Chat mit dem Benutzer angezeigt/);
+    assert.doesNotMatch(builder.systemPrompt, /Your model text is shown in the chat with the user/);
     assert.equal(specialist.tools.some((tool) => tool.name === "agent_spawn"), false);
     assert.deepEqual(specialist.tools.map(tool=>tool.name).sort(), ["typescript_api", "typescript_eval"]);
     assert.equal(builder.tools.some((tool) => tool.name === "agent_spawn"), false);

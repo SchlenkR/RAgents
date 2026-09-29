@@ -98,13 +98,13 @@ export class Orchestration {
 
     get actorPrograms() {
         const programs = this.#services.actorPrograms;
-        if (!programs) throw new Error("Für diese Laufzeit fehlt der Actor-Program-Executor.");
+        if (!programs) throw new Error("The actor program executor is missing for this runtime.");
         return programs;
     }
 
     get nativeTypeScriptExecutor() {
         const executor = this.#services.nativeTypeScriptExecutor;
-        if (!executor) throw new Error("Für diese Laufzeit fehlt der native TypeScript-Executor.");
+        if (!executor) throw new Error("The native TypeScript executor is missing for this runtime.");
         return executor;
     }
 
@@ -169,7 +169,7 @@ export class Orchestration {
             title: string;
             ownerHandle: string;
             ownerDisplayName: string;
-            /** Der angemeldete Benutzer, dem der Run gehört; ohne Anmeldung bleibt er offen. */
+            /** The signed-in user who owns the run; without sign-in it stays open. */
             ownerUserId?: string;
             runId?: string;
             initialPluginStates?: readonly { pluginId: string; state: JsonValue }[];
@@ -764,9 +764,9 @@ export class Orchestration {
                 continue;
 
             const content = alert.kind === "failed"
-                ? `[Automatische Meldung] Der Turn deines Actors @${child.handle} ist GESCHEITERT: ${alert.reason} `
-                    + "Prüfe den Zustand mit event_query und entscheide: neu beauftragen, reparieren oder stoppen."
-                : `[Automatische Meldung] Der Turn deines Actors @${child.handle} wurde unterbrochen: ${alert.reason}`;
+                ? `[Automatic notice] The turn of your actor @${child.handle} FAILED: ${alert.reason} `
+                    + "Check the state with event_query and decide: delegate again, repair or stop."
+                : `[Automatic notice] The turn of your actor @${child.handle} was interrupted: ${alert.reason}`;
 
             try {
                 this.enqueueInput(
@@ -843,7 +843,7 @@ export class Orchestration {
                         actor.id,
                         {
                             turnId: actor.lifecycle.turnId,
-                            reason: "Der Turn wurde durch einen Neustart der Runtime unterbrochen.",
+                            reason: "The turn was interrupted by a restart of the runtime.",
                         },
                     );
                 }
@@ -851,7 +851,7 @@ export class Orchestration {
                 if (!this.#journal.failureOf(runId))
                     throw error;
 
-                console.error(`Run ${runId} konnte beim Neustart nicht wiederhergestellt werden:`, error);
+                console.error(`Run ${runId} could not be restored on restart:`, error);
             }
         }
     }

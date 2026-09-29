@@ -21,7 +21,7 @@ const fixture = (records: ProcessRecord[], markerEntries: [number, string][]) =>
   const table: ProcessTable = {
     list: async () => [...state.records],
     runMarkers: async (pids) => new Map([...state.markers].filter(([pid]) => pids.includes(pid))),
-    listeningPorts: async () => { throw new Error("Beenden darf nicht von offenen Ports abhängen"); },
+    listeningPorts: async () => { throw new Error("Stopping must not depend on open ports"); },
   };
   const terminator = (sendSignal = (pid: number, signal: "SIGTERM" | "SIGKILL") => {
     signals.push([pid, signal]);
@@ -55,7 +55,7 @@ test("a resistant process receives SIGKILL and children appearing during cleanup
 test("individual stop rejects a reused PID and a process belonging to another run", async () => {
   const f = fixture([record(10, { startKey: "new" })], [[10, "run-a"]]);
   await assert.rejects(f.terminator().stop("run-a", processIdOf(record(10))), (error: unknown) =>
-    error instanceof WorkspaceOperationError && error.code === "stale-process" && error.status === 409 && /neu vergeben/.test(error.message));
+    error instanceof WorkspaceOperationError && error.code === "stale-process" && error.status === 409 && /reassigned/.test(error.message));
   await assert.rejects(f.terminator().stop("run-b", processIdOf(f.state.records[0])), (error: unknown) =>
     error instanceof WorkspaceOperationError && error.code === "process-run-mismatch" && error.status === 403);
   assert.deepEqual(f.signals, []);
@@ -76,14 +76,14 @@ test("the run marker is checked again before signaling", async () => {
   const f = fixture([record(10)], [[10, "run-a"]]);
   let reads = 0;
   f.table.runMarkers = async () => new Map([[10, ++reads === 1 ? "run-a" : "run-b"]]);
-  await assert.rejects(f.terminator().stop("run-a", processIdOf(record(10))), /nicht mehr zu diesem Run/);
+  await assert.rejects(f.terminator().stop("run-a", processIdOf(record(10))), /no longer belongs to this run/);
   assert.deepEqual(f.signals, []);
 });
 
 test("the executor, init and the executor's ancestors remain protected even if marked", async () => {
   for (const pid of [1, 800, 900]) {
     const f = fixture([record(1), record(800), record(900, { ppid: 800 })], [[pid, "run-a"]]);
-    await assert.rejects(f.terminator().stopRun("run-a"), /geschützten Prozessbaum des Executors/);
+    await assert.rejects(f.terminator().stopRun("run-a"), /protected process tree of the executor/);
     assert.deepEqual(f.signals, []);
   }
 });
@@ -108,13 +108,13 @@ test("abort, signaling errors and an unkillable process fail explicitly", async 
   await assert.rejects(f.terminator().stopRun("run-a", { signal: AbortSignal.abort(new Error("aborted")) }), /aborted/);
   assert.deepEqual(f.signals, []);
   await assert.rejects(f.terminator(() => { throw new Error("EPERM"); }).stopRun("run-a"), /SIGTERM.*EPERM/);
-  await assert.rejects(f.terminator((pid, signal) => { f.signals.push([pid, signal]); }).stopRun("run-a"), /nach SIGKILL noch aktiv/);
+  await assert.rejects(f.terminator((pid, signal) => { f.signals.push([pid, signal]); }).stopRun("run-a"), /still active after SIGKILL/);
 });
 
 test("an unresponsive process table has a bounded failure", async () => {
   const f = fixture([], []);
   f.table.list = () => new Promise(() => {});
-  await assert.rejects(f.terminator().stopRun("run-a"), /Stopp-Zeitgrenze/);
+  await assert.rejects(f.terminator().stopRun("run-a"), /stop timeout/);
 });
 
 test("one process signaling failure does not prevent cleanup of the remaining run processes", async () => {
@@ -149,7 +149,7 @@ test("the stop method requires write access and hands the request's signal to th
     id: "connection-1",
     userId: null,
     streamless: false,
-    call: () => Promise.reject(new Error("Das Beenden ruft niemanden zurück")),
+    call: () => Promise.reject(new Error("Stopping calls nobody back")),
     onClose: () => () => undefined,
   };
   const context: MethodContext = {
@@ -180,7 +180,7 @@ test("a detached owned test process is terminated on this platform without an ex
     await new Promise<void>((resolve, reject) => {
       child.stdout?.once("data", () => resolve());
       child.once("error", reject);
-      child.once("exit", () => reject(new Error("Testprozess endete vor der Bereitschaft")));
+      child.once("exit", () => reject(new Error("Test process ended before it was ready")));
     });
     const table = processTableForPlatform();
     const ownTable: ProcessTable = {

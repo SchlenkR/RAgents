@@ -51,7 +51,7 @@ import {
 
 const chatElementClass = "flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-border-soft/60 bg-card/55";
 
-/** workspace: Fläche und Werkstatt; panel: das Run-Panel; element: genau ein Flächenelement in voller Größe. */
+/** workspace: surface and workshop; panel: the run panel; element: exactly one surface element at full size. */
 export type ChatLayout = "workspace" | "panel" | { element: string };
 
 interface PluginChatProps {
@@ -160,7 +160,7 @@ export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "wo
 
   const openTab = useCallback((tabId: string, selection?: unknown) => {
     if (!registeredTabs.some((tab) => tab.id === tabId)) {
-      throw new Error("Reiter der Leiste ist nicht registriert: " + tabId);
+      throw new Error("Sidebar tab is not registered: " + tabId);
     }
     if (selection !== undefined) {
       setTabSelections((current) => ({ ...current, [tabId]: selection }));
@@ -249,7 +249,7 @@ export function PluginChat({ autoFocusChat, onAutoFocusChatSettled, layout = "wo
   );
 }
 
-/** Der Reiterzustand je Layout: im Web ein flüchtiger Reiter und der gespeicherte Aufklappzustand, im Run-Panel der je Run gespeicherte offene Reiter der Leiste. */
+/** The tab state per layout: on the web a transient tab and the stored expand state, in the run panel the open sidebar tab stored per run. */
 function useWorkspaceTabs(runId: string, layout: ChatLayout, availableTabs: readonly WorkspaceTabContribution[]) {
   const [requestedTabId, setRequestedTabId] = useState<string>();
   const [workspaceState, updateWorkspaceState] = useWorkspacePanelState(runId);
@@ -367,25 +367,25 @@ function ChatWorkspace({
 
   if (startDialog) return (
     <Modal className="gap-0 p-0 [&_[data-slot=dialog-body]:has([data-preparation])]:overflow-hidden" nextBehavior="push" onClose={startDialog.onClose} scope="page" showCloseButton size="full">
-      <DialogTitle className="sr-only">Neuer Run</DialogTitle>
+      <DialogTitle className="sr-only">New run</DialogTitle>
       <StartSelection registry={registry} session={startSession} initialEntryId={startDialog.initialEntryId} onOpen={onStarted} />
     </Modal>
   );
 
-  const status = registry.sessionStatus.filter((entry) => !entry.readRight || access.can(entry.readRight)).map(({ id, order, Status }) => <StatusGroup container={statusContainer} key={id} label="Run-Aktionen" order={order}>
+  const status = registry.sessionStatus.filter((entry) => !entry.readRight || access.can(entry.readRight)).map(({ id, order, Status }) => <StatusGroup container={statusContainer} key={id} label="Run actions" order={order}>
     <Status navigation={navigation} session={session} />
   </StatusGroup>);
   const header = headerContainer && createPortal(layout === "panel"
     ? <RunPanelHeader attention={attention} contributions={headerContributions} navigation={navigation} registry={registry} runError={runError} session={session} working={session.running} />
     : <div className="flex min-w-0 flex-[1_0_auto] items-stretch">
         <div className="flex min-w-0 flex-none items-stretch text-[0.82rem] font-semibold text-foreground">
-          <ToolbarItem className="min-w-[140px] max-w-[260px] justify-start font-semibold max-md:min-w-[120px] max-md:max-w-[180px]" title={session.session.title}><ToolbarText>{session.session.title || "Neuer Run"}</ToolbarText></ToolbarItem>
+          <ToolbarItem className="min-w-[140px] max-w-[260px] justify-start font-semibold max-md:min-w-[120px] max-md:max-w-[180px]" title={session.session.title}><ToolbarText>{session.session.title || "New run"}</ToolbarText></ToolbarItem>
           {registry.sessionMetadata.map(({ id, Metadata }) => (
             <Metadata key={id} placement="header" session={session.session} />
           ))}
           <StartOptionBadges registry={registry} session={session} />
-          {session.running && <ToolbarItem className="text-[0.72rem] font-normal text-muted-foreground"><Spinner aria-hidden className="size-2.5" /><ToolbarText>Bearbeitung läuft</ToolbarText></ToolbarItem>}
-          {runError && <ToolbarItem className="text-[0.72rem] font-medium text-destructive" title={runError}><ToolbarText>Run nicht erreichbar</ToolbarText></ToolbarItem>}
+          {session.running && <ToolbarItem className="text-[0.72rem] font-normal text-muted-foreground"><Spinner aria-hidden className="size-2.5" /><ToolbarText>Processing</ToolbarText></ToolbarItem>}
+          {runError && <ToolbarItem className="text-[0.72rem] font-medium text-destructive" title={runError}><ToolbarText>Run unreachable</ToolbarText></ToolbarItem>}
         </div>
         {headerContributions.length > 0 && (
           <div className="flex min-w-0 flex-none items-stretch overflow-visible">
@@ -436,7 +436,7 @@ function ChatWorkspace({
         ref={onModalContainer}
       >
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          {(SurfaceCenter || surfaceContributions.length > 0) && <div aria-label="Apps und Actors" className="flex min-h-[52px] min-w-0 flex-none items-stretch border-b border-border bg-[color-mix(in_srgb,var(--surface)_55%,var(--card))]" role="region">
+          {(SurfaceCenter || surfaceContributions.length > 0) && <div aria-label="Apps and actors" className="flex min-h-[52px] min-w-0 flex-none items-stretch border-b border-border bg-[color-mix(in_srgb,var(--surface)_55%,var(--card))]" role="region">
             <div className="flex flex-none items-stretch empty:hidden" ref={setRunToolbarContainer} />
             <SurfaceShortcuts key={session.session.id}>
               {surfaceContributions.map(({ id, Header }) => <Header key={id} navigation={navigation} session={session} />)}
@@ -488,7 +488,7 @@ function DefaultCenter({ renderChat }: {
   );
 }
 
-/** Ein Flächenelement in voller Größe, etwa eine Mini-App im Editorbereich von VS Code. */
+/** A surface element at full size, for example a mini-app in the VS Code editor area. */
 function SurfaceElementView({ elementId, navigation, registry, session }: {
   elementId: string;
   navigation: SessionNavigation;
@@ -499,7 +499,7 @@ function SurfaceElementView({ elementId, navigation, registry, session }: {
     .filter((definition) => definition.id === elementId && definition.visible !== false)
     .map((definition) => ({ Element: contribution.Element, definition })))[0];
   if (!match) return <div className="m-auto max-w-[420px] p-6 text-center text-muted-foreground" role="status">
-    {session.runView === undefined ? "Der Run wird geladen ..." : "Diese Mini-App gibt es in dem Run nicht mehr."}
+    {session.runView === undefined ? "Loading run ..." : "This mini-app no longer exists in the run."}
   </div>;
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col" data-view="element">
     <match.Element definition={match.definition} navigation={navigation} session={session} />
@@ -537,9 +537,9 @@ function ChatSurface({
       composer={
         primaryIsProgram(session.runView, session.session.id) ? <div className="flex min-w-0 flex-col gap-1.5">
           <p className="text-muted-foreground">{programChatNotice}</p>
-          <div className="flex min-w-0 flex-wrap items-center gap-2">{options.toolbarLeft}<ChatViewSwitches collapsible={false} settings={chatView} /></div>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">{options.toolbarLeft}<ChatViewSwitches settings={chatView} /></div>
         </div>
-        : partner.kind === "stopped" ? <div className="[--qsl-input-card-radius:var(--radius-lg)]"><StoppedActorNotice actor={partner.actor} runId={session.session.id} toolbar={<>{options.toolbarLeft}<ChatViewSwitches collapsible={false} settings={chatView} /></>} /></div>
+        : partner.kind === "stopped" ? <div className="[--qsl-input-card-radius:var(--radius-lg)]"><StoppedActorNotice actor={partner.actor} runId={session.session.id} toolbar={<>{options.toolbarLeft}<ChatViewSwitches settings={chatView} /></>} /></div>
         : <div className="[--qsl-input-card-radius:var(--radius-lg)]">
           {sendError && <p className="text-[0.8rem] text-destructive" role="alert">{sendError}</p>}
           <ChatInputToolbar
@@ -548,7 +548,7 @@ function ChatSurface({
             onAutoFocusSettled={onAutoFocusSettled}
             disabled={!session.connected || !writable}
             maxRows={4}
-            texts={writable ? undefined : { placeholder: "Lesezugriff auf diesen Run" }}
+            texts={writable ? undefined : { placeholder: "Read access to this run" }}
             onSend={(text, attachments) => {
               setSendError(undefined);
               return session.send(text, attachments);
@@ -562,7 +562,7 @@ function ChatSurface({
             toolbarLeft={
               <>
                 {options.toolbarLeft}
-                <ChatViewSwitches collapsible={false} settings={chatView} />
+                <ChatViewSwitches settings={chatView} />
               </>
             }
             toolbarRight={<StartOptionControls disabled={!session.connected || !writable} placement="composer" registry={registry} />}

@@ -4,7 +4,7 @@ import { writeJson } from "../plugin-support/http.js";
 import { ATTACHMENT_CONTENT_PATH } from "./contracts.js";
 import { assertRunRights, type RunAccessPolicy } from "./rights.js";
 
-/** Anhänge sind Auslieferung: ein GET mit dem Medientyp, inline für Bilder und Videos. */
+/** Attachments are delivery: a GET with the media type, inline for images and videos. */
 export const attachmentContentRoute = (sessions: ChatSessionProvider, policy: RunAccessPolicy): HttpRouteContribution => ({
   id: "ragents.chat.attachment-content",
   requiredRights: [],
@@ -17,7 +17,7 @@ export const attachmentContentRoute = (sessions: ChatSessionProvider, policy: Ru
     try {
       assertRunRights(access, runId, "read", policy);
       const session = await sessions.get(runId);
-      if (!session.attachment) throw new DomainError("attachments-unavailable", "Anhänge sind nicht verfügbar", 404);
+      if (!session.attachment) throw new DomainError("attachments-unavailable", "Attachments are not available", 404);
       const { attachment, content } = session.attachment(artifactId);
       const inline = !url.searchParams.has("download")
         && (attachment.mediaType.startsWith("image/") || attachment.mediaType.startsWith("video/"));

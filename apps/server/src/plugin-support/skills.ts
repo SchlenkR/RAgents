@@ -27,31 +27,31 @@ type SkillEnvironment = DeclaredEnvironment<(typeof skillEnvDescriptors)[number]
 /** Reads and checks the SKILL.md of a skill folder; the one parser for templates and the skills of agents. */
 const readSkill = (directory: string): { skill: Skill; start: (idPrefix: string) => SkillStartEntry | undefined } => {
   const file = path.join(directory, "SKILL.md");
-  if (!statSync(file, { throwIfNoEntry: false })?.isFile()) throw new Error(`Dem Skill ${directory} fehlt die SKILL.md`);
+  if (!statSync(file, { throwIfNoEntry: false })?.isFile()) throw new Error(`The skill ${directory} is missing its SKILL.md`);
   const raw = readFileSync(file, "utf8");
-  if (!FRONT_MATTER.test(raw)) throw new Error(`${file}: es fehlt der ---Kopf mit name und description`);
+  if (!FRONT_MATTER.test(raw)) throw new Error(`${file}: the --- header with name and description is missing`);
   const { frontmatter, body } = parseFrontmatter(raw);
-  if (!frontmatter || typeof frontmatter !== "object" || Array.isArray(frontmatter)) throw new Error(`${file}: Kopf muss ein Objekt sein`);
+  if (!frontmatter || typeof frontmatter !== "object" || Array.isArray(frontmatter)) throw new Error(`${file}: header must be an object`);
   const metadata = ["license", "compatibility", "metadata", "allowed-tools"];
   const fields = new Map(Object.entries(frontmatter).filter(([key]) => !metadata.includes(key)).map(([key, value]) => {
     const flagField = ["start", "disable-model-invocation", "user-invokable"].includes(key);
-    if (flagField && typeof value !== "boolean") throw new Error(`${file}: ${key} muss true oder false sein`);
+    if (flagField && typeof value !== "boolean") throw new Error(`${file}: ${key} must be true or false`);
     if (value === null) return [key, ""];
     if (typeof value !== "string" && !(flagField && typeof value === "boolean") && !(key === "order" && typeof value === "number")) {
-      throw new Error(`${file}: ${key} hat einen ungültigen Wert`);
+      throw new Error(`${file}: ${key} has an invalid value`);
     }
     return [key, String(value)];
   }));
   const allowed = ["name", "description", "start", "title", "category", "order", "tags", "guide", "prompt", "disable-model-invocation", "user-invokable"];
   const unknown = [...fields.keys()].filter((key) => !allowed.includes(key));
-  if (unknown.length > 0) throw new Error(`${file}: unbekannte Kopfzeilen ${unknown.join(", ")}`);
+  if (unknown.length > 0) throw new Error(`${file}: unknown header lines ${unknown.join(", ")}`);
   const name = fields.get("name");
-  if (!name) throw new Error(`${file}: name fehlt`);
-  if (name.length > 64 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name)) throw new Error(`${file}: name ist kein gültiger Skillname`);
-  if (name !== path.basename(directory)) throw new Error(`${file}: name muss dem Skill-Ordner entsprechen`);
+  if (!name) throw new Error(`${file}: name is missing`);
+  if (name.length > 64 || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name)) throw new Error(`${file}: name is not a valid skill name`);
+  if (name !== path.basename(directory)) throw new Error(`${file}: name must match the skill folder`);
   const description = fields.get("description");
-  if (!description) throw new Error(`${file}: description fehlt`);
-  if (!body.trim()) throw new Error(`${file}: Skill-Anleitung ist leer`);
+  if (!description) throw new Error(`${file}: description is missing`);
+  if (!body.trim()) throw new Error(`${file}: skill instructions are empty`);
   const disableModelInvocation = flag(file, "disable-model-invocation", fields.get("disable-model-invocation"));
   flag(file, "user-invokable", fields.get("user-invokable"));
   const order = numberOf(file, "order", fields.get("order"));
@@ -61,13 +61,13 @@ const readSkill = (directory: string): { skill: Skill; start: (idPrefix: string)
   };
   if (!flag(file, "start", fields.get("start"))) return { skill, start: () => undefined };
   const title = fields.get("title");
-  if (!title) throw new Error(`${file}: title fehlt`);
+  if (!title) throw new Error(`${file}: title is missing`);
   const category = fields.get("category");
-  if (!category) throw new Error(`${file}: category fehlt`);
+  if (!category) throw new Error(`${file}: category is missing`);
   const prompt = fields.get("prompt") ?? body.trim();
-  if (!prompt.trim()) throw new Error(`${file}: prompt ist leer`);
+  if (!prompt.trim()) throw new Error(`${file}: prompt is empty`);
   const guide = fields.get("guide");
-  if (guide !== undefined && !guide) throw new Error(`${file}: guide ist leer`);
+  if (guide !== undefined && !guide) throw new Error(`${file}: guide is empty`);
   return {
     skill,
     start: (idPrefix) => ({
@@ -94,12 +94,12 @@ export const skillsFromDirectory = (directory: string, idPrefix: string): Folder
   try {
     entries = readdirSync(resolved, { withFileTypes: true });
   } catch (error) {
-    throw new Error(`Das Skill-Verzeichnis ${resolved} ist nicht lesbar (${error instanceof Error ? error.message : String(error)})`);
+    throw new Error(`The skill directory ${resolved} is not readable (${error instanceof Error ? error.message : String(error)})`);
   }
   const stray = entries.filter((entry) => !entry.isDirectory()).map((entry) => entry.name);
-  if (stray.length > 0) throw new Error(`${resolved} enthält Dateien statt Skill-Ordner: ${stray.join(", ")}`);
+  if (stray.length > 0) throw new Error(`${resolved} contains files instead of skill folders: ${stray.join(", ")}`);
   const paths = entries.map((entry) => path.join(resolved, entry.name)).sort();
-  if (paths.length === 0) throw new Error(`${resolved} enthält keinen Skill-Ordner`);
+  if (paths.length === 0) throw new Error(`${resolved} contains no skill folder`);
   const startEntries = paths.flatMap((skillPath) => {
     const entry = readSkill(skillPath).start(idPrefix);
     return entry ? [entry] : [];

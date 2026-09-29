@@ -15,7 +15,7 @@ export function parseSurfaceViewPreferences(raw: string | null): SurfaceViewPref
     || Object.keys(value).some((key) => key !== "actorVisibility")
     || !("actorVisibility" in value) || !value.actorVisibility || typeof value.actorVisibility !== "object"
     || Array.isArray(value.actorVisibility) || Object.values(value.actorVisibility).some((visible) => typeof visible !== "boolean")) {
-    throw new Error("Die gespeicherte Actor-Sichtbarkeit ist ungültig.");
+    throw new Error("The stored actor visibility is invalid.");
   }
   return value as SurfaceViewPreferences;
 }

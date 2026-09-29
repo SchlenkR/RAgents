@@ -15,20 +15,20 @@ async function fixture(run: (root: string, home: string) => Promise<void>) {
   } finally { await rm(root, { recursive: true, force: true }); }
 }
 
-test("Guide-Verweise prüfen vorhandene Seiten und dekodierte Sprungziele", () => {
+test("guide links check existing pages and decoded anchor targets", () => {
   const outputs = new Map<string, string>([
-    ["guide.html", '<a href="guide-functions.html#gr%C3%BC%C3%9Fe">Kapitel</a><a href="guide.md">Markdown</a>'],
-    ["guide-functions.html", '<h2 id="grüße">Grüße</h2><a href="#grüße">Hier</a><a href="https://example.org/source">Quelle</a>'],
+    ["guide.html", '<a href="guide-functions.html#gr%C3%BC%C3%9Fe">Chapter</a><a href="guide.md">Markdown</a>'],
+    ["guide-functions.html", '<h2 id="grüße">Grüße</h2><a href="#grüße">Here</a><a href="https://example.org/source">Source</a>'],
     ["guide.md", "# Guide"],
   ]);
   assert.doesNotThrow(() => assertHomepageLinks(outputs));
-  outputs.set("guide.html", '<a href="guide-functions.html#missing">Fehlt</a>');
-  assert.throws(() => assertHomepageLinks(outputs), /Fehlendes Homepage-Sprungziel/);
-  outputs.set("guide.html", '<a href="guide-missing.html">Fehlt</a>');
-  assert.throws(() => assertHomepageLinks(outputs), /Fehlendes Homepage-Linkziel/);
+  outputs.set("guide.html", '<a href="guide-functions.html#missing">Missing</a>');
+  assert.throws(() => assertHomepageLinks(outputs), /Missing homepage anchor target/);
+  outputs.set("guide.html", '<a href="guide-missing.html">Missing</a>');
+  assert.throws(() => assertHomepageLinks(outputs), /Missing homepage link target/);
 });
 
-test("Export enthält nur öffentliche Seiten und verwendete Screenshots, mit relativen Assets", async () => {
+test("export contains only public pages and used screenshots, with relative assets", async () => {
   await fixture(async (root, home) => {
     await mkdir(path.join(home, "screenshots"));
     await mkdir(path.join(home, "preview"));
@@ -60,17 +60,17 @@ test("Export enthält nur öffentliche Seiten und verwendete Screenshots, mit re
   });
 });
 
-test("Quelllinks werden öffentlich, Textbeispiele und interne Links bleiben unverändert", async () => {
+test("source links become public, text examples and internal links stay unchanged", async () => {
   await fixture(async (root, home) => {
-    await writeFile(path.join(home, "index.html"), '<a href="../../README.md?plain=1#entwickeln">Start</a><a href="../spec/core.md">Core</a>');
-    await writeFile(path.join(home, "guide.md"), '[Core](../spec/core.md)\n[Guide](guide.html)\n```md\n[Beispiel](./example.md)\n```\n');
+    await writeFile(path.join(home, "index.html"), '<a href="../../README.md?plain=1#develop">Start</a><a href="../spec/core.md">Core</a>');
+    await writeFile(path.join(home, "guide.md"), '[Core](../spec/core.md)\n[Guide](guide.html)\n```md\n[Example](./example.md)\n```\n');
     const outputs = await buildHomepageExport(root);
-    assert.equal(outputs.get("index.html"), '<a href="https://github.com/SchlenkR/RAgents/blob/main/README.md?plain=1#entwickeln">Start</a><a href="https://github.com/SchlenkR/RAgents/blob/main/docs/spec/core.md">Core</a>');
-    assert.equal(outputs.get("guide.md"), '[Core](https://github.com/SchlenkR/RAgents/blob/main/docs/spec/core.md)\n[Guide](guide.html)\n```md\n[Beispiel](./example.md)\n```\n');
+    assert.equal(outputs.get("index.html"), '<a href="https://github.com/SchlenkR/RAgents/blob/main/README.md?plain=1#develop">Start</a><a href="https://github.com/SchlenkR/RAgents/blob/main/docs/spec/core.md">Core</a>');
+    assert.equal(outputs.get("guide.md"), '[Core](https://github.com/SchlenkR/RAgents/blob/main/docs/spec/core.md)\n[Guide](guide.html)\n```md\n[Example](./example.md)\n```\n');
   });
 });
 
-test("Technische API-Referenzen bleiben außerhalb des öffentlichen Website-Exports", async () => {
+test("technical API references stay outside the public website export", async () => {
   await fixture(async (root, home) => {
     const openrpc = JSON.stringify({ openrpc: "1.3.0", methods: [{ name: "example.method" }] }, null, 2);
     const markdown = "# JSON-RPC-API\n\n[OpenRPC](openrpc.json)\n";
@@ -83,7 +83,7 @@ test("Technische API-Referenzen bleiben außerhalb des öffentlichen Website-Exp
   });
 });
 
-test("fehlende Dateien, private Inhalte und nicht veröffentlichte Links brechen den Export ab", async () => {
+test("missing files, private content, and unpublished links abort the export", async () => {
   await fixture(async (root, home) => {
     for (const html of [
       '<img src="screenshots/missing.png">', '<script src="https://example.org/app.js"></script>',
@@ -101,12 +101,12 @@ test("fehlende Dateien, private Inhalte und nicht veröffentlichte Links brechen
   });
 });
 
-test("Screenshots dürfen keine Dateien außerhalb der Homepage über Symlinks exportieren", async () => {
+test("screenshots must not export files outside the homepage through symlinks", async () => {
   await fixture(async (root, home) => {
     await mkdir(path.join(home, "screenshots"));
     await writeFile(path.join(root, "private.png"), "private");
     await symlink(path.join(root, "private.png"), path.join(home, "screenshots/core.png"));
     await writeFile(path.join(home, "index.html"), '<img src="screenshots/core.png">');
-    await assert.rejects(buildHomepageExport(root), /außerhalb/);
+    await assert.rejects(buildHomepageExport(root), /outside the homepage/);
   });
 });

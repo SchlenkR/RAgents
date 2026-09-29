@@ -24,7 +24,7 @@ export const discoverPluginIds = (root = bundlesRoot): readonly string[] => {
     .map((entry) => entry.name)
     .sort();
   for (const id of folders) {
-    if (!existsSync(path.join(root, id, BUNDLE_MANIFEST_FILE))) throw new Error(`${path.join(root, id)} ist kein Bundle: ${BUNDLE_MANIFEST_FILE} fehlt`);
+    if (!existsSync(path.join(root, id, BUNDLE_MANIFEST_FILE))) throw new Error(`${path.join(root, id)} is not a bundle: ${BUNDLE_MANIFEST_FILE} is missing`);
   }
   return folders;
 };
@@ -39,9 +39,9 @@ const builtInFolder = (id: string, root: string): string => {
   const folder = path.join(root, id);
   if (statSync(folder, { throwIfNoEntry: false })?.isDirectory()) return folder;
   if (existsSync(path.join(pluginsRoot, id, "ragents-plugin.json"))) {
-    throw new Error(`Das eingebaute Plugin ${id} ist nicht gebaut: ${folder} fehlt; im Checkout mit pnpm build:plugins bauen`);
+    throw new Error(`The built-in plugin ${id} is not built: ${folder} is missing; build it in the checkout with pnpm build:plugins`);
   }
-  throw new Error(`Unbekanntes Plugin ${id}; eingebaut sind: ${discoverPluginIds(root).join(", ")}`);
+  throw new Error(`Unknown plugin ${id}; built in are: ${discoverPluginIds(root).join(", ")}`);
 };
 
 /** Resolves the profile's entries to bundles; ids come from bundles/, paths from anywhere on disk. */
@@ -54,14 +54,14 @@ export const resolvePluginEntries = (
   const resolved = entries.map((entry) => {
     const folder = isPluginPath(entry) ? pluginFolderFor(entry, base, root) : builtInFolder(entry, root);
     if (!statSync(folder, { throwIfNoEntry: false })?.isDirectory()) {
-      throw new Error(`Das Plugin ${entry} hat keinen Ordner ${folder}`);
+      throw new Error(`The plugin ${entry} has no folder ${folder}`);
     }
     const manifest = readBundleManifest(folder);
     assertHostNames(folder, manifest, record);
     return { id: pluginIdOf(folder), folder, manifest };
   });
   const duplicate = resolved.find((plugin, index) => resolved.findIndex((other) => other.id === plugin.id) !== index);
-  if (duplicate) throw new Error(`Plugin ${duplicate.id} steht mehrfach in der Pluginliste`);
+  if (duplicate) throw new Error(`Plugin ${duplicate.id} appears more than once in the plugin list`);
   return resolved;
 };
 
@@ -84,7 +84,7 @@ const assertUsesInProfile = (plugins: readonly ResolvedPlugin[]): void => {
   const ids = new Set(plugins.map((plugin) => plugin.id));
   for (const plugin of plugins) {
     const missing = plugin.manifest.uses.find((used) => !ids.has(used));
-    if (missing !== undefined) throw new Error(`Plugin ${plugin.id} benötigt das fehlende Plugin ${missing}; sein Bundle importiert dessen Exporte`);
+    if (missing !== undefined) throw new Error(`Plugin ${plugin.id} needs the missing plugin ${missing}; its bundle imports that plugin's exports`);
   }
 };
 
@@ -100,7 +100,7 @@ export const importBundles = async (plugins: readonly ResolvedPlugin[]): Promise
       loaded.set(plugin.id, await import(pathToFileURL(entry).href) as Record<string, unknown>);
     } catch (cause) {
       const reason = cause instanceof Error ? cause.message : String(cause);
-      throw new Error(`Das Bundle ${plugin.id} lädt nicht: ${reason}`, { cause });
+      throw new Error(`The bundle ${plugin.id} does not load: ${reason}`, { cause });
     }
   }
   return loaded;
@@ -111,8 +111,8 @@ const assertRequires = (ids: readonly string[], modules: ReadonlyMap<string, Plu
   for (const [index, id] of ids.entries()) {
     for (const dependency of modules.get(id)?.requires ?? []) {
       const position = positions.get(dependency);
-      if (position === undefined) throw new Error(`Plugin ${id} benötigt das fehlende Plugin ${dependency}`);
-      if (position >= index) throw new Error(`Plugin ${dependency} muss vor ${id} registriert werden`);
+      if (position === undefined) throw new Error(`Plugin ${id} needs the missing plugin ${dependency}`);
+      if (position >= index) throw new Error(`Plugin ${dependency} must be registered before ${id}`);
     }
   }
 };
@@ -122,7 +122,7 @@ const assertUsesRequired = (plugins: readonly ResolvedPlugin[], modules: Readonl
     const requires = modules.get(plugin.id)?.requires ?? [];
     const undeclared = plugin.manifest.uses.filter((used) => !requires.includes(used));
     if (undeclared.length > 0) {
-      throw new Error(`Das Bundle ${plugin.id} importiert Exporte von ${undeclared.join(", ")}, nennt es aber nicht in requires seines Modulvertrags`);
+      throw new Error(`The bundle ${plugin.id} imports exports of ${undeclared.join(", ")}, but does not name it in requires of its module contract`);
     }
   }
 };
@@ -151,8 +151,8 @@ export const loadPlugins = async (
     const module = imported.get(plugin.id)?.plugin;
     if (!isPluginModule(module)) {
       throw new Error(
-        `Das Bundle ${plugin.id} exportiert in ${plugin.manifest.server} keinen gültigen Einstiegspunkt; erwartet wird `
-        + "\"export const plugin: PluginModule\" mit einer create-Funktion");
+        `The bundle ${plugin.id} exports no valid entry point in ${plugin.manifest.server}; expected is `
+        + "\"export const plugin: PluginModule\" with a create function");
     }
     return [plugin.id, module] as const;
   }));

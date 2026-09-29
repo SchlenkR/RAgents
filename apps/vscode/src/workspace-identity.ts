@@ -1,6 +1,6 @@
 import type { AccessSnapshot } from "../../../packages/ragents/src/access";
 
-/** Der Speicher, in dem die Kennung liegt; in der Erweiterung der des Fensters (`workspaceState`). */
+/** The storage that holds the identifier; in the extension, that of the window (`workspaceState`). */
 export interface IdentityStore {
   get: <T>(key: string) => T | undefined;
   update: (key: string, value: unknown) => Thenable<void>;
@@ -8,7 +8,7 @@ export interface IdentityStore {
 
 export const WINDOW_CLIENT_ID_KEY = "ragents.workspaceClientId";
 
-/** Je Fenster eine Kennung, die über Neustarts desselben Fensters gleich bleibt; zwei Fenster verdrängen sich beim Server so nie. */
+/** One identifier per window that stays the same across restarts of the same window; this way two windows never displace each other at the server. */
 export const windowClientId = (state: IdentityStore, create: () => string = () => crypto.randomUUID()): string => {
   const stored = state.get<string>(WINDOW_CLIENT_ID_KEY);
   if (stored) return stored;
@@ -19,9 +19,9 @@ export const windowClientId = (state: IdentityStore, create: () => string = () =
 
 const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
 
-/** Warum sich der Arbeitsplatz bei diesem Server nicht anmeldet; ohne Benutzer nimmt ein Server Arbeitsplätze nur über Loopback an. */
+/** Why the workspace does not register with this server; without users, a server accepts workspaces only over loopback. */
 export const workspaceRegistrationRefusal = (access: AccessSnapshot, url: string): string | undefined => {
   if (access.enabled || LOOPBACK_HOSTS.has(new URL(url).hostname)) return undefined;
-  return "Arbeitsplatz nicht angemeldet: Dieser Server kennt keine Benutzeranmeldung und nimmt Arbeitsplätze deshalb nur "
-    + "über eine Loopback-Verbindung an (etwa http://127.0.0.1 auf seinem eigenen Rechner). Über das Netz braucht er ein Profil mit Benutzern.";
+  return "Workspace not registered: This server has no user sign-in and therefore accepts workspaces only "
+    + "over a loopback connection (e.g. http://127.0.0.1 on its own machine). Over the network, it needs a profile with users.";
 };

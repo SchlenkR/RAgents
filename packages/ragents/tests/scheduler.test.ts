@@ -580,7 +580,7 @@ for (const withWorkspace of [true, false]) {
             workspaces: {
                 ensure: () => process.cwd(),
                 description: () => "# Working directory\n\nYour working directory is a project folder.",
-                storeAttachment: () => Promise.reject(new Error("Der Test legt keine Anhänge ab.")),
+                storeAttachment: () => Promise.reject(new Error("The test stores no attachments.")),
             },
         });
 
@@ -607,7 +607,7 @@ const toolCallEnds = async (outcome: "abort" | "failure") => {
         if (outcome === "abort")
             await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve(), { once: true }));
 
-        return { failure: outcome === "failure" ? "Kaputt." : null, usage: noUsage() };
+        return { failure: outcome === "failure" ? "Broken." : null, usage: noUsage() };
     });
     const scheduler = new TurnScheduler(setup.runtime, setup.journal, {
         drivers: registryOf(driver),
@@ -698,8 +698,8 @@ test("an actor that requests tools no host function resolves stops at creation w
         assert.ok(stop?.type === "actor.stopped");
         assert.match(stop.payload.reason, /known_raed/);
         assert.doesNotMatch(stop.payload.reason, /known_read\b/);
-        assert.deepEqual(driver.requests.map((request) => request.agentId), [locked], "nur der Actor mit bekannten Werkzeugen bekommt einen Turn");
-        assert.notEqual(actors.find((entry) => entry.id === locked)?.lifecycle.kind, "stopped", "ein bekanntes, gerade nicht verfügbares Werkzeug ist kein Fehler");
+        assert.deepEqual(driver.requests.map((request) => request.agentId), [locked], "only the actor with known tools gets a turn");
+        assert.notEqual(actors.find((entry) => entry.id === locked)?.lifecycle.kind, "stopped", "a known tool that is currently unavailable is not an error");
     } finally {
         await scheduler.stop();
         setup.journal.close();

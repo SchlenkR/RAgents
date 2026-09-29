@@ -51,12 +51,12 @@ export const formatDiagnostics = (
   const warnings = diagnostics.filter((diagnostic) => severityOf(diagnostic) === WARNING);
   const warningNote = warnings.length === 0
     ? ""
-    : `, ${warnings.length} ${warnings.length === 1 ? "Warnung" : "Warnungen"}`;
+    : `, ${warnings.length} ${warnings.length === 1 ? "warning" : "warnings"}`;
   const heading = errors.length === 0
-    ? `Diagnostik (${label}) ${relativePath}: keine Fehler${warningNote}`
-    : `Diagnostik (${label}) ${relativePath}: ${errors.length} Fehler${warningNote}`;
+    ? `Diagnostics (${label}) ${relativePath}: no errors${warningNote}`
+    : `Diagnostics (${label}) ${relativePath}: ${errors.length} ${errors.length === 1 ? "error" : "errors"}${warningNote}`;
   const listed = [...errors, ...(includeWarnings ? warnings : [])].sort(byPlace);
   const lines = listed.slice(0, MAX_LINES).map((diagnostic) => lineOf(relativePath, diagnostic));
-  if (listed.length > MAX_LINES) lines.push(`... und ${listed.length - MAX_LINES} weitere`);
+  if (listed.length > MAX_LINES) lines.push(`... and ${listed.length - MAX_LINES} more`);
   return [heading, ...lines].join("\n");
 };

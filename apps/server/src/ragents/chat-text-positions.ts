@@ -32,12 +32,12 @@ export class ChatTextPositions {
 
   #turn(turnId: string) {
     const turn = this.#turns.get(turnId);
-    if (!turn) throw new Error(`Der Journalanfang für Turn ${turnId} fehlt.`);
+    if (!turn) throw new Error(`The journal start for turn ${turnId} is missing.`);
     return turn;
   }
 
   #cursor(sequence: number, offset: number): ChatTextCursor {
-    if (this.#conversationId === null) throw new Error("Der Journalanfang des Runs fehlt.");
+    if (this.#conversationId === null) throw new Error("The journal start of the run is missing.");
     return { conversationId: this.#conversationId, sequence, offset };
   }
 }

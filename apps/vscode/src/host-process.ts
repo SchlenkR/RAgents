@@ -31,9 +31,9 @@ export interface HostStartOptions {
   environment: NodeJS.ProcessEnv;
   log: (line: string) => void;
   command: HostCommand;
-  /** Die mitgebrachte Bash für den Executor des Hosts; unter Windows Pflicht, sonst ohne Angabe die des Systems. */
+  /** The bundled bash for the host's executor; required on Windows, otherwise the system one if not given. */
   bash: string | undefined;
-  /** Das mitgebrachte rg für den Executor des Hosts; ohne Angabe gilt eines im PATH. */
+  /** The bundled rg for the host's executor; if not given, one in the PATH applies. */
   rg: string | undefined;
   startTimeoutMs?: number;
 }
@@ -43,20 +43,20 @@ const STOP_TIMEOUT_MS = 10_000;
 const KEPT_LINES = 30;
 const DRAIN_TIMEOUT_MS = 1_000;
 
-/** Die Umgebung der Erweiterung ohne die Variablen des umgebenden VS Code, damit Kindprozesse sich nicht daran hängen. */
+/** The environment of the extension without the variables of the surrounding VS Code, so child processes do not attach to it. */
 export const inheritedEnvironment = (): Record<string, string> => editorFreeEnvironment(process.env);
 
-/** Die Bash, die die Windows-Fassung der Erweiterung mitbringt; auf anderen Plattformen gilt die des Systems. */
+/** The bash the Windows build of the extension brings; on other platforms, the system one applies. */
 export const bundledBash = (extensionPath: string, platform: NodeJS.Platform = process.platform, arch: string = process.arch): string | undefined =>
   platform === "win32" ? path.join(extensionPath, "dist", "bash", `${platform}-${arch}`, "usr", "bin", "bash.exe") : undefined;
 
-/** Das rg, das die Fassung der Erweiterung für diese Plattform mitbringt; die universelle trägt keines, dann gilt eines im PATH. */
+/** The rg the extension build for this platform brings; the universal one carries none, then one in the PATH applies. */
 export const bundledRipgrep = (extensionPath: string, platform: NodeJS.Platform = process.platform, arch: string = process.arch): string | undefined => {
   const file = path.join(extensionPath, "dist", "rg", `${platform}-${arch}`, platform === "win32" ? "rg.exe" : "rg");
   return existsSync(file) ? file : undefined;
 };
 
-/** Sucht ein Programm im PATH; unter Windows mit den Endungen aus PATHEXT. */
+/** Looks for a program in the PATH; on Windows with the extensions from PATHEXT. */
 export const findExecutable = (name: string, environment: NodeJS.ProcessEnv = process.env): string | undefined => {
   const extensions = process.platform === "win32" ? (environment.PATHEXT ?? ".EXE;.CMD;.BAT").split(";") : [""];
   for (const directory of (environment.PATH ?? "").split(path.delimiter).filter(Boolean)) {
@@ -73,21 +73,21 @@ export const findExecutable = (name: string, environment: NodeJS.ProcessEnv = pr
   return undefined;
 };
 
-/** Der Host aus Paket oder Checkout: Node mit dem tsx-Loader in apps/server, auf einem freien Port mit Ansage. */
+/** The host from package or checkout: Node with the tsx loader in apps/server, on a free port with announcement. */
 export const hostCommand = (hostPath: string, environment: NodeJS.ProcessEnv = process.env): HostCommand => {
   const node = findExecutable("node", environment);
-  if (!node) throw new Error("node wurde im PATH nicht gefunden; der lokale Host braucht Node 22");
+  if (!node) throw new Error("node was not found in the PATH; the local host needs Node 22");
   return { file: node, args: ["--import", "tsx", "src/main.ts", "--port", "0"], cwd: path.join(hostPath, "apps/server") };
 };
 
-/** Wartet, bis die Ausgabeströme zu Ende gelesen sind; die letzte Zeile kommt oft erst nach dem Ende des Prozesses.
- * Hält ein Enkelprozess einen Strom offen, wartet das Ergebnis nicht auf ihn. */
+/** Waits until the output streams are read to the end; the last line often only comes after the process has ended.
+ * If a grandchild process keeps a stream open, the result does not wait for it. */
 const drained = (readers: readonly Interface[]): Promise<unknown> => Promise.race([
   Promise.all(readers.map((reader) => new Promise<void>((settle) => reader.once("close", () => settle())))),
   new Promise<void>((settle) => setTimeout(settle, DRAIN_TIMEOUT_MS).unref()),
 ]);
 
-/** Ein Fehlschlag, der den Befund eines Kindprozesses über eine fehlende Umgebungsvariable mitnimmt. */
+/** A failure that carries a child process's finding about a missing environment variable. */
 const failure = (message: string, missing: MissingEnvironment | undefined): Error =>
   missing ? new MissingEnvironmentError(missing, message) : new Error(message);
 
@@ -103,58 +103,58 @@ const run = (file: string, args: readonly string[], cwd: string, environment: No
     const output = drained([child.stdout, child.stderr].map((stream) => createInterface({ input: stream }).on("line", line)));
     child.once("error", reject);
     child.once("exit", (code) => void output.then(() =>
-      code === 0 ? resolve() : reject(failure(`${path.basename(file)} ${args.join(" ")} endete mit Code ${code}`, missing))));
+      code === 0 ? resolve() : reject(failure(`${path.basename(file)} ${args.join(" ")} ended with code ${code}`, missing))));
   });
 
-/** Provisioniert die Werkzeuge eines Profils oder mit --workspace die dieses Arbeitsplatzes, wie pnpm provision. */
+/** Provisions the tools of a profile or, with --workspace, those of this workspace, like pnpm provision. */
 export const provisionTools = (hostPath: string, selection: string, environment: NodeJS.ProcessEnv, log: (line: string) => void): Promise<void> => {
   const node = findExecutable("node", environment);
-  if (!node) throw new Error("node wurde im PATH nicht gefunden; die Werkzeuge lassen sich nicht provisionieren");
+  if (!node) throw new Error("node was not found in the PATH; the tools cannot be provisioned");
   return run(node, ["--import", "tsx", "../../scripts/provision/run-provision.ts", selection], path.join(hostPath, "apps/server"), environment, log);
 };
 
 export const HOST_PACKAGE_NAME = "@schlenkr/ragents";
 
-/** Die Paketfassung, die zu dieser Erweiterung gehört; der Build der Erweiterung trägt sie in ihre package.json ein. */
+/** The package version that belongs to this extension; the extension build writes it into its package.json. */
 export const packagedHostVersion = (extensionPath: string): string => {
   const file = path.join(extensionPath, "package.json");
   const version = (JSON.parse(readFileSync(file, "utf8")) as { ragents?: { packageVersion?: unknown } }).ragents?.packageVersion;
   if (typeof version !== "string" || !/^\d+\.\d+\.\d+/.test(version)) {
-    throw new Error(`${file}: ragents.packageVersion nennt die Fassung von ${HOST_PACKAGE_NAME}, die zu dieser Erweiterung gehört`);
+    throw new Error(`${file}: ragents.packageVersion names the version of ${HOST_PACKAGE_NAME} that belongs to this extension`);
   }
   return version;
 };
 
-/** Was npm installiert: das veröffentlichte Paket; RAGENTS_HOST_PACKAGE_SPEC setzt für Tests eine lokale .tgz an dessen Stelle. */
+/** What npm installs: the published package; RAGENTS_HOST_PACKAGE_SPEC puts a local .tgz in its place for tests. */
 export const hostPackageSpecifier = (version: string, environment: NodeJS.ProcessEnv = process.env): string =>
   environment.RAGENTS_HOST_PACKAGE_SPEC?.trim() || `${HOST_PACKAGE_NAME}@${version}`;
 
-/** Je Fassung ein eigener Ordner im Speicher der Erweiterung; geholte Fassungen bleiben liegen. */
+/** One folder per version in the extension's storage; fetched versions stay. */
 export const hostPackageFolder = (storage: string, version: string): string => path.join(storage, "hosts", version);
 
 const installedHostRoot = (folder: string): string => path.join(folder, "node_modules", ...HOST_PACKAGE_NAME.split("/"));
 
-/** Holt den Host als npm-Paket in einen eigenen Ordner und gibt dessen Wurzel zurück. */
+/** Fetches the host as an npm package into its own folder and returns its root. */
 export const installHostPackage = async (folder: string, specifier: string, environment: NodeJS.ProcessEnv, log: (line: string) => void): Promise<string> => {
   const npm = findExecutable("npm", environment);
   if (!npm) {
-    throw new Error("npm wurde im PATH nicht gefunden; ohne npm kann die Erweiterung den Host nicht holen. "
-      + "Installiere Node 22 samt npm oder setze ragents.hostPath auf einen Checkout oder ein installiertes Paket.");
+    throw new Error("npm was not found in the PATH; without npm, the extension cannot fetch the host. "
+      + "Install Node 22 with npm or set ragents.hostPath to a checkout or an installed package.");
   }
   await mkdir(folder, { recursive: true });
   await run(npm, ["install", "--prefix", folder, specifier], folder, environment, log);
   const root = installedHostRoot(folder);
-  if (!isHostRoot(root)) throw new Error(`${specifier} hat keinen RAgents-Host in ${root} hinterlassen`);
+  if (!isHostRoot(root)) throw new Error(`${specifier} did not leave a RAgents host in ${root}`);
   return root;
 };
 
-/** Der Host einer Fassung: der schon geholte Ordner, sonst eine Installation von npm. */
+/** The host of a version: the already fetched folder, otherwise an installation from npm. */
 export const ensureHostPackage = async (storage: string, version: string, environment: NodeJS.ProcessEnv, log: (line: string) => void): Promise<string> => {
   const folder = hostPackageFolder(storage, version);
   const installed = installedHostRoot(folder);
   if (isHostRoot(installed)) return installed;
   const specifier = hostPackageSpecifier(version, environment);
-  log(`== Host-Paket ${specifier} nach ${folder} holen`);
+  log(`== Fetching host package ${specifier} into ${folder}`);
   return installHostPackage(folder, specifier, environment, log);
 };
 
@@ -164,18 +164,18 @@ const terminate = (child: ChildProcess): void => {
   else child.kill("SIGTERM");
 };
 
-/** Startet den Host und wartet auf seine Ansage {"ragents":{"url","token","pid"}} auf stdout. */
+/** Starts the host and waits for its announcement {"ragents":{"url","token","pid"}} on stdout. */
 export const startHost = (options: HostStartOptions): Promise<RunningHost> => new Promise((resolve, reject) => {
   const environment: NodeJS.ProcessEnv = {
     ...options.environment,
     PRODUCT_PROFILE: options.profile,
     PRODUCT_PROFILE_FILE: options.profileFile,
     DATA_DIR: options.dataDirectory,
-    // Der lokale Host ist der Arbeitsplatz des Entwicklers: dort bleibt es seine eigene Bash.
+    // The local host is the developer's workstation: there it stays their own bash.
     PROCESS_SANDBOX: options.environment.PROCESS_SANDBOX ?? "off",
     ...(options.bash === undefined ? {} : { RAGENTS_BASH: options.bash }),
     ...(options.rg === undefined ? {} : { RAGENTS_RG: options.rg }),
-    // Der Host überwacht diesen Prozess und beendet sich, wenn ihn ein Reload oder Absturz von VS Code mitnimmt.
+    // The host watches this process and ends itself when a reload or crash of VS Code takes it down.
     RAGENTS_PARENT_PID: String(process.pid),
   };
   const child = spawn(options.command.file, [...options.command.args], { cwd: options.command.cwd, env: environment, stdio: ["ignore", "pipe", "pipe"] });
@@ -196,8 +196,8 @@ export const startHost = (options: HostStartOptions): Promise<RunningHost> => ne
     terminate(child);
     reject(failure(`${message}${recent.length ? `\n${recent.join("\n")}` : ""}`, missing));
   };
-  const timer = setTimeout(() => fail(`Der Host hat sich nach ${Math.round((options.startTimeoutMs ?? START_TIMEOUT_MS) / 1000)} Sekunden nicht gemeldet`), options.startTimeoutMs ?? START_TIMEOUT_MS);
-  child.once("error", (cause) => { clearTimeout(timer); fail(`Der Host konnte nicht gestartet werden: ${cause.message}`); });
+  const timer = setTimeout(() => fail(`The host did not announce itself after ${Math.round((options.startTimeoutMs ?? START_TIMEOUT_MS) / 1000)} seconds`), options.startTimeoutMs ?? START_TIMEOUT_MS);
+  child.once("error", (cause) => { clearTimeout(timer); fail(`The host could not be started: ${cause.message}`); });
   const stderr = createInterface({ input: child.stderr! }).on("line", log);
   const stdout = createInterface({ input: child.stdout! }).on("line", (line) => {
     if (announced) { log(line); return; }
@@ -227,6 +227,6 @@ export const startHost = (options: HostStartOptions): Promise<RunningHost> => ne
   const output = drained([stderr, stdout]);
   void exited.then((code) => {
     clearTimeout(timer);
-    void output.then(() => fail(`Der Host endete vor seiner Ansage mit Code ${code}`));
+    void output.then(() => fail(`The host ended before its announcement with code ${code}`));
   });
 });

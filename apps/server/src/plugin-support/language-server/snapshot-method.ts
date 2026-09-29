@@ -13,7 +13,7 @@ export interface LanguageServerMethodOptions {
   pluginId: string;
   adapterId: string;
   sandbox: SandboxServices;
-  /** Die Sprachserver arbeiten im Arbeitsbereich des Runs; wer ihn nicht sehen darf, sieht auch ihren Stand nicht. */
+  /** The language servers work in the run's workspace; whoever may not see it does not see their state either. */
   ensureWorkspaceAccess: (access: AccessContext, runId: string) => void;
   opened: (runId: string) => void;
 }

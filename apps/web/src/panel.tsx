@@ -9,7 +9,7 @@ declare function acquireVsCodeApi(): { postMessage(message: unknown): void };
 
 const root = document.getElementById("root");
 const embedded = document.getElementById("state");
-if (!root || !embedded?.textContent) throw new Error("Root-Element oder eingebetteter Zustand fehlt");
+if (!root || !embedded?.textContent) throw new Error("Root element or embedded state is missing");
 
 const vscode = acquireVsCodeApi();
 const initial = JSON.parse(embedded.textContent) as PanelState;

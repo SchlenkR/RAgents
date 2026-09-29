@@ -3,56 +3,56 @@ import { defineRunFunction, defineToolAvailability, type ToolContributor } from 
 import { toolDescriptorFrom } from "@ragents/host/plugin-support/agent-tool.js";
 import type { WatchServiceApi } from "../contract.js";
 
-const available = defineToolAvailability({ availability: "always", availabilityDetail: "In jedem Run verfügbar." }, () => true);
+const available = defineToolAvailability({ availability: "always", availabilityDetail: "Available in every run." }, () => true);
 
 const verdictSchema = Type.Object({
-  at: Type.String({ description: "Zeitpunkt der Bewertung" }),
-  wake: Type.Boolean({ description: "Ob der Wächter geweckt hat" }),
-  reason: Type.String({ description: "Grund, den die Bedingung geliefert hat, oder 'Bedingung nicht erfüllt'" }),
-  changes: Type.Array(Type.String(), { description: "Änderungen seit der letzten Weckung, die der Bewertung vorlagen" }),
+  at: Type.String({ description: "Time of the evaluation" }),
+  wake: Type.Boolean({ description: "Whether the watch woke" }),
+  reason: Type.String({ description: "Reason the condition returned, or 'Condition not met'" }),
+  changes: Type.Array(Type.String(), { description: "Changes since the last wake that the evaluation saw" }),
 }, { additionalProperties: false });
 
 const summarySchema = Type.Object({
-  id: Type.String({ description: "Kennung des Wächters für watch_remove" }),
-  source: Type.String({ description: "Beobachteter Actor als @handle" }),
-  target: Type.String({ description: "Geweckter Actor als @handle" }),
-  condition: Type.String({ description: "Weckbedingung als TypeScript-Funktionsrumpf" }),
-  observe: Type.Optional(Type.String({ description: "Benannte Operation, deren Ergebnis zum beobachteten Stand gehört" })),
-  stallAfterSeconds: Type.Optional(Type.Integer({ description: "Sekunden ohne Ereignis des beobachteten Actors, ab denen der Stand einen Stillstand nennt" })),
-  wakes: Type.Integer({ description: "Anzahl der bisherigen Weckungen" }),
-  lastEvaluatedAt: Type.Optional(Type.String({ description: "Zeitpunkt der letzten Bewertung" })),
+  id: Type.String({ description: "Id of the watch for watch_remove" }),
+  source: Type.String({ description: "Observed actor as @handle" }),
+  target: Type.String({ description: "Woken actor as @handle" }),
+  condition: Type.String({ description: "Wake condition as a TypeScript function body" }),
+  observe: Type.Optional(Type.String({ description: "Named operation whose result belongs to the observed state" })),
+  stallAfterSeconds: Type.Optional(Type.Integer({ description: "Seconds without an event of the observed actor after which the state reports a stall" })),
+  wakes: Type.Integer({ description: "Number of wakes so far" }),
+  lastEvaluatedAt: Type.Optional(Type.String({ description: "Time of the last evaluation" })),
   lastVerdict: Type.Optional(verdictSchema),
 }, { additionalProperties: false });
 
 const createSchema = Type.Object({
-  source: Type.String({ minLength: 1, description: "Beobachteter Actor als @handle oder Kennung" }),
-  condition: Type.String({ minLength: 1, maxLength: 4_000, description: "Weckbedingung als TypeScript-Funktionsrumpf von (now: WatchState, before: WatchState) => string | undefined; liefert den Weckgrund als Text oder undefined. WatchState: source { lifecycle idle|running|stopped, completedTurns, lastTurn { status, reason? }, pendingInputs, pendingActions, lastOutput? }, observed (Ergebnis der observe-Operation als Record<string, unknown>), stalledForSeconds (nur bei Stillstand). before ist der Stand bei der letzten Weckung. Beispiel: return now.source.completedTurns > before.source.completedTurns && now.observed?.phase !== \"ready\" ? \"Turn beendet, Auftrag nicht fertig\" : undefined;" }),
-  target: Type.Optional(Type.String({ minLength: 1, description: "Zu weckender Actor als @handle oder Kennung; ohne Angabe der Aufrufer" })),
-  observe: Type.Optional(Type.String({ minLength: 1, description: "Benannte Operation ohne Eingabe, deren Ergebnis den beobachteten Stand ergänzt und per Differenz verglichen wird" })),
-  instruction: Type.Optional(Type.String({ minLength: 1, maxLength: 2_000, description: "Text, der jeder Weckung angehängt wird, etwa wie der Geweckte reagieren soll" })),
-  stallAfterSeconds: Type.Optional(Type.Integer({ minimum: 1, description: "Sekunden ohne Ereignis des beobachteten Actors, ab denen der Stand stalledForSeconds nennt" })),
+  source: Type.String({ minLength: 1, description: "Observed actor as @handle or id" }),
+  condition: Type.String({ minLength: 1, maxLength: 4_000, description: "Wake condition as a TypeScript function body of (now: WatchState, before: WatchState) => string | undefined; returns the wake reason as text or undefined. WatchState: source { lifecycle idle|running|stopped, completedTurns, lastTurn { status, reason? }, pendingInputs, pendingActions, lastOutput? }, observed (result of the observe operation as Record<string, unknown>), stalledForSeconds (only when stalled). before is the state at the last wake. Example: return now.source.completedTurns > before.source.completedTurns && now.observed?.phase !== \"ready\" ? \"Turn ended, task not finished\" : undefined;" }),
+  target: Type.Optional(Type.String({ minLength: 1, description: "Actor to wake as @handle or id; if omitted, the caller" })),
+  observe: Type.Optional(Type.String({ minLength: 1, description: "Named operation without input whose result extends the observed state and is compared by difference" })),
+  instruction: Type.Optional(Type.String({ minLength: 1, maxLength: 2_000, description: "Text appended to every wake, e.g. how the woken actor should react" })),
+  stallAfterSeconds: Type.Optional(Type.Integer({ minimum: 1, description: "Seconds without an event of the observed actor after which the state reports stalledForSeconds" })),
 }, { additionalProperties: false });
 
 export const watchFunctions = (service: WatchServiceApi): ToolContributor => {
   const functions = [
     defineRunFunction({
-      name: "watch_create", label: "Wächter anlegen",
-      description: "Beobachtet einen Actor dieses Runs und weckt einen anderen mit einer Hintergrundnachricht, sobald die als TypeScript-Funktionsrumpf formulierte Bedingung im geänderten Stand einen Grund liefert. Kein Modell: Die Bedingung wird beim Anlegen typgeprüft und danach deterministisch bei jeder Änderung des beobachteten Stands ausgeführt, sobald der beobachtete Actor zur Ruhe gekommen ist; stalledForSeconds erscheint nach stallAfterSeconds ohne Aktivität und danach je weitere Periode erneut. Ein gleicher Wächter wird nicht doppelt angelegt.",
+      name: "watch_create", label: "Create watch",
+      description: "Observes an actor of this run and wakes another with a background message as soon as the condition, written as a TypeScript function body, returns a reason for the changed state. No model: the condition is type-checked on creation and afterwards run deterministically on every change of the observed state, once the observed actor has come to rest; stalledForSeconds appears after stallAfterSeconds without activity and again after each further period. An identical watch is not created twice.",
       schema: createSchema, resultSchema: summarySchema, available,
       run: (scope, _toolCallId, input) => service.create(scope.caller.runId, scope.caller.actorId, input),
     }),
     defineRunFunction({
-      name: "watch_list", label: "Wächter auflisten",
-      description: "Listet die Wächter dieses Runs mit Bedingung, Anzahl der Weckungen und letztem Urteil.",
+      name: "watch_list", label: "List watches",
+      description: "Lists the watches of this run with condition, number of wakes and last verdict.",
       schema: Type.Object({}, { additionalProperties: false }), resultSchema: Type.Array(summarySchema), available,
       run: (scope) => service.list(scope.caller.runId),
     }),
     defineRunFunction({
-      name: "watch_remove", label: "Wächter entfernen",
-      description: "Entfernt einen Wächter dieses Runs; danach weckt er nicht mehr.",
+      name: "watch_remove", label: "Remove watch",
+      description: "Removes a watch of this run; afterwards it no longer wakes.",
       schema: Type.Object({
-        id: Type.String({ minLength: 1, description: "Kennung aus watch_create oder watch_list" }),
-        reason: Type.String({ minLength: 1, description: "Grund der Entfernung" }),
+        id: Type.String({ minLength: 1, description: "Id from watch_create or watch_list" }),
+        reason: Type.String({ minLength: 1, description: "Reason for the removal" }),
       }, { additionalProperties: false }),
       resultSchema: Type.Object({ removed: Type.Literal(true) }, { additionalProperties: false }), available,
       run: (scope, _toolCallId, input) => { service.remove(scope.caller.runId, input.id, input.reason); return { removed: true as const }; },

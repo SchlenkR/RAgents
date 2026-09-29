@@ -54,9 +54,9 @@ function browserFixture(stored: string | null = null, dark = false) {
     stored: () => value,
     writes: () => writes,
     applied: () => target.document.documentElement.dataset.theme,
-    denyWrites: () => { writeError = new Error("Browser-Speicher ist voll"); },
+    denyWrites: () => { writeError = new Error("Browser storage is full"); },
     allowWrites: () => { writeError = undefined; },
-    denyReads: () => { readError = new Error("Browser-Speicher ist gesperrt"); },
+    denyReads: () => { readError = new Error("Browser storage is blocked"); },
     systemDark: (next: boolean) => {
       media.matches = next;
       media.dispatchEvent(new Event("change"));
@@ -68,7 +68,7 @@ function browserFixture(stored: string | null = null, dark = false) {
   };
 }
 
-test("die Oberfläche beginnt dunkel, ohne die Systempräferenz oder den Browser-Speicher zu ändern", () => {
+test("the interface starts dark without changing the system preference or the browser storage", () => {
   const fixture = browserFixture(null, false);
   const store = createThemeStore(fixture.browser);
   assert.deepEqual(store.getSnapshot(), { preference: "dark", appearance: "dark", error: null });
@@ -79,7 +79,7 @@ test("die Oberfläche beginnt dunkel, ohne die Systempräferenz oder den Browser
   store.dispose();
 });
 
-test("gespeicherte Darstellung ist sofort beim Bootstrap angewendet", () => {
+test("the saved theme is applied right at bootstrap", () => {
   for (const [preference, systemDark, appearance] of [
     ["light", true, "light"], ["dark", false, "dark"], ["system", true, "dark"], ["system", false, "light"],
   ] as const) {
@@ -91,7 +91,7 @@ test("gespeicherte Darstellung ist sofort beim Bootstrap angewendet", () => {
   }
 });
 
-test("nur System folgt laufenden Präferenzwechseln und hat dafür einen aktiven Listener", () => {
+test("only system follows ongoing preference changes and has an active listener for it", () => {
   const fixture = browserFixture("system");
   const store = createThemeStore(fixture.browser);
   let updates = 0;
@@ -116,7 +116,7 @@ test("nur System folgt laufenden Präferenzwechseln und hat dafür einen aktiven
   store.dispose();
 });
 
-test("Browser-Tabs synchronisieren Darstellung und gelöschte Einstellungen ohne zurückzuschreiben", () => {
+test("browser tabs sync the theme and deleted settings without writing back", () => {
   const fixture = browserFixture();
   const store = createThemeStore(fixture.browser);
   fixture.otherTab("light");
@@ -136,20 +136,20 @@ test("Browser-Tabs synchronisieren Darstellung und gelöschte Einstellungen ohne
   store.dispose();
 });
 
-test("ungültige Werte und gesperrter Speicher brechen die Initialisierung mit einer konkreten Meldung ab", () => {
+test("invalid values and blocked storage abort the initialization with a specific message", () => {
   for (const value of ["", "LIGHT", "sepia", "null"]) {
-    assert.throws(() => parseThemePreference(value), /Erlaubt sind light, dark und system/);
+    assert.throws(() => parseThemePreference(value), /Allowed are light, dark, and system/);
     const fixture = browserFixture(value);
-    assert.throws(() => createThemeStore(fixture.browser), /Die gespeicherte Darstellung konnte nicht geladen werden/);
+    assert.throws(() => createThemeStore(fixture.browser), /The saved theme could not be loaded/);
     assert.equal(fixture.applied(), undefined);
     assert.equal(fixture.target.listenerCount("storage"), 0);
   }
   const fixture = browserFixture();
   fixture.denyReads();
-  assert.throws(() => createThemeStore(fixture.browser), /Browser-Speicher ist gesperrt/);
+  assert.throws(() => createThemeStore(fixture.browser), /Browser storage is blocked/);
 });
 
-test("ein Speicherfehler bleibt sichtbar und lässt gespeicherte und aktive Auswahl unverändert", () => {
+test("a storage error stays visible and leaves the saved and active choice unchanged", () => {
   const fixture = browserFixture("dark");
   const store = createThemeStore(fixture.browser);
   fixture.denyWrites();
@@ -157,7 +157,7 @@ test("ein Speicherfehler bleibt sichtbar und lässt gespeicherte und aktive Ausw
   assert.equal(fixture.applied(), "dark");
   assert.equal(fixture.stored(), "dark");
   assert.equal(store.getSnapshot().preference, "dark");
-  assert.match(store.getSnapshot().error!, /Die Darstellung konnte nicht gespeichert werden.*Browser-Speicher ist voll/);
+  assert.match(store.getSnapshot().error!, /The theme could not be saved.*Browser storage is full/);
   fixture.allowWrites();
   store.setPreference("light");
   assert.equal(store.getSnapshot().error, null);
@@ -166,11 +166,11 @@ test("ein Speicherfehler bleibt sichtbar und lässt gespeicherte und aktive Ausw
   store.dispose();
 });
 
-test("ein beschädigter Wert aus einem anderen Tab wird als Fehler gemeldet und nie als Theme angewendet", () => {
+test("a corrupted value from another tab is reported as an error and never applied as a theme", () => {
   const fixture = browserFixture("dark");
   const store = createThemeStore(fixture.browser);
   fixture.otherTab("sepia");
-  assert.match(store.getSnapshot().error!, /anderen Browser-Tab.*Erlaubt sind light, dark und system/);
+  assert.match(store.getSnapshot().error!, /another browser tab.*Allowed are light, dark, and system/);
   assert.equal(store.getSnapshot().preference, "dark");
   assert.equal(fixture.applied(), "dark");
   fixture.otherTab("light");
@@ -179,7 +179,7 @@ test("ein beschädigter Wert aus einem anderen Tab wird als Fehler gemeldet und 
   store.dispose();
 });
 
-test("Abonnements und Theme-Lebenszyklus räumen alle Listener auf", () => {
+test("subscriptions and the theme lifecycle clean up all listeners", () => {
   const fixture = browserFixture("system");
   const store = createThemeStore(fixture.browser);
   let updates = 0;
@@ -197,5 +197,5 @@ test("Abonnements und Theme-Lebenszyklus räumen alle Listener auf", () => {
   fixture.systemDark(true);
   fixture.otherTab("dark");
   assert.equal(fixture.applied(), "light");
-  assert.throws(() => store.setPreference("light"), /bereits beendet/);
+  assert.throws(() => store.setPreference("light"), /already been disposed/);
 });

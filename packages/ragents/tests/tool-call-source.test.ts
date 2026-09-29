@@ -14,7 +14,7 @@ const fixture = () => {
     assert.ok(input);
     const turn = claimTurn(setup.runtime, setup.view.id, setup.agent.id, input.id, "turn");
     const context = (step: string) => ({ actorId: setup.agent.id, turnId: turn.turnId, commandId: step });
-    const payload = { turnId: turn.turnId, toolCallId: "eval", code: '  const text = "Grüße";\r\nreturn text;\n', path: "@actors/report.ts" };
+    const payload = { turnId: turn.turnId, toolCallId: "eval", code: '  const text = "Crème brûlée";\r\nreturn text;\n', path: "@actors/report.ts" };
     const begin = () => setup.runtime.startToolCall(context("started"), setup.view.id, setup.agent.id, {
         turnId: turn.turnId, toolCallId: "eval", name: "typescript_eval", input: { path: payload.path },
     });
@@ -36,7 +36,7 @@ test("source snapshots preserve exact code and remain in the journal after failu
         assert.deepEqual(snapshot?.payload, run.payload);
         assert.equal(snapshot?.actorId, run.agent.id);
         assert.equal(run.runtime.view(run.view.id).turns[0]?.toolCalls[0]?.status, "failed");
-        assert.equal(JSON.stringify(run.runtime.view(run.view.id).turns).includes("Grüße"), false);
+        assert.equal(JSON.stringify(run.runtime.view(run.view.id).turns).includes("Crème brûlée"), false);
         target.adopt(JSON.parse(JSON.stringify(run.journal.records(run.view.id))));
         assert.deepEqual(target.load(run.view.id).find((entry) => entry.type === "tool.call.source")?.payload, run.payload);
         const replay = project(target.load(run.view.id));

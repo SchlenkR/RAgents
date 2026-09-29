@@ -6,8 +6,8 @@ export type ThemePreference = "light" | "dark" | "system";
 export type ResolvedTheme = Exclude<ThemePreference, "system">;
 
 export const themeOptions = [
-  { value: "light", label: "Hell" },
-  { value: "dark", label: "Dunkel" },
+  { value: "light", label: "Light" },
+  { value: "dark", label: "Dark" },
   { value: "system", label: "System" },
 ] as const;
 
@@ -20,7 +20,7 @@ interface ThemeSnapshot {
 export function parseThemePreference(value: string | null): ThemePreference {
   if (value === null) return "dark";
   if (value === "light" || value === "dark" || value === "system") return value;
-  throw new Error(`Ungültige Darstellung in ${THEME_STORAGE_KEY}: ${JSON.stringify(value)}. Erlaubt sind light, dark und system.`);
+  throw new Error(`Invalid theme in ${THEME_STORAGE_KEY}: ${JSON.stringify(value)}. Allowed are light, dark, and system.`);
 }
 
 const errorMessage = (cause: unknown) => cause instanceof Error ? cause.message : String(cause);
@@ -32,7 +32,7 @@ export function createThemeStore(browser: Window) {
     storage = browser.localStorage;
     preference = parseThemePreference(storage.getItem(THEME_STORAGE_KEY));
   } catch (cause) {
-    throw new Error(`Die gespeicherte Darstellung konnte nicht geladen werden. ${errorMessage(cause)}`);
+    throw new Error(`The saved theme could not be loaded. ${errorMessage(cause)}`);
   }
   const media = browser.matchMedia("(prefers-color-scheme: dark)");
   const appearanceOf = (value: ThemePreference): ResolvedTheme => value === "system" ? media.matches ? "dark" : "light" : value;
@@ -78,7 +78,7 @@ export function createThemeStore(browser: Window) {
     try {
       apply(parseThemePreference(storage.getItem(THEME_STORAGE_KEY)));
     } catch (cause) {
-      reportError(`Die Darstellung aus einem anderen Browser-Tab konnte nicht übernommen werden. ${errorMessage(cause)}`);
+      reportError(`The theme from another browser tab could not be applied. ${errorMessage(cause)}`);
     }
   }
 
@@ -88,18 +88,18 @@ export function createThemeStore(browser: Window) {
   return {
     getSnapshot: () => snapshot,
     subscribe(listener: () => void) {
-      if (disposed) throw new Error("Die Darstellung wurde bereits beendet.");
+      if (disposed) throw new Error("The theme has already been disposed.");
       listeners.add(listener);
       return () => { listeners.delete(listener); };
     },
     setPreference(next: ThemePreference) {
-      if (disposed) throw new Error("Die Darstellung wurde bereits beendet.");
+      if (disposed) throw new Error("The theme has already been disposed.");
       try {
         parseThemePreference(next);
         storage.setItem(THEME_STORAGE_KEY, next);
         apply(next);
       } catch (cause) {
-        reportError(`Die Darstellung konnte nicht gespeichert werden. ${errorMessage(cause)}`);
+        reportError(`The theme could not be saved. ${errorMessage(cause)}`);
       }
     },
     dispose() {
@@ -122,7 +122,7 @@ export function initializeTheme(browser: Window) {
 }
 
 export function getThemeStore() {
-  if (!activeTheme) throw new Error("Die Darstellung wurde noch nicht initialisiert.");
+  if (!activeTheme) throw new Error("The theme has not been initialized yet.");
   return activeTheme;
 }
 

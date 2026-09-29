@@ -41,7 +41,7 @@ const models: CatalogModel[] = (["fast", "deep", "foreign"] as const).map((model
 const profiles: AgentProfile[] = [{
   name: "coordinator", description: "Test", driver: "agent", provider: "test", model: "fast", thinking: "off", turnTimeoutMs: null, isolateWorkspace: false,
 }];
-const coordinator = { handle: "coordinator", displayName: "Koordinator", profile: "coordinator", runTitle: "Neuer Run", ownerHandle: "owner", ownerDisplayName: "Owner" };
+const coordinator = { handle: "coordinator", displayName: "Coordinator", profile: "coordinator", runTitle: "New run", ownerHandle: "owner", ownerDisplayName: "Owner" };
 const as = (rights: readonly string[]) => createAccessContext({ enabled: true, user: { id: "alice", label: "alice", rights: [...rights] } });
 const developer = as(["runs.read", "runs.write", "runs.create"]);
 const inspector = as(["runs.read", "runs.write", "runs.create", "runs.inspect"]);
@@ -73,7 +73,7 @@ test("the chat chooses model and thinking with runs.inspect only: before the fir
     }));
   } });
   const workspaces = new SessionWorkspaces(() => ({
-    execute: () => Promise.reject(new Error("Der Test legt keine Anhänge ab")),
+    execute: () => Promise.reject(new Error("The test stores no attachments")),
     serverProcessContextFor: async (runId: string) => ({ runId, cwd: directory }) as never,
   }));
   const runId = "chat-model";
@@ -101,24 +101,24 @@ test("the chat chooses model and thinking with runs.inspect only: before the fir
   };
   engine.start();
   try {
-    assert.deepEqual((await list(developer)).map((option) => option.id), [], "ohne runs.inspect keine Modellwahl");
+    assert.deepEqual((await list(developer)).map((option) => option.id), [], "no model choice without runs.inspect");
     await assert.rejects(select(developer, { model: "deep", thinking: "high" }), denied);
 
     const offered = (await list(inspector)).find((option) => option.id === modelStartOptionId);
     assert.deepEqual(offered?.presentation, { kind: "model", provider: "test", options: ["fast", "deep"], thinkingOptions: ["off"] });
     await assert.rejects(select(inspector, { model: "foreign" }), (error: unknown) => error instanceof DomainError && error.code === "model-unknown",
-      "ein Modell des Katalogs, das die Modellwahl nicht nennt, steht nicht zur Wahl");
+      "a catalog model that the model choice does not name is not selectable");
     await assert.rejects(select(inspector, { model: "deep", thinking: "off" }), (error: unknown) => error instanceof DomainError && error.code === "thinking-unknown");
     const chosen = await select(inspector, { model: "deep", thinking: "high" });
     assert.deepEqual(chosen.presentation, { kind: "model", provider: "test", options: ["fast", "deep"], thinkingOptions: ["low", "high"] });
 
-    assert.deepEqual(await turn("Erste Nachricht"), { provider: "test", model: "deep", thinking: "high" }, "die Wahl vor der ersten Nachricht gilt für den ersten Turn");
+    assert.deepEqual(await turn("First message"), { provider: "test", model: "deep", thinking: "high" }, "the choice before the first message applies to the first turn");
     assert.equal((await list(inspector)).find((option) => option.id === modelStartOptionId)?.locked, false);
 
     await assert.rejects(select(developer, { model: "fast", thinking: "off" }), denied);
-    assert.deepEqual(await turn("Zweite Nachricht"), { provider: "test", model: "deep", thinking: "high" }, "die abgelehnte Wahl ändert nichts");
+    assert.deepEqual(await turn("Second message"), { provider: "test", model: "deep", thinking: "high" }, "the rejected choice changes nothing");
     await select(inspector, { model: "fast", thinking: "off" });
-    assert.deepEqual(await turn("Dritte Nachricht"), { provider: "test", model: "fast", thinking: "off" }, "ein Wechsel gilt ab dem nächsten Turn");
+    assert.deepEqual(await turn("Third message"), { provider: "test", model: "fast", thinking: "off" }, "a change applies from the next turn on");
     assert.deepEqual(await session.capabilities("primary", null), { model: "test/fast", input: ["text"] });
   } finally {
     session.dispose();

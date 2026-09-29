@@ -38,7 +38,7 @@ const linkStylesheet = (url: string): Promise<void> => new Promise((resolve, rej
   link.rel = "stylesheet";
   link.href = url;
   link.onload = () => resolve();
-  link.onerror = () => reject(new Error(`das Stylesheet ${url} fehlt`));
+  link.onerror = () => reject(new Error(`the stylesheet ${url} is missing`));
   document.head.append(link);
 });
 

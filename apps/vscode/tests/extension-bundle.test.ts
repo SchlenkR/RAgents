@@ -8,7 +8,7 @@ import { fileURLToPath } from "node:url";
 
 const extensionRoot = fileURLToPath(new URL("..", import.meta.url));
 
-/** Die .vsix bringt keine node_modules mit; der Stub ist alles, was das Bundle beim Laden und Aktivieren vorfindet. */
+/** The .vsix brings no node_modules; the stub is everything the bundle finds when loading and activating. */
 const VSCODE_STUB = `const noop = () => undefined;
 const settings = { "ragents.connections": [], "ragents.hostPath": "", "ragents.theme": "auto" };
 const configurationListeners = new Set();
@@ -41,7 +41,7 @@ module.exports = {
     activeColorTheme: { kind: 2 },
     createOutputChannel: () => ({ appendLine: noop, append: noop, show: noop, dispose: noop }),
     createStatusBarItem: () => ({ text: "", tooltip: "", command: "", show: noop, hide: noop, dispose: noop }),
-    createWebviewPanel: () => { throw new Error("Beim Aktivieren wird kein Webview-Panel erwartet"); },
+    createWebviewPanel: () => { throw new Error("No webview panel is expected on activation"); },
     registerWebviewViewProvider: () => disposable,
     registerUriHandler: () => disposable,
     onDidChangeActiveColorTheme: event,
@@ -98,52 +98,52 @@ const settings = vscode.workspace.settings;
 const host = path.join(process.cwd(), "host");
 const names = (api) => api.panel().connections.map((connection) => connection.name);
 
-/** Die Panelseite schickt genau diese Aktionen; sie schreiben ragents.connections und melden Fehler in der Seite. */
+/** The panel page sends exactly these actions; they write ragents.connections and report errors in the page. */
 const checkPanelActions = async (api) => {
-  assert.equal(api.panel().page, "start", "die Erweiterung beginnt auf der Start-Seite");
+  assert.equal(api.panel().page, "start", "the extension starts on the Start page");
   for (const page of ["runs", "connections", "start"]) {
     await api.panelAction({ action: "page", page });
     assert.equal(api.panel().page, page);
   }
 
-  await api.panelAction({ action: "addServer", name: "erste", url: "http://127.0.0.1:59991" });
-  await api.panelAction({ action: "addServer", name: "zweite", url: "http://127.0.0.1:59992" });
+  await api.panelAction({ action: "addServer", name: "first", url: "http://127.0.0.1:59991" });
+  await api.panelAction({ action: "addServer", name: "second", url: "http://127.0.0.1:59992" });
   assert.deepEqual(settings["ragents.connections"], [
-    { name: "erste", url: "http://127.0.0.1:59991" },
-    { name: "zweite", url: "http://127.0.0.1:59992" },
+    { name: "first", url: "http://127.0.0.1:59991" },
+    { name: "second", url: "http://127.0.0.1:59992" },
   ]);
 
-  await api.panelAction({ action: "addServer", name: "ohne-schema", url: "localhost:59993" });
-  assert.equal(settings["ragents.connections"].length, 2, "eine Adresse ohne Schema kommt nicht durch");
-  assert.notEqual(api.panel().problem, undefined, "der Grund steht in der Seite");
+  await api.panelAction({ action: "addServer", name: "no-scheme", url: "localhost:59993" });
+  assert.equal(settings["ragents.connections"].length, 2, "an address without a scheme does not get through");
+  assert.notEqual(api.panel().problem, undefined, "the reason appears in the page");
 
-  // Bearbeiten ersetzt den Eintrag an seiner Stelle, statt ihn zu entfernen und neu anzuhängen.
-  await api.panelAction({ action: "updateServer", name: "erste", newName: "erste-neu", url: "http://127.0.0.1:59994" });
+  // Editing replaces the entry in place instead of removing it and appending it again.
+  await api.panelAction({ action: "updateServer", name: "first", newName: "first-new", url: "http://127.0.0.1:59994" });
   assert.deepEqual(settings["ragents.connections"], [
-    { name: "erste-neu", url: "http://127.0.0.1:59994" },
-    { name: "zweite", url: "http://127.0.0.1:59992" },
+    { name: "first-new", url: "http://127.0.0.1:59994" },
+    { name: "second", url: "http://127.0.0.1:59992" },
   ]);
   assert.equal(api.panel().problem, undefined);
-  assert.deepEqual(names(api), ["erste-neu", "zweite"]);
+  assert.deepEqual(names(api), ["first-new", "second"]);
 
-  await api.panelAction({ action: "updateServer", name: "erste-neu", newName: "zweite", url: "http://127.0.0.1:59994" });
-  assert.notEqual(api.panel().problem, undefined, "ein doppelter Name kommt nicht durch");
-  assert.deepEqual(names(api), ["erste-neu", "zweite"]);
+  await api.panelAction({ action: "updateServer", name: "first-new", newName: "second", url: "http://127.0.0.1:59994" });
+  assert.notEqual(api.panel().problem, undefined, "a duplicate name does not get through");
+  assert.deepEqual(names(api), ["first-new", "second"]);
 
   await api.panelAction({ action: "addProfile", name: "core", profileFile: path.join(host, "ragents.config.core.ts") });
-  assert.deepEqual(names(api), ["erste-neu", "zweite", "core"]);
-  await api.panelAction({ action: "updateProfile", name: "core", newName: "entwicklung", profileFile: path.join(host, "ragents.config.developer.ts") });
-  assert.deepEqual(settings["ragents.connections"][2], { name: "entwicklung", profileFile: path.join(host, "ragents.config.developer.ts") });
-  await api.panelAction({ action: "updateProfile", name: "entwicklung", newName: "entwicklung", profileFile: path.join(host, "ragents.config.gibtesnicht.ts") });
-  assert.notEqual(api.panel().problem, undefined, "eine Profildatei, die es nicht gibt, kommt nicht durch");
+  assert.deepEqual(names(api), ["first-new", "second", "core"]);
+  await api.panelAction({ action: "updateProfile", name: "core", newName: "development", profileFile: path.join(host, "ragents.config.developer.ts") });
+  assert.deepEqual(settings["ragents.connections"][2], { name: "development", profileFile: path.join(host, "ragents.config.developer.ts") });
+  await api.panelAction({ action: "updateProfile", name: "development", newName: "development", profileFile: path.join(host, "ragents.config.missing.ts") });
+  assert.notEqual(api.panel().problem, undefined, "a profile file that does not exist does not get through");
 
-  await api.panelAction({ action: "stopProfile", name: "entwicklung" });
+  await api.panelAction({ action: "stopProfile", name: "development" });
   assert.equal(api.panel().connections[2].state.kind, "stopped");
 
-  await api.panelAction({ action: "remove", name: "zweite" });
-  assert.deepEqual(names(api), ["erste-neu", "entwicklung"]);
+  await api.panelAction({ action: "remove", name: "second" });
+  assert.deepEqual(names(api), ["first-new", "development"]);
 
-  // Die Vorschläge des Dialogs kommen aus dem Host-Ordner; ohne Host bleibt die Liste leer.
+  // The suggestions of the dialog come from the host folder; without a host the list stays empty.
   assert.deepEqual(api.panel().profileSuggestions, []);
   settings["ragents.hostPath"] = host;
   assert.deepEqual(api.panel().profileSuggestions, [
@@ -152,15 +152,15 @@ const checkPanelActions = async (api) => {
   ]);
   settings["ragents.hostPath"] = "";
 
-  const entwicklung = api.panel().connections[1];
-  assert.equal(entwicklung.kind, "profile");
-  assert.equal(entwicklung.address, path.join(host, "ragents.config.developer.ts"));
+  const development = api.panel().connections[1];
+  assert.equal(development.kind, "profile");
+  assert.equal(development.address, path.join(host, "ragents.config.developer.ts"));
 };
 
 process.on("unhandledRejection", (cause) => { console.error("unhandledRejection:", cause); process.exit(4); });
 extension.activate(context).then(
   async (api) => {
-    if (typeof api.connections !== "function") throw new Error("activate liefert keine API");
+    if (typeof api.connections !== "function") throw new Error("activate returns no API");
     await checkPanelActions(api);
     await extension.deactivate();
     process.exit(0);
@@ -169,7 +169,7 @@ extension.activate(context).then(
 ).catch((cause) => { console.error("panelAction:", cause && cause.stack ? cause.stack : cause); process.exit(6); });
 `;
 
-test("das gebaute Bundle lädt, aktiviert ohne node_modules daneben und führt die Aktionen der Panelseite aus", () => {
+test("the built bundle loads, activates without node_modules next to it, and runs the actions of the panel page", () => {
   const built = spawnSync(process.execPath, ["esbuild.mjs"], { cwd: extensionRoot, encoding: "utf8" });
   assert.equal(built.status, 0, `${built.stdout}${built.stderr}`);
   const directory = mkdtempSync(path.join(tmpdir(), "ragents-bundle-"));

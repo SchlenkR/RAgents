@@ -16,17 +16,17 @@ const session = (programs: unknown[], actors: unknown[] = [owner]): SessionConte
 test("several actor views share their owner's surface anchor while headless programs have no frame", () => {
   const headless = { ...owner, id: "headless", handle: "worker", kind: "script" };
   const elements = actorProgramSurfaceElements(session([
-    program([{ id: "counter--board", title: "Übersicht" }, { id: "counter--details", title: "Details" }]),
+    program([{ id: "counter--board", title: "Overview" }, { id: "counter--details", title: "Details" }]),
     program([], headless),
   ], [owner, headless]));
   assert.equal(elements.length, 2);
-  assert.deepEqual(elements.map((entry) => entry.title), ["Übersicht", "Details"]);
+  assert.deepEqual(elements.map((entry) => entry.title), ["Overview", "Details"]);
   assert.ok(elements.every((entry) => entry.anchorActorId === owner.id));
   assert.deepEqual(elements[0]!.data, { actorId: owner.id, actorHandle: owner.handle });
 });
 
 test("stopped and absent actors lose their views synchronously", () => {
-  const programs = [program([{ id: "counter--board", title: "Übersicht" }])];
+  const programs = [program([{ id: "counter--board", title: "Overview" }])];
   assert.equal(actorProgramSurfaceElements(session(programs)).length, 1);
   assert.deepEqual(actorProgramSurfaceElements(session(programs, [{ ...owner, lifecycle: { kind: "stopped" } }])), []);
   assert.deepEqual(actorProgramSurfaceElements(session(programs, [])), []);
@@ -40,7 +40,7 @@ test("visibility survives as a surface property and another actor cannot own the
   view.visible = true;
   assert.deepEqual({ ...hidden, visible: true }, actorProgramSurfaceElements(session([program([view])]))[0]);
   view.placements[0]!.anchorActorId = "other-actor";
-  assert.throws(() => actorProgramSurfaceElements(session([program([view])])), /gehört/);
+  assert.throws(() => actorProgramSurfaceElements(session([program([view])])), /belongs to/);
 });
 
 test("the view API requires actor ownership and rejects dialogs, foreign placement, and duplicate placement", () => {
@@ -52,7 +52,7 @@ test("the view API requires actor ownership and rejects dialogs, foreign placeme
   assert.throws(() => runAppFrom({ ...app, visible: "yes" }), /visible/);
   assert.throws(() => runAppFrom({ ...app, placements: [{ kind: "dialog", size: "wide" }] }), /canvas/);
   assert.throws(() => runAppFrom({ ...app, placements: [app.placements[0], app.placements[0]] }), /placements/);
-  assert.throws(() => runAppFrom({ ...app, placements: [{ ...app.placements[0], anchorActorId: "someone-else" }] }), /eigenen Actor/);
+  assert.throws(() => runAppFrom({ ...app, placements: [{ ...app.placements[0], anchorActorId: "someone-else" }] }), /own actor/);
   assert.equal(runAppFrom({ ...app, id: `${"a".repeat(64)}--${"v".repeat(64)}` }).id.length, 130);
 });
 

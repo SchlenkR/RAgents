@@ -1,8 +1,8 @@
 export type { Static, TSchema } from "typebox";
 export { Type } from "typebox";
 
-// Einziger regulärer Einstieg. Provider-Fabriken liegen zusätzlich unter
-// "@ragents/ai/providers/*", API-Implementierungen unter "@ragents/ai/api/*".
+// The only regular entry point. Provider factories are also available under
+// "@ragents/ai/providers/*", API implementations under "@ragents/ai/api/*".
 export * from "./api/lazy.ts";
 export type { OpenRouterOptions } from "./api/ai-sdk.ts";
 export * from "./api-registry.ts";

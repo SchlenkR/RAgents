@@ -15,7 +15,7 @@ export class RunDirectory {
         try {
           const parsed: unknown = JSON.parse(await readFile(this.file, "utf8"));
           if (!Array.isArray(parsed) || !parsed.every((entry) => typeof entry === "string" && isRunId(entry))
-            || new Set(parsed).size !== parsed.length) throw new Error("Die Run-Referenzen haben ein ungültiges Format");
+            || new Set(parsed).size !== parsed.length) throw new Error("The run references have an invalid format");
           this.references = parsed;
         } catch (error) {
           if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
@@ -38,12 +38,12 @@ export class RunDirectory {
 
   async resolve(name: string, runs: readonly SessionInfo[]): Promise<SessionInfo & { reference: string }> {
     const entries = await this.describe(runs);
-    const wanted = name.trim().toLocaleLowerCase("de");
-    const exactReference = entries.find((entry) => entry.reference.toLocaleLowerCase("de") === wanted);
+    const wanted = name.trim().toLocaleLowerCase("en-US");
+    const exactReference = entries.find((entry) => entry.reference.toLocaleLowerCase("en-US") === wanted);
     if (exactReference) return exactReference;
-    const matching = entries.filter((entry) => entry.title.toLocaleLowerCase("de") === wanted);
+    const matching = entries.filter((entry) => entry.title.toLocaleLowerCase("en-US") === wanted);
     if (matching.length === 1) return matching[0];
     const valid = (matching.length > 1 ? matching : entries).map((entry) => `${entry.reference}: ${entry.title}`).join(", ");
-    throw new DomainError(matching.length > 1 ? "ambiguous-run" : "run-not-found", `${matching.length > 1 ? "Der Run-Titel ist mehrdeutig" : "Der Run ist unbekannt"}. Verfügbare Runs: ${valid || "keine"}`, matching.length > 1 ? 409 : 404);
+    throw new DomainError(matching.length > 1 ? "ambiguous-run" : "run-not-found", `${matching.length > 1 ? "The run title is ambiguous" : "The run is unknown"}. Available runs: ${valid || "none"}`, matching.length > 1 ? 409 : 404);
   }
 }

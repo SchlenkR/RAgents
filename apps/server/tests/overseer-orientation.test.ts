@@ -25,8 +25,8 @@ test("global orientation reflects installed descriptors without resolving tools 
     for (const method of host.methods.describe()) assert.ok(initial.includes(`- ${method.id}: `), method.id);
     assert.ok(initial.includes(`- ${overseerContracts.createRun.id}: `));
     assert.match(initial, /runs.read, runs.write, runs.create/);
-    assert.match(initial, /keine zusätzliche Werkzeugliste dieses Chats/);
-    assert.match(initial, /Actor, Grants, deklarierter Script-Teilmenge/);
+    assert.match(initial, /not an additional tool list of this chat/);
+    assert.match(initial, /actor, grants, declared script subset/);
     host.register({ manifest: { id: "ragents.actor-programs" }, register: (registration) => {
       registration.functions(...createActorProgramToolContributors({} as ActorProgramRuntime, {} as never), createControlsToolContributor());
       registration.operations({ id: "test.internal", label: "Internal", description: "INTERNAL_OPERATION_SECRET", operator: "unavailable", schema: Type.Object({}), resultSchema: Type.Null(), execute: async () => null });
@@ -37,7 +37,7 @@ test("global orientation reflects installed descriptors without resolving tools 
     assert.match(updated, /actor_view_set_visibility: Set surface visibility/);
     assert.match(updated, /actor_program_controls: Read Mini-App control contracts or the actor-program authoring guide/);
     assert.doesNotMatch(updated, /INTERNAL_OPERATION_SECRET|CLIENT_CONFIG_SECRET|test.internal|resultSchema/);
-    assert.match(updated, /öffentliche Hilfe beschreibt core/);
+    assert.match(updated, /public help describes core/);
   } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
@@ -49,27 +49,27 @@ test("global system prompt includes later plugin registrations and its own quick
     host.register(plugin.create(host));
     const policy = host.service(globalChatToken);
     assert.deepEqual(policy.toolNames, ["read", "write", "edit", "bash", "quick_answer"]);
-    assert.match(policy.prompt, /zuerst deine normale vollständige Antwort.*danach ein Snippet mit context\.functions\.quick_answer/s);
-    assert.match(policy.prompt, /native Oberfläche enthält typescript_api, typescript_eval sowie read, write, edit und bash/);
-    assert.match(policy.prompt, /Ein mehrteiliger Aufbau verlangt kein eigenes Setup-Paket/);
-    assert.match(policy.prompt, /Der Auftrag beschreibt das gewünschte Ergebnis/);
-    assert.doesNotMatch(policy.prompt, /Setup-Handler muss|Run-Builder kann die direkten Aufbauwerkzeuge/);
-    assert.match(policy.prompt, /in question die aktuelle Nutzerfrage kurz in eigenen Worten/);
-    assert.match(policy.prompt, /in text das Ergebnis als kurzen Satz/);
-    assert.match(policy.prompt, /Beide Felder sind Pflicht.*jeweils höchstens 240 Zeichen/);
-    assert.match(policy.prompt, /Nach dem erfolgreichen quick_answer-Aufruf ist keine weitere inhaltliche Chatantwort nötig/);
+    assert.match(policy.prompt, /First write your normal complete answer.*Afterwards run a snippet with context\.functions\.quick_answer/s);
+    assert.match(policy.prompt, /native interface contains typescript_api, typescript_eval as well as read, write, edit and bash/);
+    assert.match(policy.prompt, /A multi-part setup does not require its own setup package/);
+    assert.match(policy.prompt, /The task describes the desired outcome/);
+    assert.doesNotMatch(policy.prompt, /setup handler must|run builder can use the direct setup tools/i);
+    assert.match(policy.prompt, /repeat the current user question briefly in your own words in question/);
+    assert.match(policy.prompt, /summarize the result as a short sentence in text/);
+    assert.match(policy.prompt, /Both fields are required.*each be at most 240 characters/);
+    assert.match(policy.prompt, /After the successful quick_answer call no further substantive chat answer is needed/);
     const contributor = host.tools.entries().find((entry) => entry.name === "ragents.overseer");
     assert.ok(contributor);
     const tools = await contributor.tools({} as never);
     assert.deepEqual(tools.map((tool) => tool.name), ["quick_answer"]);
-    assert.equal(Value.Check(tools[0].schema, { question: "Ist die Prüfung abgeschlossen?", text: "Die Prüfung ist abgeschlossen." }), true);
-    assert.equal(Value.Check(tools[0].schema, { text: "Die Prüfung ist abgeschlossen." }), false);
+    assert.equal(Value.Check(tools[0].schema, { question: "Is the review complete?", text: "The review is complete." }), true);
+    assert.equal(Value.Check(tools[0].schema, { text: "The review is complete." }), false);
     assert.doesNotMatch(policy.prompt, /late_public_tool/);
     host.register({ manifest: { id: "test.later" }, register: (registration) => {
       registration.functions({ name: "test.later.tools", descriptors: [{ name: "late_public_tool", description: "A later registered capability. " + "Detailed contract text. ".repeat(100), scope: "per-agent", availability: "conditional", availabilityDetail: "Only in applicable runs" }], tools: () => { throw new Error("Must not execute a tool factory"); } });
     } });
     const prompt = policy.prompt;
-    assert.match(prompt, /late_public_tool: A later registered capability\. \[kontextabhängig\]/);
+    assert.match(prompt, /late_public_tool: A later registered capability\. \[context-dependent\]/);
     assert.doesNotMatch(prompt, /Detailed contract text/);
     assert.match(prompt, new RegExp(`- ${overseerContracts.createRun.id}: `));
     assert.match(prompt, /POST \$RAGENTS_API_BASE_URL\/rpc/);

@@ -1,15 +1,16 @@
-import { aliasedModel, compactionProblem, type ModelAlias as RuntimeModelAlias } from "@ragents/agent";
+import { aliasedModel, compactionProblem, thinkingLevelsProblem, type ModelAlias as RuntimeModelAlias } from "@ragents/agent";
 import { getSupportedThinkingLevels, type Api, type Model } from "@ragents/ai";
 import { getBuiltinModels, type BuiltinProvider } from "@ragents/ai/providers/all";
 import { isThinkingLevel, type ThinkingLevel } from "@ragents/engine";
+import { configuredModelProviders } from "./model-providers.js";
 import { declaredEnvironment } from "./plugin-config.js";
 
-/** Ein Alias des Profils mit Ziel und Kompaktierungswerten und optional der Denktiefe, die gilt, solange niemand eine andere wählt. */
+/** An alias of the profile with target and compaction values and optionally the thinking level that applies as long as nobody chooses another one. */
 export interface ModelAlias extends RuntimeModelAlias {
   readonly thinking?: ThinkingLevel;
 }
 
-/** Der Anbieter, unter dem die Aliasse des Profils stehen; er ist kein echter Anbieter und erscheint in keiner Anzeige. */
+/** The provider under which the profile's aliases are listed; it is not a real provider and appears in no display. */
 export const ALIAS_PROVIDER = "alias";
 
 export const modelAliasEnvDescriptors = [
@@ -17,12 +18,12 @@ export const modelAliasEnvDescriptors = [
 ] as const;
 
 const ALIAS = /^[a-z0-9][a-z0-9._-]{0,63}$/;
-const ENTRY_KEYS: readonly string[] = ["alias", "model", "thinking", "compaction"];
+const ENTRY_KEYS: readonly string[] = ["alias", "model", "thinking", "thinkingLevels", "compaction"];
 
 const aliasOf = (value: unknown, index: number): ModelAlias => {
   const location = `MODEL_ALIASES[${index}]`;
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error(`${location} must be an object with alias, model, compaction and optionally thinking`);
+    throw new Error(`${location} must be an object with alias, model, compaction and optionally thinking and thinkingLevels`);
   }
   const entry = value as Record<string, unknown>;
   const unknown = Object.keys(entry).find((key) => !ENTRY_KEYS.includes(key));
@@ -36,18 +37,19 @@ const aliasOf = (value: unknown, index: number): ModelAlias => {
   if (entry.thinking !== undefined && !isThinkingLevel(entry.thinking)) {
     throw new Error(`${location}.thinking of ${entry.alias} names the unknown thinking level "${String(entry.thinking)}"`);
   }
-  const problem = compactionProblem(entry.compaction);
+  const problem = thinkingLevelsProblem(entry.thinkingLevels) ?? compactionProblem(entry.compaction);
   if (problem) throw new Error(`${location}, ${entry.alias}: ${problem}`);
   return {
     alias: entry.alias,
     upstream: target.slice(0, slash),
     model: target.slice(slash + 1),
     ...(entry.thinking === undefined ? {} : { thinking: entry.thinking }),
+    ...(entry.thinkingLevels === undefined ? {} : { thinkingLevels: entry.thinkingLevels as ModelAlias["thinkingLevels"] }),
     compaction: entry.compaction as ModelAlias["compaction"],
   };
 };
 
-/** MODEL_ALIASES: eine Liste von { alias, model: "anbieter/modell", thinking?, compaction }; der Alias ist der einzige Name, den Oberfläche, Journal und Relay-Clients sehen. */
+/** MODEL_ALIASES: a list of { alias, model: "provider/model", thinking?, thinkingLevels?, compaction }; the alias is the only name that the UI, the journal and relay clients see. */
 export const parseModelAliases = (entries: unknown): readonly ModelAlias[] => {
   if (!Array.isArray(entries)) throw new Error("MODEL_ALIASES must be a list of aliases");
   const aliases = entries.map(aliasOf);
@@ -58,7 +60,7 @@ export const parseModelAliases = (entries: unknown): readonly ModelAlias[] => {
 
 const env = declaredEnvironment(modelAliasEnvDescriptors);
 
-/** Die Aliasse des Profils; in der Umgebung steht MODEL_ALIASES als JSON der Liste aus der Profildatei. */
+/** The profile's aliases; the environment holds MODEL_ALIASES as JSON of the list from the profile file. */
 export const configuredModelAliases = (): readonly ModelAlias[] => {
   const value = env.optional("MODEL_ALIASES");
   if (value === undefined || value === "") return [];
@@ -71,34 +73,42 @@ export const configuredModelAliases = (): readonly ModelAlias[] => {
   return parseModelAliases(parsed);
 };
 
-/** Der Katalog der Aliasse aus den eingebauten Katalogen ihrer Anbieter, so wie die Modelllaufzeit sie anbietet. */
+/** The model the alias offers over its target, checked against the target's thinking levels and limits; the default thinking level must be an offered level. */
+export const validatedAliasModel = (entry: ModelAlias, target: Model<Api>): Model<Api> => {
+  const problem = thinkingLevelsProblem(entry.thinkingLevels, target) ?? compactionProblem(entry.compaction, target);
+  if (problem) throw new Error(`MODEL_ALIASES: ${entry.alias} on ${entry.upstream}/${entry.model}: ${problem}`);
+  const offered = aliasedModel(ALIAS_PROVIDER, entry, target);
+  const levels = getSupportedThinkingLevels(offered);
+  if (entry.thinking !== undefined && !levels.includes(entry.thinking)) {
+    throw new Error(`MODEL_ALIASES: the thinking level ${entry.thinking} does not exist for ${entry.alias} (valid: ${levels.join(", ")})`);
+  }
+  return offered;
+};
+
+/** The catalog of the aliases from the catalogs of their providers (MODEL_PROVIDERS, otherwise built in), as the model runtime offers them. */
 export const aliasCatalog = (aliases: readonly ModelAlias[] = configuredModelAliases()): readonly Model<Api>[] => {
   if (aliases.length === 0) throw new Error(`The provider ${ALIAS_PROVIDER} needs MODEL_ALIASES in the host section`);
+  const providers = configuredModelProviders();
   return aliases.map((entry) => {
-    const target = getBuiltinModels(entry.upstream as BuiltinProvider).find((model) => model.id === entry.model);
+    const catalog = providers.find((provider) => provider.id === entry.upstream)?.models ?? getBuiltinModels(entry.upstream as BuiltinProvider);
+    const target = catalog.find((model) => model.id === entry.model);
     if (!target) throw new Error(`MODEL_ALIASES: the model ${entry.model} behind ${entry.alias} is missing from the catalog of ${entry.upstream}`);
-    const supported = getSupportedThinkingLevels(target);
-    if (entry.thinking !== undefined && !supported.includes(entry.thinking)) {
-      throw new Error(`MODEL_ALIASES: the thinking level ${entry.thinking} does not exist for ${entry.alias} (valid: ${supported.join(", ")})`);
-    }
-    const problem = compactionProblem(entry.compaction, target);
-    if (problem) throw new Error(`MODEL_ALIASES: ${entry.alias} on ${entry.upstream}/${entry.model}: ${problem}`);
-    return aliasedModel(ALIAS_PROVIDER, entry, target);
+    return validatedAliasModel(entry, target);
   });
 };
 
-/** Die Aliasse des Profils, geprüft gegen die Kataloge ihrer Ziele samt Denktiefe und Kompaktierungswerten. */
+/** The profile's aliases, checked against the catalogs of their targets including thinking level and compaction values. */
 export const validatedModelAliases = (): readonly ModelAlias[] => {
   const aliases = configuredModelAliases();
   if (aliases.length > 0) aliasCatalog(aliases);
   return aliases;
 };
 
-/** Die Denktiefe, die der Alias mitbringt; andere Anbieter und Aliasse ohne Angabe haben keine. */
+/** The thinking level the alias brings along; other providers and aliases without one have none. */
 export const modelDefaultThinking = (provider: string, model: string): ThinkingLevel | undefined =>
   provider === ALIAS_PROVIDER ? configuredModelAliases().find((entry) => entry.alias === model)?.thinking : undefined;
 
-/** Der Anbieter, wie eine Anzeige ihn nennt: bei Aliassen keiner. */
+/** The provider as a display names it: none for aliases. */
 export const displayProvider = (provider: string): string => provider === ALIAS_PROVIDER ? "" : provider;
 
 export const modelLabel = (provider: string, model: string): string => {

@@ -4,10 +4,10 @@ import { toolDescriptorFrom } from "@ragents/host/plugin-support/agent-tool.js";
 import { readClientUiComponentNames, readClientUiComponentContracts } from "@ragents/host/plugin-support/actor-programs/client-contracts.js";
 import { actorProgramGuide } from "./prompts.js";
 
-const available = defineToolAvailability({ availability: "always", availabilityDetail: "Typisierte UI-Referenz des installierten Actor-Programm-Plugins." }, () => true);
+const available = defineToolAvailability({ availability: "always", availabilityDetail: "Typed UI reference of the installed actor program plugin." }, () => true);
 const metadata = {
   name: "actor_program_controls",
-  label: "Actor-Programm-Anleitung und Controls nachschlagen",
+  label: "Look up actor program guide and controls",
   description: "Read Mini-App control contracts or the actor-program authoring guide.",
   longDescription: "With topic: guide, explain the TypeScript package workflow through actor_program_activate. Otherwise list control names, or select one component (for example Form) for only its TypeScript props and supporting types. Import controls from @ragents/client/ui and use these exact props.",
 };
@@ -15,7 +15,7 @@ const metadata = {
 export const describeClientControls = (component?: string) => {
   const components = readClientUiComponentNames();
   if (component === undefined) return { components };
-  if (!components.includes(component)) throw new Error(`Unbekanntes Control ${component}. Gültig: ${components.join(", ")}`);
+  if (!components.includes(component)) throw new Error(`Unknown control ${component}. Valid: ${components.join(", ")}`);
   return { files: readClientUiComponentContracts(component) };
 };
 
@@ -36,7 +36,7 @@ export const createControlsToolContributor = (): ToolContributor => ({
     ]),
     run: async (_scope, _call, input) => {
       if (input.topic === "guide") {
-        if (input.component !== undefined) throw new Error("component ist nur bei topic: controls oder ohne topic erlaubt; für topic: guide lasse component weg.");
+        if (input.component !== undefined) throw new Error("component is only allowed with topic: controls or without topic; for topic: guide, omit component.");
         return { guide: await actorProgramGuide.render({}) };
       }
       return describeClientControls(input.component);

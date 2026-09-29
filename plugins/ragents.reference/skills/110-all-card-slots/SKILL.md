@@ -2,11 +2,11 @@
 name: 110-all-card-slots
 start: true
 disable-model-invocation: true
-title: "Rückfrage, Aufgaben und Dokument zusammen sehen"
-description: "Zeigt, wie Aufgabenstand, Dokument und eine offene Rückfrage gleichzeitig an einer Agentenkarte sichtbar bleiben."
-category: "Zusammenarbeit"
+title: "See question, tasks, and document together"
+description: "Shows how task progress, a document, and an open question stay visible on an agent card at the same time."
+category: "Collaboration"
 order: 110
-tags: "Rückfragen, To-dos, Konzeptdemo"
+tags: "Questions, To-dos, Concept demo"
 ---
 
-Ich hätte gern eine KI, die mir drei Aufgaben notiert - eine erledigte, eine in Arbeit und eine offene -, dazu ein kurzes Dokument schreibt und mich zum Schluss fragt, ob sie den offenen Punkt als Nächstes angehen soll. Antworte diese Frage nicht für mich, sondern halt dort an, damit ich Aufgabenliste, Dokument und Frage zusammen sehe und selbst antworten kann.
+I would like an AI that notes three tasks for me - one done, one in progress, and one open -, also writes a short document, and finally asks me whether it should tackle the open item next. Do not answer this question for me; stop there so that I can see the task list, document, and question together and answer myself.

@@ -1,4 +1,4 @@
 import { RpcClient } from "./rpc/client";
 
-/** Der eine Client der Seite; der Ereignisstrom öffnet sich mit dem ersten Abonnement. */
+/** The page's single client; the event stream opens with the first subscription. */
 export const rpc = new RpcClient();

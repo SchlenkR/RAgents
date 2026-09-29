@@ -17,7 +17,7 @@ export function parseSurfacePresentation(raw: string | null): SurfacePresentatio
   if (!value || typeof value !== "object" || Array.isArray(value)
     || !("root" in value) || Object.keys(value).some((key) => !["root", "programBasis"].includes(key))
     || ("programBasis" in value && typeof value.programBasis !== "string")) {
-    throw new Error("Die gespeicherte Kachelansicht ist ungültig.");
+    throw new Error("The stored tile view is invalid.");
   }
   return { root: value.root === null ? null : surfaceTileNodeOf(value.root),
     ...("programBasis" in value ? { programBasis: value.programBasis as string } : {}),

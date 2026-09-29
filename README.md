@@ -23,7 +23,7 @@ state remains inspectable and can be reconstructed after a restart.
 ## Getting started
 
 Open the RAgents panel in the secondary sidebar. Select **Server**, then
-**Neuer Server** (new server), and add a server or local profile.
+**New server**, and add a server or local profile.
 
 ```json
 {

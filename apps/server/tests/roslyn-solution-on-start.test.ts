@@ -32,7 +32,7 @@ const fixture = (solutions: LanguageServerSolutions, preferred?: string) => {
   const sandbox = {
     execute: async (_runId: string, operation: string, input: unknown) => {
       calls.push({ operation, input });
-      return operation === "roslyn_solutions" ? solutions : "geladen";
+      return operation === "roslyn_solutions" ? solutions : "loaded";
     },
   } as unknown as SandboxServices;
   const service = new RuntimeAskService();
@@ -89,7 +89,7 @@ test("an answer opens a listed solution, none and a dismissal load nothing, free
   assert.deepEqual(solutionAnswer(options, " tools\\Acme.slnx "), { kind: "open", path: "tools/Acme.slnx" });
   assert.deepEqual(solutionAnswer(options, NO_SOLUTION), { kind: "none" });
   assert.deepEqual(solutionAnswer(options, DISMISSED_ANSWER), { kind: "none" });
-  assert.deepEqual(solutionAnswer(options, "beide bitte"), { kind: "forward" });
+  assert.deepEqual(solutionAnswer(options, "both please"), { kind: "forward" });
 });
 
 test("a run script start never lists, opens or asks and still marks the run", async () => {
@@ -172,7 +172,7 @@ test("several solutions ask the coordinator's chat before the start returns and 
       conversationId: "run",
       primaryActorId: f.agent.id,
       ownerId: state.ownerId,
-      labelOf: () => "fremd",
+      labelOf: () => "foreign",
       turnOf: (turnId) => state.turns.get(turnId)!,
       interruptedByCommand: () => false,
     });
@@ -202,12 +202,12 @@ test("no load for none, a free answer reaches the coordinator, stopping the run 
     const f = fixture(listing(["src/Demo.sln", "tools/Acme.slnx"]));
     try {
       await f.start(null);
-      f.service.answer(f.runId, f.pendingQuestion()!.id, { answer: "beide bitte" });
+      f.service.answer(f.runId, f.pendingQuestion()!.id, { answer: "both please" });
       await settled();
       assert.deepEqual(f.calls.map((call) => call.operation), ["roslyn_solutions"]);
       const [input] = f.runtime.view(f.runId).inputs;
       assert.equal(input?.actorId, f.agent.id);
-      assert.match(input?.content ?? "", /beide bitte/);
+      assert.match(input?.content ?? "", /both please/);
       assert.match(input?.content ?? "", /roslyn_open/);
     } finally {
       f.journal.close();
@@ -225,7 +225,7 @@ test("no load for none, a free answer reaches the coordinator, stopping the run 
       const inputs = f.runtime.view(f.runId).inputs;
       assert.equal(inputs.length, 1, "the service without a waiter hands the answer to the coordinator");
       assert.equal(inputs[0]?.actorId, f.agent.id);
-      assert.match(inputs[0]?.content ?? "", /Antwort auf die Frage: .*\nAntwort: src\/Demo\.sln/);
+      assert.match(inputs[0]?.content ?? "", /Answer to the question: .*\nAnswer: src\/Demo\.sln/);
     } finally {
       f.journal.close();
     }
@@ -274,7 +274,7 @@ test("an instance opened elsewhere withdraws the pending start question without 
       createSolutionOnStart({
         pluginId: "ragents.lsp-roslyn",
         adapterId: "roslyn",
-        sandbox: () => { throw new Error("nicht gefragt"); },
+        sandbox: () => { throw new Error("not asked"); },
         runtime: () => f.runtime,
         ask: () => restarted,
       }).opened(f.runId);

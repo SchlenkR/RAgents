@@ -1,11 +1,11 @@
 export const THINKING_LABELS: Record<string, string> = {
-  off: "aus",
+  off: "off",
   minimal: "minimal",
-  low: "niedrig",
-  medium: "mittel",
-  high: "hoch",
-  xhigh: "sehr hoch",
-  max: "maximal",
+  low: "low",
+  medium: "medium",
+  high: "high",
+  xhigh: "very high",
+  max: "max",
 };
 
 export const thinkingLabel = (level: string) => THINKING_LABELS[level] ?? level;

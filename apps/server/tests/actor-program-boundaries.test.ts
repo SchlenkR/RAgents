@@ -40,7 +40,7 @@ test("nested input, output and state contracts are validated at native boundarie
   const f = await fixture(t);
   await writeAppFiles(f.directory, "input", appFiles('return input.details.quantity;', 'input:Type.Object({details:Type.Object({quantity:Type.Integer()},{additionalProperties:false})},{additionalProperties:false}),output:Type.Integer()'));
   await f.runtime.activate(f.context, f.runId, "input");
-  assert.throws(() => start(f, "input", { details: { quantity: "wrong" } }), /Funktionseingabe/);
+  assert.throws(() => start(f, "input", { details: { quantity: "wrong" } }), /Function input/);
   const valid = start(f, "input", { details: { quantity: 3 } });
   const result = await finish(f, "input", valid.id);
   assert.equal(result.status, "succeeded");
@@ -108,15 +108,15 @@ test("active calls prevent replacement and removal; old permits and request IDs 
   await f.runtime.activate(f.context, f.runId, "waiting");
   const pending = start(f, "waiting");
   await until(() => entered);
-  await assert.rejects(f.runtime.remove({ ...f.context, commandId: "remove" }, f.runId, "waiting"), /laufende/);
-  await assert.rejects(f.runtime.activate({ ...f.context, commandId: "replace" }, f.runId, "waiting"), /laufende/);
+  await assert.rejects(f.runtime.remove({ ...f.context, commandId: "remove" }, f.runId, "waiting"), /running/);
+  await assert.rejects(f.runtime.activate({ ...f.context, commandId: "replace" }, f.runId, "waiting"), /running/);
   release();
   assert.equal((await finish(f, "waiting", pending.id)).status, "succeeded");
   assert.equal(start(f, "waiting").id, pending.id);
   const permit = f.runtime.invocationPermit(f.runId);
   await f.runtime.stopSession(f.runId);
   const revision = f.runtime.apps(f.runId)[0]!.revision;
-  assert.throws(() => f.runtime.startInvocation(f.runId, "waiting--main", revision, "run", "old-permit", {}, permit), /inzwischen gestoppt/);
+  assert.throws(() => f.runtime.startInvocation(f.runId, "waiting--main", revision, "run", "old-permit", {}, permit), /stopped in the meantime/);
 });
 
 test("backend logs are bounded and a failed new state contract leaves the old app active", async (t) => {
@@ -129,7 +129,7 @@ test("backend logs are bounded and a failed new state contract leaves the old ap
   const before = f.runtime.apps(f.runId)[0]!.revision;
   const file = path.join(directory, "src/server.ts");
   await writeFile(file, (await readFile(file, "utf8")).replace('Type.Optional(Type.Integer())', 'Type.Optional(Type.Literal(2))').replace('context.state.replace({count:1})', 'context.state.replace({count:2})'));
-  await assert.rejects(f.runtime.activate({ ...f.context, commandId: "invalid-state" }, f.runId, "logs"), /Actor-Zustand/);
+  await assert.rejects(f.runtime.activate({ ...f.context, commandId: "invalid-state" }, f.runId, "logs"), /Actor state/);
   assert.equal(f.runtime.apps(f.runId)[0]!.revision, before);
 });
 
@@ -141,10 +141,10 @@ test("package metadata rejects removed dialogs and paths outside the app", async
   const pkg = JSON.parse(await readFile(file, "utf8"));
   pkg.ragents.dialog = true;
   await writeFile(file, JSON.stringify(pkg));
-  await assert.rejects(f.runtime.activate(f.context, f.runId, "blank"), /package\.json\.ragents ist ungültig: ragents has unknown field dialog/);
+  await assert.rejects(f.runtime.activate(f.context, f.runId, "blank"), /package\.json\.ragents is invalid: ragents has unknown field dialog/);
   delete pkg.ragents.dialog; pkg.ragents.views[0].styles = "../../outside.css";
   await writeFile(file, JSON.stringify(pkg));
-  await assert.rejects(f.runtime.activate(f.context, f.runId, "blank"), /pfad|außerhalb|ENOENT/i);
+  await assert.rejects(f.runtime.activate(f.context, f.runId, "blank"), /path|outside|ENOENT/i);
 });
 
 test("an unknown view property in package.json is named with its path and field", async (t) => {
@@ -153,7 +153,7 @@ test("an unknown view property in package.json is named with its path and field"
   const file = path.join(await f.runtime.workspaceDirectory(f.runId), "sized", "package.json");
   const pkg = JSON.parse(await readFile(file, "utf8"));
   await writeFile(file, JSON.stringify({ ...pkg, ragents: { ...pkg.ragents, views: [{ ...pkg.ragents.views[0], width: 640 }] } }));
-  await assert.rejects(f.runtime.activate({ ...f.context, actorId: f.setup.agent.id }, f.runId, "sized"), /package\.json\.ragents ist ungültig: views\.0 has unknown field width/);
+  await assert.rejects(f.runtime.activate({ ...f.context, actorId: f.setup.agent.id }, f.runId, "sized"), /package\.json\.ragents is invalid: views\.0 has unknown field width/);
 });
 
 test("simultaneous activations retain both independent actors", async (t) => {

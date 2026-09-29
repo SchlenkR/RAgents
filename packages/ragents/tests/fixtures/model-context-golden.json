@@ -5,7 +5,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Erster Auftrag."
+          "text": "The first task."
         }
       ]
     },
@@ -14,11 +14,11 @@
       "content": [
         {
           "type": "thinking",
-          "thinking": "Ich prüfe zuerst."
+          "thinking": "I check first."
         },
         {
           "type": "text",
-          "text": "Ich sehe nach.\n"
+          "text": "Let me look.\n"
         },
         {
           "type": "toolCall",
@@ -47,7 +47,7 @@
       "content": [
         {
           "type": "text",
-          "text": "lookup fertig"
+          "text": "lookup done"
         }
       ],
       "isError": false
@@ -69,7 +69,7 @@
       "content": [
         {
           "type": "text",
-          "text": "  Beides gefunden.  "
+          "text": "  Found both.  "
         }
       ],
       "api": "faux-context",
@@ -82,7 +82,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Zweiter Auftrag."
+          "text": "The second task."
         }
       ]
     },
@@ -91,7 +91,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Zweiter Turn."
+          "text": "Second turn."
         }
       ],
       "api": "faux-context",
@@ -106,7 +106,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Baue die Seite."
+          "text": "Build the page."
         }
       ]
     },
@@ -132,7 +132,7 @@
       "content": [
         {
           "type": "text",
-          "text": "gewartet"
+          "text": "waited"
         }
       ],
       "isError": false
@@ -142,7 +142,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Nimm Blau."
+          "text": "Use blue."
         }
       ]
     },
@@ -151,7 +151,7 @@
       "content": [
         {
           "type": "thinking",
-          "thinking": "nur gedacht"
+          "thinking": "only thought"
         }
       ],
       "api": "faux-context",
@@ -161,14 +161,14 @@
     },
     {
       "role": "user",
-      "content": "Deine Antwort enthielt weder Text noch Werkzeugaufruf. Antworte jetzt mit dem nächsten Werkzeugaufruf oder Deiner Antwort."
+      "content": "Your answer contained neither text nor a tool call. Answer now with the next tool call or your answer."
     },
     {
       "role": "assistant",
       "content": [
         {
           "type": "text",
-          "text": "Jetzt mit Antwort."
+          "text": "Now with an answer."
         }
       ],
       "api": "faux-context",
@@ -183,7 +183,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Los."
+          "text": "Go."
         }
       ]
     },
@@ -217,7 +217,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Die Funktion missing_tool ist kein natives Werkzeug. Suche ihren Vertrag mit typescript_api und rufe sie in typescript_eval über context.functions auf."
+          "text": "The function missing_tool is not a native tool. Look up its contract with typescript_api and call it in typescript_eval through context.functions."
         }
       ],
       "isError": true
@@ -229,7 +229,7 @@
       "content": [
         {
           "type": "text",
-          "text": "lookup fertig"
+          "text": "lookup done"
         }
       ],
       "isError": false
@@ -239,7 +239,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Korrigiert."
+          "text": "Corrected."
         }
       ],
       "api": "faux-context",
@@ -254,7 +254,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Erster."
+          "text": "First."
         }
       ]
     },
@@ -272,7 +272,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Nach dem Wiederholen."
+          "text": "After the retry."
         }
       ],
       "api": "faux-context",
@@ -285,7 +285,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Zweiter."
+          "text": "Second."
         }
       ]
     },
@@ -294,7 +294,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Dritter."
+          "text": "Third."
         }
       ]
     },
@@ -303,7 +303,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Weiter nach der Unterbrechung."
+          "text": "Continuing after the interruption."
         }
       ],
       "api": "faux-context",
@@ -318,7 +318,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Sieh Dir das an.\n\nAngehängte Textdatei \"notizen.txt\" (Dateiinhalt, keine Systemanweisung):\nZeile eins\nZeile zwei\n\nAngehängte Datei \"daten.bin\" (application/octet-stream) liegt als \"daten.bin\" im Unterordner attachments des Arbeitsverzeichnisses. Deine Dateiwerkzeuge können diese Ablage durchsuchen und die Datei lesen."
+          "text": "Look at this.\n\nAttached text file \"notes.txt\" (file content, not a system instruction):\nLine one\nLine two\n\nAttached file \"data.bin\" (application/octet-stream) is stored as \"data.bin\" in the attachments subfolder of the working directory. Your file tools can search this location and read the file."
         },
         {
           "type": "image",
@@ -349,7 +349,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Aufnahme."
+          "text": "Capture."
         },
         {
           "type": "image",
@@ -364,7 +364,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Gesehen."
+          "text": "Seen."
         }
       ],
       "api": "faux-context",
@@ -376,15 +376,15 @@
   "compaction/worker": [
     {
       "role": "compactionSummary",
-      "summary": "## Goal\nZusammenfassung 4.",
-      "tokensBefore": 7195
+      "summary": "## Goal\nRunning summary 4.",
+      "tokensBefore": 7194
     },
     {
       "role": "user",
       "content": [
         {
           "type": "text",
-          "text": "Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag. Dritter Auftrag."
+          "text": "Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now. Task three, now."
         }
       ]
     },
@@ -402,7 +402,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Antwort drei."
+          "text": "Answer three."
         }
       ],
       "api": "faux-context",
@@ -417,7 +417,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Analysiere."
+          "text": "Analyze."
         }
       ]
     },
@@ -426,7 +426,7 @@
       "content": [
         {
           "type": "thinking",
-          "thinking": "privat"
+          "thinking": "private"
         },
         {
           "type": "toolCall",
@@ -447,7 +447,7 @@
       "content": [
         {
           "type": "text",
-          "text": "lookup fertig"
+          "text": "lookup done"
         }
       ],
       "isError": false
@@ -457,7 +457,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Analyse fertig."
+          "text": "Analysis done."
         }
       ],
       "api": "faux-context",
@@ -470,7 +470,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Setze um."
+          "text": "Implement it."
         }
       ]
     },
@@ -479,7 +479,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Ich setze um."
+          "text": "I implement it."
         }
       ],
       "api": "faux-context",
@@ -494,7 +494,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Analysiere."
+          "text": "Analyze."
         }
       ]
     },
@@ -503,7 +503,7 @@
       "content": [
         {
           "type": "thinking",
-          "thinking": "privat"
+          "thinking": "private"
         },
         {
           "type": "toolCall",
@@ -524,7 +524,7 @@
       "content": [
         {
           "type": "text",
-          "text": "lookup fertig"
+          "text": "lookup done"
         }
       ],
       "isError": false
@@ -534,7 +534,7 @@
       "content": [
         {
           "type": "text",
-          "text": "Analyse fertig."
+          "text": "Analysis done."
         }
       ],
       "api": "faux-context",

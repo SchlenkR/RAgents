@@ -2,11 +2,11 @@
 name: 100-shared-actor-list
 start: true
 disable-model-invocation: true
-title: "Eine Liste im Chat und im Fenster pflegen"
-description: "Zeigt beim Aufbau einer Mini-App, wie Oberfläche und Koordinator dieselbe Funktion eines TypeScript-Actors benutzen und dieselbe Liste ändern."
-category: "Mini-Apps"
+title: "Maintain a list in the chat and in a window"
+description: "Shows, while building a mini-app, how the interface and the coordinator use the same function of a TypeScript actor and change the same list."
+category: "Mini-apps"
 order: 100
-tags: "Anwendungsfall, Konzeptdemo, TypeScript-Actors, Actor-Funktionen, Actor-Zustand, Mini-Apps"
+tags: "Use case, Concept demo, TypeScript actors, Actor functions, Actor state, Mini-apps"
 ---
 
-Ich hätte gern eine gemeinsame Liste an einem TypeScript-Actor ohne KI-Listenhelfer. Ich ergänze Einträge über seine Oberfläche, Du über dieselbe Funktion als Werkzeug. Beide Wege zeigen sofort denselben Stand, auch bei ruhendem Chat. Füge wirklich einen Eintrag hinzu und lass die Oberfläche stehen. Nutze gemeinsame Layout- und Formularbausteine: mehrzeilige Eingabe und Liste nebeneinander, bei wenig Platz untereinander.
+I would like a shared list on a TypeScript actor without an AI list helper. I add entries through its interface, you through the same function as a tool. Both ways immediately show the same state, even when the chat is idle. Actually add an entry and leave the interface in place. Use shared layout and form building blocks: multi-line input and list side by side, stacked when space is tight.

@@ -41,7 +41,7 @@ const routeOf = (snapshot: ConnectionSnapshot): ConnectionRoute => snapshot.conn
   ? { kind: "profile", profile: profileNameOf(snapshot.connection.profileFile) }
   : { kind: "server", host: serverHost(snapshot.connection.url), localHost: snapshot.localHost };
 
-/** Ein Server, wie die Übersicht ihn zeigt: Zustand, Zielzeile, seine Runs und seine Vorlagen. */
+/** A server as the overview shows it: state, target line, its runs, and its templates. */
 export const connectionView = (snapshot: ConnectionSnapshot): ConnectionView => ({
   name: snapshot.connection.name,
   kind: snapshot.connection.kind,
@@ -65,14 +65,14 @@ export interface PanelInput {
   page: PanelPage;
   connections: readonly ConnectionSnapshot[];
   profileSuggestions: readonly string[];
-  /** Namen aus ragents.hostEnvironment ohne Wert in der SecretStorage. */
+  /** Names from ragents.hostEnvironment without a value in the SecretStorage. */
   missingSecrets: readonly string[];
   problem: string | undefined;
   pickedProfileFile: string | undefined;
   runsConnection: string | undefined;
 }
 
-/** Der ganze Zustand der Panelseite; sie zeichnet daraus Start, Runs oder Server. */
+/** The whole state of the panel page; it draws Start, Runs, or Server from it. */
 export const panelState = (input: PanelInput): PanelState => ({
   theme: input.theme,
   page: input.page,
@@ -84,19 +84,19 @@ export const panelState = (input: PanelInput): PanelState => ({
   ...(input.runsConnection !== undefined ? { runsConnection: input.runsConnection } : {}),
 });
 
-/** Wie viele Server gerade verbunden sind; die Statusleiste nennt diese Zahl. */
+/** How many servers are currently connected; the status bar shows this number. */
 export const connectedCount = (snapshots: readonly ConnectionSnapshot[]): number =>
   snapshots.filter((snapshot) => snapshot.status.kind === "connected").length;
 
-/** Wartende Eingaben über alle Server hinweg; das Abzeichen am Run-Panel zählt sie. */
+/** Waiting inputs across all servers; the badge on the run panel counts them. */
 export const pendingActions = (snapshots: readonly ConnectionSnapshot[]): number =>
   snapshots.reduce((sum, snapshot) => sum + snapshot.runs.reduce((count, run) => count + run.pendingActions, 0), 0);
 
-/** "Neuer Run" belegt eine Startoption nur vor, wenn die gewählte Vorlage sie nicht selbst festlegt. */
+/** "New run" presets a start option only if the selected template does not fix it itself. */
 export const preselectable = (entry: StartEntrySummary | undefined, optionId: string): boolean =>
   entry?.fixedStartOptions === undefined || !Object.hasOwn(entry.fixedStartOptions, optionId);
 
-/** Ein Eintrag der Auswahl "Neuer Run": ein Server, dazu eine seiner Vorlagen oder der freie Auftrag. */
+/** An entry of the "New run" picker: a server, plus one of its templates or the free task. */
 export interface NewRunChoice {
   connection: string;
   entryId: string | undefined;
@@ -105,18 +105,18 @@ export interface NewRunChoice {
   detail: string | undefined;
 }
 
-const kindWord = (entry: StartEntrySummary): string => entry.action === "skill" ? "Skill" : "Run-Script";
+const kindWord = (entry: StartEntrySummary): string => entry.action === "skill" ? "Skill" : "Run script";
 
-/** Die erste Wahl eines Servers: seine Default-Vorlage, sonst der freie Auftrag. */
+/** The first choice of a server: its default template, otherwise the free task. */
 const firstChoice = (snapshot: ConnectionSnapshot): NewRunChoice => {
   const name = snapshot.connection.name;
   const entry = snapshot.entries.find((candidate) => candidate.id === snapshot.defaultEntry);
   return entry === undefined
-    ? { connection: name, entryId: undefined, title: "Neuer Run", description: "ohne Vorlage", detail: undefined }
-    : { connection: name, entryId: entry.id, title: entry.title, description: `${kindWord(entry)} \u00b7 Standard`, detail: entry.description };
+    ? { connection: name, entryId: undefined, title: "New run", description: "no template", detail: undefined }
+    : { connection: name, entryId: entry.id, title: entry.title, description: `${kindWord(entry)} \u00b7 Default`, detail: entry.description };
 };
 
-/** Die Server, die neue Runs erlauben, je mit dem freien Auftrag oder ihrem Default zuerst und dann ihren Vorlagen. */
+/** The servers that allow new runs, each with the free task or its default first and then its templates. */
 export const newRunChoices = (snapshots: readonly ConnectionSnapshot[]): Array<{ group: string; choices: NewRunChoice[] }> =>
   snapshots
     .filter((snapshot) => snapshot.status.kind === "connected" && snapshot.canCreate)
@@ -134,7 +134,7 @@ export const newRunChoices = (snapshots: readonly ConnectionSnapshot[]): Array<{
       ],
     }));
 
-/** Auf welchen Server sich ein Befehl bezieht: den gewählten, sonst den einzigen passenden, sonst die Frage. */
+/** Which server a command refers to: the selected one, otherwise the only matching one, otherwise the question. */
 export const resolveConnection = (
   snapshots: readonly ConnectionSnapshot[],
   selected: string | undefined,

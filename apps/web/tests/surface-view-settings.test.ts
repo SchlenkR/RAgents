@@ -45,6 +45,6 @@ test("malformed stored view settings fail explicitly instead of changing the per
     { ...DEFAULT_SURFACE_VIEW_PREFERENCES, actorVisibility: { list: 1 } },
     { ...DEFAULT_SURFACE_VIEW_PREFERENCES, actorVisibility: [] },
     { ...DEFAULT_SURFACE_VIEW_PREFERENCES, extra: true },
-  ]) assert.throws(() => parseSurfaceViewPreferences(JSON.stringify(value)), /ungültig/);
+  ]) assert.throws(() => parseSurfaceViewPreferences(JSON.stringify(value)), /invalid/);
   assert.throws(() => parseSurfaceViewPreferences("broken"));
 });

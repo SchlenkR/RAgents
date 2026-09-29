@@ -243,12 +243,12 @@ test("actor_stop stops the target and its active descendants in one command in t
         const leadInput = queued.inputs.find((entry) => entry.actorId === lead.id && entry.lifecycle.kind === "pending");
         assert.ok(leadInput);
         const leadTurn = claimTurn(runtime, view.id, lead.id, leadInput.id, "turn-lead");
-        const reviewer = spawn(runtime, runtime.view(view.id), "prüfer", lead.id, leadTurn.turnId, branchGrants);
+        const reviewer = spawn(runtime, runtime.view(view.id), "zoë", lead.id, leadTurn.turnId, branchGrants);
         const reviewerTurn = start(runtime, runtime.view(view.id), reviewer.id, "reviewer");
         const helper = spawn(runtime, runtime.view(view.id), "helper", reviewer.id, reviewerTurn);
         const toolset = await TurnToolset.create({ runtime, turn: leadTurn, catalog });
 
-        await toolset.invokeFunction("stop-call", "actor_stop", { actorId: "@Pru\u0308fer", reason: "Genug geprüft." });
+        await toolset.invokeFunction("stop-call", "actor_stop", { actorId: "@Zoe\u0308", reason: "Checked enough." });
 
         const stops = stopEventsOf(runtime, view.id);
         assert.deepEqual(
@@ -275,7 +275,7 @@ test("a run stop writes the stops of all actors but the primary one in one comma
         runtime.selectPrimaryActor({ actorId: view.ownerId, commandId: "select-primary" }, view.id, primary.id);
         const stopper = new RunStopper({ runtime });
 
-        await stopper.stop(view.id, { commandId: "stop-run", reason: "Alles anhalten." });
+        await stopper.stop(view.id, { commandId: "stop-run", reason: "Halt everything." });
 
         const stops = stopEventsOf(runtime, view.id);
         assert.deepEqual(
@@ -299,17 +299,17 @@ test("a repeated run stop with the same command ID also stops an actor created i
     try {
         const first = spawn(runtime, view, "first");
         const stopper = new RunStopper({ runtime });
-        await stopper.stop(view.id, { commandId: "stop-run", reason: "Alles anhalten." });
+        await stopper.stop(view.id, { commandId: "stop-run", reason: "Halt everything." });
         const later = spawn(runtime, runtime.view(view.id), "later");
 
-        await stopper.stop(view.id, { commandId: "stop-run", reason: "Alles anhalten." });
+        await stopper.stop(view.id, { commandId: "stop-run", reason: "Halt everything." });
 
         const stopped = runtime.view(view.id).actors
             .filter((entry) => entry.kind !== "human" && entry.lifecycle.kind === "stopped")
             .map((entry) => entry.id);
         assert.deepEqual(stopped.sort(), [first.id, later.id].sort());
         const commands = runtime.events(view.id).length;
-        await stopper.stop(view.id, { commandId: "stop-run", reason: "Alles anhalten." });
+        await stopper.stop(view.id, { commandId: "stop-run", reason: "Halt everything." });
         assert.equal(runtime.events(view.id).length, commands);
     } finally {
         journal.close();

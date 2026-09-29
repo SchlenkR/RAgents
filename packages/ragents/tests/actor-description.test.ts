@@ -35,10 +35,10 @@ const reviewRun = () => {
     const turnId = claimTurn(runtime, view.id, lead.id, input.id, "turn-lead").turnId;
     const byLead = (commandId: string) => ({ actorId: lead.id, commandId, turnId });
     view = runtime.spawnAgent(byLead("spawn-reviewer"), view.id, {
-        handle: "reviewer", displayName: "Reviewer", description: "  prüft\n die   Regel zu Kommentaren ", prompt: "Review.", execution: manualExecution(), grants: [], toolNames: [],
+        handle: "reviewer", displayName: "Reviewer", description: "  checks\n the   rule on comments ", prompt: "Review.", execution: manualExecution(), grants: [], toolNames: [],
     });
     view = runtime.createScriptActor(byLead("create-counter"), view.id, {
-        handle: "counter", displayName: "Counter", description: "zählt Befunde", grants: [], toolNames: null,
+        handle: "counter", displayName: "Counter", description: "counts findings", grants: [], toolNames: null,
     });
     return { journal, runtime, runId: view.id, leadId: lead.id, byLead };
 };
@@ -54,7 +54,7 @@ test("agent_spawn records a short description and actor_list reports it next to 
     const setup = setupRun({ grants: allGrants(), toolNames: ["agent_spawn", "actor_list"] });
     try {
         const toolset = await spawningToolset(setup);
-        await toolset.invokeFunction("spawn-described", "agent_spawn", { handle: "rule-review", description: "prüft die Regel zu Kommentaren", prompt: "Review one rule.", profile: "agent", tools: [] });
+        await toolset.invokeFunction("spawn-described", "agent_spawn", { handle: "rule-review", description: "checks the rule on comments", prompt: "Review one rule.", profile: "agent", tools: [] });
         await toolset.invokeFunction("spawn-plain", "agent_spawn", { handle: "helper", prompt: "Help.", profile: "agent", tools: [] });
         await assert.rejects(
             toolset.invokeFunction("spawn-long", "agent_spawn", { handle: "long", description: "x".repeat(actorDescriptionMaxLength + 1), prompt: "Long.", profile: "agent", tools: [] }),
@@ -64,7 +64,7 @@ test("agent_spawn records a short description and actor_list reports it next to 
         assert.deepEqual(listed.map(({ handle, createdBy, description }) => ({ handle, createdBy, description })), [
             { handle: "owner", createdBy: null, description: null },
             { handle: "worker", createdBy: setup.view.ownerId, description: null },
-            { handle: "rule-review", createdBy: setup.agent.id, description: "prüft die Regel zu Kommentaren" },
+            { handle: "rule-review", createdBy: setup.agent.id, description: "checks the rule on comments" },
             { handle: "helper", createdBy: setup.agent.id, description: null },
         ]);
     } finally {
@@ -78,10 +78,10 @@ test("the engine collapses whitespace in a description and rejects an empty or o
         const actors = runtime.view(runId).actors;
         const reviewer = actors.find((entry) => entry.handle === "reviewer");
         assert.ok(reviewer?.kind === "agent");
-        assert.equal(reviewer.description, "prüft die Regel zu Kommentaren");
+        assert.equal(reviewer.description, "checks the rule on comments");
         const counter = actors.find((entry) => entry.handle === "counter");
         assert.ok(counter?.kind === "script");
-        assert.equal(counter.description, "zählt Befunde");
+        assert.equal(counter.description, "counts findings");
         assert.equal(counter.createdBy, leadId);
         const spawn = (description: string) => runtime.spawnAgent(byLead(`spawn-${description.length}`), runId, {
             handle: "extra", displayName: "Extra", description, prompt: "Extra.", execution: manualExecution(), grants: [], toolNames: [],
@@ -126,7 +126,7 @@ test("a stored empty description isolates only its run with the path", (t) => {
     journal.close();
     const root = mkdtempSync(join(tmpdir(), "ragents-actor-description-empty-"));
     t.after(() => rmSync(root, { recursive: true, force: true }));
-    const broken = reload(records, runId, root, (line) => line.replace('"description":"zählt Befunde"', '"description":""'));
+    const broken = reload(records, runId, root, (line) => line.replace('"description":"counts findings"', '"description":""'));
     t.after(() => broken.close());
     assert.match(broken.failureOf(runId)?.message ?? "", /payload\.description must be a non-empty string/);
     assert.deepEqual(broken.runIds(), []);

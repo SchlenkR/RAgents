@@ -37,9 +37,9 @@ export const actorProgramSurfaceElements = (session: SessionContext): readonly S
     const placement = Array.isArray(rawPlacements) ? rawPlacements.find((entry) => isRecord(entry) && entry.kind === "canvas") : undefined;
     const surface = isRecord(placement) ? placement : undefined;
     if (surface && typeof surface.anchorActorId !== "string") {
-      throw new Error(`Die Flächenplatzierung der Actor-Ansicht ${module.title} ist ungültig`);
+      throw new Error(`The surface placement of the actor view ${module.title} is invalid`);
     }
-    if (surface && surface.anchorActorId !== module.actorId) throw new Error(`Die Ansicht ${module.title} gehört zu @${module.actorHandle}.`);
+    if (surface && surface.anchorActorId !== module.actorId) throw new Error(`The view ${module.title} belongs to @${module.actorHandle}.`);
     return [{
       id: module.id,
       title: module.title,
@@ -68,7 +68,7 @@ export function ActorProgramSurfaceElement({ definition, session }: SurfaceEleme
   ) : (
     <div className="flex flex-1 items-center justify-center gap-2 text-[0.7rem] text-muted-foreground">
       <Spinner aria-hidden aria-label={undefined} role={undefined} />
-      <span>Actor-Ansicht wird geladen</span>
+      <span>Loading actor view</span>
     </div>
   );
   return (

@@ -25,7 +25,7 @@ const useRunProcesses = (runId: string): ProcessWatchState => {
     return rpc.subscribe(processesContracts.live, { runId }, (data) => {
       try {
         const message = messageFrom(data);
-        if (message.kind === "snapshot" && message.snapshot.runId !== runId) throw new Error("Der Prozessstand gehört zu einem anderen Run");
+        if (message.kind === "snapshot" && message.snapshot.runId !== runId) throw new Error("The process snapshot belongs to another run");
         setState((current) => message.kind === "snapshot"
           ? { snapshot: message.snapshot, error: undefined }
           : { snapshot: current.snapshot, error: message.error });
@@ -48,11 +48,11 @@ interface StopState { busy?: boolean; error?: string }
 
 function ProcessPill({ process, state, writable, onStop, toolbar = false }: { process: RunProcess; state?: StopState; writable: boolean; onStop: () => void; toolbar?: boolean }) {
   const stop = <StopButton busy={state?.busy === true} className={stopClass} disabled={!writable || state?.busy}
-    label={state?.busy ? `${process.label} wird beendet` : `${process.label} beenden`}
+    label={state?.busy ? `Stopping ${process.label}` : `Stop ${process.label}`}
     onClick={onStop} size="icon-xs"
-    title={!writable ? "Zum Beenden fehlen Schreib- oder Inspektionsrechte" : state?.busy ? "Wird beendet ..." : `${process.label} beenden`} />;
+    title={!writable ? "Write or inspect rights are missing to stop" : state?.busy ? "Stopping ..." : `Stop ${process.label}`} />;
   const ports = process.ports.map((port) => <a className={portClass} href={serviceUrl(window.location.hostname, port.port)}
-    key={`${port.address}:${port.port}`} rel="noreferrer" target="_blank" title={`${port.address}:${port.port} im neuen Tab öffnen`}>
+    key={`${port.address}:${port.port}`} rel="noreferrer" target="_blank" title={`Open ${port.address}:${port.port} in a new tab`}>
     :{port.port}
   </a>);
   return <div className={cn("flex min-w-0 flex-col", toolbar ? "flex-none self-stretch max-md:not-first:hidden" : "w-full")} data-process-id={process.id}>
@@ -123,12 +123,12 @@ function ProcessHeaderContent({ runId }: { runId: string }) {
   const renderProcess = (process: RunProcess, toolbar = false) => <ProcessPill key={process.id} process={process} state={stops[process.id]} writable={writable} toolbar={toolbar} onStop={() => { void stop(process); }} />;
   if (shown.length === 0 && state.error === undefined && !allOpen) return null;
   return <>
-    <div aria-label="Prozesse und Ports des Runs" className="flex min-w-0 flex-none items-stretch self-stretch" ref={rootRef} onFocusCapture={rememberFocus}>
+    <div aria-label="Processes and ports of the run" className="flex min-w-0 flex-none items-stretch self-stretch" ref={rootRef} onFocusCapture={rememberFocus}>
       {shown.map((process) => renderProcess(process, true))}
-      {(processes.length > 1 || allOpen) && <ToolbarItem as="button" className="md:data-[hidden=false]:hidden" data-hidden={hidden > 0 || allOpen} type="button" onClick={() => setAllOpen(true)} title="Alle Prozesse des Runs anzeigen">
-        <span className="max-md:hidden">{hidden > 0 ? `+${hidden} weitere` : "Prozesse"}</span><span className="hidden max-md:inline">Alle {processes.length}</span>
+      {(processes.length > 1 || allOpen) && <ToolbarItem as="button" className="md:data-[hidden=false]:hidden" data-hidden={hidden > 0 || allOpen} type="button" onClick={() => setAllOpen(true)} title="Show all processes of the run">
+        <span className="max-md:hidden">{hidden > 0 ? `+${hidden} more` : "Processes"}</span><span className="hidden max-md:inline">All {processes.length}</span>
       </ToolbarItem>}
-      {state.error !== undefined && <ToolbarItem className="w-42 text-destructive" role="status" title={state.error}><ToolbarCopy><ToolbarLabel>Prozesse</ToolbarLabel><ToolbarText>Überwachung gestört</ToolbarText></ToolbarCopy></ToolbarItem>}
+      {state.error !== undefined && <ToolbarItem className="w-42 text-destructive" role="status" title={state.error}><ToolbarCopy><ToolbarLabel>Processes</ToolbarLabel><ToolbarText>Monitoring disrupted</ToolbarText></ToolbarCopy></ToolbarItem>}
     </div>
     {allOpen && <Dialog open onOpenChange={(open) => {
       if (open) return;
@@ -136,9 +136,9 @@ function ProcessHeaderContent({ runId }: { runId: string }) {
       if (processes.length === 0) requestAnimationFrame(() => fallback.current?.focus({ preventScroll: true }));
     }}>
       <DialogContent scope="run">
-        <DialogHeader><DialogTitle>Prozesse und Ports</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Processes and ports</DialogTitle></DialogHeader>
         <DialogBody className="flex flex-col gap-3 outline-none" ref={dialogRef} tabIndex={-1} onFocusCapture={rememberFocus}>
-          {processes.length > 0 ? processes.map((process) => renderProcess(process)) : <p role="status">Keine aktiven Prozesse.</p>}
+          {processes.length > 0 ? processes.map((process) => renderProcess(process)) : <p role="status">No active processes.</p>}
           {state.error !== undefined && <p className="text-destructive" role="alert">{state.error}</p>}
         </DialogBody>
       </DialogContent>

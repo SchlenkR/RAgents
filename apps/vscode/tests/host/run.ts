@@ -12,17 +12,17 @@ import { panelState } from "../../src/overview-model";
 import type { ConnectionSession } from "../../src/sessions";
 import type { RAgentsApi } from "../../src/extension";
 
-/** Eine verbundene Sitzung samt ihren Teilen; fehlt einer, ist der Test an dieser Stelle zu Ende. */
+/** A connected session with its parts; if one is missing, the test ends at this point. */
 const parts = (api: RAgentsApi, name: string) => {
   const session: ConnectionSession | undefined = api.session(name);
-  if (!session?.store || !session.client || !session.workspaceClient) throw new Error(`Der Server ${name} ist nicht verbunden`);
+  if (!session?.store || !session.client || !session.workspaceClient) throw new Error(`The server ${name} is not connected`);
   return { session, store: session.store, client: session.client, workspaceClient: session.workspaceClient };
 };
 
 const waitFor = async (condition: () => boolean, timeoutMs: number, label: string): Promise<void> => {
   const started = Date.now();
   while (!condition()) {
-    if (Date.now() - started > timeoutMs) throw new Error(`Zeitüberschreitung: ${label}`);
+    if (Date.now() - started > timeoutMs) throw new Error(`Timeout: ${label}`);
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 };
@@ -32,14 +32,14 @@ const waitUntil = async <T>(attempt: () => Promise<T | undefined>, timeoutMs: nu
   for (;;) {
     const value = await attempt();
     if (value !== undefined) return value;
-    if (Date.now() - started > timeoutMs) throw new Error(`Zeitüberschreitung: ${label}`);
+    if (Date.now() - started > timeoutMs) throw new Error(`Timeout: ${label}`);
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
 };
 
-/** Der Ausgabekanal ist von außen nicht lesbar; der Test schneidet seine Zeilen beim Anlegen des Kanals mit. */
+/** The output channel cannot be read from outside; the test records its lines when the channel is created. */
 const channelLines: string[] = [];
-// Liegt die Erweiterung woanders als der Testläufer (ein Test gegen eine .vsix), bekommt sie eine eigene vscode-API und der Mitschnitt greift nicht.
+// If the extension lives elsewhere than the test runner (a test against a .vsix), it gets its own vscode API and the recording does not apply.
 let channelCaptured = false;
 const createOutputChannel = vscode.window.createOutputChannel;
 (vscode.window as unknown as { createOutputChannel: unknown }).createOutputChannel = (...args: unknown[]) => {
@@ -75,17 +75,17 @@ const ancestorsOf = (rows: readonly ProcessRow[], pid: number): number[] => {
 
 const matching = (rows: readonly ProcessRow[], needle: string): ProcessRow[] => rows.filter((row) => row.command.includes(needle));
 
-/** Nur Prozesse dieser Testinstanz: Nachfahren des Extension-Hosts, in dem der Test läuft; ein anderer RAgents daneben zählt nicht. */
+/** Only processes of this test instance: descendants of the extension host the test runs in; another RAgents next to it does not count. */
 const ownMatching = (rows: readonly ProcessRow[], needle: string): ProcessRow[] =>
   matching(rows, needle).filter((row) => ancestorsOf(rows, row.pid).includes(process.pid));
 
-/** Die PIDs, die noch laufen; einmal gefundene Prozesse zählen auch, wenn sie inzwischen einen anderen Elternprozess haben. */
+/** The PIDs that are still running; processes found once also count if they have a different parent process by now. */
 const stillRunning = (pids: readonly number[]): number[] => {
   const rows = processRows();
   return pids.filter((pid) => rows.some((row) => row.pid === pid));
 };
 
-/** Ob die Umgebung des Prozesses den Marker dieses Runs trägt; macOS zeigt sie mit ps -E, nur für Programme außerhalb des Systems. */
+/** Whether the environment of the process carries the marker of this run; macOS shows it with ps -E, only for programs outside the system. */
 const carriesRun = (pid: number, runId: string): boolean => {
   try {
     return execFileSync("/bin/ps", ["-E", "-ww", "-o", "command=", "-p", String(pid)], { encoding: "utf8", maxBuffer: 4 * 1024 * 1024 })
@@ -110,22 +110,22 @@ const named = (events: readonly JournalEvent[], type: string): Array<{ event: Jo
 
 const toolNames = (events: readonly JournalEvent[], type: string): string[] => named(events, type).map((entry) => String(entry.payload.name));
 
-const TASK = "Lies README.md, ändere in src/greeter.ts die Grußzeile auf 'Hallo aus VS Code',"
-  + " lauf einmal ls -1 src, dann typescript_open mit root \".\" und danach typescript_diagnostics ohne paths,"
-  + " dann document_write mit einem kurzen Bericht.";
+const TASK = "Read README.md, change the greeting line in src/greeter.ts to 'Hello from VS Code',"
+  + " run ls -1 src once, then typescript_open with root \".\" and afterwards typescript_diagnostics without paths,"
+  + " then document_write with a short report.";
 
-const SLEEP_TASK = "Führe genau einen Werkzeugaufruf aus: bash mit dem Befehl sleep 120. Sonst nichts.";
+const SLEEP_TASK = "Make exactly one tool call: bash with the command sleep 120. Nothing else.";
 
-const SHORT_TASK = "Lies README.md und lauf einmal ls -1 src. Antworte danach mit einem Satz.";
+const SHORT_TASK = "Read README.md and run ls -1 src once. Then answer with one sentence.";
 
-const GREETING = "Hallo aus VS Code";
+const GREETING = "Hello from VS Code";
 
 const EXPECTED_TOOLS = ["read", "edit", "bash", "typescript_open", "typescript_diagnostics", "document_write"];
 
-/** document_write gehört ragents.documents und bleibt im Server; nur diese Werkzeuge laufen im Arbeitsplatz. */
+/** document_write belongs to ragents.documents and stays in the server; only these tools run in the workspace. */
 const EXECUTOR_TOOLS = EXPECTED_TOOLS.filter((tool) => tool !== "document_write");
 
-/** Der zweite Pfad: die Erweiterung als Arbeitsplatz mit Bindung client, vom Anmelden bis zum Trennen. */
+/** The second path: the extension as a workspace with client binding, from registration to disconnect. */
 const checkWorkspaceBinding = async (api: RAgentsApi, connection: string, requested: string, report: Record<string, unknown>): Promise<void> => {
   const { store, client, workspaceClient } = parts(api, connection);
   const rpc = client.rpc;
@@ -135,18 +135,18 @@ const checkWorkspaceBinding = async (api: RAgentsApi, connection: string, reques
   const checks: Record<string, unknown> = {};
   report.workspace = checks;
 
-  await waitFor(() => store.status.kind === "connected", 60_000, "die Verbindung steht");
+  await waitFor(() => store.status.kind === "connected", 60_000, "the connection is up");
   checks.status = store.status;
 
   const folder = path.resolve(requested);
   await waitFor(() => workspaceClient.status.kind === "registered" && workspaceClient.folders.some((entry) => path.resolve(entry) === folder),
-    60_000, `der Arbeitsplatz meldet ${folder} an`);
+    60_000, `the workspace registers ${folder}`);
   const registered = await rpc.call(workspaceContracts.clients.list, {});
   checks.clientId = workspaceClient.id;
   checks.clients = registered;
   const mine = registered.filter((entry) => entry.id === workspaceClient.id);
-  if (registered.length !== 1 || mine.length !== 1) throw new Error(`Erwartet war genau ein angemeldeter Arbeitsplatz, angemeldet sind ${registered.length}`);
-  if (!mine[0]!.folders.some((entry) => path.resolve(entry) === folder)) throw new Error(`Der angemeldete Arbeitsplatz bietet ${folder} nicht an`);
+  if (registered.length !== 1 || mine.length !== 1) throw new Error(`Expected exactly one registered workspace, registered are ${registered.length}`);
+  if (!mine[0]!.folders.some((entry) => path.resolve(entry) === folder)) throw new Error(`The registered workspace does not offer ${folder}`);
 
   const binding = workspaceClient.binding(workspaceClient.folders.find((entry) => path.resolve(entry) === folder)!);
   const runId = crypto.randomUUID();
@@ -165,7 +165,7 @@ const checkWorkspaceBinding = async (api: RAgentsApi, connection: string, reques
     if (turnId === undefined) return undefined;
     const done = [...named(events, "turn.finished"), ...named(events, "turn.interrupted")].some((entry) => entry.payload.turnId === turnId);
     return done ? events : undefined;
-  }, 300_000, "der erste Turn ist fertig", 2000);
+  }, 300_000, "the first turn is done", 2000);
   checks.firstTurn = {
     events: finished.length,
     completed: toolNames(finished, "tool.call.completed"),
@@ -176,52 +176,52 @@ const checkWorkspaceBinding = async (api: RAgentsApi, connection: string, reques
   const completed = new Set(toolNames(finished, "tool.call.completed"));
   const missing = EXPECTED_TOOLS.filter((tool) => !completed.has(tool));
   checks.missingTools = missing;
-  if (missing.length > 0) throw new Error(`Diese Werkzeuge fehlen als tool.call.completed: ${missing.join(", ")}`);
+  if (missing.length > 0) throw new Error(`These tools are missing as tool.call.completed: ${missing.join(", ")}`);
 
   const greeter = readFileSync(greeterFile, "utf8");
   checks.greeter = { before: before.split("\n")[0], after: greeter.split("\n")[0] };
-  if (!greeter.includes(GREETING)) throw new Error(`Die Grußzeile in ${greeterFile} trägt ${GREETING} nicht`);
+  if (!greeter.includes(GREETING)) throw new Error(`The greeting line in ${greeterFile} does not carry ${GREETING}`);
 
   const serverFiles = [...filesUnder(path.join(dataDirectory, "sessions", runId)), ...filesUnder(path.join(dataDirectory, "runs", runId))];
   const strays = serverFiles.filter((file) => path.basename(file) === "greeter.ts");
   checks.serverRunFiles = { root: dataDirectory, count: serverFiles.length, strays };
-  if (strays.length > 0) throw new Error(`Der Serverordner des Runs trägt Projektdateien: ${strays.join(", ")}`);
+  if (strays.length > 0) throw new Error(`The server folder of the run carries project files: ${strays.join(", ")}`);
 
   const diagnosticsStart = named(finished, "tool.call.started")
     .filter((entry) => entry.payload.name === "typescript_diagnostics")
     .find((entry) => (entry.payload.input as Record<string, unknown> | undefined)?.paths === undefined);
-  if (!diagnosticsStart) throw new Error("Es gibt keinen Aufruf von typescript_diagnostics ohne paths");
+  if (!diagnosticsStart) throw new Error("There is no call of typescript_diagnostics without paths");
   const diagnostics = named(finished, "tool.call.completed").find((entry) => entry.payload.toolCallId === diagnosticsStart.payload.toolCallId);
   const diagnosticsText = String(diagnostics?.payload.output ?? "");
   checks.diagnostics = { sequence: diagnosticsStart.event.sequence, output: diagnosticsText.slice(0, 600) };
-  // Ohne paths prüft das Werkzeug die laut Git geänderten Dateien; nach dieser Aufgabe ist das src/greeter.ts.
-  if (!/greeter\.ts/.test(diagnosticsText)) throw new Error("typescript_diagnostics ohne paths meldet die geänderte src/greeter.ts nicht");
+  // Without paths, the tool checks the files changed according to Git; after this task, that is src/greeter.ts.
+  if (!/greeter\.ts/.test(diagnosticsText)) throw new Error("typescript_diagnostics without paths does not report the changed src/greeter.ts");
 
   const prefix = `== ${runId.slice(0, 8)} `;
   const logged = channelLines.filter((line) => line.startsWith(prefix));
   const unlogged = EXECUTOR_TOOLS.filter((tool) => !logged.some((line) => line.startsWith(`${prefix}${tool} `)));
   checks.outputChannel = channelCaptured
     ? { lines: logged.length, missing: unlogged, sample: logged.slice(0, 12) }
-    : { captured: false, reason: "Die Erweiterung läuft aus einer eigenen vscode-API; ihr Ausgabekanal ist von hier nicht mitzuschneiden" };
+    : { captured: false, reason: "The extension runs from its own vscode API; its output channel cannot be recorded from here" };
   if (channelCaptured) {
-    if (logged.length === 0) throw new Error("Der Ausgabekanal RAgents trägt keine Zeile zu diesem Run");
-    if (unlogged.length > 0) throw new Error(`Der Ausgabekanal RAgents nennt diese Werkzeuge nicht: ${unlogged.join(", ")}`);
+    if (logged.length === 0) throw new Error("The RAgents output channel has no line for this run");
+    if (unlogged.length > 0) throw new Error(`The RAgents output channel does not name these tools: ${unlogged.join(", ")}`);
   }
 
   const rows = processRows();
   const servers = ownMatching(rows, "typescript-language-server");
   checks.extensionHostPid = process.pid;
   checks.languageServers = servers.map((row) => ({ pid: row.pid, ppid: row.ppid, ancestors: ancestorsOf(rows, row.pid), command: row.command.slice(0, 200) }));
-  if (servers.length === 0) throw new Error(`Am Extension-Host ${process.pid} läuft kein typescript-language-server`);
+  if (servers.length === 0) throw new Error(`No typescript-language-server runs at extension host ${process.pid}`);
   const foreign = matching(rows, "typescript-language-server")
     .filter((row) => !servers.some((own) => own.pid === row.pid) && carriesRun(row.pid, runId));
-  if (foreign.length > 0) throw new Error(`Diese Sprachserver des Runs hängen nicht am Extension-Host ${process.pid}: ${foreign.map((row) => row.pid).join(", ")}`);
+  if (foreign.length > 0) throw new Error(`These language servers of the run do not hang off extension host ${process.pid}: ${foreign.map((row) => row.pid).join(", ")}`);
 
   void rpc.call(coreContracts.chat.send, { runId, text: SLEEP_TASK }).catch((cause: unknown) => sendErrors.push(String(cause)));
   const sleeping = await waitUntil(async () => {
     const running = ownMatching(processRows(), "sleep 120").map((row) => row.pid);
     return running.length > 0 ? running : undefined;
-  }, 240_000, "der Befehl sleep 120 läuft", 500);
+  }, 240_000, "the command sleep 120 is running", 500);
   await new Promise((resolve) => setTimeout(resolve, 2000));
   const stopStarted = Date.now();
   const stopOutcome = await rpc.call(coreContracts.chat.stop, { runId })
@@ -234,8 +234,8 @@ const checkWorkspaceBinding = async (api: RAgentsApi, connection: string, reques
     const started = named(events, "tool.call.started").findLast((entry) => entry.payload.name === "bash");
     const interrupted = started && named(events, "turn.interrupted").find((entry) => entry.event.sequence > started.event.sequence);
     return started && interrupted ? { started, interrupted, events } : undefined;
-  }, 120_000, "der abgebrochene bash-Aufruf endet mit der Unterbrechung seines Turns", 1000);
-  await waitFor(() => stillRunning(sleeping).length === 0, 30_000, "der Prozess sleep 120 ist weg");
+  }, 120_000, "the cancelled bash call ends with the interruption of its turn", 1000);
+  await waitFor(() => stillRunning(sleeping).length === 0, 30_000, "the process sleep 120 is gone");
   checks.abort = {
     stopCall: { outcome: stopOutcome, durationMs: stopDurationMs },
     sleepPids: sleeping,
@@ -244,7 +244,7 @@ const checkWorkspaceBinding = async (api: RAgentsApi, connection: string, reques
   };
 
   await api.disconnect(connection);
-  await waitFor(() => api.session(connection)?.status.kind === "stopped", 30_000, "das Trennen beendet die Sitzung");
+  await waitFor(() => api.session(connection)?.status.kind === "stopped", 30_000, "the disconnect ends the session");
   const response = await fetch(`${origin}/rpc`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -253,17 +253,17 @@ const checkWorkspaceBinding = async (api: RAgentsApi, connection: string, reques
   const remaining = await response.json() as { result?: Array<{ id: string }> };
   const left = remaining.result ?? [];
   checks.clientsAfterDisconnect = left;
-  if (left.some((entry) => entry.id === workspaceClient.id)) throw new Error("Nach dem Trennen steht der Arbeitsplatz noch in der Liste");
-  await waitFor(() => stillRunning(servers.map((row) => row.pid)).length === 0, 60_000, "die Sprachserver sind beendet");
+  if (left.some((entry) => entry.id === workspaceClient.id)) throw new Error("After the disconnect, the workspace is still in the list");
+  await waitFor(() => stillRunning(servers.map((row) => row.pid)).length === 0, 60_000, "the language servers have ended");
   checks.languageServersAfterDisconnect = 0;
   checks.channel = channelLines.filter((line) => line.startsWith(prefix));
-  if (stopOutcome !== "ok") throw new Error(`ragents.chat.stop über die Verbindung der Sitzung scheiterte nach ${stopDurationMs} ms: ${stopOutcome}`);
+  if (stopOutcome !== "ok") throw new Error(`ragents.chat.stop over the session connection failed after ${stopDurationMs} ms: ${stopOutcome}`);
 };
 
-/** Die Vorlage, die der Klick auf Start nimmt: ein Run-Script ohne Leitfaden startet ohne Modellantwort. */
+/** The template the click on Start uses: a run script without a guide starts without a model response. */
 const TILE_ENTRY = "ragents.reference.moderated-round";
 
-/** Der dritte Pfad: zwei Server gleichzeitig, ein Klick auf eine Vorlage, ein neuer Run auf der zweiten und ein Trennen, das nur eine trifft. */
+/** The third path: two servers at the same time, a click on a template, a new run on the second, and a disconnect that affects only one. */
 const checkTwoConnections = async (api: RAgentsApi, first: string, second: string, requested: string,
   seen: ReadonlyArray<{ connection: string; message: RunPanelHostMessage }>, report: Record<string, unknown>): Promise<void> => {
   const checks: Record<string, unknown> = {};
@@ -271,37 +271,37 @@ const checkTwoConnections = async (api: RAgentsApi, first: string, second: strin
   const folder = path.resolve(requested);
 
   await waitFor(() => api.snapshots().length === 2 && api.snapshots().every((snapshot) => snapshot.status.kind === "connected"),
-    120_000, "beide Server sind verbunden");
-  // Das Client-Profil je Server bringt Produkt und Vorlagen; das Entwicklerprofil selbst bringt keine Vorlagen mit.
-  await waitFor(() => [first, second].every((name) => parts(api, name).store.product !== undefined), 60_000, "beide Server haben ihr Profil geladen");
+    120_000, "both servers are connected");
+  // The client profile per server brings product and templates; the developer profile itself brings no templates.
+  await waitFor(() => [first, second].every((name) => parts(api, name).store.product !== undefined), 60_000, "both servers have loaded their profile");
   checks.products = Object.fromEntries([first, second].map((name) => [name, { product: parts(api, name).store.product, entries: parts(api, name).store.startEntries.length }]));
   const overview = panelState({ theme: "dark", page: "start", connections: api.snapshots(), profileSuggestions: [], missingSecrets: [], problem: undefined, pickedProfileFile: undefined, runsConnection: undefined });
   checks.overview = overview.connections.map((connection) => ({
     name: connection.name, kind: connection.kind, state: connection.state.kind, runs: connection.runs.length, entries: connection.entries.length, canCreate: connection.canCreate,
   }));
-  if (overview.connections.length !== 2) throw new Error(`Die Übersicht zeigt ${overview.connections.length} Server statt zwei`);
+  if (overview.connections.length !== 2) throw new Error(`The overview shows ${overview.connections.length} servers instead of two`);
   for (const connection of overview.connections) {
-    if (connection.state.kind !== "connected") throw new Error(`Der Server ${connection.name} steht als ${connection.state.kind} in der Übersicht`);
-    if (!connection.canCreate) throw new Error(`Der Server ${connection.name} erlaubt keine neuen Runs`);
+    if (connection.state.kind !== "connected") throw new Error(`The server ${connection.name} appears as ${connection.state.kind} in the overview`);
+    if (!connection.canCreate) throw new Error(`The server ${connection.name} allows no new runs`);
   }
 
-  // Der Arbeitsplatz dieses Fensters meldet sich bei beiden Servern mit derselben Kennung an.
+  // The workspace of this window registers with both servers using the same identifier.
   const registrations: Record<string, unknown> = {};
   checks.workspaceClients = registrations;
   for (const name of [first, second]) {
     const { client, workspaceClient } = parts(api, name);
     await waitFor(() => workspaceClient.status.kind === "registered" && workspaceClient.folders.some((entry) => path.resolve(entry) === folder),
-      60_000, `der Arbeitsplatz meldet sich bei ${name} an`);
+      60_000, `the workspace registers with ${name}`);
     const registered = await client.rpc.call(workspaceContracts.clients.list, {});
     registrations[name] = { id: workspaceClient.id, clients: registered.map((entry) => ({ id: entry.id, folders: entry.folders })) };
-    if (!registered.some((entry) => entry.id === workspaceClient.id)) throw new Error(`Der Arbeitsplatz steht bei ${name} nicht in der Registry`);
+    if (!registered.some((entry) => entry.id === workspaceClient.id)) throw new Error(`The workspace is not in the registry at ${name}`);
   }
 
-  // Ein Klick auf eine Vorlage der Übersicht: die Erweiterung legt den Run auf ihrem Server an, das Run-Panel startet ihn und meldet ihn zurück.
+  // A click on a template of the overview: the extension creates the run on its server, the run panel starts it and reports it back.
   const tileConnection = [second, first].find((name) => parts(api, name).store.startEntries.length > 0);
   if (tileConnection === undefined) {
-    // Das Entwicklerprofil bringt keine Vorlagen mit; den Klick auf eine Vorlage prüft der Test gegen einen Server, der welche hat.
-    checks.tile = { skipped: "Keiner der beiden Server bietet eine Vorlage an" };
+    // The developer profile brings no templates; the test checks the click on a template against a server that has some.
+    checks.tile = { skipped: "Neither of the two servers offers a template" };
   } else {
     const tiles = parts(api, tileConnection).store.startEntries;
     const tile = tiles.find((entry) => entry.id === TILE_ENTRY) ?? tiles.find((entry) => entry.action === "script") ?? tiles[0]!;
@@ -310,10 +310,10 @@ const checkTwoConnections = async (api: RAgentsApi, first: string, second: strin
     await api.panelAction({ action: "newRun", name: tileConnection, entryId: tile.id });
     const started = await waitUntil(async () => seen.slice(before)
       .find((entry) => entry.connection === tileConnection && entry.message.type === "runChanged" && entry.message.runId !== null),
-    180_000, "das Run-Panel meldet den Run der Vorlage", 500);
+    180_000, "the run panel reports the run of the template", 500);
     const tileRunId = (started.message as Extract<RunPanelHostMessage, { type: "runChanged" }>).runId!;
     await waitFor(() => api.snapshots().find((snapshot) => snapshot.connection.name === tileConnection)?.runs.some((run) => run.id === tileRunId) === true,
-      120_000, "der Run der Vorlage steht in der Übersicht");
+      120_000, "the run of the template is in the overview");
     const tileEvents = await parts(api, tileConnection).client.rpc.call(runContracts.events, { runId: tileRunId }).catch(() => [] as JournalEvent[]);
     checks.tileRun = {
       runId: tileRunId,
@@ -321,33 +321,33 @@ const checkTwoConnections = async (api: RAgentsApi, first: string, second: strin
       actors: named(tileEvents, "actor.spawned").map((entry) => String(entry.payload.handle ?? entry.payload.actorId)),
       title: api.snapshots().find((snapshot) => snapshot.connection.name === tileConnection)?.runs.find((run) => run.id === tileRunId)?.title,
     };
-    if (tileEvents.length === 0) throw new Error("Der Run der Vorlage hat kein Journal");
+    if (tileEvents.length === 0) throw new Error("The run of the template has no journal");
 
-    // Das Plus eines Servers legt einen leeren Run an: dasselbe newRun ohne entryId, der Auftrag entsteht im Chat.
+    // The plus of a server creates an empty run: the same newRun without entryId, the task is written in the chat.
     const beforePlus = seen.length;
     await api.panelAction({ action: "newRun", name: tileConnection });
     const plus = await waitUntil(async () => seen.slice(beforePlus)
       .find((entry) => entry.connection === tileConnection && entry.message.type === "runChanged"
         && entry.message.runId !== null && entry.message.runId !== tileRunId),
-    120_000, "das Plus des Servers öffnet einen leeren Run", 500);
+    120_000, "the plus of the server opens an empty run", 500);
     checks.newChat = { connection: tileConnection, runId: (plus.message as Extract<RunPanelHostMessage, { type: "runChanged" }>).runId };
 
-    // Der Zurück-Pfeil des Run-Panels führt immer auf die Start-Seite; die Hülle schaltet dafür die Seite um.
+    // The back arrow of the run panel always leads to the Start page; the shell switches the page for it.
     api.selectRun(tileConnection, tileRunId);
     checks.pageWithRun = api.panel().page;
-    if (api.panel().page !== "run") throw new Error(`Mit geöffnetem Run steht die Seite auf ${api.panel().page} statt auf run`);
+    if (api.panel().page !== "run") throw new Error(`With an open run, the page is ${api.panel().page} instead of run`);
     await vscode.commands.executeCommand("ragents.showStart");
     checks.pageAfterBack = api.panel().page;
-    if (api.panel().page !== "start") throw new Error(`Der Weg zurück führt auf ${api.panel().page} statt auf start`);
+    if (api.panel().page !== "start") throw new Error(`The way back leads to ${api.panel().page} instead of start`);
 
-    // Die Seite Runs löscht die Auswahl über den Host; die Liste zeigt danach nur noch, was übrig ist.
+    // The Runs page deletes the selection via the host; the list then shows only what is left.
     await api.panelAction({ action: "deleteRuns", name: tileConnection, runIds: [tileRunId] });
     await waitFor(() => api.snapshots().find((snapshot) => snapshot.connection.name === tileConnection)?.runs.some((run) => run.id === tileRunId) === false,
-      60_000, "der gelöschte Run ist aus der Liste verschwunden");
+      60_000, "the deleted run has disappeared from the list");
     checks.deletedRun = { runId: tileRunId, left: api.snapshots().find((snapshot) => snapshot.connection.name === tileConnection)?.runs.length };
   }
 
-  // Ein neuer Run auf dem zweiten Server mit Bindung client: read und bash laufen hier, nicht auf dem Server.
+  // A new run on the second server with client binding: read and bash run here, not on the server.
   const { client: secondClient } = parts(api, second);
   const secondWorkspace = parts(api, second).workspaceClient;
   const binding = secondWorkspace.binding(secondWorkspace.folders.find((entry) => path.resolve(entry) === folder)!);
@@ -364,7 +364,7 @@ const checkTwoConnections = async (api: RAgentsApi, first: string, second: strin
     if (turnId === undefined) return undefined;
     const done = [...named(events, "turn.finished"), ...named(events, "turn.interrupted")].some((entry) => entry.payload.turnId === turnId);
     return done ? events : undefined;
-  }, 300_000, "der Run auf dem zweiten Server ist fertig", 2000);
+  }, 300_000, "the run on the second server is done", 2000);
   const completed = new Set(toolNames(finished, "tool.call.completed"));
   checks.turn = {
     events: finished.length,
@@ -372,16 +372,16 @@ const checkTwoConnections = async (api: RAgentsApi, first: string, second: strin
     failed: named(finished, "tool.call.failed").map((entry) => ({ name: entry.payload.name, error: String(entry.payload.error).slice(0, 200) })),
   };
   const missing = ["read", "bash"].filter((tool) => !completed.has(tool));
-  if (missing.length > 0) throw new Error(`Auf dem zweiten Server fehlen diese Werkzeuge: ${missing.join(", ")}`);
+  if (missing.length > 0) throw new Error(`These tools are missing on the second server: ${missing.join(", ")}`);
   const logged = channelLines.filter((line) => line.startsWith(`== ${runId.slice(0, 8)} `));
   checks.outputChannel = channelCaptured ? logged.slice(0, 8) : { captured: false };
-  if (channelCaptured && !logged.some((line) => line.includes(" bash "))) throw new Error("Der Ausgabekanal nennt den bash-Aufruf des Arbeitsplatzes nicht");
+  if (channelCaptured && !logged.some((line) => line.includes(" bash "))) throw new Error("The output channel does not name the bash call of the workspace");
   await waitFor(() => api.snapshots().find((snapshot) => snapshot.connection.name === second)?.runs.some((run) => run.id === runId) === true,
-    60_000, "der neue Run steht in der Übersicht des zweiten Servers");
+    60_000, "the new run is in the overview of the second server");
 
-  // Trennen des ersten Servers lässt den zweiten unberührt.
+  // Disconnecting the first server leaves the second untouched.
   await api.disconnect(first);
-  await waitFor(() => api.session(first)?.status.kind === "stopped", 30_000, "der erste Server ist getrennt");
+  await waitFor(() => api.session(first)?.status.kind === "stopped", 30_000, "the first server is disconnected");
   const afterFirst = await parts(api, second).client.rpc.call(workspaceContracts.clients.list, {});
   checks.afterDisconnect = {
     first: api.session(first)?.status,
@@ -389,11 +389,11 @@ const checkTwoConnections = async (api: RAgentsApi, first: string, second: strin
     clientsAtSecond: afterFirst.map((entry) => entry.id),
     overview: api.snapshots().map((snapshot) => ({ name: snapshot.connection.name, state: snapshot.status.kind, runs: snapshot.runs.length })),
   };
-  if (api.session(second)?.status.kind !== "connected") throw new Error("Das Trennen des ersten Servers hat auch den zweiten getroffen");
-  if (!afterFirst.some((entry) => entry.id === secondWorkspace.id)) throw new Error("Der Arbeitsplatz ist beim zweiten Server verschwunden");
+  if (api.session(second)?.status.kind !== "connected") throw new Error("Disconnecting the first server also affected the second");
+  if (!afterFirst.some((entry) => entry.id === secondWorkspace.id)) throw new Error("The workspace has disappeared from the second server");
 };
 
-/** Der vierte Pfad: die Einstellungsseite, mit denselben Aktionen, die das Webview schickt. */
+/** The fourth path: the settings page, with the same actions the webview sends. */
 const checkSettings = async (api: RAgentsApi, serverUrl: string, profileFile: string, report: Record<string, unknown>): Promise<void> => {
   const checks: Record<string, unknown> = {};
   report.settings = checks;
@@ -401,92 +401,92 @@ const checkSettings = async (api: RAgentsApi, serverUrl: string, profileFile: st
   const names = () => api.panel().connections.map((connection) => connection.name);
 
   checks.start = { page: api.panel().page, connections: names(), setting: api.connections() };
-  if (api.panel().connections.length !== 0) throw new Error(`Der Test beginnt mit ${api.panel().connections.length} Servern statt ohne`);
-  if (api.panel().page !== "start") throw new Error(`Die Erweiterung beginnt auf ${api.panel().page} statt auf der Start-Seite`);
+  if (api.panel().connections.length !== 0) throw new Error(`The test starts with ${api.panel().connections.length} servers instead of none`);
+  if (api.panel().page !== "start") throw new Error(`The extension starts on ${api.panel().page} instead of the Start page`);
   for (const page of ["runs", "connections", "start"] as const) {
     await api.panelAction({ action: "page", page });
-    if (api.panel().page !== page) throw new Error(`Die Aktion page führt nicht auf ${page}`);
+    if (api.panel().page !== page) throw new Error(`The page action does not lead to ${page}`);
   }
 
   await api.panelAction({ action: "page", page: "connections" });
   checks.page = api.panel().page;
-  if (api.panel().page !== "connections") throw new Error("Die Aktion page führt nicht auf die Seite Server");
+  if (api.panel().page !== "connections") throw new Error("The page action does not lead to the server page");
   const focusable = await vscode.commands.getCommands(true);
   checks.revealCommand = focusable.includes("ragents.runPanel.focus");
-  if (!checks.revealCommand) throw new Error("Den Befehl ragents.runPanel.focus gibt es nicht; das Panel lässt sich nicht von selbst öffnen");
+  if (!checks.revealCommand) throw new Error("The command ragents.runPanel.focus does not exist; the panel cannot be opened on its own");
   await vscode.commands.executeCommand("ragents.runPanel.focus");
 
-  await api.panelAction({ action: "addServer", name: "selbsttest", url: serverUrl });
-  await waitFor(() => view("selbsttest") !== undefined, 15_000, "der neue Server steht in der Übersicht");
+  await api.panelAction({ action: "addServer", name: "selftest", url: serverUrl });
+  await waitFor(() => view("selftest") !== undefined, 15_000, "the new server is in the overview");
   checks.addServer = { setting: api.connections(), connections: names(), problem: api.panel().problem };
-  if (api.panel().problem !== undefined) throw new Error(`Der neue Server meldet ${String(api.panel().problem)}`);
-  await waitFor(() => view("selbsttest")?.state.kind === "connected", 60_000, "der neue Server ist verbunden");
-  checks.serverConnected = view("selbsttest");
+  if (api.panel().problem !== undefined) throw new Error(`The new server reports ${String(api.panel().problem)}`);
+  await waitFor(() => view("selftest")?.state.kind === "connected", 60_000, "the new server is connected");
+  checks.serverConnected = view("selftest");
 
-  await api.panelAction({ action: "addServer", name: "selbsttest", url: serverUrl });
+  await api.panelAction({ action: "addServer", name: "selftest", url: serverUrl });
   checks.duplicateName = { problem: api.panel().problem, connections: names(), setting: api.connections().length };
-  if (api.panel().problem === undefined) throw new Error("Ein doppelter Name kommt ohne Meldung durch");
-  if (api.connections().length !== 1) throw new Error("Der doppelte Name steht trotz Meldung in der Einstellung");
+  if (api.panel().problem === undefined) throw new Error("A duplicate name gets through without a message");
+  if (api.connections().length !== 1) throw new Error("The duplicate name is in the setting despite the message");
 
-  await api.panelAction({ action: "addServer", name: "ohne-schema", url: "localhost:4715" });
+  await api.panelAction({ action: "addServer", name: "no-scheme", url: "localhost:4715" });
   checks.badUrl = { problem: api.panel().problem, connections: names() };
-  if (view("ohne-schema") !== undefined) throw new Error("Eine Adresse ohne http kommt als Server durch");
+  if (view("no-scheme") !== undefined) throw new Error("An address without http gets through as a server");
 
-  // Ein lokales Profil startet die Erweiterung von selbst; "nicht gestartet" gibt es nicht mehr.
-  await api.panelAction({ action: "addProfile", name: "profil", profileFile });
-  await waitFor(() => view("profil") !== undefined, 15_000, "das neue Profil steht in der Übersicht");
-  checks.addProfile = { connections: api.connections(), state: view("profil")?.state.kind, problem: api.panel().problem };
-  if (view("profil")?.state.kind === "stopped") throw new Error("Das neue Profil steht als nicht gestartet statt still zu starten");
-  await api.panelAction({ action: "stopProfile", name: "profil" });
-  await waitFor(() => view("profil")?.state.kind === "stopped", 60_000, "der stille Start des Profils ist wieder beendet");
+  // The extension starts a local profile by itself; "not started" no longer exists.
+  await api.panelAction({ action: "addProfile", name: "profile", profileFile });
+  await waitFor(() => view("profile") !== undefined, 15_000, "the new profile is in the overview");
+  checks.addProfile = { connections: api.connections(), state: view("profile")?.state.kind, problem: api.panel().problem };
+  if (view("profile")?.state.kind === "stopped") throw new Error("The new profile appears as not started instead of starting silently");
+  await api.panelAction({ action: "stopProfile", name: "profile" });
+  await waitFor(() => view("profile")?.state.kind === "stopped", 60_000, "the silent start of the profile has ended again");
 
-  // Bearbeiten ersetzt den Server an seiner Stelle; die Anmeldedaten hängen an der Adresse und überleben das Umbenennen.
-  await api.panelAction({ action: "updateServer", name: "selbsttest", newName: "selbsttest-neu", url: serverUrl });
-  await waitFor(() => view("selbsttest-neu") !== undefined && view("selbsttest") === undefined, 15_000, "der umbenannte Server steht in der Übersicht");
+  // Editing replaces the server in place; the credentials are tied to the address and survive the rename.
+  await api.panelAction({ action: "updateServer", name: "selftest", newName: "selftest-new", url: serverUrl });
+  await waitFor(() => view("selftest-new") !== undefined && view("selftest") === undefined, 15_000, "the renamed server is in the overview");
   checks.updateServer = { setting: api.connections(), connections: names(), problem: api.panel().problem };
-  if (api.panel().problem !== undefined) throw new Error(`Das Bearbeiten meldet ${String(api.panel().problem)}`);
-  await api.panelAction({ action: "updateServer", name: "selbsttest-neu", newName: "selbsttest", url: serverUrl });
-  await waitFor(() => view("selbsttest") !== undefined, 15_000, "der alte Name ist zurück");
+  if (api.panel().problem !== undefined) throw new Error(`Editing reports ${String(api.panel().problem)}`);
+  await api.panelAction({ action: "updateServer", name: "selftest-new", newName: "selftest", url: serverUrl });
+  await waitFor(() => view("selftest") !== undefined, 15_000, "the old name is back");
 
-  await api.panelAction({ action: "updateProfile", name: "profil", newName: "profil", profileFile: path.join(path.dirname(profileFile), "ragents.config.gibtesauchnicht.ts") });
-  checks.updateProfileMissing = { problem: api.panel().problem, view: view("profil") };
-  if (api.panel().problem === undefined) throw new Error("Eine Profildatei, die es nicht gibt, kommt beim Bearbeiten ohne Meldung durch");
-  if (view("profil")?.address !== path.resolve(profileFile)) throw new Error(`Das abgelehnte Bearbeiten hat den Server auf ${String(view("profil")?.address)} geändert`);
+  await api.panelAction({ action: "updateProfile", name: "profile", newName: "profile", profileFile: path.join(path.dirname(profileFile), "ragents.config.alsomissing.ts") });
+  checks.updateProfileMissing = { problem: api.panel().problem, view: view("profile") };
+  if (api.panel().problem === undefined) throw new Error("A profile file that does not exist gets through editing without a message");
+  if (view("profile")?.address !== path.resolve(profileFile)) throw new Error(`The rejected edit changed the server to ${String(view("profile")?.address)}`);
 
   checks.profileSuggestions = api.panel().profileSuggestions;
-  if (!Array.isArray(api.panel().profileSuggestions)) throw new Error("Die Vorschlagsliste der Profile fehlt im Zustand der Seite");
+  if (!Array.isArray(api.panel().profileSuggestions)) throw new Error("The suggestion list of profiles is missing from the page state");
 
-  await api.panelAction({ action: "addProfile", name: "falsch-benannt", profileFile: path.join(path.dirname(profileFile), "beliebig.ts") });
-  checks.badProfileName = { problem: api.panel().problem, present: view("falsch-benannt") !== undefined };
-  if (view("falsch-benannt") !== undefined || api.panel().problem === undefined) throw new Error("Eine falsch benannte Profildatei kommt ohne Meldung durch");
+  await api.panelAction({ action: "addProfile", name: "wrongly-named", profileFile: path.join(path.dirname(profileFile), "arbitrary.ts") });
+  checks.badProfileName = { problem: api.panel().problem, present: view("wrongly-named") !== undefined };
+  if (view("wrongly-named") !== undefined || api.panel().problem === undefined) throw new Error("A wrongly named profile file gets through without a message");
 
-  const missing = path.join(path.dirname(profileFile), "ragents.config.gibtesnicht.ts");
-  await api.panelAction({ action: "addProfile", name: "fehlende-datei", profileFile: missing });
-  checks.missingProfileFile = { problem: api.panel().problem, present: view("fehlende-datei") !== undefined };
-  if (view("fehlende-datei") !== undefined) throw new Error("Eine Profildatei, die es nicht gibt, kommt als Server durch");
-  if (api.panel().problem === undefined) throw new Error("Eine Profildatei, die es nicht gibt, bleibt ohne Meldung in der Seite");
+  const missing = path.join(path.dirname(profileFile), "ragents.config.missing.ts");
+  await api.panelAction({ action: "addProfile", name: "missing-file", profileFile: missing });
+  checks.missingProfileFile = { problem: api.panel().problem, present: view("missing-file") !== undefined };
+  if (view("missing-file") !== undefined) throw new Error("A profile file that does not exist gets through as a server");
+  if (api.panel().problem === undefined) throw new Error("A profile file that does not exist stays in the page without a message");
 
-  // Ein relativer Pfad löst sich gegen das Arbeitsverzeichnis des Extension-Hosts auf; die Meldung nennt deshalb den vollen Pfad.
-  await api.panelAction({ action: "addProfile", name: "relativ", profileFile: "ragents.config.developer.ts" });
-  checks.relativeProfileFile = { cwd: process.cwd(), problem: api.panel().problem, view: view("relativ") };
-  if (view("relativ") !== undefined) await api.panelAction({ action: "remove", name: "relativ" });
-  else if (!/^Die Profildatei \//.test(String(api.panel().problem))) throw new Error(`Die Meldung nennt den aufgelösten Pfad nicht: ${String(api.panel().problem)}`);
+  // A relative path resolves against the working directory of the extension host; the message therefore names the full path.
+  await api.panelAction({ action: "addProfile", name: "relative", profileFile: "ragents.config.developer.ts" });
+  checks.relativeProfileFile = { cwd: process.cwd(), problem: api.panel().problem, view: view("relative") };
+  if (view("relative") !== undefined) await api.panelAction({ action: "remove", name: "relative" });
+  else if (!/^The profile file \//.test(String(api.panel().problem))) throw new Error(`The message does not name the resolved path: ${String(api.panel().problem)}`);
 
-  // Ohne Checkout holt die Erweiterung den Host als Paket und startet das lokale Profil daraus; die .tgz kommt aus RAGENTS_HOST_PACKAGE_SPEC.
+  // Without a checkout, the extension fetches the host as a package and starts the local profile from it; the .tgz comes from RAGENTS_HOST_PACKAGE_SPEC.
   if (process.env.RAGENTS_HOST_PACKAGE_SPEC) {
-    await api.panelAction({ action: "startProfile", name: "profil" });
-    await waitFor(() => ["connected", "failed"].includes(view("profil")?.state.kind ?? ""), 900_000, "das lokale Profil kommt aus dem geholten Host-Paket hoch");
-    const started = view("profil")?.state;
-    checks.startFromPackage = { state: started, host: channelLines.filter((line) => line.includes("Host-Paket") || line.includes("Host läuft")) };
-    if (started?.kind !== "failed" && started?.kind !== "connected") throw new Error(`Das lokale Profil steht als ${String(started?.kind)}`);
-    if (started.kind === "failed") throw new Error(`Das lokale Profil aus dem Paket ist gescheitert: ${started.message}`);
-    await api.panelAction({ action: "stopProfile", name: "profil" });
-    await waitFor(() => view("profil")?.state.kind === "stopped", 60_000, "das lokale Profil ist wieder gestoppt");
+    await api.panelAction({ action: "startProfile", name: "profile" });
+    await waitFor(() => ["connected", "failed"].includes(view("profile")?.state.kind ?? ""), 900_000, "the local profile comes up from the fetched host package");
+    const started = view("profile")?.state;
+    checks.startFromPackage = { state: started, host: channelLines.filter((line) => line.includes("host package") || line.includes("Host running")) };
+    if (started?.kind !== "failed" && started?.kind !== "connected") throw new Error(`The local profile appears as ${String(started?.kind)}`);
+    if (started.kind === "failed") throw new Error(`The local profile from the package failed: ${started.message}`);
+    await api.panelAction({ action: "stopProfile", name: "profile" });
+    await waitFor(() => view("profile")?.state.kind === "stopped", 60_000, "the local profile is stopped again");
   } else {
-    checks.startFromPackage = { skipped: "Ohne RAGENTS_HOST_PACKAGE_SPEC würde die Erweiterung das veröffentlichte Paket holen" };
+    checks.startFromPackage = { skipped: "Without RAGENTS_HOST_PACKAGE_SPEC, the extension would fetch the published package" };
   }
 
-  // Der Dateidialog gehört VS Code; nur wenn die Erweiterung dieselbe vscode-API hat wie der Testläufer, lässt er sich hier belegen.
+  // The file dialog belongs to VS Code; only if the extension has the same vscode API as the test runner can it be stubbed here.
   if (channelCaptured) {
     const original = vscode.window.showOpenDialog;
     (vscode.window as unknown as { showOpenDialog: unknown }).showOpenDialog = () => Promise.resolve([vscode.Uri.file(profileFile)]);
@@ -496,59 +496,59 @@ const checkSettings = async (api: RAgentsApi, serverUrl: string, profileFile: st
       (vscode.window as unknown as { showOpenDialog: unknown }).showOpenDialog = original;
     }
     checks.pickProfile = { picked: api.panel().pickedProfileFile };
-    if (api.panel().pickedProfileFile !== profileFile) throw new Error(`Der Dateidialog gibt ${String(api.panel().pickedProfileFile)} statt ${profileFile} in das Formular`);
+    if (api.panel().pickedProfileFile !== profileFile) throw new Error(`The file dialog puts ${String(api.panel().pickedProfileFile)} instead of ${profileFile} into the form`);
   } else {
-    checks.pickProfile = { captured: false, reason: "Die Erweiterung läuft aus einer eigenen vscode-API; ihr Dateidialog ist von hier nicht zu belegen" };
+    checks.pickProfile = { captured: false, reason: "The extension runs from its own vscode API; its file dialog cannot be stubbed from here" };
   }
 
-  // Ein Server ohne Benutzer nimmt keine Anmeldedaten an; der Grund gehört in die Zeile des Servers.
-  await api.panelAction({ action: "login", name: "selbsttest", user: "niemand", password: "egal" });
-  checks.login = { problem: view("selbsttest")?.problem, state: view("selbsttest")?.state.kind, savedLogin: view("selbsttest")?.savedLogin ?? false };
-  if (view("selbsttest")?.problem === undefined) throw new Error("Die Anmeldung gegen einen Server ohne Benutzer bleibt ohne Meldung in der Seite");
-  await api.panelAction({ action: "logout", name: "selbsttest" });
-  checks.afterLogout = { problem: view("selbsttest")?.problem, savedLogin: view("selbsttest")?.savedLogin ?? false, state: view("selbsttest")?.state.kind };
-  if (view("selbsttest")?.savedLogin === true) throw new Error("Nach dem Löschen stehen die Anmeldedaten noch gespeichert");
+  // A server without users accepts no credentials; the reason belongs in the line of the server.
+  await api.panelAction({ action: "login", name: "selftest", user: "nobody", password: "whatever" });
+  checks.login = { problem: view("selftest")?.problem, state: view("selftest")?.state.kind, savedLogin: view("selftest")?.savedLogin ?? false };
+  if (view("selftest")?.problem === undefined) throw new Error("Signing in to a server without users stays without a message in the page");
+  await api.panelAction({ action: "logout", name: "selftest" });
+  checks.afterLogout = { problem: view("selftest")?.problem, savedLogin: view("selftest")?.savedLogin ?? false, state: view("selftest")?.state.kind };
+  if (view("selftest")?.savedLogin === true) throw new Error("After deleting, the credentials are still stored");
 
   await api.panelAction({ action: "settingsFile" });
-  checks.settingsFile = vscode.window.activeTextEditor?.document.uri.fsPath ?? "kein Editor";
-  if (!/settings\.json$/.test(String(checks.settingsFile))) throw new Error(`Die Einstellung öffnet ${String(checks.settingsFile)} statt der settings.json`);
+  checks.settingsFile = vscode.window.activeTextEditor?.document.uri.fsPath ?? "no editor";
+  if (!/settings\.json$/.test(String(checks.settingsFile))) throw new Error(`The setting opens ${String(checks.settingsFile)} instead of settings.json`);
 
-  for (const name of ["profil", "selbsttest"]) {
+  for (const name of ["profile", "selftest"]) {
     await api.panelAction({ action: "remove", name });
-    await waitFor(() => view(name) === undefined, 15_000, `der Server ${name} ist entfernt`);
+    await waitFor(() => view(name) === undefined, 15_000, `the server ${name} is removed`);
   }
   checks.afterRemove = { connections: names(), setting: api.connections() };
-  if (api.connections().length !== 0) throw new Error(`Nach dem Entfernen stehen noch ${api.connections().length} Server in ragents.connections`);
+  if (api.connections().length !== 0) throw new Error(`After removing, ${api.connections().length} servers are still in ragents.connections`);
 };
 
-/** Läuft im Extension-Host eines echten VS Code gegen einen laufenden Server; tests/host/launch.mjs startet ihn. */
+/** Runs in the extension host of a real VS Code against a running server; tests/host/launch.mjs starts it. */
 export async function run(): Promise<void> {
   const report: Record<string, unknown> = {};
   const output = process.env.RAGENTS_HOST_TEST_OUTPUT;
   try {
     const extension = vscode.extensions.getExtension<RAgentsApi>("purestate.ragents-vscode");
-    if (!extension) throw new Error("Die Erweiterung purestate.ragents-vscode ist nicht geladen.");
+    if (!extension) throw new Error("The extension purestate.ragents-vscode is not loaded.");
     report.alreadyActive = extension.isActive;
     const api = await extension.activate();
     const seen: Array<{ connection: string; message: RunPanelHostMessage }> = [];
     api.messages((entry) => seen.push(entry));
     if (process.env.RAGENTS_HOST_TEST_SETTINGS) {
-      // Vierter Testpfad: die Seite Server legt Server an, meldet Fehler und entfernt wieder.
+      // Fourth test path: the server page adds servers, reports errors, and removes them again.
       await checkSettings(api, process.env.RAGENTS_HOST_TEST_SERVER ?? "http://localhost:4710", process.env.RAGENTS_HOST_TEST_PROFILE ?? "", report);
       report.ok = true;
       if (output) writeFileSync(output, JSON.stringify(report, null, 2));
       return;
     }
     const primary = "test";
-    const secondary = process.env.RAGENTS_HOST_TEST_SECOND ? "zweit" : undefined;
-    // Jeder konfigurierte Server verbindet sich beim Aktivieren von selbst.
+    const secondary = process.env.RAGENTS_HOST_TEST_SECOND ? "second" : undefined;
+    // Every configured server connects by itself on activation.
     const configured = secondary ? [primary, secondary] : [primary];
-    await waitFor(() => api.snapshots().length === configured.length, 30_000, "die Server stehen");
-    for (const name of configured) await waitFor(() => api.session(name)?.client !== undefined, 60_000, `die Sitzung von ${name} steht`);
+    await waitFor(() => api.snapshots().length === configured.length, 30_000, "the servers are up");
+    for (const name of configured) await waitFor(() => api.session(name)?.client !== undefined, 60_000, `the session of ${name} is up`);
     report.connections = api.snapshots().map((snapshot) => ({ name: snapshot.connection.name, kind: snapshot.connection.kind, url: snapshot.url }));
     const workspace = process.env.RAGENTS_HOST_TEST_WORKSPACE;
     if (workspace && secondary) {
-      // Dritter Testpfad: zwei Server gleichzeitig, Klick auf eine Vorlage, ein neuer Run auf der zweiten, ein Trennen, das nur eine trifft.
+      // Third test path: two servers at the same time, click on a template, a new run on the second, a disconnect that affects only one.
       await checkTwoConnections(api, primary, secondary, workspace, seen, report);
       report.ok = true;
       if (output) writeFileSync(output, JSON.stringify(report, null, 2));
@@ -556,20 +556,20 @@ export async function run(): Promise<void> {
     }
     const token = process.env.RAGENTS_HOST_TEST_TOKEN;
     if (token) {
-      await waitFor(() => api.session(primary)?.status.kind === "login-required", 15_000, "Server verlangt einen Zugangstoken");
+      await waitFor(() => api.session(primary)?.status.kind === "login-required", 15_000, "server requires an access token");
       report.tokenGate = api.session(primary)?.status;
       await api.applyToken(primary, token);
     }
     const login = process.env.RAGENTS_HOST_TEST_LOGIN;
     if (login) {
-      await waitFor(() => api.session(primary)?.status.kind === "login-required", 15_000, "Server verlangt eine Anmeldung");
+      await waitFor(() => api.session(primary)?.status.kind === "login-required", 15_000, "server requires sign-in");
       report.loginRequired = api.session(primary)?.status;
       const [id, password] = login.split(":", 2);
       await api.loginWith(primary, id ?? "", password ?? "");
       report.user = parts(api, primary).store.user;
     }
     if (workspace) {
-      // Zweiter Testpfad: der Arbeitsbereich des Fensters wird als Arbeitsplatz angeboten und ein Run mit Bindung client geprüft.
+      // Second test path: the workspace folder of the window is offered as a workspace and a run with client binding is checked.
       await checkWorkspaceBinding(api, primary, workspace, report);
       report.ok = true;
       if (output) writeFileSync(output, JSON.stringify(report, null, 2));
@@ -578,16 +578,16 @@ export async function run(): Promise<void> {
     await vscode.commands.executeCommand("workbench.view.extension.ragents-run-panel");
     await vscode.commands.executeCommand("ragents.runPanel.focus");
     const { store, client } = parts(api, primary);
-    await waitFor(() => store.status.kind === "connected", 240_000, "Verbindung");
+    await waitFor(() => store.status.kind === "connected", 240_000, "connection");
     report.status = store.status;
     const runs = await Promise.all(store.runs.map(async (run) => ({ run,
       apps: actorProgramViews(await client.rpc.call(runContracts.view, { runId: run.id })).filter((entry) => entry.app.visible !== false) })));
     report.runs = runs.map(({ run, apps }) => ({ id: run.id, title: run.title, state: run.state, apps: apps.map((app) => app.id), pendingActions: run.pendingActions }));
     report.entries = store.startEntries.map((entry) => entry.id);
     if (store.runs.length === 0) {
-      // Ein frisch gestarteter Host hat noch keine Runs; Verbindung, Übersicht und Trennen sind dann die Prüfung.
+      // A freshly started host has no runs yet; connection, overview, and disconnect are then the check.
       await api.disconnect(primary);
-      await waitFor(() => api.session(primary)?.status.kind === "stopped", 15_000, "Trennen beendet die Sitzung");
+      await waitFor(() => api.session(primary)?.status.kind === "stopped", 15_000, "disconnect ends the session");
       report.disconnected = true;
       report.messages = seen;
       report.ok = true;
@@ -596,12 +596,12 @@ export async function run(): Promise<void> {
     }
     const { run, apps } = runs.find((entry) => entry.apps.length > 0) ?? runs[0]!;
     api.selectRun(primary, run.id);
-    await waitFor(() => seen.some((entry) => entry.connection === primary && entry.message.type === "ready"), 30_000, "Panel meldet ready");
-    await waitFor(() => seen.some((entry) => entry.message.type === "runChanged" && entry.message.runId === run.id), 15_000, "Panel übernimmt den Run");
+    await waitFor(() => seen.some((entry) => entry.connection === primary && entry.message.type === "ready"), 30_000, "panel reports ready");
+    await waitFor(() => seen.some((entry) => entry.message.type === "runChanged" && entry.message.runId === run.id), 15_000, "panel takes over the run");
     const app = apps[0];
     if (app) {
       await vscode.commands.executeCommand("ragents.openAppInCenter", primary, run.id, app.id, app.title);
-      await waitFor(() => seen.filter((entry) => entry.message.type === "ready").length >= 2, 30_000, "Mini-App in der Mitte meldet ready");
+      await waitFor(() => seen.filter((entry) => entry.message.type === "ready").length >= 2, 30_000, "mini-app in the center reports ready");
       report.centerApp = app.id;
     }
     report.messages = seen;

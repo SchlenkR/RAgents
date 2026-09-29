@@ -16,7 +16,7 @@ interface SessionListProps {
   selectMode: boolean;
   selectedIds: ReadonlySet<string>;
   onToggleSelected: (id: string) => void;
-  /** Mit Handler steht "Neuer Run" als erste Karte in der Liste statt als Knopf daneben. */
+  /** With a handler, "New run" is the first card in the list instead of a button next to it. */
   onCreate?: () => void;
 }
 
@@ -28,11 +28,11 @@ const formatTimestamp = (time: number): string => {
   const today = new Date();
   const sameDay = date.toDateString() === today.toDateString();
   return sameDay
-    ? date.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })
-    : date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit" });
+    ? date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
+    : date.toLocaleDateString("en-US", { day: "2-digit", month: "2-digit" });
 };
 
-/** Running, unread, locked and resting runs differ only in their accent colour; the card layout stays the same. */
+/** Running, unread, locked and resting runs differ only in their accent color; the card layout stays the same. */
 const tones = {
   locked: {
     card: "border-[color-mix(in_srgb,var(--destructive)_55%,var(--border))]",
@@ -69,12 +69,12 @@ export function SessionList({
   onCreate,
 }: SessionListProps) {
   const createCard = onCreate && !selectMode && <li className="flex min-w-0">
-    <button className={createCardClass} onClick={onCreate} type="button"><PlusIcon aria-hidden className="size-5" />Neuer Run</button>
+    <button className={createCardClass} onClick={onCreate} type="button"><PlusIcon aria-hidden className="size-5" />New run</button>
   </li>;
   if (sessions.length === 0) {
     return createCard
       ? <ul className={gridClass}>{createCard}</ul>
-      : <Empty className="py-16 text-[0.9rem] text-muted-foreground">Noch keine Runs.</Empty>;
+      : <Empty className="py-16 text-[0.9rem] text-muted-foreground">No runs yet.</Empty>;
   }
   return (
     <div className="grid gap-6.5">
@@ -100,7 +100,7 @@ export function SessionList({
               >
                 {selectMode && (
                   <input
-                    aria-label={`${session.title} zum Löschen auswählen`}
+                    aria-label={`Select ${session.title} for deletion`}
                     checked={selectedIds.has(session.id)}
                     className="absolute top-[17px] left-3.5 z-1 flex-none cursor-pointer accent-primary"
                     onChange={() => onToggleSelected(session.id)}
@@ -123,10 +123,10 @@ export function SessionList({
                     <span className="flex min-h-[18px] flex-wrap items-center gap-x-3.5 gap-y-1.5">
                       <span className={cn("flex items-center gap-[7px] text-[0.75rem]", tone.text)}>
                         {session.running ? <Spinner aria-hidden className="size-3" /> : <span aria-hidden className="size-[7px] flex-none rounded-full bg-current" />}
-                        {session.locked !== undefined ? "Locked" : session.running ? "Läuft" : session.id === activeId ? "Geöffnet" : "Ruhend"}
+                        {session.locked !== undefined ? "Locked" : session.running ? "Running" : session.id === activeId ? "Open" : "Idle"}
                       </span>
-                      {notice && <span className="inline-flex items-center gap-1.5 text-[0.7rem] font-semibold text-primary" title={notice === "updated" ? "Neue Journal-Aktivität seit Deinem letzten Ansehen dieses Runs" : "In diesem Browser noch nicht angesehen"}>
-                        <span aria-hidden className="size-[7px] flex-none rounded-full bg-current" />{notice === "updated" ? "Neue Aktivität" : "Nicht angesehen"}
+                      {notice && <span className="inline-flex items-center gap-1.5 text-[0.7rem] font-semibold text-primary" title={notice === "updated" ? "New journal activity since you last viewed this run" : "Not viewed in this browser yet"}>
+                        <span aria-hidden className="size-[7px] flex-none rounded-full bg-current" />{notice === "updated" ? "New activity" : "Not viewed"}
                       </span>}
                     </span>
                   </span>
@@ -136,14 +136,14 @@ export function SessionList({
                       <Metadata key={id} placement="list" session={session} />
                     ))}
                   <span className="mt-auto grid gap-0.5 text-muted-foreground">
-                    {session.createdAt !== undefined && <span className="text-[0.7rem] tabular-nums">Erstellt <time dateTime={new Date(session.createdAt).toISOString()}>
-                      {new Date(session.createdAt).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    {session.createdAt !== undefined && <span className="text-[0.7rem] tabular-nums">Created <time dateTime={new Date(session.createdAt).toISOString()}>
+                      {new Date(session.createdAt).toLocaleString("en-US", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </time></span>}
-                    <span className="text-[0.7rem] tabular-nums">Letzte Aktivität {formatTimestamp(session.updatedAt)}</span>
+                    <span className="text-[0.7rem] tabular-nums">Last activity {formatTimestamp(session.updatedAt)}</span>
                   </span>
                 </button>
                 {!selectMode && onDelete && (
-                  <Button aria-label={`${session.title} löschen`} className="absolute top-2.5 right-2.5 text-destructive hover:bg-destructive/12 hover:text-destructive" onClick={() => onDelete(session.id)} size="icon-sm" title={`${session.title} löschen`} variant="ghost">
+                  <Button aria-label={`Delete ${session.title}`} className="absolute top-2.5 right-2.5 text-destructive hover:bg-destructive/12 hover:text-destructive" onClick={() => onDelete(session.id)} size="icon-sm" title={`Delete ${session.title}`} variant="ghost">
                     <Trash2Icon />
                   </Button>
                 )}

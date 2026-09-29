@@ -30,25 +30,25 @@ test("chat settings control keyboard sending, successful-send scrolling and acti
     page.on("pageerror", (error) => pageErrors.push(error.message));
     await page.goto(`file://${directory}/index.html`);
     const input = page.locator("textarea");
-    const history = page.locator("[aria-label=Chatverlauf]");
+    const history = page.locator("[aria-label='Chat history']");
     const bottom = () => page.waitForFunction(() => {
-      const element = document.querySelector<HTMLElement>("[aria-label=Chatverlauf]")!;
+      const element = document.querySelector<HTMLElement>("[aria-label='Chat history']")!;
       return element.scrollHeight - element.clientHeight - element.scrollTop < 2;
     });
     const pause = async () => {
       await history.hover();
       await page.mouse.wheel(0, -500);
-      await page.waitForFunction(() => !!document.querySelector("[aria-label='Zum Ende springen']"));
+      await page.waitForFunction(() => !!document.querySelector("[aria-label='Jump to end']"));
     };
     await bottom();
-    await input.fill("Eingabe mit IME");
+    await input.fill("Input with IME");
     await input.evaluate((element) => {
       element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, isComposing: true }));
       element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, keyCode: 229 }));
       element.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, repeat: true }));
     });
     assert.equal(await page.evaluate(() => window.chatFixture.sent.length), 0);
-    await input.fill("Mit Zeilenumbruch");
+    await input.fill("With line break");
     await input.press("Shift+Enter");
     assert.equal(await page.evaluate(() => window.chatFixture.sent.length), 0);
     assert.match(await input.inputValue(), /\n/);
@@ -56,67 +56,67 @@ test("chat settings control keyboard sending, successful-send scrolling and acti
     await page.waitForFunction(() => window.chatFixture.sent.length === 1);
 
     await page.evaluate(() => { window.chatFixture.sendShortcut = "mod-enter"; window.chatFixture.update(); });
-    await input.fill("Mit Modifikatortaste");
+    await input.fill("With modifier key");
     await input.press("Enter");
     assert.equal(await page.evaluate(() => window.chatFixture.sent.length), 1);
     assert.match(await input.inputValue(), /\n/);
     await input.press("Control+Enter");
     await page.waitForFunction(() => window.chatFixture.sent.length === 2);
-    await input.fill("Mit Command");
+    await input.fill("With Command");
     await input.press("Meta+Enter");
     await page.waitForFunction(() => window.chatFixture.sent.length === 3);
     await bottom();
 
     await pause();
     const preservedPosition = await history.evaluate((element) => element.scrollTop);
-    await input.fill("Leseposition behalten");
+    await input.fill("Keep reading position");
     await input.press("Control+Enter");
     await page.waitForFunction(() => window.chatFixture.sent.length === 4);
     assert.ok(Math.abs(await history.evaluate((element) => element.scrollTop) - preservedPosition) < 2);
 
     await page.evaluate(() => { window.chatFixture.scrollOnSend = true; window.chatFixture.rejectSend = true; window.chatFixture.update(); });
-    await input.fill("Fehlgeschlagenes Senden");
+    await input.fill("Failed send");
     await input.press("Control+Enter");
-    await page.getByText("Senden fehlgeschlagen", { exact: true }).waitFor();
+    await page.getByText("Sending failed", { exact: true }).waitFor();
     assert.equal(await page.evaluate(() => window.chatFixture.sent.length), 4);
-    assert.equal(await page.locator("[aria-label='Zum Ende springen']").count(), 1);
+    assert.equal(await page.locator("[aria-label='Jump to end']").count(), 1);
 
     await page.evaluate(() => { window.chatFixture.rejectSend = false; window.chatFixture.update(); });
-    await input.fill("Erfolgreiches Senden");
+    await input.fill("Successful send");
     await input.press("Control+Enter");
     await page.waitForFunction(() => window.chatFixture.sent.length === 5);
     await bottom();
 
-    const action = page.getByRole("button", { name: "Aktion ausführen", exact: true });
+    const action = page.getByRole("button", { name: "Run action", exact: true });
     await action.focus();
     await action.press("Enter");
     assert.deepEqual(await page.evaluate(() => window.chatFixture.clicked), ["19"]);
-    const failedAction = page.getByRole("button", { name: "Fehler auslösen", exact: true });
+    const failedAction = page.getByRole("button", { name: "Trigger error", exact: true });
     await failedAction.focus();
     await failedAction.press("Enter");
-    await page.getByRole("alert").filter({ hasText: "Aktion fehlgeschlagen" }).waitFor();
+    await page.getByRole("alert").filter({ hasText: "Action failed" }).waitFor();
 
     await page.evaluate(() => {
       window.chatFixture.holdCompletion = true;
       window.chatFixture.update();
     });
     await pause();
-    await input.fill("Späterer Abschluss der alten Eingabe");
+    await input.fill("Later completion of the old input");
     await input.press("Control+Enter");
     await page.waitForFunction(() => !!window.chatFixture.completeSend);
     await page.evaluate(() => {
       window.chatFixture.composerKey += 1;
       window.chatFixture.update();
     });
-    await input.fill("Entwurf der neuen Eingabe");
+    await input.fill("Draft of the new input");
     const replacementPosition = await history.evaluate((element) => element.scrollTop);
     await page.evaluate(async () => {
       window.chatFixture.completeSend!();
       await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     });
     assert.ok(Math.abs(await history.evaluate((element) => element.scrollTop) - replacementPosition) < 2, "Unmounted composer completion must not scroll its replacement.");
-    assert.equal(await input.inputValue(), "Entwurf der neuen Eingabe");
-    assert.equal(await page.locator("[aria-label='Zum Ende springen']").count(), 1);
+    assert.equal(await input.inputValue(), "Draft of the new input");
+    assert.equal(await page.locator("[aria-label='Jump to end']").count(), 1);
     await page.evaluate(() => { window.chatFixture.holdCompletion = false; });
     await input.press("Control+Enter");
     await page.waitForFunction(() => window.chatFixture.sent.length === 7);

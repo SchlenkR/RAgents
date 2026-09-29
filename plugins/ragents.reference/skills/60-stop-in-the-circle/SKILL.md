@@ -2,11 +2,11 @@
 name: 60-stop-in-the-circle
 start: true
 disable-model-invocation: true
-title: "Einen Helfer in der Gesprächsrunde stoppen"
-description: "Zeigt, wie der Stopp eines Actors eine Übergabekette unterbricht und was nachfolgende Actors noch erhalten."
-category: "Ereignisse und Abläufe"
+title: "Stop a helper in the conversation circle"
+description: "Shows how stopping an actor interrupts a handover chain and what subsequent actors still receive."
+category: "Events and flows"
 order: 60
-tags: "Journalprüfung, Konzeptdemo, Actor-Stopp"
+tags: "Journal inspection, Concept demo, Stopping actors"
 ---
 
-Ich hätte gern vier KIs rot, gelb, blau und grün, die im Kreis eine Liste weiterreichen und jede eine eigene Zeile anhängt. Sobald die Liste einmal ganz herum war, schalte blau ab. Erzähl mir mit Belegen, woran die nächste Runde scheitert und ob grün danach überhaupt noch etwas bekommt.
+I would like four AIs red, yellow, blue, and green that pass a list around in a circle, each appending a line of its own. As soon as the list has gone all the way around once, switch blue off. Tell me with evidence why the next round fails and whether green still gets anything at all afterwards.

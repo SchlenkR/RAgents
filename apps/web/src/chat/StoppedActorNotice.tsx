@@ -4,7 +4,7 @@ import { restartChatActor } from "../api";
 import type { RunActor } from "../run-view";
 import { Button, cn } from "../ui";
 
-/** Steht an der Stelle der Eingabe, solange der Actor des Chats gestoppt ist: Grund und, wer bedienen darf, der Neustart; toolbar behält die Knöpfe der Eingabe. */
+/** Takes the place of the input while the chat's actor is stopped: the reason and, for those allowed to operate, the restart; toolbar keeps the input's buttons. */
 export function StoppedActorNotice({ actor, runId, className, toolbar }: { actor: RunActor; runId: string; className?: string; toolbar?: ReactNode }) {
   const access = useAccess();
   const [busy, setBusy] = useState(false);
@@ -26,13 +26,13 @@ export function StoppedActorNotice({ actor, runId, className, toolbar }: { actor
     data-slot="stopped-actor">
     <div className="flex min-w-0 items-center gap-2">
       <p className="min-w-0 flex-1 [overflow-wrap:anywhere]" role="status">
-        <span className="font-semibold">@{actor.handle} gestoppt:</span> {reason}
+        <span className="font-semibold">@{actor.handle} stopped:</span> {reason}
       </p>
-      {restartable && <Button disabled={busy} onClick={() => void restart()} size="sm" title={`@${actor.handle} neu starten; danach nimmt er wieder Nachrichten an`} variant="outline">
-        Neu starten
+      {restartable && <Button disabled={busy} onClick={() => void restart()} size="sm" title={`Restart @${actor.handle}; it then accepts messages again`} variant="outline">
+        Restart
       </Button>}
     </div>
-    {!restartable && <p className="text-[0.7rem] text-muted-foreground">Er nimmt keine Nachrichten an, bis ihn jemand mit Bedienrechten neu startet.</p>}
+    {!restartable && <p className="text-[0.7rem] text-muted-foreground">It accepts no messages until someone with operator rights restarts it.</p>}
     {error && <p className="text-[0.7rem] text-destructive" role="alert">{error}</p>}
     {toolbar && <div className="flex min-w-0 flex-wrap items-center gap-2">{toolbar}</div>}
   </div>;

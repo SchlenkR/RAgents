@@ -18,7 +18,7 @@ const close = (server: Server): Promise<void> => new Promise((resolve, reject) =
   server.close((error) => error ? reject(error) : resolve());
 });
 
-test("die Portprüfung akzeptiert einen freien Port und gibt ihn vor der Rückkehr wieder frei", async () => {
+test("the port check accepts a free port and releases it again before returning", async () => {
   const reservation = createServer();
   const port = await listen(reservation);
   await close(reservation);
@@ -33,14 +33,14 @@ test("die Portprüfung akzeptiert einen freien Port und gibt ihn vor der Rückke
   }
 });
 
-test("ein belegter Port nennt den Port und die konfigurierbare PORT-Alternative", async () => {
+test("an occupied port names the port and the configurable PORT alternative", async () => {
   const occupied = createServer();
   const port = await listen(occupied);
   try {
     await assert.rejects(assertServerPortAvailable(port), (error: unknown) => {
       assert.ok(error instanceof Error);
       assert.ok(error.message.includes(String(port)));
-      assert.match(error.message, /belegt|verwendet|nicht verfügbar/i);
+      assert.match(error.message, /in use|occupied|not available/i);
       assert.match(error.message, /\bPORT\b/);
       return true;
     });
@@ -51,12 +51,12 @@ test("ein belegter Port nennt den Port und die konfigurierbare PORT-Alternative"
   await assertServerPortAvailable(port);
 });
 
-test("ungültige Portwerte scheitern mit einer verständlichen Konfigurationsmeldung", async () => {
+test("invalid port values fail with an understandable configuration message", async () => {
   for (const port of [0, -1, 65_536, 1.5, Number.NaN, Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY]) {
     await assert.rejects(assertServerPortAvailable(port), (error: unknown) => {
       assert.ok(error instanceof Error);
       assert.match(error.message, /\bPORT\b|Port/);
-      assert.match(error.message, /ungültig|ganze Zahl|1.*65535|65.?535/i);
+      assert.match(error.message, /invalid|integer|1.*65535|65.?535/i);
       return true;
     });
   }

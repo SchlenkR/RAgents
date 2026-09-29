@@ -22,6 +22,6 @@ export class FixedWorkspaces implements Workspaces {
     }
 
     storeAttachment(): Promise<string> {
-        return Promise.reject(new Error("Ein fester Arbeitsbereich ohne Executor nimmt keine Dateianhänge an."));
+        return Promise.reject(new Error("A fixed workspace without an executor does not accept file attachments."));
     }
 }

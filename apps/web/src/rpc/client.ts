@@ -29,7 +29,7 @@ export interface RpcClientOptions {
   baseUrl?: string;
   fetch?: typeof fetch;
   retryDelayMs?: number;
-  /** So lange darf der Strom schweigen, bevor er als verloren gilt; der Server pingt alle 15 Sekunden. */
+  /** How long the stream may stay silent before it counts as lost; the server pings every 15 seconds. */
   idleTimeoutMs?: number;
 }
 
@@ -47,7 +47,7 @@ const EARLY_EVENT_TTL_MS = 10_000;
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
 
-/** Liest einen SSE-Strom Block für Block; ein Block ist bis zur Leerzeile. */
+/** Reads an SSE stream block by block; a block runs up to the blank line. */
 async function* sseBlocks(body: ReadableStream<Uint8Array>, onChunk: () => void): AsyncGenerator<{ event: string | undefined; data: string | undefined }> {
   const reader = body.getReader();
   const decoder = new TextDecoder();
@@ -71,7 +71,7 @@ async function* sseBlocks(body: ReadableStream<Uint8Array>, onChunk: () => void)
   }
 }
 
-/** Der Client der Nachrichtenschicht: Anfragen per POST, Benachrichtigungen und Anfragen des Servers über einen Strom. */
+/** The client of the messaging layer: requests via POST, notifications and server requests over a stream. */
 export class RpcClient {
   readonly #baseUrl: string;
   readonly #fetch: typeof fetch;
@@ -131,7 +131,7 @@ export class RpcClient {
     };
   }
 
-  /** Beantwortet Anfragen des Servers, etwa an einen Arbeitsplatz; hält dafür den Strom offen. */
+  /** Answers requests from the server, for example to a workstation; keeps the stream open for that. */
   handle<C extends OperationContract>(
     contract: C,
     handler: (input: OperationInput<C>, context: RpcHandlerContext) => OperationResult<C> | Promise<OperationResult<C>>,
@@ -151,7 +151,7 @@ export class RpcClient {
     return () => { this.#statusListeners.delete(listener); };
   }
 
-  /** Nach jeder neuen Verbindung, wenn die Abonnements wieder stehen; ein Arbeitsplatz meldet sich dann erneut an. */
+  /** After every new connection, once the subscriptions are back in place; a workstation then registers again. */
   onConnected(listener: () => void): () => void {
     this.#connectedListeners.add(listener);
     return () => { this.#connectedListeners.delete(listener); };
@@ -162,7 +162,7 @@ export class RpcClient {
     this.#open();
   }
 
-  /** Beendet den Strom; offene Anfragen des Servers werden abgebrochen, eigene Anfragen bleiben möglich. */
+  /** Ends the stream; open requests from the server are cancelled, own requests stay possible. */
   close(): void {
     this.#stop();
     this.#set({ kind: "idle" });
@@ -177,7 +177,7 @@ export class RpcClient {
     for (const listener of [...this.#statusListeners]) listener(status);
   }
 
-  /** Ohne Strom erreicht keine Antwort mehr den Server; laufende Handler enden deshalb mit ihm. */
+  /** Without a stream no answer reaches the server anymore; running handlers therefore end with it. */
   #stop(): void {
     if (this.#retry !== undefined) clearTimeout(this.#retry);
     this.#retry = undefined;
@@ -190,12 +190,12 @@ export class RpcClient {
     for (const subscription of this.#subscriptions) subscription.serverId = undefined;
   }
 
-  /** Ein halb offener Strom liefert nichts mehr, auch keinen Ping; nach der Ruhezeit gilt er als verloren. */
+  /** A half-open stream delivers nothing anymore, not even a ping; after the idle time it counts as lost. */
   #watchIdle(controller: AbortController): void {
     if (this.#idle !== undefined) clearTimeout(this.#idle);
     this.#idle = setTimeout(() => {
       this.#idle = undefined;
-      if (this.#stream === controller) this.#scheduleRetry(`Der Ereignisstrom schweigt seit ${Math.round(this.#idleTimeoutMs / 1000)} s.`);
+      if (this.#stream === controller) this.#scheduleRetry(`The event stream has been silent for ${Math.round(this.#idleTimeoutMs / 1000)} s.`);
     }, this.#idleTimeoutMs);
   }
 
@@ -217,7 +217,7 @@ export class RpcClient {
       this.#set({ kind: "unauthorized" });
       return;
     }
-    if (!response.ok || !response.body) throw new Error(`Der Ereignisstrom antwortete mit ${response.status}.`);
+    if (!response.ok || !response.body) throw new Error(`The event stream responded with ${response.status}.`);
     this.#watchIdle(controller);
     for await (const block of sseBlocks(response.body, () => this.#watchIdle(controller))) {
       if (controller.signal.aborted) return;
@@ -232,7 +232,7 @@ export class RpcClient {
       const message = JSON.parse(block.data) as unknown;
       if (isRpcMessage(message)) this.#peer.receive(message);
     }
-    if (!controller.signal.aborted) this.#scheduleRetry("Der Server hat den Ereignisstrom beendet.");
+    if (!controller.signal.aborted) this.#scheduleRetry("The server ended the event stream.");
   }
 
   #scheduleRetry(message: string): void {
@@ -260,7 +260,7 @@ export class RpcClient {
       this.#earlyEvents.delete(serverId);
       for (const message of early?.messages ?? []) subscription.onMessage(message);
     } catch (cause) {
-      subscription.onError?.(`Kanal ${subscription.contract.id}: ${messageOf(cause)}`);
+      subscription.onError?.(`Channel ${subscription.contract.id}: ${messageOf(cause)}`);
     }
   }
 
@@ -270,7 +270,7 @@ export class RpcClient {
       subscription.onMessage(params.message);
       return;
     }
-    // Das Ereignis kann vor der Antwort auf das Abonnement eintreffen; kurz aufheben.
+    // The event can arrive before the answer to the subscription; keep it briefly.
     const now = Date.now();
     for (const [id, entry] of this.#earlyEvents) if (now - entry.at > EARLY_EVENT_TTL_MS) this.#earlyEvents.delete(id);
     const entry = this.#earlyEvents.get(params.subscription) ?? { at: now, messages: [] };
@@ -291,7 +291,7 @@ export class RpcClient {
     if (this.#connection) headers[RPC_CONNECTION_HEADER] = this.#connection;
     if (!isRpcRequest(message)) {
       if (!this.#connection) return;
-      // Benachrichtigungen und Antworten gehen in Reihenfolge, damit Fortschritt nie sein Ergebnis überholt.
+      // Notifications and responses go out in order so progress never overtakes its result.
       const send = this.#outgoing.then(() => this.#fetch(`${this.#baseUrl}${RPC_PATH}`, { method: "POST", headers, body: JSON.stringify(message) }));
       this.#outgoing = send.then(() => undefined, () => undefined);
       await send;
@@ -308,12 +308,12 @@ export class RpcClient {
         return;
       }
       const detail = body as { error?: unknown; code?: unknown } | undefined;
-      const text = typeof detail?.error === "string" ? detail.error : `Der Server antwortete mit ${response.status}.`;
+      const text = typeof detail?.error === "string" ? detail.error : `The server responded with ${response.status}.`;
       this.#peer.receive(rpcFailure(message.id, RPC_ERROR_CODES.application, text, { code: typeof detail?.code === "string" ? detail.code : "http-error", status: response.status }));
     } catch (cause) {
       const cancelled = controller.signal.aborted;
       this.#peer.receive(rpcFailure(message.id, cancelled ? RPC_ERROR_CODES.cancelled : RPC_ERROR_CODES.connectionClosed,
-        cancelled ? "Abgebrochen" : `${this.#baseUrl || "Der Server"} ist nicht erreichbar: ${messageOf(cause)}`));
+        cancelled ? "Cancelled" : `${this.#baseUrl || "The server"} is unreachable: ${messageOf(cause)}`));
     } finally {
       this.#inFlight.delete(id);
     }

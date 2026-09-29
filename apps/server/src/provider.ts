@@ -31,6 +31,7 @@ import {
 } from "./run-transfer.js";
 import type { StartOptionState } from "./plugin-support/start-options-contract.js";
 import { ALIAS_PROVIDER, validatedModelAliases } from "./plugin-support/model-aliases.js";
+import { configuredModelProviders, modelProviderRegistration } from "./plugin-support/model-providers.js";
 import { runScriptFromDirectory } from "./plugin-support/run-scripts.js";
 import { createEngine, SessionWorkspaces, type Engine } from "./ragents/engine.js";
 import type { ProductProfileFactory } from "./ragents/host-services.js";
@@ -48,7 +49,7 @@ import { sandboxServicesToken } from "./plugin-support/workspace-sandbox-host.js
 import { parseRunPreparationRequest, prepareRunMessage } from "./run-preparation.js";
 import type { RunPreparationResponse } from "./run-preparation-contract.js";
 
-/** Der Commit des laufenden Hosts: aus dem gebauten Paket, sonst aus dem Checkout. */
+/** The commit of the running host: from the built package, otherwise from the checkout. */
 const hostVersionOf = (): string => readHostPackage()?.hostVersion ?? readHostVersion();
 
 /** accepted: the delete intent is durable and the run is hidden; done: the cleanup job has finished. */
@@ -56,13 +57,13 @@ interface DeleteJob { accepted: Promise<void>; done: Promise<void> }
 
 type ListedSession = SessionInfo & {
   running: boolean;
-  /** Ob der Aufrufer den Arbeitsbereich des Runs erreicht; Oberflächen blenden sonst aus, was ihn braucht. */
+  /** Whether the caller reaches the run's workspace; otherwise UIs hide what needs it. */
   workspaceAccessible: boolean;
   metadata?: Readonly<Record<string, unknown>>;
   metadataUnavailable?: Readonly<Record<string, string>>;
 };
 
-/** Die Run-Liste wird oft abgefragt; so lange wartet sie höchstens auf einen Metadaten-Beitrag. */
+/** The run list is queried often; this is the longest it waits for a metadata contribution. */
 export const SESSION_METADATA_TIMEOUT_MS = 1_500;
 
 export class RunSessionProvider implements ChatSessionProvider {
@@ -81,7 +82,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     sessionsDir: layout.sessionsDir,
     modelRuntime: () => this.getModelRuntime(),
     onTitle: () => this.notifyList(),
-    onError: (error) => console.warn("Titel-Kompaktierung fehlgeschlagen:", error),
+    onError: (error) => console.warn("Title compaction failed:", error),
   });
   readonly plugins: PluginHost;
   private shutdownPromise: Promise<void> | undefined;
@@ -89,7 +90,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   private readonly globalResets = new Map<string, Promise<void>>();
   private readonly globalResetsRequested = new Set<string>();
   private transferring = false;
-  /** Die Adresse, unter der dieser Server seine API anbietet; ohne HTTP (nur stdio) keine. */
+  /** The address at which this server offers its API; none without HTTP (stdio only). */
   private readonly apiBaseUrl: string | undefined;
 
   constructor(profileFactory: ProductProfileFactory, apiBaseUrl: string | undefined) {
@@ -103,6 +104,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       runtime: () => this.requireEngine().runtime,
       sessionWorkspaceFor: (runId) => this.sessionWorkspace(runId, () => {}),
       sessions: () => this.sessionManagement(),
+      modelRuntime: () => this.getModelRuntime(),
       ...(apiBaseUrl === undefined ? {} : { apiBaseUrl }),
     });
   }
@@ -110,8 +112,8 @@ export class RunSessionProvider implements ChatSessionProvider {
   private requireContract(token: ServiceToken<unknown>): void {
     if (this.plugins.optionalService(token) !== undefined) return;
     throw new Error(
-      `Das Profil stellt den Pflichtvertrag ${token.id} nicht bereit. `
-      + "Ein Produkt-Plugin muss ihn mit host.provide(...) registrieren.",
+      `The profile does not provide the required contract ${token.id}. `
+      + "A product plugin must register it with host.provide(...).",
     );
   }
 
@@ -135,7 +137,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     for (const user of [...configuredUsers() ?? [], ...anonymousUser ? [anonymousUser] : []]) {
       for (const id of user.startEntries ?? []) {
         const entry = entries.find((candidate) => candidate.id === id);
-        if (!entry || entry.action !== "script") throw new Error(`Benutzer ${user.id}: ${id} ist kein registriertes Run-Setup`);
+        if (!entry || entry.action !== "script") throw new Error(`User ${user.id}: ${id} is not a registered run setup`);
       }
     }
     this.requireContract(productRuntimeToken);
@@ -162,11 +164,11 @@ export class RunSessionProvider implements ChatSessionProvider {
     for (const id of this.deleted) {
       if (this.deleteRequested.has(id)) continue;
       if (this.engine.journal.stateOf(id) || existsSync(layout.sessionDir(id))) {
-        throw new Error(`Archivierter Run ${id} besitzt erneut aktive Daten`);
+        throw new Error(`Archived run ${id} has active data again`);
       }
     }
     for (const id of pendingDeletes) await this.beginDelete(id).done;
-    // Ein Koordinator ohne heutigen Zugang (der frühere gemeinsame, ein entfernter Benutzer) bleibt unberührt.
+    // A coordinator without a current access (the former shared one, a removed user) stays untouched.
     const runIds = this.engine.journal.runIds().filter((runId) => !globalChat?.isCoordinator(runId) || this.coordinatorUser(runId) !== undefined);
     await Promise.all(runIds.map((runId) => this.sessionWorkspace(runId, () => {})));
     for (const runId of runIds) this.openSession(runId);
@@ -174,15 +176,18 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 
   private requireEngine(): Engine {
-    if (!this.engine) throw new Error("Die Engine ist noch nicht gestartet");
+    if (!this.engine) throw new Error("The engine has not started yet");
     return this.engine;
   }
 
-  /** Die eine Modelllaufzeit des Servers; Anbieter der Plugins und Aliasse des Profils stehen, bevor jemand ein Modell nachschlägt. */
+  /** The server's one model runtime; the plugins' and the profile's providers and the profile's aliases are in place before anyone looks up a model. */
   private getModelRuntime(): Promise<ModelRuntime> {
     return this.modelRuntime ??= this.plugins.profiles.providers().then((providers) => {
       const runtime = ModelRuntime.create();
-      for (const provider of providers) runtime.registerProvider(provider.id, provider.config);
+      const profileProviders = configuredModelProviders().map(modelProviderRegistration);
+      const taken = profileProviders.find((provider) => providers.some((other) => other.id === provider.id));
+      if (taken) throw new Error(`MODEL_PROVIDERS: the provider ${taken.id} is already registered by a plugin`);
+      for (const provider of [...providers, ...profileProviders]) runtime.registerProvider(provider.id, provider.config);
       const aliases = validatedModelAliases();
       if (aliases.length > 0) runtime.registerAliases(ALIAS_PROVIDER, aliases);
       return runtime;
@@ -190,7 +195,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 
   private requireTitleSettings(): TitleSettingsStore {
-    if (!this.titleSettings) throw new Error("Die Titelmodelleinstellungen sind noch nicht geladen.");
+    if (!this.titleSettings) throw new Error("The title model settings are not loaded yet.");
     return this.titleSettings;
   }
 
@@ -210,8 +215,8 @@ export class RunSessionProvider implements ChatSessionProvider {
 
   private openSession(id: string, initialTitle?: string): RunChatSession {
     this.ensureUsable(id);
-    const vorhanden = this.sessions.get(id);
-    if (vorhanden) return vorhanden;
+    const existing = this.sessions.get(id);
+    if (existing) return existing;
     const engine = this.requireEngine();
     const productRuntime = this.plugins.service(productRuntimeToken);
     const globalChat = this.plugins.optionalService(globalChatToken);
@@ -232,7 +237,7 @@ export class RunSessionProvider implements ChatSessionProvider {
         const primary = view.actors.find((actor) => actor.id === view.primaryActorId);
         if (primary && primary.kind !== "human" && (primary.toolNames === null
           || [...primary.toolNames].sort().join("\n") !== [...globalPolicy.toolNames].sort().join("\n"))) {
-          throw new DomainError("global-tools-changed", "Die Werkzeuge des übergeordneten Koordinators haben sich geändert. Setze sein Gespräch zurück, um die aktuellen Werkzeuge zu verwenden.", 409);
+          throw new DomainError("global-tools-changed", "The tools of the top-level coordinator have changed. Reset its conversation to use the current tools.", 409);
         }
       },
       prepare: (runId) => this.prepareRun(runId),
@@ -261,12 +266,12 @@ export class RunSessionProvider implements ChatSessionProvider {
 
   async prepareRunMessage(id: string, value: unknown, signal: AbortSignal, userId: string | null): Promise<RunPreparationResponse> {
     this.ensureUsable(id);
-    if (this.runPreparations.has(id)) throw new DomainError("preparation-busy", "Eine Antwort für diese Vorbereitung wird bereits erstellt.", 409);
+    if (this.runPreparations.has(id)) throw new DomainError("preparation-busy", "A response for this preparation is already being created.", 409);
     const request = parseRunPreparationRequest(value);
     const session = this.openSession(id);
     const selection = session.preparationSelection(userId);
     const prompt = this.plugins.optionalService(globalChatToken)?.preparationPrompt;
-    if (!prompt) throw new DomainError("preparation-unavailable", "Das Profil stellt keinen Vorbereitungskoordinator bereit.", 409);
+    if (!prompt) throw new DomainError("preparation-unavailable", "The profile provides no preparation coordinator.", 409);
     const controller = new AbortController();
     const combined = AbortSignal.any([signal, controller.signal]);
     const done = this.getModelRuntime().then(async (runtime) => {
@@ -281,7 +286,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     return done;
   }
 
-  /** Nur sichtbare Runs bekommen Titel und Metadaten; ohne Bereich alle, ohne einen Arbeitsbereich, den nur sein Eigentümer bedient. */
+  /** Only visible runs get titles and metadata; without a scope all of them, without a workspace that only its owner operates. */
   async list(scope?: RunListScope): Promise<SessionInfo[]> {
     const visible = scope?.visible ?? (() => true);
     const workspaceAccessible = scope?.workspaceAccessible ?? ((runId: string) => !this.runOwnerOnly(runId));
@@ -364,7 +369,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     for (const [optionId, value] of Object.entries(start.options ?? {})) await session.selectStartOption(optionId, value, start.user?.id ?? null);
     if (start.kind === "script") await session.startAndWait(start.entryId, start.input, user);
     else if (start.kind === "package") {
-      if (!local) throw new Error("Das Run-Script-Paket wurde nicht geladen");
+      if (!local) throw new Error("The run script package was not loaded");
       const { script, ...entry } = local;
       await session.startPackageAndWait({ ...script, entry: { ...entry, coordinator: script.coordinator, owner: start.owner } }, start.input, user);
     }
@@ -423,7 +428,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     return pathname === "/rpc" || pathname === "/rpc/stream" || pathname.startsWith("/files/") || this.plugins.isApiPath(pathname);
   }
 
-  /** Auslieferungsrouten nennen ihren Run im Pfad; ein fremder Run ist dort so wenig erreichbar wie in einer Methode. */
+  /** Delivery routes name their run in the path; another user's run is as unreachable there as in a method. */
   async pluginRoutes(req: IncomingMessage, res: ServerResponse, url: URL, access?: AccessContext): Promise<boolean> {
     const named = runIdInPath(url.pathname);
     if (named !== undefined && access && !runReachable(access, named, this.runAccess())) {
@@ -435,18 +440,18 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 
   private ensureUsable(id: string): void {
-    if (!isRunId(id)) throw new DomainError("invalid-run", `Ungültige Run-ID: ${id}`, 400);
+    if (!isRunId(id)) throw new DomainError("invalid-run", `Invalid run id: ${id}`, 400);
     this.ensureAvailable();
     if (this.globalResetsRequested.has(id)) {
-      throw new DomainError("conversation-resetting", "Das globale Gespräch wird zurückgesetzt. Bitte warte kurz oder wiederhole den Reset nach einem Fehler.", 409);
+      throw new DomainError("conversation-resetting", "The global conversation is being reset. Please wait a moment or repeat the reset after an error.", 409);
     }
-    if (this.deleteRequested.has(id)) throw new DomainError("run-deleting", "Der Run wird gelöscht", 409);
-    if (this.deleted.has(id)) throw new DomainError("run-deleted", "Der Run wurde gelöscht", 410);
+    if (this.deleteRequested.has(id)) throw new DomainError("run-deleting", "The run is being deleted", 409);
+    if (this.deleted.has(id)) throw new DomainError("run-deleted", "The run was deleted", 410);
     this.engine?.journal.assertRunAvailable(id);
   }
 
   private ensureAvailable(): void {
-    if (this.shutdownPromise) throw new DomainError("server-stopping", "Der Server wird beendet", 503);
+    if (this.shutdownPromise) throw new DomainError("server-stopping", "The server is shutting down", 503);
   }
 
   private sessionWorkspace(id: string, emitSystem: (text: string) => void): Promise<SessionWorkspace> {
@@ -486,10 +491,10 @@ export class RunSessionProvider implements ChatSessionProvider {
 
   delete(id: string): Promise<void> {
     if (this.plugins.optionalService(globalChatToken)?.isCoordinator(id)) {
-      return Promise.reject(new DomainError("global-chat-protected", "Der globale Koordinator kann nicht gelöscht werden", 409));
+      return Promise.reject(new DomainError("global-chat-protected", "The global coordinator cannot be deleted", 409));
     }
-    if (!isRunId(id)) return Promise.reject(new Error(`Ungültige Run-ID: ${id}`));
-    if (this.shutdownPromise) return Promise.reject(new Error("Der Server wird beendet"));
+    if (!isRunId(id)) return Promise.reject(new Error(`Invalid run id: ${id}`));
+    if (this.shutdownPromise) return Promise.reject(new Error("The server is shutting down"));
     return this.beginDelete(id).accepted;
   }
 
@@ -497,16 +502,16 @@ export class RunSessionProvider implements ChatSessionProvider {
     return this.deleting.get(id)?.done;
   }
 
-  /** Ein gestoppter Run als Archiv: Journal, Payloads, die Inhalte, auf die er verweist, und seine Plugin-Ablagen. */
+  /** A stopped run as an archive: journal, payloads, the contents it refers to, and its plugin storage. */
   exportRun(id: string): Promise<RunTransferExport> {
     this.ensureUsable(id);
     if (this.plugins.optionalService(globalChatToken)?.isCoordinator(id)) {
-      return Promise.reject(new DomainError("global-chat-protected", "Der globale Koordinator zieht nicht um", 409));
+      return Promise.reject(new DomainError("global-chat-protected", "The global coordinator does not move", 409));
     }
     return this.runTransfer(async () => {
       const engine = this.requireEngine();
       const state = engine.journal.stateOf(id);
-      if (!state) throw new DomainError("run-not-found", `Den Run ${id} gibt es nicht`, 404);
+      if (!state) throw new DomainError("run-not-found", `The run ${id} does not exist`, 404);
       assertRunStopped({
         runId: id,
         state,
@@ -535,7 +540,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     });
   }
 
-  /** Nimmt ein Archiv an, gibt sein Journal wieder und öffnet den Run gestoppt; `workspacePath` ersetzt eine Bindung an einen Projektordner. */
+  /** Accepts an archive, replays its journal and opens the run stopped; `workspacePath` replaces a binding to a project folder. */
   importRun(archive: Buffer, workspacePath: string | undefined): Promise<RunTransferImport> {
     this.ensureAvailable();
     return this.runTransfer(async () => {
@@ -582,20 +587,20 @@ export class RunSessionProvider implements ChatSessionProvider {
   private workspaceTransfer(): WorkspaceTransfer {
     const transfer = this.plugins.service(workspaceRuntimeToken).transfer;
     if (!transfer) {
-      throw new DomainError("run-transfer-unsupported", "Dieses Profil kennt keinen Run-Umzug: sein Arbeitsbereich meldet keine Bindung.", 409);
+      throw new DomainError("run-transfer-unsupported", "This profile does not support moving runs: its workspace reports no binding.", 409);
     }
     return transfer;
   }
 
   private runTransfer<T>(work: () => Promise<T>): Promise<T> {
-    if (this.transferring) return Promise.reject(new DomainError("run-transfer-busy", "Ein anderer Run-Umzug läuft gerade auf diesem Server.", 409));
+    if (this.transferring) return Promise.reject(new DomainError("run-transfer-busy", "Another run move is in progress on this server.", 409));
     this.transferring = true;
     return work().finally(() => { this.transferring = false; });
   }
 
   private assertRunIdAvailable(id: string): void {
     if (this.plugins.optionalService(globalChatToken)?.isCoordinator(id)) {
-      throw new DomainError("run-transfer-exists", `Die Kennung ${id} ist den übergeordneten Koordinatoren dieses Servers vorbehalten.`, 409);
+      throw new DomainError("run-transfer-exists", `The id ${id} is reserved for the top-level coordinators of this server.`, 409);
     }
     const engine = this.requireEngine();
     assertRunIdFree({
@@ -610,8 +615,8 @@ export class RunSessionProvider implements ChatSessionProvider {
     const running = this.globalResets.get(id);
     if (running) return running;
     const policy = this.plugins.optionalService(globalChatToken);
-    if (!policy?.resetIntentDirectory) return Promise.reject(new DomainError("conversation-reset-unavailable", "Dieses Profil bietet keinen Gesprächsreset an.", 404));
-    if (!policy.isCoordinator(id)) return Promise.reject(new DomainError("conversation-reset-unavailable", `${id} ist kein globaler Koordinator.`, 404));
+    if (!policy?.resetIntentDirectory) return Promise.reject(new DomainError("conversation-reset-unavailable", "This profile offers no conversation reset.", 404));
+    if (!policy.isCoordinator(id)) return Promise.reject(new DomainError("conversation-reset-unavailable", `${id} is not a global coordinator.`, 404));
     const intentFile = path.join(policy.resetIntentDirectory, `${id}.json`);
     this.globalResetsRequested.add(id);
     const operation = this.resetGlobalInner(id, intentFile, policy).catch((error: unknown) => {
@@ -659,7 +664,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   private async validateGlobalResetIntent(file: string, id: string): Promise<void> {
     const marker: unknown = JSON.parse(await readFile(file, "utf8"));
     if (!isRunId(id) || !marker || typeof marker !== "object" || !("version" in marker) || marker.version !== 1 || !("runId" in marker) || marker.runId !== id) {
-      throw new Error("Der Gesprächsreset-Marker ist ungültig");
+      throw new Error("The conversation reset marker is invalid");
     }
   }
 
@@ -671,7 +676,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     }
   }
 
-  /** Wem ein Koordinator gehört: dem Benutzer, dessen Kennung er trägt, ohne Anmeldung dem einen Zugang; sonst niemandem. */
+  /** Who owns a coordinator: the user whose id it carries, without sign-in the one access; otherwise nobody. */
   private coordinatorUser(id: string): { userId: string | null } | undefined {
     const policy = this.plugins.optionalService(globalChatToken);
     if (!policy?.isCoordinator(id)) return undefined;
@@ -682,8 +687,8 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 
   private beginDelete(id: string): DeleteJob {
-    const vorhanden = this.deleting.get(id);
-    if (vorhanden) return vorhanden;
+    const existing = this.deleting.get(id);
+    if (existing) return existing;
     this.deleteRequested.add(id);
     this.runPreparations.get(id)?.controller.abort();
     const accepted = this.persistDeleteIntent(id)
@@ -700,7 +705,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       });
     const job = { accepted, done };
     this.deleting.set(id, job);
-    done.catch((error: unknown) => { if (this.deleteRequested.has(id)) console.warn(`Löschjob für ${id} fehlgeschlagen:`, error); });
+    done.catch((error: unknown) => { if (this.deleteRequested.has(id)) console.warn(`Delete job for ${id} failed:`, error); });
     return job;
   }
 
@@ -713,7 +718,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     return this.shutdownPromise;
   }
 
-  /** Gibt das Journal-Lock synchron frei; für den exit-Hook, wenn kein geordneter Shutdown mehr läuft. */
+  /** Releases the journal lock synchronously; for the exit hook, when no orderly shutdown runs anymore. */
   closeJournal(): void {
     this.engine?.journal.close();
   }
@@ -760,7 +765,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       .slice(0, 3)
       .filter((result): result is PromiseRejectedResult => result.status === "rejected")
       .map((result) => result.reason);
-    if (failures.length > 0) throw new AggregateError(failures, `Run ${id} konnte nicht gestoppt werden`);
+    if (failures.length > 0) throw new AggregateError(failures, `Run ${id} could not be stopped`);
     await this.plugins.lifecycle.deleteSession(id);
     await this.archiveSession(id);
     this.engine?.runtime.forgetRun(id);
@@ -780,7 +785,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       .map((entry) => entry.name.slice(0, -5));
 
     for (const id of ids) {
-      if (!isRunId(id)) throw new Error(`Ungültiger Delete-Intent: ${id}`);
+      if (!isRunId(id)) throw new Error(`Invalid delete intent: ${id}`);
       await this.validateDeleteIntent(id);
     }
 
@@ -793,7 +798,7 @@ export class RunSessionProvider implements ChatSessionProvider {
 
     for (const entry of entries) {
       if (!entry.isDirectory() || entry.name === "ohne-session") continue;
-      if (!isRunId(entry.name)) throw new Error(`Ungültiges Run-Archiv: ${entry.name}`);
+      if (!isRunId(entry.name)) throw new Error(`Invalid run archive: ${entry.name}`);
       ids.push(entry.name);
     }
 
@@ -828,14 +833,14 @@ export class RunSessionProvider implements ChatSessionProvider {
     try {
       marker = JSON.parse(source);
     } catch {
-      throw new Error(`Delete-Intent ${id} enthält kein gültiges JSON`);
+      throw new Error(`Delete intent ${id} contains no valid JSON`);
     }
     if (!marker || typeof marker !== "object" || Array.isArray(marker)) {
-      throw new Error(`Delete-Intent ${id} hat ein ungültiges Format`);
+      throw new Error(`Delete intent ${id} has an invalid format`);
     }
     const record = marker as { version?: unknown; runId?: unknown };
     if (record.version !== 1 || record.runId !== id) {
-      throw new Error(`Delete-Intent ${id} passt nicht zu seinem Dateinamen`);
+      throw new Error(`Delete intent ${id} does not match its file name`);
     }
   }
 
@@ -852,7 +857,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     const globalChat = this.plugins.optionalService(globalChatToken);
     if (globalChat?.isCoordinator(id)) {
       const owner = this.coordinatorUser(id);
-      if (!owner) throw new DomainError("coordinator-without-access", `Der Koordinator ${id} gehört keinem Zugang dieses Profils.`, 409);
+      if (!owner) throw new DomainError("coordinator-without-access", `The coordinator ${id} belongs to no access of this profile.`, 409);
       const directory = globalChat.workspaceDirectory(id);
       await mkdir(directory, { recursive: true, mode: ROOT_ONLY_MODE });
       const cwd = await realpath(directory);
@@ -860,7 +865,7 @@ export class RunSessionProvider implements ChatSessionProvider {
       const users = configuredUsers();
       return {
         cwd,
-        // Mit Benutzern enthielte der Journalordner fremde Runs; der Koordinator liest über die Methoden seines Benutzers.
+        // With users, the journal folder would contain other users' runs; the coordinator reads through its user's methods.
         hostSandbox: { home: cwd, readOnlyRoots: users ? [] : [{ directory: layout.runsDir, environmentVariable: "RAGENTS_JOURNAL_DIR" }] },
         extraEnv: {
           ...(this.apiBaseUrl ? { RAGENTS_API_BASE_URL: this.apiBaseUrl } : {}),
@@ -877,7 +882,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   private async archiveSession(id: string): Promise<void> {
     const target = layout.archiveSessionDir(id);
     await mkdir(target, { recursive: true, mode: ROOT_ONLY_MODE });
-    // Journale vor Format 7 hielten den Modellkontext unter sessions/<id>/chat; er bleibt im Archiv erhalten.
+    // Journals before format 7 kept the model context under sessions/<id>/chat; it is preserved in the archive.
     const moves = [
       [path.join(layout.sessionDir(id), "chat"), "chat"],
       [path.join(layout.runsDir, id), "run"],
@@ -885,7 +890,7 @@ export class RunSessionProvider implements ChatSessionProvider {
     ] as const;
     for (const [from, name] of moves) {
       if (existsSync(from) && existsSync(path.join(target, name))) {
-        throw new Error(`Archiv ${id}/${name} existiert bereits und wird nicht überschrieben`);
+        throw new Error(`Archive ${id}/${name} already exists and is not overwritten`);
       }
     }
     for (const [from, name] of moves) {
@@ -901,7 +906,7 @@ export class RunSessionProvider implements ChatSessionProvider {
   }
 }
 
-/** Ein gesperrter Run ohne Plugin-Metadaten und Arbeitsbereich; ohne geladenen Zustand zählt die Journaldatei. */
+/** A locked run without plugin metadata and workspace; without loaded state, the journal file counts. */
 const lockedSession = (failure: JournalLoadFailure, journal: Journal): ListedSession => {
   const state = journal.stateOf(failure.runId);
   const updatedAt = state ? Date.parse(journal.updatedAt(failure.runId) ?? state.createdAt) : statSync(failure.path, { throwIfNoEntry: false })?.mtimeMs ?? 0;

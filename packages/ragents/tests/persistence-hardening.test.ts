@@ -143,7 +143,7 @@ test("a writer lock of a dead process is taken over with a notice", (t) => {
 
     assert.equal(existsSync(join(lockPath, "owner-planted.json")), false);
     assert.equal(readdirSync(lockPath).length, 1);
-    assert.match(notices.join("\n"), /Prozess 999999 lebt nicht mehr/);
+    assert.match(notices.join("\n"), /process 999999 is no longer alive/);
     journal.close();
     assert.equal(existsSync(lockPath), false);
 });
@@ -163,20 +163,20 @@ test("a living process without heartbeat counts as stale", (t) => {
 
     const journal = new Journal(root, services(), { onStaleLock: (message) => notices.push(message) });
 
-    assert.match(notices.join("\n"), /Prozess \d+ ohne Herzschlag seit 1\d\d s/);
+    assert.match(notices.join("\n"), /process \d+ without heartbeat for 1\d\d s/);
     journal.close();
 });
 
 test("a lock from another host is judged by its heartbeat alone", (t) => {
     const root = temporaryDirectory(t);
-    plantLock(root, { pid: process.pid, hostname: "anderswo", heartbeatAt: new Date().toISOString() });
+    plantLock(root, { pid: process.pid, hostname: "elsewhere", heartbeatAt: new Date().toISOString() });
     assert.throws(() => new Journal(root, services()), /already owns/);
     rmSync(join(root, ".writer.lock"), { recursive: true });
 
-    plantLock(root, { pid: process.pid, hostname: "anderswo", heartbeatAt: secondsAgo(120) });
+    plantLock(root, { pid: process.pid, hostname: "elsewhere", heartbeatAt: secondsAgo(120) });
     const notices: string[] = [];
     const journal = new Journal(root, services(), { onStaleLock: (message) => notices.push(message) });
-    assert.match(notices.join("\n"), /auf anderswo ohne Herzschlag/);
+    assert.match(notices.join("\n"), /on elsewhere without heartbeat/);
     journal.close();
 });
 
@@ -203,10 +203,10 @@ test("a journal whose lock vanished stops accepting writes", async (t) => {
 
     await new Promise((resolve) => setTimeout(resolve, 60));
 
-    assert.match(notices.join("\n"), /von außen entfernt/);
+    assert.match(notices.join("\n"), /removed from outside/);
     assert.throws(() => journal.append("run-a", { id: "c1", type: "run.create", actorId: "human", requestHash: "h" }, [
         { type: "run.created", actorId: "human", payload: { title: "x", ownerId: "human" } } as never,
-    ]), /keine Schreibvorgänge mehr/);
+    ]), /no longer accepts writes/);
     journal.close();
 });
 
@@ -858,7 +858,7 @@ test("a forgotten run leaves the registry and can be created again under the sam
     const runtime = new Orchestration(journal, usedServices);
 
     try {
-        const view = runtime.createRun({ commandId: "create-run" }, { title: "Weg damit", ownerHandle: "owner", ownerDisplayName: "Owner" });
+        const view = runtime.createRun({ commandId: "create-run" }, { title: "Get rid of it", ownerHandle: "owner", ownerDisplayName: "Owner" });
 
         assert.deepEqual(journal.runIds(), [view.id]);
         assert.equal(journal.forget(view.id), true);
@@ -866,10 +866,10 @@ test("a forgotten run leaves the registry and can be created again under the sam
         assert.equal(journal.stateOf(view.id), null);
         assert.equal(journal.forget(view.id), false);
 
-        const zweiter = runtime.createRun({ commandId: "create-run" }, { title: "Neu", ownerHandle: "owner", ownerDisplayName: "Owner" });
+        const recreated = runtime.createRun({ commandId: "create-run" }, { title: "New", ownerHandle: "owner", ownerDisplayName: "Owner" });
 
-        assert.notEqual(zweiter.id, view.id);
-        assert.deepEqual(journal.runIds(), [zweiter.id]);
+        assert.notEqual(recreated.id, view.id);
+        assert.deepEqual(journal.runIds(), [recreated.id]);
     } finally {
         journal.close();
     }

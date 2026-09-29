@@ -36,15 +36,25 @@ referenced variable as an error. Configured models and reasoning levels must be 
 available model catalog.
 
 A profile can also name its models by alias: `MODEL_ALIASES` in the `host` section lists objects
-with `alias`, `model` as `provider/model`, an optional default `thinking` level, and the model's
-`compaction` values: the context size in tokens at which an agent compacts (`threshold`), how much
-recent context stays verbatim (`keepRecentTokens`), and the summary budget (`summaryTokens`).
+with `alias`, `model` as `provider/model`, an optional default `thinking` level, optional
+`thinkingLevels` that map the levels the alias offers onto levels of its model (for example
+`{ off: "low", low: "low", medium: "high" }` for a model that always reasons and has no `medium`),
+and the model's `compaction` values: the context size in tokens at which an agent compacts
+(`threshold`), how much recent context stays verbatim (`keepRecentTokens`), and the summary budget
+(`summaryTokens`).
 `AGENT_PROVIDER: "alias"` makes the product use them. The interface, the chat, and the journal then
 show only the alias names.
 
+An alias can also point to a self-hosted OpenAI-compatible server. `MODEL_PROVIDERS` in the `host`
+section lists such servers with `id`, `baseUrl` (up to `/v1`), `apiKey: env("...")`, optional
+`compat`, and their `models` (`id`, `contextWindow`, `maxTokens`, `reasoning`, `input`, optional
+`thinkingLevelMap`); an alias then names `<id>/<model>`. For a Qwen chat template, as served by
+oMLX, set `compat: { thinkingFormat: "qwen-chat-template" }`, so the alias's thinking levels reach
+the server. Details and an example in `docs/spec/profiles.md`.
+
 Alternatively, a profile can obtain its models from another RAgents server running the
-`ragents.model-relay` plugin, which offers that server's `MODEL_ALIASES` with their compaction
-values: set `AGENT_PROVIDER: "relay"`, point `RELAY_URL` to that server, use
+`ragents.model-relay` plugin, which offers that server's `MODEL_ALIASES` with their thinking levels
+and compaction values: set `AGENT_PROVIDER: "relay"`, point `RELAY_URL` to that server, use
 `RELAY_TOKEN: env("...")` with a user's personal token there, and use relay aliases for every model
 key. Only the relay server can see which model is behind an alias. Its log at
 `plugins/ragents.model-relay/relay.log` records the user, alias, target, and token count for each
@@ -88,13 +98,13 @@ the same website under `docs/homepage/dist`.
 
 ## Create your first run
 
-The top-left corner opens the run overview. Choose "Neuer Run" to open the start selection. It
-shows the same tiles as the start page in VS Code: "Neuer Chat" (new chat) or the server's default
+The top-left corner opens the run overview. Choose "New run" to open the start selection. It
+shows the same tiles as the start page in VS Code: "New chat" or the server's default
 template first, then skill templates with a prepared task and script templates with programmed
-setups. "Neuer Chat" opens an empty run whose task you write in its chat; a template starts with one
-click. Some templates collect values in a setup dialog first ("Einrichten"); a skill template then
+setups. "New chat" opens an empty run whose task you write in its chat; a template starts with one
+click. Some templates collect values in a setup dialog first ("Set up"); a skill template then
 continues in the preparation chat. There you can discuss the task, give a clear go-ahead such as
-"Start", or choose "Run erstellen" (create run). Merely confirming a detail does not start
+"Start", or choose "Create run". Merely confirming a detail does not start
 anything. In the browser a new run always works on the server; only VS Code and `ragents run`
 bind a run to a workstation.
 
@@ -119,9 +129,9 @@ X and drag handle are hidden. Dividers for adjusting size ratios remain availabl
 
 Drag a divider to the desired ratio; releasing it saves the value. Escape cancels the active
 resize. With keyboard focus on a divider, arrow keys change its size while Home and End set the
-allowed limits. When space is tight, the "Sichtbare Kachel" (visible tile) selector displays one item at a time
+allowed limits. When space is tight, the "Visible tile" selector displays one item at a time
 without discarding the layout. You can also ask the coordinator: "App on the left, chat on the
 right, 50:50" or "One tile on top, two below at a 2:1 ratio." Until a layout is specified, the
 surface arranges visible participants itself. Your changes remain saved until the program
 changes its layout. A new program layout is applied automatically so added tiles appear at
-once. "Programmvorgabe übernehmen" (apply program layout) in the status bar can reset your own layout earlier.
+once. "Apply program layout" in the status bar can reset your own layout earlier.

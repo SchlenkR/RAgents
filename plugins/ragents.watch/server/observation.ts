@@ -61,9 +61,9 @@ export const changesBetween = (before: JsonValue | undefined, after: JsonValue):
   const lines: string[] = [];
   for (const [path, value] of current) {
     const old = previous.get(path);
-    if (old === undefined) lines.push(`${path}: ${value}${before === undefined ? "" : " (neu)"}`);
+    if (old === undefined) lines.push(`${path}: ${value}${before === undefined ? "" : " (new)"}`);
     else if (old !== value) lines.push(`${path}: ${old} -> ${value}`);
   }
-  for (const path of previous.keys()) if (!current.has(path)) lines.push(`${path}: entfernt`);
+  for (const path of previous.keys()) if (!current.has(path)) lines.push(`${path}: removed`);
   return lines;
 };

@@ -5,28 +5,28 @@ import { isHostRunPanelMessage, type RunPanelHostMessage, type RunPanelTheme, ty
 
 export interface RunPanelHost {
   readonly kind: RunPanelHostKind;
-  /** VS Code ist selbst ein Arbeitsplatz und bietet für neue Runs auch Arbeitsplätze an, der Browser nur den Server. */
+  /** VS Code is a workstation itself and also offers workstations for new runs, the browser only the server. */
   readonly machines: OfferedMachines;
-  /** Elemente des Runs, die der Host gerade in der Mitte zeigt; im Browser immer leer. */
+  /** Elements of the run that the host currently shows in the center; always empty in the browser. */
   centerElements(runId: string): ReadonlySet<string>;
   subscribe(listener: () => void): () => void;
   openInCenter(runId: string, elementId: string, title: string): void;
   returnToRunPanel(runId: string, elementId: string): void;
   requestLogin(): void;
-  /** Der Host hält den Sitzungstoken und beendet die Sitzung selbst. */
+  /** The host holds the session token and ends the session itself. */
   requestLogout(): void;
   openExternal(url: string): void;
-  /** Zeigt eine Webseite im Host, etwa als Reiter im Simple Browser von VS Code. */
+  /** Shows a web page in the host, for example as a tab in the VS Code Simple Browser. */
   openPage(url: string, title: string): void;
   onCommand(listener: (message: HostRunPanelMessage) => void): () => void;
-  /** Meldet dem Host, dass das Panel bereit ist, seinen Run gewechselt hat oder zurück auf die Start-Seite will. */
+  /** Tells the host that the panel is ready, has switched its run, or wants to go back to the Start page. */
   notify(message: Extract<RunPanelHostMessage, { type: "ready" | "runChanged" | "showStart" }>): void;
 }
 
 const emptySet: ReadonlySet<string> = new Set();
 
 const unsupported = (action: string) => (): never => {
-  throw new Error(`${action} gibt es nur in VS Code.`);
+  throw new Error(`${action} is only available in VS Code.`);
 };
 
 export function createBrowserHost(browser: Window): RunPanelHost {
@@ -35,21 +35,21 @@ export function createBrowserHost(browser: Window): RunPanelHost {
     machines: "server",
     centerElements: () => emptySet,
     subscribe: () => () => undefined,
-    openInCenter: unsupported("Eine Mini-App in die Mitte legen"),
-    returnToRunPanel: unsupported("Eine Mini-App zurückholen"),
-    requestLogin: unsupported("Die Anmeldung über den Host"),
-    requestLogout: unsupported("Die Abmeldung über den Host"),
+    openInCenter: unsupported("Placing a mini-app in the center"),
+    returnToRunPanel: unsupported("Bringing a mini-app back"),
+    requestLogin: unsupported("Signing in through the host"),
+    requestLogout: unsupported("Signing out through the host"),
     openExternal: (url) => { browser.open(url, "_blank", "noopener"); },
-    openPage: unsupported("Eine Webseite im Host zeigen"),
+    openPage: unsupported("Showing a web page in the host"),
     onCommand: () => () => undefined,
     notify: () => undefined,
   };
 }
 
-/** Das Panel im iframe eines VS-Code-Webviews: Nachrichten laufen über das umgebende Webview zur Erweiterung. */
+/** The panel in the iframe of a VS Code webview: messages go through the surrounding webview to the extension. */
 export function createVsCodeHost(browser: Window): RunPanelHost {
   const parent = browser.parent;
-  if (parent === browser) throw new Error("Das Panel läuft mit host=vscode, ist aber in kein Webview eingebettet.");
+  if (parent === browser) throw new Error("The panel runs with host=vscode but is not embedded in a webview.");
   const placements = new Map<string, ReadonlySet<string>>();
   const placementListeners = new Set<() => void>();
   const commandListeners = new Set<(message: HostRunPanelMessage) => void>();
@@ -90,14 +90,14 @@ export const createRunPanelHost = (kind: RunPanelHostKind, browser: Window): Run
 
 const RunPanelHostContext = createContext<RunPanelHost | undefined>(undefined);
 
-/** Stellt den Host bereit und mit ihm, welche Rechner die Startoptionen anbieten. */
+/** Provides the host and with it which machines the start options offer. */
 export function RunPanelHostProvider({ value, children }: PropsWithChildren<{ value: RunPanelHost }>) {
   return createElement(RunPanelHostContext.Provider, { value }, createElement(OfferedMachinesProvider, { value: value.machines }, children));
 }
 
 export function useRunPanelHost(): RunPanelHost {
   const host = useContext(RunPanelHostContext);
-  if (!host) throw new Error("Das Panel läuft ohne Host-Provider.");
+  if (!host) throw new Error("The panel runs without a host provider.");
   return host;
 }
 

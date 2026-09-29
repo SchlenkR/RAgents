@@ -6,7 +6,7 @@ import { ragentsDataRoot } from "@ragents/workspace-executor/src/tools.ts";
 export { ragentsDataRoot };
 
 export function defaultDataDirectory(profile: string, home = homedir()): string {
-  if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(profile)) throw new Error("PRODUCT_PROFILE muss ein einfacher Profilname sein.");
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(profile)) throw new Error("PRODUCT_PROFILE must be a simple profile name.");
   return path.join(ragentsDataRoot(home), profile);
 }
 
@@ -35,7 +35,7 @@ export async function assertDataDirectoryIsolated(directory: string): Promise<vo
         if (error.code === "ENOENT") return undefined;
         throw error;
       });
-      if (entry) throw new Error(`DATA_DIR liegt innerhalb eines Projekts (${filename}). Wähle einen externen Datenordner, zum Beispiel ~/.local/share/ragents/<profil>.`);
+      if (entry) throw new Error(`DATA_DIR is inside a project (${filename}). Choose an external data folder, for example ~/.local/share/ragents/<profile>.`);
     }
     if (path.dirname(current) === current) return;
   }

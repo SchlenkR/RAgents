@@ -28,7 +28,7 @@ const StartOptionsContext = createContext<StartOptionsControl>(inertControl);
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
 
-/** Eine Vorbelegung gilt nur für Optionen, die der Run gerade wählen lässt; Unbekanntes bleibt liegen. */
+/** A preset applies only to options the run currently lets you choose; anything unknown is left alone. */
 export const initialStartOptionUpdates = (
   options: readonly StartOptionState[],
   values: Readonly<Record<string, unknown>>,
@@ -36,7 +36,7 @@ export const initialStartOptionUpdates = (
   .filter((option) => option.selectable && !option.locked && Object.hasOwn(values, option.id))
   .map((option) => [option.id, values[option.id]] as const);
 
-/** Was eine Vorlage festlegt, belegt niemand vor; sonst scheitert ihr Start an der abweichenden Wahl. */
+/** Nothing presets what a template fixes; otherwise its start fails on the differing choice. */
 export const withoutFixedStartOptions = (
   values: Readonly<Record<string, unknown>>,
   fixed: Readonly<Record<string, unknown>> | undefined,
@@ -47,7 +47,7 @@ export interface ShownStartOption {
   readonly fixed: boolean;
 }
 
-/** Was eine Stelle zeigt: die wählbaren offenen Optionen und jede, die die Vorlage festlegt, mit deren Wert und nicht wählbar. */
+/** What a place shows: the selectable open options and every option the template fixes, with the template's value and not selectable. */
 export const shownStartOptions = (
   options: readonly StartOptionState[],
   fixed: Readonly<Record<string, unknown>>,
@@ -65,7 +65,7 @@ const sameJson = (left: unknown, right: unknown): boolean => {
     && keys.every((key) => Object.hasOwn(right, key) && sameJson((left as Record<string, unknown>)[key], (right as Record<string, unknown>)[key]));
 };
 
-/** Was vor dem Start anders gewählt ist, als die Vorlage festlegt; so ein Start scheitert am Server. */
+/** What was chosen before the start differently from what the template fixes; such a start fails on the server. */
 export const conflictingStartOptions = (
   options: readonly StartOptionState[],
   fixed: Readonly<Record<string, unknown>>,
@@ -139,7 +139,7 @@ export function StartOptionsProvider({
     const operation = active.current;
     if (!operation || operation.sessionId !== sessionId || operation.controller.signal.aborted) return;
     if (operation.pending || saving.current?.sessionId === sessionId) {
-      setState((current) => ({ ...current, errors: new Map(current.errors).set(optionId, "Die Startoptionen werden noch geladen oder gespeichert. Bitte versuche es danach erneut.") }));
+      setState((current) => ({ ...current, errors: new Map(current.errors).set(optionId, "The start options are still loading or saving. Please try again afterwards.") }));
       return;
     }
     operation.pending = true;
@@ -189,7 +189,7 @@ export function StartOptionsProvider({
     })();
   }, [allowed, sessionId, set, state]);
 
-  // Bis der Server nach der ersten Nachricht geantwortet hat, ist alles gesperrt; danach gilt sein locked.
+  // Until the server has answered after the first message, everything is locked; after that its locked applies.
   const control = useMemo<StartOptionsControl>(() => ({
     options: state.sessionId === sessionId ? state.options.map((option) => ({ ...option, locked: option.locked || (started && !state.loadedStarted) })) : [],
     errors: state.sessionId === sessionId ? state.errors : new Map(),
@@ -207,9 +207,9 @@ const ChoiceControl = ({ disabled, error, option, setValue }: StartOptionControl
     try {
       const presentation = choicePresentationFrom(option.presentation, option.id);
       if (!presentation) {
-        return { message: `Die Startoption ${option.id} hat weder eine Web-Komponente noch eine Auswahl-Darstellung` };
+        return { message: `The start option ${option.id} has neither a web component nor a choice presentation` };
       }
-      if (typeof option.value !== "string") return { message: `Der Wert der Startoption ${option.id} ist keine Kennung` };
+      if (typeof option.value !== "string") return { message: `The value of the start option ${option.id} is not an identifier` };
       return { presentation, value: option.value };
     } catch (cause) {
       return { message: messageOf(cause) };
@@ -233,12 +233,12 @@ const unchangeable = async () => undefined;
 
 function FixedStartOption({ conflict, machines, option, registry }: { conflict: boolean; machines: OfferedMachines; option: StartOptionState; registry: PluginRegistry }) {
   const Control = registry.startOptions.get(option.id)?.Control ?? ChoiceControl;
-  return <span className="contents" data-start-option-fixed={option.id} title="Von der Vorlage festgelegt">
-    <Control disabled error={conflict ? "Gewählt ist ein anderer Wert; die Vorlage legt diesen fest." : undefined} machines={machines} option={option} setValue={unchangeable} />
+  return <span className="contents" data-start-option-fixed={option.id} title="Set by the template">
+    <Control disabled error={conflict ? "A different value is chosen; the template sets this one." : undefined} machines={machines} option={option} setValue={unchangeable} />
   </span>;
 }
 
-/** Die Startoptionen einer Stelle; was die gewählte Vorlage festlegt, steht fest mit ihrem Wert statt zur Wahl. */
+/** The start options of a place; what the chosen template fixes is shown with its value instead of as a choice. */
 export function StartOptionControls({ disabled, registry, placement = "page", fixed = noneFixed }: {
   disabled: boolean;
   registry: PluginRegistry;

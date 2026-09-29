@@ -10,7 +10,7 @@ test("a stopped agent can be restarted and takes inputs again", () => {
         { actorId: setup.view.ownerId, commandId: "stop-1" },
         setup.view.id,
         setup.agent.id,
-        "Vorführung beendet",
+        "Demo finished",
     );
     assert.equal(view.actors.flatMap((actor) => actor.kind === "agent" && actor.id === setup.agent.id ? [actor.lifecycle.kind] : [])[0], "stopped");
 
@@ -18,14 +18,14 @@ test("a stopped agent can be restarted and takes inputs again", () => {
         { actorId: setup.view.ownerId, commandId: "restart-1" },
         setup.view.id,
         setup.agent.id,
-        "Vom Bediener neu gestartet",
+        "Restarted by the operator",
     );
     assert.equal(view.actors.flatMap((actor) => actor.kind === "agent" && actor.id === setup.agent.id ? [actor.lifecycle.kind] : [])[0], "idle");
 
     view = setup.runtime.enqueueInput(
         { actorId: setup.view.ownerId, commandId: "input-1" },
         setup.view.id,
-        { actorId: setup.agent.id, content: "Weiter geht es." },
+        { actorId: setup.agent.id, content: "Moving on." },
     );
     assert.ok(view.inputs.some((input) => input.actorId === setup.agent.id));
 });
@@ -34,11 +34,11 @@ test("a stopped primary actor is remembered and becomes primary again when the o
     const setup = setupRun();
     const owner = setup.view.ownerId;
     setup.runtime.selectPrimaryActor({ actorId: owner, commandId: "select" }, setup.view.id, setup.agent.id);
-    let view = setup.runtime.stopActor({ actorId: owner, commandId: "stop-primary" }, setup.view.id, setup.agent.id, "Versehentlich gestoppt");
+    let view = setup.runtime.stopActor({ actorId: owner, commandId: "stop-primary" }, setup.view.id, setup.agent.id, "Stopped by accident");
     assert.equal(view.primaryActorId, null);
     assert.equal(view.stoppedPrimaryActorId, setup.agent.id);
 
-    view = setup.runtime.restartActor({ actorId: owner, commandId: "restart-primary" }, setup.view.id, setup.agent.id, "Vom Bediener neu gestartet");
+    view = setup.runtime.restartActor({ actorId: owner, commandId: "restart-primary" }, setup.view.id, setup.agent.id, "Restarted by the operator");
     assert.equal(view.primaryActorId, setup.agent.id);
     assert.equal(view.stoppedPrimaryActorId, null);
     assert.deepEqual(setup.runtime.events(setup.view.id).filter((event) => event.commandId === "restart-primary").map((event) => event.type),
@@ -49,13 +49,13 @@ test("a stopped primary actor stays a plain actor on restart once another primar
     const setup = setupRun();
     const owner = setup.view.ownerId;
     setup.runtime.selectPrimaryActor({ actorId: owner, commandId: "select" }, setup.view.id, setup.agent.id);
-    setup.runtime.stopActor({ actorId: owner, commandId: "stop-primary" }, setup.view.id, setup.agent.id, "Abgelöst");
+    setup.runtime.stopActor({ actorId: owner, commandId: "stop-primary" }, setup.view.id, setup.agent.id, "Replaced");
     const successor = setup.runtime.spawnAgent({ actorId: owner, commandId: "spawn-successor" }, setup.view.id, {
         handle: "successor", displayName: "Successor", prompt: "", execution: setup.agent.execution, grants: [], toolNames: null,
     }).actors.find((actor) => actor.handle === "successor")!;
     setup.runtime.selectPrimaryActor({ actorId: owner, commandId: "select-successor" }, setup.view.id, successor.id);
 
-    const view = setup.runtime.restartActor({ actorId: owner, commandId: "restart-old" }, setup.view.id, setup.agent.id, "Neu gestartet");
+    const view = setup.runtime.restartActor({ actorId: owner, commandId: "restart-old" }, setup.view.id, setup.agent.id, "Restarted");
     assert.equal(view.primaryActorId, successor.id);
     assert.equal(view.stoppedPrimaryActorId, null);
 });
@@ -82,7 +82,7 @@ test("a second spawn with a taken handle gets the -1 suffix instead of a duplica
         {
             handle: "worker",
             displayName: "Worker",
-            prompt: "Zweiter Versuch.",
+            prompt: "Second attempt.",
             execution: setup.agent.execution,
             grants: [],
             toolNames: null,
@@ -100,7 +100,7 @@ test("stop, respawn and restart never produce two actors with the same handle", 
         { actorId: setup.view.ownerId, commandId: "stop-twin" },
         setup.view.id,
         setup.agent.id,
-        "Platz machen",
+        "Make room",
     );
     view = setup.runtime.spawnAgent(
         { actorId: view.ownerId, commandId: "spawn-successor" },
@@ -108,7 +108,7 @@ test("stop, respawn and restart never produce two actors with the same handle", 
         {
             handle: "worker",
             displayName: "Worker",
-            prompt: "Nachfolger.",
+            prompt: "Successor.",
             execution: setup.agent.execution,
             grants: [],
             toolNames: null,
@@ -122,7 +122,7 @@ test("stop, respawn and restart never produce two actors with the same handle", 
         { actorId: setup.view.ownerId, commandId: "restart-first" },
         setup.view.id,
         setup.agent.id,
-        "Beide sollen leben",
+        "Both shall live",
     );
     const activeHandles = view.actors
         .filter((actor) => actor.kind === "agent" && actor.lifecycle.kind !== "stopped")
@@ -138,7 +138,7 @@ test("a handle names the stopped actor for a restart even after a successor was 
     setup.runtime.spawnAgent({ actorId: setup.view.ownerId, commandId: "spawn-by-handle" }, setup.view.id, {
         handle: "worker",
         displayName: "Worker",
-        prompt: "Nachfolger.",
+        prompt: "Successor.",
         execution: setup.agent.execution,
         grants: [],
         toolNames: null,
@@ -146,6 +146,6 @@ test("a handle names the stopped actor for a restart even after a successor was 
     const target = addressedActorOf(setup.runtime.state(setup.view.id).actors.values(), "@Worker");
 
     assert.equal(target.id, setup.agent.id);
-    const view = setup.runtime.restartActor({ actorId: setup.view.ownerId, commandId: "restart-by-handle" }, setup.view.id, target.id, "Weiter");
+    const view = setup.runtime.restartActor({ actorId: setup.view.ownerId, commandId: "restart-by-handle" }, setup.view.id, target.id, "Continue");
     assert.equal(view.actors.flatMap((actor) => actor.kind === "agent" && actor.id === setup.agent.id ? [actor.lifecycle.kind] : [])[0], "idle");
 });

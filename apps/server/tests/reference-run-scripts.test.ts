@@ -92,7 +92,7 @@ test("every reference setup activates as a native actor package against the tool
         view.id, entry.script.handle, entry.script.files,
       );
       const actor = runtime.view(view.id).actors.find((candidate) => candidate.id === installed.actorId);
-      assert.ok(actor && actor.kind === "script", `${entry.id} wurde nicht installiert`);
+      assert.ok(actor && actor.kind === "script", `${entry.id} was not installed`);
       assert.equal("source" in actor, false);
       assert.equal("program" in actor, false);
       assert.equal(actor.toolNames, null);
@@ -136,7 +136,7 @@ test("the balcony setup builds its advisor, view and surface through native core
   assert.ok(entry);
   const session = new RunChatSession({
     engine, id: "balcony-reference-run",
-    coordinator: { handle: "coordinator", displayName: "Koordinator", profile: "coordinator", runTitle: "Balkon-Wizard", ownerHandle: "owner", ownerDisplayName: "Owner" },
+    coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "coordinator", runTitle: "Balcony wizard", ownerHandle: "owner", ownerDisplayName: "Owner" },
     prompt: () => "Unexpected coordinator", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {}, started: async () => {},
     scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: host.service(actorProgramsToken),
   });
@@ -182,7 +182,7 @@ for (const sample of ["word-game", "learning-afternoon"]) {
     const { host, journal, runtime, registry, close } = await referenceFixture();
     const catalog = new StaticModelCatalog(host.profiles.models(), host.profiles.profiles());
     const programs = host.service(actorProgramsToken) as ActorProgramRuntime;
-    const words = ["Wärme", "Sommer", "Eis", "Wasser", "Meer", "Welle", "Wind", "Segel", "Boot", "Hafen", "Reise", "Zug"];
+    const words = ["Warmth", "Summer", "Ice", "Water", "Sea", "Wave", "Wind", "Sail", "Boat", "Harbor", "Journey", "Train"];
     const calls: string[] = [];
     let active = 0;
     let parallel = 0;
@@ -194,7 +194,7 @@ for (const sample of ["word-game", "learning-afternoon"]) {
           const actor = runtime.view(request.runId).actors.find((entry) => entry.id === request.agentId)!;
           assert.deepEqual(request.tools, []);
           calls.push(actor.handle);
-          const text = sample === "word-game" ? words[calls.length - 1]! : `Idee von ${actor.handle}`;
+          const text = sample === "word-game" ? words[calls.length - 1]! : `Idea from ${actor.handle}`;
           active++;
           parallel = Math.max(parallel, active);
           await new Promise((resolve) => setTimeout(resolve, 20));
@@ -209,7 +209,7 @@ for (const sample of ["word-game", "learning-afternoon"]) {
     const entry = folderRunScripts(pluginFolder("ragents.reference"), "ragents.reference").find((entry) => entry.script.handle === sample)!;
     const session = new RunChatSession({
       engine, id: `reference-${sample}`,
-      coordinator: { handle: "coordinator", displayName: "Koordinator", profile: "coordinator", runTitle: entry.title, ownerHandle: "reader", ownerDisplayName: "Reader" },
+      coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "coordinator", runTitle: entry.title, ownerHandle: "reader", ownerDisplayName: "Reader" },
       prompt: () => "Unexpected coordinator", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {}, started: async () => {},
       scriptEntryFor: () => undefined, startEntryFor: () => undefined, actorPrograms: programs,
     });
@@ -236,13 +236,13 @@ for (const sample of ["word-game", "learning-afternoon"]) {
         assert.equal(state.status, "completed", JSON.stringify(state));
         assert.deepEqual(calls, Array.from({ length: 12 }, (_, index) => ["red", "yellow", "blue", "green"][index % 4]));
         assert.deepEqual(state.entries, words.map((word, index) => ({ participant: index % 4, word })));
-        assert.match(String(state.document), /12\. Green: Zug/);
+        assert.match(String(state.document), /12\. Green: Train/);
         assert.equal(parallel, 1);
       } else {
         const board = state.board as { phase: string; helpers: { status: string; text: string }[] };
         assert.equal(board.phase, "complete", JSON.stringify(state));
         assert.equal(board.helpers.length, 2);
-        assert.ok(board.helpers.every((helper) => helper.status === "complete" && helper.text.startsWith("Idee von ")));
+        assert.ok(board.helpers.every((helper) => helper.status === "complete" && helper.text.startsWith("Idea from ")));
         assert.deepEqual(calls.sort(), ["learning-experiment", "learning-quiz"]);
         assert.equal(parallel, 2, "The helpers should work concurrently");
       }

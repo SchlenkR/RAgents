@@ -1,273 +1,273 @@
-# Selbsttest-Katalog
+# Self-test catalog
 
-Testfälle für die autonome Selbstverbesserungs-Schleife. Jeder Fall hat eine Idee, zwei
-Prompts in dieselbe Richtung (A = detailliert, aber nicht-technisch, wie ein Benutzer
-schreibt; B = sehr einfach), eine Erwartungshaltung und die Begründung, warum die Idee gut
-ist. Die beiden Varianten prüfen nebenbei die Hypothese: kleine, spezifische Prompts
-funktionieren besser als große.
+Test cases for the autonomous self-improvement loop. Each case has an idea, two
+prompts in the same direction (A = detailed but non-technical, as a user
+writes; B = very simple), an expectation, and the reasoning why the idea is good.
+On the side, the two variants test the hypothesis: small, specific prompts
+work better than large ones.
 
-Rahmen: Profil core, Koordinator-Modell aus der Profilkonfiguration, isolierter Workspace je
-Unterhaltung mit Zugriff auf die hineingelegten Unterlagen. Ein Testagent fährt beide Prompts als
-GETRENNTE Unterhaltungen.
+Frame: profile core, coordinator model from the profile configuration, isolated workspace per
+conversation with access to the documents placed in it. A test agent runs both prompts as
+SEPARATE conversations.
 
-## T01 Zwei-Agenten-Interview
+## T01 Two-agent interview
 
-Idee: Der Koordinator soll zwei Agenten erzeugen, die einander zuarbeiten (Interviewer und
-Experte), und das Ergebnis zusammenfassen.
+Idea: The coordinator should create two agents that work with each other (interviewer and
+expert) and summarize the result.
 
-Prompt A: "Ich möchte ein kurzes Interview lesen. Bitte richte zwei Gesprächspartner ein:
-einen neugierigen Interviewer und einen Experten für Zeitreihen in der Gebäudetechnik. Der
-Interviewer stellt nacheinander drei Fragen, der Experte antwortet jeweils kurz. Am Ende
-fasst du mir das Gespräch in fünf Sätzen zusammen."
+Prompt A: "I would like to read a short interview. Please set up two conversation partners:
+a curious interviewer and an expert on time series in building services. The
+interviewer asks three questions one after the other, the expert answers each briefly. At the end
+you summarize the conversation for me in five sentences."
 
-Prompt B: "Lass zwei Agenten ein kurzes Interview über Zeitreihen führen und fasse es
-zusammen."
+Prompt B: "Have two agents conduct a short interview about time series and summarize
+it."
 
-Erwartung: Zwei Agenten werden erzeugt (agent_spawn), Inputs laufen über actor_input, es
-gibt mindestens drei Frage-Antwort-Paare, am Ende eine Zusammenfassung im Chat. Kein
-Endlos-Pingpong, Abschluss in unter 8 Minuten.
+Expectation: Two agents are created (agent_spawn), inputs go via actor_input, there
+are at least three question-answer pairs, at the end a summary in the chat. No
+endless ping-pong, completion in under 8 minutes.
 
-Warum gut: Der Kern des Produkts (Mehragenten-Orchestrierung) im kleinsten sinnvollen
-Zuschnitt; prüft spawn, Input-Routing, Turn-Wechsel und Abschlussdisziplin.
+Why good: The core of the product (multi-agent orchestration) in the smallest meaningful
+cut; tests spawn, input routing, turn switching, and completion discipline.
 
-## T02 Stern mit Vermittler light
+## T02 Star with mediator light
 
-Idee: Zwei reine LLMs ohne Runtime-Wissen, ein Vermittler-Actor reicht Text weiter.
+Idea: Two plain LLMs without runtime knowledge, a mediator actor passes text along.
 
-Prompt A: "Bitte baue folgendes Experiment: Anna und Ben sind zwei einfache Gesprächspartner,
-die nichts von ihrer Umgebung wissen. Ein Postbote leitet Annas erste Nachricht an Ben
-weiter und bringt mir Bens Antwort. Anna soll Ben nach seinem Lieblingsbuch fragen. Zeig
-mir am Ende Bens Antwort."
+Prompt A: "Please build the following experiment: Anna and Ben are two simple conversation partners
+who know nothing about their environment. A mail carrier forwards Anna's first message to Ben
+and brings me Ben's answer. Anna should ask Ben about his favorite book. Show
+me Ben's answer at the end."
 
-Prompt B: "Anna fragt Ben über einen Postboten nach seinem Lieblingsbuch. Zeig mir die
-Antwort."
+Prompt B: "Anna asks Ben about his favorite book via a mail carrier. Show me the
+answer."
 
-Erwartung: Anna und Ben werden mit leerer Werkzeugliste erzeugt, der Vermittler abonniert
-Modell-Ausgaben (event_subscribe) und routet per actor_input; Bens Antwort erscheint im
-Chat. Keine Werkzeuge bei Anna/Ben.
+Expectation: Anna and Ben are created with an empty tool list, the mediator subscribes to
+model outputs (event_subscribe) and routes via actor_input; Ben's answer appears in the
+chat. No tools for Anna/Ben.
 
-Warum gut: Prüft das Subscription-Modell und Plain-LLM-Isolation, den Referenzfall der
-Plattform, mit einem alltagstauglichen Prompt statt Fachsprache.
+Why good: Tests the subscription model and plain LLM isolation, the reference case of the
+platform, with an everyday prompt instead of jargon.
 
-## T03 To-do-Führung bei mehrschrittiger Arbeit
+## T03 To-do tracking for multi-step work
 
-Idee: Bei einer mehrteiligen Aufgabe soll der Koordinator die To-do-Liste des Laufs führen
-und abarbeiten.
+Idea: For a multi-part task, the coordinator should keep and work through the run's to-do
+list.
 
-Prompt A: "Ich brauche drei Dinge nacheinander: erstens eine Liste von fünf typischen
-Datenqualitätsproblemen bei Messwerten, zweitens zu jedem Problem einen kurzen
-Prüfvorschlag, drittens eine Empfehlung, womit man anfangen sollte. Bitte lege dir dafür
-eine Aufgabenliste an und arbeite sie sichtbar ab."
+Prompt A: "I need three things one after the other: first, a list of five typical
+data quality problems with measured values, second, a short check proposal for each problem,
+third, a recommendation of where to start. Please create a task list
+for this and work through it visibly."
 
-Prompt B: "Erledige der Reihe nach: 5 Datenqualitätsprobleme nennen, je einen Prüftipp,
-eine Startempfehlung. Führe dabei eine Aufgabenliste."
+Prompt B: "Do in order: name 5 data quality problems, one check tip each,
+a starting recommendation. Keep a task list while doing so."
 
-Erwartung: todo_replace wird benutzt, die Liste hat 3 Einträge, Häkchen wandern während
-der Arbeit (mehrere plugin.state-replaced für ragents.todo), alle drei Inhalte kommen.
+Expectation: todo_replace is used, the list has 3 entries, check marks move during
+the work (several plugin.state-replaced for ragents.todo), all three contents arrive.
 
-Warum gut: Prüft, ob das Modell Werkzeuge zur Selbstorganisation wirklich benutzt statt
-nur zu antworten; direkt relevant für den geplanten Feature-Workflow.
+Why good: Tests whether the model really uses tools for self-organization instead of
+just answering; directly relevant for the planned feature workflow.
 
-## T04 Rückfrage statt Raten
+## T04 Question instead of guessing
 
-Idee: Bei einem mehrdeutigen Auftrag soll der Koordinator eine echte Rückfrage stellen
-(Frage-Karte), nicht einfach losraten.
+Idea: For an ambiguous task, the coordinator should ask a real question
+(question card), not simply start guessing.
 
-Prompt A: "Bitte bereite die Auswertung für das Gebäude vor, so wie beim letzten Mal, aber
-diesmal mit den neuen Zahlen. Du weißt schon, welche ich meine."
+Prompt A: "Please prepare the evaluation for the building, like last time, but
+this time with the new numbers. You know which ones I mean."
 
-Prompt B: "Mach die Auswertung wie letztes Mal, nur mit den neuen Zahlen."
+Prompt B: "Do the evaluation like last time, just with the new numbers."
 
-Erwartung: ask_user wird aufgerufen (action.proposed im Journal), der Lauf wartet auf die
-Antwort statt Inhalte zu erfinden. Keine ausgedachten Zahlen oder Gebäude.
+Expectation: ask_user is called (action.proposed in the journal), the run waits for the
+answer instead of inventing content. No made-up numbers or buildings.
 
-Warum gut: Keine-stillen-Fallbacks als Verhaltensregel; prüft, ob das Frage-Werkzeug im
-richtigen Moment gezogen wird - eine der teuersten Fehlerklassen im Alltag.
+Why good: No silent fallbacks as a rule of behavior; tests whether the question tool is
+pulled at the right moment - one of the most expensive error classes in everyday use.
 
-## T05 Dokument in der Ablage
+## T05 Document in the file storage
 
-Idee: Ein Arbeitsergebnis soll als Dokument in der Dateiablage des Laufs landen und im
-Chat gezeigt werden.
+Idea: A work result should end up as a document in the run's file storage and be shown in the
+chat.
 
-Prompt A: "Schreibe mir eine einseitige, verständliche Erklärung, was ein Ringpuffer ist
-und wofür man ihn benutzt. Lege sie als Dokument ab, damit ich sie später wiederfinde,
-und zeig sie mir."
+Prompt A: "Write me a one-page, understandable explanation of what a ring buffer is
+and what it is used for. Store it as a document so that I can find it again later,
+and show it to me."
 
-Prompt B: "Erkläre Ringpuffer auf einer Seite und lege das als Dokument ab."
+Prompt B: "Explain ring buffers on one page and store it as a document."
 
-Erwartung: Eine Datei entsteht in der Run-Dateiablage (Dokumente-Tab), show_document oder
-Artefakt-Anzeige wird benutzt, der Inhalt ist fachlich brauchbar.
+Expectation: A file is created in the run file storage (documents tab), show_document or
+the artifact display is used, the content is sound.
 
-Warum gut: Prüft den Dokumente-Pfad Ende-zu-Ende (Dateiablage, Anzeige) mit einem
-realistischen Wissensarbeits-Auftrag.
+Why good: Tests the documents path end to end (file storage, display) with a
+realistic knowledge work task.
 
-## T06 Actor-Funktion mit React-View
+## T06 Actor function with React view
 
-Idee: TypeScript-Funktionen, Zustand und eine React-View als ein Actor-Programm erstellen.
+Idea: Create TypeScript functions, state, and a React view as one actor program.
 
-Prompt A: "Bau einen kleinen Textanalysten mit Eingabefeld. Er soll Wörter und Zeilen selbst
-zählen und den letzten Text behalten. Dafür braucht er keine KI-Antwort. Prüfe zwei Zeilen
-mit insgesamt sechs Wörtern und lass mich danach selbst einen Text eingeben."
+Prompt A: "Build a small text analyst with an input field. It should count words and lines itself
+and keep the last text. It does not need an AI answer for this. Check two lines
+with six words in total and then let me enter a text myself."
 
-Prompt B: "Bau mit der Vorlage text-analysis einen Textanalysten mit bedienbarer Oberfläche."
+Prompt B: "Build a text analyst with an operable UI using the text-analysis template."
 
-Erwartung: actor_program_create, normale Dateiwerkzeuge und TypeScript-Diagnostik führen zu
-einem mit actor_program_activate aktivierten Paket. Die Fachtests prüfen Zählung und Zustand;
-der Browser zeigt das Ergebnis echter Bedienung. Derselbe Actor besitzt Funktion und View.
-Keine separaten Build-Referenzen oder Testargumente als JSON im Modellkontext.
+Expectation: actor_program_create, normal file tools, and TypeScript diagnostics lead to
+a package activated with actor_program_activate. The domain tests check counting and state;
+the browser shows the result of real operation. The same actor owns function and view.
+No separate build references or test arguments as JSON in the model context.
 
-Warum gut: Prüft normale TypeScript-Dateien, Diagnosen, Fachtests, Actor-Zustand und die
-sichtbare Bedienung ohne zusätzlichen Modell-Turn pro Funktionsaufruf.
+Why good: Tests normal TypeScript files, diagnostics, domain tests, actor state, and the
+visible operation without an additional model turn per function call.
 
-## T07 Funktion eines LLM-Actors als Werkzeug
+## T07 Function of an LLM actor as a tool
 
-Idee: Ein kleines TypeScript-Werkzeug bauen, einem erzeugten Agenten geben, und der Agent
-benutzt es wirklich.
+Idea: Build a small TypeScript tool, give it to a created agent, and the agent
+really uses it.
 
-Prompt A: "Erzeuge einen Assistenten namens Rechner. Gib ihm ein selbstgebautes Werkzeug,
-das eine Liste von Zahlen entgegennimmt und Summe und Mittelwert zurückgibt. Lass den
-Rechner damit die Zahlen 4, 8, 15, 16, 23, 42 auswerten und mir das Ergebnis melden."
+Prompt A: "Create an assistant named Calculator. Give it a self-built tool
+that takes a list of numbers and returns the sum and mean. Have the
+Calculator evaluate the numbers 4, 8, 15, 16, 23, 42 with it and report the result to me."
 
-Prompt B: "Bau ein Summen-Werkzeug, gib es einem neuen Agenten und lass ihn 4 8 15 16 23
-42 auswerten."
+Prompt B: "Build a sum tool, give it to a new agent, and have it evaluate 4 8 15 16 23
+42."
 
-Erwartung: actor_program_activate bindet das Paket an @rechner. Der LLM-Actor ruft seine
-eigene TypeScript-Funktion als Werkzeug auf (tool.call.started mit dem neuen Namen) und meldet Summe 108,
-Mittelwert 18.
+Expectation: actor_program_activate binds the package to @calculator. The LLM actor calls its
+own TypeScript function as a tool (tool.call.started with the new name) and reports sum 108,
+mean 18.
 
-Warum gut: Prüft Funktionen eines echten LLM-Actors und deren Veröffentlichung als Werkzeug - inklusive der Frage, ob der Zielagent das Werkzeug überhaupt findet.
+Why good: Tests functions of a real LLM actor and their publication as a tool - including the question whether the target agent finds the tool at all.
 
-## T08 TypeScript-Actor mit Gedächtnis
+## T08 TypeScript actor with memory
 
-Idee: Ein deterministischer TypeScript-Actor, der über mehrere Inputs Zustand hält.
+Idea: A deterministic TypeScript actor that keeps state across several inputs.
 
-Prompt A: "Ich möchte einen Zähler haben, der sich nichts ausdenkt: Jedes Mal, wenn man
-ihm etwas schickt, erhöht er seinen Stand um eins und antwortet mit dem neuen Stand.
-Schicke ihm danach dreimal etwas und sag mir den Endstand."
+Prompt A: "I would like a counter that does not make anything up: every time you
+send it something, it increases its count by one and answers with the new count.
+Then send it something three times and tell me the final count."
 
-Prompt B: "Bau einen Zähler-Actor und schick ihm drei Nachrichten. Endstand?"
+Prompt B: "Build a counter actor and send it three messages. Final count?"
 
-Erwartung: actor_program_activate aktiviert ein Paket mit onInput. Der TypeScript-Actor verarbeitet drei
-Inputs als drei Turns, der Zustand steigt auf 3, der Koordinator meldet 3.
+Expectation: actor_program_activate activates a package with onInput. The TypeScript actor processes three
+inputs as three turns, the state rises to 3, the coordinator reports 3.
 
-Warum gut: Prüft TypeScript-Actors samt Zustandsvertrag (context.state.replace) und die
-FIFO-Verarbeitung mehrerer Inputs.
+Why good: Tests TypeScript actors including the state contract (context.state.replace) and the
+FIFO processing of several inputs.
 
-## T09 Stoppen und Aufräumen
+## T09 Stopping and cleaning up
 
-Idee: Erzeugte Agenten sauber stoppen; danach ist der Lauf weiter benutzbar.
+Idea: Stop created agents cleanly; afterwards the run is still usable.
 
-Prompt A: "Richte kurz zwei Helfer ein, lass jeden einen Satz sagen, und beende beide
-danach wieder vollständig. Bestätige mir, dass nur noch du übrig bist, und antworte danach
-noch auf die Frage: Wie viele Helfer laufen jetzt noch?"
+Prompt A: "Briefly set up two helpers, have each say one sentence, and then end both
+completely again. Confirm to me that only you are left, and then also answer
+the question: How many helpers are still running now?"
 
-Prompt B: "Erzeuge zwei Agenten, lass sie je einen Satz sagen, stoppe beide und sag mir,
-wie viele noch laufen."
+Prompt B: "Create two agents, have each say one sentence, stop both, and tell me
+how many are still running."
 
-Erwartung: actor_stop für beide Helfer (actor.stopped im Journal), die Antwort lautet
-null/keine, der Koordinator antwortet danach normal weiter.
+Expectation: actor_stop for both helpers (actor.stopped in the journal), the answer is
+zero/none, the coordinator then continues answering normally.
 
-Warum gut: Lebenszyklus-Disziplin; hängende Agenten sind ein reales Ressourcen- und
-Verwirrungsproblem.
+Why good: Lifecycle discipline; hanging agents are a real resource and
+confusion problem.
 
-## T10 Wissensbasis nutzen statt halluzinieren
+## T10 Use the knowledge base instead of hallucinating
 
-Idee: Eine fachliche Frage, deren Antwort in den Unterlagen im Arbeitsverzeichnis
-steht - der Koordinator soll nachschauen statt zu raten.
+Idea: A domain question whose answer is in the documents in the working directory -
+the coordinator should look it up instead of guessing.
 
-Prompt A: "Schau bitte in den Unterlagen in deinem Arbeitsverzeichnis nach: Was ist dort
-über die Grundregel zur Aggregation von Zeitreihen festgehalten? Zitiere die Stelle
-sinngemäß und nenne die Datei, in der du fündig geworden bist."
+Prompt A: "Please look in the documents in your working directory: What is recorded there
+about the basic rule for aggregating time series? Quote the passage
+in substance and name the file in which you found it."
 
-Prompt B: "Was sagen deine Unterlagen zur Aggregation von Zeitreihen? Mit Fundstelle."
+Prompt B: "What do your documents say about aggregating time series? With the source."
 
-Erwartung: Lese-Werkzeuge werden benutzt (read/grep im Workspace), die Antwort nennt eine
-real existierende Datei und gibt deren Inhalt sinngemäß wieder; keine erfundenen Fakten
-oder Dateinamen.
+Expectation: Read tools are used (read/grep in the workspace), the answer names a
+really existing file and renders its content in substance; no invented facts
+or file names.
 
-Warum gut: Grounding-Test für den statischen Workspace; trennt Nachschlagen von
-Halluzination.
+Why good: Grounding test for the static workspace; separates looking things up from
+hallucination.
 
-## T11 Ausgabedisziplin bei knappem Auftrag
+## T11 Output discipline for a short task
 
-Idee: Hält das Koordinator-Modell den Ausgabevertrag (kein Meta-Gerede, klare Endantwort),
-auch wenn der Auftrag trivial ist?
+Idea: Does the coordinator model keep the output contract (no meta talk, clear final answer)
+even when the task is trivial?
 
-Prompt A: "Bitte nenne mir genau drei Vorteile von Pufferspeichern in Heizungsanlagen als
-nummerierte Liste. Keine Einleitung, kein Schluss, nur die Liste."
+Prompt A: "Please give me exactly three advantages of buffer tanks in heating systems as a
+numbered list. No introduction, no conclusion, only the list."
 
-Prompt B: "3 Vorteile von Pufferspeichern, nur als Liste."
+Prompt B: "3 advantages of buffer tanks, only as a list."
 
-Erwartung: Antwort ist exakt eine nummerierte Liste mit drei Punkten; keine
-Werkzeugaufrufe, keine Vor- oder Nachrede, kein Nachdenken im Klartext.
+Expectation: The answer is exactly one numbered list with three items; no
+tool calls, no preamble or epilogue, no thinking in plain text.
 
-Warum gut: Misst Formattreue und Overhead des Modells bei Kleinaufträgen - wichtig, weil
-DeepSeek-Flash der Alltagsmotor sein soll.
+Why good: Measures format fidelity and overhead of the model for small tasks - important because
+DeepSeek Flash is supposed to be the everyday engine.
 
-## T12 Drei Nachrichten in schneller Folge
+## T12 Three messages in quick succession
 
-Idee: Inputs, die während eines laufenden Turns eintreffen, werden der Reihe nach als
-eigene Turns verarbeitet - nichts geht verloren, nichts wird vermischt.
+Idea: Inputs that arrive during a running turn are processed in order as
+their own turns - nothing gets lost, nothing gets mixed up.
 
-Prompt A (als DREI schnell hintereinander gesendete Nachrichten in derselben Unterhaltung):
-1. "Merke dir die Zahl 7."
-2. "Merke dir zusätzlich die Farbe Blau."
-3. "Was habe ich dir gerade alles genannt?"
+Prompt A (as THREE messages sent quickly one after another in the same conversation):
+1. "Remember the number 7."
+2. "Also remember the color blue."
+3. "What did I just tell you?"
 
-Prompt B (zwei Nachrichten schnell hintereinander):
-1. "Zähle langsam von 1 bis 5, einzeln begründet."
-2. "Stopp, sag mir stattdessen nur deine Lieblingszahl."
+Prompt B (two messages quickly one after another):
+1. "Count slowly from 1 to 5, giving a reason for each."
+2. "Stop, just tell me your favorite number instead."
 
-Erwartung: Alle Nachrichten werden verarbeitet, in Reihenfolge, als getrennte Turns
-(FIFO, kein Steering); die letzte Antwort bei A nennt 7 und Blau; bei B wird erst der
-laufende Turn beendet oder sauber unterbrochen, dann die zweite Nachricht beantwortet;
-kein Input geht verloren.
+Expectation: All messages are processed, in order, as separate turns
+(FIFO, no steering); the last answer for A names 7 and blue; for B the
+running turn is first finished or cleanly interrupted, then the second message is answered;
+no input gets lost.
 
-Warum gut: Prüft die zentrale Warteschlangen-Semantik (ein Input = ein Turn, keine
-Zustellung in laufende Turns) unter realistischem Benutzerverhalten.
+Why good: Tests the central queue semantics (one input = one turn, no
+delivery into running turns) under realistic user behavior.
 
-## T13 Hallo Welt auf der Arbeitsfläche
+## T13 Hello world on the surface
 
-Idee: Ein winziger Wunsch nach einer App in der Werkstatt endet als kleine statische
-Actor-View als Kachel auf der Arbeitsfläche mit einem kurzen Erstellen-Aktivieren-Ablauf.
+Idea: A tiny wish for an app in the workshop ends up as a small static
+actor view as a tile on the surface with a short create-activate flow.
 
-Prompt A: "Ich möchte auf der Arbeitsfläche eine kleine App haben, die nur den Text
-Hallo Welt zeigt. Bau das bitte so, dass ich sie direkt auf der Fläche sehe."
+Prompt A: "I would like a small app on the surface that only shows the text
+Hello world. Please build it so that I see it directly on the surface."
 
-Prompt B: "Ich hätte gern eine kleine App auf der Arbeitsfläche, die einfach nur
-Hallo Welt sagt. Sie soll sonst nichts tun."
+Prompt B: "I would like a small app on the surface that simply says
+Hello world. It should do nothing else."
 
-Erwartung: actor_program_create mit der Vorlage blank und actor_program_activate;
-danach steht die App als Kachel auf der Fläche und actor_program_list bestätigt die Installation.
-Die View gehört zum aufrufenden Actor und erzeugt keinen zusätzlichen Actor.
-Das Paket enthält keine eigenen Funktionen, Input-Handler oder Werkzeuge und braucht daher keinen
-erfundenen Backend-Test. Kein Abtippen von Hashes, kein Unteragent nur zum Testen.
-Die View deklariert keine Größe; die Kachel und die lokale Vollansicht gehören dem Host.
-Abschluss in unter 5 Minuten.
+Expectation: actor_program_create with the template blank and actor_program_activate;
+afterwards the app is a tile on the surface and actor_program_list confirms the installation.
+The view belongs to the calling actor and creates no additional actor.
+The package contains no functions, input handlers, or tools of its own and therefore needs no
+invented backend test. No copying of hashes, no subagent just for testing.
+The view declares no size; the tile and the local full view belong to the host.
+Completion in under 5 minutes.
 
-Warum gut: Prüft den kleinsten Actor-View-Pfad Ende-zu-Ende. Ein statischer Inhalt soll
-keine zusätzlichen Serveraktionen oder künstlichen Tests erzeugen. Die Bedienung gehört
-dem Host und wird nicht im App-Code nachgebaut.
+Why good: Tests the smallest actor view path end to end. Static content should
+not produce additional server actions or artificial tests. Operation belongs
+to the host and is not rebuilt in the app code.
 
-## T14 Die Fläche vor dem Gespräch aufteilen
+## T14 Splitting the surface before the conversation
 
-Idee: Der Koordinator soll die Kachelfläche selbst aufteilen, bevor die Arbeit läuft, statt
-die Vorgabeaufteilung stehen zu lassen.
+Idea: The coordinator should split the tile surface itself before the work runs, instead of
+leaving the default split in place.
 
-Prompt A: "Bitte richte drei Gesprächspartner mit eigenen Namen ein, die sich zwei Runden
-lang reihum zu einem Thema Deiner Wahl unterhalten, jeder mit einem kurzen Satz. Bevor es
-losgeht, möchte ich die Fläche so aufgeteilt sehen: der Wortführer oben über die ganze
-Breite, die beiden anderen darunter nebeneinander. Am Ende eine kurze Zusammenfassung."
+Prompt A: "Please set up three conversation partners with their own names who talk in turn for two rounds
+about a topic of your choice, each with a short sentence. Before it
+starts, I would like to see the surface split like this: the spokesperson at the top across the full
+width, the other two below it side by side. A short summary at the end."
 
-Prompt B: "Drei KIs unterhalten sich reihum über ein Thema. Teil die Fläche vorher auf:
-einer oben, zwei unten. Dann lass sie reden."
+Prompt B: "Three AIs talk in turn about a topic. Split the surface beforehand:
+one at the top, two at the bottom. Then let them talk."
 
-Erwartung: agent_spawn für drei Agenten mit tools: [], danach genau ein
-canvas_layout_replace mit einem root aus einer vertikalen Teilung, deren unteres Kind eine
-horizontale Teilung mit den beiden übrigen @handles ist. Kein Layout-Fehler im Journal, kein
-zweiter Aufruf während des Gesprächs, kein Versuch, den Menschen zu platzieren. Das Gespräch
-läuft danach wie in T01.
+Expectation: agent_spawn for three agents with tools: [], then exactly one
+canvas_layout_replace with a root made of a vertical split whose lower child is a
+horizontal split with the two remaining @handles. No layout error in the journal, no
+second call during the conversation, no attempt to place the human. The conversation
+then runs as in T01.
 
-Warum gut: Ende-zu-Ende-Fall für das Layout-Werkzeug: prüft, ob das Modell Entitäten als
-@handle schreibt, Teilungen richtig schachtelt, Gewichte setzt und die Fläche vor der Arbeit
-einrichtet statt danach.
+Why good: End-to-end case for the layout tool: tests whether the model writes entities as
+@handle, nests splits correctly, sets weights, and sets up the surface before the work
+instead of afterwards.

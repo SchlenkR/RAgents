@@ -19,7 +19,7 @@ export type ToolContributor = {
     name: string;
     descriptors: readonly ToolDescriptor[];
     dynamic?: boolean;
-    /** Ob die Werkzeuge in einem Run gelten; ohne Angabe in jedem, sonst fehlen sie dort ganz. */
+    /** Whether the tools apply in a run; without it in every run, otherwise they are missing there entirely. */
     runCondition?: (runId: string) => boolean;
     tools: (context: PluginContext) => readonly RunFunction[] | Promise<readonly RunFunction[]>;
 };

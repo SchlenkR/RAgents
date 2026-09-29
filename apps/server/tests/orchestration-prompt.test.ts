@@ -44,6 +44,6 @@ test("free outcome requests leave technical implementation to the model", async 
   for (const name of ["20-circle-of-four", "250-balcony-wizard"]) {
     const source = await readFile(new URL(`../../../plugins/ragents.reference/skills/${name}/SKILL.md`, import.meta.url), "utf8");
     const request = source.replace(/^---\n[\s\S]*?\n---\n/, "");
-    assert.doesNotMatch(request, /typescript_eval|typescript_api|actor_program_|actor_input|event_subscribe|onInput|context\.functions|Setup-Actor/);
+    assert.doesNotMatch(request, /typescript_eval|typescript_api|actor_program_|actor_input|event_subscribe|onInput|context\.functions|setup actor/i);
   }
 });

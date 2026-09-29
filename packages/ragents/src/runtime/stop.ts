@@ -120,7 +120,7 @@ export class RunStopper {
         const journalFailures = journalResults
             .filter((result): result is PromiseRejectedResult => result.status === "rejected")
             .map((result) => result.reason);
-        throwFailures([boundaryFailure, ...journalFailures].filter((failure) => failure !== null), `Der Run ${runId} konnte nicht vollständig gestoppt werden.`);
+        throwFailures([boundaryFailure, ...journalFailures].filter((failure) => failure !== null), `The run ${runId} could not be stopped completely.`);
 
         return runtime.view(runId);
     }
@@ -156,6 +156,6 @@ export class RunStopper {
             failures.push(cleanupResult[0].reason);
 
         stopOwnedActors("after-cleanup");
-        throwFailures(failures, `Der Run ${runId} konnte nicht vollständig gestoppt werden.`);
+        throwFailures(failures, `The run ${runId} could not be stopped completely.`);
     }
 }

@@ -31,8 +31,8 @@ const host: RunPanelHost = {
 
 const fixture = {
   registry: new PluginRegistry({
-    brand: { title: "Fokusprüfung" }, product: { id: "focus", title: "Fokusprüfung" }, plugins: [{ id: "focus" }],
-    startEntries: [{ id: "focus.template", owner: "focus", title: "Vorlage", description: "Testvorlage", action: "script", coordinator: true }],
+    brand: { title: "Focus check" }, product: { id: "focus", title: "Focus check" }, plugins: [{ id: "focus" }],
+    startEntries: [{ id: "focus.template", owner: "focus", title: "Template", description: "Test template", action: "script", coordinator: true }],
   }),
   notifications: [] as RunPanelHostMessage[],
   calls: [] as string[],
@@ -44,12 +44,12 @@ const fixture = {
   command(message: HostRunPanelMessage) { commands.forEach((listener) => listener(message)); },
   ready() { subscriptions.forEach((entry) => { if (entry.id === "ragents.chat") entry.message({ kind: "replay-end" }); }); },
   disconnect() { subscriptions.forEach((entry) => { if (entry.id === "ragents.chat") entry.error?.("disconnected"); }); },
-  stream() { subscriptions.forEach((entry) => { if (entry.id === "ragents.chat") entry.message({ kind: "text", delta: "Neue Antwort" }); }); },
+  stream() { subscriptions.forEach((entry) => { if (entry.id === "ragents.chat") entry.message({ kind: "text", delta: "New answer" }); }); },
   activeRun() { return [...subscriptions].find((entry) => entry.id === "ragents.chat")?.runId; },
   async call(contract: { id: string }) {
     fixture.calls.push(contract.id);
     switch (contract.id) {
-      case "ragents.runs.list": return [{ id: "existing", title: "Vorhandener Run", updatedAt: 0 }];
+      case "ragents.runs.list": return [{ id: "existing", title: "Existing run", updatedAt: 0 }];
       case "ragents.startOptions.list": return [];
       case "ragents.runs.view": return null;
       case "ragents.chat.start": return null;

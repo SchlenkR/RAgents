@@ -22,7 +22,7 @@ interface SavedCapture {
   path: string;
 }
 
-/** Was der Server von der Seite eines Runs weiß: den zuletzt gemeldeten Stand und die Zeit der letzten bestandenen Prüfung. */
+/** What the server knows about a run's page: the last reported state and the time of the last passed check. */
 interface ObservedPage {
   url: string;
   checkedAt?: string;
@@ -37,7 +37,7 @@ export interface BrowserOptions {
 
 const capturePath = (id: string): string => `browser/${id}.png`;
 
-/** Die Browserprüfung eines Runs: die Seite lebt beim Executor des Runs, Evidenz, Aufnahmen und Viewport hält der Server. */
+/** A run's browser testing: the page lives in the run's executor, the server holds evidence, screenshots and viewport. */
 export class RunBrowser implements BrowserRuntime {
   readonly #options: BrowserOptions;
   readonly #pages = new Map<string, ObservedPage>();
@@ -67,7 +67,7 @@ export class RunBrowser implements BrowserRuntime {
     await this.restore(runId);
     options.signal?.throwIfAborted();
     this.#assertRunning();
-    if (generation !== this.#generation(runId)) throw new Error("Der Browser wurde beendet.");
+    if (generation !== this.#generation(runId)) throw new Error("The browser was closed.");
     return this.#run(runId, BROWSER_OPERATIONS.open, { url, viewport: this.#viewports.get(runId) ?? DEFAULT_VIEWPORT }, options);
   }
 
@@ -75,7 +75,7 @@ export class RunBrowser implements BrowserRuntime {
     return this.#run(runId, BROWSER_OPERATIONS.snapshot, null, options);
   }
 
-  /** Der gewählte Viewport gilt für den Run, auch für einen später neu gestarteten Browser. */
+  /** The chosen viewport applies to the run, including a browser restarted later. */
   async viewport(runId: string, viewport: BrowserViewport, options: BrowserCallOptions = {}): Promise<BrowserSnapshot> {
     const snapshot = await this.#run<BrowserSnapshot>(runId, BROWSER_OPERATIONS.viewport, viewport, options);
     this.#viewports.set(runId, viewport);
@@ -98,7 +98,7 @@ export class RunBrowser implements BrowserRuntime {
     return this.#run(runId, BROWSER_OPERATIONS.press, { target, key }, options);
   }
 
-  /** Die Zeit einer bestandenen Prüfung ist die des Servers, damit sie sich mit seinen übrigen Zeiten vergleichen lässt. */
+  /** The time of a passed check is the server's, so it compares with its other times. */
   async check(runId: string, input: BrowserCheck, options: BrowserCallOptions = {}): Promise<{ checkedAt: string; url: string; assertions: string[] }> {
     const generation = this.#generation(runId);
     const { result, page } = await this.#execute<BrowserCheckResult>(runId, generation, BROWSER_OPERATIONS.check, input, options);
@@ -117,7 +117,7 @@ export class RunBrowser implements BrowserRuntime {
     await this.restore(runId);
     const id = randomUUID();
     const image = await this.#run<string>(runId, BROWSER_OPERATIONS.screenshot, { id, fullPage: input.fullPage ?? false }, options);
-    const capture = { name: input.label?.trim() || "Browseraufnahme", path: capturePath(id) };
+    const capture = { name: input.label?.trim() || "Browser screenshot", path: capturePath(id) };
     await this.#store(runId, capture, Buffer.from(image, "base64"));
     const url = this.#captureUrl(runId, capture.path);
     return {
@@ -130,7 +130,7 @@ export class RunBrowser implements BrowserRuntime {
 
   async image(runId: string): Promise<Buffer> {
     const latest = this.#captures.get(runId)?.at(-1);
-    if (!latest) throw new Error("Für diesen Run gibt es noch keinen Browser-Screenshot. Zuerst browser_screenshot aufrufen.");
+    if (!latest) throw new Error("There is no browser screenshot for this run yet. Call browser_screenshot first.");
     return readFile(path.join(await this.#options.filesFor(runId), latest.path));
   }
 
@@ -152,7 +152,7 @@ export class RunBrowser implements BrowserRuntime {
     };
   }
 
-  /** Schließt den Browser beim Executor des Runs; ein nicht verbundener Arbeitsplatz hält nichts, was sich jetzt schließen ließe. */
+  /** Closes the browser in the run's executor; a disconnected workspace holds nothing that could be closed now. */
   async close(runId: string): Promise<void> {
     this.#forget(runId);
     await this.#options.sandbox.execute(runId, BROWSER_OPERATIONS.close, null, { whenReachable: true });
@@ -178,14 +178,14 @@ export class RunBrowser implements BrowserRuntime {
   }
 
   #assertRunning(): void {
-    if (this.#shutdown) throw new Error("Der Browserdienst ist beendet.");
+    if (this.#shutdown) throw new Error("The browser service has ended.");
   }
 
   #generation(runId: string): number {
     return this.#generations.get(runId) ?? 0;
   }
 
-  /** Ein geschlossener Browser hat keine Seite mehr; Ergebnisse, die vorher begonnen haben, zählen danach nicht. */
+  /** A closed browser has no page anymore; results that started before no longer count afterwards. */
   #forget(runId: string): void {
     this.#generations.set(runId, this.#generation(runId) + 1);
     this.#pages.delete(runId);
@@ -207,14 +207,14 @@ export class RunBrowser implements BrowserRuntime {
     }
   }
 
-  /** Nach einem gescheiterten Aufruf fragt der Server den Stand der Seite nach; wer ihn nicht nennen kann, hat keine Seite. */
+  /** After a failed call the server asks for the page state; whoever cannot report it has no page. */
   async #resync(runId: string, generation: number): Promise<void> {
     const page = await this.#options.sandbox.execute(runId, BROWSER_OPERATIONS.state, null, { whenReachable: true })
       .then((value) => value as BrowserPageState | null, () => null);
     this.#observe(runId, generation, page);
   }
 
-  /** Nur eine bestandene Prüfung setzt die Zeit; jeder andere Stand behält sie, solange die Seite geprüft bleibt. */
+  /** Only a passed check sets the time; every other state keeps it as long as the page stays checked. */
   #observe(runId: string, generation: number, page: BrowserPageState | null, checkedAt?: string): void {
     if (generation !== this.#generation(runId)) return;
     if (!page) {
@@ -230,7 +230,7 @@ export class RunBrowser implements BrowserRuntime {
     });
   }
 
-  /** Legt eine Aufnahme in die Dateiablage des Runs und schreibt die Aufnahmeliste atomar; die Aufnahmen eines Runs der Reihe nach. */
+  /** Puts a screenshot into the run's file storage and writes the screenshot list atomically; a run's screenshots one after another. */
   #store(runId: string, capture: SavedCapture, image: Buffer): Promise<void> {
     const previous = this.#captureWrites.get(runId) ?? Promise.resolve();
     const pending = previous.then(async () => {
@@ -265,7 +265,7 @@ export class RunBrowser implements BrowserRuntime {
     const captures: unknown = JSON.parse(content);
     if (!Array.isArray(captures) || captures.some((entry) => !entry || typeof entry.name !== "string"
       || typeof entry.path !== "string" || !/^browser\/[a-f0-9-]{36}\.png$/.test(entry.path))) {
-      throw new Error("Die gespeicherte Browser-Aufnahmeliste dieses Runs ist beschädigt.");
+      throw new Error("The stored browser screenshot list of this run is corrupt.");
     }
     this.#captures.set(runId, captures);
   }

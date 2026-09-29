@@ -49,10 +49,10 @@ one coordinator. A start option can additionally mark a run
 as `ownerOnly`, as the workspace binding does for tools running on the owner's machine. Other
 users with visibility may still read its journal and stop it, but only its owner can send messages,
 answer actions, restart actors, or invoke operations requiring `runs.write`. Its workspace is the
-owner's alone even for reading: the workspace files in the Dateien tab, the process rail, and
+owner's alone even for reading: the workspace files in the Files tab, the process rail, and
 language-server state are refused to everyone else, including `runs.read.all`
 (`run-workspace-owner-only`). The run list asks nothing from such a
-workspace on their behalf, and web and VS Code hide what needs it; the Dateien tab then shows only
+workspace on their behalf, and web and VS Code hide what needs it; the Files tab then shows only
 the server's file store.
 
 Only a signed-in user of a profile with `users` can register a workstation over the network. A

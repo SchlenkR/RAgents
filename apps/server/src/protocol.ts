@@ -61,7 +61,7 @@ export class Protocol {
     this.written = statSync(this.file, { throwIfNoEntry: false })?.size ?? 0;
     this.stream = createWriteStream(this.file, { flags: "a", mode: 0o640 });
     this.stream.on("error", (error) => {
-      process.stderr.write(`Protokoll ${this.file} nicht schreibbar: ${error.message}\n`);
+      process.stderr.write(`Log ${this.file} not writable: ${error.message}\n`);
       this.stream = undefined;
     });
     return this.stream;
@@ -78,7 +78,7 @@ export class Protocol {
         if (statSync(from, { throwIfNoEntry: false })) renameSync(from, `${this.file}.${generation}`);
       }
     } catch (error) {
-      process.stderr.write(`Protokoll ${this.file} nicht rotierbar: ${(error as Error).message}\n`);
+      process.stderr.write(`Log ${this.file} cannot be rotated: ${(error as Error).message}\n`);
     }
   }
 }

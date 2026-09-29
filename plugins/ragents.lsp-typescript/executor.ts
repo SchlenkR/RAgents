@@ -22,7 +22,7 @@ export const typescriptLanguageServer: LanguageServerDescription = {
 const hasWorkspaceTypeScript = (root: string): Promise<boolean> =>
   stat(path.join(root, "node_modules", "typescript", "lib", "tsserver.js")).then((info) => info.isFile(), () => false);
 
-/** Sprachserver und Compiler liegen in den node_modules des Hosts dieser Maschine; ohne Host gibt es sie hier nicht. */
+/** Language server and compiler live in the node_modules of this machine's host; without a host they do not exist here. */
 export const executor: WorkspaceExecutorContribution = (machine) => ({
   languageServers: [{
     ...typescriptLanguageServer,
@@ -33,7 +33,7 @@ export const executor: WorkspaceExecutorContribution = (machine) => ({
       command: process.execPath,
       args: [machine.hostPackageFile(context.hostRoot, "typescript-language-server/lib/cli.mjs"), "--stdio"],
       cwd: root,
-      // Im Extension-Host ist process.execPath Electron; ohne diese Variable startet es die Anwendung statt des Skripts.
+      // In the extension host process.execPath is Electron; without this variable it starts the application instead of the script.
       env: { ...context.env, ELECTRON_RUN_AS_NODE: "1" },
       uid: context.uid,
       gid: context.gid,
@@ -45,6 +45,6 @@ export const executor: WorkspaceExecutorContribution = (machine) => ({
       publishesOnlyChangedDiagnostics: true,
     }),
     open: async (_session, root) =>
-      `TypeScript-Server auf ${path.basename(root)} bereit; Projekte werden je Datei aus der nächsten tsconfig.json geladen`,
+      `TypeScript server ready on ${path.basename(root)}; projects are loaded per file from the nearest tsconfig.json`,
   }],
 });

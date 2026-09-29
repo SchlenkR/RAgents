@@ -1,52 +1,52 @@
-# Run-Fork: neue Runs aus einem aufgebauten Run
+# Run fork: new runs from a built-up run
 
-Status: Idee
+Status: Idea
 
-## Ziel
+## Goal
 
-Ein Bediener soll einen aufgebauten Run als Ausgangspunkt weiterer Runs verwenden können:
-Startoptionen, Actors, Funktionen, Zustand, Views, Subscriptions und Kachelaufteilung. Ein
-Run-Fork übernimmt diesen Aufbau, ohne ihn nochmals durch den Koordinator ausführen zu lassen.
+An operator should be able to use a built-up run as the starting point of further runs: start
+options, actors, functions, state, views, subscriptions, and tile layout. A run fork takes over
+this setup without having the coordinator carry it out again.
 
-Vorbereitete Abläufe als TypeScript-Pakete sind bereits als Script-Vorlagen verfügbar; ihr
-geltender Vertrag steht in `docs/spec/typescript-platform.md`. Dieses Konzept betrifft
-ausschließlich die Übernahme eines tatsächlich aufgebauten Runs.
+Prepared workflows as TypeScript packages are already available as script templates; their
+current contract is described in `docs/spec/typescript-platform.md`. This concept concerns only
+taking over a run that has actually been built up.
 
-## Grundlage und fehlende Schritte
+## Foundation and missing steps
 
-Die Engine besitzt `Orchestration.forkRun` für einen Fork an einer Kommandogrenze. Eine
-Bedienoberfläche und eine Methode der Nachrichtenschicht, die den Fork mit den übrigen Daten des
-Runs verbindet, fehlen. Der Fork des Journals bringt die Modellkontexte der Agenten schon mit;
-für eine benutzbare Kopie genügt er trotzdem nicht: Arbeitsdateien sowie Quellen und Builds der
-Actor-Programme liegen zusätzlich in der Ablage des Runs.
+The engine has `Orchestration.forkRun` for a fork at a command boundary. An operator interface
+and a method of the messaging layer that connects the fork with the remaining data of the run
+are missing. The fork of the journal already brings along the agents' model contexts; it is still
+not enough for a usable copy: working files as well as sources and builds of the actor programs
+additionally live in the run's storage.
 
-Eine Umsetzung muss Journal und Ablage zusammen übernehmen und alle darin gebundenen Run- und
-Actor-Referenzen konsistent halten. Quellen und installierter Programmstand gehören zusammen; ein
-Quelltext allein darf keinen ungeprüften Ersatz für ein aktiviertes Programm bilden. Native
-Prozesse werden nicht geklont. Ein neuer Run startet seine Instanzen aus dem übernommenen geprüften
-Stand und seinem journalisierten Actor-Zustand.
+An implementation must take over journal and storage together and keep all run and actor
+references bound in them consistent. Sources and the installed program state belong together; a
+source text alone must not become an unverified replacement for an activated program. Native
+processes are not cloned. A new run starts its instances from the verified state it took over and
+its journaled actor state.
 
-Ein möglicher Weg ist eine ausdrückliche Fork-Methode, die eine neue Run-ID erzeugt, einen
-ruhenden Run übernimmt und die zuständigen Plugins ihre Daten des Runs kopieren lässt. Dafür wäre
-ein neuer Lebenszyklusschritt je Run nötig. Seine genaue Form soll erst mit zwei echten
-Datenbesitzern entschieden werden: Actor-Programme und Dateiablage.
+One possible way is an explicit fork method that creates a new run ID, takes over an idle run,
+and lets the responsible plugins copy their data of the run. That would require a new lifecycle
+step per run. Its exact form should only be decided with two real data owners: actor programs
+and file storage.
 
-Der Ausgangs-Run bleibt ein Run. Eine Markierung soll verhindern, dass er mit einem frisch
-gestarteten Fork verwechselt wird. Der Aufbau-Verlauf gehört beim exakten Fork zur Kopie; eine
-neue saubere Historie lässt sich stattdessen mit dem vorhandenen Weg über eine Script-Vorlage
-aufbauen. Ein zweiter deklarativer Seed-Vertrag ist dafür nicht vorgesehen.
+The source run remains a run. A marker should prevent it from being confused with a freshly
+started fork. With an exact fork, the setup history belongs to the copy; a new clean history can
+instead be built with the existing path through a script template. A second declarative seed
+contract is not planned for this.
 
-## Offene Entscheidungen
+## Open decisions
 
-- Modellkontexte aus dem Journal übernehmen oder mit einer ausdrücklichen Aufbau-Zusammenfassung neu starten.
-- Dateiablage vollständig übernehmen oder eine klar ausgewählte Teilmenge kopieren.
-- Quellen, Builds und private Arbeitsdateien ohne Verweise auf den ursprünglichen Run übernehmen.
-- Ausgangs-Run weiter bearbeitbar lassen oder vor unbeabsichtigter Nutzung schützen.
-- Verhalten bei Schema- oder Capability-Änderungen klar ablehnen; Migrationen sind nicht vorgesehen.
+- Take over model contexts from the journal or restart with an explicit setup summary.
+- Take over the file storage completely or copy a clearly selected subset.
+- Take over sources, builds, and private working files without references to the original run.
+- Leave the source run editable or protect it against unintended use.
+- Clearly reject schema or capability changes; migrations are not planned.
 
-## Abnahme
+## Acceptance
 
-Zwei Forks desselben Runs müssen unabhängig arbeiten. Änderungen an Actor-Zustand, Views und
-Dateien dürfen weder den Ausgangs-Run noch den anderen Fork verändern. Nach Neustart müssen beide
-Forks ihren eigenen Stand wiederherstellen. Ein unvollständiger oder nicht mehr kompatibler
-Paketstand muss den Fork mit einer konkreten Fehlermeldung abbrechen.
+Two forks of the same run must work independently. Changes to actor state, views, and files must
+change neither the source run nor the other fork. After a restart, both forks must restore their
+own state. An incomplete or no longer compatible package state must abort the fork with a
+concrete error message.

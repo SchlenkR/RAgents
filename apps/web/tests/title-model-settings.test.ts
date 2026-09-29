@@ -7,9 +7,9 @@ import { requestTitleModelSettings, titleModelOptions, titleModelSettingsFrom, t
 const settings: TitleModelSettings = {
   selection: { provider: "openrouter", model: "model-a" },
   models: [
-    { provider: "openrouter", id: "model-b", label: "Empfohlenes Modell" },
-    { provider: "openrouter", id: "model-a", label: "Bisheriges Modell" },
-    { provider: "other", id: "model-a", label: "Anderer Anbieter" },
+    { provider: "openrouter", id: "model-b", label: "Recommended model" },
+    { provider: "openrouter", id: "model-a", label: "Previous model" },
+    { provider: "other", id: "model-a", label: "Other provider" },
   ],
 };
 interface TitleCall { id: number; method: string; params: { value?: { selection?: TitleModelSelection | null } } }
@@ -48,7 +48,7 @@ test("disabled titles are valid without a model catalog while missing or inconsi
     { ...settings, selection: { provider: "openrouter", model: "missing" } },
     { ...settings, models: [{ provider: "openrouter", id: "model-a", label: "" }] },
     { ...settings, models: [settings.models[0], ...settings.models] },
-  ]) assert.throws(() => titleModelSettingsFrom(invalid), /ungültige|Modellkatalog/);
+  ]) assert.throws(() => titleModelSettingsFrom(invalid), /invalid|model catalog/);
 });
 
 test("selection keys distinguish providers and reject stale choices instead of silently disabling titles", () => {
@@ -58,29 +58,29 @@ test("selection keys distinguish providers and reject stale choices instead of s
   }
   assert.notEqual(titleSelectionKey({ provider: "openrouter", model: "model-a" }), titleSelectionKey({ provider: "other", model: "model-a" }));
   assert.equal(titleSelectionFromKey(titleSelectionKey(null), settings.models), null);
-  assert.throws(() => titleSelectionFromKey("missing", settings.models), /nicht verfügbar/);
-  assert.throws(() => titleSelectionFromKey(titleSelectionKey(settings.selection), []), /nicht verfügbar/);
+  assert.throws(() => titleSelectionFromKey("missing", settings.models), /not available/);
+  assert.throws(() => titleSelectionFromKey(titleSelectionKey(settings.selection), []), /not available/);
 });
 
 test("local search preserves catalog order, the selected model and the disable option", () => {
   const options = titleModelOptions(settings.models, settings.selection, "");
-  assert.deepEqual(options.map(({ label }) => label), ["Keine automatischen Überschriften", ...settings.models.map(({ label }) => label)]);
-  assert.deepEqual(titleModelOptions(settings.models, settings.selection, "  EMPFOHLEN  ").map(({ label }) => label), [
-    "Keine automatischen Überschriften", "Empfohlenes Modell", "Bisheriges Modell",
+  assert.deepEqual(options.map(({ label }) => label), ["No automatic titles", ...settings.models.map(({ label }) => label)]);
+  assert.deepEqual(titleModelOptions(settings.models, settings.selection, "  RECOMMENDED  ").map(({ label }) => label), [
+    "No automatic titles", "Recommended model", "Previous model",
   ]);
   assert.deepEqual(titleModelOptions(settings.models, null, "model-a").map(({ label }) => label), [
-    "Keine automatischen Überschriften", "Bisheriges Modell", "Anderer Anbieter",
+    "No automatic titles", "Previous model", "Other provider",
   ]);
   assert.deepEqual(titleModelOptions(settings.models, settings.selection, "no results").map(({ label }) => label), [
-    "Keine automatischen Überschriften", "Bisheriges Modell",
+    "No automatic titles", "Previous model",
   ]);
-  assert.deepEqual(titleModelOptions(settings.models, null, "no results"), [{ value: "null", label: "Keine automatischen Überschriften" }]);
+  assert.deepEqual(titleModelOptions(settings.models, null, "no results"), [{ value: "null", label: "No automatic titles" }]);
 });
 
 test("failed saves expose the API error and preserve the local selection", async () => {
   const selection = Object.freeze({ provider: "openrouter", model: "model-a" });
-  await assert.rejects(requestTitleModelSettings({ selection, client: clientWith(async (_url, init) => failure(callOf(init), "Keine Berechtigung zum Speichern")) }), /Keine Berechtigung zum Speichern/);
+  await assert.rejects(requestTitleModelSettings({ selection, client: clientWith(async (_url, init) => failure(callOf(init), "No permission to save")) }), /No permission to save/);
   assert.deepEqual(selection, { provider: "openrouter", model: "model-a" });
-  await assert.rejects(requestTitleModelSettings({ client: clientWith(async () => new Response("Unavailable", { status: 503 })) }), /Der Server antwortete mit 503/);
-  await assert.rejects(requestTitleModelSettings({ client: clientWith(async (_url, init) => result(callOf(init), { models: [] })) }), /ungültige/);
+  await assert.rejects(requestTitleModelSettings({ client: clientWith(async () => new Response("Unavailable", { status: 503 })) }), /The server responded with 503/);
+  await assert.rejects(requestTitleModelSettings({ client: clientWith(async (_url, init) => result(callOf(init), { models: [] })) }), /invalid/);
 });

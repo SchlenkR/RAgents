@@ -7,33 +7,33 @@ import { launchChromium } from "./playwright.js";
 const BROWSER_TIMEOUT_MS = 15_000;
 
 export interface BrowserModuleOptions {
-  /** Startet den Browser eines Runs; ohne Angabe Chrome über playwright-core aus dem Host dieser Maschine. */
+  /** Starts a run's browser; if omitted, Chrome via playwright-core from this machine's host. */
   launch?: (runId: string) => Promise<Browser>;
   timeoutMs?: number;
   checkTimeoutMs?: number;
 }
 
-/** Der Browser eines Runs auf dieser Maschine: Seite, Aktionen, Prüfungen und Aufnahmen; Evidenz und Ablage hält der Aufrufer. */
+/** A run's browser on this machine: page, actions, checks and screenshots; the caller holds evidence and storage. */
 export const browserModule = (machine: WorkspaceExecutorMachine, options: BrowserModuleOptions = {}): WorkspaceModuleFactory => (host) => {
   const invalid = (message: string): Error => machine.operationError("browser-input-invalid", message, 400);
   const fieldsOf = (input: unknown): Readonly<Record<string, unknown>> => {
-    if (typeof input !== "object" || input === null || Array.isArray(input)) throw invalid("Die Eingabe einer Browseroperation ist ein Objekt");
+    if (typeof input !== "object" || input === null || Array.isArray(input)) throw invalid("The input of a browser operation is an object");
     return input as Readonly<Record<string, unknown>>;
   };
   const textOf = (input: unknown, key: string): string => {
     const value = fieldsOf(input)[key];
-    if (typeof value !== "string") throw invalid(`Die Browseroperation braucht ${key} als Text`);
+    if (typeof value !== "string") throw invalid(`The browser operation needs ${key} as text`);
     return value;
   };
   const targetOf = (input: unknown): BrowserTarget => {
     const value = fieldsOf(input).target;
-    if (typeof value !== "object" || value === null || Array.isArray(value)) throw invalid("Die Browseroperation braucht ein Ziel");
+    if (typeof value !== "object" || value === null || Array.isArray(value)) throw invalid("The browser operation needs a target");
     return value as BrowserTarget;
   };
   const viewportOf = (input: unknown): BrowserViewport => {
     const { width, height } = fieldsOf(input);
     if (typeof width !== "number" || typeof height !== "number" || !Number.isInteger(width) || !Number.isInteger(height) || width <= 0 || height <= 0) {
-      throw invalid("Ein Viewport braucht Breite und Höhe als positive ganze Zahlen");
+      throw invalid("A viewport needs width and height as positive integers");
     }
     return { width, height };
   };

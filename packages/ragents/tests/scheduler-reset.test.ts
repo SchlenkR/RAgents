@@ -58,7 +58,7 @@ test("failed runtime stop does not authorize destructive cleanup in the halted b
     const driver = new FakeDriver(async () => ({ failure: null, usage: noUsage() }));
     const scheduler = new TurnScheduler(setup.runtime, setup.journal, { drivers: { agent: {
         kind: "agent", runTurn: (request, signal) => driver.runTurn(request, signal),
-        haltRun: async () => { throw new Error("Runtime konnte nicht gestoppt werden"); },
+        haltRun: async () => { throw new Error("Runtime could not be stopped"); },
     } }, catalog, onError: () => undefined });
     let removed = false;
     try {
@@ -66,7 +66,7 @@ test("failed runtime stop does not authorize destructive cleanup in the halted b
             await stopped;
             await settled;
             removed = true;
-        }), /nicht vollständig angehalten/);
+        }), /could not be halted completely/);
         assert.equal(removed, false);
         assert.ok(setup.journal.stateOf(setup.view.id));
     } finally { await scheduler.stop(); setup.journal.close(); }

@@ -56,15 +56,15 @@ test("star layout draws both directions between hub and spoke side by side and k
 });
 
 test("FlowDiagram is SSR-safe and rejects invalid graphs without stale content", () => {
-  const html = renderToStaticMarkup(createElement(FlowDiagram, { nodes: [{id: "a", label: "A"}], edges: [], label: "Ablauf" }));
-  assert.match(html, /aria-label="Ablauf"/);
-  assert.match(html, /Diagramm wird geladen/);
+  const html = renderToStaticMarkup(createElement(FlowDiagram, { nodes: [{id: "a", label: "A"}], edges: [], label: "Flow" }));
+  assert.match(html, /aria-label="Flow"/);
+  assert.match(html, /Loading diagram/);
   for (const props of [
     { nodes: [{ id: "a", label: "A" }, { id: "a", label: "B" }], edges: [] },
     { nodes: [{ id: "a", label: "A" }], edges: [{source:"a", target:"missing"}] },
     { nodes: [{ id: "", label: "A" }], edges: [] },
-  ]) assert.match(renderToStaticMarkup(createElement(FlowDiagram, { ...props, label: "Fehler" })), /role="alert"/);
-  assert.match(renderToStaticMarkup(createElement(FlowDiagram, { nodes: [], edges: [], label: "Leer" })), /No nodes available/);
+  ]) assert.match(renderToStaticMarkup(createElement(FlowDiagram, { ...props, label: "Error" })), /role="alert"/);
+  assert.match(renderToStaticMarkup(createElement(FlowDiagram, { nodes: [], edges: [], label: "Empty" })), /No nodes available/);
 });
 
 test("FlowDiagram renders offline, routes edges and preserves layout and viewport on status updates", {
@@ -81,15 +81,15 @@ import { FlowDiagram } from "./apps/web/src/actor-programs/client-ui/index";
 import "./apps/web/src/ui/frame.css";
 import "./apps/web/src/actor-programs/client-ui/flow-diagram.css";
 function App() {
-  const [nodes, setNodes] = useState([{id:'a',label:'Auswahl',status:'pending'}, {id:'b',label:'Prüfen',detail:'Änderungen kontrollieren',status:'active'}]);
+  const [nodes, setNodes] = useState([{id:'a',label:'Selection',status:'pending'}, {id:'b',label:'Review',detail:'Check changes',status:'active'}]);
   const [visible, setVisible] = useState(true);
   const [fitWidth, setFitWidth] = useState(440);
   const [itemStatus, setItemStatus] = useState("active");
-  const [summaryDetail, setSummaryDetail] = useState("Langer Bericht mit konkreten Befunden. ".repeat(40));
+  const [summaryDetail, setSummaryDetail] = useState("Long report with concrete findings. ".repeat(40));
   const [summaryStatus, setSummaryStatus] = useState("active");
   const [summaryRunning, setSummaryRunning] = useState(true);
   window.diagramFixture = { setNodes, setVisible, setFitWidth, setItemStatus, setSummaryDetail, setSummaryStatus, setSummaryRunning };
-  return <main style={{maxWidth:760,padding:12}}>{visible && <FlowDiagram detailLevel="full" nodes={nodes} edges={[{source:'a',target:'b',label:'Start'}]} label="Auftragsablauf" />}<FlowDiagram detailLevel="full" nodes={[{id:'a',label:'Kommunikation'}]} edges={[]} label="Parallel" /><div id="outer-scroll" style={{height:300,width:fitWidth,overflowY:'auto',overflowX:'hidden'}}><FlowDiagram detailLevel="full" viewport="fit-width" direction="down" label="Automatischer Ablauf" nodes={[0,1,2,3].map(i=>({id:String(i),label:'Phase '+i,items:[{label:'Reviewregel prüfen',status:itemStatus,detail:'Ergebnis der Regelprüfung'},{label:'Weitere Regel',status:'skipped'}]}))} edges={[...[0,1,2].map(i=>({source:String(i),target:String(i+1),label:'Weiter zur nächsten Phase'})),{source:'3',target:'1',label:'Korrektur und erneute Prüfung',kind:'return'}]} /></div><div id="star-box" style={{width:520,height:320}}><FlowDiagram layout="star" viewport="fit" label="Sternansicht" nodes={[{id:'hub',label:'main',status:'active',actions:[{id:'push',label:'Pushen',primary:true},{id:'builds',label:'Buildschritte',disabled:true}]},{id:'a',label:'Alpha',items:[{label:'Nach main: fertig',status:'done'}],actions:[{id:'push',label:'Pushen'}]},{id:'b',label:'Beta'},{id:'c',label:'Gamma'}]} edges={[{source:'a',target:'hub',status:'done'},{source:'hub',target:'a',status:'active'},{source:'b',target:'hub',status:'pending'},{source:'hub',target:'c',status:'blocked'}]} onAction={(node,action)=>{window.starActions=(window.starActions||[]).concat(node+':'+action);}} /></div><FlowDiagram label="Kompakte Regeln" viewport="fit-width" nodes={[{id:'summary',label:'Regelreview mit einer sehr langen Phasenüberschrift, die auf höchstens zwei Zeilen begrenzt bleiben soll',detail:summaryDetail,status:summaryStatus,running:summaryRunning,items:Array.from({length:8},(_,index)=>({label:'Regel '+index+': Diese ausführliche Regelbeschreibung darf nur eine sichtbare Zeile belegen',status:summaryStatus==='active'?['pending','done','active','blocked','skipped'][index%5]:summaryStatus,detail:summaryDetail}))}]} edges={[]} /></main>;
+  return <main style={{maxWidth:760,padding:12}}>{visible && <FlowDiagram detailLevel="full" nodes={nodes} edges={[{source:'a',target:'b',label:'Start'}]} label="Task flow" />}<FlowDiagram detailLevel="full" nodes={[{id:'a',label:'Communication'}]} edges={[]} label="Parallel" /><div id="outer-scroll" style={{height:300,width:fitWidth,overflowY:'auto',overflowX:'hidden'}}><FlowDiagram detailLevel="full" viewport="fit-width" direction="down" label="Automatic flow" nodes={[0,1,2,3].map(i=>({id:String(i),label:'Phase '+i,items:[{label:'Check review rule',status:itemStatus,detail:'Result of the rule check'},{label:'Another rule',status:'skipped'}]}))} edges={[...[0,1,2].map(i=>({source:String(i),target:String(i+1),label:'On to the next phase'})),{source:'3',target:'1',label:'Correction and another review',kind:'return'}]} /></div><div id="star-box" style={{width:520,height:320}}><FlowDiagram layout="star" viewport="fit" label="Star view" nodes={[{id:'hub',label:'main',status:'active',actions:[{id:'push',label:'Push',primary:true},{id:'builds',label:'Build steps',disabled:true}]},{id:'a',label:'Alpha',items:[{label:'To main: done',status:'done'}],actions:[{id:'push',label:'Push'}]},{id:'b',label:'Beta'},{id:'c',label:'Gamma'}]} edges={[{source:'a',target:'hub',status:'done'},{source:'hub',target:'a',status:'active'},{source:'b',target:'hub',status:'pending'},{source:'hub',target:'c',status:'blocked'}]} onAction={(node,action)=>{window.starActions=(window.starActions||[]).concat(node+':'+action);}} /></div><FlowDiagram label="Compact rules" viewport="fit-width" nodes={[{id:'summary',label:'Rule review with a very long phase heading that should stay limited to at most two lines',detail:summaryDetail,status:summaryStatus,running:summaryRunning,items:Array.from({length:8},(_,index)=>({label:'Rule '+index+': This detailed rule description may take up only one visible line',status:summaryStatus==='active'?['pending','done','active','blocked','skipped'][index%5]:summaryStatus,detail:summaryDetail}))}]} edges={[]} /></main>;
 }
 createRoot(document.getElementById('root')).render(<App />);` },
     outfile: `${directory}/fixture.js`, bundle: true, platform: "browser", format: "iife", jsx: "automatic", plugins: [tailwindPlugin([])], logLevel: "silent",
@@ -103,7 +103,7 @@ createRoot(document.getElementById('root')).render(<App />);` },
     }
     response.setHeader("Content-Type", "text/html");
     response.setHeader("Content-Security-Policy", "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src data:; font-src 'self'");
-    response.end('<!doctype html><html lang="de"><head><meta charset="utf-8"><link rel="stylesheet" href="/fixture.css"><link rel="icon" href="data:,"></head><body><div id="root"></div><script src="/fixture.js"></script></body></html>');
+    response.end('<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="stylesheet" href="/fixture.css"><link rel="icon" href="data:,"></head><body><div id="root"></div><script src="/fixture.js"></script></body></html>');
   });
   await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
   context.after(async () => { server.closeAllConnections(); await new Promise<void>((resolve) => server.close(() => resolve())); });
@@ -128,58 +128,58 @@ createRoot(document.getElementById('root')).render(<App />);` },
   page.on("pageerror", (error) => errors.push(error.message));
   page.on("request", (request) => { if (!request.url().startsWith(`http://127.0.0.1:${address.port}`)) externalRequests.push(request.url()); });
   await page.goto(`http://127.0.0.1:${address.port}`);
-  const flow = page.getByRole("region", { name: "Auftragsablauf", exact: true });
+  const flow = page.getByRole("region", { name: "Task flow", exact: true });
   const parallel = page.getByRole("region", { name: "Parallel", exact: true });
   await flow.locator('[data-running]').nth(1).waitFor();
   await parallel.locator('[data-running]').waitFor();
   await flow.locator('.react-flow__edge-path').first().waitFor({ state: "attached" });
   assert.equal(await flow.locator('.react-flow__edge-path').count(), 1);
   assert.match(await flow.locator('.react-flow__edge-path').getAttribute('marker-end') ?? '', /url/);
-  assert.equal(await flow.getByRole('button', {name: 'Zoom vergrößern'}).count(), 1);
-  await page.waitForFunction(() => document.querySelector('[aria-label="Auftragsablauf"] .react-flow__viewport')!.getAttribute('style')!.includes('scale(0.8)'));
+  assert.equal(await flow.getByRole('button', {name: 'Zoom in'}).count(), 1);
+  await page.waitForFunction(() => document.querySelector('[aria-label="Task flow"] .react-flow__viewport')!.getAttribute('style')!.includes('scale(0.8)'));
   assert.ok(await flow.locator('.react-flow__node').first().evaluate(element => Math.abs(element.getBoundingClientRect().width - (element as HTMLElement).offsetWidth * 0.8) < 0.01), 'Interactive cards initially display at 80 percent of natural width');
-  await flow.getByRole('button', {name: 'Zoom vergrößern'}).click();
-  await page.waitForFunction(() => !document.querySelector('[aria-label="Auftragsablauf"] .react-flow__viewport')!.getAttribute('style')!.includes('scale(0.8)'));
-  await flow.getByRole('button', {name: 'Ansicht zentrieren'}).click();
-  await page.waitForFunction(() => document.querySelector('[aria-label="Auftragsablauf"] .react-flow__viewport')!.getAttribute('style')!.includes('scale(0.8)'));
+  await flow.getByRole('button', {name: 'Zoom in'}).click();
+  await page.waitForFunction(() => !document.querySelector('[aria-label="Task flow"] .react-flow__viewport')!.getAttribute('style')!.includes('scale(0.8)'));
+  await flow.getByRole('button', {name: 'Fit view'}).click();
+  await page.waitForFunction(() => document.querySelector('[aria-label="Task flow"] .react-flow__viewport')!.getAttribute('style')!.includes('scale(0.8)'));
   assert.ok(await flow.locator('.react-flow__node').first().evaluate(element => Math.abs(element.getBoundingClientRect().width - (element as HTMLElement).offsetWidth * 0.8) < 0.01), 'Centering restores cards to 80 percent of natural width');
   assert.match(await flow.locator('.react-flow__edge-path').getAttribute('d') ?? '', /^M .*L /);
   assert.equal(await flow.locator('[data-running]').first().evaluate(el => getComputedStyle(el).fontSize), '16px');
   const placement = () => flow.locator('.react-flow__node').evaluateAll(els => els.map(el => el.getAttribute('style')));
   const before = await placement();
   const viewport = await flow.locator('.react-flow__viewport').getAttribute('style');
-  await page.evaluate(() => (window as any).diagramFixture.setNodes([{id:'a',label:'Auswahl',status:'done'}, {id:'b',label:'Prüfen',detail:'Änderungen kontrollieren',status:'blocked'}]));
+  await page.evaluate(() => (window as any).diagramFixture.setNodes([{id:'a',label:'Selection',status:'done'}, {id:'b',label:'Review',detail:'Check changes',status:'blocked'}]));
   await flow.locator('[data-running][data-status="blocked"]').waitFor();
   assert.deepEqual(await placement(), before);
   assert.equal(await flow.locator('.react-flow__viewport').getAttribute('style'), viewport);
-  await page.evaluate(() => (window as any).diagramFixture.setNodes([{id:'a',label:'Fertig',status:'done'}, {id:'b',label:'Ende',detail:'Ergebnis',status:'active'}]));
-  await flow.getByRole('heading', {name:'Fertig', exact:true}).waitFor();
-  assert.doesNotMatch(await flow.textContent() ?? '', /Auswahl/);
-  await page.evaluate(() => (window as any).diagramFixture.setNodes([{id:'a',label:'Kaputt'}]));
+  await page.evaluate(() => (window as any).diagramFixture.setNodes([{id:'a',label:'Complete',status:'done'}, {id:'b',label:'End',detail:'Result',status:'active'}]));
+  await flow.getByRole('heading', {name:'Complete', exact:true}).waitFor();
+  assert.doesNotMatch(await flow.textContent() ?? '', /Selection/);
+  await page.evaluate(() => (window as any).diagramFixture.setNodes([{id:'a',label:'Broken'}]));
   await flow.getByRole('alert').waitFor();
   assert.equal(await flow.locator('.react-flow').count(), 0);
   assert.equal(await parallel.locator('[data-running]').count(), 1);
-  await page.evaluate(() => { (window as any).diagramFixture.setNodes([{id:'a',label:'Veraltet'}, {id:'b',label:'Ende'}]); });
+  await page.evaluate(() => { (window as any).diagramFixture.setNodes([{id:'a',label:'Stale'}, {id:'b',label:'End'}]); });
   await page.evaluate(() => (window as any).diagramFixture.setVisible(false));
   await flow.waitFor({state:'detached'});
-  await page.evaluate(() => { (window as any).diagramFixture.setNodes([{id:'a',label:'Aktuell'}, {id:'b',label:'Ende'}]); (window as any).diagramFixture.setVisible(true); });
-  await flow.getByText('Aktuell', {exact:true}).waitFor();
-  assert.doesNotMatch(await flow.textContent() ?? '', /Veraltet/);
-  const fitted = page.getByRole('region', {name:'Automatischer Ablauf'});
+  await page.evaluate(() => { (window as any).diagramFixture.setNodes([{id:'a',label:'Current'}, {id:'b',label:'End'}]); (window as any).diagramFixture.setVisible(true); });
+  await flow.getByText('Current', {exact:true}).waitFor();
+  assert.doesNotMatch(await flow.textContent() ?? '', /Stale/);
+  const fitted = page.getByRole('region', {name:'Automatic flow'});
   await fitted.locator('[data-running]').nth(3).waitFor();
   assert.equal(await fitted.locator('.react-flow__controls').count(), 0);
   const ordered = await fitted.locator('.react-flow__node').evaluateAll(elements => elements.map(element => ({id:element.getAttribute('data-id'), top:element.getBoundingClientRect().top})).sort((a,b)=>a.top-b.top).map(element=>element.id));
   assert.deepEqual(ordered, ['0','1','2','3'], 'Return edge leaves semantic forward phase order intact');
-  const route = fitted.locator('.react-flow__edge').filter({hasText:'Korrektur und erneute Prüfung'});
+  const route = fitted.locator('.react-flow__edge').filter({hasText:'Correction and another review'});
   assert.match(await route.locator('.react-flow__edge-path').getAttribute('d') ?? '', /^M .*L .*L .*L /);
   assert.match(await route.locator('.react-flow__edge-path').getAttribute('marker-end') ?? '', /url/);
   assert.match(await route.locator('g[data-kind="return"]').getAttribute('transform') ?? '', /rotate\(-90\)/);
-  assert.equal(await fitted.getByText('Übersprungen', {exact:true}).count(), 4);
+  assert.equal(await fitted.getByText('Skipped', {exact:true}).count(), 4);
   const fitMetrics = () => fitted.evaluate(element => ({width: element.clientWidth, height: element.clientHeight, cardWidth: element.querySelector(".react-flow__node")!.getBoundingClientRect().width, transform: element.querySelector('.react-flow__viewport')?.getAttribute('style')}));
   const wide = await fitMetrics();
   assert.ok(wide.height > 300, 'Graph supplies natural content height beyond outer scrolling area');
   await page.evaluate(() => (window as any).diagramFixture.setFitWidth(320));
-  await page.waitForFunction(previous => document.querySelector('[aria-label="Automatischer Ablauf"]')!.clientHeight < previous, wide.height);
+  await page.waitForFunction(previous => document.querySelector('[aria-label="Automatic flow"]')!.clientHeight < previous, wide.height);
   const narrow = await fitMetrics();
   assert.ok(Math.abs(narrow.height / wide.height - narrow.cardWidth / wide.cardWidth) < 0.02, 'Natural graph height tracks available width');
   const bounds = await fitted.evaluate(element => {
@@ -188,7 +188,7 @@ createRoot(document.getElementById('root')).render(<App />);` },
   });
   assert.ok(bounds, 'Node cards and edge labels remain inside fitted bounds');
   await page.evaluate(() => (window as any).diagramFixture.setItemStatus('done'));
-  await fitted.getByText('Fertig', {exact:true}).first().waitFor();
+  await fitted.getByText('Done', {exact:true}).first().waitFor();
   assert.deepEqual(await fitMetrics(), narrow, 'Item status updates preserve placement and fitted height');
   const outer = page.locator('#outer-scroll');
   await outer.scrollIntoViewIfNeeded();
@@ -208,24 +208,24 @@ createRoot(document.getElementById('root')).render(<App />);` },
   assert.equal(await fitted.locator('[data-running]').evaluateAll(elements => elements.every(element => element.scrollHeight <= element.clientHeight + 1 && element.scrollWidth <= element.clientWidth)), true, 'Measured card heights contain all structured points');
   await page.evaluate(() => (window as any).diagramFixture.setFitWidth(720));
   await page.waitForFunction(() => document.getElementById('outer-scroll')!.clientWidth === 720);
-  await page.waitForFunction(() => document.querySelector('[aria-label="Automatischer Ablauf"] .react-flow__viewport')!.getAttribute('style')!.includes('scale(0.8)'));
+  await page.waitForFunction(() => document.querySelector('[aria-label="Automatic flow"] .react-flow__viewport')!.getAttribute('style')!.includes('scale(0.8)'));
   assert.ok(Math.abs((await fitMetrics()).cardWidth - 192) < 0.01, 'Wide containers display cards at 80 percent of natural width');
-  const summary = page.getByRole('region', {name:'Kompakte Regeln'});
+  const summary = page.getByRole('region', {name:'Compact rules'});
   await summary.locator('li').nth(7).waitFor();
-  assert.equal(await summary.getByText(/Langer Bericht mit konkreten Befunden/).count(), 0, 'Summary omits detail paragraphs');
-  assert.equal(await summary.getByText('Aktiv', {exact:true}).count(), 1, 'Summary keeps only the card badge, no separate status rows');
+  assert.equal(await summary.getByText(/Long report with concrete findings/).count(), 0, 'Summary omits detail paragraphs');
+  assert.equal(await summary.getByText('Active', {exact:true}).count(), 1, 'Summary keeps only the card badge, no separate status rows');
   const summaryGeometry = () => summary.evaluate(element => ({height:element.clientHeight, viewport:element.querySelector('.react-flow__viewport')!.getAttribute('style'), nodes:[...element.querySelectorAll('.react-flow__node')].map(node=>node.getAttribute('style'))}));
   const compact = await summaryGeometry();
   const title = summary.getByRole('heading');
   assert.ok((await title.textContent() ?? '').split('\n').length <= 2);
-  assert.match(await title.getAttribute('title') ?? '', /höchstens zwei Zeilen begrenzt bleiben soll/);
-  assert.match(await title.getAttribute('title') ?? '', /Langer Bericht mit konkreten Befunden/);
+  assert.match(await title.getAttribute('title') ?? '', /at most two lines/);
+  assert.match(await title.getAttribute('title') ?? '', /Long report with concrete findings/);
   const rows = summary.locator('li');
   assert.equal(await rows.count(), 8, 'Every review rule has its own row');
   assert.equal(await rows.evaluateAll(elements=>elements.every(element=>Math.abs(element.getBoundingClientRect().height - (12 + element.querySelector('span')!.textContent!.split('\n').length * 24) * 0.8) < 0.01)), true, 'Each row height matches all wrapped label lines at 100 percent scale');
-  assert.equal(await rows.evaluateAll(elements=>elements.every(element=>element.textContent!.replace(/\s+/g,' ').includes('darf nur eine sichtbare Zeile belegen'))), true, 'Long rule labels remain complete instead of being truncated');
+  assert.equal(await rows.evaluateAll(elements=>elements.every(element=>element.textContent!.replace(/\s+/g,' ').includes('may take up only one visible line'))), true, 'Long rule labels remain complete instead of being truncated');
   assert.ok(await rows.first().evaluate(element=>element.getBoundingClientRect().height > 28), 'Long rules wrap to multiple lines');
-  for (const [status,label] of Object.entries({pending:'Ausstehend',done:'Fertig',active:'Aktiv',blocked:'Blockiert',skipped:'Übersprungen'})) {
+  for (const [status,label] of Object.entries({pending:'Pending',done:'Done',active:'Active',blocked:'Blocked',skipped:'Skipped'})) {
     const icon = rows.locator(`[role="img"][data-status="${status}"]`).first();
     assert.equal(await icon.getAttribute('aria-label'), label);
     assert.equal(await icon.getAttribute('role'), 'img');
@@ -246,11 +246,11 @@ createRoot(document.getElementById('root')).render(<App />);` },
   assert.equal(await summary.locator('[data-running]').evaluate(element=>getComputedStyle(element).animationName), 'none');
   assert.equal(await rows.locator('[role="img"][data-status="active"]').first().evaluate(element=>getComputedStyle(element).animationName), 'none');
   await page.emulateMedia({reducedMotion:'no-preference'});
-  assert.match(await rows.first().getAttribute('title') ?? '', /darf nur eine sichtbare Zeile belegen/);
-  assert.match(await rows.first().getAttribute('title') ?? '', /Langer Bericht mit konkreten Befunden/);
-  await page.evaluate(() => { (window as any).diagramFixture.setSummaryStatus('done'); (window as any).diagramFixture.setSummaryDetail('Aktualisierter umfangreicher Bericht. '.repeat(400)); });
-  await summary.locator('li [role="img"][aria-label="Fertig"]').nth(7).waitFor();
-  assert.match(await rows.first().getAttribute('title') ?? '', /Aktualisierter umfangreicher Bericht/);
+  assert.match(await rows.first().getAttribute('title') ?? '', /may take up only one visible line/);
+  assert.match(await rows.first().getAttribute('title') ?? '', /Long report with concrete findings/);
+  await page.evaluate(() => { (window as any).diagramFixture.setSummaryStatus('done'); (window as any).diagramFixture.setSummaryDetail('Updated extensive report. '.repeat(400)); });
+  await summary.locator('li [role="img"][aria-label="Done"]').nth(7).waitFor();
+  assert.match(await rows.first().getAttribute('title') ?? '', /Updated extensive report/);
   assert.deepEqual(await summaryGeometry(), compact, 'Status changes and growing detail reports preserve compact geometry');
   assert.equal(await summary.locator('[data-running], li').evaluateAll(elements=>elements.every(element=>element.scrollWidth<=element.clientWidth && element.scrollHeight<=element.clientHeight+1)), true, 'Compact cards and individual rows do not overflow');
   if (zoomExtension) {
@@ -262,7 +262,7 @@ createRoot(document.getElementById('root')).render(<App />);` },
       const api = (globalThis as any).chrome;
       const tabs = await api.tabs.query({});
       const tab = tabs.find((tab: {url:string}) => tab.url === url);
-      if (!tab) throw new Error('Testtab fehlt');
+      if (!tab) throw new Error('Test tab missing');
       await api.tabs.setZoom(tab.id, factor);
       return api.tabs.getZoom(tab.id);
     }, {url, factor});
@@ -279,11 +279,11 @@ createRoot(document.getElementById('root')).render(<App />);` },
     context.diagnostic(`Actual chrome.tabs.setZoom: ${JSON.stringify({baseline,reduced})}`);
   }
   await page.evaluate(() => (window as any).diagramFixture.setNodes([
-    {id:'a',label:'Ausstehend',status:'pending'}, {id:'b',label:'In Arbeit',status:'active',running:false},
-    {id:'c',label:'Erledigt',status:'done'}, {id:'d',label:'Blockiert',status:'blocked'},
+    {id:'a',label:'Pending',status:'pending'}, {id:'b',label:'In progress',status:'active',running:false},
+    {id:'c',label:'Completed',status:'done'}, {id:'d',label:'Blocked',status:'blocked'},
   ]));
-  await page.locator('[aria-label="Auftragsablauf"] [data-running][data-status="blocked"]').waitFor();
-  const colors = await page.locator('[aria-label="Auftragsablauf"] [data-running]').evaluateAll(cards => cards.map(card => ({
+  await page.locator('[aria-label="Task flow"] [data-running][data-status="blocked"]').waitFor();
+  const colors = await page.locator('[aria-label="Task flow"] [data-running]').evaluateAll(cards => cards.map(card => ({
     status:card.getAttribute('data-status'),color:getComputedStyle(card.querySelector('span')!).color,
     background:getComputedStyle(card.querySelector('span')!).backgroundColor,
     animation:getComputedStyle(card).animationName,
@@ -291,7 +291,7 @@ createRoot(document.getElementById('root')).render(<App />);` },
   assert.equal(new Set(colors.map(card=>card.color)).size,4,'Every phase status has its own badge color');
   assert.equal(new Set(colors.map(card=>card.background)).size,4,'Badge fills carry the same distinct status colors');
   assert.ok(colors.every(card=>card.animation==='none'),'Saved active status alone does not animate');
-  const star = page.getByRole('region', {name:'Sternansicht'});
+  const star = page.getByRole('region', {name:'Star view'});
   await star.locator('[data-running]').nth(3).waitFor();
   await star.locator('.react-flow__edge-path').nth(3).waitFor({state:'attached'});
   assert.equal(await star.locator('.react-flow__controls').count(), 0);
@@ -310,14 +310,14 @@ createRoot(document.getElementById('root')).render(<App />);` },
   assert.equal(new Set(strokes.map(path => path.stroke)).size, 4, 'Every edge status has its own color');
   assert.equal(strokes.filter(path => path.dash !== 'none').length, 2, 'Pending and active edges are dashed');
   assert.equal(await star.locator('.react-flow__edge-path').evaluateAll(paths => paths.every(path => /url/.test(path.getAttribute('marker-end') ?? ''))), true);
-  await star.locator('.react-flow__node[data-id="hub"]').getByRole('button', {name:'Pushen'}).click();
-  await star.locator('.react-flow__node[data-id="a"]').getByRole('button', {name:'Pushen'}).click();
-  assert.ok(await star.locator('.react-flow__node[data-id="hub"]').getByRole('button', {name:'Buildschritte'}).isDisabled());
+  await star.locator('.react-flow__node[data-id="hub"]').getByRole('button', {name:'Push'}).click();
+  await star.locator('.react-flow__node[data-id="a"]').getByRole('button', {name:'Push'}).click();
+  assert.ok(await star.locator('.react-flow__node[data-id="hub"]').getByRole('button', {name:'Build steps'}).isDisabled());
   assert.deepEqual(await page.evaluate(() => (window as any).starActions), ['hub:push', 'a:push']);
   assert.equal(await star.locator('[data-running]').evaluateAll(elements => elements.every(element => element.scrollHeight <= element.clientHeight + 1)), true, 'Card heights include the action row');
   await mkdir('/private/tmp/ragents-flow-status',{recursive:true});
   await star.screenshot({path:'/private/tmp/ragents-flow-status/star-fit.png'});
-  await page.locator('[aria-label="Auftragsablauf"]').screenshot({path:'/private/tmp/ragents-flow-status/status-colors.png'});
+  await page.locator('[aria-label="Task flow"]').screenshot({path:'/private/tmp/ragents-flow-status/status-colors.png'});
   assert.deepEqual(errors, []);
   assert.deepEqual(externalRequests, []);
 });

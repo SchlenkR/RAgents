@@ -1,27 +1,27 @@
 ---
-title: Balkon-Wizard einrichten
-description: "Ein vorbereitetes KI-Interview zeigt adaptive Fragen in einer eigenen Mini-App. Der Berater ist von Anfang an Primary-Actor; das Formular zählt fünf Antworten."
+title: Set up balcony wizard
+description: "A prepared AI interview shows adaptive questions in a mini-app of its own. The advisor is the primary actor from the start; the form counts five answers."
 order: 140
 coordinator: false
-tags: Run-Scripts, Anwendungsfall, Konzeptdemo, Mini-Apps, LLM-Actor mit View, Frei gesteuerter Chat, Primary-Actor
+tags: Run scripts, Use case, Concept demo, Mini-apps, LLM actor with view, Controlled chat, Primary actor
 ---
 
-Das TypeScript-Setup legt einen Balkon-Berater mit der Rolle `standard` und ausdrücklich
-ohne Werkzeuge an. Das mitgelieferte Programm `actors/balcony-app/` bindet eine eigenständige
-Mini-App an diesen Actor. Die Fläche zeigt allein deren Kachel statt einer Chatkachel; ein Koordinator
-wird für diesen Run nicht angelegt. Der Berater wird zum Primary-Actor und behält seinen eigenen
-Interview-Prompt.
+The TypeScript setup creates a balcony advisor with the role `standard` and explicitly
+without tools. The bundled program `actors/balcony-app/` binds a standalone mini-app to
+this actor. The surface shows only its tile instead of a chat tile; no coordinator
+is created for this run. The advisor becomes the primary actor and keeps its own
+interview prompt.
 
-In der App beginnt "Beratung starten" das Gespräch. Das LLM stellt jeweils eine Frage anhand
-der bisherigen Antworten, ohne feste Fragenliste. Die App zählt fünf Antworten und zeigt danach
-die Empfehlung zu Stil, Pflanzen, Möbeln, Pflege und nächsten Schritten. Der Benutzer schreibt in
-ein Formular, nicht in ein Chat-Widget. Fortschritt und abgeschlossene Antworten lassen sich nach
-dem Neuladen aus dem Gespräch rekonstruieren; eine fehlgeschlagene Modellantwort kann erneut
-angefordert werden, ohne eine weitere Antwort zu zählen.
+In the app, "Start consultation" begins the conversation. The LLM asks one question at a time
+based on the previous answers, without a fixed list of questions. The app counts five answers and
+then shows the recommendation on style, plants, furniture, care, and next steps. The user writes
+into a form, not into a chat widget. Progress and completed answers can be reconstructed from the
+conversation after a reload; a failed model answer can be requested again without counting
+another answer.
 
-Die Vorlage benötigt keine Startwerte. Das Setup wird einmal ausgeführt und startet noch keinen
-Modellaufruf. Erst eine Aktion in der App schickt Text an den Berater. Fragen und Empfehlungen
-bleiben Modellantworten; die App prüft ihre fachliche Qualität nicht automatisch.
+The template needs no start values. The setup runs once and does not start a model call yet.
+Only an action in the app sends text to the advisor. Questions and recommendations
+remain model answers; the app does not check their subject-matter quality automatically.
 
-Dies ist ein vorbereitetes Demo zum direkten Starten. Die separate Skill "Balkon-Wizard"
-beauftragt weiterhin den Run-Builder, selbst eine App für diese Aufgabe zu bauen.
+This is a prepared demo to start directly. The separate skill "Balcony wizard"
+still asks the run builder to build an app for this task itself.

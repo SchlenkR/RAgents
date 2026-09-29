@@ -9,36 +9,36 @@ import { browserModule } from "../../../plugins/ragents.browser/executor/module.
 import { RunBrowser } from "../../../plugins/ragents.browser/server/browser.ts";
 import { hostRoot } from "../src/host-version.ts";
 
-const fixture = `<!doctype html><html lang="de"><head><title>Browser-Test</title><link rel="icon" href="data:,"></head><body>
-<h1>Entwurf prüfen</h1>
-<form><label for="title">Titel</label><input id="title" name="title"><label for="kind">Art</label><select id="kind" name="kind"><option>Bug</option><option>Feature</option></select><button>Speichern</button></form>
-<p role="status">Noch nicht gespeichert</p>
-<button id="cookie">Anmeldung setzen</button><button id="error">Fehler auslösen</button>
-<iframe title="Vorschau" srcdoc="<button onclick='this.textContent=&quot;Im Frame geklickt&quot;'>Im Frame speichern</button>"></iframe>
+const fixture = `<!doctype html><html lang="en"><head><title>Browser-Test</title><link rel="icon" href="data:,"></head><body>
+<h1>Review draft</h1>
+<form><label for="title">Title</label><input id="title" name="title"><label for="kind">Kind</label><select id="kind" name="kind"><option>Bug</option><option>Feature</option></select><button>Save</button></form>
+<p role="status">Not saved yet</p>
+<button id="cookie">Set sign-in</button><button id="error">Raise error</button>
+<iframe title="Preview" srcdoc="<button onclick='this.textContent=&quot;Clicked in frame&quot;'>Save in frame</button>"></iframe>
 <script>
 document.querySelector('form').onsubmit = (event) => { event.preventDefault(); document.querySelector('[role=status]').textContent = document.querySelector('[name=title]').value + ': ' + document.querySelector('[name=kind]').value; };
 document.querySelector('#cookie').onclick = () => { document.cookie = 'session=one'; };
-document.querySelector('#error').onclick = () => { console.error('Absichtlicher Browserfehler'); };
+document.querySelector('#error').onclick = () => { console.error('Intentional browser error'); };
 </script></body></html>`;
 
-/** Derselbe Weg wie im Server: der Server-Teil ruft das Browsermodul seines Executors, das Chrome aus dem Host dieser Maschine startet. */
+/** The same path as in the server: the server part calls the browser module of its executor, which starts Chrome from this machine's host. */
 const serverBrowser = (filesFor: (runId: string) => Promise<string>) => {
   const executor = new WorkspaceOperationExecutor({
     contextFor: async (runId) => workspaceProcessContext({
       runId, cwd: tmpdir(), root: tmpdir(), home: { home: tmpdir() }, logDirectory: tmpdir(), hostRoot: hostRoot(),
     }),
-    modules: [browserModule(executorMachine("/unbenutzt"), { timeoutMs: 2500, checkTimeoutMs: 500 })],
+    modules: [browserModule(executorMachine("/unused"), { timeoutMs: 2500, checkTimeoutMs: 500 })],
   });
   return { browser: new RunBrowser({ sandbox: executor, filesFor }), executor };
 };
 
-test("Echter Browser bedient Formular und Iframe, isoliert Cookies und prüft Screenshots und Abbruch", { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 60_000 }, async (context) => {
+test("a real browser operates form and iframe, isolates cookies and checks screenshots and abort", { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 60_000 }, async (context) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-browser-live-"));
   const server = createServer((request, response) => {
-    if (request.url === "/missing") { response.writeHead(503); response.end("Dienst fehlt"); return; }
+    if (request.url === "/missing") { response.writeHead(503); response.end("Service missing"); return; }
     response.setHeader("Content-Type", "text/html; charset=utf-8");
     response.end(request.url === "/cookie"
-      ? `<!doctype html><head><link rel="icon" href="data:,"></head><body>${request.headers.cookie || "Keine Anmeldung"}</body>`
+      ? `<!doctype html><head><link rel="icon" href="data:,"></head><body>${request.headers.cookie || "No sign-in"}</body>`
       : fixture);
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -55,68 +55,68 @@ test("Echter Browser bedient Formular und Iframe, isoliert Cookies und prüft Sc
   });
 
   const opened = await browser.open("one", url);
-  assert.match(opened.snapshot, /Entwurf prüfen/);
+  assert.match(opened.snapshot, /Review draft/);
   assert.match(opened.snapshot, /\[ref=/);
   assert.equal(opened.title, "Browser-Test");
-  await browser.fill("one", { label: "Titel" }, "Neuer Eintrag");
-  await browser.select("one", { label: "Art" }, "Feature");
-  await browser.click("one", { role: "button", name: "Speichern" });
-  await browser.check("one", { target: { role: "status" }, text: "Neuer Eintrag: Feature" });
+  await browser.fill("one", { label: "Title" }, "New entry");
+  await browser.select("one", { label: "Kind" }, "Feature");
+  await browser.click("one", { role: "button", name: "Save" });
+  await browser.check("one", { target: { role: "status" }, text: "New entry: Feature" });
   assert.ok(browser.evidence("one").checkedAt);
-  const screenshot = await browser.screenshot("one", { label: "Gespeichertes Feature" });
+  const screenshot = await browser.screenshot("one", { label: "Saved feature" });
   const bytes = await readFile(path.join(directory, "one", screenshot.path));
   assert.equal(bytes.subarray(1, 4).toString(), "PNG");
   assert.deepEqual([bytes.readUInt32BE(16), bytes.readUInt32BE(20)], [1920, 1080]);
   assert.equal((await browser.image("one")).length, bytes.length);
   assert.match(screenshot.url, /^\/api\/plugins\/ragents.documents\/runs\/one\/files\/content\?path=browser/);
   assert.equal(browser.evidence("one").screenshots.length, 1);
-  await assert.rejects(browser.image("other"), /noch keinen/);
+  await assert.rejects(browser.image("other"), /no browser screenshot/);
 
-  await browser.fill("one", { label: "Titel" }, "Tastatur");
+  await browser.fill("one", { label: "Title" }, "Keyboard");
   assert.equal(browser.evidence("one").checkedAt, undefined);
   assert.equal(browser.evidence("one").screenshots.length, 1);
   assert.equal(browser.evidence("one").currentScreenshots.length, 0);
-  await browser.press("one", { label: "Titel" }, "Enter");
-  await browser.check("one", { text: "Tastatur: Feature" });
-  await assert.rejects(browser.check("one", { target: { role: "status" }, text: "Falsches Ergebnis" }), /Erwarteter Text fehlt/);
+  await browser.press("one", { label: "Title" }, "Enter");
+  await browser.check("one", { text: "Keyboard: Feature" });
+  await assert.rejects(browser.check("one", { target: { role: "status" }, text: "Wrong result" }), /Expected text is missing/);
   assert.equal(browser.evidence("one").checkedAt, undefined);
-  await browser.click("one", { frame: "iframe", role: "button", name: "Im Frame speichern" });
-  await browser.check("one", { target: { frame: "iframe", role: "button", name: "Im Frame geklickt" } });
-  await assert.rejects(browser.click("one", { role: "button" }), /strict mode violation[\s\S]*nth \(0-basiert\) oder first: true/);
-  await assert.rejects(browser.check("one", {}), /mindestens/);
+  await browser.click("one", { frame: "iframe", role: "button", name: "Save in frame" });
+  await browser.check("one", { target: { frame: "iframe", role: "button", name: "Clicked in frame" } });
+  await assert.rejects(browser.click("one", { role: "button" }), /strict mode violation[\s\S]*nth \(0-based\) or first: true/);
+  await assert.rejects(browser.check("one", {}), /at least/);
   await browser.check("one", { target: { role: "button" }, count: 3 });
   await browser.check("one", { target: { role: "button", first: true } });
-  await assert.rejects(browser.check("one", { target: { role: "button" }, count: 2 }), /Erwartet 2 sichtbare Treffer, gefunden 3/);
-  await assert.rejects(browser.check("one", { target: { role: "button", first: true }, count: 1 }), /ohne nth oder first/);
+  await assert.rejects(browser.check("one", { target: { role: "button" }, count: 2 }), /Expected 2 visible matches, found 3/);
+  await assert.rejects(browser.check("one", { target: { role: "button", first: true }, count: 1 }), /without nth or first/);
   const missingSince = Date.now();
-  await assert.rejects(browser.check("one", { target: { role: "button", name: "Wird nie angezeigt" } }), /Timeout/);
-  assert.ok(Date.now() - missingSince < 2000, "Sichtbarkeitsprüfungen warten kürzer als Aktionen");
+  await assert.rejects(browser.check("one", { target: { role: "button", name: "Never shown" } }), /Timeout/);
+  assert.ok(Date.now() - missingSince < 2000, "visibility checks wait shorter than actions");
 
   await browser.click("one", { role: "button", nth: 1 });
   await browser.open("one", `${url}/cookie`);
   await browser.check("one", { text: "session=one" });
   await browser.open("two", `${url}/cookie`);
-  await browser.check("two", { text: "Keine Anmeldung" });
+  await browser.check("two", { text: "No sign-in" });
   await browser.viewport("two", { width: 390, height: 844 });
-  const narrow = await browser.screenshot("two", { label: "Schmal" });
+  const narrow = await browser.screenshot("two", { label: "Narrow" });
   const narrowBytes = await readFile(path.join(directory, "two", narrow.path));
   assert.deepEqual([narrowBytes.readUInt32BE(16), narrowBytes.readUInt32BE(20)], [390, 844]);
   await browser.open("one", url);
-  await browser.click("one", { role: "button", name: "Fehler auslösen" });
-  await assert.rejects(browser.check("one", { noErrors: true }), /Absichtlicher Browserfehler/);
-  assert.ok(browser.evidence("one").errors.some((error) => error.includes("Absichtlicher Browserfehler")));
+  await browser.click("one", { role: "button", name: "Raise error" });
+  await assert.rejects(browser.check("one", { noErrors: true }), /Intentional browser error/);
+  assert.ok(browser.evidence("one").errors.some((error) => error.includes("Intentional browser error")));
   await assert.rejects(browser.open("one", `${url}/missing`), /HTTP 503/);
 
   await browser.open("one", url);
   const abort = new AbortController();
-  const pending = browser.click("one", { role: "button", name: "Wird nie angezeigt" }, { signal: abort.signal });
-  const rejected = assert.rejects(pending, /closed|beendet|abort/i);
+  const pending = browser.click("one", { role: "button", name: "Never shown" }, { signal: abort.signal });
+  const rejected = assert.rejects(pending, /closed|ended|abort/i);
   setTimeout(() => abort.abort(), 50);
   await rejected;
-  await assert.rejects(browser.snapshot("one"), /kein Browser offen/);
-  await browser.check("two", { text: "Keine Anmeldung" });
+  await assert.rejects(browser.snapshot("one"), /No browser is open/);
+  await browser.check("two", { text: "No sign-in" });
   await browser.close("two");
-  await assert.rejects(browser.snapshot("two"), /kein Browser offen/);
+  await assert.rejects(browser.snapshot("two"), /No browser is open/);
   assert.ok((await browser.image("one")).length > 0);
   assert.equal(browser.evidence("one").screenshots.length, 1);
   assert.equal(browser.evidence("one").checkedAt, undefined);

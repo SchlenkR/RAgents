@@ -278,11 +278,11 @@ export interface PromptContribution {
   delivery?: "initial" | "on-demand";
   requiresTools?: readonly string[];
   render: (context: PromptRenderContext) => string | Promise<string>;
-  /** Hängt der Beitrag am einzelnen Run, ersetzt dieser Text den von `render`, undefined behält ihn - synchron, damit der Turn ihn ohne Warten hat. */
+  /** If the contribution depends on the individual run, this text replaces the one from `render`, undefined keeps it - synchronous so the turn has it without waiting. */
   renderForRun?: (runId: string) => string | undefined;
 }
 
-/** Ob die laufbezogenen Beiträge eines Plugins in einem Run gelten; der Host fragt je Run, ein Wurf lässt dessen Turn mit dieser Ursache scheitern. */
+/** Whether the run-related contributions of a plugin apply in a run; the host asks per run, a throw fails its turn with this cause. */
 export type RunCondition = (runId: string) => boolean;
 
 export type ModelProviderConfig = Parameters<ModelRuntime["registerProvider"]>[1];
@@ -296,7 +296,7 @@ export interface ProfileContribution {
   id: string;
   models: () => readonly CatalogModel[];
   profiles: () => readonly AgentProfile[];
-  /** Zusätzliche Modellanbieter, vor dem ersten Modellzugriff in der Modelllaufzeit registriert. */
+  /** Additional model providers, registered in the model runtime before the first model access. */
   providers?: () => readonly ModelProviderRegistration[] | Promise<readonly ModelProviderRegistration[]>;
 }
 
@@ -347,7 +347,7 @@ export interface SessionMetadataContext {
 
 export interface StartOptionContext {
   runId: string;
-  /** Der Benutzer, der gerade handelt: aus dem Zugang der Anfrage, null ohne Anmeldung. */
+  /** The user currently acting: from the access of the request, null without sign-in. */
   userId: string | null;
 }
 
@@ -358,11 +358,11 @@ export interface StartOptionContribution {
   defaultValue: (context: StartOptionContext) => JsonValue;
   accept: (value: JsonValue, context: StartOptionContext) => JsonValue;
   describe: (value: JsonValue, context: StartOptionContext) => JsonValue;
-  /** Zusätzliche Rechte, ohne die Liste und Wahl die Option nicht anbieten, etwa runs.inspect für technische Einsicht. */
+  /** Additional rights without which list and choice do not offer the option, such as runs.inspect for technical insight. */
   rights?: readonly string[];
-  /** Nach dem Start weiter wählbar: der Host schreibt jeden neuen Wert ins Journal, wer die Option liest, folgt dem jeweils gespeicherten. */
+  /** Still selectable after the start: the host writes every new value to the journal, whoever reads the option follows the currently stored one. */
   changeable?: boolean;
-  /** Ob nur der Eigentümer einen Run mit diesem Wert bedient; lesen und stoppen dürfen ihn alle, die ihn sehen. */
+  /** Whether only the owner operates a run with this value; everyone who sees it may read and stop it. */
   ownerOnly?: (value: JsonValue) => boolean;
 }
 
@@ -371,30 +371,30 @@ export interface RegisteredStartOption {
   option: StartOptionContribution;
 }
 
-/** Ein Chat-Ereignis zu einem Plugin-Zustand, ohne die Kennung, die die Projektion schon nennt. */
+/** A chat event for a plugin state, without the id that the projection already names. */
 export interface PluginChatEvent {
   type: string;
   payload?: unknown;
 }
 
-/** Was ein Zugang ohne runs.inspect von einem Plugin-Zustand und dessen Chat-Ereignissen sieht; ohne Projektion sieht er beides unverändert. */
+/** What an access without runs.inspect sees of a plugin state and its chat events; without a projection it sees both unchanged. */
 export interface AccessProjectionContribution {
-  /** Die Kennung des Zustands, wie sie im Journal (`pluginId`) und im Chat-Ereignis steht. */
+  /** The id of the state as it appears in the journal (`pluginId`) and in the chat event. */
   id: string;
-  /** Der sichtbare Zustand; undefined nimmt ihn aus der Run-Ansicht. */
+  /** The visible state; undefined removes it from the run view. */
   state: (entry: PluginState) => JsonValue | undefined;
-  /** Das sichtbare Chat-Ereignis; undefined unterdrückt es. */
+  /** The visible chat event; undefined suppresses it. */
   chatEvent: (event: PluginChatEvent) => PluginChatEvent | undefined;
 }
 
 export interface SessionMetadataContribution {
   id: string;
-  /** Ob `describe` den Arbeitsbereich des Runs erreicht; dann ruft der Host es nur für Aufrufer, die ihn erreichen dürfen. */
+  /** Whether `describe` reaches the workspace of the run; then the host calls it only for callers that may reach it. */
   requiresWorkspace?: boolean;
   describe: (context: SessionMetadataContext) => unknown | Promise<unknown>;
 }
 
-/** Die Angaben eines Runs je Beitrag; ein Beitrag ohne Wert steht mit seinem Grund in `unavailable`. */
+/** The details of a run per contribution; a contribution without a value appears with its reason in `unavailable`. */
 export interface SessionMetadata {
   readonly values: Readonly<Record<string, unknown>>;
   readonly unavailable: Readonly<Record<string, string>>;
@@ -440,7 +440,7 @@ export interface PluginRegistration {
   agentRuntime: (...contributions: readonly AgentContribution[]) => void;
   profiles: (...contributions: readonly ProfileContribution[]) => void;
   prompts: (...contributions: readonly PromptContribution[]) => void;
-  /** Prompts, Funktionen, Skills und Agent-Hooks dieses Plugins gelten nur in Runs, für die die Bedingung zutrifft; höchstens eine je Plugin. */
+  /** Prompts, functions, skills and agent hooks of this plugin apply only in runs for which the condition holds; at most one per plugin. */
   runCondition: (condition: RunCondition) => void;
   provide: <T>(token: ServiceToken<T>, service: T) => void;
   service: <T>(token: ServiceToken<T>) => T;
@@ -449,7 +449,7 @@ export interface PluginRegistration {
   skills: (...contributions: readonly SkillContribution[]) => void;
   startEntries: (...contributions: readonly StartEntryContribution[]) => void;
   startOptions: (...contributions: readonly StartOptionContribution[]) => void;
-  /** Wie Zugänge ohne runs.inspect die Zustände dieses Plugins und ihre Chat-Ereignisse sehen, je Kennung eines Zustands. */
+  /** How accesses without runs.inspect see the states of this plugin and their chat events, per state id. */
   accessProjections: (...contributions: readonly AccessProjectionContribution[]) => void;
   functions: (...functions: readonly (RunFunction | ToolContributor)[]) => void;
   script: (...contributions: readonly ScriptContribution[]) => void;

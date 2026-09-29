@@ -37,9 +37,9 @@ for (const platformVersion of [2] as const) {
     assert.equal(dataset.uiSurface, "mini-app");
     assert.equal(dataset.miniAppFrame, "true");
     const receive = (data: Record<string, unknown>) => port.onmessage!({ data: { version: 1, ...data } });
-    assert.throws(() => vm.runInContext("globalThis.__ragentsAppContext.actor", scope), /noch nicht bereit/);
-    const initial = { type: "ragents.app.ready", theme: "dark", app: { actorId: "owner-id", actorHandle: "editor", actions: [] }, state: { values: { text: "Entwurf" } } };
-    assert.throws(() => receive({ ...initial, theme: "system" }), /light oder dark/);
+    assert.throws(() => vm.runInContext("globalThis.__ragentsAppContext.actor", scope), /not ready yet/);
+    const initial = { type: "ragents.app.ready", theme: "dark", app: { actorId: "owner-id", actorHandle: "editor", actions: [] }, state: { values: { text: "Draft" } } };
+    assert.throws(() => receive({ ...initial, theme: "system" }), /light or dark/);
     assert.equal(dataset.theme, undefined);
     assert.equal(sent.length, 0);
     receive(initial);
@@ -59,12 +59,12 @@ for (const platformVersion of [2] as const) {
     };
     const unsubscribe = stateView.subscribe(() => { updates++; });
     const first = stateView.read();
-    receive({ type: "ragents.app.state", state: { values: { text: "Gespeichert" } } });
+    receive({ type: "ragents.app.state", state: { values: { text: "Saved" } } });
     assert.notEqual(stateView.read(), first);
-    assert.equal(stateView.read().text, "Gespeichert");
+    assert.equal(stateView.read().text, "Saved");
     assert.equal(updates, 1);
     unsubscribe();
-    receive({ type: "ragents.app.state", state: { values: { text: "Entwurf" } } });
+    receive({ type: "ragents.app.state", state: { values: { text: "Draft" } } });
     assert.equal(updates, 1);
     const css = installedStyles.map(style => style.textContent);
     if (platformVersion === 2) {
@@ -77,7 +77,7 @@ for (const platformVersion of [2] as const) {
     receive({ type: "ragents.app.theme", theme: "dark" });
     assert.equal(dataset.theme, "dark");
     for (const theme of [undefined, null, "system", "sepia", {}, 1]) {
-      assert.throws(() => receive({ type: "ragents.app.theme", theme }), /light oder dark/);
+      assert.throws(() => receive({ type: "ragents.app.theme", theme }), /light or dark/);
       assert.equal(dataset.theme, "dark");
     }
     receive({ type: "ragents.app.theme", theme: "light", version: 2 });
@@ -159,7 +159,7 @@ test("the delivered chat SDK shares subscriptions, retains stable snapshots and 
   assert.equal(sent.some((message) => message.type === "ragents.app.chat-send"), false);
   receive({
     type: "ragents.app.chat-state", actor: "primary", requestId: watches[0].requestId,
-    snapshot: { messages: [{ text: "Hallo" }], running: true },
+    snapshot: { messages: [{ text: "Hello" }], running: true },
   });
   const snapshot = chat.read("primary")!;
   assert.equal(updates, 2);
@@ -167,11 +167,11 @@ test("the delivered chat SDK shares subscriptions, retains stable snapshots and 
   assert.equal(Object.isFrozen(snapshot.messages[0]), true);
   assert.equal(Object.isFrozen(snapshot.messages), true);
   assert.equal(Object.isFrozen(snapshot), true);
-  const success = chat.send("primary", "Weiter");
+  const success = chat.send("primary", "Continue");
   await tick();
   const send = sent.at(-1)!;
   assert.equal(send.type, "ragents.app.chat-send");
-  assert.equal(send.text, "Weiter");
+  assert.equal(send.text, "Continue");
   receive({ type: "ragents.app.chat-ack", requestId: send.requestId });
   await success;
   const attachments = [{ name: "photo.png", mediaType: "image/png", data: "aGk=" }];
@@ -182,10 +182,10 @@ test("the delivered chat SDK shares subscriptions, retains stable snapshots and 
   assert.deepEqual(sent.at(-1)!.attachments, attachments);
   receive({ type: "ragents.app.chat-ack", requestId: sent.at(-1)!.requestId });
   await media;
-  const failure = chat.send("primary", "Noch einmal");
-  const rejected = assert.rejects(failure, /Verbindung unterbrochen/);
+  const failure = chat.send("primary", "Once more");
+  const rejected = assert.rejects(failure, /Connection interrupted/);
   await tick();
-  receive({ type: "ragents.app.error", requestId: sent.at(-1)!.requestId, message: "Verbindung unterbrochen" });
+  receive({ type: "ragents.app.error", requestId: sent.at(-1)!.requestId, message: "Connection interrupted" });
   await rejected;
   unsubscribeFirst();
   assert.equal(sent.some((message) => message.type === "ragents.app.chat-unwatch"), false);

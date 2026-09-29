@@ -54,7 +54,7 @@ const assertUniqueSkillNames = (skills: readonly Skill[]) => {
         const paths = skills.filter((skill) => skill.name === name).map((skill) => skill.filePath);
 
         if (paths.length > 1)
-            throw new Error(`Der Skill ${name} ist mehrfach vorhanden: ${paths.join(", ")}.`);
+            throw new Error(`The skill ${name} exists more than once: ${paths.join(", ")}.`);
     }
 };
 

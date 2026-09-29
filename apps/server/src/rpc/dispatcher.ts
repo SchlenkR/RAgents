@@ -30,11 +30,11 @@ export interface RpcConnectionOptions {
   access: AccessContext;
   local: boolean;
   peer: RpcPeer;
-  /** Ohne Ereignisstrom erreichen Benachrichtigungen den Client nicht; Abonnements sind dann abgelehnt. */
+  /** Without an event stream, notifications do not reach the client; subscriptions are then rejected. */
   streamless?: boolean;
 }
 
-/** Eine Verbindung eines Clients: hält ihre Abonnements und ist der Rückweg für Anfragen des Servers. */
+/** A client's connection: holds its subscriptions and is the way back for requests from the server. */
 export class RpcConnection implements MethodConnection {
   readonly id: string;
   readonly access: AccessContext;
@@ -63,8 +63,8 @@ export class RpcConnection implements MethodConnection {
   }
 
   call<C extends OperationContract>(contract: C, input: OperationInput<C>, options?: RpcCallOptions): Promise<OperationResult<C>> {
-    if (contract.implementedBy !== "client") return Promise.reject(new Error(`Die Operation ${contract.id} wird vom Server ausgeführt, nicht vom Client`));
-    if (this.streamless) return Promise.reject(new DomainError("stream-required", "Der Rückruf an den Client braucht einen Ereignisstrom.", 409));
+    if (contract.implementedBy !== "client") return Promise.reject(new Error(`The operation ${contract.id} is executed by the server, not by the client`));
+    if (this.streamless) return Promise.reject(new DomainError("stream-required", "The callback to the client needs an event stream.", 409));
     return this.peer.call(contract, input, options);
   }
 
@@ -87,7 +87,7 @@ export class RpcConnection implements MethodConnection {
 export interface RpcDispatcherOptions {
   methods: MethodContributionRegistry;
   channels: ChannelContributionRegistry;
-  /** Jede Methode und jeder Kanal mit runId wird zusätzlich gegen die Zugehörigkeit des Runs geprüft; eine Methode mit runs.write bedient ihn. */
+  /** Every method and every channel with runId is additionally checked against the run's ownership; a method with runs.write operates it. */
   assertRunReachable?: (access: AccessContext, runId: string, operates: boolean) => void;
 }
 
@@ -97,7 +97,7 @@ const runIdOf = (input: unknown): string | undefined => {
   return typeof value === "string" ? value : undefined;
 };
 
-/** Führt Anfragen einer Verbindung gegen die registrierten Verträge aus: Rechte, Eingabe, Ausführung, Antwort. */
+/** Executes a connection's requests against the registered contracts: rights, input, execution, response. */
 export class RpcDispatcher {
   readonly #options: RpcDispatcherOptions;
 
@@ -110,13 +110,13 @@ export class RpcDispatcher {
     if (method === RPC_METHODS.unsubscribe) return this.#unsubscribe(connection, params);
     const found = this.#options.methods.find(method);
     if (!found || found.contribution.contract.implementedBy === "client") {
-      throw new RpcError(RPC_ERROR_CODES.methodNotFound, `Unbekannte Methode: ${method}`);
+      throw new RpcError(RPC_ERROR_CODES.methodNotFound, `Unknown method: ${method}`);
     }
     const { contract, execute } = found.contribution;
     assertRights(connection.access, contract.rights);
     const input = params === undefined ? {} : params;
     if (!Value.Check(contract.input, input)) {
-      throw new RpcError(RPC_ERROR_CODES.invalidParams, `Ungültige Eingabe für ${method}: ${schemaComplaints(contract.input, input, "params")}`);
+      throw new RpcError(RPC_ERROR_CODES.invalidParams, `Invalid input for ${method}: ${schemaComplaints(contract.input, input, "params")}`);
     }
     const target = runIdOf(input);
     if (target !== undefined) this.#options.assertRunReachable?.(connection.access, target, contract.rights.includes("runs.write"));
@@ -130,27 +130,27 @@ export class RpcDispatcher {
     const plain = result === undefined ? null : JSON.parse(JSON.stringify(result)) as unknown;
     if (!Value.Check(contract.result, plain)) {
       const complaint = schemaComplaints(contract.result, plain, "result");
-      console.error(`Die Antwort von ${method} verletzt ihren Vertrag: ${complaint}`);
-      throw new RpcError(RPC_ERROR_CODES.internal, `Die Antwort von ${method} verletzt ihren Vertrag: ${complaint}`);
+      console.error(`The response of ${method} violates its contract: ${complaint}`);
+      throw new RpcError(RPC_ERROR_CODES.internal, `The response of ${method} violates its contract: ${complaint}`);
     }
     return plain;
   }
 
   async #subscribe(connection: RpcConnection, params: unknown): Promise<RpcSubscribeResult> {
     const { channel, params: channelParams } = (params ?? {}) as Partial<RpcSubscribeParams>;
-    if (typeof channel !== "string") throw new RpcError(RPC_ERROR_CODES.invalidParams, "channel fehlt");
-    if (connection.streamless) throw new DomainError("stream-required", "Abonnements brauchen einen Ereignisstrom.", 409);
+    if (typeof channel !== "string") throw new RpcError(RPC_ERROR_CODES.invalidParams, "channel is missing");
+    if (connection.streamless) throw new DomainError("stream-required", "Subscriptions need an event stream.", 409);
     const found = this.#options.channels.find(channel);
-    if (!found) throw new DomainError("unknown-channel", `Unbekannter Ereigniskanal: ${channel}`, 400);
+    if (!found) throw new DomainError("unknown-channel", `Unknown event channel: ${channel}`, 400);
     const { contract, open } = found.contribution;
     assertRights(connection.access, contract.rights);
     const input = channelParams === undefined ? {} : channelParams;
     if (!Value.Check(contract.params, input)) {
-      throw new RpcError(RPC_ERROR_CODES.invalidParams, `Ungültige Parameter für ${channel}: ${schemaComplaints(contract.params, input, "params")}`);
+      throw new RpcError(RPC_ERROR_CODES.invalidParams, `Invalid parameters for ${channel}: ${schemaComplaints(contract.params, input, "params")}`);
     }
     const target = runIdOf(input);
     if (target !== undefined) this.#options.assertRunReachable?.(connection.access, target, false);
-    if (connection.subscriptions.size >= MAX_SUBSCRIPTIONS) throw new DomainError("too-many-channels", "Zu viele Ereigniskanäle auf einer Verbindung.", 429);
+    if (connection.subscriptions.size >= MAX_SUBSCRIPTIONS) throw new DomainError("too-many-channels", "Too many event channels on one connection.", 429);
     const subscription = randomUUID();
     const buffered: unknown[] = [];
     let opening = true;
@@ -163,17 +163,17 @@ export class RpcDispatcher {
     opening = false;
     if (connection.closed) {
       stop();
-      throw new DomainError("connection-closed", "Die Ereignisverbindung wurde beendet.", 410);
+      throw new DomainError("connection-closed", "The event connection was closed.", 410);
     }
     connection.subscriptions.set(subscription, stop);
-    // Erst die Antwort auf das Abonnement, dann die beim Öffnen entstandenen Nachrichten.
+    // First the response to the subscription, then the messages created while opening.
     setTimeout(() => { if (connection.subscriptions.has(subscription)) for (const message of buffered) send(message); }, 0);
     return { subscription };
   }
 
   #unsubscribe(connection: RpcConnection, params: unknown): null {
     const { subscription } = (params ?? {}) as Partial<RpcUnsubscribeParams>;
-    if (typeof subscription !== "string") throw new RpcError(RPC_ERROR_CODES.invalidParams, "subscription fehlt");
+    if (typeof subscription !== "string") throw new RpcError(RPC_ERROR_CODES.invalidParams, "subscription is missing");
     const stop = connection.subscriptions.get(subscription);
     connection.subscriptions.delete(subscription);
     stop?.();
@@ -183,5 +183,5 @@ export class RpcDispatcher {
 
 export const assertRights = (access: AccessContext, rights: readonly string[]): void => {
   const missing = rights.find((right) => !access.can(right));
-  if (missing) throw new DomainError("access-denied", `Das Recht ${missing} fehlt.`, 403);
+  if (missing) throw new DomainError("access-denied", `The right ${missing} is missing.`, 403);
 };

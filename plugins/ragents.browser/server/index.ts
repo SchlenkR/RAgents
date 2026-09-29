@@ -7,7 +7,7 @@ import { RunBrowser } from "./browser.js";
 import { browserRuntimeToken } from "./contract.js";
 import { createBrowserFunctions, createBrowserImageContribution } from "./tools.js";
 
-/** Der Executor des Servers liest den Wert aus seiner Umgebung; ein Arbeitsplatz aus seiner eigenen, nie aus dem Profil. */
+/** The server's executor reads the value from its environment; a workspace from its own, never from the profile. */
 export const browserConfigDescriptors = [{ key: BROWSER_EXECUTABLE_VARIABLE, source: "environment" }] as const;
 
 const browserPlugin: RAgentsPlugin = {

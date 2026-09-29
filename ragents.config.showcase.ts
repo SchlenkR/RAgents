@@ -1,4 +1,4 @@
-// Schaufenster: das Profil core und zusätzlich die mitgelieferten Beispiele aus ragents.reference.
+// Showcase: the core profile plus the bundled examples from ragents.reference.
 import { env, provisioned, type RAgentsConfig } from "./apps/server/src/config-definition.js";
 
 export const config = {
@@ -6,7 +6,7 @@ export const config = {
     PORT: 4713,
     PRODUCT_PROFILE: "showcase",
     COMPACTION_MODEL: "google/gemma-4-26b-a4b-it",
-    // Aliasse für andere RAgents-Server, die ihre Modelle über ragents.model-relay von hier beziehen.
+    // Aliases for other RAgents servers that obtain their models from here via ragents.model-relay.
     MODEL_ALIASES: [
       { alias: "showcase-standard", model: "openrouter/z-ai/glm-5.3-flash", compaction: { threshold: 160_000, keepRecentTokens: 24_000, summaryTokens: 12_000 } },
       { alias: "showcase-coordinator", model: "openrouter/deepseek/deepseek-v4-flash-0731", compaction: { threshold: 300_000, keepRecentTokens: 40_000, summaryTokens: 16_000 } },

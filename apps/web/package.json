@@ -21,7 +21,7 @@
     "dompurify": "^3.4.13",
     "highlight.js": "^11.12.0",
     "lucide-react": "^1.46.0",
-    "quassel": "^0.3.0",
+    "quassel": "^0.4.0",
     "react": "^19.2.0",
     "react-diff-view": "^3.3.3",
     "react-dom": "^19.2.0",

@@ -33,7 +33,7 @@ export const labelOf = (command: string): string => {
 
 export interface ObservationInput {
   runId: string;
-  /** Der Prozess dieses Executors; seine direkten Kinder sind laufende Werkzeugaufrufe. */
+  /** The process of this executor; its direct children are running tool calls. */
   executorPid: number;
   records: readonly ProcessRecord[];
   markerOf: (record: ProcessRecord) => string | undefined;
@@ -49,7 +49,7 @@ const byPort = (left: WorkspaceProcessPort, right: WorkspaceProcessPort): number
 const byAppearance = (left: WorkspaceProcess, right: WorkspaceProcess): number =>
   left.seenSince.localeCompare(right.seenSince) || left.pid - right.pid;
 
-/** Prozesse des Runs: Hintergrundprozesse immer, Kinder eines laufenden Werkzeugaufrufs nur mit offenem Port. */
+/** Processes of the run: background processes always, children of a running tool call only with an open port. */
 export const runProcessesFrom = (input: ObservationInput): WorkspaceProcess[] => {
   const toolCallGroups = new Set(
     input.records.filter((record) => record.ppid === input.executorPid).map((record) => record.pgid),

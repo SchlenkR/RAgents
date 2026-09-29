@@ -7,7 +7,7 @@ import { discoverPluginIds, importBundles, resolvePluginEntries, type ResolvedPl
 const provisionOf = (plugin: ResolvedPlugin, exported: Readonly<Record<string, unknown>>): PluginProvision | undefined => {
   if (exported.provision === undefined) return undefined;
   if (!isPluginProvision(exported.provision)) {
-    throw new Error(`Das Bundle ${plugin.id} exportiert eine ungültige Provisionierung; erwartet wird "export const provision: PluginProvision" mit check und apply`);
+    throw new Error(`The bundle ${plugin.id} exports an invalid provisioning; expected is "export const provision: PluginProvision" with check and apply`);
   }
   return exported.provision;
 };
@@ -22,7 +22,7 @@ export interface PluginProvisionReport {
 }
 
 export const provisionReportLine = (report: PluginProvisionReport): string =>
-  `${report.id}: ${report.outcome === "ready" ? "bereit" : report.outcome === "installed" ? "installiert" : `fehlt: ${report.reason ?? "ohne Grund"}`}`;
+  `${report.id}: ${report.outcome === "ready" ? "ready" : report.outcome === "installed" ? "installed" : `missing: ${report.reason ?? "no reason"}`}`;
 
 const reason = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
 
@@ -47,7 +47,7 @@ const provisionPlugin = async (
   }
 };
 
-/** Provisioniert jedes Plugin, dessen Bundle eine Provisionierung exportiert, in seinen Werkzeugordner unterhalb des Datenordners. */
+/** Provisions every plugin whose bundle exports a provisioning into its tool folder below the data folder. */
 export const provisionPlugins = async (
   plugins: readonly ResolvedPlugin[],
   dataDirectory: string,
@@ -65,7 +65,7 @@ export const provisionPlugins = async (
   return reports;
 };
 
-/** Die genannten eingebauten Bundles samt allen, deren Exporte sie importieren; ohne diese lädt ein Bundle nicht. */
+/** The named built-in bundles plus all whose exports they import; without those, a bundle does not load. */
 const withUsedBundles = (ids: readonly string[]): readonly ResolvedPlugin[] => {
   const resolved = new Map<string, ResolvedPlugin>();
   const visit = (id: string): void => {
@@ -78,7 +78,7 @@ const withUsedBundles = (ids: readonly string[]): readonly ResolvedPlugin[] => {
   return [...resolved.values()];
 };
 
-/** Ein Arbeitsplatz hat kein Profil; er provisioniert die eingebauten Plugins seines Hosts, die zum Executor beitragen, denn deren Werkzeuge laufen auf ihm. */
+/** A workstation has no profile; it provisions the built-in plugins of its host that contribute to the executor, because their tools run on it. */
 export const workspaceProvisionPlugins = (): readonly ResolvedPlugin[] => withUsedBundles(
   resolvePluginEntries(discoverPluginIds()).filter((plugin) => plugin.manifest.executor !== undefined).map((plugin) => plugin.id));
 

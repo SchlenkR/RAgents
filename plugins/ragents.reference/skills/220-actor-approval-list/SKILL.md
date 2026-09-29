@@ -2,11 +2,11 @@
 name: 220-actor-approval-list
 start: true
 disable-model-invocation: true
-title: "Vorschläge gemeinsam freigeben"
-description: "Zeigt einen KI-Listenhelfer mit eigener Mini-App und gemeinsamem Zustand. Seine Vorschläge lassen sich per Funktion bestätigen, ohne eine weitere KI-Antwort abzuwarten."
-category: "Mini-Apps"
+title: "Approve proposals together"
+description: "Shows an AI list helper with its own mini-app and shared state. Its proposals can be confirmed through a function without waiting for another AI answer."
+category: "Mini-apps"
 order: 220
-tags: "Anwendungsfall, Konzeptdemo, Agententeams, Actor-Funktionen, Actor-Zustand, Mini-Apps, LLM-Actor mit View, Frei gesteuerter Chat"
+tags: "Use case, Concept demo, Agent teams, Actor functions, Actor state, Mini-apps, LLM actor with view, Controlled chat"
 ---
 
-Ich hätte gern einen KI-Listenhelfer mit eigener Oberfläche. Dort prüfe und bestätige ich seine Vorschläge; bestätigte Einträge stehen daneben. Der Helfer benutzt dieselben Funktionen und dieselbe Liste, wenn ich ihn im Chat um einen Eintrag bitte. Lass ihn einen echten Vorschlag machen. Die Freigabe per Knopf soll ohne weitere KI-Antwort seinen gespeicherten Vorschlag bestätigen. Danach möchte ich selbst einen eingeben.
+I would like an AI list helper with its own interface. There I review and confirm its proposals; confirmed entries are shown next to them. The helper uses the same functions and the same list when I ask it for an entry in the chat. Have it make a real proposal. Approval by button should confirm its saved proposal without another AI answer. After that I want to enter one myself.

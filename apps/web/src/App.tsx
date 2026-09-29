@@ -122,7 +122,7 @@ export function App() {
     requestAnimationFrame(() => settingsButtonRef.current?.focus());
   }, []);
   const settingsAction = (
-    <Button aria-label="Einstellungen öffnen" onClick={openSettings} ref={settingsButtonRef} size="icon-lg" title="Einstellungen" variant="ghost">
+    <Button aria-label="Open settings" onClick={openSettings} ref={settingsButtonRef} size="icon-lg" title="Settings" variant="ghost">
       <SettingsIcon />
     </Button>
   );
@@ -135,7 +135,7 @@ export function App() {
   const handleCreate = () => {
     setToolbarPanel(undefined);
     closeOverview(true);
-    setDraft({ id: crypto.randomUUID(), title: "Neuer Run", updatedAt: Date.now() });
+    setDraft({ id: crypto.randomUUID(), title: "New run", updatedAt: Date.now() });
   };
 
   const handleDelete = async (ids: readonly string[]) => {
@@ -148,7 +148,7 @@ export function App() {
   };
 
   if (pluginActivation.status === "loading") {
-    return <div className="m-auto p-6 text-muted-foreground">Profil wird geladen.</div>;
+    return <div className="m-auto p-6 text-muted-foreground">Loading profile.</div>;
   }
   if (pluginActivation.status === "failed") {
     return (
@@ -156,11 +156,11 @@ export function App() {
         <main className="relative z-1 flex min-h-0 min-w-0 flex-1 bg-[image:var(--surface-backdrop)]">
           <div className={chatWorkspaceClass}>
             <header className="flex min-h-[42px] flex-none items-center gap-3 border-b border-border-soft pr-0.5 pb-2 pl-2.5">
-              <div className="flex min-w-0 flex-1 items-center gap-3 text-[0.82rem] font-semibold text-foreground">Profil nicht verfügbar</div>
+              <div className="flex min-w-0 flex-1 items-center gap-3 text-[0.82rem] font-semibold text-foreground">Profile unavailable</div>
             </header>
             <Alert className="m-auto max-w-[560px] gap-3 p-6" variant="destructive">
               <p>{pluginActivation.error}</p>
-              <Button variant="outline" onClick={() => window.location.reload()}>Neu laden</Button>
+              <Button variant="outline" onClick={() => window.location.reload()}>Reload</Button>
             </Alert>
           </div>
         </main>
@@ -185,11 +185,11 @@ export function App() {
             aria-expanded={overviewOpen}
             aria-haspopup="dialog"
             aria-keyshortcuts="Meta+I Control+I"
-            aria-label={overviewOpen ? "Übersicht schließen" : "Übersicht öffnen"}
+            aria-label={overviewOpen ? "Close overview" : "Open overview"}
             className={headerSquareClass}
             onClick={toggleOverview}
             ref={overviewButtonRef}
-            title={`Übersicht (Cmd+I / Ctrl+I)${busy ? ": Bearbeitung läuft" : ""}`}
+            title={`Overview (Cmd+I / Ctrl+I)${busy ? ": processing" : ""}`}
             type="button"
           >
             {busy ? <Spinner aria-hidden className="size-[18px]" /> : <SparklesIcon size={22} />}
@@ -202,13 +202,13 @@ export function App() {
           open={toolbarPanel === id} Panel={Panel} registry={registry}
           userLocation={userLocation}
         />)}
-        <div aria-label="Run-Titelleiste" className="flex min-w-0 flex-1 items-stretch overflow-x-auto no-scrollbar focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:-outline-offset-3 max-md:in-[header:has([data-slot=overseer-toolbar][data-open=true])]:flex-[0_1_0]" ref={setRunHeaderContainer} role="region" tabIndex={0} />
+        <div aria-label="Run title bar" className="flex min-w-0 flex-1 items-stretch overflow-x-auto no-scrollbar focus-visible:outline-2 focus-visible:outline-ring/60 focus-visible:-outline-offset-3 max-md:in-[header:has([data-slot=overseer-toolbar][data-open=true])]:flex-[0_1_0]" ref={setRunHeaderContainer} role="region" tabIndex={0} />
         <UserMenu />
         <div className="flex min-w-0 flex-[0_1_auto] items-stretch bg-shell has-data-[workspace-state=expanded]:w-[var(--workspace-panel-width,560px)] has-data-[workspace-state=expanded]:border-l has-data-[workspace-state=expanded]:border-border">
           <div className="flex min-w-0 flex-1 empty:hidden" ref={setWorkspaceHeaderContainer} />
           <div className="flex flex-none items-center gap-1.5 px-2 max-md:gap-0.5 max-md:px-1">
             {access.can("settings.read") && settingsAction}
-            {inspectRuns && <Button aria-haspopup="dialog" aria-label="Hilfe öffnen" onClick={() => { setToolbarPanel(undefined); setHelpOpen(true); }} size="icon-lg" title="Hilfe" variant="ghost">
+            {inspectRuns && <Button aria-haspopup="dialog" aria-label="Open help" onClick={() => { setToolbarPanel(undefined); setHelpOpen(true); }} size="icon-lg" title="Help" variant="ghost">
               <CircleHelpIcon />
             </Button>}
           </div>
@@ -231,12 +231,12 @@ export function App() {
               onViewed={runReadState.markViewed}
               viewing={!overviewOpen && !settingsOpen && !helpOpen && !draft && !toolbarPanel}
               registry={registry}
-              session={activeSession ?? { id: activeId, title: "Neuer Run", updatedAt: Date.now() }}
+              session={activeSession ?? { id: activeId, title: "New run", updatedAt: Date.now() }}
             />
           )
           : (
             <div className={chatWorkspaceClass}>
-              <div className="m-auto text-center text-muted-foreground">{readRuns ? writeRuns ? "Öffne oben links die Übersicht, um einen Run zu wählen oder einen neuen zu starten." : "Öffne oben links die Übersicht, um einen Run zu wählen. Du hast Lesezugriff." : "Für dieses Benutzerkonto sind keine Runs freigegeben."}</div>
+              <div className="m-auto text-center text-muted-foreground">{readRuns ? writeRuns ? "Open the overview at the top left to choose a run or start a new one." : "Open the overview at the top left to choose a run. You have read access." : "No runs are shared with this user account."}</div>
             </div>
           )}
       </main>
@@ -281,11 +281,11 @@ export function App() {
           setHelpOpen(false);
           setToolbarPanel(undefined);
           closeOverview();
-          setDraft({ id: crypto.randomUUID(), title: "Neuer Run", updatedAt: Date.now(), startEntryId: entryId });
+          setDraft({ id: crypto.randomUUID(), title: "New run", updatedAt: Date.now(), startEntryId: entryId });
         }} />}
     </div>
     <footer
-      aria-label="Run-Statusleiste"
+      aria-label="Run status bar"
       className="relative flex h-statusbar w-full flex-none items-stretch pl-3 before:pointer-events-none before:absolute before:inset-0 before:z-[2] before:border-t before:border-border before:bg-shell before:shadow-status before:backdrop-blur-[16px] before:content-['']"
       ref={setStatusContainer}
     />

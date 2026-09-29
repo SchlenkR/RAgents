@@ -15,7 +15,7 @@ const registryWith = (...plugins: { id: string; startOptions?: StartOptionContri
   startEntries: [],
 });
 
-test("Startoptionen werden über alle Plugins gesammelt und sind eindeutig", () => {
+test("start options are collected across all plugins and are unique", () => {
   const registry = registryWith(
     { id: "test.product", startOptions: [{ id: "ragents.model", Control: Empty }] },
     { id: "test.workspace", startOptions: [{ id: "test.workspace.source" }] },
@@ -27,22 +27,22 @@ test("Startoptionen werden über alle Plugins gesammelt und sind eindeutig", () 
       { id: "test.product", startOptions: [{ id: "ragents.model" }] },
       { id: "test.other", startOptions: [{ id: "ragents.model" }] },
     ),
-    /Startoption doppelt registriert: ragents\.model/,
+    /Start option registered twice: ragents\.model/,
   );
 });
 
-test("die Auswahl-Darstellung wird streng gelesen", () => {
+test("the choice presentation is read strictly", () => {
   assert.deepEqual(
-    choicePresentationFrom({ kind: "choice", label: "Quelle", options: [{ value: "empty", label: "Leer" }] }, "x"),
-    { kind: "choice", label: "Quelle", options: [{ value: "empty", label: "Leer" }] },
+    choicePresentationFrom({ kind: "choice", label: "Source", options: [{ value: "empty", label: "Empty" }] }, "x"),
+    { kind: "choice", label: "Source", options: [{ value: "empty", label: "Empty" }] },
   );
   assert.equal(choicePresentationFrom({ kind: "model" }, "x"), undefined);
-  assert.throws(() => choicePresentationFrom(null, "x"), /keine Darstellung/);
-  assert.throws(() => choicePresentationFrom({ kind: "choice", options: [] }, "x"), /kein label/);
-  assert.throws(() => choicePresentationFrom({ kind: "choice", label: "Quelle", options: [{ value: "" }] }, "x"), /options aus value und label/);
+  assert.throws(() => choicePresentationFrom(null, "x"), /provides no presentation/);
+  assert.throws(() => choicePresentationFrom({ kind: "choice", options: [] }, "x"), /has no label/);
+  assert.throws(() => choicePresentationFrom({ kind: "choice", label: "Source", options: [{ value: "" }] }, "x"), /options made of value and label/);
 });
 
-test("eine Vorbelegung setzt nur wählbare, offene Optionen und ignoriert Unbekanntes", () => {
+test("a preset sets only selectable, open options and ignores anything unknown", () => {
   const option = (values: Partial<StartOptionState> & { id: string }): StartOptionState =>
     ({ owner: "test.plugin", value: null, presentation: null, selectable: true, locked: false, chosen: false, ...values });
   const options = [
@@ -55,12 +55,12 @@ test("eine Vorbelegung setzt nur wählbare, offene Optionen und ignoriert Unbeka
     "ragents.workspace.binding": binding,
     "ragents.model": "sonnet",
     "test.hidden": "x",
-    "test.unbekannt": "x",
+    "test.unknown": "x",
   }), [["ragents.workspace.binding", binding]]);
   assert.deepEqual(initialStartOptionUpdates(options, {}), []);
 });
 
-test("was eine Vorlage festlegt, belegt niemand vor und die Startseite zeigt es fest mit seinem Wert", () => {
+test("nothing presets what a template fixes, and the start page shows it fixed with its value", () => {
   const option = (values: Partial<StartOptionState> & { id: string }): StartOptionState =>
     ({ owner: "test.plugin", value: null, presentation: null, selectable: true, locked: false, chosen: false, ...values });
   const fixed = { "ragents.workspace.binding": { machine: "server", folder: "fresh" } };

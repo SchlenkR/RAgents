@@ -33,7 +33,7 @@ export function TodoSection({ actor, session }: CardSectionContext) {
           </li>
         ))}
       </ul>
-      {todos.length > MAX_ITEMS && <small className="pl-0.5 text-xs text-muted-foreground">+{todos.length - MAX_ITEMS} weitere</small>}
+      {todos.length > MAX_ITEMS && <small className="pl-0.5 text-xs text-muted-foreground">+{todos.length - MAX_ITEMS} more</small>}
     </section>
   );
 }

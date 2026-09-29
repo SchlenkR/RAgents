@@ -46,10 +46,10 @@ type SettingsPageSelection =
   | { kind: "capability"; id: ContributionKind };
 
 const settingsAreas = [
-  { id: "models", label: "Modelle" },
-  { id: "appearance", label: "Darstellung" },
+  { id: "models", label: "Models" },
+  { id: "appearance", label: "Appearance" },
   { id: "plugins", label: "Plugins" },
-  { id: "runtime", label: "Laufzeit" },
+  { id: "runtime", label: "Runtime" },
 ] as const;
 const capabilities = contributionFilters.filter(
   (option): option is { id: ContributionKind; label: string } => option.id !== "all",
@@ -190,14 +190,14 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
       <header className="grid flex-none grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border px-3.5 py-2.5">
         <span className="flex size-[34px] items-center justify-center rounded-[10px] bg-[color-mix(in_srgb,var(--primary)_12%,var(--background))] text-primary"><SettingsIcon size={18} /></span>
         <span className="grid min-w-0 gap-px">
-          <DialogTitle render={<strong />}>Einstellungen</DialogTitle>
-          <span className="truncate text-[0.7rem] text-muted-foreground max-[520px]:hidden">Modelle und Darstellung anpassen</span>
+          <DialogTitle render={<strong />}>Settings</DialogTitle>
+          <span className="truncate text-[0.7rem] text-muted-foreground max-[520px]:hidden">Adjust models and appearance</span>
         </span>
-        <Button aria-label="Schließen" className="rounded-full" onClick={onClose} ref={closeRef} size="icon" variant="outline">
+        <Button aria-label="Close" className="rounded-full" onClick={onClose} ref={closeRef} size="icon" variant="outline">
           <XIcon />
         </Button>
       </header>
-      <nav aria-label="Einstellungsbereiche" className="flex flex-none gap-1 overflow-x-auto border-b border-border px-4.5 max-md:px-2">
+      <nav aria-label="Settings areas" className="flex flex-none gap-1 overflow-x-auto border-b border-border px-4.5 max-md:px-2">
         {settingsAreas.map((area) => <button
           aria-current={activeArea === area.id ? "page" : undefined}
           className={cn(settingsAreaClass, activeArea === area.id ? "border-b-primary font-bold text-primary" : "text-muted-foreground hover:text-foreground")}
@@ -207,14 +207,14 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
         >{area.label}</button>)}
       </nav>
       {catalogVisible && <div className="flex flex-none gap-1 border-b border-border-soft px-3.5 py-2.5">
-        <ToggleGroup aria-label="Plugins ordnen" size="sm" spacing={0} value={[axis]} variant="outline"
+        <ToggleGroup aria-label="Group plugins" size="sm" spacing={0} value={[axis]} variant="outline"
           onValueChange={([value]) => { if (value) changeAxis(value === "capability" ? "capability" : "plugin"); }}>
-          <ToggleGroupItem value="plugin">Nach Plugin</ToggleGroupItem>
-          <ToggleGroupItem value="capability">Nach Fähigkeit</ToggleGroupItem>
+          <ToggleGroupItem value="plugin">By plugin</ToggleGroupItem>
+          <ToggleGroupItem value="capability">By capability</ToggleGroupItem>
         </ToggleGroup>
       </div>}
       <div className={cn("grid min-h-0 flex-1", catalogVisible ? "grid-cols-[230px_minmax(0,1fr)] max-[900px]:grid-cols-[190px_minmax(0,1fr)] max-md:grid-cols-[minmax(0,1fr)] max-md:grid-rows-[auto_minmax(0,1fr)]" : "grid-cols-[minmax(0,1fr)]")}>
-        {catalogVisible && <nav aria-label="Plugins durchsuchen" className="flex min-w-0 flex-col gap-[3px] overflow-y-auto border-r border-border-soft bg-background/72 px-2.5 py-4 max-md:flex-row max-md:overflow-x-auto max-md:border-r-0 max-md:border-b max-md:border-border-soft max-md:p-2" ref={navigationRef}>
+        {catalogVisible && <nav aria-label="Browse plugins" className="flex min-w-0 flex-col gap-[3px] overflow-y-auto border-r border-border-soft bg-background/72 px-2.5 py-4 max-md:flex-row max-md:overflow-x-auto max-md:border-r-0 max-md:border-b max-md:border-border-soft max-md:p-2" ref={navigationRef}>
           {axis === "plugin" && filtered.map((group) => {
             const count = countContributions(group);
             const selected = selection.kind === "plugin" && selection.id === group.id;
@@ -253,12 +253,12 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
           })}
         </nav>}
         <div className="min-h-0 min-w-0 overflow-y-auto bg-app [scrollbar-width:thin]" ref={contentRef}>
-          {selection.kind === "models" && <SettingsPage title="Modelle" description="Wähle Modell und Reasoning-Tiefe für die jeweiligen Aufgaben.">
+          {selection.kind === "models" && <SettingsPage title="Models" description="Choose the model and reasoning depth for each task.">
             <div className={settingsPanelsClass}>
               <PluginSettings contributions={modelSettings} panel />
-              {access.can("settings.read") && <SettingsSection panel title="Überschriften"><TitleModelSettings /></SettingsSection>}
+              {access.can("settings.read") && <SettingsSection panel title="Titles"><TitleModelSettings /></SettingsSection>}
             </div>
-            {modelSettings.length === 0 && !access.can("settings.read") && <SettingsEmpty>Für deine Zugriffsrechte sind keine Modelleinstellungen verfügbar.</SettingsEmpty>}
+            {modelSettings.length === 0 && !access.can("settings.read") && <SettingsEmpty>No model settings are available for your access rights.</SettingsEmpty>}
           </SettingsPage>}
           {selection.kind === "appearance" && <div className="[&>:first-child]:pb-0">
             <ThemeSettings />
@@ -267,26 +267,26 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
             </div>}
           </div>}
           {(catalogVisible || selection.kind === "runtime") && settings !== null && state.status !== "ready" && <p className="border-b border-border-soft px-5 py-2.5 text-[0.72rem] text-muted-foreground" role={state.status === "failed" ? "alert" : "status"}>
-            {state.status === "loading" ? "Katalog wird aktualisiert ..." : <>Katalog konnte nicht aktualisiert werden: {state.error} <Button onClick={() => setReload((value) => value + 1)} size="sm" variant="outline">Erneut laden</Button></>}
+            {state.status === "loading" ? "Refreshing catalog ..." : <>Could not refresh the catalog: {state.error} <Button onClick={() => setReload((value) => value + 1)} size="sm" variant="outline">Reload</Button></>}
           </p>}
           {(catalogVisible || selection.kind === "runtime") && settings === null && state.status === "loading" && (
             <div className={loadStateClass}>
               <Spinner aria-hidden className="size-3" />
-              Laufzeit und Plugins werden geladen.
+              Loading runtime and plugins.
             </div>
           )}
           {(catalogVisible || selection.kind === "runtime") && settings === null && state.status === "failed" && (
             <div className={cn(loadStateClass, "flex-col text-center text-destructive")} role="alert">
               <CircleAlertIcon size={14} />
-              <strong className="text-[0.86rem] text-foreground">Katalog nicht erreichbar</strong>
+              <strong className="text-[0.86rem] text-foreground">Catalog unreachable</strong>
               <span className="max-w-[560px]">{state.error}</span>
-              <Button className="mt-1.5" onClick={() => setReload((value) => value + 1)} size="sm" variant="outline">Erneut laden</Button>
+              <Button className="mt-1.5" onClick={() => setReload((value) => value + 1)} size="sm" variant="outline">Reload</Button>
             </div>
           )}
           {settings !== null && selection.kind === "runtime" && <RuntimePage groups={groups} registry={registry} settings={settings} />}
-          {settings !== null && selection.kind === "plugins" && <SettingsPage title="Plugins" description="Durchsuche die installierten Beiträge nach Plugin oder Fähigkeit. Wähle ein Plugin für seine Details.">
+          {settings !== null && selection.kind === "plugins" && <SettingsPage title="Plugins" description="Browse the installed contributions by plugin or capability. Choose a plugin for its details.">
             <div className="grid gap-4">{groups.map((group) => <button className={ownerLinkClass} key={group.id} onClick={() => openPlugin(group.id)} type="button">
-              {group.id}<span className={ownerLinkNoteClass}>{countContributions(group)} Beiträge</span>
+              {group.id}<span className={ownerLinkNoteClass}>{countContributions(group)} contributions</span>
             </button>)}</div>
           </SettingsPage>}
           {settings !== null && (selection.kind === "plugin" || selection.kind === "capability") && (
@@ -294,12 +294,12 @@ export function SettingsModal({ onClose, registry }: SettingsModalProps) {
           )}
           {settings !== null && selection.kind === "plugin" && (
             active === undefined
-              ? <div className={settingsPageClass}><SettingsEmpty>Dieses Plugin ist nicht mehr geladen.</SettingsEmpty></div>
+              ? <div className={settingsPageClass}><SettingsEmpty>This plugin is no longer loaded.</SettingsEmpty></div>
               : <PluginPage group={active} key={active.id} settings={registry.settings} />
           )}
           {settings !== null && activeCapability !== undefined && (
-            <SettingsPage title={activeCapability.label} description={`${activeCapability.groups.length} Plugins liefern passende Beiträge. Öffne ein Plugin für seine vollständigen Details.`}>
-              {activeCapability.groups.length === 0 && <SettingsEmpty>Keine Beiträge gefunden. Wähle eine andere Fähigkeit oder ändere die Suche.</SettingsEmpty>}
+            <SettingsPage title={activeCapability.label} description={`${activeCapability.groups.length} plugins provide matching contributions. Open a plugin for its full details.`}>
+              {activeCapability.groups.length === 0 && <SettingsEmpty>No contributions found. Choose another capability or change the search.</SettingsEmpty>}
               {activeCapability.groups.map((group) => (
                 <PluginPage
                   group={group} key={`${activeCapability.id}:${group.id}`} settings={group.settings}
@@ -324,7 +324,7 @@ function ContributionFilterBar({ filter, onFilter, onQuery, query, showKinds }: 
 }) {
   return (
     <div className="sticky top-0 z-[2] grid gap-2.5 border-b border-border-soft bg-background/92 px-[clamp(20px,4vw,46px)] py-3 backdrop-blur-[6px] max-md:px-3.5">
-      {showKinds && <div aria-label="Beitragsarten" className="flex flex-wrap gap-1.5" role="group">
+      {showKinds && <div aria-label="Contribution kinds" className="flex flex-wrap gap-1.5" role="group">
         {contributionFilters.map((option) => (
           <Toggle key={option.id} pressed={filter === option.id} onPressedChange={() => onFilter(option.id)} size="sm" variant="outline">
             {option.label}
@@ -332,10 +332,10 @@ function ContributionFilterBar({ filter, onFilter, onQuery, query, showKinds }: 
         ))}
       </div>}
       <label className="grid gap-1.5">
-        <span className="text-[0.67rem] font-medium text-muted-foreground">Beiträge durchsuchen</span>
+        <span className="text-[0.67rem] font-medium text-muted-foreground">Search contributions</span>
         <Input
           onChange={(event) => onQuery(event.target.value)}
-          placeholder="Kennung, Name, Titel oder Beschreibung"
+          placeholder="ID, name, title or description"
           type="search"
           value={query}
         />
@@ -354,85 +354,85 @@ function RuntimePage({ groups, registry, settings }: {
   const internalHooks = settings.agentHooks.filter((hook) => hook.kind === "internal");
   return (
     <SettingsPage
-      description={`Die Werte stammen aus der aktuell laufenden ${registry.brand.title}-Instanz. Konfigurationswerte mit Geheimnissen werden vom Server nicht ausgeliefert.`}
-      title="Laufzeit"
+      description={`The values come from the currently running ${registry.brand.title} instance. The server does not deliver configuration values that contain secrets.`}
+      title="Runtime"
     >
       <div className="grid grid-cols-4 gap-2.5 max-[900px]:grid-cols-2 max-[520px]:grid-cols-1">
-        <SettingsFact label="Produkt" value={settings.product.title} detail={settings.product.id} />
-        <SettingsFact label="Profil" value={settings.runtime.profile} detail={settings.product.id} />
-        <SettingsFact label="Workspace-Modus" value={settings.runtime.workspaceMode} detail="je Run" />
-        <SettingsFact label="Modelle" value={String(settings.models.length)} detail={`${settings.profiles.length} Profile`} />
-        <SettingsFact label="Plugins" value={String(groups.length)} detail={`${settings.tools.length} Funktionen`} />
+        <SettingsFact label="Product" value={settings.product.title} detail={settings.product.id} />
+        <SettingsFact label="Profile" value={settings.runtime.profile} detail={settings.product.id} />
+        <SettingsFact label="Workspace mode" value={settings.runtime.workspaceMode} detail="per run" />
+        <SettingsFact label="Models" value={String(settings.models.length)} detail={`${settings.profiles.length} profiles`} />
+        <SettingsFact label="Plugins" value={String(groups.length)} detail={`${settings.tools.length} functions`} />
       </div>
-      <SettingsSection title="Laufzeit und Arbeitsverzeichnisse">
-        <SettingsValue label="Working Directory" value={settings.runtime.host.workingDirectory} copy />
+      <SettingsSection title="Runtime and working directories">
+        <SettingsValue label="Working directory" value={settings.runtime.host.workingDirectory} copy />
         <SettingsValue
           label="Host"
-          value={`${settings.runtime.host.mode === "native" ? "Lokal" : "Container"} / ${settings.runtime.host.platform}`}
+          value={`${settings.runtime.host.mode === "native" ? "Local" : "Container"} / ${settings.runtime.host.platform}`}
         />
-        <SettingsValue label="Datenverzeichnis" value={settings.runtime.dataDirectory} copy />
+        <SettingsValue label="Data directory" value={settings.runtime.dataDirectory} copy />
         <SettingsValue
-          label="Konfigurationsdatei"
-          value={settings.runtime.configFile ?? "keine geladen"}
+          label="Configuration file"
+          value={settings.runtime.configFile ?? "none loaded"}
           copy={settings.runtime.configFile !== null}
         />
-        <SettingsValue label="Workspace-Muster je Run" value={workspace.directoryPattern} copy />
+        <SettingsValue label="Workspace pattern per run" value={workspace.directoryPattern} copy />
         <SettingsValue
-          label="Dateiablage je Run"
-          value={documents?.directoryPattern ?? "kein Dokumentenstore geladen"}
+          label="File storage per run"
+          value={documents?.directoryPattern ?? "no document store loaded"}
           copy={documents !== null}
         />
       </SettingsSection>
       <SettingsNote>
-        Ein Agent kann innerhalb eines Runs ein eigenes Rollenprompt erhalten. Dieses run-spezifische Prompt ist kein
-        statischer Modellwert und wird deshalb nicht in dieser Produktübersicht dargestellt.
+        An agent can receive its own role prompt within a run. This run-specific prompt is not a
+        static model value and is therefore not shown in this product overview.
       </SettingsNote>
-      <SettingsSection count={settings.models.length} title="Verfügbare Modelle">
+      <SettingsSection count={settings.models.length} title="Available models">
         <p className={sectionCopyClass}>
-          Modelle sind auswählbare Laufzeitziele. Profile bündeln Modell, Treiber, Denktiefe und Ausführungsgrenzen.
+          Models are selectable runtime targets. Profiles bundle model, driver, thinking level and execution limits.
         </p>
         <div className="grid grid-cols-2 gap-2.5 max-md:grid-cols-1">
           {settings.models.map((model) => <ModelCard key={modelKey(model)} model={model} />)}
         </div>
       </SettingsSection>
-      <SettingsSection count={settings.profiles.length} title="Profile">
+      <SettingsSection count={settings.profiles.length} title="Profiles">
         <p className={sectionCopyClass}>
-          Retries gelten pro Agenten-Turn nach technischen Fehlern. Die erste Ausführung zählt nicht als Retry.
-          Nicht replay-sichere oder terminal blockierte Turns werden nicht erneut ausgeführt.
+          Retries apply per agent turn after technical errors. The first execution does not count as a retry.
+          Turns that are not replay-safe or are terminally blocked are not executed again.
         </p>
         <div className={cardListClass}>
           {settings.profiles.map((profile) => <ProfileCard key={profile.name} profile={profile} />)}
         </div>
       </SettingsSection>
-      <SettingsSection title="Zusammengesetzter Produkt-Systemprompt">
+      <SettingsSection title="Composed product system prompt">
         <p className={sectionCopyClass}>
-          {settings.systemPrompt.composition} Der endgültige Agentenprompt ist run-spezifisch und deshalb keine feste
-          Modelleinstellung.
+          {settings.systemPrompt.composition} The final agent prompt is run-specific and therefore not a fixed
+          model setting.
         </p>
-        <PromptCode content={settings.systemPrompt.content} copyLabel="Produkt-Systemprompt kopieren" />
+        <PromptCode content={settings.systemPrompt.content} copyLabel="Copy product system prompt" />
       </SettingsSection>
-      <SettingsSection count={settings.systemPrompt.runtimeContracts.length} title="RAgents-Laufzeitverträge">
+      <SettingsSection count={settings.systemPrompt.runtimeContracts.length} title="RAgents runtime contracts">
         <div className={cardListClass}>
           {settings.systemPrompt.runtimeContracts.map((contract) => (
             <details className={disclosureClass} key={contract.audience}>
               <summary className={summaryClass}>
                 <span className={cardCopyClass}>
-                  <strong className={cardTitleClass}>{contract.audience === "coordinator" ? "Koordinator" : "Agent"}</strong>
-                  <small className={cardNoteClass}>Wird zur Laufzeit ergänzt</small>
+                  <strong className={cardTitleClass}>{contract.audience === "coordinator" ? "Coordinator" : "Agent"}</strong>
+                  <small className={cardNoteClass}>Added at runtime</small>
                 </span>
               </summary>
-              <PromptCode content={contract.content} copyLabel={`${contract.audience} Laufzeitvertrag kopieren`} />
+              <PromptCode content={contract.content} copyLabel={`Copy ${contract.audience} runtime contract`} />
             </details>
           ))}
         </div>
       </SettingsSection>
-      <SettingsSection count={internalHooks.length} title="Interne Hooks">
+      <SettingsSection count={internalHooks.length} title="Internal hooks">
         <p className={sectionCopyClass}>
-          Diese Hooks gehören der Agentenlaufzeit selbst und stammen aus keinem Plugin. Hooks eines Plugins
-          stehen auf der Seite ihres Plugins.
+          These hooks belong to the agent runtime itself and come from no plugin. A plugin's hooks
+          are listed on that plugin's page.
         </p>
         {internalHooks.length === 0
-          ? <SettingsEmpty>Kein interner Hook registriert.</SettingsEmpty>
+          ? <SettingsEmpty>No internal hook registered.</SettingsEmpty>
           : (
             <div className={cardListClass}>
               {internalHooks.map((hook) => (
@@ -470,18 +470,18 @@ function PluginPage({ group, settings, onOpenPlugin }: {
       <header>
         <div className="flex items-center justify-between gap-3">
           {onOpenPlugin
-            ? <button className={ownerLinkClass} onClick={onOpenPlugin} type="button">{group.id}<span className={ownerLinkNoteClass}>Plugin öffnen</span></button>
+            ? <button className={ownerLinkClass} onClick={onOpenPlugin} type="button">{group.id}<span className={ownerLinkNoteClass}>Open plugin</span></button>
             : <h2 className={`${pageTitleClass} truncate font-mono`}>{group.id}</h2>}
           {!onOpenPlugin && <span className={statusListClass}>
-            <StatusBadge active={group.serverRegistered} label={group.serverRegistered ? "Server registriert" : "Server unbekannt"} />
-            <StatusBadge active={group.webActive} label={group.webActive ? "Web aktiv" : "Web inaktiv"} />
+            <StatusBadge active={group.serverRegistered} label={group.serverRegistered ? "Server registered" : "Server unknown"} />
+            <StatusBadge active={group.webActive} label={group.webActive ? "Web active" : "Web inactive"} />
           </span>}
         </div>
-        {!onOpenPlugin && <p className={pageLeadClass}>Abhängigkeiten: {group.requires.length === 0 ? "keine" : group.requires.join(", ")}</p>}
+        {!onOpenPlugin && <p className={pageLeadClass}>Dependencies: {group.requires.length === 0 ? "none" : group.requires.join(", ")}</p>}
       </header>
       <PluginSettings contributions={contributions} />
       {group.tools.length > 0 && (
-        <SettingsSection count={group.tools.length} title="Funktionen">
+        <SettingsSection count={group.tools.length} title="Functions">
           <div className={cardListClass}>
             {group.tools.map((tool) => <ToolCard key={tool.id} tool={tool} />)}
           </div>
@@ -497,20 +497,20 @@ function PluginPage({ group, settings, onOpenPlugin }: {
                     <strong className={cardTitleClass}>{contribution.id}</strong>
                     <small className={cardNoteClass}>{contribution.owner}</small>
                   </span>
-                  <span className={chipClass}>Reihenfolge {contribution.order}</span>
+                  <span className={chipClass}>Order {contribution.order}</span>
                 </summary>
-                <PromptCode content={contribution.content} copyLabel={`${contribution.id} kopieren`} />
+                <PromptCode content={contribution.content} copyLabel={`Copy ${contribution.id}`} />
               </details>
             ))}
           </div>
         </SettingsSection>
       )}
       {group.startEntries.length > 0 && (
-        <SettingsSection count={group.startEntries.length} title="Vorlagen">
+        <SettingsSection count={group.startEntries.length} title="Templates">
           <p className={sectionCopyClass}>
-            Was das Plugin auf die Startseite legt. Ein Skill öffnet einen bearbeitbaren Auftrag;
-            ein Run-Script baut den Run selbst auf, bevor
-            der Chat beginnt. Nennt eine Vorlage einen Leitfaden, öffnet der Klick zuerst dessen Dialog.
+            What the plugin puts on the Start page. A skill opens an editable task;
+            a run script builds the run itself before
+            the chat begins. If a template names a guide, the click opens its dialog first.
           </p>
           <div className={cardListClass}>
             {group.startEntries.map((entry) => (
@@ -521,21 +521,21 @@ function PluginPage({ group, settings, onOpenPlugin }: {
                     <small className={cardNoteClass}>{entry.owner} / {entry.id}</small>
                   </span>
                   <span className={chipClass}>{entryActionLabel(entry)}</span>
-                  {entry.action === "skill" && <CopyButton label={`${entry.title} kopieren`} text={entry.prompt} />}
+                  {entry.action === "skill" && <CopyButton label={`Copy ${entry.title}`} text={entry.prompt} />}
                 </header>
                 <p className={cardCopyTextClass}>{entry.description}</p>
-                {entry.action === "skill" && <p className={cardCopyTextClass}>Kategorie: {entry.category}</p>}
+                {entry.action === "skill" && <p className={cardCopyTextClass}>Category: {entry.category}</p>}
                 {entry.action === "skill" && <pre className={`${preClass} max-h-[180px] px-3 py-2.5`}>{entry.prompt}</pre>}
                 {entry.action === "skill" && (
                   <p className={cardCopyTextClass}>
                     Skill <code>{entry.skill}</code>
-                    {entry.guide ? <> · Leitfaden <code>{entry.guide}</code></> : " · ohne Leitfaden"}
+                    {entry.guide ? <> · guide <code>{entry.guide}</code></> : " · no guide"}
                   </p>
                 )}
                 {entry.action === "script" && (
                   <p className={cardCopyTextClass}>
-                    {entry.coordinator ? "Mit Koordinator" : "Ohne Koordinator, das Script wählt den Primary-Actor"}
-                    {entry.guide ? <> · Leitfaden <code>{entry.guide}</code></> : " · ohne Leitfaden"}
+                    {entry.coordinator ? "With coordinator" : "Without coordinator, the script chooses the primary actor"}
+                    {entry.guide ? <> · guide <code>{entry.guide}</code></> : " · no guide"}
                   </p>
                 )}
               </article>
@@ -581,26 +581,26 @@ function PluginPage({ group, settings, onOpenPlugin }: {
         </SettingsSection>
       )}
       {(group.configuration.length > 0 || publicConfigText !== undefined) && (
-        <SettingsSection count={group.configuration.length} title="Konfiguration">
+        <SettingsSection count={group.configuration.length} title="Configuration">
           <p className={sectionCopyClass}>
-            Angezeigt werden die Herkunft der Konfigurationsschlüssel und die öffentliche Client-Konfiguration,
-            niemals geheime Werte.
+            Shown are the origin of the configuration keys and the public client configuration,
+            never secret values.
           </p>
           {group.configuration.length > 0 && (
             <div className="grid gap-1.5 rounded-lg border border-border-soft bg-background/68 px-2.5 py-2">
-              <span className={valueLabelClass}>Konfigurationsquellen</span>
+              <span className={valueLabelClass}>Configuration sources</span>
               <div className="flex flex-wrap gap-1.5">
                 {group.configuration.map((entry) => (
                   <span className={tagClass} key={entry.key}>
                     <code className="font-mono">{entry.key}</code>
-                    <small className="text-[0.59rem] text-muted-foreground">{entry.secret ? `${entry.source} (geheim)` : entry.source}</small>
+                    <small className="text-[0.59rem] text-muted-foreground">{entry.secret ? `${entry.source} (secret)` : entry.source}</small>
                   </span>
                 ))}
               </div>
             </div>
           )}
           {publicConfigText !== undefined && (
-            <PromptCode content={publicConfigText} copyLabel={`${group.id} Client-Konfiguration kopieren`} />
+            <PromptCode content={publicConfigText} copyLabel={`Copy ${group.id} client configuration`} />
           )}
         </SettingsSection>
       )}
@@ -609,8 +609,8 @@ function PluginPage({ group, settings, onOpenPlugin }: {
           count={group.web.state === "contributions" ? group.web.contributions.length : undefined}
           title="Web"
         >
-          {group.web.state === "none" && <SettingsEmpty>Kein Web-Modul</SettingsEmpty>}
-          {group.web.state === "withoutContributions" && <SettingsEmpty>Web-Modul ohne Beiträge</SettingsEmpty>}
+          {group.web.state === "none" && <SettingsEmpty>No web module</SettingsEmpty>}
+          {group.web.state === "withoutContributions" && <SettingsEmpty>Web module without contributions</SettingsEmpty>}
           {group.web.state === "contributions" && (
             <div className="grid gap-[7px]">
               {group.web.contributions.map((contribution) => (
@@ -632,7 +632,7 @@ function PluginPage({ group, settings, onOpenPlugin }: {
           )}
         </SettingsSection>
       )}
-      {empty && <SettingsEmpty>Keine Beiträge entsprechen Filter und Suche.</SettingsEmpty>}
+      {empty && <SettingsEmpty>No contributions match the filter and search.</SettingsEmpty>}
     </div>
   );
 }
@@ -665,33 +665,33 @@ function SkillDetail({ onBack, skill }: { onBack: () => void; skill: SettingsSki
   return (
     <div className={settingsPageClass}>
       <header className="grid justify-items-start gap-2.5">
-        <Button aria-label="Zurück zu den Beiträgen" className="rounded-full" onClick={onBack} size="icon" variant="outline"><ArrowLeftIcon /></Button>
+        <Button aria-label="Back to contributions" className="rounded-full" onClick={onBack} size="icon" variant="outline"><ArrowLeftIcon /></Button>
         <span className="grid gap-1">
           <h2 className={pageTitleClass}>{skill.id}</h2>
-          <p className="text-[0.73rem] text-muted-foreground">{skill.owner}{files.length > 0 && ` / ${files.length} ${files.length === 1 ? "Datei" : "Dateien"}`}</p>
+          <p className="text-[0.73rem] text-muted-foreground">{skill.owner}{files.length > 0 && ` / ${files.length} ${files.length === 1 ? "file" : "files"}`}</p>
         </span>
       </header>
-      <SettingsSection title="Verfügbarkeit">
-        <SettingsValue label="Zielgruppe" value={skill.audiences.map(skillAudienceLabel).join(", ")} />
+      <SettingsSection title="Availability">
+        <SettingsValue label="Audience" value={skill.audiences.map(skillAudienceLabel).join(", ")} />
       </SettingsSection>
-      <SettingsSection title="Registrierte Pfade">
-        {skill.paths.map((path) => <SettingsValue copy key={path} label="Pfad" value={path} />)}
+      <SettingsSection title="Registered paths">
+        {skill.paths.map((path) => <SettingsValue copy key={path} label="Path" value={path} />)}
       </SettingsSection>
       {state.status === "loading" && (
         <div className={loadStateClass}>
           <Spinner aria-hidden className="size-3" />
-          Skill wird gelesen.
+          Reading skill.
         </div>
       )}
       {state.status === "failed" && (
         <div className={cn(loadStateClass, "flex-col text-center text-destructive")} role="alert">
           <CircleAlertIcon size={14} />
-          <strong className="text-[0.86rem] text-foreground">Skill nicht lesbar</strong>
+          <strong className="text-[0.86rem] text-foreground">Skill not readable</strong>
           <span className="max-w-[560px]">{state.error}</span>
         </div>
       )}
       {state.status === "ready" && files.length === 0 && (
-        <SettingsEmpty>Der Skill-Pfad enthält keine Dateien.</SettingsEmpty>
+        <SettingsEmpty>The skill path contains no files.</SettingsEmpty>
       )}
       {files.length > 1 && (
         <div className="flex flex-wrap gap-1.5">
@@ -715,21 +715,21 @@ function SkillDocument({ file }: { file: SettingsSkillFile }) {
           <strong className={cardTitleClass}>{file.path}</strong>
           <small className="text-[0.63rem] text-muted-foreground">{formatBytes(file.bytes)}</small>
         </span>
-        {file.content !== null && <CopyButton label={`${file.path} kopieren`} text={skillFileText(file)} />}
+        {file.content !== null && <CopyButton label={`Copy ${file.path}`} text={skillFileText(file)} />}
       </header>
       {file.frontMatter !== null && (
         <details className={cn(disclosureClass, "mt-3 mr-3 ml-3")}>
           <summary className={summaryClass}>
             <span className={cardCopyClass}>
               <strong className={cardTitleClass}>Frontmatter</strong>
-              <small className={cardNoteClass}>Kopfdaten, die die Agentenlaufzeit aus der Datei liest</small>
+              <small className={cardNoteClass}>Header data the agent runtime reads from the file</small>
             </span>
           </summary>
-          <PromptCode content={file.frontMatter} copyLabel="Frontmatter kopieren" />
+          <PromptCode content={file.frontMatter} copyLabel="Copy frontmatter" />
         </details>
       )}
       {file.content === null
-        ? <SettingsEmpty className="m-3">Diese Datei ist nicht als Text darstellbar.</SettingsEmpty>
+        ? <SettingsEmpty className="m-3">This file cannot be shown as text.</SettingsEmpty>
         : file.path.toLowerCase().endsWith(".md")
           ? <div className="px-4.5 pt-4 pb-5 text-[0.79rem] leading-[1.62] text-foreground"><Markdown text={file.content} /></div>
           : <div className="overflow-auto"><SourceCode className="px-4 pt-4 pb-5 text-[0.7rem] leading-[1.55]" content={file.content} path={file.path} /></div>}
@@ -742,7 +742,7 @@ function ModelCard({ model }: { model: SettingsModel }) {
     <article className={cn(cardClass, "grid gap-[3px] px-3.5 py-3")}>
       <strong className="truncate text-[0.79rem]">{model.label}</strong>
       <span className="truncate text-[0.67rem] text-muted-foreground">{model.provider} / {model.model}</span>
-      <small className="truncate text-[0.67rem] text-muted-foreground">Treiber: {model.driver}</small>
+      <small className="truncate text-[0.67rem] text-muted-foreground">Driver: {model.driver}</small>
     </article>
   );
 }
@@ -753,7 +753,7 @@ function ProfileCard({ profile }: { profile: SettingsProfile }) {
         profile.driver,
         profile.provider,
         profile.model,
-        ...(profile.thinking ? [`Denktiefe ${profile.thinking}`] : []),
+        ...(profile.thinking ? [`Thinking level ${profile.thinking}`] : []),
       ]
     : [profile.driver];
   return (
@@ -766,8 +766,8 @@ function ProfileCard({ profile }: { profile: SettingsProfile }) {
       </header>
       <p className={cardCopyTextClass}>{profile.description}</p>
       <footer className="flex flex-wrap gap-x-3 gap-y-1.5 text-[0.64rem] text-muted-foreground">
-        <span>{profile.turnTimeoutMs === null ? "Kein Turn-Timeout" : `Turn-Timeout ${formatDuration(profile.turnTimeoutMs)}`}</span>
-        <span>{profile.isolateWorkspace ? "Eigener Agenten-Workspace" : "Gemeinsamer Run-Workspace"}</span>
+        <span>{profile.turnTimeoutMs === null ? "No turn timeout" : `Turn timeout ${formatDuration(profile.turnTimeoutMs)}`}</span>
+        <span>{profile.isolateWorkspace ? "Own agent workspace" : "Shared run workspace"}</span>
       </footer>
     </article>
   );
@@ -781,9 +781,9 @@ function HookCard({ hook }: { hook: SettingsAgentHook }) {
           <strong className={cardTitleClass}>{hook.id}</strong>
           <small className={cardNoteClass}>{hook.owner}</small>
         </span>
-        <StatusBadge active label={hook.kind === "internal" ? "Intern" : "Plugin-Beitrag"} />
+        <StatusBadge active label={hook.kind === "internal" ? "Internal" : "Plugin contribution"} />
       </header>
-      <SettingsValue label="Auflösung je Agent" value={hook.resolvesPerAgent ? "Ja" : "Nein"} />
+      <SettingsValue label="Resolved per agent" value={hook.resolvesPerAgent ? "Yes" : "No"} />
       {hook.factories.length > 0 && (
         <SettingsValue
           label="Factories"
@@ -812,7 +812,7 @@ function ToolCard({ tool }: { tool: SettingsTool }) {
       </header>
       <p className={cn(cardCopyTextClass, "my-0")}>{tool.description}</p>
       <dl className="grid grid-cols-2 gap-1.5 max-md:grid-cols-1">
-        {[["Eigentümer", tool.owner], ["Herkunft", tool.source], ["Scope", toolScopeLabel(tool.scope)], ["Verfügbarkeit", tool.availabilityDetail]].map(([label, value]) => (
+        {[["Owner", tool.owner], ["Source", tool.source], ["Scope", toolScopeLabel(tool.scope)], ["Availability", tool.availabilityDetail]].map(([label, value]) => (
           <div className="grid min-w-0 gap-0.5 rounded-lg border border-border-soft bg-background/68 px-2 py-1.5" key={label}>
             <dt className="text-[0.61rem] text-muted-foreground">{label}</dt>
             <dd className="min-w-0 text-[0.68rem] text-foreground [overflow-wrap:anywhere]">{value}</dd>
@@ -864,7 +864,7 @@ function SettingsValue({ copy = false, label, value }: { copy?: boolean; label: 
     <div className="grid min-h-[38px] grid-cols-[minmax(130px,0.28fr)_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg border border-border-soft bg-background/68 px-2.5 py-1.5 max-[520px]:grid-cols-[minmax(0,1fr)_auto]">
       <span className={cn(valueLabelClass, "max-[520px]:col-span-full")}>{label}</span>
       <code className="min-w-0 truncate font-mono text-[0.7rem] text-foreground" title={value}>{value}</code>
-      {copy && <CopyButton label={`${label} kopieren`} text={value} />}
+      {copy && <CopyButton label={`Copy ${label}`} text={value} />}
     </div>
   );
 }
@@ -894,7 +894,7 @@ function CopyButton({ className, label, text }: { className?: string; label: str
       .then(() => setStatus("copied"))
       .catch(() => setStatus("failed"));
   };
-  const statusLabel = status === "copied" ? "Kopiert" : status === "failed" ? "Nicht kopiert" : "Kopieren";
+  const statusLabel = status === "copied" ? "Copied" : status === "failed" ? "Not copied" : "Copy";
   return (
     <Button
       aria-label={label}
@@ -931,16 +931,16 @@ const skillFileText = (file: SettingsSkillFile) =>
 
 const formatDuration = (milliseconds: number) => {
   const seconds = milliseconds / 1000;
-  if (seconds < 60) return `${seconds.toLocaleString("de-DE")} s`;
+  if (seconds < 60) return `${seconds.toLocaleString("en-US")} s`;
   const minutes = seconds / 60;
-  if (minutes < 60) return `${minutes.toLocaleString("de-DE")} min`;
-  return `${(minutes / 60).toLocaleString("de-DE")} h`;
+  if (minutes < 60) return `${minutes.toLocaleString("en-US")} min`;
+  return `${(minutes / 60).toLocaleString("en-US")} h`;
 };
 
 const sensitiveKey = (key: string) => /secret|token|password|credential|api.?key|authorization|cookie/i.test(key);
 
 const sanitizedValue = (value: unknown, key = ""): unknown => {
-  if (key && sensitiveKey(key)) return "[ausgeblendet]";
+  if (key && sensitiveKey(key)) return "[hidden]";
   if (Array.isArray(value)) return value.map((entry) => sanitizedValue(entry));
   if (typeof value !== "object" || value === null) return value;
   return Object.fromEntries(

@@ -37,12 +37,12 @@ export function createModalController({ nextBehavior, onClose, onNavigate }: {
   return {
     get canGoBack() { return history.length > 1; },
     open(page: ModalPage) {
-      if (!page.title.trim()) throw new Error("Ein Dialogschritt benötigt einen Titel.");
+      if (!page.title.trim()) throw new Error("A dialog step requires a title.");
       const previous = nextBehavior() === "push" ? history : history.slice(0, -1);
       update([...previous, { key: nextKey++, page }]);
     },
     back() {
-      if (history.length < 2) throw new Error("Es gibt keinen vorherigen Dialogschritt.");
+      if (history.length < 2) throw new Error("There is no previous dialog step.");
       update(history.slice(0, -1));
     },
     close() { onClose(); },
@@ -65,6 +65,6 @@ export const ModalControllerContext = createContext<ModalController | null>(null
 
 export function useModalController(): ModalController {
   const controller = useContext(ModalControllerContext);
-  if (!controller) throw new Error("Die Dialogsteuerung benötigt einen Modal-Host.");
+  if (!controller) throw new Error("The dialog controller requires a modal host.");
   return controller;
 }

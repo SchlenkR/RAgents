@@ -71,7 +71,7 @@ const runId='layout-regression';
 const initial={root:{direction:'horizontal',weights:[1,1],children:[{entity:'app:items/main'},{entity:'@coordinator'}]}};
 const worker={root:{direction:'horizontal',weights:[1,1],children:[{entity:'app:items/main'},{direction:'vertical',weights:[2,1],children:[{entity:'@coordinator'},{entity:'app:worker/main'}]}]}};
 const runView=(layout)=>({pluginStates:[{pluginId:'ragents.orchestration',scope:{kind:'run'},state:{...layout}}]});
-const items=[{entity:'app:items/main',title:'Item auswählen',content:'Itemliste'}, {entity:'@coordinator',title:'Koordinator',content:'Auftrag klären'}, {entity:'app:worker/main',title:'Implementierer',content:'Implementierung läuft'}];
+const items=[{entity:'app:items/main',title:'Select item',content:'Item list'}, {entity:'@coordinator',title:'Coordinator',content:'Clarify task'}, {entity:'app:worker/main',title:'Implementer',content:'Implementation running'}];
 function App(){
   const [view,setView]=useState();
   const {presentation,personalLayout,programBasis}=useSurfacePresentation(runId,view);
@@ -81,8 +81,8 @@ function App(){
     updateUnrelated:()=>flushSync(()=>setView(previous=>structuredClone(previous))),
     startWorker:()=>{sessionStorage.setItem('program-layout',JSON.stringify(worker));flushSync(()=>setView(runView(worker)));},
   };
-  if(!view)return <p>Lädt</p>;
-  return <><output id="personal">{personalLayout?'Persönliche Anordnung':'Programmanordnung'}</output>
+  if(!view)return <p>Loading</p>;
+  return <><output id="personal">{personalLayout?'Personal arrangement':'Program arrangement'}</output>
     <TiledSurface root={presentation.root} items={items} canArrange={true}
       onChange={root=>saveSurfacePresentation(runId,{root,programBasis})}/></>;
 }
@@ -97,7 +97,7 @@ createRoot(document.getElementById('root')).render(<App/>);`, resolveDir: source
       return;
     }
     response.setHeader("Content-Type", "text/html");
-    response.end('<!doctype html><html lang="de"><head><meta charset="utf-8"><link rel="icon" href="data:,"><link rel="stylesheet" href="/fixture.css"><style>body{margin:0;font:16px system-ui}#root{height:900px;width:1600px;display:flex;flex-direction:column}</style></head><body><div id="root"></div><script src="/fixture.js"></script></body></html>');
+    response.end('<!doctype html><html lang="en"><head><meta charset="utf-8"><link rel="icon" href="data:,"><link rel="stylesheet" href="/fixture.css"><style>body{margin:0;font:16px system-ui}#root{height:900px;width:1600px;display:flex;flex-direction:column}</style></head><body><div id="root"></div><script src="/fixture.js"></script></body></html>');
   });
   await new Promise<void>((resolve, reject) => { server.once("error", reject); server.listen(0, "127.0.0.1", resolve); });
   context.after(async () => { server.closeAllConnections(); await new Promise<void>((resolve) => server.close(() => resolve())); });
@@ -119,7 +119,7 @@ test("a running surface adds a program worker despite a persisted personal resiz
   assert.equal(await page.locator("[data-tile-entity]").count(), 2);
   assert.equal(await workerTile.count(), 0);
   await page.getByRole("separator").press("ArrowRight");
-  await page.getByText("Persönliche Anordnung", { exact: true }).waitFor();
+  await page.getByText("Personal arrangement", { exact: true }).waitFor();
   const personal = await page.evaluate(() => localStorage.getItem((window as any).layoutFixture.storageKey));
   assert.ok(personal);
   assert.ok(JSON.parse(personal).programBasis);
@@ -128,25 +128,25 @@ test("a running surface adds a program worker despite a persisted personal resiz
   assert.equal(await page.evaluate(() => localStorage.getItem((window as any).layoutFixture.storageKey)), personal);
   assert.equal(await page.getByRole("separator").getAttribute("aria-valuenow"), "52");
   await page.reload();
-  await page.getByText("Persönliche Anordnung", { exact: true }).waitFor();
+  await page.getByText("Personal arrangement", { exact: true }).waitFor();
   assert.equal(await page.getByRole("separator").getAttribute("aria-valuenow"), "52");
 
   await page.evaluate(() => (window as any).layoutFixture.startWorker());
   assert.equal(await workerTile.isVisible(), true, "The new worker is visible in the same rendered program update");
-  assert.equal(await workerTile.getByText("Implementierung läuft", { exact: true }).isVisible(), true);
-  await page.getByText("Programmanordnung", { exact: true }).waitFor();
+  assert.equal(await workerTile.getByText("Implementation running", { exact: true }).isVisible(), true);
+  await page.getByText("Program arrangement", { exact: true }).waitFor();
   await page.waitForFunction(() => localStorage.getItem((window as any).layoutFixture.storageKey) === "null");
   assert.equal(await page.locator("[data-tile-entity]").count(), 3);
   await page.screenshot({ path: `${directory}/worker-visible.png` });
   await page.reload();
   await workerTile.waitFor();
-  assert.equal(await page.locator("#personal").innerText(), "Programmanordnung");
+  assert.equal(await page.locator("#personal").innerText(), "Program arrangement");
 
   await page.evaluate((stored) => localStorage.setItem((window as any).layoutFixture.storageKey, stored), personal);
   await page.reload();
   await workerTile.waitFor();
   await page.waitForFunction(() => localStorage.getItem((window as any).layoutFixture.storageKey) === "null");
-  assert.equal(await page.locator("#personal").innerText(), "Programmanordnung");
+  assert.equal(await page.locator("#personal").innerText(), "Program arrangement");
   assert.deepEqual(errors, []);
 });
 
@@ -166,7 +166,7 @@ test("a program refresh during a divider drag keeps the pointer resize alive", b
   await page.mouse.move(box.x + 320, y, { steps: 4 });
   await valueBecomes("70");
   await page.mouse.up();
-  await page.getByText("Persönliche Anordnung", { exact: true }).waitFor();
+  await page.getByText("Personal arrangement", { exact: true }).waitFor();
   assert.equal(await separator.getAttribute("aria-valuenow"), "70");
   const stored = await page.evaluate(() => localStorage.getItem((window as any).layoutFixture.storageKey));
   assert.deepEqual(JSON.parse(stored!).root.weights.map((weight: number) => Math.round(weight * 100)), [70, 30]);

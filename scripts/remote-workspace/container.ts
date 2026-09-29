@@ -5,17 +5,17 @@ import { alive, childEnvironment, mustRun, runCommand, type CommandResult } from
 
 const IMAGE = "ragents-remote-workspace-check";
 
-/** plain ist der Arbeitsplatz allein, browser legt Chromium für die Browserprüfung im Container dazu. */
+/** plain is the workspace alone, browser adds Chromium for the browser check in the container. */
 export type ImageVariant = "plain" | "browser";
 
 export const imageTag = (variant: ImageVariant): string => `${IMAGE}:${variant}`;
 
-/** Jeder Container und jedes Image des Läufers trägt diese Labels; aufgeräumt wird nur, was sie trägt. */
+/** Every container and every image of the runner carries these labels; only what carries them is cleaned up. */
 export const SESSION_LABEL = "ragents.remote-workspace-check.session";
 const RUNNER_LABEL = "ragents.remote-workspace-check.runner";
 const IMAGE_LABEL = "ragents.remote-workspace-check.image";
 
-/** Der Ordner des Arbeitsplatzes, den es auf dem Mac nicht gibt; mit --shared-path gilt stattdessen ein Pfad, den es auf beiden Seiten gibt. */
+/** The workspace folder that does not exist on the Mac; with --shared-path a path that exists on both sides applies instead. */
 export const CONTAINER_FOLDER = "/work/project";
 
 const docker = (args: readonly string[], input?: string): Promise<CommandResult> => runCommand("docker", args, input === undefined ? {} : { input });
@@ -28,7 +28,7 @@ export interface BuiltImage {
   readonly dependencies: number;
 }
 
-/** Baut das Host-Paket aus diesem Checkout in den Build-Kontext und daraus das Image; die Abhängigkeiten installiert npm im Linux-Image. */
+/** Builds the host package from this checkout into the build context and the image from it; npm installs the dependencies in the Linux image. */
 export const buildImage = async (root: string, context: string, variant: ImageVariant, logFile: string): Promise<BuiltImage> => {
   const built = await buildPackage(path.join(context, "package"), root);
   const dependencies = built.manifest.dependencies as Record<string, string>;
@@ -38,7 +38,7 @@ export const buildImage = async (root: string, context: string, variant: ImageVa
   await copyFile(path.join(root, "scripts/remote-workspace/Dockerfile"), path.join(context, "Dockerfile"));
   const result = await docker(["build", "--build-arg", `VARIANT=${variant}`, "--label", `${IMAGE_LABEL}=1`, "--tag", imageTag(variant), context]);
   await writeFile(logFile, `${result.stdout}\n${result.stderr}`);
-  if (result.code !== 0) throw new Error(`docker build endete mit ${result.code}; Ende des Protokolls ${logFile}:\n${result.stderr.trim().split("\n").slice(-20).join("\n")}`);
+  if (result.code !== 0) throw new Error(`docker build ended with ${result.code}; end of the log ${logFile}:\n${result.stderr.trim().split("\n").slice(-20).join("\n")}`);
   return {
     packageVersion: built.manifest.version as string,
     hostVersion: (built.manifest.ragents as { hostVersion: string }).hostVersion,
@@ -46,7 +46,7 @@ export const buildImage = async (root: string, context: string, variant: ImageVa
   };
 };
 
-/** Nur noch unbenannte Images mit dem Label des Läufers; fremde Images erreicht der Filter nicht. */
+/** Only unnamed images with the runner's label; the filter does not reach foreign images. */
 export const pruneOldImages = (): Promise<string> => mustDocker(["image", "prune", "--force", "--filter", `label=${IMAGE_LABEL}=1`]);
 
 export interface ContainerSpec {
@@ -58,7 +58,7 @@ export interface ContainerSpec {
   readonly folder: string;
   readonly clientId: string;
   readonly label: string;
-  /** Der persönliche Token geht über die Umgebung des docker-Aufrufs, damit er in keiner Befehlszeile steht. */
+  /** The personal token goes through the environment of the docker call so it appears in no command line. */
   readonly token: string;
   readonly env: Readonly<Record<string, string>>;
 }
@@ -83,7 +83,7 @@ export const stopContainer = (name: string): Promise<string> => mustDocker(["sto
 
 export const restartContainer = (name: string): Promise<string> => mustDocker(["start", name]);
 
-/** Nimmt dem Container das Netz, ohne ihn anzuhalten; der Arbeitsplatz darin läuft weiter, sein Ereignisstrom bricht. */
+/** Takes the network away from the container without stopping it; the workspace inside keeps running, its event stream breaks. */
 export const disconnectNetwork = (name: string): Promise<string> => mustDocker(["network", "disconnect", "bridge", name]);
 
 export const connectNetwork = (name: string): Promise<string> => mustDocker(["network", "connect", "bridge", name]);
@@ -93,7 +93,7 @@ export const containerLogs = async (name: string): Promise<string> => {
   return `${result.stdout}\n${result.stderr}`;
 };
 
-/** Ein Befehl als Benutzer node im Container; die Umgebung geht als --env mit, stdin als Eingabe. */
+/** A command as user node in the container; the environment goes along as --env, stdin as input. */
 export const containerExec = (name: string, command: readonly string[], options: { detach?: boolean; env?: Readonly<Record<string, string>>; input?: string } = {}): Promise<CommandResult> =>
   docker([
     "exec", "--user", "node",
@@ -105,21 +105,21 @@ export const containerExec = (name: string, command: readonly string[], options:
 
 export const writeContainerFile = async (name: string, file: string, content: string): Promise<void> => {
   const result = await containerExec(name, ["sh", "-c", `mkdir -p "$(dirname "$1")" && cat > "$1"`, "sh", file], { input: content });
-  if (result.code !== 0) throw new Error(`${file} lässt sich im Container nicht schreiben: ${result.stderr.trim()}`);
+  if (result.code !== 0) throw new Error(`${file} cannot be written in the container: ${result.stderr.trim()}`);
 };
 
-/** Läuft der Prozess im Container noch? Die Prozesstabelle des Containers ist nur über /proc dort erreichbar. */
+/** Is the process in the container still running? The container's process table is reachable only through /proc there. */
 export const containerProcessAlive = async (name: string, pid: number): Promise<boolean> =>
   (await containerExec(name, ["test", "-d", `/proc/${pid}`])).code === 0;
 
-/** Container dieser Sitzung; alle tragen das Sitzungslabel. */
+/** Containers of this session; all carry the session label. */
 export const removeSessionContainers = async (session: string): Promise<readonly string[]> => {
   const ids = (await mustDocker(["ps", "--all", "--quiet", "--filter", `label=${SESSION_LABEL}=${session}`])).split("\n").filter(Boolean);
   if (ids.length > 0) await mustDocker(["rm", "--force", ...ids]);
   return ids;
 };
 
-/** Container früherer Prüfläufe, deren Läufer nicht mehr lebt (etwa nach SIGKILL); nur Container mit den Labels des Läufers. */
+/** Containers of earlier check runs whose runner is no longer alive (e.g. after SIGKILL); only containers with the runner's labels. */
 export const removeOrphanedContainers = async (): Promise<readonly string[]> => {
   const listing = await mustDocker(["ps", "--all", "--filter", `label=${SESSION_LABEL}`, "--format", `{{.ID}} {{.Label "${RUNNER_LABEL}"}}`]);
   const orphaned = listing.split("\n").filter(Boolean).flatMap((line) => {

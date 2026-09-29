@@ -14,15 +14,15 @@ const toolWithStore = async () => {
   return { files, tool: createDocumentWriteTool(async () => files) };
 };
 
-test("document_write legt den übergebenen Inhalt in der Ablage ab", async () => {
+test("document_write stores the given content in the file store", async () => {
   const { files, tool } = await toolWithStore();
-  const result = await tool.run(scope, "call-1", { path: "thema/bericht.md", content: "# Bericht\n" } as never);
-  assert.match(String(result), /thema\/bericht\.md/);
-  assert.equal(await readFile(path.join(files, "thema/bericht.md"), "utf8"), "# Bericht\n");
+  const result = await tool.run(scope, "call-1", { path: "topic/report.md", content: "# Report\n" } as never);
+  assert.match(String(result), /topic\/report\.md/);
+  assert.equal(await readFile(path.join(files, "topic/report.md"), "utf8"), "# Report\n");
 });
 
-test("document_write verlangt einen Pfad in der Ablage", async () => {
+test("document_write requires a path inside the file store", async () => {
   const { tool } = await toolWithStore();
-  await assert.rejects(tool.run(scope, "call-1", { path: "/etc/passwd", content: "x" } as never), /relativ zur Dateiablage/);
-  await assert.rejects(tool.run(scope, "call-1", { path: "../ausbruch.md", content: "x" } as never), /relativ zur Dateiablage/);
+  await assert.rejects(tool.run(scope, "call-1", { path: "/etc/passwd", content: "x" } as never), /relative to the file store/);
+  await assert.rejects(tool.run(scope, "call-1", { path: "../escape.md", content: "x" } as never), /relative to the file store/);
 });

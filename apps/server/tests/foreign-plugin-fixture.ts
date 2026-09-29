@@ -16,13 +16,13 @@ import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js
 export type Catalog = readonly ModelUpstream["models"][number][];
 const hello = defineOperation({
   id: "acme.greeting.hello",
-  description: "Grüßt aus dem Bundle.",
+  description: "Greets from the bundle.",
   rights: [],
   input: Type.Object({}),
   result: Type.Object({ text: Type.String() }),
 });
 export const plugin: PluginModule = {
-  create: () => ({ manifest: { id: "acme.greeting" }, register: (host) => { host.methods(implement(hello, () => ({ text: "Hallo aus dem Bundle" }))); } }),
+  create: () => ({ manifest: { id: "acme.greeting" }, register: (host) => { host.methods(implement(hello, () => ({ text: "Hello from the bundle" }))); } }),
 };
 `,
   "web/index.tsx": `import { useState } from "react";
@@ -31,7 +31,7 @@ import { Badge } from "@ragents/web/ui";
 import type { WebPlugin } from "@ragents/web/PluginRegistry";
 export const Greeting = () => {
   const [open, setOpen] = useState(false);
-  return <Badge className="bg-[#0b5f4a]" onClick={() => setOpen(!open)}><Check />{open ? "auf" : "zu"}</Badge>;
+  return <Badge className="bg-[#0b5f4a]" onClick={() => setOpen(!open)}><Check />{open ? "open" : "closed"}</Badge>;
 };
 export const webPlugin: WebPlugin = { id: "acme.greeting" };
 `,
@@ -73,7 +73,7 @@ export const announcement = (child: ChildProcess, output: string[]): Promise<Ann
     output.push(line);
     if (line.startsWith("{\"ragents\"")) resolve((JSON.parse(line) as { ragents: Announced }).ragents);
   });
-  child.once("exit", (code) => reject(new Error(`Der Prozess endete mit ${code} vor seiner Ansage:\n${output.slice(-25).join("\n")}`)));
+  child.once("exit", (code) => reject(new Error(`The process exited with ${code} before its announcement:\n${output.slice(-25).join("\n")}`)));
 });
 
 export const stopChild = async (child: ChildProcess): Promise<void> => {
@@ -99,14 +99,14 @@ export const assertGreetingServed = async (host: Announced, webDirectory: string
   const bootstrap = await rpc(host, "ragents.plugins.bootstrap") as { plugins: { id: string; web?: { entry: string } }[] };
   const entryAddress = bootstrap.plugins.find((plugin) => plugin.id === "acme.greeting")?.web?.entry;
   assert.equal(entryAddress, "/plugins/acme.greeting/web/index.js");
-  assert.deepEqual(await rpc(host, "acme.greeting.hello"), { text: "Hallo aus dem Bundle" }, "die Server-Hälfte läuft");
+  assert.deepEqual(await rpc(host, "acme.greeting.hello"), { text: "Hello from the bundle" }, "the server half runs");
   const entry = await fetch(`${host.url}${entryAddress}`);
-  assert.equal(entry.status, 200, "die Web-Hälfte lädt ohne Token, wie in einem iframe ohne Cookie");
+  assert.equal(entry.status, 200, "the web half loads without a token, as in an iframe without a cookie");
   assert.match(await entry.text(), /webPlugin/);
-  assert.equal((await fetch(`${host.url}${entryAddress}.map`)).status, 401, "die Sourcemap trägt den Quelltext und bleibt hinter dem Token");
+  assert.equal((await fetch(`${host.url}${entryAddress}.map`)).status, 401, "the source map carries the source code and stays behind the token");
   assert.equal((await fetch(`${host.url}${entryAddress}.map`, { headers: { authorization: `Bearer ${host.token}` } })).status, 200);
-  assert.equal((await fetch(`${host.url}/plugins/acme.greeting/api/anything`)).status, 401, "frei ist nur die Web-Hälfte, nicht alles unter /plugins/");
-  assert.match(await (await fetch(`${host.url}/ragents.css`)).text(), GREETING_CLASS, "die Klassen des Bundles gehen ins Stylesheet des Hosts");
+  assert.equal((await fetch(`${host.url}/plugins/acme.greeting/api/anything`)).status, 401, "only the web half is open, not everything under /plugins/");
+  assert.match(await (await fetch(`${host.url}/ragents.css`)).text(), GREETING_CLASS, "the bundle's classes go into the host stylesheet");
   assert.equal(await (await fetch(`${host.url}/?access=${host.token}`)).text(), readFileSync(path.join(webDirectory, "index.html"), "utf8"),
-    "das Web kommt fertig aus dem Host");
+    "the web comes ready-made from the host");
 };

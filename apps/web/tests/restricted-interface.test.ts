@@ -24,20 +24,20 @@ test("restricted launch shows only the allowed setup without free chat, composer
   const registry = new PluginRegistry({
     brand: { title: "Example" }, product: { id: "example", title: "Example" }, plugins: [{ id: "example" }],
     startEntries: [
-      { id: "example.sync", owner: "example", action: "script", title: "Abgleichen", description: "Wähle die Projekte.", coordinator: false },
-      { id: "example.other", owner: "example", action: "script", title: "Anderer Ablauf", description: "Andere Aufgabe", coordinator: true },
-      { id: "example.skill", owner: "example", action: "skill", skill: "skill", category: "Frei", title: "Freier Auftrag", description: "Frei starten", prompt: "Privater Startauftrag" },
+      { id: "example.sync", owner: "example", action: "script", title: "Sync", description: "Choose the projects.", coordinator: false },
+      { id: "example.other", owner: "example", action: "script", title: "Other workflow", description: "Other task", coordinator: true },
+      { id: "example.skill", owner: "example", action: "skill", skill: "skill", category: "Free", title: "Free task", description: "Start freely", prompt: "Private start task" },
     ],
   });
   const session = { session: { id: "run", title: "Run", updatedAt: 0 }, send: async () => {}, start: async () => {} } as unknown as SessionContext;
   const modal = createModalController({ nextBehavior: () => "push", onClose: () => {} });
   const html = renderRestricted(createElement(ModalControllerContext.Provider, { value: modal },
     createElement(StartOptionsProvider, { connected: true, messageCount: 0, sessionId: "run" }, createElement(StartSelection, { registry, session, onOpen: () => {} }))));
-  assert.match(html, /Abgleichen/);
-  assert.match(html, /Abläufe/);
-  assert.match(html, />Starten<svg/);
+  assert.match(html, /Sync/);
+  assert.match(html, /Workflows/);
+  assert.match(html, />Start<svg/);
   assert.doesNotMatch(html, /<button[^>]*disabled=""/);
-  assert.doesNotMatch(html, /textarea|Neuer Chat|Anderer Ablauf|Freier Auftrag|Privater Startauftrag|Run-Script|start-source|Startoptionen/);
+  assert.doesNotMatch(html, /textarea|New chat|Other workflow|Free task|Private start task|Run script|start-source|[Ss]tart options/);
 });
 
 test("restricted chat keeps messages and waiting actions while suppressing technical steps", () => {
@@ -49,23 +49,23 @@ test("restricted chat keeps messages and waiting actions while suppressing techn
     return createElement(ChatMessages, { detailMode: steps.mode("agents"), stepsExpandable: steps.stepsExpandable, running: true,
       renderTool: () => assert.fail("Restricted chat must not invoke technical tool renderers"),
       toolArgumentsText: () => assert.fail("Restricted chat must not format technical tool arguments"), messages: [
-      { key: "user", role: "user", text: "Bitte starten" },
-      { key: "answer", role: "assistant", text: "Ich gleiche die Projekte ab." },
-      { key: "question", role: "action", text: "Welche Änderung behalten?", action: { actionId: "ask", owner: "ragents.ask", payload: { question: "Welche Änderung behalten?", options: ["Unsere"], multi: false } } },
-      { key: "thinking", role: "thinking", text: "Privater Gedanke" },
+      { key: "user", role: "user", text: "Please start" },
+      { key: "answer", role: "assistant", text: "I am syncing the projects." },
+      { key: "question", role: "action", text: "Which change to keep?", action: { actionId: "ask", owner: "ragents.ask", payload: { question: "Which change to keep?", options: ["Ours"], multi: false } } },
+      { key: "thinking", role: "thinking", text: "Private thought" },
       { key: "tool", role: "tool", text: "internal_tool", tool: { id: "tool", name: "internal_tool", arguments: "private_argument" } },
     ] });
   };
   const html = renderRestricted(createElement(ChatStepsProvider, {
     policy: { modes: { coordinator: "full", agents: "full" }, selectable: true, stepsExpandable: true, stepsVisible: true },
   }, createElement(Conversation)));
-  assert.match(html, /Bitte starten/);
-  assert.match(html, /Ich gleiche die Projekte ab/);
-  assert.match(html, /Welche Änderung behalten/);
-  assert.match(html, /data-state="running"[^>]*title="Werkzeug läuft"/);
-  assert.ok(html.includes(">Werkzeug läuft</span>"));
+  assert.match(html, /Please start/);
+  assert.match(html, /I am syncing the projects/);
+  assert.match(html, /Which change to keep/);
+  assert.match(html, /data-state="running"[^>]*title="Tool running"/);
+  assert.ok(html.includes(">Tool running</span>"));
   assert.match(html, /data-chat="working" role="status"/);
-  assert.doesNotMatch(html, /Privater Gedanke|internal_tool|private_argument|aria-haspopup="dialog"|role="dialog"|data-step="detail"/);
+  assert.doesNotMatch(html, /Private thought|internal_tool|private_argument|aria-haspopup="dialog"|role="dialog"|data-step="detail"/);
 });
 
 test("restricted step policy respects hidden steps and explicit off for each scope", () => {
@@ -87,12 +87,12 @@ test("restricted step policy respects hidden steps and explicit off for each sco
 });
 
 test("restricted actor chat shows empty redacted phase chips and working scenes without an inspect right", () => {
-  const actor = { id: "agent", handle: "helper", displayName: "Helfer", kind: "agent", grants: [], lifecycle: { kind: "running", turnId: "turn", inputId: "input" } } as unknown as RunActor;
+  const actor = { id: "agent", handle: "helper", displayName: "Helper", kind: "agent", grants: [], lifecycle: { kind: "running", turnId: "turn", inputId: "input" } } as unknown as RunActor;
   const view = { id: "run", ownerId: "owner", primaryActorId: actor.id, actors: [actor], inputs: [], turns: [], actions: [], subscriptions: [], artifacts: [], pluginStates: [] } as unknown as RunView;
   const policy = { modes: { coordinator: "current", agents: "current" } as const, selectable: false, stepsExpandable: false, stepsVisible: true };
   const cases: { message: Message; label: string }[] = [
-    { message: { key: "thinking", role: "thinking", text: "" }, label: "Denken" },
-    { message: { key: "tool", role: "tool", text: "", tool: { id: "tool", name: "", arguments: "" } }, label: "Werkzeug läuft" },
+    { message: { key: "thinking", role: "thinking", text: "" }, label: "Thinking" },
+    { message: { key: "tool", role: "tool", text: "", tool: { id: "tool", name: "", arguments: "" } }, label: "Tool running" },
   ];
   for (const { message, label } of cases) {
     const html = renderRestricted(createElement(ChatStepsProvider, { policy }, createElement(ActorChat, {
@@ -107,20 +107,20 @@ test("restricted actor chat shows empty redacted phase chips and working scenes 
 });
 
 test("restricted actor popout has a working composer without technical inspector tabs", () => {
-  const actor = { id: "agent", handle: "helper", displayName: "Helfer", kind: "agent", grants: [], lifecycle: { kind: "idle" },
+  const actor = { id: "agent", handle: "helper", displayName: "Helper", kind: "agent", grants: [], lifecycle: { kind: "idle" },
     prompt: "Private instructions", toolNames: ["internal_tool"], execution: { driver: { kind: "agent", config: { model: "private-model", provider: "private-provider" } } },
   } as unknown as RunActor;
   const view = { id: "run", ownerId: "owner", primaryActorId: actor.id, actors: [actor], inputs: [], turns: [], actions: [], subscriptions: [], artifacts: [], pluginStates: [] } as unknown as RunView;
   const html = renderRestricted(createElement(FlowInspector, { view, selection: { type: "actor", id: actor.id },
     canGoBack: false, composerVisible: true, onNavigate: () => {}, onBack: () => {}, primaryMessages: [], primaryRunning: false,
   }));
-  assert.match(html, /Helfer/);
+  assert.match(html, /Helper/);
   assert.match(html, /textarea/);
-  assert.doesNotMatch(html, /private-model|private-provider|Private instructions|internal_tool|Actor-Ansichten|Quelltext|Denktiefe|Kosten/);
+  assert.doesNotMatch(html, /private-model|private-provider|Private instructions|internal_tool|Actor views|Source code|Thinking level|Cost/);
 });
 
 test("attachment rejection with a hidden model gives an actionable message without model controls", () => {
   const error = attachmentCapabilityError([{ name: "photo.png", mediaType: "image/png" }], { input: ["text"], model: "" });
-  assert.match(error ?? "", /photo.png.*Entferne den Anhang/);
-  assert.doesNotMatch(error ?? "", /Modell/);
+  assert.match(error ?? "", /photo.png.*Remove the attachment/);
+  assert.doesNotMatch(error ?? "", /model/i);
 });

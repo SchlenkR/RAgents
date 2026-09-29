@@ -19,7 +19,7 @@ const statusClass: Readonly<Record<AddresseeStatus, string>> = {
   stopped: "text-muted-foreground/70",
 };
 
-const actorType = (actor: RunActor, technical: boolean) => !technical ? "Agent" : actor.kind === "agent" ? "LLM-Agent" : "TypeScript-Actor";
+const actorType = (actor: RunActor, technical: boolean) => !technical ? "Agent" : actor.kind === "agent" ? "LLM agent" : "TypeScript actor";
 
 export function ActorIcon({ actor, className, view }: { actor: RunActor; className?: string; view: RunView }) {
   const tone = actorTone(view, actor);
@@ -33,15 +33,15 @@ export interface AddresseeTreeProps {
   selectedId: string;
   technical: boolean;
   summary: (actor: RunActor) => string | undefined;
-  /** Gruppen, deren Aufklappzustand der Benutzer gegenüber der Vorgabe umgeschaltet hat. */
+  /** Groups whose expanded state the user toggled relative to the default. */
   toggled: ReadonlySet<string>;
-  /** Offen ohne eigene Wahl, etwa während einer Suche. */
+  /** Open without an own choice, e.g. during a search. */
   openByDefault: boolean;
   onToggle: (key: string) => void;
   onPick: (actor: RunActor) => void;
 }
 
-/** Der Adressatenbaum: je Actor Handle, Kurzbeschreibung und Zustand, gleichartige Geschwister als aufklappbare Gruppe. */
+/** The addressee tree: per actor handle, short description and state, similar siblings as an expandable group. */
 export function AddresseeTree({ className, nodes, ...props }: AddresseeTreeProps & { className?: string; nodes: readonly AddresseeNode[] }) {
   return <ul className={cn("list-none", className)}>
     {nodes.map((node) => node.kind === "actor"
@@ -62,10 +62,10 @@ function ActorEntry({ actor, onPick, selectedId, summary, technical, view }: Add
   const status = addresseeStatus(view, actor);
   const description = summary(actor);
   const name = actor.displayName.trim();
-  const showName = name !== "" && name.toLocaleLowerCase("de-DE") !== actor.handle.toLocaleLowerCase("de-DE") && name !== description;
+  const showName = name !== "" && name.toLocaleLowerCase("en-US") !== actor.handle.toLocaleLowerCase("en-US") && name !== description;
   const current = actor.id === selectedId;
   return <button aria-current={current || undefined} className={entryClass} data-actor-handle={actor.handle} onClick={() => onPick(actor)}
-    title={`@${actor.handle}, ${actorType(actor, technical)}, ${addresseeStatusWord(status)}. Nachrichten an @${actor.handle} richten`} type="button">
+    title={`@${actor.handle}, ${actorType(actor, technical)}, ${addresseeStatusWord(status)}. Address messages to @${actor.handle}`} type="button">
     <ActorIcon actor={actor} className="size-5" view={view} />
     <span className="grid min-w-0 flex-1">
       <span className="flex min-w-0 items-baseline gap-1.5">
@@ -88,14 +88,14 @@ function GroupBranch({ node, ...props }: AddresseeTreeProps & { node: AddresseeG
   const pending = actors.reduce((sum, actor) => sum + pendingInputCount(view, actor.id), 0);
   return <li>
     <button aria-expanded={open} className={entryClass} data-addressee-group={node.label} onClick={() => onToggle(node.key)}
-      title={`${node.label}: ${actors.length} gleichartige Actors, ${counts}. Klick ${open ? "klappt die Gruppe zu" : "zeigt alle"}`} type="button">
+      title={`${node.label}: ${actors.length} similar actors, ${counts}. Click ${open ? "collapses the group" : "shows all"}`} type="button">
       <span className="grid size-5 flex-none place-items-center text-muted-foreground">
         <ChevronRightIcon aria-hidden className={cn("size-3.5 transition-transform", open && "rotate-90")} />
       </span>
       <span className="grid min-w-0 flex-1">
         <span className="flex min-w-0 items-baseline gap-1.5">
           <span className="truncate font-semibold">{node.label}</span>
-          <span className="flex-none text-[0.66rem] text-muted-foreground">{actors.length} Actors</span>
+          <span className="flex-none text-[0.66rem] text-muted-foreground">{actors.length} actors</span>
         </span>
         <span className="truncate text-[0.66rem] text-muted-foreground">{counts}</span>
       </span>

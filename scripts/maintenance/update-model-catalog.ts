@@ -60,8 +60,8 @@ const api = "openai-completions";
 const provider = "openrouter";
 const defaultMaxTokens = 4096;
 
-const fileHeader = `// Statischer Modellkatalog für openrouter. Einzige Quelle: es gibt keinen
-// Laufzeit-Store und keine Auffrischung über das Netz.
+const fileHeader = `// Static model catalog for openrouter. Single source: there is no
+// runtime store and no refresh over the network.
 
 import type { Model } from "../types.ts";
 
@@ -82,22 +82,22 @@ function toNumber(value: unknown): number | undefined {
 }
 
 function toInputModalities(value: unknown): readonly InputModality[] {
-	if (!Array.isArray(value) || value.length === 0) throw new Error("Modellkatalog ohne Eingabemodalitäten.");
+	if (!Array.isArray(value) || value.length === 0) throw new Error("Model catalog without input modalities.");
 	const allowed: readonly InputModality[] = ["text", "image", "video", "file", "audio"];
 	return value.map((modality) => {
-		if (!allowed.includes(modality)) throw new Error(`Unbekannte Eingabemodalität ${String(modality)}.`);
+		if (!allowed.includes(modality)) throw new Error(`Unknown input modality ${String(modality)}.`);
 		return modality as InputModality;
 	});
 }
 
 const effortLevels = ["minimal", "low", "medium", "high", "xhigh", "max"] as const;
 
-/** Die Denkstufen nach dem reasoning-Block der API: angebotene Stufen gehen wörtlich hinaus, "off" als "none", solange Reasoning nicht Pflicht ist. */
+/** The thinking levels from the API's reasoning block: offered levels go out verbatim, "off" as "none" as long as reasoning is not mandatory; without levels the model knows only on ("high") and off. */
 function thinkingLevelMapOf(reasoning: ApiReasoning | undefined): OpenRouterThinkingLevelMap | undefined {
-	const efforts = reasoning?.supported_efforts;
-	if (!Array.isArray(efforts)) return undefined;
+	if (!reasoning) return undefined;
+	const efforts = Array.isArray(reasoning.supported_efforts) ? reasoning.supported_efforts : ["high"];
 	return {
-		off: reasoning?.mandatory === true ? null : "none",
+		off: reasoning.mandatory === true ? null : "none",
 		...Object.fromEntries(effortLevels.map((level) => [level, efforts.includes(level) ? level : null])),
 	};
 }
@@ -160,16 +160,16 @@ function renderEntry(entry: CatalogEntry): string {
 
 async function fetchModels(): Promise<ApiModel[]> {
 	const response = await fetch(apiUrl, { headers: { accept: "application/json" } }).catch((cause: unknown) => {
-		throw new Error(`Modellkatalog nicht abrufbar: ${apiUrl} ist nicht erreichbar (${String(cause)}).`);
+		throw new Error(`Model catalog not retrievable: ${apiUrl} is unreachable (${String(cause)}).`);
 	});
 	if (!response.ok) {
-		throw new Error(`Modellkatalog nicht abrufbar: ${apiUrl} antwortete mit ${response.status} ${response.statusText}.`);
+		throw new Error(`Model catalog not retrievable: ${apiUrl} responded with ${response.status} ${response.statusText}.`);
 	}
 	const payload = (await response.json()) as { data?: unknown };
 	const models = Array.isArray(payload.data) ? (payload.data as ApiModel[]) : [];
 	const usable = models.filter((model) => typeof model.id === "string" && model.id.length > 0);
 	if (usable.length === 0) {
-		throw new Error(`Modellkatalog nicht abrufbar: ${apiUrl} lieferte keine verwertbaren Modelle.`);
+		throw new Error(`Model catalog not retrievable: ${apiUrl} returned no usable models.`);
 	}
 	return usable;
 }
@@ -184,9 +184,9 @@ async function main(): Promise<void> {
 
 	await writeFile(catalogUrl, fileHeader + all.map(renderEntry).join("") + fileFooter, "utf8");
 
-	console.log(`Modellkatalog geschrieben: ${all.length} Modelle in ${catalogUrl.pathname}`);
-	console.log(`Neu aus der API: ${added.length}`);
-	console.log(`Nicht mehr in der API, unverändert übernommen: ${kept.length}`);
+	console.log(`Model catalog written: ${all.length} models in ${catalogUrl.pathname}`);
+	console.log(`New from the API: ${added.length}`);
+	console.log(`No longer in the API, kept unchanged: ${kept.length}`);
 	for (const entry of kept) console.log(`  ${entry.id}`);
 }
 

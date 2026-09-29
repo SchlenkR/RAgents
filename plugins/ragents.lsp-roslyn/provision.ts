@@ -32,7 +32,7 @@ export const createRoslynProvision = (
     if (await runtimes() === undefined) return provisionGap("dotnet", DOTNET_INSTRUCTION, false);
     const installed = await stat(serverFile(target)).catch(() => undefined);
     if (installed?.isFile() && await readProvisionStamp(target) === ROSLYN_VERSION) return provisionReady;
-    return provisionGap("roslyn", `Microsoft.CodeAnalysis.LanguageServer ${ROSLYN_VERSION} fehlt unter ${serverFile(target)}`, true);
+    return provisionGap("roslyn", `Microsoft.CodeAnalysis.LanguageServer ${ROSLYN_VERSION} is missing at ${serverFile(target)}`, true);
   };
   return {
     check,
@@ -40,13 +40,13 @@ export const createRoslynProvision = (
       const state = await check(target);
       if (state.kind === "ready") return;
       if (!state.installable) throw new Error(state.instruction);
-      log(`Roslyn ${ROSLYN_VERSION} laden`);
+      log(`Downloading Roslyn ${ROSLYN_VERSION}`);
       const files = await unpackArchive(await download(roslynArchiveUrl), PREFIX, target, "roslyn");
       if (!(await stat(serverFile(target)).catch(() => undefined))?.isFile()) {
-        throw new Error(`Das Paket ${PACKAGE} ${ROSLYN_VERSION} enthält ${ROSLYN_SERVER_FILE} nicht`);
+        throw new Error(`The package ${PACKAGE} ${ROSLYN_VERSION} does not contain ${ROSLYN_SERVER_FILE}`);
       }
       await writeProvisionStamp(target, ROSLYN_VERSION);
-      log(`${files} Dateien nach ${path.join(target, "roslyn")}`);
+      log(`${files} files to ${path.join(target, "roslyn")}`);
     },
   };
 };

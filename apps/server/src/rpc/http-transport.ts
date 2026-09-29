@@ -32,7 +32,7 @@ export interface RpcHttpTransportOptions {
   maxBodyBytes?: number;
 }
 
-/** JSON-RPC über HTTP: Anfragen per POST, Benachrichtigungen und Anfragen des Servers über einen SSE-Strom je Verbindung. */
+/** JSON-RPC over HTTP: requests via POST, notifications and server requests over one SSE stream per connection. */
 export class RpcHttpTransport {
   readonly #dispatcher: RpcDispatcher;
   readonly #maxBodyBytes: number;
@@ -51,7 +51,7 @@ export class RpcHttpTransport {
     if (url.pathname === RPC_STREAM_PATH) {
       if (request.method !== "GET") {
         response.setHeader("Allow", "GET");
-        writeJson(response, 405, { error: "Methode nicht erlaubt" });
+        writeJson(response, 405, { error: "Method not allowed" });
         return true;
       }
       this.#openStream(request, response, access, local);
@@ -60,7 +60,7 @@ export class RpcHttpTransport {
     if (url.pathname !== RPC_PATH) return false;
     if (request.method !== "POST") {
       response.setHeader("Allow", "POST");
-      writeJson(response, 405, { error: "Methode nicht erlaubt" });
+      writeJson(response, 405, { error: "Method not allowed" });
       return true;
     }
     await this.#post(request, response, access, local);
@@ -68,7 +68,7 @@ export class RpcHttpTransport {
   }
 
   close(): void {
-    for (const stream of [...this.#streams.values()]) this.#end(stream, "Der Server wird beendet");
+    for (const stream of [...this.#streams.values()]) this.#end(stream, "The server is shutting down");
   }
 
   #openStream(request: IncomingMessage, response: ServerResponse, access: AccessContext, local: boolean): void {
@@ -82,7 +82,7 @@ export class RpcHttpTransport {
     this.#streams.set(id, stream);
     response.writeHead(200, { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" });
     write(`event: hello\ndata: ${JSON.stringify({ connection: id })}\n\n`);
-    request.on("close", () => this.#end(stream, "Der Ereignisstrom wurde beendet"));
+    request.on("close", () => this.#end(stream, "The event stream was closed"));
   }
 
   #end(stream: StreamConnection, reason: string): void {
@@ -97,8 +97,8 @@ export class RpcHttpTransport {
     const id = Array.isArray(header) ? header[0] : header;
     if (!id) return undefined;
     const stream = this.#streams.get(id);
-    if (!stream) throw new DomainRejection(404, "unknown-connection", "Die Ereignisverbindung ist unbekannt oder beendet.");
-    if (stream.connection.userId !== (access.user?.id ?? null)) throw new DomainRejection(403, "foreign-connection", "Die Ereignisverbindung gehört einem anderen Benutzer.");
+    if (!stream) throw new DomainRejection(404, "unknown-connection", "The event connection is unknown or closed.");
+    if (stream.connection.userId !== (access.user?.id ?? null)) throw new DomainRejection(403, "foreign-connection", "The event connection belongs to another user.");
     return stream;
   }
 
@@ -111,11 +111,11 @@ export class RpcHttpTransport {
         writeJson(response, 413, rpcFailure(null, RPC_ERROR_CODES.invalidRequest, error.message));
         return;
       }
-      writeJson(response, 400, rpcFailure(null, RPC_ERROR_CODES.parse, "Der Request enthält kein gültiges JSON"));
+      writeJson(response, 400, rpcFailure(null, RPC_ERROR_CODES.parse, "The request does not contain valid JSON"));
       return;
     }
     if (!isRpcMessage(message)) {
-      writeJson(response, 400, rpcFailure(null, RPC_ERROR_CODES.invalidRequest, "Die Nachricht ist kein gültiges JSON-RPC"));
+      writeJson(response, 400, rpcFailure(null, RPC_ERROR_CODES.invalidRequest, "The message is not valid JSON-RPC"));
       return;
     }
     let stream: StreamConnection | undefined;
@@ -130,7 +130,7 @@ export class RpcHttpTransport {
     }
     if (!isRpcRequest(message)) {
       if (!stream) {
-        writeJson(response, 409, rpcFailure(null, RPC_ERROR_CODES.invalidRequest, "Benachrichtigungen und Antworten brauchen einen Ereignisstrom."));
+        writeJson(response, 409, rpcFailure(null, RPC_ERROR_CODES.invalidRequest, "Notifications and responses need an event stream."));
         return;
       }
       stream.connection.peer.receive(message);
@@ -141,7 +141,7 @@ export class RpcHttpTransport {
     await this.#answer(request, response, message, stream, access, local);
   }
 
-  /** Eine Anfrage bekommt ihren eigenen Peer, dessen Antwort die HTTP-Antwort ist; Abonnements landen auf dem Strom. */
+  /** A request gets its own peer, whose response is the HTTP response; subscriptions land on the stream. */
   #answer(request: IncomingMessage, response: ServerResponse, message: RpcMessage, stream: StreamConnection | undefined, access: AccessContext, local: boolean): Promise<void> {
     return new Promise<void>((resolve) => {
       let answered = false;

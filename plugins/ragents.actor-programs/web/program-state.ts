@@ -20,7 +20,7 @@ export const actorProgramSourceReference = (runView: unknown, actorId: string): 
   if (!entry || !isRecord(entry.state) || entry.state.program === null) return undefined;
   const program = entry.state.program;
   if (!isRecord(program) || program.actorId !== actorId || typeof program.name !== "string" || typeof program.revision !== "string") {
-    throw new Error("Die Quellcode-Zuordnung des Actor-Programms ist ungültig.");
+    throw new Error("The source code mapping of the actor program is invalid.");
   }
   return { name: program.name, revision: program.revision };
 };
@@ -36,10 +36,10 @@ export const actorProgramViews = (runView: unknown): ActorProgramView[] => {
     if (!isRecord(entry.state) || !isRecord(entry.state.program)) return [];
     const program = entry.state.program;
     if (program.actorId !== actor.id || program.actorHandle !== actor.handle || typeof program.revision !== "string" || !Array.isArray(program.views)) {
-      throw new Error(`Das Ansichtsprogramm von @${actor.handle} ist ungültig.`);
+      throw new Error(`The view program of @${actor.handle} is invalid.`);
     }
     return program.views.map((app) => {
-      if (!isRecord(app) || typeof app.id !== "string" || typeof app.title !== "string") throw new Error(`Eine Ansicht von @${actor.handle} ist ungültig.`);
+      if (!isRecord(app) || typeof app.id !== "string" || typeof app.title !== "string") throw new Error(`A view of @${actor.handle} is invalid.`);
       return { id: app.id, title: app.title, actorId: actor.id, actorHandle: actor.handle, revision: program.revision as string, app };
     });
   });
@@ -57,7 +57,7 @@ export const currentActorListing = (listing: ActorProgramsListing | undefined, r
       if (!current || current.actorId !== app.actorId || current.revision !== app.revision) return [];
       const state = view.pluginStates.find((entry) => entry.pluginId === ACTOR_STATE_ID && entry.scope.kind === "actor" && entry.scope.actorId === app.actorId);
       const values = state ? state.state : app.state.values;
-      if (!isJsonValue(values)) throw new Error(`Der Zustand von @${app.actorHandle} ist kein JSON-Wert.`);
+      if (!isJsonValue(values)) throw new Error(`The state of @${app.actorHandle} is not a JSON value.`);
       return [{ ...app, visible: current.app.visible !== false,
         state: { ...app.state, values } }];
     }),

@@ -10,7 +10,7 @@ import { coreMethods } from "../src/api/core-methods.ts";
 import type { Engine } from "../src/ragents/engine.ts";
 import { coreSources, methodContext } from "./rpc-fixture.ts";
 
-// Die Run-Liste zeigt fremde Runs, die nur ihr Eigentümer bedient, ohne dass ein Beitrag deren Arbeitsbereich erreicht.
+// The run list shows foreign runs that only their owner operates, without any contribution reaching their workspace.
 
 const directory = await mkdtemp(path.join(tmpdir(), "ragents-run-list-workspace-"));
 process.env.DATA_DIR = directory;
@@ -63,28 +63,28 @@ const fixture = () => {
   return { executor, journal, list, provider };
 };
 
-test("ein Admin sieht den fremden Run, den nur sein Eigentümer bedient, und kein Beitrag erreicht dessen Arbeitsbereich", async (t) => {
+test("an admin sees the foreign run that only its owner operates, and no contribution reaches its workspace", async (t) => {
   const { executor, journal, list } = fixture();
   t.after(() => journal.close());
 
   const seen = await list(admin);
-  assert.deepEqual([...seen.keys()].sort(), [BOUND, OPEN], "runs.read.all sieht beide Runs");
-  assert.deepEqual(executor, [OPEN], "nur der gewöhnliche Run fragt seinen Arbeitsbereich");
+  assert.deepEqual([...seen.keys()].sort(), [BOUND, OPEN], "runs.read.all sees both runs");
+  assert.deepEqual(executor, [OPEN], "only the ordinary run asks its workspace");
   const bound = seen.get(BOUND)!;
   assert.equal(bound.workspaceAccessible, false);
-  assert.deepEqual(bound.metadata, { [BINDING]: { runId: BOUND } }, "ein Beitrag ohne Arbeitsbereich bleibt");
-  assert.deepEqual(bound.metadataUnavailable, { [BRANCH]: "Der Arbeitsbereich dieses Runs ist für diesen Zugang nicht erreichbar." });
+  assert.deepEqual(bound.metadata, { [BINDING]: { runId: BOUND } }, "a contribution without a workspace stays");
+  assert.deepEqual(bound.metadataUnavailable, { [BRANCH]: "The workspace of this run is not reachable for this access." });
   assert.equal(seen.get(OPEN)!.workspaceAccessible, true);
   assert.deepEqual(seen.get(OPEN)!.metadata?.[BRANCH], { branch: "main" });
 
   executor.length = 0;
   const own = await list(alice);
-  assert.deepEqual(executor.sort(), [BOUND, OPEN], "der Eigentümer bekommt den Beitrag für beide Runs");
+  assert.deepEqual(executor.sort(), [BOUND, OPEN], "the owner gets the contribution for both runs");
   assert.equal(own.get(BOUND)!.workspaceAccessible, true);
   assert.deepEqual(own.get(BOUND)!.metadata?.[BRANCH], { branch: "main" });
 });
 
-test("ohne Aufrufer erreicht die Liste keinen Arbeitsbereich, den nur sein Eigentümer bedient", async (t) => {
+test("without a caller the list reaches no workspace that only its owner operates", async (t) => {
   const { executor, journal, provider } = fixture();
   t.after(() => journal.close());
   Object.assign(provider, { runOwnerOnly: (runId: string) => runId === BOUND });

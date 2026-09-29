@@ -23,13 +23,13 @@ const registryWith = (plugins: WebPlugin[]) => new PluginRegistry({
   plugins,
 });
 
-test("Einstellungsbereiche gehören ihrem Plugin und folgen optionaler Reihenfolge und Kennung", () => {
+test("settings sections belong to their plugin and follow an optional order and id", () => {
   const registry = registryWith([
     { id: "test.first", settings: [
-      { id: "later", label: "Später", order: 10, Settings: Empty },
-      { id: "second", label: "Zweiter", Settings: Empty },
+      { id: "later", label: "Later", order: 10, Settings: Empty },
+      { id: "second", label: "Second", Settings: Empty },
     ] },
-    { id: "test.second", settings: [{ id: "first", label: "Erster", order: 0, Settings: Empty }] },
+    { id: "test.second", settings: [{ id: "first", label: "First", order: 0, Settings: Empty }] },
   ]);
   assert.deepEqual(registry.settings.map(({ id, owner }) => ({ id, owner })), [
     { id: "first", owner: "test.second" },
@@ -38,16 +38,16 @@ test("Einstellungsbereiche gehören ihrem Plugin und folgen optionaler Reihenfol
   ]);
 });
 
-test("Entfernen oder Deaktivieren eines Plugins entfernt seine editierbaren Einstellungen", () => {
+test("removing or disabling a plugin removes its editable settings", () => {
   const retained: WebPlugin = {
-    id: "test.retained", settings: [{ id: "shared", label: "Bleibt", Settings: Empty }],
+    id: "test.retained", settings: [{ id: "shared", label: "Stays", Settings: Empty }],
   };
   const removed: WebPlugin = {
-    id: "test.removed", settings: [{ id: "removed", label: "Entfernt", Settings: Empty }],
+    id: "test.removed", settings: [{ id: "removed", label: "Removed", Settings: Empty }],
   };
   const disabled: WebPlugin = {
     id: "test.disabled", enabled: () => false,
-    settings: [{ id: "shared", label: "Inaktiv", Settings: Empty }],
+    settings: [{ id: "shared", label: "Inactive", Settings: Empty }],
   };
   assert.equal(registryWith([retained, removed, disabled]).settings.length, 2);
   assert.deepEqual(registryWith([retained, disabled]).settings.map((entry) => entry.owner), ["test.retained"]);
@@ -58,11 +58,11 @@ test("Entfernen oder Deaktivieren eines Plugins entfernt seine editierbaren Eins
 test("models and appearance select real editable contributions while keeping their owners and order", () => {
   const registry = registryWith([
     { id: "test.product", settings: [
-      { id: "product.models", label: "Neue Runs und Agenten", category: "models", order: 20, Settings: Empty },
-      { id: "product.technical", label: "Technische Optionen", Settings: Empty },
+      { id: "product.models", label: "New runs and agents", category: "models", order: 20, Settings: Empty },
+      { id: "product.technical", label: "Technical options", Settings: Empty },
     ] },
-    { id: "test.coordinator", settings: [{ id: "global.model", label: "Globaler Koordinator", category: "models", order: 10, Settings: Empty }] },
-    { id: "test.surface", settings: [{ id: "surface.runPanel", label: "Run-Panel", category: "appearance", Settings: Empty }] },
+    { id: "test.coordinator", settings: [{ id: "global.model", label: "Global coordinator", category: "models", order: 10, Settings: Empty }] },
+    { id: "test.surface", settings: [{ id: "surface.runPanel", label: "Run panel", category: "appearance", Settings: Empty }] },
   ]);
   const models = settingsForCategory(registry.settings, "models", () => true);
   assert.deepEqual(models.map(({id, owner}) => ({id, owner})), [
@@ -76,24 +76,24 @@ test("models and appearance select real editable contributions while keeping the
 
 test("settings categories hide contributions without read access and retain read-only contributions", () => {
   const registry = registryWith([{ id: "test.models", settings: [
-    { id: "restricted", label: "Globaler Koordinator", category: "models", readRight: "global.read", Settings: Empty },
-    { id: "public", label: "Neue Runs und Agenten", category: "models", Settings: Empty },
+    { id: "restricted", label: "Global coordinator", category: "models", readRight: "global.read", Settings: Empty },
+    { id: "public", label: "New runs and agents", category: "models", Settings: Empty },
   ] }]);
   assert.deepEqual(settingsForCategory(registry.settings, "models", () => false).map((entry) => entry.id), ["public"]);
   assert.deepEqual(settingsForCategory(registry.settings, "models", (right) => right === "global.read").map((entry) => entry.id), ["public", "restricted"]);
 });
 
-test("doppelte oder leere Einstellungskennungen werden abgelehnt", () => {
-  const settings = [{ id: "duplicate", label: "Beispiel", Settings: Empty }];
+test("duplicate or empty settings ids are rejected", () => {
+  const settings = [{ id: "duplicate", label: "Example", Settings: Empty }];
   assert.throws(() => registryWith([
     { id: "test.first", settings }, { id: "test.second", settings },
-  ]), /Einstellungsbeitrag doppelt registriert: duplicate/);
+  ]), /Settings contribution registered twice: duplicate/);
   assert.throws(() => registryWith([
-    { id: "test.empty", settings: [{ id: "", label: "Leer", Settings: Empty }] },
-  ]), /Einstellungsbeitrag ohne ID/);
+    { id: "test.empty", settings: [{ id: "", label: "Empty", Settings: Empty }] },
+  ]), /Settings contribution without ID/);
 });
 
-test("aktivierte Einstellungsrenderer werden aus öffentlicher Plugin-Konfiguration erzeugt", () => {
+test("activated settings renderers are created from the public plugin configuration", () => {
   const Configured = () => null;
   const registry = new PluginRegistry({
     brand: { title: "Test" }, product: { id: "test", title: "Test" }, startEntries: [],
@@ -101,8 +101,8 @@ test("aktivierte Einstellungsrenderer werden aus öffentlicher Plugin-Konfigurat
       id: "test.configured",
       settings: [{ id: "configured", label: String(config.label), Settings: Configured }],
     }) }],
-  }, new Map([["test.configured", { label: "Konfiguriert" }]]));
-  assert.equal(registry.settings[0]?.label, "Konfiguriert");
+  }, new Map([["test.configured", { label: "Configured" }]]));
+  assert.equal(registry.settings[0]?.label, "Configured");
   assert.equal(registry.settings[0]?.Settings, Configured);
   assert.equal(registry.settings[0]?.owner, "test.configured");
 });
@@ -116,7 +116,7 @@ const tool = (id: string, owner: string, name: string, description: string): Set
   kind: "plugin",
   scope: "global",
   availability: "always",
-  availabilityDetail: "immer",
+  availabilityDetail: "always",
 });
 
 const skill = (id: string, owner: string): SettingsSkill => ({
@@ -131,10 +131,10 @@ const card = (id: string, owner: string, title: string): StartEntry => ({
   owner,
   action: "skill",
   skill: `${owner}-skill`,
-  category: "Beispiele",
+  category: "Examples",
   title,
-  description: `Beschreibung von ${title}`,
-  prompt: "frei",
+  description: `Description of ${title}`,
+  prompt: "free",
 });
 
 const starter = (id: string, owner: string, title: string): StartEntry => ({
@@ -142,10 +142,10 @@ const starter = (id: string, owner: string, title: string): StartEntry => ({
   owner,
   action: "skill",
   title,
-  description: `Ablauf ${title}`,
+  description: `Workflow ${title}`,
   skill: `${owner}-skill`,
-  category: "Entwicklung",
-  prompt: "Feature umsetzen",
+  category: "Development",
+  prompt: "Implement feature",
 });
 
 const settingsWith = (overrides: Partial<SettingsResponse>): SettingsResponse => ({
@@ -186,26 +186,26 @@ const sourceWith = (overrides: Partial<ContributionSource>): ContributionSource 
 
 const groupOf = (groups: readonly PluginGroup[], id: string): PluginGroup => {
   const found = groups.find((group) => group.id === id);
-  assert.ok(found, `Gruppe ${id} fehlt`);
+  assert.ok(found, `Group ${id} is missing`);
   return found;
 };
 
-test("Beiträge landen bei ihrem Eigentümer und die Plugin-Reihenfolge bleibt erhalten", () => {
+test("contributions end up with their owner and the plugin order is kept", () => {
   const settings = settingsWith({
     plugins: [
       { id: "ragents.core", requires: [], configuration: [] },
       { id: "test.tasks", requires: ["ragents.core"], configuration: [{ key: "PAT", source: "env", secret: true }] },
     ],
-    tools: [tool("t1", "test.tasks", "Suche", "sucht"), tool("t2", "ragents.core", "Notiz", "notiert")],
+    tools: [tool("t1", "test.tasks", "Search", "searches"), tool("t2", "ragents.core", "Note", "takes notes")],
     skills: [skill("s1", "test.tasks")],
-    promptContributions: [{ id: "p1", owner: "ragents.core", order: 10, content: "Inhalt" }],
+    promptContributions: [{ id: "p1", owner: "ragents.core", order: 10, content: "Content" }],
     agentHooks: [
       { id: "e1", owner: "test.tasks", kind: "plugin", factories: [], resolvesPerAgent: false },
       { id: "e2", owner: "agent", kind: "internal", factories: [], resolvesPerAgent: true },
     ],
   });
   const source = sourceWith({
-    startEntries: [card("c1", "test.tasks", "Karte"), starter("st1", "ragents.core", "Start")],
+    startEntries: [card("c1", "test.tasks", "Card"), starter("st1", "ragents.core", "Start")],
   });
   const groups = groupContributions(settings, source);
   assert.deepEqual(groups.map((group) => group.id), ["ragents.core", "test.tasks"]);
@@ -222,25 +222,25 @@ test("Beiträge landen bei ihrem Eigentümer und die Plugin-Reihenfolge bleibt e
   assert.equal(tasks.configuration.length, 1);
 });
 
-test("Web-Einstellungen und Übersichtsbeiträge sind beim Eigentümer auffindbar", () => {
+test("web settings and overview contributions can be found with their owner", () => {
   const registry = registryWith([{
     id: "test.settings",
     overviewPanels: [{ id: "test.panel", order: 1, Panel: Empty }],
-    settings: [{ id: "test.model", label: "Modellauswahl", Settings: Empty }],
+    settings: [{ id: "test.model", label: "Model selection", Settings: Empty }],
   }]);
   const group = groupOf(groupContributions(settingsWith({}), registry), "test.settings");
   assert.equal(group.webActive, true);
   assert.equal(group.serverRegistered, false);
   assert.deepEqual(group.web, { state: "contributions", contributions: [
-    { kind: "Übersichtsbeiträge", details: ["test.panel"], count: 1 },
-    { kind: "Einstellungen", details: ["test.model (Modellauswahl)"], count: 1 },
+    { kind: "Overview contributions", details: ["test.panel"], count: 1 },
+    { kind: "Settings", details: ["test.model (Model selection)"], count: 1 },
   ] });
-  assert.equal(countContributions(filterGroup(group, "web", "modellauswahl")), 1);
+  assert.equal(countContributions(filterGroup(group, "web", "model selection")), 1);
   assert.equal(countContributions(filterGroup(group, "web", "test.panel")), 1);
   assert.deepEqual(groupContributions(settingsWith({}), registryWith([])), []);
 });
 
-test("interne Hooks gehören keiner Plugin-Gruppe", () => {
+test("internal hooks belong to no plugin group", () => {
   const settings = settingsWith({
     plugins: [{ id: "ragents.core", requires: [], configuration: [] }],
     agentHooks: [{ id: "e2", owner: "agent", kind: "internal", factories: [], resolvesPerAgent: true }],
@@ -250,20 +250,20 @@ test("interne Hooks gehören keiner Plugin-Gruppe", () => {
   assert.deepEqual(groupOf(groups, "ragents.core").hooks, []);
 });
 
-test("unbekannte Eigentümer bekommen eine eigene Gruppe am Ende", () => {
+test("unknown owners get a group of their own at the end", () => {
   const settings = settingsWith({ plugins: [{ id: "ragents.core", requires: [], configuration: [] }] });
-  const source = sourceWith({ startEntries: [card("extern", "dateisystem", "Externe Karte")] });
+  const source = sourceWith({ startEntries: [card("external", "filesystem", "External card")] });
   const groups = groupContributions(settings, source);
-  assert.deepEqual(groups.map((group) => group.id), ["ragents.core", "dateisystem"]);
-  const external = groupOf(groups, "dateisystem");
+  assert.deepEqual(groups.map((group) => group.id), ["ragents.core", "filesystem"]);
+  const external = groupOf(groups, "filesystem");
   assert.equal(external.serverRegistered, false);
   assert.equal(external.webActive, false);
   assert.deepEqual(external.requires, []);
   assert.deepEqual(external.web, { state: "none" });
-  assert.deepEqual(external.startEntries.map((entry) => entry.id), ["extern"]);
+  assert.deepEqual(external.startEntries.map((entry) => entry.id), ["external"]);
 });
 
-test("das Web-Modul unterscheidet fehlend, beitragslos und beitragend", () => {
+test("the web module distinguishes missing, without contributions and contributing", () => {
   const settings = settingsWith({
     plugins: [
       { id: "server.only", requires: [], configuration: [] },
@@ -292,20 +292,20 @@ test("das Web-Modul unterscheidet fehlend, beitragslos und beitragend", () => {
   assert.equal(loud.web.state, "contributions");
   if (loud.web.state !== "contributions") return;
   assert.deepEqual(loud.web.contributions.map((entry) => entry.kind), [
-    "Reiter der Leiste",
+    "Sidebar tabs",
     "Branding",
-    "Karten-Abschnitte",
+    "Card sections",
   ]);
   assert.deepEqual(loud.web.contributions[0].details, ["board (Board)"]);
 });
 
-test("der Filter lässt nur eine Beitragsart übrig", () => {
+test("the filter leaves only one kind of contribution", () => {
   const settings = settingsWith({
     plugins: [{ id: "test.tasks", requires: [], configuration: [{ key: "PAT", source: "env", secret: true }] }],
-    tools: [tool("t1", "test.tasks", "Suche", "sucht")],
+    tools: [tool("t1", "test.tasks", "Search", "searches")],
     skills: [skill("s1", "test.tasks")],
   });
-  const source = sourceWith({ startEntries: [card("c1", "test.tasks", "Karte")] });
+  const source = sourceWith({ startEntries: [card("c1", "test.tasks", "Card")] });
   const group = groupOf(groupContributions(settings, source), "test.tasks");
   assert.equal(countContributions(group), 4);
   const onlyTools = filterGroup(group, "tools", "");
@@ -319,21 +319,21 @@ test("der Filter lässt nur eine Beitragsart übrig", () => {
   assert.equal(countContributions(filterGroup(group, "web", "")), 0);
 });
 
-test("die Suche greift über alle Beitragsarten der Gruppe", () => {
+test("the search covers all kinds of contributions of the group", () => {
   const settings = settingsWith({
     plugins: [{ id: "test.tasks", requires: [], configuration: [] }],
-    tools: [tool("t1", "test.tasks", "Suche", "findet Arbeitsvorgang-Einträge"), tool("t2", "test.tasks", "Notiz", "schreibt")],
+    tools: [tool("t1", "test.tasks", "Search", "finds ticket entries"), tool("t2", "test.tasks", "Note", "writes")],
   });
-  const source = sourceWith({ startEntries: [card("c1", "test.tasks", "Arbeitsvorgang anlegen")] });
+  const source = sourceWith({ startEntries: [card("c1", "test.tasks", "Create ticket")] });
   const group = groupOf(groupContributions(settings, source), "test.tasks");
-  const found = filterGroup(group, "all", "arbeitsvorgang");
+  const found = filterGroup(group, "all", "ticket");
   assert.deepEqual(found.tools.map((entry) => entry.id), ["t1"]);
   assert.deepEqual(found.startEntries.map((entry) => entry.id), ["c1"]);
   assert.equal(countContributions(found), 2);
-  const category = filterGroup(group, "startEntries", "beispiele");
+  const category = filterGroup(group, "startEntries", "examples");
   assert.deepEqual(category.startEntries.map((entry) => entry.id), ["c1"]);
   assert.equal(countContributions(category), 1);
-  assert.equal(countContributions(filterGroup(group, "all", "nichts davon")), 0);
+  assert.equal(countContributions(filterGroup(group, "all", "none of it")), 0);
 });
 
 test("the function catalog distinguishes TypeScript functions and explicit native tools in labels and search", () => {
@@ -342,19 +342,19 @@ test("the function catalog distinguishes TypeScript functions and explicit nativ
     { ...tool("native", "test.functions", "typescript_eval", "Evaluate code"), nativeTool: true },
   ];
   const groups = groupContributions(settingsWith({ tools: functions }), sourceWith({}));
-  assert.equal(functionSurfaceLabel(undefined), "TypeScript-Funktion");
-  assert.equal(functionSurfaceLabel(false), "TypeScript-Funktion");
-  assert.equal(functionSurfaceLabel(true), "LLM-Werkzeug");
-  assert.deepEqual(capabilityGroups(groups, "tools", "TypeScript-Funktion")[0]?.tools.map((entry) => entry.id), ["function"]);
-  assert.deepEqual(capabilityGroups(groups, "tools", "LLM-Werkzeug")[0]?.tools.map((entry) => entry.id), ["native"]);
-  assert.deepEqual(capabilityGroups(groups, "tools", "Werkzeug-Index"), []);
+  assert.equal(functionSurfaceLabel(undefined), "TypeScript function");
+  assert.equal(functionSurfaceLabel(false), "TypeScript function");
+  assert.equal(functionSurfaceLabel(true), "LLM tool");
+  assert.deepEqual(capabilityGroups(groups, "tools", "TypeScript function")[0]?.tools.map((entry) => entry.id), ["function"]);
+  assert.deepEqual(capabilityGroups(groups, "tools", "LLM tool")[0]?.tools.map((entry) => entry.id), ["native"]);
+  assert.deepEqual(capabilityGroups(groups, "tools", "Tool index"), []);
 });
 
-test("ohne Suchtext bleibt die Zählung die Summe aller Beiträge", () => {
+test("without search text the count stays the sum of all contributions", () => {
   const settings = settingsWith({
     plugins: [{ id: "test.tasks", requires: [], configuration: [{ key: "PAT", source: "env", secret: false }] }],
-    tools: [tool("t1", "test.tasks", "Suche", "sucht")],
-    promptContributions: [{ id: "p1", owner: "test.tasks", order: 1, content: "Inhalt" }],
+    tools: [tool("t1", "test.tasks", "Search", "searches")],
+    promptContributions: [{ id: "p1", owner: "test.tasks", order: 1, content: "Content" }],
     skills: [skill("s1", "test.tasks")],
     agentHooks: [{ id: "e1", owner: "test.tasks", kind: "plugin", factories: [], resolvesPerAgent: false }],
   });
@@ -362,16 +362,16 @@ test("ohne Suchtext bleibt die Zählung die Summe aller Beiträge", () => {
     brand: { title: "Test" },
     plugins: [{ id: "test.tasks", guides: [{ id: "guide", Guide: Empty }] }],
     product: { id: "test", title: "Test" },
-    startEntries: [card("c1", "test.tasks", "Karte"), { ...starter("st1", "test.tasks", "Start"), guide: "guide" }],
+    startEntries: [card("c1", "test.tasks", "Card"), { ...starter("st1", "test.tasks", "Start"), guide: "guide" }],
   });
   const group = groupOf(groupContributions(settings, registry), "test.tasks");
   assert.equal(countContributions(group), 8);
   assert.equal(countContributions(filterGroup(group, "all", "")), 8);
 });
 
-test("bearbeitbare Einstellungen bleiben bei ihrem Eigentümer und behalten ihre Objektidentität", () => {
-  const first = Object.freeze({ id: "first.setting", owner: "test.first", label: "Modell", Settings: Empty });
-  const second = Object.freeze({ id: "second.setting", owner: "test.second", label: "Darstellung", Settings: Empty });
+test("editable settings stay with their owner and keep their object identity", () => {
+  const first = Object.freeze({ id: "first.setting", owner: "test.first", label: "Model", Settings: Empty });
+  const second = Object.freeze({ id: "second.setting", owner: "test.second", label: "Appearance", Settings: Empty });
   const contributions = Object.freeze([second, first]);
   const groups = groupContributions(settingsWith({}), sourceWith({
     activePlugins: [{ id: "test.first" }, { id: "test.second" }],
@@ -380,15 +380,15 @@ test("bearbeitbare Einstellungen bleiben bei ihrem Eigentümer und behalten ihre
   assert.deepEqual(groups.map((group) => group.id), ["test.first", "test.second"]);
   assert.equal(groupOf(groups, "test.first").settings[0], first);
   assert.equal(groupOf(groups, "test.second").settings[0], second);
-  assert.equal(capabilityGroups(groups, "configuration", "Modell")[0]?.settings[0], first);
+  assert.equal(capabilityGroups(groups, "configuration", "Model")[0]?.settings[0], first);
   assert.deepEqual(contributions, [second, first]);
   assert.equal(groupOf(groups, "test.second").settings[0], second);
 });
 
-test("Konfiguration zählt und durchsucht editierbare Einstellungen neben statischen Werten", () => {
+test("configuration counts and searches editable settings next to static values", () => {
   const registry = registryWith([{
     id: "test.owner",
-    settings: [{ id: "display.options", label: "Ansicht auswählen", Settings: Empty }],
+    settings: [{ id: "display.options", label: "Choose view", Settings: Empty }],
   }]);
   const groups = groupContributions(settingsWith({ plugins: [{
     id: "test.owner", requires: [],
@@ -398,19 +398,19 @@ test("Konfiguration zählt und durchsucht editierbare Einstellungen neben statis
   const group = groupOf(groups, "test.owner");
   assert.equal(countContributions(filterGroup(group, "configuration", "")), 3);
   assert.equal(countContributions(group), 4);
-  for (const query of ["display.options", "  AUSWÄHLEN  ", "test.owner"]) {
+  for (const query of ["display.options", "  CHOOSE  ", "test.owner"]) {
     assert.equal(filterGroup(group, "configuration", query).settings[0], registry.settings[0]);
     assert.equal(filterGroup(group, "all", query).settings[0], registry.settings[0]);
   }
-  assert.deepEqual(filterGroup(group, "configuration", "kein Treffer").settings, []);
+  assert.deepEqual(filterGroup(group, "configuration", "no match").settings, []);
   assert.deepEqual(filterGroup(group, "web", "").settings, []);
-  assert.equal(countContributions(filterGroup(group, "web", "auswählen")), 1);
+  assert.equal(countContributions(filterGroup(group, "web", "choose")), 1);
   assert.deepEqual(filterGroup(group, "tools", "").settings, []);
 });
 
-test("entfernte und inaktive Einstellungsbeiträge erscheinen in keiner Konfigurationsansicht", () => {
-  const active = { id: "active.option", owner: "test.active", label: "Aktiv", Settings: Empty };
-  const inactive = { id: "inactive.option", owner: "test.inactive", label: "Inaktiv", Settings: Empty };
+test("removed and inactive settings contributions appear in no configuration view", () => {
+  const active = { id: "active.option", owner: "test.active", label: "Active", Settings: Empty };
+  const inactive = { id: "inactive.option", owner: "test.inactive", label: "Inactive", Settings: Empty };
   const response = settingsWith({ plugins: [
     { id: "test.active", requires: [], configuration: [] },
     { id: "test.inactive", requires: [], configuration: [] },
@@ -428,9 +428,9 @@ test("entfernte und inaktive Einstellungsbeiträge erscheinen in keiner Konfigur
   })), "configuration", ""), []);
 });
 
-test("Fähigkeitsgruppen suchen über Eigentümer hinweg und entfernen leere Gruppen ohne Originale zu ändern", () => {
-  const first = Object.freeze(tool("first.tool", "test.first", "Suche", "findet Aufgaben"));
-  const second = Object.freeze(tool("second.tool", "test.second", "Suche", "findet Dateien"));
+test("capability groups search across owners and remove empty groups without changing the originals", () => {
+  const first = Object.freeze(tool("first.tool", "test.first", "Search", "finds tasks"));
+  const second = Object.freeze(tool("second.tool", "test.second", "Search", "finds files"));
   const groups = groupContributions(settingsWith({
     plugins: [
       { id: "test.first", requires: [], configuration: [] },
@@ -441,13 +441,13 @@ test("Fähigkeitsgruppen suchen über Eigentümer hinweg und entfernen leere Gru
     skills: [skill("first.skill", "test.first")],
   }), sourceWith({}));
   const original = structuredClone(groups);
-  const found = capabilityGroups(groups, "tools", " Suche ");
+  const found = capabilityGroups(groups, "tools", " Search ");
   assert.deepEqual(found.map((group) => group.id), ["test.first", "test.second"]);
   assert.equal(found[0]?.tools[0], first);
   assert.equal(found[1]?.tools[0], second);
   assert.deepEqual(found[0]?.skills, []);
-  assert.deepEqual(capabilityGroups(groups, "tools", "Dateien").map((group) => group.id), ["test.second"]);
-  assert.deepEqual(capabilityGroups(groups, "tools", "kein Treffer"), []);
+  assert.deepEqual(capabilityGroups(groups, "tools", "Files").map((group) => group.id), ["test.second"]);
+  assert.deepEqual(capabilityGroups(groups, "tools", "no match"), []);
   assert.deepEqual(capabilityGroups(groups, "web", ""), []);
   assert.deepEqual(capabilityGroups([], "configuration", ""), []);
   assert.deepEqual(groups, original);

@@ -47,7 +47,7 @@ export const RPC_ERROR_CODES = Object.freeze({
   timeout: -32003,
 });
 
-/** Feste Methoden der Nachrichtenschicht; alles andere sind registrierte Verträge. */
+/** Fixed methods of the message layer; everything else is a registered contract. */
 export const RPC_METHODS = Object.freeze({
   subscribe: "rpc.subscribe",
   unsubscribe: "rpc.unsubscribe",
@@ -84,7 +84,7 @@ export interface RpcProgressParams {
   value: unknown;
 }
 
-/** Ein Fehler der Gegenseite oder des Transports; `data` trägt bei Fachfehlern `code` und `status`. */
+/** An error of the other side or of the transport; for domain errors `data` carries `code` and `status`. */
 export class RpcError extends Error {
   readonly code: number;
   readonly data: unknown;

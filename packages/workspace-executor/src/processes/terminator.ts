@@ -4,7 +4,7 @@ import { processIdOf, type ProcessRecord, type ProcessTable } from "./process-ta
 
 export interface ProcessTerminationOptions {
   table: ProcessTable;
-  /** Der Prozess dieses Executors; er und seine Vorfahren sind geschützt. */
+  /** The process of this executor; it and its ancestors are protected. */
   executorPid: number;
   executorUid: number | undefined;
   termGraceMs?: number;
@@ -42,14 +42,14 @@ export class RunProcessTerminator {
     this.#pollIntervalMs = options.pollIntervalMs ?? 100;
     this.#sendSignal = options.sendSignal ?? ((pid, signal) => { process.kill(pid, signal); });
     for (const duration of [this.#termGraceMs, this.#killGraceMs, this.#timeoutMs, this.#pollIntervalMs]) {
-      if (!Number.isSafeInteger(duration) || duration < 1) throw new Error("Prozess-Stopp-Zeitgrenzen müssen positive ganze Zahlen sein");
+      if (!Number.isSafeInteger(duration) || duration < 1) throw new Error("Process stop timeouts must be positive integers");
     }
   }
 
   async stop(runId: string, processId: string, context: ProcessTerminationContext = {}): Promise<void> {
     const pid = Number(processId.split("-")[0]);
     if (!/^[1-9]\d*-[a-f0-9]{64}$/.test(processId) || !Number.isSafeInteger(pid) || pid > 2_147_483_647)
-      throw new WorkspaceOperationError("invalid-process", "Ungültige Prozessreferenz", 400);
+      throw new WorkspaceOperationError("invalid-process", "Invalid process reference", 400);
     await this.#stop(runId, processId, context);
   }
 
@@ -58,13 +58,13 @@ export class RunProcessTerminator {
   }
 
   async #stop(runId: string, processId: string | undefined, context: ProcessTerminationContext): Promise<void> {
-    if (runMarkerOf(runId) !== runId) throw new WorkspaceOperationError("invalid-run", "Ungültige Laufkennung", 400);
+    if (runMarkerOf(runId) !== runId) throw new WorkspaceOperationError("invalid-run", "Invalid run id", 400);
     const deadline = Date.now() + this.#timeoutMs;
     const attempts = new Map<string, Attempt>();
     const failures = new Map<string, unknown>();
     const assertClean = () => {
       if (failures.size === 1) throw [...failures.values()][0];
-      if (failures.size > 1) throw new AggregateError([...failures.values()], `Prozess-Stopp ist für ${failures.size} Prozesse fehlgeschlagen`);
+      if (failures.size > 1) throw new AggregateError([...failures.values()], `Process stop failed for ${failures.size} processes`);
     };
     let first = true;
     let emptyScans = 0;
@@ -76,8 +76,8 @@ export class RunProcessTerminator {
       const markers = await this.#bounded(this.#options.table.runMarkers(readable.map((record) => record.pid)), deadline);
       if (first && processId !== undefined && selected.length > 0) {
         const record = selected[0];
-        if (processIdOf(record) !== processId) throw new WorkspaceOperationError("stale-process", "Die Prozess-ID wurde inzwischen neu vergeben. Bitte die Prozessliste aktualisieren.", 409);
-        if (markers.get(record.pid) !== runId) throw new WorkspaceOperationError("process-run-mismatch", "Der Prozess gehört nicht zu diesem Run", 403);
+        if (processIdOf(record) !== processId) throw new WorkspaceOperationError("stale-process", "The process ID has been reassigned in the meantime. Please refresh the process list.", 409);
+        if (markers.get(record.pid) !== runId) throw new WorkspaceOperationError("process-run-mismatch", "The process does not belong to this run", 403);
       }
       first = false;
       const targets = readable.filter((record) => markers.get(record.pid) === runId
@@ -100,7 +100,7 @@ export class RunProcessTerminator {
             } else if (attempt.killAt === undefined && Date.now() - attempt.termAt >= this.#termGraceMs) {
               if (await this.#signal(record, runId, "SIGKILL", context, deadline)) attempt.killAt = Date.now();
             } else if (attempt.killAt !== undefined && Date.now() - attempt.killAt >= this.#killGraceMs) {
-              throw new Error(`Prozess ${record.pid} von Run ${runId} ist nach SIGKILL noch aktiv`);
+              throw new Error(`Process ${record.pid} of run ${runId} is still active after SIGKILL`);
             }
           } catch (error) {
             this.#assertActive(context, deadline);
@@ -125,19 +125,19 @@ export class RunProcessTerminator {
       protectedPids.add(parent);
       parent = records.find((candidate) => candidate.pid === parent)?.ppid;
     }
-    if (protectedPids.has(record.pid)) throw new WorkspaceOperationError("protected-process", `Prozess ${record.pid} gehört zum geschützten Prozessbaum des Executors`, 403);
+    if (protectedPids.has(record.pid)) throw new WorkspaceOperationError("protected-process", `Process ${record.pid} belongs to the protected process tree of the executor`, 403);
   }
 
   #assertActive(context: ProcessTerminationContext, deadline: number): void {
     context.signal?.throwIfAborted();
-    if (Date.now() >= deadline) throw new Error(`Prozess-Stopp hat die Zeitgrenze von ${this.#timeoutMs} ms überschritten`);
+    if (Date.now() >= deadline) throw new Error(`Process stop exceeded the timeout of ${this.#timeoutMs} ms`);
   }
 
   async #bounded<T>(operation: Promise<T>, deadline: number): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       return await Promise.race([operation, new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error("Die Prozesstabelle antwortet nicht innerhalb der Stopp-Zeitgrenze")), Math.max(1, deadline - Date.now()));
+        timer = setTimeout(() => reject(new Error("The process table does not answer within the stop timeout")), Math.max(1, deadline - Date.now()));
       })]);
     } finally {
       if (timer) clearTimeout(timer);
@@ -149,7 +149,7 @@ export class RunProcessTerminator {
     const records = await this.#bounded(this.#options.table.list(), deadline);
     const current = records.find((record) => record.pid === expected.pid);
     if (!current || current.startKey !== expected.startKey || current.uid !== expected.uid) return false;
-    if (markers.get(current.pid) !== runId) throw new WorkspaceOperationError("process-run-mismatch", `Prozess ${current.pid} gehört nicht mehr zu diesem Run`, 403);
+    if (markers.get(current.pid) !== runId) throw new WorkspaceOperationError("process-run-mismatch", `Process ${current.pid} no longer belongs to this run`, 403);
     this.#assertUnprotected(current, records);
     this.#assertActive(context, deadline);
     try {
@@ -157,7 +157,7 @@ export class RunProcessTerminator {
       return true;
     } catch (error) {
       if (gone(error)) return false;
-      throw new Error(`${signal} für Prozess ${current.pid} ist fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(`${signal} for process ${current.pid} failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 }

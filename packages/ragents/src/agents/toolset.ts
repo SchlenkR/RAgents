@@ -30,7 +30,7 @@ const messageText = (value: unknown) =>
     value === undefined || value === null ? "" : (value instanceof Error ? value.message : String(value)).trim();
 
 const errorText = (error: unknown) =>
-    messageText(error) || (error instanceof Error ? messageText(error.cause) : "") || "Fehler ohne Ursache";
+    messageText(error) || (error instanceof Error ? messageText(error.cause) : "") || "Error without a cause";
 
 export { schemaComplaints } from "../domain/schema-errors.ts";
 
@@ -75,12 +75,12 @@ const inputComplaint = (tool: RunFunction, input: JsonValue, ignoredFields: read
 };
 
 export const ignoredFieldsNotice = (tool: Pick<RunFunction, "name" | "schema">, ignoredFields: readonly string[]) => {
-    const fields = ignoredFields.length === 1 ? `das Feld ${ignoredFields[0]}` : `die Felder ${ignoredFields.join(", ")}`;
-    const ignored = ignoredFields.length === 1 ? "wurde ignoriert" : "wurden ignoriert";
+    const fields = ignoredFields.length === 1 ? `the field ${ignoredFields[0]}` : `the fields ${ignoredFields.join(", ")}`;
+    const ignored = ignoredFields.length === 1 ? "was ignored" : "were ignored";
 
     return takesNoInput(tool.schema)
-        ? `Hinweis: ${tool.name} nimmt keine Eingabe; ${fields} ${ignoredFields.length === 1 ? "ist" : "sind"} unbekannt und ${ignored}.`
-        : `Hinweis: ${fields} kennt ${tool.name} nicht und ${ignored}.`;
+        ? `Note: ${tool.name} takes no input; ${fields} ${ignoredFields.length === 1 ? "is" : "are"} unknown and ${ignored}.`
+        : `Note: ${tool.name} does not know ${fields}, which ${ignored}.`;
 };
 
 export class TurnToolset {

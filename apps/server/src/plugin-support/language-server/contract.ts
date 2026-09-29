@@ -12,13 +12,13 @@ export type {
   LanguageServerState,
 } from "@ragents/workspace-executor";
 
-const runIdSchema = Type.String({ minLength: 1, maxLength: 64, description: "Kennung des Runs" });
+const runIdSchema = Type.String({ minLength: 1, maxLength: 64, description: "Identifier of the run" });
 
-/** Je Sprachserver-Plugin eine Methode; die Rechte tragen seine Kennung. */
+/** One method per language server plugin; the rights carry its identifier. */
 export const languageServerSnapshotContract = (pluginId: string) =>
   defineOperation({
     id: `${pluginId}.snapshot`,
-    description: `Zustand und Diagnosen des Sprachservers ${pluginId} in einem Run. Rechte: runs.read und ${pluginId}.read.`,
+    description: `State and diagnostics of the language server ${pluginId} in a run. Rights: runs.read and ${pluginId}.read.`,
     rights: ["runs.read", `${pluginId}.read`],
     input: Type.Object({
       runId: runIdSchema,
@@ -29,7 +29,7 @@ export const languageServerSnapshotContract = (pluginId: string) =>
 export const languageServerSolutionsContract = (pluginId: string) =>
   defineOperation({
     id: `${pluginId}.solutions`,
-    description: `Die Solutions im Arbeitsbereich eines Runs und welche davon ${pluginId} geöffnet hat. Rechte: runs.read und ${pluginId}.read.`,
+    description: `The solutions in the workspace of a run and which of them ${pluginId} has opened. Rights: runs.read and ${pluginId}.read.`,
     rights: ["runs.read", `${pluginId}.read`],
     input: Type.Object({
       runId: runIdSchema,
@@ -40,15 +40,15 @@ export const languageServerSolutionsContract = (pluginId: string) =>
 export const languageServerSwitchContract = (pluginId: string) =>
   defineOperation({
     id: `${pluginId}.switch`,
-    description: `Lädt eine Solution in ${pluginId} und beendet alle anderen Instanzen des Runs; null beendet alle. `
-      + `Wartet nicht auf das Laden. Rechte: runs.read, runs.write, ${pluginId}.read und ${pluginId}.write.`,
+    description: `Loads a solution in ${pluginId} and ends all other instances of the run; null ends all of them. `
+      + `Does not wait for the load. Rights: runs.read, runs.write, ${pluginId}.read and ${pluginId}.write.`,
     rights: ["runs.read", "runs.write", `${pluginId}.read`, `${pluginId}.write`],
     input: Type.Object({
       runId: runIdSchema,
       root: Type.Union([
-        Type.String({ minLength: 1, maxLength: 1024, description: "Die Solution relativ zur Wurzel des Arbeitsbereichs" }),
+        Type.String({ minLength: 1, maxLength: 1024, description: "The solution relative to the workspace root" }),
         Type.Null(),
-      ], { description: "null beendet alle Instanzen" }),
+      ], { description: "null ends all instances" }),
     }, { additionalProperties: false }),
     result: openJson<LanguageServerSolutions>("LanguageServerSolutions"),
   });

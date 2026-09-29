@@ -13,7 +13,7 @@ export const setupContext = (profiles = [{ name: "coordinator", driver: "agent" 
       return { name: value.name, actor: value.actor, views: 1, active: true };
     }
     return name === "model_list" ? {
-      profiles: profiles.map((profile) => ({ ...profile, description: "Testprofil", turnTimeoutMs: null,
+      profiles: profiles.map((profile) => ({ ...profile, description: "Test profile", turnTimeoutMs: null,
         isolateWorkspace: false, provider: "test", model: "test" })), models: [],
     } : name === "actor_input" ? [] : null;
   }]));

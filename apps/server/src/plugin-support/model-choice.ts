@@ -6,16 +6,16 @@ import type { DeclaredEnvironment } from "./plugin-config.js";
 
 export type ModelCatalogSource = () => readonly Model<Api>[];
 
-/** Der eingebaute Katalog eines Anbieters; ein Plugin kann einen eigenen Katalog liefern, etwa den eines Relays. */
+/** The built-in catalog of a provider; a plugin can supply its own catalog, such as that of a relay. */
 export const builtinCatalog = (provider: string): ModelCatalogSource => () => getBuiltinModels(provider as BuiltinProvider);
 
-/** Der Katalog, den die Modelllaufzeit für einen Anbieter kennt: die Aliasse des Profils oder den eingebauten. */
+/** The catalog the model runtime knows for a provider: the profile's aliases or the built-in one. */
 const providerCatalog = (provider: string): ModelCatalogSource =>
   provider === ALIAS_PROVIDER ? () => aliasCatalog() : builtinCatalog(provider);
 
 export const modelThinkingOptions = (provider: string, model: string, catalog: ModelCatalogSource = providerCatalog(provider)): readonly ThinkingLevel[] => {
   const metadata = catalog().find((entry) => entry.id === model);
-  if (!metadata) throw new Error(`Das Modell ${provider}/${model} fehlt im Modellkatalog`);
+  if (!metadata) throw new Error(`The model ${provider}/${model} is missing from the model catalog`);
   return getSupportedThinkingLevels(metadata);
 };
 
@@ -25,7 +25,7 @@ export interface ModelChoice {
   readonly provider: string;
   readonly selectable: boolean;
   thinkingOptionsFor(model: string | null): readonly ThinkingLevel[];
-  /** Die Denktiefe, die ein Modell mitbringt, wenn es gewählt wird; ohne Angabe gilt die des Koordinators. */
+  /** The thinking level a model brings along when it is chosen; without one the coordinator's applies. */
   defaultThinkingFor?(model: string): ThinkingLevel | undefined;
 }
 
@@ -50,7 +50,7 @@ export const modelChoiceFromEnvironment = (
   const catalog = defaults.catalog ?? providerCatalog(defaults.provider);
   const raw = env.optional("MODEL_SELECTABLE");
   if (raw !== undefined && raw !== "" && raw !== "0" && raw !== "1") {
-    throw new Error(`MODEL_SELECTABLE muss "0" oder "1" sein, nicht "${raw}"`);
+    throw new Error(`MODEL_SELECTABLE must be "0" or "1", not "${raw}"`);
   }
   const released = raw === undefined || raw === "" ? defaults.selectable : raw === "1";
   let resolvedOptions: readonly string[] | undefined;
@@ -58,8 +58,8 @@ export const modelChoiceFromEnvironment = (
     if (resolvedOptions) return resolvedOptions;
     const configured = env.list("AGENT_MODELS");
     const duplicate = configured.find((model, index) => configured.indexOf(model) !== index);
-    if (duplicate) throw new Error(`AGENT_MODELS nennt ${duplicate} mehrfach`);
-    // Ohne AGENT_MODELS gelten alle Aliasse oder die Modelle des Profils, und Agent und Koordinator dürfen dasselbe haben.
+    if (duplicate) throw new Error(`AGENT_MODELS names ${duplicate} more than once`);
+    // Without AGENT_MODELS all aliases or the profile's models apply, and agent and coordinator may share the same one.
     const fallback = defaults.provider === ALIAS_PROVIDER ? catalog().map((model) => model.id) : defaults.fallback();
     const list = configured.length > 0 ? configured : [...new Set(fallback)];
     resolvedOptions = Object.freeze([...list]);
@@ -70,7 +70,7 @@ export const modelChoiceFromEnvironment = (
     if (resolvedDefault) return resolvedDefault;
     const configured = defaults.defaultModel();
     if (!options().includes(configured))
-      throw new Error(`Das Koordinator-Modell ${configured} steht nicht in AGENT_MODELS`);
+      throw new Error(`The coordinator model ${configured} is not in AGENT_MODELS`);
     resolvedDefault = configured;
     return resolvedDefault;
   };
@@ -80,18 +80,18 @@ export const modelChoiceFromEnvironment = (
     const map = new Map<string, readonly ThinkingLevel[]>();
     for (const entry of env.list("AGENT_MODEL_REASONING")) {
       const separator = entry.indexOf(":");
-      if (separator < 0) throw new Error(`AGENT_MODEL_REASONING: "${entry}" hat kein "<modell>: <stufen>"-Format`);
+      if (separator < 0) throw new Error(`AGENT_MODEL_REASONING: "${entry}" does not have the "<model>: <levels>" format`);
       const model = entry.slice(0, separator).trim();
       const levels = entry.slice(separator + 1).trim().split(/[\s,]+/).filter(Boolean);
-      if (!options().includes(model)) throw new Error(`AGENT_MODEL_REASONING nennt ${model}, das nicht in AGENT_MODELS steht`);
-      if (map.has(model)) throw new Error(`AGENT_MODEL_REASONING nennt ${model} mehrfach`);
-      if (levels.length === 0) throw new Error(`AGENT_MODEL_REASONING: ${model} nennt keine Stufe`);
+      if (!options().includes(model)) throw new Error(`AGENT_MODEL_REASONING names ${model}, which is not in AGENT_MODELS`);
+      if (map.has(model)) throw new Error(`AGENT_MODEL_REASONING names ${model} more than once`);
+      if (levels.length === 0) throw new Error(`AGENT_MODEL_REASONING: ${model} names no level`);
       const invalid = levels.find((level) => !isThinkingLevel(level));
-      if (invalid) throw new Error(`AGENT_MODEL_REASONING: ${invalid} ist keine Stufe (gültig: ${thinkingLevels.join(", ")})`);
+      if (invalid) throw new Error(`AGENT_MODEL_REASONING: ${invalid} is not a level (valid: ${thinkingLevels.join(", ")})`);
       const supported = modelThinkingOptions(defaults.provider, model, catalog);
       const unsupported = levels.find((level) => !supported.includes(level as ThinkingLevel));
-      if (unsupported) throw new Error(`AGENT_MODEL_REASONING: ${unsupported} ist für ${defaults.provider}/${model} nicht verfügbar (gültig: ${supported.join(", ")})`);
-      if (new Set(levels).size !== levels.length) throw new Error(`AGENT_MODEL_REASONING: ${model} nennt eine Stufe mehrfach`);
+      if (unsupported) throw new Error(`AGENT_MODEL_REASONING: ${unsupported} is not available for ${defaults.provider}/${model} (valid: ${supported.join(", ")})`);
+      if (new Set(levels).size !== levels.length) throw new Error(`AGENT_MODEL_REASONING: ${model} names a level more than once`);
       map.set(model, Object.freeze(levels as ThinkingLevel[]));
     }
     reasoning = map;

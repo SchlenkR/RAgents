@@ -23,7 +23,7 @@ const readControl = (policy: ChatDisplayPolicy, storageKeyPrefix?: string): Chat
   return result;
 };
 
-test("globaler Chat beginnt unabhängig vom Run mit aktuellem, manuell wählbarem Schritt", (context) => {
+test("the global chat starts independently of the run with the current, manually selectable step", (context) => {
   const values = new Map([
     ["ragents.chat-steps.coordinator", "full"],
     ["ragents.chat-steps.agents", "compact"],
@@ -48,7 +48,7 @@ test("globaler Chat beginnt unabhängig vom Run mit aktuellem, manuell wählbare
 
   global().setMode("coordinator", "chips");
   assert.equal(values.get(`${overseerChatStorageKeyPrefix}.coordinator`), "chips");
-  assert.equal(global().mode("coordinator"), "chips", "globale Auswahl bleibt nach erneutem Öffnen erhalten");
+  assert.equal(global().mode("coordinator"), "chips", "the global choice is kept after reopening");
   assert.equal(readControl(runPolicy).mode("coordinator"), "full");
   readControl(runPolicy).setMode("coordinator", "compact");
   assert.equal(global().mode("coordinator"), "chips");
@@ -56,13 +56,13 @@ test("globaler Chat beginnt unabhängig vom Run mit aktuellem, manuell wählbare
   global().setMode("coordinator", "off");
   assert.equal(global().mode("coordinator"), "off");
   values.set(`${overseerChatStorageKeyPrefix}.coordinator`, "invalid");
-  assert.equal(global().mode("coordinator"), "grouped", "ungültiger gespeicherter Detailgrad fällt auf den globalen Default zurück");
+  assert.equal(global().mode("coordinator"), "grouped", "an invalid saved detail level falls back to the global default");
   values.clear();
-  assert.equal(readControl(runPolicy).mode("coordinator"), "grouped", "Run-Default verwendet die gruppierte Ansicht");
+  assert.equal(readControl(runPolicy).mode("coordinator"), "grouped", "the run default uses the grouped view");
   assert.equal(global().mode("coordinator"), "grouped");
 });
 
-test("Fläche, Inspector und Popout desselben Chats merken sich ihren Detailgrad getrennt", (context) => {
+test("surface, inspector and popout of the same chat remember their detail level separately", (context) => {
   const values = new Map<string, string>();
   const previous = Object.getOwnPropertyDescriptor(globalThis, "window");
   Object.defineProperty(globalThis, "window", { configurable: true, value: { localStorage: {
@@ -87,28 +87,28 @@ test("Fläche, Inspector und Popout desselben Chats merken sich ihren Detailgrad
   assert.equal(control("surface").mode("agents"), "full");
   assert.equal(control("inspector").mode("agents"), "grouped");
   assert.equal(control("popout").mode("agents"), "grouped");
-  assert.equal(control().mode("agents"), "grouped", "ohne Fläche bleibt der bisherige Schlüssel unberührt");
+  assert.equal(control().mode("agents"), "grouped", "without a surface the previous key stays untouched");
   control("popout").setMode("agents", "compact");
   assert.equal(control("surface").mode("agents"), "full");
   assert.equal(control("inspector").mode("agents"), "grouped");
   assert.equal(control("popout").mode("agents"), "compact");
 });
 
-test("globaler Standard fasst Denktext und Werkzeugaufrufe zu einer Gruppe ohne Ergebnis zusammen, volle Details zeigen alles", () => {
+test("the global default merges thinking text and tool calls into one group without result, full details show everything", () => {
   const messages: Message[] = [
-    { key: "thinking", role: "thinking", text: "Interner Denktext", closed: true },
-    { key: "tool", role: "tool", text: "bash", tool: { id: "call", name: "bash", arguments: "{}", result: "Ergebnisdaten" } },
-    { key: "answer", role: "assistant", text: "Sichtbare Antwort" },
+    { key: "thinking", role: "thinking", text: "Internal thinking text", closed: true },
+    { key: "tool", role: "tool", text: "bash", tool: { id: "call", name: "bash", arguments: "{}", result: "Result data" } },
+    { key: "answer", role: "assistant", text: "Visible answer" },
   ];
   assert.equal(overseerChatDisplayPolicy.modes.coordinator, "grouped");
   const grouped = renderToStaticMarkup(createElement(ChatMessages, {
     messages, detailMode: overseerChatDisplayPolicy.modes.coordinator,
   }));
-  assert.ok(grouped.includes("Sichtbare Antwort"));
-  assert.ok(grouped.includes("2 Schritte"));
-  assert.ok(!grouped.includes("Ergebnisdaten"));
+  assert.ok(grouped.includes("Visible answer"));
+  assert.ok(grouped.includes("2 steps"));
+  assert.ok(!grouped.includes("Result data"));
   const shown = renderToStaticMarkup(createElement(ChatMessages, { messages, detailMode: "full" }));
-  assert.ok(shown.includes("Interner Denktext"));
+  assert.ok(shown.includes("Internal thinking text"));
   assert.ok(shown.includes("bash"));
-  assert.ok(shown.includes("Ergebnisdaten"));
+  assert.ok(shown.includes("Result data"));
 });

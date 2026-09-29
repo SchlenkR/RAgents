@@ -47,7 +47,7 @@ export function createQuickAnswers() {
       if (!state || typeof state !== "object" || !("kind" in state) || state.kind !== "quick-answer") return;
       if (!event.journal || !event.journal.eventId?.trim() || !event.journal.conversationId?.trim()
         || !Number.isSafeInteger(event.journal.sequence) || event.journal.sequence <= 0) {
-        throw new Error("Die Journalposition der Kurzantwort ist ungültig.");
+        throw new Error("The journal position of the quick answer is invalid.");
       }
       if (conversationId != null && conversationId !== event.journal.conversationId) return;
       conversationId = event.journal.conversationId;
@@ -55,7 +55,7 @@ export function createQuickAnswers() {
       if (replaying && !initialized) { replaySequence = event.journal.sequence; return; }
       const question = "question" in state ? state.question : undefined;
       const text = "text" in state ? state.text : undefined;
-      if (!validText(question) || !validText(text)) throw new Error("Die Kurzfrage oder Kurzantwort ist ungültig.");
+      if (!validText(question) || !validText(text)) throw new Error("The quick question or quick answer is invalid.");
       const notice = { id: event.journal.eventId, question, text };
       if (replaying) { replaySequence = event.journal.sequence; pending = notice; }
       else { seenSequence = event.journal.sequence; return notice; }

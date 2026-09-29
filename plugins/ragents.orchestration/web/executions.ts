@@ -39,7 +39,7 @@ export const executionEventsFrom = (value: unknown, runId: string): readonly Jou
     if (entry.type === "turn.finished") return typeof payload.turnId !== "string" || !["completed", "failed"].includes(String(payload.outcome));
     if (entry.type === "turn.interrupted") return typeof payload.turnId !== "string" || typeof payload.reason !== "string";
     return false;
-  })) throw new Error("Der Server hat kein gültiges Journal für diesen Run geliefert.");
+  })) throw new Error("The server did not deliver a valid journal for this run.");
   return value as JournalEvent[];
 };
 
@@ -100,24 +100,24 @@ export const projectExecutions = (events: readonly JournalEvent[], view?: Pick<R
       execution.status = "interrupted";
       execution.finishedAt = ended?.at ?? turn?.finishedAt ?? null;
     }
-    if (execution.status === "interrupted") execution.error = ended?.reason ?? turn?.reason ?? "Der Aufruf wurde unterbrochen.";
+    if (execution.status === "interrupted") execution.error = ended?.reason ?? turn?.reason ?? "The call was interrupted.";
   }
   return [...executions.values()].sort((left, right) => right.sequence - left.sequence);
 };
 
-export const executionStatusLabel = (status: ExecutionStatus): string => ({ running: "Läuft", completed: "Fertig", failed: "Fehlgeschlagen", interrupted: "Unterbrochen" })[status];
+export const executionStatusLabel = (status: ExecutionStatus): string => ({ running: "Running", completed: "Completed", failed: "Failed", interrupted: "Interrupted" })[status];
 
 export const filterExecutions = (executions: readonly TypeScriptExecution[], query: string, status: ExecutionStatus | "all"): TypeScriptExecution[] => {
-  const search = query.trim().toLocaleLowerCase("de-DE");
+  const search = query.trim().toLocaleLowerCase("en-US");
   return executions.filter((execution) => (status === "all" || execution.status === status) && (!search || [
     execution.actorId, execution.actorHandle, execution.actorName, execution.code, execution.path,
     JSON.stringify(execution.result), ...execution.logs, execution.error, executionStatusLabel(execution.status),
-  ].join("\n").toLocaleLowerCase("de-DE").includes(search)));
+  ].join("\n").toLocaleLowerCase("en-US").includes(search)));
 };
 
 export const executionDuration = (execution: Pick<TypeScriptExecution, "startedAt" | "finishedAt">, now: number): string => {
   const milliseconds = Math.max(0, (execution.finishedAt ? Date.parse(execution.finishedAt) : now) - Date.parse(execution.startedAt));
-  if (!Number.isFinite(milliseconds)) return "Dauer unbekannt";
+  if (!Number.isFinite(milliseconds)) return "Duration unknown";
   if (milliseconds < 1_000) return `${milliseconds} ms`;
   const seconds = Math.floor(milliseconds / 1_000);
   return seconds < 60 ? `${seconds} s` : `${Math.floor(seconds / 60)} min ${seconds % 60} s`;

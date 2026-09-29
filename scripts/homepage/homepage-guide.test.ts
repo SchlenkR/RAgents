@@ -16,7 +16,7 @@ import {
 
 const repoRoot = path.resolve(import.meta.dirname, "../..");
 
-test("Guide beginnt mit Grundideen und hält Navigation und Inhalt auf kurzen Wegen erreichbar", async () => {
+test("guide starts with core ideas and keeps navigation and content within short reach", async () => {
   const guide = await buildHomepageGuide(repoRoot);
   assert.equal(guide.chapters[0].id, "ideas");
   const chapter = guide.chapters[0];
@@ -30,85 +30,85 @@ test("Guide beginnt mit Grundideen und hält Navigation und Inhalt auf kurzen We
   for (const href of ["guide-ideas.html", "guide-getting-started.html", "guide-functions.html", "guide-plugins.html"]) assert.ok(index.includes(`href="${href}"`), href);
 });
 
-test("Guide-Auszüge übernehmen nur die markierten öffentlichen Abschnitte unverändert", () => {
-  const first = "## Funktionen\n\nEine **öffentliche** Beschreibung.\n\n- Eintrag mit `Code`";
-  const second = "## Ausführung\n\n```typescript\nreturn await context.functions.read({ path: input.path });\n```";
+test("guide excerpts take over only the marked public sections unchanged", () => {
+  const first = "## Functions\n\nA **public** description.\n\n- Entry with `code`";
+  const second = "## Execution\n\n```typescript\nreturn await context.functions.read({ path: input.path });\n```";
   const source = [
-    "# Interner Betrieb", "Privat: plugins/private.product unter /Users/example/workspace.",
+    "# Internal operations", "Private: plugins/private.product under /Users/example/workspace.",
     "<!-- guide:functions -->", first, "<!-- /guide:functions -->",
-    "Weitere interne Daten: PRIVATE_MODEL_API_KEY.",
-    "<!-- guide:access -->", "## Rechte\n\nEin anderes öffentliches Kapitel.", "<!-- /guide:access -->",
+    "More internal data: PRIVATE_MODEL_API_KEY.",
+    "<!-- guide:access -->", "## Permissions\n\nAnother public chapter.", "<!-- /guide:access -->",
     "<!-- guide:functions -->", second, "<!-- /guide:functions -->",
-    "Privater Nachtrag: /private/workspace.",
+    "Private addendum: /private/workspace.",
   ].join("\n");
   assert.equal(guideExcerpt(source, "functions"), `${first}\n\n${second}\n`);
-  assert.equal(guideExcerpt(source, "access"), "## Rechte\n\nEin anderes öffentliches Kapitel.\n");
+  assert.equal(guideExcerpt(source, "access"), "## Permissions\n\nAnother public chapter.\n");
 });
 
-test("Guide-Marker innerhalb von Codeblöcken bleiben Code und eröffnen keine Abschnitte", () => {
+test("guide markers inside code blocks stay code and open no sections", () => {
   for (const fence of ["```", "~~~~"]) {
     const code = `${fence}markdown\n<!-- guide:access -->\n<!-- /guide:access -->\n${fence}`;
-    const source = `${code}\n<!-- guide:functions -->\n## Beispiel\n\n${code}\n<!-- /guide:functions -->`;
-    assert.equal(guideExcerpt(source, "functions"), `## Beispiel\n\n${code}\n`);
+    const source = `${code}\n<!-- guide:functions -->\n## Example\n\n${code}\n<!-- /guide:functions -->`;
+    assert.equal(guideExcerpt(source, "functions"), `## Example\n\n${code}\n`);
     assert.throws(() => guideExcerpt(code, "access"), /Missing guide section/);
   }
 });
 
-test("Guide-Auszüge lehnen fehlende, leere, verschachtelte und nicht geschlossene Abschnitte ab", () => {
+test("guide excerpts reject missing, empty, nested, and unclosed sections", () => {
   for (const [source, message] of [
-    ["## Ohne Marker", /Missing guide section/],
+    ["## Without marker", /Missing guide section/],
     ["<!-- guide:functions -->\n \n<!-- /guide:functions -->", /Empty guide section/],
     ["<!-- guide:functions -->\n<!-- guide:access -->", /Nested guide sections/],
-    ["<!-- guide:functions -->\n## Noch offen", /Unclosed guide section/],
-    ["<!-- guide:functions -->\n## Falsches Ende\n<!-- /guide:access -->", /Mismatched guide section end/],
+    ["<!-- guide:functions -->\n## Still open", /Unclosed guide section/],
+    ["<!-- guide:functions -->\n## Wrong end\n<!-- /guide:access -->", /Mismatched guide section end/],
     ["<!-- /guide:functions -->", /Mismatched guide section end/],
-    ["<!-- guide:unknown -->\n## Unbekannt\n<!-- /guide:unknown -->", /Unknown guide chapter/],
+    ["<!-- guide:unknown -->\n## Unknown\n<!-- /guide:unknown -->", /Unknown guide chapter/],
   ] as const) assert.throws(() => guideExcerpt(source, "functions"), message);
 });
 
-test("Private Namen, Pfade und Konfigurationsverweise dürfen nicht im veröffentlichten Auszug stehen", () => {
+test("private names, paths, and configuration references must not appear in the published excerpt", () => {
   for (const privateContent of ["plugins/private.product", "/Users/example/project", "/private/workspace", "/tmp/session", "PRIVATE_MODEL_API_KEY"]) {
-    const source = `<!-- guide:functions -->\n## Beispiel\n\n${privateContent}\n<!-- /guide:functions -->`;
-    assert.throws(() => guideExcerpt(source, "functions"), /privaten Namen, lokalen Pfad oder Konfigurationsverweis/);
+    const source = `<!-- guide:functions -->\n## Example\n\n${privateContent}\n<!-- /guide:functions -->`;
+    assert.throws(() => guideExcerpt(source, "functions"), /private name, local path, or configuration reference/);
   }
 });
 
-test("Guide-Markdown rendert GFM-Tabellen, Code und eindeutige verlinkbare Überschriften", () => {
+test("guide Markdown renders GFM tables, code, and unique linkable headings", () => {
   const markdown = [
-    "## Kurze `API`", "", "Ein **wichtiger** Begriff und ~~alter Text~~.", "",
-    "| Name | Zweck |", "| --- | --- |", "| `read` | Lesen |", "",
+    "## Short `API`", "", "An **important** term and ~~old text~~.", "",
+    "| Name | Purpose |", "| --- | --- |", "| `read` | Read |", "",
     "```typescript", 'const value = "<script>";', "```", "",
-    "### Details", "", "## Kurze `API`", "", "## Grüße & Zugriff",
+    "### Details", "", "## Short `API`", "", "## Grüße & access",
   ].join("\n");
   const { html, headings } = renderGuideMarkdown(markdown, "docs/spec/typescript-platform.md");
   assert.deepEqual(headings, [
-    { id: "kurze-api", title: "Kurze API" },
-    { id: "kurze-api-1", title: "Kurze API" },
-    { id: "grüße-zugriff", title: "Grüße & Zugriff" },
+    { id: "short-api", title: "Short API" },
+    { id: "short-api-1", title: "Short API" },
+    { id: "grüße-access", title: "Grüße & access" },
   ]);
-  assert.match(html, /<h2 id="kurze-api">Kurze <code>API<\/code><\/h2>/);
+  assert.match(html, /<h2 id="short-api">Short <code>API<\/code><\/h2>/);
   assert.match(html, /<h3 id="details">Details<\/h3>/);
-  assert.match(html, /<h2 id="kurze-api-1">/);
+  assert.match(html, /<h2 id="short-api-1">/);
   assert.match(html, /<table>[\s\S]*<th>Name<\/th>[\s\S]*<td><code>read<\/code><\/td>/);
-  assert.match(html, /<strong>wichtiger<\/strong>/);
-  assert.match(html, /<del>alter Text<\/del>/);
+  assert.match(html, /<strong>important<\/strong>/);
+  assert.match(html, /<del>old text<\/del>/);
   assert.match(html, /<pre><code class="language-typescript">const value = &quot;&lt;script&gt;&quot;;/);
   assert.doesNotMatch(html, /<script>/);
 });
 
-test("Guide-Links und Bilder werden relativ zur Quelldatei auf den Ausgabeordner bezogen", () => {
+test("guide links and images are resolved relative to the source file against the output folder", () => {
   const markdown = [
-    "## Verweise", "",
-    "[Plugin](plugins.md#funktionen)",
-    "[Betrieb](../operations.md?mode=core#start)",
-    "[Referenz](../homepage/reference.html#tools)",
-    "![Schema](../images/process.svg)",
-    "[Abschnitt](#verweise)",
-    "[Extern](https://example.org/docs?q=guide#start)",
-    "[Kontakt](mailto:hello@example.org)",
+    "## Links", "",
+    "[Plugin](plugins.md#functions)",
+    "[Operations](../operations.md?mode=core#start)",
+    "[Reference](../homepage/reference.html#tools)",
+    "![Diagram](../images/process.svg)",
+    "[Section](#links)",
+    "[External](https://example.org/docs?q=guide#start)",
+    "[Contact](mailto:hello@example.org)",
   ].join("\n");
   const { html } = renderGuideMarkdown(markdown, "docs/spec/core.md");
-  for (const href of ["../spec/plugins.md#funktionen", "../operations.md?mode=core#start", "reference.html#tools", "#verweise", "https://example.org/docs?q=guide#start", "mailto:hello@example.org"]) {
+  for (const href of ["../spec/plugins.md#functions", "../operations.md?mode=core#start", "reference.html#tools", "#links", "https://example.org/docs?q=guide#start", "mailto:hello@example.org"]) {
     assert.ok(html.includes(`href="${href}"`), href);
   }
   assert.match(html, /src="\.\.\/images\/process.svg"/);
@@ -116,15 +116,15 @@ test("Guide-Links und Bilder werden relativ zur Quelldatei auf den Ausgabeordner
   assert.match(rootDocument.html, /href="\.\.\/spec\/core.md"/);
 });
 
-test("Guide-Markdown lehnt rohe HTML-Ausgabe, Hauptüberschriften und nicht unterstützte Linkprotokolle ab", () => {
-  assert.throws(() => renderGuideMarkdown("# Doppelte Hauptüberschrift", "docs/spec/core.md"), /heading level 2/);
-  assert.throws(() => renderGuideMarkdown("<div>Eigene Oberfläche</div>", "docs/spec/core.md"), /Express guide content as Markdown/);
+test("guide Markdown rejects raw HTML output, top-level headings, and unsupported link protocols", () => {
+  assert.throws(() => renderGuideMarkdown("# Duplicate top-level heading", "docs/spec/core.md"), /heading level 2/);
+  assert.throws(() => renderGuideMarkdown("<div>Custom interface</div>", "docs/spec/core.md"), /Express guide content as Markdown/);
   for (const target of ["javascript:alert", "file:///secret", "/absolute/path", "//example.org/path", "data:text/plain,hello"]) {
     assert.throws(() => renderGuideMarkdown(`[Link](${target})`, "docs/spec/core.md"), /Invalid guide link/);
   }
 });
 
-test("Der echte Guide übernimmt die markierte Spec und erklärt Funktionsmetadaten, TypeScript und Subagenten", async () => {
+test("the real guide takes over the marked spec and explains function metadata, TypeScript, and subagents", async () => {
   const guide = await buildHomepageGuide(repoRoot);
   assert.deepEqual(guide.chapters.map((chapter) => chapter.id), guideChapters.map((chapter) => chapter.id));
   for (const chapter of guide.chapters) {
@@ -148,7 +148,7 @@ test("Der echte Guide übernimmt die markierte Spec und erklärt Funktionsmetada
   }
 });
 
-test("Quelländerungen erreichen HTML und Markdown mit gültigen Links und unveränderten Codebeispielen", async () => {
+test("source changes reach HTML and Markdown with valid links and unchanged code examples", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "ragents-guide-source-"));
   try {
     for (const source of guideChapters.flatMap((chapter) => chapter.sources)) {
@@ -156,18 +156,18 @@ test("Quelländerungen erreichen HTML und Markdown mit gültigen Links und unver
       await mkdir(path.dirname(file), { recursive: true });
       await writeFile(file, await readFile(path.join(repoRoot, source), "utf8"));
     }
-    const content = "## Aktuelle Anleitung\n\nNeue Erklärung mit [Zugriff][access].\n\n[access]: homepage/guide-access.html\n\n`[Beispiel](unchanged.md)`\n\n```md\n[Beispiel](unchanged.md)\n```";
+    const content = "## Current guide\n\nNew explanation with [access][access].\n\n[access]: homepage/guide-access.html\n\n`[Example](unchanged.md)`\n\n```md\n[Example](unchanged.md)\n```";
     for (const source of ["docs/operations.md", "docs/usage.md"]) {
       const chapterIds = guideChapters.filter((entry) => (entry.sources as readonly string[]).includes(source)).map((entry) => entry.id);
-      await writeFile(path.join(root, source), `Privater Vorspann: intern\n${chapterIds.map((id) => `<!-- guide:${id} -->\n${content}\n<!-- /guide:${id} -->`).join("\n")}`);
+      await writeFile(path.join(root, source), `Private preamble: internal\n${chapterIds.map((id) => `<!-- guide:${id} -->\n${content}\n<!-- /guide:${id} -->`).join("\n")}`);
     }
     const { chapters } = await buildHomepageGuide(root);
     const chapter = chapters.find(entry => entry.id === "getting-started")!;
-    assert.match(chapter.html, /Neue Erklärung mit <a href="guide-access.html">Zugriff<\/a>/);
+    assert.match(chapter.html, /New explanation with <a href="guide-access.html">access<\/a>/);
     assert.match(chapter.markdown, /\[access\]: guide-access.html/);
-    assert.match(chapter.markdown, /`\[Beispiel\]\(unchanged.md\)`/);
-    assert.match(chapter.markdown, /```md\n\[Beispiel\]\(unchanged.md\)\n```/);
-    assert.doesNotMatch(chapter.markdown, /Privater Vorspann/);
+    assert.match(chapter.markdown, /`\[Example\]\(unchanged.md\)`/);
+    assert.match(chapter.markdown, /```md\n\[Example\]\(unchanged.md\)\n```/);
+    assert.doesNotMatch(chapter.markdown, /Private preamble/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

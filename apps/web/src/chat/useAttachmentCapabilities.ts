@@ -7,7 +7,7 @@ import type { RpcClient } from "../rpc/client";
 export async function getAttachmentCapabilities(runId: string, actor = "primary", signal?: AbortSignal, client: RpcClient = rpc): Promise<ChatAttachmentCapabilities> {
   const result = await client.call(coreContracts.chat.capabilities, { runId, actor }, { signal });
   if (typeof result.model !== "string" || !Array.isArray(result.input) || !result.input.every((entry) => typeof entry === "string")) {
-    throw new Error("Ungültige Angaben zur Unterstützung für Anhänge");
+    throw new Error("Invalid attachment support information");
   }
   return { model: result.model, input: result.input };
 }
@@ -29,7 +29,7 @@ export function useAttachmentCapabilities(runId: string, actor = "primary", revi
   }, [active, actor, key, runId]);
   return {
     attachmentCapabilities: result?.key === key ? result.capabilities : undefined,
-    attachmentCapabilitiesError: result?.key === key ? result.error : active ? "Anhänge werden geprüft ..." : undefined,
+    attachmentCapabilitiesError: result?.key === key ? result.error : active ? "Checking attachments ..." : undefined,
     onAttachmentsChange: setActive,
   };
 }

@@ -82,7 +82,7 @@ const failChildTurn = (
         { actorId: childId, commandId: `child-finish-${suffix}`, turnId: turn.id },
         runId,
         childId,
-        { turnId: turn.id, outcome: "failed", reason: "Kaputt gegangen." },
+        { turnId: turn.id, outcome: "failed", reason: "Broke down." },
     );
 };
 
@@ -94,11 +94,11 @@ test("a failed child turn is delivered to its creator without any subscription",
         failChildTurn(context.runtime, context.runId, context.child.id, context.runtime.state(context.runId).ownerId, "one");
         const inputs = context.runtime.view(context.runId).inputs;
         const alert = inputs.find((entry) =>
-            entry.actorId === context.parent.id && entry.content.includes("Automatische Meldung"));
+            entry.actorId === context.parent.id && entry.content.includes("Automatic notice"));
 
         assert.ok(alert, "the creator did not receive an alert input");
         assert.match(alert.content, /@child/);
-        assert.match(alert.content, /GESCHEITERT: Kaputt gegangen\./);
+        assert.match(alert.content, /FAILED: Broke down\./);
         assert.equal(alert.subscriptionId, null);
         assert.equal(alert.sourceEventIds.length, 1);
         assert.equal(inputs.length, before + 2);
@@ -146,7 +146,7 @@ test("an explicit matching subscription suppresses the duplicate creator alert",
         );
         failChildTurn(context.runtime, context.runId, context.child.id, context.runtime.state(context.runId).ownerId, "two");
         const inputs = context.runtime.view(context.runId).inputs.filter((entry) => entry.actorId === context.parent.id);
-        const alerts = inputs.filter((entry) => entry.content.includes("Automatische Meldung"));
+        const alerts = inputs.filter((entry) => entry.content.includes("Automatic notice"));
         const deliveries = inputs.filter((entry) => entry.subscriptionId !== null);
 
         assert.equal(alerts.length, 0);
@@ -177,7 +177,7 @@ test("a failing agent created by the human owner alerts nobody", () => {
         const worker = view.actors.find((entry) => entry.handle === "worker");
         assert.ok(worker);
         failChildTurn(runtime, view.id, worker.id, view.ownerId, "owner");
-        const alerts = runtime.view(view.id).inputs.filter((entry) => entry.content.includes("Automatische Meldung"));
+        const alerts = runtime.view(view.id).inputs.filter((entry) => entry.content.includes("Automatic notice"));
 
         assert.equal(alerts.length, 0);
     } finally {
@@ -243,7 +243,7 @@ const lineage = () => {
 };
 
 const alertsFor = (runtime: Orchestration, runId: string, actorId: string) =>
-    runtime.view(runId).inputs.filter((entry) => entry.actorId === actorId && entry.content.includes("Automatische Meldung"));
+    runtime.view(runId).inputs.filter((entry) => entry.actorId === actorId && entry.content.includes("Automatic notice"));
 
 test("an interruption without a stop alerts the creator of the actor whose turn it ended", () => {
     const context = lineage();
@@ -255,12 +255,12 @@ test("an interruption without a stop alerts the creator of the actor whose turn 
             { actorId: context.ownerId, commandId: "owner-interrupts-helper" },
             context.runId,
             context.helper.id,
-            { turnId: helperTurn.id, reason: "Die Zeitgrenze ist abgelaufen." },
+            { turnId: helperTurn.id, reason: "The time limit expired." },
         );
         const alerts = alertsFor(context.runtime, context.runId, context.worker.id);
 
         assert.equal(alerts.length, 1);
-        assert.match(alerts[0]!.content, /@helper wurde unterbrochen: Die Zeitgrenze ist abgelaufen\./);
+        assert.match(alerts[0]!.content, /@helper was interrupted: The time limit expired\./);
         assert.equal(alertsFor(context.runtime, context.runId, context.coordinator.id).length, 0);
     } finally {
         context.journal.close();
@@ -275,7 +275,7 @@ test("a deliberate stop alerts nobody, whoever stops, so a stopped branch wakes 
             { actorId: context.worker.id, commandId: "worker-stops-helper", turnId: context.workerTurn },
             context.runId,
             context.helper.id,
-            "Erledigt.",
+            "Done.",
         );
 
         assert.equal(alertsFor(context.runtime, context.runId, context.worker.id).length, 0);
@@ -285,7 +285,7 @@ test("a deliberate stop alerts nobody, whoever stops, so a stopped branch wakes 
             { actorId: context.ownerId, commandId: "owner-stops-worker" },
             context.runId,
             context.worker.id,
-            "Der Bediener hält an.",
+            "The operator halts.",
         );
 
         assert.equal(alertsFor(context.runtime, context.runId, context.coordinator.id).length, 0);
@@ -315,7 +315,7 @@ test("a subscription on an actor sees its interruption and stop, whoever stops i
             { actorId: context.ownerId, commandId: "owner-stops-worker" },
             context.runId,
             context.worker.id,
-            "Der Bediener hält an.",
+            "The operator halts.",
         );
         const events = context.runtime.events(context.runId);
         const deliveries = context.runtime.view(context.runId).inputs
@@ -346,7 +346,7 @@ test("a subscription excludes the interruption of its own subscriber's turn with
             { actorId: context.ownerId, commandId: "owner-interrupts-worker" },
             context.runId,
             context.worker.id,
-            { turnId: context.workerTurn, reason: "Die Zeitgrenze ist abgelaufen." },
+            { turnId: context.workerTurn, reason: "The time limit expired." },
         );
 
         assert.equal(context.runtime.view(context.runId).inputs.filter((entry) => entry.subscriptionId === subscription.id).length, 0);

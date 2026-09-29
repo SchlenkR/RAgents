@@ -76,7 +76,7 @@ const RunFilesContext = createContext<RunFilesState | undefined>(undefined);
 
 const useRunFilesContext = (): RunFilesState => {
   const state = useContext(RunFilesContext);
-  if (!state) throw new Error("Dokumente-Plugin ist nicht aktiv");
+  if (!state) throw new Error("Documents plugin is not active");
   return state;
 };
 
@@ -118,9 +118,9 @@ function DocumentsSessionProvider({ children, session }: SessionProviderProps) {
 const resultSection = (runId: string, view: RunView): DocumentSection => {
   const handles = new Map(view.actors.map((actor) => [actor.id, actor.handle]));
   return {
-    id: "ergebnisse",
-    label: "Ergebnisse",
-    kind: "ergebnisse",
+    id: "results",
+    label: "Results",
+    kind: "results",
     documents: view.artifacts.map((artifact) => {
       const handle = handles.get(artifact.createdBy);
       return {
@@ -157,16 +157,16 @@ const sectionsFrom = (
 
   const sections: DocumentSection[] = [
     ...(listing?.groups ?? []).map((group) => ({
-      id: `ablage/${group.directory}`,
+      id: `store/${group.directory}`,
       label: group.directory,
-      kind: "ablage" as const,
+      kind: "store" as const,
       documents: group.files.map((entry) => fileDocument(group.directory, entry)),
     })),
     ...(listing && listing.loose.length > 0
       ? [{
-          id: "ablage",
-          label: "Ablage",
-          kind: "ablage" as const,
+          id: "store",
+          label: "Store",
+          kind: "store" as const,
           documents: listing.loose.map((entry) => fileDocument(undefined, entry)),
         }]
       : []),
@@ -177,7 +177,7 @@ const sectionsFrom = (
     ...documentsFromMessages(documentMessages),
     ...pathDocumentsFromMessages(documentMessages, routePrefix, session.session.id),
   ];
-  if (chat.length > 0) sections.push({ id: "chat", label: "Im Chat gezeigt", kind: "chat", documents: chat });
+  if (chat.length > 0) sections.push({ id: "chat", label: "Shown in chat", kind: "chat", documents: chat });
   return { sections, truncated: listing?.truncated ?? false };
 };
 
@@ -250,7 +250,7 @@ const configuredPlugin = (descriptor: WebPluginDescriptor, routePrefix: string):
     SessionProvider: DocumentsSessionProvider,
     workspaceTabs: [{
       id: DOCUMENTS_TAB_ID,
-      label: "Dokumente",
+      label: "Documents",
       order: 200,
       Icon: IconDocument,
       Panel: DocumentsPanelContribution,

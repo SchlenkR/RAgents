@@ -3,7 +3,7 @@ import type { PanelPageProps } from "./page-props";
 import { RunsPage } from "./RunsPage";
 import { StartPage } from "./StartPage";
 
-/** Das Panel ohne geöffneten Run: Start, Runs oder Server; der Run selbst liegt im Run-Panel. */
+/** The panel without an open run: Start, Runs, or Server; the run itself lives in the run panel. */
 export function PanelPage(props: PanelPageProps) {
   const page = props.state.page;
   return <main className="h-full overflow-y-auto p-3">

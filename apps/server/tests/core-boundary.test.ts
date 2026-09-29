@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { hostRoot } from "../src/host-version.ts";
 
-/** Der Kern kennt kein Plugin und keinen Sprachserver (docs/spec/plugins.md, Core boundary); plugin-support sind geteilte Bausteine der Plugins. */
+/** The core knows no plugin and no language server (docs/spec/plugins.md, Core boundary); plugin-support holds shared building blocks of the plugins. */
 const CORE = ["packages/workspace-executor/src", "packages/ragents/src", "apps/server/src", "apps/vscode/src", "apps/web/src"];
 const OUTSIDE_CORE = ["apps/server/src/plugin-support"];
 
@@ -14,7 +14,7 @@ const LANGUAGE_SERVERS = [
   "jdtls", "gopls", "rust-analyzer", "pyright", "pylsp", "clangd",
 ];
 
-/** Was schon vor dieser Prüfung im Kern stand; ein Eintrag verschwindet, sobald die Stelle bereinigt ist (TODO.md). */
+/** What was already in the core before this check; an entry disappears as soon as the spot is cleaned up (TODO.md). */
 const BASELINE = [
   "apps/vscode/src/extension.ts: ragents.profile-distribution",
   "apps/vscode/src/extension.ts: ragents.workspace",
@@ -27,7 +27,7 @@ const pluginIds = (root: string): readonly string[] => readdirSync(path.join(roo
 
 const escaped = (name: string): string => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** Ein Name zählt nur ganz: ragents.product-runtime nennt ragents.product nicht, ragents.workspace.binding nennt ragents.workspace. */
+/** A name counts only as a whole: ragents.product-runtime does not name ragents.product, ragents.workspace.binding names ragents.workspace. */
 const forbiddenNames = (names: readonly string[]): RegExp =>
   new RegExp(`(?<![\\w.-])(${names.map(escaped).join("|")})(?![\\w-])`, "gi");
 
@@ -46,24 +46,24 @@ const findings = (root: string): readonly string[] => {
   return [...new Set(found)].sort();
 };
 
-test("der Kern nennt keine Plugin-Kennung und keinen Sprachserver; nur die eingefrorenen Altlasten bleiben, bis sie bereinigt sind", () => {
+test("the core names no plugin id and no language server; only the frozen legacy spots remain until they are cleaned up", () => {
   const found = findings(hostRoot());
   assert.deepEqual(found.filter((entry) => !BASELINE.includes(entry)), [],
-    "Neues Wissen über ein Plugin oder einen Sprachserver im Kern; es gehört ins Plugin, sein Bundle oder einen Beitrag zum Executor");
+    "New knowledge about a plugin or a language server in the core; it belongs in the plugin, its bundle or an executor contribution");
   assert.deepEqual(BASELINE.filter((entry) => !found.includes(entry)), [],
-    "Eine eingefrorene Stelle ist bereinigt; sie gehört aus BASELINE und aus TODO.md");
+    "A frozen spot is cleaned up; remove it from BASELINE and from TODO.md");
 });
 
-test("die Prüfung erkennt Kennungen und Sprachserver nur als ganze Namen", () => {
+test("the check recognizes ids and language servers only as whole names", () => {
   const pattern = forbiddenNames(["ragents.product", "ragents.lsp-roslyn", ...LANGUAGE_SERVERS]);
   const names = (text: string): readonly string[] => [...text.matchAll(pattern)].map((match) => match[1]!);
   assert.deepEqual(names(`import x from "../../plugins/ragents.lsp-roslyn/executor";`), ["ragents.lsp-roslyn"]);
-  assert.deepEqual(names(`"ragents.product.start" und "ragents.product-runtime" und "acme.ragents.product"`), ["ragents.product"]);
-  assert.deepEqual(names("startet Roslyn, JDTLS oder typescript-language-server"), ["Roslyn", "JDTLS", "typescript-language-server"]);
+  assert.deepEqual(names(`"ragents.product.start" and "ragents.product-runtime" and "acme.ragents.product"`), ["ragents.product"]);
+  assert.deepEqual(names("starts Roslyn, JDTLS or typescript-language-server"), ["Roslyn", "JDTLS", "typescript-language-server"]);
   assert.deepEqual(names("roslynish, fsac-extra, my-gopls"), []);
 });
 
-test("ein neues Plugin fällt der Prüfung sofort auf, im Kern ja, in den Bausteinen unter plugin-support nicht", () => {
+test("the check notices a new plugin at once, in the core yes, in the building blocks under plugin-support no", () => {
   const root = mkdtempSync(path.join(tmpdir(), "ragents-core-boundary-"));
   try {
     for (const folder of CORE) mkdirSync(path.join(root, folder), { recursive: true });

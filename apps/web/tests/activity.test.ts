@@ -5,14 +5,14 @@ import { activeActivity, activitySourceFrom, elapsedLabel } from "../../../plugi
 const at = (seconds: number) => `2026-01-01T00:00:0${seconds}.000Z`;
 const tool = (id: string, name = "bash", seconds = 1, status = "running") => ({ id, name, startedAt: at(seconds), finishedAt: status === "running" ? null : at(9), status });
 const turn = (id: string, actorId = "primary", toolCalls: unknown[] = [], status = "running") => ({ id, actorId, status, startedAt: at(0), finishedAt: status === "running" ? null : at(9), toolCalls });
-const view = (turns: unknown[]) => ({ primaryActorId: "primary", actors: [{ id: "primary", handle: "moderator" }, { id: "worker", handle: "checker", displayName: "Prüfer" }], turns });
+const view = (turns: unknown[]) => ({ primaryActorId: "primary", actors: [{ id: "primary", handle: "moderator" }, { id: "worker", handle: "checker", displayName: "Reviewer" }], turns });
 const state = (turns: unknown[]) => activeActivity(activitySourceFrom(view(turns)));
 const toolId = (turnId: string, callId: string) => `tool:${JSON.stringify([turnId, callId])}`;
 
 test("running tools are projected for primary and secondary actors with their identity", () => {
   assert.deepEqual(state([turn("a", "primary", [tool("read", "read")]), turn("b", "worker", [tool("check", "actor_program_diagnostics")])]).entries, [
     { id: toolId("a", "read"), kind: "tool", label: "read", startedAt: at(1) },
-    { id: toolId("b", "check"), kind: "tool", label: "Prüfer: actor_program_diagnostics", startedAt: at(1) },
+    { id: toolId("b", "check"), kind: "tool", label: "Reviewer: actor_program_diagnostics", startedAt: at(1) },
   ]);
 });
 
@@ -30,7 +30,7 @@ test("the actor turn is represented by its running tools and returns when they f
   assert.equal(running.entries.length, 1);
   assert.equal(running.entries[0]?.kind, "tool");
   const finished = state([turn("a", "worker", [tool("call", "bash", 1, "completed")])]);
-  assert.deepEqual(finished.entries, [{ id: "turn:a", kind: "turn", label: "Prüfer", startedAt: at(0) }]);
+  assert.deepEqual(finished.entries, [{ id: "turn:a", kind: "turn", label: "Reviewer", startedAt: at(0) }]);
 });
 
 test("call ids belong to their turn and are never merged between agents or reused turns", () => {
@@ -68,5 +68,5 @@ test("elapsed time handles seconds, minutes, hours and absent timestamps", () =>
   assert.equal(elapsedLabel(start, now(3720)), "1h 2m");
   assert.equal(elapsedLabel(start, now(-5)), "0s");
   assert.equal(elapsedLabel(undefined, now(5)), undefined);
-  assert.equal(elapsedLabel("kein Zeitpunkt", now(5)), undefined);
+  assert.equal(elapsedLabel("no point in time", now(5)), undefined);
 });

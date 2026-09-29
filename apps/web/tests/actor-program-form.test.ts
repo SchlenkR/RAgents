@@ -6,15 +6,15 @@ import { Form, validateForm } from "../../../apps/web/src/actor-programs/client-
 import type { FormField, FormValues } from "../../../apps/web/src/actor-programs/client-ui/form-contracts.d.ts";
 
 const fields: readonly FormField[] = [
-  { id: "name", type: "text", label: "Name", required: true, hint: "Ein lesbarer Name" },
-  { id: "note", type: "textarea", label: "Notiz", rows: 4 },
-  { id: "count", type: "number", label: "Anzahl", required: true, min: 0, max: 10 },
-  { id: "agreed", type: "checkbox", label: "Bestätigt", required: true },
-  { id: "mode", type: "select", label: "Modus", required: true, options: [{ value: "brief", label: "Kurz" }] },
+  { id: "name", type: "text", label: "Name", required: true, hint: "A readable name" },
+  { id: "note", type: "textarea", label: "Note", rows: 4 },
+  { id: "count", type: "number", label: "Count", required: true, min: 0, max: 10 },
+  { id: "agreed", type: "checkbox", label: "Confirmed", required: true },
+  { id: "mode", type: "select", label: "Mode", required: true, options: [{ value: "brief", label: "Short" }] },
 ];
-const valid = Object.freeze({ name: "Anna", note: "Notiz", count: 0, agreed: true, mode: "brief" });
+const valid = Object.freeze({ name: "Anna", note: "Note", count: 0, agreed: true, mode: "brief" });
 
-test("Form validiert alle Feldarten und bewahrt kontrollierte Werte unverändert", () => {
+test("Form validates all field types and keeps controlled values unchanged", () => {
   assert.deepEqual(validateForm(fields, valid), {});
   const invalid = Object.freeze({ name: "  ", count: -1, agreed: false, mode: "missing" });
   const errors = validateForm(fields, invalid);
@@ -29,26 +29,26 @@ test("Form validiert alle Feldarten und bewahrt kontrollierte Werte unverändert
   assert.match(validateForm(fields, { ...valid, note: true }).note, /Enter text/);
 });
 
-test("optionale leere und deaktivierte Felder blockieren nicht; zusätzliche Validierung löscht keine Pflichtfehler", () => {
+test("optional empty and disabled fields do not block; additional validation clears no required errors", () => {
   assert.deepEqual(validateForm([
     { id: "text", type: "text", label: "Optional" },
     { id: "number", type: "number", label: "Optional" },
-    { id: "disabled", type: "text", label: "Deaktiviert", required: true, disabled: true },
+    { id: "disabled", type: "text", label: "Disabled", required: true, disabled: true },
   ], { text: "", number: null }), {});
   let seen: FormValues | undefined;
   assert.deepEqual(validateForm(fields, valid, (values) => {
     seen = values;
-    return { name: "Bereits vergeben." };
-  }), { name: "Bereits vergeben." });
+    return { name: "Already taken." };
+  }), { name: "Already taken." });
   assert.equal(seen, valid);
   assert.match(validateForm(fields, { ...valid, name: "" }, () => ({ name: "" })).name, /required/);
 });
 
-test("Form rendert verbundene Labels, Hinweise und den vorhandenen SelectMenu; readOnly bietet keine Sendeaktion", () => {
+test("Form renders connected labels, hints and the existing SelectMenu; readOnly offers no submit action", () => {
   const html = renderToStaticMarkup(createElement(Form, {
-    title: "Kontakt", fields, values: valid, onChange: () => {}, onSubmit: async () => {},
+    title: "Contact", fields, values: valid, onChange: () => {}, onSubmit: async () => {},
   }));
-  assert.ok(html.includes('aria-label="Kontakt"'));
+  assert.ok(html.includes('aria-label="Contact"'));
   assert.ok(html.includes('aria-haspopup="listbox"'));
   assert.ok(html.includes('type="number"'));
   assert.ok(html.includes('min="0"'));
@@ -59,7 +59,7 @@ test("Form rendert verbundene Labels, Hinweise und den vorhandenen SelectMenu; r
   const readonly = renderToStaticMarkup(createElement(Form, {
     fields, values: valid, readOnly: true, onChange: () => {}, onSubmit: async () => {},
   }));
-  assert.ok(readonly.includes("Kurz"));
+  assert.ok(readonly.includes("Short"));
   assert.ok(!readonly.includes('aria-haspopup="listbox"'));
   assert.ok(!readonly.includes('type="submit"'));
   assert.ok(readonly.includes('readOnly=""'));

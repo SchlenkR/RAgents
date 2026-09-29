@@ -14,12 +14,12 @@ const run = (command: string, args: readonly string[], cwd: string, env: NodeJS.
 const BROKEN_PLUGIN: Readonly<Record<string, string>> = {
   "ragents-plugin.json": JSON.stringify({ id: "acme.broken" }),
   "server/index.ts": `import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js";
-const count: number = "drei";
+const count: number = "three";
 export const plugin: PluginModule = { create: () => ({ manifest: { id: "acme.broken" }, register: () => { console.log(count); } }) };
 `,
 };
 
-test("aus dem installierten Paket baut ein fremder Autor in einem leeren Ordner sein Plugin samt Typprüfung und startet es mit einem eigenen Profil", { timeout: 600_000 }, async () => {
+test("from the installed package a third-party author builds their plugin in an empty folder including type checking and starts it with an own profile", { timeout: 600_000 }, async () => {
   const directory = isolatedDirectory("ragents-package-plugin-");
   const children: ChildProcess[] = [];
   try {
@@ -42,20 +42,20 @@ test("aus dem installierten Paket baut ein fremder Autor in einem leeren Ordner 
     assert.equal(greeting.code, 0, greeting.output);
     assert.equal(existsSync(path.join(work, "dist/plugins/acme.greeting/ragents-bundle.json")), true, greeting.output);
     const broken = run(ragents, ["plugin", "build", "./acme.broken"], work);
-    assert.equal(broken.code, 1, "die Typprüfung läuft auch im Paket");
+    assert.equal(broken.code, 1, "type checking also runs in the package");
     assert.match(broken.output, /server\/index\.ts:2:7: Type 'string' is not assignable to type 'number'/);
 
     writeFileSync(path.join(work, "ragents.config.greeting.ts"),
       profileSource("greeting", ["ragents.orchestration", "ragents.workspace", "ragents.product", "./dist/plugins/acme.greeting"]));
     const host = spawn(ragents, ["start", "./ragents.config.greeting.ts", "--port", "0"], {
       cwd: work,
-      env: { ...process.env, ACME_MODEL_KEY: "kein-echter-schluessel", DATA_DIR: path.join(directory, "data"), RAGENTS_DEV: "" },
+      env: { ...process.env, ACME_MODEL_KEY: "not-a-real-key", DATA_DIR: path.join(directory, "data"), RAGENTS_DEV: "" },
       stdio: ["ignore", "pipe", "pipe"],
     });
     children.push(host);
     await assertGreetingServed(await announcement(host, []), path.join(packageRoot, "apps/web/dist"));
     for (const entry of ["apps/web/vite.config.ts", "apps/web/index.html"]) {
-      assert.equal(existsSync(path.join(packageRoot, entry)), false, `${entry}: das Paket baut kein Web`);
+      assert.equal(existsSync(path.join(packageRoot, entry)), false, `${entry}: the package builds no web`);
     }
   } finally {
     for (const child of children) await stopChild(child);

@@ -40,17 +40,17 @@ export function ActorShortcut({ actor, view, session, open, onToggle, onClose, v
   }, [onClose]);
 
   const inspect = (selection: FlowSelection) => {
-    if (!surface) throw new Error("Der Actor-Zugang benötigt den Flächen-Controller.");
+    if (!surface) throw new Error("The actor shortcut needs the surface controller.");
     surface.acceptSelection(selection);
     close();
   };
   const tone = actorTone(view, actor);
-  const label = actor.kind === "agent" ? `Chat mit @${actor.handle}` : `Actor-Ansicht von @${actor.handle}`;
-  const type = !technical ? "Agent" : actor.kind === "agent" ? "LLM-Agent" : "TypeScript-Actor";
+  const label = actor.kind === "agent" ? `Chat with @${actor.handle}` : `Actor view of @${actor.handle}`;
+  const type = !technical ? "Agent" : actor.kind === "agent" ? "LLM agent" : "TypeScript actor";
 
   return <div className="flex items-stretch [&[hidden]]:hidden" hidden={!visible}>
     <ToolbarItem as="button" aria-controls={visited ? panelId : undefined} aria-expanded={open} aria-haspopup="dialog"
-      aria-label={`${actor.displayName || actor.handle}. ${type}: ${label} öffnen`} className="font-bold"
+      aria-label={`${actor.displayName || actor.handle}. ${type}: open ${label}`} className="font-bold"
       data-tone={tone} data-staged={staged || undefined} onClick={() => { setVisited(true); onToggle(); }}
       draggable={technical} onDragStart={(event) => {
         if (!technical) { event.preventDefault(); return; }
@@ -58,11 +58,11 @@ export function ActorShortcut({ actor, view, session, open, onToggle, onClose, v
         event.dataTransfer.effectAllowed = "move";
         close();
       }}
-      ref={buttonRef} title={`${type}: ${label} öffnen${technical ? ". Zum Andocken auf eine Kachel ziehen." : ""}`} type="button">
+      ref={buttonRef} title={`${type}: open ${label}${technical ? ". Drag onto a tile to dock." : ""}`} type="button">
       <span className={cn(shortcutIconClass, staged && shortcutFillClass[tone])}>{actor.kind === "agent" ? <UsersIcon size={20} /> : <CodeIcon size={20} />}</span>
       <ToolbarCopy><ToolbarLabel>@{actor.handle}</ToolbarLabel><ToolbarText>{actor.displayName && actor.displayName !== actor.handle ? actor.displayName : type}</ToolbarText></ToolbarCopy>
     </ToolbarItem>
-    {visited && <ActorPopout open={open} id={panelId} label={label} closeLabel={`${label} schließen`}
+    {visited && <ActorPopout open={open} id={panelId} label={label} closeLabel={`Close ${label}`}
       buttonRef={buttonRef} keepMounted onClose={close} width={actor.kind === "agent" ? 784 : 560} height={640} role="dialog">
       <div className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain">
         <FlowInspector actorConversations={session.actorConversations} canGoBack={false} chatDisplay="popout" composerVisible

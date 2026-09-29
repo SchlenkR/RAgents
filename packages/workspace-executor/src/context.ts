@@ -5,15 +5,15 @@ import { inheritedProcessEnvironment, safeProcessEnvironment } from "./safe-envi
 import type { SessionIdent } from "./session-ident.js";
 import type { ResolvedWorkspaceRoot } from "./paths.js";
 
-/** Was ein Executor über einen Run weiß: seine Ordner, seine Umgebung und seine Kennung. */
+/** What an executor knows about a run: its folders, its environment and its id. */
 export interface WorkspaceProcessContext {
   runId: string;
   cwd: string;
   root: string;
   home: string;
-  /** Wohin ein Sprachserver Protokolle und Zwischenstände legen darf; nie das Home eines Entwicklers. */
+  /** Where a language server may put logs and intermediate state; never the home of a developer. */
   logDirectory: string;
-  /** Die Wurzel des Hosts auf dieser Maschine, aus der ein Adapter seinen Sprachserver auflöst; ohne Host bleibt sie offen. */
+  /** The root of the host on this machine from which an adapter resolves its language server; without a host it stays open. */
   hostRoot: string | undefined;
   env: NodeJS.ProcessEnv;
   uid?: number;
@@ -23,11 +23,11 @@ export interface WorkspaceProcessContext {
   workspaceAliases?: Readonly<Record<string, string>>;
   pathVariables?: Readonly<Record<string, string>>;
   runOperation?: <T>(operation: () => Promise<T>) => Promise<T>;
-  /** Die Prozess-Sandbox dieses Runs; fehlt sie, starten Prozesse ohne. */
+  /** The process sandbox of this run; if it is missing, processes start without one. */
   sandbox?: ProcessSandbox;
-  /** Die Bash, mit der das Werkzeug bash startet; unter Windows Pflicht, sonst gilt ohne Angabe die des Systems. */
+  /** The bash the bash tool starts with; required on Windows, otherwise the system's one applies without a value. */
   bash?: string;
-  /** Das rg, dessen Ordner das Werkzeug bash vorn im PATH hat; ohne Angabe gilt eines im PATH, falls es eines gibt. */
+  /** The rg whose folder the bash tool has at the front of PATH; without a value one in PATH applies, if there is one. */
   rg?: string;
 }
 
@@ -36,11 +36,11 @@ export interface SandboxHomeEnvironment {
   nugetPackages?: string;
 }
 
-/** Woraus die Umgebung eines Prozesses entsteht: "safe" nimmt nur die sichere Auswahl (Server), "inherited" alles außer Editor-Variablen und Bash-Startdateien (eigener Rechner). */
+/** What the environment of a process is built from: "safe" takes only the safe selection (server), "inherited" everything except editor variables and bash startup files (own machine). */
 export type BaseEnvironment = "safe" | "inherited";
 
 export interface SandboxEnvironmentOptions {
-  /** Ohne Angabe "safe": wer nichts wählt, gibt nur die sichere Auswahl weiter. */
+  /** Defaults to "safe": whoever chooses nothing passes on only the safe selection. */
   base?: BaseEnvironment;
   home: SandboxHomeEnvironment;
   ident?: { name: string };
@@ -48,7 +48,7 @@ export interface SandboxEnvironmentOptions {
   additions?: Readonly<Record<string, string>>;
 }
 
-/** Die Git-Regeln, die in jeder Sandbox gelten, gleich auf welchem Rechner sie läuft. */
+/** The Git rules that apply in every sandbox, no matter which machine it runs on. */
 export const SANDBOX_GIT_CONFIG: GitConfigPairs = [
   ["branch.autoSetupMerge", "false"],
   ["core.hooksPath", "/dev/null"],
@@ -58,7 +58,7 @@ export const SANDBOX_GIT_CONFIG: GitConfigPairs = [
 const onlyStrings = (env: NodeJS.ProcessEnv): Record<string, string> =>
   Object.fromEntries(Object.entries(env).filter((entry): entry is [string, string] => typeof entry[1] === "string"));
 
-/** Was der Server je Run zur Umgebung beiträgt: Run-Marker, Git-Regeln und die Zusätze seines Arbeitsbereichs. */
+/** What the server contributes to the environment per run: run marker, Git rules and the additions of its workspace. */
 export const sandboxRunEnvironment = (runId: string, workspace: {
   gitConfig?: GitConfigPairs;
   extraEnv?: NodeJS.ProcessEnv;
@@ -71,11 +71,11 @@ export const sandboxRunEnvironment = (runId: string, workspace: {
   ...workspace.gitEnv,
 });
 
-/** Ohne eigenes Konto läuft der Prozess unter dem Benutzer dieser Maschine und trägt dessen Namen. */
+/** Without its own account the process runs as the user of this machine and carries that user's name. */
 const accountEnvironment = (source: NodeJS.ProcessEnv, ident: { name: string } | undefined): Record<string, string> =>
   ident ? { USER: ident.name, LOGNAME: ident.name } : onlyStrings({ USER: source.USER, LOGNAME: source.LOGNAME });
 
-/** Die Umgebung eines Sandbox-Prozesses: die gewählte Grundlage dieser Maschine plus die Beiträge des Runs. */
+/** The environment of a sandbox process: the chosen base of this machine plus the contributions of the run. */
 export const sandboxEnvironment = (
   source: NodeJS.ProcessEnv,
   { base = "safe", home, ident, pathVariables, additions }: SandboxEnvironmentOptions,
@@ -117,15 +117,15 @@ const namedEntries = (
     return name ? [[name, root.directory]] : [];
   }));
 
-/** Ein Alias nennt genau einen Ordner und liegt nicht unter einem anderen, sonst wäre offen, welche Wurzel ein Pfad meint. */
+/** An alias names exactly one folder and does not lie under another, otherwise it would be open which root a path means. */
 const assertDistinctAliases = (roots: readonly ResolvedWorkspaceRoot[]): void => {
   const aliases = roots.flatMap((root) => root.alias === undefined ? [] : [root.alias]);
   const clash = aliases.find((alias, index) => aliases.some((other, position) =>
     position !== index && (other === alias || other.startsWith(`${alias}/`))));
-  if (clash !== undefined) throw new Error(`Der Arbeitsverzeichnis-Alias ${clash} nennt mehr als eine Wurzel`);
+  if (clash !== undefined) throw new Error(`The working directory alias ${clash} names more than one root`);
 };
 
-/** Baut den Kontext eines Runs aus den Ordnern dieser Maschine; jeder Executor ruft dieselbe Funktion. */
+/** Builds the context of a run from the folders of this machine; every executor calls the same function. */
 export const workspaceProcessContext = (options: WorkspaceContextOptions): WorkspaceProcessContext => {
   const additionalRoots = options.additionalRoots ?? [];
   const readOnlyRoots = options.readOnlyRoots ?? [];

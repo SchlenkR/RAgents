@@ -1,4 +1,4 @@
-# Erzeugt aus dem gewählten Entwurf die Logo-SVGs und das VS-Code-Icon: python3 build.py (braucht potracer, pillow, numpy, rsvg-convert)
+# Generates the logo SVGs and the VS Code icon from the chosen draft: python3 build.py (needs potracer, pillow, numpy, rsvg-convert)
 import subprocess
 from pathlib import Path
 

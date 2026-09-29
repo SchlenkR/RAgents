@@ -1,12 +1,12 @@
 import { createLocalStorageSetting } from "@ragents/web/lib/local-storage-setting";
 
-/** Die gewählte Ansicht des Run-Panels: nur Chat, Chat unten als Sheet oder Chat rechts, sofern das Run-Panel breit genug ist. */
+/** The chosen view of the run panel: chat only, chat at the bottom as a sheet, or chat on the right if the run panel is wide enough. */
 export type RunPanelChatMode = "chat" | "bottom" | "side";
 
-/** Wie der Chat zur Mini-App liegt: allein, daneben oder als Sheet darüber. */
+/** How the chat relates to the mini-app: alone, next to it, or as a sheet above it. */
 export type ChatLayout = "full" | "side" | "floating";
 
-/** Persönlicher Zustand je Run: Mini-App, Actor, Chat-Lage, Seitenbreite und ausgeklappte Sheet-Höhe. */
+/** Personal state per run: mini-app, actor, chat position, side width and expanded sheet height. */
 export interface RunPanelState {
   element: string | null;
   actor: string | null;
@@ -17,7 +17,7 @@ export interface RunPanelState {
 
 export const CHAT_MIN_WIDTH = 280;
 export const CHAT_DEFAULT_WIDTH = 380;
-/** Neben dem Chat bleibt immer Platz für ein Stück Mini-App. */
+/** Next to the chat there is always room for a piece of mini-app. */
 export const STAGE_MIN_WIDTH = 300;
 
 export const DEFAULT_RUN_PANEL_STATE: RunPanelState = Object.freeze({ element: null, actor: null, chat: "side", chatWidth: CHAT_DEFAULT_WIDTH, sheetExpandedHeight: null });
@@ -25,7 +25,7 @@ export const DEFAULT_RUN_PANEL_STATE: RunPanelState = Object.freeze({ element: n
 export const runPanelStorageKey = (runId: string) => `ragents.orchestration.run-panel:${runId}`;
 
 const isTextOrNull = (value: unknown): value is string | null => value === null || typeof value === "string";
-/** Frühere Zustände kannten `auto`, `floating` und `docked` sowie eine Bühnenhöhe; sie werden auf die heutigen Lagen abgebildet. */
+/** Earlier states knew `auto`, `floating` and `docked` as well as a stage height; they are mapped to today's positions. */
 const chatModeOf = (value: unknown): RunPanelChatMode | undefined =>
   value === undefined || value === "side" || value === "auto" ? "side"
     : value === "chat" ? "chat"
@@ -42,13 +42,13 @@ export function parseRunPanelState(raw: string | null): RunPanelState {
     || ("chatWidth" in value && (typeof value.chatWidth !== "number" || !Number.isFinite(value.chatWidth) || value.chatWidth < CHAT_MIN_WIDTH))
     || ("sheetExpandedHeight" in value && value.sheetExpandedHeight !== null && (typeof value.sheetExpandedHeight !== "number" || !Number.isFinite(value.sheetExpandedHeight) || value.sheetExpandedHeight <= 0))
     || ("sheetPeekExtra" in value && (typeof value.sheetPeekExtra !== "number" || !Number.isFinite(value.sheetPeekExtra) || value.sheetPeekExtra < 0))) {
-    throw new Error("Der gespeicherte Panelzustand ist ungültig.");
+    throw new Error("The stored panel state is invalid.");
   }
   const stored = value as { element: string | null; actor: string | null; chat?: unknown; chatWidth?: number; sheetExpandedHeight?: number | null };
   return { element: stored.element, actor: stored.actor, chat: chatModeOf(stored.chat) ?? "side", chatWidth: stored.chatWidth ?? CHAT_DEFAULT_WIDTH, sheetExpandedHeight: stored.sheetExpandedHeight ?? null };
 }
 
-/** Ohne Mini-App und in der Ansicht "Nur Chat" füllt der Chat das Run-Panel; sonst liegt er rechts, wenn Platz ist, und unten, wenn nicht. */
+/** Without a mini-app and in the "Chat only" view the chat fills the run panel; otherwise it sits on the right if there is room, and at the bottom if not. */
 export const chatLayoutFor = ({ chat, hasElement, narrow }: { chat: RunPanelChatMode; hasElement: boolean; narrow: boolean }): ChatLayout =>
   !hasElement || chat === "chat" ? "full" : !narrow && chat === "side" ? "side" : "floating";
 

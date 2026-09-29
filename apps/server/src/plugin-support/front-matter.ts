@@ -5,9 +5,9 @@ export const fieldsOf = (file: string, block: string): Map<string, string> => {
   for (const line of block.split("\n")) {
     if (!line.trim()) continue;
     const separator = line.indexOf(":");
-    if (separator < 0) throw new Error(`${file}: "${line.trim()}" ist kein Schlüssel-Wert-Paar`);
+    if (separator < 0) throw new Error(`${file}: "${line.trim()}" is not a key-value pair`);
     const key = line.slice(0, separator).trim();
-    if (fields.has(key)) throw new Error(`${file}: ${key} steht mehrfach im Kopf`);
+    if (fields.has(key)) throw new Error(`${file}: ${key} appears more than once in the header`);
     fields.set(key, line.slice(separator + 1).trim().replace(/^"(.*)"$/, "$1"));
   }
   return fields;
@@ -17,13 +17,13 @@ export const flag = (file: string, key: string, value: string | undefined, fallb
   if (value === undefined || value === "") return fallback;
   if (value === "true" || value === "1") return true;
   if (value === "false" || value === "0") return false;
-  throw new Error(`${file}: ${key} muss true oder false sein, nicht "${value}"`);
+  throw new Error(`${file}: ${key} must be true or false, not "${value}"`);
 };
 
 export const numberOf = (file: string, key: string, value: string | undefined): number | undefined => {
   if (value === undefined || value === "") return undefined;
   const parsed = Number(value);
-  if (!Number.isFinite(parsed)) throw new Error(`${file}: ${key} muss eine Zahl sein, nicht "${value}"`);
+  if (!Number.isFinite(parsed)) throw new Error(`${file}: ${key} must be a number, not "${value}"`);
   return parsed;
 };
 
@@ -31,7 +31,7 @@ export const tagsOf = (file: string, value: string | undefined): readonly string
   if (value === undefined) return undefined;
   const tags = value.split(",").map((tag) => tag.trim());
   if (tags.some((tag) => !tag) || new Set(tags).size !== tags.length) {
-    throw new Error(`${file}: tags müssen eindeutige, nicht leere Schlagworte sein`);
+    throw new Error(`${file}: tags must be unique, non-empty keywords`);
   }
   return tags;
 };
@@ -39,6 +39,6 @@ export const tagsOf = (file: string, value: string | undefined): readonly string
 /** Splits a markdown file into its front matter fields and the body after the closing marker. */
 export const frontMatterOf = (file: string, raw: string, required: string): { fields: Map<string, string>; body: string } => {
   const head = FRONT_MATTER.exec(raw);
-  if (!head) throw new Error(`${file}: es fehlt der ---Kopf mit ${required}`);
+  if (!head) throw new Error(`${file}: the --- header with ${required} is missing`);
   return { fields: fieldsOf(file, head[1]), body: raw.slice(head[0].length) };
 };

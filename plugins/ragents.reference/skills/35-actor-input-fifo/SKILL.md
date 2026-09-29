@@ -2,11 +2,11 @@
 name: 35-actor-input-fifo
 start: true
 disable-model-invocation: true
-title: "Drei Aufträge der Reihe nach erledigen"
-description: "Zeigt, ob während eines laufenden Turns eingereihte Aufträge getrennt und in Eingangsreihenfolge verarbeitet werden. Das Journal liefert die Belege."
-category: "Ereignisse und Abläufe"
+title: "Complete three tasks in order"
+description: "Shows whether tasks queued during a running turn are processed separately and in order of arrival. The journal provides the evidence."
+category: "Events and flows"
 order: 35
-tags: "Journalprüfung, Konzeptdemo, Input-Warteschlange"
+tags: "Journal inspection, Concept demo, Input queue"
 ---
 
-Ich hätte gern einen Helfer, der jeden Text, den ich ihm gebe, mit "ERLEDIGT: " und dem unveränderten Text beantwortet und beim Wort "eins" vorher ausgiebig nachdenkt. Während er noch an "eins" sitzt, schiebe ich ihm "zwei" und "drei" hinterher. Zeig mir danach mit Belegen, dass er alle drei sauber getrennt und genau in dieser Reihenfolge abgearbeitet hat und nichts vermischt wurde.
+I would like a helper that answers every text I give it with "DONE: " and the unchanged text, and thinks extensively beforehand on the word "one". While it is still working on "one", I send it "two" and "three" right after. Afterwards, show me with evidence that it handled all three cleanly separated and in exactly this order and that nothing got mixed up.

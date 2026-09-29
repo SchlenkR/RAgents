@@ -3,7 +3,7 @@ set -euo pipefail
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 
 if [[ $# -gt 1 ]]; then
-  echo "Aufruf: build/homepage.sh [--open|--check]" >&2
+  echo "Usage: build/homepage.sh [--open|--check]" >&2
   exit 2
 fi
 
@@ -15,7 +15,7 @@ case "${1-}" in
     ;;
   ""|--open) ;;
   *)
-    echo "Aufruf: build/homepage.sh [--open|--check]" >&2
+    echo "Usage: build/homepage.sh [--open|--check]" >&2
     exit 2
     ;;
 esac
@@ -24,7 +24,7 @@ pnpm --filter @ragents/host exec node --import tsx ../../scripts/homepage/genera
 
 if [[ "${1-}" == --open ]]; then
   if [[ ! -f docs/homepage/dist/index.html ]]; then
-    echo "Die Homepage unter docs/homepage/dist/index.html fehlt." >&2
+    echo "The homepage at docs/homepage/dist/index.html is missing." >&2
     exit 1
   fi
   homepage_url="$(node --input-type=module -e 'import { pathToFileURL } from "node:url"; console.log(pathToFileURL(process.argv[1]).href);' "$PWD/docs/homepage/dist/index.html")"

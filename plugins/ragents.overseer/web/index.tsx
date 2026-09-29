@@ -21,15 +21,15 @@ import { createQuickAnswers, type QuickAnswerNotice } from "./quick-answers";
 const toolbarClass = "flex h-header max-w-[720px] min-w-[190px] flex-[0_1_570px] items-center gap-1 border-r border-border bg-[color-mix(in_srgb,var(--primary)_4%,var(--card))] px-2 py-1 data-open:bg-accent max-md:min-w-[130px] max-md:flex-[0_1_210px] max-md:px-1 max-md:data-open:grow";
 const noteClass = "mx-4 my-2 flex-none text-[0.8rem] text-muted-foreground";
 
-/** Unterbricht nur den laufenden Turn des Koordinators; der Run und seine übrigen Actors laufen weiter. */
+/** Interrupts only the coordinator's running turn; the run and its other actors keep running. */
 const interruptCoordinator = async (runId: string) => {
   const coordinator = runViewFrom(await rpc.call(runContracts.view, { runId }))?.primaryActorId;
-  if (!coordinator) throw new Error("Der globale Koordinator ist nicht verfügbar");
+  if (!coordinator) throw new Error("The global coordinator is not available");
   await interruptActorTurn(runId, coordinator);
 };
 const errorClass = "mx-4 my-2 flex-none text-[0.8rem] text-destructive";
 
-/** Jeder Benutzer hat seinen eigenen Koordinator; seine Kennung kennt nur der Server. */
+/** Every user has their own coordinator; only the server knows its id. */
 function OverseerToolbar(context: OverviewPanelContext) {
   const user = useAccess().user?.id;
   const [coordinator, setCoordinator] = useState<{ runId?: string; error?: string }>({});
@@ -143,7 +143,7 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
       setResetting(false);
     }
   };
-  const connectionNote = activated && !chat.connected ? "Keine Verbindung. Dein Entwurf bleibt erhalten; Senden ist gesperrt." : undefined;
+  const connectionNote = activated && !chat.connected ? "No connection. Your draft is kept; sending is disabled." : undefined;
   const problem = error ?? composerError ?? modelState.error ?? connectionNote;
   return <div className={toolbarClass} data-open={open} data-slot="overseer-toolbar" ref={anchor}
     onFocus={(event) => {
@@ -162,17 +162,17 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
         maxRows={2} rows={1} onErrorChange={setComposerError} onSend={(text, attachments) => chat.send(text, attachments, userLocation)}
         onStop={writable && chat.running ? () => { if (!resetPending.current) perform(() => interruptCoordinator(runId)); } : undefined}
         running={chat.running}
-        texts={{ placeholder: "Globaler Koordinator", steeringPlaceholder: "Globaler Koordinator" }}
+        texts={{ placeholder: "Global coordinator", steeringPlaceholder: "Global coordinator" }}
         toolbarRight={<ModelSettings active={open} compact disabled={resetting} actions={
-          <Button aria-label="Gespräch zurücksetzen" aria-busy={resetting} disabled={!writable || resetting || !chat.connected} onClick={() => setConfirmReset(true)} size="sm" variant="outline">
-            {resetting ? "Wird zurückgesetzt ..." : "Zurücksetzen"}
+          <Button aria-label="Reset conversation" aria-busy={resetting} disabled={!writable || resetting || !chat.connected} onClick={() => setConfirmReset(true)} size="sm" variant="outline">
+            {resetting ? "Resetting ..." : "Reset"}
           </Button>
         } />}
-        toolbarLeft={<ChatViewSwitches className="max-md:[&>span]:hidden" collapsible={false} settings={chatView} />}
+        toolbarLeft={<ChatViewSwitches className="max-md:[&>span]:hidden" settings={chatView} />}
       />
     </div>
       <span className="flex min-w-0 flex-none items-center justify-end gap-1.5 empty:hidden" role="status" aria-live="polite">
-        {chat.running && <span className="sr-only">Bearbeitet</span>}
+        {chat.running && <span className="sr-only">Working</span>}
         {problem && <span className="text-[0.7rem] font-bold text-destructive" title={problem} aria-label={problem}>!</span>}
       </span>
     <Popover modal={false} open={quickAnswer !== undefined}>
@@ -180,18 +180,18 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
         finalFocus={false} initialFocus={false} role="status" side="bottom"
         style={{ width: "min(max(calc(var(--anchor-width) * 2), 480px), var(--available-width))" }}>
         {quickAnswer && <>
-          <Button className="h-auto min-w-0 flex-1 justify-start rounded-lg px-2.5 py-2 text-left text-[0.76rem] leading-[1.45] font-normal whitespace-normal [overflow-wrap:anywhere]" variant="ghost" aria-label={`Verlauf öffnen: ${quickAnswer.question} ${quickAnswer.text}`}
+          <Button className="h-auto min-w-0 flex-1 justify-start rounded-lg px-2.5 py-2 text-left text-[0.76rem] leading-[1.45] font-normal whitespace-normal [overflow-wrap:anywhere]" variant="ghost" aria-label={`Open history: ${quickAnswer.question} ${quickAnswer.text}`}
             onClick={() => {
               requestOpen();
               if (writable) composer.current?.focus();
               else requestAnimationFrame(() => scroller?.focus());
             }}><span className="grid min-w-0 gap-1"><span className="text-muted-foreground">{quickAnswer.question}</span><strong className="font-semibold">{quickAnswer.text}</strong></span></Button>
-          <Button aria-label="Kurzantwort schließen" className="mt-1 flex-none rounded-full" onClick={() => setQuickAnswer(undefined)} size="icon-sm" title="Kurzantwort schließen" variant="ghost"><XIcon /></Button>
+          <Button aria-label="Close quick answer" className="mt-1 flex-none rounded-full" onClick={() => setQuickAnswer(undefined)} size="icon-sm" title="Close quick answer" variant="ghost"><XIcon /></Button>
         </>}
       </PopoverContent>
     </Popover>
     <Popover modal={false} open={open} onOpenChange={(next, details) => { if (!next) dismiss(details.reason, details.event); }}>
-    <PopoverContent align="start" anchor={belowHeader} aria-label="Globaler Koordinator" className="flex min-h-0 flex-col gap-0 overflow-hidden rounded-t-none rounded-b-panel border-t-2 border-t-primary p-0" collisionPadding={8}
+    <PopoverContent align="start" anchor={belowHeader} aria-label="Global coordinator" className="flex min-h-0 flex-col gap-0 overflow-hidden rounded-t-none rounded-b-panel border-t-2 border-t-primary p-0" collisionPadding={8}
       finalFocus={false} id="overseer-dropdown" initialFocus={false} keepMounted ref={setDropdown} role="region" side="bottom"
       style={{ width: "min(760px, var(--available-width))", height: "min(650px, var(--available-height))" }}>
       <div className="flex-none border-b border-border-soft" data-tone="overseer-details" ref={setDetailsContainer} />
@@ -199,26 +199,26 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
         <Dialog open onOpenChange={(next) => { if (!next && !resetting) setConfirmReset(false); }} modal="trap-focus" disablePointerDismissal>
           <DialogContent initialFocus={cancelReset} onBackdropClick={() => { if (!resetting) setConfirmReset(false); }} scope="run" showCloseButton={false} size="small">
             <DialogHeader>
-              <DialogTitle>Gespräch zurücksetzen?</DialogTitle>
-              <DialogDescription>Verlauf und Modellkontext werden gelöscht. Laufende Antworten werden gestoppt.</DialogDescription>
+              <DialogTitle>Reset conversation?</DialogTitle>
+              <DialogDescription>History and model context are deleted. Running answers are stopped.</DialogDescription>
             </DialogHeader>
-            <p>Deine Runs und die Modellwahl bleiben erhalten.</p>
+            <p>Your runs and the model choice are kept.</p>
             {error && <p className="text-[0.8rem] text-destructive" role="alert">{error}</p>}
             <DialogFooter>
-              <Button ref={cancelReset} disabled={resetting} onClick={() => setConfirmReset(false)} variant="outline">Abbrechen</Button>
+              <Button ref={cancelReset} disabled={resetting} onClick={() => setConfirmReset(false)} variant="outline">Cancel</Button>
               <Button disabled={resetting} onClick={() => { void reset(); }} variant="destructive">
-                {resetting ? "Wird zurückgesetzt ..." : "Gespräch zurücksetzen"}
+                {resetting ? "Resetting ..." : "Reset conversation"}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </RunModalContext.Provider>}
-      {!writable && <p className={noteClass}>Du hast Lesezugriff auf dieses Gespräch.</p>}
+      {!writable && <p className={noteClass}>You have read access to this conversation.</p>}
       {connectionNote && <p className={noteClass} role="status">{connectionNote}</p>}
       {error && <p className={errorClass} role="alert">{error}</p>}
       <ChatMessages announce={false} className="min-h-16! flex-1" scrollerRef={setScroller}
         detailMode={chatView.detailMode}
-        emptyState={<div className="m-auto max-w-[480px] p-8 text-[0.9rem] leading-[1.6] text-muted-foreground max-md:p-5"><strong className="text-foreground">Ein Chat für die gesamte Werkstatt</strong><p>Schreibe deinen Auftrag oben in die Titelleiste. Hier erscheinen Antworten zu deinen Runs und laufenden Arbeiten.</p></div>}
+        emptyState={<div className="m-auto max-w-[480px] p-8 text-[0.9rem] leading-[1.6] text-muted-foreground max-md:p-5"><strong className="text-foreground">One chat for the whole workshop</strong><p>Write your task in the title bar above. Answers about your runs and ongoing work appear here.</p></div>}
         messages={messages} running={chat.running} showTimestamps={chatView.showTimestamps} stepsExpandable={chatView.stepsExpandable}
       />
     </PopoverContent>
@@ -228,6 +228,6 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
 
 export const webPlugin: WebPlugin = {
   id: OVERSEER_PLUGIN_ID,
-  settings: [{ category: "models", order: 10, readRight: "ragents.overseer.read", id: `${OVERSEER_PLUGIN_ID}.model`, label: "Globaler Koordinator", Settings: ModelSettings }],
+  settings: [{ category: "models", order: 10, readRight: "ragents.overseer.read", id: `${OVERSEER_PLUGIN_ID}.model`, label: "Global coordinator", Settings: ModelSettings }],
   overviewPanels: [{ id: `${OVERSEER_PLUGIN_ID}.chat`, placement: "toolbar", order: 100, readRight: "ragents.overseer.read", Panel: OverseerToolbar }],
 };

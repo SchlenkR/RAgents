@@ -1,3 +1,3 @@
-# Beispielprompt
+# Example prompt
 
-Antworte knapp und sachlich.
+Answer briefly and factually.

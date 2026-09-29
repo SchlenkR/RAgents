@@ -4,15 +4,15 @@ import { toolDescriptorFrom } from "@ragents/host/plugin-support/agent-tool.js";
 
 const available = defineToolAvailability({
   availability: "conditional",
-  availabilityDetail: "Für den Primary-Actor mit execution.stopOwned im eigenen Run.",
+  availabilityDetail: "For the primary actor with execution.stopOwned in its own run.",
   requiredCapabilities: ["execution.stopOwned"],
 }, (actor, view) => actor.kind !== "human" && actor.id === view.primaryActorId && holdsUsable(actor, "execution.stopOwned"));
 
 export const createRunStopContributor = (stop: (runId: string) => Promise<void>, onError: (error: unknown) => void): ToolContributor => {
   const definition = defineRunFunction({
     name: "run_stop",
-    label: "Run stoppen",
-    description: "Leitet den vollständigen Stopp des eigenen Runs ein: laufende Turns, Werkzeuge, Unteragenten und Plugin-Dienste. Gespräch und Dateien bleiben erhalten. Bricht auch den eigenen Turn ab; die Annahme ist keine Bestätigung abgeschlossener Bereinigung. Bei Benutzerwunsch nach vollständigem Abbruch sofort verwenden, keine Abbruchnachricht an beschäftigte Agenten senden.",
+    label: "Stop run",
+    description: "Initiates the complete stop of your own run: running turns, tools, subagents and plugin services. Conversation and files are kept. Also cancels your own turn; acceptance is not a confirmation of completed cleanup. Use immediately when the user wants a complete cancellation; do not send a cancel message to busy agents.",
     schema: Type.Object({}, { additionalProperties: false }),
     resultSchema: Type.Object({ requested: Type.Literal(true) }, { additionalProperties: false }),
     available,

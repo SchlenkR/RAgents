@@ -13,7 +13,7 @@ export interface CoordinatorModelChoice {
 
 export const storedModelChoice = (state: RunState | null): CoordinatorModelChoice => ({ model: storedModel(state), thinking: storedThinking(state) });
 
-/** Das Modell eines Turns des Run-Koordinators: die Modellwahl des Runs, ohne sie das beim Anlegen. */
+/** The model of a turn of the run coordinator: the run's model choice, without one the model from creation. */
 export const coordinatorSelection = (
   catalog: ModelCatalog & { readonly modelList: readonly CatalogModel[] },
   coordinator: Pick<CoordinatorDescriptor, "handle" | "profile">,
@@ -26,6 +26,6 @@ export const coordinatorSelection = (
     model: choice.model,
     ...(isThinkingLevel(choice.thinking) ? { thinking: choice.thinking } : {}),
   }, coordinator.handle, catalog.modelList);
-  if (execution.driver.kind !== "agent") throw new Error(`Das Profil ${coordinator.profile} des Koordinators hat keine Modelllaufzeit`);
+  if (execution.driver.kind !== "agent") throw new Error(`The coordinator's profile ${coordinator.profile} has no model runtime`);
   return execution.driver.config;
 };

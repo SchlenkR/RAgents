@@ -62,15 +62,15 @@ const reach = (folder: string, entries: readonly string[]): { uses: Use[]; probl
     seen.add(file);
     const relativeFile = path.relative(pluginsRoot, file);
     const { specifiers, locations } = scan(file);
-    for (const location of new Set(locations)) problems.push(`${relativeFile}: ${location}; Dateien des Plugins gehen über pluginFolder(id)`);
+    for (const location of new Set(locations)) problems.push(`${relativeFile}: ${location}; plugin files go through pluginFolder(id)`);
     for (const specifier of specifiers) {
       if (!specifier.startsWith(".")) {
         uses.push({ file: relativeFile, specifier });
         continue;
       }
       const target = sourceFile(path.resolve(path.dirname(file), specifier));
-      if (!target) problems.push(`${relativeFile}: ${specifier} ist keine Quelldatei`);
-      else if (!target.startsWith(folder + path.sep)) problems.push(`${relativeFile}: ${specifier} liegt außerhalb des Plugin-Ordners`);
+      if (!target) problems.push(`${relativeFile}: ${specifier} is not a source file`);
+      else if (!target.startsWith(folder + path.sep)) problems.push(`${relativeFile}: ${specifier} lies outside the plugin folder`);
       else pending.push(target);
     }
   }
@@ -91,27 +91,27 @@ const requiresOf = (id: string): readonly string[] => {
   const found: string[][] = [];
   const visit = (node: ts.Node): void => {
     if (ts.isPropertyAssignment(node) && ts.isIdentifier(node.name) && node.name.text === "requires") {
-      assert.ok(ts.isArrayLiteralExpression(node.initializer) && node.initializer.elements.every(ts.isStringLiteral), `${id}: requires ist keine Liste fester Kennungen`);
+      assert.ok(ts.isArrayLiteralExpression(node.initializer) && node.initializer.elements.every(ts.isStringLiteral), `${id}: requires is not a list of fixed ids`);
       found.push(node.initializer.elements.map((element) => (element as ts.StringLiteral).text));
     }
     ts.forEachChild(node, visit);
   };
   visit(source);
-  assert.ok(found.length <= 1, `${id}: requires steht mehrfach im Modulvertrag`);
+  assert.ok(found.length <= 1, `${id}: requires appears more than once in the module contract`);
   return found[0] ?? [];
 };
 
-test("jedes eingebaute Plugin beschreibt sich in ragents-plugin.json mit seiner Kennung und vorhandenen Exporten", () => {
+test("every built-in plugin describes itself in ragents-plugin.json with its id and existing exports", () => {
   for (const id of pluginIds) {
     const description = descriptionOf(id);
-    assert.equal(description.id, id, `${id}: die Kennung in ragents-plugin.json weicht vom Ordnernamen ab`);
+    assert.equal(description.id, id, `${id}: the id in ragents-plugin.json differs from the folder name`);
     for (const [half, names] of Object.entries(description.exports ?? {})) {
-      for (const name of names) assert.ok(sourceFile(path.join(pluginsRoot, id, name)), `${id} exportiert ${name} für ${half}, die Datei fehlt`);
+      for (const name of names) assert.ok(sourceFile(path.join(pluginsRoot, id, name)), `${id} exports ${name} for ${half}, the file is missing`);
     }
   }
 });
 
-test("eingebaute Plugins importieren nur die Host-API, ihren eigenen Ordner und deklarierte Exporte anderer Plugins", () => {
+test("built-in plugins import only the host API, their own folder and declared exports of other plugins", () => {
   const problems: string[] = [];
   for (const id of pluginIds) {
     const requires = requiresOf(id);
@@ -122,11 +122,11 @@ test("eingebaute Plugins importieren nur die Host-API, ihren eigenen Ordner und 
         const plugin = /^@ragents\/plugins\/([^/]+)\/(.+?)(\.js|\.ts|\.tsx)?$/.exec(specifier);
         if (plugin) {
           const [, owner, name] = plugin;
-          if (owner === id) problems.push(`${file}: ${specifier} importiert das eigene Plugin über den Paketnamen`);
-          else if (!(descriptionOf(owner!).exports?.[half] ?? []).includes(name!)) problems.push(`${file}: ${owner} exportiert ${name} für die ${half}-Hälfte nicht`);
-          else if (!requires.includes(owner!)) problems.push(`${file}: ${owner} fehlt in requires von ${id}`);
+          if (owner === id) problems.push(`${file}: ${specifier} imports its own plugin through the package name`);
+          else if (!(descriptionOf(owner!).exports?.[half] ?? []).includes(name!)) problems.push(`${file}: ${owner} does not export ${name} for the ${half} half`);
+          else if (!requires.includes(owner!)) problems.push(`${file}: ${owner} is missing from the requires of ${id}`);
         } else if (hostOnly(specifier) && !providedByHost(half, specifier)) {
-          problems.push(`${file}: ${specifier} steht nicht in der ${half}-Liste der Host-API`);
+          problems.push(`${file}: ${specifier} is not in the ${half} list of the host API`);
         }
       }
     }
@@ -134,7 +134,7 @@ test("eingebaute Plugins importieren nur die Host-API, ihren eigenen Ordner und 
   assert.deepEqual(problems, []);
 });
 
-test("das Register des Webs legt genau die Module der Web-Liste mit Werten unter ihrem Bezeichner ab", () => {
+test("the web registry stores exactly the modules of the web list that have values, under their specifier", () => {
   const file = path.join(repositoryRoot, "apps/web/src/host-modules.ts");
   const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true);
   const namespaces = new Map(source.statements.filter(ts.isImportDeclaration).flatMap((declaration) => {
@@ -149,10 +149,10 @@ test("das Register des Webs legt genau die Module der Web-Liste mit Werten unter
   visit(source);
   const withValues = Object.entries(readHostApiRecord().web).filter(([, names]) => names.length > 0).map(([specifier]) => specifier);
   assert.deepEqual(entries.map(([specifier]) => specifier).sort(), withValues.sort());
-  for (const [specifier, name] of entries) assert.equal(namespaces.get(name), specifier, `${specifier} zeigt auf ${name}, das ${namespaces.get(name)} importiert`);
+  for (const [specifier, name] of entries) assert.equal(namespaces.get(name), specifier, `${specifier} points to ${name}, which imports ${namespaces.get(name)}`);
 });
 
-test("die Host-API nennt nur Module, die es gibt", () => {
+test("the host API names only modules that exist", () => {
   const places = { server: ["apps/server/tsconfig.json", "apps/server/src/main.ts"], web: ["apps/web/tsconfig.json", "apps/web/src/main.tsx"] } as const;
   for (const half of ["server", "web"] as const) {
     const [config, importer] = places[half].map((file) => path.join(repositoryRoot, file)) as [string, string];
@@ -160,7 +160,7 @@ test("die Host-API nennt nur Module, die es gibt", () => {
       throw new Error(ts.flattenDiagnosticMessageText(diagnostic.messageText, " "));
     } })!.options;
     for (const specifier of hostApiModules(half)) {
-      assert.ok(ts.resolveModuleName(specifier, importer, options, ts.sys).resolvedModule, `${specifier} ist für die ${half}-Hälfte nicht auflösbar`);
+      assert.ok(ts.resolveModuleName(specifier, importer, options, ts.sys).resolvedModule, `${specifier} cannot be resolved for the ${half} half`);
     }
   }
 });

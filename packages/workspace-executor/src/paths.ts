@@ -4,12 +4,12 @@ import { WorkspaceOperationError } from "./errors.js";
 
 export interface ResolvedWorkspaceRoot {
   directory: string;
-  /** `@name`, bei einer Wurzel unter einem gemeinsamen Alias `@name/<ordner>`. */
+  /** `@name`, for a root under a shared alias `@name/<folder>`. */
   alias?: string;
   environmentVariable?: string;
 }
 
-/** Welche Wurzeln die Eingabe einer Operation anspricht: die Aliasse zusätzlicher Wurzeln und ob ein Pfad ohne Alias die Wurzel des Runs nennt. */
+/** Which roots the input of an operation addresses: the aliases of additional roots and whether a path without an alias names the root of the run. */
 export interface AddressedRoots {
   readonly aliases: readonly string[];
   readonly runRoot: boolean;
@@ -17,17 +17,17 @@ export interface AddressedRoots {
 
 export const NO_ROOTS: AddressedRoots = { aliases: [], runRoot: false };
 
-/** Was ein Aufrufer über eine Eingabe wissen muss, ohne ihre Form zu kennen: die Wurzeln, die sie anspricht, und die Laufzeit, die sie selbst verlangt. */
+/** What a caller must know about an input without knowing its shape: the roots it addresses and the running time it requires itself. */
 export interface OperationFootprint {
   readonly roots: AddressedRoots;
   readonly durationMs?: number;
 }
 
-/** Der Alias, mit dem ein Pfad beginnt, ist sein erster Abschnitt, wenn der mit @ beginnt. */
+/** The alias a path starts with is its first segment, if that starts with @. */
 export const aliasOf = (location: string): string | undefined =>
   location.startsWith("@") ? location.split("/")[0] : undefined;
 
-/** Die Wurzeln, die Felder einer Eingabe als Pfade nennen, eine Liste mit jedem Eintrag: ein Pfad mit Alias dessen Wurzel, jeder andere die des Runs. */
+/** The roots that fields of an input name as paths, a list with every entry: a path with an alias its root, every other one the root of the run. */
 export const rootsOfFields = (input: unknown, ...keys: readonly string[]): AddressedRoots => {
   const fields: Readonly<Record<string, unknown>> = typeof input === "object" && input !== null ? input as Record<string, unknown> : {};
   const named = keys.flatMap((key) => [fields[key]].flat()).filter((entry): entry is string => typeof entry === "string");
@@ -35,7 +35,7 @@ export const rootsOfFields = (input: unknown, ...keys: readonly string[]): Addre
   return { aliases: [...new Set(aliases)], runRoot: named.some((entry) => aliasOf(entry) === undefined) };
 };
 
-/** Die Wurzel, die ein Pfad mit Alias nennt, und der Rest darunter; ohne passenden Alias keine. */
+/** The root that a path with an alias names, and the rest below it; without a matching alias none. */
 export const aliasedRoot = (
   requested: string,
   aliases: Readonly<Record<string, string>>,
@@ -44,14 +44,14 @@ export const aliasedRoot = (
   return found && { directory: found[1], rest: requested.slice(found[0].length + 1) };
 };
 
-/** Nennt bei einem gemeinsamen Alias wie `@skills` auch den Ordner darunter, weil erst beide eine Wurzel bestimmen. */
+/** For a shared alias like `@skills` also names the folder below it, because only both together determine a root. */
 export const unknownAliasError = (requested: string, aliases: Readonly<Record<string, string>>): WorkspaceOperationError => {
   const [first, second] = requested.split("/");
   const known = Object.keys(aliases);
   const named = second !== undefined && known.some((alias) => alias.startsWith(`${first}/`)) ? `${first}/${second}` : first;
   return new WorkspaceOperationError(
     "workspace-alias-unknown",
-    `Unbekannter Arbeitsverzeichnis-Alias: ${named} (bekannt: ${known.length > 0 ? known.join(", ") : "keine"})`,
+    `Unknown working directory alias: ${named} (known: ${known.length > 0 ? known.join(", ") : "none"})`,
     400,
   );
 };
@@ -72,7 +72,7 @@ export const resolvedWorkspacePath = async (filename: string): Promise<string> =
       const code = (error as NodeJS.ErrnoException).code;
       if (code !== "ENOENT" && code !== "ENOTDIR") throw error;
       const info = await lstat(candidate).catch(() => undefined);
-      if (info?.isSymbolicLink()) throw new Error(`Pfad außerhalb des Arbeitsverzeichnisses: ${filename}`);
+      if (info?.isSymbolicLink()) throw new Error(`Path outside the working directory: ${filename}`);
       const parent = path.dirname(candidate);
       if (parent === candidate) throw error;
       rest.unshift(path.basename(candidate));
@@ -81,7 +81,7 @@ export const resolvedWorkspacePath = async (filename: string): Promise<string> =
   }
 };
 
-/** Liegt der Pfad in der Wurzel oder ist er sie selbst; auch für eine Laufwerkswurzel wie `/` oder `C:\`. */
+/** Whether the path lies in the root or is the root itself; also for a drive root like `/` or `C:\`. */
 export const containsWorkspacePath = (root: string, filename: string): boolean => {
   const relative = path.relative(root, filename);
   return relative === "" || (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
@@ -90,6 +90,6 @@ export const containsWorkspacePath = (root: string, filename: string): boolean =
 export const allowedWorkspacePath = async (filename: string, roots: readonly string[]): Promise<string> => {
   const absolute = await resolvedWorkspacePath(filename);
   const canonicalRoots = await Promise.all(roots.map(resolvedWorkspacePath));
-  if (!canonicalRoots.some((root) => containsWorkspacePath(root, absolute))) throw new Error(`Pfad außerhalb des Arbeitsverzeichnisses: ${filename}`);
+  if (!canonicalRoots.some((root) => containsWorkspacePath(root, absolute))) throw new Error(`Path outside the working directory: ${filename}`);
   return absolute;
 };

@@ -6,21 +6,21 @@ import { alwaysAvailable } from "@ragents/host/plugin-support/tool-availability.
 
 export const documentWriteToolMetadata = {
   name: "document_write",
-  label: "Dokument ablegen",
+  label: "Store document",
   nativeTool: true,
-  description: "Legt eine Datei mit dem übergebenen Inhalt in der Dateiablage dieses Runs ab.",
-  longDescription: "Dokumente, Berichte und Zwischenprodukte gehören in die Dateiablage, nicht ins "
-    + "Arbeitsverzeichnis - dort steht nur, was zum Auftrag selbst gehört. Der Benutzer sieht die "
-    + "Ablage im Bereich \"Dokumente\", nach Unterordnern gruppiert. Soll eine Datei aus dem "
-    + "Arbeitsbereich in die Ablage, lies sie zuerst mit read und übergib den Inhalt hier als content. "
-    + "Die Ablage ist kein Bash-Pfad: sie liegt nicht im Arbeitsbereich und ist nur über dieses Werkzeug "
-    + "beschreibbar.",
+  description: "Stores a file with the given content in this run's file store.",
+  longDescription: "Documents, reports and intermediate products belong in the file store, not in the "
+    + "working directory - that only holds what belongs to the task itself. The user sees the "
+    + "store in the \"Documents\" area, grouped by subdirectory. To put a file from the "
+    + "workspace into the store, read it first with read and pass the content here as content. "
+    + "The store is not a bash path: it does not live in the workspace and can only be written "
+    + "through this tool.",
 } as const;
 
 const relativeStorePath = (value: string): string => {
   const normalized = value.replace(/^\.\//, "");
   if (path.isAbsolute(normalized) || normalized.split("/").includes("..") || normalized.trim() === "") {
-    throw new Error("path muss relativ zur Dateiablage sein, ohne führenden / und ohne ..");
+    throw new Error("path must be relative to the file store, without a leading / and without ..");
   }
   return normalized;
 };
@@ -29,8 +29,8 @@ export const createDocumentWriteTool = (filesFor: (runId: string) => Promise<str
   defineRunFunction({
     ...documentWriteToolMetadata,
     schema: Type.Object({
-      path: Type.String({ minLength: 1, description: "Pfad in der Dateiablage, etwa thema/bericht.md" }),
-      content: Type.String({ description: "Der vollständige Inhalt der Datei" }),
+      path: Type.String({ minLength: 1, description: "Path in the file store, e.g. topic/report.md" }),
+      content: Type.String({ description: "The complete content of the file" }),
     }, { additionalProperties: false }),
     resultSchema: Type.String(),
     available: alwaysAvailable,
@@ -40,6 +40,6 @@ export const createDocumentWriteTool = (filesFor: (runId: string) => Promise<str
       const target = path.join(await filesFor(scope.caller.runId), relative);
       await mkdir(path.dirname(target), { recursive: true });
       await writeFile(target, input.content, "utf8");
-      return `In der Dateiablage abgelegt: ${relative} (${Buffer.byteLength(input.content, "utf8")} Byte)`;
+      return `Stored in the file store: ${relative} (${Buffer.byteLength(input.content, "utf8")} bytes)`;
     },
   });

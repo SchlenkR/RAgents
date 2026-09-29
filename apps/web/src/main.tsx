@@ -1,4 +1,4 @@
-// Fremde Klassen von highlight.js und react-diff-view; hier statt in den Komponenten, die auch Mini-Apps bündeln.
+// Foreign classes of highlight.js and react-diff-view; here instead of in the components that mini-apps also bundle.
 import "./highlighting.css";
 import "./diff-view.css";
 import { StrictMode } from "react";
@@ -12,7 +12,7 @@ import { installHostModules } from "./host-modules";
 
 installHostModules();
 const root = document.getElementById("root");
-if (!root) throw new Error("Root-Element fehlt");
+if (!root) throw new Error("Root element is missing");
 
 const reactRoot = createRoot(root);
 try {
@@ -25,8 +25,8 @@ try {
   );
 } catch (cause) {
   reactRoot.render(<AccessScreen>
-    <h1 className="my-3 text-[1.5rem]">Darstellung konnte nicht geladen werden</h1>
+    <h1 className="my-3 text-[1.5rem]">The view could not be loaded</h1>
     <p className="mb-6 leading-normal" role="alert">{cause instanceof Error ? cause.message : String(cause)}</p>
-    <Button onClick={() => window.location.reload()} variant="outline">Erneut laden</Button>
+    <Button onClick={() => window.location.reload()} variant="outline">Reload</Button>
   </AccessScreen>);
 }

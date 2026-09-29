@@ -9,8 +9,8 @@ import { DISMISSED_ANSWER, type AskService } from "@ragents/plugins/ragents.ask/
 
 export const SOLUTION_ON_START_VARIABLE = "ROSLYN_SOLUTION_ON_START";
 export const SOLUTION_PREFERRED_VARIABLE = "ROSLYN_SOLUTION_PREFERRED";
-export const NO_SOLUTION = "Keine laden";
-export const SOLUTION_QUESTION = "Welche Solution soll Roslyn für die Diagnostik laden?";
+export const NO_SOLUTION = "Load none";
+export const SOLUTION_QUESTION = "Which solution should Roslyn load for diagnostics?";
 
 export type SolutionStartStep =
   | { kind: "none" }
@@ -22,14 +22,14 @@ export type SolutionAnswer =
   | { kind: "open"; path: string }
   | { kind: "forward" };
 
-/** Die Vorgabe passt auch in einem Unterordner, etwa wenn der Arbeitsbereich der Ordner über dem Checkout ist. */
+/** The preference also matches in a subdirectory, e.g. when the workspace is the folder above the checkout. */
 const matchesPreferred = (solution: string, preferred: string): boolean => {
   const path = solution.toLowerCase();
   const expected = preferred.toLowerCase();
   return path === expected || path.endsWith(`/${expected}`);
 };
 
-/** Was jemand schon geöffnet hat oder gerade öffnet, bleibt ohne Frage und ohne zweites Laden; passt die Vorgabe, zählen nur die passenden Solutions. */
+/** What someone has already opened or is opening stays without a question and without a second load; if the preference matches, only the matching solutions count. */
 export const solutionStartStep = (listing: LanguageServerSolutions, preferred?: string): SolutionStartStep => {
   if (listing.opened || listing.solutions.length === 0) return { kind: "none" };
   const paths = listing.solutions.map((solution) => solution.path);
@@ -39,7 +39,7 @@ export const solutionStartStep = (listing: LanguageServerSolutions, preferred?: 
   return { kind: "ask", options: [...candidates, NO_SOLUTION] };
 };
 
-/** Eine frei formulierte Antwort bekommt der Koordinator, damit sie nicht verloren geht. */
+/** A freely worded answer goes to the coordinator so it does not get lost. */
 export const solutionAnswer = (options: readonly string[], answer: string): SolutionAnswer => {
   const chosen = answer.trim().replaceAll("\\", "/");
   if (chosen === NO_SOLUTION || answer === DISMISSED_ANSWER) return { kind: "none" };
@@ -57,10 +57,10 @@ export interface SolutionOnStartOptions {
 
 const messageOf = (error: unknown): string => error instanceof Error ? error.message : String(error);
 
-/** Lädt beim Start ohne Run-Script die Vorgabe oder die einzige Solution oder fragt bei mehreren; der Merker im Journal lässt das je Run höchstens einmal zu. */
+/** On a start without a run script, loads the preference or the only solution, or asks if there are several; the marker in the journal allows this at most once per run. */
 export interface SolutionOnStart {
   lifecycle: SessionLifecycleContribution;
-  /** Jemand hat eine Instanz geöffnet; eine noch offene Startfrage erledigt sich damit ohne Laden und ohne Input. */
+  /** Someone opened an instance; a still open start question is thereby settled without loading and without input. */
   opened: (runId: string) => void;
 }
 
@@ -84,7 +84,7 @@ export const createSolutionOnStart = (options: SolutionOnStartOptions): Solution
     runtime.enqueueInput(
       { actorId: runtime.state(runId).ownerId, commandId: `${options.pluginId}.solution-answer:${runId}` },
       runId,
-      { actorId: coordinatorId, content: `Antwort auf die Frage: ${SOLUTION_QUESTION}\nAntwort: ${answer}\n${openTool} lädt eine Solution.` },
+      { actorId: coordinatorId, content: `Answer to the question: ${SOLUTION_QUESTION}\nAnswer: ${answer}\n${openTool} loads a solution.` },
     );
   };
 
@@ -97,7 +97,7 @@ export const createSolutionOnStart = (options: SolutionOnStartOptions): Solution
       { runId, agentId: ownerId, turnId: null, commandId: questionCommand(runId) },
       {
         question: SOLUTION_QUESTION,
-        description: "Im Arbeitsbereich liegen mehrere Solutions; die gewählte lädt Roslyn für die Diagnostik ohne Build.",
+        description: "The workspace contains several solutions; Roslyn loads the chosen one for diagnostics without a build.",
         options: [...step.options],
         recipient: coordinatorId,
       },
@@ -108,13 +108,13 @@ export const createSolutionOnStart = (options: SolutionOnStartOptions): Solution
 
   const finish = (runId: string, controller: AbortController, error?: unknown): void => {
     if (error !== undefined && !controller.signal.aborted) {
-      console.error(`${options.pluginId}: Solution beim Start von ${runId} nicht geladen: ${messageOf(error)}`);
+      console.error(`${options.pluginId}: solution not loaded on start of ${runId}: ${messageOf(error)}`);
     }
     if (running.get(runId) === controller) running.delete(runId);
   };
 
   const stop = ({ runId }: { runId: string }): void => {
-    running.get(runId)?.abort(new Error("Der Run wurde gestoppt"));
+    running.get(runId)?.abort(new Error("The run was stopped"));
     running.delete(runId);
   };
 
@@ -124,7 +124,7 @@ export const createSolutionOnStart = (options: SolutionOnStartOptions): Solution
         event.type === "action.proposed" && event.commandId === questionCommand(runId));
       if (proposed?.type === "action.proposed") options.ask().withdraw(runId, proposed.payload.actionId);
     } catch (error) {
-      console.error(`${options.pluginId}: Startfrage von ${runId} nicht verworfen: ${messageOf(error)}`);
+      console.error(`${options.pluginId}: start question of ${runId} not dismissed: ${messageOf(error)}`);
     }
   };
 
@@ -140,7 +140,7 @@ export const createSolutionOnStart = (options: SolutionOnStartOptions): Solution
         { pluginId: options.pluginId, scope: { kind: "run" }, state: { version: 1, startEntry: startEntry?.id ?? null } },
       );
       if (startEntry?.action === "script") return;
-      if (!primaryActorId) throw new Error(`Der Run ${runId} hat beim Start keinen Koordinator, dem eine Antwort zugehen könnte`);
+      if (!primaryActorId) throw new Error(`The run ${runId} has no coordinator on start that could receive an answer`);
       const controller = new AbortController();
       running.set(runId, controller);
       try {

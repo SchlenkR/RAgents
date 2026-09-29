@@ -11,47 +11,47 @@ const scope = { caller: { runId: "run-1", actorId: "actor-1", turnId: null } } a
 
 const toolWithFiles = async () => {
   const files = await mkdtemp(path.join(tmpdir(), "ragents-documents-"));
-  await mkdir(path.join(files, "thema"));
-  await writeFile(path.join(files, "thema", "datei.md"), "# Inhalt\n");
+  await mkdir(path.join(files, "topic"));
+  await writeFile(path.join(files, "topic", "file.md"), "# Content\n");
   return createShowDocumentTool(async () => files);
 };
 
 const show = async (input: unknown) => (await toolWithFiles()).run(scope, "call-1", input as never);
 
-test("show_document zeigt eine Datei der Dateiablage an", async () => {
-  const result = await show({ title: "Datei", path: "thema/datei.md" });
+test("show_document shows a file from the file store", async () => {
+  const result = await show({ title: "File", path: "topic/file.md" });
 
-  assert.equal(result, "Dem Benutzer angezeigt: Datei (Datei thema/datei.md aus der Dateiablage)");
+  assert.equal(result, "Shown to the user: File (file topic/file.md from the file store)");
 });
 
-test("show_document lehnt einen Pfad ab, der nicht in der Dateiablage liegt", async () => {
+test("show_document rejects a path that is not in the file store", async () => {
   await assert.rejects(
     async () => await show({ title: "README", path: "src/README.md" }),
-    /src\/README\.md liegt nicht in der Dateiablage dieses Runs/,
+    /src\/README\.md is not in this run's file store/,
   );
 });
 
-test("show_document zeigt übergebenen Inhalt ohne Dateibezug an", async () => {
-  const result = await show({ title: "Bericht", content: "# Bericht" });
+test("show_document shows passed content without a file reference", async () => {
+  const result = await show({ title: "Report", content: "# Report" });
 
-  assert.equal(result, "Dem Benutzer angezeigt: Bericht");
+  assert.equal(result, "Shown to the user: Report");
 });
 
-test("show_document lehnt content und path zusammen ab", async () => {
+test("show_document rejects content and path together", async () => {
   await assert.rejects(
-    async () => await show({ title: "Datei", content: "# Inhalt", path: "thema/datei.md" }),
-    /content und path schließen einander aus/,
+    async () => await show({ title: "File", content: "# Content", path: "topic/file.md" }),
+    /content and path exclude each other/,
   );
 });
 
-test("show_document lehnt eine Eingabe ohne content und ohne path ab", async () => {
+test("show_document rejects an input without content and without path", async () => {
   await assert.rejects(
-    async () => await show({ title: "Datei" }),
-    /content und path schließen einander aus/,
+    async () => await show({ title: "File" }),
+    /content and path exclude each other/,
   );
 });
 
-test("show_document beschreibt seine Eingabe als flaches Objekt ohne Wurzel-Union", async () => {
+test("show_document describes its input as a flat object without a root union", async () => {
   const schema = createShowDocumentTool(async () => "").schema as {
     type?: unknown;
     anyOf?: unknown;

@@ -88,7 +88,7 @@ test("a plugin's run condition and a per-run override leave out its prompts, cha
   } });
   registerTypeScriptFunctions(plugins);
   const workspaces = new SessionWorkspaces(() => ({
-    execute: () => Promise.reject(new Error("Der Test legt keine Anhänge ab")),
+    execute: () => Promise.reject(new Error("The test stores no attachments")),
     serverProcessContextFor: async (runId: string) => ({ runId, cwd: directory }) as never,
   }));
   const engine = await createEngine({ plugins, workspaces, assertAvailable: () => {}, assertRunUsable: () => {} });

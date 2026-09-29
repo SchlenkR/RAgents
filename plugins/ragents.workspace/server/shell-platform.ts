@@ -5,7 +5,7 @@ import { boundToTools } from "@ragents/host/plugin-support/prompt.js";
 export const shellPlatformChapter = (platform: NodeJS.Platform, tools: ShellTools): string =>
   `## Shell platform\n\n${shellPlatformText(platform, tools)}`;
 
-/** Ohne Angabe gelten Plattform und Werkzeuge des Servers; `chapterFor` nennt die des Executors, der den Run ausführt. */
+/** Without a value, the platform and tools of the server apply; `chapterFor` names those of the executor that runs the run. */
 export const shellPlatformPrompt = (
   id: string,
   order: number,

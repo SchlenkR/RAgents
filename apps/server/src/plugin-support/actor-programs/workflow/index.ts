@@ -41,16 +41,16 @@ export interface WorkflowGraph {
 }
 
 function text(value: unknown, name: string): asserts value is string {
-  if (typeof value !== "string" || !value.trim()) throw new Error(`${name} muss ein nicht leerer Text sein.`);
+  if (typeof value !== "string" || !value.trim()) throw new Error(`${name} must be a non-empty text.`);
 }
 function object(value: unknown, name: string): asserts value is Record<string, unknown> {
-  if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error(`${name} muss ein Objekt sein.`);
+  if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error(`${name} must be an object.`);
 }
 function positiveInteger(value: unknown, name: string) {
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) throw new Error(`${name} muss eine positive ganze Zahl sein.`);
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1) throw new Error(`${name} must be a positive integer.`);
 }
 function optionalText(value: unknown, name: string) {
-  if (value !== undefined && typeof value !== "string") throw new Error(`${name} muss Text sein.`);
+  if (value !== undefined && typeof value !== "string") throw new Error(`${name} must be text.`);
 }
 export function validatePromptReference(value: unknown) {
   text(value, "Prompt reference");
@@ -62,7 +62,7 @@ function has(object: object, key: string) { return Object.prototype.hasOwnProper
 
 export function defineWorkflow<const Definition extends WorkflowDefinition>(definition: Definition): Definition {
   object(definition, "Workflow");
-  text(definition.id, "Workflow-ID");
+  text(definition.id, "Workflow ID");
   text(definition.title, "Workflow title");
   object(definition.roles, "Roles");
   if (Object.keys(definition.roles).length === 0) throw new Error("A workflow requires roles.");

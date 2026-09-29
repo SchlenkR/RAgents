@@ -5,22 +5,22 @@ import type { AskService } from "./contract.js";
 
 export const askToolMetadata = {
   name: "ask_user",
-  label: "Rückfrage",
-  description: "Holt eine nötige Benutzerentscheidung mit Antwortoptionen ein und wartet auf die Antwort.",
-  longDescription: "Nutze dieses Werkzeug immer, wenn du eine Entscheidung des Benutzers brauchst "
-    + "(z.B. Auswahl eines Branches oder eines Zeitraums), statt die Frage nur als Text zu stellen. "
-    + "Mit multi=true darf der Benutzer mehrere Optionen wählen; die Antwort ist dann mit '; ' verbunden. "
-    + "Der Benutzer kann statt einer Option auch immer frei antworten - rechne also damit, "
-    + "dass die Antwort beliebiger Text sein kann.",
+  label: "Question",
+  description: "Asks the user for a required decision with answer options and waits for the answer.",
+  longDescription: "Always use this tool when you need a decision from the user "
+    + "(e.g. choosing a branch or a time range), instead of only asking the question as text. "
+    + "With multi=true the user may choose several options; the answer is then joined with '; '. "
+    + "Instead of choosing an option, the user can always answer freely - so expect "
+    + "the answer to be arbitrary text.",
 } as const;
 
 export const createAskTool = (service: AskService): RunFunction =>
   defineRunFunction({
     ...askToolMetadata,
     schema: Type.Object({
-      question: Type.String({ description: "Die Frage an den Benutzer, kurz und konkret" }),
-      options: Type.Array(Type.String(), { description: "Antwortoptionen (2 bis 6 Stück)" }),
-      multi: Type.Optional(Type.Boolean({ description: "true = Mehrfachauswahl erlaubt" })),
+      question: Type.String({ description: "The question to the user, short and concrete" }),
+      options: Type.Array(Type.String(), { description: "Answer options (2 to 6)" }),
+      multi: Type.Optional(Type.Boolean({ description: "true = multiple choice allowed" })),
     }),
     resultSchema: Type.String(),
     available: facesOperator,

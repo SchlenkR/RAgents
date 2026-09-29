@@ -45,13 +45,13 @@ export class JsonRpcConnection {
     this.#connection.onNotification("$/progress", (params) => options.onNotification("$/progress", params));
     this.#connection.onNotification("$/logTrace", (params) => options.onNotification("$/logTrace", params));
     this.#connection.onError(([error]) => this.#fail(error));
-    this.#connection.onClose(() => this.#fail(new Error("Verbindung geschlossen")));
+    this.#connection.onClose(() => this.#fail(new Error("Connection closed")));
     this.#connection.listen();
   }
 
   async request(method: string, params: unknown, signal?: AbortSignal): Promise<unknown> {
     if (this.#closed) throw this.#closed;
-    const abortError = () => signal?.reason instanceof Error ? signal.reason : new Error(`${method} wurde abgebrochen`);
+    const abortError = () => signal?.reason instanceof Error ? signal.reason : new Error(`${method} was cancelled`);
     if (signal?.aborted) throw abortError();
     const parameters = params === null || params === undefined ? [] : [params];
     const cancellation = new CancellationTokenSource();
@@ -68,7 +68,7 @@ export class JsonRpcConnection {
           else if (error instanceof ResponseError) {
             reject(new ResponseError(
               error.code,
-              `${this.#options.label}: ${method} fehlgeschlagen: ${error.message}`,
+              `${this.#options.label}: ${method} failed: ${error.message}`,
               error.data,
             ));
           } else reject(error);
@@ -96,7 +96,7 @@ export class JsonRpcConnection {
 
   #fail(error: Error): void {
     if (this.#closed) return;
-    const failure = new Error(`${this.#options.label}: JSON-RPC-Verbindung fehlgeschlagen: ${error.message}`, { cause: error });
+    const failure = new Error(`${this.#options.label}: JSON-RPC connection failed: ${error.message}`, { cause: error });
     this.close(failure);
     this.#options.onError(failure);
   }

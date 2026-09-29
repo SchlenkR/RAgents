@@ -10,5 +10,5 @@ export function WorkflowDiagram({ definition, state, ...props }: WorkflowDiagram
   }, [definition, state]);
   return projection.graph
     ? <FlowDiagram direction="down" viewport="fit-width" {...props} {...projection.graph} />
-    : <section aria-label={props.label} className={props.className}><p role="alert">Der Ablauf konnte nicht angezeigt werden: {projection.error}</p></section>;
+    : <section aria-label={props.label} className={props.className}><p role="alert">The workflow could not be displayed: {projection.error}</p></section>;
 }

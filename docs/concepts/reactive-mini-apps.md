@@ -1,27 +1,27 @@
-# Client-Einstieg reaktiver Actor-Views vereinfachen
+# Simplifying the client entry point of reactive actor views
 
-Status: Idee
+Status: Idea
 
-## Ausgangspunkt
+## Starting point
 
-Die gemeinsame Zustellung ist implementiert und in `docs/spec/actor-programs.md` beschrieben:
-`useAppState()` bindet React an die Host-Bridge, der Provider übernimmt geänderte Actor-Zustände
-auch bei ruhendem Chat. Erfolgreiche Actor-Funktionen aus Views und Agentenwerkzeugen aktualisieren damit
-denselben Zustand; lokale Formularentwürfe bleiben erhalten.
+The shared delivery is implemented and described in `docs/spec/actor-programs.md`:
+`useAppState()` binds React to the host bridge, and the provider applies changed actor states
+even while the chat is idle. Successful actor functions from views and agent tools thereby update
+the same state; local form drafts are preserved.
 
-## Noch zu entscheiden
+## Still to be decided
 
-Eine mögliche weitere Vereinfachung wäre eine stabile React-Komponente `App({ state })`,
-deren Mounten und Zustandsanbindung der Host übernimmt. Der App-Autor müsste dann weder
-`createRoot` noch `useAppState` aufrufen. Das wäre eine Änderung des Client-Vertrags und ist
-noch kein verfügbares API.
+A possible further simplification would be a stable React component `App({ state })` whose
+mounting and state binding the host takes over. The app author would then call neither
+`createRoot` nor `useAppState`. That would be a change to the client contract and is not an
+available API yet.
 
-Vor einer Umsetzung an gemeinsamer Liste und Aufgabenübersicht prüfen, ob dieser neue
-Einstieg gegenüber normalen React-Imports und dem vorhandenen Hook überhaupt hilft.
-Beide Beispiele müssen externe Zustandsänderungen anzeigen und lokale Entwürfe, Fokus sowie
-Filter erhalten. Falls die vorhandene Anbindung bereits hinreichend einfach ist, entfällt
-das Konzept ohne weitere Abstraktion.
+Before an implementation, check with the shared list and the task overview whether this new
+entry point helps at all compared to normal React imports and the existing hook.
+Both examples must show external state changes and preserve local drafts, focus, and filters. If
+the existing binding is already simple enough, the concept is dropped without further
+abstraction.
 
-Eine zusätzliche Datenbindungssprache, Dateibeobachtung und Live-Zustandsübernahme innerhalb
-noch laufender Handler gehören nicht zu dieser Idee. Zwischenstände langer Funktionen
-benötigen gegebenenfalls eine gesonderte Entscheidung.
+An additional data binding language, file watching, and live state adoption inside handlers that
+are still running are not part of this idea. Intermediate states of long functions may need a
+separate decision.

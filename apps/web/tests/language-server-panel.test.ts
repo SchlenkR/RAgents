@@ -26,65 +26,65 @@ const render = (state: LanguageServerSnapshot) => renderToStaticMarkup(createEle
   settings: { label: "Language Server", openTool: "language_open" }, snapshot: state, pending: false, onRefresh: () => {},
 }));
 const one = (overrides: Partial<LanguageServerInstanceSnapshot> = {}) => render({ instances: [instance(overrides)] });
-const staleFiles = [{ path: "old.ts", diagnostics: [{ line: 1, character: 1, severity: "error" as const, message: "Veraltete Diagnose" }] }];
+const staleFiles = [{ path: "old.ts", diagnostics: [{ line: 1, character: 1, severity: "error" as const, message: "Stale diagnostic" }] }];
 
 test("opening language server shows progress without claiming successful diagnostics", () => {
   for (const files of [[], [{ path: "main.ts", diagnostics: [] }], staleFiles]) {
-    const html = one({ state: "opening", summary: "Arbeitsbereich wird geladen.", files });
+    const html = one({ state: "opening", summary: "Loading workspace.", files });
     assert.match(html, /role="status"/);
-    assert.match(html, /Sprachserver wird geladen/);
-    assert.match(html, /Arbeitsbereich wird geladen/);
+    assert.match(html, /Loading language server/);
+    assert.match(html, /Loading workspace/);
     assert.match(html, /\/workspace\/project/);
-    assert.doesNotMatch(html, /Keine Diagnosen|fehlerfrei|Veraltete Diagnose|Kein Sprachserver|Warnungen in/);
+    assert.doesNotMatch(html, /No diagnostics|free of errors|Stale diagnostic|No language server|warnings in/);
   }
 });
 
 test("failed language server shows its concrete error instead of a closed or successful state", () => {
-  const html = one({ state: "failed", summary: "Initialisierung abgebrochen: Datei <project> fehlt.\nBitte den Pfad prüfen.", files: staleFiles });
-  assert.match(html, /fehlgeschlagen/);
+  const html = one({ state: "failed", summary: "Initialization aborted: file <project> is missing.\nPlease check the path.", files: staleFiles });
+  assert.match(html, /failed/);
   assert.match(html, /role="alert"/);
-  assert.match(html, /Sprachserver nicht verfügbar/);
-  assert.match(html, /Initialisierung abgebrochen: Datei &lt;project&gt; fehlt/);
-  assert.match(html, /Bitte den Pfad prüfen/);
-  assert.match(html, /aria-label="Diagnosen aktualisieren"/);
-  assert.doesNotMatch(html, /nicht gestartet|Kein Sprachserver|Keine Diagnosen|fehlerfrei|Veraltete Diagnose/);
+  assert.match(html, /Language server unavailable/);
+  assert.match(html, /Initialization aborted: file &lt;project&gt; is missing/);
+  assert.match(html, /Please check the path/);
+  assert.match(html, /aria-label="Refresh diagnostics"/);
+  assert.doesNotMatch(html, /not started|No language server|No diagnostics|free of errors|Stale diagnostic/);
 });
 
 test("ready language server distinguishes an uninspected workspace from inspected clean files", () => {
-  assert.match(one(), /Bisher wurde keine Datei geprüft/);
-  assert.match(one({ files: [{ path: "main.ts", diagnostics: [] }] }), /Alle geprüften Dateien sind fehlerfrei/);
+  assert.match(one(), /No file has been checked yet/);
+  assert.match(one({ files: [{ path: "main.ts", diagnostics: [] }] }), /All checked files are free of errors/);
   const html = one({ files: staleFiles });
-  assert.match(html, /1 Fehler, 0 Warnungen in 1 Datei/);
-  assert.match(html, /Veraltete Diagnose/);
-  assert.doesNotMatch(html, /Keine Diagnosen/);
+  assert.match(html, /1 error, 0 warnings in 1 file/);
+  assert.match(html, /Stale diagnostic/);
+  assert.doesNotMatch(html, /No diagnostics/);
 });
 
 test("a run without instances and a suspended instance keep their distinct existing states", () => {
   const empty = render({ instances: [] });
-  assert.match(empty, /nicht gestartet/);
-  assert.match(empty, /Kein Sprachserver/);
+  assert.match(empty, /not started/);
+  assert.match(empty, /No language server/);
   assert.match(empty, /language_open/);
-  assert.doesNotMatch(empty, /Keine Diagnosen|fehlerfrei/);
+  assert.doesNotMatch(empty, /No diagnostics|free of errors/);
   const suspended = one({ state: "suspended", files: staleFiles });
-  assert.match(suspended, /nach Leerlauf beendet/);
-  assert.match(suspended, /Veraltete Diagnose/);
+  assert.match(suspended, /ended after idle/);
+  assert.match(suspended, /Stale diagnostic/);
 });
 
 test("every open root of the run gets its own card with root, state and diagnostics", () => {
   const html = render({
     instances: [
-      instance({ root: "/workspace/eins", summary: "Eins geladen", files: staleFiles }),
-      instance({ root: "/workspace/zwei", state: "failed", summary: "Zwei ist kaputt" }),
+      instance({ root: "/workspace/one", summary: "One loaded", files: staleFiles }),
+      instance({ root: "/workspace/two", state: "failed", summary: "Two is broken" }),
     ],
   });
-  assert.match(html, /2 Instanzen/);
-  assert.match(html, /\/workspace\/eins/);
-  assert.match(html, /\/workspace\/zwei/);
-  assert.match(html, /Veraltete Diagnose/);
-  assert.match(html, /Zwei ist kaputt/);
-  assert.match(html, /1 Fehler, 0 Warnungen in 1 Datei/);
-  assert.doesNotMatch(html, /Kein Sprachserver/);
-  assert.match(render({ instances: [instance()] }), /1 Instanz/);
+  assert.match(html, /2 instances/);
+  assert.match(html, /\/workspace\/one/);
+  assert.match(html, /\/workspace\/two/);
+  assert.match(html, /Stale diagnostic/);
+  assert.match(html, /Two is broken/);
+  assert.match(html, /1 error, 0 warnings in 1 file/);
+  assert.doesNotMatch(html, /No language server/);
+  assert.match(render({ instances: [instance()] }), /1 instance/);
 });
 
 const solutions: LanguageServerSolutions = {
@@ -103,18 +103,18 @@ const withChoice = (state: LanguageServerSnapshot, choice: Partial<import("../sr
 
 test("the solution choice names the single open solution, none, or several open instances", () => {
   const none = withChoice({ instances: [] });
-  assert.match(none, /aria-label="Solution wählen"/);
-  assert.match(none, />Keine</);
+  assert.match(none, /aria-label="Choose solution"/);
+  assert.match(none, />None</);
   const one = withChoice({ instances: [instance({ root: "/workspace/tools/Acme.slnx" })] });
   assert.match(one, /tools\/Acme\.slnx/);
   const several = withChoice({ instances: [instance({ root: "/workspace/src/Demo.sln" }), instance({ root: "/workspace/tools/Acme.slnx" })] });
-  assert.match(several, /2 Instanzen offen/);
-  assert.match(withChoice({ instances: [instance({ root: "/workspace/src/Single.csproj" })] }), /Andere Wurzel offen/);
+  assert.match(several, /2 instances open/);
+  assert.match(withChoice({ instances: [instance({ root: "/workspace/src/Single.csproj" })] }), /Other root open/);
 });
 
 test("the solution choice is disabled without write rights, reports errors and an empty workspace", () => {
-  assert.match(withChoice({ instances: [] }, { writable: false }), /Umschalten verlangt Schreibrechte/);
-  assert.match(withChoice({ instances: [] }, { error: "Umschalten fehlgeschlagen" }), /Umschalten fehlgeschlagen/);
-  assert.match(withChoice({ instances: [] }, { solutions: { source: "directory", solutions: [], opened: false } }), /Keine Solution im Arbeitsbereich/);
-  assert.doesNotMatch(render({ instances: [] }), /Solution wählen/);
+  assert.match(withChoice({ instances: [] }, { writable: false }), /Switching requires write permission/);
+  assert.match(withChoice({ instances: [] }, { error: "Switching failed" }), /Switching failed/);
+  assert.match(withChoice({ instances: [] }, { solutions: { source: "directory", solutions: [], opened: false } }), /No solution in the workspace/);
+  assert.doesNotMatch(render({ instances: [] }), /Choose solution/);
 });

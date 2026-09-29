@@ -17,14 +17,14 @@ const fixture = {
   clicked: [] as string[],
   messages: Array.from({ length: 20 }, (_, index): Message => ({
     key: String(index), role: "assistant", closed: true,
-    text: `Nachricht ${index}. ${"Ein längerer Absatz für die Prüfung der Leseposition. ".repeat(12)}`,
+    text: `Message ${index}. ${"A longer paragraph for checking the reading position. ".repeat(12)}`,
   })),
   update() {
     flushSync(() => root.render(
       <StrictMode><QuasselHost>
       <ChatPanel scrollOnSend={fixture.scrollOnSend} composer={
         <ChatInputToolbar key={fixture.composerKey} sendShortcut={fixture.sendShortcut} onSend={async (text) => {
-          if (fixture.rejectSend) throw new Error("Senden fehlgeschlagen");
+          if (fixture.rejectSend) throw new Error("Sending failed");
           fixture.sent.push(text);
           fixture.messages = [...fixture.messages, { key: `sent-${fixture.sent.length}`, role: "user", text }];
           fixture.update();
@@ -32,8 +32,8 @@ const fixture = {
         }} />
       }>
         <ChatMessages messages={fixture.messages} messageActions={{ custom: (message) => message.key === "19" ? [
-          { id: "success", label: "Aktion ausführen", onClick: () => { fixture.clicked.push(message.key); } },
-          { id: "failure", label: "Fehler auslösen", onClick: async () => { throw new Error("Aktion fehlgeschlagen"); } },
+          { id: "success", label: "Run action", onClick: () => { fixture.clicked.push(message.key); } },
+          { id: "failure", label: "Trigger error", onClick: async () => { throw new Error("Action failed"); } },
         ] : [] }} />
       </ChatPanel>
       </QuasselHost></StrictMode>,

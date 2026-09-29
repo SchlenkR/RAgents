@@ -21,7 +21,7 @@ export const declaredEnvironment = <const T extends readonly PluginConfigDescrip
     descriptors.filter((descriptor) => descriptor.source === "environment").map((descriptor) => descriptor.key),
   );
   const read = (key: string): string | undefined => {
-    if (!declared.has(key)) throw new Error(`Umgebungsvariable ${key} ist für dieses Plugin nicht deklariert`);
+    if (!declared.has(key)) throw new Error(`Environment variable ${key} is not declared for this plugin`);
     return process.env[key];
   };
   return {
@@ -30,7 +30,7 @@ export const declaredEnvironment = <const T extends readonly PluginConfigDescrip
     optional: (key) => read(key),
     required: (key) => {
       const value = read(key);
-      if (!value) throw new Error(`Umgebungsvariable ${key} fehlt`);
+      if (!value) throw new Error(`Environment variable ${key} is missing`);
       return value;
     },
     list: (key) => {
@@ -41,7 +41,7 @@ export const declaredEnvironment = <const T extends readonly PluginConfigDescrip
     flag: (key) => read(key) === "1",
     positiveNumber: (key, fallback) => {
       const value = Number(read(key) ?? fallback);
-      if (!Number.isFinite(value) || value <= 0) throw new Error(`${key} muss eine positive Zahl sein`);
+      if (!Number.isFinite(value) || value <= 0) throw new Error(`${key} must be a positive number`);
       return value;
     },
   };

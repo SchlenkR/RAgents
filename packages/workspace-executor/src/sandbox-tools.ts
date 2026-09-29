@@ -42,15 +42,15 @@ export interface SandboxTools {
 
 type ToolResult = { content?: Array<{ type: string; text?: string }>; details?: unknown };
 
-/** Der Stand einer Datei, den das Modell zuletzt gesehen hat; der Host führt ihn je Actor und gibt ihn mit, das Modell nennt ihn nie. */
+/** The state of a file that the model saw last; the host keeps it per actor and passes it along, the model never names it. */
 export interface SeenFile {
   readonly file: string;
   readonly hash: string;
-  /** Nur nach einem read: der gelesene Ausschnitt. */
+  /** Only after a read: the section that was read. */
   readonly read?: { readonly offset?: number; readonly limit?: number };
 }
 
-/** Die Eingabe der Dateiwerkzeuge: was das Modell übergibt, und nur bei dessen direktem Aufruf der Stand, den es gesehen hat (`null`: keiner). */
+/** The input of the file tools: what the model passes, and only on its direct call the state it has seen (`null`: none). */
 type FileToolInput = {
   readonly path?: unknown;
   readonly offset?: number;
@@ -61,11 +61,11 @@ type FileToolInput = {
 
 type FileToolName = "read" | "edit" | "write";
 
-const unchangedNotice = "Unverändert seit dem letzten read in diesem Gespräch; der frühere Inhalt gilt weiter.";
+const unchangedNotice = "Unchanged since the last read in this conversation; the earlier content still applies.";
 
 const sha256 = (content: Buffer | string): string => createHash("sha256").update(content).digest("hex");
 
-/** Der Inhalts-Hash einer Datei; eine fehlende Datei hat keinen. */
+/** The content hash of a file; a missing file has none. */
 const currentHash = async (file: string): Promise<string | undefined> => {
   try {
     return sha256(await readFile(file));
@@ -77,11 +77,11 @@ const currentHash = async (file: string): Promise<string | undefined> => {
 
 const detailHash = (result: unknown, name: FileToolName): string => {
   const hash = (result as { details?: { contentHash?: unknown } }).details?.contentHash;
-  if (typeof hash !== "string") throw new Error(`Das Werkzeug ${name} meldet keinen Inhalts-Hash`);
+  if (typeof hash !== "string") throw new Error(`The tool ${name} reports no content hash`);
   return hash;
 };
 
-/** Ein Ergebnis und ein Fehler nennen den Pfad so, wie das Modell ihn übergeben hat, nicht den aufgelösten. */
+/** A result and an error name the path as the model passed it, not the resolved one. */
 const withShownPath = (result: unknown, resolved: string, shown: string): unknown => {
   const typed = result as ToolResult;
   if (resolved === shown || !Array.isArray(typed.content)) return result;
@@ -103,7 +103,7 @@ export const withAnnotation = (result: unknown, note: string | undefined): unkno
   return { ...typed, content: [...typed.content, { type: "text", text: note }] };
 };
 
-/** Löst `$RAGENTS_..._DIR` und `${...}` am Anfang eines Pfads gegen die Variablen des Kontexts auf. */
+/** Resolves `$RAGENTS_..._DIR` and `${...}` at the start of a path against the variables of the context. */
 const expandPathVariables = (value: string, variables: Readonly<Record<string, string>>): string => {
   for (const [name, root] of Object.entries(variables)) {
     for (const prefix of [`$${name}`, `\${${name}}`]) {
@@ -153,7 +153,7 @@ export const createSandboxTools = async (
     await killProcessGroup(pid);
     const deadline = Date.now() + 5_000;
     while (await processGroupExists(pid)) {
-      if (Date.now() >= deadline) throw new Error(`Bash-Prozessgruppe ${pid} konnte nicht beendet werden`);
+      if (Date.now() >= deadline) throw new Error(`Bash process group ${pid} could not be ended`);
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
     processGroups.delete(pid);
@@ -176,8 +176,8 @@ export const createSandboxTools = async (
   };
 
   const concurrent = (execute: ToolExecute): ToolExecute => (toolCallId, input, signal, onUpdate) => {
-    if (shuttingDown) throw new Error("Die Werkzeuge werden killed");
-    if (signal?.aborted) throw new Error("Abgebrochen");
+    if (shuttingDown) throw new Error("The tools are being killed");
+    if (signal?.aborted) throw new Error("Cancelled");
     const run = () => execute(toolCallId, input, signal, onUpdate);
     return initial.runOperation ? initial.runOperation(run) : run();
   };
@@ -192,7 +192,7 @@ export const createSandboxTools = async (
     };
   };
 
-  /** Bei einem direkten Aufruf des Modells prüft ein Schreiben den gesehenen Stand und ein erneutes read eines unveränderten Ausschnitts antwortet knapp. */
+  /** On a direct call of the model a write checks the seen state, and a repeated read of an unchanged section answers briefly. */
   const checkedAgainstSeen = async (name: FileToolName, file: string, shown: string, input: FileToolInput, seen: SeenFile | null): Promise<ToolResult | undefined> => {
     if (name === "read") {
       const sameView = seen?.read !== undefined && seen.file === file && seen.read.offset === input.offset && seen.read.limit === input.limit;
@@ -200,10 +200,10 @@ export const createSandboxTools = async (
     }
     const current = await currentHash(file);
     if (current === undefined) return undefined;
-    if (seen === null || seen.file !== file) throw new WorkspaceOperationError("workspace-file-unread", `${shown}: Datei zuerst mit read lesen.`, 409);
+    if (seen === null || seen.file !== file) throw new WorkspaceOperationError("workspace-file-unread", `${shown}: read the file with read first.`, 409);
     if (seen.hash !== current) {
       throw new WorkspaceOperationError("workspace-file-changed",
-        `${shown}: Datei wurde seit dem Lesen geändert (vom Benutzer, einem Formatter oder einem anderen Actor); erneut lesen.`, 409);
+        `${shown}: the file was changed since it was read (by the user, a formatter or another actor); read it again.`, 409);
     }
     return undefined;
   };
@@ -245,32 +245,32 @@ export const createSandboxTools = async (
     return writing ? serial(checked) : concurrent(checked);
   };
 
-  /** Der Ordner eines Bash-Aufrufs: relativ zum Arbeitsverzeichnis oder mit Alias, auf jedem Rechner gleich, darum nie absolut, und immer in einer Wurzel des Runs. */
+  /** The folder of a bash call: relative to the working directory or with an alias, the same on every machine, therefore never absolute, and always in a root of the run. */
   const inFolder = (execute: ToolExecute): ToolExecute => async (toolCallId, input, signal, onUpdate) => {
     const params = input as { cwd?: unknown } | undefined;
     if (params?.cwd === undefined) return execute(toolCallId, input, signal, onUpdate);
     const requested = params.cwd;
     if (typeof requested !== "string" || requested === "" || path.isAbsolute(requested)) {
       throw new WorkspaceOperationError("workspace-path-invalid",
-        `cwd nennt einen Ordner relativ zum Arbeitsverzeichnis oder beginnt mit einem Alias wie @actors; ${JSON.stringify(requested)} ist das nicht`, 400);
+        `cwd names a folder relative to the working directory or starts with an alias like @actors; ${JSON.stringify(requested)} is neither`, 400);
     }
     const context = await contextFor();
     const directory = await allowedWorkspacePath(path.resolve(cwd, expandWorkspaceAlias(requested, context.workspaceAliases ?? {})),
       [context.root, ...context.additionalRoots ?? [], ...context.readOnlyRoots ?? []]);
     if (!(await stat(directory).catch(() => undefined))?.isDirectory()) {
-      throw new WorkspaceOperationError("workspace-path-not-found", `Den Ordner ${requested} gibt es nicht`, 404);
+      throw new WorkspaceOperationError("workspace-path-not-found", `The folder ${requested} does not exist`, 404);
     }
     return execute(toolCallId, { ...params, cwd: directory }, signal, onUpdate);
   };
 
   const startBash: BashOperations["exec"] = async (command, commandCwd, options) => {
-      if (shuttingDown) throw new Error("Die Werkzeuge werden killed");
+      if (shuttingDown) throw new Error("The tools are being killed");
       const context = await contextFor();
-      if (shuttingDown) throw new Error("Die Werkzeuge werden killed");
+      if (shuttingDown) throw new Error("The tools are being killed");
       options.signal?.throwIfAborted();
       const bash = bashLaunch({ bash: context.bash, rg: context.rg }, command, context.env);
       const launch = await sandboxedLaunch(context, bash);
-      if (shuttingDown) throw new Error("Die Werkzeuge werden killed");
+      if (shuttingDown) throw new Error("The tools are being killed");
       options.signal?.throwIfAborted();
       const marker = onWindows ? randomUUID() : undefined;
       return new Promise((resolve, reject) => {
@@ -300,7 +300,7 @@ export const createSandboxTools = async (
               child.kill("SIGKILL");
             } catch (failure) {
               cleanup();
-              reject(new AggregateError([error, failure], "Bash-Prozess konnte nicht beendet werden"));
+              reject(new AggregateError([error, failure], "Bash process could not be ended"));
             }
           });
         };
@@ -339,8 +339,8 @@ export const createSandboxTools = async (
 
   const bashOperations: BashOperations = {
     exec: (command, commandCwd, options) => {
-      if (shuttingDown) throw new Error("Die Werkzeuge werden killed");
-      if (options.signal?.aborted) throw new Error("Abgebrochen");
+      if (shuttingDown) throw new Error("The tools are being killed");
+      if (options.signal?.aborted) throw new Error("Cancelled");
       return startBash(command, commandCwd, options);
     },
   };
@@ -359,16 +359,16 @@ export const createSandboxTools = async (
   };
 };
 
-/** Die Operationen des Moduls heißen wie die Werkzeuge, die das Modell sieht. */
+/** The operations of the module are named like the tools the model sees. */
 export const SANDBOX_TOOL_NAMES = ["read", "edit", "write", "bash"] as const;
 
-/** Eine ausdrücklich verlangte Zeitgrenze in Sekunden verlängert, wie lange ein entfernter Executor auf die Bash warten darf. */
+/** An explicitly requested timeout in seconds extends how long a remote executor may wait for the bash. */
 const bashDuration = (input: unknown): { durationMs?: number } => {
   const seconds = typeof input === "object" && input !== null ? (input as { timeout?: unknown }).timeout : undefined;
   return typeof seconds === "number" && seconds > 0 ? { durationMs: seconds * 1000 } : {};
 };
 
-/** Die Dateiwerkzeuge sprechen die Wurzel ihres Pfads an, Bash die ihres Ordners und ohne Ordner keine bestimmte. */
+/** The file tools address the root of their path, bash the root of its folder and without a folder no specific one. */
 const sandboxToolFootprints: Readonly<Record<(typeof SANDBOX_TOOL_NAMES)[number], (input: unknown) => OperationFootprint>> = {
   read: (input) => ({ roots: rootsOfFields(input, "path") }),
   edit: (input) => ({ roots: rootsOfFields(input, "path") }),
@@ -382,7 +382,7 @@ const textOf = (update: ToolUpdate): string =>
     .map((part) => part.text)
     .join("\n");
 
-/** Die vier Sandbox-Werkzeuge als Operationen; die Sandbox eines Runs entsteht beim ersten Aufruf, Bash meldet ihre Ausgabe als `{ text }`. */
+/** The four sandbox tools as operations; the sandbox of a run is created on the first call, bash reports its output as `{ text }`. */
 export const sandboxToolsModule: WorkspaceModuleFactory = (host) => {
   const sandboxes = new Map<string, Promise<SandboxTools>>();
   const sandboxOf = (runId: string): Promise<SandboxTools> => {
@@ -407,7 +407,7 @@ export const sandboxToolsModule: WorkspaceModuleFactory = (host) => {
   const operation = (name: string): WorkspaceOperation => async ({ runId, input, toolCallId, signal, progress }) => {
     const { tools } = await sandboxOf(runId);
     const run = tools.get(name);
-    if (!run) throw new Error(`Die Sandbox kennt das Werkzeug ${name} nicht`);
+    if (!run) throw new Error(`The sandbox does not know the tool ${name}`);
     return run(input, {
       toolCallId: toolCallId ?? name,
       ...(signal ? { signal } : {}),

@@ -136,12 +136,12 @@ const acquireWorker = (
     };
     const onAbort = (): void => fail(new VirtualTypeScriptWorkerError(
         "ABORTED",
-        "Die TypeScript-Kompilierung wurde abgebrochen.",
+        "The TypeScript compilation was cancelled.",
         { cause: signal?.reason },
     ));
     const timer = setTimeout(() => fail(new VirtualTypeScriptWorkerError(
         "TIMEOUT",
-        `Der TypeScript-Compiler hat die Zeitgrenze von ${timeoutMs} ms überschritten.`,
+        `The TypeScript compiler exceeded the timeout of ${timeoutMs} ms.`,
     )), Math.max(0, deadline - performance.now()));
 
     signal?.addEventListener("abort", onAbort, { once: true });
@@ -151,7 +151,7 @@ const acquireWorker = (
         catch (error) {
             fail(new VirtualTypeScriptWorkerError(
                 "WORKER_FAILURE",
-                "Der TypeScript-Compiler-Worker konnte nicht gestartet werden.",
+                "The TypeScript compiler worker could not be started.",
                 { cause: error },
             ));
         }
@@ -192,7 +192,7 @@ const isWorkerMessage = (value: unknown): value is CompilerWorkerMessage => {
 const timeoutOf = (options: CompileVirtualTypeScriptAsyncOptions | undefined): number => {
     const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > MAX_TIMEOUT_MS) {
-        throw new RangeError(`TypeScript-Compiler-Timeout muss zwischen 1 und ${MAX_TIMEOUT_MS} ms liegen.`);
+        throw new RangeError(`TypeScript compiler timeout must be between 1 and ${MAX_TIMEOUT_MS} ms.`);
     }
     return timeoutMs;
 };
@@ -200,12 +200,12 @@ const timeoutOf = (options: CompileVirtualTypeScriptAsyncOptions | undefined): n
 const validateRequestSize = (request: CompileVirtualTypeScriptRequest): void => {
     const files = [...request.sources, ...(request.declarations ?? [])];
     if (files.length > MAX_COMPILER_FILES)
-        throw new RangeError(`Eine TypeScript-Kompilierung darf höchstens ${MAX_COMPILER_FILES} Dateien enthalten.`);
+        throw new RangeError(`A TypeScript compilation may contain at most ${MAX_COMPILER_FILES} files.`);
     const bytes = files.reduce((size, file) =>
         size + Buffer.byteLength(file.fileName, "utf8") + Buffer.byteLength(file.text, "utf8"),
     Buffer.byteLength(request.contract ?? "", "utf8"));
     if (bytes > MAX_COMPILER_INPUT_BYTES)
-        throw new RangeError(`Die TypeScript-Compiler-Eingabe darf höchstens ${MAX_COMPILER_INPUT_BYTES} Byte groß sein.`);
+        throw new RangeError(`The TypeScript compiler input may be at most ${MAX_COMPILER_INPUT_BYTES} bytes.`);
 };
 
 const remoteError = (error: SerializedWorkerError): Error => {
@@ -253,7 +253,7 @@ export const compileVirtualTypeScriptAsync = async (
                 () => reject(result.error),
                 (terminationError: unknown) => reject(new VirtualTypeScriptWorkerError(
                     "WORKER_FAILURE",
-                    "Der TypeScript-Compiler-Worker konnte nicht sauber beendet werden.",
+                    "The TypeScript compiler worker could not be terminated cleanly.",
                     { cause: terminationError },
                 )),
             );
@@ -262,7 +262,7 @@ export const compileVirtualTypeScriptAsync = async (
             if (!isWorkerMessage(message)) {
                 finish({ error: new VirtualTypeScriptWorkerError(
                     "WORKER_FAILURE",
-                    "Der TypeScript-Compiler-Worker hat eine ungültige Antwort geliefert.",
+                    "The TypeScript compiler worker returned an invalid response.",
                 ) });
                 return;
             }
@@ -273,41 +273,41 @@ export const compileVirtualTypeScriptAsync = async (
             }
             finish({ error: new VirtualTypeScriptWorkerError(
                 "COMPILER_EXCEPTION",
-                `Der TypeScript-Compiler ist fehlgeschlagen: ${message.error.message}`,
+                `The TypeScript compiler failed: ${message.error.message}`,
                 { cause: remoteError(message.error) },
             ), keepWorker: true });
         };
         const onMessageError = (error: Error): void => finish({
             error: new VirtualTypeScriptWorkerError(
                 "WORKER_FAILURE",
-                "Die Antwort des TypeScript-Compiler-Workers konnte nicht gelesen werden.",
+                "The response of the TypeScript compiler worker could not be read.",
                 { cause: error },
             ),
         });
         const onError = (error: Error): void => finish({
             error: new VirtualTypeScriptWorkerError(
                 "WORKER_FAILURE",
-                `Der TypeScript-Compiler-Worker ist fehlgeschlagen: ${error.message}`,
+                `The TypeScript compiler worker failed: ${error.message}`,
                 { cause: error },
             ),
         });
         const onExit = (code: number): void => finish({
             error: new VirtualTypeScriptWorkerError(
                 "WORKER_FAILURE",
-                `Der TypeScript-Compiler-Worker wurde ohne Ergebnis beendet (Exit-Code ${code}).`,
+                `The TypeScript compiler worker exited without a result (exit code ${code}).`,
             ),
         });
         const onAbort = (): void => finish({
             error: new VirtualTypeScriptWorkerError(
                 "ABORTED",
-                "Die TypeScript-Kompilierung wurde abgebrochen.",
+                "The TypeScript compilation was cancelled.",
                 { cause: options?.signal?.reason },
             ),
         });
         const timer = setTimeout(() => finish({
             error: new VirtualTypeScriptWorkerError(
                 "TIMEOUT",
-                `Der TypeScript-Compiler hat die Zeitgrenze von ${timeoutMs} ms überschritten.`,
+                `The TypeScript compiler exceeded the timeout of ${timeoutMs} ms.`,
             ),
         }), Math.max(0, deadline - performance.now()));
 

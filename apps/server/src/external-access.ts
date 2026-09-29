@@ -35,6 +35,6 @@ export const setExternalAccess = async (value: boolean): Promise<void> => {
 export const externalGate = (req: IncomingMessage, res: ServerResponse): boolean => {
   if (open || isLocalRequest(req)) return false;
   res.writeHead(503, { "Content-Type": "text/plain; charset=utf-8" });
-  res.end("Der Zugang von außen ist ausgeschaltet.\n");
+  res.end("External access is turned off.\n");
   return true;
 };

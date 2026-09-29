@@ -28,7 +28,7 @@ import { Badge } from "@ragents/web/ui";
 import type { WebPlugin } from "@ragents/web/PluginRegistry";
 export const ProbeBadge = () => {
   const [open, setOpen] = useState(false);
-  return <Badge className="acme-probe-outline bg-[#0b5f4a]" data-probe={open ? "auf" : "zu"} onClick={() => setOpen(!open)}><Check />{open ? "auf" : "zu"}</Badge>;
+  return <Badge className="acme-probe-outline bg-[#0b5f4a]" data-probe={open ? "open" : "closed"} onClick={() => setOpen(!open)}><Check />{open ? "open" : "closed"}</Badge>;
 };
 export const webPlugin: WebPlugin = { id: "acme.probe", overviewPanels: [{ id: "acme.probe", order: 99, placement: "toolbar", Panel: ProbeBadge }] };
 `,
@@ -40,7 +40,7 @@ const BROKEN_PLUGIN: Readonly<Record<string, string>> = {
   "server/index.ts": `import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js";
 export const plugin: PluginModule = { create: () => ({ manifest: { id: "acme.broken" }, register: () => {} }) };
 `,
-  "web/index.ts": `throw new Error("absichtlich kaputt");\n`,
+  "web/index.ts": `throw new Error("deliberately broken");\n`,
 };
 
 interface HostServer {
@@ -68,7 +68,7 @@ export const config = { ...showcase, host: { ...showcase.host, PRODUCT_PROFILE: 
       const parsed = line.startsWith("{\"ragents\"") ? JSON.parse(line) as { ragents: { url: string; token: string } } : undefined;
       if (parsed) resolve(parsed.ragents);
     });
-    void exited.then(() => reject(new Error(`Der Host endete vor seiner Ansage:\n${output.slice(-15).join("\n")}`)));
+    void exited.then(() => reject(new Error(`The host exited before its announcement:\n${output.slice(-15).join("\n")}`)));
   });
   return {
     ...announced,
@@ -83,10 +83,10 @@ const registerOf = (target: Page | Frame): Promise<Record<string, string[]>> =>
   target.evaluate(() => Object.fromEntries(Object.entries((globalThis as unknown as { __ragentsHostModules: Record<string, object> }).__ragentsHostModules)
     .map(([specifier, module]) => [specifier, Object.keys(module)])));
 
-test("das gebaute Web trägt jeden Namen aus host-api.json im Register, lädt die Bundles per Adresse und färbt sie aus dem Stylesheet des Hosts", { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 180_000 }, async () => {
+test("the built web carries every name from host-api.json in the register, loads the bundles by address and styles them from the host stylesheet", { skip: process.env.RAGENTS_BROWSER_TESTS !== "1", timeout: 180_000 }, async () => {
   const problem = hostWebProblem(hostWebDirectory(root), root, true);
-  assert.equal(problem, undefined, `${problem}; vorher pnpm build:web`);
-  // Der Datenordner des Hosts darf in keinem Projekt liegen; das Temp-Verzeichnis des Macs trägt manchmal eine fremde package.json.
+  assert.equal(problem, undefined, `${problem}; run pnpm build:web first`);
+  // The host data folder must not be inside any project; the Mac temp directory sometimes carries a foreign package.json.
   const directory = mkdtempSync(path.join(process.platform === "darwin" ? "/private/tmp" : tmpdir(), "ragents-host-modules-"));
   const embedding = createServer((request, response) => {
     const target = new URL(request.url ?? "/", "http://localhost").searchParams.get("src") ?? "";
@@ -121,12 +121,12 @@ test("das gebaute Web trägt jeden Namen aus host-api.json im Register, lädt di
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ragents.plugins.bootstrap", params: {} }),
     })).json()) as { result: { plugins: { id: string; web?: { entry: string } }[] } });
     const entries = bootstrap.result.plugins.flatMap((plugin) => plugin.web ? [plugin.web.entry] : []);
-    assert.equal(entries.length, 16, "die 14 Web-Hälften des Profils showcase samt Probe und kaputter Probe");
+    assert.equal(entries.length, 16, "the 14 web halves of the showcase profile plus probe and broken probe");
     for (let attempt = 0; attempt < 50 && entries.some((entry) => !loaded.has(entry)); attempt += 1) await page.waitForTimeout(100);
-    assert.deepEqual(entries.filter((entry) => !loaded.has(entry)), [], "das Web lädt jede Web-Hälfte über ihre Adresse");
+    assert.deepEqual(entries.filter((entry) => !loaded.has(entry)), [], "the web loads every web half by its address");
     const failures = page.locator("[data-slot=plugin-failures]");
     await failures.waitFor();
-    assert.match(await failures.innerText(), /Das Plugin acme\.broken lädt nicht[\s\S]*\/plugins\/acme\.broken\/web\/index\.js: absichtlich kaputt/, "eine kaputte Web-Hälfte ist ein Plugin-Fehler, die Oberfläche bleibt");
+    assert.match(await failures.innerText(), /The plugin acme\.broken failed to load[\s\S]*\/plugins\/acme\.broken\/web\/index\.js: deliberately broken/, "a broken web half is a plugin failure, the interface stays");
 
     const register = await registerOf(page);
     const stored = readHostApiRecord(root).web;
@@ -135,18 +135,18 @@ test("das gebaute Web trägt jeden Namen aus host-api.json im Register, lädt di
     for (const specifier of Object.keys(register)) {
       const present = register[specifier]!;
       const missing = stored[specifier]!.filter((name) => !present.includes(name));
-      assert.deepEqual(missing, [], `${specifier}: host-api.json verspricht Namen, die das Register nicht hat`);
+      assert.deepEqual(missing, [], `${specifier}: host-api.json promises names the register does not have`);
       const listed = hostApi.web[specifier]!;
       const expected = listed === LIBRARY ? types.get(specifier)!.names.filter((name) => present.includes(name)) : [...listed].sort();
-      assert.deepEqual([...stored[specifier]!], expected, `${specifier}: host-api.json weicht von der Liste oder der Schnittmenge aus Typen und Register ab`);
+      assert.deepEqual([...stored[specifier]!], expected, `${specifier}: host-api.json differs from the list or the intersection of types and register`);
     }
 
-    await page.locator("[data-probe=zu]").click();
-    const badge = page.locator("[data-probe=auf]");
+    await page.locator("[data-probe=closed]").click();
+    const badge = page.locator("[data-probe=open]");
     await badge.waitFor();
-    assert.equal(await badge.locator("svg").count(), 1, "das gebündelte Symbol aus lucide-react rendert im React des Hosts");
-    assert.equal(await badge.evaluate((element) => getComputedStyle(element).backgroundColor), "rgb(11, 95, 74)", "die Klasse aus classes.json steht im Stylesheet des Hosts");
-    assert.equal(await badge.evaluate((element) => getComputedStyle(element).outlineStyle), "dashed", "das CSS der Web-Hälfte ist verlinkt");
+    assert.equal(await badge.locator("svg").count(), 1, "the bundled icon from lucide-react renders in the host React");
+    assert.equal(await badge.evaluate((element) => getComputedStyle(element).backgroundColor), "rgb(11, 95, 74)", "the class from classes.json is in the host stylesheet");
+    assert.equal(await badge.evaluate((element) => getComputedStyle(element).outlineStyle), "dashed", "the CSS of the web half is linked");
     assert.deepEqual(errors, []);
 
     await new Promise<void>((resolve) => embedding.listen(0, "localhost", resolve));
@@ -161,8 +161,8 @@ test("das gebaute Web trägt jeden Namen aus host-api.json im Register, lädt di
     const frame = embedded.frameLocator("#frame");
     await frame.locator("link[href='/plugins/acme.probe/web/index.css']").waitFor({ state: "attached" });
     const inner = embedded.frames().find((candidate) => candidate.url().startsWith(host.url))!;
-    assert.deepEqual(Object.keys(await registerOf(inner)).sort(), Object.keys(register).sort(), "das Run-Panel im fremden iframe hat dasselbe Register");
-    assert.notEqual(await inner.evaluate(() => getComputedStyle(document.body).backgroundColor), "rgba(0, 0, 0, 0)", "das Stylesheet erreicht das iframe ohne Cookie");
+    assert.deepEqual(Object.keys(await registerOf(inner)).sort(), Object.keys(register).sort(), "the run panel in a foreign iframe has the same register");
+    assert.notEqual(await inner.evaluate(() => getComputedStyle(document.body).backgroundColor), "rgba(0, 0, 0, 0)", "the stylesheet reaches the iframe without a cookie");
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();

@@ -1,10 +1,10 @@
-# Der fremde Rechner des Prüfläufers: Node 22 unter Linux mit dem Host-Paket aus diesem Checkout.
-# VARIANT=browser legt Chromium dazu; die Schicht liegt vor dem Paket und bleibt deshalb im Cache.
+# The check runner's foreign machine: Node 22 on Linux with the host package from this checkout.
+# VARIANT=browser adds Chromium; the layer comes before the package and therefore stays in the cache.
 ARG VARIANT=plain
 
 FROM node:22-bookworm-slim AS plain
 ENV NPM_CONFIG_UPDATE_NOTIFIER=false NPM_CONFIG_FUND=false NPM_CONFIG_AUDIT=false
-# /private/tmp nimmt den Ordner auf, den --shared-path unter demselben Pfad wie auf dem Mac anlegt.
+# /private/tmp holds the folder that --shared-path creates under the same path as on the Mac.
 RUN mkdir -p /opt/ragents /work/project /private/tmp \
     && chown -R node:node /opt/ragents /work \
     && chmod 1777 /private/tmp \
@@ -19,7 +19,7 @@ FROM ${VARIANT} AS host
 USER node
 WORKDIR /opt/ragents
 
-# Erst die Abhängigkeiten aus dem Paketmanifest, damit diese Schicht bei unveränderten Fassungen aus dem Cache kommt.
+# First the dependencies from the package manifest, so this layer comes from the cache when versions are unchanged.
 COPY --chown=node:node dependencies/package.json ./package.json
 RUN npm install --omit=dev --no-package-lock
 

@@ -1,7 +1,7 @@
 import { isRecord } from "../lib/guards";
 import { chatPrimaryId, runViewFrom, type RunActor } from "../run-view";
 
-/** Der Partner des Run-Chats: gestoppt mit Grund, oder aktiv und ob gerade sein eigener Turn läuft; nur den unterbricht die Eingabe. */
+/** The partner of the run chat: stopped with a reason, or active and whether its own turn is running; only that one is interrupted by the input. */
 export type PrimaryChatState =
   | { kind: "none" }
   | { kind: "stopped"; actor: RunActor }
@@ -16,14 +16,14 @@ export function primaryChatState(value: unknown, runId: string, liveTurn: boolea
   return { kind: "active", actorId: actor.id, turnRunning: liveTurn || actor.lifecycle?.kind === "running" };
 }
 
-export const programChatNotice = "Dieser TypeScript-Actor verarbeitet Programmeingaben und führt kein Gespräch. Verwende seine Mini-App oder seine dokumentierten Funktionen.";
+export const programChatNotice = "This TypeScript actor processes program input and does not hold a conversation. Use its mini-app or its documented functions.";
 
 export function primaryIsProgram(view: unknown, runId: string): boolean {
   return isRecord(view) && view.id === runId && Array.isArray(view.actors)
     && view.actors.some((actor: unknown) => isRecord(actor) && actor.id === view.primaryActorId && actor.kind === "script");
 }
 
-/** Laufender Turn irgendeines Agenten oder Programms; die Run-Liste verwendet dieselbe Lesart. */
+/** Running turn of any agent or program; the run list uses the same reading. */
 export function runIsWorking(view: unknown, runId: string): boolean {
   return isRecord(view) && view.id === runId && Array.isArray(view.actors)
     && view.actors.some((actor: unknown) => isRecord(actor) && actor.kind !== "human" && isRecord(actor.lifecycle) && actor.lifecycle.kind === "running");

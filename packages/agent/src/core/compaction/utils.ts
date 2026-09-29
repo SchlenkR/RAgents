@@ -115,7 +115,7 @@ export function serializeConversation(messages: Message[]): string {
 				typeof msg.content === "string"
 					? msg.content
 					: msg.content
-							.map((c) => c.type === "text" ? c.text : `\n[${c.type}: ${c.type === "file" ? `${c.filename}, ` : ""}${c.mimeType}; Originalinhalt beigefügt]\n`)
+							.map((c) => c.type === "text" ? c.text : `\n[${c.type}: ${c.type === "file" ? `${c.filename}, ` : ""}${c.mimeType}; original content attached]\n`)
 							.join("");
 			if (content) parts.push(`[User]: ${content}`);
 		} else if (msg.role === "assistant") {

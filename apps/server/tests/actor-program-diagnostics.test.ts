@@ -33,7 +33,7 @@ test("project diagnostics see Bash changes and deletes, persist per agent, and i
     await writeFile(path.join(directory, "src/helper.ts"), "broken");
     const diagnostics = createProjectDiagnostics(options);
     const agent = connect(diagnostics);
-    assert.match((await agent.beforeModel())!, /1 Fehler.*1 neu, 0 behoben/);
+    assert.match((await agent.beforeModel())!, /1 errors.*1 new, 0 fixed/);
     assert.match(diagnostics.latest("run-1", "agent-1"), /TS2322/);
     assert.equal(await agent.beforeModel(), undefined);
     assert.equal(checked.length, 1);
@@ -41,22 +41,22 @@ test("project diagnostics see Bash changes and deletes, persist per agent, and i
     await writeFile(path.join(directory, "node_modules/@ragents/client/index.d.ts"), "generated");
     assert.equal(await agent.beforeModel(), undefined);
     execFileSync("/bin/bash", ["-c", 'printf "fixed" > "$1"', "diagnostics-test", path.join(directory, "src/helper.ts")]);
-    assert.match((await agent.beforeModel())!, /0 Fehler.*0 neu, 1 behoben/);
+    assert.match((await agent.beforeModel())!, /0 errors.*0 new, 1 fixed/);
     assert.equal(await agent.beforeModel(), undefined);
     assert.equal(checked.length, 2);
     const restored = createProjectDiagnostics(options);
     assert.equal(await connect(restored, agent.entries).beforeModel(), undefined);
     assert.equal(checked.length, 2);
-    assert.match(restored.latest("run-1", "agent-1"), /counter: 0 Fehler/);
+    assert.match(restored.latest("run-1", "agent-1"), /counter: 0 errors/);
     const secondAgent = connect(restored, [], "agent-2");
-    assert.match((await secondAgent.beforeModel())!, /0 Fehler/);
+    assert.match((await secondAgent.beforeModel())!, /0 errors/);
     assert.equal(checked.length, 3);
     execFileSync("/bin/bash", ["-c", 'rm "$1"', "diagnostics-test", path.join(directory, "src/helper.ts")]);
-    assert.match((await agent.beforeModel())!, /1 Fehler.*1 neu, 0 behoben/);
+    assert.match((await agent.beforeModel())!, /1 errors.*1 new, 0 fixed/);
     assert.match(diagnostics.latest("run-1", "agent-1"), /ENOENT/);
     assert.equal(await agent.beforeModel(), undefined);
     await rm(directory, { recursive: true });
-    assert.match((await agent.beforeModel())!, /0 Fehler in 0 Projekten/);
+    assert.match((await agent.beforeModel())!, /0 errors in 0 projects/);
     assert.equal(await agent.beforeModel(), undefined);
   } finally { await rm(workspace, { recursive: true, force: true }); }
 });
@@ -72,8 +72,8 @@ test("diagnostic delta stays small while the full last compiler result remains a
     const agent = connect(diagnostics);
     const content = (await agent.beforeModel())!;
     assert.ok(content.length < 2300);
-    assert.match(content, /30 Fehler/);
-    assert.match(content, /22 weitere Änderungen/);
+    assert.match(content, /30 errors/);
+    assert.match(content, /22 more changes/);
     assert.match(diagnostics.latest("run-1", "agent-1", "sample"), /src\/f29.ts/);
     assert.equal(await agent.beforeModel(), undefined);
     const signal = AbortSignal.abort(new Error("stopped"));

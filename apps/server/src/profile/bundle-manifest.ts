@@ -69,9 +69,9 @@ export const isFetchedBundle = (folder: string, dataRoot = ragentsDataRoot()): b
 
 /** How the author, or for a fetched bundle its user, gets a bundle that fits this host again. */
 export const rebuildHint = (folder: string): string => {
-  if (isBuiltInBundle(folder)) return "im Checkout mit pnpm build:plugins neu bauen";
-  if (isFetchedBundle(folder)) return "der Stand kommt von einem Server: mit ragents connect <server-url> neu holen, connect nennt die passende Host-Fassung";
-  return "mit ragents plugin build <quellordner> neu bauen";
+  if (isBuiltInBundle(folder)) return "rebuild in the checkout with pnpm build:plugins";
+  if (isFetchedBundle(folder)) return "this state comes from a server: fetch it again with ragents connect <server-url>, connect names the matching host version";
+  return "rebuild with ragents plugin build <source-folder>";
 };
 
 const SKIPPED_SOURCE_ENTRIES = new Set(["node_modules", ".DS_Store"]);
@@ -116,7 +116,7 @@ export const bundleStand = (folder: string): string => {
 /** A copy of a bundle, from a package or an archive, must carry exactly the files it was built with. */
 export const assertBundleStand = (folder: string, manifest: Pick<BundleManifest, "id" | "stand">): void => {
   if (bundleStand(folder) !== manifest.stand) {
-    throw new Error(`Das Bundle ${manifest.id} in ${folder} hat nicht mehr die Dateien, mit denen es gebaut wurde (stand); ${rebuildHint(folder)}`);
+    throw new Error(`The bundle ${manifest.id} in ${folder} no longer has the files it was built with (stand); ${rebuildHint(folder)}`);
   }
 };
 
@@ -133,8 +133,8 @@ const missingHostNames = (manifest: Pick<BundleManifest, "hostNames">, record: H
 export const assertHostNames = (folder: string, manifest: Pick<BundleManifest, "id" | "hostNames">, record: HostApiRecord): void => {
   const missing = missingHostNames(manifest, record);
   if (missing.length === 0) return;
-  throw new Error(`Das Bundle ${manifest.id} braucht aus der Host-API ${record.version} Namen, die dieser Host nicht anbietet (${missing.join("; ")}); `
-    + `es ist gegen einen neueren Host gebaut: den Host aktualisieren, sonst ${rebuildHint(folder)}`);
+  throw new Error(`The bundle ${manifest.id} needs names from host API ${record.version} that this host does not offer (${missing.join("; ")}); `
+    + `it was built against a newer host: update the host, otherwise ${rebuildHint(folder)}`);
 };
 
 /** Reads and checks the manifest; format and host API must match this host exactly. */
@@ -142,28 +142,28 @@ export const readBundleManifest = (folder: string): BundleManifest => {
   const file = path.join(folder, BUNDLE_MANIFEST_FILE);
   if (!statSync(file, { throwIfNoEntry: false })?.isFile()) {
     if (SOURCE_MARKERS.some((marker) => existsSync(path.join(folder, marker)))) {
-      throw new Error(`${folder} ist ein Quellordner, kein Bundle: mit ragents plugin build ${folder} bauen und im Profil den Bundle-Ordner nennen`);
+      throw new Error(`${folder} is a source folder, not a bundle: build it with ragents plugin build ${folder} and name the bundle folder in the profile`);
     }
-    throw new Error(`${folder} ist kein Bundle: ${BUNDLE_MANIFEST_FILE} fehlt`);
+    throw new Error(`${folder} is not a bundle: ${BUNDLE_MANIFEST_FILE} is missing`);
   }
   const id = pluginIdOf(folder);
   const raw = ((): unknown => {
     try {
       return JSON.parse(readFileSync(file, "utf8"));
     } catch (cause) {
-      throw new Error(`${file} ist kein gültiges JSON: ${cause instanceof Error ? cause.message : String(cause)}`);
+      throw new Error(`${file} is not valid JSON: ${cause instanceof Error ? cause.message : String(cause)}`);
     }
   })();
-  if (!isRecord(raw)) throw new Error(`${file} muss ein Objekt enthalten`);
+  if (!isRecord(raw)) throw new Error(`${file} must contain an object`);
   if (raw.format !== BUNDLE_FORMAT) {
-    throw new Error(`Das Bundle ${id} hat das Format ${String(raw.format)}, dieser Host liest Format ${BUNDLE_FORMAT}; ${rebuildHint(folder)}`);
+    throw new Error(`The bundle ${id} has format ${String(raw.format)}, this host reads format ${BUNDLE_FORMAT}; ${rebuildHint(folder)}`);
   }
-  if (raw.id !== id) throw new Error(`Das Bundle in ${folder} meldet die Kennung ${String(raw.id)}; die Kennung ist der Ordnername ${id}`);
+  if (raw.id !== id) throw new Error(`The bundle in ${folder} reports the id ${String(raw.id)}; the id is the folder name ${id}`);
   if (raw.api !== HOST_API_VERSION) {
-    throw new Error(`Das Bundle ${id} ist für Host-API ${String(raw.api)} gebaut, dieser Host bietet ${HOST_API_VERSION}; ${rebuildHint(folder)}`);
+    throw new Error(`The bundle ${id} is built for host API ${String(raw.api)}, this host offers ${HOST_API_VERSION}; ${rebuildHint(folder)}`);
   }
   const unknown = Object.keys(raw).filter((key) => !MANIFEST_KEYS.has(key));
-  if (unknown.length > 0) throw new Error(`${file}: unbekannte Felder ${unknown.join(", ")}; ${rebuildHint(folder)}`);
+  if (unknown.length > 0) throw new Error(`${file}: unknown fields ${unknown.join(", ")}; ${rebuildHint(folder)}`);
   const malformed = [
     ...(isHostNames(raw.hostNames) ? [] : ["hostNames"]),
     ...(typeof raw.stand === "string" ? [] : ["stand"]),
@@ -175,13 +175,13 @@ export const readBundleManifest = (folder: string): BundleManifest => {
     ...(isStringList(raw.uses) ? [] : ["uses"]),
     ...(isStringList(raw.assets) ? [] : ["assets"]),
   ];
-  if (malformed.length > 0) throw new Error(`${file}: ${malformed.join(", ")} fehlt oder hat die falsche Form; ${rebuildHint(folder)}`);
+  if (malformed.length > 0) throw new Error(`${file}: ${malformed.join(", ")} is missing or has the wrong shape; ${rebuildHint(folder)}`);
   const web = raw.web as BundleManifest["web"];
   const webFiles = web === undefined ? [] : [web.entry, web.classes, ...(web.css === undefined ? [] : [web.css])];
   const misplaced = webFiles.filter((entry) => !entry.startsWith("web/") || entry.split("/").includes(".."));
-  if (misplaced.length > 0) throw new Error(`${file}: ${misplaced.join(", ")} liegt nicht unter web/; ${rebuildHint(folder)}`);
+  if (misplaced.length > 0) throw new Error(`${file}: ${misplaced.join(", ")} is not under web/; ${rebuildHint(folder)}`);
   for (const required of [raw.server as string, ...webFiles, ...(raw.executor === undefined ? [] : [EXECUTOR_CONTRIBUTION_FILE])]) {
-    if (!statSync(path.join(folder, required), { throwIfNoEntry: false })?.isFile()) throw new Error(`Dem Bundle ${id} fehlt ${required}; ${rebuildHint(folder)}`);
+    if (!statSync(path.join(folder, required), { throwIfNoEntry: false })?.isFile()) throw new Error(`The bundle ${id} is missing ${required}; ${rebuildHint(folder)}`);
   }
   return raw as unknown as BundleManifest;
 };

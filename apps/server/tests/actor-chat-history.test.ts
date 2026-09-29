@@ -29,7 +29,7 @@ function fixture() {
   }).actors.find((actor) => actor.handle === handle)!;
   const coordinator = spawn("coordinator");
   const reviewer = spawn("reviewer");
-  const script = runtime.createScriptActor(context(), id, { handle: "notizliste", displayName: "Notizliste", grants: [], toolNames: [] }).actors.find((actor) => actor.kind === "script")!;
+  const script = runtime.createScriptActor(context(), id, { handle: "notelist", displayName: "Note list", grants: [], toolNames: [] }).actors.find((actor) => actor.kind === "script")!;
   runtime.selectPrimaryActor(context(), id, coordinator.id);
   const input = (actorId: string, text: string, from = ownerId, turnId?: string, artifactIds: string[] = []) => runtime.enqueueInput(context(from, turnId), id, { actorId, content: text, artifactIds }).inputs.at(-1)!;
   const start = (actorId: string, text: string) => {
@@ -65,30 +65,30 @@ test("actor histories survive a primary switch mid-tool, parallel actors, reused
   const f = fixture();
   try {
     const a = f.coordinator.id, b = f.reviewer.id;
-    const first = f.start(a, "Erster Auftrag");
-    f.runtime.completeModelStep(f.context(a, first), f.id, a, { turnId: first, step: thinkingStep("Ich prüfe die Notizen.") });
+    const first = f.start(a, "First task");
+    f.runtime.completeModelStep(f.context(a, first), f.id, a, { turnId: first, step: thinkingStep("I am checking the notes.") });
     assert.equal(f.history().actors[a].at(-1)?.closed, true);
     f.tool(a, first, "first.txt");
-    const other = f.start(b, "Andere Aufgabe");
+    const other = f.start(b, "Other task");
     f.tool(b, other, "other.txt");
     const before = f.history();
     f.runtime.selectPrimaryActor(f.context(), f.id, f.script.id);
     assert.deepEqual(f.history().actors[a], before.actors[a]);
-    f.complete(a, first, "Erstes Ergebnis");
-    f.runtime.failToolCall(f.context(b, other), f.id, b, { turnId: other, toolCallId: "same-id", name: "read", error: "Fremder Fehler" });
-    f.runtime.completeModelStep(f.context(a, first), f.id, a, { turnId: first, step: textStep("Antwort eins") });
+    f.complete(a, first, "First result");
+    f.runtime.failToolCall(f.context(b, other), f.id, b, { turnId: other, toolCallId: "same-id", name: "read", error: "Foreign error" });
+    f.runtime.completeModelStep(f.context(a, first), f.id, a, { turnId: first, step: textStep("Answer one") });
     f.finish(a, first);
-    const second = f.start(a, "Zweiter Auftrag");
+    const second = f.start(a, "Second task");
     f.tool(a, second, "second.txt");
-    f.complete(a, second, "Zweites Ergebnis");
+    f.complete(a, second, "Second result");
     f.finish(a, second);
     const result = f.history();
     assert.deepEqual(result.actors[a].map((message) => message.role), ["user", "thinking", "tool", "assistant", "user", "tool"]);
     const calls = result.actors[a].filter((message) => message.tool);
-    assert.deepEqual(calls.map((message) => JSON.parse(message.tool!.result!).text), ["Erstes Ergebnis", "Zweites Ergebnis"]);
+    assert.deepEqual(calls.map((message) => JSON.parse(message.tool!.result!).text), ["First result", "Second result"]);
     assert.deepEqual(calls.map((message) => JSON.parse(message.tool!.arguments).path), ["first.txt", "second.txt"]);
     assert.notEqual(calls[0].tool!.id, calls[1].tool!.id);
-    assert.equal(result.actors[b].find((message) => message.tool)?.tool?.result, "Fremder Fehler");
+    assert.equal(result.actors[b].find((message) => message.tool)?.tool?.result, "Foreign error");
     assert.equal(result.actors[b].find((message) => message.tool)?.tool?.isError, true);
     assert.deepEqual(result.actors[f.script.id], []);
     assert.equal(result.actors[f.ownerId], undefined);
@@ -105,16 +105,16 @@ test("primary and actor journals share text and tool payloads while keeping acto
   const f = fixture();
   try {
     const actor = f.coordinator.id;
-    const first = f.start(actor, "Erster Auftrag");
-    f.runtime.completeModelStep(f.context(actor, first), f.id, actor, { turnId: first, step: thinkingStep("Erster Gedanke.") });
-    f.runtime.completeModelStep(f.context(actor, first), f.id, actor, { turnId: first, step: thinkingStep("Zweiter Gedanke.") });
+    const first = f.start(actor, "First task");
+    f.runtime.completeModelStep(f.context(actor, first), f.id, actor, { turnId: first, step: thinkingStep("First thought.") });
+    f.runtime.completeModelStep(f.context(actor, first), f.id, actor, { turnId: first, step: thinkingStep("Second thought.") });
     f.runtime.startToolCall(f.context(actor, first), f.id, actor, { turnId: first, toolCallId: "same-id", name: "read", input: null });
-    f.complete(actor, first, "Ergebnis");
-    f.runtime.completeModelStep(f.context(actor, first), f.id, actor, { turnId: first, step: textStep("Die Antwort.") });
+    f.complete(actor, first, "Result");
+    f.runtime.completeModelStep(f.context(actor, first), f.id, actor, { turnId: first, step: textStep("The answer.") });
     f.finish(actor, first);
-    const second = f.start(actor, "Zweiter Auftrag");
+    const second = f.start(actor, "Second task");
     f.tool(actor, second, "second.txt");
-    f.runtime.stopActor(f.context(), f.id, actor, "Unterbrochen");
+    f.runtime.stopActor(f.context(), f.id, actor, "Interrupted");
     const primary = f.primaryHistory(actor);
     const actorMessages = f.history().actors[actor];
     const primaryTools = primary.flatMap((message) => message.tool ? [message.tool] : []);
@@ -124,9 +124,9 @@ test("primary and actor journals share text and tool payloads while keeping acto
     assert.equal(primaryTools[0].arguments, "null");
     assert.equal(actorTools[0].arguments, primaryTools[0].arguments);
     assert.equal(actorTools[0].result, primaryTools[0].result);
-    assert.equal(primaryTools[1].result, "Unterbrochen");
+    assert.equal(primaryTools[1].result, "Interrupted");
     assert.equal(primaryTools[1].isError, true);
-    assert.equal(actorTools[1].result, "Unterbrochen");
+    assert.equal(actorTools[1].result, "Interrupted");
     assert.equal(actorTools[1].isError, true);
     assert.equal(primary.filter((message) => message.role === "thinking").length, 1);
     assert.equal(actorMessages.filter((message) => message.role === "thinking").length, 2);
@@ -134,8 +134,8 @@ test("primary and actor journals share text and tool payloads while keeping acto
     const actorText = actorMessages.find((message) => message.role === "assistant")!;
     assert.equal(primaryText.text, actorText.text);
     assert.deepEqual(primaryText.textCursor, actorText.textCursor);
-    assert.deepEqual(primary.filter((message) => message.role === "system").map((message) => message.text), ["Unterbrochen"]);
-    assert.deepEqual(actorMessages.filter((message) => message.role === "system").map((message) => message.text), ["Unterbrochen"]);
+    assert.deepEqual(primary.filter((message) => message.role === "system").map((message) => message.text), ["Interrupted"]);
+    assert.deepEqual(actorMessages.filter((message) => message.role === "system").map((message) => message.text), ["Interrupted"]);
     assert.ok(primary.at(-1)?.closed && actorMessages.at(-1)?.closed);
   } finally { f.journal.close(); }
 });
@@ -144,14 +144,14 @@ test("a failed turn closes its open tool calls with its reason in the primary an
   const f = fixture();
   try {
     const actor = f.coordinator.id;
-    const turn = f.start(actor, "Auftrag");
-    f.tool(actor, turn, "offen.txt");
-    f.runtime.finishTurn(f.context(actor, turn), f.id, actor, { turnId: turn, outcome: "failed", reason: "Das Modell ist ausgefallen." });
+    const turn = f.start(actor, "Task");
+    f.tool(actor, turn, "open.txt");
+    f.runtime.finishTurn(f.context(actor, turn), f.id, actor, { turnId: turn, outcome: "failed", reason: "The model failed." });
     const primaryTools = f.primaryHistory(actor).flatMap((message) => message.tool ? [message.tool] : []);
     const actorTools = f.history().actors[actor].flatMap((message) => message.tool ? [message.tool] : []);
     assert.deepEqual([primaryTools, actorTools].map((tools) => tools.map((tool) => [tool.result, tool.isError])), [
-      [["Das Modell ist ausgefallen.", true]],
-      [["Das Modell ist ausgefallen.", true]],
+      [["The model failed.", true]],
+      [["The model failed.", true]],
     ]);
   } finally { f.journal.close(); }
 });
@@ -161,20 +161,20 @@ test("stopping an actor mid-turn names the reason once in the primary and the ac
   try {
     const actor = f.coordinator.id;
     const reasonCount = (messages: readonly Message[], reason: string) => messages.filter((message) => message.role === "system" && message.text === reason).length;
-    const interrupted = f.start(actor, "Erster Auftrag");
-    f.runtime.interruptTurn(f.context(), f.id, actor, { turnId: interrupted, reason: "Turn unterbrochen" });
-    const turn = f.start(actor, "Auftrag");
-    f.tool(actor, turn, "offen.txt");
-    f.runtime.stopActor(f.context(), f.id, actor, "Arbeit durch den Bediener gestoppt");
+    const interrupted = f.start(actor, "First task");
+    f.runtime.interruptTurn(f.context(), f.id, actor, { turnId: interrupted, reason: "Turn interrupted" });
+    const turn = f.start(actor, "Task");
+    f.tool(actor, turn, "open.txt");
+    f.runtime.stopActor(f.context(), f.id, actor, "Work stopped by the operator");
     for (const messages of [f.primaryHistory(actor), f.history().actors[actor]]) {
-      assert.equal(reasonCount(messages, "Arbeit durch den Bediener gestoppt"), 1);
-      assert.equal(reasonCount(messages, "Turn unterbrochen"), 1);
-      assert.equal(messages.find((message) => message.tool)?.tool?.result, "Arbeit durch den Bediener gestoppt");
+      assert.equal(reasonCount(messages, "Work stopped by the operator"), 1);
+      assert.equal(reasonCount(messages, "Turn interrupted"), 1);
+      assert.equal(messages.find((message) => message.tool)?.tool?.result, "Work stopped by the operator");
     }
-    f.runtime.restartActor(f.context(), f.id, actor, "Neustart");
-    f.runtime.stopActor(f.context(), f.id, actor, "Ohne laufenden Turn gestoppt");
+    f.runtime.restartActor(f.context(), f.id, actor, "Restart");
+    f.runtime.stopActor(f.context(), f.id, actor, "Stopped without a running turn");
     for (const messages of [f.primaryHistory(actor), f.history().actors[actor]])
-      assert.equal(reasonCount(messages, "Ohne laufenden Turn gestoppt"), 1);
+      assert.equal(reasonCount(messages, "Stopped without a running turn"), 1);
   } finally { f.journal.close(); }
 });
 
@@ -182,16 +182,16 @@ test("background prompts stay out of primary and actor chats while normal messag
   const f = fixture();
   try {
     const actor = f.coordinator.id;
-    const first = f.start(actor, "Wie läuft die Umsetzung?");
-    f.runtime.completeModelStep(f.context(actor, first), f.id, actor, { turnId: first, step: textStep("Ich prüfe den Fortschritt.") });
+    const first = f.start(actor, "How is the implementation going?");
+    f.runtime.completeModelStep(f.context(actor, first), f.id, actor, { turnId: first, step: textStep("I am checking the progress.") });
     f.finish(actor, first);
     const queued = f.runtime.enqueueInput(f.context(), f.id, {
-      actorId: actor, content: "Interner Prüfauftrag", presentation: "background",
+      actorId: actor, content: "Internal review task", presentation: "background",
     }).inputs.at(-1)!;
     const turn = f.runtime.startTurn(f.context(actor), f.id, actor, queued.id).turns.at(-1)!.id;
-    f.runtime.completeModelStep(f.context(actor, turn), f.id, actor, { turnId: turn, step: textStep("Die Implementierung läuft weiter.") });
+    f.runtime.completeModelStep(f.context(actor, turn), f.id, actor, { turnId: turn, step: textStep("The implementation continues.") });
     f.finish(actor, turn);
-    const expected = ["Wie läuft die Umsetzung?", "Ich prüfe den Fortschritt.", "Die Implementierung läuft weiter."];
+    const expected = ["How is the implementation going?", "I am checking the progress.", "The implementation continues."];
     assert.deepEqual(f.primaryHistory(actor).map((message) => message.text), expected);
     assert.deepEqual(f.history().actors[actor].map((message) => message.text), expected);
     assert.deepEqual(f.history().actors[actor].map((message) => message.role), ["user", "assistant", "assistant"]);
@@ -203,8 +203,8 @@ test("background prompts stay out of primary and actor chats while normal messag
       const access = createAccessContext({ enabled: true, user: { id: "user", label: "User", rights } });
       assert.deepEqual(accessibleActorConversations(f.history(), access).actors[actor].map((message) => message.text), expected);
       const inputs = accessibleRunView(replay, access, new AccessProjectionRegistry()).inputs;
-      assert.equal(inputs[0].content, "Wie läuft die Umsetzung?");
-      assert.equal(inputs.find((input) => input.id === queued.id)?.content, access.can("runs.inspect") ? "Interner Prüfauftrag" : "");
+      assert.equal(inputs[0].content, "How is the implementation going?");
+      assert.equal(inputs.find((input) => input.id === queued.id)?.content, access.can("runs.inspect") ? "Internal review task" : "");
     }
   } finally { f.journal.close(); }
 });
@@ -214,19 +214,19 @@ for (const source of ["owner", "background", "actor"] as const) {
     const f = fixture();
     try {
       const actor = f.coordinator.id;
-      const turn = f.start(actor, "Erster Auftrag");
-      const senderTurn = source === "actor" ? f.start(f.reviewer.id, "Prüfe den Auftrag") : undefined;
-      f.runtime.completeModelStep(f.context(actor, turn), f.id, actor, { turnId: turn, step: textStep("Hallo") });
+      const turn = f.start(actor, "First task");
+      const senderTurn = source === "actor" ? f.start(f.reviewer.id, "Review the task") : undefined;
+      f.runtime.completeModelStep(f.context(actor, turn), f.id, actor, { turnId: turn, step: textStep("Hello") });
       const before = f.history().actors[actor].at(-1)!;
       const incoming = source === "background"
-        ? f.runtime.enqueueInput(f.context(), f.id, { actorId: actor, content: "Ergänzung", presentation: "background" }).inputs.at(-1)!
-        : f.input(actor, "Ergänzung", source === "actor" ? f.reviewer.id : f.ownerId, senderTurn);
+        ? f.runtime.enqueueInput(f.context(), f.id, { actorId: actor, content: "Addition", presentation: "background" }).inputs.at(-1)!
+        : f.input(actor, "Addition", source === "actor" ? f.reviewer.id : f.ownerId, senderTurn);
       assert.equal(f.history().actors[actor].find((message) => message.key === before.key)?.closed, before.closed);
-      f.runtime.completeModelStep(f.context(actor, turn), f.id, actor, { turnId: turn, step: textStep(" Welt") });
+      f.runtime.completeModelStep(f.context(actor, turn), f.id, actor, { turnId: turn, step: textStep(" team") });
       const continued = f.history().actors[actor];
       assert.deepEqual(continued.map((message) => message.text), source === "background"
-        ? ["Erster Auftrag", "Hallo Welt"]
-        : ["Erster Auftrag", "Hallo Welt", "Ergänzung"]);
+        ? ["First task", "Hello team"]
+        : ["First task", "Hello team", "Addition"]);
       assert.equal(continued[1].key, before.key);
       assert.equal(continued[1].sender, actor);
       assert.equal(continued[1].textCursor?.sequence, before.textCursor?.sequence);
@@ -235,10 +235,10 @@ for (const source of ["owner", "background", "actor"] as const) {
       f.finish(actor, turn);
       assert.equal(f.history().actors[actor][1].closed, true);
       const next = f.runtime.startTurn(f.context(actor), f.id, actor, incoming.id).turns.at(-1)!.id;
-      f.runtime.completeModelStep(f.context(actor, next), f.id, actor, { turnId: next, step: textStep("Neue Antwort") });
+      f.runtime.completeModelStep(f.context(actor, next), f.id, actor, { turnId: next, step: textStep("New answer") });
       f.finish(actor, next);
       const result = f.history();
-      assert.deepEqual(result.actors[actor].filter((message) => message.sender === actor).map((message) => message.text), ["Hallo Welt", "Neue Antwort"]);
+      assert.deepEqual(result.actors[actor].filter((message) => message.sender === actor).map((message) => message.text), ["Hello team", "New answer"]);
       const events = f.runtime.events(f.id);
       assert.deepEqual(actorChatHistoryOf(viewOf(project(events)!), events), result);
     } finally { f.journal.close(); }
@@ -249,18 +249,18 @@ test("shared action payloads preserve actor routing, primary asker labels and di
   const f = fixture();
   try {
     const actor = f.reviewer.id;
-    const turn = f.start(actor, "Prüfen");
+    const turn = f.start(actor, "Review");
     const question = f.runtime.proposeAction(f.context(actor, turn), f.id, {
-      owner: "ragents.ask", title: "Welche Farbe?", payload: { question: "Welche Farbe?", options: ["Blau", "Rot"], multi: true },
+      owner: "ragents.ask", title: "Which color?", payload: { question: "Which color?", options: ["Blue", "Red"], multi: true },
     }).actions.at(-1)!;
     f.runtime.resolveAction(f.context(), f.id, question.id, { decision: "dismissed" });
     const primary = f.primaryHistory(f.coordinator.id).find((message) => message.role === "action")!;
     const actors = f.history().actors;
     const own = actors[actor].find((message) => message.role === "action")!;
-    assert.equal(primary.text, "reviewer: Welche Farbe?");
-    assert.equal(own.text, "Welche Farbe?");
+    assert.equal(primary.text, "reviewer: Which color?");
+    assert.equal(own.text, "Which color?");
     assert.equal(own.action?.owner, "ragents.ask");
-    assert.deepEqual(own.action?.payload, { question: "Welche Farbe?", options: ["Blau", "Rot"], multi: true });
+    assert.deepEqual(own.action?.payload, { question: "Which color?", options: ["Blue", "Red"], multi: true });
     assert.deepEqual(primary.action?.payload, own.action?.payload);
     assert.equal(own.action?.status, "dismissed");
     assert.equal(actors[f.coordinator.id].length, 0);
@@ -271,35 +271,35 @@ test("delivered inputs retain senders and attachments while actions and stops st
   const f = fixture();
   try {
     const a = f.coordinator.id, b = f.reviewer.id;
-    const turn = f.start(a, "Planung");
-    const published = f.runtime.publishArtifact(f.context(a, turn), f.id, { title: "notes.txt", mediaType: "text/plain", content: "Notizen", previousVersionId: null });
+    const turn = f.start(a, "Planning");
+    const published = f.runtime.publishArtifact(f.context(a, turn), f.id, { title: "notes.txt", mediaType: "text/plain", content: "Notes", previousVersionId: null });
     const artifact = published.artifacts[0];
-    const deliveredInput = f.input(b, "Prüfe den Anhang", a, turn, [artifact.id]);
+    const deliveredInput = f.input(b, "Review the attachment", a, turn, [artifact.id]);
     const reviewerTurn = f.runtime.startTurn(f.context(b), f.id, b, deliveredInput.id).turns.at(-1)!.id;
     f.tool(b, reviewerTurn, "notes.txt");
-    const question = f.runtime.proposeAction(f.context(a, turn), f.id, { owner: "ragents.ask", title: "Welche Farbe?", payload: { question: "Welche Farbe?", options: ["Blau", "Rot"] } }).actions[0];
-    f.runtime.resolveAction(f.context(), f.id, question.id, { decision: "approved", result: "Blau" });
-    f.runtime.stopActor(f.context(), f.id, b, "Prüfung gestoppt");
+    const question = f.runtime.proposeAction(f.context(a, turn), f.id, { owner: "ragents.ask", title: "Which color?", payload: { question: "Which color?", options: ["Blue", "Red"] } }).actions[0];
+    f.runtime.resolveAction(f.context(), f.id, question.id, { decision: "approved", result: "Blue" });
+    f.runtime.stopActor(f.context(), f.id, b, "Review stopped");
     const history = f.history();
-    const delivered = history.actors[b].find((message) => message.text === "Prüfe den Anhang")!;
+    const delivered = history.actors[b].find((message) => message.text === "Review the attachment")!;
     assert.equal(delivered.sender, a);
     assert.equal(delivered.role, "assistant");
-    assert.equal(delivered.bubble?.label, "Zugestellt von @coordinator");
+    assert.equal(delivered.bubble?.label, "Delivered by @coordinator");
     assert.deepEqual(delivered.attachments, [{ name: "notes.txt", mediaType: "text/plain", size: artifact.size, url: attachmentContentPath(f.id, artifact.id) }]);
-    assert.equal(history.actors[a].find((message) => message.role === "action")?.action?.result, "Blau");
+    assert.equal(history.actors[a].find((message) => message.role === "action")?.action?.result, "Blue");
     assert.ok(history.actors[b].every((message) => message.role !== "action"));
-    assert.equal(history.actors[b].at(-1)?.text, "Prüfung gestoppt");
+    assert.equal(history.actors[b].at(-1)?.text, "Review stopped");
     assert.equal(history.actors[b].at(-1)?.sender, b);
-    assert.equal(history.actors[b].find((message) => message.tool)?.tool?.result, "Prüfung gestoppt");
+    assert.equal(history.actors[b].find((message) => message.tool)?.tool?.result, "Review stopped");
     assert.equal(history.actors[b].find((message) => message.tool)?.tool?.isError, true);
-    assert.throws(() => actorChatHistoryOf({ ...f.runtime.view(f.id), actors: f.runtime.view(f.id).actors.filter((actor) => actor.id !== a) }, f.runtime.events(f.id)), /Actor.*fehlt/);
+    assert.throws(() => actorChatHistoryOf({ ...f.runtime.view(f.id), actors: f.runtime.view(f.id).actors.filter((actor) => actor.id !== a) }, f.runtime.events(f.id)), /actor.*is missing/);
   } finally { f.journal.close(); }
 });
 
 test("actor history endpoint returns the run snapshot and preserves explicit unavailable and missing-run errors", async () => {
   const f = fixture();
   try {
-    f.start(f.coordinator.id, "Gespeicherter Auftrag");
+    f.start(f.coordinator.id, "Saved task");
     const request = async (id: string, session: ChatSessionLike) => {
       const provider = { get: async (value: string) => { assert.equal(value, id); return session; }, list: async () => [], delete: async () => {} };
       const history = coreMethods(coreSources(provider))
@@ -316,10 +316,10 @@ test("actor history endpoint returns the run snapshot and preserves explicit una
     assert.deepEqual(success.body, f.history());
     const missing = await request("missing-run", f.session("missing-run"));
     assert.equal(missing.status, 404);
-    assert.match(missing.body.error ?? "", /Run.*nicht vorhanden/);
+    assert.match(missing.body.error ?? "", /run does not exist/);
     const unavailable = await request(f.id, { ...f.session(), running: false, subscribe: () => () => {}, send: () => {}, start: () => {}, stop: () => {} });
     assert.equal(unavailable.status, 404);
-    assert.match(unavailable.body.error ?? "", /nicht verfügbar/);
+    assert.match(unavailable.body.error ?? "", /not available/);
     assert.throws(() => f.session("missing-run").actorConversations(), (error) => error instanceof DomainError && error.status === 404);
   } finally { f.journal.close(); }
 });
@@ -332,12 +332,12 @@ test("a message steered into the running turn is marked in the primary chat and 
       execution: executionFor("steerable", { profile: "agent", isolateWorkspace: false }),
     }).actors.find((actor) => actor.handle === "steerable")!;
     f.runtime.selectPrimaryActor(f.context(), f.id, agent.id);
-    const turn = f.start(agent.id, "Baue die Seite.");
-    const steered = f.input(agent.id, "Nimm Blau statt Rot.");
+    const turn = f.start(agent.id, "Build the page.");
+    const steered = f.input(agent.id, "Use blue instead of red.");
     const users = (messages: Message[]) => messages.filter((message) => message.role === "user").map((message) => [message.text, message.steered === true]);
-    assert.deepEqual(users(f.primaryHistory(agent.id)), [["Baue die Seite.", false], ["Nimm Blau statt Rot.", false]]);
+    assert.deepEqual(users(f.primaryHistory(agent.id)), [["Build the page.", false], ["Use blue instead of red.", false]]);
     f.runtime.steerInputs(f.context(agent.id, turn), f.id, agent.id, { turnId: turn, inputIds: [steered.id] });
-    assert.deepEqual(users(f.primaryHistory(agent.id)), [["Baue die Seite.", false], ["Nimm Blau statt Rot.", true]]);
-    assert.deepEqual(users(f.history().actors[agent.id]!), [["Baue die Seite.", false], ["Nimm Blau statt Rot.", true]]);
+    assert.deepEqual(users(f.primaryHistory(agent.id)), [["Build the page.", false], ["Use blue instead of red.", true]]);
+    assert.deepEqual(users(f.history().actors[agent.id]!), [["Build the page.", false], ["Use blue instead of red.", true]]);
   } finally { f.journal.close(); }
 });

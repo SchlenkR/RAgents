@@ -2,10 +2,10 @@ import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 
-/** Der einzige Alias, den das Skriptmodell anbietet; das Prüfprofil nennt ihn als Modell. */
+/** The only alias the script model offers; the check profile names it as the model. */
 export const SCRIPT_MODEL = "script";
 
-/** Ein Werkzeugaufruf, den das Skriptmodell in genau einem Modellschritt ausgibt. */
+/** A tool call that the script model emits in exactly one model step. */
 export interface ScriptStep {
   readonly tool: string;
   readonly input: Readonly<Record<string, unknown>>;
@@ -16,13 +16,13 @@ export interface ScriptProgram {
   readonly steps: readonly ScriptStep[];
 }
 
-/** Ein Auftrag, den das Skriptmodell ohne Kennzeichen am Wortlaut erkennt, etwa aus einem fremden Testläufer. */
+/** A task that the script model recognizes by its wording without a marker, e.g. from a foreign test runner. */
 export interface KnownTask {
   readonly marker: string;
   readonly program: ScriptProgram;
 }
 
-/** Was das Modell je Anfrage gesehen und geantwortet hat; die Prüfungen lesen daraus Systemprompt und Werkzeugangebot. */
+/** What the model saw and answered per request; the checks read the system prompt and the offered tools from it. */
 export interface ScriptExchange {
   readonly program: string | undefined;
   readonly step: number;
@@ -32,19 +32,19 @@ export interface ScriptExchange {
 }
 
 export interface ScriptModel {
-  /** Die Adresse für RELAY_URL; das Relay hängt /relay/v1 selbst an. */
+  /** The address for RELAY_URL; the relay appends /relay/v1 itself. */
   readonly url: string;
   readonly exchanges: readonly ScriptExchange[];
   close: () => Promise<void>;
 }
 
-const DIRECTIVE = /SKRIPT:([A-Za-z0-9_-]+)/g;
+const DIRECTIVE = /SCRIPT:([A-Za-z0-9_-]+)/g;
 const API_PATH = "/relay/v1";
 const MAX_BODY_BYTES = 32 * 1024 * 1024;
 
-/** Hängt das Programm als Kennzeichen an einen Auftrag; das Modell führt dann genau diese Schritte aus. */
+/** Appends the program as a marker to a task; the model then executes exactly these steps. */
 export const scriptedMessage = (text: string, program: ScriptProgram): string =>
-  `${text}\n\nSKRIPT:${Buffer.from(JSON.stringify(program)).toString("base64url")}`;
+  `${text}\n\nSCRIPT:${Buffer.from(JSON.stringify(program)).toString("base64url")}`;
 
 interface ChatMessage {
   readonly role: string;
@@ -65,11 +65,11 @@ const textOf = (content: unknown): string => {
 
 const decodeProgram = (encoded: string): ScriptProgram => {
   const parsed = JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")) as ScriptProgram;
-  if (typeof parsed.id !== "string" || !Array.isArray(parsed.steps)) throw new Error("Das Kennzeichen SKRIPT trägt kein gültiges Programm");
+  if (typeof parsed.id !== "string" || !Array.isArray(parsed.steps)) throw new Error("The SCRIPT marker carries no valid program");
   return parsed;
 };
 
-/** Das jüngste Programm des Gesprächs und wie viele seiner Schritte das Modell schon ausgegeben hat. */
+/** The conversation's latest program and how many of its steps the model has already emitted. */
 const currentProgram = (messages: readonly ChatMessage[], known: readonly KnownTask[]): { program: ScriptProgram; step: number } | undefined => {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index]!;
@@ -90,7 +90,7 @@ const readBody = (request: IncomingMessage): Promise<string> => new Promise((res
   request.on("data", (chunk: Buffer) => {
     size += chunk.length;
     if (size > MAX_BODY_BYTES) {
-      reject(new Error("Die Modellanfrage ist zu groß"));
+      reject(new Error("The model request is too large"));
       request.destroy();
       return;
     }
@@ -131,7 +131,7 @@ const catalog = {
   }],
 };
 
-/** Ein Modell-Relay auf 127.0.0.1, das statt eines Sprachmodells die Schritte des Auftrags ausgibt: je Anfrage einen Werkzeugaufruf, danach einen Schlusssatz. */
+/** A model relay on 127.0.0.1 that emits the task's steps instead of a language model: one tool call per request, then a closing sentence. */
 export const startScriptModel = async (token: string, known: readonly KnownTask[] = []): Promise<ScriptModel> => {
   const exchanges: ScriptExchange[] = [];
   const answer = (body: ChatRequest): Reply => {
@@ -140,13 +140,13 @@ export const startScriptModel = async (token: string, known: readonly KnownTask[
     const offeredTools = (body.tools ?? []).map((tool) => tool.function?.name).filter((name): name is string => typeof name === "string");
     const current = currentProgram(messages, known);
     const reply: Reply = (() => {
-      // Ohne Werkzeuge ist es eine Nebenanfrage der Engine, etwa Skill-Auswahl oder Titel; sie bekommt eine neutrale Antwort.
-      if (offeredTools.length === 0) return { kind: "text", text: systemPrompt.includes("ABSTAIN") ? "ABSTAIN" : "Prüflauf" };
-      if (!current) return { kind: "text", text: "Prüflauf." };
+      // Without tools it is a side request of the engine, such as skill selection or title; it gets a neutral answer.
+      if (offeredTools.length === 0) return { kind: "text", text: systemPrompt.includes("ABSTAIN") ? "ABSTAIN" : "Check run" };
+      if (!current) return { kind: "text", text: "Check run." };
       const step = current.program.steps[current.step];
-      if (!step) return { kind: "text", text: `Skript ${current.program.id} beendet.` };
+      if (!step) return { kind: "text", text: `Script ${current.program.id} finished.` };
       if (!offeredTools.includes(step.tool)) {
-        return { kind: "text", text: `SKRIPTFEHLER: Das Werkzeug ${step.tool} wird nicht angeboten (angeboten: ${offeredTools.join(", ") || "keines"}).` };
+        return { kind: "text", text: `SCRIPT ERROR: The tool ${step.tool} is not offered (offered: ${offeredTools.join(", ") || "none"}).` };
       }
       return { kind: "tool", id: `call_${current.program.id}_${current.step}_${randomBytes(4).toString("hex")}`, step };
     })();
@@ -162,7 +162,7 @@ export const startScriptModel = async (token: string, known: readonly KnownTask[
   const server = createServer((request, response) => {
     void (async () => {
       if (request.headers.authorization !== `Bearer ${token}`) {
-        response.writeHead(401, { "content-type": "application/json" }).end(JSON.stringify({ error: { message: "Falscher Token für das Skriptmodell" } }));
+        response.writeHead(401, { "content-type": "application/json" }).end(JSON.stringify({ error: { message: "Wrong token for the script model" } }));
         return;
       }
       if (request.method === "GET" && request.url === `${API_PATH}/models`) {
@@ -171,11 +171,11 @@ export const startScriptModel = async (token: string, known: readonly KnownTask[
       }
       if (request.method === "POST" && request.url === `${API_PATH}/chat/completions`) {
         const body = JSON.parse(await readBody(request)) as ChatRequest;
-        if (body.stream !== true) throw new Error("Das Skriptmodell antwortet nur gestreamt");
+        if (body.stream !== true) throw new Error("The script model answers only streamed");
         streamReply(response, answer(body));
         return;
       }
-      response.writeHead(404, { "content-type": "application/json" }).end(JSON.stringify({ error: { message: `Unbekannt: ${request.method} ${request.url}` } }));
+      response.writeHead(404, { "content-type": "application/json" }).end(JSON.stringify({ error: { message: `Unknown: ${request.method} ${request.url}` } }));
     })().catch((error: unknown) => {
       if (response.headersSent) response.destroy();
       else response.writeHead(500, { "content-type": "application/json" }).end(JSON.stringify({ error: { message: error instanceof Error ? error.message : String(error) } }));

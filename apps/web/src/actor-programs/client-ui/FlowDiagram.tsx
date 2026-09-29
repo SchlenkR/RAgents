@@ -52,11 +52,11 @@ function summarize(text: string, width: number, count: number): string {
 const edgeStatuses = ["pending", "active", "done", "blocked"];
 
 function prepare({ nodes, edges, direction = "right", height = 360, viewport = "interactive", detailLevel = "summary", layout = "layered" }: FlowDiagramProps) {
-  if (viewport !== "interactive" && viewport !== "fit-width" && viewport !== "fit") throw new Error("Unbekannter Diagrammansichtsmodus.");
+  if (viewport !== "interactive" && viewport !== "fit-width" && viewport !== "fit") throw new Error("Unknown diagram viewport mode.");
   if (!Number.isFinite(height) || height <= 0) throw new Error("The diagram height must be positive.");
-  if (direction !== "right" && direction !== "down") throw new Error("Unbekannte Diagrammrichtung.");
-  if (detailLevel !== "full" && detailLevel !== "summary") throw new Error("Unbekannte Diagrammdetailstufe.");
-  if (layout !== "layered" && layout !== "star") throw new Error("Unbekannte Diagrammanordnung.");
+  if (direction !== "right" && direction !== "down") throw new Error("Unknown diagram direction.");
+  if (detailLevel !== "full" && detailLevel !== "summary") throw new Error("Unknown diagram detail level.");
+  if (layout !== "layered" && layout !== "star") throw new Error("Unknown diagram layout.");
   const summary = detailLevel === "summary";
   const textWidth = textMeasure();
   const ids = new Set<string>();
@@ -64,15 +64,15 @@ function prepare({ nodes, edges, direction = "right", height = 360, viewport = "
     if (typeof node.id !== "string" || !node.id.trim() || ids.has(node.id)) throw new Error("Nodes require unique, non-empty IDs.");
     ids.add(node.id);
     if (typeof node.label !== "string" || (node.detail !== undefined && typeof node.detail !== "string")) throw new Error("Node labels must be text.");
-    if (node.status !== undefined && !["pending", "active", "done", "blocked"].includes(node.status)) throw new Error("Unbekannter Knotenstatus.");
+    if (node.status !== undefined && !["pending", "active", "done", "blocked"].includes(node.status)) throw new Error("Unknown node status.");
     if (node.running !== undefined && typeof node.running !== "boolean") throw new Error("Node activity must be a boolean.");
-    if (node.kind !== undefined && !["actor", "agent", "service"].includes(node.kind)) throw new Error("Unbekannte Knotenart.");
+    if (node.kind !== undefined && !["actor", "agent", "service"].includes(node.kind)) throw new Error("Unknown node kind.");
     const labelLines = summary ? summarize(node.label, 284, 2) : wrap(node.label);
     const detailLines = summary || node.detail === undefined ? undefined : wrap(node.detail);
     if (node.items !== undefined && !Array.isArray(node.items)) throw new Error("Node items must be an array.");
     const itemLines = (node.items ?? []).map((item) => {
       if (typeof item.label !== "string" || (item.detail !== undefined && typeof item.detail !== "string")) throw new Error("Item labels must be text.");
-      if (item.status !== undefined && !["pending", "active", "done", "blocked", "skipped"].includes(item.status)) throw new Error("Unbekannter Punktstatus.");
+      if (item.status !== undefined && !["pending", "active", "done", "blocked", "skipped"].includes(item.status)) throw new Error("Unknown item status.");
       return { ...item, labelLines: wrap(item.label, summary ? 256 : 176), detailLines: summary || item.detail === undefined ? undefined : wrap(item.detail) };
     });
     if (node.actions !== undefined && !Array.isArray(node.actions)) throw new Error("Node actions must be an array.");
@@ -92,9 +92,9 @@ function prepare({ nodes, edges, direction = "right", height = 360, viewport = "
     const id = edge.id ?? `flow-edge-${index}`;
     if (typeof id !== "string" || !id.trim() || edgeIds.has(id)) throw new Error("Edges require unique, non-empty IDs.");
     edgeIds.add(id);
-    if (!ids.has(edge.source) || !ids.has(edge.target)) throw new Error("Eine Verbindung verweist auf einen fehlenden Knoten.");
-    if (edge.kind !== undefined && edge.kind !== "return") throw new Error("Unbekannte Verbindungsart.");
-    if (edge.status !== undefined && !edgeStatuses.includes(edge.status)) throw new Error("Unbekannter Verbindungsstatus.");
+    if (!ids.has(edge.source) || !ids.has(edge.target)) throw new Error("An edge refers to a missing node.");
+    if (edge.kind !== undefined && edge.kind !== "return") throw new Error("Unknown edge kind.");
+    if (edge.status !== undefined && !edgeStatuses.includes(edge.status)) throw new Error("Unknown edge status.");
     if (edge.label !== undefined && typeof edge.label !== "string") throw new Error("Edge labels must be text.");
     return { ...edge, id };
   });
@@ -228,9 +228,9 @@ export function FlowDiagram(props: FlowDiagramProps) {
   const cards = active?.nodes.map((node, index) => ({ ...node, data: { ...graph!.cards[index]!.data, onAction: props.onAction } })) ?? [];
   const viewport = props.viewport ?? "interactive";
   return <section aria-label={props.label} className={cn(flowSurface, props.className)} data-viewport={viewport} style={{ height: viewport !== "interactive" ? undefined : Number.isFinite(props.height) && props.height! > 0 ? props.height : 360 }}>
-    {error ? <p role="alert">Das Diagramm konnte nicht angezeigt werden: {error}</p>
+    {error ? <p role="alert">The diagram could not be displayed: {error}</p>
       : graph?.cards.length === 0 ? <p role="status">No nodes available.</p>
-        : !active ? <p role="status">Diagramm wird geladen ...</p>
-          : <Suspense fallback={<p role="status">Diagramm wird geladen ...</p>}><FlowDiagramRenderer key={key} mode={viewport} bounds={active.bounds!} nodes={cards} edges={active.edges.map((edge, index) => ({ ...edge, label: graph!.links[index]!.label, data: { ...edge.data!, status: graph!.links[index]!.status } }))} /></Suspense>}
+        : !active ? <p role="status">Loading diagram ...</p>
+          : <Suspense fallback={<p role="status">Loading diagram ...</p>}><FlowDiagramRenderer key={key} mode={viewport} bounds={active.bounds!} nodes={cards} edges={active.edges.map((edge, index) => ({ ...edge, label: graph!.links[index]!.label, data: { ...edge.data!, status: graph!.links[index]!.status } }))} /></Suspense>}
   </section>;
 }

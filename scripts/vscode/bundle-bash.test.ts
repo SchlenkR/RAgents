@@ -12,11 +12,11 @@ interface SyntheticPe {
   readonly wide: boolean;
   readonly imports: readonly string[];
   readonly delayImports: readonly string[];
-  /** Alte Delay-Deskriptoren (Attribut 0) tragen virtuelle Adressen statt RVAs. */
+  /** Old delay descriptors (attribute 0) carry virtual addresses instead of RVAs. */
   readonly delayAsVirtualAddress?: boolean;
 }
 
-/** Eine minimale PE-Datei mit einem Abschnitt, der Import- und Delay-Import-Verzeichnis samt Namen trägt. */
+/** A minimal PE file with one section that carries the import and delay import directories including names. */
 const syntheticPe = ({ wide, imports, delayImports, delayAsVirtualAddress = false }: SyntheticPe): Buffer => {
   const buffer = Buffer.alloc(SECTION_OFFSET + 0x400);
   const rvaAt = (offsetInSection: number) => SECTION_RVA + offsetInSection;
@@ -54,25 +54,25 @@ const syntheticPe = ({ wide, imports, delayImports, delayAsVirtualAddress = fals
   return buffer;
 };
 
-test("der PE-Leser nennt Importe und Delay-Importe einer PE32+-Datei in ihrer Schreibweise", () => {
+test("the PE reader names imports and delay imports of a PE32+ file in their spelling", () => {
   const file = syntheticPe({ wide: true, imports: ["msys-2.0.dll", "KERNEL32.dll"], delayImports: ["msys-z.dll"] });
   assert.deepEqual(peImports(file, "bash.exe"), { imports: ["msys-2.0.dll", "KERNEL32.dll"], delayImports: ["msys-z.dll"] });
 });
 
-test("der PE-Leser liest PE32 und alte Delay-Deskriptoren mit virtuellen Adressen", () => {
+test("the PE reader reads PE32 and old delay descriptors with virtual addresses", () => {
   const file = syntheticPe({ wide: false, imports: ["msys-2.0.dll"], delayImports: ["msys-intl-8.dll", "USER32.dll"], delayAsVirtualAddress: true });
-  assert.deepEqual(peImports(file, "alt.exe"), { imports: ["msys-2.0.dll"], delayImports: ["msys-intl-8.dll", "USER32.dll"] });
-  assert.deepEqual(peImports(syntheticPe({ wide: true, imports: [], delayImports: [] }), "leer.dll"), { imports: [], delayImports: [] });
+  assert.deepEqual(peImports(file, "old.exe"), { imports: ["msys-2.0.dll"], delayImports: ["msys-intl-8.dll", "USER32.dll"] });
+  assert.deepEqual(peImports(syntheticPe({ wide: true, imports: [], delayImports: [] }), "empty.dll"), { imports: [], delayImports: [] });
 });
 
-test("keine PE-Datei ist ein benannter Fehler", () => {
-  assert.throws(() => peImports(Buffer.from("#!/bin/sh\nexec grep -E \"$@\"\n".padEnd(80, " ")), "egrep"), /egrep ist keine lesbare PE-Datei: die MZ-Kennung fehlt/);
+test("a non-PE file is a named error", () => {
+  assert.throws(() => peImports(Buffer.from("#!/bin/sh\nexec grep -E \"$@\"\n".padEnd(80, " ")), "egrep"), /egrep is not a readable PE file: the MZ signature is missing/);
   const broken = syntheticPe({ wide: true, imports: ["a.dll"], delayImports: [] });
   broken.write("XX", 0x40, "latin1");
-  assert.throws(() => peImports(broken, "kaputt.exe"), /kaputt.exe ist keine lesbare PE-Datei: die PE-Kennung fehlt/);
+  assert.throws(() => peImports(broken, "broken.exe"), /broken.exe is not a readable PE file: the PE signature is missing/);
 });
 
-test("die DLL-Hülle folgt den Importen transitiv, übergeht Windows-Systembibliotheken und bricht bei einer fremden ab", () => {
+test("the DLL closure follows the imports transitively, skips Windows system libraries and aborts on a foreign one", () => {
   const table: Readonly<Record<string, PeImports>> = {
     "grep.exe": { imports: ["msys-2.0.dll", "msys-PCRE-1.dll", "KERNEL32.dll"], delayImports: [] },
     "sed.exe": { imports: ["msys-2.0.dll", "msys-intl-8.dll"], delayImports: ["api-ms-win-core-synch-l1-2-0.dll"] },
@@ -83,25 +83,25 @@ test("die DLL-Hülle folgt den Importen transitiv, übergeht Windows-Systembibli
   };
   const importsOf = (file: string): PeImports => {
     const imports = table[file];
-    if (!imports) throw new Error(`unbekannt: ${file}`);
+    if (!imports) throw new Error(`unknown: ${file}`);
     return imports;
   };
   const available = new Map(Object.keys(table).map((name) => [name.toLowerCase(), name] as const));
   assert.deepEqual(dllClosure(["grep.exe", "sed.exe"], importsOf, available), ["msys-2.0.dll", "msys-iconv-2.dll", "msys-intl-8.dll", "msys-pcre-1.dll"]);
   assert.throws(
     () => dllClosure(["tool.exe"], () => ({ imports: ["msys-perl5_42.dll"], delayImports: [] }), available),
-    /tool.exe braucht msys-perl5_42.dll; die DLL liegt nicht in usr\/bin und ist keine bekannte Windows-Systembibliothek/,
+    /tool.exe needs msys-perl5_42.dll; the DLL is not in usr\/bin and is not a known Windows system library/,
   );
 });
 
-test("Windows-Systembibliotheken erkennt die Hülle an Namen und API-Sets", () => {
+test("the closure recognizes Windows system libraries by names and API sets", () => {
   for (const name of ["KERNEL32.dll", "ntdll.dll", "USER32.DLL", "advapi32.dll", "api-ms-win-crt-runtime-l1-1-0.dll", "ext-ms-win-ntuser-window-l1-1-0.dll"]) {
     assert.equal(isWindowsSystemDll(name), true, name);
   }
   for (const name of ["msys-2.0.dll", "libcurl-4.dll", "msys-perl5_42.dll"]) assert.equal(isWindowsSystemDll(name), false, name);
 });
 
-test("die Bash bringt die GNU-Werkzeuge mit, aber nie Git, Perl, Editoren, SSH oder Terminals", () => {
+test("the Bash brings the GNU tools, but never Git, Perl, editors, SSH or terminals", () => {
   const files = Object.values(BASH_PACKAGES).flat();
   for (const needed of ["bash.exe", "sh.exe", "grep.exe", "sed.exe", "gawk.exe", "find.exe", "xargs.exe", "diff.exe", "patch.exe", "tar.exe", "cygpath.exe", "dos2unix.exe", "file.exe", "which.exe"]) {
     assert.ok(files.includes(needed), needed);

@@ -2,11 +2,11 @@
 name: 170-photo-collection
 start: true
 disable-model-invocation: true
-title: "Bildsammlung mit Beschriftungen"
-description: "Zeigt eine eigene Mini-App eines KI-Schreibhelfers mit Bildvorschauen, bearbeitbaren Beschriftungen und direktem Chat. Die Auswahl lokaler Bilder sendet sie noch nicht an die KI."
-category: "Mini-Apps"
+title: "Image collection with captions"
+description: "Shows a mini-app of an AI writing helper with image previews, editable captions, and a direct chat. Selecting local images does not send them to the AI yet."
+category: "Mini-apps"
 order: 170
-tags: "Anwendungsfall, Konzeptdemo, Agententeams, Mini-Apps, LLM-Actor mit View, Actor-Chat"
+tags: "Use case, Concept demo, Agent teams, Mini-apps, LLM actor with view, Actor chat"
 ---
 
-Ich hätte gern einen KI-Schreibhelfer mit eigener Oberfläche für eine kleine Bildsammlung: Bilder hineinziehen, Vorschauen sehen, die Liste durchsuchen und pro Bild Titel, Bildunterschrift und Alternativtext bearbeiten. Daneben möchte ich einen Chat mit genau diesem Schreibhelfer und eine lesbare Übersicht aller Beschriftungen. Meine Bilder bleiben lokal, bis ich selbst etwas im Chat sende. Nutze die vorhandenen Bausteine.
+I would like an AI writing helper with its own interface for a small image collection: drag images in, see previews, search the list, and edit title, caption, and alt text for each image. Next to it I want a chat with exactly this writing helper and a readable overview of all captions. My images stay local until I send something in the chat myself. Use the existing building blocks.

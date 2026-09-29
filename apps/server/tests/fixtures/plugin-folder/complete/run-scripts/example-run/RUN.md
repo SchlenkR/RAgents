@@ -1,9 +1,9 @@
 ---
-title: Beispiel-Run
-description: Ein Run aus dem Plugin-Ordner.
+title: Example run
+description: A run from the plugin folder.
 order: 10
 guide: test.guide
 coordinator: false
 ---
 
-Dieser Rumpf ist Dokumentation für Menschen; der Host liest nur den Kopf.
+This body is documentation for humans; the host reads only the header.

@@ -20,7 +20,7 @@ const processes = async (uid: number): Promise<number[]> => {
 };
 
 export const stopUidProcesses = async (uid: number): Promise<void> => {
-  for (let versuch = 0; versuch < 20; versuch++) {
+  for (let attempt = 0; attempt < 20; attempt++) {
     const pids = await processes(uid);
     if (pids.length === 0) return;
     for (const pid of pids) {
@@ -33,5 +33,5 @@ export const stopUidProcesses = async (uid: number): Promise<void> => {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   const pids = await processes(uid);
-  if (pids.length > 0) throw new Error(`Prozesse mit UID ${uid} konnten nicht beendet werden: ${pids.join(", ")}`);
+  if (pids.length > 0) throw new Error(`Processes with UID ${uid} could not be ended: ${pids.join(", ")}`);
 };

@@ -13,32 +13,32 @@ import { runContracts } from "../../packages/ragents/src/http/contracts.ts";
 import { loadConfig, stopCommand } from "./run-driver.ts";
 
 const profileIn = async (directory: string): Promise<string> => {
-  const file = path.join(directory, "ragents.config.pruef.ts");
+  const file = path.join(directory, "ragents.config.check.ts");
   writeFileSync(file, [
-    "export const config = { host: { PORT: 4799, DATA_DIR: { kind: \"environment\", name: \"PRUEF_DATA_DIR\" } } };",
-    "export const users = [{ id: \"alice\", label: \"Alice\", password: { kind: \"environment\", name: \"PRUEF_PASSWORD\" }, rights: [\"runs.read\"] }];",
+    "export const config = { host: { PORT: 4799, DATA_DIR: { kind: \"environment\", name: \"CHECK_DATA_DIR\" } } };",
+    "export const users = [{ id: \"alice\", label: \"Alice\", password: { kind: \"environment\", name: \"CHECK_PASSWORD\" }, rights: [\"runs.read\"] }];",
     "",
   ].join("\n"));
   return file;
 };
 
-test("der Treiber löst env(...) in DATA_DIR und Passwort auf wie der Server und fällt nie still zurück", async (t) => {
+test("the driver resolves env(...) in DATA_DIR and password like the server and never falls back silently", async (t) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-driver-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const file = await profileIn(directory);
-  const base = { PRODUCT_PROFILE: "pruef", PRODUCT_PROFILE_FILE: file, RAGENTS_DRIVER_USER: "alice" };
-  const data = path.join(directory, "daten");
+  const base = { PRODUCT_PROFILE: "check", PRODUCT_PROFILE_FILE: file, RAGENTS_DRIVER_USER: "alice" };
+  const data = path.join(directory, "data");
 
-  const config = await loadConfig({ ...base, PRUEF_DATA_DIR: data, PRUEF_PASSWORD: "geheim" });
+  const config = await loadConfig({ ...base, CHECK_DATA_DIR: data, CHECK_PASSWORD: "secret" });
   assert.equal(config.dataDirectory, data);
   assert.equal(config.baseUrl, "http://localhost:4799");
-  assert.deepEqual(config.user, { id: "alice", password: "geheim" });
+  assert.deepEqual(config.user, { id: "alice", password: "secret" });
 
-  await assert.rejects(loadConfig({ ...base, PRUEF_PASSWORD: "geheim" }), /DATA_DIR.*PRUEF_DATA_DIR/);
-  await assert.rejects(loadConfig({ ...base, PRUEF_DATA_DIR: data }), /password fehlt/);
+  await assert.rejects(loadConfig({ ...base, CHECK_PASSWORD: "secret" }), /DATA_DIR.*CHECK_DATA_DIR/);
+  await assert.rejects(loadConfig({ ...base, CHECK_DATA_DIR: data }), /password is missing/);
 });
 
-test("stop unterbricht nur den Turn des Primary-Actors, stop --run hält den ganzen Run an", async (t) => {
+test("stop interrupts only the turn of the primary actor, stop --run stops the whole run", async (t) => {
   const stopped: string[] = [];
   const interrupted: { runId: string; actorId: string }[] = [];
   const server = await startRpcServer(t, {
@@ -59,9 +59,9 @@ test("stop unterbricht nur den Turn des Primary-Actors, stop --run hält den gan
   assert.match(await stopCommand(rpc, ["run-1"]), /agent_primary/);
   assert.deepEqual(interrupted, [{ runId: "run-1", actorId: "agent_primary" }]);
   assert.deepEqual(stopped, []);
-  assert.match(await stopCommand(rpc, ["run-1", "--run"]), /Not-Aus/);
+  assert.match(await stopCommand(rpc, ["run-1", "--run"]), /emergency stop/);
   assert.deepEqual(stopped, ["run-1"]);
   assert.equal(interrupted.length, 1);
-  await assert.rejects(stopCommand(rpc, []), /Run-Id fehlt/);
-  await assert.rejects(stopCommand(rpc, ["run-1", "--alles"]), /Unbekanntes Argument/);
+  await assert.rejects(stopCommand(rpc, []), /Run id missing/);
+  await assert.rejects(stopCommand(rpc, ["run-1", "--everything"]), /Unknown argument/);
 });

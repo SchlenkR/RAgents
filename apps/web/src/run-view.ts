@@ -103,7 +103,7 @@ const isRunTurnOutput = (value: unknown): value is RunTurnOutput => {
     && typeof output.occurredAt === "string";
 };
 
-/** Die Modellantworten eines Turns in Journal-Reihenfolge; eine Ansicht ohne das Feld liefert nichts. */
+/** The model responses of a turn in journal order; a view without the field yields nothing. */
 export const runTurnOutputs = (turn: RunTurn): RunTurnOutput[] =>
   (Array.isArray(turn.outputs) ? turn.outputs.filter(isRunTurnOutput) : [])
     .sort((left, right) => left.sequence - right.sequence);
@@ -176,7 +176,7 @@ export interface RunView {
   artifacts: RunArtifact[];
 }
 
-/** Der Gesprächspartner des Run-Chats: der Primary-Actor oder, solange keiner gewählt ist, der als Primary gestoppte Actor. */
+/** The conversation partner of the run chat: the primary actor or, while none is chosen, the actor stopped as primary. */
 export const chatPrimaryId = (view: RunView): string | null => view.primaryActorId ?? view.stoppedPrimaryActorId ?? null;
 
 export type ActorTone = "agent" | "primary" | "script";
@@ -206,7 +206,7 @@ export const runArtifactContentUrl = (runId: string, artifactId: string) => arti
 export const runActorFrom = (value: unknown): RunActor => {
   const actor = value as RunActor | undefined;
   if (typeof actor?.id !== "string" || typeof actor.handle !== "string") {
-    throw new Error("Der Karten-Kontext enthält keinen Actor der Run-Ansicht");
+    throw new Error("The card context contains no actor of the run view");
   }
   return actor;
 };

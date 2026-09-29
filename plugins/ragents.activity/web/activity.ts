@@ -72,7 +72,7 @@ const turnFrom = (value: unknown): ActivityTurn[] => {
   }];
 };
 
-/** Liest Actors und Turns aus der Run-Ansicht; eine noch nicht geladene oder fremde Struktur ergibt nichts. */
+/** Reads actors and turns from the run view; a structure that is not loaded yet or unknown yields nothing. */
 export const activitySourceFrom = (
   runView: unknown,
 ): ActivitySource => {
@@ -120,7 +120,7 @@ const runningTurns = (source: ActivitySource): ActivityEntry[] =>
     }];
   });
 
-/** Der Ist-Zustand: offene Werkzeugaufrufe zuerst, dann laufende Turns, jeweils das Älteste voran. */
+/** The current state: open tool calls first, then running turns, oldest first in each group. */
 export const activeActivity = (source: ActivitySource): ActivityState => {
   const entries = [
     ...runningTools(source).sort(byStart),

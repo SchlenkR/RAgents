@@ -105,7 +105,7 @@ export const isPendingActorInput = (input: ActorInput) => input.lifecycle.kind =
 
 export type TurnStatus = "running" | "completed" | "failed" | "interrupted";
 
-/** Der volle Text eines model.output.completed; nie gekürzt, `sequence` ist die Journal-Reihenfolge. */
+/** The full text of a model.output.completed; never truncated, `sequence` is the journal order. */
 export type TurnOutput = {
     text: string;
     sequence: number;
@@ -203,10 +203,10 @@ export type RunState = {
     revision: number;
     title: string;
     ownerId: ActorId;
-    /** Der angemeldete Benutzer, dem der Run gehört; null für Runs, die ohne Anmeldung entstanden sind. */
+    /** The signed-in user who owns the run; null for runs created without sign-in. */
     ownerUserId: string | null;
     primaryActorId: ActorId | null;
-    /** Der Primary-Actor, der als solcher gestoppt wurde, bis ein Primary-Actor gewählt wird; sein Neustart durch den Owner macht ihn wieder dazu. */
+    /** The primary actor that was stopped as such, until a primary actor is chosen; its restart by the owner makes it primary again. */
     stoppedPrimaryActorId: ActorId | null;
     createdAt: string;
     forkedFrom: { runId: RunId; sequence: number } | null;
@@ -221,7 +221,7 @@ export type RunState = {
     contextTurns: ReadonlyMap<TurnId, ActorId>;
 };
 
-/** Der Actor, den ein Event betrifft: bei Turn-Enden der Besitzer des Turns, bei Stopp und Neustart der Ziel-Actor, sonst der Schreiber. */
+/** The actor an event concerns: for turn ends the owner of the turn, for stop and restart the target actor, otherwise the writer. */
 export const eventSubjectOf = (state: RunState, event: JournalEvent): ActorId => {
     switch (event.type) {
         case "turn.finished":
@@ -245,7 +245,7 @@ export const eventSubjectOf = (state: RunState, event: JournalEvent): ActorId =>
 
 type Collections = "actors" | "inputs" | "turns" | "subscriptions" | "pluginStates" | "actions" | "artifacts";
 
-/** Die Run-Ansicht für Clients; Eigentümer und Kontext-Turns bleiben serverseitig und stehen nicht in ihr. */
+/** The run view for clients; owner and context turns stay on the server and are not part of it. */
 export type RunView = Omit<RunState, Collections | "ownerUserId" | "contextTurns"> & {
     actors: Actor[];
     inputs: ActorInput[];

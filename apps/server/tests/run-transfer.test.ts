@@ -25,8 +25,8 @@ import { parseArguments } from "../../../scripts/run-transfer/run-transfer.ts";
 
 const HOST_VERSION = "a".repeat(40);
 const EXECUTOR_VERSION = "1";
-const RUN_ID = "umzug-run";
-const LONG_NOTE = "Ein langer Auftrag. ".repeat(400);
+const RUN_ID = "move-run";
+const LONG_NOTE = "A long task. ".repeat(400);
 
 const placesFor = (dataDirectory: string): RunTransferPlaces =>
   ({ dataDirectory, hostVersion: HOST_VERSION, executorVersion: EXECUTOR_VERSION });
@@ -43,16 +43,16 @@ const openJournal = (t: TestContext, dataDirectory: string): Journal => {
   return journal;
 };
 
-/** Ein Run mit Journal, ausgelagertem Payload, einem Inhalt unter artifacts und einer Datei in der Ablage. */
+/** A run with journal, an offloaded payload, a content under artifacts and a file in the storage. */
 const source = async (t: TestContext): Promise<{ dataDirectory: string; journal: Journal; view: RunView }> => {
   const dataDirectory = await temporaryDirectory(t, "ragents-transfer-source-");
   const journal = openJournal(t, dataDirectory);
   const runtime = new Orchestration(journal, testServices(), new DirectoryArtifactContents(path.join(dataDirectory, "artifacts")));
-  const created = runtime.createRun({ commandId: "create-run" }, { runId: RUN_ID, title: "Umzug", ownerHandle: "owner", ownerDisplayName: "Owner" });
+  const created = runtime.createRun({ commandId: "create-run" }, { runId: RUN_ID, title: "Move", ownerHandle: "owner", ownerDisplayName: "Owner" });
   const spawned = runtime.spawnAgent({ actorId: created.ownerId, commandId: "spawn-worker" }, created.id, {
     handle: "worker",
     displayName: "Worker",
-    prompt: "Arbeite den Auftrag ab.",
+    prompt: "Work through the task.",
     execution: executionFor("worker", { profile: "agent", isolateWorkspace: false }),
     grants: [],
     toolNames: null,
@@ -60,15 +60,15 @@ const source = async (t: TestContext): Promise<{ dataDirectory: string; journal:
   const worker = spawned.actors.find((actor) => actor.kind === "agent");
   assert.ok(worker);
   const picture = runtime.publishArtifact({ actorId: created.ownerId, commandId: "publish-picture" }, created.id, {
-    title: "bild.png", mediaType: "image/png", content: new Uint8Array([1, 2, 3]), previousVersionId: null,
+    title: "image.png", mediaType: "image/png", content: new Uint8Array([1, 2, 3]), previousVersionId: null,
   }).artifacts.at(-1)!;
   const view = runtime.enqueueInput({ actorId: created.ownerId, commandId: "input-1" }, created.id, { actorId: worker.id, content: LONG_NOTE, artifactIds: [picture.id] });
   const session = runTransferSessionDirectory(dataDirectory, created.id);
   await mkdir(path.join(session, "plugins", "ragents.documents", "documents"), { recursive: true });
-  await writeFile(path.join(session, "plugins", "ragents.documents", "documents", "notiz.md"), "# Notiz\n", "utf8");
+  await writeFile(path.join(session, "plugins", "ragents.documents", "documents", "note.md"), "# Note\n", "utf8");
   await mkdir(path.join(session, "plugins", "ragents.workspace", "workspace"), { recursive: true });
-  await writeFile(path.join(session, "plugins", "ragents.workspace", "workspace", "datei.txt"), "Inhalt der Quelle\n", "utf8");
-  await symlink("datei.txt", path.join(session, "plugins", "ragents.workspace", "workspace", "verweis.txt"));
+  await writeFile(path.join(session, "plugins", "ragents.workspace", "workspace", "file.txt"), "Content of the source\n", "utf8");
+  await symlink("file.txt", path.join(session, "plugins", "ragents.workspace", "workspace", "link.txt"));
   const programs = path.join(session, "plugins", "ragents.actor-programs", "programs", "actor-workspace", "node_modules");
   await mkdir(path.join(programs, ".bin"), { recursive: true });
   await symlink(path.dirname(dataDirectory), path.join(programs, "react"));
@@ -90,16 +90,16 @@ const manifestFor = (journal: Journal, view: RunView, overrides: Partial<RunTran
   ...overrides,
 });
 
-test("ein Run zieht mit Journal, Payloads, seinen Inhalten und Plugin-Ablagen auf einen zweiten Datenordner um", async (t) => {
+test("a run moves to a second data folder with journal, payloads, its contents and plugin storage", async (t) => {
   const origin = await source(t);
   const manifest = manifestFor(origin.journal, origin.view);
-  assert.ok(existsSync(path.join(origin.dataDirectory, "runs", RUN_ID, "payloads")), "Der lange Auftrag liegt als Payload neben dem Journal");
+  assert.ok(existsSync(path.join(origin.dataDirectory, "runs", RUN_ID, "payloads")), "the long task lies as a payload next to the journal");
 
   const contentHashes = contentHashesOf(origin.journal.load(RUN_ID));
   assert.equal(contentHashes.length, 1);
   const archive = await packRunArchive({ places: placesFor(origin.dataDirectory), runId: RUN_ID, manifest, contentHashes });
   assert.ok(archive.byteLength > 0);
-  assert.equal(existsSync(path.join(origin.dataDirectory, "transfer", "manifest.json")), false, "Das Manifest bleibt nicht im Datenordner liegen");
+  assert.equal(existsSync(path.join(origin.dataDirectory, "transfer", "manifest.json")), false, "the manifest does not stay in the data folder");
 
   const targetDirectory = await temporaryDirectory(t, "ragents-transfer-target-");
   const places = placesFor(targetDirectory);
@@ -125,30 +125,30 @@ test("ein Run zieht mit Journal, Payloads, seinen Inhalten und Plugin-Ablagen au
   const enqueued = after.find((event) => event.type === "actor.input.enqueued");
   const original = before.find((event) => event.type === "actor.input.enqueued");
   assert.ok(enqueued && "content" in enqueued.payload && original && "content" in original.payload);
-  assert.ok(String(original.payload.content).length > 4096, "Der Auftrag ist groß genug für eine eigene Payload-Datei");
-  assert.equal(enqueued.payload.content, original.payload.content, "Der ausgelagerte Payload wird im Ziel wieder aufgelöst");
-  assert.ok(existsSync(path.join(targetDirectory, "runs", RUN_ID, "payloads")), "Das Ziel schreibt die Payloads neu");
+  assert.ok(String(original.payload.content).length > 4096, "the task is large enough for its own payload file");
+  assert.equal(enqueued.payload.content, original.payload.content, "the offloaded payload is resolved again in the target");
+  assert.ok(existsSync(path.join(targetDirectory, "runs", RUN_ID, "payloads")), "the target writes the payloads anew");
 
   const session = runTransferSessionDirectory(targetDirectory, RUN_ID);
-  assert.equal(await readFile(path.join(session, "plugins", "ragents.documents", "documents", "notiz.md"), "utf8"), "# Notiz\n");
-  assert.equal(await readFile(path.join(session, "plugins", "ragents.workspace", "workspace", "datei.txt"), "utf8"), "Inhalt der Quelle\n");
-  assert.equal(await readlink(path.join(session, "plugins", "ragents.workspace", "workspace", "verweis.txt")), "datei.txt");
+  assert.equal(await readFile(path.join(session, "plugins", "ragents.documents", "documents", "note.md"), "utf8"), "# Note\n");
+  assert.equal(await readFile(path.join(session, "plugins", "ragents.workspace", "workspace", "file.txt"), "utf8"), "Content of the source\n");
+  assert.equal(await readlink(path.join(session, "plugins", "ragents.workspace", "workspace", "link.txt")), "file.txt");
   const programs = path.join(session, "plugins", "ragents.actor-programs", "programs", "actor-workspace", "node_modules");
-  assert.equal(existsSync(path.join(programs, "react")), false, "Abhängigkeiten dieses Servers ziehen nicht mit, das Plugin legt sie am Ziel neu an");
+  assert.equal(existsSync(path.join(programs, "react")), false, "dependencies of this server do not move along, the plugin creates them anew at the target");
   await assert.rejects(lstat(path.join(programs, ".bin", "tsc")), { code: "ENOENT" });
 });
 
-test("ein Verweis aus dem Run heraus außerhalb von node_modules bricht den Export mit Pfad ab", async (t) => {
+test("a link out of the run outside node_modules aborts the export with its path", async (t) => {
   const origin = await source(t);
-  const outside = path.join(runTransferSessionDirectory(origin.dataDirectory, RUN_ID), "plugins", "ragents.workspace", "workspace", "fremd");
+  const outside = path.join(runTransferSessionDirectory(origin.dataDirectory, RUN_ID), "plugins", "ragents.workspace", "workspace", "foreign");
   await symlink(tmpdir(), outside);
   await assert.rejects(
     packRunArchive({ places: placesFor(origin.dataDirectory), runId: RUN_ID, contentHashes: [], manifest: manifestFor(origin.journal, origin.view) }),
-    (error: unknown) => error instanceof Error && (error as { code?: string }).code === "run-transfer-link" && /workspace\/fremd/.test(error.message),
+    (error: unknown) => error instanceof Error && (error as { code?: string }).code === "run-transfer-link" && /workspace\/foreign/.test(error.message),
   );
 });
 
-test("das Ziel lehnt ein Archiv einer anderen Host-Version und eines anderen Executors mit Ursache ab", async (t) => {
+test("the target rejects an archive of another host version and another executor with its cause", async (t) => {
   const origin = await source(t);
   const targetDirectory = await temporaryDirectory(t, "ragents-transfer-version-");
   const staging = runTransferStagingDirectory(targetDirectory, "import");
@@ -161,7 +161,7 @@ test("das Ziel lehnt ein Archiv einer anderen Host-Version und eines anderen Exe
   });
   await assert.rejects(unpackRunArchive({ places: placesFor(targetDirectory), archive: foreignHost, staging }), (error: unknown) => {
     assert.ok(error instanceof Error);
-    assert.match(error.message, /Host b{40}/);
+    assert.match(error.message, /host b{40}/);
     assert.match(error.message, /a{40}/);
     return true;
   });
@@ -174,13 +174,13 @@ test("das Ziel lehnt ein Archiv einer anderen Host-Version und eines anderen Exe
   });
   await assert.rejects(unpackRunArchive({ places: placesFor(targetDirectory), archive: foreignExecutor, staging }), (error: unknown) => {
     assert.ok(error instanceof Error);
-    assert.match(error.message, /Executor 9/);
+    assert.match(error.message, /executor 9/);
     return true;
   });
   await rm(staging, { recursive: true, force: true });
 });
 
-test("ein Manifest, das nicht zum Journal im Archiv passt, wird abgelehnt", async (t) => {
+test("a manifest that does not match the journal in the archive is rejected", async (t) => {
   const origin = await source(t);
   const targetDirectory = await temporaryDirectory(t, "ragents-transfer-manifest-");
   const archive = await packRunArchive({
@@ -192,65 +192,65 @@ test("ein Manifest, das nicht zum Journal im Archiv passt, wird abgelehnt", asyn
   const staging = runTransferStagingDirectory(targetDirectory, "import");
   await assert.rejects(unpackRunArchive({ places: placesFor(targetDirectory), archive, staging }), (error: unknown) => {
     assert.ok(error instanceof Error);
-    assert.match(error.message, /99 Ereignisse/);
+    assert.match(error.message, /names 99 events/);
     return true;
   });
 });
 
-test("eine belegte Kennung auf dem Ziel bricht den Import ab, bevor etwas angelegt wird", async (t) => {
-  const targetDirectory = await temporaryDirectory(t, "ragents-transfer-kollision-");
+test("a taken id on the target aborts the import before anything is created", async (t) => {
+  const targetDirectory = await temporaryDirectory(t, "ragents-transfer-collision-");
   const occupied = path.join(targetDirectory, "runs", RUN_ID);
   await mkdir(occupied, { recursive: true });
 
   assert.throws(() => assertRunIdFree({ runId: RUN_ID, known: false, directories: [occupied] }), (error: unknown) => {
     assert.ok(error instanceof Error);
-    assert.match(error.message, new RegExp(`Kennung ${RUN_ID} ist auf diesem Server belegt`));
+    assert.match(error.message, new RegExp(`The id ${RUN_ID} is taken on this server`));
     return true;
   });
-  assert.throws(() => assertRunIdFree({ runId: RUN_ID, known: true, directories: [] }), /gibt es auf diesem Server schon/);
-  assert.doesNotThrow(() => assertRunIdFree({ runId: "frei", known: false, directories: [path.join(targetDirectory, "runs", "frei")] }));
+  assert.throws(() => assertRunIdFree({ runId: RUN_ID, known: true, directories: [] }), /already exists on this server/);
+  assert.doesNotThrow(() => assertRunIdFree({ runId: "free", known: false, directories: [path.join(targetDirectory, "runs", "free")] }));
 
   const places = placesFor(targetDirectory);
   const staging = runTransferStagingDirectory(targetDirectory, "import");
   await mkdir(path.join(staging, "sessions", RUN_ID), { recursive: true });
   await mkdir(runTransferSessionDirectory(targetDirectory, RUN_ID), { recursive: true });
-  await assert.rejects(installSessionDirectory({ places, runId: RUN_ID, staging, mode: 0o711 }), /gibt es schon/);
+  await assert.rejects(installSessionDirectory({ places, runId: RUN_ID, staging, mode: 0o711 }), /already exists/);
 });
 
-test("ein Run mit Bindung an einen Projektordner braucht beim Import einen Ersatzordner", async (t) => {
+test("a run bound to a project folder needs a replacement folder when importing", async (t) => {
   const origin = await source(t);
-  const bound = manifestFor(origin.journal, origin.view, { boundDirectory: "/Users/example/projekt" });
+  const bound = manifestFor(origin.journal, origin.view, { boundDirectory: "/Users/example/project" });
   assert.throws(() => assertWorkspaceReplacement(bound, undefined), (error: unknown) => {
     assert.ok(error instanceof Error);
-    assert.match(error.message, /\/Users\/example\/projekt/);
-    assert.match(error.message, /Ersatzordner/);
+    assert.match(error.message, /\/Users\/example\/project/);
+    assert.match(error.message, /replacement folder/);
     return true;
   });
-  assert.doesNotThrow(() => assertWorkspaceReplacement(bound, "/tmp/ersatz"));
+  assert.doesNotThrow(() => assertWorkspaceReplacement(bound, "/tmp/replacement"));
   assert.doesNotThrow(() => assertWorkspaceReplacement(manifestFor(origin.journal, origin.view), undefined));
 });
 
-test("der Export verlangt einen ruhenden Run: kein laufender Turn, keine wartende Eingabe", async (t) => {
+test("the export requires an idle run: no running turn, no pending input", async (t) => {
   const origin = await source(t);
   const state = origin.journal.stateOf(RUN_ID);
   assert.ok(state);
   const stopped = { runId: RUN_ID, state, isRunning: () => false, sessionRunning: false };
-  assert.throws(() => assertRunStopped(stopped), /wartende Eingabe/);
+  assert.throws(() => assertRunStopped(stopped), /pending input/);
 
   const quiet = { ...state, inputs: new Map() };
   assert.doesNotThrow(() => assertRunStopped({ ...stopped, state: quiet }));
-  assert.throws(() => assertRunStopped({ ...stopped, state: quiet, sessionRunning: true }), /arbeitet gerade/);
-  assert.throws(() => assertRunStopped({ ...stopped, state: quiet, isRunning: () => true }), /arbeitet gerade \(@worker\)/);
+  assert.throws(() => assertRunStopped({ ...stopped, state: quiet, sessionRunning: true }), /is working right now/);
+  assert.throws(() => assertRunStopped({ ...stopped, state: quiet, isRunning: () => true }), /is working right now \(@worker\)/);
 });
 
-test("das Umzugsskript liest Quelle, Ziel, Kennung und den Ersatzordner", () => {
+test("the move script reads source, target, id and the replacement folder", () => {
   const plain = parseArguments(["http://a:4723", "http://b:4724", RUN_ID]);
   assert.deepEqual(plain, { sourceUrl: "http://a:4723", targetUrl: "http://b:4724", runId: RUN_ID, workspacePath: undefined });
 
-  const bound = parseArguments(["http://a:4723", "http://b:4724", RUN_ID, "--workspace", "/tmp/projekt"]);
-  assert.equal(bound.workspacePath, path.resolve("/tmp/projekt"));
+  const bound = parseArguments(["http://a:4723", "http://b:4724", RUN_ID, "--workspace", "/tmp/project"]);
+  assert.equal(bound.workspacePath, path.resolve("/tmp/project"));
 
-  assert.throws(() => parseArguments(["http://a:4723", RUN_ID]), /Quelle, Ziel und Run-Kennung/);
-  assert.throws(() => parseArguments(["http://a", "http://b", RUN_ID, "--workspace"]), /--workspace braucht einen Ordner/);
-  assert.throws(() => parseArguments(["--was", "http://a", "http://b", RUN_ID]), /Unbekanntes Argument/);
+  assert.throws(() => parseArguments(["http://a:4723", RUN_ID]), /Source, target and run id/);
+  assert.throws(() => parseArguments(["http://a", "http://b", RUN_ID, "--workspace"]), /--workspace needs a folder/);
+  assert.throws(() => parseArguments(["--what", "http://a", "http://b", RUN_ID]), /Unknown argument/);
 });

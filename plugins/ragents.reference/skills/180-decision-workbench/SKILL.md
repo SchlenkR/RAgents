@@ -2,11 +2,11 @@
 name: 180-decision-workbench
 start: true
 disable-model-invocation: true
-title: "Entscheidungswerkstatt"
-description: "Zeigt ein fest geführtes Gespräch ohne KI-Aufrufe. Ein TypeScript-Actor hält Antworten und Fortschritt; Änderungen am Entscheidungsentwurf werden sichtbar."
-category: "Mini-Apps"
+title: "Decision workbench"
+description: "Shows a strictly guided conversation without AI calls. A TypeScript actor keeps answers and progress; changes to the decision draft become visible."
+category: "Mini-apps"
 order: 180
-tags: "Anwendungsfall, Konzeptdemo, TypeScript-Actors, Actor-Zustand, Mini-Apps, Frei gesteuerter Chat"
+tags: "Use case, Concept demo, TypeScript actors, Actor state, Mini-apps, Controlled chat"
 ---
 
-Ich hätte gern eine lokale Entscheidungshilfe: Bibliothek oder Café als Lernort? Feste Fragen führen durch Ziel, Optionen und Kriterien, protokollieren meine Entscheidung und zeigen den Fortschritt. Bei einer Meinungsänderung will ich den Unterschied zum vorherigen Entwurf sehen. Ein TypeScript-Actor führt den gemeinsamen Fortschritt und die Antworten. Das soll eine klar erkennbare Anleitung ohne KI-Aufrufe sein, mit den vorhandenen Chatbausteinen.
+I would like a local decision aid: library or cafe as a place to study? Fixed questions guide me through goal, options, and criteria, record my decision, and show the progress. If I change my mind, I want to see the difference from the previous draft. A TypeScript actor keeps the shared progress and the answers. This should be a clearly recognizable guide without AI calls, using the existing chat building blocks.

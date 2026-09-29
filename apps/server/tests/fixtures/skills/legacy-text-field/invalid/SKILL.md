@@ -1,8 +1,8 @@
 ---
 name: invalid
 start: true
-category: Beispiele
+category: Examples
 title: Test
-text: Alte Beschreibung
+text: Old description
 ---
-Ich hätte gern die freie Fassung.
+I would like the free-form version.

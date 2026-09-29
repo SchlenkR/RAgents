@@ -8,13 +8,13 @@ import { runFolderModule } from "./run-folders.js";
 import { sandboxToolsModule } from "./sandbox-tools.js";
 
 export interface WorkspaceExecutorModuleOptions {
-  /** Der neue Ordner eines Runs auf dieser Maschine; nur ein Arbeitsplatz kennt ihn, auf dem Server legt ihn der Host an. */
+  /** The new folder of a run on this machine; only a workspace knows it, on the server the host creates it. */
   runFolder?: (runId: string) => string;
-  /** Die Beiträge der Plugins, gebaut für diese Maschine; Server und Arbeitsplatz bekommen dieselben. */
+  /** The contributions of the plugins, built for this machine; server and workspace get the same ones. */
   contributions: readonly WorkspaceExecutorParts[];
 }
 
-/** Die Module eines Executors: die eigenen und was die Beiträge der Plugins hinzufügen. */
+/** The modules of an executor: its own and what the contributions of the plugins add. */
 export const workspaceExecutorModules = (options: WorkspaceExecutorModuleOptions): readonly WorkspaceModuleFactory[] => [
   sandboxToolsModule,
   languageServerModule(options.contributions.flatMap((parts) => parts.languageServers ?? [])),

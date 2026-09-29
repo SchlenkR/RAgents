@@ -19,11 +19,11 @@ export function assertHomepageLinks(outputs: ReadonlyMap<string, string | Buffer
       const url = new URL(href.replace(/&amp;/g, "&"), `https://homepage.invalid/${name}`);
       const target = decodeURIComponent(url.pathname.slice(1));
       const body = outputs.get(target);
-      if (body === undefined) throw new Error(`Fehlendes Homepage-Linkziel in ${name}: ${href}`);
+      if (body === undefined) throw new Error(`Missing homepage link target in ${name}: ${href}`);
       if (target.endsWith(".html") && url.hash.length > 1) {
         const id = decodeURIComponent(url.hash.slice(1));
         const ids = new Set([...String(body).matchAll(/\bid="([^"]+)"/g)].map((match) => match[1]));
-        if (!ids.has(id)) throw new Error(`Fehlendes Homepage-Sprungziel in ${name}: ${href}`);
+        if (!ids.has(id)) throw new Error(`Missing homepage anchor target in ${name}: ${href}`);
       }
     }
   }
@@ -38,10 +38,10 @@ export async function buildHomepageExport(repoRoot: string): Promise<Map<string,
   function rewrite(value: string, document: string, asset: boolean): string {
     if (!value || value.startsWith("#") || value.startsWith("data:")) return value;
     if (/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(value)) {
-      if (asset) throw new Error(`Externe Ressource in ${document}: ${value}`);
+      if (asset) throw new Error(`External resource in ${document}: ${value}`);
       return value;
     }
-    if (value.startsWith("/")) throw new Error(`Absoluter Homepage-Pfad in ${document}: ${value}`);
+    if (value.startsWith("/")) throw new Error(`Absolute homepage path in ${document}: ${value}`);
     const suffixOffset = value.search(/[?#]/);
     const pathname = suffixOffset < 0 ? value : value.slice(0, suffixOffset);
     const suffix = suffixOffset < 0 ? "" : value.slice(suffixOffset);
@@ -50,10 +50,10 @@ export async function buildHomepageExport(repoRoot: string): Promise<Map<string,
       const local = target.slice("docs/homepage/".length);
       assertPublicOutput(local);
       if (/^screenshots\/.+\.(?:png|jpe?g|webp|gif)$/i.test(local)) screenshots.add(local);
-      else if (!published.has(local)) throw new Error(`Nicht veröffentlichte Homepage-Datei in ${document}: ${value}`);
+      else if (!published.has(local)) throw new Error(`Unpublished homepage file in ${document}: ${value}`);
       return value;
     }
-    if (asset || target.startsWith("../")) throw new Error(`Ressource außerhalb der Homepage in ${document}: ${value}`);
+    if (asset || target.startsWith("../")) throw new Error(`Resource outside the homepage in ${document}: ${value}`);
     assertPublicOutput(target);
     return sourceBase + target.split("/").map(encodeURIComponent).join("/") + suffix;
   }
@@ -67,7 +67,7 @@ export async function buildHomepageExport(repoRoot: string): Promise<Map<string,
     assertPublicOutput(content);
     if (name.endsWith(".html")) {
       content = content.replace(/<(a|link|script|img|source|video|audio|iframe)\b[^>]*>/gi, (tag, element: string) => {
-        if (/\bsrcset\s*=/i.test(tag)) throw new Error(`srcset wird im Homepage-Export noch nicht unterstützt: ${name}`);
+        if (/\bsrcset\s*=/i.test(tag)) throw new Error(`srcset is not yet supported in the homepage export: ${name}`);
         return tag.replace(/\b(href|src|poster)\s*=\s*(["'])(.*?)\2/gi, (_: string, attribute: string, quote: string, value: string) =>
           `${attribute}=${quote}${rewrite(value, name, element.toLowerCase() !== "a")}${quote}`);
       });
@@ -91,7 +91,7 @@ export async function buildHomepageExport(repoRoot: string): Promise<Map<string,
   for (const name of [...screenshots].sort()) {
     const source = path.join(homepageRoot, name);
     const relative = path.relative(await realpath(homepageRoot), await realpath(source));
-    if (relative.startsWith("..") || path.isAbsolute(relative)) throw new Error(`Screenshot liegt außerhalb der Homepage: ${name}`);
+    if (relative.startsWith("..") || path.isAbsolute(relative)) throw new Error(`Screenshot is outside the homepage: ${name}`);
     outputs.set(name, await readFile(source));
   }
   return outputs;

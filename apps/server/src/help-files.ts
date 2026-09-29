@@ -37,7 +37,7 @@ export async function readHelpResponse(url: URL, webDistDir: string, method = "G
   const notFound = (): HelpResponse => ({
     status: 404,
     headers: { "Content-Type": "text/plain; charset=utf-8" },
-    body: method === "HEAD" ? undefined : "Nicht gefunden",
+    body: method === "HEAD" ? undefined : "Not found",
   });
   let requested: string;
   try {

@@ -86,7 +86,7 @@ export function ActorProgramsProvider({
   const closeFullscreen = useCallback(() => setFullscreen(undefined), []);
   const openFullscreen = useCallback((appId: string) => {
     if (!actorProgramApps(session).some((app) => app.id === appId && app.app.visible !== false)) {
-      throw new Error("Die Actor-Ansicht ist nicht auf der Fläche verfügbar.");
+      throw new Error("The actor view is not available on the surface.");
     }
     setFullscreen({ runId, appId });
   }, [runId, session]);
@@ -230,13 +230,13 @@ export function HostConfirmation({ action, session }: { action: RunAction; sessi
   };
 
   return (
-    <section aria-label="Host-Bestätigung" className="grid flex-none gap-2 border-b border-border-soft bg-warning-soft px-workspace-inset py-2.5" data-slot="host-confirmation">
+    <section aria-label="Host confirmation" className="grid flex-none gap-2 border-b border-border-soft bg-warning-soft px-workspace-inset py-2.5" data-slot="host-confirmation">
       <header className="grid gap-0.5">
-        <strong className="text-[0.72rem] text-foreground">Bestätigung im Host</strong>
-        <span className="text-xs text-muted-foreground">Die App kann diese Entscheidung nicht selbst beantworten.</span>
+        <strong className="text-[0.72rem] text-foreground">Confirmation in the host</strong>
+        <span className="text-xs text-muted-foreground">The app cannot answer this decision itself.</span>
       </header>
       {busy
-        ? <p className="text-xs text-muted-foreground">Antwort wird verarbeitet</p>
+        ? <p className="text-xs text-muted-foreground">Processing answer</p>
         : (
           <QuestionCard
             onAnswer={access.can("runs.write") ? (text: string) => void answer(text) : undefined}
@@ -261,7 +261,7 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
     return (
       <div className="flex h-full items-center justify-center gap-2.5 text-sm text-muted-foreground">
         <Spinner aria-hidden aria-label={undefined} role={undefined} />
-        <span>Funktionen werden geladen</span>
+        <span>Loading functions</span>
       </div>
     );
   }
@@ -270,11 +270,11 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
       <Empty>
         <EmptyHeader>
           <EmptyMedia><IconTools /></EmptyMedia>
-          <EmptyTitle>Funktionen konnten nicht geladen werden</EmptyTitle>
+          <EmptyTitle>Functions could not be loaded</EmptyTitle>
           <EmptyDescription>{error}</EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Button onClick={() => void refresh()} variant="outline">Erneut versuchen</Button>
+          <Button onClick={() => void refresh()} variant="outline">Retry</Button>
         </EmptyContent>
       </Empty>
     );
@@ -284,12 +284,12 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
       <Empty>
         <EmptyHeader>
           <EmptyMedia><IconTools /></EmptyMedia>
-          <EmptyTitle>Funktion nicht mehr verfügbar</EmptyTitle>
-          <EmptyDescription>Das ausgewählte Actor-Funktion ist in diesem Run nicht mehr installiert.</EmptyDescription>
+          <EmptyTitle>Function no longer available</EmptyTitle>
+          <EmptyDescription>The selected actor function is no longer installed in this run.</EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
           <Button onClick={() => navigation.openTab(RUN_TOOLS_TAB_ID, null)} variant="outline">
-            Zur Übersicht
+            To overview
           </Button>
         </EmptyContent>
       </Empty>
@@ -299,12 +299,12 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
     return (
       <div className="flex h-full min-h-0 flex-col">
         <header className={headClass}>
-          <Button aria-label="Zurück zur Funktionsübersicht" onClick={() => navigation.openTab(RUN_TOOLS_TAB_ID, null)} size="icon-sm" title="Zurück zur Funktionsübersicht" variant="outline">
+          <Button aria-label="Back to function overview" onClick={() => navigation.openTab(RUN_TOOLS_TAB_ID, null)} size="icon-sm" title="Back to function overview" variant="outline">
             <ArrowLeftIcon />
           </Button>
           <span className="grid min-w-0 gap-px">
             <strong className="truncate text-[0.82rem] font-semibold" title={selected.name}>{selected.name}</strong>
-            <small className="truncate text-xs text-muted-foreground">Funktion von @{selected.actorHandle}</small>
+            <small className="truncate text-xs text-muted-foreground">Function of @{selected.actorHandle}</small>
           </span>
         </header>
         <div className="flex min-h-0 flex-col gap-[22px] overflow-y-auto px-workspace-inset pt-[18px] pb-7">
@@ -316,7 +316,7 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
             </div>
           </div>
           <section>
-            <h3 className={sectionLabelClass}>Verfügbar für</h3>
+            <h3 className={sectionLabelClass}>Available to</h3>
             <div className="flex flex-wrap gap-1.5">
               {selected.targets.map((target) => <span className="rounded-full bg-primary/9 px-2 py-1 text-xs text-foreground" key={target.actorId}>{targetLabel(target)}</span>)}
             </div>
@@ -327,8 +327,8 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
           </section>
           <ProgramSource api={api} moduleId={selected.moduleId} revision={selected.revision} runId={runId} />
           <dl className="grid grid-cols-2 gap-2">
-            {[{ label: "Programm", value: selected.moduleId, title: undefined },
-              { label: "Quellhash", value: selected.sourceHash.slice(0, 12), title: selected.sourceHash }].map((fact) => (
+            {[{ label: "Program", value: selected.moduleId, title: undefined },
+              { label: "Source hash", value: selected.sourceHash.slice(0, 12), title: selected.sourceHash }].map((fact) => (
               <div className="grid gap-[3px] rounded-lg bg-foreground/4 px-2.5 py-2" key={fact.label}>
                 <dt className="text-[0.61rem] text-muted-foreground uppercase">{fact.label}</dt>
                 <dd className="truncate font-mono text-xs text-foreground" title={fact.title}>{fact.value}</dd>
@@ -344,8 +344,8 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
       <Empty>
         <EmptyHeader>
           <EmptyMedia><IconTools /></EmptyMedia>
-          <EmptyTitle>Noch keine Funktionen</EmptyTitle>
-          <EmptyDescription>Von Agenten erstellte Actor-Funktionen dieses Runs erscheinen hier.</EmptyDescription>
+          <EmptyTitle>No functions yet</EmptyTitle>
+          <EmptyDescription>Actor functions created by agents in this run appear here.</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -367,7 +367,7 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
             <small className="truncate text-[0.69rem] text-muted-foreground">{tool.description}</small>
           </span>
           <Badge className="max-w-[132px] truncate @max-[470px]:hidden" variant="secondary">
-            {tool.targets.length} {tool.targets.length === 1 ? "Agent" : "Agenten"}
+            {tool.targets.length} {tool.targets.length === 1 ? "agent" : "agents"}
           </Badge>
           <IconOpen />
         </button>
@@ -376,7 +376,7 @@ export function ToolsPanel({ active, navigation, selection, session }: Workspace
   );
 }
 
-/** Ein Klick auf eine Mini-App wählt ihre Kachel auf der Fläche; die Fläche ist der Flächen-Controller des Orchestrierungs-Plugins. */
+/** A click on a mini-app selects its tile on the surface; the surface is the surface controller of the orchestration plugin. */
 export function ActorProgramsHeader({ session }: SessionHeaderContext) {
   const canArrange = useAccess().can("runs.inspect");
   const surface = useSurfaceController();
@@ -386,7 +386,7 @@ export function ActorProgramsHeader({ session }: SessionHeaderContext) {
   if (apps.length === 0) return null;
 
   return (
-    <nav aria-label="Actor-Ansichten" className="flex min-w-0 flex-none items-stretch">
+    <nav aria-label="Actor views" className="flex min-w-0 flex-none items-stretch">
       {apps.map((app) => (
         <div role="group" aria-label={app.title} key={`app:${app.id}`}
           className={cn("relative flex flex-none items-stretch border-r border-border hover:bg-accent focus-within:bg-accent",
@@ -402,19 +402,19 @@ export function ActorProgramsHeader({ session }: SessionHeaderContext) {
             closeFullscreen();
           }}
           onClick={() => {
-            if (!surface) throw new Error("Die App-Zugänge brauchen den Flächen-Controller des Orchestrierungs-Plugins.");
+            if (!surface) throw new Error("The app entries need the surface controller of the orchestration plugin.");
             closeFullscreen();
             surface.acceptSelection({ type: "run-app", id: app.id });
           }}
-          aria-label={`Mini-App: ${app.title} von @${app.actorHandle}`}
-          title={`Mini-App: ${app.title} von @${app.actorHandle}${canArrange ? ". Zum Andocken auf eine Kachel ziehen." : ""}`}
+          aria-label={`Mini-app: ${app.title} of @${app.actorHandle}`}
+          title={`Mini-app: ${app.title} of @${app.actorHandle}${canArrange ? ". Drag onto a tile to dock." : ""}`}
           type="button"
         >
           <span className={cn(quickIconClass, !stage.has(`app:${app.id}`) && "bg-transparent")}><LayoutGridIcon size={20} /></span>
           <ToolbarCopy><ToolbarLabel>@{app.actorHandle}</ToolbarLabel><ToolbarText>{app.title}</ToolbarText></ToolbarCopy>
         </ToolbarItem>
-        <ToolbarItem as="button" aria-expanded={fullscreenAppId === app.id} aria-label={`${app.title} ${fullscreenAppId === app.id ? "Vollansicht schließen" : "in Vollansicht öffnen"}`}
-          title={`${app.title} ${fullscreenAppId === app.id ? "Vollansicht schließen" : "in Vollansicht öffnen"}`}
+        <ToolbarItem as="button" aria-expanded={fullscreenAppId === app.id} aria-label={`${app.title} ${fullscreenAppId === app.id ? "close full view" : "open in full view"}`}
+          title={`${app.title} ${fullscreenAppId === app.id ? "close full view" : "open in full view"}`}
           className="relative w-[38px] justify-center border-r-0 p-0 hover:not-disabled:bg-transparent before:pointer-events-none before:absolute before:top-1/4 before:bottom-1/4 before:left-0 before:border-l before:border-dashed before:border-border-strong before:content-['']"
           onClick={() => fullscreenAppId === app.id ? closeFullscreen() : openFullscreen(app.id)} type="button">
           <ExpandIcon />

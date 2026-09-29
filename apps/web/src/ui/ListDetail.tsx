@@ -28,7 +28,7 @@ export interface ListDetailProps {
   className?: string;
 }
 
-// Tone und Tonfläche kommen aus data-tone und färben Symbol, Titel und Detailkopf.
+// Tone and tone surface come from data-tone and color the icon, title and detail header.
 const toneVariables = "[--tone:var(--muted-foreground)] [--tone-soft:var(--secondary)] "
   + "data-[tone=accent]:[--tone:var(--primary)] data-[tone=accent]:[--tone-soft:var(--accent)] "
   + "data-[tone=success]:[--tone:var(--success)] data-[tone=success]:[--tone-soft:var(--success-soft)] "
@@ -43,7 +43,7 @@ const itemClasses = cn(toneVariables, focusRing,
 
 const paneClasses = "min-h-0 min-w-0 flex-auto overflow-auto overscroll-contain [scrollbar-gutter:stable]";
 
-// Maßgeblich ist die Breite des Bausteins, nicht die des Fensters; CSS und Messung nutzen dieselbe Schwelle.
+// What counts is the width of the component, not that of the window; CSS and measurement use the same threshold.
 const narrowWidth = 900;
 
 /** Controlled grouped selection with a detail page and a return path on narrow screens. */
@@ -60,7 +60,7 @@ export function ListDetail({ label, items, selectedId, onSelect, disabled = fals
   const groups = new Map<string, ListDetailItem[]>();
   const ids = new Set<string>();
   for (const item of items) {
-    if (!item.id.trim() || ids.has(item.id)) throw new Error("ListDetail-Einträge benötigen eindeutige, nicht leere IDs.");
+    if (!item.id.trim() || ids.has(item.id)) throw new Error("ListDetail entries require unique, non-empty IDs.");
     ids.add(item.id);
     const key = item.group ?? "";
     const group = groups.get(key) ?? [];
@@ -72,7 +72,7 @@ export function ListDetail({ label, items, selectedId, onSelect, disabled = fals
 
   useEffect(() => {
     const root = rootRef.current;
-    if (!root) throw new Error("ListDetail benötigt sein Wurzelelement für die Breitenmessung.");
+    if (!root) throw new Error("ListDetail requires its root element for the width measurement.");
     const observer = new ResizeObserver(([entry]) => {
       const next = entry.contentRect.width < narrowWidth;
       setNarrow(next);
@@ -111,10 +111,10 @@ export function ListDetail({ label, items, selectedId, onSelect, disabled = fals
     <div className="grid min-h-0 min-w-0 flex-auto grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] grid-rows-[minmax(0,1fr)] gap-6 @max-[900px]/list-detail:grid-cols-[minmax(0,1fr)] @max-[900px]/list-detail:gap-0">
       <div aria-label={label} className={cn(paneClasses, focusRing, "pt-0.5 pr-1.5 pb-3 @max-[900px]/list-detail:group-data-[detail=true]/list-detail:hidden")}
         ref={listRef} role="region" tabIndex={-1}>
-        {items.length === 0 ? <div className="p-6 text-[0.8rem] leading-relaxed text-muted-foreground">{emptyState ?? <p>Keine Einträge vorhanden.</p>}</div>
+        {items.length === 0 ? <div className="p-6 text-[0.8rem] leading-relaxed text-muted-foreground">{emptyState ?? <p>No entries available.</p>}</div>
           : [...groups].map(([group, entries], groupIndex) => <section aria-labelledby={group ? `${prefix}-group-${groupIndex}` : undefined} className="not-first:mt-4.5" key={group}>
             {group && <h3 className="mx-2 mb-2 flex items-center gap-2.5 text-[0.67rem] font-bold tracking-[0.04em] text-muted-foreground" id={`${prefix}-group-${groupIndex}`}>
-              {group}<span className="font-mono text-[0.63rem] opacity-80" aria-label={`${entries.length} Einträge`}>{entries.length}</span>
+              {group}<span className="font-mono text-[0.63rem] opacity-80" aria-label={`${entries.length} entries`}>{entries.length}</span>
             </h3>}
             <ul className="grid grid-cols-[minmax(0,1fr)] gap-1 *:min-w-0">
               {entries.map((item) => <li key={item.id}>
@@ -138,11 +138,11 @@ export function ListDetail({ label, items, selectedId, onSelect, disabled = fals
         data-tone={selected?.tone ?? "neutral"}
         id={`${prefix}-detail`} ref={detailRef} tabIndex={-1}>
         {selected ? <>
-          <div className="hidden flex-none border-b border-border-soft px-3.5 py-2.5 @max-[900px]/list-detail:flex"><Button aria-label="Zur Auswahl" className="rounded-full" onClick={returnToList} size="icon" variant="outline"><ArrowLeftIcon /></Button></div>
+          <div className="hidden flex-none border-b border-border-soft px-3.5 py-2.5 @max-[900px]/list-detail:flex"><Button aria-label="Back to selection" className="rounded-full" onClick={returnToList} size="icon" variant="outline"><ArrowLeftIcon /></Button></div>
           {detailHeader !== undefined && <header className="flex-none border-b border-border-soft bg-(--tone-soft) px-6 py-6 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 @max-[900px]/list-detail:p-4.5">{detailHeader}</header>}
-          <div aria-label={`${detailLabel}: Inhalt`} className={cn(paneClasses, focusRing, "flex-1 px-6 py-6 text-[0.8rem] leading-[1.7] [overflow-wrap:anywhere] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 @max-[900px]/list-detail:p-4.5")} role="region" tabIndex={0}>{children}</div>
+          <div aria-label={`${detailLabel}: content`} className={cn(paneClasses, focusRing, "flex-1 px-6 py-6 text-[0.8rem] leading-[1.7] [overflow-wrap:anywhere] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 @max-[900px]/list-detail:p-4.5")} role="region" tabIndex={0}>{children}</div>
           {detailFooter !== undefined && <footer className="flex flex-none flex-wrap items-center gap-2.5 border-t border-border-soft px-6 py-4 @max-[900px]/list-detail:px-4.5 @max-[900px]/list-detail:py-3.5">{detailFooter}</footer>}
-        </> : <div className="p-6 text-[0.8rem] leading-relaxed text-muted-foreground"><p>{items.length ? "Wähle einen Eintrag, um die Details zu sehen." : "Keine Auswahl verfügbar."}</p></div>}
+        </> : <div className="p-6 text-[0.8rem] leading-relaxed text-muted-foreground"><p>{items.length ? "Choose an entry to see the details." : "No selection available."}</p></div>}
       </section>
     </div>
   </section>;

@@ -13,7 +13,7 @@ const connection = (): MethodConnection => ({
   id: randomUUID(),
   userId: "alice",
   streamless: false,
-  call: () => Promise.reject(new Error("Dieser Arbeitsplatz antwortet nicht")),
+  call: () => Promise.reject(new Error("This workstation does not respond")),
   onClose: () => () => undefined,
 });
 
@@ -21,7 +21,7 @@ const registryWith = async (platform: string, ripgrep: boolean) => {
   const registry = new WorkspaceClientRegistry([]);
   await registry.register(
     CLIENT,
-    { label: "Laptop", hostname: "laptop", platform, folders: ["C:\\projekte\\werkstatt"], runsDirectory: "C:\\ragents\\runs", ripgrep },
+    { label: "Laptop", hostname: "laptop", platform, folders: ["C:\\projects\\workshop"], runsDirectory: "C:\\ragents\\runs", ripgrep },
     WORKSPACE_EXECUTOR_VERSION,
     [],
     connection(),
@@ -36,7 +36,7 @@ test("the shell platform text is derived from the platform and names the exit co
   assert.match(shellPlatformText("linux", onServer), /Linux.*GNU.*`grep -P`/);
   assert.match(shellPlatformText("win32", onServer), /Windows with the bash RAgents brings along/);
   for (const platform of ["darwin", "linux", "win32"] as const) assert.match(shellPlatformText(platform, onServer), /nonzero exit code.*not as a tool error/);
-  assert.throws(() => shellPlatformText("freebsd", onServer), /keine Shell-Beschreibung/);
+  assert.throws(() => shellPlatformText("freebsd", onServer), /no shell description/);
 });
 
 test("the shell platform prompt is bound to bash and delivered with the initial prompt", async () => {
@@ -52,18 +52,18 @@ test("the shell platform prompt is bound to bash and delivered with the initial 
 test("the prompt names the platform and search tool of the executor that runs the run", async () => {
   const registry = await registryWith("win32", false);
   const prompt = shellPlatformPrompt("ragents.workspace.shell.prompt", 102, onServer, (runId) =>
-    executorShellChapter(registry, "alice", runId === "auf-windows"
-      ? { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "C:\\projekte\\werkstatt" } }
-      : { machine: "server", folder: { path: "/projekte/werkstatt" } }, onServer));
-  assert.equal(prompt.renderForRun?.("auf-windows"), shellPlatformChapter("win32", { ripgrep: false }));
-  assert.match(prompt.renderForRun?.("auf-windows") ?? "", /not available here.*--exclude-dir=node_modules/s);
-  assert.equal(prompt.renderForRun?.("auf-dem-server"), shellPlatformChapter(process.platform, onServer));
+    executorShellChapter(registry, "alice", runId === "on-windows"
+      ? { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "C:\\projects\\workshop" } }
+      : { machine: "server", folder: { path: "/projects/workshop" } }, onServer));
+  assert.equal(prompt.renderForRun?.("on-windows"), shellPlatformChapter("win32", { ripgrep: false }));
+  assert.match(prompt.renderForRun?.("on-windows") ?? "", /not available here.*--exclude-dir=node_modules/s);
+  assert.equal(prompt.renderForRun?.("on-the-server"), shellPlatformChapter(process.platform, onServer));
   assert.equal(await prompt.render({}), shellPlatformChapter(process.platform, onServer));
 });
 
 test("a workstation that reports rg gets the rg search, whatever the server has", async () => {
   const registry = await registryWith("win32", true);
-  const binding = { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "C:\\projekte\\werkstatt" } } as const;
+  const binding = { machine: { client: CLIENT, label: "Laptop" }, folder: { path: "C:\\projects\\workshop" } } as const;
   const chapter = executorShellChapter(registry, "alice", binding, { ripgrep: false });
   assert.equal(chapter, shellPlatformChapter("win32", { ripgrep: true }));
   assert.match(chapter, /Search code with `rg` \(ripgrep\)/);
@@ -80,7 +80,7 @@ test("the platform comes only from a workstation of the run owner, never from an
 test("an unregistered workstation is named instead of guessing a platform", () => {
   const chapter = executorShellChapter(new WorkspaceClientRegistry([]), "alice", {
     machine: { client: CLIENT, label: "Laptop" },
-    folder: { path: "C:\\projekte\\werkstatt" },
+    folder: { path: "C:\\projects\\workshop" },
   }, onServer);
   assert.match(chapter, /Laptop.*not registered right now/s);
 });

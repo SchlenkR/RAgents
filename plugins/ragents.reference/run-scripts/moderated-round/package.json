@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "ragents": {
-    "title": "Moderierte Runde ohne Koordinator",
+    "title": "Moderated round without coordinator",
     "backend": "src/server.ts"
   }
 }

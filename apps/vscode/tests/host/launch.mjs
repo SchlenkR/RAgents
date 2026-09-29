@@ -7,21 +7,21 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const serverUrl = process.env.RAGENTS_HOST_TEST_SERVER ?? "http://localhost:4710";
-// Mit RAGENTS_HOST_TEST_PROFILE startet die Erweiterung den Host selbst aus dieser Profildatei statt sich mit serverUrl zu verbinden.
+// With RAGENTS_HOST_TEST_PROFILE, the extension starts the host itself from this profile file instead of connecting to serverUrl.
 const profileFile = process.env.RAGENTS_HOST_TEST_PROFILE;
-// Mit RAGENTS_HOST_TEST_SECOND steht ein zweites Ziel daneben; dann prüft der Testläufer beide gleichzeitig.
+// With RAGENTS_HOST_TEST_SECOND, a second target sits next to it; then the test runner checks both at the same time.
 const secondUrl = process.env.RAGENTS_HOST_TEST_SECOND;
-// Mit RAGENTS_HOST_TEST_SETTINGS prüft der Testläufer die Einstellungsseite: VS Code startet ohne Ziel und ohne Host-Pfad, wie nach einer frischen Installation.
+// With RAGENTS_HOST_TEST_SETTINGS, the test runner checks the settings page: VS Code starts without a target and without a host path, as after a fresh installation.
 const settingsPath = process.env.RAGENTS_HOST_TEST_SETTINGS;
 const connections = [
   profileFile ? { name: "test", profileFile } : { name: "test", url: serverUrl },
-  ...(secondUrl ? [{ name: "zweit", url: secondUrl }] : []),
+  ...(secondUrl ? [{ name: "second", url: secondUrl }] : []),
 ];
 const executable = process.env.VSCODE_EXECUTABLE ?? "/Applications/Visual Studio Code.app/Contents/MacOS/Code";
 const userDataDir = mkdtempSync(path.join(tmpdir(), "ragents-vscode-"));
 const output = path.join(userDataDir, "report.json");
 
-// Wie apps/vscode/esbuild.mjs: im CJS-Bundle hat import.meta.url keinen Wert, den createRequire annimmt.
+// Like apps/vscode/esbuild.mjs: in the CJS bundle, import.meta.url has no value that createRequire accepts.
 const bundle = { bundle: true, platform: "node", format: "cjs", target: "node22", external: ["vscode"], logLevel: "silent",
   define: { "import.meta.url": "__importMetaUrl" },
   banner: { js: 'const __importMetaUrl = require("node:url").pathToFileURL(__filename).href;' } };
@@ -35,17 +35,17 @@ writeFileSync(path.join(userDataDir, "User/settings.json"), JSON.stringify({
   "update.mode": "none", "telemetry.telemetryLevel": "off", "extensions.autoUpdate": false,
 }, null, 2));
 
-// Mit RAGENTS_HOST_TEST_VSIX läuft die gepackte Erweiterung statt des Checkouts; ihr Inhalt liegt in der .vsix unter extension/.
+// With RAGENTS_HOST_TEST_VSIX, the packaged extension runs instead of the checkout; its content is in the .vsix under extension/.
 const vsix = process.env.RAGENTS_HOST_TEST_VSIX;
 const developmentPath = vsix ? path.join(userDataDir, "vsix", "extension") : root;
 if (vsix) {
   execFileSync("unzip", ["-q", "-o", path.resolve(vsix), "-d", path.join(userDataDir, "vsix")], { stdio: "inherit" });
-  console.log(`== Erweiterung aus ${path.resolve(vsix)}`);
+  console.log(`== Extension from ${path.resolve(vsix)}`);
 }
 
-// Die Testinstanz darf keine Variablen des umgebenden VS Code (Task-Terminal, Extension-Host) erben, sonst hängt sie sich an den Aufrufer.
+// The test instance must not inherit variables of the surrounding VS Code (task terminal, extension host), otherwise it attaches to the caller.
 const environment = Object.fromEntries(Object.entries(process.env).filter(([name]) => !/^(VSCODE_|ELECTRON_)/.test(name)));
-// Mit RAGENTS_HOST_TEST_WORKSPACE prüft der Testläufer zusätzlich die Bindung client; VS Code bekommt den Ordner als Arbeitsbereich.
+// With RAGENTS_HOST_TEST_WORKSPACE, the test runner also checks the client binding; VS Code gets the folder as workspace.
 const workspace = process.env.RAGENTS_HOST_TEST_WORKSPACE;
 const child = spawn(executable, [
   `--extensionDevelopmentPath=${developmentPath}`,
@@ -55,7 +55,7 @@ const child = spawn(executable, [
   "--disable-workspace-trust", "--skip-welcome", "--skip-release-notes", "--disable-gpu",
   ...(workspace ? [path.resolve(workspace)] : []),
 ], { env: { ...environment, RAGENTS_HOST_TEST_OUTPUT: output }, stdio: ["ignore", "pipe", "pipe"] });
-// Ein Abbruch des Aufrufers beendet genau diese Testinstanz über ihre eigene PID, nie eine andere.
+// A cancel by the caller ends exactly this test instance via its own PID, never another one.
 const stopInstance = () => {
   if (child.exitCode !== null || child.signalCode !== null) return;
   child.kill("SIGTERM");
@@ -66,9 +66,9 @@ const log = [];
 child.stdout.on("data", (chunk) => log.push(chunk.toString()));
 child.stderr.on("data", (chunk) => log.push(chunk.toString()));
 const code = await new Promise((resolve) => child.on("exit", resolve));
-let report = "kein Bericht";
+let report = "no report";
 try { report = readFileSync(output, "utf8"); } catch {}
 console.log(report);
-if (code !== 0) console.error(log.join("").split("\n").filter((line) => /error|Error|Zeitüberschreitung/.test(line)).slice(-20).join("\n"));
+if (code !== 0) console.error(log.join("").split("\n").filter((line) => /error|Error|Timeout/.test(line)).slice(-20).join("\n"));
 rmSync(userDataDir, { recursive: true, force: true });
 process.exit(code ?? 1);

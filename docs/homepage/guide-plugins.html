@@ -393,7 +393,8 @@ additional assets that go into the bundle:</p>
 values the list names; types are free. A library such as <code>react</code> or <code>typebox</code> counts whole. The
 agent runtime behind the host (<code>@ragents/agent</code>, <code>@ragents/ai</code>) is not part of it: hooks into an
 agent&#39;s model calls come through <code>host.agentRuntime</code>, a single question to a model through
-<code>openRouterCompletionModel</code> from <code>@ragents/host/plugin-support/model-completion</code>, and the
+<code>openRouterCompletionModel</code> from <code>@ragents/host/plugin-support/model-completion</code> or, for a profile
+alias over the server&#39;s model runtime, the service <code>aliasCompletionModelToken</code> from there, and the
 built-in model catalog of a provider through <code>builtinCatalog</code> from
 <code>@ragents/host/plugin-support/model-choice</code>. Another plugin is reachable only through its
 declared exports as <code>@ragents/plugins/&lt;id&gt;/&lt;export&gt;</code>, and only if its ID is in <code>requires</code>; plugins

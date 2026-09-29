@@ -6,7 +6,7 @@ import type { CommandContext } from "../runtime/command.ts";
 import type { Orchestration } from "../runtime/orchestration.ts";
 
 export const actorInputSchema = Type.Object({
-    actor: Type.String({ minLength: 1, description: "Actor ID oder Handle" }),
+    actor: Type.String({ minLength: 1, description: "Actor ID or handle" }),
     content: Type.String({ minLength: 1 }),
     artifactIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { uniqueItems: true })),
 }, { additionalProperties: false });
@@ -22,44 +22,44 @@ const eventPayloads = {
         title: Type.String(),
     }),
     "run.forked": payloadOf<"run.forked">({
-        sourceRunId: Type.String({ description: "ID des Quell-Runs" }),
+        sourceRunId: Type.String({ description: "ID of the source run" }),
         sourceSequence: Type.Integer(),
     }),
     "run.primary-actor-selected": payloadOf<"run.primary-actor-selected">({
-        actorId: Type.String({ description: "ID des primären Actors" }),
+        actorId: Type.String({ description: "ID of the primary actor" }),
     }),
     "run.title-changed": payloadOf<"run.title-changed">({
-        title: Type.String({ description: "Neuer Titel des Runs" }),
+        title: Type.String({ description: "New title of the run" }),
     }),
     "agent.spawned": payloadOf<"agent.spawned">({
-        agentId: Type.String({ description: "ID des neuen Agenten; actor_input und actor_stop nehmen sie oder @handle" }),
+        agentId: Type.String({ description: "ID of the new agent; actor_input and actor_stop take it or @handle" }),
         handle: Type.String(),
         displayName: Type.String(),
     }),
     "script.created": payloadOf<"script.created">({
-        scriptId: Type.String({ description: "ID des neuen TypeScript-Actors" }),
+        scriptId: Type.String({ description: "ID of the new TypeScript actor" }),
         handle: Type.String(),
         displayName: Type.String(),
     }),
     "actor.input.enqueued": payloadOf<"actor.input.enqueued">({
-        inputId: Type.String({ description: "ID des eingereihten Inputs" }),
-        actorId: Type.String({ description: "ID des empfangenden Actors" }),
+        inputId: Type.String({ description: "ID of the enqueued input" }),
+        actorId: Type.String({ description: "ID of the receiving actor" }),
     }),
     "turn.started": payloadOf<"turn.started">({
-        turnId: Type.String({ description: "ID des gestarteten Turns" }),
+        turnId: Type.String({ description: "ID of the started turn" }),
         inputId: Type.String(),
     }),
     "turn.input-steered": payloadOf<"turn.input-steered">({
-        turnId: Type.String({ description: "Laufender Turn, in den der Input eingespeist wurde" }),
+        turnId: Type.String({ description: "Running turn into which the input was fed" }),
         inputId: Type.String(),
     }),
     "turn.finished": payloadOf<"turn.finished">({
-        turnId: Type.String({ description: "ID des beendeten Turns" }),
+        turnId: Type.String({ description: "ID of the finished turn" }),
         outcome: Type.String(),
         reason: Type.Optional(Type.String()),
     }),
     "turn.interrupted": payloadOf<"turn.interrupted">({
-        turnId: Type.String({ description: "ID des unterbrochenen Turns" }),
+        turnId: Type.String({ description: "ID of the interrupted turn" }),
     }),
     "model.input.presented": payloadOf<"model.input.presented">({
         turnId: Type.String({ description: "Turn in which the model was given the input" }),
@@ -77,85 +77,85 @@ const eventPayloads = {
         tokensBefore: Type.Integer(),
     }),
     "model.output.completed": payloadOf<"model.output.completed">({
-        turnId: Type.String({ description: "Turn, zu dem die Ausgabe gehört" }),
+        turnId: Type.String({ description: "Turn the output belongs to" }),
     }),
     "model.output.interrupted": payloadOf<"model.output.interrupted">({
-        turnId: Type.String({ description: "Turn, zu dem die Ausgabe gehört" }),
+        turnId: Type.String({ description: "Turn the output belongs to" }),
     }),
     "model.reasoning.completed": payloadOf<"model.reasoning.completed">({
-        turnId: Type.String({ description: "Turn, zu dem die Ausgabe gehört" }),
+        turnId: Type.String({ description: "Turn the output belongs to" }),
     }),
     "runtime.output.recorded": payloadOf<"runtime.output.recorded">({
-        turnId: Type.String({ description: "Turn, zu dem die Ausgabe gehört" }),
+        turnId: Type.String({ description: "Turn the output belongs to" }),
     }),
     "tool.call.started": payloadOf<"tool.call.started">({
         turnId: Type.String(),
-        toolCallId: Type.String({ description: "ID des Werkzeugaufrufs" }),
+        toolCallId: Type.String({ description: "ID of the tool call" }),
         name: Type.String(),
     }),
     "tool.call.source": payloadOf<"tool.call.source">({
         turnId: Type.String(),
-        toolCallId: Type.String({ description: "ID des Werkzeugaufrufs" }),
+        toolCallId: Type.String({ description: "ID of the tool call" }),
         path: Type.Union([Type.String(), Type.Null()]),
     }),
     "tool.call.completed": payloadOf<"tool.call.completed">({
         turnId: Type.String(),
-        toolCallId: Type.String({ description: "ID des Werkzeugaufrufs" }),
+        toolCallId: Type.String({ description: "ID of the tool call" }),
         name: Type.String(),
     }),
     "tool.call.failed": payloadOf<"tool.call.failed">({
         turnId: Type.String(),
-        toolCallId: Type.String({ description: "ID des Werkzeugaufrufs" }),
+        toolCallId: Type.String({ description: "ID of the tool call" }),
         name: Type.String(),
         error: Type.String(),
     }),
     "actor.tools.opened": payloadOf<"actor.tools.opened">({
-        actorId: Type.String({ description: "Actor, dessen Werkzeuge geöffnet wurden" }),
+        actorId: Type.String({ description: "Actor whose tools were opened" }),
         toolNames: Type.Array(Type.String()),
     }),
     "actor.stopped": payloadOf<"actor.stopped">({
-        actorId: Type.String({ description: "ID des gestoppten Actors" }),
+        actorId: Type.String({ description: "ID of the stopped actor" }),
     }),
     "actor.restarted": payloadOf<"actor.restarted">({
-        actorId: Type.String({ description: "ID des neu gestarteten Actors" }),
+        actorId: Type.String({ description: "ID of the restarted actor" }),
     }),
     "subscription.created": payloadOf<"subscription.created">({
-        subscriptionId: Type.String({ description: "ID der neuen Subscription" }),
+        subscriptionId: Type.String({ description: "ID of the new subscription" }),
         subscriberId: Type.String(),
     }),
     "subscription.removed": payloadOf<"subscription.removed">({
-        subscriptionId: Type.String({ description: "ID der entfernten Subscription" }),
+        subscriptionId: Type.String({ description: "ID of the removed subscription" }),
     }),
     "subscription.failed": payloadOf<"subscription.failed">({
-        subscriptionId: Type.String({ description: "ID der gescheiterten Subscription" }),
+        subscriptionId: Type.String({ description: "ID of the failed subscription" }),
         sourceEventId: Type.String(),
         reason: Type.String(),
     }),
     "action.proposed": payloadOf<"action.proposed">({
-        actionId: Type.String({ description: "ID der vorgeschlagenen Aktion" }),
+        actionId: Type.String({ description: "ID of the proposed action" }),
     }),
     "action.resolved": payloadOf<"action.resolved">({
-        actionId: Type.String({ description: "ID der aufgelösten Aktion" }),
+        actionId: Type.String({ description: "ID of the resolved action" }),
         decision: Type.String(),
     }),
     "artifact.published": payloadOf<"artifact.published">({
         artifact: Type.Object({
-            id: Type.String({ description: "ID des Artefakts; artifact_read liest es damit" }),
+            id: Type.String({ description: "ID of the artifact; artifact_read reads it with this" }),
         }, { additionalProperties: false }),
     }),
     "plugin.state-replaced": payloadOf<"plugin.state-replaced">({
-        pluginId: Type.String({ description: "Plugin, dessen Zustand ersetzt wurde" }),
+        pluginId: Type.String({ description: "Plugin whose state was replaced" }),
     }),
     "plugin.state-patched": payloadOf<"plugin.state-patched">({
-        pluginId: Type.String({ description: "Plugin, dessen Zustand geändert wurde" }),
+        pluginId: Type.String({ description: "Plugin whose state was changed" }),
     }),
 } satisfies Record<EventType, TSchema>;
 
-/** Die Journal-Events eines Aufrufs, eingegrenzt auf die Typen, die er tatsächlich erzeugt. */
+/** The journal events of a call, narrowed to the types it actually produces. */
 export const eventResultSchemaOf = (...types: readonly EventType[]): TSchema => {
     const variants = types.map((type) => Type.Object({ type: Type.Literal(type), payload: eventPayloads[type] }, { additionalProperties: false }));
     return Type.Array(variants.length === 1 ? variants[0]! : Type.Union(variants), {
-        description: "Die Journal-Events dieses Aufrufs. Die payload nennt die Kennungen des Ergebnisses; Eingaben und Hashes wiederholt sie nicht.",
+        description: "The journal events of this call. The payload names the ids of the result; it does not repeat inputs and hashes.",
     });
 };
 

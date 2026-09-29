@@ -57,7 +57,7 @@ test("a tool failure without text still journals a cause", () => {
     runtime.startToolCall(context("start"), view.id, turn.actorId, { turnId: turn.turnId, toolCallId: "blank", name: "browser_check", input: {} });
     runtime.failToolCall(context("fail"), view.id, turn.actorId, { turnId: turn.turnId, toolCallId: "blank", name: "browser_check", error: "   " });
     const reasons = runtime.events(view.id).flatMap((entry) => entry.type === "tool.call.failed" ? [entry.payload.error] : []);
-    assert.deepEqual(reasons, ["Fehler ohne Ursache"]);
+    assert.deepEqual(reasons, ["Error without a cause"]);
     assert.equal(runtime.view(view.id).turns.find((entry) => entry.id === turn.turnId)?.toolCalls[0]?.status, "failed");
   } finally {
     setup.journal.close();

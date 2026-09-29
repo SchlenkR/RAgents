@@ -11,7 +11,7 @@ const source = "example-profile.ts";
 const environment = { TEST_LOGIN_PASSWORD: "a-secret" };
 const reader = { id: "reader", password: env("TEST_LOGIN_PASSWORD"), rights: ["runs.read"] };
 
-test("fehlende Benutzer lassen das Profil offen, zwei Benutzer werden aus Secret-Referenzen aufgelöst", () => {
+test("missing users leave the profile open, two users are resolved from secret references", () => {
   assert.equal(resolveProfileUsers(source, undefined), undefined);
   assert.deepEqual(resolveProfileUsers(source, [reader, { ...reader, id: "admin", label: "Administration", rights: ["*"] }], environment), [
     { id: "reader", label: "reader", password: "a-secret", rights: ["runs.read"] },
@@ -20,7 +20,7 @@ test("fehlende Benutzer lassen das Profil offen, zwei Benutzer werden aus Secret
   assert.deepEqual(resolveProfileUsers(source, [{ ...reader, rights: [] }], environment)?.[0]?.rights, []);
 });
 
-test("leere, doppelte oder missgebildete Benutzerkonfiguration scheitert hart", () => {
+test("empty, duplicate or malformed user configuration fails hard", () => {
   for (const raw of [[], null, {}, [null], [reader, reader], [{ ...reader, id: "../reader" }],
     [{ ...reader, label: " " }], [{ ...reader, unknown: true }], [{ ...reader, rights: ["runs.*"] }],
     [{ ...reader, rights: ["runs.read", "runs.read"] }], [{ ...reader, rights: "*" }]]) {
@@ -28,7 +28,7 @@ test("leere, doppelte oder missgebildete Benutzerkonfiguration scheitert hart", 
   }
 });
 
-test("Fehlende und leere Passwörter scheitern ohne Secret-Ausgabe", () => {
+test("missing and empty passwords fail without printing the secret", () => {
   for (const [raw, variables] of [
     [[{ ...reader, password: "" }], environment],
     [[{ ...reader, password: { kind: "environment" } }], environment],
@@ -43,7 +43,7 @@ test("Fehlende und leere Passwörter scheitern ohne Secret-Ausgabe", () => {
   }
 });
 
-test("der Profillader hält Benutzer getrennt von materialisierten Konfigurationswerten", () => {
+test("the profile loader keeps users separate from materialized configuration values", () => {
   mkdirSync("/private/tmp/ragents-access-tests", { recursive: true });
   const root = mkdtempSync("/private/tmp/ragents-access-tests/profile-");
   try {
@@ -74,19 +74,19 @@ console.log(JSON.stringify({added,users:configuredUsers().map(({password,...user
 });
 
 
-test("Klartextpasswörter und erlaubte Setups bleiben getrennt von anonymen Rechten", () => {
+test("plain text passwords and allowed setups stay separate from anonymous rights", () => {
   const startEntries = ["example.setup"];
   const user = { id: "operator", rights: ["runs.read", "runs.write"], startEntries };
   assert.deepEqual(resolveProfileUsers(source, [{ ...user, password: "configured-password" }])?.[0], { ...user, label: "operator", password: "configured-password" });
   assert.deepEqual(resolveAnonymousUser(source, user), { ...user, label: "operator" });
-  assert.throws(() => resolveAnonymousUser(source, { ...user, password: "must-not-be-accepted" }), /erlaubt nur/);
+  assert.throws(() => resolveAnonymousUser(source, { ...user, password: "must-not-be-accepted" }), /allows only/);
   for (const invalid of [null, ["example.setup", "example.setup"], ["../escape"], [1], "example.setup"]) {
     assert.throws(() => resolveAnonymousUser(source, { ...user, startEntries: invalid }), /startEntries/);
     assert.throws(() => resolveProfileUsers(source, [{ ...user, password: "secret", startEntries: invalid }]), /startEntries/);
   }
 });
 
-test("die Default-Vorlage ist optional und sonst eine Vorlagenkennung als String", () => {
+test("the default template is optional and otherwise a template id as a string", () => {
   assert.equal(resolveDefaultStartEntry(source, undefined), undefined);
   assert.equal(resolveDefaultStartEntry(source, "ragents.reference.word-game"), "ragents.reference.word-game");
   for (const invalid of ["", " ", "../escape", 1, null, ["example.setup"], { id: "example.setup" }]) {
@@ -94,17 +94,17 @@ test("die Default-Vorlage ist optional und sonst eine Vorlagenkennung als String
   }
 });
 
-test("persönliche Token kommen nur aus der Umgebung, sind eindeutig und mindestens 16 Zeichen lang", () => {
+test("personal tokens come only from the environment, are unique and at least 16 characters long", () => {
   const variables = { ...environment, TEST_DEV_TOKEN: "dev-token-0123456789", TEST_OTHER_TOKEN: "other-token-0123456789" };
   const dev = { ...reader, id: "dev", token: env("TEST_DEV_TOKEN") };
   assert.equal(resolveProfileUsers(source, [dev], variables)?.[0]?.token, "dev-token-0123456789");
   assert.equal("token" in (resolveProfileUsers(source, [reader], variables)?.[0] ?? {}), false);
   assert.deepEqual(resolveProfileUsers(source, [dev, { ...reader, id: "other", token: env("TEST_OTHER_TOKEN") }], variables)?.map((user) => user.token),
     ["dev-token-0123456789", "other-token-0123456789"]);
-  assert.throws(() => resolveProfileUsers(source, [{ ...dev, token: "im-klartext-0123456789" }], variables), /token braucht env/);
-  assert.equal("token" in (resolveProfileUsers(source, [dev], environment)?.[0] ?? {}), false, "ohne gesetzte Variable bleibt die Anmeldung per Passwort, der Start bricht nicht ab");
-  assert.throws(() => resolveProfileUsers(source, [dev], { ...variables, TEST_DEV_TOKEN: "kurz" }), /16 bis 512/);
-  assert.throws(() => resolveProfileUsers(source, [dev], { ...variables, TEST_DEV_TOKEN: "mit leerzeichen 0123456789" }), /16 bis 512/);
-  assert.throws(() => resolveProfileUsers(source, [dev], { ...variables, TEST_DEV_TOKEN: "mit$dollar0123456789" }), /ohne Leerzeichen, \$ und !/);
-  assert.throws(() => resolveProfileUsers(source, [dev, { ...reader, id: "twin", token: env("TEST_DEV_TOKEN") }], variables), /derselbe wie bei Benutzer dev/);
+  assert.throws(() => resolveProfileUsers(source, [{ ...dev, token: "in-plaintext-0123456789" }], variables), /token needs env/);
+  assert.equal("token" in (resolveProfileUsers(source, [dev], environment)?.[0] ?? {}), false, "without a set variable sign-in stays by password, the start does not abort");
+  assert.throws(() => resolveProfileUsers(source, [dev], { ...variables, TEST_DEV_TOKEN: "short" }), /16 to 512/);
+  assert.throws(() => resolveProfileUsers(source, [dev], { ...variables, TEST_DEV_TOKEN: "with spaces 0123456789" }), /16 to 512/);
+  assert.throws(() => resolveProfileUsers(source, [dev], { ...variables, TEST_DEV_TOKEN: "with$dollar0123456789" }), /without spaces, \$ and !/);
+  assert.throws(() => resolveProfileUsers(source, [dev, { ...reader, id: "twin", token: env("TEST_DEV_TOKEN") }], variables), /the same as for user dev/);
 });

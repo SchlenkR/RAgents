@@ -25,7 +25,7 @@ const hostWith = (...functions: readonly (RunFunction | ToolContributor)[]) => {
 const toolsetFor = async (setup: ReturnType<typeof setupRun>, host: PluginHost) => {
     const registry = new ToolRegistry();
     for (const contribution of host.tools.entries()) registry.register(contribution);
-    const view = postTo(setup.runtime, setup.view, setup.agent.id, "function-input", "Los.");
+    const view = postTo(setup.runtime, setup.view, setup.agent.id, "function-input", "Go.");
     const input = view.inputs.find((entry) => entry.actorId === setup.agent.id && entry.lifecycle.kind === "pending");
     assert.ok(input);
     const turn = claimTurn(setup.runtime, setup.view.id, setup.agent.id, input.id, "function-turn");
@@ -113,7 +113,7 @@ test("a native call drops unknown root fields, a function call and nested unknow
         resultSchema: Type.String(),
         available: () => true,
         nativeTool: true,
-        run: () => "Kontext.",
+        run: () => "Context.",
     });
     const nested = defineRunFunction({
         name: "nested",
@@ -128,8 +128,8 @@ test("a native call drops unknown root fields, a function call and nested unknow
     const setup = setupRun({ grants: allGrants(), toolNames: ["sum", "context", "nested"] });
     try {
         const toolset = await toolsetFor(setup, hostWith(sum(true), context, nested));
-        assert.deepEqual(await toolset.invoke("tolerated", "context", { previous: "[]", __unused: "{}" }), { output: "Kontext.", ignoredFields: ["previous", "__unused"] });
-        assert.deepEqual(await toolset.invoke("tolerated", "context", { previous: "[]", __unused: "{}" }), { output: "Kontext.", ignoredFields: ["previous", "__unused"] });
+        assert.deepEqual(await toolset.invoke("tolerated", "context", { previous: "[]", __unused: "{}" }), { output: "Context.", ignoredFields: ["previous", "__unused"] });
+        assert.deepEqual(await toolset.invoke("tolerated", "context", { previous: "[]", __unused: "{}" }), { output: "Context.", ignoredFields: ["previous", "__unused"] });
         const started = setup.runtime.events(setup.view.id).find((entry) => entry.type === "tool.call.started");
         assert.deepEqual(started?.type === "tool.call.started" ? { input: started.payload.input, ignoredFields: started.payload.ignoredFields } : null, { input: {}, ignoredFields: ["previous", "__unused"] });
         assert.deepEqual(await toolset.invoke("kept", "sum", { left: 1, right: 2 }), { output: 3, ignoredFields: [] });

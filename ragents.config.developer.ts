@@ -1,9 +1,9 @@
-// Programmierprofil: ein Server ohne Anmeldung auf dem eigenen Rechner, für Agenten und Arbeitsplätze.
+// Programming profile: a server without sign-in on your own machine, for agents and workspaces.
 import { env, provisioned, type ProfileAnonymousUser, type RAgentsConfig } from "./apps/server/src/config-definition.js";
 
 export const anonymousUser = {
   id: "developer",
-  label: "Entwickler",
+  label: "Developer",
   rights: ["*"],
 } as const satisfies ProfileAnonymousUser;
 
@@ -12,7 +12,7 @@ export const config = {
     PORT: 4715,
     PRODUCT_PROFILE: "developer",
     PRODUCT_ID: "ragents-developer",
-    PRODUCT_TITLE: "RAgents Entwickler",
+    PRODUCT_TITLE: "RAgents Developer",
     PLUGINS: [
       "ragents.orchestration",
       "ragents.workspace",

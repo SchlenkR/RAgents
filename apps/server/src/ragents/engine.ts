@@ -66,7 +66,7 @@ export class SessionWorkspaces implements Workspaces {
   readonly #roots = new Map<string, RememberedWorkspace>();
   readonly #sandbox: () => Pick<SandboxServices, "execute" | "serverProcessContextFor">;
 
-  /** Der Zugang zum Arbeitsbereich der Runs; über ihn liegen Anhänge dort, wo die Werkzeuge arbeiten, und die Laufzeit bekommt ihren Serverordner. */
+  /** The access to the runs' workspace; through it, attachments lie where the tools work, and the runtime gets its server folder. */
   constructor(sandbox: () => Pick<SandboxServices, "execute" | "serverProcessContextFor">) {
     this.#sandbox = sandbox;
   }
@@ -81,7 +81,7 @@ export class SessionWorkspaces implements Workspaces {
 
   ensure(runId: string): string {
     const root = this.#roots.get(runId);
-    if (!root) throw new Error(`Für den Run ${runId} ist kein Arbeitsverzeichnis bekannt`);
+    if (!root) throw new Error(`No working directory is known for run ${runId}`);
     return root.cwd;
   }
 
@@ -92,7 +92,7 @@ export class SessionWorkspaces implements Workspaces {
   async storeAttachment(runId: string, name: string, content: Uint8Array): Promise<string> {
     const stored = await this.#sandbox().execute(runId, FILE_OPERATIONS.attach, { name, content: Buffer.from(content).toString("base64") });
     const storedName = (stored as { name?: unknown } | null)?.name;
-    if (typeof storedName !== "string") throw new Error(`Der Executor meldet für den Anhang ${name} keinen Namen`);
+    if (typeof storedName !== "string") throw new Error(`The executor reports no name for the attachment ${name}`);
     return storedName;
   }
 }
@@ -152,30 +152,30 @@ const hasTool = (actor: ExecutableActor, name: string, capability: string): bool
   && actor.grants.some((grant) => grant.capability === capability && grant.usable !== false);
 
 const outputContractFor = (role: ActorRole): string => role === "primary"
-  ? "Dein Modelltext wird im Chat mit dem Benutzer angezeigt. Antworte natürlich als Text."
-  : "Antworte natürlich im Modelltext.";
+  ? "Your model text is shown in the chat with the user. Respond naturally as text."
+  : "Respond naturally in the model text.";
 
 const coreContractFor = (actor: ExecutableActor): string => {
   if (actor.toolNames?.length === 0) return "";
 
   const lines = [
-    "Alles, was du im Modelltext schreibst, wird automatisch als Ereignis erfasst.",
-    "Dein Turn endet, sobald du kein Werkzeug mehr aufrufst. Danach ruhst du bis zum nächsten ActorInput.",
+    "Everything you write in the model text is automatically recorded as an event.",
+    "Your turn ends as soon as you no longer call a tool. After that you are idle until the next ActorInput.",
   ];
   if (hasTool(actor, "actor_input", "actor.input")) {
-    lines.push("Mit context.functions.actor_input gibst du einem anderen Actor einen Auftrag oder eine Rückfrage.");
+    lines.push("With context.functions.actor_input you give another actor a task or a question.");
   }
   if (hasTool(actor, "event_subscribe", "event.subscribe")) {
-    lines.push("Mit context.functions.event_subscribe abonnierst du die Ereignisse der Actors, deren Arbeit du verfolgen willst.");
+    lines.push("With context.functions.event_subscribe you subscribe to the events of the actors whose work you want to follow.");
   }
   if (hasTool(actor, "event_subscription_list", "event.subscribe")) {
-    lines.push("context.functions.event_subscription_list zeigt deine aktiven Ereignisabonnements.");
+    lines.push("context.functions.event_subscription_list shows your active event subscriptions.");
   }
   if (hasTool(actor, "event_unsubscribe", "event.subscribe")) {
-    lines.push("Nicht mehr benötigte Abonnements beendest du mit context.functions.event_unsubscribe.");
+    lines.push("You end subscriptions you no longer need with context.functions.event_unsubscribe.");
   }
   if (hasTool(actor, "agent_spawn", "agent.spawn") && hasTool(actor, "actor_input", "actor.input")) {
-    lines.push("context.functions.agent_spawn erzeugt nur den Actor. Gib ihm seinen ersten Auftrag anschließend mit context.functions.actor_input.");
+    lines.push("context.functions.agent_spawn only creates the actor. Give it its first task afterwards with context.functions.actor_input.");
   }
   return lines.join("\n");
 };
@@ -212,7 +212,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     if (model.driver !== "agent") return model;
     const supported = await agentRuntime.thinkingCapabilities(model.provider, model.model);
     const invalid = model.thinking.filter((level) => !supported.includes(level));
-    if (invalid.length) throw new Error(`Die Denktiefen ${invalid.join(", ")} gibt es für ${model.provider}/${model.model} nicht; gültig: ${supported.join(", ")}.`);
+    if (invalid.length) throw new Error(`The thinking levels ${invalid.join(", ")} do not exist for ${model.provider}/${model.model}; valid: ${supported.join(", ")}.`);
     return model;
   }));
   const catalog = new ProductCatalog(configuredModels, () => options.plugins.profiles.profiles());
@@ -241,7 +241,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
   const live = new LiveBus({
     onListenerError: (error, context) => {
       const detail = error instanceof Error ? error.stack ?? error.message : String(error);
-      console.error(`Live-Listener für ${context.runId}/${context.agentId}/${context.event.kind} fehlgeschlagen: ${detail}`);
+      console.error(`Live listener for ${context.runId}/${context.agentId}/${context.event.kind} failed: ${detail}`);
     },
   });
   const workspaceToolNaming = options.plugins.service(workspaceRuntimeToken).toolNaming;
@@ -265,13 +265,13 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     selectedSystemPrompts(promptCatalog, promptIdsFor(runId)).map((option) => {
       const text = optionTexts.get(option.id);
       if (text === undefined) {
-        throw new Error(`Der Systemprompt ${option.id} des Runs ${runId} ist nicht mehr konfiguriert`);
+        throw new Error(`The system prompt ${option.id} of run ${runId} is no longer configured`);
       }
       return text;
     });
   const boundToTools = (entry: PublicPromptContribution, toolNames: readonly string[]): boolean =>
     entry.requiresTools.some((name) => toolNames.includes(name));
-  /** Ein Beitrag darf je Run anders lauten oder fehlen, etwa die Shell-Plattform des Executors oder ein Plugin, dessen Laufbedingung nicht zutrifft; das gilt auch für die gewählten Systemprompts. */
+  /** A contribution may read differently per run or be missing, e.g. the executor's shell platform or a plugin whose run condition does not apply; this also holds for the chosen system prompts. */
   const contentFor = (runId: string | null, texts: () => readonly string[]): ((entry: PublicPromptContribution) => string) => {
     const overrides = runId === null ? undefined : options.plugins.prompts.runOverrides(runId);
     return (entry) => overrides?.get(entry.id)
@@ -329,7 +329,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     registry,
     live,
     modelSelection: (turn, actor) => {
-      if (actor.execution.driver.kind !== "agent") throw new Error("Modellwahl benötigt einen Modell-Actor");
+      if (actor.execution.driver.kind !== "agent") throw new Error("Model choice requires a model actor");
       if (globalChat?.isCoordinator(turn.runId) && globalChat.model) return globalChat.model.forTurn(runtime, turn.runId, actor.id, turn.turnId);
       return isRunCoordinator(runtime, turn.runId, actor.id)
         ? coordinatorSelection(catalog, productRuntime.coordinator, storedModelChoice(journal.stateOf(turn.runId)), actor.execution.driver.config)
@@ -339,7 +339,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     basePrompt: basePromptFor,
     contract: (actor) => coreContractFor(actor),
     toolChapters: (runId, _actor, toolNames) => chaptersFor(runId, toolNames),
-    onError: (error) => console.error(`Turn fehlgeschlagen: ${error instanceof Error ? error.stack ?? error.message : String(error)}`),
+    onError: (error) => console.error(`Turn failed: ${error instanceof Error ? error.stack ?? error.message : String(error)}`),
   });
   const stopExternal: RunStopBoundary = (runId, stopJournal) => scheduler.haltRun(runId, async (
     runtimeStopped,
@@ -351,7 +351,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
     const boundedStop = settleRunStop(runId, [journalStopped, pluginStop.bounded]);
     let followFinalStop!: (bounded: Promise<void>) => void;
     const finalBounded = new Promise<void>((resolve) => { followFinalStop = resolve; });
-    void finalBounded.catch((error: unknown) => console.error("Abschließender Plugin-Stopp fehlgeschlagen", error));
+    void finalBounded.catch((error: unknown) => console.error("Final plugin stop failed", error));
     const quarantine = (async () => {
       await Promise.allSettled([runtimeSettled, pluginStop.settled, journalStopped]);
       const afterStop = options.plugins.lifecycle.beginAfterStopSession(runId);
@@ -361,7 +361,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
       afterStop.release();
       pluginStop.release();
 
-      throwRejected([...finalCleanup, ...finalJournal], `Plugin-Nachlauf für Run ${runId} konnte nicht sicher bereinigt werden`);
+      throwRejected([...finalCleanup, ...finalJournal], `Plugin follow-up for run ${runId} could not be cleaned up safely`);
     })();
     scheduler.quarantineRun(runId, quarantine);
     await boundedStop;
@@ -371,7 +371,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
         Promise.all([quarantine, finalBounded]),
         new Promise<never>((_, reject) => {
           timeout = setTimeout(() => reject(new Error(
-            `Der abschließende Stopp von Run ${runId} hat die Zeitgrenze von ${FINAL_RUN_STOP_TIMEOUT_MS} ms überschritten; der Run bleibt bis zur Bereinigung gesperrt.`,
+            `The final stop of run ${runId} exceeded the time limit of ${FINAL_RUN_STOP_TIMEOUT_MS} ms; the run stays locked until cleanup.`,
           )), FINAL_RUN_STOP_TIMEOUT_MS);
         }),
       ]);
@@ -381,7 +381,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
   });
   const settleRunStop = async (runId: string, operations: readonly Promise<void>[]): Promise<void> => {
     const results = await Promise.allSettled(operations);
-    throwRejected(results, `Run ${runId} konnte nicht vollständig gestoppt werden`);
+    throwRejected(results, `Run ${runId} could not be stopped completely`);
   };
   const runStopper = new RunStopper({
     runtime,
@@ -443,7 +443,7 @@ export const createEngine = async (options: EngineOptions): Promise<Engine> => {
         nativeTypeScriptExecutor.shutdown(),
       ]);
       journal.close();
-      throwRejected(results, "RAgents-Shutdown fehlgeschlagen");
+      throwRejected(results, "RAgents shutdown failed");
     },
   };
 };

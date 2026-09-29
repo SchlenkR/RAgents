@@ -30,24 +30,24 @@ interface ClientEntry {
   readonly owner: string | null;
   readonly connection: MethodConnection;
   readonly release: () => void;
-  /** Die offenen Aufrufe über diese Anmeldung; löst eine neue Verbindung sie ab, scheitern sie sofort. */
+  /** The open calls through this sign-in; if a new connection replaces it, they fail immediately. */
   readonly calls: Set<AbortController>;
-  /** Die Stopps, die gerade über diese Anmeldung zugestellt werden, je Run. */
+  /** The stops currently being delivered through this sign-in, per run. */
   readonly stops: Map<string, Promise<void>>;
 }
 
-/** Die einzige Grenze gegen einen hängenden Arbeitsplatz; seine eigenen Zeitgrenzen hat der Executor. */
+/** The only limit against a hanging workstation; the executor has its own timeouts. */
 const CLIENT_TIMEOUT_MS = 15 * 60 * 1000;
 
-/** So lange wartet Aufräumen (Stopp, `whenReachable`) auf den Arbeitsplatz; es bleibt unter der Stoppgrenze der Plugins. */
+/** This is how long cleanup (stop, `whenReachable`) waits for the workstation; it stays below the plugins' stop limit. */
 const CLEANUP_TIMEOUT_MS = 10_000;
 
-/** Nach so langer Zeit versucht der Server einen ausstehenden Stopp erneut, solange der Arbeitsplatz angemeldet ist. */
+/** After this long, the server retries a pending stop as long as the workstation is signed in. */
 const STOP_RETRY_MS = 30_000;
 
 export const ownerOf = (access: AccessContext): string | null => access.user?.id ?? null;
 
-/** Eine Beobachtung läuft bis zum Abbruch, Aufräumen kurz; alles andere wartet die Sicherheitsgrenze plus der Dauer, die der Aufruf selbst verlangt. */
+/** A watch runs until aborted, cleanup briefly; everything else waits for the safety limit plus the duration the call itself requests. */
 const timeoutFor = (options: WorkspaceExecuteOptions): { timeoutMs?: number } => {
   if (options.untilAborted) return {};
   if (options.whenReachable) return { timeoutMs: CLEANUP_TIMEOUT_MS };
@@ -55,14 +55,14 @@ const timeoutFor = (options: WorkspaceExecuteOptions): { timeoutMs?: number } =>
 };
 
 const disconnected = (label: string, detail: string): DomainError =>
-  new DomainError("workspace-client-disconnected", `Der Arbeitsplatz ${label} hat die Verbindung verloren: ${detail}`, 409);
+  new DomainError("workspace-client-disconnected", `The workstation ${label} lost the connection: ${detail}`, 409);
 
-/** Bricht die Verbindung mitten im Aufruf, muss die Ursache den Arbeitsplatz nennen, nicht den Server; ein fachlicher Fehler bleibt einer. */
+/** If the connection breaks in the middle of a call, the cause must name the workstation, not the server; a domain error stays one. */
 const withClientCause = (cause: unknown, label: string): unknown => {
   if (!(cause instanceof RpcError)) return cause;
   if (cause.code === RPC_ERROR_CODES.connectionClosed) return disconnected(label, cause.message);
   if (cause.code === RPC_ERROR_CODES.timeout) {
-    return new DomainError("workspace-client-timeout", `Der Arbeitsplatz ${label} hat nicht geantwortet: ${cause.message}`, 504);
+    return new DomainError("workspace-client-timeout", `The workstation ${label} did not respond: ${cause.message}`, 504);
   }
   if (cause.code === RPC_ERROR_CODES.application && cause.domainCode !== undefined && cause.status !== undefined) {
     return new DomainError(cause.domainCode, cause.message, cause.status);
@@ -70,61 +70,61 @@ const withClientCause = (cause: unknown, label: string): unknown => {
   return cause;
 };
 
-/** Der Arbeitsplatz war nicht da oder hat nicht rechtzeitig geantwortet; ein fachlicher Fehler zählt nicht dazu. */
+/** The workstation was not there or did not respond in time; a domain error does not count. */
 const unreached = (cause: unknown): boolean =>
   cause instanceof DomainError && (cause.code === "workspace-client-disconnected" || cause.code === "workspace-client-timeout");
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
 
-/** Ein Arbeitsplatz ist erst durch Besitzer und Kennung bestimmt; zwei Benutzer mit derselben Kennung teilen nichts. */
+/** A workstation is identified only by owner and ID; two users with the same ID share nothing. */
 const keyOf = (owner: string | null, id: string): string => JSON.stringify([owner, id]);
 
-/** Server und Arbeitsplatz brauchen denselben Executor; die Meldung sagt, wer von beiden zu alt ist. */
+/** Server and workstation need the same executor; the message says which of the two is too old. */
 const assertExecutor = (label: string, executor: string): void => {
   if (executor === WORKSPACE_EXECUTOR_VERSION) return;
   const action = Number(executor) > Number(WORKSPACE_EXECUTOR_VERSION)
-    ? "Den Server auf die Fassung des Arbeitsplatzes aktualisieren."
-    : "Die RAgents-Erweiterung in VS Code beziehungsweise das Paket @schlenkr/ragents auf dem Arbeitsplatz aktualisieren.";
+    ? "Update the server to the workstation's version."
+    : "Update the RAgents extension in VS Code or the package @schlenkr/ragents on the workstation.";
   throw new DomainError(
     "workspace-executor-version",
-    `Der Arbeitsplatz ${label} bringt den Executor ${executor} mit, der Server verlangt ${WORKSPACE_EXECUTOR_VERSION}. ${action}`,
+    `The workstation ${label} brings executor ${executor}, the server requires ${WORKSPACE_EXECUTOR_VERSION}. ${action}`,
     409,
   );
 };
 
 const described = (contributions: readonly ExecutorContributionStand[]): string =>
-  contributions.map(({ plugin, stand }) => `${plugin} (${stand.slice(0, 12)})`).join(", ") || "keine";
+  contributions.map(({ plugin, stand }) => `${plugin} (${stand.slice(0, 12)})`).join(", ") || "none";
 
-/** Ein Arbeitsplatz führt aus, was die Plugins des Servers beitragen; mit anderen Beiträgen liefen dieselben Werkzeuge dort anders als auf dem Server. */
+/** A workstation runs what the server's plugins contribute; with other contributions the same tools would behave differently there than on the server. */
 const assertContributions = (label: string, expected: readonly ExecutorContributionStand[], given: readonly ExecutorContributionStand[]): void => {
   const key = (entry: ExecutorContributionStand): string => `${entry.plugin}\0${entry.stand}`;
   const same = expected.length === given.length && expected.every((entry) => given.some((other) => key(other) === key(entry)));
   if (same) return;
   throw new DomainError(
     "workspace-executor-contributions",
-    `Der Arbeitsplatz ${label} bringt die Executor-Beiträge ${described(given)} mit, der Server verlangt ${described(expected)}. `
-      + "Der Arbeitsplatz fragt sie mit ragents.workspace.clients.contributions ab und meldet sich danach erneut an.",
+    `The workstation ${label} brings the executor contributions ${described(given)}, the server requires ${described(expected)}. `
+      + "The workstation queries them with ragents.workspace.clients.contributions and then signs in again.",
     409,
   );
 };
 
-/** Über das Netz nimmt der Server Arbeitsplätze nur von angemeldeten Benutzern an; ohne Benutzer gäbe es nur einen Besitzer für alle Zugänge. */
+/** Over the network, the server accepts workstations only from signed-in users; without users there would be only one owner for all access. */
 export const assertMayRegister = (access: AccessContext, local: boolean): void => {
   if (local || (access.enabled && access.user !== null)) return;
   throw new DomainError(
     "workspace-client-login-required",
-    "Dieser Server kennt keine Benutzeranmeldung; einen Arbeitsplatz nimmt er deshalb nur über eine Loopback-Verbindung an "
-      + "(etwa http://127.0.0.1 auf seinem eigenen Rechner). Über das Netz braucht ein Arbeitsplatz ein Profil mit Benutzern.",
+    "This server has no user sign-in; it therefore accepts a workstation only over a loopback connection "
+      + "(such as http://127.0.0.1 on its own machine). Over the network, a workstation needs a profile with users.",
     403,
   );
 };
 
-/** Kennt die angemeldeten Arbeitsplätze je Besitzer, hält je Client die Verbindung, über die der Server ihn zurückruft, und die Stopps, die ihn nicht erreicht haben. */
+/** Knows the signed-in workstations per owner, holds per client the connection through which the server calls it back, and the stops that have not reached it. */
 export class WorkspaceClientRegistry {
-  /** Was die Plugins des Servers zum Executor beitragen; jeder Arbeitsplatz muss genau diese Beiträge tragen. */
+  /** What the server's plugins contribute to the executor; every workstation must carry exactly these contributions. */
   readonly contributions: readonly ExecutorContributionStand[];
   readonly #clients = new Map<string, ClientEntry>();
-  /** Stopps, die den Arbeitsplatz noch nicht erreicht haben, je Arbeitsplatz und Run mit dem Ordner der Bindung. */
+  /** Stops that have not reached the workstation yet, per workstation and run with the folder of the binding. */
   readonly #pendingStops = new Map<string, Map<string, string>>();
   readonly #stopRetries = new Map<string, NodeJS.Timeout>();
 
@@ -140,7 +140,7 @@ export class WorkspaceClientRegistry {
     connection: MethodConnection,
   ): Promise<WorkspaceClientInfo> {
     if (connection.streamless) {
-      throw new DomainError("stream-required", "Die Anmeldung eines Arbeitsplatzes braucht einen Ereignisstrom.", 409);
+      throw new DomainError("stream-required", "The sign-in of a workstation needs an event stream.", 409);
     }
     assertExecutor(description.label, executor);
     assertContributions(description.label, this.contributions, contributions);
@@ -164,7 +164,7 @@ export class WorkspaceClientRegistry {
     return info;
   }
 
-  /** Nur die Verbindung, die den Eintrag hält, meldet ihn ab; eine Abmeldung ohne Eintrag ist nach einer Trennung kein Fehler. */
+  /** Only the connection that holds the entry signs it out; a sign-out without an entry is not an error after a disconnect. */
   unregister(owner: string | null, id: string, connection: MethodConnection): void {
     const key = keyOf(owner, id);
     const entry = this.#clients.get(key);
@@ -180,25 +180,25 @@ export class WorkspaceClientRegistry {
     return this.#clients.get(keyOf(owner, id))?.info;
   }
 
-  /** Die Runs, deren Stopp diesen Arbeitsplatz noch nicht erreicht hat. */
+  /** The runs whose stop has not reached this workstation yet. */
   pendingStops(owner: string | null, id: string): readonly string[] {
     return this.#pendingRuns(keyOf(owner, id));
   }
 
-  /** Der Executor eines gebundenen Runs: dieselbe Schnittstelle wie im Server, nur über die Verbindung des Arbeitsplatzes seines Besitzers. */
+  /** The executor of a bound run: the same interface as in the server, only through the connection of its owner's workstation. */
   executorFor(owner: string | null, id: string, label: string, cwd: string): WorkspaceExecutor {
     const key = keyOf(owner, id);
     const call = async (runId: string, operation: string, input: unknown, options: WorkspaceExecuteOptions): Promise<unknown> => {
-      if (options.untilAborted && !options.signal) throw new Error(`Die Operation ${operation} läuft bis zum Abbruch und braucht dafür ein Abbruchsignal`);
+      if (options.untilAborted && !options.signal) throw new Error(`The operation ${operation} runs until aborted and needs an abort signal for that`);
       if (this.#pendingStops.get(key)?.has(runId)) {
-        // Aufräumen neben einem ausstehenden Stopp erledigt dieser mit; alles andere wartet, bis er zugestellt ist.
+        // Cleanup alongside a pending stop is done by that stop; everything else waits until it is delivered.
         if (options.whenReachable) return null;
         if (this.#clients.has(key)) await this.#deliverStop(key, runId);
       }
       const entry = this.#clients.get(key);
       if (!entry) {
         if (options.whenReachable) return null;
-        throw new DomainError("workspace-client-disconnected", `Der Arbeitsplatz ${label} ist nicht verbunden.`, 409);
+        throw new DomainError("workspace-client-disconnected", `The workstation ${label} is not connected.`, 409);
       }
       try {
         return await this.#send(entry, runId, operation, input, cwd, options);
@@ -229,7 +229,7 @@ export class WorkspaceClientRegistry {
     this.#pendingStops.clear();
   }
 
-  /** Ein getrennter Arbeitsplatz verlässt die Registry; eine spätere Anmeldung über eine neue Verbindung bleibt stehen. */
+  /** A disconnected workstation leaves the registry; a later sign-in over a new connection stays. */
   #disconnected(key: string, connection: MethodConnection): void {
     const entry = this.#clients.get(key);
     if (entry?.connection !== connection) return;
@@ -242,7 +242,7 @@ export class WorkspaceClientRegistry {
     this.#abandon(entry);
   }
 
-  /** Eine Verbindung, die niemand mehr hält, bekommt keine Antworten mehr zugestellt; ihre offenen Aufrufe scheitern sofort. */
+  /** A connection that nobody holds anymore gets no more answers delivered; its open calls fail immediately. */
   #abandon(entry: ClientEntry): void {
     for (const controller of entry.calls) controller.abort();
     entry.calls.clear();
@@ -279,7 +279,7 @@ export class WorkspaceClientRegistry {
           },
         ),
         new Promise<never>((_settle, fail) => abandoned.signal.addEventListener("abort", () =>
-          fail(disconnected(label, "eine neue Verbindung hat die Anmeldung abgelöst")), { once: true })),
+          fail(disconnected(label, "a new connection replaced the sign-in")), { once: true })),
       ]);
       return value;
     } catch (cause) {
@@ -297,13 +297,13 @@ export class WorkspaceClientRegistry {
     return created;
   }
 
-  /** Stellt einen ausstehenden Stopp zu; erreicht er den Arbeitsplatz nicht, bleibt er ausstehend, und die nächste Anmeldung holt ihn nach. */
+  /** Delivers a pending stop; if it does not reach the workstation, it stays pending and the next sign-in catches up on it. */
   #deliverStop(key: string, runId: string): Promise<void> {
     const entry = this.#clients.get(key);
     const cwd = this.#pendingStops.get(key)?.get(runId);
     if (cwd === undefined) return Promise.resolve();
     if (!entry) {
-      console.warn(`Der Stopp des Runs ${runId} erreicht seinen Arbeitsplatz erst bei dessen nächster Anmeldung.`);
+      console.warn(`The stop of run ${runId} reaches its workstation only at its next sign-in.`);
       return Promise.resolve();
     }
     const running = entry.stops.get(runId);
@@ -314,7 +314,7 @@ export class WorkspaceClientRegistry {
           this.#stopDelivered(key, runId, cwd);
           throw cause;
         }
-        console.warn(`Der Stopp des Runs ${runId} hat den Arbeitsplatz ${entry.info.label} nicht erreicht und bleibt ausstehend: ${messageOf(cause)}`);
+        console.warn(`The stop of run ${runId} did not reach the workstation ${entry.info.label} and stays pending: ${messageOf(cause)}`);
         this.#retryStops(key);
       })
       .finally(() => entry.stops.delete(runId));
@@ -331,7 +331,7 @@ export class WorkspaceClientRegistry {
   #deliverPendingStops(key: string): void {
     for (const runId of this.#pendingRuns(key)) {
       void this.#deliverStop(key, runId).catch((cause: unknown) =>
-        console.warn(`Der nachgeholte Stopp des Runs ${runId} ist gescheitert: ${messageOf(cause)}`));
+        console.warn(`The delayed stop of run ${runId} failed: ${messageOf(cause)}`));
     }
   }
 
@@ -339,7 +339,7 @@ export class WorkspaceClientRegistry {
     return [...this.#pendingStops.get(key)?.keys() ?? []];
   }
 
-  /** Ein Arbeitsplatz, der angemeldet bleibt, aber nicht antwortet, bekommt seine ausstehenden Stopps später noch einmal. */
+  /** A workstation that stays signed in but does not respond gets its pending stops again later. */
   #retryStops(key: string): void {
     if (this.#stopRetries.has(key)) return;
     const timer = setTimeout(() => {
@@ -360,11 +360,11 @@ export const clientMethods = (registry: WorkspaceClientRegistry): MethodContribu
   }),
   implement(workspaceContracts.clients.register, (input, { access, connection, local }) => {
     assertMayRegister(access, local);
-    // Erst der Stand: ein Arbeitsplatz mit einem anderen kennt die Form dieses Stands nicht, mit diesem gilt sie ganz.
+    // Version first: a workstation with a different one does not know the shape of this version; with this one, the shape applies fully.
     assertExecutor(input.label, input.executor);
     if (!Value.Check(clientRegistrationSchema, input)) {
       throw new RpcError(RPC_ERROR_CODES.invalidParams,
-        `Ungültige Eingabe für ${workspaceContracts.clients.register.id}: ${schemaComplaints(clientRegistrationSchema, input, "params")}`);
+        `Invalid input for ${workspaceContracts.clients.register.id}: ${schemaComplaints(clientRegistrationSchema, input, "params")}`);
     }
     const { id, executor, contributions, ...description } = input;
     return registry.register(id, description, executor, contributions, connection);

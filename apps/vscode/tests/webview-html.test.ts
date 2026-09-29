@@ -41,8 +41,8 @@ test("host messages are validated before they cross the bridge", () => {
   assert.equal(isRunPanelHostMessage({ type: "openInCenter", runId: "r", elementId: "e", title: "" }), true);
   assert.equal(isRunPanelHostMessage({ type: "openInCenter", runId: "r" }), false);
   assert.equal(isRunPanelHostMessage({ type: "runChanged", runId: null }), true);
-  assert.equal(isRunPanelHostMessage({ type: "openPage", url: "http://localhost:5173/", title: "Teststand" }), true);
-  assert.equal(isRunPanelHostMessage({ type: "openPage", title: "Teststand" }), false);
+  assert.equal(isRunPanelHostMessage({ type: "openPage", url: "http://localhost:5173/", title: "Test bench" }), true);
+  assert.equal(isRunPanelHostMessage({ type: "openPage", title: "Test bench" }), false);
   assert.equal(isRunPanelHostMessage({ type: "evil" }), false);
   assert.equal(isHostRunPanelMessage({ type: "placements", runId: "r", center: ["a"] }), true);
   assert.equal(isHostRunPanelMessage({ type: "placements", runId: "r", center: [1] }), false);
@@ -52,9 +52,9 @@ test("host messages are validated before they cross the bridge", () => {
 test("settings are parsed strictly and the theme follows the editor only on auto", () => {
   assert.equal(parseServerUrl(" http://localhost:4710/ "), "http://localhost:4710");
   assert.throws(() => parseServerUrl("localhost:4710"), /http/);
-  assert.throws(() => parseServerUrl("http://localhost:4710/app"), /Pfad/);
+  assert.throws(() => parseServerUrl("http://localhost:4710/app"), /path/);
   assert.equal(parseThemeSetting("dark"), "dark");
-  assert.throws(() => parseThemeSetting("blue"), /auto, light oder dark/);
+  assert.throws(() => parseThemeSetting("blue"), /auto, light, or dark/);
   assert.equal(resolveTheme("auto", "dark"), "dark");
   assert.equal(resolveTheme("light", "dark"), "light");
 });
@@ -63,17 +63,17 @@ test("the panel page loads the built web page from the extension and embeds the 
   const state = {
     theme: "dark" as const,
     page: "start" as const,
-    connections: [{ name: "core <lokal>", kind: "profile" as const, address: "/x/ragents.config.core.ts", route: { kind: "profile" as const, profile: "core" }, state: { kind: "stopped" as const }, runs: [], entries: [], canCreate: false }],
+    connections: [{ name: "core <local>", kind: "profile" as const, address: "/x/ragents.config.core.ts", route: { kind: "profile" as const, profile: "core" }, state: { kind: "stopped" as const }, runs: [], entries: [], canCreate: false }],
     profileSuggestions: [],
   };
   const html = panelHtml({ nonce: "n0nce", title: "RAgents", state, scriptUri: "https://file+.vscode-resource/dist/webview/panel.js", styleUri: "https://file+.vscode-resource/dist/webview/panel.css", cspSource: "https://file+.vscode-resource" });
-  assert.match(html, /<html lang="de" data-theme="dark">/);
+  assert.match(html, /<html lang="en" data-theme="dark">/);
   assert.match(html, /script-src 'nonce-n0nce'/);
   assert.match(html, /style-src https:\/\/file\+\.vscode-resource/);
   assert.match(html, /<link rel="stylesheet" href="https:\/\/file\+\.vscode-resource\/dist\/webview\/panel\.css">/);
   assert.match(html, /<script type="module" nonce="n0nce" src="https:\/\/file\+\.vscode-resource\/dist\/webview\/panel\.js">/);
   assert.match(html, /<script type="application\/json" id="state">\{"theme":"dark"/);
-  assert.match(html, /core \\u003clokal>/);
+  assert.match(html, /core \\u003clocal>/);
   assert.doesNotMatch(html, /iframe|frame-src/);
 });
 

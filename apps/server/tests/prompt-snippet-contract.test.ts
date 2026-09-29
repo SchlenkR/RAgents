@@ -101,7 +101,7 @@ export const promptSnippetsOf = (file: string, source: string): PromptSnippet[] 
       inlineStart.lastIndex = cursor;
     }
   });
-  if (fence) throw new Error(`${file}:${fence.line}: nicht geschlossener TypeScript-Zaun.`);
+  if (fence) throw new Error(`${file}:${fence.line}: unclosed TypeScript fence.`);
   return snippets;
 };
 
@@ -169,42 +169,42 @@ const capabilitiesOf = async (profile: CompositionFixture): Promise<RunCapabilit
 test("the extractor finds fenced and inline context.functions examples and neutralizes handlebars", () => {
   const source = [
     "{{#if linked}}Intro {{name}}{{/if}}",
-    "Beispiel: const s = await context.functions.status({}); if (!s.ok) throw new Error('nein'); return await context.functions.read({path:s.path}); Danach weiter.",
+    "Example: const s = await context.functions.status({}); if (!s.ok) throw new Error('no'); return await context.functions.read({path:s.path}); Then continue.",
     "```typescript",
     "return await context.functions.status({ name: \"{{name}}\" });",
     "```",
     "```ts",
     "export interface Unrelated { name: string }",
     "```",
-    "Kurz: await context.functions.status({}); und fertig.",
+    "Briefly: await context.functions.status({}); and done.",
   ].join("\n");
   const snippets = promptSnippetsOf("fixture.md", source);
   assert.deepEqual(snippets, [
-    { file: "fixture.md", line: 2, kind: "inline", code: "const s = await context.functions.status({});\nif (!s.ok) throw new Error('nein');\nreturn await context.functions.read({path:s.path});" },
+    { file: "fixture.md", line: 2, kind: "inline", code: "const s = await context.functions.status({});\nif (!s.ok) throw new Error('no');\nreturn await context.functions.read({path:s.path});" },
     { file: "fixture.md", line: 3, kind: "fence", code: "return await context.functions.status({ name: \"x\" });" },
     { file: "fixture.md", line: 9, kind: "inline", code: "await context.functions.status({});" },
   ]);
-  assert.throws(() => promptSnippetsOf("broken.md", "```ts\nreturn 1;\n"), /nicht geschlossener/);
+  assert.throws(() => promptSnippetsOf("broken.md", "```ts\nreturn 1;\n"), /unclosed/);
 });
 
 test("every TypeScript example in plugin prompts, skills and run-script prompts compiles against the run context of its profile", async () => {
   const covered = new Set<string>(showcaseFixture.plugins);
   const failures: string[] = [];
   const capabilities = await capabilitiesOf(showcaseFixture);
-  assert.ok(capabilities.length > 20, `Nur ${capabilities.length} Funktionen im Profil ${showcaseFixture.product.id}`);
+  assert.ok(capabilities.length > 20, `Only ${capabilities.length} functions in profile ${showcaseFixture.product.id}`);
   const files = showcaseFixture.plugins.flatMap((pluginId) => promptFilesOf(path.join(pluginsRoot, pluginId)));
-  assert.ok(files.length >= 20, `Nur ${files.length} Promptdateien gefunden; die Suche greift nicht mehr`);
+  assert.ok(files.length >= 20, `Only ${files.length} prompt files found; the search no longer works`);
   for (const file of files) {
     for (const snippet of promptSnippetsOf(path.relative(pluginsRoot, file), readFileSync(file, "utf8"))) {
       try { await compileTypeScriptSnippet({ code: snippet.code, capabilities }); }
       catch (error) {
-        const message = error instanceof TypeScriptSnippetCompilationError ? error.message : `Unerwarteter Fehler: ${error instanceof Error ? error.message : String(error)}`;
+        const message = error instanceof TypeScriptSnippetCompilationError ? error.message : `Unexpected error: ${error instanceof Error ? error.message : String(error)}`;
         failures.push(`${snippet.file}:${snippet.line} (${showcaseFixture.product.id}, ${snippet.kind})\n${snippet.code}\n${message}`);
       }
     }
   }
   const uncovered = readdirSync(pluginsRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name)
     .filter((pluginId) => !covered.has(pluginId) && promptFilesOf(path.join(pluginsRoot, pluginId)).some((file) => promptSnippetsOf(file, readFileSync(file, "utf8")).length > 0));
-  assert.deepEqual(uncovered, [], "Plugins mit TypeScript-Beispielen gehören in die Profil-Fixture");
-  assert.deepEqual(failures, [], `TypeScript-Beispiele in Prompts passen nicht zum Vertrag:\n\n${failures.join("\n\n")}`);
+  assert.deepEqual(uncovered, [], "plugins with TypeScript examples belong in the profile fixture");
+  assert.deepEqual(failures, [], `TypeScript examples in prompts do not match the contract:\n\n${failures.join("\n\n")}`);
 });

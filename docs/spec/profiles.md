@@ -1,404 +1,437 @@
-# Profile und Konfiguration
+# Profiles and configuration
 
-## Profile
+## Profiles
 
-Das Repository bringt drei neutrale Profile mit: `core` ist die Werkstatt mit allen neutralen
-Plugins und ohne Beispiele, `showcase` dasselbe Profil samt dem Beispielplugin
-`ragents.reference`, `developer` das Programmierprofil für die Arbeit am eigenen Rechner
-(Arbeitsbereich, Dokumente, Orchestrierung, Roslyn, FSAC und TypeScript, ohne Anmeldung über
-`anonymousUser`, Modelle über OpenRouter mit `OPENROUTER_API_KEY`). Vorlagen für eigene
-Profile sind `core` (echtes Profil) und `developer` (Ad-hoc-Profil); eine eigene Beispieldatei gibt
-es nicht.
+The repository ships three neutral profiles: `core` is the workshop with all neutral plugins and
+without examples, `showcase` is the same profile plus the example plugin `ragents.reference`, and
+`developer` is the programming profile for working on your own machine (workspace, documents,
+orchestration, Roslyn, FSAC, and TypeScript, without sign-in through `anonymousUser`, models
+through OpenRouter with `OPENROUTER_API_KEY`). Templates for your own profiles are `core` (real
+profile) and `developer` (ad-hoc profile); there is no separate example file.
 
-| Profil | Port | Anmeldung | Beispiele aus `ragents.reference` |
+| Profile | Port | Sign-in | Examples from `ragents.reference` |
 | --- | --- | --- | --- |
-| `core` | 4710 | ohne Benutzerliste aus, `ACCESS_TOKEN` möglich | nein |
-| `showcase` | 4713 | wie `core` | ja, 27 Skills und 6 Run-Scripts |
-| `developer` | 4715 | `anonymousUser` mit allen Rechten | nein |
+| `core` | 4710 | off without a user list, `ACCESS_TOKEN` possible | no |
+| `showcase` | 4713 | like `core` | yes, 27 skills and 6 run scripts |
+| `developer` | 4715 | `anonymousUser` with all permissions | no |
 
-Der Serverport steht unter `host.PORT` in der Profildatei: `core` verwendet 4710,
-`showcase` 4713, `developer` 4715. Eine ausdrücklich gesetzte Umgebungsvariable `PORT` überschreibt
-diese Vorgabe. Zulässig sind ganze Zahlen von 1 bis 65535; `PORT=0` ist kein Startmodus.
-`scripts/start.sh` prüft den festen Port vor dem Start. Der Server prüft ihn nach dem Laden
-der Konfiguration erneut, bevor er Plugins initialisiert. Ein belegter Port ist ein klarer
-Startfehler; es wird weder eine andere Adresse gewählt noch eine laufende Instanz beendet.
-Die Startmeldung nennt die feste URL und Ablage.
+The server port is under `host.PORT` in the profile file: `core` uses 4710, `showcase` 4713,
+`developer` 4715. An explicitly set environment variable `PORT` overrides this default. Integers
+from 1 to 65535 are allowed; `PORT=0` is not a start mode. `scripts/start.sh` checks the fixed port
+before the start. The server checks it again after loading the configuration, before it
+initializes plugins. A port in use is a clear start error; neither is another address chosen nor
+is a running instance terminated. The start message names the fixed URL and storage location.
 
-Mit `--dev` bleibt der Backendport gleich. Vite verwendet fest den Backendport plus 1000, für
-`core` also 5710, mit `strictPort`; `API_TARGET` zeigt auf das konfigurierte Backend. Beide Ports
-werden vorher geprüft und müssen verschieden sein. Ein eigenständiges `pnpm dev:web` verwendet
-Port 5710 und als Proxyziel `http://localhost:4710`, ebenfalls mit `strictPort`.
+With `--dev`, the backend port stays the same. Vite always uses the backend port plus 1000, so
+5710 for `core`, with `strictPort`; `API_TARGET` points to the configured backend. Both ports are
+checked beforehand and must differ. A standalone `pnpm dev:web` uses port 5710 and
+`http://localhost:4710` as proxy target, also with `strictPort`.
 
-Plugins werden zur LAUFZEIT gefunden, nicht kompiliert verdrahtet, und nur als fertige Bundles.
-Eine Kennung im Profil ist ein eingebautes Bundle unter `bundles/<id>/` (gebaut mit
-`pnpm build:plugins` aus `plugins/<id>/`), ein Pfad ein Bundle-Ordner an beliebiger Stelle; der
-Ordnername IST die Plugin-ID, der Einsprungpunkt `ragents-bundle.json`
-(`profile/plugin-discovery.ts`, Manifest in `profile/bundle-manifest.ts`, Wurzeln aus
-`plugin-support/plugins-root.ts`). Geladen wird nur, was das Profil nennt, und zwar per
-`await import()` von `server/index.js`. Ein Quellordner statt eines Bundles, ein fehlendes Bundle
-und ein Bundle mit anderem Format oder anderer Host-API sind harte Fehler, die den Befehl zum
-Bauen nennen; Einzelheiten im Abschnitt Bundle, Bauwerkzeug und Host-API in [plugins.md](plugins.md).
+Plugins are found at RUNTIME, not wired in at compile time, and only as finished bundles. An
+identifier in the profile is a built-in bundle under `bundles/<id>/` (built with
+`pnpm build:plugins` from `plugins/<id>/`), a path is a bundle folder anywhere; the folder name IS
+the plugin ID, the entry point is `ragents-bundle.json` (`profile/plugin-discovery.ts`, manifest in
+`profile/bundle-manifest.ts`, roots from `plugin-support/plugins-root.ts`). Only what the profile
+names is loaded, namely through `await import()` of `server/index.js`. A source folder instead of a
+bundle, a missing bundle, and a bundle with a different format or a different host API are hard
+errors that name the command to build; details in the section Bundle, build tool, and host API in
+[plugins.md](plugins.md).
 
-`PRODUCT_PROFILE` (`core`, `showcase`, `developer`; kein Default, fehlend oder unbekannt ist
-ein harter Startfehler) wählt die Profildatei `ragents.config.<profil>.ts` aus (Produkt-Deskriptor +
-Pluginliste aus schlichten String-IDs), die optionale Variable `PLUGINS` (kommagetrennte
-Plugin-IDs) überschreibt die Pluginliste der Profildatei; der Produkt-Deskriptor bleibt der der
-Profildatei. Eine unbekannte Plugin-ID, ein fehlendes `requires` und eine verletzte Reihenfolge
-brechen den Start hart ab - geprüft, BEVOR ein Plugin gebaut wird (`profile/compose.ts`).
+`PRODUCT_PROFILE` (`core`, `showcase`, `developer`; no default, missing or unknown is a hard start
+error) selects the profile file `ragents.config.<profile>.ts` (product descriptor + plugin list of
+plain string IDs); the optional variable `PLUGINS` (comma-separated plugin IDs) overrides the plugin
+list of the profile file; the product descriptor stays that of the profile file. An unknown plugin
+ID, a missing `requires`, and a violated order abort the start hard - checked BEFORE any plugin is
+built (`profile/compose.ts`).
 
-Im Web gibt es keine Pluginliste zur Bauzeit: das Web des Hosts ist für jedes Profil dasselbe,
-`ragents.plugins.bootstrap` nennt je aktivem Plugin die Adressen seiner Web-Hälfte, und das Web
-lädt sie per `import(url)` vom Server (`apps/web/src/PluginActivation.ts`,
-`plugin-bootstrap.ts`). Eine Web-Hälfte, die nicht lädt oder eine andere Kennung meldet, bleibt ein
-harter Fehler.
+In the web there is no plugin list at build time: the host's web is the same for every profile,
+`ragents.plugins.bootstrap` names the addresses of its web half for each active plugin, and the web
+loads them through `import(url)` from the server (`apps/web/src/PluginActivation.ts`,
+`plugin-bootstrap.ts`). A web half that does not load or reports a different identifier stays a
+hard error.
 
-Die Werte selbst kommen aus EINER TypeScript-Konfiguration JE PROFIL
-(`ragents.config.<profil>.ts`, Sektionen je Plugin-ID plus `host`; geladen von
-`apps/server/src/config-file.ts`, ausgewählt allein über `PRODUCT_PROFILE`): sie wird vor jedem
-anderen Modul geladen und nur für noch ungesetzte Schlüssel in `process.env` materialisiert -
-gesetzte Umgebungsvariablen gewinnen also pro Schlüssel, und jeder bestehende Konsument
-(`declaredEnvironment`, `config.ts`, Kind-Umgebungen) liest unverändert weiter aus der Umgebung.
-Dienst-Secrets stehen als `env("ENV_NAME")`-Referenz in der Datei. Der eigene `users`-Export
-erlaubt Passwörter auf ausdrücklichen Wunsch auch im Klartext.
+The values themselves come from ONE TypeScript configuration PER PROFILE
+(`ragents.config.<profile>.ts`, sections per plugin ID plus `host`; loaded by
+`apps/server/src/config-file.ts`, selected solely through `PRODUCT_PROFILE`): it is loaded before
+any other module and materialized in `process.env` only for keys that are not yet set - set
+environment variables therefore win per key, and every existing consumer (`declaredEnvironment`,
+`config.ts`, child environments) keeps reading from the environment unchanged. Service secrets are
+in the file as `env("ENV_NAME")` references. The separate `users` export also allows passwords in
+plain text on explicit request.
 
-Neben `config`, `users` und `anonymousUser` kann eine Profildatei einen vierten Export
-`defaultStartEntry` haben: die Kennung der Vorlage, die ein neuer Run ohne Auswahl nimmt.
+Besides `config`, `users`, and `anonymousUser`, a profile file can have a fourth export
+`defaultStartEntry`: the identifier of the template that a new run takes without a selection.
 
 ```ts
 export const defaultStartEntry = "ragents.reference.word-game";
 ```
 
-Der Wert ist ein String in der Form einer Vorlagenkennung (`config-file.ts`,
-`resolveDefaultStartEntry`); er wird nicht in die Umgebung materialisiert. Der Start prüft beim
-Versiegeln des `PluginHost` (`profile/compose.ts` gibt ihn als `defaultStartEntry` weiter), dass ein
-Plugin des Profils genau diese Vorlage registriert hat, sonst bricht er mit der Liste der
-registrierten Vorlagen ab. `ragents.plugins.bootstrap` liefert ihn als `defaultStartEntry` nur
-an Benutzer, für die die Vorlage freigegeben ist (`publicProfile`); ohne Freigabe fehlt das
-Feld, die übrigen Vorlagen bleiben. Die VS-Code-Erweiterung nimmt den Default für das Plus am
-Server-Chip, die erste Vorlage unter Start und die erste Zeile je Server in `RAgents: Neuer
-Run` ([usage.md](../usage.md), Abschnitt Run panel and VS Code extension). `core`, `showcase` und
-`developer` setzen keinen Default.
+The value is a string in the form of a template identifier (`config-file.ts`,
+`resolveDefaultStartEntry`); it is not materialized in the environment. When sealing the
+`PluginHost` (`profile/compose.ts` passes it on as `defaultStartEntry`), the start checks that a
+plugin of the profile has registered exactly this template; otherwise it aborts with the list of
+registered templates. `ragents.plugins.bootstrap` delivers it as `defaultStartEntry` only to users
+for whom the template is allowed (`publicProfile`); without that, the field is missing and the
+other templates remain. The VS Code extension uses the default for the plus on the server chip,
+the first template under Start, and the first row per server in `RAgents: New run`
+([usage.md](../usage.md), section Run panel and VS Code extension). `core`, `showcase`, and
+`developer` set no default.
 
-Validiert wird gegen die EINE Wahrheit der deklarierten Deskriptoren, jetzt zweistufig. Schon der
-COMPILER prüft: `apps/server/src/config-definition.ts` leitet den Typ `RAgentsConfig` aus
-`hostConfigDescriptors` und den Deskriptoren der Plugins ab (reine Typ-Importe, zur Laufzeit
-nicht vorhanden), sodass eine unbekannte Sektion, ein unbekannter Schlüssel und ein Secret im
-Klartext den Build brechen. Beim START bleiben: fehlende Referenz, doppelter Schlüssel mit
-abweichendem Wert, Prüfung jeder Plugin-Sektion nach der Komposition gegen die im `PluginHost`
-registrierten Konfigurationsdeklarationen; Sektionen bekannter, aber inaktiver Plugins werden mit
-Hinweis ignoriert.
-Listen stehen in der Datei als echte `string[]` und reisen als JSON-Array durch die Umgebung -
-`process.env` ist eine String-Map und bleibt der Transport zu Sandbox-bash, Language Servern und
-der Agent-Runtime. `MODEL_ALIASES` ist die eine Liste von Objekten und reist ebenso als JSON.
+Validation is against the ONE truth of the declared descriptors, now in two stages. The COMPILER
+already checks: `apps/server/src/config-definition.ts` derives the type `RAgentsConfig` from
+`hostConfigDescriptors` and the descriptors of the plugins (pure type imports, not present at
+runtime), so that an unknown section, an unknown key, and a secret in plain text break the build.
+What remains at START: a missing reference, a duplicate key with a differing value, and the check
+of every plugin section after composition against the configuration declarations registered in the
+`PluginHost`; sections of known but inactive plugins are ignored with a notice. Lists are real
+`string[]` in the file and travel through the environment as a JSON array - `process.env` is a
+string map and remains the transport to sandbox bash, language servers, and the agent runtime.
+`MODEL_ALIASES` and `MODEL_PROVIDERS` are lists of objects and travel as JSON as well.
 
-Die Sektion ist Dokumentation und Prüfrahmen, KEIN Namensraum: jeder Schlüssel wird unter seinem
-blanken Namen in `process.env` materialisiert. Zwei Produkte mit gleichnamigen Schlüsseln
-(`AGENT_MODEL`, `SYSTEM_PROMPTS_DIR`, ...) lassen sich in EINER Datei also nicht auseinanderhalten -
-deshalb je Variante eine eigene Datei.
+The section is documentation and a validation frame, NOT a namespace: every key is materialized in
+`process.env` under its bare name. Two products with keys of the same name (`AGENT_MODEL`,
+`SYSTEM_PROMPTS_DIR`, ...) therefore cannot be told apart in ONE file - hence a separate file per
+variant.
 
-Das Profil `core` (Produkt-ID `ragents`) ist die neutrale RAgents-Variante. Es bootet ohne jedes
-produktspezifische Plugin mit einem Arbeitsbereich je Run, der als Startoption gewählt
-wird (Rechner: Server oder verbundener Arbeitsplatz; Ordner: neu je Run oder vorhanden), und ist damit
-zugleich der gelebte Entfernungstest: Chat, Koordinator, Fläche,
-TypeScript-Actors, Dokumente und Rückfragen funktionieren ohne Fachplugin. Die neutralen Gegenstücke `ragents.product` (Koordinator, Modelle, Präambel) und
-`ragents.workspace` (Arbeitsverzeichnis je Run + Sandbox-Werkzeuge aus `plugin-support`) stellen die
-Pflichtverträge `ProductRuntime` und `WorkspaceRuntime`. Ein Profil mit eigener Art von
-Arbeitsbereich tauscht `ragents.workspace` nicht aus, sondern steuert sie über
-`workspaceResolverToken` bei (Abschnitt Zuständigkeit je Facette in
-`plugins.md`); der Arbeitsbereich hat damit weiter genau einen Besitzer.
+The `core` profile (product ID `ragents`) is the neutral RAgents variant. It boots without any
+product-specific plugin with one workspace per run, chosen as a start option (machine: server or
+connected workstation; folder: new per run or existing), and is thus at the same time the living
+removal test: chat, coordinator, surface, TypeScript actors, documents, and questions work without
+a domain plugin. The neutral counterparts `ragents.product` (coordinator, models, preamble) and
+`ragents.workspace` (working directory per run + sandbox tools from `plugin-support`) provide the
+mandatory contracts `ProductRuntime` and `WorkspaceRuntime`. A profile with its own kind of
+workspace does not replace `ragents.workspace` but contributes it through `workspaceResolverToken`
+(section Responsibility per facet in `plugins.md`); the workspace thus still has exactly one owner.
 
-Pluginliste von `core` in Reihenfolge: `ragents.orchestration`, `ragents.workspace`,
-`ragents.product`, `ragents.overseer`, `ragents.activity`, `ragents.processes`,
-`ragents.documents`, `ragents.browser`, `ragents.ask`, `ragents.todo`, `ragents.watch`,
-`ragents.transcript`, `ragents.actor-programs`, `ragents.lsp-roslyn`,
-`ragents.lsp-fsharp`, `ragents.lsp-typescript`, `ragents.model-relay`,
-`ragents.profile-distribution`.
+Plugin list of `core` in order: `ragents.orchestration`, `ragents.workspace`, `ragents.product`,
+`ragents.overseer`, `ragents.activity`, `ragents.processes`, `ragents.documents`,
+`ragents.browser`, `ragents.ask`, `ragents.todo`, `ragents.watch`, `ragents.transcript`,
+`ragents.actor-programs`, `ragents.lsp-roslyn`, `ragents.lsp-fsharp`, `ragents.lsp-typescript`,
+`ragents.model-relay`, `ragents.profile-distribution`.
 
-Das Profil `showcase` (Produkt-ID `ragents-showcase`, Port 4713) ist dieselbe Ausstattung und
-zusätzlich `ragents.reference` hinter `ragents.actor-programs`; Anmeldung, Modelle und
-Language Server entsprechen `core`. Damit bleibt `core` die Vorlage für ein echtes Profil,
-während die mitgelieferten Beispiele als Lehrmaterial im Repository bleiben und mit
-`./start.sh showcase` zur Verfügung stehen. Die intern erzeugte Referenz und die eingebaute Hilfe
-werden aus `showcase` erzeugt (`scripts/homepage/homepage-catalog.ts` liest dessen
-Pluginliste), damit sie die Beispiele weiterhin zeigen.
+The `showcase` profile (product ID `ragents-showcase`, port 4713) is the same setup plus
+`ragents.reference` after `ragents.actor-programs`; sign-in, models, and language servers match
+`core`. This keeps `core` the template for a real profile, while the bundled examples stay in the
+repository as teaching material and are available with `./start.sh showcase`. The internally
+generated reference and the built-in help are generated from `showcase`
+(`scripts/homepage/homepage-catalog.ts` reads its plugin list), so that they keep showing the
+examples.
 
-Das Profil `developer` (Produkt-ID `ragents-developer`, Port 4715) ist die kleinere Auswahl für
-die Arbeit an einem Projekt: `ragents.orchestration`, `ragents.workspace`, `ragents.product`,
+The `developer` profile (product ID `ragents-developer`, port 4715) is the smaller selection for
+working on a project: `ragents.orchestration`, `ragents.workspace`, `ragents.product`,
 `ragents.documents`, `ragents.ask`, `ragents.todo`, `ragents.activity`, `ragents.processes`,
-`ragents.lsp-roslyn`, `ragents.lsp-fsharp`, `ragents.lsp-typescript`. Es hat keine `users`,
-sondern einen `anonymousUser` mit allen Rechten, weil es auf dem eigenen Rechner läuft, und
-bezieht seine Modelle über OpenRouter aus `OPENROUTER_API_KEY`. Es ist das Vorgabeprofil der
-Agenten-Unterbefehle (`ragents run`, Abschnitt Control RAgents as an agent in
-[usage.md](../usage.md)) und die Vorlage für ein Ad-hoc-Profil: Datei kopieren,
-umbenennen, Port, Produkt-Deskriptor, Plugins und Modelle ändern.
+`ragents.lsp-roslyn`, `ragents.lsp-fsharp`, `ragents.lsp-typescript`. It has no `users` but an
+`anonymousUser` with all permissions, because it runs on your own machine, and gets its models
+through OpenRouter from `OPENROUTER_API_KEY`. It is the default profile of the agent subcommands
+(`ragents run`, section Control RAgents as an agent in [usage.md](../usage.md)) and the template
+for an ad-hoc profile: copy the file, rename it, change port, product descriptor, plugins, and
+models.
 
-`ragents.overseer` ergänzt den globalen Koordinator im Kopf der Oberfläche. Das Plugin ist
-auch im Beispielprofil enthalten. Sein Run
-und die Run-Referenzen bleiben im jeweiligen Profildatenverzeichnis; der Zugriff übergreift keine
-separat gestarteten Profile. Eine lokale Profildatei muss das Plugin ausdrücklich mit aufführen.
+`ragents.overseer` adds the global coordinator in the header of the interface. The plugin is also
+included in the example profile. Its run and the run references stay in the respective profile
+data directory; access does not span separately started profiles. A local profile file must list
+the plugin explicitly.
 
-Der globale Koordinator besitzt eine eigene, im jeweiligen Profildatenverzeichnis
-gespeicherte Modell- und Reasoning-Auswahl. Als anfängliche Vorgabe dient die Rolle `coordinator`.
-Die Produktvorgabe für den Run-Koordinator verwendet `high`.
-Bereits gespeicherte Modellauswahlen bleiben ausdrückliche Vorgaben. Als anfängliche Vorgabe verwendet die Rolle `relay` dasselbe konfigurierte Modell und dieselbe
-Denktiefe wie die Rolle `coordinator`. Ein Regressionstest prüft beide Rollen gegen den echten Modellkatalog.
-Danach verwenden Settings und Koordinator-Chat dieselbe Plugin-Einstellung. Änderungen gelten
-ab dem nächsten Turn ohne Neustart und ändern weder die Startoptionen noch die Modelle anderer
-Runs. Die zulässige Auswahl stammt aus dem konfigurierten Modellkatalog und wird gegen die
-Modellfähigkeiten geprüft.
+The global coordinator has its own model and reasoning selection, stored in the respective profile
+data directory. The `coordinator` role serves as the initial default. The product default for the
+run coordinator uses `high`. Model selections that are already stored remain explicit defaults. As
+its initial default, the `relay` role uses the same configured model and the same thinking level as
+the `coordinator` role. A regression test checks both roles against the real model catalog. After
+that, settings and coordinator chat use the same plugin setting. Changes apply from the next turn
+without a restart and change neither the start options nor the models of other runs. The allowed
+selection comes from the configured model catalog and is checked against the model capabilities.
 
-Der Modellanbieter ist `AGENT_PROVIDER` im Produkt-Plugin, Vorgabe `openrouter` mit
-`OPENROUTER_API_KEY`. Mit `AGENT_PROVIDER: "relay"` kommen Katalog und Modellzugang von einem
-anderen RAgents-Server: `RELAY_URL` nennt dessen Adresse, `RELAY_TOKEN` (Secret, `env(...)`) den
-persönlichen Token eines Benutzers dort. Das Produkt-Plugin holt beim Start `GET /relay/v1/models`
-und registriert den Anbieter `relay` über einen Profil-Beitrag (`providers` in
-`ProfileContribution`) in der einen Modelllaufzeit des Servers, bevor Titelmodell, Vorbereitung
-oder Engine ein Modell nachschlagen. `AGENT_MODEL`, `AGENT_COORDINATOR_MODEL`, `AGENT_MODELS`,
-`COMPACTION_MODEL` (mit `COMPACTION_PROVIDER: "relay"`) und das Titelmodell nennen dann Aliasse
-des Relays; die Modellauswahl zeigt sie als `relay/<alias>`. Jeder Alias kommt mit den
-Kompaktierungswerten, die er auf dem Server hat, und der Client kompaktiert mit denselben Werten;
-die Vorgabe-Denktiefe eines Alias gibt das Relay nicht weiter. Ein nicht erreichbares Relay, eine abgelehnte Anmeldung,
-ein leerer Katalog oder ein Alias ohne gültige Kompaktierungswerte sind Startfehler mit Adresse und
-Ursache. Auch ein zur Laufzeit abgelehnter Modellaufruf nennt die Relay-Adresse vor Status und Text
-der Antwort.
+The model provider is `AGENT_PROVIDER` in the product plugin, default `openrouter` with
+`OPENROUTER_API_KEY`. With `AGENT_PROVIDER: "relay"`, catalog and model access come from another
+RAgents server: `RELAY_URL` names its address, `RELAY_TOKEN` (secret, `env(...)`) the personal
+token of a user there. At start, the product plugin fetches `GET /relay/v1/models` and registers
+the provider `relay` through a profile contribution (`providers` in `ProfileContribution`) in the
+server's one model runtime, before the title model, preparation, or engine look up a model.
+`AGENT_MODEL`, `AGENT_COORDINATOR_MODEL`, `AGENT_MODELS`, `COMPACTION_MODEL` (with
+`COMPACTION_PROVIDER: "relay"`), and the title model then name aliases of the relay; the model
+selection shows them as `relay/<alias>`. Each alias comes with the thinking levels it offers on the
+server, including what goes to the target for each level, and with its compaction values; the
+client offers the same levels, sends the same as the server for a chosen level, and compacts with
+the same values. The relay does not pass on the default thinking level of an alias. An unreachable
+relay, a rejected sign-in, an empty catalog, or an alias without valid compaction values are start
+errors with address and cause. A model call rejected at runtime also names the relay address before
+the status and text of the response.
 
-Ein Profil kann seine Modelle unter eigenen Namen anbieten: `MODEL_ALIASES` im Abschnitt `host`
-ist eine Liste von Objekten (`plugin-support/model-aliases.ts`, Typ `ProfileModelAlias` in
+A profile can offer its models under its own names: `MODEL_ALIASES` in the `host` section is a list
+of objects (`plugin-support/model-aliases.ts`, type `ProfileModelAlias` in
 `config-definition.ts`):
 
 ```typescript
 MODEL_ALIASES: [
   { alias: "team-standard", model: "openrouter/qwen/qwen3.8-27b", thinking: "medium",
     compaction: { threshold: 160_000, keepRecentTokens: 24_000, summaryTokens: 16_000 } },
+  { alias: "team-strong", model: "openrouter/z-ai/glm-5.3", thinking: "medium",
+    thinkingLevels: { off: "low", low: "low", medium: "high", high: "high" },
+    compaction: { threshold: 400_000, keepRecentTokens: 32_000, summaryTokens: 16_000 } },
 ],
 ```
 
-`model` nennt das Ziel als `anbieter/modell`, ein Modell aus dem eingebauten Katalog des Anbieters;
-`thinking` ist optional eine Stufe, die dieses Modell hat. `compaction` ist Pflicht und gilt für
-das Modell unter diesem Alias: `threshold` ist die absolute Tokenzahl, ab der kompaktiert wird,
-`keepRecentTokens` der wörtlich behaltene Rest, `summaryTokens` das Budget der Zusammenfassung
-(Ablauf in [core.md](core.md), Abschnitt Wiederholung und Kompaktierung). Die Werte stehen am
-Alias, weil der Katalog als Kontextfenster das größte über alle Anbieter eines Modells nennt; wer
-erst kurz davor kompaktiert, landet mit einem langen Kontext still bei einem der wenigen Anbieter
-mit so großem Fenster. Der Start bricht mit Alias und Ursache ab, wenn `compaction` fehlt, ein
-Wert keine positive ganze Zahl ist, `keepRecentTokens + summaryTokens` nicht unter `threshold`
-liegt, `threshold + summaryTokens` nicht unter dem Kontextfenster des Ziels oder `summaryTokens`
-über seiner Ausgabegrenze; ebenso bei einem unbekannten Schlüssel, einem doppelten Alias, einem
-Ziel außerhalb des Katalogs oder einer Denktiefe, die das Ziel nicht hat. In der Umgebung steht die
-Liste als JSON. Dieselbe Liste gilt für die eigenen Runs und für `ragents.model-relay`. Für die
-eigenen Runs registriert der Server die Aliasse unter dem Anbieter `alias` in der einen
-Modelllaufzeit (`ModelRuntime.registerAliases`): Ein Alias trägt Katalogdaten und Denkstufen seines
-Ziels und seine eigenen Kompaktierungswerte unter seinem eigenen Namen, eine Anfrage geht mit dem
-echten Modell an dessen Anbieter, und jede
-Antwort, jeder Zwischenstand und jede Fehlermeldung kommt mit Alias und Anbieter `alias` zurück;
-frühere Antworten des Alias gelten beim Ziel als eigene, damit Reasoning-Signaturen über Turns
-erhalten bleiben. Mit `AGENT_PROVIDER: "alias"` nennen `AGENT_MODEL`,
-`AGENT_COORDINATOR_MODEL` und `AGENT_MODELS` Aliasse; ohne `AGENT_MODELS` stehen alle Aliasse
-zur Wahl. Oberfläche und Modellkatalog zeigen einen Alias ohne Anbieter (`modelLabel`), das
-Journal speichert Alias und `alias`. Eine Rollen-Denktiefe (`AGENT_THINKING`,
-`AGENT_COORDINATOR_THINKING`) ohne Wert übernimmt die Denktiefe des Alias, sonst `high`
-(`roleThinkingLevel`); wechselt jemand im Chat auf einen anderen Alias, gilt dessen Denktiefe,
-auf das Koordinator-Modell zurück die des Koordinators. Ändert sich das Ziel eines Alias, laufen
-bestehende Runs unter demselben Namen mit dem neuen Ziel weiter.
+`model` names the target as `provider/model`, a model of a provider from `MODEL_PROVIDERS` (below) or
+from the provider's built-in catalog;
+`thinking` is optionally the default thinking level, one of the levels the alias offers.
+`thinkingLevels` optionally maps the offered levels to levels of the target: the alias offers
+exactly its keys, in the selection, in the catalog, and through the relay, and a chosen level goes
+out as the target level it points to. In the example, GLM 5.3 cannot turn reasoning off and has no
+`medium`; `off` therefore sends `effort: "low"`, `medium` sends `high`. This way a profile can give
+all aliases the same levels, whatever model is behind them; if the target lacks a level, it usually
+points to the next higher one it has. The profile defines the mapping; the host only checks that
+the target has every level named. Only `off` may point to `off`, because a target without its own
+value for `off` gets `enabled: false` instead of a level for it. Without `thinkingLevels`, the
+alias offers the levels of its target. `compaction` is mandatory and applies to the model under
+this alias: `threshold` is the absolute token count from which compaction happens,
+`keepRecentTokens` the rest kept verbatim, `summaryTokens` the budget of the summary (procedure in
+[core.md](core.md), section Retries and compaction). The values live on the alias because the
+catalog names as context window the largest across all providers of a model; whoever compacts only
+shortly before that silently ends up, with a long context, at one of the few providers with such a
+large window. The start aborts with alias and cause if `compaction` is missing, a value is not a
+positive integer, `keepRecentTokens + summaryTokens` is not below `threshold`,
+`threshold + summaryTokens` is not below the target's context window, or `summaryTokens` is above
+its output limit; likewise for an unknown key, a duplicate alias, a target outside the catalog, for
+`thinkingLevels` without a level, with an unknown level, with a level other than `off` pointing to
+`off`, or with a target level the target does not have, and for a default thinking level the alias
+does not offer (`thinkingLevelsProblem` in `packages/agent`, `validatedAliasModel`). In the
+environment, the list is stored as JSON. The same list applies to the server's own runs and to
+`ragents.model-relay`. For its own runs, the server registers the aliases under the provider
+`alias` in the one model runtime (`ModelRuntime.registerAliases`): an alias carries the catalog
+data of its target, the levels it offers, and its own compaction values under its own name
+(`aliasedModel`); a request goes with the real model and the mapped level to its provider, and
+every response, every intermediate state, and every error message comes back with the alias and
+provider `alias`; earlier responses of the alias count as the target's own, so that reasoning
+signatures are preserved across turns. With `AGENT_PROVIDER: "alias"`, `AGENT_MODEL`,
+`AGENT_COORDINATOR_MODEL`, and `AGENT_MODELS` name aliases; without `AGENT_MODELS`, all aliases are
+available. The interface and model catalog show an alias without provider (`modelLabel`), the
+journal stores the alias and `alias`. A role thinking level (`AGENT_THINKING`,
+`AGENT_COORDINATOR_THINKING`) without a value takes the thinking level of the alias, otherwise
+`high` (`roleThinkingLevel`); if someone switches to another alias in the chat, that alias's
+thinking level applies, and back on the coordinator model, the coordinator's. If the target of an
+alias changes, existing runs continue under the same name with the new target.
 
-Vorbereitungschat, Produkt-Modellkatalog und Koordinatoreinstellungen beziehen die Denktiefen aus
-den Fähigkeiten des jeweiligen Provider-Modells im eingebauten Laufzeitkatalog oder, beim
-Relay, aus dessen Aliaskatalog. Es gibt keine pauschale Liste pro Produkt. `AGENT_MODEL_REASONING` kann diese Auswahl ausdrücklich
-einschränken; unbekannte Modelle sowie ungültige oder doppelte Stufen sind Konfigurationsfehler.
-Der Server prüft den gesamten angebotenen Katalog zusätzlich gegen die tatsächlich geladene
-Modelllaufzeit und validiert alle Profilvorgaben vor der Nutzung. Beim Modellwechsel im
-Vorbereitungschat wird die konfigurierte bevorzugte Denktiefe verwendet, falls sie verfügbar ist,
-sonst die erste angebotene Stufe; die Auswahl ist vor dem Absenden sichtbar. Ausdrücklich
-übergebene ungültige Werte werden zurückgewiesen.
+An alias can also point to an OpenAI-compatible server of the profile's own, for instance a
+self-hosted one: `MODEL_PROVIDERS` in the `host` section is a list of providers
+(`plugin-support/model-providers.ts`, type `ProfileModelProvider` in `config-definition.ts`):
 
-Beim Start per Chat oder Setup erhält der menschliche Run-Teilnehmer den Anzeigenamen des
-serverseitig angemeldeten Benutzers, und der Run merkt sich denselben Benutzer als Eigentümer.
-Ohne Anmeldung verwenden die Produktvorgaben "Benutzer", und der Run bleibt ohne Eigentümer.
-Ein vorhandener Run behält seinen ursprünglichen Teilnehmer und Eigentümer; ein Loginwechsel
-schreibt das Journal nicht um. Der Run-Besitzer ist keine Festlegung auf den Rechner- oder Repositorybesitzer.
-Die allgemeinen Rechte und eine Vorlagenliste begrenzen einen Bedienerzugang;
-neutrale Komponenten enthalten keine Produkt- oder Benutzerabfragen. Ist `MODEL_SELECTABLE`
-aktiv, bleiben freie Starts und technische Auswahl trotzdem an die jeweiligen Benutzerrechte
-gebunden. Ohne jede Quelle - weder Plugin-Ordner noch `SYSTEM_PROMPTS_DIR` - bleibt der Katalog
-leer, ohne Fehler; die Schlüssel wirken prozessweit und dürfen ein anderes Produkt-Plugin nicht
-beim Import zerreißen. Das Häkchen "Auch an die Agenten weiterreichen" entscheidet, ob der gewählte Text
-nur im Koordinatorprompt steht oder zusätzlich im Systemprompt erzeugter Agenten. Plain-LLMs mit
-`tools: []` bleiben ausgenommen und erhalten ausschließlich ihren eigenen Prompt. Auswahl und
-Reichweite frieren mit der ersten Nachricht in den Journal-Zustand `ragents.system-prompt` ein.
+```typescript
+MODEL_PROVIDERS: [
+  { id: "local", baseUrl: "http://localhost:8000/v1", apiKey: env("EXAMPLE_API_KEY"),
+    compat: { thinkingFormat: "qwen-chat-template" },
+    models: [{ id: "example-model", contextWindow: 131_072, maxTokens: 16_384, reasoning: true,
+      input: ["text"], thinkingLevelMap: { xhigh: "xhigh" } }] },
+],
+MODEL_ALIASES: [
+  { alias: "team-local", model: "local/example-model", thinking: "medium",
+    thinkingLevels: { off: "off", low: "low", medium: "medium", xhigh: "xhigh" },
+    compaction: { threshold: 100_000, keepRecentTokens: 16_000, summaryTokens: 8_000 } },
+],
+```
 
-Das Startmenü bietet die Profildateien des Repositories an. `./start.sh core` verwendet als Vorgabe Port 4710 und
-`~/.local/share/ragents/core`, `./start.sh showcase` Port 4713 und
-`~/.local/share/ragents/showcase`, `./start.sh developer` Port 4715 und
-`~/.local/share/ragents/developer`. Alle drei Profile liegen auch im Paket `@schlenkr/ragents`;
-`ragents start <profil|pfad>` nimmt einen Profilnamen des Hosts, den Pfad einer eigenen
-`ragents.config.<profil>.ts` an beliebiger Stelle oder, wenn beides nicht zutrifft, einen Stand
-aus dem Cache geholter Profile.
+`id` is the provider name in `provider/model` and must not be a built-in provider or `relay`;
+`baseUrl` is the address up to `/v1` without a trailing slash; `apiKey` is only allowed as
+`env("NAME")`, and the start aborts if the variable is not set. A model names `id` as the server
+knows it, `contextWindow`, `maxTokens`, `reasoning`, `input` (with `text`) and optionally
+`thinkingLevelMap`, what the server receives per level: `null` removes a level, and `xhigh` or `max`
+exist only when named. `compat` optionally knows `requiresReasoningContentOnAssistantMessages` and
+`thinkingFormat: "qwen-chat-template"`: then the request carries no `reasoning` field, thinking is
+switched with `chat_template_kwargs.enable_thinking` (false for `off`) plus `preserve_thinking`,
+the level goes out verbatim as `reasoning_effort` after the alias's mapping and the model's
+`thinkingLevelMap`, and earlier thinking goes back as `reasoning_content` on the assistant messages
+(`applyQwenChatTemplate` in `packages/ai`). Without `thinkingFormat` the request is shaped as for
+OpenRouter. An unknown key, a missing or invalid value, and a duplicate provider or model are start
+errors. The server registers the providers in the one model runtime before the aliases, all with the
+OpenAI-compatible transport and cost 0; the relay offers aliases on them like any other.
 
-`scripts/start.sh` baut vor jedem Start die veralteten eingebauten Plugins neu (`pnpm
-build:plugins`, aktuelle bleiben unberührt), mit `--dev` zusätzlich laufend mit `pnpm build:plugins
---watch`; `tsx watch` startet den Server neu, sobald sich eine Server-Datei eines Bundles ändert. Plugins außerhalb des Hosts baut ihr Repo selbst. Das Web gibt es
-einmal für alle Profile unter `apps/web/dist/`, gebaut mit dem Host (`pnpm build:web`);
-`scripts/start.sh` baut es nur, wenn es fehlt oder nicht mehr zu seinen Quellen passt, mit `--dev`
-gar nicht, weil dann der Vite-Dev-Server die Oberfläche liefert. Das Paket bringt es fertig mit.
-Der Server selbst baut nichts: in einem Checkout bricht sein Start ab, wenn ein eingebautes Bundle
-des Profils oder das Web nicht zu den Quellen passt, und nennt `pnpm build:plugins` oder
-`pnpm build:web` (Abschnitt Bundle, Bauwerkzeug und Host-API in [plugins.md](plugins.md)). Das gilt
-auch für `pnpm start`, `ragents run`, `ragents start` und die VS-Code-Erweiterung mit einem
-Checkout als Host. Auch ein servergeliefertes Profil nimmt das Web seines Hosts (Abschnitt
-Servergelieferte Profile).
+The preparation chat, product model catalog, and coordinator settings take the thinking levels
+from the capabilities of the respective provider model in the built-in runtime catalog, for an
+alias from the levels it offers, or, for the relay, from its alias catalog. There is no blanket
+list per product. `AGENT_MODEL_REASONING` can explicitly restrict this selection; unknown models as
+well as invalid or duplicate levels are configuration errors. The server additionally checks the
+entire offered catalog against the model runtime actually loaded and validates all profile
+defaults before use. When the model changes in the preparation chat, the configured preferred
+thinking level is used if it is available, otherwise the first offered level; the selection is
+visible before sending. Explicitly passed invalid values are rejected.
 
-Der Server kennt drei Startmodi (`pnpm start -- <argumente>`, `apps/server/src/main.ts`): `--port N`
-hört wie bisher auf dem Port des Profils oder der Umgebung und bricht bei belegtem Port ab;
-`--port 0` hört auf einem freien Port nur auf `127.0.0.1`, erzeugt ohne konfigurierte Benutzer und
-ohne `ACCESS_TOKEN` einen Zugangstoken je Prozess und schreibt als einzige Zeile auf stdout die
-Ansage `{"ragents":{"url","token","pid"}}` für den Aufrufer; `--stdio` spricht JSON-RPC über stdin
-und stdout, ohne `--port` ohne HTTP, und beendet den Server, wenn die Eingabe endet. Bei `--stdio`
-und `--port 0` geht die Konsole nach stderr, damit stdout dem Protokoll gehört. Der Server bindet
-seinen Port, bevor er seine Plugins und Runs aufbaut, und beantwortet Anfragen erst danach; so nennt
-jede Adresse, die er beim Aufbau vergibt, etwa `RAGENTS_API_BASE_URL` des globalen
-Koordinators, auch bei `--port 0` den tatsächlich gebundenen Port. Ohne HTTP (nur `--stdio`) setzt
-er diese Variable nicht. Nennt der Aufrufer sich in `RAGENTS_PARENT_PID`, überwacht der Host diesen
-Prozess alle fünf Sekunden (`apps/server/src/parent-watch.ts`) und fährt geordnet herunter, sobald
-es ihn nicht mehr gibt; das Writer-Lock des Journals geht dabei regulär zurück wie bei SIGTERM. Ein
-gesetzter Wert, der keine positive ganze Zahl ist, bricht den Start ab; ohne die Variable gibt es
-keinen Wächter. Ein zweiter Prozess auf demselben Profilordner ist Sache des Aufrufers. Bereits
-vorhandene Daten anderer Profile bleiben unberührt und werden nicht migriert.
+On a start through chat or setup, the human run participant receives the display name of the user
+signed in on the server, and the run remembers the same user as its owner. Without sign-in, the
+product defaults use "User", and the run stays without an owner. An existing run keeps its
+original participant and owner; a login change does not rewrite the journal. The run owner does
+not imply the owner of the machine or repository. The general permissions and a template list
+limit an operator's access; neutral components contain no product or user queries. If
+`MODEL_SELECTABLE` is active, free starts and technical selection still stay bound to the
+respective user permissions. Without any source - neither plugin folder nor `SYSTEM_PROMPTS_DIR` -
+the catalog stays empty, without an error; the keys act process-wide and must not break another
+product plugin on import. The checkbox "Also pass on to the agents" decides whether the chosen
+text is only in the coordinator prompt or additionally in the system prompt of created agents.
+Plain LLMs with `tools: []` stay excluded and receive exclusively their own prompt. Selection and
+scope freeze with the first message into the journal state `ragents.system-prompt`.
 
-Die gemeinsame Datenpfadauflösung gilt für Startskript und direkten Serverstart: `DATA_DIR`
-aus der Umgebung überschreibt `host.DATA_DIR` des Profils; ohne beide gilt
-`~/.local/share/ragents/<profil>`. Vor Build und Serverinitialisierung prüft der Start die
-physisch aufgelösten, bereits vorhandenen Verzeichnisse bis zur Dateisystemwurzel.
-Ein Datenverzeichnis innerhalb eines Git- oder Paketprojekts (`.git`, `pnpm-workspace.yaml`
-oder `package.json`) wird mit Ursache abgewiesen. Symlinks umgehen diese Prüfung nicht.
-Explizite externe Pfade bleiben zulässig.
-Unterhalb des Datenordners liegt `tools/<plugin-id>/`: die Werkzeuge, die `pnpm provision` für die
-Plugins dieses Profils holt (Abschnitt Provisionierung je Plugin in [plugins.md](plugins.md)).
+The start menu offers the profile files of the repository. `./start.sh core` uses port 4710 and
+`~/.local/share/ragents/core` by default, `./start.sh showcase` port 4713 and
+`~/.local/share/ragents/showcase`, `./start.sh developer` port 4715 and
+`~/.local/share/ragents/developer`. All three profiles are also in the `@schlenkr/ragents` package;
+`ragents start <profile|path>` takes a profile name of the host, the path of your own
+`ragents.config.<profile>.ts` anywhere, or, if neither applies, a version of fetched profiles from
+the cache.
 
-Ein Ablagewechsel ist ein bewusster Vorgang bei gestopptem Server. Er umfasst den gesamten
-Profilbestand. Der Server verschiebt keine Daten und schreibt keine eingefrorenen
-Journalpfade um.
+Before every start, `scripts/start.sh` rebuilds the outdated built-in plugins (`pnpm
+build:plugins`, current ones stay untouched), with `--dev` additionally continuously with `pnpm
+build:plugins --watch`; `tsx watch` restarts the server as soon as a server file of a bundle
+changes. Plugins outside the host are built by their own repo. The web exists once for all
+profiles under `apps/web/dist/`, built with the host (`pnpm build:web`); `scripts/start.sh` builds
+it only if it is missing or no longer matches its sources, and with `--dev` not at all, because
+the Vite dev server then delivers the interface. The package ships it ready-made. The server itself
+builds nothing: in a checkout, its start aborts if a built-in bundle of the profile or the web does
+not match the sources, and names `pnpm build:plugins` or `pnpm build:web` (section Bundle, build
+tool, and host API in [plugins.md](plugins.md)). This also applies to `pnpm start`, `ragents run`,
+`ragents start`, and the VS Code extension with a checkout as host. A server-delivered profile also
+takes the web of its host (section Server-delivered profiles).
 
-Ein Konfigurationswert kann statt eines Textes `provisioned("<plugin-id>", "<pfad>")` sein: er
-wird beim Laden der Profildatei zu `<Datenordner>/tools/<plugin-id>/<pfad>`. So nennen `core`,
-`showcase` und `developer` ihre Language Server, ohne einen Rechnerpfad festzuschreiben.
-Explizite Umgebungsvariablen überschreiben auch diese Werte.
+The server knows three start modes (`pnpm start -- <arguments>`, `apps/server/src/main.ts`):
+`--port N` listens as before on the port of the profile or the environment and aborts if the port
+is in use; `--port 0` listens on a free port only on `127.0.0.1`, generates an access token per
+process without configured users and without `ACCESS_TOKEN`, and writes the announcement
+`{"ragents":{"url","token","pid"}}` for the caller as the only line on stdout; `--stdio` speaks
+JSON-RPC over stdin and stdout, without `--port` without HTTP, and ends the server when the input
+ends. With `--stdio` and `--port 0`, the console goes to stderr so that stdout belongs to the
+protocol. The server binds its port before it builds its plugins and runs, and answers requests
+only afterwards; so every address it assigns during setup, such as `RAGENTS_API_BASE_URL` of the
+global coordinator, names the port actually bound, even with `--port 0`. Without HTTP (only
+`--stdio`), it does not set this variable. If the caller names itself in `RAGENTS_PARENT_PID`, the
+host watches this process every five seconds (`apps/server/src/parent-watch.ts`) and shuts down in
+an orderly way as soon as it no longer exists; the writer lock of the journal is released regularly
+as with SIGTERM. A set value that is not a positive integer aborts the start; without the variable
+there is no watcher. A second process on the same profile folder is the caller's business. Existing
+data of other profiles stays untouched and is not migrated.
 
-`host.PLUGINS` nennt Plugins per Kennung oder per Pfad auf ein Bundle; relative Pfade gelten ab der Profildatei und
-werden beim Laden absolut. Die Profildatei liegt im Repo-Root oder an beliebiger Stelle:
-`PRODUCT_PROFILE_FILE` nennt dann den Pfad, `PRODUCT_PROFILE` bleibt der Name, und der Dateiname
-muss `ragents.config.<profil>.ts` lauten; Datenverzeichnis, Meldungen und Sektionen verwenden
-weiter den Namen. `scripts/start.sh <profil>` oder `scripts/start.sh <pfad>` setzt beides, im
-Paket `ragents start <profil>` oder `ragents start <pfad>`; ohne Argument listet das Skript die
-Profile im Repo und nimmt auch einen Pfad entgegen. Der Dev-Modus
-verwendet für Vite den Backend-Port plus 1000. Eine externe Profildatei importiert
-`@ragents/host/config-definition.js`.
+The shared data path resolution applies to the start script and to a direct server start:
+`DATA_DIR` from the environment overrides `host.DATA_DIR` of the profile; without both,
+`~/.local/share/ragents/<profile>` applies. Before build and server initialization, the start
+checks the physically resolved, already existing directories up to the file system root. A data
+directory inside a Git or package project (`.git`, `pnpm-workspace.yaml`, or `package.json`) is
+rejected with a cause. Symlinks do not bypass this check. Explicit external paths remain allowed.
+Below the data folder is `tools/<plugin-id>/`: the tools that `pnpm provision` fetches for the
+plugins of this profile (section Provisioning per plugin in [plugins.md](plugins.md)).
 
-### Servergelieferte Profile
+Changing the storage location is a deliberate operation with the server stopped. It covers the
+entire profile data. The server moves no data and does not rewrite frozen journal paths.
 
-Ein Profil kann auch von einem anderen RAgents-Server kommen. Dessen Plugin
-`ragents.profile-distribution` packt beim Start die Client-Profildatei und die Bundles, die sie
-per Pfad nennt, zu einem Archiv (Abschnitt Profilverteilung in [plugins.md](plugins.md)).
-`ragents connect <server-url>` holt es mit dem persönlichen Token aus `RAGENTS_TOKEN`
-(`scripts/remote/connect.ts`, reines Node, kein Bash, im Checkout `pnpm connect`): Beschreibung
-über `ragents.profile.describe`, Abgleich mit dem Host, Archiv unter
-`GET /profile/<stand>.tar.gz`, Prüfung von SHA-256 und Größe, Ablage unter
-`~/.local/share/ragents/remote/<host>/<profil>/profiles/<stand>/` mit einer `package.json`
-(`type: "module"`), weil die Profildatei ESM ist. Danach startet `connect` den Server mit
-`PRODUCT_PROFILE_FILE` auf die Datei im Cache und `DATA_DIR` auf
-`~/.local/share/ragents/remote/<host>/<profil>/data/`. Ab da ist es ein gewöhnlicher lokaler
-Start per Pfad: Engine, Journal, Werkzeuge, Language Server, Browser und Git laufen beim
-Entwickler, das Web kommt fertig aus seinem Host, nichts wird gebaut oder installiert und nichts
-zur Laufzeit nachgeladen.
+Instead of a text, a configuration value can be `provisioned("<plugin-id>", "<path>")`: when the
+profile file is loaded, it becomes `<data folder>/tools/<plugin-id>/<path>`. This is how `core`,
+`showcase`, and `developer` name their language servers without hard-coding a machine path.
+Explicit environment variables override these values too.
 
-Der Abgleich vor dem Holen verlangt zweierlei vom lokalen Host (Checkout oder Paket
-`@schlenkr/ragents`; die Erweiterung prüft den Host, den sie starten wird). Erstens dieselbe
-Host-API wie der Server (`hostApi` der Beschreibung gegen `host-api.json` des lokalen Hosts,
-`readHostApiVersion`): die Bundles im Archiv sind dagegen gebaut, und das Web des lokalen Hosts
-lädt ihre Web-Hälften nur über das Register derselben Host-API. Zweitens ein eingebautes Bundle
-für jedes Plugin, das das Client-Profil per Kennung nennt, weil diese vom lokalen Host kommen.
-Derselbe Commit wie beim Server ist nicht verlangt: Bundles und Web passen über die Host-API
-zusammen, nicht über einen gemeinsamen Build, und ein Entwickler braucht für eine neuere
-Serverfassung ohne neue Host-API kein neues Paket. Weicht etwas ab, bricht `connect` vor dem
-Herunterladen ab und wechselt nicht selbst: im Paket mit `npm install -g
-@schlenkr/ragents@<packageVersion>`, im Checkout mit `git checkout <hostVersion>` samt
-`pnpm build:plugins` und `pnpm build:web`, bei einem fehlenden Bundle im Checkout zuerst mit
-`pnpm build:plugins`. Nach dem Entpacken prüft `connect` den `stand` jedes Bundles im Archiv, bevor
-es den Stand in den Cache übernimmt. Die übrigen Prüfungen macht der Start wie bei jedem Profil:
-Manifest, `format` und `api` jedes Bundles, die benutzten Namen der Host-API (`hostNames`) gegen
-`host-api.json` des lokalen Hosts, `uses` gegen Pluginliste und `requires`, die Schlüssel je Plugin
-gegen dessen Deklarationen. Mitgelieferte Bundles nennt die Client-Profildatei relativ zu sich;
-einen absoluten oder `~/`-Pfad lehnt der Server schon beim Packen ab.
+`host.PLUGINS` names plugins by identifier or by path to a bundle; relative paths are relative to
+the profile file and become absolute when loaded. The profile file lives in the repo root or
+anywhere: `PRODUCT_PROFILE_FILE` then names the path, `PRODUCT_PROFILE` stays the name, and the
+file name must be `ragents.config.<profile>.ts`; data directory, messages, and sections keep using
+the name. `scripts/start.sh <profile>` or `scripts/start.sh <path>` sets both, in the package
+`ragents start <profile>` or `ragents start <path>`; without an argument, the script lists the
+profiles in the repo and also accepts a path. The dev mode uses the backend port plus 1000 for
+Vite. An external profile file imports `@ragents/host/config-definition.js`.
 
-Ein neuer Stand landet in einem neuen Ordner, alte Stände bleiben, bis `connect --clean` sie
-entfernt; `--no-start` endet nach dem Holen, `--port <n>` reicht den Port an den Server durch.
-Zwischen Holen und Start ruft `connect` die Provisionierung für das geholte Profil; eine Lücke, die
-sich nicht schließen lässt, bricht den Start mit ihrer Anweisung ab. Beide Schritte laufen als
-`node --import tsx <skript>` im Ordner `apps/server` des Hosts, also ohne pnpm. Den zuletzt
-geholten Stand notiert `connect` als `current.json` neben dem Cache (Server, Profil, Stand,
-Profildatei, Datenordner); `ragents start <profil>` fährt genau ihn wieder hoch, ohne den Server
-zu fragen. Kein Eintrag und mehrere Server mit demselben Profilnamen sind Fehler mit der
-jeweiligen Liste. Die Modelle bezieht ein solches Profil in der Regel über das Relay des Servers
-(`AGENT_PROVIDER: "relay"`, oben im Abschnitt Profile). Persönliche Werte wie den Relay-Token nennt das Client-Profil
-als `env(...)`, sie kommen aus der Umgebung des Entwicklers.
+### Server-delivered profiles
 
-## Bearbeitbare Modellvorgaben
+A profile can also come from another RAgents server. Its plugin `ragents.profile-distribution`
+packs the client profile file and the bundles it names by path into an archive at start (section
+Profile distribution in [plugins.md](plugins.md)). `ragents connect <server-url>` fetches it with
+the personal token from `RAGENTS_TOKEN` (`scripts/remote/connect.ts`, plain Node, no Bash, in the
+checkout `pnpm connect`): description through `ragents.profile.describe`, reconciliation with the
+host, archive under `GET /profile/<version>.tar.gz`, check of SHA-256 and size, storage under
+`~/.local/share/ragents/remote/<host>/<profile>/profiles/<version>/` with a `package.json`
+(`type: "module"`), because the profile file is ESM. Then `connect` starts the server with
+`PRODUCT_PROFILE_FILE` pointing to the file in the cache and `DATA_DIR` to
+`~/.local/share/ragents/remote/<host>/<profile>/data/`. From there on, it is an ordinary local
+start by path: engine, journal, tools, language servers, browser, and Git run on the developer's
+machine, the web comes ready-made from its host, nothing is built or installed, and nothing is
+loaded later at runtime.
 
-Unter Einstellungen, Modelle stellt das aktive Produkt seine tatsächlichen LLM-Rollen
-bereit: in core `coordinator`, `relay` und `standard`. Pro Rolle sind Modell und Denktiefe
-bearbeitbar. Die manuelle Rolle gehört
-nicht dazu. Anbieter, verfügbare Modelle und bewusst eingeschränkte Denktiefen stammen weiter
-aus der Profildatei und dem geprüften Modellkatalog; die Oberfläche ist kein Konfigurationseditor.
+The reconciliation before fetching requires two things of the local host (checkout or package
+`@schlenkr/ragents`; the extension checks the host it will start). First, the same host API as the
+server (`hostApi` of the description against `host-api.json` of the local host,
+`readHostApiVersion`): the bundles in the archive are built against it, and the web of the local
+host loads their web halves only through the registry of the same host API. Second, a built-in
+bundle for every plugin that the client profile names by identifier, because these come from the
+local host. The same commit as on the server is not required: bundles and web fit together through
+the host API, not through a shared build, and a developer needs no new package for a newer server
+version without a new host API. If something differs, `connect` aborts before downloading and does
+not switch by itself: in the package with `npm install -g @schlenkr/ragents@<packageVersion>`, in
+the checkout with `git checkout <hostVersion>` together with `pnpm build:plugins` and
+`pnpm build:web`, for a missing bundle in the checkout first with `pnpm build:plugins`. After
+unpacking, `connect` checks the `stand` of every bundle in the archive before it takes the version
+into the cache. The start performs the remaining checks as for every profile: manifest, `format`
+and `api` of every bundle, the used names of the host API (`hostNames`) against `host-api.json` of
+the local host, `uses` against plugin list and `requires`, the keys per plugin against its
+declarations. The client profile file names bundled bundles relative to itself; the server rejects
+an absolute or `~/` path already when packing.
 
-Jede Rolle hat Modell und Denktiefe getrennt in der Profildatei: `AGENT_MODEL` und
-`AGENT_THINKING` für `standard`, `AGENT_COORDINATOR_MODEL` und
-`AGENT_COORDINATOR_THINKING` für `coordinator` und `relay`. Ein Produkt-Plugin kann weitere
-Rollen mit eigenen Schlüsseln anmelden; gespeicherte Rollen lassen sich in den
-Modelleinstellungen separat anpassen.
-Modell- und Denktiefenvorgaben bleiben getrennt; der Run überschreibt die Denktiefe beim
-Start nicht. Der Modellkatalog begrenzt die erlaubten Stufen je Modell.
+A new version lands in a new folder; old versions stay until `connect --clean` removes them;
+`--no-start` ends after fetching, `--port <n>` passes the port through to the server. Between
+fetching and starting, `connect` runs the provisioning for the fetched profile; a gap that cannot
+be closed aborts the start with its instruction. Both steps run as `node --import tsx <script>` in
+the host's `apps/server` folder, that is, without pnpm. `connect` records the most recently fetched
+version as `current.json` next to the cache (server, profile, version, profile file, data folder);
+`ragents start <profile>` starts exactly that again without asking the server. No entry and
+several servers with the same profile name are errors with the respective list. Such a profile
+usually gets its models through the server's relay (`AGENT_PROVIDER: "relay"`, above in the
+section Profiles). The client profile names personal values such as the relay token as `env(...)`;
+they come from the developer's environment.
 
-Die Vorgaben liegen unter `${DATA_DIR}/plugins/<produkt-plugin>/model-settings.json`.
-Jedes Produkt-Plugin besitzt seinen eigenen Store und seine eigenen Methoden
-`ragents.product.modelSettings.read` und `.save`. Lesen benötigt `settings.read`, Speichern
-zusätzlich `settings.write`. Ein Speichervorgang übermittelt alle tatsächlichen Rollen;
-fehlende, doppelte oder unbekannte Rollen, nicht angebotene Modelle und unzulässige Denktiefen
-werden vor dem Schreiben zurückgewiesen. Die Datei wird atomar ersetzt.
+## Editable model defaults
 
-Fehlt die Datei, gelten die validierten konfigurierten Vorgaben. Beschädigte oder ungültige
-Dateiinhalte brechen den Start ab. Neue Actors und die Standardauswahl noch nicht gestarteter
-Runs verwenden die gespeicherten Vorgaben ohne Serverneustart. Explizite Start- oder
-Spawn-Auswahl bleibt maßgeblich; bestehende Actors behalten ihre eingefrorene Ausführung.
+Under Settings, Models, the active product provides its actual LLM roles: in core `coordinator`,
+`relay`, and `standard`. Per role, model and thinking level are editable. The manual role is not
+among them. Provider, available models, and deliberately restricted thinking levels still come
+from the profile file and the checked model catalog; the interface is not a configuration editor.
 
-Der globale Koordinator hat weiterhin seine eigene sofort wirksame Modellwahl und seinen
-eigenen Store. Seine anfängliche Auswahl wird schon bei der ersten Initialisierung gespeichert.
-Änderungen der Produktvorgaben stellen ihn deshalb auch nach einem Neustart nicht um; seine
-eigene Auswahl ändert umgekehrt keine Vorgaben für neue Runs oder Agenten.
+Each role has model and thinking level separately in the profile file: `AGENT_MODEL` and
+`AGENT_THINKING` for `standard`, `AGENT_COORDINATOR_MODEL` and `AGENT_COORDINATOR_THINKING` for
+`coordinator` and `relay`. A product plugin can register further roles with its own keys; stored
+roles can be adjusted separately in the model settings. Model and thinking level defaults stay
+separate; the run does not override the thinking level at start. The model catalog limits the
+allowed levels per model.
 
-## Modell für automatische Überschriften
+The defaults are stored under `${DATA_DIR}/plugins/<product-plugin>/model-settings.json`. Each
+product plugin owns its own store and its own methods `ragents.product.modelSettings.read` and
+`.save`. Reading requires `settings.read`, saving additionally `settings.write`. A save transmits
+all actual roles; missing, duplicate, or unknown roles, models not offered, and disallowed thinking
+levels are rejected before writing. The file is replaced atomically.
 
-Die Titelerzeugung ist ein Host-Dienst mit einer eigenen Modellwahl unter Einstellungen,
-Modelle, Überschriften. Sie verwendet den vorhandenen Laufzeitkatalog des konfigurierten
-`COMPACTION_PROVIDER`, unabhängig von `AGENT_MODELS` und den Rollen. Wählbar sind
-Modelle mit Texteingabe, die ausgeschaltetes Reasoning unterstützen. Die Titelausführung
-setzt Reasoning immer auf `off`; es gibt keine zusätzliche Denktiefenwahl.
+If the file is missing, the validated configured defaults apply. Corrupted or invalid file contents
+abort the start. New actors and the default selection of runs not yet started use the stored
+defaults without a server restart. An explicit start or spawn selection remains authoritative;
+existing actors keep their frozen execution.
 
-`COMPACTION_MODEL` ist die Vorgabe, solange `${DATA_DIR}/title-settings.json` fehlt;
-eine leere Vorgabe deaktiviert die automatische Erzeugung. Bietet der Anbieter kein geeignetes
-Modell an, bleibt die Auswahl leer: ohne Vorgabe startet der Server mit abgeschalteter
-Titelerzeugung und sagt das in den Einstellungen, eine Vorgabe ohne passendes Modell bleibt ein
-Startfehler. Die mitgelieferten Dateien für
-core und showcase verwenden `google/gemma-4-26b-a4b-it`
-(Gemma 4 A4B). Gemma 4 A4B, Qwen 3.8 Flash und GPT-5.4 nano stehen am Anfang der geeigneten
-Modellauswahl; weitere passende Modelle bleiben wählbar. Gespeicherte Einstellungen haben
-Vorrang. Die Datei enthält `selection` mit Anbieter und Modell oder `null` zum Deaktivieren.
-Unbekannte Modelle, ungültige Datei- oder Anfrageinhalte
-werden abgewiesen; ein ungültiger gespeicherter Stand verhindert den Start. Speichern ersetzt
-die Datei atomar und übernimmt die Auswahl erst nach erfolgreichem Schreiben.
+The global coordinator still has its own immediately effective model selection and its own store.
+Its initial selection is stored already at the first initialization. Changes to the product
+defaults therefore do not switch it, even after a restart; conversely, its own selection changes no
+defaults for new runs or agents.
 
-`ragents.settings.titles.read` liefert Auswahl und verfügbaren Katalog mit `settings.read`.
-`ragents.settings.titles.save` benötigt zusätzlich `settings.write` und speichert ausschließlich die Auswahl. Änderungen
-gelten ab der nächsten Titelerzeugung. Bereits erzeugte oder ausdrücklich gesetzte Titel bleiben
-erhalten; Modelle und Denktiefen von Agenten oder globalem Koordinator ändern sich nicht.
+## Model for automatic titles
+
+Title generation is a host service with its own model selection under Settings, Models, Titles. It
+uses the existing runtime catalog of the configured `COMPACTION_PROVIDER`, independent of
+`AGENT_MODELS` and the roles. Models with text input that support reasoning turned off are
+selectable. Title execution always sets reasoning to `off`; there is no additional thinking level
+selection.
+
+`COMPACTION_MODEL` is the default as long as `${DATA_DIR}/title-settings.json` is missing; an empty
+default disables automatic generation. If the provider offers no suitable model, the selection
+stays empty: without a default, the server starts with title generation turned off and says so in
+the settings; a default without a matching model stays a start error. The bundled files for core
+and showcase use `google/gemma-4-26b-a4b-it` (Gemma 4 A4B). Gemma 4 A4B, Qwen 3.8 Flash, and
+GPT-5.4 nano are at the top of the suitable model selection; further matching models stay
+selectable. Stored settings take precedence. The file contains `selection` with provider and model
+or `null` to disable. Unknown models and invalid file or request contents are rejected; an invalid
+stored state prevents the start. Saving replaces the file atomically and applies the selection only
+after a successful write.
+
+`ragents.settings.titles.read` returns selection and available catalog with `settings.read`.
+`ragents.settings.titles.save` additionally requires `settings.write` and stores exclusively the
+selection. Changes apply from the next title generation. Titles already generated or explicitly set
+are preserved; models and thinking levels of agents or the global coordinator do not change.
 
 <!-- guide:access -->
 ## Sign-in and permissions
@@ -434,59 +467,57 @@ and allowed templates without a password. It cannot be combined with `users`. Wi
 enabled and no valid session, all permissions are denied.
 <!-- /guide:access -->
 
-### Anmeldung und Token im Einzelnen
+### Sign-in and tokens in detail
 
-Der Vertrag `ProfileUser` steht in `config-definition.ts`. Ein vorhandener `users`-Export
-schaltet die Anmeldung ein. Die Benutzerliste wird getrennt von der Plugin-Konfiguration geladen
-und erscheint nicht in öffentlichen Umgebungsdeskriptoren. Steht ein Passwort als `env(...)` in
-der Datei, wird eine vorhandene `env`-Importzeile ergänzt, nicht ein zweites Mal angelegt. Die
-interne [Entwicklerreferenz](../homepage/developer.md) nennt die aktuellen Rechte
-für Runs, Einstellungen und globalen Koordinator direkt aus den ausführbaren Verträgen.
+The `ProfileUser` contract is in `config-definition.ts`. An existing `users` export turns sign-in
+on. The user list is loaded separately from the plugin configuration and does not appear in public
+environment descriptors. If a password is in the file as `env(...)`, an existing `env` import line
+is extended, not added a second time. The internal
+[developer reference](../homepage/developer.md) names the current permissions for runs, settings,
+and the global coordinator directly from the executable contracts.
 
-Ein persönlicher Token steht nur als Referenz auf die Serverumgebung in der Datei, nie im
-Klartext; er hat 16 bis 512 druckbare ASCII-Zeichen ohne `$` und `!`. Er gilt als
-`Authorization: Bearer` und bei GET-Abrufen als Abfrageparameter `access`, ohne Cookie; gedacht
-ist er etwa für einen lokalen RAgents-Server, der Modelle und Profil von diesem Server bezieht.
-Der Server vergleicht zeitkonstant; derselbe Token bei zwei Benutzern ist ein Startfehler. Ist
-die genannte Umgebungsvariable nicht gesetzt oder leer, hat der Benutzer keinen persönlichen
-Token und meldet sich weiter mit seinem Passwort an; das ist kein Startfehler. Abmelden
-widerruft keinen persönlichen Token.
+A personal token is in the file only as a reference to the server environment, never in plain
+text; it has 16 to 512 printable ASCII characters without `$` and `!`. It applies as
+`Authorization: Bearer` and, for GET requests, as the query parameter `access`, without a cookie;
+it is intended, for example, for a local RAgents server that gets models and profile from this
+server. The server compares in constant time; the same token for two users is a start error. If
+the named environment variable is not set or empty, the user has no personal token and keeps
+signing in with their password; that is not a start error. Signing out does not revoke a personal
+token.
 
-Die verbindlichen Rechtenamen und ihre Bedeutungen stehen in `packages/ragents/src/access.ts`
-und bei den beitragenden Plugins. `AccessContext.can`, `hasRight` und `accessMode` verwenden
-dieselbe Prüfung. Ein `anonymousUser` begrenzt den Zugang auch ohne Anmeldung. Der öffentliche
-Snapshot enthält nur Anmeldemodus und Benutzer mit Kennung, Anzeigename und Rechten. Die
-Entwicklerreferenz erzeugt Namen, Host-Routenzuordnung und Verträge aus diesem Code und enthält
-geprüfte Beispiele für Leser, Bediener und ein eigenes Plugin.
+The binding permission names and their meanings are in `packages/ragents/src/access.ts` and in the
+contributing plugins. `AccessContext.can`, `hasRight`, and `accessMode` use the same check. An
+`anonymousUser` limits access even without sign-in. The public snapshot contains only the sign-in
+mode and users with identifier, display name, and permissions. The developer reference generates
+names, host route mapping, and contracts from this code and contains checked examples for readers,
+operators, and a custom plugin.
 
-Die Anmeldung verwendet Benutzerkennung und Passwort. Der Server hält eine undurchsichtige
-Anmeldesitzung zwölf Stunden im Speicher; das profilbezogene Cookie ist HttpOnly und SameSite=Lax.
-Abmelden, Ablauf und Neustart machen die Sitzung ungültig; zugehörige offene HTTP-Antworten
-einschließlich Ereignisströmen und laufenden Abrufen werden beim Abmelden oder Ablauf abgebrochen.
-Bereits gestartete Agenten-Runs werden dadurch nicht automatisch gestoppt. Der Browser kehrt bei
-verlorener Sitzung zur Anmeldung zurück, sobald eine Anfrage an einen geschützten Pfad (`/api`,
-`/rpc` samt Ereignisstrom `/rpc/stream`, `/files`) mit 401 antwortet (`observeAccessExpiry`).
-Benutzeränderungen werden mit dem nächsten Serverstart wirksam.
-Die Anmeldung gilt je Browser, nicht je Tab: Eine neue Anmeldung in einem zweiten Tab ersetzt
-das Cookie für alle Tabs, und deren Anfragen laufen ab dann unter dem neuen Benutzer. Ein Tab
-lädt deshalb bei jedem Fokus den angemeldeten Benutzer nach und übernimmt einen Wechsel sofort.
-Zwei Benutzer gleichzeitig brauchen zwei Browser oder ein privates Fenster. Prompts, Skills und
-Tests nennen keinen echten Benutzer; der Eigentümer eines Runs kommt allein aus der Anmeldung.
-Clients ohne Cookie-Speicher (die VS-Code-Erweiterung und ihre iframes) lesen den Sitzungstoken
-aus dem `Set-Cookie`-Header der Anmeldeantwort und senden ihn als `Authorization: Bearer`; für
-GET-Abrufe, die keinen Header setzen können (Ereignisstrom, Mini-App-Frames), gilt er auch als
-Abfrageparameter `access` (`ACCESS_TOKEN_QUERY` in `packages/ragents/src/access.ts`). Ein
-Bearer-Header hat Vorrang vor Cookie und Abfrageparameter; Abmelden mit Bearer widerruft die
-Sitzung genauso.
+Sign-in uses user identifier and password. The server keeps an opaque sign-in session in memory
+for twelve hours; the profile-specific cookie is HttpOnly and SameSite=Lax. Signing out, expiry,
+and restart invalidate the session; associated open HTTP responses including event streams and
+running requests are aborted on sign-out or expiry. Agent runs already started are not stopped
+automatically by this. When the session is lost, the browser returns to sign-in as soon as a
+request to a protected path (`/api`, `/rpc` including the event stream `/rpc/stream`, `/files`)
+responds with 401 (`observeAccessExpiry`). User changes take effect with the next server start.
+Sign-in applies per browser, not per tab: a new sign-in in a second tab replaces the cookie for all
+tabs, and their requests from then on run under the new user. A tab therefore reloads the
+signed-in user on every focus and applies a change immediately. Two users at the same time need
+two browsers or a private window. Prompts, skills, and tests name no real user; the owner of a run
+comes solely from the sign-in. Clients without cookie storage (the VS Code extension and its
+iframes) read the session token from the `Set-Cookie` header of the sign-in response and send it
+as `Authorization: Bearer`; for GET requests that cannot set a header (event stream, mini-app
+frames), it also applies as the query parameter `access` (`ACCESS_TOKEN_QUERY` in
+`packages/ragents/src/access.ts`). A bearer header takes precedence over cookie and query
+parameter; signing out with a bearer revokes the session the same way.
 
-Der ältere `ACCESS_TOKEN`-Zugang gilt nur, wenn das Profil keine Benutzer definiert. Bei
-konfigurierten Benutzern ersetzt die Anmeldung diesen Zugang; der alte Token umgeht sie nicht.
-Er nimmt den Token als Bearer, Cookie oder Abfrageparameter `access` an; nur eine Seitennavigation
-mit dem Parameter wird nach dem Setzen des Cookies auf die tokenfreie Adresse umgeleitet, iframes
-und API-Abrufe laufen direkt weiter. Das gebaute Web unter `/assets/`, die Dateien der Web-Hälften
-unter `/plugins/<id>/web/` ohne ihre Sourcemaps und das Stylesheet `/ragents.css` sind frei, damit
-ein iframe ohne Cookie seine Skripte laden kann; jede Datenroute, jede Sourcemap und alles andere
-unter `/plugins/` verlangt den Token.
+The older `ACCESS_TOKEN` access applies only if the profile defines no users. With configured
+users, sign-in replaces this access; the old token does not bypass it. It accepts the token as
+bearer, cookie, or query parameter `access`; only a page navigation with the parameter is
+redirected to the token-free address after the cookie is set, iframes and API requests continue
+directly. The built web under `/assets/`, the files of the web halves under `/plugins/<id>/web/`
+without their source maps, and the stylesheet `/ragents.css` are open, so that an iframe without a
+cookie can load its scripts; every data route, every source map, and everything else under
+`/plugins/` requires the token.
 
 <!-- guide:access -->
 ## Run ownership
@@ -504,10 +535,10 @@ one coordinator. A start option can additionally mark a run
 as `ownerOnly`, as the workspace binding does for tools running on the owner's machine. Other
 users with visibility may still read its journal and stop it, but only its owner can send messages,
 answer actions, restart actors, or invoke operations requiring `runs.write`. Its workspace is the
-owner's alone even for reading: the workspace files in the Dateien tab, the process rail, and
+owner's alone even for reading: the workspace files in the Files tab, the process rail, and
 language-server state are refused to everyone else, including `runs.read.all`
 (`run-workspace-owner-only`). The run list asks nothing from such a
-workspace on their behalf, and web and VS Code hide what needs it; the Dateien tab then shows only
+workspace on their behalf, and web and VS Code hide what needs it; the Files tab then shows only
 the server's file store.
 
 Only a signed-in user of a profile with `users` can register a workstation over the network. A
@@ -525,88 +556,86 @@ phases appear only as empty progress markers while arguments, source, results, a
 removed on the server.
 <!-- /guide:access -->
 
-### Eigentum im Einzelnen
+### Ownership in detail
 
-Das Eigentum gilt für jeden Weg, einen Run anzulegen, auch für `ragents.overseer.createRun`:
-Eigentümer wird der aufrufende Benutzer, beim Aufruf aus den Werkzeugen eines globalen
-Koordinators dessen Benutzer. Die Rolle mit `*` hat `runs.read.all` automatisch. `run.created` führt neben dem
-menschlichen Teilnehmer dessen `owner.userId`, der Serverzustand des Runs führt ihn als
-`ownerUserId`; die Run-Ansicht für Clients nennt ihn nicht. Auch ein Run aus der Zeit vor dieser
-Regel hat keinen Eigentümer; ein Run ohne Eigentümer fällt keinem Bediener zu.
+Ownership applies to every way of creating a run, including `ragents.overseer.createRun`: the
+owner is the calling user, and for a call from the tools of a global coordinator, its user. The
+role with `*` has `runs.read.all` automatically. `run.created` carries, besides the human
+participant, its `owner.userId`; the server state of the run carries it as `ownerUserId`; the run
+view for clients does not name it. A run from the time before this rule also has no owner; a run
+without an owner falls to no operator.
 
-Durchgesetzt wird das allein auf dem Server, nicht in der Oberfläche, für die Beiträge der
-Plugins genauso wie für die des Hosts: Die Nachrichtenschicht prüft jede Eingabe mit `runId`
-und jede Adresse mit dem Abschnitt `runs/<kennung>`, der globale Koordinator löst seine
-Run-Referenzen nur über die Runs des Aufrufers auf, und auch der Oberflächenkontext einer
-Nachricht darf keinen fremden Run nennen. Ein fremder Run antwortet mit `run-not-found` (Status
-404); eine geratene Kennung verrät also nicht, dass es den Run gibt. Eine Kennung, unter der noch
-kein Run liegt, bleibt frei: Sie gehört dem, der den Run unter ihr anlegt. Ein Profil ohne
-Anmeldung (`anonymousUser` oder ganz ohne Benutzerliste) hat genau einen Zugang und sieht alles.
-Jeder Benutzer hat seinen eigenen globalen Koordinator (`core.md`, Globaler
-Koordinator); dessen Kennung erreicht nur er, auch nicht `runs.read.all`, auch nicht, solange noch
-kein Run unter ihr liegt, und der Koordinator behält die Rechte seines Plugins. Ein importierter Run behält den Eigentümer aus seinem Journal; stammt er von
-einem Server ohne Anmeldung, ist er nach dem Import ein Run ohne Eigentümer.
+This is enforced solely on the server, not in the interface, for the contributions of the plugins
+just as for those of the host: the message layer checks every input with `runId` and every address
+with the segment `runs/<id>`, the global coordinator resolves its run references only through the
+caller's runs, and the interface context of a message must not name a foreign run either. A foreign
+run responds with `run-not-found` (status 404); a guessed identifier therefore does not reveal that
+the run exists. An identifier under which no run exists yet stays free: it belongs to whoever
+creates the run under it. A profile without sign-in (`anonymousUser` or entirely without a user
+list) has exactly one access and sees everything. Every user has their own global coordinator
+(`core.md`, Global coordinator); its identifier is reachable only by that user, not with
+`runs.read.all`, not even while no run exists under it yet, and the coordinator keeps the
+permissions of its plugin. An imported run keeps the owner from its journal; if it comes from a
+server without sign-in, it is a run without an owner after the import.
 
-`ownerOnly` erklärt ein Plugin mit einer Startoption; in core tut das die Bindung an einen
-Arbeitsplatz, weil die Werkzeuge eines solchen Runs auf dem Rechner und mit den Zugangsdaten des
-Eigentümers laufen. Lesen und stoppen dürfen einen solchen Run alle, die ihn sehen, auch mit
-`runs.read.all`. Zum Bedienen gehören Nachrichten, Vorlagen, Eingaben an einzelne Actors, der
-Neustart eines Actors, Antworten auf wartende Aktionen und jeder Beitrag eines Plugins,
-dessen Vertrag `runs.write` verlangt. Jeder andere Zugang bekommt dafür `run-owner-only` (Status
-403); er sieht den Run, eine Tarnung als nicht vorhanden wäre hier falsch. Ein solcher Run ohne
-Eigentümer ist nur ohne Anmeldung bedienbar, denn dort gibt es genau einen Zugang, für den der
-Vorbehalt nicht greift. Der Kern kennt dabei nur diesen Zustand, kein Werkzeug und keinen
-Arbeitsplatz. Die Werkzeuge eines globalen Koordinators handeln als sein Benutzer; einen
-fremden solchen Run sehen und bedienen sie also genau so wenig wie dieser.
+A plugin declares `ownerOnly` with a start option; in core, the binding to a workstation does so,
+because the tools of such a run run on the owner's machine and with the owner's credentials.
+Everyone who sees such a run may read and stop it, including with `runs.read.all`. Operating it
+includes messages, templates, inputs to individual actors, restarting an actor, answers to pending
+actions, and every contribution of a plugin whose contract requires `runs.write`. Any other access
+gets `run-owner-only` (status 403) for these; it sees the run, and disguising it as nonexistent
+would be wrong here. Such a run without an owner can be operated only without sign-in, because
+there is exactly one access there, to which the restriction does not apply. The core knows only
+this state, no tool and no workstation. The tools of a global coordinator act as its user; they
+therefore see and operate a foreign run of this kind just as little as that user does.
 
-### Rechte im Einzelnen
+### Permissions in detail
 
-Ohne `runs.create` startet `ragents.chat.start` nur ein Run-Script aus `user.startEntries`;
-beliebige Texte, andere Vorlagenkennungen und technische Startparameter sind gesperrt. Der
-Katalog enthält für diese Benutzer nur die freigegebenen Scripts. Die Auswahl gilt für neue
-Starts; bestehende eigene Runs bleiben zugänglich. `runs.delete` erlaubt, Runs samt ihren
-gespeicherten Daten zu löschen (`ragents.runs.delete`).
+Without `runs.create`, `ragents.chat.start` starts only a run script from `user.startEntries`;
+arbitrary texts, other template identifiers, and technical start parameters are blocked. For these
+users, the catalog contains only the allowed scripts. The selection applies to new starts; existing
+own runs stay accessible. `runs.delete` allows deleting runs together with their stored data
+(`ragents.runs.delete`).
 
-`runs.inspect` schützt Modelle, Journal, Quellen, Werkzeuge und allgemeine technische Einsicht;
-Tabs und lesende Methoden prüfen dasselbe Recht. Ohne `runs.inspect` fehlen technische Reiter,
-Inspektoren und Programmquellen, die Fläche zeigt Mini-Apps und LLM-Gespräche, und
-TypeScript-Steueractors bleiben verborgen. Der Server redigiert dann Modelle, Prompts, Grants,
-Werkzeugausgaben und technische Startzustände in den Run- und Chat-Snapshots (`access-projection.ts`).
-Plugin-Zustände und die Chat-Ereignisse zu ihnen zeigt er so, wie das Plugin es mit seiner
-Zugriffsprojektion festlegt ([plugins.md](plugins.md), Registrierungen des PluginHost): die
-Actor-Programme etwa lassen von einem Programm nur Name, Actor und Ansichten stehen und von ihren
-Aufrufen nur den Zeitpunkt der letzten Änderung, ihre Chat-Ereignisse fallen weg. Den gespeicherten
-Wert einer Startoption samt Chat-Ereignis sieht nur, wer ihre `rights` hat, also Modell und
-Systemprompt nur mit `runs.inspect`. Alle übrigen Zustände bleiben unverändert.
-Startoptionen verlangen `runs.create` (die Wahl dazu `runs.write`); jede Option nennt darüber
-hinaus ihre eigenen Rechte (`rights`). Modellwahl und Systemprompt-Wahl verlangen `runs.inspect`,
-weil ihre Darstellung Modelle, Anbieter und Prompttexte zeigt; die Ordnerbindung
-`ragents.workspace.binding` verlangt nichts Zusätzliches. Ohne ein solches Recht fehlt die Option
-in `ragents.startOptions.list`, und ihre Wahl scheitert mit `access-denied`; beim Start gilt ihr
-Standardwert oder der Wert der Vorlage. Dieselben Rechte gelten für die Modellwahl in der
-Chat-Eingabe eines laufenden Runs, die derselbe Aufruf ist; ohne sie fehlt dort die Auswahl. Fachliche
-Zustände und Mini-App-Aktionen bleiben verfügbar, einschließlich der Ergebnisabfrage laufender
-App-Aktionen. Language-Server-Ansichten verwenden ihr eigenes `<pluginId>.read`; damit lassen sich
-Diagnosen unabhängig von Modell- und Werkzeugdetails freigeben. Eine Solution im Reiter umschalten
-verlangt zusätzlich `runs.write` und `<pluginId>.write`, weil es Sprachserver des Runs beendet und
-startet.
+`runs.inspect` protects models, journal, sources, tools, and general technical insight; tabs and
+reading methods check the same permission. Without `runs.inspect`, technical tabs, inspectors, and
+program sources are missing, the surface shows mini-apps and LLM conversations, and TypeScript
+control actors stay hidden. The server then redacts models, prompts, grants, tool outputs, and
+technical start states in the run and chat snapshots (`access-projection.ts`). It shows plugin
+states and the chat events for them as the plugin defines with its access projection
+([plugins.md](plugins.md), registrations of the PluginHost): the actor programs, for example, leave
+only name, actor, and views of a program and only the time of the last change of its calls, and
+their chat events are dropped. The stored value of a start option including its chat event is
+visible only to whoever has its `rights`, so model and system prompt only with `runs.inspect`. All
+other states stay unchanged. Start options require `runs.create` (choosing them `runs.write`); each
+option additionally names its own permissions (`rights`). Model selection and system prompt
+selection require `runs.inspect`, because their display shows models, providers, and prompt texts;
+the folder binding `ragents.workspace.binding` requires nothing additional. Without such a
+permission, the option is missing from `ragents.startOptions.list`, and choosing it fails with
+`access-denied`; at start, its default value or the value of the template applies. The same
+permissions apply to the model selection in the chat input of a running run, which is the same
+call; without them, the selection is missing there. Domain states and mini-app actions stay
+available, including the result query of running app actions. Language server views use their own
+`<pluginId>.read`; this allows diagnostics to be shared independently of model and tool details.
+Switching a solution in the tab additionally requires `runs.write` and `<pluginId>.write`, because
+it stops and starts language servers of the run.
 
-`runs.trace` gibt ohne die übrige technische Einsicht die Denk- und Werkzeugschritte des Chats
-mit Inhalt frei und erlaubt dem Benutzer, ihren Detailgrad selbst zu wählen. Ohne dieses Recht
-(und ohne `runs.inspect`) enthalten Chatstream und Actor-Verlauf für Denk- und Werkzeugphasen nur
-leere Statusmarker mit Start- und Abschlussinformation; Namen, Argumente, Quelltext, Ergebnisse
-und Denktexte entfernt der Server. So bleibt die aktuelle Arbeitsphase sichtbar, ohne technische
-Details freizugeben.
+`runs.trace` reveals the reasoning and tool steps of the chat with their content without the rest
+of the technical insight and lets the user choose their level of detail. Without this permission
+(and without `runs.inspect`), the chat stream and actor history contain only empty status markers
+with start and completion information for reasoning and tool phases; the server removes names,
+arguments, source, results, and reasoning texts. This keeps the current working phase visible
+without revealing technical details.
 
-Einstellungen und globaler Koordinator behalten ihre eigenen Rechte. Diese Rechte ersetzen keine
-Ausführungssandbox für selbst geschriebenen nativen Code; die übernimmt auf dem Server die
-Prozess-Sandbox ([plugins.md](plugins.md), Prozess-Sandbox des Servers). Der globale Koordinator hat eigene
-Lese- und Schreibrechte; Änderungen seiner Modellwahl brauchen zusätzlich das Recht zum Schreiben
-von Einstellungen. Sein Arbeitsbereich erhält einen lokalen Token für den Zugang seines Benutzers,
-ausschließlich für die Nachrichtenschicht und Hilfe über Loopback; der Server löst ihn bei jedem
-Aufruf in den aktuellen Stand dieses Benutzers auf. Er hat damit genau dessen Rechte, keine
-weiteren, auch für Einstellungen und den eigenen Gesprächsreset; die Anmeldung ist darüber nicht
-erreichbar, und der Token geht nicht an den Browser. Ohne Benutzer, aber mit `anonymousUser` steht der Token für den anonymen Zugang.
+Settings and the global coordinator keep their own permissions. These permissions do not replace
+an execution sandbox for self-written native code; on the server, the process sandbox takes care of
+that ([plugins.md](plugins.md), process sandbox of the server). The global coordinator has its own
+read and write permissions; changes to its model selection additionally require the permission to
+write settings. Its workspace receives a local token for its user's access, exclusively for the
+message layer and help over loopback; the server resolves it on every call to the current state of
+that user. It thus has exactly that user's permissions, no more, also for settings and its own
+conversation reset; sign-in is not reachable through it, and the token does not go to the browser.
+Without users but with `anonymousUser`, the token stands for the anonymous access.
 
 <!-- guide:access -->
 ## Function selection and actor grants
@@ -624,29 +653,31 @@ not supply missing grants. The [runtime guide](../homepage/guide-runtime.html#eq
 shows selections for conversation and coding agents.
 <!-- /guide:access -->
 
-### Grants im Einzelnen
+### Grants in detail
 
-Eine Workspace-Grenze deckt den angegebenen Pfad und seine Unterverzeichnisse ab. Beim Vererben
-delegierbarer Grants bleibt dieser Bereich erhalten; ein neuer Actor bekommt dadurch nicht
-automatisch ein eigenes engeres Verzeichnis. Die Auswahl von `read` ersetzt keinen fehlenden
-Grant für `workspace.use`. Auch ein erfolgreich typgeprüftes Snippet bleibt an seine
-Aufrufidentität gebunden; Übersicht, Nachschlagen und Ausführung verwenden den für diesen Actor
-freigegebenen Bestand.
+A workspace boundary covers the given path and its subdirectories. When delegable grants are
+inherited, this scope is preserved; a new actor therefore does not automatically get its own
+narrower directory. Selecting `read` does not replace a missing grant for `workspace.use`. Even a
+successfully type-checked snippet stays bound to its call identity; overview, lookup, and execution
+use the set allowed for this actor.
 
-## Offene Grenzen
+## Open limits
 
-- Benutzer werden in der Profildatei gepflegt; es gibt weder OAuth noch eine Benutzerverwaltung
-  oder Passwortänderung in der Oberfläche. Anmeldesitzungen überleben keinen Serverneustart.
-- Benutzerrechte gelten für das gesamte Profil, nicht je Run oder Agentenwerkzeug.
-- Mit Benutzern hat der globale Koordinator keine Host-Shell. Seine TypeScript-Snippets laufen wie
-  alle Prozesse des Servers in der Prozess-Sandbox und lesen weder das Datenverzeichnis noch die
-  Journale anderer Benutzer. Schaltet die Profildatei die Sandbox ab (`PROCESS_SANDBOX: "off"`),
-  laufen sie als nativer Node-Prozess des Servers ohne eigene Systemkennung und könnten beides
-  lesen. Über den Server selbst erreicht der Koordinator weiter genau die Rechte seines Benutzers.
-- Die Modellwahl der Koordinatoren prüft beim Wechsel die Anhänge aller Koordinatorgespräche,
-  auch die eines früheren gemeinsamen oder eines entfernten Benutzers.
-- Die Provisionierung holt nur, was die Bundles eines Profils als `provision` exportieren;
-  Voraussetzungen wie `dotnet` oder ein eigener Chrome bleiben Sache des Entwicklers und brechen
-  den Start mit ihrer Anweisung ab. Zu Windows siehe `plugins.md`, Offene Grenzen.
-- Modelle eines Relays tragen Kosten 0, weil der Preis das echte Modell verraten würde;
-  Tokenzahlen bleiben richtig.
+- Users are maintained in the profile file; there is neither OAuth nor user management or password
+  change in the interface. Sign-in sessions do not survive a server restart.
+- User permissions apply to the entire profile, not per run or agent tool.
+- With users, the global coordinator has no host shell. Its TypeScript snippets run, like all
+  processes of the server, in the process sandbox and read neither the data directory nor the
+  journals of other users. If the profile file turns the sandbox off (`PROCESS_SANDBOX: "off"`),
+  they run as a native Node process of the server without their own system identity and could read
+  both. Through the server itself, the coordinator still reaches exactly the permissions of its
+  user.
+- When switching, the coordinators' model selection checks the attachments of all coordinator
+  conversations, including those of a former shared user or a removed user.
+- Provisioning fetches only what the bundles of a profile export as `provision`; prerequisites
+  such as `dotnet` or a separate Chrome remain the developer's business and abort the start with
+  their instruction. For Windows, see `plugins.md`, Open limits.
+- Models of a relay carry cost 0, because the price would reveal the real model; token counts stay
+  correct.
+- Of the `thinkingFormat` values in `packages/ai`, a provider in `MODEL_PROVIDERS` supports only
+  `qwen-chat-template`; the transport does not implement the others, `chat-template` included.

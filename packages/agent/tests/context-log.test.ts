@@ -9,18 +9,18 @@ const compaction = (id: string, firstKeptId: string, summary: string): ContextLo
 
 test("the latest compaction replaces everything before its first kept entry, earlier compactions included", () => {
 	const log = [
-		message("a", "eins"),
-		message("b", "zwei"),
-		compaction("c1", "b", "erste"),
-		message("d", "drei"),
-		message("e", "vier"),
-		compaction("c2", "e", "zweite"),
-		message("f", "fünf"),
+		message("a", "one"),
+		message("b", "two"),
+		compaction("c1", "b", "first"),
+		message("d", "three"),
+		message("e", "four"),
+		compaction("c2", "e", "second"),
+		message("f", "five"),
 	];
 	assert.deepEqual(activeContextEntries(log).map((entry) => entry.id), ["c2", "e", "f"]);
-	assert.deepEqual(contextMessages(log).map((entry) => entry.role === "compactionSummary" ? entry.summary : entry.role === "user" ? entry.content : ""), ["zweite", "vier", "fünf"]);
+	assert.deepEqual(contextMessages(log).map((entry) => entry.role === "compactionSummary" ? entry.summary : entry.role === "user" ? entry.content : ""), ["second", "four", "five"]);
 });
 
 test("without a compaction the whole log is the context", () => {
-	assert.deepEqual(activeContextEntries([message("a", "eins"), message("b", "zwei")]).map((entry) => entry.id), ["a", "b"]);
+	assert.deepEqual(activeContextEntries([message("a", "one"), message("b", "two")]).map((entry) => entry.id), ["a", "b"]);
 });

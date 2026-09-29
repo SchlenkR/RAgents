@@ -4,11 +4,11 @@ import { Button, Checkbox, Input, Table, TableBody, TableCell, TableHead, TableH
 import type { DataTableProps, TableAction, TableColumn, TableValue } from "./table-contracts";
 
 export type TableSort = { id: string; direction: "asc" | "desc" };
-const displayValue = (value: TableValue) => value === null || value === undefined ? "" : typeof value === "boolean" ? value ? "Ja" : "Nein" : String(value);
+const displayValue = (value: TableValue) => value === null || value === undefined ? "" : typeof value === "boolean" ? value ? "Yes" : "No" : String(value);
 
 export function tableRows<Row>(rows: readonly Row[], columns: readonly TableColumn<Row>[], query: string, sort?: TableSort): Row[] {
-  const needle = query.trim().toLocaleLowerCase("de-DE");
-  const filtered = rows.filter((row) => !needle || columns.some((column) => column.filterable !== false && displayValue(column.value(row)).toLocaleLowerCase("de-DE").includes(needle)));
+  const needle = query.trim().toLocaleLowerCase("en-US");
+  const filtered = rows.filter((row) => !needle || columns.some((column) => column.filterable !== false && displayValue(column.value(row)).toLocaleLowerCase("en-US").includes(needle)));
   const column = sort && columns.find((entry) => entry.id === sort.id && entry.sortable);
   if (!column || !sort) return filtered;
   return filtered.sort((left, right) => {
@@ -18,7 +18,7 @@ export function tableRows<Row>(rows: readonly Row[], columns: readonly TableColu
     if (b === null || b === undefined) return -1;
     const order = typeof a === "number" && typeof b === "number" ? a - b
       : typeof a === "boolean" && typeof b === "boolean" ? Number(a) - Number(b)
-      : String(a).localeCompare(String(b), "de-DE", { numeric: true });
+      : String(a).localeCompare(String(b), "en-US", { numeric: true });
     return sort.direction === "asc" ? order : -order;
   });
 }
@@ -61,11 +61,11 @@ export function DataTable<Row>(props: DataTableProps<Row>) {
     }
   };
   return (
-    <section aria-label={title ?? "Datentabelle"} aria-busy={loading} className="flex min-w-0 flex-col gap-3">
+    <section aria-label={title ?? "Data table"} aria-busy={loading} className="flex min-w-0 flex-col gap-3">
       {title && <h2 className="text-base font-semibold">{title}</h2>}
-      {filterable && <Input aria-label="Tabelle durchsuchen" id={filterId} onChange={(event) => setQuery(event.target.value)} placeholder="Tabelle durchsuchen" type="search" value={query} />}
+      {filterable && <Input aria-label="Search table" id={filterId} onChange={(event) => setQuery(event.target.value)} placeholder="Search table" type="search" value={query} />}
       {loading && <p className="text-sm text-muted-foreground" role="status">Loading...</p>}
-      <div aria-label={title ?? "Tabelleninhalt"} className="max-w-full overflow-auto" role="region" tabIndex={0}>
+      <div aria-label={title ?? "Table content"} className="max-w-full overflow-auto" role="region" tabIndex={0}>
         <Table>
           <TableHeader><TableRow>
             {selectable && <TableHead className="w-8"><Checkbox aria-label="Select all visible rows" checked={allSelected} disabled={loading || visible.length === 0} indeterminate={partiallySelected} onCheckedChange={toggleVisible} /></TableHead>}
@@ -76,7 +76,7 @@ export function DataTable<Row>(props: DataTableProps<Row>) {
                 </Button>
                 : column.label}
             </TableHead>)}
-            {actions.length > 0 && <TableHead>Aktionen</TableHead>}
+            {actions.length > 0 && <TableHead>Actions</TableHead>}
           </TableRow></TableHeader>
           <TableBody>
             {visible.map((row) => {

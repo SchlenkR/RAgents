@@ -41,7 +41,7 @@ const packageOf = (overrides: Partial<RunScriptPackage> = {}, entry: Partial<Run
   programs: [],
   ...overrides,
   entry: {id: "test.example", owner: "test", action: "script", coordinator: overrides.coordinator ?? true,
-    title: "Beispiel-Run", description: "Ein Run aus dem Test", ...entry},
+    title: "Example run", description: "A run from the test", ...entry},
 });
 
 const createFixture = (runId: string, packages: readonly RunScriptStart[], controls: {
@@ -98,9 +98,9 @@ const createFixture = (runId: string, packages: readonly RunScriptStart[], contr
     id: runId,
     coordinator: {
       handle: "coordinator",
-      displayName: "Koordinator",
+      displayName: "Coordinator",
       profile: "coordinator",
-      runTitle: "Neuer Run",
+      runTitle: "New run",
       ownerHandle: "owner",
       ownerDisplayName: "Owner",
     },
@@ -123,7 +123,7 @@ const createFixture = (runId: string, packages: readonly RunScriptStart[], contr
         imports.push({name, files: sourceFiles});
         if (sourceFiles.some((file) => file.content === "reject")) throw new Error("Package tests failed");
         const view = runtime.createScriptActor(context, id, {
-          handle: name, displayName: "Beispiel-Run", toolNames: null,
+          handle: name, displayName: "Example run", toolNames: null,
           grants: capabilityNames.map((capability) => ({capability, scope: {kind: "run"}, delegable: true})),
         });
         const actor = view.actors.find((entry) => entry.kind === "script" && entry.handle === name)!;
@@ -185,24 +185,24 @@ test("all script start entry points synchronously publish preparation, replay ea
     const pending = method === "startPackageAndWait" ? f.session.startPackageAndWait(script, null) : f.session[method]("test.example", null);
     void pending?.catch(() => {});
     assert.equal(f.session.started, true);
-    assert.deepEqual(replayStatus(f.session), { kind: "status", running: false, startup: { status: "preparing", message: "Run wird vorbereitet." } });
+    assert.deepEqual(replayStatus(f.session), { kind: "status", running: false, startup: { status: "preparing", message: "Preparing run." } });
     assert.equal(f.journal.stateOf(f.session.id), null);
     await preparation.entered;
     const beforeDuplicate = statusesOf(f.events).length;
-    await assert.rejects(f.session.startAndWait("test.unknown", null), /gerade gestartet/);
-    await assert.rejects(f.session.startPackageAndWait(script, null), /gerade gestartet/);
+    await assert.rejects(f.session.startAndWait("test.unknown", null), /is being started/);
+    await assert.rejects(f.session.startPackageAndWait(script, null), /is being started/);
     assert.equal(statusesOf(f.events).length, beforeDuplicate);
     preparation.release();
     await workspace.entered;
     assert.equal(f.runtime.view(f.session.id).actors.filter((actor) => actor.kind !== "human").length, 0);
-    assert.deepEqual(replayStatus(f.session).startup, { status: "preparing", message: "Arbeitsverzeichnis wird vorbereitet." });
+    assert.deepEqual(replayStatus(f.session).startup, { status: "preparing", message: "Preparing working directory." });
     const reloaded = f.createSession();
     assert.equal(reloaded.attach(), false);
     assert.deepEqual(replayStatus(reloaded), { kind: "status", running: false });
     reloaded.dispose();
     workspace.release();
     await importing.entered;
-    assert.deepEqual(replayStatus(f.session).startup, { status: "preparing", message: "Oberfläche wird vorbereitet." });
+    assert.deepEqual(replayStatus(f.session).startup, { status: "preparing", message: "Preparing UI." });
     const unsubscribe = f.journal.subscribe((events) => {
       const input = events.find((event) => event.type === "actor.input.enqueued");
       if (input?.type === "actor.input.enqueued") f.live.publish(f.session.id, input.payload.actorId, { kind: "turn-started", turnId: "setup-turn" });
@@ -215,11 +215,11 @@ test("all script start entry points synchronously publish preparation, replay ea
     assert.ok(statusesOf(f.events).some((event) => event.running && event.startup?.status === "preparing"), "Live status during enqueue must preserve startup");
     assert.deepEqual(replayStatus(f.session), { kind: "status", running: true });
     const boundStatus = f.events.findIndex((event, index) => event.kind === "reset" && index > 0);
-    assert.ok(statusesOf(f.events.slice(boundStatus)).some((event) => event.startup?.message === "Oberfläche wird vorbereitet."), "Binding a new primary actor must replay startup");
+    assert.ok(statusesOf(f.events.slice(boundStatus)).some((event) => event.startup?.message === "Preparing UI."), "Binding a new primary actor must replay startup");
     f.live.publish(f.session.id, f.runtime.view(f.session.id).primaryActorId!, { kind: "turn-finished", turnId: "setup-turn" });
     assert.deepEqual(replayStatus(f.session), { kind: "status", running: false });
     const finalCount = statusesOf(f.events).length;
-    await assert.rejects(f.session.startAndWait("test.example", null), /läuft schon/);
+    await assert.rejects(f.session.startAndWait("test.example", null), /already running/);
     assert.equal(statusesOf(f.events).length, finalCount);
   });
 });
@@ -252,7 +252,7 @@ test("stop clears the loader while tracking unfinished preparation and never enq
     const f = createFixture(`startup-stop-${stage.toLowerCase()}`, [packageOf()], { [stage]: blocked.wait });
     t.after(async () => { blocked.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, { recursive: true, force: true }); });
     const pending = f.session.startAndWait("test.example", null);
-    const rejected = assert.rejects(pending, /Start.*abgebrochen/);
+    const rejected = assert.rejects(pending, /start was cancelled/);
     await blocked.entered;
     await f.session.stop();
     assert.equal(replayStatus(f.session).startup?.status, "failed");
@@ -262,7 +262,7 @@ test("stop clears the loader while tracking unfinished preparation and never enq
       await new Promise((resolve) => setImmediate(resolve));
       assert.equal(settled, false);
       assert.equal(f.session.started, true);
-      await assert.rejects(f.session.startAndWait("test.example", null), /gerade gestartet/);
+      await assert.rejects(f.session.startAndWait("test.example", null), /is being started/);
       assert.equal(replayStatus(f.session).startup?.status, "failed");
     } else {
       await rejected;
@@ -282,7 +282,7 @@ test("dispose and history reset cancel preparation without replaying a stale sta
     const blocked = phase();
     const f = createFixture(`startup-clear-${reset}`, [packageOf()], { prepare: blocked.wait });
     t.after(async () => { blocked.release(); await f.session.drain(); f.journal.close(); rmSync(f.files, { recursive: true, force: true }); });
-    const rejected = assert.rejects(f.session.startAndWait("test.example", null), /gelöscht|zurückgesetzt/);
+    const rejected = assert.rejects(f.session.startAndWait("test.example", null), /deleted|reset/);
     await blocked.entered;
     if (reset) f.session.resetHistory();
     else f.session.dispose();
@@ -304,23 +304,23 @@ test("a local package transports all sources and node tests through the common i
   const directory = path.join(fixture.files, "own-setup");
   mkdirSync(path.join(directory, "src", "lib"), {recursive: true});
   mkdirSync(path.join(directory, "tests"));
-  writeFileSync(path.join(directory, "RUN.md"), "---\ntitle: Eigenes Setup\ndescription: Aus einer lokalen Datei\n---\n");
+  writeFileSync(path.join(directory, "RUN.md"), "---\ntitle: Own setup\ndescription: From a local file\n---\n");
   writeFileSync(path.join(directory, "package.json"), '{"private":true,"ragents":{"backend":"src/server.ts"}}');
   writeFileSync(path.join(directory, "src/server.ts"), 'export {value} from "./lib/value.js";');
   writeFileSync(path.join(directory, "src/lib/value.ts"), "export const value = 1;");
   writeFileSync(path.join(directory, "tests/app.test.ts"), 'import test from "node:test"; test("package", () => {});');
   try {
-    assert.throws(() => runScriptFromDirectory("own-setup"), /absoluten Serverdateipfad/);
+    assert.throws(() => runScriptFromDirectory("own-setup"), /absolute server file path/);
     const {script, ...entry} = runScriptFromDirectory(directory);
     assert.deepEqual(script.files.map((file) => file.path), ["package.json", "src/lib/value.ts", "src/server.ts", "tests/app.test.ts"]);
-    await fixture.session.startPackageAndWait({...script, entry: {...entry, owner: "test", coordinator: script.coordinator}}, {topic: "Lokales Thema"});
+    await fixture.session.startPackageAndWait({...script, entry: {...entry, owner: "test", coordinator: script.coordinator}}, {topic: "Local topic"});
     assert.deepEqual(fixture.imports, [{name: "own-setup", files: script.files}]);
     const view = fixture.runtime.view("local-package");
-    assert.equal(view.title, "Eigenes Setup");
+    assert.equal(view.title, "Own setup");
     assert.ok(view.actors.some((actor) => actor.kind === "script" && actor.handle === "own-setup"));
-    assert.deepEqual(JSON.parse(view.inputs[0]!.content).input, {topic: "Lokales Thema"});
+    assert.deepEqual(JSON.parse(view.inputs[0]!.content).input, {topic: "Local topic"});
     assert.equal(view.inputs[0]!.origin, undefined);
-    await assert.rejects(fixture.session.startPackageAndWait(packageOf(), null), /läuft schon/);
+    await assert.rejects(fixture.session.startPackageAndWait(packageOf(), null), /already running/);
   } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
 });
 
@@ -346,9 +346,9 @@ test("a run script starts over HTTP with coordinator primary and the selected st
   const runId = "run-script-start-coordinator";
   const fixture = createFixture(runId, [packageOf()]);
   try {
-    assert.equal(await startThroughChatHttp(fixture.session, runId, {entry: "test.example", input: {topic: "Testthema"}}), 202);
+    assert.equal(await startThroughChatHttp(fixture.session, runId, {entry: "test.example", input: {topic: "Test topic"}}), 202);
     const view = fixture.runtime.view(runId);
-    assert.equal(view.title, "Beispiel-Run");
+    assert.equal(view.title, "Example run");
     const primary = view.actors.find((actor) => actor.id === view.primaryActorId);
     assert.ok(primary && primary.kind === "agent" && primary.handle === "coordinator");
     const script = view.actors.find((actor) => actor.kind === "script");
@@ -360,9 +360,9 @@ test("a run script starts over HTTP with coordinator primary and the selected st
     assert.equal(view.inputs.length, 1);
     assert.equal(view.inputs[0]?.actorId, script.id);
     const content = JSON.parse(view.inputs[0]!.content);
-    assert.deepEqual(content.input, {topic: "Testthema"});
+    assert.deepEqual(content.input, {topic: "Test topic"});
     assert.deepEqual(Object.keys(content.options).sort(), ["ragents.model", "ragents.system-prompt"]);
-    assert.ok(fixture.systemTexts().some((text) => text.includes('"Beispiel-Run" läuft als @example')));
+    assert.ok(fixture.systemTexts().some((text) => text.includes('The run script "Example run" runs as @example')));
   } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
 });
 
@@ -395,13 +395,13 @@ test("free chat creation receives the authenticated user and ignores identity fi
   const sent = t.mock.method(fixture.session, "send");
   t.after(async () => { await fixture.session.drain(); fixture.session.dispose(); fixture.journal.close(); rmSync(fixture.files, { recursive: true, force: true }); });
   const access = createAccessContext({ enabled: true, user: { id: "operator-account", label: "Operator", rights: ["runs.read", "runs.write", "runs.create"] } });
-  assert.equal(await startThroughChatHttp(fixture.session, runId, { text: "Hallo", user: { id: "owner", label: "Owner" } }, access, "send"), 202);
+  assert.equal(await startThroughChatHttp(fixture.session, runId, { text: "Hello", user: { id: "owner", label: "Owner" } }, access, "send"), 202);
   const view = fixture.runtime.view(runId);
   const owner = view.actors.find((actor) => actor.id === view.ownerId)!;
   assert.equal(owner.kind, "human");
   assert.equal(owner.displayName, "Operator");
   assert.equal(owner.handle, "operator-account");
-  assert.equal(view.inputs.at(-1)?.content, "Hallo");
+  assert.equal(view.inputs.at(-1)?.content, "Hello");
   assert.deepEqual(sent.mock.calls[0].arguments[3], { id: "operator-account", label: "Operator" });
 });
 
@@ -419,11 +419,11 @@ test("another logged-in user can continue a restored run without rewriting its e
   t.after(() => restored.dispose());
   assert.equal(restored.attach(), true);
   const access = createAccessContext({ enabled: true, user: { id: "operator-account", label: "Operator", rights: ["runs.read", "runs.write"] } });
-  assert.equal(await startThroughChatHttp(restored, runId, { text: "Weiter" }, access, "send"), 202);
+  assert.equal(await startThroughChatHttp(restored, runId, { text: "Continue" }, access, "send"), 202);
   const current = fixture.runtime.view(runId);
   assert.equal(current.ownerId, original.ownerId);
   assert.deepEqual(current.actors.filter((actor) => actor.kind === "human"), [owner]);
-  assert.equal(current.inputs.at(-1)?.content, "Weiter");
+  assert.equal(current.inputs.at(-1)?.content, "Continue");
 });
 
 test("without a coordinator the setup actor is immediately primary and can select a successor", async () => {
@@ -441,10 +441,10 @@ test("without a coordinator the setup actor is immediately primary and can selec
     assert.equal(view.inputs[0].actorId, script.id);
     assert.equal(JSON.parse(view.inputs[0].content).input, null);
     const before = structuredClone(fixture.runtime.events(runId));
-    await assert.rejects(fixture.session.send("Starte erneut"), { code: "actor-chat-unsupported", status: 400 });
+    await assert.rejects(fixture.session.send("Start again"), { code: "actor-chat-unsupported", status: 400 });
     assert.deepEqual(fixture.runtime.events(runId), before);
     view = fixture.runtime.spawnAgent({actorId: view.ownerId, commandId: "moderator"}, runId, {
-      handle: "moderator", displayName: "Moderator", prompt: "Moderiere.",
+      handle: "moderator", displayName: "Moderator", prompt: "Moderate.",
       execution: {driver: {kind: "manual", config: {}}, workspacePath: null, turnTimeoutMs: null}, grants: [], toolNames: null,
     });
     const moderator = view.actors.find((actor) => actor.kind === "agent")!;
@@ -453,7 +453,7 @@ test("without a coordinator the setup actor is immediately primary and can selec
     fixture.runtime.selectPrimaryActor({actorId: script.id, commandId: "successor", turnId: turn.turnId}, runId, moderator.id);
     assert.equal(fixture.runtime.view(runId).primaryActorId, moderator.id);
     assert.ok(fixture.events.some((event) => event.kind === "reset"));
-    await fixture.session.send("Moderiere die nächste Runde");
+    await fixture.session.send("Moderate the next round");
     assert.equal(fixture.runtime.view(runId).inputs.at(-1)?.actorId, moderator.id);
   } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
 });
@@ -465,14 +465,14 @@ test("unknown templates, rejected packages and existing runs produce named error
   try {
     fixture.session.start("test.nowhere", null);
     await fixture.session.settle();
-    assert.ok(fixture.systemTexts().some((text) => text.includes("keine Script-Vorlage dieses Profils")));
+    assert.ok(fixture.systemTexts().some((text) => text.includes("is not a script template of this profile")));
     fixture.session.start("test.broken", null);
     await fixture.session.settle();
     assert.ok(fixture.systemTexts().some((text) => text.includes("Package tests failed")));
     assert.equal(fixture.runtime.view(runId).actors.filter((actor) => actor.kind !== "human").length, 0);
     await fixture.session.startAndWait("test.example", null);
     assert.ok(fixture.runtime.view(runId).actors.some((actor) => actor.kind === "script"));
-    await assert.rejects(fixture.session.startAndWait("test.example", null), /startet nur einen neuen Run/);
+    await assert.rejects(fixture.session.startAndWait("test.example", null), /only starts a new run/);
   } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
 });
 
@@ -481,7 +481,7 @@ test("bundled actor packages land in the private workspace before the setup is i
   const fixture = createFixture(runId, [packageOf({programs: [{name: "shared-list", files: packageOf().files}]})]);
   try {
     await fixture.session.startAndWait("test.example", null);
-    assert.equal(fixture.systemTexts().filter((text) => text.startsWith("Fehler")).length, 0);
+    assert.equal(fixture.systemTexts().filter((text) => text.startsWith("Error")).length, 0);
     assert.ok(existsSync(path.join(fixture.files, "actors", "shared-list", "package.json")));
     assert.equal(fixture.runtime.view(runId).inputs.length, 1);
     assert.deepEqual(fixture.imports.map((entry) => entry.name), ["example"]);

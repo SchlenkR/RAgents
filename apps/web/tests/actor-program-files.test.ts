@@ -4,7 +4,7 @@ import { fileSelection } from "../../../apps/web/src/actor-programs/client-ui/fi
 
 const file = (name: string, type: string, size = 3) => new File(["x".repeat(size)], name, { type, lastModified: 1 });
 
-test("Dateiauswahl prüft Endung und MIME für jeden Eingang und erhält die vorherige Auswahl bei Ablehnung", () => {
+test("file selection checks extension and MIME for every input and keeps the previous selection on rejection", () => {
   const initial = [file("data.csv", "text/csv")];
   const image = file("photo.png", "image/png");
   const accepted = fileSelection(initial, [image], { accept: ".CSV,image/*" });
@@ -15,7 +15,7 @@ test("Dateiauswahl prüft Endung und MIME für jeden Eingang und erhält die vor
   assert.throws(() => fileSelection(initial, [], {}), /no readable files/);
 });
 
-test("Dateigrenzen gelten für die gesamte Auswahl; Einzelauswahl ersetzt statt anzuhängen", () => {
+test("file limits apply to the whole selection; single selection replaces instead of appending", () => {
   const initial = [file("one.txt", "text/plain", 5)];
   const next = file("two.txt", "text/plain", 6);
   assert.throws(() => fileSelection(initial, [next], { maxBytes: 10 }), /exceeds/);

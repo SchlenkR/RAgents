@@ -50,10 +50,10 @@ test("global coordinator uses common tools with actual journal reads and private
     await f.invoke("write", { path: "setup.ts", content: "const message = 'ready';" });
     await f.invoke("edit", { path: "setup.ts", edits: [{ oldText: "ready", newText: "configured" }] });
     assert.match(await readFile(path.join(f.cwd, "setup.ts"), "utf8"), /configured/);
-    await assert.rejects(f.invoke("write", { path: "$RAGENTS_JOURNAL_DIR/journal.jsonl", content: "tampered" }), /außerhalb/);
-    await assert.rejects(f.invoke("edit", { path: path.join(f.journals, "journal.jsonl"), edits: [{ oldText: "shared history", newText: "tampered" }] }), /außerhalb/);
+    await assert.rejects(f.invoke("write", { path: "$RAGENTS_JOURNAL_DIR/journal.jsonl", content: "tampered" }), /outside/);
+    await assert.rejects(f.invoke("edit", { path: path.join(f.journals, "journal.jsonl"), edits: [{ oldText: "shared history", newText: "tampered" }] }), /outside/);
     await symlink(f.journals, path.join(f.cwd, "journal-link"));
-    await assert.rejects(f.invoke("write", { path: "journal-link/journal.jsonl", content: "tampered" }), /außerhalb/);
+    await assert.rejects(f.invoke("write", { path: "journal-link/journal.jsonl", content: "tampered" }), /outside/);
     assert.match(String(await f.invoke("bash", { command: 'rg "shared history" "$RAGENTS_JOURNAL_DIR"', timeout: 5 })), /shared history/);
     assert.equal(await readFile(path.join(f.journals, "journal.jsonl"), "utf8"), '{"test":"shared history"}\n');
     await f.host.shutdown("overseer");

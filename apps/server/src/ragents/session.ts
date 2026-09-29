@@ -70,14 +70,14 @@ const messageOf = (error: unknown): string => error instanceof Error ? error.mes
 
 const userIdOf = (user: ChatUser | undefined): string | null => user?.id ?? null;
 
-/** Wer einen Run startet, über welche Vorlage und welche Startoptionen sie festlegt. */
+/** Who starts a run, through which template, and which start options it fixes. */
 interface StartChoice {
   readonly userId: string | null;
   readonly entry: SessionStartedContext["startEntry"];
   readonly fixed: ReadonlyMap<string, JsonValue>;
 }
 
-/** Ein Start ohne Vorlage legt nichts fest. */
+/** A start without a template fixes nothing. */
 const freeChoice = (userId: string | null): StartChoice => ({ userId, entry: null, fixed: new Map() });
 
 /** A script template together with the package the host installs when it is clicked. */
@@ -95,7 +95,7 @@ export interface RunChatSessionOptions {
   assertUsable: (id: string) => void;
   prepare: (id: string, emitSystem: (text: string) => void) => Promise<void>;
   prepareWorkspace: (id: string, emitSystem: (text: string) => void) => Promise<void>;
-  /** Nach dem Aufbau des ersten Actors im vorbereiteten Arbeitsbereich, bevor ein Actor Input bekommt. */
+  /** After the first actor is set up in the prepared workspace, before any actor gets input. */
   started: (id: string, startEntry: SessionStartedContext["startEntry"]) => Promise<void>;
   scriptEntryFor: (entryId: string) => RunScriptStart | undefined;
   startEntryFor: (entryId: string) => PublicStartEntry | undefined;
@@ -170,15 +170,15 @@ export class RunChatSession implements ChatSessionLike {
     return this.#engine.startOptions.entries().map((entry) => this.#startOptionState(entry, userId));
   }
 
-  /** Vor dem Start merkt sich der Run die Wahl, danach schreibt er eine änderbare Option ins Journal. */
+  /** Before the start the run remembers the choice; afterwards it writes a changeable option to the journal. */
   async selectStartOption(optionId: string, value: unknown, userId: string | null): Promise<StartOptionState> {
     const entry = this.#engine.startOptions.entry(optionId);
-    if (!entry) throw new DomainError("option-unknown", `Die Startoption ${optionId} ist nicht registriert.`, 404);
+    if (!entry) throw new DomainError("option-unknown", `The start option ${optionId} is not registered.`, 404);
     if (!entry.option.selectable()) {
-      throw new DomainError("option-not-selectable", `Die Startoption ${optionId} ist fest konfiguriert.`, 409);
+      throw new DomainError("option-not-selectable", `The start option ${optionId} is fixed by configuration.`, 409);
     }
     if (this.startLocked && !entry.option.changeable) {
-      throw new DomainError("option-locked", "Der Run läuft bereits, die Startoptionen stehen fest.", 409);
+      throw new DomainError("option-locked", "The run is already running, the start options are fixed.", 409);
     }
     const accepted = this.#engine.startOptions.accept(optionId, value, this.#startContext(userId));
     if (!this.startLocked) {
@@ -197,7 +197,7 @@ export class RunChatSession implements ChatSessionLike {
     return this.#startOptionState(entry, userId);
   }
 
-  /** Ein anderes Modell muss die Anhänge lesen können, die das Gespräch des Koordinators schon enthält. */
+  /** Another model must be able to read the attachments the coordinator's conversation already contains. */
   async #assertCoordinatorCanRead(choice: { model?: string; thinking?: string }): Promise<void> {
     const view = this.#engine.runtime.view(this.id);
     const primary = primaryActorOf(view);
@@ -209,7 +209,7 @@ export class RunChatSession implements ChatSessionLike {
     const supported = await this.#engine.inputCapabilities(provider, model);
     const missing = [...kinds].filter((kind) => (kind === "image" || kind === "video" || kind === "file") && !supported.includes(kind));
     if (missing.length > 0) {
-      throw new DomainError("model-history-unsupported", `Das Gespräch enthält bereits ${missing.join(", ")}-Anhänge, die ${modelLabel(provider, model)} nicht verarbeiten kann; wähle ein passendes Modell.`, 400);
+      throw new DomainError("model-history-unsupported", `The conversation already contains ${missing.join(", ")} attachments that ${modelLabel(provider, model)} cannot process; choose a suitable model.`, 400);
     }
   }
 
@@ -224,7 +224,7 @@ export class RunChatSession implements ChatSessionLike {
     return chosen ?? this.#engine.startOptions.defaultValue(entry.option.id, this.#startContext(choice.userId));
   }
 
-  /** Die eine Stelle, an der eine Vorlage Startoptionen festlegt: mit dem Handelnden angenommen, eine andere Belegung davor ist ein Fehler. */
+  /** The one place where a template fixes start options: accepted with the acting user; a different earlier value is an error. */
   #startChoice(entry: PublicStartEntry, userId: string | null): StartChoice {
     const state = this.#engine.journal.stateOf(this.id);
     const fixed = new Map(Object.entries(entry.fixedStartOptions ?? {}).map(([optionId, value]) => {
@@ -232,8 +232,8 @@ export class RunChatSession implements ChatSessionLike {
       const chosen = this.startLocked ? storedStartOption(state, optionId) : this.#startValues.get(optionId);
       if (chosen !== undefined && !isDeepStrictEqual(chosen, accepted)) {
         throw new DomainError("start-option-fixed", this.startLocked
-          ? `Die Vorlage "${entry.title}" legt die Startoption ${optionId} fest, dieser Run steht dort aber schon auf einem anderen Wert.`
-          : `Die Vorlage "${entry.title}" legt die Startoption ${optionId} fest, gewählt ist ein anderer Wert. Nimm die Wahl zurück oder starte ohne diese Vorlage.`, 409);
+          ? `The template "${entry.title}" fixes the start option ${optionId}, but this run already has a different value there.`
+          : `The template "${entry.title}" fixes the start option ${optionId}, but a different value is chosen. Undo the choice or start without this template.`, 409);
       }
       return [optionId, accepted] as const;
     }));
@@ -242,7 +242,7 @@ export class RunChatSession implements ChatSessionLike {
 
   #skillEntry(entryId: string): PublicStartEntry {
     const entry = this.#startEntryFor(entryId);
-    if (!entry || entry.action !== "skill") throw new DomainError("entry-unknown", `Die Vorlage ${entryId} ist keine Skill-Vorlage dieses Profils.`, 404);
+    if (!entry || entry.action !== "skill") throw new DomainError("entry-unknown", `The template ${entryId} is not a skill template of this profile.`, 404);
     return entry;
   }
 
@@ -281,7 +281,7 @@ export class RunChatSession implements ChatSessionLike {
     return () => this.#listeners.delete(listener);
   }
 
-  /** Mit einer Skill-Vorlage startet die Nachricht einen neuen Run über sie, mit den Startoptionen, die sie festlegt. */
+  /** With a skill template, the message starts a new run through it, with the start options it fixes. */
   send(text: string, attachments?: ChatAttachmentInput[], userLocation?: unknown, user?: ChatUser, entryId?: string): Promise<void> {
     return this.#track(() => this.#send(text, attachments, undefined, userLocation, user, entryId), false);
   }
@@ -296,7 +296,7 @@ export class RunChatSession implements ChatSessionLike {
 
   actorConversations(): ActorConversations {
     this.#assertUsable(this.id);
-    if (!this.#engine.journal.stateOf(this.id)) throw new DomainError("run-not-found", "Der Run ist nicht vorhanden.", 404);
+    if (!this.#engine.journal.stateOf(this.id)) throw new DomainError("run-not-found", "The run does not exist.", 404);
     return actorChatHistoryOf(this.#engine.runtime.view(this.id), this.#engine.runtime.events(this.id));
   }
 
@@ -333,11 +333,11 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   #track(work: () => Promise<void>, reportError = true): Promise<void> {
-    if (this.#disposed) throw new Error("Der Run wurde gelöscht");
+    if (this.#disposed) throw new Error("The run was deleted");
     this.#assertUsable(this.id);
     const operation = work();
     const tracked = operation.catch((error: unknown) => {
-      if (reportError && !this.#disposed) this.#emit({ kind: "system", text: `Fehler: ${messageOf(error)}` });
+      if (reportError && !this.#disposed) this.#emit({ kind: "system", text: `Error: ${messageOf(error)}` });
     });
     this.#pendingSends.add(tracked);
     void tracked.then(
@@ -354,7 +354,7 @@ export class RunChatSession implements ChatSessionLike {
 
   async #stop(): Promise<void> {
     if (this.#startCancellation && !this.#startCancellation.signal.aborted) {
-      const message = "Der Start wurde durch den Bediener abgebrochen.";
+      const message = "The start was cancelled by the operator.";
       this.#startCancellation.abort(new DomainError("run-start-aborted", message, 409));
       this.#setStartup({ status: "failed", message });
     }
@@ -362,7 +362,7 @@ export class RunChatSession implements ChatSessionLike {
       if (this.#engine.journal.stateOf(this.id)) {
         await this.#engine.stopRun(this.id, {
           commandId: `chat-stop:${randomUUID()}`,
-          reason: "Not-Aus durch den Bediener",
+          reason: "Emergency stop by the operator",
         });
       }
     } finally {
@@ -378,13 +378,13 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   postExtension(event: { pluginId: string; type: string; payload?: unknown }): void {
-    if (this.#disposed) throw new Error("Der Run wurde gelöscht");
+    if (this.#disposed) throw new Error("The run was deleted");
     this.#emit({ kind: "plugin", ...event });
   }
 
   resetHistory(): void {
-    if (this.#engine.journal.stateOf(this.id)) throw new Error("Das alte Journal muss vor dem Gesprächsreset entfernt sein");
-    this.#startCancellation?.abort(new Error("Die Startvorbereitung wurde zurückgesetzt."));
+    if (this.#engine.journal.stateOf(this.id)) throw new Error("The old journal must be removed before the conversation reset");
+    this.#startCancellation?.abort(new Error("The start preparation was reset."));
     this.#startCancellation = undefined;
     this.#startup = undefined;
     this.#unsubscribeJournal?.();
@@ -407,7 +407,7 @@ export class RunChatSession implements ChatSessionLike {
 
   dispose(): void {
     this.#disposed = true;
-    this.#startCancellation?.abort(new Error("Der Run wurde gelöscht"));
+    this.#startCancellation?.abort(new Error("The run was deleted"));
     this.#startCancellation = undefined;
     this.#startup = undefined;
     this.#unsubscribeJournal?.();
@@ -432,10 +432,10 @@ export class RunChatSession implements ChatSessionLike {
   }
 
   async #send(text: string, supplied?: ChatAttachmentInput[], target?: string, userLocation?: unknown, user?: ChatUser, entryId?: string): Promise<void> {
-    if (userLocation !== undefined && !this.#inputContext) throw new DomainError("chat-context-unavailable", "Dieser Run übernimmt keinen Oberflächenkontext.", 400);
+    if (userLocation !== undefined && !this.#inputContext) throw new DomainError("chat-context-unavailable", "This run does not accept UI context.", 400);
     const choice = entryId === undefined ? freeChoice(userIdOf(user)) : this.#startChoice(this.#skillEntry(entryId), userIdOf(user));
     const attachments = this.#checkedAttachments(supplied);
-    if (!text.trim() && attachments.length === 0) throw new DomainError("empty-message", "Text oder Anhänge fehlen", 400);
+    if (!text.trim() && attachments.length === 0) throw new DomainError("empty-message", "Text or attachments are missing", 400);
     const existingTarget = target ?? this.#engine.journal.stateOf(this.id)?.primaryActorId;
     if (existingTarget) this.#assertChatTarget(existingTarget);
     if (attachments.length > 0) await this.#checkAttachmentCapabilities(target ?? "primary", attachments, choice);
@@ -458,7 +458,7 @@ export class RunChatSession implements ChatSessionLike {
         content: Buffer.from(attachment.data, "base64"), previousVersionId: null,
       });
       const event = this.#engine.runtime.events(this.id).find((entry) => entry.commandId === commandId && entry.type === "artifact.published");
-      if (!event || event.type !== "artifact.published") throw new Error("Der Anhang wurde nicht gespeichert");
+      if (!event || event.type !== "artifact.published") throw new Error("The attachment was not stored");
       return event.payload.artifact.id;
     });
     this.#engine.runtime.enqueueInput(
@@ -478,21 +478,21 @@ export class RunChatSession implements ChatSessionLike {
       }
       return attachments;
     } catch (error) {
-      throw new DomainError("invalid-attachment", `Ungültiger Anhang: ${messageOf(error)}`, 400);
+      throw new DomainError("invalid-attachment", `Invalid attachment: ${messageOf(error)}`, 400);
     }
   }
 
   #assertChatTarget(reference: string): void {
     const actor = this.#targetActor(reference);
     if (actor.kind !== "agent") {
-      throw new DomainError("actor-chat-unsupported", `@${actor.handle} ist ein TypeScript-Actor und kein Chatpartner. Verwende seine Mini-App oder seine dokumentierten Funktionen. Die Nachricht wurde nicht eingereiht.`, 400);
+      throw new DomainError("actor-chat-unsupported", `@${actor.handle} is a TypeScript actor, not a chat partner. Use its mini-app or its documented functions. The message was not queued.`, 400);
     }
   }
 
   #targetActor(reference: string) {
     const actor = this.#engine.runtime.view(this.id).actors.find((entry) => entry.id === reference || `@${entry.handle}` === reference);
     if (!actor || actor.kind === "human" || actor.lifecycle.kind === "stopped") {
-      throw new DomainError("actor-unavailable", `Der Actor ${reference} ist nicht verfügbar`, 404);
+      throw new DomainError("actor-unavailable", `The actor ${reference} is not available`, 404);
     }
     return actor;
   }
@@ -508,7 +508,7 @@ export class RunChatSession implements ChatSessionLike {
         ? { ...execution, driver: { kind: "agent", config: coordinatorSelection(this.#engine.catalog, this.#coordinator, storedModelChoice(state), execution.driver.config) } }
         : execution;
     }
-    if (reference !== "primary") throw new DomainError("actor-unavailable", "Der Actor ist nicht verfügbar", 404);
+    if (reference !== "primary") throw new DomainError("actor-unavailable", "The actor is not available", 404);
     return this.#coordinatorExecution(choice);
   }
 
@@ -530,17 +530,17 @@ export class RunChatSession implements ChatSessionLike {
   preparationSelection(userId: string | null): ModelSelection {
     this.#assertUsable(this.id);
     if (this.#disposed || this.started || this.startLocked) {
-      throw new DomainError("preparation-unavailable", "Die Vorbereitung ist nur vor dem Start des Runs möglich.", 409);
+      throw new DomainError("preparation-unavailable", "Preparation is only possible before the run starts.", 409);
     }
     const execution = this.#coordinatorExecution(freeChoice(userId));
-    if (execution.driver.kind !== "agent") throw new DomainError("preparation-model-required", "Die Vorbereitung benötigt einen Koordinator mit Modelllaufzeit.", 400);
+    if (execution.driver.kind !== "agent") throw new DomainError("preparation-model-required", "Preparation requires a coordinator with a model runtime.", 400);
     return { ...execution.driver.config };
   }
 
   async #checkAttachmentCapabilities(reference: string, attachments: readonly ChatAttachmentInput[], choice: StartChoice): Promise<void> {
     const execution = this.#executionFor(reference, choice);
     if (execution.driver.kind === "script") return;
-    if (execution.driver.kind !== "agent") throw new DomainError("attachments-unsupported", "Anhänge benötigen einen Actor mit Modelllaufzeit", 400);
+    if (execution.driver.kind !== "agent") throw new DomainError("attachments-unsupported", "Attachments require an actor with a model runtime", 400);
     const { input, model } = await this.#capabilitiesFor(reference, choice);
     const state = this.#engine.journal.stateOf(this.id);
     const id = reference === "primary" ? state?.primaryActorId : reference;
@@ -548,10 +548,10 @@ export class RunChatSession implements ChatSessionLike {
     for (const attachment of attachments) {
       const kind = attachmentInputKind(attachment.mediaType);
       if ((kind === "image" || kind === "video" || kind === "file") && !input.includes(kind)) {
-        throw new DomainError("attachment-model-unsupported", `Das Modell ${model} unterstützt ${kind} nicht (${attachment.name}). Eingaben: ${input.join(", ")}.`, 400);
+        throw new DomainError("attachment-model-unsupported", `The model ${model} does not support ${kind} (${attachment.name}). Inputs: ${input.join(", ")}.`, 400);
       }
       if (kind === "binary" && toolNames !== null && !toolNames.some((name) => name === "read" || name === "bash")) {
-        throw new DomainError("attachment-tools-required", `${attachment.name} benötigt Dateizugriff, aber dieser Actor hat weder read noch bash.`, 400);
+        throw new DomainError("attachment-tools-required", `${attachment.name} requires file access, but this actor has neither read nor bash.`, 400);
       }
     }
   }
@@ -570,7 +570,7 @@ export class RunChatSession implements ChatSessionLike {
     if (afterStart) return afterStart;
     await this.#exclusiveStart(() => this.#startRun(user, choice));
     const primaryActorId = this.#syncPrimaryActor();
-    if (!primaryActorId) throw new Error("Der Run hat nach dem Start keinen Primary-Actor");
+    if (!primaryActorId) throw new Error("The run has no primary actor after the start");
     return primaryActorId;
   }
 
@@ -584,15 +584,15 @@ export class RunChatSession implements ChatSessionLike {
   async #start(entryId: string, input: unknown, user?: ChatUser): Promise<void> {
     await this.#startPackage(() => {
       const found = this.#scriptEntryFor(entryId);
-      if (!found) throw new DomainError("entry-unknown", `Die Vorlage ${entryId} ist keine Script-Vorlage dieses Profils.`, 404);
+      if (!found) throw new DomainError("entry-unknown", `The template ${entryId} is not a script template of this profile.`, 404);
       return found;
     }, input, user);
   }
 
   async #startPackage(resolve: () => RunScriptStart, input: unknown, user?: ChatUser): Promise<void> {
-    if (this.#starting) throw new DomainError("run-starting", "Der Run wird gerade gestartet.", 409);
+    if (this.#starting) throw new DomainError("run-starting", "The run is being started.", 409);
     if (this.startLocked && this.#engine.runtime.view(this.id).actors.some((actor) => actor.kind !== "human")) {
-      throw new DomainError("run-started", "Der Run läuft schon; ein Run-Script startet nur einen neuen Run.", 409);
+      throw new DomainError("run-started", "The run is already running; a run script only starts a new run.", 409);
     }
     const cancellation = new AbortController();
     this.#startCancellation = cancellation;
@@ -602,7 +602,7 @@ export class RunChatSession implements ChatSessionLike {
         signal.throwIfAborted();
         const found = resolve();
         const choice = this.#startChoice(found.entry, userIdOf(user));
-        const startValue: JsonValue | null = input === undefined || input === null ? null : (assertJsonValue(input, "Startwert des Run-Scripts"), input);
+        const startValue: JsonValue | null = input === undefined || input === null ? null : (assertJsonValue(input, "Start value of the run script"), input);
         await this.#prepare(this.id, this.#emitSystem());
         signal.throwIfAborted();
         this.#assertUsable(this.id);
@@ -618,7 +618,7 @@ export class RunChatSession implements ChatSessionLike {
         if (this.#startCancellation === cancellation) this.#startCancellation = undefined;
       }
     });
-    this.#setStartup({ status: "preparing", message: "Run wird vorbereitet." });
+    this.#setStartup({ status: "preparing", message: "Preparing run." });
     await operation;
   }
 
@@ -636,12 +636,12 @@ export class RunChatSession implements ChatSessionLike {
     const { entry, ...script } = found;
     this.#createRunIfNeeded(this.#initialTitle ?? entry.title, user, choice);
     this.#assertUsable(this.id);
-    this.#setStartup({ status: "preparing", message: "Arbeitsverzeichnis wird vorbereitet." });
+    this.#setStartup({ status: "preparing", message: "Preparing working directory." });
     signal.throwIfAborted();
     await this.#prepareWorkspace(this.id, this.#emitSystem());
     signal.throwIfAborted();
     this.#assertUsable(this.id);
-    this.#setStartup({ status: "preparing", message: "Oberfläche wird vorbereitet." });
+    this.#setStartup({ status: "preparing", message: "Preparing UI." });
     signal.throwIfAborted();
     await this.#copyPrograms(script.programs, signal);
     signal.throwIfAborted();
@@ -668,7 +668,7 @@ export class RunChatSession implements ChatSessionLike {
       { actorId: installed.actorId, content: JSON.stringify({ input, options }) },
     );
     if (script.coordinator) {
-      this.#emit({ kind: "system", text: `Das Run-Script "${entry.title}" läuft als @${installed.actorHandle} und baut den Run auf.` });
+      this.#emit({ kind: "system", text: `The run script "${entry.title}" runs as @${installed.actorHandle} and sets up the run.` });
       return;
     }
   }
@@ -737,14 +737,14 @@ export class RunChatSession implements ChatSessionLike {
         const spawned = [...this.#engine.runtime.events(this.id)].reverse().find((event) =>
           event.commandId === spawnCommandId && event.type === "agent.spawned");
         if (!spawned || spawned.type !== "agent.spawned")
-          throw new Error("Der Primary-Actor konnte nach dem Erzeugen nicht aufgelöst werden");
+          throw new Error("The primary actor could not be resolved after spawning");
 
         coordinator = this.#engine.runtime.view(this.id).actors.find((actor) =>
           actor.id === spawned.payload.agentId && actor.kind === "agent");
       }
 
       if (!coordinator)
-        throw new Error("Der Koordinator konnte nicht aufgelöst werden");
+        throw new Error("The coordinator could not be resolved");
 
       const revision = this.#engine.runtime.view(this.id).revision;
       this.#engine.runtime.selectPrimaryActor(
@@ -755,7 +755,7 @@ export class RunChatSession implements ChatSessionLike {
       primaryActor = primaryActorOf(this.#engine.runtime.view(this.id));
     }
 
-    if (!primaryActor) throw new Error("Der Primary-Actor konnte nicht angelegt werden");
+    if (!primaryActor) throw new Error("The primary actor could not be created");
     this.#bind(primaryActor.id);
   }
 
@@ -906,7 +906,7 @@ export class RunChatSession implements ChatSessionLike {
       labelOf: (actorId) => this.#engine.runtime.state(this.id).actors.get(actorId)?.displayName,
       turnOf: (turnId) => {
         const turn = this.#engine.runtime.state(this.id).turns.get(turnId);
-        if (!turn) throw new Error(`Der Turn ${turnId} fehlt im Run ${this.id}`);
+        if (!turn) throw new Error(`The turn ${turnId} is missing from run ${this.id}`);
         return turn;
       },
       interruptedByCommand: (commandId, actorId) => {
@@ -916,7 +916,7 @@ export class RunChatSession implements ChatSessionLike {
       },
       attachmentOf: (artifactId) => {
         const artifact = this.#engine.runtime.state(this.id).artifacts.get(artifactId);
-        if (!artifact) throw new Error(`Der Anhang ${artifactId} fehlt`);
+        if (!artifact) throw new Error(`The attachment ${artifactId} is missing`);
         return this.#attachmentInfo(artifact);
       },
     };

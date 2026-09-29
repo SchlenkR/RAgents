@@ -14,7 +14,7 @@ import { assertHomepageLinks, buildHomepageExport } from "./homepage-export.js";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
-test("Sample-Vorschauen bündeln die startbaren Views und bleiben ohne Server nutzbar", async () => {
+test("sample previews bundle the startable views and stay usable without a server", async () => {
   const outputs = await buildHomepageSamples(repoRoot);
   assert.deepEqual([...outputs.keys()], homepageSamples.flatMap(({ id }) => [`${id}.html`, `${id}.js`, `${id}.css`]));
   for (const { id, title } of homepageSamples) {
@@ -27,7 +27,7 @@ test("Sample-Vorschauen bündeln die startbaren Views und bleiben ohne Server nu
   }
 });
 
-test("Homepage-Samples bleiben außerhalb des öffentlichen Exports", async () => {
+test("homepage samples stay outside the public export", async () => {
   const outputs = await buildHomepageExport(repoRoot);
   assertHomepageLinks(outputs);
   const homepage = String(outputs.get("index.html"));
@@ -36,12 +36,12 @@ test("Homepage-Samples bleiben außerhalb des öffentlichen Exports", async () =
   for (const { id } of homepageSamples) assert.ok(!outputs.has(`${id}.html`), id);
 });
 
-test("Homepage-JavaScript enthält keine Sample-Startintegration mehr", async () => {
+test("homepage JavaScript no longer contains a sample start integration", async () => {
   const script = await readFile(path.join(repoRoot, "docs/homepage/site.js"), "utf8");
   assert.doesNotMatch(script, /start-sample|help-context|help-ready/);
 });
 
-test("Die lokale Mini-App bündelt Originalquellen, shadcn-Controls und Tokens ohne Netzwerkzugriffe", async () => {
+test("the local mini-app bundles original sources, shadcn controls, and tokens without network access", async () => {
   const files = await buildHomepageMiniApp(repoRoot);
   assert.deepEqual([...files.keys()], ["mini-app.html", "mini-app.js", "mini-app.css"]);
   const html = files.get("mini-app.html")!;
@@ -60,7 +60,7 @@ test("Die lokale Mini-App bündelt Originalquellen, shadcn-Controls und Tokens o
   assert.deepEqual(await buildHomepageMiniApp(repoRoot), files);
 });
 
-test("Die lokale Mini-App ergänzt eigene Eingaben mit der originalen append-Funktion", async () => {
+test("the local mini-app appends your own input with the original append function", async () => {
   const compiled = await build({
     absWorkingDir: repoRoot,
     stdin: {

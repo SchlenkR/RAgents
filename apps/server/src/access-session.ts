@@ -44,20 +44,20 @@ export const isSameOriginRequest = (request: IncomingMessage): boolean => {
 };
 
 export const createAccessSessionManager = (options: AccessSessionOptions) => {
-  if (!/^[A-Za-z0-9_-]+$/.test(options.cookieName)) throw new Error("Ungültiger Name für das Anmeldungscookie");
-  if (options.users?.length === 0) throw new Error("Eine aktivierte Anmeldung braucht mindestens einen Benutzer");
-  if (options.users && options.anonymousUser) throw new Error("Benutzeranmeldung und anonymer Zugang schließen einander aus");
+  if (!/^[A-Za-z0-9_-]+$/.test(options.cookieName)) throw new Error("Invalid name for the sign-in cookie");
+  if (options.users?.length === 0) throw new Error("Enabled sign-in needs at least one user");
+  if (options.users && options.anonymousUser) throw new Error("User sign-in and anonymous access exclude each other");
   const enabled = options.users !== undefined;
   const now = options.now ?? Date.now;
   const sessionTtlMs = options.sessionTtlMs ?? 12 * 60 * 60 * 1000;
   if (!Number.isSafeInteger(sessionTtlMs) || sessionTtlMs < 1 || sessionTtlMs > 2_147_483_647) {
-    throw new Error("Ungültige Gültigkeitsdauer für Anmeldungen");
+    throw new Error("Invalid validity period for sign-ins");
   }
   const passwords = new Map<string, PasswordRecord>();
-  // Persönliche Token liegen nur als SHA-256 im Speicher; der Vergleich läuft zeitkonstant über alle Einträge.
+  // Personal tokens are kept in memory only as SHA-256; the comparison runs in constant time over all entries.
   const personalTokens: Array<{ digest: Buffer; user: AccessUser }> = [];
   for (const entry of options.users ?? []) {
-    if (passwords.has(entry.id)) throw new Error(`Doppelter Benutzer: ${entry.id}`);
+    if (passwords.has(entry.id)) throw new Error(`Duplicate user: ${entry.id}`);
     const salt = randomBytes(16);
     const user = Object.freeze({ id: entry.id, label: entry.label, rights: Object.freeze([...entry.rights]),
       ...(entry.startEntries ? { startEntries: Object.freeze([...entry.startEntries]) } : {}),
@@ -65,14 +65,14 @@ export const createAccessSessionManager = (options: AccessSessionOptions) => {
     passwords.set(entry.id, { user, salt, hash: scryptSync(entry.password, salt, 32) });
     if (entry.token === undefined) continue;
     const digest = digestOf(entry.token);
-    if (personalTokens.some((known) => timingSafeEqual(known.digest, digest))) throw new Error(`Der Token von Benutzer ${entry.id} gehört bereits einem anderen Benutzer`);
+    if (personalTokens.some((known) => timingSafeEqual(known.digest, digest))) throw new Error(`The token of user ${entry.id} already belongs to another user`);
     personalTokens.push({ digest, user });
   }
   const dummySalt = randomBytes(16);
   const dummyHash = randomBytes(32);
   const sessions = new Map<string, LoginSession>();
   const wellFormed = (token: string | undefined): string | undefined => token !== undefined && /^[A-Za-z0-9_-]{43}$/.test(token) ? token : undefined;
-  // Clients ohne Cookie (VS-Code-Erweiterung, ihre iframes) senden den Token als Bearer; GET-Abrufe ohne Header (Ereignisstrom, Frames) als Abfrageparameter.
+  // Clients without a cookie (VS Code extension, its iframes) send the token as bearer; GET requests without headers (event stream, frames) as a query parameter.
   const tokenFor = (request: IncomingMessage): string | undefined => {
     const authorization = request.headers.authorization;
     if (authorization !== undefined) return wellFormed(/^Bearer (.+)$/.exec(authorization)?.[1]);
@@ -83,7 +83,7 @@ export const createAccessSessionManager = (options: AccessSessionOptions) => {
     if (matches.length !== 1) return undefined;
     return wellFormed(matches[0]!.slice(options.cookieName.length + 1));
   };
-  // Ein persönlicher Token gilt nur als Bearer oder, bei GET, als Abfrageparameter; nie als Cookie.
+  // A personal token is only valid as bearer or, for GET, as a query parameter; never as a cookie.
   const offeredToken = (request: IncomingMessage): string | undefined => {
     const authorization = request.headers.authorization;
     if (authorization !== undefined) return /^Bearer (.+)$/.exec(authorization)?.[1];
@@ -127,7 +127,7 @@ export const createAccessSessionManager = (options: AccessSessionOptions) => {
     const expected = url.pathname === "/api/access" ? "GET" : "POST";
     if (request.method !== expected) {
       response.setHeader("Allow", expected);
-      writeJson(response, 405, { error: "Methode nicht erlaubt" });
+      writeJson(response, 405, { error: "Method not allowed" });
       return true;
     }
     if (expected === "GET") {
@@ -135,11 +135,11 @@ export const createAccessSessionManager = (options: AccessSessionOptions) => {
       return true;
     }
     if (!isSameOriginRequest(request)) {
-      writeJson(response, 403, { error: "Anmeldung und Abmeldung sind nur von derselben Website möglich" });
+      writeJson(response, 403, { error: "Sign-in and sign-out are only possible from the same website" });
       return true;
     }
     if (!enabled) {
-      writeJson(response, 409, { error: "Die Anmeldung ist in diesem Profil ausgeschaltet" });
+      writeJson(response, 409, { error: "Sign-in is turned off in this profile" });
       return true;
     }
     if (url.pathname === "/api/access/logout") {
@@ -150,25 +150,25 @@ export const createAccessSessionManager = (options: AccessSessionOptions) => {
       return true;
     }
     if (request.headers["content-type"]?.split(";")[0]?.trim() !== "application/json") {
-      writeJson(response, 415, { error: "Die Anmeldung benötigt application/json" });
+      writeJson(response, 415, { error: "Sign-in requires application/json" });
       return true;
     }
     try {
       const credentials = await readJsonBody(request, (body) => {
-        if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("Benutzerkennung und Passwort fehlen");
+        if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("User id and password are missing");
         const value = body as Record<string, unknown>;
         if (Object.keys(value).some((key) => key !== "id" && key !== "password")
           || typeof value.id !== "string" || !value.id || value.id.length > 64
           || typeof value.password !== "string" || !value.password || value.password.length > 2048) {
-          throw new Error("Benutzerkennung und Passwort sind ungültig");
+          throw new Error("User id and password are invalid");
         }
         return { id: value.id, password: value.password };
-      }, "Die Anmeldung enthält kein gültiges JSON", 4096);
+      }, "The sign-in does not contain valid JSON", 4096);
       const record = passwords.get(credentials.id);
       const hash = await derivePassword(credentials.password, record?.salt ?? dummySalt);
       const matches = timingSafeEqual(hash, record?.hash ?? dummyHash);
       if (!record || !matches) {
-        writeJson(response, 401, { error: "Benutzerkennung oder Passwort stimmen nicht" });
+        writeJson(response, 401, { error: "User id or password is incorrect" });
         return true;
       }
       const previous = tokenFor(request);
@@ -182,7 +182,7 @@ export const createAccessSessionManager = (options: AccessSessionOptions) => {
     } catch (error) {
       if (!request.aborted && !response.destroyed) {
         writeJson(response, error instanceof PayloadTooLargeError ? 413 : 400, {
-          error: error instanceof PayloadTooLargeError ? "Die Anmeldedaten sind zu groß" : "Die Anmeldedaten sind ungültig",
+          error: error instanceof PayloadTooLargeError ? "The sign-in data is too large" : "The sign-in data is invalid",
         });
       }
     }
@@ -200,7 +200,7 @@ export const createAccessSessionManager = (options: AccessSessionOptions) => {
     response.once("close", release);
     response.once("finish", release);
   };
-  /** Der Zugang, mit dem die Werkzeuge des Koordinators eines Benutzers handeln: dessen aktueller Stand, null ist der eine Zugang ohne Anmeldung. */
+  /** The access with which the tools of a user's coordinator act: that user's current state, null is the one access without sign-in. */
   const coordinatorSnapshot = (userId: string | null): AccessSnapshot => userId === null
     ? { enabled, user: enabled ? null : options.anonymousUser ?? null }
     : { enabled: true, user: passwords.get(userId)?.user ?? null };

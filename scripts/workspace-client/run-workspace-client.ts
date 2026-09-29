@@ -9,17 +9,17 @@ import { provisionWorkspace } from "../../apps/server/src/profile/provisioning.t
 import { workspaceClientTransport } from "../../plugins/ragents.workspace/client/transport.ts";
 import { WorkspaceClient, workstationRunsDirectory } from "../../plugins/ragents.workspace/client/workspace-client.ts";
 
-const usage = (): string => `Verwendung: [RAGENTS_TOKEN=<token>] pnpm workspace-client <server-url> [ordner ...] [--id <kennung>] [--label <name>]
-Meldet die Ordner als Arbeitsplatz beim Server an und führt dessen Aufträge mit dem Executor
-dieses Rechners aus - dasselbe, was die VS-Code-Erweiterung tut, nur ohne VS Code. Ohne Ordner
-gilt das aktuelle Verzeichnis. Jeder Werkzeugaufruf erscheint als eine Zeile auf stdout.
-Was die Plugins des Servers zum Executor beitragen, etwa Sprachserver, lädt der Arbeitsplatz bei
-der Anmeldung aus den Bundles dieses Hosts; ihre Werkzeuge holt der Start auf diesen Rechner
-(dasselbe wie pnpm provision --workspace). Unter Windows nennt
-RAGENTS_BASH die bash.exe, die RAgents mitbringt (aus der Windows-Fassung der VS-Code-Erweiterung);
-ohne sie scheitert das Werkzeug bash. RAGENTS_RG nennt ein rg, dessen Ordner die Bash vorn im PATH
-hat, etwa das aus der Erweiterung; ohne Angabe gilt eines im PATH. Das Skript läuft, bis es mit
-Strg-C beendet wird.`;
+const usage = (): string => `Usage: [RAGENTS_TOKEN=<token>] pnpm workspace-client <server-url> [folder ...] [--id <id>] [--label <name>]
+Registers the folders as a workspace with the server and executes its tasks with the executor
+of this machine - the same as the VS Code extension does, just without VS Code. Without folders
+the current directory applies. Every tool call appears as one line on stdout.
+What the server's plugins contribute to the executor, such as language servers, the workspace loads
+at registration from this host's bundles; startup fetches their tools onto this machine
+(the same as pnpm provision --workspace). On Windows
+RAGENTS_BASH names the bash.exe that RAgents brings along (from the Windows build of the VS Code
+extension); without it the bash tool fails. RAGENTS_RG names an rg whose folder the bash has at the
+front of its PATH, such as the one from the extension; if not given, one in the PATH applies. The
+script runs until it is ended with Ctrl-C.`;
 
 export interface WorkspaceClientArguments {
   readonly serverUrl: string;
@@ -37,30 +37,30 @@ export const parseArguments = (argv: readonly string[]): WorkspaceClientArgument
     const argument = argv[index]!;
     if (argument === "--id" || argument === "--label") {
       const value = argv[index + 1];
-      if (!value || value.startsWith("-")) throw new Error(`${argument} braucht einen Wert.\n${usage()}`);
+      if (!value || value.startsWith("-")) throw new Error(`${argument} needs a value.\n${usage()}`);
       if (argument === "--id") id = value;
       else label = value;
       index += 1;
       continue;
     }
-    if (argument.startsWith("-")) throw new Error(`Unbekanntes Argument: ${argument}\n${usage()}`);
+    if (argument.startsWith("-")) throw new Error(`Unknown argument: ${argument}\n${usage()}`);
     if (serverUrl === undefined) serverUrl = argument;
     else folders.push(argument);
   }
-  if (!serverUrl) throw new Error(`Die Serveradresse fehlt.\n${usage()}`);
-  if (id !== undefined && !/^[A-Za-z0-9_-]{8,64}$/.test(id)) throw new Error("--id braucht 8 bis 64 Zeichen aus A-Z, a-z, 0-9, _ und -.");
+  if (!serverUrl) throw new Error(`The server address is missing.\n${usage()}`);
+  if (id !== undefined && !/^[A-Za-z0-9_-]{8,64}$/.test(id)) throw new Error("--id needs 8 to 64 characters from A-Z, a-z, 0-9, _ and -.");
   return { serverUrl, folders, id, label };
 };
 
-/** Eine stabile Kennung je Rechner und Ordnersatz, damit der Server denselben Arbeitsplatz wiedererkennt. */
+/** A stable id per machine and folder set, so the server recognizes the same workspace again. */
 export const workspaceClientId = (host: string, folders: readonly string[]): string =>
   `cli-${createHash("sha256").update([host, ...folders].join("\n")).digest("hex").slice(0, 32)}`;
 
-/** Ordner gelten ab dem Aufrufer; pnpm und der bin-Befehl starten das Skript in apps/server. */
+/** Folders are resolved from the caller; pnpm and the bin command start the script in apps/server. */
 export const resolvedFolders = (folders: readonly string[], caller = callerDirectory()): string[] => {
   const resolved = (folders.length > 0 ? folders : [caller]).map((folder) => path.resolve(caller, folder));
   for (const folder of resolved) {
-    if (!statSync(folder, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`Kein Verzeichnis: ${folder}`);
+    if (!statSync(folder, { throwIfNoEntry: false })?.isDirectory()) throw new Error(`Not a directory: ${folder}`);
   }
   return resolved;
 };
@@ -85,14 +85,14 @@ const main = async (): Promise<void> => {
     onExecuted: ({ runId, operation, durationMs, error }) =>
       console.log(`== ${runId.slice(0, 8)} ${operation} ${durationMs} ms ${error ?? "ok"}`),
   });
-  console.log(`== Arbeitsplatz ${identity.label} (${identity.id})`);
-  for (const folder of folders) console.log(`== Ordner ${folder}`);
-  console.log("== Werkzeuge provisionieren");
+  console.log(`== Workspace ${identity.label} (${identity.id})`);
+  for (const folder of folders) console.log(`== Folder ${folder}`);
+  console.log("== Provisioning tools");
   await provisionWorkspace((line) => console.log(line));
   console.log(`== Server ${parsed.serverUrl}`);
   client.onChange(() => {
     const status = client.status;
-    console.log(status.kind === "failed" ? `== Anmeldung fehlgeschlagen: ${status.message}` : `== Zustand ${status.kind}`);
+    console.log(status.kind === "failed" ? `== Registration failed: ${status.message}` : `== State ${status.kind}`);
   });
   await client.register();
   if (client.status.kind !== "registered") {
@@ -100,7 +100,7 @@ const main = async (): Promise<void> => {
     transport.rpc.close();
     return;
   }
-  console.log("== Angemeldet; Strg-C beendet den Arbeitsplatz");
+  console.log("== Registered; Ctrl-C ends the workspace");
   await new Promise<void>((finish) => {
     const stop = () => {
       process.off("SIGINT", stop);

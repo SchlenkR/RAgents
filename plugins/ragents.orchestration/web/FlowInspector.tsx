@@ -42,7 +42,7 @@ interface FlowInspectorProps {
   actorConversations?: Readonly<Record<string, readonly Message[]>>;
   conversationError?: string;
   primaryRunning: boolean;
-  /** Anzeigefläche für den gemerkten Detailgrad; das Popout meldet sich getrennt vom Seiteninspector. */
+  /** Display surface for the remembered detail level; the popout registers separately from the side inspector. */
   chatDisplay?: string;
 }
 
@@ -92,26 +92,26 @@ const pillToneClass: Readonly<Record<string, string>> = {
 const tabClass = "grid size-[30px] flex-[0_0_30px] place-items-center p-0";
 
 const STATUS_LABELS: Record<string, string> = {
-  active: "Aktiv",
-  approved: "Bestätigt",
-  completed: "Abgeschlossen",
-  dismissed: "Verworfen",
-  failed: "Fehlgeschlagen",
-  idle: "Bereit",
-  interrupted: "Unterbrochen",
-  pending: "Offen",
-  removed: "Entfernt",
-  running: "Läuft",
-  stopped: "Gestoppt",
+  active: "Active",
+  approved: "Approved",
+  completed: "Completed",
+  dismissed: "Dismissed",
+  failed: "Failed",
+  idle: "Ready",
+  interrupted: "Interrupted",
+  pending: "Open",
+  removed: "Removed",
+  running: "Running",
+  stopped: "Stopped",
 };
 
 const ACTOR_KIND_LABELS: Record<RunActor["kind"], string> = {
   human: "Person",
   agent: "Agent",
-  script: "Logik-Actor",
+  script: "Logic actor",
 };
 
-const STOP_REASON = "Vom Bediener gestoppt";
+const STOP_REASON = "Stopped by the operator";
 
 const shortId = (id: string) => (id.length > 12 ? `${id.slice(0, 12)}...` : id);
 
@@ -128,7 +128,7 @@ const runCostUsd = (view: RunView): number | undefined => {
 };
 
 const formatCostUsd = (value: number) =>
-  `${value.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: value > 0 && value < 0.005 ? 4 : 2 })} USD`;
+  `${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: value > 0 && value < 0.005 ? 4 : 2 })} USD`;
 
 interface RunIndex {
   view: RunView;
@@ -165,8 +165,8 @@ export function FlowInspector(props: FlowInspectorProps) {
     return (
       <Empty>
         <EmptyHeader>
-          <EmptyTitle>Noch kein Ablauf</EmptyTitle>
-          <EmptyDescription>Sobald Actors gestartet werden, erscheint hier die Detailansicht.</EmptyDescription>
+          <EmptyTitle>No flow yet</EmptyTitle>
+          <EmptyDescription>As soon as actors are started, the detail view appears here.</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -194,12 +194,12 @@ export function FlowInspector(props: FlowInspectorProps) {
   if (actor) return <ActorView actor={actor} index={index} key={actor.id} {...props} />;
   if (fallbackActor) return <ActorView actor={fallbackActor} index={index} key={fallbackActor.id} {...props} />;
 
-  return <Empty><EmptyHeader><EmptyTitle>Keine Actors</EmptyTitle></EmptyHeader></Empty>;
+  return <Empty><EmptyHeader><EmptyTitle>No actors</EmptyTitle></EmptyHeader></Empty>;
 }
 
 function BackButton({ canGoBack, onBack }: { canGoBack: boolean; onBack: () => void }) {
   if (!canGoBack) return null;
-  return <Button aria-label="Zurück" className="rounded-full" onClick={onBack} size="icon" variant="outline"><ArrowLeftIcon /></Button>;
+  return <Button aria-label="Back" className="rounded-full" onClick={onBack} size="icon" variant="outline"><ArrowLeftIcon /></Button>;
 }
 
 function StatusPill({ status }: { status: string }) {
@@ -240,8 +240,8 @@ function SectionTabs({ sections, children }: { sections: SectionTab[]; children:
 
   return (
     <Tabs className="contents" onValueChange={(value) => setOpenId(value === "chat" ? null : String(value))} value={open?.id ?? "chat"}>
-      <TabsList aria-label="Actor-Ansichten" className="flex h-auto w-auto max-w-full flex-shrink-0 flex-nowrap justify-start gap-1 overflow-x-auto rounded-none border-b border-border-soft px-workspace-inset py-1.5" variant="line">
-        <TabsTrigger aria-label="Chat anzeigen" className={tabClass} id={`${id}-chat-tab`} title="Chat anzeigen" value="chat">
+      <TabsList aria-label="Actor views" className="flex h-auto w-auto max-w-full flex-shrink-0 flex-nowrap justify-start gap-1 overflow-x-auto rounded-none border-b border-border-soft px-workspace-inset py-1.5" variant="line">
+        <TabsTrigger aria-label="Show chat" className={tabClass} id={`${id}-chat-tab`} title="Show chat" value="chat">
           <SectionIcon kind="chat" />
         </TabsTrigger>
         {sections.map((section) => (
@@ -264,14 +264,14 @@ function SectionTabs({ sections, children }: { sections: SectionTab[]; children:
 }
 
 function CapabilityList({ grants }: { grants: RunCapabilityGrant[] }) {
-  if (grants.length === 0) return <Badge className={pillClass}>Keine Capabilities</Badge>;
+  if (grants.length === 0) return <Badge className={pillClass}>No capabilities</Badge>;
   return (
     <div className="flex flex-wrap gap-1 py-1.5">
       {grants.map((grant, position) => {
         const scope = grant.scope.kind === "workspace" ? grant.scope.path : "Run";
         const suffix = [
-          grant.delegable ? "delegierbar" : undefined,
-          grant.usable === false ? "nur weitergeben" : undefined,
+          grant.delegable ? "delegable" : undefined,
+          grant.usable === false ? "pass on only" : undefined,
         ].filter(Boolean).join(", ");
         return (
           <span className="rounded-full border border-border-soft px-2 py-0.5 text-[0.68rem] [&>small]:text-muted-foreground" key={`${grant.capability}-${position}`} title={scope}>
@@ -307,7 +307,7 @@ function ActionCard({ action, runId, onError }: { action: RunAction; runId: stri
     <div className={actionClass}>
       <strong>{action.title}</strong>
       {action.description && <p>{action.description}</p>}
-      {action.owner && <p>wartet auf Eingabe - {action.owner}</p>}
+      {action.owner && <p>waiting for input - {action.owner}</p>}
       {action.input && (
         <Input
           className="my-1.5 text-[0.76rem]"
@@ -320,14 +320,14 @@ function ActionCard({ action, runId, onError }: { action: RunAction; runId: stri
       )}
       <div className="mt-1 flex justify-end gap-1.5">
         <Button disabled={!writable || busy} onClick={() => void resolve("dismissed", undefined)} size="sm" variant="outline">
-          Verwerfen
+          Dismiss
         </Button>
         <Button
           disabled={!writable || busy || (action.input?.required === true && response.trim() === "")}
           onClick={() => void resolve("approved", response.trim() || undefined)}
           size="sm"
         >
-          Quittieren
+          Acknowledge
         </Button>
       </div>
     </div>
@@ -365,46 +365,46 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
   const driverLabel = actor.kind === "script"
     ? "TypeScript"
     : !driver || driver.kind === "manual"
-      ? "Manuell"
+      ? "Manual"
       : [driver.kind, driver.config.provider].filter(Boolean).join(" - ");
 
   const config = driver && driver.kind !== "manual" ? driver.config : undefined;
   const sections: SectionTab[] = [
-    { id: "info", label: "Info: Modell und Run-Details", icon: <SectionIcon kind="info" />, content: (
+    { id: "info", label: "Info: model and run details", icon: <SectionIcon kind="info" />, content: (
       <div className={statusClass}>
         {lifecycle && <StatusPill status={lifecycle} />}
-        <span>{primary ? "Primärer Actor" : ACTOR_KIND_LABELS[actor.kind]}</span>
+        <span>{primary ? "Primary actor" : ACTOR_KIND_LABELS[actor.kind]}</span>
         <span>{driverLabel}</span>
         {config?.model && <span className="max-w-[220px] truncate" title={config.model}>{config.model}</span>}
-        {config?.thinking && <span>Denktiefe {thinkingLabel(config.thinking)}</span>}
-        <span>{pendingInputCount} offen</span>
+        {config?.thinking && <span>Thinking level {thinkingLabel(config.thinking)}</span>}
+        <span>{pendingInputCount} open</span>
         <span>{turns.length} Turns</span>
         {primary && runCost !== undefined && (
-          <span title="Gesamtkosten des Runs über alle Turns">{formatCostUsd(runCost)}</span>
+          <span title="Total cost of the run across all turns">{formatCostUsd(runCost)}</span>
         )}
       </div>
     ) },
     ...(actor.prompt ? [{
-      id: "auftrag",
-      label: "Auftrag",
+      id: "prompt",
+      label: "Task",
       icon: <SectionIcon kind="prompt" />,
       content: <pre className={textBlockClass}>{actor.prompt}</pre>,
     }] : []),
     ...(programSource ? [{
       id: "source",
-      label: "Quelltext",
+      label: "Source code",
       icon: <SectionIcon kind="source" />,
       content: programSource,
     }] : actor.source ? [{
       id: "source",
-      label: "Quelltext",
+      label: "Source code",
       icon: <SectionIcon kind="source" />,
       count: actor.source.replace(/\n$/, "").split("\n").length,
       content: <SourceListing handle={actor.handle} source={actor.source} />,
     }] : []),
     ...(inputsConfig.length > 0 ? [{
-      id: "vorgaben",
-      label: "Vorgaben",
+      id: "settings",
+      label: "Settings",
       icon: <SectionIcon kind="settings" />,
       count: inputsConfig.length,
       content: (
@@ -414,8 +414,8 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
       ),
     }] : []),
     {
-      id: "eingaben",
-      label: "Eingaben",
+      id: "inputs",
+      label: "Inputs",
       icon: <SectionIcon kind="inputs" />,
       count: inputs.length,
       content: (
@@ -462,8 +462,8 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
       ),
     },
     ...(actions.length > 0 ? [{
-      id: "aktionen",
-      label: "Aktionen",
+      id: "actions",
+      label: "Actions",
       icon: <SectionIcon kind="actions" />,
       count: actions.length,
       content: (
@@ -478,8 +478,8 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
       ),
     }] : []),
     ...(artifacts.length > 0 ? [{
-      id: "artefakte",
-      label: "Artefakte",
+      id: "artifacts",
+      label: "Artifacts",
       icon: <SectionIcon kind="artifacts" />,
       count: artifacts.length,
       content: (
@@ -500,13 +500,13 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
       content: <CapabilityList grants={actor.grants} />,
     },
     {
-      id: "werkzeuge",
-      label: "Werkzeuge",
+      id: "tools",
+      label: "Tools",
       icon: <WrenchIcon size={15} />,
       ...(actor.toolNames ? { count: actor.toolNames.length } : {}),
       content: (
         <p className={mutedClass}>
-          {actor.toolNames === null ? "Alle verfügbaren Werkzeuge" : actor.toolNames?.join(", ") || "Keine Werkzeuge"}
+          {actor.toolNames === null ? "All available tools" : actor.toolNames?.join(", ") || "No tools"}
         </p>
       ),
     },
@@ -519,7 +519,7 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
         <div className="flex min-w-0 flex-1 items-baseline gap-2 [&>span]:flex-1">
           <h2>{actor.displayName}</h2>
           <span className={subtitleClass}>
-            @{actor.handle}{inspect && actor.createdBy ? ` - erzeugt von ${actorLabel(index, actor.createdBy)}` : ""}
+            @{actor.handle}{inspect && actor.createdBy ? ` - created by ${actorLabel(index, actor.createdBy)}` : ""}
           </span>
         </div>
         {active && writable && (
@@ -527,7 +527,7 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
             className="flex-shrink-0"
             onClick={() => void stopActor(view.id, actor.id, STOP_REASON).catch((caught: Error) => setError(caught.message))}
             size="sm"
-            title={`@${actor.handle} samt beauftragten Kindern dauerhaft stoppen; die Chat-Eingabe unterbricht dagegen nur den laufenden Turn`}
+            title={`Stop @${actor.handle} and its assigned children permanently; the chat input, in contrast, only interrupts the running turn`}
             variant="destructive"
           >
             Stop
@@ -539,7 +539,7 @@ function ActorView({ actor, index, ...props }: FlowInspectorProps & { actor: Run
             size="sm"
             variant="outline"
           >
-            Neu starten
+            Restart
           </Button>
         )}
       </header>
@@ -588,21 +588,21 @@ function InputView({ index, input, ...props }: FlowInspectorProps & { index: Run
     <div className={inspectorClass}>
       <DetailHeader canGoBack={props.canGoBack} eyebrow="ActorInput" onBack={props.onBack} subtitle={formatTime(input.enqueuedAt)} title={shortId(input.id)} />
       <div className={scrollClass}>
-        <section className={sectionClass}><h3>Inhalt</h3><pre className={textBlockClass}>{input.content}</pre></section>
+        <section className={sectionClass}><h3>Content</h3><pre className={textBlockClass}>{input.content}</pre></section>
         <section className={sectionClass}>
           <h3>Routing</h3>
           <dl className={propertiesClass}>
             <dt>Actor</dt><dd><EntityLink id={input.actorId} index={index} onNavigate={props.onNavigate} /></dd>
-            <dt>Eingereiht von</dt><dd><EntityLink id={input.enqueuedBy} index={index} onNavigate={props.onNavigate} /></dd>
-            <dt>Turn</dt><dd>{input.lifecycle.kind === "claimed" ? <SelectionLink label={shortId(input.lifecycle.turnId)} onNavigate={props.onNavigate} selection={{ type: "turn", id: input.lifecycle.turnId }} /> : input.lifecycle.kind === "discarded" ? "verworfen" : "wartet"}</dd>
-            <dt>Subscription</dt><dd>{input.subscriptionId ? <SelectionLink label={shortId(input.subscriptionId)} onNavigate={props.onNavigate} selection={{ type: "subscription", id: input.subscriptionId }} /> : "keine"}</dd>
+            <dt>Enqueued by</dt><dd><EntityLink id={input.enqueuedBy} index={index} onNavigate={props.onNavigate} /></dd>
+            <dt>Turn</dt><dd>{input.lifecycle.kind === "claimed" ? <SelectionLink label={shortId(input.lifecycle.turnId)} onNavigate={props.onNavigate} selection={{ type: "turn", id: input.lifecycle.turnId }} /> : input.lifecycle.kind === "discarded" ? "dismissed" : "waiting"}</dd>
+            <dt>Subscription</dt><dd>{input.subscriptionId ? <SelectionLink label={shortId(input.subscriptionId)} onNavigate={props.onNavigate} selection={{ type: "subscription", id: input.subscriptionId }} /> : "none"}</dd>
             {input.lifecycle.kind === "discarded" && <>
-              <dt>Verworfen</dt><dd>{formatTime(input.lifecycle.at)}</dd>
-              <dt>Grund</dt><dd>{input.lifecycle.reason}</dd>
+              <dt>Dismissed</dt><dd>{formatTime(input.lifecycle.at)}</dd>
+              <dt>Reason</dt><dd>{input.lifecycle.reason}</dd>
             </>}
           </dl>
         </section>
-        {input.sourceEventIds.length > 0 && <section className={sectionClass}><h3>Quell-Events</h3><p className={mutedClass}>{input.sourceEventIds.join(", ")}</p></section>}
+        {input.sourceEventIds.length > 0 && <section className={sectionClass}><h3>Source events</h3><p className={mutedClass}>{input.sourceEventIds.join(", ")}</p></section>}
         {artifacts.length > 0 && <ArtifactRows artifacts={artifacts} onNavigate={props.onNavigate} />}
       </div>
     </div>
@@ -620,20 +620,20 @@ function TurnView({ index, turn, ...props }: FlowInspectorProps & { index: RunIn
           <h3>Details</h3>
           <dl className={propertiesClass}>
             <dt>Actor</dt><dd><EntityLink id={turn.actorId} index={index} onNavigate={props.onNavigate} /></dd>
-            <dt>Eingabe</dt><dd><SelectionLink label={shortId(turn.inputId)} onNavigate={props.onNavigate} selection={{ type: "input", id: turn.inputId }} /></dd>
-            <dt>Beendet</dt><dd>{turn.finishedAt ? formatTime(turn.finishedAt) : "läuft"}</dd>
-            {turn.reason && <><dt>Grund</dt><dd>{turn.reason}</dd></>}
+            <dt>Input</dt><dd><SelectionLink label={shortId(turn.inputId)} onNavigate={props.onNavigate} selection={{ type: "input", id: turn.inputId }} /></dd>
+            <dt>Ended</dt><dd>{turn.finishedAt ? formatTime(turn.finishedAt) : "running"}</dd>
+            {turn.reason && <><dt>Reason</dt><dd>{turn.reason}</dd></>}
           </dl>
         </section>
         {usage && (
           <section className={sectionClass}>
-            <h3>Nutzung</h3>
+            <h3>Usage</h3>
             <dl className={propertiesClass}>
-              <dt>Input-Tokens</dt><dd>{usage.inputTokens ?? 0}</dd>
-              <dt>Output-Tokens</dt><dd>{usage.outputTokens ?? 0}</dd>
-              <dt>Cache gelesen</dt><dd>{usage.cacheReadTokens ?? 0}</dd>
-              <dt>Cache geschrieben</dt><dd>{usage.cacheWriteTokens ?? 0}</dd>
-              <dt>Kosten</dt><dd>{(usage.costUsd ?? 0).toFixed(6)} USD</dd>
+              <dt>Input tokens</dt><dd>{usage.inputTokens ?? 0}</dd>
+              <dt>Output tokens</dt><dd>{usage.outputTokens ?? 0}</dd>
+              <dt>Cache read</dt><dd>{usage.cacheReadTokens ?? 0}</dd>
+              <dt>Cache written</dt><dd>{usage.cacheWriteTokens ?? 0}</dd>
+              <dt>Cost</dt><dd>{(usage.costUsd ?? 0).toFixed(6)} USD</dd>
             </dl>
           </section>
         )}
@@ -652,16 +652,16 @@ function SubscriptionView({ index, subscription, ...props }: FlowInspectorProps 
           <h3>Filter</h3>
           <dl className={propertiesClass}>
             <dt>Subscriber</dt><dd><EntityLink id={subscription.subscriberId} index={index} onNavigate={props.onNavigate} /></dd>
-            <dt>Quell-Actors</dt><dd>{subscription.sourceActorIds?.map((id) => actorLabel(index, id)).join(", ") ?? "alle"}</dd>
-            <dt>Actor-Arten</dt><dd>{subscription.sourceActorKinds?.join(", ") ?? "alle"}</dd>
-            <dt>Event-Typen</dt><dd>{subscription.eventTypes.join(", ")}</dd>
-            <dt>Eigene Events</dt><dd>{subscription.includeSelf ? "ja" : "nein"}</dd>
-            <dt>Angelegt von</dt><dd><EntityLink id={subscription.createdBy} index={index} onNavigate={props.onNavigate} /></dd>
-            {subscription.status !== "active" && <><dt>Grund</dt><dd>{subscription.reason}</dd></>}
-            {subscription.status === "failed" && <><dt>Fehler-Event</dt><dd>{subscription.sourceEventId}</dd></>}
+            <dt>Source actors</dt><dd>{subscription.sourceActorIds?.map((id) => actorLabel(index, id)).join(", ") ?? "all"}</dd>
+            <dt>Actor kinds</dt><dd>{subscription.sourceActorKinds?.join(", ") ?? "all"}</dd>
+            <dt>Event types</dt><dd>{subscription.eventTypes.join(", ")}</dd>
+            <dt>Own events</dt><dd>{subscription.includeSelf ? "yes" : "no"}</dd>
+            <dt>Created by</dt><dd><EntityLink id={subscription.createdBy} index={index} onNavigate={props.onNavigate} /></dd>
+            {subscription.status !== "active" && <><dt>Reason</dt><dd>{subscription.reason}</dd></>}
+            {subscription.status === "failed" && <><dt>Error event</dt><dd>{subscription.sourceEventId}</dd></>}
           </dl>
         </section>
-        {subscription.sourceActorIds && <section className={sectionClass}><h3>Quell-Actors</h3><ActorRows actorIds={subscription.sourceActorIds} index={index} onNavigate={props.onNavigate} /></section>}
+        {subscription.sourceActorIds && <section className={sectionClass}><h3>Source actors</h3><ActorRows actorIds={subscription.sourceActorIds} index={index} onNavigate={props.onNavigate} /></section>}
       </div>
     </div>
   );
@@ -671,23 +671,23 @@ function ActionView({ action, index, ...props }: FlowInspectorProps & { action: 
   const [error, setError] = useState<string>();
   return (
     <div className={inspectorClass}>
-      <DetailHeader canGoBack={props.canGoBack} eyebrow="Aktion" onBack={props.onBack} subtitle={actorLabel(index, action.askedBy)} title={action.title} />
+      <DetailHeader canGoBack={props.canGoBack} eyebrow="Action" onBack={props.onBack} subtitle={actorLabel(index, action.askedBy)} title={action.title} />
       <div className={statusClass}><StatusPill status={action.status} /></div>
       <div className={scrollClass}>
         {action.status === "pending" && <ActionCard action={action} onError={setError} runId={index.view.id} />}
-        {action.description && <section className={sectionClass}><h3>Beschreibung</h3><p>{action.description}</p></section>}
+        {action.description && <section className={sectionClass}><h3>Description</h3><p>{action.description}</p></section>}
         <section className={sectionClass}>
           <h3>Details</h3>
           <dl className={propertiesClass}>
-            <dt>Gefragt von</dt><dd><EntityLink id={action.askedBy} index={index} onNavigate={props.onNavigate} /></dd>
-            <dt>Vorgeschlagen</dt><dd>{formatTime(action.proposedAt)}</dd>
-            {action.resolvedAt && <><dt>Aufgelöst</dt><dd>{formatTime(action.resolvedAt)}</dd></>}
-            {action.owner && <><dt>Eigentümer</dt><dd>{action.owner}</dd></>}
-            {action.result !== null && action.result !== undefined && <><dt>Ergebnis</dt><dd>{typeof action.result === "string" ? action.result : JSON.stringify(action.result)}</dd></>}
+            <dt>Asked by</dt><dd><EntityLink id={action.askedBy} index={index} onNavigate={props.onNavigate} /></dd>
+            <dt>Proposed</dt><dd>{formatTime(action.proposedAt)}</dd>
+            {action.resolvedAt && <><dt>Resolved</dt><dd>{formatTime(action.resolvedAt)}</dd></>}
+            {action.owner && <><dt>Owner</dt><dd>{action.owner}</dd></>}
+            {action.result !== null && action.result !== undefined && <><dt>Result</dt><dd>{typeof action.result === "string" ? action.result : JSON.stringify(action.result)}</dd></>}
           </dl>
         </section>
-        {Object.keys(action.parameters).length > 0 && <section className={sectionClass}><h3>Parameter</h3><pre className={textBlockClass}>{JSON.stringify(action.parameters, null, 2)}</pre></section>}
-        {action.payload !== null && action.payload !== undefined && <section className={sectionClass}><h3>Nutzdaten</h3><pre className={textBlockClass}>{JSON.stringify(action.payload, null, 2)}</pre></section>}
+        {Object.keys(action.parameters).length > 0 && <section className={sectionClass}><h3>Parameters</h3><pre className={textBlockClass}>{JSON.stringify(action.parameters, null, 2)}</pre></section>}
+        {action.payload !== null && action.payload !== undefined && <section className={sectionClass}><h3>Payload</h3><pre className={textBlockClass}>{JSON.stringify(action.payload, null, 2)}</pre></section>}
         {error && <p className={errorClass}>{error}</p>}
       </div>
     </div>
@@ -729,7 +729,7 @@ function ActorRows({ actorIds, index, onNavigate }: {
 function ArtifactRows({ artifacts, onNavigate }: { artifacts: RunArtifact[]; onNavigate: (selection: FlowSelection) => void }) {
   return (
     <section className={sectionClass}>
-      <h3>Artefakte</h3>
+      <h3>Artifacts</h3>
       <div className={rowsClass}>
         {artifacts.map((artifact) => (
           <button className={rowClass} key={artifact.id} onClick={() => onNavigate({ type: "artifact", id: artifact.id })} type="button">
@@ -848,16 +848,16 @@ function ArtifactDiff({ artifact, index }: { artifact: RunArtifact; index: RunIn
     if (beforeText === undefined || afterText === undefined) return undefined;
     const left = beforeText.split("\n");
     const right = afterText.split("\n");
-    if (left.length > DIFF_LINE_LIMIT || right.length > DIFF_LINE_LIMIT) return "zu groß" as const;
+    if (left.length > DIFF_LINE_LIMIT || right.length > DIFF_LINE_LIMIT) return "too large" as const;
     return lineDiff(left, right);
   }, [beforeText, afterText]);
 
   if (!artifact.previousVersionId) return null;
-  if (!previous) return <p className={mutedClass}>Vorversion nicht in dieser Projektion.</p>;
-  if (!before || !after || before.kind === "loading" || after.kind === "loading") return <p className={mutedClass}>Vergleich wird geladen ...</p>;
-  if (rows === undefined) return <p className={mutedClass}>{artifact.mediaType} wird nicht zeilenweise verglichen.</p>;
-  if (rows === "zu groß") return <p className={mutedClass}>Zu groß für den Zeilenvergleich (mehr als {DIFF_LINE_LIMIT} Zeilen).</p>;
-  if (rows.every((entry) => entry.kind === "same")) return <p className={mutedClass}>Beide Versionen haben denselben Text.</p>;
+  if (!previous) return <p className={mutedClass}>Previous version not in this projection.</p>;
+  if (!before || !after || before.kind === "loading" || after.kind === "loading") return <p className={mutedClass}>Loading comparison ...</p>;
+  if (rows === undefined) return <p className={mutedClass}>{artifact.mediaType} is not compared line by line.</p>;
+  if (rows === "too large") return <p className={mutedClass}>Too large for the line comparison (more than {DIFF_LINE_LIMIT} lines).</p>;
+  if (rows.every((entry) => entry.kind === "same")) return <p className={mutedClass}>Both versions have the same text.</p>;
   const marks = { same: " ", added: "+", removed: "-" };
   return <pre className="my-1.5 overflow-x-auto rounded-lg bg-foreground/4 p-2 text-[0.7rem] [&>span]:block [&>span]:whitespace-pre [&>span[data-diff=added]]:bg-success-soft [&>span[data-diff=removed]]:bg-destructive-soft">{rows.map((entry, position) => <span data-diff={entry.kind} key={position}>{marks[entry.kind]} {entry.text}{"\n"}</span>)}</pre>;
 }
@@ -871,25 +871,25 @@ function ArtifactView({ artifact, index, ...props }: FlowInspectorProps & { arti
       <header className={headClass}>
         <BackButton canGoBack={props.canGoBack} onBack={props.onBack} />
         <div className="min-w-0 flex-1">
-          <p className="mb-0.5 text-[0.66rem] font-semibold tracking-[0.08em] uppercase text-muted-foreground">Artefakt</p>
+          <p className="mb-0.5 text-[0.66rem] font-semibold tracking-[0.08em] uppercase text-muted-foreground">Artifact</p>
           <h2>{artifact.title}</h2>
-          <span className={subtitleClass}>von {actorLabel(index, artifact.createdBy)} - {formatBytes(artifact.size)} - {artifact.mediaType}</span>
+          <span className={subtitleClass}>by {actorLabel(index, artifact.createdBy)} - {formatBytes(artifact.size)} - {artifact.mediaType}</span>
         </div>
-        <Button render={<a href={runArtifactContentUrl(view.id, artifact.id)} />} size="sm" variant="outline">Herunterladen</Button>
+        <Button render={<a href={runArtifactContentUrl(view.id, artifact.id)} />} size="sm" variant="outline">Download</Button>
       </header>
       <div className={scrollClass}>
         <section className={sectionClass}>
-          <h3>Inhalt</h3>
-          {(!content || content.kind === "loading") && <p className={mutedClass}>Artefakt wird geladen ...</p>}
-          {content?.kind === "error" && <p className={errorClass}>{content.message} <button className={linkClass} onClick={retry} type="button">Erneut laden</button></p>}
-          {content?.kind === "download" && <p className={mutedClass}>Keine Vorschau für {artifact.mediaType}.</p>}
+          <h3>Content</h3>
+          {(!content || content.kind === "loading") && <p className={mutedClass}>Loading artifact ...</p>}
+          {content?.kind === "error" && <p className={errorClass}>{content.message} <button className={linkClass} onClick={retry} type="button">Reload</button></p>}
+          {content?.kind === "download" && <p className={mutedClass}>No preview for {artifact.mediaType}.</p>}
           {content?.kind === "image" && <img alt={artifact.title} className="max-w-full rounded-lg" src={runArtifactContentUrl(view.id, artifact.id)} />}
           {content?.kind === "text" && <pre className={textBlockClass}>{content.text}</pre>}
         </section>
-        {artifact.previousVersionId && <section className={sectionClass}><h3>Änderung zur Vorversion</h3><ArtifactDiff artifact={artifact} index={index} /></section>}
+        {artifact.previousVersionId && <section className={sectionClass}><h3>Change from previous version</h3><ArtifactDiff artifact={artifact} index={index} /></section>}
         {carriedOn.length > 0 && (
           <section className={sectionClass}>
-            <h3>Verwendet in Eingaben</h3>
+            <h3>Used in inputs</h3>
             <div className={rowsClass}>
               {carriedOn.map((input) => (
                 <button className={rowClass} key={input.id} onClick={() => props.onNavigate({ type: "input", id: input.id })} type="button">
@@ -902,10 +902,10 @@ function ArtifactView({ artifact, index, ...props }: FlowInspectorProps & { arti
         <section className={sectionClass}>
           <h3>Details</h3>
           <dl className={propertiesClass}>
-            <dt>Erstellt von</dt><dd><EntityLink id={artifact.createdBy} index={index} onNavigate={props.onNavigate} /></dd>
+            <dt>Created by</dt><dd><EntityLink id={artifact.createdBy} index={index} onNavigate={props.onNavigate} /></dd>
             <dt>Hash</dt><dd>{shortId(artifact.hash)}</dd>
-            <dt>Erstellt</dt><dd>{formatTime(artifact.createdAt)}</dd>
-            {artifact.previousVersionId && <><dt>Vorversion</dt><dd><SelectionLink label={shortId(artifact.previousVersionId)} onNavigate={props.onNavigate} selection={{ type: "artifact", id: artifact.previousVersionId }} /></dd></>}
+            <dt>Created</dt><dd>{formatTime(artifact.createdAt)}</dd>
+            {artifact.previousVersionId && <><dt>Previous version</dt><dd><SelectionLink label={shortId(artifact.previousVersionId)} onNavigate={props.onNavigate} selection={{ type: "artifact", id: artifact.previousVersionId }} /></dd></>}
           </dl>
         </section>
       </div>

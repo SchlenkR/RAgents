@@ -15,9 +15,9 @@ import type { SandboxFolder, SessionWorkspace } from "../src/ragents/workspace-r
 
 const supported = process.platform === "darwin" || process.platform === "linux";
 
-const SANDBOX_OFF = 'SANDBOX: "off" in der Sektion acme.workspace';
+const SANDBOX_OFF = 'SANDBOX: "off" in the section acme.workspace';
 
-test("eine Plattform ohne Sandbox bricht mit der Einstellung ab, die das besitzende Plugin zum Abschalten nennt", () => {
+test("a platform without a sandbox aborts with the setting that the owning plugin names for turning it off", () => {
   for (const platform of ["win32", "freebsd"] as const) {
     assert.throws(() => new ServerProcessSandbox({ network: [], serverAddress: undefined, dataDirectory: tmpdir(), disableSetting: SANDBOX_OFF, platform }),
       (error: unknown) => error instanceof Error && error.message.includes(SANDBOX_OFF) && !error.message.includes("ragents."), platform);
@@ -37,7 +37,7 @@ const closed = (server: Server): Promise<void> => new Promise((resolve) => {
   server.close(() => resolve());
 });
 
-/** Ein Datenordner wie der eines Servers mit Benutzern: der globale Koordinator eines Benutzers und das Journal eines fremden Runs. */
+/** A data folder like that of a server with users: a user's global coordinator and the journal of a foreign run. */
 const coordinatorFixture = async () => {
   const data = await realpath(await mkdtemp(path.join(tmpdir(), "ragents-process-sandbox-")));
   const foreignJournal = path.join(data, "runs", "foreign-run", "journal.jsonl");
@@ -56,7 +56,7 @@ const coordinatorFixture = async () => {
     currentRoot: async () => cwd,
     runOperation: (operation) => operation(),
   };
-  const unused = async (): Promise<never> => { throw new Error("Der Koordinator bestimmt seinen Arbeitsbereich selbst"); };
+  const unused = async (): Promise<never> => { throw new Error("The coordinator determines its workspace itself"); };
   const host = new WorkspaceSandboxHost({
     contributorName: "test.workspace", contributions: [],
     workspaceFor: async () => workspace,
@@ -82,7 +82,7 @@ const coordinatorFixture = async () => {
       input: {},
       context: { runId: "coordinator", invocationId: "sandbox", invocationKind: "tool", principal: { id: "coordinator", kind: "agent" }, capabilities: [] },
     };
-    const outcome = await native.execute(request, { call: async () => { throw new Error("keine Capability"); }, log: () => undefined });
+    const outcome = await native.execute(request, { call: async () => { throw new Error("no capability"); }, log: () => undefined });
     return outcome.result;
   };
   return {
@@ -120,8 +120,8 @@ test("a TypeScript snippet of the global coordinator cannot read a foreign journ
   const f = await coordinatorFixture();
   try {
     const read = await f.snippet(`import { readFile } from "node:fs/promises";
-export const handle = () => readFile(${JSON.stringify(f.foreignJournal)}, "utf8").then((text) => "gelesen: " + text, (error) => "verweigert: " + error.code);`);
-    assert.match(String(read), /^verweigert: (EPERM|ENOENT)$/);
+export const handle = () => readFile(${JSON.stringify(f.foreignJournal)}, "utf8").then((text) => "read: " + text, (error) => "denied: " + error.code);`);
+    assert.match(String(read), /^denied: (EPERM|ENOENT)$/);
     const written = await f.snippet(`import { readFile, writeFile } from "node:fs/promises";
 export const handle = async () => { await writeFile("snippet.txt", "from snippet"); return readFile("snippet.txt", "utf8"); };`);
     assert.equal(written, "from snippet");
@@ -138,10 +138,10 @@ test("network calls outside the allowlist fail, the own server stays reachable",
     assert.match(blocked, /blocked by network allowlist/);
     const fetched = await f.snippet(`export const handle = async () => {
   const allowed = await fetch(${JSON.stringify(f.allowed.address)}).then((response) => response.text());
-  const blocked = await fetch(${JSON.stringify(f.forbidden.address)}).then((response) => response.status === 200 ? "erreicht" : "abgelehnt " + response.status, () => "abgelehnt");
+  const blocked = await fetch(${JSON.stringify(f.forbidden.address)}).then((response) => response.status === 200 ? "reached" : "rejected " + response.status, () => "rejected");
   return allowed + " / " + blocked;
 };`);
-    assert.match(String(fetched), /^own server \/ abgelehnt/);
+    assert.match(String(fetched), /^own server \/ rejected/);
   } finally { await f.close(); }
 });
 
@@ -218,7 +218,7 @@ test("a bash of a workstation run with an alias as cwd runs on the server in the
   };
   const processSandbox = new ServerProcessSandbox({ network: [], serverAddress: undefined, dataDirectory: data, disableSetting: SANDBOX_OFF });
   await processSandbox.start();
-  const remote = (): Promise<string> => Promise.reject(new Error("Der Arbeitsbereich liegt auf dem Arbeitsplatz"));
+  const remote = (): Promise<string> => Promise.reject(new Error("The workspace is on the workstation"));
   const host = new WorkspaceSandboxHost({
     contributorName: "test.workspace", contributions: [],
     workspaceFor: async () => ({ cwd: "/workstation/project", currentRoot: remote, runOperation: (operation) => operation() }),

@@ -6,7 +6,7 @@ import { defineOperation } from "../src/rpc/contract.ts";
 import { RpcPeer } from "../src/rpc/peer.ts";
 import { RPC_ERROR_CODES, RPC_METHODS, RpcError, type RpcMessage } from "../src/rpc/protocol.ts";
 
-/** Zwei Peers, die sich gegenseitig über Microtasks zustellen; `dropped` hält Nachrichten zurück. */
+/** Two peers that deliver to each other through microtasks; `dropped` holds messages back. */
 const pair = () => {
   const sent: { left: RpcMessage[]; right: RpcMessage[] } = { left: [], right: [] };
   let dropped = false;
@@ -17,7 +17,7 @@ const pair = () => {
 
 const echo = defineOperation({
   id: "test.echo",
-  description: "Gibt die Eingabe zurück",
+  description: "Returns the input",
   input: Type.Object({ text: Type.String() }),
   result: Type.Object({ text: Type.String() }),
 });
@@ -25,8 +25,8 @@ const echo = defineOperation({
 test("requests travel both ways with typed contracts and failures keep their domain code", async () => {
   const { left, right } = pair();
   right.handle(echo, ({ text }) => ({ text: text.toUpperCase() }));
-  left.onRequest("test.fail", () => { throw new DomainError("run-not-found", "Kein Run", 404); });
-  assert.deepEqual(await left.call(echo, { text: "hallo" }), { text: "HALLO" });
+  left.onRequest("test.fail", () => { throw new DomainError("run-not-found", "No run", 404); });
+  assert.deepEqual(await left.call(echo, { text: "hello" }), { text: "HELLO" });
   await assert.rejects(right.request("test.fail", {}), (error: unknown) =>
     error instanceof RpcError && error.code === RPC_ERROR_CODES.application && error.domainCode === "run-not-found" && error.status === 404);
   await assert.rejects(left.request("test.unknown", {}), (error: unknown) => error instanceof RpcError && error.code === RPC_ERROR_CODES.methodNotFound);
@@ -42,15 +42,15 @@ test("notifications, progress and cancellation reach the other side", async () =
 
   let aborted = false;
   right.onRequest("test.slow", (_params, context) => new Promise((resolve) => {
-    context.progress("eins");
-    context.progress("zwei");
+    context.progress("one");
+    context.progress("two");
     context.signal.addEventListener("abort", () => { aborted = true; resolve({ exitCode: null }); });
   }));
   const progress: unknown[] = [];
   const controller = new AbortController();
   const slow = left.request("test.slow", {}, { signal: controller.signal, onProgress: (value) => progress.push(value) });
   await new Promise((resolve) => setTimeout(resolve, 0));
-  assert.deepEqual(progress, ["eins", "zwei"]);
+  assert.deepEqual(progress, ["one", "two"]);
   controller.abort();
   assert.deepEqual(await slow, { exitCode: null });
   assert.ok(aborted);
@@ -63,8 +63,8 @@ test("timeouts, dropped transports and closing settle pending calls", async () =
   await assert.rejects(left.request("test.never", {}, { timeoutMs: 20 }), (error: unknown) => error instanceof RpcError && error.code === RPC_ERROR_CODES.timeout);
   drop();
   const orphan = left.request("test.never", {});
-  left.close("Verbindung beendet");
-  await assert.rejects(orphan, (error: unknown) => error instanceof RpcError && error.code === RPC_ERROR_CODES.connectionClosed && error.message === "Verbindung beendet");
+  left.close("Connection closed");
+  await assert.rejects(orphan, (error: unknown) => error instanceof RpcError && error.code === RPC_ERROR_CODES.connectionClosed && error.message === "Connection closed");
   await assert.rejects(left.request("test.echo", {}), (error: unknown) => error instanceof RpcError && error.code === RPC_ERROR_CODES.connectionClosed);
 });
 

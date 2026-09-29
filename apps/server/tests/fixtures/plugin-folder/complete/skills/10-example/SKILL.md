@@ -1,9 +1,9 @@
 ---
 name: 10-example
 start: true
-category: Beispiele
-title: Beispielkarte
-description: Eine Karte aus dem Plugin-Ordner.
+category: Examples
+title: Example card
+description: A card from the plugin folder.
 order: 10
 ---
-Ich hätte gern einen Beleg, dass diese Karte aus dem Plugin-Ordner stammt.
+I would like proof that this card comes from the plugin folder.

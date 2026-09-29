@@ -5,7 +5,7 @@ import type { NativeTypeScriptRequest } from "../../../../packages/ragents/src/t
 import { assertJsonValue, type JsonValue } from "../../../../packages/ragents/src/domain/json.ts";
 
 const send = (message: unknown): void => {
-  if (!process.send || !process.connected) throw new Error("Die Run-Verbindung ist geschlossen.");
+  if (!process.send || !process.connected) throw new Error("The run connection is closed.");
   process.send(message as Parameters<NonNullable<typeof process.send>>[0]);
 };
 const errors = (error: unknown): string => error instanceof Error ? error.message : String(error);
@@ -32,12 +32,12 @@ process.on("message", (raw: unknown) => {
     return;
   }
   if (message.kind === "cancel") {
-    active?.abort(new Error("Der Run-Aufruf wurde abgebrochen."));
+    active?.abort(new Error("The run call was cancelled."));
     return;
   }
   if (message.kind !== "execute") return;
   if (!loaded || active) {
-    send({ kind: "failed", error: "Der Backendprozess ist nicht bereit." });
+    send({ kind: "failed", error: "The backend process is not ready." });
     return;
   }
   const request = message.request!;
@@ -68,7 +68,7 @@ process.on("message", (raw: unknown) => {
       capabilities,
     }) : undefined;
     const handle = loaded![request.program.exportName ?? "handle"];
-    if (typeof handle !== "function") throw new Error(`Backend-Export ${request.program.exportName ?? "handle"} ist keine Funktion.`);
+    if (typeof handle !== "function") throw new Error(`Backend export ${request.program.exportName ?? "handle"} is not a function.`);
     const result: unknown = await handle(request.input, { ...context, actor: request.context.actor, ...(std ? { std } : {}) });
     controller.signal.throwIfAborted();
     if (result !== undefined) assertJsonValue(result, "TypeScript result");

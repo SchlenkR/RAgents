@@ -14,7 +14,7 @@ const kindLabels: Readonly<Record<ActivityEntry["kind"], string>> = {
 };
 
 const titleOf = (entry: ActivityEntry) =>
-  entry.kind === "tool" ? `Werkzeug läuft: ${entry.label}` : `Turn läuft: ${entry.label}`;
+  entry.kind === "tool" ? `Tool running: ${entry.label}` : `Turn running: ${entry.label}`;
 
 export function ActivityHeader({ session }: SessionHeaderContext) {
   const state = useMemo(
@@ -34,7 +34,7 @@ export function ActivityHeader({ session }: SessionHeaderContext) {
   if (!active) return null;
 
   return (
-    <div aria-label="Was gerade läuft" className="flex min-w-0 flex-none items-stretch self-stretch" role="status">
+    <div aria-label="What is running right now" className="flex min-w-0 flex-none items-stretch self-stretch" role="status">
       {state.entries.map((entry) => {
         const elapsed = elapsedLabel(entry.startedAt, now);
         return (
@@ -51,7 +51,7 @@ export function ActivityHeader({ session }: SessionHeaderContext) {
         );
       })}
       {state.hidden > 0 && (
-        <ToolbarItem className="text-muted-foreground">+{state.hidden} weitere</ToolbarItem>
+        <ToolbarItem className="text-muted-foreground">+{state.hidden} more</ToolbarItem>
       )}
     </div>
   );

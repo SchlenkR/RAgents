@@ -40,7 +40,7 @@ test("the UI catalog omits declaration bodies and rejects unknown names", () => 
   assert.ok(catalog.components.includes("FlowDiagram"));
   assert.ok(catalog.components.includes("WorkflowDiagram"));
   assert.equal("files" in catalog, false);
-  assert.throws(() => describeClientControls("MissingWidget"), /Unbekanntes Control/);
+  assert.throws(() => describeClientControls("MissingWidget"), /Unknown control/);
 });
 
 test("actor-program reference queries load the shared guide without expanding control lookups", async () => {
@@ -71,7 +71,7 @@ test("actor-program reference queries load the shared guide without expanding co
   const control = await query({ component: "Markdown" });
   assert.deepEqual(control, describeClientControls("Markdown"));
   assert.ok(Value.Check(tool.resultSchema, control));
-  await assert.rejects(query({ topic: "guide", component: "Markdown" }), /component ist nur bei topic: controls/);
+  await assert.rejects(query({ topic: "guide", component: "Markdown" }), /component is only allowed with topic: controls/);
   assert.equal(Value.Check(tool.schema, { topic: "unknown" }), false);
 });
 

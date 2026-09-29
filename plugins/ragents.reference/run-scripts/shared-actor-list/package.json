@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "ragents": {
-    "title": "Sammelboard einrichten",
+    "title": "Set up collection board",
     "backend": "src/server.ts"
   }
 }

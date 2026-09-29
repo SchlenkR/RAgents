@@ -38,8 +38,8 @@ const frameHtml = `<!doctype html><html><body><p>Bridge-Fixture</p><script>${bri
 
 const formNonce = "form-test-nonce";
 
-const formFrameHtml = `<!doctype html><html><body><form id="form"><input aria-label="Suche" value="Pumpe">
-<button type="submit">Senden</button></form><p id="submissions">0</p><script nonce="${formNonce}">${bridgeScript}
+const formFrameHtml = `<!doctype html><html><body><form id="form"><input aria-label="Search" value="Pump">
+<button type="submit">Send</button></form><p id="submissions">0</p><script nonce="${formNonce}">${bridgeScript}
 document.getElementById('form').addEventListener('submit', (event) => {
   event.preventDefault();
   const counter = document.getElementById('submissions');
@@ -67,7 +67,7 @@ const openHostFrame = async (context: TestContext, frameResponse: FrameResponse)
         import { ActorViewFrame } from "./plugins/ragents.actor-programs/web/ActorViewFrame";
         import { initializeTheme } from "./apps/web/src/theme";
         initializeTheme(window);
-        const app = { id: "status-view", actorId: "worker", actorHandle: "worker", title: "Statusprüfung",
+        const app = { id: "status-view", actorId: "worker", actorHandle: "worker", title: "Status check",
           revision: "installed-revision", actions: [{ id: "status", label: "Status", confirmation: null }],
           placements: [], state: { version: 1, revision: 1, values: { phase: "working" } }, invocations: [] };
         const api = { frameUrl: () => "/frame" };
@@ -137,7 +137,7 @@ test("actor view keeps polling past 512 requests, rejects recent duplicates and 
   const frame = await contentFrame(page);
   assert.equal(await page.locator("iframe").getAttribute("sandbox"), "allow-scripts allow-forms allow-downloads");
   assert.equal(await page.locator("iframe").getAttribute("title"), "");
-  assert.equal(await page.locator("iframe").getAttribute("aria-label"), "Statusprüfung");
+  assert.equal(await page.locator("iframe").getAttribute("aria-label"), "Status check");
   const completed = await frame.evaluate(async () => {
     const probe = window as ProbeWindow;
     for (let index = 0; index < 600; index++) {
@@ -158,19 +158,19 @@ test("actor view keeps polling past 512 requests, rejects recent duplicates and 
   for (const id of ["poll-88", "poll-599"]) {
     const duplicate = await request(id);
     assert.equal(duplicate.type, "ragents.app.error");
-    assert.match(duplicate.message!, /bereits verwendet/);
+    assert.match(duplicate.message!, /already been used/);
   }
   assert.equal(await page.evaluate(() => (window as ProbeWindow).invocationRequests.length), 600);
   assert.equal((await request("poll-0")).type, "ragents.app.invocation", "Old IDs leave the bounded history");
   assert.equal((await request("poll-88")).type, "ragents.app.invocation", "Accepting one request evicts exactly the oldest retained ID");
-  assert.match((await request("poll-90")).message!, /bereits verwendet/);
-  assert.match((await request("wrong-version", { version: 2 })).message!, /Bridge-Version/);
-  assert.match((await request("oversized", { input: "x".repeat(65_536) })).message!, /zu groß/);
-  assert.match((await request("unknown-action", { actionId: "not-installed" })).message!, /nicht installiert/);
+  assert.match((await request("poll-90")).message!, /already been used/);
+  assert.match((await request("wrong-version", { version: 2 })).message!, /bridge version/);
+  assert.match((await request("oversized", { input: "x".repeat(65_536) })).message!, /too large/);
+  assert.match((await request("unknown-action", { actionId: "not-installed" })).message!, /not installed/);
   assert.equal((await request("still-working")).type, "ragents.app.invocation");
   assert.equal(await page.evaluate(() => (window as ProbeWindow).invocationRequests.length), 603);
   await frame.evaluate(() => { location.href = "/frame?replacement" + location.hash; });
-  await page.getByText("Die App hat ihre installierte Seite verlassen und wurde getrennt.", { exact: true }).waitFor();
+  await page.getByText("The app left its installed page and was disconnected.", { exact: true }).waitFor();
   assert.equal(await page.evaluate(() => (window as ProbeWindow).invocationRequests.length), 603);
   assert.deepEqual(errors, []);
 });
@@ -184,9 +184,9 @@ test("a form in the host frame submits under the frame sandbox and CSP while nat
     headers: { "Content-Security-Policy": frameContentSecurityPolicy(formNonce) },
   });
   const frame = page.frameLocator("iframe");
-  await frame.getByRole("button", { name: "Senden" }).click();
+  await frame.getByRole("button", { name: "Send" }).click();
   await frame.getByText("1", { exact: true }).waitFor();
-  await frame.getByRole("textbox", { name: "Suche" }).press("Enter");
+  await frame.getByRole("textbox", { name: "Search" }).press("Enter");
   await frame.getByText("2", { exact: true }).waitFor();
   assert.deepEqual([...errors, ...consoleErrors], []);
   const blocked = page.waitForEvent("console", (message) => message.text().includes("form-action"));

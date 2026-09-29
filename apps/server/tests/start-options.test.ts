@@ -53,8 +53,8 @@ const workspaceChoice: StartOptionContribution = {
   accept: (value) => value,
   describe: () => ({
     kind: "choice",
-    label: "Arbeitsverzeichnis",
-    options: [{ value: "empty", label: "Leer" }, { value: "clone", label: "Klon" }],
+    label: "Working directory",
+    options: [{ value: "empty", label: "Empty" }, { value: "clone", label: "Clone" }],
   }),
 };
 
@@ -94,9 +94,9 @@ const fixture = (runId: string, contributions: readonly StartOptionContribution[
     id: runId,
     coordinator: {
       handle: "coordinator",
-      displayName: "Koordinator",
+      displayName: "Coordinator",
       profile: "coordinator",
-      runTitle: "Neuer Run",
+      runTitle: "New run",
       ownerHandle: "owner",
       ownerDisplayName: "Owner",
     },
@@ -118,7 +118,7 @@ const fixture = (runId: string, contributions: readonly StartOptionContribution[
   return { journal, runtime, session, prepared };
 };
 
-/** Eine Script-Vorlage samt Paket, wie der Host sie für den Start herausgibt. */
+/** A script template with its package, as the host hands it out for the start. */
 const scriptStartOf = (entry: PublicStartEntry | undefined): RunScriptStart | undefined => entry?.action === "script"
   ? { handle: "setup", coordinator: true, files: [{ path: "package.json", content: "{}" }], programs: [], entry }
   : undefined;
@@ -182,7 +182,7 @@ test("a model change without thinking falls back to the preferred thinking of th
     );
     await assert.rejects(
       () => session.selectStartOption(modelStartOptionId, { model: "deep", extra: 1 }, null),
-      /Ungültiger Wert für Startoption ragents\.model/,
+      /Invalid value for start option ragents\.model/,
     );
   } finally {
     journal.close();
@@ -231,7 +231,7 @@ test("a plugin option travels into the journal at start and is locked afterwards
   const { journal, runtime, session, prepared } = fixture(runId, [workspaceChoice, modelStartOption(modelChoice(), "off")]);
   try {
     await session.selectStartOption("test.workspace.source", "clone", null);
-    session.send("Los");
+    session.send("Go");
     await session.drain();
 
     const state = journal.stateOf(runId);
@@ -260,20 +260,20 @@ test("the model stays selectable after the start: each change lands in the journ
   const runId = "options-model-running";
   const { journal, runtime, session } = fixture(runId, [workspaceChoice, modelStartOption(modelChoice(), "off")]);
   try {
-    session.send("Los");
+    session.send("Go");
     await session.drain();
     const revision = runtime.view(runId).revision;
     const changed = await session.selectStartOption(modelStartOptionId, { model: "deep", thinking: "low" }, null);
     assert.deepEqual(changed.value, { model: "deep", thinking: "low" });
     assert.equal(changed.locked, false);
-    assert.equal(changed.chosen, false, "chosen gilt nur vor dem Start");
+    assert.equal(changed.chosen, false, "chosen applies only before the start");
     assert.deepEqual((changed.presentation as { thinkingOptions: string[] }).thinkingOptions, ["low", "high"]);
     assert.deepEqual(storedStartOption(journal.stateOf(runId), modelStartOptionId), { model: "deep", thinking: "low" });
     assert.ok(runtime.events(runId).some((event) => event.type === "plugin.state-replaced" && event.payload.pluginId === modelStartOptionId));
-    assert.ok(runtime.view(runId).revision > revision, "der Wechsel steht als Ereignis im Journal");
+    assert.ok(runtime.view(runId).revision > revision, "the change is recorded as an event in the journal");
     const unchanged = runtime.view(runId).revision;
     await session.selectStartOption(modelStartOptionId, { model: "deep", thinking: "low" }, null);
-    assert.equal(runtime.view(runId).revision, unchanged, "dieselbe Wahl schreibt nichts");
+    assert.equal(runtime.view(runId).revision, unchanged, "the same choice writes nothing");
     await assert.rejects(() => session.selectStartOption(modelStartOptionId, { model: "fast", thinking: "high" }, null),
       (error: unknown) => error instanceof DomainError && error.code === "thinking-unknown");
     await assert.rejects(() => session.selectStartOption(modelStartOptionId, { model: "elsewhere" }, null),
@@ -290,28 +290,28 @@ test("every start option sees the user who acts: listing, choosing and the defau
     id,
     schema: Type.String(),
     selectable: () => true,
-    defaultValue: ({ userId }) => { seen.push(`${id} default ${userId}`); return "vorgabe"; },
+    defaultValue: ({ userId }) => { seen.push(`${id} default ${userId}`); return "default-value"; },
     accept: (value, { userId }) => { seen.push(`${id} accept ${userId}`); return value; },
     describe: (value, { userId }) => { seen.push(`${id} describe ${userId}`); return { kind: "text", text: String(value) }; },
   });
   const { journal, session } = fixture("options-user", [recording("test.chosen"), recording("test.default")]);
   try {
     session.startOptions("alice");
-    await session.selectStartOption("test.chosen", "gewählt", "bob");
-    session.send("Los", undefined, undefined, { id: "carol", label: "Carol" });
+    await session.selectStartOption("test.chosen", "chosen-value", "bob");
+    session.send("Go", undefined, undefined, { id: "carol", label: "Carol" });
     await session.drain();
     assert.deepEqual(seen, [
       "test.chosen default alice", "test.chosen describe alice", "test.default default alice", "test.default describe alice",
       "test.chosen accept bob", "test.chosen describe bob",
       "test.default default carol",
     ]);
-    assert.equal(storedStartOption(journal.stateOf("options-user"), "test.chosen"), "gewählt");
+    assert.equal(storedStartOption(journal.stateOf("options-user"), "test.chosen"), "chosen-value");
   } finally {
     journal.close();
   }
 });
 
-/** Eine Quelle, die festhält, wer sie wählt; so zeigt der Test, dass der Handelnde ankommt. */
+/** A source that records who chooses it; this way the test shows that the acting user arrives. */
 const recordedSource = (seen: string[]): StartOptionContribution => ({
   ...workspaceChoice,
   defaultValue: ({ userId }) => { seen.push(`default ${userId}`); return "empty"; },
@@ -321,13 +321,13 @@ const recordedSource = (seen: string[]): StartOptionContribution => ({
 const alice = { id: "alice", label: "Alice" };
 
 const cloningSkill: PublicStartEntry = {
-  id: "test.cloning-skill", owner: "test.plugin", action: "skill", skill: "demo", category: "Beispiele",
-  title: "Klonen", description: "Arbeitet immer im Klon.", prompt: "Los", fixedStartOptions: { "test.workspace.source": "clone" },
+  id: "test.cloning-skill", owner: "test.plugin", action: "skill", skill: "demo", category: "Examples",
+  title: "Clone", description: "Always works in the clone.", prompt: "Go", fixedStartOptions: { "test.workspace.source": "clone" },
 };
 
 const cloningScript: PublicStartEntry = {
   id: "test.cloning-script", owner: "test.plugin", action: "script", coordinator: true,
-  title: "Klonen per Script", description: "Baut immer im Klon auf.", fixedStartOptions: { "test.workspace.source": "clone" },
+  title: "Clone by script", description: "Always builds in the clone.", fixedStartOptions: { "test.workspace.source": "clone" },
 };
 
 test("a skill template fixes its start option: the value holds, accepted for the user who starts the run", async () => {
@@ -335,13 +335,13 @@ test("a skill template fixes its start option: the value holds, accepted for the
   const runId = "fixed-skill";
   const { journal, session } = fixture(runId, [recordedSource(seen), modelStartOption(modelChoice(), "off")], [cloningSkill]);
   try {
-    await session.send("Los", undefined, undefined, alice, cloningSkill.id);
+    await session.send("Go", undefined, undefined, alice, cloningSkill.id);
     await session.drain();
     const state = journal.stateOf(runId);
     assert.equal(storedStartOption(state, "test.workspace.source"), "clone");
     assert.equal(state?.ownerUserId, "alice");
     assert.ok(seen.includes("accept clone alice"), seen.join(", "));
-    assert.ok(!seen.some((entry) => entry.startsWith("default")), "der festgelegte Wert ersetzt die Vorgabe");
+    assert.ok(!seen.some((entry) => entry.startsWith("default")), "the fixed value replaces the default");
   } finally {
     journal.close();
   }
@@ -351,17 +351,17 @@ test("a different choice before the start is a hard error with its cause, the sa
   const conflicting = fixture("fixed-conflict", [workspaceChoice, modelStartOption(modelChoice(), "off")], [cloningSkill]);
   try {
     await conflicting.session.selectStartOption("test.workspace.source", "empty", "alice");
-    await assert.rejects(conflicting.session.send("Los", undefined, undefined, alice, cloningSkill.id), (error: unknown) =>
+    await assert.rejects(conflicting.session.send("Go", undefined, undefined, alice, cloningSkill.id), (error: unknown) =>
       error instanceof DomainError && error.code === "start-option-fixed" && error.status === 409
-      && error.message.includes("Klonen") && error.message.includes("test.workspace.source"));
-    assert.equal(conflicting.journal.stateOf("fixed-conflict"), null, "kein Run entsteht");
+      && error.message.includes("Clone") && error.message.includes("test.workspace.source"));
+    assert.equal(conflicting.journal.stateOf("fixed-conflict"), null, "no run is created");
   } finally {
     conflicting.journal.close();
   }
   const agreeing = fixture("fixed-agree", [workspaceChoice, modelStartOption(modelChoice(), "off")], [cloningSkill]);
   try {
     await agreeing.session.selectStartOption("test.workspace.source", "clone", "alice");
-    await agreeing.session.send("Los", undefined, undefined, alice, cloningSkill.id);
+    await agreeing.session.send("Go", undefined, undefined, alice, cloningSkill.id);
     await agreeing.session.drain();
     assert.equal(storedStartOption(agreeing.journal.stateOf("fixed-agree"), "test.workspace.source"), "clone");
   } finally {
@@ -375,7 +375,7 @@ test("a script template fixes its start option through the same place", async ()
     await conflicting.session.selectStartOption("test.workspace.source", "empty", "alice");
     await assert.rejects(conflicting.session.startAndWait(cloningScript.id, null, alice), (error: unknown) =>
       error instanceof DomainError && error.code === "start-option-fixed");
-    assert.deepEqual(conflicting.prepared, [], "abgelehnt, bevor irgendetwas vorbereitet wird");
+    assert.deepEqual(conflicting.prepared, [], "rejected before anything is prepared");
     assert.equal(conflicting.journal.stateOf("fixed-script-conflict"), null);
   } finally {
     conflicting.journal.close();
@@ -384,7 +384,7 @@ test("a script template fixes its start option through the same place", async ()
   const started = fixture("fixed-script", [recordedSource(seen), modelStartOption(modelChoice(), "off")], [cloningScript]);
   try {
     await assert.rejects(started.session.startAndWait(cloningScript.id, null, alice), /Actor programs are not configured/);
-    assert.equal(storedStartOption(started.journal.stateOf("fixed-script"), "test.workspace.source"), "clone", "der Run entsteht mit dem festgelegten Wert");
+    assert.equal(storedStartOption(started.journal.stateOf("fixed-script"), "test.workspace.source"), "clone", "the run is created with the fixed value");
     assert.ok(seen.includes("accept clone alice"), seen.join(", "));
   } finally {
     started.journal.close();
@@ -395,10 +395,10 @@ test("a message names only a skill template, and a started run keeps its value a
   const { journal, session } = fixture("fixed-started", [workspaceChoice, modelStartOption(modelChoice(), "off")], [cloningSkill, cloningScript]);
   try {
     for (const entryId of ["test.unknown", cloningScript.id]) {
-      await assert.rejects(session.send("Los", undefined, undefined, alice, entryId), (error: unknown) =>
+      await assert.rejects(session.send("Go", undefined, undefined, alice, entryId), (error: unknown) =>
         error instanceof DomainError && error.code === "entry-unknown" && error.status === 404, entryId);
     }
-    await session.send("Los", undefined, undefined, alice);
+    await session.send("Go", undefined, undefined, alice);
     await session.drain();
     assert.equal(storedStartOption(journal.stateOf("fixed-started"), "test.workspace.source"), "empty");
   } finally {
@@ -406,10 +406,10 @@ test("a message names only a skill template, and a started run keeps its value a
   }
   const reopened = fixture("fixed-started-again", [workspaceChoice, modelStartOption(modelChoice(), "off")], [cloningSkill]);
   try {
-    await reopened.session.send("Los", undefined, undefined, alice);
+    await reopened.session.send("Go", undefined, undefined, alice);
     await reopened.session.settle();
-    await assert.rejects(reopened.session.send("Weiter", undefined, undefined, alice, cloningSkill.id), (error: unknown) =>
-      error instanceof DomainError && error.code === "start-option-fixed" && /schon auf einem anderen Wert/.test(error.message));
+    await assert.rejects(reopened.session.send("Continue", undefined, undefined, alice, cloningSkill.id), (error: unknown) =>
+      error instanceof DomainError && error.code === "start-option-fixed" && /already has a different value/.test(error.message));
   } finally {
     await reopened.session.drain();
     reopened.journal.close();

@@ -9,7 +9,7 @@ export interface StartOptionState {
   presentation: unknown;
   selectable: boolean;
   locked: boolean;
-  /** Ob jemand den Wert vor dem Start gewählt hat; eine Vorlage, die etwas anderes festlegt, lehnt den Start dann ab. */
+  /** Whether someone chose the value before the start; a template that sets something else then rejects the start. */
   chosen: boolean;
 }
 
@@ -35,13 +35,13 @@ const isChoiceOption = (value: unknown): value is ChoicePresentationOption =>
   && (value.hint === undefined || typeof value.hint === "string");
 
 export const choicePresentationFrom = (presentation: unknown, optionId: string): ChoicePresentation | undefined => {
-  if (!isRecord(presentation)) throw new Error(`Die Startoption ${optionId} liefert keine Darstellung`);
+  if (!isRecord(presentation)) throw new Error(`The start option ${optionId} provides no presentation`);
   if (presentation.kind !== "choice") return undefined;
   if (typeof presentation.label !== "string" || !presentation.label) {
-    throw new Error(`Die Auswahl-Darstellung der Startoption ${optionId} hat kein label`);
+    throw new Error(`The choice presentation of the start option ${optionId} has no label`);
   }
   if (!Array.isArray(presentation.options) || !presentation.options.every(isChoiceOption)) {
-    throw new Error(`Die Auswahl-Darstellung der Startoption ${optionId} braucht options aus value und label`);
+    throw new Error(`The choice presentation of the start option ${optionId} needs options made of value and label`);
   }
   return { kind: "choice", label: presentation.label, options: presentation.options };
 };
@@ -55,7 +55,7 @@ export const startOptionStateFrom = (value: unknown): StartOptionState => {
     || typeof value.selectable !== "boolean"
     || typeof value.locked !== "boolean"
     || typeof value.chosen !== "boolean") {
-    throw new Error("Die Startoption entspricht nicht dem erwarteten Format");
+    throw new Error("The start option does not match the expected format");
   }
   return {
     id: value.id,

@@ -5,14 +5,14 @@ import { createModalController, type ModalNextBehavior, type ModalPage } from ".
 
 const page = (title: string): ModalPage => ({ title, render: () => null });
 
-test("Vorwärtsschritte behalten Vorgänger und Zurück stellt dieselben Einträge wieder her", () => {
-  const controller = createModalController({ nextBehavior: () => "push", onClose: () => assert.fail("Zurück darf den Host nicht schließen") });
+test("forward steps keep their predecessors and back restores the same entries", () => {
+  const controller = createModalController({ nextBehavior: () => "push", onClose: () => assert.fail("Back must not close the host") });
   const root = controller.getSnapshot()[0];
-  const firstPage = page("Einrichten");
+  const firstPage = page("Set up");
 
   controller.open(firstPage);
   const first = controller.getSnapshot()[1];
-  controller.open(page("Prüfen"));
+  controller.open(page("Review"));
 
   assert.equal(controller.canGoBack, true);
   assert.equal(controller.getSnapshot()[0], root);
@@ -24,15 +24,15 @@ test("Vorwärtsschritte behalten Vorgänger und Zurück stellt dieselben Einträ
   assert.deepEqual(controller.getSnapshot(), [root]);
   assert.equal(controller.canGoBack, false);
   const snapshot = controller.getSnapshot();
-  assert.throws(() => controller.back(), /keinen vorherigen Dialogschritt/);
+  assert.throws(() => controller.back(), /no previous dialog step/);
   assert.equal(controller.getSnapshot(), snapshot);
 });
 
-test("Ersetzen verwirft die aktuelle Seite ohne einen Rückweg anzulegen", () => {
+test("replace discards the current page without creating a way back", () => {
   const controller = createModalController({ nextBehavior: () => "replace", onClose: () => {} });
   const root = controller.getSnapshot()[0];
-  const firstPage = page("Erster Schritt");
-  const replacement = page("Nächster Schritt");
+  const firstPage = page("First step");
+  const replacement = page("Next step");
 
   controller.open(firstPage);
   controller.open(replacement);
@@ -42,20 +42,20 @@ test("Ersetzen verwirft die aktuelle Seite ohne einen Rückweg anzulegen", () =>
   assert.equal(controller.getSnapshot().includes(root), false);
   assert.equal(controller.getSnapshot().some((entry) => entry.page === firstPage), false);
   assert.equal(controller.canGoBack, false);
-  assert.throws(() => controller.back(), /keinen vorherigen Dialogschritt/);
+  assert.throws(() => controller.back(), /no previous dialog step/);
 });
 
-test("Eine geänderte Host-Policy ersetzt nur den aktuellen Schritt und erhält frühere Historie", () => {
+test("a changed host policy replaces only the current step and keeps earlier history", () => {
   let behavior: ModalNextBehavior = "push";
   const controller = createModalController({ nextBehavior: () => behavior, onClose: () => {} });
   const root = controller.getSnapshot()[0];
-  controller.open(page("Auswahl"));
+  controller.open(page("Selection"));
   const selection = controller.getSnapshot().at(-1);
-  controller.open(page("Vorschau"));
+  controller.open(page("Preview"));
   const discarded = controller.getSnapshot().at(-1);
 
   behavior = "replace";
-  controller.open(page("Ergebnis"));
+  controller.open(page("Result"));
 
   assert.equal(controller.getSnapshot().length, 3);
   assert.equal(controller.getSnapshot()[0], root);
@@ -65,12 +65,12 @@ test("Eine geänderte Host-Policy ersetzt nur den aktuellen Schritt und erhält 
   assert.equal(controller.getSnapshot().at(-1), selection);
 
   behavior = "push";
-  controller.open(page("Neue Vorschau"));
+  controller.open(page("New preview"));
   assert.equal(controller.getSnapshot()[1], selection);
   assert.equal(controller.getSnapshot().length, 3);
 });
 
-test("Schließen fragt den Host an und verändert vor dessen Zustimmung weder Verlauf noch Abonnements", () => {
+test("close asks the host and changes neither history nor subscriptions before its approval", () => {
   let requests = 0;
   let approved = false;
   let notifications = 0;
@@ -81,7 +81,7 @@ test("Schließen fragt den Host an und verändert vor dessen Zustimmung weder Ve
       if (approved) controller.reset();
     },
   });
-  controller.open(page("Bestätigung"));
+  controller.open(page("Confirmation"));
   controller.subscribe(() => { notifications += 1; });
   const snapshot = controller.getSnapshot();
 
@@ -100,10 +100,10 @@ test("Schließen fragt den Host an und verändert vor dessen Zustimmung weder Ve
   assert.equal(notifications, 1);
 });
 
-test("Ein behaltenes Modal startet nach Reset wieder an seiner ursprünglichen Seite", () => {
-  const controller = createModalController({ nextBehavior: () => "replace", onClose: () => assert.fail("Reset ist keine Schließanfrage") });
+test("a kept modal starts at its original page again after reset", () => {
+  const controller = createModalController({ nextBehavior: () => "replace", onClose: () => assert.fail("Reset is not a close request") });
   const rootKey = controller.getSnapshot()[0].key;
-  controller.open(page("Verworfene ursprüngliche Seite"));
+  controller.open(page("Discarded original page"));
   const previousKey = controller.getSnapshot()[0].key;
   let notifications = 0;
   controller.subscribe(() => { notifications += 1; });
@@ -117,11 +117,11 @@ test("Ein behaltenes Modal startet nach Reset wieder an seiner ursprünglichen S
   controller.reset();
   assert.equal(controller.getSnapshot(), resetSnapshot);
   assert.equal(notifications, 1);
-  controller.open(page("Neuer Ablauf"));
+  controller.open(page("New flow"));
   assert.notEqual(controller.getSnapshot()[0].key, previousKey);
 });
 
-test("Abonnenten sehen vollständige neue Snapshots und können sich unabhängig abmelden", () => {
+test("subscribers see complete new snapshots and can unsubscribe independently", () => {
   const controller = createModalController({ nextBehavior: () => "push", onClose: () => {} });
   const observations: string[] = [];
   const unsubscribeFirst = controller.subscribe(() => { observations.push(`first:${controller.getSnapshot().at(-1)?.page?.title ?? "root"}`); });
@@ -129,19 +129,19 @@ test("Abonnenten sehen vollständige neue Snapshots und können sich unabhängig
   const initial = controller.getSnapshot();
   assert.equal(controller.getSnapshot(), initial);
 
-  controller.open(page("Einrichten"));
+  controller.open(page("Set up"));
   assert.notEqual(controller.getSnapshot(), initial);
   assert.deepEqual(initial.map((entry) => entry.page), [null]);
   unsubscribeFirst();
   unsubscribeFirst();
   controller.back();
   unsubscribeSecond();
-  controller.open(page("Unbeobachtet"));
+  controller.open(page("Unobserved"));
 
-  assert.deepEqual(observations, ["first:Einrichten", "second:Einrichten", "second:root"]);
+  assert.deepEqual(observations, ["first:Set up", "second:Set up", "second:root"]);
 });
 
-test("Neue Schritte erhalten auch nach Zurück, Ersetzen und Reset eindeutige Schlüssel", () => {
+test("new steps get unique keys even after back, replace and reset", () => {
   let behavior: ModalNextBehavior = "push";
   const departed: number[] = [];
   const controller = createModalController({
@@ -155,7 +155,7 @@ test("Neue Schritte erhalten auch nach Zurück, Ersetzen und Reset eindeutige Sc
   const keys = new Set([controller.getSnapshot()[0].key]);
   const openUnique = () => {
     const from = controller.getSnapshot().at(-1)!.key;
-    controller.open(page("Gleicher Titel"));
+    controller.open(page("Same title"));
     const key = controller.getSnapshot().at(-1)!.key;
     assert.equal(keys.has(key), false);
     keys.add(key);
@@ -172,18 +172,18 @@ test("Neue Schritte erhalten auch nach Zurück, Ersetzen und Reset eindeutige Sc
   assert.equal(keys.size, 5);
 });
 
-test("Leere Schritttitel werden ohne Navigation oder Zustandsänderung abgelehnt", () => {
+test("empty step titles are rejected without navigation or state change", () => {
   let notifications = 0;
   const controller = createModalController({
     nextBehavior: () => "push",
     onClose: () => {},
-    onNavigate: () => assert.fail("Ungültige Seiten dürfen keine Navigation auslösen"),
+    onNavigate: () => assert.fail("Invalid pages must not trigger navigation"),
   });
   controller.subscribe(() => { notifications += 1; });
   const snapshot = controller.getSnapshot();
 
   for (const title of ["", "   ", "\n\t"]) {
-    assert.throws(() => controller.open(page(title)), /benötigt einen Titel/);
+    assert.throws(() => controller.open(page(title)), /requires a title/);
   }
 
   assert.equal(controller.getSnapshot(), snapshot);

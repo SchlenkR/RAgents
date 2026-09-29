@@ -4,10 +4,10 @@ import type { JsonValue } from "../domain/json.ts";
 import type { RunView } from "../domain/model.ts";
 import { defineOperation } from "../rpc/contract.ts";
 
-/** Wo ein Vertrag ein Actor-Feld mit ID oder Handle nimmt, löst es diese eine Regel auf. */
+/** Wherever a contract takes an actor field with ID or handle, this one rule resolves it. */
 export { actorByHandle, actorByReference, handleKey, type ReferencedActor } from "../domain/actor-reference.ts";
 
-/** Ein Domänenwert mit eigenem TypeScript-Typ; das Schema bleibt bewusst offen. */
+/** A domain value with its own TypeScript type; the schema deliberately stays open. */
 export const openJson = <T>(name: string): TUnsafe<T> =>
   Type.Unsafe<T>({ type: "object", additionalProperties: true, "x-typescript-type": name });
 
@@ -15,10 +15,10 @@ export const runViewSchema = openJson<RunView>("RunView");
 
 export const journalEventSchema = openJson<JournalEvent>("JournalEvent");
 
-/** Das Ergebnis einer wartenden Aktion; die Form gehört dem Eigentümer der Aktion. */
+/** The result of a pending action; its shape belongs to the owner of the action. */
 const actionResultSchema = Type.Unsafe<JsonValue>({ "x-typescript-type": "JsonValue" });
 
-const runId = Type.String({ minLength: 1, maxLength: 64, description: "Kennung des Runs" });
+const runId = Type.String({ minLength: 1, maxLength: 64, description: "ID of the run" });
 
 const commandFields = {
   runId,
@@ -32,51 +32,51 @@ const command = <P extends Record<string, TSchema>>(properties: P) =>
 
 export const ARTIFACT_CONTENT_PATH = /^\/files\/runs\/([A-Za-z0-9_-]{1,64})\/artifacts\/([A-Za-z0-9_-]{1,128})$/;
 
-/** Artefaktinhalte sind Auslieferung: die Adresse, unter der ein GET den Inhalt liefert. */
+/** Artifact contents are delivery: the address under which a GET returns the content. */
 export const artifactContentPath = (runId: string, artifactId: string): string =>
   `/files/runs/${encodeURIComponent(runId)}/artifacts/${encodeURIComponent(artifactId)}`;
 
-/** Rechte je Run entscheidet der Host dynamisch (globaler Chat, Laufbesitz); die Verträge nennen deshalb keine. */
+/** The host decides rights per run dynamically (global chat, run ownership); the contracts therefore name none. */
 export const runContracts = {
   view: defineOperation({
     id: "ragents.runs.view",
-    description: "Die Run-Ansicht lesen, optional den Stand nach einer Journalsequenz; null für einen noch nicht gestarteten Run.",
+    description: "Read the run view, optionally the state after a journal sequence; null for a run that has not started yet.",
     input: Type.Object({ runId, at: Type.Optional(Type.Integer({ minimum: 0 })) }, { additionalProperties: false }),
     result: Type.Union([runViewSchema, Type.Null()]),
   }),
   events: defineOperation({
     id: "ragents.runs.events",
-    description: "Alle Journalereignisse eines Runs in Sequenzreihenfolge lesen.",
+    description: "Read all journal events of a run in sequence order.",
     input: Type.Object({ runId }, { additionalProperties: false }),
     result: Type.Array(journalEventSchema),
   }),
   enqueueInput: defineOperation({
     id: "ragents.runs.enqueueInput",
-    description: "Eine Nachricht in die Warteschlange eines Actors legen.",
+    description: "Put a message into the queue of an actor.",
     input: command({ actorId: Type.String({ minLength: 1 }), content: Type.String({ minLength: 1 }), artifactIds: Type.Optional(Type.Array(Type.String({ minLength: 1 }))) }),
     result: runViewSchema,
   }),
   restartActor: defineOperation({
     id: "ragents.runs.restartActor",
-    description: "Einen gestoppten Actor neu starten.",
+    description: "Restart a stopped actor.",
     input: command({ actorId: Type.String({ minLength: 1 }), reason: Type.Optional(Type.String({ minLength: 1 })) }),
     result: runViewSchema,
   }),
   stopActor: defineOperation({
     id: "ragents.runs.stopActor",
-    description: "Einen Actor samt seinen beauftragten Kindern stoppen.",
+    description: "Stop an actor together with its delegated children.",
     input: command({ actorId: Type.String({ minLength: 1 }), reason: Type.String({ minLength: 1 }) }),
     result: runViewSchema,
   }),
   interruptTurn: defineOperation({
     id: "ragents.runs.interruptTurn",
-    description: "Den laufenden Turn eines Actors unterbrechen; der Actor bleibt aktiv und nimmt die nächste Eingabe an. Ohne laufenden Turn geschieht nichts.",
+    description: "Interrupt the running turn of an actor; the actor stays active and accepts the next input. Without a running turn nothing happens.",
     input: command({ actorId: Type.String({ minLength: 1 }), reason: Type.Optional(Type.String({ minLength: 1 })) }),
     result: runViewSchema,
   }),
   resolveAction: defineOperation({
     id: "ragents.runs.resolveAction",
-    description: "Eine wartende Aktion beantworten oder verwerfen.",
+    description: "Answer or dismiss a pending action.",
     input: command({
       actionId: Type.String({ minLength: 1 }),
       decision: Type.Union([Type.Literal("approved"), Type.Literal("dismissed")]),
@@ -86,7 +86,7 @@ export const runContracts = {
   }),
   stopAll: defineOperation({
     id: "ragents.runs.stopAll",
-    description: "Den ganzen Run mit allen Agenten und Abläufen stoppen.",
+    description: "Stop the whole run with all agents and flows.",
     input: command({ reason: Type.String({ minLength: 1 }) }),
     result: runViewSchema,
   }),

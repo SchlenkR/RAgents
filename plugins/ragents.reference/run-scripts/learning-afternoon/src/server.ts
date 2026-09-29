@@ -26,7 +26,7 @@ const contract = {
   }, { additionalProperties: false }),
   functions: {
     start: {
-      label: "Ideen sammeln",
+      label: "Collect ideas",
       input: Type.Object({}, { additionalProperties: false }),
       output: Type.Object({}, { additionalProperties: false }),
       capabilities: ["actor_input"],
@@ -61,12 +61,12 @@ export default defineActor(contract, {
   onInput: async (input, context) => {
     const state = context.state.read();
     if (state.board && !input.event && input.content !== startMarker) {
-      throw new Error("Der Lernnachmittag versteht keine freien Chatnachrichten. Verwende den Startknopf der Mini-App; für neue Ideen ist ein neuer Run nötig.");
+      throw new Error("The learning afternoon does not understand free chat messages. Use the start button of the mini-app; new ideas need a new run.");
     }
     if (!state.board) {
       const catalog = await context.functions.model_list({});
       const profile = catalog.profiles.find((entry) => entry.driver === "agent" && entry.name === "standard");
-      if (!profile) throw new Error("Die Rolle standard fehlt.");
+      if (!profile) throw new Error("The role standard is missing.");
       const prompt = await workflowInstructions(learningWorkflow, "helper", readPrompt);
       const helpers = await Promise.all(initialState.helpers.map(async (helper) => {
         const actor = await context.functions.agent_spawn({ handle: `learning-${helper.id}`, displayName: helper.label, profile: profile.name, prompt, tools: [] });
@@ -92,11 +92,11 @@ export default defineActor(contract, {
       });
       const results = await Promise.allSettled(state.board.helpers.map(async (helper): Promise<HelperState> => {
         const step = helperSteps.find((entry) => entry.id === helper.id);
-        if (!step) throw new Error(`Unbekannter Helfer: ${helper.id}`);
+        if (!step) throw new Error(`Unknown helper: ${helper.id}`);
         const content = step.goal;
         const events = await context.functions.actor_input({ actor: `@learning-${helper.id}`, content });
         const queued = events.find((event) => event.type === "actor.input.enqueued");
-        if (!queued || queued.type !== "actor.input.enqueued") throw new Error("Der Auftrag wurde nicht bestätigt.");
+        if (!queued || queued.type !== "actor.input.enqueued") throw new Error("The task was not confirmed.");
         return { ...helper, inputId: queued.payload.inputId, status: "working" };
       }));
       const helpers = state.board.helpers.map((helper, index): HelperState => {
@@ -104,7 +104,7 @@ export default defineActor(contract, {
         return result.status === "fulfilled" ? result.value : { ...helper, status: "error", error: result.reason instanceof Error ? result.reason.message : String(result.reason) };
       });
       const board = boardWith(helpers);
-      if (board.phase !== "working") await context.functions.event_unsubscribe({ subscriptionId: subscription.subscriptionId, reason: "Beide Aufträge sind beendet." });
+      if (board.phase !== "working") await context.functions.event_unsubscribe({ subscriptionId: subscription.subscriptionId, reason: "Both tasks have ended." });
       context.state.replace({ board, subscriptionId: subscription.subscriptionId });
       return;
     }
@@ -114,7 +114,7 @@ export default defineActor(contract, {
     const helper = state.board.helpers.find((entry) => entry.actorId === event.sourceActorId && entry.status === "working");
     if (!helper) return;
     const next = await (async (): Promise<HelperState | undefined> => {
-      if (event.type === "actor.stopped") return { ...helper, status: "error", error: "Der Helfer wurde gestoppt." };
+      if (event.type === "actor.stopped") return { ...helper, status: "error", error: "The helper was stopped." };
       if (event.type !== "turn.finished" && event.type !== "turn.interrupted") return;
       const payload = event.payload;
       const turnId = payload.turnId;
@@ -126,12 +126,12 @@ export default defineActor(contract, {
       const text = events.filter((entry) => entry.type === "model.output.completed" && entry.payload.turnId === turnId)
         .map((entry) => typeof entry.payload.text === "string" ? entry.payload.text.trim() : "").filter(Boolean).join("\n\n");
       if (event.type === "turn.finished" && payload.outcome === "completed" && text) return { ...helper, text, status: "complete" };
-      const error = typeof payload.reason === "string" && payload.reason.trim() ? payload.reason : "Der Helfer hat keine Idee geliefert.";
+      const error = typeof payload.reason === "string" && payload.reason.trim() ? payload.reason : "The helper delivered no idea.";
       return { ...helper, status: "error", error };
     })();
     if (!next) return;
     const board = boardWith(state.board.helpers.map((entry) => entry.id === next.id ? next : entry));
-    if (board.phase !== "working") await context.functions.event_unsubscribe({ subscriptionId: state.subscriptionId!, reason: "Beide Aufträge sind beendet." });
+    if (board.phase !== "working") await context.functions.event_unsubscribe({ subscriptionId: state.subscriptionId!, reason: "Both tasks have ended." });
     context.state.replace({ ...state, board });
   },
 });

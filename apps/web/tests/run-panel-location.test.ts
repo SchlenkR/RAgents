@@ -11,8 +11,8 @@ test("the run panel reads run, host, connection, theme and token from its addres
 });
 
 test("unknown layouts, hosts and themes and an app page without element are hard errors", () => {
-  assert.throws(() => parseRunPanelLocation("?layout=grid"), /panel und app/);
-  assert.throws(() => parseRunPanelLocation("?host=electron"), /browser und vscode/);
-  assert.throws(() => parseRunPanelLocation("?theme=blue"), /light und dark/);
-  assert.throws(() => parseRunPanelLocation("?layout=app&run=run-a"), /run und element/);
+  assert.throws(() => parseRunPanelLocation("?layout=grid"), /panel and app/);
+  assert.throws(() => parseRunPanelLocation("?host=electron"), /browser and vscode/);
+  assert.throws(() => parseRunPanelLocation("?theme=blue"), /light and dark/);
+  assert.throws(() => parseRunPanelLocation("?layout=app&run=run-a"), /run and element/);
 });

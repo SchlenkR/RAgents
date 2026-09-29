@@ -17,7 +17,7 @@ const transportOf = (browser: Window) => (browser as InputWindow)[serviceKey];
 export const hostInputEnabled = (browser: Window): boolean => transportOf(browser) !== undefined;
 
 function installInputTransport(browser: Window, transport: InputTransport): () => void {
-  if (hostInputEnabled(browser)) throw new Error("Die Eingabebrücke ist bereits installiert.");
+  if (hostInputEnabled(browser)) throw new Error("The input bridge is already installed.");
   (browser as InputWindow)[serviceKey] = transport;
   const clipboard = installClipboardBridge(browser, transport.readClipboard);
   const keyboard = installKeyboardBridge(browser, transport.keyboard);

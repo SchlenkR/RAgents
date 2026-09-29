@@ -4,7 +4,7 @@ import { ACTOR_INVOCATIONS_STATE_ID, ACTOR_PROGRAMS_STATE_ID } from "@ragents/ho
 const record = (value: JsonValue | undefined): Record<string, JsonValue | undefined> | undefined =>
   value !== null && typeof value === "object" && !Array.isArray(value) ? value : undefined;
 
-/** Ohne runs.inspect bleiben von einem Programm Name, Actor und Ansichten; Quellen, Funktionen und Verzeichnisse fehlen. */
+/** Without runs.inspect, only the name, actor, and views of a program remain; sources, functions, and directories are missing. */
 const visibleProgram = (state: JsonValue): JsonValue => {
   const program = record(record(state)?.program);
   if (!program) return state;

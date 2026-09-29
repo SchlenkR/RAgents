@@ -26,7 +26,7 @@ export function AskActionView({ action, session, text }: ActionViewContext) {
         answer={action.status === undefined
           ? undefined
           : action.status === "approved" ? answerTextOf(action.result)
-          : supersedingInputOf(action.result) !== undefined ? SUPERSEDED_ANSWER : "Der Benutzer hat die Frage verworfen."}
+          : supersedingInputOf(action.result) !== undefined ? SUPERSEDED_ANSWER : "The user dismissed the question."}
         onAnswer={access.can("runs.write") ? answer : undefined}
         question={question}
         text={text}

@@ -16,9 +16,9 @@ const isEditable = (element: Element | null): element is HTMLElement =>
   element !== null && (element.tagName === "INPUT" || element.tagName === "TEXTAREA" || (element as HTMLElement).isContentEditable === true);
 
 /**
- * macOS liefert Einfügen, Kopieren und Ausschneiden über das Menü der Anwendung, und VS Code reicht
- * den Befehl nur an das Dokument seines Webviews weiter, nicht in ein iframe fremder Herkunft. Das
- * Run-Panel führt ihn deshalb selbst aus; den Text der Zwischenablage holt es über die Hülle.
+ * macOS delivers paste, copy, and cut through the application menu, and VS Code passes the
+ * command only to the document of its webview, not into a cross-origin iframe. The run panel
+ * therefore executes it itself; it fetches the clipboard text through the shell.
  */
 export function createClipboardReader(browser: Window) {
   const parent = browser.parent;

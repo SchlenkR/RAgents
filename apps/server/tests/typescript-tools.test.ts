@@ -80,10 +80,10 @@ test("TypeScript discovery exposes the same registered function with exact schem
     assert.ok(schemas !== null && typeof schemas === "object" && !Array.isArray(schemas));
     assert.match(JSON.stringify(schemas.functions), /"minimum":1/);
     assert.match(JSON.stringify(schemas.functions), /Positive increment/);
-    await assert.rejects(run.call("api-schemas-all", "typescript_api", { schemas: true }), /nur zu ausgewählten names/);
+    await assert.rejects(run.call("api-schemas-all", "typescript_api", { schemas: true }), /only for selected names/);
     const search = await run.call("api-search", "typescript_api", { query: "counter" });
     assert.deepEqual(search, listing);
-    await assert.rejects(run.call("api-missing", "typescript_api", { names: ["actor_stop"] }), /Nicht verfügbare TypeScript-Funktionen/);
+    await assert.rejects(run.call("api-missing", "typescript_api", { names: ["actor_stop"] }), /Unavailable TypeScript functions/);
 });
 
 test("a real snippet calls a plugin function under its caller identity without creating actors or programs", async (t) => {
@@ -111,11 +111,11 @@ test("snippet files resolve workspace aliases and reject escaped paths and confl
     });
     await writeFile(path.join(run.directory, "outside.ts"), 'return 0;');
     await symlink(path.join(run.directory, "outside.ts"), path.join(run.workspace, "escape.ts"));
-    await assert.rejects(run.call("eval-outside", "typescript_eval", { path: "../outside.ts" }), /Ungültiger Pfad: \.\.\/outside\.ts/);
-    await assert.rejects(run.call("eval-symlink", "typescript_eval", { path: "escape.ts" }), /außerhalb des Arbeitsverzeichnisses/);
-    await assert.rejects(run.call("eval-unknown-alias", "typescript_eval", { path: "@missing/setup.ts" }), /Unbekannter Arbeitsverzeichnis-Alias/);
-    await assert.rejects(run.call("eval-both", "typescript_eval", { code: "return 0;", path: "@actors/setup.ts" }), /genau eines/);
-    await assert.rejects(run.call("eval-neither", "typescript_eval", {}), /genau eines/);
+    await assert.rejects(run.call("eval-outside", "typescript_eval", { path: "../outside.ts" }), /Invalid path: \.\.\/outside\.ts/);
+    await assert.rejects(run.call("eval-symlink", "typescript_eval", { path: "escape.ts" }), /outside the working directory/);
+    await assert.rejects(run.call("eval-unknown-alias", "typescript_eval", { path: "@missing/setup.ts" }), /Unknown working directory alias/);
+    await assert.rejects(run.call("eval-both", "typescript_eval", { code: "return 0;", path: "@actors/setup.ts" }), /exactly one/);
+    await assert.rejects(run.call("eval-neither", "typescript_eval", {}), /exactly one/);
     assert.equal(run.count(), 2);
 });
 
@@ -124,7 +124,7 @@ test("the snippet host checks types before side effects and validates plugin fun
     await assert.rejects(run.call("eval-type-error", "typescript_eval", { code: `
 await context.functions.counter_update({ amount: 1 });
 return context.functions.counter_update({ amount: "bad" });
-` }), /TypeScript-Snippet wurde nicht ausgeführt/);
+` }), /TypeScript snippet was not executed/);
     assert.equal(run.count(), 0);
     await assert.rejects(run.call("eval-value-error", "typescript_eval", { code: 'return context.functions.counter_update({ amount: -1 });' }), /counter_update/);
     assert.equal(run.count(), 0);
@@ -173,7 +173,7 @@ test("path executions preserve their exact historical source even after a compil
     const filename = path.join(run.actors, "history.ts");
     const first = '  const answer: number = "Grüße";\r\nreturn answer;\n';
     await writeFile(filename, first);
-    await assert.rejects(run.call("history-invalid", "typescript_eval", { path: "@actors/history.ts" }), /TypeScript-Snippet wurde nicht ausgeführt/);
+    await assert.rejects(run.call("history-invalid", "typescript_eval", { path: "@actors/history.ts" }), /TypeScript snippet was not executed/);
     const second = 'return "updated";\n';
     await writeFile(filename, second);
     assert.deepEqual(await run.call("history-valid", "typescript_eval", { path: "@actors/history.ts" }), { result: "updated", logs: [] });
@@ -194,7 +194,7 @@ test("inline compile failures keep a source snapshot while unreadable paths fail
     const run = await fixture(t, ["counter_update"]);
     const code = 'return context.functions.missing({});';
     await assert.rejects(run.call("inline-invalid", "typescript_eval", { code }), /does not exist/);
-    await assert.rejects(run.call("path-missing", "typescript_eval", { path: "@actors/missing.ts" }), /Nicht gefunden: missing\.ts/);
+    await assert.rejects(run.call("path-missing", "typescript_eval", { path: "@actors/missing.ts" }), /Not found: missing\.ts/);
     const events = run.setup.runtime.events(run.setup.view.id);
     const snapshots = events.filter((event) => event.type === "tool.call.source");
     assert.equal(snapshots.length, 1);

@@ -8,9 +8,9 @@ export interface ProcessObservation {
 
 export interface ProcessMethodOptions {
   observer: ProcessObservation;
-  /** Die Prozesse liegen im Arbeitsbereich des Runs; wer ihn nicht sehen darf, sieht auch sie nicht. */
+  /** The processes live in the run's workspace; whoever may not see it does not see them either. */
   ensureWorkspaceAccess: (access: AccessContext, runId: string) => void;
-  /** Beendet beim Executor des Runs; der Abbruch der Anfrage erreicht ihn über `signal`. */
+  /** Ends in the run's executor; cancelling the request reaches it via `signal`. */
   terminate: (runId: string, processId: string, signal: AbortSignal) => Promise<void>;
 }
 
@@ -21,9 +21,9 @@ export const createProcessMethods = (options: ProcessMethodOptions): MethodContr
   }),
   implement(processesContracts.stop, async ({ runId, processId }, { access, signal }) => {
     for (const right of processesContracts.stop.rights) {
-      if (!access.can(right)) throw new DomainError("forbidden", "Das Beenden von Prozessen ist nicht erlaubt", 403);
+      if (!access.can(right)) throw new DomainError("forbidden", "Ending processes is not allowed", 403);
     }
-    if (signal.aborted) throw new Error("Die Prozess-Stopp-Anfrage wurde abgebrochen");
+    if (signal.aborted) throw new Error("The process stop request was cancelled");
     options.ensureWorkspaceAccess(access, runId);
     await options.terminate(runId, processId, signal);
     return null;

@@ -55,7 +55,7 @@ const probe = async (t: TestContext, options: StartOptions) => {
   await writeFile(path.join(server, "src/startup.ts"), `export * from ${JSON.stringify(new URL("../src/startup.ts", import.meta.url).href)};`);
   await writeFile(path.join(server, "src/host-resolution.ts"), `import ${JSON.stringify(new URL("../src/host-resolution.ts", import.meta.url).href)};`);
   await writeFile(path.join(server, "src/host-version.ts"), `export * from ${JSON.stringify(new URL("../src/host-version.ts", import.meta.url).href)};`);
-  // Der Befund über das Web ist hier ein Stub: er schreibt seinen Aufruf wie das gefälschte pnpm mit und meldet ein veraltetes Web, wenn der Test es verlangt.
+  // The web check is a stub here: like the fake pnpm it records its call, and it reports a stale web when the test asks for it.
   await writeFile(path.join(server, "src/host-web.ts"), `import { appendFileSync } from "node:fs";
 export const hostWebDirectory = (root) => root + "/apps/web/dist";
 export const isCheckout = () => true;
@@ -142,7 +142,7 @@ const assertDevRouting = (result: Awaited<ReturnType<typeof probe>>, backendPort
   assert.equal(backend.port, String(backendPort));
   assert.equal(frontend.target, `http://localhost:${backendPort}`);
   assert.deepEqual(backend.args, ["dev:server"]);
-  assert.equal(backend.dev, "1", "der Server weiß vom Dev-Modus und prüft sein gebautes Web nicht");
+  assert.equal(backend.dev, "1", "the server knows about dev mode and does not check its built web");
   assert.equal(backend.launch, undefined);
   assert.deepEqual(frontend.args, ["dev:web", "--port", String(webPort), "--strictPort"]);
 };
@@ -160,7 +160,7 @@ const close = (server: Server): Promise<void> => new Promise((resolve, reject) =
   server.close((error) => error ? reject(error) : resolve());
 });
 
-// Der Dev-Modus belegt Port plus 1000; ein Port oberhalb von 64535 taugt deshalb nicht.
+// Dev mode occupies port plus 1000; a port above 64535 is therefore unsuitable.
 const freePort = async (): Promise<number> => {
   for (;;) {
     const reservation = createServer();
@@ -176,10 +176,10 @@ test("the repository profiles declare their fixed backend ports in their configu
   assert.equal(developerConfig.host.PORT, 4715);
 });
 
-test("das Profil showcase ist core samt der mitgelieferten Beispiele", () => {
+test("the showcase profile is core plus the bundled examples", () => {
   const corePlugins: readonly string[] = coreConfig.host.PLUGINS;
   const showcasePlugins: readonly string[] = showcaseConfig.host.PLUGINS;
-  assert.equal(corePlugins.includes("ragents.reference"), false, "core bleibt die schlanke Vorlage ohne Lehrmaterial");
+  assert.equal(corePlugins.includes("ragents.reference"), false, "core stays the lean template without teaching material");
   assert.equal(showcasePlugins.includes("ragents.reference"), true);
   assert.deepEqual(showcasePlugins.filter((id) => id !== "ragents.reference"), [...corePlugins]);
 });
@@ -200,10 +200,10 @@ test("normal startup reads the configured port and honors an explicit PORT", { t
 });
 
 test("a missing or stale host web is built once before the server starts, a current one is left alone", { timeout: 15_000 }, async (t) => {
-  const stale = await probe(t, { configuredPort: await freePort(), webProblem: "Das Web des Hosts passt nicht mehr zu seinen Quellen" });
+  const stale = await probe(t, { configuredPort: await freePort(), webProblem: "The host web no longer matches its sources" });
   assert.equal(stale.code, 0, stale.output);
   assert.deepEqual(stale.calls.map((call) => call.args.join(" ")), ["build:plugins", "web-check", "build:web", "start"]);
-  assert.match(stale.output, /passt nicht mehr zu seinen Quellen; Web bauen/);
+  assert.match(stale.output, /no longer matches its sources; building web/);
   assert.equal(stale.calls.at(-1)!.launch, "start.sh");
   assert.equal(stale.calls.at(-1)!.dev, undefined);
   const current = await probe(t, { configuredPort: await freePort() });
@@ -218,7 +218,7 @@ test("occupied backend ports stop normal and dev startup before any build and pr
     const result = await probe(t, { configuredPort: port, dev });
     assert.equal(result.code, 1, result.output);
     assert.deepEqual(result.calls, []);
-    assert.match(result.output, new RegExp(`Port ${port}.*belegt`));
+    assert.match(result.output, new RegExp(`Port ${port}.*in use`));
     assert.equal(occupied.listening, true);
   }
 });
@@ -240,7 +240,7 @@ test("an occupied Vite port aborts before starting the backend or build", { time
   const result = await probe(t, { configuredPort, dev: true });
   assert.equal(result.code, 1, result.output);
   assert.deepEqual(result.calls, []);
-  assert.match(result.output, new RegExp(`Port ${configuredPort + 1000}.*belegt`));
+  assert.match(result.output, new RegExp(`Port ${configuredPort + 1000}.*in use`));
   assert.equal(occupied.listening, true);
 });
 
@@ -255,7 +255,7 @@ test("a profile file outside the repository is named by its path and keeps its n
   const misnamed = await probe(t, { profile: "misnamed", configuredPort: await freePort() });
   assert.equal(misnamed.code, 1, misnamed.output);
   assert.deepEqual(misnamed.calls, []);
-  assert.match(misnamed.output, /ragents\.config\.<profil>\.ts/);
+  assert.match(misnamed.output, /ragents\.config\.<profile>\.ts/);
 });
 
 test("port zero is rejected before any normal or dev process starts", { timeout: 15_000 }, async (t) => {
@@ -282,7 +282,7 @@ test("the start menu lists the repository profiles and accepts a name or a path"
   assert.deepEqual(byPath.calls.map(({ profile }) => profile), ["external", "external", "external"]);
   const repositoryProfiles = (await readdir(root)).filter((name) => /^ragents\.config\.(?!example\.)[^.]+\.ts$/.test(name))
     .map((name) => name.slice("ragents.config.".length, -".ts".length)).sort();
-  assert.deepEqual(repositoryProfiles, ["core", "developer", "showcase"], "die Profile des öffentlichen Repos sind neutral: core die schlanke Werkstatt, developer das Programmierprofil, showcase core samt mitgelieferten Beispielen");
+  assert.deepEqual(repositoryProfiles, ["core", "developer", "showcase"], "the profiles of the public repo are neutral: core the lean workshop, developer the programming profile, showcase core plus bundled examples");
 });
 
 test("startup defaults to external per-profile data and preserves configured and explicit overrides", { timeout: 15_000 }, async (t) => {
@@ -302,7 +302,7 @@ test("runtime data inside a project aborts normal and dev startup before any bui
     const result = await probe(t, { configuredPort: await freePort(), dev, dataMode: "unsafe" });
     assert.equal(result.code, 1, result.output);
     assert.deepEqual(result.calls, []);
-    assert.match(result.output, /DATA_DIR|Datenverzeichnis|Laufzeitdaten/);
+    assert.match(result.output, /DATA_DIR|data directory|runtime data/);
     assert.match(result.output, /package\.json/);
   }
 });
@@ -318,5 +318,5 @@ test("a missing profile DATA_DIR environment reference aborts before any build",
   const result = await probe(t, { configuredPort: await freePort(), dataMode: "missing-reference" });
   assert.equal(result.code, 1, result.output);
   assert.deepEqual(result.calls, []);
-  assert.match(result.output, /host\.DATA_DIR.*nicht gesetzte Umgebungsvariable RAGENTS_TEST_REFERENCED_DATA/);
+  assert.match(result.output, /host\.DATA_DIR.*unset environment variable RAGENTS_TEST_REFERENCED_DATA/);
 });

@@ -7,14 +7,14 @@ import { ServerClient } from "./server-client";
 import { RunStore, type ConnectionStatus, type StartEntrySummary } from "./store";
 import { workspaceRegistrationRefusal } from "./workspace-identity";
 
-/** Zustand eines Servers: nicht gestartet, im Aufbau, gescheitert oder der Verbindungszustand seiner Sitzung. */
+/** State of a server: not started, being set up, failed, or the connection state of its session. */
 export type SessionStatus =
   | { kind: "stopped" }
   | { kind: "starting"; detail: string | undefined }
   | { kind: "failed"; message: string }
   | ConnectionStatus;
 
-/** Wohin die Sitzung spricht, nachdem der Server gestartet ist. */
+/** Where the session talks to after the server has started. */
 export interface LaunchedConnection {
   url: string;
   token: string | undefined;
@@ -28,43 +28,43 @@ export interface SecretStore {
 }
 
 export interface SessionServices {
-  /** Die RAgents-Fassung dieser Erweiterung (ragents.packageVersion, gleich ihrer eigenen); jeder Server wird mit ihr verglichen. */
+  /** The RAgents version of this extension (ragents.packageVersion, equal to its own); every server is compared with it. */
   version: string;
-  /** Der Arbeitsplatz dieses Fensters mit den Ordnern, die er gerade anbietet. */
+  /** The workspace of this window with the folders it currently offers. */
   workspaceClient: (transport: { rpc: ServerClient["rpc"] }) => WorkspaceClient;
   secrets: SecretStore;
-  /** Adresse und Token des Servers: bei einer Adresse die gespeicherte Sitzung, beim Profil der frisch gestartete Host. */
+  /** Address and token of the server: for an address the stored session, for a profile the freshly started host. */
   launch: (connection: Connection, report: (detail: string) => void) => Promise<LaunchedConnection>;
   log: (line: string) => void;
-  /** Ein verbundener Server wird einmal gefragt, ob er ein Client-Profil verteilt. */
+  /** A connected server is asked once whether it distributes a client profile. */
   probe: (session: ConnectionSession) => void;
-  /** Der lokale Host eines Servers hat von selbst geendet. */
+  /** The local host of a server has ended on its own. */
   onHostExit: (session: ConnectionSession, code: number | null) => void;
 }
 
-/** Alles, was die Seiten und die Befehle der Erweiterung von einem Server brauchen; ohne VS-Code-Typen. */
+/** Everything the pages and commands of the extension need from a server; without VS Code types. */
 export interface ConnectionSnapshot {
   connection: Connection;
   status: SessionStatus;
   url: string | undefined;
-  /** Die Sitzung spricht mit einem Host, den die Erweiterung selbst gestartet hat; bei einem Server ist das sein verteiltes Profil. */
+  /** The session talks to a host the extension started itself; for a server, that is its distributed profile. */
   localHost: boolean;
   runs: readonly RunSummary[];
   entries: readonly StartEntrySummary[];
-  /** Die Vorlage, die das Plus des Servers nimmt und die auf Start zuerst steht; ohne sie ist ein neuer Run ein leerer Chat. */
+  /** The template the server's plus uses and that comes first on Start; without it, a new run is an empty chat. */
   defaultEntry: string | undefined;
   user: string | undefined;
   canCreate: boolean;
   loginUser: string | undefined;
   savedLogin: boolean;
   problem: string | undefined;
-  /** Der letzte Versuch scheiterte an einer Umgebungsvariablen, die die Konfiguration mit env("NAME") nennt. */
+  /** The last attempt failed on an environment variable that the configuration names with env("NAME"). */
   missingEnvironment: MissingEnvironment | undefined;
-  /** Erweiterung und Server tragen eine andere RAgents-Fassung oder einen anderen Stand. */
+  /** Extension and server carry a different RAgents version or a different revision. */
   versionNotice: VersionNotice | undefined;
 }
 
-/** Was an der Fassung nicht passt: error, wenn der Arbeitsplatz deshalb nicht angemeldet ist, sonst warning; update nennt die Seite, die zu aktualisieren ist. */
+/** What does not match about the version: error if the workspace is therefore not registered, otherwise warning; update names the side that needs updating. */
 export interface VersionNotice {
   level: "error" | "warning";
   text: string;
@@ -76,7 +76,7 @@ const versionParts = (version: string): readonly number[] | undefined => {
   return match ? match.slice(1).map(Number) : undefined;
 };
 
-/** Welche Seite älter ist; ohne lesbare Fassung lässt sich das nicht sagen. */
+/** Which side is older; without a readable version, this cannot be said. */
 const olderSide = (extension: string, server: string | null): "extension" | "server" | undefined => {
   if (server === null) return "server";
   const left = versionParts(extension);
@@ -88,30 +88,30 @@ const olderSide = (extension: string, server: string | null): "extension" | "ser
 
 export interface VersionInput {
   extension: string;
-  /** undefined, solange der Server nicht geantwortet hat; null, wenn er keine Fassung nennt. */
+  /** undefined as long as the server has not answered; null if it names no version. */
   server: string | null | undefined;
-  /** Ein lokales Profil läuft auf dem Host, den ragents.hostPath nennt; ohne die Einstellung holt die Erweiterung ihre eigene Fassung. */
+  /** A local profile runs on the host that ragents.hostPath names; without the setting, the extension fetches its own version. */
   connection: Connection["kind"];
   workspace: WorkspaceClientStatus | undefined;
 }
 
-/** Eine andere Fassung ist eine Warnung, solange der Arbeitsplatz angemeldet ist; lehnt der Server ihn deshalb ab, ist sie ein Fehler. */
+/** A different version is a warning as long as the workspace is registered; if the server rejects it because of that, it is an error. */
 export const versionNotice = ({ extension, server, connection, workspace }: VersionInput): VersionNotice | undefined => {
   const refusal = workspace?.kind === "failed" && workspace.mismatch ? workspace.message : undefined;
   if (server === undefined || server === extension) {
     return refusal === undefined ? undefined
-      : { level: "error", text: `RAgents-Stand passt nicht zum Server, der Arbeitsplatz ist nicht angemeldet: ${refusal}`, update: undefined };
+      : { level: "error", text: `RAgents revision does not match the server, the workspace is not registered: ${refusal}`, update: undefined };
   }
   const older = olderSide(extension, server);
   const target = older === "extension" ? server : extension;
-  const action = older === "extension" ? `die RAgents-Erweiterung auf ${target} aktualisieren`
-    : older === "server" && connection === "profile" ? `den Host unter ragents.hostPath auf ${target} bringen`
-    : older === "server" ? `den Server auf ${target} aktualisieren`
-    : "Erweiterung und Server auf dieselbe Fassung bringen";
-  const text = `RAgents-Fassung passt nicht: Erweiterung ${extension}, Server ${server ?? "ohne Fassungsangabe"} - ${action}`;
+  const action = older === "extension" ? `update the RAgents extension to ${target}`
+    : older === "server" && connection === "profile" ? `bring the host at ragents.hostPath to ${target}`
+    : older === "server" ? `update the server to ${target}`
+    : "bring extension and server to the same version";
+  const text = `RAgents version does not match: extension ${extension}, server ${server ?? "without version"} - ${action}`;
   return refusal === undefined
     ? { level: "warning", text: `${text}.`, update: older }
-    : { level: "error", text: `${text}. Der Arbeitsplatz ist deshalb nicht angemeldet: ${refusal}`, update: older };
+    : { level: "error", text: `${text}. The workspace is therefore not registered: ${refusal}`, update: older };
 };
 
 interface SessionParts {
@@ -124,14 +124,14 @@ interface SessionParts {
 
 const messageOf = (cause: unknown): string => cause instanceof Error ? cause.message : String(cause);
 
-/** Ein Server mit seiner eigenen Sitzung: Verbindung, Runs, Arbeitsplatz und, bei einem lokalen Profil, sein Host. */
+/** A server with its own session: connection, runs, workspace and, for a local profile, its host. */
 export class ConnectionSession {
   #status: SessionStatus = { kind: "stopped" };
   #parts: SessionParts | undefined;
   #releases: Array<() => void> = [];
   #listeners = new Set<() => void>();
   #connecting: Promise<void> | undefined;
-  /** Zählt Starts und Trennungen; ein Start, den ein Trennen überholt hat, wirft sein Ergebnis weg. */
+  /** Counts starts and disconnects; a start overtaken by a disconnect discards its result. */
   #generation = 0;
   #registering = false;
   #probed: boolean;
@@ -179,7 +179,7 @@ export class ConnectionSession {
     return () => { this.#listeners.delete(listener); };
   }
 
-  /** Startet den Server, wenn er noch nicht läuft: Host holen, Sitzung aufbauen, verbinden. */
+  /** Starts the server if it is not running yet: fetch the host, set up the session, connect. */
   connect(): Promise<void> {
     if (this.#parts) return this.reconnect();
     this.#connecting ??= this.#launch().finally(() => { this.#connecting = undefined; });
@@ -203,7 +203,7 @@ export class ConnectionSession {
     }
   }
 
-  /** Baut die Sitzung gegen eine Adresse auf; auch der Weg nach der Übernahme eines servergelieferten Profils. */
+  /** Sets up the session against an address; also the path after applying a server-delivered profile. */
   async attach(launched: LaunchedConnection): Promise<void> {
     await this.#detach();
     const client = new ServerClient(launched.url, launched.token);
@@ -225,7 +225,7 @@ export class ConnectionSession {
     await this.reconnect();
   }
 
-  /** Verbindet die bestehende Sitzung neu und meldet danach den Arbeitsplatz an. */
+  /** Reconnects the existing session and then registers the workspace. */
   async reconnect(): Promise<void> {
     const parts = this.#parts;
     if (!parts) return this.connect();
@@ -235,20 +235,20 @@ export class ConnectionSession {
     await this.registerWorkspaceClient();
   }
 
-  /** Ein neuer Versuch nach einem Fehlschlag; scheiterte die Übernahme eines verteilten Profils, beginnt die Sitzung von vorn. */
+  /** A new attempt after a failure; if applying a distributed profile failed, the session starts over. */
   async retry(): Promise<void> {
     if (this.#missingEnvironment !== undefined && this.#parts) await this.disconnect();
     await this.connect();
   }
 
-  /** Ein Fehlschlag neben dem Start, etwa beim Übernehmen eines verteilten Profils; er steht danach am Server. */
+  /** A failure outside the start, e.g. when applying a distributed profile; it then shows at the server. */
   reportProblem(cause: unknown): void {
     this.#problem = messageOf(cause);
     this.#missingEnvironment = missingEnvironmentOf(cause);
     this.#notify();
   }
 
-  /** Beendet die Sitzung: Arbeitsplatz abmelden, Kanäle schließen, einen eigenen Host stoppen. */
+  /** Ends the session: unregister the workspace, close channels, stop an own host. */
   async disconnect(): Promise<void> {
     this.#generation += 1;
     await this.#detach();
@@ -266,12 +266,12 @@ export class ConnectionSession {
     await parts.workspaceClient.unregister().catch(() => undefined);
     parts.store.dispose();
     if (parts.host) {
-      this.services.log(`== Host ${parts.host.url} beenden`);
+      this.services.log(`== Stopping host ${parts.host.url}`);
       await parts.host.stop();
     }
   }
 
-  /** Der Arbeitsplatz meldet sich an, sobald der Server antwortet, und bietet dabei die geöffneten Ordner an. */
+  /** The workspace registers as soon as the server answers and offers the open folders. */
   async registerWorkspaceClient(): Promise<void> {
     const parts = this.#parts;
     if (!parts || this.#registering || parts.store.status.kind !== "connected" || parts.workspaceClient.folders.length === 0) return;
@@ -291,10 +291,10 @@ export class ConnectionSession {
     await this.registerWorkspaceClient();
   }
 
-  /** Benutzer und Passwort bleiben je Server in der SecretStorage; die nächste Sitzung meldet sich damit still an. */
+  /** User and password stay per server in the SecretStorage; the next session signs in with them silently. */
   async loginWith(user: string, password: string): Promise<void> {
     const parts = this.#parts;
-    if (!parts) throw new Error(`Der Server ${this.name} ist nicht verbunden.`);
+    if (!parts) throw new Error(`The server ${this.name} is not connected.`);
     this.#problem = undefined;
     this.#loginUser = user.trim();
     try {
@@ -311,10 +311,10 @@ export class ConnectionSession {
     }
   }
 
-  /** Ein Profil mit ACCESS_TOKEN fragt statt nach Benutzer und Passwort nach dem Token. */
+  /** A profile with ACCESS_TOKEN asks for the token instead of user and password. */
   async loginWithToken(token: string): Promise<void> {
     const parts = this.#parts;
-    if (!parts) throw new Error(`Der Server ${this.name} ist nicht verbunden.`);
+    if (!parts) throw new Error(`The server ${this.name} is not connected.`);
     this.#problem = undefined;
     const previous = parts.client.accessToken;
     parts.client.useToken(token.trim());
@@ -329,10 +329,10 @@ export class ConnectionSession {
     await this.useToken(token.trim());
   }
 
-  /** Setzt den Sitzungstoken, merkt ihn je Server und verbindet damit neu. */
+  /** Sets the session token, remembers it per server, and reconnects with it. */
   async useToken(token: string | undefined): Promise<void> {
     const parts = this.#parts;
-    if (!parts) throw new Error(`Der Server ${this.name} ist nicht verbunden.`);
+    if (!parts) throw new Error(`The server ${this.name} is not connected.`);
     parts.client.useToken(token);
     const key = connectionSecretKey(this.connection);
     if (key && !parts.host) {
@@ -343,7 +343,7 @@ export class ConnectionSession {
     await this.reconnect();
   }
 
-  /** Die gespeicherten Anmeldedaten gehen zuerst; sonst blieben sie liegen, wenn der Server das Abmelden ablehnt. */
+  /** The stored credentials go first; otherwise they would remain if the server rejects the sign-out. */
   async logout(): Promise<void> {
     const parts = this.#parts;
     if (!parts) return;
@@ -359,7 +359,7 @@ export class ConnectionSession {
     await this.useToken(undefined);
   }
 
-  /** Löscht die gespeicherten Anmeldedaten dieses Servers, ohne die Sitzung zu beenden. */
+  /** Deletes the stored credentials of this server without ending the session. */
   async forgetCredentials(): Promise<void> {
     const key = credentialsSecretKey(this.connection);
     if (!key) return;
@@ -368,7 +368,7 @@ export class ConnectionSession {
     this.#notify();
   }
 
-  /** Alles, was ein gemerkter Token und gespeicherte Anmeldedaten dieses Servers sind, verschwindet mit ihm. */
+  /** Everything that is a remembered token or stored credentials of this server disappears with it. */
   async forgetSecrets(): Promise<void> {
     for (const key of [connectionSecretKey(this.connection), credentialsSecretKey(this.connection)]) {
       if (key) await this.services.secrets.delete(key);
@@ -402,13 +402,13 @@ export class ConnectionSession {
     };
   }
 
-  /** Warum der Arbeitsplatz dieses Fensters beim verbundenen Server nicht angemeldet ist. */
+  /** Why the workspace of this window is not registered with the connected server. */
   #workspaceProblem(parts: SessionParts | undefined): string | undefined {
     if (!parts || parts.store.status.kind !== "connected" || parts.workspaceClient.folders.length === 0) return undefined;
     const refusal = workspaceRegistrationRefusal(parts.store.access, parts.url);
     if (refusal !== undefined) return refusal;
     const status = parts.workspaceClient.status;
-    return status.kind === "failed" && !status.mismatch ? `Arbeitsplatz nicht angemeldet: ${status.message}` : undefined;
+    return status.kind === "failed" && !status.mismatch ? `Workspace not registered: ${status.message}` : undefined;
   }
 
   #storeChanged(parts: SessionParts): void {
@@ -437,7 +437,7 @@ export class ConnectionSession {
     if (!raw || !this.#parts) return;
     const parsed = JSON.parse(raw) as { user?: unknown; password?: unknown };
     if (typeof parsed.user !== "string" || typeof parsed.password !== "string") return;
-    this.services.log(`== Anmeldung bei ${this.name} als ${parsed.user} mit gespeicherten Anmeldedaten`);
+    this.services.log(`== Signing in to ${this.name} as ${parsed.user} with stored credentials`);
     await this.loginWith(parsed.user, parsed.password);
   }
 

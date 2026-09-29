@@ -7,8 +7,8 @@ const cardClasses = "gap-2.5 bg-background px-3.5 text-sm";
 const optionClasses = "h-auto w-full justify-start gap-2 px-3 py-1.5 text-left text-sm font-normal whitespace-normal";
 
 /**
- * Rückfrage-Karte: Optionen untereinander, wahlweise Einzel- oder Mehrfachauswahl
- * (question.multi), dazu immer eine freie Antwortzeile. Nach der Antwort nur noch Beleg.
+ * Question card: options stacked, either single or multiple choice
+ * (question.multi), plus always a free answer line. After the answer only the record remains.
  */
 export function QuestionCard({
   text,
@@ -21,8 +21,8 @@ export function QuestionCard({
   answer?: string;
   onAnswer?: (text: string) => void;
 }) {
-  const [gewaehlt, setGewaehlt] = useState<string[]>([]);
-  const [frei, setFrei] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [freeText, setFreeText] = useState("");
 
   if (answer !== undefined) {
     return (
@@ -45,13 +45,13 @@ export function QuestionCard({
     );
   }
 
-  const umschalten = (option: string) =>
-    setGewaehlt((bisher) =>
-      bisher.includes(option) ? bisher.filter((o) => o !== option) : [...bisher, option]);
+  const toggle = (option: string) =>
+    setSelected((previous) =>
+      previous.includes(option) ? previous.filter((o) => o !== option) : [...previous, option]);
 
-  const freiSenden = () => {
-    const wert = frei.trim();
-    if (wert) onAnswer(wert);
+  const sendFreeText = () => {
+    const value = freeText.trim();
+    if (value) onAnswer(value);
   };
 
   return (
@@ -61,15 +61,15 @@ export function QuestionCard({
         {question.options.map((option) =>
           question.multi ? (
             <Button
-              aria-pressed={gewaehlt.includes(option)}
+              aria-pressed={selected.includes(option)}
               className={cn(optionClasses, "aria-pressed:border-primary aria-pressed:bg-accent")}
               data-question="option"
               key={option}
-              onClick={() => umschalten(option)}
+              onClick={() => toggle(option)}
               variant="outline"
             >
               <span className="inline-flex size-3.5 flex-none items-center justify-center rounded-sm border border-border text-primary group-aria-pressed/button:border-primary">
-                {gewaehlt.includes(option) && <CheckIcon size={10} />}
+                {selected.includes(option) && <CheckIcon size={10} />}
               </span>
               {option}
             </Button>
@@ -83,25 +83,25 @@ export function QuestionCard({
       {question.multi && (
         <Button
           className="self-start"
-          disabled={gewaehlt.length === 0}
-          onClick={() => onAnswer(gewaehlt.join("; "))}
+          disabled={selected.length === 0}
+          onClick={() => onAnswer(selected.join("; "))}
           size="sm"
         >
-          Auswahl übernehmen
+          Apply selection
         </Button>
       )}
       <div className="flex gap-1.5">
         <Input
           className="flex-1"
-          onChange={(event) => setFrei(event.target.value)}
+          onChange={(event) => setFreeText(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === "Enter") freiSenden();
+            if (event.key === "Enter") sendFreeText();
           }}
-          placeholder="... oder frei antworten"
-          value={frei}
+          placeholder="... or answer freely"
+          value={freeText}
         />
-        <Button disabled={frei.trim() === ""} onClick={freiSenden} size="sm" variant="outline">
-          Antworten
+        <Button disabled={freeText.trim() === ""} onClick={sendFreeText} size="sm" variant="outline">
+          Answer
         </Button>
       </div>
     </Card>

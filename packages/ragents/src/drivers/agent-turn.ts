@@ -155,7 +155,7 @@ export class AgentTurn {
             return;
 
         if (!(await this.#options.modelRuntime.checkAuth(model.provider)))
-            throw new Error(`Für den Anbieter ${model.provider} ist kein Schlüssel konfiguriert; er kommt aus der Konfiguration des Profils.`);
+            throw new Error(`No key is configured for the provider ${model.provider}; it comes from the configuration of the profile.`);
 
         const context = request.modelContext();
         await this.#checkCompaction(lastAssistantOf(context.messages), false);
@@ -245,7 +245,7 @@ export class AgentTurn {
             },
             steeringSource: () => this.#steering(),
             formatUnknownToolError: (name) => this.#active && !this.#options.signal.aborted
-                ? `Die Funktion ${name} ist kein natives Werkzeug. Suche ihren Vertrag mit typescript_api und rufe sie in typescript_eval über context.functions auf.`
+                ? `The function ${name} is not a native tool. Look up its contract with typescript_api and call it in typescript_eval through context.functions.`
                 : undefined,
             maxRetryDelayMs: settings.providerRequest.maxRetryDelayMs,
         });
@@ -294,7 +294,7 @@ export class AgentTurn {
                 .filter((name) => !["typescript_api", "typescript_eval"].includes(name) && !allowedNames.has(name));
 
             if (outside.length > 0)
-                throw new Error(`Der Agent erhielt Werkzeuge außerhalb seiner Freigabeliste: ${[...new Set(outside)].join(", ")}.`);
+                throw new Error(`The agent received tools outside its allowlist: ${[...new Set(outside)].join(", ")}.`);
         }
 
         const tools = request.tools.map((entry) => {
@@ -727,7 +727,7 @@ export class AgentTurn {
             return retry;
         } catch (error) {
             if (!abort.signal.aborted && !this.#options.signal.aborted)
-                this.#options.onDiagnostic(`Die Verdichtung des Modellkontexts ist gescheitert: ${errorMessage(error)}`);
+                this.#options.onDiagnostic(`Compaction of the model context failed: ${errorMessage(error)}`);
             return false;
         } finally {
             if (this.#compactionAbort === abort)

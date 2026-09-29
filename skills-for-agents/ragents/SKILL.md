@@ -1,108 +1,108 @@
 ---
 name: ragents
-description: RAgents lokal starten und ein Projekt programmieren lassen - Host hochfahren, einen Run auf einen Projektordner binden, Aufträge schicken und das Journal lesen.
+description: Start RAgents locally and have it program a project - bring up the host, bind a run to a project folder, send tasks, and read the journal.
 ---
 
-# RAgents als Programmierer beauftragen
+# Commissioning RAgents as a programmer
 
-RAgents ist eine Werkstatt für KI-Agenten. `ragents run` startet den Host auf diesem Rechner,
-bindet einen Run an einen Projektordner und lässt einen Koordinator darin arbeiten: lesen,
-schreiben, Bash, Diagnostik über Roslyn (C#), FSAC (F#) und den TypeScript-Sprachserver.
-Je Sprache öffnet `<sprache>_open` eine Instanz je Wurzel; mehrere Wurzeln bleiben nebeneinander
-offen, etwa zwei Solutions, und `<sprache>_close` beendet eine davon wieder.
+RAgents is a workshop for AI agents. `ragents run` starts the host on this machine,
+binds a run to a project folder, and lets a coordinator work in it: reading,
+writing, bash, diagnostics via Roslyn (C#), FSAC (F#), and the TypeScript language server.
+For each language, `<language>_open` opens one instance per root; several roots stay open side by
+side, for example two solutions, and `<language>_close` shuts one of them down again.
 
-## Voraussetzungen
+## Prerequisites
 
-- Node 22 und das Paket `@schlenkr/ragents` (`npm install -g @schlenkr/ragents`) oder ein
-  Checkout des Repositories; dort heißen dieselben Befehle `pnpm ragents ...`.
-- `dotnet` (.NET 10 SDK) für die Diagnostik von C# und F#; ohne bleibt nur TypeScript.
-- Ein Modellzugang: entweder `OPENROUTER_API_KEY` in der Shell, oder `ragents connect <server-url>`
-  gegen einen RAgents-Server, der die Modelle stellt.
-- Einmal je Rechner: `ragents provision developer` holt Sprachserver und Werkzeuge nach
-  `~/.local/share/ragents/developer/tools/`. Ein zweiter Aufruf lädt nichts nach.
+- Node 22 and the package `@schlenkr/ragents` (`npm install -g @schlenkr/ragents`) or a
+  checkout of the repository; there the same commands are called `pnpm ragents ...`.
+- `dotnet` (.NET 10 SDK) for diagnostics of C# and F#; without it, only TypeScript remains.
+- Model access: either `OPENROUTER_API_KEY` in the shell, or `ragents connect <server-url>`
+  against a RAgents server that provides the models.
+- Once per machine: `ragents provision developer` fetches language servers and tools into
+  `~/.local/share/ragents/developer/tools/`. A second call downloads nothing more.
 
-Das Profil `developer` läuft ohne Anmeldung auf Port 4715, Daten unter
-`~/.local/share/ragents/developer`. `PORT` und `DATA_DIR` überschreiben beides.
+The `developer` profile runs without sign-in on port 4715, with data under
+`~/.local/share/ragents/developer`. `PORT` and `DATA_DIR` override both.
 
-## Die vier Befehle
+## The four commands
 
 ```sh
-ragents run /pfad/zum/projekt "Behebe den Typfehler in src/broken.ts und lauf typescript_diagnostics"
-ragents send 7f3c1e64-... "Lies README.md und nenne das Kennwort"
+ragents run /path/to/project "Fix the type error in src/broken.ts and run typescript_diagnostics"
+ragents send 7f3c1e64-... "Read README.md and name the password"
 ragents journal 7f3c1e64-... --tools
-ragents stop 7f3c1e64-...        # laufenden Turn des Primary-Actors unterbrechen, der Run bleibt aktiv
-ragents stop 7f3c1e64-... --run  # Not-Aus: alle Turns abbrechen, alle Actors stoppen
-ragents stop --host              # den gemerkten Host beenden
-ragents --help                   # die Verwendung, wie ragents help
+ragents stop 7f3c1e64-...        # interrupt the running turn of the primary actor, the run stays active
+ragents stop 7f3c1e64-... --run  # emergency stop: cancel all turns, stop all actors
+ragents stop --host              # shut down the remembered host
+ragents --help                   # the usage, like ragents help
 ```
 
-`run` startet den Host, falls unter seiner Adresse keiner antwortet, legt den Run mit dem absoluten
-Ordner als vorhandenem Ordner auf dem Server an (der Server läuft auf demselben Rechner), schickt den Auftrag
-und blockiert, bis der Turn zu Ende ist. `--profile <profil|pfad>` wählt ein anderes Profil,
-`--entry <vorlage>` startet den Run zusätzlich über eine Skill- oder Script-Vorlage.
-`--workstation <kennung>` bindet den Ordner stattdessen auf dem am Host angemeldeten Arbeitsplatz
-mit dieser Kennung (`pnpm workspace-client <server-url> <ordner> --id <kennung>`); `<ordner>` ist
-dann sein Pfad dort. Ist kein solcher Arbeitsplatz angemeldet, bricht `run` mit Ursache ab.
-Der Ordner ist optional: `ragents run "<auftrag>" --entry <vorlage>` wählt keine Bindung, dann
-gilt die Vorgabe des Profils oder die feste Bindung der Vorlage. Ein einzelner Wert ist immer der
-Auftrag. Legt die Vorlage die Bindung fest, ist ein genannter Ordner ein Fehler mit Ursache;
-`--workstation` braucht dagegen immer einen Ordner.
-`send` arbeitet im selben Run weiter und wartet genauso. Beide folgen dem Turn über den Server,
-wie Web und VS Code; das geht auch, wenn `RAGENTS_URL` auf einen Server auf einem anderen Rechner
-zeigt. `journal` liest den Verlauf aus dem Datenordner des Profils, mit `RAGENTS_URL` vom Server
-(dort mit dem Recht `runs.inspect`); `--tools` zeigt die Werkzeugaufrufe statt des Gesprächs.
+`run` starts the host if nothing answers at its address, creates the run with the absolute
+folder as an existing folder on the server (the server runs on the same machine), sends the task,
+and blocks until the turn is over. `--profile <profile|path>` selects a different profile,
+`--entry <template>` additionally starts the run via a skill or script template.
+`--workstation <id>` instead binds the folder on the workspace signed in to the host
+with this id (`pnpm workspace-client <server-url> <folder> --id <id>`); `<folder>` is
+then its path there. If no such workspace is signed in, `run` aborts with a cause.
+The folder is optional: `ragents run "<task>" --entry <template>` selects no binding; then
+the profile's default or the template's fixed binding applies. A single value is always the
+task. If the template fixes the binding, a named folder is an error with a cause;
+`--workstation`, on the other hand, always needs a folder.
+`send` continues working in the same run and waits the same way. Both follow the turn via the server,
+like the web app and VS Code; this also works when `RAGENTS_URL` points to a server on another machine.
+`journal` reads the history from the profile's data folder, with `RAGENTS_URL` from the server
+(there with the right `runs.inspect`); `--tools` shows the tool calls instead of the conversation.
 
-## Ausgabe und Exit-Code lesen
+## Reading output and exit code
 
-Auf stdout stehen die Werkzeugaufrufe mit Name und Dauer, soweit der Server sie Deinem Benutzer
-zeigt (Recht `runs.inspect`), und die Antwort des Modells, auf stderr die Meldungen des Befehls
-(Hoststart, Run-Kennung, Abbruchgrund). Die Eingaben der Werkzeuge liest `journal --tools`:
+stdout shows the tool calls with name and duration, as far as the server shows them to your user
+(right `runs.inspect`), and the model's answer; stderr shows the command's messages
+(host start, run id, reason for cancellation). `journal --tools` reads the tools' inputs:
 
 ```
 > read
 < read 0.4s ok
 > bash
 < bash 12.1s ok
-Der Typfehler kam von greet(42); jetzt steht dort greet("42").
+The type error came from greet(42); now it says greet("42").
 run: 7f3c1e64-9a2b-4d11-8c30-1f5e9a77c001
 ```
 
-Die letzte Zeile ist immer `run: <id>` - damit gehen `send`, `journal` und `stop` weiter.
-`--json` liefert statt der Zeilen dieselben Schritte als JSON, einen je Zeile (`tool`, `tool-end`,
-`output`, zuletzt `turn`).
-Exit-Code: `0` der Turn ist fertig, `2` er wurde abgebrochen, `1` er ist gescheitert oder die
-Verbindung zum Host ist weg; dann nennt der Befehl die Ursache, statt zu warten, und der Turn kann
-auf dem Server weiterlaufen; seinen Stand zeigt `journal`. Ein Exit-Code `0` heißt, dass der Turn sauber endete, nicht dass der
-fachliche Auftrag erfüllt ist; das prüfst Du selbst am Ergebnis im Projektordner.
+The last line is always `run: <id>` - `send`, `journal`, and `stop` continue with it.
+`--json` returns the same steps as JSON instead of the lines, one per line (`tool`, `tool-end`,
+`output`, finally `turn`).
+Exit code: `0` the turn is finished, `2` it was cancelled, `1` it failed or the
+connection to the host is gone; then the command names the cause instead of waiting, and the turn may
+keep running on the server; `journal` shows its state. An exit code `0` means that the turn ended cleanly, not that the
+task itself is fulfilled; you check that yourself from the result in the project folder.
 
-## Ein eigenes Profil
+## A custom profile
 
-`--profile` nimmt einen Namen neben dem Host **oder** den Pfad zu einer eigenen
-`ragents.config.<profil>.ts` an beliebiger Stelle; `RAGENTS_PROFILE` setzt dasselbe für alle
-Befehle. Verlangt das Profil eine Anmeldung (`users`), gehört in `RAGENTS_TOKEN` der persönliche
-Token des Benutzers, den das Profil als `token: env("...")` nennt:
+`--profile` takes a name next to the host **or** the path to your own
+`ragents.config.<profile>.ts` anywhere; `RAGENTS_PROFILE` sets the same for all
+commands. If the profile requires sign-in (`users`), `RAGENTS_TOKEN` holds the user's personal
+token that the profile names as `token: env("...")`:
 
 ```sh
 export RAGENTS_TOKEN="$MY_RAGENTS_TOKEN"
-ragents run <ordner> "Implementiere Work Item 1234" --profile <pfad>/ragents.config.custom.ts --entry custom.tickets.implement-task
-ragents stop --host --profile <pfad>/ragents.config.custom.ts
+ragents run <folder> "Implement work item 1234" --profile <path>/ragents.config.custom.ts --entry custom.tickets.implement-task
+ragents stop --host --profile <path>/ragents.config.custom.ts
 ```
 
-Legt das Profil seinen Arbeitsbereich selbst an (kein `ragents.workspace`), bleibt `<ordner>`
-ungebunden; der Befehl sagt das auf stderr und der Run läuft trotzdem.
+If the profile creates its workspace itself (no `ragents.workspace`), `<folder>` stays
+unbound; the command says so on stderr and the run runs anyway.
 
-Ein Ad-hoc-Profil ist eine Kopie: `ragents.config.developer.ts` neben die Vorlage legen, in
-`ragents.config.<name>.ts` umbenennen und darin `PORT`, `PRODUCT_PROFILE`, `PRODUCT_ID`,
-`PLUGINS` und die Modelle ändern. Danach `ragents provision <name>` und
-`ragents run <ordner> "..." --profile <name>`. Das Vokabular der Profildatei - Sektionen,
-`env(...)`, `provisioned(...)`, `anonymousUser`, `users` - steht in `docs/spec/profiles.md`.
+An ad hoc profile is a copy: put `ragents.config.developer.ts` next to the template, rename it to
+`ragents.config.<name>.ts`, and change `PORT`, `PRODUCT_PROFILE`, `PRODUCT_ID`,
+`PLUGINS`, and the models in it. Then `ragents provision <name>` and
+`ragents run <folder> "..." --profile <name>`. The vocabulary of the profile file - sections,
+`env(...)`, `provisioned(...)`, `anonymousUser`, `users` - is in `docs/spec/profiles.md`.
 
-## Was Du nicht tust
+## What you do not do
 
-- Keine Secrets in eine Profildatei schreiben; ein Schlüssel steht als `env("NAME")` darin und
-  sein Wert in der Shell. Die Profildatei lehnt Klartext-Secrets beim Start ab.
-- Den Host nicht mit `pkill`, `killall` oder einem Prozessmuster beenden. `ragents stop --host`
-  nimmt die PID aus `<Datenordner>/host.json` und trifft damit genau den gemerkten Prozess - auch
-  bei einem Host aus `ragents start`, der dieselbe Datei schreibt.
-- Keinen zweiten Host auf demselben Port starten; ein belegter Port ist ein harter Startfehler.
-- Den Projektordner nicht parallel selbst umbauen, solange ein Turn läuft.
+- Do not write secrets into a profile file; a key appears there as `env("NAME")` and
+  its value in the shell. The profile file rejects plaintext secrets at startup.
+- Do not shut down the host with `pkill`, `killall`, or a process pattern. `ragents stop --host`
+  takes the PID from `<data folder>/host.json` and thus hits exactly the remembered process - even
+  for a host from `ragents start`, which writes the same file.
+- Do not start a second host on the same port; an occupied port is a hard startup error.
+- Do not restructure the project folder yourself in parallel while a turn is running.

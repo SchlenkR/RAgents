@@ -46,7 +46,7 @@ export const acquireLock = async (file: string): Promise<() => Promise<void>> =>
         continue;
       }
       if (Date.now() - started > LOCK_TIMEOUT_MS) {
-        throw new Error(`${file} ist seit ${Math.round(LOCK_TIMEOUT_MS / 60_000)} Minuten von Prozess ${owner || "?"} belegt; läuft dort noch ein Bau?`);
+        throw new Error(`${file} has been held by process ${owner || "?"} for ${Math.round(LOCK_TIMEOUT_MS / 60_000)} minutes; is a build still running there?`);
       }
       await new Promise((resolve) => setTimeout(resolve, LOCK_POLL_MS));
     }

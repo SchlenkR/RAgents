@@ -89,7 +89,7 @@ test("actor-program prompt composition keeps the full guide exclusively in the r
   assert.equal((await minimal.prompts.snapshot({})).contributions.some((entry) => entry.id.startsWith("ragents.actor-programs.")), false);
 });
 
-test("die Regeln des Arbeitsbereichs hängen an seinen Werkzeugen und bleiben im Systemprompt", async () => {
+test("the workspace rules hang on its tools and stay in the system prompt", async () => {
   const host = await composed(minimalFixture);
   const rules = (await host.prompts.snapshot({})).contributions.find((entry) => entry.id === "ragents.workspace.prompt");
   assert.ok(rules);
@@ -101,15 +101,15 @@ test("die Regeln des Arbeitsbereichs hängen an seinen Werkzeugen und bleiben im
   assert.equal(chapters.some((entry) => entry.id === rules.id), false);
 });
 
-test("die neutrale Showcase-Fixture komponiert echte Plugins und Ordnerbeiträge vollständig", async () => {
+test("the neutral showcase fixture composes real plugins and folder contributions completely", async () => {
   const host = await composed(showcaseFixture);
   const profile = host.publicProfile();
 
   assert.deepEqual(profile.product, showcaseFixture.product);
   assert.deepEqual(profile.plugins.map((entry) => entry.id), [...showcaseFixture.plugins]);
-  assert.ok(host.optionalService(productRuntimeToken), "ProductRuntime fehlt");
-  assert.ok(host.optionalService(workspaceRuntimeToken), "WorkspaceRuntime fehlt");
-  assert.ok(host.optionalService(browserRuntimeToken), "Browserdienst fehlt");
+  assert.ok(host.optionalService(productRuntimeToken), "ProductRuntime is missing");
+  assert.ok(host.optionalService(workspaceRuntimeToken), "WorkspaceRuntime is missing");
+  assert.ok(host.optionalService(browserRuntimeToken), "browser service is missing");
   assert.deepEqual(names(host.operations.describe()), ["actor_input"]);
   assert.deepEqual(host.tools.describe().map((tool) => tool.name).sort(), [
     "ask_user", "bash", "canvas_layout_replace", "document_write", "edit",
@@ -126,41 +126,41 @@ test("die neutrale Showcase-Fixture komponiert echte Plugins und Ordnerbeiträge
   assert.equal(profile.startEntries.filter((entry) => entry.action === "skill").length,
     folderSkills(pluginFolder("ragents.reference"), "ragents.reference").startEntries.length);
   const globalSkills = (await host.skills.global()).map((skill) => path.basename(skill));
-  assert.deepEqual(profile.startEntries.filter((entry) => entry.action === "skill").map((entry) => entry.skill).filter((skill) => !globalSkills.includes(skill)), [], "jede Skill-Vorlage braucht ihren registrierten Skill");
+  assert.deepEqual(profile.startEntries.filter((entry) => entry.action === "skill").map((entry) => entry.skill).filter((skill) => !globalSkills.includes(skill)), [], "every skill template needs its registered skill");
   assert.deepEqual(
     profile.startEntries.filter((entry) => entry.action === "script").map((entry) => entry.id),
     ["ragents.reference.shared-actor-list", "ragents.reference.conversation-circle", "ragents.reference.moderated-round", "ragents.reference.balcony-wizard", "ragents.reference.learning-afternoon", "ragents.reference.word-game"],
   );
-  assert.ok(profile.startEntries.every((entry) => !("files" in entry) && !("programs" in entry)), "ein Run-Script verrät seine Quelle nicht");
+  assert.ok(profile.startEntries.every((entry) => !("files" in entry) && !("programs" in entry)), "a run script does not reveal its source");
   assert.deepEqual(host.startOptions.describe(), [{ id: "ragents.workspace.binding", owner: "ragents.workspace" }, { id: "ragents.model", owner: "ragents.product" }]);
-  assert.equal(JSON.stringify(host.accessProjections.state(programState, restricted)), JSON.stringify({ ...programState, state: { version: 1, program: { name: "board", views: [] } } }), "Actor-Programme bringen ihre Projektion mit");
+  assert.equal(JSON.stringify(host.accessProjections.state(programState, restricted)), JSON.stringify({ ...programState, state: { version: 1, program: { name: "board", views: [] } } }), "actor programs bring their projection");
   assert.equal(host.service(workspaceRuntimeToken).describe().mode, "per-run");
-  assert.ok(host.optionalService(documentStoreToken), "Dokumentenstore fehlt");
+  assert.ok(host.optionalService(documentStoreToken), "document store is missing");
 });
 
-test("eine reduzierte Fixture entfernt optionale Actor-Programm- und Referenzbeiträge", async () => {
+test("a reduced fixture removes optional actor program and reference contributions", async () => {
   const host = await composed(minimalFixture);
   const profile = host.publicProfile();
   assert.deepEqual(profile.product, minimalFixture.product);
   assert.deepEqual(profile.plugins.map((entry) => entry.id), [...minimalFixture.plugins]);
-  assert.ok(host.optionalService(productRuntimeToken), "ProductRuntime fehlt");
-  assert.ok(host.optionalService(workspaceRuntimeToken), "WorkspaceRuntime fehlt");
+  assert.ok(host.optionalService(productRuntimeToken), "ProductRuntime is missing");
+  assert.ok(host.optionalService(workspaceRuntimeToken), "WorkspaceRuntime is missing");
   assert.deepEqual(names(host.operations.describe()), ["actor_input"]);
   assert.equal(host.tools.describe().some((tool) => tool.name.startsWith("actor_program_") || tool.name.startsWith("actor_view_")), false);
   assert.deepEqual(host.tools.describe().filter((entry) => entry.nativeTool).map((entry) => entry.name).sort(), ["bash", "document_write", "edit", "read", "show_document", "typescript_api", "typescript_eval", "write"]);
   assert.deepEqual(await host.skills.global(), []);
   assert.equal(profile.startEntries.some((entry) => entry.owner === "ragents.reference"), false);
-  assert.equal(host.accessProjections.state(programState, restricted), programState, "ohne das Plugin kennt der Host keine Projektion");
+  assert.equal(host.accessProjections.state(programState, restricted), programState, "without the plugin the host knows no projection");
 });
 
-test("die Default-Vorlage der Profildatei muss eine registrierte Vorlage sein und steht dann im Bootstrap", async () => {
+test("the default template of the profile file must be a registered template and then appears in the bootstrap", async () => {
   const host = await composed(showcaseFixture, "ragents.reference.word-game");
   assert.equal(host.publicProfile().defaultStartEntry, "ragents.reference.word-game");
   assert.equal("defaultStartEntry" in (await composed(showcaseFixture)).publicProfile(), false);
-  await assert.rejects(composed(minimalFixture, "ragents.reference.word-game"), /defaultStartEntry ragents\.reference\.word-game ist keine registrierte Vorlage/);
+  await assert.rejects(composed(minimalFixture, "ragents.reference.word-game"), /defaultStartEntry ragents\.reference\.word-game is not a registered template/);
 });
 
-test("jedes Plugin trägt sein requires aus dem Modulvertrag ins Manifest", async () => {
+test("every plugin carries its requires from the module contract into the manifest", async () => {
   const host = await composed(showcaseFixture);
   const manifests = new Map(host.publicManifests().map((manifest) => [manifest.id, manifest.requires]));
 
@@ -171,14 +171,14 @@ test("jedes Plugin trägt sein requires aus dem Modulvertrag ins Manifest", asyn
   assert.deepEqual(manifests.get("ragents.reference"), ["ragents.orchestration", "ragents.actor-programs"]);
 });
 
-test("ein Plugin ohne sein vorausgesetztes Plugin bricht den Start ab", async () => {
+test("a plugin without its required plugin aborts the start", async () => {
   await assert.rejects(
     () => loadPlugins(["ragents.orchestration", "ragents.browser"]),
-    /ragents\.browser benötigt das fehlende Plugin ragents\.documents/,
+    /ragents\.browser needs the missing plugin ragents\.documents/,
   );
 });
 
-test("technische Plugin-Methoden verlangen runs.inspect im Vertrag, der Dispatcher prüft es vor jedem Dateizugriff", async () => {
+test("technical plugin methods require runs.inspect in the contract, the dispatcher checks it before every file access", async () => {
   const access = createAccessContext({ enabled: false, user: { id: "operator", label: "Operator", rights: ["runs.read", "runs.write"] } });
   const host = await composed(showcaseFixture);
   const dispatcher = new RpcDispatcher({ methods: host.methods, channels: host.channels });
@@ -203,7 +203,7 @@ const toolResolutionContext = {
   workspace: workspaceDirectory,
 } as unknown as PluginContext;
 
-test("kein Promptbeitrag und keine Werkzeugbeschreibung nennt eine Variable einer Wurzel des Servers, nur ihren Alias", async () => {
+test("no prompt contribution and no tool description names the variable of a server root, only its alias", async () => {
   const host = await composed(showcaseFixture);
   const toolNames = host.tools.describe().map((tool) => tool.name);
   const prompts = [
@@ -244,7 +244,7 @@ test("function catalogs keep compact descriptions while runtime functions retain
   assert.match(functions.find((entry) => entry.name === "actor_program_controls")!.longDescription!, /@ragents\/client\/ui/);
 });
 
-test("kein Werkzeug bietet dem Modell eine Union an der Wurzel seines Eingabeschemas", async () => {
+test("no tool offers the model a union at the root of its input schema", async () => {
   const { agentTools } = await import("@ragents/engine");
   const roots = new Map<string, { type?: unknown; anyOf?: unknown; oneOf?: unknown }>();
 
@@ -257,7 +257,7 @@ test("kein Werkzeug bietet dem Modell eine Union an der Wurzel seines Eingabesch
     }
   }
 
-  assert.ok(roots.has("actor_program_activate") && roots.has("show_document"), "die Werkzeugauflösung blieb leer");
+  assert.ok(roots.has("actor_program_activate") && roots.has("show_document"), "tool resolution stayed empty");
   const unions = [...roots]
     .filter(([, schema]) => schema.type !== "object" || schema.anyOf !== undefined || schema.oneOf !== undefined)
     .map(([name]) => name);

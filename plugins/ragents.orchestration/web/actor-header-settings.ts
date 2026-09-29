@@ -4,10 +4,10 @@ import type { RunActor } from "@ragents/web/run-view";
 export const ACTOR_HEADER_MODES = ["all", "active", "visible", "agent", "script"] as const;
 export type ActorHeaderMode = typeof ACTOR_HEADER_MODES[number];
 export const ACTOR_HEADER_MODE_LABELS: Record<ActorHeaderMode, string> = {
-  all: "Alle",
-  active: "Aktive",
-  visible: "Sichtbare",
-  agent: "LLM-Agenten",
+  all: "All",
+  active: "Active",
+  visible: "Visible",
+  agent: "LLM agents",
   script: "TypeScript",
 };
 
@@ -16,7 +16,7 @@ export const actorHeaderStorageKey = (runId: string) => `ragents.orchestration.a
 export function parseActorHeaderMode(raw: string | null): ActorHeaderMode {
   if (raw === null) return "visible";
   if (ACTOR_HEADER_MODES.some((mode) => mode === raw)) return raw as ActorHeaderMode;
-  throw new Error("Die gespeicherte Actor-Anzeige ist ungültig. Erlaubt sind all, active, visible, agent und script.");
+  throw new Error("The stored actor display is invalid. Allowed are all, active, visible, agent and script.");
 }
 
 export const actorOnStage = (actor: RunActor, primaryActorId: string | null | undefined, stage: ReadonlySet<string>) =>

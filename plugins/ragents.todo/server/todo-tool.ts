@@ -18,7 +18,7 @@ export const todoToolMetadata = {
 
 export const canManageTodos = defineToolAvailability({
   availability: "conditional",
-  availabilityDetail: "Nur für Agenten mit der Capability plugin.state.write.",
+  availabilityDetail: "Only for agents with the capability plugin.state.write.",
 }, (actor) => actor.kind === "agent" && holdsUsable(actor, "plugin.state.write"));
 
 const checked = (todos: readonly { id: string; text: string; status: string }[]) => {
@@ -29,9 +29,9 @@ const checked = (todos: readonly { id: string; text: string; status: string }[])
     const text = todo.text.trim();
     const status = todoStatusOf(todo.status);
 
-    if (!id) throw new DomainError("invalid-todo", `todos[${index}].id ist leer.`, 400);
-    if (!text) throw new DomainError("invalid-todo", `todos[${index}].text ist leer.`, 400);
-    if (!status) throw new DomainError("invalid-todo", `todos[${index}].status ${todo.status} ist unbekannt.`, 400);
+    if (!id) throw new DomainError("invalid-todo", `todos[${index}].id is empty.`, 400);
+    if (!text) throw new DomainError("invalid-todo", `todos[${index}].text is empty.`, 400);
+    if (!status) throw new DomainError("invalid-todo", `todos[${index}].status ${todo.status} is unknown.`, 400);
     if (seen.has(id)) throw new DomainError("duplicate-todo-id", `To-do ID ${id} occurs more than once.`, 400);
 
     seen.add(id);
@@ -49,8 +49,8 @@ export const createTodoTool = (): RunFunction =>
           id: Type.String({ minLength: 1 }),
           text: Type.String({ minLength: 1 }),
           status: Type.Union(TODO_STATUS_INPUTS.map((value) => Type.Literal(value)), {
-            description: "open = offen, active = in Arbeit, completed = erledigt; "
-              + "pending, in_progress und done werden ebenfalls angenommen",
+            description: "open = not started, active = in progress, completed = done; "
+              + "pending, in_progress and done are accepted as well",
           }),
         }),
       ),

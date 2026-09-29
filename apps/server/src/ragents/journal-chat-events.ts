@@ -35,7 +35,7 @@ export const journalChatEventsOf = (
   switch (event.type) {
     case "model.output.completed":
     case "model.output.interrupted":
-      if (!cursor) throw new Error("Die Journalposition des Antworttexts fehlt.");
+      if (!cursor) throw new Error("The journal position of the response text is missing.");
       return [{ kind: "text", delta: event.payload.text, at, cursor }];
     case "model.reasoning.completed":
       return [{ kind: "thinking", delta: event.payload.text, at }];

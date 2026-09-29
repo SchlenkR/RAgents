@@ -42,23 +42,23 @@ const { RunSessionProvider } = await import("../src/provider.ts");
 const alice = { id: "alice", label: "alice" };
 const bob = { id: "bob", label: "bob" };
 
-/** Der frühere gemeinsame Koordinator mit einer Nachricht von alice und einer offenen Eingabe, wie ihn ein älterer Stand hinterlässt. */
+/** The former shared coordinator with a message from alice and an open input, as an older version leaves it behind. */
 const writeSharedCoordinator = () => {
   const journal = new Journal(path.join(dataDirectory, "runs"), testServices());
   try {
     const runtime = new Orchestration(journal, testServices());
     const created = runtime.createRun({ commandId: "shared-create" }, {
-      runId: SHARED_OVERSEER_RUN_ID, title: "Übergeordneter Koordinator", ownerHandle: "alice", ownerDisplayName: "alice", ownerUserId: "alice",
+      runId: SHARED_OVERSEER_RUN_ID, title: "Top-level coordinator", ownerHandle: "alice", ownerDisplayName: "alice", ownerUserId: "alice",
     });
     const spawned = runtime.spawnAgent({ actorId: created.ownerId, commandId: "shared-spawn" }, SHARED_OVERSEER_RUN_ID, {
-      handle: "coordinator", displayName: "Koordinator", prompt: "", execution: manualExecution(), grants: [], toolNames: ["read", "write", "edit", "bash", "quick_answer"],
+      handle: "coordinator", displayName: "Coordinator", prompt: "", execution: manualExecution(), grants: [], toolNames: ["read", "write", "edit", "bash", "quick_answer"],
     });
     const coordinator = spawned.actors.find((actor) => actor.kind === "agent")!;
-    runtime.enqueueInput({ actorId: created.ownerId, commandId: "shared-input" }, SHARED_OVERSEER_RUN_ID, { actorId: coordinator.id, content: "Nachricht von bob im gemeinsamen Gespräch" });
+    runtime.enqueueInput({ actorId: created.ownerId, commandId: "shared-input" }, SHARED_OVERSEER_RUN_ID, { actorId: coordinator.id, content: "Message from bob in the shared conversation" });
   } finally { journal.close(); }
 };
 
-test("jeder Benutzer hat seinen eigenen Koordinator, dessen Werkzeuge nur mit seinem Zugang handeln", async (t) => {
+test("every user has their own coordinator whose tools act only with that user's access", async (t) => {
   t.after(() => rm(root, { recursive: true, force: true }));
   writeSharedCoordinator();
   const sharedJournal = await readFile(path.join(dataDirectory, "runs", SHARED_OVERSEER_RUN_ID, "journal.jsonl"), "utf8");
@@ -73,7 +73,7 @@ test("jeder Benutzer hat seinen eigenen Koordinator, dessen Werkzeuge nur mit se
       manifest: { id: "test.product" },
       register: (registration) => {
         registration.provide(productRuntimeToken, {
-          coordinator: { handle: "coordinator", displayName: "Koordinator", profile: "manual", runTitle: "Neuer Run", ownerHandle: "owner", ownerDisplayName: "Owner" },
+          coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "manual", runTitle: "New run", ownerHandle: "owner", ownerDisplayName: "Owner" },
           roleFor: (view, actor) => view.primaryActorId === actor.id ? "primary" : "worker",
           contract: () => "", promptComposition: "test",
           systemPrompts: () => ({ mode: "fixed", options: [], defaultIds: [], shareDefault: false }),
@@ -122,15 +122,15 @@ test("jeder Benutzer hat seinen eigenen Koordinator, dessen Werkzeuge nur mit se
   assert.deepEqual(await call(signedIn("alice"), overseerContracts.coordinator.id, {}), { runId: aliceCoordinator });
   assert.deepEqual(await call(signedIn("bob"), overseerContracts.coordinator.id, {}), { runId: bobCoordinator });
 
-  await (await provider.get(aliceCoordinator)).send("Was läuft bei mir?", [], undefined, alice);
-  await (await provider.get(bobCoordinator)).send("Was läuft bei mir?", [], undefined, bob);
+  await (await provider.get(aliceCoordinator)).send("What is running for me?", [], undefined, alice);
+  await (await provider.get(bobCoordinator)).send("What is running for me?", [], undefined, bob);
   assert.equal(provider.runOwner(aliceCoordinator), "alice");
   assert.equal(provider.runOwner(bobCoordinator), "bob");
-  assert.deepEqual(await provider.list(), [], "kein Koordinator steht in der Run-Liste");
+  assert.deepEqual(await provider.list(), [], "no coordinator is in the run list");
 
   const toolAccess = async (coordinator: string) => {
     const workspace = await workspaceFor(coordinator);
-    assert.deepEqual(workspace.hostSandbox?.readOnlyRoots, [], "mit Benutzern liest kein Koordinator den gemeinsamen Journalordner");
+    assert.deepEqual(workspace.hostSandbox?.readOnlyRoots, [], "with users no coordinator reads the shared journal folder");
     const token = workspace.extraEnv?.RAGENTS_API_TOKEN;
     assert.ok(token);
     const request = { socket: { remoteAddress: "127.0.0.1" }, headers: { authorization: `Bearer ${token}` } } as unknown as IncomingMessage;
@@ -139,29 +139,29 @@ test("jeder Benutzer hat seinen eigenen Koordinator, dessen Werkzeuge nur mit se
     return createAccessContext(sessions.coordinatorSnapshot(user.userId));
   };
   const policy = provider.plugins.service(globalChatToken);
-  assert.deepEqual(policy.toolNames, ["read", "write", "edit", "quick_answer"], "mit Benutzern hat der Koordinator keine Host-Shell");
-  assert.match(policy.prompt, /eine Shell hast du nicht/);
-  assert.match(policy.prompt, /JSON-RPC-Aufrufe über fetch in einem Snippet/);
-  assert.doesNotMatch(policy.prompt, /read, write, edit und bash|bash-Funktion|bash und curl/);
+  assert.deepEqual(policy.toolNames, ["read", "write", "edit", "quick_answer"], "with users the coordinator has no host shell");
+  assert.match(policy.prompt, /you have no shell/);
+  assert.match(policy.prompt, /JSON-RPC calls via fetch in a snippet/);
+  assert.doesNotMatch(policy.prompt, /read, write, edit and bash|bash function|bash and curl/);
   const aliceTools = await toolAccess(aliceCoordinator);
   const bobTools = await toolAccess(bobCoordinator);
   assert.equal(aliceTools.user?.id, "alice");
   assert.equal(bobTools.user?.id, "bob");
-  assert.equal(aliceTools.can("runs.read.all"), false, "keine Dienstidentität mit mehr Rechten");
+  assert.equal(aliceTools.can("runs.read.all"), false, "no service identity with more rights");
 
-  const own = await call(aliceTools, overseerContracts.createRun.id, { title: "Von Alices Koordinator", message: "Baue" }) as { runId: string };
-  assert.equal(provider.runOwner(own.runId), "alice", "ein Run, den der Koordinator anlegt, gehört seinem Benutzer");
-  const foreign = await call(bobTools, overseerContracts.createRun.id, { title: "Von Bobs Koordinator", message: "Baue" }) as { runId: string };
+  const own = await call(aliceTools, overseerContracts.createRun.id, { title: "From Alice's coordinator", message: "Build" }) as { runId: string };
+  assert.equal(provider.runOwner(own.runId), "alice", "a run the coordinator creates belongs to its user");
+  const foreign = await call(bobTools, overseerContracts.createRun.id, { title: "From Bob's coordinator", message: "Build" }) as { runId: string };
   assert.equal(provider.runOwner(foreign.runId), "bob");
   const listed = async (access: AccessContext) => (await call(access, overseerContracts.listRuns.id, {}) as Array<{ runId: string }>).map((entry) => entry.runId);
   assert.deepEqual(await listed(aliceTools), [own.runId]);
   assert.deepEqual(await listed(bobTools), [foreign.runId]);
-  for (const reference of [foreign.runId, "Von Bobs Koordinator"]) {
-    await assert.rejects(call(aliceTools, overseerContracts.readRun.id, { run: reference }), /unbekannt/i, reference);
-    await assert.rejects(call(aliceTools, overseerContracts.sendMessage.id, { run: reference, message: "Fremder Auftrag" }), /unbekannt/i, reference);
-    await assert.rejects(call(aliceTools, overseerContracts.stopRun.id, { run: reference }), /unbekannt/i, reference);
+  for (const reference of [foreign.runId, "From Bob's coordinator"]) {
+    await assert.rejects(call(aliceTools, overseerContracts.readRun.id, { run: reference }), /unknown/i, reference);
+    await assert.rejects(call(aliceTools, overseerContracts.sendMessage.id, { run: reference, message: "Foreign task" }), /unknown/i, reference);
+    await assert.rejects(call(aliceTools, overseerContracts.stopRun.id, { run: reference }), /unknown/i, reference);
   }
-  assert.ok(!management.view(foreign.runId).inputs.some((input) => input.content === "Fremder Auftrag"));
+  assert.ok(!management.view(foreign.runId).inputs.some((input) => input.content === "Foreign task"));
   for (const runId of [foreign.runId, bobCoordinator, SHARED_OVERSEER_RUN_ID]) {
     await assert.rejects(call(aliceTools, runContracts.view.id, { runId }), notFound, runId);
     await assert.rejects(call(signedIn("alice"), runContracts.view.id, { runId }), notFound, runId);
@@ -170,11 +170,11 @@ test("jeder Benutzer hat seinen eigenen Koordinator, dessen Werkzeuge nur mit se
 
   const bobConversation = management.view(bobCoordinator).inputs.length;
   assert.equal(await call(signedIn("alice"), overseerContracts.reset.id, { confirm: true }), null);
-  assert.equal(provider.hasRun(aliceCoordinator), false, "der Reset trifft den eigenen Koordinator");
-  assert.equal(management.view(bobCoordinator).inputs.length, bobConversation, "und nicht den eines anderen");
+  assert.equal(provider.hasRun(aliceCoordinator), false, "the reset hits the own coordinator");
+  assert.equal(management.view(bobCoordinator).inputs.length, bobConversation, "and not that of another user");
   assert.ok(provider.hasRun(own.runId));
 
-  assert.equal((provider as unknown as { sessions: Map<string, unknown> }).sessions.has(SHARED_OVERSEER_RUN_ID), false, "der frühere gemeinsame Koordinator wird nicht geöffnet");
+  assert.equal((provider as unknown as { sessions: Map<string, unknown> }).sessions.has(SHARED_OVERSEER_RUN_ID), false, "the former shared coordinator is not opened");
   await assert.rejects(workspaceFor(SHARED_OVERSEER_RUN_ID), (error: unknown) => error instanceof DomainError && error.code === "coordinator-without-access");
-  assert.equal(await readFile(path.join(dataDirectory, "runs", SHARED_OVERSEER_RUN_ID, "journal.jsonl"), "utf8"), sharedJournal, "und bleibt unverändert liegen");
+  assert.equal(await readFile(path.join(dataDirectory, "runs", SHARED_OVERSEER_RUN_ID, "journal.jsonl"), "utf8"), sharedJournal, "and stays unchanged");
 });

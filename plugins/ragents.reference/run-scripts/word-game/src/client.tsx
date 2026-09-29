@@ -12,7 +12,7 @@ function App() {
     setActionError(undefined);
     try {
       const result = await context.capabilities.call("start", {});
-      if (!result.accepted) throw new Error("Das Spiel ist bereits gestartet oder noch nicht bereit.");
+      if (!result.accepted) throw new Error("The game has already started or is not ready yet.");
     } catch (error) {
       setActionError(error instanceof Error ? error.message : String(error));
     } finally {

@@ -12,7 +12,7 @@ export const BROWSER_OPERATIONS = {
   close: "browser.close",
 } as const;
 
-/** Nennt einen eigenen Chrome; auf einem Server setzt ihn die Profilsektion `ragents.browser`, auf einem Arbeitsplatz seine Umgebung. */
+/** Names a custom Chrome; on a server the profile section `ragents.browser` sets it, on a workspace its environment. */
 export const BROWSER_EXECUTABLE_VARIABLE = "BROWSER_EXECUTABLE_PATH";
 
 export interface BrowserTarget {
@@ -48,23 +48,23 @@ export interface BrowserCheck {
   noErrors?: boolean;
 }
 
-/** Was eine bestandene Prüfung belegt; die Zeit setzt, wer die Evidenz des Runs hält. */
+/** What a passed check proves; the time is set by whoever holds the run's evidence. */
 export interface BrowserCheckResult {
   url: string;
   assertions: string[];
 }
 
-/** Der Stand der Seite nach einer Operation; der Aufrufer hält daraus die Evidenz des Runs. */
+/** The page state after an operation; the caller derives the run's evidence from it. */
 export interface BrowserPageState {
   url: string;
-  /** Seit der letzten Aktion oder Navigation hat eine Prüfung bestanden. */
+  /** A check has passed since the last action or navigation. */
   checked: boolean;
   errors: string[];
-  /** Die Kennungen der Aufnahmen seit der letzten Aktion oder Navigation, so wie der Aufrufer sie vergeben hat. */
+  /** The ids of the screenshots since the last action or navigation, as the caller assigned them. */
   screenshots: string[];
 }
 
-/** Das Ergebnis einer Operation an der Seite und der Stand, in dem sie die Seite hinterlässt. */
+/** The result of an operation on the page and the state it leaves the page in. */
 export interface BrowserStep<T> {
   result: T;
   page: BrowserPageState;

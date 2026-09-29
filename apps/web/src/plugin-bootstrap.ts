@@ -36,17 +36,17 @@ const isWebPlugin = (value: unknown): value is WebPlugin =>
 const webPluginFrom = (id: string, module: unknown): WebPlugin => {
   const plugin = (module as Record<string, unknown>).webPlugin;
   if (!isWebPlugin(plugin)) {
-    throw new Error(`Der Web-Einstieg des Plugins ${id} exportiert keine Konstante webPlugin mit einer Plugin-Kennung`);
+    throw new Error(`The web entry of plugin ${id} does not export a webPlugin constant with a plugin id`);
   }
   if (plugin.id !== id) {
-    throw new Error(`Das Bundle ${id} meldet die abweichende Kennung ${plugin.id}`);
+    throw new Error(`The bundle ${id} reports the different id ${plugin.id}`);
   }
   return plugin;
 };
 
 const loaded = <T>(id: string, url: string, load: Promise<T>): Promise<T> =>
   load.catch((cause: unknown) => {
-    throw new Error(`Die Web-Hälfte des Plugins ${id} lädt nicht von ${url}: ${cause instanceof Error ? cause.message : String(cause)}`);
+    throw new Error(`The web half of plugin ${id} does not load from ${url}: ${cause instanceof Error ? cause.message : String(cause)}`);
   });
 
 /** A plugin without a web half stays a bare descriptor; one with a web half loads its bundle and stylesheet. */
@@ -97,12 +97,12 @@ export const pluginBootstrapFrom = (value: unknown): PluginBootstrap => {
     || value.defaultStartEntry !== undefined && typeof value.defaultStartEntry !== "string"
     || typeof value.product.id !== "string" || !value.product.id
     || typeof value.product.title !== "string" || !value.product.title) {
-    throw new Error("Die Plugin-Konfiguration entspricht nicht dem erwarteten Format");
+    throw new Error("The plugin configuration does not match the expected format");
   }
   const plugins = value.plugins.map((entry): PluginDescriptor => {
     if (!isRecord(entry) || typeof entry.id !== "string" || !entry.id || entry.web !== undefined && !isWebAddresses(entry.web)
       || entry.config !== undefined && !isRecord(entry.config)) {
-      throw new Error("Die Plugin-Konfiguration enthält einen ungültigen Plugin-Descriptor");
+      throw new Error("The plugin configuration contains an invalid plugin descriptor");
     }
     return {
       id: entry.id,

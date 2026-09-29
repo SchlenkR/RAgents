@@ -1,30 +1,30 @@
-/** Das Vokabular aller Seiten: je Zustand genau ein Wort, das im Panel nur als title erscheint. */
+/** The vocabulary of all pages: exactly one word per state, which appears in the panel only as a title. */
 export type RunStateName = "running" | "waiting" | "idle" | "ended" | "failed" | "cancelled";
 
 export type ConnectionStateName =
   | "connected" | "ready" | "starting" | "login-required" | "unreachable" | "stopped" | "failed" | "forbidden";
 
 const RUN_WORDS: Record<RunStateName, string> = {
-  running: "läuft",
-  waiting: "wartet auf Eingabe",
-  idle: "ruht",
-  ended: "beendet",
-  failed: "fehlgeschlagen",
-  cancelled: "abgebrochen",
+  running: "running",
+  waiting: "waiting for input",
+  idle: "idle",
+  ended: "ended",
+  failed: "failed",
+  cancelled: "cancelled",
 };
 
 const CONNECTION_WORDS: Record<ConnectionStateName, string> = {
-  connected: "verbunden",
-  ready: "bereit",
-  starting: "startet",
-  "login-required": "Anmeldung nötig",
-  unreachable: "nicht erreichbar",
-  stopped: "gestoppt",
-  failed: "gescheitert",
-  forbidden: "kein Zugriff",
+  connected: "connected",
+  ready: "ready",
+  starting: "starting",
+  "login-required": "sign-in required",
+  unreachable: "unreachable",
+  stopped: "stopped",
+  failed: "failed",
+  forbidden: "no access",
 };
 
-/** Wartet ein Run, nennt das Wort die Zahl offener Eingaben; ein Werkzeugname steht nie im Zustand. */
+/** When a run is waiting, the word names the number of open inputs; a tool name never appears in the state. */
 export const runStateWord = (state: RunStateName, open = 0): string =>
   state === "waiting" && open > 0 ? `${RUN_WORDS.waiting} (${open})` : RUN_WORDS[state];
 

@@ -36,7 +36,7 @@ const folderSchema = Type.Union([
 
 const bindingSchema = Type.Object({ machine: machineSchema, folder: folderSchema }, { additionalProperties: false });
 
-/** Ein Run auf einem Arbeitsplatz mit dessen Kennung, Label und dem Ordner dort; `fresh` trägt dann schon seinen Pfad. */
+/** A run on a workstation with its ID, label, and the folder there; `fresh` then already carries its path. */
 export type WorkstationBinding = {
   machine: { client: string; label: string };
   folder: ExistingWorkspaceFolder | FreshWorkstationFolder;
@@ -48,20 +48,20 @@ const insideFolder = (folder: string, candidate: string): boolean => {
   return candidate === root || candidate.startsWith(root + separator);
 };
 
-/** Der Ordner eines Runs unter dem Ordner, in dem ein Arbeitsplatz die neuen Ordner je Run anlegt; mit dessen Trennzeichen. */
+/** The folder of a run below the folder in which a workstation creates the new folders per run; with its separator. */
 export const workstationRunFolder = (runsDirectory: string, runId: string): string => {
   const separator = runsDirectory.includes("\\") ? "\\" : "/";
   const root = runsDirectory.endsWith(separator) ? runsDirectory.slice(0, -separator.length) : runsDirectory;
   return `${root}${separator}${runId}`;
 };
 
-/** Die Bindung eines Runs; ohne gespeicherte Wahl der neue Ordner auf dem Server, eine unlesbare sperrt den Run mit Ursache. */
+/** The binding of a run; without a stored choice the new folder on the server, an unreadable one blocks the run with a cause. */
 export const bindingOf = (state: RunState | null): WorkspaceBinding => {
   const stored = storedStartOption(state, WORKSPACE_BINDING_OPTION_ID);
   if (stored === undefined) return freshServerBinding();
   const binding = storedWorkspaceBinding(stored);
   if (!binding || (binding.machine !== "server" && binding.folder === "fresh")) {
-    throw new Error(`Die gespeicherte Arbeitsbereich-Bindung ist ungültig: ${JSON.stringify(stored)}`);
+    throw new Error(`The stored workspace binding is invalid: ${JSON.stringify(stored)}`);
   }
   return binding;
 };
@@ -69,26 +69,26 @@ export const bindingOf = (state: RunState | null): WorkspaceBinding => {
 export const isWorkstationBinding = (binding: WorkspaceBinding): binding is WorkstationBinding =>
   binding.machine !== "server" && binding.folder !== "fresh";
 
-/** Ein Run benutzt nur Arbeitsplätze seines Eigentümers, ein Run ohne Eigentümer nur ohne Benutzer angemeldete. */
+/** A run uses only workstations of its owner, a run without an owner only those signed in without a user. */
 export const workspaceOwnerOf = (state: RunState | null): string | null => state?.ownerUserId ?? null;
 
-/** Der vorhandene Ordner auf dem Serverrechner, an den der Run gebunden ist; ein neuer Ordner und ein Arbeitsplatz liegen nicht dort. */
+/** The existing folder on the server machine that the run is bound to; a new folder and a workstation are not there. */
 export const boundServerDirectory = (state: RunState | null): string | null => {
   const { machine, folder } = bindingOf(state);
   return machine === "server" && folder !== "fresh" ? folder.path : null;
 };
 
-/** Ein vorhandener Ordner dieses Servers; dieselbe Prüfung wie beim Wählen der Startoption. */
+/** An existing folder of this server; the same check as when choosing the start option. */
 export const serverDirectoryFolder = (directory: string): ExistingWorkspaceFolder => {
-  if (!path.isAbsolute(directory)) throw new DomainError("workspace-path-relative", "Der Ordner muss ein absoluter Pfad sein.", 400);
+  if (!path.isAbsolute(directory)) throw new DomainError("workspace-path-relative", "The folder must be an absolute path.", 400);
   const resolved = path.resolve(directory);
   if (!statSync(resolved, { throwIfNoEntry: false })?.isDirectory()) {
-    throw new DomainError("workspace-path-missing", `Der Ordner ${resolved} existiert auf dem Server nicht.`, 400);
+    throw new DomainError("workspace-path-missing", `The folder ${resolved} does not exist on the server.`, 400);
   }
   return { path: resolved };
 };
 
-/** Die Bash eines Runs läuft auf dem Executor seiner Bindung; der Prompt nennt deshalb dessen Plattform und Werkzeuge, nicht die des Servers. */
+/** The bash of a run runs on the executor of its binding; the prompt therefore names its platform and tools, not those of the server. */
 export const executorShellChapter = (
   registry: WorkspaceClientRegistry,
   owner: string | null,
@@ -104,11 +104,11 @@ export const executorShellChapter = (
       + "so the platform of its shell is unknown; the workspace tools fail until it connects again.";
 };
 
-/** Wo die Wurzel eines Runs liegt, in Worten: bei einem Arbeitsplatz mit dessen Label, sonst der Pfad selbst. */
+/** Where the root of a run is, in words: on a workstation with its label, otherwise the path itself. */
 export const workspaceLocation = (binding: WorkspaceBinding, location: string): string =>
-  binding.machine === "server" ? location : `Arbeitsplatz ${binding.machine.label}: ${location}`;
+  binding.machine === "server" ? location : `Workstation ${binding.machine.label}: ${location}`;
 
-/** Den neuen Ordner je Run stellt der Beitrag, sobald es einen gibt; auf einem Arbeitsplatz nur, wenn er es dort ausdrücklich kann. */
+/** The contribution provides the new folder per run as soon as there is one; on a workstation only if it explicitly can there. */
 export const freshLabels = (contribution: WorkspaceResolver | undefined): FreshWorkspaceLabels => ({
   server: contribution?.kind?.label ?? FRESH_WORKSPACE_LABEL,
   client: contribution ? contribution.workstation?.label ?? null : FRESH_WORKSPACE_LABEL,
@@ -121,7 +121,7 @@ export const sessionMetadataOf = (state: RunState | null, contribution: Workspac
 
 const unsupported = (message: string): DomainError => new DomainError("workspace-binding-unsupported", message, 400);
 
-/** Ein Arbeitsplatz des Handelnden, der den Ordner anbietet; ein neuer Ordner je Run bekommt dort seinen Pfad unter dessen Ordner für Runs. */
+/** A workstation of the acting user that offers the folder; a new folder per run gets its path there below its folder for runs. */
 const workstationBinding = (
   client: WorkspaceClientInfo,
   folder: WorkspaceBinding["folder"],
@@ -131,12 +131,12 @@ const workstationBinding = (
   const machine = { client: client.id, label: client.label };
   if (isFreshFolder(folder)) {
     if (labels.client === null) {
-      throw unsupported(`Einen neuen Ordner je Run gibt es hier nur auf dem Server (${labels.server}); wähle dort einen oder einen vorhandenen Ordner des Arbeitsplatzes.`);
+      throw unsupported(`A new folder per run exists here only on the server (${labels.server}); choose one there or an existing folder of the workstation.`);
     }
     return { machine, folder: { path: workstationRunFolder(client.runsDirectory, runId), fresh: true } };
   }
   if (!client.folders.some((offered) => insideFolder(offered, folder.path))) {
-    throw new DomainError("workspace-client-folder", `Der Arbeitsplatz ${client.label} bietet den Ordner ${folder.path} nicht an.`, 400);
+    throw new DomainError("workspace-client-folder", `The workstation ${client.label} does not offer the folder ${folder.path}.`, 400);
   }
   return { machine, folder: { path: folder.path } };
 };
@@ -150,19 +150,19 @@ export const workspaceBindingOption = (
   selectable: () => true,
   defaultValue: () => freshServerBinding(),
   accept: (value, { runId, userId }) => {
-    if (!isWorkspaceBinding(value)) throw new DomainError("workspace-binding-invalid", "Die Arbeitsbereich-Bindung hat kein gültiges Format.", 400);
+    if (!isWorkspaceBinding(value)) throw new DomainError("workspace-binding-invalid", "The workspace binding has no valid format.", 400);
     const labels = freshLabels(contribution());
     const { machine, folder } = value;
     if (machine === "server") {
       if (folder === "fresh") return freshServerBinding();
-      if ("fresh" in folder) throw new DomainError("workspace-binding-invalid", "Einen neuen Ordner je Run legt auf dem Server der Host an; er hat keinen gewählten Pfad.", 400);
+      if ("fresh" in folder) throw new DomainError("workspace-binding-invalid", "On the server, the host creates the new folder per run; it has no chosen path.", 400);
       if (!(contribution()?.kind?.serverFolders ?? true)) {
-        throw unsupported(`Ein vorhandener Ordner auf dem Serverrechner ist hier keine Bindung; wähle ${labels.server} oder einen Arbeitsplatz.`);
+        throw unsupported(`An existing folder on the server machine is not a binding here; choose ${labels.server} or a workstation.`);
       }
       return { machine, folder: serverDirectoryFolder(folder.path) };
     }
     const client = registry.info(userId, machine.client);
-    if (!client) throw new DomainError("workspace-client-disconnected", `Der Arbeitsplatz ${machine.label || machine.client} ist nicht verbunden.`, 409);
+    if (!client) throw new DomainError("workspace-client-disconnected", `The workstation ${machine.label || machine.client} is not connected.`, 409);
     return workstationBinding(client, folder, runId, labels);
   },
   describe: (_value, { userId }) => {

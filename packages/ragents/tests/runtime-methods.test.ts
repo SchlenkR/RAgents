@@ -15,7 +15,7 @@ const context = (access: AccessContext = unrestrictedAccess): MethodContext => (
   access,
   signal: new AbortController().signal,
   progress: () => undefined,
-  connection: { id: "test", userId: null, streamless: true, call: () => Promise.reject(new Error("kein Client")), onClose: () => () => undefined },
+  connection: { id: "test", userId: null, streamless: true, call: () => Promise.reject(new Error("no client")), onClose: () => () => undefined },
   local: true,
 });
 
@@ -35,10 +35,10 @@ const fixture = (overrides: Partial<Pick<RuntimeMethodOptions, "abortTurns" | "a
   });
   const method = <C extends { id: string }>(contract: C) => {
     const found = methods.find((entry) => entry.contract.id === contract.id);
-    if (!found) throw new Error(`Methode ${contract.id} fehlt`);
+    if (!found) throw new Error(`Method ${contract.id} is missing`);
     return async (input: unknown, context: MethodContext): Promise<unknown> => found.execute(input as never, context);
   };
-  const createRun = (title = "Methoden") => runtime.createRun({ commandId: `create-${title}` }, { title, ownerHandle: "owner", ownerDisplayName: "Owner" });
+  const createRun = (title = "Methods") => runtime.createRun({ commandId: `create-${title}` }, { title, ownerHandle: "owner", ownerDisplayName: "Owner" });
   const spawn = (runId: string, handle: string, grants: Parameters<Orchestration["spawnAgent"]>[2]["grants"] = []) =>
     runtime.spawnAgent({ actorId: runtime.state(runId).ownerId, commandId: `spawn-${handle}` }, runId, { handle, displayName: handle, prompt: "", execution: manualExecution(), grants, toolNames: [] });
   return { journal, runtime, methods, method, rights, interruptions, createRun, spawn, close: () => journal.close() };
@@ -92,12 +92,12 @@ test("interrupting a turn needs the stop right, resolves handles and names the o
     const run = f.createRun("Interrupt");
     const worker = f.spawn(run.id, "worker").actors.find((entry) => entry.handle === "worker")!;
     const view = await f.method(runContracts.interruptTurn)({ runId: run.id, commandId: "interrupt-1", actorId: "worker" }, context()) as { id: string };
-    await f.method(runContracts.interruptTurn)({ runId: run.id, commandId: "interrupt-2", actorId: worker.id, reason: "Genug." }, context());
+    await f.method(runContracts.interruptTurn)({ runId: run.id, commandId: "interrupt-2", actorId: worker.id, reason: "Enough." }, context());
     assert.equal(view.id, run.id);
     assert.deepEqual(f.rights, [`${run.id}:stop`, `${run.id}:stop`]);
     assert.deepEqual(f.interruptions, [
-      { runId: run.id, actorId: worker.id, interruption: { context: { commandId: "interrupt-1", actorId: run.ownerId }, reason: "Turn durch den Bediener unterbrochen" } },
-      { runId: run.id, actorId: worker.id, interruption: { context: { commandId: "interrupt-2", actorId: run.ownerId }, reason: "Genug." } },
+      { runId: run.id, actorId: worker.id, interruption: { context: { commandId: "interrupt-1", actorId: run.ownerId }, reason: "Turn interrupted by the operator" } },
+      { runId: run.id, actorId: worker.id, interruption: { context: { commandId: "interrupt-2", actorId: run.ownerId }, reason: "Enough." } },
     ]);
     await assert.rejects(f.method(runContracts.interruptTurn)({ runId: run.id, commandId: "interrupt-3", actorId: "ghost" }, context()),
       (error: unknown) => error instanceof DomainError && error.code === "actor-not-found");
@@ -149,17 +149,17 @@ test("a run stop that is still running does not hold up the writes of another ru
     void f.method(runContracts.stopAll)({ runId: stopping.id, commandId: "stop-all", reason: "Stop." }, context());
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(() => reject(new Error("Die Eingabe für den anderen Run wartet auf den fremden Stopp.")), 1_000);
+      timer = setTimeout(() => reject(new Error("The input for the other run waits for the foreign stop.")), 1_000);
     });
     try {
       await Promise.race([
-        f.method(runContracts.enqueueInput)({ runId: other.id, commandId: "other-input", actorId: worker.id, content: "Weiter." }, context()),
+        f.method(runContracts.enqueueInput)({ runId: other.id, commandId: "other-input", actorId: worker.id, content: "Continue." }, context()),
         timeout,
       ]);
     } finally {
       clearTimeout(timer);
     }
-    assert.equal(f.runtime.view(other.id).inputs.at(-1)?.content, "Weiter.");
+    assert.equal(f.runtime.view(other.id).inputs.at(-1)?.content, "Continue.");
   } finally {
     f.close();
   }
@@ -168,9 +168,9 @@ test("a run stop that is still running does not hold up the writes of another ru
 test("stopActor finds an actor by handle regardless of case and Unicode composition", async () => {
   const f = fixture();
   try {
-    const run = f.spawn(f.createRun("Handles").id, "prüfer");
-    const stopped = await f.method(runContracts.stopActor)({ runId: run.id, commandId: "stop-reviewer", actorId: "@Pru\u0308fer", reason: "Fertig." }, context()) as { actors: Array<{ handle: string; lifecycle?: { kind: string } }> };
-    assert.equal(stopped.actors.find((entry) => entry.handle === "prüfer")?.lifecycle?.kind, "stopped");
+    const run = f.spawn(f.createRun("Handles").id, "zoë");
+    const stopped = await f.method(runContracts.stopActor)({ runId: run.id, commandId: "stop-reviewer", actorId: "@Zoe\u0308", reason: "Done." }, context()) as { actors: Array<{ handle: string; lifecycle?: { kind: string } }> };
+    assert.equal(stopped.actors.find((entry) => entry.handle === "zoë")?.lifecycle?.kind, "stopped");
   } finally {
     f.close();
   }

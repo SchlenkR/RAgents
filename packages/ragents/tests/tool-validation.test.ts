@@ -21,13 +21,13 @@ import { allGrants, postTo, setupRun } from "./support.ts";
 
 const always = defineToolAvailability({
     availability: "always",
-    availabilityDetail: "In jedem Turn verfügbar.",
+    availabilityDetail: "Available in every turn.",
 }, () => true);
 
 const strictTool = defineRunFunction({
     name: "strict_tool",
     label: "strict_tool",
-    description: "Erste Zeile von strict_tool. Braucht ein Ziel.",
+    description: "First line of strict_tool. Needs a target.",
     schema: Type.Object({ target: Type.String() }, { additionalProperties: false }),
     resultSchema: Type.String(),
     available: always,
@@ -38,18 +38,18 @@ const strictTool = defineRunFunction({
 const contextTool = defineRunFunction({
     name: "context_tool",
     label: "context_tool",
-    description: "Erste Zeile von context_tool. Nimmt keine Eingabe.",
+    description: "First line of context_tool. Takes no input.",
     schema: Type.Object({}, { additionalProperties: false }),
     resultSchema: Type.String(),
     available: always,
     nativeTool: true,
-    run: () => "Kontext.",
+    run: () => "Context.",
 });
 
 const nestedTool = defineRunFunction({
     name: "nested_tool",
     label: "nested_tool",
-    description: "Erste Zeile von nested_tool. Braucht Optionen.",
+    description: "First line of nested_tool. Needs options.",
     schema: Type.Object({
         options: Type.Object({ depth: Type.Integer() }, { additionalProperties: false }),
     }, { additionalProperties: false }),
@@ -62,18 +62,18 @@ const nestedTool = defineRunFunction({
 const silentTool = defineRunFunction({
     name: "silent_tool",
     label: "silent_tool",
-    description: "Erste Zeile von silent_tool. Scheitert ohne eigene Meldung.",
+    description: "First line of silent_tool. Fails without its own message.",
     schema: Type.Object({}, { additionalProperties: false }),
     resultSchema: Type.String(),
     available: always,
     nativeTool: true,
-    run: (): string => { throw new Error("   ", { cause: new Error("Die Ursache steht nur im cause.") }); },
+    run: (): string => { throw new Error("   ", { cause: new Error("The cause is only in cause.") }); },
 });
 
 const causelessTool = defineRunFunction({
     name: "causeless_tool",
     label: "causeless_tool",
-    description: "Erste Zeile von causeless_tool. Scheitert ohne Meldung und ohne Ursache.",
+    description: "First line of causeless_tool. Fails without a message and without a cause.",
     schema: Type.Object({}, { additionalProperties: false }),
     resultSchema: Type.String(),
     available: always,
@@ -86,12 +86,12 @@ let vanished = false;
 const vanishingTool = defineRunFunction({
     name: "vanishing_tool",
     label: "vanishing_tool",
-    description: "Erste Zeile von vanishing_tool. Fällt nach der Auswahl weg.",
+    description: "First line of vanishing_tool. Disappears after the selection.",
     schema: Type.Object({}, { additionalProperties: false }),
     resultSchema: Type.String(),
-    available: defineToolAvailability({ availability: "conditional", availabilityDetail: "Bis zum Wegfall." }, () => !vanished),
+    available: defineToolAvailability({ availability: "conditional", availabilityDetail: "Until it disappears." }, () => !vanished),
     nativeTool: true,
-    run: () => "Noch da.",
+    run: () => "Still there.",
 });
 
 const registryWithTools = () => {
@@ -153,7 +153,7 @@ const fauxScheduler = async (directory: string, responses: Parameters<ReturnType
     }];
     const fauxCatalog = new StaticModelCatalog(models, [{
         name: "agent",
-        description: "Testprofil mit dem Faux-Modell.",
+        description: "Test profile with the faux model.",
         driver: "agent",
         provider: model.provider,
         model: model.id,
@@ -172,7 +172,7 @@ const fauxScheduler = async (directory: string, responses: Parameters<ReturnType
         workspaces: new FixedWorkspaces(directory),
     });
     const run = async () => {
-        postTo(setup.runtime, setup.view, setup.agent.id, "validation-input", "Los.");
+        postTo(setup.runtime, setup.view, setup.agent.id, "validation-input", "Go.");
         scheduler.start();
         await scheduler.waitForIdle();
 
@@ -188,13 +188,13 @@ const fauxScheduler = async (directory: string, responses: Parameters<ReturnType
     return { run, close };
 };
 
-test("ein abgelehnter Werkzeugaufruf steht mit Eingabe und Fehlertext im Journal", async () => {
+test("a rejected tool call is in the journal with its input and error text", async () => {
     const directory = mkdtempSync(join(tmpdir(), "ragents-tool-validation-"));
     const { run, close } = await fauxScheduler(directory, [
         () => fauxAssistantMessage([fauxToolCall("strict_tool", {}, { id: "call-invalid" })]),
-        () => fauxAssistantMessage([fauxToolCall("strict_tool", { target: "Ziel" }, { id: "call-valid" })]),
+        () => fauxAssistantMessage([fauxToolCall("strict_tool", { target: "Target" }, { id: "call-valid" })]),
         () => fauxAssistantMessage([fauxToolCall("ghost_tool", {}, { id: "call-unknown" })]),
-        () => fauxAssistantMessage("Fertig."),
+        () => fauxAssistantMessage("Done."),
     ]);
 
     try {
@@ -212,7 +212,7 @@ test("ein abgelehnter Werkzeugaufruf steht mit Eingabe und Fehlertext im Journal
         const valid = toolCallEventsOf(events, "call-valid");
 
         assert.deepEqual(valid.map((event) => event.type), ["tool.call.started", "tool.call.completed"]);
-        assert.deepEqual(valid[0]?.type === "tool.call.started" ? valid[0].payload.input : null, { target: "Ziel" });
+        assert.deepEqual(valid[0]?.type === "tool.call.started" ? valid[0].payload.input : null, { target: "Target" });
 
         const unknown = toolCallEventsOf(events, "call-unknown");
 
@@ -227,12 +227,12 @@ test("ein abgelehnter Werkzeugaufruf steht mit Eingabe und Fehlertext im Journal
     }
 });
 
-test("ein Werkzeugfehler ohne Meldung steht mit Ursache oder Ersatztext im Journal", async () => {
+test("a tool error without a message is in the journal with its cause or a substitute text", async () => {
     const directory = mkdtempSync(join(tmpdir(), "ragents-tool-cause-"));
     const { run, close } = await fauxScheduler(directory, [
         () => fauxAssistantMessage([fauxToolCall("silent_tool", {}, { id: "call-silent" })]),
         () => fauxAssistantMessage([fauxToolCall("causeless_tool", {}, { id: "call-causeless" })]),
-        () => fauxAssistantMessage("Fertig."),
+        () => fauxAssistantMessage("Done."),
     ]);
 
     try {
@@ -242,7 +242,7 @@ test("ein Werkzeugfehler ohne Meldung steht mit Ursache oder Ersatztext im Journ
         assert.deepEqual(silent.map((event) => event.type), ["tool.call.started", "tool.call.failed"]);
         assert.equal(
             silent[1]?.type === "tool.call.failed" ? silent[1].payload.error : "",
-            "Die Ursache steht nur im cause.",
+            "The cause is only in cause.",
         );
 
         const causeless = toolCallEventsOf(events, "call-causeless");
@@ -250,7 +250,7 @@ test("ein Werkzeugfehler ohne Meldung steht mit Ursache oder Ersatztext im Journ
         assert.deepEqual(causeless.map((event) => event.type), ["tool.call.started", "tool.call.failed"]);
         assert.equal(
             causeless[1]?.type === "tool.call.failed" ? causeless[1].payload.error : "",
-            "Fehler ohne Ursache",
+            "Error without a cause",
         );
     } finally {
         await close();
@@ -258,13 +258,13 @@ test("ein Werkzeugfehler ohne Meldung steht mit Ursache oder Ersatztext im Journ
     }
 });
 
-test("ein Werkzeug, das zwischen Auswahl und Aufruf wegfällt, gibt dem Modell ein Fehlerergebnis und der Turn läuft weiter", async () => {
+test("a tool that disappears between selection and call gives the model an error result and the turn continues", async () => {
     const directory = mkdtempSync(join(tmpdir(), "ragents-tool-vanished-"));
     vanished = false;
     let seen: string | null = null;
     const { run, close } = await fauxScheduler(directory, [
         () => { vanished = true; return fauxAssistantMessage([fauxToolCall("vanishing_tool", {}, { id: "call-vanished" })]); },
-        (context: Context) => { seen = toolResultTextOf(context, "call-vanished"); return fauxAssistantMessage("Fertig."); },
+        (context: Context) => { seen = toolResultTextOf(context, "call-vanished"); return fauxAssistantMessage("Done."); },
     ]);
 
     try {
@@ -281,14 +281,14 @@ test("ein Werkzeug, das zwischen Auswahl und Aufruf wegfällt, gibt dem Modell e
     }
 });
 
-test("eine im Turn wiederverwendete Aufrufkennung wird eindeutig, jeder Aufruf läuft und der Turn endet normal", async () => {
+test("a call id reused within the turn becomes unique, every call runs and the turn ends normally", async () => {
     const directory = mkdtempSync(join(tmpdir(), "ragents-tool-reused-id-"));
     let seen: Context | undefined;
     const { run, close } = await fauxScheduler(directory, [
         () => fauxAssistantMessage([fauxToolCall("strict_tool", { target: "A" }, { id: "call-same" })]),
         () => fauxAssistantMessage([fauxToolCall("strict_tool", { target: "B" }, { id: "call-same" })]),
         () => fauxAssistantMessage([fauxToolCall("strict_tool", { target: "A" }, { id: "call-same" }), fauxToolCall("strict_tool", { target: "C" }, { id: "call-same" })]),
-        (context: Context) => { seen = context; return fauxAssistantMessage("Fertig."); },
+        (context: Context) => { seen = context; return fauxAssistantMessage("Done."); },
     ]);
 
     try {
@@ -306,18 +306,18 @@ test("eine im Turn wiederverwendete Aufrufkennung wird eindeutig, jeder Aufruf l
     }
 });
 
-test("unbekannte Felder werden entfernt, der Aufruf läuft und das Modell sieht den Hinweis", async () => {
+test("unknown fields are removed, the call runs and the model sees the note", async () => {
     const directory = mkdtempSync(join(tmpdir(), "ragents-tool-tolerance-"));
     const seen: Record<string, string | null> = {};
     const { run, close } = await fauxScheduler(directory, [
         () => fauxAssistantMessage([fauxToolCall("context_tool", { previous: "[]", __unused: "{}" }, { id: "call-ignored" })]),
         (context) => {
             seen.ignored = toolResultTextOf(context, "call-ignored");
-            return fauxAssistantMessage([fauxToolCall("strict_tool", { target: "Ziel", extra: 1 }, { id: "call-extra" })]);
+            return fauxAssistantMessage([fauxToolCall("strict_tool", { target: "Target", extra: 1 }, { id: "call-extra" })]);
         },
         (context) => {
             seen.extra = toolResultTextOf(context, "call-extra");
-            return fauxAssistantMessage("Fertig.");
+            return fauxAssistantMessage("Done.");
         },
     ]);
 
@@ -336,22 +336,22 @@ test("unbekannte Felder werden entfernt, der Aufruf läuft und das Modell sieht 
         });
         assert.equal(
             seen.ignored,
-            "Hinweis: context_tool nimmt keine Eingabe; die Felder previous, __unused sind unbekannt und wurden ignoriert.\n\nKontext.",
+            "Note: context_tool takes no input; the fields previous, __unused are unknown and were ignored.\n\nContext.",
         );
 
         const extra = toolCallEventsOf(events, "call-extra");
 
         assert.deepEqual(extra.map((event) => event.type), ["tool.call.started", "tool.call.completed"]);
-        assert.deepEqual(extra[0]?.type === "tool.call.started" ? extra[0].payload.input : null, { target: "Ziel" });
+        assert.deepEqual(extra[0]?.type === "tool.call.started" ? extra[0].payload.input : null, { target: "Target" });
         assert.deepEqual(extra[0]?.type === "tool.call.started" ? extra[0].payload.ignoredFields : null, ["extra"]);
-        assert.equal(seen.extra, "Hinweis: das Feld extra kennt strict_tool nicht und wurde ignoriert.\n\nZiel");
+        assert.equal(seen.extra, "Note: strict_tool does not know the field extra, which was ignored.\n\nTarget");
     } finally {
         await close();
         rmSync(directory, { recursive: true, force: true });
     }
 });
 
-test("unbekannte Felder neben fehlenden Pflichtfeldern oder in verschachtelten Objekten bleiben harte Fehler", async () => {
+test("unknown fields next to missing required fields or in nested objects stay hard errors", async () => {
     const directory = mkdtempSync(join(tmpdir(), "ragents-tool-hard-errors-"));
     const seen: Record<string, string | null> = {};
     const { run, close } = await fauxScheduler(directory, [
@@ -362,7 +362,7 @@ test("unbekannte Felder neben fehlenden Pflichtfeldern oder in verschachtelten O
         },
         (context) => {
             seen.nested = toolResultTextOf(context, "call-nested");
-            return fauxAssistantMessage("Fertig.");
+            return fauxAssistantMessage("Done.");
         },
     ]);
 
@@ -385,7 +385,7 @@ test("unbekannte Felder neben fehlenden Pflichtfeldern oder in verschachtelten O
     }
 });
 
-test("die Startpayload nimmt ignorierte Felder nur als nicht leere Namensliste an", () => {
+test("the start payload accepts ignored fields only as a non-empty list of names", () => {
     const valid = { turnId: "turn", toolCallId: "call", name: "context_tool", input: {} };
     assert.deepEqual(validatedEventPayloadOf("tool.call.started", valid, "started"), valid);
     assert.deepEqual(

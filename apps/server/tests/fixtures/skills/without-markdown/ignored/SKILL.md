@@ -1,1 +1,1 @@
-Keine Skill.
+Not a skill.

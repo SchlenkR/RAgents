@@ -8,7 +8,7 @@ import { writeJson } from "../src/plugin-support/http.ts";
 
 const users = [
   { id: "admin", label: "Administration", password: "admin-secret", rights: ["*"] },
-  { id: "reader", label: "Lesezugang", password: "reader-secret", rights: ["runs.read"] },
+  { id: "reader", label: "Read access", password: "reader-secret", rights: ["runs.read"] },
 ];
 
 const request = (method = "GET", body?: unknown, headers: Record<string, string> = {}): IncomingMessage =>
@@ -52,16 +52,16 @@ const login = async (manager: ReturnType<typeof createAccessSessionManager>, id 
   return { res, cookie: cookieValue.split(";")[0]! };
 };
 
-test("ohne Profilbenutzer ist Anmeldung aus und wird nicht still aktiviert", async () => {
+test("without profile users sign-in is off and is not silently enabled", async () => {
   const manager = createAccessSessionManager({ cookieName: "test_access" });
   assert.deepEqual(manager.snapshot(request()), { enabled: false, user: null });
   assert.equal((await call(manager, "/api/access")).status, 200);
   assert.equal((await call(manager, "/api/access/login", request("POST", { id: "reader", password: "reader-secret" }))).status, 409);
-  assert.throws(() => createAccessSessionManager({ cookieName: "test", users: [] }), /mindestens einen Benutzer/);
+  assert.throws(() => createAccessSessionManager({ cookieName: "test", users: [] }), /at least one user/);
   manager.close();
 });
 
-test("zwei Benutzer erhalten eigene Rechte und zufällige Cookies ohne Secrets", async () => {
+test("two users get their own rights and random cookies without secrets", async () => {
   const manager = createAccessSessionManager({ cookieName: "test_access", users });
   try {
     assert.deepEqual(manager.snapshot(request()), { enabled: true, user: null });
@@ -77,7 +77,7 @@ test("zwei Benutzer erhalten eigene Rechte und zufällige Cookies ohne Secrets",
   } finally { manager.close(); }
 });
 
-test("falsches Passwort, unbekannter Benutzer und manipulierte Cookies geben keine Identität", async () => {
+test("a wrong password, an unknown user and tampered cookies give no identity", async () => {
   const manager = createAccessSessionManager({ cookieName: "test_access", users });
   try {
     for (const id of ["reader", "unknown"]) {
@@ -93,7 +93,7 @@ test("falsches Passwort, unbekannter Benutzer und manipulierte Cookies geben kei
   } finally { manager.close(); }
 });
 
-test("Abmelden und erneutes Anmelden widerrufen Cookies und schließen offene Streams", async () => {
+test("signing out and signing in again revoke cookies and close open streams", async () => {
   const manager = createAccessSessionManager({ cookieName: "test_access", users });
   try {
     const first = await login(manager);
@@ -114,7 +114,7 @@ test("Abmelden und erneutes Anmelden widerrufen Cookies und schließen offene St
   } finally { manager.close(); }
 });
 
-test("Ablauf und Serverneustart verwerfen die Sitzung", async () => {
+test("expiry and a server restart discard the session", async () => {
   let now = 0;
   const manager = createAccessSessionManager({ cookieName: "test_access", users, now: () => now, sessionTtlMs: 1000 });
   const other = createAccessSessionManager({ cookieName: "test_access", users });
@@ -132,7 +132,7 @@ test("Ablauf und Serverneustart verwerfen die Sitzung", async () => {
   } finally { manager.close(); other.close(); }
 });
 
-test("Cookie wird für direkte TLS-Verbindungen als Secure gesetzt", async () => {
+test("the cookie is set as Secure for direct TLS connections", async () => {
   const manager = createAccessSessionManager({ cookieName: "test_access", users });
   try {
     const req = request("POST", { id: "reader", password: "reader-secret" });
@@ -142,7 +142,7 @@ test("Cookie wird für direkte TLS-Verbindungen als Secure gesetzt", async () =>
   } finally { manager.close(); }
 });
 
-test("der Ablauftimer schließt einen Stream auch ohne weitere HTTP-Anfrage", async () => {
+test("the expiry timer closes a stream even without another HTTP request", async () => {
   const manager = createAccessSessionManager({ cookieName: "test_access", users, sessionTtlMs: 30 });
   try {
     const { cookie } = await login(manager);
@@ -150,7 +150,7 @@ test("der Ablauftimer schließt einen Stream auch ohne weitere HTTP-Anfrage", as
     const stream = response();
     manager.track(req, stream.value);
     await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error("Stream bleibt nach Ablauf geöffnet")), 1000);
+      const timeout = setTimeout(() => reject(new Error("Stream stays open after expiry")), 1000);
       stream.value.once("close", () => { clearTimeout(timeout); resolve(); });
     });
     assert.equal(stream.ended, true);
@@ -158,7 +158,7 @@ test("der Ablauftimer schließt einen Stream auch ohne weitere HTTP-Anfrage", as
   } finally { manager.close(); }
 });
 
-test("Logout während einer langsamen HTTP-Antwort trennt den Client ohne späten Headerfehler", async () => {
+test("logout during a slow HTTP response disconnects the client without a late header error", async () => {
   const manager = createAccessSessionManager({ cookieName: "test_access", users });
   const errors: unknown[] = [];
   let announceStart!: () => void;
@@ -213,7 +213,7 @@ test("Logout während einer langsamen HTTP-Antwort trennt den Client ohne späte
   }
 });
 
-test("fremde Origins, falsche Methoden und übergroße Daten werden abgewiesen", async () => {
+test("foreign origins, wrong methods and oversized data are rejected", async () => {
   const manager = createAccessSessionManager({ cookieName: "test_access", users });
   try {
     assert.equal(isSameOriginRequest(request("POST", {}, { origin: "https://localhost:3000" })), true);
@@ -232,7 +232,7 @@ test("fremde Origins, falsche Methoden und übergroße Daten werden abgewiesen",
 });
 
 
-test("anonymer Zugang liefert dieselben Einschränkungen ohne Login oder Cookie", async () => {
+test("anonymous access applies the same restrictions without login or cookie", async () => {
   const anonymousUser = { id: "operator", label: "Operator", rights: ["runs.read", "runs.write"], startEntries: ["example.allowed"] };
   const manager = createAccessSessionManager({ cookieName: "test_access", anonymousUser });
   try {
@@ -240,11 +240,11 @@ test("anonymer Zugang liefert dieselben Einschränkungen ohne Login oder Cookie"
     assert.deepEqual(JSON.parse(result.text), { enabled: false, user: anonymousUser });
     assert.equal(result.headers.has("set-cookie"), false);
     assert.equal((await call(manager, "/api/access/login", request("POST", { id: "operator", password: "anything" }))).status, 409);
-    assert.throws(() => createAccessSessionManager({ cookieName: "test_access", users, anonymousUser }), /schließen einander aus/);
+    assert.throws(() => createAccessSessionManager({ cookieName: "test_access", users, anonymousUser }), /exclude each other/);
   } finally { manager.close(); }
 });
 
-test("Anmelden überträgt die Setup-Freigaben in die Sitzung", async () => {
+test("signing in carries the setup permissions into the session", async () => {
   const manager = createAccessSessionManager({ cookieName: "test_access", users: [{ ...users[1], startEntries: ["example.allowed"] }] });
   try {
     const { cookie } = await login(manager);
@@ -252,14 +252,14 @@ test("Anmelden überträgt die Setup-Freigaben in die Sitzung", async () => {
   } finally { manager.close(); }
 });
 
-test("der Sitzungstoken gilt auch als Bearer und für GET-Abrufe als Abfrageparameter access", async () => {
+test("the session token also counts as a bearer and, for GET requests, as the query parameter access", async () => {
   const manager = createAccessSessionManager({ cookieName: "test_access", users });
   const { cookie } = await login(manager, "reader");
   const token = cookie.split("=")[1]!;
   assert.equal(manager.snapshot(request("GET", undefined, { authorization: `Bearer ${token}` })).user?.id, "reader");
   assert.equal(manager.snapshot(Object.assign(request(), { url: `/rpc/stream?access=${token}` })).user?.id, "reader");
   assert.equal(manager.snapshot(Object.assign(request("POST"), { url: `/rpc/stream?access=${token}` })).user, null);
-  assert.equal(manager.snapshot(request("GET", undefined, { authorization: "Bearer nicht-gültig" })).user, null);
+  assert.equal(manager.snapshot(request("GET", undefined, { authorization: "Bearer not-valid" })).user, null);
   assert.equal(manager.snapshot(request("GET", undefined, { authorization: "Basic abc", cookie })).user, null);
   assert.equal(manager.snapshot(request("GET", undefined, { cookie })).user?.id, "reader");
   const logout = await call(manager, "/api/access/logout", request("POST", undefined, { authorization: `Bearer ${token}` }));
@@ -267,10 +267,10 @@ test("der Sitzungstoken gilt auch als Bearer und für GET-Abrufe als Abfragepara
   assert.equal(manager.snapshot(request("GET", undefined, { authorization: `Bearer ${token}` })).user, null);
 });
 
-test("ein persönlicher Token gilt als Bearer und Abfrageparameter, nie als Cookie, und überlebt das Abmelden", async () => {
+test("a personal token counts as a bearer and query parameter, never as a cookie, and survives signing out", async () => {
   const token = "dev-token-0123456789abcdef";
   const manager = createAccessSessionManager({ cookieName: "test_access", users: [
-    ...users, { id: "dev", label: "Entwickler", password: "dev-secret", rights: ["models.use"], token },
+    ...users, { id: "dev", label: "Developer", password: "dev-secret", rights: ["models.use"], token },
   ] });
   try {
     assert.deepEqual(manager.snapshot(request("POST", undefined, { authorization: `Bearer ${token}` })).user?.rights, ["models.use"]);
@@ -286,5 +286,5 @@ test("ein persönlicher Token gilt als Bearer und Abfrageparameter, nie als Cook
   } finally { manager.close(); }
   assert.throws(() => createAccessSessionManager({ cookieName: "test", users: [
     { ...users[0]!, token }, { ...users[1]!, token },
-  ] }), /gehört bereits einem anderen Benutzer/);
+  ] }), /already belongs to another user/);
 });

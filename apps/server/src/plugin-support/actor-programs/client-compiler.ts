@@ -34,7 +34,7 @@ const actionMap = (actions: readonly ClientActionContract[]): string => {
   const fields = [...actions]
     .sort((left, right) => left.id.localeCompare(right.id))
     .map((action) => {
-      if (seen.has(action.id)) throw new Error(`App-Aktion ${action.id} ist doppelt deklariert.`);
+      if (seen.has(action.id)) throw new Error(`App action ${action.id} is declared twice.`);
       seen.add(action.id);
       return [
         `  readonly ${JSON.stringify(action.id)}: {`,
@@ -81,7 +81,7 @@ export const clientApiDeclarations = (): string => clientTypeDeclarations("Recor
 
 export const clientSdkSource = `import { useSyncExternalStore } from "react";
 export const context = globalThis.__ragentsAppContext;
-if (!context) throw new Error("Die Host-Bridge der Actor-Ansicht fehlt.");
+if (!context) throw new Error("The host bridge of the actor view is missing.");
 export const useAppState = () => useSyncExternalStore(context.state.subscribe, context.state.read, context.state.read);
 `;
 
@@ -136,7 +136,7 @@ export const compileClientProject = async (request: ClientProjectRequest, signal
   const directory = await realpath(request.directory);
   const declarations = clientDeclarations(request);
   const installed = await readFile(path.join(directory, "node_modules/@ragents/client/index.d.ts"), "utf8");
-  if (installed !== declarations) throw new Error("Die Client-SDK-Typen sind nicht aktuell. Das Actor-Projekt muss neu vorbereitet werden.");
+  if (installed !== declarations) throw new Error("The client SDK types are out of date. The actor project must be prepared again.");
   const configPath = path.join(directory, "tsconfig.client.json");
   const configFile = ts.readConfigFile(configPath, ts.sys.readFile);
   if (configFile.error) throw new Error(ts.flattenDiagnosticMessageText(configFile.error.messageText, "\n"));
@@ -156,7 +156,7 @@ export const compileClientProject = async (request: ClientProjectRequest, signal
         minify: true,
       });
       const output = result.outputFiles.find((file) => file.path.endsWith(".js") || file.path === "<stdout>");
-      if (!output) throw new Error("Der Client-Build hat kein JavaScript erzeugt.");
+      if (!output) throw new Error("The client build produced no JavaScript.");
       javaScript = output.text;
     } catch (cause) {
       if (cause && typeof cause === "object" && "errors" in cause && Array.isArray(cause.errors)) {

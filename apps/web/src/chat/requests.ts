@@ -16,7 +16,7 @@ export async function sendChatMessage(
   await client.call(coreContracts.chat.send, { runId, text, attachments, userLocation });
 }
 
-/** Die erste Nachricht eines Runs über eine Skill-Vorlage; der Server legt damit dessen Startoptionen fest. */
+/** The first message of a run from a skill template; the server uses it to set the run's start options. */
 export async function startSkillEntry(runId: string, entry: string, text: string, attachments?: ChatAttachmentInput[], client: RpcClient = rpc): Promise<void> {
   await client.call(coreContracts.chat.send, { runId, text, attachments, entry });
 }
@@ -25,7 +25,7 @@ export async function startChatEntry(runId: string, entry: string, input: unknow
   await client.call(coreContracts.chat.start, { runId, entry, input });
 }
 
-/** Eine Vorlage ohne Vorbereitungschat: ein Run-Script mit seinem Startwert, ein Skill mit seinem vorbereiteten Auftrag. */
+/** A template without a preparation chat: a run script with its start value, a skill with its prepared task. */
 export const startEntryDirectly = (runId: string, entry: StartEntry, input: unknown, client: RpcClient = rpc): Promise<void> => entry.action === "script"
   ? startChatEntry(runId, entry.id, input, client)
   : startSkillEntry(runId, entry.id, preparedRunInput([], entry.prompt, undefined, entry.skill).text, undefined, client);

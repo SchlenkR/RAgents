@@ -1,38 +1,38 @@
 ---
 name: browser-testing
-description: Prüfe eine laufende Webanwendung mit echten Browseraktionen, sichtbaren Ergebnissen und Screenshots.
+description: Test a running web application with real browser actions, visible results, and screenshots.
 ---
 
-# Webanwendung prüfen
+# Testing a web application
 
-Verwende die TypeScript-Funktionen `browser_open`, `browser_snapshot`, `browser_click`,
+Use the TypeScript functions `browser_open`, `browser_snapshot`, `browser_click`,
 `browser_fill`, `browser_select`, `browser_press`, `browser_check`, `browser_viewport`,
-`browser_screenshot` und `browser_close`. Lade deren genaue Verträge mit `typescript_api`.
+`browser_screenshot` and `browser_close`. Load their exact contracts with `typescript_api`.
 
-1. Starte die Anwendung mit ihren tatsächlichen Diensten und warte auf deren Bereitschaft.
-2. Öffne ihre HTTP-Adresse mit `browser_open`. Jeder Run hat einen eigenen Browser ohne
-   übernommene Anmeldung. Er läuft auf dem Rechner Deines Arbeitsbereichs; eine dort gestartete
-   Anwendung erreichst Du über `localhost`. Melde fehlende Dienste und Browser-Voraussetzungen
-   ausdrücklich.
-3. Lies den Snapshot und bediene den tatsächlichen Nutzerweg. Wähle Ziele über sichtbare
-   Rollen/Namen oder Feldbeschriftungen, beispielsweise `{ role: "button", name: "Speichern" }`.
-   Die Auflösung erfolgt im Browser. Snapshot-IDs werden nicht abgeschrieben.
-4. Prüfe Erfolg und relevante Fehlerfälle mit `browser_check`: sichtbares Ergebnis, Zieladresse
-   und Browserfehler. Ein Typecheck oder Screenshot allein belegt keinen erfolgreichen Nutzerweg.
-   Nach jeder Aktion ist eine neue Prüfung nötig. Erfinde keine Ergebnisse bei fehlendem Netz.
-5. Erzeuge mit `browser_screenshot` echte Aufnahmen. Übernimm `url` oder `markdown`
-   programmatisch in den Ergebnisbericht oder die Mini-App. Das Bild liegt in der Dateiablage
-   dieses Runs. Das native Werkzeug `browser_view_screenshot` zeigt Dir die letzte Aufnahme
-   ohne Pfadangabe; dafür benötigt Dein Modell Bildunterstützung. Der Viewport ist standardmäßig
-   1920 x 1080 (16:9); für schmale Layouts oder kleine Bildschirme stellst Du ihn mit
-   `browser_viewport` um und prüfst danach erneut.
-6. Benenne geprüfte Schritte und verbleibende Grenzen. Schließe den Browser nach Abschluss;
-   Aufnahmen bleiben erhalten. Run-Stopp und Serverende schließen ihn ebenfalls.
+1. Start the application with its actual services and wait until they are ready.
+2. Open its HTTP address with `browser_open`. Every run has its own browser without an
+   inherited sign-in. It runs on the machine of your workspace; you reach an application
+   started there via `localhost`. Report missing services and browser prerequisites
+   explicitly.
+3. Read the snapshot and follow the actual user path. Choose targets by visible
+   roles/names or field labels, for example `{ role: "button", name: "Save" }`.
+   Resolution happens in the browser. Snapshot IDs are not copied.
+4. Check success and relevant error cases with `browser_check`: visible result, target address
+   and browser errors. A typecheck or screenshot alone does not prove a successful user path.
+   Every action needs a new check. Do not invent results when the network is missing.
+5. Create real screenshots with `browser_screenshot`. Put `url` or `markdown`
+   programmatically into the result report or the mini-app. The image lives in the file storage
+   of this run. The native tool `browser_view_screenshot` shows you the latest screenshot
+   without a path; for that your model needs image support. The viewport defaults to
+   1920 x 1080 (16:9); for narrow layouts or small screens you change it with
+   `browser_viewport` and check again afterwards.
+6. Name the checked steps and remaining limits. Close the browser when you are done;
+   screenshots are kept. Stopping the run and shutting down the server close it as well.
 
-Die Browseraktionen verwenden Playwright-Locators mit automatischem Warten. Mehrdeutige Ziele
-sind Fehler, die die Kandidaten nennen; wähle dann mit `nth` (0-basiert) oder `first: true` im
-Ziel einen Treffer, oder prüfe die Anzahl sichtbarer Treffer mit `count` in `browser_check`.
-Sichtbarkeitsprüfungen warten höchstens 5 Sekunden, Aktionen länger; ein fehlendes Element
-kostet also keine lange Wartezeit. Native Selects verwenden `browser_select`; eigene Auswahlmenüs werden geklickt.
-Mit `target.frame` wählst Du ein Iframe per CSS. Neue Fenster werden ausdrücklich gemeldet;
-dieser Ablauf bedient eine Seite. Verdeckte Elemente werden nicht per JavaScript angeklickt.
+The browser actions use Playwright locators with automatic waiting. Ambiguous targets
+are errors that name the candidates; then pick one match with `nth` (0-based) or `first: true` in
+the target, or check the number of visible matches with `count` in `browser_check`.
+Visibility checks wait at most 5 seconds, actions longer; a missing element
+therefore costs no long wait. Native selects use `browser_select`; custom dropdown menus are clicked.
+With `target.frame` you choose an iframe by CSS. New windows are reported explicitly;
+this flow operates one page. Hidden elements are not clicked via JavaScript.

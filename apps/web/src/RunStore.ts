@@ -75,7 +75,7 @@ export function subscribeRunView(
     if (message.kind === "ready") setError(undefined);
     nudge();
   }, () => {
-    if (!disposed) setError("Der Live-Stream des Runs ist nicht erreichbar");
+    if (!disposed) setError("The run's live stream is unreachable");
   });
   return () => {
     if (disposed) return;

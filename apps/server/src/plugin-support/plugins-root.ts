@@ -25,13 +25,13 @@ const folders = new Map<string, string>();
 
 export const registerPluginFolder = (id: string, folder: string): void => {
   const known = folders.get(id);
-  if (known && known !== folder) throw new Error(`Das Plugin ${id} liegt bereits unter ${known}, nicht unter ${folder}`);
+  if (known && known !== folder) throw new Error(`The plugin ${id} already lives under ${known}, not under ${folder}`);
   folders.set(id, folder);
 };
 
 export const pluginFolder = (pluginId: string): string => {
   const folder = folders.get(pluginId) ?? path.join(pluginsRoot, pluginId);
   const stats = statSync(folder, { throwIfNoEntry: false });
-  if (!stats?.isDirectory()) throw new Error(`Das Plugin ${pluginId} hat keinen Ordner ${folder}`);
+  if (!stats?.isDirectory()) throw new Error(`The plugin ${pluginId} has no folder ${folder}`);
   return folder;
 };

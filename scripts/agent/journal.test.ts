@@ -11,41 +11,41 @@ const record = (actorId: string, events: readonly { sequence: number; type: stri
 
 const events: readonly JournalEvent[] = [
   ...[
-    { sequence: 1, type: "model.output.completed", payload: { text: "Hallo\nAlice", usage: { inputTokens: 100, cacheReadTokens: 50, outputTokens: 10, costUsd: 0.001 } } },
+    { sequence: 1, type: "model.output.completed", payload: { text: "Hello\nAlice", usage: { inputTokens: 100, cacheReadTokens: 50, outputTokens: 10, costUsd: 0.001 } } },
     { sequence: 2, type: "tool.call.started", payload: { name: "typescript_eval", input: { code: "return 1;" } } },
-    { sequence: 3, type: "tool.call.failed", payload: { name: "typescript_eval", error: "kaputt" } },
-    { sequence: 4, type: "model.output.completed", payload: { text: "Fertig", usage: { inputTokens: 200, cacheReadTokens: 0, outputTokens: 20, costUsd: 0.002 } } },
+    { sequence: 3, type: "tool.call.failed", payload: { name: "typescript_eval", error: "broken" } },
+    { sequence: 4, type: "model.output.completed", payload: { text: "Done", usage: { inputTokens: 200, cacheReadTokens: 0, outputTokens: 20, costUsd: 0.002 } } },
   ].map((entry) => ({ ...entry, actorId: "agent_coordinator", occurredAt: "2026-09-21T10:00:00.000Z" })),
-  { sequence: 5, type: "actor.input.enqueued", actorId: "human_alice", occurredAt: "2026-09-21T10:00:01.000Z", payload: { actorId: "agent_coordinator", subscriptionId: null, content: "Bitte weiter" } },
+  { sequence: 5, type: "actor.input.enqueued", actorId: "human_alice", occurredAt: "2026-09-21T10:00:01.000Z", payload: { actorId: "agent_coordinator", subscriptionId: null, content: "Please continue" } },
   { sequence: 6, type: "model.step.completed", actorId: "agent_coordinator", occurredAt: "2026-09-21T10:00:02.000Z", payload: { usage: { input: 5, output: 1 } } },
   { sequence: 7, type: "context.compacted", actorId: "agent_coordinator", occurredAt: "2026-09-21T10:00:03.000Z", payload: { tokensBefore: 1200, threshold: { tokens: 160000, source: "model" } } },
   { sequence: 8, type: "actor.input.enqueued", actorId: "agent_coordinator", occurredAt: "2026-09-21T10:00:04.000Z", payload: { actorId: "agent_watcher", subscriptionId: "sub-1", sourceEventIds: ["event-4"] } },
 ];
 
-test("usageByActor summiert Modellaufrufe je Actor", () => {
+test("usageByActor sums model calls per actor", () => {
   const usage = usageByActor(events);
   assert.deepEqual(usage.get("agent_coordinator"), { calls: 2, inputTokens: 300, cacheReadTokens: 50, outputTokens: 30, costUsd: 0.003 });
   assert.equal(usage.has("human_alice"), false);
 });
 
-test("journalLines filtert nach Modus und Sequenz", () => {
+test("journalLines filters by mode and sequence", () => {
   assert.deepEqual(journalLines(events, "chat", 0), [
-    "[1] agent_coordina: Hallo Alice",
-    "[3] tool.call.failed agent_coordina: {\"name\":\"typescript_eval\",\"error\":\"kaputt\"}",
-    "[4] agent_coordina: Fertig",
-    "[5] INPUT -> agent_coordina: Bitte weiter",
+    "[1] agent_coordina: Hello Alice",
+    "[3] tool.call.failed agent_coordina: {\"name\":\"typescript_eval\",\"error\":\"broken\"}",
+    "[4] agent_coordina: Done",
+    "[5] INPUT -> agent_coordina: Please continue",
     "[7] CONTEXT COMPACTED agent_coordina: about 1200 tokens summarized (threshold 160000 from model)",
     "[8] INPUT -> agent_watcher: [event event-4]",
-    "-- letzte Sequenz: 8",
+    "-- last sequence: 8",
   ]);
   assert.deepEqual(journalLines(events, "tools", 3), [
-    "[3] failed agent_coordina typescript_eval: \"kaputt\"",
-    "-- letzte Sequenz: 8",
+    "[3] failed agent_coordina typescript_eval: \"broken\"",
+    "-- last sequence: 8",
   ]);
   assert.equal(journalLines(events, "all", 0).length, 8);
 });
 
-test("der Leser liefert nur, was seit dem letzten Aufruf dazugekommen ist", async (t) => {
+test("the reader returns only what was added since the last call", async (t) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-journal-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const runId = "run-1";
@@ -64,9 +64,9 @@ test("der Leser liefert nur, was seit dem letzten Aufruf dazugekommen ist", asyn
   assert.equal(readJournal(directory, runId).length, 2);
 });
 
-test("ein fehlendes Journal und eine unsaubere Run-Id sind Fehler", async (t) => {
+test("a missing journal and an unclean run id are errors", async (t) => {
   const directory = await mkdtemp(path.join(tmpdir(), "ragents-journal-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
-  assert.throws(() => readJournal(directory, "run-2"), /Journal fehlt/);
-  assert.throws(() => readJournal(directory, "../flucht"), /Ungültige Run-Id/);
+  assert.throws(() => readJournal(directory, "run-2"), /Journal missing/);
+  assert.throws(() => readJournal(directory, "../escape"), /Invalid run id/);
 });

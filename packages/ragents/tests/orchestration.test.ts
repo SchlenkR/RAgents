@@ -160,25 +160,25 @@ test("the view carries the model outputs of a non-primary actor in journal order
         { actorId: worker.id, commandId: "worker-reasoning", turnId: turn.turnId },
         view.id,
         worker.id,
-        { turnId: turn.turnId, step: thinkingStep("Nur ein Gedanke.") },
+        { turnId: turn.turnId, step: thinkingStep("Just a thought.") },
     );
     runtime.completeModelStep(
         { actorId: worker.id, commandId: "worker-first", turnId: turn.turnId },
         view.id,
         worker.id,
-        { turnId: turn.turnId, step: textStep("Erste Antwort.") },
+        { turnId: turn.turnId, step: textStep("First answer.") },
     );
     const answered = runtime.completeModelStep(
         { actorId: worker.id, commandId: "worker-second", turnId: turn.turnId },
         view.id,
         worker.id,
-        { turnId: turn.turnId, step: textStep("Zweite Antwort.") },
+        { turnId: turn.turnId, step: textStep("Second answer.") },
     );
 
     assert.notEqual(answered.primaryActorId, worker.id);
     const workerTurn = answered.turns.find((entry) => entry.actorId === worker.id);
     assert.ok(workerTurn);
-    assert.deepEqual(workerTurn.outputs.map((output) => output.text), ["Erste Antwort.", "Zweite Antwort."]);
+    assert.deepEqual(workerTurn.outputs.map((output) => output.text), ["First answer.", "Second answer."]);
     assert.ok(workerTurn.outputs[0] && workerTurn.outputs[1]);
     assert.equal(workerTurn.outputs[0].sequence < workerTurn.outputs[1].sequence, true);
     assert.equal(workerTurn.outputs.every((output) => typeof output.occurredAt === "string"), true);

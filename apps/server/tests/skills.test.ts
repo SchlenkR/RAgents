@@ -55,11 +55,11 @@ test("reference prompts stay short and omit API names and internal runtime terms
     /\bsubscription(s)?\b/i,
     /\bturn(s)?\b/i,
     /\bevent(s)?\b/i,
-    /\bvermittler\b/i,
+    /\bmediator\b/i,
     /\bcapabilit/i,
-    /\bartefakt\b/i,
-    /\brun-modul\b/i,
-    /\bvorlage\b/i,
+    /\bartifact\b/i,
+    /\brun-module\b/i,
+    /\btemplate\b/i,
     /\b(agent_spawn|actor_input|actor_list|actor_stop|event_subscribe|event_unsubscribe)\b/,
     /\b(event_subscription_list|event_query|artifact_publish|artifact_read|model_list|tool_open)\b/,
     /\b(actor_program|actor_view|mini_app|script_tool|script_actor)_[a-z]+\b/,
@@ -68,31 +68,31 @@ test("reference prompts stay short and omit API names and internal runtime terms
   for (const card of cardOwners.flatMap((owner) => cardsOf(owner)).filter((entry) => /^ragents\.reference\.\d/.test(entry.id))) {
     const prompt = card.prompt;
     for (const pattern of forbidden) {
-      assert.doesNotMatch(prompt, pattern, `${card.id}: der Prompt verrät ${pattern}`);
+      assert.doesNotMatch(prompt, pattern, `${card.id}: the prompt reveals ${pattern}`);
     }
-    assert.ok(prompt.length <= 460, `${card.id}: der Prompt ist zu lang`);
-    assert.match(prompt, /^Ich hätte gern /);
+    assert.ok(prompt.length <= 460, `${card.id}: the prompt is too long`);
+    assert.match(prompt, /^I would like /);
   }
 });
 
 test("a skill starter without frontmatter is rejected", () => {
   assert.throws(
     () => skillsFromDirectory(fixture("no-frontmatter"), "test.file"),
-    /es fehlt der ---Kopf mit name und description/,
+    /the --- header with name and description is missing/,
   );
 });
 
 test("an unknown skill frontmatter field is rejected", () => {
   assert.throws(
     () => skillsFromDirectory(fixture("unknown-field"), "test.file"),
-    /unbekannte Kopfzeilen unknown/,
+    /unknown header lines unknown/,
   );
 });
 
 test("the former text frontmatter field is rejected", () => {
   assert.throws(
     () => skillsFromDirectory(fixture("legacy-text-field"), "test.file"),
-    /unbekannte Kopfzeilen text/,
+    /unknown header lines text/,
   );
 });
 
@@ -100,14 +100,14 @@ test("a skill starter keeps the complete markdown body without section markers",
   const [card] = skillsFromDirectory(fixture("markdown-body"), "test.file").startEntries;
   assert.equal(
     card?.prompt,
-    "Ich hätte gern eine Zusammenfassung.\n\n## Inhalt\n\nBeschreibe das Ergebnis.\n\n### Format\n\nNutze eine kurze Liste.",
+    "I would like a summary.\n\n## Content\n\nDescribe the result.\n\n### Format\n\nUse a short list.",
   );
 });
 
 test("a skill starter with an empty body is rejected", () => {
   assert.throws(
     () => skillsFromDirectory(fixture("empty-body"), "test.file"),
-    /Skill-Anleitung ist leer/,
+    /skill instructions are empty/,
   );
 });
 
@@ -117,15 +117,15 @@ test("the contribution registry rejects the former prompts field", () => {
     id: "test.legacy",
     action: "skill" as const,
     skill: "test-skill",
-    category: "Beispiele",
+    category: "Examples",
     title: "Test",
-    description: "Beschreibung",
-    prompts: { technical: "Technisch", free: "Frei" },
+    description: "Description",
+    prompts: { technical: "Technical", free: "Free" },
   };
 
   assert.throws(
     () => registry.register("test", [legacy as never]),
-    /unbekannte Felder: prompts/,
+    /unknown fields: prompts/,
   );
 });
 
@@ -135,16 +135,16 @@ test("the contribution registry rejects missing, empty and non-text prompts", ()
     id: "test.valid",
     action: "skill" as const,
     skill: "test-skill",
-    category: "Beispiele",
+    category: "Examples",
     title: "Test",
-    description: "Beschreibung",
-    prompt: "Frei",
+    description: "Description",
+    prompt: "Free",
   };
 
   for (const prompt of [undefined, "", "  ", 42]) {
     assert.throws(
       () => registry.register("test", [{ ...valid, prompt } as never]),
-      /kein gültiges prompt/,
+      /no valid prompt/,
     );
   }
 });
@@ -155,32 +155,32 @@ test("the contribution registry rejects invalid card identity and layout values"
     id: "test.valid",
     action: "skill" as const,
     skill: "test-skill",
-    category: "Beispiele",
+    category: "Examples",
     title: "Test",
-    description: "Beschreibung",
-    prompt: "Frei",
+    description: "Description",
+    prompt: "Free",
   };
 
   assert.throws(
     () => registry.register("test", [{ ...valid, id: "" }]),
-    /kein gültiges id/,
+    /no valid id/,
   );
   assert.throws(
     () => registry.register("test", [{ ...valid, wide: true } as never]),
-    /unbekannte Felder: wide/,
+    /unknown fields: wide/,
   );
 });
 
 test("a directory without markdown skill starters is rejected", () => {
   assert.throws(
     () => skillsFromDirectory(fixture("without-markdown"), "test.file"),
-    /es fehlt der ---Kopf/,
+    /the --- header/,
   );
 });
 
 for (const name of ["missing-category", "empty-category"]) {
   test(`a skill starter with ${name} is rejected`, () => {
-    assert.throws(() => skillsFromDirectory(fixture(name), "test.file"), /category fehlt/);
+    assert.throws(() => skillsFromDirectory(fixture(name), "test.file"), /category is missing/);
   });
 }
 

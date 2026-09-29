@@ -11,12 +11,12 @@ export const jsonValue = <T>(value: T, label: string): T & JsonValue => {
   assertJsonValue(value, label);
   const text = JSON.stringify(value);
   if (Buffer.byteLength(text, "utf8") > MAX_JSON_BYTES)
-    throw new Error(`${label} ist größer als ${MAX_JSON_BYTES} Byte.`);
+    throw new Error(`${label} is larger than ${MAX_JSON_BYTES} bytes.`);
   const pending: Array<{ value: unknown; depth: number }> = [{ value, depth: 0 }];
   while (pending.length > 0) {
     const current = pending.pop()!;
     if (current.depth > MAX_JSON_DEPTH)
-      throw new Error(`${label} ist tiefer als ${MAX_JSON_DEPTH} Ebenen verschachtelt.`);
+      throw new Error(`${label} is nested deeper than ${MAX_JSON_DEPTH} levels.`);
     if (Array.isArray(current.value)) {
       current.value.forEach((entry) => pending.push({ value: entry, depth: current.depth + 1 }));
       continue;
@@ -24,7 +24,7 @@ export const jsonValue = <T>(value: T, label: string): T & JsonValue => {
     if (current.value && typeof current.value === "object") {
       Object.entries(current.value).forEach(([key, entry]) => {
         if (key.length > MAX_JSON_KEY_LENGTH)
-          throw new Error(`${label} enthält einen Schlüssel mit mehr als ${MAX_JSON_KEY_LENGTH} Zeichen.`);
+          throw new Error(`${label} contains a key with more than ${MAX_JSON_KEY_LENGTH} characters.`);
         pending.push({ value: entry, depth: current.depth + 1 });
       });
     }

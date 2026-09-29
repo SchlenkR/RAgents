@@ -25,7 +25,7 @@ const fixture = async () => {
   const workspace = path.join(directory, "workspace");
   const skills = path.join(directory, "skills");
   await Promise.all([workspace, skills].map((entry) => mkdir(entry, { recursive: true })));
-  await writeFile(path.join(skills, "anleitung.md"), "# Anleitung\n");
+  await writeFile(path.join(skills, "guide.md"), "# Guide\n");
   const contexts: WorkspaceProcessContext[] = [];
   const executor = new WorkspaceOperationExecutor({
     modules: [sandboxToolsModule],
@@ -57,56 +57,56 @@ const fixture = async () => {
   };
 };
 
-test("der Executor führt read, write, edit und bash im Ordner seiner Maschine aus", async () => {
+test("the executor runs read, write, edit and bash in the folder of its machine", async () => {
   const f = await fixture();
   try {
-    await f.executor.execute("run-1", "write", { path: "notiz.md", content: "Grüße\n" });
-    assert.equal(await readFile(path.join(f.workspace, "notiz.md"), "utf8"), "Grüße\n");
-    await f.executor.execute("run-1", "edit", { path: "notiz.md", edits: [{ oldText: "Grüße", newText: "Hallo" }] });
-    assert.match(textOf(await f.executor.execute("run-1", "read", { path: "notiz.md" })), /Hallo/);
-    assert.match(textOf(await f.executor.execute("run-1", "bash", { command: "printf hallo-$RAGENTS_RUN_ID" })), /hallo-run-1/);
+    await f.executor.execute("run-1", "write", { path: "note.md", content: "Greetings\n" });
+    assert.equal(await readFile(path.join(f.workspace, "note.md"), "utf8"), "Greetings\n");
+    await f.executor.execute("run-1", "edit", { path: "note.md", edits: [{ oldText: "Greetings", newText: "Hello" }] });
+    assert.match(textOf(await f.executor.execute("run-1", "read", { path: "note.md" })), /Hello/);
+    assert.match(textOf(await f.executor.execute("run-1", "bash", { command: "printf hello-$RAGENTS_RUN_ID" })), /hello-run-1/);
   } finally {
     await f.close();
   }
 });
 
-test("nur lesbare Wurzeln bleiben lesbar, alles außerhalb scheitert mit Ursache", async () => {
+test("read-only roots stay readable, everything outside fails with a cause", async () => {
   const f = await fixture();
   try {
-    assert.match(textOf(await f.executor.execute("run-1", "read", { path: path.join(f.skills, "anleitung.md") })), /Anleitung/);
-    await assert.rejects(f.executor.execute("run-1", "write", { path: path.join(f.skills, "neu.md"), content: "x" }), /außerhalb/);
-    await assert.rejects(f.executor.execute("run-1", "read", { path: "/etc/hosts" }), /außerhalb/);
-    await assert.rejects(f.executor.execute("run-1", "grep", { path: "notiz.md" }), /kennt die Operation grep nicht/);
+    assert.match(textOf(await f.executor.execute("run-1", "read", { path: path.join(f.skills, "guide.md") })), /Guide/);
+    await assert.rejects(f.executor.execute("run-1", "write", { path: path.join(f.skills, "new.md"), content: "x" }), /outside/);
+    await assert.rejects(f.executor.execute("run-1", "read", { path: "/etc/hosts" }), /outside/);
+    await assert.rejects(f.executor.execute("run-1", "grep", { path: "note.md" }), /does not know the operation grep/);
   } finally {
     await f.close();
   }
 });
 
-test("bash meldet seine Ausgabe als Fortschritt und lässt sich abbrechen", async () => {
+test("bash reports its output as progress and can be aborted", async () => {
   const f = await fixture();
   try {
     const progress: string[] = [];
-    const finished = await f.executor.execute("run-1", "bash", { command: "printf fertig; exit 4" }, {
+    const finished = await f.executor.execute("run-1", "bash", { command: "printf done; exit 4" }, {
       onProgress: (value) => progress.push((value as { text: string }).text),
     });
-    assert.match(textOf(finished), /fertig/);
+    assert.match(textOf(finished), /done/);
     assert.match(textOf(finished), /Command exited with code 4/);
-    assert.ok(progress.some((text) => text.includes("fertig")), progress.join("|"));
+    assert.ok(progress.some((text) => text.includes("done")), progress.join("|"));
 
     const controller = new AbortController();
-    const running = f.executor.execute("run-1", "bash", { command: "printf gestartet; sleep 5" }, {
+    const running = f.executor.execute("run-1", "bash", { command: "printf started; sleep 5" }, {
       signal: controller.signal,
       onProgress: (value) => {
-        if ((value as { text: string }).text.includes("gestartet")) controller.abort();
+        if ((value as { text: string }).text.includes("started")) controller.abort();
       },
     });
-    assert.match(textOf(await running), /gestartet/);
+    assert.match(textOf(await running), /started/);
   } finally {
     await f.close();
   }
 });
 
-test("stop beendet die Werkzeuge eines Runs und die Sprachserver derselben Kennung", async () => {
+test("stop ends the tools of a run and the language servers with the same id", async () => {
   const f = await fixture();
   const stopped: string[] = [];
   const adapter: LanguageServerAdapter = {
@@ -116,8 +116,8 @@ test("stop beendet die Werkzeuge eines Runs und die Sprachserver derselben Kennu
     rootDescription: "directory",
     resolveRoot: (_workspaceRoot, root) => Promise.resolve(root),
     rootDirectory: (root) => root,
-    launch: () => Promise.reject(new Error("Fake startet nicht")),
-    open: () => Promise.resolve("unbenutzt"),
+    launch: () => Promise.reject(new Error("Fake does not start")),
+    open: () => Promise.resolve("unused"),
   };
   const executor = new WorkspaceOperationExecutor({
     contextFor: (runId) => {
@@ -131,10 +131,10 @@ test("stop beendet die Werkzeuge eines Runs und die Sprachserver derselben Kennu
   try {
     await assert.rejects(executor.execute("run-2", "fake_diagnostics", { paths: ["a.fake"] }), /fake_open/);
     assert.deepEqual(await executor.execute("run-2", "fake_snapshot", null), { instances: [] });
-    await executor.execute("run-2", "write", { path: "datei.txt", content: "x" });
+    await executor.execute("run-2", "write", { path: "file.txt", content: "x" });
     await executor.stopRun("run-2");
-    await executor.execute("run-2", "write", { path: "datei.txt", content: "y" });
-    assert.equal(await readFile(path.join(f.workspace, "datei.txt"), "utf8"), "y");
+    await executor.execute("run-2", "write", { path: "file.txt", content: "y" });
+    assert.equal(await readFile(path.join(f.workspace, "file.txt"), "utf8"), "y");
     assert.ok(stopped.length > 0);
   } finally {
     await executor.shutdown();
@@ -142,21 +142,21 @@ test("stop beendet die Werkzeuge eines Runs und die Sprachserver derselben Kennu
   }
 });
 
-test("ohne paths findet die Diagnostik die geänderten Dateien auch im Unterordner eines Repos", async () => {
+test("without paths the diagnostics find the changed files in a subfolder of a repo too", async () => {
   const f = await fixture();
   const repository = path.join(f.directory, "repo");
   const area = path.join(repository, "area");
   try {
     await mkdir(area, { recursive: true });
-    await writeFile(path.join(repository, "top.fake"), "oben\n");
-    await writeFile(path.join(area, "known.fake"), "innen\n");
-    for (const args of [["init", "-q"], ["add", "."], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "erst"]]) {
+    await writeFile(path.join(repository, "top.fake"), "top\n");
+    await writeFile(path.join(area, "known.fake"), "inside\n");
+    for (const args of [["init", "-q"], ["add", "."], ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "first"]]) {
       const result = await runManagedProcess({ command: "git", args, cwd: repository, env: process.env, label: "git", timeoutMs: 30_000 });
       assert.equal(result.code, 0);
     }
-    await writeFile(path.join(area, "known.fake"), "innen geändert\n");
-    await writeFile(path.join(area, "fresh.fake"), "neu\n");
-    await writeFile(path.join(repository, "top.fake"), "oben geändert\n");
+    await writeFile(path.join(area, "known.fake"), "inside changed\n");
+    await writeFile(path.join(area, "fresh.fake"), "new\n");
+    await writeFile(path.join(repository, "top.fake"), "top changed\n");
     const context = workspaceProcessContext({ runId: "run-3", cwd: area, root: area, home: { home: f.directory }, logDirectory: f.directory, hostRoot: undefined });
     const changed = await changedWorkspaceFiles(context, area, "fake_diagnostics", (file) => file.endsWith(".fake"));
     assert.deepEqual(changed.sort(), [path.join(area, "fresh.fake"), path.join(area, "known.fake")]);

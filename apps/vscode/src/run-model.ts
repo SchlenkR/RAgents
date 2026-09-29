@@ -10,9 +10,9 @@ export interface RunSummary {
   updatedAt: number;
   state: RunState;
   pendingActions: number;
-  /** Die Run-Ansicht ließ sich nicht lesen; der Run bleibt als Listenzeile stehen, die übrigen Runs sind nicht betroffen. */
+  /** The run view could not be read; the run stays as a list row, the other runs are not affected. */
   problem?: string;
-  /** Warum der Server den Run gesperrt hat; er öffnet sich nicht mehr, löschen bleibt möglich. */
+  /** Why the server has locked the run; it no longer opens, deleting remains possible. */
   locked?: string;
 }
 
@@ -46,14 +46,14 @@ const loadedSummary = (session: SessionInfo, view: RunView): RunSummary => {
   };
 };
 
-/** Die Zusammenfassung eines Runs für Übersicht und Abzeichen; ohne lesbare Run-Ansicht bleibt nur die Listenzeile. */
+/** The summary of a run for overview and badge; without a readable run view, only the list row remains. */
 export const runSummaryFrom = (session: SessionInfo, rawView: unknown): RunSummary => {
   const view = session.locked === undefined ? runViewFrom(rawView) : undefined;
   if (!view) return listRow(session);
   try {
     return loadedSummary(session, view);
   } catch (cause) {
-    return { ...listRow(session), problem: `Die Run-Ansicht ist nicht lesbar: ${cause instanceof Error ? cause.message : String(cause)}` };
+    return { ...listRow(session), problem: `The run view is not readable: ${cause instanceof Error ? cause.message : String(cause)}` };
   }
 };
 

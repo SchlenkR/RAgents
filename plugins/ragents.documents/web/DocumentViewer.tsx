@@ -40,7 +40,7 @@ export interface RunDocument {
 export interface DocumentSection {
   id: string;
   label: string;
-  kind: "ablage" | "ergebnisse" | "chat";
+  kind: "store" | "results" | "chat";
   documents: RunDocument[];
 }
 
@@ -48,8 +48,8 @@ const formatLabels: Record<DocumentFormat, string> = {
   markdown: "Markdown",
   text: "Text",
   html: "HTML",
-  image: "Bild",
-  binary: "Datei",
+  image: "Image",
+  binary: "File",
 };
 
 const formatByExtension: Record<string, DocumentFormat> = {
@@ -92,7 +92,7 @@ const formatTime = (iso: string) => {
   const date = new Date(iso);
   return Number.isNaN(date.getTime())
     ? iso
-    : date.toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    : date.toLocaleString("en-US", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 };
 
 export const documentMessagesFrom = (
@@ -160,12 +160,12 @@ export function DocumentToolCall({ active, document, onOpen, status }: DocumentT
     [document.content],
   );
   const statusLabel = status === "error"
-    ? "Fehler"
+    ? "Error"
     : status === "running"
-      ? "Wird geöffnet"
+      ? "Opening"
       : active
-        ? "Geöffnet"
-        : "Öffnen";
+        ? "Opened"
+        : "Open";
 
   return (
     <button
@@ -179,10 +179,10 @@ export function DocumentToolCall({ active, document, onOpen, status }: DocumentT
         <IconDocument size={22} />
       </span>
       <span className="flex min-w-0 flex-col gap-0.5">
-        <span className="text-[0.62rem] font-semibold tracking-[0.05em] text-primary uppercase">Dokument</span>
+        <span className="text-[0.62rem] font-semibold tracking-[0.05em] text-primary uppercase">Document</span>
         <strong className="truncate text-[0.84rem] leading-[1.35]" title={document.title}>{document.title}</strong>
         <span className="text-[0.7rem] leading-[1.35] text-muted-foreground">
-          {formatLabels[document.format]}, {lineCount.toLocaleString("de-DE")} {lineCount === 1 ? "Zeile" : "Zeilen"}
+          {formatLabels[document.format]}, {lineCount.toLocaleString("en-US")} {lineCount === 1 ? "line" : "lines"}
         </span>
       </span>
       <span className="flex items-center gap-1 text-[0.7rem] font-semibold text-primary group-data-[status=error]/call:text-destructive">
@@ -193,7 +193,7 @@ export function DocumentToolCall({ active, document, onOpen, status }: DocumentT
   );
 }
 
-function DocumentContent({ document, stand }: { document: RunDocument; stand: LoadState }) {
+function DocumentContent({ document, loaded }: { document: RunDocument; loaded: LoadState }) {
   if (document.format === "image" && document.contentUrl) {
     return <img alt={document.title} className="block max-w-full rounded-lg border border-border" src={document.contentUrl} />;
   }
@@ -202,40 +202,40 @@ function DocumentContent({ document, stand }: { document: RunDocument; stand: Lo
       <Empty className="min-h-30 gap-2 p-7">
         <EmptyHeader>
           <EmptyMedia><IconDocument /></EmptyMedia>
-          <EmptyTitle>Keine Vorschau für dieses Format</EmptyTitle>
+          <EmptyTitle>No preview for this format</EmptyTitle>
         </EmptyHeader>
         <EmptyContent>
-          <Button render={<a download={document.title} href={document.contentUrl} />} size="sm" variant="outline">Herunterladen</Button>
+          <Button render={<a download={document.title} href={document.contentUrl} />} size="sm" variant="outline">Download</Button>
         </EmptyContent>
       </Empty>
     );
   }
-  if (!stand) {
+  if (!loaded) {
     return (
       <div className="flex items-center justify-center gap-2.5 p-9 text-[0.76rem] text-muted-foreground">
         <Spinner className="size-3" />
-        <span>Wird geladen</span>
+        <span>Loading</span>
       </div>
     );
   }
-  if ("error" in stand) {
+  if ("error" in loaded) {
     return (
       <Empty className="min-h-30 gap-2 p-7">
         <EmptyHeader>
           <EmptyMedia><IconError /></EmptyMedia>
-          <EmptyTitle>Inhalt nicht lesbar</EmptyTitle>
-          <EmptyDescription>{stand.error}</EmptyDescription>
+          <EmptyTitle>Content not readable</EmptyTitle>
+          <EmptyDescription>{loaded.error}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
   }
   if (document.format === "html") {
-    return <iframe className="h-full min-h-full w-full border-0 bg-white" sandbox="" srcDoc={stand.text} title={document.title} />;
+    return <iframe className="h-full min-h-full w-full border-0 bg-white" sandbox="" srcDoc={loaded.text} title={document.title} />;
   }
   if (document.format === "text") {
-    return <SourceCode className={sourceClass} content={stand.text} path={document.title} />;
+    return <SourceCode className={sourceClass} content={loaded.text} path={document.title} />;
   }
-  return <Markdown text={stand.text} />;
+  return <Markdown text={loaded.text} />;
 }
 
 function DocumentHead({ document }: { document: RunDocument }) {
@@ -260,7 +260,7 @@ interface DocumentModalProps {
 }
 
 export function DocumentModal({ document, onClose }: DocumentModalProps) {
-  const stand = useDocumentContent(document);
+  const loaded = useDocumentContent(document);
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -270,12 +270,12 @@ export function DocumentModal({ document, onClose }: DocumentModalProps) {
         <DialogTitle className={copyClass} render={<span />}>
           <DocumentHead document={document} />
         </DialogTitle>
-        <Button aria-label="Schließen" className="rounded-full" onClick={onClose} size="icon" title="Schließen" variant="outline">
+        <Button aria-label="Close" className="rounded-full" onClick={onClose} size="icon" title="Close" variant="outline">
           <XIcon />
         </Button>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto px-[clamp(18px,4vw,54px)] pt-5 pb-10 text-[13.5px] leading-[1.65]">
-        <DocumentContent document={document} stand={stand} />
+        <DocumentContent document={document} loaded={loaded} />
       </div>
     </DialogContent>
     </Dialog>
@@ -291,7 +291,7 @@ interface DocumentPanelProps {
 
 export function DocumentPanel({ activeId, sections, truncated, onSelect }: DocumentPanelProps) {
   const active = sections.flatMap((section) => section.documents).find((document) => document.id === activeId);
-  const stand = useDocumentContent(active);
+  const loaded = useDocumentContent(active);
   const [modalOpen, setModalOpen] = useState(false);
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
 
@@ -313,8 +313,8 @@ export function DocumentPanel({ activeId, sections, truncated, onSelect }: Docum
       <Empty className="h-full gap-2 p-7">
         <EmptyHeader>
           <EmptyMedia><IconDocument /></EmptyMedia>
-          <EmptyTitle>Noch keine Dokumente</EmptyTitle>
-          <EmptyDescription>Dateien aus der Ablage des Runs, Ergebnisse und im Chat gezeigte Dokumente sammeln sich hier.</EmptyDescription>
+          <EmptyTitle>No documents yet</EmptyTitle>
+          <EmptyDescription>Files from the run's store, results, and documents shown in chat collect here.</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -324,25 +324,25 @@ export function DocumentPanel({ activeId, sections, truncated, onSelect }: Docum
     return (
       <div className="flex h-full flex-col gap-3.5 overflow-y-auto px-workspace-inset pt-2.5 pb-4.5 [scrollbar-width:thin]">
         {sections.filter((section) => section.documents.length > 0).map((section) => {
-          const offen = !collapsed.has(section.id);
+          const open = !collapsed.has(section.id);
           return (
             <section key={section.id}>
               <button
-                aria-expanded={offen}
+                aria-expanded={open}
                 className="grid w-full grid-cols-[14px_26px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-primary/7"
                 onClick={() => toggle(section.id)}
                 type="button"
               >
-                <span aria-hidden className={`flex text-muted-foreground transition-transform duration-150${offen ? " rotate-90" : ""}`}>
+                <span aria-hidden className={`flex text-muted-foreground transition-transform duration-150${open ? " rotate-90" : ""}`}>
                   <IconChevron />
                 </span>
-                {section.kind === "ablage" && <span aria-hidden className={`${groupBadgeClass} bg-[color-mix(in_srgb,var(--foreground)_8%,var(--background))] text-[0.85rem] text-foreground`}>#</span>}
-                {section.kind === "ergebnisse" && <span aria-hidden className={`${groupBadgeClass} bg-[color-mix(in_srgb,var(--primary)_16%,var(--background))] text-primary`}><IconResult /></span>}
+                {section.kind === "store" && <span aria-hidden className={`${groupBadgeClass} bg-[color-mix(in_srgb,var(--foreground)_8%,var(--background))] text-[0.85rem] text-foreground`}>#</span>}
+                {section.kind === "results" && <span aria-hidden className={`${groupBadgeClass} bg-[color-mix(in_srgb,var(--primary)_16%,var(--background))] text-primary`}><IconResult /></span>}
                 {section.kind === "chat" && <span aria-hidden className={`${groupBadgeClass} bg-[color-mix(in_srgb,var(--foreground)_9%,var(--background))] text-muted-foreground`}><IconChat /></span>}
                 <span className="truncate text-sm font-semibold" title={section.label}>{section.label}</span>
                 <Badge className="tabular-nums" variant="secondary">{section.documents.length}</Badge>
               </button>
-              {offen && (
+              {open && (
                 <div className="ml-[23px] border-l border-border-soft pl-2.5">
                   <ul className="mt-0.5 list-none">
                     {section.documents.map((document) => (
@@ -374,7 +374,7 @@ export function DocumentPanel({ activeId, sections, truncated, onSelect }: Docum
             </section>
           );
         })}
-        {truncated && <p className="text-[0.72rem] text-muted-foreground">Die Ablage enthält mehr Dateien, als hier angezeigt werden.</p>}
+        {truncated && <p className="text-[0.72rem] text-muted-foreground">The store contains more files than are shown here.</p>}
       </div>
     );
   }
@@ -382,16 +382,16 @@ export function DocumentPanel({ activeId, sections, truncated, onSelect }: Docum
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-border-soft px-workspace-inset py-2.5">
-        <Button aria-label="Zurück zur Übersicht" onClick={() => onSelect(undefined)} size="icon-sm" title="Zurück zur Übersicht" variant="outline">
+        <Button aria-label="Back to overview" onClick={() => onSelect(undefined)} size="icon-sm" title="Back to overview" variant="outline">
           <ArrowLeftIcon />
         </Button>
         <span className={copyClass}>
           <DocumentHead document={active} />
         </span>
-        <Button onClick={() => setModalOpen(true)} size="sm" variant="outline">Groß</Button>
+        <Button onClick={() => setModalOpen(true)} size="sm" variant="outline">Large</Button>
       </header>
       <div className="min-h-0 flex-1 overflow-y-auto px-workspace-inset py-4 text-[13px] leading-[1.6]">
-        <DocumentContent document={active} stand={stand} />
+        <DocumentContent document={active} loaded={loaded} />
       </div>
       {modalOpen && <DocumentModal document={active} onClose={() => setModalOpen(false)} />}
     </div>

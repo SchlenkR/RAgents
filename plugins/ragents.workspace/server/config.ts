@@ -16,14 +16,14 @@ export interface ProcessSandboxSetting {
   readonly network: readonly string[];
 }
 
-/** So schaltet der Betreiber die Prozess-Sandbox in der Profildatei ab. */
-export const PROCESS_SANDBOX_OFF = 'PROCESS_SANDBOX: "off" in der Sektion ragents.workspace';
+/** This is how the operator turns off the process sandbox in the profile file. */
+export const PROCESS_SANDBOX_OFF = 'PROCESS_SANDBOX: "off" in the ragents.workspace section';
 
-/** Ohne Angabe ist die Sandbox an; abschalten geht nur ausdrücklich mit "off". */
+/** Without a value the sandbox is on; it can only be turned off explicitly with "off". */
 export const processSandboxSetting = (): ProcessSandboxSetting => {
   const mode = env.optional("PROCESS_SANDBOX") ?? "on";
   if (mode !== "on" && mode !== "off") {
-    throw new Error(`PROCESS_SANDBOX in der Sektion ragents.workspace ist "on" oder "off", nicht "${mode}"`);
+    throw new Error(`PROCESS_SANDBOX in the ragents.workspace section is "on" or "off", not "${mode}"`);
   }
   const network = env.optional("PROCESS_SANDBOX_NETWORK") === undefined
     ? PROCESS_SANDBOX_DEFAULT_NETWORK
@@ -31,12 +31,12 @@ export const processSandboxSetting = (): ProcessSandboxSetting => {
   return { enabled: mode === "on", network };
 };
 
-/** Die Bash, mit der der Executor dieses Servers das Werkzeug bash startet; unter Windows setzt sie die VS-Code-Erweiterung für ihren lokalen Host. */
+/** The bash with which the executor of this server starts the bash tool; on Windows the VS Code extension sets it for its local host. */
 export const bashSetting = (): string | undefined => env.optional("RAGENTS_BASH") || undefined;
 
-/** Das rg, das der Executor dieses Servers vorn in den PATH der Bash setzt; die VS-Code-Erweiterung setzt es für ihren lokalen Host. */
+/** The rg that the executor of this server puts at the front of the bash PATH; the VS Code extension sets it for its local host. */
 export const rgSetting = (): string | undefined => env.optional("RAGENTS_RG") || undefined;
 
-/** Die Zeitgrenze von bash in Sekunden für Aufrufe ohne eigene; mehr als die größte, die ein Aufruf nennen darf, lehnt das Werkzeug beim Start ab. */
+/** The bash timeout in seconds for calls without their own; the tool rejects more than the largest a call may name at startup. */
 export const bashTimeoutSetting = (): number | undefined =>
   env.optional("RAGENTS_BASH_TIMEOUT_SECONDS") ? env.positiveNumber("RAGENTS_BASH_TIMEOUT_SECONDS", "") : undefined;

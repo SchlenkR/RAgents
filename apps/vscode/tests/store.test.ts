@@ -31,8 +31,8 @@ test("a login-protected server yields login-required until a session token is us
   try {
     await store.start();
     assert.deepEqual(store.status, { kind: "login-required", tokenGate: false });
-    await assert.rejects(client.login("alice", "falsch"), /stimmen nicht/);
-    const { token, snapshot } = await client.login("alice", "geheim");
+    await assert.rejects(client.login("alice", "wrong"), /is incorrect/);
+    const { token, snapshot } = await client.login("alice", "secret");
     assert.equal(token, SESSION_TOKEN);
     assert.equal(snapshot.user?.id, "alice");
     client.useToken(token);
@@ -73,7 +73,7 @@ test("a session list that loses a run drops its cached view", async () => {
   try {
     await store.start();
     await waitFor(() => store.pendingActions === 1);
-    server.setSessions([session({ id: "run-b", title: "Anderer" })]);
+    server.setSessions([session({ id: "run-b", title: "Other" })]);
     await store.refresh();
     assert.deepEqual(store.runs.map((run) => [run.id, run.pendingActions]), [["run-b", 0]]);
   } finally {
@@ -86,14 +86,14 @@ test("an unreadable run view is isolated: the other runs, the counts and the pro
   const server = await startStubServer();
   const store = new RunStore(new ServerClient(server.url, undefined));
   try {
-    server.setSessions([session(), session({ id: "run-b", title: "Anderer", updatedAt: 1 })]);
+    server.setSessions([session(), session({ id: "run-b", title: "Other", updatedAt: 1 })]);
     server.setView(runView({ inputs: [{ actorId: "coordinator" }] as never }));
     await store.start();
     await waitFor(() => store.runs.some((run) => run.problem !== undefined));
     assert.deepEqual(store.runs.map((run) => [run.id, run.problem === undefined]), [["run-a", false], ["run-b", true]]);
     assert.equal(store.pendingActions, 0);
     server.setView(runView({ revision: 13 }));
-    server.setSessions([session({ revision: 13 }), session({ id: "run-b", title: "Anderer", updatedAt: 1 })]);
+    server.setSessions([session({ revision: 13 }), session({ id: "run-b", title: "Other", updatedAt: 1 })]);
     await store.refresh();
     await waitFor(() => store.run("run-a")?.problem === undefined && store.pendingActions === 1);
   } finally {

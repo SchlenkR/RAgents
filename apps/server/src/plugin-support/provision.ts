@@ -11,7 +11,7 @@ export type ProvisionState =
   | { readonly kind: "ready" }
   | { readonly kind: "gap"; readonly name: string; readonly instruction: string; readonly installable: boolean };
 
-/** Was ein Plugin in `provision.ts` exportiert: der Werkzeugordner ist sein einziger Ablageort. */
+/** What a plugin exports in `provision.ts`: the tool folder is its only storage location. */
 export interface PluginProvision {
   readonly check: (target: string) => Promise<ProvisionState>;
   readonly apply: (target: string, log: (line: string) => void) => Promise<void>;
@@ -36,11 +36,11 @@ export type ArchiveDownload = (url: string) => Promise<Buffer>;
 
 export const downloadArchive: ArchiveDownload = async (url) => {
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`${url} kommt nicht an: ${response.status} ${response.statusText}`);
+  if (!response.ok) throw new Error(`${url} does not arrive: ${response.status} ${response.statusText}`);
   return Buffer.from(await response.arrayBuffer());
 };
 
-/** Legt die Einträge unterhalb von `prefix` als frischen Ordner `directory` im Werkzeugordner ab. */
+/** Stores the entries below `prefix` as a fresh folder `directory` in the tool folder. */
 export const unpackArchive = async (
   archive: Buffer,
   prefix: string,
@@ -48,13 +48,13 @@ export const unpackArchive = async (
   directory: string,
 ): Promise<number> => {
   const entries = readZipEntries(archive, (name) => name.startsWith(prefix));
-  if (entries.length === 0) throw new Error(`Das Archiv enthält keine Einträge unter ${prefix}`);
+  if (entries.length === 0) throw new Error(`The archive contains no entries under ${prefix}`);
   const destination = path.join(target, directory);
   await rm(destination, { recursive: true, force: true });
   for (const entry of entries) {
     const relative = entry.name.slice(prefix.length).split("/");
     if (relative.some((segment) => segment === "" || segment === "." || segment === "..")) {
-      throw new Error(`Der Archiveintrag ${entry.name} verlässt den Werkzeugordner`);
+      throw new Error(`The archive entry ${entry.name} leaves the tool folder`);
     }
     const file = path.join(destination, ...relative);
     await mkdir(path.dirname(file), { recursive: true });
@@ -79,7 +79,7 @@ export const writeProvisionStamp = async (target: string, version: string): Prom
 
 const run = promisify(execFile);
 
-/** Die Hauptversionen der installierten .NET-Laufzeiten, oder undefined, wenn es kein dotnet gibt. */
+/** The major versions of the installed .NET runtimes, or undefined when there is no dotnet. */
 export const dotnetRuntimeMajors = async (): Promise<readonly number[] | undefined> => {
   const output = await run("dotnet", ["--list-runtimes"], { maxBuffer: 4 * 1024 * 1024 }).catch(() => undefined);
   if (!output) return undefined;
@@ -87,5 +87,5 @@ export const dotnetRuntimeMajors = async (): Promise<readonly number[] | undefin
   return [...new Set(majors)].sort((left, right) => left - right);
 };
 
-export const DOTNET_INSTRUCTION = "dotnet fehlt auf diesem Rechner; das .NET-SDK von https://dotnet.microsoft.com/download "
-  + "installieren und dafür sorgen, dass dotnet im PATH steht";
+export const DOTNET_INSTRUCTION = "dotnet is missing on this machine; install the .NET SDK from https://dotnet.microsoft.com/download "
+  + "and make sure dotnet is on the PATH";

@@ -25,7 +25,7 @@ interface DiffCodeProps {
   path?: string;
 }
 
-export function DiffCode({ content, emptyText = "Keine textuelle Differenz verfügbar.", language, path }: DiffCodeProps) {
+export function DiffCode({ content, emptyText = "No textual diff available.", language, path }: DiffCodeProps) {
   const files = useMemo(() => {
     try {
       return parseDiff(withHeader(content, path), { nearbySequences: "zip" });
@@ -72,7 +72,7 @@ function DiffFile({ file, language, path, showName }: DiffFileProps) {
 const withHeader = (content: string, path: string | undefined) =>
   /^(diff --git|--- )/m.test(content) || !content.startsWith("@@")
     ? content
-    : `--- a/${path ?? "datei"}\n+++ b/${path ?? "datei"}\n${content}`;
+    : `--- a/${path ?? "file"}\n+++ b/${path ?? "file"}\n${content}`;
 
 const tokensFor = (file: FileData, path: string, language: string | undefined): HunkTokens | undefined => {
   const resolved = resolveLanguage(path, language);

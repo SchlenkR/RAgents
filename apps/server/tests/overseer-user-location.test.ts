@@ -35,7 +35,7 @@ const fixture = async (t: TestContext, existingDirectory?: string) => {
   const services = { ...testServices(), newId: (kind: string) => `${kind}-${randomUUID()}` };
   const journal = new Journal(path.join(directory, "journal"), services);
   const runtime = new Orchestration(journal, services);
-  for (const [runId, title, handle] of [["first-run", "Einkaufsliste", "listenhelfer"], ["second-run", "CSV-Import prüfen", "pruefer"]]) {
+  for (const [runId, title, handle] of [["first-run", "Shopping list", "listhelper"], ["second-run", "Check CSV import", "reviewer"]]) {
     if (journal.stateOf(runId!)) continue;
     const created = runtime.createRun({ commandId: `create:${runId}` }, { runId, title: title!, ownerHandle: "owner", ownerDisplayName: "Owner" });
     runtime.spawnAgent({ actorId: created.ownerId, commandId: `actor:${runId}` }, created.id, {
@@ -64,7 +64,7 @@ const fixture = async (t: TestContext, existingDirectory?: string) => {
   const scheduler = new TurnScheduler(runtime, journal, {
     drivers: { agent: driver }, catalog, live, workspaces: new FixedWorkspaces(directory),
     basePrompt: (runId, actor) => runId === OVERSEER_RUN_ID
-      ? `Globaler Koordinator\n\n${policy.contextPrompt!(runtime, runId, actor)}` : "Normaler Run ohne Standortkontext",
+      ? `Global coordinator\n\n${policy.contextPrompt!(runtime, runId, actor)}` : "Ordinary run without location context",
     onError: (error) => errors.push(error),
   });
   const engine = { runtime, journal, scheduler, catalog, live, catalogModels: offered, startOptions: new StartOptionContributionRegistry() } as unknown as Engine;
@@ -72,9 +72,9 @@ const fixture = async (t: TestContext, existingDirectory?: string) => {
   const sessionFor = (id: string) => {
     const session = new RunChatSession({
       id, engine,
-      coordinator: { handle: "coordinator", displayName: "Koordinator", profile: "coordinator", runTitle: "Global", ownerHandle: "owner", ownerDisplayName: "Owner" },
+      coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "coordinator", runTitle: "Global", ownerHandle: "owner", ownerDisplayName: "Owner" },
       ...(id === OVERSEER_RUN_ID ? { inputContext: policy.inputContext } : {}),
-      prompt: () => "Lokaler Test", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {}, started: async () => {},
+      prompt: () => "Local test", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {}, started: async () => {},
       scriptEntryFor: () => undefined,
       startEntryFor: () => undefined,
       actorPrograms: {
@@ -111,15 +111,15 @@ test("queued global messages keep their own location snapshots and leave visible
   const chat: ChatEvent[] = [];
   data.session.subscribe((event) => chat.push(event));
   const firstLocation = data.location("first-run");
-  const firstText = "Was macht dieser Actor gerade?";
-  const secondText = "Und was passiert hier?";
-  const thirdText = "Eine Frage ohne Standort";
+  const firstText = "What is this actor doing right now?";
+  const secondText = "And what is happening here?";
+  const thirdText = "A question without a location";
   await data.session.send(firstText, [], firstLocation);
   await data.session.send(secondText, [], data.location("second-run"));
   await data.session.send(thirdText);
   firstLocation.selection!.id = data.actorIn("second-run").id;
   const firstRun = data.runtime.view("first-run");
-  data.runtime.retitleRun({ actorId: firstRun.ownerId, commandId: "later-title" }, firstRun.id, "Später geänderter Titel");
+  data.runtime.retitleRun({ actorId: firstRun.ownerId, commandId: "later-title" }, firstRun.id, "Title changed later");
   const queued = data.runtime.view(OVERSEER_RUN_ID).inputs;
   assert.deepEqual(queued.map((input) => input.content), [firstText, secondText, thirdText]);
   assert.ok(queued.every((input) => input.lifecycle.kind === "pending"));
@@ -130,24 +130,24 @@ test("queued global messages keep their own location snapshots and leave visible
   assert.deepEqual(data.errors, []);
   assert.equal(data.driver.requests.length, 3);
   const [first, second, third] = data.driver.requests;
-  assert.match(first!.systemPrompt, /Run: Run 1, Titel "Einkaufsliste"/);
-  assert.match(first!.systemPrompt, /Actor @listenhelfer/);
-  assert.match(first!.systemPrompt, /Geöffneter Bereich: "ragents.orchestration"/);
-  assert.doesNotMatch(first!.systemPrompt, /Später geänderter Titel|@pruefer|CSV-Import/);
-  assert.match(second!.systemPrompt, /Run: Run 2, Titel "CSV-Import prüfen"/);
-  assert.match(second!.systemPrompt, /Actor @pruefer/);
-  assert.doesNotMatch(second!.systemPrompt, /@listenhelfer|Einkaufsliste/);
-  assert.match(third!.systemPrompt, /Kein Oberflächenkontext.*Frühere Standortangaben gelten nicht als aktuell/s);
-  assert.doesNotMatch(third!.systemPrompt, /Run: Run \d|@listenhelfer|@pruefer|CSV-Import/);
+  assert.match(first!.systemPrompt, /Run: Run 1, title "Shopping list"/);
+  assert.match(first!.systemPrompt, /Actor @listhelper/);
+  assert.match(first!.systemPrompt, /Open area: "ragents.orchestration"/);
+  assert.doesNotMatch(first!.systemPrompt, /Title changed later|@reviewer|CSV import/);
+  assert.match(second!.systemPrompt, /Run: Run 2, title "Check CSV import"/);
+  assert.match(second!.systemPrompt, /Actor @reviewer/);
+  assert.doesNotMatch(second!.systemPrompt, /@listhelper|Shopping list/);
+  assert.match(third!.systemPrompt, /No interface context.*Earlier location details do not count as current/s);
+  assert.doesNotMatch(third!.systemPrompt, /Run: Run \d|@listhelper|@reviewer|CSV import/);
   assert.deepEqual(data.driver.requests.map((request) => request.input.content), [firstText, secondText, thirdText]);
   assert.equal(data.runtime.view(OVERSEER_RUN_ID).turns.length, 3);
 });
 
 test("journal reload preserves each pending input's location binding instead of reading the latest plugin state", async (t) => {
   const first = await fixture(t);
-  await first.session.send("Hier prüfen", [], first.location("first-run"));
-  await first.session.send("Noch eine Frage hier", [], first.location("first-run"));
-  await first.session.send("Jetzt die Übersicht", [], { page: "overview", runId: null, tab: null, selection: null });
+  await first.session.send("Check here", [], first.location("first-run"));
+  await first.session.send("Another question here", [], first.location("first-run"));
+  await first.session.send("Now the overview", [], { page: "overview", runId: null, tab: null, selection: null });
   const before = first.runtime.view(OVERSEER_RUN_ID).inputs.map((input) => ({ id: input.id, sourceEventIds: input.sourceEventIds }));
   assert.equal(locationEvents(first.runtime).length, 3);
   assert.equal(locationEvents(first.runtime)[1].type, "plugin.state-patched");
@@ -159,33 +159,33 @@ test("journal reload preserves each pending input's location binding instead of 
   await restored.scheduler.waitForIdle();
   assert.deepEqual(restored.errors, []);
   assert.equal(restored.driver.requests.length, 3);
-  assert.match(restored.driver.requests[0]!.systemPrompt, /Run: Run 1, Titel "Einkaufsliste"/);
-  assert.match(restored.driver.requests[0]!.systemPrompt, /@listenhelfer/);
-  assert.match(restored.driver.requests[1]!.systemPrompt, /Run: Run 1, Titel "Einkaufsliste"/);
-  assert.match(restored.driver.requests[2]!.systemPrompt, /Oberfläche: Run-Übersicht/);
-  assert.doesNotMatch(restored.driver.requests[2]!.systemPrompt, /Einkaufsliste|@listenhelfer/);
+  assert.match(restored.driver.requests[0]!.systemPrompt, /Run: Run 1, title "Shopping list"/);
+  assert.match(restored.driver.requests[0]!.systemPrompt, /@listhelper/);
+  assert.match(restored.driver.requests[1]!.systemPrompt, /Run: Run 1, title "Shopping list"/);
+  assert.match(restored.driver.requests[2]!.systemPrompt, /Interface: run overview/);
+  assert.doesNotMatch(restored.driver.requests[2]!.systemPrompt, /Shopping list|@listhelper/);
   await restored.close();
 });
 
 test("ordinary run messages receive no global location context and reject a supplied location", async (t) => {
   const data = await fixture(t);
   const ordinary = data.sessionFor("ordinary-run");
-  await assert.rejects(ordinary.send("Nicht senden", [], home), (error) => error instanceof DomainError && error.code === "chat-context-unavailable");
+  await assert.rejects(ordinary.send("Do not send", [], home), (error) => error instanceof DomainError && error.code === "chat-context-unavailable");
   assert.equal(data.journal.stateOf("ordinary-run"), null);
-  await ordinary.send("Normale Nachricht");
+  await ordinary.send("Ordinary message");
   assert.deepEqual(data.runtime.view("ordinary-run").inputs[0]!.sourceEventIds, []);
   assert.equal(data.runtime.events("ordinary-run").some((event) => event.type === "plugin.state-replaced" && event.payload.pluginId === OVERSEER_PLUGIN_ID), false);
   data.scheduler.start();
   await data.scheduler.waitForIdle();
   assert.deepEqual(data.errors, []);
   assert.equal(data.driver.requests.length, 1);
-  assert.match(data.driver.requests[0]!.systemPrompt, /Normaler Run/);
-  assert.doesNotMatch(data.driver.requests[0]!.systemPrompt, /Oberflächenkontext|Run 1|listenhelfer/);
+  assert.match(data.driver.requests[0]!.systemPrompt, /Ordinary run/);
+  assert.doesNotMatch(data.driver.requests[0]!.systemPrompt, /[Ii]nterface context|Run 1|listhelper/);
 });
 
 test("invalid and oversized user locations are rejected before any message or location event is queued", async (t) => {
   const data = await fixture(t);
-  await data.session.send("Gültiger Beginn", [], home);
+  await data.session.send("Valid start", [], home);
   const valid = data.location("first-run");
   const invalid = [
     null, {}, [], "run", { ...home, extra: true }, { ...home, page: "unknown" },
@@ -201,7 +201,7 @@ test("invalid and oversized user locations are rejected before any message or lo
   ];
   for (const location of invalid) {
     assert.throws(() => parseUserLocation(location), (error) => error instanceof DomainError && error.code === "invalid-user-location");
-    await assert.rejects(data.session.send("Ungültige Nachricht", [], location), (error) => error instanceof DomainError && error.code === "invalid-user-location");
+    await assert.rejects(data.session.send("Invalid message", [], location), (error) => error instanceof DomainError && error.code === "invalid-user-location");
   }
   assert.equal(data.runtime.view(OVERSEER_RUN_ID).inputs.length, 1);
   assert.equal(locationEvents(data.runtime).length, 1);
@@ -212,22 +212,22 @@ test("invalid and oversized user locations are rejected before any message or lo
 test("foreign or stale selections and unavailable runs never invent an actor or disclose another run", async (t) => {
   const data = await fixture(t);
   const first = data.location("first-run");
-  await data.session.send("Fremde Actor-Auswahl", [], { ...first, selection: { type: "actor", id: data.actorIn("second-run").id } });
-  await data.session.send("Veraltete Auswahl", [], { ...first, selection: { type: "actor", id: "removed-actor" } });
-  await data.session.send("Unbekannte Auswahlart", [], { ...first, selection: { type: "unrecognized", id: data.actorIn("first-run").id } });
+  await data.session.send("Foreign actor selection", [], { ...first, selection: { type: "actor", id: data.actorIn("second-run").id } });
+  await data.session.send("Stale selection", [], { ...first, selection: { type: "actor", id: "removed-actor" } });
+  await data.session.send("Unknown selection type", [], { ...first, selection: { type: "unrecognized", id: data.actorIn("first-run").id } });
   data.available.delete("second-run");
-  await data.session.send("Nicht verfügbarer Run", [], data.location("second-run"));
+  await data.session.send("Unavailable run", [], data.location("second-run"));
   data.scheduler.start();
   await data.scheduler.waitForIdle();
   assert.deepEqual(data.errors, []);
   assert.equal(data.driver.requests.length, 4);
   for (const request of data.driver.requests.slice(0, 3)) {
-    assert.match(request.systemPrompt, /Run: Run 1, Titel "Einkaufsliste"/);
-    assert.match(request.systemPrompt, /Element inzwischen nicht mehr vorhanden oder hier nicht auflösbar/);
-    assert.doesNotMatch(request.systemPrompt, /@pruefer|@listenhelfer|CSV-Import/);
+    assert.match(request.systemPrompt, /Run: Run 1, title "Shopping list"/);
+    assert.match(request.systemPrompt, /Element no longer exists or cannot be resolved here/);
+    assert.doesNotMatch(request.systemPrompt, /@reviewer|@listhelper|CSV import/);
   }
-  assert.match(data.driver.requests[3]!.systemPrompt, /geöffnete Run ist inzwischen nicht mehr verfügbar/);
-  assert.doesNotMatch(data.driver.requests[3]!.systemPrompt, /Run 2|@pruefer|CSV-Import/);
+  assert.match(data.driver.requests[3]!.systemPrompt, /run that was open when sending is no longer available/);
+  assert.doesNotMatch(data.driver.requests[3]!.systemPrompt, /Run 2|@reviewer|CSV import/);
 });
 
 test("the chat method forwards user location separately and reports a client error for malformed context", async (t) => {
@@ -237,14 +237,14 @@ test("the chat method forwards user location separately and reports a client err
     hasRun: () => true,
   })).find((entry) => entry.contract.id === coreContracts.chat.send.id)!;
   const message = (body: Record<string, unknown>) => send.execute({ runId: OVERSEER_RUN_ID, ...body } as never, methodContext());
-  await message({ text: "Hier nachsehen", userLocation: data.location("first-run") });
-  await assert.rejects(message({ text: "Falscher Kontext", userLocation: { ...home, page: ["home"] } }),
+  await message({ text: "Look here", userLocation: data.location("first-run") });
+  await assert.rejects(message({ text: "Wrong context", userLocation: { ...home, page: ["home"] } }),
     (error: unknown) => error instanceof DomainError && error.status === 400);
-  assert.deepEqual(data.runtime.view(OVERSEER_RUN_ID).inputs.map((input) => input.content), ["Hier nachsehen"]);
+  assert.deepEqual(data.runtime.view(OVERSEER_RUN_ID).inputs.map((input) => input.content), ["Look here"]);
   data.scheduler.start();
   await data.scheduler.waitForIdle();
   assert.deepEqual(data.errors, []);
   assert.equal(data.driver.requests.length, 1);
-  assert.match(data.driver.requests[0]!.systemPrompt, /Run: Run 1, Titel "Einkaufsliste"/);
-  assert.match(data.driver.requests[0]!.systemPrompt, /@listenhelfer/);
+  assert.match(data.driver.requests[0]!.systemPrompt, /Run: Run 1, title "Shopping list"/);
+  assert.match(data.driver.requests[0]!.systemPrompt, /@listhelper/);
 });

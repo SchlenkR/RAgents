@@ -8,15 +8,15 @@ export const RUN_FOLDER_OPERATIONS = {
 } as const;
 
 export interface RunFolderCreated {
-  /** Ob der Ordner eben entstanden ist; ein schon vorhandener bleibt, wie er ist. */
+  /** Whether the folder was just created; an existing one stays as it is. */
   created: boolean;
 }
 
-/** Der neue Ordner je Run auf dieser Maschine; nur ein Executor, der einen Ordner für Runs kennt, legt ihn an, und nur diesen einen je Run. */
+/** The new folder per run on this machine; only an executor that knows a folder for runs creates it, and only this one per run. */
 export const runFolderModule = (folderOf: ((runId: string) => string) | undefined): WorkspaceModuleFactory => () => {
   const folder = (runId: string): string => {
     if (!folderOf) {
-      throw new WorkspaceOperationError("run-folder-unavailable", "Dieser Executor legt keine Ordner je Run an; auf dem Server tut das der Host", 409);
+      throw new WorkspaceOperationError("run-folder-unavailable", "This executor creates no folders per run; on the server the host does that", 409);
     }
     return folderOf(runId);
   };

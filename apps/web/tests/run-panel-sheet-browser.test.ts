@@ -17,7 +17,7 @@ test("the floating chat sheet keeps its complete composer visible and remembers 
     bundle: true, platform: "browser", format: "iife", jsx: "automatic", outfile: `${directory}/fixture.js`,
     plugins: [tailwindPlugin([`${root}apps/web/src`, `${root}plugins/ragents.orchestration/web`])], logLevel: "silent",
   });
-  await writeFile(`${directory}/index.html`, '<!doctype html><html><head><link rel="stylesheet" href="fixture.css"><style>html,body{height:100%;margin:0}#root{height:calc(100% - 40px);display:flex}#outside{height:40px}</style></head><body><button id="outside">Außerhalb</button><div id="root"></div><script src="fixture.js"></script></body></html>');
+  await writeFile(`${directory}/index.html`, '<!doctype html><html><head><link rel="stylesheet" href="fixture.css"><style>html,body{height:100%;margin:0}#root{height:calc(100% - 40px);display:flex}#outside{height:40px}</style></head><body><button id="outside">Outside</button><div id="root"></div><script src="fixture.js"></script></body></html>');
   const browser = await chromium.launch({ headless: true, executablePath: process.env.BROWSER_EXECUTABLE_PATH ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" });
   try {
     const page = await browser.newPage({ viewport: { width: 600, height: 850 }, reducedMotion: "reduce" });
@@ -138,7 +138,7 @@ test("the floating chat sheet keeps its complete composer visible and remembers 
       root.style.width = "346.5px";
       root.style.setProperty("--qsl-chat-font-size", "13.3px");
     });
-    await input.fill("Eine längere Eingabe, die bei schmaler Breite mehrere Zeilen benötigt.\nZweite Zeile\nDritte Zeile\nVierte Zeile");
+    await input.fill("A longer input that needs several lines at a narrow width.\nSecond line\nThird line\nFourth line");
     await collapse();
     await visibleComposer();
     await page.screenshot({ path: `${directory}/narrow-composer.png` });

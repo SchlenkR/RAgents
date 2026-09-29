@@ -32,7 +32,7 @@ test("echo uses its declared operation", async()=>{
 });
 test("a mock answer outside its contract names the field", async()=>{
  const context=createTestContext({state:{},functions:{demo_echo:()=>({echoed:1} as never)}});
- await assert.rejects(async()=>app.functions.echo({text:"mock"},context),/Testantwort verletzt den Vertrag von demo_echo: echoed must be string, got 1/);
+ await assert.rejects(async()=>app.functions.echo({text:"mock"},context),/Test response violates the contract of demo_echo: echoed must be string, got 1/);
 });`,
   });
   const context = { actorId: setup.view.ownerId, commandId: "activate" };

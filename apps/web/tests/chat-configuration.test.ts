@@ -5,8 +5,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { ChatMessages, type Message } from "quassel";
 
 const messages: Message[] = [
-  { key: "question", role: "user", text: "Meine Frage", sender: "owner", at: "2026-09-22T14:05:00Z" },
-  { key: "answer", role: "assistant", text: "Meine Antwort", sender: "helper", at: "2026-09-22T14:06:00Z", closed: true },
+  { key: "question", role: "user", text: "My question", sender: "owner", at: "2026-09-22T14:05:00Z" },
+  { key: "answer", role: "assistant", text: "My answer", sender: "helper", at: "2026-09-22T14:06:00Z", closed: true },
 ];
 
 const render = (options: Partial<ComponentProps<typeof ChatMessages>> = {}) =>
@@ -17,7 +17,7 @@ const buttons = (html: string, label: string) => [...html.matchAll(/<button\b[^>
 test("default chat appearance keeps timestamps hidden and copying limited to user messages", () => {
   const html = render();
   assert.deepEqual(timestamps(html), []);
-  assert.equal(buttons(html, "Nachricht kopieren").length, 1);
+  assert.equal(buttons(html, "Copy message").length, 1);
   assert.doesNotMatch(html, /data-chat="day-separator"|data-chat="sender"/);
   assert.match(html, /data-message="user"/);
   assert.match(html, /data-message="answer"/);
@@ -41,23 +41,23 @@ test("relative timestamps use the configured language", (context) => {
 test("missing and invalid timestamps do not render invalid dates or create day separators", () => {
   const html = render({
     messages: [
-      { key: "missing", role: "user", text: "Ohne Zeit" },
-      { key: "invalid", role: "assistant", text: "Ungültige Zeit", at: "not-a-date", closed: true },
+      { key: "missing", role: "user", text: "Without time" },
+      { key: "invalid", role: "assistant", text: "Invalid time", at: "not-a-date", closed: true },
     ],
     showTimestamps: true,
     timestampOptions: { format: "date-time", locale: "de-DE", timeZone: "UTC", showDaySeparators: true },
   });
   assert.ok(timestamps(html).every((value) => value === ""));
   assert.doesNotMatch(html, /Invalid Date|NaN|not-a-date|data-chat="day-separator"/);
-  assert.match(html, /Ohne Zeit/);
-  assert.match(html, /Ungültige Zeit/);
+  assert.match(html, /Without time/);
+  assert.match(html, /Invalid time/);
 });
 
 test("day separators follow calendar days in the configured time zone", () => {
   const datedMessages: Message[] = [
-    { key: "first", role: "user", text: "Erster Tag", at: "2026-09-22T21:50:00Z" },
-    { key: "second", role: "assistant", text: "Zweiter Tag", at: "2026-09-22T22:10:00Z", closed: true },
-    { key: "third", role: "assistant", text: "Noch derselbe Tag", at: "2026-09-22T22:20:00Z", closed: true },
+    { key: "first", role: "user", text: "First day", at: "2026-09-22T21:50:00Z" },
+    { key: "second", role: "assistant", text: "Second day", at: "2026-09-22T22:10:00Z", closed: true },
+    { key: "third", role: "assistant", text: "Still the same day", at: "2026-09-22T22:20:00Z", closed: true },
   ];
   const renderDays = (timeZone: string) => render({ messages: datedMessages, timestampOptions: { locale: "de-DE", timeZone, showDaySeparators: true } });
   assert.equal((renderDays("UTC").match(/data-chat="day-separator"/g) ?? []).length, 1);
@@ -68,8 +68,8 @@ test("day separators follow calendar days in the configured time zone", () => {
 test("grouped steps split at calendar boundaries when day separators are enabled", () => {
   const html = render({
     messages: [
-      { key: "first-step", role: "thinking", text: "Erster Gedanke", at: "2026-09-22T23:59:00Z", closed: true },
-      { key: "second-step", role: "thinking", text: "Zweiter Gedanke", at: "2026-09-23T00:01:00Z", closed: true },
+      { key: "first-step", role: "thinking", text: "First thought", at: "2026-09-22T23:59:00Z", closed: true },
+      { key: "second-step", role: "thinking", text: "Second thought", at: "2026-09-23T00:01:00Z", closed: true },
     ],
     detailMode: "grouped",
     timestampOptions: { timeZone: "UTC", showDaySeparators: true },
@@ -79,49 +79,49 @@ test("grouped steps split at calendar boundaries when day separators are enabled
 });
 
 test("message copy controls can be disabled, enabled for all text, or selected per message", () => {
-  assert.equal(buttons(render({ messageActions: { copy: false } }), "Nachricht kopieren").length, 0);
-  assert.equal(buttons(render({ messageActions: { copy: true } }), "Nachricht kopieren").length, 2);
-  assert.equal(buttons(render({ messageActions: { copy: (message) => message.role === "assistant" } }), "Nachricht kopieren").length, 1);
+  assert.equal(buttons(render({ messageActions: { copy: false } }), "Copy message").length, 0);
+  assert.equal(buttons(render({ messageActions: { copy: true } }), "Copy message").length, 2);
+  assert.equal(buttons(render({ messageActions: { copy: (message) => message.role === "assistant" } }), "Copy message").length, 1);
 });
 
 test("edit and retry actions only appear when supplied by the host", () => {
-  assert.equal(buttons(render(), "Nachricht bearbeiten").length, 0);
-  assert.equal(buttons(render(), "Antwort erneut anfordern").length, 0);
+  assert.equal(buttons(render(), "Edit message").length, 0);
+  assert.equal(buttons(render(), "Request answer again").length, 0);
   const html = render({ messageActions: { edit: () => {}, retry: () => {} } });
-  assert.equal(buttons(html, "Nachricht bearbeiten").length, 1);
-  assert.equal(buttons(html, "Antwort erneut anfordern").length, 1);
+  assert.equal(buttons(html, "Edit message").length, 1);
+  assert.equal(buttons(html, "Request answer again").length, 1);
 });
 
 test("custom actions preserve host labels and disabled state", () => {
   const html = render({ messageActions: { custom: (message) => message.role === "assistant" ? [
-    { id: "save", label: "Antwort ablegen", disabled: true, onClick: () => {} },
+    { id: "save", label: "File answer", disabled: true, onClick: () => {} },
   ] : [] } });
-  const customButtons = buttons(html, "Antwort ablegen");
+  const customButtons = buttons(html, "File answer");
   assert.equal(customButtons.length, 1);
   assert.match(customButtons[0][0], /disabled=""/);
 });
 
 test("plain appearance suppresses explicit bubbles while preserving message content", () => {
   const html = render({
-    messages: messages.map((message) => ({ ...message, bubble: { color: "#123456", side: "end", label: "Expliziter Name" } })),
+    messages: messages.map((message) => ({ ...message, bubble: { color: "#123456", side: "end", label: "Explicit name" } })),
     bubbleOptions: { variant: "plain" },
   });
   assert.doesNotMatch(html, /data-message="bubble"|data-message="user"|background:#123456/);
-  assert.match(html, /Meine Frage/);
-  assert.match(html, /Meine Antwort/);
+  assert.match(html, /My question/);
+  assert.match(html, /My answer/);
 });
 
 test("bubble options expose alignment, width and resolved sender labels", () => {
   const html = render({ bubbleOptions: {
     variant: "bubbles", maxWidth: "72%", userSide: "start", assistantSide: "end", showSender: true,
-    senderLabel: (message) => message.sender === "owner" ? "Alice" : "Helfer",
+    senderLabel: (message) => message.sender === "owner" ? "Alice" : "Helper",
   } });
   assert.match(html, /data-side="start"/);
   assert.match(html, /data-side="end"/);
   assert.match(html, /72%/);
   assert.equal((html.match(/data-chat="sender"/g) ?? []).length, 2);
   assert.match(html, /Alice/);
-  assert.match(html, /Helfer/);
+  assert.match(html, /Helper/);
 });
 
 test("chat typography keeps numeric line height unitless and numeric gaps in pixels", () => {
@@ -135,9 +135,9 @@ test("chat typography keeps numeric line height unitless and numeric gaps in pix
 test("code block settings leave inline code alone and offer optional block copying", () => {
   const codeMessages: Message[] = [{ key: "code", role: "assistant", text: "Inline `value`\n\n```ts\nconst value = 42;\n```", closed: true }];
   const plain = render({ messages: codeMessages });
-  assert.equal(buttons(plain, "Code kopieren").length, 0);
+  assert.equal(buttons(plain, "Copy code").length, 0);
   const html = render({ messages: codeMessages, codeBlockOptions: { wrap: true, maxHeight: 120, showCopyButton: true } });
-  assert.equal(buttons(html, "Code kopieren").length, 1);
+  assert.equal(buttons(html, "Copy code").length, 1);
   assert.equal((html.match(/data-chat="code-block"/g) ?? []).length, 1);
   assert.match(html, /max-height:120px/);
   assert.match(html, /white-space:pre-wrap|whitespace-pre-wrap/);

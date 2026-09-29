@@ -16,7 +16,7 @@ export interface StdioTransport {
   close: (reason: string) => void;
 }
 
-/** JSON-RPC über stdin und stdout, eine Nachricht je Zeile; der Aufrufer gilt als vertraut. */
+/** JSON-RPC over stdin and stdout, one message per line; the caller counts as trusted. */
 export const startStdioTransport = (options: StdioTransportOptions): StdioTransport => {
   const write = (message: unknown) => new Promise<void>((resolve, reject) => {
     options.output.write(`${JSON.stringify(message)}\n`, (error) => error ? reject(error) : resolve());
@@ -36,9 +36,9 @@ export const startStdioTransport = (options: StdioTransportOptions): StdioTransp
     try {
       peer.receive(JSON.parse(line));
     } catch {
-      void write(rpcFailure(null, RPC_ERROR_CODES.parse, "Die Zeile enthält kein gültiges JSON")).catch(() => undefined);
+      void write(rpcFailure(null, RPC_ERROR_CODES.parse, "The line does not contain valid JSON")).catch(() => undefined);
     }
   });
-  lines.on("close", () => close("Die Eingabe wurde geschlossen"));
+  lines.on("close", () => close("The input was closed"));
   return { connection, closed, close };
 };

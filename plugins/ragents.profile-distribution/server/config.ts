@@ -9,7 +9,7 @@ export const profileDistributionConfigDescriptors = [
 
 const env = declaredEnvironment(profileDistributionConfigDescriptors);
 
-/** Der Pfad gilt relativ zur Server-Profildatei, damit beide Dateien nebeneinander liegen können. */
+/** The path is relative to the server profile file so both files can sit next to each other. */
 const resolveClientProfileFile = (): string | undefined => {
   const value = env.optional("CLIENT_PROFILE_FILE");
   if (!value) return undefined;
@@ -21,7 +21,7 @@ export const profileDistributionConfig = Object.freeze({
   clientProfileFile: resolveClientProfileFile,
   hostVersion: () => {
     const value = env.optional("HOST_VERSION");
-    if (value !== undefined && !/^[0-9a-f]{40}$/.test(value)) throw new Error(`HOST_VERSION muss ein vollständiger Git-Commit sein, nicht "${value}"`);
+    if (value !== undefined && !/^[0-9a-f]{40}$/.test(value)) throw new Error(`HOST_VERSION must be a full Git commit, not "${value}"`);
     return value;
   },
 });

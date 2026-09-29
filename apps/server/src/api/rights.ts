@@ -4,30 +4,30 @@ import type { RunRightsKind } from "@ragents/engine/src/http/methods";
 import type { RunListScope } from "../chat-handler.js";
 
 export interface GlobalRunPolicy {
-  /** Jede Kennung, die einem globalen Koordinator vorbehalten ist. */
+  /** Every id reserved for a global coordinator. */
   isCoordinator: (runId: string) => boolean;
-  /** Der Koordinator eines Benutzers; ohne Anmeldung (null) gibt es genau einen. */
+  /** A user's coordinator; without sign-in (null) there is exactly one. */
   runIdFor: (userId: string | null) => string;
   read: string;
   write: string;
 }
 
-/** Der Koordinator eines Zugangs: ohne Anmeldung der eine, angemeldet der des Benutzers, ohne Benutzer keiner. */
+/** The coordinator of an access: without sign-in the one, signed in that of the user, without a user none. */
 export const coordinatorRunIdOf = (access: AccessContext, global: GlobalRunPolicy): string | undefined =>
   !access.enabled ? global.runIdFor(null) : access.user ? global.runIdFor(access.user.id) : undefined;
 
-/** Das Recht, die Runs aller Benutzer zu sehen; ohne es bleibt ein Zugang bei seinen eigenen. */
+/** The right to see the runs of all users; without it, an access stays with its own. */
 export const RUNS_READ_ALL = "runs.read.all";
 
 export interface RunAccessPolicy {
   global: GlobalRunPolicy | undefined;
-  /** Der Benutzer des Runs: null für einen Run ohne Eigentümer, undefined für einen Run, den es noch nicht gibt. */
+  /** The user of the run: null for a run without an owner, undefined for a run that does not exist yet. */
   ownerOf: (runId: string) => string | null | undefined;
-  /** Ob nur der Eigentümer den Run bedient, weil ein Plugin ihn so erklärt hat. */
+  /** Whether only the owner operates the run, because a plugin declared it so. */
   ownerOnly: (runId: string) => boolean;
 }
 
-/** Rechte je Run: gewöhnliche Runs über runs.*, die Koordinatoren über die Rechte ihres Plugins. */
+/** Rights per run: ordinary runs through runs.*, the coordinators through the rights of their plugin. */
 export const runRights = (runId: string, kind: RunRightsKind, global: GlobalRunPolicy | undefined): readonly string[] => {
   if (global?.isCoordinator(runId)) {
     const technical = kind === "inspect" || kind === "write-inspect" ? ["runs.inspect"] : [];
@@ -42,25 +42,25 @@ export const runRights = (runId: string, kind: RunRightsKind, global: GlobalRunP
   }
 };
 
-/** Ein Run gehört dem Zugang: ohne Anmeldung gibt es nur einen, runs.read.all sieht alle; ein Koordinator gehört nur seinem Benutzer. */
+/** A run belongs to the access: without sign-in there is only one, runs.read.all sees all; a coordinator belongs only to its user. */
 export const runOwned = (access: AccessContext, runId: string, policy: RunAccessPolicy): boolean =>
   policy.global?.isCoordinator(runId)
     ? runId === coordinatorRunIdOf(access, policy.global)
     : !access.enabled || access.can(RUNS_READ_ALL) || policy.ownerOf(runId) === access.user?.id;
 
-/** Erreichbar ist zusätzlich eine Kennung ohne Run: sie gehört erst dem, der den Run unter ihr anlegt; eine Koordinatorkennung nie einem anderen. */
+/** Also reachable is an id without a run: it belongs only to whoever creates the run under it; a coordinator id never to anyone else. */
 export const runReachable = (access: AccessContext, runId: string, policy: RunAccessPolicy): boolean =>
   runOwned(access, runId, policy) || (!policy.global?.isCoordinator(runId) && policy.ownerOf(runId) === undefined);
 
-/** Bedienen heißt schreiben, starten und antworten; einen Run, den nur sein Eigentümer bedient, bedient auch runs.read.all nicht. */
+/** Operating means writing, starting and answering; a run operated only by its owner is not operated by runs.read.all either. */
 export const runOperable = (access: AccessContext, runId: string, policy: RunAccessPolicy): boolean =>
   !access.enabled || !policy.ownerOnly(runId) || policy.ownerOf(runId) === access.user?.id;
 
-/** Der Arbeitsbereich eines Runs, den nur sein Eigentümer bedient, liegt bei ihm; auch lesend erreicht ihn nur er, das Journal lesen weiter alle, die den Run sehen. */
+/** The workspace of a run operated only by its owner stays with the owner; only the owner reaches it, even for reading, while everyone who sees the run can still read the journal. */
 export const runWorkspaceAccessible = (access: AccessContext, runId: string, policy: RunAccessPolicy): boolean =>
   runOperable(access, runId, policy);
 
-/** Die Run-Liste eines Zugangs: sichtbar, was ihm gehört, erreichbar nur der Arbeitsbereich, den er auch lesen darf. */
+/** The run list of an access: visible is what belongs to it, reachable only the workspace it may also read. */
 export const runListScope = (access: AccessContext, policy: RunAccessPolicy): RunListScope => ({
   visible: (runId) => runOwned(access, runId, policy),
   workspaceAccessible: (runId) => runWorkspaceAccessible(access, runId, policy),
@@ -70,29 +70,29 @@ export const assertRunWorkspaceAccess = (access: AccessContext, runId: string, p
   if (!runWorkspaceAccessible(access, runId, policy)) {
     throw new DomainError(
       "run-workspace-owner-only",
-      `Den Arbeitsbereich des Runs ${runId} sieht nur sein Eigentümer; Journal lesen und den Run stoppen darfst du.`,
+      `Only its owner sees the workspace of run ${runId}; you may read the journal and stop the run.`,
       403,
     );
   }
 };
 
-/** Auslieferungsadressen nennen ihren Run als eigenen Pfadabschnitt: /files/runs/<id>/..., /api/plugins/<plugin>/runs/<id>/... */
+/** Delivery addresses name their run as a separate path segment: /files/runs/<id>/..., /api/plugins/<plugin>/runs/<id>/... */
 export const runIdInPath = (pathname: string): string | undefined =>
   /(?:^|\/)runs\/([A-Za-z0-9_-]{1,64})(?:\/|$)/.exec(pathname)?.[1];
 
-/** Ein fremder Run verhält sich wie ein nicht vorhandener: gleicher Code, gleiche Meldung, gleicher Status. */
+/** A foreign run behaves like a nonexistent one: same code, same message, same status. */
 export const assertRunReachable = (access: AccessContext, runId: string, policy: RunAccessPolicy): void => {
   if (!runReachable(access, runId, policy)) throw new DomainError("run-not-found", `Run ${runId} does not exist.`, 404);
 };
 
-/** Wer den Run sehen darf, erfährt auch, warum er ihn nicht bedienen darf. */
+/** Whoever may see the run also learns why they may not operate it. */
 export const assertRunOperable = (access: AccessContext, runId: string, policy: RunAccessPolicy): void => {
   if (!runOperable(access, runId, policy)) {
-    throw new DomainError("run-owner-only", `Den Run ${runId} bedient nur sein Eigentümer; lesen und stoppen darfst du ihn.`, 403);
+    throw new DomainError("run-owner-only", `Only its owner operates run ${runId}; you may read and stop it.`, 403);
   }
 };
 
-/** Die Prüfung der Nachrichtenschicht: jeder Beitrag mit runId muss den Run erreichen, einer mit runs.write ihn auch bedienen. */
+/** The message layer's check: every contribution with runId must reach the run, one with runs.write must also operate it. */
 export const assertRunAccess = (access: AccessContext, runId: string, operates: boolean, policy: RunAccessPolicy): void => {
   assertRunReachable(access, runId, policy);
   if (operates) assertRunOperable(access, runId, policy);

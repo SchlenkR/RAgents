@@ -13,7 +13,7 @@ const event = <T extends keyof EventPayloads>(sequence: number, type: T, payload
 const started = (sequence: number, input: EventPayloads["tool.call.started"]["input"], turnId = "turn", actorId = "builder", toolCallId = "eval") => event(sequence, "tool.call.started", { turnId, toolCallId, name: "typescript_eval", input }, actorId);
 const complete = (sequence: number, output: EventPayloads["tool.call.completed"]["output"], turnId = "turn", actorId = "builder", toolCallId = "eval") => event(sequence, "tool.call.completed", { turnId, toolCallId, name: "typescript_eval", output }, actorId);
 const view = (turns: RunTurn[] = []): Pick<RunView, "id" | "actors" | "turns"> => ({
-  id: "run", actors: [{ id: "builder", handle: "builder", displayName: "Aufbau", kind: "agent", grants: [], createdAt: at(0) }], turns,
+  id: "run", actors: [{ id: "builder", handle: "builder", displayName: "Builder", kind: "agent", grants: [], createdAt: at(0) }], turns,
 });
 const turn = (overrides: Partial<RunTurn> = {}): RunTurn => ({
   id: "turn", actorId: "builder", inputId: "input", status: "running", startedAt: at(0), finishedAt: null, reason: null,
@@ -21,15 +21,15 @@ const turn = (overrides: Partial<RunTurn> = {}): RunTurn => ({
 });
 
 test("inline executions include original code, JSON results and logs without mutating the journal", () => {
-  const events = [started(1, { code: "context.log('Hallo'); return { value: 3 };" }), complete(3, { result: { value: 3 }, logs: ["Hallo"] })];
+  const events = [started(1, { code: "context.log('Hello'); return { value: 3 };" }), complete(3, { result: { value: 3 }, logs: ["Hello"] })];
   const original = structuredClone(events);
   const [execution] = projectExecutions(events, view());
-  assert.equal(execution?.actorName, "Aufbau");
+  assert.equal(execution?.actorName, "Builder");
   assert.equal(execution?.status, "completed");
-  assert.equal(execution?.code, "context.log('Hallo'); return { value: 3 };");
+  assert.equal(execution?.code, "context.log('Hello'); return { value: 3 };");
   assert.equal(execution?.path, null);
   assert.deepEqual(execution?.result, { value: 3 });
-  assert.deepEqual(execution?.logs, ["Hallo"]);
+  assert.deepEqual(execution?.logs, ["Hello"]);
   assert.equal(executionDuration(execution!, Date.parse(at(8))), "2 s");
   assert.deepEqual(events, original);
 });
@@ -38,12 +38,12 @@ test("path calls retain their source snapshot even when compilation fails", () =
   const [execution] = projectExecutions([
     started(1, { path: "@actors/example/setup.ts" }),
     event(2, "tool.call.source", { turnId: "turn", toolCallId: "eval", path: "@actors/example/setup.ts", code: "const total: number = 'invalid';" }),
-    event(3, "tool.call.failed", { turnId: "turn", toolCallId: "eval", name: "typescript_eval", error: "TypeScript-Prüfung fehlgeschlagen." }),
+    event(3, "tool.call.failed", { turnId: "turn", toolCallId: "eval", name: "typescript_eval", error: "TypeScript check failed." }),
   ], view());
   assert.equal(execution?.status, "failed");
   assert.equal(execution?.code, "const total: number = 'invalid';");
   assert.equal(execution?.path, "@actors/example/setup.ts");
-  assert.equal(execution?.error, "TypeScript-Prüfung fehlgeschlagen.");
+  assert.equal(execution?.error, "TypeScript check failed.");
 });
 
 test("old path-only calls remain explicitly without historical source", () => {
@@ -82,28 +82,28 @@ test("the composite execution key cannot collide when identifiers contain separa
 test("turn interruption closes pending evaluations and preserves the reason", () => {
   const [execution] = projectExecutions([
     started(1, { code: "await new Promise(() => {});" }),
-    event(6, "turn.interrupted", { turnId: "turn", reason: "Vom Benutzer gestoppt." }),
+    event(6, "turn.interrupted", { turnId: "turn", reason: "Stopped by the user." }),
   ], view());
   assert.equal(execution?.status, "interrupted");
   assert.equal(execution?.finishedAt, at(6));
-  assert.equal(execution?.error, "Vom Benutzer gestoppt.");
+  assert.equal(execution?.error, "Stopped by the user.");
 });
 
 test("current turn-call projection and turn end close calls without terminal tool events", () => {
-  const current = turn({ toolCalls: [{ id: "eval", name: "typescript_eval", status: "interrupted", startedAt: at(1), finishedAt: at(4) }], reason: "Unterbrochen." });
+  const current = turn({ toolCalls: [{ id: "eval", name: "typescript_eval", status: "interrupted", startedAt: at(1), finishedAt: at(4) }], reason: "Interrupted." });
   assert.equal(projectExecutions([started(1, { code: "return 0;" })], view([current]))[0]?.status, "interrupted");
-  const finished = turn({ status: "failed", finishedAt: at(5), reason: "Turn fehlgeschlagen." });
+  const finished = turn({ status: "failed", finishedAt: at(5), reason: "Turn failed." });
   const [execution] = projectExecutions([started(1, { code: "return 0;" })], view([finished]));
   assert.equal(execution?.status, "interrupted");
   assert.equal(execution?.finishedAt, at(5));
-  assert.equal(execution?.error, "Turn fehlgeschlagen.");
+  assert.equal(execution?.error, "Turn failed.");
 });
 
 test("a completed evaluation remains completed when its surrounding turn fails later", () => {
   const [execution] = projectExecutions([
     started(1, { code: "return false;" }), complete(2, { result: false, logs: [] }),
-    event(3, "turn.finished", { turnId: "turn", outcome: "failed", reason: "Späterer Fehler." }),
-  ], view([turn({ status: "failed", finishedAt: at(3), reason: "Späterer Fehler." })]));
+    event(3, "turn.finished", { turnId: "turn", outcome: "failed", reason: "Later error." }),
+  ], view([turn({ status: "failed", finishedAt: at(3), reason: "Later error." })]));
   assert.equal(execution?.status, "completed");
   assert.equal(execution?.result, false);
   assert.equal(execution?.error, null);
@@ -113,23 +113,23 @@ test("search includes actor, code, path, logs, errors and JSON results and combi
   const executions = projectExecutions([
     started(1, { path: "setup.ts" }),
     event(2, "tool.call.source", { turnId: "turn", toolCallId: "eval", path: "setup.ts", code: "return { count: 42 };" }),
-    complete(3, { result: { count: 42 }, logs: ["Bereit"] }),
-    started(4, { code: "throw new Error('Kaputt');" }, "failed-turn"),
-    event(5, "tool.call.failed", { turnId: "failed-turn", toolCallId: "eval", name: "typescript_eval", error: "Kaputt" }),
+    complete(3, { result: { count: 42 }, logs: ["Ready"] }),
+    started(4, { code: "throw new Error('Broken');" }, "failed-turn"),
+    event(5, "tool.call.failed", { turnId: "failed-turn", toolCallId: "eval", name: "typescript_eval", error: "Broken" }),
   ], view());
-  for (const query of ["setup.ts", " COUNT ", "42", "Bereit"]) assert.equal(filterExecutions(executions, query, "completed").length, 1);
-  assert.equal(filterExecutions(executions, "Aufbau", "all").length, 2);
-  assert.equal(filterExecutions(executions, "Kaputt", "failed").length, 1);
-  assert.equal(filterExecutions(executions, "Kaputt", "completed").length, 0);
+  for (const query of ["setup.ts", " COUNT ", "42", "Ready"]) assert.equal(filterExecutions(executions, query, "completed").length, 1);
+  assert.equal(filterExecutions(executions, "Builder", "all").length, 2);
+  assert.equal(filterExecutions(executions, "Broken", "failed").length, 1);
+  assert.equal(filterExecutions(executions, "Broken", "completed").length, 0);
 });
 
 test("journal responses reject malformed source and foreign runs", () => {
   const valid = [started(1, { code: "return 1;" })];
   assert.deepEqual(executionEventsFrom(valid, "run"), valid);
-  assert.throws(() => executionEventsFrom(valid, "another-run"), /kein gültiges Journal/);
+  assert.throws(() => executionEventsFrom(valid, "another-run"), /valid journal/);
   const source = event(2, "tool.call.source", { turnId: "turn", toolCallId: "eval", code: "return 1;", path: null });
   for (const invalid of [null, {}, [{ ...source, payload: { ...source.payload, code: 4 } }], [{ ...source, occurredAt: "invalid" }]]) {
-    assert.throws(() => executionEventsFrom(invalid, "run"), /kein gültiges Journal/);
+    assert.throws(() => executionEventsFrom(invalid, "run"), /valid journal/);
   }
   assert.deepEqual(projectExecutions(valid, { ...view(), id: "another-run" }), []);
 });

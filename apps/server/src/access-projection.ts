@@ -2,7 +2,7 @@ import { emptyUsage, type AccessContext, type AccessProjectionRegistry, type Run
 import type { ChatEvent, Message } from "quassel/events";
 import type { ActorConversations } from "./ragents/actor-chat-history.js";
 
-/** Plugin-Zustände und Plugin-Ereignisse zeigt jedes Plugin selbst über seine Zugriffsprojektion (docs/spec/plugins.md, Registrierungen des PluginHost). */
+/** Each plugin shows its own plugin states and plugin events through its access projection (docs/spec/plugins.md, registrations of the PluginHost). */
 export const accessibleRunView = (view: RunView, access: AccessContext, projections: AccessProjectionRegistry): RunView => access.can("runs.inspect") ? view : {
   ...view,
   actors: view.actors.map((actor) => actor.kind === "human" ? { ...actor, grants: [] } : {
@@ -22,7 +22,7 @@ export const accessibleRunView = (view: RunView, access: AccessContext, projecti
   inputs: view.inputs.map((input) => ({ ...input, content: input.enqueuedBy === view.ownerId && input.presentation !== "background" ? input.content : "",
     lifecycle: input.lifecycle.kind === "discarded" ? { ...input.lifecycle, reason: "Verworfen" } : input.lifecycle,
   })),
-  turns: view.turns.map((turn) => ({ ...turn, usage: emptyUsage(), toolCalls: [], reason: turn.reason ? "Die Verarbeitung wurde beendet." : null })),
+  turns: view.turns.map((turn) => ({ ...turn, usage: emptyUsage(), toolCalls: [], reason: turn.reason ? "Processing was stopped." : null })),
   subscriptions: [],
   pluginStates: view.pluginStates.flatMap((entry) => {
     const state = projections.state(entry, access);
@@ -34,13 +34,13 @@ export const accessibleChatEvent = (event: ChatEvent, access: AccessContext, pro
   if (access.can("runs.inspect")) return event;
   if (event.kind === "status" && event.startup?.status === "failed") return {
     ...event,
-    startup: { status: "failed", message: "Der Start konnte nicht abgeschlossen werden. Bitte wende Dich an den zuständigen Betreuer." },
+    startup: { status: "failed", message: "The start could not be completed. Please contact the person responsible." },
   };
   const trace = access.can("runs.trace");
   if (event.kind === "thinking") return trace ? event : { kind: "thinking", delta: "", at: event.at };
   if (event.kind === "tool") return trace ? event : { kind: "tool", id: event.id, name: "", arguments: "", at: event.at };
   if (event.kind === "tool-result") return trace ? event : { kind: "tool-result", id: event.id, result: "", isError: event.isError };
-  if (event.kind === "system") return { ...event, text: "Hinweis zur Verarbeitung. Bei Fragen wende Dich an den zuständigen Agenten." };
+  if (event.kind === "system") return { ...event, text: "Processing notice. If you have questions, contact the responsible agent." };
   if (event.kind !== "plugin") return event;
   return projections.chatEvent(event.pluginId, event, access);
 };

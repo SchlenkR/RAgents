@@ -10,18 +10,18 @@ const RUN_FIELDS = ["title", "description", "order", "guide", "tags", "coordinat
 
 const requiredFile = (directory: string, name: string): string => {
   const file = path.join(directory, name);
-  if (!statSync(file, { throwIfNoEntry: false })?.isFile()) throw new Error(`Dem Run-Script ${directory} fehlt die Datei ${name}`);
+  if (!statSync(file, { throwIfNoEntry: false })?.isFile()) throw new Error(`The run script ${directory} is missing the file ${name}`);
   return file;
 };
 
-/** Die Kopfzeile fixed-start-options ist ein JSON-Objekt in einer Zeile: Startoption-Id auf festen Wert. */
+/** The header line fixed-start-options is a JSON object on one line: start option id to fixed value. */
 const fixedStartOptionsOf = (file: string, value: string | undefined): Readonly<Record<string, JsonValue>> | undefined => {
   if (value === undefined) return undefined;
   let parsed: unknown;
   try { parsed = JSON.parse(value); }
-  catch (error) { throw new Error(`${file}: fixed-start-options ist kein JSON (${error instanceof Error ? error.message : String(error)})`); }
+  catch (error) { throw new Error(`${file}: fixed-start-options is not JSON (${error instanceof Error ? error.message : String(error)})`); }
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-    throw new Error(`${file}: fixed-start-options muss ein JSON-Objekt aus Startoption-Id und Wert sein`);
+    throw new Error(`${file}: fixed-start-options must be a JSON object of start option id and value`);
   }
   return parsed as Record<string, JsonValue>;
 };
@@ -34,7 +34,7 @@ const packageFiles = (directory: string, relative = ""): ActorProgramFile[] =>
       if (!relative && ["actors", "RUN.md"].includes(entry.name)) return [];
       const filePath = path.posix.join(relative, entry.name);
       if (entry.isDirectory()) return packageFiles(directory, filePath);
-      if (!entry.isFile()) throw new Error(`${directory}: ${filePath} ist keine reguläre Paketdatei`);
+      if (!entry.isFile()) throw new Error(`${directory}: ${filePath} is not a regular package file`);
       return [{path: filePath, content: readFileSync(path.join(directory, filePath), "utf8")}];
     });
 
@@ -45,29 +45,29 @@ const filesOf = (directory: string): ActorProgramFile[] => {
 
 const runScriptFrom = (directory: string, name: string, id: string): ScriptStartEntry => {
   if (!PACKAGE_NAME.test(name))
-    throw new Error(`${directory}: der Ordnername ${name} ist kein Handle (Kleinbuchstaben, Ziffern, Bindestrich)`);
+    throw new Error(`${directory}: the folder name ${name} is not a handle (lowercase letters, digits, hyphen)`);
   const runFile = requiredFile(directory, "RUN.md");
-  const {fields} = frontMatterOf(runFile, readFileSync(runFile, "utf8"), "title und description");
+  const {fields} = frontMatterOf(runFile, readFileSync(runFile, "utf8"), "title and description");
   const unknown = [...fields.keys()].filter((key) => !RUN_FIELDS.includes(key));
-  if (unknown.length > 0) throw new Error(`${runFile}: unbekannte Kopfzeilen ${unknown.join(", ")}`);
+  if (unknown.length > 0) throw new Error(`${runFile}: unknown header lines ${unknown.join(", ")}`);
   const title = fields.get("title");
   const description = fields.get("description");
-  if (!title) throw new Error(`${runFile}: title fehlt`);
-  if (!description) throw new Error(`${runFile}: description fehlt`);
+  if (!title) throw new Error(`${runFile}: title is missing`);
+  if (!description) throw new Error(`${runFile}: description is missing`);
   const order = numberOf(runFile, "order", fields.get("order"));
   const guide = fields.get("guide");
   const tags = tagsOf(runFile, fields.get("tags"));
   const category = fields.get("category");
-  if (category !== undefined && !category.trim()) throw new Error(`${runFile}: category ist leer`);
+  if (category !== undefined && !category.trim()) throw new Error(`${runFile}: category is empty`);
   const fixedStartOptions = fixedStartOptionsOf(runFile, fields.get("fixed-start-options"));
   const programsDirectory = path.join(directory, "actors");
   const programsStats = statSync(programsDirectory, {throwIfNoEntry: false});
-  if (programsStats && !programsStats.isDirectory()) throw new Error(`${programsDirectory} muss ein Verzeichnis sein`);
+  if (programsStats && !programsStats.isDirectory()) throw new Error(`${programsDirectory} must be a directory`);
   const programs = programsStats ? readdirSync(programsDirectory, {withFileTypes: true})
     .sort((left, right) => left.name.localeCompare(right.name))
     .map((entry) => {
       if (!entry.isDirectory() || !PACKAGE_NAME.test(entry.name))
-        throw new Error(`${programsDirectory}: ${entry.name} ist kein Actor-Programm-Ordner`);
+        throw new Error(`${programsDirectory}: ${entry.name} is not an actor program folder`);
       return {name: entry.name, files: filesOf(path.join(programsDirectory, entry.name))};
     }) : [];
   return {
@@ -90,16 +90,16 @@ export const runScriptsFromDirectory = (directory: string, idPrefix: string): re
   const resolved = path.resolve(directory);
   let entries;
   try { entries = readdirSync(resolved, {withFileTypes: true}); }
-  catch (error) { throw new Error(`Das Run-Script-Verzeichnis ${resolved} ist nicht lesbar (${error instanceof Error ? error.message : String(error)})`); }
+  catch (error) { throw new Error(`The run script directory ${resolved} is not readable (${error instanceof Error ? error.message : String(error)})`); }
   const packages = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort();
   const stray = entries.filter((entry) => !entry.isDirectory()).map((entry) => entry.name);
-  if (stray.length > 0) throw new Error(`${resolved} enthält Dateien statt Run-Script-Ordner: ${stray.join(", ")}`);
-  if (packages.length === 0) throw new Error(`${resolved} enthält keinen Run-Script-Ordner`);
+  if (stray.length > 0) throw new Error(`${resolved} contains files instead of run script folders: ${stray.join(", ")}`);
+  if (packages.length === 0) throw new Error(`${resolved} contains no run script folder`);
   return packages.map((name) => runScriptFrom(path.join(resolved, name), name, `${idPrefix}.${name}`));
 };
 
 export const runScriptFromDirectory = (directory: string): ScriptStartEntry => {
-  if (!path.isAbsolute(directory)) throw new Error("Das Run-Script-Paket braucht einen absoluten Serverdateipfad");
+  if (!path.isAbsolute(directory)) throw new Error("The run script package needs an absolute server file path");
   const resolved = path.resolve(directory);
   return runScriptFrom(resolved, path.basename(resolved), `local.${path.basename(resolved)}`);
 };

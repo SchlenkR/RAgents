@@ -55,11 +55,11 @@ export const resolveActorView = (programs: readonly ActorProgramDefinition[], re
   const named = views.filter(({ program, view }) => [view.id, `${program.name}/${view.key}`, `@${program.actorHandle}/${view.key}`]
     .some((name) => name.toLowerCase() === normalized));
   const matches = named.length > 0 ? named : views.filter(({ view }) => view.title.toLowerCase() === normalized);
-  const names = (entries: typeof views) => entries.map(({ program, view }) => `${program.name}/${view.key} (@${program.actorHandle}/${view.key})`).join(", ") || "keine";
+  const names = (entries: typeof views) => entries.map(({ program, view }) => `${program.name}/${view.key} (@${program.actorHandle}/${view.key})`).join(", ") || "none";
   if (matches.length === 0) {
-    throw new Error(`${reference} ist keine aktive Actor-Ansicht dieses Runs. Zuerst das Programm aktivieren. Vorhanden: ${names(views)}`);
+    throw new Error(`${reference} is not an active actor view of this run. Activate the program first. Available: ${names(views)}`);
   }
-  if (matches.length > 1) throw new Error(`${reference} ist mehrdeutig. Verwende einen eindeutigen Namen: ${names(matches)}`);
+  if (matches.length > 1) throw new Error(`${reference} is ambiguous. Use a unique name: ${names(matches)}`);
   return matches[0]!;
 };
 
@@ -118,21 +118,21 @@ export interface ActorLocalTool {
   targets: { actorId: string; handle: string | null }[];
 }
 
-const runId = Type.String({ pattern: "^[A-Za-z0-9_-]{1,64}$", description: "Kennung des Runs" });
-const viewId = Type.String({ pattern: "^[a-z][a-z0-9_-]{0,129}$", description: "Kennung der Actor-Ansicht oder des Programms" });
-const actorHandle = Type.String({ pattern: "^[a-z][a-z0-9-]{0,63}$", description: "Handle des Actors ohne @" });
-const functionId = Type.String({ pattern: "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$", description: "Kennung der Funktion" });
-const invocationId = Type.String({ pattern: "^[A-Za-z0-9_-]{1,100}$", description: "Kennung des Funktionsaufrufs" });
-const revision = Type.String({ pattern: "^[a-f0-9]{64}$", description: "Revision des aktiven Actor-Pakets" });
-const requestId = Type.String({ minLength: 1, maxLength: 200, description: "Eigene Kennung des Aufrufers; wiederholte Aufrufe liefern denselben Aufruf" });
-const functionInput = Type.Unknown({ description: "Eingabe der Funktion nach ihrem eigenen Schema" });
+const runId = Type.String({ pattern: "^[A-Za-z0-9_-]{1,64}$", description: "Identifier of the run" });
+const viewId = Type.String({ pattern: "^[a-z][a-z0-9_-]{0,129}$", description: "Identifier of the actor view or the program" });
+const actorHandle = Type.String({ pattern: "^[a-z][a-z0-9-]{0,63}$", description: "Handle of the actor without @" });
+const functionId = Type.String({ pattern: "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$", description: "Identifier of the function" });
+const invocationId = Type.String({ pattern: "^[A-Za-z0-9_-]{1,100}$", description: "Identifier of the function call" });
+const revision = Type.String({ pattern: "^[a-f0-9]{64}$", description: "Revision of the active actor package" });
+const requestId = Type.String({ minLength: 1, maxLength: 200, description: "The caller's own identifier; repeated calls return the same call" });
+const functionInput = Type.Unknown({ description: "Input of the function according to its own schema" });
 
 const invocationSchema = openJson<ActorFunctionInvocation>("ActorFunctionInvocation");
 
 export const actorProgramContracts = {
   apps: defineOperation({
     id: "ragents.actor-programs.apps",
-    description: "Die Actor-Ansichten eines Runs mit Zustand und Aufrufen; die Werkzeugliste bleibt ohne runs.inspect leer.",
+    description: "The actor views of a run with state and calls; the tool list stays empty without runs.inspect.",
     rights: ["runs.read"],
     input: Type.Object({ runId }, { additionalProperties: false }),
     result: Type.Object({
@@ -142,7 +142,7 @@ export const actorProgramContracts = {
   }),
   source: defineOperation({
     id: "ragents.actor-programs.source",
-    description: "Den Quellcode eines Actor-Programms lesen.",
+    description: "Read the source code of an actor program.",
     rights: ["runs.read", "runs.inspect"],
     input: Type.Object({ runId, moduleId: viewId }, { additionalProperties: false }),
     result: Type.Object({
@@ -151,28 +151,28 @@ export const actorProgramContracts = {
   }),
   action: defineOperation({
     id: "ragents.actor-programs.action",
-    description: "Eine Funktion einer Actor-Ansicht starten; die Antwort ist der eingereihte Aufruf.",
+    description: "Start a function of an actor view; the response is the queued call.",
     rights: ["runs.read", "runs.write"],
     input: Type.Object({ runId, appId: viewId, revision, actionId: functionId, requestId, input: functionInput }, { additionalProperties: false }),
     result: invocationSchema,
   }),
   invocation: defineOperation({
     id: "ragents.actor-programs.invocation",
-    description: "Den Stand eines Aufrufs einer Actor-Ansicht lesen.",
+    description: "Read the state of a call of an actor view.",
     rights: ["runs.read"],
     input: Type.Object({ runId, appId: viewId, invocationId }, { additionalProperties: false }),
     result: invocationSchema,
   }),
   function: defineOperation({
     id: "ragents.actor-programs.function",
-    description: "Eine Funktion eines Actors unabhängig von seinen Ansichten starten.",
+    description: "Start a function of an actor independently of its views.",
     rights: ["runs.read", "runs.write", "runs.inspect"],
     input: Type.Object({ runId, actorHandle, revision, functionId, requestId, input: functionInput }, { additionalProperties: false }),
     result: invocationSchema,
   }),
   functionInvocation: defineOperation({
     id: "ragents.actor-programs.function-invocation",
-    description: "Den Stand eines Aufrufs einer Actor-Funktion lesen.",
+    description: "Read the state of a call of an actor function.",
     rights: ["runs.read", "runs.inspect"],
     input: Type.Object({ runId, actorHandle, invocationId }, { additionalProperties: false }),
     result: invocationSchema,

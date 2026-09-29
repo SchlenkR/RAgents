@@ -52,8 +52,8 @@ export function deriveConversation(snapshot: ChatSnapshot | undefined): Conversa
 }
 
 export function answerInput(answers: number, text: string): string {
-  if (!Number.isInteger(answers) || answers < 0 || answers >= answerCount) throw new Error("Das Interview nimmt genau fünf Antworten an.");
-  if (!text.trim()) throw new Error("Bitte eine Antwort eingeben.");
+  if (!Number.isInteger(answers) || answers < 0 || answers >= answerCount) throw new Error("The interview accepts exactly five answers.");
+  if (!text.trim()) throw new Error("Please enter an answer.");
   return `ANSWER ${answers + 1}/5\n${text.trim()}`;
 }
 

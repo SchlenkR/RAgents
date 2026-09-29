@@ -30,7 +30,7 @@ const screenshotDescription = "Capture the real browser page into this run's doc
 export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   defineRunFunction({
     name: "browser_open",
-    label: "Browser öffnen",
+    label: "Open browser",
     description: "Open an HTTP(S) page in this run's isolated headless browser. Returns its accessible structure and browser errors. Reuses the current run browser; other runs have separate cookies and processes.",
     schema: Type.Object({ url: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
     resultSchema: snapshotSchema,
@@ -41,7 +41,7 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   }),
   defineRunFunction({
     name: "browser_snapshot",
-    label: "Browser lesen",
+    label: "Read browser",
     description: "Read the current real page's accessible structure, title, URL and errors. Use role/name or labels for subsequent actions; snapshot reference IDs never need to be copied.",
     schema: emptySchema,
     resultSchema: snapshotSchema,
@@ -52,7 +52,7 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   }),
   defineRunFunction({
     name: "browser_click",
-    label: "Im Browser klicken",
+    label: "Click in browser",
     description: "Click a uniquely identified visible element with Playwright auto-waiting. Returns the actual resulting page. Ambiguous or absent targets are errors.",
     schema: targetInputSchema,
     resultSchema: snapshotSchema,
@@ -63,7 +63,7 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   }),
   defineRunFunction({
     name: "browser_fill",
-    label: "Browserfeld ausfüllen",
+    label: "Fill browser field",
     description: "Fill an input or textarea by accessible label or another semantic target, firing the normal input events. Returns the resulting page.",
     schema: Type.Object({ target: targetSchema, value: Type.String() }, { additionalProperties: false }),
     resultSchema: snapshotSchema,
@@ -74,7 +74,7 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   }),
   defineRunFunction({
     name: "browser_select",
-    label: "Im Browser auswählen",
+    label: "Select in browser",
     description: "Choose an option by its visible label in a native select element. For custom dropdowns use browser_click on the trigger and the visible option.",
     schema: Type.Object({ target: targetSchema, label: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
     resultSchema: snapshotSchema,
@@ -85,7 +85,7 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   }),
   defineRunFunction({
     name: "browser_press",
-    label: "Browsertaste drücken",
+    label: "Press browser key",
     description: "Focus a target and press a Playwright key or chord such as Enter, Escape, Tab or ControlOrMeta+A. Returns the resulting page.",
     schema: Type.Object({ target: targetSchema, key: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
     resultSchema: snapshotSchema,
@@ -96,7 +96,7 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   }),
   defineRunFunction({
     name: "browser_check",
-    label: "Browserergebnis prüfen",
+    label: "Check browser result",
     description: "Assert visible target/text, resulting URL and absence of browser errors. Fails on mismatch; records successful evidence for this page until the next action/navigation/error. Supply at least one assertion. Browser errors are checked by default. Visibility assertions wait at most 5 seconds, shorter than actions.",
     schema: Type.Object({
       target: Type.Optional(targetSchema),
@@ -113,7 +113,7 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   }),
   defineRunFunction({
     name: "browser_viewport",
-    label: "Browsergröße setzen",
+    label: "Set browser size",
     description: "Resize the page viewport in CSS pixels, for example to check a narrow layout. The default is 1920 x 1080 (16:9) and screenshots use the viewport size at scale 1; the chosen size stays for the run until changed again. Returns the resulting page.",
     schema: Type.Object({
       width: Type.Integer({ minimum: 320, maximum: 3840 }),
@@ -126,7 +126,7 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   }),
   defineRunFunction({
     name: "browser_screenshot",
-    label: "Browser aufnehmen",
+    label: "Capture browser",
     description: screenshotDescription,
     schema: Type.Object({ label: Type.Optional(Type.String({ maxLength: 200 })), fullPage: Type.Optional(Type.Boolean()) }, { additionalProperties: false }),
     resultSchema: Type.Object({
@@ -143,7 +143,7 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
   }),
   defineRunFunction({
     name: "browser_view_screenshot",
-    label: "Browseraufnahme ansehen",
+    label: "View browser screenshot",
     description: "View this run's latest screenshot as native image input without a path. Invoke this native tool directly to receive pixels; calling it through TypeScript only verifies image availability. Requires an image-capable model for native image input.",
     nativeTool: true,
     schema: emptySchema,
@@ -153,12 +153,12 @@ export const createBrowserFunctions = (browser: RunBrowser): RunFunction[] => [
     run: async ({ caller, signal }) => {
       signal?.throwIfAborted();
       await browser.image(caller.runId);
-      return "Letzte Browseraufnahme dieses Runs ist verfügbar.";
+      return "The latest browser screenshot of this run is available.";
     },
   }),
   defineRunFunction({
     name: "browser_close",
-    label: "Browser schließen",
+    label: "Close browser",
     description: "Close this run's browser and discard its cookies. Saved screenshots remain in the document library.",
     schema: emptySchema,
     resultSchema: Type.Object({ closed: Type.Boolean() }, { additionalProperties: false }),
@@ -175,11 +175,11 @@ export const createBrowserImageContribution = (browser: RunBrowser): AgentContri
     if (outcome.toolName !== "browser_view_screenshot" || outcome.isError) return undefined;
     try {
       call.signal?.throwIfAborted();
-      if (!call.modelReadsImages) throw new Error("Das gewählte Modell unterstützt keine Bilder. Screenshot über die Dokumente ansehen oder ein bildfähiges Modell wählen.");
+      if (!call.modelReadsImages) throw new Error("The selected model does not support images. View the screenshot in the documents or choose an image-capable model.");
       const data = (await browser.image(runId)).toString("base64");
       call.signal?.throwIfAborted();
       return { content: [
-        { type: "text", text: "Letzte Browseraufnahme dieses Runs." },
+        { type: "text", text: "Latest browser screenshot of this run." },
         { type: "image", data, mimeType: "image/png" },
       ] };
     } catch (error) {

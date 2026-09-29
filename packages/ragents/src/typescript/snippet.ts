@@ -37,7 +37,7 @@ export class TypeScriptSnippetCompilationError extends Error {
                 ...(diagnostic.end ? { end: { ...diagnostic.end, line: Math.max(1, diagnostic.end.line - 1) } } : {}),
             } : {}),
         }));
-        super(`TypeScript-Snippet wurde nicht ausgeführt:\n${original.map((diagnostic) =>
+        super(`TypeScript snippet was not executed:\n${original.map((diagnostic) =>
             `${diagnostic.fileName ?? "TypeScript"}${diagnostic.start ? `:${diagnostic.start.line}:${diagnostic.start.column}` : ""} TS${diagnostic.code}: ${diagnostic.message}`,
         ).join("\n")}`);
         this.name = "TypeScriptSnippetCompilationError";
@@ -47,7 +47,7 @@ export class TypeScriptSnippetCompilationError extends Error {
 
 export const compileTypeScriptSnippet = async (source: TypeScriptSnippetSource): Promise<NativeTypeScriptProgram> => {
     source.signal?.throwIfAborted();
-    if (!source.code.trim()) throw new Error("Das TypeScript-Snippet darf nicht leer sein.");
+    if (!source.code.trim()) throw new Error("The TypeScript snippet must not be empty.");
     const compiled = await compileVirtualTypeScriptAsync({
         sources: [{ fileName: snippetFile, text: `export async function handle(_input: unknown, context: RunContext) {\n${source.code}\n}\n` }],
         declarations: [{ fileName: "snippet-context.d.ts", text: typeScriptSnippetDeclarations(source.capabilities) }],
@@ -77,7 +77,7 @@ export class TypeScriptSnippetExecutionError extends Error {
     readonly logs: readonly string[];
 
     constructor(cause: unknown, logs: readonly string[]) {
-        super(`TypeScript-Snippet fehlgeschlagen: ${cause instanceof Error ? cause.message : String(cause)}${logs.length > 0 ? `\nLogs vor dem Fehler:\n${logs.join("\n")}` : ""}`, { cause });
+        super(`TypeScript snippet failed: ${cause instanceof Error ? cause.message : String(cause)}${logs.length > 0 ? `\nLogs before the error:\n${logs.join("\n")}` : ""}`, { cause });
         this.name = "TypeScriptSnippetExecutionError";
         this.logs = [...logs];
     }
@@ -105,7 +105,7 @@ export const executeTypeScriptSnippet = async (execution: TypeScriptSnippetExecu
         });
         execution.signal?.throwIfAborted();
         const returned = output.result === undefined ? null : output.result;
-        assertJsonValue(returned, "TypeScript-Snippet result");
+        assertJsonValue(returned, "TypeScript snippet result");
         const result: JsonValue = JSON.parse(JSON.stringify(returned));
         return { result, logs };
     } catch (error) {
@@ -115,7 +115,7 @@ export const executeTypeScriptSnippet = async (execution: TypeScriptSnippetExecu
         try {
             await execution.executor.stopInstance(execution.context.runId, instanceId);
         } catch (error) {
-            if (failure) throw new AggregateError([failure, error], `${failure.message}\nDie Snippet-Instanz konnte nicht vollständig beendet werden: ${error instanceof Error ? error.message : String(error)}`);
+            if (failure) throw new AggregateError([failure, error], `${failure.message}\nThe snippet instance could not be terminated completely: ${error instanceof Error ? error.message : String(error)}`);
             throw new TypeScriptSnippetExecutionError(error, logs);
         }
     }

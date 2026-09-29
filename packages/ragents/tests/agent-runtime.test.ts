@@ -65,7 +65,7 @@ const journalHarness = (selection: { provider: string; model: string }, director
     const runtime = new Orchestration(journal, services);
     const run = runtime.createRun({ commandId: "create" }, { title: "Driver", ownerHandle: "owner", ownerDisplayName: "Owner" });
     const agentId = runtime.spawnAgent({ actorId: run.ownerId, commandId: "spawn" }, run.id, {
-        handle: "agent", displayName: "Agent", prompt: "Arbeite.",
+        handle: "agent", displayName: "Agent", prompt: "Work.",
         execution: executionFor("agent", { profile: "agent", isolateWorkspace: false }), grants: [], toolNames: null,
     }).actors.find((actor) => actor.kind === "agent")!.id;
 
@@ -103,7 +103,7 @@ const harnessOver = (
             selection,
             systemPrompt: "System contract.",
             workspace: process.cwd(),
-            storeAttachment: () => Promise.reject(new Error("Der Test legt keine Anhänge ab.")),
+            storeAttachment: () => Promise.reject(new Error("The test stores no attachments.")),
             tools: [],
             allowedToolNames: null,
             claimSteering: () => [],
@@ -208,11 +208,11 @@ for (const selectionKind of ["open", "selected"] as const) {
             (context) => {
                 assert.deepEqual(context.tools ?? [], []);
                 assert.match(context.systemPrompt ?? "", /Revision 2/);
-                return fauxAssistantMessage("Fertig.");
+                return fauxAssistantMessage("Done.");
             },
         ]);
         try {
-            const { result } = await turnOf(harness, manager, "Los.", {
+            const { result } = await turnOf(harness, manager, "Go.", {
                 tools: [tools[0]!],
                 allowedToolNames: selectionKind === "open" ? null : tools.map((tool) => tool.name),
                 refreshTools: async () => ({ tools: tools.slice(revision, revision + 1), systemPrompt: `Revision ${revision}.` }),
@@ -243,11 +243,11 @@ test("selected functions retain both TypeScript infrastructure tools through ref
     faux.setResponses(Array.from({ length: 6 }, (_, index) => (context: Context) => {
         assert.deepEqual(context.tools?.map((tool) => tool.name).sort(), [...names].sort());
         assert.ok(context.tools?.every((tool) => tool.description.includes(`revision ${refreshes}.`)));
-        return index % 3 === 2 ? fauxAssistantMessage("Fertig.")
+        return index % 3 === 2 ? fauxAssistantMessage("Done.")
             : fauxAssistantMessage([fauxToolCall(names[index % 3]!, {}, { id: `infrastructure-${index}` })]);
     }));
     try {
-        for (const prompt of ["Erster.", "Zweiter."]) {
+        for (const prompt of ["First.", "Second."]) {
             const { result } = await turnOf(harness, manager, prompt, {
                 allowedToolNames: ["read"],
                 tools: tools(),
@@ -278,7 +278,7 @@ test("catalog and runtime agree on model reasoning including max and reject off 
         models: [{ ...model, reasoning: true, thinkingLevelMap: { off: null, minimal: null, medium: null, max: "max" } }],
     });
     let calls = 0;
-    faux.setResponses([() => { calls += 1; return fauxAssistantMessage("Antwort"); }]);
+    faux.setResponses([() => { calls += 1; return fauxAssistantMessage("Answer"); }]);
     const harness = journalHarness(selection);
     const manager = new AgentRuntimeManager({ modelRuntime });
     const driver = new AgentLoopDriver({ modelRuntime });
@@ -286,10 +286,10 @@ test("catalog and runtime agree on model reasoning including max and reject off 
         const entry = (await driver.catalog()).find((entry) => entry.provider === model.provider && entry.model === model.id);
         assert.deepEqual(entry?.thinking, ["low", "high", "max"]);
         assert.deepEqual(await driver.thinkingCapabilities(model.provider, model.id), entry?.thinking);
-        const rejected = await turnOf(harness, manager, "Aus.", { selection: { ...selection, thinking: "off" } });
+        const rejected = await turnOf(harness, manager, "Off.", { selection: { ...selection, thinking: "off" } });
         assert.match(rejected.result.failure ?? "", /thinking level off.*valid: low, high, max/);
         assert.equal(calls, 0);
-        const medium = await turnOf(harness, manager, "Mittel.", { selection: { ...selection, thinking: "medium" } });
+        const medium = await turnOf(harness, manager, "Medium.", { selection: { ...selection, thinking: "medium" } });
         assert.match(medium.result.failure ?? "", /thinking level medium.*valid: low, high, max/);
         assert.equal(calls, 0);
         const valid = await turnOf(harness, manager, "Maximal.", { selection: { ...selection, thinking: "max" } });
@@ -306,20 +306,20 @@ test("The agent runtime nudges a reasoning-only answer once and fails the turn a
     const { faux, modelRuntime, selection } = fauxModelRuntime("empty-response");
     const harness = journalHarness(selection);
     const manager = new AgentRuntimeManager({ modelRuntime });
-    const reasoningOnly = () => fauxAssistantMessage([fauxThinking("Noch am Überlegen.")]);
-    faux.setResponses([reasoningOnly, () => fauxAssistantMessage("Fertig."), reasoningOnly, reasoningOnly, () => fauxAssistantMessage("Unerreichbar.")]);
+    const reasoningOnly = () => fauxAssistantMessage([fauxThinking("Still thinking.")]);
+    faux.setResponses([reasoningOnly, () => fauxAssistantMessage("Done."), reasoningOnly, reasoningOnly, () => fauxAssistantMessage("Unreachable.")]);
     try {
-        const recovered = await turnOf(harness, manager, "Los.");
+        const recovered = await turnOf(harness, manager, "Go.");
         assert.equal(recovered.result.failure, null);
         assert.deepEqual(harness.outputsOf(recovered.request.turnId), [
-            "model.reasoning.completed: Noch am Überlegen.",
-            "model.output.completed: Fertig.",
+            "model.reasoning.completed: Still thinking.",
+            "model.output.completed: Done.",
         ]);
-        const failed = await turnOf(harness, manager, "Noch einmal.");
-        assert.equal(failed.result.failure, "Modell lieferte zweimal eine leere Antwort.");
+        const failed = await turnOf(harness, manager, "Once more.");
+        assert.equal(failed.result.failure, "The model returned an empty response twice.");
         assert.deepEqual(harness.outputsOf(failed.request.turnId), [
-            "model.reasoning.completed: Noch am Überlegen.",
-            "model.reasoning.completed: Noch am Überlegen.",
+            "model.reasoning.completed: Still thinking.",
+            "model.reasoning.completed: Still thinking.",
         ]);
     } finally {
         await manager.shutdown();
@@ -333,13 +333,13 @@ test("A turn whose provider error the runtime retries successfully does not fail
     const manager = new AgentRuntimeManager({ modelRuntime, settings: { retry: { baseDelayMs: 10 } } });
     faux.setResponses([
         () => fauxAssistantMessage([], { stopReason: "error", errorMessage: "503 Service Unavailable" }),
-        () => fauxAssistantMessage("Fertig."),
+        () => fauxAssistantMessage("Done."),
     ]);
     try {
-        const { request, result } = await within(turnOf(harness, manager, "Los."), 10_000);
+        const { request, result } = await within(turnOf(harness, manager, "Go."), 10_000);
         assert.equal(result.failure, null);
         assert.equal(faux.state.callCount, 2);
-        assert.deepEqual(harness.outputsOf(request.turnId), ["model.output.completed: Fertig."]);
+        assert.deepEqual(harness.outputsOf(request.turnId), ["model.output.completed: Done."]);
         const steps = harness.runtime.events(harness.runId).filter((event) => event.type === "model.step.completed");
         assert.deepEqual(steps.map((event) => event.type === "model.step.completed" && event.payload.stopReason), ["error", "stop"]);
     } finally {
@@ -353,27 +353,27 @@ test("A turn whose context overflow the runtime compacts and continues does not 
     const harness = journalHarness(selection);
     const manager = new AgentRuntimeManager({ modelRuntime });
     const answers = [
-        () => fauxAssistantMessage("Antwort 1."),
+        () => fauxAssistantMessage("Answer 1."),
         () => fauxAssistantMessage([], { stopReason: "error", errorMessage: "prompt is too long: 213462 tokens > 200000 maximum" }),
-        () => fauxAssistantMessage("Fertig."),
+        () => fauxAssistantMessage("Done."),
     ];
     let summaries = 0;
     faux.setResponses(Array.from({ length: 5 }, () => (context: Context) => {
         if (context.systemPrompt?.startsWith("You are a context summarization assistant")) {
             summaries += 1;
-            return fauxAssistantMessage("## Goal\nZusammenfassung.");
+            return fauxAssistantMessage("## Goal\nSummary.");
         }
         const answer = answers.shift();
         assert.ok(answer, "unexpected model request");
         return answer();
     }));
     try {
-        assert.equal((await turnOf(harness, manager, "Erster.")).result.failure, null);
+        assert.equal((await turnOf(harness, manager, "First.")).result.failure, null);
         const { request, result } = await within(turnOf(harness, manager, "x".repeat(100_000)), 10_000);
         assert.equal(result.failure, null);
         assert.equal(summaries, 1);
         assert.equal(answers.length, 0);
-        assert.deepEqual(harness.outputsOf(request.turnId), ["model.output.completed: Fertig."]);
+        assert.deepEqual(harness.outputsOf(request.turnId), ["model.output.completed: Done."]);
         const compaction = harness.runtime.events(harness.runId).find((event) => event.type === "context.compacted");
         assert.ok(compaction?.type === "context.compacted");
         assert.equal(compaction.payload.turnId, request.turnId);
@@ -406,12 +406,12 @@ test("After a model switch the agent compacts with the values of the new model b
     faux.setResponses(Array.from({ length: 3 }, () => (context: Context, _options: unknown, _state: unknown, model: { id: string }) => {
         const summary = context.systemPrompt?.startsWith("You are a context summarization assistant") ?? false;
         requests.push(`${model.id}${summary ? ":summary" : ""}`);
-        return fauxAssistantMessage(summary ? "## Goal\nZusammenfassung." : "Antwort. ".repeat(200));
+        return fauxAssistantMessage(summary ? "## Goal\nSummary." : "Answer. ".repeat(200));
     }));
     try {
         assert.equal((await turnOf(harness, manager, "x".repeat(20_000))).result.failure, null);
         assert.equal(harness.runtime.events(harness.runId).some((event) => event.type === "context.compacted"), false);
-        const { request, result } = await turnOf(harness, manager, "Weiter.", { selection: { provider: base.provider, model: "switch-narrow" } });
+        const { request, result } = await turnOf(harness, manager, "Continue.", { selection: { provider: base.provider, model: "switch-narrow" } });
         assert.equal(result.failure, null);
         assert.deepEqual(requests, ["switch-wide", "switch-narrow:summary", "switch-narrow"]);
         const compaction = harness.runtime.events(harness.runId).find((event) => event.type === "context.compacted");
@@ -450,24 +450,24 @@ test("An overflow right after a retried provider error compacts and continues be
     const harness = journalHarness(selection);
     const manager = new AgentRuntimeManager({ modelRuntime, settings: { retry: { baseDelayMs: 10 } } });
     const answers = [
-        () => fauxAssistantMessage("Antwort 1."),
+        () => fauxAssistantMessage("Answer 1."),
         () => fauxAssistantMessage([], { stopReason: "error", errorMessage: "503 Service Unavailable" }),
         () => fauxAssistantMessage([], { stopReason: "error", errorMessage: "prompt is too long: 213462 tokens > 200000 maximum" }),
-        () => fauxAssistantMessage("Fertig."),
+        () => fauxAssistantMessage("Done."),
     ];
     faux.setResponses(Array.from({ length: 6 }, () => (context: Context) => {
         if (context.systemPrompt?.startsWith("You are a context summarization assistant"))
-            return fauxAssistantMessage("## Goal\nZusammenfassung.");
+            return fauxAssistantMessage("## Goal\nSummary.");
         const answer = answers.shift();
         assert.ok(answer, "unexpected model request");
         return answer();
     }));
     try {
-        assert.equal((await turnOf(harness, manager, "Erster.")).result.failure, null);
+        assert.equal((await turnOf(harness, manager, "First.")).result.failure, null);
         const { request, result } = await within(turnOf(harness, manager, "x".repeat(100_000)), 10_000);
         assert.equal(result.failure, null);
         assert.equal(answers.length, 0);
-        assert.deepEqual(harness.outputsOf(request.turnId), ["model.output.completed: Fertig."]);
+        assert.deepEqual(harness.outputsOf(request.turnId), ["model.output.completed: Done."]);
     } finally {
         await manager.shutdown();
         faux.unregister();
@@ -478,18 +478,18 @@ test("A loop failure without a model call fails the turn but writes no model ste
     const { faux, modelRuntime, selection } = fauxModelRuntime("loop-failure");
     const harness = journalHarness(selection);
     const manager = new AgentRuntimeManager({ modelRuntime });
-    faux.setResponses([() => fauxAssistantMessage("Antwort.")]);
+    faux.setResponses([() => fauxAssistantMessage("Answer.")]);
     let refreshes = 0;
     try {
-        const { request, result } = await turnOf(harness, manager, "Los.", {
+        const { request, result } = await turnOf(harness, manager, "Go.", {
             refreshTools: async () => {
                 refreshes += 1;
                 if (refreshes > 1)
-                    throw new Error("Die Werkzeuge sind nicht lesbar.");
+                    throw new Error("The tools are not readable.");
                 return { tools: [], systemPrompt: "System contract." };
             },
         });
-        assert.equal(result.failure, "Die Werkzeuge sind nicht lesbar.");
+        assert.equal(result.failure, "The tools are not readable.");
         const steps = harness.runtime.events(harness.runId).filter((event) => event.type === "model.step.completed" && event.payload.turnId === request.turnId);
         assert.deepEqual(steps.map((event) => event.type === "model.step.completed" && event.payload.stopReason), ["stop"]);
     } finally {
@@ -505,7 +505,7 @@ test("An abort during a compaction ends the turn without reporting a failed comp
     const manager = new AgentRuntimeManager({ modelRuntime, onDiagnostic: (diagnostic) => { diagnostics.push(diagnostic.message); } });
     const controller = new AbortController();
     const answers = [
-        () => fauxAssistantMessage("Antwort 1."),
+        () => fauxAssistantMessage("Answer 1."),
         () => fauxAssistantMessage([], { stopReason: "error", errorMessage: "prompt is too long: 213462 tokens > 200000 maximum" }),
     ];
     faux.setResponses(Array.from({ length: 4 }, () => (context: Context, options: { signal?: AbortSignal } | undefined) => {
@@ -521,9 +521,9 @@ test("An abort during a compaction ends the turn without reporting a failed comp
         return answer();
     }));
     try {
-        assert.equal((await turnOf(harness, manager, "Erster.")).result.failure, null);
+        assert.equal((await turnOf(harness, manager, "First.")).result.failure, null);
         await within(turnOf(harness, manager, "x".repeat(100_000), {}, controller.signal), 10_000);
-        assert.deepEqual(diagnostics.filter((message) => /Verdichtung|compaction/i.test(message)), []);
+        assert.deepEqual(diagnostics.filter((message) => /compaction/i.test(message)), []);
     } finally {
         await manager.shutdown();
         faux.unregister();
@@ -536,7 +536,7 @@ test("A turn whose provider error survives every retry fails with the last error
     const manager = new AgentRuntimeManager({ modelRuntime });
     faux.setResponses([() => fauxAssistantMessage([], { stopReason: "error", errorMessage: "invalid request: unknown parameter" })]);
     try {
-        const { result } = await turnOf(harness, manager, "Los.");
+        const { result } = await turnOf(harness, manager, "Go.");
         assert.equal(result.failure, "invalid request: unknown parameter");
     } finally {
         await manager.shutdown();
@@ -550,7 +550,7 @@ test("Two skills with the same name, say from two plugins, fail the runtime crea
     const harness = journalHarness(selection);
     const skillIn = (plugin: string) => ({
         name: "review",
-        description: "Prüft Änderungen.",
+        description: "Reviews changes.",
         filePath: join(directory, plugin, "review", "SKILL.md"),
         baseDir: join(directory, plugin, "review"),
         location: "@skills/review/SKILL.md",
@@ -558,10 +558,10 @@ test("Two skills with the same name, say from two plugins, fail the runtime crea
     });
     const manager = new AgentRuntimeManager({ modelRuntime, resolveSkills: () => [skillIn("first"), skillIn("second")] });
     try {
-        const { result } = await turnOf(harness, manager, "Los.");
+        const { result } = await turnOf(harness, manager, "Go.");
         assert.equal(
             result.failure,
-            `Der Skill review ist mehrfach vorhanden: ${skillIn("first").filePath}, ${skillIn("second").filePath}.`,
+            `The skill review exists more than once: ${skillIn("first").filePath}, ${skillIn("second").filePath}.`,
         );
         assert.equal(faux.state.callCount, 0);
     } finally {
@@ -576,10 +576,10 @@ test("Preloading names the location the tools reach, never the host path of the 
     const { faux, modelRuntime, selection } = fauxModelRuntime("skill-location");
     const harness = journalHarness(selection);
     mkdirSync(join(directory, "review"));
-    writeFileSync(join(directory, "review", "SKILL.md"), "---\nname: review\ndescription: Prüft Änderungen.\n---\nLies checkliste.md.\n");
+    writeFileSync(join(directory, "review", "SKILL.md"), "---\nname: review\ndescription: Reviews changes.\n---\nRead checklist.md.\n");
     const skill = {
         name: "review",
-        description: "Prüft Änderungen.",
+        description: "Reviews changes.",
         filePath: join(directory, "review", "SKILL.md"),
         baseDir: join(directory, "review"),
         location: "@skills/review/SKILL.md",
@@ -588,14 +588,14 @@ test("Preloading names the location the tools reach, never the host path of the 
     const prompts: string[] = [];
     faux.setResponses([(context) => {
         prompts.push(context.systemPrompt ?? "");
-        return fauxAssistantMessage("Geprüft.");
+        return fauxAssistantMessage("Reviewed.");
     }]);
     const manager = new AgentRuntimeManager({ modelRuntime, resolveSkills: () => [skill] });
     try {
-        const { result } = await turnOf(harness, manager, "/skill:review bitte");
+        const { result } = await turnOf(harness, manager, "/skill:review please");
         assert.equal(result.failure, null);
         assert.equal(prompts.length, 1);
-        assert.match(prompts[0]!, /<preloaded_skill name="review" location="@skills\/review\/SKILL\.md">\nLies checkliste\.md\./);
+        assert.match(prompts[0]!, /<preloaded_skill name="review" location="@skills\/review\/SKILL\.md">\nRead checklist\.md\./);
         assert.equal(prompts[0]!.includes(directory), false);
     } finally {
         await manager.shutdown();
@@ -612,11 +612,11 @@ test("The agent runtime delivers attachment-only images, video and PDF as native
     faux.setResponses([(context) => {
         const content = context.messages.find((message) => message.role === "user")?.content;
         received = Array.isArray(content) ? content.filter((block) => block.type !== "text") : content;
-        return fauxAssistantMessage("Dateien angekommen.");
+        return fauxAssistantMessage("Files arrived.");
     }]);
     try {
         const content = new Uint8Array([0, 255, 13, 4]);
-        const { result } = await turnOf(harness, manager, "Anhänge.", {
+        const { result } = await turnOf(harness, manager, "Attachments.", {
             prompt: "",
             attachments: [
                 { name: "photo.png", mediaType: "image/png", content },
@@ -651,7 +651,7 @@ for (const stop of ["signal", "halt"] as const) {
         const visible: string[] = [];
         let halt: Promise<void> | undefined;
         try {
-            const request = harness.request("Los.", {
+            const request = harness.request("Go.", {
                 publish: (event) => {
                     if (event.kind !== "text") return;
                     visible.push(event.delta);
@@ -667,7 +667,7 @@ for (const stop of ["signal", "halt"] as const) {
             await manager.shutdown();
             assert.deepEqual(harness.outputsOf(request.turnId), [`model.output.interrupted: ${visible.join("").trim()}`]);
             const types = harness.runtime.events(harness.runId).map((event) => event.type);
-            assert.equal(types.includes("model.step.completed"), false, "ein abgebrochener Schritt ist kein Kontext");
+            assert.equal(types.includes("model.step.completed"), false, "a cancelled step is not context");
             assert.equal(types.includes("model.input.presented"), true);
         } finally {
             controller.abort();
@@ -679,12 +679,12 @@ for (const stop of ["signal", "halt"] as const) {
 
 test("text and thinking stream live as deltas while the journal gets one step at its end", async () => {
     const { faux, modelRuntime, selection } = fauxModelRuntime("live-deltas", undefined, 2_000);
-    faux.setResponses([fauxAssistantMessage([fauxThinking("Ich denke nach, ".repeat(10)), fauxText("Die Antwort kommt Stück für Stück. ".repeat(6))])]);
+    faux.setResponses([fauxAssistantMessage([fauxThinking("I am thinking, ".repeat(10)), fauxText("The answer comes piece by piece. ".repeat(6))])]);
     const harness = journalHarness(selection);
     const manager = new AgentRuntimeManager({ modelRuntime });
     const stepsWhileStreaming: number[] = [];
     try {
-        const { request, result } = await turnOf(harness, manager, "Los.", {
+        const { request, result } = await turnOf(harness, manager, "Go.", {
             publish: (event) => {
                 harness.published.push(event);
                 stepsWhileStreaming.push(harness.runtime.events(harness.runId).filter((entry) => entry.type === "model.step.completed").length);
@@ -693,15 +693,15 @@ test("text and thinking stream live as deltas while the journal gets one step at
         assert.equal(result.failure, null);
         const thinking = harness.published.filter((event) => event.kind === "thinking");
         const text = harness.published.filter((event) => event.kind === "text");
-        assert.ok(thinking.length > 1 && text.length > 1, "mehrere Deltas je Block");
-        assert.equal(thinking.map((event) => event.kind === "thinking" ? event.delta : "").join(""), "Ich denke nach, ".repeat(10));
-        assert.equal(text.map((event) => event.kind === "text" ? event.delta : "").join(""), "Die Antwort kommt Stück für Stück. ".repeat(6));
-        assert.ok(stepsWhileStreaming.every((count) => count === 0), "kein Schritt im Journal, solange er streamt");
+        assert.ok(thinking.length > 1 && text.length > 1, "several deltas per block");
+        assert.equal(thinking.map((event) => event.kind === "thinking" ? event.delta : "").join(""), "I am thinking, ".repeat(10));
+        assert.equal(text.map((event) => event.kind === "text" ? event.delta : "").join(""), "The answer comes piece by piece. ".repeat(6));
+        assert.ok(stepsWhileStreaming.every((count) => count === 0), "no step in the journal while it streams");
         const types = harness.runtime.events(harness.runId).filter((event) => event.payload && "turnId" in event.payload && event.payload.turnId === request.turnId).map((event) => event.type);
         assert.deepEqual(types.filter((type) => type.startsWith("model.")), ["model.input.presented", "model.reasoning.completed", "model.output.completed", "model.step.completed"]);
         const step = harness.runtime.events(harness.runId).find((event) => event.type === "model.step.completed");
         assert.ok(step?.type === "model.step.completed");
-        assert.deepEqual(step.payload.content, [{ type: "thinking" }, { type: "text" }], "der Schritt wiederholt Text und Denken nicht");
+        assert.deepEqual(step.payload.content, [{ type: "thinking" }, { type: "text" }], "the step does not repeat text and thinking");
         assert.equal(new Set(harness.runtime.events(harness.runId).filter((event) => event.type.startsWith("model.") && event.type !== "model.input.presented").map((event) => event.commandId)).size, 1);
     } finally {
         await manager.shutdown();
@@ -721,25 +721,25 @@ test("a turn aborted during a tool call keeps the agent runtime: the next turn c
     const continued: string[][] = [];
     const answer = (context: Context) => {
         const texts = userTexts(context);
-        if (!texts.some((text) => text.includes("Weiter."))) return fauxAssistantMessage("Noch nicht fertig.");
+        if (!texts.some((text) => text.includes("Continue."))) return fauxAssistantMessage("Not done yet.");
         continued.push(texts);
-        return fauxAssistantMessage("Weiter geht es.");
+        return fauxAssistantMessage("Moving on.");
     };
     faux.setResponses([fauxAssistantMessage([fauxToolCall("long_step", {}, { id: "long" })], { stopReason: "toolUse" }), answer, answer]);
     try {
         const interrupted = await within(turnOf(harness, manager, "Original input.", {
             tools: [tool],
             invoke: () => new Promise((_resolve, reject) => {
-                controller.signal.addEventListener("abort", () => reject(new Error("Werkzeug abgebrochen.")), { once: true });
+                controller.signal.addEventListener("abort", () => reject(new Error("Tool cancelled.")), { once: true });
                 controller.abort();
             }),
         }, controller.signal));
         assert.match(interrupted.result.failure ?? "", /aborted/);
-        assert.equal(faux.state.callCount, 1, "nach dem Abbruch im Werkzeug fragt die Schleife das Modell nicht noch einmal an");
-        const next = await within(turnOf(harness, manager, "Weiter.", { tools: [tool] }));
+        assert.equal(faux.state.callCount, 1, "after the cancellation in the tool the loop does not query the model again");
+        const next = await within(turnOf(harness, manager, "Continue.", { tools: [tool] }));
         assert.equal(next.result.failure, null);
-        assert.deepEqual(harness.outputsOf(next.request.turnId), ["model.output.completed: Weiter geht es."]);
-        assert.ok(continued[0]?.some((text) => text.includes("Original input.")), "der erste Auftrag bleibt im Gespräch");
+        assert.deepEqual(harness.outputsOf(next.request.turnId), ["model.output.completed: Moving on."]);
+        assert.ok(continued[0]?.some((text) => text.includes("Original input.")), "the first task stays in the conversation");
     } finally {
         controller.abort();
         await manager.shutdown();
@@ -749,7 +749,7 @@ test("a turn aborted during a tool call keeps the agent runtime: the next turn c
 
 test("an abort while a context hook still runs sends no model request once the hook returns", async () => {
     const { faux, modelRuntime, selection } = fauxModelRuntime("abort-in-hook");
-    faux.setResponses([fauxAssistantMessage("Nie gesendet.")]);
+    faux.setResponses([fauxAssistantMessage("Never sent.")]);
     const harness = journalHarness(selection);
     const controller = new AbortController();
     const hookEntered = Promise.withResolvers<void>();
@@ -769,7 +769,7 @@ test("an abort while a context hook still runs sends no model request once the h
         }),
     });
     try {
-        const request = harness.request("Los.");
+        const request = harness.request("Go.");
         const turn = manager.runTurn(request, controller.signal);
         await within(hookEntered.promise);
         controller.abort();
@@ -795,7 +795,7 @@ test("a hook note reaches only its model call, and what a hook keeps stands in t
     faux.setResponses([1, 2].map(() => (context: Context) => {
         const last = context.messages.at(-1);
         lastUserTexts.push(last?.role === "user" && Array.isArray(last.content) ? last.content.map((part) => part.type === "text" ? part.text : "").join("") : String(last?.content));
-        return fauxAssistantMessage("Gesehen.");
+        return fauxAssistantMessage("Seen.");
     }));
     const manager = new AgentRuntimeManager({
         modelRuntime,
@@ -804,17 +804,17 @@ test("a hook note reaches only its model call, and what a hook keeps stands in t
             beforeModelCall: (_agent, call) => {
                 seenKept.push(call.kept);
                 call.keep({ calls: typeof call.kept === "object" && call.kept !== null && "calls" in call.kept ? Number(call.kept.calls) + 1 : 1 });
-                return "Verborgener Hinweis.";
+                return "Hidden note.";
             },
         }),
     });
     try {
-        await turnOf(harness, manager, "Erster.");
-        await turnOf(harness, manager, "Zweiter.");
+        await turnOf(harness, manager, "First.");
+        await turnOf(harness, manager, "Second.");
         assert.deepEqual(seenKept, [undefined, { calls: 1 }]);
-        assert.deepEqual(lastUserTexts, ["Verborgener Hinweis.", "Verborgener Hinweis."]);
+        assert.deepEqual(lastUserTexts, ["Hidden note.", "Hidden note."]);
         const context = JSON.stringify(turnModelContextOf(harness).messages);
-        assert.doesNotMatch(context, /Verborgener Hinweis/, "der Hinweis ist nicht Teil des Kontexts");
+        assert.doesNotMatch(context, /Hidden note/, "the note is not part of the context");
         const state = harness.runtime.view(harness.runId).pluginStates.find((entry) => entry.pluginId === "test.counter");
         assert.deepEqual(state?.scope, { kind: "actor", actorId: harness.agentId });
         assert.deepEqual(state?.state, { calls: 2 });
@@ -843,7 +843,7 @@ for (const stopDuring of ["tool", "next-message", "thinking"] as const) {
                 fauxAssistantMessage("The unfinished next message keeps going."),
             ]);
         try {
-            const { request } = await within(turnOf(harness, manager, "Los.", {
+            const { request } = await within(turnOf(harness, manager, "Go.", {
                 tools: [tool],
                 invoke: async () => {
                     if (stopDuring === "tool") controller.abort();
@@ -903,7 +903,7 @@ test("The agent runtime reports runtime creation failures before submission", as
     const harness = journalHarness({ provider: "faux", model: "unconfigured" });
     const unavailable = Promise.reject(new Error("agent setup unavailable."));
     const manager = new AgentRuntimeManager({ modelRuntime: unavailable });
-    const { result } = await turnOf(harness, manager, "Los.");
+    const { result } = await turnOf(harness, manager, "Go.");
 
     assert.equal(result.failure, "agent setup unavailable.");
 });
@@ -924,7 +924,7 @@ test("The agent runtime run halt aborts a hook resolution that hangs during runt
     });
 
     try {
-        const request = harness.request("Los.");
+        const request = harness.request("Go.");
         const turn = manager.runTurn(request, new AbortController().signal);
 
         await within(started.promise);
@@ -955,7 +955,7 @@ test("The agent runtime manager shutdown waits beyond the turn deadline for a ha
     const release = deferred();
     const started = deferred();
     const { faux, modelRuntime, selection } = fauxModelRuntime("global-shutdown");
-    faux.setResponses([fauxAssistantMessage("Nie gesendet.")]);
+    faux.setResponses([fauxAssistantMessage("Never sent.")]);
     const harness = journalHarness(selection);
 
     try {
@@ -971,7 +971,7 @@ test("The agent runtime manager shutdown waits beyond the turn deadline for a ha
                 },
             }),
         });
-        const turn = manager.runTurn(harness.request("Los."), new AbortController().signal);
+        const turn = manager.runTurn(harness.request("Go."), new AbortController().signal);
         await within(started.promise);
         const shutdown = manager.shutdown();
         assert.match((await within(turn)).failure ?? "", /aborted|did not settle/);
@@ -1007,7 +1007,7 @@ test("The agent runtime halt quarantines a turn whose hook ignores abort, and th
                 started.resolve();
                 await release.promise;
                 try {
-                    call.keep("zu spät");
+                    call.keep("too late");
                 } catch (error) {
                     lateKeep = error;
                 }
@@ -1017,7 +1017,7 @@ test("The agent runtime halt quarantines a turn whose hook ignores abort, and th
     });
 
     try {
-        const request = harness.request("Los.", { publish: (event) => published.push(event) });
+        const request = harness.request("Go.", { publish: (event) => published.push(event) });
         const turn = manager.runTurn(request, controller.signal);
 
         await within(started.promise);
@@ -1053,7 +1053,7 @@ test("The agent runtime halt quarantines a turn whose hook ignores abort, and th
 
 test("The agent runtime halt drops its runtime but allows the run to create a fresh one, and a disposed run stays retired", async () => {
     const { faux, modelRuntime, selection } = fauxModelRuntime("halt-fresh");
-    faux.setResponses([fauxAssistantMessage("Eins."), fauxAssistantMessage("Zwei.")]);
+    faux.setResponses([fauxAssistantMessage("One."), fauxAssistantMessage("Two.")]);
     const harness = journalHarness(selection);
     let resolutions = 0;
     const manager = new AgentRuntimeManager({
@@ -1065,14 +1065,14 @@ test("The agent runtime halt drops its runtime but allows the run to create a fr
     });
 
     try {
-        await turnOf(harness, manager, "Erster.");
+        await turnOf(harness, manager, "First.");
         await manager.haltRun(harness.runId);
         assert.equal(resolutions, 1);
-        await turnOf(harness, manager, "Zweiter.");
+        await turnOf(harness, manager, "Second.");
         await manager.disposeRun(harness.runId);
 
         assert.equal(resolutions, 2);
-        const request = harness.request("Dritter.");
+        const request = harness.request("Third.");
         await assert.rejects(manager.runTurn(request, new AbortController().signal), /has been retired/);
     } finally {
         await manager.shutdown();
@@ -1085,13 +1085,13 @@ test("the runtime adds nothing of its own to the system prompt", async () => {
     const prompts: string[] = [];
     faux.setResponses([1, 2].map(() => (context: Context) => {
         prompts.push(context.systemPrompt ?? "");
-        return fauxAssistantMessage("Erledigt.");
+        return fauxAssistantMessage("Done.");
     }));
     const harness = journalHarness(selection);
     const manager = new AgentRuntimeManager({ modelRuntime });
     try {
-        await turnOf(harness, manager, "Erster.", { workspace: "/only/on/the/workstation" });
-        await turnOf(harness, manager, "Zweiter.", { workspace: "/only/on/the/workstation" });
+        await turnOf(harness, manager, "First.", { workspace: "/only/on/the/workstation" });
+        await turnOf(harness, manager, "Second.", { workspace: "/only/on/the/workstation" });
         assert.deepEqual(prompts, ["System contract.", "System contract."]);
     } finally {
         await manager.shutdown();
@@ -1108,12 +1108,12 @@ test("after a restart of the host an agent continues with a byte-identical model
         return answer();
     };
     faux.setResponses([
-        record(() => fauxAssistantMessage([fauxThinking("Plan."), fauxText("Ich sehe nach.\n"), fauxToolCall("lookup", { value: 1 }, { id: "look" })], { stopReason: "toolUse" })),
-        record(() => fauxAssistantMessage("  Gefunden.  ")),
-        record(() => fauxAssistantMessage("Nach dem Neustart.")),
+        record(() => fauxAssistantMessage([fauxThinking("Plan."), fauxText("Let me look.\n"), fauxToolCall("lookup", { value: 1 }, { id: "look" })], { stopReason: "toolUse" })),
+        record(() => fauxAssistantMessage("  Found.  ")),
+        record(() => fauxAssistantMessage("After the restart.")),
     ]);
     const lookup = defineRunFunction({
-        name: "lookup", label: "lookup", description: "Nachschlagen.", nativeTool: true,
+        name: "lookup", label: "lookup", description: "Look up.", nativeTool: true,
         schema: Type.Object({ value: Type.Number() }, { additionalProperties: false }), resultSchema: Type.Unknown(),
         available: () => true, run: () => null,
     }) as RunFunction;
@@ -1121,7 +1121,7 @@ test("after a restart of the host an agent continues with a byte-identical model
     try {
         const first = journalHarness(selection, directory);
         const before = new AgentRuntimeManager({ modelRuntime });
-        await turnOf(first, before, "Erster Auftrag.", { tools: [lookup], invoke: async () => ({ found: ["a", null] }) });
+        await turnOf(first, before, "First task.", { tools: [lookup], invoke: async () => ({ found: ["a", null] }) });
         await before.shutdown();
         const contextBefore = JSON.stringify(modelContextOf(first.runtime.events(first.runId), first.agentId, (hash) => first.runtime.mediaContent(hash)));
         first.journal.close();
@@ -1132,12 +1132,12 @@ test("after a restart of the host an agent continues with a byte-identical model
         const runtime = new Orchestration(journal, services);
         const second = harnessOver(selection, journal, runtime, first.runId, first.agentId, "after-");
         const contextAfter = JSON.stringify(modelContextOf(runtime.events(first.runId), first.agentId, (hash) => runtime.mediaContent(hash)));
-        assert.equal(contextAfter, contextBefore, "die Projektion ist nach dem Neustart bytegleich");
-        assert.equal(JSON.stringify(runtime.modelContext(first.runId, first.agentId)), contextBefore, "der gehaltene Kontext entsteht nach dem Neustart einmal aus dem Journal");
+        assert.equal(contextAfter, contextBefore, "the projection is byte-identical after the restart");
+        assert.equal(JSON.stringify(runtime.modelContext(first.runId, first.agentId)), contextBefore, "after the restart the held context is built once from the journal");
 
         const after = new AgentRuntimeManager({ modelRuntime });
         try {
-            const { result } = await turnOf(second, after, "Nach dem Neustart.", { tools: [lookup] });
+            const { result } = await turnOf(second, after, "After the restart.", { tools: [lookup] });
             assert.equal(result.failure, null);
         } finally {
             await after.shutdown();
@@ -1146,7 +1146,7 @@ test("after a restart of the host an agent continues with a byte-identical model
 
         const withoutLast = (context: Context) => JSON.stringify(context.messages.slice(0, -1));
         const expected = JSON.stringify(convertToLlm(JSON.parse(contextBefore).messages));
-        assert.equal(withoutLast(requests[2]!), expected, "der Präfix der ersten Anfrage nach dem Neustart ist bytegleich");
+        assert.equal(withoutLast(requests[2]!), expected, "the prefix of the first request after the restart is byte-identical");
         assert.equal(JSON.stringify(requests[2]!.messages.slice(0, requests[1]!.messages.length)), JSON.stringify(requests[1]!.messages));
         assert.equal(requests[2]!.systemPrompt, requests[1]!.systemPrompt);
         assert.equal(JSON.stringify(requests[2]!.tools), JSON.stringify(requests[1]!.tools));
@@ -1162,17 +1162,17 @@ test("a crash in the middle of a stream leaves no half step: the turn ends as in
     const { faux, modelRuntime, selection } = fauxModelRuntime("crash-context", undefined, 500);
     const streaming = deferred();
     faux.setResponses([
-        fauxAssistantMessage("Eine lange Antwort, die niemand zu Ende sieht. ".repeat(20)),
+        fauxAssistantMessage("A long answer that nobody sees to the end. ".repeat(20)),
         (context: Context) => {
             assert.deepEqual(context.messages.map((message) => message.role), ["user", "user"]);
-            return fauxAssistantMessage("Weiter.");
+            return fauxAssistantMessage("Continue.");
         },
     ]);
     try {
         const first = journalHarness(selection, directory);
         const before = new AgentRuntimeManager({ modelRuntime });
         const controller = new AbortController();
-        const running = before.runTurn(first.request("Erster.", {
+        const running = before.runTurn(first.request("First.", {
             publish: () => streaming.resolve(),
         }), controller.signal);
         await within(streaming.promise);
@@ -1197,7 +1197,7 @@ test("a crash in the middle of a stream leaves no half step: the turn ends as in
         const second = harnessOver(selection, journal, runtime, first.runId, first.agentId, "after-");
         const after = new AgentRuntimeManager({ modelRuntime });
         try {
-            const { result } = await turnOf(second, after, "Zweiter.");
+            const { result } = await turnOf(second, after, "Second.");
             assert.equal(result.failure, null);
         } finally {
             await after.shutdown();

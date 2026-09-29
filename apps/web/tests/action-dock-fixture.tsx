@@ -23,11 +23,11 @@ const runId = params.get("run") ?? "dock";
 const at = "2026-09-29T10:00:00Z";
 const running = { kind: "running", turnId: "turn", inputId: "input", startedAt: at } as const;
 const question: RunAction = {
-  id: "review-window", askedBy: "worker", owner: "ragents.ask", title: "Welche Prüffrist gilt?", description: null,
-  payload: { question: "Welche Prüffrist gilt?", options: ["3 Tage", "14 Tage", "30 Tage"], multi: false },
+  id: "review-window", askedBy: "worker", owner: "ragents.ask", title: "Which review period applies?", description: null,
+  payload: { question: "Which review period applies?", options: ["3 days", "14 days", "30 days"], multi: false },
   parameters: {}, input: null, status: "pending", proposedAt: at, resolvedAt: null, resolvedBy: null, result: null,
 };
-const history: Message[] = Array.from({ length: 12 }, (_, index) => ({ key: `answer-${index}`, role: "assistant", text: `Antwort ${index}: ${"Text im Verlauf. ".repeat(15)}`, closed: true }));
+const history: Message[] = Array.from({ length: 12 }, (_, index) => ({ key: `answer-${index}`, role: "assistant", text: `Answer ${index}: ${"Text in the history. ".repeat(15)}`, closed: true }));
 const registry = new PluginRegistry({ brand: { title: "Dock" }, product: { id: "dock", title: "Dock" }, startEntries: [], plugins: [askWebPlugin] }, new Map());
 const navigation = { activeTabId: "", openTab() {}, revealEntity: () => false, selectionFor: () => undefined };
 const access = createAccessContext({ enabled: true, user: { id: "operator", label: "Operator", rights: params.get("access") === "read" ? ["runs.read", "runs.inspect"] : ["runs.read", "runs.write", "runs.inspect"] } });
@@ -38,14 +38,14 @@ const sessionFor = (answered: boolean): SessionContext => {
     id: runId, revision: 1, title: "Dock", ownerId: "owner", primaryActorId: "primary", createdAt: at, forkedFrom: null,
     actors: [
       { id: "owner", kind: "human", handle: "owner", displayName: "Owner", grants: [], createdAt: at },
-      { id: "primary", kind: "agent", handle: "coordinator", displayName: "Koordinator", grants: [], createdAt: at, lifecycle: running },
+      { id: "primary", kind: "agent", handle: "coordinator", displayName: "Coordinator", grants: [], createdAt: at, lifecycle: running },
       { id: "worker", kind: "agent", handle: "reviewer", displayName: "Reviewer", grants: [], createdAt: at, createdBy: "primary", lifecycle: running },
     ],
     inputs: [], turns: [], subscriptions: [], pluginStates: [], artifacts: [],
-    actions: [answered ? { ...question, status: "approved", resolvedAt: at, resolvedBy: "operator", result: "14 Tage" } : question],
+    actions: [answered ? { ...question, status: "approved", resolvedAt: at, resolvedBy: "operator", result: "14 days" } : question],
   };
   const action: Message = { key: question.id, role: "action", text: question.title, closed: true, action: {
-    actionId: question.id, owner: question.owner, payload: question.payload, ...answered ? { status: "approved", result: "14 Tage" } : {},
+    actionId: question.id, owner: question.owner, payload: question.payload, ...answered ? { status: "approved", result: "14 days" } : {},
   } };
   const conversation = [...history, action];
   return {
@@ -75,7 +75,7 @@ function Fixture() {
         : <OrchestrationRunPanel
           cardSections={registry.cardSections} navigation={navigation} runToolbarContainer={null} session={session} statusContainer={null} tabIds={[]} toolbarContainer={null}
           renderChat={(options = {}) => <Chat options={options} session={session} />}
-          surfaceElements={[{ id: "mini", order: 0, select: () => [{ id: "mini", title: "Bühne" }], Element: () => <button className="m-8 self-start" id="stage-button">Mini-App bedienen</button> }]}
+          surfaceElements={[{ id: "mini", order: 0, select: () => [{ id: "mini", title: "Stage" }], Element: () => <button className="m-8 self-start" id="stage-button">Operate mini-app</button> }]}
         />}
     </RunPanelHostProvider></PluginSessionProviders>
   </ChatStepsProvider></QuasselHost></AccessContext.Provider>;

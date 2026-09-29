@@ -11,7 +11,7 @@ interface Mark {
   readonly filled?: boolean;
 }
 
-/** Grün läuft, blau bewegt sich, gelb wartet auf dich, rot ist kaputt, grau ruht, gedämpft ist vorbei; kein Zustand trägt je die Stopp-Glyphe (Quadrat). */
+/** Green is running, blue is moving, yellow is waiting for you, red is broken, gray is idle, muted is over; no state ever carries the stop glyph (square). */
 const RUN_MARKS: Record<RunStateName, Mark> = {
   running: { Icon: CirclePlayIcon, tone: "text-success" },
   waiting: { Icon: CircleEllipsisIcon, tone: "text-warning" },

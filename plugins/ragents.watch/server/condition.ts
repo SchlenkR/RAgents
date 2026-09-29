@@ -32,17 +32,17 @@ export class WatchConditionError extends Error {
 }
 
 export const compileWatchCondition = async (condition: string, signal?: AbortSignal): Promise<WatchPredicate> => {
-  if (!condition.trim()) throw new WatchConditionError("Die Weckbedingung darf nicht leer sein.");
+  if (!condition.trim()) throw new WatchConditionError("The wake condition must not be empty.");
   const compiled = await compileVirtualTypeScriptAsync({
     sources: [{ fileName: conditionFile, text: `${watchStateDeclarations}\nconst wake = (now: WatchState, before: WatchState): string | undefined => {\n${condition}\n};\n` }],
     emit: "node",
   }, { signal });
   if (!compiled.valid) {
-    throw new WatchConditionError(`Die Weckbedingung ist kein gültiges TypeScript:\n${compiled.diagnostics.map((diagnostic) =>
+    throw new WatchConditionError(`The wake condition is not valid TypeScript:\n${compiled.diagnostics.map((diagnostic) =>
       `${diagnostic.start ? `${Math.max(1, diagnostic.start.line - watchStateDeclarations.split("\n").length)}:${diagnostic.start.column} ` : ""}TS${diagnostic.code}: ${diagnostic.message}`).join("\n")}`);
   }
   const emitted = compiled.emittedFiles.find((file) => file.fileName.endsWith(".js"));
-  if (!emitted) throw new WatchConditionError("Die Weckbedingung hat keinen JavaScript-Code erzeugt.");
+  if (!emitted) throw new WatchConditionError("The wake condition produced no JavaScript code.");
   const sandbox = createContext(Object.create(null));
   runInContext(`${emitted.text}\nglobalThis.wake = wake;`, sandbox, { timeout: RUN_TIMEOUT_MS });
   return (now, before) => {
@@ -50,7 +50,7 @@ export const compileWatchCondition = async (condition: string, signal?: AbortSig
     sandbox.before = before;
     const result: unknown = runInContext("wake(now, before)", sandbox, { timeout: RUN_TIMEOUT_MS });
     if (result === undefined || result === null || result === false) return undefined;
-    if (typeof result !== "string" || !result.trim()) throw new WatchConditionError(`Die Weckbedingung muss einen Grund als Text oder nichts liefern, nicht ${JSON.stringify(result)}.`);
+    if (typeof result !== "string" || !result.trim()) throw new WatchConditionError(`The wake condition must return a reason as text or nothing, not ${JSON.stringify(result)}.`);
     return result.trim().slice(0, REASON_CHARS);
   };
 };

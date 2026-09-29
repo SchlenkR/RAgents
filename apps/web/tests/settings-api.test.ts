@@ -60,6 +60,6 @@ test("settings still reject malformed capabilities, missing fields and unknown t
     missingName,
   ]) {
     tools = [invalid];
-    await assert.rejects(getSettings(), /Einstellungen entsprechen nicht dem erwarteten Format/);
+    await assert.rejects(getSettings(), /The settings do not match the expected format/);
   }
 });

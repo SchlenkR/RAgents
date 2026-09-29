@@ -35,7 +35,7 @@ export class RuntimeAskService implements AskService {
   readonly #aborting = new Set<string>();
 
   bind(runtime: Orchestration): void {
-    if (this.#runtime) throw new Error("Der Ask-Service wurde bereits an eine Runtime gebunden");
+    if (this.#runtime) throw new Error("The ask service is already bound to a runtime");
     this.#runtime = runtime;
     runtime.subscribe((events) => this.#onJournal(events));
   }
@@ -53,7 +53,7 @@ export class RuntimeAskService implements AskService {
       title: request.question,
       description: request.description,
       parameters: request.parameters,
-      input: { label: "Antwort", placeholder: null, required: true },
+      input: { label: "Answer", placeholder: null, required: true },
       payload: {
         question: request.question,
         options: [...request.options],
@@ -64,7 +64,7 @@ export class RuntimeAskService implements AskService {
     const proposed = runtime.events(call.runId).find((event) =>
       event.type === "action.proposed" && event.commandId === call.commandId);
     if (proposed?.type !== "action.proposed") {
-      throw new Error(`Die Frage von ${call.agentId} wurde nicht im Journal von ${call.runId} angelegt`);
+      throw new Error(`The question from ${call.agentId} was not created in the journal of ${call.runId}`);
     }
     return this.#awaitAnswer(call.runId, proposed.payload.actionId, call.turnId ? call.agentId : null, signal);
   }
@@ -74,7 +74,7 @@ export class RuntimeAskService implements AskService {
     const state = runtime.state(runId);
     const action = state.actions.get(actionId);
     if (!action || action.owner !== ASK_PLUGIN_ID) {
-      throw new DomainError("question-not-found", `Frage ${actionId} existiert nicht in Run ${runId}.`, 404);
+      throw new DomainError("question-not-found", `Question ${actionId} does not exist in run ${runId}.`, 404);
     }
     runtime.resolveAction(
       { actorId: state.ownerId, commandId: `ask-answer:${actionId}:${randomUUID()}` },
@@ -120,7 +120,7 @@ export class RuntimeAskService implements AskService {
   #awaitAnswer(runId: string, actionId: string, blockedActorId: string | null, signal: AbortSignal | undefined): Promise<string> {
     const runtime = this.#requireRuntime();
     const action = runtime.state(runId).actions.get(actionId);
-    if (!action) throw new Error(`Frage ${actionId} existiert nicht in Run ${runId}`);
+    if (!action) throw new Error(`Question ${actionId} does not exist in run ${runId}`);
     const settled = resolvedAnswerOf(action);
     if (settled !== null) return Promise.resolve(settled);
     return new Promise<string>((resolve, reject) => {
@@ -138,7 +138,7 @@ export class RuntimeAskService implements AskService {
               { decision: "dismissed", result: null },
             );
           }
-          reject(new Error("Das Warten auf die Antwort wurde abgebrochen."));
+          reject(new Error("Waiting for the answer was cancelled."));
         } catch (error) {
           reject(error);
         } finally {
@@ -201,16 +201,16 @@ export class RuntimeAskService implements AskService {
         runId,
         {
           actorId: recipientId,
-          content: `Antwort auf ${recipientId === action.askedBy ? "deine Frage" : "die Frage"}: ${action.title}\nAntwort: ${answer}`,
+          content: `Answer to ${recipientId === action.askedBy ? "your question" : "the question"}: ${action.title}\nAnswer: ${answer}`,
         },
       );
     } catch (error) {
-      console.error(`Antwort auf Frage ${actionId} konnte nicht als Input eingereiht werden: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(`Answer to question ${actionId} could not be enqueued as input: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
   #requireRuntime(): Orchestration {
-    if (!this.#runtime) throw new Error("Der Ask-Service ist noch nicht an die Runtime gebunden");
+    if (!this.#runtime) throw new Error("The ask service is not bound to the runtime yet");
     return this.#runtime;
   }
 }

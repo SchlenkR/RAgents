@@ -28,8 +28,8 @@ function Run({ id }) {
   const session = { session: { id }, messages: [] };
   const navigation = { activeTabId: '', openTab: () => update('expanded'), selectionFor: () => undefined };
   return <section aria-label={id}>
-    <button onClick={() => update('collapsed')}>Einklappen</button>
-    <button onClick={() => navigation.openTab('files')}>Tab öffnen</button>
+    <button onClick={() => update('collapsed')}>Collapse</button>
+    <button onClick={() => navigation.openTab('files')}>Open tab</button>
     <WorkspacePanel session={session} navigation={navigation} state={state} onToggleState={() => update('expanded')} tabs={[]} pendingTabIds={[]} headerContainer={null}/>
     <FileBrowserPanel session={session} active={true}/>
   </section>;
@@ -97,29 +97,29 @@ createRoot(document.getElementById('root')).render(<App/>);
     localStorage.setItem("ragents.workspacePanelWidth", "900");
   });
   await page.goto(`http://127.0.0.1:${address.port}`);
-  const width = () => page.getByRole("separator", { name: "Breite der Leiste" });
+  const width = () => page.getByRole("separator", { name: "Sidebar width" });
   await width().waitFor();
   assert.equal(await width().getAttribute("aria-valuenow"), "560");
   await width().press("ArrowLeft");
   const widthA = await width().getAttribute("aria-valuenow");
   assert.notEqual(widthA, "560");
-  await page.getByRole("button", { name: "Versteckte Einträge anzeigen", exact: true }).click();
+  await page.getByRole("button", { name: "Show hidden entries", exact: true }).click();
   await page.getByText(".hidden.txt", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Einklappen", exact: true }).click();
+  await page.getByRole("button", { name: "Collapse", exact: true }).click();
   await page.getByRole("button", { name: "Run B", exact: true }).click();
   await width().waitFor();
   assert.equal(await width().getAttribute("aria-valuenow"), "560");
-  await page.getByRole("button", { name: "Versteckte Einträge anzeigen", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Show hidden entries", exact: true }).waitFor();
   assert.equal(await page.getByText(".hidden.txt", { exact: true }).count(), 0);
   await width().press("ArrowRight");
   const widthB = await width().getAttribute("aria-valuenow");
-  await page.getByRole("button", { name: "Tab öffnen", exact: true }).click();
+  await page.getByRole("button", { name: "Open tab", exact: true }).click();
   await page.getByRole("button", { name: "Run A", exact: true }).click();
   await width().waitFor({ state: "detached" });
   assert.equal(await width().count(), 0);
-  await page.getByRole("button", { name: "Tab öffnen", exact: true }).click();
+  await page.getByRole("button", { name: "Open tab", exact: true }).click();
   assert.equal(await width().getAttribute("aria-valuenow"), widthA);
-  await page.getByRole("button", { name: "Versteckte Einträge anzeigen", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Show hidden entries", exact: true }).waitFor();
   await page.reload();
   await width().waitFor();
   assert.equal(await width().getAttribute("aria-valuenow"), widthA);

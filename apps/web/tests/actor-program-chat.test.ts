@@ -29,25 +29,25 @@ const view: RunView = {
   id: "sample-run", ownerId: "owner", primaryActorId: primary.id, title: "Test", createdAt: "2026-09-06T10:00:00Z", revision: 12,
   actors: [actor("owner", "user", "human"), primary, worker],
   inputs: [
-    { id: "input-2", actorId: worker.id, content: "Weiter", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: primary.id, enqueuedAt: "2026-09-06T10:02:00Z", sequence: 8, lifecycle: { kind: "pending" } },
-    { id: "input-1", actorId: worker.id, content: "Prüfe den Text", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: "owner", enqueuedAt: "2026-09-06T10:00:00Z", sequence: 3, lifecycle: { kind: "claimed", turnId: "turn-1", steered: false } },
-    { id: "discarded", actorId: worker.id, content: "Verworfen", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: "owner", enqueuedAt: "2026-09-06T10:00:00Z", sequence: 9, lifecycle: { kind: "discarded", at: "2026-09-06T10:03:00Z", reason: "Stopp" } },
+    { id: "input-2", actorId: worker.id, content: "Continue", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: primary.id, enqueuedAt: "2026-09-06T10:02:00Z", sequence: 8, lifecycle: { kind: "pending" } },
+    { id: "input-1", actorId: worker.id, content: "Check the text", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: "owner", enqueuedAt: "2026-09-06T10:00:00Z", sequence: 3, lifecycle: { kind: "claimed", turnId: "turn-1", steered: false } },
+    { id: "discarded", actorId: worker.id, content: "Discarded", artifactIds: [], sourceEventIds: [], subscriptionId: null, enqueuedBy: "owner", enqueuedAt: "2026-09-06T10:00:00Z", sequence: 9, lifecycle: { kind: "discarded", at: "2026-09-06T10:03:00Z", reason: "Stop" } },
   ],
-  turns: [{ id: "turn-1", actorId: worker.id, inputId: "input-1", status: "completed", startedAt: "2026-09-06T10:00:00Z", finishedAt: "2026-09-06T10:01:00Z", reason: null, usage: { inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0, costUsd: 0 }, outputs: [{ sequence: 6, text: "Geprüft", occurredAt: "2026-09-06T10:01:00Z" }] }],
+  turns: [{ id: "turn-1", actorId: worker.id, inputId: "input-1", status: "completed", startedAt: "2026-09-06T10:00:00Z", finishedAt: "2026-09-06T10:01:00Z", reason: null, usage: { inputTokens: 1, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0, costUsd: 0 }, outputs: [{ sequence: 6, text: "Checked", occurredAt: "2026-09-06T10:01:00Z" }] }],
   subscriptions: [], pluginStates: [], actions: [], artifacts: [],
 };
 const session = (overrides: Partial<SessionContext> = {}): SessionContext => ({
-  connected: true, pluginEvents: [], messages: [{ key: "streamed", role: "assistant", text: "Noch nicht fertig" }],
+  connected: true, pluginEvents: [], messages: [{ key: "streamed", role: "assistant", text: "Not done yet" }],
   running: true, session: { id: view.id, title: view.title, updatedAt: 0 }, runView: view,
   send: async () => {}, start: async () => {}, respond: async () => {}, ...overrides,
 });
 
 test("actor chats share the inspector's ordered conversation and exclude discarded inputs", () => {
   const messages = actorConversation(view, worker);
-  assert.deepEqual(messages.map((entry) => entry.text), ["Prüfe den Text", "Geprüft", "Weiter"]);
+  assert.deepEqual(messages.map((entry) => entry.text), ["Check the text", "Checked", "Continue"]);
   assert.deepEqual(messages.map((entry) => entry.role), ["user", "assistant", "assistant"]);
   assert.deepEqual(messages.map((entry) => entry.sender), [view.ownerId, worker.id, primary.id]);
-  assert.equal(messages[2].bubble?.label, "Zugestellt von @coordinator");
+  assert.equal(messages[2].bubble?.label, "Delivered by @coordinator");
   assert.deepEqual(chatSnapshotOf(session(), "@reviewer").messages, messages);
   assert.equal(chatSnapshotOf(session(), "@reviewer").owner, worker.id);
   assert.equal(chatSnapshotOf(session(), "@reviewer").running, false);
@@ -59,14 +59,14 @@ test("fallback actor chats hide background inputs without hiding their answers",
     inputs: view.inputs.map((input) => input.id === "input-1" ? { ...input, presentation: "background" } : input),
   };
   const messages = actorConversation(background, worker);
-  assert.deepEqual(messages.map((message) => message.text), ["Geprüft", "Weiter"]);
+  assert.deepEqual(messages.map((message) => message.text), ["Checked", "Continue"]);
   assert.deepEqual(messages.map((message) => message.sender), [worker.id, primary.id]);
   assert.deepEqual(chatSnapshotOf(session({ runView: background }), "@reviewer").messages, messages);
   assert.equal(view.inputs.find((input) => input.id === "input-1")?.presentation, undefined);
 });
 
 test("primary chats retain streaming text and follow the selected primary actor", () => {
-  assert.equal(chatSnapshotOf(session(), "primary").messages[0].text, "Noch nicht fertig");
+  assert.equal(chatSnapshotOf(session(), "primary").messages[0].text, "Not done yet");
   assert.equal(chatSnapshotOf(session(), "primary").messages[0].sender, primary.id);
   assert.equal(chatSnapshotOf(session(), "primary").owner, primary.id);
   assert.equal(chatSnapshotOf(session(), "primary").running, true);
@@ -78,9 +78,9 @@ test("primary chats retain streaming text and follow the selected primary actor"
 
 test("primary actor messages retain live content while identifying human and assistant senders", () => {
   const messages: Message[] = [
-    { key: "human", role: "user", text: "Prüfen", closed: true },
-    { key: "thinking", role: "thinking", text: "Überlege" },
-    { key: "streamed", role: "assistant", text: "Noch nicht fertig", closed: false },
+    { key: "human", role: "user", text: "Check", closed: true },
+    { key: "thinking", role: "thinking", text: "Thinking it over" },
+    { key: "streamed", role: "assistant", text: "Not done yet", closed: false },
   ];
   const rendered = actorChatMessages(view, primary, messages);
   assert.deepEqual(rendered, [
@@ -93,20 +93,20 @@ test("primary actor messages retain live content while identifying human and ass
 
 test("chat owner suppresses only matching sender bubbles and preserves the same conversation", () => {
   const messages: Message[] = [
-    { key: "human", role: "user", sender: "human", text: "Frage" },
-    { key: "reviewer", role: "assistant", sender: "reviewer", text: "**Antwort**", bubble: { label: "Gleicher Name", color: "#123456", side: "end" } },
-    { key: "coordinator", role: "assistant", sender: "coordinator", text: "Nachtrag", bubble: { label: "Gleicher Name", color: "#abcdef", side: "start" } },
-    { key: "anonymous", role: "assistant", text: "Ohne Kennung", bubble: { label: "reviewer", color: "#654321", side: "start" } },
+    { key: "human", role: "user", sender: "human", text: "Question" },
+    { key: "reviewer", role: "assistant", sender: "reviewer", text: "**Answer**", bubble: { label: "Same name", color: "#123456", side: "end" } },
+    { key: "coordinator", role: "assistant", sender: "coordinator", text: "Addendum", bubble: { label: "Same name", color: "#abcdef", side: "start" } },
+    { key: "anonymous", role: "assistant", text: "Without ID", bubble: { label: "reviewer", color: "#654321", side: "start" } },
   ];
   const original = structuredClone(messages);
   const render = (owner?: string | null) => renderToStaticMarkup(createElement(ChatMessages, { messages, owner }));
   const defaults = render();
   assert.equal(render(null), defaults);
-  assert.equal(render("Gleicher Name"), defaults);
+  assert.equal(render("Same name"), defaults);
   assert.match(defaults, /data-message="user"/);
   const reviewer = render("reviewer");
   assert.doesNotMatch(reviewer, /background:#123456/);
-  assert.match(reviewer, /data-message="answer"[^>]*>(<div[^>]*>)?<p[^>]*><strong[^>]*>Antwort<\/strong>/);
+  assert.match(reviewer, /data-message="answer"[^>]*>(<div[^>]*>)?<p[^>]*><strong[^>]*>Answer<\/strong>/);
   assert.match(reviewer, /background:#abcdef/);
   assert.match(reviewer, /background:#654321/);
   assert.match(reviewer, /data-message="user"/);
@@ -124,7 +124,7 @@ test("chat owner retains attachment-only messages and leaves special rows unchan
   for (const role of ["user", "assistant"] as const) {
     const html = renderToStaticMarkup(createElement(ChatMessages, { owner: "reviewer", messages: [
       { key: role, role, sender: "reviewer", text: "", attachments: [{ name: "notes.txt", mediaType: "text/plain", size: 12, url: "/notes.txt" }],
-        ...(role === "assistant" ? { bubble: { label: "Prüfung", color: "#123456", side: "end" as const } } : {}) },
+        ...(role === "assistant" ? { bubble: { label: "Review", color: "#123456", side: "end" as const } } : {}) },
     ] }));
     assert.match(html, /data-message="answer"/);
     assert.match(html, /download="notes.txt"/);
@@ -132,7 +132,7 @@ test("chat owner retains attachment-only messages and leaves special rows unchan
   }
   const messages: Message[] = [
     { key: "tool", role: "tool", sender: "reviewer", text: "Liest", tool: { id: "read", name: "read", arguments: "{}", result: "Fertig" } },
-    { key: "thinking", role: "thinking", sender: "reviewer", text: "Überlege" },
+    { key: "thinking", role: "thinking", sender: "reviewer", text: "Thinking it over" },
     { key: "system", role: "system", sender: "reviewer", text: "Unterbrochen" },
     { key: "question", role: "question", sender: "reviewer", text: "Welche Farbe?", question: { callId: "color", options: ["Blau", "Rot"] } },
   ];
@@ -141,12 +141,12 @@ test("chat owner retains attachment-only messages and leaves special rows unchan
 });
 
 test("chat targets are same-run handles; stopped or disconnected actors retain history and reject input", () => {
-  assert.throws(() => resolveChatActor(session(), "worker-agent"), /Erlaubt sind primary/);
-  assert.throws(() => resolveChatActor(session(), "@user"), /Erlaubt sind primary/);
-  assert.throws(() => resolveChatActor(session({ runView: { ...view, id: "other-run" } }), "primary"), /Run-Ansicht/);
-  assert.match(chatSnapshotOf(session({ connected: false }), "@reviewer").error ?? "", /unterbrochen/);
-  const stopped = session({ runView: { ...view, actors: [primary, { ...worker, lifecycle: { kind: "stopped", stoppedAt: "2026-09-06T10:03:00Z", reason: "Stopp" } }] } });
-  assert.match(chatSnapshotOf(stopped, "@reviewer").error ?? "", /gestoppt/);
+  assert.throws(() => resolveChatActor(session(), "worker-agent"), /Allowed are primary/);
+  assert.throws(() => resolveChatActor(session(), "@user"), /Allowed are primary/);
+  assert.throws(() => resolveChatActor(session({ runView: { ...view, id: "other-run" } }), "primary"), /run view/);
+  assert.match(chatSnapshotOf(session({ connected: false }), "@reviewer").error ?? "", /interrupted/);
+  const stopped = session({ runView: { ...view, actors: [primary, { ...worker, lifecycle: { kind: "stopped", stoppedAt: "2026-09-06T10:03:00Z", reason: "Stop" } }] } });
+  assert.match(chatSnapshotOf(stopped, "@reviewer").error ?? "", /stopped/);
   assert.equal(chatSnapshotOf(stopped, "@reviewer").messages.length, 3);
 });
 
@@ -189,27 +189,27 @@ test("actor history retains attachment-only inputs and run-scoped download metad
 
 test("LLM surface chats retain the conversation and expose the shared permanent composer", () => {
   const html = renderToStaticMarkup(createElement(ActorChatPreview, { actor: worker, view, onNavigate: () => {} }));
-  assert.match(html, /Prüfe den Text/);
-  assert.match(html, /Geprüft/);
+  assert.match(html, /Check the text/);
+  assert.match(html, /Checked/);
   assert.match(html, /data-chat="composer"/);
-  assert.match(html, /<textarea[^>]*aria-label="Nachricht an @reviewer/);
-  assert.match(html, /aria-label="Dateien anhängen"/);
+  assert.match(html, /<textarea[^>]*aria-label="Message to @reviewer/);
+  assert.match(html, /aria-label="Attach files"/);
   assert.equal((html.match(/<textarea/g) ?? []).length, 1);
-  assert.doesNotMatch(html, /Modell auswählen|Denktiefe|Anheften|<select/);
+  assert.doesNotMatch(html, /Select model|Thinking level|Pin|<select/);
 });
 
-const questionAction: RunAction = { id: "review-window", askedBy: worker.id, owner: "ragents.ask", title: "Welche Prüffrist gilt?",
-  description: "Beide Varianten sind fachlich möglich.", payload: { question: "Welche Prüffrist gilt?", options: ["3 Tage", "14 Tage"], multi: false },
+const questionAction: RunAction = { id: "review-window", askedBy: worker.id, owner: "ragents.ask", title: "Which review period applies?",
+  description: "Both variants are possible in terms of content.", payload: { question: "Which review period applies?", options: ["3 days", "14 days"], multi: false },
   parameters: {}, input: null, status: "pending", proposedAt: "now", resolvedAt: null, resolvedBy: null, result: null };
 const askRegistry = new PluginRegistry({ brand: { title: "Test" }, product: { id: "test", title: "Test" }, startEntries: [], plugins: [askWebPlugin] }, new Map());
 const tileNavigation: SessionNavigation = { activeTabId: "", openTab: () => {}, revealEntity: () => false, selectionFor: () => undefined };
 const questionTileSession = (status: RunAction["status"]) => {
-  const currentView = { ...view, actions: [{ ...questionAction, status }, { ...questionAction, id: "other-question", askedBy: primary.id, title: "Fremde Frage" }] };
+  const currentView = { ...view, actions: [{ ...questionAction, status }, { ...questionAction, id: "other-question", askedBy: primary.id, title: "Foreign question" }] };
   return session({ runView: currentView, actorConversations: { [worker.id]: [
-    { key: "message", role: "assistant", sender: worker.id, text: "Ich brauche eine Entscheidung." },
+    { key: "message", role: "assistant", sender: worker.id, text: "I need a decision." },
     { key: questionAction.id, role: "action", text: questionAction.title, action: {
       actionId: questionAction.id, owner: "ragents.ask", payload: questionAction.payload,
-      ...(status === "approved" ? { status: "approved" as const, result: "14 Tage" } : {}),
+      ...(status === "approved" ? { status: "approved" as const, result: "14 days" } : {}),
     } },
   ] } });
 };
@@ -235,49 +235,49 @@ const renderOpenQuestionAction = (writable: boolean) => {
 test("an open question leaves the tile transcript for the dock at the input and no longer needs a card section", () => {
   assert.deepEqual(askRegistry.cardSections, []);
   const html = renderQuestionTile(true);
-  assert.match(html, /Ich brauche eine Entscheidung/);
+  assert.match(html, /I need a decision/);
   assert.match(html, /data-chat="composer"/);
-  assert.match(html, /<textarea[^>]*aria-label="Nachricht an @reviewer/);
+  assert.match(html, /<textarea[^>]*aria-label="Message to @reviewer/);
   assert.doesNotMatch(html, /<textarea[^>]*disabled/);
-  assert.doesNotMatch(html, /Welche Prüffrist gilt|data-question=|wartet auf Eingabe|Fremde Frage|Modell auswählen|Denktiefe/);
+  assert.doesNotMatch(html, /Which review period applies|data-question=|waiting for input|Foreign question|Select model|Thinking level/);
   assert.doesNotMatch(html, /data-slot="card-sections"[^>]*>[^<]/);
 });
 
 test("the tile renders an open question through the ask view, answerable only with write access", () => {
   const writable = renderOpenQuestionAction(true);
-  assert.match(writable, /Welche Prüffrist gilt\?/);
-  assert.match(writable, /<button[^>]*data-question="option"[^>]*>3 Tage<\/button>/);
-  assert.match(writable, /<button[^>]*data-question="option"[^>]*>14 Tage<\/button>/);
-  assert.match(writable, /placeholder="\.\.\. oder frei antworten"/);
+  assert.match(writable, /Which review period applies\?/);
+  assert.match(writable, /<button[^>]*data-question="option"[^>]*>3 days<\/button>/);
+  assert.match(writable, /<button[^>]*data-question="option"[^>]*>14 days<\/button>/);
+  assert.match(writable, /placeholder="\.\.\. or answer freely"/);
   const readonly = renderOpenQuestionAction(false);
-  assert.match(readonly, /Welche Prüffrist gilt\?/);
-  assert.match(readonly, /<li>3 Tage<\/li><li>14 Tage<\/li>/);
-  assert.doesNotMatch(readonly, /data-question="option"|oder frei antworten|<button/);
+  assert.match(readonly, /Which review period applies\?/);
+  assert.match(readonly, /<li>3 days<\/li><li>14 days<\/li>/);
+  assert.doesNotMatch(readonly, /data-question="option"|or answer freely|<button/);
   assert.match(renderQuestionTile(false), /<textarea[^>]*disabled=""/);
 });
 
 test("an answered question stays in the tile transcript as a receipt without controls", () => {
   const answered = renderQuestionTile(true, "approved");
-  assert.match(answered, /data-quassel-transcript[\s\S]*Welche Prüffrist gilt\?[\s\S]*data-question="answered"[^>]*>.*14 Tage[\s\S]*data-chat="composer"/);
+  assert.match(answered, /data-quassel-transcript[\s\S]*Which review period applies\?[\s\S]*data-question="answered"[^>]*>.*14 days[\s\S]*data-chat="composer"/);
   assert.match(answered, /data-chat="actions"><\/div>/);
-  assert.doesNotMatch(answered, /data-question="option"|oder frei antworten|wartet auf Eingabe/);
+  assert.doesNotMatch(answered, /data-question="option"|or answer freely|waiting for input/);
 });
 
 test("a stopped actor's chat shows the reason and the restart instead of a composer, and humans do not receive the actor composer", () => {
-  const stopped: RunActor = { ...worker, lifecycle: { kind: "stopped", stoppedAt: "now", reason: "Versehentlich gestoppt" } };
+  const stopped: RunActor = { ...worker, lifecycle: { kind: "stopped", stoppedAt: "now", reason: "Stopped by mistake" } };
   const html = renderToStaticMarkup(createElement(ActorChatControls, { actor: stopped, view, presentation: "surface" }));
-  assert.doesNotMatch(html, /textarea|Dateien anhängen/);
-  assert.match(html, new RegExp(`@${worker.handle} gestoppt:</span> Versehentlich gestoppt`));
-  assert.match(html, />Neu starten</);
+  assert.doesNotMatch(html, /textarea|Attach files/);
+  assert.match(html, new RegExp(`@${worker.handle} stopped:</span> Stopped by mistake`));
+  assert.match(html, />Restart</);
   const reader = createAccessContext({ enabled: true, user: { id: "reader", label: "Reader", rights: ["runs.read", "runs.inspect"] } });
   const readOnly = renderToStaticMarkup(createElement(AccessContext.Provider, { value: { ...reader, logout: async () => {} } },
     createElement(ActorChatControls, { actor: stopped, view, presentation: "surface" })));
-  assert.match(readOnly, /Versehentlich gestoppt/);
-  assert.doesNotMatch(readOnly, /Neu starten</);
+  assert.match(readOnly, /Stopped by mistake/);
+  assert.doesNotMatch(readOnly, /Restart</);
   const human = renderToStaticMarkup(createElement(ActorChatControls, { actor: view.actors[0], view }));
-  assert.doesNotMatch(human, /textarea|Dateien anhängen/);
+  assert.doesNotMatch(human, /textarea|Attach files/);
   const hidden = renderToStaticMarkup(createElement(ActorChatControls, { actor: worker, view, composerVisible: false }));
-  assert.doesNotMatch(hidden, /textarea|Dateien anhängen/);
+  assert.doesNotMatch(hidden, /textarea|Attach files/);
 });
 
 test("script actor controls explain program operation without offering a chat composer", () => {
@@ -285,9 +285,9 @@ test("script actor controls explain program operation without offering a chat co
   const scriptView = { ...view, actors: [...view.actors, script] };
   for (const presentation of ["surface", "inspector"] as const) {
     const html = renderToStaticMarkup(createElement(ActorChatControls, { actor: script, view: scriptView, presentation }));
-    assert.doesNotMatch(html, /textarea|Dateien anhängen/);
+    assert.doesNotMatch(html, /textarea|Attach files/);
     assert.match(html, /TypeScript/);
-    assert.match(html, /Mini-App/);
+    assert.match(html, /mini-app/);
   }
   const llm = chatSnapshotOf(session(), "@reviewer");
   assert.notEqual(llm.readOnly, true);
@@ -295,37 +295,37 @@ test("script actor controls explain program operation without offering a chat co
 });
 
 test("actor traces remain with their actor after primary switches to a script", () => {
-  const script = actor("list-script", "notizliste", "script");
+  const script = actor("list-script", "notelist", "script");
   const changedView = { ...view, primaryActorId: script.id, actors: [...view.actors, script] };
   const conversation: Message[] = [
-    { key: "thought", role: "thinking", sender: primary.id, text: "Ich prüfe die Beteiligten", closed: true },
+    { key: "thought", role: "thinking", sender: primary.id, text: "I am checking the participants", closed: true },
     { key: "call", role: "tool", sender: primary.id, text: "actor_list", closed: true,
-      tool: { id: "call-1", name: "actor_list", arguments: "{}", result: "coordinator, notizliste" } },
-    { key: "reply", role: "assistant", sender: primary.id, text: "Ausgeführt", closed: true },
+      tool: { id: "call-1", name: "actor_list", arguments: "{}", result: "coordinator, notelist" } },
+    { key: "reply", role: "assistant", sender: primary.id, text: "Done", closed: true },
   ];
-  const scriptMessages: Message[] = [{ key: "script-reply", role: "assistant", text: "Liste bereit" }];
+  const scriptMessages: Message[] = [{ key: "script-reply", role: "assistant", text: "List ready" }];
   const context = session({ runView: changedView, messages: scriptMessages, actorConversations: { [primary.id]: conversation } });
   const snapshot = chatSnapshotOf(context, "@coordinator");
   assert.deepEqual(snapshot.messages.map((message) => message.role), ["thinking", "tool", "assistant"]);
-  assert.equal(snapshot.messages[1].tool?.result, "coordinator, notizliste");
+  assert.equal(snapshot.messages[1].tool?.result, "coordinator, notelist");
   assert.equal(snapshot.messages[2].sender, primary.id);
-  assert.equal(chatSnapshotOf(context, "primary").messages[0].text, "Liste bereit");
-  for (const target of ["primary", "@notizliste"]) {
+  assert.equal(chatSnapshotOf(context, "primary").messages[0].text, "List ready");
+  for (const target of ["primary", "@notelist"]) {
     const program = chatSnapshotOf(context, target);
-    assert.equal(program.messages[0].text, "Liste bereit");
+    assert.equal(program.messages[0].text, "List ready");
     assert.equal(program.readOnly, true);
     assert.match(program.error ?? "", /TypeScript/);
   }
   const markup = renderToStaticMarkup(createElement(ChatMessages, { messages: snapshot.messages, detailMode: "compact" }));
   assert.match(markup, /data-kind="thinking"/);
   assert.match(markup, /actor_list/);
-  assert.doesNotMatch(markup, /Liste bereit/);
+  assert.doesNotMatch(markup, /List ready/);
 });
 
 test("bound mini-app chats retain script history without a composer and keep LLM chat writable", () => {
   const script = actor("program", "word-game", "script");
   const context = session({ runView: { ...view, primaryActorId: script.id, actors: [...view.actors, script] },
-    messages: [{ key: "program-output", role: "assistant", text: "Spiel abgeschlossen" }],
+    messages: [{ key: "program-output", role: "assistant", text: "Game finished" }],
   });
   const appGlobal = globalThis as typeof globalThis & { __ragentsAppContext?: { chat: ChatConnection } };
   const previous = appGlobal.__ragentsAppContext;
@@ -334,12 +334,12 @@ test("bound mini-app chats retain script history without a composer and keep LLM
       read: (target) => chatSnapshotOf(context, target), subscribe: () => () => {}, send: async () => {},
     } };
     const program = renderToStaticMarkup(createElement(AppChat, { actor: "primary", showInput: true }));
-    assert.match(program, /Spiel abgeschlossen/);
+    assert.match(program, /Game finished/);
     assert.match(program, /TypeScript/);
-    assert.doesNotMatch(program, /textarea|Dateien anhängen/);
+    assert.doesNotMatch(program, /textarea|Attach files/);
     const llm = renderToStaticMarkup(createElement(AppChat, { actor: "@reviewer" }));
     assert.match(llm, /textarea/);
-    assert.match(llm, /Dateien anhängen/);
+    assert.match(llm, /Attach files/);
   } finally {
     if (previous === undefined) delete appGlobal.__ragentsAppContext;
     else appGlobal.__ragentsAppContext = previous;
@@ -350,7 +350,7 @@ test("bound mini-app chats retain script history without a composer and keep LLM
 test("actor chats render show_document through the registered document presenter", () => {
   const message: Message = {
     key: "document-call", role: "tool", text: "show_document", closed: true,
-    tool: { id: "document-call", name: "show_document", arguments: JSON.stringify({ title: "Prüfbericht", content: "Zeile eins\nZeile zwei", format: "markdown" }), result: "Dem Benutzer angezeigt: Prüfbericht" },
+    tool: { id: "document-call", name: "show_document", arguments: JSON.stringify({ title: "Review report", content: "Line one\nLine two", format: "markdown" }), result: "Shown to the user: Review report" },
   };
   const current = session({ messages: [message] });
   const navigation: SessionNavigation = { activeTabId: "documents", openTab: () => {}, revealEntity: () => false, selectionFor: () => "document-call" };
@@ -369,9 +369,9 @@ test("actor chats render show_document through the registered document presenter
     }, createElement(PluginSessionProviders, { registry, session: current, navigation },
       createElement(ActorChat, { actor, view, presentation, primaryMessages: [message], conversation: [message], onNavigate: () => {} }))));
     assert.match(html, /aria-pressed="true"/);
-    assert.match(html, /Prüfbericht/);
-    assert.match(html, /Markdown, 2 Zeilen/);
-    assert.match(html, /Geöffnet/);
+    assert.match(html, /Review report/);
+    assert.match(html, /Markdown, 2 lines/);
+    assert.match(html, /Opened/);
   }
 });
 
@@ -380,15 +380,15 @@ test("document navigation includes worker histories without duplicating the prim
   const documentMessage = (id: string, title: string, source: object): Message => ({
     key: id, role: "tool", text: "show_document", tool: { id, name: "show_document", arguments: JSON.stringify({ title, ...source }) },
   });
-  const main = documentMessage("main-document", "Hauptbericht", { content: "Bericht" });
-  const completed = { ...main, tool: { ...main.tool!, result: "Dem Benutzer angezeigt" } };
-  const worker = documentMessage("worker-document", "Prüfung", { content: "Geprüft" });
-  const file = documentMessage("worker-file", "Datei", { path: "ergebnis.md" });
-  const messages = documentMessagesFrom([completed], { primary: [main], worker: [worker, file, { key: "answer", role: "assistant", text: "Fertig" }] });
+  const main = documentMessage("main-document", "Main report", { content: "Report" });
+  const completed = { ...main, tool: { ...main.tool!, result: "Shown to the user" } };
+  const worker = documentMessage("worker-document", "Review", { content: "Checked" });
+  const file = documentMessage("worker-file", "File", { path: "result.md" });
+  const messages = documentMessagesFrom([completed], { primary: [main], worker: [worker, file, { key: "answer", role: "assistant", text: "Done" }] });
   assert.deepEqual(messages.map((message) => message.tool?.id), ["main-document", "worker-document", "worker-file"]);
   assert.equal(messages[0], completed);
-  assert.deepEqual(documentsFrom(messages).map((document) => document.title), ["Hauptbericht", "Prüfung"]);
-  assert.equal(JSON.parse(messages[2].tool!.arguments).path, "ergebnis.md");
+  assert.deepEqual(documentsFrom(messages).map((document) => document.title), ["Main report", "Review"]);
+  assert.equal(JSON.parse(messages[2].tool!.arguments).path, "result.md");
 });
 
 
@@ -397,10 +397,10 @@ test("a tile can hide the chat composer of its actor without changing the inspec
   const html = renderToStaticMarkup(createElement(ActorTile, {
     actor: worker, view, cardSections: [], chatInput: false, session: session(), navigation: {} as SessionNavigation, onSelect: () => {},
   }));
-  assert.match(html, /Prüfe den Text/);
-  assert.match(html, /Geprüft/);
-  assert.doesNotMatch(html, /<textarea|Dateien anhängen/);
-  assert.match(html, /aria-label="Zeitstempel ausblenden"/);
+  assert.match(html, /Check the text/);
+  assert.match(html, /Checked/);
+  assert.doesNotMatch(html, /<textarea|Attach files/);
+  assert.match(html, /aria-label="Hide timestamps"/);
   assert.match(renderToStaticMarkup(createElement(ActorChatPreview, props)), /<textarea/);
   const inspector = renderToStaticMarkup(createElement(ActorChatControls, { actor: worker, view, presentation: "inspector" }));
   assert.match(inspector, /<textarea/);

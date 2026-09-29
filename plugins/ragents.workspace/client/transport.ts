@@ -1,7 +1,7 @@
 import { RpcClient } from "../../../apps/web/src/rpc/client";
 import type { WorkspaceClientTransport } from "./workspace-client";
 
-/** Ein Arbeitsplatz-Zugang ohne Oberfläche: die Nachrichtenschicht mit Bearer-Token. */
+/** A workstation access without a user interface: the message layer with a bearer token. */
 export const workspaceClientTransport = (baseUrl: string, token: string | undefined): WorkspaceClientTransport => ({
   rpc: new RpcClient({
     baseUrl: new URL(baseUrl).origin,

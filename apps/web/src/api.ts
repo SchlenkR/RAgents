@@ -8,7 +8,7 @@ import { startOptionStateFrom, type StartOptionState } from "../../server/src/pl
 
 export type { StartOptionState };
 
-/** Unterbricht nur den laufenden Turn dieses Actors; der Actor bleibt aktiv, ohne laufenden Turn geschieht nichts. */
+/** Interrupts only the running turn of this actor; the actor stays active, without a running turn nothing happens. */
 export const interruptActorTurn = async (runId: string, actorId: string, client: RpcClient = rpc): Promise<void> => {
   await client.call(runContracts.interruptTurn, { runId, commandId: crypto.randomUUID(), actorId });
 };
@@ -41,12 +41,12 @@ export interface SessionInfo {
   updatedAt: number;
   revision?: number;
   running?: boolean;
-  /** Ob der Betrachter den Arbeitsbereich des Runs erreicht; fehlt, solange der Server den Run noch nicht gelistet hat. */
+  /** Whether the viewer can reach the run's workspace; missing as long as the server has not listed the run yet. */
   workspaceAccessible?: boolean;
   metadata?: Readonly<Record<string, unknown>>;
-  /** Warum ein Metadaten-Beitrag keinen Wert hat: gescheitert oder nicht rechtzeitig geantwortet. */
+  /** Why a metadata contribution has no value: failed or did not answer in time. */
   metadataUnavailable?: Readonly<Record<string, string>>;
-  /** Warum der Server den Run gesperrt hat; ein gesperrter Run lässt sich nur noch löschen. */
+  /** Why the server locked the run; a locked run can only be deleted. */
   locked?: string;
 }
 
@@ -366,7 +366,7 @@ const settingsResponseFrom = (value: unknown): SettingsResponse => {
     || !value.skills.every(isSettingsSkill)
     || !Array.isArray(value.tools)
     || !value.tools.every(isSettingsTool)) {
-    throw new Error("Die Einstellungen entsprechen nicht dem erwarteten Format");
+    throw new Error("The settings do not match the expected format");
   }
   return value as unknown as SettingsResponse;
 };
@@ -379,13 +379,13 @@ const settingsSkillDetailFrom = (value: unknown): SettingsSkillDetail => {
     || !isSettingsSkill(value)
     || !Array.isArray(value.files)
     || !value.files.every(isSettingsSkillFile)) {
-    throw new Error("Der Skill entspricht nicht dem erwarteten Format");
+    throw new Error("The skill does not match the expected format");
   }
   return value as unknown as SettingsSkillDetail;
 };
 
 export const getSettingsSkill = async (id: string, signal?: AbortSignal, client: RpcClient = rpc): Promise<SettingsSkillDetail> => {
   const detail = await client.call(coreContracts.settings.skill, { id }, { signal });
-  if (detail === null) throw new Error("Der Skill konnte nicht geladen werden");
+  if (detail === null) throw new Error("The skill could not be loaded");
   return settingsSkillDetailFrom(detail);
 };

@@ -3,40 +3,40 @@ import { RPC_METHODS, type ChannelDescriptor, type MethodDescriptor, type Plugin
 
 export type ApiAuthentication = { kind: "open" } | { kind: "token" } | { kind: "users"; cookieName: string };
 
-export const RPC_API_TITLE = "RAgents JSON-RPC-API";
+export const RPC_API_TITLE = "RAgents JSON-RPC API";
 
 const schemaJson = (schema: TSchema): Record<string, unknown> => JSON.parse(JSON.stringify(schema)) as Record<string, unknown>;
 
 const byId = <T extends { id: string }>(entries: readonly T[]): T[] =>
   [...entries].sort((left, right) => left.id.localeCompare(right.id, "en"));
 
-const rights = (entry: { rights: readonly string[] }): string => entry.rights.length > 0 ? entry.rights.join(", ") : "keine festen Rechte";
+const rights = (entry: { rights: readonly string[] }): string => entry.rights.length > 0 ? entry.rights.join(", ") : "no fixed rights";
 
 export const authenticationDescription = (authentication: ApiAuthentication): string => authentication.kind === "users"
-  ? "Benutzeranmeldung: POST /api/access/login mit id und password. Das erhaltene Sitzungscookie bei weiteren Anfragen mitsenden. ACCESS_TOKEN ersetzt keine Benutzeranmeldung."
-  : authentication.kind === "token" ? "Dieses Profil verlangt den konfigurierten ACCESS_TOKEN als Bearer-Token oder das bestehende Zugangscookie."
-    : "Dieses Profil verlangt keine Anmeldung. Profile mit users verwenden Sitzungscookies; ohne users kann ACCESS_TOKEN den bisherigen Zugang schützen.";
+  ? "User sign-in: POST /api/access/login with id and password. Send the received session cookie with further requests. ACCESS_TOKEN does not replace user sign-in."
+  : authentication.kind === "token" ? "This profile requires the configured ACCESS_TOKEN as a bearer token or the existing access cookie."
+    : "This profile requires no sign-in. Profiles with users use session cookies; without users, ACCESS_TOKEN can protect the existing access.";
 
 const transportLines = (authentication: ApiAuthentication, example: string): string[] => [
-  "Die API ist JSON-RPC 2.0. Eine Anfrage ist ein Objekt mit jsonrpc, id, method und params; params ist immer das Eingabeobjekt der Methode. Die Antwort enthält result oder error; error.data nennt code und status des Fehlers.",
+  "The API is JSON-RPC 2.0. A request is an object with jsonrpc, id, method and params; params is always the method's input object. The response contains result or error; error.data names the error's code and status.",
   "",
-  "Transporte:",
+  "Transports:",
   "",
-  "- HTTP: `POST /rpc` mit genau einer Nachricht je Anfrage. `GET /rpc/stream` liefert als Server-Sent-Events die Benachrichtigungen und Anfragen des Servers; das erste Ereignis `hello` nennt die Verbindungskennung, die weitere Anfragen im Header `x-ragents-connection` mitsenden.",
-  "- stdio: der Server startet mit `--stdio` und tauscht eine JSON-Nachricht je Zeile über stdin und stdout aus.",
+  "- HTTP: `POST /rpc` with exactly one message per request. `GET /rpc/stream` delivers the server's notifications and requests as server-sent events; the first event `hello` names the connection id, which further requests send in the header `x-ragents-connection`.",
+  "- stdio: the server starts with `--stdio` and exchanges one JSON message per line over stdin and stdout.",
   "",
-  `Feste Methoden der Nachrichtenschicht: ${RPC_METHODS.subscribe}, ${RPC_METHODS.unsubscribe}, ${RPC_METHODS.event}, ${RPC_METHODS.cancel} und ${RPC_METHODS.progress}. Ein Abonnement nennt channel und params und erhält eine Abonnementkennung; jede Nachricht des Kanals kommt als ${RPC_METHODS.event}.`,
+  `Fixed methods of the message layer: ${RPC_METHODS.subscribe}, ${RPC_METHODS.unsubscribe}, ${RPC_METHODS.event}, ${RPC_METHODS.cancel} and ${RPC_METHODS.progress}. A subscription names channel and params and receives a subscription id; every message of the channel arrives as ${RPC_METHODS.event}.`,
   "",
   authenticationDescription(authentication),
   "",
-  "Die Shellvariable RAGENTS_API_BASE_URL enthält die Serveradresse. Falls RAGENTS_API_TOKEN gesetzt ist, bei Anfragen den Header Authorization: Bearer <Token> senden. Der Token gehört nicht in Ausgaben oder Dokumente.",
+  "The shell variable RAGENTS_API_BASE_URL contains the server address. If RAGENTS_API_TOKEN is set, send the header Authorization: Bearer <token> with requests. The token does not belong in output or documents.",
   "",
   "```sh",
   `curl -s "$RAGENTS_API_BASE_URL/rpc" -H 'content-type: application/json' \\`,
   `  -d '{"jsonrpc":"2.0","id":1,"method":"${example}","params":{}}'`,
   "```",
   "",
-  "Kennungen aus Ergebnissen werden programmgesteuert weiterverwendet, nicht abgeschrieben.",
+  "Ids from results are reused programmatically, not copied by hand.",
 ];
 
 const methodSection = (method: MethodDescriptor): string[] => [
@@ -44,15 +44,15 @@ const methodSection = (method: MethodDescriptor): string[] => [
   "",
   method.description,
   "",
-  `Eigentümer: ${method.owner}. Rechte: ${rights(method)}. Ausführung: ${method.implementedBy === "client" ? "der verbundene Client" : "der Server"}.`,
+  `Owner: ${method.owner}. Rights: ${rights(method)}. Execution: ${method.implementedBy === "client" ? "the connected client" : "the server"}.`,
   "",
-  "### Eingabe",
+  "### Input",
   "",
   "```json",
   JSON.stringify(schemaJson(method.input), null, 2),
   "```",
   "",
-  "### Ergebnis",
+  "### Result",
   "",
   "```json",
   JSON.stringify(schemaJson(method.result), null, 2),
@@ -61,11 +61,11 @@ const methodSection = (method: MethodDescriptor): string[] => [
 ];
 
 const channelSection = (channel: ChannelDescriptor): string[] => [
-  `## Kanal ${channel.id}`,
+  `## Channel ${channel.id}`,
   "",
   channel.description,
   "",
-  `Eigentümer: ${channel.owner}. Rechte: ${rights(channel)}.`,
+  `Owner: ${channel.owner}. Rights: ${rights(channel)}.`,
   "",
   "### Parameter",
   "",
@@ -73,7 +73,7 @@ const channelSection = (channel: ChannelDescriptor): string[] => [
   JSON.stringify(schemaJson(channel.params), null, 2),
   "```",
   "",
-  "### Nachricht",
+  "### Message",
   "",
   "```json",
   JSON.stringify(schemaJson(channel.message), null, 2),
@@ -81,35 +81,35 @@ const channelSection = (channel: ChannelDescriptor): string[] => [
   "",
 ];
 
-/** Für das Beispiel eine Methode ohne Pflichtfelder, damit der gezeigte Aufruf tatsächlich funktioniert. */
+/** For the example, a method without required fields, so that the call shown actually works. */
 const exampleMethod = (methods: readonly MethodDescriptor[]): string => {
   const empty = methods.find((method) => {
     const schema = schemaJson(method.input);
     return schema.type === "object" && schema.required === undefined && method.implementedBy === "server";
   });
-  return empty?.id ?? methods[0]?.id ?? "<methoden-id>";
+  return empty?.id ?? methods[0]?.id ?? "<method-id>";
 };
 
-/** Lesbare Referenz aller registrierten Methoden und Kanäle, direkt aus ihren Verträgen. */
+/** Readable reference of all registered methods and channels, directly from their contracts. */
 export function methodReference(host: PluginHost, authentication: ApiAuthentication = { kind: "open" }): string {
   const methods = byId(host.methods.describe());
   const channels = byId(host.channels.describe());
   return [
     `# ${RPC_API_TITLE}`,
     "",
-    "Diese Referenz entsteht aus den registrierten Verträgen. Interne und externe Clients verwenden dieselben Methoden.",
+    "This reference is generated from the registered contracts. Internal and external clients use the same methods.",
     "",
     ...transportLines(authentication, exampleMethod(methods)),
     "",
-    "## Methodenübersicht",
+    "## Method overview",
     "",
-    "| Methode | Eigentümer | Rechte |",
+    "| Method | Owner | Rights |",
     "| --- | --- | --- |",
     ...methods.map((method) => `| ${method.id} | ${method.owner} | ${rights(method)} |`),
     "",
-    "## Kanalübersicht",
+    "## Channel overview",
     "",
-    "| Kanal | Eigentümer | Rechte |",
+    "| Channel | Owner | Rights |",
     "| --- | --- | --- |",
     ...channels.map((channel) => `| ${channel.id} | ${channel.owner} | ${rights(channel)} |`),
     "",
@@ -118,7 +118,7 @@ export function methodReference(host: PluginHost, authentication: ApiAuthenticat
   ].join("\n");
 }
 
-/** OpenRPC 1.3 aus denselben Verträgen; Kanäle stehen als x-channels daneben. */
+/** OpenRPC 1.3 from the same contracts; channels sit alongside as x-channels. */
 export function openRpcDocument(host: PluginHost, authentication: ApiAuthentication = { kind: "open" }): Record<string, unknown> {
   return {
     openrpc: "1.3.0",

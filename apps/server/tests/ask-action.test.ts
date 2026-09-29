@@ -8,12 +8,12 @@ import { allGrants, manualExecution, setupRun } from "../../../packages/ragents/
 
 const setupAsk = () => {
   const setup = setupRun({ grants: allGrants() });
-  const turn = enqueueAndClaim(setup.runtime, setup.view, setup.agent.id, "input", "Bitte frage nach.", "turn");
+  const turn = enqueueAndClaim(setup.runtime, setup.view, setup.agent.id, "input", "Please ask.", "turn");
   const service = new RuntimeAskService();
   service.bind(setup.runtime);
   const ask = (commandId: string, multi = false) => service.ask(
     { runId: setup.view.id, agentId: setup.agent.id, turnId: turn.turnId, commandId },
-    { question: "Welcher nächste Schritt?", options: ["Weiter", "Pause"], multi },
+    { question: "Which next step?", options: ["Continue", "Pause"], multi },
     undefined,
   );
   return { ...setup, service, ask, turn };
@@ -26,38 +26,38 @@ const enqueueUnderOwner = (setup: ReturnType<typeof setupAsk>, commandId: string
     ...(input.origin ? { origin: input.origin } : {}),
   });
 
-test("ask_user legt eine generische Aktion mit dem eigenen Payload an", async () => {
+test("ask_user creates a generic action with its own payload", async () => {
   const setup = setupAsk();
   try {
-    const pending = setup.ask("frage");
+    const pending = setup.ask("question");
     const action = setup.runtime.view(setup.view.id).actions[0];
     assert.ok(action);
     assert.equal(action.owner, ASK_PLUGIN_ID);
-    assert.equal(action.title, "Welcher nächste Schritt?");
+    assert.equal(action.title, "Which next step?");
     assert.equal(action.status, "pending");
-    assert.deepEqual(askPayloadOf(action.payload), { question: "Welcher nächste Schritt?", options: ["Weiter", "Pause"], multi: false });
+    assert.deepEqual(askPayloadOf(action.payload), { question: "Which next step?", options: ["Continue", "Pause"], multi: false });
     assert.equal("kind" in action, false);
-    setup.service.answer(setup.view.id, action.id, { answer: "Weiter" });
-    assert.equal(await pending, "Weiter");
-    assert.equal(setup.runtime.view(setup.view.id).actions[0]?.result, "Weiter");
+    setup.service.answer(setup.view.id, action.id, { answer: "Continue" });
+    assert.equal(await pending, "Continue");
+    assert.equal(setup.runtime.view(setup.view.id).actions[0]?.result, "Continue");
   } finally {
     setup.journal.close();
   }
 });
 
-test("Verwerfen liefert dem Werkzeug den Verwurfstext, eine fremde Aktion kennt der Dienst nicht", async () => {
+test("dismissing gives the tool the dismissal text, the service does not know a foreign action", async () => {
   const setup = setupAsk();
   try {
-    const pending = setup.ask("frage");
+    const pending = setup.ask("question");
     const action = setup.runtime.view(setup.view.id).actions[0];
     assert.ok(action);
-    const fremd = setup.runtime.proposeAction(
-      { actorId: setup.agent.id, commandId: "fremd", turnId: setup.turn.turnId },
+    const foreign = setup.runtime.proposeAction(
+      { actorId: setup.agent.id, commandId: "foreign", turnId: setup.turn.turnId },
       setup.view.id,
-      { owner: "ragents.todo", title: "Fremde Aktion" },
+      { owner: "ragents.todo", title: "Foreign action" },
     ).actions.find((entry) => entry.owner === "ragents.todo");
-    assert.ok(fremd);
-    assert.throws(() => setup.service.answer(setup.view.id, fremd.id, { answer: "x" }), /existiert nicht/);
+    assert.ok(foreign);
+    assert.throws(() => setup.service.answer(setup.view.id, foreign.id, { answer: "x" }), /does not exist/);
     setup.service.answer(setup.view.id, action.id, { dismiss: true });
     assert.equal(await pending, DISMISSED_ANSWER);
     assert.equal(setup.runtime.view(setup.view.id).actions[0]?.status, "dismissed");
@@ -66,11 +66,11 @@ test("Verwerfen liefert dem Werkzeug den Verwurfstext, eine fremde Aktion kennt 
   }
 });
 
-test("ein Payload ohne Frage oder Optionen wird nicht als Rückfrage gelesen", () => {
+test("a payload without a question or options is not read as a question", () => {
   assert.equal(askPayloadOf(null), undefined);
-  assert.equal(askPayloadOf({ question: "Was?" }), undefined);
-  assert.equal(askPayloadOf({ question: "Was?", options: [1, 2] }), undefined);
-  assert.deepEqual(askPayloadOf({ question: "Was?", options: [], multi: true }), { question: "Was?", options: [], multi: true });
+  assert.equal(askPayloadOf({ question: "What?" }), undefined);
+  assert.equal(askPayloadOf({ question: "What?", options: [1, 2] }), undefined);
+  assert.deepEqual(askPayloadOf({ question: "What?", options: [], multi: true }), { question: "What?", options: [], multi: true });
 });
 
 test("a person's message supersedes an open question that blocks the asker's turn", async () => {
@@ -112,8 +112,8 @@ test("an input the system enqueues under the owner leaves the question open", as
     await new Promise((resolve) => setImmediate(resolve));
     const question = setup.runtime.view(setup.view.id).actions[0];
     assert.equal(question?.status, "pending");
-    setup.service.answer(setup.view.id, question.id, { answer: "Weiter" });
-    assert.equal(await pending, "Weiter");
+    setup.service.answer(setup.view.id, question.id, { answer: "Continue" });
+    assert.equal(await pending, "Continue");
   } finally {
     setup.journal.close();
   }

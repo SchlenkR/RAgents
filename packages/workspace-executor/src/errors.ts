@@ -1,4 +1,4 @@
-/** Ein fachlicher Fehler einer Operation mit Kennung und Status; der Aufrufer macht daraus seinen eigenen Fehlertyp. */
+/** A domain error of an operation with code and status; the caller turns it into its own error type. */
 export class WorkspaceOperationError extends Error {
   readonly code: string;
   readonly status: number;
