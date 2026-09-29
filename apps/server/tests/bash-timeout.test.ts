@@ -55,13 +55,13 @@ const withBashTimeoutVariable = <T>(value: string | undefined, read: () => T): T
 test("bash tells the model its default and maximum timeout, and the server sends the effective timeout to every machine", async () => {
   const { calls, executor } = recordingWorkstation();
   const { bash, run } = await bashOf(hostFor(executor));
-  assert.match(bash.longDescription ?? "", /A command is stopped after 120 seconds unless you pass a larger timeout \(at most 600 seconds\); builds, test runs, installs and other long commands need one\./);
-  assert.equal(schemaComplaints(bash.schema, { command: "dotnet build", timeout: 900 }), "timeout must be <= 600, got 900");
+  assert.match(bash.longDescription ?? "", /A command is stopped after 120 seconds unless you pass a larger timeout \(at most 3600 seconds\); builds, test runs, installs and other long commands need one\./);
+  assert.equal(schemaComplaints(bash.schema, { command: "dotnet build", timeout: 4000 }), "timeout must be <= 3600, got 4000");
   await run({ command: "grep -r needle ." });
-  await run({ command: "dotnet build", timeout: 600 });
+  await run({ command: "dotnet build", timeout: 3600 });
   assert.deepEqual(calls, [
     { input: { command: "grep -r needle .", timeout: 120 }, durationMs: 120_000 },
-    { input: { command: "dotnet build", timeout: 600 }, durationMs: 600_000 },
+    { input: { command: "dotnet build", timeout: 3600 }, durationMs: 3_600_000 },
   ]);
 });
 
@@ -73,8 +73,8 @@ test("RAGENTS_BASH_TIMEOUT_SECONDS sets the default for every run of the server 
   assert.equal(configured, 300);
   const { calls, executor } = recordingWorkstation();
   const { bash, run } = await bashOf(hostFor(executor, configured));
-  assert.match(bash.longDescription ?? "", /stopped after 300 seconds unless you pass a larger timeout \(at most 600 seconds\)/);
+  assert.match(bash.longDescription ?? "", /stopped after 300 seconds unless you pass a larger timeout \(at most 3600 seconds\)/);
   await run({ command: "git status" });
   assert.deepEqual(calls, [{ input: { command: "git status", timeout: 300 }, durationMs: 300_000 }]);
-  assert.throws(() => hostFor(executor, withBashTimeoutVariable("900", bashTimeoutSetting)), /Invalid default timeout 900: the maximum is 600 seconds/);
+  assert.throws(() => hostFor(executor, withBashTimeoutVariable("4000", bashTimeoutSetting)), /Invalid default timeout 4000: the maximum is 3600 seconds/);
 });

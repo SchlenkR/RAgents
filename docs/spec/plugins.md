@@ -3076,17 +3076,17 @@ Run-Ablage, auf dem Arbeitsplatz ein Ordner unter `os.tmpdir()`, nie das Home de
 Ein Bash-Ergebnis ist die Ausgabe des Befehls; ein Exit-Code ungleich null steht als letzte
 Zeile im Ergebnis (`Command exited with code N`) und ist kein Werkzeugfehler, etwa `grep` ohne
 Treffer. Werkzeugfehler sind nur Start-, Zeitgrenzen- und Abbruchprobleme. Ohne `timeout` hält die
-Bash einen Befehl nach 120 Sekunden an, ein Aufruf darf bis zu 600 Sekunden verlangen, mehr ist ein
+Bash einen Befehl nach 120 Sekunden an, ein Aufruf darf bis zu 3600 Sekunden verlangen, mehr ist ein
 Eingabefehler. Beides steht in Beschreibung und Schema des Werkzeugs (`default` und `maximum`,
 `packages/agent/src/core/tools/bash.ts`), dazu der Satz, dass Builds, Testläufe, Installationen
 und andere lange Befehle einen größeren `timeout` brauchen. Läuft die Zeit ab, endet der Befehl mit
 seiner Prozessgruppe, und der Fehler trägt die bisherige Ausgabe, die Sekunden und was zu tun ist:
-den Befehl eingrenzen, etwa mit `rg` statt `grep -r` suchen, oder einen größeren `timeout` bis 600
+den Befehl eingrenzen, etwa mit `rg` statt `grep -r` suchen, oder einen größeren `timeout` bis 3600
 übergeben. Die Vorgabe setzt der Server ein, bevor er einen Aufruf des Modells an einen Executor
 gibt (die Vorgaben des Schemas in `WorkspaceSandboxHost`); so gilt auch auf einem Arbeitsplatz die
 Zeitgrenze, die das Modell im Schema sieht, und der Fußabdruck kennt sie als `durationMs`.
 `RAGENTS_BASH_TIMEOUT_SECONDS` (Sektion `ragents.workspace`) ändert die Vorgabe für alle Runs des
-Servers, auch auf Arbeitsplätzen, nicht die Obergrenze: erlaubt sind mehr als 0 bis 600 Sekunden,
+Servers, auch auf Arbeitsplätzen, nicht die Obergrenze: erlaubt sind mehr als 0 bis 3600 Sekunden,
 ein anderer Wert bricht den Start ab; ein Arbeitsplatz liest die Variable nicht. Den Ordner eines
 Aufrufs nennt das optionale `cwd`, auf jeder Maschine gleich: relativ zum Arbeitsverzeichnis oder
 ein Pfad mit Alias wie `@actors/<name>`, nie absolut (`workspace-path-invalid`, 400), immer in
@@ -4038,7 +4038,7 @@ Recht) liefert das Archiv; ein anderer Stand ist 404. Die Gegenseite ist `ragent
   mit ausgeschlossenen Ordnern. Die Suche mit `rg` achtet `.gitignore` nur in einem Git-Repository;
   in einem Ordner ohne Git überspringt sie nur versteckte Dateien und was `.ignore` und
   `.rgignore` ausschließen.
-- `bash` läuft je Aufruf höchstens 600 Sekunden, und was ein Befehl in seiner Prozessgruppe im
+- `bash` läuft je Aufruf höchstens 3600 Sekunden, und was ein Befehl in seiner Prozessgruppe im
   Hintergrund startet, endet mit ihr. Ein Befehl, der länger braucht, etwa ein kalter Build einer
   großen Solution, geht nicht über `bash`, sondern über einen Ablauf eines Plugins mit eigener
   Zeitgrenze (`commands.run` mit `timeoutMs`).

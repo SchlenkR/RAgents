@@ -225,14 +225,19 @@ The data directory is `%LOCALAPPDATA%\ragents\<profile>` and server-provided pro
 `LOCALAPPDATA` is absent. Unix permissions 0700 and 0711 do not apply on Windows, where isolation
 per run depends on the user account.
 
-Windows has no process group for command termination, so RAgents ends the process tree with
-`taskkill /T /F`. This is forceful and has no grace period. There is also no process table: for
+Windows has no process group for command termination, and the bundled MSYS bash does not hang its
+children into the Windows process tree, so `taskkill /T` on the bash alone misses them. Every `bash`
+call therefore carries a marker in its environment; on timeout, stop, and after the call, a short
+helper bash lists the MSYS process groups of that call and RAgents ends them and their native trees
+with `taskkill /T /F`. A process that survives this is an error. This is forceful and has no grace
+period. There is also no process table: for
 runs using a Windows workspace, the process rail explains this limitation. Stopping a run still
 terminates Bash process trees, while a deliberately detached service continues. Workspace tools
 do not depend on the process rail.
 
-Windows support has not yet been exercised on a physical Windows machine. It is implemented and
-covered by unit tests that simulate the platform. A first real run should verify `pnpm connect`,
+Windows support was exercised on a physical Windows 11 machine on 29.09.2026: the bundled bash and
+`rg`, the default timeout, stop, and the cleanup of background jobs. Beyond that it is covered by
+unit tests that simulate the platform. A first real run should verify `pnpm connect`,
 `read`, `edit`, `bash` output and cancellation, diagnostics, and a workspace through
 `pnpm workspace-client`, and with the bundled bash `git fetch` and `git push` over HTTPS with Git
 Credential Manager and over SSH.

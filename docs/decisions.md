@@ -1,5 +1,25 @@
 # Entscheidungen
 
+## Windows beendet die MSYS-Gruppe eines bash-Aufrufs, `timeout` bis 3600 Sekunden (29.09.2026)
+
+Kapitel: `docs/operations.md` (Work on Windows, Zeitgrenze von `bash`), `docs/spec/plugins.md`.
+Anlass: Ein echter Test auf einem Windows-11-Rechner zeigte, dass nach einem Timeout `sleep.exe`
+weiterlief. MSYS hängt die Kinder der Bash nicht an deren Windows-Prozessbaum; `taskkill /T` auf die
+Bash erreicht sie nie. Stopp und Timeout ließen unter Windows also jeden Befehl weiterlaufen, auch
+einen `grep -r` über `node_modules`.
+
+**Festlegung.** Unter Windows trägt jeder `bash`-Aufruf `RAGENTS_BASH_CALL` mit einer eigenen
+Kennung. Beim Timeout, beim Stopp und nach dem Aufruf liest eine kurze Hilfs-Bash aus `/proc` die
+Prozessgruppen, in denen ein Prozess diese Kennung trägt, und nennt alle Windows-Kennungen darin;
+`taskkill /F /T` beendet sie samt nativen Kindern (`stopMsysCall` in `managed-process.ts`). Überlebt
+einer, scheitert der Aufruf. Gemessen: ein normaler Aufruf braucht damit rund 175 ms. Die Obergrenze
+für `timeout` steigt von 600 auf 3600 Sekunden: RAgents hat keine Hintergrundprozesse, ein kalter
+Voll-Build braucht länger als zehn Minuten, und der verwaltete Build-Schritt erlaubt ebenfalls eine
+Stunde. Die Vorgabe ohne `timeout` bleibt 120 Sekunden.
+
+**Verworfen.** Ein Windows-Job-Objekt (braucht nativen Code), Prozesse über die Windows-Elternkette
+suchen (genau die fehlt bei MSYS), 600 Sekunden wie bei Claude Code (dort gibt es Hintergrundbefehle).
+
 ## Offene Rückfragen stehen über der Eingabe (29.09.2026)
 
 Kapitel: `docs/spec/plugins.md` (Web als Plugin-Host: `actionViews` und `cardSections`, Kacheln,

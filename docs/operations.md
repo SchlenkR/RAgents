@@ -361,14 +361,19 @@ The data directory is `%LOCALAPPDATA%\ragents\<profile>` and server-provided pro
 `LOCALAPPDATA` is absent. Unix permissions 0700 and 0711 do not apply on Windows, where isolation
 per run depends on the user account.
 
-Windows has no process group for command termination, so RAgents ends the process tree with
-`taskkill /T /F`. This is forceful and has no grace period. There is also no process table: for
+Windows has no process group for command termination, and the bundled MSYS bash does not hang its
+children into the Windows process tree, so `taskkill /T` on the bash alone misses them. Every `bash`
+call therefore carries a marker in its environment; on timeout, stop, and after the call, a short
+helper bash lists the MSYS process groups of that call and RAgents ends them and their native trees
+with `taskkill /T /F`. A process that survives this is an error. This is forceful and has no grace
+period. There is also no process table: for
 runs using a Windows workspace, the process rail explains this limitation. Stopping a run still
 terminates Bash process trees, while a deliberately detached service continues. Workspace tools
 do not depend on the process rail.
 
-Windows support has not yet been exercised on a physical Windows machine. It is implemented and
-covered by unit tests that simulate the platform. A first real run should verify `pnpm connect`,
+Windows support was exercised on a physical Windows 11 machine on 29.09.2026: the bundled bash and
+`rg`, the default timeout, stop, and the cleanup of background jobs. Beyond that it is covered by
+unit tests that simulate the platform. A first real run should verify `pnpm connect`,
 `read`, `edit`, `bash` output and cancellation, diagnostics, and a workspace through
 `pnpm workspace-client`, and with the bundled bash `git fetch` and `git push` over HTTPS with Git
 Credential Manager and over SSH.
@@ -415,7 +420,7 @@ Arbeitsbereichs, weil corepack sonst an einem gesperrten Ordner oberhalb abbrich
 ## Zeitgrenze von `bash`
 
 Ein Befehl des Werkzeugs `bash` endet nach 120 Sekunden, wenn der Aufruf keinen `timeout` nennt;
-ein Aufruf darf bis zu 600 Sekunden verlangen. Beides steht in der Beschreibung des Werkzeugs, dazu
+ein Aufruf darf bis zu 3600 Sekunden verlangen. Beides steht in der Beschreibung des Werkzeugs, dazu
 der Satz, dass Builds, Testläufe und Installationen einen größeren `timeout` brauchen. Läuft die
 Zeit ab, bekommt das Modell die bisherige Ausgabe, die Sekunden und den Hinweis, den Befehl
 einzugrenzen, etwa mit `rg` statt `grep -r`, oder einen größeren `timeout` zu übergeben. Der Server
@@ -426,11 +431,11 @@ Umgebung des Servers:
 
 ```ts
 "ragents.workspace": {
-  RAGENTS_BASH_TIMEOUT_SECONDS: 300, // Vorgabe für Aufrufe ohne timeout, höchstens 600
+  RAGENTS_BASH_TIMEOUT_SECONDS: 300, // Vorgabe für Aufrufe ohne timeout, höchstens 3600
 },
 ```
 
-Die Obergrenze bleibt 600 Sekunden: ein größerer, ein nicht positiver oder ein nicht numerischer
+Die Obergrenze bleibt 3600 Sekunden: ein größerer, ein nicht positiver oder ein nicht numerischer
 Wert bricht den Start ab. Ein Arbeitsplatz (VS-Code-Erweiterung, `ragents workspace-client`) liest
 die Variable nicht; für seine Runs gilt die Vorgabe des Servers. Was länger als zehn Minuten
 braucht, geht nicht über `bash`, sondern über einen Ablauf eines Plugins mit eigener Zeitgrenze

@@ -2,6 +2,7 @@ import { execFile, spawn, type ChildProcess } from "node:child_process";
 import { readdir, readFile } from "node:fs/promises";
 import type { Writable } from "node:stream";
 import { killProcessTree } from "@ragents/agent";
+import { bashLaunch } from "./bash-launch.js";
 
 const PROCESS_GROUP_JOIN_TIMEOUT_MS = 5_000;
 const PROCESS_GROUP_POLL_MS = 25;
@@ -75,6 +76,33 @@ export const processExists = (pid: number): boolean => {
 /** Windows kennt keine Prozessgruppe und kein SIGKILL: der Baum geht über taskkill /T /F, und zwar ohne Wartezusage. */
 export const stopProcessTree = (pid: number): void => {
   if (processExists(pid)) killProcessTree(pid);
+};
+
+/** Markiert unter Windows die Prozesse eines bash-Aufrufs: MSYS hängt die Kinder der Bash nicht an deren Windows-Prozessbaum, taskkill /T erreicht sie nicht. */
+export const MSYS_CALL_ENV = "RAGENTS_BASH_CALL";
+
+/** Die Windows-Kennungen aller MSYS-Prozesse in den Prozessgruppen, in denen ein Prozess die Markierung trägt, auch nach dem Ende der Bash selbst. */
+const msysGroupScript = (marker: string): string => [
+  "groups=' '",
+  `for d in /proc/[0-9]*; do tr '\\0' '\\n' < "$d/environ" 2>/dev/null | grep -qxF '${MSYS_CALL_ENV}=${marker}' && groups="$groups$(cat "$d/pgid") "; done`,
+  `for d in /proc/[0-9]*; do case "$groups" in *" $(cat "$d/pgid" 2>/dev/null) "*) cat "$d/winpid" 2>/dev/null;; esac; done`,
+].join("\n");
+
+const execFileText = (file: string, args: readonly string[], env?: NodeJS.ProcessEnv): Promise<{ stdout: string; error: Error | null }> =>
+  new Promise((resolve) => {
+    execFile(file, [...args], { env, windowsHide: true, timeout: 15_000 }, (error, stdout) => resolve({ stdout, error }));
+  });
+
+/** Beendet unter Windows alles, was ein bash-Aufruf mit dieser Markierung gestartet hat, samt den nativen Bäumen darunter. */
+export const stopMsysCall = async (bash: string, env: NodeJS.ProcessEnv, marker: string): Promise<void> => {
+  const launch = bashLaunch({ bash, rg: undefined }, msysGroupScript(marker), env, "win32");
+  const listing = await execFileText(launch.command, launch.args, launch.env);
+  if (listing.error) throw new Error(`Die Prozesse des bash-Aufrufs ließen sich nicht ermitteln: ${listing.error.message}`);
+  const winpids = [...new Set(listing.stdout.split(/\s+/).filter((pid) => /^\d+$/.test(pid)))];
+  if (winpids.length === 0) return;
+  await execFileText("taskkill", ["/F", "/T", ...winpids.flatMap((pid) => ["/PID", pid])]);
+  const alive = winpids.filter((pid) => processExists(Number(pid)));
+  if (alive.length > 0) throw new Error(`Die Prozesse ${alive.join(", ")} des bash-Aufrufs laufen nach taskkill weiter`);
 };
 
 const darwinProcessGroupExists = (pid: number): Promise<boolean> =>

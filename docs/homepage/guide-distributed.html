@@ -320,13 +320,18 @@ the server.</li>
 <code>%LOCALAPPDATA%\ragents\remote\&lt;host&gt;\&lt;profile&gt;\</code>. <code>DATA_DIR</code> overrides this. Startup fails when
 <code>LOCALAPPDATA</code> is absent. Unix permissions 0700 and 0711 do not apply on Windows, where isolation
 per run depends on the user account.</p>
-<p>Windows has no process group for command termination, so RAgents ends the process tree with
-<code>taskkill /T /F</code>. This is forceful and has no grace period. There is also no process table: for
+<p>Windows has no process group for command termination, and the bundled MSYS bash does not hang its
+children into the Windows process tree, so <code>taskkill /T</code> on the bash alone misses them. Every <code>bash</code>
+call therefore carries a marker in its environment; on timeout, stop, and after the call, a short
+helper bash lists the MSYS process groups of that call and RAgents ends them and their native trees
+with <code>taskkill /T /F</code>. A process that survives this is an error. This is forceful and has no grace
+period. There is also no process table: for
 runs using a Windows workspace, the process rail explains this limitation. Stopping a run still
 terminates Bash process trees, while a deliberately detached service continues. Workspace tools
 do not depend on the process rail.</p>
-<p>Windows support has not yet been exercised on a physical Windows machine. It is implemented and
-covered by unit tests that simulate the platform. A first real run should verify <code>pnpm connect</code>,
+<p>Windows support was exercised on a physical Windows 11 machine on 29.09.2026: the bundled bash and
+<code>rg</code>, the default timeout, stop, and the cleanup of background jobs. Beyond that it is covered by
+unit tests that simulate the platform. A first real run should verify <code>pnpm connect</code>,
 <code>read</code>, <code>edit</code>, <code>bash</code> output and cancellation, diagnostics, and a workspace through
 <code>pnpm workspace-client</code>, and with the bundled bash <code>git fetch</code> and <code>git push</code> over HTTPS with Git
 Credential Manager and over SSH.</p>

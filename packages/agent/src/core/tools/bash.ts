@@ -12,7 +12,7 @@ import { DEFAULT_MAX_LINES, formatSize, type TruncationResult } from "./truncate
 export const BASH_MAX_BYTES = 20 * 1024;
 export const BASH_MAX_LINE_CHARS = 1000;
 export const BASH_DEFAULT_TIMEOUT_SECONDS = 120;
-export const BASH_MAX_TIMEOUT_SECONDS = 600;
+export const BASH_MAX_TIMEOUT_SECONDS = 3600;
 
 function checkedTimeoutSeconds(timeout: number, label: string): number {
 	if (!Number.isFinite(timeout) || timeout <= 0) {

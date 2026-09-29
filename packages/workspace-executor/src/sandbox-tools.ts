@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import {
@@ -12,7 +12,7 @@ import {
 import { bashLaunch } from "./bash-launch.js";
 import type { WorkspaceProcessContext } from "./context.js";
 import { WorkspaceOperationError } from "./errors.js";
-import { processGroupExists, stopProcessTree } from "./managed-process.js";
+import { MSYS_CALL_ENV, processGroupExists, stopMsysCall, stopProcessTree } from "./managed-process.js";
 import type { WorkspaceModuleFactory, WorkspaceOperation } from "./module.js";
 import { sandboxedLaunch } from "./process-sandbox.js";
 import { stopUidProcesses } from "./session-ident.js";
@@ -125,10 +125,14 @@ export const createSandboxTools = async (
   let toolOperation: Promise<void> = Promise.resolve();
   let shuttingDown = false;
   const processGroups = new Set<number>();
+  const msysCalls = new Map<number, { readonly bash: string; readonly env: NodeJS.ProcessEnv; readonly marker: string }>();
 
   const killProcessGroup = async (pid: number): Promise<void> => {
     if (onWindows) {
       stopProcessTree(pid);
+      const call = msysCalls.get(pid);
+      msysCalls.delete(pid);
+      if (call) await stopMsysCall(call.bash, call.env, call.marker);
       processGroups.delete(pid);
       return;
     }
@@ -268,17 +272,19 @@ export const createSandboxTools = async (
       const launch = await sandboxedLaunch(context, bash);
       if (shuttingDown) throw new Error("Die Werkzeuge werden killed");
       options.signal?.throwIfAborted();
+      const marker = onWindows ? randomUUID() : undefined;
       return new Promise((resolve, reject) => {
         const child = spawn(launch.command, [...launch.args], {
           cwd: commandCwd,
           detached: !onWindows,
           stdio: ["ignore", "pipe", "pipe"],
-          env: bash.env,
+          env: marker === undefined ? bash.env : { ...bash.env, [MSYS_CALL_ENV]: marker },
           uid: context.uid,
           gid: context.gid,
           windowsHide: true,
         });
         if (child.pid) processGroups.add(child.pid);
+        if (child.pid && marker !== undefined && context.bash !== undefined) msysCalls.set(child.pid, { bash: context.bash, env: context.env, marker });
         child.stdout?.on("data", options.onData);
         child.stderr?.on("data", options.onData);
         let killed = false;
