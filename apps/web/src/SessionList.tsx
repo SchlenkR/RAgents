@@ -28,8 +28,8 @@ const formatTimestamp = (time: number): string => {
   const today = new Date();
   const sameDay = date.toDateString() === today.toDateString();
   return sameDay
-    ? date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
-    : date.toLocaleDateString("en-US", { day: "2-digit", month: "2-digit" });
+    ? date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })
+    : date.toLocaleDateString(undefined, { day: "2-digit", month: "2-digit" });
 };
 
 /** Running, unread, locked and resting runs differ only in their accent color; the card layout stays the same. */
@@ -111,7 +111,7 @@ export function SessionList({
                   aria-current={session.id === activeId ? "true" : undefined}
                   aria-pressed={selectMode ? selectedIds.has(session.id) : undefined}
                   className={cn(
-                    "flex min-h-[148px] min-w-0 flex-1 cursor-pointer flex-col items-stretch gap-2.5 rounded-[11px] px-4 pb-4 text-left focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:cursor-default",
+                    "flex max-h-[240px] min-h-[148px] min-w-0 flex-1 cursor-pointer flex-col items-stretch gap-2.5 overflow-hidden rounded-[11px] px-4 pb-4 text-left focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-2 disabled:cursor-default",
                     selectMode && "pl-9",
                   )}
                   disabled={session.locked !== undefined && !selectMode}
@@ -119,7 +119,7 @@ export function SessionList({
                   type="button"
                 >
                   <span className={cn("-mx-4 flex flex-col gap-2.5 rounded-t-[11px] border-t-[3px] px-4 pt-3.5 pb-3", tone.head, selectMode && "-ml-9 pl-9")}>
-                    <span className="pr-6 text-[0.9rem] leading-[1.45] font-semibold [overflow-wrap:anywhere]" title={session.title}>{session.title}</span>
+                    <span className="line-clamp-2 pr-6 text-[0.9rem] leading-[1.45] font-semibold [overflow-wrap:anywhere]" title={session.title}>{session.title}</span>
                     <span className="flex min-h-[18px] flex-wrap items-center gap-x-3.5 gap-y-1.5">
                       <span className={cn("flex items-center gap-[7px] text-[0.75rem]", tone.text)}>
                         {session.running ? <Spinner aria-hidden className="size-3" /> : <span aria-hidden className="size-[7px] flex-none rounded-full bg-current" />}
@@ -131,14 +131,15 @@ export function SessionList({
                     </span>
                   </span>
                   {session.locked !== undefined
-                    ? <span className="text-[0.75rem] leading-[1.45] text-destructive [overflow-wrap:anywhere]">{session.locked}</span>
+                    ? <span className="line-clamp-3 text-[0.75rem] leading-[1.45] text-destructive [overflow-wrap:anywhere]" title={session.locked}>{session.locked}</span>
                     : registry.sessionMetadata.map(({ id, Metadata }) => (
                       <Metadata key={id} placement="list" session={session} />
                     ))}
                   <span className="mt-auto grid gap-0.5 text-muted-foreground">
                     {session.createdAt !== undefined && <span className="text-[0.7rem] tabular-nums">Created <time dateTime={new Date(session.createdAt).toISOString()}>
-                      {new Date(session.createdAt).toLocaleString("en-US", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      {new Date(session.createdAt).toLocaleString(undefined, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </time></span>}
+                    {session.ownerLabel !== undefined && <span className="text-[0.7rem] [overflow-wrap:anywhere]">Created by {session.ownerLabel}</span>}
                     <span className="text-[0.7rem] tabular-nums">Last activity {formatTimestamp(session.updatedAt)}</span>
                   </span>
                 </button>

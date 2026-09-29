@@ -230,7 +230,7 @@ export interface SessionStatusContribution {
   Status: ComponentType<SessionHeaderContext>;
 }
 
-/** A persistent application contribution in the overview or toolbar. */
+/** A persistent application contribution in the overview, in the toolbar, or in the main area while no run is open (idle). */
 export interface OverviewPanelContext {
   registry: PluginRegistry;
   userLocation?: ChatUserLocation;
@@ -243,7 +243,7 @@ export interface OverviewPanelContext {
 }
 
 export interface OverviewPanelContribution {
-  placement?: "overview" | "toolbar";
+  placement?: "overview" | "toolbar" | "idle";
   id: string;
   order: number;
   /** Right a user needs to see the panel; without it the panel is shown to everyone. */

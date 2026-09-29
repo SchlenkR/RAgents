@@ -92,7 +92,7 @@ const formatTime = (iso: string) => {
   const date = new Date(iso);
   return Number.isNaN(date.getTime())
     ? iso
-    : date.toLocaleString("en-US", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    : date.toLocaleString(undefined, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 };
 
 export const documentMessagesFrom = (
@@ -182,7 +182,7 @@ export function DocumentToolCall({ active, document, onOpen, status }: DocumentT
         <span className="text-[0.62rem] font-semibold tracking-[0.05em] text-primary uppercase">Document</span>
         <strong className="truncate text-[0.84rem] leading-[1.35]" title={document.title}>{document.title}</strong>
         <span className="text-[0.7rem] leading-[1.35] text-muted-foreground">
-          {formatLabels[document.format]}, {lineCount.toLocaleString("en-US")} {lineCount === 1 ? "line" : "lines"}
+          {formatLabels[document.format]}, {lineCount.toLocaleString()} {lineCount === 1 ? "line" : "lines"}
         </span>
       </span>
       <span className="flex items-center gap-1 text-[0.7rem] font-semibold text-primary group-data-[status=error]/call:text-destructive">

@@ -91,7 +91,7 @@ function ExecutionEntry({ execution, now }: { execution: TypeScriptExecution; no
       <span className="truncate font-[650]" title={`${execution.actorName} (${execution.actorId})`}>@{execution.actorHandle}</span>
       <Badge className={`h-auto rounded-[5px] px-[5px] py-0.5 text-[0.64rem] ${statusBadgeClass[execution.status] ?? "bg-secondary text-muted-foreground"}`}>{executionStatusLabel(execution.status)}</Badge>
       <span className="col-span-full truncate font-mono text-[0.68rem]" title={preview}>{preview}</span>
-      <span className="col-span-full flex flex-wrap justify-between gap-x-3 gap-y-1.5 text-[0.65rem] tabular-nums text-muted-foreground"><time dateTime={execution.startedAt} title={new Date(execution.startedAt).toLocaleString("en-US")}>{new Date(execution.startedAt).toLocaleString("en-US", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time><span>{executionDuration(execution, now)}</span></span>
+      <span className="col-span-full flex flex-wrap justify-between gap-x-3 gap-y-1.5 text-[0.65rem] tabular-nums text-muted-foreground"><time dateTime={execution.startedAt} title={new Date(execution.startedAt).toLocaleString()}>{new Date(execution.startedAt).toLocaleString(undefined, { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time><span>{executionDuration(execution, now)}</span></span>
     </summary>
     {expanded && <div className={contentClass}>
       {execution.path && <p className="mt-2.5 grid gap-1 text-[0.68rem] text-muted-foreground"><span>Path</span><code className="[overflow-wrap:anywhere]">{execution.path}</code></p>}

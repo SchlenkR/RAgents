@@ -792,7 +792,7 @@ const headers = {
 } satisfies WebPlugin;
 ```
 
-The context provides registry, open, onOpen, onClose, and onBusy. Without placement, the contribution appears in the overview and is mounted when first opened. Toolbar contributions are mounted from application startup; they activate their own connections only when used. The host coordinates closing each other. sessionHeaders uses placement: header by default; placement: surface puts the contribution in the bar at the top of the surface. This bar stays usable even in an app full view. Run header and lower status groups receive SessionContext and navigation and follow the active run.
+The context provides registry, open, onOpen, onClose, and onBusy. Without placement, the contribution appears in the overview and is mounted when first opened. Toolbar contributions are mounted from application startup; they activate their own connections only when used. With placement: idle, the first visible contribution fills the main area while no run is open. The host coordinates closing each other. sessionHeaders uses placement: header by default; placement: surface puts the contribution in the bar at the top of the surface. This bar stays usable even in an app full view. Run header and lower status groups receive SessionContext and navigation and follow the active run.
 
 Contract fields: web.overviewPanels, web.sessionHeaders, web.sessionStatus.
 

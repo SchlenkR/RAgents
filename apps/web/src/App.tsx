@@ -170,8 +170,9 @@ export function App() {
 
   const registry = pluginActivation.registry;
   const availablePanels = registry.overviewPanels.filter((panel) => panel.readRight === undefined || access.can(panel.readRight));
-  const panels = availablePanels.filter((panel) => panel.placement !== "toolbar");
+  const panels = availablePanels.filter((panel) => (panel.placement ?? "overview") === "overview");
   const toolbarPanels = availablePanels.filter((panel) => panel.placement === "toolbar");
+  const idlePanel = readRuns ? availablePanels.find((panel) => panel.placement === "idle") : undefined;
   const overviewAvailable = readRuns || panels.length > 0;
   const busy = panels.some((panel) => busyPanels.has(panel.id));
   const userLocation = chatUserLocation(readRuns ? activeId : undefined, overviewOpen, runLocation);
@@ -233,6 +234,16 @@ export function App() {
               registry={registry}
               session={activeSession ?? { id: activeId, title: "New run", updatedAt: Date.now() }}
             />
+          )
+          : idlePanel
+          ? (
+            <div className={chatWorkspaceClass}>
+              <ToolbarPanelHost
+                id={idlePanel.id} key={idlePanel.id} onBusy={setPanelBusy} onClose={() => {}} onOpen={() => {}}
+                open={!overviewOpen && !settingsOpen && !helpOpen && !draft && !toolbarPanel} Panel={idlePanel.Panel} registry={registry}
+                userLocation={userLocation}
+              />
+            </div>
           )
           : (
             <div className={chatWorkspaceClass}>

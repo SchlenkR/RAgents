@@ -1,5 +1,24 @@
 # Decisions
 
+## The global coordinator fills the empty main area (29.09.2026)
+
+Chapters: `docs/usage.md` (Global coordinator), `docs/spec/plugins.md` (overview contributions).
+Owner's requirement: at least the coordinator chat is visible instead of an empty screen.
+
+**Decision.** Overview contributions get the placement `idle`: the first visible one fills the main
+area while no run is open, only with `runs.read`. The overseer plugin contributes a full-size chat
+on the coordinator's run with its own input; model, reasoning, and reset stay in the header dropdown.
+The run chat (`PluginChat`) was rejected for this: it brings the tile surface, actor bar, journal
+status, and workspace tabs, and a coordinator run shows only an empty surface there.
+
+## Run cards name who created the run (29.09.2026)
+
+Chapter: `docs/usage.md` (Switch runs). Owner's requirement: see who created a run from the grid.
+
+**Decision.** The run list carries `ownerLabel`, the label of the configured user whose id the run
+stores as owner (otherwise the id itself); a run created without sign-in has none. The card shows
+it as "Created by <name>" below the creation date.
+
 ## Profile providers for self-hosted models, Qwen chat template, alias completion for plugins (29.09.2026)
 
 Chapters: `docs/spec/profiles.md` (Profiles, paragraph on `MODEL_PROVIDERS`, Open limits),

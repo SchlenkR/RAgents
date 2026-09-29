@@ -931,10 +931,10 @@ const skillFileText = (file: SettingsSkillFile) =>
 
 const formatDuration = (milliseconds: number) => {
   const seconds = milliseconds / 1000;
-  if (seconds < 60) return `${seconds.toLocaleString("en-US")} s`;
+  if (seconds < 60) return `${seconds.toLocaleString()} s`;
   const minutes = seconds / 60;
-  if (minutes < 60) return `${minutes.toLocaleString("en-US")} min`;
-  return `${(minutes / 60).toLocaleString("en-US")} h`;
+  if (minutes < 60) return `${minutes.toLocaleString()} min`;
+  return `${(minutes / 60).toLocaleString()} h`;
 };
 
 const sensitiveKey = (key: string) => /secret|token|password|credential|api.?key|authorization|cookie/i.test(key);

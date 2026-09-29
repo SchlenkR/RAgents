@@ -54,7 +54,8 @@ once. "Apply program layout" in the status bar can reset your own layout earlier
 The square corner at the top left of the header (or `Cmd+I` on macOS or `Ctrl+I`) opens the run
 overview as a modal dialog below the header, including the bottom status bar. The header stays
 usable. The run cards show
-title, processing status, creation date with time, last update, and additional plugin details. The cards are grouped by
+title, processing status, creation date with time, the user who created the run (only for runs created
+with sign-in), last update, and additional plugin details. The cards are grouped by
 last activity into Today, Yesterday, and further days; blue marks running
 work, a violet hint new activity since you last looked, and this personal
 read state applies per user in this browser. Selecting a card
@@ -419,6 +420,11 @@ of the overview buttons. Focusing the input expands the history
 below it. Enter sends, Shift+Enter inserts a line. The input stays at the top; attachments
 can be selected, dragged in, or pasted as in other chats. The dropdown holds
 history, model choice, reasoning, details, and reset. Send and stop stay at the input.
+
+While no run is open, the same conversation fills the main area as a full-size chat with its
+own input, so the screen is never empty. It shows the same history as the dropdown; model,
+reasoning, and reset stay in the dropdown. This needs read access to runs and to the global
+coordinator; otherwise the main area keeps its hint to open the overview.
 
 `Reset conversation` sits next to model and reasoning in the global chat's dropdown and opens
 a dialog over the entire global chat. Its background becomes blurred and cannot be

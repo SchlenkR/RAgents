@@ -42,7 +42,7 @@ import { RunChatSession } from "./ragents/session.js";
 import { globalChatToken, globalRunPolicyOf, type GlobalChatPolicy, type ManagedRunStart, type RunManagement } from "./ragents/global-chat.js";
 import { workspaceRuntimeToken, type SessionWorkspace, type WorkspaceTransfer } from "./ragents/workspace-runtime.js";
 import { settingsResponse, skillDetailResponse, type SettingsResponse, type SettingsSkillDetail } from "./settings.js";
-import { createTitleCompactor } from "./title-compactor.js";
+import { createTitleCompactor, MAX_TITLE_CHARS } from "./title-compactor.js";
 import { ModelRuntime } from "@ragents/agent";
 import { TitleSettingsStore } from "./title-settings.js";
 import { sandboxServicesToken } from "./plugin-support/workspace-sandbox-host.js";
@@ -59,6 +59,8 @@ type ListedSession = SessionInfo & {
   running: boolean;
   /** Whether the caller reaches the run's workspace; otherwise UIs hide what needs it. */
   workspaceAccessible: boolean;
+  /** Display name of the user who created the run; missing for a run created without sign-in. */
+  ownerLabel?: string;
   metadata?: Readonly<Record<string, unknown>>;
   metadataUnavailable?: Readonly<Record<string, string>>;
 };
@@ -295,6 +297,8 @@ export class RunSessionProvider implements ChatSessionProvider {
     const isCoordinator = (runId: string) => this.plugins.optionalService(globalChatToken)?.isCoordinator(runId) ?? false;
     const listed = engine.journal.runIds().filter((runId) => !isCoordinator(runId)
       && !this.deleteRequested.has(runId) && !this.deleted.has(runId) && visible(runId));
+    const anonymousUser = configuredAnonymousUser();
+    const userLabels = new Map([...configuredUsers() ?? [], ...anonymousUser ? [anonymousUser] : []].map((user) => [user.id, user.label]));
     const described = await Promise.all(listed.map(async (runId): Promise<ListedSession | undefined> => {
       const state = engine.journal.stateOf(runId);
       if (!state) return undefined;
@@ -317,6 +321,7 @@ export class RunSessionProvider implements ChatSessionProvider {
         running: [...state.actors.values()].some((actor) => actor.kind !== "human" && engine.scheduler.isRunning(runId, actor.id))
           || (this.sessions.get(runId)?.running ?? false),
         workspaceAccessible: workspace,
+        ...(state.ownerUserId !== null ? { ownerLabel: userLabels.get(state.ownerUserId) ?? state.ownerUserId } : {}),
         metadata: metadata.values,
         ...(Object.keys(metadata.unavailable).length > 0 ? { metadataUnavailable: metadata.unavailable } : {}),
       };
@@ -924,5 +929,6 @@ const lockedSession = (failure: JournalLoadFailure, journal: Journal): ListedSes
 const sessionTitle = (text: string | undefined): string | undefined => {
   const lines = text?.split(/\r?\n/).map((line) => line.trim()).filter(Boolean) ?? [];
   if (lines.length === 0) return undefined;
-  return lines[0]?.startsWith("[Test:") && lines[1] ? `${lines[0]} ${lines[1]}` : lines[0];
+  const title = lines[0]?.startsWith("[Test:") && lines[1] ? `${lines[0]} ${lines[1]}` : lines[0] ?? "";
+  return title.length > MAX_TITLE_CHARS ? `${title.slice(0, MAX_TITLE_CHARS - 3)}...` : title;
 };

@@ -41,7 +41,7 @@ const sizeLabel = (bytes: number): string => {
 
 const timeLabel = (value: string): string => {
   const at = new Date(value);
-  return Number.isNaN(at.getTime()) ? value : at.toLocaleString("en-US");
+  return Number.isNaN(at.getTime()) ? value : at.toLocaleString();
 };
 
 interface BrowserMemory {

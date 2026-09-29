@@ -54,7 +54,7 @@ const originText = (origin: RunProcess["origin"]): string =>
 
 const timeText = (iso: string): string => {
   const parsed = new Date(iso);
-  return Number.isNaN(parsed.getTime()) ? iso : parsed.toLocaleTimeString("en-US");
+  return Number.isNaN(parsed.getTime()) ? iso : parsed.toLocaleTimeString();
 };
 
 export const titleOf = (process: RunProcess): string => {

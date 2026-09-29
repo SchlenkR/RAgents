@@ -3,7 +3,7 @@ import { Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogH
 import { RunModalContext } from "@ragents/web/ui/dialog";
 import { XIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChatMessages, ChatInputToolbar, type ChatInputHandle, type ChatEvent } from "quassel";
+import { ChatMessages, ChatInputToolbar, ChatPanel, type ChatInputHandle, type ChatEvent } from "quassel";
 import { useChat } from "@ragents/web/chat/useChat";
 import { useAttachmentCapabilities } from "@ragents/web/chat/useAttachmentCapabilities";
 import { ChatStepsProvider, type OverviewPanelContext, type WebPlugin } from "@ragents/web/PluginRegistry";
@@ -30,7 +30,7 @@ const interruptCoordinator = async (runId: string) => {
 const errorClass = "mx-4 my-2 flex-none text-[0.8rem] text-destructive";
 
 /** Every user has their own coordinator; only the server knows its id. */
-function OverseerToolbar(context: OverviewPanelContext) {
+function useCoordinator() {
   const user = useAccess().user?.id;
   const [coordinator, setCoordinator] = useState<{ runId?: string; error?: string }>({});
   useEffect(() => {
@@ -42,6 +42,11 @@ function OverseerToolbar(context: OverviewPanelContext) {
     );
     return () => { current = false; };
   }, [user]);
+  return coordinator;
+}
+
+function OverseerToolbar(context: OverviewPanelContext) {
+  const coordinator = useCoordinator();
   if (!coordinator.runId) {
     return <div className={toolbarClass} data-slot="overseer-toolbar" role="status">
       {coordinator.error && <span className="text-[0.7rem] font-bold text-destructive" title={coordinator.error} aria-label={coordinator.error}>!</span>}
@@ -226,8 +231,51 @@ function OverseerConversation({ open, onOpen, onClose, onBusy, userLocation, run
   </div>;
 }
 
+/** The coordinator's chat fills the main area while no run is open. */
+function OverseerIdleView({ userLocation }: OverviewPanelContext) {
+  const coordinator = useCoordinator();
+  if (!coordinator.runId) {
+    return <p className={coordinator.error ? "m-auto p-6 text-center text-destructive" : "m-auto p-6 text-center text-muted-foreground"} role="status">
+      {coordinator.error ?? "Connecting to the global coordinator ..."}
+    </p>;
+  }
+  return <ChatStepsProvider policy={overseerChatDisplayPolicy} storageKeyPrefix={overseerChatStorageKeyPrefix}>
+    <OverseerIdleChat key={coordinator.runId} runId={coordinator.runId} userLocation={userLocation} />
+  </ChatStepsProvider>;
+}
+
+function OverseerIdleChat({ runId, userLocation }: { runId: string; userLocation: OverviewPanelContext["userLocation"] }) {
+  const writable = useAccess().can("ragents.overseer.write");
+  const chat = useChat(runId);
+  const chatView = useChatViewSettings(runId, "primary", "coordinator");
+  const modelState = useModelSettings();
+  const attachments = useAttachmentCapabilities(runId, "primary", JSON.stringify(modelState.settings && [modelState.settings.provider, modelState.settings.model]));
+  const messages = useMemo(() => withToolSummaries(chat.messages), [chat.messages]);
+  const [error, setError] = useState<string>();
+  const problem = error ?? (chat.connected ? undefined : "No connection. Your draft is kept; sending is disabled.");
+  return <ChatPanel className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden" maxWidth="880px"
+    composer={<div className="[--qsl-input-card-radius:var(--radius-lg)]">
+      {problem && <p className="text-[0.8rem] text-destructive" role="alert">{problem}</p>}
+      <ChatInputToolbar {...attachments} disabled={!writable} sendDisabled={!chat.connected || modelState.status === "saving"} maxRows={6} rows={1}
+        onErrorChange={setError} onSend={(text, attachments) => chat.send(text, attachments, userLocation)}
+        onStop={writable && chat.running ? () => { setError(undefined); void interruptCoordinator(runId).catch((cause: unknown) => setError(cause instanceof Error ? cause.message : String(cause))); } : undefined}
+        running={chat.running}
+        texts={{ placeholder: writable ? "Ask the global coordinator" : "Read access to the global coordinator", steeringPlaceholder: "Ask the global coordinator" }}
+        toolbarLeft={<ChatViewSwitches settings={chatView} />}
+      />
+    </div>}>
+    <ChatMessages detailMode={chatView.detailMode}
+      emptyState={<div className="m-auto max-w-[480px] p-8 text-center text-[0.9rem] leading-[1.6] text-muted-foreground max-md:p-5"><strong className="text-foreground">Global coordinator</strong><p>No run is open. Ask about your runs or give a task; open or start a run through the overview at the top left.</p></div>}
+      messages={messages} running={chat.running} showTimestamps={chatView.showTimestamps} stepsExpandable={chatView.stepsExpandable}
+    />
+  </ChatPanel>;
+}
+
 export const webPlugin: WebPlugin = {
   id: OVERSEER_PLUGIN_ID,
   settings: [{ category: "models", order: 10, readRight: "ragents.overseer.read", id: `${OVERSEER_PLUGIN_ID}.model`, label: "Global coordinator", Settings: ModelSettings }],
-  overviewPanels: [{ id: `${OVERSEER_PLUGIN_ID}.chat`, placement: "toolbar", order: 100, readRight: "ragents.overseer.read", Panel: OverseerToolbar }],
+  overviewPanels: [
+    { id: `${OVERSEER_PLUGIN_ID}.chat`, placement: "toolbar", order: 100, readRight: "ragents.overseer.read", Panel: OverseerToolbar },
+    { id: `${OVERSEER_PLUGIN_ID}.idle`, placement: "idle", order: 100, readRight: "ragents.overseer.read", Panel: OverseerIdleView },
+  ],
 };

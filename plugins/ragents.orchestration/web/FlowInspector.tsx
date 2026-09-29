@@ -128,7 +128,7 @@ const runCostUsd = (view: RunView): number | undefined => {
 };
 
 const formatCostUsd = (value: number) =>
-  `${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: value > 0 && value < 0.005 ? 4 : 2 })} USD`;
+  `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: value > 0 && value < 0.005 ? 4 : 2 })} USD`;
 
 interface RunIndex {
   view: RunView;

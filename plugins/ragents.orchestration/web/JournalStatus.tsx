@@ -80,7 +80,7 @@ function JournalEntry({ actor, event }: { actor: string | undefined; event: Jour
       <span className="text-muted-foreground tabular-nums">{event.sequence}</span>
       <span className="font-mono [overflow-wrap:anywhere]">{event.type}</span>
       <span className="truncate max-[550px]:col-start-2 max-[550px]:row-start-2" title={event.actorId}>{actor ? `@${actor}` : event.actorId}</span>
-      <time className="text-muted-foreground tabular-nums max-[550px]:col-start-3 max-[550px]:row-start-1" dateTime={event.occurredAt}>{new Date(event.occurredAt).toLocaleTimeString("en-US")}</time>
+      <time className="text-muted-foreground tabular-nums max-[550px]:col-start-3 max-[550px]:row-start-1" dateTime={event.occurredAt}>{new Date(event.occurredAt).toLocaleTimeString()}</time>
     </summary>
     {expanded && <SourceCode className="m-0 mb-2 text-[0.68rem]" content={JSON.stringify(event, null, 2)} language="json" path="event.json" />}
   </details>;

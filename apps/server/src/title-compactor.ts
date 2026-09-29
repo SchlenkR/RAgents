@@ -4,7 +4,7 @@ import type { ModelRuntime } from "@ragents/agent";
 import type { TitleModelSelection } from "./title-settings-contract.js";
 
 const MAX_PROMPT_CHARS = 4_000;
-const MAX_TITLE_CHARS = 80;
+export const MAX_TITLE_CHARS = 80;
 
 const instruction =
   "You summarize the first task of a run as a list title. "

@@ -4,7 +4,7 @@ const DAY = 24 * HOUR;
 const WEEK = 7 * DAY;
 
 const date = (at: number, year: boolean): string =>
-  new Date(at).toLocaleDateString("en-US", year ? { day: "2-digit", month: "2-digit", year: "numeric" } : { day: "2-digit", month: "2-digit" });
+  new Date(at).toLocaleDateString(undefined, year ? { day: "2-digit", month: "2-digit", year: "numeric" } : { day: "2-digit", month: "2-digit" });
 
 /** The time in the list: now, 5 min, 3 h, 2 d, from seven days on the date. Without "ago", without a special case for yesterday. */
 export const shortTime = (at: number, now: number = Date.now()): string => {

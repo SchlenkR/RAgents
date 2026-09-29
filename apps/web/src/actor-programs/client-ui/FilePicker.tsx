@@ -57,7 +57,7 @@ export function FilePicker({ label, files, onChange, disabled, showPreview = tru
     </div>
     {error && <p className="mt-2 text-sm text-destructive" role="alert">{error}</p>}
     {files.length > 0 && <ul className="mt-2 divide-y">{files.map((file, index) => <li className="py-2" key={`${file.name}:${file.size}:${file.lastModified}:${index}`}>
-      <div className="flex items-start justify-between gap-3"><span className="min-w-0 break-words"><strong>{file.name}</strong> <small className="block text-muted-foreground">{new Intl.NumberFormat("en-US").format(file.size)} bytes</small></span>
+      <div className="flex items-start justify-between gap-3"><span className="min-w-0 break-words"><strong>{file.name}</strong> <small className="block text-muted-foreground">{new Intl.NumberFormat().format(file.size)} bytes</small></span>
         <Button aria-label={`Remove ${file.name}`} disabled={blocked} onClick={() => { void change(() => files.filter((_, position) => position !== index)); }} size="sm" variant="outline">Remove</Button></div>
       {showPreview && <FilePreview file={file} />}
     </li>)}</ul>}

@@ -1237,7 +1237,8 @@ Instead, plugins fill typed slots for:
   then shows workstations or only the server; an already chosen workstation stays readable as a
   value. The server does not check this; VS Code and `ragents run` still bind to workstations.
 - overview contributions (`overviewPanels`): independent areas with `placement` in the overview
-  (default `overview`) or the header (`toolbar`); `readRight` limits visibility.
+  (default `overview`), the header (`toolbar`), or the main area while no run is open (`idle`,
+  the first visible one wins; only with `runs.read`); `readRight` limits visibility.
   Their context contains the registry, open state, `onOpen`, `onClose`, and `onBusy`. The host
   coordinates overview and toolbar history. Toolbar contributions are mounted from application start,
   but activate their own connections only on use and keep them afterwards across run switches.

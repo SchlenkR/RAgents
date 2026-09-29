@@ -43,6 +43,8 @@ export interface SessionInfo {
   running?: boolean;
   /** Whether the viewer can reach the run's workspace; missing as long as the server has not listed the run yet. */
   workspaceAccessible?: boolean;
+  /** Display name of the user who created the run; missing for a run created without sign-in. */
+  ownerLabel?: string;
   metadata?: Readonly<Record<string, unknown>>;
   /** Why a metadata contribution has no value: failed or did not answer in time. */
   metadataUnavailable?: Readonly<Record<string, string>>;
