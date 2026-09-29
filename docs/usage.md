@@ -538,6 +538,14 @@ card. `run-panel.html?layout=app&run=<id>&element=<app-id>` shows one mini-app w
 Run-panel state, including the selected app and actor, view mode, chat width, collapsed chat
 height, open tab, and tab-area height, is stored per run in the browser.
 
+With write rights, the menu at the top right of an open run offers "Run script": it lists the run
+scripts you may start, each with its description, and greyed out with the reason when it cannot
+join this run, because its `RUN.md` does not set `embeddable: true` or because it fixes a start
+option to a value the run does not have. A click starts it inside the run without a start value;
+the primary actor stays, a repeated start reuses the script, its main view is placed next to the
+tiles, and its output and summary appear in the chat as `@handle: ...`. If the start is refused,
+the menu shows why. The same menu works in the VS Code run panel.
+
 The narrow tab bar on the right contains the same tabs as the full web view: files, documents,
 functions, executions, and language-server diagnostics, depending on the run and the user's
 permissions. The tab name appears in a tooltip. A small counter sits at the top right of its
@@ -776,9 +784,9 @@ profile shows its templates only after startup.
 <!-- guide:clients -->
 ## Control RAgents as an agent
 
-An AI agent working on the same machine controls RAgents through four `ragents` subcommands. In
-a checkout, use `pnpm ragents <command>`. These commands are the agent-facing contract: each one
-waits for the turn to end and returns an exit code.
+An AI agent working on the same machine controls RAgents through five `ragents` subcommands. In
+a checkout, use `pnpm ragents <command>`. These commands are the agent-facing contract: `run` and
+`send` wait for the turn to end, and every command returns an exit code.
 
 ```sh
 ragents provision developer                                  # once per machine
@@ -788,6 +796,8 @@ ragents journal <runId> --tools
 ragents stop <runId>                                         # interrupt the primary actor's active turn
 ragents stop <runId> --run                                   # emergency stop: halt the whole run
 ragents stop --host                                          # stop the remembered host
+ragents script <runId>                                       # list the run scripts and whether each can join the run
+ragents script <runId> <entry> --input '{"topic":"Launch"}'  # start one inside the running run
 ragents --help                                               # same as ragents help
 ```
 
@@ -824,7 +834,11 @@ exactly like the stop button in the chat input: the run and all actors stay acti
 next task, and without an active turn nothing happens. `stop <runId> --run` is the emergency stop (`ragents.chat.stop`): it aborts every turn
 and stops all actors of the run. `stop --host` terminates exactly the PID in `host.json`, never a
 process pattern, and only if the host at the recorded address reports that same PID from
-`/health`; otherwise it fails, leaves the process alone and removes the stale record. `ragents --help` and `ragents help` show usage and exit with 0; invoking the
+`/health`; otherwise it fails, leaves the process alone and removes the stale record.
+`script <runId>` lists the run scripts through `ragents.runs.scripts`, one per line with id, title,
+and the reason if one cannot join; `script <runId> <entry> [--input <json>]` starts it inside the
+run through `ragents.runs.startScript` as the run's user and prints `script: @<handle>, start <n>`;
+a refusal is an error with exit code 1. `--json` prints the RPC results instead. `ragents --help` and `ragents help` show usage and exit with 0; invoking the
 command without arguments is an error with exit code 1.
 
 `--profile <profile|path>` selects something other than `developer`: a profile name beside the
@@ -906,6 +920,11 @@ curl -s http://localhost:4710/rpc -H 'content-type: application/json' \
 ```
 
 The response contains either `result` or `error`; `error.data` provides `code` and `status`.
+
+A run script whose `RUN.md` sets `embeddable: true` also starts inside a running run:
+`ragents.runs.startScript` with `runId`, `entry`, and `input` waits and returns the script actor and
+which start of its package in the run this was, or the reason in `error`. The primary actor stays;
+a repeated start reuses the script's actor.
 
 Without HTTP, use stdio: `pnpm start -- --stdio` exchanges one JSON message per line through
 stdin and stdout and opens no port. The startup modes are:

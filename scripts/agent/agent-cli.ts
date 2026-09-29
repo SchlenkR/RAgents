@@ -47,6 +47,11 @@ export const usage = (): string => `Usage: ragents <command> [arguments]
   stop <run> --run [--profile <p>]
       Emergency stop: cancel all turns and stop all actors of the run
   stop --host [--profile <p>]     stop the remembered host
+  script <run> [--profile <p>] [--json]
+      List the run scripts of the profile and whether each can start in the running run.
+  script <run> <entry> [--input <json>] [--profile <p>] [--json]
+      Start the run script inside the run, as its owner; prints its actor and which start of it
+      this is. Only a script whose RUN.md sets embeddable: true joins a running run.
   plugin build <folder...> [--out <o>] [--watch] [--no-typecheck]
       Build plugin source folders into bundles; details with plugin --help.
 
@@ -67,12 +72,14 @@ export type AgentCommand =
   | { readonly kind: "journal"; readonly profile: string; readonly runId: string; readonly json: boolean; readonly tools: boolean }
   | { readonly kind: "stop"; readonly profile: string; readonly runId: string }
   | { readonly kind: "stop-run"; readonly profile: string; readonly runId: string }
-  | { readonly kind: "stop-host"; readonly profile: string };
+  | { readonly kind: "stop-host"; readonly profile: string }
+  | { readonly kind: "script"; readonly profile: string; readonly runId: string; readonly entry: string | undefined; readonly input: unknown; readonly json: boolean };
 
 interface Flags {
   readonly profile: string;
   readonly entry: string | undefined;
   readonly workstation: string | undefined;
+  readonly input: string | undefined;
   readonly json: boolean;
   readonly tools: boolean;
   readonly host: boolean;
@@ -80,7 +87,7 @@ interface Flags {
   readonly positional: readonly string[];
 }
 
-const VALUE_FLAGS = new Set(["--profile", "--entry", "--workstation"]);
+const VALUE_FLAGS = new Set(["--profile", "--entry", "--workstation", "--input"]);
 
 const scan = (argv: readonly string[], allowed: readonly string[]): Flags => {
   const positional: string[] = [];
@@ -106,6 +113,7 @@ const scan = (argv: readonly string[], allowed: readonly string[]): Flags => {
     profile: values.get("--profile") ?? defaultProfile(),
     entry: values.get("--entry"),
     workstation: values.get("--workstation"),
+    input: values.get("--input"),
     json: switches.has("--json"),
     tools: switches.has("--tools"),
     host: switches.has("--host"),
@@ -158,7 +166,24 @@ export const parseArguments = (argv: readonly string[]): AgentCommand => {
     if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Invalid run id: ${runId}`);
     return { kind: flags.run ? "stop-run" : "stop", profile: flags.profile, runId };
   }
+  if (command === "script") {
+    const flags = scan(rest, ["--profile", "--input", "--json"]);
+    const [runId, entry, ...extra] = flags.positional;
+    if (!runId) throw new Error(`script needs <run>, optionally followed by <entry>.\n\n${usage()}`);
+    if (extra.length > 0) throw new Error(`script takes at most two values, not ${flags.positional.length}.`);
+    if (!RUN_ID_PATTERN.test(runId)) throw new Error(`Invalid run id: ${runId}`);
+    if (flags.input !== undefined && entry === undefined) throw new Error("--input needs <entry>, the run script it starts.");
+    return { kind: "script", profile: flags.profile, runId, entry, input: flags.input === undefined ? null : parsedInput(flags.input), json: flags.json };
+  }
   throw new Error(command ? `Unknown command: ${command}\n\n${usage()}` : usage());
+};
+
+const parsedInput = (text: string): unknown => {
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    throw new Error(`--input is not JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
 };
 
 export const loadProfile = (selection: string, root = hostRoot()): Promise<ProfileTarget> => selectProfileTarget(selection, root);
@@ -544,6 +569,24 @@ const stopCommand = async (command: Extract<AgentCommand, { kind: "stop" | "stop
   return 0;
 };
 
+const scriptCommand = async (command: Extract<AgentCommand, { kind: "script" }>, write: LineWriter): Promise<number> => {
+  const target = await loadProfile(command.profile);
+  const baseUrl = await addressOf(target);
+  if (!await healthy(baseUrl)) throw new Error(`No RAgents server responds at ${baseUrl}; start it with ragents run.`);
+  const rpc = client(baseUrl);
+  if (command.entry === undefined) {
+    const scripts = await withLoginHint(() => rpc.call(coreContracts.runs.scripts, { runId: command.runId }));
+    for (const script of scripts) {
+      write(command.json ? JSON.stringify(script) : `${script.id}  ${script.title}${script.available ? "" : ` (not available: ${script.reason ?? "no reason given"})`}`);
+    }
+    return 0;
+  }
+  const started = await withLoginHint(() => rpc.call(coreContracts.runs.startScript, { runId: command.runId, entry: command.entry!, input: command.input }));
+  write(command.json ? JSON.stringify(started) : `script: @${started.handle}, start ${started.count}`);
+  write(`run: ${command.runId}`);
+  return 0;
+};
+
 const alive = (pid: number): boolean => {
   try {
     process.kill(pid, 0);
@@ -596,6 +639,7 @@ export const execute = async (command: AgentCommand, write: LineWriter = toStdou
   if (command.kind === "send") return sendCommand(command, write);
   if (command.kind === "journal") return journalCommand(command, write);
   if (command.kind === "stop" || command.kind === "stop-run") return stopCommand(command);
+  if (command.kind === "script") return scriptCommand(command, write);
   return stopHostCommand(command);
 };
 

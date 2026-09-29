@@ -58,6 +58,7 @@ const fixture = {
   notifications: [] as RunPanelHostMessage[],
   calls: [] as string[],
   starts: [] as Array<{ runId: string; entry: string; input: unknown }>,
+  scriptStarts: [] as Array<{ runId: string; entry: string; input: unknown }>,
   views: new Set<string>(),
   listSeen: false,
   holdStart: false,
@@ -85,6 +86,16 @@ const fixture = {
         const runId = params.runId!;
         fixture.starts.push({ runId, entry: params.entry!, input: params.input });
         return fixture.holdStart ? new Promise<null>((resolve) => { heldStarts.set(runId, () => resolve(null)); }) : null;
+      }
+      case "ragents.runs.scripts": return [
+        { id: "start.script", title: "Setup template", description: "Builds a mini-app", available: false, reason: "It starts only a new run; its RUN.md does not set embeddable: true." },
+        { id: "start.review", title: "Review", description: "Reviews the run", available: true },
+        { id: "start.strict", title: "Strict review", description: "Reviews strictly", available: true },
+      ];
+      case "ragents.runs.startScript": {
+        fixture.scriptStarts.push({ runId: params.runId!, entry: params.entry!, input: params.input });
+        if (params.entry === "start.strict") throw new Error("The template fixes the start option demo.mode to strict, but this run has plain.");
+        return { actorId: "script-review", handle: "review", count: 1 };
       }
       default: throw new Error(`Unexpected fixture RPC: ${contract.id}`);
     }

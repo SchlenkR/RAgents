@@ -509,6 +509,31 @@ Use as task opens the preparation chat with the editable start task for every sk
 
 Contract fields: host.startEntries, start.id, start.title, start.description, start.order, start.guide, start.tags, start.fixedStartOptions.
 
+### Share an actor package between run scripts
+
+A program that several run scripts use belongs to the plugin, not to each script. The run then has one actor for it, whichever script comes first.
+
+Place of use: Usually the folder actors/<name>/ next to run-scripts/; explicitly inside register(host) with the complete package files.
+
+```typescript
+host.actorPackages({
+  name: "notebook",
+  files: [
+    { path: "package.json", content: JSON.stringify({ name: "notebook", private: true, type: "module", ragents: { title: "Notebook", backend: "src/server.ts" } }) },
+    { path: "src/server.ts", content: "export { default } from \"./notebook.js\";\n" },
+    { path: "src/notebook.ts", content: "..." },
+  ],
+});
+```
+
+A run script names the package in RUN.md with shared-programs: notebook; the host copies it into the run and keeps one with the same sources. Scripts call actor_program_ensure({ name: "notebook" }), which activates it only once.
+
+Names are one namespace per run: startup refuses a name two plugins share, a name that equals a run script's handle or bundled program, and a script that needs a package no plugin provides.
+
+The actor programs service answers programOf(runId, actorId) with the package's origin; a service authorizes by it, never by handle, and a package changed in the run counts as created there.
+
+Contract fields: host.actorPackages.
+
 ### Check and freeze start values
 
 Start options are values chosen before a new run, such as the model. The plugin defines allowed values, a default value, and the check of the selection. At start, the chosen value is stored for the run and fixed.
@@ -1052,7 +1077,49 @@ Further prepared programs live under actors/<name>/. The host copies them into @
 
 coordinator: false omits the usual coordinator. The setup must then designate another actor as the primary chat partner.
 
-Contract fields: runScript.handle, runScript.coordinator, runScript.files, runScript.programs.
+embeddable: true also lets the script start inside a running run without changing its primary actor; a repeated start reuses the setup actor. onStart receives each start with embedded, startedBy, and count.
+
+Contract fields: runScript.handle, runScript.coordinator, runScript.embeddable, runScript.sharedPrograms, runScript.files, runScript.programs.
+
+### End a start with a result
+
+A run script can be started again and inside a running run. It receives each start in onStart and ends it with a result that the host delivers once to whoever started it.
+
+Place of use: src/server.ts of a run script whose RUN.md sets embeddable: true.
+
+```typescript
+import { defineActor } from "@ragents/server";
+import { Type } from "typebox";
+
+export default defineActor({
+  state: Type.Object({ checked: Type.Optional(Type.Integer()) }),
+  functions: {},
+  input: { capabilities: [] },
+}, {
+  functions: {},
+  onInput: () => {},
+  onStart: (start, context) => {
+    const checked = (context.state.read().checked ?? 0) + 1;
+    context.state.replace({ checked });
+    context.finish({ checked, embedded: start.embedded }, { summary: `Checked ${checked} times.` });
+  },
+  onResult: (result, context) => {
+    context.log({ from: result.handle, start: result.count, summary: result.summary });
+  },
+});
+```
+
+start carries input, options, embedded, startedBy, and count, the number of this start of the package in the run. Without onStart, the start arrives in onInput as the JSON { input, options }.
+
+context.finish works in onStart, onInput, and onResult; outside onStart it names the start with { start: count }. A second finish of the same start fails the turn.
+
+The owner reads the summary in the chat, an LLM gets summary and result as a message, a TypeScript actor that started the script gets them in onResult.
+
+An embedded start places the package's first view next to the surface; a script that arranges more tiles uses canvas_layout_place when start.embedded is true.
+
+shared-programs: notebook in RUN.md copies the plugin's shared package actors/notebook/ into the run; actor_program_ensure({ name: "notebook" }) makes it active once, whichever script comes first.
+
+Contract fields: run.finish.
 
 ### Check input processing in a domain test
 
@@ -1500,6 +1567,10 @@ Generated automatically from the registered contracts; the host checks methods w
 
 | ragents.runs.restartActor | per run |
 
+| ragents.runs.scripts | per run |
+
+| ragents.runs.startScript | per run |
+
 | ragents.runs.stopActor | per run |
 
 | ragents.runs.stopAll | per run |
@@ -1710,6 +1781,7 @@ export interface PluginRegistration {
   sessionMetadata: (...contributions: readonly SessionMetadataContribution[]) => void;
   skills: (...contributions: readonly SkillContribution[]) => void;
   startEntries: (...contributions: readonly StartEntryContribution[]) => void;
+  actorPackages: (...contributions: readonly ActorPackageContribution[]) => void;
   startOptions: (...contributions: readonly StartOptionContribution[]) => void;
   /** How accesses without runs.inspect see the states of this plugin and their chat events, per state id. */
   accessProjections: (...contributions: readonly AccessProjectionContribution[]) => void;
@@ -1757,6 +1829,10 @@ Source in the repository: packages/ragents/src/plugin-types.ts
 export interface RunScriptPackage {
   handle: string;
   coordinator: boolean;
+  /** Whether the script may also start inside a run that is already running; without it, only a new run. */
+  embeddable?: boolean;
+  /** Shared actor packages of the profile that the host copies into the run before the setup, by name. */
+  sharedPrograms?: readonly string[];
   files: readonly ActorProgramFile[];
   programs: readonly BundledActorProgram[];
 }
@@ -1856,6 +1932,8 @@ interface RunContext<State> {
   readonly functions: {readonly [Name in keyof CapabilityContracts]: (...args: {} extends CapabilityContracts[Name]['input'] ? [input?: CapabilityContracts[Name]['input']] : [input: CapabilityContracts[Name]['input']]) => Promise<CapabilityContracts[Name]['output']>};
   log(value: unknown): void;
   throwIfAborted(): void;
+  /** Ends a start of this run script with a JSON result; the host delivers it once to whoever started it. Only in onStart, onInput and onResult; outside onStart, name the start. */
+  finish(result: unknown, options?: { readonly summary?: string; readonly start?: number }): void;
 }
 ```
 

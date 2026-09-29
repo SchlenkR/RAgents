@@ -194,6 +194,11 @@ functions, actor programs, language servers, and interfaces; they add no new mec
 <td>Setup in code, domain decisions in the responsible model</td>
 </tr>
 <tr>
+<td>Program several run scripts use</td>
+<td>Shared actor package in the owning plugin (<code>actors/&lt;name&gt;/</code>)</td>
+<td>One actor per run; scripts name it and ensure it, none copies it</td>
+</tr>
+<tr>
 <td>Reusable work instructions</td>
 <td>Skill in the owning plugin</td>
 <td>Describes the approach but does not perform required initialization</td>
@@ -253,6 +258,11 @@ a successful check. A compact status contract can expose state and work step wit
 reasoning or tool arguments. Grant diagnostic and change permissions independently from full
 technical inspection and enforce them on the server. Roles belong in configuration; neutral
 components check permissions, not user names.</p>
+<p>A service that trusts a TypeScript actor more than others asks the actor programs service who it
+is: <code>programOf(runId, actorId)</code> names the package, its revision, and its origin, a shared package
+of a plugin, a run script&#39;s template, or a package created in the run, and a package changed in the
+run counts as created there. Authorize by that identity, never by handle or package name: any
+agent with the program functions creates a package under any free name.</p>
 <h3 id="7-develop-mini-apps-in-the-actual-host">7. Develop mini-apps in the actual host</h3>
 <p>The iframe constrains interaction, layout, and communication. Use shared controls and the
 declared function bridge. For a dialog spanning host areas, the app signals intent through a

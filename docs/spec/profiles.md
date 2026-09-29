@@ -12,7 +12,7 @@ profile) and `developer` (ad-hoc profile); there is no separate example file.
 | Profile | Port | Sign-in | Examples from `ragents.reference` |
 | --- | --- | --- | --- |
 | `core` | 4710 | off without a user list, `ACCESS_TOKEN` possible | no |
-| `showcase` | 4713 | like `core` | yes, 27 skills and 6 run scripts |
+| `showcase` | 4713 | like `core` | yes, 27 skills and 8 run scripts |
 | `developer` | 4715 | `anonymousUser` with all permissions | no |
 
 The server port is under `host.PORT` in the profile file: `core` uses 4710, `showcase` 4713,
@@ -591,7 +591,8 @@ therefore see and operate a foreign run of this kind just as little as that user
 
 ### Permissions in detail
 
-Without `runs.create`, `ragents.chat.start` starts only a run script from `user.startEntries`;
+Without `runs.create`, `ragents.chat.start` and `ragents.runs.startScript` start only a run script
+from `user.startEntries`;
 arbitrary texts, other template identifiers, and technical start parameters are blocked. For these
 users, the catalog contains only the allowed scripts. The selection applies to new starts; existing
 own runs stay accessible. `runs.delete` allows deleting runs together with their stored data

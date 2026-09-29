@@ -855,8 +855,8 @@
   .w-\[42px\] {
     width: 42px;
   }
-  .w-\[220px\] {
-    width: 220px;
+  .w-\[260px\] {
+    width: 260px;
   }
   .w-\[calc\(100\%-3rem\)\] {
     width: calc(100% - 3rem);
@@ -3237,6 +3237,11 @@
   }
   .disabled\:opacity-60:disabled {
     opacity: 60%;
+  }
+  @media (hover: hover) {
+    .disabled\:hover\:bg-transparent:disabled:hover {
+      background-color: transparent;
+    }
   }
   :where([data-detail-level="summary"]) .in-data-\[detail-level\=summary\]\:py-\[10px\] {
     padding-block: 10px;

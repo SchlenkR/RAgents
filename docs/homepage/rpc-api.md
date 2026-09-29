@@ -74,6 +74,8 @@ Ids from results are reused programmatically, not copied by hand.
 | ragents.runs.prepare | host | runs.read, runs.write, runs.create |
 | ragents.runs.resolveAction | host | no fixed rights |
 | ragents.runs.restartActor | host | no fixed rights |
+| ragents.runs.scripts | host | no fixed rights |
+| ragents.runs.startScript | host | no fixed rights |
 | ragents.runs.stopActor | host | no fixed rights |
 | ragents.runs.stopAll | host | no fixed rights |
 | ragents.runs.view | host | no fixed rights |
@@ -711,7 +713,7 @@ Owner: host. Rights: no fixed rights. Execution: the server.
 
 ## ragents.chat.start
 
-Start a run through a script template, without a message; the start options the template fixes apply. Rights: runs.read, runs.write and the template's release.
+Start a run through a script template, without a message; the start options the template fixes apply. Returns once the start is accepted; progress and errors appear in the chat. In a running run it starts an embeddable script like ragents.runs.startScript. Rights: runs.read, runs.write and the template's release.
 
 Owner: host. Rights: no fixed rights. Execution: the server.
 
@@ -3060,6 +3062,125 @@ Owner: host. Rights: no fixed rights. Execution: the server.
   "type": "object",
   "additionalProperties": true,
   "x-typescript-type": "RunView"
+}
+```
+
+## ragents.runs.scripts
+
+The run scripts the caller may start, and for a running run whether each can start there now: available, otherwise reason (not embeddable, a fixed start option differs from the run's). Rights: runs.read, runs.write.
+
+Owner: host. Rights: no fixed rights. Execution: the server.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Id of the run"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "id",
+      "title",
+      "description",
+      "available"
+    ],
+    "properties": {
+      "id": {
+        "type": "string"
+      },
+      "title": {
+        "type": "string"
+      },
+      "description": {
+        "type": "string"
+      },
+      "available": {
+        "type": "boolean"
+      },
+      "reason": {
+        "type": "string"
+      }
+    },
+    "additionalProperties": false
+  }
+}
+```
+
+## ragents.runs.startScript
+
+Start a run script and wait until its actor has the start input; errors come back to the caller instead of the chat. A new run starts as with ragents.chat.start. In a running run only a script whose RUN.md sets embeddable: true starts, its fixed start options must match the run's, and the primary actor stays; a repeated start reuses the script's actor. Result: the script actor and which start of its package in the run this was. Rights: runs.read, runs.write and the template's release.
+
+Owner: host. Rights: no fixed rights. Execution: the server.
+
+### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "runId",
+    "entry"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Id of the run"
+    },
+    "entry": {
+      "type": "string",
+      "minLength": 1
+    },
+    "input": {}
+  },
+  "additionalProperties": false
+}
+```
+
+### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "actorId",
+    "handle",
+    "count"
+  ],
+  "properties": {
+    "actorId": {
+      "type": "string"
+    },
+    "handle": {
+      "type": "string"
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "additionalProperties": false
 }
 ```
 

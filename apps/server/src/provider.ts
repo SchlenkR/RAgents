@@ -4,7 +4,7 @@ import { existsSync, statSync } from "node:fs";
 import { chmod, mkdir, open, readFile, readdir, realpath, rename, rm } from "node:fs/promises";
 import path from "node:path";
 import type { ChatSessionLike, ChatSessionProvider, RunListScope, SessionInfo } from "./chat-handler.js";
-import { DomainError, isRunId, unrestrictedAccess, type AccessContext, type HttpRouteContribution, type Journal, type JournalLoadFailure, type MethodContribution, type PluginHost, type ServiceToken, type SessionStartedContext } from "@ragents/engine";
+import { canStartEntry, createAccessContext, DomainError, isRunId, unrestrictedAccess, type AccessContext, type HttpRouteContribution, type Journal, type JournalLoadFailure, type MethodContribution, type PluginHost, type ServiceToken, type SessionStartedContext } from "@ragents/engine";
 import { WORKSPACE_EXECUTOR_VERSION } from "@ragents/workspace-executor";
 import { assertRunRights, assertRunWorkspaceAccess, runIdInPath, runListScope, runReachable, type GlobalRunPolicy, type RunAccessPolicy } from "./api/rights.js";
 import { configuredAnonymousUser, configuredUsers } from "./config-file.js";
@@ -248,9 +248,9 @@ export class RunSessionProvider implements ChatSessionProvider {
       scriptEntryFor: (entryId) => globalPolicy ? undefined : this.plugins.startEntries.scriptPackage(entryId),
       startEntryFor: (entryId) => globalPolicy ? undefined : this.plugins.startEntries.entry(entryId),
       actorPrograms: {
-        runInput: (...args) => this.plugins.service(actorProgramsToken).runInput(...args),
-        workspaceDirectory: (runId) => this.plugins.service(actorProgramsToken).workspaceDirectory(runId),
-        importPackage: (...args) => this.plugins.service(actorProgramsToken).importPackage(...args),
+        installScript: (...args) => this.plugins.service(actorProgramsToken).installScript(...args),
+        enqueueStart: (...args) => this.plugins.service(actorProgramsToken).enqueueStart(...args),
+        isScriptActor: (runId, actorId) => this.plugins.optionalService(actorProgramsToken)?.isScriptActor(runId, actorId) ?? false,
       },
     });
     this.sessions.set(id, session);
@@ -363,7 +363,26 @@ export class RunSessionProvider implements ChatSessionProvider {
       },
       stop: (runId) => this.openSession(runId).stop(),
       resetGlobal: (runId) => this.resetGlobalConversation(runId),
+      scripts: (runId) => {
+        const access = this.ownerAccess(runId);
+        return this.openSession(runId).runScripts(this.plugins.startEntries.describe().filter((entry) => canStartEntry(access, entry.id)), access.user?.id ?? null);
+      },
+      startScript: (runId, entryId, input, startedBy) => {
+        const access = this.ownerAccess(runId);
+        if (!canStartEntry(access, entryId)) throw new DomainError("access-denied", `The run script ${entryId} is not enabled for the owner of this run.`, 403);
+        return this.openSession(runId).startAndWait(entryId, input, access.user ? { id: access.user.id, label: access.user.label } : undefined, startedBy);
+      },
     };
+  }
+
+  /** The owner's access as a user of this profile; the run's own actors start run scripts with it. */
+  private ownerAccess(runId: string): AccessContext {
+    this.ensureUsable(runId);
+    const users = configuredUsers();
+    const ownerUserId = this.requireEngine().journal.stateOf(runId)?.ownerUserId ?? null;
+    return createAccessContext(ownerUserId === null
+      ? { enabled: users !== undefined, user: users ? null : configuredAnonymousUser() ?? null }
+      : { enabled: true, user: users?.find((user) => user.id === ownerUserId) ?? null });
   }
 
   private async createManagedRun(start: ManagedRunStart): Promise<string> {

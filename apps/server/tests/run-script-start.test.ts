@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -82,7 +82,7 @@ const createFixture = (runId: string, packages: readonly RunScriptStart[], contr
   const startOptions = new StartOptionContributionRegistry();
   startOptions.register("test.product", productStartOptions({ modelChoice, coordinatorThinking: "low", systemPrompts: () => systemPrompts }));
   const files = mkdtempSync("/private/tmp/ragents-run-script-files-");
-  const imports: Array<{name: string; files: RunScriptPackage["files"]}> = [];
+  const imports: Array<{name: string; files: RunScriptPackage["files"]; programs: string[]}> = [];
   const starts: Array<{entry: SessionStartedContext["startEntry"]; actors: number; inputs: number}> = [];
   const engine = {
     journal,
@@ -115,20 +115,24 @@ const createFixture = (runId: string, packages: readonly RunScriptStart[], contr
     scriptEntryFor: (entryId) => packages.find((candidate) => candidate.entry.id === entryId),
     startEntryFor: () => undefined,
     actorPrograms: {
-      async runInput() { throw new Error("This fixture verifies setup before the first turn."); },
-      async workspaceDirectory() { const root = path.join(files, "actors"); mkdirSync(root, {recursive: true}); return root; },
-      async importPackage(context, id, name, sourceFiles, signal) {
+      async installScript(context, id, script, signal) {
         await controls.importPackage?.(signal);
         signal?.throwIfAborted();
-        imports.push({name, files: sourceFiles});
-        if (sourceFiles.some((file) => file.content === "reject")) throw new Error("Package tests failed");
+        imports.push({name: script.handle, files: script.files, programs: script.programs.map((program) => program.name)});
+        if (script.files.some((file) => file.content === "reject")) throw new Error("Package tests failed");
         const view = runtime.createScriptActor(context, id, {
-          handle: name, displayName: "Example run", toolNames: null,
+          handle: script.handle, displayName: "Example run", toolNames: null,
           grants: capabilityNames.map((capability) => ({capability, scope: {kind: "run"}, delegable: true})),
         });
-        const actor = view.actors.find((entry) => entry.kind === "script" && entry.handle === name)!;
-        return {name, actorId: actor.id, actorHandle: actor.handle, views: 0};
+        const actor = view.actors.find((entry) => entry.kind === "script" && entry.handle === script.handle)!;
+        return {name: script.handle, actorId: actor.id, actorHandle: actor.handle, views: 0};
       },
+      enqueueStart(context, id, handle, start) {
+        const actor = runtime.view(id).actors.find((entry) => entry.kind === "script" && entry.handle === handle)!;
+        const view = runtime.enqueueInput(context, id, {actorId: actor.id, content: start.content});
+        return {count: view.inputs.filter((input) => input.actorId === actor.id).length};
+      },
+      isScriptActor: () => false,
     },
   };
   const session = new RunChatSession(options);
@@ -314,7 +318,7 @@ test("a local package transports all sources and node tests through the common i
     const {script, ...entry} = runScriptFromDirectory(directory);
     assert.deepEqual(script.files.map((file) => file.path), ["package.json", "src/lib/value.ts", "src/server.ts", "tests/app.test.ts"]);
     await fixture.session.startPackageAndWait({...script, entry: {...entry, owner: "test", coordinator: script.coordinator}}, {topic: "Local topic"});
-    assert.deepEqual(fixture.imports, [{name: "own-setup", files: script.files}]);
+    assert.deepEqual(fixture.imports, [{name: "own-setup", files: script.files, programs: []}]);
     const view = fixture.runtime.view("local-package");
     assert.equal(view.title, "Own setup");
     assert.ok(view.actors.some((actor) => actor.kind === "script" && actor.handle === "own-setup"));
@@ -476,14 +480,13 @@ test("unknown templates, rejected packages and existing runs produce named error
   } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
 });
 
-test("bundled actor packages land in the private workspace before the setup is invoked", async () => {
+test("bundled actor packages go to the installation together with the setup before the setup is invoked", async () => {
   const runId = "run-script-start-programs";
   const fixture = createFixture(runId, [packageOf({programs: [{name: "shared-list", files: packageOf().files}]})]);
   try {
     await fixture.session.startAndWait("test.example", null);
     assert.equal(fixture.systemTexts().filter((text) => text.startsWith("Error")).length, 0);
-    assert.ok(existsSync(path.join(fixture.files, "actors", "shared-list", "package.json")));
     assert.equal(fixture.runtime.view(runId).inputs.length, 1);
-    assert.deepEqual(fixture.imports.map((entry) => entry.name), ["example"]);
+    assert.deepEqual(fixture.imports.map((entry) => [entry.name, entry.programs]), [["example", ["shared-list"]]]);
   } finally {fixture.journal.close(); rmSync(fixture.files, {recursive: true, force: true});}
 });

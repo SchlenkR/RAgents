@@ -13,6 +13,7 @@ const operationsOf = (runtimeProvider: () => unknown): OperationContributionRegi
     operations: (...contributions: OperationContribution[]) => registry.register("ragents.orchestration", contributions),
     script: () => {},
     functions: () => {},
+    provide: () => {},
     prompts: () => {},
     service: (token: unknown) => {
       assert.equal(token, runtimeProviderToken);

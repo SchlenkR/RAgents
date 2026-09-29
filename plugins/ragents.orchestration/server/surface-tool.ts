@@ -5,6 +5,8 @@ import {
   defineRunFunction,
   defineToolAvailability,
   holdsUsable,
+  type CommandContext,
+  type Orchestration,
   type RunFunction,
   type RunView,
   type ToolContributor,
@@ -18,6 +20,7 @@ import {
   type SurfaceLayout,
 } from "../contract.js";
 import { surfaceTileEntities, mapSurfaceTileEntities } from "../tiled-layout.js";
+import type { SurfacePlacement, SurfacePlacementRequest } from "./contract.js";
 
 export const surfaceToolMetadata = {
   name: "canvas_layout_replace",
@@ -32,6 +35,17 @@ export const surfaceToolMetadata = {
     + "{direction:'horizontal',weights:[1,1],children:[{entity:'@first'},{entity:'@second'}]}]}}. "
     + "root:null clears the surface. Dividers are draggable, so do not resend a layout to fight a personal arrangement. "
     + "Participants you do not place stay reachable through the run header.",
+} as const;
+
+export const placeToolMetadata = {
+  name: "canvas_layout_place",
+  label: "Place on Surface",
+  description: "Place one actor or mini-app next to the current surface layout instead of replacing it.",
+  longDescription: "entity is {entity} of a tile: '@helper' or 'app:@workspace/main'. The current arrangement becomes one side of a new split "
+    + "and the entity the other: direction 'horizontal' (default) puts it to the right, 'vertical' below. weight is its share against "
+    + "the existing arrangement's weight 1, default 1. An entity the layout already shows stays where it is; placed is then false. "
+    + "On an empty surface the entity becomes the only tile. Use it when you join a running run, such as a run script started with "
+    + "start.embedded, so that the tiles others arranged stay.",
 } as const;
 
 export const canDesignSurface = defineToolAvailability({
@@ -117,6 +131,48 @@ export const checkLayoutAgainstRun = (view: RunView, input: SurfaceLayout): Surf
   return layout;
 };
 
+const currentLayout = (view: RunView): SurfaceLayout => {
+  const state = view.pluginStates.find((entry) => entry.pluginId === ORCHESTRATION_PLUGIN_ID && entry.scope.kind === "run")?.state;
+  return state === undefined || state === null ? { root: null } : surfaceLayoutOf(state);
+};
+
+/** Splits the root once: the existing arrangement keeps weight 1, the placed tile gets its own. */
+const placed = (view: RunView, request: SurfacePlacementRequest): SurfaceLayout | undefined => {
+  const current = currentLayout(view);
+  const [tile] = surfaceTileEntities(checkLayoutAgainstRun(view, parsedLayout({ root: { entity: request.entity } })).root);
+  if (surfaceTileEntities(current.root).includes(tile!)) return undefined;
+  const root = current.root === null ? { entity: tile! } : {
+    direction: request.direction ?? "horizontal",
+    weights: [1, request.weight ?? 1],
+    children: [current.root, { entity: tile! }],
+  };
+  return parsedLayout({ root });
+};
+
+export const placeOnSurface = (runtime: () => Orchestration): SurfacePlacement => ({
+  place: (context: CommandContext, runId: string, request: SurfacePlacementRequest) => {
+    const layout = placed(runtime().view(runId), request);
+    if (!layout) return { placed: false };
+    runtime().replacePluginState(context, runId, { pluginId: ORCHESTRATION_PLUGIN_ID, scope: { kind: "run" }, state: layout });
+    return { placed: true };
+  },
+});
+
+const placeSchema = Type.Object({
+  entity: Type.String({ minLength: 1, description: "Actor @handle or activated mini-app app:@handle/view-key or app:program-name/view-key" }),
+  direction: Type.Optional(Type.Union([Type.Literal("horizontal"), Type.Literal("vertical")], { description: "horizontal: to the right of the current layout (default); vertical: below it" })),
+  weight: Type.Optional(Type.Number({ exclusiveMinimum: 0, description: "Share of the placed tile against the existing arrangement's weight 1; default 1" })),
+}, { additionalProperties: false });
+
+export const createPlaceTool = (): RunFunction =>
+  defineRunFunction({
+    ...placeToolMetadata,
+    schema: placeSchema,
+    resultSchema: Type.Object({ placed: Type.Boolean() }, { additionalProperties: false }),
+    available: canDesignSurface,
+    run: ({ runtime, caller, context }, toolCallId, input) => placeOnSurface(() => runtime).place(context(toolCallId), caller.runId, input),
+  });
+
 export const createSurfaceTool = (): RunFunction =>
   defineRunFunction({
     ...surfaceToolMetadata,
@@ -137,6 +193,6 @@ export const createSurfaceTool = (): RunFunction =>
 
 export const createSurfaceToolContributor = (): ToolContributor => ({
   name: "ragents.orchestration.surface",
-  descriptors: [toolDescriptorFrom(surfaceToolMetadata, canDesignSurface)],
-  tools: () => [createSurfaceTool()],
+  descriptors: [toolDescriptorFrom(surfaceToolMetadata, canDesignSurface), toolDescriptorFrom(placeToolMetadata, canDesignSurface)],
+  tools: () => [createSurfaceTool(), createPlaceTool()],
 });

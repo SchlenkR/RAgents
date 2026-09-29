@@ -317,8 +317,9 @@ way, by the host, a run script, or an actor program, are checked by the schedule
 it runs (any driver except <code>manual</code>) is created or restarted, it resolves the requested names the way a turn would, counting functions
 that are currently unavailable as known. A name that no host function provides stops the actor
 before its first turn, and the stop reason names the unknown tools. The selection is not
-inherited, although delegable engine capabilities still are. <code>withoutCapabilities</code> removes
-named technical permissions. Availability and grants also apply when the value is <code>null</code>.
+inherited, although delegable engine capabilities still are, except that an inherited copy of a
+first-hand capability (<code>firstHandCapabilities</code> in <code>domain/vocabulary.ts</code>, today <code>script.start</code>) is
+not delegable further. <code>withoutCapabilities</code> removes named technical permissions. Availability and grants also apply when the value is <code>null</code>.
 <code>forkOf</code> (a handle or ID) makes the new agent a fork of an LLM agent in the same run:
 <code>agent.spawned</code> records the source, and the new agent&#39;s context begins with an unchanged copy of
 the source&#39;s context up to the end of the source&#39;s last finished turn, reasoning blocks included.

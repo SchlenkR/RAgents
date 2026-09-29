@@ -492,6 +492,8 @@ test("an actor program is created, edited with the file tools and activated in a
     operations: { operation: () => { throw new Error("The test has no operations"); }, invoke: async () => { throw new Error("The test has no operations"); }, list: () => [] },
     directoryFor: (runId) => path.join(server.root, "server", "programs", runId),
     scriptSources: () => undefined,
+    sharedPackage: () => undefined,
+    placeView: () => { throw new Error("The test places no views"); },
   });
   setup.services.actorPrograms = programs;
   t.after(async () => {

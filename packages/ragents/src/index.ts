@@ -32,6 +32,7 @@ export {
     SessionMetadataContributionRegistry,
     SkillContributionRegistry,
     StartEntryContributionRegistry,
+    ActorPackageContributionRegistry,
     StartOptionContributionRegistry,
     StorageRegistry,
     ToolContributionRegistry,
@@ -123,10 +124,11 @@ export {
 } from "./drivers/types.ts";
 export * from "./domain/model.ts";
 export { isPortableId, isRunId } from "./domain/portable-id.ts";
-export { capabilityNames, isCapabilityName, type CapabilityName } from "./domain/vocabulary.ts";
+export { capabilityNames, firstHandCapabilities, isCapabilityName, type CapabilityName } from "./domain/vocabulary.ts";
 export { DirectoryArtifactContents, MemoryArtifactContents, type ArtifactContents } from "./runtime/artifacts.ts";
 export type { CommandContext } from "./runtime/command.ts";
 export { DomainError } from "./runtime/domain-error.ts";
+export { inheritedGrants } from "./runtime/guards.ts";
 export { throwFailures, throwRejected } from "./runtime/failures.ts";
 export type { JournalEvent } from "./domain/events.ts";
 export { Journal, journalFormatVersion, type CommandRecord, type JournalLoadFailure } from "./runtime/journal.ts";

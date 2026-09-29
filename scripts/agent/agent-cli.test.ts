@@ -124,6 +124,15 @@ const harness = async (t: TestContext, outcome: TurnOutcome, options: HarnessOpt
         entries.push(entry);
         return null;
       }),
+      implement(coreContracts.runs.scripts, () => [
+        { id: "demo.review", title: "Review", description: "Reviews the run", available: true },
+        { id: "demo.setup", title: "Setup", description: "Sets up a run", available: false, reason: "It starts only a new run." },
+      ]),
+      implement(coreContracts.runs.startScript, ({ entry, input }) => {
+        entries.push(`${entry}:${JSON.stringify(input)}`);
+        if (entry === "demo.setup") throw new DomainError("run-started", "The run is already running.", 409);
+        return { actorId: "script-1", handle: "review", count: 2 };
+      }),
       implement(coreContracts.chat.send, ({ runId, text }) => {
         if (refused < refusals) {
           refused += 1;
@@ -281,6 +290,18 @@ test("stop interrupts only the turn of the primary actor, --run stops the whole 
   assert.deepEqual(journal, ["[3] started agent_coordina read: {\"path\":\"src/broken.ts\"}", "-- last sequence: 6"]);
 });
 
+test("script lists the run scripts of a run and starts one inside it, errors come back as such", { timeout: 20_000 }, async (t) => {
+  const context = await harness(t, "completed");
+  const runId = "7b1f0c9e-5d2a-4c8e-9f3b-2a6d8e4c1b70";
+  assert.equal(await execute({ kind: "script", profile: "developer", runId, entry: undefined, input: null, json: false }, collect(context.lines)), 0);
+  assert.deepEqual(context.lines, ["demo.review  Review", "demo.setup  Setup (not available: It starts only a new run.)"]);
+  const started: string[] = [];
+  assert.equal(await execute({ kind: "script", profile: "developer", runId, entry: "demo.review", input: { topic: "Launch" }, json: false }, collect(started)), 0);
+  assert.deepEqual(started, ["script: @review, start 2", `run: ${runId}`]);
+  assert.deepEqual(context.entries, ['demo.review:{"topic":"Launch"}']);
+  await assert.rejects(execute({ kind: "script", profile: "developer", runId, entry: "demo.setup", input: null, json: false }, collect([])), /already running/);
+});
+
 test("stop --host stops the remembered host and removes the record", { timeout: 20_000 }, async (t) => {
   const context = await harness(t, "completed");
   writeHostRecord(context.directory, { profile: "developer", url: "http://localhost:1", pid: 2147483646, log: "log", startedAt: "2026-09-21T10:00:00.000Z" });
@@ -416,6 +437,12 @@ test("the command line names command, folder, task and switches", () => {
   assert.deepEqual(parseArguments(["stop", "abc", "--run"]), { kind: "stop-run", profile: "developer", runId: "abc" });
   assert.throws(() => parseArguments(["stop", "--host", "--run"]), /either --host or --run/);
   assert.throws(() => parseArguments(["stop", "--run"]), /stop needs/);
+  assert.deepEqual(parseArguments(["script", "abc"]), { kind: "script", profile: "developer", runId: "abc", entry: undefined, input: null, json: false });
+  assert.deepEqual(parseArguments(["script", "abc", "demo.review", "--input", '{"topic":"Launch"}', "--json"]),
+    { kind: "script", profile: "developer", runId: "abc", entry: "demo.review", input: { topic: "Launch" }, json: true });
+  assert.throws(() => parseArguments(["script", "abc", "--input", "{}"]), /--input needs <entry>/);
+  assert.throws(() => parseArguments(["script", "abc", "demo.review", "--input", "{topic"]), /--input is not JSON/);
+  assert.throws(() => parseArguments(["script"]), /script needs <run>/);
   assert.throws(() => parseArguments([]), /Usage/);
   assert.throws(() => parseArguments(["dance"]), /Unknown command/);
   assert.throws(() => parseArguments(["run"]), /run needs "<task>"/);

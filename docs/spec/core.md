@@ -787,8 +787,9 @@ way, by the host, a run script, or an actor program, are checked by the schedule
 it runs (any driver except `manual`) is created or restarted, it resolves the requested names the way a turn would, counting functions
 that are currently unavailable as known. A name that no host function provides stops the actor
 before its first turn, and the stop reason names the unknown tools. The selection is not
-inherited, although delegable engine capabilities still are. `withoutCapabilities` removes
-named technical permissions. Availability and grants also apply when the value is `null`.
+inherited, although delegable engine capabilities still are, except that an inherited copy of a
+first-hand capability (`firstHandCapabilities` in `domain/vocabulary.ts`, today `script.start`) is
+not delegable further. `withoutCapabilities` removes named technical permissions. Availability and grants also apply when the value is `null`.
 `forkOf` (a handle or ID) makes the new agent a fork of an LLM agent in the same run:
 `agent.spawned` records the source, and the new agent's context begins with an unchanged copy of
 the source's context up to the end of the source's last finished turn, reasoning blocks included.
@@ -827,8 +828,8 @@ The run itself is configured by `run_configure` under the capability `run.config
 writes the event `run.title-changed`, `primaryActor` chooses an active agent or TypeScript actor as
 primary actor (`run.primary-actor-selected`); both together are allowed, neither is a named error;
 the call confirms with `null`. The owner of the run configures by right, every other actor needs
-the grant; the journal semantics check the same when loading. Owner and coordinator hold all nine
-capability names from `domain/vocabulary.ts`. If the primary actor changes, the chat rebinds to it.
+the grant; the journal semantics check the same when loading. Owner and coordinator hold all ten
+capability names from `domain/vocabulary.ts`; the coordinator holds `script.start` without passing it on. If the primary actor changes, the chat rebinds to it.
 A run script (`typescript-platform.md`) uses exactly this when it starts without a coordinator.
 
 Automatically condensed list titles, in contrast, are host metadata outside the journal. They do

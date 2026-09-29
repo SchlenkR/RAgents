@@ -81,7 +81,7 @@ test("a run script package is rebuilt from the plugin's current sources when its
   const v2 = appFiles('return "v2:" + await context.functions.native_ping({value: "ping"});');
   let current = v1;
   const f = await fixture(t, ping.operations, (entryId, name) => entryId === "test.rpc" && name === "rpc" ? sourcesOf(current) : undefined);
-  await f.runtime.importPackage(f.context, f.runId, "rpc", sourcesOf(v1), undefined, "test.rpc");
+  await f.runtime.installScript(f.context, f.runId, {entryId: "test.rpc", handle: "rpc", files: sourcesOf(v1), programs: [], sharedPrograms: []});
   const before = program(f);
   current = v2;
   const unchanged = await call(f, "unchanged");

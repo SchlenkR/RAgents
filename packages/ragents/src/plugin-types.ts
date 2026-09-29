@@ -242,8 +242,18 @@ export interface BundledActorProgram {
 export interface RunScriptPackage {
   handle: string;
   coordinator: boolean;
+  /** Whether the script may also start inside a run that is already running; without it, only a new run. */
+  embeddable?: boolean;
+  /** Shared actor packages of the profile that the host copies into the run before the setup, by name. */
+  sharedPrograms?: readonly string[];
   files: readonly ActorProgramFile[];
   programs: readonly BundledActorProgram[];
+}
+
+/** An actor package that a plugin shares with the run scripts of the profile; its name is the package name in every run. */
+export interface ActorPackageContribution {
+  name: string;
+  files: readonly ActorProgramFile[];
 }
 
 export type StartEntryContribution = StartEntryBase & (
@@ -448,6 +458,7 @@ export interface PluginRegistration {
   sessionMetadata: (...contributions: readonly SessionMetadataContribution[]) => void;
   skills: (...contributions: readonly SkillContribution[]) => void;
   startEntries: (...contributions: readonly StartEntryContribution[]) => void;
+  actorPackages: (...contributions: readonly ActorPackageContribution[]) => void;
   startOptions: (...contributions: readonly StartOptionContribution[]) => void;
   /** How accesses without runs.inspect see the states of this plugin and their chat events, per state id. */
   accessProjections: (...contributions: readonly AccessProjectionContribution[]) => void;

@@ -107,8 +107,10 @@ export function createTestContextWithContracts(options, contracts) {
     if(!Value.Check(contract.resultSchema,result))throw new Error("Test response violates the contract of "+name+": "+schemaComplaints(contract.resultSchema,result,"result"));
     return result;
   }};
+  const finished = [];
   return {...createRunContext({runId:"test",invocationId:"test",invocationKind:"tool",principal:{id:"test",kind:"service"},state:statePort,capabilities,log:()=>{},signal:controller.signal}),
-    actor:{id:"test-actor",handle:"test"},std:createScriptStd({turnStartedAt:"2026-01-01T00:00:00.000Z",idPrefix:"test",state:statePort,capabilities})};
+    actor:{id:"test-actor",handle:"test"},std:createScriptStd({turnStartedAt:"2026-01-01T00:00:00.000Z",idPrefix:"test",state:statePort,capabilities}),
+    finished,finish:(result,options={})=>{assertJsonValue(result===undefined?null:result,"Test finish result");finished.push({result:result===undefined?null:result,...options});}};
 }`, resolveDir:process.cwd(),sourcefile:"actor-testing.ts",loader:"ts"},
   bundle:true,platform:"node",format:"esm",target:"node22",packages:"external",write:false,
 }).then(result=>result.outputFiles![0]!.text);
@@ -134,6 +136,8 @@ export interface RunContext<State> {
   readonly functions: {readonly [Name in keyof CapabilityContracts]: (...args: {} extends CapabilityContracts[Name]['input'] ? [input?: CapabilityContracts[Name]['input']] : [input: CapabilityContracts[Name]['input']]) => Promise<CapabilityContracts[Name]['output']>};
   log(value: unknown): void;
   throwIfAborted(): void;
+  /** Ends a start of this run script with a JSON result; the host delivers it once to whoever started it. Only in onStart, onInput and onResult; outside onStart, name the start. */
+  finish(result: unknown, options?: { readonly summary?: string; readonly start?: number }): void;
 }
 ${scriptStdDeclarations}
 export interface ActorInput {
@@ -142,10 +146,15 @@ export interface ActorInput {
   readonly event: { readonly type: string; readonly eventId: string; readonly sequence: number; readonly occurredAt: string;
     readonly sourceActorId: string | null; readonly sourceActorHandle: string | null; readonly payload: {readonly text?:string; readonly [key:string]:unknown} } | null;
 }
+export interface ActorStart {
+  readonly input: unknown; readonly options: Readonly<Record<string, unknown>>;
+  readonly embedded: boolean; readonly startedBy: string; readonly count: number;
+}
+export interface ActorResult { readonly handle: string; readonly count: number; readonly result: unknown; readonly summary?: string }
 export interface ActorFunction { label: string; description?: string; input: TSchema; output: TSchema; capabilities?: readonly string[]; confirmation?: string; tool?: { name: string; targets?: readonly string[]; card?: boolean } }
 export interface ActorContract { state: TSchema; functions: Readonly<Record<string, ActorFunction>>; input?: {capabilities?: readonly string[]} }
 export type ActorFunctions<C extends ActorContract> = { [K in keyof C['functions']]: (input: Static<C['functions'][K]['input']>, context: RunContext<Static<C['state']>>) => Static<C['functions'][K]['output']> | Promise<Static<C['functions'][K]['output']>> };
-export type ActorImplementation<C extends ActorContract> = {functions: ActorFunctions<C>} & (C extends {input: unknown} ? {onInput: (input: ActorInput, context: RunContext<Static<C['state']>>) => void | Promise<void>} : {onInput?: never});
+export type ActorImplementation<C extends ActorContract> = {functions: ActorFunctions<C>} & (C extends {input: unknown} ? {onInput: (input: ActorInput, context: RunContext<Static<C['state']>>) => void | Promise<void>; onStart?: (start: ActorStart, context: RunContext<Static<C['state']>>) => void | Promise<void>; onResult?: (result: ActorResult, context: RunContext<Static<C['state']>>) => void | Promise<void>} : {onInput?: never; onStart?: never; onResult?: never});
 export declare function defineActor<const C extends ActorContract>(contract: C, implementation: ActorImplementation<C>): {contract:C} & ActorImplementation<C>;
 `;
 };
@@ -193,24 +202,45 @@ export const installServerSdk = async (directory: string, capabilities: readonly
   await writeFile(path.join(sdk, "index.js"), sdkRuntime);
   await writeFile(path.join(sdk, "index.d.ts"), declarations);
   await writeFile(path.join(sdk, "testing.js"), (await testingRuntime()) + `\nexport function createTestContext(options) { return createTestContextWithContracts(options, ${JSON.stringify(capabilities)}); }\n`);
-  await writeFile(path.join(sdk, "testing.d.ts"), "import type { RunContext, CapabilityContracts } from './index.js';\ntype Mocks = {[Name in keyof CapabilityContracts]?: (input: CapabilityContracts[Name]['input']) => CapabilityContracts[Name]['output'] | Promise<CapabilityContracts[Name]['output']>};\nexport declare function createTestContext<State>(options: {state: State; functions?: Mocks}): RunContext<State>;\n");
+  await writeFile(path.join(sdk, "testing.d.ts"), "import type { RunContext, CapabilityContracts } from './index.js';\ntype Mocks = {[Name in keyof CapabilityContracts]?: (input: CapabilityContracts[Name]['input']) => CapabilityContracts[Name]['output'] | Promise<CapabilityContracts[Name]['output']>};\ntype Finished = {readonly result: unknown; readonly summary?: string; readonly start?: number};\nexport declare function createTestContext<State>(options: {state: State; functions?: Mocks}): RunContext<State> & {readonly finished: readonly Finished[]};\n");
 };
+
+/** The tsconfig files the host writes into a package that brings none of its own. */
+const generatedConfigs = (pkg: Pick<AppPackage, "backend" | "views">): Readonly<Record<string, string>> => ({
+  "tsconfig.client.json": json({ extends: "./node_modules/@ragents/client/tsconfig.json", include: (pkg.views ?? []).map(view => view.client) }),
+  "tsconfig.server.json": json({ compilerOptions: {
+    target: "ES2022", module: "ESNext", moduleResolution: "Bundler", strict: true, noEmit: true,
+    skipLibCheck: true, types: ["node"], lib: ["ES2022"], allowImportingTsExtensions: true,
+  }, include: [...(pkg.backend ? [pkg.backend] : []), "tests/**/*.ts"] }),
+  "tsconfig.json": json({ files: [], references: [{ path: "./tsconfig.client.json" }, { path: "./tsconfig.server.json" }] }),
+});
 
 export const prepareAppProject = async (directory: string): Promise<void> => {
   await prepareAppDependencies(directory);
   await installServerSdk(directory);
   const pkg = await readAppPackage(directory);
-  const writeConfig = async (name: string, value: unknown): Promise<void> => {
-    await writeFile(path.join(directory, name), json(value), { flag: "wx" }).catch((error: NodeJS.ErrnoException) => {
+  for (const [name, content] of Object.entries(generatedConfigs(pkg))) {
+    await writeFile(path.join(directory, name), content, { flag: "wx" }).catch((error: NodeJS.ErrnoException) => {
       if (error.code !== "EEXIST") throw error;
     });
-  };
-  await writeConfig("tsconfig.client.json", { extends: "./node_modules/@ragents/client/tsconfig.json", include: (pkg.views ?? []).map(view => view.client) });
-  await writeConfig("tsconfig.server.json", { compilerOptions: {
-    target: "ES2022", module: "ESNext", moduleResolution: "Bundler", strict: true, noEmit: true,
-    skipLibCheck: true, types: ["node"], lib: ["ES2022"], allowImportingTsExtensions: true,
-  }, include: [...(pkg.backend ? [pkg.backend] : []), "tests/**/*.ts"] });
-  await writeConfig("tsconfig.json", { files: [], references: [{ path: "./tsconfig.client.json" }, { path: "./tsconfig.server.json" }] });
+  }
+};
+
+/** What a package is, independent of the tsconfig files the host generated into it: two packages with the same identity have the same sources. */
+export const packageIdentity = (files: readonly { path: string; content: string }[]): string => {
+  const normalized = files.map((file) => ({ path: file.path.split(path.sep).join("/"), content: file.content }));
+  const generated = generatedConfigsOf(normalized.find((file) => file.path === "package.json")?.content);
+  return canonicalHash(normalized.filter((file) => generated[file.path] !== file.content).sort((left, right) => left.path.localeCompare(right.path)));
+};
+
+/** A package.json that does not parse has no generated configs; its activation reports the error. */
+const generatedConfigsOf = (packageJson: string | undefined): Readonly<Record<string, string>> => {
+  try {
+    const pkg = (JSON.parse(packageJson ?? "{}") as { ragents?: Pick<AppPackage, "backend" | "views"> }).ragents;
+    return pkg ? generatedConfigs(pkg) : {};
+  } catch {
+    return {};
+  }
 };
 
 export const readAppPackage = async (directory: string): Promise<AppPackage> => {
@@ -261,13 +291,27 @@ export const compileAppBackend = async (options: {
 export const describe = () => {
   for (const name of Object.keys(actor.contract.functions ?? {})) if (typeof actor.functions?.[name] !== 'function') throw new Error('Missing function ' + name);
   if (Boolean(actor.contract.input) !== (typeof actor.onInput === 'function')) throw new Error('input and onInput must be present together.');
+  for (const name of ['onStart', 'onResult']) if (actor[name] !== undefined && (typeof actor[name] !== 'function' || !actor.contract.input)) throw new Error(name + ' needs input and onInput.');
   return JSON.parse(JSON.stringify(actor.contract));
 };
-export const handle = (request, context) => {
-  if (request.kind === 'input') { if (!actor.onInput) throw new Error('This actor does not process input.'); return actor.onInput(request.input, context); }
-  const handler = actor.functions[request.functionId];
-  if (typeof handler !== 'function') throw new Error('Unknown actor function ' + request.functionId);
-  return handler(request.input, context);
+export const handle = async (request, context) => {
+  if (request.kind !== 'input') {
+    const handler = actor.functions[request.functionId];
+    if (typeof handler !== 'function') throw new Error('Unknown actor function ' + request.functionId);
+    return handler(request.input, { ...context, finish: () => { throw new Error('finish works only in onStart, onInput and onResult; a function passes the result as an input to its own actor.'); } });
+  }
+  if (!actor.onInput) throw new Error('This actor does not process input.');
+  const finishes = [];
+  const finish = (result, options = {}) => {
+    const start = options.start ?? request.start?.count;
+    if (!Number.isInteger(start)) throw new Error('finish needs options.start, the count of the start it ends, outside onStart.');
+    finishes.push({ start, result: result === undefined ? null : result, ...(options.summary === undefined ? {} : { summary: options.summary }) });
+  };
+  const handlerContext = { ...context, finish };
+  if (request.result && actor.onResult) await actor.onResult(request.result, handlerContext);
+  else if (request.start && actor.onStart) await actor.onStart(request.start, handlerContext);
+  else await actor.onInput(request.input, handlerContext);
+  return { finishes };
 };`, resolveDir: options.directory, sourcefile: "actor-entry.ts", loader: "ts" },
     absWorkingDir: options.directory, platform: "node", format: "esm", target: "node22", bundle: true, packages: "external", write: false,
   });

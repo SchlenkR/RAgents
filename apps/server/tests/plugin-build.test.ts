@@ -173,6 +173,8 @@ test("a plugin outside the host bundles libraries from the host, imports sibling
       "acme.app/prompt.hbs": "Hello {{name}}\n",
       "acme.app/data/table.json": "{}\n",
       "acme.app/skills/probe/SKILL.md": "# Probe\n",
+      "acme.app/actors/notes/package.json": "{}\n",
+      "acme.app/actors/notes/src/server.ts": "export const notes: string[] = [];\n",
       "acme.app/server/index.ts": `import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js";
 import { pluginAsset } from "@ragents/host/plugin-support/plugin-folder.js";
 import { baseContract } from "../../acme.base/server/contract.ts";
@@ -198,8 +200,8 @@ export const webPlugin: WebPlugin = { id: "acme.app", brand: { title: "Acme", Lo
     built(outcomes[0]);
     const { manifest, bundle } = built(outcomes[1]);
     assert.deepEqual(manifest.uses, ["acme.base"]);
-    assert.deepEqual(manifest.assets, ["skills", "prompt.hbs", "data"]);
-    for (const asset of ["prompt.hbs", "data/table.json", "skills/probe/SKILL.md"]) assert.ok(existsSync(path.join(bundle, asset)), asset);
+    assert.deepEqual(manifest.assets, ["skills", "actors", "prompt.hbs", "data"]);
+    for (const asset of ["prompt.hbs", "data/table.json", "skills/probe/SKILL.md", "actors/notes/src/server.ts"]) assert.ok(existsSync(path.join(bundle, asset)), asset);
 
     const server = readFileSync(path.join(bundle, "server/index.js"), "utf8");
     assert.deepEqual([...importsOf(path.join(bundle, "server/index.js"))].sort(), [

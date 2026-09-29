@@ -258,3 +258,25 @@ test("a free run chosen while a template still starts stays in the panel", brows
   await pause(page);
   assert.equal(await activeRun(page), free, "A launch that finishes later does not pull the panel away.");
 }));
+
+test("the panel menu lists the run scripts of the open run and starts one inside it", browserOnly, () => withPanel(async (page) => {
+  await page.evaluate(() => { window.runStartFixture.views.add("existing"); window.runStartFixture.command({ type: "selectRun", runId: "existing" }); });
+  await page.waitForFunction(() => window.runStartFixture.activeRun() === "existing");
+  const menu = page.getByRole("button", { name: "Panel menu" });
+  await menu.click();
+  await page.getByRole("button", { name: "Run script" }).click();
+  const list = page.getByRole("list", { name: "Run scripts" });
+  await list.getByText("Review", { exact: true }).waitFor();
+  assert.equal(await list.getByRole("listitem").filter({ hasText: "Setup template" }).isDisabled(), true, "A script that only starts a new run cannot be chosen.");
+  assert.match(await list.getByRole("listitem").filter({ hasText: "Setup template" }).textContent() ?? "", /embeddable: true/);
+  await list.getByRole("listitem").filter({ hasText: /^Review/ }).click();
+  await page.waitForFunction(() => window.runStartFixture.scriptStarts.length === 1);
+  assert.deepEqual(await page.evaluate(() => window.runStartFixture.scriptStarts), [{ runId: "existing", entry: "start.review", input: null }]);
+  await list.waitFor({ state: "detached" });
+
+  await menu.click();
+  await page.getByRole("button", { name: "Run script" }).click();
+  await list.getByRole("listitem").filter({ hasText: "Strict review" }).click();
+  await page.getByRole("alert").filter({ hasText: "fixes the start option demo.mode" }).waitFor();
+  assert.equal(await list.isVisible(), true, "A refused start keeps the list open with its reason.");
+}));

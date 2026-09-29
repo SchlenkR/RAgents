@@ -1,0 +1,16 @@
+{
+  "name": "notebook",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Notebook",
+    "description": "Keeps the notes that run scripts send it, newest first.",
+    "backend": "src/server.ts",
+    "views": [
+      {
+        "id": "main",
+        "client": "src/client.tsx"
+      }
+    ]
+  }
+}

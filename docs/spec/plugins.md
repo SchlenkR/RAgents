@@ -38,6 +38,7 @@ functions, actor programs, language servers, and interfaces; they add no new mec
 | Investigation, conversation, or multi-step implementation | LLM actor with suitable functions | Context and tools must match the task |
 | Controls or status for an existing actor | View on that actor | An interface alone does not justify another actor |
 | Repeatable prepared run | Run script in the owning plugin | Setup in code, domain decisions in the responsible model |
+| Program several run scripts use | Shared actor package in the owning plugin (`actors/<name>/`) | One actor per run; scripts name it and ensure it, none copies it |
 | Reusable work instructions | Skill in the owning plugin | Describes the approach but does not perform required initialization |
 
 ### 1. Keep capabilities and workflows separate
@@ -105,6 +106,12 @@ a successful check. A compact status contract can expose state and work step wit
 reasoning or tool arguments. Grant diagnostic and change permissions independently from full
 technical inspection and enforce them on the server. Roles belong in configuration; neutral
 components check permissions, not user names.
+
+A service that trusts a TypeScript actor more than others asks the actor programs service who it
+is: `programOf(runId, actorId)` names the package, its revision, and its origin, a shared package
+of a plugin, a run script's template, or a package created in the run, and a package changed in the
+run counts as created there. Authorize by that identity, never by handle or package name: any
+agent with the program functions creates a package under any free name.
 
 ### 7. Develop mini-apps in the actual host
 
@@ -227,8 +234,8 @@ The server-side `PluginHost` has registries for:
   contract with `id`, `title`, `description`, `order`, optional `guide` (ID of a web guide),
   optional `tags` (unique search keywords), and the discriminator `action`: `skill` carries the
   registered skill name, a freely named `category`, and the editable starting task
-  `prompt`; `script` carries a run script package (`handle`, `coordinator`, `files`, `programs`)
-  that only the server sees. Optionally `fixedStartOptions` fixes start options (option ID to
+  `prompt`; `script` carries a run script package (`handle`, `coordinator`, optional
+  `embeddable` and `sharedPrograms`, `files`, `programs`) that only the server sees. Optionally `fixedStartOptions` fixes start options (option ID to
   value, in a `RUN.md` as the header line `fixed-start-options` with a JSON object on one
   line); a run from this template runs with exactly these values. At startup the host strictly
   checks that every skill is registered, every package is complete, and every fixed start option
@@ -236,6 +243,11 @@ The server-side `PluginHost` has registries for:
   the guide.
   A product plugin additionally reads `SKILLS_DIR`, so local skills including templates can be
   created without code and without a frontend build
+- shared actor packages (`host.actorPackages`): packages with `name` and `files` that the run
+  scripts of the profile name in `sharedPrograms` (in `RUN.md` the line `shared-programs: a, b`); a
+  folder `actors/<name>/` in the plugin folder registers one. Names are one namespace per run: at
+  startup the host rejects a name two plugins share, a shared name that equals a run script's handle
+  or one of its bundled programs, and a script that needs a shared package no plugin provides
 - typed run functions (`host.functions`) with optional native tool presentation
 - named domain operations with an input schema, operator policy, and shared execution for
   several surfaces
@@ -286,13 +298,14 @@ The server-side `PluginHost` has registries for:
   template that fixes start options, its value applies instead of choice and default: `accept` accepts
   it with the user who starts, and a previously chosen differing value, or for a run
   already created a different stored value, is the error `start-option-fixed` (409)
-  with template and option in the message; nothing is silently overwritten. Every state in the list
+  with template, option, and both values in the message; nothing is silently overwritten. Every state in the list
   says with `chosen` whether someone chose the value before the start (a default is not a choice); with that
   the preparation chat shows the conflict before the start (`conflictingStartOptions` in
   `apps/web/src/StartOptions.tsx`), locks "Create run", and offers to apply the template's
   values. This happens in one
-  place in `RunChatSession` for every path with a template: `ragents.chat.start` (run script, also
-  from `pnpm driver`, `ragents run --entry`, and `ragents.overseer.createRun` with `script`) and
+  place in `RunChatSession` for every path with a template: `ragents.chat.start` and
+  `ragents.runs.startScript` (run script, also from `pnpm driver`, `ragents run --entry`, and
+  `ragents.overseer.createRun` with `script`; in a running run the stored value decides) and
   `ragents.chat.send` with `entry` (skill template, first message from the preparation chat or
   the Start page). The core only knows "this template fixes this option to this value".
   Model and system prompt choice are the
@@ -1475,6 +1488,14 @@ Equal weights give 50:50, `[2, 1]` two thirds and one third. Example: `{ root:
 { entity: "@helper" }] } }`. `chatInput` applies only to actor tiles; `false` hides this tile's
 chat input, changes neither rights nor the popout, and is kept on docking and
 moving.
+
+`canvas_layout_place({ entity, direction?, weight? })` adds one tile without replacing what is
+arranged: the stored root becomes one side of a new split and the entity the other, `horizontal`
+(default) to the right, `vertical` below, with `weight` against the existing arrangement's weight 1
+(default 1). An entity the layout shows already stays where it is, and the result is
+`{ placed: false }`; on an empty surface the entity becomes the only tile. The same placement is a
+service of the plugin (`surfacePlacementToken` from its declared export `server/contract`); the actor
+program host uses it to place the main view of a run script started inside a running run.
 
 The shared contract `plugins/ragents.orchestration/contract.ts` parses and checks the layout
 on both sides: at most 16 nested splits and 64 tiles, unique participants,
@@ -3709,7 +3730,9 @@ nothing. The scripts validate inputs before the first capability calls and use t
 for the run title and the agent tasks. With an explicitly passed `null`, the default values described in the
 package apply. The further flow stays controlled by the model.
 `Moderated round without coordinator` additionally demonstrates `coordinator: false` and a
-different primary actor. Two neutral skill templates guide a decision or a
+different primary actor. `Take stock of the run` (`run-roster`) is the embeddable one: started from
+the run menu, `ragents script`, or the coordinator's `run_script_start`, it joins a running run,
+lists the other participants with `actor_list`, and ends each start with `context.finish`. Two neutral skill templates guide a decision or a
 learning unit as reusable work instructions in the chat, without a programmed setup.
 
 ## Browser checks

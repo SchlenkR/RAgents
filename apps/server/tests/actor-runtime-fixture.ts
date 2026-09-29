@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { agentTools, OperationContributionRegistry } from "@ragents/engine";
+import { agentTools, OperationContributionRegistry, type RunFunction } from "@ragents/engine";
 import { setupRun } from "../../../packages/ragents/tests/support.ts";
 import type { AskService } from "../../../plugins/ragents.ask/server/contract.ts";
 import { ActorProgramRuntime, type ActorProgramRuntimeOptions } from "../../../plugins/ragents.actor-programs/server/runtime.ts";
@@ -9,7 +9,10 @@ import { NodeTypeScriptExecutor } from "../src/plugin-support/native-typescript-
 export const emptyStateSchema = {type: "object", properties: {}, additionalProperties: false} as const;
 export const runtimeFor = (setup: ReturnType<typeof setupRun>, directory: string, operations = new OperationContributionRegistry(),
   askService: AskService = {ask: async () => { throw new Error("Unexpected operator question"); }, withdraw: () => undefined},
-  scriptSources: ActorProgramRuntimeOptions["scriptSources"] = () => undefined) => {
+  scriptSources: ActorProgramRuntimeOptions["scriptSources"] = () => undefined,
+  placeView: ActorProgramRuntimeOptions["placeView"] = () => { throw new Error("The test places no views"); },
+  hostTools: () => readonly RunFunction[] = () => [],
+  sharedPackage: ActorProgramRuntimeOptions["sharedPackage"] = () => undefined) => {
   const serverProcessContextFor = async (runId: string) => ({runId, cwd: directory, root: directory, home: directory,
     logDirectory: directory, hostRoot: undefined, env: {PATH: process.env.PATH, HOME: directory, RAGENTS_RUN_ID: runId, NO_COLOR: "1"}});
   setup.services.nativeTypeScriptExecutor = new NodeTypeScriptExecutor({directoryFor: () => path.join(directory, "native-programs"), serverProcessContextFor});
@@ -19,12 +22,14 @@ export const runtimeFor = (setup: ReturnType<typeof setupRun>, directory: string
       const view = setup.runtime.view(runId);
       const actor = provisionalActor ?? view.actors.find((candidate) => candidate.id === actorId);
       if (!actor) throw new Error(`Unknown test actor ${actorId}`);
-      return agentTools.filter((tool) => tool.available(actor, view));
+      return [...agentTools, ...hostTools()].filter((tool) => tool.available(actor, view));
     },
     askService: () => askService, reservedToolNames: () => [], serverProcessContextFor,
     operations: {operation: (id) => operations.operation(id), invoke: (id, context, input) => operations.invoke(id, context, input), list: () => operations.describe()},
     directoryFor: () => directory,
     scriptSources,
+    sharedPackage,
+    placeView,
   });
   setup.services.actorPrograms = runtime;
   return runtime;

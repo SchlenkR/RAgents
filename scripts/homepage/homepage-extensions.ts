@@ -370,6 +370,19 @@ host.startEntries({
     "fixedStartOptions sets start options for every run from the template, for example { \"ragents.workspace.binding\": { machine: \"server\", folder: \"fresh\" } }; in RUN.md the header line is called fixed-start-options. A different choice made beforehand is an error at start, and the Start page shows the option as fixed.",
     "Use as task opens the preparation chat with the editable start task for every skill, even after a guide. Only Create run sends the task with the skill reference; for a script, the start value is passed to the prepared actor.",
   ]),
+  entry("actor-packages", "Server contributions", "Share an actor package between run scripts", "A program that several run scripts use belongs to the plugin, not to each script. The run then has one actor for it, whichever script comes first.", "Usually the folder actors/<name>/ next to run-scripts/; explicitly inside register(host) with the complete package files.", `
+host.actorPackages({
+  name: "notebook",
+  files: [
+    { path: "package.json", content: JSON.stringify({ name: "notebook", private: true, type: "module", ragents: { title: "Notebook", backend: "src/server.ts" } }) },
+    { path: "src/server.ts", content: "export { default } from \\"./notebook.js\\";\\n" },
+    { path: "src/notebook.ts", content: "..." },
+  ],
+});`, ["host.actorPackages"], [
+    "A run script names the package in RUN.md with shared-programs: notebook; the host copies it into the run and keeps one with the same sources. Scripts call actor_program_ensure({ name: \"notebook\" }), which activates it only once.",
+    "Names are one namespace per run: startup refuses a name two plugins share, a name that equals a run script's handle or bundled program, and a script that needs a package no plugin provides.",
+    "The actor programs service answers programOf(runId, actorId) with the package's origin; a service authorizes by it, never by handle, and a package changed in the run counts as created there.",
+  ]),
   entry("start-options", "Server contributions", "Check and freeze start values", "Start options are values chosen before a new run, such as the model. The plugin defines allowed values, a default value, and the check of the selection. At start, the chosen value is stored for the run and fixed.", "Inside register(host); Type comes from typebox.", `
 host.startOptions({
   id: "ragents.example.mode",
@@ -614,11 +627,38 @@ order: 100
 coordinator: true
 ---
 
-The setup uses the actor program from this chapter.`, ["runScript.handle", "runScript.coordinator", "runScript.files", "runScript.programs"], [
+The setup uses the actor program from this chapter.`, ["runScript.handle", "runScript.coordinator", "runScript.embeddable", "runScript.sharedPrograms", "runScript.files", "runScript.programs"], [
     "The package folder determines the handle. package.json.ragents.backend names the entry point with defineActor and onInput. The capabilities appear only in the TypeScript contract.",
     "Further prepared programs live under actors/<name>/. The host copies them into @actors; the setup activates them with actor_program_activate and an optional actor handle.",
     "coordinator: false omits the usual coordinator. The setup must then designate another actor as the primary chat partner.",
+    "embeddable: true also lets the script start inside a running run without changing its primary actor; a repeated start reuses the setup actor. onStart receives each start with embedded, startedBy, and count.",
   ], "markdown"),
+  entry("run-script-results", "Actor programs", "End a start with a result", "A run script can be started again and inside a running run. It receives each start in onStart and ends it with a result that the host delivers once to whoever started it.", "src/server.ts of a run script whose RUN.md sets embeddable: true.", `
+import { defineActor } from "@ragents/server";
+import { Type } from "typebox";
+
+export default defineActor({
+  state: Type.Object({ checked: Type.Optional(Type.Integer()) }),
+  functions: {},
+  input: { capabilities: [] },
+}, {
+  functions: {},
+  onInput: () => {},
+  onStart: (start, context) => {
+    const checked = (context.state.read().checked ?? 0) + 1;
+    context.state.replace({ checked });
+    context.finish({ checked, embedded: start.embedded }, { summary: \`Checked \${checked} times.\` });
+  },
+  onResult: (result, context) => {
+    context.log({ from: result.handle, start: result.count, summary: result.summary });
+  },
+});`, ["run.finish"], [
+    "start carries input, options, embedded, startedBy, and count, the number of this start of the package in the run. Without onStart, the start arrives in onInput as the JSON { input, options }.",
+    "context.finish works in onStart, onInput, and onResult; outside onStart it names the start with { start: count }. A second finish of the same start fails the turn.",
+    "The owner reads the summary in the chat, an LLM gets summary and result as a message, a TypeScript actor that started the script gets them in onResult.",
+    "An embedded start places the package's first view next to the surface; a script that arranges more tiles uses canvas_layout_place when start.embedded is true.",
+    "shared-programs: notebook in RUN.md copies the plugin's shared package actors/notebook/ into the run; actor_program_ensure({ name: \"notebook\" }) makes it active once, whichever script comes first.",
+  ]),
   entry("program-tests", "Actor programs", "Check input processing in a domain test", "Regular TypeScript tests check the input handler and its explicit state changes. The host runs the same tests before activation.", "tests/program.test.ts for the previous counter program.", `
 import assert from "node:assert/strict";
 import test from "node:test";

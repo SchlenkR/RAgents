@@ -1,6 +1,6 @@
 import { serviceToken, type AccessContext, type CatalogModel, type ExecutableActor, type JournalEvent, type JsonValue, type ModelSelection, type Orchestration, type RunView } from "@ragents/engine";
 import type { GlobalRunPolicy } from "../api/rights.js";
-import type { ChatUser, SessionInfo } from "../chat-handler.js";
+import type { ChatUser, RunScriptListing, SessionInfo, StartedScript } from "../chat-handler.js";
 
 export interface GlobalChatPolicy {
   /** A user's coordinator; without sign-in (null) there is exactly one. */
@@ -49,6 +49,10 @@ export interface RunManagement {
   send: (runId: string, message: string, access: AccessContext) => Promise<void>;
   stop: (runId: string) => Promise<void>;
   resetGlobal: (runId: string) => Promise<void>;
+  /** The run scripts the run's owner may start, and whether each can start in the run now. */
+  scripts: (runId: string) => readonly RunScriptListing[];
+  /** Starts a run script in the run as its owner would; startedBy is the actor that receives its result. */
+  startScript: (runId: string, entryId: string, input: JsonValue | null, startedBy: string) => Promise<StartedScript>;
 }
 
 export const globalChatToken = serviceToken<GlobalChatPolicy>("host.global-chat");

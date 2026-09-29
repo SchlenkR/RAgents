@@ -65,8 +65,11 @@ as its default export. The TypeBox contract describes `state`, `functions`, and 
 
 State must accept the initial value `{}`. Each function declares its input and output, with
 optional granted capabilities, confirmation, and publication as a tool. The implementation
-contains the same functions and, when input is declared, an `onInput` handler. TypeScript derives
-input, result, and state types from the contract.
+contains the same functions and, when input is declared, an `onInput` handler; a run script can
+add `onStart`, which receives its starts instead of `onInput`, `onResult` for the results of scripts
+it starts itself, and ends a start with `context.finish` (details in
+[TypeScript platform](../spec/typescript-platform.md), Run scripts). TypeScript derives input, result, and
+state types from the contract.
 
 Each function receives `(input, context)` and returns only its domain result.
 `context.state.replace` stages state changes; a return value is never also interpreted as new
@@ -118,6 +121,10 @@ Published functions appear in the current TypeScript API even during an active L
 `typescript_api` returns their exact contracts, and snippets call them through
 `context.functions`. Reactivation updates the schemas; removed functions disappear from the same
 catalog. No additional call contract is needed.
+
+`actor_program_ensure` makes a package active only when it is not: it returns an active package
+unchanged, restarts its stopped actor, activates an installed package, or installs a shared
+package of the profile ([TypeScript platform](../spec/typescript-platform.md), Run scripts).
 
 `actor_program_list` shows installed programs. `actor_program_remove` removes the binding and its
 views. It also stops a TypeScript actor, while an existing LLM actor remains. Activating a package

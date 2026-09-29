@@ -1,6 +1,7 @@
 import { statSync } from "node:fs";
 import path from "node:path";
 import type {
+  ActorPackageContribution,
   PluginRegistration,
   RAgentsPlugin,
   SkillContribution,
@@ -8,7 +9,7 @@ import type {
 } from "@ragents/engine";
 import { skillsFromDirectory, type FolderSkills } from "./skills.js";
 import { pluginFolder } from "./plugins-root.js";
-import { runScriptsFromDirectory, type ScriptStartEntry } from "./run-scripts.js";
+import { actorPackagesFromDirectory, runScriptsFromDirectory, type ScriptStartEntry } from "./run-scripts.js";
 import { systemPromptOptionsFromDirectory, type SystemPromptOption } from "./system-prompts.js";
 
 export { pluginFolder };
@@ -37,6 +38,11 @@ export const folderRunScripts = (
   return directory ? runScriptsFromDirectory(directory, pluginId) : [];
 };
 
+export const folderActorPackages = (folder: string): readonly ActorPackageContribution[] => {
+  const directory = assetFolder(folder, "actors");
+  return directory ? actorPackagesFromDirectory(directory) : [];
+};
+
 export const folderSkillPaths = (folder: string): readonly string[] => folderSkills(folder, path.basename(folder)).paths;
 
 export const folderSystemPrompts = (folder: string): readonly SystemPromptOption[] => {
@@ -48,12 +54,17 @@ export const withFolderAssets = (plugin: RAgentsPlugin): RAgentsPlugin => ({
   manifest: plugin.manifest,
   register: (host) => {
     const explicitEntries: StartEntryContribution[] = [];
+    const explicitPackages: ActorPackageContribution[] = [];
     const explicitSkills: SkillContribution[] = [];
     const observed: PluginRegistration = {
       ...host,
       startEntries: (...contributions) => {
         explicitEntries.push(...contributions);
         host.startEntries(...contributions);
+      },
+      actorPackages: (...contributions) => {
+        explicitPackages.push(...contributions);
+        host.actorPackages(...contributions);
       },
       skills: (...contributions) => {
         explicitSkills.push(...contributions);
@@ -69,6 +80,8 @@ export const withFolderAssets = (plugin: RAgentsPlugin): RAgentsPlugin => ({
       ...folderRunScripts(folder, plugin.manifest.id),
     ].filter((entry) => !explicitEntries.some((explicit) => explicit.id === entry.id));
     if (entries.length > 0) host.startEntries(...entries);
+    const packages = folderActorPackages(folder).filter((entry) => !explicitPackages.some((explicit) => explicit.name === entry.name));
+    if (packages.length > 0) host.actorPackages(...packages);
 
     const skillPaths = skills.paths;
     if (skillPaths.length === 0) return;

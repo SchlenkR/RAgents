@@ -37,6 +37,7 @@ functions, actor programs, language servers, and interfaces; they add no new mec
 | Investigation, conversation, or multi-step implementation | LLM actor with suitable functions | Context and tools must match the task |
 | Controls or status for an existing actor | View on that actor | An interface alone does not justify another actor |
 | Repeatable prepared run | Run script in the owning plugin | Setup in code, domain decisions in the responsible model |
+| Program several run scripts use | Shared actor package in the owning plugin (`actors/<name>/`) | One actor per run; scripts name it and ensure it, none copies it |
 | Reusable work instructions | Skill in the owning plugin | Describes the approach but does not perform required initialization |
 
 ### 1. Keep capabilities and workflows separate
@@ -104,6 +105,12 @@ a successful check. A compact status contract can expose state and work step wit
 reasoning or tool arguments. Grant diagnostic and change permissions independently from full
 technical inspection and enforce them on the server. Roles belong in configuration; neutral
 components check permissions, not user names.
+
+A service that trusts a TypeScript actor more than others asks the actor programs service who it
+is: `programOf(runId, actorId)` names the package, its revision, and its origin, a shared package
+of a plugin, a run script's template, or a package created in the run, and a package changed in the
+run counts as created there. Authorize by that identity, never by handle or package name: any
+agent with the program functions creates a package under any free name.
 
 ### 7. Develop mini-apps in the actual host
 

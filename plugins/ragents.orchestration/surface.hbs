@@ -19,6 +19,11 @@ App left, chat right at 50:50:
 ]}}. Resolve the actual actor and app names before calling; the example names are not existing
 participants.
 
+To add one tile without replacing what is arranged, `context.functions.canvas_layout_place({ entity })`
+splits the current layout once and puts the entity to its right, or below with `direction: "vertical"`;
+`weight` is its share against the existing arrangement's weight 1. An entity the layout shows already
+stays where it is. A run script started inside a running run (`start.embedded`) uses place, not replace.
+
 An actor tile carries {entity:"@helper",chatInput:false} when its chat composer should stay hidden.
 That changes neither permissions nor the inspector. Mini-app tiles have no chatInput.
 

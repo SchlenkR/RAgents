@@ -17,6 +17,7 @@ export const commands = {
   send: AGENT_CLI,
   journal: AGENT_CLI,
   stop: AGENT_CLI,
+  script: AGENT_CLI,
 };
 
 const usage = `Usage: ragents <command> [arguments]
@@ -25,6 +26,7 @@ const usage = `Usage: ragents <command> [arguments]
   send <run> "<text>"              follow-up task in the same run
   journal <run> [--tools]          read the history of a run
   stop <run> | stop --host         cancel the running turn or stop the remembered host
+  script <run> [<entry>]           list the run scripts or start one inside the run (--input <json>)
   connect <server-url>             fetch the client profile with its bundles and start the local server with it
   start <profile|path>             start a profile of the package, an own profile file or a
                                    fetched revision; the UI comes prebuilt
@@ -33,7 +35,7 @@ const usage = `Usage: ragents <command> [arguments]
   plugin build <folder...>         build plugin source folders into bundles (--out, --watch)
   --help, help                     this usage
 
-run, send, journal and stop take another profile with --profile <profile|path>: a name
+run, send, journal, stop and script take another profile with --profile <profile|path>: a name
 next to the host or the path to an own ragents.config.<profile>.ts. RAGENTS_PROFILE sets
 the same for all commands of a shell; if the profile requires sign-in, the user's
 personal token goes into RAGENTS_TOKEN.

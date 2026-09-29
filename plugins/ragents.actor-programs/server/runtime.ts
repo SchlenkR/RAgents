@@ -2,16 +2,18 @@ import { randomUUID } from "node:crypto";
 import { lstat, mkdir, readdir, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { lstatSync, readFileSync, renameSync } from "node:fs";
 import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import { Type, type TSchema } from "typebox";
 import { Value } from "typebox/value";
-import { actorByHandle, actorDescriptionMaxLength, agentTools, assertJsonValue, canonicalHash, defineRunFunction, defineToolAvailability, emptyUsage, handleKey, runCapabilityContractHash, scriptInputOf, schemaComplaints, type Actor, type ActorProgramExecutor, type RunFunction, type CommandContext, type ExecutableActor, type JsonValue, type Orchestration, type PluginContext, type RunCapabilityDescriptor, type RunView, type TurnRequest, type TurnResult, } from "@ragents/engine";
-import { ACTOR_PROGRAMS_STATE_ID, ACTOR_INVOCATIONS_STATE_ID, ACTOR_SCRIPT_STATE_ID, ACTOR_STATE_ID, resolveActorView, type ActorDataState, type ActorFunctionDefinition, type ActorFunctionInvocation, type ActorProgramDefinition, type ActorProgramState, type ActorScriptState, type ActorViewListing, } from "@ragents/host/plugin-support/actor-programs/contract.js";
-import type { ActorProgramSource, ActorProgramsService } from "@ragents/host/plugin-support/actor-programs/service.js";
+import { actorByHandle, actorDescriptionMaxLength, agentTools, assertJsonValue, canonicalHash, defineRunFunction, defineToolAvailability, emptyUsage, handleKey, inheritedGrants, runCapabilityContractHash, scriptInputOf, schemaComplaints, type Actor, type ActorProgramExecutor, type RunFunction, type CommandContext, type ExecutableActor, type JsonValue, type Orchestration, type PluginContext, type RunCapabilityDescriptor, type RunView, type TurnRequest, type TurnResult, } from "@ragents/engine";
+import { ACTOR_PROGRAMS_STATE_ID, ACTOR_INVOCATIONS_STATE_ID, ACTOR_SCRIPT_STATE_ID, ACTOR_STATE_ID, resolveActorView, type ActorDataState, type ActorFunctionDefinition, type ActorFunctionInvocation, type ActorPackageOrigin, type ActorProgramDefinition, type ActorProgramIdentity, type ActorProgramState, type ActorScriptDelivery, type ActorScriptPackage, type ActorScriptState, type ActorViewListing, } from "@ragents/host/plugin-support/actor-programs/contract.js";
+import type { ActivatedActorProgram, ActorProgramSource, ActorProgramsService, RunScriptSources, RunScriptStartInput } from "@ragents/host/plugin-support/actor-programs/service.js";
 import { jsonValue, jsonBytes, MAX_INVOCATIONS_STATE_BYTES } from "./limits.js";
+import { agentResultText, finishesOf, MAX_OPEN_STARTS, scriptResultContent, scriptStateOf, type ScriptFinish } from "./script-state.js";
 import { agentCapabilityBinding, operatorCapabilityBinding } from "./capability-resolver.js";
 import type { ActorOperationPort } from "./operations.js";
 import { compileClientProject, installClientSdk } from "@ragents/host/plugin-support/actor-programs/client-compiler.js";
-import { compileAppBackend, installServerSdk, prepareAppProject, prepareAppWorkspace, projectSourceFiles, readAppPackage, typecheckServerProject, type AppContract } from "@ragents/host/plugin-support/actor-programs/app-project.js";
+import { compileAppBackend, installServerSdk, packageIdentity, prepareAppProject, prepareAppWorkspace, projectSourceFiles, readAppPackage, typecheckServerProject, type AppContract } from "@ragents/host/plugin-support/actor-programs/app-project.js";
 import { syncWorkspaceOwnership } from "@ragents/host/plugin-support/workspace-ownership.js";
 import { runManagedProcess, sandboxedLaunch, type WorkspaceProcessContext } from "@ragents/workspace-executor";
 import { runModuleTemplates, templateById, templateFiles } from "./templates.js";
@@ -88,6 +90,21 @@ const commitPackage = (staged: string, directory: string, name: string): void =>
         throw error;
     }
 };
+const sameSources = async (directory: string, files: readonly ActorProgramSource[]): Promise<boolean> =>
+    packageIdentity(await projectSourceFiles(directory)) === packageIdentity(files);
+const sameOrigin = (left: ActorPackageOrigin, right: ActorPackageOrigin): boolean =>
+    left.kind === "script" ? right.kind === "script" && left.entryId === right.entryId : right.kind === "shared" && left.pluginId === right.pluginId;
+const originText = (origin: ActorPackageOrigin | undefined): string =>
+    !origin ? "that no run script installed" : origin.kind === "script" ? `from the run script ${origin.entryId}` : `shared by ${origin.pluginId}`;
+/** A package the host installs for a run script, with the origin it records. */
+interface OriginPackage { name: string; files: readonly ActorProgramSource[]; origin: ActorPackageOrigin }
+/** What a claim wrote for a name and what it replaced; a release restores only a record nobody changed since. */
+interface Claim { name: string; claimed: ActorScriptPackage; previous: ActorScriptPackage | undefined }
+/** A name reserved by a shared package that the run holds for something else. */
+const foreignShared = (name: string, pluginId: string, record: ActorScriptPackage | undefined): Error => {
+    const holder = !record ? "that the host did not install" : sameOrigin(record.origin, { kind: "shared", pluginId }) ? "that was changed in the run" : originText(record.origin);
+    return new Error(`${name} is the shared actor package of ${pluginId}, but this run has a package ${name} ${holder}; the host neither uses nor replaces it. Remove or rename that package.`);
+};
 const descriptor = (tool: RunFunction): RunCapabilityDescriptor => ({ id: tool.name, label: tool.label, description: tool.description, schema: tool.schema, resultSchema: tool.resultSchema });
 interface BackendBinding {
     id: string;
@@ -131,7 +148,12 @@ export interface ActorProgramRuntimeOptions {
     operations: ActorOperationPort;
     directoryFor: (runId: string) => string;
     scriptSources: (entryId: string, name: string) => readonly ActorProgramSource[] | undefined;
+    /** A shared actor package of the profile, by name. */
+    sharedPackage: (name: string) => { pluginId: string; files: readonly ActorProgramSource[] } | undefined;
+    /** Places a surface entity next to the run's layout unless the layout already shows it. */
+    placeView: (context: CommandContext, runId: string, entity: string) => void;
 }
+type Recognized = { start: JsonValue } | { result: JsonValue };
 export class ActorProgramRuntime implements ActorProgramsService, ActorProgramExecutor {
     readonly #options: ActorProgramRuntimeOptions;
     readonly #queues = new Map<string, Promise<void>>();
@@ -146,6 +168,9 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     readonly #staged = new Set<string>();
     readonly #removing = new Set<string>();
     readonly #knownRuns = new Set<string>();
+    readonly #recovered = new Set<string>();
+    readonly #packageLocks = new Map<string, Promise<void>>();
+    readonly #identities = new Map<string, string>();
     readonly #epochs = new Map<string, number>();
     readonly #stopping = new Set<string>();
     #shuttingDown = false;
@@ -189,8 +214,42 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     #writeProgram(context: CommandContext, runId: string, actorId: string, program: ActorProgramDefinition | null): void {
         this.runtime().replacePluginState(this.operatorContext(runId), runId, { pluginId: ACTOR_PROGRAMS_STATE_ID, scope: { kind: "actor", actorId }, state: jsonValue({ version: 1, program }, "Actor program") });
     }
-    #script(runId: string): ActorScriptState | undefined {
-        return this.view(runId).pluginStates.find((entry) => entry.pluginId === ACTOR_SCRIPT_STATE_ID && entry.scope.kind === "run")?.state as unknown as ActorScriptState | undefined;
+    /** Which run script installed which package, and the inputs the host queued for programs to recognize. */
+    #script(runId: string): ActorScriptState {
+        return scriptStateOf(this.view(runId).pluginStates.find((entry) => entry.pluginId === ACTOR_SCRIPT_STATE_ID && entry.scope.kind === "run")?.state);
+    }
+    /** Keeps only deliveries whose input is still queued or being processed, and `keep`, whose input follows right after this write. */
+    #writeScript(runId: string, state: ActorScriptState, keep?: string): void {
+        const live = this.#liveCommands(runId, new Set(state.deliveries.map((delivery) => delivery.actorId)));
+        const deliveries = state.deliveries.filter((delivery) => delivery.commandId === keep || live.has(delivery.commandId));
+        this.runtime().replacePluginState(this.operatorContext(runId, "script"), runId, { pluginId: ACTOR_SCRIPT_STATE_ID, scope: { kind: "run" }, state: jsonValue({ ...state, deliveries }, "Run script state") });
+    }
+    /** The commands that queued inputs of these actors which are pending or belong to a running turn. */
+    #liveCommands(runId: string, actorIds: ReadonlySet<string>): Set<string> {
+        const view = this.view(runId);
+        const running = new Set(view.turns.filter((turn) => turn.status === "running").map((turn) => turn.id));
+        const sequences = new Set(view.inputs.filter((input) => actorIds.has(input.actorId)
+            && (input.lifecycle.kind === "pending" || input.lifecycle.kind === "claimed" && running.has(input.lifecycle.turnId))).map((input) => input.sequence));
+        const commands = new Set<string>();
+        if (sequences.size === 0)
+            return commands;
+        const oldest = Math.min(...sequences);
+        for (const event of this.runtime().recentEvents(runId)) {
+            if (event.sequence < oldest)
+                break;
+            if (sequences.has(event.sequence))
+                commands.add(event.commandId);
+        }
+        return commands;
+    }
+    #commandOf(runId: string, sequence: number): string | undefined {
+        for (const event of this.runtime().recentEvents(runId)) {
+            if (event.sequence === sequence)
+                return event.commandId;
+            if (event.sequence < sequence)
+                return undefined;
+        }
+        return undefined;
     }
     async #writeSources(directory: string, files: readonly ActorProgramSource[]): Promise<void> {
         for (const source of files) {
@@ -201,10 +260,31 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             await writeFile(file, source.content, { flag: "wx" });
         }
     }
-    async #refresh(runId: string, program: ActorProgramDefinition, signal: AbortSignal): Promise<void> {
-        const script = this.#script(runId);
-        const files = script ? this.#options.scriptSources(script.entryId, program.name) : undefined;
-        if (files) {
+    #originSources(name: string, origin: ActorPackageOrigin): readonly ActorProgramSource[] | undefined {
+        if (origin.kind === "script")
+            return this.#options.scriptSources(origin.entryId, name);
+        const shared = this.#options.sharedPackage(name);
+        return shared?.pluginId === origin.pluginId ? shared.files : undefined;
+    }
+    /** The identity of the sources the program was built from; a build never changes, so it is read once. */
+    #identityOf(program: ActorProgramDefinition): string {
+        const known = this.#identities.get(program.directory);
+        if (known !== undefined)
+            return known;
+        const identity = packageIdentity(JSON.parse(readFileSync(path.join(program.directory, "sources.json"), "utf8")) as ActorProgramSource[]);
+        this.#identities.set(program.directory, identity);
+        return identity;
+    }
+    /** A package still built from what its origin installed reloads from the origin's current sources; one changed in the run keeps its own. */
+    #refresh(runId: string, program: ActorProgramDefinition, signal: AbortSignal): Promise<void> {
+        return this.#withPackages(runId, [program.name], () => this.#reload(runId, program, signal));
+    }
+    async #reload(runId: string, program: ActorProgramDefinition, signal: AbortSignal): Promise<void> {
+        const record = this.#script(runId).packages[program.name];
+        const files = record && this.#identityOf(program) === record.identity ? this.#originSources(program.name, record.origin) : undefined;
+        if (record && files) {
+            const state = this.#script(runId);
+            this.#writeScript(runId, { ...state, packages: { ...state.packages, [program.name]: { ...state.packages[program.name]!, identity: packageIdentity(files) } } });
             const directory = path.join(await this.workspaceDirectory(runId), program.name);
             for (const entry of await readdir(directory))
                 if (entry !== "node_modules")
@@ -242,6 +322,31 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             throw new Error(`The capability contract of ${program.name} still differs after the reactivation.`);
         return refreshed;
     }
+    async #acquire(key: string): Promise<() => void> {
+        const previous = this.#packageLocks.get(key) ?? Promise.resolve();
+        const released = Promise.withResolvers<void>();
+        const held = previous.then(() => released.promise);
+        this.#packageLocks.set(key, held);
+        await previous;
+        return () => {
+            released.resolve();
+            if (this.#packageLocks.get(key) === held)
+                this.#packageLocks.delete(key);
+        };
+    }
+    /** One exclusion per run and package name for creating, activating, installing and ensuring; callers wait instead of failing. */
+    async #withPackages<T>(runId: string, names: readonly string[], work: () => Promise<T>): Promise<T> {
+        const releases: (() => void)[] = [];
+        try {
+            for (const name of [...new Set(names)].sort())
+                releases.push(await this.#acquire(`${runId}\0${name}`));
+            return await work();
+        }
+        finally {
+            for (const release of releases.reverse())
+                release();
+        }
+    }
     async workspaceDirectory(runId: string): Promise<string> { this.#knownRuns.add(runId); return prepareAppWorkspace(path.join(this.#options.directoryFor(runId), "actor-workspace")); }
     templates() { return runModuleTemplates.map(({ id, title, description }) => ({ id, title, description })); }
     async #create<T>(runId: string, name: string, build: (directory: string) => Promise<T>): Promise<{ directory: string; built: T }> {
@@ -273,7 +378,10 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             await rm(staged, { recursive: true, force: true });
         }
     }
-    async scaffold(runId: string, name: string, templateId: string) {
+    scaffold(runId: string, name: string, templateId: string) {
+        return this.#withPackages(runId, [name], () => this.#scaffold(runId, name, templateId));
+    }
+    async #scaffold(runId: string, name: string, templateId: string) {
         const sources = Object.entries(templateFiles(templateById(templateId), name)).map(([file, content]) => ({ path: file, content }));
         const { built: files } = await this.#create(runId, name, async (directory) => {
             await this.#writeSources(directory, sources);
@@ -285,19 +393,287 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         });
         return { name, directory: `@actors/${name}`, files };
     }
-    async importPackage(context: CommandContext, runId: string, name: string, files: readonly ActorProgramSource[], signal?: AbortSignal, scriptEntryId?: string) {
+    importPackage(context: CommandContext, runId: string, name: string, files: readonly ActorProgramSource[], signal?: AbortSignal): Promise<ActivatedActorProgram> {
+        return this.#withPackages(runId, [name], () => this.#import(context, runId, name, files, signal));
+    }
+    async #import(context: CommandContext, runId: string, name: string, files: readonly ActorProgramSource[], signal?: AbortSignal): Promise<ActivatedActorProgram> {
         const { directory } = await this.#create(runId, name, (staged) => this.#writeSources(staged, files));
         try {
-            if (scriptEntryId)
-                this.runtime().replacePluginState(this.operatorContext(runId), runId, { pluginId: ACTOR_SCRIPT_STATE_ID, scope: { kind: "run" }, state: { version: 1, entryId: scriptEntryId } });
-            await this.activate(context, runId, name, signal);
-            const program = this.programs(runId).find((entry) => entry.name === name)!;
-            return { name, actorId: program.actorId, actorHandle: program.actorHandle, views: program.views.length };
+            await this.#activate(context, runId, name, true, signal);
+            return this.#activated(runId, name);
         }
         catch (error) {
             await rm(directory, { recursive: true, force: true });
             throw error;
         }
+    }
+    #activated(runId: string, name: string): ActivatedActorProgram {
+        const program = this.#program(runId, name);
+        return { name, actorId: program.actorId, actorHandle: program.actorHandle, views: program.views.length };
+    }
+    installScript(context: CommandContext, runId: string, script: RunScriptSources, signal?: AbortSignal): Promise<ActivatedActorProgram> {
+        return this.#withPackages(runId, [script.handle, ...script.programs.map((program) => program.name), ...script.sharedPrograms], () => this.#install(context, runId, script, signal));
+    }
+    async #install(context: CommandContext, runId: string, script: RunScriptSources, signal?: AbortSignal): Promise<ActivatedActorProgram> {
+        const root = await this.workspaceDirectory(runId);
+        const before = this.#script(runId).packages;
+        const own: ActorPackageOrigin = { kind: "script", entryId: script.entryId };
+        const programs: OriginPackage[] = [
+            ...script.programs.map((program) => ({ ...program, origin: own })),
+            ...script.sharedPrograms.map((name) => {
+                const shared = this.#options.sharedPackage(name);
+                if (!shared)
+                    throw new Error(`The run script ${script.entryId} needs the shared actor package ${name}, which no plugin of this profile provides.`);
+                return { name, files: shared.files, origin: { kind: "shared", pluginId: shared.pluginId } as const };
+            }),
+        ];
+        const present = await this.#presentPrograms(root, script.entryId, programs, before);
+        const reuse = this.#reusesScript(runId, root, script, before);
+        const missing = programs.filter((program) => !present.has(program.name));
+        const claims = this.#claim(runId, [...missing, ...(reuse ? [] : [{ name: script.handle, files: script.files, origin: own }])]);
+        const copied: string[] = [];
+        try {
+            for (const program of missing) {
+                signal?.throwIfAborted();
+                await this.#create(runId, program.name, (staged) => this.#writeSources(staged, program.files));
+                copied.push(program.name);
+            }
+            return reuse ? await this.#restartScript(context, runId, script.handle, signal) : await this.#import(context, runId, script.handle, script.files, signal);
+        }
+        catch (error) {
+            for (const name of copied)
+                await rm(path.join(root, name), { recursive: true, force: true });
+            try {
+                this.#release(runId, claims);
+            }
+            catch (release) {
+                throw new Error(`${errorText(error)} The ownership record could not be removed again (${errorText(release)}); it names no package and the next start replaces it.`);
+            }
+            throw error;
+        }
+    }
+    /** Ownership is recorded before anything is created, so no package the host installs exists without its origin. */
+    #claim(runId: string, packages: readonly OriginPackage[]): readonly Claim[] {
+        const state = this.#script(runId);
+        const claims = packages.map((entry): Claim => {
+            const previous = state.packages[entry.name];
+            return { name: entry.name, previous, claimed: { origin: entry.origin, identity: packageIdentity(entry.files), count: previous && sameOrigin(previous.origin, entry.origin) ? previous.count : 0, open: [] } };
+        });
+        if (claims.length > 0)
+            this.#writeScript(runId, { ...state, packages: { ...state.packages, ...Object.fromEntries(claims.map((claim) => [claim.name, claim.claimed])) } });
+        return claims;
+    }
+    /** Compare and swap: a record someone changed since the claim stays as it is. */
+    #release(runId: string, claims: readonly Claim[]): void {
+        const state = this.#script(runId);
+        const released = claims.filter((claim) => isDeepStrictEqual(state.packages[claim.name], claim.claimed));
+        if (released.length === 0)
+            return;
+        const names = new Set(released.map((claim) => claim.name));
+        const kept = Object.entries(state.packages).filter(([name]) => !names.has(name));
+        const restored = released.flatMap((claim) => claim.previous ? [[claim.name, claim.previous] as const] : []);
+        this.#writeScript(runId, { ...state, packages: Object.fromEntries([...kept, ...restored]) });
+    }
+    /** Whether the host installed this shared package from this plugin and nobody changed it since. */
+    #hostShared(record: ActorScriptPackage | undefined, pluginId: string, identity: string): boolean {
+        return record !== undefined && sameOrigin(record.origin, { kind: "shared", pluginId }) && record.identity === identity;
+    }
+    /** The names already in the run that the start keeps; a different package, or one under a shared name the host did not install, is an error before anything is copied. */
+    async #presentPrograms(root: string, entryId: string, programs: readonly OriginPackage[], packages: Readonly<Record<string, ActorScriptPackage>>): Promise<ReadonlySet<string>> {
+        const present = await Promise.all(programs.map(async (program) => {
+            const directory = path.join(root, program.name);
+            if (!occupied(directory))
+                return false;
+            if (program.origin.kind === "shared") {
+                if (this.#hostShared(packages[program.name], program.origin.pluginId, packageIdentity(await projectSourceFiles(directory))))
+                    return true;
+                throw foreignShared(program.name, program.origin.pluginId, packages[program.name]);
+            }
+            if (await sameSources(directory, program.files))
+                return true;
+            throw new Error(`The run script ${entryId} bundles the program ${program.name}, but this run already has a different package ${program.name} ${originText(packages[program.name]?.origin)}.`);
+        }));
+        return new Set(programs.filter((_, index) => present[index]).map((program) => program.name));
+    }
+    /** A recorded origin without actor and folder is left over from a failed start, whichever template it names, and counts as not installed. */
+    #reusesScript(runId: string, root: string, script: RunScriptSources, packages: Readonly<Record<string, ActorScriptPackage>>): boolean {
+        const holder = this.view(runId).actors.find((actor) => actor.handle === script.handle);
+        const exists = occupied(path.join(root, script.handle));
+        if (!holder && !exists)
+            return false;
+        const origin = packages[script.handle]?.origin;
+        if (origin !== undefined && !sameOrigin(origin, { kind: "script", entryId: script.entryId }))
+            throw new Error(`The package ${script.handle} in this run ${origin.kind === "script" ? `comes from the run script ${origin.entryId}` : `is the shared package of ${origin.pluginId}`}, not from the run script ${script.entryId}.`);
+        if (origin !== undefined && exists && (!holder || holder.kind === "script"))
+            return true;
+        throw new Error(holder
+            ? `Handle @${script.handle} already belongs to ${holder.displayName} in this run, not to the run script ${script.entryId}.`
+            : `The package ${script.handle} already exists in this run and was not installed by the run script ${script.entryId}.`);
+    }
+    async #restartScript(context: CommandContext, runId: string, handle: string, signal?: AbortSignal): Promise<ActivatedActorProgram> {
+        const view = this.view(runId);
+        const holder = view.actors.find((actor) => actor.handle === handle);
+        const state = holder && view.pluginStates.find((entry) => entry.pluginId === ACTOR_PROGRAMS_STATE_ID && entry.scope.kind === "actor" && entry.scope.actorId === holder.id)?.state as unknown as ActorProgramState | undefined;
+        if (!holder || !state?.program)
+            await this.#activate(context, runId, handle, true, signal);
+        else if (holder.kind !== "human" && holder.lifecycle.kind === "stopped")
+            this.runtime().restartActor(context, runId, holder.id, "Run script started again");
+        return this.#activated(runId, handle);
+    }
+    enqueueStart(context: CommandContext, runId: string, handle: string, start: RunScriptStartInput): { count: number } {
+        const program = this.#program(runId, handle);
+        const recorded = this.#script(runId).packages[handle];
+        if (!recorded)
+            throw new Error(`The package ${handle} was not installed by a run script.`);
+        const view = program.views[0];
+        if (start.embedded && view)
+            this.#options.placeView(this.operatorContext(runId, "place"), runId, `app:${view.id}`);
+        const state = this.#script(runId);
+        const record = state.packages[handle]!;
+        const count = record.count + 1;
+        const delivery: ActorScriptDelivery = { commandId: context.commandId, actorId: program.actorId, kind: "start", name: handle, count, embedded: start.embedded, startedBy: start.startedBy };
+        this.#writeScript(runId, { ...state, packages: { ...state.packages, [handle]: { ...record, count } }, deliveries: [...state.deliveries, delivery] }, context.commandId);
+        try {
+            this.runtime().enqueueInput(context, runId, { actorId: program.actorId, content: start.content });
+        }
+        catch (error) {
+            const current = this.#script(runId);
+            this.#writeScript(runId, { ...current, packages: { ...current.packages, [handle]: { ...current.packages[handle]!, count: record.count } },
+                deliveries: current.deliveries.filter((entry) => entry.commandId !== context.commandId) });
+            throw error;
+        }
+        return { count };
+    }
+    /** A start or result the host queued for this actor, recognized by the command that queued the input; it is consumed here. */
+    #recognize(runId: string, actorId: string, input: { sequence: number; content: string }): Recognized | undefined {
+        const state = this.#script(runId);
+        if (!state.deliveries.some((delivery) => delivery.actorId === actorId))
+            return undefined;
+        const commandId = this.#commandOf(runId, input.sequence);
+        const delivery = state.deliveries.find((entry) => entry.commandId === commandId && entry.actorId === actorId);
+        if (!delivery)
+            return undefined;
+        const deliveries = state.deliveries.filter((entry) => entry !== delivery);
+        if (delivery.kind === "result") {
+            this.#writeScript(runId, { ...state, deliveries });
+            return { result: JSON.parse(input.content) as JsonValue };
+        }
+        const record = state.packages[delivery.name];
+        const packages = record ? { ...state.packages, [delivery.name]: { ...record, open: [...record.open, { count: delivery.count, startedBy: delivery.startedBy }].slice(-MAX_OPEN_STARTS) } } : state.packages;
+        this.#writeScript(runId, { ...state, packages, deliveries });
+        const { input: value, options } = JSON.parse(input.content) as { input: JsonValue; options: Record<string, JsonValue> };
+        return { start: { input: value, options, embedded: delivery.embedded, startedBy: delivery.startedBy, count: delivery.count } };
+    }
+    /** Checked before the state commits: every finish ends a different open start of this package. */
+    #finishesOf(runId: string, program: ActorProgramDefinition, value: unknown): readonly ScriptFinish[] {
+        const finishes = finishesOf(value);
+        const open = new Set(this.#script(runId).packages[program.name]?.open.map((entry) => entry.count) ?? []);
+        for (const [index, finish] of finishes.entries()) {
+            if (!open.has(finish.start) || finishes.findIndex((other) => other.start === finish.start) !== index)
+                throw new Error(`finish: start ${finish.start} of @${program.actorHandle} is not open; it was finished already, never reached the program, or is older than the last ${MAX_OPEN_STARTS} open starts.`);
+        }
+        return finishes;
+    }
+    #deliverResults(request: TurnRequest<"script">, program: ActorProgramDefinition, finishes: readonly ScriptFinish[]): void {
+        if (finishes.length === 0)
+            return;
+        const state = this.#script(request.runId);
+        const record = state.packages[program.name]!;
+        const finished = new Set(finishes.map((finish) => finish.start));
+        const starters = new Map(record.open.map((entry) => [entry.count, entry.startedBy]));
+        this.#writeScript(request.runId, { ...state, packages: { ...state.packages, [program.name]: { ...record, open: record.open.filter((entry) => !finished.has(entry.count)) } } });
+        for (const finish of finishes)
+            this.#deliverResult(request, program, finish, starters.get(finish.start)!);
+    }
+    /** The owner reads the summary in the chat, an LLM gets a short message, a TypeScript actor a result it recognizes. */
+    #deliverResult(request: TurnRequest<"script">, program: ActorProgramDefinition, finish: ScriptFinish, startedBy: string): void {
+        const starter = this.view(request.runId).actors.find((actor) => actor.id === startedBy);
+        if (!starter || starter.kind === "human") {
+            request.emit({ kind: "runtime", text: finish.summary ?? `Start ${finish.start} finished.` });
+            return;
+        }
+        const commandId = `run-script-result:${request.turnId}:${program.name}:${finish.start}`;
+        try {
+            if (starter.kind === "script") {
+                const state = this.#script(request.runId);
+                this.#writeScript(request.runId, { ...state, deliveries: [...state.deliveries, { commandId, actorId: starter.id, kind: "result" }] }, commandId);
+            }
+            this.runtime().enqueueInput({ actorId: this.ownerId(request.runId), commandId }, request.runId, {
+                actorId: starter.id, presentation: "background",
+                content: starter.kind === "agent" ? agentResultText(program.actorHandle, finish) : scriptResultContent(program.actorHandle, finish),
+            });
+        }
+        catch (error) {
+            request.emit({ kind: "runtime", text: `The result of start ${finish.start} did not reach @${starter.handle}: ${errorText(error)}` });
+        }
+    }
+    isScriptActor(runId: string, actorId: string): boolean {
+        return this.runtime().select(runId, (state) => {
+            const actor = state.actors.get(actorId);
+            if (!actor || actor.kind !== "script")
+                return false;
+            const script = [...state.pluginStates.values()].find((entry) => entry.pluginId === ACTOR_SCRIPT_STATE_ID && entry.scope.kind === "run");
+            return Object.hasOwn(scriptStateOf(script?.state).packages, actor.handle);
+        });
+    }
+    programOf(runId: string, actorId: string): ActorProgramIdentity | undefined {
+        const program = this.programs(runId).find((entry) => entry.actorId === actorId);
+        if (!program)
+            return undefined;
+        const record = this.#script(runId).packages[program.name];
+        const origin = record && this.#identityOf(program) === record.identity ? record.origin : { kind: "run" as const, installedBy: program.installedBy };
+        return { name: program.name, actorId, revision: program.revision, origin };
+    }
+    /** Makes a package active once, whatever state it is in; under a shared name only the package the host installed from that plugin, unchanged. */
+    ensure(context: CommandContext, runId: string, name: string, signal?: AbortSignal): Promise<{ actorId: string; handle: string; status: "active" | "restarted" | "activated" | "installed" }> {
+        this.#assertName(name);
+        return this.#withPackages(runId, [name], () => this.#ensure(context, runId, name, signal));
+    }
+    async #ensure(context: CommandContext, runId: string, name: string, signal?: AbortSignal) {
+        const outcome = (status: "active" | "restarted" | "activated" | "installed") => {
+            const program = this.#program(runId, name);
+            return { actorId: program.actorId, handle: program.actorHandle, status };
+        };
+        const shared = this.#options.sharedPackage(name);
+        const record = this.#script(runId).packages[name];
+        const assertShared = (identity: () => string): void => {
+            if (shared && !this.#hostShared(record, shared.pluginId, identity()))
+                throw foreignShared(name, shared.pluginId, record);
+        };
+        const active = this.programs(runId).find((program) => program.name === name);
+        if (active) {
+            assertShared(() => this.#identityOf(active));
+            return outcome("active");
+        }
+        const view = this.view(runId);
+        const stopped = view.pluginStates.flatMap((entry) => {
+            const program = entry.pluginId === ACTOR_PROGRAMS_STATE_ID && entry.scope.kind === "actor" ? (entry.state as unknown as ActorProgramState).program : null;
+            const actor = program?.name === name ? view.actors.find((candidate) => candidate.id === program.actorId) : undefined;
+            return program && actor && actor.kind !== "human" && actor.lifecycle.kind === "stopped" ? [{ program, actor }] : [];
+        })[0];
+        if (stopped) {
+            assertShared(() => this.#identityOf(stopped.program));
+            this.runtime().restartActor(context, runId, stopped.actor.id, "Actor program ensured");
+            return outcome("restarted");
+        }
+        const root = await this.workspaceDirectory(runId);
+        if (occupied(path.join(root, name))) {
+            const identity = packageIdentity(await projectSourceFiles(path.join(root, name)));
+            assertShared(() => identity);
+            await this.#activate(context, runId, name, true, signal);
+            return outcome("activated");
+        }
+        if (!shared)
+            throw new Error(`The package ${name} is neither in this run nor a shared actor package of this profile.`);
+        const claims = this.#claim(runId, [{ name, files: shared.files, origin: { kind: "shared", pluginId: shared.pluginId } }]);
+        try {
+            await this.#import(context, runId, name, shared.files, signal);
+        }
+        catch (error) {
+            this.#release(runId, claims);
+            throw error;
+        }
+        return outcome("installed");
     }
     async check(runId: string, name: string, callerId: string, signal?: AbortSignal, reference?: string): Promise<CompiledProgram> {
         this.#assertName(name);
@@ -314,7 +690,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         if (!caller)
             throw new Error("Calling actor is missing.");
         const provisional: ExecutableActor = owner ?? {
-            id: "pending", handle: name, displayName: pkg.title, kind: "script", grants: caller.grants.filter((grant) => grant.delegable),
+            id: "pending", handle: name, displayName: pkg.title, kind: "script", grants: inheritedGrants(caller),
             createdAt: new Date().toISOString(), createdBy: callerId, description: actorDescriptionOf(pkg.description) ?? null, execution: { driver: { kind: "script", config: {} }, workspacePath: null, turnTimeoutMs: null }, lifecycle: { kind: "idle", since: new Date().toISOString() }, usage: emptyUsage(), toolNames: null, openedToolNames: [],
         };
         const available = (await this.#options.agentToolsFor(runId, provisional.id, owner ? undefined : provisional)).map(descriptor);
@@ -387,7 +763,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         return { directory, files, definition, clients, frameStyles, createActor: !owner, ...(backend ? { backendJavaScript: backend.javaScript } : {}) };
     }
     activate(context: CommandContext, runId: string, name: string, signal?: AbortSignal, reference?: string) {
-        return this.#activate(context, runId, name, true, signal, reference);
+        return this.#withPackages(runId, [name], () => this.#activate(context, runId, name, true, signal, reference));
     }
     async #activate(context: CommandContext, runId: string, name: string, idle: boolean, signal?: AbortSignal, reference?: string) {
         const key = `${runId}\0${name}`;
@@ -477,7 +853,7 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
                 else if (holder)
                     throw new Error(`Handle @${name} already belongs to the ${holder.kind !== "human" && holder.lifecycle.kind === "stopped" ? "stopped" : "active"} actor ${holder.displayName}; only a stopped TypeScript actor is restarted on activation. Choose another package name.`);
                 else
-                    this.runtime().createScriptActor(context, runId, { handle: name, displayName: definition.title, description: actorDescriptionOf(definition.description), grants: caller.grants.filter((grant) => grant.delegable), toolNames: null });
+                    this.runtime().createScriptActor(context, runId, { handle: name, displayName: definition.title, description: actorDescriptionOf(definition.description), grants: inheritedGrants(caller), toolNames: null });
                 const actor = this.resolveActor(runId, context.actorId, `@${name}`);
                 definition.actorId = actor.id;
                 definition.actorHandle = actor.handle;
@@ -503,9 +879,13 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
     }
     list(runId: string) { return this.programs(runId).map((program) => ({ name: program.name, actor: `@${program.actorHandle}`, functions: program.functions.map((fn) => fn.id), views: program.views.map((view) => ({ name: view.key, title: view.title, visible: view.visible })) })); }
     async remove(context: CommandContext, runId: string, name: string) {
-        const program = this.#program(runId, name);
+        const packageName = this.#program(runId, name).name;
+        return this.#withPackages(runId, [packageName], () => this.#remove(context, runId, packageName, name));
+    }
+    async #remove(context: CommandContext, runId: string, packageName: string, name: string) {
+        const program = this.#program(runId, packageName);
         this.#assertIdle(runId, program.actorId);
-        if (this.#installing.has(`${runId}\0${name}`))
+        if (this.#installing.has(`${runId}\0${packageName}`))
             throw new Error("The package is being activated.");
         const actor = this.actor(runId, program.actorId);
         const key = `${runId}\0${program.actorId}`;
@@ -654,8 +1034,11 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
             await this.#serial(request.runId, request.agentId, signal, async () => {
                 const { program, descriptors } = await this.#bound(request.runId, request.agentId, undefined, signal, inputOf, descriptorsFor);
                 const binding: BackendBinding = { id: request.turnId, kind: "input", principal: { id: request.agentId, kind: "script" }, descriptorsFor, call: (name, input, index) => request.invoke(`${request.turnId}:capability:${index}`, name, input) };
-                const result = await this.#backend(request.runId, program, { kind: "input", input: scriptInputOf(request.input) }, binding, descriptors, signal);
+                const recognized = this.#recognize(request.runId, request.agentId, request.input);
+                const result = await this.#backend(request.runId, program, { kind: "input", input: scriptInputOf(request.input), ...recognized }, binding, descriptors, signal);
+                const finishes = this.#finishesOf(request.runId, program, result.result);
                 this.#commitState(request.runId, request.agentId, result.state, result.initial);
+                this.#deliverResults(request, program, finishes);
                 for (const text of result.logs)
                     request.emit({ kind: "runtime", text });
             });
@@ -787,12 +1170,25 @@ export class ActorProgramRuntime implements ActorProgramsService, ActorProgramEx
         }
     }
     waitForRunSettlement(runId: string): Promise<void> { return Promise.allSettled([...this.#active.values()].filter((entry) => entry.runId === runId).map((entry) => entry.completed).concat([...this.#queues].filter(([key]) => key.startsWith(`${runId}\0`)).map(([, queue]) => queue))).then(() => undefined); }
-    async prepareSession(runId: string): Promise<void> { this.#knownRuns.add(runId); if (!this.runtime().listRuns().some(run => run.id === runId))
-        return; for (const invocation of this.#invocations(runId).invocations)
-        if (invocation.status === "queued" || invocation.status === "running")
-            this.#replaceInvocation(runId, { ...invocation, status: "cancelled", error: "The server was stopped during the call.", finishedAt: new Date().toISOString() }); }
+    /** Once per run and server process: calls a previous process left open are cancelled, calls of this process keep running. */
+    async prepareSession(runId: string): Promise<void> {
+        this.#knownRuns.add(runId);
+        if (this.#recovered.has(runId) || !this.runtime().listRuns().some(run => run.id === runId))
+            return;
+        this.#recovered.add(runId);
+        for (const invocation of this.#invocations(runId).invocations)
+            if ((invocation.status === "queued" || invocation.status === "running") && !this.#active.has(invocation.id))
+                this.#replaceInvocation(runId, { ...invocation, status: "cancelled", error: "The server was stopped during the call.", finishedAt: new Date().toISOString() });
+    }
     async stopSession(runId: string, _signal?: AbortSignal): Promise<void> { await this.stopRun(runId); }
     async disposeRun(runId: string): Promise<void> { await this.stopRun(runId); }
-    async deleteSession(runId: string): Promise<void> { await this.stopRun(runId); await rm(this.#options.directoryFor(runId), { recursive: true, force: true }); }
+    async deleteSession(runId: string): Promise<void> {
+        await this.stopRun(runId);
+        this.#recovered.delete(runId);
+        for (const directory of this.#identities.keys())
+            if (directory.startsWith(`${this.#options.directoryFor(runId)}${path.sep}`))
+                this.#identities.delete(directory);
+        await rm(this.#options.directoryFor(runId), { recursive: true, force: true });
+    }
     async shutdown(): Promise<void> { this.#shuttingDown = true; await Promise.allSettled([...this.#knownRuns].map((runId) => this.stopRun(runId))); }
 }

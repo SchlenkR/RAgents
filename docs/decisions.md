@@ -1,5 +1,124 @@
 # Decisions
 
+## Run scripts also start inside a running run (29.09.2026)
+
+Chapters: `docs/spec/typescript-platform.md` (Run scripts as prepared actor programs, Open limits),
+`docs/spec/actor-programs.md` (Backend and client, tests), `docs/spec/core.md` (agent_spawn,
+run_configure), `docs/spec/plugins.md` (PluginHost registrations, program layout, reference
+cases), `docs/spec/profiles.md` (Permissions in detail), `docs/usage.md` (Run panel, Control RAgents
+as an agent). Requirement: starting a script becomes an operation of its own that also works in an
+existing run; a new run is then only "create run, bind workspace, start script". This entry covers
+the first stages: the host mechanism, its triggers, the result channel, the display, and shared
+actor packages with their identity.
+
+**Decision.** A script opts in with the `RUN.md` header line `embeddable: true`
+(`RunScriptPackage.embeddable`); without it the lock stays, and its error names the line. A start
+in a running run goes through the same `RunChatSession` path as a new one; only the start of a new
+run selects the primary actor, calls `sessionStarted`, and shows the transient start status. A
+restarted former primary gets its role back, as the engine's restart rule says. Everything that can
+refuse the start is checked before the run changes: fixed start options against the stored values
+(the message names both), bundled programs (missing ones are copied, identical ones stay apart from
+the generated `tsconfig*.json`, a different package of the same name is refused with both
+origins), and who holds the setup handle. The installation lives in the actor programs service
+(`installScript`). A repeated start of the same template reuses its package: a stopped actor is
+restarted, a removed package is activated again, then a new start input follows. Starts inside a
+running run queue behind each other instead of failing with `run-starting`, so a start by an agent
+never fails only because another one runs; the only 409 left is a second start while a new run is
+being set up, which the start page cannot cause for a running run.
+
+**Ownership first.** `installScript` records which template owns the packages it will create before
+it copies or imports anything, and removes the record again when the start fails. Rejected: writing
+the record after the import, because a failed write then left an actor and a folder without
+origin, and every later start of that template failed on its own handle. A record that could not
+be removed again names no actor and no folder; the next start treats it as not installed.
+
+**Marking a start.** The content of the start input stays `{ input, options }`. Before the input is
+queued, the service records the start under the command id that will queue it (`deliveries` in
+`ragents.actor-programs.script`, version 2); the input's journal event carries that command id, and
+`runInput` looks it up by the input's sequence, passes `start` to the generated backend entry, and
+consumes the record. Every write drops records whose input is no longer queued or being processed,
+so a record left over by a crash between the two writes, or a start the program already got, does
+not stay. The package keeps only a counter and its open starts, at most 50. This replaces the first
+version, which recorded the input id after queuing and kept every start: a failed second write, or
+the 250 KB limit of plugin state after some thousand starts, left a queued start that the program
+could no longer recognize. Rejected: a field on the queued input in the engine, because it would
+change the journal format, the event validation, and the projection for a host concept the engine
+does not need to know; and a reserved envelope in the content, because it would show up in the
+journal and the actor history, any actor allowed to send inputs could forge it, and a backend built
+before this change would receive it as text. Since `start` travels next to the unchanged input, a
+backend built before this change keeps receiving its starts in `onInput`.
+
+**Result channel.** `context.finish(result, { summary?, start? })` works only in turn handlers
+(`onStart`, `onInput`, `onResult`); the generated entry returns the finishes, and the host checks
+them against the open starts before the actor state commits, so a second or unknown finish fails the
+turn without changing anything. A function passes its result to its own actor as an input, as the
+spec already asks for messages in the actor's name; so every finish happens in a turn, and the
+owner's summary can be journaled as runtime output of that turn. An LLM starter gets a background
+input with summary and compact result, a TypeScript starter gets `onResult`, recognized by the same
+command-id record as a start, otherwise the JSON in `onInput`. Background inputs of the owner keep
+these deliveries out of the chat's user messages.
+
+**Triggers.** `ragents.runs.scripts` lists the templates the caller may start with `available` and a
+`reason`, instead of adding `embeddable` to the strictly parsed `PublicStartEntry`, so older clients
+keep working. The run panel's menu (web and VS Code share it) and `ragents script` use it and
+`ragents.runs.startScript`. The run functions `run_script_list` and `run_script_start` are host
+functions like `typescript_eval`, acting on the caller's run through the run management and as the
+run's owner (owner's template releases, the run's fixed options). They need the new capability
+`script.start`. To give it to the coordinator but to no agent, the engine vocabulary gets
+`firstHandCapabilities`: an inherited copy of such a capability is not delegable, so it reaches the
+owner's direct delegates (coordinator, programs the owner installs) and stops there. Rejected: a
+check on the actor's role in the function, because the grant model already expresses who may do
+what; and a plain delegable grant, because every agent spawned by the coordinator or by a script
+would inherit it.
+
+**Display.** An embedded start places the setup package's first view with `canvas_layout_place`,
+a new function of `ragents.orchestration` that splits the current root once and leaves a view
+already shown in place; the actor program host reaches it through the plugin's service
+(`surfacePlacementToken`), not the orchestration code. The chat shows runtime output of TypeScript
+actors whose package a run script installed, prefixed with the handle; the existing access
+projection masks it like every system entry.
+
+**Shared actor packages.** A plugin shares a package as `actors/<name>/` next to `run-scripts/`;
+`RUN.md` names it in `shared-programs` (not `programs`, which already means the script's private
+bundled packages in `RunScriptPackage`). The host registers it in `host.actorPackages` and checks at
+startup that names do not clash across plugins, with script handles, or with bundled programs, and
+that every named package exists. A start copies it like a bundled program with the same
+identical-sources rule; the origin record says `shared` with the plugin id, so a drift reloads it
+from the plugin. `actor_program_ensure` is the idempotent counterpart of `actor_program_activate`:
+two scripts that share a package both ensure it, and only the first installs or activates it.
+Rejected: letting ensure silently reactivate an active package, because an actor that was just
+rebuilt loses its running functions.
+
+**Program identity.** `programOf(runId, actorId)` gives plugins who a program is: its origin comes
+from the record only while the build still has the identity of the sources the host installed. The
+identity is the hash of the package sources without the tsconfig files the host generated into it,
+so an agent that edits a shared package and activates it again gets `run`, and a drift then keeps
+its edits instead of reloading the plugin's sources. Rejected: recording the revision after the
+activation, because that is a second write after the package exists; if it failed, the package had
+an origin without proof and a reuse could not tell a legitimate package from an edited one. A stale
+origin record now counts as not installed whichever template it names; only a real actor or folder
+of another template is a conflict.
+
+**Provenance and exclusion.** Under a shared name, `actor_program_ensure` and a script start accept
+only the package the host installed from that plugin and nobody changed since; a package without a
+host record keeps origin `run` forever, even with the same content, and blocks the name with an
+error instead of being taken over, because authorizing by `programOf` is worthless if a start can
+promote an agent's package. Creating, activating, removing, installing, ensuring, and reloading
+share one async exclusion per run and package name, so concurrent callers wait instead of seeing an internal
+"is being created"; the release after a failed start is a compare and swap per name. Rejected:
+accepting identical content as proof, since the content an agent can reproduce says nothing about
+who installed it.
+
+**prepareSession.** The actor program host's `prepareSession` cancels invocations a previous server
+process left open. It ran before every chat message and script start and marked calls that were
+still running in this process as cancelled. It now runs once per run and process and skips
+invocations of this process.
+
+**API.** `ragents.chat.start` also accepts a running run and still returns once the start is
+accepted, with errors in the chat. `ragents.runs.startScript` waits and returns
+`{ actorId, handle, count }` or the error: a running run shows no start status that could carry it,
+and the triggers need the answer.
+
 ## The global coordinator fills the empty main area (29.09.2026)
 
 Chapters: `docs/usage.md` (Global coordinator), `docs/spec/plugins.md` (overview contributions).

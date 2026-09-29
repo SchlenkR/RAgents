@@ -22,15 +22,25 @@ process.on("SIGTERM", () => { console.log("ended"); process.exit(0); });
 setInterval(() => {}, 1000);
 `;
 
-test("the host is started with profile and data folder, the announcement is read, and the process is ended on disconnect", async () => {
+/** stderr and stdout are separate pipes; a stderr line may arrive after the announcement on stdout. */
+const logged = async (lines: readonly string[], line: string): Promise<void> => {
+  const deadline = Date.now() + 5_000;
+  while (!lines.includes(line)) {
+    if (Date.now() > deadline) throw new Error(`The host did not log "${line}": ${lines.join(" | ")}`);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+};
+
+test("the host is started with profile and data folder, the announcement is read, and the process is ended on disconnect", async (t) => {
   const lines: string[] = [];
   const host = await startHost({
     profile: "test", profileFile: "/x/ragents.config.test.ts", dataDirectory: "/tmp/data", environment: { ...process.env },
     log: (line) => lines.push(line), command: fakeHost(announcing), bash: undefined, rg: undefined,
   });
+  t.after(() => host.stop());
   assert.equal(host.url, "http://127.0.0.1:43210");
   assert.equal(host.token, "t0ken");
-  assert.ok(lines.includes("Configuration loaded"));
+  await logged(lines, "Configuration loaded");
   assert.ok(lines.includes("Profile test from /x/ragents.config.test.ts with data /tmp/data"));
   await host.stop();
   assert.equal(await host.exited, 0);
@@ -46,13 +56,14 @@ process.on("SIGTERM", () => process.exit(0));
 setInterval(() => {}, 1000);
 `;
 
-test("the host knows the process id of the extension and therefore does not outlive it", async () => {
+test("the host knows the process id of the extension and therefore does not outlive it", async (t) => {
   const lines: string[] = [];
   const host = await startHost({
     profile: "test", profileFile: "/x/ragents.config.test.ts", dataDirectory: "/tmp/data", environment: { ...process.env },
     log: (line) => lines.push(line), command: fakeHost(announcingParent), bash: "C:/tools/ragents/usr/bin/bash.exe",
     rg: "C:/tools/ragents/rg/rg.exe",
   });
+  t.after(() => host.stop());
   assert.ok(lines.includes(`Parent process ${process.pid}`), lines.join("\n"));
   assert.ok(lines.includes("Bash C:/tools/ragents/usr/bin/bash.exe"), lines.join("\n"));
   assert.ok(lines.includes("rg C:/tools/ragents/rg/rg.exe"), lines.join("\n"));

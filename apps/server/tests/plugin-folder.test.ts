@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type {
+  ActorPackageContribution,
   PluginRegistration,
   RAgentsPlugin,
   SkillContribution,
@@ -24,12 +25,14 @@ const fixture = (name: string): string =>
 const registered = (plugin: RAgentsPlugin) => {
   const startEntries: StartEntryContribution[] = [];
   const skills: SkillContribution[] = [];
+  const actorPackages: ActorPackageContribution[] = [];
   const registration = {
     startEntries: (...entries: readonly StartEntryContribution[]) => startEntries.push(...entries),
     skills: (...entries: readonly SkillContribution[]) => skills.push(...entries),
+    actorPackages: (...entries: readonly ActorPackageContribution[]) => actorPackages.push(...entries),
   } as unknown as PluginRegistration;
   withFolderAssets(plugin).register(registration);
-  return { startEntries, skillEntries: startEntries.filter((entry) => entry.action === "skill"), skills };
+  return { startEntries, skillEntries: startEntries.filter((entry) => entry.action === "skill"), skills, actorPackages };
 };
 
 test("a plugin without asset folders contributes nothing by convention", () => {
@@ -159,4 +162,13 @@ test("a skill the plugin registered for some runs only does not come back throug
 
   const paths = await folderSkills.paths({ runId: "without-skill", agentId: "agent", audience: "agent", workspace: folder });
   assert.ok(!paths.includes(explicit));
+});
+
+test("the convention registers the shared actor packages of the actors folder, except one the plugin registered itself", () => {
+  const convention = registered({ manifest: { id: "ragents.reference" }, register: () => undefined });
+  assert.deepEqual(convention.actorPackages.map((entry) => entry.name), ["notebook"]);
+  assert.ok(convention.actorPackages[0]!.files.some((file) => file.path === "tests/program.test.ts"));
+  const own: ActorPackageContribution = { name: "notebook", files: [{ path: "package.json", content: "{}" }] };
+  const explicit = registered({ manifest: { id: "ragents.reference" }, register: (host) => host.actorPackages(own) });
+  assert.deepEqual(explicit.actorPackages, [own]);
 });

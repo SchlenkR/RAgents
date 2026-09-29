@@ -210,7 +210,7 @@ plugins/<plugin-id>/
   web/index.tsx      exports webPlugin: WebPlugin (only if there is a web part)
   contract.ts        what both halves share, import-free (only if there is such a thing)
   executor.ts        exports executor: its contribution to the executor of every machine (only if there is such a thing)
-  prompt.hbs, prompts/, run-scripts/, skills/, provision.ts   as needed
+  prompt.hbs, prompts/, run-scripts/, actors/, skills/, provision.ts   as needed
 ```
 
 The server does not load this folder itself: `pnpm build:plugins` builds every built-in plugin with
@@ -253,6 +253,7 @@ to the plugin (`packages/ragents/src/plugin-types.ts`):
 | `prompts`           | chapters in the system prompt                        |
 | `skills`            | fixed workflows as skill files                       |
 | `startEntries`      | start page templates: skills, run scripts            |
+| `actorPackages`     | shared actor packages that run scripts name          |
 | `profiles`          | roles (`model_list`)                                 |
 | `agentRuntime`      | hooks before model calls and after tool calls        |
 | `script`            | capabilities for TypeScript actors                   |
@@ -309,7 +310,7 @@ The repo contains three neutral profiles:
 | Start                   | `./start.sh core` (4710) | `./start.sh showcase` (4713)      | `./start.sh developer` (4715) or `ragents run` |
 
 `showcase` is `core` plus the bundled examples from `ragents.reference`: 27 skills and
-6 run scripts, from the word game to balcony planning. They are teaching material, which is why `core` remains
+8 run scripts, from the word game to balcony planning, and a shared actor package. They are teaching material, which is why `core` remains
 the template for a real profile without them. The internally generated reference and the built-in help
 are created from `showcase`.
 

@@ -602,6 +602,78 @@ For executable actors with agent.spawn and plugin.state.write.
 }
 ```
 
+### actor_program_ensure
+
+Ensure Actor Program
+
+Make a package active once: return it when active, restart its stopped actor, activate it when installed, or install a shared package of the profile.
+
+Safe to call on every start: an active package is returned unchanged and not rebuilt. status names what happened. actor_program_activate instead rebuilds and reactivates.
+
+Owner: ragents.actor-programs. Scope: per-turn. Native model tool: no. Availability: conditional.
+
+For executable actors with agent.spawn and plugin.state.write.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "name"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,63}$"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "actorId",
+    "handle",
+    "status"
+  ],
+  "properties": {
+    "actorId": {
+      "type": "string"
+    },
+    "handle": {
+      "type": "string"
+    },
+    "status": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "active"
+        },
+        {
+          "type": "string",
+          "const": "restarted"
+        },
+        {
+          "type": "string",
+          "const": "activated"
+        },
+        {
+          "type": "string",
+          "const": "installed"
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}
+```
+
 ### actor_program_list
 
 List Actor Programs
@@ -1177,6 +1249,10 @@ Only with the capability agent.spawn.
           {
             "type": "string",
             "const": "run.configure"
+          },
+          {
+            "type": "string",
+            "const": "script.start"
           }
         ]
       },
@@ -2447,6 +2523,72 @@ Available in every model turn.
       "items": {
         "type": "string"
       }
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+### canvas_layout_place
+
+Place on Surface
+
+Place one actor or mini-app next to the current surface layout instead of replacing it.
+
+entity is {entity} of a tile: '@helper' or 'app:@workspace/main'. The current arrangement becomes one side of a new split and the entity the other: direction 'horizontal' (default) puts it to the right, 'vertical' below. weight is its share against the existing arrangement's weight 1, default 1. An entity the layout already shows stays where it is; placed is then false. On an empty surface the entity becomes the only tile. Use it when you join a running run, such as a run script started with start.embedded, so that the tiles others arranged stay.
+
+Owner: ragents.orchestration. Scope: per-turn. Native model tool: no. Availability: conditional.
+
+Only for agents and TypeScript actors with the capability plugin.state.write.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "entity"
+  ],
+  "properties": {
+    "entity": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Actor @handle or activated mini-app app:@handle/view-key or app:program-name/view-key"
+    },
+    "direction": {
+      "anyOf": [
+        {
+          "type": "string",
+          "const": "horizontal"
+        },
+        {
+          "type": "string",
+          "const": "vertical"
+        }
+      ],
+      "description": "horizontal: to the right of the current layout (default); vertical: below it"
+    },
+    "weight": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Share of the placed tile against the existing arrangement's weight 1; default 1"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "placed"
+  ],
+  "properties": {
+    "placed": {
+      "type": "boolean"
     }
   },
   "additionalProperties": false
@@ -3934,6 +4076,117 @@ Only with the capability run.configure.
 {
   "type": "null",
   "description": "Done; an error throws."
+}
+```
+
+### run_script_list
+
+List run scripts
+
+The run scripts of this profile that can join this run: entry, title, description, and whether each can start now or why not.
+
+Owner: ragents.runtime. Scope: per-turn. Native model tool: no. Availability: conditional.
+
+Only with the capability script.start, which the coordinator holds and passes to no agent it spawns.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "properties": {},
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "array",
+  "items": {
+    "type": "object",
+    "required": [
+      "entry",
+      "title",
+      "description",
+      "available"
+    ],
+    "properties": {
+      "entry": {
+        "type": "string"
+      },
+      "title": {
+        "type": "string"
+      },
+      "description": {
+        "type": "string"
+      },
+      "available": {
+        "type": "boolean"
+      },
+      "reason": {
+        "type": "string"
+      }
+    },
+    "additionalProperties": false
+  }
+}
+```
+
+### run_script_start
+
+Start run script
+
+Start a run script from run_script_list inside this run; returns its actor handle and which start of it this is.
+
+entry is the entry from run_script_list; input is the script's start value, if it takes one. The script joins the run without changing the primary actor; a repeated start reuses its actor. When it finishes a start, you receive its summary and result as a message; do not wait or poll for it in the same turn.
+
+Owner: ragents.runtime. Scope: per-turn. Native model tool: no. Availability: conditional.
+
+Only with the capability script.start, which the coordinator holds and passes to no agent it spawns.
+
+#### Input
+
+```json
+{
+  "type": "object",
+  "required": [
+    "entry"
+  ],
+  "properties": {
+    "entry": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The entry from run_script_list"
+    },
+    "input": {
+      "description": "Start value of the script; omit it for none"
+    }
+  },
+  "additionalProperties": false
+}
+```
+
+#### Result
+
+```json
+{
+  "type": "object",
+  "required": [
+    "handle",
+    "count"
+  ],
+  "properties": {
+    "handle": {
+      "type": "string"
+    },
+    "count": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "additionalProperties": false
 }
 ```
 
@@ -6626,7 +6879,7 @@ The bundled examples demonstrate how RAgents concepts work together and provide 
 
 ### Concept demo
 
-[Hello world on the surface](#start-ragents.reference.95-hello-world), [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Pass a list through four AI helpers](#start-ragents.reference.20-circle-of-four), [Clarify a decision](#start-ragents.reference.decision-brief), [Have a message delivered](#start-ragents.reference.30-llm-without-runtime-knowledge), [Learning goal in stages](#start-ragents.reference.learning-sprint), [Complete three tasks in order](#start-ragents.reference.35-actor-input-fifo), [Listen in on other helpers selectively](#start-ragents.reference.40-subscription-matrix), [Turn a forwarding off again](#start-ragents.reference.50-subscription-removal), [Stop a helper in the conversation circle](#start-ragents.reference.60-stop-in-the-circle), [Pass on a note selectively](#start-ragents.reference.65-artifact-least-privilege), [Count messages without AI](#start-ragents.reference.70-headless-counter), [Find errors in C# and TypeScript](#start-ragents.reference.75-lsp-demo), [Hide notes and find them again](#start-ragents.reference.90-actor-notes), [Maintain a list in the chat and in a window](#start-ragents.reference.100-shared-actor-list), [Set up collection board](#start-ragents.reference.shared-actor-list), [See question, tasks, and document together](#start-ragents.reference.110-all-card-slots), [Set up conversation circle](#start-ragents.reference.conversation-circle), [Moderated round without coordinator](#start-ragents.reference.moderated-round), [Set up balcony wizard](#start-ragents.reference.balcony-wizard), [Editorial workbench](#start-ragents.reference.150-editorial-workbench), [Learning afternoon](#start-ragents.reference.learning-afternoon), [Start word game](#start-ragents.reference.word-game), [Learning companion with materials](#start-ragents.reference.160-learning-companion), [Image collection with captions](#start-ragents.reference.170-photo-collection), [Decision workbench](#start-ragents.reference.180-decision-workbench), [Review texts and share results selectively](#start-ragents.reference.190-review-queue), [Find errors in an appointment list](#start-ragents.reference.200-typescript-diagnostics), [Hand a conversation over to a moderator](#start-ragents.reference.210-moderator-handover), [Approve proposals together](#start-ragents.reference.220-actor-approval-list), [One list in two views](#start-ragents.reference.230-shared-state-views), [Collect answers automatically](#start-ragents.reference.240-live-result-list), [Balcony wizard](#start-ragents.reference.250-balcony-wizard), [Open the helper behind a mini-app](#example-mini-app-owner-inspector), [Split a conversation circle differently](#example-personal-tile-arrangement), [Keep an eye on two runs](#example-global-run-overview), [Start a prepared circle globally](#example-global-prepared-run), [Start over after planning](#example-reset-completed-global-chat), [Cancel a reset at first](#example-reset-without-losing-draft), [Set up the coordinator for short answers](#example-coordinator-model-settings), [Choose the model for short titles](#example-title-model-selection), [Turn off automatic titles](#example-disable-generated-titles), [Map a capability to its plugin](#example-extension-capability-settings), [See the language server as a run process](#example-language-server-process), [Open a short-lived local preview](#example-local-preview-process), [Read a draft in the file tree](#example-workspace-draft-preview), [Compare files with the same name in two runs](#example-separate-run-files), [Find a shared list again after a restart](#example-restore-shared-list), [Continue two conversation histories after a restart](#example-restore-conversation-context), [Discuss your own sketch in the chat](#example-image-paste-conversation), [Compare a short clip with its schedule](#example-video-and-document-drop)
+[Hello world on the surface](#start-ragents.reference.95-hello-world), [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Pass a list through four AI helpers](#start-ragents.reference.20-circle-of-four), [Clarify a decision](#start-ragents.reference.decision-brief), [Have a message delivered](#start-ragents.reference.30-llm-without-runtime-knowledge), [Learning goal in stages](#start-ragents.reference.learning-sprint), [Complete three tasks in order](#start-ragents.reference.35-actor-input-fifo), [Listen in on other helpers selectively](#start-ragents.reference.40-subscription-matrix), [Turn a forwarding off again](#start-ragents.reference.50-subscription-removal), [Stop a helper in the conversation circle](#start-ragents.reference.60-stop-in-the-circle), [Pass on a note selectively](#start-ragents.reference.65-artifact-least-privilege), [Count messages without AI](#start-ragents.reference.70-headless-counter), [Find errors in C# and TypeScript](#start-ragents.reference.75-lsp-demo), [Hide notes and find them again](#start-ragents.reference.90-actor-notes), [Maintain a list in the chat and in a window](#start-ragents.reference.100-shared-actor-list), [Set up collection board](#start-ragents.reference.shared-actor-list), [See question, tasks, and document together](#start-ragents.reference.110-all-card-slots), [Set up conversation circle](#start-ragents.reference.conversation-circle), [Moderated round without coordinator](#start-ragents.reference.moderated-round), [Set up balcony wizard](#start-ragents.reference.balcony-wizard), [Editorial workbench](#start-ragents.reference.150-editorial-workbench), [Learning afternoon](#start-ragents.reference.learning-afternoon), [Start word game](#start-ragents.reference.word-game), [Learning companion with materials](#start-ragents.reference.160-learning-companion), [Image collection with captions](#start-ragents.reference.170-photo-collection), [Take stock of the run](#start-ragents.reference.run-roster), [Decision workbench](#start-ragents.reference.180-decision-workbench), [Add a quick note](#start-ragents.reference.quick-note), [Review texts and share results selectively](#start-ragents.reference.190-review-queue), [Find errors in an appointment list](#start-ragents.reference.200-typescript-diagnostics), [Hand a conversation over to a moderator](#start-ragents.reference.210-moderator-handover), [Approve proposals together](#start-ragents.reference.220-actor-approval-list), [One list in two views](#start-ragents.reference.230-shared-state-views), [Collect answers automatically](#start-ragents.reference.240-live-result-list), [Balcony wizard](#start-ragents.reference.250-balcony-wizard), [Open the helper behind a mini-app](#example-mini-app-owner-inspector), [Split a conversation circle differently](#example-personal-tile-arrangement), [Keep an eye on two runs](#example-global-run-overview), [Start a prepared circle globally](#example-global-prepared-run), [Start over after planning](#example-reset-completed-global-chat), [Cancel a reset at first](#example-reset-without-losing-draft), [Set up the coordinator for short answers](#example-coordinator-model-settings), [Choose the model for short titles](#example-title-model-selection), [Turn off automatic titles](#example-disable-generated-titles), [Map a capability to its plugin](#example-extension-capability-settings), [See the language server as a run process](#example-language-server-process), [Open a short-lived local preview](#example-local-preview-process), [Read a draft in the file tree](#example-workspace-draft-preview), [Compare files with the same name in two runs](#example-separate-run-files), [Find a shared list again after a restart](#example-restore-shared-list), [Continue two conversation histories after a restart](#example-restore-conversation-context), [Discuss your own sketch in the chat](#example-image-paste-conversation), [Compare a short clip with its schedule](#example-video-and-document-drop)
 
 | Concept | Examples |
 | --- | --- |
@@ -6648,7 +6901,7 @@ The bundled examples demonstrate how RAgents concepts work together and provide 
 | Questions | [See question, tasks, and document together](#start-ragents.reference.110-all-card-slots), [Hand a conversation over to a moderator](#start-ragents.reference.210-moderator-handover) |
 | To-dos | [See question, tasks, and document together](#start-ragents.reference.110-all-card-slots), [Hand a conversation over to a moderator](#start-ragents.reference.210-moderator-handover) |
 | Journal inspection | [Complete three tasks in order](#start-ragents.reference.35-actor-input-fifo), [Listen in on other helpers selectively](#start-ragents.reference.40-subscription-matrix), [Stop a helper in the conversation circle](#start-ragents.reference.60-stop-in-the-circle), [Count messages without AI](#start-ragents.reference.70-headless-counter), [Review texts and share results selectively](#start-ragents.reference.190-review-queue) |
-| Run scripts | [Set up collection board](#start-ragents.reference.shared-actor-list), [Set up conversation circle](#start-ragents.reference.conversation-circle), [Moderated round without coordinator](#start-ragents.reference.moderated-round), [Set up balcony wizard](#start-ragents.reference.balcony-wizard), [Learning afternoon](#start-ragents.reference.learning-afternoon), [Start word game](#start-ragents.reference.word-game) |
+| Run scripts | [Set up collection board](#start-ragents.reference.shared-actor-list), [Set up conversation circle](#start-ragents.reference.conversation-circle), [Moderated round without coordinator](#start-ragents.reference.moderated-round), [Set up balcony wizard](#start-ragents.reference.balcony-wizard), [Learning afternoon](#start-ragents.reference.learning-afternoon), [Start word game](#start-ragents.reference.word-game), [Take stock of the run](#start-ragents.reference.run-roster), [Add a quick note](#start-ragents.reference.quick-note) |
 | Skills | [Clarify a decision](#start-ragents.reference.decision-brief), [Learning goal in stages](#start-ragents.reference.learning-sprint) |
 | Actor functions | [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Count messages without AI](#start-ragents.reference.70-headless-counter), [Hide notes and find them again](#start-ragents.reference.90-actor-notes), [Maintain a list in the chat and in a window](#start-ragents.reference.100-shared-actor-list), [Editorial workbench](#start-ragents.reference.150-editorial-workbench), [Approve proposals together](#start-ragents.reference.220-actor-approval-list), [One list in two views](#start-ragents.reference.230-shared-state-views), [Balcony wizard](#start-ragents.reference.250-balcony-wizard) |
 | Automatic view placement | [Count characters, words, and lines](#start-ragents.reference.80-actor-text-analysis), [Hide notes and find them again](#start-ragents.reference.90-actor-notes) |
@@ -8165,6 +8418,60 @@ Tags: Run scripts, Use case, Concept demo, Mini-apps, TypeScript actors, Agent t
     "TypeScript actors",
     "Agent teams",
     "Subscriptions"
+  ],
+  "action": "script",
+  "coordinator": false
+}
+```
+
+Complete package sources are in [run-setup.md](run-setup.md).
+
+<a id="start-ragents.reference.run-roster"></a>
+
+### ragents.reference.run-roster: Take stock of the run
+
+A prepared check shows a run script that also joins a running run. It lists the other participants, notes them in the shared notebook, and reports them back as its result.
+
+Tags: Run scripts, Concept demo, TypeScript actors.
+
+```json
+{
+  "id": "ragents.reference.run-roster",
+  "owner": "ragents.reference",
+  "title": "Take stock of the run",
+  "description": "A prepared check shows a run script that also joins a running run. It lists the other participants, notes them in the shared notebook, and reports them back as its result.",
+  "order": 170,
+  "tags": [
+    "Run scripts",
+    "Concept demo",
+    "TypeScript actors"
+  ],
+  "action": "script",
+  "coordinator": false
+}
+```
+
+Complete package sources are in [run-setup.md](run-setup.md).
+
+<a id="start-ragents.reference.quick-note"></a>
+
+### ragents.reference.quick-note: Add a quick note
+
+A prepared one-step script shows a shared actor package: it adds a note to the notebook it shares with the roster check, in a new or a running run.
+
+Tags: Run scripts, Concept demo, TypeScript actors.
+
+```json
+{
+  "id": "ragents.reference.quick-note",
+  "owner": "ragents.reference",
+  "title": "Add a quick note",
+  "description": "A prepared one-step script shows a shared actor package: it adds a note to the notebook it shares with the roster check, in a new or a running run.",
+  "order": 180,
+  "tags": [
+    "Run scripts",
+    "Concept demo",
+    "TypeScript actors"
   ],
   "action": "script",
   "coordinator": false

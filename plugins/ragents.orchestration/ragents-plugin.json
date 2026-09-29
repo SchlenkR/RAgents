@@ -1,6 +1,7 @@
 {
   "id": "ragents.orchestration",
   "exports": {
+    "server": ["server/contract"],
     "web": ["web/surface-entities", "web/program-slot", "web/tile-docking"]
   }
 }

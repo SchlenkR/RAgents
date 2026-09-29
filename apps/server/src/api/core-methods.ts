@@ -114,6 +114,18 @@ export const coreMethods = (sources: CoreMethodSources): MethodContribution[] =>
       current.start(trimmed, input === undefined ? null : input, userOf(access));
       return null;
     }),
+    implement(coreContracts.runs.scripts, async ({ runId }, { access }) => {
+      const current = await session(access, runId, "write");
+      if (!current.runScripts) throw new DomainError("script-start-unavailable", "This run cannot start run scripts.", 404);
+      return current.runScripts(sources.plugins.startEntries.describe().filter((entry) => canStartEntry(access, entry.id)), userIdOf(access));
+    }),
+    implement(coreContracts.runs.startScript, async ({ runId, entry, input }, { access }) => {
+      const trimmed = entry.trim();
+      if (!canStartEntry(access, trimmed)) throw new DomainError("access-denied", "This setup is not enabled for this access.", 403);
+      const current = await session(access, runId, "write");
+      if (!current.startAndWait) throw new DomainError("script-start-unavailable", "This run cannot start run scripts.", 404);
+      return current.startAndWait(trimmed, input === undefined ? null : input, userOf(access));
+    }),
     implement(coreContracts.chat.stop, async ({ runId }, { access }) => {
       const current = await session(access, runId, "stop");
       await current.stop();

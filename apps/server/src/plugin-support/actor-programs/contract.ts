@@ -47,7 +47,24 @@ export interface ActorProgramDefinition {
   views: ActorViewDefinition[];
 }
 export interface ActorProgramState { version: 1; program: ActorProgramDefinition | null; }
-export interface ActorScriptState { version: 1; entryId: string; }
+/** A start that its program received and has not finished yet. */
+export interface ActorScriptOpenStart { readonly count: number; readonly startedBy: string; }
+/** Where the host took a package from: a run script's template or a plugin's shared packages. */
+export type ActorPackageOrigin = { readonly kind: "script"; readonly entryId: string } | { readonly kind: "shared"; readonly pluginId: string };
+/** identity is the packageIdentity of the sources the host installed; a program whose sources differ is no longer this origin's. */
+export interface ActorScriptPackage { readonly origin: ActorPackageOrigin; readonly identity: string; readonly count: number; readonly open: readonly ActorScriptOpenStart[]; }
+/** An input the host queues for a program to recognize, keyed by the command that queues it: a start, or the result of a start for its starter. */
+export type ActorScriptDelivery = { readonly commandId: string; readonly actorId: string } & (
+  | { readonly kind: "start"; readonly name: string; readonly count: number; readonly embedded: boolean; readonly startedBy: string }
+  | { readonly kind: "result" });
+/** Who an active program is, for plugins that authorize by it: a shared package, a run script's package, or a package created in the run. */
+export type ActorProgramOrigin = ActorPackageOrigin | { readonly kind: "run"; readonly installedBy: string };
+export interface ActorProgramIdentity { readonly name: string; readonly actorId: string; readonly revision: string; readonly origin: ActorProgramOrigin; }
+export interface ActorScriptState {
+  readonly version: 2;
+  readonly packages: Readonly<Record<string, ActorScriptPackage>>;
+  readonly deliveries: readonly ActorScriptDelivery[];
+}
 
 export const resolveActorView = (programs: readonly ActorProgramDefinition[], reference: string) => {
   const normalized = reference.trim().toLowerCase();

@@ -22,17 +22,25 @@ root: null clears the surface. Your own user arrangements take precedence until 
 
 ## Package and execution
 
-A reusable script template lives under plugins/<plugin-id>/run-scripts/<name>/. RUN.md names title, description, and optionally order, guide, tags, and coordinator. The folder determines the actor handle; coordinator is true by default. The plugin must be active in the profile.
+A reusable script template lives under plugins/<plugin-id>/run-scripts/<name>/. RUN.md names title, description, and optionally order, guide, tags, coordinator, and embeddable. The folder determines the actor handle; coordinator is true by default, embeddable false. The plugin must be active in the profile.
 
-package.json contains private: true, type: module, and ragents.backend with the entry point src/server.ts. It exports defineActor from @ragents/server with state, functions, and input as well as the onInput implementation. Capabilities appear only in the TypeScript contract, not again in RUN.md.
+package.json contains private: true, type: module, and ragents.backend with the entry point src/server.ts. It exports defineActor from @ragents/server with state, functions, and input as well as the onInput implementation and optionally onStart. Capabilities appear only in the TypeScript contract, not again in RUN.md.
 
 Domain tests are regular node:test files under tests/**/*.test.ts. createTestContext from @ragents/server/testing provides state and typed functions as mocks under functions. Tests call program.onInput or program.functions and check the result, stored state, and actual calls separately. A return value is never stored as state; context.state.replace serves that purpose.
 
 Further actor programs live under actors/<name>/. The host takes them into the private @actors collection before the setup. The setup activates them with actor_program_activate by name; actor: self or @handle binds to an existing actor. A pure view package needs no new actor.
 
+A program several scripts use lives as a shared actor package under plugins/<plugin-id>/actors/<name>/; RUN.md names it in shared-programs: a, b. The host copies it into the run; each script calls actor_program_ensure({ name }), which returns an active package unchanged and installs or activates it only once.
+
 ## Start value and contact
 
-POST /chat/<id>/start passes { entry, input }. The setup actor receives in the content of its ActorInput the JSON { input: <guide result or null>, options: { <option-id>: <value> } }. The shape of the guide result belongs to the package and is checked before use.
+ragents.chat.start passes { runId, entry, input }. The setup actor receives in the content of its ActorInput the JSON { input: <guide result or null>, options: { <option-id>: <value> } }. The shape of the guide result belongs to the package and is checked before use.
+
+With onStart(start, context), the program receives every start there instead of in onInput: start carries input, options, embedded, startedBy (the actor ID of the starter), and count (which start of this package in the run it is). Other inputs keep arriving in onInput.
+
+With embeddable: true, the script also starts inside a running run, through ragents.chat.start or ragents.runs.startScript, which waits and returns the actor or the error. The primary actor stays, the template's fixed start options must match the run's, bundled programs are copied only when missing, and a repeated start reuses the setup actor and delivers a new start.
+
+context.finish(result, { summary }) ends a start in onStart, onInput, or onResult; outside onStart it names the start with { start: count }. The owner reads the summary in the chat, an LLM starter gets summary and result as a message, a TypeScript starter gets them in onResult. The coordinator starts scripts with run_script_list and run_script_start; an embedded script places its tiles with canvas_layout_place instead of replacing the layout.
 
 With coordinator: true, the host creates the coordinator. With coordinator: false, the setup must choose a primary actor through run_configure and give it a concrete task as ActorInput. The setup records the completed setup in its state and processes later inputs without setting up twice.
 
@@ -2359,13 +2367,253 @@ test("a stopped current participant halts the game", async () => {
 });
 ```
 
+### ragents.reference.run-roster
+
+#### package.json
+
+```json
+{
+  "name": "run-roster",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Run roster",
+    "backend": "src/server.ts"
+  }
+}
+```
+
+#### RUN.md
+
+```markdown
+---
+title: Take stock of the run
+description: "A prepared check shows a run script that also joins a running run. It lists the other participants, notes them in the shared notebook, and reports them back as its result."
+order: 170
+coordinator: false
+embeddable: true
+shared-programs: notebook
+tags: Run scripts, Concept demo, TypeScript actors
+---
+
+The TypeScript program reads the participants with `actor_list` and ends each start with
+`context.finish`. The owner reads the summary in the chat; a coordinator that starts it through
+`run_script_start` receives summary and list as a message. Started inside a running run through the
+run menu, `ragents script`, or the coordinator, it changes neither the primary actor nor the tiles,
+and a repeated start reuses the same actor. Started as a new run, it is the run's only participant.
+
+It shares the notebook with the quick note script: `shared-programs: notebook` copies the plugin's
+shared package into the run, `actor_program_ensure` makes it active once, and
+`canvas_layout_place` puts its view next to what is arranged.
+```
+
+#### src/server.ts
+
+```typescript
+import { defineActor } from "@ragents/server";
+import { Type } from "typebox";
+
+const contract = {
+  state: Type.Object({ reports: Type.Optional(Type.Number()) }, { additionalProperties: false }),
+  functions: {},
+  input: { capabilities: ["actor_list", "actor_program_ensure", "actor_input", "canvas_layout_place"] },
+} as const;
+
+export default defineActor(contract, {
+  functions: {},
+  onInput: () => {
+    throw new Error("The roster answers only starts; start it again from the run menu or with run_script_start.");
+  },
+  onStart: async (_start, context) => {
+    const actors = await context.functions.actor_list({});
+    const others = actors.filter((actor) => actor.kind !== "human" && actor.handle !== context.actor.handle);
+    const handles = others.map((actor) => `@${actor.handle}`);
+    const summary = handles.length === 0 ? "No other participants yet." : `${handles.length} participant${handles.length === 1 ? "" : "s"}: ${handles.join(", ")}.`;
+    const notebook = await context.functions.actor_program_ensure({ name: "notebook" });
+    await context.functions.actor_input({ actor: `@${notebook.handle}`, content: `Roster: ${summary}` });
+    await context.functions.canvas_layout_place({ entity: "app:notebook/main" });
+    context.state.replace({ reports: (context.state.read().reports ?? 0) + 1 });
+    context.finish({ actors: others.map(({ handle, kind, lifecycle }) => ({ handle, kind, lifecycle })) }, { summary });
+  },
+});
+```
+
+#### tests/program.test.ts
+
+```typescript
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createTestContext } from "@ragents/server/testing";
+import program from "../src/server.ts";
+
+const start = { input: null, options: {}, embedded: true, startedBy: "owner-id", count: 1 };
+const actor = (handle: string, kind: "human" | "agent" | "script", lifecycle = "idle") =>
+  ({ id: `id-${handle}`, handle, displayName: handle, kind, lifecycle, createdBy: null, description: null, toolCount: null });
+
+const roster = (actors: ReturnType<typeof actor>[], state: { reports?: number } = {}) => {
+  const calls: { name: string; input: unknown }[] = [];
+  const record = <T>(name: string, answer: T) => (input: unknown): T => { calls.push({ name, input }); return answer; };
+  const context = createTestContext<{ reports?: number }>({ state, functions: {
+    actor_list: record("actor_list", actors),
+    actor_program_ensure: record("actor_program_ensure", { actorId: "id-notebook", handle: "notebook", status: "active" as const }),
+    actor_input: record("actor_input", []),
+    canvas_layout_place: record("canvas_layout_place", { placed: true }),
+  } });
+  return { calls, context };
+};
+
+test("reports the other participants as result and summary and notes them in the shared notebook", async () => {
+  const { calls, context } = roster([actor("owner", "human"), actor("coordinator", "agent", "running"), actor("helper", "agent"), actor("test", "script")]);
+  await program.onStart!(start, context);
+  assert.deepEqual(context.finished, [{
+    result: { actors: [{ handle: "coordinator", kind: "agent", lifecycle: "running" }, { handle: "helper", kind: "agent", lifecycle: "idle" }] },
+    summary: "2 participants: @coordinator, @helper.",
+  }]);
+  assert.deepEqual(calls.slice(1).map((call) => [call.name, call.input]), [
+    ["actor_program_ensure", { name: "notebook" }],
+    ["actor_input", { actor: "@notebook", content: "Roster: 2 participants: @coordinator, @helper." }],
+    ["canvas_layout_place", { entity: "app:notebook/main" }],
+  ]);
+  assert.deepEqual(context.state.read(), { reports: 1 });
+});
+
+test("a run without other participants still gets a result, and every start counts", async () => {
+  const { context } = roster([actor("owner", "human"), actor("test", "script")], { reports: 2 });
+  await program.onStart!({ ...start, embedded: false, count: 3 }, context);
+  assert.deepEqual(context.finished, [{ result: { actors: [] }, summary: "No other participants yet." }]);
+  assert.deepEqual(context.state.read(), { reports: 3 });
+});
+
+test("an ordinary message is refused", async () => {
+  const { context } = roster([]);
+  await assert.rejects(async () => program.onInput!({ id: "input-1", content: "hello", artifactIds: [], sourceEventIds: [], subscriptionId: null, event: null }, context), /answers only starts/);
+});
+```
+
+### ragents.reference.quick-note
+
+#### package.json
+
+```json
+{
+  "name": "quick-note",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Quick note",
+    "backend": "src/server.ts"
+  }
+}
+```
+
+#### RUN.md
+
+```markdown
+---
+title: Add a quick note
+description: "A prepared one-step script shows a shared actor package: it adds a note to the notebook it shares with the roster check, in a new or a running run."
+order: 180
+coordinator: false
+embeddable: true
+shared-programs: notebook
+tags: Run scripts, Concept demo, TypeScript actors
+---
+
+The start value `{ "text": "..." }` is the note; without one, the script notes when it was
+started. The script makes the shared notebook active with `actor_program_ensure`, sends it the
+note, places the notebook's view with `canvas_layout_place`, and ends the start with
+`context.finish`. Whether the roster check or this script comes first, the run has one notebook.
+```
+
+#### src/server.ts
+
+```typescript
+import { defineActor } from "@ragents/server";
+import { Type } from "typebox";
+
+const contract = {
+  state: Type.Object({}, { additionalProperties: false }),
+  functions: {},
+  input: { capabilities: ["actor_program_ensure", "actor_input", "canvas_layout_place"] },
+} as const;
+
+const noteOf = (input: unknown, now: string): string => {
+  if (input === null) return `Started at ${now}.`;
+  const text = typeof input === "object" && input !== null && "text" in input ? (input as { text: unknown }).text : undefined;
+  if (typeof text !== "string" || !text.trim()) throw new Error('The start value is { "text": "..." } with the note, or none.');
+  return text.trim();
+};
+
+export default defineActor(contract, {
+  functions: {},
+  onInput: () => {
+    throw new Error("The quick note answers only starts; start it again with the note as its start value.");
+  },
+  onStart: async (start, context) => {
+    const note = noteOf(start.input, context.std.now());
+    const notebook = await context.functions.actor_program_ensure({ name: "notebook" });
+    await context.functions.actor_input({ actor: `@${notebook.handle}`, content: note });
+    await context.functions.canvas_layout_place({ entity: "app:notebook/main" });
+    context.finish({ note, notebook: notebook.status }, { summary: `Noted: ${note}` });
+  },
+});
+```
+
+#### tests/program.test.ts
+
+```typescript
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createTestContext } from "@ragents/server/testing";
+import program from "../src/server.ts";
+
+const start = (input: unknown) => ({ input, options: {}, embedded: true, startedBy: "owner-id", count: 1 });
+
+const note = (status: "active" | "installed" = "installed") => {
+  const calls: { name: string; input: unknown }[] = [];
+  const record = <T>(name: string, answer: T) => (input: unknown): T => { calls.push({ name, input }); return answer; };
+  const context = createTestContext<Record<string, never>>({ state: {}, functions: {
+    actor_program_ensure: record("actor_program_ensure", { actorId: "id-notebook", handle: "notebook", status }),
+    actor_input: record("actor_input", []),
+    canvas_layout_place: record("canvas_layout_place", { placed: status === "installed" }),
+  } });
+  return { calls, context };
+};
+
+test("sends the note to the shared notebook and reports it", async () => {
+  const { calls, context } = note();
+  await program.onStart!(start({ text: "  Ask about the budget  " }), context);
+  assert.deepEqual(calls.map((call) => [call.name, call.input]), [
+    ["actor_program_ensure", { name: "notebook" }],
+    ["actor_input", { actor: "@notebook", content: "Ask about the budget" }],
+    ["canvas_layout_place", { entity: "app:notebook/main" }],
+  ]);
+  assert.deepEqual(context.finished, [{ result: { note: "Ask about the budget", notebook: "installed" }, summary: "Noted: Ask about the budget" }]);
+});
+
+test("without a start value it notes when it started; an invalid value changes nothing", async () => {
+  const { calls, context } = note("active");
+  await program.onStart!(start(null), context);
+  assert.match(String((calls[1]!.input as { content: string }).content), /^Started at /);
+  const invalid = note();
+  await assert.rejects(async () => program.onStart!(start({ text: "" }), invalid.context), /start value/);
+  assert.deepEqual(invalid.calls, []);
+  assert.deepEqual(invalid.context.finished, []);
+});
+
+test("an ordinary message is refused", async () => {
+  const { context } = note();
+  await assert.rejects(async () => program.onInput!({ id: "input-1", content: "hello", artifactIds: [], sourceEventIds: [], subscriptionId: null, event: null }, context), /answers only starts/);
+});
+```
+
 ## Generated server SDK
 
 These are the real @ragents/server declarations with the static capability inventory of showcase, also available as [run-api.d.ts](run-api.d.ts). The file is a regular module with exports. Installed programs use the same generator with their current contracts; this creates no additional globals or permissions.
 
 ```typescript
 import type { Static, TSchema } from 'typebox';
-type RAgentsCapability29InputReference0 = ({ "children": [RAgentsCapability29InputReference0, RAgentsCapability29InputReference0, ...Array<unknown>]; "direction": ("horizontal") | ("vertical"); "weights": [number, number, ...Array<unknown>]; }) | ({ /** Actor tiles only: false hides the chat composer in the tile; default true. Does not change permissions or the inspector */ "chatInput"?: boolean; /** Actor @handle or activated mini-app app:@handle/view-key or app:program-name/view-key; the server resolves the view ID */ "entity": string; });
+type RAgentsCapability31InputReference0 = ({ "children": [RAgentsCapability31InputReference0, RAgentsCapability31InputReference0, ...Array<unknown>]; "direction": ("horizontal") | ("vertical"); "weights": [number, number, ...Array<unknown>]; }) | ({ /** Actor tiles only: false hides the chat composer in the tile; default true. Does not change permissions or the inspector */ "chatInput"?: boolean; /** Actor @handle or activated mini-app app:@handle/view-key or app:program-name/view-key; the server resolves the view ID */ "entity": string; });
 export interface CapabilityContracts { "action_propose": { input: { "description"?: string; "input"?: { "label": string; "placeholder"?: string; "required": boolean; }; "parameters"?: Array<({ "name": string; "value": string; }) & ({ [key: string]: unknown })>; "title": string; }; output: Array<{ "payload": { /** ID of the proposed action */ "actionId": string; }; "type": "action.proposed"; }> };
 "actor_input": { input: { /** Actor ID or handle */ "actor": string; "artifactIds"?: Array<string>; "content": string; }; output: Array<{ "payload": { /** ID of the receiving actor */ "actorId": string; /** ID of the enqueued input */ "inputId": string; }; "type": "actor.input.enqueued"; }> };
 "actor_list": { input: { /** Also list the tool names of each actor with a fixed selection. */ "toolNames"?: boolean; }; output: Array<{ "createdBy": (null) | (string); "description": (null) | (string); "displayName": string; "handle": string; "id": string; "kind": ("agent") | ("human") | ("script"); "lifecycle": string; /** Number of selected tools; 0 is a plain LLM, null an open, dynamically resolved toolset. */ "toolCount": (null) | (number); /** Only with toolNames: true, for a fixed selection. */ "toolNames"?: Array<string>; }> };
@@ -2373,13 +2621,14 @@ export interface CapabilityContracts { "action_propose": { input: { "description
 "actor_program_controls": { input: { /** Optional control name from the catalog, without UI. prefix. Only valid when topic is controls or omitted. */ "component"?: string; /** Default controls: query component names or types. Guide: read the short package workflow without component. */ "topic"?: ("controls") | ("guide"); }; output: ({ "components": Array<string>; }) | ({ "files": { [key: string]: unknown }; }) | ({ "guide": string; }) };
 "actor_program_create": { input: { "name": string; "template": ("blank") | ("chat") | ("controls") | ("headless-counter") | ("shared-list") | ("text-analysis"); }; output: { "directory": string; "files": Array<string>; "name": string; } };
 "actor_program_diagnostics": { input: { "name"?: string; }; output: string };
+"actor_program_ensure": { input: { "name": string; }; output: { "actorId": string; "handle": string; "status": ("activated") | ("active") | ("installed") | ("restarted"); } };
 "actor_program_list": { input: { [key: string]: never }; output: Array<({ "actor": string; "functions": Array<string>; "name": string; "views": Array<({ "name": string; "title": string; "visible": boolean; }) & ({ [key: string]: unknown })>; }) & ({ [key: string]: unknown })> };
 "actor_program_remove": { input: { "name": string; }; output: { "removed": string; } };
 "actor_restart": { input: { /** Handle or ID */ "actorId": string; "reason": string; }; output: Array<({ "payload": { /** ID of the primary actor */ "actorId": string; }; "type": "run.primary-actor-selected"; }) | ({ "payload": { /** ID of the restarted actor */ "actorId": string; }; "type": "actor.restarted"; })> };
 "actor_stop": { input: { /** Handle or ID */ "actorId": string; "reason": string; }; output: Array<({ "payload": { /** ID of the interrupted turn */ "turnId": string; }; "type": "turn.interrupted"; }) | ({ "payload": { /** ID of the removed subscription */ "subscriptionId": string; }; "type": "subscription.removed"; }) | ({ "payload": { /** ID of the stopped actor */ "actorId": string; }; "type": "actor.stopped"; })> };
 "actor_transcript": { input: { /** Handle with or without @, or ID of an actor of this run */ "actor": string; /** Upper limit in characters, default 20000; the oldest lines are dropped first */ "maxChars"?: number; }; output: { "actorId": string; "handle": string; "lines": number; "text": string; "truncated": boolean; } };
 "actor_view_set_visibility": { input: { /** package-name/view-key or @handle/view-key of an activated view, without the surface entity prefix app:. No generated IDs needed. */ "view": string; "visible": boolean; }; output: { "view": string; "visible": boolean; } };
-"agent_spawn": { input: { /** Very short description of the task for the participants overview, a few words like "checks the rule on comments" */ "description"?: string; /** Display name; defaults to the handle */ "displayName"?: string; "driver"?: ("agent") | ("manual") | ("script"); /** Handle or ID of an LLM agent of this run whose model context up to the end of its last finished turn is copied into the new agent */ "forkOf"?: string; "handle": string; "isolateWorkspace"?: boolean; /** Model from model_list. Required for an LLM agent unless profile supplies a model; also overrides the profile's model. */ "model"?: string; /** Execution profile from model_list. Normally supply this field: an LLM agent needs a model-bearing profile or an explicit model. The caller's model is not inherited. */ "profile"?: string; "prompt": string; /** Provider from model_list for an explicit model selection; may be omitted when the profile or an unambiguous catalog entry supplies it. */ "provider"?: string; "thinking"?: ("high") | ("low") | ("max") | ("medium") | ("minimal") | ("off") | ("xhigh"); /** Required explicit selection: [] for plain text-only work including app-mediated conversations; an array for exact existing tool names; null only when the task needs an open, dynamically resolved toolset. Never inherits the caller's tools. Names of future, not yet activated actor functions are invalid; choose null when those must become available later. */ "tools": (Array<string>) | (null); "turnTimeoutMs"?: number; "withoutCapabilities"?: Array<("action.propose") | ("actor.input") | ("agent.spawn") | ("artifact.publish") | ("event.subscribe") | ("execution.stopOwned") | ("plugin.state.write") | ("run.configure") | ("workspace.use")>; }; output: { /** Actual unique handle, including any suffix assigned during creation. */ "handle": string; /** Stable actor reference for actor_input and other functions. */ "id": string; } };
+"agent_spawn": { input: { /** Very short description of the task for the participants overview, a few words like "checks the rule on comments" */ "description"?: string; /** Display name; defaults to the handle */ "displayName"?: string; "driver"?: ("agent") | ("manual") | ("script"); /** Handle or ID of an LLM agent of this run whose model context up to the end of its last finished turn is copied into the new agent */ "forkOf"?: string; "handle": string; "isolateWorkspace"?: boolean; /** Model from model_list. Required for an LLM agent unless profile supplies a model; also overrides the profile's model. */ "model"?: string; /** Execution profile from model_list. Normally supply this field: an LLM agent needs a model-bearing profile or an explicit model. The caller's model is not inherited. */ "profile"?: string; "prompt": string; /** Provider from model_list for an explicit model selection; may be omitted when the profile or an unambiguous catalog entry supplies it. */ "provider"?: string; "thinking"?: ("high") | ("low") | ("max") | ("medium") | ("minimal") | ("off") | ("xhigh"); /** Required explicit selection: [] for plain text-only work including app-mediated conversations; an array for exact existing tool names; null only when the task needs an open, dynamically resolved toolset. Never inherits the caller's tools. Names of future, not yet activated actor functions are invalid; choose null when those must become available later. */ "tools": (Array<string>) | (null); "turnTimeoutMs"?: number; "withoutCapabilities"?: Array<("action.propose") | ("actor.input") | ("agent.spawn") | ("artifact.publish") | ("event.subscribe") | ("execution.stopOwned") | ("plugin.state.write") | ("run.configure") | ("script.start") | ("workspace.use")>; }; output: { /** Actual unique handle, including any suffix assigned during creation. */ "handle": string; /** Stable actor reference for actor_input and other functions. */ "id": string; } };
 "artifact_publish": { input: { "content": string; "mediaType": string; "previousVersionId"?: string; "title": string; }; output: Array<{ "payload": { "artifact": { /** ID of the artifact; artifact_read reads it with this */ "id": string; }; }; "type": "artifact.published"; }> };
 "artifact_read": { input: { "artifactId": string; }; output: { "artifact": { "createdAt": string; "createdBy": string; "id": string; "mediaType": string; "previousVersionId": (null) | (string); "size": number; "title": string; }; "content": string; "encoding": ("base64") | ("utf8"); } };
 "ask_user": { input: ({ /** true = multiple choice allowed */ "multi"?: boolean; /** Answer options (2 to 6) */ "options": Array<string>; /** The question to the user, short and concrete */ "question": string; }) & ({ [key: string]: unknown }); output: string };
@@ -2395,7 +2644,8 @@ export interface CapabilityContracts { "action_propose": { input: { "description
 "browser_snapshot": { input: { [key: string]: never }; output: { "errors": Array<string>; "snapshot": string; "title": string; "truncated": boolean; "url": string; } };
 "browser_view_screenshot": { input: { [key: string]: never }; output: string };
 "browser_viewport": { input: { "height": number; "width": number; }; output: { "errors": Array<string>; "snapshot": string; "title": string; "truncated": boolean; "url": string; } };
-"canvas_layout_replace": { input: ({ /** The whole arrangement: a tile or a binary split. Maximum 64 unique tiles and 16 nested splits. null clears the surface */ "root": (RAgentsCapability29InputReference0) | (null); }) & ({ [key: string]: unknown }); output: null };
+"canvas_layout_place": { input: { /** horizontal: to the right of the current layout (default); vertical: below it */ "direction"?: ("horizontal") | ("vertical"); /** Actor @handle or activated mini-app app:@handle/view-key or app:program-name/view-key */ "entity": string; /** Share of the placed tile against the existing arrangement's weight 1; default 1 */ "weight"?: number; }; output: { "placed": boolean; } };
+"canvas_layout_replace": { input: ({ /** The whole arrangement: a tile or a binary split. Maximum 64 unique tiles and 16 nested splits. null clears the surface */ "root": (RAgentsCapability31InputReference0) | (null); }) & ({ [key: string]: unknown }); output: null };
 "document_write": { input: { /** The complete content of the file */ "content": string; /** Path in the file store, e.g. topic/report.md */ "path": string; }; output: string };
 "edit": { input: ({ /** One or more targeted replacements. Each edit is matched against the original file, not incrementally. Do not include overlapping or nested edits. If two changes touch the same block or nearby lines, merge them into one edit instead. */ "edits": Array<({ /** 1-based line number near the intended occurrence. The occurrence closest to it wins; a tie is an error. */ "nearLine"?: number; /** Replacement text for this targeted edit. */ "newText": string; /** 1-based index of the occurrence to replace when oldText is not unique. A failed edit lists all occurrences with their line numbers, so pick the index from that list. */ "occurrence"?: number; /** Exact text for one targeted replacement. It must be unique in the original file unless occurrence, nearLine or replaceAll is set, and must not overlap with any other edits[].oldText in the same call. */ "oldText": string; /** Replace every occurrence of oldText. Cannot be combined with occurrence or nearLine, and must not be used to change only some of them. */ "replaceAll"?: boolean; }) & ({ [key: string]: unknown })>; /** Path to the file to edit (relative or absolute) */ "path": string; }) & ({ [key: string]: unknown }); output: string };
 "event_query": { input: { "actorIds"?: Array<string>; "eventIds"?: Array<string>; /** Every journal event type can be queried. Only the observable types can be subscribed to; event_subscribe shows them. */ "eventTypes"?: Array<string>; "limit"?: number; }; output: Array<{ "actorId": string; "causationId": (null) | (string); "commandId": string; "correlationId": (null) | (string); "eventId": string; "occurredAt": string; "payload": unknown; "runId": string; "schemaVersion": 3; "sequence": number; "type": string; }> };
@@ -2413,6 +2663,8 @@ export interface CapabilityContracts { "action_propose": { input: { "description
 "roslyn_open": { input: ({ /** the .sln file (or a single .csproj), relative to the workspace root */ "root": string; }) & ({ [key: string]: unknown }); output: string };
 "roslyn_solutions": { input: { [key: string]: unknown }; output: string };
 "run_configure": { input: { /** Handle or ID of the actor the user's chat talks to */ "primaryActor"?: string; /** New title of the run */ "title"?: string; }; output: null };
+"run_script_list": { input: { [key: string]: never }; output: Array<{ "available": boolean; "description": string; "entry": string; "reason"?: string; "title": string; }> };
+"run_script_start": { input: { /** The entry from run_script_list */ "entry": string; /** Start value of the script; omit it for none */ "input"?: unknown; }; output: { "count": number; "handle": string; } };
 "run_stop": { input: { [key: string]: never }; output: { "requested": true; } };
 "show_document": { input: { /** The complete content - for files from the working directory and for self-produced content, i.e. everything that is not in the file store. content and path exclude each other: valid are { title, content, format } for self-produced content and files of the working directory, and { title, path, format } for files of the file store - exactly one of the two must be set. */ "content"?: string; /** Rendering, default markdown */ "format"?: ("html") | ("markdown") | ("text"); /** File from this run's file store, relative to the store (e.g. topic/file.md). Only files stored there can be shown this way - for paths of the working directory use content. The content is shown directly from the file and never has to be retyped. content and path exclude each other: valid are { title, content, format } for self-produced content and files of the working directory, and { title, path, format } for files of the file store - exactly one of the two must be set. */ "path"?: string; /** Title of the display, e.g. the file name */ "title": string; }; output: string };
 "todo_replace": { input: ({ "todos": Array<({ "id": string; /** open = not started, active = in progress, completed = done; pending, in_progress and done are accepted as well */ "status": ("active") | ("completed") | ("done") | ("in_progress") | ("open") | ("pending"); "text": string; }) & ({ [key: string]: unknown })>; }) & ({ [key: string]: unknown }); output: null };
@@ -2434,6 +2686,8 @@ export interface RunContext<State> {
   readonly functions: {readonly [Name in keyof CapabilityContracts]: (...args: {} extends CapabilityContracts[Name]['input'] ? [input?: CapabilityContracts[Name]['input']] : [input: CapabilityContracts[Name]['input']]) => Promise<CapabilityContracts[Name]['output']>};
   log(value: unknown): void;
   throwIfAborted(): void;
+  /** Ends a start of this run script with a JSON result; the host delivers it once to whoever started it. Only in onStart, onInput and onResult; outside onStart, name the start. */
+  finish(result: unknown, options?: { readonly summary?: string; readonly start?: number }): void;
 }
 
 interface RAgentsMediatorEntry {
@@ -2481,9 +2735,14 @@ export interface ActorInput {
   readonly event: { readonly type: string; readonly eventId: string; readonly sequence: number; readonly occurredAt: string;
     readonly sourceActorId: string | null; readonly sourceActorHandle: string | null; readonly payload: {readonly text?:string; readonly [key:string]:unknown} } | null;
 }
+export interface ActorStart {
+  readonly input: unknown; readonly options: Readonly<Record<string, unknown>>;
+  readonly embedded: boolean; readonly startedBy: string; readonly count: number;
+}
+export interface ActorResult { readonly handle: string; readonly count: number; readonly result: unknown; readonly summary?: string }
 export interface ActorFunction { label: string; description?: string; input: TSchema; output: TSchema; capabilities?: readonly string[]; confirmation?: string; tool?: { name: string; targets?: readonly string[]; card?: boolean } }
 export interface ActorContract { state: TSchema; functions: Readonly<Record<string, ActorFunction>>; input?: {capabilities?: readonly string[]} }
 export type ActorFunctions<C extends ActorContract> = { [K in keyof C['functions']]: (input: Static<C['functions'][K]['input']>, context: RunContext<Static<C['state']>>) => Static<C['functions'][K]['output']> | Promise<Static<C['functions'][K]['output']>> };
-export type ActorImplementation<C extends ActorContract> = {functions: ActorFunctions<C>} & (C extends {input: unknown} ? {onInput: (input: ActorInput, context: RunContext<Static<C['state']>>) => void | Promise<void>} : {onInput?: never});
+export type ActorImplementation<C extends ActorContract> = {functions: ActorFunctions<C>} & (C extends {input: unknown} ? {onInput: (input: ActorInput, context: RunContext<Static<C['state']>>) => void | Promise<void>; onStart?: (start: ActorStart, context: RunContext<Static<C['state']>>) => void | Promise<void>; onResult?: (result: ActorResult, context: RunContext<Static<C['state']>>) => void | Promise<void>} : {onInput?: never; onStart?: never; onResult?: never});
 export declare function defineActor<const C extends ActorContract>(contract: C, implementation: ActorImplementation<C>): {contract:C} & ActorImplementation<C>;
 ```

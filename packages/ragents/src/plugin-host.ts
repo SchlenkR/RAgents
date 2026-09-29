@@ -52,6 +52,8 @@ import type {
   SkillContribution,
   RunScriptPackage,
   StartEntryContribution,
+  ActorPackageContribution,
+  ActorProgramFile,
   StartOptionContext,
   StartOptionContribution,
   ScriptContribution,
@@ -442,6 +444,7 @@ export class SkillContributionRegistry {
 const SKILL_NAME = /^[a-z0-9][a-z0-9-]*$/;
 const GUIDE_ID = /^[a-z0-9][a-z0-9.-]*$/;
 const SCRIPT_HANDLE = /^[a-z0-9][a-z0-9-]*$/;
+const ACTOR_PACKAGE_NAME = /^[a-z][a-z0-9-]{0,63}$/;
 
 const requireText = (entry: { id: unknown }, value: unknown, field: string): void => {
   if (typeof value !== "string" || !value.trim()) {
@@ -456,33 +459,38 @@ const assertKnownFields = (entry: { id: unknown }, value: object, fields: readon
   }
 };
 
-const validateProgramFiles = (entry: StartEntryContribution, files: unknown): void => {
+const validateProgramFiles = (owner: string, files: unknown): void => {
   if (!Array.isArray(files) || files.length === 0)
-    throw new Error(`Run script ${entry.id}: files needs package files`);
+    throw new Error(`${owner}: files needs package files`);
   const names = new Set<string>();
   for (const file of files) {
     if (typeof file !== "object" || file === null || typeof file.path !== "string" || typeof file.content !== "string")
-      throw new Error(`Run script ${entry.id}: every file needs path and content`);
-    assertKnownFields(entry, file, ["path", "content"], "Package file");
+      throw new Error(`${owner}: every file needs path and content`);
+    assertKnownFields({ id: owner }, file, ["path", "content"], "Package file of");
     if (!file.path || file.path.includes("\\") || file.path.includes("\0") || path.posix.isAbsolute(file.path)
       || file.path.split("/").some((part: string) => !part || part === "." || part === ".."))
-      throw new Error(`Run script ${entry.id}: invalid package path ${file.path}`);
-    if (names.has(file.path)) throw new Error(`Run script ${entry.id}: file ${file.path} is duplicated`);
+      throw new Error(`${owner}: invalid package path ${file.path}`);
+    if (names.has(file.path)) throw new Error(`${owner}: file ${file.path} is duplicated`);
     names.add(file.path);
   }
-  if (!names.has("package.json")) throw new Error(`Run script ${entry.id}: package.json is missing`);
+  if (!names.has("package.json")) throw new Error(`${owner}: package.json is missing`);
 };
 
 const validateScriptPackage = (entry: StartEntryContribution, script: unknown): void => {
   if (typeof script !== "object" || script === null)
     throw new Error(`Template ${entry.id} has no run script package`);
-  assertKnownFields(entry, script, ["handle", "coordinator", "files", "programs"], "Run script");
+  assertKnownFields(entry, script, ["handle", "coordinator", "embeddable", "sharedPrograms", "files", "programs"], "Run script");
   const value = script as Record<string, unknown>;
   if (typeof value.handle !== "string" || !SCRIPT_HANDLE.test(value.handle))
     throw new Error(`Run script ${entry.id}: handle must be a handle like roundtable (lowercase letters, digits, hyphen)`);
   if (typeof value.coordinator !== "boolean")
     throw new Error(`Run script ${entry.id}: coordinator must be true or false`);
-  validateProgramFiles(entry, value.files);
+  if (value.embeddable !== undefined && typeof value.embeddable !== "boolean")
+    throw new Error(`Run script ${entry.id}: embeddable must be true or false`);
+  const shared = value.sharedPrograms;
+  if (shared !== undefined && (!Array.isArray(shared) || shared.some((name) => typeof name !== "string" || !ACTOR_PACKAGE_NAME.test(name)) || new Set(shared).size !== shared.length))
+    throw new Error(`Run script ${entry.id}: sharedPrograms must name each shared actor package once`);
+  validateProgramFiles(`Run script ${entry.id}`, value.files);
   if (!Array.isArray(value.programs)) throw new Error(`Run script ${entry.id}: programs must be a list`);
   const names = new Set<string>();
   for (const program of value.programs) {
@@ -492,7 +500,7 @@ const validateScriptPackage = (entry: StartEntryContribution, script: unknown): 
     if (program.name === value.handle || names.has(program.name))
       throw new Error(`Run script ${entry.id}: program ${program.name} is duplicated`);
     names.add(program.name);
-    validateProgramFiles(entry, program.files);
+    validateProgramFiles(`Run script ${entry.id}`, program.files);
   }
 };
 
@@ -555,6 +563,29 @@ const skillNameOf = (directory: string): string => directory.split(/[\\/]/).filt
 const byOrderThenId = (left: { order?: number; id: string }, right: { order?: number; id: string }): number =>
   (left.order ?? 0) - (right.order ?? 0) || left.id.localeCompare(right.id);
 
+/** Actor packages a plugin shares with the run scripts of the profile; one name, one package. */
+export class ActorPackageContributionRegistry {
+  readonly #packages = new ContributionRegistry<ActorPackageContribution & { id: string }>("Shared actor package");
+
+  register(owner: string, packages: readonly ActorPackageContribution[]): void {
+    for (const entry of packages) {
+      if (typeof entry.name !== "string" || !ACTOR_PACKAGE_NAME.test(entry.name))
+        throw new Error(`Shared actor package ${String(entry.name)} of ${owner}: the name must be a package name like notes (lowercase letters, digits, hyphen)`);
+      validateProgramFiles(`Shared actor package ${entry.name}`, entry.files);
+    }
+    this.#packages.register(owner, packages.map((entry) => ({ id: entry.name, name: entry.name, files: entry.files })));
+  }
+
+  get(name: string): { pluginId: string; files: readonly ActorProgramFile[] } | undefined {
+    const found = this.#packages.entries().find(({ value }) => value.name === name);
+    return found ? { pluginId: found.owner, files: found.value.files } : undefined;
+  }
+
+  names(): readonly string[] {
+    return this.#packages.entries().map(({ value }) => value.name);
+  }
+}
+
 /** Skills with a start prompt and executable run scripts share one registry. */
 export class StartEntryContributionRegistry {
   readonly #entries = new ContributionRegistry<StartEntryContribution>("Template");
@@ -612,6 +643,24 @@ export class StartEntryContributionRegistry {
   /** A template as the web sees it; undefined for an unknown id. */
   entry(entryId: string): PublicStartEntry | undefined {
     return this.describe().find((candidate) => candidate.id === entryId);
+  }
+
+  /** Names share one namespace per run: a shared package is neither a script's handle nor its bundled program, and every name a script needs exists. */
+  assertSharedPrograms(packages: ActorPackageContributionRegistry): void {
+    for (const { value } of this.#entries.entries()) {
+      if (value.action !== "script") continue;
+      const script = value.script;
+      const clash = [script.handle, ...script.programs.map((program) => program.name)].find((name) => packages.get(name));
+      if (clash !== undefined) {
+        throw new Error(`Run script ${value.id} uses the name ${clash}, which is also the shared actor package of ${packages.get(clash)!.pluginId}; `
+          + "run script handles, their bundled programs and shared packages share one namespace per run");
+      }
+      const missing = (script.sharedPrograms ?? []).filter((name) => !packages.get(name));
+      if (missing.length > 0) {
+        throw new Error(`Run script ${value.id} needs the shared actor packages ${missing.join(", ")}, which no plugin of this profile provides`
+          + (packages.names().length > 0 ? `; shared are ${packages.names().join(", ")}` : ""));
+      }
+    }
   }
 
   /** The run script behind a script template; undefined for unknown ids and templates of another action. */
@@ -1164,6 +1213,7 @@ export class PluginHost {
   readonly prompts = new PromptContributionRegistry(this.runConditions);
   readonly skills = new SkillContributionRegistry(this.runConditions);
   readonly startEntries = new StartEntryContributionRegistry();
+  readonly actorPackages = new ActorPackageContributionRegistry();
   readonly profiles = new ProfileContributionRegistry();
   readonly script = new ScriptContributionRegistry();
   readonly lifecycle = new LifecycleContributionRegistry();
@@ -1220,6 +1270,7 @@ export class PluginHost {
       sessionMetadata: (...entries) => this.sessionMetadata.register(manifest.id, entries),
       skills: (...entries) => this.skills.register(manifest.id, entries),
       startEntries: (...entries) => this.startEntries.register(manifest.id, entries),
+      actorPackages: (...entries) => this.actorPackages.register(manifest.id, entries),
       startOptions: (...entries) => this.startOptions.register(manifest.id, entries),
       accessProjections: (...entries) => this.accessProjections.register(manifest.id, entries),
       functions: (...entries) => this.tools.registerFunctions(manifest.id, entries),
@@ -1240,6 +1291,7 @@ export class PluginHost {
       }
     }
     this.startEntries.assertFixedStartOptionsKnown(this.startOptions);
+    this.startEntries.assertSharedPrograms(this.actorPackages);
     const defaultStartEntry = this.#defaultStartEntry;
     if (defaultStartEntry !== undefined) {
       const entries = this.startEntries.describe().map((entry) => entry.id);

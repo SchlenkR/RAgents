@@ -3,6 +3,7 @@ import type { PluginHost, RAgentsPlugin } from "@ragents/engine";
 import type { PluginModule } from "@ragents/host/plugin-support/plugin-module.js";
 import { runtimeProviderToken, runGuardToken } from "@ragents/host/ragents/host-services.js";
 import { askServiceToken } from "@ragents/plugins/ragents.ask/server/contract.js";
+import { surfacePlacementToken } from "@ragents/plugins/ragents.orchestration/server/contract.js";
 import { agentToolsFrom } from "./agent-tools.js";
 import { createActorProgramMethods } from "./methods.js";
 import { createMiniAppFrameRoutes, miniAppsApiPrefix } from "./routes.js";
@@ -26,6 +27,8 @@ const actorProgramsPlugin = (pluginHost: PluginHost): RAgentsPlugin => ({
                 const script = pluginHost.startEntries.scriptPackage(entryId);
                 return !script ? undefined : script.handle === name ? script.files : script.programs.find((program) => program.name === name)?.files;
             },
+            sharedPackage: (name) => pluginHost.actorPackages.get(name),
+            placeView: (context, runId, entity) => { host.service(surfacePlacementToken).place(context, runId, { entity }); },
         });
         host.provide(actorProgramsToken, runtime);
         const diagnostics = createProjectDiagnostics({

@@ -1,17 +1,27 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
-import type { ActorProgramFile, JsonValue, StartEntryContribution } from "@ragents/engine";
+import type { ActorPackageContribution, ActorProgramFile, JsonValue, StartEntryContribution } from "@ragents/engine";
 import { flag, frontMatterOf, numberOf, tagsOf } from "./front-matter.js";
 
 export type ScriptStartEntry = Extract<StartEntryContribution, { action: "script" }>;
 
 const PACKAGE_NAME = /^[a-z0-9][a-z0-9-]*$/;
-const RUN_FIELDS = ["title", "description", "order", "guide", "tags", "coordinator", "category", "fixed-start-options"];
+const RUN_FIELDS = ["title", "description", "order", "guide", "tags", "coordinator", "embeddable", "shared-programs", "category", "fixed-start-options"];
 
 const requiredFile = (directory: string, name: string): string => {
   const file = path.join(directory, name);
   if (!statSync(file, { throwIfNoEntry: false })?.isFile()) throw new Error(`The run script ${directory} is missing the file ${name}`);
   return file;
+};
+
+/** The header line shared-programs names shared actor packages of the profile, separated by commas. */
+const sharedProgramsOf = (file: string, value: string | undefined): readonly string[] | undefined => {
+  if (value === undefined) return undefined;
+  const names = value.split(",").map((name) => name.trim());
+  if (names.some((name) => !PACKAGE_NAME.test(name)) || new Set(names).size !== names.length) {
+    throw new Error(`${file}: shared-programs must name each shared actor package once, separated by commas`);
+  }
+  return names;
 };
 
 /** The header line fixed-start-options is a JSON object on one line: start option id to fixed value. */
@@ -60,6 +70,7 @@ const runScriptFrom = (directory: string, name: string, id: string): ScriptStart
   const category = fields.get("category");
   if (category !== undefined && !category.trim()) throw new Error(`${runFile}: category is empty`);
   const fixedStartOptions = fixedStartOptionsOf(runFile, fields.get("fixed-start-options"));
+  const sharedPrograms = sharedProgramsOf(runFile, fields.get("shared-programs"));
   const programsDirectory = path.join(directory, "actors");
   const programsStats = statSync(programsDirectory, {throwIfNoEntry: false});
   if (programsStats && !programsStats.isDirectory()) throw new Error(`${programsDirectory} must be a directory`);
@@ -80,6 +91,8 @@ const runScriptFrom = (directory: string, name: string, id: string): ScriptStart
     script: {
       handle: name,
       coordinator: flag(runFile, "coordinator", fields.get("coordinator"), true),
+      embeddable: flag(runFile, "embeddable", fields.get("embeddable")),
+      ...(sharedPrograms !== undefined ? { sharedPrograms } : {}),
       files: filesOf(directory),
       programs,
     },
@@ -96,6 +109,18 @@ export const runScriptsFromDirectory = (directory: string, idPrefix: string): re
   if (stray.length > 0) throw new Error(`${resolved} contains files instead of run script folders: ${stray.join(", ")}`);
   if (packages.length === 0) throw new Error(`${resolved} contains no run script folder`);
   return packages.map((name) => runScriptFrom(path.join(resolved, name), name, `${idPrefix}.${name}`));
+};
+
+/** Every folder is one shared actor package, named after the folder. */
+export const actorPackagesFromDirectory = (directory: string): readonly ActorPackageContribution[] => {
+  const resolved = path.resolve(directory);
+  const entries = readdirSync(resolved, {withFileTypes: true}).sort((left, right) => left.name.localeCompare(right.name));
+  const stray = entries.filter((entry) => !entry.isDirectory()).map((entry) => entry.name);
+  if (stray.length > 0) throw new Error(`${resolved} contains files instead of actor package folders: ${stray.join(", ")}`);
+  return entries.map((entry) => {
+    if (!PACKAGE_NAME.test(entry.name)) throw new Error(`${resolved}: the folder name ${entry.name} is not a package name (lowercase letters, digits, hyphen)`);
+    return {name: entry.name, files: filesOf(path.join(resolved, entry.name))};
+  });
 };
 
 export const runScriptFromDirectory = (directory: string): ScriptStartEntry => {

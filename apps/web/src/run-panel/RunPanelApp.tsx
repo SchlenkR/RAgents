@@ -231,7 +231,7 @@ function RunPanelPage({ connection, initialRunId, registry }: { connection: stri
               <RunStateIcon className="self-center px-1.5" state={session?.running ? "running" : "idle"} />
               <StopButton className="self-center" disabled={!writeRuns} label="Stop run" onClick={stop} size="icon-lg" title="Stop the run with all agents and flows" />
               <div aria-label="Panel tools" className="flex flex-none items-center empty:hidden" ref={setToolsContainer} role="toolbar" />
-              <RunPanelMenu onOpenSettings={openSettings} />
+              <RunPanelMenu onOpenSettings={openSettings} runId={runId} />
             </header>
             {stopError && <Alert variant="destructive">{stopError}</Alert>}
             <main className="relative z-1 flex min-h-0 min-w-0 flex-1 @container/chat-content">

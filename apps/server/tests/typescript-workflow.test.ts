@@ -55,6 +55,8 @@ const workflow = async (t: TestContext) => {
         operations: { operation: () => { throw new Error("No operations registered."); }, invoke: async () => { throw new Error("No operations registered."); }, list: () => [] },
         directoryFor: () => directory,
         scriptSources: () => undefined,
+        sharedPackage: () => undefined,
+        placeView: () => { throw new Error("The test places no views."); },
     });
     setup.services.actorPrograms = runtime;
     sandbox.registerWorkspaceRoot({ id: "actor-programs", alias: "@actors", directoryFor: (runId) => runtime.workspaceDirectory(runId) });

@@ -137,6 +137,13 @@ tab bar on the right. Without <code>run</code>, it shows the run list with &quot
 card. <code>run-panel.html?layout=app&amp;run=&lt;id&gt;&amp;element=&lt;app-id&gt;</code> shows one mini-app without the tab bar.
 Run-panel state, including the selected app and actor, view mode, chat width, collapsed chat
 height, open tab, and tab-area height, is stored per run in the browser.</p>
+<p>With write rights, the menu at the top right of an open run offers &quot;Run script&quot;: it lists the run
+scripts you may start, each with its description, and greyed out with the reason when it cannot
+join this run, because its <code>RUN.md</code> does not set <code>embeddable: true</code> or because it fixes a start
+option to a value the run does not have. A click starts it inside the run without a start value;
+the primary actor stays, a repeated start reuses the script, its main view is placed next to the
+tiles, and its output and summary appear in the chat as <code>@handle: ...</code>. If the start is refused,
+the menu shows why. The same menu works in the VS Code run panel.</p>
 <p>The narrow tab bar on the right contains the same tabs as the full web view: files, documents,
 functions, executions, and language-server diagnostics, depending on the run and the user&#39;s
 permissions. The tab name appears in a tooltip. A small counter sits at the top right of its
@@ -328,9 +335,9 @@ in their URL (the server accepts a bearer token or the <code>access</code> query
 After expiry or a server restart, that server asks for sign-in again without affecting others.
 <code>RAgents: Sign out</code> revokes the session.</p>
 <h2 id="control-ragents-as-an-agent">Control RAgents as an agent</h2>
-<p>An AI agent working on the same machine controls RAgents through four <code>ragents</code> subcommands. In
-a checkout, use <code>pnpm ragents &lt;command&gt;</code>. These commands are the agent-facing contract: each one
-waits for the turn to end and returns an exit code.</p>
+<p>An AI agent working on the same machine controls RAgents through five <code>ragents</code> subcommands. In
+a checkout, use <code>pnpm ragents &lt;command&gt;</code>. These commands are the agent-facing contract: <code>run</code> and
+<code>send</code> wait for the turn to end, and every command returns an exit code.</p>
 <pre><code class="language-sh">ragents provision developer                                  # once per machine
 ragents run selftest/workspace-project &quot;Fix the type error in src/broken.ts&quot;
 ragents send &lt;runId&gt; &quot;Read README.md and report the passphrase&quot;
@@ -338,6 +345,8 @@ ragents journal &lt;runId&gt; --tools
 ragents stop &lt;runId&gt;                                         # interrupt the primary actor&#39;s active turn
 ragents stop &lt;runId&gt; --run                                   # emergency stop: halt the whole run
 ragents stop --host                                          # stop the remembered host
+ragents script &lt;runId&gt;                                       # list the run scripts and whether each can join the run
+ragents script &lt;runId&gt; &lt;entry&gt; --input &#39;{&quot;topic&quot;:&quot;Launch&quot;}&#39;  # start one inside the running run
 ragents --help                                               # same as ragents help
 </code></pre>
 <p><code>run</code> checks <code>GET &lt;address&gt;/health</code> to see whether the profile host is already running. If not,
@@ -370,7 +379,11 @@ exactly like the stop button in the chat input: the run and all actors stay acti
 next task, and without an active turn nothing happens. <code>stop &lt;runId&gt; --run</code> is the emergency stop (<code>ragents.chat.stop</code>): it aborts every turn
 and stops all actors of the run. <code>stop --host</code> terminates exactly the PID in <code>host.json</code>, never a
 process pattern, and only if the host at the recorded address reports that same PID from
-<code>/health</code>; otherwise it fails, leaves the process alone and removes the stale record. <code>ragents --help</code> and <code>ragents help</code> show usage and exit with 0; invoking the
+<code>/health</code>; otherwise it fails, leaves the process alone and removes the stale record.
+<code>script &lt;runId&gt;</code> lists the run scripts through <code>ragents.runs.scripts</code>, one per line with id, title,
+and the reason if one cannot join; <code>script &lt;runId&gt; &lt;entry&gt; [--input &lt;json&gt;]</code> starts it inside the
+run through <code>ragents.runs.startScript</code> as the run&#39;s user and prints <code>script: @&lt;handle&gt;, start &lt;n&gt;</code>;
+a refusal is an error with exit code 1. <code>--json</code> prints the RPC results instead. <code>ragents --help</code> and <code>ragents help</code> show usage and exit with 0; invoking the
 command without arguments is an error with exit code 1.</p>
 <p><code>--profile &lt;profile|path&gt;</code> selects something other than <code>developer</code>: a profile name beside the
 host or the path to a custom <code>ragents.config.&lt;profile&gt;.ts</code> anywhere on disk. Resolution matches
@@ -436,6 +449,10 @@ requests as Server-Sent Events:</p>
   -d &#39;{&quot;jsonrpc&quot;:&quot;2.0&quot;,&quot;id&quot;:1,&quot;method&quot;:&quot;ragents.runs.list&quot;,&quot;params&quot;:{}}&#39;
 </code></pre>
 <p>The response contains either <code>result</code> or <code>error</code>; <code>error.data</code> provides <code>code</code> and <code>status</code>.</p>
+<p>A run script whose <code>RUN.md</code> sets <code>embeddable: true</code> also starts inside a running run:
+<code>ragents.runs.startScript</code> with <code>runId</code>, <code>entry</code>, and <code>input</code> waits and returns the script actor and
+which start of its package in the run this was, or the reason in <code>error</code>. The primary actor stays;
+a repeated start reuses the script&#39;s actor.</p>
 <p>Without HTTP, use stdio: <code>pnpm start -- --stdio</code> exchanges one JSON message per line through
 stdin and stdout and opens no port. The startup modes are:</p>
 <ul>

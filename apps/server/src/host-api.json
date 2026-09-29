@@ -25,6 +25,7 @@
       "holdsUsable",
       "implement",
       "implementChannel",
+      "inheritedGrants",
       "isRunId",
       "isThinkingLevel",
       "modelToolDescriptors",
@@ -77,6 +78,7 @@
     "@ragents/host/plugin-support/actor-programs/app-project": [
       "compileAppBackend",
       "installServerSdk",
+      "packageIdentity",
       "prepareAppProject",
       "prepareAppWorkspace",
       "projectSourceFiles",

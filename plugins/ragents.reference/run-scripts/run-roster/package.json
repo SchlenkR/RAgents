@@ -1,0 +1,9 @@
+{
+  "name": "run-roster",
+  "private": true,
+  "type": "module",
+  "ragents": {
+    "title": "Run roster",
+    "backend": "src/server.ts"
+  }
+}

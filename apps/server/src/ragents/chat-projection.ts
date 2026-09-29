@@ -11,6 +11,8 @@ export interface ChatProjectionScope {
   primaryActorId: string;
   ownerId: string;
   labelOf: (actorId: string) => string | undefined;
+  /** The handle of a TypeScript actor a run script installed; the chat shows its runtime output too. */
+  scriptActorHandle?: (actorId: string) => string | undefined;
   turnOf: (turnId: string) => Pick<Turn, "actorId" | "toolCalls">;
   /** Whether this command also interrupted a turn of the actor; its stop then repeats no reason. */
   interruptedByCommand: (commandId: string, actorId: string) => boolean;
@@ -50,6 +52,11 @@ export const chatEventsOf = (event: JournalEvent, scope: ChatProjectionScope, cu
 
   if (event.type === "turn.interrupted")
     return scope.turnOf(event.payload.turnId).actorId === scope.primaryActorId ? journalChatEventsOf(event, cursor, interruptedIn(scope)) : [];
+
+  if (event.type === "runtime.output.recorded" && event.actorId !== scope.primaryActorId) {
+    const handle = scope.scriptActorHandle?.(event.actorId);
+    return handle ? [{ kind: "system", text: `@${handle}: ${event.payload.text}`, at }] : [];
+  }
 
   if (event.actorId !== scope.primaryActorId) return [];
 

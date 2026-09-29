@@ -78,8 +78,11 @@ as its default export. The TypeBox contract describes `state`, `functions`, and 
 
 State must accept the initial value `{}`. Each function declares its input and output, with
 optional granted capabilities, confirmation, and publication as a tool. The implementation
-contains the same functions and, when input is declared, an `onInput` handler. TypeScript derives
-input, result, and state types from the contract.
+contains the same functions and, when input is declared, an `onInput` handler; a run script can
+add `onStart`, which receives its starts instead of `onInput`, `onResult` for the results of scripts
+it starts itself, and ends a start with `context.finish` (details in
+[TypeScript platform](typescript-platform.md), Run scripts). TypeScript derives input, result, and
+state types from the contract.
 
 Each function receives `(input, context)` and returns only its domain result.
 `context.state.replace` stages state changes; a return value is never also interpreted as new
@@ -140,6 +143,10 @@ Published functions appear in the current TypeScript API even during an active L
 `context.functions`. Reactivation updates the schemas; removed functions disappear from the same
 catalog. No additional call contract is needed.
 
+`actor_program_ensure` makes a package active only when it is not: it returns an active package
+unchanged, restarts its stopped actor, activates an installed package, or installs a shared
+package of the profile ([TypeScript platform](typescript-platform.md), Run scripts).
+
 `actor_program_list` shows installed programs. `actor_program_remove` removes the binding and its
 views. It also stops a TypeScript actor, while an existing LLM actor remains. Activating a package
 of the same name again restarts that stopped actor with its state instead of creating another. Sources stay
@@ -165,7 +172,7 @@ run there (files, SDK, package check, backend contract, client SDK), and only th
 the folder to `actors/<name>`. Check and rename follow each other without interruption because
 `rename` would silently replace an empty target folder: an existing folder, even an empty one,
 makes creation fail with "already exists" and stays untouched. Two simultaneous creations of the
-same name exclude each other; the second fails with "is being created". On any error, the host
+same name exclude each other; the second waits and then fails with "already exists". On any error, the host
 removes the staging folder. Leftovers of a crashed server process are cleaned up by the next
 creation in the run, which leaves the running creations of this process alone; a run is served
 only by the process that holds the journal. The host activates the package of a run script after
@@ -196,8 +203,8 @@ successful activation.
 Domain tests are normal `node:test` files under `tests/**/*.test.ts` and run with
 `node --import tsx --test`. They import the program and call `program.functions` or
 `program.onInput` with concrete inputs. `@ragents/server/testing` provides `createTestContext` with
-state and explicit function mocks under `functions`. Result and stored state are checked
-separately. A pure view needs no invented server action. Activation runs the tests with its own
+state and explicit function mocks under `functions`; what `context.finish` received is in `finished`.
+Result and stored state are checked separately. A pure view needs no invented server action. Activation runs the tests with its own
 reporter (`server/test-report.ts`) and reports a failure concisely: number of passed and failed
 tests, for each failed test its name, message, for assertions expected and actual, and the
 location in the test file relative to the program; a test file that does not load names the error

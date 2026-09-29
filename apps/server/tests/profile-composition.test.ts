@@ -112,11 +112,11 @@ test("the neutral showcase fixture composes real plugins and folder contribution
   assert.ok(host.optionalService(browserRuntimeToken), "browser service is missing");
   assert.deepEqual(names(host.operations.describe()), ["actor_input"]);
   assert.deepEqual(host.tools.describe().map((tool) => tool.name).sort(), [
-    "ask_user", "bash", "canvas_layout_replace", "document_write", "edit",
+    "ask_user", "bash", "canvas_layout_place", "canvas_layout_replace", "document_write", "edit",
     "fsharp_close", "fsharp_diagnostics", "fsharp_open",
-    "actor_program_activate", "actor_program_controls", "actor_program_create", "actor_program_diagnostics", "actor_program_list", "actor_program_remove", "actor_transcript", "actor_view_set_visibility",
+    "actor_program_activate", "actor_program_controls", "actor_program_create", "actor_program_diagnostics", "actor_program_ensure", "actor_program_list", "actor_program_remove", "actor_transcript", "actor_view_set_visibility",
     "browser_open", "browser_snapshot", "browser_click", "browser_fill", "browser_select", "browser_press", "browser_check", "browser_viewport", "browser_screenshot", "browser_view_screenshot", "browser_close",
-    "quick_answer", "read", "roslyn_close", "roslyn_diagnostics", "roslyn_open", "roslyn_solutions", "run_stop",
+    "quick_answer", "read", "roslyn_close", "roslyn_diagnostics", "roslyn_open", "roslyn_solutions", "run_script_list", "run_script_start", "run_stop",
     "show_document", "todo_replace",
     "typescript_api", "typescript_close", "typescript_eval", "typescript_diagnostics", "typescript_open", "watch_create", "watch_list", "watch_remove", "write",
   ].sort());
@@ -129,7 +129,7 @@ test("the neutral showcase fixture composes real plugins and folder contribution
   assert.deepEqual(profile.startEntries.filter((entry) => entry.action === "skill").map((entry) => entry.skill).filter((skill) => !globalSkills.includes(skill)), [], "every skill template needs its registered skill");
   assert.deepEqual(
     profile.startEntries.filter((entry) => entry.action === "script").map((entry) => entry.id),
-    ["ragents.reference.shared-actor-list", "ragents.reference.conversation-circle", "ragents.reference.moderated-round", "ragents.reference.balcony-wizard", "ragents.reference.learning-afternoon", "ragents.reference.word-game"],
+    ["ragents.reference.shared-actor-list", "ragents.reference.conversation-circle", "ragents.reference.moderated-round", "ragents.reference.balcony-wizard", "ragents.reference.learning-afternoon", "ragents.reference.word-game", "ragents.reference.run-roster", "ragents.reference.quick-note"],
   );
   assert.ok(profile.startEntries.every((entry) => !("files" in entry) && !("programs" in entry)), "a run script does not reveal its source");
   assert.deepEqual(host.startOptions.describe(), [{ id: "ragents.workspace.binding", owner: "ragents.workspace" }, { id: "ragents.model", owner: "ragents.product" }]);

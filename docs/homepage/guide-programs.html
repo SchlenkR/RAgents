@@ -181,8 +181,11 @@ views.</p>
 as its default export. The TypeBox contract describes <code>state</code>, <code>functions</code>, and optional <code>input</code>.</p>
 <p>State must accept the initial value <code>{}</code>. Each function declares its input and output, with
 optional granted capabilities, confirmation, and publication as a tool. The implementation
-contains the same functions and, when input is declared, an <code>onInput</code> handler. TypeScript derives
-input, result, and state types from the contract.</p>
+contains the same functions and, when input is declared, an <code>onInput</code> handler; a run script can
+add <code>onStart</code>, which receives its starts instead of <code>onInput</code>, <code>onResult</code> for the results of scripts
+it starts itself, and ends a start with <code>context.finish</code> (details in
+<a href="../spec/typescript-platform.md">TypeScript platform</a>, Run scripts). TypeScript derives input, result, and
+state types from the contract.</p>
 <p>Each function receives <code>(input, context)</code> and returns only its domain result.
 <code>context.state.replace</code> stages state changes; a return value is never also interpreted as new
 state. <code>context.actor</code> identifies the actor that owns the function and state.
@@ -227,6 +230,9 @@ only then activates the verified version. Errors identify the location to fix.</
 <code>typescript_api</code> returns their exact contracts, and snippets call them through
 <code>context.functions</code>. Reactivation updates the schemas; removed functions disappear from the same
 catalog. No additional call contract is needed.</p>
+<p><code>actor_program_ensure</code> makes a package active only when it is not: it returns an active package
+unchanged, restarts its stopped actor, activates an installed package, or installs a shared
+package of the profile (<a href="../spec/typescript-platform.md">TypeScript platform</a>, Run scripts).</p>
 <p><code>actor_program_list</code> shows installed programs. <code>actor_program_remove</code> removes the binding and its
 views. It also stops a TypeScript actor, while an existing LLM actor remains. Activating a package
 of the same name again restarts that stopped actor with its state instead of creating another. Sources stay

@@ -8,9 +8,13 @@ export const capabilityNames = [
     "workspace.use",
     "execution.stopOwned",
     "run.configure",
+    "script.start",
 ] as const;
 
 export type CapabilityName = (typeof capabilityNames)[number];
+
+/** Whoever gets one of these from the owner holds it without passing it on, so it never reaches the agents they spawn. */
+export const firstHandCapabilities: readonly CapabilityName[] = ["script.start"];
 
 export const isCapabilityName = (value: unknown): value is CapabilityName =>
     typeof value === "string" && (capabilityNames as readonly string[]).includes(value);

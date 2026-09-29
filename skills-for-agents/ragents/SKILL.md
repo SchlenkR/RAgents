@@ -24,7 +24,7 @@ side, for example two solutions, and `<language>_close` shuts one of them down a
 The `developer` profile runs without sign-in on port 4715, with data under
 `~/.local/share/ragents/developer`. `PORT` and `DATA_DIR` override both.
 
-## The four commands
+## The five commands
 
 ```sh
 ragents run /path/to/project "Fix the type error in src/broken.ts and run typescript_diagnostics"
@@ -33,6 +33,7 @@ ragents journal 7f3c1e64-... --tools
 ragents stop 7f3c1e64-...        # interrupt the running turn of the primary actor, the run stays active
 ragents stop 7f3c1e64-... --run  # emergency stop: cancel all turns, stop all actors
 ragents stop --host              # shut down the remembered host
+ragents script 7f3c1e64-... demo.review  # start a run script inside the running run (ragents script <run> lists them)
 ragents --help                   # the usage, like ragents help
 ```
 

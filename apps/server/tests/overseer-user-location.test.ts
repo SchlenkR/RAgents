@@ -78,9 +78,9 @@ const fixture = async (t: TestContext, existingDirectory?: string) => {
       scriptEntryFor: () => undefined,
       startEntryFor: () => undefined,
       actorPrograms: {
-        runInput: async () => { throw new Error("No Actor program"); },
-        workspaceDirectory: async () => { throw new Error("No Actor program workspace"); },
-        importPackage: async () => { throw new Error("No Actor program package"); },
+        installScript: async () => { throw new Error("No Actor program package"); },
+        enqueueStart: () => { throw new Error("No Actor program package"); },
+        isScriptActor: () => false,
       },
     });
     session.attach();

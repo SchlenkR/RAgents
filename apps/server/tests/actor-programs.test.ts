@@ -271,6 +271,40 @@ test("a function cannot overwrite actor state patched while its native invocatio
   assert.deepEqual(f.runtime.data(f.runId, program.actorId).values, {count: 55, retained});
 });
 
+test("preparing a run cancels only the calls a previous server process left open, once per run", async (t) => {
+  const f = await actorProgramFixture(t);
+  const entered = path.join(f.directory, "prepare-entered");
+  const release = path.join(f.directory, "prepare-release");
+  const files = counterFiles();
+  files["src/server.ts"] = 'import {access, writeFile} from "node:fs/promises";\n' + files["src/server.ts"].replace(
+    "    calls++;", `    calls++;
+    if (input.amount === 77) {
+      await writeFile(${JSON.stringify(entered)}, "entered");
+      while (!await access(${JSON.stringify(release)}).then(() => true, () => false)) await new Promise((resolve) => setTimeout(resolve, 10));
+    }`,
+  );
+  await writeAppFiles(f.directory, "counter", files);
+  await f.runtime.activate(f.context, f.runId, "counter");
+  const program = f.runtime.programs(f.runId)[0]!;
+  const stale = { id: "stale-call", requestId: "stale-request", actorId: program.actorId, actorHandle: program.actorHandle, appId: "counter",
+    revision: program.revision, actionId: "add", input: { amount: 1 }, output: [], createdAt: "2026-09-29T10:00:00.000Z", status: "running", startedAt: "2026-09-29T10:00:00.000Z" };
+  f.setup.runtime.replacePluginState({ ...f.context, commandId: "left-open" }, f.runId, { pluginId: "ragents.actor-programs.invocations", scope: { kind: "run" },
+    state: { version: 1, invocations: [stale], requestIds: ["stale-request"] } });
+  const live = f.runtime.startFunctionInvocation(f.runId, program.actorHandle, program.revision, "add", "live-request", { amount: 77 });
+  const { access } = await import("node:fs/promises");
+  const deadline = Date.now() + 10_000;
+  while (!await access(entered).then(() => true, () => false)) {
+    if (Date.now() > deadline) throw new Error("The function did not enter its native process");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  await f.runtime.prepareSession(f.runId);
+  assert.equal(f.runtime.invocation(f.runId, "counter", "stale-call").status, "cancelled");
+  assert.equal(f.runtime.invocation(f.runId, "counter", live.id).status, "running", "a call of this process keeps running");
+  await f.runtime.prepareSession(f.runId);
+  await writeFile(release, "released");
+  assert.equal((await invocationResult(f.runtime, f.runId, "counter", live.id)).status, "succeeded");
+});
+
 test("preparing a new run does not require its run journal to exist yet", async (t) => {
   const f = await actorProgramFixture(t);
   await f.runtime.prepareSession("new-conversation");

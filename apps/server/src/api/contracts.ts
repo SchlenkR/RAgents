@@ -44,6 +44,24 @@ export const coreContracts = {
       input: Type.Object({ runId }, { additionalProperties: false }),
       result: Type.Null(),
     }),
+    scripts: defineOperation({
+      id: "ragents.runs.scripts",
+      description: "The run scripts the caller may start, and for a running run whether each can start there now: available, otherwise reason (not embeddable, a fixed start option differs from the run's). Rights: runs.read, runs.write.",
+      input: Type.Object({ runId }, { additionalProperties: false }),
+      result: Type.Array(Type.Object({
+        id: Type.String(),
+        title: Type.String(),
+        description: Type.String(),
+        available: Type.Boolean(),
+        reason: Type.Optional(Type.String()),
+      }, { additionalProperties: false })),
+    }),
+    startScript: defineOperation({
+      id: "ragents.runs.startScript",
+      description: "Start a run script and wait until its actor has the start input; errors come back to the caller instead of the chat. A new run starts as with ragents.chat.start. In a running run only a script whose RUN.md sets embeddable: true starts, its fixed start options must match the run's, and the primary actor stays; a repeated start reuses the script's actor. Result: the script actor and which start of its package in the run this was. Rights: runs.read, runs.write and the template's release.",
+      input: Type.Object({ runId, entry: Type.String({ minLength: 1 }), input: Type.Optional(Type.Any()) }, { additionalProperties: false }),
+      result: Type.Object({ actorId: Type.String(), handle: Type.String(), count: Type.Integer({ minimum: 1 }) }, { additionalProperties: false }),
+    }),
   },
   chat: {
     send: defineOperation({
@@ -66,7 +84,7 @@ export const coreContracts = {
     }),
     start: defineOperation({
       id: "ragents.chat.start",
-      description: "Start a run through a script template, without a message; the start options the template fixes apply. Rights: runs.read, runs.write and the template's release.",
+      description: "Start a run through a script template, without a message; the start options the template fixes apply. Returns once the start is accepted; progress and errors appear in the chat. In a running run it starts an embeddable script like ragents.runs.startScript. Rights: runs.read, runs.write and the template's release.",
       input: Type.Object({ runId, entry: Type.String({ minLength: 1 }), input: Type.Optional(Type.Any()) }, { additionalProperties: false }),
       result: Type.Null(),
     }),

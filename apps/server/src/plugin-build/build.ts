@@ -39,7 +39,7 @@ export interface PluginBuildOptions {
   readonly onlyOutdated?: boolean;
 }
 
-const DEFAULT_ASSET_FOLDERS = ["skills", "prompts", "run-scripts"] as const;
+const DEFAULT_ASSET_FOLDERS = ["skills", "prompts", "run-scripts", "actors"] as const;
 const SKIPPED_ASSET_FILES = new Set([".DS_Store"]);
 const WEB_FILE_EXTENSIONS = [".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".avif", ".ico", ".woff", ".woff2", ".ttf", ".otf"];
 const CODE_EXTENSION = /\.(ts|tsx|mts|cts|js|jsx|mjs|cjs)$/;

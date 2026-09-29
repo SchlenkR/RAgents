@@ -92,6 +92,8 @@ test("global coordinator persists separately and manages ordinary runs through t
           operations: {list: () => [], operation: () => undefined, invoke: async () => {throw new Error("Unexpected operation");}},
           directoryFor: (runId) => path.join(dataDirectory, "programs", runId),
           scriptSources: () => undefined,
+          sharedPackage: () => undefined,
+          placeView: () => { throw new Error("Unexpected view placement"); },
         }));
         registration.script({id: "test.script", create: ({runtime}) => ({driver: new ScriptDriver({runtime})})});
         registration.profiles({

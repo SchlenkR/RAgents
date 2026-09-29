@@ -658,7 +658,7 @@
     },
     {
       "name": "ragents.chat.start",
-      "description": "Start a run through a script template, without a message; the start options the template fixes apply. Rights: runs.read, runs.write and the template's release.",
+      "description": "Start a run through a script template, without a message; the start options the template fixes apply. Returns once the start is accepted; progress and errors appear in the chat. In a running run it starts an embeddable script like ragents.runs.startScript. Rights: runs.read, runs.write and the template's release.",
       "params": [
         {
           "name": "input",
@@ -3128,6 +3128,127 @@
           "type": "object",
           "additionalProperties": true,
           "x-typescript-type": "RunView"
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.runs.scripts",
+      "description": "The run scripts the caller may start, and for a running run whether each can start there now: available, otherwise reason (not embeddable, a fixed start option differs from the run's). Rights: runs.read, runs.write.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Id of the run"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "title",
+              "description",
+              "available"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "available": {
+                "type": "boolean"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "x-owner": "host",
+      "x-rights": [],
+      "x-implemented-by": "server"
+    },
+    {
+      "name": "ragents.runs.startScript",
+      "description": "Start a run script and wait until its actor has the start input; errors come back to the caller instead of the chat. A new run starts as with ragents.chat.start. In a running run only a script whose RUN.md sets embeddable: true starts, its fixed start options must match the run's, and the primary actor stays; a repeated start reuses the script's actor. Result: the script actor and which start of its package in the run this was. Rights: runs.read, runs.write and the template's release.",
+      "params": [
+        {
+          "name": "input",
+          "required": true,
+          "schema": {
+            "type": "object",
+            "required": [
+              "runId",
+              "entry"
+            ],
+            "properties": {
+              "runId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "description": "Id of the run"
+              },
+              "entry": {
+                "type": "string",
+                "minLength": 1
+              },
+              "input": {}
+            },
+            "additionalProperties": false
+          }
+        }
+      ],
+      "paramStructure": "by-name",
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "actorId",
+            "handle",
+            "count"
+          ],
+          "properties": {
+            "actorId": {
+              "type": "string"
+            },
+            "handle": {
+              "type": "string"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
         }
       },
       "x-owner": "host",

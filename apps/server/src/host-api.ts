@@ -13,7 +13,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
       "DomainError", "RPC_ERROR_CODES", "RpcError", "ScriptDriver", "ToolRegistry", "actorByHandle",
       "actorByReference", "actorDescriptionMaxLength", "actorInputSchema", "agentTools", "assertJsonValue", "builtinProfiles", "canonicalHash",
       "compileVirtualTypeScriptAsync", "defineRunFunction", "defineToolAvailability", "emptyUsage",
-      "enqueueActorInput", "eventResultSchemaOf", "handleKey", "holdsUsable", "implement", "implementChannel",
+      "enqueueActorInput", "eventResultSchemaOf", "handleKey", "holdsUsable", "implement", "implementChannel", "inheritedGrants",
       "isRunId", "isThinkingLevel", "modelToolDescriptors", "pluginStateAt", "runCapabilityBindingHash",
       "runCapabilityContractHash", "schemaComplaints", "scriptInputOf", "serviceToken",
     ],
@@ -31,7 +31,7 @@ export const hostApi: { readonly server: HostApiModules; readonly web: HostApiMo
     ],
     "@ragents/host/host-version": ["readHostApiVersion", "readHostVersion", "readPackageVersion"],
     "@ragents/host/plugin-support/actor-programs/app-project": [
-      "compileAppBackend", "installServerSdk", "prepareAppProject", "prepareAppWorkspace", "projectSourceFiles",
+      "compileAppBackend", "installServerSdk", "packageIdentity", "prepareAppProject", "prepareAppWorkspace", "projectSourceFiles",
       "readAppPackage", "typecheckServerProject",
     ],
     "@ragents/host/plugin-support/actor-programs/client-compiler": ["compileClientProject", "installClientSdk"],

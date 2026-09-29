@@ -11,6 +11,7 @@ import type {
     Turn,
 } from "../domain/model.ts";
 import { actorByReference, handleKey } from "../domain/actor-reference.ts";
+import { firstHandCapabilities } from "../domain/vocabulary.ts";
 import { DomainError } from "./domain-error.ts";
 
 export const clean = (value: string, name: string) => {
@@ -167,7 +168,7 @@ export const inheritedGrants = (
             scope: grant.scope.kind === "run"
                 ? { kind: "run" as const }
                 : { kind: "workspace" as const, path: grant.scope.path },
-            delegable: true,
+            delegable: !firstHandCapabilities.includes(grant.capability),
         }));
 };
 

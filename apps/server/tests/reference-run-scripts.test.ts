@@ -39,19 +39,19 @@ const { loadPlugins } = await import("../src/profile/plugin-discovery.ts");
 const { composeProfile } = await import("../src/profile/compose.ts");
 const { folderRunScripts, pluginFolder } = await import("../src/plugin-support/plugin-folder.ts");
 
-const coreProfile = async () => {
-  const module = await import(path.join(repoRoot, "ragents.config.core.ts")) as {
+const coreProfile = async (name = "core") => {
+  const module = await import(path.join(repoRoot, `ragents.config.${name}.ts`)) as {
     config: { host: { PRODUCT_ID: string; PRODUCT_TITLE: string; PLUGINS: readonly string[] } };
   };
   return { product: { id: module.config.host.PRODUCT_ID, title: module.config.host.PRODUCT_TITLE }, plugins: module.config.host.PLUGINS };
 };
 
-const referenceFixture = async () => {
+const referenceFixture = async (profileName = "core") => {
   const native = nativeExecutorFixture();
   const services: RuntimeServices = { ...testServices(), nativeTypeScriptExecutor: native.executor };
   const journal = new Journal(":memory:", services);
   const runtime = new Orchestration(journal, services);
-  const profile = await coreProfile();
+  const profile = await coreProfile(profileName);
   const loaded = await loadPlugins(profile.plugins);
   const host = composeProfile(
     { product: profile.product, pluginIds: profile.plugins, modules: loaded.modules, web: loaded.web, executor: loaded.executor },
@@ -79,7 +79,7 @@ const referenceFixture = async () => {
 test("every reference setup activates as a native actor package against the tools of the core profile", async () => {
   const { host, runtime, close } = await referenceFixture();
   const packages = folderRunScripts(pluginFolder("ragents.reference"), "ragents.reference");
-  assert.deepEqual(packages.map((entry) => entry.script.handle), ["balcony-wizard", "conversation-circle", "learning-afternoon", "moderated-round", "shared-actor-list", "word-game"]);
+  assert.deepEqual(packages.map((entry) => entry.script.handle), ["balcony-wizard", "conversation-circle", "learning-afternoon", "moderated-round", "quick-note", "run-roster", "shared-actor-list", "word-game"]);
 
   try {
     for (const entry of packages) {
@@ -110,6 +110,7 @@ test("the reference scripts stay honest about their kind", () => {
   assert.equal(byHandle.get("balcony-wizard")?.script.coordinator, false);
   assert.equal(byHandle.get("learning-afternoon")?.script.coordinator, false);
   assert.equal(byHandle.get("word-game")?.script.coordinator, false);
+  assert.deepEqual(packages.filter((entry) => entry.script.embeddable).map((entry) => [entry.script.handle, entry.script.sharedPrograms]), [["quick-note", ["notebook"]], ["run-roster", ["notebook"]]]);
   assert.deepEqual(byHandle.get("balcony-wizard")?.script.programs.map((program) => program.name), ["balcony-app"]);
   assert.deepEqual(byHandle.get("shared-actor-list")?.script.programs.map((program) => program.name), ["shared-list"]);
   for (const entry of packages) {
@@ -257,3 +258,48 @@ for (const sample of ["word-game", "learning-afternoon"]) {
     }
   });
 }
+
+test("run-roster starts a run, joins it again as an embedded start, shares the notebook and reports every start to the owner", async () => {
+  const { host, journal, runtime, registry, close } = await referenceFixture("showcase");
+  const catalog = new StaticModelCatalog(host.profiles.models(), host.profiles.profiles());
+  const scheduler = new TurnScheduler(runtime, journal, {
+    registry, catalog, workspaces: { ensure: () => workspaceDirectory },
+    drivers: {
+      script: new ScriptDriver({ runtime }),
+      agent: { kind: "agent", runTurn: async () => { throw new Error("The roster must not invoke a model"); } },
+    },
+  });
+  const engine = { runtime, journal, registry, catalog, catalogModels: host.profiles.models(), scheduler,
+    live: new LiveBus(), startOptions: host.startOptions } as Engine;
+  const entry = folderRunScripts(pluginFolder("ragents.reference"), "ragents.reference").find((candidate) => candidate.script.handle === "run-roster")!;
+  const { script, ...descriptor } = entry;
+  const start = { ...script, entry: { ...descriptor, coordinator: script.coordinator } };
+  const session = new RunChatSession({
+    engine, id: "reference-run-roster",
+    coordinator: { handle: "coordinator", displayName: "Coordinator", profile: "coordinator", runTitle: entry.title, ownerHandle: "owner", ownerDisplayName: "Owner" },
+    prompt: () => "Unexpected coordinator", assertUsable: () => {}, prepare: async () => {}, prepareWorkspace: async () => {}, started: async () => {},
+    scriptEntryFor: (id) => id === entry.id ? start : undefined, startEntryFor: () => undefined, actorPrograms: host.service(actorProgramsToken),
+  });
+  const texts: string[] = [];
+  session.subscribe((event) => { if (event.kind === "system") texts.push(event.text); });
+  try {
+    scheduler.start();
+    const first = await session.startPackageAndWait(start, null);
+    await scheduler.waitForIdle();
+    const second = await session.startAndWait(entry.id, null);
+    await scheduler.waitForIdle();
+    const view = runtime.view(session.id);
+    assert.deepEqual([first.count, second.count, second.actorId], [1, 2, first.actorId]);
+    assert.equal(view.primaryActorId, first.actorId);
+    assert.deepEqual(view.turns.filter((turn) => turn.status !== "completed"), []);
+    assert.deepEqual(texts.filter((text) => /participant/.test(text)), ["No other participants yet.", "1 participant: @notebook."], "the primary's own summaries need no handle");
+    const programs = host.service(actorProgramsToken);
+    const notebook = view.actors.find((actor) => actor.handle === "notebook")!;
+    assert.deepEqual(programs.programOf(session.id, notebook.id)?.origin, { kind: "shared", pluginId: "ragents.reference" });
+    assert.deepEqual(programs.programOf(session.id, first.actorId)?.origin, { kind: "script", entryId: entry.id });
+  } finally {
+    session.dispose();
+    await scheduler.stop();
+    await close();
+  }
+});
