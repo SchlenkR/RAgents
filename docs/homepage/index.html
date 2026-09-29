@@ -205,7 +205,7 @@ a { color: inherit; text-underline-offset: 4px; }
   .masthead nav { order: 2; margin-left: auto; gap: 20px; font-size: 14px; }
   .nav-github { padding: 5px 11px; }
   .chapters { order: 1; position: static; flex: 0 1 auto; justify-content: flex-start; gap: 8px; min-width: 0; padding: 0; }
-  .chapters .play { order: 1; }
+  .chapters .play { display: none; }
   .chapters .chapters-toggle { flex: 0 1 auto; min-width: 0; }
   .chapters[data-compact] .chapters-toggle { grid-template-columns: minmax(0, auto) auto; }
   .chapters-toggle span { overflow: hidden; text-overflow: ellipsis; }
@@ -216,8 +216,9 @@ a { color: inherit; text-underline-offset: 4px; }
   .actions { gap: 10px; margin-top: 26px; }
   .button { min-height: 44px; padding: 9px 16px; font-size: 15px; }
   .story.sr-only { position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; clip-path: none; white-space: normal; }
-  .story article { position: relative; padding-top: 76px; scroll-margin-top: var(--top, 150px); }
-  .story article > :not(h2, .stage) { position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+  .story article { position: relative; padding-top: 56px; scroll-margin-top: var(--top, 150px); }
+  .story article > :not(.pin, .run) { position: absolute; top: 0; left: 0; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0; }
+  .pin { position: sticky; top: var(--top, 150px); padding-top: 20px; }
   .story h2 { width: calc(100% - 32px); margin: 0 auto; font-size: clamp(29px, 7.6vw, 44px); font-weight: 650; line-height: 1.06; letter-spacing: -.045em; }
   .story h2::before { content: ''; display: block; width: 34px; height: 3px; margin-bottom: 14px; border-radius: 2px; background: var(--kick); }
   .story h2 > span { display: block; text-wrap: balance; }
@@ -235,8 +236,6 @@ a { color: inherit; text-underline-offset: 4px; }
   .nav-icon { display: block; }
   .nav-github { padding: 0; border: 0; }
   .nav-github svg { width: 19px; height: 19px; }
-  .chapters .play { height: 28px; }
-  .chapters .play button { width: 23px; }
   .where-section { padding: 72px 0 8px; }
   .where-frame { margin-top: 28px; border: 0; border-radius: 0; background: none; overflow: visible; }
   .where, .where tbody, .where tr, .where th, .where td { display: block; width: auto; }
@@ -3901,7 +3900,6 @@ a { color: inherit; text-underline-offset: 4px; }
     const button = event.target.closest('[data-mode]');
     if (!button) return;
     setMode(button.dataset.mode);
-    if (mobile && mode !== 'pause' && live?.done) start(live);
     if (event.detail) button.blur();
   });
   const entries = playlist.map((name, index) => {
@@ -3987,26 +3985,31 @@ a { color: inherit; text-underline-offset: 4px; }
   const after = document.querySelector('.after');
   const sections = playlist.map(name => [name, sheet.querySelector(`[data-chapter="${name}"]`)]).filter(([, node]) => node).map(([name, node]) => {
     const story = scenes[name];
+    const pin = document.createElement('div');
     const stage = document.createElement('div');
     const canvas = document.createElement('canvas');
     const label = document.createElement('div');
+    const run = document.createElement('div');
+    pin.className = 'pin';
+    run.className = 'run';
     stage.className = 'stage';
     stage.setAttribute('aria-hidden', 'true');
     label.className = 'note out';
     label.dataset.side = 'free';
     stage.append(canvas, label);
-    node.append(stage);
+    pin.append(node.querySelector('h2'), stage);
+    node.prepend(pin);
+    node.append(run);
     node.style.setProperty('--kick', story.color);
     return {
-      story, stage, label,
+      name, node, pin, run, story, stage, label,
       rest: story.end - .85,
       player: { canvas, context: canvas.getContext('2d'), story, w: 0, h: 0, ratio: 0, t: 0, depth: 1, mirror: false, spot: null, wide: 1, second: [], region: null, debris: new Map(), sprites: null },
-      bands: [], edges: [0, 0], step: null, text: '', size: [0, 0], shownAt: 0, shift: '', painted: false, done: true, top: 0, bottom: 0,
+      bands: [], edges: [0, 0], step: null, showing: null, text: '', size: [0, 0], shownAt: 0, shift: '', painted: false, growing: false, progress: -1, start: 0, span: 0, top: 0, bottom: 0,
     };
   });
   Promise.all(Object.values(pictures).map(image => image.decode())).then(() => sections.forEach(section => {
     section.painted = false;
-    if (section === live) section.done = false;
   }));
   const heightOf = (story, name) => {
     const [, fy, , sy = 0] = stationOf(story, name);
@@ -4066,6 +4069,7 @@ a { color: inherit; text-underline-offset: 4px; }
     const fill = () => {
       if (section.step !== step) return;
       section.text = step.label || step.text;
+      section.showing = step;
       label.textContent = section.text;
       section.size = [label.offsetWidth, label.offsetHeight];
       label.classList.toggle('out', !section.text);
@@ -4080,7 +4084,7 @@ a { color: inherit; text-underline-offset: 4px; }
     setTimeout(fill, 360);
   };
   const pointers = (section, k, grow) => {
-    const { player, story, label, step } = section;
+    const { player, story, label, showing: step } = section;
     if (!step || !section.text) return;
     const [width, height] = section.size;
     const aims = step.target.filter(([name]) => story.stations[name]).map(item => frameOf(k, story, item));
@@ -4107,76 +4111,46 @@ a { color: inherit; text-underline-offset: 4px; }
     c.restore();
   };
   const stepAt = (story, time) => story.steps.filter(step => step.at <= time).pop() ?? story.steps[0];
-  const still = section => {
+  const landing = .88;
+  const pace = 1.8;
+  const scrubSection = (section, progress) => {
     const { player, story, rest } = section;
-    showStep(section, stepAt(story, rest), true);
-    player.t = rest;
-    player.wide = 1;
-    discard(player.debris);
-    player.spot = kit(player).focusTarget(rest);
-    mount(section);
-    const view = { ...player, second: [] };
-    const k = kit(view);
-    player.context.clearRect(0, 0, player.w, player.h);
-    drawScene(view, k);
-    pointers(section, k, 1);
-    section.painted = true;
-    section.done = true;
-  };
-  const start = section => {
-    const { player } = section;
-    player.t = preroll;
-    player.spot = null;
-    player.wide = 1;
-    discard(player.debris);
-    section.done = false;
-  };
-  const play = (section, moved) => {
-    const { player, story, rest } = section;
-    player.t = Math.min(rest, player.t + moved);
-    const step = stepAt(story, player.t);
-    showStep(section, step, false);
-    const k = kit(player);
-    const target = k.focusTarget(player.t);
-    if (player.t < rest) player.wide += ((k.focusName(player.t) === '*' ? 1 : 0) - player.wide) * (1 - Math.exp(-moved * 3));
-    else player.wide = Math.min(1, player.wide + moved / .8);
-    player.second = [...step.target, ...step.light.map(name => [name])].filter(([name]) => story.stations[name]).map(([name]) => k.pos(name));
-    const follow = 1 - Math.exp(-moved * 7);
-    player.spot = player.spot ? [lerp(player.spot[0], target[0], follow), lerp(player.spot[1], target[1], follow)] : target;
+    const time = preroll + clamp(progress / landing) * (rest - preroll);
+    const calm = clamp((progress - landing) / (1 - landing));
+    const fresh = !section.painted;
+    const moved = time - player.t;
+    if (fresh || moved < 0) {
+      discard(player.debris);
+      player.spot = null;
+    }
+    player.t = time;
+    const step = stepAt(story, time);
+    showStep(section, step, fresh);
+    const probe = kit(player);
+    const target = probe.focusTarget(time);
+    const wide = probe.focusName(time) === '*' ? 1 : 0;
+    const ahead = Math.max(0, moved);
+    player.wide = player.spot ? player.wide + (wide - player.wide) * (1 - Math.exp(-ahead * 3)) : wide;
+    player.spot = player.spot ? [lerp(player.spot[0], target[0], 1 - Math.exp(-ahead * 7)), lerp(player.spot[1], target[1], 1 - Math.exp(-ahead * 7))] : target;
+    player.second = [...step.target, ...step.light.map(name => [name])].filter(([name]) => story.stations[name]).map(([name]) => probe.pos(name));
+    const look = { ...player, wide: lerp(player.wide, 1, calm) };
+    const k = kit(look);
     const grow = ease(clamp((performance.now() - section.shownAt) / 600));
     mount(section);
     player.context.clearRect(0, 0, player.w, player.h);
-    drawScene(player, k);
+    drawScene(look, k);
     pointers(section, k, grow);
     section.painted = true;
-    section.done = player.t >= rest && player.wide >= 1 && grow >= 1;
+    section.growing = grow < 1;
+    section.progress = progress;
   };
-  let live = null;
+  const progressOf = section => reduce ? 1 : clamp((scrollY - section.start) / Math.max(1, section.span));
   let heroSpan = 0;
   let introClock = 0;
   let mobileKey = '';
   let afterTop = 0;
   let view = [0, 0];
   const cycle = bubbles.length * bubbleGap;
-  const seen = section => {
-    const top = scrollY + topHeight;
-    const bottom = scrollY + innerHeight;
-    return Math.max(0, Math.min(bottom, section.bottom) - Math.max(top, section.top)) / Math.max(1, Math.min(section.bottom - section.top, bottom - top));
-  };
-  const choose = () => {
-    if (reduce || (live && seen(live) >= .55)) return;
-    const next = sections.map(section => [section, seen(section)]).filter(([, share]) => share >= .55).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-    if (next === live) return;
-    if (live && !live.done) still(live);
-    live = next;
-    if (live && mode !== 'pause') start(live);
-  };
-  const prepare = () => {
-    const within = (section, above, below) => section.bottom > scrollY - innerHeight * above && section.top < scrollY + innerHeight * below;
-    sections.filter(section => section !== live && section.player.canvas.width && !within(section, .75, 1.75)).forEach(drop);
-    const next = sections.find(section => !section.painted && section !== live && within(section, .25, 1.25));
-    if (next) still(next);
-  };
   const restHero = state => {
     rested = state;
     resize();
@@ -4185,7 +4159,7 @@ a { color: inherit; text-underline-offset: 4px; }
   };
   const glance = delta => {
     view = [scrollY, innerHeight];
-    const moved = paused || held || reduce || mode === 'pause' ? 0 : delta * speed * rates[mode];
+    const moved = paused || reduce ? 0 : delta * speed;
     if (rested ? scrollY < heroSpan + innerHeight * .25 : scrollY > heroSpan + innerHeight * .5) restHero(!rested);
     if (scrollY < heroSpan) {
       introClock += moved;
@@ -4204,30 +4178,40 @@ a { color: inherit; text-underline-offset: 4px; }
       drawBubbles([-1, 0, 1].map(round => Math.floor(introClock / cycle) + round).filter(round => round >= 0).map(round => ({ t: introClock - round * cycle, old: false, depth: 1 })));
       [far, near].forEach(layer => { layer.canvas.style.visibility = layer.used ? 'visible' : 'hidden'; });
     }
-    choose();
-    if (live && !live.done) play(live, moved);
-    prepare();
+    sections.forEach(section => {
+      const within = (above, below) => section.bottom > scrollY - innerHeight * above && section.top < scrollY + innerHeight * below;
+      if (!within(.25, 1.25)) {
+        if (section.player.canvas.width && !within(.75, 1.75)) drop(section);
+        return;
+      }
+      const progress = progressOf(section);
+      if (!section.painted || section.growing || progress !== section.progress) scrubSection(section, progress);
+    });
   };
   const offsetOf = node => node.getBoundingClientRect().top + scrollY - parseFloat(getComputedStyle(node).scrollMarginTop || 0);
   const shape = () => {
     const width = sheet.clientWidth;
     const room = hero.clientHeight;
-    sections.forEach(section => shapeSection(section, width, room));
+    sections.forEach(section => shapeSection(section, width, room - section.pin.offsetHeight + section.stage.offsetHeight - 12));
     sections.forEach(section => {
-      section.top = section.stage.getBoundingClientRect().top + scrollY;
-      section.bottom = section.top + section.stage.offsetHeight;
+      section.span = reduce ? 0 : Math.round(reels[playlist.indexOf(section.name)] * pace * room);
+      section.run.style.height = `${section.span}px`;
     });
-    marks = playlist.map((name, index) => index ? Math.round(offsetOf(document.querySelector(`[data-chapter="${name}"]`))) : 0);
+    sections.forEach(section => {
+      const box = section.node.getBoundingClientRect();
+      section.start = Math.round(section.run.getBoundingClientRect().top + scrollY - section.pin.offsetHeight - topHeight);
+      section.top = box.top + scrollY;
+      section.bottom = box.bottom + scrollY;
+    });
+    marks = playlist.map((name, index) => index ? sections.find(section => section.name === name)?.start ?? Math.round(offsetOf(document.querySelector(`[data-chapter="${name}"]`))) : 0);
     heroSpan = hero.offsetHeight;
     afterTop = after.offsetTop;
     view = [scrollY, innerHeight];
-    if (live) live.done = false;
   };
   const release = () => {
-    live = null;
     sections.forEach(section => {
       drop(section);
-      section.done = true;
+      section.run.style.height = '';
     });
     menu.style.removeProperty('--kick');
   };
@@ -4358,7 +4342,7 @@ a { color: inherit; text-underline-offset: 4px; }
     badge.removeAttribute('data-on');
   };
   document.addEventListener('pointerdown', event => {
-    const place = event.isPrimary && event.button === 0 ? event.target.closest('.hero, .stage') : null;
+    const place = !mobile && event.isPrimary && event.button === 0 ? event.target.closest('.hero') : null;
     if (!place || event.target.closest('a, button')) return;
     letGo();
     press = { id: event.pointerId, x: event.clientX, y: event.clientY, timer: 0 };
@@ -4405,7 +4389,7 @@ a { color: inherit; text-underline-offset: 4px; }
     jump(index, time);
     follow(true);
   };
-  window.__state = () => ({ index: front.index, t: front.t, where: where(), steering, scroll: scrollY, unit, head: slots.a.textContent, mirror: front.mirror, concealed, mobile, live: live ? live.story.nav : '', liveT: live ? live.player.t : 0, held });
+  window.__state = () => ({ index: front.index, t: front.t, where: where(), steering, scroll: scrollY, unit, head: slots.a.textContent, mirror: front.mirror, concealed, mobile, sections: sections.map(section => ({ nav: section.story.nav, progress: section.progress, t: section.player.t, painted: section.painted, pixels: section.player.canvas.width * section.player.canvas.height })), held });
   window.__plan = () => playlist.map(name => {
     const { steps, end } = scenes[name];
     const times = steps.map(step => step.at + 2.1);
